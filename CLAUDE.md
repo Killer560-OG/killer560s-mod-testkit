@@ -87,7 +87,7 @@ the whole build (`versionsByMinecraft` in build.gradle supplies Fabric API `0.16
 API goes in `dev.testkit.compat` (client: `src/client/mc26_3/java` vs `mc26_2/java`) and `dev.testkit.server.compat.McServer`
 (companion mod: `src/testmod/mc26_3/java` vs `mc26_2/java`), identical public signatures. Nothing in `src/*/java` may use
 `mc.screen`, `mc.setScreen`, color-variant `Items.RED_...`, `EntityType.<CONSTANT>`, `BlockPos.getCenter()`, the use
-packets' getters, `ServerboundSwingPacket`, `org.lwjgl.glfw`, or a bare key-code number (use `InputConstants.KEY_*`: GLFW
+packets' getters, `ServerboundSwingPacket` or a `"swing"` trace id, `org.lwjgl.glfw`, a bare mouse-button number (`McKeys.mouse`), or a bare key-code number (use `InputConstants.KEY_*`: GLFW
 codes on 26.2, SDL scancodes on 26.3; GLFW numbers in mod settings, `McKeys.nat` for a press). Compile both versions before merging a branch. What 26.3 moved, what changed in
 GrimAC, and how to run a set on the old Grim: [docs/minecraft-263.md](docs/minecraft-263.md); the 26.2 notes:
 [docs/minecraft-262.md](docs/minecraft-262.md).
@@ -419,7 +419,9 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   (ESCAPE 41), so `pressKey(256)` silently presses something else. Mod settings keep GLFW numbers on both versions (the
   mod's own rule), so write GLFW numbers into settings and press with `McKeys.nat(glfw)`; a native `InputConstants.KEY_*`
   goes to a press as is, never through nat. Same for arm swings: 26.3 has no `ServerboundSwingPacket` (left click sends `ServerboundPunchPacket`),
-  so count swings with `McPackets.isSwing`. docs/minecraft-263.md has the full list.
+  so count swings with `McPackets.isSwing`, and by trace id with `McPackets.swingId()` ("punch" on 26.3), never `"swing"`.
+  Mouse buttons too: 26.3 left is 1 (SDL), so `MouseButtonInfo(0, ..)`/`pressMouse(0)` click nothing while a screen's
+  mouseClicked still returns true; build every button with `McKeys.mouse(glfw)` (ar263-1101). docs/minecraft-263.md has the full list.
 
 Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosecret wither doors, 62-argrim frames,
 143 camera, 141/142 autopilot, the mod's Auto Scale, terminal layouts, the logic world, 386's sweep):

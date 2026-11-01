@@ -64,6 +64,15 @@ To run a set on the OLD Grim for comparison (26.2 only; it refuses 26.3):
 - **`ServerboundSwingPacket` is gone.** A left click sends `ServerboundPunchPacket.INSTANCE` (a field-less record, no hand)
   after a local `swing(hand, item.getAttackAnimation(), false)`; the server answers it with its own swing
   (`ServerGamePacketListenerImpl.handlePunch`). `McPackets.isSwing(packet)` and `McCompat.swingArm(player)` cover both.
+  PacketTrace records it as `"punch"`, so a count by id uses `McPackets.swingId()` ("swing" / "punch"), never the literal
+  `"swing"`: 62-argrim/96-ar awaitskip, dbedit and 657 failed on 26.3 for that alone (ar263-1101; the vanilla control
+  click sent 4 punch + 2 player_action exactly where 26.2 sends 4 swing + 2 player_action).
+- **Mouse buttons are SDL's, 1-based**: `InputConstants.MOUSE_BUTTON_LEFT` 1, MIDDLE 2, RIGHT 3 (26.2: 0, 2, 1).
+  `AbstractWidget.isValidClickButton` is `button == 1`, Fabric's `pressMouse(n)` passes n through raw, and
+  `ContainerEventHandler.mouseClicked` returns true for any child under the cursor even when the child refused the click
+  (javap 26.3). So `new MouseButtonInfo(0, 0)` or `pressMouse(0)` clicks NOTHING on 26.3 and a "took" check still passes.
+  Every scenario builds buttons with `McKeys.mouse(glfwButton)` (identity on 26.2). This was 96-ar-path's missing "1",
+  96-ar-screen's await dropdown and 62-argrim-goto's Go To (ar263-1101).
 - The use packets are records: `ServerboundUseItemPacket.yRot()/xRot()/sequence()/hand()`,
   `ServerboundUseItemOnPacket.hitResult()/hand()/sequence()` (`McPackets.useItem*`).
 - `com.mojang.blaze3d.pipeline.RenderPipeline` -> `com.mojang.renderpearl.api.pipeline.RenderPipeline`: the bench mixins
