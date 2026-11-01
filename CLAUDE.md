@@ -65,27 +65,31 @@ killer560smod` rows (`harness/ModGate`), never failures. A class without the ann
 machine data (room captures, the mod checkout) calls `Scenario.skipped(name, why)` and returns: a SKIP row with the
 reason, not a RAN row whose reason is only in the log.
 
-Versions from `gradle.properties`: Minecraft 26.1.2, GrimAC pinned to `2.3.74-8eb5f28` downloaded from
-Modrinth once into the Gradle user home (`caches/testkit-grim/`, shared by every checkout and worktree),
-`cloud_version=2.0.0-beta.16` (beta.17 needs MC ≥ 26.2), sqlite-jdbc for Grim's violation store. Java 25.
+Versions from `gradle.properties`: Minecraft 26.3 (the main version since 2026-11-01; 26.2 the second, 26.1.2 dropped),
+GrimAC pinned to the `2.3.74` release (was the alpha `2.3.74-8eb5f28` until 2026-11-01, which stops at `<26.3`) downloaded
+from Modrinth once into the Gradle user home (`caches/testkit-grim/`, shared by every checkout and worktree),
+`cloud_version=2.0.0-beta.17`, sqlite-jdbc for Grim's violation store. Java 25.
 
 ## Sharding (run-sharded.ps1)
 
-`./run-sharded.ps1 -Scenario "smoke,-ui-,93-solve,96-ar" -Shards 3 [-Minecraft 26.1.2|26.2|both] [-Max 3] [-PlanOnly]`
+`./run-sharded.ps1 -Scenario "smoke,-ui-,93-solve,96-ar" -Shards 3 [-Minecraft 26.3|26.2|both] [-Max 3] [-PlanOnly]`
 splits ONE filter across N clients, each with its own dedicated server and Hx port in its own worktree
 (`<shardsDir>/<mc>-<k>`, ports `-BasePort` 25900 + 10g, Hx +5; keep clear of 25565-25599
 and 25700-25850), at most `-Max` (3) clients at once, clients stay muted. Units that share a world (a Session, the UI
 group, 96-ar) are never split unless `-SplitLarge`. Merged report in `build/sharded-<timestamp>/summary.md`. Measured
 2026-10-05 on `smoke,-ui-,93-solve,96-ar` (26.1.2): serial 538 s, `-Shards 3` 272 s end to end. Details: [docs/sharding.md](docs/sharding.md).
 
-## Minecraft 26.2
+## Minecraft 26.3 and 26.2
 
-`-Pminecraft_version=26.2` switches the whole build (`versionsByMinecraft` in build.gradle supplies Fabric API
-`0.160.0+26.2`, loader `0.19.5`, cloud-fabric `2.0.0-beta.17`); scripts take `-Minecraft 26.2` and pick the snapshot's
-`killer560smod-*-26.2-cheat.jar`. GrimAC is the same pin and detects on 26.2. Version-specific API goes in
-`dev.testkit.compat` (`src/client/mc26_1/java` vs `mc26_2/java`, identical public signatures); nothing in `src/*/java`
-may use `mc.screen`, `mc.setScreen`, color-variant `Items.RED_...`, `EntityType.<CONSTANT>` or `BlockPos.getCenter()`.
-Compile with `-Pminecraft_version=26.2` before merging a branch. Run status, what it took, and the full rules:
+26.3 is the default (killer560, 2026-11-01: 26.3 main, 26.2 second, 26.1.2 dropped). `-Pminecraft_version=26.2` switches
+the whole build (`versionsByMinecraft` in build.gradle supplies Fabric API `0.160.0+26.2`, loader `0.19.5`); scripts take
+`-Minecraft 26.2` and pick the snapshot's `killer560smod-*-26.2-cheat.jar`. GrimAC is the same pin on both. Version-specific
+API goes in `dev.testkit.compat` (client: `src/client/mc26_3/java` vs `mc26_2/java`) and `dev.testkit.server.compat.McServer`
+(companion mod: `src/testmod/mc26_3/java` vs `mc26_2/java`), identical public signatures. Nothing in `src/*/java` may use
+`mc.screen`, `mc.setScreen`, color-variant `Items.RED_...`, `EntityType.<CONSTANT>`, `BlockPos.getCenter()`, the use
+packets' getters, `ServerboundSwingPacket`, `org.lwjgl.glfw`, or a bare key-code number (use `InputConstants.KEY_*`: GLFW
+codes on 26.2, SDL scancodes on 26.3). Compile both versions before merging a branch. What 26.3 moved, what changed in
+GrimAC, and how to run a set on the old Grim: [docs/minecraft-263.md](docs/minecraft-263.md); the 26.2 notes:
 [docs/minecraft-262.md](docs/minecraft-262.md).
 
 ## FPS bench (95-fps-bench)
@@ -406,6 +410,15 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   mod feature on (1027-iw-craftctl, 3 of 3 on and off alike); the server's final state is the intended one.
 - A tp to where he already stands passes its own position wait before the teleport lands, and the landing then resets the
   look: 799 waits 20 ticks after it and only then looks away from the stand (the bot had clicked it the tick P3 began).
+
+- The testkit's own `fabric.mod.json` files (src/main, src/testmod) carry a minecraft range too: after the 26.3 build
+  compiled, the first 26.3 client died in Fabric Loader ("Mod 'Anticheat Test Kit' requires ... <26.3", 2026-11-01), and
+  that refused client's java.exe stayed alive (loader error window) until its PID was killed. Widen both ranges with a
+  version move (now `>=26.2 <26.4`).
+- On 26.3 a bare key number is a different key: input is SDL3 and `InputConstants.KEY_*` are SDL scancodes (ESCAPE 41),
+  so `pressKey(256)` or a mod key setting of 75 silently presses something else. Write `InputConstants.KEY_*` (the GLFW
+  number on 26.2). Same for arm swings: 26.3 has no `ServerboundSwingPacket` (left click sends `ServerboundPunchPacket`),
+  so count swings with `McPackets.isSwing`. docs/minecraft-263.md has the full list.
 
 Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosecret wither doors, 62-argrim frames,
 143 camera, 141/142 autopilot, the mod's Auto Scale, terminal layouts, the logic world, 386's sweep):

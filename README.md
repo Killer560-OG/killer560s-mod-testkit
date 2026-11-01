@@ -25,7 +25,7 @@ execution policy refuses it. No configuration file is needed for any of it.
 3. **Check the machine**: `.\doctor.ps1`. It prints every check and, for each `PROBLEM`, the exact fix (JDK, git,
    busy ports, the mod jar, monitors). Fix those and run it again; `WARNING` lines do not block a run.
 4. **Get a mod to test**. For killer560s-mod: `.\get-mod.ps1` - clones `github.com/Killer560-OG/killer560s-mod` into
-   `..\killer560s-mod` and builds its 26.1.2 cheat and legit jars into `..\<testkit folder>-jars\<branch>-<commit>\`
+   `..\killer560s-mod` and builds its 26.3 cheat and legit jars into `..\<testkit folder>-jars\<branch>-<commit>\`
    (a few minutes; `-Minecraft both` adds 26.2). The scripts then default to the newest jar there. For your own mod,
    skip this and pass `-ModUnderTest <your.jar>` (see [Testing your own mod](#testing-your-own-mod)); for no mod, `-NoMod`.
 5. **Warm the build once** (downloads Minecraft, Fabric and GrimAC, stages the server; several minutes the first
@@ -83,7 +83,7 @@ the environment variable. `.\doctor.ps1` prints every resolved value and where i
 | `modSource` | `TESTKIT_MOD_SOURCE` | `..\killer560s-mod` | get-mod.ps1's clone; the logic suite's source checks |
 | `modRepo` | `TESTKIT_MOD_REPO` | the GitHub repo | where get-mod.ps1 clones from |
 | `prismInstances` | `TESTKIT_PRISM_INSTANCES` | none | a PrismLauncher `instances` folder with killer560s-mod room captures (sim scenarios) |
-| `roomsInstance` / `simInstance` | `TESTKIT_ROOMS_INSTANCE` / `TESTKIT_SIM_INSTANCE` | `26.1.2 (Mod Only Test)` / `Map Logger` | which instance's captures |
+| `roomsInstance` / `simInstance` | `TESTKIT_ROOMS_INSTANCE` / `TESTKIT_SIM_INSTANCE` | `26.3 Mod Only Test` / `Map Logger` | which instance's captures |
 | `windowScreen` | `TESTKIT_WINDOW_SCREEN` | `auto` | `auto`, `off`, or `x,y,w,h` |
 | `windowSlotsDir` | `TESTKIT_WINDOW_SLOTS_DIR` | `<jarsDir>\.window-slots` | screen slots shared by concurrent runs |
 | `shardsDir` / `worktreesDir` | `TESTKIT_SHARDS_DIR` / `TESTKIT_WORKTREES_DIR` | `..\<checkout>-shards` / `-wt` | worktrees of run-sharded / parallel-suite |
@@ -102,7 +102,7 @@ The harness knows nothing about any particular mod. Point it at your jar:
 ```
 
 The jar is loaded through Fabric Loader's `fabric.addMods`, so what runs is your shipped artifact. The Minecraft
-version (26.1.2 or 26.2) is read from the jar's `fabric.mod.json` `depends.minecraft` unless you pass `-Minecraft`.
+version (26.3 or 26.2) is read from the jar's `fabric.mod.json` `depends.minecraft` unless you pass `-Minecraft`.
 Its other dependencies must be satisfiable: Fabric API and loader are present; anything else (a Kotlin adapter, a
 config library) goes in the same comma list, `-ModUnderTest a.jar,b.jar`. To make your jar the default, put it in
 `<jarsDir>\<any folder>\` and set `modJarPattern=yourmod-*.jar` in `testkit.local.properties`.
@@ -175,7 +175,7 @@ than use reflection, add it as a `gametestImplementation` dependency in `build.g
 - **Suites and worktrees**: `-Psuite=<name>` from `suites.properties`; `run-suite.ps1 -Suite <name> -Port <n>`;
   `parallel-suite.ps1 -Suites a,b -Max 2` runs each in a git worktree at
   `<worktreesDir>/<n>` on port 25700+10n.
-- **Sharding one run**: `run-sharded.ps1 -Scenario "smoke,-ui-,93-solve,96-ar" -Shards 3 [-Minecraft 26.1.2|26.2|both]`
+- **Sharding one run**: `run-sharded.ps1 -Scenario "smoke,-ui-,93-solve,96-ar" -Shards 3 [-Minecraft 26.3|26.2|both]`
   splits ONE filter across N clients, each with its own dedicated server and Hx port in its own worktree
   (`<shardsDir>/<mc>-<k>`, ports `-BasePort` 25900 + 10g, Hx +5). A list-mode client
   start (`-PlistScenarios=<file>`, no server) asks the harness which names the filter selects and which belong to one
@@ -228,12 +228,14 @@ the anticheat's verbose output, and **fails the build on any flag**.
 [11-example-bridge] anticheat clean — no verbose lines
 ```
 
-Built for Minecraft **26.1.2** / Fabric. Requires **Java 25** and a JDK on `JAVA_HOME`.
+Built for Minecraft **26.3** / Fabric (since 2026-11-01; 26.1.2 is no longer supported). Requires **Java 25** and a JDK
+on `JAVA_HOME`.
 
 **Minecraft 26.2** builds with `-Pminecraft_version=26.2` (Fabric API, loader and cloud-fabric follow from the
-table in `build.gradle`); the scripts take `-Minecraft 26.2`. The server, GrimAC (it detects) and the
-`smoke,proof,02-seed` and UI-group scenarios run and pass there; the rest are not yet run on 26.2. API that differs between the two versions lives in `dev.testkit.compat`
-(`src/client/mc26_1/java`, `src/client/mc26_2/java`, identical public signatures).
+table in `build.gradle`); the scripts take `-Minecraft 26.2`. API that differs between the two versions lives in
+`dev.testkit.compat` (`src/client/mc26_3/java`, `src/client/mc26_2/java`) and `dev.testkit.server.compat`
+(`src/testmod/mc26_3/java`, `src/testmod/mc26_2/java`), identical public signatures. What 26.3 moved:
+[docs/minecraft-263.md](docs/minecraft-263.md).
 
 ---
 
@@ -402,8 +404,8 @@ Pinned in [`gradle.properties`](gradle.properties) as `grim_version` / `grim_url
 does not bundle everything it needs, and the build supplies the rest:
 
 - **Cloud** (`org.incendo:cloud-fabric`) — its command framework. Version matters: `2.0.0-beta.17`
-  declares `minecraft >=26.2` and will not load on 26.1.x; **`beta.16`** declares `>=26.1` and does. A 26.2
-  build uses beta.17, and `prepareTestServer` removes the other version's cloud jars from the staged server.
+  declares `minecraft >=26.2` (and is the one GrimAC 2.3.74 nests); `2.1.0` declares `>=26.3`. Both 26.3 and 26.2
+  use beta.17, and `prepareTestServer` removes any other version's cloud jars from the staged server.
 - **SQLite** (`org.xerial:sqlite-jdbc`) — its violation store. Without it Grim refuses to start.
 
 After changing the version, run `./gradlew prepareTestServer` and then the smoke scenario. If the new

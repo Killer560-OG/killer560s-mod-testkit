@@ -1,5 +1,8 @@
 # Minecraft 26.2 (runs: smoke, proof, seed and the UI group pass)
 
+Since 2026-11-01 26.3 is the default and 26.1.2 is dropped: [minecraft-263.md](minecraft-263.md). This page is the 26.2
+port's history (written when 26.1.2 was the default); its API rules still hold.
+
 `-Pminecraft_version=26.2` switches the whole build, as in killer560s-mod. `versionsByMinecraft` in build.gradle
 then supplies Fabric API `0.160.0+26.2`, loader `0.19.5` (his "26.2 mod only" Prism instance) and cloud-fabric
 `2.0.0-beta.17`, unless those are passed with -P too; 26.1.2 with no flag is unchanged (dependency trees diffed
@@ -30,7 +33,7 @@ through a wall (388) and 8,616 stray crosshair pixels (389) on 2026-10-06 - the 
 are not hidden by F1 on either version; a screenshot diff calls `McCompat.clearChatAndToasts` first.
 
 Version-specific API goes in `dev.testkit.compat` (`McCompat.screen/setScreen`, `McItems`, `McEntities`) under
-`src/client/mc26_1/java` and `src/client/mc26_2/java`, one of which build.gradle puts on the client source path.
+`src/client/mc26_1/java` (now mc26_3) and `src/client/mc26_2/java`, one of which build.gradle puts on the client source path.
 Both copies keep identical public signatures. Nothing in `src/*/java` may use `mc.screen`, `mc.setScreen`, a
 color-variant `Items.RED_...` constant or `EntityType.<CONSTANT>`: those are gone on 26.2 (the screen moved to
 `Minecraft.gui`, colors to `ColorCollection.pick(DyeColor)`, entity constants to `EntityTypes`), and

@@ -2,7 +2,7 @@
 
 ```
 ./run-sharded.ps1 -Scenario "smoke,-ui-,93-solve,96-ar" -Shards 3 -ModUnderTest <jar>
-./run-sharded.ps1 -Suite hx,solve -Shards 3 -Minecraft both -Jar261 <jar> -Jar262 <jar> -Max 3
+./run-sharded.ps1 -Suite hx,solve -Shards 3 -Minecraft both -Jar263 <jar> -Jar262 <jar> -Max 3
 ./run-sharded.ps1 -Scenario "..." -Shards 3 -PlanOnly        # list mode + the split, runs nothing (~20 s per version)
 ```
 

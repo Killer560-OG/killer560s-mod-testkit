@@ -50,7 +50,7 @@ also needs that section broken, no sim landing while broken (4-tick grace), rege
 its entry tile, and the room solved. The forced step-back is judged with `SimIceFillPuzzle.onTeleport`: a plain
 server teleport is only seen by the once-a-tick judge, after the auto's next hop has already moved him on.
 
-Room captures are copied from the "26.1.2 (Mod Only Test)" instance unless `TESTKIT_SIM_INSTANCE` names another
+Room captures are copied from the "26.3 Mod Only Test" instance (roomsInstance; "26.1.2 (Mod Only Test)" before 2026-11-01) unless `TESTKIT_SIM_INSTANCE` names another
 (`$env:TESTKIT_SIM_INSTANCE = "Map Logger"` before the script). They are not the same captures: on 2026-10-04
 Boulder, Ice Fill, Ice Path, Quiz and Water Board differed, and Mod Only Test's Boulder does not arm as a puzzle
 at all ("best 1 of 7 expected blocks") while Map Logger's does. Say which instance a verdict was played on.
