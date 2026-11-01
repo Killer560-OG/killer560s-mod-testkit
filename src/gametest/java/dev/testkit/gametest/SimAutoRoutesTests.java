@@ -6690,7 +6690,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         }
 
         /** GLFW keypad 8: bound to Add Jump Node for 872 only (no character, nothing else uses it). */
-        private static final int JUMP_KEY = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD8;
+        private static final int JUMP_KEY = 328;
 
         private static net.minecraft.client.gui.components.EditBox chatInput(net.minecraft.client.gui.screens.ChatScreen cs) {
             try {
@@ -6725,7 +6725,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     new Class<?>[]{String.class, int.class}, new Object[]{"add_jump", JUMP_KEY}));
             try {
                 startSampling(ctx);
-                ctx.getInput().holdKeyFor(JUMP_KEY, 3);
+                ctx.getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(JUMP_KEY), 3);
                 boolean opened = waitFor(ctx, 20, () -> ctx.computeOnClient(mc ->
                         McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.ChatScreen));
                 check(opened, "the Add Jump Node key did not open chat (screen "
@@ -6747,7 +6747,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 // He types the number and presses Enter: now it goes.
                 ctx.getInput().typeChars("2");
                 ctx.waitTicks(2);
-                ctx.getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_RETURN); // GLFW_KEY_ENTER
+                ctx.getInput().pressKey(dev.testkit.compat.McKeys.nat(257)); // GLFW_KEY_ENTER
                 boolean added = waitFor(ctx, 40, () -> !fileNodes(ctx).isEmpty());
                 JsonArray nodes = fileNodes(ctx);
                 println("872 after '2' + Enter: nodes " + nodes);

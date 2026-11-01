@@ -88,7 +88,7 @@ API goes in `dev.testkit.compat` (client: `src/client/mc26_3/java` vs `mc26_2/ja
 (companion mod: `src/testmod/mc26_3/java` vs `mc26_2/java`), identical public signatures. Nothing in `src/*/java` may use
 `mc.screen`, `mc.setScreen`, color-variant `Items.RED_...`, `EntityType.<CONSTANT>`, `BlockPos.getCenter()`, the use
 packets' getters, `ServerboundSwingPacket`, `org.lwjgl.glfw`, or a bare key-code number (use `InputConstants.KEY_*`: GLFW
-codes on 26.2, SDL scancodes on 26.3). Compile both versions before merging a branch. What 26.3 moved, what changed in
+codes on 26.2, SDL scancodes on 26.3; GLFW numbers in mod settings, `McKeys.nat` for a press). Compile both versions before merging a branch. What 26.3 moved, what changed in
 GrimAC, and how to run a set on the old Grim: [docs/minecraft-263.md](docs/minecraft-263.md); the 26.2 notes:
 [docs/minecraft-262.md](docs/minecraft-262.md).
 
@@ -415,9 +415,10 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   compiled, the first 26.3 client died in Fabric Loader ("Mod 'Anticheat Test Kit' requires ... <26.3", 2026-11-01), and
   that refused client's java.exe stayed alive (loader error window) until its PID was killed. Widen both ranges with a
   version move (now `>=26.2 <26.4`).
-- On 26.3 a bare key number is a different key: input is SDL3 and `InputConstants.KEY_*` are SDL scancodes (ESCAPE 41),
-  so `pressKey(256)` or a mod key setting of 75 silently presses something else. Write `InputConstants.KEY_*` (the GLFW
-  number on 26.2). Same for arm swings: 26.3 has no `ServerboundSwingPacket` (left click sends `ServerboundPunchPacket`),
+- On 26.3 a bare key number pressed is a different key: input is SDL3 and `InputConstants.KEY_*` are SDL scancodes
+  (ESCAPE 41), so `pressKey(256)` silently presses something else. Mod settings keep GLFW numbers on both versions (the
+  mod's own rule), so write GLFW numbers into settings and press with `McKeys.nat(glfw)`; a native `InputConstants.KEY_*`
+  goes to a press as is, never through nat. Same for arm swings: 26.3 has no `ServerboundSwingPacket` (left click sends `ServerboundPunchPacket`),
   so count swings with `McPackets.isSwing`. docs/minecraft-263.md has the full list.
 
 Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosecret wither doors, 62-argrim frames,

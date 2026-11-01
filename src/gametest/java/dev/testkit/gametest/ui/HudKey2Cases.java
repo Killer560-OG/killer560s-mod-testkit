@@ -63,7 +63,7 @@ final class HudKey2Cases {
 
     private static final String HUD = "hud.HudConfig";
     private static final String EDITOR = "hud.HudEditorScreen";
-    private static final int KEY = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD6; // GLFW_KEY_KP_6
+    private static final int KEY = 326; // GLFW_KEY_KP_6
     private static final String PANEL = "croesus_profit_panel";
     private static final String INFO = "chocolate_info_line";
 
@@ -179,7 +179,7 @@ final class HudKey2Cases {
                 close(c);
             }
         } finally {
-            c.ctx().getInput().releaseKey(KEY);
+            c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(KEY));
             c.onClient(mc -> {
                 Mod.staticCall("inventorysearch.InventorySearchFeature", "setListening", false);
                 setHomeListening(false);
@@ -317,7 +317,7 @@ final class HudKey2Cases {
             c.note("Esc from the editor returned to the chest: " + back);
             c.check(back, "closing the editor did not return to the chest");
         } finally {
-            c.ctx().getInput().releaseKey(KEY);
+            c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(KEY));
             c.onClient(mc -> {
                 removePosition(PANEL);
                 Mod.call(hud, "setEditKeyCode", oldKey);
@@ -610,7 +610,7 @@ final class HudKey2Cases {
                 c.check(over.contains(id), id + " is not listed over its own menu");
             }
         } finally {
-            c.ctx().getInput().releaseKey(KEY);
+            c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(KEY));
             c.onClient(mc -> {
                 Mod.call(hud, "setEditorShowAll", oldShowAll);
                 Mod.call(hud, "setEditKeyCode", oldKey);
@@ -808,9 +808,9 @@ final class HudKey2Cases {
     }
 
     private static String press(UiCase c) {
-        c.ctx().getInput().holdKey(KEY);
+        c.ctx().getInput().holdKey(dev.testkit.compat.McKeys.nat(KEY));
         c.ticks(4);
-        c.ctx().getInput().releaseKey(KEY);
+        c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(KEY));
         c.ticks(3);
         return c.onClient(mc -> {
             Screen s = McCompat.screen(mc);

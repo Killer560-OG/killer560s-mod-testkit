@@ -103,9 +103,9 @@ final class ClickGuardCases {
 
     static void sneak(Session c, boolean down) {
         if (down) {
-            c.ctx().getInput().holdKey(com.mojang.blaze3d.platform.InputConstants.KEY_LSHIFT);
+            c.ctx().getInput().holdKey(dev.testkit.compat.McKeys.nat(340));
         } else {
-            c.ctx().getInput().releaseKey(com.mojang.blaze3d.platform.InputConstants.KEY_LSHIFT);
+            c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(340));
         }
         c.waitUntil("sneaking " + down, mc -> mc.player.isShiftKeyDown() == down, 40);
     }

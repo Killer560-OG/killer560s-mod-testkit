@@ -276,8 +276,8 @@ public class BlinkTests implements FabricClientGameTest {
                 Mod.set(CFG, "setEnabled", true);
                 Mod.set(CFG, "setChargeMode", Mod.enumValue(MODE, "HOLD"));
                 Mod.set(CFG, "setChargeTicks", 33);
-                Mod.set(CFG, "setChargeKeyCode", com.mojang.blaze3d.platform.InputConstants.KEY_B);
-                Mod.set(CFG, "setHoldKeyCode", com.mojang.blaze3d.platform.InputConstants.KEY_C);
+                Mod.set(CFG, "setChargeKeyCode", 66);
+                Mod.set(CFG, "setHoldKeyCode", 67);
                 Mod.set(CFG, "setHoldTicks", 0);
                 Mod.set(CFG, "setShowHud", false);
                 Mod.set(CFG, "setShowServerBox", false);

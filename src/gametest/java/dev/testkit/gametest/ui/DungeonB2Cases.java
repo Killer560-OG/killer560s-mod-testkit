@@ -692,7 +692,7 @@ final class DungeonB2Cases {
             double[] open = button(c, s, "Open Key:");
             realClick(c, s, open[0] + open[2] / 2, open[1] + open[3] / 2, 0);
             String listening = labelOf(c, s, "Open Key:");
-            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_K);
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(75));
             c.ticks(3);
             int openCode = c.onClient(mc -> (Integer) Mod.call(cfg, "getOpenKeyCode"));
             String openLabel = labelOf(c, s, "Open Key:");

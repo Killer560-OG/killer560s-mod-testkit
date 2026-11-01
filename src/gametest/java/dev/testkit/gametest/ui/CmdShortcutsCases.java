@@ -202,7 +202,7 @@ final class CmdShortcutsCases {
                     Mod.call(cfg, "setCustomName", row, "k5warp");
                     Mod.call(cfg, "setCustomCommand", row, "/warp dh");
                     if (hasMerge()) {
-                        Mod.call(cfg, "setCustomKey", row, com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD7);
+                        Mod.call(cfg, "setCustomKey", row, 327);
                         Object kb = Mod.cfg(KB);
                         Mod.call(kb, "addBind");
                         @SuppressWarnings("unchecked")

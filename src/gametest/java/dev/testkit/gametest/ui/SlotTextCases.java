@@ -463,7 +463,7 @@ final class SlotTextCases {
             c.onClient(mc -> {
                 Object cfg = Mod.cfg(STC);
                 Mod.call(cfg, "setMode", Mod.enumValue(STC + "$Mode", "HOLD_TO_HIDE"));
-                Mod.call(cfg, "setKeyCode", com.mojang.blaze3d.platform.InputConstants.KEY_F);
+                Mod.call(cfg, "setKeyCode", 70);
                 Mod.call(cfg, "setSkyblockOnly", false);
                 Mod.call(cfg, "setTypeEnabled", Mod.enumValue(STT, "ENCHANT_ABBREVIATION"), true);
                 Mod.call(cfg, "setTypeEnabled", Mod.enumValue(STT, "MINION_TIER"), false);
@@ -683,7 +683,7 @@ final class SlotTextCases {
                 Object cfg = Mod.cfg(CPC);
                 Mod.call(cfg, "setEnabled", true);
                 Mod.call(cfg, "setMode", Mod.enumValue(CPC + "$Mode", "WHILE_HOLDING_KEY"));
-                Mod.call(cfg, "setKeyCode", com.mojang.blaze3d.platform.InputConstants.KEY_F);
+                Mod.call(cfg, "setKeyCode", 70);
                 Mod.call(cfg, "setSkyblockOnly", false);
                 Mod.call(cfg, "save");
                 Mod.staticCall(CPC, "load");

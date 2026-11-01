@@ -48,7 +48,7 @@ final class LockStarHeadCases {
     private static final String PDC = "packdisabler.PackDisablerConfig";
     private static final String PACK_MODEL = "hypixel_skyblock:item/fishing/misc/blue_ring";
     private static final int MAGENTA = 0xFF00FF;
-    private static final int KEY_K = com.mojang.blaze3d.platform.InputConstants.KEY_K; // GLFW_KEY_K
+    private static final int KEY_K = 75; // GLFW_KEY_K
     /** A real Skyblock head texture (Blue Ring's, from the mod's item_looks.json), in Hypixel's own encoding:
      *  base64 of {"textures":{"SKIN":{"url":".../texture/<hash>"}}}. */
     private static final String SKIN_URL =
@@ -216,7 +216,7 @@ final class LockStarHeadCases {
             for (int i = 0; i < n; i++) {
                 if (lock[i]) {
                     hover(c, pos[i]);
-                    c.ctx().getInput().pressKey(KEY_K);
+                    c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(KEY_K));
                     c.ticks(8); // 400 ms: past the feature's 250 ms key-repeat guard for the same key
                 }
             }

@@ -93,9 +93,9 @@ final class OpenMenuKeyCases {
             boolean listening = c.onClient(mc -> (Boolean) Mod.call(McCompat.screen(mc), "isCapturingKey"));
             c.note("after clicking the row the menu waits for a key: " + listening);
             c.check(listening, "clicking the Open Menu Key row did not start a key capture");
-            c.ctx().getInput().holdKey(KP_7);
+            c.ctx().getInput().holdKey(dev.testkit.compat.McKeys.nat(KP_7));
             c.ticks(3);
-            c.ctx().getInput().releaseKey(KP_7);
+            c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(KP_7));
             c.ticks(2);
             int bound = c.onClient(mc -> (Integer) Mod.call(hud, "getOpenMenuKeyCode"));
             String newLabel = c.onClient(mc -> {
@@ -122,8 +122,8 @@ final class OpenMenuKeyCases {
             c.note("rebound: keypad 7 -> " + fresh);
             c.check(fresh.equals("ModScreen"), "the rebound key opened " + fresh + ", not the mod menu");
         } finally {
-            c.ctx().getInput().releaseKey(BACKSLASH);
-            c.ctx().getInput().releaseKey(KP_7);
+            c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(BACKSLASH));
+            c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(KP_7));
             c.onClient(mc -> {
                 Mod.call(hud, "setOpenMenuKeyCode", oldKey);
                 McCompat.setScreen(mc, null);
@@ -146,9 +146,9 @@ final class OpenMenuKeyCases {
     }
 
     private static String press(UiCase c, int key) {
-        c.ctx().getInput().holdKey(key);
+        c.ctx().getInput().holdKey(dev.testkit.compat.McKeys.nat(key));
         c.ticks(4);
-        c.ctx().getInput().releaseKey(key);
+        c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(key));
         c.ticks(3);
         return c.onClient(mc -> {
             Screen s = McCompat.screen(mc);

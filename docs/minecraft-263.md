@@ -47,12 +47,13 @@ To run a set on the OLD Grim for comparison (26.2 only; it refuses 26.3):
 ## What 26.3 moved (javap of the 26.3 merged jar; all behind compat now)
 
 - **GLFW is gone; input is SDL3** (`lwjgl-sdl`). `InputConstants.KEY_*` are SDL scancodes on 26.3 (ESCAPE 41, KEY_1 30,
-  RIGHT 79, LSHIFT 225) where 26.2 has GLFW codes (256, 49, 262, 340). A raw number such as `pressKey(256)` or a mod key
-  setting of `75` means a different key on 26.3, silently. Every key literal in a key context in `src/gametest` is now an
-  `InputConstants.KEY_*` name (same number on 26.2). Write new ones that way; never a bare number. `KEY_F25`, `KEY_LSUPER`
-  and `KEY_RSUPER` exist only on 26.2 (26.3 has `KEY_LGUI`/`KEY_RGUI`); keypad divide has a name on neither.
-  Key codes the scenarios write into mod config files as JSON text (BlinkTests' `"keyCode":70`) are still GLFW numbers:
-  what they mean on 26.3 depends on how the mod's 26.3 port stores keys.
+  RIGHT 79, LSHIFT 225) where 26.2 has GLFW codes (256, 49, 262, 340). The mod's 26.3 port keeps every STORED key code in
+  GLFW numbering on both versions (its `util/Keys`, translated at the boundary by `compat/McInput`), so the testkit does
+  the same: a key code written into a mod setting (`setHoldKeyCode`, `setKeyCode`, config JSON) stays a GLFW number, and
+  only a press through the input API (`pressKey`/`holdKey`/`releaseKey`/`holdKeyFor`) or a `new KeyEvent(...)` takes the
+  NATIVE code, `McKeys.nat(glfw)` (identity on 26.2, a GLFW->SDL table on 26.3 that throws for a key it cannot map, e.g.
+  keypad divide 331). Code that already passes `InputConstants.KEY_*` to a press (MenuACases.key, MenuOpenSuite) is native
+  and must NOT go through nat. `KEY_F25`, `KEY_LSUPER` and `KEY_RSUPER` exist only on 26.2.
 - **`ServerboundSwingPacket` is gone.** A left click sends `ServerboundPunchPacket.INSTANCE` (a field-less record, no hand)
   after a local `swing(hand, item.getAttackAnimation(), false)`; the server answers it with its own swing
   (`ServerGamePacketListenerImpl.handlePunch`). `McPackets.isSwing(packet)` and `McCompat.swingArm(player)` cover both.

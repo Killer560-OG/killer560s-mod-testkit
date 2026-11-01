@@ -28,13 +28,13 @@ final class HxChatKeybindsCases {
     private static final String KB = "commandkeybinds.CommandKeybindsConfig";
     private static final String CFG = "commandshortcuts.CommandShortcutsConfig";
     private static final String FEAT = "commandshortcuts.CommandShortcutsFeature";
-    /** Keypad 7, 8, 9, decimal, +, multiply (InputConstants names; SDL scancodes on 26.3): bound to nothing in vanilla or the mod's defaults. */
-    private static final int K1 = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD7;
-    private static final int K2 = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD8;
-    private static final int K3 = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD9;
-    private static final int K4 = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPADCOMMA;
-    private static final int K5 = com.mojang.blaze3d.platform.InputConstants.KEY_ADD; // keypad + (keypad divide has no InputConstants name)
-    private static final int K6 = com.mojang.blaze3d.platform.InputConstants.KEY_MULTIPLY;
+    /** GLFW keypad 7, 8, 9, decimal, +, multiply (pressed through McKeys.nat): bound to nothing in vanilla or the mod's defaults. */
+    private static final int K1 = 327;
+    private static final int K2 = 328;
+    private static final int K3 = 329;
+    private static final int K4 = 330;
+    private static final int K5 = 334; // GLFW keypad + (keypad divide, 331, has no InputConstants name to map to 26.3)
+    private static final int K6 = 332;
 
     private HxChatKeybindsCases() {
     }
@@ -74,20 +74,20 @@ final class HxChatKeybindsCases {
                 McCompat.setScreen(net.minecraft.client.Minecraft.getInstance(), null);
             });
             c.ctx().waitTicks(3);
-            c.ctx().getInput().holdKeyFor(K1, 3);
+            c.ctx().getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(K1), 3);
             String warp = awaitCommand(c, "warp", 40);
             c.check(warp.equals("warp dh"), "the /warp bind sent /" + warp);
-            c.ctx().getInput().holdKeyFor(K2, 3);
+            c.ctx().getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(K2), 3);
             c.waitUntil("a player chat event 'k5 bind chat'", mc -> c.events("chat").stream()
                     .anyMatch(e -> e.get("text").getAsString().equals("k5 bind chat")), 40);
-            c.ctx().getInput().holdKeyFor(K3, 3);
+            c.ctx().getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(K3), 3);
             assertNoCommand(c, 20, "is ");
             c.check(commandsStarting(c, "warp").size() == 1, "one 3-tick press should send once: " + c.commands());
             long chats = c.events("chat").stream().filter(e -> e.get("text").getAsString().equals("k5 bind chat")).count();
             c.check(chats == 1, "chat bind sent " + chats + " times");
 
             run(c, () -> Mod.call(Mod.cfg(KB), "setEnabled", false));
-            c.ctx().getInput().holdKeyFor(K1, 3);
+            c.ctx().getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(K1), 3);
             c.ctx().waitTicks(20);
             c.check(commandsStarting(c, "warp").size() == 1, "a bind sent with the switch off: " + c.commands());
             c.note("key bind ' /warp dh ' -> /" + warp + " once; 'k5 bind chat' -> chat once; row OFF -> nothing; "
@@ -185,12 +185,12 @@ final class HxChatKeybindsCases {
                 Mod.call(cfg, "setCustomEnabled", off, false);
                 Mod.call(cfg, "save");
             });
-            c.ctx().getInput().holdKeyFor(K4, 3);
+            c.ctx().getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(K4), 3);
             c.waitUntil("a second /warp hub from the key", mc -> commandsStarting(c, "warp hub").size() == 2, 40);
-            c.ctx().getInput().holdKeyFor(K5, 3);
+            c.ctx().getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(K5), 3);
             String is = awaitCommand(c, "is ", 40);
             c.check(is.equals("is hub"), "the nameless row's key sent /" + is);
-            c.ctx().getInput().holdKeyFor(K6, 3);
+            c.ctx().getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(K6), 3);
             assertNoCommand(c, 20, "warp dh");
             c.check(commandsStarting(c, "warp hub").size() == 2 && commandsStarting(c, "is ").size() == 1,
                     "each send once: " + c.commands());

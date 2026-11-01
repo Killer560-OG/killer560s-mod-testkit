@@ -680,7 +680,7 @@ final class PartyFinder1018Cases {
             // Escape closes the list, not the menu.
             InvBatchCases.clickWidget(c, s, meets);
             boolean third = isOpen(c, meets);
-            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE);
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(256));
             c.ticks(2);
             Object[] esc = c.onClient(mc -> new Object[]{Mod.call(Mod.cfg(CFG), "isMeetsOnly"), Mod.call(meets, "isOpen"),
                     McCompat.screen(mc) == s});
@@ -698,7 +698,7 @@ final class PartyFinder1018Cases {
                     c.ticks(2);
                     Path shot = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(c.name() + "-" + which.substring(0, 4).toLowerCase(Locale.ROOT)));
                     c.note("'" + which + "' open, list " + java.util.Arrays.toString(lb) + ", screenshot " + shot);
-                    c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE);
+                    c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(256));
                     c.ticks(2);
                     c.check(!isOpen(c, dw.get(0)), "Escape left '" + which + "' open");
                 }

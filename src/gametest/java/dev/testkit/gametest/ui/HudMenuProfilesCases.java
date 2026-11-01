@@ -70,7 +70,7 @@ final class HudMenuProfilesCases {
     private static final String PS = "playerstats.PlayerStatsConfig";
     private static final String EDITOR = "hud.HudEditorScreen";
     /** GLFW_KEY_KP_6: bound to nothing in vanilla, so a held key only reaches the Edit HUD poll. */
-    private static final int KEY = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD6;
+    private static final int KEY = 326;
     private static final String PROBE_ID = "testkit_hmp_probe";
     private static final int PROBE_W = 60;
     private static final int PROBE_H = 16;
@@ -154,7 +154,7 @@ final class HudMenuProfilesCases {
             c.note("no screen open again: the key opened " + last);
             c.check(last.startsWith(EDITOR + " (Edit HUD)"), "the closing control: with no screen the key opened " + last);
         } finally {
-            c.ctx().getInput().releaseKey(KEY);
+            c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(KEY));
             c.onClient(mc -> {
                 Mod.call(hud, "setEditKeyCode", oldKey);
                 McCompat.setScreen(mc, null);
@@ -166,9 +166,9 @@ final class HudMenuProfilesCases {
     /** Holds the bound key for a few ticks (the poll is a raw key read at the end of each tick), releases it, and says
      *  what screen is up. */
     private static String pressKeyAndSee(UiCase c) {
-        c.ctx().getInput().holdKey(KEY);
+        c.ctx().getInput().holdKey(dev.testkit.compat.McKeys.nat(KEY));
         c.ticks(4);
-        c.ctx().getInput().releaseKey(KEY);
+        c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(KEY));
         c.ticks(3);
         return c.onClient(mc -> describe(McCompat.screen(mc)));
     }

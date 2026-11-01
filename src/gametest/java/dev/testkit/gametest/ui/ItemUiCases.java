@@ -385,7 +385,7 @@ final class ItemUiCases {
         try {
             InvBatchCases.survival(c);
             InvBatchCases.inventory(c, Map.of());
-            int keyB = com.mojang.blaze3d.platform.InputConstants.KEY_B;
+            int keyB = 66;
             c.onClient(mc -> {
                 Object cfg = Mod.cfg(SBC);
                 Mod.call(cfg, "setEnabled", true);
@@ -400,10 +400,10 @@ final class ItemUiCases {
             int[] s9 = invSlotPos(c, 9);
             int[] h0 = invSlotPos(c, 0);
             hoverGui(c, s9[0] + 8, s9[1] + 8);
-            c.ctx().getInput().pressKey(keyB);
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(keyB));
             c.ticks(2);
             hoverGui(c, h0[0] + 8, h0[1] + 8);
-            c.ctx().getInput().pressKey(keyB);
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(keyB));
             c.ticks(2);
             Map<?, ?> after1 = c.onClient(mc -> new LinkedHashMap<>((Map<?, ?>) Mod.call(Mod.cfg(SBC), "getBinds")));
             // 2: key on slot 10, LEFT CLICK on slot 11 (must not bind), then key on hotbar 1.
@@ -411,24 +411,24 @@ final class ItemUiCases {
             int[] s11 = invSlotPos(c, 11);
             int[] h1 = invSlotPos(c, 1);
             hoverGui(c, s10[0] + 8, s10[1] + 8);
-            c.ctx().getInput().pressKey(keyB);
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(keyB));
             c.ticks(2);
             hoverGui(c, s11[0] + 8, s11[1] + 8);
             c.ctx().getInput().pressMouse(0);
             c.ticks(2);
             Map<?, ?> afterClick = c.onClient(mc -> new LinkedHashMap<>((Map<?, ?>) Mod.call(Mod.cfg(SBC), "getBinds")));
             hoverGui(c, h1[0] + 8, h1[1] + 8);
-            c.ctx().getInput().pressKey(keyB);
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(keyB));
             c.ticks(2);
             Map<?, ?> after2 = c.onClient(mc -> new LinkedHashMap<>((Map<?, ?>) Mod.call(Mod.cfg(SBC), "getBinds")));
             // 3: two non-hotbar slots: no bind.
             int[] s12 = invSlotPos(c, 12);
             int[] s13 = invSlotPos(c, 13);
             hoverGui(c, s12[0] + 8, s12[1] + 8);
-            c.ctx().getInput().pressKey(keyB);
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(keyB));
             c.ticks(2);
             hoverGui(c, s13[0] + 8, s13[1] + 8);
-            c.ctx().getInput().pressKey(keyB);
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(keyB));
             c.ticks(2);
             Map<?, ?> after3 = c.onClient(mc -> new LinkedHashMap<>((Map<?, ?>) Mod.call(Mod.cfg(SBC), "getBinds")));
             c.note("binds after key/key 9->hotbar0: " + after1 + "; after key on 10 + click on 11: " + afterClick

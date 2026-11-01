@@ -224,7 +224,7 @@ final class LeapBatchMenuCases {
 
     static int pressKeyAndAwait(Session c, int spot) {
         int before = c.events("menu.action").size();
-        c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_1 + spot);
+        c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(49 + spot));
         c.waitUntil("a menu.action for key " + (spot + 1), mc -> c.events("menu.action").size() > before, 60);
         List<JsonObject> e = c.events("menu.action");
         return e.get(e.size() - 1).get("slot").getAsInt();
@@ -447,7 +447,7 @@ final class LeapBatchMenuCases {
                 int sentBefore = clicksSent.get();
                 int presses = 0;
                 while (clicksSent.get() == sentBefore && presses < 40) {
-                    c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_1);
+                    c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(49));
                     presses++;
                 }
                 c.waitUntil("a leap", mc -> c.events("menu.action").size() > before, 40);

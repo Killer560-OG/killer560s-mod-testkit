@@ -117,7 +117,7 @@ final class BazaarV3Cases {
             MenuKit.reset(c);
             cfg = new MenuKit.Cfg(c);
             cfg.set("auction.AuctionConfig", "BazaarEnabled", true);
-            cfg.set("auction.AuctionConfig", "BazaarVanillaKeyCode", com.mojang.blaze3d.platform.InputConstants.KEY_LALT);
+            cfg.set("auction.AuctionConfig", "BazaarVanillaKeyCode", 342);
             cfg.set("bazaar.BazaarConfig", "FollowUpClick", true);
             cfg.set("bazaar.BazaarConfig", "HideHuds", true);
             cfg.set("hud.HudConfig", "AutoScale", false);
@@ -622,7 +622,7 @@ final class BazaarV3Cases {
                 cats.add(categoryOf(c, id));
             }
             c.note("typed 'enchanted dia': " + hits.size() + " results from " + cats);
-            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_BACKSPACE); // Backspace
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(259)); // Backspace
             c.ctx().waitTicks(3);
             c.check(mode(c).contains("|enchanted di|"), "Backspace: " + mode(c));
             // A key that would close the menu types into the focused box instead.

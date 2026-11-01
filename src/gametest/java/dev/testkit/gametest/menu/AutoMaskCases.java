@@ -56,7 +56,7 @@ final class AutoMaskCases {
     private static final String SW = "maskinvincibility.MaskSwapper";
     private static final String AM = "maskinvincibility.AutoMask";
     /** GLFW_KEY_KP_8: bound to nothing in vanilla or the mod's defaults. */
-    private static final int KEY = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD8;
+    private static final int KEY = 328;
 
     private static final String SPIRIT = "minecraft:player_head[custom_data={id:\"SPIRIT_MASK\"},"
             + "custom_name={text:\"Spirit Mask\",color:\"blue\",italic:false}]";
@@ -135,7 +135,7 @@ final class AutoMaskCases {
             resetState(c, false);
             body.run(c);
         } finally {
-            c.ctx().getInput().releaseKey(KEY);
+            c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(KEY));
             c.ctx().runOnClient(mc -> {
                 if (McCompat.screen(mc) instanceof ChatScreen) {
                     McCompat.setScreen(mc, null);
@@ -191,7 +191,7 @@ final class AutoMaskCases {
     }
 
     private static void press(Session c) {
-        c.ctx().getInput().holdKeyFor(KEY, 3);
+        c.ctx().getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(KEY), 3);
     }
 
     private static void proc(Session c, String line) {

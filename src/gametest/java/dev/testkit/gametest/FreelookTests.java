@@ -62,7 +62,7 @@ public class FreelookTests implements FabricClientGameTest {
                 boolean defaultOn = (Boolean) Mod.call(fresh, "isEnabled");
                 Mod.set(CFG, "setEnabled", true);
                 Mod.set(CFG, "setMode", Mod.enumValue(MODE, "HOLD"));
-                Mod.set(CFG, "setPanKeyCode", com.mojang.blaze3d.platform.InputConstants.KEY_LALT); // Left Alt
+                Mod.set(CFG, "setPanKeyCode", 342); // Left Alt
                 Mod.call(Mod.cfg(CFG), "save");
                 // Change the live object, then load from disk as a restart would.
                 Mod.set(CFG, "setEnabled", false);
@@ -80,7 +80,7 @@ public class FreelookTests implements FabricClientGameTest {
                 return new String[]{String.valueOf(defaultOn), r};
             });
             // OFF: F5 is vanilla's cycle (first -> back).
-            ctx.getInput().pressKey(F5);
+            ctx.getInput().pressKey(dev.testkit.compat.McKeys.nat(F5));
             ctx.waitTicks(3);
             CameraType offView = ctx.computeOnClient(mc -> mc.options.getCameraType());
             ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.FIRST_PERSON));
@@ -191,7 +191,7 @@ public class FreelookTests implements FabricClientGameTest {
                 float[] after = rotations(ctx);
 
                 // In the backwards view: pan, then release, and the camera faces back at him again.
-                ctx.getInput().pressKey(F5);
+                ctx.getInput().pressKey(dev.testkit.compat.McKeys.nat(F5));
                 ctx.waitTicks(3);
                 ctx.runOnClient(mc -> Mod.setField(FEATURE, "panHeldForTest", Boolean.TRUE));
                 ctx.waitTicks(3);

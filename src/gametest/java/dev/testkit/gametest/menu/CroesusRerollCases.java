@@ -108,13 +108,13 @@ final class CroesusRerollCases {
             c.check(lines == 1, lines + " chat lines for two blocked presses, want 1");
 
             // Ctrl held: through.
-            c.ctx().getInput().holdKey(com.mojang.blaze3d.platform.InputConstants.KEY_LCONTROL);
+            c.ctx().getInput().holdKey(dev.testkit.compat.McKeys.nat(341));
             c.ctx().waitTicks(2);
             int ctrl;
             try {
                 ctrl = press(c);
             } finally {
-                c.ctx().getInput().releaseKey(com.mojang.blaze3d.platform.InputConstants.KEY_LCONTROL);
+                c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(341));
             }
             c.note("with Ctrl held: " + ctrl + " click(s) reached the server");
             c.check(ctrl == 1, "Ctrl did not let the reroll through (" + ctrl + " clicks)");

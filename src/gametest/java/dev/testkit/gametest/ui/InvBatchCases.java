@@ -657,7 +657,7 @@ final class InvBatchCases {
 
             // Bind a key: press the Key button, then K.
             clickWidget(c, s, widget(c, s, "Key"));
-            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_K);
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(75));
             c.ticks(2);
             int bound = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(ISC), "getLayoutKey", "ib584 Renamed"));
             c.check(bound == 75, "Key button bound " + bound + ", want 75 (K)");

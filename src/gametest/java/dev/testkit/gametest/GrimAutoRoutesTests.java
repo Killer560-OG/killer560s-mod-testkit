@@ -3277,8 +3277,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     }
 
     /** GLFW_KEY_KP_3 / GLFW_KEY_KP_6: bound to nothing in vanilla or the mod's defaults. */
-    private static final int AS_KEY = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD3;
-    private static final int PILOT_KEY = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD6;
+    private static final int AS_KEY = 323;
+    private static final int PILOT_KEY = 326;
 
     /**
      * {@code byKey} (grim-post-autopilot-1016): started the way he starts it - his toggle key, read by Auto Secret's
@@ -3333,7 +3333,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             startSampling(ctx);
             Boolean started;
             if (byKey) {
-                ctx.getInput().holdKeyFor(pilot ? PILOT_KEY : AS_KEY, 3);
+                ctx.getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(pilot ? PILOT_KEY : AS_KEY), 3);
                 started = waitFor(ctx, 20, () -> ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as,
                         "isRunning")));
             } else {

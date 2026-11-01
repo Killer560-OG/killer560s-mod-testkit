@@ -37,7 +37,7 @@ final class PetWheelInstantCases {
 
     private static final String CFG = "petwheel.PetWheelConfig";
     /** GLFW_KEY_KP_5: bound to nothing in vanilla or the mod's defaults. */
-    private static final int KEY = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD5;
+    private static final int KEY = 325;
     private static final String PET2 = "minecraft:player_head[custom_data={id:\"PET\",uuid:\"hx-pet-2\",petInfo:'{\"type\":\"ENDER_DRAGON\",\"tier\":\"EPIC\"}'},"
             + "custom_name=[{text:\"[Lvl 87] \",color:\"gray\",italic:false},{text:\"Ender Dragon\",color:\"dark_purple\",italic:false}]]";
 
@@ -118,7 +118,7 @@ final class PetWheelInstantCases {
                     } catch (AssertionError e) {
                         lines.add(label + ": ERROR " + e.getMessage());
                         failures.add(label + " " + e.getMessage());
-                        c.ctx().getInput().releaseKey(KEY);
+                        c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(KEY));
                         c.ctx().waitTicks(2);
                         c.ctx().runOnClient(mc -> {
                             if (wheelOpen(mc)) {
@@ -133,7 +133,7 @@ final class PetWheelInstantCases {
             }
         } finally {
             PacketTrace.tap = null;
-            c.ctx().getInput().releaseKey(KEY);
+            c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(KEY));
             c.ctx().runOnClient(mc -> {
                 Object conf = Mod.cfg(CFG);
                 for (String uuid : added) {
@@ -154,7 +154,7 @@ final class PetWheelInstantCases {
                                      AtomicReference<long[]> sent) {
         sent.set(null);
         long clicksBefore = c.events("container.click").stream().filter(e -> e.get("slot").getAsInt() == 12).count();
-        c.ctx().getInput().holdKey(KEY);
+        c.ctx().getInput().holdKey(dev.testkit.compat.McKeys.nat(KEY));
         c.waitUntil("the Pet Wheel to open on the bind", PetWheelInstantCases::wheelOpen, 20);
         if (situation != Situation.SETTLE) {
             c.ctx().waitTicks(10);
@@ -180,14 +180,14 @@ final class PetWheelInstantCases {
         }
         long[] at = c.onClient(mc -> new long[]{FrameClock.tickCount(), FrameClock.frameCount(), System.nanoTime()});
         if (hold) {
-            c.ctx().getInput().releaseKey(KEY);
+            c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(KEY));
         } else {
             c.ctx().getInput().pressMouse(0);
         }
         boolean inFrame = sent.get() != null;
         c.waitUntil("the pets command", mc -> sent.get() != null, 60);
         if (!hold) {
-            c.ctx().getInput().releaseKey(KEY);
+            c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(KEY));
         }
         long[] s = sent.get();
         c.waitUntil("the fake Pets menu to record the click on hx-pet-2 (slot 12)", mc -> c.events("container.click").stream()

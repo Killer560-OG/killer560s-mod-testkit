@@ -67,7 +67,7 @@ final class LeapOrderMenuCases {
         c.waitUntil("the overlay to hide the vanilla menu", mc ->
                 (Boolean) Mod.staticCall("spiritleap.SpiritLeapOverlayFeature", "isHiding", McCompat.screen(mc)), 100);
         c.ctx().waitTicks(10);   // SETTLE_MS before keys act
-        c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_1 + spot);   // GLFW_KEY_1..4
+        c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(49 + spot));   // GLFW_KEY_1..4
         c.waitUntil("a menu.action for key " + (spot + 1), mc -> c.events("menu.action").size() > before, 60);
         List<JsonObject> e = c.events("menu.action");
         JsonObject a = e.get(e.size() - 1);

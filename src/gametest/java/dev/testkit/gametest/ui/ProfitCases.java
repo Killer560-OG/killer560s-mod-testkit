@@ -164,12 +164,12 @@ final class ProfitCases {
         double[] centre = drawnCentre(c, hub, cardLabelled(c, hub, e.label()));
         clickAt(c, centre[0], centre[1]);
         expectScreen(c, e.screen(), "the etable card");
-        c.ctx().getInput().pressKey(GLFW_ESCAPE);
+        c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(GLFW_ESCAPE));
         c.ticks(3);
         Screen after = c.onClient(mc -> McCompat.screen(mc));
         c.check(after == hub, "Escape on " + e.screen() + " opened from the hub did not return to it (screen is "
                 + (after == null ? "none" : after.getClass().getName().replace(Mod.ROOT, "")) + ")");
-        c.ctx().getInput().pressKey(GLFW_ESCAPE);
+        c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(GLFW_ESCAPE));
         c.ticks(3);
         Screen gone = c.onClient(mc -> McCompat.screen(mc));
         c.check(gone == null, "Escape on the hub itself left screen " + (gone == null ? "none" : gone.getClass().getName()));
@@ -199,7 +199,7 @@ final class ProfitCases {
                 Path shot = c.ctx().takeScreenshot(Report.fileName(c.name() + "-direct-" + t[0].substring(7)));
                 Report.screenshot(c.name(), shot);
             }
-            c.ctx().getInput().pressKey(GLFW_ESCAPE);
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(GLFW_ESCAPE));
             c.ticks(3);
             Screen gone = c.onClient(mc -> McCompat.screen(mc));
             c.check(gone == null, "Escape on /" + t[0] + " went to " + (gone == null ? "none" : gone.getClass().getName()));

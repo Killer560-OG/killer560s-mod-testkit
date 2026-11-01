@@ -204,7 +204,7 @@ final class Doc1018MenuHudCases {
             String typed = c.onClient(mc -> (String) Mod.staticCall(feature, "barText"));
             c.note("while typing: '" + typed + "'");
             c.check(typed.contains("15,000"), "the bar does not show the sum's result while typing: '" + typed + "' - the control failed");
-            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_RETURN); // Enter
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(257)); // Enter
             c.ticks(3);
             String after = c.onClient(mc -> (String) Mod.staticCall(feature, "barText"));
             boolean listening = c.onClient(mc -> (Boolean) Mod.staticCall(feature, "isListening"));
@@ -219,7 +219,7 @@ final class Doc1018MenuHudCases {
                 return null;
             });
             c.ctx().getInput().typeChars("hyperion");
-            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_RETURN);
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(257));
             c.ticks(3);
             String plain = c.onClient(mc -> (String) Mod.staticCall(feature, "barText"));
             c.check("hyperion".equals(plain), "Enter changed plain text: '" + plain + "'");
@@ -430,7 +430,7 @@ final class Doc1018MenuHudCases {
     // 26 Loadout Keybinds: Open Loadouts Key
     // =================================================================================================================
 
-    private static final int KEY = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD6; // GLFW_KEY_KP_6
+    private static final int KEY = 326; // GLFW_KEY_KP_6
     private static final String SWAPPER = "loadoutkeybinds.LoadoutSwapper";
 
     static void loadoutOpenKey(UiCase c) {
@@ -872,7 +872,7 @@ final class Doc1018MenuHudCases {
             Mod.setField(feature, "keyHeldForTest", Boolean.FALSE);
             c.ticks(3);
             boolean stays = c.onClient(Doc1018MenuHudCases::peekOpen);
-            c.ctx().getInput().pressKey(KEY);
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(KEY));
             c.ticks(3);
             boolean closed = !c.onClient(Doc1018MenuHudCases::peekOpen);
             c.note("Toggle Peek: still open after release " + stays + ", closed by a second press " + closed);
@@ -1132,10 +1132,10 @@ final class Doc1018MenuHudCases {
             int onWheel1 = c.onClient(mc -> ((List<?>) Mod.field(wheel, "allPets")).size());
             c.note("wheel: page 1 shows " + onWheel0 + " pets; after a scroll page " + (idxScroll + 1) + " shows " + onWheel1);
             c.check(onWheel0 == 2 && idxScroll == 1 && onWheel1 == 1, "scrolling the wheel did not switch to the Mining page (" + onWheel0 + " pets, page " + (idxScroll + 1) + ", " + onWheel1 + " pets)");
-            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_LEFT); // Left
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(263)); // Left
             c.ticks(3);
             int idxLeft = c.onClient(mc -> (Integer) Mod.call(cfg, "getPageIndex"));
-            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_RIGHT); // Right
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(262)); // Right
             c.ticks(3);
             int idxRight = c.onClient(mc -> (Integer) Mod.call(cfg, "getPageIndex"));
             c.check(idxLeft == 0 && idxRight == 1, "Left/Right on the wheel went to page " + (idxLeft + 1) + " then " + (idxRight + 1));

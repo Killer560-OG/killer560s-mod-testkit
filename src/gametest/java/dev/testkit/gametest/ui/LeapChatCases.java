@@ -25,8 +25,8 @@ import java.util.List;
  */
 final class LeapChatCases {
 
-    private static final int KEY_ENTER = com.mojang.blaze3d.platform.InputConstants.KEY_RETURN;
-    private static final int KEY_ESCAPE = com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE;
+    private static final int KEY_ENTER = 257;
+    private static final int KEY_ESCAPE = 256;
 
     private LeapChatCases() {
     }
@@ -51,7 +51,7 @@ final class LeapChatCases {
 
             // Escape leaves the box, the editor stays.
             focusInput(c, s);
-            c.ctx().getInput().pressKey(KEY_ESCAPE);
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(KEY_ESCAPE));
             c.ticks(3);
             c.check(current(c) == s, "Escape in the chat box closed the editor");
             c.check(!typing(c, s), "Escape left the chat box focused");
@@ -217,7 +217,7 @@ final class LeapChatCases {
         c.ticks(2);
         String typed = c.onClient(mc -> ((net.minecraft.client.gui.components.EditBox) Mod.field(chat(s), "input")).getValue());
         c.check(typed.equals(text), "the box holds '" + typed + "' after typing '" + text + "'");
-        c.ctx().getInput().pressKey(KEY_ENTER);
+        c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(KEY_ENTER));
         c.ticks(2);
         c.check(current(c) == s, "sending closed the editor");
         int after = (Integer) c.onClient(mc -> Mod.staticCall("leapmenu.LeapOrderScreen", "chatPanelSent"));
