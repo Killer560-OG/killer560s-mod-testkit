@@ -966,7 +966,8 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                     ctx.waitTicks(1);
                     ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
                     ctx.waitTicks(1);
-                    server.command("tp " + player + " ~-3 ~ ~");
+                    // From the console "~" is the world spawn: run it at the player.
+                    server.command("execute as " + player + " at @s run tp @s ~-3 ~ ~");
                     ctx.waitTicks(40);
                     releaseKeys(ctx);
                     ctx.waitTicks(30);
