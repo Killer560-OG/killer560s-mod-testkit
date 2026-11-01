@@ -40,6 +40,13 @@ What changed between the two jars (checked by unzipping both, 2026-11-01):
   fields and a method that are unchanged (javap of both `common` jars).
 Full changelog text between the two: `killer560s-mod-logs/grim-changelog-8eb5f28-to-2374.txt` (machine-local).
 
+Measured 2026-11-01 (26.2, mod main 67b77105 cheat, both Grims in parallel checkouts; per case status and per-check line
+counts): smoke, 62-argrim (51 rows), 63-ap3 (120), 1025/1026-blink (74), 1027-blink-c (12), 1027-iw + 1025-invwalk (17) and the
+zpew sets (41) behave the same on both builds. The only differences were one-off load events that did not reproduce
+(1027-zpewc-refused-300 after a 4.2 s server stall: 3/3 clean on each Grim on rerun) and Grim's own controls with no mod
+feature on (1027-blink-c-menus g0, tpsprint Charge-off rows). Details: killer560s-mod-logs/tkport263-1101.md.
+On 26.3 the server console prints a player's alert as `System chat: Grim » ...`; the flag reader matches it as before.
+
 To run a set on the OLD Grim for comparison (26.2 only; it refuses 26.3):
 `-Extra @("-Pgrim_version=2.3.74-8eb5f28","-Pgrim_url=https://cdn.modrinth.com/data/LJNGWSvH/versions/enIsH6sX/grimac-fabric-2.3.74-8eb5f28.jar")`.
 `prepareTestServer` removes any other `grimac-*` jar from the staged server, so a checkout switches cleanly both ways.
