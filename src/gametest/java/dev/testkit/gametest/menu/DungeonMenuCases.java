@@ -275,7 +275,7 @@ final class DungeonMenuCases {
         });
         c.ctx().getInput().setCursorPos(at[0], at[1]);
         c.ctx().waitTicks(2);
-        c.ctx().getInput().pressMouse(0);
+        c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ctx().waitTicks(3);
     }
 

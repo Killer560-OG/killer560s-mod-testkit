@@ -326,7 +326,7 @@ final class AutoScaleCases {
         });
         c.ctx().getInput().setCursorPos(win[0], win[1]);
         c.ticks(1);
-        c.ctx().getInput().pressMouse(0);
+        c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ticks(3);
         return (Integer) R.getStatic(cls, "selectedTab");
     }

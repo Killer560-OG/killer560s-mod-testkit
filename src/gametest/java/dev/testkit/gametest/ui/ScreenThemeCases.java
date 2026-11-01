@@ -519,7 +519,7 @@ final class ScreenThemeCases {
                     AbstractWidget row = themeRow(menu[0]);
                     // on the value pill: since doc-menu a click on a cycling setting's label does nothing (987)
                     row.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(row.getX() + row.getWidth() - 8.0, row.getY() + row.getHeight() / 2.0,
-                            new net.minecraft.client.input.MouseButtonInfo(1, 0)), false);
+                            new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(1), 0)), false);
                     return null;
                 });
                 c.check("DARK".equals(termismTheme()), "a right click on Theme gave " + termismTheme() + ", wanted DARK");

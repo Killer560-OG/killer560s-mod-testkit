@@ -569,7 +569,7 @@ public class ImagePreviewSuite implements FabricClientGameTest {
                 c.check(false, "could not read the screenshot: " + e);
             }
             // A real left click on the link: vanilla's open-link prompt, untouched.
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             c.ctx().waitTicks(4);
             String scr = screenName(c);
             c.check(scr.contains("ConfirmLink"), "a left click on the link opened " + scr + ", want vanilla's ConfirmLinkScreen");
@@ -766,7 +766,7 @@ public class ImagePreviewSuite implements FabricClientGameTest {
             c.check(d2 != null && "2/3".equals(caption(d2)), "the wheel did not step to \"2/3\": " + d2);
             c.check(sample(c, album, 0.5, 0.5) == GREEN, "picture 2 is " + hex(sample(c, album, 0.5, 0.5)) + ", want green");
             // Middle click: the viewer; the right arrow steps; Escape is back in the chat.
-            c.ctx().getInput().pressMouse(2);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(2));
             c.ctx().waitTicks(3);
             String scr = screenName(c);
             c.check(scr.equals("ImageViewerScreen"), "a middle click opened " + scr);

@@ -284,7 +284,7 @@ final class AuctionHouseCases {
     /** Presses a layout box: layout units * {@code factor} = GUI units; * GUI scale = window pixels. */
     static void press(Session c, int[] box, int button, float factor) {
         cursor(c, box, factor);
-        c.ctx().getInput().pressMouse(button);
+        c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(button));
         c.ctx().waitTicks(3);
     }
 
@@ -301,8 +301,8 @@ final class AuctionHouseCases {
         cursor(c, box, factor);
         c.ctx().runOnClient(mc -> {
             long window = mc.getWindow().handle();
-            Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(0, 1), 1);
-            Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(0, 1), 0);
+            Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 1), 1);
+            Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 1), 0);
         });
         c.ctx().waitTicks(3);
     }
@@ -978,7 +978,7 @@ final class AuctionHouseCases {
         int before = clicks(c);
         c.ctx().getInput().setCursorPos(at[0], at[1]);
         c.ctx().waitTicks(2);
-        c.ctx().getInput().pressMouse(0);
+        c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
         c.waitUntil(what + ": vanilla's click", mc -> clicks(c) > before, 40);
         JsonObject k = lastClick(c);
         c.check(k.get("slot").getAsInt() == slot, what + ": vanilla press sent " + describe(k));

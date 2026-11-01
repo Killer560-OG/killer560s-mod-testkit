@@ -245,8 +245,8 @@ public class SimRoomPickTests implements FabricClientGameTest {
                         && label.equals(strip(w.getMessage().getString())) && w.visible) {
                     double x = w.getX() + w.getWidth() / 2.0;
                     double y = w.getY() + w.getHeight() / 2.0;
-                    boolean took = s.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)), false);
-                    s.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)));
+                    boolean took = s.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
+                    s.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)));
                     return took ? "ok" : "click at " + x + "," + y + " was not taken";
                 }
             }
@@ -357,8 +357,8 @@ public class SimRoomPickTests implements FabricClientGameTest {
                 if (child instanceof AbstractWidget w && strip(w.getMessage().getString()).startsWith(label)) {
                     double x = w.getX() + w.getWidth() / 2.0;
                     double y = w.getY() + w.getHeight() / 2.0;
-                    boolean took = s.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)), false);
-                    s.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)));
+                    boolean took = s.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
+                    s.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)));
                     return took ? "ok" : "click at " + x + "," + y + " was not taken";
                 }
             }

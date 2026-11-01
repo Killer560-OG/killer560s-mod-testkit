@@ -622,19 +622,19 @@ final class Solver1018Cases {
             int before = (Integer) Mod.staticCall(CLICKS, "slotClicks");
             // Control: a click on an empty slot makes no sound.
             CroesusUiCases.hover(c, 0);
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             c.ctx().waitTicks(4);
             c.check((Integer) Mod.staticCall(CLICKS, "slotClicks") == before, "a click on an empty slot played the click");
             // A click on the button in the menu plays it.
             CroesusUiCases.hover(c, 10);
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             c.ctx().waitTicks(4);
             c.check((Integer) Mod.staticCall(CLICKS, "slotClicks") == before + 1,
                     "a click on a menu button played " + ((Integer) Mod.staticCall(CLICKS, "slotClicks") - before) + " clicks (want 1)");
             // Default: nothing, as in vanilla.
             Mod.set(CLICK_CFG, "setChoice", "default");
             CroesusUiCases.hover(c, 10);
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             c.ctx().waitTicks(4);
             c.check((Integer) Mod.staticCall(CLICKS, "slotClicks") == before + 1, "Default played a slot click");
         } finally {
@@ -813,7 +813,7 @@ final class Solver1018Cases {
             }
             c.onClient(mc -> {
                 page.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(page.getX() + 3, page.getY() + 3,
-                        new net.minecraft.client.input.MouseButtonInfo(0, 0)), false);
+                        new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
                 return null;
             });
             c.ctx().waitTicks(4);
@@ -831,7 +831,7 @@ final class Solver1018Cases {
             }
             c.onClient(mc -> {
                 colour.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(colour.getX() + 3, colour.getY() + 3,
-                        new net.minecraft.client.input.MouseButtonInfo(0, 0)), false);
+                        new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
                 return null;
             });
             c.ctx().waitTicks(4);

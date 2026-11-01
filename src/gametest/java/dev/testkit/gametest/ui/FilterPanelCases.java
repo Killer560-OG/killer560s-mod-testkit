@@ -254,7 +254,7 @@ final class FilterPanelCases {
             }
             c.ctx().getInput().setCursorPos(at[0], at[1]);
             c.ticks(2);
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             c.ticks(3);
             boolean now = c.onClient(mc -> (Boolean) Mod.call(filter, "hasSize", "1x2"));
             Boolean drawnSelected = c.onClient(mc -> {

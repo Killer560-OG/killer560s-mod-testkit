@@ -2083,9 +2083,9 @@ public class SimWorldTests implements FabricClientGameTest {
                         double x = w.getX() + w.getWidth() / 2.0;
                         double y = w.getY() + w.getHeight() / 2.0;
                         s.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(x, y,
-                                new net.minecraft.client.input.MouseButtonInfo(0, 0)), false);
+                                new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
                         s.mouseReleased(new net.minecraft.client.input.MouseButtonEvent(x, y,
-                                new net.minecraft.client.input.MouseButtonInfo(0, 0)));
+                                new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)));
                         return "ok";
                     }
                 }

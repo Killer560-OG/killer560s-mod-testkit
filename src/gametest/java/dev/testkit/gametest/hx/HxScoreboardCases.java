@@ -245,7 +245,7 @@ final class HxScoreboardCases {
     private static void click(Session c, net.minecraft.client.gui.components.AbstractWidget w) {
         moveTo(c, w.getX() + w.getWidth() / 2.0, w.getY() + w.getHeight() / 2.0);
         c.ctx().waitTicks(2);
-        c.ctx().getInput().pressMouse(0);
+        c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ctx().waitTicks(3);
     }
 
@@ -269,7 +269,7 @@ final class HxScoreboardCases {
         double y0 = start[1] + start[3] * fy;
         moveTo(c, x0, y0);
         c.ctx().waitTicks(2);
-        c.ctx().getInput().holdMouse(0);
+        c.ctx().getInput().holdMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ctx().waitTicks(2);
         int steps = 10;
         for (int i = 1; i <= steps; i++) {
@@ -279,7 +279,7 @@ final class HxScoreboardCases {
         c.ctx().waitTicks(2);
         String dragging = c.onClient(mc -> String.valueOf(Mod.field(s, "draggingId")));
         int[] during = c.onClient(mc -> liveBox(s, mc));
-        c.ctx().getInput().releaseMouse(0);
+        c.ctx().getInput().releaseMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ctx().waitTicks(3);
         int[] after = c.onClient(mc -> liveBox(s, mc));
         c.note("drag from " + (int) x0 + "," + (int) y0 + " to " + (int) tx + "," + (int) ty + ": dragging '" + dragging

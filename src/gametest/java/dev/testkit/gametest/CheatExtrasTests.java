@@ -266,7 +266,7 @@ public class CheatExtrasTests implements FabricClientGameTest {
                 List<String> ev = stopEvents(ctx);
                 int warps = warps(hx) - w0;
                 int digs = count(ev, "player_action:START_DESTROY_BLOCK");
-                int swings = count(ev, "swing");
+                int swings = count(ev, dev.testkit.compat.McPackets.swingId());
                 scenario.log("control: " + digs + " dig start(s), " + swings + " swing(s), " + warps + " warp(s); "
                         + String.join(" ", ev.subList(0, Math.min(ev.size(), 30))));
                 check(digs >= 1 && swings >= 1, "with the feature off the left click did not dig and swing: the premise is"
@@ -316,7 +316,7 @@ public class CheatExtrasTests implements FabricClientGameTest {
         check(warps == 1, "the server did not etherwarp exactly once: " + warps);
         check(end.distanceTo(new Vec3(want.x, end.y, want.z)) < 0.5, "he did not land on the aimed block");
         check(count(ev, "player_action:START_DESTROY_BLOCK") == 0, "a dig went out with the left click");
-        check(count(ev, "swing") == 0, "a swing went out with the left click");
+        check(count(ev, dev.testkit.compat.McPackets.swingId()) == 0, "a swing went out with the left click");
         check(count(ev, "interact") == 0, "an attack went out with the left click");
         check(PacketTrace.sentOutsideTick().isEmpty(), "sent outside a tick: " + PacketTrace.sentOutsideTick());
         if (holdSneak) {

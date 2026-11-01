@@ -100,7 +100,7 @@ final class LeapV2MenuCases {
             giveLeap(c, 0);
             c.ctx().runOnClient(mc -> Mod.setField(LM, "leapCdTicks", 0.0));
             int clicks2 = c.events("menu.action").size();
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             c.waitUntil("his left click's Fast leap", mc -> c.events("menu.action").size() > clicks2, 200);
             idle(c);
             int fastSlot = lastClick(c);

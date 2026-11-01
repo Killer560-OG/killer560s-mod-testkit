@@ -399,7 +399,7 @@ final class MiscCases {
                                 break;
                             }
                             s.mouseClicked(new MouseButtonEvent(ox + x * 18 + 9, oy + y * 18 + 9,
-                                    new MouseButtonInfo(0, 0)), false);
+                                    new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
                             clicks++;
                         }
                     }

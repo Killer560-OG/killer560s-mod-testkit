@@ -162,7 +162,7 @@ final class BazaarReskinCases {
 
     static void pressAt(Session c, int[] box, int button) {
         cursorTo(c, box);
-        c.ctx().getInput().pressMouse(button);
+        c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(button));
         c.ctx().waitTicks(3);
     }
 
@@ -171,8 +171,8 @@ final class BazaarReskinCases {
         cursorTo(c, box);
         c.ctx().runOnClient(mc -> {
             long window = mc.getWindow().handle();
-            Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(0, 1), 1);
-            Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(0, 1), 0);
+            Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 1), 1);
+            Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 1), 0);
         });
         c.ctx().waitTicks(3);
     }
@@ -585,7 +585,7 @@ final class BazaarReskinCases {
         int before = clicks(c);
         c.ctx().getInput().setCursorPos(at[0], at[1]);
         c.ctx().waitTicks(2);
-        c.ctx().getInput().pressMouse(0);
+        c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
         c.waitUntil(what + ": vanilla's click", mc -> clicks(c) > before, 40);
         JsonObject k = lastClick(c);
         c.check(k.get("slot").getAsInt() == slot, what + ": vanilla press sent " + describe(k));
@@ -710,7 +710,7 @@ final class BazaarReskinCases {
                 a.add("item", item);
                 c.hx().call("menu.set", a);
                 if (i == 6) {
-                    c.ctx().getInput().pressMouse(0);
+                    c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
                 }
                 c.ctx().waitTicks(1);
             }
@@ -723,7 +723,7 @@ final class BazaarReskinCases {
                 return s.getMenu().slots.get(10).getItem().getHoverName().getString();
             });
             c.check(lore.contains("Buy Instantly"), "slot 10 now reads " + lore);
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             c.waitUntil("one click once the menu settled", mc -> clicks(c) > base, 40);
             c.ctx().waitTicks(5);
             JsonObject k = lastClick(c);

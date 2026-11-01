@@ -837,7 +837,7 @@ final class DocMiscCases {
                 });
                 c.ctx().getInput().setCursorPos(at[0], at[1]);
                 c.ticks(1);
-                c.ctx().getInput().pressMouse(0);
+                c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
                 c.ticks(2);
                 String now = c.onClient(mc -> McCompat.screen(mc) == null ? "none" : McCompat.screen(mc).getClass().getSimpleName());
                 if (!now.equals("PeekChatScreen")) {
@@ -936,7 +936,7 @@ final class DocMiscCases {
             });
             c.ctx().getInput().setCursorPos(at[0], at[1]);
             c.ticks(2);
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             c.ticks(5);
             c.note("commands sent by the press: " + sent);
             c.check(sent.contains("loadouts"), "pressing Open Loadouts did not send /loadouts: " + sent);

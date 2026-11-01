@@ -100,7 +100,7 @@ final class CroesusKeyCases {
             MenuKit.awaitScreen(c, "(1/1) Croesus", 100);
             c.ctx().waitTicks(8);
             CroesusUiCases.hover(c, slot);
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             MenuKit.awaitScreen(c, RUN, 100);
             c.ctx().waitTicks(8); // a few ticks in the run view: the chests are valued and noted for this run
         }
@@ -189,7 +189,7 @@ final class CroesusKeyCases {
             // The hidden run still opens: a click on 13 reaches the server at slot 13.
             int before = c.events("menu.click").size();
             CroesusUiCases.hover(c, 13);
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             c.waitUntil("the click on hidden run 13", mc -> c.events("menu.click").size() > before, 40);
             c.check(c.events("menu.click").get(before).get("slot").getAsInt() == 13, "click went to " + c.events("menu.click").get(before));
             c.note("squares vs an empty slot (px differing) 10..14: " + java.util.Arrays.toString(diff)

@@ -288,7 +288,7 @@ final class HudKey2Cases {
                 int h = (Integer) Mod.call(Mod.staticCall("hud.HudElementRegistry", "byId", PANEL), "height");
                 double gx = p[0] + w * scale / 2.0;
                 double gy = p[1] + h * scale / 2.0;
-                var info = new MouseButtonInfo(0, 0);
+                var info = new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0);
                 ed.mouseClicked(new MouseButtonEvent(gx, gy, info), false);
                 Object grabbed = R.get(ed, "draggingId");
                 ed.mouseDragged(new MouseButtonEvent(gx + 23, gy + 17, info), 23, 17);

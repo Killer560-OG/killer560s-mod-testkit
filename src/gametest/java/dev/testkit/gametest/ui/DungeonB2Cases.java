@@ -271,7 +271,7 @@ final class DungeonB2Cases {
         int[] packets = c.onClient(mc -> {
             PacketTrace.stop();
             // The attack's protocol id: "interact" on older versions, its own "attack" packet on newer ones.
-            return new int[]{PacketTrace.sent("swing"), PacketTrace.sent("interact") + PacketTrace.sent("attack")};
+            return new int[]{PacketTrace.sent(dev.testkit.compat.McPackets.swingId()), PacketTrace.sent("interact") + PacketTrace.sent("attack")};
         });
         return new Trip(first, tracked, dist, clickAt, packets[0], packets[1]);
     }
@@ -1109,7 +1109,7 @@ final class DungeonB2Cases {
         double[] a = toWindow(c, s, sx, sy);
         c.ctx().getInput().setCursorPos(a[0], a[1]);
         c.ticks(2);
-        c.ctx().getInput().pressMouse(button);
+        c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(button));
         c.ticks(3);
     }
 
@@ -1117,14 +1117,14 @@ final class DungeonB2Cases {
         double[] a = toWindow(c, s, sx, sy);
         c.ctx().getInput().setCursorPos(a[0], a[1]);
         c.ticks(2);
-        c.ctx().getInput().holdMouse(0);
+        c.ctx().getInput().holdMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ticks(2);
         for (int i = 1; i <= 6; i++) {
             double[] p = toWindow(c, s, sx + (toX - sx) * i / 6.0, sy);
             c.ctx().getInput().setCursorPos(p[0], p[1]);
             c.ticks(1);
         }
-        c.ctx().getInput().releaseMouse(0);
+        c.ctx().getInput().releaseMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ticks(3);
     }
 

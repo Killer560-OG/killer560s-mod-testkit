@@ -135,4 +135,18 @@ public final class McKeys {
             default -> throw new IllegalArgumentException("no 26.3 key for GLFW key code " + glfw);
         };
     }
+
+    /**
+     * GLFW mouse button (0 left, 1 right, 2 middle) -> this version's native button. 26.3 is SDL3: 1 left, 2 middle,
+     * 3 right (javap 26.3 InputConstants.MOUSE_BUTTON_*), so a raw 0 is no button at all and AbstractWidget's
+     * isValidClickButton (button == 1) refuses it. Every MouseButtonInfo / pressMouse in a scenario goes through this.
+     */
+    public static int mouse(int glfwButton) {
+        return switch (glfwButton) {
+            case 0 -> InputConstants.MOUSE_BUTTON_LEFT;
+            case 1 -> InputConstants.MOUSE_BUTTON_RIGHT;
+            case 2 -> InputConstants.MOUSE_BUTTON_MIDDLE;
+            default -> glfwButton + 1;
+        };
+    }
 }

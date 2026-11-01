@@ -227,7 +227,7 @@ final class InvBatchCases {
     /** A real left click at a mod screen's layout coordinates (through its Auto Scale factor). */
     static void click(UiCase c, Screen s, double lx, double ly) {
         cursor(c, s, lx, ly);
-        c.ctx().getInput().pressMouse(0);
+        c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ticks(3);
     }
 
@@ -598,12 +598,12 @@ final class InvBatchCases {
             click(c, s, p1[0] + 9, p1[1] + 9);
             // Drag slot 9 onto slot 10.
             cursor(c, s, p9[0] + 9, p9[1] + 9);
-            c.ctx().getInput().holdMouse(0);
+            c.ctx().getInput().holdMouse(dev.testkit.compat.McKeys.mouse(0));
             c.ticks(2);
             for (int i = 1; i <= 4; i++) {
                 cursor(c, s, p9[0] + 9 + (p10[0] - p9[0]) * i / 4.0, p9[1] + 9);
             }
-            c.ctx().getInput().releaseMouse(0);
+            c.ctx().getInput().releaseMouse(dev.testkit.compat.McKeys.mouse(0));
             c.ticks(3);
             String grid = c.onClient(mc -> {
                 StringBuilder b = new StringBuilder();

@@ -762,8 +762,8 @@ final class BarStyleCases {
         int[] cb = (int[]) Mod.call(w, "controlBounds");
         double x = cb[0] + cb[2] * (button == 0 ? 0.75 : 0.5);
         double y = cb[1] + cb[3] / 2.0;
-        w.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(button, 0)), false);
-        w.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(button, 0)));
+        w.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(button), 0)), false);
+        w.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(button), 0)));
     }
 
     /** The first row of the Health and Mana Bars tab whose label starts with {@code prefix}. */
@@ -1401,7 +1401,7 @@ final class BarStyleCases {
                 if (pos == null) {
                     return "no live position for statbar_health";
                 }
-                var info = new MouseButtonInfo(0, 0);
+                var info = new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0);
                 double gx = pos[0] + 30;
                 double gy = pos[1] + BH / 2.0;
                 ed.mouseClicked(new MouseButtonEvent(gx, gy, info), false);
@@ -1447,7 +1447,7 @@ final class BarStyleCases {
                     return "no right-edge handle found";
                 }
                 int before = (Integer) Mod.call(Mod.cfg(PS), "getBarWidth", r("HEALTH_BAR"));
-                var info = new MouseButtonInfo(0, 0);
+                var info = new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0);
                 ed.mouseClicked(new MouseButtonEvent(hx, gy, info), false);
                 int edges = (Integer) R.get(ed, "resizeEdges");
                 ed.mouseDragged(new MouseButtonEvent(hx + 20, gy, info), 20, 0);

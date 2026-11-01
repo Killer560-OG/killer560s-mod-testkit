@@ -266,14 +266,14 @@ final class LeapOrderCases {
     static void clickSpot(UiCase c, Screen s, int spot, int button) {
         double[] p = spotPoint(c, s, spot);
         InvBatchCases.cursor(c, s, p[0], p[1]);
-        c.ctx().getInput().pressMouse(button);
+        c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(button));
         c.ticks(3);
     }
 
     static void shiftClickSpot(UiCase c, Screen s, int spot) {
         double[] p = spotPoint(c, s, spot);
         boolean took = c.onClient(mc -> s.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(p[0], p[1],
-                new net.minecraft.client.input.MouseButtonInfo(0, 1)), false));   // GLFW_MOD_SHIFT
+                new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 1)), false));   // GLFW_MOD_SHIFT
         c.check(took, "the editor did not take a shift-click on spot " + spot);
         c.ticks(2);
     }

@@ -367,8 +367,8 @@ public class SimPagesTests implements FabricClientGameTest {
                     if (exact ? l.equals(label) : l.startsWith(label)) {
                         double x = w.getX() + w.getWidth() / 2.0;
                         double y = w.getY() + w.getHeight() / 2.0;
-                        s.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)), false);
-                        s.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)));
+                        s.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
+                        s.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)));
                         return "ok";
                     }
                 }
@@ -384,9 +384,9 @@ public class SimPagesTests implements FabricClientGameTest {
     private static void pressAt(ClientGameTestContext ctx, double x, double y) {
         ctx.runOnClient(mc -> {
             Screen s = McCompat.screen(mc);
-            s.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)), false);
+            s.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
             if (McCompat.screen(mc) == s) {
-                s.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)));
+                s.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)));
             }
         });
         ctx.waitTicks(3);

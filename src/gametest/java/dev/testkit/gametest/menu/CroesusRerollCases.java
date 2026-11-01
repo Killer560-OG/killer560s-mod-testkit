@@ -67,7 +67,7 @@ final class CroesusRerollCases {
     static int press(Session c) {
         int before = FlipCroesusCases.clicksOn(c, TITLE).stream().filter(s -> s == 50).toList().size();
         CroesusUiCases.hover(c, 50);
-        c.ctx().getInput().pressMouse(0);
+        c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ctx().waitTicks(10);
         return (int) FlipCroesusCases.clicksOn(c, TITLE).stream().filter(s -> s == 50).count() - before;
     }
@@ -140,7 +140,7 @@ final class CroesusRerollCases {
             c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(CFG), "setRerollProtection", true));
             int claimBefore = (int) FlipCroesusCases.clicksOn(c, TITLE).stream().filter(s -> s == 31).count();
             CroesusUiCases.hover(c, 31);
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             c.ctx().waitTicks(10);
             int claim = (int) FlipCroesusCases.clicksOn(c, TITLE).stream().filter(s -> s == 31).count() - claimBefore;
             c.check(claim == 1, "the claim button's click did not reach the server with Reroll Protection on");

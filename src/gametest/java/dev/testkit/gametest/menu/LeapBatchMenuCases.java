@@ -334,7 +334,7 @@ final class LeapBatchMenuCases {
             int[] box = cara;
             cursorAt(c, (box[0] + box[2]) / 2.0, (box[1] + box[3]) / 2.0);
             int before = c.events("menu.action").size();
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             c.waitUntil("a menu.action for the click on LoCara's face", mc -> c.events("menu.action").size() > before, 60);
             List<JsonObject> ev = c.events("menu.action");
             int slot = ev.get(ev.size() - 1).get("slot").getAsInt();

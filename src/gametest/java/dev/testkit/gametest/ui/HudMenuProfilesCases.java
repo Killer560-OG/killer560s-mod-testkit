@@ -219,7 +219,7 @@ final class HudMenuProfilesCases {
                 float scale = ((Number) Mod.staticCall("hud.HudElementRegistry", "resolveScale", probeElement)).floatValue();
                 double gx = p[0] + PROBE_W * scale / 2.0;
                 double gy = p[1] + PROBE_H * scale / 2.0;
-                var info = new MouseButtonInfo(0, 0);
+                var info = new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0);
                 ed.mouseClicked(new MouseButtonEvent(gx, gy, info), false);
                 c.check(PROBE_ID.equals(R.get(ed, "draggingId")), "the press did not grab the probe");
                 ed.mouseDragged(new MouseButtonEvent(gx + 10, gy + 4, info), 10, 4);
@@ -376,7 +376,7 @@ final class HudMenuProfilesCases {
             // The box is drawn at the element's in-game scale (HUD Scale x Auto Scale): grab its middle, away from
             // the corner handles, which would resize it instead.
             float scale = ((Number) Mod.staticCall("hud.HudElementRegistry", "resolveScale", probeElement)).floatValue();
-            var info = new MouseButtonInfo(0, 0);
+            var info = new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0);
             double gx = p[0] + PROBE_W * scale / 2.0;
             double gy = p[1] + PROBE_H * scale / 2.0;
             ed.mouseClicked(new MouseButtonEvent(gx, gy, info), false);
@@ -477,7 +477,7 @@ final class HudMenuProfilesCases {
                 if (p == null) {
                     return "no live position for statbar_health";
                 }
-                var info = new MouseButtonInfo(0, 0);
+                var info = new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0);
                 double gx = p[0] + 10;
                 double gy = p[1] + 2;
                 barEd.mouseClicked(new MouseButtonEvent(gx, gy, info), false);
@@ -687,7 +687,7 @@ final class HudMenuProfilesCases {
         });
         c.ctx().getInput().setCursorPos(win[0], win[1]);
         c.ticks(1);
-        c.ctx().getInput().pressMouse(0);
+        c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ticks(3);
         int got = (Integer) R.getStatic(cls, "selectedTab");
         c.note(String.format(Locale.ROOT, "%s: click at the drawn center of sidebar row %d (GUI %.1f,%.1f) selected tab %d",
@@ -708,7 +708,7 @@ final class HudMenuProfilesCases {
             });
             c.ctx().getInput().setCursorPos(uwin[0], uwin[1]);
             c.ticks(1);
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             c.ticks(3);
             int ctl = (Integer) R.getStatic(cls, "selectedTab");
             c.note(where + ": control click at the row's unscaled spot selected tab " + ctl);

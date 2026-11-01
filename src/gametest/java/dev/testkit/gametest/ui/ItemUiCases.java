@@ -359,7 +359,7 @@ final class ItemUiCases {
             int[] box = c.onClient(mc -> (int[]) Mod.field(ISF, "lastBoxBounds"));
             c.check(box != null, "the search bar was not drawn");
             hoverGui(c, box[0] + box[2] / 2.0, box[1] + box[3] / 2.0);
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             c.ticks(2);
             boolean listening = c.onClient(mc -> (Boolean) Mod.staticCall(ISF, "isListening"));
             c.ctx().getInput().typeChars("5k*3");
@@ -414,7 +414,7 @@ final class ItemUiCases {
             c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(keyB));
             c.ticks(2);
             hoverGui(c, s11[0] + 8, s11[1] + 8);
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             c.ticks(2);
             Map<?, ?> afterClick = c.onClient(mc -> new LinkedHashMap<>((Map<?, ?>) Mod.call(Mod.cfg(SBC), "getBinds")));
             hoverGui(c, h1[0] + 8, h1[1] + 8);
@@ -895,7 +895,7 @@ final class ItemUiCases {
             openInventory(c);
             double[] pl = panel(c);
             hoverGui(c, pl[4], pl[5]);
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             c.ticks(3);
             boolean picker = c.onClient(mc -> (Boolean) Mod.staticCall(CRAFT, "isTierPickerOpen"));
             List<?> tiers = c.onClient(mc -> (List<?>) Mod.staticCall(CRAFT, "openTierList"));
@@ -905,7 +905,7 @@ final class ItemUiCases {
             c.check(cells.size() == 3, "tier cells drawn: " + cells.size());
             int[] cell = (int[]) cells.get(2);
             hoverGui(c, cell[0] + cell[2] / 2.0, cell[1] + cell[3] / 2.0);
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             c.ticks(3);
             String opened = c.onClient(mc -> {
                 Object e = Mod.staticCall(CRAFT, "openEntry");
@@ -938,7 +938,7 @@ final class ItemUiCases {
             openInventory(c);
             double[] pl = panel(c);
             hoverGui(c, pl[4], pl[5]);
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             c.ticks(3);
             String opened = c.onClient(mc -> {
                 Object e = Mod.staticCall(CRAFT, "openEntry");

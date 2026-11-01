@@ -101,8 +101,8 @@ final class LeapQueueCases {
         return c.onClient(mc -> {
             double x = w.getX() + w.getWidth() / 2.0;
             double y = w.getY() + Math.min(w.getHeight() / 2.0, 5);
-            boolean took = w.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(1, 0)), false);
-            w.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(1, 0)));
+            boolean took = w.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(1), 0)), false);
+            w.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(1), 0)));
             return took;
         });
     }

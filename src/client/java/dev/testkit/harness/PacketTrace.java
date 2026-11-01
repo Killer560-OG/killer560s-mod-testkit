@@ -109,7 +109,7 @@ public final class PacketTrace {
     }
 
     private static final java.util.Set<String> POST_KINDS = java.util.Set.of("set_carried_item", "use_item", "use_item_on",
-            "interact", "attack", "player_action", "container_click", "swing", "player_command", "player_abilities");
+            "interact", "attack", "player_action", "container_click", dev.testkit.compat.McPackets.swingId(), "player_command", "player_abilities");
 
     /** Stop recording. What was recorded stays readable until the next {@link #start}. */
     public static void stop() {

@@ -199,8 +199,8 @@ final class InventoryCases {
             // holdShift() - so a shift-click goes in through MouseHandler.onButton with GLFW_MOD_SHIFT (1) directly.
             c.ctx().runOnClient(mc -> {
                 long window = mc.getWindow().handle();
-                Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(0, 1), 1);
-                Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(0, 1), 0);
+                Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 1), 1);
+                Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 1), 0);
             });
             c.waitUntil("a click from the slot bind", mc -> !c.events("container.click").isEmpty(), 60);
             JsonObject click = c.events("container.click").get(0);

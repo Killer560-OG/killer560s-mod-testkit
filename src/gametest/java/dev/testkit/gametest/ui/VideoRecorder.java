@@ -180,11 +180,11 @@ final class VideoRecorder {
     void click() throws IOException {
         clocks();
         down = true;
-        c.ctx().getInput().holdMouse(0);
+        c.ctx().getInput().holdMouse(dev.testkit.compat.McKeys.mouse(0));
         frame();
         frame();
         clocks();
-        c.ctx().getInput().releaseMouse(0);
+        c.ctx().getInput().releaseMouse(dev.testkit.compat.McKeys.mouse(0));
         down = false;
         frame();
     }
@@ -192,12 +192,12 @@ final class VideoRecorder {
     void press() {
         clocks();
         down = true;
-        c.ctx().getInput().holdMouse(0);
+        c.ctx().getInput().holdMouse(dev.testkit.compat.McKeys.mouse(0));
     }
 
     void release() {
         clocks();
-        c.ctx().getInput().releaseMouse(0);
+        c.ctx().getInput().releaseMouse(dev.testkit.compat.McKeys.mouse(0));
         down = false;
     }
 

@@ -341,13 +341,13 @@ final class TermHumanCases {
             int before = c.events("terminal.click").size();
             TermHoldCases.pointAt(c, target, true);
             c.ctx().waitTicks(2);
-            c.ctx().getInput().holdMouse(0);
+            c.ctx().getInput().holdMouse(dev.testkit.compat.McKeys.mouse(0));
             try {
                 c.waitUntil("two clicks on pane " + target, mc -> TermHoldCases.clicksPerSlot(c).getOrDefault(target, 0) >= 2, 80);
                 // Keep holding: a third would show up here.
                 c.ctx().waitTicks(20);
             } finally {
-                c.ctx().getInput().releaseMouse(0);
+                c.ctx().getInput().releaseMouse(dev.testkit.compat.McKeys.mouse(0));
             }
             List<JsonObject> evs = c.events("terminal.click");
             List<Integer> order = new ArrayList<>();

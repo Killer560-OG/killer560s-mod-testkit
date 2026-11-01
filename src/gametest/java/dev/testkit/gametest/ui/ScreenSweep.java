@@ -143,7 +143,7 @@ final class ScreenSweep {
                     Map<String, int[]> live = (Map<String, int[]>) R.get(on, "livePositions");
                     int cx = live.get(id)[0] + 2;
                     int cy = live.get(id)[1] + 2;
-                    var info = new net.minecraft.client.input.MouseButtonInfo(0, 0);
+                    var info = new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0);
                     boolean took = on.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(cx, cy, info), false);
                     // The editor grabs the TOPMOST box under the cursor (elementAt walks shown backwards,
                     // hud/HudEditorScreen.java:186); default positions overlap, so that may be another element.

@@ -244,7 +244,7 @@ public class ChatBatchSuite implements FabricClientGameTest {
     static boolean click(Session c, double x, double y, int button, int mods) {
         return c.onClient(mc -> {
             ChatScreen screen = (ChatScreen) McCompat.screen(mc);
-            return screen.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(button, mods)), false);
+            return screen.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(button), mods)), false);
         });
     }
 

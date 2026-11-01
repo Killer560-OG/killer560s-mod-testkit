@@ -682,7 +682,7 @@ public class FairySoulTests implements FabricClientGameTest {
                         ctx.waitTicks(20);
                         boolean activeBeforeClick = isActive(ctx);
                         long mark2 = LogTap.mark();
-                        ctx.getInput().pressMouse(0);
+                        ctx.getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
                         ctx.waitTicks(3);
                         boolean activeAfterClick = isActive(ctx);
                         boolean namedClick = LogTap.since(mark2).stream().anyMatch(l -> l.contains("Stopped") && l.contains("left click"));

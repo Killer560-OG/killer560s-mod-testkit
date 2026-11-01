@@ -170,7 +170,7 @@ final class HxGuiHudCases {
     private static void click(Session c, Screen s, double sx, double sy) {
         moveTo(c, s, sx, sy);
         c.ctx().waitTicks(2);
-        c.ctx().getInput().pressMouse(0);
+        c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ctx().waitTicks(3);
     }
 
@@ -178,7 +178,7 @@ final class HxGuiHudCases {
     private static boolean drag(Session c, Screen s, double x0, double y0, double x1, double y1) {
         moveTo(c, s, x0, y0);
         c.ctx().waitTicks(2);
-        c.ctx().getInput().holdMouse(0);
+        c.ctx().getInput().holdMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ctx().waitTicks(2);
         int steps = 8;
         for (int i = 1; i <= steps; i++) {
@@ -187,7 +187,7 @@ final class HxGuiHudCases {
         }
         c.ctx().waitTicks(2);
         boolean dragging = c.onClient(mc -> (Boolean) Mod.call(s, "isDraggingLine"));
-        c.ctx().getInput().releaseMouse(0);
+        c.ctx().getInput().releaseMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ctx().waitTicks(3);
         return dragging;
     }

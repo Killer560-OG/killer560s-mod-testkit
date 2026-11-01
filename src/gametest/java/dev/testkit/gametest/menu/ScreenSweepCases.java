@@ -559,7 +559,7 @@ final class ScreenSweepCases {
                 Mod.call(b, "press");
                 String second = b.getMessage().getString();
                 b.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(5, 5,
-                        new net.minecraft.client.input.MouseButtonInfo(1, 0)), false);
+                        new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(1), 0)), false);
                 String third = b.getMessage().getString();
                 if (!first.equals("Theme: Theme Default") || !second.equals("Theme: Amber") || !third.equals(first)) {
                     return "the button read '" + first + "', then '" + second + "' after a left click, '" + third

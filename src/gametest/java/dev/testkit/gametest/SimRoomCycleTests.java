@@ -564,8 +564,8 @@ public class SimRoomCycleTests implements FabricClientGameTest {
                 if (child instanceof AbstractWidget w && which.test(strip(w.getMessage().getString()))) {
                     double x = w.getX() + w.getWidth() / 2.0;
                     double y = w.getY() + w.getHeight() / 2.0;
-                    boolean took = s.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)), false);
-                    s.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)));
+                    boolean took = s.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
+                    s.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)));
                     return took ? "ok" : "click at " + x + "," + y + " was not taken";
                 }
             }
@@ -581,8 +581,8 @@ public class SimRoomCycleTests implements FabricClientGameTest {
     private static void clickRaw(ClientGameTestContext ctx, int button) {
         ctx.runOnClient(mc -> {
             Screen s = McCompat.screen(mc);
-            s.mouseClicked(new MouseButtonEvent(2, 2, new MouseButtonInfo(button, 0)), false);
-            s.mouseReleased(new MouseButtonEvent(2, 2, new MouseButtonInfo(button, 0)));
+            s.mouseClicked(new MouseButtonEvent(2, 2, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(button), 0)), false);
+            s.mouseReleased(new MouseButtonEvent(2, 2, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(button), 0)));
         });
         ctx.waitTicks(3);
     }

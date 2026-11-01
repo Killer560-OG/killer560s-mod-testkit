@@ -438,7 +438,7 @@ public class SimMapFilterTests implements FabricClientGameTest {
         }
         ctx.getInput().setCursorPos(at[0], at[1]);
         ctx.waitTicks(2);
-        ctx.getInput().pressMouse(0);
+        ctx.getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
         ctx.waitTicks(4);
     }
 

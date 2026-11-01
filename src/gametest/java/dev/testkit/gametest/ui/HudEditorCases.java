@@ -835,7 +835,7 @@ final class HudEditorCases {
      *  still held (guides), release. GUI coordinates of the editor (which is not auto-scaled). */
     static void drag(UiCase c, Screen s, int gx, int gy, int dx, int dy, String shotName) {
         cursorTo(c, s, gx, gy);
-        c.ctx().getInput().holdMouse(0);
+        c.ctx().getInput().holdMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ticks(2);
         for (int i = 1; i <= 6; i++) {
             cursorTo(c, s, gx + dx * i / 6.0, gy + dy * i / 6.0, 1);
@@ -844,7 +844,7 @@ final class HudEditorCases {
         if (shotName != null) {
             screenshot(c, shotName);
         }
-        c.ctx().getInput().releaseMouse(0);
+        c.ctx().getInput().releaseMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ticks(3);
     }
 

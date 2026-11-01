@@ -3503,7 +3503,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         leftClick(ctx, 3);
         ctx.waitTicks(5);
         List<Sample> s = stopSampling(ctx);
-        int ctrlSwing = countOut(s, "swing");
+        int ctrlSwing = countOut(s, dev.testkit.compat.McPackets.swingId());
         int ctrlDig = countOut(s, "player_action");
         println("dbedit control (edit mode off): " + ctrlSwing + " swing, " + ctrlDig + " player_action");
         check(ctrlSwing + ctrlDig >= 1, "the control left click sent nothing - the edit-mode check below would prove nothing");
@@ -3523,9 +3523,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         leftClick(ctx, 2);
         ctx.waitTicks(5);
         s = stopSampling(ctx);
-        println("dbedit edit-mode left click: " + countOut(s, "swing") + " swing, " + countOut(s, "player_action")
+        println("dbedit edit-mode left click: " + countOut(s, dev.testkit.compat.McPackets.swingId()) + " swing, " + countOut(s, "player_action")
                 + " player_action, stone broken " + blockAir(ctx, 22, F + 1, 10));
-        check(countOut(s, "swing") >= 1 && countOut(s, "player_action") >= 1, "a left click in edit mode sent no swing/dig");
+        check(countOut(s, dev.testkit.compat.McPackets.swingId()) >= 1 && countOut(s, "player_action") >= 1, "a left click in edit mode sent no swing/dig");
         check(blockAir(ctx, 22, F + 1, 10), "a left click in edit mode did not break the stone");
         // The sim regrows it in 10 s; put it back now for the picks below.
         setBlocks(ctx, Map.of(new int[]{22, F + 1, 10}, Blocks.STONE.defaultBlockState()));
@@ -3595,9 +3595,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         leftClick(ctx, 3);
         ctx.waitTicks(5);
         s = stopSampling(ctx);
-        println("dbedit Hyperion in edit mode: " + countOut(s, "swing") + " swing, " + countOut(s, "player_action")
+        println("dbedit Hyperion in edit mode: " + countOut(s, dev.testkit.compat.McPackets.swingId()) + " swing, " + countOut(s, "player_action")
                 + " player_action");
-        check(countOut(s, "swing") >= 1, "a Hyperion left click in edit mode did not swing");
+        check(countOut(s, dev.testkit.compat.McPackets.swingId()) >= 1, "a Hyperion left click in edit mode did not swing");
         ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(2));
         tpRel(ctx, 20.5, 10.5, -90f, 0f);
         ctx.waitTicks(5);
@@ -3632,9 +3632,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         leftClick(ctx, 3);
         ctx.waitTicks(5);
         s = stopSampling(ctx);
-        println("dbedit after edit mode: " + countOut(s, "swing") + " swing, " + countOut(s, "player_action")
+        println("dbedit after edit mode: " + countOut(s, dev.testkit.compat.McPackets.swingId()) + " swing, " + countOut(s, "player_action")
                 + " player_action");
-        check(countOut(s, "swing") + countOut(s, "player_action") >= 1, "a left click after edit mode sent nothing");
+        check(countOut(s, dev.testkit.compat.McPackets.swingId()) + countOut(s, "player_action") >= 1, "a left click after edit mode sent nothing");
     }
 
     private static boolean aimedAt(ClientGameTestContext ctx, int x, int y, int z) {
@@ -4269,7 +4269,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         leftClick(ctx, 3);
         ctx.waitTicks(5);
         List<Sample> control = stopSampling(ctx);
-        int ctlSwing = countOut(control, "swing");
+        int ctlSwing = countOut(control, dev.testkit.compat.McPackets.swingId());
         int ctlDig = countOut(control, "player_action");
         println("awaitskip control: a left click with no route sent " + ctlSwing + " swing, " + ctlDig + " player_action");
         check(ctlSwing >= 1, "the control left click sent no swing - the click never reached the game, so a clean "
@@ -4319,8 +4319,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         ctx.waitTicks(20);
         List<Sample> modSent = stopSampling(ctx);
         println("awaitskip mod-sent: " + countOut(modSent, "player_action") + " player_action, "
-                + countOut(modSent, "swing") + " swing, " + countOut(modSent, "attack") + " attack");
-        check(countOut(modSent, "attack") >= 1 && countOut(modSent, "swing") >= 1,
+                + countOut(modSent, dev.testkit.compat.McPackets.swingId()) + " swing, " + countOut(modSent, "attack") + " attack");
+        check(countOut(modSent, "attack") >= 1 && countOut(modSent, dev.testkit.compat.McPackets.swingId()) >= 1,
                 "the mod-style attack sent nothing - 'it did not skip' below would prove nothing");
         check(!logHas(m, "left click skipped"), "an attack the mod sent (not his click) skipped the await");
         check(useTicks(modSent).isEmpty() && waitLanded(ctx, 14, 6, 1) == null,
@@ -4412,7 +4412,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     private static int strayClickSwings(List<Sample> s) {
         int stray = 0;
         for (Sample x : s) {
-            long swings = x.out().stream().filter("swing"::equals).count();
+            long swings = x.out().stream().filter(dev.testkit.compat.McPackets.swingId()::equals).count();
             long uses = x.out().stream().filter("use_item"::equals).count();
             stray += (int) Math.max(0, swings - uses);
         }
@@ -5628,6 +5628,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             check(stopped, "the crypt node with nothing to kill did not time out");
 
             // ---- a secret await is not met by our crypt kill ----
+            // A secret bat an earlier case left alive (96-ar-awaitskip's Wither Impact normally kills bats 3 and 4; on
+            // 2026-11-01 26.3 awaitskip stopped early and bat 4, 3.6 blocks off, died to this Wither Impact and met the
+            // secret await before the crypt was ever counted).
+            clearSecretBats(ctx);
             writeRoute(ctx, List.of(handUse(10, 22, 0f, 80f, true, 1)));
             check(arm(ctx, 10, 22, 0f, 80f), "the secret-await route did not start");
             long mc2 = LogTap.mark();
@@ -6164,8 +6168,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             }
             double x = found.getX() + found.getWidth() / 2.0;
             double y = found.getY() + found.getHeight() / 2.0;
-            boolean took = s.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)), false);
-            s.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)));
+            boolean took = s.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
+            s.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)));
             return took ? "ok" : "click at " + x + "," + y + " on \"" + label + "\" was not taken";
         });
         check("ok".equals(result), result + " - on " + labels(ctx));
@@ -6402,7 +6406,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 List<Sample> s = stopSampling(ctx);
                 JsonArray picked = breakerBlocks(ctx);
                 boolean standing = serverState(ctx, 22, F + 1, 6).is(Blocks.STONE);
-                println("656 pick: " + countOut(s, "player_action") + " dig(s), " + countOut(s, "swing")
+                println("656 pick: " + countOut(s, "player_action") + " dig(s), " + countOut(s, dev.testkit.compat.McPackets.swingId())
                         + " swing, server stone " + standing + ", picked " + picked);
                 check(picked != null && picked.size() == 1, "the right click did not pick the stone: " + picked);
                 check(countOut(s, "player_action") == 0, "picking a block made the mod send " + countOut(s, "player_action")
@@ -6416,7 +6420,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 ctx.waitTicks(10);
                 s = stopSampling(ctx);
                 boolean air = serverState(ctx, 22, F + 1, 6).isAir();
-                println("656 his left click: " + countOut(s, "swing") + " swing, " + countOut(s, "player_action")
+                println("656 his left click: " + countOut(s, dev.testkit.compat.McPackets.swingId()) + " swing, " + countOut(s, "player_action")
                         + " dig(s), server air " + air);
                 check(countOut(s, "player_action") >= 1 && air, "his own left click did not break the picked stone");
                 check(!logHas(m, "DUNGEON_BREAKER acted"), "a breaker node acted while edit mode was open");
@@ -6495,9 +6499,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 ctx.waitTicks(10);
                 List<Sample> s = stopSampling(ctx);
                 boolean serverAir = serverState(ctx, 22, F + 1, 8).isAir();
-                println("657 edit-mode left click: " + countOut(s, "swing") + " swing, " + countOut(s, "player_action")
+                println("657 edit-mode left click: " + countOut(s, dev.testkit.compat.McPackets.swingId()) + " swing, " + countOut(s, "player_action")
                         + " dig(s), server air " + serverAir + ", picked " + breakerBlocks(ctx));
-                check(countOut(s, "swing") >= 1, "the left click in edit mode did not swing");
+                check(countOut(s, dev.testkit.compat.McPackets.swingId()) >= 1, "the left click in edit mode did not swing");
                 check(countOut(s, "player_action") >= 1, "the left click in edit mode sent no dig");
                 check(serverAir, "the left click in edit mode did not break the stone on the server");
                 check(breakerBlocks(ctx).isEmpty(), "a left click picked a block");

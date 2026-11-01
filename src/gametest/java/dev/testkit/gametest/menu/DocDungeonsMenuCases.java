@@ -75,7 +75,7 @@ final class DocDungeonsMenuCases {
             });
             c.ctx().getInput().setCursorPos(at[0], at[1]);
             c.ctx().waitTicks(2);
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             c.ctx().waitTicks(4);
             boolean armed = armed(c);
             c.note(String.format(Locale.ROOT, "Start ETable pressed at %.0f,%.0f: armed %s, stop reason \"%s\"", at[0], at[1],
@@ -100,7 +100,7 @@ final class DocDungeonsMenuCases {
             rearm(c);
             c.ctx().getInput().setCursorPos(4, 4);
             c.ctx().waitTicks(2);
-            stopsOn(c, "left click", () -> c.ctx().getInput().pressMouse(0));
+            stopsOn(c, "left click", () -> c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0)));
             // ---- 5: the scroll wheel ----
             rearm(c);
             stopsOn(c, "scroll wheel", () -> c.ctx().getInput().scroll(1.0));
@@ -221,7 +221,7 @@ final class DocDungeonsMenuCases {
             });
             int none = noLeapAfter(c, "Fast: Carol opens a door", () -> c.hx().chat("Carol opened a WITHER door!"));
             c.check(none == 0, "a Fast Door Opener leap fired on its trigger (" + none + " leap click(s))");
-            slot = leapAndClick(c, "Fast: his left click", () -> c.ctx().getInput().pressMouse(0));
+            slot = leapAndClick(c, "Fast: his left click", () -> c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0)));
             c.check(slot == 15, "his left click with the Fast Door Opener leapt to slot " + slot + ", Carol (the opener) is 15");
             // ---- Door Opener Auto on, Fast off: the door opening leaps, his left click does not ----
             c.ctx().runOnClient(mc -> {
@@ -230,7 +230,7 @@ final class DocDungeonsMenuCases {
             });
             slot = leapAndClick(c, "Auto: Alice opens a door", () -> c.hx().chat("Alice opened a WITHER door!"));
             c.check(slot == 11, "an Auto Door Opener leap on Alice's door went to slot " + slot + ", Alice is 11");
-            none = noLeapAfter(c, "Auto: his left click", () -> c.ctx().getInput().pressMouse(0));
+            none = noLeapAfter(c, "Auto: his left click", () -> c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0)));
             c.check(none == 0, "his left click leapt with the Door Opener leap in Auto mode (" + none + " click(s))");
 
             // ---- Class Targets survive a restart: save, load, and the fresh config has them ----

@@ -272,7 +272,7 @@ final class CroesusUiCases {
                     "the number key on the hidden run reached the server as " + k);
             c.ctx().waitTicks(10);
             int afterKey = c.events("menu.click").size();
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             c.waitUntil("the click on the hidden run at the server", mc -> c.events("menu.click").size() > afterKey, 40);
             JsonObject e = c.events("menu.click").get(afterKey);
             c.check(e.get("slot").getAsInt() == 12, "the click on the hidden run landed on " + e);

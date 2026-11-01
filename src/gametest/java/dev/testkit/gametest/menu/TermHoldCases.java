@@ -182,7 +182,7 @@ final class TermHoldCases {
             // The press: on the first correct slot (his own click), then held.
             pointAt(c, todo.get(0), customGui);
             c.ctx().waitTicks(2);
-            c.ctx().getInput().holdMouse(0);
+            c.ctx().getInput().holdMouse(dev.testkit.compat.McKeys.mouse(0));
             int wrongWaited = 0;
             try {
                 c.waitUntil("the press on slot " + todo.get(0) + " to reach the server",
@@ -206,7 +206,7 @@ final class TermHoldCases {
                     c.waitUntil("the held repeat to click slot " + slot, mc -> clicksPerSlot(c).getOrDefault(slot, 0) >= 1, 60);
                 }
             } finally {
-                c.ctx().getInput().releaseMouse(0);
+                c.ctx().getInput().releaseMouse(dev.testkit.compat.McKeys.mouse(0));
             }
             JsonObject solved = MenuKit.awaitEvent(c, "terminal.solved", 60);
             int repeats = c.onClient(mc -> (Integer) Mod.field(HOLD, "clicks")) - before;

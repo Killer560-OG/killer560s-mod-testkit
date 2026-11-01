@@ -775,7 +775,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         printTrace("boom", s);
         check(broke, "/ar add boom did not blow the cracked bricks in front of him");
         check(delta(before, "superbooms") == 1, "the server ran " + delta(before, "superbooms") + " superboom(s)");
-        c.note("boom: " + count(s, "player_action") + " player_action, " + count(s, "swing") + " swing; bricks gone");
+        c.note("boom: " + count(s, "player_action") + " player_action, " + count(s, dev.testkit.compat.McPackets.swingId()) + " swing; bricks gone");
         noteFlags(c, s);
     }
 
@@ -858,7 +858,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 }
                 int total = count(s, "player_action");
                 notes.append(String.format(Locale.ROOT, "multi %s: %d digs, most %d on a tick, %d swing(s), all gone %s; ",
-                        multi ? "ON" : "OFF", total, most, count(s, "swing"), gone));
+                        multi ? "ON" : "OFF", total, most, count(s, dev.testkit.compat.McPackets.swingId()), gone));
                 check(gone, "multi break " + multi + ": not all six snow blocks broke");
                 check(total == 6, "multi break " + multi + ": " + total + " player_action packets for six blocks");
                 check(multi ? most == 6 : most == 1, "multi break " + multi + ": " + most + " digs on one tick");
@@ -1191,7 +1191,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         ctx.waitTicks(5);
         List<Sample> control = stopSampling(ctx);
         printTrace("awaitskip control", control);
-        check(count(control, "swing") >= 1, "the control left click sent no swing - the click never reached the game, so a "
+        check(count(control, dev.testkit.compat.McPackets.swingId()) >= 1, "the control left click sent no swing - the click never reached the game, so a "
                 + "clean window below would prove nothing");
 
         JsonObject w = ew(6, 6, 14, 6, true);
@@ -1225,7 +1225,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         // A use that succeeds client-side swings the hand in its own tick; any other swing is the click getting through.
         int stray = 0;
         for (Sample x : s) {
-            stray += (int) Math.max(0, x.out().stream().filter("swing"::equals).count()
+            stray += (int) Math.max(0, x.out().stream().filter(dev.testkit.compat.McPackets.swingId()::equals).count()
                     - x.out().stream().filter("use_item"::equals).count());
         }
         check(stray == 0, "the swallowed left click still sent " + stray + " swing(s) of its own");
@@ -1269,7 +1269,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
                     new Object[]{"test"}));
         }
-        c.note("awaitskip: control click " + count(control, "swing") + " swing / " + count(control, "player_action")
+        c.note("awaitskip: control click " + count(control, dev.testkit.compat.McPackets.swingId()) + " swing / " + count(control, "player_action")
                 + " player_action; await skipped by a left click, 1 use, 0 stray swing, 0 player_action, landed " + landed
                 + "; crypt kill wait skipped by a left click, 0 player_action");
         List<Sample> all = new ArrayList<>(s);
@@ -3799,9 +3799,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             double x = found.getX() + found.getWidth() / 2.0;
             double y = found.getY() + found.getHeight() / 2.0;
             boolean took = sc.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(x, y,
-                    new net.minecraft.client.input.MouseButtonInfo(0, 0)), false);
+                    new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
             sc.mouseReleased(new net.minecraft.client.input.MouseButtonEvent(x, y,
-                    new net.minecraft.client.input.MouseButtonInfo(0, 0)));
+                    new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)));
             return took ? "ok" : "click at " + x + "," + y + " on \"" + label + "\" was not taken";
         });
         check("ok".equals(result), result);

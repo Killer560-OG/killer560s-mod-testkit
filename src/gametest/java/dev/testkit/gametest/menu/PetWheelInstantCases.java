@@ -182,7 +182,7 @@ final class PetWheelInstantCases {
         if (hold) {
             c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(KEY));
         } else {
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
         }
         boolean inFrame = sent.get() != null;
         c.waitUntil("the pets command", mc -> sent.get() != null, 60);

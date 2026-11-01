@@ -136,14 +136,14 @@ final class InteractiveMapCases {
         double[] a = toWindow(c, s, sx, sy);
         c.ctx().getInput().setCursorPos(a[0], a[1]);
         c.ticks(2);
-        c.ctx().getInput().holdMouse(button);
+        c.ctx().getInput().holdMouse(dev.testkit.compat.McKeys.mouse(button));
         c.ticks(2);
         for (int i = 1; i <= 6; i++) {
             double[] p = toWindow(c, s, sx + dx * i / 6.0, sy);
             c.ctx().getInput().setCursorPos(p[0], p[1]);
             c.ticks(1);
         }
-        c.ctx().getInput().releaseMouse(button);
+        c.ctx().getInput().releaseMouse(dev.testkit.compat.McKeys.mouse(button));
         c.ticks(3);
     }
 
@@ -151,7 +151,7 @@ final class InteractiveMapCases {
         double[] a = toWindow(c, s, sx, sy);
         c.ctx().getInput().setCursorPos(a[0], a[1]);
         c.ticks(2);
-        c.ctx().getInput().pressMouse(button);
+        c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(button));
         c.ticks(3);
     }
 

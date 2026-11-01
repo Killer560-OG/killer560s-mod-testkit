@@ -75,7 +75,7 @@ final class MenuACases {
 
     static void press(Screen s, double x, double y) {
         net.minecraft.client.input.MouseButtonEvent e = new net.minecraft.client.input.MouseButtonEvent(x, y,
-                new net.minecraft.client.input.MouseButtonInfo(0, 0));
+                new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0));
         s.mouseClicked(e, false);
         s.mouseReleased(e);
     }

@@ -494,7 +494,7 @@ final class Ap3EditCases {
         });
         c.ctx().getInput().setCursorPos(a[0], a[1]);
         c.ticks(2);
-        c.ctx().getInput().pressMouse(0);
+        c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ticks(3);
     }
 

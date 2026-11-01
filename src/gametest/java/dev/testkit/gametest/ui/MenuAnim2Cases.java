@@ -178,15 +178,15 @@ final class MenuAnim2Cases {
             double y = slider.getY() + slider.getHeight() / 2.0;
             c.check(menuFile().equals("FAST"), "control: the file says FAST before the drag: " + menuFile());
 
-            c.onClient(mc -> slider.mouseClicked(new MouseButtonEvent(slowX, y, new MouseButtonInfo(0, 0)), false));
+            c.onClient(mc -> slider.mouseClicked(new MouseButtonEvent(slowX, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false));
             String livePress = speed();
             boolean filePress = menuFile().equals("FAST");
-            c.onClient(mc -> slider.mouseDragged(new MouseButtonEvent(normalX, y, new MouseButtonInfo(0, 0)),
+            c.onClient(mc -> slider.mouseDragged(new MouseButtonEvent(normalX, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)),
                     normalX - slowX, 0));
             String liveDrag = speed();
             boolean fileDrag = menuFile().equals("FAST");
             c.onClient(mc -> {
-                slider.mouseReleased(new MouseButtonEvent(normalX, y, new MouseButtonInfo(0, 0)));
+                slider.mouseReleased(new MouseButtonEvent(normalX, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)));
                 return null;
             });
             String fileAfter = menuFile();
@@ -215,7 +215,7 @@ final class MenuAnim2Cases {
     }
 
     static void press(AbstractWidget w, double x) {
-        MouseButtonEvent e = new MouseButtonEvent(x, w.getY() + w.getHeight() / 2.0, new MouseButtonInfo(0, 0));
+        MouseButtonEvent e = new MouseButtonEvent(x, w.getY() + w.getHeight() / 2.0, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0));
         w.mouseClicked(e, false);
         w.mouseReleased(e);
     }

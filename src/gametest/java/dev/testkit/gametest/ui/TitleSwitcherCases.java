@@ -69,8 +69,8 @@ final class TitleSwitcherCases {
     private static boolean click(Screen s, AbstractWidget w, int button) {
         double x = w.getX() + w.getWidth() / 2.0;
         double y = w.getY() + w.getHeight() / 2.0;
-        boolean took = s.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(button, 0)), false);
-        s.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(button, 0)));
+        boolean took = s.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(button), 0)), false);
+        s.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(button), 0)));
         return took;
     }
 

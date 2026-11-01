@@ -316,7 +316,7 @@ final class ScoreboardEditorCases {
     private static void click(UiCase c, Screen s, double sx, double sy) {
         moveTo(c, s, sx, sy);
         c.ticks(2);
-        c.ctx().getInput().pressMouse(0);
+        c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ticks(3);
     }
 
@@ -328,7 +328,7 @@ final class ScoreboardEditorCases {
     private static boolean drag(UiCase c, ModScreenDriver d, double x, double y0, double y1, int steps, String shot) {
         moveTo(c, d.screen, x, y0);
         c.ticks(2);
-        c.ctx().getInput().holdMouse(0);
+        c.ctx().getInput().holdMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ticks(2);
         for (int i = 1; i <= steps; i++) {
             moveTo(c, d.screen, x, y0 + (y1 - y0) * i / steps);
@@ -342,7 +342,7 @@ final class ScoreboardEditorCases {
         if (shot != null) {
             picture(c, shot);
         }
-        c.ctx().getInput().releaseMouse(0);
+        c.ctx().getInput().releaseMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ticks(3);
         return dragging;
     }
@@ -590,7 +590,7 @@ final class ScoreboardEditorCases {
         c.check(at[1] < at[3], "the last row is not visible after scrolling to the end (row y " + at[1] + ")");
         moveTo(c, d.screen, at[0], at[1]);
         c.ticks(2);
-        c.ctx().getInput().holdMouse(0);
+        c.ctx().getInput().holdMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ticks(2);
         for (int i = 1; i <= 6; i++) {
             moveTo(c, d.screen, at[0], at[1] + (at[2] - at[1]) * i / 6.0);
@@ -611,7 +611,7 @@ final class ScoreboardEditorCases {
             }
             c.ticks(1);
         }
-        c.ctx().getInput().releaseMouse(0);
+        c.ctx().getInput().releaseMouse(dev.testkit.compat.McKeys.mouse(0));
         c.ticks(3);
         List<String> afterDrop = c.onClient(mc -> savedOrder());
         c.note("auto-scroll: held '" + last + "' at the top edge; list scroll reached " + scroll + " after " + waited
@@ -716,9 +716,9 @@ final class ScoreboardEditorCases {
                             AbstractWidget l = list(d);
                             int y = num(l, "rowY", 1) + 8;
                             l.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(l.getX() + 30, y,
-                                    new net.minecraft.client.input.MouseButtonInfo(0, 0)), false);
+                                    new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
                             l.mouseReleased(new net.minecraft.client.input.MouseButtonEvent(l.getX() + 30, y,
-                                    new net.minecraft.client.input.MouseButtonInfo(0, 0)));
+                                    new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)));
                             d.rebuild();
                             Object selected = Mod.staticCall(EDITOR, "selected",
                                     Mod.enumValue(EDITOR + "$Section", "LINES"));

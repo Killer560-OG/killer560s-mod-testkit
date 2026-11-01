@@ -82,7 +82,7 @@ final class OpenMenuKeyCases {
                 }
                 String label = ModScreenDriver.label(w);
                 MouseButtonEvent e = new MouseButtonEvent(w.getX() + w.getWidth() / 2.0, w.getY() + w.getHeight() / 2.0,
-                        new MouseButtonInfo(0, 0));
+                        new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0));
                 s.mouseClicked(e, false);
                 s.mouseReleased(e);
                 return label;

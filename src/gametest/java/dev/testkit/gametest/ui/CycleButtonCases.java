@@ -179,8 +179,8 @@ final class CycleButtonCases {
                     seen.add(null);
                     return seen;
                 }
-                d.screen.mouseClicked(new MouseButtonEvent(s.gx(), s.gy(), new MouseButtonInfo(0, 0)), false);
-                d.screen.mouseReleased(new MouseButtonEvent(s.gx(), s.gy(), new MouseButtonInfo(0, 0)));
+                d.screen.mouseClicked(new MouseButtonEvent(s.gx(), s.gy(), new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
+                d.screen.mouseReleased(new MouseButtonEvent(s.gx(), s.gy(), new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)));
                 rebuild(d);
                 Spot after = locate(d, t, false, Side.RIGHT);
                 if (after == null) {
@@ -210,8 +210,8 @@ final class CycleButtonCases {
                     if (s == null) {
                         return null;
                     }
-                    d.screen.mouseClicked(new MouseButtonEvent(s.gx(), s.gy(), new MouseButtonInfo(1, 0)), false);
-                    d.screen.mouseReleased(new MouseButtonEvent(s.gx(), s.gy(), new MouseButtonInfo(1, 0)));
+                    d.screen.mouseClicked(new MouseButtonEvent(s.gx(), s.gy(), new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(1), 0)), false);
+                    d.screen.mouseReleased(new MouseButtonEvent(s.gx(), s.gy(), new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(1), 0)));
                     rebuild(d);
                 }
                 Spot s = locate(d, t, false, Side.RIGHT);
@@ -286,7 +286,7 @@ final class CycleButtonCases {
         }
         c.ctx().getInput().setCursorPos(s.wx(), s.wy());
         c.ticks(1);
-        c.ctx().getInput().pressMouse(button);
+        c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(button));
         c.ticks(1);
         return c.onClient(mc -> {
             if (McCompat.screen(mc) != d.screen) {

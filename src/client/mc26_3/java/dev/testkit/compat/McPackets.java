@@ -23,6 +23,11 @@ public final class McPackets {
         return packet instanceof ServerboundPunchPacket;
     }
 
+    /** The id PacketTrace records for an arm swing: "punch" here (ServerboundPunchPacket). Count swings by this, never by a literal. */
+    public static String swingId() {
+        return "punch";
+    }
+
     public static float useItemYRot(ServerboundUseItemPacket p) {
         return p.yRot();
     }

@@ -79,7 +79,7 @@ final class LeapWizardCases {
     static void rightClick(UiCase c, Screen s, AbstractWidget w) {
         c.check(w != null, "no such control");
         InvBatchCases.cursor(c, s, w.getX() + w.getWidth() / 2.0, w.getY() + w.getHeight() / 2.0);
-        c.ctx().getInput().pressMouse(1);
+        c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(1));
         c.ticks(3);
     }
 
@@ -257,8 +257,8 @@ final class LeapWizardCases {
             int[] cb = (int[]) Mod.call(w, "controlBounds");
             double x = cb[0] + cb[2] * (button == 0 ? 0.75 : 0.5);
             double y = cb[1] + cb[3] / 2.0;
-            w.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(button, 0)), false);
-            w.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(button, 0)));
+            w.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(button), 0)), false);
+            w.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(button), 0)));
             return null;
         });
         c.ticks(1);

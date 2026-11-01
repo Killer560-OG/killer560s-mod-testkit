@@ -173,8 +173,8 @@ final class LeapEditorCases {
         c.onClient(mc -> {
             double x = w.getX() + w.getWidth() / 2.0;
             double y = w.getY() + w.getHeight() / 2.0;
-            w.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)), false);
-            w.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)));
+            w.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
+            w.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)));
             return null;
         });
         c.ctx().waitTicks(2);

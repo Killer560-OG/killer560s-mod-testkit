@@ -443,8 +443,8 @@ final class ModScreenDriver {
             x = pill[0] + pill[2] * 0.75;
             y = pill[1] + pill[3] / 2.0;
         }
-        boolean took = w.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)), false);
-        w.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)));
+        boolean took = w.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
+        w.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)));
         return took;
     }
 

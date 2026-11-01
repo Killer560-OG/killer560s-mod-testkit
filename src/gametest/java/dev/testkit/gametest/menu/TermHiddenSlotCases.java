@@ -149,8 +149,8 @@ final class TermHiddenSlotCases {
         cursorGui(c, gx, gy);
         c.ctx().runOnClient(mc -> {
             long window = mc.getWindow().handle();
-            Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(button, mods), 1);
-            Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(button, mods), 0);
+            Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(button), mods), 1);
+            Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(button), mods), 0);
         });
         c.ctx().waitTicks(4);
     }

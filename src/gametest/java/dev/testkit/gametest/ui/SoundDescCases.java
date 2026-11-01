@@ -135,7 +135,7 @@ final class SoundDescCases {
                 for (Object w : widgets) {
                     if (((net.minecraft.client.gui.components.AbstractWidget) w).getMessage().getString().startsWith("Show Descriptions")) {
                         ((net.minecraft.client.gui.components.AbstractWidget) w).onClick(
-                                new net.minecraft.client.input.MouseButtonEvent(0, 0, new net.minecraft.client.input.MouseButtonInfo(0, 0)), false);
+                                new net.minecraft.client.input.MouseButtonEvent(0, 0, new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
                         pressed++;
                     }
                 }
@@ -282,7 +282,7 @@ final class SoundDescCases {
                             var aw = (net.minecraft.client.gui.components.AbstractWidget) w;
                             if (aw.getMessage().getString().startsWith("Preview")) {
                                 aw.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(aw.getX() + 3, aw.getY() + 3,
-                                        new net.minecraft.client.input.MouseButtonInfo(0, 0)), false);
+                                        new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
                                 return null;
                             }
                         }

@@ -17,4 +17,9 @@ public final class McKeys {
     public static int nat(int glfw) {
         return glfw;
     }
+
+    /** GLFW mouse button (0 left, 1 right, 2 middle) -> this version's native button. 26.2: identity. */
+    public static int mouse(int glfwButton) {
+        return glfwButton;
+    }
 }

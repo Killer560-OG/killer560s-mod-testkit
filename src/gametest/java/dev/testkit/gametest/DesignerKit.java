@@ -129,14 +129,14 @@ final class DesignerKit {
         double[] at = ctx.computeOnClient(mc -> toWindow(mc, McCompat.screen(mc), sx, sy));
         ctx.getInput().setCursorPos(at[0], at[1]);
         ctx.waitTicks(2);
-        ctx.getInput().pressMouse(button);
+        ctx.getInput().pressMouse(dev.testkit.compat.McKeys.mouse(button));
         ctx.waitTicks(4);
     }
 
     private static void press(ClientGameTestContext ctx, double[] at) {
         ctx.getInput().setCursorPos(at[0], at[1]);
         ctx.waitTicks(2);
-        ctx.getInput().pressMouse(0);
+        ctx.getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
         ctx.waitTicks(4);
     }
 

@@ -154,7 +154,7 @@ final class CroesusStableCases {
 
     static void press(Session c, int slot, String expectTitle) {
         CroesusUiCases.hover(c, slot);
-        c.ctx().getInput().pressMouse(0);
+        c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
         MenuKit.awaitScreen(c, expectTitle, 100);
         c.ctx().getInput().setCursorPos(2, 2);
         c.ctx().waitTicks(8);
@@ -237,7 +237,7 @@ final class CroesusStableCases {
             recording = true;
             showList(c, list, 10);
             CroesusUiCases.hover(c, 10);
-            c.ctx().getInput().pressMouse(0); // a hidden run still opens (texture-only hide)
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0)); // a hidden run still opens (texture-only hide)
             MenuKit.awaitScreen(c, CroesusKeyCases.RUN, 100);
             c.ctx().waitTicks(20);
             press(c, 11, "Obsidian Chest");
@@ -273,7 +273,7 @@ final class CroesusStableCases {
             press(c, 10, CroesusKeyCases.RUN);
             press(c, 10, "Bedrock Chest");
             CroesusUiCases.hover(c, 31);
-            c.ctx().getInput().pressMouse(0); // the claim; the server closes Croesus, as Hypixel does
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0)); // the claim; the server closes Croesus, as Hypixel does
             MenuKit.awaitNoScreen(c, 60);
             // Back to the list, its head one refresh behind: still "No chests opened yet!".
             FRAMES.clear();
@@ -293,7 +293,7 @@ final class CroesusStableCases {
             press(c, 10, CroesusKeyCases.RUN);
             press(c, 11, "Obsidian Chest");
             CroesusUiCases.hover(c, 31);
-            c.ctx().getInput().pressMouse(0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
             MenuKit.awaitNoScreen(c, 60);
             recording = true;
             showList(c, opened, 10);

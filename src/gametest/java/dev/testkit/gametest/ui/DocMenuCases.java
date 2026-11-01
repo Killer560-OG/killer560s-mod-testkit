@@ -85,7 +85,7 @@ final class DocMenuCases {
     }
 
     private static void click(Screen s, double x, double y, int button) {
-        MouseButtonEvent e = new MouseButtonEvent(x, y, new MouseButtonInfo(button, 0));
+        MouseButtonEvent e = new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(button), 0));
         s.mouseClicked(e, false);
         s.mouseReleased(e);
     }
@@ -958,7 +958,7 @@ final class DocMenuCases {
                 // the knob at 100%: value (1.0 - min) / span
                 double v = valueFor(1.0f);
                 double x = t[0] + v * (t[1] - t[0]);
-                s[0].mouseClicked(new MouseButtonEvent(x, slider.getY() + slider.getHeight() / 2.0, new MouseButtonInfo(0, 0)), false);
+                s[0].mouseClicked(new MouseButtonEvent(x, slider.getY() + slider.getHeight() / 2.0, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
                 return Mod.staticCall("gui.ThemedSliderButton", "liveDragKey") == null ? "the press started no live drag" : null;
             });
             if (why != null) {
@@ -980,7 +980,7 @@ final class DocMenuCases {
                     float f = (Float) Mod.staticCall("hud.AutoScale", "appliedFactor", s[0]);
                     double windowX = track[0] + valueFor(want) * (track[1] - track[0]);
                     double y = first[0].getY() + first[0].getHeight() / 2.0;
-                    s[0].mouseDragged(new MouseButtonEvent(windowX / f, y, new MouseButtonInfo(0, 0)), -1, 0);
+                    s[0].mouseDragged(new MouseButtonEvent(windowX / f, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), -1, 0);
                     return null;
                 });
                 c.ticks(2); // a frame: the relayout runs at the top of the menu's render
@@ -1026,7 +1026,7 @@ final class DocMenuCases {
             c.check(element == null || elementAfter < elementBefore, "the HUD element's scale did not follow the drag");
             c.check(handedOver, "the menu was never rebuilt under the drag (the same slider throughout)");
             String rel = c.onClient(mc -> {
-                s[0].mouseReleased(new MouseButtonEvent(0, 0, new MouseButtonInfo(0, 0)));
+                s[0].mouseReleased(new MouseButtonEvent(0, 0, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)));
                 return Mod.staticCall("gui.ThemedSliderButton", "liveDragKey") == null ? null : "the release left a live drag";
             });
             c.check(rel == null, rel);
