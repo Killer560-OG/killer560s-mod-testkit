@@ -173,6 +173,10 @@ public class ZpewLooksTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ZpewMultiTickTests.USES.clear());
         ZpewCampaignTests.captureStart(ctx);
         long sent0 = ZpewCampaignTests.num(ctx, "aimedWarpsSent");
+        ctx.runOnClient(mc -> {
+            dev.testkit.harness.WireCapture.describe = ZpewLooksTests::describe;
+            dev.testkit.harness.WireCapture.start();
+        });
         fire.run();
         if (waitAimed) {
             // A burst after a kept teleport waits for Blink's bank to be covered (at most 3 s): wait for it to go.
@@ -204,7 +208,85 @@ public class ZpewLooksTests implements FabricClientGameTest {
         }
         scenario.log(String.format(Locale.ROOT, "%s: %d use(s) in client tick(s) %s, %d server warp(s), landings [%s ], flags %s",
                 label, uses.size(), ticks, warps, at, flags));
+        ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
+        if (label.startsWith("aimed")) {
+            wireLog(scenario, label);
+        }
         return new Result(uses.size(), ticks.size(), warps, tps, flags);
+    }
+
+    /** The serverbound packets as the encoder wrote them (the real wire order, after Blink's holds): move and use
+     *  packets with their rotation. zpew263-1101: a BadPacketsJ seen only at 0 ms needed the wire, not the hand-off. */
+    static String describe(Object p) {
+        if (p instanceof ServerboundUseItemPacket u) {
+            return String.format(Locale.ROOT, "USE %.2f/%.2f seq %d", dev.testkit.compat.McPackets.useItemYRot(u),
+                    dev.testkit.compat.McPackets.useItemXRot(u), dev.testkit.compat.McPackets.useItemSequence(u));
+        }
+        if (p instanceof ServerboundMovePlayerPacket m) {
+            String k = m.hasPosition() ? (m.hasRotation() ? "posrot" : "pos") : (m.hasRotation() ? "rot" : "status");
+            return m.hasRotation() ? String.format(Locale.ROOT, "move-%s %.2f/%.2f", k, m.getYRot(0), m.getXRot(0)) : "move-" + k;
+        }
+        String n = p.getClass().getSimpleName();
+        return n.startsWith("Serverbound") ? n.substring(11).replace("Packet", "") : n;
+    }
+
+    /** One line per wire packet from the first use_item -3 packets to the end of the window, with a BadPacketsJ replay. */
+    static void wireLog(Scenario scenario, String label) {
+        List<dev.testkit.harness.WireCapture.Sent> w = dev.testkit.harness.WireCapture.snapshot();
+        int first = -1;
+        for (int i = 0; i < w.size(); i++) {
+            if (w.get(i).text().startsWith("USE")) {
+                first = i;
+                break;
+            }
+        }
+        if (first < 0) {
+            scenario.log("  wire " + label + ": no use_item on the wire (" + w.size() + " packets)");
+            return;
+        }
+        long t0 = w.get(first).nanos();
+        StringBuilder sb = new StringBuilder();
+        int shown = 0;
+        float[] held = null;
+        boolean tpAnswer = false;
+        boolean moved = false;
+        float yaw = Float.NaN;
+        float pitch = Float.NaN;
+        for (int i = Math.max(0, first - 3); i < w.size() && shown < 80; i++, shown++) {
+            String t = w.get(i).text();
+            String mark = "";
+            if (t.startsWith("USE")) {
+                String[] a = t.substring(4).split(" ")[0].split("/");
+                held = new float[]{Float.parseFloat(a[0]), Float.parseFloat(a[1])};
+            } else if (t.startsWith("move-")) {
+                if (t.contains("/")) {
+                    String[] a = t.substring(t.indexOf(' ') + 1).split("/");
+                    yaw = Float.parseFloat(a[0]);
+                    pitch = Float.parseFloat(a[1]);
+                }
+                if (tpAnswer) {
+                    tpAnswer = false;
+                } else {
+                    moved = true;
+                    if (held != null && (Math.abs(held[0] - yaw) > 0.005f || Math.abs(held[1] - pitch) > 0.005f)) {
+                        mark = "  <-- J? use " + held[0] + "/" + held[1];
+                    }
+                    held = null;
+                }
+            } else if (t.equals("AcceptTeleportation")) {
+                tpAnswer = true;
+            } else if (t.equals("ClientTickEnd")) {
+                if (!moved && held != null && (Math.abs(held[0] - yaw) > 0.005f || Math.abs(held[1] - pitch) > 0.005f)) {
+                    mark = "  <-- J? (tick-end) use " + held[0] + "/" + held[1];
+                }
+                if (!moved) {
+                    held = null;
+                }
+                moved = false;
+            }
+            sb.append(String.format(Locale.ROOT, "%n    %+7.1f ms %s%s", (w.get(i).nanos() - t0) / 1e6, t, mark));
+        }
+        scenario.log("  wire " + label + ":" + sb);
     }
 
     /**
