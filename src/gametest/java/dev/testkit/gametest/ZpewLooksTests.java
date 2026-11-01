@@ -362,10 +362,13 @@ public class ZpewLooksTests implements FabricClientGameTest {
                             ZpewCampaignTests.tpTo(ctx, server, who, feet(0).x, feet(0).y, feet(0).z, true);
                             ctx.waitTicks(30); // bank refills standing still
                             long bank = BlinkTests.cnum(ctx, "banked");
+                            long looks0 = lookReports(ctx);
                             long sent0 = ZpewCampaignTests.num(ctx, "aimedWarpsSent");
                             Result r = shot(ctx, server, hx, scenario, who, lat, "aimed n=" + n + " rep " + rep + " (bank " + bank + ")",
                                     presses(ctx, n), n);
                             long sent = ZpewCampaignTests.num(ctx, "aimedWarpsSent") - sent0;
+                            scenario.log("  aimed n=" + n + " rep " + rep + ": spent ticks that reported their own look: "
+                                    + (looks0 < 0 ? "n/a (jar without spentLooksReported)" : String.valueOf(lookReports(ctx) - looks0)));
                             // the n uses leave inside ONE real tick; on the wire they are n ticks (n - 1 banked)
                             if (sent != n || r.ticks() != 1 || !landedAll(r, n) || !r.flags().isEmpty()) {
                                 problems.add("aimed n=" + n + " rep " + rep + ": sent " + sent + ", " + r);
@@ -387,6 +390,15 @@ public class ZpewLooksTests implements FabricClientGameTest {
                 throw new AssertionError("zpewlk " + lat + " ms: " + problems);
             }
         });
+    }
+
+    /** BlinkCharge.spentLooksReported (zpew263-1101), -1 on a jar without it. */
+    static long lookReports(ClientGameTestContext ctx) {
+        try {
+            return BlinkTests.cnum(ctx, "spentLooksReported");
+        } catch (RuntimeException e) {
+            return -1;
+        }
     }
 
     static boolean cheat(ClientGameTestContext ctx) {
