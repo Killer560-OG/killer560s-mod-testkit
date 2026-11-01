@@ -1294,3 +1294,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   150 ms Latency case, before any click (g2 1027-aafast-cpt1-300); the rerun was clean. It is the Latency teardown, not a feature.
   Frames Per Tick on experimental checks: Grim cancels the flagged second-frame clicks, the mod resends after its 1 s
   pending timeout, and the device still solves (76 sent, 40 reached, fpt15).
+- 1101-ap3-*-once-reenter / 1101-boss-ap3-termaura-run (`Ap3Stop1101Cases`, `boss/Ap3TermAuraCases.runIn`, mod ap3-stop-1101):
+  a Stop / Term Aura fires once per entry and a Term Aura stops him. Judged from per-tick positions (a standstill is a tick
+  moving < 0.01). A Term Aura node only clicks a stand whose feet are at or below his EYES (`TerminalAuraFeature.pick`,
+  Hypixel's no-open-from-below rule), so a run on the pillar's ground got "no terminal in range" whatever `minDy` said;
+  the run-in case lays a runway level with the stand (blocks at G+2). On the base jar 1101-ap3-stop-once-reenter passes
+  too (the edge detector already fired a plain Stop once per entry); the Term Aura cases are the ones a pre-1101 jar fails.
