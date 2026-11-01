@@ -304,8 +304,15 @@ tasks.register("prepareTestServer") {
 				"view-distance=8",
 				"generate-structures=false",
 				"spawn-monsters=false",
+				"white-list=false",
 				"motd=Anticheat test server"
 			].join("\n") + "\n"
+		}
+		// Minecraft 26.3's dedicated server writes white-list=true by default (26.2 wrote false): every join was refused
+		// "You are not white-listed on this server!" (2026-11-01). The test player is never on a list, so force it off.
+		if (props.text =~ /(?m)^white-list=true\s*$/) {
+			props.text = props.text.replaceAll(/(?m)^white-list=true\s*$/, "white-list=false")
+			logger.lifecycle("Test server white-list turned off (26.3 writes it on)")
 		}
 		// -Pport: patched in place, so every other line the server has written stays as it is.
 		if (requestedPort != null) {

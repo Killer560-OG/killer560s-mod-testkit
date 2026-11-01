@@ -60,4 +60,9 @@ public final class McPackets {
         return new net.minecraft.network.protocol.game.ClientboundMoveEntityPacket.Pos(id,
                 new net.minecraft.network.protocol.game.VecDelta.Linear(dx, dy, dz), onGround);
     }
+
+    /** Bytes between a sign_update packet's id and its first line on the wire. 26.3: BlockPos long, then the four strings (fixedSizeList, no count), then the SignTextSlot after them (javap STREAM_CODEC). */
+    public static int signUpdateBytesBeforeLines() {
+        return 8;
+    }
 }

@@ -452,11 +452,11 @@ public class JoinFingerprintTest implements FabricClientGameTest {
         return n;
     }
 
-    /** sign_update: id VarInt, BlockPos long, boolean front, four strings. */
+    /** sign_update: id VarInt, BlockPos long, then (26.2) boolean front and four strings, or (26.3) four strings and the slot. */
     private static String[] decodeSignUpdate(byte[] b) {
         int[] p = {0};
         readVarInt(b, p);
-        p[0] += 8 + 1;
+        p[0] += dev.testkit.compat.McPackets.signUpdateBytesBeforeLines();
         String[] lines = new String[4];
         for (int i = 0; i < 4; i++) {
             lines[i] = readString(b, p);

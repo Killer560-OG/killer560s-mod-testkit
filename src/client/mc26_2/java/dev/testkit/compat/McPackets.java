@@ -55,4 +55,9 @@ public final class McPackets {
             short dz, boolean onGround) {
         return new net.minecraft.network.protocol.game.ClientboundMoveEntityPacket.Pos(id, dx, dy, dz, onGround);
     }
+
+    /** Bytes between a sign_update packet's id and its first line on the wire. 26.2: BlockPos long, then the boolean front flag, then the four strings. */
+    public static int signUpdateBytesBeforeLines() {
+        return 9;
+    }
 }
