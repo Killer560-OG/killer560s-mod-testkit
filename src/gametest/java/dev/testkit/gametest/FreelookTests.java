@@ -62,7 +62,7 @@ public class FreelookTests implements FabricClientGameTest {
                 boolean defaultOn = (Boolean) Mod.call(fresh, "isEnabled");
                 Mod.set(CFG, "setEnabled", true);
                 Mod.set(CFG, "setMode", Mod.enumValue(MODE, "HOLD"));
-                Mod.set(CFG, "setPanKeyCode", 342); // Left Alt
+                Mod.set(CFG, "setPanKeyCode", com.mojang.blaze3d.platform.InputConstants.KEY_LALT); // Left Alt
                 Mod.call(Mod.cfg(CFG), "save");
                 // Change the live object, then load from disk as a restart would.
                 Mod.set(CFG, "setEnabled", false);

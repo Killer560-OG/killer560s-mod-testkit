@@ -126,7 +126,7 @@ final class DungeonMenuCases {
             c.waitUntil("the overlay to hide the vanilla menu", mc ->
                     (Boolean) Mod.staticCall("spiritleap.SpiritLeapOverlayFeature", "isHiding", McCompat.screen(mc)), 100);
             c.ctx().waitTicks(10);   // SETTLE_MS = 110 before keys act (SpiritLeapOverlayFeature.java:72)
-            c.ctx().getInput().pressKey(49);   // GLFW_KEY_1 -> spot 0
+            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_1);   // GLFW_KEY_1 -> spot 0
             JsonObject action = MenuKit.awaitEvent(c, "menu.action", 60);
             int slot = action.get("slot").getAsInt();
             String input = action.get("input").getAsString();

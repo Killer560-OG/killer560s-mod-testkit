@@ -251,7 +251,7 @@ public class SimDummyLeverTests implements FabricClientGameTest {
         SENT_USES.clear();
         PacketTrace.tap = p -> {
             if (p instanceof ServerboundUseItemOnPacket u) {
-                SENT_USES.add(u.getHitResult().getBlockPos().immutable());
+                SENT_USES.add(dev.testkit.compat.McPackets.useItemOnHitResult(u).getBlockPos().immutable());
             }
         };
         ctx.runOnClient(mc -> {

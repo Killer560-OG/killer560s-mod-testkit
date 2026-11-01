@@ -94,7 +94,7 @@ public final class HxDungeonModule implements HxModule {
         stand.snapTo(x, y + mob.getBbHeight() + 0.1, z, 0f, 0f);
         stand.setInvisible(true);
         stand.setNoGravity(true);
-        stand.setInvulnerable(true);
+        dev.testkit.server.compat.McServer.setInvulnerable(stand, true);
         byte flags = stand.getEntityData().get(net.minecraft.world.entity.decoration.ArmorStand.DATA_CLIENT_FLAGS);
         stand.getEntityData().set(net.minecraft.world.entity.decoration.ArmorStand.DATA_CLIENT_FLAGS,
                 (byte) (flags | net.minecraft.world.entity.decoration.ArmorStand.CLIENT_FLAG_MARKER));

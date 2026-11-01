@@ -22,7 +22,7 @@
 #   -ModUnderTest <jar>  any Fabric mod jar. Default: the newest snapshot folder under jarsDir holding a jar that
 #                        matches modJarPattern (testkit.properties; get-mod.ps1 fills it), falling back to the
 #                        modSource checkout's build/libs. Pass it explicitly when it matters.
-#   -Minecraft <ver>     26.1.2 (default) or 26.2. Passes -Pminecraft_version and picks that version's jar. When it is
+#   -Minecraft <ver>     26.3 (default) or 26.2. Passes -Pminecraft_version and picks that version's jar. When it is
 #                        not given and -ModUnderTest is, it is read from the jar's fabric.mod.json (depends.minecraft);
 #                        a jar whose range excludes the run's version is refused, because loader would only refuse it later.
 #   -NoMod               run WITHOUT any mod (no -PmodUnderTest): a baseline, e.g. for 65-join-fingerprint.
@@ -34,7 +34,7 @@ param(
     [string]$Window = "",
     [string[]]$Extra = @(),
     [string]$ModUnderTest = "",
-    [string]$Minecraft = "26.1.2",
+    [string]$Minecraft = "26.3",
     [int]$TimeoutSeconds = 240,
     [switch]$NoMod
 )
@@ -83,10 +83,10 @@ foreach ($j in $jarList) {
 }
 if ($infos.Count -gt 0) {
     $modInfo = $infos[0]
-    # Any mod: the Minecraft version follows the jar unless -Minecraft was given. Both versions in range (">=26.1")
+    # Any mod: the Minecraft version follows the jar unless -Minecraft was given. Both versions in range (">=26.2")
     # keeps the default.
     if (-not $PSBoundParameters.ContainsKey('Minecraft')) {
-        $fits = @(@("26.1.2", "26.2") | Where-Object { (Test-McRange $modInfo.Minecraft $_) -eq $true })
+        $fits = @(@("26.3", "26.2") | Where-Object { (Test-McRange $modInfo.Minecraft $_) -eq $true })
         if ($fits.Count -eq 1) { $Minecraft = $fits[0] }
     }
     foreach ($info in $infos) {
@@ -96,7 +96,7 @@ if ($infos.Count -gt 0) {
         }
     }
 }
-# killer560s-mod's jars carry their Minecraft version in the classifier (-26.1.2-cheat / -26.2-legit) and their
+# killer560s-mod's jars carry their Minecraft version in the classifier (-26.3-cheat / -26.2-legit) and their
 # fabric.mod.json ranges are mutually exclusive, so a mismatch is a client that refuses to start.
 $leaf = ""
 if (-not $NoMod) { $leaf = Split-Path $jarList[0] -Leaf }
@@ -246,8 +246,8 @@ foreach ($p in $stale) {
 # Not $args - that is an automatic variable in PowerShell and assigning to it is a parse-time surprise.
 $gradleArgs = @("runClientGameTest", "--console=plain")
 if (-not $NoMod) { $gradleArgs += "-PmodUnderTest=$ModUnderTest" }
-# Only passed when it is not the default, so a 26.1.2 run's command line is exactly what it always was.
-if ($Minecraft -ne "26.1.2") { $gradleArgs += "-Pminecraft_version=$Minecraft" }
+# Only passed when it is not the default (gradle.properties' 26.3).
+if ($Minecraft -ne "26.3") { $gradleArgs += "-Pminecraft_version=$Minecraft" }
 if ($Scenario -ne "") { $gradleArgs += "-Pscenario=$Scenario" }
 if ($Suite -ne "") { $gradleArgs += "-Psuite=$Suite" }
 if ($Port -gt 0) { $gradleArgs += "-Pport=$Port" }

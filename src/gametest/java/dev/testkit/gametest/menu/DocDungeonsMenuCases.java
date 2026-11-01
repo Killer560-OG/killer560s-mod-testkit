@@ -95,7 +95,7 @@ final class DocDungeonsMenuCases {
             c.check(stillArmed, "moving the mouse stopped the run (" + reason(c) + ")");
 
             // ---- 3: a key ----
-            stopsOn(c, "the J key", () -> c.ctx().getInput().pressKey(74)); // GLFW_KEY_J
+            stopsOn(c, "the J key", () -> c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_J)); // GLFW_KEY_J
             // ---- 4: a left click on no slot ----
             rearm(c);
             c.ctx().getInput().setCursorPos(4, 4);
@@ -110,7 +110,7 @@ final class DocDungeonsMenuCases {
                     McCompat.setScreen(mc, new net.minecraft.client.gui.screens.ChatScreen("", false))));
             // ---- 7: keys typed into a non-container screen are not a stop (that screen opening was) ----
             c.ctx().runOnClient(mc -> Mod.setField(EXP, "armed", true));
-            c.ctx().getInput().pressKey(75); // GLFW_KEY_K, typed into chat
+            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_K); // GLFW_KEY_K, typed into chat
             c.ctx().waitTicks(3);
             boolean chatKey = armed(c);
             c.note("armed with chat open, K typed: armed " + chatKey);

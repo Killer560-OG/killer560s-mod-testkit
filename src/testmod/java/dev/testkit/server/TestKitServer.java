@@ -476,7 +476,7 @@ public class TestKitServer implements DedicatedServerModInitializer {
                 IntegerArgumentType.getInteger(context, "y"), IntegerArgumentType.getInteger(context, "z"));
         int sent = 0;
         for (net.minecraft.server.level.ServerPlayer player : context.getSource().getServer().getPlayerList().getPlayers()) {
-            player.connection.send(new net.minecraft.network.protocol.game.ClientboundOpenSignEditorPacket(pos, true));
+            player.connection.send(dev.testkit.server.compat.McServer.openSignFront(pos));
             sent++;
         }
         return say(context, "opensign " + pos.toShortString() + " sent to " + sent);

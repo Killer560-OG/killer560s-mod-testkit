@@ -9,7 +9,7 @@
 param(
     [int]$Port = 0,
     [string]$ModUnderTest = "",
-    [string]$Minecraft = "26.1.2"
+    [string]$Minecraft = "26.3"
 )
 
 $here = $PSScriptRoot
@@ -89,8 +89,8 @@ if (-not $ModUnderTest) {
     if (-not $info) { Problem "$ModUnderTest has no fabric.mod.json" "pass a Fabric mod jar" }
     else {
         Ok "$($info.Id) $($info.Version) - $ModUnderTest (minecraft '$($info.Minecraft)')"
-        $fits = @(@("26.1.2", "26.2") | Where-Object { (Test-McRange $info.Minecraft $_) -ne $false })
-        if ($fits.Count -eq 0) { Problem "its minecraft range '$($info.Minecraft)' allows neither 26.1.2 nor 26.2" "build it for 26.1.2 or 26.2" }
+        $fits = @(@("26.3", "26.2") | Where-Object { (Test-McRange $info.Minecraft $_) -ne $false })
+        if ($fits.Count -eq 0) { Problem "its minecraft range '$($info.Minecraft)' allows neither 26.3 nor 26.2" "build it for 26.3 or 26.2" }
         else { Ok "runs on Minecraft: $($fits -join ', ')" }
         if ($info.Id -ne "killer560smod") {
             Ok "not killer560smod: the generic scenarios run, killer560smod's own SKIP (run-suite.ps1 -Suite generic)"

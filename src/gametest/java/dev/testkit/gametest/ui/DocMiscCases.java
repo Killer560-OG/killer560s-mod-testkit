@@ -61,7 +61,7 @@ final class DocMiscCases {
     private static final String PS = "playerstats.PlayerStatsConfig";
     private static final String PEEK = "peekchat.PeekChatConfig";
     /** GLFW_KEY_KP_6: bound to nothing in vanilla or the mod's defaults. */
-    private static final int PEEK_KEY = 326;
+    private static final int PEEK_KEY = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD6;
 
     private DocMiscCases() {
     }
@@ -782,7 +782,7 @@ final class DocMiscCases {
 
             // ---- typing does nothing and sends nothing ----
             c.ctx().getInput().typeChars("hello");
-            c.ctx().getInput().pressKey(257); // Enter
+            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_RETURN); // Enter
             c.ticks(3);
             String typed = c.onClient(mc -> peekOpen(mc) ? ((EditBox) Mod.field(McCompat.screen(mc), "input")).getValue() : "<closed>");
             c.note("typed 'hello' + Enter: input '" + typed + "', sent " + sent);
@@ -801,11 +801,11 @@ final class DocMiscCases {
             c.ctx().getInput().scroll(3.0);
             c.ticks(2);
             int s1 = scrollPos(c);
-            c.ctx().getInput().pressKey(266); // Page Up
+            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_PAGEUP); // Page Up
             c.ticks(2);
             int s2 = scrollPos(c);
             BufferedImage scrolled = shot(c, "peek-chat-scrolled");
-            c.ctx().getInput().pressKey(268); // Home
+            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_HOME); // Home
             c.ticks(2);
             int s3 = scrollPos(c);
             c.note("scroll position: open " + s0 + ", after the wheel " + s1 + ", after Page Up " + s2 + ", after Home " + s3);
@@ -852,7 +852,7 @@ final class DocMiscCases {
             // ---- Escape and the key close it; the draft is untouched ----
             press(c, PEEK_KEY);
             boolean again = c.onClient(DocMiscCases::peekOpen);
-            c.ctx().getInput().pressKey(256); // Escape
+            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE); // Escape
             c.ticks(3);
             boolean afterEsc = c.onClient(DocMiscCases::peekOpen);
             press(c, PEEK_KEY);

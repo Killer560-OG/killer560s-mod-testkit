@@ -63,7 +63,7 @@ final class HudKey2Cases {
 
     private static final String HUD = "hud.HudConfig";
     private static final String EDITOR = "hud.HudEditorScreen";
-    private static final int KEY = 326; // GLFW_KEY_KP_6
+    private static final int KEY = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD6; // GLFW_KEY_KP_6
     private static final String PANEL = "croesus_profit_panel";
     private static final String INFO = "chocolate_info_line";
 
@@ -87,7 +87,7 @@ final class HudKey2Cases {
             SignBlockEntity sign = new SignBlockEntity(player.blockPosition(), Blocks.OAK_SIGN.defaultBlockState());
             sign.setLevel(Minecraft.getInstance().level);
             sign.setAllowedPlayerEditor(player.getUUID());
-            return new SignEditScreen(sign, true, false);
+            return dev.testkit.compat.McCompat.signEditScreen(sign, true, false);
         }, s -> { }, null));
         ctxs.add(new Ctx("book edit", () -> new BookEditScreen(Minecraft.getInstance().player,
                 new ItemStack(Items.WRITABLE_BOOK), InteractionHand.MAIN_HAND, WritableBookContent.EMPTY), s -> { }, null));

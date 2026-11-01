@@ -361,7 +361,7 @@ final class HxSpotifyControlsCases {
             c.ctx().runOnClient(mc -> McCompat.setScreen(mc, new ChatScreen("", false)));
             c.ctx().waitTicks(2);
             c.onClient(mc -> {
-                Mod.setField(CTL, "testHeldKey", 321);
+                Mod.setField(CTL, "testHeldKey", com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD1);
                 return null;
             });
             c.ctx().waitTicks(3);
@@ -379,11 +379,11 @@ final class HxSpotifyControlsCases {
             AbstractWidget keyRow = find(w, "Play/Pause Key");
             c.onClient(mc -> Mod.call(keyRow, "press"));
             c.check(c.onClient(mc -> (Boolean) Mod.call(lastTab, "isListeningForKey")), "the key row did not start listening");
-            c.onClient(mc -> Mod.call(lastTab, "onKeyCaptured", 329));
+            c.onClient(mc -> Mod.call(lastTab, "onKeyCaptured", com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD9));
             int bound = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(CC), "getKey", actions[0]));
             c.check(bound == 329, "key capture did not bind KP 9: " + bound);
             c.onClient(mc -> Mod.call(keyRow, "press"));
-            c.onClient(mc -> Mod.call(lastTab, "onKeyCaptured", 256));
+            c.onClient(mc -> Mod.call(lastTab, "onKeyCaptured", com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE));
             int unbound = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(CC), "getKey", actions[0]));
             c.check(unbound == -1, "Esc did not unbind: " + unbound);
 

@@ -37,7 +37,7 @@ final class PetWheelInstantCases {
 
     private static final String CFG = "petwheel.PetWheelConfig";
     /** GLFW_KEY_KP_5: bound to nothing in vanilla or the mod's defaults. */
-    private static final int KEY = 325;
+    private static final int KEY = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD5;
     private static final String PET2 = "minecraft:player_head[custom_data={id:\"PET\",uuid:\"hx-pet-2\",petInfo:'{\"type\":\"ENDER_DRAGON\",\"tier\":\"EPIC\"}'},"
             + "custom_name=[{text:\"[Lvl 87] \",color:\"gray\",italic:false},{text:\"Ender Dragon\",color:\"dark_purple\",italic:false}]]";
 

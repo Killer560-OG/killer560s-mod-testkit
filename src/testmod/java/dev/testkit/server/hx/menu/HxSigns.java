@@ -72,16 +72,16 @@ public final class HxSigns {
         if (be.getLevel() == null) {
             be.setLevel(player.level());
         }
-        SignText text = new SignText();
         JsonArray lines = spec.has("lines") ? spec.getAsJsonArray("lines") : new JsonArray();
-        for (int i = 0; i < 4; i++) {
-            text = text.setMessage(i, Component.literal(i < lines.size() ? lines.get(i).getAsString() : ""));
+        java.util.List<String> texts = new java.util.ArrayList<>();
+        for (int i = 0; i < lines.size(); i++) {
+            texts.add(lines.get(i).getAsString());
         }
-        be.setText(text, true);
+        dev.testkit.server.compat.McServer.setFrontLines(be, texts);
         PENDING.put(player.getUUID(), new Pending(pos, spec.deepCopy(), was));
         player.connection.send(new ClientboundBlockUpdatePacket(pos, sign));
         player.connection.send(ClientboundBlockEntityDataPacket.create(be));
-        player.connection.send(new ClientboundOpenSignEditorPacket(pos, true));
+        player.connection.send(dev.testkit.server.compat.McServer.openSignFront(pos));
         JsonObject e = new JsonObject();
         e.addProperty("x", pos.getX());
         e.addProperty("y", pos.getY());

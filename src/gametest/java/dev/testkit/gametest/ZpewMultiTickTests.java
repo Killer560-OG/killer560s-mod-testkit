@@ -111,7 +111,8 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
             }
             PacketTrace.tap = p -> {
                 if (p instanceof ServerboundUseItemPacket u) {
-                    USES.add(new Use(TICK.get(), u.getSequence(), u.getYRot(), u.getXRot()));
+                    USES.add(new Use(TICK.get(), dev.testkit.compat.McPackets.useItemSequence(u), dev.testkit.compat.McPackets.useItemYRot(u),
+                            dev.testkit.compat.McPackets.useItemXRot(u)));
                 } else if (p instanceof ServerboundMovePlayerPacket m && m.hasRotation()) {
                     ROTS.add(new float[]{TICK.get(), m.getYRot(0), m.getXRot(0)});
                 }

@@ -214,7 +214,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
                     return false;
                 }
                 mc.gameMode.useItemOn(mc.player, net.minecraft.world.InteractionHand.MAIN_HAND, b);
-                mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+                dev.testkit.compat.McCompat.swingArm(mc.player);
                 return true;
             });
             if (sent) {
@@ -294,10 +294,10 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             add(new Ev(tick, "move", m.getX(Double.NaN), m.getY(Double.NaN), m.getZ(Double.NaN),
                     m.getYRot(Float.NaN), m.getXRot(Float.NaN), 0, 0, -1, ""));
         } else if (packet instanceof ServerboundUseItemPacket u) {
-            add(new Ev(tick, "use", 0, 0, 0, u.getYRot(), u.getXRot(), 0, 0, -1, ""));
+            add(new Ev(tick, "use", 0, 0, 0, dev.testkit.compat.McPackets.useItemYRot(u), dev.testkit.compat.McPackets.useItemXRot(u), 0, 0, -1, ""));
         } else if (packet instanceof ServerboundUseItemOnPacket u) {
             add(new Ev(tick, "useon", 0, 0, 0, Float.NaN, Float.NaN, 0, 0, -1,
-                    u.getHitResult().getBlockPos().toShortString() + " " + u.getHitResult().getDirection()));
+                    dev.testkit.compat.McPackets.useItemOnHitResult(u).getBlockPos().toShortString() + " " + dev.testkit.compat.McPackets.useItemOnHitResult(u).getDirection()));
         } else if (packet instanceof ServerboundSetCarriedItemPacket c) {
             add(new Ev(tick, "carry", 0, 0, 0, 0, 0, 0, 0, c.getSlot(), ""));
         } else if (packet instanceof ServerboundPlayerActionPacket a) {

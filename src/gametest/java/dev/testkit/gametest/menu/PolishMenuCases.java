@@ -104,7 +104,7 @@ final class PolishMenuCases {
             press(c);
             c.waitUntil("Scan All to start again", mc -> (Boolean) Mod.staticCall(SCAN_ALL, "isRunning"), 20);
             awaitPageOpen(c, 1);
-            c.ctx().getInput().pressKey(256); // GLFW_KEY_ESCAPE
+            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE); // GLFW_KEY_ESCAPE
             c.waitUntil("Escape to stop it", mc -> !(Boolean) Mod.staticCall(SCAN_ALL, "isRunning"), 20);
             int atEscape = c.commands().size();
             c.ctx().waitTicks(60);

@@ -75,7 +75,7 @@ public class SimRoomCycleTests implements FabricClientGameTest {
     private static final String ONLY_LINE = "/next and /back only work in All Rooms";
     private static final String PAUSE_NEXT = "Next room (All Rooms)";
     /** GLFW_KEY_KP_7: bound to nothing in vanilla or the mod, so a press reaches only the room cycle's poll. */
-    private static final int KEY = 327;
+    private static final int KEY = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD7;
 
     @Override
     public void runTest(ClientGameTestContext ctx) {

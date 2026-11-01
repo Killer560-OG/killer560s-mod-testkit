@@ -470,7 +470,7 @@ final class DungeonFixCases {
                 if (i == stallAt + stall + 1) {
                     // A doubled update right as movement resumes: the same packet handed to the mod twice.
                     c.onClient(mc -> {
-                        ClientboundMoveEntityPacket p = new ClientboundMoveEntityPacket.Pos(standId,
+                        ClientboundMoveEntityPacket p = dev.testkit.compat.McPackets.moveEntityPos(standId,
                                 (short) Math.round(step * 4096), (short) 0, (short) 0, false);
                         Mod.staticCall(BC, "onMoveEntity", p, mc.level);
                         Mod.staticCall(BC, "onMoveEntity", p, mc.level);
@@ -520,7 +520,7 @@ final class DungeonFixCases {
             command(c, "kill @e[tag=bcstallmob]");
             c.ticks(5);
             boolean back = c.onClient(mc -> {
-                ClientboundMoveEntityPacket p = new ClientboundMoveEntityPacket.Pos(standId, (short) 1000, (short) 0,
+                ClientboundMoveEntityPacket p = dev.testkit.compat.McPackets.moveEntityPos(standId, (short) 1000, (short) 0,
                         (short) 0, false);
                 Mod.staticCall(BC, "onMoveEntity", p, mc.level);
                 return state(mc, standId)[0] != null;

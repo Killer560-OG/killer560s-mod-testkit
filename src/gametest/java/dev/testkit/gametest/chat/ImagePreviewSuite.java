@@ -22,7 +22,6 @@ import net.minecraft.util.FormattedCharSequence;
 
 import org.joml.Matrix3x2f;
 import org.joml.Vector2f;
-import org.lwjgl.glfw.GLFW;
 
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -771,7 +770,7 @@ public class ImagePreviewSuite implements FabricClientGameTest {
             c.ctx().waitTicks(3);
             String scr = screenName(c);
             c.check(scr.equals("ImageViewerScreen"), "a middle click opened " + scr);
-            c.ctx().getInput().pressKey(GLFW.GLFW_KEY_RIGHT);
+            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_RIGHT);
             c.ctx().waitTicks(3);
             long end = System.currentTimeMillis() + 5000;
             while (System.currentTimeMillis() < end && sample(c, album, 0.5, 0.5) != BLUE) {
@@ -781,7 +780,7 @@ public class ImagePreviewSuite implements FabricClientGameTest {
                     + hex(sample(c, album, 0.5, 0.5)));
             Path shot = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(c.name() + "-viewer"));
             dev.testkit.harness.Report.screenshot(c.name() + "-viewer", shot);
-            c.ctx().getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
+            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE);
             c.ctx().waitTicks(3);
             String back = screenName(c);
             c.check(back.equals("ChatScreen"), "Escape in the viewer went to " + back + ", want the chat");

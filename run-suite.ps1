@@ -15,7 +15,7 @@ param(
     [string]$Window = "",
     [string[]]$Extra = @(),
     [string]$ModUnderTest = "",
-    [string]$Minecraft = "26.1.2",
+    [string]$Minecraft = "26.3",
     [int]$TimeoutSeconds = 1200
 )
 

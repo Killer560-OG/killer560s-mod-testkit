@@ -494,7 +494,7 @@ final class BazaarFlipCustomCases {
             c.check(refusal == null, "start refused: " + refusal);
             c.waitUntil("the product page to be open", mc -> PUFFER.productTitle().equals(MenuKit.screenTitle(mc)), 600);
             int before = c.events("menu.click").size();
-            c.ctx().getInput().pressKey(74); // GLFW_KEY_J, inside Hypixel's (un-reskinned) container
+            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_J); // GLFW_KEY_J, inside Hypixel's (un-reskinned) container
             c.waitUntil("the flipper to stop on the key", mc -> !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature",
                     "isRunning"), 20);
             c.ctx().waitTicks(60);
@@ -516,7 +516,7 @@ final class BazaarFlipCustomCases {
             String refusal = FlipCroesusCases.start(c);
             c.check(refusal == null, "start refused: " + refusal);
             c.waitUntil("the amount sign to open", mc -> McCompat.screen(mc) instanceof AbstractSignEditScreen, 900);
-            c.ctx().getInput().pressKey(74); // J, while the sign editor is up and before the flipper types
+            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_J); // J, while the sign editor is up and before the flipper types
             c.waitUntil("the flipper to stop on the key", mc -> !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature",
                     "isRunning"), 20);
             c.ctx().waitTicks(40);

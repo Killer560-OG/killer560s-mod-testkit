@@ -396,7 +396,7 @@ public class SimpleScenesSuite implements FabricClientGameTest {
                     long f0 = simpleFrames(c);
                     c.onClient(mc -> {
                         Mod.call(Mod.cfg(MM), "setOtherMenus", true);
-                        McCompat.setScreen(mc, new net.minecraft.client.gui.screens.options.OptionsScreen(new TitleScreen(), mc.options, false));
+                        McCompat.setScreen(mc, dev.testkit.compat.McCompat.optionsScreen(new TitleScreen(), mc.options));
                         return null;
                     });
                     c.ticks(10);

@@ -521,7 +521,7 @@ public final class HxPrimitives implements HxModule {
         if (e == null) {
             throw new IllegalArgumentException("no Hx stand " + a.get("uuid").getAsString());
         }
-        p.connection.send(new ClientboundMoveEntityPacket.Pos(e.getId(), (short) Math.round(number(a, "dx", 0) * 4096),
+        p.connection.send(dev.testkit.server.compat.McServer.moveEntityPos(e.getId(), (short) Math.round(number(a, "dx", 0) * 4096),
                 (short) Math.round(number(a, "dy", 0) * 4096), (short) Math.round(number(a, "dz", 0) * 4096), false));
         return new JsonPrimitive(s.getTickCount());
     }
@@ -538,7 +538,7 @@ public final class HxPrimitives implements HxModule {
                 new net.minecraft.world.entity.decoration.ItemFrame(level, pos, facing);
         frame.setItem(stack(s, a.get("item").getAsString(), 1), false);
         frame.setRotation((int) number(a, "rotation", 0));
-        frame.setInvulnerable(true);
+        dev.testkit.server.compat.McServer.setInvulnerable(frame, true);
         if (!level.addFreshEntity(frame)) {
             throw new IllegalStateException("the level refused the item frame");
         }

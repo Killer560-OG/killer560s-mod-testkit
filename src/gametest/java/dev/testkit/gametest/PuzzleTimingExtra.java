@@ -234,7 +234,7 @@ final class PuzzleTimingExtra extends SolveExtra {
         }
         long t = ended + 1; // the tick in progress: END_CLIENT_TICK has not counted it yet
         if (p instanceof ServerboundUseItemOnPacket u) {
-            net.minecraft.core.BlockPos pos = u.getHitResult().getBlockPos();
+            net.minecraft.core.BlockPos pos = dev.testkit.compat.McPackets.useItemOnHitResult(u).getBlockPos();
             Minecraft mc = Minecraft.getInstance();
             boolean chest = mc.level != null
                     && mc.level.getBlockState(pos).getBlock() instanceof net.minecraft.world.level.block.ChestBlock;

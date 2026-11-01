@@ -1053,7 +1053,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             BlockPos lever = real(ModUnderTest.staticCall(FRAME, "current"), 8, F, 22);
             mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(
                     new Vec3(lever.getX() + 0.5, lever.getY() + 0.1, lever.getZ() + 0.5), Direction.UP, lever, false));
-            mc.player.swing(InteractionHand.MAIN_HAND);
+            dev.testkit.compat.McCompat.swingArm(mc.player);
         });
         Vec3 top = ctx.computeOnClient(mc -> {
             Object frame = ModUnderTest.staticCall(FRAME, "current");
@@ -1141,7 +1141,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 BlockPos lever = real(ModUnderTest.staticCall(FRAME, "current"), 8, F, 8);
                 mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(
                         new Vec3(lever.getX() + 0.5, lever.getY() + 0.1, lever.getZ() + 0.5), Direction.UP, lever, false));
-                mc.player.swing(InteractionHand.MAIN_HAND);
+                dev.testkit.compat.McCompat.swingArm(mc.player);
             });
             Vec3 landed = waitLanded(ctx, tx, 6, 40);
             ctx.waitTicks(5);
@@ -2142,7 +2142,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 BlockPos chest = real(ModUnderTest.staticCall(FRAME, "current"), 13, F + 5, 22);
                 mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(
                         new Vec3(chest.getX() + 0.5, chest.getY(), chest.getZ() + 0.5), Direction.DOWN, chest, false));
-                mc.player.swing(InteractionHand.MAIN_HAND);
+                dev.testkit.compat.McCompat.swingArm(mc.player);
             });
             BlockPos top = ctx.computeOnClient(mc -> real(ModUnderTest.staticCall(FRAME, "current"), 13, F + 6, 22));
             c.server().command(String.format(Locale.ROOT, "summon minecraft:zombie %d %d %d {IsBaby:1b,NoAI:1b,NoGravity:1b,"
@@ -3277,8 +3277,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     }
 
     /** GLFW_KEY_KP_3 / GLFW_KEY_KP_6: bound to nothing in vanilla or the mod's defaults. */
-    private static final int AS_KEY = 323;
-    private static final int PILOT_KEY = 326;
+    private static final int AS_KEY = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD3;
+    private static final int PILOT_KEY = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD6;
 
     /**
      * {@code byKey} (grim-post-autopilot-1016): started the way he starts it - his toggle key, read by Auto Secret's

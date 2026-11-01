@@ -643,7 +643,7 @@ final class AaFastCases {
         for (int i = 0; i < n; i++) {
             mc.gameMode.interact(mc.player, e, new EntityHitResult(e, hit), InteractionHand.MAIN_HAND);
         }
-        mc.player.swing(InteractionHand.MAIN_HAND);
+        dev.testkit.compat.McCompat.swingArm(mc.player);
     }
 
     // ---- settings ---------------------------------------------------------------------------------------------------

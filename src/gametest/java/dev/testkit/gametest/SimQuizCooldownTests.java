@@ -749,7 +749,7 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
         AABB box = e.getBoundingBox();
         Vec3 aim = box.clip(eye, box.getCenter()).orElse(box.getCenter());
         mc.gameMode.interact(mc.player, e, new EntityHitResult(e, aim), InteractionHand.MAIN_HAND);
-        mc.player.swing(InteractionHand.MAIN_HAND);
+        dev.testkit.compat.McCompat.swingArm(mc.player);
         return String.format(Locale.US, "interacted with the stand at %.1f %.1f %.1f from %.2f", e.getX(), e.getY(), e.getZ(),
                 eye.distanceTo(aim));
     }
@@ -764,7 +764,7 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
         Vec3 c = Vec3.atCenterOf(b);
         mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(c,
                 net.minecraft.core.Direction.getApproximateNearest(mc.player.getEyePosition().subtract(c)), b, false));
-        mc.player.swing(InteractionHand.MAIN_HAND);
+        dev.testkit.compat.McCompat.swingArm(mc.player);
         return "button " + b.toShortString();
     }
 

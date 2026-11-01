@@ -312,8 +312,8 @@ final class HxAlerts1025Cases {
                     net.minecraft.world.entity.Entity tag = mc.level.getEntity(LIVID_ID_BASE + 10 + i);
                     boolean hideE = (Boolean) Mod.staticCall(LIVID, "shouldHideEntity", e);
                     boolean hideT = (Boolean) Mod.staticCall(LIVID, "shouldHideEntity", tag);
-                    boolean drawnE = !hideE || mc.getEntityRenderDispatcher().shouldRender(e, null, 0, 0, 0);
-                    boolean drawnT = !hideT || mc.getEntityRenderDispatcher().shouldRender(tag, null, 0, 0, 0);
+                    boolean drawnE = !hideE || dev.testkit.compat.McCompat.shouldRender(mc.getEntityRenderDispatcher(), e, null, 0, 0, 0);
+                    boolean drawnT = !hideT || dev.testkit.compat.McCompat.shouldRender(mc.getEntityRenderDispatcher(), tag, null, 0, 0, 0);
                     sb.append(LIVIDS[i]).append(" hide=").append(hideE).append(" drawn=").append(drawnE)
                             .append(" tagHide=").append(hideT).append(" tagDrawn=").append(drawnT).append("; ");
                 }

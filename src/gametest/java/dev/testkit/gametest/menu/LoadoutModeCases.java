@@ -41,7 +41,7 @@ final class LoadoutModeCases {
     private static final int INDEX = 4;          // slot 5 of the twelve
     private static final int MENU_SLOT = 24;     // LoadoutKeybindsFeature.LOADOUT_SLOTS[4]
     /** GLFW_KEY_5: vanilla's hotbar slot 5 key, so the cases also see whether vanilla got the press. */
-    private static final int KEY_5 = 53;
+    private static final int KEY_5 = com.mojang.blaze3d.platform.InputConstants.KEY_5;
 
     private LoadoutModeCases() {
     }

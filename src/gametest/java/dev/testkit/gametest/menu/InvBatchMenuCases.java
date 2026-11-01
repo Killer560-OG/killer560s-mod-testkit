@@ -127,12 +127,12 @@ final class InvBatchMenuCases {
             // ---- the drop key (LocalPlayer.drop, the path the real key takes) ----
             c.ctx().runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
             c.ctx().waitTicks(3);
-            c.ctx().runOnClient(mc -> mc.player.drop(false));
+            c.ctx().runOnClient(mc -> dev.testkit.compat.McCompat.dropSelected(mc, false));
             c.ctx().waitTicks(20);
             boolean kept = c.onClient(mc -> mc.player.getInventory().getItem(0).is(Items.DIAMOND_SWORD));
             c.ctx().runOnClient(mc -> mc.player.getInventory().setSelectedSlot(1));
             c.ctx().waitTicks(3);
-            c.ctx().runOnClient(mc -> mc.player.drop(false));
+            c.ctx().runOnClient(mc -> dev.testkit.compat.McCompat.dropSelected(mc, false));
             c.waitUntil("the control diamond to be dropped", mc -> mc.player.getInventory().getItem(1).isEmpty(), 40);
             record(table, wrong, "drop key", kept ? 0 : 1, 1);
             c.ctx().waitTicks(20); // let the server apply the drop before giving the diamond back, or it lands first

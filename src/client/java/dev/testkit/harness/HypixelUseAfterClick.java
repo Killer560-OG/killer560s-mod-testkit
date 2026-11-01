@@ -98,7 +98,7 @@ public final class HypixelUseAfterClick {
         if (!enabled || sp == null) {
             return;
         }
-        BlockPos pos = packet.getHitResult().getBlockPos();
+        BlockPos pos = dev.testkit.compat.McPackets.useItemOnHitResult(packet).getBlockPos();
         // A 1.8 server stores only a click within 8 blocks of a solid block; the distance is not held to here (harsher: the
         // primers click blocks out of THIS server's reach, which a moving player can carry past 8 by the time it arrives).
         if (sp.level().getBlockState(pos).isAir()) {
@@ -106,7 +106,7 @@ public final class HypixelUseAfterClick {
         }
         clicks++;
         stored = true;
-        denied = !sp.getItemInHand(packet.getHand()).isEmpty();
+        denied = !sp.getItemInHand(dev.testkit.compat.McPackets.useItemOnHand(packet)).isEmpty();
         storedTick = sp.level().getServer().getTickCount();
         storedPos = pos.immutable();
         movedSinceClick = false;
@@ -141,7 +141,8 @@ public final class HypixelUseAfterClick {
         }
         dropped++;
         lastDrop = String.format(java.util.Locale.US, "use seq %d rot %.2f/%.2f: heard look %.2f/%.2f meets %s at %s, click "
-                        + "at %s %d server tick(s) earlier", packet.getSequence(), packet.getYRot(), packet.getXRot(),
+                        + "at %s %d server tick(s) earlier", dev.testkit.compat.McPackets.useItemSequence(packet), dev.testkit.compat.McPackets.useItemYRot(packet),
+                dev.testkit.compat.McPackets.useItemXRot(packet),
                 net.minecraft.util.Mth.wrapDegrees(sp.getYRot()), sp.getXRot(),
                 sp.level().getBlockState(ray.getBlockPos()).getBlock().getName().getString(),
                 ray.getBlockPos().toShortString(), storedPos == null ? "?" : storedPos.toShortString(), gap);

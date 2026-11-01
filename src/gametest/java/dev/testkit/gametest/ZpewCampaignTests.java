@@ -1042,7 +1042,8 @@ public class ZpewCampaignTests implements FabricClientGameTest {
     static String describe(Packet<?> p) {
         String id = p.type().id().getPath();
         if (p instanceof ServerboundUseItemPacket u) {
-            return String.format(Locale.ROOT, "use_item %s %.4f/%.4f", u.getHand(), u.getYRot(), u.getXRot());
+            return String.format(Locale.ROOT, "use_item %s %.4f/%.4f", dev.testkit.compat.McPackets.useItemHand(u), dev.testkit.compat.McPackets.useItemYRot(u),
+                    dev.testkit.compat.McPackets.useItemXRot(u));
         }
         if (p instanceof ServerboundPlayerInputPacket in) {
             return "player_input " + in.input();

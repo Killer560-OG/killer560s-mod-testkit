@@ -56,7 +56,7 @@ final class AutoMaskCases {
     private static final String SW = "maskinvincibility.MaskSwapper";
     private static final String AM = "maskinvincibility.AutoMask";
     /** GLFW_KEY_KP_8: bound to nothing in vanilla or the mod's defaults. */
-    private static final int KEY = 328;
+    private static final int KEY = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD8;
 
     private static final String SPIRIT = "minecraft:player_head[custom_data={id:\"SPIRIT_MASK\"},"
             + "custom_name={text:\"Spirit Mask\",color:\"blue\",italic:false}]";

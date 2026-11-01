@@ -72,7 +72,7 @@ final class Ap3Close1027Cases {
             if (old != null) {
                 old.accept(p);
             }
-            if (watching.get() && (p instanceof net.minecraft.network.protocol.game.ServerboundSwingPacket
+            if (watching.get() && (dev.testkit.compat.McPackets.isSwing(p)
                     || p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket)) {
                 swings.incrementAndGet();
             }

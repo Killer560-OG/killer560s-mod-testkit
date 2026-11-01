@@ -28,13 +28,13 @@ final class HxChatKeybindsCases {
     private static final String KB = "commandkeybinds.CommandKeybindsConfig";
     private static final String CFG = "commandshortcuts.CommandShortcutsConfig";
     private static final String FEAT = "commandshortcuts.CommandShortcutsFeature";
-    /** GLFW keypad 7, 8, 9, decimal, divide, multiply: bound to nothing in vanilla or the mod's defaults. */
-    private static final int K1 = 327;
-    private static final int K2 = 328;
-    private static final int K3 = 329;
-    private static final int K4 = 330;
-    private static final int K5 = 331;
-    private static final int K6 = 332;
+    /** Keypad 7, 8, 9, decimal, +, multiply (InputConstants names; SDL scancodes on 26.3): bound to nothing in vanilla or the mod's defaults. */
+    private static final int K1 = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD7;
+    private static final int K2 = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD8;
+    private static final int K3 = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD9;
+    private static final int K4 = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPADCOMMA;
+    private static final int K5 = com.mojang.blaze3d.platform.InputConstants.KEY_ADD; // keypad + (keypad divide has no InputConstants name)
+    private static final int K6 = com.mojang.blaze3d.platform.InputConstants.KEY_MULTIPLY;
 
     private HxChatKeybindsCases() {
     }

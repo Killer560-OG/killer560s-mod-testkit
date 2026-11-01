@@ -25,8 +25,8 @@ import java.util.List;
  */
 final class LeapChatCases {
 
-    private static final int KEY_ENTER = 257;
-    private static final int KEY_ESCAPE = 256;
+    private static final int KEY_ENTER = com.mojang.blaze3d.platform.InputConstants.KEY_RETURN;
+    private static final int KEY_ESCAPE = com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE;
 
     private LeapChatCases() {
     }

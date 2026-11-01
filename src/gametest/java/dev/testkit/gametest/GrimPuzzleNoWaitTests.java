@@ -211,7 +211,7 @@ public class GrimPuzzleNoWaitTests implements FabricClientGameTest {
             Vec3 aim = box.clip(eye, box.getCenter()).orElse(box.getCenter());
             mc.gameMode.interact(p, stand, new net.minecraft.world.phys.EntityHitResult(stand, aim),
                     net.minecraft.world.InteractionHand.MAIN_HAND);
-            p.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+            dev.testkit.compat.McCompat.swingArm(p);
         }
     }
 

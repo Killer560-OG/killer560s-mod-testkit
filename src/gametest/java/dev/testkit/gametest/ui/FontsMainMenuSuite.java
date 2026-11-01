@@ -211,7 +211,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
         return c.onClient(mc -> {
             Screen menu = themesDrawer(mc);
             Map<String, Integer> m = screenTexts(mc, menu);
-            Screen options = new net.minecraft.client.gui.screens.options.OptionsScreen(null, mc.options, false);
+            Screen options = dev.testkit.compat.McCompat.optionsScreen(null, mc.options);
             McCompat.setScreen(mc, options);
             Map<String, Integer> o = screenTexts(mc, options);
             McCompat.setScreen(mc, null);
@@ -1089,7 +1089,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                     return "no Font Size row: " + labels(menu);
                 }
                 ModScreenDriver.press(size);
-                menu.keyPressed(new net.minecraft.client.input.KeyEvent(org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE, 0, 0));
+                menu.keyPressed(new net.minecraft.client.input.KeyEvent(com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE, 0, 0));
                 if (!(McCompat.screen(mc) instanceof TitleScreen)) {
                     return "Escape left " + McCompat.screen(mc) + " instead of the title screen";
                 }

@@ -385,7 +385,7 @@ final class ItemUiCases {
         try {
             InvBatchCases.survival(c);
             InvBatchCases.inventory(c, Map.of());
-            int keyB = 66;
+            int keyB = com.mojang.blaze3d.platform.InputConstants.KEY_B;
             c.onClient(mc -> {
                 Object cfg = Mod.cfg(SBC);
                 Mod.call(cfg, "setEnabled", true);

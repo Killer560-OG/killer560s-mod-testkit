@@ -470,7 +470,7 @@ final class HxPvNickCases {
                 box.setValue("ely");
                 List<String> out = new ArrayList<>();
                 for (int k = 0; k < 3; k++) {
-                    s.keyPressed(new KeyEvent(258, 0, 0));
+                    s.keyPressed(new KeyEvent(com.mojang.blaze3d.platform.InputConstants.KEY_TAB, 0, 0));
                     out.add(box.getValue());
                 }
                 return out;

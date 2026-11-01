@@ -258,7 +258,7 @@ public class SimTests implements FabricClientGameTest {
                     new Object[]{mc, felPos, felKind}));
             ctx.waitTicks(20);
             int endermenBefore = sp.getServer().computeOnServer(server -> server.overworld()
-                    .getEntitiesOfClass(net.minecraft.world.entity.monster.EnderMan.class,
+                    .getEntitiesOfClass(dev.testkit.compat.McEntities.endermanClass(),
                             new net.minecraft.world.phys.AABB(felPos).inflate(8.0)).size());
             if (endermenBefore != 0) {
                 throw new AssertionError("the Fel woke before anyone went near it - it should be a motionless "
@@ -270,7 +270,7 @@ public class SimTests implements FabricClientGameTest {
             });
             ctx.waitTicks(40);
             int endermenAfter = sp.getServer().computeOnServer(server -> server.overworld()
-                    .getEntitiesOfClass(net.minecraft.world.entity.monster.EnderMan.class,
+                    .getEntitiesOfClass(dev.testkit.compat.McEntities.endermanClass(),
                             new net.minecraft.world.phys.AABB(felPos).inflate(8.0)).size());
             if (endermenAfter < 1) {
                 throw new AssertionError("the Fel did not wake into an enderman after a player stood next to it");

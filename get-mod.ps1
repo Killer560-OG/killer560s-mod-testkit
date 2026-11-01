@@ -1,7 +1,7 @@
 # Gets killer560s-mod and builds the jars the scenarios test, into a snapshot folder under jarsDir.
 #
-#   ./get-mod.ps1                          # clone (or update its own clone), build 26.1.2 cheat + legit
-#   ./get-mod.ps1 -Minecraft both          # 26.1.2 and 26.2
+#   ./get-mod.ps1                          # clone (or update its own clone), build 26.3 cheat + legit
+#   ./get-mod.ps1 -Minecraft both          # 26.3 and 26.2
 #   ./get-mod.ps1 -Ref some-branch         # a branch, tag or commit instead of the default branch
 #   ./get-mod.ps1 -Repo C:/path/to/a/clone # clone from somewhere else (a local path works)
 #
@@ -24,7 +24,7 @@ param(
     [string]$Dest = "",
     [string]$Repo = "",
     [string]$Ref = "",
-    [string]$Minecraft = "26.1.2",          # 26.1.2 | 26.2 | both
+    [string]$Minecraft = "26.3",            # 26.3 | 26.2 | both
     [string[]]$Variants = @("cheat", "legit"),
     [string]$JarsDir = "",
     [switch]$BuildExisting
@@ -43,13 +43,13 @@ function Fail([string]$m) { Write-Host "[get-mod] $m"; exit 1 }
 function Say([string]$m) { Write-Host "[get-mod] $m" }
 
 $versions = switch ($Minecraft) {
-    "both" { @("26.1.2", "26.2") }
-    "26.1.2" { @("26.1.2") }
+    "both" { @("26.3", "26.2") }
+    "26.3" { @("26.3") }
     "26.2" { @("26.2") }
-    default { Fail "-Minecraft must be 26.1.2, 26.2 or both" }
+    default { Fail "-Minecraft must be 26.3, 26.2 or both" }
 }
 # What the mod needs passed for 26.2 (its CLAUDE.md, "Two Minecraft versions, one source tree").
-$mcFlags = @{ "26.1.2" = @(); "26.2" = @("-Pminecraft_version=26.2", "-Pfabric_api_version=0.160.0+26.2", "-Pmodmenu_version=20.0.2") }
+$mcFlags = @{ "26.3" = @(); "26.2" = @("-Pminecraft_version=26.2", "-Pfabric_api_version=0.160.0+26.2", "-Pmodmenu_version=20.0.2") }
 
 if (-not $env:JAVA_HOME -or -not (Test-Path "$env:JAVA_HOME/bin/javap.exe")) {
     Fail "JAVA_HOME must point at a JDK 25 or newer (javap is needed). Run ./doctor.ps1 for how to install one."

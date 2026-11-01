@@ -39,7 +39,7 @@ final class Ap3Blink1026Cases {
     private static final String CHARGE = "blink.BlinkCharge";
     private static final String CFG = "blink.BlinkConfig";
     private static final String EXEC_SHORT = "ap3.Ap3Executor";
-    private static final int KEY_V = 86;
+    private static final int KEY_V = com.mojang.blaze3d.platform.InputConstants.KEY_V;
 
     private Ap3Blink1026Cases() {
     }

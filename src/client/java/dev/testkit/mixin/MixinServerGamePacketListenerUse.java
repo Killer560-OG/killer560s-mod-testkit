@@ -44,7 +44,7 @@ public abstract class MixinServerGamePacketListenerUse {
         ServerGamePacketListenerImpl self = (ServerGamePacketListenerImpl) (Object) this;
         if (HypixelUseAfterClick.enabled && self.player != null && self.player.level().getServer().isSameThread()
                 && HypixelUseAfterClick.dropUse(self.player, packet)) {
-            self.ackBlockChangesUpTo(packet.getSequence());
+            self.ackBlockChangesUpTo(dev.testkit.compat.McPackets.useItemSequence(packet));
             ci.cancel();
         }
     }

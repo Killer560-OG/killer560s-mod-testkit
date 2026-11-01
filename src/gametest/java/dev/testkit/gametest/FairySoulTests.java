@@ -631,9 +631,9 @@ public class FairySoulTests implements FabricClientGameTest {
                             new Node(2, -805, 151, 1528, true, 1));
                     try (Hx hx = Hx.connect()) {
                         setup(ctx, hx, g);
-                        ctx.runOnClient(mc -> Mod.set(CFG, "setResumeKeyCode", 75)); // K
+                        ctx.runOnClient(mc -> Mod.set(CFG, "setResumeKeyCode", com.mojang.blaze3d.platform.InputConstants.KEY_K)); // K
                         long mark = LogTap.mark();
-                        ctx.getInput().pressKey(75);
+                        ctx.getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_K);
                         ctx.waitTicks(3);
                         boolean startedByKey = isActive(ctx);
                         if (!startedByKey) {
@@ -666,10 +666,10 @@ public class FairySoulTests implements FabricClientGameTest {
                         boolean activeAfterMouse = isActive(ctx);
                         float viewAfterMouse = ctx.computeOnClient(mc -> mc.player.getViewYRot(1f));
                         // The perspective key (F5) changes the view and is not a stop (killer560, 2026-10-18).
-                        ctx.getInput().pressKey(294); // F5
+                        ctx.getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_F5); // F5
                         ctx.waitTicks(3);
                         boolean activeAfterF5 = isActive(ctx);
-                        ctx.getInput().pressKey(74); // J
+                        ctx.getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_J); // J
                         ctx.waitTicks(3);
                         boolean activeAfterJ = isActive(ctx);
                         float[] after = ctx.computeOnClient(mc -> new float[]{mc.player.getViewYRot(1f), mc.player.getYRot(),
@@ -985,7 +985,7 @@ public class FairySoulTests implements FabricClientGameTest {
                             Mod.set(CFG, "setAutoCollect", false);
                             Mod.set(CFG, "setAutoSprint", false);
                             Mod.set(CFG, "setAutoMode", Mod.enumValue("pathfinding.PathfindingConfig$AutoMode", "FAST_ETHERWARP"));
-                            Mod.set(CFG, "setResumeKeyCode", 75);
+                            Mod.set(CFG, "setResumeKeyCode", com.mojang.blaze3d.platform.InputConstants.KEY_K);
                             Mod.call(Mod.cfg(CFG), "save");
                             Mod.staticCall(CFG, "load");
                             String got = String.format("waypoints %s path %s mode %s dim %s color %x length %s hud %s join %s walk %s "

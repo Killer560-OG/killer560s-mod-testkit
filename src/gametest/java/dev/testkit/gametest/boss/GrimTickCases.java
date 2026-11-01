@@ -550,7 +550,7 @@ final class GrimTickCases {
                 }
                 float[] row = null;
                 if (packet instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket use) {
-                    row = new float[]{0, 0, use.getYRot(), use.getXRot()};
+                    row = new float[]{0, 0, dev.testkit.compat.McPackets.useItemYRot(use), dev.testkit.compat.McPackets.useItemXRot(use)};
                 } else if (packet instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket act
                         && act.getAction() == net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action.RELEASE_USE_ITEM) {
                     row = new float[]{0, 1, 0, 0};

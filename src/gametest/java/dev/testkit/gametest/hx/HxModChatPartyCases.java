@@ -3,7 +3,6 @@ package dev.testkit.gametest.hx;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.authlib.minecraft.UserApiService;
-import com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
@@ -656,6 +655,13 @@ final class HxModChatPartyCases {
      * key (the applier reused the launch token) and this fails with the real relay's message.
      */
     private static void accountSwapKey(Session s) {
+        if (!dev.testkit.compat.McCompat.hasYggdrasilAuth()) {
+            // 26.3 ships authlib 10: no Yggdrasil service, the session/profile hosts come from service discovery, so the
+            // fake Mojang below cannot sign the launch account in. Not ported yet (2026-11-01).
+            s.shelved("579-hx-mcp-account-swap-key", "Minecraft 26.3 (authlib 10) has no Yggdrasil service; the fake "
+                    + "Mojang login is not ported", c -> { });
+            return;
+        }
         s.test("579-hx-mcp-account-swap-key", c -> {
             FakeMojangRelay fake;
             try {
@@ -679,7 +685,7 @@ final class HxModChatPartyCases {
                         System.setProperty(p, base);
                     }
                     // The launch account, signed in for real (as far as the fake Mojang can tell).
-                    UserApiService mainService = new YggdrasilAuthenticationService(Proxy.NO_PROXY).createUserApiService(MAIN_TOKEN);
+                    UserApiService mainService = dev.testkit.compat.McCompat.createUserApiService(MAIN_TOKEN);
                     User main = new User("HxMainAcct", MAIN, MAIN_TOKEN, Optional.empty(), Optional.empty());
                     writeField(mc, "user", main);
                     writeField(mc, "userApiService", mainService);

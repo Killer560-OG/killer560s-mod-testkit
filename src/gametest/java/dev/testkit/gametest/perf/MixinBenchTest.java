@@ -455,7 +455,7 @@ public class MixinBenchTest implements FabricClientGameTest {
             m.put("EntityRenderDispatcher.shouldRender", new Object[]{es.length, (LongSupplier) () -> {
                 long a = 0;
                 for (Entity e : es) {
-                    a += erd.shouldRender(e, frustum, cx, cy, cz) ? 1 : 0;
+                    a += dev.testkit.compat.McCompat.shouldRender(erd, e, frustum, cx, cy, cz) ? 1 : 0;
                 }
                 return a;
             }});

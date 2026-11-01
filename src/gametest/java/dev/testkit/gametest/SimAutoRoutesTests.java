@@ -4302,7 +4302,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     net.minecraft.world.entity.EntitySpawnReason.COMMAND);
             pig.setPos(pigAt.getX() + 0.5, pigAt.getY(), pigAt.getZ() + 0.5);
             pig.setNoAi(true);
-            pig.setInvulnerable(true);
+            dev.testkit.compat.McEntities.setInvulnerable(pig, true);
             server.overworld().addFreshEntity(pig);
             pigId.set(pig.getUUID());
         });
@@ -4313,7 +4313,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> {
             mc.gameMode.startDestroyBlock(floorAhead, Direction.UP);
             mc.gameMode.stopDestroyBlock();
-            mc.player.swing(InteractionHand.MAIN_HAND);
+            dev.testkit.compat.McCompat.swingArm(mc.player);
             mc.gameMode.attack(mc.player, pigOnClient(mc, pigId.get()));
         });
         ctx.waitTicks(20);
@@ -6690,7 +6690,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         }
 
         /** GLFW keypad 8: bound to Add Jump Node for 872 only (no character, nothing else uses it). */
-        private static final int JUMP_KEY = 328;
+        private static final int JUMP_KEY = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD8;
 
         private static net.minecraft.client.gui.components.EditBox chatInput(net.minecraft.client.gui.screens.ChatScreen cs) {
             try {
@@ -6747,7 +6747,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 // He types the number and presses Enter: now it goes.
                 ctx.getInput().typeChars("2");
                 ctx.waitTicks(2);
-                ctx.getInput().pressKey(257); // GLFW_KEY_ENTER
+                ctx.getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_RETURN); // GLFW_KEY_ENTER
                 boolean added = waitFor(ctx, 40, () -> !fileNodes(ctx).isEmpty());
                 JsonArray nodes = fileNodes(ctx);
                 println("872 after '2' + Enter: nodes " + nodes);

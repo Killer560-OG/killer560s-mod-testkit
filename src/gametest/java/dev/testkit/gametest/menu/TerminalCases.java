@@ -470,7 +470,7 @@ final class TerminalCases {
             MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
             c.waitUntil("TerminalSolverFeature.currentType == MELODY", mc -> "MELODY".equals(currentType()), 100);
             boolean consumed4 = c.onClient(mc -> (Boolean) Mod.staticCall(QOL, "handleMelodyKey",
-                    dev.testkit.compat.McCompat.screen(mc), org.lwjgl.glfw.GLFW.GLFW_KEY_4));
+                    dev.testkit.compat.McCompat.screen(mc), com.mojang.blaze3d.platform.InputConstants.KEY_4));
             c.ctx().waitTicks(10);
             // The board is frozen and nothing else clicks in this case, so any click since it started is key 4's.
             List<JsonObject> after4 = c.events("terminal.click");
@@ -481,7 +481,7 @@ final class TerminalCases {
                     && net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(
                     mc.player.containerMenu.slots.get(11).getItem().getItem()).getPath().equals("lime_stained_glass_pane"), 100);
             boolean consumed1 = c.onClient(mc -> (Boolean) Mod.staticCall(QOL, "handleMelodyKey",
-                    dev.testkit.compat.McCompat.screen(mc), org.lwjgl.glfw.GLFW.GLFW_KEY_1));
+                    dev.testkit.compat.McCompat.screen(mc), com.mojang.blaze3d.platform.InputConstants.KEY_1));
             JsonObject click = MenuKit.awaitEvent(c, "terminal.click", 40);
             c.check(click.get("slot").getAsInt() == 16 && click.get("correct").getAsBoolean(),
                     "key 1 should press row 1's button (slot 16) on time, server saw " + click);

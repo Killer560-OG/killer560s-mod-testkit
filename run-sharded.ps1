@@ -35,10 +35,10 @@ param(
     [string]$Scenario = "",
     [string[]]$Suite = @(),
     [int]$Shards = 3,
-    [string]$Minecraft = "26.1.2",          # 26.1.2 | 26.2 | both
-    [string]$ModUnderTest = "",             # one version only; for both use -Jar261 / -Jar262
+    [string]$Minecraft = "26.3",            # 26.3 | 26.2 | both
+    [string]$ModUnderTest = "",             # one version only; for both use -Jar263 / -Jar262
     [switch]$NoMod,                         # run without any mod (e.g. -Suite generic as a baseline)
-    [string]$Jar261 = "",
+    [string]$Jar263 = "",
     [string]$Jar262 = "",
     [string]$JarsDir = "",                  # default: jarsDir from testkit.properties
     [int]$Max = 3,
@@ -108,13 +108,13 @@ if ($Extra -match 'testVolume') { Say "WARNING: -Extra passes -PtestVolume; test
 
 $versions = @()
 switch ($Minecraft) {
-    "both" { $versions = @("26.1.2", "26.2") }
-    "26.1.2" { $versions = @("26.1.2") }
+    "both" { $versions = @("26.3", "26.2") }
+    "26.3" { $versions = @("26.3") }
     "26.2" { $versions = @("26.2") }
-    default { Write-Host "-Minecraft must be 26.1.2, 26.2 or both"; exit 4 }
+    default { Write-Host "-Minecraft must be 26.3, 26.2 or both"; exit 4 }
 }
 if ($ModUnderTest -ne "" -and $versions.Count -gt 1) {
-    Write-Host "-ModUnderTest names one jar; with -Minecraft both give -Jar261 and -Jar262"
+    Write-Host "-ModUnderTest names one jar; with -Minecraft both give -Jar263 and -Jar262"
     exit 4
 }
 
@@ -122,7 +122,7 @@ if ($ModUnderTest -ne "" -and $versions.Count -gt 1) {
 function Resolve-Jar([string]$ver) {
     $given = ""
     if ($ModUnderTest -ne "") { $given = $ModUnderTest }
-    elseif ($ver -eq "26.1.2") { $given = $Jar261 }
+    elseif ($ver -eq "26.3") { $given = $Jar263 }
     else { $given = $Jar262 }
     if ($given -ne "") {
         # One jar or a comma list (a mod and its libraries); each must exist.
@@ -133,7 +133,7 @@ function Resolve-Jar([string]$ver) {
     # Newest snapshot holding that version's jar (modJarPattern), resolved ONCE so every shard tests the same file.
     $c = $cfg.Clone(); $c.jarsDir = $JarsDir
     $snap = Find-TestkitSnapshotJar $c $ver
-    if (-not $snap) { throw ("no " + $cfg.modJarPattern.Replace("{mc}", $ver) + " under $JarsDir; run ./get-mod.ps1 or pass -Jar261/-Jar262/-ModUnderTest") }
+    if (-not $snap) { throw ("no " + $cfg.modJarPattern.Replace("{mc}", $ver) + " under $JarsDir; run ./get-mod.ps1 or pass -Jar263/-Jar262/-ModUnderTest") }
     return $snap
 }
 $jars = @{}

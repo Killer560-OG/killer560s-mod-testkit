@@ -287,9 +287,9 @@ final class InventoryCases {
             MenuKit.show(c, MenuKit.menu("menus.loadout"));
             MenuKit.awaitScreen(c, "(1/2) Loadout", 100);
             c.ctx().waitTicks(5);
-            c.ctx().getInput().pressKey(49);   // GLFW_KEY_1
+            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_1);   // GLFW_KEY_1
             c.waitUntil("key 1 -> a click", mc -> !c.events("container.click").isEmpty(), 60);
-            c.ctx().getInput().pressKey(262);  // GLFW_KEY_RIGHT
+            c.ctx().getInput().pressKey(com.mojang.blaze3d.platform.InputConstants.KEY_RIGHT);  // GLFW_KEY_RIGHT
             c.waitUntil("Right -> a second click", mc -> c.events("container.click").size() >= 2, 60);
             List<JsonObject> clicks = c.events("container.click");
             c.check(clicks.get(0).get("slot").getAsInt() == 14 && clicks.get(0).get("input").getAsString().equals("PICKUP"),

@@ -9,7 +9,6 @@ import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
-import net.minecraft.network.protocol.game.ServerboundSwingPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
 import net.minecraft.world.level.ClipContext;
@@ -245,12 +244,12 @@ public final class PacketWatch {
                 usesAfterMove++;
             }
             if (sawRotation) {
-                float jump = Math.abs(use.getYRot() - lastYaw);
+                float jump = Math.abs(dev.testkit.compat.McPackets.useItemYRot(use) - lastYaw);
                 if (jump > maxUseRotationJump) {
                     maxUseRotationJump = jump;
                     biggestJump = String.format(Locale.ROOT,
                             "use claimed yaw %.1f / pitch %.1f while the last movement packet said yaw %.1f",
-                            use.getYRot(), use.getXRot(), lastYaw);
+                            dev.testkit.compat.McPackets.useItemYRot(use), dev.testkit.compat.McPackets.useItemXRot(use), lastYaw);
                 }
             }
         } else if (packet instanceof ServerboundInteractPacket interact) {
@@ -294,7 +293,7 @@ public final class PacketWatch {
             if (movesThisTick > 0) {
                 usesAfterMove++;
             }
-        } else if (packet instanceof ServerboundSwingPacket) {
+        } else if (dev.testkit.compat.McPackets.isSwing(packet)) {
             swingsThisTick++;
             totalSwings++;
         } else if (packet instanceof ServerboundSetCarriedItemPacket) {

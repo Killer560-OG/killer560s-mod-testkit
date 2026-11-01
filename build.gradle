@@ -7,20 +7,19 @@ group = project.maven_group
 
 // --- which Minecraft --------------------------------------------------------------------------------
 //
-// 26.1.2 is the default (gradle.properties). -Pminecraft_version=26.2 builds and runs everything against 26.2,
-// the same switch killer560s-mod uses. The versions that must move WITH Minecraft are filled in from the table
-// below unless they are passed on the command line too, so the one flag is enough; an explicit
+// 26.3 is the default (gradle.properties) since 2026-11-01. -Pminecraft_version=26.2 builds and runs everything
+// against 26.2, the same switch killer560s-mod uses. 26.1.2 was dropped that day, with its compatibility layer.
+// The versions that must move WITH Minecraft are filled in from the table below unless they are passed on the command line too, so the one flag is enough; an explicit
 // -Pfabric_api_version / -Ploader_version / -Pcloud_version still wins. Parsed the way the mod parses it: a
 // fixed [0..1] slice throws on a two-component version like "26.2".
 def mcParts = project.minecraft_version.toString().tokenize('.')
 def mcMinorVersion = mcParts.size() >= 2 ? "${mcParts[0]}.${mcParts[1]}" : "${mcParts[0]}"
 def mcBranch = "mc" + (mcParts.size() >= 2 ? "${mcParts[0]}_${mcParts[1]}" : mcParts[0])
 def versionsByMinecraft = [
-	// 26.1.x: exactly what gradle.properties says, so the default build is unchanged.
-	'26.1': [:],
-	// 26.2: Fabric API as the mod builds it; loader as killer560's "26.2 mod only" Prism instance runs it. Cloud
-	// beta.17 because beta.16 is the 26.1 build and beta.17 declares minecraft >=26.2 (and is the one GrimAC
-	// itself nests).
+	// 26.3: exactly what gradle.properties says, so the default build is unchanged.
+	'26.3': [:],
+	// 26.2: Fabric API as the mod builds it; loader as killer560's 26.2 Prism instances run it. Cloud beta.17
+	// declares minecraft >=26.2 (and is the one GrimAC itself nests).
 	'26.2': [fabric_api_version: '0.160.0+26.2', loader_version: '0.19.5', cloud_version: '2.0.0-beta.17'],
 ]
 def versionDefaults = versionsByMinecraft[mcMinorVersion]
@@ -97,7 +96,7 @@ def configPath = { String key, String fallback ->
 }
 def machineModSource = configPath("modSource", new File(mainCheckout.parentFile, "killer560s-mod").path)
 def machinePrismInstances = configPath("prismInstances", "")
-def machineRoomsInstance = testkitConfig("roomsInstance", "26.1.2 (Mod Only Test)")
+def machineRoomsInstance = testkitConfig("roomsInstance", "26.3 Mod Only Test")
 def machineSimInstance = testkitConfig("simInstance", "Map Logger")
 def machineWindowScreen = testkitConfig("windowScreen", "auto")
 
@@ -113,7 +112,7 @@ loom {
 // --- per-Minecraft-version compatibility layer ----------------------------------------------------------
 //
 // The killer560s-mod pattern: API that differs between Minecraft versions lives in dev.testkit.compat (McCompat,
-// McItems, McEntities), and exactly ONE of src/client/mc26_1/java / src/client/mc26_2/java goes on the client
+// McItems, McEntities), and exactly ONE of src/client/mc26_3/java / src/client/mc26_2/java goes on the client
 // source path. The gametest source set sees it through sourceSets.client.output. Both copies keep identical
 // public signatures; everything under src/*/java stays version-neutral and calls these instead.
 def compatDir = file("src/client/${mcBranch}/java")
@@ -153,6 +152,14 @@ sourceSets {
 		runtimeClasspath += sourceSets.main.runtimeClasspath
 	}
 }
+// The companion mod's own compatibility layer (dev.testkit.server.compat.McServer), the same rule as the client's:
+// exactly one of src/testmod/mc26_2/java / src/testmod/mc26_3/java, identical public signatures.
+def testmodCompatDir = file("src/testmod/${mcBranch}/java")
+if (!testmodCompatDir.directory) {
+	throw new GradleException("No companion-mod compatibility layer for Minecraft ${project.minecraft_version}: expected "
+			+ "${testmodCompatDir}. Copy the nearest src/testmod/mc*/java and fix what moved.")
+}
+sourceSets.testmod.java.srcDir testmodCompatDir
 
 tasks.register("testmodJar", Jar) {
 	from sourceSets.testmod.output

@@ -332,8 +332,7 @@ final class MiscCases {
                 });
                 List<Supplier<Screen>> screens = List.of(
                         TitleScreen::new,
-                        () -> new net.minecraft.client.gui.screens.options.OptionsScreen(new TitleScreen(),
-                                Minecraft.getInstance().options, false),
+                        () -> dev.testkit.compat.McCompat.optionsScreen(new TitleScreen(), Minecraft.getInstance().options),
                         () -> new net.minecraft.client.gui.screens.worldselection.SelectWorldScreen(new TitleScreen()),
                         () -> new net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen(new TitleScreen()));
                 for (Supplier<Screen> make : screens) {

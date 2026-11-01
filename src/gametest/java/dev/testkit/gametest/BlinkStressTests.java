@@ -1838,8 +1838,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                 ctx.runOnClient(mc -> {
                     Mod.setField(FEATURE, "keyHeldForTest", null);
                     Mod.setField(CHARGE, "keyHeldForTest", null);
-                    Mod.set(CFG, "setHoldKeyCode", 301);
-                    Mod.set(CFG, "setChargeKeyCode", 302);
+                    Mod.set(CFG, "setHoldKeyCode", com.mojang.blaze3d.platform.InputConstants.KEY_F12);
+                    Mod.set(CFG, "setChargeKeyCode", com.mojang.blaze3d.platform.InputConstants.KEY_F13);
                 });
                 ctx.waitTicks(20);
                 boolean boundIdle = !holding(ctx) && !charging(ctx);
@@ -1853,7 +1853,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                 ctx.runOnClient(mc -> Mod.setField(FEATURE, "keyHeldForTest", Boolean.TRUE));
                 ctx.waitTicks(4);
                 boolean heldRebind = holding(ctx);
-                ctx.runOnClient(mc -> Mod.set(CFG, "setHoldKeyCode", 71));
+                ctx.runOnClient(mc -> Mod.set(CFG, "setHoldKeyCode", com.mojang.blaze3d.platform.InputConstants.KEY_G));
                 ctx.waitTicks(3);
                 ctx.runOnClient(mc -> Mod.setField(FEATURE, "keyHeldForTest", Boolean.FALSE));
                 ctx.waitTicks(2);

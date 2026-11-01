@@ -97,8 +97,8 @@ public final class UseRotationWatch {
         synchronized (violations) {
             if (packet instanceof ServerboundUseItemPacket u) {
                 uses++;
-                float y = u.getYRot();
-                float p = u.getXRot();
+                float y = dev.testkit.compat.McPackets.useItemYRot(u);
+                float p = dev.testkit.compat.McPackets.useItemXRot(u);
                 if (!held.isEmpty()) {
                     float[] last = held.get(held.size() - 1);
                     if (last[0] != y || last[1] != p) {

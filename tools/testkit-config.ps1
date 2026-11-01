@@ -65,7 +65,7 @@ function Get-TestkitConfig([string]$root) {
         modRepo        = "https://github.com/Killer560-OG/killer560s-mod.git"
         modJarPattern  = "killer560smod-*-{mc}-cheat.jar"
         prismInstances = ""
-        roomsInstance  = "26.1.2 (Mod Only Test)"
+        roomsInstance  = "26.3 Mod Only Test"
         simInstance    = "Map Logger"
         windowScreen   = "auto"
         windowSlotsDir = ""

@@ -4,7 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 
 /**
- * Minecraft API that moved between versions, for 26.2. See the 26.1 copy for the rule: identical public
+ * Minecraft API that moved between versions, for 26.2. Rule: identical public
  * signatures in both.
  *
  * <p>26.2 takes the screen off {@code Minecraft}: the field and {@code setScreen} are gone and the screen stack
@@ -65,5 +65,46 @@ public final class McCompat {
     /** The client's chat listener, where a system line enters ({@code mc.gui.chatListener()}). */
     public static net.minecraft.client.multiplayer.chat.ChatListener chatListener(Minecraft mc) {
         return mc.gui.chatListener();
+    }
+
+    // ---- added 2026-11-01 for the 26.3 port (identical signatures in the 26.3 copy) ----
+
+    /** An arm swing as a left click sends it. 26.2: {@code LocalPlayer.swing(hand)} animates and sends ServerboundSwingPacket. */
+    public static void swingArm(net.minecraft.client.player.LocalPlayer player) {
+        player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+    }
+
+    /** The drop key (Q, or Ctrl+Q with {@code fullStack}). 26.2: {@code LocalPlayer.drop(boolean)}. */
+    public static void dropSelected(Minecraft mc, boolean fullStack) {
+        mc.player.drop(fullStack);
+    }
+
+    /** {@code EntityRenderDispatcher.shouldRender}; 26.2 takes no partial tick. */
+    public static boolean shouldRender(net.minecraft.client.renderer.entity.EntityRenderDispatcher d,
+            net.minecraft.world.entity.Entity e, net.minecraft.client.renderer.culling.Frustum frustum, double x, double y,
+            double z) {
+        return d.shouldRender(e, frustum, x, y, z);
+    }
+
+    /** The vanilla Options screen. 26.2: {@code OptionsScreen(Screen, Options, boolean inGame=false)}. */
+    public static Screen optionsScreen(Screen parent, net.minecraft.client.Options options) {
+        return new net.minecraft.client.gui.screens.options.OptionsScreen(parent, options, false);
+    }
+
+    /** A sign editor for the front or back text. 26.2: {@code SignEditScreen(sign, boolean front, boolean filtered)}. */
+    public static Screen signEditScreen(net.minecraft.world.level.block.entity.SignBlockEntity sign, boolean front,
+            boolean filtered) {
+        return new net.minecraft.client.gui.screens.inventory.SignEditScreen(sign, front, filtered);
+    }
+
+    /** Whether authlib still has the Yggdrasil service (26.2: authlib 7, yes). */
+    public static boolean hasYggdrasilAuth() {
+        return true;
+    }
+
+    /** A user API service signed in with {@code token}, as the launcher's account gets (26.2: Yggdrasil). */
+    public static com.mojang.authlib.minecraft.UserApiService createUserApiService(String token) {
+        return new com.mojang.authlib.yggdrasil.YggdrasilAuthenticationService(java.net.Proxy.NO_PROXY)
+                .createUserApiService(token);
     }
 }

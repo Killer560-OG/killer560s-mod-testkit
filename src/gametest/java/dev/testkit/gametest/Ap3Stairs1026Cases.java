@@ -77,7 +77,7 @@ final class Ap3Stairs1026Cases {
             if (!watching.get()) {
                 return;
             }
-            if (p instanceof net.minecraft.network.protocol.game.ServerboundSwingPacket) {
+            if (dev.testkit.compat.McPackets.isSwing(p)) {
                 swings.incrementAndGet();
             } else if (p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket
                     || p instanceof net.minecraft.network.protocol.game.ServerboundInteractPacket) {

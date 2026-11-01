@@ -12,7 +12,6 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import org.lwjgl.glfw.GLFW;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -104,9 +103,9 @@ final class ClickGuardCases {
 
     static void sneak(Session c, boolean down) {
         if (down) {
-            c.ctx().getInput().holdKey(GLFW.GLFW_KEY_LEFT_SHIFT);
+            c.ctx().getInput().holdKey(com.mojang.blaze3d.platform.InputConstants.KEY_LSHIFT);
         } else {
-            c.ctx().getInput().releaseKey(GLFW.GLFW_KEY_LEFT_SHIFT);
+            c.ctx().getInput().releaseKey(com.mojang.blaze3d.platform.InputConstants.KEY_LSHIFT);
         }
         c.waitUntil("sneaking " + down, mc -> mc.player.isShiftKeyDown() == down, 40);
     }

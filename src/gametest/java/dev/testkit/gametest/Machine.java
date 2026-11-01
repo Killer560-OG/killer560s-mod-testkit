@@ -45,7 +45,7 @@ public final class Machine {
 
     /** Instance whose config holds the room captures most sim scenarios copy (roomsInstance). */
     public static String roomsInstance() {
-        return prop("testkit.roomsInstance", "TESTKIT_ROOMS_INSTANCE", "26.1.2 (Mod Only Test)");
+        return prop("testkit.roomsInstance", "TESTKIT_ROOMS_INSTANCE", "26.3 Mod Only Test");
     }
 
     /** Instance whose captures the puzzle-solve and essence/aura scenarios copy (simInstance, TESTKIT_SIM_INSTANCE). */

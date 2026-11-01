@@ -28,7 +28,7 @@ public class MixinServerSignUpdate {
 
     @Inject(method = "updateSignText", at = @At("HEAD"), cancellable = true)
     private void testkit$hxSign(ServerboundSignUpdatePacket packet, List<FilteredText> lines, CallbackInfo ci) {
-        if (HxSigns.onSignUpdate(player, packet.getPos(), packet.getLines())) {
+        if (HxSigns.onSignUpdate(player, dev.testkit.server.compat.McServer.signUpdatePos(packet), dev.testkit.server.compat.McServer.signUpdateLines(packet))) {
             ci.cancel();
         }
     }

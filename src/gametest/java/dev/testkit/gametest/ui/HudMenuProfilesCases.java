@@ -70,7 +70,7 @@ final class HudMenuProfilesCases {
     private static final String PS = "playerstats.PlayerStatsConfig";
     private static final String EDITOR = "hud.HudEditorScreen";
     /** GLFW_KEY_KP_6: bound to nothing in vanilla, so a held key only reaches the Edit HUD poll. */
-    private static final int KEY = 326;
+    private static final int KEY = com.mojang.blaze3d.platform.InputConstants.KEY_NUMPAD6;
     private static final String PROBE_ID = "testkit_hmp_probe";
     private static final int PROBE_W = 60;
     private static final int PROBE_H = 16;
