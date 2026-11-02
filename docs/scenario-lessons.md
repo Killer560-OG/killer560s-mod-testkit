@@ -1352,3 +1352,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   menu session's server start parked the render thread past the freeze watcher's 16 s twice and the client was killed
   mid-start: `TESTKIT_HUNG_POLLS=45` gives it 90 s. A server left over from a killed run holds the port ("FAILED TO BIND"),
   so kill it too. `TESTKIT_MENU_ONLY` (comma parts) picks menu cases; `-Scenario` alone runs the whole selected session.
+- 2798-2801 (ahrelist-1101): an Hx menu spec is JSON and must not contain itself. A "Go Back" that `open`s the page
+  holding it makes a cycle and the session dies at the first Hx call with a StackOverflowError in Gson (first run). Close
+  instead and let the feature reopen the command, or `rebind` (a menu action: what `/name` opens from now on) to change
+  later pages after a click. New Hx menu keys: `listSlot` (an inventory click moves the stack into that menu slot, event
+  `menu.list`), `keepListed` (the next page keeps it there), a sign's `then` (a menu reopened with `{line}`/`{price}`
+  replaced by what was typed) and `splitTicks` on a delivery (half now, the rest T ticks later).
