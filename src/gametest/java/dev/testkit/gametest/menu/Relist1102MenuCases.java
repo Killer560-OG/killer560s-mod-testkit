@@ -197,7 +197,11 @@ final class Relist1102MenuCases {
                     49, FlipCroesusCases.item("minecraft:arrow", "§aGo Back")),
                     Map.of(22, manageClaimAll, 24, FlipCroesusCases.open(create)));
             JsonObject mainClaimed = mainMenu(bidsEmpty, manage);
-            bidsEmpty.getAsJsonObject("on").add("49", FlipCroesusCases.open(mainClaimed));
+            // Go Back just closes (a spec cannot hold the main page that holds it: the JSON would be a cycle); the
+            // relist then opens /ah again, as it does after any closed page.
+            JsonObject close = new JsonObject();
+            close.addProperty("close", true);
+            bidsEmpty.getAsJsonObject("on").add("49", close);
             JsonObject collect = rebind(FlipCroesusCases.closeWith("You claimed Paper from Alice's auction!"), mainClaimed);
             JsonArray giveWon = new JsonArray();
             giveWon.add(FlipCroesusCases.item(stack(bought), "§fPaper"));
