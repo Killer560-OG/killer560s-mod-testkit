@@ -1473,3 +1473,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   list before that message. With the aimed aura every case is silent, the FLAGGED-expected ones included (0 lines).
   51's "never run into the wall" is recorded, not asserted, on a one-a-tick Multi Break jar: at Speed V a two-high wall
   needs ~1.1 digs a tick and GrimAC MultiBreak allows one (13 of 210 packets collided, both versions).
+- 1102-boss-maxorcrys (`SimBossTests`, mod maxorcrys-1102): a check made from the test thread between ticks runs BEFORE
+  that tick's END_CLIENT_TICK, so a feature reacting in its tick handler reads one tick late against an entity the test
+  already sees. The first version failed "counter on the tick the next set is on a tower: 2/2" though the mod reset it in
+  the same tick; the reset now runs on the add-entity packet. Assert the reset's own log line names the real signal
+  ("crystal on a tower"), not the 44-tick backstop.
