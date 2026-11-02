@@ -2478,7 +2478,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             String batLog = "com.killer560.hub.autoclear.BatLog";
             int shotsBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(batLog, "shots"));
             startSampling(ctx);
-            ctx.runOnClient(mc -> mc.player.connection.sendCommand("test"));
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(batTest, "toggleFromMenu"));
             boolean started = waitFor(ctx, 20, () -> ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(batTest,
                     "isRunning")));
             boolean ended = started && waitFor(ctx, 2600, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
@@ -2524,7 +2524,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             noteFlags(c, s);
         } finally {
             if (ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(batTest, "isRunning"))) {
-                ctx.runOnClient(mc -> mc.player.connection.sendCommand("test"));
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(batTest, "toggleFromMenu"));
             }
             c.hx().call("dungeon.alive", "id", mob.get("mob").getAsString(), "stand", mob.get("stand").getAsString());
             c.server().command("kill @e[type=minecraft:zombie]");

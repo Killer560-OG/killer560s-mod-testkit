@@ -87,7 +87,7 @@ public class SimBatTestTests implements FabricClientGameTest {
             t.printStackTrace(System.out);
         } finally {
             if (ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(BAT_TEST, "isRunning"))) {
-                ctx.runOnClient(mc -> mc.player.connection.sendCommand("test"));   // a second /test ends it
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(BAT_TEST, "toggleFromMenu"));   // pressed again, it ends it
             }
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOBS, "setClearRoomsOnEntry", new Class<?>[]{boolean.class},
                     new Object[]{true}));
@@ -252,7 +252,7 @@ public class SimBatTestTests implements FabricClientGameTest {
         int usesBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(RIGHT_CLICK, "itemUsesSent"));
         int shotsBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(BAT_LOG, "shots"));
         long m = LogTap.mark();
-        ctx.runOnClient(mc -> mc.player.connection.sendCommand("test"));
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(BAT_TEST, "toggleFromMenu"));   // the Auto Clear tab's Bat Test button (was /test)
         boolean started = false;
         for (int i = 0; i < 20 && !started; i++) {
             ctx.waitTicks(1);

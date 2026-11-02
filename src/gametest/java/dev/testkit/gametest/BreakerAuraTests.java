@@ -743,7 +743,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         + "is not testing what it says it is");
             }
             // The module is gated on being in a dungeon, which no local server can be. This is the mod's
-            // own /killer560 sim toggle - a real switch it ships, not a hook added for testing.
+            // F7 sim override (it was the /killer560 sim command until mod cmdclean-1101 removed the command).
             Object active = ModUnderTest.staticCall(DUNGEON_STATE, "toggleSimOverride");
             if (!Boolean.TRUE.equals(active)) {
                 throw new AssertionError("toggleSimOverride() turned the dungeon override OFF - the gate "
