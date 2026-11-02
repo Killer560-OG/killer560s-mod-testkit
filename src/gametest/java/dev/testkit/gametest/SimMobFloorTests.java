@@ -189,6 +189,22 @@ public class SimMobFloorTests implements FabricClientGameTest {
         if (!starting || !mort) {
             problems.add("Hypixel's start lines missing (Starting in 1 second " + starting + ", Mort " + mort + ")");
         }
+        // A sleeping starred Fel is an invisible enderman on the client (what Auto Clear reads); count them now, at GO.
+        int[] sleepers = ctx.computeOnClient(mc -> {
+            int inv = 0;
+            int all = 0;
+            for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+                if (dev.testkit.compat.McEntities.endermanClass().isInstance(e)) {
+                    all++;
+                    inv += e.isInvisible() ? 1 : 0;
+                }
+            }
+            return new int[]{inv, all};
+        });
+        facts.add("client endermen at GO: " + sleepers[1] + ", invisible (sleeping Fels) " + sleepers[0]);
+        if (felLine.matches(".*fels placed: [1-9][0-9]* starred.*") && sleepers[0] < 1) {
+            problems.add("starred Fels were placed but the client sees no invisible (sleeping) enderman");
+        }
         if (!problems.isEmpty()) {
             return;
         }
