@@ -87,6 +87,8 @@ class World:
 
     def __init__(self):
         self.b = {}
+        self.parts = set()  # slabs, stairs, carpets and snow a corridor put at its own feet level
+        self.shaft = set()  # ladder shafts: nothing but the ladder stays in them
         self.air = set()  # cells that must stay passable (ladder shafts, headroom over every walking cell)
 
     def put(self, x, y, z, state, prio=1):
@@ -194,8 +196,10 @@ def build(name, file, key, dy, box):
                     w.put(lx, yy, lz, "minecraft:ladder[facing=" + OPP[f] + "]", 6)
                 for yy in range(lo["y"], hi["y"] + 3):
                     w.air.add((lx, yy, lz))
+                    w.shaft.add((lx, yy, lz))
                 for yy in range(hi["y"], hi["y"] + 3):
                     w.air.add((hi["x"], yy, hi["z"]))
+                    w.shaft.add((hi["x"], yy, hi["z"]))
                 continue
             # a height per column: the rise spread evenly, never more than one block per column
             n = len(cols) - 1
@@ -221,14 +225,18 @@ def build(name, file, key, dy, box):
                     w.put(x, y - 1, z, fs if fs else "minecraft:grass_block", 2)
                     if cls == "carpet":
                         w.put(x, y, z, "minecraft:white_carpet", 2)
+                        w.parts.add((x, y, z))
                     elif cls == "snow":
                         w.put(x, y, z, "minecraft:snow[layers=2]", 2)
+                        w.parts.add((x, y, z))
                     if nxt > y:
                         # the step up into the next column
                         if style == "slab" and (i == 0 or heights[i - 1] == y):
                             w.put(x, y, z, "minecraft:stone_slab[type=bottom]", 3)
+                            w.parts.add((x, y, z))
                         elif style == "stairs":
                             w.put(x, y, z, "minecraft:oak_stairs[facing=" + facing(ddx, ddz) + ",half=bottom]", 3)
+                            w.parts.add((x, y, z))
                     for yy in range(3):
                         w.air.add((x, y + yy + (1 if nxt > y and style != "block" else 0), z))
                 if i in water_at:
@@ -291,10 +299,16 @@ def build(name, file, key, dy, box):
     # headroom wins over everything but ladders (a corridor crossing under another one's floor gets a hole)
     for c in w.air:
         st = w.get(*c)
-        if st is not None and not st.startswith("minecraft:ladder") and not st.startswith("minecraft:oak_door") \
-                and "carpet" not in st and "snow" not in st and "slab" not in st and "stairs" not in st \
-                and "water" not in st:
-            del w.b[c]
+        if st is None or st.startswith("minecraft:ladder"):
+            continue
+        if c in w.shaft:
+            del w.b[c]  # a ladder shaft (and the top it climbs out onto) is open all the way up
+            continue
+        if st.startswith("minecraft:oak_door") or "water" in st:
+            continue
+        if c in w.parts and any(k in st for k in ("carpet", "snow", "slab", "stairs")):
+            continue
+        del w.b[c]
 
     attached = ("ladder", "door", "carpet", "snow", "fence", "water")
     first = [(p, s) for p, (s, _) in w.b.items() if not any(a in s for a in attached)]
