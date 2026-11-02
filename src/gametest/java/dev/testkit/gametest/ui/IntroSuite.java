@@ -26,9 +26,10 @@ import java.util.Map;
 /**
  * 1101-ui-intro-*: the first-launch tour (mod intro-1101, killer560 2026-11-01, "ONBOARDING / INTRO SPEC").
  * <ul>
- *   <li>first-show: run with {@code -PclientJvmArgs=-Dkiller560.test.intro=show} on a wiped config, the tour opened ON ITS
- *       OWN, once, over the title screen (IntroLauncher.autoShown() == 1, it was a fresh install, the tour is not done
- *       yet). Without that property it is SKIP (every other run must never see the tour).</li>
+ *   <li>first-show: run with {@code -PclientJvmArgs=-Dkiller560.test.intro=show}, on a wiped config or a seeded "updater"
+ *       config (other settings plus the first version's {"done": true}), the tour opened ON ITS OWN, once, over the title
+ *       screen, and is saved as seen the moment it opens; left mid-tour, a re-armed title screen never opens it again.
+ *       Without that property it is SKIP (every other run must never see the tour).</li>
  *   <li>nav: scene 1 has Next and Skip Guide and NO Previous; a real click on Next moves to scene 2, Previous back to 1,
  *       the Right/Left arrow keys do the same; every scene is walked with real clicks and photographed (1920x1080 GUI 2)
  *       once its bubble has settled; the 3D guide was drawn on every scene (frame counter moved) and turns toward what he
@@ -245,22 +246,36 @@ public class IntroSuite implements FabricClientGameTest {
             c.ticks(1);
         }
         int shown = c.onClient(mc -> (Integer) Mod.staticCall("intro.IntroLauncher", "autoShown"));
-        boolean fresh = c.onClient(mc -> (Boolean) Mod.staticCall("intro.IntroConfig", "wasFreshInstall"));
         Screen s = intro(c);
-        c.note("autoShown=" + shown + " fresh=" + fresh + " screen=" + (s == null ? "other" : "tour"));
-        c.check(fresh, "the wiped config did not read as a first install");
+        // An updater: with -PseedConfig holding other settings and the first version's {"done": true} (which that version
+        // wrote WITHOUT showing anything), the tour must still open (killer560, 2026-11-01).
+        String seed = System.getProperty("testkit.introSeed", "");
+        c.note("autoShown=" + shown + " screen=" + (s == null ? "other" : "tour") + " seed=" + (seed.isBlank() ? "none" : seed));
         c.check(shown == 1, "the tour opened on its own " + shown + " times (expected once)");
         c.check(s != null, "the tour is not on screen after opening on its own");
         Screen parent = c.onClient(mc -> (Screen) Mod.call(s, "parent"));
         c.check(parent instanceof TitleScreen, "the tour opened over " + (parent == null ? "nothing" : parent.getClass().getName())
                 + ", not the title screen");
-        c.check(!done(c), "the tour is already marked done while it is up");
+        // Once and only once: seen from the moment it opens, saved, so quitting mid-tour never brings it back.
+        c.check(done(c), "the tour is not marked seen while it is up");
+        c.check(configFile(c, "killer560smod-intro.json").contains("\"seen\": true"),
+                "the intro file does not say seen as it opens: " + configFile(c, "killer560smod-intro.json"));
         c.check(scene(c).equals("WELCOME"), "the first scene is " + scene(c));
         c.ticks(40);
         int again = c.onClient(mc -> (Integer) Mod.staticCall("intro.IntroLauncher", "autoShown"));
         c.check(again == 1, "it opened again by itself (" + again + ")");
         settle(c);
         shot(c, "first-show");
+        // Quit mid-tour (no Finish, no Skip): a new session's title screen never opens it again.
+        c.onClient(mc -> {
+            McCompat.setScreen(mc, new TitleScreen());
+            Mod.staticCall("intro.IntroConfig", "load");
+            Mod.staticCall("intro.IntroLauncher", "resetSessionForTest");
+            return null;
+        });
+        c.ticks(60);
+        int after = c.onClient(mc -> (Integer) Mod.staticCall("intro.IntroLauncher", "autoShown"));
+        c.check(after == 1 && intro(c) == null, "after leaving it mid-tour it opened again on the title screen (" + after + ")");
     }
 
     static void nav(UiCase c) {
