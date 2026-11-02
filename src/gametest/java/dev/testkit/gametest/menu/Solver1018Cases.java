@@ -320,15 +320,19 @@ final class Solver1018Cases {
         }
         try (AutoCloseable sphere = Mod.with(cfgClass, "RangeStyle", 1)) {
             List<String> texts = tabTexts(c, "gui.tab.DoorKeysTab", cfgClass, "Enabled");
-            c.check(anyStarts(texts, "Circle Thickness:"), "no Circle Thickness slider: " + texts);
-            // Labels are American again since the mod's spelling sweep (spelling-us-1024) ("color", not "colour").
-            c.check(anyStarts(texts, "Circle Color:") && anyStarts(texts, "Tracer Color:"), "no circle/tracer color rows: " + texts);
-            c.check(anyStarts(texts, "Sphere Fill:"), "Sphere style has no fill color row: " + texts);
+            // 2026-11-01 (doc-dhud-1101): the sphere is one color (Sphere Color), no line, so no thickness and no fill row;
+            // the Radius row applies to both styles.
+            c.check(!anyStarts(texts, "Circle Thickness:"), "the Sphere style shows a Circle Thickness slider: " + texts);
+            c.check(anyStarts(texts, "Sphere Color:") && anyStarts(texts, "Tracer Color:"), "no sphere/tracer color rows: " + texts);
+            c.check(!anyStarts(texts, "Sphere Fill:"), "the Sphere style still has a separate fill row: " + texts);
+            c.check(anyStarts(texts, "Radius:"), "the Sphere style has no Radius row: " + texts);
         }
         try (AutoCloseable radius = Mod.with(cfgClass, "RangeStyle", 0)) {
             List<String> texts = tabTexts(c, "gui.tab.DoorKeysTab", cfgClass, "Enabled");
-            c.check(anyStarts(texts, "Circle Height:"), "Radius style has no Circle Height slider: " + texts);
-            c.check(!anyStarts(texts, "Sphere Fill:"), "Radius style shows a sphere fill row");
+            c.check(anyStarts(texts, "Circle Height:") && anyStarts(texts, "Circle Thickness:"),
+                    "Circle style has no Circle Height / Thickness slider: " + texts);
+            c.check(anyStarts(texts, "Circle Color:") && anyStarts(texts, "Radius:"), "Circle style has no color / Radius row: " + texts);
+            c.check(!anyStarts(texts, "Sphere Fill:"), "Circle style shows a sphere fill row");
         }
     }
 
