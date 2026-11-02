@@ -102,6 +102,9 @@ public class HxSuite implements FabricClientGameTest {
                     HxMining1101Cases.register(s);
                     // How Lucky Are You / Full RNG Tracker (1101-luck-*, mod branch doc-rng-1101), own block.
                     HxLuckCases.register(s);
+                    // Every-drop coverage: mob/sea creature kills, Looting, slayer level, RNG Meter, Kuudra, Nucleus,
+                    // Experiments, Unknown-floor claims (1102-luck-*, mod branch luck2-1101).
+                    HxLuck1102Cases.register(s);
                     HxStutterCases.register(s);
                     HxBossHealthCases.register(s);
                 });

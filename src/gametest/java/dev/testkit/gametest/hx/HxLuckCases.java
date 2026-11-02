@@ -166,6 +166,7 @@ final class HxLuckCases {
             // Real: both completion lines for one boss count one kill at 100% MF.
             c.hx().chat("  §r§a§lSLAYER QUEST COMPLETE!");
             c.hx().chat("§a§lNICE! SLAYER BOSS SLAIN!");
+            c.hx().chat("   §5§l» §7Zombie Slayer LVL 9 §5- §7LVL MAXED OUT!");
             c.waitUntil("one Revenant V kill counted", mc -> attempts(c, act) == a0 + 1, 40);
             c.ctx().waitTicks(10);
             long a1 = attempts(c, act);
@@ -408,8 +409,14 @@ final class HxLuckCases {
             c.ctx().runOnClient(mc -> Mod.staticCall("profiles.ProfileManager", "reloadAllConfigs"));
             Object after = c.onClient(mc -> cfg());
             c.check((Boolean) c.onClient(mc -> Mod.call(after, "isShareMyLuck")), "a profile reload lost Share My Luck");
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfg(), "setMobKills", Mod.enumValue(CFG + "$MobKills", "NEARBY"));
+                Mod.call(cfg(), "save");
+                Mod.staticCall(CFG, "load");
+            });
+            c.check("NEARBY".equals(c.onClient(mc -> Mod.call(cfg(), "getMobKills").toString())), "Mob Kills did not survive a reload");
             for (String label : List.of("RNG Tracker", "Open How Lucky Are You", "Drop Chat Line", "Count Dye Pickups",
-                    "Chest Odds", "Magic Find", "Share My Luck")) {
+                    "Chest Odds", "Magic Find", "Share My Luck", "Mob Kills")) {
                 String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "How Lucky Are You", label));
                 c.check(tip != null && !tip.isBlank(), "no tooltip for " + label);
             }
@@ -420,6 +427,7 @@ final class HxLuckCases {
                 Mod.call(o, "setChestOdds", Mod.enumValue(CFG + "$ChestOdds", "BASE"));
                 Mod.call(o, "setManualMagicFind", 0);
                 Mod.call(o, "setShareMyLuck", false);
+                Mod.call(o, "setMobKills", Mod.enumValue(CFG + "$MobKills", "HIT"));
                 Mod.call(o, "save");
             });
         }
