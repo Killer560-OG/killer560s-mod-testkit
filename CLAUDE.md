@@ -461,7 +461,9 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
   java before the next entry.
 - `HxAbilities` treats a carpet as passable since zpew2-1101, like the mod's TeleportUtils since doc-routes-1101 (Hypixel's 1.8
   feet list); before, 1027-zpewc-shapes-* failed "carpet: MISPREDICT (err 1.414)" at every latency on any jar with that change.
-- With experimental checks on, Blink Charge's kept teleport (a server tp while banking) once drew `BadPacketsV*` (a still
-  position packet within 19 ticks of the last, no teleport in the tick before) with no ZPEW action at all (1102-zpew-ecancel,
-  26.3, first run; the rerun drew none). That is Blink's owner-accepted kept-teleport flag; 1102-zpew-ecancel accepts only
-  that check once Blink is on, and nothing before it.
+- With experimental checks on, Blink Charge draws `BadPacketsV*` (a still position packet within 19 ticks of the last, no
+  teleport in the tick before) about once per server teleport it keeps its bank through ("teleport confirmed - bank kept ...
+  answers sent back to back with the confirm", then the flag ~0.5 s later), with no ZPEW press in between: 1027-zpewlk-*
+  records 1-6 a case between its shots (its aimed-shot windows are clean), and 1102-zpew-ecancel saw it after the tp onto its
+  square (zpew2-1101, 26.3 and 26.2). It is Blink's kept-teleport path (owner-accepted, 2026-10-27), for the Blink owner to
+  judge; 1102-zpew-ecancel accepts only that check once Blink is on, and nothing before it.
