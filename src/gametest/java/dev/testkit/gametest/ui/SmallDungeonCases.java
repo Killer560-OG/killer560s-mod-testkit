@@ -363,10 +363,13 @@ final class SmallDungeonCases {
                 return false;
             });
             c.check(has, "DungeonInfoConfig has no setTextColor");
-            Screen s = DungeonB2Cases.openTab(c, "Secrets HUD");
+            // Since mod doc-auto-1101 (killer560 2026-11-01: merge Secret Clicked, Secret Sound and Secret HUD) the Secrets
+            // HUD is a section of the one "Secret" tab (Dungeons > Secrets > Secret), with its own header and switch.
+            Screen s = DungeonB2Cases.openTab(c, "Secret");
             List<String> rows = DungeonB2Cases.labels(c, s);
-            c.note("Secrets HUD rows: " + rows);
-            c.check(rows.stream().anyMatch(l -> l.startsWith("Secrets Text Color")), "no 'Secrets Text Color' row");
+            c.note("Secret tab rows: " + rows);
+            c.check(rows.stream().anyMatch(l -> l.startsWith("Secrets HUD: ")), "the Secret tab has no 'Secrets HUD:' switch");
+            c.check(rows.stream().anyMatch(l -> l.startsWith("Secrets Text Color")), "no 'Secrets Text Color' row in the Secret tab");
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
                 return null;
