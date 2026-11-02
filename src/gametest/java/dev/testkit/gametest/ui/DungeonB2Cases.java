@@ -473,10 +473,15 @@ final class DungeonB2Cases {
                 String why = null;
                 if (b[p] != '.') {
                     why = "not empty";
-                } else if (replies.contains(p)) {
-                    why = "the computer's own best reply";
+                } else if (replies.contains(p) && replies.size() < 2) {
+                    // Since mod doc-puzzles-1101 a square the computer might take is a valid prefire when it is his best
+                    // click after every OTHER best reply (1101-pz-ttt checks the full rule); never its only reply.
+                    why = "the computer's only best reply";
                 } else {
                     for (int r : replies) {
+                        if (r == p) {
+                            continue;
+                        }
                         b[r] = 'X';
                         int bestO = Integer.MIN_VALUE;
                         for (int q = 0; q < 9; q++) {

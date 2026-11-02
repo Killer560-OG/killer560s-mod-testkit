@@ -62,6 +62,9 @@ public class BossSuite implements FabricClientGameTest {
                     // Arrow Align Aura as fast as GrimAC allows: Clicks Per Tick 1-7, Turn And Click Same Tick, latency
                     // 0-300 ms, two-frame and same-frame controls (1027-aafast-*, mod aafast-1027), own block.
                     AaFastCases.register(s);
+                    // To-do Doc puzzle items: Quiz, Tic Tac Toe, Creeper Beams, Ice Fill, Teleport Maze, Simon Says
+                    // (1101-pz-*, 1101-ss-*, mod doc-puzzles-1101), own block.
+                    DocPuzzleCases.register(s);
                 });
     }
 }
