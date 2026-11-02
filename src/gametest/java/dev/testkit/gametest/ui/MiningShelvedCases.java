@@ -97,6 +97,11 @@ final class MiningShelvedCases {
                         }
                     }
                     String name = n.name() == null ? "" : n.name().toLowerCase(Locale.ROOT);
+                    if (n.depth() == 0 && name.equals("mining") && cls.equals("com.killer560.hub.gui.tab.CategoryTab")) {
+                        // The pre-2.0 Mining category (mod doc-mining-1101, killer560 2026-11-01: "MINING FEATURES PRE
+                        // 2.0"): new features, none from shelved/mining - the class checks still hold for its cards.
+                        continue;
+                    }
                     boolean byClass = cls.startsWith(MINING_PKG) || SHELVED_OUTSIDE.contains(cls)
                             || (n.tab().getClass().getEnclosingClass() != null
                                 && SHELVED_OUTSIDE.contains(n.tab().getClass().getEnclosingClass().getName()));
