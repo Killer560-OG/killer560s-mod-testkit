@@ -268,10 +268,65 @@ public class FairyIslandTests implements FabricClientGameTest {
                 ctx.waitTicks(40);
                 scenario.log("started at " + startAt + " (-Pfairy.start)");
             }
-            ctx.runOnClient(mc -> Mod.staticCall(RUNNER, "start"));
+            // -Pfairy.record=FILE writes what the walker pressed each tick and the body's look after it;
+            // -Pfairy.replay=FILE plays that back with NO automation (the case holds the keys and turns him), the control
+            // for "does this movement flag whoever makes it".
+            String recordTo = System.getProperty("testkit.fairy.record", "");
+            String replayFrom = System.getProperty("testkit.fairy.replay", "");
+            List<String> recording = new ArrayList<>();
+            List<String[]> replay = new ArrayList<>();
+            if (!replayFrom.isBlank()) {
+                try {
+                    for (String l : Files.readAllLines(Path.of(replayFrom))) {
+                        replay.add(l.split(" "));
+                    }
+                } catch (java.io.IOException e) {
+                    throw new AssertionError("could not read the replay " + replayFrom, e);
+                }
+                scenario.log("replaying " + replay.size() + " ticks from " + replayFrom + " with Auto Fairy Souls off");
+                maxTicks = Math.min(maxTicks, replay.size());
+            } else {
+                ctx.runOnClient(mc -> Mod.staticCall(RUNNER, "start"));
+            }
             double[] prev = null;
             for (int tick = 0; tick < maxTicks; tick++) {
+                if (!replay.isEmpty()) {
+                    String[] r = replay.get(tick);
+                    // r: W S A D J sprint (1/0), then the look after the previous tick
+                    java.util.function.Function<net.minecraft.client.Options, net.minecraft.client.KeyMapping>[] keys =
+                            new java.util.function.Function[]{(java.util.function.Function<net.minecraft.client.Options, net.minecraft.client.KeyMapping>) o -> o.keyUp,
+                                    (java.util.function.Function<net.minecraft.client.Options, net.minecraft.client.KeyMapping>) o -> o.keyDown,
+                                    (java.util.function.Function<net.minecraft.client.Options, net.minecraft.client.KeyMapping>) o -> o.keyLeft,
+                                    (java.util.function.Function<net.minecraft.client.Options, net.minecraft.client.KeyMapping>) o -> o.keyRight,
+                                    (java.util.function.Function<net.minecraft.client.Options, net.minecraft.client.KeyMapping>) o -> o.keyJump,
+                                    (java.util.function.Function<net.minecraft.client.Options, net.minecraft.client.KeyMapping>) o -> o.keySprint};
+                    for (int k = 0; k < 6; k++) {
+                        java.util.function.Function<net.minecraft.client.Options, net.minecraft.client.KeyMapping> key = keys[k];
+                        if (r[k].equals("1")) {
+                            ctx.getInput().holdKey(key::apply);
+                        } else {
+                            ctx.getInput().releaseKey(key::apply);
+                        }
+                    }
+                    if (tick > 0) {
+                        String[] look = replay.get(tick - 1);
+                        float yaw = Float.parseFloat(look[6]);
+                        float pitch = Float.parseFloat(look[7]);
+                        ctx.runOnClient(mc -> {
+                            mc.player.setYRot(yaw);
+                            mc.player.setYHeadRot(yaw);
+                            mc.player.setXRot(pitch);
+                        });
+                    }
+                }
                 ctx.waitTick();
+                if (!recordTo.isBlank()) {
+                    recording.add(ctx.computeOnClient(mc -> String.format(Locale.ROOT, "%s %s %s %s %s %s %.5f %.5f",
+                            (Boolean) Mod.field(WALKER, "wantForward") ? "1" : "0", (Boolean) Mod.field(WALKER, "wantBack") ? "1" : "0",
+                            (Boolean) Mod.field(WALKER, "wantLeft") ? "1" : "0", (Boolean) Mod.field(WALKER, "wantRight") ? "1" : "0",
+                            (Boolean) Mod.field(WALKER, "wantJump") ? "1" : "0", (Boolean) Mod.field(WALKER, "wantSprint") ? "1" : "0",
+                            mc.player.getYRot(), mc.player.getXRot())));
+                }
                 double[] s = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
                 if (prev != null) {
                     double step = Math.hypot(s[0] - prev[0], s[2] - prev[2]);
@@ -331,6 +386,24 @@ public class FairyIslandTests implements FabricClientGameTest {
                 }
                 if (tick > 40 && tick % 20 == 0 && !ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(RUNNER, "isActive"))) {
                     break;
+                }
+            }
+            if (!recordTo.isBlank()) {
+                try {
+                    Files.write(Path.of(recordTo), recording);
+                    scenario.log("recorded " + recording.size() + " ticks to " + recordTo);
+                } catch (java.io.IOException e) {
+                    scenario.log("could not write the recording: " + e);
+                }
+            }
+            if (!replay.isEmpty()) {
+                for (int k = 0; k < 1; k++) {
+                    ctx.getInput().releaseKey(o2 -> o2.keyUp);
+                    ctx.getInput().releaseKey(o2 -> o2.keyDown);
+                    ctx.getInput().releaseKey(o2 -> o2.keyLeft);
+                    ctx.getInput().releaseKey(o2 -> o2.keyRight);
+                    ctx.getInput().releaseKey(o2 -> o2.keyJump);
+                    ctx.getInput().releaseKey(o2 -> o2.keySprint);
                 }
             }
             o.collected = o.collectedAt.size();
