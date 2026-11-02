@@ -222,6 +222,8 @@ public class MenuSuite implements FabricClientGameTest {
                     // ---- 888-890 croesus-track (2026-10-12): run state follows a run that moves, and restarts;
                     // 906 croesus-page-leak (2026-10-24): page 2 never takes page 1's runs ----
                     CroesusTrackCases.register(s);
+                    // ---- 1101 shared-records (2026-11-01): records shared across instances, old files folded in ----
+                    SharedRecordsCases.register(s);
                     Solver1018Cases.register(s); // 1018-*: the 2026-10-18 solver-sound batch
                     // ---- 898 croesus-colors (2026-10-12): run states distinct by color (deltaE, CVD) and marks ----
                     CroesusColorCases.register(s);
