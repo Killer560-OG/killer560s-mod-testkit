@@ -19,8 +19,10 @@ import java.util.Locale;
  * session's GrimAC server.
  *
  * <pre>
- * 982 Auto E-Table stops on any key, click or scroll and on another screen opening, never on a mouse move or on the
- *     Start ETable click that began it (a real click), names what stopped it, and sends nothing after
+ * 982 Auto E-Table stops ONLY on Escape or the Emergency Cancel Key (mod doc-etable-1101, killer560 2026-11-01; until
+ *     then any key, click, scroll or another screen opening did): the Start ETable click that began it (a real click),
+ *     a mouse move, the J key, a left click, the scroll wheel and chat opening do not stop it; Escape and the Emergency
+ *     Cancel Key do, by name, with the table left open and nothing sent after; a key typed into chat is never one
  * 983 Fast/Auto Leap: a class target goes to the teammate Leap Order's class pick gave it, a name target to that
  *     name; Fast alone fires on his left click and not on its trigger, Auto alone on its trigger and not on the click;
  *     Class Targets (2026-10-27): with his own tab-list class Mage the leap goes to the Mage target (a name), as Healer
@@ -94,35 +96,54 @@ final class DocDungeonsMenuCases {
                     + " game click(s) so far");
             c.check(stillArmed, "moving the mouse stopped the run (" + reason(c) + ")");
 
-            // ---- 3: a key ----
-            stopsOn(c, "the J key", () -> c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(74))); // GLFW_KEY_J
-            // ---- 4: a left click on no slot ----
-            rearm(c);
+            // ---- 3-6: a key, a left click on no slot, the scroll wheel, chat opening: none is a stop any more ----
+            keepsOn(c, "the J key", () -> c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(74))); // GLFW_KEY_J
             c.ctx().getInput().setCursorPos(4, 4);
             c.ctx().waitTicks(2);
-            stopsOn(c, "left click", () -> c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0)));
-            // ---- 5: the scroll wheel ----
-            rearm(c);
-            stopsOn(c, "scroll wheel", () -> c.ctx().getInput().scroll(1.0));
-            // ---- 6: another screen opening ----
-            rearm(c);
-            stopsOn(c, "opening", () -> c.ctx().runOnClient(mc ->
+            keepsOn(c, "a left click", () -> c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0)));
+            keepsOn(c, "the scroll wheel", () -> c.ctx().getInput().scroll(1.0));
+            String gameTitle = c.onClient(MenuKit::screenTitle);
+            keepsOn(c, "chat opening", () -> c.ctx().runOnClient(mc ->
                     McCompat.setScreen(mc, new net.minecraft.client.gui.screens.ChatScreen("", false))));
-            // ---- 7: keys typed into a non-container screen are not a stop (that screen opening was) ----
-            c.ctx().runOnClient(mc -> Mod.setField(EXP, "armed", true));
-            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(75)); // GLFW_KEY_K, typed into chat
+            // ---- 7: the Emergency Cancel Key typed into chat is typing, not a stop ----
+            c.ctx().runOnClient(mc -> Mod.set("macrostop.MacroStopConfig", "setEmergencyCancelKeyCode", 75)); // K
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(75));
             c.ctx().waitTicks(3);
             boolean chatKey = armed(c);
-            c.note("armed with chat open, K typed: armed " + chatKey);
+            c.note("armed with chat open, K (the Emergency Cancel Key) typed: armed " + chatKey);
             c.check(chatKey, "a key typed into chat stopped the run");
+            c.ctx().runOnClient(mc -> McCompat.setScreen(mc, null));
+            // ---- 8: Escape, back on the table ----
+            MenuKit.show(c, MenuKit.menu("menus.experimentation-table"));
+            MenuKit.awaitScreen(c, "Experimentation Table", 100);
+            c.ctx().waitTicks(3);
+            stopsOn(c, "Escape", () -> c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(256)), true);
+            // ---- 9: the Emergency Cancel Key ----
+            rearm(c);
+            stopsOn(c, "Emergency Cancel Key", () -> c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(75)), true);
+            c.note("game screen when chat opened: " + gameTitle);
             c.ctx().runOnClient(mc -> {
                 Mod.setField(EXP, "armed", false);
                 McCompat.setScreen(mc, null);
             });
         } finally {
-            c.ctx().runOnClient(mc -> Mod.setField(EXP, "armed", false));
+            c.ctx().runOnClient(mc -> {
+                Mod.setField(EXP, "armed", false);
+                Mod.set("macrostop.MacroStopConfig", "setEmergencyCancelKeyCode", -1);
+            });
             MenuKit.reset(c);
         }
+    }
+
+    /** An input that must NOT stop the run (mod doc-etable-1101): still armed 3 ticks later, no new stop reason. */
+    private static void keepsOn(Session c, String what, Runnable input) {
+        String before = reason(c);
+        input.run();
+        c.ctx().waitTicks(3);
+        boolean armed = armed(c);
+        String after = reason(c);
+        c.note(what + ": armed " + armed + ", stop reason \"" + after + "\"");
+        c.check(armed && after.equals(before), what + " stopped the run (" + after + ")");
     }
 
     private static boolean armed(Session c) {
@@ -135,14 +156,11 @@ final class DocDungeonsMenuCases {
 
     /** Arms the run again with the table (or whichever game menu the run reached) still open. */
     private static void rearm(Session c) {
-        c.ctx().runOnClient(mc -> {
-            Mod.staticCall(EXP, "stopOnPlayerInput", "testkit re-arm"); // no-op unless armed
-            Mod.setField(EXP, "armed", true);
-        });
+        c.ctx().runOnClient(mc -> Mod.setField(EXP, "armed", true));
         c.ctx().waitTicks(2);
     }
 
-    private static void stopsOn(Session c, String want, Runnable input) {
+    private static void stopsOn(Session c, String want, Runnable input, boolean screenStays) {
         String title = c.onClient(MenuKit::screenTitle);
         input.run();
         c.ctx().waitTicks(3);
@@ -157,6 +175,10 @@ final class DocDungeonsMenuCases {
         c.check(!armed, want + " did not stop the run");
         c.check(why.contains(want), "stopped by \"" + why + "\", want it to name " + want);
         c.check(after == 0, after + " game click(s) were sent after " + want + " stopped the run");
+        if (screenStays) {
+            // The press that stops it is swallowed: the board stays open to finish by hand.
+            c.check(title.equals(titleAfter), want + " changed the screen " + title + " -> " + titleAfter);
+        }
     }
 
     // =================================================================================================================
