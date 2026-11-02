@@ -24,6 +24,10 @@ public final class WireCapture {
     }
 
     private static volatile boolean armed;
+
+    /** Optional: how a scenario wants each packet written into {@link Sent#text} (null = toString). Runs on the netty
+     *  thread at encode time, so it sees the packet's fields as they went on the wire (zpew263, 2026-11-01). */
+    public static volatile java.util.function.Function<Object, String> describe;
     private static final List<Sent> SENT = new ArrayList<>();
 
     private WireCapture() {
@@ -60,7 +64,8 @@ public final class WireCapture {
             out.getBytes(out.readerIndex(), bytes);
             String text;
             try {
-                text = String.valueOf(packet);
+                java.util.function.Function<Object, String> d = describe;
+                text = d != null ? d.apply(packet) : String.valueOf(packet);
             } catch (Throwable t) {
                 text = "<toString threw " + t.getClass().getSimpleName() + ">";
             }
