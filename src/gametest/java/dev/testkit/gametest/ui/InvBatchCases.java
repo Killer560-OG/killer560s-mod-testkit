@@ -641,7 +641,24 @@ final class InvBatchCases {
             c.check(row >= 0 && row < 7, "'ib584 Kit' is not on the first page of the list: " + names);
             int listX = (Integer) Mod.field(s, "listX");
             int listY = (Integer) Mod.field(s, "listY");
-            click(c, s, listX + 20, listY + 1 + row * 13 + 6);
+            // A RIGHT click selects a row for editing since mod doc-invsort-1101 (killer560 2026-11-01: "click a loadout to
+            // swap to it"): a left click now closes the menu and sorts, so the old left click left Rename on a closed screen.
+            c.onClient(mc -> {
+                // Save left it selected: clear that, so only the right click can select it.
+                try {
+                    java.lang.reflect.Field f = s.getClass().getDeclaredField("selected");
+                    f.setAccessible(true);
+                    f.set(s, null);
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+                return null;
+            });
+            int rowH = (Integer) Mod.field(s, "LIST_ROW");
+            cursor(c, s, listX + 20, listY + 1 + row * rowH + rowH / 2.0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(1));
+            c.ticks(3);
+            c.check(c.onClient(mc -> McCompat.screen(mc)) == s, "a right click on the list row closed the editor");
             c.check("ib584 Kit".equals(c.onClient(mc -> Mod.call(s, "selectedLayout"))), "the list click did not select it");
             c.onClient(mc -> {
                 box.setValue("ib584 Renamed");
