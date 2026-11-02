@@ -170,8 +170,21 @@ public class SimMenuTidyTests implements FabricClientGameTest {
             int wMax = Math.max(clear.w(), Math.max(load.w(), play.w()));
             check(wMax - wMin <= 1, tag + ": Clear/Load/Play widths " + clear.w() + "/" + load.w() + "/" + play.w());
             int gap1 = load.x() - (clear.x() + clear.w());
-            int gap2 = play.x() - (load.x() + load.w());
-            check(gap1 == gap2 && gap1 > 0, tag + ": Clear/Load/Play gaps " + gap1 + "/" + gap2);
+            // The Mobs button (mod doc-adm-sim-1101) sits between Load and Play when the jar has it: four evenly.
+            Box mobs = null;
+            for (Box b : boxes) {
+                if (b.label().startsWith("Mobs: ") && b.y() == load.y()) {
+                    mobs = b;
+                }
+            }
+            Box beforePlay = mobs != null ? mobs : load;
+            int gap2 = play.x() - (beforePlay.x() + beforePlay.w());
+            int gapM = mobs == null ? gap1 : mobs.x() - (load.x() + load.w());
+            check(gap1 == gap2 && gap1 == gapM && gap1 > 0, tag + ": Clear/Load/" + (mobs == null ? "" : "Mobs/") + "Play gaps "
+                    + gap1 + "/" + (mobs == null ? "" : gapM + "/") + gap2);
+            if (mobs != null) {
+                check(Math.abs(mobs.w() - load.w()) <= 1, tag + ": Mobs width " + mobs.w() + " vs Load " + load.w());
+            }
             check(floor != null && clear.x() == floor.x(), tag + ": Clear starts at x " + clear.x()
                     + ", the floor button at " + (floor == null ? "?" : floor.x()));
             check(play.x() + play.w() == gen.x() + gen.w(), tag + ": Play ends at " + (play.x() + play.w())
