@@ -1447,3 +1447,29 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   `melodyLookaheadFired` counter does (2 for slots 1 and 5, 0 for 2-4). 275-277 use target 1 since EDGES no longer bursts
   from a middle slot. On the main control the case failed at target 1 with rows 2 and 3 clicked twice (2 wrong; burst and
   live click in one server tick, first board of the session); not seen in two runs of the fixed jar.
+- **62-argrim-1102-multibreak / -off, 1102-breaker-aura-multibreak-on / -off** (multibreak-1102, mod Multi Break at one
+  block a server tick): `harness/MultiBreakWatch` replays GrimAC 2.3.74's experimental MultiBreak on the outbound packets
+  (START/STOP on another block or face before a tick packet; the tick packet is a movement packet, or client_tick_end when
+  none went) and records each dig's client tick and server-tick window, so a case reads blocks per server tick instead of
+  per PacketTrace bucket (a START-of-tick dig lands in the PREVIOUS bucket, a BeforeMove dig in its own, so two digs in
+  two windows can share a bucket). Time a run by each block's FIRST dig: on a loaded 26.2 server one block was re-dug
+  after its round trip and read as "ten blocks in 11 ticks". The Breaker Aura case needs the breaker as the SERVER has it
+  (`give` with custom_data, lore and unbreakable): a plain shovel took damage, the server resent the slot, and the client
+  stamp was gone for two ticks mid-run. Run either alone and the session's first dig is a turned one: warm with a plain
+  hand dig first (`warmDig`), or RotationBreak flags post-flying then pre-flying on every dig (36 lines, 62-argrim-breaker
+  alone on 26.3). `-PmultiBreakRepeat=N` repeats them. On mod main 03ea1d6b the node case reads 10 blocks in 10 server
+  ticks too - one a tick is the ceiling, the branch's value is that it holds across features and settings.
+- **Dig-gap probes (rbcause-1102).** The server log's `[testkit-dig]` lines (testmod grimprobe: MixinGrimDigGap,
+  MixinGrimRotationBreak) give, per queued dig, Grim's own millis gap to the next movement packet, the nanos gap, whether the
+  look is lent, and the last 12 packets received with their times; `judge post/arrival` lines give RotationBreak's inputs.
+  The client's `[digflush]` lines (DigFlushProbe, MixinOutboundFlushProbe) give each dig's queue and write time, flushed or
+  not, and which packet flushed a held one. `-PrbRepeat=N` repeats 62-argrim-1027-invwalk-play ("62-argrim-1102-rbrepeat#k").
+  A miss needs load: five 62-argrim sessions at once caught it in 2 of 5 to 3 of 5 runs; one session alone never did (66
+  repeats). Under that load the server processed packets the client wrote in one flush up to 16 ms apart.
+- **1102-breaker-aura-burst** (mod Burst Multi Break, owner exception 2026-11-02): runExpectingFlags, all six picks in one
+  server tick, MultiBreak* accepted (9-15 lines a run) and any other check fails it. Every other case sets Burst OFF.
+- **48-63 Breaker Aura with experimental checks on** (ba-rotation-1102): on the old aura scenario 50 drew 87 RotationBreak and
+  Grim canceled 73 of 200 digs, which 50's instant-break check then reports as "1.57 packets per block" - read the flag
+  list before that message. With the aimed aura every case is silent, the FLAGGED-expected ones included (0 lines).
+  51's "never run into the wall" is recorded, not asserted, on a one-a-tick Multi Break jar: at Speed V a two-high wall
+  needs ~1.1 digs a tick and GrimAC MultiBreak allows one (13 of 210 packets collided, both versions).

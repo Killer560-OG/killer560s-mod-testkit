@@ -9,6 +9,7 @@
 		"MixinClientGameTestRunner",
 		"MixinClientPacketListener",
 		"MixinConnection",
+		"MixinOutboundFlushProbe",
 		"MixinFrameClockGameRenderer",
 		"MixinFrameClockMinecraft",
 		"MixinOutboundPackets",
