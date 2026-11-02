@@ -768,6 +768,9 @@ final class DocSmall1101Cases {
         for (String gone : List.of("killer560ah", "killer560bz", "killer560pv", "mage")) {
             c.check(!roots.contains(gone), "/" + gone + " is still registered");
         }
+        for (String gone : List.of("ah", "bz")) {
+            c.check(!sub.contains(gone), "/killer560 " + gone + " is still registered");
+        }
         for (String kept : List.of("pv", "ah", "bz", "killer560")) {
             c.check(roots.contains(kept), "/" + kept + " is gone");
         }
