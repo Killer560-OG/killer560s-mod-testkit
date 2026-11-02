@@ -429,3 +429,6 @@ Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosec
 
 Auto Routes on GrimAC (62-argrim): how to run it and its traps are in [docs/argrim.md](docs/argrim.md).
 AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatch HUD): [docs/ap3.md](docs/ap3.md).
+- A scenario class missing from `src/gametest/resources/fabric.mod.json` (AGENTS.md says to register it) runs NOTHING and the
+  report shows only the unrelated SKIP rows with "none failed" - a vacuous pass (doc-adm-sim-1101, 2026-11-01). Check the
+  case's own row is in summary.md. Scenario `System.out` lines land in build/run/clientGameTest/logs/latest.log as [STDOUT].
