@@ -67,6 +67,7 @@ public class SimFullClearTests implements FabricClientGameTest {
     private static final double STALL_SECONDS = 4.0;
     /** 8 minutes; with mobs on, 12 (every clear and every puzzle, which a slow Teleport Maze alone can take 80 s of). */
     private static final int RUN_LIMIT_TICKS = 20 * 60 * (Integer.getInteger("testkit.fullclearMobs", 0) > 0
+            || Boolean.parseBoolean(System.getProperty("testkit.fullclearMobFloor", "false"))
             || Integer.getInteger("testkit.fullclearLive", 0) > 0
             || System.getProperty("testkit.scenario", "").contains("1020-sim-300") ? 12 : 8);
     private static final Set<String> SKIP_TYPES = Set.of("PUZZLE", "TRAP", "BLOOD", "FAIRY", "ENTRANCE");
@@ -304,6 +305,18 @@ public class SimFullClearTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
                 new Object[]{"gametest"}));
         int live = Integer.getInteger("testkit.fullclearLive", mode300 ? 2 : 0);
+        // -PfullclearMobFloor=true (simmobs2-1101): the Map Designer's Mobs floor (SimMobFloor) - starred mobs and Fels at
+        // GO, wither doors and the Blood door keyed from the mob rooms before them. Set before the build, as the designer does.
+        boolean mobFloor = MOB_FLOOR;
+        ctx.runOnClient(mc -> {
+            try {
+                ModUnderTest.staticCall(SIM_FLOOR, "setEnabled", new Class<?>[]{boolean.class}, new Object[]{mobFloor});
+            } catch (RuntimeException | Error e) {
+                if (mobFloor) {
+                    throw e;
+                }
+            }
+        });
         if (mode300 || live > 0) {
             // The sim's own options (SimLiveMobs): set before the build, as the trap room's secrets are left out of it.
             double hp = Double.parseDouble(System.getProperty("testkit.fullclearLiveHp", "1"));
@@ -338,9 +351,13 @@ public class SimFullClearTests implements FabricClientGameTest {
         giveLoadout(ctx);
         Set<String> routed = ctx.computeOnClient(mc -> routedRooms());
 
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_RUN, "begin",
-                new Class<?>[]{Minecraft.class, BlockPos.class},
-                new Object[]{mc, ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBuilder", "entranceDoor")}));
+        if (!mobFloor) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_RUN, "begin",
+                    new Class<?>[]{Minecraft.class, BlockPos.class},
+                    new Object[]{mc, ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBuilder", "entranceDoor")}));
+        }
+        // A mob floor's run started by itself (SimRun.autoStart, which also lays its doors and keys): a second begin would
+        // count down again and place the mobs twice.
         for (int i = 0; i < 600 && !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_RUN, "isRunning")); i++) {
             ctx.waitTicks(1);
         }
@@ -372,7 +389,7 @@ public class SimFullClearTests implements FabricClientGameTest {
         });
 
         int mobsPerTile = Integer.getInteger("testkit.fullclearMobs", 0);
-        if (live > 0) {
+        if (live > 0 || mobFloor) {
             // The sim placed them at GO; its line says how many.
             for (int i = 0; i < 100 && t.mobsPlaced == 0; i += 5) {
                 ctx.waitTicks(5);
@@ -720,6 +737,8 @@ public class SimFullClearTests implements FabricClientGameTest {
     // ================================================================================================ mobs and plan
 
     private static final String SIM_MOBS = "com.killer560.hub.roomsim.SimMobs";
+    private static final String SIM_FLOOR = "com.killer560.hub.roomsim.SimMobFloor";
+    private static final boolean MOB_FLOOR = Boolean.parseBoolean(System.getProperty("testkit.fullclearMobFloor", "false"));
     private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
 
     /**
@@ -1118,6 +1137,10 @@ public class SimFullClearTests implements FabricClientGameTest {
             });
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOBS, "setClearRoomsOnEntry", new Class<?>[]{boolean.class},
                     new Object[]{true}));
+            if (MOB_FLOOR) {
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_FLOOR, "setEnabled", new Class<?>[]{boolean.class},
+                        new Object[]{false}));
+            }
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave"));
             ctx.runOnClient(mc -> mc.execute(() -> {
                 if (mc.level != null) {

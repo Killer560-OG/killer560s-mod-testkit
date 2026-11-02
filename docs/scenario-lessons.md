@@ -1380,3 +1380,18 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   later pages after a click. New Hx menu keys: `listSlot` (an inventory click moves the stack into that menu slot, event
   `menu.list`), `keepListed` (the next page keeps it there), a sign's `then` (a menu reopened with `{line}`/`{price}`
   replaced by what was typed) and `splitTicks` on a delivery (half now, the rest T ticks later).
+- **62-argrim-1102-acfel / -acfelwalk / -ackey / -ackeywalk** (simmobs2-1101, mod doc-adm-sim-1101): Auto Clear's Fel and key
+  changes on GrimAC. Hx `dungeon.fel` is Hypixel's sleeping Fel (Dinnerbone enderman, invisible and untouchable, star tag,
+  wakes within 9; `testmod/<mc>/compat/FelMob` because the class is `Enderman` on 26.3 and `EnderMan` on 26.2) and
+  `dungeon.witherKey` a "Wither Key" stand taken within 6 with "has obtained Wither Key!". The walk variants force the
+  fallback the honest way: the Fel / key is held unwakeable / untakeable (`dungeon.felKeySet` 0) until Auto Clear waits in
+  range, then the server moves him back to the start and restores 9 / 6, so the etherwarp "ended out of range" and the
+  forced walk runs. Each requires the thing acted (Fel woke before it died, key taken, walks > 0) and kills leftovers first.
+- **1102-sim-instaclear / 1102-sim-felskulls** (`SimMobP4Tests`, a sim floor with mobs via `SimMobFloorTests.buildMobFloor`):
+  Insta Clear Warning's real map path (teleport into an undiscovered key room the map rule calls one, read AFTER the Fairy
+  door opened itself; the sim reports M7 so the requeue is master_catacombs_floor_seven; commands read with
+  PacketTrace.tap) and Dungeon ESP on the sim's real Fels and on starred mobs two room tiles away with their star stands
+  discarded server side. 1101-sim-mobfloor now also checks every Blood Rush Splits room time against the test's own
+  timestamps of the chat lines (within 0.3 s; measured 0.01).
+- `1016-sim-fullclear -PfullclearMobFloor=true` runs on the Map Designer's Mobs floor; it does not call SimRun.begin (the
+  floor's autoStart did, and a second begin counts down again).

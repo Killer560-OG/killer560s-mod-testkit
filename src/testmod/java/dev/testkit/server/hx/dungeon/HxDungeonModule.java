@@ -69,6 +69,7 @@ public final class HxDungeonModule implements HxModule {
         HxBridge.register("dungeon.starred", HxDungeonModule::starred);
         HxBridge.register("dungeon.alive", HxDungeonModule::alive);
         HxBridge.register("dungeon.move", HxDungeonModule::move);
+        HxFelKey.register();   // simmobs2-1101: sleeping Fels and Wither Keys for the Auto Clear GrimAC cases
     }
 
     /**

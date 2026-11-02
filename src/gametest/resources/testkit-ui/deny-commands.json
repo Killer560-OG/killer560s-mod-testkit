@@ -28,6 +28,7 @@
     {"root": "reload", "why": "sim only: .requires the sim (roomsim/SimResetCommand.java), so outside it the line goes to the server; 1771-1775 drive it"},
     {"root": "simscore", "why": "sim only (roomsim/SimScoreCommand.java:23)"},
     {"root": "simlive", "why": "sim only: the sim live-mob control (roomsim/SimLiveMobs.java, .requires the sim like simscore)"},
+    {"root": "simmobs", "why": "the sim's Mobs switch for the next generated floor (roomsim/SimMobFloor.java, mod doc-adm-sim-1101): on/off change a session setting, bare only says which; 1101-sim-mobfloor drives the floor"},
     {"root": "simitem", "why": "sim only: gives sim items (roomsim/SimItems)"},
     {"root": "item", "why": "sim only: alias of simitem (roomsim/SimItems)"},
     {"root": "map", "why": "sim only: builds a floor (roomsim/SimBuilder.java:49)"},

@@ -127,6 +127,16 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 
 ## Quirks and lessons
 
+- A run the freeze watcher closes ("FROZEN - the client was closed automatically") while the Test thread waits in
+  `TestServer.start` (a slow dedicated-server start under load, not a hang) leaves that run's dedicated test server
+  running: the next run on the same port then fails with "Anticheat test server exited with code 0 before it was ready"
+  (its log: FAILED TO BIND TO PORT). After a FROZEN run, find java.exe processes of that checkout without
+  `fabric.dli.env=client` and stop them before the next run (simmobs2-1101, 2026-11-02, three in one checkout).
+- Launching run-scenario.ps1 through `powershell -NoProfile -File ...` from the Bash tool produced an empty log and no
+  run (2026-11-02); the same script started from the PowerShell tool ran. `-File` also passes `-Extra "a","b"` as ONE
+  string. Use the PowerShell tool, and pass extra -P arguments as one delimited string the script splits.
+- 62-argrim's Auto Clear cases leave starred mobs alive (acbat's: the server has no bat); a later case that counts on its
+  own mobs only must kill the leftovers first (62-argrim-1102-*: `clearLeftoverMobs`).
 - A MenuSuite case (`menu/*Cases`, names like `1853-menu-...`) does NOT run from `-Scenario 1853-menu-...`: that filter
   reaches no session and reports only unrelated SKIP rows (2026-11-01). Run `-Scenario "-menu-"` with the environment
   variable `TESTKIT_MENU_ONLY=1853-menu-swap,...` (MenuSuite.selected) to pick the cases.
@@ -463,6 +473,9 @@ Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosec
 
 Auto Routes on GrimAC (62-argrim): how to run it and its traps are in [docs/argrim.md](docs/argrim.md).
 AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatch HUD): [docs/ap3.md](docs/ap3.md).
+- A scenario class missing from `src/gametest/resources/fabric.mod.json` (AGENTS.md says to register it) runs NOTHING and the
+  report shows only the unrelated SKIP rows with "none failed" - a vacuous pass (doc-adm-sim-1101, 2026-11-01). Check the
+  case's own row is in summary.md. Scenario `System.out` lines land in build/run/clientGameTest/logs/latest.log as [STDOUT].
 - Leave the Simon Says device (`dungeon.tp` away, a few ticks) BEFORE `boss.ss.clear`: clearing first drops him through the
   floor it stood on and GrimAC flags the fall (GroundSpoof + Simulation x1-x4) at the next case's start, which reads as the
   mod (1018-ss-stim-momentum on 26.3, 1101-ss-skip-second on 26.2, 2026-11-01). DocPuzzleCases and SsStimMomentumCases do.
