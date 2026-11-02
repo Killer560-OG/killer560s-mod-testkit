@@ -184,6 +184,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1027-invwalk", GrimAutoRoutesTests::caseInvWalk);
             // ... and 62-argrim-play's whole route (its chest window keeps the route running) with Inventory Walk on.
             s.test("62-argrim-1027-invwalk-play", GrimAutoRoutesTests::caseInvWalkPlay);
+            // The RotationBreak post-flying hunt (multibreak-1102): invwalk-play again -PrbRepeat=N times, so a rare miss
+            // on a turned breaker dig after an etherwarp landing is caught with the dig-gap probes on.
+            for (int k = 1; k <= Integer.getInteger("testkit.rbRepeat", 0); k++) {
+                s.test("62-argrim-1102-rbrepeat#" + k, GrimAutoRoutesTests::caseInvWalkPlay);
+            }
             s.test("62-argrim-870-jump", GrimAutoRoutesTests::caseJumpCount); // ar-jump-n (2026-10-12)
             s.test("62-argrim-1014-jumpcd", GrimAutoRoutesTests::caseJumpCooldown); // ar-jump-cooldown (2026-10-14)
             s.testExpectingFlags("62-argrim-correction", GrimAutoRoutesTests::caseCorrection);
