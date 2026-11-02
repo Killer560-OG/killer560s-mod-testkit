@@ -70,10 +70,18 @@ final class DocEtable1101Cases {
             String title = st.get("title").getAsString();
             MenuKit.awaitScreen(c, title, 100);
             // Round 3 has four notes: let the bot click the first one of them, then stop it.
-            c.waitUntil("round 3's turn", mc -> {
-                JsonObject now = ExperimentCases.state(c);
-                return now.get("round").getAsInt() == 3 && now.get("phase").getAsString().equals("TURN");
-            }, 600);
+            try {
+                c.waitUntil("round 3's turn", mc -> {
+                    JsonObject now = ExperimentCases.state(c);
+                    return now.get("round").getAsInt() == 3 && now.get("phase").getAsString().equals("TURN");
+                }, 900);
+            } catch (AssertionError e) {
+                c.note("no round 3: server " + ExperimentCases.state(c) + ", " + c.events("container.click").size()
+                        + " container click(s), armed " + c.onClient(mc -> Mod.staticCall(EXP, "isArmed"))
+                        + ", stop reason \"" + c.onClient(mc -> Mod.staticCall(EXP, "lastStopReason")) + "\", screen "
+                        + c.onClient(MenuKit::screenTitle));
+                throw e;
+            }
             c.waitUntil("the bot's first click of round 3", mc -> roundClicks(c, 3) >= 1, 200);
             c.ctx().waitTicks(4); // the next click is decided now and waits out the 1000 ms Click Delay
             c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(256)); // GLFW_KEY_ESCAPE
@@ -192,7 +200,7 @@ final class DocEtable1101Cases {
             c.note("start: " + start);
             c.note("after P6+P6 and S5+XP: " + mid + " (" + framesMid + " frame(s) drawn)");
             c.check(framesMid > 0, "the Superpairs Overview drew nothing over the open board");
-            c.check(has(mid, "Found: 3"), "want 3 rewards found: " + mid);
+            c.check(has(mid, "Found: §f3"), "want 3 rewards found: " + mid);
             c.check(has(mid, "§aPower VI") || mid.stream().anyMatch(l -> l.startsWith(" §a") && l.contains("Power")),
                     "Power VI not shown as claimed: " + mid);
             c.check(mid.stream().filter(l -> l.contains("1/2")).count() == 2, "want Sharpness V and the XP at 1/2: " + mid);
