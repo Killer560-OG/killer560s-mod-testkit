@@ -1360,7 +1360,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   instead of v1's crossing ramps; v1 numbers are not comparable with v2 numbers.
 - **1102-fairy-grim-* (`FairyGrimTests`, doc-fairy-1101).** Records GrimAC lines instead of failing (runExpectingFlags):
   -tp-walker (server teleports the walking run back six times), -tp-keys (the same teleports with the case holding W and
-  sprint, no automation - the control), -water (six pool crossings). All three 0 lines on doc-fairy's jar and the base jar
+  sprint, no automation - the control), -water (six pool crossings). All three 0 lines on doc-fairy's jar (and on the base jar, which gives up after the second teleport - the stuck clock it did not reset - and in the first pool)
   (26.3, 2026-11-02); the island runs' Simulation lines did not reproduce here.
 - **A frozen-client kill leaves the scenario's test server running** (it holds the port; the next run in that checkout
   fails "test server exited with code 0 before it was ready"). After a FROZEN run, find `runTestServer` java processes of
