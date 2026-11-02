@@ -748,7 +748,22 @@ final class DocSmall1101Cases {
 
     static void commands(UiCase c) {
         List<String> roots = commandRoots(c);
-        c.note(roots.size() + " command roots registered");
+        java.util.Collections.sort(roots);
+        c.note(roots.size() + " command roots registered (" + (Mod.isCheat() ? "cheat" : "legit") + ", dev tools "
+                + Mod.isDevTools() + "): " + String.join(" ", roots));
+        List<String> sub = c.onClient(mc -> {
+            List<String> out = new ArrayList<>();
+            var d = net.fabricmc.fabric.impl.command.client.ClientCommandInternals.getActiveDispatcher();
+            var k = d == null ? null : d.getRoot().getChild("killer560");
+            if (k != null) {
+                for (var n : k.getChildren()) {
+                    out.add(n.getName());
+                }
+            }
+            java.util.Collections.sort(out);
+            return out;
+        });
+        c.note("/killer560 subcommands: " + String.join(" ", sub));
         c.check(roots.size() > 30, "only " + roots.size() + " roots - the dispatcher was not read");
         for (String gone : List.of("killer560ah", "killer560bz", "killer560pv", "mage")) {
             c.check(!roots.contains(gone), "/" + gone + " is still registered");
