@@ -43,6 +43,7 @@ final class SwapAccountsCases {
         MenuSuite.test(s, "1850-menu-swap-accounts-layout", SwapAccountsCases::layout);
         MenuSuite.test(s, "1851-menu-swap-accounts-buttons", SwapAccountsCases::buttons);
         MenuSuite.test(s, "1852-menu-swap-accounts-active", SwapAccountsCases::active);
+        MenuSuite.test(s, "1853-menu-swap-accounts-modrinth", SwapAccountsCases::modrinth);
     }
 
     static final String[] NAMES = {"HxSwapAlpha", "HxSwapBravo", "HxSwapActive", "HxSwapProxied", "HxSwapEcho",
@@ -747,5 +748,114 @@ final class SwapAccountsCases {
         double dg = c[1] - ((rgb >> 8) & 0xFF);
         double db = c[2] - (rgb & 0xFF);
         return Math.sqrt(dr * dr + dg * dg + db * db);
+    }
+
+    // ---- 1853 Modrinth App accounts ---------------------------------------------------------------------------------
+
+    static final String[] MR_NAMES = {"HxMrAlpha", "HxMrBravo", "HxMrCharlie"};
+
+    /**
+     * killer560 (2026-11-01): "If i play on modrinth and try to swap accounts I can but it is pulling the accounts from my
+     * prism launcher instead of accounts from modrinth. Make that swap." With the launcher forced to Modrinth
+     * ({@code killer560smod.accounts.launcher}) and {@code killer560smod.modrinthAppDb} at a copy of the fixture
+     * {@code testkit-fixtures/modrinth-app.db} (the Modrinth App's real {@code minecraft_users} schema, fake tokens; rows
+     * stored Bravo, Charlie, Alpha with Alpha active), while the Prism file still holds the 14 HxSwap accounts: the list
+     * shows exactly the three Modrinth accounts, the active one (Alpha) on top, and no Prism account; a press on Bravo
+     * (expired token) says its Modrinth sign-in has expired (the Modrinth branch acted, nothing sent); a press on Charlie
+     * (current token) tries the token and fails offline without the expiry message; the fixture's bytes are unchanged
+     * (read only). With the properties cleared the Prism accounts come back and no Modrinth one shows. Fails on main: the
+     * list is the 14 Prism accounts.
+     */
+    static void modrinth(Session c) throws Exception {
+        List<String> fails = new ArrayList<>();
+        Path db = Files.createTempFile("testkit-modrinth-app", ".db");
+        try (var in = SwapAccountsCases.class.getResourceAsStream("/testkit-fixtures/modrinth-app.db")) {
+            c.check(in != null, "fixture testkit-fixtures/modrinth-app.db is missing");
+            Files.copy(in, db, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+        byte[] before = Files.readAllBytes(db);
+        try (ScreenSweepCases.SweepEnv env = new ScreenSweepCases.SweepEnv(c); Accounts acc = new Accounts(c)) {
+            ScreenSweepCases.menuTheme(c, "AMBER");
+            System.setProperty("killer560smod.accounts.launcher", "modrinth");
+            System.setProperty("killer560smod.modrinthAppDb", db.toString());
+            Screen s = open(c);
+            ScreenSweepCases.shot(c, "Swap Accounts", "Modrinth");
+            List<String> shown = c.onClient(mc -> {
+                List<AbstractWidget> ws = new ArrayList<>();
+                for (AbstractWidget w : Frames.widgets(s)) {
+                    String p = SocialCases.plain(w);
+                    if (w.visible && (p.startsWith("HxMr") || p.startsWith("HxSwap"))) {
+                        ws.add(w);
+                    }
+                }
+                ws.sort(java.util.Comparator.comparingInt(AbstractWidget::getY));
+                List<String> out = new ArrayList<>();
+                for (AbstractWidget w : ws) {
+                    out.add(SocialCases.plain(w));
+                }
+                return out;
+            });
+            c.note("rows under Modrinth: " + shown + "; status " + status(c, s));
+            if (!shown.equals(List.of("HxMrAlpha", "HxMrBravo", "HxMrCharlie"))) {
+                fails.add("the Modrinth list is not exactly Alpha (active, first), Bravo, Charlie: " + shown);
+            }
+
+            AbstractWidget bravo = row(c, s, "HxMrBravo");
+            if (bravo == null) {
+                fails.add("no row for HxMrBravo");
+            } else {
+                SocialCases.pressAt(c, new int[]{bravo.getX() + 30, bravo.getY() + 2, 30, Math.max(4, bravo.getHeight() - 4)});
+                waitIdle(c, s);
+                String st = status(c, SocialCases.current(c));
+                c.note("after a press on HxMrBravo (expired): " + st);
+                if (!st.contains("Modrinth App's sign-in for HxMrBravo has expired")) {
+                    fails.add("an expired Modrinth account did not say so: " + st);
+                }
+            }
+            Screen s2 = SocialCases.current(c);
+            AbstractWidget charlie = s2 == null ? null : row(c, s2, "HxMrCharlie");
+            if (charlie == null) {
+                fails.add("no row for HxMrCharlie after the first press");
+            } else {
+                SocialCases.pressAt(c, new int[]{charlie.getX() + 30, charlie.getY() + 2, 30, Math.max(4, charlie.getHeight() - 4)});
+                waitIdle(c, s2);
+                String st = status(c, SocialCases.current(c));
+                c.note("after a press on HxMrCharlie (current token, offline): " + st);
+                if (!st.contains("sign in as HxMrCharlie") || st.contains("expired")) {
+                    fails.add("a current Modrinth account did not try its token: " + st);
+                }
+            }
+
+            System.clearProperty("killer560smod.accounts.launcher");
+            System.clearProperty("killer560smod.modrinthAppDb");
+            Screen p = open(c);
+            List<String> prism = visibleRows(c, p);
+            boolean anyMr = c.onClient(mc -> {
+                for (AbstractWidget w : Frames.widgets(p)) {
+                    if (SocialCases.plain(w).startsWith("HxMr")) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+            c.note("rows back on Prism: " + prism.size() + " HxSwap, Modrinth rows " + anyMr);
+            if (prism.isEmpty() || anyMr) {
+                fails.add("without the Modrinth override the Prism accounts did not come back: " + prism + ", HxMr shown " + anyMr);
+            }
+        } finally {
+            System.clearProperty("killer560smod.accounts.launcher");
+            System.clearProperty("killer560smod.modrinthAppDb");
+        }
+        if (!java.util.Arrays.equals(before, Files.readAllBytes(db))) {
+            fails.add("the Modrinth fixture changed: the reader wrote to it");
+        }
+        if (Files.exists(Path.of(db + "-shm")) || Files.exists(Path.of(db + "-wal"))) {
+            fails.add("the reader created a -shm or -wal beside the fixture");
+        }
+        Files.deleteIfExists(db);
+        for (String f : fails) {
+            c.note("FAIL " + f);
+        }
+        c.check(fails.isEmpty(), fails.size() + " problem(s): " + fails);
     }
 }
