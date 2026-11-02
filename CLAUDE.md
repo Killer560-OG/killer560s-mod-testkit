@@ -372,7 +372,12 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
 - Killing a queue script mid-run (or its client) can leave that checkout's test server running; the next server's GrimAC
   then waits ~14 s for the old datastore lease ("persistent storage UUID ... is owned by startupId ...") and the freeze
   watcher closes every client at startup (campaign-blink-1027). Kill the orphan `runTestServer` java of that checkout (match
-  the checkout name in the command line; `[\/]` patterns missed it) before rerunning.
+  the checkout name in the command line; `[\/]` patterns missed it) before rerunning. A freeze-killed client leaves its
+  server holding the port too: the next run on that `-Port` fails "Anticheat test server exited with code 0 before it was
+  ready" (FAILED TO BIND TO PORT in run/testserver/logs/latest.log) - kill the orphan or pick another port (doc-rng-1101).
+- To run only some cases of a Session suite, the filter needs a part that CONTAINS the session's name but is not in the
+  case names, plus the case parts: `-Scenario "1101-luck,100-hx-session:"`. `-Scenario 1101-luck` alone selects no session
+  and the run "passes" with 0 cases (doc-rng-1101; Session.selection/caseSelected).
 - A test client loads the mod jar straight from the `-ModUnderTest` path (fabric.addMods), lazily: overwriting that jar while
   the client runs crashed it ("ZipFile invalid LOC header", campaign-blink-1027). Give every build its own folder.
 - Blink holds are key-driven since mod blink-rework-1025: between two holds the key needs a tick up and a tick down, so a
