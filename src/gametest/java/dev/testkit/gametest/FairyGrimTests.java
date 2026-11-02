@@ -251,7 +251,11 @@ public class FairyGrimTests implements FabricClientGameTest {
                 });
     }
 
-    /** The walker: a route up the same ladder, through the current, to a soul past the source; repeated. */
+    /**
+     * The walker: a route up the same ladder, past the current, to a soul past the source; repeated. Since m13 the walker
+     * never stands on a ladder with water in his box (AutoWalker.keepLadderOutOfWater), so the case requires the soul every
+     * run and ZERO ladder-in-water ticks; whether he touched the channel's water off the ladder is logged, not required.
+     */
     private static void flowLadderWalker(ClientGameTestContext ctx) {
         int x0 = X0 + 30;
         int z0 = Z0 + 180;
@@ -260,6 +264,7 @@ public class FairyGrimTests implements FabricClientGameTest {
                     ctx.waitTicks(60);
                     int collected = 0;
                     int wet = 0;
+                    int ladderWetTotal = 0;
                     List<Integer> flagsAfter = new ArrayList<>();
                     for (int run = 0; run < flowRuns(); run++) {
                         server.command(String.format(Locale.ROOT, "tp @p %.2f 151 %.2f -90 0", x0 - 1.5, z0 + 0.5));
@@ -270,22 +275,30 @@ public class FairyGrimTests implements FabricClientGameTest {
                                 new FairySoulTests.Node(2, x0 + 4, 157, z0, false, 1, 3),
                                 new FairySoulTests.Node(3, x0 + 9, 157, z0, true, 2));
                         boolean[] inWater = {false};
-                        FairySoulTests.Result r = FairySoulTests.runSouls(ctx, scenario, g, 500,
-                                tick -> inWater[0] |= ctx.computeOnClient(mc -> mc.player.isInWater()));
+                        int[] ladderWet = {0};
+                        FairySoulTests.Result r = FairySoulTests.runSouls(ctx, scenario, g, 500, tick -> {
+                            boolean[] st = ctx.computeOnClient(mc -> new boolean[]{mc.player.isInWater(), mc.player.onClimbable()});
+                            inWater[0] |= st[0];
+                            if (st[0] && st[1]) {
+                                ladderWet[0]++;
+                            }
+                        });
+                        ladderWetTotal += ladderWet[0];
                         collected += r.soulsUsed;
                         if (inWater[0]) {
                             wet++;
                         }
                         flagsAfter.add(scenario.flags().size());
                         scenario.log(String.format(Locale.US, "flowladder-walker run %d: max y %.2f, soul %d, in the current %s, "
-                                + "anticheat lines so far %d", run, r.maxY, r.soulsUsed, inWater[0], scenario.flags().size()));
+                                + "ticks on the ladder in water %d, anticheat lines so far %d", run, r.maxY, r.soulsUsed, inWater[0],
+                                ladderWet[0], scenario.flags().size()));
                     }
-                    scenario.log(String.format(Locale.US, "flowladder-walker: %d runs, souls %d, in the current %d, lines after each run %s",
-                            flowRuns(), collected, wet, flagsAfter));
+                    scenario.log(String.format(Locale.US, "flowladder-walker: %d runs, souls %d, in the current %d, ticks on the "
+                            + "ladder in water %d, lines after each run %s", flowRuns(), collected, wet, ladderWetTotal, flagsAfter));
                     report(scenario, "flowladder-walker", List.of(), 0);
-                    if (collected < flowRuns() || wet < flowRuns()) {
-                        throw new AssertionError("the walker did not climb through the current to the soul every run (souls "
-                                + collected + ", wet " + wet + ")");
+                    if (collected < flowRuns() || ladderWetTotal > 0) {
+                        throw new AssertionError("the walker did not reach the soul past the current every run, or stood on the "
+                                + "ladder in water (souls " + collected + ", ladder-in-water ticks " + ladderWetTotal + ")");
                     }
                 });
     }

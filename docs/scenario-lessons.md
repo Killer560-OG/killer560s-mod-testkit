@@ -1374,3 +1374,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   The experimental-checks config was proven on with 1027-aafast-twoframes, which needs the filter
   `500-boss-session-only,1027-aafast-twoframes` (a part containing the Session's name opens it; the case name selects the case).
   Experimental NegativeTimer (-1.29 s) hit three fairy cases once on 26.2 at ~100% CPU and never on the reruns (machine stall).
+- **1102-fairy-spill-ladder-N (doc-fairy-1101, 2026-11-02)** runs the walker from that same BAYOU_SPILL spot
+  (-Pfairy.spillRuns, default 8) and requires a climb past the pool, ZERO ticks on a ladder with water in his box, soul 3
+  collected and GrimAC silent. On the m8 jar it fails 4 of 4 (3-8 ladder-in-water ticks each). Run it in sessions of at most
+  6-7: the 8th consecutive scenario in one client session drew a constant experimental NegativeTimer -1.3 s, 20 lines a
+  second from 5 s after the start, on every 8-run session (m10, m11, m13, both versions) and never on runs 1-7 or in
+  4- or 6-run sessions - a harness artifact, not the walker. Separately, soul 3's arrival (keys W+sprint released 4.3 blocks
+  out) drew Simulation .046 decaying x0.546 plus SprintE* twice in about 50 runs (m10 26.3, m13 26.2), no trace yet.
