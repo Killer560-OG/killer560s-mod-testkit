@@ -147,7 +147,8 @@ public class SimMobP4Tests implements FabricClientGameTest {
                 sent.add(new Object[]{System.currentTimeMillis(), cmd.command()});
             }
         };
-        facts.add("guards at GO: " + ctx.computeOnClient(mc -> guards()));
+        String guardsAtGo = ctx.computeOnClient(mc -> guards());
+        facts.add("guards at GO: " + guardsAtGo);
         // Control: in the Entrance, nothing cleared, nothing warns.
         int w0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(ICW, "warnings"));
         ctx.waitTicks(100);
@@ -164,7 +165,10 @@ public class SimMobP4Tests implements FabricClientGameTest {
         String target = null;
         for (int i = 1; i < keyRooms.size() && target == null; i++) {
             String[] k = keyRooms.get(i).split("\\|");
-            if ("wither".equals(k[1])) {
+            // Only a room Insta Clear Warning's map rule calls a key room (KeyRooms: the room beside the shut door). The sim
+            // also keys the room before the Fairy room for the wither door AFTER Fairy, which the map rule cannot see
+            // (simmobs2-1101, Museum > Fairy > Mines: Museum's watch ended when the Fairy door opened by itself).
+            if ("wither".equals(k[1]) && guardsAtGo.contains(k[0] + "->")) {
                 target = k[0];
             }
         }
