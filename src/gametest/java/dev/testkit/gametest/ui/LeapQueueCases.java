@@ -23,7 +23,7 @@ import java.util.UUID;
 /**
  * killer560's 2026-10-15 to-do items 1-3 (mod branch leap-queue-1015).
  * <ul>
- *   <li>1071: {@code /leaporder}, {@code /class}, {@code /killer560 leaporder} and {@code /killer560 class} each open a
+ *   <li>1071: {@code /leaporder} and {@code /killer560 leaporder} each open a
  *       LeapOrderScreen, typed as a real player types them.</li>
  *   <li>1072: the Class Overrides setting is gone (no tab, no class) and its saved picks are migrated into the Leap Order
  *       data: an old classoverrides file in either format is read by the config load, its picks are now in
@@ -110,7 +110,8 @@ final class LeapQueueCases {
     // ---- 1071 ---------------------------------------------------------------------------------------------------------
 
     static void commands(UiCase c) throws Exception {
-        List<String> typed = List.of("leaporder", "class", "killer560 leaporder", "killer560 class");
+        // /class and /killer560 class were removed (mod cmdclean-1101, killer560 2026-11-01); 1101-cmdclean-gone checks them.
+        List<String> typed = List.of("leaporder", "killer560 leaporder");
         List<String> seen = new ArrayList<>();
         Class<?> first = null;
         for (String cmd : typed) {
