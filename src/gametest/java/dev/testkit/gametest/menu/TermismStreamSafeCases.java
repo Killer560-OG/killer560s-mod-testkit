@@ -161,7 +161,8 @@ final class TermismStreamSafeCases {
             float[] txs = (float[]) Mod.field(CURSOR, "CLICK_TX");
             float[] tys = (float[]) Mod.field(CURSOR, "CLICK_TY");
             float[] halves = (float[]) Mod.field(CURSOR, "CLICK_HALF");
-            double gui = mc.getWindow().getGuiScale();
+            // Termism is laid out on Auto Scale's canvas: its coordinates times the screen's factor are GUI units.
+            double gui = mc.getWindow().getGuiScale() * ((Number) Mod.staticCall("hud.AutoScale", "appliedFactor", s)).doubleValue();
             int ox = i(s, "gridOriginX");
             int oy = i(s, "gridOriginY");
             boolean custom = (Boolean) Mod.get(CONFIG, "isCustomGuiEnabled");
@@ -171,6 +172,13 @@ final class TermismStreamSafeCases {
                 double ex = (ox + ((slot % 9) * 18 + 8) * scale) * gui;
                 double ey = (oy + ((slot / 9) * 18 + 8) * scale) * gui;
                 double half = 8 * scale * gui;
+                // The cell must be on the board as drawn: inside the screen's own panel, in window pixels.
+                int[] b = (int[]) Mod.field(s, "themedBounds");
+                if (ex < b[0] * gui || ey < b[1] * gui || ex > (b[0] + b[2]) * gui || ey > (b[1] + b[3]) * gui
+                        || ex > mc.getWindow().getWidth() || ey > mc.getWindow().getHeight()) {
+                    out.add(String.format("click %d slot %d: cell center (%.1f,%.1f) is off the drawn panel %s x %.2f",
+                            n, slot, ex, ey, java.util.Arrays.toString(b), gui));
+                }
                 if (Math.hypot(txs[n] - ex, tys[n] - ey) > 1.5) {
                     out.add(String.format("click %d slot %d aimed (%.1f,%.1f), cell center (%.1f,%.1f)", n, slot, txs[n], tys[n], ex, ey));
                 } else if (Math.abs(xs[n] - ex) > half + 0.6 || Math.abs(ys[n] - ey) > half + 0.6) {
@@ -240,7 +248,10 @@ final class TermismStreamSafeCases {
                     problems.add("run " + run + ": " + p);
                 }
                 if (run == 0) {
-                    shot(c, k);
+                    String px = shot(c, k);
+                    if (!px.isEmpty()) {
+                        problems.add("pixels: " + px);
+                    }
                 }
             }
             if (melody) {
@@ -288,20 +299,68 @@ final class TermismStreamSafeCases {
         c.check(problems.isEmpty(), "problems: " + problems);
     }
 
-    /** A few screenshots of a Stream Safe board being played (the cursor in them), for the report. */
-    static void shot(Session c, Kind k) {
+    /**
+     * Screenshots of a Stream Safe board being played, and the pixels: around where the cursor is, the arrow's pure white
+     * fill and black edge must be in the picture, and that spot must be on the board's panel. (The first version of the
+     * fix drew the arrow at Auto Scale's factor times its place - off the board or off the window - while every probe
+     * read fine.) @return problems, "" for none.
+     */
+    static String shot(Session c, Kind k) {
+        List<String> problems = new ArrayList<>();
         Screen s = open(c, k.type());
         c.ctx().waitTicks(14);
-        for (int n = 0; n < 2; n++) {
+        int seen = 0;
+        for (int n = 0; n < 3; n++) {
+            float[] at = c.onClient(mc -> new float[]{(Float) Mod.field(CURSOR, "curX"), (Float) Mod.field(CURSOR, "curY"),
+                    (Boolean) Mod.staticCall(CURSOR, "active") ? 1f : 0f, mc.getWindow().getWidth(),
+                    (float) (mc.getWindow().getGuiScale() * ((Number) Mod.staticCall("hud.AutoScale", "appliedFactor", s)).doubleValue())});
+            int[] b = c.onClient(mc -> ((int[]) Mod.field(s, "themedBounds")).clone());
             String name = c.name() + "-" + n;
             java.nio.file.Path p = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(name));
             dev.testkit.harness.Report.screenshot(name, p);
+            if (at[2] < 1f) {
+                c.ctx().waitTicks(5);
+                continue;
+            }
+            try {
+                java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(p.toFile());
+                double r = img.getWidth() / (double) at[3];
+                int white = 0;
+                int black = 0;
+                // The arrow is 12x19 mask pixels from its tip; the cursor may move a little between the read and the frame.
+                for (int y = (int) ((at[1] - 30) * r); y <= (int) ((at[1] + 60) * r); y++) {
+                    for (int x = (int) ((at[0] - 30) * r); x <= (int) ((at[0] + 45) * r); x++) {
+                        if (x < 0 || y < 0 || x >= img.getWidth() || y >= img.getHeight()) {
+                            continue;
+                        }
+                        int rgb = img.getRGB(x, y) & 0xFFFFFF;
+                        if (rgb == 0xFFFFFF) {
+                            white++;
+                        } else if (rgb == 0) {
+                            black++;
+                        }
+                    }
+                }
+                boolean onPanel = at[0] >= b[0] * at[4] && at[1] >= b[1] * at[4] && at[0] <= (b[0] + b[2]) * at[4]
+                        && at[1] <= (b[1] + b[3]) * at[4];
+                System.out.println(String.format("[menu] %s: cursor at (%.0f, %.0f), panel %s x %.2f, on panel %s, arrow pixels white %d black %d",
+                        name, at[0], at[1], java.util.Arrays.toString(b), at[4], onPanel, white, black));
+                if (white >= 20 && black >= 20 && onPanel) {
+                    seen++;
+                }
+            } catch (java.io.IOException e) {
+                problems.add("screenshot " + name + " unreadable: " + e);
+            }
             c.ctx().waitTicks(5);
+        }
+        if (seen == 0) {
+            problems.add("the cursor arrow was not found on the board in any of 3 screenshots");
         }
         for (int t = 0; t < 1200 && !c.onClient(mc -> (Boolean) Mod.field(s, "solved")); t++) {
             c.ctx().waitTicks(1);
         }
         closeTo(c, s);
+        return String.join("; ", problems);
     }
 
     static void legit(Session c) throws Exception {
