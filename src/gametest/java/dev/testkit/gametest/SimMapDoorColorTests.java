@@ -123,7 +123,8 @@ public class SimMapDoorColorTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> {
                 var server = mc.getSingleplayerServer();
                 server.execute(() -> {
-                    ServerLevel level = server.overworld();
+                    var sp = server.getPlayerList().getPlayers().get(0);
+                    ServerLevel level = (ServerLevel) sp.level();
                     level.setBlockAndUpdate(coal, net.minecraft.world.level.block.Blocks.COAL_BLOCK.defaultBlockState());
                     placed.set("ok");
                 });

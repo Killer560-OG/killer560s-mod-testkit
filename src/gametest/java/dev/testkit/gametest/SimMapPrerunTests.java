@@ -502,6 +502,9 @@ public class SimMapPrerunTests implements FabricClientGameTest {
             g.pose().popMatrix();
         }
         List<Object[]> out = new ArrayList<>();
+        int[] elements = new int[1];
+        state.forEachElement(el -> elements[0]++, GuiRenderState.TraverseRange.ALL);
+        out.add(new Object[]{"(elements " + elements[0] + ")", 0});
         state.forEachText(t -> {
             try {
                 Field cf = GuiTextRenderState.class.getDeclaredField("color");
