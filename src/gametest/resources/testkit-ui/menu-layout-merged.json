@@ -840,6 +840,12 @@
       "key": "share if supporter",
       "text": "Automatically shares your display name, your own player size and your Play as Mob choice with other players who have this mod.",
       "why": "412's fixture row: 73a70ba3 Play as Mob (supporters share their mob choice too)"
+    },
+    {
+      "owner": "Party Interop",
+      "key": "cross-mod bridge",
+      "text": "Shares dungeon data both ways with users of Devonian and Odin.",
+      "why": "958f6442 (2026-10-29) Cross-Mod Bridge no longer opens NoammAddons' socket; the hover dropped NoammAddons (doc-menu-1101)"
     }
   ]
 }
