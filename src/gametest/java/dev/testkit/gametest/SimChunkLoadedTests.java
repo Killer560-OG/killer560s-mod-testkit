@@ -173,10 +173,11 @@ public class SimChunkLoadedTests implements FabricClientGameTest {
 
     // ---- 1. doors -------------------------------------------------------------------------------------------
 
-    /** {@code helpers}: Door Helpers' DoorScanner (bare Hypixel heights); else Wither Doors' scanner (sim-shifted). */
+    /** {@code helpers}: Door Helpers' DoorScanner; else Wither Doors' scanner. Both read the sim-shifted heights (Door
+     *  Helpers since mod 3fe00271, 2026-10-21; this case kept bare y 69 for it and failed its premise from then on). */
     private static void doors(ClientGameTestContext ctx, boolean helpers) {
         String cls = helpers ? DOOR_HELPERS : WITHER_DOORS;
-        int off = helpers ? 0 : ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(LAYOUT, "simYOffset",
+        int off = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(LAYOUT, "simYOffset",
                 new Class<?>[]{}, new Object[]{}));
         int[] cell = emptyDoorCell(ctx, helpers ? 1 : 0);
         int wx = START + cell[0] * 16;
