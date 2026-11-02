@@ -51,7 +51,9 @@ final class TextBoxEnterCases {
     private static final Map<String, String> TYPE = Map.of("target purse", "1500000");
     /** Switches the walk never turns on: Streamer Mode keeps its state in memory (a config reload does not reset it) and
      *  hides every cheat tab from the search, which failed 944 after this case on the first run (2026-11-02). */
-    private static final List<String> NEVER_SWITCH = List.of("streamer");
+    // AP3's Test Mode and Force Dungeon are session state, not a config file, so the disk restore never turns them back off:
+    // left on, the red "AP3 FORCE DUNGEON" reminder drew over 897's panel bevel in a later case (ship-1102h, 2026-11-02).
+    private static final List<String> NEVER_SWITCH = List.of("streamer", "test mode", "force dungeon");
 
     private TextBoxEnterCases() {
     }
