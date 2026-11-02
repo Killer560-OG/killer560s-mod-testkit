@@ -777,7 +777,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(40);
             long m = LogTap.mark();
             tpRel(ctx, 12.5, 16.5, 0f, 0f);
-            ctx.waitTicks(4);
+            // One a tick (no Multi Break, mod gridexp-1102) the 17-block drain takes 17 ticks, not one: let it finish, or
+            // its last digs land in the sampled window (7 digs for six blocks, 96-ar-breaker 2026-11-02).
+            ctx.waitTicks(hasMulti ? 4 : 24);
             startSampling(ctx);
             tpRel(ctx, 13.5, 10.5, 0f, 0f);
             // Since mod ar-breaker-wait a node short of charges waits for them (2 a second) and then breaks all six
