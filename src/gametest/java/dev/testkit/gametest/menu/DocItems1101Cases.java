@@ -737,7 +737,7 @@ final class DocItems1101Cases {
         boolean wasF5 = (Boolean) Mod.call(sup, "isOwnNameInF5");
         Object wasCamera = c.onClient(mc -> mc.options.getCameraType());
         try {
-            String[][] want = {{"BADGE", "[K560] "}, {"EMBER", "✦ "}, {"CLASSIC", "◆ "}};
+            String[][] want = {{"MARK", "K "}, {"EMBER", "✦ "}, {"CLASSIC", "◆ "}};
             for (String[] w : want) {
                 Object style = Mod.enumValue("modusers.ModUserTagStyle", w[0]);
                 Component legit = (Component) Mod.call(style, "prefix", "legit");
@@ -746,11 +746,26 @@ final class DocItems1101Cases {
                 c.check(legit.getString().equals(w[1]) && cheat.getString().equals(w[1]), w[0] + " text " + legit.getString());
                 c.check(!styleColours(legit).equals(styleColours(cheat)), w[0] + " does not tell legit from cheat");
             }
-            Object badge = Mod.enumValue("modusers.ModUserTagStyle", "BADGE");
-            List<String> badgeColours = styleColours((Component) Mod.call(badge, "prefix", "legit"));
-            c.check(badgeColours.contains("ff8a1f"), "the Badge is not in the mod's orange: " + badgeColours);
-            c.check(Mod.enumValue("modusers.ModUserTagStyle", "BADGE") == Mod.staticCall("modusers.ModUserTagStyle", "byName", "nonsense"),
-                    "an unknown saved style does not fall back to Badge");
+            Object mark = Mod.enumValue("modusers.ModUserTagStyle", "MARK");
+            List<String> markColours = styleColours((Component) Mod.call(mark, "prefix", "legit"));
+            c.check(markColours.contains("ff8a1f"), "the K is not in the mod's orange: " + markColours);
+            // The removed [K560] badge (a saved BADGE) and anything unknown come back as the K.
+            c.check(mark == Mod.staticCall("modusers.ModUserTagStyle", "byName", "BADGE")
+                    && mark == Mod.staticCall("modusers.ModUserTagStyle", "byName", "nonsense"), "an old or unknown style is not the K");
+            // Every tag is one glyph, and the name after it keeps its own color (it inherited the tag's at first).
+            for (String[] w : want) {
+                Object style = Mod.enumValue("modusers.ModUserTagStyle", w[0]);
+                Component tagged = (Component) Mod.call(style, "tag", "legit", Component.literal("Player0"));
+                List<String> nameColours = new ArrayList<>();
+                tagged.visit((st, text) -> {
+                    if (text.contains("Player0")) {
+                        nameColours.add(st.getColor() == null ? "none" : Integer.toHexString(st.getColor().getValue()));
+                    }
+                    return java.util.Optional.empty();
+                }, Style.EMPTY);
+                c.check(w[1].trim().codePointCount(0, w[1].trim().length()) == 1, w[0] + " is not one glyph");
+                c.check(nameColours.equals(List.of("none")), w[0] + " colors the name: " + nameColours);
+            }
 
             // The name tag hook draws the chosen style on your own tag (My Name in F5), and each style gets a picture.
             c.onClient(mc -> {
