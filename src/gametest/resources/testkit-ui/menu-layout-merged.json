@@ -52,6 +52,13 @@
       "why": "mod 958f6442 2026-11-01 Cross-Mod Bridge: never open or sign into NoammAddons' socket (NoammAddons' owner asked)"
     },
     {
+      "owner": "Spotify Mod",
+      "key": "profanity filter",
+      "to": "Spotify Lyrics",
+      "text": "Stars out words in the lyrics you send to chat. All: every swear word. Minimal: slurs only. None: nothing.",
+      "why": "mod d05664af (doc-spotify-1101, 2026-11-01): the Profanity Filter takes All / Minimal / None; Minimal is slurs only"
+    },
+    {
       "owner": "Trail",
       "key": "trail",
       "text": "Draws squares behind you as you move: one per tick, green on the ground and blue in the air. Only you see it; it is never shared.",
