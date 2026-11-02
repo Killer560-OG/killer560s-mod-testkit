@@ -537,3 +537,6 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
   records 1-6 a case between its shots (its aimed-shot windows are clean), and 1102-zpew-ecancel saw it after the tp onto its
   square (zpew2-1101, 26.3 and 26.2). It is Blink's kept-teleport path (owner-accepted, 2026-10-27), for the Blink owner to
   judge; 1102-zpew-ecancel accepts only that check once Blink is on, and nothing before it.
+- Never start a second `run-scenario.ps1` in a checkout whose queue is between or inside runs: at its start the script kills
+  that checkout's "leftover" client and server, which is the other run's live ones ("Killing a leftover test client", ship-1102h
+  2026-11-02 killed a ZPEW half mid-run). One queue per checkout; make another detached worktree for a rerun.
