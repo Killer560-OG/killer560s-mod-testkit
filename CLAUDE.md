@@ -429,3 +429,6 @@ Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosec
 
 Auto Routes on GrimAC (62-argrim): how to run it and its traps are in [docs/argrim.md](docs/argrim.md).
 AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatch HUD): [docs/ap3.md](docs/ap3.md).
+- Leave the Simon Says device (`dungeon.tp` away, a few ticks) BEFORE `boss.ss.clear`: clearing first drops him through the
+  floor it stood on and GrimAC flags the fall (GroundSpoof + Simulation x1-x4) at the next case's start, which reads as the
+  mod (1018-ss-stim-momentum on 26.3, 1101-ss-skip-second on 26.2, 2026-11-01). DocPuzzleCases and SsStimMomentumCases do.
