@@ -251,6 +251,12 @@ public class IntroSuite implements FabricClientGameTest {
         // wrote WITHOUT showing anything), the tour must still open (killer560, 2026-11-01).
         String seed = System.getProperty("testkit.introSeed", "");
         c.note("autoShown=" + shown + " screen=" + (s == null ? "other" : "tour") + " seed=" + (seed.isBlank() ? "none" : seed));
+        if (!seed.isBlank()) {
+            // Prove the seed really landed: its marker file sits beside the intro file, and the first version's key is
+            // still the only thing that version would have read.
+            String marker = configFile(c, "killer560smod-intro-seed.txt");
+            c.check(marker.contains("seed marker"), "the updater seed was not copied into the config (no marker file)");
+        }
         c.check(shown == 1, "the tour opened on its own " + shown + " times (expected once)");
         c.check(s != null, "the tour is not on screen after opening on its own");
         Screen parent = c.onClient(mc -> (Screen) Mod.call(s, "parent"));
@@ -334,8 +340,8 @@ public class IntroSuite implements FabricClientGameTest {
             Screen now = c.onClient(McCompat::screen);
             c.check(now instanceof TitleScreen, "Finish left " + (now == null ? "nothing" : now.getClass().getName()));
             c.check(done(c), "finishing did not mark the tour done");
-            c.check(configFile(c, "killer560smod-intro.json").contains("\"done\": true"),
-                    "the intro file does not say done: " + configFile(c, "killer560smod-intro.json"));
+            c.check(configFile(c, "killer560smod-intro.json").contains("\"seen\": true"),
+                    "the intro file does not say seen: " + configFile(c, "killer560smod-intro.json"));
             long frames1 = c.onClient(mc -> (Long) Mod.staticCall(INTRO, "guideFrames"));
             c.check(frames1 - frames0 > 50, "the 3D guide drew only " + (frames1 - frames0) + " frames");
         } finally {
