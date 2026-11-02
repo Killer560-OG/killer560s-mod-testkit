@@ -389,7 +389,7 @@ public class FairyIslandTests implements FabricClientGameTest {
                     ctx.waitTicks(10);
                     break;
                 }
-                if (tick > 40 && tick % 20 == 0 && !ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(RUNNER, "isActive"))) {
+                if (replay.isEmpty() && tick > 40 && tick % 20 == 0 && !ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(RUNNER, "isActive"))) {
                     break;
                 }
             }
