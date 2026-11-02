@@ -738,7 +738,7 @@ public class IntroSuite implements FabricClientGameTest {
     /**
      * The tail comes from his mouth: with the bubble left out of the picture, the dark pixels of his mouth are found on
      * the green screenshot and the point the tail is drawn to must be within 1.5 model pixels of them, on the left spot
-     * (OPEN_MENU) and the right spot (VARIANT).
+     * (OPEN_MENU) and the right spot (AUTO_UPDATE; VARIANT waves on a legit jar and the raised arm tops his silhouette).
      */
     static void mouthCase(UiCase c) throws Exception {
         int[] win0 = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight(),
@@ -746,7 +746,7 @@ public class IntroSuite implements FabricClientGameTest {
         FontsMainMenuSuite.setWindow(c, 1920, 1080, 2);
         try {
             openOverGreen(c);
-            for (String sc : new String[]{"OPEN_MENU", "VARIANT"}) {
+            for (String sc : new String[]{"OPEN_MENU", "AUTO_UPDATE"}) {
                 goTo(c, sc);
                 hideBubble(c, false);
                 c.ticks(2);
