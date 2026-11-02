@@ -727,10 +727,13 @@ final class DocPuzzleCases {
     }
 
     private static void ssTearDown(Session c, List<AutoCloseable> undo) {
+        // Off the device BEFORE it is cleared: clearing first dropped him through the floor it stood on, and GrimAC
+        // flagged the fall (GroundSpoof + Simulation x4 at a case boundary, 1101-ss-skip-second's first 26.2 run).
+        c.hx().call("dungeon.tp", "x", -619.5, "y", 151.0, "z", -619.5, "yaw", 0f, "pitch", 0f);
+        c.ctx().waitTicks(5);
         c.hx().call("boss.ss.clear");
         restore(c, undo);
         c.hx().sidebarClear();
-        c.hx().call("dungeon.tp", "x", -619.5, "y", 151.0, "z", -619.5, "yaw", 0f, "pitch", 0f);
     }
 
     private static void light(Session c, BlockPos lantern) {

@@ -90,6 +90,9 @@ final class SsStimMomentumCases {
 
             boolean newPaths = momentum > 0 || stim;
             int queued0 = stim ? counter(c, "stimButtonsQueued") : 0;
+            // A session's first device ends round 4 with its round count not yet seen: the mod waits for a verdict
+            // instead of calling the device done, so round 4 gets a rehearsal too (1 + 3 + 4 + 5 = 13 buttons).
+            boolean roundsKnown = c.onClient(mc -> (Boolean) Mod.staticCall(SimonSaysCases.LAYOUTS, "simonRoundsSeen"));
             int[] before = newPaths ? new int[] {counter(c, "stimRehearsalsStarted"), counter(c, "stimButtonsTraced"),
                     counter(c, "stimCutShort"), counter(c, "momentumFaceFires"), counter(c, "momentumGlideFrames"),
                     counter(c, "momentumCarryFrames")} : null;
@@ -150,13 +153,17 @@ final class SsStimMomentumCases {
                 c.note(acted);
                 System.out.println("[1018-ss] " + acted);
                 if (stim) {
-                    // Rounds 1-3 each end with a rehearsal (not the last round).
-                    c.check(after[0] - before[0] == 3, (after[0] - before[0]) + " stim rehearsals, expected 3");
+                    // Rounds 1-3 each end with a rehearsal (not the last round, once the device's round count is known).
+                    int wantRehearsals = roundsKnown ? 3 : 4;
+                    c.check(after[0] - before[0] == wantRehearsals, (after[0] - before[0]) + " stim rehearsals, expected "
+                            + wantRehearsals + " (round count known before: " + roundsKnown + ")");
                     c.check(after[1] - before[1] >= 3, "stim reached only " + (after[1] - before[1]) + " button(s)");
                     // The whole round, first to last, then back to the first: rounds 1-3 queue 1, 2+1 and 3+1.
                     int queued = counter(c, "stimButtonsQueued") - queued0;
                     c.note("stim queued " + queued + " button(s) over rounds 1-3");
-                    c.check(queued == 8, queued + " buttons queued for rounds 1-3, expected 8 (1, 3, 4: the whole round)");
+                    int wantQueued = roundsKnown ? 8 : 13;
+                    c.check(queued == wantQueued, queued + " buttons queued, expected " + wantQueued
+                            + " (each round whole, first to last, then its first again)");
                 }
                 if (momentum > 0) {
                     c.check(after[3] - before[3] == 10, (after[3] - before[3]) + " momentum clicks, expected all 10");
@@ -171,9 +178,12 @@ final class SsStimMomentumCases {
                 Mod.set(SS_CFG, "setEnabled", false);
                 return null;
             });
+            // Off the device before it is cleared (a fall through the cleared floor drew GroundSpoof + Simulation at
+            // the next case's start, 1018-ss-stim-momentum on 26.3, 2026-11-01).
+            c.hx().call("dungeon.tp", "x", -619.5, "y", 151.0, "z", -619.5, "yaw", 0f, "pitch", 0f);
+            c.ctx().waitTicks(5);
             c.hx().call("boss.ss.clear");
             c.hx().sidebarClear();
-            c.hx().call("dungeon.tp", "x", -619.5, "y", 151.0, "z", -619.5, "yaw", 0f, "pitch", 0f);
         }
     }
 }
