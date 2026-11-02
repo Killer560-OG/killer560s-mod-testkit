@@ -125,6 +125,16 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 
 ## Quirks and lessons
 
+- A run the freeze watcher closes ("FROZEN - the client was closed automatically") while the Test thread waits in
+  `TestServer.start` (a slow dedicated-server start under load, not a hang) leaves that run's dedicated test server
+  running: the next run on the same port then fails with "Anticheat test server exited with code 0 before it was ready"
+  (its log: FAILED TO BIND TO PORT). After a FROZEN run, find java.exe processes of that checkout without
+  `fabric.dli.env=client` and stop them before the next run (simmobs2-1101, 2026-11-02, three in one checkout).
+- Launching run-scenario.ps1 through `powershell -NoProfile -File ...` from the Bash tool produced an empty log and no
+  run (2026-11-02); the same script started from the PowerShell tool ran. `-File` also passes `-Extra "a","b"` as ONE
+  string. Use the PowerShell tool, and pass extra -P arguments as one delimited string the script splits.
+- 62-argrim's Auto Clear cases leave starred mobs alive (acbat's: the server has no bat); a later case that counts on its
+  own mobs only must kill the leftovers first (62-argrim-1102-*: `clearLeftoverMobs`).
 - A MenuSuite case (`menu/*Cases`, names like `1853-menu-...`) does NOT run from `-Scenario 1853-menu-...`: that filter
   reaches no session and reports only unrelated SKIP rows (2026-11-01). Run `-Scenario "-menu-"` with the environment
   variable `TESTKIT_MENU_ONLY=1853-menu-swap,...` (MenuSuite.selected) to pick the cases.
