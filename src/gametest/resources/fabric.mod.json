@@ -66,6 +66,7 @@
 			"dev.testkit.gametest.SimSecretsTests",
 			"dev.testkit.gametest.LeverScanTests",
 			"dev.testkit.gametest.SimCryptWaypointTests",
+			"dev.testkit.gametest.SimPrinceBoxTests",
 			"dev.testkit.gametest.SimAutoClearMidasTests",
 			"dev.testkit.gametest.SimPuzzleTests",
 			"dev.testkit.gametest.SimPuzzleResetTests",

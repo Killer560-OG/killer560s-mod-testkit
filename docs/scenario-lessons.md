@@ -1473,3 +1473,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   list before that message. With the aimed aura every case is silent, the FLAGGED-expected ones included (0 lines).
   51's "never run into the wall" is recorded, not asserted, on a one-a-tick Multi Break jar: at Speed V a two-high wall
   needs ~1.1 digs a tick and GrimAC MultiBreak allows one (13 of 210 packets collided, both versions).
+- **98-prince-box** (2026-11-02): builds Red Blue, Pirate and Chambers in the sim, requires the Secret Waypoints prince box
+  to take in every touching slab lid (6+ slabs), and photographs it from four diagonals, plain and with a still zombie in
+  front, F1 on and FOV effects off: 90% of 9 points on each of the 12 edges and of a 5x5 grid on each face. A spot outside
+  the room (waypoints only draw the room you stand in) or with a block within 0.35 of the body (the in-wall overlay) is
+  skipped. Main 0cb3d82a1 fails the lid check (Red Blue 9, Chambers 14 slabs outside); mod 90a1f145e passes.
