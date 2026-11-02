@@ -1347,3 +1347,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   run-scenario's `-TimeoutSeconds 1200` did not end it; kill the client by its PID (`taskkill //PID <pid> //T //F`) and rerun.
   The rerun passed its premise normally. Also: 538/678 and 1491's door-helpers premise had failed for weeks for reasons
   unrelated to the version being tested - before blaming a port, find the case's last PASS in killer560s-mod-logs.
+- 2026-11-02 (diag-1101) 1102-diag-*: owner-evidence log lines, each asserted to appear once (rate limit) with the feature
+  shown to have acted. `1102-diag-predict-ruledout` (SimPredictDiagTests) walls a sim room with a HOLLOW diamond box open to
+  the doorway: a solid fill gave the predictor only 17 seen blocks (under MIN_EVIDENCE 20) and no decision; stand at the
+  doorway before the fill or the client never gets the blocks. `1102-diag-wp-gold`: a gold block one out and one down from
+  Flags' raised-row lid makes it a prince whose ANCHOR is the gold (lowest x/z), not a lid cell. `1102-diag-leap-stuck`
+  once drew GrimAC TimerLimit x2/x3 on 26.3 with nine clients on the machine and was clean on its rerun and on 26.2 (the case
+  sends nothing but a menu close). Ports 26950/26955 were held by another checkout's run that night (FROZEN at startup, then
+  FAILED TO BIND); 26410/26430 were free.
