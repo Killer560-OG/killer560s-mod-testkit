@@ -222,7 +222,9 @@ final class ChatKeybindsMergeCases {
             CmdShortcutsCases.press(c, d, "Chat Keybinds: ON");
             boolean shortcutsOn = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(CFG), "isEnabledRaw"));
             c.check(!shortcutsOn, "the shortcuts' isEnabledRaw is still on with Chat Keybinds off");
-            List<AbstractWidget> off = CmdShortcutsCases.content(c, d);
+            List<AbstractWidget> off = new java.util.ArrayList<>(CmdShortcutsCases.content(c, d));
+            // the menu's own Toggle Keybind row stays under the switch (mod doc-menu-1101)
+            off.removeIf(w -> ModScreenDriver.label(w).startsWith("Toggle Keybind:"));
             c.check(off.size() == 1 && ModScreenDriver.label(off.get(0)).equals("Chat Keybinds: OFF"),
                     "with the switch off the tab shows " + CmdShortcutsCases.labels(off));
             CmdShortcutsCases.press(c, d, "Chat Keybinds: OFF");

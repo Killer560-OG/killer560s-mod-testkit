@@ -193,7 +193,8 @@ final class ChatBatchUiCases {
             List<String> toggles = new ArrayList<>();
             for (String l : rows.keySet()) {
                 int colon = l.indexOf(':');
-                if (colon > 0) {
+                // every feature's drawer ends with the menu's own Toggle Keybind row (mod doc-menu-1101)
+                if (colon > 0 && !l.startsWith("Toggle Keybind:")) {
                     toggles.add(l.substring(0, colon));
                 }
             }

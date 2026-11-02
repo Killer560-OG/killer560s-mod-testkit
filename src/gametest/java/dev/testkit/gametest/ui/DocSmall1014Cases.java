@@ -6,6 +6,7 @@ import net.minecraft.client.gui.screens.Screen;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -80,7 +81,9 @@ final class DocSmall1014Cases {
             if (cheat) {
                 gone(c, "Wither Doors", "Show All Doors:", "through walls");
             }
-            List<String> a = DungeonB2Cases.labels(c, DungeonB2Cases.openTab(c, "Architect's First Draft"));
+            List<String> a = new ArrayList<>(DungeonB2Cases.labels(c, DungeonB2Cases.openTab(c, "Architect's First Draft")));
+            // the menu's own Toggle Keybind row ends the drawer (mod doc-menu-1101); the feature's rows come before it
+            a.removeIf(l -> l.startsWith("Toggle Keybind:"));
             c.note("Architect's First Draft rows: " + a);
             int auto = indexOf(a, "Auto Get From Sack:");
             if (cheat) {

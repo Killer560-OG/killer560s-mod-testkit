@@ -545,6 +545,13 @@ final class EtherwarpFaceCases {
         }
         c.ticks(10); // a block entity's first frames
         String outcome = c.onClient(mc -> (String) Mod.staticCall(EW, "lastOutcome"));
+        if (block.contains("carpet")) {
+            // Since mod doc-routes-1101 a carpet is passable to the etherwarp ray (Auto Routes, ZPEW and the overlay
+            // agree): the box lands on the stone under it, as on a player head, so the outline here is not the carpet's.
+            return outcome.startsWith("drawn " + CX + ", 99, " + CZ)
+                    ? label + ": ok, landed on the floor under the carpet: " + outcome
+                    : label + ": BAD overlay not under the carpet: " + outcome;
+        }
         if (!outcome.startsWith("drawn " + CX + ", 100, " + CZ)) {
             return label + ": BAD overlay not on the target: " + outcome;
         }
