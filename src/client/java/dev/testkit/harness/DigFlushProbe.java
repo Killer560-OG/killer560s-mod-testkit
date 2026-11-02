@@ -45,6 +45,24 @@ public final class DigFlushProbe {
         return null;
     }
 
+    /** A dig written without a flush and not flushed yet (null when none). */
+    private static volatile String unflushedDig;
+
+    /** {@code ChannelOutboundBuffer.addFlush} HEAD (event loop): who flushed a dig that was written unflushed. */
+    public static void onNettyFlush() {
+        String d = unflushedDig;
+        if (d == null) {
+            return;
+        }
+        unflushedDig = null;
+        StackTraceElement[] st = Thread.currentThread().getStackTrace();
+        StringBuilder sb = new StringBuilder("[digflush] flushed " + d + " by");
+        for (int i = 2; i < Math.min(st.length, 16); i++) {
+            sb.append(" < ").append(st[i].getClassName().replaceAll(".*\\.", "")).append('.').append(st[i].getMethodName());
+        }
+        System.out.println(sb);
+    }
+
     /** {@code Connection.send} HEAD, the sending thread. */
     public static void onQueued(Packet<?> p) {
         if (name(p) == null) {
@@ -70,6 +88,7 @@ public final class DigFlushProbe {
             }
             if (n.startsWith("dig:")) {
                 sinceDig = 0;
+                unflushedDig = flush ? null : n;
                 return;
             }
             if (!n.startsWith("move") || sinceDig > 3) {
