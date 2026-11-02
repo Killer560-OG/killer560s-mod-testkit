@@ -263,6 +263,33 @@ final class TextBoxEnterCases {
                 c.note(cls + ": not in this jar");
                 continue;
             }
+            // The sorter saves nothing for an empty grid (its own Save rule): give it one item to save.
+            net.minecraft.world.item.ItemStack[] slot0 = {null};
+            if (cls.endsWith("InventorySorterScreen")) {
+                c.onClient(mc -> {
+                    slot0[0] = mc.player.getInventory().getItem(0).copy();
+                    mc.player.getInventory().setItem(0, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND));
+                    return null;
+                });
+            }
+            try {
+                screenBoxes(c, root, stats, cls, n);
+                n += 10;
+            } finally {
+                if (slot0[0] != null) {
+                    c.onClient(mc -> {
+                        mc.player.getInventory().setItem(0, slot0[0]);
+                        return null;
+                    });
+                }
+            }
+        }
+        picker(c, stats);
+    }
+
+    private static void screenBoxes(UiCase c, Path root, int[] stats, String cls, int n0) throws Exception {
+        int n = n0;
+        {
             List<Found> boxes;
             try {
                 boxes = c.onClient(mc -> unchecked(() -> {
@@ -280,7 +307,7 @@ final class TextBoxEnterCases {
                 }));
             } catch (Throwable t) {
                 c.note(cls + ": could not open: " + UiCase.describe(t));
-                continue;
+                return;
             }
             stats[3]++;
             for (Found f : boxes) {
@@ -309,7 +336,6 @@ final class TextBoxEnterCases {
                 }
             }
         }
-        picker(c, stats);
     }
 
     private static Screen open(Minecraft mc, String cls) throws Exception {
@@ -397,8 +423,8 @@ final class TextBoxEnterCases {
         Map<Path, byte[]> after = snapshot(root);
         boolean number = NUMBER.matcher(typed).matches();
         String token = typed.toLowerCase(Locale.ROOT);
-        Path where = number ? changed(beforeTyping, after) : containing(after, token);
-        boolean enterWrote = changed(beforeEnter, after) != null;
+        Path where = number ? changedContaining(beforeTyping, after, typed) : containing(root, after, token);
+        boolean enterWrote = where != null && !Arrays.equals(beforeEnter.get(where), after.get(where));
         boolean ok = commitsAfter == commitsBefore + 1 && where != null;
         String line = key + ": typed \"" + typed + "\", Enter -> commits +" + (commitsAfter - commitsBefore) + ", "
                 + (where == null ? "NOT on disk" : (number ? "changed " : "in ") + root.relativize(where))
@@ -464,9 +490,24 @@ final class TextBoxEnterCases {
         return null;
     }
 
-    private static Path containing(Map<Path, byte[]> files, String token) {
+    /** A changed settings file (logs are not settings: the stutter log changes on its own) holding the typed number. */
+    private static Path changedContaining(Map<Path, byte[]> a, Map<Path, byte[]> b, String number) {
+        for (Map.Entry<Path, byte[]> e : b.entrySet()) {
+            byte[] old = a.get(e.getKey());
+            if (e.getKey().getFileName().toString().endsWith(".log") || (old != null && Arrays.equals(old, e.getValue()))) {
+                continue;
+            }
+            if (new String(e.getValue(), StandardCharsets.UTF_8).contains(number)) {
+                return e.getKey();
+            }
+        }
+        return null;
+    }
+
+    /** A file whose path under {@code root} (a profile is a folder named after it) or content holds the token. */
+    private static Path containing(Path root, Map<Path, byte[]> files, String token) {
         for (Map.Entry<Path, byte[]> e : files.entrySet()) {
-            if (e.getKey().getFileName().toString().toLowerCase(Locale.ROOT).contains(token)
+            if (root.relativize(e.getKey()).toString().toLowerCase(Locale.ROOT).contains(token)
                     || new String(e.getValue(), StandardCharsets.UTF_8).toLowerCase(Locale.ROOT).contains(token)) {
                 return e.getKey();
             }
