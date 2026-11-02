@@ -52,8 +52,7 @@ import java.util.concurrent.CompletableFuture;
  *   <li>428-ui-pack-disabler-pack-push: a SkyBlock resource-pack push goes through the client's real packet handler
  *       (on the render thread, not over a socket): with the setting on and off alike, vanilla's own pack prompt opens.
  *       Pack Disabler never declines, cancels or answers Hypixel's pack (SkyBlock requires it).</li>
- *   <li>429-ui-pack-disabler-missing: items drawn with unknown ids are listed by {@code /k560textures missing}, which
- *       writes exactly those ids to its file (known items and vanilla-model items are not listed).</li>
+ *   <li>429-ui-pack-disabler-missing: removed with /k560textures and the missing-texture list (mod cmdclean-1101).</li>
  *   <li>430-ui-pack-disabler-screens: a chest of affected items at GUI scale 2, ON and OFF, screenshots.</li>
  *   <li>431-ui-pack-disabler-user-pack: a resource pack the player selects that replaces {@code wheat_seeds} and one
  *       of OUR textures wins for both: a Pack-Disabler-resolved Seeds item and Bee Saliva read the pack's pixels.</li>
@@ -254,56 +253,6 @@ final class PackDisablerCases {
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
                 Mod.call(Mod.cfg(CFG), "setEnabled", old);
-                return null;
-            });
-        }
-    }
-
-    // ---- 429 ------------------------------------------------------------------------------------------------------
-
-    static void missing(UiCase c) throws Exception {
-        if (!Mod.isDevTools()) {
-            c.note("release jar: /k560textures is compiled out, nothing to test");
-            return;
-        }
-        boolean old = c.onClient(mc -> savedEnabled());
-        try {
-            setEnabled(c, true);
-            c.onClient(mc -> Mod.staticCall("packdisabler.PackDisabler", "clearMissing"));
-            Set<String> expected = new TreeSet<>(List.of("TESTKIT_NEW_429_A", "TESTKIT_NEW_429_B"));
-            c.onClient(mc -> {
-                for (String id : expected) {
-                    drawn(mc, skyblockStack(Items.PAPER, id, "hypixel_skyblock:item/testkit/" + id.toLowerCase()));
-                }
-                // Known looks and vanilla models are not "missing".
-                drawn(mc, skyblockStack(Items.PAPER, "UMBER", "hypixel_skyblock:item/glacite/umber/umber"));
-                drawn(mc, skyblockStack(Items.PAPER, "BEE_SALIVA",
-                        "hypixel_skyblock:item/island_relevant/foraging_3/bee_saliva"));
-                drawn(mc, skyblockStack(Items.WHEAT_SEEDS, "ENCHANTED_SEEDS", "minecraft:wheat_seeds"));
-                drawn(mc, skyblockStack(Items.PAPER, "TESTKIT_NO_MODEL_429", null));
-                return null;
-            });
-            Path file = c.onClient(mc -> (Path) Mod.staticCall("util.ModPaths", "config",
-                    "killer560smod-packdisabler-missing.txt"));
-            Files.deleteIfExists(file);
-            c.onClient(mc -> {
-                mc.player.connection.sendCommand("k560textures missing");
-                return null;
-            });
-            c.ticks(5);
-            c.check(Files.exists(file), "/k560textures missing wrote no file at " + file);
-            Set<String> listed = new TreeSet<>();
-            for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
-                if (!line.isBlank() && !line.startsWith("#")) {
-                    listed.add(line.split("\t")[0]);
-                }
-            }
-            c.note("listed: " + listed);
-            c.check(listed.equals(expected), "the missing list is " + listed + ", expected exactly " + expected);
-        } finally {
-            c.onClient(mc -> {
-                Mod.call(Mod.cfg(CFG), "setEnabled", old);
-                Mod.staticCall("packdisabler.PackDisabler", "clearMissing");
                 return null;
             });
         }

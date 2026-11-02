@@ -173,10 +173,11 @@ public class SimChunkLoadedTests implements FabricClientGameTest {
 
     // ---- 1. doors -------------------------------------------------------------------------------------------
 
-    /** {@code helpers}: Door Helpers' DoorScanner (bare Hypixel heights); else Wither Doors' scanner (sim-shifted). */
+    /** {@code helpers}: Door Helpers' DoorScanner; else Wither Doors' scanner. Both read the sim-shifted heights (Door
+     *  Helpers since mod 3fe00271, 2026-10-21; this case kept bare y 69 for it and failed its premise from then on). */
     private static void doors(ClientGameTestContext ctx, boolean helpers) {
         String cls = helpers ? DOOR_HELPERS : WITHER_DOORS;
-        int off = helpers ? 0 : ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(LAYOUT, "simYOffset",
+        int off = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(LAYOUT, "simYOffset",
                 new Class<?>[]{}, new Object[]{}));
         int[] cell = emptyDoorCell(ctx, helpers ? 1 : 0);
         int wx = START + cell[0] * 16;
@@ -374,9 +375,18 @@ public class SimChunkLoadedTests implements FabricClientGameTest {
         int border = (pc[0] + 2) << 4;
         int z0 = (pc[1] << 4) + 6;
         int y = ctx.computeOnClient(mc -> mc.level.getMaxY() - 8);
+        // A whole tomb, not a bare lid: since the crypt rules of 2026-10-19 (CryptScanner.isLedge) a slab run with no floor
+        // within 3 blocks beside it is a wall ledge, not a crypt, and a lid floating in the air is exactly that. So the 4x4
+        // lid stands on a 4x4 polished andesite body, on a 6x6 stone floor - the shape of a real crypt.
         Map<BlockPos, BlockState> lid = new LinkedHashMap<>();
+        for (int x = border - 3; x <= border + 2; x++) {
+            for (int z = z0 - 1; z < z0 + 5; z++) {
+                lid.put(new BlockPos(x, y - 2, z), Blocks.STONE.defaultBlockState());
+            }
+        }
         for (int x = border - 2; x <= border + 1; x++) {
             for (int z = z0; z < z0 + 4; z++) {
+                lid.put(new BlockPos(x, y - 1, z), Blocks.POLISHED_ANDESITE.defaultBlockState());
                 lid.put(new BlockPos(x, y, z), Blocks.SMOOTH_STONE_SLAB.defaultBlockState());
             }
         }

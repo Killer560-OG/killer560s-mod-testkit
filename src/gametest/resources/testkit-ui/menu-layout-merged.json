@@ -27,7 +27,8 @@
     "gui.tab.MiningTitaniumTab": "Mining > Titanium Highlight",
     "gui.tab.SecretTab": "Dungeons > Secrets > Secret",
     "gui.tab.MaskKeybindsTab": "Dungeons > Mask Keybinds",
-    "gui.tab.LuckTab": "Misc > How Lucky Are You"
+    "gui.tab.LuckTab": "Misc > How Lucky Are You",
+    "gui.tab.AutoSprintTab": "Misc > Auto Sprint"
   },
   "tooltips": [
     {
@@ -50,6 +51,19 @@
       "key": "cross-mod bridge",
       "text": "Shares dungeon data both ways with users of Devonian and Odin.",
       "why": "mod 958f6442 2026-11-01 Cross-Mod Bridge: never open or sign into NoammAddons' socket (NoammAddons' owner asked)"
+    },
+    {
+      "owner": "Team Melody",
+      "key": "team melody hud",
+      "text": "Shows each teammate's Melody terminal during Phase 3: their board (target, moving pane, rows done) for a teammate on this mod or Odin, a progress bar for one who only calls it in party chat. A finished Melody reads 100%; a player drops off when the section ends or after 15 s with no update.",
+      "why": "mod doc-terms-1101 (to-do Doc #48, killer560 2026-11-01): teammates on this mod or Odin are drawn as their board"
+    },
+    {
+      "owner": "Spotify Mod",
+      "key": "profanity filter",
+      "to": "Spotify Lyrics",
+      "text": "Stars out words in the lyrics you send to chat. All: every swear word. Minimal: slurs only. None: nothing.",
+      "why": "mod d05664af (doc-spotify-1101, 2026-11-01): the Profanity Filter takes All / Minimal / None; Minimal is slurs only"
     },
     {
       "owner": "Trail",
@@ -438,14 +452,14 @@
     {
       "owner": "(unscoped)",
       "key": "auto clear",
-      "text": "Cheat build: kills the starred mobs of the dungeon's mob rooms with your Hyperion or Spirit Sceptre; start and stop it with the Clear Toggle Key or /autoclear.",
-      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: one-sentence hovers"
+      "text": "Cheat build: kills the starred mobs of the dungeon's mob rooms with your Hyperion or Spirit Sceptre; start and stop it with the Clear Toggle Key.",
+      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: one-sentence hovers; cmdclean-1101 c498f3ba dropped /autoclear"
     },
     {
       "owner": "(unscoped)",
       "key": "auto fairy souls",
-      "text": "Cheat build: walks the island's soul route and clicks each Fairy Soul, with your camera free. Any key or click stops it. Needs nothing else on.",
-      "why": "hover rewritten: e0807f88 2026-10-18 Fairy Souls / Auto Fairy Souls rework: free camera, any key stops, a movement model that b"
+      "text": "Cheat build: walks the island's soul route and clicks each Fairy Soul, with your camera free. A movement key, Escape, opening chat or the Emergency Cancel Key (Home) stops it. Needs nothing else on.",
+      "why": "hover rewritten: e0807f88 2026-10-18 Fairy Souls / Auto Fairy Souls rework; mod 4eec88a7 (ETABLE, 2026-11-01): it stops on a movement key, Escape, chat or the Emergency Cancel Key"
     },
     {
       "owner": "(unscoped)",
@@ -542,8 +556,8 @@
     {
       "owner": "Auto Clear",
       "key": "auto clear",
-      "text": "Cheat build: kills the starred mobs of the dungeon's mob rooms with your Hyperion or Spirit Sceptre; start and stop it with the Clear Toggle Key or /autoclear.",
-      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: one-sentence hovers"
+      "text": "Cheat build: kills the starred mobs of the dungeon's mob rooms with your Hyperion or Spirit Sceptre; start and stop it with the Clear Toggle Key.",
+      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: one-sentence hovers; cmdclean-1101 c498f3ba dropped /autoclear"
     },
     {
       "owner": "Auto Clear",
@@ -594,8 +608,8 @@
     {
       "owner": "Auto Fairy Souls",
       "key": "auto fairy souls",
-      "text": "Cheat build: walks the island's soul route and clicks each Fairy Soul, with your camera free. Any key or click stops it. Needs nothing else on.",
-      "why": "hover rewritten: e0807f88 2026-10-18 Fairy Souls / Auto Fairy Souls rework: free camera, any key stops, a movement model that b"
+      "text": "Cheat build: walks the island's soul route and clicks each Fairy Soul, with your camera free. A movement key, Escape, opening chat or the Emergency Cancel Key (Home) stops it. Needs nothing else on.",
+      "why": "hover rewritten: e0807f88 2026-10-18 Fairy Souls / Auto Fairy Souls rework; mod 4eec88a7 (ETABLE, 2026-11-01): it stops on a movement key, Escape, chat or the Emergency Cancel Key"
     },
     {
       "owner": "Auto Fairy Souls",
@@ -845,7 +859,29 @@
       "owner": "Party Interop",
       "key": "cross-mod bridge",
       "text": "Shares dungeon data both ways with users of Devonian and Odin.",
-      "why": "958f6442 (2026-10-29) Cross-Mod Bridge no longer opens NoammAddons' socket; the hover dropped NoammAddons (doc-menu-1101)"
+      "why": "958f6442 (2026-10-29) Cross-Mod Bridge no longer opens NoammAddons' socket; the hover dropped NoammAddons (doc-menu-1101)",
+      "owner": "(unscoped)",
+      "key": "freeze state",
+      "text": "!! NEVER ON HYPIXEL - INSTANT BAN !! Freezes your character in place while your camera looks around freely.",
+      "why": "cmdclean-1101 c498f3ba (killer560 2026-11-01): the command it named was removed"
+    },
+    {
+      "owner": "Freeze State",
+      "key": "freeze state",
+      "text": "!! NEVER ON HYPIXEL - INSTANT BAN !! Freeze State as a whole - off, its keys do nothing, and a freeze in progress resumes.",
+      "why": "cmdclean-1101 c498f3ba (killer560 2026-11-01): the command it named was removed"
+    },
+    {
+      "owner": "Freeze State",
+      "key": "freeze state key",
+      "text": "Keybind that freezes and resumes your character; never use it on Hypixel.",
+      "why": "cmdclean-1101 c498f3ba (killer560 2026-11-01): the command it named was removed"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "storage search",
+      "text": "Searches your cached Ender Chests and Backpacks from one screen; also opens with /search.",
+      "why": "cmdclean-1101 c498f3ba (killer560 2026-11-01): the command it named was removed (/k560search)"
     }
   ]
 }
