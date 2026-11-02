@@ -404,6 +404,11 @@ final class TerminalCases {
             c.check(maxPerTick <= 1, "more than one terminal click in a server tick: " + maxPerTick);
             c.check(after == 0, after + " click(s) arrived after the server solved and closed the terminal");
             if (!spec.type().equals("RUBIX")) {
+                for (JsonObject e : c.events("terminal.click")) {
+                    if (e.has("correct") && !e.get("correct").getAsBoolean()) {
+                        c.note("wrong click (the server's view): " + e);
+                    }
+                }
                 c.check(wrong == 0, "the server rejected " + wrong + " auto click(s): " + solved);
             }
         } finally {
@@ -496,6 +501,7 @@ final class TerminalCases {
                     ticks.add(e.get("tick").getAsLong());
                     if (!e.get("correct").getAsBoolean()) {
                         wrong++;
+                        c.note("wrong click (the server's view): " + e);
                     }
                 }
                 c.note("target slot " + target + (edge ? " (edge)" : " (middle)") + ": " + fired + " lookahead click(s), "

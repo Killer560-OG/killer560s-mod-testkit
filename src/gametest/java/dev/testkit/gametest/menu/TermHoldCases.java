@@ -256,6 +256,11 @@ final class TermHoldCases {
             int fired = c.onClient(mc -> (Integer) Mod.field(FEATURE, "melodyLookaheadFired")) - before;
             int dropped = c.onClient(mc -> TerminalCases.lookaheadDropped()) - droppedBefore;
             Map<Integer, Integer> per = clicksPerSlot(c);
+            for (JsonObject e : clicks(c)) {
+                if (e.has("correct") && !e.get("correct").getAsBoolean()) {
+                    c.note("wrong click (the server's view): " + e);
+                }
+            }
             List<Long> ticks = new ArrayList<>();
             for (JsonObject e : clicks(c)) {
                 ticks.add(e.get("tick").getAsLong());
