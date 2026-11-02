@@ -38,8 +38,8 @@ final class SsStimMomentumCases {
         s.test("1018-ss-rotate-fast-off", c -> play(c, 61, true, -1, false, 0));
         s.test("1018-ss-momentum-high", c -> play(c, 62, true, 100, false, 0));
         s.test("1018-ss-momentum-target", c -> play(c, 63, false, 50, false, 0));
-        s.test("1018-ss-stim", c -> play(c, 64, true, -1, true, 2));
-        s.test("1018-ss-stim-momentum", c -> play(c, 65, true, 100, true, 3));
+        s.test("1018-ss-stim", c -> play(c, 64, true, -1, true, 0));
+        s.test("1018-ss-stim-momentum", c -> play(c, 65, true, 100, true, 0));
     }
 
     private static int counter(Session c, String field) {
@@ -65,7 +65,8 @@ final class SsStimMomentumCases {
                 on.with(SS_CFG, "AutoSolveMomentum", momentum);
             }
             if (stim) {
-                on.with(SS_CFG, "AutoSolveStim", true).with(SS_CFG, "AutoSolveStimButtons", stimButtons);
+                // Since mod doc-puzzles-1101 Stim retraces the whole round (no Stim Buttons setting).
+                on.with(SS_CFG, "AutoSolveStim", true);
             }
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
             c.waitUntil("DungeonState F7", mc -> "F7".equals(Mod.staticCall("secrets.DungeonState", "getFloor")), 100);
@@ -88,6 +89,7 @@ final class SsStimMomentumCases {
             c.ctx().waitTicks(5);
 
             boolean newPaths = momentum > 0 || stim;
+            int queued0 = stim ? counter(c, "stimButtonsQueued") : 0;
             int[] before = newPaths ? new int[] {counter(c, "stimRehearsalsStarted"), counter(c, "stimButtonsTraced"),
                     counter(c, "stimCutShort"), counter(c, "momentumFaceFires"), counter(c, "momentumGlideFrames"),
                     counter(c, "momentumCarryFrames")} : null;
@@ -151,6 +153,10 @@ final class SsStimMomentumCases {
                     // Rounds 1-3 each end with a rehearsal (not the last round).
                     c.check(after[0] - before[0] == 3, (after[0] - before[0]) + " stim rehearsals, expected 3");
                     c.check(after[1] - before[1] >= 3, "stim reached only " + (after[1] - before[1]) + " button(s)");
+                    // The whole round, first to last, then back to the first: rounds 1-3 queue 1, 2+1 and 3+1.
+                    int queued = counter(c, "stimButtonsQueued") - queued0;
+                    c.note("stim queued " + queued + " button(s) over rounds 1-3");
+                    c.check(queued == 8, queued + " buttons queued for rounds 1-3, expected 8 (1, 3, 4: the whole round)");
                 }
                 if (momentum > 0) {
                     c.check(after[3] - before[3] == 10, (after[3] - before[3]) + " momentum clicks, expected all 10");
