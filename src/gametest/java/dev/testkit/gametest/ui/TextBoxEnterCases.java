@@ -49,6 +49,9 @@ final class TextBoxEnterCases {
     private static final Set<String> SEARCH = Set.of("search", "search zones");
     /** Boxes whose saved value is a number though they open empty: what to type. */
     private static final Map<String, String> TYPE = Map.of("target purse", "1500000");
+    /** Switches the walk never turns on: Streamer Mode keeps its state in memory (a config reload does not reset it) and
+     *  hides every cheat tab from the search, which failed 944 after this case on the first run (2026-11-02). */
+    private static final List<String> NEVER_SWITCH = List.of("streamer");
 
     private TextBoxEnterCases() {
     }
@@ -59,6 +62,7 @@ final class TextBoxEnterCases {
     static void enterSaves(UiCase c, Deny deny) throws Exception {
         Path root = c.onClient(mc -> (Path) Mod.staticCall("util.ModPaths", "root"));
         Map<Path, byte[]> before = snapshot(root);
+        boolean streamerBefore = streamer(c);
         int[] stats = new int[4]; // 0 boxes seen, 1 tested and saved, 2 search boxes left alone, 3 screens walked
         try (AutoCloseable all = MenuLayoutCases.allTested(c)) {
             menu(c, deny, root, stats);
@@ -78,6 +82,7 @@ final class TextBoxEnterCases {
                 return null;
             });
         }
+        c.check(streamer(c) == streamerBefore, "the walk left Streamer Mode " + (streamerBefore ? "off" : "on"));
         c.note("text boxes seen " + stats[0] + ", typed + Enter + saved on disk " + stats[1] + ", search boxes left alone "
                 + stats[2] + ", screens walked " + stats[3]);
         // The case must have acted: dozens of boxes are reachable in either jar.
@@ -168,7 +173,8 @@ final class TextBoxEnterCases {
             for (AbstractWidget w : d.content()) {
                 String l = ModScreenDriver.label(w);
                 if (d.isSettingsButton(w) && Boolean.TRUE.equals(Mod.call(w, "isSwitch")) && !Boolean.TRUE.equals(Mod.call(w, "isOn"))
-                        && !pressed.contains(l) && deny.button(l) == null) {
+                        && !pressed.contains(l) && deny.button(l) == null
+                        && NEVER_SWITCH.stream().noneMatch(x -> l.toLowerCase(Locale.ROOT).contains(x))) {
                     next = w;
                     break;
                 }
@@ -435,6 +441,10 @@ final class TextBoxEnterCases {
             c.problem(line);
         }
         return ok;
+    }
+
+    private static boolean streamer(UiCase c) {
+        return c.onClient(mc -> Mod.has("streamer.StreamerMode") && (Boolean) Mod.staticCall("streamer.StreamerMode", "active"));
     }
 
     private static int commitCount(UiCase c) {
