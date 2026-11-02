@@ -61,6 +61,7 @@ public class SimMobP4Tests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
+        List<String> failed = new ArrayList<>();
         for (String name : List.of(IC, FELS)) {
             if (Scenario.skip(name)) {
                 continue;
@@ -117,9 +118,13 @@ public class SimMobP4Tests implements FabricClientGameTest {
                 for (String p : problems) {
                     println("PROBLEM " + p);
                 }
-                throw new AssertionError(name + ": " + problems.size() + " problem(s): " + String.join("; ", problems));
+                failed.add(name + ": " + problems.size() + " problem(s): " + String.join("; ", problems));
+                continue;
             }
             println("PASS");
+        }
+        if (!failed.isEmpty()) {
+            throw new AssertionError(String.join(" | ", failed));
         }
     }
 
@@ -251,13 +256,29 @@ public class SimMobP4Tests implements FabricClientGameTest {
         facts.add(String.format(Locale.US, "requeue: pending at the warning %s, sent %s %.1f s after the cooldown ended"
                 + " (warning %.1f s before it ended)", pendingAtWarn, requeue == null ? "NONE" : "/" + requeue[1],
                 (sentAt - ccEnd) / 1000.0, (ccEnd - warnAt) / 1000.0));
-        if (requeue == null || !"joininstance catacombs_floor_seven".equals(requeue[1])) {
-            problems.add("no requeue /joininstance catacombs_floor_seven was sent (" + (requeue == null ? "none" : requeue[1]) + ")");
+        // The floor DungeonState reports (the sim says M7 on purpose: "the clear features he practices with are the M7 ones").
+        String floor = ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall("com.killer560.hub.secrets.DungeonState",
+                "getFloor")));
+        String want = "joininstance " + instanceFor(floor);
+        facts.add("floor " + floor + ", requeue expected /" + want);
+        if (requeue == null || !want.equals(requeue[1])) {
+            problems.add("no requeue /" + want + " was sent (" + (requeue == null ? "none" : requeue[1]) + ")");
         } else if (earlyRequeue || sentAt < ccEnd) {
             problems.add("the requeue went before the creation cooldown was over");
         } else if (warnAt < ccEnd && !pendingAtWarn) {
             problems.add("the requeue was not held pending while the cooldown ran");
         }
+    }
+
+    /** "F7" -> catacombs_floor_seven, "M7" -> master_catacombs_floor_seven (Hypixel's instance ids). */
+    private static String instanceFor(String floor) {
+        String[] words = {"zero", "one", "two", "three", "four", "five", "six", "seven"};
+        if (floor == null || floor.length() != 2) {
+            return "?" + floor;
+        }
+        int n = floor.charAt(1) - '0';
+        String w = n >= 0 && n < words.length ? words[n] : "?";
+        return (floor.charAt(0) == 'M' ? "master_catacombs_floor_" : "catacombs_floor_") + w;
     }
 
     private static String firstSent(List<Object[]> sent, String prefix) {
