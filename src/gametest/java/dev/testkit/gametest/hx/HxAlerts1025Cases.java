@@ -248,7 +248,7 @@ final class HxAlerts1025Cases {
             // Since 2026-11-01 (doc-dhud-1101) the warning shows on the Watcher's line itself, blood counted as cleared
             // until the sidebar says so: 20 of 25 rooms + blood + boss = 88%.
             c.hx().chat(WATCHER_LINE);
-            c.waitUntil("the pre-boss warning on the Watcher's line", mc -> (Integer) Mod.staticCall(WARN, "warningsShown") == base + 2, 20);
+            c.waitUntil("the pre-boss warning on the Watcher's line", mc -> (Integer) Mod.staticCall(WARN, "warningsShown") == base + 2, 100);
             sidebar(c, "template", "dungeon", "floor", "F7", "time", "02m 40s", "cleared", 84);
             String pre = c.onClient(mc -> (String) Mod.staticCall(WARN, "lastWarning"));
             String shownPre = c.onClient(HxAlerts1025Cases::guiTitle);

@@ -91,26 +91,33 @@ final class HxDocDhud1101Cases {
             // 1. On the Watcher's line itself - no "Cleared" change, no 3 s fallback.
             int base = warnings(c);
             c.hx().chat(WATCHER_LINE);
-            c.waitUntil("the pre-boss warning on the Watcher's line", mc -> (Integer) Mod.staticCall(WARN, "warningsShown") == base + 1, 10);
+            // The sidebar never changes (no blood "Cleared" update): a warning at all is the one on the line itself. 100 ticks only
+            // for the chat line's own trip under a loaded machine (26.2 once took more than 10).
+            c.waitUntil("the pre-boss warning on the Watcher's line", mc -> (Integer) Mod.staticCall(WARN, "warningsShown") == base + 1, 100);
             String first = c.onClient(mc -> (String) Mod.staticCall(WARN, "lastWarning"));
             c.check(first != null && first.contains("Before the boss") && first.contains("Crypts 2/5")
                     && first.contains("Cleared 88%"), "warning was '" + first + "' (cleared 80% of 25 rooms + blood + boss = 88%)");
 
             // 2. Mage Only while playing Archer: nothing.
+            // ChatObserver drops an identical line within 250 ms as a duplicate delivery: space the Watcher lines out.
+            c.ctx().waitTicks(10);
             freshRun(c);
             run(c, () -> Mod.set(SCORE_CFG, "setPreBossMageOnly", true));
             int beforeMage = warnings(c);
             c.hx().chat(WATCHER_LINE);
-            c.ctx().waitTicks(30);
+            // Not vacuous: wait until the line has reached the mod (it sets watcherDoneTick whatever the class).
+            c.waitUntil("the Watcher's line reached Score Warning", mc -> (Integer) Mod.field(WARN, "watcherDoneTick") >= 0, 100);
+            c.ctx().waitTicks(5);
             int afterMage = warnings(c);
             c.check(afterMage == beforeMage, "Mage Only warned an Archer (" + beforeMage + " -> " + afterMage + ")");
             run(c, () -> Mod.set(SCORE_CFG, "setPreBossMageOnly", false));
 
             // 3. Permanent: DO NOT ENTER PORTAL with the list, held up (refreshed) - then the line alone.
+            c.ctx().waitTicks(10);
             freshRun(c);
             run(c, () -> Mod.set(SCORE_CFG, "setPreBossPermanent", true));
             c.hx().chat(WATCHER_LINE);
-            c.waitUntil("DO NOT ENTER PORTAL", mc -> String.valueOf(Mod.staticCall(WARN, "lastWarning")).contains("DO NOT ENTER PORTAL"), 20);
+            c.waitUntil("DO NOT ENTER PORTAL", mc -> String.valueOf(Mod.staticCall(WARN, "lastWarning")).contains("DO NOT ENTER PORTAL"), 100);
             String red = c.onClient(mc -> (String) Mod.staticCall(WARN, "lastWarning"));
             c.ctx().waitTicks(60);   // three seconds: a one-shot title (25 ticks) would be gone
             String held = c.onClient(HxAlerts1025Cases::guiTitle);
