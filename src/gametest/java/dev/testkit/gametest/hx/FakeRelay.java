@@ -136,8 +136,18 @@ public final class FakeRelay implements AutoCloseable {
         handle(p);
     }
 
+    /** Into the mod's socket handler on the fake's own network thread, as the real socket's callbacks are: the handler
+     *  may call Minecraft.getInstance(), which the gametest thread is not allowed to. Waits for it to finish. */
     private void handle(JsonObject packet) {
-        Mod.staticCall(RC, "handle", packet.toString());
+        if (Thread.currentThread().getName().equals("testkit-fake-relay")) {
+            Mod.staticCall(RC, "handle", packet.toString());
+            return;
+        }
+        try {
+            wire.submit(() -> Mod.staticCall(RC, "handle", packet.toString())).get(10, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new AssertionError("the fake relay could not hand a packet to RelayClient.handle: " + e, e);
+        }
     }
 
     private void onSent(String text) {
