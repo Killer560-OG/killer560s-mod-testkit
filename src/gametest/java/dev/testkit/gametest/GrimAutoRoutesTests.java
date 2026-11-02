@@ -1493,16 +1493,19 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                         return;
                     }
                     iwCloseAtStart = false;
-                    net.minecraft.client.gui.screens.inventory.ContainerScreen back =
-                            new net.minecraft.client.gui.screens.inventory.ContainerScreen(
-                                    (net.minecraft.world.inventory.ChestMenu) iwMenu, m.player.getInventory(),
-                                    net.minecraft.network.chat.Component.literal("Chest"));
-                    m.player.containerMenu = iwMenu;
-                    dev.testkit.compat.McCompat.setScreen(m, back);
-                    back.onClose();
-                    dev.testkit.gametest.mod.Mod.setField(stats, "manaShort", false);
+                    // The close goes out at this tick's START, before the route acts at its END, with Inventory Walk in the
+                    // state an open screen puts it in (no screen is set: opening one would let the route's keys go). It is
+                    // held for a still tick (the server's input says sneak); the mana hold lifts so the warp's use goes
+                    // this same tick - the v5 order.
+                    dev.testkit.gametest.mod.Mod.setField("invwalk.InventoryWalkFeature", "active", true);
+                    m.player.connection.send(new net.minecraft.network.protocol.game.ServerboundContainerClosePacket(
+                            iwMenu.containerId));
+                    dev.testkit.gametest.mod.Mod.setField("invwalk.InventoryWalkFeature", "active", false);
+                    m.player.containerMenu = m.player.inventoryMenu;
+                    iwMenu = null;
+                    dev.testkit.gametest.mod.Mod.setField("playerstats.PlayerStatsFeature", "manaShort", false);
                     iwCloseTick = PacketTrace.tickCount();
-                    println("[iwclose] window shown and closed at a tick start, mana hold lifted, server sneak "
+                    println("[iwclose] close sent at a tick start, mana hold lifted, server sneak "
                             + m.player.getLastSentInput().shift());
                 });
             }
@@ -1576,6 +1579,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         } finally {
             iwHideOnArrival = false;
             iwCloseAtStart = false;
+            ctx.runOnClient(mc -> {
+                if (iwMenu != null) {
+                    mc.player.connection.send(new net.minecraft.network.protocol.game.ServerboundContainerClosePacket(
+                            iwMenu.containerId));
+                    mc.player.containerMenu = mc.player.inventoryMenu;
+                }
+            });
             iwMenu = null;
             ctx.runOnClient(mc -> {
                 dev.testkit.gametest.mod.Mod.setField(stats, "manaShort", false);
