@@ -141,7 +141,6 @@
 			"dev.testkit.gametest.SimMapLeaveSecretsTests",
 			"dev.testkit.gametest.SimDoorHeightTests",
 			"dev.testkit.gametest.SimOneDoorTests",
-			"dev.testkit.gametest.SimMageCaptureTests",
 			"dev.testkit.gametest.SimChunkLoadedTests",
 			"dev.testkit.gametest.AuraQuoiTests",
 			"dev.testkit.gametest.SimAuraSkipTests",

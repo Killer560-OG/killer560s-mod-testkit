@@ -278,8 +278,35 @@ final class SlotTextCases {
             String abbr = String.valueOf(text(c, bookSharp, "Chest", 4, false));
             String abbrUlt = String.valueOf(text(c, bookWise, "Chest", 4, false));
             c.note("abbreviations on: sharpness " + abbr + "; ultimate wise " + abbrUlt);
-            c.check(abbr.equals("[BOTTOM_LEFT:6:" + CREAM + ", TOP_LEFT:SHA:" + CREAM + "]"), "sharpness abbreviation: " + abbr);
-            c.check(abbrUlt.equals("[BOTTOM_LEFT:5:" + CREAM + ", TOP_LEFT:WIS:" + PURPLE + "]"), "ultimate wise abbreviation: " + abbrUlt);
+            // The common short names other Skyblock mods use (mod doc-small-1101: "thunderlord ours says thu and they
+            // will have tl"): SH, UW, TL; an enchant in no table falls back to initials / three letters.
+            c.check(abbr.equals("[BOTTOM_LEFT:6:" + CREAM + ", TOP_LEFT:SH:" + CREAM + "]"), "sharpness abbreviation: " + abbr);
+            c.check(abbrUlt.equals("[BOTTOM_LEFT:5:" + CREAM + ", TOP_LEFT:UW:" + PURPLE + "]"), "ultimate wise abbreviation: " + abbrUlt);
+            Map<String, String> abbrTable = new LinkedHashMap<>();
+            abbrTable.put("thunderlord", "TL");
+            abbrTable.put("giant_killer", "GK");
+            abbrTable.put("protection", "PRO");
+            abbrTable.put("ultimate_soul_eater", "SE");
+            abbrTable.put("ultimate_one_for_all", "OFA");
+            abbrTable.put("ultimate_legion", "LEG");
+            abbrTable.put("bane_of_arthropods", "BOA");
+            abbrTable.put("some_new_enchant", "SNE");
+            abbrTable.put("zzyzxium", "ZZY");
+            List<String> badAbbr = new ArrayList<>();
+            for (Map.Entry<String, String> e : abbrTable.entrySet()) {
+                String got = c.onClient(mc -> String.valueOf(Mod.staticCall("slottext.SlotTextFeature", "abbreviate", e.getKey())));
+                if (!got.equals(e.getValue())) {
+                    badAbbr.add(e.getKey() + " -> " + got + " (want " + e.getValue() + ")");
+                }
+            }
+            c.note("abbreviation table: " + abbrTable.size() + " checked, wrong: " + badAbbr);
+            c.check(badAbbr.isEmpty(), "abbreviations: " + badAbbr);
+            CompoundTag tlTag = tag("ENCHANTED_BOOK");
+            CompoundTag tlE = new CompoundTag();
+            tlE.putInt("thunderlord", 7);
+            tlTag.put("enchantments", tlE);
+            String abbrTl = String.valueOf(text(c, mk(Items.ENCHANTED_BOOK, "Enchanted Book", tlTag), "Chest", 4, false));
+            c.check(abbrTl.equals("[BOTTOM_LEFT:7:" + CREAM + ", TOP_LEFT:TL:" + CREAM + "]"), "thunderlord book drawn: " + abbrTl);
             setType(c, "ENCHANT_ABBREVIATION", false);
 
             // Every type has a sample above, and its switch alone removes it.

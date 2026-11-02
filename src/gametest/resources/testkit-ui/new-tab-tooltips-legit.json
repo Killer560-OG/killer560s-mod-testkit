@@ -170,7 +170,7 @@
       "solver": "Shows the solution for this puzzle or device."
     },
     "Auction House": {
-      "auction house browser": "One switch for the whole Auction House: the custom browser (/killer560 ah or a keybind) and Hypixel's real Auction House menus drawn in its look, where every click is the same single click on Hypixel's menu."
+      "auction house browser": "One switch for the whole Auction House: the custom browser (its keybind or Open Auction House) and Hypixel's real Auction House menus drawn in its look, where every click is the same single click on Hypixel's menu."
     },
     "Auto Kick": {
       "auto kick": "While you queue in Party Finder, warns about or kicks a joiner whose S+ time on the floor is slower than its limit.",

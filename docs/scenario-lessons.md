@@ -780,6 +780,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   failed blocks that later coal doors had hidden. 538/678 (Show All Doors' coal-door scan) fail on main's cheat jar too:
   WitherDoorScanner finds no coal door on a sim floor at all - not this branch.
 - 1490-sim-mage-capture (SimMageCaptureTests, mod mage-capture-1015, 2026-10-15): `/mage` typed for real in a sim Mage.
+  REMOVED 2026-11-01 with the mod's /mage (mod doc-small-1101); the scenario is in git history before testkit doc-small-1101.
   The integrated server never forgot a chunk here, even at render distance 2 (the client still held chunks 8 out), so the
   unloaded case hands the client `ClientboundForgetLevelChunkPacket` through the real handler and runs `/mage` in the SAME
   client task (the server sends it straight back), and it runs last. Ask `mc.level.getChunkSource().hasChunk`, never
@@ -1307,3 +1308,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   Hypixel's no-open-from-below rule), so a run on the pillar's ground got "no terminal in range" whatever `minDy` said;
   the run-in case lays a runway level with the stand (blocks at G+2). On the base jar 1101-ap3-stop-once-reenter passes
   too (the edge detector already fired a plain Stop once per entry); the Term Aura cases are the ones a pre-1101 jar fails.
+- 1101-ds-* (DocSmall1101Cases, mod doc-small-1101, 2026-11-01): 13 UI cases for the small to-do items, each asserting the
+  feature acted (chat lines kept, hook counter, layers played, names replaced, beam core draws). A hand-item hook test must
+  hold an item and turn SkyblockGate off. 806 alone takes ~150 s: give run-scenario -TimeoutSeconds 1200 when 806 or a
+  menu session (200-menu-session pulls in many menu cases) is in the filter; the 240 s default kills the run.
