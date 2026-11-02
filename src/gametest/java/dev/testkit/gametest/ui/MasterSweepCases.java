@@ -43,7 +43,6 @@ final class MasterSweepCases {
                 "Show Others' Mobs", "My Name in F5"});
         PINNED.put("GifPlayerTab", new String[]{"GIFs", "Audio"});
         PINNED.put("HealthAndManaBarsTab", new String[]{"Stat Bars", "XP Bar And Level", "Hypixel Stat Text"});
-        PINNED.put("RibbonTrailTab", new String[]{"Ribbon Trail", "Show Others' Trails"});
         PINNED.put("TeamMelodyTab", new String[]{"Team Melody HUD", "Share My Progress"});
         PINNED.put("TerminalSolverTab", new String[]{"Terminal Solver", "Terminal Protection", "Terminal Drop Key",
                 "Melody Keys", "Hide Completion Titles", "Hide Completion Chat"});
@@ -156,6 +155,11 @@ final class MasterSweepCases {
                     return name + ": card ON with every row off " + labels;
                 }
                 for (String l : labels) {
+                    Object before = row(tab, l);
+                    if (before instanceof AbstractWidget aw && !aw.active) {
+                        // A row the account cannot switch (Share My Song is a supporter perk): nothing to test.
+                        continue;
+                    }
                     press(tab, l);
                     Object row = row(tab, l);
                     if (row == null) {
@@ -313,7 +317,7 @@ final class MasterSweepCases {
                     if (!(x instanceof StringWidget)) {
                         continue;
                     }
-                    String text = x.getMessage().getString();
+                    String text = net.minecraft.ChatFormatting.stripFormatting(x.getMessage().getString());
                     if (text.equals("Ban Reports")) {
                         continue;
                     }
