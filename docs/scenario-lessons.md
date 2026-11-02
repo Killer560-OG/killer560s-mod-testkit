@@ -1302,3 +1302,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   on main too, not the branch; rerun before blaming the mod. A run the freeze watcher closed (FROZEN while the test server
   was still starting) can leave its `runTestServer` java alive and the next run's server exits "before it was ready":
   kill that PID (command line holds this checkout's path and runTestServer) first.
+- Emergency Cancel Key cases (mod doc-etable-1101, e4ecb41d): 1101-ap3-ecancel (63-ap3 session), 96-ar-1101-ecancel (route +
+  Mimic Killer), 1101-menu-ecancel-terminal, 93-solve-ecancel-higherblaze (`Base.expectsHold`: the pass is the hold, not a
+  solve). Any case that presses the key starts MacroStop's emergency hold, which makes ActionGate refuse every automated
+  action for the rest of the client: release it in the case's finally (`MacroStop.release`). In 96-ar-1101-ecancel the
+  sim mimic dies to the Sceptre's first use, so the Mimic Killer half proves "not busy and no use after the key", not
+  that it would have gone on.
