@@ -445,6 +445,10 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
 - Leave the Simon Says device (`dungeon.tp` away, a few ticks) BEFORE `boss.ss.clear`: clearing first drops him through the
   floor it stood on and GrimAC flags the fall (GroundSpoof + Simulation x1-x4) at the next case's start, which reads as the
   mod (1018-ss-stim-momentum on 26.3, 1101-ss-skip-second on 26.2, 2026-11-01). DocPuzzleCases and SsStimMomentumCases do.
+- 320-ui-profiles' value probe reaches only singleton `*Config` classes with a boolean `setX`/`isX` pair, so Streamer Mode,
+  Legit GFS, Cape and the sim loadout/filters were never probed and never reloaded (profreload-1102). 320 now also runs
+  `ProfileReloadCases.nameAudit`: every class whose bytes name a setting file profiles carry must be named in ProfileManager.class,
+  or sit in `NAME_ALLOWED` with a reason. 1102-ui-profile-streamer proves a profile apply changes Streamer Mode in memory.
 - `run-suite.ps1 -Suite ui` needs `-TimeoutSeconds 3600`: the default 1200 s deadline is shorter than the UI suite
   (~27 min on 26.3), and its "Deadline passed - the run is hung" kills a healthy run at about case 897 with no report
   (2026-11-01, both versions at once).
