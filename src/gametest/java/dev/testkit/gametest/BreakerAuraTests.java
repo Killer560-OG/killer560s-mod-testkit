@@ -244,6 +244,10 @@ public class BreakerAuraTests implements FabricClientGameTest {
             return;
         }
         ModUnderTest.require(MOD_ID);
+        if (multiBreak && !ctx.computeOnClient(mc -> ModUnderTest.hasMultiBreak())) {
+            Scenario.skipped(name, "the mod has no Multi Break since gridexp-1102 (GrimAC MultiBreak): one break a tick only");
+            return;
+        }
         Scenario.run(ctx, name,
                 (server, scenario) -> TestMap.on(server)
                         .platform(0, SURFACE_Y - 1, 0, 12)
@@ -735,10 +739,10 @@ public class BreakerAuraTests implements FabricClientGameTest {
             scenario.log("jar has Only Picked Blocks: " + legacyPicked + ", Side Reach: " + legacySide
                     + (legacyPicked || legacySide ? " (older jar, forced to picked-only)" : " (picked-only build)"));
             ModUnderTest.set(cfg, "setBreakerAuraAutoSwap", false);
-            ModUnderTest.set(cfg, "setBreakerAuraMultiBreak", multiBreak);
+            ModUnderTest.setIfPresent(cfg, "setBreakerAuraMultiBreak", multiBreak);
             setPicks(picks);
             // Everything else is left at whatever ships, so what gets measured is the shipped behavior.
-            if (ModUnderTest.getBoolean(cfg, "isBreakerAuraMultiBreak") != multiBreak) {
+            if (ModUnderTest.hasMultiBreak() && ModUnderTest.getBoolean(cfg, "isBreakerAuraMultiBreak") != multiBreak) {
                 throw new AssertionError("Multi Break did not take the value it was set to, so this scenario "
                         + "is not testing what it says it is");
             }

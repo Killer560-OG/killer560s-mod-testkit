@@ -410,7 +410,12 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   `run/testserver/config/GrimAC/config.yml`. To run a set with them on, give it its own checkout and, before its first run,
   write that file with `experimental-checks: true` (a copy of another checkout's with the line changed works; GrimAC keeps
   it). Prove it took: 1027-aafast-twoframes then records MultiInteractA/B (ship3-1027, tk-ship3-1027-x). The mod owner wants
-  every new setting tested this way at its highest value (2026-10-27).
+  every new setting tested this way at its highest value (2026-10-27). In a NEW worktree the file does not exist yet:
+  `mkdir -p run/testserver/config/GrimAC` and copy a config.yml with the line in before the first run; GrimAC keeps it
+  (gridexp-1102). An experimental check's name carries a `*` in the verbose line (`MultiBreak*`).
+- A case that sets a mod setting by reflection breaks the day the mod removes it ("Could not call ...setBreakerAuraMultiBreak",
+  every 1022-ap3-breaker case, gridexp-1102). Use `ModUnderTest.setIfPresent` for a setting that may go, and branch the
+  assertions on whether it is there (`ModUnderTest.hasMultiBreak()`), so old and new jars both run.
 - Killing a queue script mid-run (or its client) can leave that checkout's test server running; the next server's GrimAC
   then waits ~14 s for the old datastore lease ("persistent storage UUID ... is owned by startupId ...") and the freeze
   watcher closes every client at startup (campaign-blink-1027). Kill the orphan `runTestServer` java of that checkout (match

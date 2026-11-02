@@ -287,7 +287,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             ModUnderTest.set(map, "setEnabled", true);
             ModUnderTest.set(map, "setInteractiveMapEnabled", true);
             ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraEnabled", false);
-            ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
+            ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
             // Default OFF, and every case that wants it turns it on and off itself; a scenario earlier in the client can
             // leave it on (147-sim-autosecret-lastsecret did, 2026-10-16), and then it clicks the cases' own chests.
             ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled");
@@ -723,9 +723,11 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         arena(ctx, false);
         giveHotbar(ctx);
         int[][] six = {{12, 0}, {13, 0}, {14, 0}, {12, 1}, {13, 1}, {14, 1}};
+        // Mod gridexp-1102 removed Multi Break (GrimAC MultiBreak): one dig a tick, the first after a tick of turn at most.
+        boolean hasMulti = ctx.computeOnClient(mc -> ModUnderTest.hasMultiBreak());
         try {
-            for (boolean multi : new boolean[]{true, false}) {
-                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", multi));
+            for (boolean multi : hasMulti ? new boolean[]{true, false} : new boolean[]{false}) {
+                ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", multi));
                 Map<int[], BlockState> put = new HashMap<>();
                 JsonArray blocks = new JsonArray();
                 for (int[] b : six) {
@@ -768,7 +770,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 ctx.waitTicks(5);
             }
             // ---- fewer charges than blocks: a 17-block node first, then the six at once ----
-            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+            ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
             Map<int[], BlockState> put = new HashMap<>();
             JsonArray big = new JsonArray();
             for (int i = 0; i < 17; i++) {
@@ -794,7 +796,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(40);
             long m = LogTap.mark();
             tpRel(ctx, 12.5, 16.5, 0f, 0f);
-            ctx.waitTicks(4);
+            // One a tick (no Multi Break, mod gridexp-1102) the 17-block drain takes 17 ticks, not one: let it finish, or
+            // its last digs land in the sampled window (7 digs for six blocks, 96-ar-breaker 2026-11-02).
+            ctx.waitTicks(hasMulti ? 4 : 24);
             startSampling(ctx);
             tpRel(ctx, 13.5, 10.5, 0f, 0f);
             // Since mod ar-breaker-wait a node short of charges waits for them (2 a second) and then breaks all six
@@ -826,14 +830,14 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             println("drained breaker: " + charges + " charge(s) read, " + total + " dig(s) sent for 6 blocks, at most "
                     + most + " on one tick");
             check(charges >= 0, "the second breaker node never fired");
-            check(total == 6 && most == 6, "charges " + charges + ": " + total + " digs, " + most
-                    + " on one tick - expected the six in one burst");
+            check(total == 6 && most == (hasMulti ? 6 : 1), "charges " + charges + ": " + total + " digs, " + most
+                    + " on one tick - expected the six " + (hasMulti ? "in one burst" : "one a tick"));
             if (charges < 6) {
                 check(logHas(m, "breaker charges (have"), "with " + charges + " charges there was no wait line");
             }
         } finally {
             ctx.runOnClient(mc -> {
-                ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
+                ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
                 ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true);
             });
         }
@@ -862,7 +866,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         giveHotbar(ctx);
         ctx.runOnClient(mc -> {
             ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", false);
-            ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
+            ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
         });
         // Own rows, clear of every other breaker case's regrowing blocks (z 12, 18, 22).
         int[][] rowA = {{19, 0, 25}, {20, 0, 25}, {21, 0, 25}, {19, 1, 25}, {20, 1, 25}, {21, 1, 25}};
@@ -1086,7 +1090,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         resetRoutes(ctx);
         arena(ctx, false);
         giveHotbar(ctx);
-        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+        ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
         int[][] six = {{12, 0}, {13, 0}, {14, 0}, {12, 1}, {13, 1}, {14, 1}};
         Map<int[], BlockState> put = new HashMap<>();
         JsonArray blocks = new JsonArray();
@@ -1158,8 +1162,11 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         // Draining to 0 and stepping on, 6 charges need ~60 ticks at 2 a second: a node that waited sent nothing for
         // most of that. Main sent what it had at once (or stopped at 0) - both fail here.
         check(firstDig >= 30, "the first dig went out on sample " + firstDig + " - it did not wait for charges");
-        check(digsOnFirst == 6 && total == 6, digsOnFirst + " dig(s) on the burst tick, " + total
-                + " in all - expected all six on one tick and nothing else");
+        // Mod gridexp-1102 removed Multi Break (GrimAC MultiBreak): then the six go one a tick from the ready tick.
+        boolean hasMulti = ctx.computeOnClient(mc -> ModUnderTest.hasMultiBreak());
+        check(digsOnFirst == (hasMulti ? 6 : 1) && total == 6, digsOnFirst + " dig(s) on the burst tick, " + total
+                + " in all - expected " + (hasMulti ? "all six on one tick" : "one on the first tick, six one a tick")
+                + " and nothing else");
         check(gone, "not all six blocks broke after the burst");
         java.util.regex.Matcher rm = java.util.regex.Pattern.compile("Breaker: (\\d+) charge\\(s\\) after waiting").matcher(ready);
         check(rm.find() && Integer.parseInt(rm.group(1)) >= 6, "the burst went before the item showed 6 charges: " + ready);
@@ -5659,7 +5666,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         giveHotbar(ctx);
         int top = 7;
         try {
-            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+            ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
             Map<int[], BlockState> put = new HashMap<>();
             JsonArray blocks = new JsonArray();
             for (int y = 0; y < top; y++) {

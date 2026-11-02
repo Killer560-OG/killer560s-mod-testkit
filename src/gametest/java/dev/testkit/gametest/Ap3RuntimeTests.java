@@ -1449,7 +1449,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             ModUnderTest.set(cfg, "setBreakerAuraAutoSwap", autoSwap);
             ModUnderTest.set(cfg, "setBreakerAuraSwapBack", true);
             ModUnderTest.call(cfg, "setBreakerAuraSwapDelayTicks", new Class<?>[]{int.class}, new Object[]{1});
-            ModUnderTest.set(cfg, "setBreakerAuraMultiBreak", false);
+            ModUnderTest.setIfPresent(cfg, "setBreakerAuraMultiBreak", false);
             ModUnderTest.set(cfg, "setBreakerAuraZeroPing", false);
             Object store = ModUnderTest.staticCall(BREAKER_STORE, "getInstance");
             ModUnderTest.call(store, "clear", new Class<?>[0], new Object[0]);
