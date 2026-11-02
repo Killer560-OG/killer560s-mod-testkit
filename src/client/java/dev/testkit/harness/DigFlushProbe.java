@@ -47,6 +47,10 @@ public final class DigFlushProbe {
 
     /** A dig written without a flush and not flushed yet (null when none). */
     private static volatile String unflushedDig;
+    private static volatile String lastFlusher;
+    /** The sending thread of every packet (to name what flushed a held dig). */
+    private static final java.util.Map<Packet<?>, String> QUEUED_BY =
+            java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
 
     /** {@code ChannelOutboundBuffer.addFlush} HEAD (event loop): who flushed a dig that was written unflushed. */
     public static void onNettyFlush() {
@@ -56,7 +60,7 @@ public final class DigFlushProbe {
         }
         unflushedDig = null;
         StackTraceElement[] st = Thread.currentThread().getStackTrace();
-        StringBuilder sb = new StringBuilder("[digflush] flushed " + d + " by");
+        StringBuilder sb = new StringBuilder("[digflush] flushed " + d + " by packet " + lastFlusher + " -");
         for (int i = 2; i < Math.min(st.length, 16); i++) {
             sb.append(" < ").append(st[i].getClassName().replaceAll(".*\\.", "")).append('.').append(st[i].getMethodName());
         }
@@ -65,6 +69,7 @@ public final class DigFlushProbe {
 
     /** {@code Connection.send} HEAD, the sending thread. */
     public static void onQueued(Packet<?> p) {
+        QUEUED_BY.put(p, Thread.currentThread().getName());
         if (name(p) == null) {
             return;
         }
@@ -75,6 +80,11 @@ public final class DigFlushProbe {
 
     /** {@code Connection.doSendPacket} HEAD, the event loop. */
     public static void onWritten(Packet<?> p, boolean flush) {
+        if (flush && unflushedDig != null) {
+            lastFlusher = p.getClass().getSimpleName() + " on " + Thread.currentThread().getName() + " queued by "
+                    + QUEUED_BY.getOrDefault(p, "?");
+        }
+        QUEUED_BY.remove(p);
         String n = name(p);
         if (n == null) {
             return;
