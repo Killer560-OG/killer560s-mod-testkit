@@ -222,7 +222,22 @@ public final class ModUnderTest {
         return true;
     }
 
-    /** Whether the mod still has Breaker Aura's Multi Break (removed in mod gridexp-1102: GrimAC MultiBreak). */
+    /**
+     * Whether the mod's Multi Break is the one-a-server-tick kind (mod multibreak-1102, which added util/DigWindow): it
+     * breaks blocks back to back, never two in one tick. False on a jar whose Multi Break sends a burst on one tick (before
+     * gridexp-1102) and on one without the setting.
+     */
+    public static boolean multiBreakOneATick() {
+        try {
+            staticCall("com.killer560.hub.util.DigWindow", "digs");
+            return hasMultiBreak();
+        } catch (Throwable e) {
+            return false;
+        }
+    }
+
+    /** Whether the mod still has Breaker Aura's Multi Break (removed in mod gridexp-1102: GrimAC MultiBreak, restored in
+     *  multibreak-1102 at one block a server tick). */
     public static boolean hasMultiBreak() {
         try {
             config("com.killer560.hub.dungeonextras.DungeonExtrasConfig").getClass()

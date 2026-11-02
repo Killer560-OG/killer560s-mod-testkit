@@ -91,6 +91,14 @@ public class BreakerAuraTests implements FabricClientGameTest {
         pickedSideAndFloor(ctx);
         // Auto Swap: the breaker comes to hand, breaks, and Swap Back returns the slot (hotbar-select-rest-1016).
         autoSwap(ctx);
+        // Multi Break (mod multibreak-1102): every pick in reach back to back, one a server tick, no cooldown between;
+        // off, the Cooldown after each. GrimAC experimental MultiBreak replayed on the packets and asked of the server.
+        int mbRepeat = Integer.getInteger("testkit.multiBreakRepeat", 1);
+        for (int k = 1; k <= mbRepeat; k++) {
+            String r = k == 1 ? "" : "#" + k;
+            multiBreakRun(ctx, "1102-breaker-aura-multibreak-on" + r, true, -60);
+            multiBreakRun(ctx, "1102-breaker-aura-multibreak-off" + r, false, -90);
+        }
         // The floor cases repeat -PfloorRepeat=N times (default 1): the GroundSpoof they chase was intermittent,
         // so one verdict is not a measurement. Repeats are named "#k" so the filter still selects them.
         int repeat = Integer.getInteger("testkit.floorRepeat", 1);
@@ -1260,6 +1268,144 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         unconfigure(ctx);
                     }
                 });
+    }
+
+    /** The relative yaw of 1102-breaker-aura-multibreak's look: +x by 2, +z by 1, so the ray crosses six blocks. */
+    private static final float MB_YAW = (float) -Math.toDegrees(Math.atan2(2, 1));
+    private static final int MB_COOLDOWN = 5;
+
+    /**
+     * 1102-breaker-aura-multibreak-on / -off (mod multibreak-1102). He stands still, looking along a flat ray that crosses
+     * six blocks at eye height within 4.4 (each block's box is on the look GrimAC's RotationBreak traces, so the digs are
+     * aimed without a turn), every one of them picked; Breaker Aura Cooldown {@value #MB_COOLDOWN} ticks. Multi Break ON
+     * must break all six back to back - one dig per server tick (GrimAC 2.3.74 MultiBreak, replayed by
+     * {@link dev.testkit.harness.MultiBreakWatch}: no two blocks between two tick packets) in six consecutive server
+     * ticks, no cooldown between them; OFF the same six one per cooldown. Every block gone on the server, GrimAC silent
+     * (experimental checks on in this checkout), the mod's own DigWindow counted no conflict.
+     */
+    private void multiBreakRun(ClientGameTestContext ctx, String name, boolean multiBreak, int cz) {
+        if (Scenario.skip(name)) {
+            return;
+        }
+        ModUnderTest.require(MOD_ID);
+        boolean has = ctx.computeOnClient(mc -> ModUnderTest.hasMultiBreak());
+        if (!has) {
+            Scenario.skipped(name, "the mod has no Multi Break setting (gridexp-1102 removed it)");
+            return;
+        }
+        int cx = -60;
+        int fy = SURFACE_Y - 1;
+        // The cells a flat ray from his eye (cx + 0.5, cz + 0.5) crosses within 4.4, at eye height (SURFACE_Y + 1).
+        double dx = -Math.sin(Math.toRadians(MB_YAW));
+        double dz = Math.cos(Math.toRadians(MB_YAW));
+        java.util.LinkedHashSet<BlockPos> line = new java.util.LinkedHashSet<>();
+        for (double t = 0.05; t <= 4.4; t += 0.01) {
+            BlockPos b = BlockPos.containing(cx + 0.5 + dx * t, SURFACE_Y + 1.62, cz + 0.5 + dz * t);
+            if (b.getX() != cx || b.getZ() != cz) {
+                line.add(b);
+            }
+        }
+        List<BlockPos> picks = List.copyOf(line);
+        Scenario.run(ctx, name,
+                (server, scenario) -> {
+                    TestMap m = TestMap.on(server)
+                            .platform(cx, fy, cz, 6)
+                            .catchFloor(120)
+                            .survival()
+                            .clearInventory()
+                            .give("diamond_shovel", 1)
+                            .command("enchant @p minecraft:efficiency 5")
+                            .command("effect give @p minecraft:haste 99999 4 true")
+                            .command("effect clear @p minecraft:speed");
+                    for (BlockPos b : picks) {
+                        m = m.fill(b.getX(), b.getY(), b.getZ(), b.getX(), b.getY(), b.getZ(), "snow_block");
+                    }
+                    m.spawn(cx + 0.5, cz + 0.5, MB_YAW, 0f).build();
+                },
+                (server, scenario) -> {
+                    scenario.assertDetectorWorks();
+                    for (BlockPos b : picks) {
+                        if (isAir(ctx, b)) {
+                            throw new AssertionError("pick " + xyz(b) + " was never built");
+                        }
+                    }
+                    long conflictsBefore = ctx.computeOnClient(mc -> digWindow("conflicts"));
+                    ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CONFIG), "setBreakerAuraCooldownTicks",
+                            MB_COOLDOWN));
+                    PacketWatch.start();
+                    traceStart(ctx);
+                    ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.start());
+                    configure(ctx, scenario, multiBreak, picks);
+                    try {
+                        boolean gone = false;
+                        for (int i = 0; i < 80 && !gone; i++) {
+                            stampBreaker(ctx);
+                            ctx.waitTicks(1);
+                            gone = picks.stream().allMatch(b -> isAir(ctx, b));
+                        }
+                        ctx.waitTicks(10);
+                        ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.stop());
+                        PacketWatch.stop();
+                        requireInTick(ctx, scenario);
+                        List<dev.testkit.harness.MultiBreakWatch.Dig> digs = dev.testkit.harness.MultiBreakWatch.digs();
+                        List<String> replay = dev.testkit.harness.MultiBreakWatch.violations();
+                        long conflicts = ctx.computeOnClient(mc -> digWindow("conflicts")) - conflictsBefore;
+                        java.util.Set<BlockPos> dug = new java.util.HashSet<>();
+                        java.util.Map<Integer, java.util.Set<BlockPos>> perWindow = new java.util.TreeMap<>();
+                        for (var d : digs) {
+                            dug.add(d.pos());
+                            perWindow.computeIfAbsent(d.window(), w -> new java.util.HashSet<>()).add(d.pos());
+                        }
+                        int most = perWindow.values().stream().mapToInt(java.util.Set::size).max().orElse(0);
+                        int ticks = digs.isEmpty() ? 0 : digs.get(digs.size() - 1).tick() - digs.get(0).tick() + 1;
+                        int windows = digs.isEmpty() ? 0 : digs.get(digs.size() - 1).window() - digs.get(0).window() + 1;
+                        scenario.log(String.format(Locale.ROOT, "%s: Multi Break %s, cooldown %d: %d pick(s) %s, %d dig(s) "
+                                        + "on %d block(s), all gone %s, first to last dig %d client tick(s) / %d server "
+                                        + "tick(s), most blocks in one server tick %d, MultiBreak replay %s, mod DigWindow "
+                                        + "conflicts %d, digs (tick/window) %s", name, multiBreak ? "ON" : "off",
+                                MB_COOLDOWN, picks.size(), picks.stream().map(BreakerAuraTests::xyz).toList(),
+                                digs.size(), dug.size(), gone, ticks, windows, most, replay.isEmpty() ? "clean" : replay,
+                                conflicts, digs.stream().map(d -> d.tick() + "/" + d.window()).toList()));
+                        System.out.println("[multibreak] " + name + " blocks=" + dug.size() + " ticks=" + ticks
+                                + " windows=" + windows + " most=" + most);
+                        if (picks.size() < 5) {
+                            throw new AssertionError("the ray crossed only " + picks.size() + " blocks - not a run");
+                        }
+                        if (!gone || !dug.containsAll(picks)) {
+                            throw new AssertionError("not every pick broke (gone " + gone + ", dug " + dug.size() + " of "
+                                    + picks.size() + ")");
+                        }
+                        if (!replay.isEmpty() || most > 1) {
+                            throw new AssertionError("two blocks dug in one server tick (GrimAC MultiBreak): " + replay);
+                        }
+                        if (conflicts != 0) {
+                            throw new AssertionError("the mod's DigWindow counted " + conflicts + " conflict(s)");
+                        }
+                        if (multiBreak && windows != picks.size()) {
+                            throw new AssertionError("Multi Break ON: " + picks.size() + " blocks took " + windows
+                                    + " server ticks (want one a tick, back to back)");
+                        }
+                        if (!multiBreak && windows < (picks.size() - 1) * MB_COOLDOWN) {
+                            throw new AssertionError("Multi Break off: " + picks.size() + " blocks in " + windows
+                                    + " server ticks - the cooldown of " + MB_COOLDOWN + " was not kept");
+                        }
+                    } finally {
+                        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CONFIG), "setBreakerAuraCooldownTicks",
+                                0));
+                        ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(CONFIG),
+                                "setBreakerAuraMultiBreak", true));
+                        unconfigure(ctx);
+                    }
+                });
+    }
+
+    /** The mod's util/DigWindow counter, or 0 on a jar without it. */
+    private static long digWindow(String counter) {
+        try {
+            return ((Number) ModUnderTest.staticCall("com.killer560.hub.util.DigWindow", counter)).longValue();
+        } catch (Throwable e) {
+            return 0;
+        }
     }
 
     /** Starts {@link PacketTrace} on the client thread, beside {@code PacketWatch.start()}. */

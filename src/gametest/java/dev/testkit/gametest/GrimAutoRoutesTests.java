@@ -191,6 +191,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1020-boomsneak", GrimAutoRoutesTests::caseBoomSneak);
             s.test("62-argrim-breaker", GrimAutoRoutesTests::caseBreaker);
             s.test("62-argrim-1013-breakerfall", GrimAutoRoutesTests::caseBreakerFall); // ar breaker linger (2026-10-13)
+            // Multi Break at one a server tick (mod multibreak-1102): ten blocks round him, back to back; repeat with
+            // -PmultiBreakRepeat=N (names "#k").
+            for (int k = 1; k <= Integer.getInteger("testkit.multiBreakRepeat", 1); k++) {
+                final String r = k == 1 ? "" : "#" + k;
+                s.test("62-argrim-1102-multibreak" + r, c -> caseMultiBreak(c, true));
+                s.test("62-argrim-1102-multibreak-off" + r, c -> caseMultiBreak(c, false));
+            }
             s.test("62-argrim-1020-breakerstand", GrimAutoRoutesTests::caseBreakerStand); // stall-1020 (his Wizard #1)
             s.test("62-argrim-use", GrimAutoRoutesTests::caseUse);
             s.test("62-argrim-play", GrimAutoRoutesTests::casePlay);
@@ -999,8 +1006,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         int[][] six = {{12, 0}, {13, 0}, {14, 0}, {12, 1}, {13, 1}, {14, 1}};
         StringBuilder notes = new StringBuilder();
         // Mod gridexp-1102 removed Multi Break (GrimAC MultiBreak): one dig a tick, each aimed by a look the server already
-        // heard or sent at the head of the movement packet that carries its turn, so still from the firing tick.
+        // heard or sent at the head of the movement packet that carries its turn, so still from the firing tick. Mod
+        // multibreak-1102 restored it at one a server tick: both values then dig one a tick.
         boolean hasMulti = ctx.computeOnClient(mc -> ModUnderTest.hasMultiBreak());
+        boolean oneATick = !hasMulti || ctx.computeOnClient(mc -> ModUnderTest.multiBreakOneATick());
         try {
             for (boolean multi : hasMulti ? new boolean[]{true, false} : new boolean[]{false}) {
                 ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", multi));
@@ -1038,9 +1047,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                         multi ? "ON" : "OFF", total, most, count(s, dev.testkit.compat.McPackets.swingId()), gone));
                 check(gone, "multi break " + multi + ": not all six snow blocks broke");
                 check(total == 6, "multi break " + multi + ": " + total + " player_action packets for six blocks");
-                check(multi ? most == 6 : most == 1, "multi break " + multi + ": " + most + " digs on one tick");
+                check(multi && !oneATick ? most == 6 : most == 1, "multi break " + multi + ": " + most
+                        + " digs on one tick");
                 check(logHas(m, "DUNGEON_BREAKER acted 0 tick(s)"), "the breaker did not act on its firing tick");
-                if (!hasMulti) {
+                if (oneATick) {
                     // One a tick, no tick wasted: six digs on six consecutive ticks after the first.
                     int first = -1;
                     int last = -1;
@@ -1061,6 +1071,104 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         }
         c.note(notes.toString());
         noteFlags(c, List.of());
+    }
+
+    /**
+     * 62-argrim-1102-multibreak / -off (mod multibreak-1102): a breaker node of TEN snow blocks in a wall round him (two
+     * rows, x 11-15 at z 12, so most need a turn), fired by walking on. With Multi Break ON (the most it allows) every block
+     * must go back to back: ten STARTs on ten blocks, one per server tick (GrimAC 2.3.74 experimental MultiBreak, replayed on
+     * the packets by MultiBreakWatch: no second block before a tick packet), in ten consecutive server ticks from the firing
+     * tick, all ten gone on the server, the mod's DigWindow with no conflict, GrimAC silent. OFF (obvious mode) is the same
+     * pace. On a jar without Multi Break (main after gridexp-1102) the case runs the same node as the before number.
+     */
+    private static void caseMultiBreak(Session c, boolean multi) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        boolean hasMulti = ctx.computeOnClient(mc -> ModUnderTest.hasMultiBreak());
+        if (!multi && !hasMulti) {
+            c.note("no Multi Break setting in this jar - the ON case is the one-a-tick number");
+            return;
+        }
+        long conflictsBefore = ctx.computeOnClient(mc -> digWindowCount("conflicts"));
+        ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", multi));
+        List<int[]> ten = new ArrayList<>();
+        Map<int[], String> put = new LinkedHashMap<>();
+        JsonArray blocks = new JsonArray();
+        for (int y = 0; y <= 1; y++) {
+            for (int x = 11; x <= 15; x++) {
+                ten.add(new int[]{x, F + y, 12});
+                put.put(new int[]{x, F + y, 12}, "minecraft:snow_block");
+                blocks.add(x + " " + (F + y) + " 12");
+            }
+        }
+        try {
+            setBlocks(ctx, put);
+            JsonObject br = node("DUNGEON_BREAKER", 13, 10, 0f, 0f);
+            br.add("blocks", blocks);
+            br.addProperty("start", true);
+            writeRoute(ctx, List.of(br));
+            long m = LogTap.mark();
+            startSampling(ctx);
+            ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.start());
+            walkOnto(ctx, 13.5, 7.5, 13, 10);
+            boolean gone = waitFor(ctx, 80, () -> {
+                for (int[] b : ten) {
+                    if (!blockAir(ctx, b[0], b[1], b[2])) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+            ctx.waitTicks(5);
+            ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.stop());
+            List<Sample> s = stopSampling(ctx);
+            printTrace("multibreak " + (multi ? "on" : "off"), s);
+            List<dev.testkit.harness.MultiBreakWatch.Dig> digs = dev.testkit.harness.MultiBreakWatch.digs();
+            List<String> replay = dev.testkit.harness.MultiBreakWatch.violations();
+            long conflicts = ctx.computeOnClient(mc -> digWindowCount("conflicts")) - conflictsBefore;
+            java.util.Set<String> dug = new java.util.HashSet<>();
+            Map<Integer, java.util.Set<String>> perWindow = new java.util.TreeMap<>();
+            for (var d : digs) {
+                String k = d.pos().toShortString();
+                dug.add(k);
+                perWindow.computeIfAbsent(d.window(), w -> new java.util.HashSet<>()).add(k);
+            }
+            int most = perWindow.values().stream().mapToInt(java.util.Set::size).max().orElse(0);
+            int ticks = digs.isEmpty() ? 0 : digs.get(digs.size() - 1).tick() - digs.get(0).tick() + 1;
+            int windows = digs.isEmpty() ? 0 : digs.get(digs.size() - 1).window() - digs.get(0).window() + 1;
+            String line = String.format(Locale.ROOT, "%s: Multi Break %s: %d dig(s) on %d block(s), all ten gone %s, first to "
+                            + "last dig %d client tick(s) / %d server tick(s), most blocks in one server tick %d, replay %s, "
+                            + "DigWindow conflicts %d, digs (tick/window) %s", c.name(),
+                    hasMulti ? (multi ? "ON" : "off") : "(none in jar)", digs.size(), dug.size(), gone, ticks, windows, most,
+                    replay.isEmpty() ? "clean" : replay, conflicts, digs.stream().map(d -> d.tick() + "/" + d.window()).toList());
+            println(line);
+            println("[multibreak] " + c.name() + " blocks=" + dug.size() + " ticks=" + ticks + " windows=" + windows
+                    + " most=" + most);
+            c.note(line);
+            check(gone, "not all ten snow blocks broke");
+            check(dug.size() == 10, dug.size() + " distinct blocks dug, want 10");
+            check(logHas(m, "DUNGEON_BREAKER acted 0 tick(s)"), "the breaker did not act on its firing tick");
+            check(replay.isEmpty() && most <= 1, "two blocks dug in one server tick (GrimAC MultiBreak): " + replay);
+            check(conflicts == 0, "the mod's DigWindow counted " + conflicts + " conflict(s)");
+            if (hasMulti && ctx.computeOnClient(mc -> ModUnderTest.multiBreakOneATick())) {
+                check(windows == 10, "ten blocks took " + windows + " server ticks (want ten, back to back)");
+            }
+            noteFlags(c, s);
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+            tpRel(ctx, 13.5, 6.5, 0f, 0f);
+            ctx.waitTicks(5);
+        }
+    }
+
+    /** The mod's util/DigWindow counter, or 0 on a jar without it. */
+    private static long digWindowCount(String counter) {
+        try {
+            return ((Number) ModUnderTest.staticCall("com.killer560.hub.util.DigWindow", counter)).longValue();
+        } catch (Throwable e) {
+            return 0;
+        }
     }
 
     /**
