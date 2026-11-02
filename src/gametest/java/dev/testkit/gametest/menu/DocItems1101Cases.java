@@ -39,7 +39,7 @@ import java.util.List;
  *       preview following a pick, Text Shadow giving every letter a shadow.</li>
  *   <li>1101-menu-objecthider-witherborn: the Witherborn wither (Invul 800) hidden and its client particles dropped; a
  *       boss wither (Invul 0) never hidden.</li>
- *   <li>1101-menu-modtag-styles: the three Tag Styles, their colors, the name tag hook using the chosen one, pictures.</li>
+ *   <li>1101-menu-modtag-styles: the one tag (a bold K, orange, red for cheat), no style setting left, the name tag hook.</li>
  * </ul>
  */
 final class DocItems1101Cases {
@@ -731,90 +731,74 @@ final class DocItems1101Cases {
 
     static void modTag(Session c) throws Exception {
         Object cfg = Mod.cfg(MUC);
-        Object wasStyle = Mod.call(cfg, "getTagStyle");
         boolean wasShare = (Boolean) Mod.call(cfg, "isShare");
         Object sup = Mod.cfg("supporters.SupportersConfig");
         boolean wasF5 = (Boolean) Mod.call(sup, "isOwnNameInF5");
         Object wasCamera = c.onClient(mc -> mc.options.getCameraType());
         try {
-            String[][] want = {{"MARK", "K "}, {"EMBER", "✦ "}, {"CLASSIC", "◆ "}};
-            for (String[] w : want) {
-                Object style = Mod.enumValue("modusers.ModUserTagStyle", w[0]);
-                Component legit = (Component) Mod.call(style, "prefix", "legit");
-                Component cheat = (Component) Mod.call(style, "prefix", "cheat");
-                c.note(w[0] + ": '" + legit.getString() + "' legit " + styleColours(legit) + ", cheat " + styleColours(cheat));
-                c.check(legit.getString().equals(w[1]) && cheat.getString().equals(w[1]), w[0] + " text " + legit.getString());
-                c.check(!styleColours(legit).equals(styleColours(cheat)), w[0] + " does not tell legit from cheat");
-            }
-            Object mark = Mod.enumValue("modusers.ModUserTagStyle", "MARK");
-            List<String> markColours = styleColours((Component) Mod.call(mark, "prefix", "legit"));
-            c.check(markColours.contains("ff8a1f"), "the K is not in the mod's orange: " + markColours);
-            // The removed [K560] badge (a saved BADGE) and anything unknown come back as the K.
-            c.check(mark == Mod.staticCall("modusers.ModUserTagStyle", "byName", "BADGE")
-                    && mark == Mod.staticCall("modusers.ModUserTagStyle", "byName", "nonsense"), "an old or unknown style is not the K");
-            // Every tag is one glyph, and the name after it keeps its own color (it inherited the tag's at first).
-            for (String[] w : want) {
-                Object style = Mod.enumValue("modusers.ModUserTagStyle", w[0]);
-                Component tagged = (Component) Mod.call(style, "tag", "legit", Component.literal("Player0"));
-                List<String> nameColours = new ArrayList<>();
-                tagged.visit((st, text) -> {
-                    if (text.contains("Player0")) {
-                        nameColours.add(st.getColor() == null ? "none" : Integer.toHexString(st.getColor().getValue()));
-                    }
-                    return java.util.Optional.empty();
-                }, Style.EMPTY);
-                c.check(w[1].trim().codePointCount(0, w[1].trim().length()) == 1, w[0] + " is not one glyph");
-                c.check(nameColours.equals(List.of("none")), w[0] + " colors the name: " + nameColours);
-            }
+            // killer560 (2026-11-01): "make k the only option" - one bold K, orange for legit, red for cheat.
+            Component legit = (Component) Mod.staticCall("modusers.ModUserTag", "prefix", "legit");
+            Component cheat = (Component) Mod.staticCall("modusers.ModUserTag", "prefix", "cheat");
+            c.note("K: '" + legit.getString() + "' legit " + styleColours(legit) + ", cheat " + styleColours(cheat));
+            c.check(legit.getString().equals("K ") && cheat.getString().equals("K "), "tag text " + legit.getString());
+            c.check(styleColours(legit).equals(List.of("ff8a1f")) && styleColours(cheat).equals(List.of("e05555")),
+                    "colors " + styleColours(legit) + " / " + styleColours(cheat));
+            // The name after the tag keeps its own color (a styled root once passed the tag's color on to it).
+            Component tagged = (Component) Mod.staticCall("modusers.ModUserTag", "tag", "legit", Component.literal("Player0"));
+            List<String> nameColours = new ArrayList<>();
+            tagged.visit((st, text) -> {
+                if (text.contains("Player0")) {
+                    nameColours.add(st.getColor() == null ? "none" : Integer.toHexString(st.getColor().getValue()));
+                }
+                return java.util.Optional.empty();
+            }, Style.EMPTY);
+            c.check(nameColours.equals(List.of("none")), "the tag colors the name: " + nameColours);
+            // No style setting is left: the tab has no Tag Style row and the config no tagStyle.
+            List<String> rows = c.onClient(mc -> {
+                try {
+                    Object tab = Mod.cls("gui.tab.ModTagTab").getConstructor().newInstance();
+                    @SuppressWarnings("unchecked")
+                    List<AbstractWidget> ws = (List<AbstractWidget>) Mod.call(tab, "buildWidgets", 0, 0, 300, (Runnable) () -> { });
+                    return ws.stream().map(w -> w.getMessage().getString()).toList();
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+            });
+            c.note("Mod User Tag rows: " + rows);
+            c.check(rows.stream().noneMatch(r -> r.contains("Tag Style")), "a Tag Style row is still there: " + rows);
+            c.check(!Mod.has("modusers.ModUserTagStyle"), "the old style enum is still in the jar");
 
-            // The name tag hook draws the chosen style on your own tag (My Name in F5), and each style gets a picture.
+            // The name tag hook draws the K on your own tag (My Name in F5), with a picture.
             c.onClient(mc -> {
                 Mod.call(cfg, "setShare", true);
                 Mod.call(sup, "setOwnNameInF5", true);
                 mc.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_FRONT);
                 return null;
             });
-            for (String[] w : want) {
-                Object style = Mod.enumValue("modusers.ModUserTagStyle", w[0]);
-                c.onClient(mc -> {
-                    Mod.call(cfg, "setTagStyle", style);
-                    return null;
-                });
-                String tag = c.onClient(mc -> {
-                    try {
-                        var renderer = mc.getEntityRenderDispatcher().getRenderer(mc.player);
-                        java.lang.reflect.Method m = null;
-                        for (Class<?> k = renderer.getClass(); k != null && m == null; k = k.getSuperclass()) {
-                            for (java.lang.reflect.Method cand : k.getDeclaredMethods()) {
-                                if (cand.getName().equals("getNameTag") && cand.getParameterCount() == 1) {
-                                    m = cand;
-                                }
+            String tag = c.onClient(mc -> {
+                try {
+                    var renderer = mc.getEntityRenderDispatcher().getRenderer(mc.player);
+                    java.lang.reflect.Method m = null;
+                    for (Class<?> k = renderer.getClass(); k != null && m == null; k = k.getSuperclass()) {
+                        for (java.lang.reflect.Method cand : k.getDeclaredMethods()) {
+                            if (cand.getName().equals("getNameTag") && cand.getParameterCount() == 1) {
+                                m = cand;
                             }
                         }
-                        m.setAccessible(true);
-                        Object out = m.invoke(renderer, mc.player);
-                        return out == null ? "null" : ((Component) out).getString();
-                    } catch (ReflectiveOperationException e) {
-                        return "error " + e;
                     }
-                });
-                c.note(w[0] + " own name tag: '" + tag + "'");
-                c.check(tag.startsWith(w[1]), w[0] + " name tag reads " + tag);
-                c.ctx().waitTicks(4);
-                shot(c, "f5-" + w[0].toLowerCase(java.util.Locale.ROOT));
-            }
-            // Saved and loaded back.
-            c.onClient(mc -> {
-                Mod.call(cfg, "setTagStyle", Mod.enumValue("modusers.ModUserTagStyle", "EMBER"));
-                Mod.call(cfg, "save");
-                Mod.staticCall(MUC, "load");
-                return null;
+                    m.setAccessible(true);
+                    Object out = m.invoke(renderer, mc.player);
+                    return out == null ? "null" : ((Component) out).getString();
+                } catch (ReflectiveOperationException e) {
+                    return "error " + e;
+                }
             });
-            c.check(Mod.call(Mod.cfg(MUC), "getTagStyle") == Mod.enumValue("modusers.ModUserTagStyle", "EMBER"),
-                    "Tag Style did not survive a reload");
+            c.note("own name tag: '" + tag + "'");
+            c.check(tag.startsWith("K "), "name tag reads " + tag);
+            c.ctx().waitTicks(4);
+            shot(c, "f5-k");
         } finally {
             Object now = Mod.cfg(MUC);
-            Mod.call(now, "setTagStyle", wasStyle);
             Mod.call(now, "setShare", wasShare);
             Mod.call(now, "save");
             Mod.call(sup, "setOwnNameInF5", wasF5);
