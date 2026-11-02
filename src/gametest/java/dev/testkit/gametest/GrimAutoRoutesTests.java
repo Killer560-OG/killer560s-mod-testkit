@@ -1055,7 +1055,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 check(total == 6, "multi break " + multi + ": " + total + " player_action packets for six blocks");
                 check(multi && !oneATick ? most == 6 : most == 1, "multi break " + multi + ": " + most
                         + " digs on one tick");
-                check(logHas(m, "DUNGEON_BREAKER acted 0 tick(s)"), "the breaker did not act on its firing tick");
+                // Mod multibreak-1102 digs only on a look the server has already processed: an unaimed first block costs a tick.
+                check(logHas(m, "DUNGEON_BREAKER acted 0 tick(s)") || logHas(m, "DUNGEON_BREAKER acted 1 tick(s)"),
+                        "the breaker did not act within a tick of firing");
                 if (oneATick) {
                     // One a tick, no tick wasted: six digs on six consecutive ticks after the first.
                     int first = -1;
@@ -1162,12 +1164,20 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     hasMulti ? (multi ? "ON" : "off") : "(none in jar)", digs.size(), dug.size(), gone, ticks, windows, most,
                     replay.isEmpty() ? "clean" : replay, conflicts, digs.stream().map(d -> d.tick() + "/" + d.window()).toList());
             println(line);
+            int acted = -1;
+            java.util.regex.Matcher am = java.util.regex.Pattern.compile("DUNGEON_BREAKER acted (\\d+) tick").matcher(
+                    String.join(" | ", LogTap.since(m)));
+            if (am.find()) {
+                acted = Integer.parseInt(am.group(1));
+            }
             println("[multibreak] " + c.name() + " blocks=" + dug.size() + " ticks=" + ticks + " windows=" + windows
-                    + " most=" + most);
+                    + " most=" + most + " actedAfterFiring=" + acted + " fireToLastDig=" + (acted < 0 ? -1 : acted + windows));
             c.note(line);
             check(gone, "not all ten snow blocks broke");
             check(dug.size() == 10, dug.size() + " distinct blocks dug, want 10");
-            check(logHas(m, "DUNGEON_BREAKER acted 0 tick(s)"), "the breaker did not act on its firing tick");
+            // Mod multibreak-1102 digs only on a look the server has already processed: an unaimed first block costs a tick.
+                check(logHas(m, "DUNGEON_BREAKER acted 0 tick(s)") || logHas(m, "DUNGEON_BREAKER acted 1 tick(s)"),
+                        "the breaker did not act within a tick of firing");
             check(replay.isEmpty() && most <= 1, "two blocks dug in one server tick (GrimAC MultiBreak): " + replay);
             check(conflicts == 0, "the mod's DigWindow counted " + conflicts + " conflict(s)");
             if (hasMulti && ctx.computeOnClient(mc -> ModUnderTest.multiBreakOneATick())) {

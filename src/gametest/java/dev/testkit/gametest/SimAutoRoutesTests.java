@@ -630,8 +630,13 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         check(blockAir(ctx, 14, F + 1, 4), "the stacked boom broke nothing");
         check(blockAir(ctx, 15, F, 8) && blockAir(ctx, 16, F, 8), "the stacked breaker did not break both blocks");
         // ---- each action on the tick it fired ----
-        for (String t : new String[]{"Node #4 DUNGEON_BREAKER acted 0 tick", "Node #2 BOOM acted 0 tick",
-                "Node #3 ETHERWARP acted 0 tick", "Node #5 WALK acted 0 tick"}) {
+        // A breaker or boom whose first block the look the server has does not strike turns first: one tick (mod
+        // multibreak-1102, killer560 2026-11-02 "Spend the extra tick").
+        for (String t : new String[]{"Node #4 DUNGEON_BREAKER acted 1 tick", "Node #2 BOOM acted 1 tick"}) {
+            String zero = t.replace("acted 1 tick", "acted 0 tick");
+            check(logHas(mark, zero) || logHas(mark, t), "missing \"" + zero + "\" or one tick later");
+        }
+        for (String t : new String[]{"Node #3 ETHERWARP acted 0 tick", "Node #5 WALK acted 0 tick"}) {
             check(logHas(mark, t), "missing \"" + t + "\" - an action took longer than its firing tick");
         }
         check(logHas(mark, "Node #1 ETHERWARP acted 0 tick") || logHas(mark, "Node #1 ETHERWARP acted 1 tick"),
@@ -767,7 +772,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 check(gone, "multi break " + multi + ": not all six blocks broke");
                 check(total == 6, "multi break " + multi + ": " + total + " dig packets for six blocks");
                 check(multi && burst ? most == 6 : most == 1, "multi break " + multi + ": " + most + " digs on one tick");
-                check(logHas(m, "DUNGEON_BREAKER acted 0 tick(s)"), "the breaker did not act on its firing tick");
+                // Mod multibreak-1102 digs only on a look the server has already processed: an unaimed first block costs a tick.
+                check(logHas(m, "DUNGEON_BREAKER acted 0 tick(s)") || logHas(m, "DUNGEON_BREAKER acted 1 tick(s)"),
+                        "the breaker did not act within a tick of firing");
                 tpRel(ctx, 13.5, 6.5, 0f, 0f);
                 ctx.waitTicks(5);
             }
