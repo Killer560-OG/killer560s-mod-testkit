@@ -318,14 +318,14 @@ final class HxSpotifyControlsCases {
                 return null;
             });
             List<AbstractWidget> w = buildTab(c);
+            // The tab's transport buttons were removed on 2026-11-01 (killer560: "remove the controls buttons in the mod
+            // settings"); the HUD's row (2848, 2861) and the keys below send the same commands.
             String[][] buttons = {{"Previous", "prev"}, {"Play/Pause", "toggle"}, {"Next", "next"},
                     {"Rewind 10s", "rel -10000"}, {"Skip Ahead 10s", "rel 10000"}};
             for (String[] b : buttons) {
-                AbstractWidget btn = find(w, b[0]);
-                sent.clear();
-                c.onClient(mc -> Mod.call(btn, "press"));
-                c.note("button '" + b[0] + "' sent " + sent);
-                c.check(sent.equals(List.of(b[1])), "button '" + b[0] + "' sent " + sent + ", not [" + b[1] + "]");
+                for (AbstractWidget x : w) {
+                    c.check(!x.getMessage().getString().equals(b[0]), "the tab still has the '" + b[0] + "' button");
+                }
             }
 
             // Keys: KP 1..7, one per action, through the held-key hook the tick reads.
@@ -394,15 +394,6 @@ final class HxSpotifyControlsCases {
                 return null;
             });
             w = buildTab(c);
-            for (String[] b : buttons) {
-                AbstractWidget btn = find(w, b[0]);
-                c.check(!btn.active, "'" + b[0] + "' is not grayed out while Spotify cannot be controlled");
-                String h = hover(c, btn);
-                c.check(why.equals(h), "'" + b[0] + "' hover is not the reason: " + h);
-                sent.clear();
-                c.onClient(mc -> Mod.call(btn, "press"));
-                c.check(sent.isEmpty(), "a grayed-out '" + b[0] + "' still sent " + sent);
-            }
             AbstractWidget slider = find(w, "Spotify Volume");
             c.check(why.equals(hover(c, slider)), "the volume slider's hover is not the reason: " + hover(c, slider));
         } finally {

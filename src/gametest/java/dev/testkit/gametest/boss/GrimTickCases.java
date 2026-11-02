@@ -57,6 +57,9 @@ final class GrimTickCases {
         s.test("833-boss-grim-autoi4-rotate", c -> autoI4(c, true, false));
         s.test("834-boss-grim-autoi4-norotate", c -> autoI4(c, false, false));
         s.test("835-boss-grim-goldor-cps", GrimTickCases::goldorRate);
+        // doc-auto-1101: Wither Boss Triggerbot from range (Attack mode swings), All Wither Bosses and the class switches.
+        s.test("835-boss-grim-witherbot-range", GrimTickCases::witherBotRange);
+        s.test("835-boss-grim-thorn-triggerbot", GrimTickCases::thornTriggerbot);
         // hotbar-select-rest-1016: the hotbar swaps of Auto i4 (Auto Swap To Bow) and Auto Debuff, through HotbarSelect.
         s.test("836-boss-grim-autoi4-swap", c -> autoI4(c, false, true));
         s.test("837-boss-grim-autodebuff-swap", GrimTickCases::autoDebuff);
@@ -944,6 +947,218 @@ final class GrimTickCases {
             c.server().command("kill @e[tag=pnggoldor]");
             c.server().command("fill 34 148 42 46 150 56 air");
             c.server().command("forceload remove 34 42 46 56");
+            c.server().command("clear @a");
+            home(c);
+        }
+    }
+
+    // ---- 835-witherbot-range ----------------------------------------------------------------------------------------
+
+    /**
+     * Wither Boss Triggerbot (doc-auto-1101): Attack mode, a real wither 22 blocks off, no P3 line. (a) All Wither Bosses
+     * off: Goldor-only needs P3, so nothing goes out. (b) On, every class: the ranged click is the swing alone (punch
+     * packets, no attack) at about the CPS band. (c) Only Mage selected while the class is unknown: nothing again.
+     * GrimAC must stay clean throughout (session verdict).
+     */
+    private static void witherBotRange(Session c) throws Exception {
+        Object attack = c.onClient(mc -> Mod.enumValue(Mod.ROOT + GT_CFG + "$ClickType", "ATTACK"));
+        int[] cpsWas = c.onClient(mc -> new int[]{(Integer) Mod.call(Mod.cfg(GT_CFG), "getCpsMin"),
+                (Integer) Mod.call(Mod.cfg(GT_CFG), "getCpsMax")});
+        String[] classes = {"MAGE", "TANK", "HEALER", "ARCHER", "BERSERKER"};
+        try (HxKit.Settings off = gateOff(c);
+             HxKit.Settings ip = hypixelIp(c);
+             HxKit.Settings on = new HxKit.Settings(c).field(GT_CFG, "clickType", attack)
+                     .custom(() -> Mod.call(Mod.cfg(GT_CFG), "setCpsRange", 16, 16),
+                             () -> Mod.call(Mod.cfg(GT_CFG), "setCpsRange", cpsWas[0], cpsWas[1]))
+                     .with(GT_CFG, "AimDelayMs", 0).with(GT_CFG, "AllWithers", false).with(GT_CFG, "Enabled", false)) {
+            c.server().command("item replace entity @a hotbar.0 with stick");
+            c.server().command("forceload add 34 42 46 76");
+            c.server().sync(20);
+            c.server().command("fill 34 167 42 46 169 56 stone");
+            c.hx().call("dungeon.tp", "x", 40.5, "y", 170.0, "z", 47.7, "yaw", 0f, "pitch", 0f);
+            c.waitUntil("the client to have the platform", mc -> mc.level.getBlockState(new BlockPos(40, 169, 47))
+                    .is(net.minecraft.world.level.block.Blocks.STONE), 200);
+            c.waitUntil("the player on the platform", mc -> mc.player.position().distanceTo(new Vec3(40.5, 170.0, 47.7))
+                    < 0.1 && mc.player.onGround(), 200);
+            c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
+            c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
+            // Maxor's opening line puts the F7 boss on (DungeonState's real-line boss start), with no P3 line after it
+            c.hx().chat("[BOSS] Maxor: WELL! WELL! WELL! LOOK WHO'S HERE!");
+            c.waitUntil("the F7 boss (Maxor's line)", mc -> Boolean.TRUE.equals(Mod.staticCall("livemap.LiveMapFeature", "isInBoss")), 100);
+            c.server().command("kill @e[tag=pngwbot]");
+            c.server().command("summon wither 40.5 170 70.5 {Tags:[\"pngwbot\"],NoAI:1b,NoGravity:1b,Silent:1b,Invul:0,"
+                    + "PersistenceRequired:1b,CustomName:\"Maxor\"}");
+            AABB box = new AABB(30, 160, 60, 50, 190, 80);
+            c.waitUntil("the client to have the wither", mc -> mc.level.getEntitiesOfClass(
+                    net.minecraft.world.entity.boss.wither.WitherBoss.class, box, e -> e.isAlive()).size() == 1, 200);
+            Vec3 at = c.onClient(mc -> mc.level.getEntitiesOfClass(
+                    net.minecraft.world.entity.boss.wither.WitherBoss.class, box, e -> e.isAlive()).get(0)
+                    .getBoundingBox().getCenter());
+            double dist = c.onClient(mc -> mc.player.getEyePosition().distanceTo(at));
+            TriggerTiming.look(c, at);
+            c.ctx().waitTicks(3);
+            c.note(String.format(Locale.ROOT, "wither %.1f blocks from the eyes", dist));
+            c.check(dist > 15, "the wither is not out of melee reach: " + dist);
+
+            int[] a = clicksOver(c, 30);
+            c.note("(a) All Wither Bosses off, no P3: attacks " + a[0] + ", swings " + a[1]);
+            c.check(a[0] + a[1] == 0, "Goldor-only clicked outside P3: " + a[0] + " attacks, " + a[1] + " swings");
+
+            c.onClient(mc -> {
+                Mod.set(GT_CFG, "setAllWithers", true);
+                return null;
+            });
+            c.onClient(mc -> {
+                dev.testkit.harness.PacketTrace.start();
+                return null;
+            });
+            int[] b = clicksOver(c, 60);
+            int punches = c.onClient(mc -> dev.testkit.harness.PacketTrace.sent(dev.testkit.compat.McPackets.swingId()));
+            int attacks = c.onClient(mc -> dev.testkit.harness.PacketTrace.sent("attack"));
+            c.onClient(mc -> {
+                dev.testkit.harness.PacketTrace.stop();
+                return null;
+            });
+            c.note("(b) All Wither Bosses on: mod attacks " + b[0] + ", swings " + b[1] + "; sent " + punches + " "
+                    + dev.testkit.compat.McPackets.swingId() + ", " + attacks + " attack");
+            c.check(b[0] == 0 && attacks == 0, "attacked a wither 22 blocks away: " + b[0] + "/" + attacks);
+            c.check(b[1] >= 30 && punches >= 30, "only " + b[1] + " ranged swings (" + punches + " sent) in 60 ticks at 16 CPS");
+
+            c.onClient(mc -> {
+                for (String n : classes) {
+                    Mod.call(Mod.cfg(GT_CFG), "setClassEnabled",
+                            Mod.enumValue(Mod.ROOT + "dungeonclass.DungeonClass", n), "MAGE".equals(n));
+                }
+                return null;
+            });
+            int[] d = clicksOver(c, 30);
+            c.note("(c) only Mage selected, class unknown: attacks " + d[0] + ", swings " + d[1]);
+            c.check(d[0] + d[1] == 0, "clicked with only Mage selected and no class known: " + d[0] + "/" + d[1]);
+        } finally {
+            c.onClient(mc -> {
+                Mod.set(GT_CFG, "setEnabled", false);
+                Mod.set(GT_CFG, "setAllWithers", false);
+                for (String n : classes) {
+                    Mod.call(Mod.cfg(GT_CFG), "setClassEnabled",
+                            Mod.enumValue(Mod.ROOT + "dungeonclass.DungeonClass", n), true);
+                }
+                return null;
+            });
+            c.server().command("kill @e[tag=pngwbot]");
+            c.server().command("fill 34 167 42 46 169 56 air");
+            c.server().command("forceload remove 34 42 46 76");
+            c.server().command("clear @a");
+            home(c);
+        }
+    }
+
+    /** Turns the triggerbot on for {@code ticks}, then off; the mod's own {attacks, swings} delta over that window. */
+    private static int[] clicksOver(Session c, int ticks) {
+        int[] before = c.onClient(mc -> (int[]) Mod.staticCall("goldor.GoldorTriggerbotFeature", "clickCounts"));
+        c.onClient(mc -> {
+            Mod.set(GT_CFG, "setEnabled", true);
+            return null;
+        });
+        c.ctx().waitTicks(ticks);
+        c.onClient(mc -> {
+            Mod.set(GT_CFG, "setEnabled", false);
+            return null;
+        });
+        int[] after = c.onClient(mc -> (int[]) Mod.staticCall("goldor.GoldorTriggerbotFeature", "clickCounts"));
+        return new int[]{after[0] - before[0], after[1] - before[1]};
+    }
+
+    // ---- 835-thorn-triggerbot (doc-auto-1101) ------------------------------------------------------------------------
+
+    private static final String THORN_CFG = "thorn.ThornConfig";
+    private static final String TRIBAL = "minecraft:iron_sword[custom_data={id:\"TRIBAL_SPEAR\"},"
+            + "custom_name={text:\"Tribal Spear\",color:\"blue\",italic:false}]";
+
+    /**
+     * Thorn Triggerbot: F4 Thorn fight (sidebar F4 + a "[BOSS] Thorn:" line), Thorn a NoAI ghast 14 blocks off, a NoAI bat
+     * straight between. With the Tribal Spear held and the crosshair on Thorn it holds right click (use_item reaches the
+     * server) and the bat does not stop it; looking away lets go; a stick in hand never holds. GrimAC clean (session).
+     */
+    private static void thornTriggerbot(Session c) throws Exception {
+        try (HxKit.Settings off = gateOff(c);
+             HxKit.Settings ip = hypixelIp(c);
+             HxKit.Settings on = new HxKit.Settings(c).with(THORN_CFG, "TriggerbotAimed", true)
+                     .custom(() -> Mod.set(THORN_CFG, "setTriggerbot", false), () -> Mod.set(THORN_CFG, "setTriggerbot", false))) {
+            c.server().command("item replace entity @a hotbar.0 with " + TRIBAL);
+            c.server().command("item replace entity @a hotbar.1 with stick");
+            c.server().command("forceload add 34 42 46 76");
+            c.server().sync(20);
+            c.server().command("fill 34 167 42 46 169 56 stone");
+            c.hx().call("dungeon.tp", "x", 40.5, "y", 170.0, "z", 47.7, "yaw", 0f, "pitch", 0f);
+            c.waitUntil("the player on the platform", mc -> mc.player.position().distanceTo(new Vec3(40.5, 170.0, 47.7))
+                    < 0.1 && mc.player.onGround(), 200);
+            c.onClient(mc -> {
+                mc.player.getInventory().setSelectedSlot(0);
+                return null;
+            });
+            c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F4)");
+            c.waitUntil("DungeonState F4", mc -> "F4".equals(Mod.staticCall("secrets.DungeonState", "getFloor")), 100);
+            c.hx().chat("[BOSS] Thorn: Welcome Adventurers! I am Thorn, the Spirit! And host of the Vegan Trials!");
+            c.waitUntil("in the Thorn fight", mc -> Boolean.TRUE.equals(Mod.staticCall("thorn.ThornFeature", "inThornBoss")), 100);
+            c.server().command("kill @e[tag=pngthorn]");
+            c.server().command("summon ghast 40.5 169 62 {Tags:[\"pngthorn\"],NoAI:1b,NoGravity:1b,Silent:1b,"
+                    + "PersistenceRequired:1b,CustomName:\"Thorn\"}");
+            c.server().command("summon bat 40.5 171.2 54 {Tags:[\"pngthorn\"],NoAI:1b,NoGravity:1b,Silent:1b,PersistenceRequired:1b}");
+            AABB box = new AABB(30, 160, 50, 50, 190, 80);
+            c.waitUntil("the client to have Thorn and the bat", mc -> mc.level.getEntitiesOfClass(
+                    net.minecraft.world.entity.monster.Ghast.class, box, e -> e.isAlive()).size() == 1
+                    && mc.level.getEntitiesOfClass(net.minecraft.world.entity.ambient.Bat.class, box, e -> e.isAlive()).size() == 1, 200);
+            Vec3 at = c.onClient(mc -> mc.level.getEntitiesOfClass(
+                    net.minecraft.world.entity.monster.Ghast.class, box, e -> e.isAlive()).get(0).getBoundingBox().getCenter());
+            TriggerTiming.look(c, at);
+            c.ctx().waitTicks(3);
+            boolean batInLine = c.onClient(mc -> {
+                Vec3 eye = mc.player.getEyePosition();
+                Vec3 end = eye.add(mc.player.getViewVector(1f).scale(30));
+                return mc.level.getEntitiesOfClass(net.minecraft.world.entity.ambient.Bat.class, box, e -> e.isAlive())
+                        .get(0).getBoundingBox().inflate(0.3).clip(eye, end).isPresent();
+            });
+            c.note("the bat is " + (batInLine ? "" : "NOT ") + "on the crosshair line");
+            long since = c.hx().head();
+            c.onClient(mc -> {
+                Mod.set(THORN_CFG, "setTriggerbot", true);
+                return null;
+            });
+            c.ctx().waitTicks(40);
+            boolean holding = c.onClient(mc -> (Boolean) Mod.staticCall("thorn.ThornTriggerbot", "isHolding"));
+            int uses = c.hx().events(since, "use_item").size();
+            c.note("spear on Thorn, bat between: holding " + holding + ", use_item " + uses + " in 40 ticks");
+            c.check(holding, "not holding right click with the Tribal Spear on Thorn (bat in between)");
+            c.check(uses >= 5, "only " + uses + " spear throws reached the server in 40 ticks");
+            // look away: it lets go
+            c.onClient(mc -> {
+                mc.player.setYRot(mc.player.getYRot() + 120f);
+                return null;
+            });
+            c.ctx().waitTicks(5);
+            boolean away = c.onClient(mc -> (Boolean) Mod.staticCall("thorn.ThornTriggerbot", "isHolding")
+                    || mc.options.keyUse.isDown());
+            c.check(!away, "still holding right click looking away from Thorn");
+            // a stick: never holds
+            TriggerTiming.look(c, at);
+            c.onClient(mc -> {
+                mc.player.getInventory().setSelectedSlot(1);
+                return null;
+            });
+            c.ctx().waitTicks(10);
+            boolean stick = c.onClient(mc -> (Boolean) Mod.staticCall("thorn.ThornTriggerbot", "isHolding"));
+            c.check(!stick, "held right click with a stick");
+            c.note("looking away: released; stick on Thorn: not holding");
+        } finally {
+            c.onClient(mc -> {
+                Mod.set(THORN_CFG, "setTriggerbot", false);
+                mc.options.keyUse.setDown(false);
+                mc.player.getInventory().setSelectedSlot(0);
+                return null;
+            });
+            c.server().command("kill @e[tag=pngthorn]");
+            c.server().command("fill 34 167 42 46 169 56 air");
+            c.server().command("forceload remove 34 42 46 76");
             c.server().command("clear @a");
             home(c);
         }

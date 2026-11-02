@@ -75,6 +75,8 @@ final class AutoMaskCases {
     }
 
     static void register(Session s) {
+        // doc-auto-1101: Mask Keybinds (legit) - a key in the open /stats menu equips a mask; both jars
+        MenuSuite.test(s, "1888-menu-maskkeybinds", AutoMaskCases::maskKeybinds);
         // Auto Mask is cheat-only (compiled out of legit); on a legit jar these eight read as failures in the legit menu
         // suite (preexisting-1026). Its absence from the legit menu is 511/512's job, as for every cheat tab.
         if (!Mod.isCheat()) {
@@ -610,5 +612,80 @@ final class AutoMaskCases {
                 PacketTrace.tap = null;
             }
         });
+    }
+
+    // ---- 1888 Mask Keybinds (legit, doc-auto-1101) ---------------------------------------------------------------------
+
+    /**
+     * In the /stats menu he opened himself (no command from the mod): the key equips Spirit (Spirit First); with Spirit's
+     * proc cooldown running it equips Bonzo; Bonzo First equips Bonzo; Boss Only during the clear equips nothing. Each
+     * equip is the SERVER's menu.equip, one click, and the mod never sends /stats. Runs on both jars (a legit feature),
+     * with Mask Invincibility itself OFF, so the proc cooldown has to be recorded for Mask Keybinds alone.
+     */
+    @SuppressWarnings("unchecked")
+    static void maskKeybinds(Session c) throws Exception {
+        MenuKit.reset(c);
+        DungeonMenuCases.inDungeon(c);
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set(CFG, "Enabled", false).set(CFG, "AutoSwapEnabled", false).set(CFG, "MaskKeyEnabled", true)
+                    .set(CFG, "MaskKey", KEY).set(CFG, "MaskKeyBonzoFirst", false).set(CFG, "MaskKeyDungeonsOnly", true)
+                    .set(CFG, "MaskKeyBossOnly", false);
+            c.ctx().runOnClient(mc -> ((Map<Object, Object>) Mod.field(FEAT, "cooldownRemaining")).replaceAll((k, v) -> 0));
+            List<String> notes = new ArrayList<>();
+            long stats0 = count(c, "stats");
+
+            // 1. Spirit First, nothing worn -> Spirit
+            notes.add(keyEquip(c, "Spirit First", "SPIRIT_MASK", 0));
+            // 2. Spirit procs (cooldown) -> Bonzo
+            proc(c, SPIRIT_PROC);
+            c.waitUntil("Spirit's cooldown running", mc -> (Boolean) Mod.staticCall(FEAT, "onCooldown",
+                    Mod.enumValue(Mod.ROOT + SW + "$Target", "SPIRIT")), 40);
+            notes.add(keyEquip(c, "Spirit on cooldown", "BONZO_MASK", 1));
+            // 3. Bonzo First -> Bonzo (cooldowns cleared)
+            c.ctx().runOnClient(mc -> ((Map<Object, Object>) Mod.field(FEAT, "cooldownRemaining")).replaceAll((k, v) -> 0));
+            c.ctx().runOnClient(mc -> Mod.set(CFG, "setMaskKeyBonzoFirst", true));
+            notes.add(keyEquip(c, "Bonzo First", "BONZO_MASK", 2));
+            // 4. Boss Only during the clear -> nothing
+            c.ctx().runOnClient(mc -> Mod.set(CFG, "setMaskKeyBossOnly", true));
+            wear(c, "minecraft:air", SPIRIT, BONZO);
+            MenuKit.show(c, equipmentMenu());
+            MenuKit.awaitScreen(c, "Your Equipment and Stats", 100);
+            c.ctx().waitTicks(3);
+            press(c);
+            c.ctx().waitTicks(15);
+            c.check(c.events("menu.equip").size() == 3, "Boss Only during the clear equipped: " + c.events("menu.equip"));
+            c.check(lastKeyDecision(c).equals("blocked: Boss Only"), "decision " + lastKeyDecision(c));
+            notes.add("Boss Only in the clear: no equip (" + lastKeyDecision(c) + ")");
+            c.check(count(c, "stats") == stats0, "Mask Keybinds sent /stats: " + c.commands());
+            c.note(String.join("; ", notes));
+        } finally {
+            c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(KEY));
+            wear(c, "minecraft:air", "minecraft:air", "minecraft:air");
+            c.ctx().runOnClient(mc -> ((Map<Object, Object>) Mod.field(FEAT, "cooldownRemaining")).replaceAll((k, v) -> 0));
+            MenuKit.reset(c);
+        }
+    }
+
+    private static String lastKeyDecision(Session c) {
+        return c.onClient(mc -> String.valueOf(Mod.staticCall("maskinvincibility.MaskKeybind", "lastDecision")));
+    }
+
+    /** Nothing worn, Spirit and Bonzo in the inventory, the /stats menu shown: one key press must make the server put
+     *  {@code want} on, with exactly one more menu.equip than {@code equipsBefore}. */
+    private static String keyEquip(Session c, String label, String want, int equipsBefore) {
+        wear(c, "minecraft:air", SPIRIT, BONZO);
+        MenuKit.show(c, equipmentMenu());
+        MenuKit.awaitScreen(c, "Your Equipment and Stats", 100);
+        c.ctx().waitTicks(3);
+        press(c);
+        c.waitUntil(label + ": helmet " + want, mc -> want.equals(helmet(mc)), 100);
+        List<JsonObject> equips = c.events("menu.equip");
+        c.check(equips.size() == equipsBefore + 1, label + ": want one equip, got " + equips);
+        JsonObject e = equips.get(equips.size() - 1);
+        c.check(want.equals(e.get("skyblockId").getAsString()), label + ": server equipped " + e);
+        boolean open = c.onClient(mc -> McCompat.screen(mc) != null);
+        c.check(open, label + ": the /stats menu was closed by the feature");
+        MenuKit.reset(c);
+        return label + ": server put on " + want + " (" + lastKeyDecision(c) + ")";
     }
 }

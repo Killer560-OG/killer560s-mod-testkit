@@ -70,6 +70,8 @@ final class ProcWatch implements AutoCloseable {
     private static final long JUDGE_NANOS = 2_000_000_000L;
     private final java.util.Map<Long, Pending> pending = new java.util.HashMap<>();
 
+    private volatile long lastExpectedCscNanos;
+
     private record Pending(ProcessHandle handle, String cmd, long since, long parent) {
     }
 
@@ -83,7 +85,7 @@ final class ProcWatch implements AutoCloseable {
         });
         for (var it = pending.values().iterator(); it.hasNext(); ) {
             Pending pd = it.next();
-            String why = expectedWhy(pd.handle(), pd.parent());
+            String why = expectedWhy(pd);
             boolean expected = why != null;
             if (!expected && pd.handle().isAlive() && now - pd.since() < JUDGE_NANOS) {
                 continue;
@@ -100,9 +102,12 @@ final class ProcWatch implements AutoCloseable {
             }
             if (expected) {
                 expectedPids.add(pd.handle().pid());
+                if (pd.cmd().toLowerCase(java.util.Locale.ROOT).endsWith("\\csc.exe")) {
+                    lastExpectedCscNanos = pd.since();
+                }
             }
             System.out.println("[ui-procwatch] child process " + pd.handle().pid() + ": " + pd.cmd()
-                    + (expected ? " - expected: " + why : ""));
+                    + (expected ? " - expected: " + why : " (parent seen " + pd.parent() + ")"));
         }
     }
 
@@ -111,13 +116,13 @@ final class ProcWatch implements AutoCloseable {
         // Parents first: an expected parent still pending makes its children expected too.
         for (int pass = 0; pass < 3; pass++) {
             for (Pending pd : pending.values()) {
-                if (expectedWhy(pd.handle(), pd.parent()) != null) {
+                if (expectedWhy(pd) != null) {
                     expectedPids.add(pd.handle().pid());
                 }
             }
         }
         for (Pending pd : pending.values()) {
-            String why = expectedWhy(pd.handle(), pd.parent());
+            String why = expectedWhy(pd);
             synchronized (seen) {
                 (why != null ? expectedSeen : seen).add(pd.handle().pid() + " " + pd.cmd() + (why != null ? " (" + why + ")" : ""));
             }
@@ -130,6 +135,22 @@ final class ProcWatch implements AutoCloseable {
      * reader's {@code Add-Type} starts to compile its volume code, mod spotify-controls-1026) is often judged after
      * it exited, when Windows no longer gives its parent (370 on final-1027).
      */
+    private String expectedWhy(Pending pd) {
+        String why = expectedWhy(pd.handle(), pd.parent());
+        if (why != null) {
+            return why;
+        }
+        // cvtres.exe is only ever csc.exe's resource compiler. It is often seen already parentless ("parent seen -1")
+        // and judged after it exited, when ProcessHandle.info() is empty too, so 370 failed on a cvtres.exe a second
+        // after an expected csc.exe (26.3 UI runs, 2026-11-01). The exe recorded at first sight, first seen within 5 s
+        // of an expected csc.exe, is that csc.exe's.
+        if (lastExpectedCscNanos != 0 && Math.abs(pd.since() - lastExpectedCscNanos) < 5_000_000_000L
+                && pd.cmd().toLowerCase(java.util.Locale.ROOT).endsWith("\\cvtres.exe")) {
+            return "cvtres.exe of an expected csc.exe";
+        }
+        return null;
+    }
+
     private String expectedWhy(ProcessHandle p, long seenParent) {
         String s = scope;
         if (s != null) {

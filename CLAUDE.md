@@ -88,7 +88,12 @@ API goes in `dev.testkit.compat` (client: `src/client/mc26_3/java` vs `mc26_2/ja
 (companion mod: `src/testmod/mc26_3/java` vs `mc26_2/java`), identical public signatures. Nothing in `src/*/java` may use
 `mc.screen`, `mc.setScreen`, color-variant `Items.RED_...`, `EntityType.<CONSTANT>`, `BlockPos.getCenter()`, the use
 packets' getters, `ServerboundSwingPacket` or a `"swing"` trace id, `org.lwjgl.glfw`, a bare mouse-button number (`McKeys.mouse`), or a bare key-code number (use `InputConstants.KEY_*`: GLFW
-codes on 26.2, SDL scancodes on 26.3; GLFW numbers in mod settings, `McKeys.nat` for a press). Compile both versions before merging a branch. What 26.3 moved, what changed in
+codes on 26.2, SDL scancodes on 26.3; GLFW numbers in mod settings, `McKeys.nat` for a press), or a bare modifier number
+in a `KeyEvent`/`MouseButtonInfo` (use `InputConstants.MOD_CONTROL` etc.: 26.3's SDL bits are Shift 3, Ctrl 0xC0, Alt 0x300,
+so GLFW's Ctrl `2` reads as right Shift there and Ctrl+F/V/A silently did nothing in 944/948/955/989, 2026-11-01; GLFW's Shift
+`1` happens to be SDL left Shift). Build every KeyEvent with `McKeys.keyEvent(nativeKey, mods)`, never `new KeyEvent(...)`:
+26.3's record is (scancode, SDL keycode, mods) and EditBox's Backspace/Delete/Home/End and Ctrl+A/C/V switch on the keycode,
+so a 0 there is a key no text box acts on (944/989, 2026-11-01). Compile both versions before merging a branch. What 26.3 moved, what changed in
 GrimAC, and how to run a set on the old Grim: [docs/minecraft-263.md](docs/minecraft-263.md); the 26.2 notes:
 [docs/minecraft-262.md](docs/minecraft-262.md).
 
@@ -120,6 +125,9 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 
 ## Quirks and lessons
 
+- A MenuSuite case (`menu/*Cases`, names like `1853-menu-...`) does NOT run from `-Scenario 1853-menu-...`: that filter
+  reaches no session and reports only unrelated SKIP rows (2026-11-01). Run `-Scenario "-menu-"` with the environment
+  variable `TESTKIT_MENU_ONLY=1853-menu-swap,...` (MenuSuite.selected) to pick the cases.
 - Since mod layout-fixes-1026 `ModPaths.config(name)` no longer creates the folder: a case that writes a mod config path
   before the feature ever saved must `Files.createDirectories(p.getParent())` first (981 and six others did not, 2026-10-26).
   1026-layout-* (seed `fixtures/seed-layout-fixes-1026`) covers the layout; on an old jar 1026-layout-empty lists ~83 empty folders.
@@ -372,7 +380,12 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
 - Killing a queue script mid-run (or its client) can leave that checkout's test server running; the next server's GrimAC
   then waits ~14 s for the old datastore lease ("persistent storage UUID ... is owned by startupId ...") and the freeze
   watcher closes every client at startup (campaign-blink-1027). Kill the orphan `runTestServer` java of that checkout (match
-  the checkout name in the command line; `[\/]` patterns missed it) before rerunning.
+  the checkout name in the command line; `[\/]` patterns missed it) before rerunning. A freeze-killed client leaves its
+  server holding the port too: the next run on that `-Port` fails "Anticheat test server exited with code 0 before it was
+  ready" (FAILED TO BIND TO PORT in run/testserver/logs/latest.log) - kill the orphan or pick another port (doc-rng-1101).
+- To run only some cases of a Session suite, the filter needs a part that CONTAINS the session's name but is not in the
+  case names, plus the case parts: `-Scenario "1101-luck,100-hx-session:"`. `-Scenario 1101-luck` alone selects no session
+  and the run "passes" with 0 cases (doc-rng-1101; Session.selection/caseSelected).
 - A test client loads the mod jar straight from the `-ModUnderTest` path (fabric.addMods), lazily: overwriting that jar while
   the client runs crashed it ("ZipFile invalid LOC header", campaign-blink-1027). Give every build its own folder.
 - Blink holds are key-driven since mod blink-rework-1025: between two holds the key needs a tick up and a tick down, so a
@@ -432,3 +445,9 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
 - A scenario class missing from `src/gametest/resources/fabric.mod.json` (AGENTS.md says to register it) runs NOTHING and the
   report shows only the unrelated SKIP rows with "none failed" - a vacuous pass (doc-adm-sim-1101, 2026-11-01). Check the
   case's own row is in summary.md. Scenario `System.out` lines land in build/run/clientGameTest/logs/latest.log as [STDOUT].
+- Leave the Simon Says device (`dungeon.tp` away, a few ticks) BEFORE `boss.ss.clear`: clearing first drops him through the
+  floor it stood on and GrimAC flags the fall (GroundSpoof + Simulation x1-x4) at the next case's start, which reads as the
+  mod (1018-ss-stim-momentum on 26.3, 1101-ss-skip-second on 26.2, 2026-11-01). DocPuzzleCases and SsStimMomentumCases do.
+- `run-suite.ps1 -Suite ui` needs `-TimeoutSeconds 3600`: the default 1200 s deadline is shorter than the UI suite
+  (~27 min on 26.3), and its "Deadline passed - the run is hung" kills a healthy run at about case 897 with no report
+  (2026-11-01, both versions at once).

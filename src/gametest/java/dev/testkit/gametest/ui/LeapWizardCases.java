@@ -279,7 +279,8 @@ final class LeapWizardCases {
             });
             ModScreenDriver d = openTab(c);
             AbstractWidget heads = row(c, d, "Show Player Heads:");
-            AbstractWidget style = row(c, d, "Leap Style:");
+            // Leap Style became the switch Show Map During Clear (mod doc-small-1101): on = MAP_IN_CLEAR, off = BOXES.
+            AbstractWidget style = row(c, d, "Show Map During Clear:");
             c.check(heads != null && style != null, "rows: heads " + heads + ", style " + style);
             List<String> trail = new ArrayList<>();
             clickRow(c, heads, 0);
@@ -292,17 +293,22 @@ final class LeapWizardCases {
             c.check(!h1 && !h2 && h3, "Show Player Heads: left " + h1 + ", then right " + h2 + ", then left " + h3
                     + " (want false, false, true)");
             trail.add("Show Player Heads left -> " + h1 + ", right -> " + h2 + ", left -> " + h3);
-            clickRow(c, row(c, d, "Leap Style:"), 0);
+            // A switch: left toggles, right does nothing (like Show Player Heads).
+            clickRow(c, row(c, d, "Show Map During Clear:"), 0);
             String s1 = c.onClient(mc -> String.valueOf(Mod.call(Mod.cfg(cfgCls), "getStyle")));
-            clickRow(c, row(c, d, "Leap Style:"), 1);
+            clickRow(c, row(c, d, "Show Map During Clear:"), 1);
             String s2 = c.onClient(mc -> String.valueOf(Mod.call(Mod.cfg(cfgCls), "getStyle")));
-            clickRow(c, row(c, d, "Leap Style:"), 1);
+            clickRow(c, row(c, d, "Show Map During Clear:"), 0);
             String s3 = c.onClient(mc -> String.valueOf(Mod.call(Mod.cfg(cfgCls), "getStyle")));
-            c.check(s1.equals("MAP_IN_CLEAR") && s2.equals("BOXES") && s3.equals("MAP_IN_CLEAR"),
-                    "Leap Style left/right/right: " + s1 + ", " + s2 + ", " + s3);
-            String label = ModScreenDriver.label(row(c, d, "Leap Style:"));
-            c.check(label.contains("Map in Clear"), "the row reads " + label);
-            trail.add("Leap Style left -> " + s1 + ", right -> " + s2 + ", right -> " + s3 + " ('" + label + "')");
+            clickRow(c, row(c, d, "Show Map During Clear:"), 0);
+            String s4 = c.onClient(mc -> String.valueOf(Mod.call(Mod.cfg(cfgCls), "getStyle")));
+            c.check(s1.equals("MAP_IN_CLEAR") && s2.equals("MAP_IN_CLEAR") && s3.equals("BOXES") && s4.equals("MAP_IN_CLEAR"),
+                    "Show Map During Clear left/right/left/left: " + s1 + ", " + s2 + ", " + s3 + ", " + s4);
+            String label = ModScreenDriver.label(row(c, d, "Show Map During Clear:"));
+            c.check(label.contains("ON"), "the row reads " + label);
+            c.check(row(c, d, "Leap Style:") == null, "the old Leap Style row is still there");
+            trail.add("Show Map During Clear left -> " + s1 + ", right -> " + s2 + ", left -> " + s3 + ", left -> " + s4
+                    + " ('" + label + "')");
             // Persisted: off and Map in Clear survive a reload from the file.
             c.onClient(mc -> {
                 Mod.call(Mod.cfg(cfgCls), "setShowHeads", false);
@@ -316,7 +322,7 @@ final class LeapWizardCases {
             String json = Files.readString(path);
             c.check(json.contains("\"showHeads\": false") && json.contains("\"style\": \"MAP_IN_CLEAR\""), "file: " + json);
             trail.add("reload: heads " + hr + ", style " + sr);
-            for (String l : List.of("Show Player Heads: ON", "Leap Style: Boxes")) {
+            for (String l : List.of("Show Player Heads: ON", "Show Map During Clear: OFF")) {
                 Object tip = c.onClient(mc -> Mod.staticCall("gui.SettingTooltips", "describe", TAB, l));
                 c.check(tip != null && !String.valueOf(tip).isBlank(), "no tooltip for '" + l + "'");
             }

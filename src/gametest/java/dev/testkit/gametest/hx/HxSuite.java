@@ -64,6 +64,7 @@ public class HxSuite implements FabricClientGameTest {
                     // Spotify Controls, lyric clock re-sync, My Lyrics In F5, Smooth Lyric Scroll, supporter-only
                     // Share My Song (2840-2845, branch spotify-controls-1026), own block.
                     HxSpotifyControlsCases.register(s);
+                    HxSpotifyDocCases.register(s);
                     // Auto Meow replies in the trigger's channel, and Mod Chat sends (874, branch
                     // nt-automeow-channel), own block.
                     HxAutoMeowChannelCases.register(s);
@@ -84,6 +85,12 @@ public class HxSuite implements FabricClientGameTest {
                     // Dungeon alerts of 2026-10-25: low health, Livid extras, score warning, secret feedback, breaker
                     // charges, key spawn (1025-alerts-*, branch dungeon-alerts-1025), own block.
                     HxAlerts1025Cases.register(s);
+                    // To-do Doc items of 2026-11-01: Creation Cooldown, Insta Clear Warning, Gyrokinetic Wand Overlay,
+                    // Chat Tabs (1101-extras-*, mod branch doc-extras-1101), own block.
+                    HxDocExtras1101Cases.register(s);
+                    // To-do Doc items of 2026-11-01: Score Warning, split Counting, Core Entry, Livid, Blessings Boss
+                    // Only, Trigger lines, locked chests and chest drops, Door Keys (1101-dhud-*, mod doc-dhud-1101).
+                    HxDocDhud1101Cases.register(s);
                     // ScoreboardData with Custom Scoreboard off; Auto GFS's Dungeons/Kuudra gate (1026-hx-sbdata-*, mod
                     // open-key-1026), own block.
                     HxSbData1026Cases.register(s);
@@ -91,6 +98,10 @@ public class HxSuite implements FabricClientGameTest {
                     // block, last: it latches the boss room and its cleanup case leaves it again.
                     // Performance HUD stutters: frame times and attribution (1026-stutter-*, branch stutter-1026).
                     // Before Boss Health, which latches the boss room until its cleanup case.
+                    // The pre-2.0 mining features (1101-mining-*, mod doc-mining-1101), own block, before Boss Health.
+                    HxMining1101Cases.register(s);
+                    // How Lucky Are You / Full RNG Tracker (1101-luck-*, mod branch doc-rng-1101), own block.
+                    HxLuckCases.register(s);
                     HxStutterCases.register(s);
                     HxBossHealthCases.register(s);
                 });

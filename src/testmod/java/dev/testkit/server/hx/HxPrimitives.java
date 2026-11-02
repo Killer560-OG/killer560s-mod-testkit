@@ -184,6 +184,7 @@ public final class HxPrimitives implements HxModule {
         HxBridge.register("entity.remove", HxPrimitives::entityRemove);
         HxBridge.register("entity.move", HxPrimitives::entityMove);
         HxBridge.register("entity.nudge", HxPrimitives::entityNudge);
+        HxBridge.register("entity.teleport", HxPrimitives::entityTeleport);
         HxBridge.register("server.tick", (srv, args) -> new JsonPrimitive(srv.getTickCount()));
         HxBridge.register("frame", HxPrimitives::frame);
         HxBridge.register("menu.open", HxPrimitives::menuOpen);
@@ -523,6 +524,25 @@ public final class HxPrimitives implements HxModule {
         }
         p.connection.send(dev.testkit.server.compat.McServer.moveEntityPos(e.getId(), (short) Math.round(number(a, "dx", 0) * 4096),
                 (short) Math.round(number(a, "dy", 0) * 4096), (short) Math.round(number(a, "dz", 0) * 4096), false));
+        return new JsonPrimitive(s.getTickCount());
+    }
+
+    /** An absolute-position packet for a stand on a tick the caller knows (doc-blood-1101: what a server sends for a big
+     *  catch-up step). The stand on the server is moved with it (setPos) so its tracker does not pull the client's copy back. Same packet on 26.3 and
+     *  26.2 (javap: (int, PositionMoveRotation, Set<Relative>, boolean)). */
+    private static JsonElement entityTeleport(MinecraftServer s, JsonObject a) {
+        ServerPlayer p = player(s, a);
+        Entity e = STANDS.get(UUID.fromString(a.get("uuid").getAsString()));
+        if (e == null) {
+            throw new IllegalArgumentException("no Hx stand " + a.get("uuid").getAsString());
+        }
+        net.minecraft.world.phys.Vec3 to = new net.minecraft.world.phys.Vec3(number(a, "x", e.getX()), number(a, "y", e.getY()),
+                number(a, "z", e.getZ()));
+        // The server's stand goes there too, or its tracker's next packet would put the client's copy back.
+        e.setPos(to.x, to.y, to.z);
+        p.connection.send(new net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket(e.getId(),
+                new net.minecraft.world.entity.PositionMoveRotation(to, net.minecraft.world.phys.Vec3.ZERO, e.getYRot(),
+                        e.getXRot()), java.util.Set.of(), false));
         return new JsonPrimitive(s.getTickCount());
     }
 

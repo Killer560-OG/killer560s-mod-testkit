@@ -96,7 +96,7 @@ final class CroesusTrackCases {
                     "before the shift: " + CroesusStableCases.log(pre) + " (want 1 2 3 4)");
             String file = "";
             if (restart) {
-                Path p = c.onClient(mc -> (Path) Mod.staticCall("util.ModPaths", "config", "killer560smod-croesus-runs.json"));
+                Path p = c.onClient(mc -> runFile());
                 drainRunsWriter();
                 file = Files.exists(p) ? Files.readString(p, StandardCharsets.UTF_8) : "";
                 int runs = file.split("\"sig\"", -1).length - 1;
@@ -125,6 +125,16 @@ final class CroesusTrackCases {
      * run file itself; a save still in flight then either lands on top of the fixture or finds the file held open by this
      * read (on Windows the replace fails, and jars before 2026-10-22 dropped that save: 890 lost pages 2 and 3).
      */
+    /** The run memory's file: the shared record store since mod shared-stats-1101 (pathForTest), the instance config
+     *  before it. */
+    static Path runFile() {
+        try {
+            return (Path) Mod.staticCall("croesus.CroesusRunMemory", "pathForTest");
+        } catch (AssertionError | RuntimeException olderMod) {
+            return (Path) Mod.staticCall("util.ModPaths", "config", "killer560smod-croesus-runs.json");
+        }
+    }
+
     static void drainRunsWriter() throws Exception {
         ((java.util.concurrent.ExecutorService) Mod.field("croesus.CroesusRunMemory", "WRITER")).submit(() -> { })
                 .get(10, java.util.concurrent.TimeUnit.SECONDS);
@@ -183,7 +193,7 @@ final class CroesusTrackCases {
         int max = ((java.util.TreeMap<Integer, JsonObject>) byOrder).lastKey();
         int pages = max / HEAD_SLOTS.length + 1;
         try (AutoCloseable w = CroesusStableCases.world(c)) {
-            Path p = c.onClient(mc -> (Path) Mod.staticCall("util.ModPaths", "config", "killer560smod-croesus-runs.json"));
+            Path p = c.onClient(mc -> runFile());
             JsonObject file = new JsonObject();
             file.add("runs", runs);
             Files.createDirectories(p.getParent());
@@ -336,7 +346,7 @@ final class CroesusTrackCases {
         }
         want.put(last, (byte) 5);
         try (AutoCloseable w = CroesusStableCases.world(c)) {
-            Path p = c.onClient(mc -> (Path) Mod.staticCall("util.ModPaths", "config", "killer560smod-croesus-runs.json"));
+            Path p = c.onClient(mc -> runFile());
             JsonObject file = new JsonObject();
             file.add("runs", runs);
             Files.createDirectories(p.getParent());
@@ -448,7 +458,7 @@ final class CroesusTrackCases {
         }
         String variant = old + " old runs, " + (fresh ? "fresh" : "same-window") + " new run";
         try (AutoCloseable w = CroesusStableCases.world(c)) {
-            Path p = c.onClient(mc -> (Path) Mod.staticCall("util.ModPaths", "config", "killer560smod-croesus-runs.json"));
+            Path p = c.onClient(mc -> runFile());
             JsonObject file = new JsonObject();
             file.add("runs", runs);
             Files.createDirectories(p.getParent());

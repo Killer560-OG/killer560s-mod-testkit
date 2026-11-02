@@ -81,6 +81,16 @@ final class HxBloodCampCases {
         s.test("1018-bloodcamp-map-type", HxBloodCampCases::mapType);
         // blood-giant-esp-1022: the F7 Blood Room's reanimated giant, and mob-type icons in a blood mob's tag.
         s.test("1022-bloodcamp-giant-esp", HxBloodCampCases::giantEsp);
+        // doc-blood-1101 (to-do Doc, 2026-11-01): BLOOD CAMP STUFF and STARRED MOB HIGHLIGHT.
+        s.test("1101-bloodcamp-exclusions", HxBloodCampCases::exclusions);
+        s.test("1101-bloodcamp-primal-fear", HxBloodCampCases::primalFearTrip);
+        s.test("1101-bloodcamp-aura-late-pick", HxBloodCampCases::auraLatePick);
+        s.test("1101-bloodcamp-mage-only", HxBloodCampCases::mageOnly);
+        s.test("1101-bloodcamp-teleport-step", HxBloodCampCases::teleportStep);
+        s.test("1101-bloodcamp-stats", HxBloodCampCases::stats);
+        s.test("1101-esp-fels", HxBloodCampCases::fels);
+        s.test("1101-esp-starred-memory", HxBloodCampCases::starredMemory);
+        s.test("1101-esp-mimic", HxBloodCampCases::mimic);
     }
 
     // ---- 1022 -------------------------------------------------------------------------------------------------------
@@ -210,6 +220,10 @@ final class HxBloodCampCases {
     /** Set before a trip: summon its husk this many ticks after the mob is due instead of as soon as it is tracked
      *  (null = at once). The trip records the server tick it was summoned on and the clicks sent before it. */
     private static Integer nextSummonDelay;
+    /** Set before a trip: the custom name its husk gets instead of "blood" (doc-blood-1101: a Primal Fear on the spot). */
+    private static String nextHuskName;
+    /** Set before a trip: its first step is an absolute teleport packet of this many blocks, then two nudges. */
+    private static Double nextTeleportStep;
     private static long lastSummonTick = -1;
     private static int lastClicksBeforeSummon = -1;
 
@@ -265,7 +279,7 @@ final class HxBloodCampCases {
         if (Mod.isCheat()) {
             s.with(BC_CFG, "TriggerBotEnabled", false).with(BC_CFG, "AuraEnabled", false)
                     .with(BC_CFG, "AuraFreecam", false).with(BC_CFG, "AutoDetectLag", true)
-                    .with(BC_CFG, "TriggerOffsetTicks", -1);
+                    .with(BC_CFG, "TriggerOffsetTicks", 1); // +1 = one tick late (positive late since mod doc-blood-1101)
         }
         return s;
     }
@@ -335,7 +349,12 @@ final class HxBloodCampCases {
         int clicks0 = intStat(c, "triggerClicks");
         int attacks0 = intStat(c, "triggerAttacks");
         int retries0 = cheat ? intStat(c, "triggerRetries") : 0;
-        String uuid = c.hx().stand(x0, 151.0, -417.5, null, "marker", false, "invisible", false, "helmet", head(mobTex));
+        Double tpStep = nextTeleportStep;
+        nextTeleportStep = null;
+        String huskName = nextHuskName == null ? "blood" : nextHuskName;
+        nextHuskName = null;
+        String uuid = c.hx().stand(x0 - (tpStep == null ? 0.0 : tpStep), 151.0, -417.5, null, "marker", false, "invisible",
+                false, "helmet", head(mobTex));
         long firstTick = -1;
         boolean tracked = false;
         Vec3 end = null;
@@ -347,7 +366,9 @@ final class HxBloodCampCases {
         try {
             c.ctx().waitTicks(10);
             for (int i = 0; i < 3; i++) {
-                long t = c.hx().call("entity.nudge", "uuid", uuid, "dx", 1.2).getAsLong();
+                long t = tpStep != null && i == 0
+                        ? c.hx().call("entity.teleport", "uuid", uuid, "x", x0, "y", 151.0, "z", -417.5).getAsLong()
+                        : c.hx().call("entity.nudge", "uuid", uuid, "dx", 1.2).getAsLong();
                 if (firstTick < 0) {
                     firstTick = t;
                 }
@@ -371,8 +392,8 @@ final class HxBloodCampCases {
                 if (i == summonAt && mob != Mob.NONE) {
                     lastClicksBeforeSummon = intStat(c, "triggerClicks") - clicks0;
                     c.server().command(String.format(Locale.ROOT, "summon husk %.3f %.3f %.3f {Tags:[\"bc1015\"],NoAI:1b,"
-                                    + "NoGravity:1b,CustomName:\"blood\",Silent:1b,PersistenceRequired:1b,Health:%s%s}",
-                            end.x, end.y, end.z, mob == Mob.FRAGILE ? "1f" : mob == Mob.WEAK ? "3f" : "20f", mob == Mob.INVULNERABLE ? ",Invulnerable:1b" : ""));
+                                    + "NoGravity:1b,CustomName:\"%s\",Silent:1b,PersistenceRequired:1b,Health:%s%s}",
+                            end.x, end.y, end.z, huskName, mob == Mob.FRAGILE ? "1f" : mob == Mob.WEAK ? "3f" : "20f", mob == Mob.INVULNERABLE ? ",Invulnerable:1b" : ""));
                     lastSummonTick = c.hx().call("server.tick").getAsLong();
                 }
                 Object[] r = c.onClient(mc -> {
@@ -460,7 +481,8 @@ final class HxBloodCampCases {
                 int def = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(BC_CFG), "getTriggerOffsetTicks"));
                 c.note("Trigger Offset as he finds it: " + def);
             }
-            int[] offsets = cheat ? new int[]{-1, 0, 2, -5} : new int[]{0};
+            // Positive Trigger Offset is LATE since mod doc-blood-1101 (killer560, 2026-11-01: slider left early, right late).
+            int[] offsets = cheat ? new int[]{1, 0, -2, 5} : new int[]{0};
             for (int off : offsets) {
                 if (cheat) {
                     c.onClient(mc -> {
@@ -480,11 +502,11 @@ final class HxBloodCampCases {
                 c.check(t.clicks == 1 && t.attacks == 1, "offset " + off + ": want one attack, got " + t.clicks
                         + " click(s), " + t.attacks + " attack(s)");
                 double late = t.killAt - t.triggerAt;
-                c.check(Math.abs(late - (-off)) < 0.01, String.format(Locale.ROOT,
-                        "offset %d: the click went %.1f ticks after the kill timer, want %d", off, late, -off));
-                if (off == -1) {
+                c.check(Math.abs(late - off) < 0.01, String.format(Locale.ROOT,
+                        "offset %d: the click went %.1f ticks after the kill timer, want %d", off, late, off));
+                if (off == 1) {
                     Double lead = t.serverLead();
-                    c.check(lead != null && lead < 0, "offset -1: the attack reached the server " + lead
+                    c.check(lead != null && lead < 0, "offset +1: the attack reached the server " + lead
                             + " ticks BEFORE the countdown's end, want after it");
                 }
             }
@@ -1450,6 +1472,464 @@ final class HxBloodCampCases {
             clearDecoys(c);
             holding(c, "minecraft:air");
             c.hx().removeStands();
+        }
+    }
+
+    // ---- 1101 (doc-blood-1101: the to-do Doc's BLOOD CAMP STUFF and STARRED MOB HIGHLIGHT) ---------------------------
+
+    private static final String BC_MT = "bloodcamp.BloodCampMoveTimer";
+    private static final String BC_STATS = "bloodcamp.BloodCampStats";
+
+    @SuppressWarnings("unchecked")
+    private static java.util.Set<Integer> bloodIds(Minecraft mc) {
+        return (java.util.Set<Integer>) Mod.staticCall(BC, "bloodMobIds");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<Integer, Integer> drawn(Minecraft mc) {
+        return (Map<Integer, Integer>) Mod.staticCall(ESP, "drawnColors");
+    }
+
+    /** An entity of {@code type} named {@code mobName} with a name-tag stand reading {@code tag} summoned right after it. */
+    private static void taggedMob(Session c, String type, String mobName, String tag, double x, double z) {
+        c.server().command(String.format(Locale.ROOT, "summon %s %.2f 151 %.2f {Tags:[\"bcdecoy\"],NoAI:1b,NoGravity:1b,"
+                + "Silent:1b,PersistenceRequired:1b,Invulnerable:1b,CustomName:\"%s\"}", type, x, z, mobName));
+        c.server().command(String.format(Locale.ROOT, "summon armor_stand %.2f 152.2 %.2f {Tags:[\"bcdecoy\"],Invisible:1b,"
+                + "NoGravity:1b,Marker:1b,CustomNameVisible:1b,CustomName:\"%s\"}", x, z, tag));
+        c.ctx().waitTicks(3);
+    }
+
+    /**
+     * killer560, 2026-11-01: "Sometimes it is highlighting those silverfish for the esp", "it can highlight the watcher",
+     * and "something is highlighting all fels ... It is coming currently from the blood mob highlight". A blood name tag
+     * over a silverfish (his 2026-10-29 log: "blood mob tagged by name tag: silverfish"), a blood name tag over a zombie
+     * wearing the Watcher's skull, and a "Fels" tag one room tile away must not make a blood mob; a Revoker and a Fels
+     * inside the Blood Room still must (control).
+     */
+    private static void exclusions(Session c) {
+        try (HxKit.Settings s = base(c)) {
+            boolean was = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(ESP_CFG), "getBloodMobsRaw"));
+            s.custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setBloodMobs", true),
+                    () -> Mod.call(Mod.cfg(ESP_CFG), "setBloodMobs", was));
+            watcher(c, WATCHER_IN);
+            stand(c, AWAY_YAW, 10f);
+            int red = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(ESP_CFG), "getBloodColor"));
+            String wtex = c.onClient(mc -> anyOf(Mod.field(Mod.ROOT + BC, "WATCHER_SKULL_TEXTURES")));
+            taggedHusk(c, "xrevoker", "Revoker 1.4M❤", -421.0, -417.5);
+            taggedMob(c, "silverfish", "xsilver", "Mute 5❤", -417.5, -421.0);
+            taggedHusk(c, "xfelsin", "Fels 1.2M❤", -418.5, -415.5);
+            taggedHusk(c, "xfelsout", "Fels 1.2M❤", -440.5, -417.5);
+            c.server().command(String.format(Locale.ROOT, "summon zombie -416.5 151 -416.5 {Tags:[\"bcdecoy\"],NoAI:1b,"
+                    + "NoGravity:1b,Silent:1b,PersistenceRequired:1b,Invulnerable:1b,CustomName:\"xwatcher\","
+                    + "equipment:{head:{id:\"minecraft:player_head\",count:1,components:{\"minecraft:profile\":{properties:"
+                    + "[{name:\"textures\",value:\"%s\"}]}}}}}", wtex));
+            c.server().command("summon armor_stand -416.5 152.2 -416.5 {Tags:[\"bcdecoy\"],Invisible:1b,NoGravity:1b,"
+                    + "Marker:1b,CustomNameVisible:1b,CustomName:\"Revoker 1M❤\"}");
+            c.ctx().waitTicks(30);
+            Object[] r = c.onClient(mc -> {
+                java.util.Set<Integer> ids = bloodIds(mc);
+                Map<Integer, Integer> d = drawn(mc);
+                int w = clientId(mc, "xwatcher");
+                net.minecraft.world.entity.Entity we = w < 0 ? null : mc.level.getEntity(w);
+                boolean skinned = we instanceof net.minecraft.world.entity.LivingEntity le
+                        && le.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD)
+                        .is(net.minecraft.world.item.Items.PLAYER_HEAD);
+                String[] names = {"xrevoker", "xsilver", "xfelsin", "xfelsout", "xwatcher"};
+                Object[] out = new Object[names.length * 2 + 1];
+                for (int i = 0; i < names.length; i++) {
+                    int id = clientId(mc, names[i]);
+                    out[i * 2] = id >= 0 && ids.contains(id);
+                    out[i * 2 + 1] = d.get(id);
+                }
+                out[names.length * 2] = skinned;
+                return out;
+            });
+            c.note(String.format(Locale.ROOT, "blood mob / ESP color: revoker %s/%s, silverfish %s/%s, Fels in room %s/%s,"
+                    + " Fels one tile over %s/%s, Watcher-skull zombie %s/%s (skull on it client-side: %s); red %s",
+                    r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10], Integer.toHexString(red)));
+            c.check(Boolean.TRUE.equals(r[0]) && Integer.valueOf(red).equals(r[1]),
+                    "control: the Revoker in the Blood Room was not a highlighted blood mob");
+            c.check(Boolean.TRUE.equals(r[4]), "control: a Fels inside the Blood Room was not a blood mob");
+            c.check(Boolean.FALSE.equals(r[2]) && r[3] == null, "the silverfish under a blood name tag was a blood mob");
+            c.check(Boolean.FALSE.equals(r[6]) && r[7] == null, "a Fels one room tile from the Watcher was a blood mob");
+            if (Boolean.TRUE.equals(r[10])) {
+                c.check(Boolean.FALSE.equals(r[8]) && r[9] == null, "the zombie in the Watcher's skull was a blood mob");
+            } else {
+                c.note("the Watcher-skull zombie's head did not reach the client - that check was not made");
+            }
+        } finally {
+            clearDecoys(c);
+            c.hx().removeStands();
+        }
+    }
+
+    /**
+     * killer560, 2026-11-01: "I had a primal fear spawn in the room as blood camp was happening and trigger bot would hit
+     * it as well. And the mob esp would highlight it." A husk named "Primal Fear" lands where a trip ends, under his aim:
+     * it must not become a blood mob, be highlighted or be attacked. Control: the same trip with a plain blood husk is.
+     */
+    private static void primalFearTrip(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            boolean was = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(ESP_CFG), "getBloodMobsRaw"));
+            s.custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setBloodMobs", true),
+                    () -> Mod.call(Mod.cfg(ESP_CFG), "setBloodMobs", was));
+            if (cheat) {
+                s.with(BC_CFG, "TriggerBotEnabled", true);
+            }
+            watcher(c, WATCHER_IN);
+            holding(c, "minecraft:iron_sword");
+            stand(c, 0f, 0f);
+            long since = c.hx().head();
+            Object[] seen = new Object[2];
+            nextHuskName = "Primal Fear";
+            Trip fear = trip(c, Mob.HURTABLE, true, 20, (i, mc) -> {
+                int id = clientId(mc, "Primal Fear");
+                if (id >= 0) {
+                    seen[0] = Boolean.TRUE.equals(seen[0]) || bloodIds(mc).contains(id);
+                    seen[1] = seen[1] != null ? seen[1] : drawn(mc).get(id);
+                }
+            });
+            long onFear = namedAttacks(c, since, "Primal Fear");
+            c.note("Primal Fear on the landing spot: blood mob " + seen[0] + ", ESP color " + seen[1] + ", attacks on it "
+                    + onFear + "; " + fmt(fear));
+            c.check(fear.tracked, "the trip was never tracked - nothing was tested");
+            c.check(!Boolean.TRUE.equals(seen[0]) && seen[1] == null, "the Primal Fear was taken for a blood mob");
+            c.check(onFear == 0 && fear.serverAttacks.isEmpty(), "the Primal Fear was attacked");
+            stand(c, 0f, 0f);
+            Trip control = trip(c, Mob.HURTABLE, true, 20, null);
+            c.note("control, a blood husk on the spot: " + fmt(control));
+            if (cheat) {
+                c.check(control.attacks >= 1 && !control.serverAttacks.isEmpty(), "control: the blood husk was not attacked");
+            } else {
+                c.check(control.serverAttacks.isEmpty(), "legit jar: something attacked");
+            }
+        } finally {
+            nextHuskName = null;
+            holding(c, "minecraft:air");
+            c.hx().removeStands();
+        }
+    }
+
+    /**
+     * killer560, 2026-11-01: "for aura sometimes it is a bit too snappy ... Dont have it track until the timer is about to
+     * go off ... it was doing kind of this snap thing if a mob was spawned with a new one being spawned close to it."
+     * Facing 70 degrees away, the Aura must pick the mob only a reaction plus its turn before the click moment (never the
+     * old 35 ticks before due), still be on it to attack it, and never jump while resting on a point that moved (the
+     * husk appearing 2 ticks after the mob is due moves the point from the empty spot to the husk's chest).
+     */
+    private static void auraLatePick(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            if (cheat) {
+                s.with(BC_CFG, "AuraEnabled", true);
+            }
+            watcher(c, WATCHER_IN);
+            holding(c, "minecraft:iron_sword");
+            stand(c, AWAY_YAW, 10f);
+            int[] firstTurnTick = {-1};
+            nextSummonDelay = 2;
+            Trip t = trip(c, Mob.HURTABLE, false, 30, (i, mc) -> {
+                if (firstTurnTick[0] < 0 && Mod.staticCall(BC, "lastAuraPoint") != null) {
+                    firstTurnTick[0] = i;
+                }
+            });
+            if (!cheat) {
+                c.check(t.serverAttacks.isEmpty() && firstTurnTick[0] < 0, "legit jar: the Aura turned or attacked");
+                return;
+            }
+            double pickedAt = c.onClient(mc -> (Double) Mod.staticCall(BC, "auraPickedAtRemaining"));
+            float rest = c.onClient(mc -> (Float) Mod.staticCall(BC, "auraMaxRestingFrameYaw"));
+            float tickYaw = c.onClient(mc -> (Float) Mod.staticCall(BC, "auraMaxTickYaw"));
+            c.note(String.format(Locale.ROOT, "aura picked the mob at loop tick %d of %.1f to due, %.1f ticks before its click"
+                    + " moment; biggest resting frame turn %.2f deg, biggest tick turn %.2f; %s", firstTurnTick[0], t.due,
+                    pickedAt, rest, tickYaw, fmt(t)));
+            c.check(firstTurnTick[0] >= 0, "the Aura never picked the mob - nothing was tested");
+            c.check(!Double.isNaN(pickedAt) && pickedAt <= 24.0 && pickedAt > 0.0, "the Aura picked the mob " + pickedAt
+                    + " ticks before its click moment, want within a reaction plus its turn (at most 24)");
+            c.check(firstTurnTick[0] >= Math.floor(t.due) - 26, "the Aura was turning " + (t.due - firstTurnTick[0])
+                    + " ticks before the mob was due (the old 35-tick start)");
+            c.check(!t.serverAttacks.isEmpty(), "the Aura never attacked the mob");
+            c.check(rest <= 4.0f, "while resting on the mob the Aura jumped " + rest + " degrees in one frame");
+            c.check(tickYaw <= 26.0f + 1e-3f, "a tick's turn was " + tickYaw + " degrees, over the 26 cap");
+        } finally {
+            nextSummonDelay = null;
+            holding(c, "minecraft:air");
+            c.hx().removeStands();
+        }
+    }
+
+    /** killer560, 2026-11-01: "Have an option to only toggle as mage." With Mage Only on and no class (not the Mage), the
+     *  Trigger Bot must not click a trip he aims at; with it off it must (control). */
+    private static void mageOnly(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            if (cheat) {
+                s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "MageOnly", true);
+            }
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            Trip held = trip(c, Mob.HURTABLE, true, 20, null);
+            c.note("Mage Only, not the Mage: " + fmt(held));
+            c.check(held.tracked, "the trip was never tracked - nothing was tested");
+            c.check(held.clicks == 0 && held.serverAttacks.isEmpty(), "with Mage Only on and not the Mage it clicked");
+            if (cheat) {
+                c.onClient(mc -> {
+                    Mod.call(Mod.cfg(BC_CFG), "setMageOnly", false);
+                    return null;
+                });
+                stand(c, 0f, 0f);
+                Trip open = trip(c, Mob.HURTABLE, true, 20, null);
+                c.note("Mage Only off: " + fmt(open));
+                c.check(open.clicks >= 1 && !open.serverAttacks.isEmpty(), "control: with Mage Only off it never clicked");
+            }
+        } finally {
+            c.hx().removeStands();
+        }
+    }
+
+    /**
+     * killer560, 2026-11-01: "Sometimes if it lags then it wont pick up a mob spawning arrow thing either." A trip whose first
+     * movement arrives as an absolute teleport packet (a 9-block step: what a server sends after a stall instead of relative
+     * moves) must be tracked like one made of move packets: a path, and its landing spot one wave's length along +x.
+     */
+    private static void teleportStep(Session c) {
+        try (HxKit.Settings s = base(c)) {
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            int abs0 = intStat(c, "absoluteMoves");
+            boolean firstWave = c.onClient(mc -> (Boolean) Mod.staticCall(BC_MT, "isFirstSpawns"));
+            double scale = firstWave ? 16.1 : 11.9;
+            double x0 = -420.5 - scale - 1.0;
+            // 4 blocks back: the stand must stay within Blood Camp's 20 blocks of the Watcher before the step (a 9-block
+            // step started 22 blocks out and was rightly ignored, first run).
+            nextTeleportStep = 4.0;
+            // The landing spot a few ticks into the trip: the server stand is moved with the teleport, and its tracker's own
+            // next packet (relative to where IT last was) briefly pulls the client's copy back, which can show for a tick.
+            Vec3[] settled = new Vec3[1];
+            Trip t = trip(c, Mob.NONE, false, 5, (i, mc) -> {
+                if (i == 10) {
+                    settled[0] = endVector();
+                }
+            });
+            if (settled[0] != null) {
+                t = new Trip(t.tracked(), settled[0], t.killAt(), t.triggerAt(), t.clicks(), t.attacks(), t.retries(),
+                        t.serverAttacks(), t.firstTick(), t.due(), t.looks(), t.auraPoint(), t.everTurning(), t.inRoom());
+            }
+            int abs = intStat(c, "absoluteMoves") - abs0;
+            c.note(String.format(Locale.ROOT, "teleport first step: absolute moves taken %d, tracked %s, landing %s (stand"
+                    + " started at x %.2f, want about x %.2f)", abs, t.tracked, t.end, x0, x0 + scale));
+            c.check(abs >= 1, "the teleport packet was never taken as a trip step");
+            c.check(t.tracked && t.end != null, "the trip that began with a teleport was never tracked");
+            c.check(t.end != null && Math.abs(t.end.x - (x0 + scale)) < 1.6 && Math.abs(t.end.z - (-417.5)) < 0.6,
+                    "the landing spot " + t.end + " is not " + scale + " along +x from the stand");
+        } finally {
+            nextTeleportStep = null;
+            c.hx().removeStands();
+        }
+    }
+
+    /**
+     * killer560, 2026-11-01: mob ticks alive "from the second kill goes off to the second the first mob is killed ... Then
+     * from there on out it should only count every tick a blood mob is alive", with a HUD line and an end-of-run party
+     * message. The Watcher's lines arrive as chat; the kill timer is brought to 10 ticks away; two tagged blood husks are
+     * killed 20 and 35 ticks after it. The count must be ~20 at the first kill, ~35 at the second and then stop.
+     */
+    private static void stats(Session c) {
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "HudMobTicks", true).with(BC_CFG, "HudMobsLeft", true).with(BC_CFG, "HudCampLag", true)
+                    .with(BC_CFG, "PartyMessage", true).with(BC_CFG, "PartyMessageAnyClass", false)
+                    .with(BC_CFG, "PartyMessageLag", true);
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            taggedHusk(c, "stat1", "Revoker 1M❤", -421.0, -417.5);
+            taggedHusk(c, "stat2", "Revoker 1M❤", -417.5, -421.0);
+            c.hx().chat("[BOSS] The Watcher: Ah, you've finally arrived.");
+            c.ctx().waitTicks(5);
+            c.hx().chat("[BOSS] The Watcher: Let's see how you can handle this.");
+            c.ctx().waitTicks(5);
+            int sent0 = c.onClient(mc -> (Integer) Mod.staticCall(BC_STATS, "partyMessagesSent"));
+            c.onClient(mc -> {
+                long elapsed = (Long) Mod.staticCall(BC_MT, "elapsedSinceGreeting");
+                int lead = (Integer) Mod.call(Mod.cfg(BC_CFG), "getKillPopupLeadTicks");
+                Mod.setField(BC_MT, "moveAtElapsed", elapsed + 10 + lead);
+                return null;
+            });
+            c.waitUntil("the kill timer goes off", mc -> "FIRST".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
+            long t0 = c.onClient(mc -> (Long) Mod.staticCall(BC_STATS, "ticksLost"));
+            c.ctx().waitTicks(20);
+            c.server().command("kill @e[name=stat1]");
+            c.waitUntil("the first kill is counted", mc -> "ALIVE".equals(Mod.staticCall(BC_STATS, "phaseName")), 40);
+            long first = c.onClient(mc -> (Long) Mod.staticCall(BC_STATS, "firstKillTicks"));
+            c.ctx().waitTicks(15);
+            long atKill2 = c.onClient(mc -> (Long) Mod.staticCall(BC_STATS, "ticksLost"));
+            c.server().command("kill @e[name=stat2]");
+            c.ctx().waitTicks(25);
+            long[] after = c.onClient(mc -> new long[]{(Long) Mod.staticCall(BC_STATS, "ticksLost")});
+            c.ctx().waitTicks(20);
+            long idle = c.onClient(mc -> (Long) Mod.staticCall(BC_STATS, "ticksLost"));
+            @SuppressWarnings("unchecked")
+            List<String> hud = c.onClient(mc -> (List<String>) Mod.staticCall(BC_STATS, "hudLinesForTest"));
+            c.hx().chat("[BOSS] The Watcher: You have proven yourself. You may pass.");
+            c.ctx().waitTicks(3);
+            String phase = c.onClient(mc -> (String) Mod.staticCall(BC_STATS, "phaseName"));
+            boolean camped = c.onClient(mc -> (Boolean) Mod.staticCall(BC_STATS, "camped"));
+            c.onClient(mc -> Mod.staticCall(BC_STATS, "endOfRunForTest"));
+            String msg = c.onClient(mc -> (String) Mod.staticCall(BC_STATS, "lastMessage"));
+            int sent = c.onClient(mc -> (Integer) Mod.staticCall(BC_STATS, "partyMessagesSent")) - sent0;
+            c.note(String.format(Locale.ROOT, "at KILL %d; first kill at %d (want ~20); after both kills %d (want ~35); 20"
+                    + " idle ticks later %d; phase after the Watcher's last line %s; camped %s; HUD %s; message \"%s\", sent %d",
+                    t0, first, after[0], idle, phase, camped, hud, msg, sent));
+            c.check(first >= 17 && first <= 24, "the first kill was counted at " + first + " ticks, want about 20");
+            c.note("count when the second kill was sent: " + atKill2);
+            c.check(atKill2 >= first + 14 && after[0] >= atKill2 && after[0] <= atKill2 + 6, "with one blood mob alive the"
+                    + " count went " + first + " -> " + atKill2 + " (15 ticks) -> " + after[0] + " after its kill, want +15 then"
+                    + " stop within a few ticks of the kill");
+            c.check(idle == after[0], "the count kept going with no blood mob alive: " + after[0] + " -> " + idle);
+            c.check("DONE".equals(phase), "the Watcher's last line did not end the camp (phase " + phase + ")");
+            c.check(hud.stream().anyMatch(l -> l.startsWith("Mob Ticks: " + after[0])), "the HUD does not show the count: "
+                    + hud);
+            c.check(camped, "he stood in the Blood Room after the kill timer and was not counted as camping");
+            c.check(msg != null && msg.startsWith("Blood Camp: " + after[0] + " ticks lost") && msg.contains("server lag"),
+                    "the party message is \"" + msg + "\"");
+            c.check(sent == 1, "the party message went " + sent + " times, want once");
+        } finally {
+            clearDecoys(c);
+            c.onClient(mc -> {
+                Mod.staticCall(BC_MT, "reset");
+                return null;
+            });
+            c.hx().removeStands();
+        }
+    }
+
+    // ---- Dungeon ESP (STARRED MOB HIGHLIGHT) ----
+
+    private static void felSkull(Session c, String tag, double x, double z) {
+        c.server().command(String.format(Locale.ROOT, "summon armor_stand %.2f 151 %.2f {Tags:[\"bcdecoy\",\"%s\"],Invisible:1b,"
+                + "NoGravity:1b,equipment:{head:{id:\"minecraft:skeleton_skull\",count:1}}}", x, z, tag));
+    }
+
+    private static int taggedEntity(Minecraft mc, String scoreTag) {
+        for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+            if (e instanceof net.minecraft.world.entity.decoration.ArmorStand st && st.isInvisible()
+                    && !st.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).isEmpty()
+                    && Math.abs(st.getX() - FEL_AT.get(scoreTag)[0]) < 0.1 && Math.abs(st.getZ() - FEL_AT.get(scoreTag)[1]) < 0.1) {
+                return e.getId();
+            }
+        }
+        return -1;
+    }
+
+    private static final Map<String, double[]> FEL_AT = Map.of("felA", new double[]{-420.5, -421.5},
+            "felB", new double[]{-410.5, -410.5});
+
+    /**
+     * killer560, 2026-11-01: Fel skulls by starred mobs first; once the starred mobs and predicted Fels are dead, the other
+     * skulls; none once the room is clear. A starred zombie with a Fel skull 2 blocks away (predicted) and one 14 blocks
+     * away (not), off the map (the room is the 32x32 cell; its cleared state goes through the test hook).
+     */
+    private static void fels(Session c) {
+        try (HxKit.Settings s = base(c)) {
+            boolean[] was = c.onClient(mc -> new boolean[]{(Boolean) Mod.call(Mod.cfg(ESP_CFG), "getFelSkullsRaw"),
+                    (Boolean) Mod.call(Mod.cfg(ESP_CFG), "getStarredMobsRaw")});
+            s.custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setFelSkulls", true),
+                            () -> Mod.call(Mod.cfg(ESP_CFG), "setFelSkulls", was[0]))
+                    .custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setStarredMobs", true),
+                            () -> Mod.call(Mod.cfg(ESP_CFG), "setStarredMobs", was[1]))
+                    .custom(() -> Mod.staticCall(ESP, "setTestRoomCleared", -420.5, -421.5, false),
+                            () -> Mod.staticCall(ESP, "setTestRoomCleared", -420.5, -421.5, false));
+            c.hx().removeStands(); // no Watcher: nothing here is the Blood Room
+            stand(c, AWAY_YAW, 10f);
+            int pink = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(ESP_CFG), "getFelColor"));
+            c.server().command("summon zombie -422.5 151 -421.5 {Tags:[\"bcstar\"],NoAI:1b,NoGravity:1b,Silent:1b,"
+                    + "PersistenceRequired:1b,Invulnerable:1b,CustomName:\"starz\"}");
+            c.server().command("summon armor_stand -422.5 152 -421.5 {Tags:[\"bcstar\"],Invisible:1b,NoGravity:1b,"
+                    + "CustomNameVisible:1b,CustomName:\"✯ Zombie 100❤\"}");
+            felSkull(c, "felA", -420.5, -421.5);
+            felSkull(c, "felB", -410.5, -410.5);
+            c.ctx().waitTicks(20);
+            Object[] a = c.onClient(mc -> new Object[]{drawn(mc).get(taggedEntity(mc, "felA")),
+                    drawn(mc).get(taggedEntity(mc, "felB")), taggedEntity(mc, "felA"), taggedEntity(mc, "felB")});
+            c.note("with the starred zombie alive: Fel by it " + a[0] + ", lone Fel " + a[1] + " (ids " + a[2] + ", " + a[3]
+                    + "); pink " + Integer.toHexString(pink));
+            c.check((Integer) a[2] >= 0 && (Integer) a[3] >= 0, "the Fel skulls never reached the client - nothing was tested");
+            c.check(Integer.valueOf(pink).equals(a[0]), "the Fel skull beside the starred mob was not highlighted");
+            c.check(a[1] == null, "a lone Fel skull away from any starred mob was highlighted while the pack lived");
+            c.server().command("kill @e[tag=bcstar]");
+            c.server().command("kill @e[tag=felA]");
+            c.ctx().waitTicks(20);
+            Object[] b = c.onClient(mc -> new Object[]{drawn(mc).get(taggedEntity(mc, "felB")),
+                    Mod.staticCall(ESP, "lastOtherFelsDrawn")});
+            c.note("starred mob and its Fel dead, room not cleared: lone Fel " + b[0] + ", other Fels drawn " + b[1]);
+            c.check(Integer.valueOf(pink).equals(b[0]), "with the room's starred mobs dead the other Fel skull was not shown");
+            c.onClient(mc -> Mod.staticCall(ESP, "setTestRoomCleared", -420.5, -421.5, true));
+            c.ctx().waitTicks(10);
+            Object cleared = c.onClient(mc -> drawn(mc).get(taggedEntity(mc, "felB")));
+            c.note("room cleared: lone Fel " + cleared);
+            c.check(cleared == null, "the Fel skull was still highlighted after the room was cleared");
+        } finally {
+            clearDecoys(c);
+        }
+    }
+
+    /**
+     * killer560, 2026-11-01: "it seems to be missing mobs that are slightly far away". A starred zombie whose star name tag
+     * goes away (as a stand does past the server's misc tracking range) must stay highlighted while it lives.
+     */
+    private static void starredMemory(Session c) {
+        try (HxKit.Settings s = base(c)) {
+            boolean was = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(ESP_CFG), "getStarredMobsRaw"));
+            s.custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setStarredMobs", true),
+                    () -> Mod.call(Mod.cfg(ESP_CFG), "setStarredMobs", was));
+            c.hx().removeStands();
+            stand(c, AWAY_YAW, 10f);
+            int star = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(ESP_CFG), "getStarredColor"));
+            c.server().command("summon zombie -422.5 151 -421.5 {Tags:[\"bcstar\"],NoAI:1b,NoGravity:1b,Silent:1b,"
+                    + "PersistenceRequired:1b,Invulnerable:1b,CustomName:\"starz\"}");
+            c.server().command("summon armor_stand -422.5 152 -421.5 {Tags:[\"bcstar\",\"bcstartag\"],Invisible:1b,"
+                    + "NoGravity:1b,CustomNameVisible:1b,CustomName:\"✯ Zombie 100❤\"}");
+            c.ctx().waitTicks(15);
+            Object before = c.onClient(mc -> drawn(mc).get(clientId(mc, "starz")));
+            c.server().command("kill @e[tag=bcstartag]");
+            c.ctx().waitTicks(15);
+            Object after = c.onClient(mc -> drawn(mc).get(clientId(mc, "starz")));
+            c.note("starred zombie with its star tag: " + before + "; tag gone: " + after + "; starred " + Integer.toHexString(star));
+            c.check(Integer.valueOf(star).equals(before), "control: the starred zombie was not highlighted with its tag");
+            c.check(Integer.valueOf(star).equals(after), "the starred zombie lost its highlight when its name tag went away");
+        } finally {
+            clearDecoys(c);
+        }
+    }
+
+    /** killer560, 2026-11-01: "Add an option for mimic highlight as well." A trapped chest in range is drawn; a baby zombie
+     *  (the Mimic) is drawn; once the mimic stands by its chest the chest is no longer drawn. */
+    private static void mimic(Session c) {
+        try (HxKit.Settings s = base(c)) {
+            boolean was = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(ESP_CFG), "getMimicRaw"));
+            s.custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setMimic", true),
+                    () -> Mod.call(Mod.cfg(ESP_CFG), "setMimic", was));
+            c.hx().removeStands();
+            stand(c, 0f, 0f);
+            int purple = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(ESP_CFG), "getMimicColor"));
+            c.server().command("setblock -419 151 -414 minecraft:trapped_chest");
+            c.ctx().waitTicks(25);
+            int chests = c.onClient(mc -> (Integer) Mod.staticCall(ESP, "chestTargetCount"));
+            c.server().command("summon zombie -425.5 151 -421.5 {Tags:[\"bcdecoy\"],IsBaby:1b,NoAI:1b,NoGravity:1b,Silent:1b,"
+                    + "PersistenceRequired:1b,Invulnerable:1b,CustomName:\"mimicz\"}");
+            c.ctx().waitTicks(10);
+            Object mimicColor = c.onClient(mc -> drawn(mc).get(clientId(mc, "mimicz")));
+            c.server().command("tp @e[name=mimicz] -418.5 151 -415.5");
+            c.ctx().waitTicks(25);
+            int chestsAfter = c.onClient(mc -> (Integer) Mod.staticCall(ESP, "chestTargetCount"));
+            c.note("trapped chest drawn " + chests + "; mimic color " + mimicColor + " (purple " + Integer.toHexString(purple)
+                    + "); chests drawn once the mimic is beside it " + chestsAfter);
+            c.check(chests >= 1, "the trapped chest was not highlighted");
+            c.check(Integer.valueOf(purple).equals(mimicColor), "the mimic was not highlighted");
+            c.check(chestsAfter == 0, "the trapped chest stayed highlighted after its mimic came out");
+        } finally {
+            clearDecoys(c);
+            c.server().command("setblock -419 151 -414 minecraft:air");
         }
     }
 }

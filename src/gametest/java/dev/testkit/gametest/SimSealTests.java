@@ -296,10 +296,26 @@ public class SimSealTests implements FabricClientGameTest {
                                 }
                             }
                         }
+                        // A door's middle column is open above its own roof, as on Hypixel: the door scanners find a
+                        // door cell by that column's top block being y 73/74/81/82 (mod doors263-1101). Enclosed by
+                        // the two walled columns beside it and both rooms' walls, so not a way out.
+                        int ownTop = Integer.MAX_VALUE;
+                        if (door && t == 0 && doorFloor != Integer.MIN_VALUE) {
+                            ownTop = doorFloor + 3;
+                            for (int y = band[1]; y >= doorFloor + 4; y--) {
+                                if (!level.getBlockState(new BlockPos(sx, y, sz)).isAir()) {
+                                    ownTop = y;
+                                    break;
+                                }
+                            }
+                        }
                         for (int y = band[0]; y <= band[1]; y++) {
                             BlockPos p = new BlockPos(sx, y, sz);
                             if (!level.getBlockState(p).getCollisionShape(level, p).isEmpty()) {
                                 continue;
+                            }
+                            if (y > ownTop) {
+                                continue;   // the door's middle column above its roof
                             }
                             if (doorFloor != Integer.MIN_VALUE && y >= doorFloor && y < doorFloor + 4) {
                                 continue;   // the door's own opening

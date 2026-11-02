@@ -1089,7 +1089,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                     return "no Font Size row: " + labels(menu);
                 }
                 ModScreenDriver.press(size);
-                menu.keyPressed(new net.minecraft.client.input.KeyEvent(256, 0, 0));
+                menu.keyPressed(dev.testkit.compat.McKeys.keyEvent(com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE, 0));
                 if (!(McCompat.screen(mc) instanceof TitleScreen)) {
                     return "Escape left " + McCompat.screen(mc) + " instead of the title screen";
                 }

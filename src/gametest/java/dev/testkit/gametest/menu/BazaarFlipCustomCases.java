@@ -494,15 +494,25 @@ final class BazaarFlipCustomCases {
             c.check(refusal == null, "start refused: " + refusal);
             c.waitUntil("the product page to be open", mc -> PUFFER.productTitle().equals(MenuKit.screenTitle(mc)), 600);
             int before = c.events("menu.click").size();
+            // Since mod doc-etable-1101 (killer560, 2026-11-01) only Escape and the Emergency Cancel Key stop it: J is kept
+            // off the menu (a stray key there is a hotbar-swap packet) and the flip goes on.
             c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(74)); // GLFW_KEY_J, inside Hypixel's (un-reskinned) container
-            c.waitUntil("the flipper to stop on the key", mc -> !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature",
+            c.ctx().waitTicks(3);
+            boolean runningAfterJ = c.onClient(mc -> (Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"));
+            c.check(runningAfterJ, "J stopped the flipper: " + stopReason(c));
+            c.waitUntil("the product page to be open again", mc -> PUFFER.productTitle().equals(MenuKit.screenTitle(mc))
+                    || !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature", "isRunning"), 200);
+            int beforeEsc = c.events("menu.click").size();
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(256)); // GLFW_KEY_ESCAPE
+            c.waitUntil("the flipper to stop on Escape", mc -> !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature",
                     "isRunning"), 20);
             c.ctx().waitTicks(60);
             String reason = stopReason(c);
-            c.check(reason.contains("J"), "stop reason does not name the key: " + reason);
+            c.check(reason.contains("Escape"), "stop reason does not name Escape: " + reason);
             c.check(before >= 2, "the autopilot had not clicked its way to the product page: " + FlipCroesusCases.allClicks(c));
-            c.check(c.events("menu.click").size() == before, "clicks after the key: " + FlipCroesusCases.allClicks(c));
-            c.note("J in the product container: stopped (\"" + reason + "\"), " + before + " click(s) before, none after");
+            c.check(c.events("menu.click").size() == beforeEsc, "clicks after Escape: " + FlipCroesusCases.allClicks(c));
+            c.note("J in the product container: still running " + runningAfterJ + "; Escape: stopped (\"" + reason + "\"), "
+                    + before + " click(s) before J, none after Escape");
         }
     }
 
@@ -516,13 +526,19 @@ final class BazaarFlipCustomCases {
             String refusal = FlipCroesusCases.start(c);
             c.check(refusal == null, "start refused: " + refusal);
             c.waitUntil("the amount sign to open", mc -> McCompat.screen(mc) instanceof AbstractSignEditScreen, 900);
+            // The Emergency Cancel Key (here J) stops it in the sign and is swallowed there (mod doc-etable-1101).
+            c.ctx().runOnClient(mc -> Mod.set("macrostop.MacroStopConfig", "setEmergencyCancelKeyCode", 74));
             c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(74)); // J, while the sign editor is up and before the flipper types
             c.waitUntil("the flipper to stop on the key", mc -> !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature",
                     "isRunning"), 20);
+            c.ctx().runOnClient(mc -> {
+                Mod.set("macrostop.MacroStopConfig", "setEmergencyCancelKeyCode", -1);
+                Mod.staticCall("macrostop.MacroStop", "release", "testkit");
+            });
             c.ctx().waitTicks(40);
             String reason = stopReason(c);
             boolean signStillOpen = c.onClient(mc -> McCompat.screen(mc) instanceof AbstractSignEditScreen);
-            c.check(reason.contains("J"), "stop reason: " + reason);
+            c.check(reason.contains("Emergency Cancel Key"), "stop reason: " + reason);
             c.check(c.events("sign.opened").size() == 1, "sign prompts the server opened: " + c.events("sign.opened").size());
             c.check(signAmounts(c).isEmpty(), "the sign was sent: " + signAmounts(c));
             c.check(given(c) == 0, "delivered " + given(c));
@@ -530,7 +546,7 @@ final class BazaarFlipCustomCases {
             c.ctx().runOnClient(mc -> McCompat.setScreen(mc, null));
             c.ctx().waitTicks(20);
             c.check(signAmounts(c).stream().allMatch(String::isEmpty), "a number was sent: " + signAmounts(c));
-            c.note("J in the amount sign: stopped (\"" + reason + "\"), sign left " + (signStillOpen ? "open" : "closed")
+            c.note("the Emergency Cancel Key (J) in the amount sign: stopped (\"" + reason + "\"), sign left " + (signStillOpen ? "open" : "closed")
                     + " with nothing typed; closing it sent " + signAmounts(c));
         }
     }

@@ -70,6 +70,8 @@ final class MenuLayoutCases {
     private static final Set<String> NESTED_OK = Set.of("Secrets", "Puzzle Solvers");
     /** Sections added by this change (cheat build): Home's Correction Alarm, out of the middle of Mod & HUD. */
     private static final Set<String> NEW_LEAVES = Set.of("gui.tab.CorrectionAlarmTab",
+            // Thorn Triggerbot (mod doc-auto-1101, killer560 2026-11-01): its own card in Dungeons' cheat block; cheat jar only.
+            "gui.tab.ThornTriggerbotTab",
             // Held Item Outline (mod held-outline, killer560 2026-10-09): its own tab in Cosmetics.
             "gui.tab.HeldOutlineTab",
             // Auto Update (mod auto-update, killer560 2026-10-11): its own tab in Home, legit in both builds.
@@ -120,7 +122,13 @@ final class MenuLayoutCases {
             "gui.tab.P3StatusTab",
             // Low Health Alert, Score Warning and Breaker Charges (Dungeon) and Secret Clicked (Dungeon > Secrets), mod
             // dungeon-alerts-1025, 2026-10-25; legit in both builds.
-            "gui.tab.LowHealthAlertTab", "gui.tab.ScoreWarningTab", "gui.tab.BreakerChargesTab", "gui.tab.SecretClickedTab");
+            "gui.tab.LowHealthAlertTab", "gui.tab.ScoreWarningTab", "gui.tab.BreakerChargesTab", "gui.tab.SecretClickedTab",
+            // Ban Reports (mod doc-ban-1101, to-do Doc "BAN LOGGER", 2026-11-01): Auto Report Bans, a Home section after
+            // his ordered cards, legit in both builds, OFF by default.
+            "gui.tab.BanReportTab",
+            // To-do Doc items of 2026-11-01 (mod doc-extras-1101), legit in both builds: Creation Cooldown and Insta Clear
+            // Warning (Dungeons), Gyrokinetic Wand Overlay (Items), Chat Tabs (Chat).
+            "gui.tab.CreationCooldownTab", "gui.tab.InstaClearWarningTab", "gui.tab.GyroOverlayTab", "gui.tab.ChatTabsTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.
@@ -181,8 +189,9 @@ final class MenuLayoutCases {
                 return;
             }
 
-            // The Option A categories (mod menu-a, 2026-10-12): Favorites is a sidebar entry, not a category.
-            c.check(top.equals(List.of("Home", "Dungeons", "HUD", "Chat", "Items", "Social", "Cosmetics", "Misc", "Profiles")),
+            // The Option A categories (mod menu-a, 2026-10-12): Favorites is a sidebar entry, not a category. Mining since
+            // mod doc-mining-1101 (the pre-2.0 mining features).
+            c.check(top.equals(List.of("Home", "Dungeons", "Mining", "HUD", "Chat", "Items", "Social", "Cosmetics", "Misc", "Profiles")),
                     "the categories are " + top);
             // (a) Crosshair: not top level, a card of HUD (General until the 2026-10-12 regroup), and its rows build there.
             for (String t : top) {
