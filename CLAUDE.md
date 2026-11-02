@@ -552,3 +552,7 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
 - Never start a second `run-scenario.ps1` in a checkout whose queue is between or inside runs: at its start the script kills
   that checkout's "leftover" client and server, which is the other run's live ones ("Killing a leftover test client", ship-1102h
   2026-11-02 killed a ZPEW half mid-run). One queue per checkout; make another detached worktree for a rerun.
+- 525-ui-menu-every-master (mod menufix-1102) switches every row a card stands for ON alone and needs the card ON. A row
+  drawn inactive for the account (Spotify Share My Song, a supporter perk) cannot be pressed and is skipped. RibbonTrailTab
+  is a section inside Cosmetics, not a card. A menu StringWidget built from `Component.literal("§7...")` keeps the
+  section codes in `getString()`: strip with `ChatFormatting.stripFormatting` before comparing text (526, 2026-11-02).
