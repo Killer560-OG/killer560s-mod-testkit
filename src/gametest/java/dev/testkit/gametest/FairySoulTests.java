@@ -1482,7 +1482,7 @@ public class FairySoulTests implements FabricClientGameTest {
 
     /** Graph on disk as the cached HUB graph, island = Hub, Skyblock sidebar, settings, souls placed. */
     @SuppressWarnings("unchecked")
-    private static Map<String, Integer> setup(ClientGameTestContext ctx, Hx hx, List<Node> nodes) {
+    static Map<String, Integer> setup(ClientGameTestContext ctx, Hx hx, List<Node> nodes) {
         String json = graphJson(nodes);
         ctx.runOnClient(mc -> {
             try {
@@ -1547,7 +1547,7 @@ public class FairySoulTests implements FabricClientGameTest {
      * Set up, start, then tick until every soul is used or {@code maxTicks}: answer each used stand, and sample the
      * client every tick for distance, take-offs and the per-tick camera turn.
      */
-    private static Result runSouls(ClientGameTestContext ctx, Scenario scenario, List<Node> nodes, int maxTicks,
+    static Result runSouls(ClientGameTestContext ctx, Scenario scenario, List<Node> nodes, int maxTicks,
                                    TickHook hook) {
         Result r = new Result();
         int souls = (int) nodes.stream().filter(Node::soul).count();
