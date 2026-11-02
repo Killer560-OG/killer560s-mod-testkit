@@ -1298,3 +1298,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - In the F7 boss, Floor7Tracker.getPhaseAt() reads the phase from his Y alone (P1 >210, P2 >155, P3 >100): a case that stands at
   y 151 is "in P3" with no Goldor line at all. 835-boss-grim-witherbot-range stands at y 170 so Goldor-only mode really is out
   of P3 (doc-auto-1101).
+
+- When run-scenario.ps1 closes a FROZEN client, the session's test server can stay alive and keep the port: the next run in
+  that checkout fails with "FAILED TO BIND TO PORT" (server exits before ready) or hangs at TestServer.start. Before
+  re-running, kill this checkout's own runTestServer java (its command line names the checkout path) (doc-auto-1101).

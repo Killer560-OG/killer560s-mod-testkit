@@ -1083,7 +1083,7 @@ final class GrimTickCases {
         try (HxKit.Settings off = gateOff(c);
              HxKit.Settings ip = hypixelIp(c);
              HxKit.Settings on = new HxKit.Settings(c).with(THORN_CFG, "TriggerbotAimed", true)
-                     .with(THORN_CFG, "Triggerbot", false)) {
+                     .custom(() -> Mod.set(THORN_CFG, "setTriggerbot", false), () -> Mod.set(THORN_CFG, "setTriggerbot", false))) {
             c.server().command("item replace entity @a hotbar.0 with " + TRIBAL);
             c.server().command("item replace entity @a hotbar.1 with stick");
             c.server().command("forceload add 34 42 46 76");
