@@ -1301,3 +1301,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   account cannot do Mojang's sign-in) and a second socket in the client's lobby room plays the other player. Without the
   override it is a SKIP row. The override reaches the client as the system property `killer560.net.relay`, not
   `killer560.net.override`. A filter must name the session too: `100-hx-session+,-hx-spotify-`.
+- 1101-ap3-*-once-reenter / 1101-boss-ap3-termaura-run (`Ap3Stop1101Cases`, `boss/Ap3TermAuraCases.runIn`, mod ap3-stop-1101):
+  a Stop / Term Aura fires once per entry and a Term Aura stops him. Judged from per-tick positions (a standstill is a tick
+  moving < 0.01). A Term Aura node only clicks a stand whose feet are at or below his EYES (`TerminalAuraFeature.pick`,
+  Hypixel's no-open-from-below rule), so a run on the pillar's ground got "no terminal in range" whatever `minDy` said;
+  the run-in case lays a runway level with the stand (blocks at G+2). On the base jar 1101-ap3-stop-once-reenter passes
+  too (the edge detector already fired a plain Stop once per entry); the Term Aura cases are the ones a pre-1101 jar fails.

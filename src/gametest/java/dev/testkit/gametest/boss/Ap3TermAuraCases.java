@@ -54,6 +54,133 @@ final class Ap3TermAuraCases {
         s.test("416-boss-ap3-termaura-behind", c -> run(c, Mode.BEHIND_TURN));
         s.test("417-boss-ap3-termaura-front", c -> run(c, Mode.FRONT));
         s.testExpectingFlags("418-boss-ap3-termaura-behind-noturn", c -> run(c, Mode.BEHIND_NOTURN));
+        // mod ap3-stop-1101 (killer560: "a termaura node will make you stop as well just like a stop node").
+        s.test("1101-boss-ap3-termaura-run", Ap3TermAuraCases::runIn);
+    }
+
+    /**
+     * 1101: a RUN carries him along the ground beside the pillar into a TERM_AURA box with the terminal in range. The click
+     * must open the terminal once, and he must stop like a STOP: from the tick after the box no push (each tick's move
+     * is the last one times ground friction, about 0.55, never kept up), at rest within 15 ticks. Before 1101 the run kept
+     * pushing until the terminal screen arrived. He runs on a one-block runway level with the stand's feet.
+     */
+    static void runIn(Session c) throws Exception {
+        List<AutoCloseable> undo = new ArrayList<>();
+        try {
+            c.hx().call("boss.term.build", "x", X, "z", Z, "groundY", G);
+            // A runway level with the stand's feet (the mod refuses a stand above the eyes, as Hypixel does since 2026-10),
+            // along z = Z - 1.5, south of the pillar: blocks at G + 2, so he runs at G + 3.
+            c.server().command(String.format(java.util.Locale.ROOT, "fill %d %d %d %d %d %d minecraft:stone", X - 4, G + 2, Z - 2, X + 4, G + 2, Z - 2));
+            c.server().sync(20);
+            double px = X - 3.5;
+            double py = G + 3;
+            double pz = Z - 1.5;
+            TerminalAuraCases.tp(c, px, py, pz, -90f);
+            JsonObject st = c.hx().call("boss.term.spawn").getAsJsonObject();
+            int standId = st.get("standId").getAsInt();
+            c.waitUntil("the client to have the terminal stand", mc -> mc.level.getEntity(standId) != null, 200);
+            c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
+            c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
+            c.hx().chat(TerminalAuraCases.GOLDOR);
+            c.waitUntil("Floor7Tracker phase P3",
+                    mc -> "P3".equals(String.valueOf(Mod.staticCall(TerminalAuraCases.TRACKER, "getPhase"))), 100);
+            String ta = TerminalAuraCases.CONFIG;
+            undo.add(c.onClient(mc -> Mod.with(ta, "Enabled", false)));
+            undo.add(c.onClient(mc -> Mod.with(ta, "Range", 3.0)));
+            undo.add(c.onClient(mc -> Mod.with(ta, "TurnToTerminal", true)));
+            undo.add(c.onClient(mc -> Mod.with(AP3_CONFIG, "Enabled", true)));
+            undo.add(c.onClient(mc -> Mod.with(AP3_CONFIG, "ChatFeedback", true)));
+            c.onClient(mc -> {
+                Mod.staticCall(EXEC, "stop", "test lane");
+                Mod.staticCall(FEATURE, "setForceDungeon", true);
+                setChain();
+                return null;
+            });
+            TerminalAuraCases.closeScreen(c);
+            TerminalAuraCases.tp(c, px, py, pz, -90f);
+            c.ctx().waitTicks(5);
+            int before = c.events("term.interact").size();
+            Object run = node("RUN", px, py, pz);
+            Mod.cls(NODE).getField("yaw").set(run, -90f); // east, along z = Z - 1.5, past the pillar's south side
+            Object termAura = node("TERM_AURA", X + 0.5, py, pz);
+            Mod.cls(NODE).getField("length").set(termAura, 1.0);
+            Mod.cls(NODE).getField("width").set(termAura, 1.0);
+            c.onClient(mc -> {
+                setChain(run, termAura); // he stands in the RUN's box: it fires on the next scan
+                return null;
+            });
+            List<double[]> xs = new ArrayList<>(); // {x, inTermAuraBox, screenOpen}
+            double lastX = c.onClient(mc -> mc.player.getX());
+            for (int t = 0; t < 70; t++) {
+                c.ctx().waitTick();
+                double[] r = c.onClient(mc -> new double[]{mc.player.getX(),
+                        Boolean.TRUE.equals(Mod.call(termAura, "contains", mc.player.position())) ? 1 : 0,
+                        dev.testkit.compat.McCompat.screen(mc) != null ? 1 : 0});
+                xs.add(new double[]{r[0], r[0] - lastX, r[1], r[2]});
+                lastX = r[0];
+            }
+            int entry = -1;
+            int rest = -1;
+            int screenAt = -1;
+            for (int t = 0; t < xs.size(); t++) {
+                double[] s = xs.get(t);
+                if (entry < 0 && s[2] > 0) {
+                    entry = t;
+                }
+                if (screenAt < 0 && s[3] > 0) {
+                    screenAt = t;
+                }
+                if (entry >= 0 && rest < 0 && t > entry && Math.abs(s[1]) < 0.003) {
+                    rest = t;
+                }
+            }
+            StringBuilder trace = new StringBuilder();
+            for (int t = Math.max(0, entry - 3); entry >= 0 && t < Math.min(xs.size(), entry + 16); t++) {
+                trace.append(String.format(java.util.Locale.ROOT, " t%d x%.3f dx%+.4f%s%s", t, xs.get(t)[0], xs.get(t)[1],
+                        xs.get(t)[2] > 0 ? " in" : "", xs.get(t)[3] > 0 ? " screen" : ""));
+            }
+            int clicks = c.events("term.interact").size() - before;
+            c.note("1101 run-in: entry t" + entry + ", screen t" + screenAt + ", at rest t" + rest + ", interacts " + clicks
+                    + ";" + trace);
+            c.check(entry >= 0, "the RUN never carried him into the TERM_AURA box - nothing below means anything");
+            double vIn = xs.get(entry)[1];
+            c.check(vIn > 0.15, String.format(java.util.Locale.ROOT, "he entered at %.3f a tick: not running", vIn));
+            for (int t = entry + 1; t < Math.min(xs.size(), entry + 6); t++) {
+                double prev = xs.get(t - 1)[1];
+                double now = xs.get(t)[1];
+                c.check(now <= prev * 0.75 + 1e-4, String.format(java.util.Locale.ROOT,
+                        "t%d moved %.4f after %.4f: something still pushed him after the Term Aura box", t, now, prev));
+            }
+            c.check(rest >= 0 && rest - entry <= 15, "not at rest within 15 ticks of the box (rest t" + rest + ")");
+            c.check(clicks == 1, "expected exactly one interact from the node, the server saw " + clicks);
+            if (clicks >= 1) {
+                JsonObject last = c.events("term.interact").get(c.events("term.interact").size() - 1);
+                c.check(last.get("opened").getAsBoolean(), "the node clicked but the terminal did not open: " + last);
+            }
+            c.check(screenAt >= 0, "the terminal screen never opened on the client");
+        } finally {
+            TerminalAuraCases.closeScreen(c);
+            c.onClient(mc -> {
+                try {
+                    Mod.staticCall(EXEC, "stop", "test end");
+                    setChain();
+                    Mod.staticCall(FEATURE, "setForceDungeon", false);
+                } catch (Throwable t) {
+                    System.out.println("[ap3-termaura] AP3 reset failed: " + t);
+                }
+                for (int i = undo.size() - 1; i >= 0; i--) {
+                    try {
+                        undo.get(i).close();
+                    } catch (Exception e) {
+                        System.out.println("[ap3-termaura] restore failed: " + e);
+                    }
+                }
+                return null;
+            });
+            c.hx().call("boss.term.clear");
+            c.hx().sidebarClear();
+            c.hx().call("dungeon.tp", "x", -619.5, "y", 151.0, "z", -619.5, "yaw", 0f, "pitch", 0f);
+        }
     }
 
     enum Mode { BEHIND_TURN, FRONT, BEHIND_NOTURN }
