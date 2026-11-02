@@ -29,6 +29,9 @@ final class InventoryCases {
 
     static void register(Session s) {
         MenuSuite.test(s, "240-menu-autosell-sell-menu", InventoryCases::autosell);
+        // doc-auto-1101: any NPC sell menu (slot 49's sell lore, a title the pattern refuses) and a ghost sell resold
+        MenuSuite.test(s, "240-menu-autosell-npc-menu", InventoryCases::autosellNpcMenu);
+        MenuSuite.test(s, "240-menu-autosell-ghost-resell", InventoryCases::autosellGhost);
         MenuSuite.test(s, "241-menu-itemprotect-bin-auction", InventoryCases::itemProtect);
         MenuSuite.test(s, "242-menu-invsort-swap", InventoryCases::invsort);
         MenuSuite.test(s, "243-menu-slotbinds-shift-click", InventoryCases::slotBinds);
@@ -88,6 +91,91 @@ final class InventoryCases {
             c.check(sold.get("count").getAsInt() == 16, "sold count " + sold);
             c.note("Auto Sell in 'Sell': sold " + ids + " by " + c.events("container.click").get(0).get("input").getAsString()
                     + "; stone kept; " + MenuKit.cadence(c));
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.call(cfgObj, "removeSellIdentity", "ENCHANTED_DIAMOND"));
+            MenuKit.reset(c);
+            clearInv(c);
+        }
+    }
+
+    /**
+     * Any NPC Sell Menu (doc-auto-1101): the Sell fixture retitled "Farm Merchant", which the pattern "(?i).*sell.*"
+     * refuses. Off: nothing sold in 40 ticks (control). On: the listed stack is sold, the stone kept.
+     */
+    static void autosellNpcMenu(Session c) throws Exception {
+        MenuKit.reset(c);
+        clearInv(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto Sell does not exist - nothing to check");
+            return;
+        }
+        Object cfgObj = c.onClient(mc -> Mod.cfg("autosell.AutoSellConfig"));
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set("autosell.AutoSellConfig", "Enabled", true).set("autosell.AutoSellConfig", "AnyNpcMenu", false);
+            c.ctx().runOnClient(mc -> Mod.call(cfgObj, "addSellIdentity", "ENCHANTED_DIAMOND"));
+            c.ctx().runOnClient(mc -> Mod.call(cfgObj, "setScreenTitlePattern", "(?i).*sell.*"));
+            c.hx().call("give", "slot", 0, "stack", MenuKit.item("items.enchanted-diamond"), "count", 16);
+            c.hx().call("give", "slot", 1, "stack", "minecraft:stone", "count", 3);
+            JsonObject shop = MenuKit.menu("menus.sell");
+            shop.addProperty("title", "Farm Merchant");
+            MenuKit.show(c, shop);
+            MenuKit.awaitScreen(c, "Farm Merchant", 100);
+            c.ctx().waitTicks(40);
+            int offSold = c.events("sell.sold").size();
+            c.check(offSold == 0, "Any NPC Sell Menu off: sold " + offSold + " in a menu the title pattern refuses");
+            c.check(c.events("container.click").isEmpty(), "Any NPC Sell Menu off: clicked in Farm Merchant");
+            MenuKit.reset(c);
+            c.ctx().runOnClient(mc -> Mod.set("autosell.AutoSellConfig", "setAnyNpcMenu", true));
+            MenuKit.show(c, shop);
+            MenuKit.awaitScreen(c, "Farm Merchant", 100);
+            JsonObject sold = MenuKit.awaitEvent(c, "sell.sold", 200);
+            c.waitUntil("Auto Sell to finish", mc -> !(Boolean) Mod.staticCall("autosell.AutoSellFeature", "isRunning"), 300);
+            List<String> ids = new ArrayList<>();
+            c.events("sell.sold").forEach(e -> ids.add(e.get("skyblockId").getAsString() + "x" + e.get("count").getAsInt()));
+            c.check(ids.size() == 1 && ids.get(0).equals("ENCHANTED_DIAMONDx16"), "sold " + ids);
+            c.check(c.onClient(mc -> mc.player.getInventory().getItem(1).is(Items.STONE)), "the stone is gone");
+            c.note("Farm Merchant (title refused by the pattern): off sold 0, on sold " + ids + " (" + sold + ")");
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.call(cfgObj, "removeSellIdentity", "ENCHANTED_DIAMOND"));
+            MenuKit.reset(c);
+            clearInv(c);
+        }
+    }
+
+    /**
+     * Ghost sell (doc-auto-1101, killer560: "it goes into the menu quickly then back into the inventory, but it never
+     * resells it"): the shop's first sale is a ghost (nothing sold, menu re-sent, the stack back in its slot). Auto Sell
+     * must click that stack again and sell it.
+     */
+    static void autosellGhost(Session c) throws Exception {
+        MenuKit.reset(c);
+        clearInv(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto Sell does not exist - nothing to check");
+            return;
+        }
+        Object cfgObj = c.onClient(mc -> Mod.cfg("autosell.AutoSellConfig"));
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set("autosell.AutoSellConfig", "Enabled", true);
+            c.ctx().runOnClient(mc -> Mod.call(cfgObj, "addSellIdentity", "ENCHANTED_DIAMOND"));
+            c.ctx().runOnClient(mc -> Mod.call(cfgObj, "setScreenTitlePattern", "(?i).*sell.*"));
+            c.hx().call("give", "slot", 0, "stack", MenuKit.item("items.enchanted-diamond"), "count", 16);
+            int ghostsBefore = c.onClient(mc -> (Integer) Mod.staticCall("autosell.AutoSellFeature", "ghostRetries"));
+            JsonObject shop = MenuKit.menu("menus.sell");
+            shop.addProperty("fill", false); // room in the shop, so the client predicts the stack moving in
+            shop.addProperty("ghostSells", 1);
+            MenuKit.show(c, shop);
+            MenuKit.awaitScreen(c, "Sell", 100);
+            MenuKit.awaitEvent(c, "sell.ghost", 200);
+            JsonObject sold = MenuKit.awaitEvent(c, "sell.sold", 300);
+            int clicks = c.events("container.click").size();
+            int retries = c.onClient(mc -> (Integer) Mod.staticCall("autosell.AutoSellFeature", "ghostRetries")) - ghostsBefore;
+            boolean gone = c.onClient(mc -> mc.player.getInventory().getItem(0).isEmpty());
+            c.note("ghost sell: sell.ghost " + c.events("sell.ghost").size() + ", sold " + sold + ", clicks " + clicks
+                    + ", ghost retries " + retries + ", slot empty " + gone);
+            c.check(sold.get("count").getAsInt() == 16, "the ghost-sold stack was not sold again: " + sold);
+            c.check(clicks == 2, "want 2 clicks (the ghost and the resell), got " + clicks);
+            c.check(gone, "the Enchanted Diamond stack is still in slot 0");
         } finally {
             c.ctx().runOnClient(mc -> Mod.call(cfgObj, "removeSellIdentity", "ENCHANTED_DIAMOND"));
             MenuKit.reset(c);

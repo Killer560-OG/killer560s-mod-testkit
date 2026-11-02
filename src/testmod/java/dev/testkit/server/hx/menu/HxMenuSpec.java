@@ -37,7 +37,8 @@ import java.util.List;
  * player's inventory and a {@code sell.sold} event names it - the way an NPC shop takes items. A PICKUP on a player slot
  * does nothing, like Hypixel. With {@code sellPrice} the shop also sends Hypixel's "You sold X xN for C Coins!"; with
  * {@code sellLimit} a sale that would take its total past that many coins is refused ({@code sell.refused}, the stack
- * stays) and {@code limitChat} is sent - the daily NPC sell limit.
+ * stays) and {@code limitChat} is sent - the daily NPC sell limit. {@code ghostSells: N} makes the first N sales ghost
+ * sells: nothing sold, the menu re-sent so the stack is back where it was ({@code sell.ghost}).
  *
  * <p>Two more actions (2026-10-16, Bazaar Custom Amount): {@code {sign: {...}}} closes the menu and opens a sign prompt
  * ({@link HxSigns}), and {@code {deliver: {...}}} is a Confirm Instant Buy button that does the purchase it states.
@@ -150,6 +151,16 @@ final class HxMenuSpec {
                                     new ClientboundSystemChatPacket(Component.literal(line), false)));
                         }
                         menu.broadcastChanges();
+                        return;
+                    }
+                    // "ghostSells": N - the first N sales are ghost sells (doc-auto-1101, killer560: "it goes into the menu
+                    // quickly then back into the inventory"): nothing is sold, and the whole menu is sent again, so the
+                    // client's predicted move of the stack is undone and it is back in its slot.
+                    int ghosts = spec.has("ghostSells") ? spec.get("ghostSells").getAsInt() : 0;
+                    if (ghosts > 0) {
+                        spec.addProperty("ghostSells", ghosts - 1);
+                        HxEvents.custom("sell.ghost", player, e);
+                        menu.sendAllDataToRemote();
                         return;
                     }
                     spec.addProperty("paid", paid + coins);

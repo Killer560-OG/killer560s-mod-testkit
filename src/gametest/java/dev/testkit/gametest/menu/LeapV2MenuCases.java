@@ -39,6 +39,9 @@ final class LeapV2MenuCases {
         // ---- leap-v2, killer560's 2026-10-13 review of Fast/Auto Leap (1341-1342) ----
         MenuSuite.test(s, "1341-menu-autoleap-sequence", LeapV2MenuCases::sequence);
         MenuSuite.test(s, "1342-menu-autoleap-failures", LeapV2MenuCases::failures);
+        // doc-auto-1101: the Leap Timeout setting, and the custom leap menu never drawing as nothing
+        MenuSuite.test(s, "1343-menu-autoleap-timeout", LeapV2MenuCases::leapTimeout);
+        MenuSuite.test(s, "1344-menu-leapmenu-empty-notice", LeapV2MenuCases::emptyLeapMenu);
     }
 
     // =================================================================================================================
@@ -239,6 +242,97 @@ final class LeapV2MenuCases {
             c.check(sel == 0, "after the failed leap he holds slot " + (sel + 1) + ", want slot 1");
         } finally {
             restore(c, file, was);
+        }
+    }
+
+    // =================================================================================================================
+    // 1343 Leap Timeout (doc-auto-1101)
+    // =================================================================================================================
+
+    /** A door leap whose menu never opens, at Leap Timeout 0.5 s and 2.5 s: the leap must end (inputs back, isBusy false)
+     *  in about the time set - the short one well before the old fixed 2 s, the long one after it - and nothing may still
+     *  be blocking input afterwards. */
+    static void leapTimeout(Session c) throws Exception {
+        MenuKit.reset(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Fast/Auto Leap is cheat-only");
+            return;
+        }
+        Path file = configFile(c);
+        byte[] was = Files.exists(file) ? Files.readAllBytes(file) : null;
+        Object cfgObj = c.onClient(mc -> Mod.staticCall(FLC, "getInstance"));
+        Object door = Mod.enumValue(FLC + "$LeapGroup", "DOOR");
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set(FLC, "Enabled", true);
+            party(c, List.of("Alice", "Bob", "Carol", "Dave"));
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfgObj, "setTargetMode", Mod.enumValue(FLC + "$TargetMode", "PER_LEAP"));
+                Mod.call(cfgObj, "setLeapFast", door, false);
+                Mod.call(cfgObj, "setLeapAuto", door, true);
+                Mod.call(cfgObj, "setReturnToSlot", -2);
+                Mod.call(cfgObj, "setBlockInputs", true);
+            });
+            c.hx().call("menu.onUse", "id", "SPIRIT_LEAP", "menu", null);
+            int[] busy = new int[2];
+            int[] ms = {500, 2500};
+            for (int i = 0; i < 2; i++) {
+                int t = ms[i];
+                c.ctx().runOnClient(mc -> Mod.call(cfgObj, "setTimeoutMs", t));
+                giveLeap(c, 0);
+                c.ctx().runOnClient(mc -> {
+                    mc.player.getInventory().setSelectedSlot(0);
+                    Mod.setField(LM, "leapCdTicks", 0.0);
+                });
+                c.ctx().waitTicks(3);
+                c.hx().chat("Bob opened a WITHER door!");
+                c.waitUntil("the leap to start", mc -> (Boolean) Mod.staticCall(LM, "isBusy"), 40);
+                int n = 0;
+                while (c.onClient(mc -> (Boolean) Mod.staticCall(LM, "isBusy")) && n < 200) {
+                    c.ctx().waitTicks(1);
+                    n++;
+                }
+                busy[i] = n;
+                boolean after = c.onClient(mc -> (Boolean) Mod.staticCall(LM, "blocksInput"));
+                c.check(!after, t + " ms: still blocking inputs after the leap ended");
+                c.ctx().waitTicks(5);
+            }
+            c.note("menu never opens: busy " + busy[0] + " ticks at 0.5 s, " + busy[1] + " ticks at 2.5 s (old fixed wait: 40)");
+            c.check(busy[0] >= 8 && busy[0] <= 16, "0.5 s timeout held the leap " + busy[0] + " ticks, want about 10");
+            c.check(busy[1] >= 48 && busy[1] <= 58, "2.5 s timeout held the leap " + busy[1] + " ticks, want about 50");
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.call(cfgObj, "setTimeoutMs", 2000));
+            restore(c, file, was);
+        }
+    }
+
+    // =================================================================================================================
+    // 1344 the custom leap menu with no heads (doc-auto-1101)
+    // =================================================================================================================
+
+    /** A Spirit Leap menu with no heads under the custom overlay: after 300 ms it draws its notice (lastView EMPTY), never
+     *  an invisible screen; with heads it draws the boxes (control). */
+    static void emptyLeapMenu(Session c) throws Exception {
+        MenuKit.reset(c);
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set("spiritleap.SpiritLeapOverlayConfig", "Enabled", true);
+            JsonObject empty = MenuKit.menu("menus.spirit-leap");
+            empty.add("slots", new JsonObject());
+            MenuKit.show(c, empty);
+            MenuKit.awaitScreen(c, "Spirit Leap", 100);
+            c.waitUntil("the overlay to hide the vanilla menu", mc ->
+                    (Boolean) Mod.staticCall("spiritleap.SpiritLeapOverlayFeature", "isHiding", dev.testkit.compat.McCompat.screen(mc)), 100);
+            c.ctx().waitTicks(12);
+            String view = c.onClient(mc -> String.valueOf(Mod.staticCall("spiritleap.SpiritLeapOverlayFeature", "lastView")));
+            c.check("EMPTY".equals(view), "an empty leap menu drew view '" + view + "', want the EMPTY notice");
+            MenuKit.reset(c);
+            MenuKit.show(c, MenuKit.menu("menus.spirit-leap"));
+            MenuKit.awaitScreen(c, "Spirit Leap", 100);
+            c.ctx().waitTicks(12);
+            String full = c.onClient(mc -> String.valueOf(Mod.staticCall("spiritleap.SpiritLeapOverlayFeature", "lastView")));
+            c.check(!"EMPTY".equals(full), "a leap menu with heads drew the EMPTY notice");
+            c.note("empty leap menu: view " + view + "; with heads: " + full);
+        } finally {
+            MenuKit.reset(c);
         }
     }
 
