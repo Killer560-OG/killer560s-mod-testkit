@@ -1410,3 +1410,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   hand dig first (`warmDig`), or RotationBreak flags post-flying then pre-flying on every dig (36 lines, 62-argrim-breaker
   alone on 26.3). `-PmultiBreakRepeat=N` repeats them. On mod main 03ea1d6b the node case reads 10 blocks in 10 server
   ticks too - one a tick is the ceiling, the branch's value is that it holds across features and settings.
+- **48-63 Breaker Aura with experimental checks on** (ba-rotation-1102): on the old aura scenario 50 drew 87 RotationBreak and
+  Grim canceled 73 of 200 digs, which 50's instant-break check then reports as "1.57 packets per block" - read the flag
+  list before that message. With the aimed aura every case is silent, the FLAGGED-expected ones included (0 lines).
+  51's "never run into the wall" is recorded, not asserted, on a one-a-tick Multi Break jar: at Speed V a two-high wall
+  needs ~1.1 digs a tick and GrimAC MultiBreak allows one (13 of 210 packets collided, both versions).
