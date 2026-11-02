@@ -1294,3 +1294,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   150 ms Latency case, before any click (g2 1027-aafast-cpt1-300); the rerun was clean. It is the Latency teardown, not a feature.
   Frames Per Tick on experimental checks: Grim cancels the flagged second-frame clicks, the mod resends after its 1 s
   pending timeout, and the device still solves (76 sent, 40 reached, fpt15).
+
+- In the F7 boss, Floor7Tracker.getPhaseAt() reads the phase from his Y alone (P1 >210, P2 >155, P3 >100): a case that stands at
+  y 151 is "in P3" with no Goldor line at all. 835-boss-grim-witherbot-range stands at y 170 so Goldor-only mode really is out
+  of P3 (doc-auto-1101).

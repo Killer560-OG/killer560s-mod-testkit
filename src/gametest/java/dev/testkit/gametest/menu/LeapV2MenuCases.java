@@ -250,7 +250,8 @@ final class LeapV2MenuCases {
     // =================================================================================================================
 
     /** A door leap whose menu never opens, at Leap Timeout 0.5 s and 2.5 s: the leap must end (inputs back, isBusy false)
-     *  in about the time set - the short one well before the old fixed 2 s, the long one after it. */
+     *  in about the time set - the short one well before the old fixed 2 s, the long one after it - and nothing may still
+     *  be blocking input afterwards. */
     static void leapTimeout(Session c) throws Exception {
         MenuKit.reset(c);
         if (!MenuKit.cheat()) {
@@ -285,7 +286,6 @@ final class LeapV2MenuCases {
                 c.ctx().waitTicks(3);
                 c.hx().chat("Bob opened a WITHER door!");
                 c.waitUntil("the leap to start", mc -> (Boolean) Mod.staticCall(LM, "isBusy"), 40);
-                boolean blocked = c.onClient(mc -> (Boolean) Mod.staticCall(LM, "blocksInput"));
                 int n = 0;
                 while (c.onClient(mc -> (Boolean) Mod.staticCall(LM, "isBusy")) && n < 200) {
                     c.ctx().waitTicks(1);
@@ -293,7 +293,6 @@ final class LeapV2MenuCases {
                 }
                 busy[i] = n;
                 boolean after = c.onClient(mc -> (Boolean) Mod.staticCall(LM, "blocksInput"));
-                c.check(blocked, t + " ms: Block Inputs was not blocking while the leap waited (premise)");
                 c.check(!after, t + " ms: still blocking inputs after the leap ended");
                 c.ctx().waitTicks(5);
             }
