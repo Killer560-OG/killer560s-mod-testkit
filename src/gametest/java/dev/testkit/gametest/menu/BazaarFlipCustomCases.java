@@ -694,9 +694,14 @@ final class BazaarFlipCustomCases {
             cfg.set("bazaarflip.BazaarFlipConfig", "Enabled", true).set("bazaarflip.BazaarFlipConfig", "TargetPurse", 0L);
             List<AbstractWidget> widgets = c.onClient(mc -> build());
             List<String> labels = labels(widgets);
-            for (String gone : List.of("Not running", "Running -", "Any key stops", "Min Profit", "Last scan", "Best:",
-                    "Target:")) {
+            // "Min Profit" (per run) went on 2026-10-16; the Doc of 2026-11-01 asked for "Min Profit Per Cycle" back
+            // (doc-flip-1101): the old row stays gone, the new one must be there.
+            for (String gone : List.of("Not running", "Running -", "Any key stops", "Min Profit Per Run", "Last scan",
+                    "Best:", "Target:")) {
                 c.check(labels.stream().noneMatch(l -> l.contains(gone)), "the tab still shows \"" + gone + "\": " + labels);
+            }
+            if (Mod.has("bazaarflip.BazaarStackSizes")) {
+                c.check(labels.stream().anyMatch(l -> l.startsWith("Min Profit Per Cycle")), "no Min Profit Per Cycle: " + labels);
             }
             c.check(labels.stream().anyMatch(l -> l.startsWith("Target Purse")), "no Target Purse label: " + labels);
             EditBox box = (EditBox) widgets.stream().filter(x -> x instanceof EditBox).findFirst().orElse(null);

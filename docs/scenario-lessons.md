@@ -1342,3 +1342,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   that run's test server keeps running on the checkout's port, and the next run in the checkout fails "Anticheat test server
   exited with code 0 before it was ready" (FAILED TO BIND TO PORT in run/testserver/logs). End the leftover
   `<checkout>...runTestServer` java first (doc-dhud-1101, 2026-11-01).
+- **2790-2796-menu-*, 2797-logic-flip-1101** (doc-flip-1101): Bazaar Flipper sized by Hypixel stacking (unstackable = one per
+  free slot), Confirm Instant Buy over the reserve resized not clicked, Min Profit Per Cycle, Stop At Max Orders rounds; AH Price
+  Copier (lbin - 1, then the price just listed at), AH Flipper [Open] /viewauction and the cheat macro (View#31, Confirm#11).
+  Events run from the case start: a case that runs a session twice must slice sign.update by a base index.
