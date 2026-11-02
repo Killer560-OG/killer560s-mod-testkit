@@ -1483,6 +1483,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                                 iwMenu = m.player.containerMenu;
                                 // Hidden with NO close packet: the server's container stays open, the route sees no screen.
                                 dev.testkit.compat.McCompat.setScreen(m, null);
+                                // The client's menu back to the inventory, as a close does: the route waits under an open
+                                // menu (RouteExecutor.containerMenuOpen), and in v5 the window had been closed client-side.
+                                m.player.containerMenu = m.player.inventoryMenu;
                                 println("[iwclose] chest window hidden on arrival (menu " + iwMenu.containerId + ")");
                             }
                         });
