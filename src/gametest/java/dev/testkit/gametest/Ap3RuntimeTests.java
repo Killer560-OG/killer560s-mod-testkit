@@ -1810,7 +1810,9 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             throw new AssertionError("Auto Swap: the swap to the breaker went out at t" + (swap == null ? "-" : swap.tick())
                     + ", want t" + eligible.tick() + " (the first tick a pick was in reach)");
         }
-        if (dig.tick() != want) {
+        // Since mod multibreak-1102 (Breaker Aura aim, ba-rotation-1102) a pick the look the server has does not strike is
+        // aimed first and dug the next tick: one tick more is the owner's accepted cost (killer560, 2026-11-02).
+        if (dig.tick() < want || dig.tick() > want + 1) {
             throw new AssertionError(String.format(Locale.ROOT, "the first dig went out at t%d, %d tick(s) after the first "
                     + "tick it could (t%d; landing t%d)%s", dig.tick(), dig.tick() - want, want, land.tick(),
                     swapTo >= 0 ? " - Swap Delay 1 allows one tick for the swap and no more" : ""));
