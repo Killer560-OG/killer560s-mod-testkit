@@ -332,10 +332,10 @@ final class InvBatchMenuCases {
             String iron = id(c, new ItemStack(Items.IRON_INGOT));
             String gold = id(c, new ItemStack(Items.GOLD_INGOT));
             Map<Integer, String> want = new LinkedHashMap<>();
-            want.put(0, eme);   // hotbar destination: the emerald from slot 9
+            want.put(0, eme);   // the pair 0<->9: one number-key swap
             want.put(9, dia);
-            want.put(10, iron); // main destination: the iron from hotbar 3
-            want.put(3, gold);
+            want.put(10, iron); // the pair 3<->10: one swap too, since hotbar 3 is in it (doc-invsort-1101: fewest clicks;
+            want.put(3, gold);  // until then this case wanted 1 swap + 3 pickups)
             List<JsonObject> first = run(c, layout(c, "hx-585", want));
             String inv = c.onClient(mc -> {
                 var i = mc.player.getInventory();
@@ -345,15 +345,13 @@ final class InvBatchMenuCases {
             c.note("ticks 4 / random 0: clicks " + show(first) + "; inventory 0,3,9,10 = " + inv + "; moves/clicks/swaps/pickups "
                     + java.util.Arrays.toString(counters) + "; gaps " + gaps(first));
             c.check(inv.equals("minecraft:emerald,minecraft:gold_ingot,minecraft:diamond,minecraft:iron_ingot"), "inventory " + inv);
-            c.check(first.size() == 4, first.size() + " clicks, want 4 (1 swap + 3 pickups)");
+            c.check(first.size() == 2, first.size() + " clicks, want 2 (two number-key swaps)");
             JsonObject s0 = first.get(0);
             c.check(s0.get("input").getAsString().equals("SWAP") && s0.get("slot").getAsInt() == 9 && s0.get("button").getAsInt() == 0,
-                    "the hotbar move was not one SWAP on slot 9 with button 0: " + show(first));
-            for (int i = 1; i < 4; i++) {
-                c.check(first.get(i).get("input").getAsString().equals("PICKUP"), "a main-storage move used " + show(first));
-            }
-            c.check(first.get(1).get("slot").getAsInt() == 39 && first.get(2).get("slot").getAsInt() == 10
-                    && first.get(3).get("slot").getAsInt() == 39, "pickup slots " + show(first));
+                    "the 0<->9 pair was not one SWAP on slot 9 with button 0: " + show(first));
+            JsonObject s1 = first.get(1);
+            c.check(s1.get("input").getAsString().equals("SWAP") && s1.get("slot").getAsInt() == 10 && s1.get("button").getAsInt() == 3,
+                    "the 3<->10 pair was not one SWAP on slot 10 with button 3: " + show(first));
             c.check(first.stream().allMatch(e -> e.get("containerId").getAsInt() == 0), "not the inventory menu: " + show(first));
             // Server ticks: the client's click can land a tick either side of its own tick, so allow +-1 per gap
             // and require the mean to be 4.
@@ -362,7 +360,7 @@ final class InvBatchMenuCases {
             c.check(g4.stream().allMatch(g -> Math.abs(g - 4) <= 1) && Math.abs(mean - 4) <= 0.34,
                     "Ticks Between Moves 4 gave gaps " + g4);
 
-            // Random Extra Ticks: back and forth three times at 2 + 0..4.
+            // Random Extra Ticks: back and forth six times at 2 + 0..4 (one gap a run since the sort takes two swaps).
             c.ctx().runOnClient(mc -> {
                 Object cfg = Mod.cfg(ISC);
                 Mod.call(cfg, "setTicksBetweenMoves", 2);
@@ -374,7 +372,7 @@ final class InvBatchMenuCases {
             back.put(10, gold);
             back.put(3, iron);
             List<Long> all = new ArrayList<>();
-            for (int round = 0; round < 3; round++) {
+            for (int round = 0; round < 6; round++) {
                 List<JsonObject> r1 = run(c, layout(c, "hx-585b", back));
                 List<JsonObject> r2 = run(c, layout(c, "hx-585", want));
                 all.addAll(gaps(r1));
