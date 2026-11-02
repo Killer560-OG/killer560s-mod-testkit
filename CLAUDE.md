@@ -91,7 +91,9 @@ packets' getters, `ServerboundSwingPacket` or a `"swing"` trace id, `org.lwjgl.g
 codes on 26.2, SDL scancodes on 26.3; GLFW numbers in mod settings, `McKeys.nat` for a press), or a bare modifier number
 in a `KeyEvent`/`MouseButtonInfo` (use `InputConstants.MOD_CONTROL` etc.: 26.3's SDL bits are Shift 3, Ctrl 0xC0, Alt 0x300,
 so GLFW's Ctrl `2` reads as right Shift there and Ctrl+F/V/A silently did nothing in 944/948/955/989, 2026-11-01; GLFW's Shift
-`1` happens to be SDL left Shift). Compile both versions before merging a branch. What 26.3 moved, what changed in
+`1` happens to be SDL left Shift). Build every KeyEvent with `McKeys.keyEvent(nativeKey, mods)`, never `new KeyEvent(...)`:
+26.3's record is (scancode, SDL keycode, mods) and EditBox's Backspace/Delete/Home/End and Ctrl+A/C/V switch on the keycode,
+so a 0 there is a key no text box acts on (944/989, 2026-11-01). Compile both versions before merging a branch. What 26.3 moved, what changed in
 GrimAC, and how to run a set on the old Grim: [docs/minecraft-263.md](docs/minecraft-263.md); the 26.2 notes:
 [docs/minecraft-262.md](docs/minecraft-262.md).
 
