@@ -1410,3 +1410,12 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   hand dig first (`warmDig`), or RotationBreak flags post-flying then pre-flying on every dig (36 lines, 62-argrim-breaker
   alone on 26.3). `-PmultiBreakRepeat=N` repeats them. On mod main 03ea1d6b the node case reads 10 blocks in 10 server
   ticks too - one a tick is the ceiling, the branch's value is that it holds across features and settings.
+- **Dig-gap probes (rbcause-1102).** The server log's `[testkit-dig]` lines (testmod grimprobe: MixinGrimDigGap,
+  MixinGrimRotationBreak) give, per queued dig, Grim's own millis gap to the next movement packet, the nanos gap, whether the
+  look is lent, and the last 12 packets received with their times; `judge post/arrival` lines give RotationBreak's inputs.
+  The client's `[digflush]` lines (DigFlushProbe, MixinOutboundFlushProbe) give each dig's queue and write time, flushed or
+  not, and which packet flushed a held one. `-PrbRepeat=N` repeats 62-argrim-1027-invwalk-play ("62-argrim-1102-rbrepeat#k").
+  A miss needs load: five 62-argrim sessions at once caught it in 2 of 5 to 3 of 5 runs; one session alone never did (66
+  repeats). Under that load the server processed packets the client wrote in one flush up to 16 ms apart.
+- **1102-breaker-aura-burst** (mod Burst Multi Break, owner exception 2026-11-02): runExpectingFlags, all six picks in one
+  server tick, MultiBreak* accepted (9-15 lines a run) and any other check fails it. Every other case sets Burst OFF.
