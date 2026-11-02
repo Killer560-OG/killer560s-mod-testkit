@@ -38,9 +38,18 @@ public class FairyGrimTests implements FabricClientGameTest {
             }
             return;
         }
-        tpWalker(ctx);
-        tpKeys(ctx);
-        water(ctx);
+        AssertionError first = null;
+        for (java.util.function.Consumer<ClientGameTestContext> c : List.<java.util.function.Consumer<ClientGameTestContext>>of(
+                FairyGrimTests::tpWalker, FairyGrimTests::tpKeys, FairyGrimTests::water)) {
+            try {
+                c.accept(ctx);
+            } catch (AssertionError e) {
+                first = first == null ? e : first;
+            }
+        }
+        if (first != null) {
+            throw first;
+        }
     }
 
     private static TestMap lane(TestServer server, int z) {
