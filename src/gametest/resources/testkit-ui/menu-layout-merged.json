@@ -32,6 +32,11 @@
   },
   "tooltips": [
     {
+      "owner": "Thorn (F4)",
+      "key": "cheat build - thorn esp",
+      "gone": "menufix2-1102: the header is \"Cheat Build - Thorn\" since Thorn Triggerbot moved under it (killer560 2026-11-02)"
+    },
+    {
       "owner": "Party Interop",
       "key": "log pickups",
       "gone": "doc-small-1014: Log Pickups (printed every piece of party info to chat) removed, killer560 2026-10-14"

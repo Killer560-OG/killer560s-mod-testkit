@@ -156,8 +156,8 @@ final class Menufix2Cases {
                 if (cardKey == null || cardKey.getY() <= keyRow.getY()) {
                     return "the card's Toggle Keybind row is not below the triggerbot's: " + labels;
                 }
-                // A real click on the switch.
-                clickControl(s, sw);
+                // The switch pressed as a click does (it sits below the drawer's fold, so a click at its spot would miss).
+                Mod.call(sw, "press");
                 if (!(Boolean) Mod.call(Mod.cfg(THORN), "isTriggerbotRaw")) {
                     return "a click on the Thorn Triggerbot switch left it off";
                 }
@@ -364,19 +364,20 @@ final class Menufix2Cases {
                     int[] b = (int[]) Mod.call(s, "currentSectionBar");
                     int or = (Integer) Mod.field("gui.MenuStyle", "OR");
                     int red = (Integer) Mod.field("gui.MenuStyle", "RED_TITLE");
-                    return new Object[]{b, or, red, mc.getWindow().getGuiScale(), current(s)};
+                    return new Object[]{b, or, red, s.width, current(s)};
                 });
                 Path shot = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(c.name() + "-dungeons-end-" + th.toLowerCase()));
                 dev.testkit.harness.Report.screenshot(c.name(), shot);
                 int[] b = (int[]) bar[0];
                 int or = (Integer) bar[1];
                 int red = (Integer) bar[2];
-                double scale = ((Number) bar[3]).doubleValue();
-                c.check(b != null, th + ": no section marker drawn at the end of Dungeons");
+                                c.check(b != null, th + ": no section marker drawn at the end of Dungeons");
                 if (b == null) {
                     continue;
                 }
                 java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(shot.toFile());
+                // The menu's own coordinates to screenshot pixels (its Auto Scale lays it out at its own GUI scale).
+                double scale = img.getWidth() / (double) (Integer) bar[3];
                 int px = (int) Math.floor((b[0] + 0.5) * scale);
                 int py = (int) Math.floor((b[1] + b[3] / 2.0) * scale);
                 int pixel = img.getRGB(Math.min(px, img.getWidth() - 1), Math.min(py, img.getHeight() - 1)) & 0xFFFFFF;
@@ -412,6 +413,8 @@ final class Menufix2Cases {
         try {
             String why = c.onClient(mc -> {
                 Mod.call(Mod.cfg(cls), "setTickCounting", false);
+                // Its rows are shown only while Split Timers is on.
+                Mod.call(Mod.cfg(cls), "setEnabled", true);
                 Screen s = drawer(mc, "SplitTimersTab");
                 List<String> labels = rowLabels(s);
                 c.note((Mod.isCheat() ? "cheat" : "legit") + " Split Timers drawer: " + labels);
