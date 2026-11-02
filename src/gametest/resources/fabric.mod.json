@@ -145,6 +145,7 @@
 			"dev.testkit.gametest.AuraQuoiTests",
 			"dev.testkit.gametest.SimAuraSkipTests",
 			"dev.testkit.gametest.SimDummyLeverTests",
+			"dev.testkit.gametest.SimWaypointRoomsTests",
 			"dev.testkit.gametest.SimStaticWaterTests",
 			"dev.testkit.gametest.SimWorldTests",
 			"dev.testkit.gametest.SimResetTests",
