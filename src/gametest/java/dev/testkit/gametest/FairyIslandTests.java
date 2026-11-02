@@ -49,7 +49,8 @@ public class FairyIslandTests implements FabricClientGameTest {
     static final String RUNNER = "pathfinding.AutoSoulRunner";
     static final String WALKER = "com.killer560.hub.pathfinding.AutoWalker";
     static final String SOUL_LINE = "§d§lSOUL! §fYou found a §dFairy Soul§f!";
-    static final List<String> ISLANDS = List.of("GOLD_MINES", "THE_PARK", "BACKWATER_BAYOU", "HUB_EAST", "SPIDER_DEN");
+    static final List<String> ISLANDS = List.of("GOLD_MINES", "THE_PARK", "BACKWATER_BAYOU", "HUB_EAST", "SPIDER_DEN",
+            "BAYOU_SPILL"); // v2 Bayou before the still-water fix: water spilled past a ladder (the GrimAC water-current question)
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
