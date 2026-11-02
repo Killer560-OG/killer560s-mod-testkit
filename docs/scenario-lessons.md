@@ -1294,3 +1294,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   150 ms Latency case, before any click (g2 1027-aafast-cpt1-300); the rerun was clean. It is the Latency teardown, not a feature.
   Frames Per Tick on experimental checks: Grim cancels the flagged second-frame clicks, the mod resends after its 1 s
   pending timeout, and the device still solves (76 sent, 40 reached, fpt15).
+- 1101-menu-* (doc-items-1101, 2026-11-01): a "Rendering screen" crash inside a case leaves the client looping in
+  `runTick` without ever finishing a frame, so Session's failure screenshot then waits forever and the failure is never
+  printed; DocItems1101Cases prints each failure (and its causes) BEFORE rethrowing. On a loaded machine (9 clients) the
+  menu session's server start parked the render thread past the freeze watcher's 16 s twice and the client was killed
+  mid-start: `TESTKIT_HUNG_POLLS=45` gives it 90 s. A server left over from a killed run holds the port ("FAILED TO BIND"),
+  so kill it too. `TESTKIT_MENU_ONLY` (comma parts) picks menu cases; `-Scenario` alone runs the whole selected session.
