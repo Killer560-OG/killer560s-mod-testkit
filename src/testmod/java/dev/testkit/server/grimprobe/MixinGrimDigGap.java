@@ -25,7 +25,6 @@ public class MixinGrimDigGap {
 
     @Unique private static final Logger testkit$LOG = LoggerFactory.getLogger("testkit-dig");
     @Unique private static final ArrayDeque<Object[]> testkit$RING = new ArrayDeque<>();
-    @Unique private static java.lang.reflect.Method testkit$typeMethod;
     @Unique private static long testkit$lastDigNanos;
     @Unique private static long testkit$lastDigMillis;
     @Unique private static boolean testkit$warned;
@@ -33,10 +32,7 @@ public class MixinGrimDigGap {
     @Inject(method = "onPacketReceive", at = @At("HEAD"), require = 0, remap = false)
     private void testkit$received(@Coerce Object event, CallbackInfo ci) {
         try {
-            if (testkit$typeMethod == null) {
-                testkit$typeMethod = event.getClass().getMethod("getPacketType");
-            }
-            String type = String.valueOf(testkit$typeMethod.invoke(event));
+            String type = String.valueOf(event.getClass().getMethod("getPacketType").invoke(event));
             long n = System.nanoTime();
             long m = System.currentTimeMillis();
             synchronized (testkit$RING) {
