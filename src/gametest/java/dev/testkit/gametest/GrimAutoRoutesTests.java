@@ -3741,6 +3741,18 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     private static final String AC = "com.killer560.hub.autoclear.AutoClearFeature";
     private static final String AC_CFG = "com.killer560.hub.autoclear.AutoClearConfig";
 
+    /**
+     * Earlier cases leave starred mobs standing (62-argrim-1020-acbat's: the server has no bat, so nothing dies): in the full
+     * session acfel saw 5 starred mobs, killed one beside the Fel and woke it without any Fel trip. Every case here starts
+     * with none - zombies, endermen and their name stands gone.
+     */
+    private static void clearLeftoverMobs(Session c) {
+        c.server().command("kill @e[type=minecraft:zombie]");
+        c.server().command("kill @e[type=minecraft:enderman]");
+        c.server().command("kill @e[type=minecraft:armor_stand]");
+        c.ctx().waitTicks(5);
+    }
+
     /** Auto Clear on, Hyperion with hops, keys picked up, Walk When Faster on (the forced walks need it). */
     private static void autoClearHyperion(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> {
@@ -3811,6 +3823,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         resetRoutes(ctx);
         arena(ctx, false);
         c.hx().call("dungeon.felKeyReset");
+        clearLeftoverMobs(c);
         autoClearHyperion(ctx);
         tpRel(ctx, 5.5, 15.5, -90f, 0f);
         ctx.waitTicks(10);
@@ -3895,6 +3908,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         resetRoutes(ctx);
         arena(ctx, false);
         c.hx().call("dungeon.felKeyReset");
+        clearLeftoverMobs(c);
         autoClearHyperion(ctx);
         tpRel(ctx, 5.5, 15.5, -90f, 0f);
         ctx.waitTicks(10);
