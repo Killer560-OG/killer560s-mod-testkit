@@ -146,6 +146,7 @@ public class FairyIslandTests implements FabricClientGameTest {
         int failsafes;
         int skipped;
         int clicks;
+        int warps;
         String stopReason = "";
         boolean activeAtEnd;
         final List<String> missed = new ArrayList<>();
@@ -154,8 +155,8 @@ public class FairyIslandTests implements FabricClientGameTest {
         String line() {
             return String.format(Locale.US, "ISLAND RESULT: collected %d/%d (%.0f%%) in %d ticks (%.1f min), traveled %.0f "
                             + "blocks, ways back planned %d done %d, sidesteps %d, failsafes %d, skipped %d, soul clicks %d, "
-                            + "active at end %s, stop '%s'", collected, souls, souls == 0 ? 0 : 100.0 * collected / souls,
-                    ticks, ticks / 1200.0, travelled, rescues, rescuesDone, sidesteps, failsafes, skipped, clicks,
+                            + "warps %d, active at end %s, stop '%s'", collected, souls, souls == 0 ? 0 : 100.0 * collected / souls,
+                    ticks, ticks / 1200.0, travelled, rescues, rescuesDone, sidesteps, failsafes, skipped, clicks, warps,
                     activeAtEnd, stopReason);
         }
     }
@@ -256,6 +257,7 @@ public class FairyIslandTests implements FabricClientGameTest {
             }
             ctx.waitTicks(10);
             long since = hx.head();
+            long cmdSince = since;
             long logMark = LogTap.mark();
             ctx.runOnClient(mc -> Mod.staticCall(RUNNER, "start"));
             double[] prev = null;
@@ -276,6 +278,17 @@ public class FairyIslandTests implements FabricClientGameTest {
                             + " hcol=" + mc.player.horizontalCollision);
                     scenario.log(String.format(Locale.US, "t%d pos %.2f %.2f %.2f collected %d/%d %s", tick, s[0], s[1], s[2],
                             o.collectedAt.size(), o.souls, w));
+                }
+                // Hypixel's side of Warp When Stuck: /warp hub puts him on the island's spawn.
+                for (JsonObject e : hx.events(cmdSince, "cmd")) {
+                    cmdSince = Math.max(cmdSince, e.get("seq").getAsLong());
+                    if (e.get("command").getAsString().trim().equals("warp hub")) {
+                        o.warps++;
+                        server.command(String.format(Locale.ROOT, "tp @p %.2f %d %.2f", spawn.get(0).getAsDouble(),
+                                spawn.get(1).getAsInt(), spawn.get(2).getAsDouble()));
+                        scenario.log(String.format(Locale.US, "t%d /warp hub from %.1f %.1f %.1f - sent to the spawn", tick,
+                                s[0], s[1], s[2]));
+                    }
                 }
                 for (JsonObject e : hx.events(since, "use_entity")) {
                     since = Math.max(since, e.get("seq").getAsLong());

@@ -259,6 +259,25 @@ def build(name, file, key, dy, box):
                 if cls == "crowd" and i == n // 2:
                     crowds.append([cx + 0.5, y, cz + 0.5])
 
+    # Ground, not a catwalk over the void: a two-block skirt of grass level with every walking surface, and three
+    # blocks of dirt under every solid floor. Hypixel's islands are terrain; stepping off a path lands on something.
+    solid_floor = ("stone", "grass_block", "dirt_path", "soul_sand", "cobblestone", "mossy_cobblestone")
+    surfaces = [p for p, (st, _) in list(w.b.items())
+                if any(st.endswith(f) for f in solid_floor) and (p[0], p[1] + 1, p[2]) not in w.b]
+    for (x, y, z) in surfaces:
+        for ox in range(-2, 3):
+            for oz in range(-2, 3):
+                q = (x + ox, y, z + oz)
+                if q not in w.b and (q[0], y + 1, q[2]) not in w.b and (q[0], y + 2, q[2]) not in w.b:
+                    w.put(q[0], y, q[2], "minecraft:grass_block", 0)
+    for p, (st, _) in list(w.b.items()):
+        if any(st.endswith(f) for f in solid_floor):
+            for k in range(1, 4):
+                q = (p[0], p[1] - k, p[2])
+                if q in w.b:
+                    break
+                w.put(q[0], q[1], q[2], "minecraft:dirt", 0)
+
     # souls: a ledge under each head, a strip of ground from the node toward it
     for s in souls:
         hx, hy, hz = s["head"]
