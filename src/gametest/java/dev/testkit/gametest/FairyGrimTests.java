@@ -79,6 +79,7 @@ public class FairyGrimTests implements FabricClientGameTest {
                     java.util.Random rnd = new java.util.Random(Long.getLong("testkit.fairy.arrivalSeed", System.nanoTime()));
                     int collected = 0;
                     int sprinted = 0;
+                    int sprintAtStops = 0;
                     List<Integer> flagsAfter = new ArrayList<>();
                     for (int run = 0; run < arrivals(); run++) {
                         double dist = 5 + rnd.nextDouble() * 5;
@@ -137,6 +138,19 @@ public class FairyGrimTests implements FabricClientGameTest {
                         if (sprint[0]) {
                             sprinted++;
                         }
+                        // The fix (mod doc-fairy-1101 m14): his sprint is over before the stop - the last tick with W held
+                        // is not a sprinting one. The m13 jar sprints right up to the stop.
+                        String lastW = null;
+                        for (String l : trace) {
+                            if (l.contains(" keys W")) {
+                                lastW = l;
+                            }
+                        }
+                        boolean sprintAtStop = lastW != null && lastW.contains("sprinting true");
+                        if (sprintAtStop) {
+                            sprintAtStops++;
+                            scenario.log("arrival " + run + ": still sprinting on the last W tick: " + lastW);
+                        }
                         int after = scenario.flags().size();
                         flagsAfter.add(after);
                         scenario.log(String.format(Locale.US, "arrival %d: from %d %d (%.1f blocks), soul %d, sprinted %s, ticks %d, "
@@ -158,9 +172,10 @@ public class FairyGrimTests implements FabricClientGameTest {
                     scenario.log(String.format(Locale.US, "arrival: %d runs, souls %d, sprinted %d, lines after each run %s",
                             arrivals(), collected, sprinted, flagsAfter));
                     report(scenario, "arrival", List.of(), 0);
-                    if (collected < arrivals() || sprinted < arrivals() || !scenario.flags().isEmpty()) {
+                    scenario.log("arrival: still sprinting at the stop in " + sprintAtStops + " of " + arrivals());
+                    if (collected < arrivals() || sprinted < arrivals() || sprintAtStops > 0 || !scenario.flags().isEmpty()) {
                         throw new AssertionError("arrival: souls " + collected + "/" + arrivals() + ", sprinted " + sprinted
-                                + ", anticheat lines " + scenario.flags().size());
+                                + ", sprinting at the stop " + sprintAtStops + ", anticheat lines " + scenario.flags().size());
                     }
                 });
     }
