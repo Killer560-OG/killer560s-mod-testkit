@@ -430,13 +430,15 @@ public class ZpewLooksTests implements FabricClientGameTest {
             Scenario.skipped("1102-zpew-ecancel", "Warps Per Tick and Aimed Warps are cheat-only");
             return;
         }
-        Scenario.run(ctx, "1102-zpew-ecancel", (server, scenario) -> ZpewMultiTickTests.build(server), (server, scenario) -> {
+        Scenario.runExpectingFlags(ctx, "1102-zpew-ecancel", (server, scenario) -> ZpewMultiTickTests.build(server),
+                (server, scenario) -> {
             scenario.assertDetectorWorks();
             Hx hx = null;
             boolean gate = false;
             boolean blink = false;
             int oldKey = ctx.computeOnClient(mc -> (Integer) Mod.call(Mod.cfg(MS_CFG), "getEmergencyCancelKeyCode"));
             List<String> problems = new ArrayList<>();
+            List<String> blinkFlags = new ArrayList<>();
             try {
                 hx = ZpewCampaignTests.setUp(ctx, 4);
                 ZpewMultiTickTests.hookTicks(ctx);
@@ -490,7 +492,17 @@ public class ZpewLooksTests implements FabricClientGameTest {
                 if (!on || refWpt != 1) {
                     problems.add("hold on after K " + on + ", wpt refusals " + refWpt + " (expected 1)");
                 }
-                // 3. Aimed Warps with a bank, hold on: refused, left to vanilla.
+                // Everything so far (Warps Per Tick, Streamer Mode, the hold) must be clean outright.
+                List<String> early = scenario.flags();
+                scenario.log("flags before Blink: " + early);
+                if (!early.isEmpty()) {
+                    problems.add("GrimAC flagged before Blink was on: " + early);
+                }
+                // 3. Aimed Warps with a bank, hold on: refused, left to vanilla. From here Blink Charge is on, and Blink keeps
+                // its bank through a teleport (killer560 2026-10-27, the one accepted flag): with experimental checks on, the
+                // kept teleport's release draws BadPacketsV* (a still position packet inside 19 ticks), even with no ZPEW
+                // action at all (the tp below). Only that check is accepted from here; anything else fails.
+                server.mark();
                 ZpewMultiTickTests.setWpt(ctx, 1);
                 gate = BlinkTests.setUp(ctx, 20);
                 blink = true;
@@ -501,6 +513,8 @@ public class ZpewLooksTests implements FabricClientGameTest {
                 long bank = BlinkTests.cnum(ctx, "banked");
                 long sent0 = ZpewCampaignTests.num(ctx, "aimedWarpsSent");
                 long ref1 = ZpewCampaignTests.num(ctx, "heldRefused");
+                blinkFlags.addAll(scenario.flags());
+                scenario.log("flags with Blink on, before any press: " + blinkFlags);
                 Result r = shot(ctx, server, hx, scenario, who, 0, "aimed n=3 hold on (bank " + bank + ")", presses(ctx, 3), 3);
                 long sentHeld = ZpewCampaignTests.num(ctx, "aimedWarpsSent") - sent0;
                 long refAimed = ZpewCampaignTests.num(ctx, "heldRefused") - ref1;
@@ -514,6 +528,7 @@ public class ZpewLooksTests implements FabricClientGameTest {
                     problems.add("aimed under the hold: sent " + sentHeld + ", refused " + refAimed + ", " + r + ", hold " + stillHeld);
                 }
                 // 4. K again: released; the same burst goes, aimed.
+                blinkFlags.addAll(scenario.flags()); // the hold-on shot's window and after
                 pressK(ctx);
                 boolean off = !held(ctx);
                 ZpewCampaignTests.tpTo(ctx, server, who, s.x, s.y, s.z, true);
@@ -522,6 +537,7 @@ public class ZpewLooksTests implements FabricClientGameTest {
                 long sent1 = ZpewCampaignTests.num(ctx, "aimedWarpsSent");
                 waitAimed = true;
                 Result r2 = shot(ctx, server, hx, scenario, who, 0, "aimed n=3 hold off (bank " + bank2 + ")", presses(ctx, 3), 3);
+                blinkFlags.addAll(scenario.flags());
                 waitAimed = false;
                 long sentFree = ZpewCampaignTests.num(ctx, "aimedWarpsSent") - sent1;
                 scenario.log("after K again: hold off " + off + ", aimed sent " + sentFree + ", landed every corner " + landedAll(r2, 3));
@@ -542,6 +558,16 @@ public class ZpewLooksTests implements FabricClientGameTest {
                     Mod.set(ZP_CFG, "setWarpsPerTick", 1);
                 });
                 ZpewCampaignTests.tearDown(ctx, hx);
+            }
+            List<String> other = new ArrayList<>();
+            for (String f : blinkFlags) {
+                if (!f.contains("BadPacketsV")) {
+                    other.add(f);
+                }
+            }
+            scenario.log("flags with Blink on: " + blinkFlags.size() + " line(s), other than BadPacketsV: " + other);
+            if (!other.isEmpty()) {
+                problems.add("GrimAC flagged with Blink on (not BadPacketsV): " + other);
             }
             if (!problems.isEmpty()) {
                 throw new AssertionError("zpew ecancel: " + problems);
