@@ -1357,6 +1357,39 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   run-scenario's `-TimeoutSeconds 1200` did not end it; kill the client by its PID (`taskkill //PID <pid> //T //F`) and rerun.
   The rerun passed its premise normally. Also: 538/678 and 1491's door-helpers premise had failed for weeks for reasons
   unrelated to the version being tested - before blaming a port, find the case's last PASS in killer560s-mod-logs.
+- **1101-fairy-island-* (`FairyIslandTests`, doc-fairy-1101).** Islands are rebuilt by `tools/fairy-islands/gen.py` from
+  SkyHanni's graph and NEU's soul coordinates (no Hypixel terrain exists to copy); the soul stand is a real-size invisible
+  stand 1.4 below NEU's head block. Synthetic terrain makes its own failures, so read a miss before calling it the mod's:
+  a crossing corridor's headroom deleted ladder cliffs and the ladders popped (now: cliffs survive, every ladder gets its
+  backing block), a catwalk over the void turned every misstep into a 100-block fall (now: a 2-block grass skirt and a
+  3-deep embankment under every floor). The case answers `/warp hub` with a tp to the island's spawn (Hypixel's side of
+  Warp When Stuck). A pre-doc-fairy jar stands still forever at the first soul whose stand is out of reach of its node, so
+  its runs are capped with `-Pfairy.maxMinutes=5`. Rows go to `build/testkit-report/fairy-islands.tsv`.
+  Since 2026-11-02 the resources are terrain v2 (`tools/fairy-islands/gen2.py`, run with the tools folder and an output
+  folder): ground within 2.4 blocks of every edge at a distance-weighted height, so a dense graph cluster is one plaza
+  instead of v1's crossing ramps; v1 numbers are not comparable with v2 numbers.
+- **1102-fairy-grim-* (`FairyGrimTests`, doc-fairy-1101).** Records GrimAC lines instead of failing (runExpectingFlags):
+  -tp-walker (server teleports the walking run back six times), -tp-keys (the same teleports with the case holding W and
+  sprint, no automation - the control), -water (six pool crossings). All three 0 lines on doc-fairy's jar (and on the base jar, which gives up after the second teleport - the stuck clock it did not reset - and in the first pool)
+  (26.3, 2026-11-02); the island runs' Simulation lines did not reproduce here.
+- **A frozen-client kill leaves the scenario's test server running** (it holds the port; the next run in that checkout
+  fails "test server exited with code 0 before it was ready"). After a FROZEN run, find `runTestServer` java processes of
+  your checkout and kill them. On a machine at 100% CPU the freeze watcher also kills healthy clients: the lockstep parks
+  the render thread while a scenario's server starts, so set `TESTKIT_HUNG_SECONDS=120` (run-scenario.ps1) there.
+- **1102-fairy-grim-flowladder-* and the BAYOU_SPILL keys control (doc-fairy-1101, 2026-11-02).** Hand-built ladder up into
+  flowing water (-Pfairy.flowRuns=N, default 10): keys-only and walker 12/12 clean on both versions with experimental checks on.
+  It does NOT put him on the ladder INSIDE the current; the island stand-in `1101-fairy-island-BAYOU_SPILL` with
+  `-Pfairy.start=47.5,186.0,-5.5,-90,-28 -Pfairy.keys=W,A -Pfairy.keysTicks=120` does, and plain held keys draw GrimAC
+  Simulation .004667 every run there - Grim's ladder-in-current prediction, the control for any automation that climbs there.
+  The experimental-checks config was proven on with 1027-aafast-twoframes, which needs the filter
+  `500-boss-session-only,1027-aafast-twoframes` (a part containing the Session's name opens it; the case name selects the case).
+  Experimental NegativeTimer (-1.29 s) hit three fairy cases once on 26.2 at ~100% CPU and never on the reruns (machine stall).
+- **1102-fairy-spill-ladder-N (doc-fairy-1101, 2026-11-02)** runs the walker from that same BAYOU_SPILL spot
+  (-Pfairy.spillRuns, default 8) and requires a climb past the pool, ZERO ticks on a ladder with water in his box, soul 3
+  collected and GrimAC silent. On the m8 jar it fails 4 of 4 (3-8 ladder-in-water ticks each). Keep a session under about
+  9 minutes: past ~9.5 min from the first join every session drew a steady experimental NegativeTimer -1.3 s (first read as
+  "the 8th run"; the soul3 sessions hit it in their 7th; testkit CLAUDE.md) - a harness artifact, not the walker. Separately, soul 3's arrival (keys W+sprint released 4.3 blocks
+  out) drew Simulation .046 decaying x0.546 plus SprintE* twice in about 50 runs (m10 26.3, m13 26.2), no trace yet. 1102-fairy-grim-flowladder-walker now counts SIDE-water ladder ticks (`sideWaterOnLadder`): the flow over its ladder top is in his own column ~12 ticks a climb, clean for keys and walker; side water must be 0. 1017-fairy-water drew Simulation .020 x0.8 once on 26.2 at t0 (his fall into the pool, before a key), 0 in 4 m13 + 4 m8 reruns.
 - 2026-11-02 (diag-1101) 1102-diag-*: owner-evidence log lines, each asserted to appear once (rate limit) with the feature
   shown to have acted. `1102-diag-predict-ruledout` (SimPredictDiagTests) walls a sim room with a HOLLOW diamond box open to
   the doorway: a solid fill gave the predictor only 17 seen blocks (under MIN_EVIDENCE 20) and no decision; stand at the

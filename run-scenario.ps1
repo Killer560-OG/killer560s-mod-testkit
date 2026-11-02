@@ -294,7 +294,11 @@ $null = $proc.Handle
 # been true for long enough to not be a passing hitch.
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 $hungPolls = 0
+# TESTKIT_HUNG_SECONDS overrides it: the lockstep parks the render thread while the test thread waits for a scenario's
+# test server to say Done, so on a machine at 100% CPU a server start of ~20 s reads as a frozen client and the run is
+# killed (doc-fairy-1101, 2026-11-02, twice in one minute with ten clients up).
 $hungLimit = 8          # 8 polls x 2 s = ~16 s unresponsive before it counts as frozen
+if ($env:TESTKIT_HUNG_SECONDS) { $hungLimit = [Math]::Max(8, [int]($env:TESTKIT_HUNG_SECONDS / 2)) }
 # TESTKIT_HUNG_POLLS raises it: on a loaded machine a menu-session server start keeps the render thread parked in
 # the gametest API (the window reads Not Responding) for more than 16 s, and the client was killed mid-start (2026-11-01).
 if ($env:TESTKIT_HUNG_POLLS) { $hungLimit = [int]$env:TESTKIT_HUNG_POLLS }
