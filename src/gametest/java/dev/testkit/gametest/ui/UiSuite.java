@@ -92,13 +92,13 @@ import java.util.List;
 public class UiSuite implements FabricClientGameTest {
 
     static final String[] TITLE_CASES = {"340-ui-mainmenu", "330-ui-migrate", "310-ui-config-file-roundtrip",
-            "311-ui-config-setters", "320-ui-profiles", "380-ui-autoscale",
+            "311-ui-config-setters", "320-ui-profiles", "1102-ui-profile-streamer", "380-ui-autoscale",
             // title-262 (2026-10-13)
             "341-ui-title-widgets"};
     static final String[] WORLD_CASES = {"301-ui-smoke-tabs", "302-ui-smoke-search", "303-ui-smoke-toggles",
             "304-ui-smoke-hud-editor", "305-ui-smoke-screens", "306-ui-smoke-commands", "350-ui-termism",
             "360-ui-visuals", "365-ui-overlay-draws", "307-ui-profit", "385-ui-interactive-map", "386-ui-sliders",
-            "387-ui-ap3-edit", "1026-ui-ap3-angle-leapcounter", "1026-ui-ap3-blink-nodes", "388-ui-breaker-display", "389-ui-crosshair",
+            "387-ui-ap3-edit", "1026-ui-ap3-angle-leapcounter", "1026-ui-ap3-blink-nodes", "1102-ui-ap3-crystal-height", "388-ui-breaker-display", "389-ui-crosshair",
             "390-ui-wither-doors-fill", "391-ui-cheat-tabs", "392-ui-blood-camp", "393-ui-stat-bars",
             "394-ui-hud-boxes", "395-ui-map-heads",
             "399-ui-hud-editor-resize", "399-ui-hud-editor-snap",
@@ -171,6 +171,8 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] NOAMM_NEVER_CASES = {"1101-noamm-never"};
     /** killer560's 2026-10-11 "left click forward, right click backward" for every cycling setting ({@link CycleButtonCases}). Own block. */
     static final String[] CYCLE_BACK_CASES = {"806-ui-cycle-buttons-both-ways"};
+    /** killer560's 2026-11-01 "press enter should save that value" for every mod text box ({@link TextBoxEnterCases}). Own block. */
+    static final String[] TEXTBOX_ENTER_CASES = {"1101-ui-textbox-enter"};
     /** killer560's 2026-10-14 to-do batch: defaults on, removed toggles gone ({@link DocSmall1014Cases}). Own block. */
     static final String[] DOC_SMALL_CASES = {"807-ui-doc-small-1014"};
     /** killer560's 2026-11-01 small to-do items (mod doc-small-1101, {@link DocSmall1101Cases}). Own block for merges. */
@@ -376,6 +378,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : CYCLE_BACK_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : TEXTBOX_ENTER_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : PARTY_FINDER_1018_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
@@ -472,6 +477,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : TRAJECTORY_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : DocMenu1101Cases.CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -480,14 +488,15 @@ public class UiSuite implements FabricClientGameTest {
                 || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
                 || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES)
                 || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(LEAPQUEUE_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES) || any(SLOT_TEXT_CASES) || any(SMALL_DUNGEON_CASES)
-                || any(AUTOKICK2_CASES) || any(PARTY_FINDER_1018_CASES) || any(NOAMM_NEVER_CASES) || any(CYCLE_BACK_CASES) || any(DOC_SMALL_CASES) || any(DOC_SMALL_1101_CASES) || any(CMDCLEAN_1101_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES)
+                || any(AUTOKICK2_CASES) || any(PARTY_FINDER_1018_CASES) || any(NOAMM_NEVER_CASES) || any(CYCLE_BACK_CASES) || any(TEXTBOX_ENTER_CASES) || any(DOC_SMALL_CASES) || any(DOC_SMALL_1101_CASES) || any(CMDCLEAN_1101_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES)
                 || any(HUD_KEY3_CASES) || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(CHROMA_WAVE_CASES)
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
                 || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
                 || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES) || any(SWEAT_CASES) || any(DOC_1018_MENU_HUD_CASES)
                 || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES) || any(TRAIL_HUD_CASES)
                 || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES) || any(SOUND_DESC_CASES) || any(MAP_OVERHAUL_CASES)
-                || any(TRAJECTORY_CASES) || any(MOB_SKIN_CASES) || any(PREDICT_IN_MAP_CASES);
+                || any(TRAJECTORY_CASES) || any(MOB_SKIN_CASES) || any(PREDICT_IN_MAP_CASES)
+                || any(DocMenu1101Cases.CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -509,6 +518,8 @@ public class UiSuite implements FabricClientGameTest {
             UiCase.run(ctx, "310-ui-config-file-roundtrip", ConfigSweep::fileLevel);
             UiCase.run(ctx, "311-ui-config-setters", ConfigSweep::setterLevel);
             UiCase.run(ctx, "320-ui-profiles", MiscCases::profiles);
+            // profreload-1102: a profile with Streamer Mode flipped changes it in memory, no restart
+            UiCase.run(ctx, "1102-ui-profile-streamer", ProfileReloadCases::streamer);
             UiCase.run(ctx, "380-ui-autoscale", AutoScaleCases::autoScale);
             // title-262 (2026-10-13): no stray widget on the themed title screen, none overlapping
             UiCase.run(ctx, "341-ui-title-widgets", TitleWidgetCases::titleWidgets);
@@ -542,6 +553,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1026-ui-ap3-angle-leapcounter", Ap3AngleLeapCases::run);
                     // mod ap3-blink-1026: the Blink Charge / Blink Release nodes save, reload, edit and parse.
                     UiCase.run(ctx, "1026-ui-ap3-blink-nodes", Ap3BlinkNodeCases::run);
+                    // mod zpew2-1101: the Crystal node's Height box in the AP3 node editor.
+                    UiCase.run(ctx, "1102-ui-ap3-crystal-height", Ap3CrystalEditCases::run);
                     UiCase.run(ctx, "388-ui-breaker-display", BreakerDisplayCases::run);
                     UiCase.run(ctx, "389-ui-crosshair", CrosshairCases::run);
                     UiCase.run(ctx, "390-ui-wither-doors-fill", WitherDoorFillCases::run);
@@ -705,6 +718,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1101-noamm-never", NoammNever1101Cases::noammNever);
                     // ---- cycle-back (806) ----
                     UiCase.run(ctx, "806-ui-cycle-buttons-both-ways", c -> CycleButtonCases.cycleButtons(c, deny));
+                    // ---- every mod text box: type + Enter saves (1101) ----
+                    UiCase.run(ctx, "1101-ui-textbox-enter", c -> TextBoxEnterCases.enterSaves(c, deny));
                     // ---- doc-small (807) ----
                     UiCase.run(ctx, "807-ui-doc-small-1014", DocSmall1014Cases::docSmall);
                     // ---- doc-small 1101 (1101-ds-*) ----
@@ -901,6 +916,12 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1062-ui-editor-hint-narrow", SoundDescCases::editorNarrow);
                     UiCase.run(ctx, "1063-ui-click-presets", SoundDescCases::presets);
                     UiCase.run(ctx, "1064-ui-click-import", SoundDescCases::imported);
+                    // ---- killer560's 2026-11-01 to-do Doc menu items (mod doc-menu-1101, DocMenu1101Cases) ----
+                    UiCase.run(ctx, "1101-ui-docmenu-sections", DocMenu1101Cases::sections);
+                    UiCase.run(ctx, "1101-ui-docmenu-scrollbar", DocMenu1101Cases::scrollbar);
+                    UiCase.run(ctx, "1101-ui-docmenu-keybind", DocMenu1101Cases::keybind);
+                    UiCase.run(ctx, "1101-ui-docmenu-etherwarp", DocMenu1101Cases::etherwarp);
+                    UiCase.run(ctx, "1101-ui-docmenu-video-browser", DocMenu1101Cases::videoBrowser);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

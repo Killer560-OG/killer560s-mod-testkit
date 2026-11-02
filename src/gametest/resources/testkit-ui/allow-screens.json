@@ -46,7 +46,7 @@
     {"class": "armourdye.CustomColorScreen", "args": ["screen:armourdye.CustomItemsScreen"], "source": "armourdye/CustomColorScreen.java:35 (owned by CustomItemsScreen, built with a null parent; render only)"},
     {"class": "armourdye.CustomItemPickerScreen", "args": ["screen:armourdye.CustomItemsScreen"], "source": "armourdye/CustomItemPickerScreen.java:56 (owned by CustomItemsScreen, built with a null parent; render only)"},
     {"class": "armourdye.DyePickerScreen", "args": ["null", "intconsumer"], "source": "armourdye/DyePickerScreen.java:39 (render only)"},
-    {"class": "armourdye.HypixelSkinScreen", "args": ["null", "str:Helmet", "consumer"], "source": "armourdye/HypixelSkinScreen.java:48 (render only)"},
+    {"class": "armourdye.HypixelSkinScreen", "args": ["null", "null", "null", "consumer"], "source": "armourdye/HypixelSkinScreen.java:45 (mod doc-items-1101: parent, skins, current, onPick; null skins = an empty list)"},
     {"class": "autosell.AutoSellListScreen", "args": ["null"], "source": "autosell/AutoSellListScreen.java:43 (render only)"},
     {"class": "bazaaradvisor.BazaarAdvisorSetupScreen", "args": [], "source": "bazaaradvisor/BazaarAdvisorSetupScreen.java:34 (/bzflip; render only)"},
     {"class": "gui.CapeDesignerScreen", "args": ["null"], "source": "gui/CapeDesignerScreen.java:44 (render only)"},

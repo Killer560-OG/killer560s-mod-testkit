@@ -127,12 +127,36 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 
 ## Quirks and lessons
 
+- A run the freeze watcher closes ("FROZEN - the client was closed automatically") while the Test thread waits in
+  `TestServer.start` (a slow dedicated-server start under load, not a hang) leaves that run's dedicated test server
+  running: the next run on the same port then fails with "Anticheat test server exited with code 0 before it was ready"
+  (its log: FAILED TO BIND TO PORT). After a FROZEN run, find java.exe processes of that checkout without
+  `fabric.dli.env=client` and stop them before the next run (simmobs2-1101, 2026-11-02, three in one checkout).
+- Launching run-scenario.ps1 through `powershell -NoProfile -File ...` from the Bash tool produced an empty log and no
+  run (2026-11-02); the same script started from the PowerShell tool ran. `-File` also passes `-Extra "a","b"` as ONE
+  string. Use the PowerShell tool, and pass extra -P arguments as one delimited string the script splits.
+- 62-argrim's Auto Clear cases leave starred mobs alive (acbat's: the server has no bat); a later case that counts on its
+  own mobs only must kill the leftovers first (62-argrim-1102-*: `clearLeftoverMobs`).
 - A MenuSuite case (`menu/*Cases`, names like `1853-menu-...`) does NOT run from `-Scenario 1853-menu-...`: that filter
   reaches no session and reports only unrelated SKIP rows (2026-11-01). Run `-Scenario "-menu-"` with the environment
+  variable `TESTKIT_MENU_ONLY=1853-menu-swap,...` (MenuSuite.selected) to pick the cases.
+- `c.server().command("playsound ... @p ~ ~ ~ ...")` runs at the console's position (world origin): "The sound is too far
+  away to be heard" and the client gets nothing. Use `execute at @p run playsound ...` (1101-ap3-crystal-*, 2026-11-01).
+  AutoTrap.testTrapRoom (mod doc-routes-1101) makes the 62-argrim pasted room a trap room for a case; reset it to null.
+- A checkout's `run/testserver/world` written by a 26.3 server will not load on 26.2 ("IllegalStateException: Overworld
+  settings missing"): the 26.2 server exits, the client reads FROZEN and the server JVM can be left holding the port. Before
+  a 26.2 run in a checkout that ran 26.3, move `world` aside (doc-routes-1101, 2026-11-01).
   variable `TESTKIT_MENU_ONLY=1853-menu-swap,...` (MenuSuite.selected) to pick the cases. That filter also runs the
   whole `*-ui-menu-*` UI group (~1 min); its 511-ui-menu-layout (AutoSprintTab) and 513-ui-menu-tooltips failed on mod
   main b01a1be7 itself (2026-11-02), not on any branch's change. A long menu run needs `-TimeoutSeconds` (default 240 s
   killed a 15-case run mid-way).
+- Since mod 8a39696d an Auto Routes item await counts only a pickup NAMED as a dungeon secret drop (`SecretSound`'s list;
+  `SimAutoRoutesTests.secretDrop` names it "Decoy"), and not one made after a click on a chest within 4.5 blocks - with
+  `AwaitEvents.chestClicks` kept for the whole world, so a chest an EARLIER 96-ar case clicked at the same frame spot made
+  the next case's item "come out of the chest" (uifix-1102). Call `forgetChestClicks(ctx)` before dropping one.
+- A menu change on purpose (tab merged, renamed, row hover rewritten) goes in `testkit-ui/menu-layout-merged.json`
+  (goneLeaves / newLeaves / tooltips with `to`, `renamed` or `gone`) and, for a tab whose rows moved into another,
+  `MenuLayoutCases.MERGED`; 412 and 513 read both. 511 stops at its first `check`, so fix and rerun until it is clean.
 - In a menu (Hx) session `PacketWatch.totalContainerClicks()` read 0 while the server logged nine container clicks
   (1101-menu-cover on the unfixed jar, 2026-11-02): judge menu clicks by `c.events("container.click")` only. The Hx chest
   menus also resync a clicked slot, so a real PICKUP there leaves nothing on the cursor; prove a click by the server record.
@@ -386,13 +410,22 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   `run/testserver/config/GrimAC/config.yml`. To run a set with them on, give it its own checkout and, before its first run,
   write that file with `experimental-checks: true` (a copy of another checkout's with the line changed works; GrimAC keeps
   it). Prove it took: 1027-aafast-twoframes then records MultiInteractA/B (ship3-1027, tk-ship3-1027-x). The mod owner wants
-  every new setting tested this way at its highest value (2026-10-27).
+  every new setting tested this way at its highest value (2026-10-27). In a NEW worktree the file does not exist yet:
+  `mkdir -p run/testserver/config/GrimAC` and copy a config.yml with the line in before the first run; GrimAC keeps it
+  (gridexp-1102). An experimental check's name carries a `*` in the verbose line (`MultiBreak*`).
+- A case that sets a mod setting by reflection breaks the day the mod removes it ("Could not call ...setBreakerAuraMultiBreak",
+  every 1022-ap3-breaker case, gridexp-1102). Use `ModUnderTest.setIfPresent` for a setting that may go, and branch the
+  assertions on whether it is there (`ModUnderTest.hasMultiBreak()`), so old and new jars both run.
 - Killing a queue script mid-run (or its client) can leave that checkout's test server running; the next server's GrimAC
   then waits ~14 s for the old datastore lease ("persistent storage UUID ... is owned by startupId ...") and the freeze
   watcher closes every client at startup (campaign-blink-1027). Kill the orphan `runTestServer` java of that checkout (match
   the checkout name in the command line; `[\/]` patterns missed it) before rerunning. A freeze-killed client leaves its
   server holding the port too: the next run on that `-Port` fails "Anticheat test server exited with code 0 before it was
   ready" (FAILED TO BIND TO PORT in run/testserver/logs/latest.log) - kill the orphan or pick another port (doc-rng-1101).
+- The mod reads two slayer completion lines within 5 s as one boss (SLAYER QUEST COMPLETE + NICE! SLAYER BOSS SLAIN), so a
+  case killing several bosses waits 5.5 s between them, or the second kill is silently the first one's (luck2-1101).
+  `ChatObserver` also drops a chat line repeated within 250 ms: two identical `hx().chat` lines back to back reach the
+  mod once.
 - To run only some cases of a Session suite, the filter needs a part that CONTAINS the session's name but is not in the
   case names, plus the case parts: `-Scenario "1101-luck,100-hx-session:"`. `-Scenario 1101-luck` alone selects no session
   and the run "passes" with 0 cases (doc-rng-1101; Session.selection/caseSelected).
@@ -452,12 +485,36 @@ Per-scenario lessons (96-ar, Superpairs layouts, sim /goto, insta-clear, autosec
 
 Auto Routes on GrimAC (62-argrim): how to run it and its traps are in [docs/argrim.md](docs/argrim.md).
 AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatch HUD): [docs/ap3.md](docs/ap3.md).
+- A scenario class missing from `src/gametest/resources/fabric.mod.json` (AGENTS.md says to register it) runs NOTHING and the
+  report shows only the unrelated SKIP rows with "none failed" - a vacuous pass (doc-adm-sim-1101, 2026-11-01). Check the
+  case's own row is in summary.md. Scenario `System.out` lines land in build/run/clientGameTest/logs/latest.log as [STDOUT].
 - Leave the Simon Says device (`dungeon.tp` away, a few ticks) BEFORE `boss.ss.clear`: clearing first drops him through the
   floor it stood on and GrimAC flags the fall (GroundSpoof + Simulation x1-x4) at the next case's start, which reads as the
   mod (1018-ss-stim-momentum on 26.3, 1101-ss-skip-second on 26.2, 2026-11-01). DocPuzzleCases and SsStimMomentumCases do.
+- 320-ui-profiles' value probe reaches only singleton `*Config` classes with a boolean `setX`/`isX` pair, so Streamer Mode,
+  Legit GFS, Cape and the sim loadout/filters were never probed and never reloaded (profreload-1102). 320 now also runs
+  `ProfileReloadCases.nameAudit`: every class whose bytes name a setting file profiles carry must be named in ProfileManager.class,
+  or sit in `NAME_ALLOWED` with a reason. 1102-ui-profile-streamer proves a profile apply changes Streamer Mode in memory.
 - `run-suite.ps1 -Suite ui` needs `-TimeoutSeconds 3600`: the default 1200 s deadline is shorter than the UI suite
   (~27 min on 26.3), and its "Deadline passed - the run is hung" kills a healthy run at about case 897 with no report
   (2026-11-01, both versions at once).
+- `powershell run-scenario.ps1 ... | tr -d '\r' > log` from Bash never returns when the freeze watcher closes a client at
+  startup: the run's orphan test server inherited the pipe, so `tr` waits for an EOF that never comes and a queue script
+  stalls for hours (ship1101e, 2026-11-02, twice; the log stops at exactly 64 KB, tr's buffer). Write the output straight to
+  the file (`> log 2>&1`), and after any FROZEN run kill that checkout's `runTestServer` java before the next one.
+- Menu Session cases (2790-2796 flip, 1101-menu-*, 1018-*) are selected only with the session part first:
+  `-Scenario "200-menu-session:,1101-menu-,2790-"`. Without it the filter quietly runs nothing of the session and reports
+  "2 passed" (ship1101e, 2026-11-02).
+- GrimAC experimental checks flag Auto Routes, AP3 and the breaker on every jar since at least ship-1101d (2026-11-02, 26.3
+  and 26.2, same cases on the ship-1101d control): MultiBreak* (breaker), PacketOrderE* / DuplicateRotPlace* (mimic, breakerwarp),
+  RotationBreak* (26.2 boom), BadPacketsH* (AP3 boom) and BadPacketsV* (AP3 shot). Compare against a control jar before
+  blaming a branch. Reports in killer560s-mod-logs/ship1101e-*-report.
+- A client can sit at the title screen for an hour with no test output: the gametest Test thread parked in
+  `ThreadingImpl.enterPhase` (Phaser) and the Render thread in `Minecraft.postRunTasks` (Semaphore), a startup deadlock the
+  freeze watcher did not catch with TESTKIT_HUNG_POLLS=60 (ship1101e zpew 26.3, 2026-11-02). If a run's client log has no
+  `[STDOUT]` line a few minutes after "Room library", jstack it; on that pair kill the client's PID and rerun.
+- The ZPEW campaign (`1027-zpew`) takes well over 40 minutes per version under load: a 2400 s deadline cut 26.2 off at
+  1027-zpewc-sources with no report. Give it `-TimeoutSeconds 9000`.
 - The relay cannot be reached from a test (offline, and 26.3 has no Yggdrasil for `RelayAuth`'s login). `hx/FakeRelay`
   puts its own WebSocket under `RelayClient` once ModChatFeature wants a room, so everything after the login is real:
   sends land in `sent()`, `deliver()` goes through `RelayClient.handle`, `mirrorAs(name)` plays a second member echoing
@@ -465,3 +522,21 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
 - `Floor7Tracker`'s phase (and anything gated on P3, like the Team Melody HUD) needs him INSIDE F7's boss coordinates
   (x, z > -7): the menu suite's platform at -520 never reaches P3 whatever the sidebar and Goldor's line say ("timed out
   waiting for Floor7Tracker phase P3", tkdebt-1101). Use the boss suite and a forceloaded platform of the case's own.
+- The ZPEW campaign (`1027-zpewc-,1025-zpew-,1027-zpew-worksfor,1027-zpewmt-,1027-zpewlk-,1102-zpew-ecancel`, 39 cases) takes
+  well over an hour on a loaded machine (~1.6 min a case), longer than a 3600 s deadline: split it in two runs (zpewc/1025/
+  worksfor, then zpewmt/zpewlk/ecancel). With nine clients up, clients froze at world changes and the watcher closed them,
+  leaving the checkout's server on its port (zpew2-1101, 2026-11-02); kill `<checkout>\build\loom-cache\argFiles\runTestServer`
+  java before the next entry.
+- `HxAbilities` treats a carpet as SOLID (the etherwarp lands on it). zpew2-1101 made it passable to match doc-routes-1101's
+  TeleportUtils change; both were held back in ship-1102h (mod ship-1101e-nocarpet, testkit a06d8ffc) until killer560 sees an
+  etherwarp onto a carpet on Hypixel. Mod and model must agree, or 1027-zpewc-shapes-* fail "carpet: MISPREDICT (err 1.414)"
+  and 62-argrim-1020-midas never lands its warp. 1101-ew-carpet expects passable and fails on a carpet-solid jar.
+- With experimental checks on, Blink Charge draws `BadPacketsV*` (a still position packet within 19 ticks of the last, no
+  teleport in the tick before) about once per server teleport it keeps its bank through ("teleport confirmed - bank kept ...
+  answers sent back to back with the confirm", then the flag ~0.5 s later), with no ZPEW press in between: 1027-zpewlk-*
+  records 1-6 a case between its shots (its aimed-shot windows are clean), and 1102-zpew-ecancel saw it after the tp onto its
+  square (zpew2-1101, 26.3 and 26.2). It is Blink's kept-teleport path (owner-accepted, 2026-10-27), for the Blink owner to
+  judge; 1102-zpew-ecancel accepts only that check once Blink is on, and nothing before it.
+- Never start a second `run-scenario.ps1` in a checkout whose queue is between or inside runs: at its start the script kills
+  that checkout's "leftover" client and server, which is the other run's live ones ("Killing a leftover test client", ship-1102h
+  2026-11-02 killed a ZPEW half mid-run). One queue per checkout; make another detached worktree for a rerun.

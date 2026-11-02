@@ -288,7 +288,8 @@ final class MapOverhaulCases {
                                 : Integer.compare(a.getX(), b.getX()));
                         List<String> out = new ArrayList<>();
                         for (AbstractWidget w : ws) {
-                            if (d.isSettingsButton(w) || w instanceof net.minecraft.client.gui.components.AbstractSliderButton) {
+                            if ((d.isSettingsButton(w) || w instanceof net.minecraft.client.gui.components.AbstractSliderButton)
+                                    && !ModScreenDriver.label(w).startsWith("Toggle Keybind:")) { // mod doc-menu-1101's row
                                 out.add(ModScreenDriver.label(w));
                             }
                         }

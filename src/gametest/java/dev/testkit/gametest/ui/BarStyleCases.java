@@ -747,7 +747,7 @@ final class BarStyleCases {
             } else if (in && (l.startsWith("▼ ") || l.startsWith("▶ ")) && !l.contains("Advanced")) {
                 break;
             }
-            if (in) {
+            if (in && !l.startsWith("Toggle Keybind:")) { // the menu's own row (mod doc-menu-1101)
                 out.add(l);
             }
         }

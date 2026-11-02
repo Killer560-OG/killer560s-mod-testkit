@@ -235,6 +235,10 @@ final class MenuACases {
                     if (Mod.has("testing.TestingMenu") && !shown.isEmpty()) {
                         shown.remove(0); // the testing build's Mark tested row
                     }
+                    // Every feature with a switch ends with the menu's own Toggle Keybind row (mod doc-menu-1101).
+                    if (!shown.isEmpty() && shown.get(shown.size() - 1).startsWith("Toggle Keybind:")) {
+                        shown.remove(shown.size() - 1);
+                    }
                     if (!new java.util.HashSet<>(shown).equals(new java.util.HashSet<>(built))) {
                         return id + ": the drawer shows " + shown + " but the tab builds " + built;
                     }

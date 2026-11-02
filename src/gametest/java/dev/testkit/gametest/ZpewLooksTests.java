@@ -59,6 +59,11 @@ public class ZpewLooksTests implements FabricClientGameTest {
                 first = first == null ? e : first;
             }
         }
+        try {
+            emergencyCancel(ctx);
+        } catch (AssertionError e) {
+            first = first == null ? e : first;
+        }
         if (first != null) {
             throw first;
         }
@@ -329,6 +334,7 @@ public class ZpewLooksTests implements FabricClientGameTest {
                 scenario.log("jar: " + (cheat ? "cheat" : "legit") + ", latency " + lat + " ms");
                 ctx.runOnClient(mc -> {
                     Mod.set(ZP_CFG, "setWarpsPerTick", 1);
+                    ZpewMultiTickTests.multiWarps(true);
                     Mod.set(ZP_CFG, "setAimedWarps", true);
                 });
                 ctx.getInput().holdKey(o -> o.keyShift);
@@ -388,6 +394,183 @@ public class ZpewLooksTests implements FabricClientGameTest {
             }
             if (!problems.isEmpty()) {
                 throw new AssertionError("zpewlk " + lat + " ms: " + problems);
+            }
+        });
+    }
+
+    static final String MS = "macrostop.MacroStop";
+    static final String MS_CFG = "macrostop.MacroStopConfig";
+    /** GLFW K, the Emergency Cancel Key for the case (mod settings keep GLFW numbers; pressed through McKeys.nat). */
+    static final int K = 75;
+
+    static boolean held(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(MS, "emergencyHeld"));
+    }
+
+    static void pressK(ClientGameTestContext ctx) {
+        ctx.getInput().pressKey(dev.testkit.compat.McKeys.nat(K));
+        ctx.waitTicks(2);
+    }
+
+    /**
+     * 1102-zpew-ecancel (mod zpew2-1101; killer560 2026-11-01: the Emergency Cancel Key "should stop EVERYTHING automatic").
+     * ZPEW's own sends - Warps Per Tick's extras and an Aimed Warps burst - never went through ActionGate, so the hold did not
+     * reach them. Each half is proved twice, acting with the hold off and refused with it on, on the same lanes:
+     * <ol>
+     *   <li>Warps Per Tick 5, hold off: 5 uses in one tick, 4 extra, 5 server warps (the control that it acts);</li>
+     *   <li>K: the hold is on; Warps Per Tick 5: exactly his own use (1), 0 extra, 1 warp, heldRefused +1;</li>
+     *   <li>Aimed Warps n=3 with a Blink bank, hold on: no aimed warp sent (aimedWarpsSent +0), heldRefused +1, the presses
+     *       go as vanilla sends them (3 uses, one tick);</li>
+     *   <li>K again: the hold is off; the same aimed n=3 sends 3 aimed warps landing on every corner.</li>
+     * </ol>
+     * GrimAC must say nothing throughout (Scenario.run). Cheat jar only: a legit jar has neither part.
+     */
+    static void emergencyCancel(ClientGameTestContext ctx) {
+        if (!cheat(ctx)) {
+            Scenario.skipped("1102-zpew-ecancel", "Warps Per Tick and Aimed Warps are cheat-only");
+            return;
+        }
+        Scenario.runExpectingFlags(ctx, "1102-zpew-ecancel", (server, scenario) -> ZpewMultiTickTests.build(server),
+                (server, scenario) -> {
+            scenario.assertDetectorWorks();
+            Hx hx = null;
+            boolean gate = false;
+            boolean blink = false;
+            int oldKey = ctx.computeOnClient(mc -> (Integer) Mod.call(Mod.cfg(MS_CFG), "getEmergencyCancelKeyCode"));
+            List<String> problems = new ArrayList<>();
+            List<String> blinkFlags = new ArrayList<>();
+            try {
+                hx = ZpewCampaignTests.setUp(ctx, 4);
+                ZpewMultiTickTests.hookTicks(ctx);
+                String who = ZpewCampaignTests.name(ctx);
+                ctx.runOnClient(mc -> {
+                    Mod.set(MS_CFG, "setEmergencyCancelKeyCode", K);
+                    Mod.staticCall(MS, "release", "test setup");
+                    Mod.set(ZP_CFG, "setAimedWarps", true);
+                });
+                ctx.getInput().holdKey(o -> o.keyShift);
+                ZpewCampaignTests.latency(ctx, 0);
+                // 1. Warps Per Tick, hold off: it acts.
+                ZpewMultiTickTests.setWpt(ctx, 5);
+                problems.addAll(ZpewMultiTickTests.shot(ctx, server, hx, scenario, who, 0, "wpt-5 hold off", 0,
+                        () -> ctx.getInput().pressKey(o -> o.keyUse), 5, 5, 4));
+                // 1b. Streamer Mode with Disable cheats refuses them the same way (ActionGate's other gate), on jars with it.
+                long refS0 = ZpewCampaignTests.num(ctx, "heldRefused");
+                Object oldOption = ctx.computeOnClient(mc -> Mod.staticCall("streamer.StreamerMode", "option"));
+                boolean streamerOn = ctx.computeOnClient(mc -> {
+                    Mod.staticCall("streamer.StreamerMode", "setOption", Mod.enumValue("streamer.StreamerMode$Option",
+                            "DISABLE_CHEATS"));
+                    if (!(Boolean) Mod.staticCall("streamer.StreamerMode", "active")) {
+                        Mod.staticCall("streamer.StreamerMode", "toggle");
+                    }
+                    return (Boolean) Mod.staticCall("streamer.StreamerMode", "disablesCheats");
+                });
+                try {
+                    problems.addAll(ZpewMultiTickTests.shot(ctx, server, hx, scenario, who, 0, "wpt-5 streamer disable cheats", 0,
+                            () -> ctx.getInput().pressKey(o -> o.keyUse), 1, 1, 0));
+                } finally {
+                    ctx.runOnClient(mc -> {
+                        if ((Boolean) Mod.staticCall("streamer.StreamerMode", "active")) {
+                            Mod.staticCall("streamer.StreamerMode", "toggle");
+                        }
+                        Mod.staticCall("streamer.StreamerMode", "setOption", oldOption);
+                    });
+                }
+                long refStreamer = ZpewCampaignTests.num(ctx, "heldRefused") - refS0;
+                scenario.log("streamer disable cheats on " + streamerOn + ": extras refused " + refStreamer);
+                if (!streamerOn || refStreamer != 1) {
+                    problems.add("streamer disable cheats: on " + streamerOn + ", refusals " + refStreamer + " (expected 1)");
+                }
+                // 2. K: the hold; Warps Per Tick sends only his own warp.
+                pressK(ctx);
+                boolean on = held(ctx);
+                long ref0 = ZpewCampaignTests.num(ctx, "heldRefused");
+                problems.addAll(ZpewMultiTickTests.shot(ctx, server, hx, scenario, who, 0, "wpt-5 hold on", 0,
+                        () -> ctx.getInput().pressKey(o -> o.keyUse), 1, 1, 0));
+                long refWpt = ZpewCampaignTests.num(ctx, "heldRefused") - ref0;
+                scenario.log("after K: hold " + on + "; Warps Per Tick extras refused by the hold: " + refWpt);
+                if (!on || refWpt != 1) {
+                    problems.add("hold on after K " + on + ", wpt refusals " + refWpt + " (expected 1)");
+                }
+                // Everything so far (Warps Per Tick, Streamer Mode, the hold) must be clean outright.
+                List<String> early = scenario.flags();
+                scenario.log("flags before Blink: " + early);
+                if (!early.isEmpty()) {
+                    problems.add("GrimAC flagged before Blink was on: " + early);
+                }
+                // 3. Aimed Warps with a bank, hold on: refused, left to vanilla. From here Blink Charge is on, and Blink keeps
+                // its bank through a teleport (killer560 2026-10-27, the one accepted flag): with experimental checks on, the
+                // kept teleport's release draws BadPacketsV* (a still position packet inside 19 ticks), even with no ZPEW
+                // action at all (the tp below). Only that check is accepted from here; anything else fails.
+                server.mark();
+                ZpewMultiTickTests.setWpt(ctx, 1);
+                gate = BlinkTests.setUp(ctx, 20);
+                blink = true;
+                BlinkTests.chargeOn(ctx);
+                Vec3 s = feet(0);
+                ZpewCampaignTests.tpTo(ctx, server, who, s.x, s.y, s.z, true);
+                ctx.waitTicks(30); // the bank fills standing still
+                long bank = BlinkTests.cnum(ctx, "banked");
+                long sent0 = ZpewCampaignTests.num(ctx, "aimedWarpsSent");
+                long ref1 = ZpewCampaignTests.num(ctx, "heldRefused");
+                blinkFlags.addAll(scenario.flags());
+                scenario.log("flags with Blink on, before any press: " + blinkFlags);
+                Result r = shot(ctx, server, hx, scenario, who, 0, "aimed n=3 hold on (bank " + bank + ")", presses(ctx, 3), 3);
+                long sentHeld = ZpewCampaignTests.num(ctx, "aimedWarpsSent") - sent0;
+                long refAimed = ZpewCampaignTests.num(ctx, "heldRefused") - ref1;
+                boolean stillHeld = held(ctx);
+                scenario.log(String.format(Locale.ROOT, "aimed hold on: bank %d, aimed sent %d, refused %d, uses %d in %d tick(s), "
+                        + "hold still on %s", bank, sentHeld, refAimed, r.uses(), r.ticks(), stillHeld));
+                if (bank < 2) {
+                    problems.add("no Blink bank to refuse (" + bank + "): the aimed half proved nothing");
+                }
+                if (sentHeld != 0 || refAimed < 1 || r.uses() != 3 || r.ticks() != 1 || !stillHeld) {
+                    problems.add("aimed under the hold: sent " + sentHeld + ", refused " + refAimed + ", " + r + ", hold " + stillHeld);
+                }
+                // 4. K again: released; the same burst goes, aimed.
+                blinkFlags.addAll(scenario.flags()); // the hold-on shot's window and after
+                pressK(ctx);
+                boolean off = !held(ctx);
+                ZpewCampaignTests.tpTo(ctx, server, who, s.x, s.y, s.z, true);
+                ctx.waitTicks(30);
+                long bank2 = BlinkTests.cnum(ctx, "banked");
+                long sent1 = ZpewCampaignTests.num(ctx, "aimedWarpsSent");
+                waitAimed = true;
+                Result r2 = shot(ctx, server, hx, scenario, who, 0, "aimed n=3 hold off (bank " + bank2 + ")", presses(ctx, 3), 3);
+                blinkFlags.addAll(scenario.flags());
+                waitAimed = false;
+                long sentFree = ZpewCampaignTests.num(ctx, "aimedWarpsSent") - sent1;
+                scenario.log("after K again: hold off " + off + ", aimed sent " + sentFree + ", landed every corner " + landedAll(r2, 3));
+                if (!off || sentFree != 3 || r2.ticks() != 1 || !landedAll(r2, 3)) {
+                    problems.add("aimed after release: hold off " + off + ", sent " + sentFree + ", " + r2);
+                }
+            } finally {
+                waitAimed = false;
+                ZpewCampaignTests.atTickStart = null;
+                if (blink) {
+                    BlinkTests.chargeOff(ctx);
+                    BlinkTests.tearDown(ctx, gate);
+                }
+                ctx.runOnClient(mc -> {
+                    Mod.staticCall(MS, "release", "test teardown");
+                    Mod.set(MS_CFG, "setEmergencyCancelKeyCode", oldKey);
+                    Mod.set(ZP_CFG, "setAimedWarps", false);
+                    Mod.set(ZP_CFG, "setWarpsPerTick", 1);
+                });
+                ZpewCampaignTests.tearDown(ctx, hx);
+            }
+            List<String> other = new ArrayList<>();
+            for (String f : blinkFlags) {
+                if (!f.contains("BadPacketsV")) {
+                    other.add(f);
+                }
+            }
+            scenario.log("flags with Blink on: " + blinkFlags.size() + " line(s), other than BadPacketsV: " + other);
+            if (!other.isEmpty()) {
+                problems.add("GrimAC flagged with Blink on (not BadPacketsV): " + other);
+            }
+            if (!problems.isEmpty()) {
+                throw new AssertionError("zpew ecancel: " + problems);
             }
         });
     }

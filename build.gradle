@@ -638,7 +638,7 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	// testkit's own placement, -PfullclearLiveHp=H.
 	["fullclearRuns", "fullclearCode", "fullclearOut", "fullclearMobs", "fullclearCodes", "fullclearPlan", "fullclearNoTraps", "acCode",
 	 "acsCodes", "acsRuns", "acsMobs", "acsHp", "acsWalk", "acsHype", "acsHypeWeapon", "acsMinutes", "fullclearLive",
-	 "fullclearLiveHp"].each { k ->
+	 "fullclearLiveHp", "mobfloorCode", "mobfloorMinutes", "fullclearMobFloor"].each { k ->
 		if (project.hasProperty(k)) {
 			systemProperty "testkit.${k}", project.property(k)
 		}

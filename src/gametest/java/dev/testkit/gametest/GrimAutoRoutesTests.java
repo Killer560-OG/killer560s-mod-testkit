@@ -175,6 +175,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             session = s;
             s.test("62-argrim-ew-add", GrimAutoRoutesTests::caseEwAdd);
             s.test("62-argrim-walk", GrimAutoRoutesTests::caseWalk);
+            // mod doc-routes-1101 (to-do Doc "AUTO ROUTES TRAP RELATED NODES"): in a trap room a walk node turns the body
+            // onto its yaw before it walks, like AP3; any node takes a w<n> l<n> box there and only there.
+            s.test("62-argrim-1101-trapwalk", c -> caseTrapWalk(c, true));
+            s.test("62-argrim-1101-trapwalk-control", c -> caseTrapWalk(c, false));
+            s.test("62-argrim-1101-trapbox", GrimAutoRoutesTests::caseTrapBox);
             // iw-campaign-1027: Inventory Walk on while a route sprints him and he clicks in his inventory, then closes it.
             s.test("62-argrim-1027-invwalk", GrimAutoRoutesTests::caseInvWalk);
             // ... and 62-argrim-play's whole route (its chest window keeps the route running) with Inventory Walk on.
@@ -215,6 +220,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-autoclear", GrimAutoRoutesTests::caseAutoClear);
             s.test("62-argrim-1020-autoclearaura", GrimAutoRoutesTests::caseAutoClearAura); // mod ac-aura-memory-1020
             s.test("62-argrim-1020-acbat", GrimAutoRoutesTests::caseAutoClearBat); // ac-1020
+            // simmobs2-1101 (mod doc-adm-sim-1101): a sleeping Fel woken by an etherwarp, and by the forced walk after a setback;
+            // a dropped Wither Key fetched by an etherwarp trip, and by the forced walk after a setback.
+            s.test("62-argrim-1102-acfel", c -> caseAutoClearFel(c, false));
+            s.test("62-argrim-1102-acfelwalk", c -> caseAutoClearFel(c, true));
+            s.test("62-argrim-1102-ackey", c -> caseAutoClearKey(c, false));
+            s.test("62-argrim-1102-ackeywalk", c -> caseAutoClearKey(c, true));
             // 62-argrim-1020-battest removed: the Bat Test (/test) was dropped (mod cmdclean-1101, killer560 2026-11-01).
             // The Interactive Map's own executor (livemap/autoclear/ClearExecutor), last: a map warp or a Go To sets the
             // map-arrival interlock (only a START node arms afterwards) and Go To leaves edit mode on.
@@ -280,7 +291,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ModUnderTest.set(map, "setEnabled", true);
             ModUnderTest.set(map, "setInteractiveMapEnabled", true);
             ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraEnabled", false);
-            ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
+            ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
         });
         Hx hx = s.hx();
         hx.call("dungeon.abilities", "enabled", true);
@@ -578,6 +589,169 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         noteFlags(c, s);
     }
 
+    private static final String AUTOTRAP = "com.killer560.hub.autotrap.AutoTrap";
+
+    private static void trapRoom(ClientGameTestContext ctx, boolean on) {
+        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField(AUTOTRAP, "testTrapRoom", on ? room : null));
+    }
+
+    /**
+     * 62-argrim-1101-trapwalk (killer560, to-do Doc 2026-11-01: "the walk nodes in there start walking before it is
+     * rotated. They should auto rotate just like walk nodes from ap3"). The pasted room is made a trap room (AutoTrap's
+     * test hook). A WALK start node pointing room -x is walked onto facing room +z. In a trap room the body must be ON the
+     * node's yaw at every tick the route drives him (turned before the first key), with the camera held, and the sprint
+     * must take him along -x. The control (not a trap room) keeps the old camera ease: its body yaw is off the walk on the
+     * first driven tick - which is the behavior he reported.
+     */
+    private static void caseTrapWalk(Session c, boolean trap) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        trapRoom(ctx, trap);
+        try {
+            JsonObject w = node("WALK", 14, 8, 90f, 0f);
+            w.addProperty("start", true);
+            writeRoute(ctx, List.of(w));
+            float walkYaw = ctx.computeOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                return (Float) ModUnderTest.staticCall(COORDS, "toRealYaw", new Class<?>[]{frame.getClass(), float.class},
+                        new Object[]{frame, 90f});
+            });
+            int turns0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "trapWalkTurns"));
+            long mark = LogTap.mark();
+            startSampling(ctx);
+            walkOnto(ctx, 14.5, 5.5, 14, 8);
+            Vec3 fired = relPos(ctx);
+            List<String> rows = new ArrayList<>();
+            double worstOff = 0;
+            int drivenTicks = 0;
+            int heldView = 0;
+            float firstOff = Float.NaN;
+            for (int t = 0; t < 25; t++) {
+                Object[] r = ctx.computeOnClient(mc -> new Object[]{mc.player.getYRot(),
+                        ModUnderTest.staticCall("com.killer560.hub.util.ViewFreeze", "viewYaw"),
+                        ModUnderTest.staticCall(EXECUTOR, "isRunning"), mc.player.getX(), mc.player.getZ()});
+                float off = Math.abs(net.minecraft.util.Mth.wrapDegrees((Float) r[0] - walkYaw));
+                if ((Boolean) r[2]) {
+                    drivenTicks++;
+                    if (Float.isNaN(firstOff)) {
+                        firstOff = off;
+                    }
+                    worstOff = Math.max(worstOff, off);
+                    if (!Float.isNaN((Float) r[1])) {
+                        heldView++;
+                    }
+                }
+                if (t < 6) {
+                    rows.add(String.format(Locale.ROOT, "t%d yaw %.2f (off %.2f) view %s running %s", t, (Float) r[0], off,
+                            r[1], r[2]));
+                }
+                ctx.waitTick();
+            }
+            List<Sample> s = stopSampling(ctx);
+            Vec3 after = relPos(ctx);
+            int turns = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "trapWalkTurns")) - turns0;
+            rows.forEach(c::note);
+            c.note(String.format(Locale.ROOT, "%s: walk yaw %.2f, first driven tick %.2f off, worst %.2f off over %d driven"
+                            + " tick(s), camera held %d, body turns %d, moved rel x %.2f z %.2f",
+                    trap ? "trap room" : "control", walkYaw, firstOff, worstOff, drivenTicks, heldView, turns,
+                    after.x - fired.x, after.z - fired.z));
+            check(drivenTicks >= 5, "the walk route did not run (" + drivenTicks + " driven ticks)");
+            check(after.x - fired.x < -4, String.format(Locale.ROOT, "the walk did not take him along room -x (%.2f)",
+                    after.x - fired.x));
+            if (trap) {
+                check(turns == 1 && logHas(mark, "WALK in a trap room: body turned"), "no trap-room body turn ("
+                        + turns + ")");
+                check(worstOff < 0.5, String.format(Locale.ROOT, "the body was off the walk's yaw while it walked (%.2f)",
+                        worstOff));
+                check(heldView >= drivenTicks - 1, "the camera was not held while the body walked (" + heldView + " of "
+                        + drivenTicks + ")");
+                check(s.stream().anyMatch(Sample::sprint), "the trap walk never sprinted");
+            } else {
+                check(turns == 0, "a body turn outside a trap room");
+            }
+            noteFlags(c, s);
+        } finally {
+            trapRoom(ctx, false);
+            resetRoutes(ctx);
+        }
+    }
+
+    /**
+     * 62-argrim-1101-trapbox (to-do Doc: "make it so i can add a node with something like w3 l3 and such for all nodes but
+     * only in trap"). Outside a trap room "/ar add walk w3 l3" is refused and adds nothing. In one, "/ar add breaker w3 l3"
+     * and "/ar add walk w5 l5" are added with their boxes, the file keeps them ("box", width, length), and the walk's 5x5
+     * box fires from 2 blocks off its center - outside the plain ring, inside the box.
+     */
+    private static void caseTrapBox(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        try {
+            tpRel(ctx, 14.5, 8.5, 0f, 0f);
+            long m0 = LogTap.mark();
+            cmd(ctx, "/ar add walk w3 l3");
+            ctx.waitTicks(5);
+            int outside = ctx.computeOnClient(mc -> ((List<?>) ModUnderTest.staticCall(
+                    "com.killer560.hub.autoroutes.AutoRoutesFeature", "currentRouteNodes")).size());
+            check(outside == 0 && logHas(m0, "box size outside a trap room"), "a boxed node was added outside a trap room ("
+                    + outside + " nodes)");
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                    new Object[]{"test reset"}));
+
+            trapRoom(ctx, true);
+            tpRel(ctx, 20.5, 20.5, 0f, 0f);
+            cmd(ctx, "/ar add breaker w3 l3");
+            ctx.waitTicks(5);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                    new Object[]{"test reset"}));
+            ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.autoroutes.AutoRoutesFeature", "setEditMode",
+                    new Class<?>[]{boolean.class}, new Object[]{false}));
+            tpRel(ctx, 14.5, 8.5, 90f, 0f);
+            cmd(ctx, "/ar add walk w5 l5");
+            ctx.waitTicks(5);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                    new Object[]{"test reset"}));
+            String saved = ctx.computeOnClient(mc -> {
+                try {
+                    return Files.readString((Path) ModUnderTest.staticCall(STORE, "routesFile"), StandardCharsets.UTF_8);
+                } catch (java.io.IOException e) {
+                    return "unreadable: " + e;
+                }
+            });
+            JsonArray nodes = com.google.gson.JsonParser.parseString(saved).getAsJsonObject().getAsJsonObject("routes")
+                    .getAsJsonObject(room).getAsJsonArray("nodes");
+            c.note("saved: " + nodes);
+            check(nodes.size() == 2, "expected the breaker and the walk saved, got " + nodes.size());
+            JsonObject br = nodes.get(0).getAsJsonObject();
+            JsonObject wk = nodes.get(1).getAsJsonObject();
+            check(br.has("box") && br.get("width").getAsDouble() == 3.0 && br.get("length").getAsDouble() == 3.0,
+                    "the breaker's 3x3 box was not saved: " + br);
+            check(wk.has("box") && wk.get("width").getAsDouble() == 5.0 && wk.get("length").getAsDouble() == 5.0,
+                    "the walk's 5x5 box was not saved: " + wk);
+            // Reload from the file (the boxes must come back), make the walk the start node, and walk into its box's edge.
+            wk.addProperty("start", true);
+            tpRel(ctx, 24.5, 24.5, 0f, 0f); // off the box first: a reload while he stands in it fires it there
+            writeRoute(ctx, List.of(wk));
+            long m1 = LogTap.mark();
+            startSampling(ctx);
+            // From rel z 3.5 straight up +z at x 16.5: 2 blocks beside the node's center line, inside W5, outside a ring.
+            walkOnto(ctx, 16.5, 3.5, 16, 8);
+            Vec3 at = relPos(ctx); // where it fired: walkOnto returns the tick the route is running
+            boolean fired = waitFor(ctx, 40, () -> logHas(m1, "WALK acted"));
+            ctx.waitTicks(20);
+            List<Sample> s = stopSampling(ctx);
+            c.note(String.format(Locale.ROOT, "box walk fired %s at rel %.2f, %.2f (center 14.5, 8.5)", fired, at.x, at.z));
+            check(fired, "the 5x5 walk node did not fire from 2 blocks off its center");
+            check(Math.abs(at.x - 14.5) > 1.0, String.format(Locale.ROOT,
+                    "it fired too close to the center to prove the box (rel x %.2f)", at.x));
+            noteFlags(c, s);
+        } finally {
+            trapRoom(ctx, false);
+            resetRoutes(ctx);
+        }
+    }
+
     /**
      * Inventory Walk + a running route (iw-campaign-1027): {@code /ar add walk} sprints him along +z; six ticks in he opens
      * his inventory (the route's input mixin keeps driving him), makes three clicks and closes it while the route still
@@ -824,9 +998,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         arena(ctx, false);
         int[][] six = {{12, 0}, {13, 0}, {14, 0}, {12, 1}, {13, 1}, {14, 1}};
         StringBuilder notes = new StringBuilder();
+        // Mod gridexp-1102 removed Multi Break (GrimAC MultiBreak): one dig a tick, each aimed by a look the server already
+        // heard or sent at the head of the movement packet that carries its turn, so still from the firing tick.
+        boolean hasMulti = ctx.computeOnClient(mc -> ModUnderTest.hasMultiBreak());
         try {
-            for (boolean multi : new boolean[]{true, false}) {
-                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", multi));
+            for (boolean multi : hasMulti ? new boolean[]{true, false} : new boolean[]{false}) {
+                ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", multi));
                 Map<int[], String> put = new LinkedHashMap<>();
                 JsonArray blocks = new JsonArray();
                 for (int[] b : six) {
@@ -863,11 +1040,24 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 check(total == 6, "multi break " + multi + ": " + total + " player_action packets for six blocks");
                 check(multi ? most == 6 : most == 1, "multi break " + multi + ": " + most + " digs on one tick");
                 check(logHas(m, "DUNGEON_BREAKER acted 0 tick(s)"), "the breaker did not act on its firing tick");
+                if (!hasMulti) {
+                    // One a tick, no tick wasted: six digs on six consecutive ticks after the first.
+                    int first = -1;
+                    int last = -1;
+                    for (int i = 0; i < s.size(); i++) {
+                        if (s.get(i).out().contains("player_action")) {
+                            first = first < 0 ? i : first;
+                            last = i;
+                        }
+                    }
+                    notes.append(String.format(Locale.ROOT, "digs spread over %d tick(s); ", last - first + 1));
+                    check(last - first + 1 <= 7, "six one-a-tick digs took " + (last - first + 1) + " ticks (want 6)");
+                }
                 tpRel(ctx, 13.5, 6.5, 0f, 0f);
                 ctx.waitTicks(5);
             }
         } finally {
-            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+            ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
         }
         c.note(notes.toString());
         noteFlags(c, List.of());
@@ -883,7 +1073,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         resetRoutes(ctx);
         arena(ctx, false);
         int top = 7;
-        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+        ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
         Map<int[], String> put = new LinkedHashMap<>();
         JsonArray blocks = new JsonArray();
         for (int y = 0; y < top; y++) {
@@ -2843,7 +3033,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
         arena(ctx, false);
-        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+        ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
         int high = F + 6;
         setBlocks(ctx, Map.of(new int[]{14, high, 14}, "minecraft:snow_block"));
         JsonObject br = node("DUNGEON_BREAKER", 14, 14, 0f, -90f);
@@ -3730,6 +3920,241 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
 
     /** The 96-ar arena: relative x,z 3..27 cleared from F to F+8 on a stone floor at F-1, stone walls round it, and
      *  with {@code wall} a 4-high wall across x 15 the path has to go over. */
+    // ---- simmobs2-1101: Auto Clear's Fel and key changes (mod doc-adm-sim-1101) on GrimAC ----
+
+    private static final String AC = "com.killer560.hub.autoclear.AutoClearFeature";
+    private static final String AC_CFG = "com.killer560.hub.autoclear.AutoClearConfig";
+
+    /**
+     * Earlier cases leave starred mobs standing (62-argrim-1020-acbat's: the server has no bat, so nothing dies): in the full
+     * session acfel saw 5 starred mobs, killed one beside the Fel and woke it without any Fel trip. Every case here starts
+     * with none - zombies, endermen and their name stands gone.
+     */
+    private static void clearLeftoverMobs(Session c) {
+        c.server().command("kill @e[type=minecraft:zombie]");
+        c.server().command("kill @e[type=minecraft:enderman]");
+        c.server().command("kill @e[type=minecraft:armor_stand]");
+        c.ctx().waitTicks(5);
+    }
+
+    /** Auto Clear on, Hyperion with hops, keys picked up, Walk When Faster on (the forced walks need it). */
+    private static void autoClearHyperion(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(AC_CFG);
+            ModUnderTest.set(cfg, "setEnabled", true);
+            ModUnderTest.set(cfg, "setHyperionHops", true);
+            ModUnderTest.set(cfg, "setPickUpKeys", true);
+            ModUnderTest.set(cfg, "setWalkWhenFaster", true);
+            Object hype = ModUnderTest.enumValue(AC_CFG + "$Weapon", "HYPERION");
+            ModUnderTest.call(cfg, "setWeapon", new Class<?>[]{hype.getClass()}, new Object[]{hype});
+        });
+    }
+
+    private static Vec3 relFeet(ClientGameTestContext ctx, double x, double z) {
+        return ctx.computeOnClient(mc -> {
+            Object frame = ModUnderTest.staticCall(FRAME, "current");
+            return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                    double.class, double.class}, new Object[]{frame, x, (double) F, z});
+        });
+    }
+
+    /** Starts clearRoom on the session's room; returns {done, gaveUp}. */
+    private static List<java.util.concurrent.atomic.AtomicReference<String>> startClear(ClientGameTestContext ctx) {
+        java.util.concurrent.atomic.AtomicReference<String> done = new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<String> gaveUp = new java.util.concurrent.atomic.AtomicReference<>();
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(AC, "clearRoom", new Class<?>[]{String.class, Runnable.class,
+                java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> done.set("done"),
+                (java.util.function.Consumer<String>) gaveUp::set}));
+        return List.of(done, gaveUp);
+    }
+
+    private static boolean awaitClearEnd(ClientGameTestContext ctx, int ticks) {
+        boolean finished = waitFor(ctx, ticks, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AC,
+                "isBusy")));
+        if (!finished) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(AC, "cancel"));
+        }
+        return finished;
+    }
+
+    private static int entityPackets(List<Sample> s) {
+        int n = 0;
+        for (Sample x : s) {
+            n += (int) x.out().stream().filter(p -> p.contains("interact")).count();
+        }
+        return n;
+    }
+
+    private static void printAutoClear(long m) {
+        for (String l : LogTap.since(m)) {
+            if (l.contains("[AutoClear]") || l.contains("[Path]")) {
+                println("  " + l.replaceAll("^.*?\\[(AutoClear|Path)\\]", "[$1]"));
+            }
+        }
+    }
+
+    /**
+     * A sleeping starred Fel (Hx {@code dungeon.fel}: Hypixel's invisible, untouchable Dinnerbone enderman under its star
+     * tag, woken by a player within 9 blocks) 19 blocks from him, and an awake starred zombie 9 blocks off. Auto Clear must
+     * kill the zombie, then - with only the sleeper left - etherwarp inside the Fel's wake range ("is asleep ... trip to"),
+     * wait for it to show and kill it. {@code walk}: the Fel is held asleep (wake range 0) until the etherwarp has landed
+     * and he waits, then the server moves him back to the start (the position packet a setback is) and the Fel wakes at 9
+     * again; the second approach must be the forced WALK ("the etherwarp ended ... walking", ShortWalk's keys). Required
+     * either way: both dead, the Fel woke before it died, no entity packet, and GrimAC silent for the whole stretch.
+     */
+    private static void caseAutoClearFel(Session c, boolean walk) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        c.hx().call("dungeon.felKeyReset");
+        clearLeftoverMobs(c);
+        autoClearHyperion(ctx);
+        tpRel(ctx, 5.5, 15.5, -90f, 0f);
+        ctx.waitTicks(10);
+        Vec3 zAt = relFeet(ctx, 11.5, 8.5);
+        Vec3 fAt = relFeet(ctx, 24.5, 15.5);
+        JsonObject zombie = c.hx().call("dungeon.starred", "x", zAt.x, "y", zAt.y, "z", zAt.z).getAsJsonObject();
+        JsonObject fel = c.hx().call("dungeon.fel", "x", fAt.x, "y", fAt.y, "z", fAt.z, "wake", walk ? 0.0 : 9.0)
+                .getAsJsonObject();
+        ctx.waitTicks(20);
+        int felId = fel.get("mobId").getAsInt();
+        String seen = ctx.computeOnClient(mc -> {
+            net.minecraft.world.entity.Entity e = mc.level.getEntity(felId);
+            List<?> starred = (List<?>) ModUnderTest.staticCall("com.killer560.hub.mobesp.MobEspFeature", "starredMobs",
+                    new Class<?>[]{net.minecraft.client.Minecraft.class}, new Object[]{mc});
+            return (e == null ? "no Fel entity" : e.getType() + " invisible=" + e.isInvisible()) + ", starred mobs "
+                    + starred.size() + ", Fel among them " + starred.contains(e);
+        });
+        println(c.name() + ": client sees " + seen);
+        JsonObject before = stats();
+        long m = LogTap.mark();
+        Vec3 start = ctx.computeOnClient(mc -> mc.player.position());
+        int walksBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(AC, "walks"));
+        startSampling(ctx);
+        var ends = startClear(ctx);
+        boolean setBack = false;
+        if (walk) {
+            boolean waiting = waitFor(ctx, 600, () -> logHas(m, "inside its wake range - waiting for it to wake")
+                    || !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AC, "isBusy")));
+            if (waiting && logHas(m, "inside its wake range - waiting for it to wake")) {
+                Vec3 back = start;
+                session.hx().call("dungeon.tp", "x", back.x, "y", back.y, "z", back.z, "yaw", lookYaw, "pitch", 0f);
+                c.hx().call("dungeon.felKeySet", "id", fel.get("mob").getAsString(), "value", 9.0);
+                setBack = true;
+            }
+        }
+        boolean finished = awaitClearEnd(ctx, 1200);
+        ctx.waitTicks(5);
+        List<Sample> s = stopSampling(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AC_CFG), "setEnabled", false));
+        String zState = c.hx().call("dungeon.alive", "id", zombie.get("mob").getAsString(), "stand",
+                zombie.get("stand").getAsString()).getAsString();
+        JsonObject fs = c.hx().call("dungeon.felKeyState").getAsJsonObject().getAsJsonObject("fels")
+                .getAsJsonObject(fel.get("mob").getAsString());
+        int walks = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(AC, "walks")) - walksBefore;
+        int interacts = entityPackets(s);
+        printAutoClear(m);
+        printTrace(c.name(), s);
+        println(c.name() + ": " + (finished ? "finished" : "STILL RUNNING") + ", onDone=" + ends.get(0).get()
+                + " onGiveUp=" + ends.get(1).get() + ", zombie " + zState + ", Fel " + fs + ", set back " + setBack
+                + ", walks " + walks + ", Wither Impacts " + delta(before, "witherImpacts") + ", etherwarps "
+                + delta(before, "etherwarps") + ", entity packets " + interacts);
+        check(seen.contains("invisible=true") && seen.contains("Fel among them true"),
+                "the client did not see the Fel as a sleeping (invisible) starred mob: " + seen);
+        check(!"alive".equals(zState), "the awake starred zombie is still alive");
+        check("dead".equals(fs.get("state").getAsString()), "the Fel is " + fs.get("state").getAsString());
+        check(fs.get("impactsAtWake").getAsInt() >= 0, "the Fel never woke (it died asleep?)");
+        check(logHas(m, "is asleep") && logHas(m, "trip to"), "no etherwarp trip toward the sleeping Fel");
+        check(logHas(m, "inside its wake range - waiting for it to wake"), "Auto Clear never waited inside the wake range");
+        if (walk) {
+            check(setBack, "the setback was never sent (Auto Clear never waited at the Fel)");
+            check(logHas(m, "the etherwarp ended") && walks > 0, "after the setback the Fel was not walked to (walks "
+                    + walks + ")");
+        }
+        check(interacts == 0, interacts + " entity packet(s): a melee hit or an entity click");
+        check(finished && ends.get(0).get() != null && ends.get(1).get() == null, "clearRoom ended onDone="
+                + ends.get(0).get() + " onGiveUp=" + ends.get(1).get());
+        c.note(c.name() + ": sleeping Fel woken by " + (walk ? "a walk after a setback" : "an etherwarp") + " ("
+                + String.format(Locale.ROOT, "%.1f", fs.get("wokeAt").getAsDouble()) + " blocks), killed with the zombie;"
+                + " walks " + walks + ", etherwarps " + delta(before, "etherwarps"));
+        noteFlags(c, s);
+    }
+
+    /**
+     * A dropped Wither Key (Hx {@code dungeon.witherKey}: a "Wither Key" stand the server hands over with Hypixel's "has
+     * obtained Wither Key!" to a player within 6 blocks) 20 blocks off, and one starred zombie. Auto Clear must go for the
+     * key first (an etherwarp trip "trip to Wither Key"), get it ("picked up"), then kill the zombie. {@code walk}: the key
+     * cannot be taken (range 0) until the trip has landed and he waits; then the server moves him back to the start and
+     * the range is 6 again, so the etherwarps "ended" out of reach and the key must be WALKED to ("walking to it").
+     */
+    private static void caseAutoClearKey(Session c, boolean walk) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        c.hx().call("dungeon.felKeyReset");
+        clearLeftoverMobs(c);
+        autoClearHyperion(ctx);
+        tpRel(ctx, 5.5, 15.5, -90f, 0f);
+        ctx.waitTicks(10);
+        Vec3 zAt = relFeet(ctx, 11.5, 22.5);
+        Vec3 kAt = relFeet(ctx, 24.5, 9.5);
+        JsonObject zombie = c.hx().call("dungeon.starred", "x", zAt.x, "y", zAt.y, "z", zAt.z).getAsJsonObject();
+        JsonObject key = c.hx().call("dungeon.witherKey", "x", kAt.x, "y", kAt.y, "z", kAt.z, "range", walk ? 0.0 : 6.0)
+                .getAsJsonObject();
+        ctx.waitTicks(20);
+        int keysSeen = ctx.computeOnClient(mc -> ((List<?>) ModUnderTest.staticCall("com.killer560.hub.doorkeys.DungeonKeys",
+                "dropped", new Class<?>[]{net.minecraft.client.Minecraft.class}, new Object[]{mc})).size());
+        JsonObject before = stats();
+        long m = LogTap.mark();
+        Vec3 start = ctx.computeOnClient(mc -> mc.player.position());
+        int walksBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(AC, "walks"));
+        startSampling(ctx);
+        var ends = startClear(ctx);
+        boolean setBack = false;
+        if (walk) {
+            boolean waiting = waitFor(ctx, 600, () -> logHas(m, "reach - waiting for the pickup")
+                    || !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AC, "isBusy")));
+            if (waiting && logHas(m, "reach - waiting for the pickup")) {
+                session.hx().call("dungeon.tp", "x", start.x, "y", start.y, "z", start.z, "yaw", lookYaw, "pitch", 0f);
+                c.hx().call("dungeon.felKeySet", "id", key.get("stand").getAsString(), "value", 6.0);
+                setBack = true;
+            }
+        }
+        boolean finished = awaitClearEnd(ctx, 1200);
+        ctx.waitTicks(5);
+        List<Sample> s = stopSampling(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AC_CFG), "setEnabled", false));
+        String zState = c.hx().call("dungeon.alive", "id", zombie.get("mob").getAsString(), "stand",
+                zombie.get("stand").getAsString()).getAsString();
+        JsonObject ks = c.hx().call("dungeon.felKeyState").getAsJsonObject().getAsJsonObject("keys")
+                .getAsJsonObject(key.get("stand").getAsString());
+        int walks = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(AC, "walks")) - walksBefore;
+        int interacts = entityPackets(s);
+        printAutoClear(m);
+        printTrace(c.name(), s);
+        println(c.name() + ": " + (finished ? "finished" : "STILL RUNNING") + ", onDone=" + ends.get(0).get()
+                + " onGiveUp=" + ends.get(1).get() + ", keys seen " + keysSeen + ", zombie " + zState + ", key " + ks
+                + ", set back " + setBack + ", walks " + walks + ", etherwarps " + delta(before, "etherwarps")
+                + ", entity packets " + interacts);
+        check(keysSeen == 1, "the client saw " + keysSeen + " Wither Key stand(s)");
+        check(!ks.get("takenBy").getAsString().isEmpty(), "the Wither Key was never picked up");
+        check(logHas(m, "[AutoClear] key: trip to Wither Key"), "no etherwarp trip to the Wither Key");
+        check(logHas(m, "picked up"), "Auto Clear never counted the key picked up");
+        check(!"alive".equals(zState), "the starred zombie is still alive");
+        if (walk) {
+            check(setBack, "the setback was never sent (Auto Clear never waited at the key)");
+            check(logHas(m, "walking to it") && walks > 0, "after the setback the key was not walked to (walks " + walks
+                    + ")");
+        }
+        check(interacts == 0, interacts + " entity packet(s): a melee hit or an entity click");
+        check(finished && ends.get(0).get() != null && ends.get(1).get() == null, "clearRoom ended onDone="
+                + ends.get(0).get() + " onGiveUp=" + ends.get(1).get());
+        c.note(c.name() + ": Wither Key taken " + String.format(Locale.ROOT, "%.1f", ks.get("takenAt").getAsDouble())
+                + " blocks off by " + (walk ? "a walk after a setback" : "an etherwarp trip") + ", zombie killed; walks "
+                + walks + ", etherwarps " + delta(before, "etherwarps"));
+        noteFlags(c, s);
+    }
+
     private static void arena(ClientGameTestContext ctx, boolean wall) {
         List<String> set = ctx.computeOnClient(mc -> {
             Object frame = ModUnderTest.staticCall(FRAME, "current");

@@ -1342,6 +1342,16 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   that run's test server keeps running on the checkout's port, and the next run in the checkout fails "Anticheat test server
   exited with code 0 before it was ready" (FAILED TO BIND TO PORT in run/testserver/logs). End the leftover
   `<checkout>...runTestServer` java first (doc-dhud-1101, 2026-11-01).
+- **2790-2796-menu-*, 2797-logic-flip-1101** (doc-flip-1101): Bazaar Flipper sized by Hypixel stacking (unstackable = one per
+  free slot), Confirm Instant Buy over the reserve resized not clicked, Min Profit Per Cycle, Stop At Max Orders rounds; AH Price
+  Copier (lbin - 1, then the price just listed at), AH Flipper [Open] /viewauction and the cheat macro (View#31, Confirm#11).
+  Events run from the case start: a case that runs a session twice must slice sign.update by a base index.
+- 1101-menu-* (doc-items-1101, 2026-11-01): a "Rendering screen" crash inside a case leaves the client looping in
+  `runTick` without ever finishing a frame, so Session's failure screenshot then waits forever and the failure is never
+  printed; DocItems1101Cases prints each failure (and its causes) BEFORE rethrowing. On a loaded machine (9 clients) the
+  menu session's server start parked the render thread past the freeze watcher's 16 s twice and the client was killed
+  mid-start: `TESTKIT_HUNG_POLLS=45` gives it 90 s. A server left over from a killed run holds the port ("FAILED TO BIND"),
+  so kill it too. `TESTKIT_MENU_ONLY` (comma parts) picks menu cases; `-Scenario` alone runs the whole selected session.
 
 - 2026-11-01 (doors263-1101): a 26.3 client sat at the title screen for 30 min with the test thread never started, and
   run-scenario's `-TimeoutSeconds 1200` did not end it; kill the client by its PID (`taskkill //PID <pid> //T //F`) and rerun.
@@ -1355,3 +1365,36 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   once drew GrimAC TimerLimit x2/x3 on 26.3 with nine clients on the machine and was clean on its rerun and on 26.2 (the case
   sends nothing but a menu close). Ports 26950/26955 were held by another checkout's run that night (FROZEN at startup, then
   FAILED TO BIND); 26410/26430 were free.
+- **1101-ui-textbox-enter** (mod textbox-1101): walks every menu drawer twice (as opened, then with each allowed OFF switch
+  on), plus the mod screens that open with no network side effect, types through the real keyboard and presses the real
+  Enter, then requires the mod-wide `CommitEditBox.commitCount` to go up and the value to be on disk under
+  `config/killer560` (a profile is a FOLDER named after it, so match the relative path; a number counts only in a changed
+  non-.log settings file, since the stutter log changes on its own and "2.00" is saved as 2.0). It snapshots and restores
+  every config file and calls `ProfileManager.reloadAllConfigs` afterwards. That is NOT enough for Streamer Mode: it
+  loads once and no reload resets it, so switching it on hid every cheat tab from 944's search after this case (first
+  run, 2026-11-02); the walk never switches it. The 26.2 UI client froze once in the end-of-run disconnect (integrated
+  server halt vs gametest `postRunTasks`) after every case had written its log: read `cases/*.log`, summary.md is missing.
+  The same goes for AP3's Test Mode and Force Dungeon (session state, no file): switched on by the walk they stayed on
+  for the rest of the UI run, and the red "AP3 FORCE DUNGEON" reminder drew across 897's panel bevel at 2560x1440 GUI 6
+  (ship-1102h, 2026-11-02). Any switch that holds state outside a config file goes in NEVER_SWITCH.
+- 2798-2801 (ahrelist-1101): an Hx menu spec is JSON and must not contain itself. A "Go Back" that `open`s the page
+  holding it makes a cycle and the session dies at the first Hx call with a StackOverflowError in Gson (first run). Close
+  instead and let the feature reopen the command, or `rebind` (a menu action: what `/name` opens from now on) to change
+  later pages after a click. New Hx menu keys: `listSlot` (an inventory click moves the stack into that menu slot, event
+  `menu.list`), `keepListed` (the next page keeps it there), a sign's `then` (a menu reopened with `{line}`/`{price}`
+  replaced by what was typed) and `splitTicks` on a delivery (half now, the rest T ticks later).
+- **62-argrim-1102-acfel / -acfelwalk / -ackey / -ackeywalk** (simmobs2-1101, mod doc-adm-sim-1101): Auto Clear's Fel and key
+  changes on GrimAC. Hx `dungeon.fel` is Hypixel's sleeping Fel (Dinnerbone enderman, invisible and untouchable, star tag,
+  wakes within 9; `testmod/<mc>/compat/FelMob` because the class is `Enderman` on 26.3 and `EnderMan` on 26.2) and
+  `dungeon.witherKey` a "Wither Key" stand taken within 6 with "has obtained Wither Key!". The walk variants force the
+  fallback the honest way: the Fel / key is held unwakeable / untakeable (`dungeon.felKeySet` 0) until Auto Clear waits in
+  range, then the server moves him back to the start and restores 9 / 6, so the etherwarp "ended out of range" and the
+  forced walk runs. Each requires the thing acted (Fel woke before it died, key taken, walks > 0) and kills leftovers first.
+- **1102-sim-instaclear / 1102-sim-felskulls** (`SimMobP4Tests`, a sim floor with mobs via `SimMobFloorTests.buildMobFloor`):
+  Insta Clear Warning's real map path (teleport into an undiscovered key room the map rule calls one, read AFTER the Fairy
+  door opened itself; the sim reports M7 so the requeue is master_catacombs_floor_seven; commands read with
+  PacketTrace.tap) and Dungeon ESP on the sim's real Fels and on starred mobs two room tiles away with their star stands
+  discarded server side. 1101-sim-mobfloor now also checks every Blood Rush Splits room time against the test's own
+  timestamps of the chat lines (within 0.3 s; measured 0.01).
+- `1016-sim-fullclear -PfullclearMobFloor=true` runs on the Map Designer's Mobs floor; it does not call SimRun.begin (the
+  floor's autoStart did, and a second begin counts down again).
