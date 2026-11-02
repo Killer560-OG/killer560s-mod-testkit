@@ -672,8 +672,15 @@ final class InvBatchCases {
             c.check(renamed && Files.exists(dir.resolve("ib584 Renamed.json")) && !Files.exists(dir.resolve("ib584 Kit.json")),
                     "rename: store " + renamed + ", files " + Files.exists(dir.resolve("ib584 Renamed.json")));
 
-            // Bind a key: press the Key button, then K.
-            clickWidget(c, s, widget(c, s, "Key"));
+            // Bind a key: click the row's own key cell (the Key button became a per-row cell in mod doc-invsort-1101),
+            // then K.
+            List<?> names2 = c.onClient(mc -> (List<?>) Mod.call(Mod.staticCall("invsort.InventoryLayoutStore", "getInstance"), "listNames"));
+            int row2 = names2.indexOf("ib584 Renamed");
+            int listW = (Integer) Mod.field(s, "listW");
+            int keyW = (Integer) Mod.field(s, "KEY_W");
+            c.check(row2 >= 0 && row2 < 7, "'ib584 Renamed' is not on the first page of the list: " + names2);
+            click(c, s, listX + listW - 1 - keyW / 2.0, listY + 1 + row2 * rowH + rowH / 2.0);
+            c.check(Boolean.TRUE.equals(c.onClient(mc -> Mod.field(s, "capturingKey"))), "a click on the row's key cell did not start capturing");
             c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(75));
             c.ticks(2);
             int bound = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(ISC), "getLayoutKey", "ib584 Renamed"));
