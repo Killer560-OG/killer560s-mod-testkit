@@ -211,7 +211,19 @@ final class InvSortDocCases {
         MenuKit.reset(c);
         InventoryCases.clearInv(c);
         if (!MenuKit.cheat()) {
-            c.note("legit jar: no sorter");
+            // Legit: the sorter and its Instant option must be gone (compiled out through BuildVariant).
+            Object l0 = layout(c, "hx-1101-legit", Map.of(0, "EMERALD"));
+            boolean started = c.onClient(mc -> (Boolean) Mod.staticCall(EXEC, "start", l0));
+            boolean instant = c.onClient(mc -> {
+                Object cfg = Mod.cfg(ISC);
+                boolean was = (Boolean) Mod.call(cfg, "isInstantRaw");
+                Mod.call(cfg, "setInstant", true);
+                boolean on = (Boolean) Mod.call(cfg, "isInstant");
+                Mod.call(cfg, "setInstant", was);
+                return on;
+            });
+            c.note("legit jar: start " + started + ", isInstant after setInstant(true) " + instant);
+            c.check(!started && !instant, "the legit jar has the sorter or Instant");
             return;
         }
         Path p = cfgPath(c);
@@ -232,6 +244,14 @@ final class InvSortDocCases {
             c.note("planner minimum " + minimum + " (1 swap for the hotbar pair, 4 for the 3-cycle, 2 for the path); server got "
                     + clicks.size() + " " + show(clicks) + "; counters " + java.util.Arrays.toString(k));
             checkMixedDone(c);
+            // The vanilla shape (invwalk-legit-model.md): inventory open while it clicks, then a close of window 0 after
+            // the last click.
+            List<JsonObject> closes = c.events("container.close");
+            long lastClick = clicks.isEmpty() ? -1 : clicks.get(clicks.size() - 1).get("tick").getAsLong();
+            boolean closed = closes.stream().anyMatch(e -> e.get("containerId").getAsInt() == 0
+                    && e.get("tick").getAsLong() >= lastClick);
+            c.note("close(0) after the last click: " + closed);
+            c.check(closed, "no close of window 0 after the sort's clicks");
             c.check(minimum == 7, "planner minimum " + minimum + ", want 7");
             c.check(clicks.size() == minimum && k[0] == minimum, "sent " + clicks.size() + " clicks, minimum " + minimum);
             c.check(clicks.stream().allMatch(e -> e.get("containerId").getAsInt() == 0), "not the inventory menu");
