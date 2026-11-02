@@ -185,11 +185,14 @@ public class SimMapHudTests implements FabricClientGameTest {
             }
             int[] g = union(rects);
             int mapPx = (box[2] - box[0]) / (int) S;
-            float inner = (mapPx - 4) * S;
-            float left = (g[0] - (box[0] + 2 * S)) / S;
-            float right = ((box[2] - 2 * S) - g[2]) / S;
-            float top = (g[1] - (box[1] + 2 * S)) / S;
-            float bottom = ((box[3] - 2 * S) - g[3]) / S;
+            // The background between the rooms and the edge: 6 units a side since mod 146ef2e1 (2026-10-19, NoammAddons'
+            // 116-unit grid in a 128-unit box), 2 before. Read from the mod, so the case holds on either.
+            int margin = mapMargin();
+            float inner = (mapPx - 2 * margin) * S;
+            float left = (g[0] - (box[0] + margin * S)) / S;
+            float right = ((box[2] - margin * S) - g[2]) / S;
+            float top = (g[1] - (box[1] + margin * S)) / S;
+            float bottom = ((box[3] - margin * S) - g[3]) / S;
             float gw = (g[2] - g[0]) / S;
             float gh = (g[3] - g[1]) / S;
             float longSide = Math.max(gw, gh);
@@ -207,6 +210,15 @@ public class SimMapHudTests implements FabricClientGameTest {
             if (Mod.isCheat()) {
                 imClicks(ctx, failures, tag, new int[][]{{f[0], f[1]}, {f[2], f[3]}});
             }
+        }
+    }
+
+    /** LiveMapHudElement.MAP_MARGIN: units of background between the room grid and the map's edge on each side. */
+    private static int mapMargin() {
+        try {
+            return (Integer) Mod.field("livemap.LiveMapFeature$LiveMapHudElement", "MAP_MARGIN");
+        } catch (AssertionError e) {
+            return 2; // a jar from before the field: the old 2-unit margin
         }
     }
 
