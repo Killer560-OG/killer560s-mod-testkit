@@ -24,7 +24,7 @@ import java.util.List;
  *       0, a drag to the middle about halfway; the same on a long drawer's bar moves its scroll.</li>
  *   <li>keybind: Freelook's drawer ends with "Toggle Keybind: None"; a press on it and a key binds the key (saved, and
  *       back after a reload from disk); with no screen the held key toggles Freelook on and off once per press;
- *       Escape clears it.</li>
+ *       Escape cancels (keeps it), Backspace clears it.</li>
  *   <li>etherwarp: one Etherwarp card (no Left Click Etherwarp card), its rows in order with no explanation lines and
  *       a tooltip on each, Works For the last legit rows, the cheat rows under it, Left Click Etherwarp last, the card's
  *       switch standing for both; Multi Warps gates Warps Per Tick and Aimed Warps; Dungeons Only stops ZPEW outside a
@@ -300,7 +300,7 @@ final class DocMenu1101Cases {
                 return (Boolean) Mod.call(cfg, "isEnabled");
             });
             c.check(!withScreen, "the key toggled Freelook with the menu open");
-            // Escape clears it.
+            // Escape cancels and keeps K; Backspace clears it (every key row since mod keybindmouse-1102).
             c.onClient(mc -> {
                 Screen s = screen(mc);
                 Mod.call(s, "openFeature", MenuACases.leaf("FreelookTab"));
@@ -310,8 +310,18 @@ final class DocMenu1101Cases {
                     }
                 }
                 MenuACases.key(s, dev.testkit.compat.McKeys.nat(256), 0); // Escape
+                int kept = (Integer) Mod.staticCall(KB, "get", "FreelookTab");
+                boolean stillListening = (Boolean) Mod.call(s, "isCapturingKey");
+                c.check(kept == KEY_K && !stillListening, "Escape left the bind at " + kept + " (want K kept), listening "
+                        + stillListening);
+                for (AbstractWidget w : MenuACases.paneRows(s)) {
+                    if (ModScreenDriver.label(w).startsWith("Toggle Keybind")) {
+                        Mod.call(w, "press");
+                    }
+                }
+                MenuACases.key(s, dev.testkit.compat.McKeys.nat(259), 0); // Backspace
                 int cleared = (Integer) Mod.staticCall(KB, "get", "FreelookTab");
-                c.check(cleared == -1, "Escape left the bind at " + cleared);
+                c.check(cleared == -1, "Backspace left the bind at " + cleared);
                 McCompat.setScreen(mc, null);
                 return null;
             });
