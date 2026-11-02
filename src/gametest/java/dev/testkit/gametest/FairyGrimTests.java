@@ -31,7 +31,8 @@ public class FairyGrimTests implements FabricClientGameTest {
     @Override
     public void runTest(ClientGameTestContext ctx) {
         if (!Mod.isCheat()) {
-            for (String n : List.of("1102-fairy-grim-tp-walker", "1102-fairy-grim-tp-keys", "1102-fairy-grim-water")) {
+            for (String n : List.of("1102-fairy-grim-tp-walker", "1102-fairy-grim-tp-keys", "1102-fairy-grim-water",
+                    "1102-fairy-grim-ladderwater-keys", "1102-fairy-grim-ladderwater-walker")) {
                 if (!Scenario.skip(n)) {
                     Scenario.skipped(n, "Auto Fairy Souls is cheat build only");
                 }
@@ -40,7 +41,8 @@ public class FairyGrimTests implements FabricClientGameTest {
         }
         AssertionError first = null;
         for (java.util.function.Consumer<ClientGameTestContext> c : List.<java.util.function.Consumer<ClientGameTestContext>>of(
-                FairyGrimTests::tpWalker, FairyGrimTests::tpKeys, FairyGrimTests::water)) {
+                FairyGrimTests::tpWalker, FairyGrimTests::tpKeys, FairyGrimTests::water, FairyGrimTests::ladderWaterKeys,
+                FairyGrimTests::ladderWaterWalker)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -124,6 +126,69 @@ public class FairyGrimTests implements FabricClientGameTest {
                     report(scenario, "tp-keys", tps, 0);
                     if (travelled < 60) {
                         throw new AssertionError("the held keys barely moved him (" + travelled + ") - the control proves nothing");
+                    }
+                });
+    }
+
+    /**
+     * Backwater Bayou's spot (1101-fairy-island-BACKWATER_BAYOU, 9-17 Simulation lines, .007 decaying x0.8 a tick): a
+     * ladder up a 6-high cliff whose top two blocks have water right beside them. The cliff top is a platform at feet 157.
+     */
+    private static TestMap ladderWater(TestServer server, int x0, int z0) {
+        return TestMap.on(server)
+                .floor(x0 - 8, 150, z0 - 6, x0 + 12, z0 + 6)
+                .fill(x0 - 8, 151, z0 - 6, x0 + 12, 162, z0 + 6, "air")
+                .fill(x0 + 1, 151, z0 - 4, x0 + 12, 156, z0 + 4, "stone")
+                .command(String.format(Locale.ROOT, "fill %d 151 %d %d 156 %d minecraft:ladder[facing=west]", x0, z0, x0, z0))
+                // the water beside the ladder's top two blocks, in a stone tub
+                .fill(x0 - 1, 154, z0 - 3, x0 + 1, 156, z0 - 1, "stone")
+                .fill(x0, 155, z0 - 2, x0, 156, z0 - 1, "water")
+                .survival().surface(151).spawn(x0 - 1.5, z0 + 0.5, -90f);
+    }
+
+    /** The control: no automation, the case holds W and jump facing the ladder for 80 ticks. */
+    private static void ladderWaterKeys(ClientGameTestContext ctx) {
+        int x0 = X0 + 10;
+        int z0 = Z0 + 70;
+        Scenario.runExpectingFlags(ctx, "1102-fairy-grim-ladderwater-keys", (server, scenario) -> ladderWater(server, x0, z0).build(),
+                (server, scenario) -> {
+                    double y0 = scenario.playerPosition()[1];
+                    double top = y0;
+                    ctx.getInput().holdKey(o -> o.keyUp);
+                    ctx.getInput().holdKey(o -> o.keyJump);
+                    try {
+                        for (int tick = 0; tick < 80; tick++) {
+                            ctx.waitTick();
+                            top = Math.max(top, scenario.playerPosition()[1]);
+                        }
+                    } finally {
+                        ctx.getInput().releaseKey(o -> o.keyUp);
+                        ctx.getInput().releaseKey(o -> o.keyJump);
+                    }
+                    ctx.waitTicks(20);
+                    scenario.log(String.format(Locale.US, "ladderwater-keys: climbed from %.2f to %.2f", y0, top));
+                    report(scenario, "ladderwater-keys", List.of(), 0);
+                    if (top < y0 + 4) {
+                        throw new AssertionError("he never climbed the ladder (top " + top + ") - the control proves nothing");
+                    }
+                });
+    }
+
+    /** The walker: a route up the same ladder to a soul on the cliff top. */
+    private static void ladderWaterWalker(ClientGameTestContext ctx) {
+        int x0 = X0 + 10;
+        int z0 = Z0 + 90;
+        Scenario.runExpectingFlags(ctx, "1102-fairy-grim-ladderwater-walker", (server, scenario) -> ladderWater(server, x0, z0).build(),
+                (server, scenario) -> {
+                    List<FairySoulTests.Node> g = List.of(
+                            new FairySoulTests.Node(0, x0 - 2, 151, z0, false, 1),
+                            new FairySoulTests.Node(1, x0 + 2, 157, z0, false, 0, 2),
+                            new FairySoulTests.Node(2, x0 + 8, 157, z0, true, 1));
+                    FairySoulTests.Result r = FairySoulTests.runSouls(ctx, scenario, g, 600, null);
+                    scenario.log("ladderwater-walker: " + r.summary());
+                    report(scenario, "ladderwater-walker", List.of(), 0);
+                    if (r.maxY < 156) {
+                        throw new AssertionError("he never got up the ladder (max y " + r.maxY + ") - the case proves nothing");
                     }
                 });
     }
