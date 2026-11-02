@@ -105,7 +105,7 @@ final class KeybindMouseCases {
             c.note("drawers " + n[4] + ", value-style buttons clicked " + n[3] + ", key rows " + n[0] + ", bound to Mouse 4 "
                     + n[1] + ", failed " + n[2]);
             c.note("key rows: " + keyRows);
-            int floor = Mod.isCheat() ? 150 : 110;
+            int floor = Mod.isCheat() ? 280 : 195; // measured on mod fddf98be6: 291 cheat, 205 legit
             c.check(n[0] >= floor, "only " + n[0] + " key rows found (floor " + floor + ") - the walk is broken");
             c.check(n[1] == n[0] && n[2] == 0, (n[0] - n[1]) + " key row(s) did not take Mouse 4");
         }
