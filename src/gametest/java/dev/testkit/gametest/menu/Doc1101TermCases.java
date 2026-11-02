@@ -564,6 +564,11 @@ final class Doc1101TermCases {
                 + " scale=" + Mod.get(CONFIG, "getScale") + " auto=" + Mod.get(CONFIG, "isAutoTerminalsEnabled")
                 + " skyblockGate=" + Mod.staticCall("util.SkyblockGate", "allows"));
         c.note("seeded solver config: " + loaded);
+        if (!loaded.startsWith("enabled=true")) {
+            // The default config has the solver off: this case is only meaningful with -PseedConfig of an instance's config.
+            c.note("no seeded config with the Terminal Solver on (run with -PseedConfig=<instance config dir>); nothing to check");
+            return;
+        }
         List<String> problems = new ArrayList<>();
         for (TerminalCases.Spec spec : TerminalCases.SPECS) {
             JsonObject t = TerminalCases.open(c, spec);
