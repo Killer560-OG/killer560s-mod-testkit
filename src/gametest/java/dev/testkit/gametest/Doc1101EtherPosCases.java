@@ -14,9 +14,10 @@ import static dev.testkit.gametest.Ap3RuntimeTests.onClient;
  * mod doc-routes-1101, two to-do Doc items checked in the AP3 session's lanes (a flat floor on the GrimAC server):
  * <ul>
  *   <li>1101-ew-carpet ("ETHERWARP OVERLAY ... doesnt work right on carpets"): a carpet lies on the floor 6 blocks ahead and
- *       he looks at it, sneaking with an ethermerged AOTV. The ray must pass the carpet like a snow layer (Hypixel's 1.8 feet
- *       list has carpet, id 171) and land on the floor block under it, which the carpet does not block: the overlay and
- *       TeleportUtils (Auto Routes, ZPEW) must both say floor block, ok. The base jar says the carpet block.</li>
+ *       he looks at it, sneaking with an ethermerged AOTV. killer560 (2026-11-02): the trouble was only on the SIM; on
+ *       Hypixel a carpet is SOLID to the etherwarp ray, so the overlay and TeleportUtils (Auto Routes, ZPEW) must both say
+ *       the carpet block itself, ok. (Until ownerq-1102 this case expected the held-back passable rule of mod 419fd24c,
+ *       the floor block under the carpet.) The sim's own etherwarp matching this prediction is 1102-sim-ew-carpet.</li>
  *   <li>1101-ew-crosshair ("If i am on p3sim and holding etherwarp make it adjust my crosshair to the spot that the server
  *       recognizes"): the same look at a bare floor block, with the connection labeled p3sim (the server casts from 1.54)
  *       the crosshair must move UP onto the server's aim by the projected amount; labeled anything else (Hypixel's 1.27
@@ -88,12 +89,12 @@ final class Doc1101EtherPosCases {
             String block = onClient(ctx, mc -> mc.level.getBlockState(new net.minecraft.core.BlockPos(tx, FLOOR + 1, bz)).toString());
             c.note("carpet at " + tx + ", " + (FLOOR + 1) + ", " + bz + " (" + block + "): overlay '" + outcome
                     + "', TeleportUtils " + routes);
-            String floor = tx + ", " + FLOOR + ", " + bz;
+            String carpet = tx + ", " + (FLOOR + 1) + ", " + bz;
             c.check(block.contains("carpet"), "the carpet is not there: " + block);
-            c.check(outcome.equals("drawn " + floor + " ok"), "the overlay did not land on the floor under the carpet ("
-                    + floor + "): " + outcome);
-            c.check(routes.contains("succeeded=true") && routes.contains("x=" + tx + ", y=" + FLOOR + ", z=" + bz),
-                    "TeleportUtils (Auto Routes / ZPEW) did not land on the floor under the carpet: " + routes);
+            c.check(outcome.equals("drawn " + carpet + " ok"), "the overlay did not land on the carpet itself ("
+                    + carpet + "): " + outcome);
+            c.check(routes.contains("succeeded=true") && routes.contains("x=" + tx + ", y=" + (FLOOR + 1) + ", z=" + bz),
+                    "TeleportUtils (Auto Routes / ZPEW) did not land on the carpet itself: " + routes);
         } finally {
             ctx.getInput().releaseKey(o -> o.keyShift);
             c.server().command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:air", tx, FLOOR + 1, bz));
