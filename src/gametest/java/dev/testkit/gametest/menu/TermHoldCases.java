@@ -244,9 +244,11 @@ final class TermHoldCases {
             int got = c.onClient(mc -> (Integer) Mod.get(CONFIG, "getMelodyLookaheadClicks"));
             c.check(got == n, "lookahead set to " + n + " reads back " + got);
             int before = c.onClient(mc -> (Integer) Mod.field(FEATURE, "melodyLookaheadFired"));
-            // keepTarget: the target column stays put, so the gamble the burst makes is a winning one here.
+            // keepTarget: the target column stays put, so the gamble the burst makes is a winning one here. Target 1, the
+            // track's FIRST slot: Skip Mode EDGES bursts only from the first or last slot (killer560, 2026-11-02; until
+            // mod ownerq-1102 it meant the first or last row and this case used the middle slot, 3).
             JsonObject t = c.hx().call("menu.terminal", "type", "MELODY", "seed", 40 + n, "interval", 6, "bandRows", 3,
-                    "target", 3, "keepTarget", true).getAsJsonObject();
+                    "target", 1, "keepTarget", true).getAsJsonObject();
             MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
             JsonObject solved = MenuKit.awaitEvent(c, "terminal.solved", 400);
             MenuKit.awaitNoScreen(c, 40);
