@@ -280,6 +280,20 @@ public class FairyIslandTests implements FabricClientGameTest {
                     }
                 }
                 prev = s;
+                if (tick < Integer.getInteger("testkit.fairy.traceTicks", 0)) {
+                    // -Pfairy.traceTicks=N: every tick of the first N, what the walker pressed and how he moved
+                    String tr = ctx.computeOnClient(mc -> String.format(Locale.US,
+                            "pos %.4f %.4f %.4f v %.4f %.4f %.4f yaw %.2f pitch %.2f ground %s ladder %s water %s hcol %s "
+                                    + "keys %s%s%s%s%s%s rescue %s", mc.player.getX(), mc.player.getY(), mc.player.getZ(),
+                            mc.player.getDeltaMovement().x, mc.player.getDeltaMovement().y, mc.player.getDeltaMovement().z,
+                            mc.player.getYRot(), mc.player.getXRot(), mc.player.onGround(), mc.player.onClimbable(),
+                            mc.player.isInWater(), mc.player.horizontalCollision,
+                            (Boolean) Mod.field(WALKER, "wantForward") ? "W" : "", (Boolean) Mod.field(WALKER, "wantBack") ? "S" : "",
+                            (Boolean) Mod.field(WALKER, "wantLeft") ? "A" : "", (Boolean) Mod.field(WALKER, "wantRight") ? "D" : "",
+                            (Boolean) Mod.field(WALKER, "wantJump") ? "J" : "", (Boolean) Mod.field(WALKER, "wantSprint") ? "+spr" : "",
+                            Mod.staticCall("pathfinding.AutoWalker", "isRescuing")));
+                    scenario.log("TRACE t" + tick + " " + tr);
+                }
                 if (tick % 200 == 0) {
                     String w = ctx.computeOnClient(mc -> "rescue=" + Mod.staticCall("pathfinding.AutoWalker", "isRescuing")
                             + " fwd=" + Mod.field(WALKER, "wantForward") + " jump=" + Mod.field(WALKER, "wantJump")
