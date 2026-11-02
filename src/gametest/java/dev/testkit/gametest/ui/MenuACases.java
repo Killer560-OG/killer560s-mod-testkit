@@ -81,7 +81,7 @@ final class MenuACases {
     }
 
     static void key(Screen s, int key, int mods) {
-        s.keyPressed(new net.minecraft.client.input.KeyEvent(key, 0, mods));
+        s.keyPressed(dev.testkit.compat.McKeys.keyEvent(key, mods));
     }
 
     /** Card, switch and star bounds of {@code tab} on the current page, scrolled into view. */

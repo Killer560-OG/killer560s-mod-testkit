@@ -70,6 +70,8 @@ final class ProcWatch implements AutoCloseable {
     private static final long JUDGE_NANOS = 2_000_000_000L;
     private final java.util.Map<Long, Pending> pending = new java.util.HashMap<>();
 
+    private volatile long lastExpectedCscNanos;
+
     private record Pending(ProcessHandle handle, String cmd, long since, long parent) {
     }
 
@@ -100,9 +102,12 @@ final class ProcWatch implements AutoCloseable {
             }
             if (expected) {
                 expectedPids.add(pd.handle().pid());
+                if (pd.cmd().toLowerCase(java.util.Locale.ROOT).endsWith("\\csc.exe")) {
+                    lastExpectedCscNanos = now;
+                }
             }
             System.out.println("[ui-procwatch] child process " + pd.handle().pid() + ": " + pd.cmd()
-                    + (expected ? " - expected: " + why : ""));
+                    + (expected ? " - expected: " + why : " (parent seen " + pd.parent() + ")"));
         }
     }
 
@@ -138,6 +143,13 @@ final class ProcWatch implements AutoCloseable {
         Long parent = p.parent().map(ProcessHandle::pid).orElse(seenParent >= 0 ? seenParent : null);
         if (parent != null && expectedPids.contains(parent)) {
             return "child of expected " + parent;
+        }
+        // cvtres.exe is only ever csc.exe's resource compiler. Judged after both exited, Windows gives no parent for it,
+        // so the expected csc.exe it came from went unseen and 370 failed on a cvtres.exe a second after that csc.exe
+        // (26.3 UI run, 2026-11-01). One within 5 s of an expected csc.exe is that csc.exe's.
+        if (lastExpectedCscNanos != 0 && System.nanoTime() - lastExpectedCscNanos < 5_000_000_000L
+                && p.info().command().orElse("").toLowerCase(java.util.Locale.ROOT).endsWith("\\cvtres.exe")) {
+            return "cvtres.exe of an expected csc.exe";
         }
         if (parent != null && parent == spotifyReaderPid()) {
             return "child of the Spotify media-session reader " + parent;
