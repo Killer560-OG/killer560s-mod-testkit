@@ -1336,7 +1336,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                     ctx.getInput().holdKey(o -> o.keyUp);
                     ctx.getInput().holdKey(o -> o.keySprint);
                     ctx.waitTicks(6);
-                    server.command(String.format(Locale.ROOT, "tp %s ~ ~ ~3", player));
+                    server.command(String.format(Locale.ROOT, "execute as %s at @s run tp @s ~ ~ ~3", player));
                     ctx.waitTicks(3);
                     releaseKeys(ctx);
                     long ev0g = hx.head();
@@ -1375,7 +1375,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                         ctx.waitTicks(6);
                     }
                     long holds0G = cnum(ctx, "teleportHolds");
-                    server.command(String.format(Locale.ROOT, "tp %s ~ ~ ~3", player));
+                    server.command(String.format(Locale.ROOT, "execute as %s at @s run tp @s ~ ~ ~3", player));
                     for (int t = 0; t < 20 && cnum(ctx, "teleportHolds") == holds0G; t++) {
                         ctx.waitTicks(1);
                     }
@@ -1464,7 +1464,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                             ctx.waitTicks(6);
                             double[] c0 = here(ctx);
                             if ("relative".equals(tpKind)) {
-                                server.command(String.format(Locale.ROOT, "tp %s ~ ~ ~3", player));
+                                server.command(String.format(Locale.ROOT, "execute as %s at @s run tp @s ~ ~ ~3", player));
                             } else {
                                 server.command(String.format(Locale.ROOT, "tp %s %.2f %.2f %.2f", player, c0[0] + 2.0,
                                         (double) SURFACE_Y, lz + 3));
@@ -1570,7 +1570,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                                     atTp.isEmpty() ? "clean" : atTp.size() + " flag(s): " + firstChecks(atTp), walked,
                                     flat(srv0, srv1), g), true);
                     ctx.waitTicks(20);
-                    server.command("tp " + player + " ~ ~ ~");
+                    server.command("execute as " + player + " at @s run tp @s ~ ~ ~");
                     ctx.waitTicks(30);
                     server.mark();
                 }
@@ -1612,7 +1612,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                                     + "standing: shot %d tick(s) %.2f, gap %.2f", shotsWalking, stillWaiting, bankAfter, (long) s[2],
                                     s[0], g));
                     ctx.waitTicks(20);
-                    server.command("tp " + player + " ~ ~ ~");
+                    server.command("execute as " + player + " at @s run tp @s ~ ~ ~");
                     ctx.waitTicks(30);
                     server.mark();
                 }
@@ -1651,7 +1651,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                                         serverMoved, landed ? "LANDED" : "set back", setBack, g), true);
                         ctx.waitTicks(40);
                         // A kept teleport's BadPacketsN lands on the next teleport: take it here (final-1027).
-                        server.command("tp " + player + " ~ ~ ~");
+                        server.command("execute as " + player + " at @s run tp @s ~ ~ ~");
                         ctx.waitTicks(30);
                         server.mark();
                     }
