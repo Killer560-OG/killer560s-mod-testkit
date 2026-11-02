@@ -1294,3 +1294,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   150 ms Latency case, before any click (g2 1027-aafast-cpt1-300); the rerun was clean. It is the Latency teardown, not a feature.
   Frames Per Tick on experimental checks: Grim cancels the flagged second-frame clicks, the mod resends after its 1 s
   pending timeout, and the device still solves (76 sent, 40 reached, fpt15).
+- **2790-2796-menu-*, 2797-logic-flip-1101** (doc-flip-1101): Bazaar Flipper sized by Hypixel stacking (unstackable = one per
+  free slot), Confirm Instant Buy over the reserve resized not clicked, Min Profit Per Cycle, Stop At Max Orders rounds; AH Price
+  Copier (lbin - 1, then the price just listed at), AH Flipper [Open] /viewauction and the cheat macro (View#31, Confirm#11).
+  Events run from the case start: a case that runs a session twice must slice sign.update by a base index.
