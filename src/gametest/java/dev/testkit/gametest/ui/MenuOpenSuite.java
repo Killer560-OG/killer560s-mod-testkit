@@ -102,7 +102,7 @@ public class MenuOpenSuite implements FabricClientGameTest {
             for (int action : new int[]{InputConstants.PRESS, InputConstants.RELEASE}) {
                 mc.execute(() -> {
                     try {
-                        keyPress.invoke(mc.keyboardHandler, window, action, new KeyEvent(key, 0, 0));
+                        keyPress.invoke(mc.keyboardHandler, window, action, dev.testkit.compat.McKeys.keyEvent(key, 0));
                     } catch (ReflectiveOperationException e) {
                         throw new AssertionError(e);
                     }

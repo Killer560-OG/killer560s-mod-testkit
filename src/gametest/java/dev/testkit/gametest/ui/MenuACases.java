@@ -81,7 +81,7 @@ final class MenuACases {
     }
 
     static void key(Screen s, int key, int mods) {
-        s.keyPressed(new net.minecraft.client.input.KeyEvent(key, 0, mods));
+        s.keyPressed(dev.testkit.compat.McKeys.keyEvent(key, mods));
     }
 
     /** Card, switch and star bounds of {@code tab} on the current page, scrolled into view. */
@@ -349,11 +349,11 @@ final class MenuACases {
                 Screen s = open(mc);
                 // Ctrl F is the shortcut since mod menu-profiles-ctrlf (killer560, 2026-10-13); Ctrl K no longer is.
                 EditBox box = (EditBox) Mod.field(s, "searchField");
-                key(s, InputConstants.KEY_K, 2 /* GLFW_MOD_CONTROL */);
+                key(s, InputConstants.KEY_K, InputConstants.MOD_CONTROL);
                 if (box.isFocused()) {
                     return "Ctrl K still focuses the search box";
                 }
-                key(s, InputConstants.KEY_F, 2 /* GLFW_MOD_CONTROL */);
+                key(s, InputConstants.KEY_F, InputConstants.MOD_CONTROL);
                 if (!box.isFocused()) {
                     return "Ctrl F did not focus the search box";
                 }
@@ -406,7 +406,7 @@ final class MenuACases {
                 advWas[0] = (Boolean) Mod.call(stats, "isMenuAdvancedOpen");
                 Mod.call(stats, "setEnabled", true);
                 Mod.call(stats, "setMenuAdvancedOpen", false);
-                key(s, InputConstants.KEY_F, 2);
+                key(s, InputConstants.KEY_F, InputConstants.MOD_CONTROL);
                 type(s, "bar width");
                 Object hit = null;
                 for (Object r : results(s)) {
@@ -443,7 +443,7 @@ final class MenuACases {
                 c.note("'bar width': hit '" + label + "' opened Health and Mana Bars with the row in view at y " + row.getY());
 
                 // a hit's switch toggles the feature in place
-                key(s, InputConstants.KEY_F, 2);
+                key(s, InputConstants.KEY_F, InputConstants.MOD_CONTROL);
                 type(s, "quiver display");
                 Object q = null;
                 for (Object r : results(s)) {

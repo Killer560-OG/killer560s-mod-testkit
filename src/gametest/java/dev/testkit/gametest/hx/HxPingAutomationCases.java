@@ -353,7 +353,7 @@ final class HxPingAutomationCases {
                     .with(BC_CFG, "KillSound", false)
                     .with(BC_CFG, "AuraEnabled", false)
                     .with(BC_CFG, "AutoDetectLag", true)
-                    .with(BC_CFG, "TriggerOffsetTicks", -1);
+                    .with(BC_CFG, "TriggerOffsetTicks", 1); // one tick late (positive late since mod doc-blood-1101)
             if (cheat) {
                 on.with(BC_CFG, "TriggerBotEnabled", true);
             }
@@ -379,15 +379,15 @@ final class HxPingAutomationCases {
                 } finally {
                     lagOff(c);
                 }
-                // Trigger Offset +2 instead of -1 must click exactly 3 ticks earlier.
+                // Trigger Offset -2 (two early) instead of +1 (one late) must click exactly 3 ticks earlier.
                 Trip h = null;
                 if (cheat) {
                     c.onClient(mc -> {
-                        Mod.call(Mod.cfg(BC_CFG), "setTriggerOffsetTicks", 2);
+                        Mod.call(Mod.cfg(BC_CFG), "setTriggerOffsetTicks", -2);
                         return null;
                     });
                     h = trip(c, mobTex);
-                    c.note("local, Trigger Offset +2: " + fmt(h));
+                    c.note("local, Trigger Offset -2: " + fmt(h));
                 }
                 c.check(a.tracked && b.tracked, "a trip was never tracked - nothing to measure");
                 // The box / kill sound: unchanged, Noamm's ping > time left.
@@ -405,7 +405,7 @@ final class HxPingAutomationCases {
                                     + "/" + b.attacks);
                     // killer560 2026-10-15: "Triggerbot was attacking them before the kill timer actually went off".
                     c.check(Math.abs((a.killAt - a.triggerAt) - 1.0) < 0.01 && Math.abs((b.killAt - b.triggerAt) - 1.0) < 0.01,
-                            "Trigger Offset -1: the click went " + (a.killAt - a.triggerAt) + " / " + (b.killAt - b.triggerAt)
+                            "Trigger Offset +1: the click went " + (a.killAt - a.triggerAt) + " / " + (b.killAt - b.triggerAt)
                                     + " ticks after the kill timer, want exactly 1");
                     c.check(a.serverLead != null && a.serverLead < 0 && a.serverLead > -4.5, "at " + base
                             + " ms the attack reached the server " + a.serverLead + " ticks before due, want just after it");
@@ -417,11 +417,11 @@ final class HxPingAutomationCases {
                             fireShift, LAG_MS, lagged / 50.0));
                     c.check(Math.abs(fireShift - lagged / 50.0) <= 1.0, "the client's click moved " + fireShift
                             + " ticks with " + lagged + " ms");
-                    c.check(Math.abs((h.triggerAt - a.triggerAt) - 3.0) < 0.01, "Trigger Offset +2 against -1 moved the"
+                    c.check(Math.abs((h.triggerAt - a.triggerAt) - 3.0) < 0.01, "Trigger Offset -2 against +1 moved the"
                             + " click " + (h.triggerAt - a.triggerAt) + " ticks, want exactly 3");
                     c.check(h.serverLead != null && a.serverLead != null
                                     && Math.abs((h.serverLead - a.serverLead) - 3.0) <= 1.0 + 1e-6,
-                            "Trigger Offset +2 against -1 moved the server-side hit " + (h.serverLead == null
+                            "Trigger Offset -2 against +1 moved the server-side hit " + (h.serverLead == null
                                     || a.serverLead == null ? "?" : String.valueOf(h.serverLead - a.serverLead))
                                     + " ticks, want 3 (+-1)");
                 } else {

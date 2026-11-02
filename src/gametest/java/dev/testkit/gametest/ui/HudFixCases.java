@@ -159,8 +159,12 @@ final class HudFixCases {
             int outsideArea = (outX1 - outX0) * (y1 - y0);
             int under = changed(on, off, inX0, y0, inX1, y1);
             int underArea = (inX1 - inX0) * (y1 - y0);
+            // Less the inventory's player doll (javap 26.3 InventoryScreen: leftPos+26, topPos+8 to +75, +78; it does not
+            // reach the bar's row): its idle animation differs between two shots 4 ticks apart - 490 px of a failing
+            // 26.3 run sat in that box (2026-11-01), against 74-217 in passing ones.
             int elsewhere = changed(on, off, 0, 0, on.getWidth(), on.getHeight()) - changed(on, off, outX0 - gs, y0 - gs,
-                    inX1 + gs, y1 + gs);
+                    inX1 + gs, y1 + gs) - changed(on, off, (panel[0] + 26) * gs, (panel[1] + 8) * gs,
+                    (panel[0] + 75) * gs, (panel[1] + 78) * gs);
             c.note(String.format(Locale.ROOT, "inventory open: bar ON vs OFF changes %d of %d px outside the panel (%.0f%%),"
                     + " %d of %d px under it, %d px anywhere else", outside, outsideArea, 100.0 * outside / outsideArea,
                     under, underArea, elsewhere));

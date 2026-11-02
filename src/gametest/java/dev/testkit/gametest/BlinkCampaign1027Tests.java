@@ -57,7 +57,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
         for (Consumer<ClientGameTestContext> c : List.<Consumer<ClientGameTestContext>>of(
                 BlinkCampaign1027Tests::interleave, BlinkCampaign1027Tests::interleaveNow, BlinkCampaign1027Tests::order,
                 BlinkCampaign1027Tests::terrain, BlinkCampaign1027Tests::air, BlinkCampaign1027Tests::split,
-                BlinkCampaign1027Tests::menus, BlinkCampaign1027Tests::keepDelay, BlinkCampaign1027Tests::tpSprint,
+                BlinkCampaign1027Tests::slowServer, BlinkCampaign1027Tests::jitter, BlinkCampaign1027Tests::p3simAlerts, BlinkCampaign1027Tests::menus, BlinkCampaign1027Tests::keepDelay, BlinkCampaign1027Tests::tpSprint,
                 BlinkCampaign1027Tests::mixed)) {
             try {
                 c.accept(ctx);
@@ -251,6 +251,35 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
         double[] b = here(ctx);
         releaseKeys(ctx);
         return new double[]{dist3(a, b), cnum(ctx, "shots") - shots0, cnum(ctx, "shotTicks") - ticks0};
+    }
+
+    private static long cnumOr(ClientGameTestContext ctx, String getter) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                return ((Number) Mod.staticCall(CHARGE, getter)).longValue();
+            } catch (RuntimeException | AssertionError e) {
+                return -1L;
+            }
+        });
+    }
+
+    private static void netStall(ClientGameTestContext ctx, int ms) {
+        ctx.runOnClient(mc -> {
+            try {
+                java.lang.reflect.Field f = net.minecraft.network.Connection.class.getDeclaredField("channel");
+                f.setAccessible(true);
+                io.netty.channel.Channel ch = (io.netty.channel.Channel) f.get(mc.getConnection().getConnection());
+                ch.eventLoop().execute(() -> {
+                    try {
+                        Thread.sleep(ms);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException("netStall: no Connection.channel", e);
+            }
+        });
     }
 
     private static boolean waiting(ClientGameTestContext ctx) {
@@ -856,6 +885,286 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
         });
     }
 
+    /**
+     * 1027-blink-c-p3sim: the GrimAC alerts in the owner's p3sim log (2026-10-27 16:54-16:55). (a) Post "entity action":
+     * sprint flipping while the bank fills (AP3's frozen charge does it) - an action sent in a banked tick sat after his
+     * last sent move. (b)/(c) Simulation 2.07 decaying: an explosion pushes him while Charge holds the answers - with a
+     * full bank, and with an empty one (his case: a superboom right after a shot). A row is bad if GrimAC says anything
+     * or client and server end apart; (b) also fires the bank afterwards and needs it to land.
+     */
+    private static void p3simAlerts(ClientGameTestContext ctx) {
+        int x = -11450;
+        int z = -6200;
+        String name = "1027-blink-c-p3sim";
+        Scenario.runExpectingFlags(ctx, name, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            installLatency(ctx, scenario);
+            boolean gate = setUp(ctx, 20);
+            Rows rows = new Rows();
+            String player = playerName(ctx);
+            try {
+                server.command("effect give " + player + " minecraft:resistance 600 4 true");
+                int lane = 0;
+                for (int rep = 0; rep < 3; rep++) {
+                    // (a) sprint flips while banking
+                    tp(server, ctx, x - 20.5, SURFACE_Y, z - 30.5 + 6 * (lane++ % 11), -90f);
+                    server.mark();
+                    chargeOn(ctx);
+                    for (int t = 0; t < 40; t++) {
+                        boolean on = (t / 2) % 2 == 0;
+                        ctx.runOnClient(mc -> mc.player.setSprinting(on));
+                        ctx.waitTicks(1);
+                    }
+                    ctx.runOnClient(mc -> mc.player.setSprinting(false));
+                    long bankA = cnum(ctx, "banked");
+                    ctx.waitTicks(30);
+                    chargeOff(ctx);
+                    double g = gap(server, ctx);
+                    rows.add(server, scenario, "(a) sprint flips while banking #" + rep, bankA >= 15 && g < 0.5,
+                            String.format(Locale.ROOT, "bank %d, gap %.2f", bankA, g));
+                    ctx.waitTicks(20);
+                    // (b) explosion with a full bank, then the shot
+                    for (boolean full : new boolean[]{true, false}) {
+                        tp(server, ctx, x - 20.5, SURFACE_Y, z - 30.5 + 6 * (lane++ % 11), -90f);
+                        server.mark();
+                        chargeOn(ctx);
+                        long bank = full ? waitBank(ctx, 20, 60) : 0;
+                        if (!full) {
+                            // Empty bank, answers still held: walk while charging so nothing banks.
+                            ctx.getInput().holdKey(o -> o.keyUp);
+                            ctx.waitTicks(25);
+                        }
+                        double[] here = here(ctx);
+                        long pushes0 = cnumOr(ctx, "pushReleases");
+                        server.command(String.format(Locale.ROOT, "summon minecraft:tnt %.2f %.2f %.2f {fuse:0}",
+                                here[0] - 1.5, here[1], here[2] + 0.5));
+                        ctx.waitTicks(40);
+                        releaseKeys(ctx);
+                        long pushes = cnumOr(ctx, "pushReleases") - pushes0;
+                        double[] s = full ? shoot(ctx, true, false) : new double[]{0, 0, 0};
+                        ctx.waitTicks(30);
+                        chargeOff(ctx);
+                        g = gap(server, ctx);
+                        rows.add(server, scenario, (full ? "(b) explosion, bank 20, then shot" : "(c) explosion, bank empty")
+                                        + " #" + rep, (!full || (bank == 20 && s[2] == 20)) && g < 0.5,
+                                String.format(Locale.ROOT, "bank %d, push releases %d, shot %d tick(s) %.2f, gap %.2f",
+                                        bank, pushes, (long) s[2], s[0], g));
+                        ctx.waitTicks(20);
+                    }
+                    // (d) a server correction in the middle of a split shot (owner's p3sim log 16:54:51-53: a correction
+                    // mid-shot, a teleport hold of 51 packets let go, Simulation .336/.187/.163): Speed IV, the full bank
+                    // fired sprinting, and one tick after the first part the server moves him 3 blocks back.
+                    server.command("effect give " + player + " minecraft:speed 600 3 true");
+                    tp(server, ctx, x - 30.5, SURFACE_Y, z - 30.5 + 6 * (lane++ % 11), -90f);
+                    server.mark();
+                    chargeOn(ctx);
+                    long bankD = waitBank(ctx, 20, 60);
+                    ctx.getInput().holdKey(o -> o.keyUp);
+                    ctx.getInput().holdKey(o -> o.keySprint);
+                    ctx.waitTicks(4);
+                    long tpsD = cnum(ctx, "movingTeleports");
+                    ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
+                    ctx.waitTicks(1);
+                    ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+                    ctx.waitTicks(1);
+                    // From the console "~" is the world spawn: run it at the player.
+                    server.command("execute as " + player + " at @s run tp @s ~-3 ~ ~");
+                    ctx.waitTicks(40);
+                    releaseKeys(ctx);
+                    ctx.waitTicks(30);
+                    long corr = cnum(ctx, "movingTeleports") - tpsD;
+                    chargeOff(ctx);
+                    server.command("effect clear " + player + " minecraft:speed");
+                    double gD = gap(server, ctx);
+                    rows.add(server, scenario, "(d) correction mid-shot #" + rep, bankD == 20 && corr >= 1 && gD < 0.5,
+                            String.format(Locale.ROOT, "bank %d, server teleports %d, gap %.2f", bankD, corr, gD));
+                    ctx.waitTicks(20);
+                }
+            } finally {
+                server.command("effect clear " + player);
+                removeLatency(ctx);
+                releaseKeys(ctx);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            rows.finish(scenario, name);
+        });
+    }
+
+    /**
+     * 1027-blink-c-jitter (owner 2026-11-01: "if your ping spikes it just drops that extra one or something to blink the
+     * most amount possible"): full 20-tick shots while the latency swings 30-150 ms above a base of 50, 150 and 300 ms (a new
+     * random delay every tick, both ways for every third shot through a stalled client connection). A row is bad if GrimAC
+     * says anything (TimerLimit above all), if fewer than 20 ticks fired in all, or if the server did not follow him.
+     */
+    private static void jitter(ClientGameTestContext ctx) {
+        int x = -11450;
+        int z = -6400;
+        String name = "1027-blink-c-jitter";
+        Scenario.runExpectingFlags(ctx, name, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            Rows rows = new Rows();
+            String player = playerName(ctx);
+            java.util.Random rnd = new java.util.Random(1101);
+            try {
+                int lane = 0;
+                server.command("effect give " + player + " minecraft:speed 600 1 true");
+                for (int base : new int[]{50, 150, 300}) {
+                    ctx.runOnClient(mc -> {
+                        Latency.remove();
+                        Latency.install(base);
+                    });
+                    ctx.waitTicks(20);
+                    for (int rep = 0; rep < 6; rep++) {
+                        tp(server, ctx, x - 30.5, SURFACE_Y, z - 30.5 + 6 * (lane++ % 11), -90f);
+                        ctx.waitTicks(10 + base / 25);
+                        server.mark();
+                        chargeOn(ctx);
+                        long bank = waitBank(ctx, 20, 60);
+                        double[] srv0 = serverPos(server, ctx, player);
+                        double[] c0 = here(ctx);
+                        long ticks0 = cnum(ctx, "shotTicks");
+                        long left0 = cnumOr(ctx, "coverLeftTicks");
+                        ctx.getInput().holdKey(o -> o.keyUp);
+                        ctx.getInput().holdKey(o -> o.keySprint);
+                        // The swings start a second before the shot, so the measure sees them.
+                        for (int t = 0; t < 20; t++) {
+                            int ms = base + 30 + rnd.nextInt(121);
+                            ctx.runOnClient(mc -> Latency.install(ms));
+                            ctx.waitTicks(1);
+                        }
+                        final boolean stall = rep % 3 == 2;
+                        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
+                        ctx.waitTicks(1);
+                        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+                        if (stall) {
+                            netStall(ctx, 60 + rnd.nextInt(61));
+                        }
+                        long t0 = System.currentTimeMillis();
+                        long lastTicks = ticks0;
+                        long lastChangeMs = 0;
+                        for (int t = 0; t < 40; t++) {
+                            int ms = base + 30 + rnd.nextInt(121);
+                            ctx.runOnClient(mc -> Latency.install(ms));
+                            ctx.waitTicks(1);
+                            long now = cnum(ctx, "shotTicks");
+                            if (now != lastTicks) {
+                                lastTicks = now;
+                                lastChangeMs = System.currentTimeMillis() - t0;
+                            }
+                        }
+                        ctx.runOnClient(mc -> Latency.install(base));
+                        releaseKeys(ctx);
+                        ctx.waitTicks(20 + base / 25);
+                        long fired = cnum(ctx, "shotTicks") - ticks0;
+                        long kept = cnumOr(ctx, "coverLeftTicks") - left0;
+                        double[] srv1 = serverPos(server, ctx, player);
+                        double moved = flat(c0, here(ctx));
+                        chargeOff(ctx);
+                        double g = gap(server, ctx);
+                        rows.add(server, scenario, "base " + base + " ms, shot " + rep + (stall ? " + stall" : ""),
+                                bank == 20 && fired == 20 && g < 0.6,
+                                String.format(Locale.ROOT, "bank %d, fired %d, %d held for cover (last part %d ms after the "
+                                        + "first), client moved %.2f, server moved %.2f, gap %.2f", bank, fired, kept,
+                                        lastChangeMs, moved, flat(srv0, srv1), g));
+                        ctx.waitTicks(10);
+                    }
+                }
+            } finally {
+                server.command("effect clear " + player);
+                removeLatency(ctx);
+                releaseKeys(ctx);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            rows.finish(scenario, name);
+        });
+    }
+
+    /**
+     * 1027-blink-c-slowserver: the owner's p3sim lag-backs (2026-10-27 16:28): a split 20-tick shot whose parts and his own
+     * ticks between them land in one server tick when the server's ticks come late, and vanilla's "moved too quickly"
+     * (more than 5 moves in a server tick allow 10 blocks from where it began) puts him back mid-shot. The server runs at
+     * 20, 14 and 9 ticks a second ({@code /tick rate}); he sprints at Speed III and IV, with and without jump. A row is bad
+     * if the server teleported him at all during or right after the shot, or client and server end apart.
+     */
+    private static void slowServer(ClientGameTestContext ctx) {
+        int x = -11450;
+        int z = -6000;
+        String name = "1027-blink-c-slowserver";
+        Scenario.runExpectingFlags(ctx, name, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            installLatency(ctx, scenario);
+            boolean gate = setUp(ctx, 20);
+            Rows rows = new Rows();
+            String player = playerName(ctx);
+            try {
+                int lane = 0;
+                for (int rate : new int[]{20, 9}) {
+                    server.command("tick rate " + rate);
+                    ctx.waitTicks(10);
+                    for (int amp : new int[]{2, 3}) {
+                        server.command("effect give " + player + " minecraft:speed 600 " + amp + " true");
+                        for (boolean jump : new boolean[]{false, true}) {
+                            for (int stall : new int[]{0, 60, 120, 200}) {
+                                int rep = stall;
+                                tp(server, ctx, x - 35.5, SURFACE_Y, z - 30.5 + 6 * (lane++ % 11), -90f);
+                                server.mark();
+                                chargeOn(ctx);
+                                long bank = waitBank(ctx, 20, 60);
+                                double[] srv0 = serverPos(server, ctx, player);
+                                ctx.getInput().holdKey(o -> o.keyUp);
+                                ctx.getInput().holdKey(o -> o.keySprint);
+                                ctx.waitTicks(6);
+                                long tps0 = cnum(ctx, "movingTeleports");
+                                long lm = LogTap.mark();
+                                long ticks0 = cnum(ctx, "shotTicks");
+                                if (jump) {
+                                    ctx.getInput().holdKey(o -> o.keyJump);
+                                }
+                                ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
+                                ctx.waitTicks(1);
+                                ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+                                ctx.waitTicks(1);
+                                if (stall > 0) {
+                                    // Uplink jitter: the client's sends wait in its netty loop, then go out in a burst.
+                                    netStall(ctx, stall);
+                                }
+                                ctx.waitTicks(1);
+                                for (int i = 0; i < 60 && ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "shotPending")); i++) {
+                                    ctx.waitTicks(1);
+                                }
+                                long shotTicks = cnum(ctx, "shotTicks") - ticks0;
+                                ctx.waitTicks(12);
+                                long tps = cnum(ctx, "movingTeleports") - tps0;
+                                releaseKeys(ctx);
+                                ctx.waitTicks(20);
+                                double[] srv1 = serverPos(server, ctx, player);
+                                chargeOff(ctx);
+                                double g = gap(server, ctx);
+                                long parts = LogTap.since(lm).stream().filter(l -> l.contains("charge SHOT (")).count();
+                                rows.add(server, scenario, "tick rate " + rate + ", speed " + (amp + 1) + (jump ? " jump" : "")
+                                                + ", uplink stall " + rep + " ms", bank == 20 && shotTicks == 20 && tps == 0 && g < 0.6,
+                                        String.format(Locale.ROOT, "bank %d, %d tick(s) in %d part(s), server teleports %d, "
+                                                + "server moved %.2f, gap %.2f", bank, shotTicks, parts, tps,
+                                                flat(srv0, srv1), g));
+                                ctx.waitTicks(10);
+                            }
+                        }
+                        server.command("effect clear " + player);
+                        ctx.waitTicks(5);
+                    }
+                }
+            } finally {
+                server.command("tick rate 20");
+                server.command("effect clear " + player);
+                removeLatency(ctx);
+                releaseKeys(ctx);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            rows.finish(scenario, name);
+        });
+    }
+
     // ---------------------------------------------------------------------------------------------------------------
     // 3. Menus in every state
 
@@ -1027,7 +1336,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                     ctx.getInput().holdKey(o -> o.keyUp);
                     ctx.getInput().holdKey(o -> o.keySprint);
                     ctx.waitTicks(6);
-                    server.command(String.format(Locale.ROOT, "tp %s ~ ~ ~3", player));
+                    server.command(String.format(Locale.ROOT, "execute as %s at @s run tp @s ~ ~ ~3", player));
                     ctx.waitTicks(3);
                     releaseKeys(ctx);
                     long ev0g = hx.head();
@@ -1066,7 +1375,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                         ctx.waitTicks(6);
                     }
                     long holds0G = cnum(ctx, "teleportHolds");
-                    server.command(String.format(Locale.ROOT, "tp %s ~ ~ ~3", player));
+                    server.command(String.format(Locale.ROOT, "execute as %s at @s run tp @s ~ ~ ~3", player));
                     for (int t = 0; t < 20 && cnum(ctx, "teleportHolds") == holds0G; t++) {
                         ctx.waitTicks(1);
                     }
@@ -1155,7 +1464,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                             ctx.waitTicks(6);
                             double[] c0 = here(ctx);
                             if ("relative".equals(tpKind)) {
-                                server.command(String.format(Locale.ROOT, "tp %s ~ ~ ~3", player));
+                                server.command(String.format(Locale.ROOT, "execute as %s at @s run tp @s ~ ~ ~3", player));
                             } else {
                                 server.command(String.format(Locale.ROOT, "tp %s %.2f %.2f %.2f", player, c0[0] + 2.0,
                                         (double) SURFACE_Y, lz + 3));
@@ -1261,7 +1570,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                                     atTp.isEmpty() ? "clean" : atTp.size() + " flag(s): " + firstChecks(atTp), walked,
                                     flat(srv0, srv1), g), true);
                     ctx.waitTicks(20);
-                    server.command("tp " + player + " ~ ~ ~");
+                    server.command("execute as " + player + " at @s run tp @s ~ ~ ~");
                     ctx.waitTicks(30);
                     server.mark();
                 }
@@ -1303,7 +1612,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                                     + "standing: shot %d tick(s) %.2f, gap %.2f", shotsWalking, stillWaiting, bankAfter, (long) s[2],
                                     s[0], g));
                     ctx.waitTicks(20);
-                    server.command("tp " + player + " ~ ~ ~");
+                    server.command("execute as " + player + " at @s run tp @s ~ ~ ~");
                     ctx.waitTicks(30);
                     server.mark();
                 }
@@ -1342,7 +1651,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                                         serverMoved, landed ? "LANDED" : "set back", setBack, g), true);
                         ctx.waitTicks(40);
                         // A kept teleport's BadPacketsN lands on the next teleport: take it here (final-1027).
-                        server.command("tp " + player + " ~ ~ ~");
+                        server.command("execute as " + player + " at @s run tp @s ~ ~ ~");
                         ctx.waitTicks(30);
                         server.mark();
                     }

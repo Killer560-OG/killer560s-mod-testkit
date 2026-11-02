@@ -72,6 +72,7 @@ public final class HxMenuModule implements HxModule {
         HxExperiments.register();
         HxMenuSpec.register();
         HxAnvil.register();
+        HxStorage.register();
         ServerTickEvents.END_SERVER_TICK.register(HxMenus::tick);
         UseItemCallback.EVENT.register((player, level, hand) -> {
             if (player instanceof ServerPlayer sp && !level.isClientSide()) {

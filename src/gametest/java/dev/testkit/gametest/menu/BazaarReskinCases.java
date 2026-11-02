@@ -40,7 +40,7 @@ import java.util.List;
  *       menu to Hypixel's GUI without sending anything.</li>
  *   <li>465-menu-bazaar-reskin-orders: Manage Orders ({@code menus.bazaar-orders}) is the live order list (names, BUY/SELL
  *       and statuses drawn from the open container), and a press on an order sends one click on its slot.</li>
- *   <li>466-menu-bazaar-cookie-gate: {@code /killer560bz} opens the browser only with an active Cookie Buff in the tab
+ *   <li>466-menu-bazaar-cookie-gate: Open Bazaar (BazaarFeature.openOrExplain, the button and key; /killer560bz was removed 2026-11-01) opens the browser only with an active Cookie Buff in the tab
  *       footer; with the footer's "Not active!" block, and with no Cookie Buff anywhere, it does not open and chat says
  *       why; bare and argued {@code /bz} reach the server as Hypixel's command.</li>
  *   <li>467-menu-bazaar-reskin-stale: while the server keeps changing the item under the cursor (every tick), a press
@@ -741,11 +741,12 @@ final class BazaarReskinCases {
         c.hx().tab(List.of("§b§lArea: §7Hub"), null, footer);
         c.ctx().waitTicks(5);
         long mark = LogTap.mark();
-        c.ctx().runOnClient(mc -> mc.player.connection.sendCommand("killer560bz"));
+        // /killer560bz was removed (mod doc-small-1101); the Open Bazaar button and the key call the same method.
+        c.ctx().runOnClient(mc -> Mod.staticCall("bazaar.BazaarFeature", "openOrExplain"));
         c.ctx().waitTicks(10);
         boolean open = c.onClient(mc -> McCompat.screen(mc) != null
                 && McCompat.screen(mc).getClass().getName().endsWith("bazaar.BazaarScreen"));
-        c.check(open == opens, what + ": /killer560bz " + (open ? "opened" : "did not open") + " the browser");
+        c.check(open == opens, what + ": Open Bazaar " + (open ? "opened" : "did not open") + " the browser");
         if (chat != null) {
             boolean said = false;
             for (String line : LogTap.since(mark)) {
@@ -755,7 +756,7 @@ final class BazaarReskinCases {
             }
             c.check(said, what + ": chat never said '" + chat + "'");
         }
-        c.note(what + ": /killer560bz " + (open ? "opened the browser" : "stayed closed, chat: " + chat));
+        c.note(what + ": Open Bazaar " + (open ? "opened the browser" : "stayed closed, chat: " + chat));
         c.ctx().runOnClient(mc -> McCompat.setScreen(mc, null));
         c.ctx().waitTicks(2);
     }

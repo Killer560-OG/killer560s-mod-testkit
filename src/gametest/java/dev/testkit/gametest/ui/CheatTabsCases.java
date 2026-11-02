@@ -46,12 +46,14 @@ final class CheatTabsCases {
     private static final String BC = "bloodcamp.BloodCampFeature";
     private static final String ACC_CFG = "autoclosechest.AutoCloseChestConfig";
     private static final String TIPS = "gui.SettingTooltips";
-    private static final List<String> AUTO_ROWS = List.of("Trigger Bot", "Aura", "Auto Detect Lag", "Trigger Offset",
-            "Never Miss", "Freecam Mode");
+    private static final List<String> AUTO_ROWS = List.of("Trigger Bot", "Aura", "Mage Only", "Auto Detect Lag",
+            "Trigger Offset", "Never Miss", "Freecam Mode");
     // Countdown Start Sound and Start Sound Type were removed on purpose in mod b357f6de (2026-10-18: the start sound no
     // longer plays and "its rows are gone; its saved value still loads"); 392 checks the sound stays silent.
     private static final List<String> LEGIT_ROWS = List.of("Show Overlay", "Kill Popup", "Spawn Line",
-            "Kill Sound", "Kill Sound Type", "Sound Volume");
+            "Kill Sound", "Kill Sound Type", "Sound Volume",
+            // Blood Camp Stats (mod doc-blood-1101)
+            "Mobs Left HUD", "Mob Ticks HUD", "Camp Lag HUD", "Party Message");
 
     private CheatTabsCases() {
     }
@@ -381,7 +383,7 @@ final class CheatTabsCases {
                 c.problem("A: expected exactly one kill sound, got " + (afterA[1] - before[1]));
             }
             // Since b357f6de the Kill Sound plays on the Trigger Bot's hit tick: the first tick whose countdown is below
-            // triggerTargetTicks (ping in ticks with Auto Detect Lag, plus Trigger Offset, default -1), which is one
+            // triggerTargetTicks (ping in ticks with Auto Detect Lag, less Trigger Offset, default +1 = one tick late), which is one
             // tick AFTER the box turns green, not with it. Measured in game ticks from the first move packet, not in
             // loop steps (a loop step and a game tick are not the same clock).
             c.note(String.format(Locale.ROOT, "A: kill sound %d game ticks after the first move packet, expected %d"

@@ -112,7 +112,7 @@ final class DungeonB2Cases {
                 Mod.call(cfg, "setTriggerBotEnabled", true);
                 Mod.call(cfg, "setAuraEnabled", false);
                 Mod.call(cfg, "setAutoDetectLag", false);
-                Mod.call(cfg, "setTriggerOffsetTicks", -1);
+                Mod.call(cfg, "setTriggerOffsetTicks", 1); // one tick late (positive late since mod doc-blood-1101)
                 Mod.staticCall("secrets.DungeonState", "setRoomSim", true);
                 oldDifficulty[0] = mc.getSingleplayerServer().getWorldData().getDifficulty();
                 return null;
@@ -473,10 +473,15 @@ final class DungeonB2Cases {
                 String why = null;
                 if (b[p] != '.') {
                     why = "not empty";
-                } else if (replies.contains(p)) {
-                    why = "the computer's own best reply";
+                } else if (replies.contains(p) && replies.size() < 2) {
+                    // Since mod doc-puzzles-1101 a square the computer might take is a valid prefire when it is his best
+                    // click after every OTHER best reply (1101-pz-ttt checks the full rule); never its only reply.
+                    why = "the computer's only best reply";
                 } else {
                     for (int r : replies) {
+                        if (r == p) {
+                            continue;
+                        }
                         b[r] = 'X';
                         int bestO = Integer.MIN_VALUE;
                         for (int q = 0; q < 9; q++) {

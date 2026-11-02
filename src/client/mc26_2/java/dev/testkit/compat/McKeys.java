@@ -22,4 +22,10 @@ public final class McKeys {
     public static int mouse(int glfwButton) {
         return glfwButton;
     }
+
+    /** A KeyEvent for a press of {@code nativeKey} with {@code mods}; 26.2's record is (key, scancode, mods) and
+     *  nothing the testkit drives reads the scancode. Identical signature to the 26.3 copy. */
+    public static net.minecraft.client.input.KeyEvent keyEvent(int nativeKey, int mods) {
+        return new net.minecraft.client.input.KeyEvent(nativeKey, 0, mods);
+    }
 }

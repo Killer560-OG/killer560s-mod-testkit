@@ -158,7 +158,7 @@ final class VanillaThemeCases {
                 ModScreenDriver.press(buttons.get(0));
                 return null;
             }
-            s.keyPressed(new net.minecraft.client.input.KeyEvent(256, 0, 0));
+            s.keyPressed(dev.testkit.compat.McKeys.keyEvent(com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE, 0));
             return null;
         });
         c.ticks(4);

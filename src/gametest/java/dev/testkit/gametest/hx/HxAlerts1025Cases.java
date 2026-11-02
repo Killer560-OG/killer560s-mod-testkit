@@ -29,6 +29,10 @@ final class HxAlerts1025Cases {
         s.test("1025-alerts-scorewarning", HxAlerts1025Cases::scoreWarning);
         s.test("1025-alerts-livid", HxAlerts1025Cases::livid);
         s.test("1025-alerts-secretclicked", HxAlerts1025Cases::secretClicked);
+        // doc-auto-1101: the chest secret sound waits out "That chest is locked!"
+        s.test("1025-alerts-secretsound-locked", HxAlerts1025Cases::secretSoundLocked);
+        // doc-auto-1101: Auto Ult's Wish On Clear (cheat jar only)
+        s.test("1025-alerts-autoult-wish-clear", HxAlerts1025Cases::wishOnClear);
         s.test("1025-alerts-mutesounds", HxAlerts1025Cases::muteSounds);
         s.test("1025-alerts-breakercharges", HxAlerts1025Cases::breakerCharges);
         s.test("1025-alerts-keyspawn", HxAlerts1025Cases::keySpawn);
@@ -79,6 +83,131 @@ final class HxAlerts1025Cases {
                     + " real -> " + red + "; expired after 7 s");
         } finally {
             c.server().command("setblock -417 151 -422 minecraft:air");
+        }
+    }
+
+    // ---- 1025-alerts-secretsound-locked (doc-auto-1101) -------------------------------------------------------------
+
+    /** Secret Sound on a chest: (1) Hypixel's locked line inside the wait drops the sound; (2) no line plays it after the
+     *  wait (500 ms). Counted by SecretSound.chestSoundCounts {played, dropped}. A player's copy of the line is ignored. */
+    private static void secretSoundLocked(Session c) {
+        net.minecraft.core.BlockPos chest = new net.minecraft.core.BlockPos(-417, 151, -422);
+        c.server().command("setblock -417 151 -422 minecraft:chest");
+        Object cfg = c.onClient(mc -> Mod.cfg(ALERTS_CFG));
+        boolean soundWas = c.onClient(mc -> (Boolean) Mod.field(cfg, "secretSoundEnabled"));
+        try (Settings set = new Settings(c).with(ALERTS_CFG, "SecretClickedEnabled", false)) {
+            c.onClient(mc -> {
+                try {
+                    cfg.getClass().getField("secretSoundEnabled").set(cfg, true);
+                } catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+                return null;
+            });
+            dungeon(c);
+            c.waitUntil("the client sees the chest", mc -> mc.level.getBlockState(chest).getBlock() == net.minecraft.world.level.block.Blocks.CHEST, 60);
+            int[] before = c.onClient(mc -> (int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"));
+            clickChest(c, chest);
+            c.hx().chat("§7Bob§7: That chest is locked!");
+            c.hx().chat("§cThat chest is locked!");
+            c.ctx().waitTicks(20);
+            int[] mid = c.onClient(mc -> (int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"));
+            c.check(mid[0] == before[0] && mid[1] == before[1] + 1, "locked chest: played/dropped "
+                    + (mid[0] - before[0]) + "/" + (mid[1] - before[1]) + ", want 0/1");
+            c.ctx().waitTicks(25); // past the 1500 ms Secret Clicked window and the same-click guard
+            clickChest(c, chest);
+            c.waitUntil("the unlocked chest's sound after the wait", mc -> ((int[]) Mod.staticCall("dungeonalerts.SecretSound",
+                    "chestSoundCounts"))[0] == mid[0] + 1, 40);
+            int[] after = c.onClient(mc -> (int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"));
+            c.check(after[1] == mid[1], "the unlocked chest's sound was dropped");
+            c.note("locked chest: sound dropped (played/dropped +" + (mid[0] - before[0]) + "/+" + (mid[1] - before[1])
+                    + "); chest with no locked line: played after the wait (+" + (after[0] - mid[0]) + ")");
+        } finally {
+            c.onClient(mc -> {
+                try {
+                    cfg.getClass().getField("secretSoundEnabled").set(cfg, soundWas);
+                } catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+                return null;
+            });
+            c.server().command("setblock -417 151 -422 minecraft:air");
+        }
+    }
+
+    private static void clickChest(Session c, net.minecraft.core.BlockPos chest) {
+        c.onClient(mc -> {
+            net.minecraft.world.phys.BlockHitResult hit = new net.minecraft.world.phys.BlockHitResult(
+                    net.minecraft.world.phys.Vec3.atCenterOf(chest), net.minecraft.core.Direction.UP, chest, false);
+            net.fabricmc.fabric.api.event.player.UseBlockCallback.EVENT.invoker().interact(mc.player, mc.level,
+                    net.minecraft.world.InteractionHand.MAIN_HAND, hit);
+            return null;
+        });
+    }
+
+    // ---- 1025-alerts-autoult-wish-clear (doc-auto-1101) --------------------------------------------------------------
+
+    private static final String CU_CFG = "cheatutils.CheatUtilsConfig";
+
+    private static int wishes(Session c) {
+        return c.onClient(mc -> (Integer) Mod.staticCall("cheatutils.AutoUltFeature", "wishesSent"));
+    }
+
+    /**
+     * Wish On Clear as a Healer (class override) in the F7 clear: green mates -> no Wish; HxMateA red -> one Wish (a drop
+     * packet); still red with no answer -> no second try; "Wish is ready" -> one more; a cooldown line answering it ->
+     * nothing until that cooldown is over, then one more. The Wish never goes out more than once per freeing line.
+     */
+    private static void wishOnClear(Session c) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: Auto Ult does not exist");
+            return;
+        }
+        boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+        String ipWas = c.onClient(mc -> mc.getCurrentServer().ip);
+        try (Settings set = new Settings(c).with(CU_CFG, "AutoUltEnabled", true).with(CU_CFG, "WishOnClear", true)
+                .field(CU_CFG, "ultClassOverride", "HEALER")) {
+            c.onClient(mc -> {
+                Mod.staticCall("util.SkyblockGate", "setEnabled", false);
+                mc.getCurrentServer().ip = "mc.hypixel.net";
+                return null;
+            });
+            dungeon(c);
+            mates(c, "§a25,000§c❤", "§a30,100§c❤");
+            c.ctx().waitTicks(20);
+            int base = wishes(c);
+            c.ctx().waitTicks(20);
+            c.check(wishes(c) == base, "a Wish went out with both mates on green health");
+            c.onClient(mc -> {
+                dev.testkit.harness.PacketTrace.start();
+                return null;
+            });
+            mates(c, "§c2,900§c❤", "§a30,100§c❤");
+            c.waitUntil("a Wish for HxMateA", mc -> (Integer) Mod.staticCall("cheatutils.AutoUltFeature", "wishesSent") == base + 1, 60);
+            c.ctx().waitTicks(80);
+            int noRetry = wishes(c);
+            int drops = c.onClient(mc -> dev.testkit.harness.PacketTrace.sent("player_action"));
+            c.onClient(mc -> {
+                dev.testkit.harness.PacketTrace.stop();
+                return null;
+            });
+            c.check(noRetry == base + 1, "Wish was tried again with no answer (" + (noRetry - base) + " wishes in 80 ticks)");
+            c.check(drops >= 1, "no drop (player_action) packet went out for the Wish");
+            c.hx().chat("Wish is ready to use! Press DROP to activate it!");
+            c.waitUntil("a Wish after the ready line", mc -> (Integer) Mod.staticCall("cheatutils.AutoUltFeature", "wishesSent") == base + 2, 60);
+            c.hx().chat("This ability is on cooldown for 5s.");
+            c.ctx().waitTicks(60);
+            int during = wishes(c);
+            c.check(during == base + 2, "a Wish went out during the 5 s cooldown Hypixel named");
+            c.waitUntil("a Wish once the 5 s are over", mc -> (Integer) Mod.staticCall("cheatutils.AutoUltFeature", "wishesSent") == base + 3, 140);
+            c.note("green: no Wish; red: 1 Wish (" + drops + " player_action); no answer: no retry in 80 ticks; ready line: 1 more;"
+                    + " cooldown 5s line: none for 60 ticks, then 1 more");
+        } finally {
+            c.onClient(mc -> {
+                Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas);
+                mc.getCurrentServer().ip = ipWas;
+                return null;
+            });
         }
     }
 
@@ -245,17 +374,18 @@ final class HxAlerts1025Cases {
             c.hx().chat("§7Bob§7: " + WATCHER_LINE);
             c.ctx().waitTicks(80);
             c.check(warnings(c) == base + 1, "a player's copy of the Watcher's line started the pre-boss warning");
+            // Since 2026-11-01 (doc-dhud-1101) the warning shows on the Watcher's line itself, blood counted as cleared
+            // until the sidebar says so: 20 of 25 rooms + blood + boss = 88%.
             c.hx().chat(WATCHER_LINE);
-            c.ctx().waitTicks(15);
+            c.waitUntil("the pre-boss warning on the Watcher's line", mc -> (Integer) Mod.staticCall(WARN, "warningsShown") == base + 2, 100);
             sidebar(c, "template", "dungeon", "floor", "F7", "time", "02m 40s", "cleared", 84);
-            c.waitUntil("the pre-boss warning once blood's clear counts", mc -> (Integer) Mod.staticCall(WARN, "warningsShown") == base + 2, 80);
             String pre = c.onClient(mc -> (String) Mod.staticCall(WARN, "lastWarning"));
             String shownPre = c.onClient(HxAlerts1025Cases::guiTitle);
-            c.check(pre != null && pre.contains("Crypts 2/5") && pre.contains("Cleared 84%"), "pre-boss warning was '" + pre + "'");
+            c.check(pre != null && pre.contains("Crypts 2/5") && pre.contains("Cleared 88%"), "pre-boss warning was '" + pre + "'");
             c.check(shownPre != null && shownPre.contains("Before the boss"), "on-screen title '" + shownPre + "'");
             boolean blood = c.onClient(mc -> (Boolean) Mod.field("scorecalc.ScoreCalculatorFeature", "bloodDone"));
             c.note("1:23 none; 2:05 -> '" + crypt + "' (Gui '" + shownCrypt + "'), /" + pc + "; forged Watcher: none; real Watcher +"
-                    + " cleared 80->84 (bloodDone " + blood + ") -> '" + pre + "'");
+                    + " on the line -> '" + pre + "' (bloodDone " + blood + ")");
         }
     }
 

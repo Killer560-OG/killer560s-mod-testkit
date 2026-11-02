@@ -175,6 +175,7 @@ public class MenuSuite implements FabricClientGameTest {
                     ModUnderTest.require("killer560smod");
                     TerminalCases.register(s);
                     TermHoldCases.register(s); // 271-279: terms-1026 (Hover Melody, Hold To Click, lookahead, Fake Cursor)
+                    Doc1101TermCases.register(s); // 1101-menu-term-*: doc-terms-1101
                     TermHumanCases.register(s); // 1027-menu-term-*: Stream Safe human cursor, Rubix repeats (autoterms-human-1027)
                     ExperimentCases.register(s);
                     DungeonMenuCases.register(s);
@@ -222,6 +223,8 @@ public class MenuSuite implements FabricClientGameTest {
                     // ---- 888-890 croesus-track (2026-10-12): run state follows a run that moves, and restarts;
                     // 906 croesus-page-leak (2026-10-24): page 2 never takes page 1's runs ----
                     CroesusTrackCases.register(s);
+                    // ---- 1101 shared-records (2026-11-01): records shared across instances, old files folded in ----
+                    SharedRecordsCases.register(s);
                     Solver1018Cases.register(s); // 1018-*: the 2026-10-18 solver-sound batch
                     // ---- 898 croesus-colors (2026-10-12): run states distinct by color (deltaE, CVD) and marks ----
                     CroesusColorCases.register(s);
@@ -231,6 +234,8 @@ public class MenuSuite implements FabricClientGameTest {
                     ScreenSweepCases.register(s);
                     // ---- 982-984 doc-dungeons (2026-10-13): Auto E-Table stops on input, leap modes/targets, Scan All pace ----
                     DocDungeonsMenuCases.register(s);
+                    // ---- 1101 doc-etable (2026-11-01): E-Table resume by hand, Superpairs Overview, macro stop rules ----
+                    DocEtable1101Cases.register(s);
                     // ---- leap-v2 (1341-1342): Auto Leap's swap/use/click/return sequence and its failures ----
                     LeapV2MenuCases.register(s);
                     // ---- 1850-1852 swap-accounts-ui (2026-10-15, 1852 2026-10-16): the redone Swap Accounts screen, Set Universal Proxy ----

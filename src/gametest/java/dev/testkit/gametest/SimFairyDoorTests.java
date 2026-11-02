@@ -431,8 +431,12 @@ public class SimFairyDoorTests implements FabricClientGameTest {
                     + ", status '" + statusMap + "', box " + fmt(boxMap) + "; with coal in the doorway: Fairy Door "
                     + doorCoal + ", status '" + statusCoal + "', boxes on that cell " + describe(withersCoal);
             if (cheat) {
+                // 2026-11-01 (doc-dhud-1101): the shut Fairy door is drawn by the wither highlight in the Fairy color.
+                boolean magentaBox = withersCoal.size() == 1 && withersCoal.get(0).length >= 9
+                        && withersCoal.get(0)[6] > 0.95 && withersCoal.get(0)[7] < 0.05 && withersCoal.get(0)[8] > 0.95;
                 row(R_MAP_WITHER, type == 2 && air && doorMap == f.entryDoor && boxMap != null && doorCoal == -1
-                        && statusCoal.contains("shut wither door") && withersCoal.size() == 1, detail);
+                        && statusCoal.contains("shut wither door") && withersCoal.size() == 1 && magentaBox,
+                        detail + "; the coal box in the Fairy color " + magentaBox);
             } else {
                 row(R_MAP_WITHER, doorMap == -1 && boxMap == null, "legit jar: " + detail);
             }
@@ -475,6 +479,11 @@ public class SimFairyDoorTests implements FabricClientGameTest {
             Field cal = k.getDeclaredField("calibrated");
             cal.setAccessible(true);
             cal.setBoolean(null, true);
+            // DungeonLayout.current() keeps its snapshot until the map reading's version moves (mod FPS pass,
+            // 2026-10-16): without this bump the layout never saw the WITHER reading ("map door type 1").
+            Field version = k.getDeclaredField("version");
+            version.setAccessible(true);
+            version.setInt(null, version.getInt(null) + 1);
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("could not set the map's door reading", e);
         }

@@ -5,7 +5,9 @@
     "gui.tab.ChatTidyTab": "chat-batch a64924b9: merged into Chat Hider",
     "gui.tab.HideChatMessagesTab": "chat-batch a64924b9: merged into Chat Hider",
     "gui.tab.AbilityTimersTab": "gui-hud 805ca633: Ability Timers removed (killer560: \"Remove the ability timers setting that is unneeded.\")",
-    "gui.tab.SolverHighlightsTab": "menu-hud-1018 4a7ffc31: the shared Solver Highlights tab became per-solver highlight rows (killer560 2026-10-18)"
+    "gui.tab.SolverHighlightsTab": "menu-hud-1018 4a7ffc31: the shared Solver Highlights tab became per-solver highlight rows (killer560 2026-10-18)",
+    "gui.tab.DungeonInfoTab": "doc-auto-1101: Secrets HUD is a section of the Secret tab (Dungeons > Secrets > Secret), killer560 2026-11-01",
+    "gui.tab.SecretSoundTab": "doc-auto-1101: Secret Sound is a section of the Secret tab (Dungeons > Secrets > Secret), killer560 2026-11-01"
   },
   "goneCheatLeaves": {
     "gui.tab.LeverAuraTab": "aura-themes-1015: Lever Aura became the In Boss part of the Secret Aura tab (cheat jar only)"
@@ -15,13 +17,39 @@
     "gui.tab.CustomItemsTab": "Cosmetics > Custom Items",
     "gui.tab.ChocolateFactoryTab": "Misc > Chocolate Factory",
     "gui.tab.PeekChatTab": "Chat > Peek Chat",
-    "gui.tab.PriceTooltipTab": "Items > Price Tooltip"
+    "gui.tab.PriceTooltipTab": "Items > Price Tooltip",
+    "gui.tab.MiningAbilityReadyTab": "Mining > Ability Ready Alert",
+    "gui.tab.MiningCarpetTab": "Mining > Carpet Highlighter",
+    "gui.tab.MiningCommissionHudTab": "Mining > Commission HUD",
+    "gui.tab.MiningMithrilStoneTab": "Mining > Mithril As Stone",
+    "gui.tab.MiningPickobulusTab": "Mining > Pickobulus Estimate",
+    "gui.tab.MiningRaffleTab": "Mining > Raffle Ticket Highlight",
+    "gui.tab.MiningTitaniumTab": "Mining > Titanium Highlight",
+    "gui.tab.SecretTab": "Dungeons > Secrets > Secret",
+    "gui.tab.MaskKeybindsTab": "Dungeons > Mask Keybinds",
+    "gui.tab.LuckTab": "Misc > How Lucky Are You"
   },
   "tooltips": [
     {
       "owner": "Party Interop",
       "key": "log pickups",
       "gone": "doc-small-1014: Log Pickups (printed every piece of party info to chat) removed, killer560 2026-10-14"
+    },
+    {
+      "owner": "Leap Menu",
+      "key": "open leap order",
+      "gone": "doc-small-1101: renamed Open Custom Leap Order Editor (killer560 2026-11-01)"
+    },
+    {
+      "owner": "Leap Menu",
+      "key": "leap style",
+      "gone": "doc-small-1101: Leap Style became the switch Show Map During Clear (killer560 2026-11-01)"
+    },
+    {
+      "owner": "Party Interop",
+      "key": "cross-mod bridge",
+      "text": "Shares dungeon data both ways with users of Devonian and Odin.",
+      "why": "mod 958f6442 2026-11-01 Cross-Mod Bridge: never open or sign into NoammAddons' socket (NoammAddons' owner asked)"
     },
     {
       "owner": "Trail",
@@ -235,8 +263,8 @@
     {
       "owner": "Bazaar",
       "key": "bazaar browser",
-      "text": "Turns the Bazaar browser on or off (/killer560bz, or its keybind). Needs an active Booster Cookie, as Hypixel's remote Bazaar does.",
-      "why": "bz-reskin c13a41e8: one switch for the Bazaar / Auction House browser and its reskin (killer560, 2026-10-11); rewritten again: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
+      "text": "Turns the Bazaar browser on or off (open it with its keybind or Open Bazaar). Needs an active Booster Cookie, as Hypixel's remote Bazaar does.",
+      "why": "bz-reskin c13a41e8: one switch for the Bazaar / Auction House browser and its reskin (killer560, 2026-10-11); rewritten again: 1c10b812 2026-10-20 Settings sweep; doc-small-1101: /killer560bz removed (killer560 2026-11-01)"
     },
     {
       "owner": "Bazaar",
@@ -246,8 +274,8 @@
     {
       "owner": "Auction House",
       "key": "auction house browser",
-      "text": "One switch for the whole Auction House: the custom browser (/killer560 ah or a keybind) and Hypixel's real Auction House menus drawn in its look, where every click is the same single click on Hypixel's menu.",
-      "why": "bz-reskin c13a41e8: one switch for the Bazaar / Auction House browser and its reskin (killer560, 2026-10-11)"
+      "text": "One switch for the whole Auction House: the custom browser (its keybind or Open Auction House) and Hypixel's real Auction House menus drawn in its look, where every click is the same single click on Hypixel's menu.",
+      "why": "doc-small-1101: /killer560 ah removed; bz-reskin c13a41e8: one switch for the Bazaar / Auction House browser and its reskin (killer560, 2026-10-11)"
     },
     {
       "owner": "Bazaar",
@@ -410,8 +438,8 @@
     {
       "owner": "(unscoped)",
       "key": "auto clear",
-      "text": "Cheat build: kills the starred mobs of the dungeon's mob rooms with your Hyperion or Spirit Sceptre; start and stop it with the Clear Toggle Key or /autoclear.",
-      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: one-sentence hovers"
+      "text": "Cheat build: kills the starred mobs of the dungeon's mob rooms with your Hyperion or Spirit Sceptre; start and stop it with the Clear Toggle Key.",
+      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: one-sentence hovers; cmdclean-1101 c498f3ba dropped /autoclear"
     },
     {
       "owner": "(unscoped)",
@@ -514,8 +542,8 @@
     {
       "owner": "Auto Clear",
       "key": "auto clear",
-      "text": "Cheat build: kills the starred mobs of the dungeon's mob rooms with your Hyperion or Spirit Sceptre; start and stop it with the Clear Toggle Key or /autoclear.",
-      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: one-sentence hovers"
+      "text": "Cheat build: kills the starred mobs of the dungeon's mob rooms with your Hyperion or Spirit Sceptre; start and stop it with the Clear Toggle Key.",
+      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: one-sentence hovers; cmdclean-1101 c498f3ba dropped /autoclear"
     },
     {
       "owner": "Auto Clear",
@@ -812,6 +840,30 @@
       "key": "share if supporter",
       "text": "Automatically shares your display name, your own player size and your Play as Mob choice with other players who have this mod.",
       "why": "412's fixture row: 73a70ba3 Play as Mob (supporters share their mob choice too)"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "freeze state",
+      "text": "!! NEVER ON HYPIXEL - INSTANT BAN !! Freezes your character in place while your camera looks around freely.",
+      "why": "cmdclean-1101 c498f3ba (killer560 2026-11-01): the command it named was removed"
+    },
+    {
+      "owner": "Freeze State",
+      "key": "freeze state",
+      "text": "!! NEVER ON HYPIXEL - INSTANT BAN !! Freeze State as a whole - off, its keys do nothing, and a freeze in progress resumes.",
+      "why": "cmdclean-1101 c498f3ba (killer560 2026-11-01): the command it named was removed"
+    },
+    {
+      "owner": "Freeze State",
+      "key": "freeze state key",
+      "text": "Keybind that freezes and resumes your character; never use it on Hypixel.",
+      "why": "cmdclean-1101 c498f3ba (killer560 2026-11-01): the command it named was removed"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "storage search",
+      "text": "Searches your cached Ender Chests and Backpacks from one screen; also opens with /search.",
+      "why": "cmdclean-1101 c498f3ba (killer560 2026-11-01): the command it named was removed (/k560search)"
     }
   ]
 }

@@ -780,6 +780,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   failed blocks that later coal doors had hidden. 538/678 (Show All Doors' coal-door scan) fail on main's cheat jar too:
   WitherDoorScanner finds no coal door on a sim floor at all - not this branch.
 - 1490-sim-mage-capture (SimMageCaptureTests, mod mage-capture-1015, 2026-10-15): `/mage` typed for real in a sim Mage.
+  REMOVED 2026-11-01 with the mod's /mage (mod doc-small-1101); the scenario is in git history before testkit doc-small-1101.
   The integrated server never forgot a chunk here, even at render distance 2 (the client still held chunks 8 out), so the
   unloaded case hands the client `ClientboundForgetLevelChunkPacket` through the real handler and runs `/mage` in the SAME
   client task (the server sends it straight back), and it runs last. Ask `mc.level.getChunkSource().hasChunk`, never
@@ -1294,6 +1295,58 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   150 ms Latency case, before any click (g2 1027-aafast-cpt1-300); the rerun was clean. It is the Latency teardown, not a feature.
   Frames Per Tick on experimental checks: Grim cancels the flagged second-frame clicks, the mod resends after its 1 s
   pending timeout, and the device still solves (76 sent, 40 reached, fpt15).
+- 2860-2869 (hx/HxSpotifyDocCases, doc-spotify-1101): the Spotify Lyrics to-do item. 2867 runs Song Tag through a REAL relay:
+  start `wrangler dev --port 8811 --local --var TOKEN_SECRET:song-e2e-secret-not-real --var MOJANG_STUB:1` in a relay worktree
+  (node_modules junction; remove the junction with `rmdir` before `git worktree remove`), then run with
+  `-Extra "-PnetOverride=relay=http://127.0.0.1:8811"`; the case injects a relay token minted with that secret (an offline
+  account cannot do Mojang's sign-in) and a second socket in the client's lobby room plays the other player. Without the
+  override it is a SKIP row. The override reaches the client as the system property `killer560.net.relay`, not
+  `killer560.net.override`. A filter must name the session too: `100-hx-session+,-hx-spotify-`.
+- 1101-ap3-*-once-reenter / 1101-boss-ap3-termaura-run (`Ap3Stop1101Cases`, `boss/Ap3TermAuraCases.runIn`, mod ap3-stop-1101):
+  a Stop / Term Aura fires once per entry and a Term Aura stops him. Judged from per-tick positions (a standstill is a tick
+  moving < 0.01). A Term Aura node only clicks a stand whose feet are at or below his EYES (`TerminalAuraFeature.pick`,
+  Hypixel's no-open-from-below rule), so a run on the pillar's ground got "no terminal in range" whatever `minDy` said;
+  the run-in case lays a runway level with the stand (blocks at G+2). On the base jar 1101-ap3-stop-once-reenter passes
+  too (the edge detector already fired a plain Stop once per entry); the Term Aura cases are the ones a pre-1101 jar fails.
+- 1101-ds-* (DocSmall1101Cases, mod doc-small-1101, 2026-11-01): 13 UI cases for the small to-do items, each asserting the
+  feature acted (chat lines kept, hook counter, layers played, names replaced, beam core draws). A hand-item hook test must
+  hold an item and turn SkyblockGate off. 806 alone takes ~150 s: give run-scenario -TimeoutSeconds 1200 when 806 or a
+  menu session (200-menu-session pulls in many menu cases) is in the filter; the 240 s default kills the run.
+- 1101-menu-* (`menu/DocEtable1101Cases`, mod doc-etable-1101): E-Table resume by hand (real mouse clicks after an Escape
+  stop mid-Ultrasequencer), the Superpairs Overview on a fixed board, and `macrostop/MacroStop`'s rule driven through the
+  real key handlers with two test macros it registers by reflection. Run with `-Scenario "200-menu-session:,1101-menu"`.
+  Observed 2026-11-01 under a 9-client machine load: the FIRST Auto E-Table case of a session (223 on main a4eecd33, 224
+  or 1101-resume on the branch) can time out waiting for its game to end while later ones pass - a session warm-up issue
+  on main too, not the branch; rerun before blaming the mod. A run the freeze watcher closed (FROZEN while the test server
+  was still starting) can leave its `runTestServer` java alive and the next run's server exits "before it was ready":
+  kill that PID (command line holds this checkout's path and runTestServer) first.
+- Emergency Cancel Key cases (mod doc-etable-1101, e4ecb41d): 1101-ap3-ecancel (63-ap3 session), 96-ar-1101-ecancel (route +
+  Mimic Killer), 1101-menu-ecancel-terminal, 93-solve-ecancel-higherblaze (`Base.expectsHold`: the pass is the hold, not a
+  solve). Any case that presses the key starts MacroStop's emergency hold, which makes ActionGate refuse every automated
+  action for the rest of the client: release it in the case's finally (`MacroStop.release`). In 96-ar-1101-ecancel the
+  sim mimic dies to the Sceptre's first use, so the Mimic Killer half proves "not busy and no use after the key", not
+  that it would have gone on.
+
+- In the F7 boss, Floor7Tracker.getPhaseAt() reads the phase from his Y alone (P1 >210, P2 >155, P3 >100): a case that stands at
+  y 151 is "in P3" with no Goldor line at all. 835-boss-grim-witherbot-range stands at y 170 so Goldor-only mode really is out
+  of P3 (doc-auto-1101).
+
+- When run-scenario.ps1 closes a FROZEN client, the session's test server can stay alive and keep the port: the next run in
+  that checkout fails with "FAILED TO BIND TO PORT" (server exits before ready) or hangs at TestServer.start. Before
+  re-running, kill this checkout's own runTestServer java (its command line names the checkout path) (doc-auto-1101).
+- `ChatObserver` drops an identical stripped line seen again within 250 ms (its duplicate-delivery de-dup). Two `hx().chat` sends
+  of the same line from consecutive steps of one case can land in the same window on a loaded machine, and the second
+  never reaches any feature (1101-dhud-preboss, 2026-11-01: the Mage Only step's Watcher line). Wait ~10 ticks between
+  identical lines, and wait for the mod to have SEEN the line (a field it sets) before asserting that nothing happened.
+- When run-scenario closes a client as FROZEN (it often happens while the session's test server starts on a loaded machine),
+  that run's test server keeps running on the checkout's port, and the next run in the checkout fails "Anticheat test server
+  exited with code 0 before it was ready" (FAILED TO BIND TO PORT in run/testserver/logs). End the leftover
+  `<checkout>...runTestServer` java first (doc-dhud-1101, 2026-11-01).
+
+- 2026-11-01 (doors263-1101): a 26.3 client sat at the title screen for 30 min with the test thread never started, and
+  run-scenario's `-TimeoutSeconds 1200` did not end it; kill the client by its PID (`taskkill //PID <pid> //T //F`) and rerun.
+  The rerun passed its premise normally. Also: 538/678 and 1491's door-helpers premise had failed for weeks for reasons
+  unrelated to the version being tested - before blaming a port, find the case's last PASS in killer560s-mod-logs.
 - **1101-fairy-island-* (`FairyIslandTests`, doc-fairy-1101).** Islands are rebuilt by `tools/fairy-islands/gen.py` from
   SkyHanni's graph and NEU's soul coordinates (no Hypixel terrain exists to copy); the soul stand is a real-size invisible
   stand 1.4 below NEU's head block. Synthetic terrain makes its own failures, so read a miss before calling it the mod's:

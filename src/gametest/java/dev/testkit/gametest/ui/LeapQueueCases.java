@@ -23,7 +23,7 @@ import java.util.UUID;
 /**
  * killer560's 2026-10-15 to-do items 1-3 (mod branch leap-queue-1015).
  * <ul>
- *   <li>1071: {@code /leaporder}, {@code /class}, {@code /killer560 leaporder} and {@code /killer560 class} each open a
+ *   <li>1071: {@code /leaporder} and {@code /killer560 leaporder} each open a
  *       LeapOrderScreen, typed as a real player types them.</li>
  *   <li>1072: the Class Overrides setting is gone (no tab, no class) and its saved picks are migrated into the Leap Order
  *       data: an old classoverrides file in either format is read by the config load, its picks are now in
@@ -110,7 +110,8 @@ final class LeapQueueCases {
     // ---- 1071 ---------------------------------------------------------------------------------------------------------
 
     static void commands(UiCase c) throws Exception {
-        List<String> typed = List.of("leaporder", "class", "killer560 leaporder", "killer560 class");
+        // /class and /killer560 class were removed (mod cmdclean-1101, killer560 2026-11-01); 1101-cmdclean-gone checks them.
+        List<String> typed = List.of("leaporder", "killer560 leaporder");
         List<String> seen = new ArrayList<>();
         Class<?> first = null;
         for (String cmd : typed) {
@@ -163,7 +164,9 @@ final class LeapQueueCases {
         c.check(!names.contains("Class Overrides"), "the menu still has a Class Overrides tab");
         c.check(names.contains("Leap Menu"), "the Leap Menu tab is missing: " + names);
 
-        // (b) its switch and an Edit Classes button are in the Leap Menu tab
+        // (b) mod doc-small-1101 (killer560, 2026-11-01: "Remove the class selection settings ... and the edit classes
+        // button along with it"): the Leap Menu tab has neither the Class Selection Overlay switch nor Edit Classes, and
+        // the Leap Order button is now "Open Custom Leap Order Editor", which still opens the editor.
         List<AbstractWidget> tab = c.onClient(mc -> {
             try {
                 Object t = Mod.cls("gui.tab.LeapMenuTab").getConstructor().newInstance();
@@ -174,29 +177,21 @@ final class LeapQueueCases {
                 throw new AssertionError(e);
             }
         });
-        AbstractWidget overlay = byPrefix(tab, "Class Selection Overlay");
-        AbstractWidget edit = byLabel(tab, "Edit Classes");
-        c.check(overlay != null, "the Leap Menu tab has no Class Selection Overlay switch");
-        c.check(edit != null, "the Leap Menu tab has no Edit Classes button");
-        Object overlayCfg = Mod.cfg("dungeonclass.ClassSelectionOverlayConfig");
-        boolean was = (Boolean) Mod.call(overlayCfg, "isEnabledRaw");
-        try {
-            press(c, overlay);
-            c.check((Boolean) Mod.call(overlayCfg, "isEnabledRaw") == !was, "pressing the switch did not toggle the overlay");
-            Mod.staticCall("dungeonclass.ClassSelectionOverlayConfig", "load");
-            c.check((Boolean) Mod.call(Mod.cfg("dungeonclass.ClassSelectionOverlayConfig"), "isEnabledRaw") == !was,
-                    "the overlay switch did not survive a reload from disk");
-        } finally {
-            Mod.call(Mod.cfg("dungeonclass.ClassSelectionOverlayConfig"), "setEnabled", was);
-            Mod.call(Mod.cfg("dungeonclass.ClassSelectionOverlayConfig"), "save");
-        }
+        c.check(byPrefix(tab, "Class Selection Overlay") == null, "the Leap Menu tab still has a Class Selection Overlay switch");
+        c.check(!Mod.has("dungeonclass.ClassSelectionOverlay"), "the Class Selection Overlay is still in the jar");
+        c.check(byLabel(tab, "Edit Classes") == null, "the Leap Menu tab still has an Edit Classes button");
+        c.check(byLabel(tab, "Open Leap Order") == null, "the Leap Menu tab still says Open Leap Order");
+        AbstractWidget edit = byLabel(tab, "Open Custom Leap Order Editor");
+        c.check(edit != null, "the Leap Menu tab has no Open Custom Leap Order Editor button");
         c.onClient(mc -> {
             McCompat.setScreen(mc, null);
             return null;
         });
-        press(c, edit);
-        c.ticks(4);
-        c.check(screenName(c).equals("LeapOrderScreen"), "Edit Classes opened " + screenName(c));
+        if (edit != null) {
+            press(c, edit);
+            c.ticks(4);
+            c.check(screenName(c).equals("LeapOrderScreen"), "Open Custom Leap Order Editor opened " + screenName(c));
+        }
         c.onClient(mc -> {
             McCompat.setScreen(mc, null);
             return null;

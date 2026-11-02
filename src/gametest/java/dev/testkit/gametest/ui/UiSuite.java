@@ -105,7 +105,7 @@ public class UiSuite implements FabricClientGameTest {
             "399-ui-stat-bars-vitality-xp", "407-ui-stat-bars-layout", "401-ui-scoreboard-editor",
             "411-ui-mining-shelved", "412-ui-no-new-tab", "413-ui-testing-variant",
             "425-ui-bazaar-icons", "427-ui-pack-disabler-models",
-            "428-ui-pack-disabler-pack-push", "429-ui-pack-disabler-missing", "430-ui-pack-disabler-screens",
+            "428-ui-pack-disabler-pack-push", "430-ui-pack-disabler-screens",
             "431-ui-pack-disabler-user-pack", "432-ui-pack-disabler-bazaar",
             "451-ui-hotbar-theme", "452-ui-inventory-theme-settings", "453-ui-storage-overlay-centre",
             "454-ui-storage-overlay-themes",
@@ -167,10 +167,18 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-18 to-do item 1, the Custom Party Finder ({@link PartyFinder1018Cases}). Own block for merges. */
     static final String[] PARTY_FINDER_1018_CASES = {"1018-pf-leader-accept", "1018-pf-joiner-accept", "1018-pf-dual-list",
             "1018-pf-requirements", "1018-pf-settings", "1018-pf-nokuudra", "1022-pf-dropdown", "1022-pf-no-label"};
+    /** 2026-11-01: the mod never opens or signs into NoammAddons' socket ({@link NoammNever1101Cases}). Own block for merges. */
+    static final String[] NOAMM_NEVER_CASES = {"1101-noamm-never"};
     /** killer560's 2026-10-11 "left click forward, right click backward" for every cycling setting ({@link CycleButtonCases}). Own block. */
     static final String[] CYCLE_BACK_CASES = {"806-ui-cycle-buttons-both-ways"};
     /** killer560's 2026-10-14 to-do batch: defaults on, removed toggles gone ({@link DocSmall1014Cases}). Own block. */
     static final String[] DOC_SMALL_CASES = {"807-ui-doc-small-1014"};
+    /** killer560's 2026-11-01 small to-do items (mod doc-small-1101, {@link DocSmall1101Cases}). Own block for merges. */
+    static final String[] DOC_SMALL_1101_CASES = {"1101-ds-chat-history", "1101-ds-bugged", "1101-ds-confine-mouse",
+            "1101-ds-held-item", "1101-ds-dvd", "1101-ds-edit-hud-bars", "1101-ds-ping-colors", "1101-ds-streamer",
+            "1101-ds-tab-texts", "1101-ds-chocolate", "1101-ds-nickhider", "1101-ds-mage-beam", "1101-ds-commands"};
+    /** killer560's 2026-11-01 command removals (mod cmdclean-1101, {@link CmdClean1101Cases}). Own block for merges. */
+    static final String[] CMDCLEAN_1101_CASES = {"1101-cmdclean-gone", "1101-cmdclean-reach"};
     /** killer560's 2026-10-15 Dungeon Map list (mod map-overhaul-1015, {@link MapOverhaulCases}). Own block for merges. */
     static final String[] MAP_OVERHAUL_CASES = {"1015-ui-switch-align", "1015-ui-map-tab", "1015-ui-map-themes",
             "1015-ui-door-key-style"};
@@ -371,7 +379,16 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : PARTY_FINDER_1018_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : NOAMM_NEVER_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             for (String n : DOC_SMALL_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            for (String n : DOC_SMALL_1101_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            for (String n : CMDCLEAN_1101_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
             for (String n : HUD_KEY2_CASES) {
@@ -463,7 +480,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
                 || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES)
                 || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(LEAPQUEUE_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES) || any(SLOT_TEXT_CASES) || any(SMALL_DUNGEON_CASES)
-                || any(AUTOKICK2_CASES) || any(PARTY_FINDER_1018_CASES) || any(CYCLE_BACK_CASES) || any(DOC_SMALL_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES)
+                || any(AUTOKICK2_CASES) || any(PARTY_FINDER_1018_CASES) || any(NOAMM_NEVER_CASES) || any(CYCLE_BACK_CASES) || any(DOC_SMALL_CASES) || any(DOC_SMALL_1101_CASES) || any(CMDCLEAN_1101_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES)
                 || any(HUD_KEY3_CASES) || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(CHROMA_WAVE_CASES)
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
                 || any(DOC_MENU_CASES) || any(DOC_MISC_CASES) || any(DOC_DUNGEONS_CASES) || any(TURBO_CHROMA_CASES)
@@ -544,7 +561,6 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "425-ui-bazaar-icons", BazaarBrowserCases::icons);
                     UiCase.run(ctx, "427-ui-pack-disabler-models", PackDisablerCases::models);
                     UiCase.run(ctx, "428-ui-pack-disabler-pack-push", PackDisablerCases::packPush);
-                    UiCase.run(ctx, "429-ui-pack-disabler-missing", PackDisablerCases::missing);
                     UiCase.run(ctx, "430-ui-pack-disabler-screens", PackDisablerCases::screens);
                     UiCase.run(ctx, "431-ui-pack-disabler-user-pack", PackDisablerCases::userPack);
                     UiCase.run(ctx, "432-ui-pack-disabler-bazaar", PackDisablerCases::bazaar);
@@ -685,10 +701,29 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1018-pf-nokuudra", PartyFinder1018Cases::noKuudra);
                     UiCase.run(ctx, "1022-pf-dropdown", PartyFinder1018Cases::dropdown);
                     UiCase.run(ctx, "1022-pf-no-label", PartyFinder1018Cases::noLabel);
+                    // ---- noamm-never (1101) ----
+                    UiCase.run(ctx, "1101-noamm-never", NoammNever1101Cases::noammNever);
                     // ---- cycle-back (806) ----
                     UiCase.run(ctx, "806-ui-cycle-buttons-both-ways", c -> CycleButtonCases.cycleButtons(c, deny));
                     // ---- doc-small (807) ----
                     UiCase.run(ctx, "807-ui-doc-small-1014", DocSmall1014Cases::docSmall);
+                    // ---- doc-small 1101 (1101-ds-*) ----
+                    UiCase.run(ctx, "1101-ds-chat-history", DocSmall1101Cases::chatHistory);
+                    UiCase.run(ctx, "1101-ds-bugged", DocSmall1101Cases::bugged);
+                    UiCase.run(ctx, "1101-ds-confine-mouse", DocSmall1101Cases::confineMouse);
+                    UiCase.run(ctx, "1101-ds-held-item", DocSmall1101Cases::heldItem);
+                    UiCase.run(ctx, "1101-ds-dvd", DocSmall1101Cases::dvd);
+                    UiCase.run(ctx, "1101-ds-edit-hud-bars", DocSmall1101Cases::editHudBars);
+                    UiCase.run(ctx, "1101-ds-ping-colors", DocSmall1101Cases::pingColors);
+                    UiCase.run(ctx, "1101-ds-streamer", DocSmall1101Cases::streamer);
+                    UiCase.run(ctx, "1101-ds-tab-texts", DocSmall1101Cases::tabTexts);
+                    UiCase.run(ctx, "1101-ds-chocolate", DocSmall1101Cases::chocolate);
+                    UiCase.run(ctx, "1101-ds-nickhider", DocSmall1101Cases::nickhider);
+                    UiCase.run(ctx, "1101-ds-mage-beam", DocSmall1101Cases::mageBeam);
+                    UiCase.run(ctx, "1101-ds-commands", DocSmall1101Cases::commands);
+                    // ---- cmdclean 1101 ----
+                    UiCase.run(ctx, "1101-cmdclean-gone", CmdClean1101Cases::gone);
+                    UiCase.run(ctx, "1101-cmdclean-reach", CmdClean1101Cases::reach);
                     // ---- map-overhaul (1015) ----
                     UiCase.run(ctx, "1015-ui-switch-align", c -> MapOverhaulCases.switchAlign(c, deny));
                     UiCase.run(ctx, "1015-ui-map-tab", MapOverhaulCases::mapTab);

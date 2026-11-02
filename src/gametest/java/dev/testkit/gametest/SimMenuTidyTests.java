@@ -550,7 +550,7 @@ public class SimMenuTidyTests implements FabricClientGameTest {
                         .append(cells).append("\",\"doorCells\":\"").append(doors).append("\"}}");
             }
             runs.append("]}");
-            Path file = ModUnderTest.modConfig("killer560smod-runs").resolve("history.json");
+            Path file = runHistoryFile(ctx);
             Files.createDirectories(file.getParent());
             Files.writeString(file, runs, StandardCharsets.UTF_8);
         } catch (Exception e) {
@@ -582,5 +582,17 @@ public class SimMenuTidyTests implements FabricClientGameTest {
 
     private static void println(String s) {
         System.out.println("[" + NAME + "] " + s);
+    }
+
+    /** The run history's file: the shared record store since mod shared-stats-1101 (pathForTest), the instance config
+     *  before it. */
+    static java.nio.file.Path runHistoryFile(net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext ctx) {
+        try {
+            // On the client thread: the store's folder is per signed-in account, read from the client.
+            return ctx.computeOnClient(mc -> (java.nio.file.Path) ModUnderTest.staticCall(
+                    "com.killer560.hub.runsummary.RunHistoryStore", "pathForTest"));
+        } catch (AssertionError | RuntimeException olderMod) {
+            return ModUnderTest.modConfig("killer560smod-runs").resolve("history.json");
+        }
     }
 }

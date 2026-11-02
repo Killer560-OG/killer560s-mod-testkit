@@ -107,6 +107,8 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             s.test("63-ap3-hold-boom-then-stop", Ap3RuntimeTests::caseBoomThenStop);
             s.test("63-ap3-stopwatch-hud", Ap3RuntimeTests::caseStopwatchHud);
             s.test("63-ap3-stopwatch-lock", Ap3RuntimeTests::caseStopwatchLock);
+            // mod doc-etable-1101: the Emergency Cancel Key stops AP3 (on top of its own stop rules) and holds it.
+            s.test("1101-ap3-ecancel", Ap3RuntimeTests::caseEmergencyCancel);
             // mod blood-ap3-1018 (killer560's doc item 11): the ss modifier, and overlapping walk/run boxes.
             s.test("1018-ap3-ss-wait", Ap3RuntimeTests::caseSsWait);
             s.test("1018-ap3-run-centre", Ap3RuntimeTests::caseRunCentre);
@@ -136,6 +138,8 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             Ap3Close1027Cases.register(s);
             Ap3Gates1027Cases.register(s);
             Ap3BlinkCombo1027Cases.register(s);
+            // mod ap3-stop-1101: a Term Aura stops him like a Stop; a Stop / Term Aura fires once per entry.
+            Ap3Stop1101Cases.register(s);
             // mod ap3-blink-1026: the Blink Charge and Blink Release nodes. Registered last: 1026-ap3-blink-leap keeps the
             // bank through a leap (killer560 2026-10-27) and GrimAC's BadPacketsN from it lands on the next case's lane
             // teleport, so the Blink cases run right before 63-ap3-corrections (blinkmerge-1027).
@@ -865,7 +869,8 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
     /** Which node types may end a held walk (killer560: a walk/run replaces it, a stop or an align ends it). */
     private static boolean endsHold(String type) {
         return switch (type) {
-            case "STOP", "ALIGN", "AXIS_ALIGN", "FAST_ALIGN", "WALK", "RUN", "LEAP", "PATH" -> true;
+            // TERM_AURA since mod ap3-stop-1101 (killer560: "a termaura node will make you stop as well just like a stop node")
+            case "STOP", "TERM_AURA", "ALIGN", "AXIS_ALIGN", "FAST_ALIGN", "WALK", "RUN", "LEAP", "PATH" -> true;
             default -> false;
         };
     }
@@ -920,6 +925,64 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         if (expectKeep != kept) {
             throw new AssertionError(String.format(Locale.ROOT, "%s %s the held run (%.2f blocks in 15 ticks)", type,
                     kept ? "kept" : "ended", dx));
+        }
+    }
+
+    /**
+     * 1101-ap3-ecancel (mod doc-etable-1101, killer560 2026-11-01: the Emergency Cancel Key "should stop EVERYTHING
+     * automatic"): a RUN node is carrying him; K (the key) stops AP3 by name within two ticks, he slows to a stop
+     * instead of running on, and the hold is on until K again releases it.
+     */
+    private static void caseEmergencyCancel(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        String ms = "com.killer560.hub.macrostop.MacroStop";
+        String msc = "com.killer560.hub.macrostop.MacroStopConfig";
+        ctx.getInput().pressKey(options -> options.keyHotbarSlots[0]);
+        ctx.waitTicks(2);
+        onClient(ctx, mc -> {
+            ModUnderTest.set(ModUnderTest.config(msc), "setEmergencyCancelKeyCode", 75); // K
+            return null;
+        });
+        try {
+            double z = lane();
+            Object run = runNode(z);
+            walkIntoRun(c, z, run);
+            ctx.waitTicks(6);
+            double xRun0 = onClient(ctx, mc -> mc.player.getX());
+            ctx.waitTicks(4);
+            double xAtKey = onClient(ctx, mc -> mc.player.getX());
+            ctx.getInput().pressKey(dev.testkit.compat.McKeys.nat(75));
+            ctx.waitTicks(2);
+            boolean running = onClient(ctx, mc -> (Boolean) ModUnderTest.staticCall(EXEC, "isRunning"));
+            String reason = onClient(ctx, mc -> String.valueOf(ModUnderTest.staticCall(EXEC, "stopReason")));
+            boolean held = onClient(ctx, mc -> (Boolean) ModUnderTest.staticCall(ms, "emergencyHeld"));
+            ctx.waitTicks(20);
+            double xLater = onClient(ctx, mc -> mc.player.getX());
+            boolean runningLater = onClient(ctx, mc -> (Boolean) ModUnderTest.staticCall(EXEC, "isRunning"));
+            ctx.getInput().pressKey(dev.testkit.compat.McKeys.nat(75));
+            ctx.waitTicks(2);
+            boolean heldAfter = onClient(ctx, mc -> (Boolean) ModUnderTest.staticCall(ms, "emergencyHeld"));
+            c.note(String.format(Locale.ROOT, "running %.2f blocks in the 4 ticks before K; after K: running %s, reason "
+                    + "\"%s\", hold %s; %.2f blocks in the next 20 ticks, running %s; K again: hold %s",
+                    xAtKey - xRun0, running, reason, held, xLater - xAtKey, runningLater, heldAfter));
+            if (xAtKey - xRun0 < 0.5) {
+                throw new AssertionError("the run was not carrying him before K (" + (xAtKey - xRun0) + " blocks)");
+            }
+            if (running || runningLater || !reason.contains("Emergency Cancel Key")) {
+                throw new AssertionError("K did not stop AP3: running " + running + "/" + runningLater + ", \"" + reason + "\"");
+            }
+            if (xLater - xAtKey > 1.5) {
+                throw new AssertionError("he kept running after K: " + (xLater - xAtKey) + " blocks in 20 ticks");
+            }
+            if (!held || heldAfter) {
+                throw new AssertionError("the hold: on after K " + held + ", off after K again " + !heldAfter);
+            }
+        } finally {
+            onClient(ctx, mc -> {
+                ModUnderTest.staticCall(ms, "release", new Class<?>[]{String.class}, new Object[]{"testkit"});
+                ModUnderTest.set(ModUnderTest.config(msc), "setEmergencyCancelKeyCode", -1);
+                return null;
+            });
         }
     }
 

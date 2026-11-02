@@ -145,8 +145,27 @@ final class HxSongTagCases {
         // settings() reloads the config (a new instance), so the switches are put back by hand at the end too.
         boolean[] orig = c.onClient(mc -> new boolean[]{(Boolean) Mod.get(CFG, "isShareSong"), (Boolean) Mod.get(CFG, "isShowOthers")});
         String botName = bot.name();
+        // Since doc-spotify-1101 a received swear is starred at the viewer's Display Censor (default Minimal: slurs
+        // only); this case checks the strict level, so it sets All where the setting exists.
+        Object censor = c.onClient(mc -> {
+            try {
+                Mod.cls("spotify.SpotifyHudConfig").getMethod("getDisplayCensor");
+                return Mod.get("spotify.SpotifyHudConfig", "getDisplayCensor");
+            } catch (ReflectiveOperationException e) {
+                return null;
+            }
+        });
         try (Settings s = new Settings(c).with(CFG, "ShowOthers", true).with(SC, "ShowSupporterNames", false)
                 .with(NC, "RandomizeOthers", false)
+                .custom(() -> {
+                    if (censor != null) {
+                        Mod.set("spotify.SpotifyHudConfig", "setDisplayCensor", Mod.enumValue("spotify.ProfanityLevel", "ALL"));
+                    }
+                }, () -> {
+                    if (censor != null) {
+                        Mod.set("spotify.SpotifyHudConfig", "setDisplayCensor", censor);
+                    }
+                })
                 .custom(() -> Mod.setField(RS, "testConnected", true), () -> Mod.setField(RS, "testConnected", false))) {
             UUID botId = c.onClient(mc -> {
                 for (Player p : mc.level.players()) {
@@ -223,7 +242,7 @@ final class HxSongTagCases {
             c.check("no sender uuid".equals(feed(c, botName, "", PLAY)), "a packet with no relay uuid was not dropped");
             c.check("not an object".equals(feed(c, botName, id, "[1,2]")), "a non-object value was not dropped");
             c.check("unknown state".equals(feed(c, botName, id, "{\"state\":\"pause\"}")), "an unknown state was not dropped");
-            String longTitle = "x".repeat(600);
+            String longTitle = "x".repeat(1100);   // over RemoteSongs.MAX_VALUE_CHARS (1024 since doc-spotify-1101)
             c.check("too long".equals(feed(c, botName, id, "{\"state\":\"play\",\"artist\":\"a\",\"title\":\"" + longTitle + "\"}")),
                     "an over-long value was not dropped");
             String cleaned = c.onClient(mc -> (String) Mod.staticCall(RS, "clean", "§cRed‮evil​zw  \n spaced\u0007", 64));
