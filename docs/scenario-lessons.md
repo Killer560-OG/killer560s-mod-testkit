@@ -1473,3 +1473,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   list before that message. With the aimed aura every case is silent, the FLAGGED-expected ones included (0 lines).
   51's "never run into the wall" is recorded, not asserted, on a one-a-tick Multi Break jar: at Speed V a two-high wall
   needs ~1.1 digs a tick and GrimAC MultiBreak allows one (13 of 210 packets collided, both versions).
+- With a container open, the test server does not resend the player's armor: vanilla syncs the inventory menu only
+  while it is the open one, so `item replace ... armor.head` + waiting for the client helmet times out until the menu
+  closes (1889 cleanup, maskswap-1102). Close the menu first. The /stats fake (`equipHelmet`) broadcasts it itself;
+  1889 also holds the client helmet stale on purpose, which is what Hypixel's /stats evidently does.
