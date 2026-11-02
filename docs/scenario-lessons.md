@@ -1473,3 +1473,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   list before that message. With the aimed aura every case is silent, the FLAGGED-expected ones included (0 lines).
   51's "never run into the wall" is recorded, not asserted, on a one-a-tick Multi Break jar: at Speed V a two-high wall
   needs ~1.1 digs a tick and GrimAC MultiBreak allows one (13 of 210 packets collided, both versions).
+
+- Finding every key row in the menu (1103, keybindmouse-1102): there is no marker class, so the case real-clicks every
+  "Name: value" SettingsButtonWidget that is not ON/OFF, not cycling and not on the deny list, in every drawer as it opens
+  and again with its switch on, and counts it a key row when `ModScreen.isCapturingKey()` turns true. Every file under
+  config/killer560 is snapshotted first and restored (plus `ProfileManager.reloadAllConfigs`) after each drawer, since the
+  non-key clicks change settings. "Saved" is checked generically: a file that changed contains -103 (Mouse 4). Measured on
+  mod fddf98be6: 291 key rows cheat (26.3 and 26.2), 205 legit, about 150 s.
