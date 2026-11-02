@@ -1473,3 +1473,6 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   list before that message. With the aimed aura every case is silent, the FLAGGED-expected ones included (0 lines).
   51's "never run into the wall" is recorded, not asserted, on a one-a-tick Multi Break jar: at Speed V a two-high wall
   needs ~1.1 digs a tick and GrimAC MultiBreak allows one (13 of 210 packets collided, both versions).
+- 96-ar-1102-secrettaken: an ItemEntity added on the integrated server in the sim did not show up on the client under
+  the server's entity id (`mc.level.getEntity(serverId)` never went null while the mod logged "item entity 3 picked
+  up"), and one spawned inside a block is pushed out of it. Find a sim item on the client by place (8 blocks), not id.
