@@ -1,4 +1,4 @@
-package dev.testkit.gametest.menu;
+package dev.testkit.gametest.boss;
 
 import com.google.gson.JsonObject;
 
@@ -18,17 +18,18 @@ import java.util.Map;
  * Team Melody over the relay (mod doc-terms-1101, to-do Doc #48; testkit tkdebt-1101). killer560, 2026-11-01: "if someone
  * is sharing as a part of our mod then have it show the actual melody screen they are seeing". Until this the relay half
  * was unproven (doc-audit-1101: "Not tested: the relay round trip between two clients and the HUD with real teammates").
- * Both cases run in a faked F7 (sidebar + dungeon tab list with HxMateA and HxMateB, {@link HxKit#dungeon}) in Phase 3
- * (Goldor's line), with the mod's relay client put on a {@link FakeRelay} room.
+ * Both cases run in a faked F7 (sidebar + dungeon tab list with HxMateA and HxMateB, {@link HxKit#dungeon}) on a platform
+ * of their own inside the F7 boss area at P3's height, in Phase 3 (Goldor's line), with the mod's relay client put on a
+ * {@link FakeRelay} room. (Boss suite, not menu: Floor7Tracker's phase needs him inside the boss room's coordinates.)
  * <ul>
- *   <li><b>1102-menu-melody-relay-roundtrip</b> - two senders on one room. Sender 1 is this client: a real Melody terminal
+ *   <li><b>1102-boss-melody-relay-roundtrip</b> - two senders on one room. Sender 1 is this client: a real Melody terminal
  *       is opened on the server and moved to row 2, lime column 4, target column 2 ({@code menu.terminal.melody}); the
  *       client's own tracker must read that board and the mod must SEND it as {@code dg.v1.melody} (clay 2, purple 1, pane
  *       3), with Party Dungeon Data and Interop's relay data both OFF (killer560 2026-11-01: Melody shares "no matter what
  *       setting on or off"). Sender 2 is HxMateA, a member whose copy of the mod sends back what this one sent
  *       ({@link FakeRelay#mirrorAs}): those packets come in through the real socket handler and must land as HxMateA's
  *       board, cell for cell what the screen showed. A third sender not on the team (Intruder_Z) is dropped.</li>
- *   <li><b>1102-menu-melody-hud-boards</b> - the HUD: two teammates' boards arrive over the relay (HxMateA row 2 / target 1
+ *   <li><b>1102-boss-melody-hud-boards</b> - the HUD: two teammates' boards arrive over the relay (HxMateA row 2 / target 1
  *       / moving 3, HxMateB row 1 / target 4 / moving 0) and the Team Melody HUD must DRAW each as its board, checked in a
  *       screenshot at every cell: the target column purple in the top strip, rows before the active one green, the active
  *       row's moving cell green-yellow, its button lit, later buttons red. With the HUD off the same cells show none of it.</li>
@@ -53,14 +54,26 @@ final class TeamMelodyRelayCases {
     }
 
     static void register(Session s) {
-        MenuSuite.test(s, "1102-menu-melody-relay-roundtrip", TeamMelodyRelayCases::roundTrip);
-        MenuSuite.test(s, "1102-menu-melody-hud-boards", TeamMelodyRelayCases::hudBoards);
+        s.test("1102-boss-melody-relay-roundtrip", TeamMelodyRelayCases::roundTrip);
+        s.test("1102-boss-melody-hud-boards", TeamMelodyRelayCases::hudBoards);
     }
 
-    /** F7 with HxMateA/HxMateB in the tab list, then Phase 3; Team Melody's store starts empty. */
+    /** The case's own floor inside F7's boss area (x, z > -7) at P3's height. */
+    static final int PX = 60;
+    static final int PZ = 30;
+
+    /** F7 with HxMateA/HxMateB in the tab list, on the P3 platform, then Phase 3; Team Melody's store starts empty. */
     private static void inP3(Session c) {
+        // Loaded first, then filled, then he is put on it (787/832: a tp onto a floor as it appears flags Simulation).
+        c.server().command("forceload add " + (PX - 4) + " " + (PZ - 4) + " " + (PX + 4) + " " + (PZ + 4));
+        c.server().sync(20);
+        c.server().command("fill " + (PX - 3) + " 119 " + (PZ - 3) + " " + (PX + 3) + " 119 " + (PZ + 3) + " stone");
+        c.hx().call("dungeon.tp", "x", PX + 0.5, "y", 120.0, "z", PZ + 0.5, "yaw", 0f, "pitch", 0f);
+        c.waitUntil("the client to have the platform", mc -> mc.level.getBlockState(new net.minecraft.core.BlockPos(PX, 119, PZ))
+                .is(net.minecraft.world.level.block.Blocks.STONE), 200);
+        c.waitUntil("him standing on the platform", mc -> mc.player.onGround() && Math.abs(mc.player.getY() - 120.0) < 1e-3
+                && Math.abs(mc.player.getX() - (PX + 0.5)) < 0.3, 200);
         HxKit.dungeon(c);
-        c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
         c.hx().chat(GOLDOR);
         c.waitUntil("Floor7Tracker phase P3",
                 mc -> "P3".equals(String.valueOf(Mod.staticCall("fastleap.Floor7Tracker", "getPhase"))), 100);
@@ -114,25 +127,28 @@ final class TeamMelodyRelayCases {
         return a == null ? "none" : "clay " + a[0] + " / target " + a[1] + " / moving " + a[2];
     }
 
-    // ---- 1102-menu-melody-relay-roundtrip ------------------------------------------------------------------------
+    // ---- 1102-boss-melody-relay-roundtrip ------------------------------------------------------------------------
 
     static void roundTrip(Session c) throws Exception {
-        MenuKit.reset(c);
+        closeAll(c);
         List<String> notes = new ArrayList<>();
         FakeRelay fake = null;
-        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+        try (HxKit.Settings cfg = new HxKit.Settings(c)) {
             // Melody's own switch on; every other relay data switch off (mod/Quiet's state, and what he may run with).
-            cfg.set(HUD_CFG, "ShareProgress", true).set(HUD_CFG, "HudEnabled", true)
-                    .set("partydata.PartyDataConfig", "ShareEnabled", false)
-                    .set("interop.InteropConfig", "RelayData", false);
+            cfg.with(HUD_CFG, "ShareProgress", true).with(HUD_CFG, "HudEnabled", true)
+                    .with("partydata.PartyDataConfig", "ShareEnabled", false)
+                    .with("interop.InteropConfig", "RelayData", false);
             inP3(c);
             fake = relay(c);
             final FakeRelay room = fake;
             room.mirrorAs("HxMateA");
 
-            JsonObject t = TerminalCases.open(c, new TerminalCases.Spec("MELODY",
-                    new Object[]{"seed", 31, "interval", 10, "bandRows", 3, "freeze", true, "target", 5}, "AutoMelodyEnabled"));
-            MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
+            JsonObject t = c.hx().call("menu.terminal", "type", "MELODY", "seed", 31, "interval", 10, "bandRows", 3,
+                    "freeze", true, "target", 5).getAsJsonObject();
+            String title = t.get("title").getAsString();
+            c.waitUntil("the Melody terminal open on the client", mc -> dev.testkit.compat.McCompat.screen(mc)
+                    instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> scr
+                    && title.equals(scr.getTitle().getString()), 100);
             // The board he is looking at: band row 2, the moving pane in chest column 4, the target in chest column 2.
             c.hx().call("menu.terminal.melody", "row", 2, "lime", 4, "target", 2);
             int[] want = {2, 1, 3};
@@ -173,7 +189,7 @@ final class TeamMelodyRelayCases {
             notes.add("Intruder_Z dropped");
 
             // The HUD row for HxMateA: a board, with the screen's values.
-            MenuKit.reset(c);
+            closeAll(c);
             c.ctx().waitTicks(3);
             Map<String, int[]> rows = hudRows(c);
             notes.add("HUD rows: " + describe(rows));
@@ -185,21 +201,21 @@ final class TeamMelodyRelayCases {
             if (fake != null) {
                 fake.close();
             }
-            MenuKit.reset(c);
+            closeAll(c);
             c.onClient(mc -> Mod.staticCall(INTEL, "clear"));
-            HxKit.hub(c);
+            leave(c);
             c.note(String.join("; ", notes));
         }
     }
 
-    // ---- 1102-menu-melody-hud-boards -----------------------------------------------------------------------------
+    // ---- 1102-boss-melody-hud-boards -----------------------------------------------------------------------------
 
     static void hudBoards(Session c) throws Exception {
-        MenuKit.reset(c);
+        closeAll(c);
         List<String> notes = new ArrayList<>();
         FakeRelay fake = null;
-        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
-            cfg.set(HUD_CFG, "ShareProgress", true).set(HUD_CFG, "HudEnabled", true);
+        try (HxKit.Settings cfg = new HxKit.Settings(c)) {
+            cfg.with(HUD_CFG, "ShareProgress", true).with(HUD_CFG, "HudEnabled", true);
             inP3(c);
             fake = relay(c);
             // Two teammates' screens, as their mods send them (Odin's types: 1 clay row, 2 target, 5 moving pane).
@@ -269,9 +285,31 @@ final class TeamMelodyRelayCases {
                 fake.close();
             }
             c.onClient(mc -> Mod.staticCall(INTEL, "clear"));
-            HxKit.hub(c);
+            leave(c);
             c.note(String.join("; ", notes));
         }
+    }
+
+    /** Out of the dungeon and back on the session's spawn platform, the case's floor removed. */
+    private static void leave(Session c) {
+        HxKit.hub(c);
+        c.hx().call("dungeon.tp", "x", -619.5, "y", 151.0, "z", -619.5, "yaw", 0f, "pitch", 0f);
+        c.waitUntil("him back on the spawn platform", mc -> mc.player.onGround() && Math.abs(mc.player.getY() - 151.0) < 1e-3
+                && Math.abs(mc.player.getX() + 619.5) < 0.5, 200);
+        c.server().command("fill " + (PX - 3) + " 119 " + (PZ - 3) + " " + (PX + 3) + " 119 " + (PZ + 3) + " air");
+        c.server().command("forceload remove " + (PX - 4) + " " + (PZ - 4) + " " + (PX + 4) + " " + (PZ + 4));
+    }
+
+    /** Close whatever is open on both sides. */
+    private static void closeAll(Session c) {
+        c.ctx().runOnClient(mc -> {
+            if (mc.player != null && dev.testkit.compat.McCompat.screen(mc)
+                    instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>) {
+                mc.player.closeContainer();
+            }
+        });
+        c.hx().call("menu.close");
+        c.ctx().waitTicks(4);
     }
 
     /** Where the HUD draws: its top-left in GUI units, its scale, screenshot pixels per GUI unit, the board's rows. */

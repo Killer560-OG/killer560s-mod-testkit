@@ -176,7 +176,6 @@ public class MenuSuite implements FabricClientGameTest {
                     TerminalCases.register(s);
                     TermHoldCases.register(s); // 271-279: terms-1026 (Hover Melody, Hold To Click, lookahead, Fake Cursor)
                     Doc1101TermCases.register(s); // 1101-menu-term-*: doc-terms-1101
-                    TeamMelodyRelayCases.register(s); // 1102-menu-melody-*: Team Melody over a fake relay (tkdebt-1101)
                     TermHumanCases.register(s); // 1027-menu-term-*: Stream Safe human cursor, Rubix repeats (autoterms-human-1027)
                     ExperimentCases.register(s);
                     DungeonMenuCases.register(s);
