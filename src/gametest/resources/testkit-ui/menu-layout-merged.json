@@ -15,7 +15,14 @@
     "gui.tab.CustomItemsTab": "Cosmetics > Custom Items",
     "gui.tab.ChocolateFactoryTab": "Misc > Chocolate Factory",
     "gui.tab.PeekChatTab": "Chat > Peek Chat",
-    "gui.tab.PriceTooltipTab": "Items > Price Tooltip"
+    "gui.tab.PriceTooltipTab": "Items > Price Tooltip",
+    "gui.tab.MiningAbilityReadyTab": "Mining > Ability Ready Alert",
+    "gui.tab.MiningCarpetTab": "Mining > Carpet Highlighter",
+    "gui.tab.MiningCommissionHudTab": "Mining > Commission HUD",
+    "gui.tab.MiningMithrilStoneTab": "Mining > Mithril As Stone",
+    "gui.tab.MiningPickobulusTab": "Mining > Pickobulus Estimate",
+    "gui.tab.MiningRaffleTab": "Mining > Raffle Ticket Highlight",
+    "gui.tab.MiningTitaniumTab": "Mining > Titanium Highlight"
   },
   "tooltips": [
     {

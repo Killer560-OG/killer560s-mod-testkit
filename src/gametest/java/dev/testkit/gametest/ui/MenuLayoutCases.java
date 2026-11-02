@@ -181,8 +181,9 @@ final class MenuLayoutCases {
                 return;
             }
 
-            // The Option A categories (mod menu-a, 2026-10-12): Favorites is a sidebar entry, not a category.
-            c.check(top.equals(List.of("Home", "Dungeons", "HUD", "Chat", "Items", "Social", "Cosmetics", "Misc", "Profiles")),
+            // The Option A categories (mod menu-a, 2026-10-12): Favorites is a sidebar entry, not a category. Mining since
+            // mod doc-mining-1101 (the pre-2.0 mining features).
+            c.check(top.equals(List.of("Home", "Dungeons", "Mining", "HUD", "Chat", "Items", "Social", "Cosmetics", "Misc", "Profiles")),
                     "the categories are " + top);
             // (a) Crosshair: not top level, a card of HUD (General until the 2026-10-12 regroup), and its rows build there.
             for (String t : top) {
