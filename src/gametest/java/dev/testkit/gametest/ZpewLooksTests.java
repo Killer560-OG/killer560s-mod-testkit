@@ -452,6 +452,33 @@ public class ZpewLooksTests implements FabricClientGameTest {
                 ZpewMultiTickTests.setWpt(ctx, 5);
                 problems.addAll(ZpewMultiTickTests.shot(ctx, server, hx, scenario, who, 0, "wpt-5 hold off", 0,
                         () -> ctx.getInput().pressKey(o -> o.keyUse), 5, 5, 4));
+                // 1b. Streamer Mode with Disable cheats refuses them the same way (ActionGate's other gate), on jars with it.
+                long refS0 = ZpewCampaignTests.num(ctx, "heldRefused");
+                Object oldOption = ctx.computeOnClient(mc -> Mod.staticCall("streamer.StreamerMode", "option"));
+                boolean streamerOn = ctx.computeOnClient(mc -> {
+                    Mod.staticCall("streamer.StreamerMode", "setOption", Mod.enumValue("streamer.StreamerMode$Option",
+                            "DISABLE_CHEATS"));
+                    if (!(Boolean) Mod.staticCall("streamer.StreamerMode", "active")) {
+                        Mod.staticCall("streamer.StreamerMode", "toggle");
+                    }
+                    return (Boolean) Mod.staticCall("streamer.StreamerMode", "disablesCheats");
+                });
+                try {
+                    problems.addAll(ZpewMultiTickTests.shot(ctx, server, hx, scenario, who, 0, "wpt-5 streamer disable cheats", 0,
+                            () -> ctx.getInput().pressKey(o -> o.keyUse), 1, 1, 0));
+                } finally {
+                    ctx.runOnClient(mc -> {
+                        if ((Boolean) Mod.staticCall("streamer.StreamerMode", "active")) {
+                            Mod.staticCall("streamer.StreamerMode", "toggle");
+                        }
+                        Mod.staticCall("streamer.StreamerMode", "setOption", oldOption);
+                    });
+                }
+                long refStreamer = ZpewCampaignTests.num(ctx, "heldRefused") - refS0;
+                scenario.log("streamer disable cheats on " + streamerOn + ": extras refused " + refStreamer);
+                if (!streamerOn || refStreamer != 1) {
+                    problems.add("streamer disable cheats: on " + streamerOn + ", refusals " + refStreamer + " (expected 1)");
+                }
                 // 2. K: the hold; Warps Per Tick sends only his own warp.
                 pressK(ctx);
                 boolean on = held(ctx);
