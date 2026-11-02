@@ -33,6 +33,9 @@ final class FlipCroesusCases {
         MenuSuite.test(s, "764-menu-bzflip-price-guard", FlipCroesusCases::flipPriceGuard);
         MenuSuite.test(s, "766-menu-croesus-key-revisit", c -> croesus(c, true));
         MenuSuite.test(s, "767-menu-croesus-no-key-chest", c -> croesus(c, false));
+        // doc-auto-1101: Kismet rerolls a poor Bedrock chest BEFORE any chest is opened; Reroll Floors
+        MenuSuite.test(s, "768-menu-croesus-kismet-first", c -> kismetFirst(c, true));
+        MenuSuite.test(s, "769-menu-croesus-kismet-floor-off", c -> kismetFirst(c, false));
     }
 
     // ---- small JSON builders ------------------------------------------------------------------------------------
@@ -487,6 +490,90 @@ final class FlipCroesusCases {
             c.ctx().runOnClient(mc -> {
                 Mod.staticCall("croesus.AutoCroesusFeature", "requestStop");
                 seeded.keySet().forEach(map::remove);
+            });
+            c.hx().call("menu.onEntity", Hx.args("name", "Croesus", "menu", JsonNull.INSTANCE));
+            c.hx().removeStands();
+            MenuKit.reset(c);
+        }
+    }
+
+    /**
+     * A run whose Bedrock chest is poor (Testkit Junk 600k for 550k: 50k profit, under both Min Profit 100k and Reroll Below
+     * 1,000k) beside a rich Obsidian chest (Testkit Idol 3M for 500k). Kismet on with F7 selected: Auto Croesus must open
+     * Bedrock, press Reroll Chest (slot 50) before claiming anything, and claim the rerolled Bedrock (Testkit Relic 3M for
+     * 1M). With F7 switched off under Reroll Floors (control): no reroll, the Obsidian chest is claimed as before.
+     */
+    static void kismetFirst(Session c, boolean f7On) throws Exception {
+        MenuKit.reset(c);
+        Object prices = c.onClient(mc -> Mod.field(Mod.field("rngmeter.RngMeterEngine", "PRICES"), "bazaarSellPrice"));
+        @SuppressWarnings("unchecked")
+        Map<String, Long> map = (Map<String, Long>) prices;
+        Map<String, Long> seeded = Map.of("TESTKIT_RELIC", 3_000_000L, "TESTKIT_IDOL", 3_000_000L,
+                "TESTKIT_JUNK", 600_000L, "DUNGEON_CHEST_KEY", 200_000L);
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set("croesus.CroesusConfig", "AutoCroesusEnabled", true)
+                    .set("croesus.CroesusConfig", "AutoMinProfitK", 100)
+                    .set("croesus.CroesusConfig", "AutoKeyMinProfitK", 500)
+                    .set("croesus.CroesusConfig", "AutoUseChestKeys", false)
+                    .set("croesus.CroesusConfig", "AutoUseKismets", true)
+                    .set("croesus.CroesusConfig", "AutoRerollBelowK", 1000)
+                    .set("croesus.CroesusConfig", "ChestKeyMode", Mod.enumValue("croesus.CroesusConfig$ChestKeyMode", "SET_PROFIT"))
+                    .set("croesus.CroesusConfig", "AutoMinDelayMs", 100)
+                    .set("croesus.CroesusConfig", "AutoMaxDelayMs", 150);
+            c.ctx().runOnClient(mc -> {
+                map.putAll(seeded);
+                Mod.call(Mod.cfg("croesus.CroesusConfig"), "setRerollFloor", "F7", f7On);
+            });
+            JsonObject rerolled = chestScreen("Bedrock Chest", "Testkit Relic", "§61,000,000 Coins", false);
+            JsonObject poor = chestScreen("Bedrock Chest", "Testkit Junk", "§6550,000 Coins", false);
+            poor.getAsJsonObject("slots").add("50", item("minecraft:dropper", "§aReroll Chest", "§7Rerolls this chest.",
+                    "", "§eClick to reroll!"));
+            poor.getAsJsonObject("on").add("50", open(rerolled));
+            JsonObject runAfter = menu(RUN_TITLE, 6, Map.of(
+                    10, chest("§4Bedrock Chest", "Testkit Relic", "§61,000,000 Coins", false, true),
+                    11, chest("§5Obsidian Chest", "Testkit Idol", "§6500,000 Coins", true, false),
+                    49, item("minecraft:arrow", "§aGo Back")), Map.of());
+            JsonObject runBefore = menu(RUN_TITLE, 6, Map.of(
+                    10, chest("§4Bedrock Chest", "Testkit Junk", "§6550,000 Coins", false, false),
+                    11, chest("§5Obsidian Chest", "Testkit Idol", "§6500,000 Coins", false, false),
+                    49, item("minecraft:arrow", "§aGo Back")),
+                    Map.of(10, open(poor), 11, open(chestScreen("Obsidian Chest", "Testkit Idol", "§6500,000 Coins", false))));
+            double[] at = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+            c.hx().stand(at[0] + 1.6, at[1], at[2], "Croesus", "marker", false, "invisible", false);
+            c.hx().call("menu.onEntity", Hx.args("name", "Croesus", "menu", croesusMenu(true, runAfter)));
+            c.ctx().waitTicks(10);
+            c.hx().call("menu.show", croesusMenu(false, runBefore));
+            MenuKit.awaitScreen(c, "Croesus", 100);
+            c.ctx().runOnClient(mc -> {
+                Mod.setField("croesus.AutoCroesusFeature", "armed", true);
+                Mod.setField("croesus.AutoCroesusFeature", "armedAtMs", System.currentTimeMillis());
+            });
+            if (!Mod.isCheat()) {
+                c.ctx().waitTicks(60);
+                c.check(c.events("menu.click").isEmpty(), "the legit jar clicked: " + allClicks(c));
+                c.note("legit jar: Auto Croesus clicked nothing");
+                return;
+            }
+            c.waitUntil("Auto Croesus to finish", mc -> !(Boolean) Mod.staticCall("croesus.AutoCroesusFeature", "isRunning")
+                    && c.events("menu.click").size() >= 3, 900);
+            List<Integer> bedrock = clicksOn(c, "Bedrock Chest");
+            List<Integer> obsidian = clicksOn(c, "Obsidian Chest");
+            List<Integer> run = clicksOn(c, RUN_TITLE);
+            if (f7On) {
+                c.check(bedrock.equals(List.of(50, 31)), "Bedrock clicks " + bedrock + " (want reroll 50, then claim 31); all "
+                        + allClicks(c));
+                c.check(obsidian.isEmpty(), "claimed the Obsidian chest instead of rerolling Bedrock first: " + obsidian);
+                c.check(!run.isEmpty() && run.get(0) == 10, "the run view's first click was " + run + ", want Bedrock (10)");
+            } else {
+                c.check(!bedrock.contains(50), "rerolled on F7 with F7 switched off: " + bedrock);
+                c.check(obsidian.equals(List.of(31)), "Obsidian clicks " + obsidian + " (want the claim); all " + allClicks(c));
+            }
+            c.note((f7On ? "F7 on: " : "F7 off: ") + "server got " + allClicks(c));
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                Mod.staticCall("croesus.AutoCroesusFeature", "requestStop");
+                seeded.keySet().forEach(map::remove);
+                Mod.call(Mod.cfg("croesus.CroesusConfig"), "setRerollFloor", "F7", true);
             });
             c.hx().call("menu.onEntity", Hx.args("name", "Croesus", "menu", JsonNull.INSTANCE));
             c.hx().removeStands();
