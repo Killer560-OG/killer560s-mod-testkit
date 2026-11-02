@@ -1294,3 +1294,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   150 ms Latency case, before any click (g2 1027-aafast-cpt1-300); the rerun was clean. It is the Latency teardown, not a feature.
   Frames Per Tick on experimental checks: Grim cancels the flagged second-frame clicks, the mod resends after its 1 s
   pending timeout, and the device still solves (76 sent, 40 reached, fpt15).
+- 2860-2869 (hx/HxSpotifyDocCases, doc-spotify-1101): the Spotify Lyrics to-do item. 2867 runs Song Tag through a REAL relay:
+  start `wrangler dev --port 8811 --local --var TOKEN_SECRET:song-e2e-secret-not-real --var MOJANG_STUB:1` in a relay worktree
+  (node_modules junction; remove the junction with `rmdir` before `git worktree remove`), then run with
+  `-Extra "-PnetOverride=relay=http://127.0.0.1:8811"`; the case injects a relay token minted with that secret (an offline
+  account cannot do Mojang's sign-in) and a second socket in the client's lobby room plays the other player. Without the
+  override it is a SKIP row. The override reaches the client as the system property `killer560.net.relay`, not
+  `killer560.net.override`. A filter must name the session too: `100-hx-session+,-hx-spotify-`.
