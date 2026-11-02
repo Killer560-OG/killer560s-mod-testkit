@@ -1355,3 +1355,14 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   3-deep embankment under every floor). The case answers `/warp hub` with a tp to the island's spawn (Hypixel's side of
   Warp When Stuck). A pre-doc-fairy jar stands still forever at the first soul whose stand is out of reach of its node, so
   its runs are capped with `-Pfairy.maxMinutes=5`. Rows go to `build/testkit-report/fairy-islands.tsv`.
+  Since 2026-11-02 the resources are terrain v2 (`tools/fairy-islands/gen2.py`, run with the tools folder and an output
+  folder): ground within 2.4 blocks of every edge at a distance-weighted height, so a dense graph cluster is one plaza
+  instead of v1's crossing ramps; v1 numbers are not comparable with v2 numbers.
+- **1102-fairy-grim-* (`FairyGrimTests`, doc-fairy-1101).** Records GrimAC lines instead of failing (runExpectingFlags):
+  -tp-walker (server teleports the walking run back six times), -tp-keys (the same teleports with the case holding W and
+  sprint, no automation - the control), -water (six pool crossings). All three 0 lines on doc-fairy's jar and the base jar
+  (26.3, 2026-11-02); the island runs' Simulation lines did not reproduce here.
+- **A frozen-client kill leaves the scenario's test server running** (it holds the port; the next run in that checkout
+  fails "test server exited with code 0 before it was ready"). After a FROZEN run, find `runTestServer` java processes of
+  your checkout and kill them. On a machine at 100% CPU the freeze watcher also kills healthy clients: the lockstep parks
+  the render thread while a scenario's server starts, so set `TESTKIT_HUNG_SECONDS=120` (run-scenario.ps1) there.
