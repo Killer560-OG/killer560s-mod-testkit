@@ -145,6 +145,8 @@ final class TermHoldCases {
                 c.ctx().waitTicks(row < 3 ? 10 : 20);
                 log.add("row " + r + ": " + clicksPerSlot(c).getOrDefault(button, 0) + " click(s)");
             }
+            c.note("after the three rows: clicks per slot " + clicksPerSlot(c) + ", wrong " + wrongClicks(c) + ", events "
+                    + clicks(c));
             JsonObject solved = MenuKit.awaitEvent(c, "terminal.solved", 60);
             Map<Integer, Integer> per = clicksPerSlot(c);
             c.note((customGui ? "Custom GUI" : "vanilla") + " Hover Melody: " + log + "; server: " + solved.get("clicks")
