@@ -46,8 +46,10 @@ apply (logged as a WARN, 2026-10-20); the smoke suite passes regardless.
 The default mod jar is the newest snapshot under `jarsDir` matching `modJarPattern`, never the mod's build/libs (it
 moves under a run). `-Minecraft` follows the jar's `fabric.mod.json` when not given. A server start is about 7 s (launch
 to "Done"; a scenario's join, arm and settle add ~15 s); `hx/Session` runs many cases on one start. `-Pport=N` patches
-run/testserver/server.properties (sticks for the checkout) and puts the Hx bridge on N+5 and an HTTP fake on N+6;
-concurrency needs separate checkouts (Gradle locks the project dir). `-Psuite=<name>` reads `suites.properties`.
+run/testserver/server.properties (pinned for the checkout: `run/testserver/port-pinned.txt`) and puts the Hx bridge on N+5
+and an HTTP fake on N+6; concurrency needs separate checkouts (Gradle locks the project dir). Without `-Pport` the port is
+PICKED each run (tkdebt-1101): the main checkout prefers 25565, a worktree 26000 + 10 * (hash of its path % 90), and a port
+whose N, N+5 or N+6 is taken moves up by 10, so two checkouts never default onto one port (the build prints the choice). `-Psuite=<name>` reads `suites.properties`.
 Never start two `run-sharded.ps1` at once: both use the same shard worktrees (`<shardsDir>/<mc>-1`...), and two started
 in the same second share one `build/sharded-<timestamp>` folder - on 2026-10-07 the menu run quietly died under the ui run.
 `-PseedConfig=<dir>` copies into the client's config after the wipe. Every run points `prismaccountswitcher.accountsFile`
@@ -366,7 +368,9 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   saw the key up. BlinkTests.pressCharge waits a tick after letting go (1025-blink-charge-arm's "second press" did nothing).
 - When the freeze watcher closes a client frozen at startup, that run's test server can stay up holding the port (and its
   logs): the next run in that checkout fails "Anticheat test server exited ... before it was ready" (FAILED TO BIND). Find the
-  java.exe with `fabric.dli.env=server` and that checkout's path, kill it, rerun (2026-10-26, tk-blink-rework-c). Under
+  java.exe with `fabric.dli.env=server` and that checkout's path, kill it, rerun (2026-10-26, tk-blink-rework-c). Since
+  tkdebt-1101 run-scenario.ps1 does that itself (at the start, after a freeze kill and at the end), and a run without
+  -Pport moves off a taken port. Under
   load a server JVM can take 25+ s to boot, the client window reads "Not Responding" while the test thread waits for it,
   and the watcher kills the client mid-run with the server left behind the same way (2026-10-27, ship2 tk-ship2-1027-e).
 - A power loss (2026-10-27 blue screen) zeroed `run/testserver/banned-ips.json`, `banned-players.json` and `ops.json` in a
@@ -448,3 +452,10 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
 - `run-suite.ps1 -Suite ui` needs `-TimeoutSeconds 3600`: the default 1200 s deadline is shorter than the UI suite
   (~27 min on 26.3), and its "Deadline passed - the run is hung" kills a healthy run at about case 897 with no report
   (2026-11-01, both versions at once).
+- The relay cannot be reached from a test (offline, and 26.3 has no Yggdrasil for `RelayAuth`'s login). `hx/FakeRelay`
+  puts its own WebSocket under `RelayClient` once ModChatFeature wants a room, so everything after the login is real:
+  sends land in `sent()`, `deliver()` goes through `RelayClient.handle`, `mirrorAs(name)` plays a second member echoing
+  this client's data packets. Close it, or the client keeps a CONNECTED fake (1102-boss-melody-*, tkdebt-1101).
+- `Floor7Tracker`'s phase (and anything gated on P3, like the Team Melody HUD) needs him INSIDE F7's boss coordinates
+  (x, z > -7): the menu suite's platform at -520 never reaches P3 whatever the sidebar and Goldor's line say ("timed out
+  waiting for Floor7Tracker phase P3", tkdebt-1101). Use the boss suite and a forceloaded platform of the case's own.
