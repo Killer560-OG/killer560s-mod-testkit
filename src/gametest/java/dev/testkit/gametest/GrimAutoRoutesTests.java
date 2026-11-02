@@ -1139,8 +1139,18 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 perWindow.computeIfAbsent(d.window(), w -> new java.util.HashSet<>()).add(k);
             }
             int most = perWindow.values().stream().mapToInt(java.util.Set::size).max().orElse(0);
-            int ticks = digs.isEmpty() ? 0 : digs.get(digs.size() - 1).tick() - digs.get(0).tick() + 1;
-            int windows = digs.isEmpty() ? 0 : digs.get(digs.size() - 1).window() - digs.get(0).window() + 1;
+            // Each block's FIRST dig: a re-dig of a block a loaded server had not broken in its round trip is not the run.
+            int lastNewTick = -1;
+            int lastNewWindow = -1;
+            java.util.Set<String> seen = new java.util.HashSet<>();
+            for (var d : digs) {
+                if (seen.add(d.pos().toShortString())) {
+                    lastNewTick = d.tick();
+                    lastNewWindow = d.window();
+                }
+            }
+            int ticks = digs.isEmpty() ? 0 : lastNewTick - digs.get(0).tick() + 1;
+            int windows = digs.isEmpty() ? 0 : lastNewWindow - digs.get(0).window() + 1;
             String line = String.format(Locale.ROOT, "%s: Multi Break %s: %d dig(s) on %d block(s), all ten gone %s, first to "
                             + "last dig %d client tick(s) / %d server tick(s), most blocks in one server tick %d, replay %s, "
                             + "DigWindow conflicts %d, digs (tick/window) %s", c.name(),

@@ -725,6 +725,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         int[][] six = {{12, 0}, {13, 0}, {14, 0}, {12, 1}, {13, 1}, {14, 1}};
         // Mod gridexp-1102 removed Multi Break (GrimAC MultiBreak): one dig a tick, the first after a tick of turn at most.
         boolean hasMulti = ctx.computeOnClient(mc -> ModUnderTest.hasMultiBreak());
+        // Mod multibreak-1102 restored Multi Break at one block a server tick (GrimAC MultiBreak): no burst on any value.
+        boolean burst = hasMulti && !ctx.computeOnClient(mc -> ModUnderTest.multiBreakOneATick());
         try {
             for (boolean multi : hasMulti ? new boolean[]{true, false} : new boolean[]{false}) {
                 ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", multi));
@@ -764,7 +766,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         + " on one tick, all gone " + gone);
                 check(gone, "multi break " + multi + ": not all six blocks broke");
                 check(total == 6, "multi break " + multi + ": " + total + " dig packets for six blocks");
-                check(multi ? most == 6 : most == 1, "multi break " + multi + ": " + most + " digs on one tick");
+                check(multi && burst ? most == 6 : most == 1, "multi break " + multi + ": " + most + " digs on one tick");
                 check(logHas(m, "DUNGEON_BREAKER acted 0 tick(s)"), "the breaker did not act on its firing tick");
                 tpRel(ctx, 13.5, 6.5, 0f, 0f);
                 ctx.waitTicks(5);
@@ -798,7 +800,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             tpRel(ctx, 12.5, 16.5, 0f, 0f);
             // One a tick (no Multi Break, mod gridexp-1102) the 17-block drain takes 17 ticks, not one: let it finish, or
             // its last digs land in the sampled window (7 digs for six blocks, 96-ar-breaker 2026-11-02).
-            ctx.waitTicks(hasMulti ? 4 : 24);
+            ctx.waitTicks(burst ? 4 : 24);
             startSampling(ctx);
             tpRel(ctx, 13.5, 10.5, 0f, 0f);
             // Since mod ar-breaker-wait a node short of charges waits for them (2 a second) and then breaks all six
@@ -830,8 +832,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             println("drained breaker: " + charges + " charge(s) read, " + total + " dig(s) sent for 6 blocks, at most "
                     + most + " on one tick");
             check(charges >= 0, "the second breaker node never fired");
-            check(total == 6 && most == (hasMulti ? 6 : 1), "charges " + charges + ": " + total + " digs, " + most
-                    + " on one tick - expected the six " + (hasMulti ? "in one burst" : "one a tick"));
+            check(total == 6 && most == (burst ? 6 : 1), "charges " + charges + ": " + total + " digs, " + most
+                    + " on one tick - expected the six " + (burst ? "in one burst" : "one a tick"));
             if (charges < 6) {
                 check(logHas(m, "breaker charges (have"), "with " + charges + " charges there was no wait line");
             }
@@ -1163,7 +1165,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         // most of that. Main sent what it had at once (or stopped at 0) - both fail here.
         check(firstDig >= 30, "the first dig went out on sample " + firstDig + " - it did not wait for charges");
         // Mod gridexp-1102 removed Multi Break (GrimAC MultiBreak): then the six go one a tick from the ready tick.
-        boolean hasMulti = ctx.computeOnClient(mc -> ModUnderTest.hasMultiBreak());
+        boolean hasMulti = ctx.computeOnClient(mc -> ModUnderTest.hasMultiBreak())
+                && !ctx.computeOnClient(mc -> ModUnderTest.multiBreakOneATick()); // the old burst kind only
         check(digsOnFirst == (hasMulti ? 6 : 1) && total == 6, digsOnFirst + " dig(s) on the burst tick, " + total
                 + " in all - expected " + (hasMulti ? "all six on one tick" : "one on the first tick, six one a tick")
                 + " and nothing else");

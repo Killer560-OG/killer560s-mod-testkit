@@ -1360,8 +1360,18 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             perWindow.computeIfAbsent(d.window(), w -> new java.util.HashSet<>()).add(d.pos());
                         }
                         int most = perWindow.values().stream().mapToInt(java.util.Set::size).max().orElse(0);
-                        int ticks = digs.isEmpty() ? 0 : digs.get(digs.size() - 1).tick() - digs.get(0).tick() + 1;
-                        int windows = digs.isEmpty() ? 0 : digs.get(digs.size() - 1).window() - digs.get(0).window() + 1;
+                        // Each block's FIRST dig (a re-dig of one a loaded server had not broken yet is not the run).
+                        int lastNewTick = -1;
+                        int lastNewWindow = -1;
+                        java.util.Set<BlockPos> seen = new java.util.HashSet<>();
+                        for (var d : digs) {
+                            if (seen.add(d.pos())) {
+                                lastNewTick = d.tick();
+                                lastNewWindow = d.window();
+                            }
+                        }
+                        int ticks = digs.isEmpty() ? 0 : lastNewTick - digs.get(0).tick() + 1;
+                        int windows = digs.isEmpty() ? 0 : lastNewWindow - digs.get(0).window() + 1;
                         scenario.log(String.format(Locale.ROOT, "%s: Multi Break %s, cooldown %d: %d pick(s) %s, %d dig(s) "
                                         + "on %d block(s), all gone %s, first to last dig %d client tick(s) / %d server "
                                         + "tick(s), most blocks in one server tick %d, MultiBreak replay %s, mod DigWindow "
