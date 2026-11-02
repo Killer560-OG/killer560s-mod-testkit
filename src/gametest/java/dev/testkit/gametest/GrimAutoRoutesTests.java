@@ -1468,11 +1468,17 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             }
             if (!closeHookRegistered) {
                 closeHookRegistered = true;
-                ClientTickEvents.START_CLIENT_TICK.register(m -> {
-                    if (closeAtNextStart && dev.testkit.compat.McCompat.screen(m) != null) {
+                // Closed as soon as it opens, between two ticks (as Auto Close Chest does): the route never sees a screen,
+                // so it keeps the warp's sneak down - the v5 shape.
+                net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((m, screen, w0, h0) -> {
+                    if (closeAtNextStart && screen instanceof net.minecraft.client.gui.screens.inventory.ContainerScreen) {
                         closeAtNextStart = false;
-                        dev.testkit.compat.McCompat.screen(m).onClose();
-                        println("[iwclose] closed the chest window at a tick start");
+                        m.execute(() -> {
+                            if (dev.testkit.compat.McCompat.screen(m) == screen) {
+                                screen.onClose();
+                                println("[iwclose] closed the chest window the frame it opened");
+                            }
+                        });
                     }
                 });
             }
