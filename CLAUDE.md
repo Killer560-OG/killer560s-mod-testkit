@@ -552,3 +552,10 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
 - Never start a second `run-scenario.ps1` in a checkout whose queue is between or inside runs: at its start the script kills
   that checkout's "leftover" client and server, which is the other run's live ones ("Killing a leftover test client", ship-1102h
   2026-11-02 killed a ZPEW half mid-run). One queue per checkout; make another detached worktree for a rerun.
+- `run-scenario.ps1 ... *>&1 | Out-File log` holds only the script's own lines: gradle and the client are started with
+  `Start-Process -NoNewWindow`, so their output (and a gametest COMPILE ERROR) goes to the calling console, not the log; a
+  compile failure reads as "Run finished with exit code 1" and nothing else (termismss-1102). Compile first with
+  `./gradlew compileGametestJava -PmodUnderTest=<jar>`, and read `build/testkit-report/summary.md` for results. From Git Bash,
+  pass Windows paths (`cygpath -w`) to `Out-File` and `-ModUnderTest`: a `/c/...` path makes Out-File fail silently.
+- Termism (`termism.TermismPracticeScreen`) is a plain Screen, not a container: Hx sees none of its clicks. Its cases
+  (1102-menu-termism-ss-*) read the screen's own fields (`solved`, `cachedHighlights`, `probe*`) and FakeCursor's probes.
