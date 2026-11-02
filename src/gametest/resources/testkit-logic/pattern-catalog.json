@@ -4,11 +4,11 @@
  "modSource": "k560-pre1026",
  "modGitSha": "c63ea54cd2d51575f7f65b70c68b850200ab40de",
  "modSourceDirty": false,
- "count": 581,
+ "count": 578,
  "byKind": {
   "dynamic": 7,
   "element": 48,
-  "field": 495,
+  "field": 492,
   "local": 31
  },
  "unresolved": 9,
@@ -1188,42 +1188,6 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^[A-Za-z0-9_]{1,16}$\""
-  },
-  {
-   "id": "bridge.NoammCodec#IGN",
-   "cls": "bridge.NoammCodec",
-   "field": "IGN",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/bridge/NoammCodec.java",
-   "line": 53,
-   "regex": "^[A-Za-z0-9_]{1,16}$",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"^[A-Za-z0-9_]{1,16}$\""
-  },
-  {
-   "id": "bridge.NoammCodec#SERVER_CODE",
-   "cls": "bridge.NoammCodec",
-   "field": "SERVER_CODE",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/bridge/NoammCodec.java",
-   "line": 56,
-   "regex": "^\\w{1,16}$",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"^\\\\w{1,16}$\""
-  },
-  {
-   "id": "bridge.NoammCodec#FLOOR",
-   "cls": "bridge.NoammCodec",
-   "field": "FLOOR",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/bridge/NoammCodec.java",
-   "line": 57,
-   "regex": "^(?:E|[FM][1-7])$",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"^(?:E|[FM][1-7])$\""
   },
   {
    "id": "bridge.OdinCodec#P3_START",
