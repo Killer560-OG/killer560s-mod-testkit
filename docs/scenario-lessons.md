@@ -1295,3 +1295,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   150 ms Latency case, before any click (g2 1027-aafast-cpt1-300); the rerun was clean. It is the Latency teardown, not a feature.
   Frames Per Tick on experimental checks: Grim cancels the flagged second-frame clicks, the mod resends after its 1 s
   pending timeout, and the device still solves (76 sent, 40 reached, fpt15).
+- 1101-ds-* (DocSmall1101Cases, mod doc-small-1101, 2026-11-01): 13 UI cases for the small to-do items, each asserting the
+  feature acted (chat lines kept, hook counter, layers played, names replaced, beam core draws). A hand-item hook test must
+  hold an item and turn SkyblockGate off. 806 alone takes ~150 s: give run-scenario -TimeoutSeconds 1200 when 806 or a
+  menu session (200-menu-session pulls in many menu cases) is in the filter; the 240 s default kills the run.
