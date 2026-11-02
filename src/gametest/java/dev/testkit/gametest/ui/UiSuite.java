@@ -455,6 +455,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : TRAJECTORY_CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : DocMenu1101Cases.CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -470,7 +473,8 @@ public class UiSuite implements FabricClientGameTest {
                 || any(SWEEP_B_CASES) || any(SCREEN_SWEEP_C_CASES) || any(TRAIL_RIBBON_CASES) || any(EW_NEARFACE_CASES) || any(SWEAT_CASES) || any(DOC_1018_MENU_HUD_CASES)
                 || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES) || any(TRAIL_HUD_CASES)
                 || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES) || any(SOUND_DESC_CASES) || any(MAP_OVERHAUL_CASES)
-                || any(TRAJECTORY_CASES) || any(MOB_SKIN_CASES) || any(PREDICT_IN_MAP_CASES);
+                || any(TRAJECTORY_CASES) || any(MOB_SKIN_CASES) || any(PREDICT_IN_MAP_CASES)
+                || any(DocMenu1101Cases.CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -866,6 +870,12 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1062-ui-editor-hint-narrow", SoundDescCases::editorNarrow);
                     UiCase.run(ctx, "1063-ui-click-presets", SoundDescCases::presets);
                     UiCase.run(ctx, "1064-ui-click-import", SoundDescCases::imported);
+                    // ---- killer560's 2026-11-01 to-do Doc menu items (mod doc-menu-1101, DocMenu1101Cases) ----
+                    UiCase.run(ctx, "1101-ui-docmenu-sections", DocMenu1101Cases::sections);
+                    UiCase.run(ctx, "1101-ui-docmenu-scrollbar", DocMenu1101Cases::scrollbar);
+                    UiCase.run(ctx, "1101-ui-docmenu-keybind", DocMenu1101Cases::keybind);
+                    UiCase.run(ctx, "1101-ui-docmenu-etherwarp", DocMenu1101Cases::etherwarp);
+                    UiCase.run(ctx, "1101-ui-docmenu-video-browser", DocMenu1101Cases::videoBrowser);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

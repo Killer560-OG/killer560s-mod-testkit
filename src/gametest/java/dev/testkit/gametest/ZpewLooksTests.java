@@ -247,6 +247,7 @@ public class ZpewLooksTests implements FabricClientGameTest {
                 scenario.log("jar: " + (cheat ? "cheat" : "legit") + ", latency " + lat + " ms");
                 ctx.runOnClient(mc -> {
                     Mod.set(ZP_CFG, "setWarpsPerTick", 1);
+                    ZpewMultiTickTests.multiWarps(true);
                     Mod.set(ZP_CFG, "setAimedWarps", true);
                 });
                 ctx.getInput().holdKey(o -> o.keyShift);

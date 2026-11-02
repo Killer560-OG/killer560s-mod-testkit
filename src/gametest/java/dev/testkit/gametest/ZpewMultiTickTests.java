@@ -121,7 +121,22 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
     }
 
     static void setWpt(ClientGameTestContext ctx, int n) {
-        ctx.runOnClient(mc -> Mod.set(ZP_CFG, "setWarpsPerTick", n));
+        ctx.runOnClient(mc -> {
+            multiWarps(true);
+            Mod.set(ZP_CFG, "setWarpsPerTick", n);
+        });
+    }
+
+    /** The Multi Warps switch over Warps Per Tick and Aimed Warps (mod doc-menu-1101); a jar from before it has none. */
+    static void multiWarps(boolean on) {
+        Object c = Mod.cfg(ZP_CFG);
+        boolean has = false;
+        for (java.lang.reflect.Method m : c.getClass().getMethods()) {
+            has |= m.getName().equals("setMultiWarps");
+        }
+        if (has) {
+            Mod.call(c, "setMultiWarps", on);
+        }
     }
 
     /** At START of the next tick, {@code n} vanilla clicks of the use key: handleKeybinds turns each into a use, this tick. */

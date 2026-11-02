@@ -111,6 +111,7 @@ final class MenuLayoutCases {
             // killer560 2026-10-25; cheat jar only.
             "gui.tab.BlinkTab", "gui.tab.ZeroPingEtherwarpTab", "gui.tab.InventoryWalkTab",
             // Left Click Etherwarp (Dungeons cheat block), mod cheat-extras-1025, killer560 2026-10-25; cheat jar only.
+            // Folded into the Etherwarp tab (ZeroPingEtherwarpTab) by mod doc-menu-1101, 2026-11-01: no longer a card.
             "gui.tab.LeftClickEtherwarpTab",
             // Relic Helpers (Relic Triggerbot + Relic Look, M7 P5), Dungeons cheat block, mod relic-1025; cheat jar only.
             "gui.tab.RelicHelpersTab",
