@@ -147,13 +147,16 @@ public class SimMobP4Tests implements FabricClientGameTest {
                 sent.add(new Object[]{System.currentTimeMillis(), cmd.command()});
             }
         };
-        String guardsAtGo = ctx.computeOnClient(mc -> guards());
-        facts.add("guards at GO: " + guardsAtGo);
+        facts.add("guards at GO: " + ctx.computeOnClient(mc -> guards()));
         // Control: in the Entrance, nothing cleared, nothing warns.
         int w0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(ICW, "warnings"));
         ctx.waitTicks(100);
         int w1 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(ICW, "warnings"));
         facts.add("control: warnings in the Entrance over 5 s: " + (w1 - w0));
+        // Read after the control's 5 s: the Fairy door (a locked door on the map until it opens itself 1.5 s after GO)
+        // makes the room before Fairy a key room for a moment (26.2 floor: Supertall > Fairy).
+        String guardsAtGo = ctx.computeOnClient(mc -> guards());
+        facts.add("guards after the Fairy door opened: " + guardsAtGo);
         if (w1 != w0) {
             problems.add("CONTROL FAILED: Insta Clear Warning warned with nothing cleared");
             return;
