@@ -507,8 +507,13 @@ final class TextBoxEnterCases {
             if (e.getKey().getFileName().toString().endsWith(".log") || (old != null && Arrays.equals(old, e.getValue()))) {
                 continue;
             }
-            if (new String(e.getValue(), StandardCharsets.UTF_8).contains(number)) {
-                return e.getKey();
+            String text = new String(e.getValue(), StandardCharsets.UTF_8);
+            // "2.00" is saved as 2.0 (a float), so the short forms count too
+            String shortForm = number.contains(".") ? number.replaceAll("0+$", "") : number;
+            for (String form : new String[]{number, shortForm + "0", shortForm.endsWith(".") ? shortForm.substring(0, shortForm.length() - 1) : shortForm}) {
+                if (!form.isEmpty() && text.contains(form)) {
+                    return e.getKey();
+                }
             }
         }
         return null;
