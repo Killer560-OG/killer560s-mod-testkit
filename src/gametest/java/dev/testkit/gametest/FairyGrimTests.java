@@ -33,7 +33,7 @@ public class FairyGrimTests implements FabricClientGameTest {
         if (!Mod.isCheat()) {
             for (String n : List.of("1102-fairy-grim-tp-walker", "1102-fairy-grim-tp-keys", "1102-fairy-grim-water",
                     "1102-fairy-grim-ladderwater-keys", "1102-fairy-grim-ladderwater-walker",
-                    "1102-fairy-grim-flowladder-keys", "1102-fairy-grim-flowladder-walker")) {
+                    "1102-fairy-grim-flowladder-keys", "1102-fairy-grim-flowladder-walker", "1102-fairy-arrival")) {
                 if (!Scenario.skip(n)) {
                     Scenario.skipped(n, "Auto Fairy Souls is cheat build only");
                 }
@@ -43,7 +43,8 @@ public class FairyGrimTests implements FabricClientGameTest {
         AssertionError first = null;
         for (java.util.function.Consumer<ClientGameTestContext> c : List.<java.util.function.Consumer<ClientGameTestContext>>of(
                 FairyGrimTests::tpWalker, FairyGrimTests::tpKeys, FairyGrimTests::water, FairyGrimTests::ladderWaterKeys,
-                FairyGrimTests::ladderWaterWalker, FairyGrimTests::flowLadderKeys, FairyGrimTests::flowLadderWalker)) {
+                FairyGrimTests::ladderWaterWalker, FairyGrimTests::flowLadderKeys, FairyGrimTests::flowLadderWalker,
+                FairyGrimTests::arrival)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -53,6 +54,95 @@ public class FairyGrimTests implements FabricClientGameTest {
         if (first != null) {
             throw first;
         }
+    }
+
+    /** Arrivals per 1102-fairy-arrival scenario (-Pfairy.arrivals, default 6: keep a session to 7 scenarios or fewer). */
+    private static int arrivals() {
+        return Integer.getInteger("testkit.fairy.arrivals", 6);
+    }
+
+    /**
+     * 1102-fairy-arrival: the walker from a standstill 5-10 blocks from a soul on flat ground, W+sprint up to it and the stop
+     * where the soul comes in reach - the stop BAYOU_SPILL's soul 3 drew Simulation .046 decaying x0.546 plus SprintE* on
+     * (twice in ~50). Repeated -Pfairy.arrivals times from varied distances and headings; every arrival must collect the
+     * soul, sprint must have been on during the approach, and GrimAC (experimental checks on) must stay silent. The last
+     * 40 ticks before any line, with keys, sprint state and velocity, are logged.
+     */
+    private static void arrival(ClientGameTestContext ctx) {
+        int x0 = X0 + 60;
+        int z0 = Z0 + 260;
+        Scenario.runExpectingFlags(ctx, "1102-fairy-arrival", (server, scenario) -> TestMap.on(server)
+                        .floor(x0 - 16, 150, z0 - 16, x0 + 16, z0 + 16)
+                        .fill(x0 - 16, 151, z0 - 16, x0 + 16, 156, z0 + 16, "air")
+                        .survival().surface(151).spawn(x0 + 0.5, z0 + 0.5, 0f).build(),
+                (server, scenario) -> {
+                    java.util.Random rnd = new java.util.Random(Long.getLong("testkit.fairy.arrivalSeed", System.nanoTime()));
+                    int collected = 0;
+                    int sprinted = 0;
+                    List<Integer> flagsAfter = new ArrayList<>();
+                    for (int run = 0; run < arrivals(); run++) {
+                        double dist = 5 + rnd.nextDouble() * 5;
+                        double ang = rnd.nextDouble() * Math.PI * 2;
+                        int sx = x0 + (int) Math.round(Math.cos(ang) * dist);
+                        int sz = z0 + (int) Math.round(Math.sin(ang) * dist);
+                        float face = (float) (rnd.nextDouble() * 360 - 180);
+                        server.command(String.format(Locale.ROOT, "tp @p %.2f 151 %.2f %.1f 0", sx + 0.5, sz + 0.5, face));
+                        ctx.waitTicks(30);
+                        FairySoulTests.standAt = new java.util.HashMap<>();
+                        FairySoulTests.standAt.put(1, new double[]{x0 + 1.5, 151.0, z0 + 0.5});
+                        List<FairySoulTests.Node> g = List.of(
+                                new FairySoulTests.Node(0, sx, 151, sz, false, 1),
+                                new FairySoulTests.Node(1, x0, 151, z0, true, 0));
+                        List<String> trace = new ArrayList<>();
+                        boolean[] sprint = {false};
+                        int before = scenario.flags().size();
+                        int[] flagTick = {-1};
+                        FairySoulTests.Result r = FairySoulTests.runSouls(ctx, scenario, g, 400, tick -> {
+                            String line = ctx.computeOnClient(mc -> {
+                                var p = mc.player;
+                                var in = p.input.keyPresses;
+                                return String.format(Locale.US, "t%d pos %.4f %.4f v %.4f %.4f yaw %.2f ground %s sprinting %s "
+                                                + "speed %.5f hcol %s minor %s keys %s%s%s%s%s%s", tick, p.getX(), p.getZ(),
+                                        p.getDeltaMovement().x, p.getDeltaMovement().z, p.getYRot(), p.onGround(), p.isSprinting(),
+                                        p.getSpeed(), p.horizontalCollision, p.minorHorizontalCollision,
+                                        in.forward() ? "W" : "", in.backward() ? "S" : "", in.left() ? "A" : "", in.right() ? "D" : "",
+                                        in.jump() ? "J" : "", in.sprint() ? "+spr" : "");
+                            });
+                            sprint[0] |= line.contains("sprinting true");
+                            trace.add(line);
+                            if (flagTick[0] < 0 && scenario.flags().size() > before) {
+                                flagTick[0] = tick;
+                            }
+                        });
+                        collected += r.soulsUsed;
+                        if (sprint[0]) {
+                            sprinted++;
+                        }
+                        int after = scenario.flags().size();
+                        flagsAfter.add(after);
+                        scenario.log(String.format(Locale.US, "arrival %d: from %d %d (%.1f blocks), soul %d, sprinted %s, ticks %d, "
+                                + "anticheat lines so far %d", run, sx, sz, dist, r.soulsUsed, sprint[0], r.ticks, after));
+                        if (after > before) {
+                            int end = flagTick[0] < 0 ? trace.size() : Math.min(trace.size(), flagTick[0] + 3);
+                            scenario.log("arrival " + run + ": anticheat line first seen at t" + flagTick[0] + "; trace:");
+                            for (String l : trace.subList(Math.max(0, end - 40), end)) {
+                                scenario.log("  " + l);
+                            }
+                        } else if (run < 2) {
+                            for (String l : trace.subList(Math.max(0, trace.size() - 25), trace.size())) {
+                                scenario.log("  " + l);
+                            }
+                        }
+                    }
+                    FairySoulTests.standAt = new java.util.HashMap<>();
+                    scenario.log(String.format(Locale.US, "arrival: %d runs, souls %d, sprinted %d, lines after each run %s",
+                            arrivals(), collected, sprinted, flagsAfter));
+                    report(scenario, "arrival", List.of(), 0);
+                    if (collected < arrivals() || sprinted < arrivals() || !scenario.flags().isEmpty()) {
+                        throw new AssertionError("arrival: souls " + collected + "/" + arrivals() + ", sprinted " + sprinted
+                                + ", anticheat lines " + scenario.flags().size());
+                    }
+                });
     }
 
     private static TestMap lane(TestServer server, int z) {
