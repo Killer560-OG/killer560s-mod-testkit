@@ -98,6 +98,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
             String r = k == 1 ? "" : "#" + k;
             multiBreakRun(ctx, "1102-breaker-aura-multibreak-on" + r, true, -60);
             multiBreakRun(ctx, "1102-breaker-aura-multibreak-off" + r, false, -90);
+            // Burst Multi Break (owner exception 2026-11-02): all six on ONE tick; MultiBreak* accepted, nothing else.
+            burstRun(ctx, "1102-breaker-aura-burst" + r, -120);
         }
         // The floor cases repeat -PfloorRepeat=N times (default 1): the GroundSpoof they chase was intermittent,
         // so one verdict is not a measurement. Repeats are named "#k" so the filter still selects them.
@@ -748,6 +750,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
                     + (legacyPicked || legacySide ? " (older jar, forced to picked-only)" : " (picked-only build)"));
             ModUnderTest.set(cfg, "setBreakerAuraAutoSwap", false);
             ModUnderTest.setIfPresent(cfg, "setBreakerAuraMultiBreak", multiBreak);
+            // Burst Multi Break (owner exception, flags newest Grim) stays OFF in every case but 1102-breaker-aura-burst.
+            ModUnderTest.setIfPresent(cfg, "setBreakerAuraBurstMultiBreak", false);
             setPicks(picks);
             // Everything else is left at whatever ships, so what gets measured is the shipped behavior.
             if (ModUnderTest.hasMultiBreak() && ModUnderTest.getBoolean(cfg, "isBreakerAuraMultiBreak") != multiBreak) {
@@ -1407,6 +1411,122 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                 0));
                         ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(CONFIG),
                                 "setBreakerAuraMultiBreak", true));
+                        unconfigure(ctx);
+                    }
+                });
+    }
+
+    /**
+     * 1102-breaker-aura-burst (mod multibreak-1102 Burst Multi Break, owner exception 2026-11-02, default OFF, labeled
+     * "flags newest Grim"): the same six picks on his look ray as 1102-breaker-aura-multibreak, Multi Break and Burst Multi
+     * Break ON. All six must be dug in ONE server tick (MultiBreakWatch) and all gone. GrimAC lines are accepted only from
+     * MultiBreak* (the check the setting's label names) - at least one, proving the anticheat saw the burst - and none from
+     * any other check.
+     */
+    private void burstRun(ClientGameTestContext ctx, String name, int cz) {
+        if (Scenario.skip(name)) {
+            return;
+        }
+        ModUnderTest.require(MOD_ID);
+        boolean has = ctx.computeOnClient(mc -> {
+            try {
+                ModUnderTest.config(CONFIG).getClass().getDeclaredMethod("setBreakerAuraBurstMultiBreak", boolean.class);
+                return true;
+            } catch (NoSuchMethodException e) {
+                return false;
+            }
+        });
+        if (!has) {
+            Scenario.skipped(name, "the mod has no Burst Multi Break setting");
+            return;
+        }
+        int cx = -60;
+        int fy = SURFACE_Y - 1;
+        double dx = -Math.sin(Math.toRadians(MB_YAW));
+        double dz = Math.cos(Math.toRadians(MB_YAW));
+        java.util.LinkedHashSet<BlockPos> line = new java.util.LinkedHashSet<>();
+        for (double t = 0.05; t <= 4.4; t += 0.01) {
+            BlockPos b = BlockPos.containing(cx + 0.5 + dx * t, SURFACE_Y + 1.62, cz + 0.5 + dz * t);
+            if (b.getX() != cx || b.getZ() != cz) {
+                line.add(b);
+            }
+        }
+        List<BlockPos> picks = List.copyOf(line);
+        Scenario.runExpectingFlags(ctx, name,
+                (server, scenario) -> {
+                    TestMap m = TestMap.on(server)
+                            .platform(cx, fy, cz, 6)
+                            .catchFloor(120)
+                            .survival()
+                            .clearInventory()
+                            .command("give @p minecraft:diamond_shovel[custom_data={id:\"DUNGEONBREAKER\"},"
+                                    + "unbreakable={},lore=[{text:\"Charges: 5000/5000\",italic:false}]] 1")
+                            .command("enchant @p minecraft:efficiency 5")
+                            .command("effect give @p minecraft:haste 99999 4 true")
+                            .command("effect clear @p minecraft:speed");
+                    for (BlockPos b : picks) {
+                        m = m.fill(b.getX(), b.getY(), b.getZ(), b.getX(), b.getY(), b.getZ(), "snow_block");
+                    }
+                    m.spawn(cx + 0.5, cz + 0.5, MB_YAW, 0f).build();
+                },
+                (server, scenario) -> {
+                    scenario.assertDetectorWorks();
+                    for (BlockPos b : picks) {
+                        if (isAir(ctx, b)) {
+                            throw new AssertionError("pick " + xyz(b) + " was never built");
+                        }
+                    }
+                    PacketWatch.start();
+                    traceStart(ctx);
+                    ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.start());
+                    // Picks go in once the aura runs (configure's own wait would otherwise break them unwatched).
+                    configure(ctx, scenario, true, List.of());
+                    ctx.runOnClient(mc -> {
+                        ModUnderTest.set(ModUnderTest.config(CONFIG), "setBreakerAuraBurstMultiBreak", true);
+                        setPicks(picks);
+                    });
+                    try {
+                        boolean gone = false;
+                        for (int i = 0; i < 60 && !gone; i++) {
+                            stampBreaker(ctx);
+                            ctx.waitTicks(1);
+                            gone = picks.stream().allMatch(b -> isAir(ctx, b));
+                        }
+                        ctx.waitTicks(10);
+                        ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.stop());
+                        PacketWatch.stop();
+                        requireInTick(ctx, scenario);
+                        List<dev.testkit.harness.MultiBreakWatch.Dig> digs = dev.testkit.harness.MultiBreakWatch.digs();
+                        java.util.Map<Integer, java.util.Set<BlockPos>> perWindow = new java.util.TreeMap<>();
+                        for (var d : digs) {
+                            perWindow.computeIfAbsent(d.window(), w -> new java.util.HashSet<>()).add(d.pos());
+                        }
+                        int most = perWindow.values().stream().mapToInt(java.util.Set::size).max().orElse(0);
+                        List<String> flags = scenario.flags();
+                        List<String> other = flags.stream().filter(f -> !f.contains("MultiBreak")).toList();
+                        long multi = flags.stream().filter(f -> f.contains("MultiBreak")).count();
+                        scenario.log(String.format(Locale.ROOT, "%s: Burst Multi Break ON: %d dig(s), most blocks in one"
+                                        + " server tick %d of %d picks, all gone %s; GrimAC MultiBreak lines %d (accepted),"
+                                        + " other lines %d%s", name, digs.size(), most, picks.size(), gone, multi,
+                                other.size(), other.isEmpty() ? "" : ": " + other));
+                        System.out.println("[multibreak] " + name + " blocks=" + picks.size() + " mostInOneTick=" + most
+                                + " multiBreakLines=" + multi + " otherLines=" + other.size());
+                        if (!gone) {
+                            throw new AssertionError("not every pick broke");
+                        }
+                        if (most != picks.size()) {
+                            throw new AssertionError("the burst put " + most + " of " + picks.size()
+                                    + " blocks in one server tick, want all");
+                        }
+                        if (!other.isEmpty()) {
+                            throw new AssertionError("GrimAC flagged something other than MultiBreak: " + other);
+                        }
+                        if (multi == 0) {
+                            throw new AssertionError("no MultiBreak line - is this checkout's experimental-checks on?");
+                        }
+                    } finally {
+                        ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(CONFIG),
+                                "setBreakerAuraBurstMultiBreak", false));
                         unconfigure(ctx);
                     }
                 });
