@@ -176,6 +176,23 @@ public class FairyIslandTests implements FabricClientGameTest {
         }
     }
 
+    /** The replay's keys: 0 forward, 1 back, 2 left, 3 right, 4 jump, 5 sprint. */
+    static void replayKey(ClientGameTestContext ctx, int k, boolean down) {
+        java.util.function.Function<net.minecraft.client.Options, net.minecraft.client.KeyMapping> key = switch (k) {
+            case 0 -> opt -> opt.keyUp;
+            case 1 -> opt -> opt.keyDown;
+            case 2 -> opt -> opt.keyLeft;
+            case 3 -> opt -> opt.keyRight;
+            case 4 -> opt -> opt.keyJump;
+            default -> opt -> opt.keySprint;
+        };
+        if (down) {
+            ctx.getInput().holdKey(key::apply);
+        } else {
+            ctx.getInput().releaseKey(key::apply);
+        }
+    }
+
     @SuppressWarnings("unchecked")
     static Outcome runIsland(ClientGameTestContext ctx, TestServer server, Scenario scenario, String island, JsonObject meta,
                              int speed, int maxTicks) {
@@ -293,20 +310,8 @@ public class FairyIslandTests implements FabricClientGameTest {
                 if (!replay.isEmpty()) {
                     String[] r = replay.get(tick);
                     // r: W S A D J sprint (1/0), then the look after the previous tick
-                    java.util.function.Function<net.minecraft.client.Options, net.minecraft.client.KeyMapping>[] keys =
-                            new java.util.function.Function[]{(java.util.function.Function<net.minecraft.client.Options, net.minecraft.client.KeyMapping>) o -> o.keyUp,
-                                    (java.util.function.Function<net.minecraft.client.Options, net.minecraft.client.KeyMapping>) o -> o.keyDown,
-                                    (java.util.function.Function<net.minecraft.client.Options, net.minecraft.client.KeyMapping>) o -> o.keyLeft,
-                                    (java.util.function.Function<net.minecraft.client.Options, net.minecraft.client.KeyMapping>) o -> o.keyRight,
-                                    (java.util.function.Function<net.minecraft.client.Options, net.minecraft.client.KeyMapping>) o -> o.keyJump,
-                                    (java.util.function.Function<net.minecraft.client.Options, net.minecraft.client.KeyMapping>) o -> o.keySprint};
                     for (int k = 0; k < 6; k++) {
-                        java.util.function.Function<net.minecraft.client.Options, net.minecraft.client.KeyMapping> key = keys[k];
-                        if (r[k].equals("1")) {
-                            ctx.getInput().holdKey(key::apply);
-                        } else {
-                            ctx.getInput().releaseKey(key::apply);
-                        }
+                        replayKey(ctx, k, r[k].equals("1"));
                     }
                     if (tick > 0) {
                         String[] look = replay.get(tick - 1);
@@ -397,13 +402,8 @@ public class FairyIslandTests implements FabricClientGameTest {
                 }
             }
             if (!replay.isEmpty()) {
-                for (int k = 0; k < 1; k++) {
-                    ctx.getInput().releaseKey(o2 -> o2.keyUp);
-                    ctx.getInput().releaseKey(o2 -> o2.keyDown);
-                    ctx.getInput().releaseKey(o2 -> o2.keyLeft);
-                    ctx.getInput().releaseKey(o2 -> o2.keyRight);
-                    ctx.getInput().releaseKey(o2 -> o2.keyJump);
-                    ctx.getInput().releaseKey(o2 -> o2.keySprint);
+                for (int k = 0; k < 6; k++) {
+                    replayKey(ctx, k, false);
                 }
             }
             o.collected = o.collectedAt.size();
