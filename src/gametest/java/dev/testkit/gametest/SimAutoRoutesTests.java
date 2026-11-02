@@ -122,6 +122,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1015-landpickup", "96-ar-1015-earlyskip", "96-ar-1015-mimicskip",
             // doc-etable-1101: the Emergency Cancel Key stops a route and Mimic Killer, and its hold starts no route
             "96-ar-1101-ecancel",
+            // secretfade-1102: a taken secret's waypoint goes within 2 ticks, and Secret Clicked leaves no gold box
+            "96-ar-1102-secrettaken",
             // ar-warp-after-click (2026-10-15): Hypixel ignores a use right after a block click with the same item
             "96-ar-1015-warpclick",
             // click-gap-all (2026-10-15): the Auto Puzzles' shared use (AutoPuzzleUtil.useItemRotated) waits like the route's
@@ -343,6 +345,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1015-earlyskip" -> ArMainServerCases.earlySkip(ctx);
                         case "96-ar-1015-mimicskip" -> ArMainServerCases.mimicSkip(ctx);
                         case "96-ar-1101-ecancel" -> caseEmergencyCancel(ctx);
+                        case "96-ar-1102-secrettaken" -> caseSecretTaken(ctx);
                         case "96-ar-1015-warpclick" -> ArMainServerCases.warpAfterClick(ctx);
                         case "96-ar-1015-puzzleclick" -> ArMainServerCases.puzzleWarpAfterClick(ctx);
                         case "96-ar-1015-serverlag" -> ArServerLagCases.serverLag(ctx);
@@ -4549,6 +4552,230 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     new Class<?>[]{String.class}, new Object[]{k})).size());
         }
         return n;
+    }
+
+    /**
+     * 96-ar-1102-secrettaken (mod secretfade-1102). killer560, 2026-11-02, after taking a Wither Essence: "i just got this
+     * yet it still shows it is there and faded out over a few seconds". Every secret type is taken through its real
+     * signal - a chest, an essence skull and a lever clicked through the game mode, an item picked up by walking onto it,
+     * a bat killed - and its Secret Waypoint must leave the feature's draw list within 2 client ticks. Secret Clicked is
+     * on throughout, as in his config: its detections must run (boxes added), but a secret simply taken must draw
+     * NOTHING (no gold box left on the spot) unless Box On Every Secret is on. On the old jar the waypoint half passes
+     * and the gold-box half fails: that box was what he saw.
+     */
+    private void caseSecretTaken(ClientGameTestContext ctx) {
+        String swCfg = "com.killer560.hub.secretwaypoints.SecretWaypointsConfig";
+        String sw = "com.killer560.hub.secretwaypoints.SecretWaypointsFeature";
+        String alerts = "com.killer560.hub.dungeonalerts.DungeonAlertsConfig";
+        String clicked = "com.killer560.hub.dungeonalerts.SecretClicked";
+        String essenceId = "[I;677717835,815216974,-2125861790,-1670195120]";
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        Object cfg = ctx.computeOnClient(mc -> ModUnderTest.config(swCfg));
+        Object acfg = ctx.computeOnClient(mc -> ModUnderTest.config(alerts));
+        boolean wasOn = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.call(cfg, "isEnabled", new Class<?>[]{},
+                new Object[]{}));
+        boolean clickedWas = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.call(acfg, "isSecretClickedEnabled",
+                new Class<?>[]{}, new Object[]{}));
+        List<String> rows = new ArrayList<>();
+        List<String> wrong = new ArrayList<>();
+        try {
+            ctx.runOnClient(mc -> ModUnderTest.set(cfg, "setEnabled", true));
+            ctx.runOnClient(mc -> ModUnderTest.set(acfg, "setSecretClickedEnabled", true));
+            setBlocks(ctx, Map.of(new int[]{18, F, 14}, floorLever()));
+            BlockPos lever = realNow(ctx, 18, F, 14);
+            tpRel(ctx, 11.5, 11.5, 0f, 40f);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(sw, "invalidateCache"));
+            ctx.waitTicks(10);
+            Map<String, List<BlockPos>> before = new LinkedHashMap<>();
+            for (String k : new String[]{"CHEST", "WITHER", "LEVER", "ITEM", "BAT"}) {
+                before.put(k, kindWaypoints(ctx, sw, k));
+            }
+            println("secrettaken: waypoints before " + before);
+            int added0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(clicked, "boxesAdded"));
+            int frames0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(clicked, "boxesDrawnFrames"));
+
+            // Clicks: chest, essence skull, lever - the real block at the waypoint's own block, clicked through the game mode.
+            for (String k : new String[]{"CHEST", "WITHER", "LEVER"}) {
+                List<BlockPos> list = before.get(k);
+                BlockPos at = k.equals("LEVER") ? lever : (list.isEmpty() ? null : list.get(0));
+                if (at == null || !list.contains(at)) {
+                    rows.add(k + ": no waypoint in this room");
+                    continue;
+                }
+                if (!k.equals("LEVER")) {
+                    String block = k.equals("CHEST") ? "minecraft:chest"
+                            : "minecraft:player_head[rotation=8]{profile:{id:" + essenceId + ",name:\"WitherEssence\"}}";
+                    serverRun(ctx, (server, sp) -> server.getCommands().performPrefixedCommand(
+                            server.createCommandSourceStack().withSuppressedOutput(),
+                            "setblock " + at.getX() + " " + at.getY() + " " + at.getZ() + " " + block));
+                    ctx.waitTicks(5);
+                }
+                tpAbs(ctx, at.getX() + 0.5, at.getY() + 1.0, at.getZ() + 2.5);
+                ctx.waitTicks(3);
+                ctx.runOnClient(mc -> mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
+                        new BlockHitResult(Vec3.atCenterOf(at), Direction.UP, at, false)));
+                int ticks = ticksUntilGone(ctx, sw, k, at, 40);
+                ctx.runOnClient(mc -> McCompat.setScreen(mc, null));
+                rows.add(k + " at " + at.toShortString() + ": waypoint gone after " + ticks + " tick(s) from the click");
+                if (ticks < 0 || ticks > 2) {
+                    wrong.add(k + " waypoint still drawn " + (ticks < 0 ? "40+" : ticks) + " ticks after the click");
+                }
+            }
+
+            // Item: a secret drop lying on its ITEM waypoint, picked up by walking onto it.
+            List<BlockPos> items = before.get("ITEM");
+            if (items.isEmpty()) {
+                rows.add("ITEM: no waypoint in this room");
+            } else {
+                BlockPos at = items.get(0);
+                AtomicReference<Integer> itemId = new AtomicReference<>();
+                serverRun(ctx, (server, sp) -> {
+                    var item = new net.minecraft.world.entity.item.ItemEntity(server.overworld(), at.getX() + 0.5,
+                            at.getY() + 0.1, at.getZ() + 0.5, secretDrop(net.minecraft.world.item.Items.BONE));
+                    item.setNoGravity(true);
+                    item.setPickUpDelay(20);
+                    server.overworld().addFreshEntity(item);
+                    itemId.set(item.getId());
+                });
+                check(waitFor(ctx, 60, () -> ctx.computeOnClient(mc -> !mc.level.getEntitiesOfClass(
+                                net.minecraft.world.entity.item.ItemEntity.class,
+                                new net.minecraft.world.phys.AABB(at).inflate(1.5)).isEmpty())),
+                        "the item never reached the client - the item row would prove nothing");
+                ctx.waitTicks(25); // past its pickup delay, and the feature has seen it lying on the waypoint
+                // Onto the item where the client sees it now (pushed out of a block, it may lie off the waypoint).
+                Vec3 lying = ctx.computeOnClient(mc -> {
+                    var l = mc.level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                            new net.minecraft.world.phys.AABB(at).inflate(8.0));
+                    return l.isEmpty() ? Vec3.atBottomCenterOf(at) : l.get(0).position();
+                });
+                tpAbs(ctx, lying.x, lying.y, lying.z);
+                int goneTick = -1;
+                int wpTick = -1;
+                for (int t = 0; t <= 60 && (goneTick < 0 || wpTick < 0); t++) {
+                    // By place, not id: the client's copy of a sim item need not carry the server entity's id. Within 8
+                    // blocks: an item spawned inside a block is pushed out of it, so it may lie a little off the waypoint.
+                    if (goneTick < 0 && ctx.computeOnClient(mc -> mc.level.getEntitiesOfClass(
+                            net.minecraft.world.entity.item.ItemEntity.class,
+                            new net.minecraft.world.phys.AABB(at).inflate(8.0)).isEmpty())) {
+                        goneTick = t;
+                    }
+                    if (wpTick < 0 && !kindWaypoints(ctx, sw, "ITEM").contains(at)) {
+                        wpTick = t;
+                    }
+                    ctx.waitTicks(1);
+                }
+                rows.add("ITEM at " + at.toShortString() + ": entity gone on the client at tick " + goneTick
+                        + ", waypoint gone at tick " + wpTick);
+                if (goneTick < 0) {
+                    wrong.add("the item was never picked up - the item row proves nothing");
+                } else if (wpTick < 0 || wpTick - goneTick > 2) {
+                    wrong.add("ITEM waypoint gone " + (wpTick < 0 ? "never" : (wpTick - goneTick) + " ticks")
+                            + " after the pickup");
+                }
+            }
+
+            // Bat: a bat on its BAT waypoint, killed.
+            List<BlockPos> bats = before.get("BAT");
+            if (bats.isEmpty()) {
+                rows.add("BAT: no waypoint in this room");
+            } else {
+                BlockPos at = bats.get(0);
+                tpAbs(ctx, at.getX() + 0.5, at.getY(), at.getZ() + 4.5);
+                serverRun(ctx, (server, sp) -> server.getCommands().performPrefixedCommand(
+                        server.createCommandSourceStack().withSuppressedOutput(),
+                        "summon minecraft:bat " + (at.getX() + 0.5) + " " + at.getY() + " " + (at.getZ() + 0.5)
+                                + " {NoAI:1b,Invulnerable:1b,Tags:[\"tksecrettaken\"]}"));
+                check(waitFor(ctx, 60, () -> ctx.computeOnClient(mc -> !mc.level.getEntitiesOfClass(
+                                net.minecraft.world.entity.ambient.Bat.class,
+                                new net.minecraft.world.phys.AABB(at).inflate(2.0)).isEmpty())),
+                        "the bat never reached the client - the bat row would prove nothing");
+                ctx.waitTicks(5);
+                serverRun(ctx, (server, sp) -> server.getCommands().performPrefixedCommand(
+                        server.createCommandSourceStack().withSuppressedOutput(), "kill @e[tag=tksecrettaken]"));
+                int deadTick = -1;
+                int wpTick = -1;
+                for (int t = 0; t <= 60 && (deadTick < 0 || wpTick < 0); t++) {
+                    if (deadTick < 0 && ctx.computeOnClient(mc -> {
+                        for (var b : mc.level.getEntitiesOfClass(net.minecraft.world.entity.ambient.Bat.class,
+                                new net.minecraft.world.phys.AABB(at).inflate(3.0))) {
+                            if (b.isDeadOrDying() || b.isRemoved()) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    })) {
+                        deadTick = t;
+                    }
+                    if (wpTick < 0 && !kindWaypoints(ctx, sw, "BAT").contains(at)) {
+                        wpTick = t;
+                    }
+                    ctx.waitTicks(1);
+                }
+                rows.add("BAT at " + at.toShortString() + ": seen dying on the client at tick " + deadTick
+                        + ", waypoint gone at tick " + wpTick);
+                if (deadTick < 0) {
+                    wrong.add("the bat was never seen dying - the bat row proves nothing");
+                } else if (wpTick < 0 || wpTick - deadTick > 2) {
+                    wrong.add("BAT waypoint gone " + (wpTick < 0 ? "never" : (wpTick - deadTick) + " ticks")
+                            + " after it died");
+                }
+            }
+
+            // Secret Clicked: the detections ran (boxes added), and nothing was drawn for a secret simply taken.
+            ctx.waitTicks(10);
+            int added = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(clicked, "boxesAdded")) - added0;
+            int frames = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(clicked, "boxesDrawnFrames")) - frames0;
+            rows.add("Secret Clicked: " + added + " box(es) added, drawn in " + frames + " frame(s)");
+            if (added == 0) {
+                wrong.add("Secret Clicked added no box - its 'nothing drawn' row proves nothing");
+            } else if (frames > 0) {
+                wrong.add("Secret Clicked drew a gold box on a secret simply taken for " + frames
+                        + " frame(s) (Box On Every Secret is off) - the box he saw left on the spot");
+            }
+            int taken = 0;
+            for (String r : rows) {
+                if (r.contains("gone at tick") || r.contains("gone after")) {
+                    taken++;
+                }
+            }
+            // The 96-ar room (Andesite) has an essence, a lever (placed) and an item; no chest or bat waypoint. A chest
+            // goes by the same click path as the essence and lever; a bat by its death (see the report).
+            if (taken < 3) {
+                wrong.add("only " + taken + " secret type(s) could be taken in this room - not enough to call it");
+            }
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.set(cfg, "setEnabled", wasOn));
+            ctx.runOnClient(mc -> ModUnderTest.set(acfg, "setSecretClickedEnabled", clickedWas));
+            ctx.runOnClient(mc -> McCompat.setScreen(mc, null));
+        }
+        for (String r : rows) {
+            println("secrettaken: " + r);
+        }
+        check(wrong.isEmpty(), String.join("; ", wrong));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<BlockPos> kindWaypoints(ClientGameTestContext ctx, String sw, String kind) {
+        return ctx.computeOnClient(mc -> new ArrayList<>((List<BlockPos>) ModUnderTest.staticCall(sw, "cachedPositions",
+                new Class<?>[]{String.class}, new Object[]{kind})));
+    }
+
+    /** Client ticks until {@code at} leaves the {@code kind} waypoints (0 = already gone), or -1 after {@code max}. */
+    private static int ticksUntilGone(ClientGameTestContext ctx, String sw, String kind, BlockPos at, int max) {
+        for (int t = 0; t <= max; t++) {
+            if (!kindWaypoints(ctx, sw, kind).contains(at)) {
+                return t;
+            }
+            ctx.waitTicks(1);
+        }
+        return -1;
+    }
+
+    private static void tpAbs(ClientGameTestContext ctx, double x, double y, double z) {
+        serverRun(ctx, (server, sp) -> sp.teleportTo(server.overworld(), x, y, z,
+                java.util.Set.<net.minecraft.world.entity.Relative>of(), sp.getYRot(), sp.getXRot(), false));
     }
 
     /** /ar add's modifier completion fills "await:" with nothing after the colon (killer560, 2026-10-06). */
