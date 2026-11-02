@@ -184,6 +184,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1027-invwalk", GrimAutoRoutesTests::caseInvWalk);
             // ... and 62-argrim-play's whole route (its chest window keeps the route running) with Inventory Walk on.
             s.test("62-argrim-1027-invwalk-play", GrimAutoRoutesTests::caseInvWalkPlay);
+            // iwcause-1102: a chest window that opens and closes while an await:1 etherwarp holds the sneak, Inventory Walk
+            // (Stop To Click) holding the close - the warp's use must not flush it with the sneak down (MultiActionsD).
+            for (int k = 1; k <= Integer.getInteger("testkit.iwRepeat", 1); k++) {
+                s.test("62-argrim-1102-iwclose" + (k == 1 ? "" : "#" + k), GrimAutoRoutesTests::caseIwClose);
+            }
             // The RotationBreak post-flying hunt (multibreak-1102): invwalk-play again -PrbRepeat=N times, so a rare miss
             // on a turned breaker dig after an etherwarp landing is caught with the dig-gap probes on.
             for (int k = 1; k <= Integer.getInteger("testkit.rbRepeat", 0); k++) {
@@ -1436,6 +1441,104 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * first, as a vanilla right click does. Far (8 blocks) and near (3 blocks). Each must land, the server make exactly one
      * etherwarp, the warp go at most a tick after firing, and GrimAC say nothing (the session's verdict).
      */
+    /** Closes the first screen that is up at a tick's START (armed by caseIwClose): the close goes before the route acts. */
+    private static volatile boolean closeAtNextStart;
+    private static boolean closeHookRegistered;
+
+    /**
+     * 62-argrim-1102-iwclose (iwcause-1102, the v5 invwalk-play MultiActionsD reproduced on purpose). An await:1 etherwarp
+     * waits by a chest; Inventory Walk with Stop To Click is on. His click on the chest meets the await, so the route puts
+     * the sneak down for the warp; the chest's window arrives a round trip later and is closed at the next tick's START
+     * (before the route acts). The server's input says sneak, so Inventory Walk holds the close; then the etherwarp's use
+     * goes. On the unfixed jar the use flushes the held close first - a close with the sneak down, GrimAC MultiActionsD.
+     * Required: the close was held (the collision happened), the warp landed, GrimAC silent.
+     */
+    private static void caseIwClose(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        String iwCfg = "invwalk.InventoryWalkConfig";
+        String iw = "invwalk.InventoryWalkFeature";
+        resetRoutes(ctx);
+        arena(ctx, false);
+        ctx.runOnClient(mc -> {
+            try {
+                ModUnderTest.staticCall("com.killer560.hub.autoroutes.RouteRunMemory", "reset", new Class<?>[]{},
+                        new Object[]{});
+            } catch (Throwable ignored) {
+                // an older jar: no run memory
+            }
+            if (!closeHookRegistered) {
+                closeHookRegistered = true;
+                ClientTickEvents.START_CLIENT_TICK.register(m -> {
+                    if (closeAtNextStart && dev.testkit.compat.McCompat.screen(m) != null) {
+                        closeAtNextStart = false;
+                        dev.testkit.compat.McCompat.screen(m).onClose();
+                        println("[iwclose] closed the chest window at a tick start");
+                    }
+                });
+            }
+            dev.testkit.gametest.mod.Mod.set(iwCfg, "setEnabled", true);
+            dev.testkit.gametest.mod.Mod.set(iwCfg, "setStopToClick", true);
+        });
+        try {
+            setBlocks(ctx, Map.of(new int[]{8, F, 8}, "minecraft:chest[facing=west]"));
+            JsonObject w = ew(6, 6, 14, 6, true);
+            w.addProperty("awaitEnabled", true);
+            w.addProperty("await", "SECRET");
+            w.addProperty("amount", 1);
+            writeRoute(ctx, List.of(w));
+            long mark = LogTap.mark();
+            warpOnto(ctx, 6.5, 10.5, 6, 6);
+            check(waitFor(ctx, 60, () -> logHas(mark, "Node #1 ETHERWARP begins")), "the await node never began (at "
+                    + relPos(ctx) + ")");
+            ctx.waitTicks(10);
+            ctx.runOnClient(mc -> {
+                mc.player.getInventory().setSelectedSlot(0);
+                BlockPos chest = real(ModUnderTest.staticCall(FRAME, "current"), 8, F, 8);
+                Vec3 eye = mc.player.getEyePosition();
+                Vec3 at = Vec3.atCenterOf(chest);
+                double dx = at.x - eye.x;
+                double dy = at.y - eye.y;
+                double dz = at.z - eye.z;
+                float yaw = (float) -Math.toDegrees(Math.atan2(dx, dz));
+                mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(yaw - mc.player.getYRot()));
+                mc.player.setXRot((float) -Math.toDegrees(Math.atan2(dy, Math.hypot(dx, dz))));
+            });
+            ctx.waitTicks(3);
+            long held0 = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall(iw, "closesHeld"))
+                    .longValue());
+            long m = LogTap.mark();
+            startSampling(ctx);
+            closeAtNextStart = true;
+            ctx.runOnClient(mc -> {
+                BlockPos chest = real(ModUnderTest.staticCall(FRAME, "current"), 8, F, 8);
+                mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(
+                        Vec3.atCenterOf(chest).add(0.5, 0, 0), Direction.EAST, chest, false));
+                dev.testkit.compat.McCompat.swingArm(mc.player);
+            });
+            Vec3 landed = waitLanded(ctx, 14, 6, 60);
+            ctx.waitTicks(5);
+            closeAtNextStart = false;
+            List<Sample> s = stopSampling(ctx);
+            printTrace("iwclose", s);
+            long held = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall(iw, "closesHeld"))
+                    .longValue()) - held0;
+            boolean waited = logHas(m, "Inventory Walk holds a container close");
+            for (String l : LogTap.since(m)) {
+                if (l.contains("[InvWalk]") || l.contains("iwclose") || l.contains("Etherwarp use sent")
+                        || l.contains("input installed")) {
+                    println("  " + l);
+                }
+            }
+            c.note("iwclose: closes held " + held + ", route waited for the close " + waited + ", landed " + landed);
+            check(held >= 1, "Inventory Walk held no close - the collision did not happen, the case proves nothing");
+            check(landed != null, "the etherwarp never landed");
+            noteFlags(c, s);
+        } finally {
+            closeAtNextStart = false;
+            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.set(iwCfg, "setEnabled", false));
+        }
+    }
+
     private static void caseClickWarp(Session c) {
         ClientGameTestContext ctx = c.ctx();
         for (boolean near : new boolean[]{false, true}) {
