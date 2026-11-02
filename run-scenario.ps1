@@ -131,6 +131,24 @@ function Get-TestClients {
     }
 }
 
+# This checkout's dedicated test server (the GrimAC one TestServer starts as a child of the client JVM). Killing the
+# client does not kill it: on Windows a child outlives its parent, so after a freeze kill or a deadline the server kept
+# the port, and the next run in this checkout failed "Anticheat test server exited ... before it was ready" (FAILED TO
+# BIND) or waited on GrimAC's datastore lease until the watcher shot the client (2026-10-26, 2026-10-27, 2026-11-01).
+function Get-TestServers {
+    Get-CimInstance Win32_Process -Filter "Name = 'javaw.exe' OR Name = 'java.exe'" -ErrorAction SilentlyContinue | Where-Object {
+        $cl = $_.CommandLine
+        $cl -and ($cl.Replace('\', '/') -like "*$marker*") -and ($cl -like '*fabric.dli.env=server*')
+    }
+}
+
+function Stop-TestServers([string]$why) {
+    foreach ($s in Get-TestServers) {
+        Write-Host "Killing $why test server (pid $($s.ProcessId))"
+        Stop-Process -Id $s.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+}
+
 # Screen slots. killer560 (2026-10-07): "I really like how it is split into those 4 quadrants with one test in each
 # quadrant so I can see all of them at once. If you are ever running more than 4 at once then resize them."
 # Every run without an explicit -Window claims a slot file in one directory shared by every checkout and worktree
@@ -242,6 +260,7 @@ foreach ($p in $stale) {
     Write-Host "Killing a leftover test client (pid $($p.ProcessId))"
     Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
 }
+Stop-TestServers "a leftover"
 
 # Not $args - that is an automatic variable in PowerShell and assigning to it is a parse-time surprise.
 $gradleArgs = @("runClientGameTest", "--console=plain")
@@ -328,6 +347,7 @@ if ($killedHung) {
     # Give Gradle a moment to notice its child died, then stop it too rather than leave it waiting.
     Start-Sleep -Seconds 5
     if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+    Stop-TestServers "the frozen run's"
     Write-Host "FROZEN - the client was closed automatically"
     Release-Slot
     exit 3
@@ -359,6 +379,7 @@ foreach ($p in Get-TestClients) {
     Write-Host "Cleaning up a test client that outlived the run (pid $($p.ProcessId))"
     Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
 }
+Stop-TestServers "an orphaned"
 Write-Host "Run finished with exit code $($proc.ExitCode)"
 Release-Slot
 exit $proc.ExitCode
