@@ -281,7 +281,9 @@ public class FairyIslandTests implements FabricClientGameTest {
             String startAt = System.getProperty("testkit.fairy.start", "");
             if (!startAt.isBlank()) {
                 String[] xyz = startAt.split(",");
-                server.command("tp @p " + xyz[0] + " " + xyz[1] + " " + xyz[2]);
+                // x,y,z or x,y,z,yaw,pitch
+                server.command("tp @p " + xyz[0] + " " + xyz[1] + " " + xyz[2]
+                        + (xyz.length >= 5 ? " " + xyz[3] + " " + xyz[4] : ""));
                 server.sync(30);
                 ctx.waitTicks(40);
                 scenario.log("started at " + startAt + " (-Pfairy.start)");
@@ -293,7 +295,22 @@ public class FairyIslandTests implements FabricClientGameTest {
             String replayFrom = System.getProperty("testkit.fairy.replay", "");
             List<String> recording = new ArrayList<>();
             List<String[]> replay = new ArrayList<>();
-            if (!replayFrom.isBlank()) {
+            // -Pfairy.keys=W,J (+ -Pfairy.keysTicks=N): no automation, the case holds those keys (W S A D J and SPR)
+            // with the look the start gave him, for N ticks - a human's plain held keys at the same spot.
+            String keysOnly = System.getProperty("testkit.fairy.keys", "");
+            if (!keysOnly.isBlank()) {
+                java.util.Set<String> held = new java.util.HashSet<>(List.of(keysOnly.toUpperCase(Locale.ROOT).split(",")));
+                float[] look = ctx.computeOnClient(mc -> new float[]{mc.player.getYRot(), mc.player.getXRot()});
+                String line = String.format(Locale.ROOT, "%s %s %s %s %s %s %.5f %.5f", held.contains("W") ? "1" : "0",
+                        held.contains("S") ? "1" : "0", held.contains("A") ? "1" : "0", held.contains("D") ? "1" : "0",
+                        held.contains("J") ? "1" : "0", held.contains("SPR") ? "1" : "0", look[0], look[1]);
+                int n = Integer.getInteger("testkit.fairy.keysTicks", 200);
+                for (int k = 0; k < n; k++) {
+                    replay.add(line.split(" "));
+                }
+                scenario.log("keys only: " + held + " for " + n + " ticks, look " + look[0] + " " + look[1]);
+                maxTicks = Math.min(maxTicks, n);
+            } else if (!replayFrom.isBlank()) {
                 try {
                     for (String l : Files.readAllLines(Path.of(replayFrom))) {
                         replay.add(l.split(" "));
