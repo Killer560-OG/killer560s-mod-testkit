@@ -276,6 +276,9 @@ $null = $proc.Handle
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 $hungPolls = 0
 $hungLimit = 8          # 8 polls x 2 s = ~16 s unresponsive before it counts as frozen
+# TESTKIT_HUNG_POLLS raises it: on a loaded machine a menu-session server start keeps the render thread parked in
+# the gametest API (the window reads Not Responding) for more than 16 s, and the client was killed mid-start (2026-11-01).
+if ($env:TESTKIT_HUNG_POLLS) { $hungLimit = [int]$env:TESTKIT_HUNG_POLLS }
 $killedHung = $false
 
 # Loop while EITHER the launcher is alive OR a test client exists.

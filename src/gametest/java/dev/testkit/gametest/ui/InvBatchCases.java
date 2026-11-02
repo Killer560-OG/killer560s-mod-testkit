@@ -743,7 +743,8 @@ final class InvBatchCases {
             // page, gave Look its own Custom Item page (the free-text Look box, Set and Clear Look are gone), made Copy
             // Look copy the selection's changes TO the next item clicked, renamed Remove to Clear Changes and dropped the
             // saved-looks list. Every control below is the new page's, clicked through the real input layer.
-            clickWidget(c, s, widget(c, s, "Custom Color"));
+            // "Customize Custom Color" / "Customize Custom Item" since mod doc-items-1101 (killer560's renames, 2026-11-01).
+            clickWidget(c, s, widget(c, s, "Customize Custom Color"));
             awaitScreen(c, "CustomColorScreen");
             Screen colour = screen(c); // rebuilds its widgets on every change; widget() reads them live
             clickWidget(c, colour, widget(c, colour, "Applies To"));
@@ -754,23 +755,21 @@ final class InvBatchCases {
             c.check(dyeOne[0] == 0xFF00FF00 && dyeOne[1] == 0xFF123456, "this-item color: " + Integer.toHexString(dyeOne[0])
                     + " / " + Integer.toHexString(dyeOne[1]));
 
-            // Use Color off and on.
-            clickWidget(c, colour, widget(c, colour, "Use Color"));
+            // Reset Color replaced Use Color (2026-11-01): it puts the item's own color back; the color is set again after.
+            clickWidget(c, colour, widget(c, colour, "Reset Color"));
             int off = dyes(c)[0];
-            clickWidget(c, colour, widget(c, colour, "Use Color"));
-            int on = dyes(c)[0];
-            c.check(off == 0xFF123456 && on == 0xFF00FF00, "Use Color off/on: " + Integer.toHexString(off) + "/" + Integer.toHexString(on));
-
-            // Armor Skin (a cycling button, left click steps forward): None -> Leather; the worn asset changes, the icon does not.
-            clickWidget(c, colour, widget(c, colour, "Skin"));
-            String asset = c.onClient(mc -> {
-                Equippable e = mc.player.getInventory().getItem(9).get(DataComponents.EQUIPPABLE);
-                return e == null ? "none" : e.assetId().map(Object::toString).orElse("none");
+            c.onClient(mc -> {
+                Mod.call(s, "setColour", 0xFF00FF00);
+                return null;
             });
-            String icon = c.onClient(mc -> String.valueOf(mc.player.getInventory().getItem(9).get(DataComponents.ITEM_MODEL)));
-            c.note("Armor Skin once: equippable asset " + asset + ", item model " + icon);
-            c.check(asset.contains("leather"), "Armor Skin did not set the leather asset: " + asset);
-            c.check(icon.equals("minecraft:leather_chestplate"), "the skin changed the inventory icon: " + icon);
+            int on = dyes(c)[0];
+            c.check(off == 0xFF123456 && on == 0xFF00FF00, "Reset Color / color again: " + Integer.toHexString(off) + "/"
+                    + Integer.toHexString(on));
+
+            // The armor-type Skin cycle is gone (2026-11-01): Skin is Hypixel item skins only, N/A for this test item.
+            String skinRow = ModScreenDriver.label(widget(c, colour, "Skin"));
+            c.note("Skin row: " + skinRow);
+            c.check(skinRow.equals("Skin: N/A"), "Skin row " + skinRow);
 
             clickWidget(c, colour, widget(c, colour, "Back"));
             awaitScreen(c, "CustomItemsScreen");
@@ -789,7 +788,7 @@ final class InvBatchCases {
             c.check(g9 > 40 && g10 < 5, "drawn color: slot 9 " + g9 + " green px, slot 10 " + g10);
 
             // Look from the Custom Item page: search, pick the Minecraft Trident, Apply to Selected.
-            clickWidget(c, s2, widget(c, s2, "Custom Item"));
+            clickWidget(c, s2, widget(c, s2, "Customize Custom Item"));
             awaitScreen(c, "CustomItemPickerScreen");
             Screen picker = screen(c);
             EditBox search = editBox(c, picker);

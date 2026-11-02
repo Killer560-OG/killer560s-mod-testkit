@@ -1346,3 +1346,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   free slot), Confirm Instant Buy over the reserve resized not clicked, Min Profit Per Cycle, Stop At Max Orders rounds; AH Price
   Copier (lbin - 1, then the price just listed at), AH Flipper [Open] /viewauction and the cheat macro (View#31, Confirm#11).
   Events run from the case start: a case that runs a session twice must slice sign.update by a base index.
+- 1101-menu-* (doc-items-1101, 2026-11-01): a "Rendering screen" crash inside a case leaves the client looping in
+  `runTick` without ever finishing a frame, so Session's failure screenshot then waits forever and the failure is never
+  printed; DocItems1101Cases prints each failure (and its causes) BEFORE rethrowing. On a loaded machine (9 clients) the
+  menu session's server start parked the render thread past the freeze watcher's 16 s twice and the client was killed
+  mid-start: `TESTKIT_HUNG_POLLS=45` gives it 90 s. A server left over from a killed run holds the port ("FAILED TO BIND"),
+  so kill it too. `TESTKIT_MENU_ONLY` (comma parts) picks menu cases; `-Scenario` alone runs the whole selected session.
