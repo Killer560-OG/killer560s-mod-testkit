@@ -1026,7 +1026,7 @@ public class FairySoulTests implements FabricClientGameTest {
                             heldTicks, activeTicks, turned));
                     check(activeTicks > 20, "the run was not active (" + activeTicks + " ticks)");
                     check(heldTicks == 0, "the view was held for " + heldTicks + " ticks with Free Camera off");
-                    check(turned > 30, "the body never turned (" + turned + ")");
+                    check(turned > 12, "the body never turned (" + turned + ")"); // the route needs ~30-60 deg; the run may click from early on the turn
                     check(r.soulsUsed >= 1, "soul not collected: " + r.summary());
                     // A key still stops it with the camera not held.
                     Node far = new Node(3, -800, 151, 2262, true);

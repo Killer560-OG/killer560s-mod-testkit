@@ -224,13 +224,23 @@ def build(name, file, key, dy, box):
                 put(x, lo["y"] - 1, z, "minecraft:stone", 2)
                 for yy in range(3):
                     air.add((x, lo["y"] + yy, z))
-        for yy in range(lo["y"] - 1, hi["y"]):
+        # The smoothed ground at the top can sit a block or two above the node: the cliff and the ladder go up to it, or
+        # the ladder ends below the ledge it should lead onto.
+        top = hi["y"]
+        for ox in (-1, 0, 1):
+            for oz in (-1, 0, 1):
+                for yy in range(hi["y"] + 2, hi["y"] - 2, -1):
+                    st = blocks.get((hi["x"] + ox, yy, hi["z"] + oz))
+                    if st is not None and any(k in st[0] for k in ("grass", "dirt", "stone", "soul_sand")):
+                        top = max(top, yy + 1)
+                        break
+        for yy in range(lo["y"] - 1, top):
             put(hi["x"], yy, hi["z"], "minecraft:stone", 8)
-        for yy in range(lo["y"], hi["y"]):
+        for yy in range(lo["y"], top):
             put(lx, yy, lz, "minecraft:ladder[facing=%s]" % v1.OPP[f], 9)
-        for yy in range(lo["y"], hi["y"] + 3):
+        for yy in range(lo["y"], top + 3):
             shaft.add((lx, yy, lz))
-        for yy in range(hi["y"], hi["y"] + 3):
+        for yy in range(top, top + 3):
             shaft.add((hi["x"], yy, hi["z"]))
 
     # 7. souls
@@ -293,7 +303,9 @@ def build(name, file, key, dy, box):
         if "ladder" in st:
             bx, bz = BACK[st.split("facing=")[1].rstrip("]")]
             sup = blocks.get((x + bx, y, z + bz))
-            if sup is None or not any(k in sup[0] for k in ("stone", "dirt", "grass", "planks", "cobble")):
+            if sup is not None and "ladder" in sup[0]:
+                continue  # backed by another ladder edge's ladder: never overwrite that one (it emptied its shaft)
+            if sup is None or not any(k in sup[0] for k in ("stone", "dirt", "grass", "planks", "cobble"))                     or "slab" in sup[0] or "stairs" in sup[0]:
                 blocks[(x + bx, y, z + bz)] = ("minecraft:stone", 9)
 
     attached = ("ladder", "door", "carpet", "snow", "fence", "water")
