@@ -120,7 +120,10 @@ final class MenuLayoutCases {
             "gui.tab.P3StatusTab",
             // Low Health Alert, Score Warning and Breaker Charges (Dungeon) and Secret Clicked (Dungeon > Secrets), mod
             // dungeon-alerts-1025, 2026-10-25; legit in both builds.
-            "gui.tab.LowHealthAlertTab", "gui.tab.ScoreWarningTab", "gui.tab.BreakerChargesTab", "gui.tab.SecretClickedTab");
+            "gui.tab.LowHealthAlertTab", "gui.tab.ScoreWarningTab", "gui.tab.BreakerChargesTab", "gui.tab.SecretClickedTab",
+            // Ban Reports (mod doc-ban-1101, to-do Doc "BAN LOGGER", 2026-11-01): Auto Report Bans, a Home section after
+            // his ordered cards, legit in both builds, OFF by default.
+            "gui.tab.BanReportTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.
