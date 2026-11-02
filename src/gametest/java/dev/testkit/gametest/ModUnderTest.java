@@ -208,6 +208,31 @@ public final class ModUnderTest {
         invoke(target, setter, boolean.class, value);
     }
 
+    /**
+     * {@link #set(Object, String, boolean)} for a setting a newer mod may have removed: false (and nothing set) when the
+     * setter does not exist. Mod gridexp-1102 removed Breaker Aura's Multi Break ({@code setBreakerAuraMultiBreak}).
+     */
+    public static boolean setIfPresent(Object target, String setter, boolean value) {
+        try {
+            target.getClass().getDeclaredMethod(setter, boolean.class);
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
+        set(target, setter, value);
+        return true;
+    }
+
+    /** Whether the mod still has Breaker Aura's Multi Break (removed in mod gridexp-1102: GrimAC MultiBreak). */
+    public static boolean hasMultiBreak() {
+        try {
+            config("com.killer560.hub.dungeonextras.DungeonExtrasConfig").getClass()
+                    .getDeclaredMethod("setBreakerAuraMultiBreak", boolean.class);
+            return true;
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
+    }
+
     public static void set(Object target, String setter, int value) {
         invoke(target, setter, int.class, value);
     }

@@ -280,7 +280,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ModUnderTest.set(map, "setEnabled", true);
             ModUnderTest.set(map, "setInteractiveMapEnabled", true);
             ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraEnabled", false);
-            ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
+            ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
         });
         Hx hx = s.hx();
         hx.call("dungeon.abilities", "enabled", true);
@@ -824,9 +824,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         arena(ctx, false);
         int[][] six = {{12, 0}, {13, 0}, {14, 0}, {12, 1}, {13, 1}, {14, 1}};
         StringBuilder notes = new StringBuilder();
+        // Mod gridexp-1102 removed Multi Break (GrimAC MultiBreak): one dig a tick, each aimed by a look the server already
+        // heard (a tick of turn before the first), so the node acts on its firing tick or the one after.
+        boolean hasMulti = ctx.computeOnClient(mc -> ModUnderTest.hasMultiBreak());
         try {
-            for (boolean multi : new boolean[]{true, false}) {
-                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", multi));
+            for (boolean multi : hasMulti ? new boolean[]{true, false} : new boolean[]{false}) {
+                ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", multi));
                 Map<int[], String> put = new LinkedHashMap<>();
                 JsonArray blocks = new JsonArray();
                 for (int[] b : six) {
@@ -862,12 +865,26 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 check(gone, "multi break " + multi + ": not all six snow blocks broke");
                 check(total == 6, "multi break " + multi + ": " + total + " player_action packets for six blocks");
                 check(multi ? most == 6 : most == 1, "multi break " + multi + ": " + most + " digs on one tick");
-                check(logHas(m, "DUNGEON_BREAKER acted 0 tick(s)"), "the breaker did not act on its firing tick");
+                check(logHas(m, "DUNGEON_BREAKER acted 0 tick(s)") || (!hasMulti && logHas(m, "DUNGEON_BREAKER acted 1 tick(s)")),
+                        "the breaker did not act on its firing tick" + (hasMulti ? "" : " or the one after"));
+                if (!hasMulti) {
+                    // One a tick, no tick wasted: six digs on six consecutive ticks after the first.
+                    int first = -1;
+                    int last = -1;
+                    for (int i = 0; i < s.size(); i++) {
+                        if (s.get(i).out().contains("player_action")) {
+                            first = first < 0 ? i : first;
+                            last = i;
+                        }
+                    }
+                    notes.append(String.format(Locale.ROOT, "digs spread over %d tick(s); ", last - first + 1));
+                    check(last - first + 1 <= 7, "six one-a-tick digs took " + (last - first + 1) + " ticks (want 6)");
+                }
                 tpRel(ctx, 13.5, 6.5, 0f, 0f);
                 ctx.waitTicks(5);
             }
         } finally {
-            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+            ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
         }
         c.note(notes.toString());
         noteFlags(c, List.of());
@@ -883,7 +900,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         resetRoutes(ctx);
         arena(ctx, false);
         int top = 7;
-        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+        ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
         Map<int[], String> put = new LinkedHashMap<>();
         JsonArray blocks = new JsonArray();
         for (int y = 0; y < top; y++) {
@@ -2843,7 +2860,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
         arena(ctx, false);
-        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+        ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
         int high = F + 6;
         setBlocks(ctx, Map.of(new int[]{14, high, 14}, "minecraft:snow_block"));
         JsonObject br = node("DUNGEON_BREAKER", 14, 14, 0f, -90f);

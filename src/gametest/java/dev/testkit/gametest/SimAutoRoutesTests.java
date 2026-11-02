@@ -268,7 +268,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             ModUnderTest.set(map, "setEnabled", true);
             ModUnderTest.set(map, "setInteractiveMapEnabled", true);
             ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraEnabled", false);
-            ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
+            ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
             // Default OFF, and every case that wants it turns it on and off itself; a scenario earlier in the client can
             // leave it on (147-sim-autosecret-lastsecret did, 2026-10-16), and then it clicks the cases' own chests.
             ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled");
@@ -704,9 +704,11 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         arena(ctx, false);
         giveHotbar(ctx);
         int[][] six = {{12, 0}, {13, 0}, {14, 0}, {12, 1}, {13, 1}, {14, 1}};
+        // Mod gridexp-1102 removed Multi Break (GrimAC MultiBreak): one dig a tick, the first after a tick of turn at most.
+        boolean hasMulti = ctx.computeOnClient(mc -> ModUnderTest.hasMultiBreak());
         try {
-            for (boolean multi : new boolean[]{true, false}) {
-                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", multi));
+            for (boolean multi : hasMulti ? new boolean[]{true, false} : new boolean[]{false}) {
+                ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", multi));
                 Map<int[], BlockState> put = new HashMap<>();
                 JsonArray blocks = new JsonArray();
                 for (int[] b : six) {
@@ -744,12 +746,13 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 check(gone, "multi break " + multi + ": not all six blocks broke");
                 check(total == 6, "multi break " + multi + ": " + total + " dig packets for six blocks");
                 check(multi ? most == 6 : most == 1, "multi break " + multi + ": " + most + " digs on one tick");
-                check(logHas(m, "DUNGEON_BREAKER acted 0 tick(s)"), "the breaker did not act on its firing tick");
+                check(logHas(m, "DUNGEON_BREAKER acted 0 tick(s)") || (!hasMulti && logHas(m, "DUNGEON_BREAKER acted 1 tick(s)")),
+                        "the breaker did not act on its firing tick" + (hasMulti ? "" : " or the one after"));
                 tpRel(ctx, 13.5, 6.5, 0f, 0f);
                 ctx.waitTicks(5);
             }
             // ---- fewer charges than blocks: a 17-block node first, then the six at once ----
-            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+            ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
             Map<int[], BlockState> put = new HashMap<>();
             JsonArray big = new JsonArray();
             for (int i = 0; i < 17; i++) {
@@ -807,14 +810,14 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             println("drained breaker: " + charges + " charge(s) read, " + total + " dig(s) sent for 6 blocks, at most "
                     + most + " on one tick");
             check(charges >= 0, "the second breaker node never fired");
-            check(total == 6 && most == 6, "charges " + charges + ": " + total + " digs, " + most
-                    + " on one tick - expected the six in one burst");
+            check(total == 6 && most == (hasMulti ? 6 : 1), "charges " + charges + ": " + total + " digs, " + most
+                    + " on one tick - expected the six " + (hasMulti ? "in one burst" : "one a tick"));
             if (charges < 6) {
                 check(logHas(m, "breaker charges (have"), "with " + charges + " charges there was no wait line");
             }
         } finally {
             ctx.runOnClient(mc -> {
-                ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
+                ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
                 ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true);
             });
         }
@@ -843,7 +846,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         giveHotbar(ctx);
         ctx.runOnClient(mc -> {
             ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", false);
-            ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
+            ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true);
         });
         // Own rows, clear of every other breaker case's regrowing blocks (z 12, 18, 22).
         int[][] rowA = {{19, 0, 25}, {20, 0, 25}, {21, 0, 25}, {19, 1, 25}, {20, 1, 25}, {21, 1, 25}};
@@ -1067,7 +1070,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         resetRoutes(ctx);
         arena(ctx, false);
         giveHotbar(ctx);
-        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+        ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
         int[][] six = {{12, 0}, {13, 0}, {14, 0}, {12, 1}, {13, 1}, {14, 1}};
         Map<int[], BlockState> put = new HashMap<>();
         JsonArray blocks = new JsonArray();
@@ -5624,7 +5627,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         giveHotbar(ctx);
         int top = 7;
         try {
-            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+            ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
             Map<int[], BlockState> put = new HashMap<>();
             JsonArray blocks = new JsonArray();
             for (int y = 0; y < top; y++) {
