@@ -133,6 +133,13 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   whole `*-ui-menu-*` UI group (~1 min); its 511-ui-menu-layout (AutoSprintTab) and 513-ui-menu-tooltips failed on mod
   main b01a1be7 itself (2026-11-02), not on any branch's change. A long menu run needs `-TimeoutSeconds` (default 240 s
   killed a 15-case run mid-way).
+- Since mod 8a39696d an Auto Routes item await counts only a pickup NAMED as a dungeon secret drop (`SecretSound`'s list;
+  `SimAutoRoutesTests.secretDrop` names it "Decoy"), and not one made after a click on a chest within 4.5 blocks - with
+  `AwaitEvents.chestClicks` kept for the whole world, so a chest an EARLIER 96-ar case clicked at the same frame spot made
+  the next case's item "come out of the chest" (uifix-1102). Call `forgetChestClicks(ctx)` before dropping one.
+- A menu change on purpose (tab merged, renamed, row hover rewritten) goes in `testkit-ui/menu-layout-merged.json`
+  (goneLeaves / newLeaves / tooltips with `to`, `renamed` or `gone`) and, for a tab whose rows moved into another,
+  `MenuLayoutCases.MERGED`; 412 and 513 read both. 511 stops at its first `check`, so fix and rerun until it is clean.
 - In a menu (Hx) session `PacketWatch.totalContainerClicks()` read 0 while the server logged nine container clicks
   (1101-menu-cover on the unfixed jar, 2026-11-02): judge menu clicks by `c.events("container.click")` only. The Hx chest
   menus also resync a clicked slot, so a real PICKUP there leaves nothing on the cursor; prove a click by the server record.
