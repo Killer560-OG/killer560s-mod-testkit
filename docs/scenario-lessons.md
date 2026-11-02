@@ -1366,3 +1366,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   fails "test server exited with code 0 before it was ready"). After a FROZEN run, find `runTestServer` java processes of
   your checkout and kill them. On a machine at 100% CPU the freeze watcher also kills healthy clients: the lockstep parks
   the render thread while a scenario's server starts, so set `TESTKIT_HUNG_SECONDS=120` (run-scenario.ps1) there.
+- **1102-fairy-grim-flowladder-* and the BAYOU_SPILL keys control (doc-fairy-1101, 2026-11-02).** Hand-built ladder up into
+  flowing water (-Pfairy.flowRuns=N, default 10): keys-only and walker 12/12 clean on both versions with experimental checks on.
+  It does NOT put him on the ladder INSIDE the current; the island stand-in `1101-fairy-island-BAYOU_SPILL` with
+  `-Pfairy.start=47.5,186.0,-5.5,-90,-28 -Pfairy.keys=W,A -Pfairy.keysTicks=120` does, and plain held keys draw GrimAC
+  Simulation .004667 every run there - Grim's ladder-in-current prediction, the control for any automation that climbs there.
+  The experimental-checks config was proven on with 1027-aafast-twoframes, which needs the filter
+  `500-boss-session-only,1027-aafast-twoframes` (a part containing the Session's name opens it; the case name selects the case).
+  Experimental NegativeTimer (-1.29 s) hit three fairy cases once on 26.2 at ~100% CPU and never on the reruns (machine stall).
