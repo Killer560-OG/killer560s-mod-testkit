@@ -127,7 +127,13 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 
 - A MenuSuite case (`menu/*Cases`, names like `1853-menu-...`) does NOT run from `-Scenario 1853-menu-...`: that filter
   reaches no session and reports only unrelated SKIP rows (2026-11-01). Run `-Scenario "-menu-"` with the environment
-  variable `TESTKIT_MENU_ONLY=1853-menu-swap,...` (MenuSuite.selected) to pick the cases.
+  variable `TESTKIT_MENU_ONLY=1853-menu-swap,...` (MenuSuite.selected) to pick the cases. That filter also runs the
+  whole `*-ui-menu-*` UI group (~1 min); its 511-ui-menu-layout (AutoSprintTab) and 513-ui-menu-tooltips failed on mod
+  main b01a1be7 itself (2026-11-02), not on any branch's change. A long menu run needs `-TimeoutSeconds` (default 240 s
+  killed a 15-case run mid-way).
+- In a menu (Hx) session `PacketWatch.totalContainerClicks()` read 0 while the server logged nine container clicks
+  (1101-menu-cover on the unfixed jar, 2026-11-02): judge menu clicks by `c.events("container.click")` only. The Hx chest
+  menus also resync a clicked slot, so a real PICKUP there leaves nothing on the cursor; prove a click by the server record.
 - Since mod layout-fixes-1026 `ModPaths.config(name)` no longer creates the folder: a case that writes a mod config path
   before the feature ever saved must `Files.createDirectories(p.getParent())` first (981 and six others did not, 2026-10-26).
   1026-layout-* (seed `fixtures/seed-layout-fixes-1026`) covers the layout; on an old jar 1026-layout-empty lists ~83 empty folders.
