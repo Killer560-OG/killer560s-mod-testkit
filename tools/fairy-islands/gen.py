@@ -306,9 +306,23 @@ def build(name, file, key, dy, box):
             continue
         if st.startswith("minecraft:oak_door") or "water" in st:
             continue
+        if w.b[c][1] >= 4:
+            continue  # a ladder's cliff: it holds the ladder up, so a corridor crossing it is blocked instead
         if c in w.parts and any(k in st for k in ("carpet", "snow", "slab", "stairs")):
             continue
         del w.b[c]
+
+    # every ladder hangs on a solid block (an unsupported one pops off the moment it is placed)
+    back = {"east": (-1, 0), "west": (1, 0), "south": (0, -1), "north": (0, 1)}
+    for (x, y, z), (st, _) in list(w.b.items()):
+        if "ladder" in st:
+            dx, dz = back[st.split("facing=")[1].rstrip("]")]
+            sup = w.get(x + dx, y, z + dz)
+            if sup is None or any(k in sup for k in ("ladder", "water", "carpet", "snow", "door", "fence", "slab", "stairs")):
+                if sup is not None and "ladder" in sup:
+                    del w.b[(x, y, z)]
+                else:
+                    w.b[(x + dx, y, z + dz)] = ("minecraft:stone", 9)
 
     attached = ("ladder", "door", "carpet", "snow", "fence", "water")
     first = [(p, s) for p, (s, _) in w.b.items() if not any(a in s for a in attached)]
