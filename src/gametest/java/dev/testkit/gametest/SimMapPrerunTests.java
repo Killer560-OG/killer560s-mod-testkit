@@ -39,8 +39,9 @@ import java.util.Map;
  *     the start tile, and NO prediction ever covered the Entrance tile.</li>
  * <li>1101-map-prerun-start: the countdown runs out (GO, the stand-in map arrives). Pass: within 3 ticks no prediction
  *     covers a tile the map shows opened, and the first room is still named right.</li>
- * <li>1101-map-seethrough: rooms A, B, C in a straight line through two doors; A and C opened, B not. From A, 3 blocks
- *     short of the A-B doorway, looking through B into C. Pass: B is named right within 40 ticks.</li>
+ * <li>1101-map-seethrough: every set of rooms A, B, C in a straight line through two open doors (up to 10 middles); only A
+ *     opened. From A, 3 blocks short of the A-B doorway, looking through B into C. Pass: every B is named right within 40
+ *     ticks, and nothing is named wrong.</li>
  * <li>1101-map-predicted-gray: with a Hypixel-style map item (Entrance opened, the first room an unopened gray room), a
  *     fresh glance names the first room; the Dungeon Map HUD draws that name in #8A8A8A, grayer than the #AAAAAA of a
  *     room he has entered.</li>
@@ -300,83 +301,110 @@ public class SimMapPrerunTests implements FabricClientGameTest {
 
     private void seeThrough(ClientGameTestContext ctx, Floor f) {
         Report.caseStarted(R_SEE);
-        // A, B, C in a straight line: door A-B and door B-C on the same axis through one-tile B.
-        int[] pick = null;
+        // Every A, B, C in a straight line: from door A-B along its axis through B's tiles (and B's own connectors) to a
+        // door B-C. Only A is opened - he stands in it - so B and C are both rooms he has not been in, as on Hypixel when
+        // he looks through the room ahead into the one beyond it.
+        List<int[]> lines = new ArrayList<>();
         for (Map.Entry<Integer, int[]> e1 : f.doorRooms.entrySet()) {
-            for (int side = 0; side < 2 && pick == null; side++) {
+            for (int side = 0; side < 2; side++) {
                 int a = e1.getValue()[side];
                 int b = e1.getValue()[1 - side];
-                if (f.tiles.get(b).length != 1 || b == f.blood || b == f.entrance || a == f.blood) {
+                if (b == f.blood || b == f.entrance || a == f.blood) {
                     continue;
                 }
                 int d1 = e1.getKey();
-                int bt = f.tiles.get(b)[0];
-                int across = 2 * bt - d1; // the door cell on B's far side, in line with d1
-                if (across < 0 || across >= 121 || !f.doorRooms.containsKey(across)) {
+                int step = d1 % 11 % 2 == 1 ? (f.roomAt(d1 + 1) == b ? 1 : -1) : (f.roomAt(d1 + 11) == b ? 11 : -11);
+                int cell = d1 + step;
+                int across = -1;
+                while (cell >= 0 && cell < 121 && f.roomAt(cell) == b) {
+                    int next = cell + step;
+                    if (next < 0 || next >= 121 || Math.abs((next % 11) - (cell % 11)) > 1) {
+                        break;
+                    }
+                    if (f.doorRooms.containsKey(next)) {
+                        across = next;
+                        break;
+                    }
+                    cell = next;
+                }
+                if (across < 0) {
                     continue;
                 }
                 int[] cd = f.doorRooms.get(across);
                 int c = cd[0] == b ? cd[1] : cd[0];
-                if (c == a || c == f.blood) {
+                if (c == a || c == f.blood || c == f.entrance) {
                     continue;
                 }
+                final int dd = across;
                 boolean open = ctx.computeOnClient(mc -> mc.level.getBlockState(f.doorBlock(d1)).isAir()
-                        && mc.level.getBlockState(f.doorBlock(across)).isAir());
+                        && mc.level.getBlockState(f.doorBlock(dd)).isAir());
                 if (open) {
-                    pick = new int[]{a, b, c, d1, across};
+                    lines.add(new int[]{a, b, c, d1, across});
                 }
             }
-            if (pick != null) {
-                break;
-            }
         }
-        if (pick == null) {
+        if (lines.isEmpty()) {
             row(R_SEE, false, "premise: no three rooms in a line through two open doors on this floor");
             return;
         }
-        int a = pick[0];
-        int b = pick[1];
-        int c = pick[2];
-        println("see-through: " + f.names.get(a) + " -> " + f.names.get(b) + " -> " + f.names.get(c));
-        ctx.runOnClient(mc -> {
-            ModUnderTest.staticCall(HELD, "resetSimVisits");
-            ModUnderTest.staticCall(HELD, "simVisit", new Class<?>[]{int.class}, new Object[]{a});
-            ModUnderTest.staticCall(HELD, "simVisit", new Class<?>[]{int.class}, new Object[]{c});
-            ModUnderTest.staticCall(PREDICTOR, "reset");
-        });
-        double[] dc = f.doorCentre(pick[3]);
-        double[] dc2 = f.doorCentre(pick[4]);
-        double[] u = f.toward(a, pick[3]);
-        Watch w = new Watch(f, -1, b);
-        place(ctx, new double[]{dc[0] - u[0] * 3, dc[1] + 0.2, dc[2] - u[1] * 3},
-                new double[]{dc2[0] + u[0] * 12, dc2[1] + 1.0, dc2[2] + u[1] * 12});
-        int namedC = -1;
-        for (int t = 1; t <= 40; t++) {
-            ctx.waitTick();
-            w.sample(ctx);
-            int tc = f.tiles.get(c)[0];
-            String pc = ctx.computeOnClient(mc -> {
-                Object p = ModUnderTest.staticCall(PREDICTOR, "predictionFor", new Class<?>[]{int.class}, new Object[]{tc});
-                return p == null ? null : (String) inv(p, "name");
-            });
-            if (namedC < 0 && pc != null) {
-                namedC = t;
+        int tried = 0;
+        int named = 0;
+        List<String> notNamed = new ArrayList<>();
+        List<String> wrong = new ArrayList<>();
+        java.util.Set<Integer> middles = new java.util.HashSet<>();
+        for (int[] pick : lines) {
+            if (tried >= 10 || !middles.add(pick[1])) {
+                continue;
             }
-            if (w.namedAt >= 0 && t >= w.namedAt + 2) {
-                break;
+            tried++;
+            int a = pick[0];
+            int b = pick[1];
+            int c = pick[2];
+            ctx.runOnClient(mc -> {
+                ModUnderTest.staticCall(HELD, "resetSimVisits");
+                ModUnderTest.staticCall(HELD, "simVisit", new Class<?>[]{int.class}, new Object[]{a});
+                ModUnderTest.staticCall(PREDICTOR, "reset");
+            });
+            double[] dc = f.doorCentre(pick[3]);
+            double[] dc2 = f.doorCentre(pick[4]);
+            double[] u = f.toward(a, pick[3]);
+            Watch w = new Watch(f, -1, b);
+            Watch wc = new Watch(f, -1, c);
+            place(ctx, new double[]{dc[0] - u[0] * 3, dc[1] + 0.2, dc[2] - u[1] * 3},
+                    new double[]{dc2[0] + u[0] * 12, dc2[1] + 1.0, dc2[2] + u[1] * 12});
+            for (int t = 1; t <= 40; t++) {
+                ctx.waitTick();
+                w.sample(ctx);
+                wc.sample(ctx);
+                if (w.namedAt >= 0 && wc.namedAt >= 0) {
+                    break;
+                }
+            }
+            int bt = f.tiles.get(b)[0];
+            Object[] why = ctx.computeOnClient(mc -> new Object[]{
+                    ModUnderTest.staticCall(PREDICTOR, "evidence", new Class<?>[]{int.class}, new Object[]{bt}),
+                    ModUnderTest.staticCall(PREDICTOR, "standing", new Class<?>[]{int.class}, new Object[]{bt}),
+                    ModUnderTest.staticCall(HELD, "roomState", new Class<?>[]{int.class}, new Object[]{bt})});
+            List<?> standing = (List<?>) why[1];
+            String line = f.names.get(a) + " -> " + f.names.get(b) + " (" + f.tiles.get(b).length + " tile(s)) -> "
+                    + f.names.get(c) + ": middle named at tick " + w.namedAt + ", beyond at tick " + wc.namedAt + " (middle: map state "
+                    + why[2] + ", " + why[0] + " block(s) seen, " + standing.size() + " placement(s) standing"
+                    + (standing.isEmpty() ? "" : ", e.g. " + standing.subList(0, Math.min(3, standing.size()))) + ")";
+            println("see-through " + line);
+            if (w.namedAt >= 0) {
+                named++;
+            } else {
+                notNamed.add(line);
+            }
+            if (w.wrong != null) {
+                wrong.add(w.wrong);
+            }
+            if (wc.wrong != null) {
+                wrong.add(wc.wrong);
             }
         }
-        int bt = f.tiles.get(b)[0];
-        Object[] why = ctx.computeOnClient(mc -> new Object[]{
-                ModUnderTest.staticCall(PREDICTOR, "evidence", new Class<?>[]{int.class}, new Object[]{bt}),
-                ModUnderTest.staticCall(PREDICTOR, "standing", new Class<?>[]{int.class}, new Object[]{bt}),
-                ModUnderTest.staticCall(HELD, "roomState", new Class<?>[]{int.class}, new Object[]{bt})});
-        List<?> standing = (List<?>) why[1];
-        row(R_SEE, w.namedAt >= 0 && w.wrong == null, f.names.get(b) + " (between " + f.names.get(a) + " and "
-                + f.names.get(c) + ") named at tick " + w.namedAt + " (map state " + why[2] + ", " + why[0]
-                + " block(s) seen, " + standing.size() + " placement(s) standing"
-                + (standing.isEmpty() ? "" : ", e.g. " + standing.subList(0, Math.min(3, standing.size()))) + "); "
-                + f.names.get(c) + " (beyond) predicted at tick " + namedC + (w.wrong == null ? "" : "; WRONG: " + w.wrong));
+        row(R_SEE, named == tried && wrong.isEmpty(), named + " of " + tried + " middle room(s) named right"
+                + (notNamed.isEmpty() ? "" : "; not named: " + notNamed) + (wrong.isEmpty() ? "" : "; WRONG: " + wrong));
     }
 
     // ------------------------------------------------------------------------------------------------- gray name

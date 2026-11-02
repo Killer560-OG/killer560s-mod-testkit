@@ -200,10 +200,19 @@ public class SimMapDoorColorTests implements FabricClientGameTest {
         Integer fairyDoor = at(fills, gapCentre(o, 2, 1, false), false);
         Integer witherDoor = at(fills, gapCentre(o, 2, 1, true), false);
         int amber = amberNear(fills, gapCentre(o, 2, 1, true), o[2]);
-        ctx.runOnClient(mc -> Mod.set(MAP, "setWitherDoorOutline", true));
+        boolean hasSetting = ctx.computeOnClient(mc -> {
+            try {
+                Mod.set(MAP, "setWitherDoorOutline", true);
+                return true;
+            } catch (AssertionError oldJar) {
+                return false;
+            }
+        });
         ctx.waitTicks(2);
-        int amberOn = amberNear(SimMapItemTests.allFills(ctx), gapCentre(o, 2, 1, true), o[2]);
-        ctx.runOnClient(mc -> Mod.set(MAP, "setWitherDoorOutline", false));
+        int amberOn = hasSetting ? amberNear(SimMapItemTests.allFills(ctx), gapCentre(o, 2, 1, true), o[2]) : -1;
+        if (hasSetting) {
+            ctx.runOnClient(mc -> Mod.set(MAP, "setWitherDoorOutline", false));
+        }
         String detail = String.format(Locale.ROOT, "Andesite %s, Cell %s, their door %s; New Trap|Fairy door %s (want "
                         + "the Fairy room's %s); wither door %s (want #FF000000) with %d amber outline part(s), %d with Wither Door Outline "
                         + "ON; outline default %s; doors present %s/%s/%s",
