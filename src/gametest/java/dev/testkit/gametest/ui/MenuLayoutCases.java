@@ -123,7 +123,10 @@ final class MenuLayoutCases {
             "gui.tab.LowHealthAlertTab", "gui.tab.ScoreWarningTab", "gui.tab.BreakerChargesTab", "gui.tab.SecretClickedTab",
             // Ban Reports (mod doc-ban-1101, to-do Doc "BAN LOGGER", 2026-11-01): Auto Report Bans, a Home section after
             // his ordered cards, legit in both builds, OFF by default.
-            "gui.tab.BanReportTab");
+            "gui.tab.BanReportTab",
+            // To-do Doc items of 2026-11-01 (mod doc-extras-1101), legit in both builds: Creation Cooldown and Insta Clear
+            // Warning (Dungeons), Gyrokinetic Wand Overlay (Items), Chat Tabs (Chat).
+            "gui.tab.CreationCooldownTab", "gui.tab.InstaClearWarningTab", "gui.tab.GyroOverlayTab", "gui.tab.ChatTabsTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.
