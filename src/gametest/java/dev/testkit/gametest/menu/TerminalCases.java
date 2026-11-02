@@ -404,6 +404,11 @@ final class TerminalCases {
             c.check(maxPerTick <= 1, "more than one terminal click in a server tick: " + maxPerTick);
             c.check(after == 0, after + " click(s) arrived after the server solved and closed the terminal");
             if (!spec.type().equals("RUBIX")) {
+                for (JsonObject e : c.events("terminal.click")) {
+                    if (e.has("correct") && !e.get("correct").getAsBoolean()) {
+                        c.note("wrong click (the server's view): " + e);
+                    }
+                }
                 c.check(wrong == 0, "the server rejected " + wrong + " auto click(s): " + solved);
             }
         } finally {
@@ -472,9 +477,11 @@ final class TerminalCases {
                     .set(CONFIG, "AutoStreamSafe", true).set(CONFIG, "FakeCursorSpeed", 100)
                     .set(CONFIG, "MelodySkipMode", Mod.enumValue(CONFIG + "$MelodySkipMode", "EDGES"))
                     .set(CONFIG, "MelodyLookaheadClicks", 2);
+            int edgeFired = 0;
             for (int target = 1; target <= 5; target++) {
                 boolean edge = target == 1 || target == 5;
                 int before = c.onClient(mc -> (Integer) Mod.field(FEATURE, "melodyLookaheadFired"));
+                int droppedBefore = c.onClient(mc -> lookaheadDropped());
                 int clickHead = c.events("terminal.click").size();
                 int solvedHead = c.events("terminal.solved").size();
                 JsonObject t = c.hx().call("menu.terminal", "type", "MELODY", "seed", 60 + target, "interval", 6,
@@ -483,6 +490,7 @@ final class TerminalCases {
                 c.waitUntil("Melody (target " + target + ") solved", mc -> c.events("terminal.solved").size() > solvedHead, 1200);
                 MenuKit.awaitNoScreen(c, 40);
                 int fired = c.onClient(mc -> (Integer) Mod.field(FEATURE, "melodyLookaheadFired")) - before;
+                int dropped = c.onClient(mc -> lookaheadDropped()) - droppedBefore;
                 List<JsonObject> all = c.events("terminal.click");
                 List<JsonObject> clicks = all.subList(clickHead, all.size());
                 Map<Integer, Integer> per = new java.util.TreeMap<>();
@@ -493,16 +501,22 @@ final class TerminalCases {
                     ticks.add(e.get("tick").getAsLong());
                     if (!e.get("correct").getAsBoolean()) {
                         wrong++;
+                        c.note("wrong click (the server's view): " + e);
                     }
                 }
-                c.note("target slot " + target + (edge ? " (edge)" : " (middle)") + ": " + fired + " lookahead click(s); per"
+                c.note("target slot " + target + (edge ? " (edge)" : " (middle)") + ": " + fired + " lookahead click(s), "
+                        + dropped + " dropped as too late; per"
                         + " slot " + per + " at server ticks " + ticks + "; " + wrong + " wrong");
                 c.check(per.equals(Map.of(16, 1, 25, 1, 34, 1)), "target " + target + ": expected one click on each row"
                         + " button, got " + per);
                 c.check(wrong == 0, "target " + target + ": " + wrong + " wrong click(s)");
                 if (edge) {
-                    c.check(fired == 2, "target " + target + " is an edge slot: lookahead 2 should send 2 extra clicks"
-                            + " after row 1's proper click, sent " + fired);
+                    // Since mod ownerq-1102 6168d1736+ a lookahead click that would reach the server after its pane
+                    // stepped is DROPPED (a sure wrong click; the Stream Safe hand can be that slow) and live play takes
+                    // the row: the burst queues 2, and each is sent or dropped.
+                    c.check(fired + dropped == 2, "target " + target + " is an edge slot: lookahead 2 should queue 2 extra"
+                            + " clicks after row 1's proper click, sent " + fired + " and dropped " + dropped);
+                    edgeFired += fired;
                 } else {
                     // Played normally: no lookahead click, and every row's click was correct on the server, which only
                     // counts a click made while the moving pane sat on the target - the live match, row by row. (With
@@ -512,8 +526,18 @@ final class TerminalCases {
                             + " whatever the lookahead, sent " + fired);
                 }
             }
+            c.check(edgeFired > 0, "no lookahead click was sent on either edge board - the burst was never proved");
         } finally {
             MenuKit.reset(c);
+        }
+    }
+
+    /** TerminalSolverFeature.melodyLookaheadDropped, 0 on a jar without it. */
+    static int lookaheadDropped() {
+        try {
+            return (Integer) Mod.field(FEATURE, "melodyLookaheadDropped");
+        } catch (AssertionError | RuntimeException e) {
+            return 0;
         }
     }
 
