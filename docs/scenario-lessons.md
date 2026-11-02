@@ -1294,3 +1294,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   150 ms Latency case, before any click (g2 1027-aafast-cpt1-300); the rerun was clean. It is the Latency teardown, not a feature.
   Frames Per Tick on experimental checks: Grim cancels the flagged second-frame clicks, the mod resends after its 1 s
   pending timeout, and the device still solves (76 sent, 40 reached, fpt15).
+- 1101-menu-* (`menu/DocEtable1101Cases`, mod doc-etable-1101): E-Table resume by hand (real mouse clicks after an Escape
+  stop mid-Ultrasequencer), the Superpairs Overview on a fixed board, and `macrostop/MacroStop`'s rule driven through the
+  real key handlers with two test macros it registers by reflection. Run with `-Scenario "200-menu-session:,1101-menu"`.
+  Observed 2026-11-01 under a 9-client machine load: the FIRST Auto E-Table case of a session (223 on main a4eecd33, 224
+  or 1101-resume on the branch) can time out waiting for its game to end while later ones pass - a session warm-up issue
+  on main too, not the branch; rerun before blaming the mod. A run the freeze watcher closed (FROZEN while the test server
+  was still starting) can leave its `runTestServer` java alive and the next run's server exits "before it was ready":
+  kill that PID (command line holds this checkout's path and runTestServer) first.
