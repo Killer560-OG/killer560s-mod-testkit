@@ -1352,3 +1352,13 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   menu session's server start parked the render thread past the freeze watcher's 16 s twice and the client was killed
   mid-start: `TESTKIT_HUNG_POLLS=45` gives it 90 s. A server left over from a killed run holds the port ("FAILED TO BIND"),
   so kill it too. `TESTKIT_MENU_ONLY` (comma parts) picks menu cases; `-Scenario` alone runs the whole selected session.
+
+- **1101-ui-textbox-enter** (mod textbox-1101): walks every menu drawer twice (as opened, then with each allowed OFF switch
+  on), plus the mod screens that open with no network side effect, types through the real keyboard and presses the real
+  Enter, then requires the mod-wide `CommitEditBox.commitCount` to go up and the value to be on disk under
+  `config/killer560` (a profile is a FOLDER named after it, so match the relative path; a number counts only in a changed
+  non-.log settings file, since the stutter log changes on its own and "2.00" is saved as 2.0). It snapshots and restores
+  every config file and calls `ProfileManager.reloadAllConfigs` afterwards. That is NOT enough for Streamer Mode: it
+  loads once and no reload resets it, so switching it on hid every cheat tab from 944's search after this case (first
+  run, 2026-11-02); the walk never switches it. The 26.2 UI client froze once in the end-of-run disconnect (integrated
+  server halt vs gametest `postRunTasks`) after every case had written its log: read `cases/*.log`, summary.md is missing.
