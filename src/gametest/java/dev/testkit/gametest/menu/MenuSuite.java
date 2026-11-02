@@ -223,6 +223,7 @@ public class MenuSuite implements FabricClientGameTest {
                     // 906 croesus-page-leak (2026-10-24): page 2 never takes page 1's runs ----
                     CroesusTrackCases.register(s);
                     Solver1018Cases.register(s); // 1018-*: the 2026-10-18 solver-sound batch
+                    DocItems1101Cases.register(s); // 1101-menu-*: Custom Items, name color/shadow, Witherborn, Mod User Tag
                     // ---- 898 croesus-colors (2026-10-12): run states distinct by color (deltaE, CVD) and marks ----
                     CroesusColorCases.register(s);
                     // ---- 903-905 croesus-colors2 (2026-10-13): a run's chest view - free claim green, key chest orange ----
