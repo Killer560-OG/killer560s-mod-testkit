@@ -127,13 +127,13 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 
 ## Quirks and lessons
 
-- A client session made of FairyIslandTests island runs (each places ~18,000 blocks and runs about 1.3 minutes) draws a
-  steady experimental GrimAC `NegativeTimer* -1.3 s`, 20 lines a second, once it passes about 9.5 minutes, in whatever run
-  is going at that point. All six such sessions on 2026-11-02 did: 9.5 to 10.1 minutes from the first join, on 26.3 and
-  26.2, jars m10/m11/m13, whether that was the 7th or the 8th run. The 29-minute fairy suite sessions (mixed small cases)
-  never drew it, so the cause is not session length alone; it is not known. It is the harness, not the mod. For an
-  experimental-checks verdict, keep island sessions under about 9 minutes (five island runs), or rerun the one that was
-  going in a fresh session.
+- A client session that passes about 9.5 minutes OFTEN draws a steady experimental GrimAC `NegativeTimer* -1.3 s`
+  (20 lines a second while the scenario runs), in whatever scenario is going at that point. 2026-11-02: all six fairy
+  island sessions did, 9.5 to 10.1 minutes from the first join; one 29-minute fairy suite did too, at 9.6 minutes in
+  1017-fairy-turning. Other 29-minute suites did not. It happened on 26.3 and 26.2 and on jars m10-m14, whether that was the
+  7th or the 8th scenario. It is the harness, not the mod; the cause is not known. For an experimental-checks verdict,
+  keep a session under about 9 minutes (five island runs, seven arrival scenarios), or rerun the scenario that drew it in
+  a fresh short session.
 - 1017-fairy-water (and every FairySoulTests recovery case) used to start the walker 20 ticks after the spawn, while he was
   still dropping into the pool. Once on 26.2 that drew GrimAC Simulation .020 x0.8 at t0, before any key was pressed. Since
   2026-11-02 the case waits until he has been on the ground (the pool floor counts) for 5 ticks running, up to 120 ticks.
