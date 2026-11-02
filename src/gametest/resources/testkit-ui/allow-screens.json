@@ -56,6 +56,10 @@
     {"class": "imagepreview.ImageViewerScreen", "why": "Image Preview's viewer needs a hovered chat link's resolved pictures (a package-private Entry), and opens only by a middle click on one; testkit 1077-imgprev-imgur opens it for real and steps it"},
     {"class": "peekchat.PeekChatScreen", "why": "read-only chat history: in the empty smoke world it has no lines to draw, so it draws nothing by design (testkit 1314 drives it with real chat)"},
     {"class": "accounts.gui.AccountProxyConfigScreen", "why": "needs a real PrismAccount (accounts/gui/AccountProxyConfigScreen.java:24); the accounts store is the empty fixture"},
-    {"class": "autoroutes.AutoRoutesEditScreen", "why": "needs a Route and RouteNode of the dungeon room the player stands in (autoroutes/AutoRoutesCommands.java:390 refuses to open it otherwise)"}
+    {"class": "autoroutes.AutoRoutesEditScreen", "why": "needs a Route and RouteNode of the dungeon room the player stands in (autoroutes/AutoRoutesCommands.java:390 refuses to open it otherwise)"},
+    {"class": "bosssim.BossStartScreen", "why": "mod doc-adm-boss-1101: the F7 boss sim start menu (/simboss); SimBossTests 1101-boss-* open and run it"},
+    {"class": "intro.IntroScreen", "why": "mod intro-1101: the first-launch tour, opened over the title screen; IntroSuite 1101-ui-intro-* drive every scene"},
+    {"class": "invsort.SortingInventoryScreen", "why": "mod doc-invsort-1101: wraps a real container menu (needs an open inventory); 1101-invsort-* drive it"},
+    {"class": "luck.LuckScreen", "why": "mod doc-rng-1101: /luck reads the shared luck store; HxLuckCases 1101-luck-* open it and check its rows"}
   ]
 }
