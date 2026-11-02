@@ -62,7 +62,7 @@ public class FairyGrimTests implements FabricClientGameTest {
     }
 
     /**
-     * 1102-fairy-arrival: the walker from a standstill 5-10 blocks from a soul on flat ground, W+sprint up to it and the stop
+     * 1102-fairy-arrival: the walker from a standstill 11-17 blocks from a soul on flat ground, W+sprint up to it and the stop
      * where the soul comes in reach - the stop BAYOU_SPILL's soul 3 drew Simulation .046 decaying x0.546 plus SprintE* on
      * (twice in ~50). Repeated -Pfairy.arrivals times from varied distances and headings; every arrival must collect the
      * soul, sprint must have been on during the approach, and GrimAC (experimental checks on) must stay silent. The last
@@ -72,8 +72,8 @@ public class FairyGrimTests implements FabricClientGameTest {
         int x0 = X0 + 60;
         int z0 = Z0 + 260;
         Scenario.runExpectingFlags(ctx, "1102-fairy-arrival", (server, scenario) -> TestMap.on(server)
-                        .floor(x0 - 16, 150, z0 - 16, x0 + 16, z0 + 16)
-                        .fill(x0 - 16, 151, z0 - 16, x0 + 16, 156, z0 + 16, "air")
+                        .floor(x0 - 22, 150, z0 - 22, x0 + 22, z0 + 22)
+                        .fill(x0 - 22, 151, z0 - 22, x0 + 22, 156, z0 + 22, "air")
                         .survival().surface(151).spawn(x0 + 0.5, z0 + 0.5, 0f).build(),
                 (server, scenario) -> {
                     java.util.Random rnd = new java.util.Random(Long.getLong("testkit.fairy.arrivalSeed", System.nanoTime()));
@@ -82,7 +82,7 @@ public class FairyGrimTests implements FabricClientGameTest {
                     int sprintAtStops = 0;
                     List<Integer> flagsAfter = new ArrayList<>();
                     for (int run = 0; run < arrivals(); run++) {
-                        double dist = 5 + rnd.nextDouble() * 5;
+                        double dist = 11 + rnd.nextDouble() * 6;
                         double ang = rnd.nextDouble() * Math.PI * 2;
                         int sx = x0 + (int) Math.round(Math.cos(ang) * dist);
                         int sz = z0 + (int) Math.round(Math.sin(ang) * dist);
