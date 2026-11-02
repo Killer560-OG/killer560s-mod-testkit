@@ -1,12 +1,9 @@
 package dev.testkit.gametest.ui;
 
 import dev.testkit.compat.McCompat;
-import dev.testkit.gametest.LogTap;
 import dev.testkit.gametest.mod.Mod;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.input.MouseButtonInfo;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,9 +17,9 @@ import java.util.List;
  *       /ew, /leaporder and /killer560 (with bugreport and leaporder) still are.</li>
  *   <li>1101-cmdclean-reach: every feature a removed command reached still works without it. Both jars: the Profiles tab
  *       saves a profile and offers Load, Export and Delete for it, and /runlog opens the run log. Cheat jars: the Auto
- *       Clear tab has the Clear Toggle Key and a Bat Test button whose press reaches the bat test (it refuses outside a
- *       dungeon, logged); the Insta Clear rows print the evidence and answer a mark, and Known After saves and reloads;
- *       the Freeze State key action freezes and resumes the player; the Blink Hold key holds and releases.</li>
+ *       Clear tab has the Clear Toggle Key and Auto Secret Key rows, and NO Bat Test or Insta Clear rows (killer560: "why do
+ *       i need a bat test? autosecret had its own keybind already"; the BatTest class is gone); the Freeze State key action
+ *       freezes and resumes the player; the Blink Hold key holds and releases.</li>
  * </ul>
  */
 final class CmdClean1101Cases {
@@ -119,67 +116,32 @@ final class CmdClean1101Cases {
         });
     }
 
-    /** /autoclear, /test, /autosecret: the Auto Clear tab's rows. */
+    /** /autoclear and /autosecret: the Auto Clear tab keeps its keys; /test and the Insta Clear readout are gone with
+     *  no rows in their place (killer560, 2026-11-01). */
     private static void autoClearTab(UiCase c) {
         String cfg = "autoclear.AutoClearConfig";
         boolean was = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(cfg), "isEnabledRaw"));
-        int threshold = c.onClient(mc -> (Integer) Mod.staticCall("autosecret.InstaClearTracker", "minSuccesses"));
         try {
             c.onClient(mc -> {
                 Mod.set(cfg, "setEnabled", true);
                 return null;
             });
-            List<AbstractWidget> ws = c.onClient(mc -> build("gui.tab.AutoClearTab"));
-            List<String> rows = c.onClient(mc -> labels(ws));
+            List<String> rows = c.onClient(mc -> labels(build("gui.tab.AutoClearTab")));
             c.note("Auto Clear tab rows: " + rows);
             c.check(rows.stream().anyMatch(r -> r.startsWith("Clear Toggle Key:")), "no Clear Toggle Key row (starts Auto Clear)");
-            for (String want : List.of("Insta Clear Evidence", "Last Insta Clear Entry", "Mark Last Insta",
-                    "Mark Last Not Insta", "Mark Last Ignore", "Mark Last Measured")) {
-                c.check(rows.contains(want), "no \"" + want + "\" row");
+            c.check(rows.stream().anyMatch(r -> r.startsWith("Auto Secret Key:")), "no Auto Secret Key row (starts Auto Secret)");
+            c.check(rows.stream().anyMatch(r -> r.startsWith("Mob Timeout:")), "Auto Clear's section was not built");
+            for (String gone : List.of("Bat Test", "Insta Clear Evidence", "Last Insta Clear Entry", "Known After",
+                    "Clear Window", "Mark Last")) {
+                c.check(rows.stream().noneMatch(r -> r.startsWith(gone)), "the Auto Clear tab still has a \"" + gone + "\" row");
             }
-            c.check(rows.stream().anyMatch(r -> r.startsWith("Known After:")), "no Known After slider");
-            c.check(rows.stream().anyMatch(r -> r.startsWith("Clear Window:")), "no Clear Window slider");
-
-            // Bat Test: the press reaches BatTest.start, which refuses here (a flat world is no dungeon) and says why.
-            long mark = LogTap.mark();
-            boolean clicked = click(c, find(ws, "Bat Test:"));
-            c.ticks(3);
-            boolean running = c.onClient(mc -> (Boolean) Mod.staticCall("autoclear.BatTest", "isRunning"));
-            List<String> bat = grep(LogTap.since(mark), "[BatTest] refused");
-            c.note("Bat Test press: clicked " + clicked + ", running " + running + ", log " + bat);
-            c.check(clicked, "the Bat Test row took no click");
-            c.check(!bat.isEmpty(), "the Bat Test press never reached the bat test (no [BatTest] refused line)");
-            c.check(!running, "the bat test started outside a dungeon");
-
-            // Insta Clear: the evidence and a mark answer in chat.
-            mark = LogTap.mark();
-            click(c, find(ws, "Insta Clear Evidence"));
-            click(c, find(ws, "Mark Last Insta"));
-            c.ticks(3);
-            List<String> log = LogTap.since(mark);
-            List<String> evidence = grep(log, "entr(ies) recorded");
-            List<String> marked = new ArrayList<>(grep(log, "to mark"));
-            marked.addAll(grep(log, "Marked the last entry"));
-            c.note("Insta Clear Evidence -> " + evidence + "; Mark Last Insta -> " + marked);
-            c.check(!evidence.isEmpty(), "Insta Clear Evidence printed nothing");
-            c.check(!marked.isEmpty(), "Mark Last Insta printed nothing");
-
-            // Known After: what the slider applies, saved and read back as a restart would.
-            int back = c.onClient(mc -> {
-                Mod.staticCall("autosecret.InstaClearTracker", "setMinSuccesses", threshold == 7 ? 6 : 7);
-                Mod.staticCall("autosecret.InstaClearTracker", "saveSettings");
-                Mod.staticCall("autosecret.InstaClearTracker", "testReload");
-                return (Integer) Mod.staticCall("autosecret.InstaClearTracker", "minSuccesses");
-            });
-            c.note("Known After " + threshold + " -> " + back + " after save and reload");
-            c.check(back == (threshold == 7 ? 6 : 7), "Known After did not survive a reload: " + back);
+            c.check(!Mod.has("autoclear.BatTest"), "autoclear.BatTest is still in the jar");
+            int threshold = c.onClient(mc -> (Integer) Mod.staticCall("autosecret.InstaClearTracker", "minSuccesses"));
+            c.note("Insta Clear threshold (no UI): " + threshold);
+            c.check(threshold == 2, "the Insta Clear threshold is " + threshold + ", not its default 2");
         } finally {
             c.onClient(mc -> {
-                Mod.staticCall("autosecret.InstaClearTracker", "testSetMinSuccesses", threshold);
                 Mod.set(cfg, "setEnabled", was);
-                if ((Boolean) Mod.staticCall("autoclear.BatTest", "isRunning")) {
-                    Mod.staticCall("autoclear.BatTest", "toggleFromMenu");
-                }
                 return null;
             });
         }
@@ -287,35 +249,6 @@ final class CmdClean1101Cases {
         List<String> out = new ArrayList<>();
         for (AbstractWidget w : ws) {
             out.add(ModScreenDriver.label(w));
-        }
-        return out;
-    }
-
-    private static AbstractWidget find(List<AbstractWidget> ws, String prefix) {
-        for (AbstractWidget w : ws) {
-            if (ModScreenDriver.label(w).startsWith(prefix)) {
-                return w;
-            }
-        }
-        throw new AssertionError("no row starting \"" + prefix + "\"");
-    }
-
-    private static boolean click(UiCase c, AbstractWidget w) {
-        return c.onClient(mc -> {
-            double x = w.getX() + w.getWidth() / 2.0;
-            double y = w.getY() + w.getHeight() / 2.0;
-            boolean took = w.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
-            w.mouseReleased(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)));
-            return took;
-        });
-    }
-
-    private static List<String> grep(List<String> lines, String needle) {
-        List<String> out = new ArrayList<>();
-        for (String l : lines) {
-            if (l.contains(needle)) {
-                out.add(l);
-            }
         }
         return out;
     }
