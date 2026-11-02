@@ -465,3 +465,9 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
   and 26.2, same cases on the ship-1101d control): MultiBreak* (breaker), PacketOrderE* / DuplicateRotPlace* (mimic, breakerwarp),
   RotationBreak* (26.2 boom), BadPacketsH* (AP3 boom) and BadPacketsV* (AP3 shot). Compare against a control jar before
   blaming a branch. Reports in killer560s-mod-logs/ship1101e-*-report.
+- A client can sit at the title screen for an hour with no test output: the gametest Test thread parked in
+  `ThreadingImpl.enterPhase` (Phaser) and the Render thread in `Minecraft.postRunTasks` (Semaphore), a startup deadlock the
+  freeze watcher did not catch with TESTKIT_HUNG_POLLS=60 (ship1101e zpew 26.3, 2026-11-02). If a run's client log has no
+  `[STDOUT]` line a few minutes after "Room library", jstack it; on that pair kill the client's PID and rerun.
+- The ZPEW campaign (`1027-zpew`) takes well over 40 minutes per version under load: a 2400 s deadline cut 26.2 off at
+  1027-zpewc-sources with no report. Give it `-TimeoutSeconds 9000`.
