@@ -454,3 +454,14 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
 - `run-suite.ps1 -Suite ui` needs `-TimeoutSeconds 3600`: the default 1200 s deadline is shorter than the UI suite
   (~27 min on 26.3), and its "Deadline passed - the run is hung" kills a healthy run at about case 897 with no report
   (2026-11-01, both versions at once).
+- The ZPEW campaign (`1027-zpewc-,1025-zpew-,1027-zpew-worksfor,1027-zpewmt-,1027-zpewlk-,1102-zpew-ecancel`, 39 cases) takes
+  well over an hour on a loaded machine (~1.6 min a case), longer than a 3600 s deadline: split it in two runs (zpewc/1025/
+  worksfor, then zpewmt/zpewlk/ecancel). With nine clients up, clients froze at world changes and the watcher closed them,
+  leaving the checkout's server on its port (zpew2-1101, 2026-11-02); kill `<checkout>\build\loom-cache\argFiles\runTestServer`
+  java before the next entry.
+- `HxAbilities` treats a carpet as passable since zpew2-1101, like the mod's TeleportUtils since doc-routes-1101 (Hypixel's 1.8
+  feet list); before, 1027-zpewc-shapes-* failed "carpet: MISPREDICT (err 1.414)" at every latency on any jar with that change.
+- With experimental checks on, Blink Charge's kept teleport (a server tp while banking) once drew `BadPacketsV*` (a still
+  position packet within 19 ticks of the last, no teleport in the tick before) with no ZPEW action at all (1102-zpew-ecancel,
+  26.3, first run; the rerun drew none). That is Blink's owner-accepted kept-teleport flag; 1102-zpew-ecancel accepts only
+  that check once Blink is on, and nothing before it.
