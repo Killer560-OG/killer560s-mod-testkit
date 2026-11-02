@@ -400,6 +400,10 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
   the checkout name in the command line; `[\/]` patterns missed it) before rerunning. A freeze-killed client leaves its
   server holding the port too: the next run on that `-Port` fails "Anticheat test server exited with code 0 before it was
   ready" (FAILED TO BIND TO PORT in run/testserver/logs/latest.log) - kill the orphan or pick another port (doc-rng-1101).
+- The mod reads two slayer completion lines within 5 s as one boss (SLAYER QUEST COMPLETE + NICE! SLAYER BOSS SLAIN), so a
+  case killing several bosses waits 5.5 s between them, or the second kill is silently the first one's (luck2-1101).
+  `ChatObserver` also drops a chat line repeated within 250 ms: two identical `hx().chat` lines back to back reach the
+  mod once.
 - To run only some cases of a Session suite, the filter needs a part that CONTAINS the session's name but is not in the
   case names, plus the case parts: `-Scenario "1101-luck,100-hx-session:"`. `-Scenario 1101-luck` alone selects no session
   and the run "passes" with 0 cases (doc-rng-1101; Session.selection/caseSelected).
