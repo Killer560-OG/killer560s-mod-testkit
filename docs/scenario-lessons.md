@@ -1312,3 +1312,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   feature acted (chat lines kept, hook counter, layers played, names replaced, beam core draws). A hand-item hook test must
   hold an item and turn SkyblockGate off. 806 alone takes ~150 s: give run-scenario -TimeoutSeconds 1200 when 806 or a
   menu session (200-menu-session pulls in many menu cases) is in the filter; the 240 s default kills the run.
+
+- 2026-11-01 (doors263-1101): a 26.3 client sat at the title screen for 30 min with the test thread never started, and
+  run-scenario's `-TimeoutSeconds 1200` did not end it; kill the client by its PID (`taskkill //PID <pid> //T //F`) and rerun.
+  The rerun passed its premise normally. Also: 538/678 and 1491's door-helpers premise had failed for weeks for reasons
+  unrelated to the version being tested - before blaming a port, find the case's last PASS in killer560s-mod-logs.
