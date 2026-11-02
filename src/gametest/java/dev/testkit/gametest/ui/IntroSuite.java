@@ -58,7 +58,7 @@ public class IntroSuite implements FabricClientGameTest {
     static final String[] CASES = {"1101-ui-intro-first-show", "1101-ui-intro-nav", "1101-ui-intro-skip",
             "1101-ui-intro-theme", "1101-ui-intro-variant", "1101-ui-intro-banlogs", "1101-ui-intro-once",
             "1101-ui-intro-sizes", "1101-ui-intro-anim", "1101-ui-intro-autoupdate", "1101-ui-intro-mouth",
-            "1101-ui-intro-facing", "1101-ui-intro-still", "1101-ui-intro-timebox"};
+            "1101-ui-intro-facing", "1101-ui-intro-still", "1101-ui-intro-timebox", "1101-ui-intro-grid"};
     static final String INTRO = "intro.IntroScreen";
 
     @Override
@@ -92,6 +92,7 @@ public class IntroSuite implements FabricClientGameTest {
         UiCase.run(ctx, "1101-ui-intro-facing", IntroSuite::facingCase);
         UiCase.run(ctx, "1101-ui-intro-still", IntroSuite::stillCase);
         UiCase.run(ctx, "1101-ui-intro-timebox", IntroSuite::timeBoxCase);
+        UiCase.run(ctx, "1101-ui-intro-grid", IntroSuite::gridCase);
     }
 
     // ---- helpers ---------------------------------------------------------------------------------------------------
@@ -464,6 +465,90 @@ public class IntroSuite implements FabricClientGameTest {
 
     static String mainMenu(UiCase c) {
         return c.onClient(mc -> String.valueOf(Mod.call(Mod.cfg("mainmenu.MainMenuThemeConfig"), "getSceneMode")));
+    }
+
+    /**
+     * The chips are a clean grid (killer560, 2026-11-02): in every line all chips have the same width, the gaps are all
+     * the same, the first chip starts at the content's left edge and the last ends at its right edge (so every line,
+     * and the bubble's text, share both edges), and every label fits inside its chip with room to spare. Null when so.
+     */
+    @SuppressWarnings("unchecked")
+    static String gridProblem(UiCase c) {
+        return c.onClient(mc -> {
+            Screen s = McCompat.screen(mc);
+            if (!isIntro(s)) {
+                return "no tour on screen";
+            }
+            List<List<int[]>> rows = (List<List<int[]>>) Mod.call(s, "chipRows");
+            int[] edges = (int[]) Mod.call(s, "contentEdges");
+            List<String> bad = new ArrayList<>();
+            for (int r = 0; r < rows.size(); r++) {
+                List<int[]> row = rows.get(r);
+                int w0 = row.get(0)[2];
+                int gap = -1;
+                for (int i = 0; i < row.size(); i++) {
+                    int[] chip = row.get(i);
+                    if (chip[2] != w0) {
+                        bad.add("line " + r + " chip " + i + " is " + chip[2] + " wide, chip 0 " + w0);
+                    }
+                    if (chip[4] + 8 > chip[2]) {
+                        bad.add("line " + r + " chip " + i + " text " + chip[4] + " does not fit in " + chip[2]);
+                    }
+                    if (i > 0) {
+                        int g = chip[0] - (row.get(i - 1)[0] + row.get(i - 1)[2]);
+                        if (gap < 0) {
+                            gap = g;
+                        } else if (g != gap) {
+                            bad.add("line " + r + " gaps " + gap + " and " + g);
+                        }
+                    }
+                }
+                int left = row.get(0)[0];
+                int[] last = row.get(row.size() - 1);
+                int right = last[0] + last[2];
+                if (left != edges[0] || right != edges[1]) {
+                    bad.add("line " + r + " spans " + left + ".." + right + ", content " + edges[0] + ".." + edges[1]);
+                }
+            }
+            return bad.isEmpty() ? null : String.join("; ", bad);
+        });
+    }
+
+    /** Every chip scene at 1920x1080 GUI 2: the grid rule holds and the lines are photographed. */
+    static void gridCase(UiCase c) {
+        int[] win0 = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight(),
+                mc.options.guiScale().get()});
+        FontsMainMenuSuite.setWindow(c, 1920, 1080, 2);
+        try {
+            open(c);
+            int count = c.onClient(mc -> (Integer) Mod.call(McCompat.screen(mc), "sceneCount"));
+            int checked = 0;
+            for (int i = 0; i < count; i++) {
+                settle(c);
+                String sc = scene(c);
+                @SuppressWarnings("unchecked")
+                List<List<int[]>> rows = c.onClient(mc -> (List<List<int[]>>) Mod.call(McCompat.screen(mc), "chipRows"));
+                if (!rows.isEmpty()) {
+                    checked++;
+                    StringBuilder d = new StringBuilder();
+                    for (List<int[]> row : rows) {
+                        d.append(" [");
+                        for (int[] ch : row) {
+                            d.append(ch[0]).append('+').append(ch[2]).append(' ');
+                        }
+                        d.append(']');
+                    }
+                    c.note(sc + " chip lines:" + d);
+                    String grid = gridProblem(c);
+                    c.check(grid == null, sc + ": " + grid);
+                    shot(c, "grid-" + sc.toLowerCase(Locale.ROOT));
+                }
+                advance(c, i == count - 1);
+            }
+            c.check(checked >= 3, "only " + checked + " scenes had chips");
+        } finally {
+            FontsMainMenuSuite.setWindow(c, win0[0], win0[1], win0[2]);
+        }
     }
 
     static int countNear(Path png, int rgb, int tol) {
@@ -1009,6 +1094,10 @@ public class IntroSuite implements FabricClientGameTest {
                     });
                     if (why != null) {
                         c.problem(sz[0] + "x" + sz[1] + " GUI " + sz[2] + " " + sc + ": " + why);
+                    }
+                    String grid = gridProblem(c);
+                    if (grid != null) {
+                        c.problem(sz[0] + "x" + sz[1] + " GUI " + sz[2] + " " + sc + " chips: " + grid);
                     }
                     if (sz[2] == 1 && sz[0] == 854 || sz[0] == 2560 && sz[2] == 4) {
                         if (sc.equals("THEME") || sc.equals("WELCOME")) {
