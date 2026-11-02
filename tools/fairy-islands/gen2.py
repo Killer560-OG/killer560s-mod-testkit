@@ -166,6 +166,7 @@ def build(name, file, key, dy, box):
 
     # 5. per-edge features on the centerline
     crowds = []
+    pools = []
     for e in edges:
         cls = e["class"]
         if cls in ("ladder", "plain", "carpet", "snow", "path", "soul_sand") or cls.startswith("ramp_"):
@@ -194,12 +195,15 @@ def build(name, file, key, dy, box):
             put(cx, lv, cz, "minecraft:oak_door[facing=%s,half=lower,hinge=left,open=true]" % f, 5)
             put(cx, lv + 1, cz, "minecraft:oak_door[facing=%s,half=upper,hinge=left,open=true]" % f, 5)
         elif cls == "water":
+            pool = []
             for (cx, cz) in cols[mid - 1:mid + 2]:
                 for k in range(-2, 3):
                     x, z = cx + side[0][0] * k, cz + side[0][1] * k
                     put(x, lv - 3, z, "minecraft:stone", 3)
                     put(x, lv - 2, z, "minecraft:water", 6)
                     put(x, lv - 1, z, "minecraft:water", 6)
+                    pool.append((x, lv, z))
+            pools.append(pool)
         elif cls in ("tunnel", "low_tunnel"):
             ceil = 3 if cls == "tunnel" else 2
             for (cx, cz) in cols[1:-1]:
@@ -249,6 +253,41 @@ def build(name, file, key, dy, box):
         st = blocks.get(c)
         if st is not None and "ladder" not in st[0]:
             del blocks[c]
+    # Still water only: a pool any of whose water has open air beside or under it would spill and keep flowing (Bayou's
+    # v2 pool spilled past a ladder and the walker swam in the current); such a pool becomes ground instead.
+    def solid_or_water(c):
+        st = blocks.get(c)
+        return st is not None and "ladder" not in st[0] and "door" not in st[0] and "fence" not in st[0] \
+            and "carpet" not in st[0] and "snow" not in st[0]
+
+    spilled = 0
+    for pool in pools:
+        cells = set()
+        for (x, lv, z) in pool:
+            cells.add((x, lv - 2, z))
+            cells.add((x, lv - 1, z))
+        # a stone rim wherever the pool's water has open air beside or under it (ground level, so it stays walkable)
+        for (x, y, z) in list(cells):
+            for (dx, dy, dz) in ((1, 0, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1), (0, -1, 0)):
+                c = (x + dx, y + dy, z + dz)
+                if c not in cells and c not in blocks:
+                    blocks[c] = ('minecraft:stone', 6)
+        leaks = False
+        for (x, y, z) in cells:
+            if (x, y, z) not in blocks or "water" not in blocks[(x, y, z)][0]:
+                leaks = True
+                break
+            for (dx, dy, dz) in ((1, 0, 0), (-1, 0, 0), (0, 0, 1), (0, 0, -1), (0, -1, 0)):
+                if not solid_or_water((x + dx, y + dy, z + dz)):
+                    leaks = True
+                    break
+            if leaks:
+                break
+        if leaks:
+            spilled += 1
+            for (x, y, z) in cells:
+                if (x, y, z) in blocks and "water" in blocks[(x, y, z)][0]:
+                    blocks[(x, y, z)] = ("minecraft:grass_block" if (x, y + 1, z) not in cells else "minecraft:dirt", 6)
     # every ladder on a solid backing block
     for (x, y, z), (st, _) in list(blocks.items()):
         if "ladder" in st:
@@ -291,7 +330,8 @@ def build(name, file, key, dy, box):
     counts = defaultdict(int)
     for e in edges:
         counts[e["class"]] += 1
-    print(name, "nodes", len(nodes), "souls", len(souls), "blocks", len(lines), "walk cells", len(walk), dict(counts))
+    print(name, "nodes", len(nodes), "souls", len(souls), "blocks", len(lines), "walk cells", len(walk), "pools",
+          len(pools), "of them filled in", spilled)
 
 
 if __name__ == "__main__":
