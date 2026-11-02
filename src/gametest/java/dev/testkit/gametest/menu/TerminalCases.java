@@ -68,6 +68,7 @@ final class TerminalCases {
         // (220-229 are the experiment cases.)
         MenuSuite.test(s, "290-menu-term-melody-keys3", c -> layoutCase(c, MELODY_3, () -> melodyKeys(c)));
         MenuSuite.test(s, "291-menu-term-melody3-skip-all", TerminalCases::melodySkipAll);
+        MenuSuite.test(s, "292-menu-term-melody3-skip-edges", TerminalCases::melodySkipEdges);
     }
 
     interface Body {
@@ -403,6 +404,11 @@ final class TerminalCases {
             c.check(maxPerTick <= 1, "more than one terminal click in a server tick: " + maxPerTick);
             c.check(after == 0, after + " click(s) arrived after the server solved and closed the terminal");
             if (!spec.type().equals("RUBIX")) {
+                for (JsonObject e : c.events("terminal.click")) {
+                    if (e.has("correct") && !e.get("correct").getAsBoolean()) {
+                        c.note("wrong click (the server's view): " + e);
+                    }
+                }
                 c.check(wrong == 0, "the server rejected " + wrong + " auto click(s): " + solved);
             }
         } finally {
@@ -445,6 +451,93 @@ final class TerminalCases {
                     + " per server tick");
         } finally {
             MenuKit.reset(c);
+        }
+    }
+
+    // ---- 292 Auto Melody skip mode EDGES, lookahead 2, Stream Safe, on a 3-row board ------------------------------
+
+    /**
+     * killer560's own config (2026-11-02: Melody Skip Mode EDGES, Lookahead 2, Stream Safe on) and his answer "EDGES means
+     * only the first and last slot". Five boards, one per target slot (1-5), each with {@code keepTarget} so a burst's
+     * gamble is a winning one and every row has the same target. A target on the FIRST or LAST slot (1, 5): the proper
+     * click on row 1 is followed by exactly 2 lookahead clicks (the whole 3-row board). A target on a MIDDLE slot (2, 3, 4):
+     * no lookahead click at all, whatever the lookahead - each row is played on its own match. Judged by the mod's own
+     * lookahead counter and the SERVER's click record: one correct click per row button and none wrong. Before mod ownerq-1102
+     * EDGES meant the first or last ROW, so every target slot burst the whole board from row 1.
+     */
+    static void melodySkipEdges(Session c) throws Exception {
+        MenuKit.reset(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto Melody is cheat-only; nothing to burst");
+            return;
+        }
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutoTerminalsEnabled", true).set(CONFIG, "AutoMelodyEnabled", true)
+                    .set(CONFIG, "HoverTerminalsEnabled", false).set(CONFIG, "HoldToClickEnabled", false)
+                    .set(CONFIG, "AutoStreamSafe", true).set(CONFIG, "FakeCursorSpeed", 100)
+                    .set(CONFIG, "MelodySkipMode", Mod.enumValue(CONFIG + "$MelodySkipMode", "EDGES"))
+                    .set(CONFIG, "MelodyLookaheadClicks", 2);
+            int edgeFired = 0;
+            for (int target = 1; target <= 5; target++) {
+                boolean edge = target == 1 || target == 5;
+                int before = c.onClient(mc -> (Integer) Mod.field(FEATURE, "melodyLookaheadFired"));
+                int droppedBefore = c.onClient(mc -> lookaheadDropped());
+                int clickHead = c.events("terminal.click").size();
+                int solvedHead = c.events("terminal.solved").size();
+                JsonObject t = c.hx().call("menu.terminal", "type", "MELODY", "seed", 60 + target, "interval", 6,
+                        "bandRows", 3, "target", target, "keepTarget", true).getAsJsonObject();
+                MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
+                c.waitUntil("Melody (target " + target + ") solved", mc -> c.events("terminal.solved").size() > solvedHead, 1200);
+                MenuKit.awaitNoScreen(c, 40);
+                int fired = c.onClient(mc -> (Integer) Mod.field(FEATURE, "melodyLookaheadFired")) - before;
+                int dropped = c.onClient(mc -> lookaheadDropped()) - droppedBefore;
+                List<JsonObject> all = c.events("terminal.click");
+                List<JsonObject> clicks = all.subList(clickHead, all.size());
+                Map<Integer, Integer> per = new java.util.TreeMap<>();
+                List<Long> ticks = new ArrayList<>();
+                int wrong = 0;
+                for (JsonObject e : clicks) {
+                    per.merge(e.get("slot").getAsInt(), 1, Integer::sum);
+                    ticks.add(e.get("tick").getAsLong());
+                    if (!e.get("correct").getAsBoolean()) {
+                        wrong++;
+                        c.note("wrong click (the server's view): " + e);
+                    }
+                }
+                c.note("target slot " + target + (edge ? " (edge)" : " (middle)") + ": " + fired + " lookahead click(s), "
+                        + dropped + " dropped as too late; per"
+                        + " slot " + per + " at server ticks " + ticks + "; " + wrong + " wrong");
+                c.check(per.equals(Map.of(16, 1, 25, 1, 34, 1)), "target " + target + ": expected one click on each row"
+                        + " button, got " + per);
+                c.check(wrong == 0, "target " + target + ": " + wrong + " wrong click(s)");
+                if (edge) {
+                    // Since mod ownerq-1102 6168d1736+ a lookahead click that would reach the server after its pane
+                    // stepped is DROPPED (a sure wrong click; the Stream Safe hand can be that slow) and live play takes
+                    // the row: the burst queues 2, and each is sent or dropped.
+                    c.check(fired + dropped == 2, "target " + target + " is an edge slot: lookahead 2 should queue 2 extra"
+                            + " clicks after row 1's proper click, sent " + fired + " and dropped " + dropped);
+                    edgeFired += fired;
+                } else {
+                    // Played normally: no lookahead click, and every row's click was correct on the server, which only
+                    // counts a click made while the moving pane sat on the target - the live match, row by row. (With
+                    // keepTarget the pane stays on the target column when a row is done, so the next row's live match
+                    // comes at once; timing cannot tell it from a burst, the counter does.)
+                    c.check(fired == 0, "target " + target + " is a middle slot: EDGES must send no lookahead click"
+                            + " whatever the lookahead, sent " + fired);
+                }
+            }
+            c.check(edgeFired > 0, "no lookahead click was sent on either edge board - the burst was never proved");
+        } finally {
+            MenuKit.reset(c);
+        }
+    }
+
+    /** TerminalSolverFeature.melodyLookaheadDropped, 0 on a jar without it. */
+    static int lookaheadDropped() {
+        try {
+            return (Integer) Mod.field(FEATURE, "melodyLookaheadDropped");
+        } catch (AssertionError | RuntimeException e) {
+            return 0;
         }
     }
 

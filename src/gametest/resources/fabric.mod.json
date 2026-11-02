@@ -96,6 +96,8 @@
 			"dev.testkit.gametest.SimPathLandTests",
 			"dev.testkit.gametest.SimIcePathShoveTests",
 			"dev.testkit.gametest.SimSmoothTeleportTests",
+			"dev.testkit.gametest.SimEtherwarpCarpetTests",
+			"dev.testkit.gametest.SimEtherwarpCarpetRoomTests",
 			"dev.testkit.gametest.SimInteractiveMapTests",
 			"dev.testkit.gametest.SimMapHudTests",
 			"dev.testkit.gametest.SimMapItemTests",

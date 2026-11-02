@@ -122,6 +122,10 @@ final class HxTerminals {
         int melodyLime = 1;
         int melodyDir = 1;
         long melodyLastMove;
+        /** Wall time of the last pane step, and the wall time between the last two steps: a step gap far under
+         *  interval x 50 ms is the server running ticks back to back to catch up after a stall ("Can't keep up"). */
+        long melodyLastMoveNanos;
+        long melodyPrevStepGapMs = -1;
         /** {@code keepDone}: a finished row keeps its lime pane where it was clicked and its lime terracotta, the
          *  board shape Odin's MelodyHandler copes with by taking the LAST lime pane / lime terracotta (indexOfLast,
          *  javap Odin 0.3.1). Off = every row is redrawn (TermismPracticeScreen / Odin's MelodySim). */
@@ -154,6 +158,9 @@ final class HxTerminals {
                 return;
             }
             melodyLastMove = now;
+            long wall = System.nanoTime();
+            melodyPrevStepGapMs = melodyLastMoveNanos == 0 ? -1 : (wall - melodyLastMoveNanos) / 1_000_000L;
+            melodyLastMoveNanos = wall;
             melodyLime += melodyDir;
             if (melodyLime == 1 || melodyLime == 5) {
                 melodyDir *= -1;
@@ -643,6 +650,14 @@ final class HxTerminals {
         e.addProperty("input", input.name());
         e.addProperty("before", before);
         e.addProperty("correct", correct);
+        if (t.type == Type.MELODY) {
+            // The server's own view at the click, so a wrong Melody click can be told from a server stall.
+            e.addProperty("lime", t.melodyLime);
+            e.addProperty("target", t.melodyTarget);
+            e.addProperty("melodyRow", t.melodyRow);
+            e.addProperty("msSinceStep", t.melodyLastMoveNanos == 0 ? -1 : (System.nanoTime() - t.melodyLastMoveNanos) / 1_000_000L);
+            e.addProperty("prevStepGapMs", t.melodyPrevStepGapMs);
+        }
         HxEvents.custom("terminal.click", player, e);
         if (isSolved(t, menu)) {
             t.solved = true;
