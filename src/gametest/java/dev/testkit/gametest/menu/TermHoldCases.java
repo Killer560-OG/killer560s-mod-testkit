@@ -244,6 +244,7 @@ final class TermHoldCases {
             int got = c.onClient(mc -> (Integer) Mod.get(CONFIG, "getMelodyLookaheadClicks"));
             c.check(got == n, "lookahead set to " + n + " reads back " + got);
             int before = c.onClient(mc -> (Integer) Mod.field(FEATURE, "melodyLookaheadFired"));
+            int droppedBefore = c.onClient(mc -> TerminalCases.lookaheadDropped());
             // keepTarget: the target column stays put, so the gamble the burst makes is a winning one here. Target 1, the
             // track's FIRST slot: Skip Mode EDGES bursts only from the first or last slot (killer560, 2026-11-02; until
             // mod ownerq-1102 it meant the first or last row and this case used the middle slot, 3).
@@ -253,6 +254,7 @@ final class TermHoldCases {
             JsonObject solved = MenuKit.awaitEvent(c, "terminal.solved", 400);
             MenuKit.awaitNoScreen(c, 40);
             int fired = c.onClient(mc -> (Integer) Mod.field(FEATURE, "melodyLookaheadFired")) - before;
+            int dropped = c.onClient(mc -> TerminalCases.lookaheadDropped()) - droppedBefore;
             Map<Integer, Integer> per = clicksPerSlot(c);
             List<Long> ticks = new ArrayList<>();
             for (JsonObject e : clicks(c)) {
@@ -260,7 +262,9 @@ final class TermHoldCases {
             }
             c.note("Lookahead " + n + ": " + fired + " lookahead click(s) after the proper one; per slot " + per + " at ticks "
                     + ticks + "; " + solved.get("wrong") + " wrong, max " + solved.get("maxClicksPerTick") + " a server tick");
-            c.check(fired == n, "lookahead " + n + " should send " + n + " extra click(s) (" + (n + 1) + " in the burst), sent " + fired);
+            // A lookahead click that would land after the pane stepped is dropped (mod ownerq-1102), never sent wrong.
+            c.check(fired + dropped == n && (n == 0 || fired > 0), "lookahead " + n + " should send " + n + " extra click(s) ("
+                    + (n + 1) + " in the burst), sent " + fired + ", dropped as too late " + dropped);
             c.check(per.equals(Map.of(16, 1, 25, 1, 34, 1)), "expected one click on each row button, got " + per);
             c.check(solved.get("wrong").getAsInt() == 0, solved.get("wrong") + " wrong click(s)");
         } finally {
