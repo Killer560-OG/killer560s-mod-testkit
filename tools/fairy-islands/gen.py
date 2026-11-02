@@ -170,6 +170,9 @@ def build(name, file, key, dy, box):
                 cls = "ladder"
             elif rise == 0 or len(cols) < 4:
                 cls = CLASSES_FLAT[seed % len(CLASSES_FLAT)]
+                if rise != 0 and cls in ("low_tunnel", "door", "water"):
+                    # a 2-high tunnel over a step cannot be jumped, and a door or pool needs a flat stretch
+                    cls = "tunnel" if cls == "low_tunnel" else "plain"
             else:
                 cls = "ramp_" + STEP_STYLES[seed % len(STEP_STYLES)]
             width = 1 if cls in ("fence_lane", "door", "narrow") else 3

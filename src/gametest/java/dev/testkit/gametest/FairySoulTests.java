@@ -310,7 +310,13 @@ public class FairySoulTests implements FabricClientGameTest {
     }
 
     private static int walkerInt(ClientGameTestContext ctx, String getter) {
-        return ctx.computeOnClient(mc -> (Integer) Mod.staticCall(WALKER, getter));
+        return ctx.computeOnClient(mc -> {
+            try {
+                return (Integer) Mod.staticCall(WALKER, getter);
+            } catch (AssertionError | RuntimeException missing) {
+                return 0; // a jar from before the counter (the before-the-fix runs)
+            }
+        });
     }
 
     private static int alarms(ClientGameTestContext ctx) {
