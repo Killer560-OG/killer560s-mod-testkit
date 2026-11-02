@@ -99,6 +99,13 @@ final class TermismStreamSafeCases {
         long openedMs = System.currentTimeMillis();
         c.ctx().waitTicks(2);
         int need = c.onClient(mc -> needed(s, k.type()));
+        if (k.type().equals("STARTS_WITH") || k.type().equals("SELECT")) {
+            // The solver must see every match the board counts, or the board can never be finished.
+            int remaining = c.onClient(mc -> i(s, "remainingMatches"));
+            if (remaining != need) {
+                problems.add("the board counts " + remaining + " matches but the solver highlights " + need);
+            }
+        }
         double[] center = c.onClient(mc -> new double[]{mc.getWindow().getWidth() / 2.0, mc.getWindow().getHeight() / 2.0});
         boolean sawShowing = false;
         int ticks = 0;
