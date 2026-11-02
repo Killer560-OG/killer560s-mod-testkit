@@ -136,7 +136,10 @@ final class MenuLayoutCases {
             // Croesus / Chest Profit is "Croesus" since mod hud-key-2 (2026-10-12); its Auto rows are in Auto Croesus.
             "Croesus / Chest Profit", "Croesus");
     /** Tabs merged into another since the fixture: old leaf class -> the class that now holds its rows. */
-    static final Map<String, String> MERGED = Map.of("gui.tab.CommandShortcutsTab", "gui.tab.CommandKeybindsTab");
+    static final Map<String, String> MERGED = Map.of("gui.tab.CommandShortcutsTab", "gui.tab.CommandKeybindsTab",
+            // The Secrets HUD is a section of the one Secret tab (mod doc-auto-1101, killer560 2026-11-01); 511 lists it
+            // in goneLeaves, 412 (whose New fixture had it) finds its rows there.
+            "gui.tab.DungeonInfoTab", "gui.tab.SecretTab");
     private static final Pattern COMBINED = Pattern.compile(".*(, | & ).*");
     /**
      * What the branches merged with this change (mod 3744aa32, 2026-10-08: chat-batch, inv-batch, modchat-party)

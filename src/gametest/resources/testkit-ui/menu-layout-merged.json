@@ -878,6 +878,27 @@
       "key": "storage search",
       "text": "Searches your cached Ender Chests and Backpacks from one screen; also opens with /search.",
       "why": "cmdclean-1101 c498f3ba (killer560 2026-11-01): the command it named was removed (/k560search)"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "goldor triggerbot",
+      "renamed": "wither boss triggerbot",
+      "text": "Cheat build: in the F7/M7 boss, clicks Goldor (or every wither boss) while your crosshair is on him, from any range.",
+      "why": "c4860d3c (doc-auto-1101, 2026-11-01): Goldor Triggerbot became Wither Boss Triggerbot (any range, All Wither Bosses, classes)"
+    },
+    {
+      "owner": "Goldor Triggerbot",
+      "key": "goldor triggerbot",
+      "to": "Wither Boss Triggerbot",
+      "renamed": "wither boss triggerbot",
+      "text": "Cheat build: in the F7/M7 boss, clicks Goldor (or every wither boss) while your crosshair is on him, from any range.",
+      "why": "c4860d3c (doc-auto-1101, 2026-11-01): Goldor Triggerbot became Wither Boss Triggerbot (any range, All Wither Bosses, classes)"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "secrets hud",
+      "text": "Shows the secrets found in your current dungeon room over its total, as a small movable HUD.",
+      "why": "doc-auto-1101 e94d4bcf (killer560 2026-11-01): Secrets HUD is a section of the Secret tab, its hover keyed secret/secrets hud"
     }
   ]
 }
