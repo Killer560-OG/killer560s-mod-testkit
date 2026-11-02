@@ -746,8 +746,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 check(gone, "multi break " + multi + ": not all six blocks broke");
                 check(total == 6, "multi break " + multi + ": " + total + " dig packets for six blocks");
                 check(multi ? most == 6 : most == 1, "multi break " + multi + ": " + most + " digs on one tick");
-                check(logHas(m, "DUNGEON_BREAKER acted 0 tick(s)") || (!hasMulti && logHas(m, "DUNGEON_BREAKER acted 1 tick(s)")),
-                        "the breaker did not act on its firing tick" + (hasMulti ? "" : " or the one after"));
+                check(logHas(m, "DUNGEON_BREAKER acted 0 tick(s)"), "the breaker did not act on its firing tick");
                 tpRel(ctx, 13.5, 6.5, 0f, 0f);
                 ctx.waitTicks(5);
             }
@@ -1142,8 +1141,11 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         // Draining to 0 and stepping on, 6 charges need ~60 ticks at 2 a second: a node that waited sent nothing for
         // most of that. Main sent what it had at once (or stopped at 0) - both fail here.
         check(firstDig >= 30, "the first dig went out on sample " + firstDig + " - it did not wait for charges");
-        check(digsOnFirst == 6 && total == 6, digsOnFirst + " dig(s) on the burst tick, " + total
-                + " in all - expected all six on one tick and nothing else");
+        // Mod gridexp-1102 removed Multi Break (GrimAC MultiBreak): then the six go one a tick from the ready tick.
+        boolean hasMulti = ctx.computeOnClient(mc -> ModUnderTest.hasMultiBreak());
+        check(digsOnFirst == (hasMulti ? 6 : 1) && total == 6, digsOnFirst + " dig(s) on the burst tick, " + total
+                + " in all - expected " + (hasMulti ? "all six on one tick" : "one on the first tick, six one a tick")
+                + " and nothing else");
         check(gone, "not all six blocks broke after the burst");
         java.util.regex.Matcher rm = java.util.regex.Pattern.compile("Breaker: (\\d+) charge\\(s\\) after waiting").matcher(ready);
         check(rm.find() && Integer.parseInt(rm.group(1)) >= 6, "the burst went before the item showed 6 charges: " + ready);

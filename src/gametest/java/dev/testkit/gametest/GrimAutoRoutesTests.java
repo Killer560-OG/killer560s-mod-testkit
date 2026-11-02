@@ -825,7 +825,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         int[][] six = {{12, 0}, {13, 0}, {14, 0}, {12, 1}, {13, 1}, {14, 1}};
         StringBuilder notes = new StringBuilder();
         // Mod gridexp-1102 removed Multi Break (GrimAC MultiBreak): one dig a tick, each aimed by a look the server already
-        // heard (a tick of turn before the first), so the node acts on its firing tick or the one after.
+        // heard or sent at the head of the movement packet that carries its turn, so still from the firing tick.
         boolean hasMulti = ctx.computeOnClient(mc -> ModUnderTest.hasMultiBreak());
         try {
             for (boolean multi : hasMulti ? new boolean[]{true, false} : new boolean[]{false}) {
@@ -865,8 +865,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 check(gone, "multi break " + multi + ": not all six snow blocks broke");
                 check(total == 6, "multi break " + multi + ": " + total + " player_action packets for six blocks");
                 check(multi ? most == 6 : most == 1, "multi break " + multi + ": " + most + " digs on one tick");
-                check(logHas(m, "DUNGEON_BREAKER acted 0 tick(s)") || (!hasMulti && logHas(m, "DUNGEON_BREAKER acted 1 tick(s)")),
-                        "the breaker did not act on its firing tick" + (hasMulti ? "" : " or the one after"));
+                check(logHas(m, "DUNGEON_BREAKER acted 0 tick(s)"), "the breaker did not act on its firing tick");
                 if (!hasMulti) {
                     // One a tick, no tick wasted: six digs on six consecutive ticks after the first.
                     int first = -1;
