@@ -125,6 +125,15 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 
 ## Quirks and lessons
 
+- A client session that runs longer than about 9.5 minutes draws a steady experimental GrimAC `NegativeTimer* -1.3 s`, 20
+  lines a second, in whatever scenario is running at that point. Seen in all six long fairy sessions on 2026-11-02:
+  first join to first line was 9.5-10.1 min on 26.3 and 26.2, jars m10/m11/m13, whether that was the 7th or the 8th scenario.
+  It is the harness, not the mod. For any experimental-checks verdict, keep a session under about 9 minutes (five 1.5-minute
+  fairy island runs, or seven short ones), or rerun the scenario that was running at that point in a fresh session.
+- 1017-fairy-water (and every FairySoulTests recovery case) used to start the walker 20 ticks after the spawn, while he was
+  still dropping into the pool. Once on 26.2 that drew GrimAC Simulation .020 x0.8 at t0, before any key was pressed. Since
+  2026-11-02 the case waits until he has been on the ground (the pool floor counts) for 5 ticks running, up to 120 ticks.
+
 - A MenuSuite case (`menu/*Cases`, names like `1853-menu-...`) does NOT run from `-Scenario 1853-menu-...`: that filter
   reaches no session and reports only unrelated SKIP rows (2026-11-01). Run `-Scenario "-menu-"` with the environment
   variable `TESTKIT_MENU_ONLY=1853-menu-swap,...` (MenuSuite.selected) to pick the cases.
