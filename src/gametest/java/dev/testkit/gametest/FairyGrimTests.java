@@ -88,6 +88,21 @@ public class FairyGrimTests implements FabricClientGameTest {
                         float face = (float) (rnd.nextDouble() * 360 - 180);
                         server.command(String.format(Locale.ROOT, "tp @p %.2f 151 %.2f %.1f 0", sx + 0.5, sz + 0.5, face));
                         ctx.waitTicks(30);
+                        // A 2-high pillar beside the straight line 60% of the way, its face 0.25 inside to 0.35 outside
+                        // his box's path: soul 3's approach on BAYOU_SPILL passes a dirt corner that close.
+                        int[] pillar = null;
+                        if (!"false".equals(System.getProperty("testkit.fairy.arrivalPillar", "true"))) {
+                            double lx = (x0 + 0.5) - (sx + 0.5);
+                            double lz = (z0 + 0.5) - (sz + 0.5);
+                            double len = Math.hypot(lx, lz);
+                            double side = rnd.nextBoolean() ? 1 : -1;
+                            double off = 0.8 + (rnd.nextDouble() * 0.6 - 0.25);
+                            double px = sx + 0.5 + lx * 0.6 + (-lz / len) * off * side;
+                            double pz = sz + 0.5 + lz * 0.6 + (lx / len) * off * side;
+                            pillar = new int[]{(int) Math.floor(px), (int) Math.floor(pz)};
+                            server.command(String.format(Locale.ROOT, "fill %d 151 %d %d 152 %d minecraft:dirt", pillar[0], pillar[1],
+                                    pillar[0], pillar[1]));
+                        }
                         FairySoulTests.standAt = new java.util.HashMap<>();
                         FairySoulTests.standAt.put(1, new double[]{x0 + 1.5, 151.0, z0 + 0.5});
                         List<FairySoulTests.Node> g = List.of(
@@ -114,6 +129,10 @@ public class FairyGrimTests implements FabricClientGameTest {
                                 flagTick[0] = tick;
                             }
                         });
+                        if (pillar != null) {
+                            server.command(String.format(Locale.ROOT, "fill %d 151 %d %d 152 %d minecraft:air", pillar[0], pillar[1],
+                                    pillar[0], pillar[1]));
+                        }
                         collected += r.soulsUsed;
                         if (sprint[0]) {
                             sprinted++;
@@ -121,7 +140,8 @@ public class FairyGrimTests implements FabricClientGameTest {
                         int after = scenario.flags().size();
                         flagsAfter.add(after);
                         scenario.log(String.format(Locale.US, "arrival %d: from %d %d (%.1f blocks), soul %d, sprinted %s, ticks %d, "
-                                + "anticheat lines so far %d", run, sx, sz, dist, r.soulsUsed, sprint[0], r.ticks, after));
+                                + "pillar %s, anticheat lines so far %d", run, sx, sz, dist, r.soulsUsed, sprint[0], r.ticks,
+                                pillar == null ? "none" : pillar[0] + " " + pillar[1], after));
                         if (after > before) {
                             int end = flagTick[0] < 0 ? trace.size() : Math.min(trace.size(), flagTick[0] + 3);
                             scenario.log("arrival " + run + ": anticheat line first seen at t" + flagTick[0] + "; trace:");
