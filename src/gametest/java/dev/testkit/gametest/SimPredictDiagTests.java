@@ -127,17 +127,32 @@ public class SimPredictDiagTests implements FabricClientGameTest {
         glance(ctx, f, door, from, 2);
         BlockPos c = f.cellCenter(tile);
         int y0 = f.doorY;
-        String fill = "fill " + (c.getX() - 13) + " " + y0 + " " + (c.getZ() - 13) + " " + (c.getX() + 13) + " " + (y0 + 6)
-                + " " + (c.getZ() + 13) + " minecraft:diamond_block";
+        // A hollow diamond box (floor, ceiling, three walls) open toward the doorway, so a look in sees plenty of it.
+        double[] u = f.toward(from, door);
+        int ux = (int) u[0];
+        int uz = (int) u[1];
+        int nearX = c.getX() - 13 * ux;
+        int nearZ = c.getZ() - 13 * uz;
+        String fill = "fill " + (c.getX() - 13) + " " + (y0 - 1) + " " + (c.getZ() - 13) + " " + (c.getX() + 13) + " "
+                + (y0 + 6) + " " + (c.getZ() + 13) + " minecraft:diamond_block";
+        String hollow = "fill " + (c.getX() - 12) + " " + y0 + " " + (c.getZ() - 12) + " " + (c.getX() + 12) + " " + (y0 + 5)
+                + " " + (c.getZ() + 12) + " minecraft:air";
+        String open = ux != 0
+                ? "fill " + nearX + " " + y0 + " " + (c.getZ() - 12) + " " + nearX + " " + (y0 + 5) + " " + (c.getZ() + 12)
+                        + " minecraft:air"
+                : "fill " + (c.getX() - 12) + " " + y0 + " " + nearZ + " " + (c.getX() + 12) + " " + (y0 + 5) + " " + nearZ
+                        + " minecraft:air";
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
             server.execute(() -> server.getCommands().performPrefixedCommand(
                     server.createCommandSourceStack().withSuppressedOutput(), "forceload add " + (c.getX() - 16) + " "
                             + (c.getZ() - 16) + " " + (c.getX() + 16) + " " + (c.getZ() + 16)));
-            server.execute(() -> server.getCommands().performPrefixedCommand(
-                    server.createCommandSourceStack().withSuppressedOutput(), fill));
+            for (String cmd : new String[]{fill, hollow, open}) {
+                server.execute(() -> server.getCommands().performPrefixedCommand(
+                        server.createCommandSourceStack().withSuppressedOutput(), cmd));
+            }
         });
-        BlockPos probe = new BlockPos(c.getX(), y0 + 2, c.getZ());
+        BlockPos probe = new BlockPos(c.getX() + 13 * ux, y0 + 2, c.getZ() + 13 * uz);
         for (int t = 0; t < 400; t++) {
             if (ctx.computeOnClient(mc -> mc.level.getBlockState(probe).is(net.minecraft.world.level.block.Blocks.DIAMOND_BLOCK))) {
                 break;

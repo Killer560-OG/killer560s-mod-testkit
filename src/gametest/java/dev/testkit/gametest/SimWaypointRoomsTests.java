@@ -546,7 +546,9 @@ public class SimWaypointRoomsTests implements FabricClientGameTest {
             check(goldLines.get(0).contains("nearest slab run") && goldLines.get(0).contains("PRINCE"),
                     "the gold line does not name the lid's verdict: " + goldLines.get(0));
             check(princeLines.size() == 1, "the lid's PRINCE line does not list the gold's coordinates: " + princeLines);
-            check(princes.stream().anyMatch(lidCells::contains), "no prince waypoint on the lid: " + princes);
+            // The prince's anchor is its lowest x/z block, which can be the gold beside the lid.
+            check(princes.contains(gold) || princes.stream().anyMatch(lidCells::contains),
+                    "no prince waypoint on the lid or its gold: " + princes);
         } finally {
             onServer(ctx, (level, sp) -> {
                 level.setBlockAndUpdate(gold, Blocks.AIR.defaultBlockState());
