@@ -1398,3 +1398,15 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   timestamps of the chat lines (within 0.3 s; measured 0.01).
 - `1016-sim-fullclear -PfullclearMobFloor=true` runs on the Map Designer's Mobs floor; it does not call SimRun.begin (the
   floor's autoStart did, and a second begin counts down again).
+- **62-argrim-1102-multibreak / -off, 1102-breaker-aura-multibreak-on / -off** (multibreak-1102, mod Multi Break at one
+  block a server tick): `harness/MultiBreakWatch` replays GrimAC 2.3.74's experimental MultiBreak on the outbound packets
+  (START/STOP on another block or face before a tick packet; the tick packet is a movement packet, or client_tick_end when
+  none went) and records each dig's client tick and server-tick window, so a case reads blocks per server tick instead of
+  per PacketTrace bucket (a START-of-tick dig lands in the PREVIOUS bucket, a BeforeMove dig in its own, so two digs in
+  two windows can share a bucket). Time a run by each block's FIRST dig: on a loaded 26.2 server one block was re-dug
+  after its round trip and read as "ten blocks in 11 ticks". The Breaker Aura case needs the breaker as the SERVER has it
+  (`give` with custom_data, lore and unbreakable): a plain shovel took damage, the server resent the slot, and the client
+  stamp was gone for two ticks mid-run. Run either alone and the session's first dig is a turned one: warm with a plain
+  hand dig first (`warmDig`), or RotationBreak flags post-flying then pre-flying on every dig (36 lines, 62-argrim-breaker
+  alone on 26.3). `-PmultiBreakRepeat=N` repeats them. On mod main 03ea1d6b the node case reads 10 blocks in 10 server
+  ticks too - one a tick is the ceiling, the branch's value is that it holds across features and settings.
