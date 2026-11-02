@@ -1380,4 +1380,4 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   6-7: the 8th consecutive scenario in one client session drew a constant experimental NegativeTimer -1.3 s, 20 lines a
   second from 5 s after the start, on every 8-run session (m10, m11, m13, both versions) and never on runs 1-7 or in
   4- or 6-run sessions - a harness artifact, not the walker. Separately, soul 3's arrival (keys W+sprint released 4.3 blocks
-  out) drew Simulation .046 decaying x0.546 plus SprintE* twice in about 50 runs (m10 26.3, m13 26.2), no trace yet.
+  out) drew Simulation .046 decaying x0.546 plus SprintE* twice in about 50 runs (m10 26.3, m13 26.2), no trace yet. 1102-fairy-grim-flowladder-walker now counts SIDE-water ladder ticks (`sideWaterOnLadder`): the flow over its ladder top is in his own column ~12 ticks a climb, clean for keys and walker; side water must be 0. 1017-fairy-water drew Simulation .020 x0.8 once on 26.2 at t0 (his fall into the pool, before a key), 0 in 4 m13 + 4 m8 reruns.
