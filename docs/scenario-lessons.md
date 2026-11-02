@@ -1294,3 +1294,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   150 ms Latency case, before any click (g2 1027-aafast-cpt1-300); the rerun was clean. It is the Latency teardown, not a feature.
   Frames Per Tick on experimental checks: Grim cancels the flagged second-frame clicks, the mod resends after its 1 s
   pending timeout, and the device still solves (76 sent, 40 reached, fpt15).
+- **1101-fairy-island-* (`FairyIslandTests`, doc-fairy-1101).** Islands are rebuilt by `tools/fairy-islands/gen.py` from
+  SkyHanni's graph and NEU's soul coordinates (no Hypixel terrain exists to copy); the soul stand is a real-size invisible
+  stand 1.4 below NEU's head block. Synthetic terrain makes its own failures, so read a miss before calling it the mod's:
+  a crossing corridor's headroom deleted ladder cliffs and the ladders popped (now: cliffs survive, every ladder gets its
+  backing block), a catwalk over the void turned every misstep into a 100-block fall (now: a 2-block grass skirt and a
+  3-deep embankment under every floor). The case answers `/warp hub` with a tp to the island's spawn (Hypixel's side of
+  Warp When Stuck). A pre-doc-fairy jar stands still forever at the first soul whose stand is out of reach of its node, so
+  its runs are capped with `-Pfairy.maxMinutes=5`. Rows go to `build/testkit-report/fairy-islands.tsv`.
