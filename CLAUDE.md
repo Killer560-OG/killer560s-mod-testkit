@@ -454,3 +454,14 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
 - `run-suite.ps1 -Suite ui` needs `-TimeoutSeconds 3600`: the default 1200 s deadline is shorter than the UI suite
   (~27 min on 26.3), and its "Deadline passed - the run is hung" kills a healthy run at about case 897 with no report
   (2026-11-01, both versions at once).
+- `powershell run-scenario.ps1 ... | tr -d '\r' > log` from Bash never returns when the freeze watcher closes a client at
+  startup: the run's orphan test server inherited the pipe, so `tr` waits for an EOF that never comes and a queue script
+  stalls for hours (ship1101e, 2026-11-02, twice; the log stops at exactly 64 KB, tr's buffer). Write the output straight to
+  the file (`> log 2>&1`), and after any FROZEN run kill that checkout's `runTestServer` java before the next one.
+- Menu Session cases (2790-2796 flip, 1101-menu-*, 1018-*) are selected only with the session part first:
+  `-Scenario "200-menu-session:,1101-menu-,2790-"`. Without it the filter quietly runs nothing of the session and reports
+  "2 passed" (ship1101e, 2026-11-02).
+- GrimAC experimental checks flag Auto Routes, AP3 and the breaker on every jar since at least ship-1101d (2026-11-02, 26.3
+  and 26.2, same cases on the ship-1101d control): MultiBreak* (breaker), PacketOrderE* / DuplicateRotPlace* (mimic, breakerwarp),
+  RotationBreak* (26.2 boom), BadPacketsH* (AP3 boom) and BadPacketsV* (AP3 shot). Compare against a control jar before
+  blaming a branch. Reports in killer560s-mod-logs/ship1101e-*-report.
