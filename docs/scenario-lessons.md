@@ -1342,3 +1342,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   that run's test server keeps running on the checkout's port, and the next run in the checkout fails "Anticheat test server
   exited with code 0 before it was ready" (FAILED TO BIND TO PORT in run/testserver/logs). End the leftover
   `<checkout>...runTestServer` java first (doc-dhud-1101, 2026-11-01).
+
+- 2026-11-01 (doors263-1101): a 26.3 client sat at the title screen for 30 min with the test thread never started, and
+  run-scenario's `-TimeoutSeconds 1200` did not end it; kill the client by its PID (`taskkill //PID <pid> //T //F`) and rerun.
+  The rerun passed its premise normally. Also: 538/678 and 1491's door-helpers premise had failed for weeks for reasons
+  unrelated to the version being tested - before blaming a port, find the case's last PASS in killer560s-mod-logs.

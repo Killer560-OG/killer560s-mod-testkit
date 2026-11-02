@@ -479,6 +479,11 @@ public class SimFairyDoorTests implements FabricClientGameTest {
             Field cal = k.getDeclaredField("calibrated");
             cal.setAccessible(true);
             cal.setBoolean(null, true);
+            // DungeonLayout.current() keeps its snapshot until the map reading's version moves (mod FPS pass,
+            // 2026-10-16): without this bump the layout never saw the WITHER reading ("map door type 1").
+            Field version = k.getDeclaredField("version");
+            version.setAccessible(true);
+            version.setInt(null, version.getInt(null) + 1);
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("could not set the map's door reading", e);
         }
