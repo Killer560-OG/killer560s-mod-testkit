@@ -33,7 +33,7 @@ public class FairyGrimTests implements FabricClientGameTest {
         if (!Mod.isCheat()) {
             for (String n : List.of("1102-fairy-grim-tp-walker", "1102-fairy-grim-tp-keys", "1102-fairy-grim-water",
                     "1102-fairy-grim-ladderwater-keys", "1102-fairy-grim-ladderwater-walker",
-                    "1102-fairy-grim-ladderwater-edge")) {
+                    "1102-fairy-grim-ladderwater-edge", "1102-fairy-grim-flow-keys")) {
                 if (!Scenario.skip(n)) {
                     Scenario.skipped(n, "Auto Fairy Souls is cheat build only");
                 }
@@ -43,7 +43,7 @@ public class FairyGrimTests implements FabricClientGameTest {
         AssertionError first = null;
         for (java.util.function.Consumer<ClientGameTestContext> c : List.<java.util.function.Consumer<ClientGameTestContext>>of(
                 FairyGrimTests::tpWalker, FairyGrimTests::tpKeys, FairyGrimTests::water, FairyGrimTests::ladderWaterKeys,
-                FairyGrimTests::ladderWaterWalker, FairyGrimTests::ladderWaterEdge)) {
+                FairyGrimTests::ladderWaterWalker, FairyGrimTests::ladderWaterEdge, FairyGrimTests::flowKeys)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -215,6 +215,48 @@ public class FairyGrimTests implements FabricClientGameTest {
                                 run, y0, top, scenario.flags().size()));
                     }
                     report(scenario, "ladderwater-edge", List.of(), 0);
+                });
+    }
+
+    /**
+     * The control for Bayou's ladder: no automation at all. A ladder up a 6-high cliff with a water SOURCE on the cliff top
+     * right beside the ladder's top, so water spills down beside and over the ladder (Bayou's pool had a source one block
+     * above its surface that spilled the same way). The case holds W and jump facing the ladder for 100 ticks, twice.
+     */
+    private static void flowKeys(ClientGameTestContext ctx) {
+        int x0 = X0 + 10;
+        int z0 = Z0 + 130;
+        Scenario.runExpectingFlags(ctx, "1102-fairy-grim-flow-keys", (server, scenario) -> TestMap.on(server)
+                        .floor(x0 - 8, 150, z0 - 6, x0 + 12, z0 + 6)
+                        .fill(x0 - 8, 151, z0 - 6, x0 + 12, 162, z0 + 6, "air")
+                        .fill(x0 + 1, 151, z0 - 4, x0 + 12, 156, z0 + 4, "stone")
+                        .command(String.format(Locale.ROOT, "fill %d 151 %d %d 156 %d minecraft:ladder[facing=west]", x0, z0, x0, z0))
+                        // a source on the cliff top, beside the ladder's top: it spills west over the edge and down
+                        .command(String.format(Locale.ROOT, "setblock %d 157 %d minecraft:water", x0 + 1, z0 - 1))
+                        .survival().surface(151).spawn(x0 - 1.5, z0 + 0.5, -90f).build(),
+                (server, scenario) -> {
+                    ctx.waitTicks(100); // let the spill settle
+                    double top = 0;
+                    for (int run = 0; run < 2; run++) {
+                        server.command(String.format(Locale.ROOT, "tp @p %.2f 151 %.2f -90 0", x0 - 1.5, z0 + 0.5));
+                        ctx.waitTicks(30);
+                        double y0 = scenario.playerPosition()[1];
+                        ctx.getInput().holdKey(o -> o.keyUp);
+                        ctx.getInput().holdKey(o -> o.keyJump);
+                        try {
+                            for (int tick = 0; tick < 100; tick++) {
+                                ctx.waitTick();
+                                top = Math.max(top, scenario.playerPosition()[1]);
+                            }
+                        } finally {
+                            ctx.getInput().releaseKey(o -> o.keyUp);
+                            ctx.getInput().releaseKey(o -> o.keyJump);
+                        }
+                        ctx.waitTicks(20);
+                        scenario.log(String.format(Locale.US, "flow-keys run %d: from %.2f, top so far %.2f, anticheat lines so far %d",
+                                run, y0, top, scenario.flags().size()));
+                    }
+                    report(scenario, "flow-keys", List.of(), 0);
                 });
     }
 
