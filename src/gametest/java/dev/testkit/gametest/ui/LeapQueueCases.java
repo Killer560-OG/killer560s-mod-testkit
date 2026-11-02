@@ -177,6 +177,7 @@ final class LeapQueueCases {
             }
         });
         c.check(byPrefix(tab, "Class Selection Overlay") == null, "the Leap Menu tab still has a Class Selection Overlay switch");
+        c.check(!Mod.has("dungeonclass.ClassSelectionOverlay"), "the Class Selection Overlay is still in the jar");
         c.check(byLabel(tab, "Edit Classes") == null, "the Leap Menu tab still has an Edit Classes button");
         c.check(byLabel(tab, "Open Leap Order") == null, "the Leap Menu tab still says Open Leap Order");
         AbstractWidget edit = byLabel(tab, "Open Custom Leap Order Editor");

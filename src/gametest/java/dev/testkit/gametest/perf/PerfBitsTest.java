@@ -46,7 +46,7 @@ public class PerfBitsTest implements FabricClientGameTest {
         GATED.put("Pathfinding render", new String[]{"pathfinding.PathfindingConfig", "setEnabled", "isEnabledRaw"});
         // fps-idle-2 batch 3
         GATED.put("Ability Keybinds tick", new String[]{"abilitykeybinds.AbilityKeybindsConfig", "setEnabled", "isEnabledRaw"});
-        GATED.put("Class Selection Overlay tick", new String[]{"dungeonclass.ClassSelectionOverlayConfig", "setEnabled", "isEnabledRaw"});
+        // "Class Selection Overlay tick" removed with the overlay (mod doc-small-1101).
         GATED.put("Experiments Profit Tracker tick", new String[]{"experiments.ExperimentsConfig", "setProfitTrackerEnabled",
                 "isProfitTrackerEnabledRaw"});
         GATED.put("Leap Counter tick", new String[]{"leapcounter.LeapCounterConfig", "setEnabled", "getEnabledRaw"});
