@@ -27,7 +27,8 @@
     "gui.tab.MiningTitaniumTab": "Mining > Titanium Highlight",
     "gui.tab.SecretTab": "Dungeons > Secrets > Secret",
     "gui.tab.MaskKeybindsTab": "Dungeons > Mask Keybinds",
-    "gui.tab.LuckTab": "Misc > How Lucky Are You"
+    "gui.tab.LuckTab": "Misc > How Lucky Are You",
+    "gui.tab.AutoSprintTab": "Misc > Auto Sprint"
   },
   "tooltips": [
     {
@@ -50,6 +51,12 @@
       "key": "cross-mod bridge",
       "text": "Shares dungeon data both ways with users of Devonian and Odin.",
       "why": "mod 958f6442 2026-11-01 Cross-Mod Bridge: never open or sign into NoammAddons' socket (NoammAddons' owner asked)"
+    },
+    {
+      "owner": "Team Melody",
+      "key": "team melody hud",
+      "text": "Shows each teammate's Melody terminal during Phase 3: their board (target, moving pane, rows done) for a teammate on this mod or Odin, a progress bar for one who only calls it in party chat. A finished Melody reads 100%; a player drops off when the section ends or after 15 s with no update.",
+      "why": "mod doc-terms-1101 (to-do Doc #48, killer560 2026-11-01): teammates on this mod or Odin are drawn as their board"
     },
     {
       "owner": "Spotify Mod",
@@ -451,8 +458,8 @@
     {
       "owner": "(unscoped)",
       "key": "auto fairy souls",
-      "text": "Cheat build: walks the island's soul route and clicks each Fairy Soul, with your camera free. Any key or click stops it. Needs nothing else on.",
-      "why": "hover rewritten: e0807f88 2026-10-18 Fairy Souls / Auto Fairy Souls rework: free camera, any key stops, a movement model that b"
+      "text": "Cheat build: walks the island's soul route and clicks each Fairy Soul, with your camera free. A movement key, Escape, opening chat or the Emergency Cancel Key (Home) stops it. Needs nothing else on.",
+      "why": "hover rewritten: e0807f88 2026-10-18 Fairy Souls / Auto Fairy Souls rework; mod 4eec88a7 (ETABLE, 2026-11-01): it stops on a movement key, Escape, chat or the Emergency Cancel Key"
     },
     {
       "owner": "(unscoped)",
@@ -601,8 +608,8 @@
     {
       "owner": "Auto Fairy Souls",
       "key": "auto fairy souls",
-      "text": "Cheat build: walks the island's soul route and clicks each Fairy Soul, with your camera free. Any key or click stops it. Needs nothing else on.",
-      "why": "hover rewritten: e0807f88 2026-10-18 Fairy Souls / Auto Fairy Souls rework: free camera, any key stops, a movement model that b"
+      "text": "Cheat build: walks the island's soul route and clicks each Fairy Soul, with your camera free. A movement key, Escape, opening chat or the Emergency Cancel Key (Home) stops it. Needs nothing else on.",
+      "why": "hover rewritten: e0807f88 2026-10-18 Fairy Souls / Auto Fairy Souls rework; mod 4eec88a7 (ETABLE, 2026-11-01): it stops on a movement key, Escape, chat or the Emergency Cancel Key"
     },
     {
       "owner": "Auto Fairy Souls",
