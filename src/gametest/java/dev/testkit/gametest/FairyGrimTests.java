@@ -32,7 +32,8 @@ public class FairyGrimTests implements FabricClientGameTest {
     public void runTest(ClientGameTestContext ctx) {
         if (!Mod.isCheat()) {
             for (String n : List.of("1102-fairy-grim-tp-walker", "1102-fairy-grim-tp-keys", "1102-fairy-grim-water",
-                    "1102-fairy-grim-ladderwater-keys", "1102-fairy-grim-ladderwater-walker")) {
+                    "1102-fairy-grim-ladderwater-keys", "1102-fairy-grim-ladderwater-walker",
+                    "1102-fairy-grim-flowladder-keys", "1102-fairy-grim-flowladder-walker")) {
                 if (!Scenario.skip(n)) {
                     Scenario.skipped(n, "Auto Fairy Souls is cheat build only");
                 }
@@ -42,7 +43,7 @@ public class FairyGrimTests implements FabricClientGameTest {
         AssertionError first = null;
         for (java.util.function.Consumer<ClientGameTestContext> c : List.<java.util.function.Consumer<ClientGameTestContext>>of(
                 FairyGrimTests::tpWalker, FairyGrimTests::tpKeys, FairyGrimTests::water, FairyGrimTests::ladderWaterKeys,
-                FairyGrimTests::ladderWaterWalker)) {
+                FairyGrimTests::ladderWaterWalker, FairyGrimTests::flowLadderKeys, FairyGrimTests::flowLadderWalker)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -170,6 +171,121 @@ public class FairyGrimTests implements FabricClientGameTest {
                     report(scenario, "ladderwater-keys", List.of(), 0);
                     if (top < y0 + 4) {
                         throw new AssertionError("he never climbed the ladder (top " + top + ") - the control proves nothing");
+                    }
+                });
+    }
+
+    /** Repeats of each flowing-water ladder case per run (-Pfairy.flowRuns, default 10). */
+    private static int flowRuns() {
+        return Integer.getInteger("testkit.fairy.flowRuns", 10);
+    }
+
+    /**
+     * Backwater Bayou's spot, hand-built (killer560's coordinator, 2026-11-02): a 6-high ladder up a cliff, and a water SOURCE on
+     * the cliff top two blocks back from the edge, in a one-wide stone channel that runs to the ladder's top, so FLOWING water
+     * covers the cell above the ladder: whoever climbs it comes up into a current pushing back toward the ladder, then walks
+     * against it to the platform past the source. The channel's mouth over the ladder is walled so nothing spills to the floor.
+     */
+    private static TestMap flowLadder(TestServer server, int x0, int z0) {
+        return TestMap.on(server)
+                .floor(x0 - 8, 150, z0 - 6, x0 + 14, z0 + 6)
+                .fill(x0 - 8, 151, z0 - 6, x0 + 14, 164, z0 + 6, "air")
+                .fill(x0 + 1, 151, z0 - 4, x0 + 14, 156, z0 + 4, "stone")
+                .command(String.format(Locale.ROOT, "fill %d 151 %d %d 156 %d minecraft:ladder[facing=west]", x0, z0, x0, z0))
+                // the channel on the cliff top: walls at z0-1 and z0+1 from the ladder's column to x0+3, and over the
+                // ladder's top a stop on its west side (the flow sits over the ladder, it does not fall to the floor)
+                .fill(x0, 157, z0 - 1, x0 + 3, 158, z0 - 1, "stone")
+                .fill(x0, 157, z0 + 1, x0 + 3, 158, z0 + 1, "stone")
+                .fill(x0 - 1, 157, z0 - 1, x0 - 1, 158, z0 + 1, "stone")
+                .command(String.format(Locale.ROOT, "setblock %d 157 %d minecraft:water", x0 + 2, z0))
+                .survival().surface(151).spawn(x0 - 1.5, z0 + 0.5, -90f);
+    }
+
+    /** The control: no automation. The case holds W and jump facing the ladder (east) for 140 ticks, a human's climb. */
+    private static void flowLadderKeys(ClientGameTestContext ctx) {
+        int x0 = X0 + 30;
+        int z0 = Z0 + 150;
+        Scenario.runExpectingFlags(ctx, "1102-fairy-grim-flowladder-keys", (server, scenario) -> flowLadder(server, x0, z0).build(),
+                (server, scenario) -> {
+                    ctx.waitTicks(60); // the flow settles
+                    int climbed = 0;
+                    int wet = 0;
+                    List<Integer> flagsAfter = new ArrayList<>();
+                    for (int run = 0; run < flowRuns(); run++) {
+                        server.command(String.format(Locale.ROOT, "tp @p %.2f 151 %.2f -90 0", x0 - 1.5, z0 + 0.5));
+                        ctx.waitTicks(30);
+                        double top = 0;
+                        boolean inWater = false;
+                        ctx.getInput().holdKey(o -> o.keyUp);
+                        ctx.getInput().holdKey(o -> o.keyJump);
+                        try {
+                            for (int tick = 0; tick < 140; tick++) {
+                                ctx.waitTick();
+                                double[] p = scenario.playerPosition();
+                                top = Math.max(top, p[1]);
+                                inWater |= ctx.computeOnClient(mc -> mc.player.isInWater());
+                            }
+                        } finally {
+                            ctx.getInput().releaseKey(o -> o.keyUp);
+                            ctx.getInput().releaseKey(o -> o.keyJump);
+                        }
+                        ctx.waitTicks(20);
+                        double[] end = scenario.playerPosition();
+                        if (top >= 156.9) {
+                            climbed++;
+                        }
+                        if (inWater) {
+                            wet++;
+                        }
+                        flagsAfter.add(scenario.flags().size());
+                        scenario.log(String.format(Locale.US, "flowladder-keys run %d: top %.2f, end %.2f %.2f %.2f, in the current %s, "
+                                + "anticheat lines so far %d", run, top, end[0], end[1], end[2], inWater, scenario.flags().size()));
+                    }
+                    scenario.log(String.format(Locale.US, "flowladder-keys: %d runs, climbed %d, in the current %d, lines after each run %s",
+                            flowRuns(), climbed, wet, flagsAfter));
+                    report(scenario, "flowladder-keys", List.of(), 0);
+                    if (climbed < flowRuns() || wet < flowRuns()) {
+                        throw new AssertionError("the control did not climb into the current every run (climbed " + climbed
+                                + ", wet " + wet + ") - it proves nothing for those runs");
+                    }
+                });
+    }
+
+    /** The walker: a route up the same ladder, through the current, to a soul past the source; repeated. */
+    private static void flowLadderWalker(ClientGameTestContext ctx) {
+        int x0 = X0 + 30;
+        int z0 = Z0 + 180;
+        Scenario.runExpectingFlags(ctx, "1102-fairy-grim-flowladder-walker", (server, scenario) -> flowLadder(server, x0, z0).build(),
+                (server, scenario) -> {
+                    ctx.waitTicks(60);
+                    int collected = 0;
+                    int wet = 0;
+                    List<Integer> flagsAfter = new ArrayList<>();
+                    for (int run = 0; run < flowRuns(); run++) {
+                        server.command(String.format(Locale.ROOT, "tp @p %.2f 151 %.2f -90 0", x0 - 1.5, z0 + 0.5));
+                        ctx.waitTicks(30);
+                        List<FairySoulTests.Node> g = List.of(
+                                new FairySoulTests.Node(0, x0 - 2, 151, z0, false, 1),
+                                new FairySoulTests.Node(1, x0 + 1, 157, z0, false, 0, 2),
+                                new FairySoulTests.Node(2, x0 + 4, 157, z0, false, 1, 3),
+                                new FairySoulTests.Node(3, x0 + 9, 157, z0, true, 2));
+                        boolean[] inWater = {false};
+                        FairySoulTests.Result r = FairySoulTests.runSouls(ctx, scenario, g, 500,
+                                tick -> inWater[0] |= ctx.computeOnClient(mc -> mc.player.isInWater()));
+                        collected += r.soulsUsed;
+                        if (inWater[0]) {
+                            wet++;
+                        }
+                        flagsAfter.add(scenario.flags().size());
+                        scenario.log(String.format(Locale.US, "flowladder-walker run %d: max y %.2f, soul %d, in the current %s, "
+                                + "anticheat lines so far %d", run, r.maxY, r.soulsUsed, inWater[0], scenario.flags().size()));
+                    }
+                    scenario.log(String.format(Locale.US, "flowladder-walker: %d runs, souls %d, in the current %d, lines after each run %s",
+                            flowRuns(), collected, wet, flagsAfter));
+                    report(scenario, "flowladder-walker", List.of(), 0);
+                    if (collected < flowRuns() || wet < flowRuns()) {
+                        throw new AssertionError("the walker did not climb through the current to the soul every run (souls "
+                                + collected + ", wet " + wet + ")");
                     }
                 });
     }
