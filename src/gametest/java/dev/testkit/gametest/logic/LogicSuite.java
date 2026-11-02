@@ -98,6 +98,7 @@ public class LogicSuite implements FabricClientGameTest {
                     }
                 }
                 LogicCase.run(ctx, "362-logic-boss-timers", BossTimerCases::bossTimers);
+                LogicCase.run(ctx, "1101-logic-bloodcamp-clock", BossTimerCases::bloodCampClock);
                 LogicCase.run(ctx, "363-logic-roof-cover", RoofCoverCases::roofCover);
             }
         }

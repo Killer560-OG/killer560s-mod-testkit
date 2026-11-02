@@ -93,7 +93,8 @@ final class BossTimerCases {
             // slow-pacing table is unchanged code and needs a world 18 s old, so it is not exercised here.
             R.set(BC, "bloodOpenTick", 0L);
             chat(BC, "onChat", "[BOSS] The Watcher: Let's see how you can handle this.");
-            c.eq("fast Watcher predicts greeting + 400", 400L, R.get(BC, "moveAtTick"));
+            // moveAtElapsed (mod doc-blood-1101): lag-free ticks after the greeting; the floor table gives 400 off a floor.
+            c.eq("fast Watcher predicts greeting + 400", 400L, R.get(BC, "moveAtElapsed"));
 
             // A later Watcher line must not move the clock.
             Mod.staticCall(BC, "reset");
@@ -169,6 +170,69 @@ final class BossTimerCases {
             for (int i = 0; i < dev.size(); i++) {
                 level.setBlock(dev.get(i), before.get(i), 19);
             }
+        }
+    }
+
+    // ---- Blood Camp's per-tick server clock (doc-blood-1101) ------------------------------------------------------
+
+    private static final String CLOCK = "util.PerTickServerClock";
+
+    /** One simulated client tick carrying {@code pings} server pings. */
+    private static void simTick(int pings) {
+        for (int i = 0; i < pings; i++) {
+            Mod.staticCall(CLOCK, "pingForTest");
+        }
+        Mod.staticCall(CLOCK, "tickForTest");
+    }
+
+    /**
+     * killer560, 2026-11-01: blood camp "if it lags", "sometimes the triggerbot comes out really late". Blood Camp's
+     * countdowns and kill timer count server ticks. Driven by hand (no server here): a server pinging every tick is
+     * trusted after two windows; a 20-tick stall (no pings) then stops the kill timer's clock and is measured as 1000 ms of
+     * camp lag; an anticheat-like 15 pings per 20 ticks is never trusted, so the clock is the client's ticks.
+     */
+    static void bloodCampClock(LogicCase c) {
+        try {
+            Mod.staticCall(CLOCK, "untrustForTest");
+            for (int i = 0; i < 40; i++) {
+                simTick(1);
+            }
+            c.check("a server pinging every tick is trusted after two windows",
+                    (Boolean) Mod.staticCall(CLOCK, "trusted"), "trusted=" + Mod.staticCall(CLOCK, "trusted"));
+            Mod.staticCall(BC, "reset");
+            chat(BC, "onChat", "[BOSS] The Watcher: Ah, you've finally arrived.");
+            for (int i = 0; i < 10; i++) {
+                simTick(1);
+            }
+            long beforeStall = (Long) Mod.staticCall(BC, "elapsedSinceGreeting");
+            for (int i = 0; i < 20; i++) {
+                simTick(0); // the server stood still
+            }
+            long afterStall = (Long) Mod.staticCall(BC, "elapsedSinceGreeting");
+            long lagMs = (Long) Mod.staticCall(BC, "lagMsSinceGreeting");
+            for (int i = 0; i < 5; i++) {
+                simTick(1);
+            }
+            long resumed = (Long) Mod.staticCall(BC, "elapsedSinceGreeting");
+            c.eq("10 server ticks after the greeting", 10L, beforeStall);
+            c.eq("a 20-tick stall does not move the kill timer's clock", 10L, afterStall);
+            c.eq("the stall is the camp's lag", 1000L, lagMs);
+            c.eq("the clock runs again with the pings", 15L, resumed);
+
+            // An anticheat's transactions: 15 pings in 20 ticks, unevenly. Never trusted: the clock is client ticks.
+            Mod.staticCall(CLOCK, "untrustForTest");
+            Mod.staticCall(BC, "reset");
+            chat(BC, "onChat", "[BOSS] The Watcher: Ah, you've finally arrived.");
+            for (int i = 0; i < 100; i++) {
+                simTick(i % 4 == 3 ? 0 : 1);
+            }
+            c.check("15 pings per 20 ticks is not a per-tick server", !(Boolean) Mod.staticCall(CLOCK, "trusted"),
+                    "trusted=" + Mod.staticCall(CLOCK, "trusted"));
+            c.eq("untrusted: 100 client ticks are 100 ticks", 100L, Mod.staticCall(BC, "elapsedSinceGreeting"));
+            c.eq("untrusted: no camp lag", 0L, Mod.staticCall(BC, "lagMsSinceGreeting"));
+        } finally {
+            Mod.staticCall(CLOCK, "untrustForTest");
+            Mod.staticCall(BC, "reset");
         }
     }
 

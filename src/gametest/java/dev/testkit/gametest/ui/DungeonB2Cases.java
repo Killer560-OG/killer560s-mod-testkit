@@ -112,7 +112,7 @@ final class DungeonB2Cases {
                 Mod.call(cfg, "setTriggerBotEnabled", true);
                 Mod.call(cfg, "setAuraEnabled", false);
                 Mod.call(cfg, "setAutoDetectLag", false);
-                Mod.call(cfg, "setTriggerOffsetTicks", -1);
+                Mod.call(cfg, "setTriggerOffsetTicks", 1); // one tick late (positive late since mod doc-blood-1101)
                 Mod.staticCall("secrets.DungeonState", "setRoomSim", true);
                 oldDifficulty[0] = mc.getSingleplayerServer().getWorldData().getDifficulty();
                 return null;
