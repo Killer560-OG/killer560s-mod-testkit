@@ -897,6 +897,7 @@
     {
       "owner": "(unscoped)",
       "key": "secrets hud",
+      "to": "Secret",
       "text": "Shows the secrets found in your current dungeon room over its total, as a small movable HUD.",
       "why": "doc-auto-1101 e94d4bcf (killer560 2026-11-01): Secrets HUD is a section of the Secret tab, its hover keyed secret/secrets hud"
     }
