@@ -65,6 +65,11 @@ public class FairyIslandTests implements FabricClientGameTest {
                     Scenario.skipped("1102-fairy-spill-ladder-" + i, "Auto Fairy Souls is cheat build only");
                 }
             }
+            for (int i = 1; i <= soul3Runs(); i++) {
+                if (!Scenario.skip("1102-fairy-soul3-" + i)) {
+                    Scenario.skipped("1102-fairy-soul3-" + i, "Auto Fairy Souls is cheat build only");
+                }
+            }
             return;
         }
         AssertionError first = null;
@@ -78,6 +83,13 @@ public class FairyIslandTests implements FabricClientGameTest {
         for (int i = 1; i <= spillRuns(); i++) {
             try {
                 spillLadder(ctx, i);
+            } catch (AssertionError e) {
+                first = first == null ? e : first;
+            }
+        }
+        for (int i = 1; i <= soul3Runs(); i++) {
+            try {
+                soul3(ctx, i);
             } catch (AssertionError e) {
                 first = first == null ? e : first;
             }
@@ -192,6 +204,48 @@ public class FairyIslandTests implements FabricClientGameTest {
     static String startOverride;
     /** Set by a case: end the run once this many souls are collected. */
     static int stopAfterSouls = Integer.MAX_VALUE;
+    /** Set by a case: keep a 45-tick detailed trace and log it when the first anticheat line shows up. */
+    static boolean ringTrace;
+    static final List<String> ring = new ArrayList<>();
+    static int ringFlagTick = -1;
+
+    /** Repeats of 1102-fairy-soul3 (-Pfairy.soul3Runs, default 7). */
+    static int soul3Runs() {
+        return Integer.getInteger("testkit.fairy.soul3Runs", 7);
+    }
+
+    /**
+     * 1102-fairy-soul3-N: BAYOU_SPILL from beside the pool (53.5, 192, -8.5) to soul 3 (62, 186, 5) - the approach whose stop
+     * drew Simulation .046 x0.546 + SprintE* twice in ~50 spill-ladder runs. Requires soul 3 and GrimAC silent; on a line, the
+     * 40 ticks before it are logged with keys, sprint state and velocity.
+     */
+    private static void soul3(ClientGameTestContext ctx, int run) {
+        String name = "1102-fairy-soul3-" + run;
+        Scenario.run(ctx, name, (server, scenario) -> TestMap.on(server).survival().build(), (server, scenario) -> {
+            startOverride = System.getProperty("testkit.fairy.soul3Start", "53.5,192.0,-8.5,180,10");
+            stopAfterSouls = 1;
+            ringTrace = true;
+            ring.clear();
+            ringFlagTick = -1;
+            Outcome o;
+            try {
+                o = runIsland(ctx, server, scenario, "BAYOU_SPILL", meta("BAYOU_SPILL"), 100, 1200);
+            } finally {
+                startOverride = null;
+                stopAfterSouls = Integer.MAX_VALUE;
+                ringTrace = false;
+            }
+            scenario.log(o.line());
+            if (ringFlagTick >= 0 && ringFlagTick + 5 > o.ticks) {
+                scenario.log("anticheat line first seen at t" + ringFlagTick + " (run ended); the ticks before it:");
+                ring.forEach(l -> scenario.log("  " + l));
+            }
+            if (!o.collectedAt.containsKey(3)) {
+                throw new AssertionError(name + ": the walker did not reach soul 3 - collected " + o.collectedAt.keySet()
+                        + "; " + o.missed);
+            }
+        });
+    }
 
     static final class Outcome {
         int ladderTicks;
@@ -420,6 +474,30 @@ public class FairyIslandTests implements FabricClientGameTest {
                     }
                 }
                 o.maxY = Math.max(o.maxY, s[1]);
+                if (ringTrace) {
+                    // The last 40 ticks in detail; dumped (with the 5 after) the first time an anticheat line shows up.
+                    int t = tick;
+                    ring.add(ctx.computeOnClient(mc -> {
+                        var p = mc.player;
+                        var in = p.input.keyPresses;
+                        return String.format(Locale.US, "t%d pos %.4f %.4f %.4f v %.4f %.4f %.4f yaw %.2f ground %s sprinting %s "
+                                        + "speed %.5f hcol %s minor %s water %s keys %s%s%s%s%s%s", t, p.getX(), p.getY(), p.getZ(),
+                                p.getDeltaMovement().x, p.getDeltaMovement().y, p.getDeltaMovement().z, p.getYRot(), p.onGround(),
+                                p.isSprinting(), p.getSpeed(), p.horizontalCollision, p.minorHorizontalCollision, p.isInWater(),
+                                in.forward() ? "W" : "", in.backward() ? "S" : "", in.left() ? "A" : "", in.right() ? "D" : "",
+                                in.jump() ? "J" : "", in.sprint() ? "+spr" : "");
+                    }));
+                    if (ring.size() > 45) {
+                        ring.remove(0);
+                    }
+                    if (ringFlagTick < 0 && !scenario.flags().isEmpty()) {
+                        ringFlagTick = tick;
+                    }
+                    if (ringFlagTick >= 0 && tick == ringFlagTick + 5) {
+                        scenario.log("anticheat line first seen at t" + ringFlagTick + "; the ticks before it:");
+                        ring.forEach(l -> scenario.log("  " + l));
+                    }
+                }
                 if (prev != null) {
                     double step = Math.hypot(s[0] - prev[0], s[2] - prev[2]);
                     if (step < 3.0) {

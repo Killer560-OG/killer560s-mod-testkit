@@ -794,7 +794,15 @@ public class FairySoulTests implements FabricClientGameTest {
             int plannedBefore = walkerInt(ctx, "rescuesPlanned");
             int doneBefore = walkerInt(ctx, "rescuesDone");
             int deathsBefore = walkerInt(ctx, "deaths");
-            ctx.waitTicks(20); // let him fall into whatever he was put over
+            // Let him fall into whatever he was put over and come to rest before the walker starts: 1017-fairy-water drew
+            // GrimAC Simulation .020 x0.8 once at t0 on 26.2 while he was still dropping into the pool after the spawn (testkit
+            // setup, not the walker; doc-fairy-1101). Rest = on the ground (a pool's floor counts) 5 ticks running, max 120.
+            ctx.waitTicks(20);
+            int rested = 0;
+            for (int t = 0; t < 120 && rested < 5; t++) {
+                ctx.waitTick();
+                rested = ctx.computeOnClient(mc -> mc.player.onGround()) ? rested + 1 : 0;
+            }
             Result r;
             try {
                 r = runSouls(ctx, scenario, g, maxTicks, hook == null ? null : tick -> hook.accept(server, tick));
