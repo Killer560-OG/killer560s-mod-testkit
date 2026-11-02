@@ -1488,7 +1488,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                         });
                     }
                 });
-                ClientTickEvents.START_CLIENT_TICK.register(m -> {
+                // Ahead of every mod END handler (Auto Routes acts at END): the close goes after this tick's input packet
+                // (which said sneak) and before the route's use - the v5 order, with no still tick between them.
+                net.minecraft.resources.Identifier iwEarly = net.minecraft.resources.Identifier.parse("testkit:iwclose_early");
+                ClientTickEvents.END_CLIENT_TICK.addPhaseOrdering(iwEarly, net.fabricmc.fabric.api.event.Event.DEFAULT_PHASE);
+                ClientTickEvents.END_CLIENT_TICK.register(iwEarly, m -> {
                     if (!iwCloseAtStart || m.player == null || iwMenu == null) {
                         return;
                     }
@@ -1505,7 +1509,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     iwMenu = null;
                     dev.testkit.gametest.mod.Mod.setField("playerstats.PlayerStatsFeature", "manaShort", false);
                     iwCloseTick = PacketTrace.tickCount();
-                    println("[iwclose] close sent at a tick start, mana hold lifted, server sneak "
+                    println("[iwclose] close sent at a tick END ahead of the route, mana hold lifted, server sneak "
                             + m.player.getLastSentInput().shift());
                 });
             }
