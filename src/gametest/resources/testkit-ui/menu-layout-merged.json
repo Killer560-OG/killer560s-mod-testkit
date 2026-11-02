@@ -15,7 +15,8 @@
     "gui.tab.CustomItemsTab": "Cosmetics > Custom Items",
     "gui.tab.ChocolateFactoryTab": "Misc > Chocolate Factory",
     "gui.tab.PeekChatTab": "Chat > Peek Chat",
-    "gui.tab.PriceTooltipTab": "Items > Price Tooltip"
+    "gui.tab.PriceTooltipTab": "Items > Price Tooltip",
+    "gui.tab.LuckTab": "Misc > How Lucky Are You"
   },
   "tooltips": [
     {

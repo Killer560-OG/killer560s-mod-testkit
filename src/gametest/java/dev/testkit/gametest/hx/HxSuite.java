@@ -91,6 +91,8 @@ public class HxSuite implements FabricClientGameTest {
                     // block, last: it latches the boss room and its cleanup case leaves it again.
                     // Performance HUD stutters: frame times and attribution (1026-stutter-*, branch stutter-1026).
                     // Before Boss Health, which latches the boss room until its cleanup case.
+                    // How Lucky Are You / Full RNG Tracker (1101-luck-*, mod branch doc-rng-1101), own block.
+                    HxLuckCases.register(s);
                     HxStutterCases.register(s);
                     HxBossHealthCases.register(s);
                 });
