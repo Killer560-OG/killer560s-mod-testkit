@@ -168,6 +168,89 @@ public final class SimPuzzleSolveTests {
     }
 
     /**
+     * 93-solve-ecancel-higherblaze (mod doc-etable-1101, killer560 2026-11-01: the Emergency Cancel Key "should stop
+     * EVERYTHING automatic"): Auto Blaze is shooting the chain; at its first arrow K (the key) is pressed. From two ticks
+     * after it no further Terminator arrow may go out for the rest of the 30 s watch, the room must stay unsolved and the
+     * hold must still be on. The pass is the hold, not a solve ({@link Base#expectsHold}).
+     */
+    public static final class EcancelHigherBlaze extends Base {
+        public EcancelHigherBlaze() {
+            super(new Spec("ecancel-higherblaze", "Higher Blaze", "setAutoBlazeEnabled", "isAutoBlazeEnabled",
+                    "BlazeSolverConfig", "SimBlazePuzzle", TERM_SLOT, false, 30, Approach.NONE,
+                    "BlazeSolverFeature.getOrderedBlazes"));
+        }
+
+        @Override
+        boolean expectsHold() {
+            return true;
+        }
+
+        @Override
+        SolveExtra extra() {
+            return new SolveExtra() {
+                private static final String MS = "com.killer560.hub.macrostop.MacroStop";
+                private int keyAt = -1;
+                private int arrowsAtKey = -1;
+                private int arrowsLast;
+                private boolean heldLast;
+
+                @Override
+                void beforeAutoOn(ClientGameTestContext ctx) {
+                    ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(
+                            "com.killer560.hub.macrostop.MacroStopConfig"), "setEmergencyCancelKeyCode", 75)); // K
+                }
+
+                private int arrows(ClientGameTestContext ctx) {
+                    return ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(
+                            "com.killer560.hub.roomsim.SimTerminator", "arrowsFired"));
+                }
+
+                @Override
+                void tick(ClientGameTestContext ctx, int t, int solvedAt, boolean container) {
+                    if (keyAt < 0 && arrows(ctx) > 0) {
+                        ctx.getInput().pressKey(dev.testkit.compat.McKeys.nat(75));
+                        keyAt = t;
+                    } else if (keyAt >= 0 && t == keyAt + 2) {
+                        arrowsAtKey = arrows(ctx);
+                    }
+                    if (keyAt >= 0) {
+                        arrowsLast = arrows(ctx);
+                        heldLast = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(MS, "emergencyHeld"));
+                    }
+                }
+
+                @Override
+                String verdict(ClientGameTestContext ctx, int solvedAt) {
+                    ctx.runOnClient(mc -> {
+                        ModUnderTest.staticCall(MS, "release", new Class<?>[]{String.class}, new Object[]{"testkit"});
+                        ModUnderTest.set(ModUnderTest.config("com.killer560.hub.macrostop.MacroStopConfig"),
+                                "setEmergencyCancelKeyCode", -1);
+                    });
+                    if (keyAt < 0) {
+                        return "Auto Blaze never fired, so K had nothing to stop";
+                    }
+                    if (arrowsAtKey < 0 || arrowsLast > arrowsAtKey) {
+                        return (arrowsLast - arrowsAtKey) + " arrow(s) after K";
+                    }
+                    if (!heldLast) {
+                        return "the hold was off before the watch ended";
+                    }
+                    if (solvedAt > 0) {
+                        return "the room was solved through the hold";
+                    }
+                    return null;
+                }
+
+                @Override
+                String summary() {
+                    return String.format(java.util.Locale.ROOT, "K at %.1fs with %d arrow(s) fired, %d by the end, hold "
+                            + "%s at the end", keyAt / 20.0, arrowsAtKey, arrowsLast, heldLast);
+                }
+            };
+        }
+    }
+
+    /**
      * Higher Blaze with the final volley forced to miss (killer560, 2026-10-06: "If while it goes to get the secret it
      * realizes it missed a blaze then it can get it again after getting the secret"). Every hit on the last blaze is
      * refused for {@link BlazeMiss#WINDOW} server ticks from the first one and the arrow removed, as if the volley
@@ -423,6 +506,11 @@ public final class SimPuzzleSolveTests {
         /** A case's own settings and per-tick checks on top of the room's (2026-10-15 puzzles round); null for none. */
         SolveExtra extra() {
             return null;
+        }
+
+        /** The pass is the Emergency Cancel Key's hold, not a solve (93-solve-ecancel-*). */
+        boolean expectsHold() {
+            return false;
         }
 
         private SolveExtra caseExtra;
@@ -1106,6 +1194,9 @@ public final class SimPuzzleSolveTests {
                 dumpEvidence(ctx, name, mark);
                 return "FAIL - " + extraBad + (solvedAt > 0 ? String.format(" (solved at %.1fs)", solvedAt / 20.0)
                         : " (not solved)") + extra;
+            }
+            if (expectsHold()) {
+                return "PASS - held: " + caseExtra.summary() + extra;
             }
             if (spec.chestIsVerdict()) {
                 if (chestAt > 0 && bw != null) {

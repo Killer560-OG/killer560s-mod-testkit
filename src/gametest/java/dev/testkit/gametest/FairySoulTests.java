@@ -612,8 +612,10 @@ public class FairySoulTests implements FabricClientGameTest {
     /**
      * 1017-fairy-freecam ("have it put the player in freecam like auto routes ... and only if they press a key have it
      * stop"): the Start/Stop key (K) starts it and its own press does not stop it; while it walks the L the camera is
-     * held still and the body turns; moving the mouse does not stop it; the J key does, by name, and gives the camera
-     * back with the body under it. A second run is stopped by a left click.
+     * held still and the body turns; moving the mouse does not stop it. Since mod doc-etable-1101 (killer560, 2026-11-01:
+     * movement macros stop on "any movement key or escape or chat or the emergency cancel key") the J key does NOT stop
+     * it and W does, by name, giving the camera back with the body under it. A second run ignores a left click and is
+     * stopped by the Emergency Cancel Key (L), by name.
      */
     private static void freecam(ClientGameTestContext ctx) {
         Scenario.run(ctx, "1017-fairy-freecam",
@@ -669,12 +671,15 @@ public class FairySoulTests implements FabricClientGameTest {
                         ctx.getInput().pressKey(dev.testkit.compat.McKeys.nat(294)); // F5
                         ctx.waitTicks(3);
                         boolean activeAfterF5 = isActive(ctx);
-                        ctx.getInput().pressKey(dev.testkit.compat.McKeys.nat(74)); // J
+                        ctx.getInput().pressKey(dev.testkit.compat.McKeys.nat(74)); // J: not a movement key, no longer a stop
                         ctx.waitTicks(3);
                         boolean activeAfterJ = isActive(ctx);
+                        ctx.getInput().pressKey(dev.testkit.compat.McKeys.nat(87)); // W: a movement key
+                        ctx.waitTicks(3);
+                        boolean activeAfterW = isActive(ctx);
                         float[] after = ctx.computeOnClient(mc -> new float[]{mc.player.getViewYRot(1f), mc.player.getYRot(),
                                 viewHeld() ? 1 : 0});
-                        boolean namedJ = LogTap.since(mark).stream().anyMatch(l -> l.contains("Stopped") && l.contains("J key"));
+                        boolean namedW = LogTap.since(mark).stream().anyMatch(l -> l.contains("Stopped") && l.contains("W key"));
                         // Second run, from the start again (the server answers no click here, so near the soul it would give up): a left click stops it.
                         server.command("tp @p -824.5 151 1505.5 -90 0");
                         ctx.waitTicks(5);
@@ -685,24 +690,35 @@ public class FairySoulTests implements FabricClientGameTest {
                         ctx.getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
                         ctx.waitTicks(3);
                         boolean activeAfterClick = isActive(ctx);
-                        boolean namedClick = LogTap.since(mark2).stream().anyMatch(l -> l.contains("Stopped") && l.contains("left click"));
-                        ctx.runOnClient(mc -> Mod.set(CFG, "setResumeKeyCode", -1));
+                        ctx.runOnClient(mc -> Mod.set("macrostop.MacroStopConfig", "setEmergencyCancelKeyCode", 76)); // L
+                        ctx.getInput().pressKey(dev.testkit.compat.McKeys.nat(76));
+                        ctx.waitTicks(3);
+                        boolean activeAfterCancel = isActive(ctx);
+                        boolean namedCancel = LogTap.since(mark2).stream().anyMatch(l -> l.contains("Stopped")
+                                && l.contains("Emergency Cancel Key"));
+                        ctx.runOnClient(mc -> {
+                            Mod.set(CFG, "setResumeKeyCode", -1);
+                            Mod.set("macrostop.MacroStopConfig", "setEmergencyCancelKeyCode", -1);
+                            Mod.staticCall("macrostop.MacroStop", "release", "testkit");
+                        });
                         scenario.log(String.format(Locale.US, "freecam: started by K %s, active through the walk %s, view held %d/110 "
                                         + "ticks, view yaw range %.2f, body yaw range %.1f; after a mouse move active %s (view %.1f -> %.1f); "
-                                        + "after J active %s, named J %s, view held %s, body-view %.2f; second run active %s, "
-                                        + "after a left click active %s, named %s",
+                                        + "after J active %s, after W active %s, named W %s, view held %s, body-view %.2f; second run "
+                                        + "active %s, after a left click active %s, after the Emergency Cancel Key active %s, named %s",
                                 startedByKey, activeAll, heldTicks, viewMax - viewMin, bodyMax - bodyMin, activeAfterMouse,
-                                view0, viewAfterMouse, activeAfterJ, namedJ, after[2] == 1, Math.abs(after[0] - after[1]),
-                                activeBeforeClick, activeAfterClick, namedClick));
+                                view0, viewAfterMouse, activeAfterJ, activeAfterW, namedW, after[2] == 1,
+                                Math.abs(after[0] - after[1]), activeBeforeClick, activeAfterClick, activeAfterCancel, namedCancel));
                         check(activeAll, "it stopped by itself during the walk (its own start key?)");
                         check(heldTicks >= 105, "the camera was held only " + heldTicks + " of 110 ticks");
                         check(bodyMax - bodyMin > 30f, "the body never turned the corner (" + (bodyMax - bodyMin) + ")");
                         check(viewMax - viewMin < 0.5f, "the camera moved " + (viewMax - viewMin) + " degrees with the body");
                         check(activeAfterMouse, "moving the mouse stopped it");
                         check(activeAfterF5, "the perspective key (F5) stopped it");
-                        check(!activeAfterJ && namedJ, "the J key did not stop it by name");
+                        check(activeAfterJ, "the J key (not a movement key) stopped it");
+                        check(!activeAfterW && namedW, "the W key did not stop it by name");
                         check(after[2] == 0 && Math.abs(after[0] - after[1]) < 0.5f, "the camera was not handed back under the body");
-                        check(activeBeforeClick && !activeAfterClick && namedClick, "a left click did not stop the second run");
+                        check(activeBeforeClick && activeAfterClick, "a left click stopped the second run (or it never ran)");
+                        check(!activeAfterCancel && namedCancel, "the Emergency Cancel Key did not stop the second run by name");
                     }
                 });
     }

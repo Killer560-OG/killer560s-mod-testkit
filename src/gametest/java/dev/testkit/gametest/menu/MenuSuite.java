@@ -233,6 +233,8 @@ public class MenuSuite implements FabricClientGameTest {
                     ScreenSweepCases.register(s);
                     // ---- 982-984 doc-dungeons (2026-10-13): Auto E-Table stops on input, leap modes/targets, Scan All pace ----
                     DocDungeonsMenuCases.register(s);
+                    // ---- 1101 doc-etable (2026-11-01): E-Table resume by hand, Superpairs Overview, macro stop rules ----
+                    DocEtable1101Cases.register(s);
                     // ---- leap-v2 (1341-1342): Auto Leap's swap/use/click/return sequence and its failures ----
                     LeapV2MenuCases.register(s);
                     // ---- 1850-1852 swap-accounts-ui (2026-10-15, 1852 2026-10-16): the redone Swap Accounts screen, Set Universal Proxy ----

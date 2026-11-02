@@ -1312,3 +1312,17 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   feature acted (chat lines kept, hook counter, layers played, names replaced, beam core draws). A hand-item hook test must
   hold an item and turn SkyblockGate off. 806 alone takes ~150 s: give run-scenario -TimeoutSeconds 1200 when 806 or a
   menu session (200-menu-session pulls in many menu cases) is in the filter; the 240 s default kills the run.
+- 1101-menu-* (`menu/DocEtable1101Cases`, mod doc-etable-1101): E-Table resume by hand (real mouse clicks after an Escape
+  stop mid-Ultrasequencer), the Superpairs Overview on a fixed board, and `macrostop/MacroStop`'s rule driven through the
+  real key handlers with two test macros it registers by reflection. Run with `-Scenario "200-menu-session:,1101-menu"`.
+  Observed 2026-11-01 under a 9-client machine load: the FIRST Auto E-Table case of a session (223 on main a4eecd33, 224
+  or 1101-resume on the branch) can time out waiting for its game to end while later ones pass - a session warm-up issue
+  on main too, not the branch; rerun before blaming the mod. A run the freeze watcher closed (FROZEN while the test server
+  was still starting) can leave its `runTestServer` java alive and the next run's server exits "before it was ready":
+  kill that PID (command line holds this checkout's path and runTestServer) first.
+- Emergency Cancel Key cases (mod doc-etable-1101, e4ecb41d): 1101-ap3-ecancel (63-ap3 session), 96-ar-1101-ecancel (route +
+  Mimic Killer), 1101-menu-ecancel-terminal, 93-solve-ecancel-higherblaze (`Base.expectsHold`: the pass is the hold, not a
+  solve). Any case that presses the key starts MacroStop's emergency hold, which makes ActionGate refuse every automated
+  action for the rest of the client: release it in the case's finally (`MacroStop.release`). In 96-ar-1101-ecancel the
+  sim mimic dies to the Sceptre's first use, so the Mimic Killer half proves "not busy and no use after the key", not
+  that it would have gone on.
