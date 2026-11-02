@@ -1036,10 +1036,10 @@ public class FairySoulTests implements FabricClientGameTest {
                         startRun(ctx);
                         ctx.waitTicks(30);
                         boolean before = isActive(ctx);
-                        ctx.runOnClient(mc -> Mod.staticCall(WALKER, "onPlayerInput", "the testkit key", 87));
+                        ctx.getInput().pressKey(dev.testkit.compat.McKeys.nat(87)); // W: a movement key stops it, view held or not
                         ctx.waitTicks(3);
                         boolean after = isActive(ctx);
-                        scenario.log("a key with Free Camera off: active before " + before + ", after " + after);
+                        scenario.log("W with Free Camera off: active before " + before + ", after " + after);
                         check(before && !after, "a key did not stop it with Free Camera off (before " + before + ", after " + after + ")");
                     } finally {
                         resetKnobs();
