@@ -114,6 +114,14 @@ public final class HxSigns {
         MinecraftServer server = player.level().getServer();
         if (p.spec().has("amount")) {
             HxMenus.later(() -> amount(server, player, p.spec().getAsJsonObject("amount"), lines[0]));
+        } else if (p.spec().has("then")) {
+            // A price prompt (Hypixel's Create BIN Auction Set Price, ahrelist-1101): the menu comes back with what was
+            // typed in it. "{line}" is line 1 as typed, "{price}" the same with thousands commas when it is a number.
+            String typed = lines[0];
+            String price = typed.matches("\\d{1,15}") ? String.format(Locale.US, "%,d", Long.parseLong(typed)) : typed;
+            String json = p.spec().get("then").toString().replace("{line}", typed).replace("{price}", price);
+            JsonObject then = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
+            HxMenus.later(() -> HxMenuSpec.open(server, player, then));
         }
         return true;
     }
@@ -176,7 +184,28 @@ public final class HxSigns {
         long n = a.get("n").getAsLong();
         int stack = a.has("stack") ? a.get("stack").getAsInt() : 64;
         double each = a.get("each").getAsDouble();
-        long left = n;
+        // "splitTicks": T - the first half of the stacks now, the rest T server ticks later, as a big Insta Buy reached
+        // his inventory over more than one tick (his "Bought 1,472x Gravel" first read 832, 2026-10-30; ahrelist-1101).
+        long stacks = (n + stack - 1) / stack;
+        long firstUnits = a.has("splitTicks") && stacks > 1 ? Math.min(n, ((stacks + 1) / 2) * stack) : n;
+        give(server, player, a, firstUnits, stack);
+        if (firstUnits < n) {
+            long rest = n - firstUnits;
+            laterTicks(a.get("splitTicks").getAsInt(), () -> give(server, player, a, rest, stack));
+        }
+        String name = a.get("name").getAsString();
+        String chat = String.format(Locale.US, "[Bazaar] Bought %,dx %s for %,.0f coins!", n, name, n * each);
+        HxMenus.later(() -> player.connection.send(new ClientboundSystemChatPacket(Component.literal(chat), false)));
+        if (a.has("reopen") && a.get("reopen").isJsonObject()) {
+            JsonObject reopen = a.getAsJsonObject("reopen");
+            HxMenus.later(() -> HxMenuSpec.open(server, player, reopen));
+        } else if (player.containerMenu != player.inventoryMenu) {
+            HxMenus.later(player::closeContainer);
+        }
+    }
+
+    private static void give(MinecraftServer server, ServerPlayer player, JsonObject a, long units, int stack) {
+        long left = units;
         while (left > 0) {
             int c = (int) Math.min(stack, left);
             ItemStack given = HxMenuSpec.slot(server, a.get("unit"));
@@ -189,14 +218,13 @@ public final class HxSigns {
             left -= c;
         }
         player.inventoryMenu.broadcastChanges();
-        String name = a.get("name").getAsString();
-        String chat = String.format(Locale.US, "[Bazaar] Bought %,dx %s for %,.0f coins!", n, name, n * each);
-        HxMenus.later(() -> player.connection.send(new ClientboundSystemChatPacket(Component.literal(chat), false)));
-        if (a.has("reopen") && a.get("reopen").isJsonObject()) {
-            JsonObject reopen = a.getAsJsonObject("reopen");
-            HxMenus.later(() -> HxMenuSpec.open(server, player, reopen));
-        } else if (player.containerMenu != player.inventoryMenu) {
-            HxMenus.later(player::closeContainer);
+    }
+
+    private static void laterTicks(int ticks, Runnable r) {
+        if (ticks <= 0) {
+            r.run();
+            return;
         }
+        HxMenus.later(() -> laterTicks(ticks - 1, r));
     }
 }

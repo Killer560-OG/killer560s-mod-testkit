@@ -182,6 +182,16 @@ public final class HxMenuModule implements HxModule {
         HxBridge.register("menu.onCommand", HxMenuModule::onCommand);
     }
 
+    /** From a menu action {@code rebind: {name, menu}}: what /name opens from now on (null menu: nothing). Lets one click
+     *  change a later page, as Hypixel's do (a claimed auction is gone from Manage Auctions the next time). */
+    static void rebind(String name, JsonObject menu) {
+        if (menu == null) {
+            ON_COMMAND.remove(name);
+        } else {
+            ON_COMMAND.put(name, menu);
+        }
+    }
+
     private static JsonElement onCommand(MinecraftServer s, JsonObject a) {
         String name = a.get("name").getAsString();
         if (a.has("menu") && !a.get("menu").isJsonNull()) {

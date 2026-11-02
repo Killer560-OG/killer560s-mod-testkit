@@ -65,9 +65,20 @@ final class HxMenuSpec {
         return out;
     }
 
+    /** The last stack a "listSlot" click moved into a menu, per player ("keepListed" puts it back on the next page). */
+    static final java.util.Map<java.util.UUID, ItemStack> LISTED = new java.util.concurrent.ConcurrentHashMap<>();
+
     static HxChestMenu open(MinecraftServer server, ServerPlayer player, JsonObject spec) {
         int rows = spec.has("rows") ? spec.get("rows").getAsInt() : 6;
         List<ItemStack> items = items(server, spec, rows);
+        // Hypixel's Create BIN Auction after its price sign: the item he put in is still in the item slot.
+        if (spec.has("keepListed") && spec.get("keepListed").getAsBoolean() && spec.has("listSlot")) {
+            ItemStack kept = LISTED.get(player.getUUID());
+            int at = spec.get("listSlot").getAsInt();
+            if (kept != null && at >= 0 && at < items.size()) {
+                items.set(at, kept.copy());
+            }
+        }
         Component title = HxPrimitives.text(server, spec, "title");
         return HxMenus.open(player, rows, title, items, SCRIPT, new State(spec.deepCopy()));
     }
@@ -196,6 +207,30 @@ final class HxMenuSpec {
                     HxEvents.custom("menu.equip", player, e);
                 }
             }
+            // Hypixel's Create (BIN) Auction: a click on an item in his inventory moves it into the menu's item slot
+            // ("listSlot": N, ahrelist-1101). "menu.list" names what moved.
+            if (spec.has("listSlot")) {
+                Slot s = menu.slots.get(slot);
+                ItemStack clicked = s.getItem();
+                int to = spec.get("listSlot").getAsInt();
+                if (!clicked.isEmpty() && to >= 0 && to < top) {
+                    JsonObject e = new JsonObject();
+                    e.addProperty("slot", slot);
+                    e.addProperty("inventorySlot", s.getContainerSlot());
+                    e.addProperty("item", HxTerminals.id(clicked));
+                    e.addProperty("count", clicked.getCount());
+                    var data = clicked.get(DataComponents.CUSTOM_DATA);
+                    e.addProperty("skyblockId", data == null ? "" : data.copyTag().getStringOr("id", ""));
+                    menu.items().setItem(to, clicked.copy());
+                    LISTED.put(player.getUUID(), clicked.copy());
+                    player.getInventory().setItem(s.getContainerSlot(), ItemStack.EMPTY);
+                    player.containerMenu.setCarried(ItemStack.EMPTY);
+                    player.inventoryMenu.broadcastChanges();
+                    menu.sendAllDataToRemote();
+                    HxEvents.custom("menu.list", player, e);
+                    return;
+                }
+            }
             // A player-inventory slot may carry an action too (Hypixel's Bazaar opens the product of an item clicked in
             // his inventory: testkit 490); otherwise nothing happens, as before.
             if (!spec.has("on") || !spec.getAsJsonObject("on").has(String.valueOf(slot))) {
@@ -216,6 +251,11 @@ final class HxMenuSpec {
             for (var se : action.getAsJsonObject("set").entrySet()) {
                 menu.items().setItem(Integer.parseInt(se.getKey()), slot(server, se.getValue()));
             }
+        }
+        if (action.has("rebind")) {
+            JsonObject rb = action.getAsJsonObject("rebind");
+            HxMenuModule.rebind(rb.get("name").getAsString(),
+                    rb.has("menu") && rb.get("menu").isJsonObject() ? rb.getAsJsonObject("menu") : null);
         }
         if (action.has("give")) {
             // Items into the player's own inventory (a Bazaar instant buy delivering), one slot spec per stack.

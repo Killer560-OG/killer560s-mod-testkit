@@ -1374,3 +1374,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   loads once and no reload resets it, so switching it on hid every cheat tab from 944's search after this case (first
   run, 2026-11-02); the walk never switches it. The 26.2 UI client froze once in the end-of-run disconnect (integrated
   server halt vs gametest `postRunTasks`) after every case had written its log: read `cases/*.log`, summary.md is missing.
+- 2798-2801 (ahrelist-1101): an Hx menu spec is JSON and must not contain itself. A "Go Back" that `open`s the page
+  holding it makes a cycle and the session dies at the first Hx call with a StackOverflowError in Gson (first run). Close
+  instead and let the feature reopen the command, or `rebind` (a menu action: what `/name` opens from now on) to change
+  later pages after a click. New Hx menu keys: `listSlot` (an inventory click moves the stack into that menu slot, event
+  `menu.list`), `keepListed` (the next page keeps it there), a sign's `then` (a menu reopened with `{line}`/`{price}`
+  replaced by what was typed) and `splitTicks` on a delivery (half now, the rest T ticks later).
