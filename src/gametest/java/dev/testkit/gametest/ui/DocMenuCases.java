@@ -1242,7 +1242,7 @@ final class DocMenuCases {
                 if (!first.isFocused()) {
                     return "a click on the first theme's name box did not focus it";
                 }
-                MenuACases.key(s, InputConstants.KEY_A, 2 /* GLFW_MOD_CONTROL */);
+                MenuACases.key(s, InputConstants.KEY_A, InputConstants.MOD_CONTROL);
                 MenuACases.key(s, InputConstants.KEY_BACKSPACE, 0);
                 MenuACases.type(s, "Forest Night");
                 String name0 = (String) Mod.field(((List<?>) Mod.call(Mod.cfg("gui.MenuConfig"), "getSavedThemes")).get(0), "name");

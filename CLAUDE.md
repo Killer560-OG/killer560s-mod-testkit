@@ -88,7 +88,12 @@ API goes in `dev.testkit.compat` (client: `src/client/mc26_3/java` vs `mc26_2/ja
 (companion mod: `src/testmod/mc26_3/java` vs `mc26_2/java`), identical public signatures. Nothing in `src/*/java` may use
 `mc.screen`, `mc.setScreen`, color-variant `Items.RED_...`, `EntityType.<CONSTANT>`, `BlockPos.getCenter()`, the use
 packets' getters, `ServerboundSwingPacket` or a `"swing"` trace id, `org.lwjgl.glfw`, a bare mouse-button number (`McKeys.mouse`), or a bare key-code number (use `InputConstants.KEY_*`: GLFW
-codes on 26.2, SDL scancodes on 26.3; GLFW numbers in mod settings, `McKeys.nat` for a press). Compile both versions before merging a branch. What 26.3 moved, what changed in
+codes on 26.2, SDL scancodes on 26.3; GLFW numbers in mod settings, `McKeys.nat` for a press), or a bare modifier number
+in a `KeyEvent`/`MouseButtonInfo` (use `InputConstants.MOD_CONTROL` etc.: 26.3's SDL bits are Shift 3, Ctrl 0xC0, Alt 0x300,
+so GLFW's Ctrl `2` reads as right Shift there and Ctrl+F/V/A silently did nothing in 944/948/955/989, 2026-11-01; GLFW's Shift
+`1` happens to be SDL left Shift). Build every KeyEvent with `McKeys.keyEvent(nativeKey, mods)`, never `new KeyEvent(...)`:
+26.3's record is (scancode, SDL keycode, mods) and EditBox's Backspace/Delete/Home/End and Ctrl+A/C/V switch on the keycode,
+so a 0 there is a key no text box acts on (944/989, 2026-11-01). Compile both versions before merging a branch. What 26.3 moved, what changed in
 GrimAC, and how to run a set on the old Grim: [docs/minecraft-263.md](docs/minecraft-263.md); the 26.2 notes:
 [docs/minecraft-262.md](docs/minecraft-262.md).
 
@@ -432,3 +437,6 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
 - Leave the Simon Says device (`dungeon.tp` away, a few ticks) BEFORE `boss.ss.clear`: clearing first drops him through the
   floor it stood on and GrimAC flags the fall (GroundSpoof + Simulation x1-x4) at the next case's start, which reads as the
   mod (1018-ss-stim-momentum on 26.3, 1101-ss-skip-second on 26.2, 2026-11-01). DocPuzzleCases and SsStimMomentumCases do.
+- `run-suite.ps1 -Suite ui` needs `-TimeoutSeconds 3600`: the default 1200 s deadline is shorter than the UI suite
+  (~27 min on 26.3), and its "Deadline passed - the run is hung" kills a healthy run at about case 897 with no report
+  (2026-11-01, both versions at once).

@@ -149,4 +149,20 @@ public final class McKeys {
             default -> glfwButton + 1;
         };
     }
+
+    /**
+     * A KeyEvent as the game builds one for a press of {@code nativeKey} (an {@code InputConstants.KEY_*} scancode) with
+     * {@code mods} ({@code InputConstants.MOD_*}). 26.3's record is (scancode, SDL keycode, mods), as SDLEventHandler
+     * fills it from SDL_KeyboardEvent (javap); EditBox's Backspace/Delete/Home/End and Ctrl+A/C/V/X switch on the keycode
+     * ({@code shortcutKey()}), so a KeyEvent with keycode 0 is a key no text box acts on (944/989, 2026-11-01).
+     */
+    public static net.minecraft.client.input.KeyEvent keyEvent(int nativeKey, int mods) {
+        int keycode;
+        try {
+            keycode = org.lwjgl.sdl.SDLKeyboard.SDL_GetKeyFromScancode(nativeKey, (short) 0, true);
+        } catch (Throwable t) {
+            keycode = 0;
+        }
+        return new net.minecraft.client.input.KeyEvent(nativeKey, keycode, mods);
+    }
 }
