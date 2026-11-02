@@ -527,10 +527,11 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
   worksfor, then zpewmt/zpewlk/ecancel). With nine clients up, clients froze at world changes and the watcher closed them,
   leaving the checkout's server on its port (zpew2-1101, 2026-11-02); kill `<checkout>\build\loom-cache\argFiles\runTestServer`
   java before the next entry.
-- `HxAbilities` treats a carpet as SOLID (the etherwarp lands on it). zpew2-1101 made it passable to match doc-routes-1101's
-  TeleportUtils change; both were held back in ship-1102h (mod ship-1101e-nocarpet, testkit a06d8ffc) until killer560 sees an
-  etherwarp onto a carpet on Hypixel. Mod and model must agree, or 1027-zpewc-shapes-* fail "carpet: MISPREDICT (err 1.414)"
-  and 62-argrim-1020-midas never lands its warp. 1101-ew-carpet expects passable and fails on a carpet-solid jar.
+- `HxAbilities` treats a carpet as SOLID (the etherwarp lands on it), and so do the mod's TeleportUtils and Etherwarp
+  Overlay: killer560 (2026-11-02) said the carpet trouble was only on the sim, so doc-routes-1101's passable carpets stay
+  out for good (ownerq-1102). Mod and model must agree, or 1027-zpewc-shapes-* fail "carpet: MISPREDICT (err 1.414)" and
+  62-argrim-1020-midas never lands its warp. 1101-ew-carpet now expects the carpet block itself; 1102-sim-ew-carpet(-room)
+  checks the sim's own etherwarp lands on the overlay's box.
 - With experimental checks on, Blink Charge draws `BadPacketsV*` (a still position packet within 19 ticks of the last, no
   teleport in the tick before) about once per server teleport it keeps its bank through ("teleport confirmed - bank kept ...
   answers sent back to back with the confirm", then the flag ~0.5 s later), with no ZPEW press in between: 1027-zpewlk-*

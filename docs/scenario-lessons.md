@@ -1398,3 +1398,19 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   timestamps of the chat lines (within 0.3 s; measured 0.01).
 - `1016-sim-fullclear -PfullclearMobFloor=true` runs on the Map Designer's Mobs floor; it does not call SimRun.begin (the
   floor's autoStart did, and a second begin counts down again).
+- 1102-sim-ew-carpet / 1102-sim-ew-carpet-room (`SimEtherwarpCarpetTests`, `SimEtherwarpCarpetRoomTests`, mod ownerq-1102):
+  the sim's own etherwarp onto carpets against the Etherwarp Overlay's box and TeleportUtils. Flat lanes (carpet on the floor
+  and on a step, near = block click + use half, far = bare use, the step's side refused, standing on a carpet) agree on
+  every jar; real rooms (Purple Flags, Wizard: every carpet with a stand spot FOUND by the planner's own ray) caught the
+  bug: on main the sim landed one carpet off the box 2 of 23 times. Cause: the overlay casts along vanilla `getLookAngle`
+  (Mth's sine table), the sim along `TeleportUtils.getLook` (Math.sin); ~1e-4 rad apart decides a ray through a voxel
+  corner, and a ray at a carpet grazes full-cube carpet voxels corner after corner. The room case judges the sim against
+  the OVERLAY's block and only notes TeleportUtils where its look differs (it stays a hair apart there by design). Aims
+  from a block center to a block center at 45 degrees or a 1:3 slope pass exact corners - good probes, not flukes. The
+  "Carpets" room found no target from its spawn (cause not looked into; the other two rooms give 23).
+- 292-menu-term-melody3-skip-edges (`TerminalCases.melodySkipEdges`, mod ownerq-1102): his config (EDGES, Lookahead 2, Stream
+  Safe) on five 3-row boards, target slot 1-5 with keepTarget. With keepTarget the pane stays on the target column when a
+  row is done, so the next row's live match comes at once: timing cannot tell a burst from live play, the mod's
+  `melodyLookaheadFired` counter does (2 for slots 1 and 5, 0 for 2-4). 275-277 use target 1 since EDGES no longer bursts
+  from a middle slot. On the main control the case failed at target 1 with rows 2 and 3 clicked twice (2 wrong; burst and
+  live click in one server tick, first board of the session); not seen in two runs of the fixed jar.
