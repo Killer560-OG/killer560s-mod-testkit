@@ -641,7 +641,24 @@ final class InvBatchCases {
             c.check(row >= 0 && row < 7, "'ib584 Kit' is not on the first page of the list: " + names);
             int listX = (Integer) Mod.field(s, "listX");
             int listY = (Integer) Mod.field(s, "listY");
-            click(c, s, listX + 20, listY + 1 + row * 13 + 6);
+            // A RIGHT click selects a row for editing since mod doc-invsort-1101 (killer560 2026-11-01: "click a loadout to
+            // swap to it"): a left click now closes the menu and sorts, so the old left click left Rename on a closed screen.
+            c.onClient(mc -> {
+                // Save left it selected: clear that, so only the right click can select it.
+                try {
+                    java.lang.reflect.Field f = s.getClass().getDeclaredField("selected");
+                    f.setAccessible(true);
+                    f.set(s, null);
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+                return null;
+            });
+            int rowH = (Integer) Mod.field(s, "LIST_ROW");
+            cursor(c, s, listX + 20, listY + 1 + row * rowH + rowH / 2.0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(1));
+            c.ticks(3);
+            c.check(c.onClient(mc -> McCompat.screen(mc)) == s, "a right click on the list row closed the editor");
             c.check("ib584 Kit".equals(c.onClient(mc -> Mod.call(s, "selectedLayout"))), "the list click did not select it");
             c.onClient(mc -> {
                 box.setValue("ib584 Renamed");
@@ -655,8 +672,15 @@ final class InvBatchCases {
             c.check(renamed && Files.exists(dir.resolve("ib584 Renamed.json")) && !Files.exists(dir.resolve("ib584 Kit.json")),
                     "rename: store " + renamed + ", files " + Files.exists(dir.resolve("ib584 Renamed.json")));
 
-            // Bind a key: press the Key button, then K.
-            clickWidget(c, s, widget(c, s, "Key"));
+            // Bind a key: click the row's own key cell (the Key button became a per-row cell in mod doc-invsort-1101),
+            // then K.
+            List<?> names2 = c.onClient(mc -> (List<?>) Mod.call(Mod.staticCall("invsort.InventoryLayoutStore", "getInstance"), "listNames"));
+            int row2 = names2.indexOf("ib584 Renamed");
+            int listW = (Integer) Mod.field(s, "listW");
+            int keyW = (Integer) Mod.field(s, "KEY_W");
+            c.check(row2 >= 0 && row2 < 7, "'ib584 Renamed' is not on the first page of the list: " + names2);
+            click(c, s, listX + listW - 1 - keyW / 2.0, listY + 1 + row2 * rowH + rowH / 2.0);
+            c.check(Boolean.TRUE.equals(c.onClient(mc -> Mod.field(s, "capturingKey"))), "a click on the row's key cell did not start capturing");
             c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(75));
             c.ticks(2);
             int bound = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(ISC), "getLayoutKey", "ib584 Renamed"));

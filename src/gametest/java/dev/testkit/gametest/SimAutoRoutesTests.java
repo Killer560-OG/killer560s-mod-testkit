@@ -63,6 +63,25 @@ import java.util.function.Supplier;
 public class SimAutoRoutesTests implements FabricClientGameTest {
 
     private static final String NAME = "96-ar";
+
+    /** An item a dungeon secret drops: since mod 8a39696d (doc-dhud, 2026-11-01) a pickup counts for an await only when
+     *  the item's name is one of the dungeon secret drops (SecretSound.isDungeonItemDrop), so a plain bone or paper is
+     *  "no secret" and satisfies nothing. "Decoy" is on that list. */
+    static ItemStack secretDrop(net.minecraft.world.item.Item item) {
+        ItemStack s = new ItemStack(item);
+        s.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("Decoy"));
+        return s;
+    }
+
+    /** Forget every chest click the mod remembers in this world: an item made after a click on a chest within 4.5 blocks
+     *  counts as that chest's drop, not a secret (mod 8a39696d), and those clicks are kept for the whole world - so a chest
+     *  an EARLIER case clicked at the same frame spot made this case's item "come out of the chest" (uifix-1102, 96-ar-await:
+     *  "'Decoy' came out of the chest at -122, -60, -118"). 1101-dhud-chestdrop clears them the same way. */
+    static void forgetChestClicks(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> ((java.util.Collection<?>) dev.testkit.gametest.mod.Mod.field("autoroutes.AwaitEvents",
+                "chestClicks")).clear());
+    }
+
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
     private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
@@ -4230,14 +4249,30 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         .cycle(net.minecraft.world.level.block.LeverBlock.POWERED)))));
         note.accept(awaitRun(ctx, "our button click", false, () -> rightClick(ctx, 14, F, 11, Direction.UP)));
         note.accept(awaitRun(ctx, "our lever click", true, () -> rightClick(ctx, 14, F, 13, Direction.UP)));
-        note.accept(awaitRun(ctx, "our chest click", true, () -> rightClick(ctx, 10, F, 11, Direction.UP)));
-        note.accept(awaitRun(ctx, "our skull click", true, () -> rightClick(ctx, 11, F, 14, Direction.UP)));
-        note.accept(awaitRun(ctx, "our own item pickup", true, () -> serverRun(ctx, (server, sp) -> {
+        // Before the chest click, and with earlier chest clicks forgotten: an item made after his click on a chest within
+        // 4.5 blocks is that chest's drop, no secret (mod 8a39696d), and this item appears 2.3 blocks from that chest.
+        note.accept(awaitRun(ctx, "our own item pickup", true, () -> {
+            forgetChestClicks(ctx);
+            serverRun(ctx, (server, sp) -> {
+            var item = new net.minecraft.world.entity.item.ItemEntity(server.overworld(), sp.getX(), sp.getY() + 0.2,
+                    sp.getZ(), secretDrop(net.minecraft.world.item.Items.BONE));
+            item.setNoPickUpDelay();
+            server.overworld().addFreshEntity(item);
+            });
+        }));
+        long plainMark = LogTap.mark();
+        note.accept(awaitRun(ctx, "our own pickup of a plain bone (no dungeon secret item)", false, () -> serverRun(ctx,
+                (server, sp) -> {
             var item = new net.minecraft.world.entity.item.ItemEntity(server.overworld(), sp.getX(), sp.getY() + 0.2,
                     sp.getZ(), new ItemStack(net.minecraft.world.item.Items.BONE));
             item.setNoPickUpDelay();
             server.overworld().addFreshEntity(item);
         })));
+        if (!logHas(plainMark, "picked up by you is no secret")) {
+            wrong.add("the plain bone was never picked up (no 'is no secret' line) - its row proves nothing");
+        }
+        note.accept(awaitRun(ctx, "our chest click", true, () -> rightClick(ctx, 10, F, 11, Direction.UP)));
+        note.accept(awaitRun(ctx, "our skull click", true, () -> rightClick(ctx, 11, F, 14, Direction.UP)));
         note.accept(awaitRun(ctx, "a secret bat 5 blocks away", true, () -> spawnBatAt(ctx, 12, F - 1, 17)));
         note.accept(awaitRun(ctx, "a secret bat 13 blocks away", false, () -> spawnBatAt(ctx, 12, F - 1, 25)));
         spawnBatAt(ctx, 15, F - 1, 12);
@@ -8035,9 +8070,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             tpRel(ctx, 6.5, 4.5, 0f, 30f);
             ctx.waitTicks(3);
             BlockPos at = realNow(ctx, x, F, z);
+            forgetChestClicks(ctx);
             serverRun(ctx, (server, sp) -> {
                 var item = new net.minecraft.world.entity.item.ItemEntity(server.overworld(), at.getX() + 0.5, at.getY(),
-                        at.getZ() + 0.5, new ItemStack(net.minecraft.world.item.Items.PAPER));
+                        at.getZ() + 0.5, secretDrop(net.minecraft.world.item.Items.PAPER));
                 item.setNoPickUpDelay();
                 item.setDeltaMovement(Vec3.ZERO);
                 server.overworld().addFreshEntity(item);
@@ -8484,9 +8520,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 ClickRun skip = clickRun(ctx, 0, () -> leftClick(ctx, 2));
                 ClickRun swap = clickRun(ctx, 3, () -> ctx.runOnClient(ArMainServerCases::clickLever));
                 ClickRun same = clickRun(ctx, 0, () -> ctx.runOnClient(ArMainServerCases::clickLever));
+                forgetChestClicks(ctx);
                 ClickRun item = clickRun(ctx, 0, () -> serverRun(ctx, (server, sp) -> {
                     var drop = new net.minecraft.world.entity.item.ItemEntity(server.overworld(), sp.getX(), sp.getY(),
-                            sp.getZ(), new ItemStack(net.minecraft.world.item.Items.PAPER));
+                            sp.getZ(), secretDrop(net.minecraft.world.item.Items.PAPER));
                     drop.setNoPickUpDelay();
                     drop.setDeltaMovement(Vec3.ZERO);
                     server.overworld().addFreshEntity(drop);
@@ -9745,9 +9782,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             Vec3 c = ctx.computeOnClient(mc -> (Vec3) ModUnderTest.staticCall(COORDS, "toReal",
                     new Class<?>[]{ModUnderTest.staticCall(FRAME, "current").getClass(), double.class, double.class,
                             double.class}, new Object[]{ModUnderTest.staticCall(FRAME, "current"), x, (double) F, z}));
+            forgetChestClicks(ctx);
             serverRun(ctx, (server, sp) -> {
                 var item = new net.minecraft.world.entity.item.ItemEntity(server.overworld(), c.x, c.y + 0.1, c.z,
-                        new ItemStack(net.minecraft.world.item.Items.BONE));
+                        secretDrop(net.minecraft.world.item.Items.BONE));
                 item.setNoPickUpDelay();
                 item.setDeltaMovement(Vec3.ZERO);
                 server.overworld().addFreshEntity(item);
