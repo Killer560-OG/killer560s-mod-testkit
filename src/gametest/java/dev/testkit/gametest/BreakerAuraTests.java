@@ -114,6 +114,24 @@ public class BreakerAuraTests implements FabricClientGameTest {
         pickedBehindAndOccluded(ctx);
         // A Blink Charge shot into a picked wall: the aura mines it inside the shot (killer560, 2026-10-25).
         blinkShotThroughWall(ctx);
+        // The same with Hypixel's Dungeon Breaker (server-instant, not vanilla-instant) on stone bricks: his p3sim pattern.
+        AssertionError firstBreaker = null;
+        for (int v = 0; v < 3; v++) {
+            try {
+                if (v == 0) {
+                    blinkBreakerHypixel(ctx, "1027-blink-breaker-walk", false, false);
+                } else if (v == 1) {
+                    blinkBreakerHypixel(ctx, "1027-blink-breaker-leap", true, true);
+                } else {
+                    blinkBreakerHypixel(ctx, "1027-blink-breaker-stand", false, true);
+                }
+            } catch (AssertionError e) {
+                firstBreaker = firstBreaker == null ? e : firstBreaker;
+            }
+        }
+        if (firstBreaker != null) {
+            throw firstBreaker;
+        }
     }
 
     /**
@@ -560,6 +578,144 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             dev.testkit.gametest.mod.Mod.staticCall("util.SkyblockGate", "setEnabled", gate);
                         });
                         server.command("effect clear " + player + " minecraft:speed");
+                        unconfigure(ctx);
+                    }
+                });
+    }
+
+    /**
+     * 1027-blink-breaker-leap / -stand (owner's p3sim log 2026-10-27 16:54:51 and 16:55:05): a full Blink Charge shot,
+     * sprinting at Speed II, into a picked stone-brick wall 3 wide, 3 deep and 2 high, with Hypixel's Dungeon Breaker -
+     * the server breaks each block on its first dig (hx/dungeon/HxAbilities), which GrimAC does not predict. -leap: he
+     * charges elsewhere and a server teleport puts him in front of the wall (his leap), the shot one tick later; -stand: he
+     * charges in front of it. Three times each. He must end past the wall, the server must have broken it, and GrimAC must
+     * say nothing.
+     */
+    private void blinkBreakerHypixel(ClientGameTestContext ctx, String name, boolean leap, boolean blink) {
+        if (Scenario.skip(name)) {
+            return;
+        }
+        ModUnderTest.require(MOD_ID);
+        int cx = !blink ? -6520 : leap ? -6400 : -6460;
+        int cz = -1300;
+        int fy = SURFACE_Y - 1;
+        java.util.List<BlockPos> wall = new java.util.ArrayList<>();
+        for (int x = cx + 6; x <= cx + 8; x++) {
+            for (int y = SURFACE_Y; y <= SURFACE_Y + 1; y++) {
+                for (int z = cz - 1; z <= cz + 1; z++) {
+                    wall.add(new BlockPos(x, y, z));
+                }
+            }
+        }
+        String fill = (cx + 6) + " " + SURFACE_Y + " " + (cz - 1) + " " + (cx + 8) + " " + (SURFACE_Y + 1) + " " + (cz + 1);
+        String air = (cx + 6) + " " + (SURFACE_Y + 40) + " " + (cz - 1);
+        Scenario.run(ctx, name,
+                (server, scenario) -> TestMap.on(server)
+                        .platform(cx + 4, fy, cz, 26)
+                        .catchFloor(120)
+                        .survival()
+                        .clearInventory()
+                        .command("item replace entity @p hotbar.0 with minecraft:diamond_pickaxe[minecraft:custom_data={id:\"DUNGEONBREAKER\"}] 1")
+                        .command("fill " + fill + " minecraft:stone_bricks")
+                        .spawn(cx + 0.5, cz + 0.5, -90f)
+                        .build(),
+                (server, scenario) -> {
+                    scenario.assertDetectorWorks();
+                    String player = ctx.computeOnClient(mc -> mc.player.getName().getString());
+                    int ms = Integer.getInteger("testkit.blinkCampaignLatency", 0);
+                    dev.testkit.gametest.hx.Hx hx = dev.testkit.gametest.hx.Hx.connect();
+                    hx.call("dungeon.abilities", "enabled", true);
+                    configure(ctx, scenario, true, wall);
+                    boolean gate = ctx.computeOnClient(mc -> {
+                        boolean g = (Boolean) dev.testkit.gametest.mod.Mod.staticCall("util.SkyblockGate", "isEnabled");
+                        dev.testkit.gametest.mod.Mod.staticCall("util.SkyblockGate", "setEnabled", false);
+                        dev.testkit.gametest.mod.Mod.setField("blink.BlinkFeature", "keyHeldForTest", Boolean.FALSE);
+                        dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE);
+                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", true);
+                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChargeMode", dev.testkit.gametest.mod.Mod.enumValue("blink.BlinkConfig$Mode", "TOGGLE"));
+                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChargeTicks", 20);
+                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChatMessages", false);
+                        return g;
+                    });
+                    try {
+                        ctx.runOnClient(mc -> {
+                            dev.testkit.harness.Latency.remove();
+                            if (ms > 0) {
+                                dev.testkit.harness.Latency.install(ms);
+                            }
+                        });
+                        scenario.log("latency " + ms + " ms");
+                        server.command("effect give " + player + " minecraft:speed 600 1 true");
+                        for (int rep = 0; rep < 3; rep++) {
+                            final int r = rep;
+                            server.command("fill " + fill + " minecraft:stone_bricks");
+                            double startX = cx + 0.5;
+                            double chargeX = leap ? cx - 18.5 : startX;
+                            server.command(String.format(Locale.ROOT, "tp %s %.2f %d %.2f -90 0", player, chargeX, SURFACE_Y,
+                                    cz + 0.5));
+                            ctx.waitTicks(10 + ms / 25);
+                            if (blink) {
+                                ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE));
+                                ctx.waitTicks(1);
+                                ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
+                                ctx.waitTicks(40);
+                            }
+                            long bank = blink ? ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "banked")).longValue()) : 20;
+                            if (leap) {
+                                long tps0 = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "movingTeleports")).longValue());
+                                server.command(String.format(Locale.ROOT, "tp %s %.2f %d %.2f -90 0", player, startX, SURFACE_Y,
+                                        cz + 0.5));
+                                for (int i = 0; i < 40 && ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "movingTeleports")).longValue()) == tps0; i++) {
+                                    ctx.waitTicks(1);
+                                }
+                                ctx.waitTicks(1);
+                            }
+                            boolean wallBefore = !isAir(ctx, wall.get(0)) && !isAir(ctx, wall.get(wall.size() - 1));
+                            long shots0 = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "shots")).longValue());
+                            ctx.getInput().holdKey(o -> o.keySprint);
+                            ctx.getInput().holdKey(o -> o.keyUp);
+                            if (blink) {
+                                ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE));
+                            }
+                            ctx.waitTicks(2);
+                            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
+                            ctx.waitTicks(40);
+                            ctx.getInput().releaseKey(o -> o.keyUp);
+                            ctx.getInput().releaseKey(o -> o.keySprint);
+                            ctx.waitTicks(20);
+                            long shots = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "shots")).longValue()) - shots0;
+                            server.command("execute if blocks " + fill + " " + air + " all run say WALL_GONE");
+                            ctx.waitTicks(5);
+                            boolean wallGone = server.tail(40).contains("WALL_GONE");
+                            double clientX = ctx.computeOnClient(mc -> mc.player.getX());
+                            scenario.log(String.format(Locale.ROOT, "rep %d: bank %d, wall there before %s, %d shot part(s), wall "
+                                    + "gone (server) %s, client x %.2f (wall ends at %d)", r, bank, wallBefore, shots, wallGone,
+                                    clientX, cx + 9));
+                            if (bank < 20 || !wallBefore) {
+                                throw new AssertionError("nothing was tested on rep " + r + ": bank " + bank + ", wall before "
+                                        + wallBefore);
+                            }
+                            if (!wallGone || clientX < cx + 9.5) {
+                                throw new AssertionError("rep " + r + ": he did not get through the wall (gone " + wallGone
+                                        + ", x " + clientX + ")");
+                            }
+                            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "reset", "test rep"));
+                            ctx.waitTicks(20);
+                        }
+                    } finally {
+                        ctx.getInput().releaseKey(o -> o.keyUp);
+                        ctx.getInput().releaseKey(o -> o.keySprint);
+                        ctx.runOnClient(mc -> {
+                            dev.testkit.harness.Latency.remove();
+                            dev.testkit.gametest.mod.Mod.setField("blink.BlinkFeature", "keyHeldForTest", null);
+                            dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", null);
+                            dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "reset", "test teardown");
+                            dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", false);
+                            dev.testkit.gametest.mod.Mod.staticCall("util.SkyblockGate", "setEnabled", gate);
+                        });
+                        server.command("effect clear " + player + " minecraft:speed");
+                        hx.call("dungeon.abilities", "enabled", false);
+                        hx.close();
                         unconfigure(ctx);
                     }
                 });
