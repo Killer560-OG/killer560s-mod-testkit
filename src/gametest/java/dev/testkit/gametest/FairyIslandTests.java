@@ -60,12 +60,24 @@ public class FairyIslandTests implements FabricClientGameTest {
                     Scenario.skipped("1101-fairy-island-" + n, "Auto Fairy Souls is cheat build only");
                 }
             }
+            for (int i = 1; i <= spillRuns(); i++) {
+                if (!Scenario.skip("1102-fairy-spill-ladder-" + i)) {
+                    Scenario.skipped("1102-fairy-spill-ladder-" + i, "Auto Fairy Souls is cheat build only");
+                }
+            }
             return;
         }
         AssertionError first = null;
         for (String island : ISLANDS) {
             try {
                 island(ctx, island);
+            } catch (AssertionError e) {
+                first = first == null ? e : first;
+            }
+        }
+        for (int i = 1; i <= spillRuns(); i++) {
+            try {
+                spillLadder(ctx, i);
             } catch (AssertionError e) {
                 first = first == null ? e : first;
             }
@@ -136,7 +148,55 @@ public class FairyIslandTests implements FabricClientGameTest {
         });
     }
 
+    /** Repeats of 1102-fairy-spill-ladder (-Pfairy.spillRuns, default 8). */
+    static int spillRuns() {
+        return Integer.getInteger("testkit.fairy.spillRuns", 8);
+    }
+
+    /**
+     * 1102-fairy-spill-ladder-N: the walker from the foot of BAYOU_SPILL's ladder, whose top runs beside a pool. GrimAC
+     * flags the water current on a ladder for plain vanilla keys too, so the walker must never be on that ladder with
+     * water in his box. Requires: he climbed it, no tick on a ladder in water, the next soul (62, 186, 5) collected, and
+     * GrimAC silent (experimental checks on in this checkout's config).
+     */
+    private static void spillLadder(ClientGameTestContext ctx, int run) {
+        String name = "1102-fairy-spill-ladder-" + run;
+        Scenario.run(ctx, name, (server, scenario) -> TestMap.on(server).survival().build(), (server, scenario) -> {
+            startOverride = "47.5,186.0,-5.5,-90,-28";
+            stopAfterSouls = 1;
+            Outcome o;
+            try {
+                o = runIsland(ctx, server, scenario, "BAYOU_SPILL", meta("BAYOU_SPILL"), 100, 1800);
+            } finally {
+                startOverride = null;
+                stopAfterSouls = Integer.MAX_VALUE;
+            }
+            scenario.log(o.line());
+            scenario.log(String.format(Locale.US, "ladder ticks %d, on a ladder in water %d, highest y %.2f, "
+                    + "anticheat lines so far %d", o.ladderTicks, o.ladderWaterTicks, o.maxY, scenario.flags().size()));
+            if (o.ladderTicks < 10 || o.maxY < 189.5) {
+                throw new AssertionError(name + ": the walker never climbed the ladder beside the pool (ladder ticks "
+                        + o.ladderTicks + ", highest y " + o.maxY + ") - the run proves nothing");
+            }
+            if (o.ladderWaterTicks > 0) {
+                throw new AssertionError(name + ": " + o.ladderWaterTicks + " tick(s) on a ladder with water in his box");
+            }
+            if (!o.collectedAt.containsKey(3)) {
+                throw new AssertionError(name + ": the walker did not reach soul 3 (62, 186, 5) - collected "
+                        + o.collectedAt.keySet() + "; " + o.missed);
+            }
+        });
+    }
+
+    /** Set by a case: start here (x,y,z,yaw,pitch) instead of -Pfairy.start / the spawn. */
+    static String startOverride;
+    /** Set by a case: end the run once this many souls are collected. */
+    static int stopAfterSouls = Integer.MAX_VALUE;
+
     static final class Outcome {
+        int ladderTicks;
+        int ladderWaterTicks;
+        double maxY = -1e9;
         int souls;
         int collected;
         int ticks;
@@ -278,7 +338,7 @@ public class FairyIslandTests implements FabricClientGameTest {
             long cmdSince = since;
             long logMark = LogTap.mark();
             // -Pfairy.start=x,y,z: start the run there instead of the spawn (a repro of one stretch of an island run)
-            String startAt = System.getProperty("testkit.fairy.start", "");
+            String startAt = startOverride != null ? startOverride : System.getProperty("testkit.fairy.start", "");
             if (!startAt.isBlank()) {
                 String[] xyz = startAt.split(",");
                 // x,y,z or x,y,z,yaw,pitch
@@ -350,7 +410,16 @@ public class FairyIslandTests implements FabricClientGameTest {
                             (Boolean) Mod.field(WALKER, "wantJump") ? "1" : "0", (Boolean) Mod.field(WALKER, "wantSprint") ? "1" : "0",
                             mc.player.getYRot(), mc.player.getXRot())));
                 }
-                double[] s = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+                double[] s = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ(),
+                        mc.player.onClimbable() ? 1 : 0, mc.player.isInWater() ? 1 : 0});
+                if (s[3] > 0) {
+                    o.ladderTicks++;
+                    if (s[4] > 0) {
+                        o.ladderWaterTicks++;
+                        scenario.log(String.format(Locale.US, "t%d on a ladder in water at %.3f %.3f %.3f", tick, s[0], s[1], s[2]));
+                    }
+                }
+                o.maxY = Math.max(o.maxY, s[1]);
                 if (prev != null) {
                     double step = Math.hypot(s[0] - prev[0], s[2] - prev[2]);
                     if (step < 3.0) {
@@ -403,7 +472,7 @@ public class FairyIslandTests implements FabricClientGameTest {
                     }
                 }
                 o.ticks = tick + 1;
-                if (o.collectedAt.size() >= o.souls) {
+                if (o.collectedAt.size() >= Math.min(o.souls, stopAfterSouls)) {
                     ctx.waitTicks(10);
                     break;
                 }
