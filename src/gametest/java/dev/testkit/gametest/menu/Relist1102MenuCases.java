@@ -374,9 +374,19 @@ final class Relist1102MenuCases {
             c.ctx().runOnClient(mc -> Mod.staticCall("bazaarflip.BazaarStackSizes", "clearLearnedForTest"));
             JsonObject page = BazaarFlipCustomCases.instant(p, p.instantTitle(), each, "71,680",
                     BazaarFlipCustomCases.Sign.normal(), 1);
-            // Custom Amount's purchase arrives in two parts, the second six server ticks (300 ms) after the first.
-            page.getAsJsonObject("on").getAsJsonObject("16").getAsJsonObject("sign").getAsJsonObject("amount")
-                    .addProperty("splitTicks", 6);
+            // Both purchases arrive in two parts, the second six server ticks (300 ms) after the first: Custom Amount's,
+            // and Fill my inventory!'s (2,304, the page's own amount; his Gravel was bought that way).
+            JsonObject amount = page.getAsJsonObject("on").getAsJsonObject("16").getAsJsonObject("sign")
+                    .getAsJsonObject("amount");
+            amount.addProperty("splitTicks", 6);
+            JsonObject fill = amount.deepCopy();
+            fill.remove("reopen");
+            fill.remove("max");
+            fill.remove("confirm");
+            fill.addProperty("n", 2304);
+            JsonObject fillAction = new JsonObject();
+            fillAction.add("deliver", fill);
+            page.getAsJsonObject("on").add("14", fillAction);
             c.hx().call("menu.onCommand", Hx.args("name", "bz", "menu", BazaarFlipCustomCases.bazaar(p, page)));
             c.hx().call("menu.onCommand", Hx.args("name", "trades", "menu", BazaarFlipCustomCases.trades(npc, 0, null)));
             int before = BazaarFlipCustomCases.profitCycles(c);
@@ -386,7 +396,7 @@ final class Relist1102MenuCases {
             int gives = c.events("menu.give").size();
             int given = BazaarFlipCustomCases.given(c);
             Object cyc = BazaarFlipCustomCases.cycleAt(c, before);
-            c.check(!amounts.isEmpty() && Long.parseLong(amounts.get(0)) > 64, "typed " + amounts + " (need more than a stack to split)");
+            c.check(given > 64, "delivered " + given + " (need more than a stack to split); typed " + amounts);
             c.check(gives > 1, "the delivery came in " + gives + " stack(s)");
             c.check(cyc != null && BazaarFlipCustomCases.units(cyc, "bought") == given, "record " + cyc + ", delivered " + given);
             c.check(BazaarFlipCustomCases.sold(c) == given, "sold " + BazaarFlipCustomCases.sold(c) + " of " + given);
