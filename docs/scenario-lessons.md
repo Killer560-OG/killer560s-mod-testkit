@@ -1294,3 +1294,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   150 ms Latency case, before any click (g2 1027-aafast-cpt1-300); the rerun was clean. It is the Latency teardown, not a feature.
   Frames Per Tick on experimental checks: Grim cancels the flagged second-frame clicks, the mod resends after its 1 s
   pending timeout, and the device still solves (76 sent, 40 reached, fpt15).
+- `ChatObserver` drops an identical stripped line seen again within 250 ms (its duplicate-delivery de-dup). Two `hx().chat` sends
+  of the same line from consecutive steps of one case can land in the same window on a loaded machine, and the second
+  never reaches any feature (1101-dhud-preboss, 2026-11-01: the Mage Only step's Watcher line). Wait ~10 ticks between
+  identical lines, and wait for the mod to have SEEN the line (a field it sets) before asserting that nothing happened.
+- When run-scenario closes a client as FROZEN (it often happens while the session's test server starts on a loaded machine),
+  that run's test server keeps running on the checkout's port, and the next run in the checkout fails "Anticheat test server
+  exited with code 0 before it was ready" (FAILED TO BIND TO PORT in run/testserver/logs). End the leftover
+  `<checkout>...runTestServer` java first (doc-dhud-1101, 2026-11-01).
