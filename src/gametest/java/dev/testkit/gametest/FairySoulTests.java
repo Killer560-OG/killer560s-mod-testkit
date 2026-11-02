@@ -77,7 +77,7 @@ public class FairySoulTests implements FabricClientGameTest {
                     "1017-fairy-pit", "1017-fairy-lava", "1017-fairy-stuck", "1017-fairy-escape-ether",
                     "1017-fairy-escape-pearl", "1017-fairy-escape-none", "1018-fairy-travel-walkonly",
                     "1018-fairy-travel-pearls", "1101-fairy-ledgesoul", "1101-fairy-freecam-off", "1101-fairy-warp",
-                    "1101-fairy-plan-floors")) {
+                    "1101-fairy-plan-floors", "1101-fairy-door")) {
                 if (!Scenario.skip(n)) {
                     Scenario.skipped(n, "Auto Fairy Souls is cheat build only (746 checks the legit jar does not walk)");
                 }
@@ -93,7 +93,8 @@ public class FairySoulTests implements FabricClientGameTest {
                 FairySoulTests::turning, FairySoulTests::freecam, FairySoulTests::soulsOff, FairySoulTests::water,
                 FairySoulTests::ledge, FairySoulTests::pitLadder, FairySoulTests::lava, FairySoulTests::stuckWall,
                 FairySoulTests::travelModes, FairySoulTests::escapes, FairySoulTests::ledgeSoul,
-                FairySoulTests::freecamOff, FairySoulTests::warpBack, FairySoulTests::planFloors)) {
+                FairySoulTests::freecamOff, FairySoulTests::warpBack, FairySoulTests::planFloors,
+                FairySoulTests::doorway)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -1093,6 +1094,44 @@ public class FairySoulTests implements FabricClientGameTest {
                 List.of(new Node(0, cx + 8, 154, cz, false, 1),
                         new Node(1, cx + 8, 154, cz + 5, false, 0, 2),
                         new Node(2, cx + 10, 154, cz + 9, true, 1)), 900);
+    }
+
+    /**
+     * 1101-fairy-door: the route goes through an open oak door in a wall (a doorway one block wide), then turns behind
+     * the wall to the soul. The door's panel is 3/16 of a block on the side of the doorway, so a player walks through;
+     * before doc-fairy-1101 the walker's terrain read took any block with a collision box in the column as a full wall
+     * (the door's two halves a 2-block rise), so no straight walk went through and no way back either.
+     */
+    private static void doorway(ClientGameTestContext ctx) {
+        int cx = -810;
+        int cz = 2400;
+        Scenario.run(ctx, "1101-fairy-door",
+                (server, scenario) -> TestMap.on(server)
+                        .floor(cx - 12, 150, cz - 12, cx + 12, cz + 12)
+                        .fill(cx - 12, 151, cz - 12, cx + 12, 156, cz + 12, "air")
+                        // the wall across z = cz, x from cx-12 to cx+12, with the doorway at x = cx
+                        .fill(cx - 12, 151, cz, cx + 12, 154, cz, "minecraft:stone_bricks")
+                        .fill(cx, 151, cz, cx, 152, cz, "air")
+                        .command(String.format(Locale.ROOT, "setblock %d 151 %d minecraft:oak_door[facing=south,half=lower,hinge=left,open=true]", cx, cz))
+                        .command(String.format(Locale.ROOT, "setblock %d 152 %d minecraft:oak_door[facing=south,half=upper,hinge=left,open=true]", cx, cz))
+                        .survival().surface(151).spawn(cx + 0.5, cz - 7.5, 0f).build(),
+                (server, scenario) -> {
+                    List<Node> g = List.of(
+                            new Node(0, cx, 151, cz - 7, false, 1),
+                            new Node(1, cx, 151, cz - 2, false, 0, 2),
+                            new Node(2, cx, 151, cz + 2, false, 1, 3),
+                            new Node(3, cx + 6, 151, cz + 6, true, 2));
+                    Result r;
+                    try {
+                        r = runSouls(ctx, scenario, g, 600, null);
+                    } finally {
+                        resetKnobs();
+                    }
+                    double maxZ = r.track.stream().mapToDouble(t -> t[2]).max().orElse(0);
+                    scenario.log(r.summary() + String.format(Locale.US, ", furthest z %.2f (the wall is at %d)", maxZ, cz));
+                    check(maxZ > cz + 1.0, "he never got through the doorway (furthest z " + maxZ + ")");
+                    check(r.soulsUsed >= 1, "the soul behind the door: " + r.summary());
+                });
     }
 
     /**
