@@ -361,6 +361,10 @@ final class DocMenuCases {
                 }
                 List<String> wantCards = new ArrayList<>(List.of("HomeMainTab", "ClickSoundsTab", "DescriptionsTab",
                         "DiscordRpcTab", "AutoUpdateTab"));
+                // Ban Reports (mod doc-ban-1101): Auto Report Bans, after his ordered cards, in both builds.
+                if (Mod.has("gui.tab.BanReportTab")) {
+                    wantCards.add("BanReportTab");
+                }
                 if (Mod.isCheat()) {
                     wantCards.add("CorrectionAlarmTab");
                     wantCards.add("StreamerModeTab"); // mod 23ef23da (2026-10-19): Home's cheat block
