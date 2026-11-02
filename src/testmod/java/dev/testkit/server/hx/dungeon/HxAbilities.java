@@ -41,7 +41,7 @@ import java.util.Set;
  *       two free blocks above it; the player is teleported onto it at the top of its collision box + 0.05 with a real
  *       server teleport (relative rotation, so the camera is untouched) - a position packet and its confirmation, as
  *       Hypixel does. Same walk as {@code TeleportUtils.traverseVoxels}, except "passable" here means "no collision
- *       box" rather than the mod's block list; the two agree for every block the scenarios use.</li>
+ *       box or a carpet" rather than the mod's block list; the two agree for every block the scenarios use.</li>
  *   <li><b>Instant Transmission</b>: the same items without sneak: along the look in quarter-block steps, up to
  *       8 + tuners, to the last block-centered spot the player's box fits ({@code SimAbilities.dashTarget}'s level
  *       walk, without its settle-on-blocked-vertical refinements).</li>
@@ -203,7 +203,12 @@ public final class HxAbilities {
     }
 
     private static boolean passable(Level level, BlockPos pos) {
-        return level.getBlockState(pos).getCollisionShape(level, pos).isEmpty();
+        var st = level.getBlockState(pos);
+        // A carpet too, though it has a 1/16 box: it is in Hypixel's 1.8 feet-block list (id 171), and the mod's
+        // TeleportUtils passes it since doc-routes-1101 (419fd24c). Without this the model landed ON the carpet while the
+        // mod (rightly, by that list) predicted the floor under it: 1027-zpewc-shapes "carpet: MISPREDICT" (zpew2-1101).
+        // Not yet confirmed on Hypixel itself.
+        return st.getCollisionShape(level, pos).isEmpty() || st.getBlock() instanceof net.minecraft.world.level.block.CarpetBlock;
     }
 
     private static void etherwarp(ServerPlayer sp, double range) {
