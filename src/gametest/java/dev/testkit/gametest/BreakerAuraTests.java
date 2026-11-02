@@ -1313,7 +1313,10 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             .catchFloor(120)
                             .survival()
                             .clearInventory()
-                            .give("diamond_shovel", 1)
+                            // The breaker as the SERVER has it too (unbreakable, id and charges): a damaged shovel made
+                            // the server resend the slot and the client stamp vanished for two ticks mid-run (first run).
+                            .command("give @p minecraft:diamond_shovel[custom_data={id:\"DUNGEONBREAKER\"},"
+                                    + "unbreakable={},lore=[{text:\"Charges: 5000/5000\",italic:false}]] 1")
                             .command("enchant @p minecraft:efficiency 5")
                             .command("effect give @p minecraft:haste 99999 4 true")
                             .command("effect clear @p minecraft:speed");

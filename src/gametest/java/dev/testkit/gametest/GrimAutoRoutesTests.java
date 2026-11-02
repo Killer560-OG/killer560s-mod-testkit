@@ -1005,6 +1005,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         arena(ctx, false);
         int[][] six = {{12, 0}, {13, 0}, {14, 0}, {12, 1}, {13, 1}, {14, 1}};
         StringBuilder notes = new StringBuilder();
+        warmDig(ctx);
         // Mod gridexp-1102 removed Multi Break (GrimAC MultiBreak): one dig a tick, each aimed by a look the server already
         // heard or sent at the head of the movement packet that carries its turn, so still from the firing tick. Mod
         // multibreak-1102 restored it at one a server tick: both values then dig one a tick.
@@ -1095,14 +1096,17 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         List<int[]> ten = new ArrayList<>();
         Map<int[], String> put = new LinkedHashMap<>();
         JsonArray blocks = new JsonArray();
+        // z 11, a block ahead of the node's center: every block's box within 4.5 of his eye wherever in the ring he
+        // stands (at z 12 the corners read 4.53-4.78 from the ring's edge on 26.3 and went to the linger).
         for (int y = 0; y <= 1; y++) {
             for (int x = 11; x <= 15; x++) {
-                ten.add(new int[]{x, F + y, 12});
-                put.put(new int[]{x, F + y, 12}, "minecraft:snow_block");
-                blocks.add(x + " " + (F + y) + " 12");
+                ten.add(new int[]{x, F + y, 11});
+                put.put(new int[]{x, F + y, 11}, "minecraft:snow_block");
+                blocks.add(x + " " + (F + y) + " 11");
             }
         }
         try {
+            warmDig(ctx);
             setBlocks(ctx, put);
             JsonObject br = node("DUNGEON_BREAKER", 13, 10, 0f, 0f);
             br.add("blocks", blocks);
@@ -1160,6 +1164,24 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             tpRel(ctx, 13.5, 6.5, 0f, 0f);
             ctx.waitTicks(5);
         }
+    }
+
+    /**
+     * One plain dig by hand (the breaker in hand, attack pressed with the look already on a snow block) before a case
+     * whose first dig is turned at the movement packet. A fresh server's first dig takes it longer than GrimAC's 15 ms to
+     * process, so a turned dig as the session's first draws RotationBreak post-flying, then pre-flying on every later one
+     * (the place version: Ap3RuntimeTests.warmPlaces). Run alone, 62-argrim-breaker drew 36 that way on 26.3.
+     */
+    private static void warmDig(ClientGameTestContext ctx) {
+        setBlocks(ctx, Map.of(new int[]{13, F, 6}, "minecraft:snow_block"));
+        tpRel(ctx, 13.5, 5.5, 0f, 45f);
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(2));
+        ctx.waitTicks(3);
+        ctx.getInput().pressKey(o -> o.keyAttack);
+        ctx.waitTicks(5);
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+        ctx.waitTicks(3);
+        println("warm dig: snow at (13, F, 6) " + (blockAir(ctx, 13, F, 6) ? "broken" : "STILL STANDING"));
     }
 
     /** The mod's util/DigWindow counter, or 0 on a jar without it. */
