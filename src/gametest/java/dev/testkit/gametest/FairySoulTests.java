@@ -76,7 +76,8 @@ public class FairySoulTests implements FabricClientGameTest {
                     "1017-fairy-turning", "1017-fairy-freecam", "1017-fairy-soulsoff", "1017-fairy-water", "1017-fairy-ledge",
                     "1017-fairy-pit", "1017-fairy-lava", "1017-fairy-stuck", "1017-fairy-escape-ether",
                     "1017-fairy-escape-pearl", "1017-fairy-escape-none", "1018-fairy-travel-walkonly",
-                    "1018-fairy-travel-pearls")) {
+                    "1018-fairy-travel-pearls", "1101-fairy-ledgesoul", "1101-fairy-freecam-off", "1101-fairy-warp",
+                    "1101-fairy-plan-floors")) {
                 if (!Scenario.skip(n)) {
                     Scenario.skipped(n, "Auto Fairy Souls is cheat build only (746 checks the legit jar does not walk)");
                 }
@@ -91,7 +92,8 @@ public class FairySoulTests implements FabricClientGameTest {
                 FairySoulTests::rotationControl, FairySoulTests::settings, FairySoulTests::overshoot,
                 FairySoulTests::turning, FairySoulTests::freecam, FairySoulTests::soulsOff, FairySoulTests::water,
                 FairySoulTests::ledge, FairySoulTests::pitLadder, FairySoulTests::lava, FairySoulTests::stuckWall,
-                FairySoulTests::travelModes, FairySoulTests::escapes)) {
+                FairySoulTests::travelModes, FairySoulTests::escapes, FairySoulTests::ledgeSoul,
+                FairySoulTests::freecamOff, FairySoulTests::warpBack, FairySoulTests::planFloors)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -929,6 +931,164 @@ public class FairySoulTests implements FabricClientGameTest {
         });
     }
 
+    // ------------------------------------------------------------------ doc-fairy-1101
+
+    /**
+     * 1101-fairy-ledgesoul (killer560's 2026-11-01 picture, "not pathfinding close enough to the fairy soul"): on Hypixel
+     * the soul stand is up to 3.6 blocks from its graph node (NEU's soul list against SkyHanni's graph: the Hub soul at
+     * 87,68,-154 has its node at 90,68,-152). Here the node is on the floor and the real-size stand sits 3 blocks west
+     * and 2 north of it on a one-block ledge, its head on top - out of reach from anywhere within 3 of the node. Before
+     * the fix he stopped by the node and never clicked; the case needs the server to receive the click on that stand,
+     * from a spot the walker planned ("approach"), Grim clean.
+     */
+    private static void ledgeSoul(ClientGameTestContext ctx) {
+        Scenario.run(ctx, "1101-fairy-ledgesoul",
+                (server, scenario) -> TestMap.on(server)
+                        .floor(-830, 150, 2190, -800, 2215)
+                        .fill(-830, 151, 2190, -800, 156, 2215, "air")
+                        // the ledge under the soul: a 3x3 block step, its top at 152
+                        .fill(-822, 151, 2197, -820, 151, 2199, "minecraft:mossy_cobblestone")
+                        .survival().surface(151).spawn(-805.5, 2204.5, 90f).build(),
+                (server, scenario) -> {
+                    List<Node> g = List.of(
+                            new Node(0, -806, 151, 2204, false, 1),
+                            new Node(1, -812, 151, 2202, false, 0, 2),
+                            new Node(2, -818, 151, 2200, true, 1));
+                    // Head in block (-821, 152, 2198): the stand's feet 1.4 below it, on the ledge's top.
+                    standAt.put(2, new double[]{-820.5, 150.6, 2198.5});
+                    int before = walkerInt(ctx, "approachesPlanned");
+                    Result r;
+                    try {
+                        r = runSouls(ctx, scenario, g, 800, null);
+                    } finally {
+                        resetKnobs();
+                    }
+                    int approaches = walkerInt(ctx, "approachesPlanned") - before;
+                    double[] end = scenario.playerPosition();
+                    scenario.log(r.summary() + String.format(Locale.US, ", approaches planned %d, ended at %.2f %.2f %.2f",
+                            approaches, end[0], end[1], end[2]));
+                    check(r.soulsUsed >= 1, "the soul on the ledge was never clicked: " + r.summary());
+                    check(approaches >= 1, "no walk to the soul itself was planned (" + approaches + ")");
+                });
+    }
+
+    /**
+     * 1101-fairy-freecam-off (killer560, 2026-11-01: "have the freecam as an option"): Free Camera off. Through the
+     * whole walk the view is never held (the camera is the body), the body still turns, the soul is collected, and a
+     * key press still stops the run.
+     */
+    private static void freecamOff(ClientGameTestContext ctx) {
+        Scenario.run(ctx, "1101-fairy-freecam-off",
+                (server, scenario) -> TestMap.on(server).platform(-810, 150, 2250, 16).catchFloor(140)
+                        .survival().spawn(-817.5, 2242.5, 0f).build(),
+                (server, scenario) -> {
+                    List<Node> g = List.of(
+                            new Node(0, -818, 151, 2243, false, 1),
+                            new Node(1, -818, 151, 2252, false, 0, 2),
+                            new Node(2, -808, 151, 2258, true, 1));
+                    freecam = false;
+                    Result r;
+                    try {
+                        r = runSouls(ctx, scenario, g, 600, null);
+                    } finally {
+                        resetKnobs();
+                    }
+                    long heldTicks = r.track.stream().filter(t -> t[6] == 1 && t[7] == 1).count();
+                    long activeTicks = r.track.stream().filter(t -> t[7] == 1).count();
+                    double turned = 0;
+                    for (int i = 1; i < r.track.size(); i++) {
+                        turned += Math.abs(r.track.get(i)[3] - r.track.get(i - 1)[3]);
+                    }
+                    scenario.log(r.summary() + String.format(Locale.US, ", view held %d of %d active ticks, body turned %.0f deg",
+                            heldTicks, activeTicks, turned));
+                    check(activeTicks > 20, "the run was not active (" + activeTicks + " ticks)");
+                    check(heldTicks == 0, "the view was held for " + heldTicks + " ticks with Free Camera off");
+                    check(turned > 30, "the body never turned (" + turned + ")");
+                    check(r.soulsUsed >= 1, "soul not collected: " + r.summary());
+                    // A key still stops it with the camera not held.
+                    Node far = new Node(3, -800, 151, 2262, true);
+                    try (Hx hx = Hx.connect()) {
+                        freecam = false;
+                        setup(ctx, hx, List.of(new Node(0, -818, 151, 2243, false, 1), new Node(1, -800, 151, 2262, true, 0)));
+                        startRun(ctx);
+                        ctx.waitTicks(30);
+                        boolean before = isActive(ctx);
+                        ctx.runOnClient(mc -> Mod.staticCall(WALKER, "onPlayerInput", "the testkit key", 87));
+                        ctx.waitTicks(3);
+                        boolean after = isActive(ctx);
+                        scenario.log("a key with Free Camera off: active before " + before + ", after " + after);
+                        check(before && !after, "a key did not stop it with Free Camera off (before " + before + ", after " + after + ")");
+                    } finally {
+                        resetKnobs();
+                    }
+                });
+    }
+
+    /**
+     * 1101-fairy-warp (killer560, 2026-11-01: "if it gets stuck you can have it do stuff like /hub and pathfind back to
+     * the island it was on"): he starts in a sealed 4-deep pit with no tools. The route needs him out; with Warp When
+     * Stuck on he sends /warp hub (the island here is the Hub). The case plays Hypixel: it sees the command on the server
+     * and teleports him to the island's spawn, from where the soul is walked to and collected.
+     */
+    private static void warpBack(ClientGameTestContext ctx) {
+        int cx = -810;
+        int cz = 2300;
+        Scenario.run(ctx, "1101-fairy-warp", (server, scenario) -> pitArena(server, cx, cz, false).build(), (server, scenario) -> {
+            int warpsBefore = ctx.computeOnClient(mc -> (Integer) Mod.staticCall(RUNNER, "warpsSent"));
+            warpWhenStuck = true;
+            Result r;
+            boolean[] warped = {false};
+            try (Hx hx = Hx.connect()) {
+                long[] since = {hx.head()};
+                ctx.waitTicks(20);
+                r = runSouls(ctx, scenario, pitRoute(cx, cz), 900, tick -> {
+                    if (warped[0]) {
+                        return;
+                    }
+                    for (String c : hx.commands(since[0])) {
+                        if (c.replace("/", "").trim().equals("warp hub")) {
+                            warped[0] = true;
+                            server.command(String.format(Locale.ROOT, "tp @p %d 155 %d 0 0", cx + 6, cz - 8));
+                        }
+                    }
+                });
+            } finally {
+                resetKnobs();
+            }
+            int warps = ctx.computeOnClient(mc -> (Integer) Mod.staticCall(RUNNER, "warpsSent")) - warpsBefore;
+            scenario.log(r.summary() + ", warps sent " + warps + ", server saw /warp hub " + warped[0]);
+            check(warps >= 1 && warped[0], "no /warp hub reached the server (sent " + warps + ")");
+            check(r.soulsUsed >= 1, "the soul after the warp: " + r.summary());
+        });
+    }
+
+    /**
+     * 1101-fairy-plan-floors: the way back over floors that are not full blocks. He drops into a 3-deep pit floored with
+     * carpet; its only way out is a run of bottom slabs and then stairs up the east side. Before doc-fairy-1101 the
+     * planner read a carpet or a slab in the feet cell as a wall, so no way back existed and the soul was skipped.
+     */
+    private static void planFloors(ClientGameTestContext ctx) {
+        int cx = -810;
+        int cz = 2350;
+        recovery(ctx, "1101-fairy-plan-floors", server -> TestMap.on(server)
+                        .floor(cx - 14, 150, cz - 14, cx + 14, cz + 14)
+                        .fill(cx - 14, 151, cz - 14, cx + 14, 153, cz + 14, "stone")
+                        .fill(cx - 14, 154, cz - 14, cx + 14, 160, cz + 14, "air")
+                        // the pit: x cx-2..cx+5, z cz-1..cz+1, floor 150 (feet 151), carpeted
+                        .fill(cx - 2, 151, cz - 1, cx + 5, 153, cz + 1, "air")
+                        .command(String.format(Locale.ROOT, "fill %d 151 %d %d 151 %d minecraft:red_carpet", cx - 2, cz - 1, cx + 1, cz + 1))
+                        // slabs at feet 151.5, then a full block (feet 152), then stairs to 153, then out at 154
+                        .command(String.format(Locale.ROOT, "fill %d 151 %d %d 151 %d minecraft:stone_slab[type=bottom]", cx + 2, cz - 1, cx + 2, cz + 1))
+                        .fill(cx + 3, 151, cz - 1, cx + 3, 151, cz + 1, "stone")
+                        .command(String.format(Locale.ROOT, "fill %d 152 %d %d 152 %d minecraft:oak_stairs[facing=east,half=bottom]", cx + 4, cz - 1, cx + 4, cz + 1))
+                        .fill(cx + 4, 151, cz - 1, cx + 4, 151, cz + 1, "stone")
+                        .fill(cx + 5, 151, cz - 1, cx + 5, 153, cz + 1, "stone")
+                        .survival().surface(151).spawn(cx - 0.5, cz + 0.5, 90f).build(),
+                List.of(new Node(0, cx + 8, 154, cz, false, 1),
+                        new Node(1, cx + 8, 154, cz + 5, false, 0, 2),
+                        new Node(2, cx + 10, 154, cz + 9, true, 1)), 900);
+    }
+
     /**
      * 1017-fairy-settings: the Fairy Souls tab's rows in killer560's order (switch, Show Waypoints, Show Path + Path
      * Mode, Dim Path + Path Color, the sliders, HUD + Start On Island Join), no "Found n/m" line and no Stop Navigation;
@@ -971,6 +1131,10 @@ public class FairySoulTests implements FabricClientGameTest {
                                         && cheat.contains("Start/Stop Key") && cheat.contains("Auto Mode"), "rows missing: " + cheat);
                                 check(!cheat.contains("Allow Ender Pearls"), "Allow Ender Pearls is still a row (it is a travel mode now)");
                                 check(cheat.stream().noneMatch(l -> l.contains("Turn Speed")), "Turn Speed is still there");
+                                if (Mod.has("pathfinding.PathfindingConfig") && hasSetter("setFreecam")) {
+                                    check(cheat.contains("Free Camera") && cheat.contains("Warp When Stuck"),
+                                            "Free Camera / Warp When Stuck rows missing: " + cheat);
+                                }
                             }
                             // Save and load every setting.
                             Mod.set(CFG, "setSoulWaypoints", false);
@@ -986,8 +1150,18 @@ public class FairySoulTests implements FabricClientGameTest {
                             Mod.set(CFG, "setAutoSprint", false);
                             Mod.set(CFG, "setAutoMode", Mod.enumValue("pathfinding.PathfindingConfig$AutoMode", "FAST_ETHERWARP"));
                             Mod.set(CFG, "setResumeKeyCode", 75);
+                            boolean newKeys = hasSetter("setFreecam");
+                            if (newKeys) {
+                                Mod.set(CFG, "setFreecam", false);
+                                Mod.set(CFG, "setWarpWhenStuck", false);
+                            }
                             Mod.call(Mod.cfg(CFG), "save");
                             Mod.staticCall(CFG, "load");
+                            if (newKeys) {
+                                String nk = "freecam " + g("isFreecam") + " warp " + g("isWarpWhenStuck");
+                                out.append("reloaded new keys: ").append(nk).append('\n');
+                                check(nk.equals("freecam false warp false"), "Free Camera / Warp When Stuck did not survive: " + nk);
+                            }
                             String got = String.format("waypoints %s path %s mode %s dim %s color %x length %s hud %s join %s walk %s "
                                             + "click %s pearls %s sprint %s auto %s key %s", g("isSoulWaypoints"), g("isShowPath"),
                                     g("getSoulMode"), g("isDimPath"), (Integer) g("getPathColor"), g("getVisiblePathLength"),
@@ -1111,6 +1285,15 @@ public class FairySoulTests implements FabricClientGameTest {
                 });
     }
 
+    private static boolean hasSetter(String setter) {
+        for (java.lang.reflect.Method m : Mod.cls("pathfinding.PathfindingConfig").getMethods()) {
+            if (m.getName().equals(setter)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static Object g(String getter) {
         return Mod.get(CFG, getter);
     }
@@ -1212,11 +1395,19 @@ public class FairySoulTests implements FabricClientGameTest {
     static boolean fairySoulsSwitch = true;
     static String autoMode = "WALK";
     static boolean sprint = true;
+    /** Warp When Stuck (doc-fairy-1101): off except in 1101-fairy-warp, so the escape cases still end in "No way out". */
+    static boolean warpWhenStuck = false;
+    static boolean freecam = true;
+    /** Where each soul's stand goes, by node id (default: the node itself, as before doc-fairy-1101). */
+    static Map<Integer, double[]> standAt = new HashMap<>();
 
     private static void resetKnobs() {
         fairySoulsSwitch = true;
         autoMode = "WALK";
         sprint = true;
+        warpWhenStuck = false;
+        freecam = true;
+        standAt = new HashMap<>();
     }
 
     /** A setter only some mod versions have (a removed or added setting). */
@@ -1254,6 +1445,8 @@ public class FairySoulTests implements FabricClientGameTest {
             Mod.set(CFG, "setAutoCollect", true);
             Mod.set(CFG, "setAutoSprint", sprint);
             trySet("setRotationSpeed", 20f); // before fairy-souls-1017 only
+            trySet("setWarpWhenStuck", warpWhenStuck); // doc-fairy-1101 on
+            trySet("setFreecam", freecam);
             Mod.set(CFG, "setChatFeedback", true);
         });
         hx.sidebar("SKYBLOCK", "⏣ Village", "Purse: 0");
@@ -1271,8 +1464,13 @@ public class FairySoulTests implements FabricClientGameTest {
         Map<String, Integer> stands = new HashMap<>();
         for (Node n : nodes) {
             if (n.soul()) {
-                String uuid = hx.stand(n.x() + 0.5, n.y(), n.z() + 0.5, null, "marker", false, "invisible", true,
-                        "helmet", "minecraft:player_head");
+                double[] at = standAt.get(n.id());
+                // A stand placed apart from its node is a real-size one, as on Hypixel (its box is what reach measures).
+                String uuid = at == null
+                        ? hx.stand(n.x() + 0.5, n.y(), n.z() + 0.5, null, "marker", false, "invisible", true,
+                                "helmet", "minecraft:player_head")
+                        : hx.stand(at[0], at[1], at[2], null, "marker", false, "invisible", true,
+                                "helmet", "minecraft:player_head");
                 stands.put(uuid, n.id());
             }
         }

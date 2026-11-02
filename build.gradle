@@ -614,6 +614,12 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 			systemProperty "testkit.${k}", project.property(k)
 		}
 	}
+	// 1101-fairy-island-*: -Pfairy.speed=300 (Hypixel speed), -Pfairy.maxMinutes=20
+	["fairy.speed", "fairy.maxMinutes"].each { k ->
+		if (project.hasProperty(k)) {
+			systemProperty "testkit.${k}", project.property(k)
+		}
+	}
 	if (project.hasProperty("blinkLatency")) {
 		systemProperty "testkit.blinkLatency", project.property("blinkLatency")
 	}
