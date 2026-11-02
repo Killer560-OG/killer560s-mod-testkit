@@ -116,99 +116,10 @@ public class SimMobFloorTests implements FabricClientGameTest {
     }
 
     private static void oneFloor(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
-        String code = System.getProperty("testkit.mobfloorCode", "");
         int minutes = Integer.getInteger("testkit.mobfloorMinutes", 12);
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
-                new Object[]{"gametest"}));
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_FLOOR, "setEnabled", new Class<?>[]{boolean.class},
-                new Object[]{true}));
-        long mark0 = LogTap.mark();
-        long before = Scenario.simBuildCount(ctx);
-        if (code.isBlank()) {
-            ctx.runOnClient(mc -> mc.execute(() -> {
-                Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
-                ModUnderTest.staticCall(FLOOR_GEN, "generate", new Class<?>[]{Minecraft.class, floor.getClass(), int.class,
-                        int.class}, new Object[]{mc, floor, 2, 6});
-            }));
-        } else {
-            ctx.runOnClient(mc -> mc.execute(() -> {
-                ModUnderTest.staticCall(SIM_STATE, "setFloorLabel", new Class<?>[]{String.class}, new Object[]{"F7"});
-                java.util.function.Consumer<Minecraft> build = c -> ModUnderTest.staticCall(
-                        "com.killer560.hub.roomsim.SimBuilder", "build", new Class<?>[]{Minecraft.class, String.class},
-                        new Object[]{c, code});
-                ModUnderTest.staticCall("com.killer560.hub.roomsim.SimWorld", "open", new Class<?>[]{Minecraft.class,
-                        String.class, java.util.function.Consumer.class, String.class},
-                        new Object[]{mc, code, build, "Generating Floor 7"});
-            }));
-        }
-        ctx.waitFor(mc -> mc.level != null, 2400);
-        Scenario.awaitSimBuild(ctx, before);
-        String mapCode = ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(SIM_STATE, "mapCode")));
-        println("MAP CODE: " + mapCode);
-        giveLoadout(ctx);
-        // The build started the run by itself (SimRun.autoStart): wait for GO and the mobs.
-        for (int i = 0; i < 400 && !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_RUN, "isRunning")); i++) {
-            ctx.waitTicks(1);
-        }
-        String placed = null;
-        for (int i = 0; i < 200 && placed == null; i += 5) {
-            ctx.waitTicks(5);
-            placed = LogTap.since(mark0).stream().filter(l -> l.contains("[Sim] live mobs placed:")).findFirst().orElse(null);
-        }
-        SimAutoClearTests.awaitFloorChunks(ctx);
-        List<String> log0 = LogTap.since(mark0);
-        String planLine = log0.stream().filter(l -> l.contains("[Sim] floor with mobs: path")).findFirst().orElse(null);
-        boolean starting = log0.stream().anyMatch(l -> l.contains("[CHAT]") && l.trim().endsWith("Starting in 1 second."));
-        boolean mort = log0.stream().anyMatch(l -> l.contains("[CHAT]")
-                && l.contains("[NPC] Mort: Here, I found this map when I first entered the dungeon."));
-        int fels = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_MOBS, "felsPlaced"));
-        String felLine = log0.stream().filter(l -> l.contains("[Sim] fels placed:")).findFirst().orElse("(none)");
-        @SuppressWarnings("unchecked")
-        List<String> keyRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(SIM_FLOOR, "keyRoomsForTest"));
-        facts.add("plan: " + (planLine == null ? "NONE" : planLine.replaceAll("^.*\\[Sim\\] ", "")));
-        facts.add("mobs: " + (placed == null ? "NONE" : placed.replaceAll("^.*\\[Sim\\] ", "")));
-        facts.add("fels: " + fels + " placed (" + felLine.replaceAll("^.*\\[Sim\\] ", "") + ")");
-        facts.add("Hypixel lines: Starting in 1 second " + starting + ", Mort " + mort);
-        int witherDoors = 0;
-        Matcher pm = planLine == null ? null : PLAN.matcher(planLine);
-        if (pm != null && pm.find()) {
-            witherDoors = Integer.parseInt(pm.group(2));
-        }
-        if (planLine == null) {
-            problems.add("the sim planned no doors or keys (no '[Sim] floor with mobs: path' line)");
-        }
-        if (witherDoors < 1 || keyRooms.isEmpty()) {
-            problems.add("the floor has " + witherDoors + " wither door(s) and " + keyRooms.size() + " key room(s) - nothing to prove");
-        }
-        if (placed == null) {
-            problems.add("no mobs were placed");
-        }
-        if (fels < 1) {
-            problems.add("no Fel was placed");
-        }
-        if (!starting || !mort) {
-            problems.add("Hypixel's start lines missing (Starting in 1 second " + starting + ", Mort " + mort + ")");
-        }
-        // A sleeping starred Fel is an invisible enderman on the client (what Auto Clear reads); count them now, at GO.
-        int[] sleepers = ctx.computeOnClient(mc -> {
-            int inv = 0;
-            int all = 0;
-            for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
-                if (dev.testkit.compat.McEntities.endermanClass().isInstance(e)) {
-                    all++;
-                    inv += e.isInvisible() ? 1 : 0;
-                }
-            }
-            return new int[]{inv, all};
-        });
-        facts.add("client endermen at GO: " + sleepers[1] + ", invisible (sleeping Fels) " + sleepers[0]);
-        if (felLine.matches(".*fels placed: [1-9][0-9]* starred.*") && sleepers[0] < 1) {
-            problems.add("starred Fels were placed but the client sees no invisible (sleeping) enderman");
-        }
-        if (!problems.isEmpty()) {
+        if (!buildMobFloor(ctx, problems, facts)) {
             return;
         }
-
         // ---- control: a keyless click on the first wither door leaves it shut ----
         @SuppressWarnings("unchecked")
         List<Integer> cells = ctx.computeOnClient(mc -> (List<Integer>) ModUnderTest.staticCall(SIM_FLOOR,
@@ -345,6 +256,106 @@ public class SimMobFloorTests implements FabricClientGameTest {
         bloodDoor(ctx, problems, facts);
     }
 
+    /**
+     * Enters the sim, builds a generated F7 WITH MOBS ({@code -PmobfloorCode} replays one), waits for GO and the mobs, and
+     * checks the floor (doors and key rooms planned, Hypixel's lines, mobs and Fels placed, sleeping Fels invisible).
+     * @return false when a problem was recorded (nothing to test on this floor)
+     */
+    static boolean buildMobFloor(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
+        String code = System.getProperty("testkit.mobfloorCode", "");
+        ctx.runOnClient(mc -> hookChat());
+        CHAT_TIMES.clear();
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
+                new Object[]{"gametest"}));
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_FLOOR, "setEnabled", new Class<?>[]{boolean.class},
+                new Object[]{true}));
+        long mark0 = LogTap.mark();
+        long before = Scenario.simBuildCount(ctx);
+        if (code.isBlank()) {
+            ctx.runOnClient(mc -> mc.execute(() -> {
+                Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
+                ModUnderTest.staticCall(FLOOR_GEN, "generate", new Class<?>[]{Minecraft.class, floor.getClass(), int.class,
+                        int.class}, new Object[]{mc, floor, 2, 6});
+            }));
+        } else {
+            ctx.runOnClient(mc -> mc.execute(() -> {
+                ModUnderTest.staticCall(SIM_STATE, "setFloorLabel", new Class<?>[]{String.class}, new Object[]{"F7"});
+                java.util.function.Consumer<Minecraft> build = c -> ModUnderTest.staticCall(
+                        "com.killer560.hub.roomsim.SimBuilder", "build", new Class<?>[]{Minecraft.class, String.class},
+                        new Object[]{c, code});
+                ModUnderTest.staticCall("com.killer560.hub.roomsim.SimWorld", "open", new Class<?>[]{Minecraft.class,
+                        String.class, java.util.function.Consumer.class, String.class},
+                        new Object[]{mc, code, build, "Generating Floor 7"});
+            }));
+        }
+        ctx.waitFor(mc -> mc.level != null, 2400);
+        Scenario.awaitSimBuild(ctx, before);
+        String mapCode = ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(SIM_STATE, "mapCode")));
+        println("MAP CODE: " + mapCode);
+        giveLoadout(ctx);
+        // The build started the run by itself (SimRun.autoStart): wait for GO and the mobs.
+        for (int i = 0; i < 400 && !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_RUN, "isRunning")); i++) {
+            ctx.waitTicks(1);
+        }
+        String placed = null;
+        for (int i = 0; i < 200 && placed == null; i += 5) {
+            ctx.waitTicks(5);
+            placed = LogTap.since(mark0).stream().filter(l -> l.contains("[Sim] live mobs placed:")).findFirst().orElse(null);
+        }
+        SimAutoClearTests.awaitFloorChunks(ctx);
+        List<String> log0 = LogTap.since(mark0);
+        String planLine = log0.stream().filter(l -> l.contains("[Sim] floor with mobs: path")).findFirst().orElse(null);
+        boolean starting = log0.stream().anyMatch(l -> l.contains("[CHAT]") && l.trim().endsWith("Starting in 1 second."));
+        boolean mort = log0.stream().anyMatch(l -> l.contains("[CHAT]")
+                && l.contains("[NPC] Mort: Here, I found this map when I first entered the dungeon."));
+        int fels = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_MOBS, "felsPlaced"));
+        String felLine = log0.stream().filter(l -> l.contains("[Sim] fels placed:")).findFirst().orElse("(none)");
+        @SuppressWarnings("unchecked")
+        List<String> keyRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(SIM_FLOOR, "keyRoomsForTest"));
+        facts.add("plan: " + (planLine == null ? "NONE" : planLine.replaceAll("^.*\\[Sim\\] ", "")));
+        facts.add("mobs: " + (placed == null ? "NONE" : placed.replaceAll("^.*\\[Sim\\] ", "")));
+        facts.add("fels: " + fels + " placed (" + felLine.replaceAll("^.*\\[Sim\\] ", "") + ")");
+        facts.add("Hypixel lines: Starting in 1 second " + starting + ", Mort " + mort);
+        int witherDoors = 0;
+        Matcher pm = planLine == null ? null : PLAN.matcher(planLine);
+        if (pm != null && pm.find()) {
+            witherDoors = Integer.parseInt(pm.group(2));
+        }
+        if (planLine == null) {
+            problems.add("the sim planned no doors or keys (no '[Sim] floor with mobs: path' line)");
+        }
+        if (witherDoors < 1 || keyRooms.isEmpty()) {
+            problems.add("the floor has " + witherDoors + " wither door(s) and " + keyRooms.size() + " key room(s) - nothing to prove");
+        }
+        if (placed == null) {
+            problems.add("no mobs were placed");
+        }
+        if (fels < 1) {
+            problems.add("no Fel was placed");
+        }
+        if (!starting || !mort) {
+            problems.add("Hypixel's start lines missing (Starting in 1 second " + starting + ", Mort " + mort + ")");
+        }
+        // A sleeping starred Fel is an invisible enderman on the client (what Auto Clear reads); count them now, at GO.
+        int[] sleepers = ctx.computeOnClient(mc -> {
+            int inv = 0;
+            int all = 0;
+            for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+                if (dev.testkit.compat.McEntities.endermanClass().isInstance(e)) {
+                    all++;
+                    inv += e.isInvisible() ? 1 : 0;
+                }
+            }
+            return new int[]{inv, all};
+        });
+        facts.add("client endermen at GO: " + sleepers[1] + ", invisible (sleeping Fels) " + sleepers[0]);
+        if (felLine.matches(".*fels placed: [1-9][0-9]* starred.*") && sleepers[0] < 1) {
+            problems.add("starred Fels were placed but the client sees no invisible (sleeping) enderman");
+        }
+        return problems.isEmpty();
+
+    }
+
     private static void bloodDoor(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
         int blood = ctx.computeOnClient(mc -> {
             Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
@@ -378,38 +389,50 @@ public class SimMobFloorTests implements FabricClientGameTest {
             // Control: shut without the key.
             teleport(ctx, stand.getX() + 0.5, stand.getY(), stand.getZ() + 0.5);
             ctx.waitTicks(10);
+            // The Blood Key can lie within pickup range of the door (simmobs2-1101, 26.3 floor b: Golden Oasis's last mob
+            // died by the door, the teleport picked it up, and the "keyless" click opened the door): no control then.
+            boolean pickedOnTheWay = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(KEYS, "bloodKey") == 1);
+            if (pickedOnTheWay) {
+                facts.add("blood control skipped: the Blood Key lay within pickup range of the door's stand and was taken");
+            }
             long m = LogTap.mark();
-            clickBlock(ctx, block.above(), face);
-            ctx.waitTicks(40);
-            boolean shut = serverBlockAt(ctx, blood, "red_terracotta") != null;
+            if (!pickedOnTheWay) {
+                clickBlock(ctx, block.above(), face);
+                ctx.waitTicks(40);
+            }
+            boolean shut = pickedOnTheWay || serverBlockAt(ctx, blood, "red_terracotta") != null;
             boolean line = LogTap.since(m).stream().anyMatch(l -> l.contains("The BLOOD DOOR has been opened!"));
             facts.add("blood control: keyless click - still shut " + shut + ", line " + line);
             if (!shut || line) {
                 problems.add("BLOOD CONTROL FAILED: the Blood door opened with no Blood Key");
                 return;
             }
-            // The Blood Key lies where the blood key room's last mob died: walk onto it (the test, not Auto Clear).
-            double[] key = ctx.computeOnClient(mc -> {
-                for (Object k : (List<?>) ModUnderTest.staticCall(KEYS, "dropped", new Class<?>[]{Minecraft.class},
-                        new Object[]{mc})) {
-                    if ((Boolean) ModUnderTest.call(k, "blood", new Class<?>[0], new Object[0])) {
-                        return new double[]{(Double) ModUnderTest.call(k, "x", new Class<?>[0], new Object[0]),
-                                (Double) ModUnderTest.call(k, "y", new Class<?>[0], new Object[0]),
-                                (Double) ModUnderTest.call(k, "z", new Class<?>[0], new Object[0])};
+            if (pickedOnTheWay) {
+                haveKey = true;
+            } else {
+                // The Blood Key lies where the blood key room's last mob died: walk onto it (the test, not Auto Clear).
+                double[] key = ctx.computeOnClient(mc -> {
+                    for (Object k : (List<?>) ModUnderTest.staticCall(KEYS, "dropped", new Class<?>[]{Minecraft.class},
+                            new Object[]{mc})) {
+                        if ((Boolean) ModUnderTest.call(k, "blood", new Class<?>[0], new Object[0])) {
+                            return new double[]{(Double) ModUnderTest.call(k, "x", new Class<?>[0], new Object[0]),
+                                    (Double) ModUnderTest.call(k, "y", new Class<?>[0], new Object[0]),
+                                    (Double) ModUnderTest.call(k, "z", new Class<?>[0], new Object[0])};
+                        }
                     }
+                    return null;
+                });
+                if (key == null) {
+                    problems.add("no Blood Key on the ground and none held after the clear");
+                    return;
                 }
-                return null;
-            });
-            if (key == null) {
-                problems.add("no Blood Key on the ground and none held after the clear");
-                return;
+                teleport(ctx, key[0], key[1], key[2]);
+                for (int i = 0; i < 60 && !ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(KEYS, "bloodKey") == 1); i++) {
+                    ctx.waitTicks(1);
+                }
+                haveKey = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(KEYS, "bloodKey") == 1);
+                facts.add("Blood Key picked up by the test: " + haveKey);
             }
-            teleport(ctx, key[0], key[1], key[2]);
-            for (int i = 0; i < 60 && !ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(KEYS, "bloodKey") == 1); i++) {
-                ctx.waitTicks(1);
-            }
-            haveKey = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(KEYS, "bloodKey") == 1);
-            facts.add("Blood Key picked up by the test: " + haveKey);
         } else {
             facts.add("Blood Key already held after the clear");
         }
@@ -444,6 +467,78 @@ public class SimMobFloorTests implements FabricClientGameTest {
         if (named < 2 || !average) {
             problems.add("Blood Rush Splits showed " + named + " named room row(s) and average " + average);
         }
+        rushAgainstChat(rows, problems, facts);
+    }
+
+    /**
+     * simmobs2-1101 (P4, "Blood Rush Splits checked against a full sim rush"): each room row's time must be the time between
+     * the chat lines that open and close it - Mort's line or the "opened a WITHER door!" before it, to the next one or "The
+     * BLOOD DOOR has been opened!" - as the test's own chat listener stamped them (client clock), within 0.3 s, and the
+     * rows as many as those stretches.
+     */
+    private static void rushAgainstChat(List<String> rows, List<String> problems, List<String> facts) {
+        List<Long> marks = new ArrayList<>();
+        for (Object[] c : CHAT_TIMES) {
+            String t = ((String) c[1]).replaceAll("§.", "").trim();
+            if (marks.isEmpty() ? t.startsWith("[NPC] Mort: Here, I found this map")
+                    : t.endsWith("opened a WITHER door!") || t.equals("The BLOOD DOOR has been opened!")) {
+                marks.add((Long) c[0]);
+                if (t.equals("The BLOOD DOOR has been opened!")) {
+                    break;
+                }
+            }
+        }
+        List<Double> chat = new ArrayList<>();
+        for (int i = 1; i < marks.size(); i++) {
+            chat.add((marks.get(i) - marks.get(i - 1)) / 1000.0);
+        }
+        List<Double> shown = new ArrayList<>();
+        Pattern time = Pattern.compile("(?:(\\d+):)?(\\d+\\.\\d+)s");
+        for (String r : rows) {
+            String t = r.replaceAll("§.", "");
+            if (!r.matches("^§[5d][^.].*") || t.contains("Average")) {
+                continue;
+            }
+            Matcher m = time.matcher(t);
+            if (m.find()) {
+                shown.add((m.group(1) == null ? 0 : Integer.parseInt(m.group(1)) * 60) + Double.parseDouble(m.group(2)));
+            }
+        }
+        StringBuilder sb = new StringBuilder();
+        double worst = 0;
+        for (int i = 0; i < Math.max(chat.size(), shown.size()); i++) {
+            Double a = i < chat.size() ? chat.get(i) : null;
+            Double b = i < shown.size() ? shown.get(i) : null;
+            sb.append(String.format(Locale.US, " [%s chat %s / shown %s]", i + 1, a == null ? "-" : String.format(Locale.US,
+                    "%.2f", a), b == null ? "-" : String.format(Locale.US, "%.2f", b)));
+            if (a != null && b != null) {
+                worst = Math.max(worst, Math.abs(a - b));
+            }
+        }
+        facts.add(String.format(Locale.US, "Blood Rush Splits vs the chat lines: %d stretch(es), %d room row(s), worst gap %.2f s:%s",
+                chat.size(), shown.size(), worst, sb));
+        if (chat.isEmpty()) {
+            problems.add("the test's chat listener saw no rush (Mort's line to the Blood door) - nothing to compare");
+        } else if (chat.size() != shown.size() || worst > 0.3) {
+            problems.add(String.format(Locale.US, "Blood Rush Splits disagree with the rush's chat lines: %d stretch(es) vs"
+                    + " %d row(s), worst gap %.2f s", chat.size(), shown.size(), worst));
+        }
+    }
+
+    /** (client ms, text) of every game chat line since the floor was built, for {@link #rushAgainstChat}. */
+    static final List<Object[]> CHAT_TIMES = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private static boolean chatHooked;
+
+    static void hookChat() {
+        if (chatHooked) {
+            return;
+        }
+        chatHooked = true;
+        net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents.GAME.register((msg, overlay) -> {
+            if (!overlay) {
+                CHAT_TIMES.add(new Object[]{System.currentTimeMillis(), msg.getString()});
+            }
+        });
     }
 
     // ---- helpers ------------------------------------------------------------------------------------------------------
@@ -483,7 +578,7 @@ public class SimMobFloorTests implements FabricClientGameTest {
     }
 
     /** The lowest block with registry path {@code id} in the door cell's center column, read on the integrated server. */
-    private static BlockPos serverBlockAt(ClientGameTestContext ctx, int idx, String id) {
+    static BlockPos serverBlockAt(ClientGameTestContext ctx, int idx, String id) {
         AtomicReference<Object> out = new AtomicReference<>();
         ctx.runOnClient(mc -> {
             BlockPos c = (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class}, new Object[]{idx});
@@ -524,7 +619,7 @@ public class SimMobFloorTests implements FabricClientGameTest {
         return out.get();
     }
 
-    private static List<String> unclearedMobRooms() {
+    static List<String> unclearedMobRooms() {
         List<String> out = new ArrayList<>();
         Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
         int n = (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[0], new Object[0]);
@@ -544,7 +639,7 @@ public class SimMobFloorTests implements FabricClientGameTest {
         return out;
     }
 
-    private static void clickBlock(ClientGameTestContext ctx, BlockPos pos, Direction face) {
+    static void clickBlock(ClientGameTestContext ctx, BlockPos pos, Direction face) {
         ctx.runOnClient(mc -> {
             mc.player.getInventory().setSelectedSlot(8);
             Vec3 hit = Vec3.atCenterOf(pos).add(face.getStepX() * 0.5, 0, face.getStepZ() * 0.5);
@@ -552,7 +647,7 @@ public class SimMobFloorTests implements FabricClientGameTest {
         });
     }
 
-    private static void teleport(ClientGameTestContext ctx, double x, double y, double z) {
+    static void teleport(ClientGameTestContext ctx, double x, double y, double z) {
         AtomicReference<Boolean> done = new AtomicReference<>();
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
@@ -570,7 +665,7 @@ public class SimMobFloorTests implements FabricClientGameTest {
     }
 
     /** AOTV in slot 0, the Spirit Sceptre in slot 1, slot 8 left empty for the door clicks. */
-    private static void giveLoadout(ClientGameTestContext ctx) {
+    static void giveLoadout(ClientGameTestContext ctx) {
         AtomicReference<Boolean> given = new AtomicReference<>();
         String[] ids = {"ASPECT_OF_THE_VOID", "BAT_WAND"};
         ctx.runOnClient(mc -> {
@@ -599,7 +694,7 @@ public class SimMobFloorTests implements FabricClientGameTest {
         ctx.waitTicks(5);
     }
 
-    private static void leave(ClientGameTestContext ctx) {
+    static void leave(ClientGameTestContext ctx) {
         try {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "cancel"));
             ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setEnabled", false));
