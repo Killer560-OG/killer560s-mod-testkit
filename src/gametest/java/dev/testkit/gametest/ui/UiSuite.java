@@ -92,7 +92,7 @@ import java.util.List;
 public class UiSuite implements FabricClientGameTest {
 
     static final String[] TITLE_CASES = {"340-ui-mainmenu", "330-ui-migrate", "310-ui-config-file-roundtrip",
-            "311-ui-config-setters", "320-ui-profiles", "380-ui-autoscale",
+            "311-ui-config-setters", "320-ui-profiles", "1102-ui-profile-streamer", "380-ui-autoscale",
             // title-262 (2026-10-13)
             "341-ui-title-widgets"};
     static final String[] WORLD_CASES = {"301-ui-smoke-tabs", "302-ui-smoke-search", "303-ui-smoke-toggles",
@@ -509,6 +509,8 @@ public class UiSuite implements FabricClientGameTest {
             UiCase.run(ctx, "310-ui-config-file-roundtrip", ConfigSweep::fileLevel);
             UiCase.run(ctx, "311-ui-config-setters", ConfigSweep::setterLevel);
             UiCase.run(ctx, "320-ui-profiles", MiscCases::profiles);
+            // profreload-1102: a profile with Streamer Mode flipped changes it in memory, no restart
+            UiCase.run(ctx, "1102-ui-profile-streamer", ProfileReloadCases::streamer);
             UiCase.run(ctx, "380-ui-autoscale", AutoScaleCases::autoScale);
             // title-262 (2026-10-13): no stray widget on the themed title screen, none overlapping
             UiCase.run(ctx, "341-ui-title-widgets", TitleWidgetCases::titleWidgets);
