@@ -134,6 +134,10 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             Ap3S2ee3Cases.register(s);
             // mod ap3-s2ee3-1027: the close suffix (after a terminal is closed).
             Ap3Close1027Cases.register(s);
+            // mod doc-routes-1101: the Crystal node (Spring Boots).
+            Ap3Crystal1101Cases.register(s);
+            // mod doc-routes-1101: Etherwarp Overlay on carpets and the p3sim crosshair; Advanced Position's y velocity.
+            Doc1101EtherPosCases.register(s);
             Ap3Gates1027Cases.register(s);
             Ap3BlinkCombo1027Cases.register(s);
             // mod ap3-blink-1026: the Blink Charge and Blink Release nodes. Registered last: 1026-ap3-blink-leap keeps the

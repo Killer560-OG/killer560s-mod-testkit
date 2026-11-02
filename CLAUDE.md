@@ -120,6 +120,12 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 
 ## Quirks and lessons
 
+- `c.server().command("playsound ... @p ~ ~ ~ ...")` runs at the console's position (world origin): "The sound is too far
+  away to be heard" and the client gets nothing. Use `execute at @p run playsound ...` (1101-ap3-crystal-*, 2026-11-01).
+  AutoTrap.testTrapRoom (mod doc-routes-1101) makes the 62-argrim pasted room a trap room for a case; reset it to null.
+- A checkout's `run/testserver/world` written by a 26.3 server will not load on 26.2 ("IllegalStateException: Overworld
+  settings missing"): the 26.2 server exits, the client reads FROZEN and the server JVM can be left holding the port. Before
+  a 26.2 run in a checkout that ran 26.3, move `world` aside (doc-routes-1101, 2026-11-01).
 - Since mod layout-fixes-1026 `ModPaths.config(name)` no longer creates the folder: a case that writes a mod config path
   before the feature ever saved must `Files.createDirectories(p.getParent())` first (981 and six others did not, 2026-10-26).
   1026-layout-* (seed `fixtures/seed-layout-fixes-1026`) covers the layout; on an old jar 1026-layout-empty lists ~83 empty folders.
