@@ -259,6 +259,15 @@ public class FairyIslandTests implements FabricClientGameTest {
             long since = hx.head();
             long cmdSince = since;
             long logMark = LogTap.mark();
+            // -Pfairy.start=x,y,z: start the run there instead of the spawn (a repro of one stretch of an island run)
+            String startAt = System.getProperty("testkit.fairy.start", "");
+            if (!startAt.isBlank()) {
+                String[] xyz = startAt.split(",");
+                server.command("tp @p " + xyz[0] + " " + xyz[1] + " " + xyz[2]);
+                server.sync(30);
+                ctx.waitTicks(40);
+                scenario.log("started at " + startAt + " (-Pfairy.start)");
+            }
             ctx.runOnClient(mc -> Mod.staticCall(RUNNER, "start"));
             double[] prev = null;
             for (int tick = 0; tick < maxTicks; tick++) {
