@@ -175,6 +175,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             session = s;
             s.test("62-argrim-ew-add", GrimAutoRoutesTests::caseEwAdd);
             s.test("62-argrim-walk", GrimAutoRoutesTests::caseWalk);
+            // mod doc-routes-1101 (to-do Doc "AUTO ROUTES TRAP RELATED NODES"): in a trap room a walk node turns the body
+            // onto its yaw before it walks, like AP3; any node takes a w<n> l<n> box there and only there.
+            s.test("62-argrim-1101-trapwalk", c -> caseTrapWalk(c, true));
+            s.test("62-argrim-1101-trapwalk-control", c -> caseTrapWalk(c, false));
+            s.test("62-argrim-1101-trapbox", GrimAutoRoutesTests::caseTrapBox);
             // iw-campaign-1027: Inventory Walk on while a route sprints him and he clicks in his inventory, then closes it.
             s.test("62-argrim-1027-invwalk", GrimAutoRoutesTests::caseInvWalk);
             // ... and 62-argrim-play's whole route (its chest window keeps the route running) with Inventory Walk on.
@@ -576,6 +581,169 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         check(s.stream().noneMatch(Sample::shift), "the walk sent shift down");
         c.note(String.format(Locale.ROOT, "walk: %.2f blocks along +z, sprinting", after.z - from.z));
         noteFlags(c, s);
+    }
+
+    private static final String AUTOTRAP = "com.killer560.hub.autotrap.AutoTrap";
+
+    private static void trapRoom(ClientGameTestContext ctx, boolean on) {
+        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField(AUTOTRAP, "testTrapRoom", on ? room : null));
+    }
+
+    /**
+     * 62-argrim-1101-trapwalk (killer560, to-do Doc 2026-11-01: "the walk nodes in there start walking before it is
+     * rotated. They should auto rotate just like walk nodes from ap3"). The pasted room is made a trap room (AutoTrap's
+     * test hook). A WALK start node pointing room -x is walked onto facing room +z. In a trap room the body must be ON the
+     * node's yaw at every tick the route drives him (turned before the first key), with the camera held, and the sprint
+     * must take him along -x. The control (not a trap room) keeps the old camera ease: its body yaw is off the walk on the
+     * first driven tick - which is the behavior he reported.
+     */
+    private static void caseTrapWalk(Session c, boolean trap) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        trapRoom(ctx, trap);
+        try {
+            JsonObject w = node("WALK", 14, 8, 90f, 0f);
+            w.addProperty("start", true);
+            writeRoute(ctx, List.of(w));
+            float walkYaw = ctx.computeOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                return (Float) ModUnderTest.staticCall(COORDS, "toRealYaw", new Class<?>[]{frame.getClass(), float.class},
+                        new Object[]{frame, 90f});
+            });
+            int turns0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "trapWalkTurns"));
+            long mark = LogTap.mark();
+            startSampling(ctx);
+            walkOnto(ctx, 14.5, 5.5, 14, 8);
+            Vec3 fired = relPos(ctx);
+            List<String> rows = new ArrayList<>();
+            double worstOff = 0;
+            int drivenTicks = 0;
+            int heldView = 0;
+            float firstOff = Float.NaN;
+            for (int t = 0; t < 25; t++) {
+                Object[] r = ctx.computeOnClient(mc -> new Object[]{mc.player.getYRot(),
+                        ModUnderTest.staticCall("com.killer560.hub.util.ViewFreeze", "viewYaw"),
+                        ModUnderTest.staticCall(EXECUTOR, "isRunning"), mc.player.getX(), mc.player.getZ()});
+                float off = Math.abs(net.minecraft.util.Mth.wrapDegrees((Float) r[0] - walkYaw));
+                if ((Boolean) r[2]) {
+                    drivenTicks++;
+                    if (Float.isNaN(firstOff)) {
+                        firstOff = off;
+                    }
+                    worstOff = Math.max(worstOff, off);
+                    if (!Float.isNaN((Float) r[1])) {
+                        heldView++;
+                    }
+                }
+                if (t < 6) {
+                    rows.add(String.format(Locale.ROOT, "t%d yaw %.2f (off %.2f) view %s running %s", t, (Float) r[0], off,
+                            r[1], r[2]));
+                }
+                ctx.waitTick();
+            }
+            List<Sample> s = stopSampling(ctx);
+            Vec3 after = relPos(ctx);
+            int turns = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "trapWalkTurns")) - turns0;
+            rows.forEach(c::note);
+            c.note(String.format(Locale.ROOT, "%s: walk yaw %.2f, first driven tick %.2f off, worst %.2f off over %d driven"
+                            + " tick(s), camera held %d, body turns %d, moved rel x %.2f z %.2f",
+                    trap ? "trap room" : "control", walkYaw, firstOff, worstOff, drivenTicks, heldView, turns,
+                    after.x - fired.x, after.z - fired.z));
+            check(drivenTicks >= 5, "the walk route did not run (" + drivenTicks + " driven ticks)");
+            check(after.x - fired.x < -4, String.format(Locale.ROOT, "the walk did not take him along room -x (%.2f)",
+                    after.x - fired.x));
+            if (trap) {
+                check(turns == 1 && logHas(mark, "WALK in a trap room: body turned"), "no trap-room body turn ("
+                        + turns + ")");
+                check(worstOff < 0.5, String.format(Locale.ROOT, "the body was off the walk's yaw while it walked (%.2f)",
+                        worstOff));
+                check(heldView >= drivenTicks - 1, "the camera was not held while the body walked (" + heldView + " of "
+                        + drivenTicks + ")");
+                check(s.stream().anyMatch(Sample::sprint), "the trap walk never sprinted");
+            } else {
+                check(turns == 0, "a body turn outside a trap room");
+            }
+            noteFlags(c, s);
+        } finally {
+            trapRoom(ctx, false);
+            resetRoutes(ctx);
+        }
+    }
+
+    /**
+     * 62-argrim-1101-trapbox (to-do Doc: "make it so i can add a node with something like w3 l3 and such for all nodes but
+     * only in trap"). Outside a trap room "/ar add walk w3 l3" is refused and adds nothing. In one, "/ar add breaker w3 l3"
+     * and "/ar add walk w5 l5" are added with their boxes, the file keeps them ("box", width, length), and the walk's 5x5
+     * box fires from 2 blocks off its center - outside the plain ring, inside the box.
+     */
+    private static void caseTrapBox(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        try {
+            tpRel(ctx, 14.5, 8.5, 0f, 0f);
+            long m0 = LogTap.mark();
+            cmd(ctx, "/ar add walk w3 l3");
+            ctx.waitTicks(5);
+            int outside = ctx.computeOnClient(mc -> ((List<?>) ModUnderTest.staticCall(
+                    "com.killer560.hub.autoroutes.AutoRoutesFeature", "currentRouteNodes")).size());
+            check(outside == 0 && logHas(m0, "box size outside a trap room"), "a boxed node was added outside a trap room ("
+                    + outside + " nodes)");
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                    new Object[]{"test reset"}));
+
+            trapRoom(ctx, true);
+            tpRel(ctx, 20.5, 20.5, 0f, 0f);
+            cmd(ctx, "/ar add breaker w3 l3");
+            ctx.waitTicks(5);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                    new Object[]{"test reset"}));
+            ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.autoroutes.AutoRoutesFeature", "setEditMode",
+                    new Class<?>[]{boolean.class}, new Object[]{false}));
+            tpRel(ctx, 14.5, 8.5, 90f, 0f);
+            cmd(ctx, "/ar add walk w5 l5");
+            ctx.waitTicks(5);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                    new Object[]{"test reset"}));
+            String saved = ctx.computeOnClient(mc -> {
+                try {
+                    return Files.readString((Path) ModUnderTest.staticCall(STORE, "routesFile"), StandardCharsets.UTF_8);
+                } catch (java.io.IOException e) {
+                    return "unreadable: " + e;
+                }
+            });
+            JsonArray nodes = com.google.gson.JsonParser.parseString(saved).getAsJsonObject().getAsJsonObject("routes")
+                    .getAsJsonObject(room).getAsJsonArray("nodes");
+            c.note("saved: " + nodes);
+            check(nodes.size() == 2, "expected the breaker and the walk saved, got " + nodes.size());
+            JsonObject br = nodes.get(0).getAsJsonObject();
+            JsonObject wk = nodes.get(1).getAsJsonObject();
+            check(br.has("box") && br.get("width").getAsDouble() == 3.0 && br.get("length").getAsDouble() == 3.0,
+                    "the breaker's 3x3 box was not saved: " + br);
+            check(wk.has("box") && wk.get("width").getAsDouble() == 5.0 && wk.get("length").getAsDouble() == 5.0,
+                    "the walk's 5x5 box was not saved: " + wk);
+            // Reload from the file (the boxes must come back), make the walk the start node, and walk into its box's edge.
+            wk.addProperty("start", true);
+            tpRel(ctx, 24.5, 24.5, 0f, 0f); // off the box first: a reload while he stands in it fires it there
+            writeRoute(ctx, List.of(wk));
+            long m1 = LogTap.mark();
+            startSampling(ctx);
+            // From rel z 3.5 straight up +z at x 16.5: 2 blocks beside the node's center line, inside W5, outside a ring.
+            walkOnto(ctx, 16.5, 3.5, 16, 8);
+            Vec3 at = relPos(ctx); // where it fired: walkOnto returns the tick the route is running
+            boolean fired = waitFor(ctx, 40, () -> logHas(m1, "WALK acted"));
+            ctx.waitTicks(20);
+            List<Sample> s = stopSampling(ctx);
+            c.note(String.format(Locale.ROOT, "box walk fired %s at rel %.2f, %.2f (center 14.5, 8.5)", fired, at.x, at.z));
+            check(fired, "the 5x5 walk node did not fire from 2 blocks off its center");
+            check(Math.abs(at.x - 14.5) > 1.0, String.format(Locale.ROOT,
+                    "it fired too close to the center to prove the box (rel x %.2f)", at.x));
+            noteFlags(c, s);
+        } finally {
+            trapRoom(ctx, false);
+            resetRoutes(ctx);
+        }
     }
 
     /**
