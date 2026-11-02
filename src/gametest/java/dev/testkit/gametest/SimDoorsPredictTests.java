@@ -50,8 +50,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * or by {@code HeldMap.simVisit}. Show All Doors is OFF throughout: every row is the no-cheat-ESP behavior, on both
  * jars. Rows:
  * <ul>
- * <li>1721 not before start: coal doors round the first room after the Entrance; through the whole {@code /start}
- *     countdown nothing is drawn and the status says it is waiting; after GO the Entrance's door is drawn with a label.</li>
+ * <li>1721 not before start: coal doors round the first room after the Entrance; the run (auto-started at the build since
+ *     mod 2026-10-25) is reset and its 3 s countdown run again: through it nothing is drawn and the status says it is
+ *     waiting; after GO the Entrance's door is drawn with a label.</li>
  * <li>1722 map only: coal doors round a room no opened room touches, the player standing in one of its doorways: none
  *     drawn; once a neighbor is opened, that neighbor's door is.</li>
  * <li>1723 blood: the Blood door is drawn without Show All Doors once the room before it is opened, not before.</li>
@@ -273,6 +274,11 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> opt(HELD, "resetSimVisits", null));
         double[] inFirst = f.tileCentre(f.tiles.get(first)[0], 0.5);
         place(ctx, inFirst, null);
+        // Since mod 2026-10-25 a whole floor starts its own run when the build ends (SimRun.autoStart: a 3 s countdown, no
+        // /start), so by now this floor's run has long started. Put it back to before the start the mod's own way
+        // (SimRun.reset, "for leaving the sim or restarting") and run the countdown again, as the auto start does.
+        boolean autoStarted = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_RUN, "hasStarted"));
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_RUN, "reset", new Class<?>[]{}, new Object[]{}));
         ctx.waitTicks(20);
         boolean startedBefore = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_RUN, "hasStarted"));
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_RUN, "begin", new Class<?>[]{Minecraft.class, BlockPos.class},
@@ -300,11 +306,12 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         List<double[]> boxes = ctx.computeOnClient(mc -> boxes());
         List<String> labels = labels(ctx);
         boolean boxAtDoor = boxAt(boxes, f.doorCentre(door)) != null;
-        String detail = made + " coal door(s) round " + f.names.get(coalRoom) + "; run started before /start: " + startedBefore
+        String detail = made + " coal door(s) round " + f.names.get(coalRoom) + "; auto-started at the build: " + autoStarted
+                + "; started after the reset, before the countdown: " + startedBefore
                 + "; " + countdownTicks + " countdown tick(s), " + drawnDuring + " with a box drawn, statuses " + statuses
                 + "; after GO: box at the door " + door + " from " + f.names.get(first) + " " + boxAtDoor + ", " + boxes.size() + " box(es), labels "
                 + labels + ", status '" + statusSafe(ctx) + "'";
-        row(R_BEFORE, made > 0 && !startedBefore && countdownTicks >= 60 && drawnDuring == 0
+        row(R_BEFORE, made > 0 && !startedBefore && countdownTicks >= 50 && drawnDuring == 0
                 && statuses.contains("waiting for the run to start") && boxAtDoor && labels.contains("Wither Door"), detail);
     }
 

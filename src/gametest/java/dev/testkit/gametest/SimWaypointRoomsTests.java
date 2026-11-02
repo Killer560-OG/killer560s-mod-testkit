@@ -39,6 +39,15 @@ import java.util.concurrent.atomic.AtomicReference;
  *       a lid with a raised row of double slabs (capture 44..46, 88, 47..50) reaches y 89; a crypt blown open on the
  *       server leaves the waypoint list within 2 client ticks of its blocks going on the client; 5 crypts in the tab list
  *       hide the crypts (and switching Hide Crypts After 5 off brings them back); "A Prince falls" hides the prince.</li>
+ *   <li>{@code 1102-diag-wp-roomchange} (mod diag-1101, owner evidence for "if i leave trap then it still keeps their
+ *       waypoints loaded"): walking out of Pressure Plates writes ONE "room change" line naming the room left and 0
+ *       waypoints outside the room he is in, and no "still drawing" line; walking back in writes one more; six doorway
+ *       flips as fast as the server moves him write fewer lines than flips (at most one a second); the waypoints back in
+ *       the room are the ones before (the log changes nothing).</li>
+ *   <li>{@code 1102-diag-wp-gold} (owner evidence for Flags' gold prince, p08): a gold block set beside the raised-row
+ *       crypt's legs (one out, one down) writes ONE "[CryptScan] gold block" line with its coordinates and the nearest lid's
+ *       verdict over three scans, the lid's "PRINCE found (gold beside a lid)" line lists the gold's coordinates, and the
+ *       prince waypoint is drawn there (the goldBeside rule, which no capture exercises, acted).</li>
  *   <li>{@code 1101-wp-item-walkaway}: an item secret's entity is removed while he stands outside the room (no waypoints
  *       there), and its waypoint is gone when he comes back while the room's other item waypoint stays.</li>
  * </ul>
@@ -48,7 +57,8 @@ public class SimWaypointRoomsTests implements FabricClientGameTest {
 
     private static final String NAME = "1101-wp";
     private static final String[] CASES = {"1101-wp-pressure-levers", "1101-wp-mines-levers", "1101-wp-waterboard",
-            "1101-wp-prison-crypt", "1101-wp-teleport-nocrypt", "1101-wp-item-walkaway", "1101-wp-flags"};
+            "1101-wp-prison-crypt", "1101-wp-teleport-nocrypt", "1101-wp-item-walkaway", "1101-wp-flags",
+            "1102-diag-wp-roomchange", "1102-diag-wp-gold"};
 
     private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
@@ -109,6 +119,8 @@ public class SimWaypointRoomsTests implements FabricClientGameTest {
                         case "1101-wp-teleport-nocrypt" -> teleportMaze(ctx, mark);
                         case "1101-wp-item-walkaway" -> itemWalkAway(ctx);
                         case "1101-wp-flags" -> flags(ctx, cfg);
+                        case "1102-diag-wp-roomchange" -> roomChange(ctx);
+                        case "1102-diag-wp-gold" -> goldPrince(ctx);
                         default -> throw new AssertionError("no such case " + c);
                     }
                     RESULTS.add(c + " PASS");
@@ -422,7 +434,176 @@ public class SimWaypointRoomsTests implements FabricClientGameTest {
         check(princesAfter.isEmpty(), "the prince waypoint stayed after a prince fell");
     }
 
+    private void roomChange(ClientGameTestContext ctx) {
+        build(ctx, "Pressure Plates");
+        List<BlockPos> items = waitFor(ctx, "ITEM", l -> l.size() >= 2, 200);
+        check(!items.isEmpty(), "Pressure Plates shows no item waypoints (nothing to measure)");
+        BlockPos inside = ctx.computeOnClient(mc -> mc.player.blockPosition());
+        List<String> before = allWaypoints(ctx);
+        int[] bounds = ctx.computeOnClient(mc -> (int[]) ModUnderTest.staticCall(LIVE_MAP, "roomWorldBounds",
+                new Class<?>[]{int.class}, new Object[]{(Integer) ModUnderTest.staticCall(LIVE_MAP, "currentRoomIndex")}));
+        BlockPos out = new BlockPos(bounds[0] - 6, inside.getY(), inside.getZ());
+        onServer(ctx, (level, sp) -> {
+            level.setBlockAndUpdate(out.below(), Blocks.STONE.defaultBlockState());
+            level.setBlockAndUpdate(out, Blocks.AIR.defaultBlockState());
+            level.setBlockAndUpdate(out.above(), Blocks.AIR.defaultBlockState());
+            return null;
+        });
+        ctx.waitTicks(30); // past the one-a-second gap from the build's own room change
+        long m1 = LogTap.mark();
+        tp(ctx, out.getX() + 0.5, out.getY(), out.getZ() + 0.5);
+        ctx.waitTicks(10);
+        List<String> outLines = lines(m1, "[SecretWaypoints] room change");
+        say("walked out: " + outLines);
+        check(outLines.size() == 1, "want 1 room change line on walking out, got " + outLines.size());
+        check(outLines.get(0).contains("(Pressure Plates) ->") && outLines.get(0).contains(" 0 outside"),
+                "the line does not name the room left with 0 waypoints outside: " + outLines.get(0));
+        check(lines(m1, "still drawing").isEmpty(), "a stray-waypoint line with no waypoint outside the room");
+        check(allWaypoints(ctx).isEmpty(), "waypoints still drawn outside the room (premise of the walk-out)");
+
+        ctx.waitTicks(30);
+        long m2 = LogTap.mark();
+        tp(ctx, inside.getX() + 0.5, inside.getY(), inside.getZ() + 0.5);
+        ctx.waitTicks(10);
+        List<String> inLines = lines(m2, "[SecretWaypoints] room change");
+        say("walked in: " + inLines);
+        check(inLines.size() == 1 && inLines.get(0).contains("(Pressure Plates): snapshot")
+                && inLines.get(0).contains(" 0 outside"), "want 1 line into Pressure Plates with 0 outside: " + inLines);
+
+        // Six flips as fast as the server moves him: at most one line a second.
+        ctx.waitTicks(30);
+        long m3 = LogTap.mark();
+        long t0 = System.currentTimeMillis();
+        for (int i = 0; i < 6; i++) {
+            BlockPos to = i % 2 == 0 ? out : inside;
+            fastTp(ctx, to);
+            ctx.waitTicks(1);
+        }
+        long ms = System.currentTimeMillis() - t0;
+        ctx.waitTicks(10);
+        int flipLines = lines(m3, "[SecretWaypoints] room change").size();
+        say("6 flips in " + ms + " ms: " + flipLines + " line(s)");
+        check(flipLines >= 1 && flipLines < 6 && flipLines <= ms / 1000 + 1,
+                flipLines + " line(s) for 6 flips in " + ms + " ms (want 1 .. one a second)");
+
+        List<String> after = waitForAll(ctx, before, 100);
+        check(after.equals(before), "the room's waypoints changed: before " + before + ", after " + after);
+    }
+
+    private void goldPrince(ClientGameTestContext ctx) {
+        build(ctx, "Flags");
+        BlockPos raised = capW(ctx, 44, 88, 47);
+        standNear(ctx, raised);
+        double[] rbox = findBox(ctx, "CRYPT", lid(ctx, 44, 46, 88, 47, 50), 100);
+        say("raised-row crypt box " + fmt(rbox) + " (a crypt before the gold)");
+        Set<BlockPos> lidCells = new HashSet<>();
+        for (int x = 44; x <= 46; x++) {
+            for (int z = 47; z <= 50; z++) {
+                lidCells.add(capW(ctx, x, 88, z));
+            }
+        }
+        int y = raised.getY();
+        BlockPos gold = onServer(ctx, (level, sp) -> {
+            for (BlockPos l : lidCells) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    for (int dz = -1; dz <= 1; dz++) {
+                        BlockPos q = new BlockPos(l.getX() + dx, y - 1, l.getZ() + dz);
+                        if (lidCells.contains(new BlockPos(q.getX(), y, q.getZ()))) {
+                            continue;
+                        }
+                        if (level.getBlockState(q).isAir() && !level.getBlockState(q.below()).isAir()) {
+                            return q;
+                        }
+                    }
+                }
+            }
+            return null;
+        });
+        check(gold != null, "no free spot one out and one down from the raised-row lid");
+        long m = LogTap.mark();
+        onServer(ctx, (level, sp) -> {
+            level.setBlockAndUpdate(gold, Blocks.GOLD_BLOCK.defaultBlockState());
+            return null;
+        });
+        ctx.waitFor(mc -> mc.level.getBlockState(gold).is(Blocks.GOLD_BLOCK), 200);
+        String at = "at " + gold.toShortString() + ":";
+        for (int t = 0; t < 100 && lines(m, "[CryptScan] gold block", at).isEmpty(); t++) {
+            if (t % 20 == 0) {
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(FEATURE, "invalidateCache"));
+            }
+            ctx.waitTicks(1);
+        }
+        for (int i = 0; i < 3; i++) { // three more scans
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(FEATURE, "invalidateCache"));
+            ctx.waitTicks(25);
+        }
+        List<String> goldLines = lines(m, "[CryptScan] gold block", at);
+        List<String> princeLines = lines(m, "[CryptScan] PRINCE found (gold beside a lid) at", "at [" + gold.toShortString() + "]");
+        List<BlockPos> princes = positions(ctx, "PRINCE");
+        say("gold at " + gold.toShortString() + ": " + goldLines + " | " + princeLines + " | prince waypoints " + princes);
+        try {
+            check(goldLines.size() == 1, "want 1 gold block line over 4 scans, got " + goldLines.size());
+            check(goldLines.get(0).contains("nearest slab run") && goldLines.get(0).contains("PRINCE"),
+                    "the gold line does not name the lid's verdict: " + goldLines.get(0));
+            check(princeLines.size() == 1, "the lid's PRINCE line does not list the gold's coordinates: " + princeLines);
+            // The prince's anchor is its lowest x/z block, which can be the gold beside the lid.
+            check(princes.contains(gold) || princes.stream().anyMatch(lidCells::contains),
+                    "no prince waypoint on the lid or its gold: " + princes);
+        } finally {
+            onServer(ctx, (level, sp) -> {
+                level.setBlockAndUpdate(gold, Blocks.AIR.defaultBlockState());
+                return null;
+            });
+        }
+    }
+
     // ============================================================================================ helpers
+
+    private static List<String> lines(long mark, String... parts) {
+        List<String> out = new ArrayList<>();
+        for (String l : LogTap.since(mark)) {
+            boolean all = true;
+            for (String p : parts) {
+                all &= l.contains(p);
+            }
+            if (all) {
+                out.add(l);
+            }
+        }
+        return out;
+    }
+
+    /** Every waypoint in the snapshot as "KIND@x,y,z", sorted. */
+    private static List<String> allWaypoints(ClientGameTestContext ctx) {
+        List<String> out = new ArrayList<>();
+        for (String k : new String[]{"CHEST", "ITEM", "BAT", "WITHER", "LEVER", "CRYPT", "PRINCE"}) {
+            for (BlockPos p : positions(ctx, k)) {
+                out.add(k + "@" + p.toShortString());
+            }
+        }
+        java.util.Collections.sort(out);
+        return out;
+    }
+
+    private static List<String> waitForAll(ClientGameTestContext ctx, List<String> want, int ticks) {
+        List<String> l = allWaypoints(ctx);
+        for (int t = 0; t < ticks && !l.equals(want); t++) {
+            ctx.waitTicks(1);
+            l = allWaypoints(ctx);
+        }
+        return l;
+    }
+
+    /** A server teleport, waited for only until the client stands there. */
+    private static void fastTp(ClientGameTestContext ctx, BlockPos to) {
+        onServer(ctx, (level, sp) -> {
+            sp.teleportTo(level, to.getX() + 0.5, to.getY(), to.getZ() + 0.5, Set.<net.minecraft.world.entity.Relative>of(),
+                    sp.getYRot(), sp.getXRot(), false);
+            return null;
+        });
+        ctx.waitFor(mc -> mc.player != null && Math.abs(mc.player.getX() - (to.getX() + 0.5)) < 0.3
+                && Math.abs(mc.player.getZ() - (to.getZ() + 0.5)) < 0.3, 100);
+    }
 
     /** World box {minX, minY, minZ, maxX, maxY, maxZ} of a capture lid's cells at its own layer (y not used). */
     private static double[] lid(ClientGameTestContext ctx, int x0, int x1, int y, int z0, int z1) {

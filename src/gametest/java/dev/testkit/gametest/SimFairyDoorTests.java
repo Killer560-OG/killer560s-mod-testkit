@@ -322,6 +322,28 @@ public class SimFairyDoorTests implements FabricClientGameTest {
             row(R_MATE, boxMate == null && pxMate[0] < 30, "legit jar: box " + fmt(boxMate) + ", " + pxMate[0] + " magenta px");
         }
         ctx.runOnClient(SimFairyDoorTests::removeMate);
+        // The mate must be gone from what the Fairy Door reads (LiveMapReads.teammates: entities, and since the sim run
+        // starts itself at the build (mod 2026-10-25) the held dungeon map's player markers too) before 536 resets the run.
+        // Right after the entity went, the map still showed him in Fairy for a moment, so 536's "new run" was cleared
+        // again by "FairyMate entered Fairy" on its first tick (tkdebt-1101; a new run on Hypixel has no such leftover).
+        int mateGoneAfter = -1;
+        for (int t = 0; t < 200; t++) {
+            boolean listed = ctx.computeOnClient(mc -> {
+                for (Object m : (List<?>) ModUnderTest.staticCall("com.killer560.hub.livemap.LiveMapReads", "teammates",
+                        new Class<?>[]{Minecraft.class}, new Object[]{mc})) {
+                    if (String.valueOf(ModUnderTest.call(m, "name", new Class<?>[]{}, new Object[]{})).equals(MATE_NAME)) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+            if (!listed) {
+                mateGoneAfter = t;
+                break;
+            }
+            ctx.waitTick();
+        }
+        note(R_MATE, "FairyMate gone from the Fairy Door's teammates " + mateGoneAfter + " tick(s) after his entity was removed");
 
         // ---- 536: the door's block goes solid, then air --------------------------------------------------------
         Report.caseStarted(R_OPENED);

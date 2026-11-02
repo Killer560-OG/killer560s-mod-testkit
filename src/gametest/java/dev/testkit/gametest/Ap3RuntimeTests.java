@@ -136,6 +136,10 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             Ap3S2ee3Cases.register(s);
             // mod ap3-s2ee3-1027: the close suffix (after a terminal is closed).
             Ap3Close1027Cases.register(s);
+            // mod doc-routes-1101: the Crystal node (Spring Boots).
+            Ap3Crystal1101Cases.register(s);
+            // mod doc-routes-1101: Etherwarp Overlay on carpets and the p3sim crosshair; Advanced Position's y velocity.
+            Doc1101EtherPosCases.register(s);
             Ap3Gates1027Cases.register(s);
             Ap3BlinkCombo1027Cases.register(s);
             // mod ap3-stop-1101: a Term Aura stops him like a Stop; a Stop / Term Aura fires once per entry.
@@ -1445,7 +1449,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             ModUnderTest.set(cfg, "setBreakerAuraAutoSwap", autoSwap);
             ModUnderTest.set(cfg, "setBreakerAuraSwapBack", true);
             ModUnderTest.call(cfg, "setBreakerAuraSwapDelayTicks", new Class<?>[]{int.class}, new Object[]{1});
-            ModUnderTest.set(cfg, "setBreakerAuraMultiBreak", false);
+            ModUnderTest.setIfPresent(cfg, "setBreakerAuraMultiBreak", false);
             ModUnderTest.set(cfg, "setBreakerAuraZeroPing", false);
             Object store = ModUnderTest.staticCall(BREAKER_STORE, "getInstance");
             ModUnderTest.call(store, "clear", new Class<?>[0], new Object[0]);

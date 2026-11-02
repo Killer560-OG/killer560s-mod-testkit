@@ -36,8 +36,9 @@ final class MiningShelvedCases {
     private static final List<String> MINING_WORDS = List.of("mining", "crystal hollows", "nucleus", "metal detector");
     /** Mod df2b3a1b added the cheat-only Bazaar Flipper tracker (ProfitTracker.BAZAAR_FLIP, left out of a legit jar). */
     private static final List<String> EXPECTED_CARDS = Mod.isCheat()
-            ? List.of("Dungeon Profit", "Experimentation Table", "Bazaar Flipper")
-            : List.of("Dungeon Profit", "Experimentation Table");
+            // How Lucky Are You: mod doc-rng-1101 (pre-2.0, killer560 2026-11-01), both builds - not a mining tracker.
+            ? List.of("Dungeon Profit", "Experimentation Table", "How Lucky Are You", "Bazaar Flipper")
+            : List.of("Dungeon Profit", "Experimentation Table", "How Lucky Are You");
     private static final String HUB = "gui.profit.ProfitHubScreen";
     /** The one mining tab allowed back (killer560, 2026-10-25; mod 66283eb4): the Auto Nucleus Run stub, in Helpers'
      *  cheat block, so on a cheat jar exactly this path and class, and on a legit jar nothing. */
@@ -96,6 +97,11 @@ final class MiningShelvedCases {
                         }
                     }
                     String name = n.name() == null ? "" : n.name().toLowerCase(Locale.ROOT);
+                    if (n.depth() == 0 && name.equals("mining") && cls.equals("com.killer560.hub.gui.tab.CategoryTab")) {
+                        // The pre-2.0 Mining category (mod doc-mining-1101, killer560 2026-11-01: "MINING FEATURES PRE
+                        // 2.0"): new features, none from shelved/mining - the class checks still hold for its cards.
+                        continue;
+                    }
                     boolean byClass = cls.startsWith(MINING_PKG) || SHELVED_OUTSIDE.contains(cls)
                             || (n.tab().getClass().getEnclosingClass() != null
                                 && SHELVED_OUTSIDE.contains(n.tab().getClass().getEnclosingClass().getName()));

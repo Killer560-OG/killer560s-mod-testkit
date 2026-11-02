@@ -20,6 +20,13 @@ import java.util.Map;
  * <p>Corrected the same day: grayed in both styles - Funny Map like every other unopened room (darkened), the regular map
  * in the light undarkened gray when its blood door is known.
  *
+ * <p>Changed again by the owner on 2026-10-19 (mod 146ef2e1 / d287cbba, MapPainter.roomColor): "the map is not labeling
+ * blood or showing it as red either for funny map". The room behind the blood door is now drawn in the BLOOD color,
+ * darkened as unexplored (NoammAddons' {@code color.darker().darker()}, then Darken Unexplored), in both styles; and a
+ * Funny Map unopened room is its own type color darkened the same way. The expected colors are computed with the mod's
+ * own {@code MapPainter.unexploredFill}/{@code unopenedFill} from the live config (tkdebt-1101), and the case still
+ * checks the meaning: Blood reads red, Cell is not Blood's color, no "?" on Blood.
+ *
  * <p>The sim floor of 1015-sim-map-item-only (Entrance, New Trap, Andesite, Cell, Blood) and its Hypixel-style map item,
  * plus a Blood room painted as an unopened gray square below Andesite with a red (color 18) door between them. Read from
  * what the Dungeon Map HUD draws: the Blood fill must equal the unopened gray exactly (Darken Unexplored 0.4 would make
@@ -168,17 +175,25 @@ public class SimMapBloodTests implements FabricClientGameTest {
         System.out.println(String.format(Locale.ROOT, "[%s] %s: Blood %s, Andesite %s, Cell %s, %d small fill(s) on Blood",
                 CASE, tag, SimMapItemTests.hexOrNone(blood), SimMapItemTests.hexOrNone(andesite),
                 SimMapItemTests.hexOrNone(cell), marks));
-        int want = funny ? SimMapItemTests.multiply(UNOPENED, 0.6f) : UNOPENED;
-        if (blood == null || blood != want) {
+        int[] want = ctx.computeOnClient(mc -> {
+            Object cfg = Mod.cfg(MAP);
+            int bloodColor = (Integer) Mod.call(cfg, "getColorBlood");
+            int normal = (Integer) Mod.staticCall("livemap.MapPainter", "typeColor", "NORMAL", cfg);
+            return new int[]{(Integer) Mod.staticCall("livemap.MapPainter", "unexploredFill", bloodColor, cfg),
+                    (Integer) Mod.staticCall("livemap.MapPainter", "unexploredFill", normal, cfg),
+                    (Integer) Mod.staticCall("livemap.MapPainter", "unopenedFill", cfg)};
+        });
+        if (blood == null || blood != want[0]) {
             failures.add(tag + ": the unopened Blood Room is " + SimMapItemTests.hexOrNone(blood) + ", want "
-                    + SimMapItemTests.hexOrNone(want) + (funny ? " (grayed like every unopened room)"
-                    : " (the light unopened gray, undarkened)"));
+                    + SimMapItemTests.hexOrNone(want[0]) + " (the Blood color, darkened as unexplored - owner 2026-10-19)");
+        } else if (((blood >> 16) & 0xFF) <= Math.max((blood >> 8) & 0xFF, blood & 0xFF)) {
+            failures.add(tag + ": the unopened Blood Room " + SimMapItemTests.hexOrNone(blood) + " does not read red");
         }
         if (!funny && marks != 0) {
             failures.add(tag + ": " + marks + " mark fill(s) drawn on the unopened Blood Room (a \"?\")");
         }
-        int wantCell = funny ? SimMapItemTests.multiply(NORMAL, 0.6f) : SimMapItemTests.multiply(UNOPENED, 0.6f);
-        if (cell == null || cell != wantCell) {
+        int wantCell = funny ? want[1] : want[2];
+        if (cell == null || cell != wantCell || (blood != null && cell.intValue() == blood.intValue())) {
             failures.add(tag + ": an ordinary unopened room (Cell) is " + SimMapItemTests.hexOrNone(cell) + ", want "
                     + SimMapItemTests.hexOrNone(wantCell) + " - only the blood room changes");
         }

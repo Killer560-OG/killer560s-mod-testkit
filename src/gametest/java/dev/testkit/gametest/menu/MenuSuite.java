@@ -208,6 +208,10 @@ public class MenuSuite implements FabricClientGameTest {
                     FlipCroesusCases.register(s);
                     // ---- 2761-2772 bazaarflip-custom-1016: cut titles, Custom Amount's sign, NPC sell limit, tab ----
                     BazaarFlipCustomCases.register(s);
+                    // ---- 2790-2796 doc-flip-1101: Bazaar Flipper sizing/reserve/min profit/rounds, AH Flipper, AH Price Copier ----
+                    Flip1101MenuCases.register(s);
+                    // ---- 2798-2800 ahrelist-1101: AH Flipper's Auto Relist cycle, its stop, /ahmenudump ----
+                    Relist1102MenuCases.register(s);
                     // ---- 768-769 bz-reskin (2026-10-11): reskin during the flipper, one Bazaar/AH switch ----
                     ReskinSwitchCases.register(s);
                     // ---- 773-776 croesus-price (2026-10-11): M4 chest valuation, Croesus Price Mode ----
@@ -226,6 +230,7 @@ public class MenuSuite implements FabricClientGameTest {
                     // ---- 1101 shared-records (2026-11-01): records shared across instances, old files folded in ----
                     SharedRecordsCases.register(s);
                     Solver1018Cases.register(s); // 1018-*: the 2026-10-18 solver-sound batch
+                    DocItems1101Cases.register(s); // 1101-menu-*: Custom Items, name color/shadow, Witherborn, Mod User Tag
                     // ---- 898 croesus-colors (2026-10-12): run states distinct by color (deltaE, CVD) and marks ----
                     CroesusColorCases.register(s);
                     // ---- 903-905 croesus-colors2 (2026-10-13): a run's chest view - free claim green, key chest orange ----

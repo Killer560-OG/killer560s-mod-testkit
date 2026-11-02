@@ -364,63 +364,95 @@ final class Doc1018MenuHudCases {
     }
 
     // =================================================================================================================
-    // 25 Chat History: unlimited
+    // 25 Chat History: Off / Limited / Unlimited (mod 635594b7, killer560 2026-11-01; was one Unlimited switch)
     // =================================================================================================================
 
+    private static final String CHC = "chathistory.ChatHistoryConfig";
+
+    private static String chatMode(UiCase c) {
+        return c.onClient(mc -> String.valueOf(Mod.call(Mod.cfg(CHC), "getMode")));
+    }
+
+    private static int[] addChatLines(UiCase c, Object chat, String tag, int count) {
+        c.onClient(mc -> {
+            for (int i = 1; i <= count; i++) {
+                Mod.call(chat, "addClientSystemMessage", Component.literal("\u00a77history-" + tag + " line " + i));
+            }
+            return null;
+        });
+        c.ticks(2);
+        int msgs = c.onClient(mc -> ((List<?>) Mod.field(chat, "allMessages")).size());
+        int lines = c.onClient(mc -> ((List<?>) Mod.field(chat, "trimmedMessages")).size());
+        c.note("Chat History " + tag + ": " + msgs + " messages, " + lines + " wrapped lines after " + count + " more");
+        return new int[]{msgs, lines};
+    }
+
     static void chatHistory(UiCase c) {
-        List<String> row = labels(c, "ChatHistoryTab");
-        c.check(has(row, "Unlimited Chat History"), "the Chat History tab has no Unlimited Chat History row: " + row);
+        Object cfg0 = c.onClient(mc -> Mod.cfg(CHC));
+        int limitWas = c.onClient(mc -> (Integer) Mod.call(cfg0, "getCustomLimit"));
         Object chat = c.onClient(mc -> Mod.staticCall("compat.McCompat", "chat", mc));
         try {
             // Off: vanilla's cap.
             c.onClient(mc -> {
-                Mod.call(Mod.cfg("chathistory.ChatHistoryConfig"), "setUnlimited", false);
-                for (int i = 1; i <= 130; i++) {
-                    Mod.call(chat, "addClientSystemMessage", Component.literal("§7history-off line " + i));
-                }
+                Mod.call(Mod.cfg(CHC), "setUnlimited", false);
+                Mod.call(Mod.cfg(CHC), "setCustomLimit", 200);
                 return null;
             });
-            c.ticks(2);
-            int off = c.onClient(mc -> ((List<?>) Mod.field(chat, "allMessages")).size());
-            int offLines = c.onClient(mc -> ((List<?>) Mod.field(chat, "trimmedMessages")).size());
-            c.note("Unlimited off: " + off + " messages, " + offLines + " wrapped lines after 130 more");
-            c.check(off == 100, "with the switch off the chat keeps " + off + " messages, want vanilla's 100");
+            List<String> row = labels(c, "ChatHistoryTab");
+            c.check(has(row, "Chat History: Off"), "the Chat History tab has no 'Chat History: Off' row: " + row);
+            c.check(!has(row, "History Limit"), "Off shows the History Limit slider: " + row);
+            int[] off = addChatLines(c, chat, "off", 130);
+            c.check(off[0] == 100, "Off keeps " + off[0] + " messages, want vanilla's 100");
 
-            // On, by a real click on its row.
-            boolean pressed = pressRow(c, "ChatHistoryTab", "Unlimited Chat History");
-            boolean on = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg("chathistory.ChatHistoryConfig"), "isUnlimited"));
-            c.check(pressed && on, "a click on Unlimited Chat History did not turn it on");
-            c.onClient(mc -> {
-                for (int i = 1; i <= 130; i++) {
-                    Mod.call(chat, "addClientSystemMessage", Component.literal("§7history-on line " + i));
-                }
-                return null;
-            });
-            c.ticks(2);
-            int onCount = c.onClient(mc -> ((List<?>) Mod.field(chat, "allMessages")).size());
-            int onLines = c.onClient(mc -> ((List<?>) Mod.field(chat, "trimmedMessages")).size());
-            c.note("Unlimited on: " + onCount + " messages, " + onLines + " wrapped lines after 130 more");
-            c.check(onCount >= 230, "with the switch on the chat keeps " + onCount + " messages, want at least 230 (100 kept + 130 new)");
-            c.check(onLines >= 230, "with the switch on the chat keeps " + onLines + " wrapped lines, want at least 230");
+            // Limited, by a real click on the row (left click steps forward: Off -> Limited), at 200.
+            boolean pressed = pressRow(c, "ChatHistoryTab", "Chat History:");
+            String mode = chatMode(c);
+            c.check(pressed && "LIMITED".equals(mode), "a click on the Chat History row did not step Off -> Limited (" + mode + ")");
+            row = labels(c, "ChatHistoryTab");
+            c.check(has(row, "History Limit: 200"), "Limited shows no 'History Limit: 200' slider: " + row);
+            int[] lim = addChatLines(c, chat, "limited", 250);
+            c.check(lim[0] == 200, "Limited at 200 keeps " + lim[0] + " messages, want exactly 200");
+            c.check(lim[1] == 200, "Limited at 200 keeps " + lim[1] + " wrapped lines, want exactly 200");
+
+            // Unlimited, by the next click.
+            pressed = pressRow(c, "ChatHistoryTab", "Chat History:");
+            mode = chatMode(c);
+            c.check(pressed && "UNLIMITED".equals(mode), "a second click did not step Limited -> Unlimited (" + mode + ")");
+            int[] on = addChatLines(c, chat, "unlimited", 130);
+            c.check(on[0] >= 330, "Unlimited keeps " + on[0] + " messages, want at least 330 (200 kept + 130 new)");
+            c.check(on[1] >= 330, "Unlimited keeps " + on[1] + " wrapped lines, want at least 330");
         } finally {
             c.onClient(mc -> {
-                Mod.call(Mod.cfg("chathistory.ChatHistoryConfig"), "setUnlimited", false);
+                Mod.call(Mod.cfg(CHC), "setUnlimited", false);
                 return null;
             });
         }
-        // It is saved: a reload from disk keeps it.
+        // Saved: a reload from disk keeps Unlimited, and Limited with its limit.
         c.onClient(mc -> {
-            Object cfg = Mod.cfg("chathistory.ChatHistoryConfig");
+            Object cfg = Mod.cfg(CHC);
             Mod.call(cfg, "setUnlimited", true);
             Mod.call(cfg, "save");
-            Mod.staticCall("chathistory.ChatHistoryConfig", "load");
+            Mod.staticCall(CHC, "load");
             return null;
         });
-        boolean reloaded = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg("chathistory.ChatHistoryConfig"), "isUnlimited"));
-        c.check(reloaded, "Unlimited Chat History did not survive a reload from disk");
-        c.onClient(mc -> {
-            Object cfg = Mod.cfg("chathistory.ChatHistoryConfig");
+        c.check("UNLIMITED".equals(chatMode(c)), "Unlimited did not survive a reload from disk (" + chatMode(c) + ")");
+        boolean limitedKept = c.onClient(mc -> {
+            Object cfg = Mod.cfg(CHC);
             Mod.call(cfg, "setUnlimited", false);
+            Object modes = Mod.call(cfg, "getMode").getClass().getEnumConstants();
+            Mod.call(cfg, "setMode", ((Object[]) modes)[1]);
+            Mod.call(cfg, "setCustomLimit", 1400);
+            Mod.call(cfg, "save");
+            Mod.staticCall(CHC, "load");
+            Object back = Mod.cfg(CHC);
+            return "LIMITED".equals(String.valueOf(Mod.call(back, "getMode")))
+                    && ((Integer) Mod.call(back, "getCustomLimit")) == 1400;
+        });
+        c.check(limitedKept, "Limited at 1400 did not survive a reload from disk (" + chatMode(c) + ")");
+        c.onClient(mc -> {
+            Object cfg = Mod.cfg(CHC);
+            Mod.call(cfg, "setUnlimited", false);
+            Mod.call(cfg, "setCustomLimit", limitWas);
             Mod.call(cfg, "save");
             return null;
         });

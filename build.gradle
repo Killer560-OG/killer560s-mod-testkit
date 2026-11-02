@@ -173,21 +173,66 @@ tasks.register("testmodJar", Jar) {
 // server, TestServer and grimServer all read), so it sticks for later runs of the same checkout until another
 // -Pport changes it. The Hx RPC bridge in the companion mod listens on loopback port N+5 (testkit.hx.port, passed to
 // BOTH the client and the server JVM). Concurrency still needs separate checkouts: Gradle locks the project dir.
+//
+// Without -Pport (and with no port pinned by an earlier one) the port is picked, not assumed (tkdebt-1101): two
+// worktrees both defaulting to 25565 had one server fail "exited before it was ready" (FAILED TO BIND) whenever they
+// ran at once (two parallel smoke runs on 2026-11-01). The main checkout prefers 25565; a worktree prefers a port
+// derived from its path, 26000 + 10 * (hash % 90) (26000-26896 with the Hx/HTTP ports, clear of 25565-25599,
+// parallel-suite's 25700-25850 and run-sharded's 25900-25999). If that port, its +5 or its +6 is taken right now (an
+// orphaned server, another checkout), the next one up by 10 is tried. The choice is written to server.properties for
+// this run only; run/testserver/port-pinned.txt marks a port someone chose with -Pport, which then sticks as before.
 def testServerProps = file("${rootDir}/run/testserver/server.properties")
+def portPinFile = file("${rootDir}/run/testserver/port-pinned.txt")
 def requestedPort = project.hasProperty("port") ? project.property("port").toString().trim().toInteger() : null
+def portFree = { int p ->
+	[p, p + 5, p + 6].every { q ->
+		try {
+			def s = new java.net.ServerSocket()
+			s.setReuseAddress(false)
+			s.bind(new InetSocketAddress(q))
+			s.close()
+			return true
+		} catch (IOException ignored) {
+			return false
+		}
+	}
+}
+def filePort = {
+	if (!testServerProps.exists()) {
+		return null
+	}
+	def p = new Properties()
+	testServerProps.withInputStream { p.load(it) }
+	def v = p.getProperty("server-port")
+	return v == null ? null : v.trim().toInteger()
+}
 def effectivePort = {
 	if (requestedPort != null) {
 		return requestedPort
 	}
-	if (testServerProps.exists()) {
-		def p = new Properties()
-		testServerProps.withInputStream { p.load(it) }
-		return (p.getProperty("server-port") ?: "25565").trim().toInteger()
+	def inFile = filePort()
+	if (portPinFile.exists() && inFile != null) {
+		return inFile
 	}
-	return 25565
+	// A checkout from before the pin file whose server.properties carries a port other than 25565 got it from -Pport.
+	def autoFile = file("${rootDir}/run/testserver/port-auto.txt")
+	if (!portPinFile.exists() && !autoFile.exists() && inFile != null && inFile != 25565) {
+		return inFile
+	}
+	boolean worktree = new File(rootDir, ".git").isFile()
+	String key = rootDir.absolutePath.replace('\\', '/').toLowerCase()
+	int base = worktree ? 26000 + 10 * Math.floorMod(key.hashCode(), 90) : 25565
+	for (int i = 0; i < 90; i++) {
+		int p = worktree ? 26000 + Math.floorMod(base - 26000 + 10 * i, 900) : base + 10 * i
+		if (portFree(p)) {
+			return p
+		}
+	}
+	return base
 }
 def serverPort = effectivePort()
 def hxPort = serverPort + 5
+def portIsPinned = requestedPort != null || portPinFile.exists()
 
 // --- GrimAC ---------------------------------------------------------------------------------------
 //
@@ -314,16 +359,23 @@ tasks.register("prepareTestServer") {
 			props.text = props.text.replaceAll(/(?m)^white-list=true\s*$/, "white-list=false")
 			logger.lifecycle("Test server white-list turned off (26.3 writes it on)")
 		}
-		// -Pport: patched in place, so every other line the server has written stays as it is.
+		// The port (-Pport, a pinned one, or the one picked above): patched in place, so every other line the server
+		// has written stays as it is. A -Pport pins it (port-pinned.txt); a picked one is marked port-auto.txt.
 		if (requestedPort != null) {
+			portPinFile.text = "${requestedPort}\n"
+		} else if (!portIsPinned) {
+			new File(testServerDir, "port-auto.txt").text = "${serverPort}\n"
+		}
+		if (true) {
 			def text = props.text
-			def patched = text =~ /(?m)^server-port=.*$/ ? text.replaceAll(/(?m)^server-port=.*$/, "server-port=${requestedPort}")
-					: text + "server-port=${requestedPort}\n"
+			def patched = text =~ /(?m)^server-port=.*$/ ? text.replaceAll(/(?m)^server-port=.*$/, "server-port=${serverPort}")
+					: text + "server-port=${serverPort}\n"
 			// query.port defaults to the server port; it only binds with enable-query=true, but keep the pair together.
-			patched = patched.replaceAll(/(?m)^query\.port=.*$/, "query.port=${requestedPort}")
+			patched = patched.replaceAll(/(?m)^query\.port=.*$/, "query.port=${serverPort}")
 			if (patched != text) {
 				props.text = patched
-				logger.lifecycle("Test server port set to ${requestedPort} (Hx bridge ${requestedPort + 5})")
+				logger.lifecycle("Test server port set to ${serverPort} (Hx bridge ${serverPort + 5})"
+						+ (portIsPinned ? "" : " - picked for this checkout; -Pport=N pins one"))
 			}
 		}
 
@@ -586,7 +638,7 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	// testkit's own placement, -PfullclearLiveHp=H.
 	["fullclearRuns", "fullclearCode", "fullclearOut", "fullclearMobs", "fullclearCodes", "fullclearPlan", "fullclearNoTraps", "acCode",
 	 "acsCodes", "acsRuns", "acsMobs", "acsHp", "acsWalk", "acsHype", "acsHypeWeapon", "acsMinutes", "fullclearLive",
-	 "fullclearLiveHp"].each { k ->
+	 "fullclearLiveHp", "mobfloorCode", "mobfloorMinutes", "fullclearMobFloor"].each { k ->
 		if (project.hasProperty(k)) {
 			systemProperty "testkit.${k}", project.property(k)
 		}

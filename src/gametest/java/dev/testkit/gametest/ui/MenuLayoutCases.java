@@ -113,6 +113,7 @@ final class MenuLayoutCases {
             // killer560 2026-10-25; cheat jar only.
             "gui.tab.BlinkTab", "gui.tab.ZeroPingEtherwarpTab", "gui.tab.InventoryWalkTab",
             // Left Click Etherwarp (Dungeons cheat block), mod cheat-extras-1025, killer560 2026-10-25; cheat jar only.
+            // Folded into the Etherwarp tab (ZeroPingEtherwarpTab) by mod doc-menu-1101, 2026-11-01: no longer a card.
             "gui.tab.LeftClickEtherwarpTab",
             // Relic Helpers (Relic Triggerbot + Relic Look, M7 P5), Dungeons cheat block, mod relic-1025; cheat jar only.
             "gui.tab.RelicHelpersTab",
@@ -128,7 +129,10 @@ final class MenuLayoutCases {
             "gui.tab.BanReportTab",
             // To-do Doc items of 2026-11-01 (mod doc-extras-1101), legit in both builds: Creation Cooldown and Insta Clear
             // Warning (Dungeons), Gyrokinetic Wand Overlay (Items), Chat Tabs (Chat).
-            "gui.tab.CreationCooldownTab", "gui.tab.InstaClearWarningTab", "gui.tab.GyroOverlayTab", "gui.tab.ChatTabsTab");
+            "gui.tab.CreationCooldownTab", "gui.tab.InstaClearWarningTab", "gui.tab.GyroOverlayTab", "gui.tab.ChatTabsTab",
+            // AH Flipper and AH Price Copier (mod doc-flip-1101, to-do Doc 2026-11-01), Items, legit cards (the flipper's
+            // Main macro rows are cheat-only).
+            "gui.tab.AhFlipperTab", "gui.tab.AhPriceCopierTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.
@@ -136,7 +140,10 @@ final class MenuLayoutCases {
             // Croesus / Chest Profit is "Croesus" since mod hud-key-2 (2026-10-12); its Auto rows are in Auto Croesus.
             "Croesus / Chest Profit", "Croesus");
     /** Tabs merged into another since the fixture: old leaf class -> the class that now holds its rows. */
-    static final Map<String, String> MERGED = Map.of("gui.tab.CommandShortcutsTab", "gui.tab.CommandKeybindsTab");
+    static final Map<String, String> MERGED = Map.of("gui.tab.CommandShortcutsTab", "gui.tab.CommandKeybindsTab",
+            // The Secrets HUD is a section of the one Secret tab (mod doc-auto-1101, killer560 2026-11-01); 511 lists it
+            // in goneLeaves, 412 (whose New fixture had it) finds its rows there.
+            "gui.tab.DungeonInfoTab", "gui.tab.SecretTab");
     private static final Pattern COMBINED = Pattern.compile(".*(, | & ).*");
     /**
      * What the branches merged with this change (mod 3744aa32, 2026-10-08: chat-batch, inv-batch, modchat-party)

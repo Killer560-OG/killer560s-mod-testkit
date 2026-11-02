@@ -809,7 +809,8 @@ final class Solver1018Cases {
             c.check(key != null, "premise: the item could not be selected (no key)");
             // Since the 2026-10-18 redesign (mod 998c9f96) the color lives on the Custom Color page: the main page's
             // "Custom Color" button opens it, and its "Color" button opens the picker. Both real buttons, pressed.
-            AbstractWidget page = c.onClient(mc -> button(screen, "Custom Color"));
+            // "Customize Custom Color" since 2026-11-01 (killer560's rename).
+            AbstractWidget page = c.onClient(mc -> button(screen, "Customize Custom Color"));
             c.check(page != null, "premise: no Custom Color button on the Custom Items screen");
             c.check(page != null && page.active, "premise: the Custom Color button is not active for the selected item");
             if (page == null || !page.active) {
@@ -916,7 +917,8 @@ final class Solver1018Cases {
             c.onClient(mc -> {
                 McCompat.setScreen(mc, screen);
                 // A Look is another item's model since the redesign (998c9f96): the Custom Item page's copyLookFrom.
-                Mod.call(screen, "copyLookFrom", new ItemStack(Items.DIAMOND_SWORD));
+                // Since mod doc-items-1101 it also takes the picked item's key, kept so the page shows it again.
+                Mod.call(screen, "copyLookFrom", new ItemStack(Items.DIAMOND_SWORD), "minecraft:diamond_sword");
                 return null;
             });
             for (int i = 0; i < 10; i++) {

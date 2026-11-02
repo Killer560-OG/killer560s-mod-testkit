@@ -1,5 +1,12 @@
 # Auto Routes on GrimAC (62-argrim)
 
+**Run it with GrimAC's experimental checks ON** (gridexp-1102: the owner's no-flag rule counts them; see the testkit
+CLAUDE.md for the config line). On mod main 65ed3d91 they drew MultiBreak* (breaker, breakerfall, play, invwalk-play),
+RotationBreak* (boomsneak and every breaker case), PacketOrderE* (mimic, mimicaim, breakerwarp) and DuplicateRotPlace*
+(breakerwarp, acbat); mod gridexp-1102 is silent on all of them on 26.3 and 26.2. A star after a check name in the
+verbose line marks an experimental check. Grim's source at the pinned version is on GitHub (tag `v2.3.74`,
+`common/src/main/java/ac/grim/grimac/checks/impl/...`); reading the check is faster than guessing at the trace.
+
 `./run-scenario.ps1 -Scenario 62-argrim -Port 25751 -ModUnderTest <cheat jar> -Extra "-PtestVolume=0"` (add
 `-Minecraft 26.2`), about 2 minutes. One Session, 16 cases, positive control before and after. The room is one of his
 captured rooms sent through Hx `dungeon.paste` to grid cell (4,4) and identified by the mod's REAL world scan; the

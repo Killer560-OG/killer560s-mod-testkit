@@ -57,7 +57,8 @@ public class IntroSuite implements FabricClientGameTest {
 
     static final String[] CASES = {"1101-ui-intro-first-show", "1101-ui-intro-nav", "1101-ui-intro-skip",
             "1101-ui-intro-theme", "1101-ui-intro-variant", "1101-ui-intro-banlogs", "1101-ui-intro-once",
-            "1101-ui-intro-sizes", "1101-ui-intro-anim"};
+            "1101-ui-intro-sizes", "1101-ui-intro-anim", "1101-ui-intro-autoupdate", "1101-ui-intro-mouth",
+            "1101-ui-intro-facing", "1101-ui-intro-still", "1101-ui-intro-timebox", "1101-ui-intro-grid"};
     static final String INTRO = "intro.IntroScreen";
 
     @Override
@@ -86,6 +87,12 @@ public class IntroSuite implements FabricClientGameTest {
         UiCase.run(ctx, "1101-ui-intro-once", IntroSuite::once);
         UiCase.run(ctx, "1101-ui-intro-sizes", IntroSuite::sizes);
         UiCase.run(ctx, "1101-ui-intro-anim", IntroSuite::anim);
+        UiCase.run(ctx, "1101-ui-intro-autoupdate", IntroSuite::autoUpdateCase);
+        UiCase.run(ctx, "1101-ui-intro-mouth", IntroSuite::mouthCase);
+        UiCase.run(ctx, "1101-ui-intro-facing", IntroSuite::facingCase);
+        UiCase.run(ctx, "1101-ui-intro-still", IntroSuite::stillCase);
+        UiCase.run(ctx, "1101-ui-intro-timebox", IntroSuite::timeBoxCase);
+        UiCase.run(ctx, "1101-ui-intro-grid", IntroSuite::gridCase);
     }
 
     // ---- helpers ---------------------------------------------------------------------------------------------------
@@ -225,11 +232,25 @@ public class IntroSuite implements FabricClientGameTest {
         });
     }
 
+    /** Answers a waiting question (No thanks for the ban logs, Yes for Auto Update: the defaults a test config has),
+     *  then clicks Next (or Finish). */
+    static void advance(UiCase c, boolean last) {
+        boolean blocked = c.onClient(mc -> {
+            Screen s = McCompat.screen(mc);
+            return isIntro(s) && (Boolean) Mod.call(s, "nextBlocked");
+        });
+        if (blocked) {
+            String sc = scene(c);
+            click(c, sc.equals("BAN_LOGS") ? "No thanks" : "Yes, keep me updated");
+        }
+        click(c, last ? "Finish" : "Next");
+    }
+
     /** Clicks Next until the scene is {@code want} (bounded). */
     static void goTo(UiCase c, String want) {
         for (int i = 0; i < 12 && !scene(c).equals(want); i++) {
             settle(c);
-            click(c, "Next");
+            advance(c, false);
         }
         c.check(scene(c).equals(want), "never reached " + want + " (at " + scene(c) + ")");
         settle(c);
@@ -334,7 +355,7 @@ public class IntroSuite implements FabricClientGameTest {
                     // He points at the menu picture on his left: turned toward it.
                     c.check(Math.abs(turn) > 5f, "the guide did not turn toward the menu (turn " + turn + ")");
                 }
-                click(c, i == count - 1 ? "Finish" : "Next");
+                advance(c, i == count - 1);
             }
             c.note("scenes: " + seen);
             Screen now = c.onClient(McCompat::screen);
@@ -372,11 +393,6 @@ public class IntroSuite implements FabricClientGameTest {
                 && !(Boolean) c.onClient(mc -> Mod.call(McCompat.screen(mc), "confirmingSkip")),
                 "Escape twice did not keep going on OPEN_MENU (" + scene(c) + ")");
         goTo(c, "THEME");
-        // The presets cycle every 1.5 s of real time: wait (bounded) until another one is shown.
-        for (int i = 0; i < 600 && themeNow(c).equals("AMBER"); i++) {
-            c.ticks(1);
-        }
-        c.check(!themeNow(c).equals("AMBER"), "the theme scene never showed another preset");
         key(c, 256);
         click(c, "Keep Going");
         c.check(intro(c) != null, "Keep Going closed the tour");
@@ -396,25 +412,34 @@ public class IntroSuite implements FabricClientGameTest {
             setTheme(c, "AMBER");
             open(c);
             goTo(c, "THEME");
+            // No auto-cycling (killer560, 2026-11-01): 4 s of real time on the scene, the theme never moves.
             java.util.Set<String> shown = new java.util.LinkedHashSet<>();
-            // 1.5 s of real time per preset; the lockstep can run ticks faster than that, so wait on the count.
-            for (int i = 0; i < 900 && shown.size() < 3; i++) {
+            long wait = System.nanoTime() + 4_000_000_000L;
+            while (System.nanoTime() < wait) {
                 shown.add(themeNow(c));
-                c.ticks(1);
+                c.ticks(2);
             }
-            c.note("themes shown while cycling: " + shown);
-            c.check(shown.size() >= 2, "the presets did not cycle: " + shown);
-            shot(c, "cycling");
+            c.note("themes shown over 4 s without a click: " + shown);
+            c.check(shown.equals(java.util.Set.of("AMBER")), "the theme changed without a click: " + shown);
+            c.check("CHOSEN".equals(kind(c, "Amber")), "the current theme's chip is not marked chosen: " + kind(c, "Amber"));
+            shot(c, "theme-no-click");
             click(c, "Ocean");
             c.check(themeNow(c).equals("OCEAN"), "clicking Ocean left the theme on " + themeNow(c));
             c.check(configFile(c, "killer560smod-menu.json").contains("\"theme\": \"OCEAN\""),
                     "Ocean was not saved: the menu file has no OCEAN theme");
-            long until = System.nanoTime() + 3_500_000_000L; // two whole cycle steps of real time
-            while (System.nanoTime() < until) {
-                c.ticks(5);
-            }
-            c.check(themeNow(c).equals("OCEAN"), "the presets kept cycling after a pick: " + themeNow(c));
-            c.check(text(c).contains("Ocean"), "the bubble does not say the pick: " + text(c));
+            c.check("CHOSEN".equals(kind(c, "Ocean")), "the Ocean chip is not marked chosen after the click");
+            // The main menu style: the same setting as Home > Menu Theme's Main Menu: Fancy / Simple chip.
+            String mode0 = mainMenu(c);
+            c.check(buttons(c).containsKey("Simple Main Menu") && buttons(c).containsKey("Fancy Main Menu"),
+                    "no main menu style choice on the theme scene: " + buttons(c).keySet());
+            click(c, "Simple Main Menu");
+            c.check(mainMenu(c).equals("SIMPLE"), "Simple Main Menu left the main menu on " + mainMenu(c));
+            c.check(configFile(c, "killer560smod-mainmenu.json").contains("\"sceneMode\": \"SIMPLE\""),
+                    "Simple was not saved: " + configFile(c, "killer560smod-mainmenu.json"));
+            shot(c, "picked-simple");
+            click(c, "Fancy Main Menu");
+            c.check(mainMenu(c).equals("FANCY"), "Fancy Main Menu left the main menu on " + mainMenu(c));
+            c.note("main menu style " + mode0 + " -> SIMPLE -> FANCY by clicks");
             settle(c);
             // The bubble's border is drawn in the theme's accent: Ocean's teal 2EC4B6 must be on screen.
             Path p = shot(c, "picked-ocean");
@@ -427,6 +452,101 @@ public class IntroSuite implements FabricClientGameTest {
             click(c, "Skip Guide");
         } finally {
             setTheme(c, "AMBER");
+            FontsMainMenuSuite.setWindow(c, win0[0], win0[1], win0[2]);
+        }
+    }
+
+    static String kind(UiCase c, String label) {
+        return c.onClient(mc -> {
+            Screen s = McCompat.screen(mc);
+            return isIntro(s) ? String.valueOf(Mod.call(s, "buttonKind", label)) : "";
+        });
+    }
+
+    static String mainMenu(UiCase c) {
+        return c.onClient(mc -> String.valueOf(Mod.call(Mod.cfg("mainmenu.MainMenuThemeConfig"), "getSceneMode")));
+    }
+
+    /**
+     * The chips are a clean grid (killer560, 2026-11-02): in every line all chips have the same width, the gaps are all
+     * the same, the first chip starts at the content's left edge and the last ends at its right edge (so every line,
+     * and the bubble's text, share both edges), and every label fits inside its chip with room to spare. Null when so.
+     */
+    @SuppressWarnings("unchecked")
+    static String gridProblem(UiCase c) {
+        return c.onClient(mc -> {
+            Screen s = McCompat.screen(mc);
+            if (!isIntro(s)) {
+                return "no tour on screen";
+            }
+            List<List<int[]>> rows = (List<List<int[]>>) Mod.call(s, "chipRows");
+            int[] edges = (int[]) Mod.call(s, "contentEdges");
+            List<String> bad = new ArrayList<>();
+            for (int r = 0; r < rows.size(); r++) {
+                List<int[]> row = rows.get(r);
+                int w0 = row.get(0)[2];
+                int gap = -1;
+                for (int i = 0; i < row.size(); i++) {
+                    int[] chip = row.get(i);
+                    if (chip[2] != w0) {
+                        bad.add("line " + r + " chip " + i + " is " + chip[2] + " wide, chip 0 " + w0);
+                    }
+                    if (chip[4] + 8 > chip[2]) {
+                        bad.add("line " + r + " chip " + i + " text " + chip[4] + " does not fit in " + chip[2]);
+                    }
+                    if (i > 0) {
+                        int g = chip[0] - (row.get(i - 1)[0] + row.get(i - 1)[2]);
+                        if (gap < 0) {
+                            gap = g;
+                        } else if (g != gap) {
+                            bad.add("line " + r + " gaps " + gap + " and " + g);
+                        }
+                    }
+                }
+                int left = row.get(0)[0];
+                int[] last = row.get(row.size() - 1);
+                int right = last[0] + last[2];
+                if (left != edges[0] || right != edges[1]) {
+                    bad.add("line " + r + " spans " + left + ".." + right + ", content " + edges[0] + ".." + edges[1]);
+                }
+            }
+            return bad.isEmpty() ? null : String.join("; ", bad);
+        });
+    }
+
+    /** Every chip scene at 1920x1080 GUI 2: the grid rule holds and the lines are photographed. */
+    static void gridCase(UiCase c) {
+        int[] win0 = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight(),
+                mc.options.guiScale().get()});
+        FontsMainMenuSuite.setWindow(c, 1920, 1080, 2);
+        try {
+            open(c);
+            int count = c.onClient(mc -> (Integer) Mod.call(McCompat.screen(mc), "sceneCount"));
+            int checked = 0;
+            for (int i = 0; i < count; i++) {
+                settle(c);
+                String sc = scene(c);
+                @SuppressWarnings("unchecked")
+                List<List<int[]>> rows = c.onClient(mc -> (List<List<int[]>>) Mod.call(McCompat.screen(mc), "chipRows"));
+                if (!rows.isEmpty()) {
+                    checked++;
+                    StringBuilder d = new StringBuilder();
+                    for (List<int[]> row : rows) {
+                        d.append(" [");
+                        for (int[] ch : row) {
+                            d.append(ch[0]).append('+').append(ch[2]).append(' ');
+                        }
+                        d.append(']');
+                    }
+                    c.note(sc + " chip lines:" + d);
+                    String grid = gridProblem(c);
+                    c.check(grid == null, sc + ": " + grid);
+                    shot(c, "grid-" + sc.toLowerCase(Locale.ROOT));
+                }
+                advance(c, i == count - 1);
+            }
+            c.check(checked >= 3, "only " + checked + " scenes had chips");
+        } finally {
             FontsMainMenuSuite.setWindow(c, win0[0], win0[1], win0[2]);
         }
     }
@@ -494,7 +614,7 @@ public class IntroSuite implements FabricClientGameTest {
             for (int i = 0; i < count; i++) {
                 settle(c);
                 c.check(!buttons(c).containsKey("Yes, share them"), "a legit jar asked about ban logs on " + scene(c));
-                click(c, i == count - 1 ? "Finish" : "Next");
+                advance(c, i == count - 1);
             }
             c.check(!ban(c), "a legit tour turned Auto Report Bans on");
             return;
@@ -502,10 +622,8 @@ public class IntroSuite implements FabricClientGameTest {
         goTo(c, "BAN_LOGS");
         shot(c, "ban-logs");
         c.check(!ban(c), "Auto Report Bans is on before any answer");
-        click(c, "Next");
+        choiceGate(c, "BAN_LOGS", "Yes, share them");
         c.check(!ban(c), "Next with no answer turned Auto Report Bans on");
-        click(c, "Previous");
-        settle(c);
         click(c, "No thanks");
         c.check(!ban(c), "No thanks turned Auto Report Bans on");
         click(c, "Yes, share them");
@@ -523,6 +641,359 @@ public class IntroSuite implements FabricClientGameTest {
             Mod.call(cfg, "save");
             return null;
         });
+    }
+
+    /** On a question scene: Yes is the suggested (accent) answer, Next is inactive, and neither a click on Next nor the
+     *  Right arrow or Enter leaves the scene until an answer is clicked. */
+    static void choiceGate(UiCase c, String sceneName, String yes) {
+        c.check(scene(c).equals(sceneName), "not on " + sceneName + " (" + scene(c) + ")");
+        c.check((Boolean) c.onClient(mc -> Mod.call(McCompat.screen(mc), "nextBlocked")), "Next is not blocked on " + sceneName);
+        c.check(!buttons(c).get("Next").active, "the Next button is active before an answer on " + sceneName);
+        c.check("PRIMARY".equals(kind(c, yes)), "'" + yes + "' is not the highlighted answer: " + kind(c, yes));
+        click(c, "Next");
+        c.check(scene(c).equals(sceneName), "a click on Next left " + sceneName + " with no answer (" + scene(c) + ")");
+        key(c, 262);
+        key(c, 257);
+        c.check(scene(c).equals(sceneName), "Right / Enter left " + sceneName + " with no answer (" + scene(c) + ")");
+    }
+
+    static boolean autoUpdate(UiCase c) {
+        return c.onClient(mc -> (Boolean) Mod.call(Mod.cfg("autoupdate.AutoUpdateConfig"), "isEnabled"));
+    }
+
+    static void setAutoUpdate(UiCase c, boolean on) {
+        c.onClient(mc -> {
+            Object cfg = Mod.cfg("autoupdate.AutoUpdateConfig");
+            Mod.call(cfg, "setEnabled", on);
+            Mod.call(cfg, "save");
+            return null;
+        });
+    }
+
+    /** The Auto Update question: Next waits for an answer; No turns Auto Update off, Yes on, each saved. */
+    static void autoUpdateCase(UiCase c) {
+        setAutoUpdate(c, true);
+        try {
+            open(c);
+            goTo(c, "AUTO_UPDATE");
+            shot(c, "auto-update");
+            choiceGate(c, "AUTO_UPDATE", "Yes, keep me updated");
+            c.check(autoUpdate(c), "Auto Update changed with no answer");
+            click(c, "No thanks");
+            c.check(!autoUpdate(c), "No thanks left Auto Update on");
+            c.check(configFile(c, "killer560smod-autoupdate.json").contains("\"enabled\": false"), "No was not saved");
+            c.check(buttons(c).get("Next").active, "Next stayed inactive after an answer");
+            click(c, "Yes, keep me updated");
+            c.check(autoUpdate(c), "Yes left Auto Update off");
+            c.check(configFile(c, "killer560smod-autoupdate.json").contains("\"enabled\": true"), "Yes was not saved");
+            c.check("CHOSEN".equals(kind(c, "Yes, keep me updated")), "the clicked answer is not marked chosen");
+            click(c, "Next");
+            c.check(scene(c).equals("MENUS"), "Next after an answer went to " + scene(c));
+            click(c, "Skip Guide");
+        } finally {
+            setAutoUpdate(c, true);
+        }
+    }
+
+    // ---- his face: measured on a plain green screen behind the tour, with the bubble left out ------------------------
+
+    /** A plain green screen for the tour to open over, so the guide's silhouette is everything not green. */
+    static final class GreenScreen extends Screen {
+        GreenScreen() {
+            super(net.minecraft.network.chat.Component.literal("green"));
+        }
+
+        @Override
+        public void extractBackground(net.minecraft.client.gui.GuiGraphicsExtractor g, int mx, int my, float pt) {
+            g.fill(0, 0, this.width, this.height, 0xFF00C800);
+        }
+
+        @Override
+        public void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor g, int mx, int my, float pt) {
+            g.fill(0, 0, this.width, this.height, 0xFF00C800);
+        }
+    }
+
+    static Screen openOverGreen(UiCase c) {
+        c.onClient(mc -> {
+            Object cfg = Mod.cfg("intro.IntroConfig");
+            Mod.call(cfg, "setDone", false);
+            Mod.staticCall("intro.IntroLauncher", "replay", new GreenScreen());
+            return null;
+        });
+        c.ticks(3);
+        Screen s = intro(c);
+        c.check(s != null, "the tour did not open");
+        return s;
+    }
+
+    static boolean background(int p) {
+        int r = (p >> 16) & 0xFF;
+        int g = (p >> 8) & 0xFF;
+        int b = p & 0xFF;
+        return g > r + 30 && g > b + 30;
+    }
+
+    static float lum(int p) {
+        return 0.299f * ((p >> 16) & 0xFF) + 0.587f * ((p >> 8) & 0xFF) + 0.114f * (p & 0xFF);
+    }
+
+    /**
+     * Reads his head off a screenshot, inside the guide's drawn box: {head left, head right, head top, model height,
+     * eye centroid x, mouth x, mouth y} in screenshot pixels. The head is the top quarter of the silhouette (no raised
+     * arm in the scenes measured); the eyes and brows are the only dark pixels of his face, the mouth the dark pixels of
+     * its bottom row.
+     */
+    static float[] face(UiCase c, Path png) throws Exception {
+        java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(png.toFile());
+        int[] box = c.onClient(mc -> (int[]) Mod.staticCall(INTRO, "guideWindowBox"));
+        double gs = c.onClient(mc -> (double) mc.getWindow().getGuiScale());
+        double sx = img.getWidth() / (double) c.onClient(mc -> mc.getWindow().getScreenWidth()) * gs;
+        double sy = img.getHeight() / (double) c.onClient(mc -> mc.getWindow().getScreenHeight()) * gs;
+        int x0 = (int) Math.max(0, box[0] * sx);
+        int x1 = (int) Math.min(img.getWidth(), box[2] * sx);
+        int y0 = (int) Math.max(0, box[1] * sy);
+        int y1 = (int) Math.min(img.getHeight(), box[3] * sy);
+        int top = -1;
+        int bottom = -1;
+        for (int y = y0; y < y1; y++) {
+            for (int x = x0; x < x1; x++) {
+                if (!background(img.getRGB(x, y))) {
+                    if (top < 0) {
+                        top = y;
+                    }
+                    bottom = y;
+                    break;
+                }
+            }
+        }
+        c.check(top >= 0, "no guide pixels in his box " + x0 + "," + y0 + " - " + x1 + "," + y1);
+        float h = bottom - top + 1;
+        int headBottom = top + Math.round(h * 8f / 32.5f);
+        int left = Integer.MAX_VALUE;
+        int right = -1;
+        double ex = 0;
+        int en = 0;
+        for (int y = top; y < headBottom; y++) {
+            for (int x = x0; x < x1; x++) {
+                int p = img.getRGB(x, y);
+                if (background(p)) {
+                    continue;
+                }
+                left = Math.min(left, x);
+                right = Math.max(right, x);
+                if (lum(p) < 75) {
+                    ex += x;
+                    en++;
+                }
+            }
+        }
+        // The mouth: the lowest dark pixels of the head (its bottom two rows of the face texture).
+        double mx = 0;
+        double my = 0;
+        int mn = 0;
+        int mouthTop = top + Math.round(h * 6.6f / 32.5f);
+        for (int y = mouthTop; y < headBottom; y++) {
+            for (int x = x0; x < x1; x++) {
+                int p = img.getRGB(x, y);
+                if (!background(p) && lum(p) < 30) {
+                    mx += x;
+                    my += y;
+                    mn++;
+                }
+            }
+        }
+        return new float[]{left, right, top, h, en == 0 ? Float.NaN : (float) (ex / en),
+                mn == 0 ? Float.NaN : (float) (mx / mn), mn == 0 ? Float.NaN : (float) (my / mn)};
+    }
+
+    /** Screen GUI units of the tour to screenshot pixels. */
+    static float[] toShot(UiCase c, Path png, float gx, float gy) throws Exception {
+        java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(png.toFile());
+        double[] w = c.onClient(mc -> toWindow(mc, McCompat.screen(mc), gx, gy));
+        double kx = img.getWidth() / (double) c.onClient(mc -> mc.getWindow().getScreenWidth());
+        double ky = img.getHeight() / (double) c.onClient(mc -> mc.getWindow().getScreenHeight());
+        return new float[]{(float) (w[0] * kx), (float) (w[1] * ky)};
+    }
+
+    static void hideBubble(UiCase c, boolean hide) {
+        c.onClient(mc -> Mod.staticCall(INTRO, "setHideBubbleForTest", hide));
+    }
+
+    /**
+     * The tail comes from his mouth: with the bubble left out of the picture, the dark pixels of his mouth are found on
+     * the green screenshot and the point the tail is drawn to must be within 1.5 model pixels of them, on the left spot
+     * (OPEN_MENU) and the right spot (AUTO_UPDATE; VARIANT waves on a legit jar and the raised arm tops his silhouette).
+     */
+    static void mouthCase(UiCase c) throws Exception {
+        int[] win0 = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight(),
+                mc.options.guiScale().get()});
+        FontsMainMenuSuite.setWindow(c, 1920, 1080, 2);
+        try {
+            openOverGreen(c);
+            for (String sc : new String[]{"OPEN_MENU", "AUTO_UPDATE"}) {
+                goTo(c, sc);
+                hideBubble(c, false);
+                c.ticks(2);
+                shot(c, "mouth-" + sc.toLowerCase(Locale.ROOT) + "-with-bubble");
+                hideBubble(c, true);
+                c.ticks(3);
+                Path png = shot(c, "mouth-" + sc.toLowerCase(Locale.ROOT));
+                float[] f = face(c, png);
+                float[] tip = c.onClient(mc -> (float[]) Mod.call(McCompat.screen(mc), "mouth"));
+                float[] tipPx = toShot(c, png, tip[0], tip[1]);
+                float drawnTip[] = c.onClient(mc -> (float[]) Mod.call(McCompat.screen(mc), "tailTip"));
+                float modelPx = f[3] / 32.5f;
+                double d = Math.hypot(tipPx[0] - f[5], tipPx[1] - f[6]);
+                c.note(String.format(Locale.ROOT, "%s: mouth pixels at %.1f,%.1f, tail point at %.1f,%.1f (%.1f px, %.2f model px)"
+                        + "; the bubble drew its tail to %.1f,%.1f (mouth %.1f,%.1f GUI)", sc, f[5], f[6], tipPx[0], tipPx[1],
+                        d, d / modelPx, drawnTip[0], drawnTip[1], tip[0], tip[1]));
+                c.check(!Float.isNaN(f[5]), sc + ": no mouth pixels found on his face");
+                c.check(d <= 1.5 * modelPx, String.format(Locale.ROOT,
+                        "%s: the tail point is %.1f px (%.2f model px) from his mouth", sc, d, d / modelPx));
+                c.check(Math.abs(drawnTip[0] - tip[0]) < 0.01f && Math.abs(drawnTip[1] - tip[1]) < 0.01f,
+                        sc + ": the bubble's tail was not drawn to the mouth point");
+            }
+        } finally {
+            hideBubble(c, false);
+            c.onClient(mc -> {
+                Screen s = McCompat.screen(mc);
+                if (isIntro(s)) {
+                    Mod.call(s, "finish");
+                }
+                return null;
+            });
+            FontsMainMenuSuite.setWindow(c, win0[0], win0[1], win0[2]);
+        }
+    }
+
+    /** Which way his face points on a screenshot: +1 right, -1 left (eye centroid against the head's middle). */
+    static int faceSide(UiCase c, Path png, String what) throws Exception {
+        float[] f = face(c, png);
+        float mid = (f[0] + f[1]) / 2f;
+        float off = f[4] - mid;
+        c.note(String.format(Locale.ROOT, "%s: head %.0f..%.0f, eyes at %.1f (%.1f from the middle), facing %.1f deg",
+                what, f[0], f[1], f[4], off, (Float) c.onClient(mc -> Mod.staticCall(INTRO, "guideTurn"))));
+        c.check(!Float.isNaN(f[4]), what + ": no eye pixels on his head");
+        c.check(Math.abs(off) > (f[1] - f[0]) * 0.06f, what + ": his eyes are in the middle of his head (" + off + ")");
+        return off > 0 ? 1 : -1;
+    }
+
+    /**
+     * He faces the way he walks and, standing, toward what he talks about: read from the side of his head his eyes are
+     * on. Standing on the left with the bubble on his right: right. Walking right (OPEN_MENU -> THEME): right. Standing
+     * on the right with the menu on his left: left. Walking back left (Previous): left.
+     */
+    static void facingCase(UiCase c) throws Exception {
+        int[] win0 = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight(),
+                mc.options.guiScale().get()});
+        FontsMainMenuSuite.setWindow(c, 1920, 1080, 2);
+        try {
+            hideBubble(c, true);
+            openOverGreen(c);
+            goTo(c, "OPEN_MENU");
+            c.ticks(3);
+            c.check(faceSide(c, shot(c, "facing-standing-left"), "standing left, bubble on his right") > 0,
+                    "standing on the left he does not face his bubble on the right");
+            click(c, "Next");
+            c.ticks(8);
+            c.check((Boolean) c.onClient(mc -> Mod.call(McCompat.screen(mc), "guideWalking")), "he is not walking to THEME");
+            c.check(faceSide(c, shot(c, "facing-walking-right"), "walking right") > 0, "walking right he faces left");
+            settle(c);
+            c.ticks(3);
+            c.check(faceSide(c, shot(c, "facing-standing-right"), "standing right, menu on his left") < 0,
+                    "standing on the right he does not face the menu on his left");
+            click(c, "Previous");
+            c.ticks(8);
+            c.check((Boolean) c.onClient(mc -> Mod.call(McCompat.screen(mc), "guideWalking")), "he is not walking back");
+            c.check(faceSide(c, shot(c, "facing-walking-left"), "walking left") < 0, "walking left he faces right");
+        } finally {
+            hideBubble(c, false);
+            c.onClient(mc -> {
+                Screen s = McCompat.screen(mc);
+                if (isIntro(s)) {
+                    Mod.call(s, "finish");
+                }
+                return null;
+            });
+            FontsMainMenuSuite.setWindow(c, win0[0], win0[1], win0[2]);
+        }
+    }
+
+    /** Standing, he does not move: over 1.5 s of real time his drawn box and his silhouette's top and bottom rows stay
+     *  the same (no idle bob, no breathing that shows). */
+    static void stillCase(UiCase c) throws Exception {
+        int[] win0 = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight(),
+                mc.options.guiScale().get()});
+        FontsMainMenuSuite.setWindow(c, 1920, 1080, 2);
+        try {
+            hideBubble(c, true);
+            openOverGreen(c);
+            goTo(c, "THEME_DONE");
+            // past the cheer, standing
+            long until = System.nanoTime() + 2_500_000_000L;
+            while (System.nanoTime() < until) {
+                c.ticks(5);
+            }
+            List<String> rows = new ArrayList<>();
+            for (int i = 0; i < 5; i++) {
+                Path png = shot(c, "still-" + i);
+                float[] f = face(c, png);
+                int[] box = c.onClient(mc -> (int[]) Mod.staticCall(INTRO, "guideWindowBox"));
+                rows.add(Math.round(f[2]) + "/" + Math.round(f[2] + f[3]) + "/" + box[1]);
+                long t = System.nanoTime() + 300_000_000L;
+                while (System.nanoTime() < t) {
+                    c.ticks(2);
+                }
+            }
+            c.note("top/bottom/box-y over 5 frames 0.3 s apart: " + rows);
+            c.check(new java.util.HashSet<>(rows).size() == 1, "he moved up or down while standing: " + rows);
+        } finally {
+            hideBubble(c, false);
+            c.onClient(mc -> {
+                Screen s = McCompat.screen(mc);
+                if (isIntro(s)) {
+                    Mod.call(s, "finish");
+                }
+                return null;
+            });
+            FontsMainMenuSuite.setWindow(c, win0[0], win0[1], win0[2]);
+        }
+    }
+
+    /** The time estimate sits in its own box on the first scene, in the bubble's accent. */
+    static void timeBoxCase(UiCase c) throws Exception {
+        int[] win0 = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight(),
+                mc.options.guiScale().get()});
+        FontsMainMenuSuite.setWindow(c, 1920, 1080, 2);
+        try {
+            setTheme(c, "AMBER");
+            open(c);
+            settle(c);
+            Path png = shot(c, "time-box");
+            int[] b = c.onClient(mc -> (int[]) Mod.call(McCompat.screen(mc), "timeBox"));
+            float[] a = toShot(c, png, b[0], b[1]);
+            float[] z = toShot(c, png, b[0] + b[2], b[1] + b[3]);
+            java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(png.toFile());
+            // its border: accent pixels along the box's top edge (the middle half of it)
+            int accent = 0;
+            int y = Math.round(a[1]);
+            for (int x = Math.round(a[0] + (z[0] - a[0]) * 0.25f); x < Math.round(a[0] + (z[0] - a[0]) * 0.75f); x++) {
+                for (int dy = -2; dy <= 3; dy++) {
+                    int p = img.getRGB(x, Math.max(0, y + dy));
+                    if (((p >> 16) & 0xFF) > 150 && ((p >> 8) & 0xFF) > 60 && ((p >> 8) & 0xFF) < 170 && (p & 0xFF) < 90) {
+                        accent++;
+                        break;
+                    }
+                }
+            }
+            int span = Math.round((z[0] - a[0]) * 0.5f);
+            c.note("time box " + java.util.Arrays.toString(b) + ": accent border on " + accent + " of " + span + " columns");
+            c.check(accent > span * 0.8, "the time estimate has no box of its own (accent border on " + accent + "/" + span + ")");
+            click(c, "Skip Guide");
+        } finally {
+            FontsMainMenuSuite.setWindow(c, win0[0], win0[1], win0[2]);
+        }
     }
 
     static void once(UiCase c) {
@@ -624,12 +1095,16 @@ public class IntroSuite implements FabricClientGameTest {
                     if (why != null) {
                         c.problem(sz[0] + "x" + sz[1] + " GUI " + sz[2] + " " + sc + ": " + why);
                     }
+                    String grid = gridProblem(c);
+                    if (grid != null) {
+                        c.problem(sz[0] + "x" + sz[1] + " GUI " + sz[2] + " " + sc + " chips: " + grid);
+                    }
                     if (sz[2] == 1 && sz[0] == 854 || sz[0] == 2560 && sz[2] == 4) {
                         if (sc.equals("THEME") || sc.equals("WELCOME")) {
                             shot(c, sz[0] + "x" + sz[1] + "-gui" + sz[2] + "-" + sc.toLowerCase(Locale.ROOT));
                         }
                     }
-                    click(c, i == count - 1 ? "Finish" : "Next");
+                    advance(c, i == count - 1);
                 }
             }
         } finally {

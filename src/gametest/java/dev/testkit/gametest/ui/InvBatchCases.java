@@ -641,7 +641,24 @@ final class InvBatchCases {
             c.check(row >= 0 && row < 7, "'ib584 Kit' is not on the first page of the list: " + names);
             int listX = (Integer) Mod.field(s, "listX");
             int listY = (Integer) Mod.field(s, "listY");
-            click(c, s, listX + 20, listY + 1 + row * 13 + 6);
+            // A RIGHT click selects a row for editing since mod doc-invsort-1101 (killer560 2026-11-01: "click a loadout to
+            // swap to it"): a left click now closes the menu and sorts, so the old left click left Rename on a closed screen.
+            c.onClient(mc -> {
+                // Save left it selected: clear that, so only the right click can select it.
+                try {
+                    java.lang.reflect.Field f = s.getClass().getDeclaredField("selected");
+                    f.setAccessible(true);
+                    f.set(s, null);
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+                return null;
+            });
+            int rowH = (Integer) Mod.field(s, "LIST_ROW");
+            cursor(c, s, listX + 20, listY + 1 + row * rowH + rowH / 2.0);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(1));
+            c.ticks(3);
+            c.check(c.onClient(mc -> McCompat.screen(mc)) == s, "a right click on the list row closed the editor");
             c.check("ib584 Kit".equals(c.onClient(mc -> Mod.call(s, "selectedLayout"))), "the list click did not select it");
             c.onClient(mc -> {
                 box.setValue("ib584 Renamed");
@@ -655,8 +672,15 @@ final class InvBatchCases {
             c.check(renamed && Files.exists(dir.resolve("ib584 Renamed.json")) && !Files.exists(dir.resolve("ib584 Kit.json")),
                     "rename: store " + renamed + ", files " + Files.exists(dir.resolve("ib584 Renamed.json")));
 
-            // Bind a key: press the Key button, then K.
-            clickWidget(c, s, widget(c, s, "Key"));
+            // Bind a key: click the row's own key cell (the Key button became a per-row cell in mod doc-invsort-1101),
+            // then K.
+            List<?> names2 = c.onClient(mc -> (List<?>) Mod.call(Mod.staticCall("invsort.InventoryLayoutStore", "getInstance"), "listNames"));
+            int row2 = names2.indexOf("ib584 Renamed");
+            int listW = (Integer) Mod.field(s, "listW");
+            int keyW = (Integer) Mod.field(s, "KEY_W");
+            c.check(row2 >= 0 && row2 < 7, "'ib584 Renamed' is not on the first page of the list: " + names2);
+            click(c, s, listX + listW - 1 - keyW / 2.0, listY + 1 + row2 * rowH + rowH / 2.0);
+            c.check(Boolean.TRUE.equals(c.onClient(mc -> Mod.field(s, "capturingKey"))), "a click on the row's key cell did not start capturing");
             c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(75));
             c.ticks(2);
             int bound = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(ISC), "getLayoutKey", "ib584 Renamed"));
@@ -743,7 +767,8 @@ final class InvBatchCases {
             // page, gave Look its own Custom Item page (the free-text Look box, Set and Clear Look are gone), made Copy
             // Look copy the selection's changes TO the next item clicked, renamed Remove to Clear Changes and dropped the
             // saved-looks list. Every control below is the new page's, clicked through the real input layer.
-            clickWidget(c, s, widget(c, s, "Custom Color"));
+            // "Customize Custom Color" / "Customize Custom Item" since mod doc-items-1101 (killer560's renames, 2026-11-01).
+            clickWidget(c, s, widget(c, s, "Customize Custom Color"));
             awaitScreen(c, "CustomColorScreen");
             Screen colour = screen(c); // rebuilds its widgets on every change; widget() reads them live
             clickWidget(c, colour, widget(c, colour, "Applies To"));
@@ -754,23 +779,21 @@ final class InvBatchCases {
             c.check(dyeOne[0] == 0xFF00FF00 && dyeOne[1] == 0xFF123456, "this-item color: " + Integer.toHexString(dyeOne[0])
                     + " / " + Integer.toHexString(dyeOne[1]));
 
-            // Use Color off and on.
-            clickWidget(c, colour, widget(c, colour, "Use Color"));
+            // Reset Color replaced Use Color (2026-11-01): it puts the item's own color back; the color is set again after.
+            clickWidget(c, colour, widget(c, colour, "Reset Color"));
             int off = dyes(c)[0];
-            clickWidget(c, colour, widget(c, colour, "Use Color"));
-            int on = dyes(c)[0];
-            c.check(off == 0xFF123456 && on == 0xFF00FF00, "Use Color off/on: " + Integer.toHexString(off) + "/" + Integer.toHexString(on));
-
-            // Armor Skin (a cycling button, left click steps forward): None -> Leather; the worn asset changes, the icon does not.
-            clickWidget(c, colour, widget(c, colour, "Skin"));
-            String asset = c.onClient(mc -> {
-                Equippable e = mc.player.getInventory().getItem(9).get(DataComponents.EQUIPPABLE);
-                return e == null ? "none" : e.assetId().map(Object::toString).orElse("none");
+            c.onClient(mc -> {
+                Mod.call(s, "setColour", 0xFF00FF00);
+                return null;
             });
-            String icon = c.onClient(mc -> String.valueOf(mc.player.getInventory().getItem(9).get(DataComponents.ITEM_MODEL)));
-            c.note("Armor Skin once: equippable asset " + asset + ", item model " + icon);
-            c.check(asset.contains("leather"), "Armor Skin did not set the leather asset: " + asset);
-            c.check(icon.equals("minecraft:leather_chestplate"), "the skin changed the inventory icon: " + icon);
+            int on = dyes(c)[0];
+            c.check(off == 0xFF123456 && on == 0xFF00FF00, "Reset Color / color again: " + Integer.toHexString(off) + "/"
+                    + Integer.toHexString(on));
+
+            // The armor-type Skin cycle is gone (2026-11-01): Skin is Hypixel item skins only, N/A for this test item.
+            String skinRow = ModScreenDriver.label(widget(c, colour, "Skin"));
+            c.note("Skin row: " + skinRow);
+            c.check(skinRow.equals("Skin: N/A"), "Skin row " + skinRow);
 
             clickWidget(c, colour, widget(c, colour, "Back"));
             awaitScreen(c, "CustomItemsScreen");
@@ -789,7 +812,7 @@ final class InvBatchCases {
             c.check(g9 > 40 && g10 < 5, "drawn color: slot 9 " + g9 + " green px, slot 10 " + g10);
 
             // Look from the Custom Item page: search, pick the Minecraft Trident, Apply to Selected.
-            clickWidget(c, s2, widget(c, s2, "Custom Item"));
+            clickWidget(c, s2, widget(c, s2, "Customize Custom Item"));
             awaitScreen(c, "CustomItemPickerScreen");
             Screen picker = screen(c);
             EditBox search = editBox(c, picker);

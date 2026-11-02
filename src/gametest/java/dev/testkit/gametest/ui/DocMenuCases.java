@@ -684,7 +684,8 @@ final class DocMenuCases {
                     }
                     Mod.call(s, "openFeature", tab);
                     List<String> rows = new ArrayList<>(rowLabels(s));
-                    rows.removeIf(l -> l.startsWith("Mark ") || l.contains("tested"));
+                    // the menu's own Toggle Keybind row ends every switched feature's drawer (mod doc-menu-1101)
+                    rows.removeIf(l -> l.startsWith("Mark ") || l.contains("tested") || l.startsWith("Toggle Keybind:"));
                     if (rows.size() != 1 || !rows.get(0).startsWith(m.label() + ": OFF")) {
                         return m.tab() + ": switched off, its drawer shows " + rows;
                     }

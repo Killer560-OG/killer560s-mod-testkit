@@ -30,9 +30,11 @@ import java.util.concurrent.atomic.AtomicReference;
  *   <li>Toggles on: five crypt waypoints and one prince, each anchored on a block of the right kind in the client's
  *       world, and a screenshot aimed at one shows its color; with the toggle off again it does not.</li>
  *   <li>Opened: the lid blocks are removed on the server and a zombie spawned in it by the sim's own
- *       {@code SimMobs.spawn} (what the sim's Superboom does). The waypoint stays past the 3 s grace while the zombie
- *       lives - proof the feature saw it - and is gone once the zombie is removed. A second lid opened with nothing
- *       in it goes after the grace. The prince is opened and cleared the same way.</li>
+ *       {@code SimMobs.spawn} (what the sim's Superboom does). Since mod 2026-10-19 a tomb blown open is done for the
+ *       run whether or not its undead lives (killer560: he opens them, he does not kill what comes out), and since
+ *       2026-11-01 the box goes the tick the hole shows: the opened crypt with a live zombie, an empty one and the prince
+ *       (with a live zombie) must all lose their waypoint within 10 ticks and stay gone 5 s later, the other crypts
+ *       kept. (Until tkdebt-1101 this case still expected the old "kept while its undead lives" rule.)</li>
  * </ol>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -81,6 +83,9 @@ public class SimCryptWaypointTests implements FabricClientGameTest {
                 ModUnderTest.set(cfg, "setEnabled", true);
                 ModUnderTest.set(cfg, "setShowCrypts", false);
                 ModUnderTest.set(cfg, "setShowPrinces", false);
+                // Mod 2026-11-01: hidden once 5 crypts / 1 prince are counted; neither is counted here, but say so.
+                ModUnderTest.set(cfg, "setHideCryptsAfterFive", false);
+                ModUnderTest.set(cfg, "setHidePrincesAfterOne", false);
                 ModUnderTest.set(cfg, "setThroughWalls", true);
                 ModUnderTest.set(cfg, "setShowNames", false);
                 ModUnderTest.set(cfg, "setCryptColor", CRYPT_ARGB);
@@ -94,6 +99,8 @@ public class SimCryptWaypointTests implements FabricClientGameTest {
                 try {
                     ModUnderTest.set(cfg, "setShowCrypts", false);
                     ModUnderTest.set(cfg, "setShowPrinces", false);
+                    ModUnderTest.set(cfg, "setHideCryptsAfterFive", true);
+                    ModUnderTest.set(cfg, "setHidePrincesAfterOne", true);
                     ModUnderTest.set(cfg, "setEnabled", wasEnabled);
                     ModUnderTest.set(cfg, "setCryptColor", 0xFFAA00FF);
                     ModUnderTest.set(cfg, "setPrinceColor", 0xFFFFD700);
@@ -211,6 +218,9 @@ public class SimCryptWaypointTests implements FabricClientGameTest {
         ctx.waitTicks(30);
 
         // ---- 3. opened ---------------------------------------------------------------------------------
+        // The rule since mod 2026-10-19 (killer560: when he blows up a crypt or a prince with a Superboom it should
+        // disappear - he does not kill what comes out, he only opens it) and 2026-11-01 ("the instant it breaks"):
+        // a tomb blown open loses its waypoint the tick the hole shows, whether or not an undead came out of it.
         BlockPos withUndead = crypts.get(0);
         BlockPos empty = crypts.get(1);
         BlockPos prince = princes.get(0);
@@ -220,43 +230,46 @@ public class SimCryptWaypointTests implements FabricClientGameTest {
         say("opened crypt " + withUndead.toShortString() + " (zombie at " + undeadAt.toShortString() + "), crypt "
                 + empty.toShortString() + " (nothing in it), prince " + prince.toShortString() + " (zombie at "
                 + princeUndeadAt.toShortString() + ")");
-        ctx.waitTicks(100); // 5 s: past the 3 s grace
+        int alive = countNear(ctx, undeadAt) + countNear(ctx, princeUndeadAt);
+        say("mobs alive in the two tombs: " + alive);
+        if (alive < 2) {
+            throw new AssertionError("the zombies were not spawned into the tombs (" + alive + ") - 'gone although "
+                    + "its undead lives' would be untested");
+        }
+        int goneAfter = -1;
+        for (int t = 0; t < 10; t++) {
+            List<BlockPos> c = positions(ctx, "CRYPT");
+            List<BlockPos> pr = positions(ctx, "PRINCE");
+            if (!c.contains(withUndead) && !c.contains(empty) && !pr.contains(prince)) {
+                goneAfter = t;
+                break;
+            }
+            ctx.waitTicks(1);
+        }
         List<BlockPos> cryptsMid = positions(ctx, "CRYPT");
         List<BlockPos> princesMid = positions(ctx, "PRINCE");
-        say("5 s after opening: crypts " + cryptsMid + ", princes " + princesMid);
-        if (!cryptsMid.contains(withUndead)) {
-            throw new AssertionError("the opened crypt lost its waypoint while its zombie was still alive - the "
-                    + "feature did not see the undead (or never kept opened tombs)");
+        say("after opening (" + goneAfter + " tick(s)): crypts " + cryptsMid + ", princes " + princesMid);
+        if (goneAfter < 0) {
+            throw new AssertionError("an opened tomb kept its waypoint 10 ticks after it was blown open: crypts "
+                    + cryptsMid + " princes " + princesMid + " (opened " + withUndead.toShortString() + ", "
+                    + empty.toShortString() + ", prince " + prince.toShortString() + ")");
         }
-        if (cryptsMid.contains(empty)) {
-            throw new AssertionError("an opened crypt with nothing alive in it kept its waypoint 5 s later");
+        if (cryptsMid.size() != EXPECTED_CRYPTS - 2) {
+            throw new AssertionError("the untouched crypts should still be shown: expected " + (EXPECTED_CRYPTS - 2)
+                    + ", got " + cryptsMid.size());
         }
-        if (!princesMid.contains(prince)) {
-            throw new AssertionError("the opened prince lost its waypoint while its zombie was still alive");
-        }
-        if (cryptsMid.size() != EXPECTED_CRYPTS - 1) {
-            throw new AssertionError("expected " + (EXPECTED_CRYPTS - 1) + " crypt waypoints after one empty crypt "
-                    + "was opened, got " + cryptsMid.size());
+        ctx.waitTicks(100); // 5 s: past any grace, the zombies still alive
+        List<BlockPos> cryptsLater = positions(ctx, "CRYPT");
+        List<BlockPos> princesLater = positions(ctx, "PRINCE");
+        if (cryptsLater.contains(withUndead) || cryptsLater.contains(empty) || !princesLater.isEmpty()) {
+            throw new AssertionError("an opened tomb's waypoint came back while its undead lived: crypts " + cryptsLater
+                    + " princes " + princesLater);
         }
         int removed = killNear(ctx, undeadAt) + killNear(ctx, princeUndeadAt);
         say("removed " + removed + " mob(s) at the two tombs");
-        if (removed < 2) {
-            throw new AssertionError("the zombies spawned into the tombs could not be found to remove (" + removed
-                    + ") - the 'gone once killed' half would be untested");
-        }
-        ctx.waitTicks(60);
-        List<BlockPos> cryptsAfter = positions(ctx, "CRYPT");
-        List<BlockPos> princesAfter = positions(ctx, "PRINCE");
-        say("after the undead died: crypts " + cryptsAfter + ", princes " + princesAfter);
-        if (cryptsAfter.contains(withUndead) || !princesAfter.isEmpty()) {
-            throw new AssertionError("a tomb kept its waypoint after it was opened and its undead died");
-        }
-        if (cryptsAfter.size() != EXPECTED_CRYPTS - 2) {
-            throw new AssertionError("the untouched crypts should still be shown: expected " + (EXPECTED_CRYPTS - 2)
-                    + ", got " + cryptsAfter.size());
-        }
         System.out.println("[" + NAME + "] PASS - " + EXPECTED_CRYPTS + " crypts and " + EXPECTED_PRINCES
-                + " prince shown only with their toggles, on screen, kept while their undead lives and gone after");
+                + " prince shown only with their toggles, on screen, and gone " + goneAfter + " tick(s) after being blown"
+                + " open with their undead still alive (the 10-19 rule)");
     }
 
     // ---- helpers ---------------------------------------------------------------------------------------
@@ -379,6 +392,28 @@ public class SimCryptWaypointTests implements FabricClientGameTest {
                     new Object[]{mc, at, ModUnderTest.enumValue(SIM_MOBS + "$Kind", "ZOMBIE")}));
         }
         return at;
+    }
+
+    /** Counts the non-player living mobs within 3 blocks of {@code at}, on the server. */
+    private static int countNear(ClientGameTestContext ctx, BlockPos at) {
+        AtomicReference<Integer> n = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            server.execute(() -> {
+                int k = 0;
+                var box = new net.minecraft.world.phys.AABB(at.getX() - 3, at.getY() - 3, at.getZ() - 3,
+                        at.getX() + 4, at.getY() + 4, at.getZ() + 4);
+                for (var e : server.overworld().getEntitiesOfClass(net.minecraft.world.entity.LivingEntity.class, box)) {
+                    if (!(e instanceof net.minecraft.world.entity.player.Player)
+                            && !(e instanceof net.minecraft.world.entity.decoration.ArmorStand) && e.isAlive()) {
+                        k++;
+                    }
+                }
+                n.set(k);
+            });
+        });
+        ctx.waitFor(mc -> n.get() != null, 200);
+        return n.get();
     }
 
     /** Removes every non-player living mob within 3 blocks of {@code at}, on the server. */

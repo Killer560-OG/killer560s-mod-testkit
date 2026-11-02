@@ -38,7 +38,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * room-relative list is checked through a real clay corner and turn each time. He stands inside the cage, every one of
  * the three levers within 3.5 blocks eye to box. Per rotation:
  * <ul>
- *   <li>premise: the three levers and the chest are on the server where the capture says; the mod's resolved dummy list
+ *   <li>premise: the three levers are on the server where the capture says, and the chest appears there once he stands
+ *       in the cage (sim chests follow the 10 block rule since mod e2285a05); the mod's resolved dummy list
  *       ({@code secrets.DummyLevers.worldPositions}) is exactly the two capture dummies;</li>
  *   <li>Secret Waypoints lists the real lever and neither dummy;</li>
  *   <li>Secret Aura (levers only) sends no use_item_on packet at either dummy, and the server never handles a click
@@ -162,9 +163,12 @@ public class SimDummyLeverTests implements FabricClientGameTest {
                 + " " + name(level, chest));
         say(c + ": dummies " + d1.toShortString() + ", " + d2.toShortString() + "; real " + real.toShortString()
                 + "; chest " + chest.toShortString() + " -> server has " + blocks);
-        // The chest may be the floor's mimic (a trapped chest) - it only places the capture.
-        check(blocks.equals("lever lever lever chest") || blocks.equals("lever lever lever trapped_chest"),
-                "the capture's levers and chest are not on the server: " + blocks);
+        // The chest may be the floor's mimic (a trapped chest) - it only places the capture. Since mod sim-secrets-1018
+        // (e2285a05: "the 10 block rule always") a secret chest is not in the world until he has stood within 10 blocks
+        // of it for 5 ticks, so at the build it is air; it is checked again once he stands in the cage, below.
+        check(blocks.equals("lever lever lever chest") || blocks.equals("lever lever lever trapped_chest")
+                        || blocks.equals("lever lever lever air"),
+                "the capture's levers (and the chest, or air while it waits for him) are not on the server: " + blocks);
 
         boolean hasList = ctx.computeOnClient(mc -> {
             try {
@@ -212,6 +216,17 @@ public class SimDummyLeverTests implements FabricClientGameTest {
                 && Math.abs(mc.player.getX() - (at.getX() + 0.5)) < 0.3
                 && Math.abs(mc.player.getZ() - (at.getZ() + 0.5)) < 0.3
                 && mc.level.getBlockState(d1).is(Blocks.LEVER) && mc.level.getBlockState(real).is(Blocks.LEVER), 600);
+        // The rest of the premise: the nook's chest appears now that he is within 10 blocks (the sim's chest rule).
+        String chestNow = "air";
+        for (int t = 0; t < 100 && chestNow.equals("air"); t++) {
+            chestNow = onServer(ctx, (level, sp) -> name(level, chest));
+            if (chestNow.equals("air")) {
+                ctx.waitTicks(1);
+            }
+        }
+        say(c + ": the nook's chest with him in the cage: " + chestNow);
+        check(chestNow.equals("chest") || chestNow.equals("trapped_chest"),
+                "the capture's chest at " + chest.toShortString() + " never appeared with him 2 blocks away: " + chestNow);
         String room = ctx.computeOnClient(mc -> {
             Object e = ModUnderTest.staticCall("com.killer560.hub.livemap.LiveMapFeature", "currentRoomEntry");
             try {

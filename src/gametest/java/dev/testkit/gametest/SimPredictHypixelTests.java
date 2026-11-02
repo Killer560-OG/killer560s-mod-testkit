@@ -398,7 +398,7 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
 
     // ------------------------------------------------------------------------------------------------- floor
 
-    private static Floor readFloor(Minecraft mc) {
+    static Floor readFloor(Minecraft mc) {
         Floor f = new Floor();
         Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
         int rooms = (Integer) inv(layout, "roomCount");
@@ -438,7 +438,7 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         return f;
     }
 
-    private static final class Floor {
+    static final class Floor {
         final List<String> names = new ArrayList<>();
         final List<int[]> tiles = new ArrayList<>();
         final int[] roomOf = new int[121];
@@ -476,7 +476,7 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
 
     // ------------------------------------------------------------------------------------------------- acting
 
-    private static void creativeFlying(ClientGameTestContext ctx) {
+    static void creativeFlying(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
             var uuid = mc.player.getUUID();
@@ -494,7 +494,7 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
     }
 
     /** Server teleport to {@code at}, facing the exact point {@code look}. */
-    private static void place(ClientGameTestContext ctx, double[] at, double[] look) {
+    static void place(ClientGameTestContext ctx, double[] at, double[] look) {
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
             var uuid = mc.player.getUUID();
@@ -528,7 +528,7 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         }
     }
 
-    private static Object inv(Object target, String method, Object... args) {
+    static Object inv(Object target, String method, Object... args) {
         try {
             for (Method m : target.getClass().getDeclaredMethods()) {
                 if (m.getName().equals(method) && m.getParameterCount() == args.length) {
@@ -542,7 +542,7 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         }
     }
 
-    private static void leave(ClientGameTestContext ctx) {
+    static void leave(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> {
             try {
                 ModUnderTest.staticCall(SIM_STATE, "leave", new Class<?>[]{}, new Object[]{});
