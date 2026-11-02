@@ -32,7 +32,8 @@ public class FairyGrimTests implements FabricClientGameTest {
     public void runTest(ClientGameTestContext ctx) {
         if (!Mod.isCheat()) {
             for (String n : List.of("1102-fairy-grim-tp-walker", "1102-fairy-grim-tp-keys", "1102-fairy-grim-water",
-                    "1102-fairy-grim-ladderwater-keys", "1102-fairy-grim-ladderwater-walker")) {
+                    "1102-fairy-grim-ladderwater-keys", "1102-fairy-grim-ladderwater-walker",
+                    "1102-fairy-grim-ladderwater-edge")) {
                 if (!Scenario.skip(n)) {
                     Scenario.skipped(n, "Auto Fairy Souls is cheat build only");
                 }
@@ -42,7 +43,7 @@ public class FairyGrimTests implements FabricClientGameTest {
         AssertionError first = null;
         for (java.util.function.Consumer<ClientGameTestContext> c : List.<java.util.function.Consumer<ClientGameTestContext>>of(
                 FairyGrimTests::tpWalker, FairyGrimTests::tpKeys, FairyGrimTests::water, FairyGrimTests::ladderWaterKeys,
-                FairyGrimTests::ladderWaterWalker)) {
+                FairyGrimTests::ladderWaterWalker, FairyGrimTests::ladderWaterEdge)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -171,6 +172,49 @@ public class FairyGrimTests implements FabricClientGameTest {
                     if (top < y0 + 4) {
                         throw new AssertionError("he never climbed the ladder (top " + top + ") - the control proves nothing");
                     }
+                });
+    }
+
+    /**
+     * The control as Bayou's trace had it: his box reaching 0.05 into the water column beside the ladder (z 0.25 from the
+     * ladder column's water side), W and jump held, no automation. Then the same with W, jump and a strafe toward the
+     * water and away from it on alternate ticks (what the way-back driver pressed on the ladder: D, S).
+     */
+    private static void ladderWaterEdge(ClientGameTestContext ctx) {
+        int x0 = X0 + 10;
+        int z0 = Z0 + 110;
+        Scenario.runExpectingFlags(ctx, "1102-fairy-grim-ladderwater-edge", (server, scenario) -> ladderWater(server, x0, z0).build(),
+                (server, scenario) -> {
+                    String[] runs = {"held", "strafing"};
+                    for (String run : runs) {
+                        server.command(String.format(Locale.ROOT, "tp @p %.2f 151 %.2f -90 0", x0 + 0.5, z0 + 0.25));
+                        ctx.waitTicks(30);
+                        double y0 = scenario.playerPosition()[1];
+                        double top = y0;
+                        ctx.getInput().holdKey(o -> o.keyUp);
+                        ctx.getInput().holdKey(o -> o.keyJump);
+                        try {
+                            for (int tick = 0; tick < 80; tick++) {
+                                if (run.equals("strafing")) {
+                                    if (tick % 2 == 0) {
+                                        ctx.getInput().holdKey(o -> o.keyLeft);
+                                    } else {
+                                        ctx.getInput().releaseKey(o -> o.keyLeft);
+                                    }
+                                }
+                                ctx.waitTick();
+                                top = Math.max(top, scenario.playerPosition()[1]);
+                            }
+                        } finally {
+                            ctx.getInput().releaseKey(o -> o.keyUp);
+                            ctx.getInput().releaseKey(o -> o.keyJump);
+                            ctx.getInput().releaseKey(o -> o.keyLeft);
+                        }
+                        ctx.waitTicks(20);
+                        scenario.log(String.format(Locale.US, "ladderwater-edge %s: climbed from %.2f to %.2f, anticheat lines so far %d",
+                                run, y0, top, scenario.flags().size()));
+                    }
+                    report(scenario, "ladderwater-edge", List.of(), 0);
                 });
     }
 
