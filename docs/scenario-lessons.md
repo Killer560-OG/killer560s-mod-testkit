@@ -1473,3 +1473,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   list before that message. With the aimed aura every case is silent, the FLAGGED-expected ones included (0 lines).
   51's "never run into the wall" is recorded, not asserted, on a one-a-tick Multi Break jar: at Speed V a two-high wall
   needs ~1.1 digs a tick and GrimAC MultiBreak allows one (13 of 210 packets collided, both versions).
+- **1102-bloodcamp-* (bloodleft-1102).** `DungeonState.simBossBegins` does not hold in an Hx case: DungeonState's tick ends a
+  boss phase on the next tick when no F7/M7 floor is read off the scoreboard (`roomSim` makes `getFloor` say M7, but the tick
+  reads the real floor). Use `toggleSimOverride` (restore it in `finally`). A boss bar driven by `/bossbar` reaches the client
+  a variable few ticks later and eases over 100 ms: read the HUD until the client's bar equals the target (the mod's
+  `BloodCampStats.watcherBarForTest`) rather than after a fixed wait (a fixed 8 ticks read "7" at 6/16 once). A player-model
+  NPC is added client-side as a `RemotePlayer` with a version-2 UUID and killed with the real packet,
+  `mc.getConnection().handleEntityEvent(new ClientboundEntityEventPacket(e, (byte) 3))`; vanilla leaves it `isAlive()`.
