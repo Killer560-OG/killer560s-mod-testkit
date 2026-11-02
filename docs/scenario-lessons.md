@@ -1362,3 +1362,6 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   loads once and no reload resets it, so switching it on hid every cheat tab from 944's search after this case (first
   run, 2026-11-02); the walk never switches it. The 26.2 UI client froze once in the end-of-run disconnect (integrated
   server halt vs gametest `postRunTasks`) after every case had written its log: read `cases/*.log`, summary.md is missing.
+  The same goes for AP3's Test Mode and Force Dungeon (session state, no file): switched on by the walk they stayed on
+  for the rest of the UI run, and the red "AP3 FORCE DUNGEON" reminder drew across 897's panel bevel at 2560x1440 GUI 6
+  (ship-1102h, 2026-11-02). Any switch that holds state outside a config file goes in NEVER_SWITCH.
