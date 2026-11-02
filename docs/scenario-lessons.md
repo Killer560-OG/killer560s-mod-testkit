@@ -1419,3 +1419,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   repeats). Under that load the server processed packets the client wrote in one flush up to 16 ms apart.
 - **1102-breaker-aura-burst** (mod Burst Multi Break, owner exception 2026-11-02): runExpectingFlags, all six picks in one
   server tick, MultiBreak* accepted (9-15 lines a run) and any other check fails it. Every other case sets Burst OFF.
+- **48-63 Breaker Aura with experimental checks on** (ba-rotation-1102): on the old aura scenario 50 drew 87 RotationBreak and
+  Grim canceled 73 of 200 digs, which 50's instant-break check then reports as "1.57 packets per block" - read the flag
+  list before that message. With the aimed aura every case is silent, the FLAGGED-expected ones included (0 lines).
+  51's "never run into the wall" is recorded, not asserted, on a one-a-tick Multi Break jar: at Speed V a two-high wall
+  needs ~1.1 digs a tick and GrimAC MultiBreak allows one (13 of 210 packets collided, both versions).
