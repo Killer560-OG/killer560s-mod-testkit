@@ -26,7 +26,8 @@
     "gui.tab.MiningRaffleTab": "Mining > Raffle Ticket Highlight",
     "gui.tab.MiningTitaniumTab": "Mining > Titanium Highlight",
     "gui.tab.SecretTab": "Dungeons > Secrets > Secret",
-    "gui.tab.MaskKeybindsTab": "Dungeons > Mask Keybinds"
+    "gui.tab.MaskKeybindsTab": "Dungeons > Mask Keybinds",
+    "gui.tab.LuckTab": "Misc > How Lucky Are You"
   },
   "tooltips": [
     {

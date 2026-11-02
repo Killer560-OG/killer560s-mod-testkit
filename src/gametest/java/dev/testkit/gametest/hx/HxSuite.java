@@ -97,6 +97,8 @@ public class HxSuite implements FabricClientGameTest {
                     // Before Boss Health, which latches the boss room until its cleanup case.
                     // The pre-2.0 mining features (1101-mining-*, mod doc-mining-1101), own block, before Boss Health.
                     HxMining1101Cases.register(s);
+                    // How Lucky Are You / Full RNG Tracker (1101-luck-*, mod branch doc-rng-1101), own block.
+                    HxLuckCases.register(s);
                     HxStutterCases.register(s);
                     HxBossHealthCases.register(s);
                 });
