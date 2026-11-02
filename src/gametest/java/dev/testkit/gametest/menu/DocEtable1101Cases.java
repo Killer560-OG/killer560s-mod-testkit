@@ -30,6 +30,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * 1101-menu-macro-stop-rules   macrostop/MacroStop through the real key and mouse handlers: a click macro stops only on
  *                              Escape or the Emergency Cancel Key; a movement macro also on W and the chat key with no
  *                              screen open; J and a left click stop neither; nothing typed into chat stops either
+ * 1101-menu-ecancel-terminal  Auto Terminals mid-terminal: the Emergency Cancel Key holds it (no click for 40 ticks,
+ *                              the terminal not solved); the key again releases it and it finishes the terminal
  * </pre>
  */
 final class DocEtable1101Cases {
@@ -45,6 +47,7 @@ final class DocEtable1101Cases {
         MenuSuite.test(s, "1101-menu-etable-resume", DocEtable1101Cases::resume);
         MenuSuite.test(s, "1101-menu-superpairs-hud", DocEtable1101Cases::superpairsHud);
         MenuSuite.test(s, "1101-menu-macro-stop-rules", DocEtable1101Cases::stopRules);
+        MenuSuite.test(s, "1101-menu-ecancel-terminal", DocEtable1101Cases::terminalCancel);
     }
 
     // =================================================================================================================
@@ -158,6 +161,52 @@ final class DocEtable1101Cases {
         c.ctx().getInput().setCursorPos(at[0], at[1]);
         c.ctx().waitTicks(2);
         c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
+    }
+
+    // =================================================================================================================
+    // 1101-menu-ecancel-terminal
+    // =================================================================================================================
+
+    static void terminalCancel(Session c) throws Exception {
+        MenuKit.reset(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto Terminals is cheat-only");
+            return;
+        }
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set(TerminalCases.CONFIG, "Enabled", true).set(TerminalCases.CONFIG, "AutoTerminalsEnabled", true)
+                    .set(TerminalCases.CONFIG, "AutoNumbersEnabled", true);
+            c.ctx().runOnClient(mc -> Mod.set(MSC, "setEmergencyCancelKeyCode", 75)); // K
+            int clicks0 = c.events("terminal.click").size();
+            JsonObject t = TerminalCases.open(c, TerminalCases.NUMBERS_10);
+            MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
+            c.waitUntil("Auto Terminals' first two clicks", mc -> c.events("terminal.click").size() - clicks0 >= 2, 200);
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(75));
+            c.ctx().waitTicks(2);
+            int atKey = c.events("terminal.click").size() - clicks0;
+            boolean held = c.onClient(mc -> (Boolean) Mod.staticCall("macrostop.MacroStop", "emergencyHeld"));
+            c.ctx().waitTicks(40);
+            int during = c.events("terminal.click").size() - clicks0 - atKey;
+            boolean solvedDuring = !c.events("terminal.solved").isEmpty();
+            String title = c.onClient(MenuKit::screenTitle);
+            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(75)); // released
+            c.ctx().waitTicks(2);
+            boolean heldAfter = c.onClient(mc -> (Boolean) Mod.staticCall("macrostop.MacroStop", "emergencyHeld"));
+            JsonObject solved = MenuKit.awaitEvent(c, "terminal.solved", 400);
+            c.note("K after " + atKey + " click(s): hold " + held + ", " + during + " click(s) in the 40 ticks after, solved "
+                    + solvedDuring + ", screen " + title + "; K again: hold " + heldAfter + ", then solved with "
+                    + solved.get("clicks") + " clicks, " + solved.get("wrong") + " wrong");
+            c.check(held, "the Emergency Cancel Key did not start the hold");
+            c.check(during == 0 && !solvedDuring, during + " Auto Terminals click(s) went out during the hold");
+            c.check(!heldAfter, "the key pressed again did not release the hold");
+            c.check(solved.get("wrong").getAsInt() == 0, "wrong clicks: " + solved);
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                Mod.staticCall("macrostop.MacroStop", "release", "testkit");
+                Mod.set(MSC, "setEmergencyCancelKeyCode", -1);
+            });
+            MenuKit.reset(c);
+        }
     }
 
     // =================================================================================================================
@@ -297,6 +346,7 @@ final class DocEtable1101Cases {
             clickRunning.set(false);
             moveRunning.set(false);
             c.ctx().runOnClient(mc -> {
+                Mod.staticCall("macrostop.MacroStop", "release", "testkit");
                 Mod.set(MSC, "setEmergencyCancelKeyCode", -1);
                 McCompat.setScreen(mc, null);
             });

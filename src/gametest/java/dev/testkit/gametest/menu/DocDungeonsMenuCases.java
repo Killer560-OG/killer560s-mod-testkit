@@ -129,6 +129,7 @@ final class DocDungeonsMenuCases {
         } finally {
             c.ctx().runOnClient(mc -> {
                 Mod.setField(EXP, "armed", false);
+                Mod.staticCall("macrostop.MacroStop", "release", "testkit");
                 Mod.set("macrostop.MacroStopConfig", "setEmergencyCancelKeyCode", -1);
             });
             MenuKit.reset(c);

@@ -101,6 +101,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1014-awaitmem", "96-ar-1014-batmem", "96-ar-1014-routedroom", "96-ar-1014-puzzlehold",
             // ar-mainserver (2026-10-15): Hypixel's pickup-with-the-landing order; left click skips in flight / under Kill Mimic
             "96-ar-1015-landpickup", "96-ar-1015-earlyskip", "96-ar-1015-mimicskip",
+            // doc-etable-1101: the Emergency Cancel Key stops a route and Mimic Killer, and its hold starts no route
+            "96-ar-1101-ecancel",
             // ar-warp-after-click (2026-10-15): Hypixel ignores a use right after a block click with the same item
             "96-ar-1015-warpclick",
             // click-gap-all (2026-10-15): the Auto Puzzles' shared use (AutoPuzzleUtil.useItemRotated) waits like the route's
@@ -321,6 +323,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1015-landpickup" -> ArMainServerCases.landPickup(ctx);
                         case "96-ar-1015-earlyskip" -> ArMainServerCases.earlySkip(ctx);
                         case "96-ar-1015-mimicskip" -> ArMainServerCases.mimicSkip(ctx);
+                        case "96-ar-1101-ecancel" -> caseEmergencyCancel(ctx);
                         case "96-ar-1015-warpclick" -> ArMainServerCases.warpAfterClick(ctx);
                         case "96-ar-1015-puzzleclick" -> ArMainServerCases.puzzleWarpAfterClick(ctx);
                         case "96-ar-1015-serverlag" -> ArServerLagCases.serverLag(ctx);
@@ -4565,6 +4568,96 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      * an await:1 route = nothing used, the await waits until the mimic is killed (by the test) and then is met; Hyperion
      * with an await:1 route = the kill satisfies it; no wither blade = a chat line and nothing else.
      */
+    /**
+     * 96-ar-1101-ecancel (mod doc-etable-1101, killer560 2026-11-01: the Emergency Cancel Key "should stop EVERYTHING
+     * automatic", on top of each feature's own stop rules): an await route is running - K (the key) stops it by name;
+     * with the route's own "stopped by him" latch cleared, standing in the start node again starts nothing while the hold
+     * is on, and starts it once K again released the hold. Then Mimic Killer (Spirit Sceptre) is mid-kill - K lets go at
+     * once and no use goes out after it.
+     */
+    private void caseEmergencyCancel(ClientGameTestContext ctx) {
+        String ms = "com.killer560.hub.macrostop.MacroStop";
+        String msc = "com.killer560.hub.macrostop.MacroStopConfig";
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        giveSlot(ctx, 4, "HYPERION");
+        giveSlot(ctx, 5, "BAT_WAND");
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+        Object killWas = ctx.computeOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "getKillMimic",
+                new Class<?>[0], new Object[0]));
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(msc), "setEmergencyCancelKeyCode", 75)); // K
+        try {
+            // ---- Auto Routes ----
+            writeRoute(ctx, List.of(handUse(13, 20, 0f, 80f, true, 1)));
+            check(arm(ctx, 13, 20, 0f, 80f), "the await route did not start");
+            check(running(ctx), "no route running before K");
+            ctx.getInput().pressKey(dev.testkit.compat.McKeys.nat(75));
+            ctx.waitTicks(2);
+            boolean runAfter = running(ctx);
+            String why = ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(EXECUTOR, "stopReason")));
+            boolean held = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(ms, "emergencyHeld"));
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "clearStoppedByUser"));
+            long m = LogTap.mark();
+            boolean startedHeld = arm(ctx, 13, 20, 0f, 80f);
+            boolean refused = logHas(m, "start refused: the Emergency Cancel Key hold");
+            if (startedHeld) {
+                stopRoute(ctx);
+            }
+            tpRel(ctx, 13.5, 17.5, 0f, 80f);
+            ctx.waitTicks(5);
+            ctx.getInput().pressKey(dev.testkit.compat.McKeys.nat(75)); // nothing running: releases the hold
+            ctx.waitTicks(2);
+            boolean heldAfter = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(ms, "emergencyHeld"));
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "clearStoppedByUser"));
+            boolean startedAfter = arm(ctx, 13, 20, 0f, 80f);
+            stopRoute(ctx);
+            println(String.format(Locale.ROOT, "route: after K running %s, reason \"%s\", hold %s; in the node during the"
+                    + " hold started %s (refused logged %s); K again: hold %s, then started %s", runAfter, why, held,
+                    startedHeld, refused, heldAfter, startedAfter));
+            check(!runAfter && "the Emergency Cancel Key".equals(why), "K did not stop the route: running " + runAfter
+                    + ", \"" + why + "\"");
+            check(held && !startedHeld && refused, "the hold did not keep the route from starting (started " + startedHeld
+                    + ", refused logged " + refused + ")");
+            check(!heldAfter && startedAfter, "after K again the hold stayed (" + heldAfter + ") or no route started");
+
+            // ---- Mimic Killer, Spirit Sceptre ----
+            setArEnum(ctx, "setKillMimic", "KillMimic", "SPIRIT_SCEPTRE");
+            makeMimic(ctx, 14, 18);
+            tpRel(ctx, 14.5, 16.5, 0f, 30f);
+            ctx.waitTicks(5);
+            long m2 = LogTap.mark();
+            rightClick(ctx, 14, F, 18, Direction.NORTH);
+            boolean busy = waitFor(ctx, 40, () -> ctx.computeOnClient(mc ->
+                    (Boolean) ModUnderTest.staticCall("com.killer560.hub.autoroutes.MimicKiller", "isBusy")));
+            ctx.getInput().pressKey(dev.testkit.compat.McKeys.nat(75));
+            ctx.waitTicks(1);
+            boolean busyAfter = ctx.computeOnClient(mc ->
+                    (Boolean) ModUnderTest.staticCall("com.killer560.hub.autoroutes.MimicKiller", "isBusy"));
+            startSampling(ctx);
+            ctx.waitTicks(40);
+            List<Sample> after = stopSampling(ctx);
+            int uses = countOut(after, "use_item");
+            boolean killedEarly = logHas(m2, "Mimic of the trapped chest");
+            println("mimic: busy before K " + busy + ", after K " + busyAfter + ", " + uses + " use(s) in the 40 ticks after"
+                    + ", mimic alive " + mimicAlive(ctx) + ", killed " + killedEarly);
+            check(busy, "Mimic Killer never started (nothing for K to stop)");
+            check(!busyAfter, "K did not stop Mimic Killer");
+            check(uses == 0, uses + " use(s) went out after K");
+        } finally {
+            ctx.runOnClient(mc -> {
+                ModUnderTest.staticCall(ms, "release", new Class<?>[]{String.class}, new Object[]{"testkit"});
+                ModUnderTest.set(ModUnderTest.config(msc), "setEmergencyCancelKeyCode", -1);
+                ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setKillMimic", new Class<?>[]{enumClass(AR_CONFIG + "$KillMimic")},
+                        new Object[]{killWas});
+            });
+            if (mimicAlive(ctx)) {
+                killMimicOnServer(ctx);
+            }
+            stopRoute(ctx);
+        }
+    }
+
     private void caseMimic(ClientGameTestContext ctx) {
         resetRoutes(ctx);
         arena(ctx, false);

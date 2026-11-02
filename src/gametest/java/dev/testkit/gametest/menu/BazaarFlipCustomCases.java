@@ -531,7 +531,10 @@ final class BazaarFlipCustomCases {
             c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(74)); // J, while the sign editor is up and before the flipper types
             c.waitUntil("the flipper to stop on the key", mc -> !(Boolean) Mod.staticCall("bazaarflip.BazaarFlipFeature",
                     "isRunning"), 20);
-            c.ctx().runOnClient(mc -> Mod.set("macrostop.MacroStopConfig", "setEmergencyCancelKeyCode", -1));
+            c.ctx().runOnClient(mc -> {
+                Mod.set("macrostop.MacroStopConfig", "setEmergencyCancelKeyCode", -1);
+                Mod.staticCall("macrostop.MacroStop", "release", "testkit");
+            });
             c.ctx().waitTicks(40);
             String reason = stopReason(c);
             boolean signStillOpen = c.onClient(mc -> McCompat.screen(mc) instanceof AbstractSignEditScreen);

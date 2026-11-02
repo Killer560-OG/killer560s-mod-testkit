@@ -699,6 +699,7 @@ public class FairySoulTests implements FabricClientGameTest {
                         ctx.runOnClient(mc -> {
                             Mod.set(CFG, "setResumeKeyCode", -1);
                             Mod.set("macrostop.MacroStopConfig", "setEmergencyCancelKeyCode", -1);
+                            Mod.staticCall("macrostop.MacroStop", "release", "testkit");
                         });
                         scenario.log(String.format(Locale.US, "freecam: started by K %s, active through the walk %s, view held %d/110 "
                                         + "ticks, view yaw range %.2f, body yaw range %.1f; after a mouse move active %s (view %.1f -> %.1f); "

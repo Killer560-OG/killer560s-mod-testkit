@@ -177,6 +177,7 @@
 			"dev.testkit.gametest.SimPuzzleSolveTests$IcePath",
 			"dev.testkit.gametest.SimPuzzleSolveTests$IceFill",
 			"dev.testkit.gametest.SimPuzzleSolveTests$HigherBlaze",
+			"dev.testkit.gametest.SimPuzzleSolveTests$EcancelHigherBlaze",
 			"dev.testkit.gametest.SimPuzzleSolveTests$LowerBlaze",
 			"dev.testkit.gametest.SimPuzzleSolveTests$BlazeMissHigher",
 			"dev.testkit.gametest.SimPuzzleSolveTests$BlazeMissLower",
