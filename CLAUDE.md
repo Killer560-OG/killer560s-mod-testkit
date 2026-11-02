@@ -489,3 +489,16 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
 - `Floor7Tracker`'s phase (and anything gated on P3, like the Team Melody HUD) needs him INSIDE F7's boss coordinates
   (x, z > -7): the menu suite's platform at -520 never reaches P3 whatever the sidebar and Goldor's line say ("timed out
   waiting for Floor7Tracker phase P3", tkdebt-1101). Use the boss suite and a forceloaded platform of the case's own.
+- The ZPEW campaign (`1027-zpewc-,1025-zpew-,1027-zpew-worksfor,1027-zpewmt-,1027-zpewlk-,1102-zpew-ecancel`, 39 cases) takes
+  well over an hour on a loaded machine (~1.6 min a case), longer than a 3600 s deadline: split it in two runs (zpewc/1025/
+  worksfor, then zpewmt/zpewlk/ecancel). With nine clients up, clients froze at world changes and the watcher closed them,
+  leaving the checkout's server on its port (zpew2-1101, 2026-11-02); kill `<checkout>\build\loom-cache\argFiles\runTestServer`
+  java before the next entry.
+- `HxAbilities` treats a carpet as passable since zpew2-1101, like the mod's TeleportUtils since doc-routes-1101 (Hypixel's 1.8
+  feet list); before, 1027-zpewc-shapes-* failed "carpet: MISPREDICT (err 1.414)" at every latency on any jar with that change.
+- With experimental checks on, Blink Charge draws `BadPacketsV*` (a still position packet within 19 ticks of the last, no
+  teleport in the tick before) about once per server teleport it keeps its bank through ("teleport confirmed - bank kept ...
+  answers sent back to back with the confirm", then the flag ~0.5 s later), with no ZPEW press in between: 1027-zpewlk-*
+  records 1-6 a case between its shots (its aimed-shot windows are clean), and 1102-zpew-ecancel saw it after the tp onto its
+  square (zpew2-1101, 26.3 and 26.2). It is Blink's kept-teleport path (owner-accepted, 2026-10-27), for the Blink owner to
+  judge; 1102-zpew-ecancel accepts only that check once Blink is on, and nothing before it.
