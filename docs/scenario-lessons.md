@@ -1334,3 +1334,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - When run-scenario.ps1 closes a FROZEN client, the session's test server can stay alive and keep the port: the next run in
   that checkout fails with "FAILED TO BIND TO PORT" (server exits before ready) or hangs at TestServer.start. Before
   re-running, kill this checkout's own runTestServer java (its command line names the checkout path) (doc-auto-1101).
+- `ChatObserver` drops an identical stripped line seen again within 250 ms (its duplicate-delivery de-dup). Two `hx().chat` sends
+  of the same line from consecutive steps of one case can land in the same window on a loaded machine, and the second
+  never reaches any feature (1101-dhud-preboss, 2026-11-01: the Mage Only step's Watcher line). Wait ~10 ticks between
+  identical lines, and wait for the mod to have SEEN the line (a field it sets) before asserting that nothing happened.
+- When run-scenario closes a client as FROZEN (it often happens while the session's test server starts on a loaded machine),
+  that run's test server keeps running on the checkout's port, and the next run in the checkout fails "Anticheat test server
+  exited with code 0 before it was ready" (FAILED TO BIND TO PORT in run/testserver/logs). End the leftover
+  `<checkout>...runTestServer` java first (doc-dhud-1101, 2026-11-01).

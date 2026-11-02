@@ -374,17 +374,18 @@ final class HxAlerts1025Cases {
             c.hx().chat("§7Bob§7: " + WATCHER_LINE);
             c.ctx().waitTicks(80);
             c.check(warnings(c) == base + 1, "a player's copy of the Watcher's line started the pre-boss warning");
+            // Since 2026-11-01 (doc-dhud-1101) the warning shows on the Watcher's line itself, blood counted as cleared
+            // until the sidebar says so: 20 of 25 rooms + blood + boss = 88%.
             c.hx().chat(WATCHER_LINE);
-            c.ctx().waitTicks(15);
+            c.waitUntil("the pre-boss warning on the Watcher's line", mc -> (Integer) Mod.staticCall(WARN, "warningsShown") == base + 2, 100);
             sidebar(c, "template", "dungeon", "floor", "F7", "time", "02m 40s", "cleared", 84);
-            c.waitUntil("the pre-boss warning once blood's clear counts", mc -> (Integer) Mod.staticCall(WARN, "warningsShown") == base + 2, 80);
             String pre = c.onClient(mc -> (String) Mod.staticCall(WARN, "lastWarning"));
             String shownPre = c.onClient(HxAlerts1025Cases::guiTitle);
-            c.check(pre != null && pre.contains("Crypts 2/5") && pre.contains("Cleared 84%"), "pre-boss warning was '" + pre + "'");
+            c.check(pre != null && pre.contains("Crypts 2/5") && pre.contains("Cleared 88%"), "pre-boss warning was '" + pre + "'");
             c.check(shownPre != null && shownPre.contains("Before the boss"), "on-screen title '" + shownPre + "'");
             boolean blood = c.onClient(mc -> (Boolean) Mod.field("scorecalc.ScoreCalculatorFeature", "bloodDone"));
             c.note("1:23 none; 2:05 -> '" + crypt + "' (Gui '" + shownCrypt + "'), /" + pc + "; forged Watcher: none; real Watcher +"
-                    + " cleared 80->84 (bloodDone " + blood + ") -> '" + pre + "'");
+                    + " on the line -> '" + pre + "' (bloodDone " + blood + ")");
         }
     }
 

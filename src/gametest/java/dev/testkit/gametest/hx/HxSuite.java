@@ -88,6 +88,9 @@ public class HxSuite implements FabricClientGameTest {
                     // To-do Doc items of 2026-11-01: Creation Cooldown, Insta Clear Warning, Gyrokinetic Wand Overlay,
                     // Chat Tabs (1101-extras-*, mod branch doc-extras-1101), own block.
                     HxDocExtras1101Cases.register(s);
+                    // To-do Doc items of 2026-11-01: Score Warning, split Counting, Core Entry, Livid, Blessings Boss
+                    // Only, Trigger lines, locked chests and chest drops, Door Keys (1101-dhud-*, mod doc-dhud-1101).
+                    HxDocDhud1101Cases.register(s);
                     // ScoreboardData with Custom Scoreboard off; Auto GFS's Dungeons/Kuudra gate (1026-hx-sbdata-*, mod
                     // open-key-1026), own block.
                     HxSbData1026Cases.register(s);
