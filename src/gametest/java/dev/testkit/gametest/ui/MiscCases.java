@@ -157,6 +157,9 @@ final class MiscCases {
                     + notCarried);
         }
         c.check((Integer) r.get("probes") > 80, "only " + r.get("probes") + " configs probed");
+        // profreload-1102: the probe above only reaches singleton *Config classes with a boolean pair; this reads
+        // every class in the jar for the setting files it names.
+        ProfileReloadCases.nameAudit(c);
     }
 
     private static Probe probe(ConfigSweep.Singleton s) throws Throwable {
