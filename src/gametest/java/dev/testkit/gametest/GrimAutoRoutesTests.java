@@ -1512,6 +1512,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(3);
             long held0 = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall(iw, "closesHeld"))
                     .longValue());
+            // The warp's landing block is taken away first: the etherwarp then holds its use with the sneak down ("landing
+            // block missing") while the chest window arrives and is closed - the close is held for its still tick, which
+            // never comes while the route keeps the sneak. The block comes back once the close is held, and the use goes.
+            setBlocks(ctx, Map.of(new int[]{14, F - 1, 6}, "minecraft:air"));
             long m = LogTap.mark();
             startSampling(ctx);
             closeAtNextStart = true;
@@ -1521,9 +1525,14 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                         Vec3.atCenterOf(chest).add(0.5, 0, 0), Direction.EAST, chest, false));
                 dev.testkit.compat.McCompat.swingArm(mc.player);
             });
-            Vec3 landed = waitLanded(ctx, 14, 6, 60);
+            boolean heldBeforeUse = waitFor(ctx, 60, () -> ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod
+                    .staticCall(iw, "closesHeld")).longValue()) > held0);
+            ctx.waitTicks(2);
+            setBlocks(ctx, Map.of(new int[]{14, F - 1, 6}, "minecraft:stone"));
+            Vec3 landed = waitLanded(ctx, 14, 6, 80);
             ctx.waitTicks(5);
             closeAtNextStart = false;
+            println("[iwclose] close held before the landing block came back: " + heldBeforeUse);
             List<Sample> s = stopSampling(ctx);
             printTrace("iwclose", s);
             long held = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall(iw, "closesHeld"))
