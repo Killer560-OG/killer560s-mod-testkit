@@ -1546,8 +1546,4 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   and a 3 s interval. Asserts what the STUB received: exactly {session, location}, one 32-hex session that is not the
   player's UUID or name, 3-4.5 s gaps, Hub / Dwarven Mines / Catacombs F7 / sim Catacombs M7 / Hypixel (not Skyblock), one
   Offline when the switch goes off and nothing after; with the stub closed, sends keep coming, one WARN, no chat, healthy.
-- 1103-kickhub-* (hx/HxKickHub1103Cases, mod kickhub-1103): Kicked To Hub. "Area:" tab lines plus Hypixel's evacuation and
-  kick lines; a real world change is a tp into the nether (an obsidian pad at 0,99,0, built by the case) and back to the
-  platform at -419.5 151 -419.5. Judged by the server's `cmd` events: Auto Warp Back sends exactly one command after its
-  delay, a cooldown reply retries once 10 s later, a typed command cancels, player-typed copies do nothing. With the switch
-  OFF the feature reads nothing (not even the tab), so a case must not wait on its `area()`.
+- 1103-kickrejoin-* (hx/HxKickRejoin1103Cases, mod kickhub-1103): Kick Rejoin Timer. Hypixel's kick lines as they appear in his logs, a lobby sidebar ("HYPIXEL", no SKYBLOCK) and back to the hub sidebar; `testAge` moves the kick back so the 60 s wait is not waited out. Asserts the HUD text, remaining ms, the refusal rules (mid-wait no change, at the end +15 s), one title and one sound, clearing on SkyBlock, and no command sent. (Replaced 1103-kickhub-*, whose warp back the owner did not want, 2026-11-03.)
