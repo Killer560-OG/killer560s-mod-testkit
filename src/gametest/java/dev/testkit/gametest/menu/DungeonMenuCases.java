@@ -21,6 +21,7 @@ final class DungeonMenuCases {
         MenuSuite.test(s, "231-menu-autoclosechest", DungeonMenuCases::autoCloseChest);
         MenuSuite.test(s, "232-menu-spiritleap-overlay-key", DungeonMenuCases::spiritLeap);
         MenuSuite.test(s, "233-menu-fastleap-leap", DungeonMenuCases::fastLeap);
+        FastLeapFix1103Cases.register(s);
         MenuSuite.test(s, "234-menu-dungeonclass-select", DungeonMenuCases::classSelect);
         // 1077-menu-class-overlay-editor removed with the Class Selection Overlay (mod doc-small-1101, 2026-11-01).
         MenuSuite.test(s, "235-menu-partyfinder", DungeonMenuCases::partyFinder);

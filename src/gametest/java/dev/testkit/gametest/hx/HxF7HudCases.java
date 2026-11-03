@@ -273,21 +273,35 @@ final class HxF7HudCases {
                 c.waitUntil("Purple line", mc -> "PURPLE".equals(String.valueOf(Mod.staticCall(SL, "phase"))), 60);
                 List<String> l2 = stormLines(c);
                 c.check(l2.size() == 1 && l2.get(0).startsWith("Purple: "), "one Purple line: " + l2);
-                // The pad timer: 0 on ticks 20 server ticks apart.
-                List<Long> zeros = new ArrayList<>();
-                for (int i = 0; i < 50; i++) {
-                    long[] r = c.onClient(mc -> new long[]{(Integer) Mod.staticCall(SL, "remaining"),
-                            (Long) Mod.staticCall("util.PerTickServerClock", "now")});
-                    if (r[0] == 0 && (zeros.isEmpty() || zeros.get(zeros.size() - 1) != r[1])) {
-                        zeros.add(r[1]);
+                // The purple pad timer (2026-11-03): ONE countdown of 62 server ticks from the lightning line to 0, never
+                // repeating, and the line goes away shortly after 0.
+                int first = c.onClient(mc -> (Integer) Mod.staticCall(SL, "remaining"));
+                c.check(first >= 55 && first <= 62, "Purple starts near 62 ticks, read " + first);
+                List<Integer> seen = new ArrayList<>();
+                int zeroReads = 0;
+                boolean rose = false;
+                for (int i = 0; i < 90; i++) {
+                    int r = c.onClient(mc -> (Integer) Mod.staticCall(SL, "remaining"));
+                    boolean vis = c.onClient(mc -> (Boolean) Mod.staticCall(SL, "visible"));
+                    if (vis) {
+                        if (!seen.isEmpty() && r > seen.get(seen.size() - 1)) {
+                            rose = true;
+                        }
+                        seen.add(r);
+                        if (r == 0) {
+                            zeroReads++;
+                        }
                     }
                     c.ctx().waitTicks(1);
                 }
-                c.note("purple pad zeros at clock ticks " + zeros);
-                c.check(zeros.size() >= 2, "the purple timer reached 0 at least twice in 50 ticks: " + zeros);
-                for (int i = 1; i < zeros.size(); i++) {
-                    c.check((zeros.get(i) - zeros.get(i - 1)) % 20 == 0, "pad zeros 20 ticks apart: " + zeros);
-                }
+                c.note("purple countdown reads (first/last): " + seen.get(0) + " .. " + seen.get(seen.size() - 1)
+                        + ", " + seen.size() + " visible reads, " + zeroReads + " at 0");
+                c.check(!rose, "the purple timer went back up (it repeated): " + seen);
+                c.check(seen.get(seen.size() - 1) == 0 && zeroReads >= 1, "the purple timer did not end at 0: " + seen);
+                c.check(!c.onClient(mc -> (Boolean) Mod.staticCall(SL, "visible")),
+                        "the Purple line is still shown 90 ticks after the lightning");
+                c.check(stormLines(c).isEmpty(), "a Storm line is still drawn after the purple countdown: " + stormLines(c));
+                l2 = stormLines(c);
 
                 c.hx().chat("[BOSS] Storm: Oof");
                 c.waitUntil("Yellow line", mc -> "YELLOW".equals(String.valueOf(Mod.staticCall(SL, "phase"))), 60);
