@@ -194,6 +194,33 @@ final class InvSortListCases {
                         + ", in the 'layouts' label " + control);
                 c.check(!label.isEmpty() && control > 0, tag + ": positive control - no dim text found in the header label");
                 c.check(hits == 0, tag + ": " + hits + " dim-text pixels under the buttons (the hint behind Rename)");
+                // Mod screens lay out on Auto Scale's units, so both windows above can give the same layout; lay the same
+                // screen out on small sizes too (as 1101-invsort-menu-rows does): it must fit and keep rows and items.
+                String small = c.onClient(mc -> {
+                    int w0 = s.width;
+                    int h0 = s.height;
+                    StringBuilder b = new StringBuilder();
+                    for (int[] wh : new int[][]{{427, 240}, {320, 240}, {640, 360}}) {
+                        s.width = wh[0];
+                        s.height = wh[1];
+                        Mod.call(s, "clearWidgets");
+                        Mod.call(s, "init");
+                        int[] gg = (int[]) Mod.call(s, "listGeometry");
+                        int[] pp = (int[]) Mod.call(s, "themedPanelBounds");
+                        boolean fits = pp[0] >= 0 && pp[1] >= 0 && pp[0] + pp[2] <= wh[0] && pp[1] + pp[3] <= wh[1];
+                        b.append(wh[0]).append('x').append(wh[1]).append(": panel ").append(pp[2]).append('x').append(pp[3])
+                                .append(fits ? " fits" : " DOES NOT FIT").append(", rows ").append(gg[4]).append(" of ")
+                                .append(gg[3]).append(", cells ").append(gg[5]).append("; ");
+                    }
+                    s.width = w0;
+                    s.height = h0;
+                    Mod.call(s, "clearWidgets");
+                    Mod.call(s, "init");
+                    return b.toString();
+                });
+                c.note(tag + ": laid out small: " + small);
+                c.check(!small.contains("DOES NOT FIT"), tag + ": " + small);
+                c.check(small.matches("427x240: [^;]*rows ([3-9]|\\d\\d) .*"), tag + ": too few rows at 427x240: " + small);
                 c.onClient(mc -> {
                     McCompat.setScreen(mc, null);
                     return null;
