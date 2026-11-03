@@ -187,11 +187,12 @@ public class SimBossTests implements FabricClientGameTest {
             }
         }
         long dead = LogTap.mark();
-        if (!waitChat(ctx, LogTap.mark() - 200, "[BOSS] Maxor: I'M TOO YOUNG TO DIE AGAIN!", 160)) {
-            f.add("Maxor's death line never came after the second laser hit");
-            return;
-        }
-        boolean hole = ctx.computeOnClient(mc -> mc.level.getBlockState(new BlockPos(73, 220, 63)).isAir());
+        expect(f, "two laser hits", call(FIGHT, "maxorLaserHits"), 2);
+        // He dies 8-15 ticks after the second hit and his floor goes 59 after that. "I'M TOO YOUNG TO DIE AGAIN!" comes
+        // 82 after the second stun line only while he is still there (before kill + 80): with a kill 8 ticks after the
+        // hit it never comes (ADM), so the floor is the verdict and the line is logged.
+        boolean hole = until(ctx, "Maxor's floor opening", mc -> mc.level.getBlockState(new BlockPos(73, 220, 63)).isAir(), 120);
+        println(P1P2, "too young line: " + waitChat(ctx, LogTap.mark() - 200, "[BOSS] Maxor: I'M TOO YOUNG TO DIE AGAIN!", 40));
         expect(f, "Maxor's floor open over Storm", hole, true);
         tp(ctx, 73.5, 221, 63.5, 0, 0);
         if (!waitChat(ctx, dead, "[BOSS] Storm: Pathetic Maxor, just like expected.", 200)) {
@@ -536,7 +537,12 @@ public class SimBossTests implements FabricClientGameTest {
                 f.add("Target: nothing lit after " + hit + " hit(s)");
                 return;
             }
+            ctx.waitTicks(2);   // the block change reaches the client a tick or two after the server lights it
             int[] lit = (int[]) call(DEVICES, "litTarget");
+            if (lit == null) {
+                f.add("Target: the lit target went out on its own");
+                return;
+            }
             boolean emerald = ctx.computeOnClient(mc -> mc.level.getBlockState(new BlockPos(lit[0], lit[1], lit[2]))
                     .is(net.minecraft.world.level.block.Blocks.EMERALD_BLOCK));
             if (!emerald) {
@@ -573,6 +579,8 @@ public class SimBossTests implements FabricClientGameTest {
         }
         ctx.waitTicks(5);
         expect(f, "Floor7Tracker phase in P4", phase(ctx), "P4");
+        // The floor goes only 2 ticks before Necron's line, so he is still falling now.
+        until(ctx, "the fall into P4", mc -> mc.player.getY() < 80, 60);
         double y4 = ctx.computeOnClient(mc -> mc.player.getY());
         if (y4 > 80) {
             f.add("the core floor never let him down into P4 (y " + y4 + ")");
