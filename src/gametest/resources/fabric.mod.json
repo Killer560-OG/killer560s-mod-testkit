@@ -15,6 +15,7 @@
 			"dev.testkit.gametest.FairySoulTests",
 			"dev.testkit.gametest.FairyIslandTests",
 			"dev.testkit.gametest.FairyGrimTests",
+			"dev.testkit.gametest.FairyTightTests",
 			"dev.testkit.gametest.FreelookTests",
 			"dev.testkit.gametest.BlinkTests",
 			"dev.testkit.gametest.BlinkStressTests",
