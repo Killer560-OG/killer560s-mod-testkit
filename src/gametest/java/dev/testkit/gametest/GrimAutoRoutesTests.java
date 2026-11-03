@@ -184,6 +184,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1027-invwalk", GrimAutoRoutesTests::caseInvWalk);
             // ... and 62-argrim-play's whole route (its chest window keeps the route running) with Inventory Walk on.
             s.test("62-argrim-1027-invwalk-play", GrimAutoRoutesTests::caseInvWalkPlay);
+            // iwcause-1102: a chest window that opens and closes while an await:1 etherwarp holds the sneak, Inventory Walk
+            // (Stop To Click) holding the close - the warp's use must not flush it with the sneak down (MultiActionsD).
+            for (int k = 1; k <= Integer.getInteger("testkit.iwRepeat", 1); k++) {
+                s.test("62-argrim-1102-iwclose" + (k == 1 ? "" : "#" + k), GrimAutoRoutesTests::caseIwClose);
+            }
             // The RotationBreak post-flying hunt (multibreak-1102): invwalk-play again -PrbRepeat=N times, so a rare miss
             // on a turned breaker dig after an etherwarp landing is caught with the dig-gap probes on.
             for (int k = 1; k <= Integer.getInteger("testkit.rbRepeat", 0); k++) {
@@ -1436,6 +1441,166 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * first, as a vanilla right click does. Far (8 blocks) and near (3 blocks). Each must land, the server make exactly one
      * etherwarp, the warp go at most a tick after firing, and GrimAC say nothing (the session's verdict).
      */
+    /** The chest's menu, kept when its window is hidden on arrival with no close packet (caseIwClose). */
+    private static volatile net.minecraft.world.inventory.AbstractContainerMenu iwMenu;
+    private static volatile boolean iwHideOnArrival;
+    private static volatile boolean iwCloseAtStart;
+    private static volatile int iwCloseTick = -1;
+    private static boolean iwHooks;
+
+    /**
+     * 62-argrim-1102-iwclose (iwcause-1102): the v5 invwalk-play MultiActionsD, reproduced deterministically. An await:1
+     * etherwarp waits by a chest with Inventory Walk (Stop To Click) on. The route is held on its use with the sneak down
+     * (the mod's own "not enough mana" hold, PlayerStatsFeature.manaShort) while his click on the chest meets the await and
+     * the chest's window arrives; the window is hidden on arrival with no close packet, as when it opens and closes between
+     * two ticks, so the route never sees a screen and keeps the sneak. Once the server has the sneak, at the START of one
+     * tick the window comes back and is closed (its close packet, while the screen is up: Inventory Walk holds it for a
+     * still tick) and the mana hold is lifted, so the route sends the warp's use at that tick's END. On the unfixed jar the
+     * use flushes the held close first with the sneak down - GrimAC MultiActionsD; fixed, the route waits for the close.
+     * Required: the close held, the warp landed, GrimAC silent.
+     */
+    private static void caseIwClose(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        String iwCfg = "invwalk.InventoryWalkConfig";
+        String iw = "invwalk.InventoryWalkFeature";
+        String stats = "playerstats.PlayerStatsFeature";
+        resetRoutes(ctx);
+        arena(ctx, false);
+        ctx.runOnClient(mc -> {
+            try {
+                ModUnderTest.staticCall("com.killer560.hub.autoroutes.RouteRunMemory", "reset", new Class<?>[]{},
+                        new Object[]{});
+            } catch (Throwable ignored) {
+                // an older jar: no run memory
+            }
+            if (!iwHooks) {
+                iwHooks = true;
+                net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((m, screen, w0, h0) -> {
+                    if (iwHideOnArrival && screen instanceof net.minecraft.client.gui.screens.inventory.ContainerScreen) {
+                        iwHideOnArrival = false;
+                        m.execute(() -> {
+                            if (dev.testkit.compat.McCompat.screen(m) == screen) {
+                                iwMenu = m.player.containerMenu;
+                                // Hidden with NO close packet: the server's container stays open, the route sees no screen.
+                                dev.testkit.compat.McCompat.setScreen(m, null);
+                                // The client's menu back to the inventory, as a close does: the route waits under an open
+                                // menu (RouteExecutor.containerMenuOpen), and in v5 the window had been closed client-side.
+                                m.player.containerMenu = m.player.inventoryMenu;
+                                println("[iwclose] chest window hidden on arrival (menu " + iwMenu.containerId + ")");
+                            }
+                        });
+                    }
+                });
+                // Ahead of every mod END handler (Auto Routes acts at END): the close goes after this tick's input packet
+                // (which said sneak) and before the route's use - the v5 order, with no still tick between them.
+                net.minecraft.resources.Identifier iwEarly = net.minecraft.resources.Identifier.parse("testkit:iwclose_early");
+                ClientTickEvents.END_CLIENT_TICK.addPhaseOrdering(iwEarly, net.fabricmc.fabric.api.event.Event.DEFAULT_PHASE);
+                ClientTickEvents.END_CLIENT_TICK.register(iwEarly, m -> {
+                    if (!iwCloseAtStart || m.player == null || iwMenu == null) {
+                        return;
+                    }
+                    iwCloseAtStart = false;
+                    // The close goes out at this tick's START, before the route acts at its END, with Inventory Walk in the
+                    // state an open screen puts it in (no screen is set: opening one would let the route's keys go). It is
+                    // held for a still tick (the server's input says sneak); the mana hold lifts so the warp's use goes
+                    // this same tick - the v5 order.
+                    dev.testkit.gametest.mod.Mod.setField("invwalk.InventoryWalkFeature", "active", true);
+                    m.player.connection.send(new net.minecraft.network.protocol.game.ServerboundContainerClosePacket(
+                            iwMenu.containerId));
+                    dev.testkit.gametest.mod.Mod.setField("invwalk.InventoryWalkFeature", "active", false);
+                    m.player.containerMenu = m.player.inventoryMenu;
+                    iwMenu = null;
+                    dev.testkit.gametest.mod.Mod.setField("playerstats.PlayerStatsFeature", "manaShort", false);
+                    iwCloseTick = PacketTrace.tickCount();
+                    println("[iwclose] close sent at a tick END ahead of the route, mana hold lifted, server sneak "
+                            + m.player.getLastSentInput().shift());
+                });
+            }
+            dev.testkit.gametest.mod.Mod.set(iwCfg, "setEnabled", true);
+            dev.testkit.gametest.mod.Mod.set(iwCfg, "setStopToClick", true);
+        });
+        iwMenu = null;
+        iwCloseTick = -1;
+        try {
+            setBlocks(ctx, Map.of(new int[]{8, F, 8}, "minecraft:chest[facing=west]"));
+            JsonObject w = ew(6, 6, 14, 6, true);
+            w.addProperty("awaitEnabled", true);
+            w.addProperty("await", "SECRET");
+            w.addProperty("amount", 1);
+            writeRoute(ctx, List.of(w));
+            long mark = LogTap.mark();
+            warpOnto(ctx, 6.5, 10.5, 6, 6);
+            check(waitFor(ctx, 60, () -> logHas(mark, "Node #1 ETHERWARP begins")), "the await node never began (at "
+                    + relPos(ctx) + ")");
+            ctx.waitTicks(10);
+            ctx.runOnClient(mc -> {
+                mc.player.getInventory().setSelectedSlot(0);
+                BlockPos chest = real(ModUnderTest.staticCall(FRAME, "current"), 8, F, 8);
+                Vec3 eye = mc.player.getEyePosition();
+                Vec3 at = Vec3.atCenterOf(chest);
+                double dx = at.x - eye.x;
+                double dy = at.y - eye.y;
+                double dz = at.z - eye.z;
+                float yaw = (float) -Math.toDegrees(Math.atan2(dx, dz));
+                mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(yaw - mc.player.getYRot()));
+                mc.player.setXRot((float) -Math.toDegrees(Math.atan2(dy, Math.hypot(dx, dz))));
+            });
+            ctx.waitTicks(3);
+            long held0 = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall(iw, "closesHeld"))
+                    .longValue());
+            long m = LogTap.mark();
+            startSampling(ctx);
+            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField(stats, "manaShort", true));
+            iwHideOnArrival = true;
+            ctx.runOnClient(mc -> {
+                BlockPos chest = real(ModUnderTest.staticCall(FRAME, "current"), 8, F, 8);
+                mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(
+                        Vec3.atCenterOf(chest).add(0.5, 0, 0), Direction.EAST, chest, false));
+                dev.testkit.compat.McCompat.swingArm(mc.player);
+            });
+            boolean ready = waitFor(ctx, 60, () -> iwMenu != null && logHas(m, "await 1/1 secrets met")
+                    && ctx.computeOnClient(mc -> mc.player.getLastSentInput().shift()));
+            check(ready, "never had the hidden chest window and the warp's sneak at the server together (window "
+                    + (iwMenu != null) + ", await met " + logHas(m, "await 1/1 secrets met") + ")");
+            ctx.waitTicks(2);
+            iwCloseAtStart = true;
+            Vec3 landed = waitLanded(ctx, 14, 6, 80);
+            ctx.waitTicks(5);
+            List<Sample> s = stopSampling(ctx);
+            printTrace("iwclose", s);
+            long held = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall(iw, "closesHeld"))
+                    .longValue()) - held0;
+            boolean waited = logHas(m, "Inventory Walk holds a container close");
+            boolean flushedByUse = logHas(m, "(a use is going out)");
+            for (String l : LogTap.since(m)) {
+                if (l.contains("[InvWalk]") || l.contains("iwclose") || l.contains("Etherwarp use sent")
+                        || l.contains("input installed") || l.contains("holds a container close")) {
+                    println("  " + l);
+                }
+            }
+            c.note("iwclose: close at tick " + iwCloseTick + ", closes held " + held + ", route waited for the close " + waited
+                    + ", close flushed by the use " + flushedByUse + ", landed " + landed);
+            check(held >= 1, "Inventory Walk held no close - the collision did not happen, the case proves nothing");
+            check(landed != null, "the etherwarp never landed");
+            noteFlags(c, s);
+        } finally {
+            iwHideOnArrival = false;
+            iwCloseAtStart = false;
+            ctx.runOnClient(mc -> {
+                if (iwMenu != null) {
+                    mc.player.connection.send(new net.minecraft.network.protocol.game.ServerboundContainerClosePacket(
+                            iwMenu.containerId));
+                    mc.player.containerMenu = mc.player.inventoryMenu;
+                }
+            });
+            iwMenu = null;
+            ctx.runOnClient(mc -> {
+                dev.testkit.gametest.mod.Mod.setField(stats, "manaShort", false);
+                dev.testkit.gametest.mod.Mod.set(iwCfg, "setEnabled", false);
+            });
+        }
+    }
+
     private static void caseClickWarp(Session c) {
         ClientGameTestContext ctx = c.ctx();
         for (boolean near : new boolean[]{false, true}) {
