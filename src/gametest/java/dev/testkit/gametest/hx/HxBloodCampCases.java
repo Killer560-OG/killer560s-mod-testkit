@@ -2670,6 +2670,80 @@ final class HxBloodCampCases {
         return c.onClient(mc -> (long[]) Mod.staticCall(BC, "lastFirstClickForTest"));
     }
 
+    /**
+     * The client game ticks (the clock Blood Camp's {@code now} and its tag tick are read on) on which an attack left the
+     * client: the {@code attack} packet on 26.3, {@code interact} on 26.2 (Blood Camp sends no use on a mob). Read on the
+     * thread that sent it, so the tick is the one the mod clicked in.
+     *
+     * <p>Why not the server's clock (nmflake-1103): "the attack reached the server N ticks after the summon" read 19 and 23
+     * twice in ~26 runs, both at 12:03:47 on two checkouts at once, both the session's first trip right after the arena
+     * fill, while the mod clicked ON its tag tick both times (fc[1] == fc[2]). The test server was behind and catching up
+     * (that checkout's log: "Can't keep up! ... 85 ticks behind" at 12:03:40), and a catching-up server runs its ticks back
+     * to back, so its tick count between the summon and the attack says nothing about the client. Testkit CLAUDE.md "Load
+     * is the normal state" already says it: count client ticks. The server's events still prove the attack was handled.
+     */
+    private static final class AttackSends implements AutoCloseable {
+        final List<Long> ticks = java.util.Collections.synchronizedList(new ArrayList<>());
+        private final Session c;
+        private final java.util.function.Consumer<net.minecraft.network.protocol.Packet<?>> before;
+
+        AttackSends(Session c) {
+            this.c = c;
+            this.before = c.onClient(mc -> {
+                java.util.function.Consumer<net.minecraft.network.protocol.Packet<?>> was = dev.testkit.harness.PacketTrace.tap;
+                dev.testkit.harness.PacketTrace.tap = p -> {
+                    if (was != null) {
+                        was.accept(p);
+                    }
+                    String n = p.type().id().getPath();
+                    Minecraft m = Minecraft.getInstance();
+                    if ((n.equals("attack") || n.equals("interact")) && m.level != null) {
+                        ticks.add(m.level.getGameTime());
+                    }
+                };
+                return was;
+            });
+        }
+
+        /** Whether an attack left on client tick {@code tick}. */
+        boolean sentOn(long tick) {
+            synchronized (ticks) {
+                return ticks.contains(tick);
+            }
+        }
+
+        @Override
+        public void close() {
+            c.onClient(mc -> {
+                dev.testkit.harness.PacketTrace.tap = before;
+                return null;
+            });
+        }
+    }
+
+    /**
+     * Waits until Blood Camp's weapon cooldown since its last click is over, so a mob that appears next is not held by the
+     * attack-speed cap (killer560, 2026-10-15: no Blood Camp click sooner after the last than the weapon allows). Returns
+     * the ticks waited. nmflake-1103: offspot's no-trip husk was tagged 9 ticks after the trip mob's last click at a
+     * 10-tick cooldown and clicked on tick 10 - the cap, not a late Never Miss.
+     */
+    private static int waitCooldownOver(Session c) {
+        for (int i = 0; i < 40; i++) {
+            boolean ready = c.onClient(mc -> {
+                @SuppressWarnings("unchecked")
+                List<Long> clicks = (List<Long>) Mod.staticCall(BC, "recentClickTicks");
+                int cd = (Integer) Mod.staticCall(BC, "lastCooldownTicks");
+                long now = mc.level.getGameTime();
+                return clicks.isEmpty() || now - clicks.get(clicks.size() - 1) >= cd;
+            });
+            if (ready) {
+                return i;
+            }
+            c.ctx().waitTicks(1);
+        }
+        return 40;
+    }
+
     private static void setNeverMiss(Session c, boolean on, int offset) {
         c.onClient(mc -> {
             Mod.call(Mod.cfg(BC_CFG), "setNeverMiss", on);
@@ -2692,36 +2766,36 @@ final class HxBloodCampCases {
                 return;
             }
             s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "NeverMiss", true);
-            List<Long> lags = new ArrayList<>();
             for (int off : new int[]{-5, 0, 5}) {
                 setNeverMiss(c, true, off);
                 stand(c, 0f, 0f);
                 long[] before0 = firstClick(c);
                 nextSummonDelay = 3; // the mob appears on its due tick
-                Trip t = trip(c, Mob.HURTABLE, true, 20, null);
+                Trip t;
+                boolean sent;
+                try (AttackSends sends = new AttackSends(c)) {
+                    t = trip(c, Mob.HURTABLE, true, 20, null);
+                    sent = sends.sentOn(firstClick(c)[1]);
+                }
                 long summon = lastSummonTick;
                 int before = lastClicksBeforeSummon;
                 long[] fc = firstClick(c);
                 long lag = t.serverAttacks.isEmpty() ? -1 : t.serverAttacks.get(0) - summon;
                 c.note(String.format(Locale.ROOT, "Never Miss ON, offset %+d: %s; clicks before the mob %d; summoned at server"
-                        + " tick %d, first attack +%d; mod first click at tick %d on #%d, tagged at %d", off, fmt(t), before,
-                        summon, lag, fc[1], fc[0], fc[2]));
+                        + " tick %d, first attack +%d server ticks (not judged: the server's clock under load); mod first click"
+                        + " at client tick %d on #%d, tagged at %d, attack packet sent that tick %s", off, fmt(t), before,
+                        summon, lag, fc[1], fc[0], fc[2], sent));
                 c.check(t.tracked, "offset " + off + ": the trip was never tracked - nothing was tested");
                 c.check(before == 0, "Never Miss, offset " + off + ": swung " + before + " time(s) before the mob existed");
-                c.check(t.attacks >= 1 && !t.serverAttacks.isEmpty(), "Never Miss, offset " + off + ": never attacked");
+                c.check(t.attacks >= 1 && !t.serverAttacks.isEmpty(), "Never Miss, offset " + off + ": never attacked (no"
+                        + " attack handled by the server)");
+                // The owner's measure, on the client's own clock: the click on the mob's tag tick (the first client tick it
+                // existed, 1102-bloodcamp-tag-latency), whatever the offset - so the offset never moves it.
                 c.check(fc[1] != before0[1] && fc[2] >= 0 && fc[1] == fc[2], "Never Miss, offset " + off + ": the first click"
                         + " went at tick " + fc[1] + ", the mob was tagged at " + fc[2] + " - want the same tick (the first tick"
                         + " after it spawned)");
-                c.check(lag >= 0 && lag <= 2, "Never Miss, offset " + off + ": the attack reached the server " + lag
-                        + " ticks after the summon, want the next tick (0-2)");
-                lags.add(lag);
+                c.check(sent, "Never Miss, offset " + off + ": no attack packet left the client on its click tick " + fc[1]);
             }
-            long min = lags.stream().mapToLong(Long::longValue).min().orElse(-1);
-            long max = lags.stream().mapToLong(Long::longValue).max().orElse(-1);
-            // The server lag is read with a separate server.tick call after the summon, so it lands 0-2 ticks on either side
-            // (0, 1, 2 all seen at one offset); the offset would move it by 5. The tick-exact measure is the mod's own: the
-            // click on the mob's tag tick, checked above for every offset.
-            c.check(max - min <= 2, "Never Miss: the attack moved with Trigger Offset -5/0/+5: " + lags);
             // Control: Never Miss OFF, the offset still moves the first click. Judged on the click's own countdown
             // reading: the kill timer itself (ping in ticks) can read a tick apart between two trips (-0.2 / -1.2 seen on
             // 2026-11-02), which is not the offset.
@@ -2775,17 +2849,26 @@ final class HxBloodCampCases {
             setNeverMiss(c, true, 5);
             stand(c, 0f, 0f);
             nextSummonDelay = 3;
-            Trip on = trip(c, Mob.HURTABLE, true, 20, null);
+            long[] before0 = firstClick(c);
+            Trip on;
+            boolean sent;
+            try (AttackSends sends = new AttackSends(c)) {
+                on = trip(c, Mob.HURTABLE, true, 20, null);
+                sent = sends.sentOn(firstClick(c)[1]);
+            }
             long summon = lastSummonTick;
             boolean open = c.onClient(mc -> (Boolean) Mod.staticCall(BC, "lastAttackOpen"));
             long[] fc = firstClick(c);
             long lag = on.serverAttacks.isEmpty() ? -1 : on.serverAttacks.get(0) - summon;
             c.note("kill timer closed, Never Miss ON: " + fmt(on) + "; attack gate open " + open + "; first attack +" + lag
-                    + " server ticks after the summon; first click tick " + fc[1] + ", tagged " + fc[2]);
+                    + " server ticks after the summon (not judged, see AttackSends); first click tick " + fc[1] + ", tagged "
+                    + fc[2] + ", attack packet sent that tick " + sent);
             c.check(open, "Never Miss: the attack gate was closed by the kill timer");
-            c.check(on.attacks >= 1 && lag >= 0 && lag <= 2, "Never Miss: no attack on the tick after the mob spawned"
-                    + " while the kill timer was closed (lag " + lag + ")");
-            c.check(fc[1] == fc[2], "Never Miss: the first click (tick " + fc[1] + ") was not on the mob's tag tick " + fc[2]);
+            c.check(on.attacks >= 1 && !on.serverAttacks.isEmpty(), "Never Miss: no attack handled while the kill timer was"
+                    + " closed");
+            c.check(fc[1] != before0[1] && fc[2] >= 0 && fc[1] == fc[2], "Never Miss: the first click (tick " + fc[1]
+                    + ") was not on the mob's tag tick " + fc[2]);
+            c.check(sent, "Never Miss: no attack packet left the client on its click tick " + fc[1]);
             setNeverMiss(c, false, 5);
             stand(c, 0f, 0f);
             nextSummonDelay = 3;
@@ -2819,24 +2902,31 @@ final class HxBloodCampCases {
             long since = c.hx().head();
             nextSummonDelay = 3;
             nextSummonDx = 1.5;
-            Trip t = trip(c, Mob.HURTABLE, true, 20, null);
+            long[] fcA = firstClick(c);
+            Trip t;
+            boolean sent;
+            try (AttackSends sends = new AttackSends(c)) {
+                t = trip(c, Mob.HURTABLE, true, 20, null);
+                sent = sends.sentOn(firstClick(c)[1]);
+            }
             long summon = lastSummonTick;
             int before = lastClicksBeforeSummon;
             long[] fc = firstClick(c);
             long lag = t.serverAttacks.isEmpty() ? -1 : t.serverAttacks.get(0) - summon;
             long onIt = namedAttacks(c, since, "blood");
             c.note("mob 1.5 blocks off the landing spot: " + fmt(t) + "; clicks before it " + before + "; attacks on it "
-                    + onIt + ", first +" + lag + " server ticks after the summon; first click tick " + fc[1] + ", tagged "
-                    + fc[2]);
+                    + onIt + ", first +" + lag + " server ticks after the summon (not judged, see AttackSends); first click"
+                    + " tick " + fc[1] + ", tagged " + fc[2] + ", attack packet sent that tick " + sent);
             c.check(t.tracked, "the trip was never tracked - nothing was tested");
             if (!cheat) {
                 c.check(t.clicks == 0 && t.serverAttacks.isEmpty(), "legit jar: the Trigger Bot clicked");
                 return;
             }
             c.check(before == 0, "Never Miss swung " + before + " time(s) before the off-spot mob existed");
-            c.check(onIt >= 1 && lag >= 0 && lag <= 2, "the mob off its landing spot was not attacked the tick after it"
-                    + " spawned (attacks " + onIt + ", lag " + lag + ")");
-            c.check(fc[1] == fc[2] && fc[2] >= 0, "off-spot: first click tick " + fc[1] + ", tagged " + fc[2]);
+            c.check(onIt >= 1, "the mob off its landing spot was never attacked (no attack on it handled by the server)");
+            c.check(fc[1] != fcA[1] && fc[1] == fc[2] && fc[2] >= 0, "off-spot: first click tick " + fc[1] + ", tagged "
+                    + fc[2] + " - want the same tick");
+            c.check(sent, "off-spot: no attack packet left the client on its click tick " + fc[1]);
 
             // No trip at all: a blood mob (name tag) appears under his look.
             double x = -421.0;
@@ -2848,15 +2938,24 @@ final class HxBloodCampCases {
                 return null;
             });
             c.ctx().waitTicks(3);
+            // The first mob's last click must be a weapon cooldown back, or the attack-speed cap (an owner rule) holds the
+            // no-trip mob's first click and the case reads the cap as a late Never Miss (nmflake-1103).
+            int waited = waitCooldownOver(c);
             long since2 = c.hx().head();
             long[] fc0 = firstClick(c);
-            c.server().command(String.format(Locale.ROOT, "summon husk %.2f 151 %.2f {Tags:[\"bcdecoy\"],NoAI:1b,NoGravity:1b,"
-                    + "Silent:1b,PersistenceRequired:1b,Health:20f,CustomName:\"loner\"}", x, z));
-            c.server().command(String.format(Locale.ROOT, "summon armor_stand %.2f 152.2 %.2f {Tags:[\"bcdecoy\"],Invisible:1b,"
-                    + "NoGravity:1b,Marker:1b,CustomNameVisible:1b,CustomName:\"Revoker 1M❤\"}", x, z));
-            long summon2 = c.hx().call("server.tick").getAsLong();
-            c.ctx().waitTicks(15);
-            long[] fc2 = firstClick(c);
+            long[] fc2;
+            boolean sent2;
+            long summon2;
+            try (AttackSends sends = new AttackSends(c)) {
+                c.server().command(String.format(Locale.ROOT, "summon husk %.2f 151 %.2f {Tags:[\"bcdecoy\"],NoAI:1b,"
+                        + "NoGravity:1b,Silent:1b,PersistenceRequired:1b,Health:20f,CustomName:\"loner\"}", x, z));
+                c.server().command(String.format(Locale.ROOT, "summon armor_stand %.2f 152.2 %.2f {Tags:[\"bcdecoy\"],"
+                        + "Invisible:1b,NoGravity:1b,Marker:1b,CustomNameVisible:1b,CustomName:\"Revoker 1M❤\"}", x, z));
+                summon2 = c.hx().call("server.tick").getAsLong();
+                c.ctx().waitTicks(15);
+                fc2 = firstClick(c);
+                sent2 = sends.sentOn(fc2[1]);
+            }
             int id = c.onClient(mc -> clientId(mc, "loner"));
             List<Long> at = new ArrayList<>();
             for (JsonObject e : c.hx().events(since2, "attack_entity")) {
@@ -2865,12 +2964,16 @@ final class HxBloodCampCases {
                 }
             }
             long lag2 = at.isEmpty() ? -1 : at.get(0) - summon2;
-            c.note("blood mob with no trip: client #" + id + ", server attacks " + at + " (summoned at " + summon2 + ", first +"
-                    + lag2 + "); first click on #" + fc2[0] + " tick " + fc2[1] + ", tagged " + fc2[2]);
+            c.note("blood mob with no trip (summoned after " + waited + " tick(s) waiting out the weapon cooldown): client #"
+                    + id + ", server attacks " + at + " (summoned at " + summon2 + ", first +" + lag2 + ", not judged); first"
+                    + " click on #" + fc2[0] + " tick " + fc2[1] + ", tagged " + fc2[2] + ", attack packet sent that tick "
+                    + sent2);
             c.check(id >= 0, "the no-trip husk never reached the client - nothing was tested");
+            c.check(waited < 40, "the weapon cooldown never ran out before the no-trip mob - nothing was tested");
             c.check(fc2[1] != fc0[1] && fc2[0] == id, "the blood mob with no trip was never clicked");
             c.check(fc2[1] == fc2[2], "no trip: first click tick " + fc2[1] + ", tagged " + fc2[2] + " - want the same tick");
-            c.check(lag2 >= 0 && lag2 <= 3, "no trip: the attack reached the server " + lag2 + " ticks after the summon");
+            c.check(sent2, "no trip: no attack packet left the client on its click tick " + fc2[1]);
+            c.check(!at.isEmpty(), "no trip: the server handled no attack on the mob");
         } finally {
             nextSummonDelay = null;
             nextSummonDx = null;
