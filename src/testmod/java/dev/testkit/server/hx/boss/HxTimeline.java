@@ -30,6 +30,10 @@ final class HxTimeline {
     private static final JsonArray FIRED = new JsonArray();
     private static long base;
     private static String player;
+    /** boss.pertickping: a ClientboundPingPacket to this player every server tick, as Hypixel sends (only meaningful with
+     *  -Pnogrim: GrimAC's own transaction pings would sit beside these). Null = off. */
+    private static String pinging;
+    private static int pingId = 1_000_000;
 
     private HxTimeline() {
     }
@@ -61,7 +65,19 @@ final class HxTimeline {
         return out;
     }
 
+    static JsonElement perTickPing(MinecraftServer server, JsonObject args) {
+        boolean on = !args.has("on") || args.get("on").getAsBoolean();
+        pinging = on ? HxPrimitives.player(server, args).getGameProfile().name() : null;
+        return new com.google.gson.JsonPrimitive(on);
+    }
+
     static void tick(MinecraftServer server) {
+        if (pinging != null) {
+            ServerPlayer pp = server.getPlayerList().getPlayerByName(pinging);
+            if (pp != null) {
+                pp.connection.send(new net.minecraft.network.protocol.common.ClientboundPingPacket(pingId++));
+            }
+        }
         if (PENDING.isEmpty()) {
             return;
         }

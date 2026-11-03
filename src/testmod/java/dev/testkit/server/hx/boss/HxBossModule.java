@@ -41,6 +41,7 @@ public final class HxBossModule implements HxModule {
         HxRelic.register();
         HxBridge.register("boss.timeline", HxTimeline::start);
         HxBridge.register("boss.timeline.state", (server, args) -> HxTimeline.state());
+        HxBridge.register("boss.pertickping", HxTimeline::perTickPing);
         ServerTickEvents.START_SERVER_TICK.register(HxTimeline::tick); // before the levels and the connections, like a plugin scheduler
         // Boss bars (2026-10-25, the mod's Boss Health): HxBossBar.
         HxBridge.register("boss.bar.set", HxBossBar::set);

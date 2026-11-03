@@ -86,6 +86,19 @@ final class HxF7HudCases {
             String self = self(c);
             try (Settings st = new Settings(c)) {
                 st.with(TTC, "Enabled", true).with(TTC, "GoldorTimer", true).with(TTC, "GoldorShowTotal", false);
+                // Hypixel pings every server tick and the mod's clock then counts server ticks exactly; with GrimAC on, its
+                // transaction pings are not ticks, the clock follows the client's game time with the server's once-a-second
+                // time packets, and wobbles by however far the client runs ahead of a loaded server in that second. So:
+                // under -Pnogrim the testmod pings every tick like Hypixel and the hit must read 0 within 1 tick; with
+                // GrimAC on (the anticheat verdict) within 8.
+                boolean hypixelLike = dev.testkit.gametest.Scenario.anticheatMuted();
+                int tol = hypixelLike ? 1 : 8;
+                if (hypixelLike) {
+                    c.hx().call("boss.pertickping", "player", self, "on", true);
+                    c.waitUntil("the mod trusts the per-tick pings", mc -> (Boolean) Mod.staticCall("util.PerTickServerClock", "trusted"), 200);
+                }
+                c.note("clock trusted (per-tick pings): " + c.onClient(mc -> Mod.staticCall("util.PerTickServerClock", "trusted"))
+                        + ", tolerance " + tol + " tick(s)");
                 c.server().command("gamemode survival " + self);
                 c.server().command("effect give " + self + " minecraft:instant_health 1 4 true");
                 c.ctx().waitTicks(20);
@@ -101,7 +114,7 @@ final class HxF7HudCases {
                 List<Integer> a = offsets(c);
                 c.note("(a) in phase, offsets at the hits: " + a + ", re-locks " + c.onClient(mc -> Mod.staticCall(GT, "testRelocks")));
                 c.check(a.size() == 4, "(a) 4 hits seen from the health drops, saw " + a.size() + ": " + a);
-                c.check(a.stream().allMatch(o -> Math.abs(o) <= 1), "(a) the Tick read 0 (+-1 tick) at every hit: " + a);
+                c.check(a.stream().allMatch(o -> Math.abs(o) <= tol), "(a) the Tick read 0 (+-" + tol + " tick) at every hit: " + a);
 
                 c.hx().chat("The Core entrance is opening!");
                 c.server().command("effect give " + self + " minecraft:instant_health 1 4 true");
@@ -121,13 +134,14 @@ final class HxF7HudCases {
                 c.check(b.size() == 4, "(b) 4 hits seen, saw " + b.size() + ": " + b);
                 if (b.size() == 4) {
                     c.check(Math.abs(b.get(0)) >= 28 && Math.abs(b.get(1)) >= 28, "(b) the first two hits were ~30 off: " + b);
-                    c.check(Math.abs(b.get(2)) <= 1 && Math.abs(b.get(3)) <= 1, "(b) after the re-lock the Tick read 0 at each hit: " + b);
+                    c.check(Math.abs(b.get(2)) <= tol && Math.abs(b.get(3)) <= tol, "(b) after the re-lock the Tick read 0 (+-" + tol + ") at each hit: " + b);
                 }
-                c.check(relocks == 1, "(b) one re-lock, got " + relocks);
+                c.check(hypixelLike ? relocks == 1 : relocks >= 1, "(b) re-locked (once with per-tick pings), got " + relocks);
                 String line = c.onClient(mc -> String.valueOf(Mod.staticCall(GT, "remaining")));
                 c.note("(b) remaining after the run: " + line);
             } finally {
                 c.hx().chat("The Core entrance is opening!");
+                c.hx().call("boss.pertickping", "player", self(c), "on", false);
                 c.server().command("effect give " + self(c) + " minecraft:instant_health 1 4 true");
                 run(c, () -> Mod.staticCall(TT, "resetAll"));
             }
