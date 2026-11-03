@@ -163,7 +163,8 @@ public class UiSuite implements FabricClientGameTest {
             "679-ui-ttt-prediction-misclicks", "680-ui-imap-binds-ticks", "681-ui-auto-kick-pf", "682-ui-dungeon-esp-switch"};
     /** killer560's 2026-10-11 Auto Kick Judge By + Detect Queued Floor ({@link AutoKick2Cases}). Own block for merges. */
     static final String[] AUTOKICK2_CASES = {"801-ui-autokick-judge-by", "802-ui-autokick-detect-pf",
-            "803-ui-autokick-joininstance-ignored", "804-ui-autokick-forged-queue", "805-ui-autokick-floor-source"};
+            "803-ui-autokick-joininstance-ignored", "804-ui-autokick-forged-queue", "805-ui-autokick-floor-source",
+            "806-ui-autokick-floor-switch", "807-ui-autokick-populate"};
     /** killer560's 2026-10-18 to-do item 1, the Custom Party Finder ({@link PartyFinder1018Cases}). Own block for merges. */
     static final String[] PARTY_FINDER_1018_CASES = {"1018-pf-leader-accept", "1018-pf-joiner-accept", "1018-pf-dual-list",
             "1018-pf-requirements", "1018-pf-settings", "1018-pf-nokuudra", "1022-pf-dropdown", "1022-pf-no-label"};
@@ -292,7 +293,7 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-14 menu order + independent masters list ({@link MenuOrderCases}). Own block for merges. */
     static final String[] MENU_ORDER_CASES = {"515-ui-menu-order", "516-ui-menu-order-settings",
             "517-ui-menu-queue-masters", "518-ui-menu-independent-masters",
-            "519-ui-home-cleanup"};
+            "519-ui-home-cleanup", "525-ui-menu-every-master", "526-ui-ban-report-text"};
     /** Predictive Rooms inside the Dungeon Map tab (mod todo-predict-ui-1018, {@link PredictInMapCases}). Own block for merges. */
     static final String[] PREDICT_IN_MAP_CASES = {"1018-predict-in-map"};
     /** Lever Aura merged into Secret Aura + Menu Theme on overlays (mod aura-themes-1015, {@link AuraThemeCases}). Own block for merges. */
@@ -705,6 +706,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "803-ui-autokick-joininstance-ignored", AutoKick2Cases::joinInstanceIgnored);
                     UiCase.run(ctx, "804-ui-autokick-forged-queue", AutoKick2Cases::forgery);
                     UiCase.run(ctx, "805-ui-autokick-floor-source", AutoKick2Cases::floorSourceSettings);
+                    UiCase.run(ctx, "806-ui-autokick-floor-switch", AutoKick2Cases::floorSwitch);
+                    UiCase.run(ctx, "807-ui-autokick-populate", AutoKick2Cases::populate);
                     // ---- Custom Party Finder (1018-pf-*) ----
                     UiCase.run(ctx, "1018-pf-leader-accept", PartyFinder1018Cases::leaderAccept);
                     UiCase.run(ctx, "1018-pf-joiner-accept", PartyFinder1018Cases::joinerAccept);
@@ -903,6 +906,9 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "517-ui-menu-queue-masters", MenuOrderCases::queueMasters);
                     UiCase.run(ctx, "518-ui-menu-independent-masters", MenuOrderCases::independentMasters);
                     UiCase.run(ctx, "519-ui-home-cleanup", DocMenuCases::homeCleanup);
+                    // ---- every card's rows switched on alone, Ban Reports text (mod menufix-1102) ----
+                    UiCase.run(ctx, "525-ui-menu-every-master", MasterSweepCases::everyMaster);
+                    UiCase.run(ctx, "526-ui-ban-report-text", MasterSweepCases::banReportText);
                     // ---- Lever Aura in Secret Aura + overlay Menu Themes (1420-1421) ----
                     UiCase.run(ctx, "1420-ui-secret-aura-merge", AuraThemeCases::secretAuraMerge);
                     UiCase.run(ctx, "1421-ui-overlay-themes", AuraThemeCases::overlayThemes);

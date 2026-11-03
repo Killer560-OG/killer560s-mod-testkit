@@ -349,6 +349,24 @@ final class DocMenu1101Cases {
                     }
                 }
                 c.check(!lceCard, "Left Click Etherwarp still has its own card");
+                if (!cheat) {
+                    // Cheat-only since mod menufix-1102 (killer560, 2026-11-02: "all zero ping etherwarp stuff should be
+                    // cheat only nothing in legit"): no tab, ZPEW never active, and searching zpew finds nothing.
+                    c.check(tab == null, "a legit jar has the Etherwarp tab");
+                    Mod.call(cfg, "setEnabled", true);
+                    Mod.call(cfg, "setDungeonsOnly", false);
+                    boolean active = (Boolean) Mod.call(cfg, "isActiveHere");
+                    c.check(!active, "ZPEW is active in a legit jar");
+                    Screen s = open(mc);
+                    setSearch(s, "zpew");
+                    List<String> hits = hits(s);
+                    c.note("legit: Etherwarp tab " + (tab != null) + ", ZPEW on reads active " + active + ", search zpew " + hits);
+                    c.check(hits.stream().noneMatch(h -> h.contains("Zero Ping") || h.contains("Etherwarp")),
+                            "searching zpew finds something in a legit jar: " + hits);
+                    McCompat.setScreen(mc, null);
+                    return null;
+                }
+                c.check(tab != null && (Boolean) Mod.call(tab, "isCheatOnly"), "the Etherwarp tab is not cheat-only");
                 c.check(tab != null && MenuACases.name(tab).equals("Etherwarp"),
                         "no Etherwarp card: " + (tab == null ? "none" : MenuACases.name(tab)));
                 c.check("Dungeons".equals(MenuACases.name(MenuACases.category(tab))), "the Etherwarp card is not in Dungeons");
