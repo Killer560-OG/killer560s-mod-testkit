@@ -354,8 +354,35 @@ final class LeapMenuCases {
             c.check(uni.getY() == cls.getY() || uni.getY() < cls.getY(), "the page buttons are out of order");
             c.check(ls.stream().noneMatch(l -> l.startsWith("Crystal:") || l.startsWith("S1:")),
                     "a target row is on the front page: " + ls);
-            c.check(ls.contains("Crystal Leap") && ls.contains("Block Inputs: OFF") && find(ws, "Return To") != null,
+            c.check(ls.stream().anyMatch(l -> l.startsWith("Crystal Leap")) && ls.contains("Block Inputs: OFF")
+                            && find(ws, "Return To") != null,
                     "the front page lost its leap switches or Click Behavior: " + ls);
+            if (oneSwitch()) {
+                // round 2 (killer560: "have it as a switch. if on it is auto if off it is fast"): one switch per leap
+                long switches = ls.stream().filter(l -> l.matches(".+ Leap: (ON \\(Auto\\)|OFF \\(Fast\\))")).count();
+                c.check(switches == 12 && ls.stream().noneMatch(l -> l.startsWith("Fast: ") || l.startsWith("Auto: ")),
+                        switches + " Auto/Fast leap switches (want 12, and no Fast:/Auto: rows): " + ls);
+                c.check(ls.contains("Crystal Leap: OFF (Fast)") && ls.contains("P3 Leap: ON (Auto)"),
+                        "Crystal (set Fast) and P3 (set Auto) read wrong: " + ls);
+                press(c, d, find(ws, "Door Opener Leap:"));
+                boolean[] dst = c.onClient(mc -> {
+                    Object cfg = Mod.staticCall(FLC, "getInstance");
+                    Object g = Mod.enumValue(FLC + "$LeapGroup", "DOOR");
+                    return new boolean[]{(Boolean) Mod.call(cfg, "isLeapAuto", g), (Boolean) Mod.call(cfg, "isLeapFast", g)};
+                });
+                JsonObject saved = JsonParser.parseString(Files.readString(st.file)).getAsJsonObject()
+                        .getAsJsonObject("groups").getAsJsonObject("DOOR");
+                List<AbstractWidget> now = rows(c, d);
+                AbstractWidget doorRow = find(now, "Door Opener Leap:");
+                AbstractWidget blood = find(now, "After Blood Off");
+                String after = ModScreenDriver.label(doorRow);
+                c.note("Door Opener switch press: " + after + ", auto " + dst[0] + " fast " + dst[1] + ", saved " + saved);
+                c.check(after.equals("Door Opener Leap: ON (Auto)") && dst[0] && !dst[1] && saved.get("auto").getAsBoolean()
+                        && !saved.get("fast").getAsBoolean(), "a Door Opener switch press did not make it Auto: " + after
+                        + " " + saved);
+                c.check(blood != null && blood.getY() > doorRow.getY(), "After Blood Off is not under the Door Opener switch");
+                press(c, d, doorRow);
+            }
             cardSwitch(c, d, "front");
 
             // ---- Universal page and Back ----
@@ -484,7 +511,14 @@ final class LeapMenuCases {
             JsonObject old = JsonParser.parseString(OLD).getAsJsonObject();
             JsonObject now = JsonParser.parseString(Files.readString(st.file)).getAsJsonObject();
             List<String> diff = new ArrayList<>();
+            if (oneSwitch()) {
+                // the leap modes are checked combination by combination below (one switch since round 2)
+                old.remove("groups");
+            }
             compare("", old, now, diff);
+            if (oneSwitch()) {
+                leapModeMigration(c, st.file);
+            }
             c.note("old file with per-class targets: Targets Set Class " + use + "; keys that changed after load + save: " + diff);
             c.check(use, "an old file with per-class targets set loads as Targets Universal (it applied them before)");
             c.check(diff.isEmpty(), "an old file's values changed on load + save: " + diff);
@@ -516,6 +550,58 @@ final class LeapMenuCases {
             c.check(!none, "an old file with no per-class targets loads as Set Class");
             c.check(!explicit, "a saved Targets Universal came back as Set Class");
         }
+    }
+
+    /** Round 2 (one switch per leap: on = Auto, off = Fast). */
+    static boolean oneSwitch() {
+        for (java.lang.reflect.Method m : Mod.cls(FLC).getMethods()) {
+            if (m.getName().equals("setLeapAutoMode")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Every old per-leap combination loads as the one switch and saves back consistently: the two-switch files (2026-10-13
+     * to 11-02) by their auto key, the Mode files (before 10-13) Auto only when the leap was on in Mode Auto. Both off
+     * (the leap unused) reads Fast.
+     */
+    private static void leapModeMigration(UiCase c, Path file) throws Exception {
+        String[][] combos = {
+                // groups JSON for P1, want auto
+                {"{\"fast\":false,\"auto\":false}", "false"},
+                {"{\"fast\":true,\"auto\":false}", "false"},
+                {"{\"fast\":false,\"auto\":true}", "true"},
+                {"{\"fast\":true,\"auto\":true}", "true"},
+                {"{\"enabled\":true,\"auto\":true}", "true"},
+                {"{\"enabled\":true,\"auto\":false}", "false"},
+                {"{\"enabled\":false,\"auto\":true}", "false"},
+                {"{\"enabled\":false,\"auto\":false}", "false"},
+        };
+        List<String> bad = new ArrayList<>();
+        List<String> seen = new ArrayList<>();
+        Object p1 = Mod.enumValue(FLC + "$LeapGroup", "P1");
+        for (String[] k : combos) {
+            Files.writeString(file, "{\"enabled\":true,\"groups\":{\"P1\":" + k[0] + "}}");
+            boolean[] st = c.onClient(mc -> {
+                Mod.staticCall(FLC, "load");
+                Object cfg = Mod.staticCall(FLC, "getInstance");
+                Mod.call(cfg, "save");
+                return new boolean[]{(Boolean) Mod.call(cfg, "isLeapAuto", p1), (Boolean) Mod.call(cfg, "isLeapFast", p1)};
+            });
+            JsonObject saved = JsonParser.parseString(Files.readString(file)).getAsJsonObject()
+                    .getAsJsonObject("groups").getAsJsonObject("P1");
+            boolean want = Boolean.parseBoolean(k[1]);
+            String line = k[0] + " -> " + (st[0] ? "Auto" : "Fast") + " (fast " + st[1] + "), saved " + saved;
+            seen.add(line);
+            if (st[0] != want || st[1] == want || saved.get("auto").getAsBoolean() != want
+                    || saved.get("fast").getAsBoolean() == want) {
+                bad.add(line + "; want " + (want ? "Auto" : "Fast"));
+            }
+        }
+        c.note("old leap combinations: " + seen);
+        c.check(bad.isEmpty(), "old leap combinations migrated wrong: " + bad);
     }
 
     /** Every value in {@code old} must be in {@code now} unchanged (now may hold more). */

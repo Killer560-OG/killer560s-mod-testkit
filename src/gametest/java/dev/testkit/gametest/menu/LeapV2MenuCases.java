@@ -87,6 +87,11 @@ final class LeapV2MenuCases {
             c.check(r[1] == 4, "after the leap he holds slot " + (r[1] + 1) + ", Stay on Leap keeps the leap's slot 5");
 
             // ---- 3: Fast and Auto both on: the trigger leaps, then his left click leaps too ----
+            if (Mod.has(FLC) && hasMethod(Mod.cls(FLC), "setLeapAutoMode")) {
+                c.note("mod leapmenu-1102: one switch per leap (on = Auto, off = Fast), so Fast and Auto both on is gone;"
+                        + " step 3 not run");
+                return;
+            }
             c.ctx().runOnClient(mc -> Mod.call(cfgObj, "setLeapFast", door, true));
             giveLeap(c, 0);
             c.ctx().runOnClient(mc -> {
@@ -118,6 +123,15 @@ final class LeapV2MenuCases {
         } finally {
             restore(c, file, was);
         }
+    }
+
+    static boolean hasMethod(Class<?> c, String name) {
+        for (java.lang.reflect.Method m : c.getMethods()) {
+            if (m.getName().equals(name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
