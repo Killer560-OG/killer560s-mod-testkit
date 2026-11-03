@@ -1473,3 +1473,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   list before that message. With the aimed aura every case is silent, the FLAGGED-expected ones included (0 lines).
   51's "never run into the wall" is recorded, not asserted, on a one-a-tick Multi Break jar: at Speed V a two-high wall
   needs ~1.1 digs a tick and GrimAC MultiBreak allows one (13 of 210 packets collided, both versions).
+- 1102-sound-session (`sound/SoundDisablerSuite`, mod sounddisable-1102): Sound Disabler. Server `playsound` and client
+  `playLocalSound` (play and, 15 blocks out, playDelayed); a muted sound must not reach `SoundEngine.play`
+  (`harness/SoundProbe`) while a control sent after it does, and the mod's row counter moves by one. Bonzo's Staff
+  is held by `item replace ... blaze_rod[custom_data={id:"BONZO_STAFF"}]` (also STARRED_ and a name-only staff).
