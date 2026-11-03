@@ -588,3 +588,6 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
   mixes canvas units with GUI units cannot show there: the termism-ss cases passed on the broken first fix. Any check
   of a mod screen's coordinates needs a scaled pass too (`AuctionHouseCases.setWindow(c, 1920, 1080, 2)` + Auto Scale on
   = factor 1.125), asserting the factor really is not 1 (termismss-1102, `TermismStreamSafeCases.scaledPass`).
+- A summoned entity's scoreboard `Tags` never reach the client: `Entity.getTags()` does not even exist on the client in
+  26.3's mapping (compile error, commissions-1103). Find a test's mob on the client by its custom name or position; keep
+  the tag for the server's `kill @e[tag=...]` cleanup.
