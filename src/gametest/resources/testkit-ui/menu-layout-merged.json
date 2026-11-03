@@ -28,7 +28,8 @@
     "gui.tab.SecretTab": "Dungeons > Secrets > Secret",
     "gui.tab.MaskKeybindsTab": "Dungeons > Mask Keybinds",
     "gui.tab.LuckTab": "Misc > How Lucky Are You",
-    "gui.tab.AutoSprintTab": "Misc > Auto Sprint"
+    "gui.tab.AutoSprintTab": "Misc > Auto Sprint",
+    "gui.tab.DarkModeTab": "Misc > Dark Mode"
   },
   "tooltips": [
     {
