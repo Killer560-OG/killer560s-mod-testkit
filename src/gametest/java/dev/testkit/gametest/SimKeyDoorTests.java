@@ -217,6 +217,8 @@ public class SimKeyDoorTests implements FabricClientGameTest {
         ctx.waitFor(mc -> mc.level.getBlockState(dBlock).isAir(), 400);
         ctx.waitTicks(30);
         int bloodDoor = ctx.computeOnClient(mc -> (Integer) inv(ModUnderTest.staticCall(LAYOUT, "current"), "bloodDoor"));
+        boolean bloodLocked = ctx.computeOnClient(mc -> bloodDoor >= 0
+                && (Boolean) inv(ModUnderTest.staticCall(LAYOUT, "current"), "isLocked", bloodDoor));
         String err = null;
         int next2 = -2;
         try {
@@ -230,11 +232,14 @@ public class SimKeyDoorTests implements FabricClientGameTest {
         String pick2 = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(FEATURE, "lastPick"));
         List<double[]> fb = ctx.computeOnClient(mc -> boxes());
         boolean xGreen = colorAt(fb, xBlock, GREEN);
-        row(R_FALLBACK, err == null && opened && next2 == bloodDoor && bloodDoor >= 0 && keyIdx2 == p.decoyDoor
-                        && "distance".equals(pick2) && xGreen,
-                "door to open opened " + opened + "; nextDoor " + next2 + " (the Blood door is " + bloodDoor + ", locked), error "
-                        + err + "; key color falls back to the nearest wither door by distance: keyDoorIdx " + keyIdx2
-                        + " (decoy " + p.decoyDoor + "), lastPick '" + pick2 + "', its box green " + xGreen);
+        // The Blood door answers while it is locked (not a wither door: the key color then falls back to the nearest wither
+        // door by distance); a sim Blood door that is not shut yet leaves BloodRush its own fallback, the nearest wither
+        // door by walking path - here the decoy, the only wither door left ("path").
+        boolean sane = bloodLocked ? next2 == bloodDoor && "distance".equals(pick2) : next2 == p.decoyDoor && "path".equals(pick2);
+        row(R_FALLBACK, err == null && opened && sane && keyIdx2 == p.decoyDoor && xGreen,
+                "door to open opened " + opened + "; nextDoor " + next2 + " (the Blood door is " + bloodDoor + ", locked "
+                        + bloodLocked + "), error " + err + "; keyDoorIdx " + keyIdx2 + " (decoy " + p.decoyDoor
+                        + "), lastPick '" + pick2 + "', its box green " + xGreen);
     }
 
     // ------------------------------------------------------------------------------------------------- reading
