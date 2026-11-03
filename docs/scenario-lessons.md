@@ -1492,3 +1492,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   while it is the open one, so `item replace ... armor.head` + waiting for the client helmet times out until the menu
   closes (1889 cleanup, maskswap-1102). Close the menu first. The /stats fake (`equipHelmet`) broadcasts it itself;
   1889 also holds the client helmet stale on purpose, which is what Hypixel's /stats evidently does.
+
+- Finding every key row in the menu (1103, keybindmouse-1102): there is no marker class, so the case real-clicks every
+  "Name: value" SettingsButtonWidget that is not ON/OFF, not cycling and not on the deny list, in every drawer as it opens
+  and again with its switch on, and counts it a key row when `ModScreen.isCapturingKey()` turns true. Every file under
+  config/killer560 is snapshotted first and restored (plus `ProfileManager.reloadAllConfigs`) after each drawer, since the
+  non-key clicks change settings. "Saved" is checked generically: a file that changed contains -103 (Mouse 4). Measured on
+  mod fddf98be6: 291 key rows cheat (26.3 and 26.2), 205 legit, about 150 s.

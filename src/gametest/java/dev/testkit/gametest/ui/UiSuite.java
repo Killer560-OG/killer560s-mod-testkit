@@ -482,6 +482,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : DocMenu1101Cases.CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : KeybindMouseCases.CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -498,7 +501,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES) || any(TRAIL_HUD_CASES)
                 || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES) || any(SOUND_DESC_CASES) || any(MAP_OVERHAUL_CASES)
                 || any(TRAJECTORY_CASES) || any(MOB_SKIN_CASES) || any(PREDICT_IN_MAP_CASES)
-                || any(DocMenu1101Cases.CASES);
+                || any(DocMenu1101Cases.CASES) || any(KeybindMouseCases.CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -933,6 +936,9 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1101-ui-docmenu-keybind", DocMenu1101Cases::keybind);
                     UiCase.run(ctx, "1101-ui-docmenu-etherwarp", DocMenu1101Cases::etherwarp);
                     UiCase.run(ctx, "1101-ui-docmenu-video-browser", DocMenu1101Cases::videoBrowser);
+                    // ---- every key row takes a mouse button (mod keybindmouse-1102, KeybindMouseCases) ----
+                    UiCase.run(ctx, KeybindMouseCases.WALK, c -> KeybindMouseCases.walk(c, deny));
+                    UiCase.run(ctx, KeybindMouseCases.GAME, KeybindMouseCases::game);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
