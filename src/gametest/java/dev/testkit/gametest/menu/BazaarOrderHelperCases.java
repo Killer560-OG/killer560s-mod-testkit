@@ -32,6 +32,7 @@ final class BazaarOrderHelperCases {
     /** Opaque outline colors the case sets (the fill keeps the alpha given). */
     private static final int OUTBID = 0xFF00FF;
     private static final int FILLED = 0x00FFFF;
+    private static final int EXPIRED = 0xFFFF00;
 
     private BazaarOrderHelperCases() {
     }
@@ -74,6 +75,9 @@ final class BazaarOrderHelperCases {
                 "50.0"));
         slots.add("15", order("minecraft:diamond", "§6§lSELL §aEnchanted Diamond", "§7Offer amount: §a32§7x", null,
                 "1,300.0"));
+        // Owner 2026-11-03: an expired order is red (its own Expired Color), never the outbid one.
+        slots.add("16", order("minecraft:wheat", "§a§lBUY §fWheat", "§7Order amount: §a500§7x", null, "1.5",
+                "", "§cExpired!"));
         JsonObject back = new JsonObject();
         back.addProperty("item", "minecraft:arrow");
         back.addProperty("name", "§aGo Back");
@@ -235,6 +239,8 @@ final class BazaarOrderHelperCases {
             cfg.set(CFG, "HighlightFilled", true);
             cfg.set(CFG, "OutbidColor", 0x60000000 | OUTBID);
             cfg.set(CFG, "FilledColor", 0x60000000 | FILLED);
+            cfg.set(CFG, "HighlightExpired", true);
+            cfg.set(CFG, "ExpiredColor", 0x60000000 | EXPIRED);
             int clicksBefore = c.events("container.click").size();
             feedPrices(c, 5_000L);
 
@@ -245,6 +251,11 @@ final class BazaarOrderHelperCases {
             c.ctx().waitTicks(4);
 
             expect(c, "fresh", List.of(10, 11), List.of(12, 13));
+            String ex = outlines(c, "expired").get(16);
+            c.check(String.format("%06X", EXPIRED).equals(ex), "expired order outline " + ex + ", want "
+                    + String.format("%06X", EXPIRED));
+            String tExpired = tooltip(c, 16);
+            c.check(tExpired.contains("Order Helper: Expired"), "expired tooltip: " + tExpired);
 
             String tWheat = tooltip(c, 12);
             String tGold = tooltip(c, 13);
