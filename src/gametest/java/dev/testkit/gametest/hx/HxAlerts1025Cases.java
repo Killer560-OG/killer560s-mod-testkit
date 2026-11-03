@@ -46,7 +46,9 @@ final class HxAlerts1025Cases {
         net.minecraft.core.BlockPos chest = new net.minecraft.core.BlockPos(-417, 151, -422);
         c.server().command("setblock -417 151 -422 minecraft:chest");
         try (Settings set = new Settings(c).with(ALERTS_CFG, "SecretClickedEnabled", true)
-                .with(ALERTS_CFG, "SecretClickedLockedSound", false)) {
+                .with(ALERTS_CFG, "SecretClickedLockedSound", false)
+                // secretfade-1102: the gold box on a secret simply taken is behind Box On Every Secret (off by default).
+                .with(ALERTS_CFG, "SecretClickedTakenBox", true)) {
             dungeon(c);
             c.waitUntil("the client sees the chest", mc -> mc.level.getBlockState(chest).getBlock() == net.minecraft.world.level.block.Blocks.CHEST, 60);
             run(c, () -> Mod.staticCall(CLICKED, "onWorldChange"));

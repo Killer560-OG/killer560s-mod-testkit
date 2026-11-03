@@ -1505,3 +1505,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   already sees. The first version failed "counter on the tick the next set is on a tower: 2/2" though the mod reset it in
   the same tick; the reset now runs on the add-entity packet. Assert the reset's own log line names the real signal
   ("crystal on a tower"), not the 44-tick backstop.
+
+- 96-ar-1102-secrettaken: an ItemEntity added on the integrated server in the sim did not show up on the client under
+  the server's entity id (`mc.level.getEntity(serverId)` never went null while the mod logged "item entity 3 picked
+  up"), and one spawned inside a block is pushed out of it. Find a sim item on the client by place (8 blocks), not id.
