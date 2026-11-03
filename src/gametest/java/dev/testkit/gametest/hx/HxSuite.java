@@ -91,6 +91,9 @@ public class HxSuite implements FabricClientGameTest {
                     // To-do Doc items of 2026-11-01: Score Warning, split Counting, Core Entry, Livid, Blessings Boss
                     // Only, Trigger lines, locked chests and chest drops, Door Keys (1101-dhud-*, mod doc-dhud-1101).
                     HxDocDhud1101Cases.register(s);
+                    // Split Timers chat colors from the HUD, Core Entry reads 0 for players already inside
+                    // (1102-splitchat-*, mod branch splitchat-1102), own block.
+                    HxSplitChat1102Cases.register(s);
                     // ScoreboardData with Custom Scoreboard off; Auto GFS's Dungeons/Kuudra gate (1026-hx-sbdata-*, mod
                     // open-key-1026), own block.
                     HxSbData1026Cases.register(s);

@@ -1569,3 +1569,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   `killAt - triggerAt` across two trips: `killAt` (ping in ticks) read -0.2 on one trip and -1.2 on the next. Under heavy
   machine load (2026-11-02, two FROZEN slow server starts the same hour) 186's server gaps read [10, 10, 10, 9]; idle, all 10.
   1101-bloodcamp-teleport-step once predicted its landing 16 blocks the wrong way on 26.2 late in a session; it passed on rerun.
+
+- 1102-splitchat-colors / -core0 / -core0ticks (HxSplitChat1102Cases, mod splitchat-1102): colors feeds a whole F7 run to
+  `SplitTimersFeature.onLine` at exact times and compares every chat segment name's color (`Component.visit`) with the
+  color of the same row's label in `layoutRows` (20 names: each "X took Y!" and the summary). core0 puts the client and a
+  client-side RemotePlayer HxMateA in the core before "The Core entrance is opening!" (both must read exactly 0) and moves
+  HxMateB in once 1000 ms have passed since `openedMs`, from a tick poll (lands 1000-1050 ms). On batch N's jar core0 reads
+  the client and HxMateA at a tick, not 0.
