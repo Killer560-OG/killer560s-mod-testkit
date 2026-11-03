@@ -29,6 +29,8 @@
     "gui.tab.MiningPowderGhastTab": "Mining > Powder Ghast",
     "gui.tab.MiningResumeBreakTab": "Mining > Resume Held Break After Menus",
     "gui.tab.MiningTitaniumTab": "Mining > Titanium Highlight",
+    "gui.tab.MiningWrongArmorTab": "Mining > Wrong Armor Alert",
+    "gui.tab.ArmorHudTab": "Items > Armor HUD",
     "gui.tab.SecretTab": "Dungeons > Secrets > Secret",
     "gui.tab.MaskKeybindsTab": "Dungeons > Mask Keybinds",
     "gui.tab.LuckTab": "Misc > How Lucky Are You",
