@@ -3,6 +3,7 @@ package dev.testkit.gametest.hx;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import dev.testkit.compat.McCompat;
 import dev.testkit.gametest.mod.Mod;
 
 import java.util.ArrayList;
@@ -18,6 +19,9 @@ import static dev.testkit.gametest.hx.HxKit.*;
  *       60-tick cycle from his line; with the hits 30 ticks off that phase (his report: "it procced my mask at like 1.5s
  *       instead of at 0") it re-locks on the second hit and reads 0 on every hit after. The hits are real
  *       {@code damage} commands; the mod sees them only as its health dropping.</li>
+ *   <li>1103-hx-terminal-hud: a Hypixel terminal menu (killer560, 2026-11-03: "dont hide stuff inside of the terminal menu
+ *       (hud wise)") leaves the in-game HUD drawing - the HUD layer's heartbeat keeps advancing and Tick Timers still has
+ *       its line - while a plain chest still hides it.</li>
  *   <li>1102-hx-storm-line: Storm's line is ONE line through the fight - "Lightning:" from his opening line, "Purple:" once
  *       the lightning line arrives, "Yellow:" after the first crush, gone on his death - and no Pad / Storm / PY / Crush
  *       line is ever drawn; the purple timer reads 0 every 20 server ticks.</li>
@@ -37,6 +41,7 @@ final class HxF7HudCases {
     static void register(Session s) {
         goldorTick(s);
         stormLine(s);
+        terminalHud(s);
     }
 
     private static JsonObject step(int at, String chat, float damage) {
@@ -103,48 +108,122 @@ final class HxF7HudCases {
                 c.server().command("effect give " + self + " minecraft:instant_health 1 4 true");
                 c.ctx().waitTicks(20);
 
-                // (a) Hits on Goldor's cycle: line at 5, hits 60, 120, 180, 240 ticks after it.
+                // (a) Hits on Goldor's cycle as his real run showed it (2026-11-03): the first hit 42 ticks after the line,
+                // then every 60: the Tick reads 0 at the FIRST hit too. Line at 5, hits at 47, 107, 167, 227.
                 run(c, () -> Mod.staticCall(TT, "resetAll"));
                 List<JsonObject> steps = new ArrayList<>();
                 steps.add(step(5, GOLDOR, 0f));
-                for (int k = 1; k <= 4; k++) {
-                    steps.add(step(5 + 60 * k, null, 1f));
+                for (int k = 0; k < 4; k++) {
+                    steps.add(step(47 + 60 * k, null, 1f));
                 }
-                timeline(c, self, steps, 245);
+                timeline(c, self, steps, 235);
                 List<Integer> a = offsets(c);
                 c.note("(a) in phase, offsets at the hits: " + a + ", re-locks " + c.onClient(mc -> Mod.staticCall(GT, "testRelocks")));
                 c.check(a.size() == 4, "(a) 4 hits seen from the health drops, saw " + a.size() + ": " + a);
-                c.check(a.stream().allMatch(o -> Math.abs(o) <= tol), "(a) the Tick read 0 (+-" + tol + " tick) at every hit: " + a);
+                c.check(a.stream().allMatch(o -> Math.abs(o) <= tol), "(a) the Tick read 0 (+-" + tol + " tick) at every hit, the first included: " + a);
+                c.check(c.onClient(mc -> (Integer) Mod.staticCall(GT, "testRelocks")) == 0, "(a) nothing needed a re-lock");
 
                 c.hx().chat("The Core entrance is opening!");
                 c.server().command("effect give " + self + " minecraft:instant_health 1 4 true");
                 c.ctx().waitTicks(20);
 
-                // (b) Hits 30 ticks off the line's phase: line at 5, hits 35, 95, 155, 215.
+                // (b) His 2026-11-03 log, replayed: hits 18 ticks LATER than the start phase (line + 60, the old start; the mod
+                // logged "-18 ticks off"). ONE hit must re-lock it, and the next three read 0. Line at 5, hits 65, 125, 185, 245.
                 run(c, () -> Mod.staticCall(TT, "resetAll"));
                 steps = new ArrayList<>();
                 steps.add(step(5, GOLDOR, 0f));
                 for (int k = 0; k < 4; k++) {
-                    steps.add(step(35 + 60 * k, null, 1f));
+                    steps.add(step(65 + 60 * k, null, 1f));
                 }
-                timeline(c, self, steps, 215);
+                timeline(c, self, steps, 250);
                 List<Integer> b = offsets(c);
                 int relocks = c.onClient(mc -> (Integer) Mod.staticCall(GT, "testRelocks"));
-                c.note("(b) 30 ticks off, offsets at the hits: " + b + ", re-locks " + relocks);
+                c.note("(b) 18 ticks off the start phase, offsets at the hits: " + b + ", re-locks " + relocks);
                 c.check(b.size() == 4, "(b) 4 hits seen, saw " + b.size() + ": " + b);
                 if (b.size() == 4) {
-                    c.check(Math.abs(b.get(0)) >= 28 && Math.abs(b.get(1)) >= 28, "(b) the first two hits were ~30 off: " + b);
+                    c.check(Math.abs(b.get(0)) >= 12, "(b) the first hit was ~18 off the start phase: " + b);
                     // The re-lock anchors on a hit that was itself seen within 1 tick, so a later hit can read 2 from it.
                     int tolB = hypixelLike ? 2 : tol;
-                    c.check(Math.abs(b.get(2)) <= tolB && Math.abs(b.get(3)) <= tolB, "(b) after the re-lock the Tick read 0 (+-" + tolB + ") at each hit: " + b);
+                    c.check(Math.abs(b.get(1)) <= tolB && Math.abs(b.get(2)) <= tolB && Math.abs(b.get(3)) <= tolB,
+                            "(b) after the ONE re-lock the Tick read 0 (+-" + tolB + ") at each hit: " + b);
                 }
                 c.check(hypixelLike ? relocks == 1 : relocks >= 1, "(b) re-locked (once with per-tick pings), got " + relocks);
                 String line = c.onClient(mc -> String.valueOf(Mod.staticCall(GT, "remaining")));
                 c.note("(b) remaining after the run: " + line);
+
+                c.hx().chat("The Core entrance is opening!");
+                c.server().command("effect give " + self + " minecraft:instant_health 1 4 true");
+                c.ctx().waitTicks(20);
+
+                // (c) A stray hit 10 ticks after the line (fall damage, a mob) is not Goldor's first and locks nothing.
+                run(c, () -> Mod.staticCall(TT, "resetAll"));
+                steps = new ArrayList<>();
+                steps.add(step(5, GOLDOR, 0f));
+                steps.add(step(15, null, 1f));
+                timeline(c, self, steps, 30);
+                boolean lockedAfterStray = c.onClient(mc -> (Boolean) Mod.staticCall(GT, "testLocked"));
+                c.note("(c) after a stray hit 10 ticks after the line: locked " + lockedAfterStray + ", hits seen " + offsets(c));
+                c.check(!lockedAfterStray, "(c) a hit 10 ticks after the line does not fix the phase");
             } finally {
                 c.hx().chat("The Core entrance is opening!");
                 c.hx().call("boss.pertickping", "player", self(c), "on", false);
                 c.server().command("effect give " + self(c) + " minecraft:instant_health 1 4 true");
+                run(c, () -> Mod.staticCall(TT, "resetAll"));
+            }
+        });
+    }
+
+    // ---- 1103-hx-terminal-hud -------------------------------------------------------------------------------------
+
+    private static long liveFrame(Session c) {
+        return c.onClient(mc -> (Long) Mod.staticCall("hud.HudSeen", "lastLiveFrameMs"));
+    }
+
+    private static boolean hudDrawsFor(Session c, int ticks) {
+        long before = liveFrame(c);
+        c.ctx().waitTicks(ticks);
+        return liveFrame(c) > before;
+    }
+
+    private static void terminalHud(Session s) {
+        s.test("1103-hx-terminal-hud", c -> {
+            dungeon(c);
+            try (Settings st = new Settings(c)) {
+                st.with(TTC, "Enabled", true).with(TTC, "GoldorTimer", true).with(TTC, "GoldorShowTotal", false);
+                run(c, () -> Mod.staticCall(TT, "resetAll"));
+                c.hx().chat(GOLDOR);
+                c.waitUntil("Goldor's Tick is running", mc -> (Boolean) Mod.staticCall(GT, "active"), 60);
+                c.check(hudDrawsFor(c, 10), "control: with no menu open the HUD layer draws");
+                c.check(!c.onClient(mc -> (Boolean) Mod.staticCall("hud.HudVisibility", "menuOpen")), "control: no menu, not open");
+
+                // A plain chest hides the HUD (unchanged).
+                c.hx().call("menu.show", "title", "Chest", "rows", 3);
+                c.waitUntil("the chest is open", mc -> (Boolean) Mod.staticCall("hud.HudVisibility", "menuOpen"), 60);
+                c.check(!hudDrawsFor(c, 10), "a plain chest hides the HUD layer");
+                c.check(c.onClient(mc -> (Boolean) Mod.staticCall("hud.HudVisibility", "hidesHud")), "a plain chest: hidesHud");
+                c.hx().call("menu.close");
+                c.waitUntil("the chest closed", mc -> !(Boolean) Mod.staticCall("hud.HudVisibility", "menuOpen"), 60);
+
+                // Every terminal type keeps it.
+                for (String type : new String[]{"NUMBERS", "PANES", "RUBIX", "STARTS_WITH", "SELECT", "MELODY"}) {
+                    c.hx().call("menu.terminal", "type", type, "seed", 5);
+                    c.waitUntil(type + " terminal screen open", mc -> McCompat.screen(mc) != null, 60);
+                    c.ctx().waitTicks(5);
+                    boolean open = c.onClient(mc -> (Boolean) Mod.staticCall("hud.HudVisibility", "menuOpen"));
+                    boolean hides = c.onClient(mc -> (Boolean) Mod.staticCall("hud.HudVisibility", "hidesHud"));
+                    boolean draws = hudDrawsFor(c, 10);
+                    boolean tickLine = !c.onClient(mc -> (List<?>) Mod.call(Mod.staticCall("hud.HudElementRegistry", "byId", "tick_timers"),
+                            "activeLines")).isEmpty();
+                    c.note(type + ": menuOpen " + open + ", hidesHud " + hides + ", HUD layer drew " + draws + ", Tick Timers line " + tickLine);
+                    c.check(!open && !hides, type + " terminal: the HUD is not hidden");
+                    c.check(draws, type + " terminal: the HUD layer keeps drawing");
+                    c.check(tickLine, type + " terminal: Tick Timers still has its line");
+                    c.hx().call("menu.close");
+                    c.waitUntil(type + " closed", mc -> McCompat.screen(mc) == null, 60);
+                }
+            } finally {
+                c.hx().chat("The Core entrance is opening!");
+                c.hx().call("menu.close");
                 run(c, () -> Mod.staticCall(TT, "resetAll"));
             }
         });
