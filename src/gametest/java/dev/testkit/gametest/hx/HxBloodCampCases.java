@@ -511,9 +511,7 @@ final class HxBloodCampCases {
                     });
                 }
                 stand(c, 0f, 0f);
-                // One hit kills it: since bloodcamp2-1102 run 3 a mob that survives a hit is clicked again (1102-bloodcamp-
-                // hit-alive), and this case measures the first click only.
-                Trip t = trip(c, Mob.FRAGILE, true, 20, null);
+                Trip t = trip(c, Mob.HURTABLE, true, 20, null);
                 c.note("offset " + off + ": " + fmt(t));
                 c.check(t.tracked, "offset " + off + ": the trip was never tracked");
                 c.check(!Double.isNaN(t.killAt), "offset " + off + ": the kill timer never went off");
@@ -521,8 +519,11 @@ final class HxBloodCampCases {
                     c.check(t.clicks == 0 && t.serverAttacks.isEmpty(), "legit jar: the Trigger Bot clicked");
                     continue;
                 }
-                c.check(t.clicks == 1 && t.attacks == 1, "offset " + off + ": want one attack, got " + t.clicks
-                        + " click(s), " + t.attacks + " attack(s)");
+                // One click on time, never retried as a miss. Since bloodcamp2-1102 run 3 a mob that survives the hit (this
+                // husk does: a fist does 1 of its 20) is clicked again after its hurt flash, at the weapon's 10 ticks.
+                c.check(t.attacks >= 1 && t.retries == 0 && gaps(t.serverAttacks).stream().allMatch(g -> g >= 10),
+                        "offset " + off + ": want one attack on time and no miss retry, got " + t.clicks + " click(s), "
+                                + t.retries + " retries, attack gaps " + gaps(t.serverAttacks));
                 double late = t.killAt - t.triggerAt;
                 c.check(Math.abs(late - off) < 0.01, String.format(Locale.ROOT,
                         "offset %d: the click went %.1f ticks after the kill timer, want %d", off, late, off));
