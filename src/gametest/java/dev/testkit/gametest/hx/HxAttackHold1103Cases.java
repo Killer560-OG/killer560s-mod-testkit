@@ -46,6 +46,44 @@ final class HxAttackHold1103Cases {
         s.test("1103-mining-hold-released", c -> run(c, true, true));
         s.test("1103-mining-hold-off", c -> run(c, false, false));
         s.test("1103-mining-hold-dump", HxAttackHold1103Cases::dump);
+        s.test("1103-mining-hold-stuck", HxAttackHold1103Cases::stuck);
+    }
+
+    /** Held left click on a block that never breaks, no screen: the STUCK DIG line fires once; idle time fires nothing. */
+    private static void stuck(Session c) {
+        BlockPos ob = null;
+        WireCapture.describe = p -> p instanceof ServerboundPlayerActionPacket a
+                ? a.getAction() + " " + a.getPos().toShortString() : p.getClass().getSimpleName();
+        try {
+            mines(c);
+            ob = setUp(c);
+            c.server().command("setblock " + ob.getX() + " " + ob.getY() + " " + ob.getZ() + " minecraft:bedrock");
+            c.ctx().waitTicks(5);
+            c.ctx().runOnClient(mc -> Mod.staticCall(PROBE, "resetDumpGapForTest"));
+            int before = intCall(c, PROBE, "stallLines");
+            // Control: nothing held for longer than the stall time logs nothing.
+            c.ctx().waitTicks(120);
+            c.check(intCall(c, PROBE, "stallLines") == before, "a stuck dig was logged with nothing held");
+            WireCapture.start();
+            press(c);
+            String dig = "START_DESTROY_BLOCK " + ob.toShortString();
+            c.waitUntil("the held dig starts", mc -> wire().stream().anyMatch(w -> w.contains(dig)), 20);
+            c.waitUntil("the stuck dig was logged", mc -> ((Number) Mod.staticCall(PROBE, "stallLines")).intValue() == before + 1,
+                    160);
+            c.ctx().waitTicks(120);
+            c.check(intCall(c, PROBE, "stallLines") == before + 1, "the same stuck block was logged twice");
+            c.check(c.onClient(mc -> McCompat.screen(mc) == null), "a screen was open (the case is about no screen)");
+            c.note("stuck dig logged once on bedrock at " + ob.toShortString() + " after a real START_DESTROY");
+        } finally {
+            WireCapture.stop();
+            WireCapture.describe = null;
+            release(c);
+            if (ob != null) {
+                c.server().command("setblock " + ob.getX() + " " + ob.getY() + " " + ob.getZ() + " minecraft:air");
+            }
+            c.hx().give(0, "minecraft:air");
+            hub(c);
+        }
     }
 
     private static void mines(Session c) {
