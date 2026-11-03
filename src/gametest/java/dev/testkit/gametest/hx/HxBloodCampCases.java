@@ -511,7 +511,9 @@ final class HxBloodCampCases {
                     });
                 }
                 stand(c, 0f, 0f);
-                Trip t = trip(c, Mob.HURTABLE, true, 20, null);
+                // One hit kills it: since bloodcamp2-1102 run 3 a mob that survives a hit is clicked again (1102-bloodcamp-
+                // hit-alive), and this case measures the first click only.
+                Trip t = trip(c, Mob.FRAGILE, true, 20, null);
                 c.note("offset " + off + ": " + fmt(t));
                 c.check(t.tracked, "offset " + off + ": the trip was never tracked");
                 c.check(!Double.isNaN(t.killAt), "offset " + off + ": the kill timer never went off");
@@ -771,9 +773,11 @@ final class HxBloodCampCases {
                 c.check(gap >= 2 && gap <= 12, "the retry came " + gap + " ticks after the first attack, want right after"
                         + " the hit window (a round trip + 4 ticks)");
             }
-            c.check(hit.clicks == 1 && hit.retries == 0 && hit.serverAttacks.size() == 1,
-                    "a hit that landed was clicked again: " + hit.clicks + " click(s), " + hit.serverAttacks.size()
-                            + " attack(s)");
+            // A hit that landed is never RETRIED as a miss; since bloodcamp2-1102 run 3 a mob that survives it is clicked
+            // again, but only once its hurt flash is over (10 ticks), never as a miss retry 2-4 ticks later.
+            c.check(hit.retries == 0 && !hit.serverAttacks.isEmpty() && gaps(hit.serverAttacks).stream().allMatch(g -> g >= 10),
+                    "a hit that landed was retried as a miss: " + hit.clicks + " click(s), " + hit.retries + " retries, attack"
+                            + " gaps " + gaps(hit.serverAttacks));
         } finally {
             c.hx().removeStands();
         }
