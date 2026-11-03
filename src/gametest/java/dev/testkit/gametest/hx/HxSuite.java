@@ -113,6 +113,8 @@ public class HxSuite implements FabricClientGameTest {
                     // Pickobulus timer and Commission HUD progress between tab refreshes (1103-mining-pick-timer,
                     // 1103-mining-com-progress*, mod mithril-interp-1103).
                     HxMiningInterp1103Cases.register(s);
+                    // Commission Route, Walk / AOTE / Etherwarp (1103-mining-route-*, mod comroute-1103).
+                    HxCommissionRoute1103Cases.register(s);
                     // Commission Mob Style and no range (1103-mining-mob-*, mod mithril-mobs-1103).
                     HxCommissionMobs1103Cases.register(s);
                     // Resume Held Break After Menus and the AttackHold dump (1103-mining-hold-*, mod mithril-hold-1103).
@@ -131,6 +133,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxDarkMode1102Cases.register(s);
                     HxStutterCases.register(s);
                     HxBossHealthCases.register(s);
+                    // 1103-kickrejoin-*: Kick Rejoin Timer (mod kickhub-1103).
+                    HxKickRejoin1103Cases.register(s);
                 });
     }
 }
