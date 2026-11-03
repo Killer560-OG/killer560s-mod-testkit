@@ -313,11 +313,11 @@ final class ArmorHud1103Cases {
             c.ctx().runOnClient(mc -> Mod.set(MQ, "setWrongArmor", false));
             c.waitUntil("the alert gone with the switch off", mc -> !(Boolean) Mod.staticCall(WA, "showing"), 20);
             silent(c, "switch off", "off", 20);
-            // No mining tool.
-            c.ctx().runOnClient(mc -> Mod.set(MQ, "setWrongArmor", true));
+            // No mining tool: the sword in hand first, then the switch back on (still digging, still the wrong armor).
             c.server().command("item replace entity @a weapon.mainhand with " + stack("diamond_sword", "HYPERION"));
             c.waitUntil("the sword in hand", mc -> "HYPERION".equals(Mod.staticCall("cheatutils.CheatUtils",
                     "skyblockId", mc.player.getMainHandItem())), 60);
+            c.ctx().runOnClient(mc -> Mod.set(MQ, "setWrongArmor", true));
             silent(c, "holding a sword", "no mining tool", 20);
             notes.add("silent in a Goblin set, mixed sets, not digging, the Hub, switch off, a sword");
             c.note(String.join("; ", notes));
