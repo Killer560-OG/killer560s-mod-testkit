@@ -1563,3 +1563,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   `hx().stand(...)` gets the next id (Watcher #260, eye #261), which is how a mob "spawned with the Watcher" is built. A
   trip's skull is removed mid-trip with `nextRemoveStandAt`; mobs placed beside a landing spot go 1.5 blocks across his line
   to it, inside the 2-block landing search and out of the line of fire (0.3 + 0.6), so only the tagging decides.
+- nevermiss-1102 (`1102-bloodcamp-nevermiss-*`, run with `100-hx-session:,1102-bloodcamp-nevermiss`): the tick a click went is
+  judged by `BloodCampFeature.lastFirstClickForTest()` against the mob's `taggedAt` (equal = the first client tick it existed)
+  and by the server's attack tick against the summon's `server.tick` (+1, +2 with jitter). Never judge an offset by
+  `killAt - triggerAt` across two trips: `killAt` (ping in ticks) read -0.2 on one trip and -1.2 on the next. Under heavy
+  machine load (2026-11-02, two FROZEN slow server starts the same hour) 186's server gaps read [10, 10, 10, 9]; idle, all 10.
+  1101-bloodcamp-teleport-step once predicted its landing 16 blocks the wrong way on 26.2 late in a session; it passed on rerun.

@@ -100,6 +100,13 @@ final class HxBloodCampCases {
         s.test("1102-bloodcamp-missed-box", HxBloodCampCases::missedBox);
         s.test("1102-bloodcamp-trip-steal", HxBloodCampCases::tripSteal);
         s.test("1102-bloodcamp-hit-alive", HxBloodCampCases::hitAlive);
+
+        // nevermiss-1102 (owner 2026-11-03): Never Miss ON = no Trigger Offset, no kill timer, attack the tick after spawn.
+        s.test("1102-bloodcamp-nevermiss-offset", HxBloodCampCases::neverMissOffset);
+        s.test("1102-bloodcamp-nevermiss-killtimer", HxBloodCampCases::neverMissKillTimer);
+        s.test("1102-bloodcamp-nevermiss-offspot", HxBloodCampCases::neverMissOffSpot);
+        s.test("1102-bloodcamp-nevermiss-rehit", HxBloodCampCases::neverMissRehit);
+        s.test("1102-bloodcamp-nevermiss-tab", HxBloodCampCases::neverMissTab);
         s.test("1101-esp-fels", HxBloodCampCases::fels);
         s.test("1101-esp-starred-memory", HxBloodCampCases::starredMemory);
         s.test("1101-esp-mimic", HxBloodCampCases::mimic);
@@ -239,6 +246,8 @@ final class HxBloodCampCases {
     /** Set before a trip: the server removes its skull stand at this tick of the trip (bloodcamp2-1102: Hypixel removes the
      *  skull around when the mob appears), null = at the end. */
     private static Integer nextRemoveStandAt;
+    /** Set before a trip: its husk is summoned (and aimed at) this many blocks along +x from the predicted landing spot. */
+    private static Double nextSummonDx;
     private static long lastSummonTick = -1;
     private static int lastClicksBeforeSummon = -1;
 
@@ -370,6 +379,8 @@ final class HxBloodCampCases {
         nextRemoveStandAt = null;
         String huskName = nextHuskName == null ? "blood" : nextHuskName;
         nextHuskName = null;
+        double summonDx = nextSummonDx == null ? 0.0 : nextSummonDx;
+        nextSummonDx = null;
         String uuid = c.hx().stand(x0 - (tpStep == null ? 0.0 : tpStep), 151.0, -417.5, null, "marker", false, "invisible",
                 false, "helmet", head(mobTex));
         long firstTick = -1;
@@ -399,7 +410,7 @@ final class HxBloodCampCases {
             lastSummonTick = -1;
             lastClicksBeforeSummon = -1;
             int summonAt = delay == null ? 0 : Math.max(0, (int) Math.ceil(due) - 3 + delay);
-            Vec3 chest = end.add(0, 1.4, 0);
+            Vec3 chest = end.add(summonDx, 1.4, 0);
             int ticks = (int) Math.ceil(due) + extra;
             for (int i = 0; i < ticks; i++) {
                 final int tick = i;
@@ -413,7 +424,7 @@ final class HxBloodCampCases {
                     lastClicksBeforeSummon = intStat(c, "triggerClicks") - clicks0;
                     c.server().command(String.format(Locale.ROOT, "summon husk %.3f %.3f %.3f {Tags:[\"bc1015\"],NoAI:1b,"
                                     + "NoGravity:1b,CustomName:\"%s\",Silent:1b,PersistenceRequired:1b,Health:%s%s}",
-                            end.x, end.y, end.z, huskName, mob == Mob.FRAGILE ? "1f" : mob == Mob.WEAK ? "3f" : "20f", mob == Mob.INVULNERABLE ? ",Invulnerable:1b" : ""));
+                            end.x + summonDx, end.y, end.z, huskName, mob == Mob.FRAGILE ? "1f" : mob == Mob.WEAK ? "3f" : "20f", mob == Mob.INVULNERABLE ? ",Invulnerable:1b" : ""));
                     lastSummonTick = c.hx().call("server.tick").getAsLong();
                 }
                 Object[] r = c.onClient(mc -> {
@@ -2641,6 +2652,218 @@ final class HxBloodCampCases {
         } finally {
             nextServerStep = null;
             nextSummonDelay = null;
+        }
+    }
+
+    // ---- nevermiss-1102 ---------------------------------------------------------------------------------------------
+    // killer560, 2026-11-03: "it shouldn't control it. if never miss is on then it should just attack the tick after it
+    // spawns." With Never Miss ON: no Trigger Offset, no kill timer, no landing-spot wait; the Trigger Offset row is
+    // hidden. Each case measures the tick: the mod's first click on the mob against the tick Blood Camp tagged it (the
+    // first client tick it existed, testkit 1102-bloodcamp-tag-latency), and the server's attack against its summon tick.
+
+    /** The mod's last first click: {mob id, click tick, the tick that mob was tagged}. */
+    private static long[] firstClick(Session c) {
+        return c.onClient(mc -> (long[]) Mod.staticCall(BC, "lastFirstClickForTest"));
+    }
+
+    private static void setNeverMiss(Session c, boolean on, int offset) {
+        c.onClient(mc -> {
+            Mod.call(Mod.cfg(BC_CFG), "setNeverMiss", on);
+            Mod.call(Mod.cfg(BC_CFG), "setTriggerOffsetTicks", offset);
+            return null;
+        });
+    }
+
+    /** Never Miss ON at Trigger Offset -5, 0 and +5: the same attack tick every time, never before the mob; OFF: shifted. */
+    private static void neverMissOffset(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            watcher(c, WATCHER_IN);
+            if (!cheat) {
+                stand(c, 0f, 0f);
+                Trip t = trip(c, Mob.HURTABLE, true, 20, null);
+                c.check(t.tracked, "legit: the trip was never tracked");
+                c.check(t.clicks == 0 && t.serverAttacks.isEmpty(), "legit jar: the Trigger Bot clicked");
+                return;
+            }
+            s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "NeverMiss", true);
+            List<Long> lags = new ArrayList<>();
+            for (int off : new int[]{-5, 0, 5}) {
+                setNeverMiss(c, true, off);
+                stand(c, 0f, 0f);
+                long[] before0 = firstClick(c);
+                nextSummonDelay = 3; // the mob appears on its due tick
+                Trip t = trip(c, Mob.HURTABLE, true, 20, null);
+                long summon = lastSummonTick;
+                int before = lastClicksBeforeSummon;
+                long[] fc = firstClick(c);
+                long lag = t.serverAttacks.isEmpty() ? -1 : t.serverAttacks.get(0) - summon;
+                c.note(String.format(Locale.ROOT, "Never Miss ON, offset %+d: %s; clicks before the mob %d; summoned at server"
+                        + " tick %d, first attack +%d; mod first click at tick %d on #%d, tagged at %d", off, fmt(t), before,
+                        summon, lag, fc[1], fc[0], fc[2]));
+                c.check(t.tracked, "offset " + off + ": the trip was never tracked - nothing was tested");
+                c.check(before == 0, "Never Miss, offset " + off + ": swung " + before + " time(s) before the mob existed");
+                c.check(t.attacks >= 1 && !t.serverAttacks.isEmpty(), "Never Miss, offset " + off + ": never attacked");
+                c.check(fc[1] != before0[1] && fc[2] >= 0 && fc[1] == fc[2], "Never Miss, offset " + off + ": the first click"
+                        + " went at tick " + fc[1] + ", the mob was tagged at " + fc[2] + " - want the same tick (the first tick"
+                        + " after it spawned)");
+                c.check(lag >= 0 && lag <= 2, "Never Miss, offset " + off + ": the attack reached the server " + lag
+                        + " ticks after the summon, want the next tick (0-2)");
+                lags.add(lag);
+            }
+            long min = lags.stream().mapToLong(Long::longValue).min().orElse(-1);
+            long max = lags.stream().mapToLong(Long::longValue).max().orElse(-1);
+            c.check(max - min <= 1, "Never Miss: the attack moved with Trigger Offset -5/0/+5: " + lags);
+            // Control: Never Miss OFF, the offset still moves the first click. Judged on the click's own countdown
+            // reading: the kill timer itself (ping in ticks) can read a tick apart between two trips (-0.2 / -1.2 seen on
+            // 2026-11-02), which is not the offset.
+            double[] at = new double[2];
+            int[] beforeOff = new int[2];
+            int k = 0;
+            for (int off : new int[]{-5, 5}) {
+                setNeverMiss(c, false, off);
+                stand(c, 0f, 0f);
+                nextSummonDelay = 3;
+                Trip t = trip(c, Mob.HURTABLE, true, 20, null);
+                at[k] = t.triggerAt;
+                beforeOff[k] = lastClicksBeforeSummon;
+                c.note(String.format(Locale.ROOT, "Never Miss OFF, offset %+d: %s; clicks before the mob %d; first click %.1f"
+                        + " ticks after the kill timer", off, fmt(t), lastClicksBeforeSummon, t.killAt - t.triggerAt));
+                c.check(!Double.isNaN(t.triggerAt), "Never Miss OFF, offset " + off + ": no click - nothing was tested");
+                k++;
+            }
+            c.check(Math.abs((at[0] - at[1]) - 10.0) < 1.01, String.format(Locale.ROOT, "Never Miss OFF: offsets -5 and +5"
+                    + " clicked at %.1f and %.1f ticks left, want 10 apart (the offset still applies)", at[0], at[1]));
+            c.check(beforeOff[0] >= 1, "Never Miss OFF, offset -5: the early click did not go before the mob appeared");
+        } finally {
+            nextSummonDelay = null;
+            c.hx().removeStands();
+        }
+    }
+
+    /** The Kill Popup's kill timer far away (closed): Never Miss attacks anyway; OFF holds every click. */
+    private static void neverMissKillTimer(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            greet(c);
+            c.onClient(mc -> {
+                long elapsed = (Long) Mod.staticCall(BC_MT, "elapsedSinceGreeting");
+                int lead = (Integer) Mod.call(Mod.cfg(BC_CFG), "getKillPopupLeadTicks");
+                Mod.setField(BC_MT, "moveAtElapsed", elapsed + 3000 + lead);
+                return null;
+            });
+            c.ctx().waitTicks(2);
+            boolean timerOpen = c.onClient(mc -> (Boolean) Mod.staticCall(BC_MT, "killTimerAllowsForTest", 0));
+            c.check(!timerOpen, "the kill timer was open with KILL 3000 ticks away - nothing was tested");
+            if (!cheat) {
+                Trip t = trip(c, Mob.HURTABLE, true, 20, null);
+                c.check(t.clicks == 0 && t.serverAttacks.isEmpty(), "legit jar: the Trigger Bot clicked");
+                return;
+            }
+            s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "NeverMiss", true);
+            setNeverMiss(c, true, 5);
+            stand(c, 0f, 0f);
+            nextSummonDelay = 3;
+            Trip on = trip(c, Mob.HURTABLE, true, 20, null);
+            long summon = lastSummonTick;
+            boolean open = c.onClient(mc -> (Boolean) Mod.staticCall(BC, "lastAttackOpen"));
+            long[] fc = firstClick(c);
+            long lag = on.serverAttacks.isEmpty() ? -1 : on.serverAttacks.get(0) - summon;
+            c.note("kill timer closed, Never Miss ON: " + fmt(on) + "; attack gate open " + open + "; first attack +" + lag
+                    + " server ticks after the summon; first click tick " + fc[1] + ", tagged " + fc[2]);
+            c.check(open, "Never Miss: the attack gate was closed by the kill timer");
+            c.check(on.attacks >= 1 && lag >= 0 && lag <= 2, "Never Miss: no attack on the tick after the mob spawned"
+                    + " while the kill timer was closed (lag " + lag + ")");
+            c.check(fc[1] == fc[2], "Never Miss: the first click (tick " + fc[1] + ") was not on the mob's tag tick " + fc[2]);
+            setNeverMiss(c, false, 5);
+            stand(c, 0f, 0f);
+            nextSummonDelay = 3;
+            Trip off = trip(c, Mob.HURTABLE, true, 20, null);
+            boolean openOff = c.onClient(mc -> (Boolean) Mod.staticCall(BC, "lastAttackOpen"));
+            c.note("kill timer closed, Never Miss OFF: " + fmt(off) + "; attack gate open " + openOff);
+            c.check(off.tracked, "control: the trip was never tracked");
+            c.check(!openOff && off.clicks == 0 && off.serverAttacks.isEmpty(), "control: Never Miss OFF clicked "
+                    + off.clicks + " time(s) before the kill timer");
+        } finally {
+            nextSummonDelay = null;
+            c.onClient(mc -> {
+                Mod.staticCall(BC_MT, "reset");
+                return null;
+            });
+            c.hx().removeStands();
+        }
+    }
+
+    /** A mob 1.5 blocks off its trip's landing spot, and a blood mob with no trip at all: both hit the tick after spawn. */
+    private static void neverMissOffSpot(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            watcher(c, WATCHER_IN);
+            if (cheat) {
+                s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "NeverMiss", true);
+                setNeverMiss(c, true, 5);
+            }
+            stand(c, 0f, 0f);
+            long since = c.hx().head();
+            nextSummonDelay = 3;
+            nextSummonDx = 1.5;
+            Trip t = trip(c, Mob.HURTABLE, true, 20, null);
+            long summon = lastSummonTick;
+            int before = lastClicksBeforeSummon;
+            long[] fc = firstClick(c);
+            long lag = t.serverAttacks.isEmpty() ? -1 : t.serverAttacks.get(0) - summon;
+            long onIt = namedAttacks(c, since, "blood");
+            c.note("mob 1.5 blocks off the landing spot: " + fmt(t) + "; clicks before it " + before + "; attacks on it "
+                    + onIt + ", first +" + lag + " server ticks after the summon; first click tick " + fc[1] + ", tagged "
+                    + fc[2]);
+            c.check(t.tracked, "the trip was never tracked - nothing was tested");
+            if (!cheat) {
+                c.check(t.clicks == 0 && t.serverAttacks.isEmpty(), "legit jar: the Trigger Bot clicked");
+                return;
+            }
+            c.check(before == 0, "Never Miss swung " + before + " time(s) before the off-spot mob existed");
+            c.check(onIt >= 1 && lag >= 0 && lag <= 2, "the mob off its landing spot was not attacked the tick after it"
+                    + " spawned (attacks " + onIt + ", lag " + lag + ")");
+            c.check(fc[1] == fc[2] && fc[2] >= 0, "off-spot: first click tick " + fc[1] + ", tagged " + fc[2]);
+
+            // No trip at all: a blood mob (name tag) appears under his look.
+            double x = -421.0;
+            double z = -417.5;
+            c.onClient(mc -> {
+                float[] l = look(mc, new Vec3(x, 152.4, z));
+                mc.player.setYRot(l[0]);
+                mc.player.setXRot(l[1]);
+                return null;
+            });
+            c.ctx().waitTicks(3);
+            long since2 = c.hx().head();
+            long[] fc0 = firstClick(c);
+            c.server().command(String.format(Locale.ROOT, "summon husk %.2f 151 %.2f {Tags:[\"bcdecoy\"],NoAI:1b,NoGravity:1b,"
+                    + "Silent:1b,PersistenceRequired:1b,Health:20f,CustomName:\"loner\"}", x, z));
+            c.server().command(String.format(Locale.ROOT, "summon armor_stand %.2f 152.2 %.2f {Tags:[\"bcdecoy\"],Invisible:1b,"
+                    + "NoGravity:1b,Marker:1b,CustomNameVisible:1b,CustomName:\"Revoker 1M❤\"}", x, z));
+            long summon2 = c.hx().call("server.tick").getAsLong();
+            c.ctx().waitTicks(15);
+            long[] fc2 = firstClick(c);
+            int id = c.onClient(mc -> clientId(mc, "loner"));
+            List<Long> at = new ArrayList<>();
+            for (JsonObject e : c.hx().events(since2, "attack_entity")) {
+                if (e.has("name") && e.get("name").getAsString().equals("loner")) {
+                    at.add(e.get("tick").getAsLong());
+                }
+            }
+            long lag2 = at.isEmpty() ? -1 : at.get(0) - summon2;
+            c.note("blood mob with no trip: client #" + id + ", server attacks " + at + " (summoned at " + summon2 + ", first +"
+                    + lag2 + "); first click on #" + fc2[0] + " tick " + fc2[1] + ", tagged " + fc2[2]);
+            c.check(id >= 0, "the no-trip husk never reached the client - nothing was tested");
+            c.check(fc2[1] != fc0[1] && fc2[0] == id, "the blood mob with no trip was never clicked");
+            c.check(fc2[1] == fc2[2], "no trip: first click tick " + fc2[1] + ", tagged " + fc2[2] + " - want the same tick");
+            c.check(lag2 >= 0 && lag2 <= 3, "no trip: the attack reached the server " + lag2 + " ticks after the summon");
+        } finally {
+            nextSummonDelay = null;
+            nextSummonDx = null;
             clearDecoys(c);
             c.hx().removeStands();
         }
@@ -2675,6 +2898,126 @@ final class HxBloodCampCases {
             c.check(g.stream().allMatch(x -> x >= 10), "attacks came faster than the weapon allows (10 ticks): " + g);
         } finally {
             c.hx().removeStands();
+        }
+    }
+
+    /**
+     * Owner's camp 3 (2026-11-02 20:25:04): player #481791 was hit once, survived, and was left "already hit" for six
+     * seconds while he looked at it. With Never Miss ON a hit blood mob that is still alive is hit again at the weapon's
+     * pace; OFF keeps the old one click.
+     */
+    private static void neverMissRehit(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            watcher(c, WATCHER_IN);
+            if (cheat) {
+                s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "NeverMiss", true);
+            }
+            long[] counts = new long[2];
+            int[] cooldown = {0};
+            for (int pass = 0; pass < (cheat ? 2 : 1); pass++) {
+                boolean on = pass == 0;
+                if (cheat) {
+                    setNeverMiss(c, on, 1);
+                }
+                stand(c, 0f, 0f);
+                double x = -421.0;
+                double z = -417.5;
+                String name = on ? "rehit" : "rehitoff";
+                c.onClient(mc -> {
+                    float[] l = look(mc, new Vec3(x, 152.4, z));
+                    mc.player.setYRot(l[0]);
+                    mc.player.setXRot(l[1]);
+                    return null;
+                });
+                long since = c.hx().head();
+                c.server().command(String.format(Locale.ROOT, "summon husk %.2f 151 %.2f {Tags:[\"bcdecoy\"],NoAI:1b,"
+                        + "NoGravity:1b,Silent:1b,PersistenceRequired:1b,Health:20f,CustomName:\"%s\"}", x, z, name));
+                c.server().command(String.format(Locale.ROOT, "summon armor_stand %.2f 152.2 %.2f {Tags:[\"bcdecoy\"],"
+                        + "Invisible:1b,NoGravity:1b,Marker:1b,CustomNameVisible:1b,CustomName:\"Revoker 1M❤\"}", x, z));
+                c.ctx().waitTicks(40);
+                boolean hit = c.onClient(mc -> {
+                    int id = clientId(mc, name);
+                    return id >= 0 && mc.level.getEntity(id) instanceof net.minecraft.world.entity.LivingEntity le
+                            && le.getHealth() < le.getMaxHealth();
+                });
+                counts[pass] = namedAttacks(c, since, name);
+                cooldown[0] = c.onClient(mc -> (Integer) Mod.staticCall(BC, "lastCooldownTicks"));
+                c.note("Never Miss " + (on ? "ON" : "OFF") + ": " + counts[pass] + " attacks on a live blood mob in 40 ticks,"
+                        + " hurt " + hit + ", weapon cooldown " + cooldown[0] + " ticks");
+                clearDecoys(c);
+                if (!cheat) {
+                    c.check(counts[0] == 0, "legit jar: something attacked");
+                    return;
+                }
+                c.check(hit, (on ? "ON" : "OFF") + ": the mob was never hurt - nothing was tested");
+            }
+            long want = Math.max(2, 40 / Math.max(1, cooldown[0]) - 1);
+            c.check(counts[0] >= want, "Never Miss ON: a hit blood mob still alive was attacked only " + counts[0]
+                    + " time(s) in 40 ticks, want at least " + want + " (hit again at the weapon's pace, " + cooldown[0]
+                    + " ticks)");
+            c.check(counts[1] == 1, "Never Miss OFF: want the one click as before, got " + counts[1]);
+        } finally {
+            clearDecoys(c);
+            c.hx().removeStands();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> autoBloodCampLabels(Minecraft mc) {
+        try {
+            Object tab = Mod.cls("gui.tab.AutoBloodCampTab").getConstructor().newInstance();
+            List<net.minecraft.client.gui.components.AbstractWidget> ws =
+                    (List<net.minecraft.client.gui.components.AbstractWidget>) Mod.call(tab, "buildWidgets", 0, 0, 300,
+                            (Runnable) () -> {
+                            });
+            List<String> out = new ArrayList<>();
+            for (net.minecraft.client.gui.components.AbstractWidget w : ws) {
+                out.add(net.minecraft.ChatFormatting.stripFormatting(w.getMessage().getString()));
+            }
+            return out;
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    /** The Trigger Offset row: hidden while Never Miss is on, back (same value) when it is off; the search still finds it. */
+    @SuppressWarnings("unchecked")
+    private static void neverMissTab(Session c) {
+        if (!Mod.isCheat()) {
+            List<String> labels = c.onClient(HxBloodCampCases::autoBloodCampLabels);
+            c.note("legit: Auto Blood Camp tab builds " + labels);
+            c.check(labels.isEmpty(), "legit jar: the cheat-only Auto Blood Camp tab built rows " + labels);
+            return;
+        }
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "NeverMiss", false);
+            setNeverMiss(c, false, 5);
+            List<String> off = c.onClient(HxBloodCampCases::autoBloodCampLabels);
+            setNeverMiss(c, true, 5);
+            List<String> on = c.onClient(HxBloodCampCases::autoBloodCampLabels);
+            List<String> hits = c.onClient(mc -> {
+                try {
+                    Object tab = Mod.cls("gui.tab.AutoBloodCampTab").getConstructor().newInstance();
+                    return (List<String>) Mod.call(tab, "searchHits", "trigger offset");
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+            });
+            int[] eff = c.onClient(mc -> new int[]{(Integer) Mod.call(Mod.cfg(BC_CFG), "getTriggerOffsetTicks"),
+                    (Integer) Mod.staticCall(BC, "effectiveTriggerOffsetTicks", Mod.cfg(BC_CFG))});
+            setNeverMiss(c, false, eff[0]);
+            List<String> back = c.onClient(HxBloodCampCases::autoBloodCampLabels);
+            c.note("Never Miss OFF rows " + off + "; ON rows " + on + "; search hits with it ON " + hits + "; saved offset "
+                    + eff[0] + ", in force " + eff[1] + "; OFF again " + back);
+            c.check(off.stream().anyMatch(l -> l.startsWith("Trigger Offset: +5t")), "Never Miss OFF: no Trigger Offset row");
+            c.check(on.stream().noneMatch(l -> l.startsWith("Trigger Offset")), "Never Miss ON: Trigger Offset still shown");
+            c.check(on.stream().anyMatch(l -> l.startsWith("Never Miss")), "Never Miss ON: the Never Miss row is gone");
+            c.check(!hits.isEmpty(), "Never Miss ON: the menu search no longer finds Trigger Offset");
+            c.check(eff[0] == 5 && eff[1] == 0, "Never Miss ON: saved offset " + eff[0] + " (want 5 kept), in force " + eff[1]
+                    + " (want 0)");
+            c.check(back.stream().anyMatch(l -> l.startsWith("Trigger Offset: +5t")), "Never Miss OFF again: the row did not"
+                    + " come back with its value");
         }
     }
 }
