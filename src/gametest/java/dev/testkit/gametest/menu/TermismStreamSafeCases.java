@@ -254,6 +254,10 @@ final class TermismStreamSafeCases {
                     }
                 }
             }
+            String scaled = scaledPass(c, k, notes);
+            if (!scaled.isEmpty()) {
+                problems.add("scaled: " + scaled);
+            }
             if (melody) {
                 for (String n : notes) {
                     java.util.regex.Matcher m = java.util.regex.Pattern.compile("edge live (\\d+) / bursts (\\d+), middle live (\\d+) / bursts (\\d+)").matcher(n);
@@ -360,6 +364,46 @@ final class TermismStreamSafeCases {
             c.ctx().waitTicks(1);
         }
         closeTo(c, s);
+        return String.join("; ", problems);
+    }
+
+    /**
+     * One board and the pixel check again on a SCALED Termism: 1920x1080 at GUI scale 2 with Auto Scale on lays the screen
+     * out at factor 1.125 (canvas units x 2.25 = window pixels). The default 854x480 window gives factor 1, where the
+     * first fix's canvas-vs-GUI mix-up cannot show; this pass is the one that exercises mod ead35f86e. @return problems.
+     */
+    static String scaledPass(Session c, Kind k, List<String> notes) {
+        List<String> problems = new ArrayList<>();
+        Object hud = Mod.cfg("hud.HudConfig");
+        boolean autoScale = (Boolean) Mod.call(hud, "isAutoScale");
+        int[] window = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight(), mc.options.guiScale().get()});
+        try {
+            c.ctx().runOnClient(mc -> Mod.call(hud, "setAutoScale", true));
+            AuctionHouseCases.setWindow(c, 1920, 1080, 2);
+            Screen probe = open(c, k.type());
+            c.ctx().waitTicks(3);
+            double[] g = c.onClient(mc -> new double[]{mc.getWindow().getGuiScale(),
+                    ((Number) Mod.staticCall("hud.AutoScale", "appliedFactor", probe)).doubleValue()});
+            closeTo(c, probe);
+            if (Math.abs(g[1] - 1.0) < 0.01) {
+                problems.add(String.format("Termism was not scaled (factor %.3f at GUI scale %.0f), the pass proves nothing", g[1], g[0]));
+            }
+            List<String> scaledNotes = new ArrayList<>();
+            String p = playOne(c, k, true, scaledNotes);
+            if (!p.isEmpty()) {
+                problems.add(p);
+            }
+            String px = shot(c, k);
+            if (!px.isEmpty()) {
+                problems.add("pixels: " + px);
+            }
+            for (String n : scaledNotes) {
+                notes.add(String.format("SCALED factor %.3f gui %.0f: %s", g[1], g[0], n));
+            }
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.call(hud, "setAutoScale", autoScale));
+            AuctionHouseCases.setWindow(c, window[0], window[1], window[2]);
+        }
         return String.join("; ", problems);
     }
 
