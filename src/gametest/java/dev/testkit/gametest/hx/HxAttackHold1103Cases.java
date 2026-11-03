@@ -83,6 +83,10 @@ final class HxAttackHold1103Cases {
         return out;
     }
 
+    private static float destroyTicks(Session c) {
+        return c.onClient(mc -> ((Number) Mod.field(mc.gameMode, "destroyTicks")).floatValue());
+    }
+
     private static BlockPos setUp(Session c) {
         BlockPos f = c.onClient(mc -> mc.player.blockPosition());
         BlockPos ob = f.offset(2, 1, 0);
@@ -132,22 +136,32 @@ final class HxAttackHold1103Cases {
                 c.check(intCall(c, RESUME, "resumes") == resumes + 1, "no resume counted");
                 boolean clicked = c.onClient(mc -> mc.options.keyAttack.consumeClick());
                 c.check(!clicked, "the resume added a click (a fresh press), not just the held key");
-                c.waitUntil("the dig goes on after the close (START_DESTROY on the wire)",
-                        mc -> wire().stream().anyMatch(w -> w.contains(dig)), 10);
+                // Digging again: either a new START_DESTROY on the wire (vanilla aborted the dig on the close tick) or
+                // the same dig carried on (the close came after that tick's dig check, so nothing was aborted): the
+                // client's dig ticks on the obsidian keep counting either way, and stop when the key is up.
+                float t0 = destroyTicks(c);
+                c.ctx().waitTicks(5);
+                float t1 = destroyTicks(c);
+                boolean digging = c.onClient(mc -> (Boolean) Mod.field(mc.gameMode, "isDestroying"))
+                        && ob.equals(c.onClient(mc -> Mod.field(mc.gameMode, "destroyBlockPos")));
+                c.check(digging && t1 > t0, "not digging the obsidian after the close: destroying " + digging + ", ticks "
+                        + t0 + " -> " + t1 + "; wire " + wire());
                 for (String w : wire()) {
                     boolean ok = w.contains("player_action") || w.contains("swing") || w.contains("move_player")
                             || w.contains("client_tick_end") || w.contains("keep_alive") || w.contains("pong")
                             || w.contains("player_input") || w.contains("chunk_batch") || w.contains("container_close");
                     c.check(ok, "the resume sent something a held button does not: " + w);
                 }
-                c.note("key down " + afterClose + " tick(s) after the close, START_DESTROY " + ob.toShortString()
-                        + " sent after it; wire after close: " + wire().size() + " play packets, all dig/move");
+                c.note("key down " + afterClose + " tick(s) after the close, dig ticks " + t0 + " -> " + t1 + " on "
+                        + ob.toShortString() + "; wire after close: " + wire().size() + " play packets, all dig/move ("
+                        + wire().stream().filter(w -> w.contains("player_action")).toList() + ")");
             } else {
                 c.ctx().waitTicks(20);
                 c.check(!c.onClient(mc -> mc.options.keyAttack.isDown()), "the attack key came back down ("
                         + (letGo ? "button let go during the menu" : "setting off") + ")");
                 c.check(intCall(c, RESUME, "resumes") == resumes, "a resume was counted");
                 c.check(wire().stream().noneMatch(w -> w.contains("START_DESTROY")), "a dig started after the close: " + wire());
+                c.check(!c.onClient(mc -> (Boolean) Mod.field(mc.gameMode, "isDestroying")), "still digging after the close");
                 c.note(letGo ? "let go during the menu: nothing resumed" : "setting off: nothing resumed");
             }
         } finally {
