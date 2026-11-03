@@ -136,6 +136,8 @@ final class MenuLayoutCases {
             // To-do Doc items of 2026-11-01 (mod doc-extras-1101), legit in both builds: Creation Cooldown and Insta Clear
             // Warning (Dungeons), Gyrokinetic Wand Overlay (Items), Chat Tabs (Chat).
             "gui.tab.CreationCooldownTab", "gui.tab.InstaClearWarningTab", "gui.tab.GyroOverlayTab", "gui.tab.ChatTabsTab",
+            // Blood Rush Helper (mod bloodrush-1103, killer560 2026-11-03): its own Dungeons card, legit in both builds.
+            "gui.tab.BloodRushHelperTab",
             // AH Flipper and AH Price Copier (mod doc-flip-1101, to-do Doc 2026-11-01), Items, legit cards (the flipper's
             // Main macro rows are cheat-only).
             "gui.tab.AhFlipperTab", "gui.tab.AhPriceCopierTab",
