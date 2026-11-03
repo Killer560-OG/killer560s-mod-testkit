@@ -392,6 +392,13 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   428 sends the pack push through `handleResourcePackPush` on the render thread (no ServerData in singleplayer, so
   vanilla shows `PackConfirmScreen`), not over a socket. A new mod command root must go in deny-commands.json or 306
   fails; a new config class missing from `ProfileManager.reloadAllConfigs` fails 320 (both caught here, 2026-10-07).
+- 433-434-ui-pack-disabler (mod packdisabler-1103): a Hypixel MENU stack has the pack model but no `custom_data.id`;
+  433 draws each fixture both ways (`menuStack`) and skips the no-id check only when `ItemLooks.idForModel` says two
+  rows with different looks share the model. Its every-row `modelFor` sweep caught eight rows (Rift admin swords, Zoom
+  Pickaxe) whose Bukkit material name `gold_sword` the flattening fix rejects; a row whose old look IS paper
+  (`"i":"paper"`, Architect's First Draft) is skipped, not failed. 434 reads the client's version from
+  `/version.json` (`id`) to pick 26.3 (map buttons draw paper) or 26.2 (unchanged); `handDrawn` uses
+  FIRST_PERSON_RIGHT_HAND to prove only GUI slots change.
 - 441-447 (`HudFixCases`, mod hud-fixes): killer560's 2026-10-07 HUD report, each measured on a GUI-2/4 screenshot or the
   element's own text runs, with Auto Scale off so a unit is exactly guiScale px. With a screen open, judge "behind the
   screen" by the bar's RAW color beside the panel (0 px) and by the ON/OFF diff under it, not by "changed" alone: a bar on
