@@ -154,6 +154,11 @@ final class HxMining1101Cases {
             c.hx().chat("§7[VIP] Bob: You used your Pickobulus Pickaxe Ability!");
             c.ctx().waitTicks(5);
             c.check(intCall(c, a, "popupsShown") == shown, "a player's chat line popped the alert");
+            // Owner 2026-11-03: mining abilities only - Hypixel's own line for a non-mining ability does nothing.
+            c.hx().chat("§a§r§6Wither Impact §r§ais now available!");
+            c.hx().chat("§a§r§6Ragnarock §r§ais now available!");
+            c.ctx().waitTicks(5);
+            c.check(intCall(c, a, "popupsShown") == shown, "a non-mining ability popped the alert");
             c.hx().chat("§aYou used your §r§6Pickobulus §r§aPickaxe Ability!");
             c.ctx().waitTicks(40);
             int frames = intCall(c, a, "popupFrames");
