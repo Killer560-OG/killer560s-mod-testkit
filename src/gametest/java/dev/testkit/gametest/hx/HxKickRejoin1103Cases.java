@@ -1,5 +1,6 @@
 package dev.testkit.gametest.hx;
 
+import dev.testkit.gametest.LogTap;
 import dev.testkit.gametest.mod.Mod;
 
 import java.util.List;
@@ -17,9 +18,10 @@ import static dev.testkit.gametest.hx.HxKit.*;
  *       (mid-wait and at the very end) change nothing; at 60 s the "Rejoin SkyBlock now!" title and one sound; back on
  *       SkyBlock it clears. Party Message off: no command at all.</li>
  *   <li>restart: a second kick line 20 s in restarts the 60 s.</li>
- *   <li>party: in a party with Party Message on and his own text: exactly one "pc &lt;text&gt;" (section signs and the
- *       newline stripped), not again when a second kick line restarts the wait; not in a party ("You are not in a party
- *       right now."): none.</li>
+ *   <li>party: Party Message on and his own text (color code and newline stripped): one /pl; the server's member list
+ *       (hidden from chat, learned by PartyTracker) -> one "pc &lt;text&gt;" ~0.75 s after it, nothing again on a restart;
+ *       "You are not in a party right now." (hidden) -> nothing more; no answer -> nothing more; Party Message off -> no
+ *       /pl at all.</li>
  *   <li>stay: a kick line while he stays on SkyBlock (a failed warp) clears after 20 s with no title and no message.</li>
  *   <li>forged / off: player-typed copies, a limbo, or the switch off start nothing.</li>
  *   <li>reload: every setting survives a save and a load; the text is cleaned and capped at 100.</li>
@@ -183,49 +185,111 @@ final class HxKickRejoin1103Cases {
         }
     }
 
+    private static final String SEP = "§9§m-----------------------------------------------------";
+
+    /** The server's answer to /pl, as his logs show it (newest rule wins). */
+    private static void plAnswers(Session c, String... lines) {
+        respond(c, "pl", null, (Object[]) lines);
+    }
+
+    private static void plSilent(Session c) {
+        c.hx().call("surface.respond.clear", Hx.args("root", "pl"));
+    }
+
+    private static int plSends(Session c) {
+        return c.onClient(mc -> (Integer) Mod.staticCall(F, "plSends"));
+    }
+
+    private static int hidden(Session c) {
+        return c.onClient(mc -> (Integer) Mod.staticCall(F, "hiddenLines"));
+    }
+
+    private static String verdict(Session c) {
+        return c.onClient(mc -> (String) Mod.staticCall(F, "plVerdict"));
+    }
+
+    private static List<String> cmds(Session c, long head) {
+        return c.hx().commands(head).stream().filter(x -> x.equals("pl") || x.startsWith("pc ")).toList();
+    }
+
     private static void party(Session c) {
         try (Settings set = settings(c, true, true).with(CFG, "PartyText", "§c" + TEXT + "\n!")) {
-            // The setter cleans what he typed: no section sign, no newline.
+            // The setter cleans what he typed: no color code, no newline.
             String stored = c.onClient(mc -> (String) Mod.call(Mod.cfg(CFG), "getPartyText"));
             c.check((TEXT + "!").equals(stored), "stored text '" + stored + "'");
+            String self = self(c);
 
-            // In a party: exactly one "pc <text>", not again on a restart.
+            // ---- /pl answers with a member list: one pl, then one pc after a gap, the reply hidden, PartyTracker learns.
             onSkyblock(c);
-            joinParty(c);
-            int sends0 = partySends(c);
+            leaveParty(c);
+            plAnswers(c, SEP, "§6Party Members (3)", "", "§eParty Leader: §b[MVP§c+§b] HxMateA §a●",
+                    "§eParty Members: §a[VIP] HxMateB§a ● §b[MVP§c+§b] " + self + "§a ● ", SEP);
+            int pl0 = plSends(c);
+            int hid0 = hidden(c);
+            long mark = LogTap.mark();
             long head = c.hx().head();
             c.hx().chat("§cYou were kicked while joining that server!");
             toLobby(c);
-            c.waitUntil("the party line at the server", mc -> !pcs(c, head).isEmpty(), 100);
+            c.waitUntil("the /pl verdict", mc -> Mod.staticCall(F, "plVerdict") != null, 100);
+            long verdictAt = System.currentTimeMillis();
+            c.check("party".equals(verdict(c)), "verdict " + verdict(c));
+            c.waitUntil("the party line at the server", mc -> cmds(c, head).size() >= 2, 60);
+            long gap = System.currentTimeMillis() - verdictAt;
             c.hx().chat("§cYou were kicked while joining that server!"); // the failed rejoin's own kick: restarts the wait
-            c.ctx().waitTicks(60);
-            List<String> got = pcs(c, head);
-            c.check(got.equals(List.of("pc " + TEXT + "!")), "party lines " + got + ", want exactly [pc " + TEXT + "!]");
-            c.check(partySends(c) - sends0 == 1, "partySends " + (partySends(c) - sends0));
+            c.ctx().waitTicks(80);
+            List<String> got = cmds(c, head);
+            c.check(got.equals(List.of("pl", "pc " + TEXT + "!")), "commands " + got + ", want [pl, pc " + TEXT + "!]");
+            c.check(gap >= 400, "pc came " + gap + " ms after the reply, want ~750");
+            c.check(plSends(c) - pl0 == 1, "/pl sent " + (plSends(c) - pl0) + " times");
+            int hid = hidden(c) - hid0;
+            c.check(hid == 6, "hidden reply lines " + hid + ", want 6");
+            List<String> shown = LogTap.since(mark).stream().filter(l -> l.contains("[CHAT]")
+                    && (l.contains("Party Members") || l.contains("Party Leader"))).toList();
+            c.check(shown.isEmpty(), "the /pl reply reached chat: " + shown);
+            @SuppressWarnings("unchecked")
+            List<String> mates = c.onClient(mc -> List.copyOf((List<String>) Mod.staticCall("leapmenu.PartyTracker", "teammates")));
+            c.check(mates.contains("HxMateA") && mates.contains("HxMateB"), "PartyTracker did not learn the party: " + mates);
             c.check(remaining(c) > 55_000, "the second kick line did not restart the wait: " + remaining(c));
-            String inParty = "in a party: " + got + " once, not again on the restart";
+            String inParty = "list reply: " + got + " (pc " + gap + " ms after the reply), " + hid + " lines hidden, "
+                    + "PartyTracker " + mates + ", nothing on the restart";
 
-            // Not in a party: nothing.
+            // ---- /pl answers "not in a party": pl only, the reply hidden.
             onSkyblock(c);
-            leaveParty(c);
+            plAnswers(c, SEP, "§cYou are not in a party right now.", SEP);
+            hid0 = hidden(c);
+            mark = LogTap.mark();
             long head2 = c.hx().head();
             c.hx().chat("§cYou were kicked while joining that server!");
-            c.hx().chat("§cYou are not in a party right now.");
             toLobby(c);
-            c.ctx().waitTicks(60);
-            c.check(running(c), "the timer did not start");
-            c.check(pcs(c, head2).isEmpty(), "not in a party, sent " + pcs(c, head2));
+            c.waitUntil("the /pl verdict", mc -> Mod.staticCall(F, "plVerdict") != null, 100);
+            c.ctx().waitTicks(40);
+            c.check("no party".equals(verdict(c)), "verdict " + verdict(c));
+            c.check(cmds(c, head2).equals(List.of("pl")), "not in a party: commands " + cmds(c, head2));
+            c.check(hidden(c) - hid0 == 3, "hidden " + (hidden(c) - hid0) + ", want 3");
+            c.check(LogTap.since(mark).stream().noneMatch(l -> l.contains("[CHAT]") && l.contains("not in a party")),
+                    "the not-in-a-party reply reached chat");
 
-            // In a party but Party Message off: nothing.
+            // ---- no answer at all: pl only, nothing after 3 s.
             onSkyblock(c);
-            joinParty(c);
-            run(c, () -> Mod.call(Mod.cfg(CFG), "setPartyMessage", false));
+            plSilent(c);
             long head3 = c.hx().head();
             c.hx().chat("§cYou were kicked while joining that server!");
             toLobby(c);
+            c.waitUntil("the /pl verdict", mc -> Mod.staticCall(F, "plVerdict") != null, 140);
+            c.ctx().waitTicks(30);
+            c.check("no reply".equals(verdict(c)), "verdict " + verdict(c));
+            c.check(cmds(c, head3).equals(List.of("pl")), "no reply: commands " + cmds(c, head3));
+
+            // ---- Party Message off: no /pl at all.
+            onSkyblock(c);
+            run(c, () -> Mod.call(Mod.cfg(CFG), "setPartyMessage", false));
+            long head4 = c.hx().head();
+            c.hx().chat("§cYou were kicked while joining that server!");
+            toLobby(c);
             c.ctx().waitTicks(60);
-            c.check(pcs(c, head3).isEmpty(), "Party Message off, sent " + pcs(c, head3));
-            c.note(inParty + "; not in a party: none; Party Message off: none");
+            c.check(cmds(c, head4).isEmpty(), "Party Message off: commands " + cmds(c, head4));
+            c.note(inParty + "; not in a party: [pl] only, 3 hidden; no reply: [pl] only; Party Message off: nothing");
+            plSilent(c);
             leaveParty(c);
             onSkyblock(c);
         }
