@@ -257,9 +257,9 @@ final class HxSplitChat1102Cases {
             c.check(Long.valueOf(0L).equals(atLine.get(me)), me + " stood in the core at the line and read " + atLine.get(me) + " ms");
             c.check(Long.valueOf(0L).equals(atLine.get("HxMateA")), "HxMateA stood in the core at the line and read " + atLine.get("HxMateA") + " ms");
             c.check(!atLine.containsKey("HxMateB"), "HxMateB (outside) was timed at the line: " + atLine);
-            // The move is made from a tick poll, so it lands 1000-1050 ms after the line; the time must be the move's
-            // own moment, seen at the latest one tick later.
-            c.check(moved[0] >= 1000L && moved[0] <= 1060L, "premise: HxMateB was moved at +" + moved[0] + " ms");
+            // The move is made from a tick poll, so it lands 1000-1050 ms after the line (up to ~1070 on a slow 26.2
+            // tick, 2026-11-02); the time must be the move's own moment, seen at the latest one tick later.
+            c.check(moved[0] >= 1000L && moved[0] <= 1100L, "premise: HxMateB was moved at +" + moved[0] + " ms");
             c.check(b >= moved[0] && b <= moved[0] + 60L, "HxMateB moved in at +" + moved[0] + " ms and read " + b + " ms");
             String mine = rowFor(lines, me);
             String mateA = rowFor(lines, "HxMateA");
