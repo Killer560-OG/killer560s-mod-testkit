@@ -15,14 +15,15 @@ import static dev.testkit.gametest.hx.HxKit.*;
  * Mod mithril-mobs-1103 (killer560, 2026-11-03): Commission Mobs' style and range. Draw-only; the session's GrimAC check
  * covers the traffic, and both cases require that no container click was sent.
  * <ul>
- *   <li>1103-mining-mob-style: "let me choose outline, fill, fill+outline or glow". A NoAI "[Lv25] Goblin" zombie four
- *       blocks in front of the player (GUI hidden, color pure green), a screenshot with Commission Mobs off as the base,
+ *   <li>1103-mining-mob-style: "let me choose outline, fill, fill+outline or glow". A NoAI "[Lv25] Goblin" husk four
+ *       blocks in front of the player (a husk: a zombie burns in daylight; GUI hidden, color pure green), a screenshot with Commission Mobs off as the base,
  *       then one per style. Outline: green pixels where the box's front edges project, none on the body's middle. Fill:
  *       the body's middle turns green. Fill + Outline: both. Glow: no box drawn (the box frame counter stands still), the
  *       mob is in the glow set and Minecraft.shouldEntityAppearGlowing says true for it, green pixels round the body and
  *       none on its middle. Then the style survives a save and MiningQolConfig.load, and the cycling row wraps both ways.</li>
- *   <li>1103-mining-mob-range: "it feels like it has a very small range". A goblin zombie 70 blocks out whose name rides an
- *       armor stand: highlighted (past the old 64-block cap); the stand is killed and the mob stays highlighted; a zombie
+ *   <li>1103-mining-mob-range: "it feels like it has a very small range". A goblin husk whose name rides an
+ *       armor stand 20 blocks out is highlighted, then moved to 70 blocks (past the old 64-block cap) with its stand killed,
+ *       and stays highlighted; a husk
  *       70 blocks out with no name and no stand is never highlighted (no type rules); a "Glacite Walker" stand-named mob is
  *       not highlighted for Goblin Slayer; with Goblin Slayer DONE the remembered goblin goes; and a killed one goes.</li>
  * </ul>
@@ -155,7 +156,7 @@ final class HxCommissionMobs1103Cases {
                 .with(CFG, "CommissionMobStyle", outline)) {
             mines(c, "Goblin Slayer: 40%");
             // Feet level with the player's, exactly 4 blocks north of his eye, facing him (south).
-            c.server().command(String.format(java.util.Locale.ROOT, "summon zombie %.3f %.3f %.3f", at[0], at[1], at[2] - 4)
+            c.server().command(String.format(java.util.Locale.ROOT, "summon husk %.3f %.3f %.3f", at[0], at[1], at[2] - 4)
                     + " {Tags:[\"k1103s\"],Rotation:[0f,0f],"
                     + "CustomName:\"[Lv25] Goblin 100/100\",CustomNameVisible:0b" + TAIL);
             c.waitUntil("the goblin on the client", mc -> idNamed(mc, "Goblin", false) >= 0, 80);
@@ -236,10 +237,57 @@ final class HxCommissionMobs1103Cases {
 
     // ---- 1103-mining-mob-range --------------------------------------------------------------------------------------
 
+    /** The client id of the entity summoned with UUID [I;1103,0,0,n], or -1. */
+    private static int byUuid(net.minecraft.client.Minecraft mc, int n) {
+        java.util.UUID want = new java.util.UUID(1103L << 32, n & 0xFFFFFFFFL);
+        for (Entity e : mc.level.entitiesForRendering()) {
+            if (e.getUUID().equals(want)) {
+                return e.getId();
+            }
+        }
+        return -1;
+    }
+
+    private static String uuid(int n) {
+        return "UUID:[I;1103,0,0," + n + "]";
+    }
+
+    /** Zombies (husks too) and stands on the client with their distance, for a failure note. */
+    private static String loaded(net.minecraft.client.Minecraft mc) {
+        StringBuilder sb = new StringBuilder();
+        for (Entity e : mc.level.entitiesForRendering()) {
+            if (e instanceof net.minecraft.world.entity.monster.zombie.Zombie
+                    || e instanceof net.minecraft.world.entity.decoration.ArmorStand) {
+                sb.append(e.getId()).append(' ').append(e.getType().toShortString())
+                        .append(e.hasCustomName() ? " '" + e.getCustomName().getString() + "'" : "")
+                        .append(" @").append(Math.round(Math.sqrt(e.distanceToSqr(mc.player)))).append("; ");
+            }
+        }
+        return sb.toString();
+    }
+
+    /** waitUntil with the loaded mobs in the failure note. */
+    private static void waitLoaded(Session c, String what, java.util.function.Predicate<net.minecraft.client.Minecraft> p,
+                                   int ticks) {
+        for (int i = 0; i <= ticks; i += 5) {
+            if (c.onClient(mc -> p.test(mc))) {
+                return;
+            }
+            c.ctx().waitTicks(5);
+        }
+        c.note("loaded: " + c.onClient(mc -> loaded(mc)) + " view distance "
+                + c.onClient(mc -> mc.options.getEffectiveRenderDistance()));
+        c.check(false, "timed out after " + ticks + " ticks waiting for: " + what);
+    }
+
+    /**
+     * A goblin identified at 20 blocks by its stand, then carried out to 70 blocks with its stand gone (the server stops
+     * sending a stand before it stops sending the mob): it stays highlighted past the old 64-block cap.
+     */
     private static void range(Session c) {
         BlockPos f = c.onClient(mc -> mc.player.blockPosition());
         int x = f.getX(), y = f.getY(), z = f.getZ();
-        int far = 70;
+        int near = 20, far = 70;
         int rd = c.onClient(mc -> mc.options.renderDistance().get());
         try (Settings set = new Settings(c).with(CFG, "CommissionHud", true).with(CFG, "CommissionMobs", true)
                 .with(CFG, "CommissionMobsEsp", false)) {
@@ -251,44 +299,45 @@ final class HxCommissionMobs1103Cases {
                 c.ctx().waitTicks(40);
             }
             mines(c, "Goblin Slayer: 40%");
-            // A goblin far out whose name rides a stand; an unnamed zombie far out; a walker named by a stand.
-            int gx = x + far, wx = x - far;
-            c.server().command("summon zombie " + gx + ".5 " + y + " " + z + ".5 {Tags:[\"k1103r\",\"k1103rg\"]" + TAIL);
-            c.server().command("summon armor_stand " + gx + ".5 " + (y + 2) + " " + z + ".5 {Tags:[\"k1103r\",\"k1103rs\"],"
+            int gx = x + near, wx = x - near;
+            c.server().command("summon husk " + gx + ".5 " + y + " " + z + ".5 {" + uuid(1) + ",Tags:[\"k1103r\",\"k1103rg\"]" + TAIL);
+            c.server().command("summon armor_stand " + gx + ".5 " + (y + 2) + " " + z + ".5 {" + uuid(2) + ",Tags:[\"k1103r\",\"k1103rs\"],"
                     + "CustomName:\"[Lv25] Goblin 100/100\",CustomNameVisible:1b,Invisible:1b,NoGravity:1b,Marker:1b}");
-            c.server().command("summon zombie " + x + ".5 " + y + " " + (z + far) + ".5 {Tags:[\"k1103r\"]" + TAIL);
-            c.server().command("summon zombie " + wx + ".5 " + y + " " + z + ".5 {Tags:[\"k1103r\"]" + TAIL);
+            // An unnamed husk far out with no stand, and a walker named by a stand.
+            c.server().command("summon husk " + x + ".5 " + y + " " + (z + far) + ".5 {" + uuid(3) + ",Tags:[\"k1103r\"]" + TAIL);
+            c.server().command("summon husk " + wx + ".5 " + y + " " + z + ".5 {" + uuid(4) + ",Tags:[\"k1103r\"]" + TAIL);
             c.server().command("summon armor_stand " + wx + ".5 " + (y + 2) + " " + z + ".5 {Tags:[\"k1103r\"],"
                     + "CustomName:\"[Lv100] Glacite Walker 2000/2000\",CustomNameVisible:1b,Invisible:1b,NoGravity:1b,Marker:1b}");
-            c.waitUntil("the far mobs on the client", mc -> unnamedZombieAt(mc, gx, z) >= 0 && unnamedZombieAt(mc, x, z + far) >= 0
-                    && unnamedZombieAt(mc, wx, z) >= 0 && idNamed(mc, "Goblin", true) >= 0
-                    && idNamed(mc, "Glacite Walker", true) >= 0, 200);
-            int[] ids = c.onClient(mc -> new int[]{unnamedZombieAt(mc, gx, z), unnamedZombieAt(mc, x, z + far),
-                    unnamedZombieAt(mc, wx, z), idNamed(mc, "Goblin", true)});
+            waitLoaded(c, "the mobs on the client", mc -> byUuid(mc, 1) >= 0 && byUuid(mc, 2) >= 0 && byUuid(mc, 3) >= 0
+                    && byUuid(mc, 4) >= 0 && idNamed(mc, "Glacite Walker", true) >= 0, 200);
+            int[] ids = c.onClient(mc -> new int[]{byUuid(mc, 1), byUuid(mc, 3), byUuid(mc, 4), byUuid(mc, 2)});
             int goblin = ids[0], plain = ids[1], walker = ids[2], stand = ids[3];
-            double dist = c.onClient(mc -> Math.sqrt(mc.level.getEntity(goblin).distanceToSqr(mc.player)));
-            c.note("render distance " + rd + " (8 for the case); goblin " + goblin + " at " + Math.round(dist) + " blocks (stand "
-                    + stand + "), unnamed " + plain + ", walker " + walker);
-            c.check(dist > 64, "control: the far goblin is only " + dist + " blocks out");
-            c.waitUntil("the far goblin highlighted", mc -> targetsNow().contains(goblin), 60);
+            c.waitUntil("the goblin highlighted", mc -> targetsNow().contains(goblin), 60);
+            // Out to 70 blocks; the stand goes.
             c.server().command("kill @e[tag=k1103rs]");
-            c.waitUntil("the stand gone from the client", mc -> mc.level.getEntity(stand) == null, 60);
+            c.server().command("tp @e[tag=k1103rg] " + (x + far) + ".5 " + y + " " + z + ".5");
+            waitLoaded(c, "the stand gone and the goblin 70 out", mc -> mc.level.getEntity(stand) == null
+                    && mc.level.getEntity(goblin) != null && mc.level.getEntity(goblin).distanceToSqr(mc.player) > 66 * 66, 100);
+            double dist = c.onClient(mc -> Math.sqrt(mc.level.getEntity(goblin).distanceToSqr(mc.player)));
+            c.note("render distance " + rd + " (8 for the case); goblin " + goblin + " now " + Math.round(dist)
+                    + " blocks out with no stand; unnamed " + plain + ", walker " + walker);
             for (int i = 0; i < 4; i++) {
                 c.ctx().waitTicks(10);
                 List<Integer> t = targets(c);
-                c.check(t.contains(goblin), "the goblin lost its highlight after its stand went: " + t);
-                c.check(!t.contains(plain), "an unnamed zombie with no stand was highlighted: " + t);
+                c.check(t.contains(goblin), "the goblin lost its highlight with no stand " + Math.round(dist) + " out: " + t);
+                c.check(!t.contains(plain), "an unnamed husk with no stand was highlighted: " + t);
                 c.check(!t.contains(walker), "a Glacite Walker was highlighted for Goblin Slayer: " + t);
             }
-            c.note("the goblin stayed highlighted 40 ticks after its stand went; the unnamed and the walker never");
+            c.note("the goblin stayed highlighted 40 ticks at " + Math.round(dist) + " blocks with no stand; the unnamed and"
+                    + " the walker never");
             mines(c, "Goblin Slayer: DONE");
             c.waitUntil("Goblin Slayer DONE: the remembered goblin goes", mc -> !targetsNow().contains(goblin)
                     && ((Number) Mod.staticCall(MOBS, "knownCount")).intValue() == 0, 40);
-            // Remembered again (stand back), then killed: it goes.
+            // Remembered again (stand back beside it), then killed: it goes.
             mines(c, "Goblin Slayer: 40%");
-            c.server().command("summon armor_stand " + gx + ".5 " + (y + 2) + " " + z + ".5 {Tags:[\"k1103r\",\"k1103rs\"],"
+            c.server().command("summon armor_stand " + (x + far) + ".5 " + (y + 2) + " " + z + ".5 {Tags:[\"k1103r\",\"k1103rs\"],"
                     + "CustomName:\"[Lv25] Goblin 100/100\",CustomNameVisible:1b,Invisible:1b,NoGravity:1b,Marker:1b}");
-            c.waitUntil("highlighted again with its stand back", mc -> targetsNow().contains(goblin), 80);
+            c.waitUntil("highlighted again with a stand back", mc -> targetsNow().contains(goblin), 80);
             c.server().command("kill @e[tag=k1103rs]");
             c.server().command("kill @e[tag=k1103rg]");
             c.waitUntil("a killed goblin goes", mc -> !targetsNow().contains(goblin), 60);
