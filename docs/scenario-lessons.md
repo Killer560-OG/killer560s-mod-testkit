@@ -1478,6 +1478,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   of the mod's overlay text), then checked for 1.000 (Tint HUD off) and 0.749/0.400 (on). The mod menu check uses the middle
   70 % of the window: the blurred world around the menu's frame IS tinted (0.93 over the whole frame) and is not the menu.
   Run with `-Scenario "100-hx-session+,1102-darkmode"`.
+
+- 1102-sound-session (`sound/SoundDisablerSuite`, mod sounddisable-1102): Sound Disabler. Server `playsound` and client
+  `playLocalSound` (play and, 15 blocks out, playDelayed); a muted sound must not reach `SoundEngine.play`
+  (`harness/SoundProbe`) while a control sent after it does, and the mod's row counter moves by one. Bonzo's Staff
+  is held by `item replace ... blaze_rod[custom_data={id:"BONZO_STAFF"}]` (also STARRED_ and a name-only staff).
 - **62-argrim-1102-iwclose** (iwcause-1102): Inventory Walk's held container close flushed by a route etherwarp's use
   with the sneak down (MultiActionsD). Deterministic only with all three: the route held on its use with the sneak down
   (`PlayerStatsFeature.manaShort`), the chest window hidden on arrival with no close packet and the client's menu set back to

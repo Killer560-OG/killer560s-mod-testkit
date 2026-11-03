@@ -167,6 +167,10 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   variable `TESTKIT_MENU_ONLY=1853-menu-swap,...` (MenuSuite.selected) to pick the cases.
 - `c.server().command("playsound ... @p ~ ~ ~ ...")` runs at the console's position (world origin): "The sound is too far
   away to be heard" and the client gets nothing. Use `execute at @p run playsound ...` (1101-ap3-crystal-*, 2026-11-01).
+  To prove a sound did or did not PLAY, read `harness/SoundProbe.count("minecraft:<id>")` (every sound reaching
+  `SoundEngine.play`, counted even though test clients are muted) and send a control sound after it, waiting for the
+  control, so "0" means dropped rather than not yet arrived (1102-sound-*, 2026-11-02). `-Scenario "-sound-"` also ran
+  1021-theme-sound-import and three 102x blink/iw rows (a filter part is a substring): name cases `1102-sound`.
   AutoTrap.testTrapRoom (mod doc-routes-1101) makes the 62-argrim pasted room a trap room for a case; reset it to null.
 - A checkout's `run/testserver/world` written by a 26.3 server will not load on 26.2 ("IllegalStateException: Overworld
   settings missing"): the 26.2 server exits, the client reads FROZEN and the server JVM can be left holding the port. Before

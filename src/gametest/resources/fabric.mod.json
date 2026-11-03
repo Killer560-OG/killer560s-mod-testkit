@@ -245,6 +245,7 @@
 			"dev.testkit.gametest.ui.RebootCommandTest",
 			"dev.testkit.gametest.dsim.DungeonServerSuite",
 			"dev.testkit.gametest.boss.BossSuite",
+			"dev.testkit.gametest.sound.SoundDisablerSuite",
 			"dev.testkit.gametest.perf.FpsBenchTest",
 			"dev.testkit.gametest.perf.HubPerfBenchTest",
 			"dev.testkit.gametest.perf.FeatureCostBenchTest",
