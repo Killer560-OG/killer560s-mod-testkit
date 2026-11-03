@@ -1473,3 +1473,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   list before that message. With the aimed aura every case is silent, the FLAGGED-expected ones included (0 lines).
   51's "never run into the wall" is recorded, not asserted, on a one-a-tick Multi Break jar: at Speed V a two-high wall
   needs ~1.1 digs a tick and GrimAC MultiBreak allows one (13 of 210 packets collided, both versions).
+- 588-ui-invsort-fit / 589-*-rarity-* (invsortfit-1102): the mod's own item grids. 588 finds each icon's box by diffing its
+  cell against an empty cell of the same grid and wants it centered and >= 70% of the inside at four window/GUI sizes;
+  589 counts LEGENDARY gold (0xFFAA00, Item Rarity Square 100%%) with the feature on and off. Use a stick, not a block,
+  for a 16-unit cell: the box sits right under the icon and a full block hides all of it. The Storage Overlay's open
+  page title is that same orange, so the pages grid is checked by the on/off difference. A two-digit count scales with
+  the fitted item and reaches past the cell's middle (still in its lower half).
