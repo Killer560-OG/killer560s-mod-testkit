@@ -222,10 +222,12 @@ public class SimMapDoorColorTests implements FabricClientGameTest {
                 outlineDefault, doors[0], doors[1], doors[2]);
         boolean plainOk = plainDoor != null && andesite != null && cell != null
                 && (plainDoor.equals(andesite) || plainDoor.equals(cell));
-        boolean premise = doors[0] && doors[1] && doors[2] && andesite != null && andesite != NORMAL;
+        // Since mapcolor-1102 an unexplored Funny Map room keeps its own color (owner 2026-11-02: no darkening when the
+        // run starts), so Andesite is plain Normal here; 1102-map-funny-same-color judges that.
+        boolean premise = doors[0] && doors[1] && doors[2] && andesite != null;
         boolean pass = premise && plainOk && fairyDoor != null && fairyDoor.equals(fairyRoom) && pinkish(fairyDoor) && witherDoor != null
                 && witherDoor == 0xFF000000 && amber == 0 && amberOn > 0 && !outlineDefault;
-        row(R_COLORS, pass, (premise ? "" : "PREMISE (doors, unexplored Andesite darkened) not met; ") + detail);
+        row(R_COLORS, pass, (premise ? "" : "PREMISE (doors, Andesite drawn) not met; ") + detail);
     }
 
     private void extraScale(ClientGameTestContext ctx) {

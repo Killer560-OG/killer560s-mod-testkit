@@ -1479,3 +1479,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   the inventory (the route waits under an open menu), and the close sent at an early END_CLIENT_TICK phase (after that
   tick's sneaking input, before Auto Routes acts). A close at START is useless: Inventory Walk makes that tick's input its
   still tick and the close goes clean. A screen set back with setScreen releases the route's keys. `-PiwRepeat=N` repeats.
+
+- 1102-map-run-start (SimMapRunStartTests, mod mapcolor-1102): 1102-map-funny-same-color draws the 1101 sim floor with
+  Funny Map ON before any map item (the pre-run state: Hypixel hands the map over at run start) and again after a painted
+  item showing only the Entrance opened; every room fill and the background must match within 2 per channel, with the
+  premise that the item was read and the mod reports at least one unexplored room. Saves 1102-map-funny-before/after
+  screenshots. 1102-map-wither-outline counts outline parts of the chosen color round the locked wither door at thickness
+  1 and 3 (3x as many) in the regular style and on Funny Map; 1102-map-funny-hides-rows builds LiveMapTab's widgets with
+  Funny Map on/off; 1102-map-outline-saved reloads the config. The outline case relies on 4 fills per GuiRects outline.
