@@ -2652,6 +2652,10 @@ final class HxBloodCampCases {
         } finally {
             nextServerStep = null;
             nextSummonDelay = null;
+            // Its tagged decoys (xrevoker*, Invulnerable) used to outlive it: one stayed 1 block off the arena's landing
+            // spot and every later case's Trigger Bot swung at it (1103p gate: nevermiss-offset "swung 5 time(s) before
+            // the mob existed", husk #273 tagged here).
+            clearDecoys(c);
         }
     }
 
@@ -2678,6 +2682,7 @@ final class HxBloodCampCases {
     private static void neverMissOffset(Session c) {
         boolean cheat = Mod.isCheat();
         try (HxKit.Settings s = base(c)) {
+            clearDecoys(c); // a blood mob an earlier case left near the landing spot is a real target
             watcher(c, WATCHER_IN);
             if (!cheat) {
                 stand(c, 0f, 0f);
@@ -2745,6 +2750,7 @@ final class HxBloodCampCases {
     private static void neverMissKillTimer(Session c) {
         boolean cheat = Mod.isCheat();
         try (HxKit.Settings s = base(c)) {
+            clearDecoys(c); // a blood mob an earlier case left near the landing spot is a real target
             watcher(c, WATCHER_IN);
             stand(c, 0f, 0f);
             greet(c);
@@ -2800,6 +2806,7 @@ final class HxBloodCampCases {
     private static void neverMissOffSpot(Session c) {
         boolean cheat = Mod.isCheat();
         try (HxKit.Settings s = base(c)) {
+            clearDecoys(c); // a blood mob an earlier case left near the landing spot is a real target
             watcher(c, WATCHER_IN);
             if (cheat) {
                 s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "NeverMiss", true);
@@ -2878,6 +2885,7 @@ final class HxBloodCampCases {
     private static void hitAlive(Session c) {
         boolean cheat = Mod.isCheat();
         try (HxKit.Settings s = base(c)) {
+            clearDecoys(c); // a blood mob an earlier case left near the landing spot is a real target
             if (cheat) {
                 s.with(BC_CFG, "TriggerBotEnabled", true);
             }
@@ -2910,6 +2918,7 @@ final class HxBloodCampCases {
     private static void neverMissRehit(Session c) {
         boolean cheat = Mod.isCheat();
         try (HxKit.Settings s = base(c)) {
+            clearDecoys(c); // a blood mob an earlier case left near the landing spot is a real target
             watcher(c, WATCHER_IN);
             if (cheat) {
                 s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "NeverMiss", true);
@@ -2995,6 +3004,7 @@ final class HxBloodCampCases {
             return;
         }
         try (HxKit.Settings s = base(c)) {
+            clearDecoys(c); // a blood mob an earlier case left near the landing spot is a real target
             s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "NeverMiss", false);
             setNeverMiss(c, false, 5);
             List<String> off = c.onClient(HxBloodCampCases::autoBloodCampLabels);
