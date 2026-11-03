@@ -362,8 +362,10 @@ final class HxMiningArea1103Cases {
                 dev.testkit.compat.McCompat.clearChatAndToasts(mc);
             });
             Vec3 top = new Vec3(carpet.getX() + 0.5, carpet.getY() + 0.0625, carpet.getZ() + 0.5);
-            // Ground just past the carpet's far edge (stone, never filled).
-            Vec3 past = new Vec3(carpet.getX() + 0.5, carpet.getY(), carpet.getZ() - 0.45);
+            // Stone 1.2 blocks past the carpet's far edge (never filled). Not nearer: the projection is read a moment before
+            // the screenshot's frame, and mid-jump the camera moves up to ~0.4 of a block a tick (0.45 past the edge read
+            // the fill on 3 of 24 frames in a full session, b2-c263-hx).
+            Vec3 past = new Vec3(carpet.getX() + 0.5, carpet.getY(), carpet.getZ() - 1.2);
             List<Boolean> modes = itBefore == null ? List.of(false) : List.of(false, true);
             for (boolean it : modes) {
                 if (itBefore != null) {
