@@ -16,8 +16,9 @@ import java.util.List;
 /**
  * {@code boss.timeline} (f7hud-1102): boss events at exact SERVER ticks, for timers that must line up with the server's
  * own tick (Goldor's 60-tick damage tick, Storm's 20-tick pad cycle). Steps are {@code {at: <ticks after the op>, chat:
- * "<line>"}} or {@code {at, damage: <hp>}} (vanilla {@code damage <player> <hp> minecraft:generic}); each runs at the end of
- * server tick {@code base + at}, base being the tick the op ran on. {@code boss.timeline.state} answers each fired step's
+ * "<line>"}} or {@code {at, damage: <hp>}} (vanilla {@code damage <player> <hp> minecraft:generic}); each runs at the START of
+ * server tick {@code base + at} (as a Bukkit-style scheduler would: before the levels tick and before the connections send
+ * the health packet, so a hit and its health update leave on the same tick), base being the tick the op ran on. {@code boss.timeline.state} answers each fired step's
  * {@code at} and the server tick it ran on, so a case can check the schedule really held.
  */
 final class HxTimeline {

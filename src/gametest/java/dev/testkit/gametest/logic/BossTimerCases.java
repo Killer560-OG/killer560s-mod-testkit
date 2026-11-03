@@ -355,9 +355,11 @@ final class BossTimerCases {
             chat(TT, "onChatMessage", "[BOSS] Goldor: Who dares trespass into my domain?");
             serverTicks(40);
             chat(TT, "onChatMessage", "[MVP+] Bob: Second Wind Activated! Your Spirit Mask saved your life!");
+            Mod.staticCall(GT, "endOfTick");
             c.eq("a player's copy of the proc line is not a hit", List.of(), offsets());
             serverTicks(21);
             chat(TT, "onChatMessage", "Second Wind Activated! Your Spirit Mask saved your life!");
+            Mod.staticCall(GT, "endOfTick"); // a proc is counted at the end of the client tick, with the health drops
             c.eq("a Spirit Mask proc counts as a hit", List.of(1), offsets());
 
             // The core opening ends it.
@@ -437,6 +439,44 @@ final class BossTimerCases {
             Mod.staticCall(TT, "resetAll");
             Mod.staticCall(CLOCK, "untrustForTest");
             Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas);
+        }
+    }
+
+    /**
+     * killer560's 2026-11-02 screenshots (1920x1080, GUI 2 = 960x540 GUI px): the Storm line over Maxor's "Active", Team
+     * Melody over the Split Timers, the P3 list over chat. The F7 HUDs' DEFAULT boxes (their largest real content: Tick
+     * Timers 3 lines of 12, Maxor 3 of 10, P3 Status 4 of 10, Team Melody 120 with boards, 160 wide) must miss each other (Maxor and
+     * P3 Status never show together), the chat (x < 330, y 320-500 at 540 high), the Split Timers' default column (x 10)
+     * and the vanilla sidebar (right edge, y 200-340 at 540 high: Team Melody goes under it). Positions are read from the elements on this client's screen.
+     */
+    static void f7Slots(LogicCase c) {
+        int screenW = Minecraft.getInstance().getWindow().getGuiScaledWidth();
+        String[][] els = {{"tick_timers", "36"}, {"maxor_crystals", "30"}, {"p3_status", "40"}, {"team_melody", "120"}};
+        int[][] box = new int[els.length][];
+        for (int i = 0; i < els.length; i++) {
+            Object e = Mod.staticCall("hud.HudElementRegistry", "byId", els[i][0]);
+            if (!c.check(els[i][0] + " is registered", e != null)) {
+                return;
+            }
+            int x = (Integer) Mod.call(e, "defaultX");
+            int y = (Integer) Mod.call(e, "defaultY");
+            box[i] = new int[]{x, y, x + 160, y + Integer.parseInt(els[i][1])};
+            c.note(els[i][0] + " default " + x + "," + y + " on a " + screenW + " wide screen");
+            c.eq(els[i][0] + " sits in the right column", screenW - 170, x);
+            c.check(els[i][0] + " is clear of the chat and the Split Timers (x >= 330 at 960 wide)", screenW < 500 || x >= 330, "x " + x);
+            boolean melody = els[i][0].equals("team_melody");
+            c.check(els[i][0] + (melody ? " starts below the vanilla sidebar (y >= 345)" : " ends above the vanilla sidebar (y <= 200)"),
+                    melody ? y >= 345 : box[i][3] <= 200, "top " + y + ", bottom " + box[i][3]);
+        }
+        for (int a = 0; a < els.length; a++) {
+            for (int b = a + 1; b < els.length; b++) {
+                boolean together = !(els[a][0].equals("maxor_crystals") && els[b][0].equals("p3_status"));
+                boolean meet = box[a][0] < box[b][2] && box[b][0] < box[a][2] && box[a][1] < box[b][3] && box[b][1] < box[a][3];
+                if (together) {
+                    c.check(els[a][0] + " and " + els[b][0] + " do not overlap", !meet,
+                            java.util.Arrays.toString(box[a]) + " vs " + java.util.Arrays.toString(box[b]));
+                }
+            }
         }
     }
 
