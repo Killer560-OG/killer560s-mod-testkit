@@ -280,6 +280,23 @@ final class ProtectStarCases {
             });
             c.note("a file without showStar loads isShowStar " + legacy);
             c.check(legacy, "a file from before the switch loads with the star hidden");
+            // ---- the tab: a real ON/OFF Show Star row with its tooltip; Star Color only while the star shows ----
+            List<String> rowsOn = InvBatchCases.tabLabels(c, "gui.tab.ItemProtectTab");
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(IPC), "setShowStar", false);
+                return null;
+            });
+            List<String> rowsOff = InvBatchCases.tabLabels(c, "gui.tab.ItemProtectTab");
+            String tipOn = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Item Protection", "Show Star: ON"));
+            String tipOff = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "Item Protection", "Show Star: OFF"));
+            c.note("tab rows, Show Star ON: " + rowsOn);
+            c.note("tab rows, Show Star OFF: " + rowsOff);
+            c.note("Show Star tooltip: " + tipOn);
+            c.check(rowsOn.stream().anyMatch(l -> l.startsWith("Show Star")) && rowsOn.stream().anyMatch(l -> l.startsWith("Star Color")),
+                    "Show Star ON: the tab lacks Show Star or Star Color: " + rowsOn);
+            c.check(rowsOff.stream().anyMatch(l -> l.startsWith("Show Star")) && rowsOff.stream().noneMatch(l -> l.startsWith("Star Color")),
+                    "Show Star OFF: want Show Star and no Star Color: " + rowsOff);
+            c.check(tipOn != null && tipOn.equals(tipOff), "Show Star has no tooltip: " + tipOn + " / " + tipOff);
             c.check(c.problemCount() == 0, c.problemCount() + " problem(s), see above");
         } finally {
             c.onClient(mc -> {
