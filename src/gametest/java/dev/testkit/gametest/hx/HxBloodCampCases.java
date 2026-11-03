@@ -1041,7 +1041,15 @@ final class HxBloodCampCases {
                 return;
             }
             c.check(t.serverAttacks.size() >= 2, "no retry to measure (" + t.serverAttacks.size() + " attack(s))");
-            c.check(g.stream().allMatch(x -> x >= 10), "Trigger Bot clicks came faster than 10 ticks: " + g);
+            // The cap on the client's own clicks; at the server a tick either way (LESSONS-AUTOMATION "A click cap holds at
+            // the client"): [9, 11, 10, 10] at the server under load, atkspeed-1103 26.2 and bloodcamp2 r4 26.3.
+            List<Long> tc = clientTicks(c, "recentClickTicks");
+            List<Long> cg = gaps(tc.subList(Math.max(0, tc.size() - t.clicks), tc.size()));
+            c.note("Trigger Bot client click gaps " + cg);
+            c.check(!cg.isEmpty() && cg.stream().allMatch(x -> x >= 10), "Trigger Bot clicks came faster than 10 ticks on"
+                    + " the client: " + cg);
+            c.check(g.stream().allMatch(x -> x >= 9), "Trigger Bot attacks reached the server more than a tick under 10"
+                    + " apart: " + g);
             // (b) The Aura on a blood mob that takes no damage: round(10 / (1 + AS/100)) ticks apart on Hypixel, and the
             // vanilla cooldown (an iron sword's 12.5, so 13) on a plain server.
             c.onClient(mc -> {
@@ -1282,8 +1290,11 @@ final class HxBloodCampCases {
                             + " %.2f, most common gap %d of %d); registering gaps %s; server attacks %d",
                     fillers, counts, mean, cps, sd, top, allGaps.size(), regGaps, t.serverAttacks.size()));
             c.check(fillers >= 5, "only " + fillers + " clicks went between the registering hits");
-            c.check(regGaps.stream().allMatch(g -> g == 10), "the registering hits were not exactly the 10-tick cap"
-                    + " apart: " + regGaps);
+            // Never under the cap; at it nearly always. A gap of 11 is the cap on the server's clock (PerTickServerClock
+            // trusted, the server 9 ticks on: atkspeed-1103 26.3, "per-tick pinger" just before), which is the rule too.
+            long atCap = regGaps.stream().filter(g -> g == 10).count();
+            c.check(!regGaps.isEmpty() && regGaps.stream().allMatch(g -> g >= 10) && atCap * 10 >= regGaps.size() * 8,
+                    "the registering hits were not at the 10-tick cap (never under it, 80% exactly on it): " + regGaps);
             c.check(sd > 0.3 && top * 10 < allGaps.size() * 6, "the click stream is too regular (sd " + sd
                     + ", most common gap " + top + " of " + allGaps.size() + ")");
             c.check(cps >= 4 && cps <= 14 && minGap >= 2, String.format(Locale.ROOT,
