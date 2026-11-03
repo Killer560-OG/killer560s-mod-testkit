@@ -474,7 +474,9 @@ final class InvSortDocCases {
                     + "; at 960x540: slot " + big[0] + ", panel " + big[1] + "x" + big[2] + ", row " + big[3]
                     + " (was 18 px slots, 356x176, rows 13)");
             c.check(geo[1] <= geo[3] && geo[2] <= geo[4], "the menu does not fit its window");
-            c.check(big[0] == 26 && big[3] == 16 && big[1] > 356 && big[2] > 176, "not larger on a 960x540 window");
+            // Rows carry the layout's items since mod invsort-1103 (killer560 2026-11-03: "make the saved loadouts portion
+            // bigger"): 16 px name-only rows became preview rows of 30+ px.
+            c.check(big[0] == 26 && big[3] >= 30 && big[1] > 356 && big[2] > 176, "not larger on a 960x540 window");
 
             // Row geometry.
             int[] g = c.onClient(mc -> {
