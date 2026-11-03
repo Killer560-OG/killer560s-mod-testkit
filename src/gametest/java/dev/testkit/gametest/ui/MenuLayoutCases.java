@@ -70,6 +70,8 @@ final class MenuLayoutCases {
     private static final Set<String> NESTED_OK = Set.of("Secrets", "Puzzle Solvers");
     /** Sections added by this change (cheat build): Home's Correction Alarm, out of the middle of Mod & HUD. */
     private static final Set<String> NEW_LEAVES = Set.of("gui.tab.CorrectionAlarmTab",
+            // Bazaar Order Helper (mod bzorders-1102, killer560 2026-11-02): its own card in Items.
+            "gui.tab.BazaarOrderHelperTab",
             // Thorn Triggerbot (mod doc-auto-1101, killer560 2026-11-01): its own card in Dungeons' cheat block; cheat jar only.
             "gui.tab.ThornTriggerbotTab",
             // Held Item Outline (mod held-outline, killer560 2026-10-09): its own tab in Cosmetics.
