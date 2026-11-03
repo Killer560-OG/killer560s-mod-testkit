@@ -250,6 +250,8 @@ public class MenuSuite implements FabricClientGameTest {
                     AutoMaskCases.register(s);
                     // ---- 1092-1094 clickguards-1025: Reroll Protection, Kismet Count, Croesus Chests HUD ----
                     CroesusRerollCases.register(s);
+                    // ---- 1103-menu-* commissions-1103: Completed Commissions and Highlight Selected Loadout slots ----
+                    Commissions1103MenuCases.register(s);
                 });
     }
 }
