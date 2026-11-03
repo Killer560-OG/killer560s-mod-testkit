@@ -516,9 +516,6 @@ final class LeapMenuCases {
                 old.remove("groups");
             }
             compare("", old, now, diff);
-            if (oneSwitch()) {
-                leapModeMigration(c, st.file);
-            }
             c.note("old file with per-class targets: Targets Set Class " + use + "; keys that changed after load + save: " + diff);
             c.check(use, "an old file with per-class targets set loads as Targets Universal (it applied them before)");
             c.check(diff.isEmpty(), "an old file's values changed on load + save: " + diff);
@@ -549,6 +546,9 @@ final class LeapMenuCases {
             c.note("old file without per-class targets: Set Class " + none + "; saved false with targets: Set Class " + explicit);
             c.check(!none, "an old file with no per-class targets loads as Set Class");
             c.check(!explicit, "a saved Targets Universal came back as Set Class");
+            if (oneSwitch()) {
+                leapModeMigration(c, st.file);
+            }
         }
     }
 

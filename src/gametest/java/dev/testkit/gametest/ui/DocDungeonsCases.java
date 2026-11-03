@@ -254,7 +254,8 @@ final class DocDungeonsCases {
             long sections = labels.stream().filter(l -> l.matches("S[1-4]: .*")).count();
             c.check(labels.stream().noneMatch(l -> l.equals("Edit") || l.startsWith("Edit")), "an Edit button is still there");
             c.check(labels.stream().noneMatch(l -> l.toLowerCase(Locale.ROOT).contains("test")), "a Test leap row is still there");
-            c.check(labels.contains("Crystal Leap"), "no \"Crystal Leap\" row");
+            c.check(labels.stream().anyMatch(l -> l.equals("Crystal Leap") || l.startsWith("Crystal Leap: ")),
+                    "no \"Crystal Leap\" row");
             c.check(labels.stream().noneMatch(l -> l.startsWith("P1 Leap")), "a \"P1 Leap\" row is still there");
             c.check(modes == 0, modes + " Mode button(s) left, the Mode button is gone");
             c.check(fasts == 12 && autos == 12, fasts + " Fast and " + autos + " Auto toggles, one each per leap is 12");
