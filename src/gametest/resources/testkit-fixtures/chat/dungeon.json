@@ -92,7 +92,7 @@
     "id": "chat.leap-teleported",
     "kind": "chat",
     "payload": "§dYou have teleported to §bHxMateA§d!",
-    "source": {"file": "src/main/java/com/killer560/hub/leapmessage/LeapMessageFeature.java", "line": 35},
+    "source": {"file": "src/main/java/com/killer560/hub/leapmessage/LeapMessageFeature.java", "line": 33},
     "matches": ["leapmessage.LeapMessageFeature#LEAP_MESSAGE"],
     "mode": "matches",
     "verifiedBy": "regex",
