@@ -91,6 +91,15 @@ final class HxBloodCampCases {
         s.test("1102-bloodcamp-watcher-bar", HxBloodCampCases::watcherBar);
         s.test("1102-bloodcamp-npc-deaths", HxBloodCampCases::npcDeaths);
         s.test("1102-bloodcamp-hud-boss", HxBloodCampCases::hudBoss);
+        // bloodcamp2-1102 (owner's F7 camp 2026-11-02): a missed wall spawn, slow Trigger Bot clicks, a Watchful Eye drawn.
+        s.test("1102-bloodcamp-wall-spawn", HxBloodCampCases::wallSpawn);
+        s.test("1102-bloodcamp-tag-latency", HxBloodCampCases::tagLatency);
+        s.test("1102-bloodcamp-watchful-eye", HxBloodCampCases::watchfulEye);
+        // bloodcamp2-1102, owner's camp run 3: a box missed (Watcher out of the world, unknown skins), a trip taking an
+        // older blood mob, and a hit mob left alive.
+        s.test("1102-bloodcamp-missed-box", HxBloodCampCases::missedBox);
+        s.test("1102-bloodcamp-trip-steal", HxBloodCampCases::tripSteal);
+        s.test("1102-bloodcamp-hit-alive", HxBloodCampCases::hitAlive);
         s.test("1101-esp-fels", HxBloodCampCases::fels);
         s.test("1101-esp-starred-memory", HxBloodCampCases::starredMemory);
         s.test("1101-esp-mimic", HxBloodCampCases::mimic);
@@ -227,6 +236,9 @@ final class HxBloodCampCases {
     private static String nextHuskName;
     /** Set before a trip: its first step is an absolute teleport packet of this many blocks, then two nudges. */
     private static Double nextTeleportStep;
+    /** Set before a trip: the server removes its skull stand at this tick of the trip (bloodcamp2-1102: Hypixel removes the
+     *  skull around when the mob appears), null = at the end. */
+    private static Integer nextRemoveStandAt;
     private static long lastSummonTick = -1;
     private static int lastClicksBeforeSummon = -1;
 
@@ -354,6 +366,8 @@ final class HxBloodCampCases {
         int retries0 = cheat ? intStat(c, "triggerRetries") : 0;
         Double tpStep = nextTeleportStep;
         nextTeleportStep = null;
+        Integer removeStandAt = nextRemoveStandAt;
+        nextRemoveStandAt = null;
         String huskName = nextHuskName == null ? "blood" : nextHuskName;
         nextHuskName = null;
         String uuid = c.hx().stand(x0 - (tpStep == null ? 0.0 : tpStep), 151.0, -417.5, null, "marker", false, "invisible",
@@ -391,6 +405,9 @@ final class HxBloodCampCases {
                 final int tick = i;
                 if (nextServerStep != null) {
                     nextServerStep.accept(i);
+                }
+                if (removeStandAt != null && i == removeStandAt) {
+                    c.hx().call("entity.remove", "uuid", uuid);
                 }
                 if (i == summonAt && mob != Mob.NONE) {
                     lastClicksBeforeSummon = intStat(c, "triggerClicks") - clicks0;
@@ -502,8 +519,11 @@ final class HxBloodCampCases {
                     c.check(t.clicks == 0 && t.serverAttacks.isEmpty(), "legit jar: the Trigger Bot clicked");
                     continue;
                 }
-                c.check(t.clicks == 1 && t.attacks == 1, "offset " + off + ": want one attack, got " + t.clicks
-                        + " click(s), " + t.attacks + " attack(s)");
+                // One click on time, never retried as a miss. Since bloodcamp2-1102 run 3 a mob that survives the hit (this
+                // husk does: a fist does 1 of its 20) is clicked again after its hurt flash, at the weapon's 10 ticks.
+                c.check(t.attacks >= 1 && t.retries == 0 && gaps(t.serverAttacks).stream().allMatch(g -> g >= 10),
+                        "offset " + off + ": want one attack on time and no miss retry, got " + t.clicks + " click(s), "
+                                + t.retries + " retries, attack gaps " + gaps(t.serverAttacks));
                 double late = t.killAt - t.triggerAt;
                 c.check(Math.abs(late - off) < 0.01, String.format(Locale.ROOT,
                         "offset %d: the click went %.1f ticks after the kill timer, want %d", off, late, off));
@@ -754,9 +774,11 @@ final class HxBloodCampCases {
                 c.check(gap >= 2 && gap <= 12, "the retry came " + gap + " ticks after the first attack, want right after"
                         + " the hit window (a round trip + 4 ticks)");
             }
-            c.check(hit.clicks == 1 && hit.retries == 0 && hit.serverAttacks.size() == 1,
-                    "a hit that landed was clicked again: " + hit.clicks + " click(s), " + hit.serverAttacks.size()
-                            + " attack(s)");
+            // A hit that landed is never RETRIED as a miss; since bloodcamp2-1102 run 3 a mob that survives it is clicked
+            // again, but only once its hurt flash is over (10 ticks), never as a miss retry 2-4 ticks later.
+            c.check(hit.retries == 0 && !hit.serverAttacks.isEmpty() && gaps(hit.serverAttacks).stream().allMatch(g -> g >= 10),
+                    "a hit that landed was retried as a miss: " + hit.clicks + " click(s), " + hit.retries + " retries, attack"
+                            + " gaps " + gaps(hit.serverAttacks));
         } finally {
             c.hx().removeStands();
         }
@@ -2225,6 +2247,434 @@ final class HxBloodCampCases {
         } finally {
             clearDecoys(c);
             c.server().command("setblock -419 151 -414 minecraft:air");
+        }
+    }
+
+    // ---- bloodcamp2-1102 ---------------------------------------------------------------------------------------------
+
+    /** The Watcher on the east side of his tile (-7, -7): 24 blocks from a skull on the west side of the same tile. */
+    private static final double[] WATCHER_EAST = {-397.5, 151, -412.5};
+
+    private static long tileOf(double coord) {
+        return Math.round((coord + 185.0) / 32.0);
+    }
+
+    /**
+     * A blood mob's skull stand at (x, 151, z) moved east three times, 1.2 blocks a tick, as a trip leaves its wall. Returns
+     * whether Blood Camp tracked the trip (a predicted landing spot) within 40 ticks. The stand is removed after.
+     */
+    private static boolean skullTrip(Session c, double x, double z) {
+        String mobTex = c.onClient(mc -> anyOf(Mod.field(Mod.ROOT + BC, "MOB_SKULL_TEXTURES")));
+        String uuid = c.hx().stand(x, 151.0, z, null, "marker", false, "invisible", false, "helmet", head(mobTex));
+        try {
+            c.ctx().waitTicks(10);
+            for (int i = 0; i < 3; i++) {
+                c.hx().call("entity.nudge", "uuid", uuid, "dx", 1.2);
+                c.ctx().waitTicks(1);
+            }
+            for (int i = 0; i < 40; i++) {
+                if (c.onClient(mc -> endVector() != null)) {
+                    return true;
+                }
+                c.ctx().waitTicks(1);
+            }
+            return false;
+        } finally {
+            c.hx().call("entity.remove", "uuid", uuid);
+            c.ctx().waitTicks(5);
+        }
+    }
+
+    /**
+     * Owner's F7 camp, 2026-11-02 (bloodcamp-owner-run2-1102.log): "the blood camp solver missed a wall spawn". A mob landed
+     * with no trip tracked for it, 6 ticks after a trip from the far wall started. The Watcher flies to the case of the mob
+     * he picks, and the room's cases are 24 blocks apart; the trip gate was 20 blocks from the Watcher. Here the Watcher is
+     * on the east side of his room tile and a skull leaves the west side, 24 blocks off: its trip must be tracked. A skull
+     * one tile over and 48 blocks off must not be, and the same skull 6 blocks from the Watcher is (control).
+     */
+    private static void wallSpawn(Session c) {
+        double sx = -421.0;
+        double sz = -417.5;
+        try (HxKit.Settings s = base(c)) {
+            watcher(c, WATCHER_EAST);
+            stand(c, 0f, 0f);
+            double far = Math.sqrt(Math.pow(sx - WATCHER_EAST[0], 2) + Math.pow(sz - WATCHER_EAST[2], 2));
+            boolean sameTile = tileOf(sx) == tileOf(WATCHER_EAST[0]) && tileOf(sz) == tileOf(WATCHER_EAST[2]);
+            c.check(far > 20.0 && sameTile, String.format(Locale.ROOT, "layout: the skull is %.1f blocks from the Watcher"
+                    + " (same tile %s) - nothing tested", far, sameTile));
+            boolean wall = skullTrip(c, sx, sz);
+            double out = Math.sqrt(Math.pow(-446.0 - WATCHER_EAST[0], 2) + Math.pow(sz - WATCHER_EAST[2], 2));
+            boolean otherTile = skullTrip(c, -446.0, sz);
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            boolean near = skullTrip(c, sx, sz);
+            c.note(String.format(Locale.ROOT, "skull %.1f blocks from the Watcher in his tile: tracked %s; skull one tile over"
+                    + " %.1f blocks off (tile %d): tracked %s; control, Watcher beside it: tracked %s", far, wall, out,
+                    tileOf(-446.0), otherTile, near));
+            c.check(near, "control: a skull 6 blocks from the Watcher was not tracked - nothing tested");
+            c.check(wall, String.format(Locale.ROOT, "a wall skull %.1f blocks from the Watcher, inside his Blood Room tile, was"
+                    + " not tracked (the missed wall spawn)", far));
+            c.check(!otherTile, "a skull one room tile away, 48 blocks from the Watcher, was tracked as a blood mob trip");
+        } finally {
+            c.hx().removeStands();
+        }
+    }
+
+    /**
+     * Owner's F7 camp, 2026-11-02: "Trigger Bot clicks were very delayed". His log: Hypixel removes a mob's skull stand
+     * around the tick the mob appears, often before it; the trip went with its stand, so 9 of the camp's 16 mobs were found
+     * only by a room scan that ran every 5 ticks (every one tagged on a multiple of 5), and the Trigger Bot had no target
+     * until then. (a) A player-model NPC added on a tick 1 past a multiple of 5 must be a blood mob within 2 ticks.
+     * (b) A trip whose stand the server removes at the due tick, its mob appearing on the spot one tick later, must still
+     * tag that mob within 1 tick of the client having it, and (cheat) the Trigger Bot must click it within 2 ticks and the
+     * server must see the attack.
+     */
+    private static void tagLatency(Session c) {
+        boolean cheat = Mod.isCheat();
+        int npc = NPC_ID_BASE + 10;
+        try (HxKit.Settings s = base(c)) {
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            // (a) - Trigger Bot off: this NPC exists on the client only, nothing may be sent at it.
+            long added = -1;
+            for (int i = 0; i < 12 && added < 0; i++) {
+                added = c.onClient(mc -> {
+                    long g = mc.level.getGameTime();
+                    if (Math.floorMod(g, 5) != 1) {
+                        return -1L;
+                    }
+                    long msb = (java.util.UUID.randomUUID().getMostSignificantBits() & ~0xF000L) | 0x2000L;
+                    net.minecraft.client.player.RemotePlayer p = new net.minecraft.client.player.RemotePlayer(mc.level,
+                            new com.mojang.authlib.GameProfile(new java.util.UUID(msb, java.util.UUID.randomUUID()
+                                    .getLeastSignificantBits()), "LatencyNpc"));
+                    p.setId(npc);
+                    p.setPos(NPC_AT[0][0], 151, NPC_AT[0][1]);
+                    mc.level.addEntity(p);
+                    return g;
+                });
+                if (added < 0) {
+                    c.ctx().waitTicks(1);
+                }
+            }
+            c.check(added >= 0, "never found a tick 1 past a multiple of 5 to add the NPC on - nothing tested");
+            long seen = -1;
+            for (int i = 0; i < 15 && seen < 0 && added >= 0; i++) {
+                c.ctx().waitTicks(1);
+                seen = c.onClient(mc -> bloodIds(mc).contains(npc) ? mc.level.getGameTime() : -1L);
+            }
+            c.onClient(mc -> {
+                net.minecraft.world.entity.Entity e = mc.level.getEntity(npc);
+                if (e != null) {
+                    e.discard();
+                }
+                return null;
+            });
+            c.note("player-model NPC added at game time " + added + ", a blood mob by game time " + seen
+                    + (seen >= 0 ? " (" + (seen - added) + " ticks)" : " (never)"));
+            c.check(seen >= 0 && seen - added <= 2, "a player-model NPC in the Blood Room took " + (seen < 0 ? "forever"
+                    : (seen - added) + " ticks") + " to become a blood mob (want 2 or fewer)");
+            c.ctx().waitTicks(10);
+
+            // (b)
+            if (cheat) {
+                s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "NeverMiss", true);
+            }
+            boolean firstWave = c.onClient(mc -> (Boolean) Mod.staticCall(BC_MT, "isFirstSpawns"));
+            int dueTick = (int) Math.ceil((firstWave ? 40 : 0) + 38 + 0.8);
+            nextRemoveStandAt = dueTick;
+            nextSummonDelay = 4; // summoned at dueTick + 1
+            int[] at = {-1, -1, -1, -1}; // client tick index the husk was seen, tagged, first clicked after; clicks when seen
+            long since = c.hx().head();
+            Trip t = trip(c, Mob.HURTABLE, true, 25, (tick, mc) -> {
+                int id = clientId(mc, "blood");
+                int clicks = (Integer) Mod.staticCall(BC, "triggerClicks");
+                if (id >= 0 && at[0] < 0) {
+                    at[0] = tick;
+                    at[3] = clicks;
+                }
+                if (id >= 0 && at[1] < 0 && bloodIds(mc).contains(id)) {
+                    at[1] = tick;
+                }
+                if (at[0] >= 0 && at[2] < 0 && clicks > at[3]) {
+                    at[2] = tick;
+                }
+            });
+            long attacks = namedAttacks(c, since, "blood");
+            c.note("stand removed at trip tick " + dueTick + ", husk summoned " + (dueTick + 1) + ": seen at " + at[0]
+                    + ", tagged at " + at[1] + ", first click after it appeared at " + at[2] + ", server attacks on it "
+                    + attacks + "; " + fmt(t));
+            c.check(t.tracked, "the trip was never tracked - nothing was tested");
+            c.check(at[0] >= 0, "the husk never reached the client - nothing was tested");
+            c.check(at[1] >= 0 && at[1] - at[0] <= 1, "the mob that appeared on a landed trip's spot after its stand was"
+                    + " removed was " + (at[1] < 0 ? "never" : "only " + (at[1] - at[0]) + " ticks later") + " a blood mob");
+            if (cheat) {
+                c.check(at[2] >= 0 && at[2] - at[0] <= 2, "the Trigger Bot clicked the landed mob " + (at[2] < 0 ? "never"
+                        : (at[2] - at[0]) + " ticks after it appeared") + " (want 2 or fewer)");
+                c.check(attacks >= 1, "the server never saw an attack on the landed mob");
+            } else {
+                c.check(t.clicks == 0 && t.serverAttacks.isEmpty(), "legit jar: something clicked");
+            }
+        } finally {
+            nextRemoveStandAt = null;
+            nextSummonDelay = null;
+            c.hx().removeStands();
+        }
+    }
+
+    /**
+     * Owner's F7 camp, 2026-11-02: "the Watcher's orbiting eye skull was highlighted as a mob". His log: zombie #330210, one
+     * of two zombies with ids just after the Watcher's (#330208), passed a trip's landing spot 13 ticks before the mob and
+     * was "tagged by trip landing". Here, during a trip whose mob arrives a tick before it is due, two Watchful Eyes sit on
+     * the landing spot from its first tick: one a zombie spawned with the Watcher (the id right after his), the other a
+     * zombie under a "[Lv1] Watchful Eye" name tag. Neither may ever be a blood mob or be drawn by Blood Mobs ESP; the real
+     * mob must be both (and, cheat, be the one the Trigger Bot hits).
+     */
+    private static void watchfulEye(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            boolean was = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(ESP_CFG), "getBloodMobsRaw"));
+            s.custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setBloodMobs", true),
+                    () -> Mod.call(Mod.cfg(ESP_CFG), "setBloodMobs", was));
+            if (cheat) {
+                s.with(BC_CFG, "TriggerBotEnabled", true);
+            }
+            int red = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(ESP_CFG), "getBloodColor"));
+            // The Watcher and eye A in one go, as Hypixel spawns them.
+            c.hx().removeStands();
+            c.ctx().waitTicks(3);
+            String tex = c.onClient(mc -> anyOf(Mod.field(Mod.ROOT + BC, "WATCHER_SKULL_TEXTURES")));
+            c.hx().stand(WATCHER_IN[0], WATCHER_IN[1], WATCHER_IN[2], null, "marker", false, "invisible", false, "helmet",
+                    head(tex));
+            c.server().command(String.format(Locale.ROOT, "summon zombie %.2f 151 %.2f {Tags:[\"bceye\"],NoAI:1b,NoGravity:1b,"
+                    + "Silent:1b,PersistenceRequired:1b,Invulnerable:1b,CustomName:\"xeyea\"}", WATCHER_IN[0] + 2, WATCHER_IN[2]));
+            c.waitUntil("Blood Camp sees the Watcher", mc -> Mod.field(Mod.ROOT + BC, "watcherEntityId") != null
+                    && clientId(mc, "xeyea") >= 0, 200);
+            int[] ids = c.onClient(mc -> new int[]{(Integer) Mod.field(Mod.ROOT + BC, "watcherEntityId"), clientId(mc, "xeyea")});
+            c.note("Watcher #" + ids[0] + ", eye A #" + ids[1]);
+            c.check(ids[1] > ids[0] && ids[1] - ids[0] <= 8, "eye A's id is not just after the Watcher's - the spawned-with-him"
+                    + " case was not set up");
+            stand(c, AWAY_YAW, 10f);
+            taggedMob(c, "zombie", "xeyeb", "[Lv1] Watchful Eye 250❤", -416.5, -416.5);
+            c.server().command("tag @e[type=armor_stand,tag=bcdecoy] add bceyetag");
+            nextSummonDelay = 2; // the mob one tick before due: both eyes sit on the spot through the landing window
+            int[] firstTag = {-1, -1, -1};
+            boolean[] drawnEye = {false};
+            int[] drawnMob = {0};
+            // Each eye 1.5 blocks to a side of the spot, across his line to it: inside the landing search (2 blocks), out of
+            // the line of fire (0.3 + 0.6 blocks), so only the tagging decides.
+            nextServerStep = tick -> {
+                if (tick == 0) {
+                    Vec3[] r = c.onClient(mc -> new Vec3[]{endVector(), mc.player.position()});
+                    if (r[0] != null) {
+                        Vec3 end = r[0];
+                        double dx = end.x - r[1].x;
+                        double dz = end.z - r[1].z;
+                        double len = Math.max(1e-6, Math.sqrt(dx * dx + dz * dz));
+                        double px = -dz / len * 1.5;
+                        double pz = dx / len * 1.5;
+                        c.server().command(String.format(Locale.ROOT, "tp @e[type=zombie,name=xeyea] %.3f %.3f %.3f",
+                                end.x + px, end.y, end.z + pz));
+                        c.server().command(String.format(Locale.ROOT, "tp @e[type=zombie,name=xeyeb] %.3f %.3f %.3f",
+                                end.x - px, end.y, end.z - pz));
+                        c.server().command(String.format(Locale.ROOT, "tp @e[tag=bceyetag] %.3f %.3f %.3f", end.x - px,
+                                end.y + 2.2, end.z - pz));
+                    }
+                }
+            };
+            long since = c.hx().head();
+            Trip t = trip(c, Mob.HURTABLE, true, 20, (tick, mc) -> {
+                java.util.Set<Integer> b = bloodIds(mc);
+                Map<Integer, Integer> d = drawn(mc);
+                int a = clientId(mc, "xeyea");
+                int e = clientId(mc, "xeyeb");
+                int m = clientId(mc, "blood");
+                if (a >= 0 && firstTag[0] < 0 && b.contains(a)) {
+                    firstTag[0] = tick;
+                }
+                if (e >= 0 && firstTag[1] < 0 && b.contains(e)) {
+                    firstTag[1] = tick;
+                }
+                if (m >= 0 && firstTag[2] < 0 && b.contains(m)) {
+                    firstTag[2] = tick;
+                }
+                drawnEye[0] |= (a >= 0 && d.containsKey(a)) || (e >= 0 && d.containsKey(e));
+                if (m >= 0 && Integer.valueOf(red).equals(d.get(m))) {
+                    drawnMob[0]++;
+                }
+            });
+            long eyeHits = namedAttacks(c, since, "xeyea") + namedAttacks(c, since, "xeyeb");
+            long mobHits = namedAttacks(c, since, "blood");
+            c.note("tagged at trip tick: eye A " + firstTag[0] + ", eye B " + firstTag[1] + ", mob " + firstTag[2]
+                    + "; an eye drawn " + drawnEye[0] + ", mob drawn red on " + drawnMob[0] + " ticks; server attacks: eyes "
+                    + eyeHits + ", mob " + mobHits + "; " + fmt(t));
+            c.check(t.tracked, "the trip was never tracked - nothing was tested");
+            c.check(firstTag[0] < 0, "the Watchful Eye spawned with the Watcher was tagged a blood mob at trip tick " + firstTag[0]);
+            c.check(firstTag[1] < 0, "the zombie under a Watchful Eye name tag was tagged a blood mob at trip tick " + firstTag[1]);
+            c.check(!drawnEye[0], "Blood Mobs ESP drew a Watchful Eye");
+            c.check(firstTag[2] >= 0 && drawnMob[0] > 0, "control: the real blood mob was not a highlighted blood mob");
+            if (cheat) {
+                c.check(eyeHits == 0, "the Trigger Bot hit a Watchful Eye");
+                c.check(mobHits >= 1, "control: the Trigger Bot never hit the real blood mob");
+            }
+        } finally {
+            nextServerStep = null;
+            nextSummonDelay = null;
+            c.server().command("kill @e[tag=bceye]");
+            clearDecoys(c);
+            c.hx().removeStands();
+        }
+    }
+
+    // ---- bloodcamp2-1102, owner's camp run 3 -----------------------------------------------------------------------
+
+    /** {@link #skullTrip} with the stand's height and skin given. */
+    private static boolean skullTripAt(Session c, double x, double y, double z, String texture) {
+        String uuid = c.hx().stand(x, y, z, null, "marker", false, "invisible", false, "helmet", head(texture));
+        try {
+            c.ctx().waitTicks(10);
+            for (int i = 0; i < 3; i++) {
+                c.hx().call("entity.nudge", "uuid", uuid, "dx", 1.2);
+                c.ctx().waitTicks(1);
+            }
+            for (int i = 0; i < 40; i++) {
+                if (c.onClient(mc -> endVector() != null)) {
+                    return true;
+                }
+                c.ctx().waitTicks(1);
+            }
+            return false;
+        } finally {
+            c.hx().call("entity.remove", "uuid", uuid);
+            c.ctx().waitTicks(5);
+        }
+    }
+
+    /** A skin no blood mob list has (a made-up texture URL), base64 of the usual "textures" JSON. */
+    private static final String UNKNOWN_SKIN = java.util.Base64.getEncoder().encodeToString(
+            "{\"textures\":{\"SKIN\":{\"url\":\"http://textures.minecraft.net/texture/b1d0dc4a2bcamp2run3unknownskin0000\"}}}"
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+    /**
+     * Owner's camp, 2026-11-02 run 3 ("it missed a mob being spawned box"). (a) The Watcher left the client's world for six
+     * seconds ("Watcher removed by the server") while the first wave's skull flew; every move was dropped and the trip was
+     * picked up mid-flight from a position sync, its box 7 blocks off. Here the Watcher's entity is removed, then a skull
+     * leaves its case: its trip must be tracked. (b) 8 case stands in his room had skins Noamm's list lacks, and two mobs
+     * landed with no trip. A skull with an unknown skin leaving a case spot (y N+0.75) must be tracked; the same skin moving
+     * off the case grid (a pet, y N+0.0) must not; a known skin is tracked (control).
+     */
+    private static void missedBox(Session c) {
+        try (HxKit.Settings s = base(c)) {
+            String mobTex = c.onClient(mc -> anyOf(Mod.field(Mod.ROOT + BC, "MOB_SKULL_TEXTURES")));
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            boolean known = skullTripAt(c, -421.5, 151.75, -417.5, mobTex);
+            boolean unknownCase = skullTripAt(c, -421.5, 151.75, -417.5, UNKNOWN_SKIN);
+            boolean unknownOff = skullTripAt(c, -421.3, 151.0, -417.2, UNKNOWN_SKIN);
+            // (a) the Watcher gone from the client world (the server removes his entity), then a skull leaves its case
+            c.hx().removeStands();
+            c.ctx().waitTicks(5);
+            boolean gone = c.onClient(mc -> {
+                Object id = Mod.field(Mod.ROOT + BC, "watcherEntityId");
+                return id == null || mc.level.getEntity((Integer) id) == null;
+            });
+            boolean whileGone = skullTripAt(c, -421.5, 151.75, -417.5, mobTex);
+            c.note("known skin on a case: tracked " + known + "; unknown skin on a case: tracked " + unknownCase
+                    + "; unknown skin off the case grid: tracked " + unknownOff + "; Watcher gone from the world " + gone
+                    + ", then a known skull leaves its case: tracked " + whileGone);
+            c.check(known, "control: a known blood mob skull was not tracked - nothing tested");
+            c.check(gone, "the Watcher was still in the client world - the gone case was not set up");
+            c.check(whileGone, "a skull that left its case while the Watcher was out of the client world was not tracked"
+                    + " (the missed box)");
+            c.check(unknownCase, "a skull with a skin not in the blood mob list leaving a display case was not tracked");
+            c.check(!unknownOff, "a moving player head off the display-case grid was tracked as a blood mob trip");
+        } finally {
+            c.hx().removeStands();
+        }
+    }
+
+    /**
+     * Owner's camp, 2026-11-02 run 3: trip #479208 silently took the giant #481603 (tagged by its name tag 120 ticks
+     * earlier, standing beside the spot) as its mob, so its own mob, the giant #481789, was never tagged ("aimed at giant
+     * #481789 ... which is not tracked as a blood mob") and never clicked. Here a Revoker tagged by its name tag stands 1
+     * block from a trip's landing spot from the trip's first tick; the trip's own mob (no name tag) lands a tick before due.
+     * The trip's mob must become a blood mob and (cheat) be the one attacked.
+     */
+    private static void tripSteal(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            if (cheat) {
+                s.with(BC_CFG, "TriggerBotEnabled", true);
+            }
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            nextServerStep = tick -> {
+                if (tick == 0) {
+                    Vec3[] r = c.onClient(mc -> new Vec3[]{endVector(), mc.player.position()});
+                    if (r[0] != null) {
+                        double dx = r[0].x - r[1].x;
+                        double dz = r[0].z - r[1].z;
+                        double len = Math.max(1e-6, Math.sqrt(dx * dx + dz * dz));
+                        taggedHusk(c, "xrevoker3", "Revoker 1.4M❤", r[0].x - dz / len * 1.0, r[0].z + dx / len * 1.0);
+                    }
+                }
+            };
+            nextSummonDelay = 2;
+            int[] at = {-1, -1};
+            long since = c.hx().head();
+            Trip t = trip(c, Mob.HURTABLE, true, 25, (tick, mc) -> {
+                int rev = clientId(mc, "xrevoker3");
+                int mob = clientId(mc, "blood");
+                if (rev >= 0 && at[0] < 0 && bloodIds(mc).contains(rev)) {
+                    at[0] = tick;
+                }
+                if (mob >= 0 && at[1] < 0 && bloodIds(mc).contains(mob)) {
+                    at[1] = tick;
+                }
+            });
+            c.note("Revoker (name tag) a blood mob at trip tick " + at[0] + ", the trip's own mob at " + at[1] + "; " + fmt(t));
+            c.check(t.tracked, "the trip was never tracked - nothing was tested");
+            c.check(at[0] >= 0, "control: the Revoker under its blood name tag was not a blood mob - nothing tested");
+            c.check(at[1] >= 0, "the trip's own mob was never tagged: the trip took the Revoker tagged before it");
+            if (cheat) {
+                c.check(namedAttacks(c, since, "blood") >= 1, "the Trigger Bot never attacked the trip's mob");
+            }
+        } finally {
+            nextServerStep = null;
+            nextSummonDelay = null;
+            clearDecoys(c);
+            c.hx().removeStands();
+        }
+    }
+
+    /**
+     * Owner's camp, 2026-11-02 run 3: "it killed the first few but not all of them it left one". Player #481791 was hit at
+     * 2107 and then held "already hit" while he looked at it for 121 ticks. Here a trip's mob takes 20 hits (an empty hand
+     * does 1): the Trigger Bot hits it, it survives, and it must be clicked again at the weapon's pace (10 ticks apart at 0
+     * Attack Speed) while it lives - never faster.
+     */
+    private static void hitAlive(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            if (cheat) {
+                s.with(BC_CFG, "TriggerBotEnabled", true);
+            }
+            watcher(c, WATCHER_IN);
+            holding(c, "minecraft:air");
+            stand(c, 0f, 0f);
+            Trip t = trip(c, Mob.HURTABLE, true, 70, null);
+            List<Long> g = gaps(t.serverAttacks);
+            c.note("a mob that survives the first hit: " + fmt(t) + ", attack gaps " + g);
+            c.check(t.tracked, "the trip was never tracked - nothing was tested");
+            if (!cheat) {
+                c.check(t.serverAttacks.isEmpty(), "legit jar: something attacked");
+                return;
+            }
+            c.check(!t.serverAttacks.isEmpty(), "control: the Trigger Bot never hit the mob - nothing tested");
+            c.check(t.serverAttacks.size() >= 3, "the mob survived its first hit and was attacked only "
+                    + t.serverAttacks.size() + " time(s) in 70 ticks (the mob left alive)");
+            c.check(g.stream().allMatch(x -> x >= 10), "attacks came faster than the weapon allows (10 ticks): " + g);
+        } finally {
+            c.hx().removeStands();
         }
     }
 }
