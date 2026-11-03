@@ -299,9 +299,15 @@ final class EffectsSearchCases {
                 long h0 = counter("hudHiddenFrames");
                 long s0 = counter("hudShownFrames");
                 BufferedImage img = shot(c, "icons-hide-" + (hide ? "on" : "off"));
+                diffs[i] = changed(none, img, box);
+                // The effects' own particles drift past the camera and can land in the box (a legit run read 7030 px with
+                // the icons hidden, 2026-11-03). Icons are static and particles move, so the ON check keeps the lowest of
+                // three shots.
+                for (int k = 2; hide && k <= 3 && diffs[i] >= 40; k++) {
+                    diffs[i] = Math.min(diffs[i], changed(none, shot(c, "icons-hide-on-" + k), box));
+                }
                 frames[i][0] = counter("hudHiddenFrames") - h0;
                 frames[i][1] = counter("hudShownFrames") - s0;
-                diffs[i] = changed(none, img, box);
                 c.note(String.format(Locale.ROOT, "Hide Effect Icons %s: %d px changed in the top right against no effects;"
                         + " HUD layer frames hidden %d, drawn %d", hide ? "ON" : "OFF", diffs[i], frames[i][0], frames[i][1]));
             }
