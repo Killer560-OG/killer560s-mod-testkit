@@ -110,6 +110,8 @@ final class HxBloodCampCases {
         // atkspeed-1103 (owner 2026-11-03: "Have it read attack speed ... fire it as soon as possible for blood camp").
         s.test("1103-bloodcamp-atkspeed-parse", HxBloodCampCases::atkSpeedParse);
         s.test("1103-bloodcamp-atkspeed-next", HxBloodCampCases::atkSpeedNext);
+        s.test("1103-bloodcamp-overlap-trips", HxBloodCampCases::overlapTrips);
+        s.test("1103-bloodcamp-watcher-line", HxBloodCampCases::watcherLine);
         s.test("1101-esp-fels", HxBloodCampCases::fels);
         s.test("1101-esp-starred-memory", HxBloodCampCases::starredMemory);
         s.test("1101-esp-mimic", HxBloodCampCases::mimic);
@@ -1309,6 +1311,192 @@ final class HxBloodCampCases {
 
     private static final String ESP_CFG = "mobesp.MobEspConfig";
     private static final String ESP = "mobesp.MobEspFeature";
+
+    /**
+     * Owner's camp, 2026-11-03 ("auto blood camp triggerbot just killed before the kill timer went off"): two skulls with
+     * landing spots 0.75 blocks apart, the second 5 ticks behind the first. When the first one's mob appeared (its stand
+     * gone, -1.2 ticks left) the second trip (about +4 left) took that mob as its own, so the click was logged "at 4.8
+     * ticks" and the second trip carried a click that was not its. Here: the mob belongs to the first trip only, the second
+     * trip has no mob of its own until its own spawns, and both mobs are attacked.
+     */
+    private static void overlapTrips(Session c) {
+        if (!Mod.isCheat()) {
+            c.note("cheat only: the Trigger Bot is not in the legit jar");
+            return;
+        }
+        try (HxKit.Settings s = base(c)) {
+            clearDecoys(c);
+            watcher(c, WATCHER_IN);
+            s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "NeverMiss", true);
+            setNeverMiss(c, true, 5);
+            stand(c, 0f, 0f);
+            boolean firstWave = c.onClient(mc -> (Boolean) Mod.staticCall("bloodcamp.BloodCampMoveTimer", "isFirstSpawns"));
+            double x0 = -420.5 - (firstWave ? 16.1 : 11.9) - 1.0;
+            String mobTex = c.onClient(mc -> anyOf(Mod.field(Mod.ROOT + BC, "MOB_SKULL_TEXTURES")));
+            String uA = c.hx().stand(x0, 151.0, -417.5, null, "marker", false, "invisible", false, "helmet", head(mobTex));
+            String uB = c.hx().stand(x0 + 0.75, 151.0, -417.5, null, "marker", false, "invisible", false, "helmet", head(mobTex));
+            long since = c.hx().head();
+            Vec3 endA = null;
+            Vec3 endB = null;
+            boolean doneA = false;
+            boolean doneB = false;
+            double remBAtA = Double.NaN;
+            int sinceA = -1;
+            int bMobAt3 = -2;
+            int idA = -1;
+            long tickA = -1;
+            long tickB = -1;
+            try {
+                c.ctx().waitTicks(10);
+                for (int i = 0; i < 120; i++) {
+                    if (i < 3) {
+                        c.hx().call("entity.nudge", "uuid", uA, "dx", 1.2);
+                    }
+                    if (i >= 5 && i < 8) {
+                        c.hx().call("entity.nudge", "uuid", uB, "dx", 1.2);
+                    }
+                    final Vec3 eA = endA;
+                    final Vec3 eB = endB;
+                    // {endX, endY, endZ, remaining, mobId} per tracked trip
+                    List<double[]> snap = c.onClient(mc -> {
+                        List<double[]> out = new ArrayList<>();
+                        Map<?, ?> mobs = (Map<?, ?>) Mod.field(Mod.ROOT + BC, "bloodMobs");
+                        for (Object data : mobs.values()) {
+                            Vec3 e = (Vec3) Mod.field(data, "endVector");
+                            if (e != null) {
+                                double rem = (Double) Mod.staticCall(BC, "remainingTicks", data, mc.level.getGameTime());
+                                out.add(new double[]{e.x, e.y, e.z, rem, ((Number) Mod.field(data, "mobId")).doubleValue()});
+                            }
+                        }
+                        if (eA != null && eB != null) {
+                            Vec3 mid = eA.add(eB).scale(0.5).add(0, 1.4, 0);
+                            float[] l = look(mc, mid);
+                            mc.player.setYRot(l[0]);
+                            mc.player.setXRot(l[1]);
+                        }
+                        return out;
+                    });
+                    if (endA == null && snap.size() >= 2) {
+                        snap.sort((p, q) -> Double.compare(p[0], q[0]));
+                        endA = new Vec3(snap.get(0)[0], snap.get(0)[1], snap.get(0)[2]);
+                        endB = new Vec3(snap.get(1)[0], snap.get(1)[1], snap.get(1)[2]);
+                    }
+                    double remA = Double.NaN;
+                    double remB = Double.NaN;
+                    int mobOfB = -2;
+                    for (double[] d : snap) {
+                        if (endA != null && Math.abs(d[0] - endA.x) < 0.2) {
+                            remA = d[3];
+                        } else if (endB != null && Math.abs(d[0] - endB.x) < 0.2) {
+                            remB = d[3];
+                            mobOfB = (int) d[4];
+                        }
+                    }
+                    if (endA != null && !doneA && remA <= -1.0) {
+                        doneA = true;
+                        remBAtA = remB;
+                        sinceA = 0;
+                        c.hx().call("entity.remove", "uuid", uA);
+                        c.server().command(String.format(Locale.ROOT, "summon husk %.3f %.3f %.3f {Tags:[\"bc1015\"],NoAI:1b,"
+                                + "NoGravity:1b,CustomName:\"mobA\",Silent:1b,PersistenceRequired:1b,Health:20f}",
+                                endA.x, endA.y, endA.z));
+                        tickA = c.hx().call("server.tick").getAsLong();
+                    } else if (sinceA >= 0) {
+                        sinceA++;
+                        if (sinceA == 3) {
+                            idA = c.onClient(mc -> clientId(mc, "mobA"));
+                            bMobAt3 = mobOfB;
+                        }
+                    }
+                    if (endB != null && !doneB && remB <= -1.0) {
+                        doneB = true;
+                        c.hx().call("entity.remove", "uuid", uB);
+                        c.server().command(String.format(Locale.ROOT, "summon husk %.3f %.3f %.3f {Tags:[\"bc1015\"],NoAI:1b,"
+                                + "NoGravity:1b,CustomName:\"mobB\",Silent:1b,PersistenceRequired:1b,Health:20f}",
+                                endB.x, endB.y, endB.z));
+                        tickB = c.hx().call("server.tick").getAsLong();
+                    }
+                    c.ctx().waitTicks(1);
+                }
+            } finally {
+                c.hx().call("entity.remove", "uuid", uA);
+                c.hx().call("entity.remove", "uuid", uB);
+                c.server().command("kill @e[tag=bc1015]");
+                c.ctx().waitTicks(5);
+            }
+            long onA = namedAttacks(c, since, "mobA");
+            long onB = namedAttacks(c, since, "mobB");
+            c.note(String.format(Locale.ROOT, "ends %s / %s, second trip had %.1f ticks left when the first mob appeared (summoned"
+                    + " at server tick %d), its mob id 3 ticks later %d (first mob client #%d); second mob summoned at %d;"
+                    + " attacks on the first mob %d, on the second %d", endA, endB, remBAtA, tickA, bMobAt3, idA, tickB, onA, onB));
+            c.check(endA != null && endB != null && Math.abs(endB.x - endA.x) > 0.4 && Math.abs(endB.x - endA.x) < 1.1,
+                    "the two landing spots were not about 0.75 blocks apart - nothing was tested");
+            c.check(doneA && doneB && idA >= 0, "a mob never appeared - nothing was tested");
+            c.check(remBAtA > 1.5, "the second trip had only " + remBAtA + " ticks left when the first mob appeared - the"
+                    + " timers did not overlap, nothing was tested");
+            c.check(bMobAt3 != idA, "the second trip (time left) took the first trip's mob #" + idA + " as its own");
+            c.check(onA >= 1, "the first mob was never attacked");
+            c.check(onB >= 1, "the second mob was never attacked");
+        } finally {
+            clearDecoys(c);
+            c.hx().removeStands();
+        }
+    }
+
+    /**
+     * Owner's last mob, 2026-11-03: the Watcher stood near the line to the mob and the Trigger Bot held the click for 10
+     * ticks. The Watcher is only a blocker when a shot would really meet him: a projectile's margin (0.3 past his box),
+     * not the 0.6 kept for every other thing in the room. A decoy stands in for the Watcher (the test one is a stand, which
+     * never blocks anything), set as the Watcher id; the line runs along -x to a target 8 blocks away.
+     */
+    private static void watcherLine(Session c) {
+        if (!Mod.isCheat()) {
+            c.note("cheat only: the line-of-fire check is not in the legit jar");
+            return;
+        }
+        Object realWatcher = c.onClient(mc -> Mod.field(Mod.ROOT + BC, "watcherEntityId"));
+        try (HxKit.Settings s = base(c)) {
+            clearDecoys(c);
+            watcher(c, WATCHER_IN);
+            realWatcher = c.onClient(mc -> Mod.field(Mod.ROOT + BC, "watcherEntityId"));
+            standAt(c, PX, PZ, 90f, 0f);
+            decoy(c, "lofTarget", PX - 8.0, PZ);
+            boolean[] clear = new boolean[3];
+            double[] offs = {0.0, 0.15, 0.45}; // distance of the Watcher's box edge from the line (0.0: centered on it)
+            for (int k = 0; k < 3; k++) {
+                c.server().command("kill @e[tag=bcdecoy,name=lofWatcher]");
+                c.ctx().waitTicks(2);
+                decoy(c, "lofWatcher", PX - 4.0, PZ + (k == 0 ? 0.0 : 0.3 + offs[k]));
+                final int kk = k;
+                clear[k] = c.onClient(mc -> {
+                    int w = clientId(mc, "lofWatcher");
+                    int t = clientId(mc, "lofTarget");
+                    if (w < 0 || t < 0) {
+                        return null;
+                    }
+                    Mod.setField(BC, "watcherEntityId", w);
+                    net.minecraft.world.entity.Entity target = mc.level.getEntity(t);
+                    float[] l = look(mc, target.getBoundingBox().getCenter());
+                    mc.player.setYRot(l[0]);
+                    mc.player.setXRot(l[1]);
+                    return (Boolean) Mod.staticCall(BC, "lineOfFireClear", mc, target);
+                }) == Boolean.TRUE;
+            }
+            c.note("Watcher on the line: centered clear=" + clear[0] + ", edge 0.15 off clear=" + clear[1] + ", edge 0.45 off"
+                    + " clear=" + clear[2]);
+            c.check(!clear[0], "the Watcher standing on the line did not hold the shot");
+            c.check(!clear[1], "the Watcher 0.15 blocks from the line (inside a projectile's margin) did not hold the shot");
+            c.check(clear[2], "the Watcher 0.45 blocks past the line (clear of a projectile) still held the shot");
+        } finally {
+            final Object back = realWatcher;
+            c.onClient(mc -> {
+                Mod.setField(BC, "watcherEntityId", back);
+                return null;
+            });
+            clearDecoys(c);
+            c.hx().removeStands();
+        }
+    }
 
     /** A plain husk that is NOT a blood mob, named {@code name}, standing still at (x, 151, z). */
     private static void decoy(Session c, String name, double x, double z) {
