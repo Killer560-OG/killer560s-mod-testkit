@@ -34,6 +34,7 @@ import java.util.Map;
  * "Currently Selected" line on another item, and a queued line with no builder pick all leave the floor alone.
  * <p>805 Floor Source settings: Last Run / Fixed / Detect (and Detect's Last Run fallback), save/load, old-file
  * migration, a profile reload, tooltips and the tab rows.
+ * <p>806 / 807 (mod menufix-1102): each floor's own switch, and Populate's PB + 20 s rounded to the slider's step.
  */
 final class AutoKick2Cases {
 
@@ -401,6 +402,247 @@ final class AutoKick2Cases {
             close(c);
             DungeonB2Cases.restoreConfig(c, saved, AK_CFG);
         }
+    }
+
+    // ---- 806 / 807 (mod menufix-1102) -------------------------------------------------------------------------------
+
+    /**
+     * 806: each floor's own switch (killer560, 2026-11-02: "make auto kick have a toggle for each floor as well. separate
+     * them by mastermode and regular"). A slow F7 joiner is kicked with F7 ON and never judged with F7 OFF; M7 OFF does
+     * not touch F7; the switches survive a save/load; an old file without them reads every floor ON; the tab shows a
+     * "Normal Floors" and a "Master Mode" group with F1-F7 / M1-M7 switches, each with a tooltip.
+     */
+    @SuppressWarnings("unchecked")
+    static void floorSwitch(UiCase c) throws Exception {
+        Map<Path, byte[]> saved = DungeonB2Cases.snapshotConfig(c, AK_CFG);
+        try {
+            setup(c, "F7", 300);
+            c.onClient(mc -> {
+                stats("SlowOnF7", "5:40", "5:40");
+                stats("SlowOnF7b", "5:50", "5:50");
+                stats("SlowOnF7c", "5:55", "5:55");
+                return null;
+            });
+            // ON (the default): kicked.
+            int d0 = decisions(c).size();
+            chat(c, "Party Finder > SlowOnF7 joined the dungeon group! (Mage Level 40)");
+            c.ticks(5);
+            List<String> on = tail(decisions(c), d0);
+            // F7 OFF: never judged, never kicked.
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(AK_CFG), "setFloorEnabled", Mod.enumValue(AK_CFG + "$Floor", "F7"), false);
+                return null;
+            });
+            int d1 = decisions(c).size();
+            chat(c, "Party Finder > SlowOnF7b joined the dungeon group! (Mage Level 40)");
+            c.ticks(5);
+            List<String> off = tail(decisions(c), d1);
+            // F7 back ON, M7 OFF: F7 judged again.
+            c.onClient(mc -> {
+                Object k = Mod.cfg(AK_CFG);
+                Mod.call(k, "setFloorEnabled", Mod.enumValue(AK_CFG + "$Floor", "F7"), true);
+                Mod.call(k, "setFloorEnabled", Mod.enumValue(AK_CFG + "$Floor", "M7"), false);
+                return null;
+            });
+            int d2 = decisions(c).size();
+            chat(c, "Party Finder > SlowOnF7c joined the dungeon group! (Mage Level 40)");
+            c.ticks(5);
+            List<String> m7off = tail(decisions(c), d2);
+            c.note("F7 on: " + on + "; F7 off: " + off + "; F7 on, M7 off: " + m7off);
+            c.check(on.equals(List.of("SlowOnF7 F7 S+ 5:40 limit 5:00 -> kick")), "F7 ON did not kick a slow joiner: " + on);
+            c.check(off.equals(List.of("SlowOnF7b F7 floor off -> none")), "F7 OFF still judged a joiner: " + off);
+            c.check(m7off.equals(List.of("SlowOnF7c F7 S+ 5:55 limit 5:00 -> kick")),
+                    "M7 OFF changed what F7 does: " + m7off);
+            List<String> kicks = c.onClient(mc -> (List<String>) Mod.staticCall(AK, "kicksSent"));
+            c.note("kicks queued/sent: " + kicks);
+            c.check(!kicks.contains("SlowOnF7b"), "the F7-OFF joiner was kicked: " + kicks);
+            // Save / load, and an old file.
+            String back = c.onClient(mc -> {
+                Object k = Mod.cfg(AK_CFG);
+                Mod.call(k, "setFloorEnabled", Mod.enumValue(AK_CFG + "$Floor", "F3"), false);
+                Mod.call(k, "save");
+                Mod.staticCall(AK_CFG, "load");
+                Object k2 = Mod.cfg(AK_CFG);
+                StringBuilder sb = new StringBuilder();
+                for (String f : new String[]{"F3", "F7", "M7"}) {
+                    sb.append(f).append('=').append(Mod.call(k2, "isFloorEnabled", Mod.enumValue(AK_CFG + "$Floor", f))).append(' ');
+                }
+                return sb.toString().trim();
+            });
+            Path p = saved.keySet().iterator().next();
+            String file = Files.readString(p);
+            Files.writeString(p, "{\"enabled\":true,\"target.F7\":200}");
+            String old = c.onClient(mc -> {
+                Mod.staticCall(AK_CFG, "load");
+                Object k = Mod.cfg(AK_CFG);
+                int offCount = 0;
+                for (Object f : Mod.cls(AK_CFG + "$Floor").getEnumConstants()) {
+                    if (!(Boolean) Mod.call(k, "isFloorEnabled", f)) {
+                        offCount++;
+                    }
+                }
+                return offCount + " off";
+            });
+            c.note("after save/load: " + back + "; an old file without floor switches: " + old);
+            c.check(back.equals("F3=false F7=true M7=false"), "floor switches did not survive a save/load: " + back);
+            c.check(file.contains("\"judge.F3\": false") && file.contains("\"judge.F1\": true"),
+                    "the floor switches are not saved as judge.<floor> keys");
+            c.check(old.equals("0 off"), "an old file did not read every floor ON: " + old);
+            // The tab: two groups, a switch per floor, each with a tooltip.
+            List<String> rows = c.onClient(mc -> {
+                Mod.call(Mod.cfg(AK_CFG), "setEnabled", true);
+                try {
+                    Object tab = Mod.cls("gui.tab.AutoKickTab").getDeclaredConstructor().newInstance();
+                    List<net.minecraft.client.gui.components.AbstractWidget> built =
+                            (List<net.minecraft.client.gui.components.AbstractWidget>) Mod.call(tab, "buildWidgets", 0, 0,
+                                    340, (Runnable) () -> { });
+                    built.sort(java.util.Comparator.comparingInt(net.minecraft.client.gui.components.AbstractWidget::getY)
+                            .thenComparingInt(net.minecraft.client.gui.components.AbstractWidget::getX));
+                    List<String> out = new ArrayList<>();
+                    for (net.minecraft.client.gui.components.AbstractWidget w : built) {
+                        out.add(ModScreenDriver.label(w));
+                    }
+                    return out;
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+            });
+            c.note("Auto Kick rows: " + rows);
+            int normal = rows.indexOf("Normal Floors");
+            int master = rows.indexOf("Master Mode");
+            c.check(normal >= 0 && master > normal, "no Normal Floors then Master Mode groups: " + rows);
+            for (int i = 1; i <= 7; i++) {
+                int f = indexStarting(rows, "F" + i + ":");
+                int m = indexStarting(rows, "M" + i + ":");
+                c.check(f > normal && f < master, "no F" + i + " switch in Normal Floors: " + rows);
+                c.check(m > master, "no M" + i + " switch in Master Mode: " + rows);
+                c.check(f >= 0 && f + 1 < rows.size() && rows.get(f + 1).startsWith("Floor " + i),
+                        "F" + i + "'s switch is not beside its slider: " + rows);
+                String tipF = (String) Mod.staticCall("gui.SettingTooltips", "describe", "Auto Kick", "F" + i);
+                c.check(tipF != null && tipF.contains("Floor " + i), "no tooltip on the F" + i + " switch: " + tipF);
+                String tipM = (String) Mod.staticCall("gui.SettingTooltips", "describe", "Auto Kick", "M" + i);
+                c.check(tipM != null && tipM.contains("Master " + i), "no tooltip on the M" + i + " switch: " + tipM);
+            }
+        } finally {
+            DungeonB2Cases.restoreConfig(c, saved, AK_CFG);
+        }
+    }
+
+    /**
+     * 807: Populate (killer560, 2026-11-02: "populate 20s higher than their pb rounded to the nearest increment of the
+     * slider"): PB 2:37.4 + 20 s is 2:57 on a 1 s step and 2:55 on a 5 s step (the sliders' step), clamped into the floor's
+     * range; a real saved profile (AntsRNG) through the mod's own populate sets every floor with an S+ PB to that, leaves a
+     * floor without one alone, and never touches the floor switches.
+     */
+    @SuppressWarnings("unchecked")
+    static void populate(UiCase c) throws Exception {
+        String api = "autokick.AutoKickApi";
+        Object f7 = Mod.enumValue(AK_CFG + "$Floor", "F7");
+        Object f1 = Mod.enumValue(AK_CFG + "$Floor", "F1");
+        int step = (Integer) Mod.field(AK_CFG, "SLIDER_STEP_SECONDS");
+        int one = (Integer) Mod.staticCall(api, "populatedSeconds", 157_400L, 1, f7);
+        int five = (Integer) Mod.staticCall(api, "populatedSeconds", 157_400L, 5, f7);
+        int half = (Integer) Mod.staticCall(api, "populatedSeconds", 157_500L, 1, f7);
+        int up5 = (Integer) Mod.staticCall(api, "populatedSeconds", 158_000L, 5, f7);
+        int top = (Integer) Mod.staticCall(api, "populatedSeconds", 300_000L, 5, f1);
+        int low = (Integer) Mod.staticCall(api, "populatedSeconds", 4_000L, 5, f1);
+        int none = (Integer) Mod.staticCall(api, "populatedSeconds", 0L, 5, f1);
+        c.note("step " + step + "; 2:37.4 -> 1 s " + one + ", 5 s " + five + "; 2:37.5 -> 1 s " + half + "; 2:38.0 -> 5 s "
+                + up5 + "; F1 5:00 -> " + top + "; 0:04 -> " + low + "; none -> " + none);
+        c.check(step == 5, "the slider step is " + step + ", not 5");
+        c.check(one == 177, "2:37.4 on a 1 s step gave " + one + ", want 177 (2:57)");
+        c.check(five == 175, "2:37.4 on a 5 s step gave " + five + ", want 175 (2:55)");
+        c.check(half == 178, "2:37.5 on a 1 s step gave " + half + ", want 178 (half rounds up)");
+        c.check(up5 == 180, "2:38.0 on a 5 s step gave " + up5 + ", want 180 (3:00, the nearer step)");
+        c.check(top == 240, "a PB over F1's top gave " + top + ", want 240 (clamped)");
+        c.check(low == 30, "a 4 s PB gave " + low + ", want 30 (the slider's floor)");
+        c.check(none == 0, "no PB gave " + none + ", want 0 (left alone)");
+
+        Map<Path, byte[]> saved = DungeonB2Cases.snapshotConfig(c, AK_CFG);
+        try {
+            com.google.gson.JsonObject root;
+            try (java.io.InputStream in = AutoKick2Cases.class.getResourceAsStream(
+                    "/testkit-http/partyfinder-stats/antsrng.json")) {
+                c.check(in != null, "the AntsRNG fixture is not on the classpath");
+                root = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(in,
+                        java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+            }
+            java.util.UUID ants = java.util.UUID.fromString("014fd282-53f5-474f-9d79-110e408e5a7c");
+            String report = c.onClient(mc -> {
+                try {
+                    List<Object> profiles = (List<Object>) Mod.staticCall("profileviewer.data.SbProfile", "parseAll",
+                            root, ants);
+                    Object profile = Mod.staticCall("profileviewer.data.SbProfile", "dungeonProfile", profiles);
+                    Object k = Mod.cfg(AK_CFG);
+                    Object[] floors = Mod.cls(AK_CFG + "$Floor").getEnumConstants();
+                    boolean[] sw = new boolean[floors.length];
+                    for (int i = 0; i < floors.length; i++) {
+                        sw[i] = i % 3 != 0;
+                        Mod.call(k, "setFloorEnabled", floors[i], sw[i]);
+                        Mod.call(k, "setTargetSeconds", floors[i], 61);
+                    }
+                    Object result = Mod.cls("profileviewer.api.ProfileViewerApi$ProfilesResult").getDeclaredConstructors()[0]
+                            .newInstance(ants, profiles, "test", System.currentTimeMillis());
+                    Object pr = Mod.staticCall(api, "apply", "AntsRNG", result);
+                    Object dungeons = Mod.field(profile, "dungeons");
+                    StringBuilder sb = new StringBuilder();
+                    int set = 0;
+                    for (int i = 0; i < floors.length; i++) {
+                        Object f = floors[i];
+                        boolean master = (Boolean) Mod.call(f, "master");
+                        int n = (Integer) Mod.call(f, "number");
+                        Map<Integer, Object> map = (Map<Integer, Object>) Mod.call(dungeons, master ? "master" : "normal");
+                        Object fl = map.get(n);
+                        long pb = fl == null ? 0L : (Long) Mod.call(fl, "fastestSPlus");
+                        int want = pb > 0 ? (Integer) Mod.staticCall(api, "populatedSeconds", pb, 5, f) : 61;
+                        int got = (Integer) Mod.call(k, "getTargetSeconds", f);
+                        boolean swNow = (Boolean) Mod.call(k, "isFloorEnabled", f);
+                        if (pb > 0) {
+                            set++;
+                            // Independent of the helper: PB + 20 s to the nearest 5 s.
+                            long ind = Math.round((pb / 1000.0 + 20) / 5.0) * 5;
+                            ind = Math.max(30, Math.min((Integer) Mod.call(f, "maxSeconds"), ind));
+                            if (ind != got) {
+                                sb.append(f).append(": pb ").append(pb).append(" ms set ").append(got).append(", want ")
+                                        .append(ind).append("; ");
+                            }
+                        }
+                        if (got != want) {
+                            sb.append(f).append(": got ").append(got).append(" want ").append(want).append("; ");
+                        }
+                        if (swNow != sw[i]) {
+                            sb.append(f).append(": switch changed to ").append(swNow).append("; ");
+                        }
+                    }
+                    int floorsSet = (Integer) Mod.call(pr, "floorsSet");
+                    if (floorsSet != set || set == 0) {
+                        sb.append("floorsSet ").append(floorsSet).append(" but ").append(set).append(" floors have a PB; ");
+                    }
+                    Object f7k = floors[6];
+                    return "F7 set to " + Mod.call(k, "getTargetSeconds", f7k) + " s, " + set + " floors with a PB. "
+                            + (sb.length() == 0 ? "ok" : "BAD " + sb);
+                } catch (ReflectiveOperationException e) {
+                    return "BAD " + e;
+                }
+            });
+            c.note("populate from AntsRNG: " + report);
+            c.check(report.endsWith("ok"), "populate: " + report);
+        } finally {
+            DungeonB2Cases.restoreConfig(c, saved, AK_CFG);
+        }
+    }
+
+    private static List<String> tail(List<String> all, int from) {
+        return new ArrayList<>(all.subList(Math.min(from, all.size()), all.size()));
+    }
+
+    private static int indexStarting(List<String> rows, String prefix) {
+        for (int i = 0; i < rows.size(); i++) {
+            if (rows.get(i).startsWith(prefix)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     // ---- helpers --------------------------------------------------------------------------------------------------

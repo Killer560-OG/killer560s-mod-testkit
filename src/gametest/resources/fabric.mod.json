@@ -8,6 +8,7 @@
 		"fabric-client-gametest": [
 			"dev.testkit.gametest.ui.IntroSuite",
 			"dev.testkit.gametest.SmokeTest",
+			"dev.testkit.gametest.NoGrabTest",
 			"dev.testkit.gametest.PauseLayoutTest",
 			"dev.testkit.gametest.CorrectionAlarmTest",
 			"dev.testkit.gametest.ArmourHeadStandTest",
