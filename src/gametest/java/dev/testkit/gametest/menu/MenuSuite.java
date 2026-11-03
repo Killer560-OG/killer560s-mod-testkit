@@ -189,6 +189,7 @@ public class MenuSuite implements FabricClientGameTest {
                     // 491-499: the unified Auction House (API browser + reskinned real AH menus).
                     AuctionHouseCases.register(s);
                     BazaarV3Cases.register(s);
+                    BazaarOrderHelperCases.register(s); // 2810: Bazaar Order Helper colors in Manage Orders (bzorders-1102)
                     // ---- 591-596 social (Best Friends, Friends List), killer560 2026-10-08 ----
                     SocialCases.register(s);
                     // 554-555: dungeon-fixes (2026-10-08), terminals behind a decorated title.
@@ -198,6 +199,7 @@ public class MenuSuite implements FabricClientGameTest {
                     LeapOrderMenuCases.register(s); // 670: leap menu follows the Leap Order defaults/pins, 2026-10-09
                     LeapBatchMenuCases.register(s); // 821-825: leap-menu batch 2026-10-11 (heads, map, delay, carried, freeze)
                     LeapRunMemoryCases.register(s); // 829-834: how long class picks and pins last, 2026-10-12
+                    LeapPartyChangeCases.register(s); // 1102-menu-leaporder-*: party change slots + own class, 2026-11-02
                     LeapEditorCases.register(s); // 899-902: Leap Order editor resets, auto party refresh, cleanup (2026-10-12)
                     // ---- 754-755 Chocolate Factory on the current layout: the auto and the legit helper (fairy-choc, 2026-10-11) ----
                     ChocolateCases.register(s);
@@ -250,6 +252,8 @@ public class MenuSuite implements FabricClientGameTest {
                     AutoMaskCases.register(s);
                     // ---- 1092-1094 clickguards-1025: Reroll Protection, Kismet Count, Croesus Chests HUD ----
                     CroesusRerollCases.register(s);
+                    // ---- 1103-menu-* commissions-1103: Completed Commissions and Highlight Selected Loadout slots ----
+                    Commissions1103MenuCases.register(s);
                 });
     }
 }

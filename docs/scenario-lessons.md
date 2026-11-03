@@ -1547,3 +1547,60 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   player's UUID or name, 3-4.5 s gaps, Hub / Dwarven Mines / Catacombs F7 / sim Catacombs M7 / Hypixel (not Skyblock), one
   Offline when the switch goes off and nothing after; with the stub closed, sends keep coming, one WARN, no chat, healthy.
 - 1103-kickrejoin-* (hx/HxKickRejoin1103Cases, mod kickhub-1103): Kick Rejoin Timer. Hypixel's kick lines as they appear in his logs, a lobby sidebar ("HYPIXEL", no SKYBLOCK) and back to the hub sidebar; `testAge` moves the kick back so the 60 s wait is not waited out. The party case answers the mod's /pl with `respond(c, "pl", null, lines...)` (his logs' list or not-in-a-party shape, one chat line each) and `surface.respond.clear {root: pl}` for no answer; it judges the server's cmd events ([pl] then [pc text]), the hidden-line count and LogTap's [CHAT] lines (a hidden line is never logged as chat).
+- mining-1103: Pickobulus Estimate's chat state outlives a case (a "You used your Pickobulus" line hides the outlines until
+  its ready line, up to 2 minutes), so 1101-mining-pickobulus failed "waiting for: an estimate" after 1101-mining-ability's
+  last use line. A case that needs the estimate calls PickobulusEstimate.resetChat first (optional on older jars). Also: an
+  action-bar area outranks the sidebar for 5 s (IslandDetector), so a case that sends one clears it before mines().
+
+- **62-argrim-1102-iwclose** (iwcause-1102): Inventory Walk's held container close flushed by a route etherwarp's use
+  with the sneak down (MultiActionsD). Deterministic only with all three: the route held on its use with the sneak down
+  (`PlayerStatsFeature.manaShort`), the chest window hidden on arrival with no close packet and the client's menu set back to
+  the inventory (the route waits under an open menu), and the close sent at an early END_CLIENT_TICK phase (after that
+  tick's sneaking input, before Auto Routes acts). A close at START is useless: Inventory Walk makes that tick's input its
+  still tick and the close goes clean. A screen set back with setScreen releases the route's keys. `-PiwRepeat=N` repeats.
+- **1102-bloodcamp-wall-spawn / -tag-latency / -watchful-eye** (bloodcamp2-1102). A cadence bug (a scan every 5 ticks) is
+  only caught deterministically by acting on a tick whose client game time is 1 past a multiple of 5 (loop `onClient`
+  until `getGameTime() % 5 == 1`, act in that same call). The hx server hands out entity ids in order: a `summon` right after
+  `hx().stand(...)` gets the next id (Watcher #260, eye #261), which is how a mob "spawned with the Watcher" is built. A
+  trip's skull is removed mid-trip with `nextRemoveStandAt`; mobs placed beside a landing spot go 1.5 blocks across his line
+  to it, inside the 2-block landing search and out of the line of fire (0.3 + 0.6), so only the tagging decides.
+- nevermiss-1102 (`1102-bloodcamp-nevermiss-*`, run with `100-hx-session:,1102-bloodcamp-nevermiss`): the tick a click went is
+  judged by `BloodCampFeature.lastFirstClickForTest()` against the mob's `taggedAt` (equal = the first client tick it existed)
+  and by the server's attack tick against the summon's `server.tick` (+1, +2 with jitter). Never judge an offset by
+  `killAt - triggerAt` across two trips: `killAt` (ping in ticks) read -0.2 on one trip and -1.2 on the next. Under heavy
+  machine load (2026-11-02, two FROZEN slow server starts the same hour) 186's server gaps read [10, 10, 10, 9]; idle, all 10.
+  1101-bloodcamp-teleport-step once predicted its landing 16 blocks the wrong way on 26.2 late in a session; it passed on rerun.
+
+- 1102-splitchat-colors / -core0 / -core0ticks (HxSplitChat1102Cases, mod splitchat-1102): colors feeds a whole F7 run to
+  `SplitTimersFeature.onLine` at exact times and compares every chat segment name's color (`Component.visit`) with the
+  color of the same row's label in `layoutRows` (20 names: each "X took Y!" and the summary). core0 puts the client and a
+  client-side RemotePlayer HxMateA in the core before "The Core entrance is opening!" (both must read exactly 0) and moves
+  HxMateB in once 1000 ms have passed since `openedMs`, from a tick poll (lands 1000-1050 ms). On batch N's jar core0 reads
+  the client and HxMateA at a tick, not 0.
+
+- (f7hud-1102, 2026-11-02) A server-tick timer case needs Hypixel's per-tick pings to be exact: with GrimAC on, its
+  transaction pings keep the mod's `PerTickServerClock` untrusted and it wobbles 4-8 ticks on a loaded machine. Run such a
+  case under `-Pnogrim` with the testmod's `boss.pertickping` (1102-hx-goldor-tick does both, tolerance 1 vs 8), and
+  schedule events with `boss.timeline` (START_SERVER_TICK: a `damage` at END_SERVER_TICK sends its health a tick late).
+
+- 1102-ui-storagesearch-*: `getInput().holdKey(Ctrl)` + `pressKey(F)` did not reach a Fabric `ScreenKeyboardEvents` handler as
+  Ctrl+F on 26.3 (old and new mod jar alike), so a Ctrl shortcut case calls `KeyboardHandler.keyPress(window, PRESS,
+  McKeys.keyEvent(KEY_F, MOD_CONTROL))` by reflection (public on 26.3, private on 26.2; StorageSearchCases.ctrlF). A 3D
+  gold block icon changes 66% of an uncovered 16x16 cell, which is the bar a 'fully visible' pixel check measures against.
+
+- 1102-menu-leaporder-* (leaporder-1102): a Leap Order case that runs two "runs" in ONE dungeon proves less than it
+  looks. `PartyTracker` keeps every tab-list class until the dungeon is left, so the departed teammate still had his class
+  at the second run start and 829-834/2345-2347 never saw the bug the owner hit (a real requeue goes through the Hub,
+  which drops them). `LeapPartyChangeCases.requeue` leaves the dungeon and waits for `detectedClassOf` to go null
+  between runs; do the same in any new run-to-run case.
+
+- 1102-posmsg-* (boss session; mod posmsgleap-1102): a leap into a Posmsg ring. Hx cmd events carry the SERVER tick, so the
+  gap between two party lines is read off them (500 ms = 10 ticks; the cases want >= 9). The Hx server has no chat
+  limiter, so the gap stands in for "no Woah slow down". Main's jar sent the callout first (teleport before the leap line)
+  or second (before Cringe); the fixed jar sends Leaping To, Cringe, callout 10-11 ticks apart. Run "alone" first: a leap
+  case's menu sighting inside Posmsg's 3 s window would hold its ring.
+- A Blood Camp case that summons tagged decoys (`taggedHusk`, Invulnerable, tag bcdecoy) must `clearDecoys(c)` in its finally.
+  1102-bloodcamp-trip-steal did not: its "xrevoker3" stayed 1 block off the arena's landing spot as a live blood mob, and in
+  the 1103p gate every later trip's Trigger Bot swung at it (nevermiss-offset "swung 5 time(s) before the mob existed" -
+  correct Never Miss behavior on a real blood mob - and -killtimer/-offspot late or missing). The nevermiss cases now clear the
+  arena first too. Alone, each case passed; only a run with trip-steal before them failed.

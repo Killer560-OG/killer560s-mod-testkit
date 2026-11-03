@@ -165,6 +165,8 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 - A MenuSuite case (`menu/*Cases`, names like `1853-menu-...`) does NOT run from `-Scenario 1853-menu-...`: that filter
   reaches no session and reports only unrelated SKIP rows (2026-11-01). Run `-Scenario "-menu-"` with the environment
   variable `TESTKIT_MENU_ONLY=1853-menu-swap,...` (MenuSuite.selected) to pick the cases.
+- A new mod tab fails 511-ui-menu-layout with "unexpected new tab gui.tab.XTab" until its class is added to
+  `MenuLayoutCases.NEW_LEAVES` (bzorders-1102, 2026-11-02). Add it in the same branch as the case that tests the tab.
 - `c.server().command("playsound ... @p ~ ~ ~ ...")` runs at the console's position (world origin): "The sound is too far
   away to be heard" and the client gets nothing. Use `execute at @p run playsound ...` (1101-ap3-crystal-*, 2026-11-01).
   To prove a sound did or did not PLAY, read `harness/SoundProbe.count("minecraft:<id>")` (every sound reaching
@@ -537,7 +539,9 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
 - GrimAC experimental checks flag Auto Routes, AP3 and the breaker on every jar since at least ship-1101d (2026-11-02, 26.3
   and 26.2, same cases on the ship-1101d control): MultiBreak* (breaker), PacketOrderE* / DuplicateRotPlace* (mimic, breakerwarp),
   RotationBreak* (26.2 boom), BadPacketsH* (AP3 boom) and BadPacketsV* (AP3 shot). Compare against a control jar before
-  blaming a branch. Reports in killer560s-mod-logs/ship1101e-*-report.
+  blaming a branch. Reports in killer560s-mod-logs/ship1101e-*-report. On a 26.3 LEGIT jar, 501/502-boss-ss also fail on
+  DuplicateRotPlace* (x1 / x2-x3, the case's own hand clicks) on main 5c125680d and posmsgleap-1102 alike (2026-11-02,
+  killer560s-mod-logs/posmsgleap-run-ss-*.log); 503 passes. Not a branch regression.
 - A client can sit at the title screen for an hour with no test output: the gametest Test thread parked in
   `ThreadingImpl.enterPhase` (Phaser) and the Render thread in `Minecraft.postRunTasks` (Semaphore), a startup deadlock the
   freeze watcher did not catch with TESTKIT_HUNG_POLLS=60 (ship1101e zpew 26.3, 2026-11-02). If a run's client log has no
@@ -572,6 +576,12 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
   2026-11-02 killed a ZPEW half mid-run). One queue per checkout; make another detached worktree for a rerun.
 - 529-ui-sidebar-scroll-spy maps menu coordinates to screenshot pixels by screenshot width / the screen's own width: the
   menu is laid out at its own Auto Scale, so Window.getGuiScale() (2) put the probe on the background (menufix2-1102).
+
+- `effect give @a <effect> <s> <amp> true` (hideParticles) also hides that effect's HUD icon: MobEffectInstance takes showIcon
+  from visible, so 1102-ui-hide-effects-hud's first runs drew no icons with the hide switch OFF. Give HUD-icon effects with
+  `false`. Night Vision brightens the whole world, so a frame with it never matches a frame without (31,000 "changed" px).
+  The menu search cases (1102-ui-search-queries) take their queries from EffectsSearchCases.QUERIES: add a real query there
+  whenever he reports one that found nothing.
 - 525-ui-menu-every-master (mod menufix-1102) switches every row a card stands for ON alone and needs the card ON. A row
   drawn inactive for the account (Spotify Share My Song, a supporter perk) cannot be pressed and is skipped. RibbonTrailTab
   is a section inside Cosmetics, not a card. A menu StringWidget built from `Component.literal("§7...")` keeps the
@@ -588,3 +598,6 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
   mixes canvas units with GUI units cannot show there: the termism-ss cases passed on the broken first fix. Any check
   of a mod screen's coordinates needs a scaled pass too (`AuctionHouseCases.setWindow(c, 1920, 1080, 2)` + Auto Scale on
   = factor 1.125), asserting the factor really is not 1 (termismss-1102, `TermismStreamSafeCases.scaledPass`).
+- A summoned entity's scoreboard `Tags` never reach the client: `Entity.getTags()` does not even exist on the client in
+  26.3's mapping (compile error, commissions-1103). Find a test's mob on the client by its custom name or position; keep
+  the tag for the server's `kill @e[tag=...]` cleanup.

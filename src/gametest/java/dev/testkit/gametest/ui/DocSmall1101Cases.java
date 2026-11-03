@@ -64,7 +64,10 @@ final class DocSmall1101Cases {
             c.note("Off rows " + offRows + "; Limited rows " + limRows);
             c.check(offRows.stream().noneMatch(l -> l.startsWith("History Limit")), "the slider shows in Off");
             c.check(limRows.stream().anyMatch(l -> l.startsWith("History Limit")), "no History Limit slider in Limited");
-            c.check(limRows.stream().anyMatch(l -> l.startsWith("Chat History: Limited")), "mode row: " + limRows);
+            // Mod realswitch-1102: the Chat History switch, then Length.
+            c.check(limRows.stream().anyMatch(l -> l.startsWith("Chat History: ON"))
+                    && limRows.stream().anyMatch(l -> l.startsWith("Length: Limited")), "mode rows: " + limRows);
+            c.check(offRows.stream().anyMatch(l -> l.startsWith("Chat History: OFF")), "OFF rows: " + offRows);
             Object[] clamp = c.onClient(mc -> {
                 Object cfg = Mod.cfg(cls);
                 Mod.call(cfg, "setCustomLimit", 50);

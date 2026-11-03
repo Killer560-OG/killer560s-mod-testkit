@@ -82,6 +82,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxStaleCases.register(s);
                     // P3 Status HUD and titles, Chat Hider's dungeon pack (2140-2142, branch p3-chat-1025), own block.
                     HxP3ChatCases.register(s);
+                    // F7 boss HUDs at exact server ticks (1102-hx-goldor-tick, 1102-hx-storm-line; mod branch f7hud-1102).
+                    HxF7HudCases.register(s);
                     // Dungeon alerts of 2026-10-25: low health, Livid extras, score warning, secret feedback, breaker
                     // charges, key spawn (1025-alerts-*, branch dungeon-alerts-1025), own block.
                     HxAlerts1025Cases.register(s);
@@ -91,6 +93,9 @@ public class HxSuite implements FabricClientGameTest {
                     // To-do Doc items of 2026-11-01: Score Warning, split Counting, Core Entry, Livid, Blessings Boss
                     // Only, Trigger lines, locked chests and chest drops, Door Keys (1101-dhud-*, mod doc-dhud-1101).
                     HxDocDhud1101Cases.register(s);
+                    // Split Timers chat colors from the HUD, Core Entry reads 0 for players already inside
+                    // (1102-splitchat-*, mod branch splitchat-1102), own block.
+                    HxSplitChat1102Cases.register(s);
                     // ScoreboardData with Custom Scoreboard off; Auto GFS's Dungeons/Kuudra gate (1026-hx-sbdata-*, mod
                     // open-key-1026), own block.
                     HxSbData1026Cases.register(s);
@@ -100,6 +105,8 @@ public class HxSuite implements FabricClientGameTest {
                     // Before Boss Health, which latches the boss room until its cleanup case.
                     // The pre-2.0 mining features (1101-mining-*, mod doc-mining-1101), own block, before Boss Health.
                     HxMining1101Cases.register(s);
+                    // Commission Mobs and the Emissary label's gray distance (1103-mining-*, mod commissions-1103).
+                    HxCommissions1103Cases.register(s);
                     // Owner-evidence log lines (1102-diag-*, mod diag-1101): Fast Leap stuck state, Raffle start dump.
                     HxDiag1102Cases.register(s);
                     // Online Count heartbeat against a stub relay (1102-online-*, mod onlinecount-1102), own block.

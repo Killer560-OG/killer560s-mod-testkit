@@ -295,7 +295,8 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] MENU_ORDER_CASES = {"515-ui-menu-order", "516-ui-menu-order-settings",
             "517-ui-menu-queue-masters", "518-ui-menu-independent-masters",
             "519-ui-home-cleanup", "525-ui-menu-every-master", "526-ui-ban-report-text",
-            "527-ui-thorn-triggerbot-fold", "528-ui-split-counting-legit", "529-ui-sidebar-scroll-spy"};
+            "527-ui-thorn-triggerbot-fold", "528-ui-split-counting-legit", "529-ui-sidebar-scroll-spy",
+            "530-ui-menu-real-switch", "539-ui-chat-history-switch", "540-ui-cape-switch"};
     /** Predictive Rooms inside the Dungeon Map tab (mod todo-predict-ui-1018, {@link PredictInMapCases}). Own block for merges. */
     static final String[] PREDICT_IN_MAP_CASES = {"1018-predict-in-map"};
     /** Lever Aura merged into Secret Aura + Menu Theme on overlays (mod aura-themes-1015, {@link AuraThemeCases}). Own block for merges. */
@@ -486,6 +487,15 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : KeybindMouseCases.CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : EffectsSearchCases.CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            for (String n : StorageSearchCases.CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            for (String n : ProtectStarCases.CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -502,7 +512,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES) || any(TRAIL_HUD_CASES)
                 || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES) || any(SOUND_DESC_CASES) || any(MAP_OVERHAUL_CASES)
                 || any(TRAJECTORY_CASES) || any(MOB_SKIN_CASES) || any(PREDICT_IN_MAP_CASES)
-                || any(DocMenu1101Cases.CASES) || any(KeybindMouseCases.CASES);
+                || any(DocMenu1101Cases.CASES) || any(KeybindMouseCases.CASES) || any(EffectsSearchCases.CASES) || any(StorageSearchCases.CASES) || any(ProtectStarCases.CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -793,6 +803,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "955-ui-colour-copy-paste", ColourCopyCases::copyPaste);
                     // ---- Item Protect star on player heads (961) ----
                     UiCase.run(ctx, "961-ui-lockstar-heads", LockStarHeadCases::heads);
+                    // ---- Item Protect Show Star switch (mod protectstar-1102, ProtectStarCases) ----
+                    UiCase.run(ctx, ProtectStarCases.SHOW_STAR, ProtectStarCases::showStar);
                     // ---- profiles carry everything, across jars (980-985) ----
                     UiCase.run(ctx, "980-ui-profile-data-switch", ProfileDataCases::switchAB);
                     UiCase.run(ctx, "981-ui-profile-data-export", ProfileDataCases::exportImport);
@@ -923,6 +935,10 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "527-ui-thorn-triggerbot-fold", Menufix2Cases::thornTriggerbotFold);
                     UiCase.run(ctx, "528-ui-split-counting-legit", Menufix2Cases::splitCountingLegit);
                     UiCase.run(ctx, "529-ui-sidebar-scroll-spy", Menufix2Cases::sidebarScrollSpy);
+                    // ---- a feature that can be off has a real switch; Chat History's switch (mod realswitch-1102) ----
+                    UiCase.run(ctx, "530-ui-menu-real-switch", RealSwitchCases::everyRealSwitch);
+                    UiCase.run(ctx, "539-ui-chat-history-switch", RealSwitchCases::chatHistory);
+                    UiCase.run(ctx, "540-ui-cape-switch", RealSwitchCases::capeSwitch);
                     // ---- Lever Aura in Secret Aura + overlay Menu Themes (1420-1421) ----
                     UiCase.run(ctx, "1420-ui-secret-aura-merge", AuraThemeCases::secretAuraMerge);
                     UiCase.run(ctx, "1421-ui-overlay-themes", AuraThemeCases::overlayThemes);
@@ -945,6 +961,16 @@ public class UiSuite implements FabricClientGameTest {
                     // ---- every key row takes a mouse button (mod keybindmouse-1102, KeybindMouseCases) ----
                     UiCase.run(ctx, KeybindMouseCases.WALK, c -> KeybindMouseCases.walk(c, deny));
                     UiCase.run(ctx, KeybindMouseCases.GAME, KeybindMouseCases::game);
+                    // ---- Hide Potion Effects card and the menu search (mod effects-search-1102, EffectsSearchCases) ----
+                    UiCase.run(ctx, "1102-ui-hide-effects", EffectsSearchCases::panel);
+                    UiCase.run(ctx, "1102-ui-hide-effects-hud", EffectsSearchCases::hud);
+                    UiCase.run(ctx, "1102-ui-hide-effects-config", EffectsSearchCases::config);
+                    UiCase.run(ctx, "1102-ui-search-queries", EffectsSearchCases::searchQueries);
+                    UiCase.run(ctx, "1102-ui-search-commands", EffectsSearchCases::searchCommands);
+                    UiCase.run(ctx, "1102-ui-search-readme", EffectsSearchCases::searchReadme);
+                    // ---- the Inventory Search bar never covers a slot or panel (mod storagesearch-1102) ----
+                    UiCase.run(ctx, "1102-ui-storagesearch-overlay", StorageSearchCases::overlay);
+                    UiCase.run(ctx, "1102-ui-storagesearch-screens", StorageSearchCases::screens);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
