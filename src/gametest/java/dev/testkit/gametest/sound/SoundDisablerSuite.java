@@ -219,13 +219,13 @@ public class SoundDisablerSuite implements FabricClientGameTest {
         c.onClient(mc -> ModUnderTest.call(cfg(), "setCustom", new Class<?>[]{String.class}, new Object[]{list}));
     }
 
-    /** Back to a fresh config (switch off, Bonzo's Staff on, the rest off), saved. */
+    /** Back to a fresh config (switch off, every row off), saved. */
     private static void reset(Session c) {
         c.onClient(mc -> {
             Object cfg = cfg();
             ModUnderTest.call(cfg, "setEnabled", new Class<?>[]{boolean.class}, new Object[]{false});
             for (String r : ROWS) {
-                setRow(cfg, r, r.equals("BONZO_STAFF"));
+                setRow(cfg, r, false);
             }
             ModUnderTest.call(cfg, "setCustom", new Class<?>[]{String.class}, new Object[]{""});
             ModUnderTest.call(cfg, "setShowIds", new Class<?>[]{boolean.class}, new Object[]{false});
