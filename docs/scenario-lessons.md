@@ -1583,6 +1583,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   `killAt - triggerAt` across two trips: `killAt` (ping in ticks) read -0.2 on one trip and -1.2 on the next. Under heavy
   machine load (2026-11-02, two FROZEN slow server starts the same hour) 186's server gaps read [10, 10, 10, 9]; idle, all 10.
   1101-bloodcamp-teleport-step once predicted its landing 16 blocks the wrong way on 26.2 late in a session; it passed on rerun.
+- atkspeed-1103 (mod atkspeed-1103): the hx session's tab shows no Attack Speed, and since then the mod takes an unseen stat
+  as the cap (5 ticks, not 10). Every Blood Camp case's `base()` sets AttackCooldown's `remembered` reading to 0 so the old
+  10-tick expectations hold; 186 and 1103-bloodcamp-atkspeed-* set the real tab line (`atkTab`, "Attack Speed: ⚔N" via
+  `hx().tab`) and `atkTab(c, null)` clears the tab AND the remembered reading. 1103-bloodcamp-atkspeed-next summons the
+  second blood mob 5 ticks after the first mob's click: at the cap it is clicked on its tag tick (+6), at 0 at +10.
 
 - 1102-splitchat-colors / -core0 / -core0ticks (HxSplitChat1102Cases, mod splitchat-1102): colors feeds a whole F7 run to
   `SplitTimersFeature.onLine` at exact times and compares every chat segment name's color (`Component.visit`) with the

@@ -107,6 +107,9 @@ final class HxBloodCampCases {
         s.test("1102-bloodcamp-nevermiss-offspot", HxBloodCampCases::neverMissOffSpot);
         s.test("1102-bloodcamp-nevermiss-rehit", HxBloodCampCases::neverMissRehit);
         s.test("1102-bloodcamp-nevermiss-tab", HxBloodCampCases::neverMissTab);
+        // atkspeed-1103 (owner 2026-11-03: "Have it read attack speed ... fire it as soon as possible for blood camp").
+        s.test("1103-bloodcamp-atkspeed-parse", HxBloodCampCases::atkSpeedParse);
+        s.test("1103-bloodcamp-atkspeed-next", HxBloodCampCases::atkSpeedNext);
         s.test("1101-esp-fels", HxBloodCampCases::fels);
         s.test("1101-esp-starred-memory", HxBloodCampCases::starredMemory);
         s.test("1101-esp-mimic", HxBloodCampCases::mimic);
@@ -291,6 +294,9 @@ final class HxBloodCampCases {
                         () -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas))
                 .custom(() -> Mod.staticCall("secrets.DungeonState", "setRoomSim", true),
                         () -> Mod.staticCall("secrets.DungeonState", "setRoomSim", false))
+                // 0 Attack Speed, as these cases were written for (atkspeed-1103: a stat never shown is taken as the cap now;
+                // the 1103-bloodcamp-atkspeed cases test that path and the tab line itself).
+                .custom(() -> rememberAs(0), () -> rememberAs(-1))
                 .with(BC_CFG, "Enabled", true)
                 .with(BC_CFG, "ShowOverlay", true)
                 .with(BC_CFG, "CountdownStartSound", false)
@@ -1019,6 +1025,8 @@ final class HxBloodCampCases {
         try (HxKit.Settings s = base(c)) {
             watcher(c, WATCHER_IN);
             holding(c, "minecraft:iron_sword");
+            // The tab says 0 Attack Speed (since atkspeed-1103 an unknown stat is taken as the cap, 5 ticks).
+            atkTab(c, 0);
             // (a) Trigger Bot retries on a husk that takes no damage (the session reads as Hypixel, 0 Attack Speed): never
             // sooner than 10 ticks apart. On main they came every 6.
             if (cheat) {
@@ -1033,7 +1041,15 @@ final class HxBloodCampCases {
                 return;
             }
             c.check(t.serverAttacks.size() >= 2, "no retry to measure (" + t.serverAttacks.size() + " attack(s))");
-            c.check(g.stream().allMatch(x -> x >= 10), "Trigger Bot clicks came faster than 10 ticks: " + g);
+            // The cap on the client's own clicks; at the server a tick either way (LESSONS-AUTOMATION "A click cap holds at
+            // the client"): [9, 11, 10, 10] at the server under load, atkspeed-1103 26.2 and bloodcamp2 r4 26.3.
+            List<Long> tc = clientTicks(c, "recentClickTicks");
+            List<Long> cg = gaps(tc.subList(Math.max(0, tc.size() - t.clicks), tc.size()));
+            c.note("Trigger Bot client click gaps " + cg);
+            c.check(!cg.isEmpty() && cg.stream().allMatch(x -> x >= 10), "Trigger Bot clicks came faster than 10 ticks on"
+                    + " the client: " + cg);
+            c.check(g.stream().allMatch(x -> x >= 9), "Trigger Bot attacks reached the server more than a tick under 10"
+                    + " apart: " + g);
             // (b) The Aura on a blood mob that takes no damage: round(10 / (1 + AS/100)) ticks apart on Hypixel, and the
             // vanilla cooldown (an iron sword's 12.5, so 13) on a plain server.
             c.onClient(mc -> {
@@ -1041,10 +1057,14 @@ final class HxBloodCampCases {
                 Mod.call(Mod.cfg(BC_CFG), "setAuraEnabled", true);
                 return null;
             });
-            String[][] weapons = {{"minecraft:iron_sword", "10", "hypixel"},
-                    {"minecraft:iron_sword[lore=[\"Attack Speed: +100%\"]]", "5", "hypixel"},
-                    {"minecraft:iron_sword", "13", "vanilla"}};
+            // {stack, want ticks, server, the tab's Attack Speed ("" = not shown)}
+            String[][] weapons = {{"minecraft:iron_sword", "10", "hypixel", "0"},
+                    {"minecraft:iron_sword", "5", "hypixel", "100"},
+                    {"minecraft:iron_sword", "7", "hypixel", "45"},
+                    {"minecraft:iron_sword", "5", "hypixel", ""},
+                    {"minecraft:iron_sword", "13", "vanilla", "0"}};
             for (String[] w : weapons) {
+                atkTab(c, w[3].isEmpty() ? null : Integer.parseInt(w[3]));
                 try (HxKit.Settings h = w[2].equals("vanilla") ? vanillaServer(c) : new HxKit.Settings(c)) {
                     holding(c, w[0]);
                     stand(c, 0f, 0f);
@@ -1056,7 +1076,7 @@ final class HxBloodCampCases {
                     List<Long> gg = gaps(at.serverAttacks);
                     int cd = intStat(c, "lastCooldownTicks");
                     int want = Integer.parseInt(w[1]);
-                    c.note("Aura on " + w[2] + ", " + w[0] + ": cooldown " + cd + " ticks, server attacks "
+                    c.note("Aura on " + w[2] + ", tab Attack Speed '" + w[3] + "': cooldown " + cd + " ticks, server attacks "
                             + at.serverAttacks + ", gaps " + gg + "; client gaps " + sentGaps);
                     c.check(cd == want, w[0] + ": the cooldown read " + cd + " ticks, want " + want);
                     c.check(n >= 3, w[0] + ": the Aura hit the blood mob only " + n + " time(s)");
@@ -1070,6 +1090,7 @@ final class HxBloodCampCases {
                 }
             }
         } finally {
+            atkTab(c, null);
             holding(c, "minecraft:air");
             c.hx().removeStands();
         }
@@ -1269,8 +1290,11 @@ final class HxBloodCampCases {
                             + " %.2f, most common gap %d of %d); registering gaps %s; server attacks %d",
                     fillers, counts, mean, cps, sd, top, allGaps.size(), regGaps, t.serverAttacks.size()));
             c.check(fillers >= 5, "only " + fillers + " clicks went between the registering hits");
-            c.check(regGaps.stream().allMatch(g -> g == 10), "the registering hits were not exactly the 10-tick cap"
-                    + " apart: " + regGaps);
+            // Never under the cap; at it nearly always. A gap of 11 is the cap on the server's clock (PerTickServerClock
+            // trusted, the server 9 ticks on: atkspeed-1103 26.3, "per-tick pinger" just before), which is the rule too.
+            long atCap = regGaps.stream().filter(g -> g == 10).count();
+            c.check(!regGaps.isEmpty() && regGaps.stream().allMatch(g -> g >= 10) && atCap * 10 >= regGaps.size() * 8,
+                    "the registering hits were not at the 10-tick cap (never under it, 80% exactly on it): " + regGaps);
             c.check(sd > 0.3 && top * 10 < allGaps.size() * 6, "the click stream is too regular (sd " + sd
                     + ", most common gap " + top + " of " + allGaps.size() + ")");
             c.check(cps >= 4 && cps <= 14 && minGap >= 2, String.format(Locale.ROOT,
@@ -2742,6 +2766,206 @@ final class HxBloodCampCases {
             c.ctx().waitTicks(1);
         }
         return 40;
+    }
+
+    // ---- atkspeed-1103 ----------------------------------------------------------------------------------------------
+    // killer560, 2026-11-03: "The weapon shouldn't be on cooldown that long I don't think. Have it read attack speed. Most
+    // of the time they will be at max attack speed. Don't ignore it but fire it as soon as possible for blood camp."
+
+    private static final String AC = "util.AttackCooldown";
+
+    /** Sets AttackCooldown's remembered tab reading (-1 = none); a jar without the field is left alone. */
+    private static void rememberAs(int v) {
+        try {
+            Mod.setField(AC, "remembered", v);
+        } catch (AssertionError | RuntimeException e) {
+            // an older jar: it has no remembered reading
+        }
+    }
+
+    /** The tab list's Attack Speed line as Hypixel's Stats widget writes it, or (null) no tab and no remembered reading. */
+    private static void atkTab(Session c, Integer as) {
+        if (as == null) {
+            c.hx().tabClear();
+            c.ctx().waitTicks(3);
+            c.onClient(mc -> {
+                rememberAs(-1);
+                return null;
+            });
+            return;
+        }
+        c.hx().tab(List.of("§r§e§lStats:", "§r Attack Speed: §r§e⚔" + as), null, null);
+        int want = Math.min(100, as);
+        c.waitUntil("the tab's Attack Speed " + as + " is read", mc -> {
+            Object v = Mod.staticCall(AC, "attackSpeed", mc);
+            return v instanceof Integer i && i == want;
+        }, 60);
+    }
+
+    /** Hypixel's tab line forms against AttackCooldown.parseTabLine, and where the stat comes from when none is shown. */
+    private static void atkSpeedParse(Session c) {
+        Object[][] lines = {
+                {" Attack Speed: §e⚔45", 45}, {"Attack Speed: 82", 82}, {"Attack Speed: 100", 100},
+                {" Attack Speed: ⚔150", 100}, {"Attack Speed: ⚔45.5", 45}, {"Attack Speed: ⚔0", 0},
+                {" Attack Speed: ⚔12 (+3)", 12},
+                {"Bonus Attack Speed: +10%", -1}, {" Speed: ✦400", -1}, {"[VIP] Bob: Attack Speed: 100", -1},
+                {"Attack Speed: ⚔1234", -1}, {"Attack Speed:", -1}};
+        List<String> wrong = new ArrayList<>();
+        for (Object[] l : lines) {
+            int got = c.onClient(mc -> (Integer) Mod.staticCall(AC, "parseTabLine", l[0]));
+            if (got != (Integer) l[1]) {
+                wrong.add("'" + l[0] + "' read " + got + ", want " + l[1]);
+            }
+        }
+        c.note("tab line forms: " + lines.length + " checked, wrong " + wrong);
+        c.check(wrong.isEmpty(), "Attack Speed tab lines misread: " + wrong);
+        // round(10 / (1 + AS/100)): 0 -> 10, 45 -> 7, 82 -> 5, 100 -> 5; a shortbow ceil: 82 -> 6.
+        int[][] ticks = {{0, 0, 10}, {45, 0, 7}, {82, 0, 5}, {100, 0, 5}, {82, 1, 6}, {100, 1, 5}};
+        for (int[] t : ticks) {
+            int got = c.onClient(mc -> (Integer) Mod.staticCall(AC, "hypixelTicks", t[0], t[1] == 1));
+            c.check(got == t[2], "hypixelTicks(" + t[0] + ", shortbow " + (t[1] == 1) + ") = " + got + ", want " + t[2]);
+        }
+        try {
+            // From the live tab, then remembered when the tab stops showing it, then the cap once nothing was ever seen.
+            atkTab(c, 45);
+            String[] src = new String[3];
+            int[] as = new int[3];
+            src[0] = c.onClient(mc -> (String) Mod.staticCall(AC, "attackSpeedSource"));
+            c.hx().tabClear();
+            c.ctx().waitTicks(5);
+            as[1] = c.onClient(mc -> (Integer) Mod.staticCall(AC, "attackSpeed", mc));
+            src[1] = c.onClient(mc -> (String) Mod.staticCall(AC, "attackSpeedSource"));
+            c.onClient(mc -> {
+                rememberAs(-1);
+                return null;
+            });
+            as[2] = c.onClient(mc -> (Integer) Mod.staticCall(AC, "attackSpeed", mc));
+            src[2] = c.onClient(mc -> (String) Mod.staticCall(AC, "attackSpeedSource"));
+            int cdUnknown = c.onClient(mc -> (Integer) Mod.staticCall(AC, "intervalTicks", mc));
+            c.note("tab 45: source '" + src[0] + "'; tab cleared: " + as[1] + " from '" + src[1] + "'; never seen: " + as[2]
+                    + " from '" + src[2] + "', " + cdUnknown + " ticks between hits");
+            c.check(src[0].equals("tab list"), "the tab's Attack Speed was not read from the tab list: " + src[0]);
+            c.check(as[1] == 45 && src[1].equals("last tab reading"), "the last tab reading was not kept: " + as[1] + " from "
+                    + src[1]);
+            c.check(as[2] == 100 && cdUnknown == 5, "an Attack Speed never shown read " + as[2] + " (" + cdUnknown
+                    + " ticks), want the cap: 100, 5 ticks");
+        } finally {
+            atkTab(c, null);
+        }
+    }
+
+    /**
+     * The owner's ask on the clock: a blood mob that appears 5-9 ticks after Blood Camp's last click (inside the old flat
+     * 10-tick cooldown) is clicked on its tag tick when he is at the cap (the tab says 100, or it says nothing), and only
+     * at the 10th tick when the tab says 0 - the cap still holds, it is just read right. For Never Miss and the plain Trigger
+     * Bot's next-mob pass alike. No trip: two name-tagged husks, the second summoned under his look once the first is hit.
+     */
+    private static void atkSpeedNext(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (HxKit.Settings s = base(c)) {
+            clearDecoys(c);
+            watcher(c, WATCHER_IN);
+            if (!cheat) {
+                c.note("legit jar: no Trigger Bot; the stat itself is 1103-bloodcamp-atkspeed-parse");
+                return;
+            }
+            s.with(BC_CFG, "TriggerBotEnabled", true);
+            stand(c, 0f, 0f);
+            Object[][] trials = {{true, null, 5}, {true, 100, 5}, {true, 0, 10}, {false, null, 5}, {false, 0, 10}};
+            int n = 0;
+            for (Object[] tr : trials) {
+                boolean nm = (Boolean) tr[0];
+                Integer as = (Integer) tr[1];
+                int cd = (Integer) tr[2];
+                c.onClient(mc -> {
+                    Mod.call(Mod.cfg(BC_CFG), "setNeverMiss", nm);
+                    return null;
+                });
+                atkTab(c, as);
+                if (as == null) {
+                    c.onClient(mc -> {
+                        rememberAs(-1);
+                        return null;
+                    });
+                }
+                String first = "atkA" + n;
+                String second = "atkB" + n;
+                n++;
+                double[] a = {-421.0, -417.5};
+                double[] b = {-418.5, -417.0};
+                aimAt(c, a);
+                waitCooldownOver(c);
+                long[] fc0 = firstClick(c);
+                taggedNoTrip(c, first, a);
+                c.waitUntil("the first mob " + first + " is clicked", mc -> {
+                    long[] f = (long[]) Mod.staticCall(BC, "lastFirstClickForTest");
+                    return f[1] != fc0[1] && f[0] == clientId(mc, first);
+                }, 40);
+                long prev0 = firstClick(c)[1];
+                aimAt(c, b);
+                // summon once 5 ticks have passed: its tag lands 6-8 ticks after the last click (inside the old 10), so at the cap
+                // it is clicked on its tag tick, and at 0 Attack Speed only at +10
+                c.waitUntil("5 ticks since the first click", mc -> mc.level.getGameTime() - prev0 >= 5, 20);
+                long[] fc1 = firstClick(c);
+                taggedNoTrip(c, second, b);
+                c.waitUntil("the second mob " + second + " is clicked", mc -> {
+                    long[] f = (long[]) Mod.staticCall(BC, "lastFirstClickForTest");
+                    return f[1] != fc1[1] && f[0] == clientId(mc, second);
+                }, 40);
+                long[] fc = firstClick(c);
+                int read = c.onClient(mc -> (Integer) Mod.staticCall(BC, "lastCooldownTicks"));
+                // the cap counts from Blood Camp's last click before this one (the first mob's, or a re-click of it)
+                List<Long> all = clientTicks(c, "recentClickTicks");
+                long prev = prev0;
+                long before = prev;
+                for (long t : all) {
+                    if (t < fc[1] && t > before) {
+                        before = t;
+                    }
+                }
+                if (before != prev) {
+                    c.note("the first mob was clicked again at " + before + " before the second mob's click");
+                    prev = before;
+                }
+                long tagGap = fc[2] - prev;
+                long clickGap = fc[1] - prev;
+                long want = Math.max(fc[2], prev + cd);
+                c.note(String.format(Locale.ROOT, "Never Miss %s, tab Attack Speed %s: cooldown %d ticks; first mob clicked at %d,"
+                        + " second tagged +%d, clicked +%d (want tick %d)", nm ? "ON" : "OFF", as == null ? "not shown" : as,
+                        read, prev, tagGap, clickGap, want));
+                String what = "Never Miss " + (nm ? "ON" : "OFF") + ", Attack Speed " + (as == null ? "not shown" : as);
+                c.check(read == cd, what + ": the cooldown read " + read + " ticks, want " + cd);
+                c.check(tagGap < 10, what + ": the second mob was tagged " + tagGap + " ticks after the click, not inside the"
+                        + " old 10-tick window - nothing was tested");
+                c.check(fc[1] == want, what + ": the second mob was clicked " + clickGap + " ticks after the first click,"
+                        + " tagged at +" + tagGap + " - want the first tick the " + cd + "-tick cooldown allows (+"
+                        + (want - prev) + ")");
+                c.server().command("kill @e[tag=bcdecoy]");
+                c.ctx().waitTicks(3);
+            }
+        } finally {
+            clearDecoys(c);
+            atkTab(c, null);
+            c.hx().removeStands();
+        }
+    }
+
+    private static void aimAt(Session c, double[] at) {
+        c.onClient(mc -> {
+            float[] l = look(mc, new Vec3(at[0], 152.4, at[1]));
+            mc.player.setYRot(l[0]);
+            mc.player.setXRot(l[1]);
+            return null;
+        });
+        c.ctx().waitTicks(2);
+    }
+
+    /** A husk named {@code name} under a blood name tag (the room scan tags it), at {@code at}. */
+    private static void taggedNoTrip(Session c, String name, double[] at) {
+        c.server().command(String.format(Locale.ROOT, "summon husk %.2f 151 %.2f {Tags:[\"bcdecoy\"],NoAI:1b,NoGravity:1b,"
+                + "Silent:1b,PersistenceRequired:1b,Health:20f,CustomName:\"%s\"}", at[0], at[1], name));
+        c.server().command(String.format(Locale.ROOT, "summon armor_stand %.2f 152.2 %.2f {Tags:[\"bcdecoy\"],Invisible:1b,"
+                + "NoGravity:1b,Marker:1b,CustomNameVisible:1b,CustomName:\"Revoker 1M❤\"}", at[0], at[1]));
     }
 
     private static void setNeverMiss(Session c, boolean on, int offset) {
