@@ -576,5 +576,4 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
 - A UI run can pass every case and then hang closing its singleplayer world: Render thread in `IntegratedServer.halt` ->
   `executeBlocking` (from the gametest's deferDisconnect), Server thread parked in the gametest `ThreadingImpl.enterPhase`
   Phaser; the run log only says "Test client has stopped responding - watching it" and no summary.md is written (leapmenu-1102,
-  26.2, 15 of 15 PASS lines in the client log at 20:00, still hung at 20:21). The same filter passed and exited cleanly on the
-  run before. jstack it, kill only the client PID; the PASS lines and build/testkit-report/cases/*.log are the evidence.
+  26.2, 15 of 15 PASS lines in the client log at 20:00, still hung at 20:21). It happened on 2 of 3 runs of that filter on 26.2 (none of 3 on 26.3); the run after a killed one in the same checkout then FROZE at startup twice, and a fresh rerun passed. jstack it, kill only the client PID; the PASS lines and build/testkit-report/cases/*.log are the evidence.
