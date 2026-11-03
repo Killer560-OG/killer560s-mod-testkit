@@ -364,7 +364,7 @@ final class Doc1018MenuHudCases {
     }
 
     // =================================================================================================================
-    // 25 Chat History: Off / Limited / Unlimited (mod 635594b7, killer560 2026-11-01; was one Unlimited switch)
+    // 25 Chat History: switch, then Length Limited / Unlimited (mod realswitch-1102; was Off / Limited / Unlimited)
     // =================================================================================================================
 
     private static final String CHC = "chathistory.ChatHistoryConfig";
@@ -398,26 +398,31 @@ final class Doc1018MenuHudCases {
                 Mod.call(Mod.cfg(CHC), "setCustomLimit", 200);
                 return null;
             });
+            // Mod realswitch-1102: a Chat History switch first, then (ON) a Length selector with no Off value.
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(CHC), "setLength", Mod.enumValue(CHC + "$Length", "LIMITED"));
+                return null;
+            });
             List<String> row = labels(c, "ChatHistoryTab");
-            c.check(has(row, "Chat History: Off"), "the Chat History tab has no 'Chat History: Off' row: " + row);
-            c.check(!has(row, "History Limit"), "Off shows the History Limit slider: " + row);
+            c.check(has(row, "Chat History: OFF"), "the Chat History tab has no 'Chat History: OFF' switch: " + row);
+            c.check(!has(row, "History Limit") && !has(row, "Length"), "OFF shows the Length or History Limit row: " + row);
             int[] off = addChatLines(c, chat, "off", 130);
             c.check(off[0] == 100, "Off keeps " + off[0] + " messages, want vanilla's 100");
 
-            // Limited, by a real click on the row (left click steps forward: Off -> Limited), at 200.
+            // Limited, by a real click on the switch (the Length kept is Limited), at 200.
             boolean pressed = pressRow(c, "ChatHistoryTab", "Chat History:");
             String mode = chatMode(c);
-            c.check(pressed && "LIMITED".equals(mode), "a click on the Chat History row did not step Off -> Limited (" + mode + ")");
+            c.check(pressed && "LIMITED".equals(mode), "a click on the Chat History switch did not turn on Limited (" + mode + ")");
             row = labels(c, "ChatHistoryTab");
             c.check(has(row, "History Limit: 200"), "Limited shows no 'History Limit: 200' slider: " + row);
             int[] lim = addChatLines(c, chat, "limited", 250);
             c.check(lim[0] == 200, "Limited at 200 keeps " + lim[0] + " messages, want exactly 200");
             c.check(lim[1] == 200, "Limited at 200 keeps " + lim[1] + " wrapped lines, want exactly 200");
 
-            // Unlimited, by the next click.
-            pressed = pressRow(c, "ChatHistoryTab", "Chat History:");
+            // Unlimited, by a click on the Length row.
+            pressed = pressRow(c, "ChatHistoryTab", "Length:");
             mode = chatMode(c);
-            c.check(pressed && "UNLIMITED".equals(mode), "a second click did not step Limited -> Unlimited (" + mode + ")");
+            c.check(pressed && "UNLIMITED".equals(mode), "a click on Length did not step Limited -> Unlimited (" + mode + ")");
             int[] on = addChatLines(c, chat, "unlimited", 130);
             c.check(on[0] >= 330, "Unlimited keeps " + on[0] + " messages, want at least 330 (200 kept + 130 new)");
             c.check(on[1] >= 330, "Unlimited keeps " + on[1] + " wrapped lines, want at least 330");
