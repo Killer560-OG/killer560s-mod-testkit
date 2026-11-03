@@ -1592,3 +1592,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   at the second run start and 829-834/2345-2347 never saw the bug the owner hit (a real requeue goes through the Hub,
   which drops them). `LeapPartyChangeCases.requeue` leaves the dungeon and waits for `detectedClassOf` to go null
   between runs; do the same in any new run-to-run case.
+
+- 1102-posmsg-* (boss session; mod posmsgleap-1102): a leap into a Posmsg ring. Hx cmd events carry the SERVER tick, so the
+  gap between two party lines is read off them (500 ms = 10 ticks; the cases want >= 9). The Hx server has no chat
+  limiter, so the gap stands in for "no Woah slow down". Main's jar sent the callout first (teleport before the leap line)
+  or second (before Cringe); the fixed jar sends Leaping To, Cringe, callout 10-11 ticks apart. Run "alone" first: a leap
+  case's menu sighting inside Posmsg's 3 s window would hold its ring.

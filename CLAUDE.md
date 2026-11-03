@@ -539,7 +539,9 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
 - GrimAC experimental checks flag Auto Routes, AP3 and the breaker on every jar since at least ship-1101d (2026-11-02, 26.3
   and 26.2, same cases on the ship-1101d control): MultiBreak* (breaker), PacketOrderE* / DuplicateRotPlace* (mimic, breakerwarp),
   RotationBreak* (26.2 boom), BadPacketsH* (AP3 boom) and BadPacketsV* (AP3 shot). Compare against a control jar before
-  blaming a branch. Reports in killer560s-mod-logs/ship1101e-*-report.
+  blaming a branch. Reports in killer560s-mod-logs/ship1101e-*-report. On a 26.3 LEGIT jar, 501/502-boss-ss also fail on
+  DuplicateRotPlace* (x1 / x2-x3, the case's own hand clicks) on main 5c125680d and posmsgleap-1102 alike (2026-11-02,
+  killer560s-mod-logs/posmsgleap-run-ss-*.log); 503 passes. Not a branch regression.
 - A client can sit at the title screen for an hour with no test output: the gametest Test thread parked in
   `ThreadingImpl.enterPhase` (Phaser) and the Render thread in `Minecraft.postRunTasks` (Semaphore), a startup deadlock the
   freeze watcher did not catch with TESTKIT_HUNG_POLLS=60 (ship1101e zpew 26.3, 2026-11-02). If a run's client log has no
