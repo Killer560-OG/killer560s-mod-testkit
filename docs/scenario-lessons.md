@@ -1530,3 +1530,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   for a 16-unit cell: the box sits right under the icon and a full block hides all of it. The Storage Overlay's open
   page title is that same orange, so the pages grid is checked by the on/off difference. A two-digit count scales with
   the fitted item and reaches past the cell's middle (still in its lower half).
+
+- (f7hud-1102, 2026-11-02) A server-tick timer case needs Hypixel's per-tick pings to be exact: with GrimAC on, its
+  transaction pings keep the mod's `PerTickServerClock` untrusted and it wobbles 4-8 ticks on a loaded machine. Run such a
+  case under `-Pnogrim` with the testmod's `boss.pertickping` (1102-hx-goldor-tick does both, tolerance 1 vs 8), and
+  schedule events with `boss.timeline` (START_SERVER_TICK: a `damage` at END_SERVER_TICK sends its health a tick late).
