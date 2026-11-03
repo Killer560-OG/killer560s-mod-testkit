@@ -107,6 +107,7 @@ public class UiSuite implements FabricClientGameTest {
             "425-ui-bazaar-icons", "427-ui-pack-disabler-models",
             "428-ui-pack-disabler-pack-push", "430-ui-pack-disabler-screens",
             "431-ui-pack-disabler-user-pack", "432-ui-pack-disabler-bazaar",
+            "433-ui-pack-disabler-refresh", "434-ui-pack-disabler-menu-maps",
             "451-ui-hotbar-theme", "452-ui-inventory-theme-settings", "453-ui-storage-overlay-centre",
             "454-ui-storage-overlay-themes",
             "441-ui-bars-under-screens", "442-ui-bars-absorption", "443-ui-bars-predefined-scale", "444-ui-bars-padding",
@@ -583,6 +584,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "430-ui-pack-disabler-screens", PackDisablerCases::screens);
                     UiCase.run(ctx, "431-ui-pack-disabler-user-pack", PackDisablerCases::userPack);
                     UiCase.run(ctx, "432-ui-pack-disabler-bazaar", PackDisablerCases::bazaar);
+                    UiCase.run(ctx, "433-ui-pack-disabler-refresh", PackDisablerCases::refresh);
+                    UiCase.run(ctx, "434-ui-pack-disabler-menu-maps", PackDisablerCases::menuMaps);
                     UiCase.run(ctx, "451-ui-hotbar-theme", InvStorageCases::hotbar);
                     UiCase.run(ctx, "452-ui-inventory-theme-settings", InvStorageCases::settings);
                     UiCase.run(ctx, "453-ui-storage-overlay-centre", InvStorageCases::storageCentre);
