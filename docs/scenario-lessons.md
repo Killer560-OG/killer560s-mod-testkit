@@ -1530,3 +1530,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   for a 16-unit cell: the box sits right under the icon and a full block hides all of it. The Storage Overlay's open
   page title is that same orange, so the pages grid is checked by the on/off difference. A two-digit count scales with
   the fitted item and reaches past the cell's middle (still in its lower half).
+- 1102-posmsg-* (boss session; mod posmsgleap-1102): a leap into a Posmsg ring. Hx cmd events carry the SERVER tick, so the
+  gap between two party lines is read off them (500 ms = 10 ticks; the cases want >= 9). The Hx server has no chat
+  limiter, so the gap stands in for "no Woah slow down". Main's jar sent the callout first (teleport before the leap line)
+  or second (before Cringe); the fixed jar sends Leaping To, Cringe, callout 10-11 ticks apart. Run "alone" first: a leap
+  case's menu sighting inside Posmsg's 3 s window would hold its ring.
