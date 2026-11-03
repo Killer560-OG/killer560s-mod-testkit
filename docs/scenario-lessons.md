@@ -1487,3 +1487,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   screenshots. 1102-map-wither-outline counts outline parts of the chosen color round the locked wither door at thickness
   1 and 3 (3x as many) in the regular style and on Funny Map; 1102-map-funny-hides-rows builds LiveMapTab's widgets with
   Funny Map on/off; 1102-map-outline-saved reloads the config. The outline case relies on 4 fills per GuiRects outline.
+
+- With a container open, the test server does not resend the player's armor: vanilla syncs the inventory menu only
+  while it is the open one, so `item replace ... armor.head` + waiting for the client helmet times out until the menu
+  closes (1889 cleanup, maskswap-1102). Close the menu first. The /stats fake (`equipHelmet`) broadcasts it itself;
+  1889 also holds the client helmet stale on purpose, which is what Hypixel's /stats evidently does.

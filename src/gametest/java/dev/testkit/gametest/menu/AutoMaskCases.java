@@ -77,6 +77,7 @@ final class AutoMaskCases {
     static void register(Session s) {
         // doc-auto-1101: Mask Keybinds (legit) - a key in the open /stats menu equips a mask; both jars
         MenuSuite.test(s, "1888-menu-maskkeybinds", AutoMaskCases::maskKeybinds);
+        MenuSuite.test(s, "1889-menu-maskkeybinds-alternate", AutoMaskCases::maskKeybindsAlternate);
         // Auto Mask is cheat-only (compiled out of legit); on a legit jar these eight read as failures in the legit menu
         // suite (preexisting-1026). Its absence from the legit menu is 511/512's job, as for every cheat tab.
         if (!Mod.isCheat()) {
@@ -660,10 +661,133 @@ final class AutoMaskCases {
             c.note(String.join("; ", notes));
         } finally {
             c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(KEY));
+            MenuKit.reset(c);
             wear(c, "minecraft:air", "minecraft:air", "minecraft:air");
             c.ctx().runOnClient(mc -> ((Map<Object, Object>) Mod.field(FEAT, "cooldownRemaining")).replaceAll((k, v) -> 0));
             MenuKit.reset(c);
         }
+    }
+
+    // ---- 1889 Mask Keybinds, repeated presses with a mask worn (maskswap-1102) -----------------------------------------
+
+    /**
+     * killer560, 2026-11-02: "i cant keep pressing the button to swap ... if i have both already in my inventory it works
+     * fine but if one is on the head that is when it bugs ... it should only prevent that swap if it is on cooldown".
+     * <p>
+     * One /stats menu stays open for the whole case. Spirit on the head, Bonzo in the inventory: six presses must alternate
+     * Bonzo, Spirit, Bonzo, ... each one a SERVER equip of the other mask over the worn one, and the client's helmet must
+     * follow. Then the same six presses with the client's helmet held STALE before every press (the mask worn before the
+     * swap, which is what the old code read and Hypixel evidently does not refresh while /stats is open): the old code
+     * refused every press after the first ("No mask to equip"), the fix must still alternate. Then cooldowns: Bonzo procs
+     * while Spirit is worn, so the press refuses with one "Bonzo's Mask on cooldown: Ns" line and no equip; with Bonzo
+     * worn and on cooldown, Spirit (off cooldown) still goes on.
+     */
+    @SuppressWarnings("unchecked")
+    static void maskKeybindsAlternate(Session c) throws Exception {
+        MenuKit.reset(c);
+        DungeonMenuCases.inDungeon(c);
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set(CFG, "Enabled", false).set(CFG, "AutoSwapEnabled", false).set(CFG, "MaskKeyEnabled", true)
+                    .set(CFG, "MaskKey", KEY).set(CFG, "MaskKeyBonzoFirst", false).set(CFG, "MaskKeyDungeonsOnly", true)
+                    .set(CFG, "MaskKeyBossOnly", false);
+            c.ctx().runOnClient(mc -> ((Map<Object, Object>) Mod.field(FEAT, "cooldownRemaining")).replaceAll((k, v) -> 0));
+            List<String> notes = new ArrayList<>();
+            long stats0 = count(c, "stats");
+
+            for (boolean stale : new boolean[]{false, true}) {
+                wear(c, SPIRIT, BONZO, "minecraft:air");
+                MenuKit.show(c, equipmentMenu());
+                MenuKit.awaitScreen(c, "Your Equipment and Stats", 100);
+                c.ctx().waitTicks(4);
+                String worn = "SPIRIT_MASK";
+                List<String> seq = new ArrayList<>();
+                for (int i = 0; i < 6; i++) {
+                    String want = worn.equals("SPIRIT_MASK") ? "BONZO_MASK" : "SPIRIT_MASK";
+                    String label = (stale ? "stale helmet " : "") + "press " + (i + 1);
+                    int before = c.events("menu.equip").size();
+                    if (stale && i > 0) {
+                        // Hypixel's /stats leaves the client's helmet as it was before the last swap.
+                        String old = want.equals("SPIRIT_MASK") ? SPIRIT_STACK_ID : BONZO_STACK_ID;
+                        c.ctx().runOnClient(mc -> mc.player.setItemSlot(EquipmentSlot.HEAD, staleStack(mc, old)));
+                    }
+                    press(c);
+                    for (int t = 0; t < 60 && c.events("menu.equip").size() <= before; t++) {
+                        c.ctx().waitTicks(1);
+                    }
+                    List<JsonObject> equips = c.events("menu.equip");
+                    c.check(equips.size() == before + 1, label + ": want one equip, got " + equips.subList(before, equips.size()));
+                    JsonObject e = equips.get(equips.size() - 1);
+                    c.check(want.equals(e.get("skyblockId").getAsString()) && worn.equals(e.get("previous").getAsString()),
+                            label + ": server equipped " + e + ", want " + want + " over " + worn);
+                    if (!stale) {
+                        c.waitUntil(label + ": client helmet " + want, mc -> want.equals(helmet(mc)), 40);
+                    }
+                    boolean open = c.onClient(mc -> McCompat.screen(mc) != null);
+                    c.check(open, label + ": the /stats menu closed");
+                    seq.add(want.startsWith("SPIRIT") ? "Spirit" : "Bonzo");
+                    worn = want;
+                    c.ctx().waitTicks(5);
+                }
+                notes.add((stale ? "stale helmet" : "live helmet") + ": 6 presses, server equips " + seq);
+                MenuKit.reset(c);
+            }
+
+            // Cooldown refuses: Spirit worn, Bonzo in the inventory and on cooldown.
+            wear(c, SPIRIT, BONZO, "minecraft:air");
+            proc(c, BONZO_PROC);
+            c.waitUntil("Bonzo's cooldown running", mc -> (Boolean) Mod.staticCall(FEAT, "onCooldown",
+                    Mod.enumValue(Mod.ROOT + SW + "$Target", "BONZO")), 40);
+            MenuKit.show(c, equipmentMenu());
+            MenuKit.awaitScreen(c, "Your Equipment and Stats", 100);
+            c.ctx().waitTicks(4);
+            int before = c.events("menu.equip").size();
+            long mark = dev.testkit.gametest.LogTap.mark();
+            press(c);
+            c.ctx().waitTicks(20);
+            c.check(c.events("menu.equip").size() == before, "Bonzo on cooldown still equipped: " + c.events("menu.equip"));
+            List<String> cdLines = dev.testkit.gametest.LogTap.since(mark).stream()
+                    .filter(l -> l.contains("[CHAT]") && l.contains("Bonzo's Mask on cooldown: ")).toList();
+            c.check(cdLines.size() == 1, "want one cooldown chat line, got " + cdLines);
+            c.check(lastKeyDecision(c).startsWith("cooldown: Bonzo's Mask on cooldown: "), "decision " + lastKeyDecision(c));
+            notes.add("Bonzo on cooldown: no equip, chat \"" + cdLines.get(0).replaceAll(".*\\[CHAT\\] ", "") + "\"");
+            MenuKit.reset(c);
+
+            // An off-cooldown mask still swaps: Bonzo worn (on cooldown), Spirit in the inventory.
+            wear(c, BONZO, SPIRIT, "minecraft:air");
+            MenuKit.show(c, equipmentMenu());
+            MenuKit.awaitScreen(c, "Your Equipment and Stats", 100);
+            c.ctx().waitTicks(4);
+            int before2 = c.events("menu.equip").size();
+            press(c);
+            c.waitUntil("Spirit off cooldown: helmet SPIRIT_MASK", mc -> "SPIRIT_MASK".equals(helmet(mc)), 60);
+            JsonObject e = c.events("menu.equip").get(c.events("menu.equip").size() - 1);
+            c.check(c.events("menu.equip").size() == before2 + 1 && "SPIRIT_MASK".equals(e.get("skyblockId").getAsString()),
+                    "off-cooldown Spirit: " + c.events("menu.equip"));
+            notes.add("Bonzo worn on cooldown: Spirit still equipped");
+            // Closed before the cleanup's wear(): with a container open the server does not resend his helmet (vanilla
+            // syncs the inventory menu only while it is the open one), so wear() would wait on a helmet that never comes.
+            MenuKit.reset(c);
+            c.check(count(c, "stats") == stats0, "Mask Keybinds sent /stats: " + c.commands());
+            c.note(String.join("; ", notes));
+        } finally {
+            c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(KEY));
+            MenuKit.reset(c);
+            wear(c, "minecraft:air", "minecraft:air", "minecraft:air");
+            c.ctx().runOnClient(mc -> ((Map<Object, Object>) Mod.field(FEAT, "cooldownRemaining")).replaceAll((k, v) -> 0));
+            MenuKit.reset(c);
+        }
+    }
+
+    private static final String SPIRIT_STACK_ID = "SPIRIT_MASK";
+    private static final String BONZO_STACK_ID = "BONZO_MASK";
+
+    /** A client-only helmet stack carrying {@code id}, for the stale-helmet pass. */
+    private static net.minecraft.world.item.ItemStack staleStack(net.minecraft.client.Minecraft mc, String id) {
+        net.minecraft.world.item.ItemStack s = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.PLAYER_HEAD);
+        net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+        tag.putString("id", id);
+        s.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(tag));
+        return s;
     }
 
     private static String lastKeyDecision(Session c) {
