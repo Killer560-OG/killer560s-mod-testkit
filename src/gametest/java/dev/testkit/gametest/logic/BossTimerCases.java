@@ -58,7 +58,7 @@ final class BossTimerCases {
             c.eq("Goldor's line ends Start", -1, R.get(TT, "goldorStartTime"));
             // f7hud-1102: Goldor's tick is GoldorTick now (a remembered server tick, not a counter).
             c.check("Goldor's line starts the Tick", (Boolean) Mod.staticCall(GT, "active"), "GoldorTick inactive");
-            c.eq("the Tick reads 60 on Goldor's line", 60, Mod.staticCall(GT, "remaining"));
+            c.eq("the Tick reads 42 on Goldor's line (his first hit comes 42 ticks after it, 2026-11-03)", 42, Mod.staticCall(GT, "remaining"));
 
             chat(TT, "onChatMessage", "[BOSS] Necron: I'm afraid, your journey ends now.");
             c.eq("old Necron line no longer starts the drop timer", -1, R.get(TT, "necronTicks"));
@@ -268,8 +268,8 @@ final class BossTimerCases {
     /**
      * killer560, 2026-11-02: Goldor's "Tick:" "procced my mask at like 1.5s instead of at 0". Scripted server ticks, the
      * clock driven by hand as a per-tick pinger: (a) hits on Goldor's 60-tick cycle read 0 at every hit and the line shows
-     * "Tick: 0.0s" on each; (b) hits 30 ticks off the line's phase (the reported error) re-lock on the second hit, after
-     * which every hit reads 0; (c) a stray hit between two real ones moves nothing; (d) two players hurt at once re-lock
+     * "Tick: 0.0s" on each; (b) hits 18 ticks off the start phase (his real 2026-11-03 run) re-lock on the FIRST hit, after
+     * which every hit reads 0, while a hit 10 ticks after the line locks nothing; (c) a stray hit between two real ones moves nothing; (d) two players hurt at once re-lock
      * at once; a hit 2 ticks late snaps the phase; a mask proc line is a hit, a player's copy of it is not.
      */
     static void goldorTick(LogicCase c) throws Exception {
@@ -287,43 +287,53 @@ final class BossTimerCases {
             Mod.staticCall(TT, "resetAll");
             chat(TT, "onChatMessage", "[BOSS] Goldor: Who dares trespass into my domain?");
             long line = clock();
-            c.eq("(a) 60 on the line", 60, Mod.staticCall(GT, "remaining"));
+            c.eq("(a) 42 on the line", 42, Mod.staticCall(GT, "remaining"));
             List<String> atHits = new ArrayList<>();
-            for (int k = 1; k <= 4; k++) {
-                serverTicks(60);
-                c.eq("(a) hit " + k + " at line+" + (60 * k) + ": the Tick reads 0 before the hit is seen", 0,
+            for (int k = 0; k < 4; k++) {
+                serverTicks(k == 0 ? 42 : 60);
+                c.eq("(a) hit " + (k + 1) + " at line+" + (42 + 60 * k) + ": the Tick reads 0 before the hit is seen", 0,
                         Mod.staticCall(GT, "remaining"));
                 Mod.staticCall(GT, "testHitNow", false);
                 atHits.add(tickLine());
             }
-            c.eq("(a) clock moved 240 server ticks", line + 240, clock());
+            c.eq("(a) clock moved 222 server ticks", line + 222, clock());
             c.eq("(a) offsets at the 4 hits", List.of(0, 0, 0, 0), offsets());
             c.check("(a) the HUD read Tick: 0.0s at every hit", atHits.stream().allMatch("Tick: 0.0s"::equals), atHits.toString());
             serverTicks(1);
             c.eq("(a) 59 the tick after a hit", 59, Mod.staticCall(GT, "remaining"));
 
-            // (b) 30 ticks off: the first hit does not fit, the second (60 later) re-locks, then 0 at every hit.
+            // (b) His 2026-11-03 log replayed: hits 18 ticks off the start phase (line + 60). The FIRST hit re-locks, then 0.
             Mod.staticCall(TT, "resetAll");
             chat(TT, "onChatMessage", "[BOSS] Goldor: Who dares trespass into my domain?");
-            serverTicks(30);
+            serverTicks(60);
             Mod.staticCall(GT, "testHitNow", false);
+            c.eq("(b) one hit locked the phase: 0 on its tick", 0, Mod.staticCall(GT, "remaining"));
             for (int k = 0; k < 3; k++) {
                 serverTicks(60);
-                if (k > 0) {
-                    c.eq("(b) re-locked hit " + (k + 2) + " reads 0", 0, Mod.staticCall(GT, "remaining"));
-                }
+                c.eq("(b) hit " + (k + 2) + " reads 0", 0, Mod.staticCall(GT, "remaining"));
                 Mod.staticCall(GT, "testHitNow", false);
             }
             List<Integer> off = offsets();
-            c.check("(b) the first two hits were ~30 off the line's phase", off.size() == 4
-                    && Math.abs(off.get(0)) == 30 && Math.abs(off.get(1)) == 30, off.toString());
-            c.check("(b) after the re-lock every hit is on 0", off.size() == 4 && off.get(2) == 0 && off.get(3) == 0, off.toString());
+            c.check("(b) the first hit was 18 off the start phase", off.size() == 4 && off.get(0) == 18, off.toString());
+            c.check("(b) after it every hit is on 0", off.size() == 4 && off.get(1) == 0 && off.get(2) == 0 && off.get(3) == 0, off.toString());
             c.eq("(b) one re-lock", 1, Mod.staticCall(GT, "testRelocks"));
+
+            // (b2) a hit 10 ticks after the line is not Goldor's first (fall damage, a mob): it locks nothing.
+            Mod.staticCall(TT, "resetAll");
+            chat(TT, "onChatMessage", "[BOSS] Goldor: Who dares trespass into my domain?");
+            serverTicks(10);
+            Mod.staticCall(GT, "testHitNow", false);
+            c.eq("(b2) not locked by a hit 10 ticks after the line", false, Mod.staticCall(GT, "testLocked"));
+            serverTicks(32);
+            c.eq("(b2) the Tick still reads 0 at line+42", 0, Mod.staticCall(GT, "remaining"));
+            Mod.staticCall(GT, "testHitNow", false);
+            c.eq("(b2) the real first hit locks", true, Mod.staticCall(GT, "testLocked"));
+            c.eq("(b2) no re-lock was needed", 0, Mod.staticCall(GT, "testRelocks"));
 
             // (c) a stray hit 25 ticks after a real one moves nothing.
             Mod.staticCall(TT, "resetAll");
             chat(TT, "onChatMessage", "[BOSS] Goldor: Who dares trespass into my domain?");
-            serverTicks(60);
+            serverTicks(42);
             Mod.staticCall(GT, "testHitNow", false);
             serverTicks(25);
             Mod.staticCall(GT, "testHitNow", false);
@@ -345,7 +355,7 @@ final class BossTimerCases {
             // Small drift: a hit 2 ticks late snaps the phase onto it.
             Mod.staticCall(TT, "resetAll");
             chat(TT, "onChatMessage", "[BOSS] Goldor: Who dares trespass into my domain?");
-            serverTicks(62);
+            serverTicks(44);
             Mod.staticCall(GT, "testHitNow", false);
             serverTicks(60);
             c.eq("a hit 2 ticks late moves the phase onto it", 0, Mod.staticCall(GT, "remaining"));
@@ -357,7 +367,7 @@ final class BossTimerCases {
             chat(TT, "onChatMessage", "[MVP+] Bob: Second Wind Activated! Your Spirit Mask saved your life!");
             Mod.staticCall(GT, "endOfTick");
             c.eq("a player's copy of the proc line is not a hit", List.of(), offsets());
-            serverTicks(21);
+            serverTicks(3);
             chat(TT, "onChatMessage", "Second Wind Activated! Your Spirit Mask saved your life!");
             Mod.staticCall(GT, "endOfTick"); // a proc is counted at the end of the client tick, with the health drops
             c.eq("a Spirit Mask proc counts as a hit", List.of(1), offsets());
