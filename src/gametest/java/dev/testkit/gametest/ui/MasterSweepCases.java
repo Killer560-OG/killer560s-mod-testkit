@@ -256,7 +256,7 @@ final class MasterSweepCases {
         return (Boolean) Mod.staticCall("gui.FeatureCards", "refresh", tab);
     }
 
-    private static Map<Path, byte[]> snapshotTree(Path root) throws IOException {
+    static Map<Path, byte[]> snapshotTree(Path root) throws IOException {
         Map<Path, byte[]> out = new LinkedHashMap<>();
         if (!Files.isDirectory(root)) {
             return out;
@@ -271,7 +271,7 @@ final class MasterSweepCases {
         return out;
     }
 
-    private static void restoreTree(Path root, Map<Path, byte[]> files) throws IOException {
+    static void restoreTree(Path root, Map<Path, byte[]> files) throws IOException {
         if (Files.isDirectory(root)) {
             try (Stream<Path> s = Files.walk(root)) {
                 for (Path p : (Iterable<Path>) s::iterator) {

@@ -295,7 +295,8 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] MENU_ORDER_CASES = {"515-ui-menu-order", "516-ui-menu-order-settings",
             "517-ui-menu-queue-masters", "518-ui-menu-independent-masters",
             "519-ui-home-cleanup", "525-ui-menu-every-master", "526-ui-ban-report-text",
-            "527-ui-thorn-triggerbot-fold", "528-ui-split-counting-legit", "529-ui-sidebar-scroll-spy"};
+            "527-ui-thorn-triggerbot-fold", "528-ui-split-counting-legit", "529-ui-sidebar-scroll-spy",
+            "530-ui-menu-real-switch", "539-ui-chat-history-switch", "540-ui-cape-switch"};
     /** Predictive Rooms inside the Dungeon Map tab (mod todo-predict-ui-1018, {@link PredictInMapCases}). Own block for merges. */
     static final String[] PREDICT_IN_MAP_CASES = {"1018-predict-in-map"};
     /** Lever Aura merged into Secret Aura + Menu Theme on overlays (mod aura-themes-1015, {@link AuraThemeCases}). Own block for merges. */
@@ -926,6 +927,10 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "527-ui-thorn-triggerbot-fold", Menufix2Cases::thornTriggerbotFold);
                     UiCase.run(ctx, "528-ui-split-counting-legit", Menufix2Cases::splitCountingLegit);
                     UiCase.run(ctx, "529-ui-sidebar-scroll-spy", Menufix2Cases::sidebarScrollSpy);
+                    // ---- a feature that can be off has a real switch; Chat History's switch (mod realswitch-1102) ----
+                    UiCase.run(ctx, "530-ui-menu-real-switch", RealSwitchCases::everyRealSwitch);
+                    UiCase.run(ctx, "539-ui-chat-history-switch", RealSwitchCases::chatHistory);
+                    UiCase.run(ctx, "540-ui-cape-switch", RealSwitchCases::capeSwitch);
                     // ---- Lever Aura in Secret Aura + overlay Menu Themes (1420-1421) ----
                     UiCase.run(ctx, "1420-ui-secret-aura-merge", AuraThemeCases::secretAuraMerge);
                     UiCase.run(ctx, "1421-ui-overlay-themes", AuraThemeCases::overlayThemes);
