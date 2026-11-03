@@ -2904,7 +2904,8 @@ final class HxBloodCampCases {
     /**
      * Owner's camp 3 (2026-11-02 20:25:04): player #481791 was hit once, survived, and was left "already hit" for six
      * seconds while he looked at it. With Never Miss ON a hit blood mob that is still alive is hit again at the weapon's
-     * pace; OFF keeps the old one click.
+     * pace; OFF, since bloodcamp2-1102 (the same camp-3 complaint), clicks it again too, once its hurt flash is over
+     * (BloodCampFeature.hitButAlive) - so OFF must re-click as well, and ON must never be slower than OFF.
      */
     private static void neverMissRehit(Session c) {
         boolean cheat = Mod.isCheat();
@@ -2956,7 +2957,10 @@ final class HxBloodCampCases {
             c.check(counts[0] >= want, "Never Miss ON: a hit blood mob still alive was attacked only " + counts[0]
                     + " time(s) in 40 ticks, want at least " + want + " (hit again at the weapon's pace, " + cooldown[0]
                     + " ticks)");
-            c.check(counts[1] == 1, "Never Miss OFF: want the one click as before, got " + counts[1]);
+            c.check(counts[1] >= 2, "Never Miss OFF: a hit blood mob still alive was clicked only " + counts[1]
+                    + " time(s) in 40 ticks, want it clicked again once its hurt flash is over (bloodcamp2-1102)");
+            c.check(counts[0] >= counts[1], "Never Miss ON hit the live mob fewer times (" + counts[0] + ") than OFF ("
+                    + counts[1] + ")");
         } finally {
             clearDecoys(c);
             c.hx().removeStands();
