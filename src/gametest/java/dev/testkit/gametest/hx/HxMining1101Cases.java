@@ -197,6 +197,14 @@ final class HxMining1101Cases {
             }
         }
         try (Settings set = new Settings(c).with(CFG, "Pickobulus", true)) {
+            // 1101-mining-ability's use line still stands (a use hides it until its ready line, mod mining-1103).
+            c.ctx().runOnClient(mc -> {
+                try {
+                    Mod.staticCall(p, "resetChat");
+                } catch (Throwable older) {
+                    // a jar before mining-1103 has no chat state
+                }
+            });
             for (BlockPos b : wall) {
                 setb(c, b, "minecraft:stone");
             }
