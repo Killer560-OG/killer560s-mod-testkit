@@ -668,9 +668,10 @@ final class PackDisablerCases {
             c.check(all.size() >= 20 && heads >= 5 && items >= 5, "sample too small: " + all.size());
             c.check(menuChecked >= 20, "only " + menuChecked + " items checked without their id");
 
-            // Every row on a Hypixel model resolves to a look (no dead vanilla id, legacy id or empty row).
+            // Every row resolves to a look (no dead vanilla id, legacy id or empty row). Found 2026-11-03: seven
+            // Rift admin swords and the Zoom Pickaxe carried Bukkit names (gold_sword) the flattening fix rejects.
             List<String> unresolved = c.onClient(mc -> unresolvedRows());
-            c.note("rows on a Hypixel model with no resolvable look: " + unresolved.size() + " " + unresolved);
+            c.note("rows with no resolvable look: " + unresolved.size() + " " + unresolved);
             c.check(unresolved.isEmpty(), unresolved.size() + " rows do not resolve: " + unresolved);
 
             // Untouched: a plain vanilla stack, and a Hypixel model no row names (with and without an id).
@@ -719,7 +720,10 @@ final class PackDisablerCases {
         return s;
     }
 
-    /** Every table row on a Hypixel model whose look the mod cannot resolve to a model. */
+    /**
+     * Every table row (pack-model items and Bazaar products alike) whose look the mod cannot resolve to a model. A row
+     * whose old look really was paper ({@code "i":"paper"}, Architect's First Draft) is a look, not a failure.
+     */
     static List<String> unresolvedRows() {
         List<String> bad = new ArrayList<>();
         try (InputStream in = PackDisablerCases.class.getResourceAsStream(
@@ -727,7 +731,8 @@ final class PackDisablerCases {
             var items = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(in, StandardCharsets.UTF_8))
                     .getAsJsonObject().getAsJsonObject("items");
             for (var e : items.entrySet()) {
-                if (!e.getValue().getAsJsonObject().has("m")) {
+                var row = e.getValue().getAsJsonObject();
+                if (row.has("i") && row.get("i").getAsString().equals("paper")) {
                     continue;
                 }
                 Object model = Mod.staticCall("packdisabler.ItemLooks", "modelFor", e.getKey());
