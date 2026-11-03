@@ -1486,3 +1486,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   the inventory (the route waits under an open menu), and the close sent at an early END_CLIENT_TICK phase (after that
   tick's sneaking input, before Auto Routes acts). A close at START is useless: Inventory Walk makes that tick's input its
   still tick and the close goes clean. A screen set back with setScreen releases the route's keys. `-PiwRepeat=N` repeats.
+- **1102-bloodcamp-wall-spawn / -tag-latency / -watchful-eye** (bloodcamp2-1102). A cadence bug (a scan every 5 ticks) is
+  only caught deterministically by acting on a tick whose client game time is 1 past a multiple of 5 (loop `onClient`
+  until `getGameTime() % 5 == 1`, act in that same call). The hx server hands out entity ids in order: a `summon` right after
+  `hx().stand(...)` gets the next id (Watcher #260, eye #261), which is how a mob "spawned with the Watcher" is built. A
+  trip's skull is removed mid-trip with `nextRemoveStandAt`; mobs placed beside a landing spot go 1.5 blocks across his line
+  to it, inside the 2-block landing search and out of the line of fire (0.3 + 0.6), so only the tagging decides.
