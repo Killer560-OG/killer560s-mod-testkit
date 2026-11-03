@@ -108,6 +108,8 @@ public class HxSuite implements FabricClientGameTest {
                     // Pickobulus timer and Commission HUD progress between tab refreshes (1103-mining-pick-timer,
                     // 1103-mining-com-progress*, mod mithril-interp-1103).
                     HxMiningInterp1103Cases.register(s);
+                    // Commission Mob Style and no range (1103-mining-mob-*, mod mithril-mobs-1103).
+                    HxCommissionMobs1103Cases.register(s);
                     // Owner-evidence log lines (1102-diag-*, mod diag-1101): Fast Leap stuck state, Raffle start dump.
                     HxDiag1102Cases.register(s);
                     // Online Count heartbeat against a stub relay (1102-online-*, mod onlinecount-1102), own block.
