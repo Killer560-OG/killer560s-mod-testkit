@@ -96,6 +96,7 @@ final class HxSpotifyControlsCases {
         s.test("2848-hx-spotify-hud-chat-controls", HxSpotifyControlsCases::hudChat);
         s.test("2849-hx-spotify-word-sweep", HxSpotifyControlsCases::wordSweep);
         s.test("2850-hx-spotify-kugou-words", HxSpotifyControlsCases::kugouWords);
+        s.test("2851-hx-spotify-f5-lyrics-default", HxSpotifyControlsCases::f5LyricsDefault);
     }
 
     // ---- reflection helpers -----------------------------------------------------------------------------------
@@ -508,6 +509,32 @@ final class HxSpotifyControlsCases {
 
     private static long counter(Session c, String field) {
         return c.onClient(mc -> (Long) Mod.field(STD, field));
+    }
+
+    /** My Lyrics In F5 is ON by default (2026-11-03): a saved file from before the V2 marker that said false loads ON once,
+     *  a file with the marker keeps the player's choice, and a missing file is ON. */
+    private static void f5LyricsDefault(Session c) throws Exception {
+        c.check(has(c), "this jar has no My Lyrics In F5");
+        Path file = (Path) c.onClient(mc -> Mod.field(TAGC, "CONFIG_PATH"));
+        byte[] orig = Files.exists(file) ? Files.readAllBytes(file) : null;
+        try {
+            Files.writeString(file, "{\"lyricsOverHead\":false,\"shareSong\":false}");
+            boolean legacy = c.onClient(mc -> { Mod.staticCall(TAGC, "load"); return (Boolean) Mod.get(TAGC, "isLyricsOverHead"); });
+            c.check(legacy, "an old file with lyricsOverHead=false (the old default) did not load ON");
+            Files.writeString(file, "{\"lyricsOverHead\":false,\"lyricsOverHeadV2\":true}");
+            boolean chosen = c.onClient(mc -> { Mod.staticCall(TAGC, "load"); return (Boolean) Mod.get(TAGC, "isLyricsOverHead"); });
+            c.check(!chosen, "a file with the V2 marker and lyricsOverHead=false lost the player's choice");
+            Files.delete(file);
+            boolean none = c.onClient(mc -> { Mod.staticCall(TAGC, "load"); return (Boolean) Mod.get(TAGC, "isLyricsOverHead"); });
+            c.check(none, "a missing config file did not default to lyrics ON");
+        } finally {
+            if (orig != null) {
+                Files.write(file, orig);
+            } else {
+                Files.deleteIfExists(file);
+            }
+            c.onClient(mc -> { Mod.staticCall(TAGC, "load"); return null; });
+        }
     }
 
     private static void f5(Session c) throws Exception {
