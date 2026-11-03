@@ -590,7 +590,7 @@ final class LeapRunMemoryCases {
     }
 
     /** LrD out, LrE in, but LrB came back as Mage instead of Tank: not a clean swap, so LrE keeps the tab list's Archer
-     *  (no pick) and the reset notice is shown. */
+     *  (no pick, and since leaporder-1102 no pin: the Default Order places him) and the reset notice is shown. */
     static void classChangeNotice(Session c) throws Exception {
         Saved sv = setUp(c);
         try {
@@ -607,8 +607,11 @@ final class LeapRunMemoryCases {
             c.check(n1 == n0 + 1, "the reset notice is in the chat window " + (n1 - n0) + " times, want once (" + out + ")");
             c.check(!overrides(c).containsKey("LrE") && cls(c, "LrE").equals("ARCHER"),
                     "LrE's class is " + cls(c, "LrE") + " (picks " + overrides(c) + "), want the tab list's ARCHER");
-            c.check(pins(c).get(dSpot).equals("LrE"), "LrE is not pinned in LrD's old spot " + dSpot + ": " + pins(c));
-            c.note("LrB's class changed: notice shown, LrE ARCHER pinned in spot " + dSpot + "; " + out);
+            // Since leaporder-1102 a class change means the old layout no longer holds: the newcomer is NOT pinned into
+            // the departed's spot (that held him in another class's corner and pushed a stayer out); the Default Order
+            // places him, as the reset notice says.
+            c.check(!pins(c).contains("LrE"), "LrE was pinned (LrD's old spot is " + dSpot + "): " + pins(c));
+            c.note("LrB's class changed: notice shown, LrE ARCHER placed by the Default Order " + layout(c) + "; " + out);
         } finally {
             restore(c, sv);
         }

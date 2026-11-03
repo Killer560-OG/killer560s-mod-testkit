@@ -1586,3 +1586,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   Ctrl+F on 26.3 (old and new mod jar alike), so a Ctrl shortcut case calls `KeyboardHandler.keyPress(window, PRESS,
   McKeys.keyEvent(KEY_F, MOD_CONTROL))` by reflection (public on 26.3, private on 26.2; StorageSearchCases.ctrlF). A 3D
   gold block icon changes 66% of an uncovered 16x16 cell, which is the bar a 'fully visible' pixel check measures against.
+
+- 1102-menu-leaporder-* (leaporder-1102): a Leap Order case that runs two "runs" in ONE dungeon proves less than it
+  looks. `PartyTracker` keeps every tab-list class until the dungeon is left, so the departed teammate still had his class
+  at the second run start and 829-834/2345-2347 never saw the bug the owner hit (a real requeue goes through the Hub,
+  which drops them). `LeapPartyChangeCases.requeue` leaves the dungeon and waits for `detectedClassOf` to go null
+  between runs; do the same in any new run-to-run case.
