@@ -133,6 +133,11 @@ public class SimKeyDoorTests implements FabricClientGameTest {
             return;
         }
         creativeFlying(ctx);
+        // Go there first: a door in an unloaded chunk is not carved until the chunk loads.
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "resetSimVisits"));
+        double[] at = ctx.computeOnClient(mc -> standPoint(p));
+        place(ctx, at);
+        ctx.waitTicks(40);
         // The two shut wither doors.
         ctx.runOnClient(mc -> {
             ModUnderTest.staticCall(SIM_DOORS, "makeWitherDoor", new Class<?>[]{Minecraft.class, int.class},
@@ -144,9 +149,6 @@ public class SimKeyDoorTests implements FabricClientGameTest {
         BlockPos xBlock = ctx.computeOnClient(mc -> doorBlock(p.decoyDoor));
         ctx.waitFor(mc -> !mc.level.getBlockState(dBlock).isAir() && !mc.level.getBlockState(xBlock).isAir(), 400);
         // He stands in A, four blocks in from the decoy door.
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "resetSimVisits"));
-        double[] at = ctx.computeOnClient(mc -> standPoint(p));
-        place(ctx, at);
         ctx.waitTicks(40);
 
         // ---- the premise: nearest by straight line is the decoy, and the layout sees both locked ------------------

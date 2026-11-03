@@ -118,10 +118,11 @@ public class SimMapFunnyStatesTests implements FabricClientGameTest {
                 Object itemOnly = SimMapItemTests.hook(ctx, PAINTER, "mapItemOnly");
                 List<int[]> fills = SimMapItemTests.allFills(ctx);
                 States s = read(fills);
-                String all5 = "funny: map-item-only " + itemOnly + ", " + SimMapItemTests.roomFills(ctx).size()
-                        + " room(s) drawn; marks " + s;
+                String all5 = "funny: map-item-only " + itemOnly + ", " + drawnRooms(rf) + " of the 5 rooms drawn ("
+                        + rf.size() + " room-sized fills); marks " + s;
                 println(all5);
-                boolean five = SimMapItemTests.roomFills(ctx).size() == 5 && Boolean.FALSE.equals(itemOnly);
+                List<int[]> rf = SimMapItemTests.roomFills(ctx);
+                boolean five = Boolean.FALSE.equals(itemOnly) && drawnRooms(rf) == 5;
                 row(R_ENTERED, five && s.andesite.isEmpty(), "Andesite (entered, not cleared) draws no mark: " + s.andesite
                         + " [premise: all 5 rooms drawn " + five + "]");
                 row(R_NEVER, five && !s.fairy.isEmpty() && !s.cell.isEmpty() && dark(s.fairy) && dark(s.cell),
@@ -143,7 +144,7 @@ public class SimMapFunnyStatesTests implements FabricClientGameTest {
             // The normal map (legit jar, or cheat with Funny Map off): only what the item shows, same marks as always.
             List<int[]> fills = SimMapItemTests.allFills(ctx);
             States s = read(fills);
-            int drawn = SimMapItemTests.roomFills(ctx).size();
+            int drawn = drawnRooms(SimMapItemTests.roomFills(ctx));
             println("normal map: " + drawn + " room(s) drawn; marks " + s);
             row(R_NORMAL, drawn == 4 && s.fairy.isEmpty() && s.andesite.isEmpty() && !s.cell.isEmpty()
                             && !s.newTrap.isEmpty(),
@@ -240,6 +241,18 @@ public class SimMapFunnyStatesTests implements FabricClientGameTest {
             }
         }
         return out;
+    }
+
+    /** How many of the five rooms have a fill drawn on their square (other fills of room size, such as a door, do not count). */
+    private static int drawnRooms(List<int[]> rf) {
+        int n = 0;
+        int[][] rooms = {{1, 1}, {2, 1}, {3, 1}, {2, 2}, {3, 2}};
+        for (int[] r : rooms) {
+            if (SimMapItemTests.colourAt(rf, r[0], r[1]) != null) {
+                n++;
+            }
+        }
+        return n;
     }
 
     private static byte[] paintMap() {
