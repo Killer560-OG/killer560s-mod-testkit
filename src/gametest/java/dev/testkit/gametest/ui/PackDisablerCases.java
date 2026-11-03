@@ -57,6 +57,15 @@ import java.util.concurrent.CompletableFuture;
  *   <li>431-ui-pack-disabler-user-pack: a resource pack the player selects that replaces {@code wheat_seeds} and one
  *       of OUR textures wins for both: a Pack-Disabler-resolved Seeds item and Bee Saliva read the pack's pixels.</li>
  *   <li>432-ui-pack-disabler-bazaar: the Bazaar icon for every product comes from the same table (one answer).</li>
+ *   <li>433-ui-pack-disabler-refresh (mod packdisabler-1103): 24 items from the 2026-11-03 refresh (Great Spook, Bingo,
+ *       0.27.2 Reforge and Power Stones, renamed-model items) plus the 427 set draw their expected old item, head
+ *       skin or our texture, with the SkyBlock id AND as a menu shows them (Hypixel's model, no id); every table row
+ *       on a pack model resolves to a look; a plain vanilla stack and an unknown model are untouched; OFF changes
+ *       nothing.</li>
+ *   <li>434-ui-pack-disabler-menu-maps: Paper Menu Buttons. On 26.3 a map / filled map button with no SkyBlock id and
+ *       no map data draws paper in a GUI slot (Create Sell Offer, Create Buy Order); the same stack in a hand, a real
+ *       map with map data, a map with a SkyBlock id, the sub-option OFF and Pack Disabler OFF all keep the map. On
+ *       26.2 (maps still the old flat sheet) nothing changes.</li>
  * </ul>
  */
 final class PackDisablerCases {
@@ -551,5 +560,285 @@ final class PackDisablerCases {
         c.check(disagree == 0, disagree + " products where the Bazaar row and the shared table disagree");
         c.check(own >= 30, "only " + own + " products use our textures (expected the ~38 bazaar items with no old look)");
         c.check(bad.isEmpty(), "products without a look: " + bad);
+    }
+
+    // ---- 433 ------------------------------------------------------------------------------------------------------
+
+    /** A vanilla item by registry id, so colored items need no per-version constant. */
+    static Item vanilla(String id) {
+        return net.minecraft.core.registries.BuiltInRegistries.ITEM.getOptional(Identifier.withDefaultNamespace(id))
+                .orElseThrow(() -> new AssertionError("no vanilla item " + id));
+    }
+
+    /** id, base item, Hypixel model, expected look (an item, a head skin hash, or our texture key). */
+    static List<Fixture> refreshFixtures() {
+        String hp = "hypixel_skyblock:item/";
+        return List.of(
+                // Great Spook 2026 (new rows / new models)
+                new Fixture("BOO_STONE", Items.PAPER, hp + "reforge_stones/boo_stone", null,
+                        "b04ad2524b961d20794575c67da928650a9ade1a0e60e7fde0fb30e577612d84", null),
+                new Fixture("SCARE_FRAGMENT", Items.PAPER, hp + "great_spook/scare_fragment",
+                        vanilla("black_stained_glass"), null, null),
+                new Fixture("POLTERGEIST_PITCHFORK", Items.PAPER, hp + "great_spook/poltergeist_pitchfork",
+                        Items.WOODEN_SWORD, null, null),
+                new Fixture("GHOSTFLY_SOUL", Items.PAPER, hp + "great_spook/ghost_fly_soul", null, null,
+                        "ghostfly_soul"),
+                new Fixture("SPOOKY_SHARD", Items.PAPER, hp + "great_spook/spooky_fragment", null,
+                        "d884ed1950bb8b198ada8191684400bd6640e03710481c8122b780b9ed1bd98c", null),
+                new Fixture("DARK_CANDY", Items.PAPER, hp + "great_spook/dark_candy", null,
+                        "7c866e4239551428f9c814d9dc11e7002e043b87f590f1fdcb4ff6bb497b8e18", null),
+                new Fixture("ECTOPLASM", Items.PAPER, hp + "great_spook/ectoplasm", Items.PRISMARINE_CRYSTALS,
+                        null, null),
+                new Fixture("PUMPKIN_GUTS", Items.PAPER, hp + "great_spook/pumpkin_guts", Items.PUMPKIN_SEEDS, null,
+                        null),
+                new Fixture("BLACK_WOOLEN_YARN", Items.PAPER, hp + "great_spook/black_woolen_yarn",
+                        vanilla("black_wool"), null, null),
+                // Bingo tools and other items Hypixel's pack draws that neither source listed on a model
+                new Fixture("BINGO_ROD", Items.PAPER, hp + "bingo/bingo_rod", Items.FISHING_ROD, null, null),
+                new Fixture("BINGBOW", Items.PAPER, hp + "bingo/bingbow", Items.BOW, null, null),
+                new Fixture("ABINGOPHONE", Items.PAPER, hp + "bingo/abingophone", null,
+                        "6c3377e04d7a28e9302574ab609fb7ac4e72bdeda10189f3e560cfa5f9f16efb", null),
+                new Fixture("HOE_OF_NO_TILLING", Items.PAPER, hp + "uncategorized/hoe_of_no_tilling",
+                        Items.GOLDEN_HOE, null, null),
+                new Fixture("SPELLING_STICK", Items.PAPER, hp + "uncategorized/spelling_stick", Items.STICK, null,
+                        null),
+                new Fixture("ETERNAL_CRYSTAL", Items.PAPER, hp + "uncategorized/eternal_crystal", Items.NETHER_STAR,
+                        null, null),
+                new Fixture("REVERSE_REFORGE_STONE_CORE", Items.PAPER, hp + "fishing/lotus_atoll/eroc_enots_egrofer",
+                        Items.POPPED_CHORUS_FRUIT, null, null),
+                new Fixture("CHUM_ROD", Items.PAPER, hp + "fishing/rod/broken_rod", Items.FISHING_ROD, null, null),
+                // 0.27.2 Reforge and Power Stones (old skins from NEU just before its 2026-10-07 conversion)
+                new Fixture("AMBER_MATERIAL", Items.PAPER, hp + "reforge_stones/amber_material", null,
+                        "aace6bb3aa4ccac031168202f6d4532597bcac6351059abd9d10b28610493aeb", null),
+                new Fixture("AOTE_STONE", Items.PAPER, hp + "reforge_stones/aote_stone", null,
+                        "54d48ac7e65b91467904f2f4d154556776ffa9cd2d526b12a0499bb59cc656c7", null),
+                new Fixture("BLAZE_WAX", Items.PAPER, hp + "reforge_stones/blaze_wax", null,
+                        "f7bec376ecbec54dc6795cbca4918e12b153dd34a0827abc9ba7be63af87c078", null),
+                new Fixture("CANDY_CORN", Items.PAPER, hp + "reforge_stones/candy_corn", null,
+                        "176e4aac60e50be9495191e0098b2de52c4fe137d2f8fde10a267eef7123a2ee", null),
+                new Fixture("ACACIA_BIRDHOUSE", Items.PAPER, hp + "power_stones/acacia_birdhouse", null,
+                        "19e316ba48e51c6eb73cb068a2d468f678eed82d4529d4b12eec8bfa7819aa86", null),
+                new Fixture("BEATING_HEART", Items.PAPER, hp + "power_stones/beating_heart", null,
+                        "a338347c8a8456602f3bd9ae78ad383a7de6b569bb60bcf7f7b4345f0ef64045", null),
+                new Fixture("BUBBA_BLISTER", Items.PAPER, hp + "power_stones/bubba_blister", null,
+                        "6cb5727b986c36e07582148b886102cf8070b0ee3aa3771b2464393f588a832d", null));
+    }
+
+    static void refresh(UiCase c) {
+        boolean old = c.onClient(mc -> savedEnabled());
+        try {
+            int rows = c.onClient(mc -> (Integer) Mod.staticCall("packdisabler.ItemLooks", "size"));
+            c.note("item table: " + rows + " rows");
+            c.check(rows >= 3039, "item table has " + rows + " rows, expected the 2026-11-03 refresh (3039+)");
+
+            List<Fixture> all = new ArrayList<>(c.onClient(mc -> refreshFixtures()));
+            all.addAll(fixtures());
+            setEnabled(c, true);
+            int heads = 0;
+            int items = 0;
+            int own = 0;
+            int menuChecked = 0;
+            for (Fixture f : all) {
+                String want;
+                if (f.expectItem() != null) {
+                    want = c.onClient(mc -> drawn(mc, new ItemStack(f.expectItem())));
+                    items++;
+                } else if (f.expectSkin() != null) {
+                    want = "head:" + f.expectSkin();
+                    heads++;
+                } else {
+                    want = "killer560smod:item/packdisabler/" + f.expectOwn();
+                    own++;
+                }
+                String withId = c.onClient(mc -> drawn(mc, skyblockStack(f.base(), f.id(), f.model())));
+                // A menu's picture of the item: Hypixel's model and a name, no SkyBlock id.
+                String menu = c.onClient(mc -> drawn(mc, menuStack(f.base(), f.model(), f.id())));
+                boolean shared = sharedModel(c, f.model());
+                c.note("ON  " + f.id() + " -> " + withId + " / menu " + menu + (shared ? " (model shared)" : "")
+                        + " (want " + want + ")");
+                c.check(withId.equals(want), f.id() + " drew " + withId + ", expected " + want);
+                c.check(!withId.equals(MISSINGNO) && !withId.equals("minecraft:item/paper"), f.id() + " drew " + withId);
+                if (!shared) {
+                    menuChecked++;
+                    c.check(menu.equals(want), f.id() + " in a menu (no id) drew " + menu + ", expected " + want);
+                }
+            }
+            c.note(all.size() + " items: " + items + " old vanilla items, " + heads + " old heads, " + own
+                    + " of our textures; " + menuChecked + " also checked as a menu shows them");
+            c.check(all.size() >= 20 && heads >= 5 && items >= 5, "sample too small: " + all.size());
+            c.check(menuChecked >= 20, "only " + menuChecked + " items checked without their id");
+
+            // Every row resolves to a look (no dead vanilla id, legacy id or empty row). Found 2026-11-03: seven
+            // Rift admin swords and the Zoom Pickaxe carried Bukkit names (gold_sword) the flattening fix rejects.
+            List<String> unresolved = c.onClient(mc -> unresolvedRows());
+            c.note("rows with no resolvable look: " + unresolved.size() + " " + unresolved);
+            c.check(unresolved.isEmpty(), unresolved.size() + " rows do not resolve: " + unresolved);
+
+            // Untouched: a plain vanilla stack, and a Hypixel model no row names (with and without an id).
+            String plainOn = c.onClient(mc -> drawn(mc, new ItemStack(Items.DIAMOND_SWORD)));
+            String unknownMenuOn = c.onClient(mc -> drawn(mc, menuStack(Items.PAPER,
+                    "hypixel_skyblock:item/testkit/unknown_433", "Unknown")));
+            String unknownIdOn = c.onClient(mc -> drawn(mc, skyblockStack(Items.PAPER, "TESTKIT_UNKNOWN_433",
+                    "hypixel_skyblock:item/testkit/unknown_433")));
+            setEnabled(c, false);
+            String plainOff = c.onClient(mc -> drawn(mc, new ItemStack(Items.DIAMOND_SWORD)));
+            String unknownMenuOff = c.onClient(mc -> drawn(mc, menuStack(Items.PAPER,
+                    "hypixel_skyblock:item/testkit/unknown_433", "Unknown")));
+            c.note("plain diamond sword on/off: " + plainOn + " / " + plainOff + "; unknown model (menu) on/off: "
+                    + unknownMenuOn + " / " + unknownMenuOff + "; unknown id on: " + unknownIdOn);
+            c.check(plainOn.equals(plainOff) && plainOn.endsWith("diamond_sword"), "plain item changed: " + plainOn);
+            c.check(unknownMenuOn.equals(MISSINGNO) && unknownMenuOff.equals(MISSINGNO)
+                    && unknownIdOn.equals(MISSINGNO), "an item the table does not know was changed: " + unknownMenuOn
+                    + " / " + unknownIdOn);
+            int offChanged = 0;
+            for (Fixture f : all) {
+                String off = c.onClient(mc -> drawn(mc, menuStack(f.base(), f.model(), f.id())));
+                if (!off.equals(MISSINGNO)) {
+                    offChanged++;
+                    c.check(false, f.id() + " (menu) with the setting OFF drew " + off);
+                }
+            }
+            c.note("OFF: " + offChanged + " of " + all.size() + " menu stacks changed");
+        } finally {
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(CFG), "setEnabled", old);
+                return null;
+            });
+        }
+    }
+
+    /** True when no single table row names {@code model} (two ids with different looks share it). */
+    static boolean sharedModel(UiCase c, String model) {
+        return c.onClient(mc -> Mod.staticCall("packdisabler.ItemLooks", "idForModel", Identifier.parse(model)) == null);
+    }
+
+    /** A stack the way a Hypixel menu shows an item: base item, Hypixel's model and a name, no custom data. */
+    static ItemStack menuStack(Item base, String model, String name) {
+        ItemStack s = new ItemStack(base);
+        s.set(DataComponents.ITEM_MODEL, Identifier.parse(model));
+        s.set(DataComponents.CUSTOM_NAME, Component.literal(name));
+        return s;
+    }
+
+    /**
+     * Every table row (pack-model items and Bazaar products alike) whose look the mod cannot resolve to a model. A row
+     * whose old look really was paper ({@code "i":"paper"}, Architect's First Draft) is a look, not a failure.
+     */
+    static List<String> unresolvedRows() {
+        List<String> bad = new ArrayList<>();
+        try (InputStream in = PackDisablerCases.class.getResourceAsStream(
+                "/assets/killer560smod/skyblock/item_looks.json")) {
+            var items = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(in, StandardCharsets.UTF_8))
+                    .getAsJsonObject().getAsJsonObject("items");
+            for (var e : items.entrySet()) {
+                var row = e.getValue().getAsJsonObject();
+                if (row.has("i") && row.get("i").getAsString().equals("paper")) {
+                    continue;
+                }
+                Object model = Mod.staticCall("packdisabler.ItemLooks", "modelFor", e.getKey());
+                if (model == null || String.valueOf(model).equals("minecraft:paper")) {
+                    bad.add(e.getKey());
+                }
+            }
+        } catch (Exception e) {
+            throw new AssertionError("could not read the mod's item table: " + e, e);
+        }
+        return bad;
+    }
+
+    // ---- 434 ------------------------------------------------------------------------------------------------------
+
+    static final String PAPER = "minecraft:item/paper";
+
+    static void menuMaps(UiCase c) throws Exception {
+        boolean old = c.onClient(mc -> savedEnabled());
+        boolean oldPaper = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(CFG), "isPaperMenuButtons"));
+        String version = minecraftVersion();
+        boolean mapsRedrawn = !version.startsWith("26.2");
+        c.note("Minecraft " + version + ": maps redrawn as folded maps = " + mapsRedrawn);
+        try {
+            setEnabled(c, true);
+            setPaper(c, true);
+            ItemStack sell = button(Items.MAP, "§6Create Sell Offer");
+            ItemStack buy = button(Items.FILLED_MAP, "§aCreate Buy Order");
+            String plainMap = c.onClient(mc -> handDrawn(mc, new ItemStack(Items.MAP)));
+            String sellGui = c.onClient(mc -> drawn(mc, sell));
+            String buyGui = c.onClient(mc -> drawn(mc, buy));
+            String sellHand = c.onClient(mc -> handDrawn(mc, sell));
+            ItemStack realMap = new ItemStack(Items.FILLED_MAP);
+            realMap.set(DataComponents.MAP_ID, new net.minecraft.world.level.saveddata.maps.MapId(433));
+            String realGui = c.onClient(mc -> drawn(mc, realMap));
+            String sbMap = c.onClient(mc -> drawn(mc, skyblockStack(Items.MAP, "TESTKIT_MAP_434", null)));
+            c.note("ON: sell " + sellGui + ", buy " + buyGui + ", sell in hand " + sellHand + ", real map " + realGui
+                    + ", SkyBlock-id map " + sbMap + " (plain map in hand " + plainMap + ")");
+            if (mapsRedrawn) {
+                c.check(sellGui.equals(PAPER), version + " Create Sell Offer (map) drew " + sellGui + ", expected paper");
+                c.check(buyGui.equals(PAPER), version + " Create Buy Order (filled map) drew " + buyGui
+                        + ", expected paper");
+            } else {
+                c.check(!sellGui.equals(PAPER) && !buyGui.equals(PAPER), "26.2 map buttons changed: " + sellGui + " / "
+                        + buyGui);
+            }
+            c.check(!sellHand.equals(PAPER), "a map in hand was drawn as paper");
+            c.check(!realGui.equals(PAPER), "a real map (map data) was drawn as paper");
+            c.check(!sbMap.equals(PAPER), "a map with a SkyBlock id was drawn as paper");
+
+            setPaper(c, false);
+            String subOff = c.onClient(mc -> drawn(mc, sell));
+            setPaper(c, true);
+            setEnabled(c, false);
+            String allOff = c.onClient(mc -> drawn(mc, sell));
+            c.note("Paper Menu Buttons OFF: " + subOff + "; Pack Disabler OFF: " + allOff);
+            c.check(!subOff.equals(PAPER) && !allOff.equals(PAPER), "OFF still drew paper: " + subOff + " / " + allOff);
+
+            // The sub-option is saved and loaded.
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(CFG), "setPaperMenuButtons", false);
+                Mod.call(Mod.cfg(CFG), "save");
+                Mod.staticCall(CFG, "load");
+                return null;
+            });
+            boolean reloaded = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(CFG), "isPaperMenuButtons"));
+            c.check(!reloaded, "Paper Menu Buttons OFF did not survive save + load");
+        } finally {
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(CFG), "setPaperMenuButtons", oldPaper);
+                Mod.call(Mod.cfg(CFG), "setEnabled", old);
+                Mod.call(Mod.cfg(CFG), "save");
+                return null;
+            });
+        }
+    }
+
+    private static void setPaper(UiCase c, boolean on) {
+        c.onClient(mc -> {
+            Mod.call(Mod.cfg(CFG), "setPaperMenuButtons", on);
+            return null;
+        });
+    }
+
+    /** A Hypixel menu button: a vanilla item with only a name, as the Bazaar's product page sends them. */
+    static ItemStack button(Item item, String name) {
+        ItemStack s = new ItemStack(item);
+        s.set(DataComponents.CUSTOM_NAME, Component.literal(name));
+        return s;
+    }
+
+    /** {@link #drawn} for a first-person hand instead of a GUI slot. */
+    static String handDrawn(Minecraft mc, ItemStack stack) {
+        ItemStackRenderState state = new ItemStackRenderState();
+        mc.getItemModelResolver().updateForTopItem(state, stack, ItemDisplayContext.FIRST_PERSON_RIGHT_HAND, mc.level,
+                null, 0);
+        var particle = state.pickParticleMaterial(RandomSource.create(0));
+        return particle == null ? "(no sprite)" : particle.sprite().contents().name().toString();
+    }
+
+    /** The running client's version id ("26.3"), from its own version.json. */
+    static String minecraftVersion() throws Exception {
+        try (InputStream in = Minecraft.class.getResourceAsStream("/version.json")) {
+            var o = com.google.gson.JsonParser.parseReader(new java.io.InputStreamReader(in, StandardCharsets.UTF_8))
+                    .getAsJsonObject();
+            return o.get("id").getAsString();
+        }
     }
 }

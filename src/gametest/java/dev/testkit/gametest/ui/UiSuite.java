@@ -107,6 +107,7 @@ public class UiSuite implements FabricClientGameTest {
             "425-ui-bazaar-icons", "427-ui-pack-disabler-models",
             "428-ui-pack-disabler-pack-push", "430-ui-pack-disabler-screens",
             "431-ui-pack-disabler-user-pack", "432-ui-pack-disabler-bazaar",
+            "433-ui-pack-disabler-refresh", "434-ui-pack-disabler-menu-maps",
             "451-ui-hotbar-theme", "452-ui-inventory-theme-settings", "453-ui-storage-overlay-centre",
             "454-ui-storage-overlay-themes",
             "441-ui-bars-under-screens", "442-ui-bars-absorption", "443-ui-bars-predefined-scale", "444-ui-bars-padding",
@@ -131,7 +132,8 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-08 inventory batch ({@link InvBatchCases}); 583/585 are in the menu suite. Own block for merges. */
     static final String[] INV_BATCH_CASES = {"581-ui-itemprotect-star", "582-ui-slotlock-migration",
             "584-ui-invsort-editor", "586-ui-custom-items", "587-ui-cosmetics-category", "588-ui-invsort-fit",
-            "589-ui-rarity-custom-items", "589-ui-rarity-pet-wheel", "589-ui-rarity-browser", "589-ui-rarity-storage"};
+            "589-ui-rarity-custom-items", "589-ui-rarity-pet-wheel", "589-ui-rarity-browser", "589-ui-rarity-storage",
+            "1103-ui-invsort-list"};
     /** killer560's 2026-10-07 Command Shortcuts requests ({@link CmdShortcutsCases}); 544 is in the Hx session. Own block. */
     static final String[] CMD_SHORTCUTS_CASES = {"541-ui-cmd-shortcuts-builtin-rows", "542-ui-cmd-shortcuts-custom-edit",
             "543-ui-cmd-shortcuts-refused-names", "545-ui-cmd-shortcuts-sweep"};
@@ -219,7 +221,9 @@ public class UiSuite implements FabricClientGameTest {
             "864-ui-croesus-split", "865-ui-container-overlays"};
     /** killer560's 2026-10-11 leap-menu batch, the editor half ({@link LeapWizardCases}); 821-825 are in the menu
      *  suite. Own block for merges. */
-    static final String[] LEAP2_CASES = {"826-ui-leap-wizard", "827-ui-leap-settings", "828-ui-leap-shots"};
+    static final String[] LEAP2_CASES = {"826-ui-leap-wizard", "827-ui-leap-settings", "828-ui-leap-shots",
+            // Fast/Auto Leap pages (mod leapmenu-1102, LeapMenuCases)
+            "1102-ui-leapmenu-pages", "1102-ui-leapmenu-oldconfig", "1102-ui-leapmenu-search", "1102-ui-leapmenu-shots"};
     /** killer560's 2026-10-15 to-do: /class + /leaporder, Class Overrides folded into the Leap Order, the editor's layout,
      *  Party Finder styles and the custom style editor ({@link LeapQueueCases}). Own block for merges. */
     static final String[] LEAPQUEUE_CASES = {"1071-ui-class-commands", "1072-ui-class-overrides-migrated",
@@ -593,6 +597,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "430-ui-pack-disabler-screens", PackDisablerCases::screens);
                     UiCase.run(ctx, "431-ui-pack-disabler-user-pack", PackDisablerCases::userPack);
                     UiCase.run(ctx, "432-ui-pack-disabler-bazaar", PackDisablerCases::bazaar);
+                    UiCase.run(ctx, "433-ui-pack-disabler-refresh", PackDisablerCases::refresh);
+                    UiCase.run(ctx, "434-ui-pack-disabler-menu-maps", PackDisablerCases::menuMaps);
                     UiCase.run(ctx, "451-ui-hotbar-theme", InvStorageCases::hotbar);
                     UiCase.run(ctx, "452-ui-inventory-theme-settings", InvStorageCases::settings);
                     UiCase.run(ctx, "453-ui-storage-overlay-centre", InvStorageCases::storageCentre);
@@ -638,6 +644,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "589-ui-rarity-pet-wheel", ItemUiCases::petWheelRarity);
                     UiCase.run(ctx, "589-ui-rarity-browser", ItemUiCases::browserRarity);
                     UiCase.run(ctx, "589-ui-rarity-storage", InvStorageCases::storageRarity);
+                    UiCase.run(ctx, "1103-ui-invsort-list", InvSortListCases::list);
                     // ---- command shortcuts (541-545) ----
                     UiCase.run(ctx, "541-ui-cmd-shortcuts-builtin-rows", CmdShortcutsCases::builtinRows);
                     UiCase.run(ctx, "542-ui-cmd-shortcuts-custom-edit", CmdShortcutsCases::customEdit);
@@ -682,6 +689,11 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "826-ui-leap-wizard", LeapWizardCases::wizardCase);
                     UiCase.run(ctx, "827-ui-leap-settings", LeapWizardCases::settings);
                     UiCase.run(ctx, "828-ui-leap-shots", LeapWizardCases::shots);
+                    // ---- Fast/Auto Leap pages: front, Universal Targets, Set Class Targets (mod leapmenu-1102) ----
+                    UiCase.run(ctx, "1102-ui-leapmenu-pages", LeapMenuCases::pages);
+                    UiCase.run(ctx, "1102-ui-leapmenu-oldconfig", LeapMenuCases::oldConfig);
+                    UiCase.run(ctx, "1102-ui-leapmenu-search", LeapMenuCases::search);
+                    UiCase.run(ctx, "1102-ui-leapmenu-shots", LeapMenuCases::shots);
                     // ---- /class + /leaporder, overrides folded in, editor layout, Party Finder styles (1071-1075) ----
                     UiCase.run(ctx, "1071-ui-class-commands", LeapQueueCases::commands);
                     UiCase.run(ctx, "1072-ui-class-overrides-migrated", LeapQueueCases::overridesGoneAndMigrated);

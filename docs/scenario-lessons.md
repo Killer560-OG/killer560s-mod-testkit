@@ -392,6 +392,13 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   428 sends the pack push through `handleResourcePackPush` on the render thread (no ServerData in singleplayer, so
   vanilla shows `PackConfirmScreen`), not over a socket. A new mod command root must go in deny-commands.json or 306
   fails; a new config class missing from `ProfileManager.reloadAllConfigs` fails 320 (both caught here, 2026-10-07).
+- 433-434-ui-pack-disabler (mod packdisabler-1103): a Hypixel MENU stack has the pack model but no `custom_data.id`;
+  433 draws each fixture both ways (`menuStack`) and skips the no-id check only when `ItemLooks.idForModel` says two
+  rows with different looks share the model. Its every-row `modelFor` sweep caught eight rows (Rift admin swords, Zoom
+  Pickaxe) whose Bukkit material name `gold_sword` the flattening fix rejects; a row whose old look IS paper
+  (`"i":"paper"`, Architect's First Draft) is skipped, not failed. 434 reads the client's version from
+  `/version.json` (`id`) to pick 26.3 (map buttons draw paper) or 26.2 (unchanged); `handDrawn` uses
+  FIRST_PERSON_RIGHT_HAND to prove only GUI slots change.
 - 441-447 (`HudFixCases`, mod hud-fixes): killer560's 2026-10-07 HUD report, each measured on a GUI-2/4 screenshot or the
   element's own text runs, with Auto Scale off so a unit is exactly guiScale px. With a screen open, judge "behind the
   screen" by the bar's RAW color beside the panel (0 px) and by the ON/OFF diff under it, not by "changed" alone: a bar on
@@ -1546,6 +1553,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   and a 3 s interval. Asserts what the STUB received: exactly {session, location}, one 32-hex session that is not the
   player's UUID or name, 3-4.5 s gaps, Hub / Dwarven Mines / Catacombs F7 / sim Catacombs M7 / Hypixel (not Skyblock), one
   Offline when the switch goes off and nothing after; with the stub closed, sends keep coming, one WARN, no chat, healthy.
+- 1103-kickrejoin-* (hx/HxKickRejoin1103Cases, mod kickhub-1103): Kick Rejoin Timer. Hypixel's kick lines as they appear in his logs, a lobby sidebar ("HYPIXEL", no SKYBLOCK) and back to the hub sidebar; `testAge` moves the kick back so the 60 s wait is not waited out. The party case answers the mod's /pl with `respond(c, "pl", null, lines...)` (his logs' list or not-in-a-party shape, one chat line each) and `surface.respond.clear {root: pl}` for no answer; it judges the server's cmd events ([pl] then [pc text]), the hidden-line count and LogTap's [CHAT] lines (a hidden line is never logged as chat).
 - mining-1103: Pickobulus Estimate's chat state outlives a case (a "You used your Pickobulus" line hides the outlines until
   its ready line, up to 2 minutes), so 1101-mining-pickobulus failed "waiting for: an estimate" after 1101-mining-ability's
   last use line. A case that needs the estimate calls PickobulusEstimate.resetChat first (optional on older jars). Also: an
@@ -1603,3 +1611,5 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   the 1103p gate every later trip's Trigger Bot swung at it (nevermiss-offset "swung 5 time(s) before the mob existed" -
   correct Never Miss behavior on a real blood mob - and -killtimer/-offspot late or missing). The nevermiss cases now clear the
   arena first too. Alone, each case passed; only a run with trip-steal before them failed.
+
+- **1103-fairy-* (FairyTightTests, fairysouls-1103, 2026-11-03)**: souls in tight places and up ledges - boost2-ledge/-none (2-high ledge, Jump Boost II / none: none must give up with 0 clicks), boost6-pillar (his JB VI, speed 300, 2x2 pillar 5 up), hole, hole-raised6 (hole one block up, JB VI), tunnel (1x1 drop into a 1-wide L tunnel), overhang (1.5 gap, crouch only). Base jar failed boost6-pillar and overhang; hole and tunnel passed on it (the owner's 'small holes' report is more likely his JB VI). `-PclientJvmArgs=-Dtestkit.fairy.trace=true` logs every tick (pos, velocity, keys, rescue index, runner state) as `trN` lines in the client log - that trace found the 'walked back to the node' bug in one run.
