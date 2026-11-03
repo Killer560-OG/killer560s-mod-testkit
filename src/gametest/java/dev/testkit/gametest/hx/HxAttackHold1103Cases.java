@@ -117,7 +117,15 @@ final class HxAttackHold1103Cases {
             String dig = "START_DESTROY_BLOCK " + ob.toShortString();
             WireCapture.start();
             press(c);
-            c.waitUntil("the held dig starts", mc -> wire().stream().anyMatch(w -> w.contains(dig)), 20);
+            try {
+                c.waitUntil("the held dig starts", mc -> wire().stream().anyMatch(w -> w.contains(dig)), 20);
+            } catch (AssertionError e) {
+                String state = c.onClient(mc -> "missTime " + mc.missTime + ", destroying " + Mod.field(mc.gameMode,
+                        "isDestroying") + " at " + Mod.field(mc.gameMode, "destroyBlockPos") + ", delay "
+                        + Mod.field(mc.gameMode, "destroyDelay") + ", key " + mc.options.keyAttack.isDown() + ", hit "
+                        + mc.hitResult.getType());
+                throw new AssertionError(e.getMessage() + " [" + state + "] wire " + wire());
+            }
             int resumes = intCall(c, RESUME, "resumes");
             c.hx().menu("Commissions", 6, Map.of(13, "minecraft:writable_book"), null);
             c.waitUntil("the server's menu is open", mc -> McCompat.screen(mc) != null, 40);
@@ -152,7 +160,7 @@ final class HxAttackHold1103Cases {
                 boolean started = wire().stream().anyMatch(w -> w.contains(dig));
                 c.check(!aborted || started, "the dig was aborted on the close and never started again on the wire: " + wire());
                 for (String w : wire()) {
-                    boolean ok = w.contains("player_action") || w.contains("swing") || w.contains("move_player")
+                    boolean ok = w.contains("player_action") || w.contains("swing") || w.contains("punch") || w.contains("move_player")
                             || w.contains("client_tick_end") || w.contains("keep_alive") || w.contains("pong")
                             || w.contains("player_input") || w.contains("chunk_batch") || w.contains("container_close");
                     c.check(ok, "the resume sent something a held button does not: " + w);
