@@ -138,7 +138,7 @@ final class HxF7HudCases {
                 timeline(c, self, steps, 250);
                 List<Integer> b = offsets(c);
                 int relocks = c.onClient(mc -> (Integer) Mod.staticCall(GT, "testRelocks"));
-                c.note("(b) 30 ticks off, offsets at the hits: " + b + ", re-locks " + relocks);
+                c.note("(b) 18 ticks off the start phase, offsets at the hits: " + b + ", re-locks " + relocks);
                 c.check(b.size() == 4, "(b) 4 hits seen, saw " + b.size() + ": " + b);
                 if (b.size() == 4) {
                     c.check(Math.abs(b.get(0)) >= 12, "(b) the first hit was ~18 off the start phase: " + b);
