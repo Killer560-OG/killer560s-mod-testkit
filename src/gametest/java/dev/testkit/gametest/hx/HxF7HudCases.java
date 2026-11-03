@@ -41,6 +41,7 @@ final class HxF7HudCases {
     static void register(Session s) {
         goldorTick(s);
         stormLine(s);
+        centerCase(s);
         terminalHud(s);
     }
 
@@ -248,6 +249,41 @@ final class HxF7HudCases {
                 }
             }
             return out;
+        });
+    }
+
+    /** The Tick Timers box's center x on screen, the box width, and its left edge. */
+    private static double[] boxCenter(Session c) {
+        return c.onClient(mc -> {
+            Object hud = Mod.staticCall("hud.HudElementRegistry", "byId", "tick_timers");
+            int[] pos = (int[]) Mod.staticCall("hud.HudElementRegistry", "resolvePosition", hud);
+            int w = (Integer) Mod.call(hud, "width");
+            float sc = ((Number) Mod.staticCall("hud.HudElementRegistry", "resolveScale", hud)).floatValue();
+            return new double[]{pos[0] + w * sc / 2.0, w * sc, pos[0]};
+        });
+    }
+
+    private static void centerCase(Session s) {
+        s.test("1103-hx-tick-timers-center", c -> {
+            dungeon(c);
+            try (Settings st = new Settings(c)) {
+                st.with(TTC, "Enabled", true).with(TTC, "StormLine", true).with(TTC, "NecronTimer", true)
+                        .with(TTC, "DisplayInTicks", true);
+                run(c, () -> Mod.staticCall(TT, "resetAll"));
+                c.hx().chat("[BOSS] Storm: Pathetic Maxor, just like expected.");
+                c.waitUntil("Storm line", mc -> "LIGHTNING".equals(String.valueOf(Mod.staticCall(SL, "phase"))), 60);
+                c.ctx().waitTicks(2);
+                double[] a = boxCenter(c);
+                c.hx().chat("[BOSS] Necron: You went further than any human before, congratulations.");
+                c.ctx().waitTicks(3);
+                double[] b = boxCenter(c);
+                c.note("one line: center " + a[0] + " width " + a[1] + "; two lines: center " + b[0] + " width " + b[1]);
+                c.check(Math.abs(b[1] - a[1]) >= 8, "the second line did not change the width (premise): " + a[1] + " -> " + b[1]);
+                c.check(Math.abs(a[0] - b[0]) <= 1.0, "the center moved " + (b[0] - a[0]) + " px when the width changed");
+                c.check(Math.abs(a[2] - b[2]) >= 4, "the left edge did not move: the box is still edge-anchored");
+            } finally {
+                run(c, () -> Mod.staticCall(TT, "resetAll"));
+            }
         });
     }
 
