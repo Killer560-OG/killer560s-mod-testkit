@@ -13,12 +13,14 @@ import static dev.testkit.gametest.hx.HxKit.*;
 /**
  * Mod branch p3-chat-1025 (2026-10-25), cases 2140-2142, every input from the Hx bridge as Hypixel sends it:
  * <ul>
- *   <li>2140-hx-p3-status-hud: P3 Status' HUD over a P3 section 1 driven by real chat lines - section and (n/m), the
- *       terminal nearest the named player marked done, a device and a lever, who stands at an unfinished terminal, a
- *       terminal hologram ("Terminal Active" / "Inactive Terminal") overriding, forged party/all-chat lines ignored, the
+ *   <li>2140-hx-p3-status-hud: P3 Status' HUD over a P3 section 1 driven by real chat lines - since f7hud-1102 four
+ *       compact rows only ("Terminals n/4", "Device n/1", "Levers n/2", "Gate"), no names or per-objective rows; a
+ *       terminal, a device and a lever counted, a terminal hologram ("Terminal Active" / "Inactive Terminal") counted,
+ *       forged party/all-chat lines ignored, the
  *       "Device Done" and "Section Complete" titles really set on the client's Gui, the section advancing after the gate
  *       line, and the HUD really drawn in game (its draw hook, not only its line builder).</li>
- *   <li>2141-hx-p3-titles: Hypixel's completion subtitle AND title replaced by one short subtitle on the client's Gui, a
+ *   <li>2141-hx-p3-titles: Hypixel's completion subtitle AND title replaced by one short subtitle on the client's Gui
+ *       (since f7hud-1102 the name in the player's class color, "Terminal 3/7" in gold - read off the Component's styles), a
  *       forged line and an unrelated title left alone, the Energy Laser subtitle dropped, and nothing rewritten with the
  *       setting off.</li>
  *   <li>2142-hx-dungeon-chat-hider: Chat Hider's six dungeon families each hide their real lines (from his own log) and
@@ -58,6 +60,27 @@ final class HxP3ChatCases {
         return null;
     }
 
+    private static void waitRow(Session c, String prefix, String want) {
+        c.waitUntil("HUD row '" + want + "'", mc -> {
+            @SuppressWarnings("unchecked")
+            List<String> l = (List<String>) Mod.staticCall(P3, "testLines");
+            return want.equals(row(l, prefix));
+        }, 60);
+    }
+
+    /** The short title's two parts: name color, then the rest's color and text. */
+    private static String titleStyles(Session c) {
+        return c.onClient(mc -> {
+            Component t = (Component) Mod.staticCall(P3, "testLastReplacementComponent");
+            StringBuilder b = new StringBuilder();
+            for (Component part : t.getSiblings()) {
+                net.minecraft.network.chat.TextColor col = part.getStyle().getColor();
+                b.append(part.getString()).append('=').append(col == null ? "none" : String.format("%06X", col.getValue())).append(';');
+            }
+            return b.toString();
+        });
+    }
+
     private static String guiText(Session c, String field) {
         return c.onClient(mc -> {
             Object v = Mod.field(McCompat.hud(mc), field);
@@ -91,70 +114,46 @@ final class HxP3ChatCases {
                         .is(net.minecraft.world.level.block.Blocks.STONE), 100);
 
                 c.hx().chat(GOLDOR);
-                c.waitUntil("HUD shows P3 Section 1", mc -> {
+                c.waitUntil("HUD shows the compact rows", mc -> {
                     @SuppressWarnings("unchecked")
                     List<String> l = (List<String>) Mod.staticCall(P3, "testLines");
-                    return !l.isEmpty() && l.get(0).startsWith("P3 Section 1");
+                    return !l.isEmpty() && l.get(0).startsWith("Terminals ");
                 }, 60);
                 List<String> lines = hud(c);
                 c.note("start: " + lines);
-                c.check(lines.size() == 9, "S1 HUD has section + 4 terminals + device + 2 levers + gate = 9 rows: " + lines);
-                // Who-is-at is refreshed on the client tick after the Goldor line.
-                c.waitUntil("Terminal 2 names " + shortSelf + " (who is at)", mc -> {
-                    @SuppressWarnings("unchecked")
-                    List<String> l = (List<String>) Mod.staticCall(P3, "testLines");
-                    return ("Terminal 2 " + shortSelf).equals(row(l, "Terminal 2"));
-                }, 40);
-                lines = hud(c);
-                c.check("Terminal 1 ✘".equals(row(lines, "Terminal 1")), "Terminal 1 not done: " + lines);
+                c.check(lines.equals(List.of("Terminals 0/4", "Device 0/1", "Levers 0/2", "Gate ✘")),
+                        "S1 HUD is exactly Terminals 0/4, Device 0/1, Levers 0/2, Gate: " + lines);
+                c.check(lines.stream().noneMatch(l -> l.contains(shortSelf) || l.contains("Section")),
+                        "no names and no section header: " + lines);
 
                 c.hx().chat(self + " activated a terminal! (1/7)");
-                c.waitUntil("Terminal 2 done", mc -> {
-                    @SuppressWarnings("unchecked")
-                    List<String> l = (List<String>) Mod.staticCall(P3, "testLines");
-                    return "Terminal 2 ✔".equals(row(l, "Terminal 2"));
-                }, 40);
-                lines = hud(c);
-                c.check(lines.get(0).equals("P3 Section 1 (1/7)"), "header (1/7): " + lines.get(0));
-                c.check("Terminal 1 ✘".equals(row(lines, "Terminal 1")) && "Terminal 3 ✘".equals(row(lines, "Terminal 3")),
-                        "only the terminal he stood at was marked: " + lines);
+                waitRow(c, "Terminals", "Terminals 1/4");
 
                 // Forged: what another player can put in chat.
                 c.hx().chat("Party > [MVP+] Eve: a activated a terminal! (2/7)");
                 c.hx().chat("[VIP] Bob: a completed a device! (2/7)");
                 c.ctx().waitTicks(10);
                 lines = hud(c);
-                c.check(lines.get(0).equals("P3 Section 1 (1/7)") && "Device ✘".equals(row(lines, "Device")),
+                c.check("Terminals 1/4".equals(row(lines, "Terminals")) && "Device 0/1".equals(row(lines, "Device")),
                         "forged lines changed the HUD: " + lines);
 
                 c.hx().chat("HxMateA completed a device! (2/7)");
-                c.waitUntil("Device done", mc -> {
-                    @SuppressWarnings("unchecked")
-                    List<String> l = (List<String>) Mod.staticCall(P3, "testLines");
-                    return "Device ✔".equals(row(l, "Device"));
-                }, 40);
+                waitRow(c, "Device", "Device 1/1");
                 String bigTitle = guiText(c, "title");
                 c.check("Device Done".equals(bigTitle), "Gui title after the device line: " + bigTitle);
 
                 c.hx().chat("HxMateB activated a lever! (3/7)");
-                c.waitUntil("Lever 1 done", mc -> {
-                    @SuppressWarnings("unchecked")
-                    List<String> l = (List<String>) Mod.staticCall(P3, "testLines");
-                    return "Lever 1 ✔".equals(row(l, "Lever 1"));
-                }, 40);
+                waitRow(c, "Levers", "Levers 1/2");
 
-                // Holograms win: Terminal 1's says done with no chat line; Terminal 3's says not done.
+                // Holograms: Terminal 1's says done with no chat line (2/4); Terminal 3's says not done (stays 2/4).
                 c.hx().stand(110, 113, 73, "Terminal Active");
                 c.hx().stand(90, 112, 92, "Inactive Terminal");
-                c.waitUntil("Terminal 1 done from its hologram", mc -> {
-                    @SuppressWarnings("unchecked")
-                    List<String> l = (List<String>) Mod.staticCall(P3, "testLines");
-                    return "Terminal 1 ✔".equals(row(l, "Terminal 1"));
-                }, 60);
-                c.check("Terminal 3 ✘".equals(row(hud(c), "Terminal 3")), "Terminal 3 under 'Inactive Terminal': " + hud(c));
+                waitRow(c, "Terminals", "Terminals 2/4");
+                c.ctx().waitTicks(5);
+                c.check("Terminals 2/4".equals(row(hud(c), "Terminals")), "'Inactive Terminal' counted as done: " + hud(c));
 
                 // Drawn in game, not just built.
-                c.waitUntil("HUD drawn in game", mc -> String.valueOf(Mod.staticCall(P3, "testLastDrawn")).contains("P3 Section 1"), 60);
+                c.waitUntil("HUD drawn in game", mc -> String.valueOf(Mod.staticCall(P3, "testLastDrawn")).contains("Terminals"), 60);
                 c.note("drawn: " + String.valueOf((Object) c.onClient(mc -> Mod.staticCall(P3, "testLastDrawn"))).replace('\n', '|'));
 
                 // Finish the section: (7/7) gives Section Complete; the gate line then moves to S2.
@@ -166,14 +165,10 @@ final class HxP3ChatCases {
                 c.check("Section Complete".equals(bigTitle), "Gui title after (7/7): " + bigTitle);
                 c.check("Gate ✘".equals(row(hud(c), "Gate")), "gate still up: " + hud(c));
                 c.hx().chat("The gate has been destroyed!");
-                c.waitUntil("HUD on Section 2", mc -> {
-                    @SuppressWarnings("unchecked")
-                    List<String> l = (List<String>) Mod.staticCall(P3, "testLines");
-                    return !l.isEmpty() && l.get(0).startsWith("P3 Section 2");
-                }, 40);
+                waitRow(c, "Terminals", "Terminals 0/5");
                 lines = hud(c);
-                c.check(row(lines, "Terminal 5") != null && "Terminal 5 ✘".equals(row(lines, "Terminal 5")),
-                        "S2 lists 5 terminals, none done: " + lines);
+                c.check(lines.equals(List.of("Terminals 0/5", "Device 0/1", "Levers 0/2", "Gate ✘")),
+                        "S2 counts its 5 terminals from 0: " + lines);
                 c.note("S2: " + lines);
 
                 // Off: nothing listed.
@@ -209,6 +204,14 @@ final class HxP3ChatCases {
                     return v != null && (self + " Terminal 3/7").equals(((Component) v).getString().replaceAll("§.", ""));
                 }, 40);
                 c.note("subtitle form -> '" + guiText(c, "subtitle") + "'");
+                // f7hud-1102: the name in his class color (the dungeon tab says Archer: EF4444), the rest gold (FFAA00).
+                String styles = titleStyles(c);
+                c.note("styles: " + styles);
+                c.check((self + "=EF4444; Terminal 3/7=FFAA00;").equals(styles), "name in Archer red, count in gold: " + styles);
+                c.hx().title("", "HxMateA activated a terminal! (4/7)");
+                c.waitUntil("HxMateA's subtitle", mc -> "HxMateA Terminal 4/7".equals(String.valueOf(Mod.staticCall(P3, "testLastReplacement"))), 40);
+                String mage = titleStyles(c);
+                c.check("HxMateA=3B82F6; Terminal 4/7=FFAA00;".equals(mage), "a Mage's name in Mage blue: " + mage);
 
                 c.hx().title(self + " completed a device! (4/7)", "");
                 c.waitUntil("title-slot line rewritten into the subtitle", mc -> {
@@ -218,7 +221,7 @@ final class HxP3ChatCases {
                 String title = guiText(c, "title");
                 c.check(title == null || !title.contains("completed a device"), "Hypixel's title still shown: " + title);
                 long replaced = c.onClient(mc -> (Long) Mod.staticCall(P3, "testReplaced")) - replaced0;
-                c.check(replaced == 2, "2 replacements counted, got " + replaced);
+                c.check(replaced == 3, "3 replacements counted, got " + replaced);
 
                 // Forged and unrelated: left exactly as sent.
                 c.hx().title("", "[VIP] Bob: a activated a terminal! (5/7)");
