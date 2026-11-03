@@ -1546,3 +1546,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   and a 3 s interval. Asserts what the STUB received: exactly {session, location}, one 32-hex session that is not the
   player's UUID or name, 3-4.5 s gaps, Hub / Dwarven Mines / Catacombs F7 / sim Catacombs M7 / Hypixel (not Skyblock), one
   Offline when the switch goes off and nothing after; with the stub closed, sends keep coming, one WARN, no chat, healthy.
+- mining-1103: Pickobulus Estimate's chat state outlives a case (a "You used your Pickobulus" line hides the outlines until
+  its ready line, up to 2 minutes), so 1101-mining-pickobulus failed "waiting for: an estimate" after 1101-mining-ability's
+  last use line. A case that needs the estimate calls PickobulusEstimate.resetChat first (optional on older jars). Also: an
+  action-bar area outranks the sidebar for 5 s (IslandDetector), so a case that sends one clears it before mines().
