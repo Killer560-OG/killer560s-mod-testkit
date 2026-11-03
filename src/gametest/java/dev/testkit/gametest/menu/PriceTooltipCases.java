@@ -275,12 +275,12 @@ final class PriceTooltipCases {
             List<String> one = priceLines(c, dia);
             // Buy and Sell are two lines since mod 7feff06b ("Bazaar buy and sell on separate tooltip lines").
             // Owner 2026-11-03: a stack shows the whole price and the unit price on every line, Shift or not.
-            List<String> want = List.of("§eNPC Sell Price: §b81,920.0 Coins §8(64x 1,280.0 each)",
+            List<String> wantStack = List.of("§eNPC Sell Price: §b81,920.0 Coins §8(64x 1,280.0 each)",
                     "§eBazaar Buy: §b108,832.0 Coins §8(64x 1,700.5 each)", "§eBazaar Sell: §b102,432.0 Coins §8(64x 1,600.5 each)");
-            c.check(one.equals(want), "64 Enchanted Diamonds without Shift: " + one);
+            c.check(one.equals(wantStack), "64 Enchanted Diamonds without Shift: " + one);
             shift(true);
             List<String> stack = priceLines(c, dia);
-            c.check(stack.equals(want), "64 Enchanted Diamonds with Shift: " + stack);
+            c.check(stack.equals(wantStack), "64 Enchanted Diamonds with Shift: " + stack);
             ItemStack single = give(c, 2, DIAMONDS, 1);
             List<String> oneItem = priceLines(c, single);
             c.check(oneItem.equals(List.of("§eNPC Sell Price: §b1,280.0 Coins", "§eBazaar Buy: §b1,700.5 Coins",
