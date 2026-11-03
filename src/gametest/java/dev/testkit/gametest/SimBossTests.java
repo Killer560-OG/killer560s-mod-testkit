@@ -45,6 +45,16 @@ import java.util.function.Predicate;
  * second that the next set can be picked up"). Both crystals placed by real clicks reads 2/2; it stays 2/2 until the
  * next set's first crystal is on a tower on the client, reads 0/2 on that very tick (the tower crystal, not the backstop
  * countdown, must be what reset it), and one of the new set placed reads 1/2.</li>
+ * <li>{@code 1103-boss-moves} (bossparity-1103, ADM's facts): where each boss is over time. Maxor holds at (73, 226, 53)
+ * until t 84, then flies at the player at no more than 0.9 a tick; Storm flies his opening route at 0.4 a tick, parks
+ * at (102.375, 183, 52.375) and chases from t 647, and Giga Lightning reaches an exposed player; Goldor walks his loop from
+ * (80, 119, 40) at 0.048 a tick and sprints (0.6) to the S2 corner when S1's door opens with him still in S1; in the
+ * core he flies at 0.8 and his Frenzy lines come; Necron sidesteps at 80, is back at mid at 98, and his platform goes
+ * to lava at 275.</li>
+ * <li>{@code 1103-boss-rules} (bossparity-1103): Hypixel's refusals (another section's terminal, a done terminal, a done
+ * lever), another section's lever toggling with no credit, a terminal keeping its type across reopens, Melody's six
+ * rows, the 5-clicks-in-10-ticks limit, Simon Says' start-button reset and wrong-press stop (and its timing), the Lights
+ * neighbour rule, the Target plate (off it, the attempt resets), and a death tick in a section not started yet.</li>
  * <li>{@code 1101-boss-portal}: a generated F7, /goto Blood, the portal opens (the sim has no Watcher yet: five seconds in
  * Blood), stepping in starts P1 with the floor's map code unchanged (the floor is not reset).</li>
  * </ul>
@@ -61,6 +71,8 @@ public class SimBossTests implements FabricClientGameTest {
     private static final String AP3 = "1101-boss-ap3";
     private static final String PORTAL = "1101-boss-portal";
     private static final String MAXOR_CRYS = "1102-boss-maxorcrys";
+    private static final String MOVES = "1103-boss-moves";
+    private static final String RULES = "1103-boss-rules";
     private static final String MAXOR = "com.killer560.hub.maxor.MaxorCrystalsFeature";
 
     private static final String B = "com.killer560.hub.bosssim.";
@@ -82,7 +94,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -107,6 +119,8 @@ public class SimBossTests implements FabricClientGameTest {
                     case LAVA -> lava(ctx, f);
                     case PORTAL -> portal(ctx, f);
                     case MAXOR_CRYS -> maxorCrystals(ctx, f);
+                    case MOVES -> moves(ctx, f);
+                    case RULES -> rules(ctx, f);
                     default -> ap3(ctx, f);
                 }
             } catch (Throwable t) {
@@ -149,38 +163,32 @@ public class SimBossTests implements FabricClientGameTest {
                 return;
             }
             long m = LogTap.mark();
-            tp(ctx, 64.5, 238, 50.5, 0, 0);
-            ctx.waitTicks(5);
-            tp(ctx, 82.5, 238, 50.5, 0, 0);
-            ctx.waitTicks(5);
-            if (count(m, "picked up an Energy Crystal!") < 2) {
-                f.add("round " + round + ": walking into the crystals picked up " + count(m, "picked up an Energy Crystal!"));
+            if (!pickUpCrystals(ctx, f, "round " + round)) {
                 return;
             }
-            tp(ctx, 52.5, 221, 44.5, 180, 30);
-            ctx.waitTicks(5);
-            useBlock(ctx, new BlockPos(52, 223, 42), Direction.SOUTH);
-            ctx.waitTicks(5);
-            tp(ctx, 94.5, 221, 44.5, 180, 30);
-            ctx.waitTicks(5);
-            useBlock(ctx, new BlockPos(94, 223, 42), Direction.SOUTH);
-            if (!waitChat(ctx, m, "2/2 Energy Crystals are now active!", 20)) {
-                f.add("round " + round + ": placing both crystals by clicking the pylons never said 2/2");
+            if (!placeCrystals(ctx, f, m, "round " + round)) {
                 return;
             }
-            if (!waitChat(ctx, m, "The Energy Laser is charging up!", 40)
-                    || !waitChatAny(ctx, m, new String[]{"[BOSS] Maxor: YOU TRICKED ME!", "[BOSS] Maxor: THAT BEAM! IT HURTS! IT HURTS!!"}, 80)) {
-                f.add("round " + round + ": the laser never stunned Maxor");
+            if (!waitChat(ctx, m, "The Energy Laser is charging up!", 60)) {
+                f.add("round " + round + ": the laser never charged");
                 return;
             }
-            for (int h = 0; h < 5; h++) {
-                serverRun(ctx, s -> ModUnderTest.staticCall(FIGHT, "testHit", new Class<?>[]{String.class}, new Object[]{"Maxor"}));
-                ctx.waitTicks(2);
+            if (!lureMaxor(ctx, f, m, "round " + round)) {
+                return;
+            }
+            if (round == 1) {
+                for (int h = 0; h < 5; h++) {
+                    serverRun(ctx, s -> ModUnderTest.staticCall(FIGHT, "testHit", new Class<?>[]{String.class}, new Object[]{"Maxor"}));
+                    ctx.waitTicks(2);
+                }
+                if (!waitChat(ctx, m, "Maxor is enraged!", 40)) {
+                    f.add("five hits in his stun never ended it (Hypixel: the stun ends on damage)");
+                }
             }
         }
         long dead = LogTap.mark();
-        if (!waitChat(ctx, LogTap.mark() - 200, "[BOSS] Maxor: I'M TOO YOUNG TO DIE AGAIN!", 120)) {
-            f.add("Maxor's death line never came after the second stun's hits");
+        if (!waitChat(ctx, LogTap.mark() - 200, "[BOSS] Maxor: I'M TOO YOUNG TO DIE AGAIN!", 160)) {
+            f.add("Maxor's death line never came after the second laser hit");
             return;
         }
         boolean hole = ctx.computeOnClient(mc -> mc.level.getBlockState(new BlockPos(73, 220, 63)).isAir());
@@ -199,8 +207,8 @@ public class SimBossTests implements FabricClientGameTest {
             serverRun(ctx, s -> ModUnderTest.staticCall(FIGHT, "testParkStorm", new Class<?>[]{String.class}, new Object[]{pillar}));
             tp(ctx, Double.parseDouble(pads[i][1]), 170, Double.parseDouble(pads[i][2]), 0, 0);
             int want = i + 1;
-            if (!until(ctx, "crush " + want, mc -> (Integer) ModUnderTest.staticCall(FIGHT, "stormCrushes") >= want, 140)) {
-                f.add("standing on the " + pillar + " pad with Storm under it never crushed him");
+            if (!until(ctx, "crush " + want, mc -> (Integer) ModUnderTest.staticCall(FIGHT, "stormCrushes") >= want, 260)) {
+                f.add("standing on the " + pillar + " pad with Storm under it never crushed him (" + call(FIGHT, "stormState") + ")");
                 return;
             }
             tp(ctx, 73.5, 169, 50.5, 0, 0);
@@ -211,11 +219,13 @@ public class SimBossTests implements FabricClientGameTest {
             f.add("Storm's death line never came after two crushes");
             return;
         }
-        tp(ctx, 107.5, 169, 33.5, 0, 0);
+        // Hypixel's drop to S1 is under the Red pillar, and opens 24-30 ticks after Goldor's line.
+        tp(ctx, 100.5, 169, 40.5, 0, 0);
         if (!waitChat(ctx, d2, "[BOSS] Goldor: Who dares trespass into my domain?", 140)) {
             f.add("Goldor's line never came after Storm's death");
             return;
         }
+        until(ctx, "the fall to S1", mc -> mc.player.getY() < 120, 90);
         ctx.waitTicks(10);
         expect(f, "Floor7Tracker phase in P3", phase(ctx), "P3");
         expect(f, "P3SectionTracker running", call(SECTIONS, "running"), true);
@@ -236,25 +246,12 @@ public class SimBossTests implements FabricClientGameTest {
             return;
         }
         long m = LogTap.mark();
-        tp(ctx, 64.5, 238, 50.5, 0, 0);
-        ctx.waitTicks(5);
-        tp(ctx, 82.5, 238, 50.5, 0, 0);
-        ctx.waitTicks(5);
-        tp(ctx, 52.5, 221, 44.5, 180, 30);
-        ctx.waitTicks(5);
-        useBlock(ctx, new BlockPos(52, 223, 42), Direction.SOUTH);
-        ctx.waitTicks(5);
-        tp(ctx, 94.5, 221, 44.5, 180, 30);
-        ctx.waitTicks(5);
-        useBlock(ctx, new BlockPos(94, 223, 42), Direction.SOUTH);
-        if (!waitChat(ctx, m, "2/2 Energy Crystals are now active!", 20)) {
-            f.add("placing both crystals never said 2/2");
+        if (!pickUpCrystals(ctx, f, "first set") || !placeCrystals(ctx, f, m, "first set")) {
             return;
         }
         ctx.waitTicks(1);
         expect(f, "counter after the 2/2 line", counter(ctx), "2/2");
-        if (!waitChatAny(ctx, m, new String[]{"[BOSS] Maxor: YOU TRICKED ME!", "[BOSS] Maxor: THAT BEAM! IT HURTS! IT HURTS!!"}, 120)) {
-            f.add("the laser never stunned Maxor");
+        if (!lureMaxor(ctx, f, m, "first set")) {
             return;
         }
         // Every tick from the laser line on: the counter, and whether a crystal is on a tower in the CLIENT's world.
@@ -292,8 +289,10 @@ public class SimBossTests implements FabricClientGameTest {
         }
         expect(f, "reset by the tower crystal (not the backstop)", byTower, true);
         long m2 = LogTap.mark();
-        tp(ctx, 64.5, 238, 50.5, 0, 0);
-        ctx.waitTicks(5);
+        tp(ctx, 63.5, 238, 49.5, 0, 0);
+        ctx.waitTicks(3);
+        clickCrystal(ctx, 64.5, 238.375, 50.5);
+        ctx.waitTicks(3);
         tp(ctx, 52.5, 221, 44.5, 180, 30);
         ctx.waitTicks(5);
         useBlock(ctx, new BlockPos(52, 223, 42), Direction.SOUTH);
@@ -530,7 +529,7 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     private static void target(ClientGameTestContext ctx, List<String> f) {
-        tp(ctx, 63.5, 126, 34.5, 0, -20);
+        tp(ctx, 63.5, 126, 35.5, 0, -20);
         ctx.waitTicks(8);
         for (int hit = 0; hit < 9; hit++) {
             if (!until(ctx, "a lit target", mc -> call(DEVICES, "litTarget") != null, 40)) {
@@ -565,12 +564,10 @@ public class SimBossTests implements FabricClientGameTest {
             serverRun(ctx, s -> ModUnderTest.staticCall(FIGHT, "testHit", new Class<?>[]{String.class}, new Object[]{"Goldor"}));
             ctx.waitTicks(2);
         }
-        if (!waitChat(ctx, mark, "[BOSS] Goldor: ....", 20)) {
-            f.add("Goldor never died");
-            return;
-        }
-        tp(ctx, 54.5, 107, 76.5, 0, 0);
-        if (!waitChat(ctx, mark, "[BOSS] Necron: You went further than any human before, congratulations.", 120)) {
+        // His "...." queues behind the arrival lines still to come, so the core's floor (2 ticks before Necron's line, 62
+        // after the kill) can go first.
+        tp(ctx, 54.5, 107, 108.5, 0, 0);
+        if (!waitChat(ctx, mark, "[BOSS] Necron: You went further than any human before, congratulations.", 140)) {
             f.add("Necron's first line never came");
             return;
         }
@@ -584,24 +581,28 @@ public class SimBossTests implements FabricClientGameTest {
             f.add("Necron's intro never finished");
             return;
         }
-        for (int h = 0; h < 15; h++) {
-            serverRun(ctx, s -> ModUnderTest.staticCall(FIGHT, "testHit", new Class<?>[]{String.class}, new Object[]{"Necron"}));
-            ctx.waitTicks(2);
-        }
-        expect(f, "Necron's ARGH line", chatSeen(mark, "[BOSS] Necron: ARGH!"), true);
-        if (!waitChat(ctx, mark, "[BOSS] Necron: All this, for nothing...", 20)) {
-            f.add("Necron never died");
+        expect(f, "Goldor's \"....\" came (queued behind his lines)", waitChat(ctx, mark, "[BOSS] Goldor: ....", 300), true);
+        if (!waitChat(ctx, mark, "[BOSS] Necron: ARGH!", 300)) {
+            f.add("Necron's ARGH never came (his fight runs on its own clock)");
             return;
         }
-        ctx.waitTicks(5);
-        expect(f, "Floor7Tracker phase in P5", phase(ctx), "P5");
-        ctx.waitTicks(45);
+        if (!waitChat(ctx, mark, "[BOSS] Necron: Let's make some space!", 120)) {
+            f.add("Necron's \"Let's make some space!\" never came");
+            return;
+        }
+        expect(f, "no \"All this, for nothing...\" (gone since Hypixel's boss update)",
+                chatSeen(mark, "[BOSS] Necron: All this, for nothing..."), false);
+        if (!until(ctx, "P5", mc -> "P5".equals(String.valueOf(call(FIGHT, "phase"))), 120)) {
+            f.add("the fight never went on to P5 after Necron (" + call(FIGHT, "describe") + ")");
+            return;
+        }
         tp(ctx, 54.5, 63, 76.5, 0, 0);
-        if (!waitChat(ctx, mark, "[BOSS] Wither King: You... again?", 160)) {
+        if (!waitChat(ctx, mark, "[BOSS] The Wither King: You... again?", 160)) {
             f.add("the Wither King's line never came");
             return;
         }
         double y5 = ctx.computeOnClient(mc -> mc.player.getY());
+        expect(f, "Floor7Tracker phase in P5", phase(ctx), "P5");
         if (y5 > 20) {
             f.add("Necron's platform never let him down into P5 (y " + y5 + ")");
         }
@@ -622,7 +623,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (!until(ctx, "boss cleared", mc -> "DONE".equals(String.valueOf(call(FIGHT, "phase"))), 100)) {
             f.add("the fight never ended after " + killed + " dragons (" + call(FIGHT, "describe") + ")");
         }
-        expect(f, "Wither King counts lines", count(mark, "[BOSS] Wither King: ") >= 6, true);
+        expect(f, "Wither King counts lines", count(mark, "[BOSS] The Wither King: ") >= 6, true);
     }
 
     private static void lava(ClientGameTestContext ctx, List<String> f) {
@@ -767,7 +768,476 @@ public class SimBossTests implements FabricClientGameTest {
         expect(f, "Floor7Tracker phase after the portal", phase(ctx), "P1");
     }
 
+    // ============================================================================================== bossparity-1103
+
+    private static double[] boss(String name) {
+        return (double[]) ModUnderTest.staticCall(FIGHT, "bossPos", new Class<?>[]{String.class}, new Object[]{name});
+    }
+
+    private static int phaseTick() {
+        return (Integer) call(FIGHT, "phaseTick");
+    }
+
+    private static boolean untilTick(ClientGameTestContext ctx, int tick, int max) {
+        return until(ctx, "phase tick " + tick, mc -> phaseTick() >= tick, max);
+    }
+
+    private static String fmt(double[] p) {
+        return p == null ? "none" : String.format(Locale.ROOT, "%.2f %.2f %.2f", p[0], p[1], p[2]);
+    }
+
+    private static double dist(double[] a, double x, double y, double z) {
+        return Math.sqrt((a[0] - x) * (a[0] - x) + (a[1] - y) * (a[1] - y) + (a[2] - z) * (a[2] - z));
+    }
+
+    private static void moves(ClientGameTestContext ctx, List<String> f) {
+        // ---- P1: Maxor ----
+        long mark = start(ctx, "P1", true);
+        if (!waitChat(ctx, mark, "[BOSS] Maxor: WELL! WELL! WELL! LOOK WHO'S HERE!", 40)) {
+            f.add("Maxor's first line never came");
+            return;
+        }
+        untilTick(ctx, 60, 100);
+        double[] m60 = boss("Maxor");
+        untilTick(ctx, 83, 60);
+        double[] m83 = boss("Maxor");
+        println(MOVES, "Maxor t60 " + fmt(m60) + ", t83 " + fmt(m83));
+        expect(f, "Maxor still at (73, 226, 53) until t 84", m60 != null && m83 != null && dist(m60, 73, 226, 53) < 0.01
+                && dist(m83, 73, 226, 53) < 0.01, true);
+        double maxStep = 0;
+        double[] prev = boss("Maxor");
+        int prevT = phaseTick();
+        for (int i = 0; i < 30; i++) {
+            ctx.waitTick();
+            double[] now = boss("Maxor");
+            int nt = phaseTick();
+            if (nt > prevT && now != null && prev != null) {
+                maxStep = Math.max(maxStep, dist(now, prev[0], prev[1], prev[2]) / (nt - prevT));
+            }
+            prev = now;
+            prevT = nt;
+        }
+        double[] m115 = boss("Maxor");
+        println(MOVES, String.format(Locale.ROOT, "Maxor t%d %s, largest step %.3f/tick", prevT, fmt(m115), maxStep));
+        expect(f, "Maxor flew toward the player (z down from 53)", m115 != null && m115[2] < 50, true);
+        expect(f, "Maxor's step never over 0.9 a tick", maxStep <= 0.9 + 1e-6 && maxStep > 0.2, true);
+        cleanup(ctx);
+
+        // ---- P2: Storm ----
+        mark = start(ctx, "P2", true);
+        tp(ctx, 73.5, 169, 50.5, 0, 0);
+        untilTick(ctx, 100, 140);
+        double[] s100 = boss("Storm");
+        int t100 = phaseTick();
+        // The route's first leg: (103, 188, 53) -> (73, 183, 83), 0.4 a tick from t 0.
+        double lx = 73 - 103, ly = 183 - 188, lz = 83 - 53, len = Math.sqrt(lx * lx + ly * ly + lz * lz);
+        double k = Math.min(1, 0.4 * t100 / len);
+        double ex = 103 + lx * k, ey = 188 + ly * k, ez = 53 + lz * k;
+        println(MOVES, String.format(Locale.ROOT, "Storm t%d %s, expected about %.2f %.2f %.2f", t100, fmt(s100), ex, ey, ez));
+        expect(f, "Storm on his first leg at 0.4 a tick", s100 != null && dist(s100, ex, ey, ez) < 1.5, true);
+        untilTick(ctx, 450, 400);
+        double[] s450 = boss("Storm");
+        println(MOVES, "Storm t450 " + fmt(s450));
+        expect(f, "Storm parked at (102.375, 183, 52.375) after his route", s450 != null && dist(s450, 102.375, 183, 52.375) < 0.05, true);
+        long lm = LogTap.mark();
+        untilTick(ctx, 572, 140);
+        expect(f, "Giga Lightning reached him out in the open", chatSeen(lm, "Storm's Giga Lightning hit you for"), true);
+        tp(ctx, 50.5, 169, 85.5, 0, 0);
+        untilTick(ctx, 647, 100);
+        double[] s647 = boss("Storm");
+        untilTick(ctx, 700, 80);
+        double[] s700 = boss("Storm");
+        println(MOVES, "Storm t647 " + fmt(s647) + ", t700 " + fmt(s700));
+        expect(f, "Storm left his park at t 647 to chase him", s647 != null && s700 != null
+                && dist(s700, 50.5, 172, 85.5) < dist(s647, 50.5, 172, 85.5) - 10, true);
+        cleanup(ctx);
+
+        // ---- P3: Goldor's loop and his catch-up sprint ----
+        mark = start(ctx, "S1", true);
+        if (!waitChat(ctx, mark, "[BOSS] Goldor: Who dares trespass into my domain?", 40)) {
+            f.add("Goldor's line never came");
+            return;
+        }
+        double[] g0 = boss("Goldor");
+        untilTick(ctx, 100, 140);
+        double[] g100 = boss("Goldor");
+        int gt = phaseTick();
+        println(MOVES, "Goldor t0 " + fmt(g0) + ", t" + gt + " " + fmt(g100));
+        expect(f, "Goldor starts at (80, 119, 40) (a few ticks of 0.048 east by the time it is read)", g0 != null && dist(g0, 80, 119, 40) < 0.5, true);
+        expect(f, "Goldor walks the S4 line east at 0.048 a tick", g100 != null && Math.abs(g100[0] - (80 + 0.048 * (gt + 1))) < 0.25
+                && Math.abs(g100[2] - 40) < 0.01, true);
+        untilTick(ctx, 365, 320);
+        for (String label : new String[]{"T1", "T2", "T3", "T4", "east lever", "west lever", "SS"}) {
+            serverRun(ctx, sv -> ModUnderTest.staticCall(STATIONS, "testComplete",
+                    new Class<?>[]{MinecraftServer.class, int.class, String.class}, new Object[]{sv, 1, label}));
+        }
+        if (!waitChat(ctx, mark, "The gate has been destroyed!", 140)) {
+            f.add("S1's gate never went after its stations were done");
+            return;
+        }
+        if (!until(ctx, "Goldor's sprint", mc -> String.valueOf(call(FIGHT, "goldorState")).contains("sprint=91.2"), 90)) {
+            f.add("Goldor, still in S1 when its door opened, never sprinted (" + call(FIGHT, "goldorState") + ")");
+        } else {
+            double[] a = boss("Goldor");
+            int ta = phaseTick();
+            ctx.waitTicks(5);
+            double[] b = boss("Goldor");
+            int tb = phaseTick();
+            double v = dist(b, a[0], a[1], a[2]) / Math.max(1, tb - ta);
+            println(MOVES, String.format(Locale.ROOT, "Goldor sprint %.3f a tick (%s -> %s)", v, fmt(a), fmt(b)));
+            expect(f, "Goldor's sprint at 0.6 a tick", Math.abs(v - 0.6) < 0.05, true);
+        }
+        cleanup(ctx);
+
+        // ---- the core: his flight and his Frenzy ----
+        mark = start(ctx, "CORE", true);
+        waitChat(ctx, mark, "[BOSS] Goldor: Who dares trespass into my domain?", 40);
+        tp(ctx, 54.5, 107, 90.5, 0, 0);
+        if (!until(ctx, "Goldor flying", mc -> String.valueOf(call(FIGHT, "goldorState")).contains("flying=true"), 40)) {
+            f.add("everyone in the core never sent Goldor in (" + call(FIGHT, "goldorState") + ")");
+        } else {
+            double[] a = boss("Goldor");
+            int ta = phaseTick();
+            ctx.waitTicks(5);
+            double[] b = boss("Goldor");
+            int tb = phaseTick();
+            double v = Math.hypot(b[0] - a[0], b[2] - a[2]) / Math.max(1, tb - ta);
+            println(MOVES, String.format(Locale.ROOT, "Goldor flight %.3f a tick", v));
+            expect(f, "Goldor flies to the core at 0.8 a tick", Math.abs(v - 0.8) < 0.05, true);
+        }
+        if (!until(ctx, "Goldor at the core", mc -> String.valueOf(call(FIGHT, "goldorState")).contains("atCore=true"), 200)) {
+            f.add("Goldor never reached the core point (" + call(FIGHT, "goldorState") + ")");
+        }
+        tp(ctx, 54.5, 107, 62.5, 0, 0);
+        long fm = LogTap.mark();
+        expect(f, "Goldor's Frenzy line near him in the core", waitChat(ctx, fm, "Goldor's Frenzy hit you for", 60), true);
+        cleanup(ctx);
+
+        // ---- P4: Necron ----
+        mark = start(ctx, "P4", false);
+        untilTick(ctx, 79, 120);
+        double[] n79 = boss("Necron");
+        untilTick(ctx, 87, 20);
+        double[] n87 = boss("Necron");
+        untilTick(ctx, 98, 20);
+        double[] n98 = boss("Necron");
+        println(MOVES, "Necron t79 " + fmt(n79) + ", t87 " + fmt(n87) + ", t98 " + fmt(n98));
+        expect(f, "Necron at mid (54, 66, 76) until his sidestep", n79 != null && dist(n79, 54, 66, 76) < 0.01, true);
+        expect(f, "Necron's sidestep at 80-86 (7 x 0.25 across)", n87 != null
+                && Math.abs(Math.hypot(n87[0] - 54, n87[2] - 76) - 1.75) < 0.05, true);
+        expect(f, "Necron teleported back to mid at 98", n98 != null && dist(n98, 54, 66, 76) < 0.01, true);
+        untilTick(ctx, 277, 220);
+        String pl = String.valueOf(call(FIGHT, "necronPlatform"));
+        int[][] centres = {{54, 42}, {28, 50}, {80, 50}, {28, 102}, {80, 102}};
+        String[] names = {"N", "NW", "NE", "SW", "SE"};
+        int[] c = null;
+        for (int i = 0; i < names.length; i++) {
+            if (names[i].equals(pl)) {
+                c = centres[i];
+            }
+        }
+        int[] cc = c;
+        boolean lava = cc != null && ctx.computeOnClient(mc -> mc.level.getBlockState(new BlockPos(cc[0], 62, cc[1]))
+                .is(net.minecraft.world.level.block.Blocks.LAVA));
+        println(MOVES, "Necron broke the " + pl + " platform; lava at its centre: " + lava);
+        expect(f, "Necron's platform to lava at 275", lava, true);
+    }
+
+    private static Entity standNear(Minecraft mc, double[] at, String name) {
+        return standAt(mc, at, name);
+    }
+
+    /** Teleports beside a terminal's stand and clicks it. False when there is no stand named {@code name}. */
+    private static boolean clickTerminal(ClientGameTestContext ctx, int sec, String label, String name) {
+        double[] at = (double[]) ModUnderTest.staticCall(STATIONS, "position", new Class<?>[]{int.class, String.class},
+                new Object[]{sec, label});
+        int[][] dirs = {{-1, 0}, {0, -1}, {1, 0}, {0, 1}};
+        int[] d = dirs[sec - 1];
+        tp(ctx, Math.floor(at[0]) + d[0] * 2 + 0.5, at[1], Math.floor(at[2]) + d[1] * 2 + 0.5, 0, 0);
+        ctx.waitTicks(6);
+        return ctx.computeOnClient(mc -> {
+            Entity stand = standNear(mc, at, name);
+            if (stand == null) {
+                return false;
+            }
+            mc.gameMode.interact(mc.player, stand, new EntityHitResult(stand, stand.position().add(0, 1, 0)), InteractionHand.MAIN_HAND);
+            return true;
+        });
+    }
+
+    private static String menuTitle(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> McCompat.screen(mc) == null ? "" : McCompat.screen(mc).getTitle().getString());
+    }
+
+    private static void closeMenu(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> {
+            if (mc.player.containerMenu != mc.player.inventoryMenu) {
+                mc.player.closeContainer();
+            }
+        });
+        ctx.waitTicks(3);
+    }
+
+    private static String family(String title) {
+        for (String k : new String[]{"Click in order!", "Correct all the panes!", "Change all to same color!", "What starts with",
+                "Select all the", "Click the button on time!"}) {
+            if (title.startsWith(k)) {
+                return k;
+            }
+        }
+        return title;
+    }
+
+    private static void rules(ClientGameTestContext ctx, List<String> f) {
+        long mark = start(ctx, "S1", true);
+        if (!waitChat(ctx, mark, "[BOSS] Goldor: Who dares trespass into my domain?", 40)) {
+            f.add("Goldor's line never came");
+            return;
+        }
+        // ---- refusals ----
+        long m = LogTap.mark();
+        clickTerminal(ctx, 2, "T1", "Inactive Terminal");
+        expect(f, "S2's terminal during S1 refuses", waitChat(ctx, m, "This Terminal doesn't seem to be responsive at the moment.", 20), true);
+        expect(f, "no window for S2's terminal during S1", menuTitle(ctx), "");
+        serverRun(ctx, sv -> ModUnderTest.staticCall(STATIONS, "testComplete",
+                new Class<?>[]{MinecraftServer.class, int.class, String.class}, new Object[]{sv, 1, "T1"}));
+        m = LogTap.mark();
+        clickTerminal(ctx, 1, "T1", "Terminal Active");
+        expect(f, "a done terminal refuses", waitChat(ctx, m, "This Terminal has already been completed!", 20), true);
+        // ---- levers ----
+        BlockPos s2low = new BlockPos(27, 124, 127);
+        tp(ctx, 27.5, 124, 129.5, 180, 30);
+        ctx.waitTicks(6);
+        m = LogTap.mark();
+        useBlock(ctx, s2low, Direction.UP);
+        ctx.waitTicks(6);
+        boolean toggled = ctx.computeOnClient(mc -> mc.level.getBlockState(s2low).getValue(
+                net.minecraft.world.level.block.state.properties.BlockStateProperties.POWERED));
+        expect(f, "S2's lever during S1 toggles", toggled, true);
+        expect(f, "S2's lever during S1 gives no credit", chatSeen(m, "activated a lever!"), false);
+        BlockPos east = new BlockPos(106, 124, 113);
+        tp(ctx, 104.5, 124, 113.5, -90, 30);
+        ctx.waitTicks(6);
+        m = LogTap.mark();
+        useBlock(ctx, east, Direction.UP);
+        expect(f, "S1's lever counts", waitChat(ctx, m, "activated a lever!", 20), true);
+        m = LogTap.mark();
+        useBlock(ctx, east, Direction.UP);
+        expect(f, "a done lever refuses", waitChat(ctx, m, "Someone has already activated this lever!", 20), true);
+        // ---- a terminal keeps its type; Melody's six rows; the click limit ----
+        clickTerminal(ctx, 1, "T2", "Inactive Terminal");
+        until(ctx, "T2 open", mc -> !menuTitle(ctx).isEmpty(), 20);
+        String first = family(menuTitle(ctx));
+        closeMenu(ctx);
+        clickTerminal(ctx, 1, "T2", "Inactive Terminal");
+        until(ctx, "T2 open again", mc -> !menuTitle(ctx).isEmpty(), 20);
+        String again = family(menuTitle(ctx));
+        closeMenu(ctx);
+        println(RULES, "T2 opened as '" + first + "' then '" + again + "'");
+        expect(f, "a terminal keeps its type across reopens", !first.isEmpty() && first.equals(again), true);
+        System.setProperty("killer560.bosssim.terminal", "MELODY");
+        clickTerminal(ctx, 1, "T3", "Inactive Terminal");
+        until(ctx, "Melody open", mc -> menuTitle(ctx).startsWith("Click the button on time!"), 20);
+        int rows = ctx.computeOnClient(mc -> mc.player.containerMenu instanceof net.minecraft.world.inventory.ChestMenu cm ? cm.getRowCount() : -1);
+        expect(f, "Melody's window rows", rows, 6);
+        closeMenu(ctx);
+        System.setProperty("killer560.bosssim.terminal", "PANES");
+        clickTerminal(ctx, 1, "T4", "Inactive Terminal");
+        until(ctx, "Panes open", mc -> menuTitle(ctx).startsWith("Correct all the panes!"), 20);
+        ctx.waitTicks(3);
+        int[] grid = {11, 12, 13, 14, 15, 20, 21, 22, 23, 24};
+        String before = ctx.computeOnClient(mc -> panes(mc, grid));
+        ctx.runOnClient(mc -> {
+            var menu = mc.player.containerMenu;
+            for (int g = 0; g < 8; g++) {
+                mc.gameMode.handleContainerInput(menu.containerId, grid[g], 0, net.minecraft.world.inventory.ContainerInput.PICKUP, mc.player);
+            }
+        });
+        ctx.waitTicks(6);
+        String after = ctx.computeOnClient(mc -> panes(mc, grid));
+        int changed = 0;
+        for (int i = 0; i < before.length(); i++) {
+            if (before.charAt(i) != after.charAt(i)) {
+                changed++;
+            }
+        }
+        println(RULES, "Panes before " + before + ", after 8 clicks in one tick " + after);
+        expect(f, "panes changed by 8 clicks in one tick (Hypixel counts 5 in 10 ticks)", changed, 5);
+        closeMenu(ctx);
+        System.clearProperty("killer560.bosssim.terminal");
+        // ---- Simon Says: timing, the start button's reset, a wrong press ----
+        tp(ctx, 108.5, 120, 93.5, -90, 0);
+        ctx.waitTicks(8);
+        useBlock(ctx, new BlockPos(110, 121, 91), Direction.EAST);
+        int pressed = phaseTick();
+        int[] firstLamp = {-1};
+        until(ctx, "the first lamp", mc -> {
+            for (int y = 120; y <= 123; y++) {
+                for (int z = 92; z <= 95; z++) {
+                    if (mc.level.getBlockState(new BlockPos(111, y, z)).is(net.minecraft.world.level.block.Blocks.SEA_LANTERN)) {
+                        firstLamp[0] = phaseTick();
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }, 30);
+        println(RULES, "Simon Says: press at t" + pressed + ", first lamp on the client at t" + firstLamp[0]);
+        expect(f, "SS shows round 1 about 4 ticks after the start press", firstLamp[0] - pressed >= 3 && firstLamp[0] - pressed <= 7, true);
+        if (!until(ctx, "SS input", mc -> (Boolean) call(DEVICES, "ssInput"), 40)) {
+            f.add("SS never took input (" + call(DEVICES, "describe") + ")");
+        }
+        useBlock(ctx, new BlockPos(110, 121, 91), Direction.EAST);
+        ctx.waitTicks(4);
+        expect(f, "the start button pressed while SS runs resets it", call(DEVICES, "ssState"), "IDLE");
+        ctx.waitTicks(8);
+        useBlock(ctx, new BlockPos(110, 121, 91), Direction.EAST);
+        if (until(ctx, "SS input again", mc -> (Boolean) call(DEVICES, "ssInput"), 60)) {
+            @SuppressWarnings("unchecked")
+            List<int[]> seq = (List<int[]>) call(DEVICES, "ssSequence");
+            int wrongY = 120, wrongZ = 92;
+            outer:
+            for (int y = 120; y <= 123; y++) {
+                for (int z = 92; z <= 95; z++) {
+                    if (seq.get(0)[1] != y || seq.get(0)[2] != z) {
+                        wrongY = y;
+                        wrongZ = z;
+                        break outer;
+                    }
+                }
+            }
+            useBlock(ctx, new BlockPos(110, wrongY, wrongZ), Direction.EAST);
+            ctx.waitTicks(4);
+            expect(f, "a wrong press stops SS", call(DEVICES, "ssState"), "BROKEN");
+            boolean strayShow = until(ctx, "the stray show", mc -> {
+                for (int y = 120; y <= 123; y++) {
+                    for (int z = 92; z <= 95; z++) {
+                        if (mc.level.getBlockState(new BlockPos(111, y, z)).is(net.minecraft.world.level.block.Blocks.SEA_LANTERN)) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }, 50);
+            expect(f, "a stray show follows a wrong press on its own", strayShow, true);
+        } else {
+            f.add("SS never took input after its restart");
+        }
+        // ---- Lights: a lamp lights from its own lever or a neighbour's ----
+        tp(ctx, 60.5, 131, 140.5, 180, -20);
+        ctx.waitTicks(8);
+        BlockPos odd = new BlockPos(59, 134, 142);
+        useBlock(ctx, odd, Direction.NORTH);
+        ctx.waitTicks(4);
+        boolean lit = ctx.computeOnClient(mc -> {
+            for (BlockPos q : new BlockPos[]{new BlockPos(59, 134, 143), new BlockPos(58, 134, 143), new BlockPos(60, 134, 143),
+                    new BlockPos(59, 133, 143), new BlockPos(59, 135, 143)}) {
+                if (!mc.level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.SEA_LANTERN)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+        expect(f, "Lights: a lever lights its lamp and its four neighbours'", lit, true);
+        // ---- Target: on the plate it lights; off it, the attempt resets ----
+        tp(ctx, 63.5, 126, 35.5, 0, -20);
+        boolean shown = until(ctx, "a lit target", mc -> call(DEVICES, "litTarget") != null, 30);
+        expect(f, "Target lights while he is on the plate", shown, true);
+        tp(ctx, 61.5, 126, 33.5, 0, -20);
+        boolean reset = until(ctx, "the target going out", mc -> call(DEVICES, "litTarget") == null, 40);
+        expect(f, "Target: off the plate, the lit one goes out", reset, true);
+        // ---- a death tick in a section not started yet ----
+        tp(ctx, 6.5, 107, 100.5, 0, 0);
+        m = LogTap.mark();
+        expect(f, "a death tick in S3 during S1", waitChat(ctx, m, "[BOSS] Goldor: What do you think you are doing there!", 80), true);
+        tp(ctx, 100.5, 107, 40.5, 0, 0);
+        ctx.waitTicks(3);
+        m = LogTap.mark();
+        ctx.waitTicks(70);
+        expect(f, "no death tick in S1 during S1 (Goldor still in it)", chatSeen(m, "What do you think you are doing there!"), false);
+    }
+
+    private static String panes(Minecraft mc, int[] grid) {
+        StringBuilder sb = new StringBuilder();
+        for (int g : grid) {
+            String id = mc.player.containerMenu.getSlot(g).getItem().getItem().toString();
+            sb.append(id.contains("lime") ? 'L' : id.contains("red") ? 'R' : '?');
+        }
+        return sb.toString();
+    }
+
     // ============================================================================================== helpers
+
+    /** Clicks the crystal nearest (x, y, z) in the client's world, as a player's right-click. */
+    private static boolean clickCrystal(ClientGameTestContext ctx, double x, double y, double z) {
+        return ctx.computeOnClient(mc -> {
+            for (net.minecraft.world.entity.boss.enderdragon.EndCrystal c : mc.level.getEntitiesOfClass(
+                    net.minecraft.world.entity.boss.enderdragon.EndCrystal.class, new AABB(x - 1.5, y - 1.5, z - 1.5, x + 1.5, y + 1.5, z + 1.5))) {
+                mc.gameMode.interact(mc.player, c, new EntityHitResult(c, c.position()), InteractionHand.MAIN_HAND);
+                return true;
+            }
+            return false;
+        });
+    }
+
+    /** Both tower crystals clicked from the towers' tops (ADM's standing spots), as Hypixel's are picked up. */
+    private static boolean pickUpCrystals(ClientGameTestContext ctx, List<String> f, String what) {
+        long m = LogTap.mark();
+        tp(ctx, 63.5, 238, 49.5, 0, 0);
+        ctx.waitTicks(3);
+        clickCrystal(ctx, 64.5, 238.375, 50.5);
+        ctx.waitTicks(3);
+        tp(ctx, 83.5, 238, 49.5, 0, 0);
+        ctx.waitTicks(3);
+        clickCrystal(ctx, 82.5, 238.375, 50.5);
+        ctx.waitTicks(3);
+        int n = count(m, "picked up an Energy Crystal!");
+        if (n < 2) {
+            f.add(what + ": clicking the crystals picked up " + n);
+            return false;
+        }
+        boolean star = ctx.computeOnClient(mc -> mc.player.getInventory().getItem(8).getHoverName().getString().contains("Energy Crystal"));
+        expect(f, what + ": the carried crystal sits in slot 8", star, true);
+        return true;
+    }
+
+    /** The pylons take crystals from P1 t 80; two placed 30 ticks apart say 1/2 then 2/2 (each counts once 28 ticks in). */
+    private static boolean placeCrystals(ClientGameTestContext ctx, List<String> f, long m, String what) {
+        until(ctx, "the pylons open (P1 t 80)", mc -> "P1".equals(String.valueOf(call(FIGHT, "phase")))
+                && (Integer) call(FIGHT, "phaseTick") > 81, 200);
+        tp(ctx, 52.5, 221, 44.5, 180, 30);
+        ctx.waitTicks(3);
+        useBlock(ctx, new BlockPos(52, 223, 42), Direction.SOUTH);
+        if (!waitChat(ctx, m, "1/2 Energy Crystals are now active!", 20)) {
+            f.add(what + ": the first crystal at a pylon never said 1/2");
+            return false;
+        }
+        ctx.waitTicks(30);
+        tp(ctx, 94.5, 221, 44.5, 180, 30);
+        ctx.waitTicks(3);
+        useBlock(ctx, new BlockPos(94, 223, 42), Direction.SOUTH);
+        if (!waitChat(ctx, m, "2/2 Energy Crystals are now active!", 20)) {
+            f.add(what + ": the second crystal, 30 ticks after the first, never said 2/2");
+            return false;
+        }
+        return true;
+    }
+
+    /** Stands south of the beam on the strip (ADM's lure spot) until Maxor flies into it and the laser stuns him. */
+    private static boolean lureMaxor(ClientGameTestContext ctx, List<String> f, long m, String what) {
+        tp(ctx, 73.5, 225, 76.5, 180, 0);
+        if (!waitChatAny(ctx, m, new String[]{"[BOSS] Maxor: YOU TRICKED ME!", "[BOSS] Maxor: THAT BEAM! IT HURTS! IT HURTS!!"}, 260)) {
+            double[] at = (double[]) ModUnderTest.staticCall(FIGHT, "bossPos", new Class<?>[]{String.class}, new Object[]{"Maxor"});
+            f.add(what + ": luring Maxor into the beam never stunned him (Maxor at "
+                    + (at == null ? "none" : String.format(Locale.ROOT, "%.1f %.1f %.1f", at[0], at[1], at[2])) + ")");
+            return false;
+        }
+        double[] at = (double[]) ModUnderTest.staticCall(FIGHT, "bossPos", new Class<?>[]{String.class}, new Object[]{"Maxor"});
+        boolean inBeam = at != null && at[1] >= 225.0 && Math.hypot(at[0] - 73.5, at[2] - 73.5) <= 3.5;
+        println("boss", what + String.format(Locale.ROOT, ": stunned with Maxor at %.2f %.2f %.2f", at[0], at[1], at[2]));
+        expect(f, what + ": Maxor in the beam when the laser hit", inBeam, true);
+        return true;
+    }
 
     private static Object ap3Node(String type, double x, double y, double z, float yaw, float pitch) {
         try {
