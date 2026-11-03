@@ -484,7 +484,7 @@ final class EffectsSearchCases {
             {"mute chest", "", "SecretTab", "SecretClickedTab"},
             {"click sounds", "!", "ClickSoundsTab"},
             {"auction house", "!", "AuctionHouseTab"},
-            {"ah", "", "AuctionHouseTab", "AhFlipperTab", "AhPriceCopierTab"},
+            {"ah", "", "AuctionHouseTab", "AhFlipperTab", "AhPriceCopierTab", "AhPriceButtonsTab"},
             {"bazaar", "!", "BazaarTab"},
             {"bz", "", "BazaarTab", "BazaarAdvisorTab", "BazaarFlipTab"},
             {"inventory theme", "!", "InventoryThemeTab"},

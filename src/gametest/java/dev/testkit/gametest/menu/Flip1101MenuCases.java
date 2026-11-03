@@ -30,7 +30,8 @@ import java.util.UUID;
  *   <li>2792 Min Profit Per Cycle: the best flip by percentage makes 1,000 a cycle and is passed over at a 5,000 minimum;
  *       the next one is bought.</li>
  *   <li>2793 Stop At Max Orders: on, a cap of one order ends the session after its cycle; off, a second round starts.</li>
- *   <li>2794 AH Price Copier: an item in Create BIN Auction copies its lowest BIN less one; after "BIN Auction started for
+ *   <li>2794 AH Price Copier (mods before ahbuttons-1103; the AH Price Buttons' 2802-2804 replace it): an item in Create
+ *       BIN Auction copies its lowest BIN less one; after "BIN Auction started for
  *       NAME!" the same item copies the price it was just listed at.</li>
  *   <li>2795 AH Flipper, Background: a new BIN at half the item's lowest is announced with a clickable [Open] running
  *       /viewauction, and that command opens the auction.</li>
@@ -290,6 +291,11 @@ final class Flip1101MenuCases {
 
     static void priceCopier(Session c) throws Exception {
         if (!newMod(c)) {
+            return;
+        }
+        if (Mod.has("ahflip.AhPriceButtons")) {
+            // mod ahbuttons-1103: the copy-on-insert became the AH Price Buttons (2802-2804 check them).
+            c.note("the AH Price Copier became the AH Price Buttons (ahbuttons-1103): 2802-2804 cover it");
             return;
         }
         MenuKit.reset(c);
