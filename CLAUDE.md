@@ -559,3 +559,7 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
   pass Windows paths (`cygpath -w`) to `Out-File` and `-ModUnderTest`: a `/c/...` path makes Out-File fail silently.
 - Termism (`termism.TermismPracticeScreen`) is a plain Screen, not a container: Hx sees none of its clicks. Its cases
   (1102-menu-termism-ss-*) read the screen's own fields (`solved`, `cachedHighlights`, `probe*`) and FakeCursor's probes.
+- The default 854x480 test window at GUI scale 1 lays the mod's own screens out at Auto Scale factor 1, so a bug that
+  mixes canvas units with GUI units cannot show there: the termism-ss cases passed on the broken first fix. Any check
+  of a mod screen's coordinates needs a scaled pass too (`AuctionHouseCases.setWindow(c, 1920, 1080, 2)` + Auto Scale on
+  = factor 1.125), asserting the factor really is not 1 (termismss-1102, `TermismStreamSafeCases.scaledPass`).
