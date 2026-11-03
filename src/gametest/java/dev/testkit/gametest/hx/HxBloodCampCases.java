@@ -2718,7 +2718,10 @@ final class HxBloodCampCases {
             }
             long min = lags.stream().mapToLong(Long::longValue).min().orElse(-1);
             long max = lags.stream().mapToLong(Long::longValue).max().orElse(-1);
-            c.check(max - min <= 1, "Never Miss: the attack moved with Trigger Offset -5/0/+5: " + lags);
+            // The server lag is read with a separate server.tick call after the summon, so it lands 0-2 ticks on either side
+            // (0, 1, 2 all seen at one offset); the offset would move it by 5. The tick-exact measure is the mod's own: the
+            // click on the mob's tag tick, checked above for every offset.
+            c.check(max - min <= 2, "Never Miss: the attack moved with Trigger Offset -5/0/+5: " + lags);
             // Control: Never Miss OFF, the offset still moves the first click. Judged on the click's own countdown
             // reading: the kill timer itself (ping in ticks) can read a tick apart between two trips (-0.2 / -1.2 seen on
             // 2026-11-02), which is not the offset.
