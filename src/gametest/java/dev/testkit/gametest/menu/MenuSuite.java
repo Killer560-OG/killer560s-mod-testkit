@@ -256,6 +256,8 @@ public class MenuSuite implements FabricClientGameTest {
                     CroesusRerollCases.register(s);
                     // ---- 1103-menu-* commissions-1103: Completed Commissions and Highlight Selected Loadout slots ----
                     Commissions1103MenuCases.register(s);
+                    // ---- 1103-menu-armorhud-*, 1103-menu-wrongarmor armorhud-1103: Armor HUD, Wrong Armor Alert ----
+                    ArmorHud1103Cases.register(s);
                 });
     }
 }
