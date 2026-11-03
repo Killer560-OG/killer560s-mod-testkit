@@ -15,7 +15,8 @@
 		"MixinOutboundPackets",
 		"MixinPacketEncoder",
 		"MixinServerGamePacketListenerUse",
-		"MixinServerPlayerTeleport"
+		"MixinServerPlayerTeleport",
+		"MixinSoundEngineProbe"
 	],
 	"injectors": {
 		"defaultRequire": 1
