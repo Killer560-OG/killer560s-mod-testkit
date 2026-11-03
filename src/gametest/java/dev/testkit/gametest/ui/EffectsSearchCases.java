@@ -582,7 +582,8 @@ final class EffectsSearchCases {
                 table.add((ok ? "PASS  " : "FAIL  ") + "'" + q[0] + "' -> " + String.join("/", want) + " at "
                         + (f.index() < 0 ? "none" : "#" + (f.index() + 1)) + (exact ? " (exact: top 3)" : "") + "; "
                         + f.line());
-                c.check(ok, "search '" + q[0] + "' does not list " + String.join(" or ", want)
+                // problem, not check: every query runs, so the report lists them all (the before/after table).
+                if (!ok) c.problem("search '" + q[0] + "' does not list " + String.join(" or ", want)
                         + (exact ? " in its first three results" : "") + " (" + (f.index() < 0 ? "absent" : "#" + (f.index() + 1)) + ")");
             }
             // Timing: type a few queries one character at a time, as the box does; the first key reads every tab.
