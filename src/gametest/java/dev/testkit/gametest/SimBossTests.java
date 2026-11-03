@@ -206,6 +206,16 @@ public class SimBossTests implements FabricClientGameTest {
         }
         ctx.waitTicks(5);
         expect(f, "Floor7Tracker phase in P2", phase(ctx), "P2");
+        // Owner 2026-11-03: the crystal counter showed 0/2 for the rest of the run after Maxor. Not vacuous: the run
+        // must have read a crystal line (total > 0), and the HUD must not show it now.
+        String crys = counter(ctx);
+        boolean shown = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(MAXOR, "counterShown"));
+        println(P1P2, "crystal counter in P2: " + crys + ", shown " + shown);
+        if (!crys.endsWith("/0")) {
+            expect(f, "crystal counter shown in P2", shown, false);
+        } else {
+            f.add("no crystal line was read in P1 (counter " + crys + "), so the P2 check would prove nothing");
+        }
         // Two crushes: Storm under Purple, then Yellow, and a real stand on that pillar's pad each time.
         String[][] pads = {{"Purple", "114.5", "94.5"}, {"Yellow", "32.5", "94.5"}};
         for (int i = 0; i < 2; i++) {
