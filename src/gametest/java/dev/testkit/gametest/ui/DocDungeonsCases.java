@@ -146,8 +146,7 @@ final class DocDungeonsCases {
 
     static void leapSettings(UiCase c) throws Exception {
         if (!Mod.isCheat()) {
-            List<Object> ws = new ArrayList<>();
-            c.onClient(mc -> Mod.staticCall(FLS, "buildLeapList", ws, 0, 0, 400, (Runnable) () -> { }));
+            List<AbstractWidget> ws = buildLeapList(c);
             c.check(ws.isEmpty(), "legit jar: the leap list built " + ws.size() + " widget(s)");
             c.note("legit jar: Fast/Auto Leap is cheat-only, its leap list builds nothing");
             return;
@@ -241,7 +240,7 @@ final class DocDungeonsCases {
             long modes = labels.stream().filter(l -> l.startsWith("Mode: ")).count();
             long fasts = labels.stream().filter(l -> l.startsWith("Fast: ")).count();
             long autos = labels.stream().filter(l -> l.startsWith("Auto: ")).count();
-            long targets = labels.stream().filter(l -> l.startsWith("Target: ")).count();
+            long targets = labels.stream().filter(l -> pages() ? l.matches(LEAP_TARGET) : l.startsWith("Target: ")).count();
             long sections = labels.stream().filter(l -> l.matches("S[1-4]: .*")).count();
             c.check(labels.stream().noneMatch(l -> l.equals("Edit") || l.startsWith("Edit")), "an Edit button is still there");
             c.check(labels.stream().noneMatch(l -> l.toLowerCase(Locale.ROOT).contains("test")), "a Test leap row is still there");
@@ -255,10 +254,10 @@ final class DocDungeonsCases {
             int at = labels.indexOf("Crystal Leap");
             AbstractWidget fast = ws.get(at + 1);
             AbstractWidget auto = ws.get(at + 2);
-            AbstractWidget target = ws.get(at + 3);
+            AbstractWidget target = pages() ? ws.get(labels.indexOf(tp() + "Healer")) : ws.get(at + 3);
             c.check(labels.get(at + 1).equals("Fast: ON") && labels.get(at + 2).equals("Auto: OFF"),
                     "Crystal's toggles read " + labels.get(at + 1) + " / " + labels.get(at + 2));
-            c.check(labels.get(at + 3).equals("Target: Healer"), "Crystal's Target reads " + labels.get(at + 3));
+            c.check(label(target).equals(tp() + "Healer"), "Crystal's Target reads " + label(target));
             // the two toggles are independent: Auto on keeps Fast on (both), then Fast off leaves Auto on alone
             List<String> states = new ArrayList<>();
             for (AbstractWidget press : List.of(auto, fast, auto, fast)) {
@@ -316,11 +315,11 @@ final class DocDungeonsCases {
                         (String) Mod.call(cfg, "getTargetName", tP1)};
             });
             c.note("Target presses: " + walk + "; saved by class " + pick[0] + " class " + pick[1] + " name " + pick[2]);
-            c.check(walk.get(0).equals("Target: Archer (LeapMate)"), "after Healer the Target reads \"" + walk.get(0)
+            c.check(walk.get(0).equals(tp() + "Archer (LeapMate)"), "after Healer the Target reads \"" + walk.get(0)
                     + "\", want Archer with LeapMate (his Leap Order class pick)");
-            c.check(walk.get(1).equals("Target: Berserker"), "then \"" + walk.get(1) + "\", want Berserker");
-            c.check(walk.get(2).equals("Target: LeapMate (Archer)"), "then \"" + walk.get(2) + "\", want the party member LeapMate");
-            c.check(walk.get(3).equals("Target: None") && walk.get(4).equals("Target: Mage"), "then " + walk.subList(3, 5)
+            c.check(walk.get(1).equals(tp() + "Berserker"), "then \"" + walk.get(1) + "\", want Berserker");
+            c.check(walk.get(2).equals(tp() + "LeapMate (Archer)"), "then \"" + walk.get(2) + "\", want the party member LeapMate");
+            c.check(walk.get(3).equals(tp() + "None") && walk.get(4).equals(tp() + "Mage"), "then " + walk.subList(3, 5)
                     + ", want None then Mage (wrapping)");
             c.check("true".equals(pick[0]) && "MAGE".equals(pick[1]), "the Target presses did not save Mage as a class pick");
             // saved and read back
@@ -361,11 +360,31 @@ final class DocDungeonsCases {
         }
     }
 
+    /** Since mod leapmenu-1102 the Fast/Auto switches are on the front page and the targets on the Universal Targets page
+     *  ("Crystal: Healer" where the row was "Target: Healer"); the list here is both, in that order. */
     private static List<AbstractWidget> buildLeapList(UiCase c) {
         List<AbstractWidget> ws = new ArrayList<>();
-        c.onClient(mc -> Mod.staticCall(FLS, "buildLeapList", ws, 0, 0, 400, (Runnable) () -> { }));
+        if (pages()) {
+            c.onClient(mc -> {
+                int y = (Integer) Mod.staticCall(FLS, "buildLeapSwitches", ws, 0, 0, 400);
+                return Mod.staticCall(FLS, "buildUniversalTargets", ws, 0, y, 400, false);
+            });
+        } else {
+            c.onClient(mc -> Mod.staticCall(FLS, "buildLeapList", ws, 0, 0, 400, (Runnable) () -> { }));
+        }
         return ws;
     }
+
+    private static boolean pages() {
+        return Mod.has(FLS + "$Page");
+    }
+
+    /** Crystal's target row's label up to its value. */
+    private static String tp() {
+        return pages() ? "Crystal: " : "Target: ";
+    }
+
+    private static final String LEAP_TARGET = "(Crystal|Predev|Green Pad|Yellow Pad|Purple Pad|PY Healer|Storm Death|Middle|P4|Relic): .*";
 
     static List<String> labels(List<AbstractWidget> ws) {
         List<String> out = new ArrayList<>();

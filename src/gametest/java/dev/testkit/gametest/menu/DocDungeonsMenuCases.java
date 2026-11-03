@@ -302,6 +302,9 @@ final class DocDungeonsMenuCases {
             Mod.call(cfgObj, "setTargetPickClass", tP1, tank);
             Mod.call(cfgObj, "setClassTargetName", tP1, mage, "Alice");
             Mod.call(cfgObj, "setClassTargetClass", tP1, healer, archer);
+            if (pages()) {
+                Mod.call(cfgObj, "setUseClassTargets", true); // mod leapmenu-1102: Targets: Set Class
+            }
             Mod.call(cfgObj, "save");
         });
         // the per-class targets are in the saved file (983's last step reads them back with load)
@@ -318,8 +321,16 @@ final class DocDungeonsMenuCases {
                 {"Mage", "MAGE", "11", "name Alice", "true"},
                 {"Healer", "HEALER", "15", "class ARCHER", "true"},
                 {"Archer", "ARCHER", "13", "class TANK", "false"},
+                // mod leapmenu-1102, Targets: Universal - the Mage pick is set but not used
+                {"Mage", "MAGE", "13", "class TANK", "false", "universal"},
         };
         for (String[] r : runs) {
+            if (r.length > 5) {
+                if (!pages()) {
+                    continue;
+                }
+                c.ctx().runOnClient(mc -> Mod.call(cfgObj, "setUseClassTargets", false));
+            }
             c.hx().tab(List.of("§r[42] §r§aAlice §r§f(§r§dMage L§r§f)", "§r[40] §r§aBob §r§f(§r§dHealer XL§r§f)",
                     "§r[39] §r§aCarol §r§f(§r§dArcher XX§r§f)", "§r[45] §r§a" + self + " §r§f(§r§d" + r[0] + " XL§r§f)"), null, null);
             c.waitUntil("PartyTracker to read him as " + r[0], mc -> {
@@ -335,34 +346,49 @@ final class DocDungeonsMenuCases {
                     + ", per-class target used " + used);
             c.check(slot == Integer.parseInt(r[2]) && r[3].equals(sent) && r[1].equals(seen)
                             && used == Boolean.parseBoolean(r[4]),
-                    "as " + r[0] + " the leap clicked slot " + slot + " (" + sent + ", class seen " + seen + ", per-class "
-                            + used + "); want slot " + r[2] + " (" + r[3] + ", per-class " + r[4] + ")");
+                    "as " + r[0] + (r.length > 5 ? " (Targets: Universal)" : "") + " the leap clicked slot " + slot + " ("
+                            + sent + ", class seen " + seen + ", per-class " + used + "); want slot " + r[2] + " (" + r[3]
+                            + ", per-class " + r[4] + ")");
+            if (r.length > 5) {
+                c.ctx().runOnClient(mc -> Mod.call(cfgObj, "setUseClassTargets", true));
+            }
         }
 
         // ---- the menu: Class Targets set to Healer shows "As Healer" under the Crystal leap's Target, and a left click
         //      on it steps Archer -> Berserker (classes in DungeonClass order, then party names) ----
+        // mod leapmenu-1102: the Set Class Targets page with When You Play on Healer shows "Crystal: Archer ..."
+        String prefix = pages() ? "Crystal: " : "As Healer: ";
         String shown = c.onClient(mc -> {
             Mod.setField("fastleap.FastLeapSection", "editingClass", healer);
             List<Object> widgets = new ArrayList<>();
-            Mod.staticCall("fastleap.FastLeapSection", "buildLeapList", widgets, 0, 0, 400, (Runnable) () -> { });
-            Mod.setField("fastleap.FastLeapSection", "editingClass", null);
+            if (pages()) {
+                Mod.staticCall("fastleap.FastLeapSection", "buildClassTargets", widgets, 0, 0, 400, (Runnable) () -> { });
+            } else {
+                Mod.staticCall("fastleap.FastLeapSection", "buildLeapList", widgets, 0, 0, 400, (Runnable) () -> { });
+                Mod.setField("fastleap.FastLeapSection", "editingClass", null);
+            }
             String found = "";
             for (Object w : widgets) {
                 String text = net.minecraft.ChatFormatting.stripFormatting(
                         ((net.minecraft.client.gui.components.AbstractWidget) w).getMessage().getString());
-                if (text != null && text.startsWith("As Healer: ")) {
+                if (text != null && (text.startsWith(prefix) || text.startsWith("When You Play: "))) {
                     found += text + " | ";
                 }
             }
             return found;
         });
         c.note("Class Targets on Healer shows: " + shown);
-        c.check(shown.startsWith("As Healer: Archer"), "the Crystal leap's first As Healer button reads \"" + shown
-                + "\", want \"As Healer: Archer ...\"");
+        c.check(pages() ? shown.startsWith("When You Play: Healer | Crystal: Archer") : shown.startsWith("As Healer: Archer"),
+                "the Crystal leap's Healer target reads \"" + shown + "\", want \"" + prefix + "Archer ...\"");
         c.ctx().runOnClient(mc -> Mod.staticCall("fastleap.FastLeapSection", "stepClassTarget", tP1, healer, cfgObj, 1));
         String stepped = c.onClient(mc -> String.valueOf(Mod.call(cfgObj, "getClassTarget", tP1, healer)));
         c.check(stepped.contains("clazz=BERSERKER"), "a left click on As Healer: Archer gave " + stepped + ", want Berserker");
         c.ctx().runOnClient(mc -> Mod.call(cfgObj, "setClassTargetClass", tP1, healer, archer));
+    }
+
+    /** Mod leapmenu-1102 has the Fast/Auto Leap pages and the Targets (Universal / Set Class) setting. */
+    private static boolean pages() {
+        return Mod.has("fastleap.FastLeapSection$Page");
     }
 
     /** A Spirit Leap in hotbar slot 0, held (the test server spends the item on each use). */
