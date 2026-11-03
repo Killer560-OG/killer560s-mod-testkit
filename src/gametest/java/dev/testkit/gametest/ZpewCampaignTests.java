@@ -70,6 +70,11 @@ public class ZpewCampaignTests implements FabricClientGameTest {
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
+        if (Mod.has("BuildVariant") && !Mod.isCheat()) {
+            // Zero Ping Etherwarp is cheat-only again since mod menufix-1102 (killer560, 2026-11-02); a legit jar has none.
+            Scenario.skipped("1027-zpewc", "Zero Ping Etherwarp is cheat-only (mod menufix-1102)");
+            return;
+        }
         AssertionError first = null;
         List<Consumer<ClientGameTestContext>> cases = new ArrayList<>();
         for (int lat : LATENCIES) {

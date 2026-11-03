@@ -1480,3 +1480,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   `BloodCampStats.watcherBarForTest`) rather than after a fixed wait (a fixed 8 ticks read "7" at 6/16 once). A player-model
   NPC is added client-side as a `RemotePlayer` with a version-2 UUID and killed with the real packet,
   `mc.getConnection().handleEntityEvent(new ClientboundEntityEventPacket(e, (byte) 3))`; vanilla leaves it `isAlive()`.
+- **62-argrim-1102-iwclose** (iwcause-1102): Inventory Walk's held container close flushed by a route etherwarp's use
+  with the sneak down (MultiActionsD). Deterministic only with all three: the route held on its use with the sneak down
+  (`PlayerStatsFeature.manaShort`), the chest window hidden on arrival with no close packet and the client's menu set back to
+  the inventory (the route waits under an open menu), and the close sent at an early END_CLIENT_TICK phase (after that
+  tick's sneaking input, before Auto Routes acts). A close at START is useless: Inventory Walk makes that tick's input its
+  still tick and the close goes clean. A screen set back with setScreen releases the route's keys. `-PiwRepeat=N` repeats.
