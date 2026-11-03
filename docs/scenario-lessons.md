@@ -1530,3 +1530,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   for a 16-unit cell: the box sits right under the icon and a full block hides all of it. The Storage Overlay's open
   page title is that same orange, so the pages grid is checked by the on/off difference. A two-digit count scales with
   the fitted item and reaches past the cell's middle (still in its lower half).
+
+- 1102-menu-leaporder-* (leaporder-1102): a Leap Order case that runs two "runs" in ONE dungeon proves less than it
+  looks. `PartyTracker` keeps every tab-list class until the dungeon is left, so the departed teammate still had his class
+  at the second run start and 829-834/2345-2347 never saw the bug the owner hit (a real requeue goes through the Hub,
+  which drops them). `LeapPartyChangeCases.requeue` leaves the dungeon and waits for `detectedClassOf` to go null
+  between runs; do the same in any new run-to-run case.
