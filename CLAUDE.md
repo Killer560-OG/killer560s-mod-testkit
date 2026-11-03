@@ -141,6 +141,11 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 
 ## Quirks and lessons
 
+- A server `fill`/`setblock` in chunks no player has loaded does nothing (2026-11-03, 1103-mining-route arena: the first
+  case's floor never appeared), and teleporting there first so he falls onto a floor placed under him drew 7 GrimAC
+  `Simulation` flags. `forceload add` the area before building it, and in a Session case put him back where he stood
+  before removing a floor, or the next case starts falling (two Commission Mobs cases failed that way).
+
 - A client session that passes about 9.5 minutes OFTEN draws a steady experimental GrimAC `NegativeTimer* -1.3 s`
   (20 lines a second while the scenario runs), in whatever scenario is going at that point. 2026-11-02: all six fairy
   island sessions did, 9.5 to 10.1 minutes from the first join; one 29-minute fairy suite did too, at 9.6 minutes in
@@ -586,6 +591,13 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
   drawn inactive for the account (Spotify Share My Song, a supporter perk) cannot be pressed and is skipped. RibbonTrailTab
   is a section inside Cosmetics, not a card. A menu StringWidget built from `Component.literal("§7...")` keeps the
   section codes in `getString()`: strip with `ChatFormatting.stripFormatting` before comparing text (526, 2026-11-02).
+- With the mod's Auto Scale on (the default) the menu is laid out on an 854-wide canvas whatever the window size, so a
+  1920x1080 GUI 2 window still gives the narrowest drawer (362). For the wide drawer turn Auto Scale off as well
+  (`HudConfig.setAutoScale(false)`; 1920x1080 GUI 2 is then 960 wide, drawer 406) and restore it (1102-ui-leapmenu-shots).
+- A UI run can pass every case and then hang closing its singleplayer world: Render thread in `IntegratedServer.halt` ->
+  `executeBlocking` (from the gametest's deferDisconnect), Server thread parked in the gametest `ThreadingImpl.enterPhase`
+  Phaser; the run log only says "Test client has stopped responding - watching it" and no summary.md is written (leapmenu-1102,
+  26.2, 15 of 15 PASS lines in the client log at 20:00, still hung at 20:21). It happened on 2 of 3 runs of that filter on 26.2 (none of 3 on 26.3); the run after a killed one in the same checkout then FROZE at startup twice, and a fresh rerun passed. jstack it, kill only the client PID; the PASS lines and build/testkit-report/cases/*.log are the evidence.
 
 - `run-scenario.ps1 ... *>&1 | Out-File log` holds only the script's own lines: gradle and the client are started with
   `Start-Process -NoNewWindow`, so their output (and a gametest COMPILE ERROR) goes to the calling console, not the log; a
