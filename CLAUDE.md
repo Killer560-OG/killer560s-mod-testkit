@@ -572,6 +572,12 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
   2026-11-02 killed a ZPEW half mid-run). One queue per checkout; make another detached worktree for a rerun.
 - 529-ui-sidebar-scroll-spy maps menu coordinates to screenshot pixels by screenshot width / the screen's own width: the
   menu is laid out at its own Auto Scale, so Window.getGuiScale() (2) put the probe on the background (menufix2-1102).
+
+- `effect give @a <effect> <s> <amp> true` (hideParticles) also hides that effect's HUD icon: MobEffectInstance takes showIcon
+  from visible, so 1102-ui-hide-effects-hud's first runs drew no icons with the hide switch OFF. Give HUD-icon effects with
+  `false`. Night Vision brightens the whole world, so a frame with it never matches a frame without (31,000 "changed" px).
+  The menu search cases (1102-ui-search-queries) take their queries from EffectsSearchCases.QUERIES: add a real query there
+  whenever he reports one that found nothing.
 - 525-ui-menu-every-master (mod menufix-1102) switches every row a card stands for ON alone and needs the card ON. A row
   drawn inactive for the account (Spotify Share My Song, a supporter perk) cannot be pressed and is skipped. RibbonTrailTab
   is a section inside Cosmetics, not a card. A menu StringWidget built from `Component.literal("§7...")` keeps the

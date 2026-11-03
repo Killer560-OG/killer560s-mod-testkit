@@ -70,6 +70,8 @@ final class MenuLayoutCases {
     private static final Set<String> NESTED_OK = Set.of("Secrets", "Puzzle Solvers");
     /** Sections added by this change (cheat build): Home's Correction Alarm, out of the middle of Mod & HUD. */
     private static final Set<String> NEW_LEAVES = Set.of("gui.tab.CorrectionAlarmTab",
+            // Hide Potion Effects (mod effects-search-1102, killer560 2026-11-02): its own Items card again, legit in both builds.
+            "gui.tab.HidePotionEffectsTab",
             // Thorn Triggerbot (mod doc-auto-1101, killer560 2026-11-01): its own card in Dungeons' cheat block; cheat jar only.
             // Folded into the Thorn tab's cheat section by mod menufix2-1102, 2026-11-02: no longer a card.
             "gui.tab.ThornTriggerbotTab",
