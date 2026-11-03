@@ -735,7 +735,8 @@ final class EffectsSearchCases {
             "Account Switcher", "main menu, Swap Accounts page",
             "Favorites", "a sidebar page of the menu itself",
             "Menu Memory", "the menu reopening where it was",
-            "Reboot", "the /reboot command");
+            "Reboot", "the /reboot command",
+            "Online Count", "always on with no setting; /online is a Discord command");
 
     private static final java.util.regex.Pattern README_LINE = java.util.regex.Pattern.compile("^\\*\\*([^*]{1,60})\\*\\* - (.+)$");
 
