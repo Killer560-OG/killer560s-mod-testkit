@@ -1517,3 +1517,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   `BloodCampStats.watcherBarForTest`) rather than after a fixed wait (a fixed 8 ticks read "7" at 6/16 once). A player-model
   NPC is added client-side as a `RemotePlayer` with a version-2 UUID and killed with the real packet,
   `mc.getConnection().handleEntityEvent(new ClientboundEntityEventPacket(e, (byte) 3))`; vanilla leaves it `isAlive()`.
+
+- **98-prince-box** (2026-11-02): builds Red Blue, Pirate and Chambers in the sim, requires the Secret Waypoints prince box
+  to take in every touching slab lid (6+ slabs), and photographs it from four diagonals, plain and with a still zombie in
+  front, F1 on and FOV effects off: 90% of 9 points on each of the 12 edges and of a 5x5 grid on each face. A spot outside
+  the room (waypoints only draw the room you stand in) or with a block within 0.35 of the body (the in-wall overlay) is
+  skipped. Main 0cb3d82a1 fails the lid check (Red Blue 9, Chambers 14 slabs outside); mod 90a1f145e passes.
