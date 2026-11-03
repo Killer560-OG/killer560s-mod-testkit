@@ -215,6 +215,8 @@ public class MenuSuite implements FabricClientGameTest {
                     Flip1101MenuCases.register(s);
                     // ---- 2798-2800 ahrelist-1101: AH Flipper's Auto Relist cycle, its stop, /ahmenudump ----
                     Relist1102MenuCases.register(s);
+                    // ---- 2802-2804 ahbuttons-1103: AH Price Buttons (normal menu, reskin, switch) ----
+                    AhPriceButtonsCases.register(s);
                     // ---- 768-769 bz-reskin (2026-10-11): reskin during the flipper, one Bazaar/AH switch ----
                     ReskinSwitchCases.register(s);
                     // ---- 773-776 croesus-price (2026-10-11): M4 chest valuation, Croesus Price Mode ----

@@ -138,7 +138,9 @@ final class MenuLayoutCases {
             "gui.tab.CreationCooldownTab", "gui.tab.InstaClearWarningTab", "gui.tab.GyroOverlayTab", "gui.tab.ChatTabsTab",
             // AH Flipper and AH Price Copier (mod doc-flip-1101, to-do Doc 2026-11-01), Items, legit cards (the flipper's
             // Main macro rows are cheat-only).
-            "gui.tab.AhFlipperTab", "gui.tab.AhPriceCopierTab");
+            "gui.tab.AhFlipperTab", "gui.tab.AhPriceCopierTab",
+            // AH Price Copier became AH Price Buttons (mod ahbuttons-1103, killer560 2026-11-03), same place in Items.
+            "gui.tab.AhPriceButtonsTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.
