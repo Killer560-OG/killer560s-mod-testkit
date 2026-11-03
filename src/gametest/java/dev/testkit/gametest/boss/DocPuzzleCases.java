@@ -30,6 +30,10 @@ import java.util.Set;
  *   <li>1101-pz-beams: four real lantern pairs get four different palette colors at least 0.5 apart (RGB distance); All
  *   draws 4, One At A Time 1, Next 2; finishing the shown pair moves One At A Time on and leaves the others' colors.</li>
  *   <li>1101-pz-icefill: Etherwarp Protection on real sneaking right clicks with an ethermerged shovel over ice tiles.</li>
+ *   <li>1102-pz-icefill-flick (mod icefill-1102): a right click made in the same tick the camera turns is judged on the
+ *   look the server last HEARD (Hypixel warps along it): heard on the diagonal tile, aimed at the next one -> dropped
+ *   (main sent it; his run landed diagonal, "Don't move diagonally! Bad!"); the next tick it goes; heard on the next
+ *   tile, aimed at the diagonal -> sent.</li>
  *   <li>1101-pz-tpmaze: the pads the renderer draws under Current Cell Only / Best Pad Only, and the tracer color saved.</li>
  *   <li>1101-ss-skip-relight / 1101-ss-skip-second / 1101-ss-override-rescan: the three Simon Says manual-solve fixes.</li>
  * </ul>
@@ -57,6 +61,7 @@ final class DocPuzzleCases {
         s.test("1101-pz-ttt", DocPuzzleCases::ticTacToe);
         s.test("1101-pz-beams", DocPuzzleCases::beams);
         s.test("1101-pz-icefill", DocPuzzleCases::iceFill);
+        s.test("1102-pz-icefill-flick", DocPuzzleCases::iceFillFlick);
         s.test("1101-pz-tpmaze", DocPuzzleCases::teleportMaze);
         s.test("1101-ss-skip-relight", DocPuzzleCases::ssRelight);
         s.test("1101-ss-skip-second", DocPuzzleCases::ssSecond);
@@ -592,6 +597,133 @@ final class DocPuzzleCases {
             c.server().command("clear @p minecraft:diamond_shovel");
             c.hx().sidebarClear();
         }
+    }
+
+    /**
+     * 1102-pz-icefill-flick. His run 2026-11-02 17:06:08: standing on packed ice he turned onto the next tile and clicked in
+     * the same tick; the protection judged the crosshair (the next tile) and let it go, Hypixel warped along the look its
+     * last movement packet carried, onto the diagonal tile. Here: packed ice under him, the path straight along +x, a
+     * diagonal ice tile at +x +z.
+     */
+    static void iceFillFlick(Session c) throws Exception {
+        List<AutoCloseable> undo = new ArrayList<>();
+        int y = 150;
+        int z = -620;
+        int[] xs = {-620, -619, -618, -617, -616};
+        BlockPos diag = new BlockPos(-619, y, z + 1);
+        try {
+            for (int x : xs) {
+                c.server().command("setblock " + x + " " + y + " " + z + " minecraft:ice");
+            }
+            c.server().command("setblock " + diag.getX() + " " + y + " " + diag.getZ() + " minecraft:ice");
+            c.server().command("setblock -620 " + y + " " + z + " minecraft:packed_ice");
+            c.server().command("give @p minecraft:diamond_shovel[minecraft:custom_data={ethermerge:1}]");
+            c.hx().call("dungeon.tp", "x", -619.5, "y", 151.0, "z", -619.5, "yaw", -90f, "pitch", 30f);
+            c.waitUntil("the tiles on the client", mc -> mc.level.getBlockState(diag).is(Blocks.ICE)
+                    && mc.level.getBlockState(new BlockPos(-620, y, z)).is(Blocks.PACKED_ICE), 100);
+            inDungeon(c);
+            c.ctx().runOnClient(mc -> {
+                for (int i = 0; i < 9; i++) {
+                    if (mc.player.getInventory().getItem(i).is(net.minecraft.world.item.Items.DIAMOND_SHOVEL)) {
+                        mc.player.getInventory().setSelectedSlot(i);
+                    }
+                }
+            });
+            c.waitUntil("the shovel in hand", mc -> mc.player.getMainHandItem().is(net.minecraft.world.item.Items.DIAMOND_SHOVEL), 40);
+            undo.add(c.onClient(mc -> Mod.with(ICE_CFG, "Enabled", true)));
+            undo.add(c.onClient(mc -> Mod.with(ICE_CFG, "EtherwarpProtection", true)));
+            c.ctx().runOnClient(mc -> {
+                @SuppressWarnings("unchecked")
+                List<Vec3> path = (List<Vec3>) Mod.field(ICE, "currentPath");
+                path.clear();
+                path.add(new Vec3(-619.5, 151.1, -619.5));
+                path.add(new Vec3(-615.5, 151.1, -619.5));
+            });
+            ClickGuardCases.sneak(c, true);
+            BlockPos next = new BlockPos(-619, y, z);
+
+            Object[] flick = flickWarp(c, diag, next);
+            Object[] after = warp(c, next);
+            Object[] reverse = flickWarp(c, next, diag);
+            ClickGuardCases.sneak(c, false);
+            String report = "heard on the diagonal, aimed at the next tile, same tick: " + str(flick) + " heard " + flick[3]
+                    + "; next tick: " + str(after) + "; heard on the next tile, aimed at the diagonal: " + str(reverse)
+                    + " heard " + reverse[3];
+            c.note(report);
+            System.out.println("[1102-pz-icefill-flick] " + report);
+            c.check((Boolean) flick[4], "the setup failed: the server had not heard the diagonal look before the flick");
+            c.check((Boolean) reverse[4], "the setup failed: the server had not heard the next tile's look before the flick");
+            c.check((Integer) flick[0] == 0 && (Integer) flick[2] == 1,
+                    "a click the server would warp diagonally on (its heard look) was sent because the crosshair was on the next tile");
+            c.check((Integer) after[0] >= 1 && (Integer) after[2] == 0, "the click a tick later, look heard, was dropped");
+            c.check((Integer) reverse[0] >= 1 && (Integer) reverse[2] == 0,
+                    "a click the server warps onto the next tile with (its heard look) was dropped");
+        } finally {
+            ClickGuardCases.sneak(c, false);
+            c.ctx().runOnClient(mc -> {
+                @SuppressWarnings("unchecked")
+                List<Vec3> path = (List<Vec3>) Mod.field(ICE, "currentPath");
+                path.clear();
+                Mod.setField(ICE, "inIceFill", false);
+            });
+            restore(c, undo);
+            for (int x : xs) {
+                c.server().command("setblock " + x + " " + y + " " + z + " minecraft:stone");
+            }
+            c.server().command("setblock " + diag.getX() + " " + y + " " + diag.getZ() + " minecraft:stone");
+            c.server().command("clear @p minecraft:diamond_shovel");
+            c.hx().sidebarClear();
+        }
+    }
+
+    private static float[] lookAt(Minecraft mc, BlockPos tile) {
+        Vec3 d = Vec3.atCenterOf(tile).add(0, 0.5, 0).subtract(mc.player.getEyePosition());
+        float want = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+        float now = mc.player.getYRot();
+        return new float[]{now + net.minecraft.util.Mth.wrapDegrees(want - now),
+                (float) -Math.toDegrees(Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)))};
+    }
+
+    /**
+     * Aim at {@code heardTile} and let three ticks report it, then in ONE client task (no movement packet between) turn
+     * onto {@code aimTile} and right click the way the use key does. Returns {packets sent, verdict, warps blocked, the
+     * heard look, whether the heard look was the heardTile aim}.
+     */
+    private static Object[] flickWarp(Session c, BlockPos heardTile, BlockPos aimTile) throws Exception {
+        float[] heardAim = c.onClient(mc -> {
+            float[] a = lookAt(mc, heardTile);
+            mc.player.setYRot(a[0]);
+            mc.player.setXRot(a[1]);
+            return a;
+        });
+        c.ctx().waitTicks(3);
+        Object[] r = c.onClient(mc -> {
+            float[] heard = (float[]) Mod.staticCall("util.RightClick", "heardLook");
+            boolean heardOk = heard != null && Math.abs(heard[0] - heardAim[0]) < 0.01f && Math.abs(heard[1] - heardAim[1]) < 0.01f;
+            int blocked0 = (Integer) Mod.staticCall(ICE, "blockedWarps");
+            float[] a = lookAt(mc, aimTile);
+            mc.player.setYRot(a[0]);
+            mc.player.setXRot(a[1]);
+            PacketTrace.start();
+            Mod.setField(ICE, "inIceFill", true);
+            try {
+                Method m = Minecraft.class.getDeclaredMethod("startUseItem");
+                m.setAccessible(true);
+                m.invoke(mc);
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+            String heardText = heard == null ? "none" : String.format(Locale.ROOT, "%.2f/%.2f (aim %.2f/%.2f)",
+                    heard[0], heard[1], heardAim[0], heardAim[1]);
+            return new Object[]{blocked0, heardText, heardOk};
+        });
+        c.ctx().waitTicks(3);
+        return c.onClient(mc -> {
+            PacketTrace.stop();
+            int sent = PacketTrace.sent("use_item") + PacketTrace.sent("use_item_on");
+            int blocked = (Integer) Mod.staticCall(ICE, "blockedWarps") - (Integer) r[0];
+            return new Object[]{sent, Mod.staticCall(ICE, "lastVerdict"), blocked, r[1], r[2]};
+        });
     }
 
     private static String str(Object[] r) {
