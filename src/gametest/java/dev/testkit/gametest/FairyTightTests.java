@@ -105,10 +105,25 @@ public class FairyTightTests implements FabricClientGameTest {
         FairySoulTests.warpWhenStuck = false;
         FairySoulTests.autoMode = "WALK";
         try {
-            return FairySoulTests.runSouls(ctx, scenario, g, maxTicks, null);
+            return FairySoulTests.runSouls(ctx, scenario, g, maxTicks, Boolean.getBoolean("testkit.fairy.trace")
+                    ? tick -> scenario.log(ctx.computeOnClient(mc -> {
+                        String k = "com.killer560.hub.pathfinding.AutoWalker";
+                        var v = mc.player.getDeltaMovement();
+                        return String.format(Locale.US, "tr%d %.2f %.2f %.2f v %.2f %.2f %.2f g%s %s%s%s%s%s%s%s ri=%s ap=%s st=%s",
+                                tick, mc.player.getX(), mc.player.getY(), mc.player.getZ(), v.x, v.y, v.z,
+                                mc.player.onGround() ? 1 : 0, b(Mod.field(k, "wantForward"), "W"), b(Mod.field(k, "wantBack"), "S"),
+                                b(Mod.field(k, "wantLeft"), "A"), b(Mod.field(k, "wantRight"), "D"), b(Mod.field(k, "wantJump"), "J"),
+                                b(Mod.field(k, "wantSneak"), "C"), b(Mod.field(k, "wantSprint"), "R"), Mod.field(k, "rescueIndex"),
+                                Mod.field(k, "approaching"), Mod.field("com.killer560.hub.pathfinding.AutoSoulRunner", "state"));
+                    }))
+                    : null);
         } finally {
             FairySoulTests.standAt = new HashMap<>();
         }
+    }
+
+    private static String b(Object flag, String key) {
+        return Boolean.TRUE.equals(flag) ? key : "";
     }
 
     private static String boost(int level) {
