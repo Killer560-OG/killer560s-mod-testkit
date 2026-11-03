@@ -118,10 +118,10 @@ public class SimMapFunnyStatesTests implements FabricClientGameTest {
                 Object itemOnly = SimMapItemTests.hook(ctx, PAINTER, "mapItemOnly");
                 List<int[]> fills = SimMapItemTests.allFills(ctx);
                 States s = read(fills);
+                List<int[]> rf = SimMapItemTests.roomFills(ctx);
                 String all5 = "funny: map-item-only " + itemOnly + ", " + drawnRooms(rf) + " of the 5 rooms drawn ("
                         + rf.size() + " room-sized fills); marks " + s;
                 println(all5);
-                List<int[]> rf = SimMapItemTests.roomFills(ctx);
                 boolean five = Boolean.FALSE.equals(itemOnly) && drawnRooms(rf) == 5;
                 row(R_ENTERED, five && s.andesite.isEmpty(), "Andesite (entered, not cleared) draws no mark: " + s.andesite
                         + " [premise: all 5 rooms drawn " + five + "]");
