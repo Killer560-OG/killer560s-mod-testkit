@@ -27,6 +27,10 @@ import java.util.concurrent.atomic.AtomicReference;
  *                              accepted with no wrong click and the next round's notes are learned
  * 1101-menu-superpairs-hud     the Superpairs Overview on a known board: found rewards (claimed / 1 of 2), the powerup
  *                              turned over, undiscovered pairs and powerups, drawn over the real board
+ * 1102-menu-superpairs-powerup-cap  the Overview's counts with at most 2 powerups per board (killer560, 2026-11-03): the
+ *                              real SuperpairsHud.lines on built summaries - odd unseen non-partner tiles are exactly 1
+ *                              powerup, even are "up to 2" only with none turned over, 0 once 1 or 2 are; new pairs get
+ *                              the matching exact count or range; a board contradicting the cap falls back to uncapped
  * 1101-menu-macro-stop-rules   macrostop/MacroStop through the real key and mouse handlers: a click macro stops only on
  *                              Escape or the Emergency Cancel Key; a movement macro also on W and the chat key with no
  *                              screen open; J and a left click stop neither; nothing typed into chat stops either
@@ -46,6 +50,7 @@ final class DocEtable1101Cases {
     static void register(Session s) {
         MenuSuite.test(s, "1101-menu-etable-resume", DocEtable1101Cases::resume);
         MenuSuite.test(s, "1101-menu-superpairs-hud", DocEtable1101Cases::superpairsHud);
+        MenuSuite.test(s, "1102-menu-superpairs-powerup-cap", DocEtable1101Cases::superpairsPowerupCap);
         MenuSuite.test(s, "1101-menu-macro-stop-rules", DocEtable1101Cases::stopRules);
         MenuSuite.test(s, "1101-menu-ecancel-terminal", DocEtable1101Cases::terminalCancel);
     }
@@ -275,6 +280,50 @@ final class DocEtable1101Cases {
         } finally {
             MenuKit.reset(c);
         }
+    }
+
+    // =================================================================================================================
+    // 1102-menu-superpairs-powerup-cap
+    // =================================================================================================================
+
+    static void superpairsPowerupCap(Session c) throws Exception {
+        String pw = "§7Undiscovered powerups: ";
+        String pr = "§7Undiscovered pairs: ";
+        // {halfFound, unseen, powerups seen}, the powerups line, the pairs line
+        Object[][] rows = {
+                {0, 9, 0, pw + "§e1", pr + "§e0 §7+ §e4 §7new"},          // the owner's "up to 9": odd -> exactly 1
+                {0, 8, 0, pw + "§7up to §e2", pr + "§e0 §7+ §e3§7-§e4 §7new"}, // even, none seen: 0 or 2
+                {0, 2, 0, pw + "§7up to §e2", pr + "§e0 §7+ up to §e1 §7new"}, // 2 powerups or 1 pair
+                {1, 9, 1, pw + "§e0", pr + "§e1 §7+ §e4 §7new"},          // 1 seen: even -> 0
+                {0, 7, 1, pw + "§e1", pr + "§e0 §7+ §e3 §7new"},          // 1 seen: odd -> the last one
+                {2, 8, 2, pw + "§e0", pr + "§e2 §7+ §e3 §7new"},          // 2 seen: none left
+                {0, 1, 0, pw + "§e1", pr + "§e0"},                        // one tile left, no partner -> powerup
+                {3, 3, 0, pw + "§e0", pr + "§e3"},                        // every unseen tile is a partner
+                {0, 5, 2, pw + "§7up to §e5", pr + "§e0 §7+ up to §e2 §7new"}, // contradicts the cap: uncapped
+        };
+        Class<?> summary = Mod.cls("experiments.ExperimentSolver$SuperpairsSummary");
+        java.lang.reflect.Constructor<?> ctor = summary.getDeclaredConstructors()[0];
+        ctor.setAccessible(true);
+        int ok = 0;
+        for (Object[] row : rows) {
+            int half = (Integer) row[0];
+            int unseen = (Integer) row[1];
+            int seen = (Integer) row[2];
+            List<String> powerups = new ArrayList<>();
+            for (int i = 0; i < seen; i++) {
+                powerups.add(i == 0 ? "Instant Find" : "+3 Clicks");
+            }
+            Object s = ctor.newInstance(new ArrayList<>(), powerups, half, unseen, true);
+            @SuppressWarnings("unchecked")
+            List<String> out = (List<String>) Mod.staticCall("experiments.SuperpairsHud", "lines", s);
+            String what = "half " + half + ", unseen " + unseen + ", seen " + seen;
+            c.note(what + " -> " + out);
+            boolean good = out.contains(row[3]) && out.contains(row[4]);
+            c.check(good, what + ": want '" + row[3] + "' and '" + row[4] + "', got " + out);
+            if (good) ok++;
+        }
+        c.check(ok == rows.length, ok + "/" + rows.length + " summaries read as expected");
+        c.note(ok + "/" + rows.length + " summaries read as expected");
     }
 
     private static JsonObject tile(String item, String name) {
