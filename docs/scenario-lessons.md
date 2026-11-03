@@ -1598,3 +1598,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   limiter, so the gap stands in for "no Woah slow down". Main's jar sent the callout first (teleport before the leap line)
   or second (before Cringe); the fixed jar sends Leaping To, Cringe, callout 10-11 ticks apart. Run "alone" first: a leap
   case's menu sighting inside Posmsg's 3 s window would hold its ring.
+- A Blood Camp case that summons tagged decoys (`taggedHusk`, Invulnerable, tag bcdecoy) must `clearDecoys(c)` in its finally.
+  1102-bloodcamp-trip-steal did not: its "xrevoker3" stayed 1 block off the arena's landing spot as a live blood mob, and in
+  the 1103p gate every later trip's Trigger Bot swung at it (nevermiss-offset "swung 5 time(s) before the mob existed" -
+  correct Never Miss behavior on a real blood mob - and -killtimer/-offspot late or missing). The nevermiss cases now clear the
+  arena first too. Alone, each case passed; only a run with trip-steal before them failed.
