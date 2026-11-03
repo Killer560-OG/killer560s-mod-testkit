@@ -1484,9 +1484,10 @@ final class HxBloodCampCases {
             }
             c.note("Watcher on the line: centered clear=" + clear[0] + ", edge 0.15 off clear=" + clear[1] + ", edge 0.45 off"
                     + " clear=" + clear[2]);
-            c.check(!clear[0], "the Watcher standing on the line did not hold the shot");
-            c.check(!clear[1], "the Watcher 0.15 blocks from the line (inside a projectile's margin) did not hold the shot");
-            c.check(clear[2], "the Watcher 0.45 blocks past the line (clear of a projectile) still held the shot");
+            // Owner 2026-11-03: the Watcher is not an obstacle (his beam goes through it): never held, even centered.
+            c.check(clear[0], "the Watcher standing on the line held the shot");
+            c.check(clear[1], "the Watcher 0.15 blocks from the line held the shot");
+            c.check(clear[2], "the Watcher 0.45 blocks past the line held the shot");
         } finally {
             final Object back = realWatcher;
             c.onClient(mc -> {
