@@ -1581,3 +1581,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   transaction pings keep the mod's `PerTickServerClock` untrusted and it wobbles 4-8 ticks on a loaded machine. Run such a
   case under `-Pnogrim` with the testmod's `boss.pertickping` (1102-hx-goldor-tick does both, tolerance 1 vs 8), and
   schedule events with `boss.timeline` (START_SERVER_TICK: a `damage` at END_SERVER_TICK sends its health a tick late).
+
+- 1102-ui-storagesearch-*: `getInput().holdKey(Ctrl)` + `pressKey(F)` did not reach a Fabric `ScreenKeyboardEvents` handler as
+  Ctrl+F on 26.3 (old and new mod jar alike), so a Ctrl shortcut case calls `KeyboardHandler.keyPress(window, PRESS,
+  McKeys.keyEvent(KEY_F, MOD_CONTROL))` by reflection (public on 26.3, private on 26.2; StorageSearchCases.ctrlF). A 3D
+  gold block icon changes 66% of an uncovered 16x16 cell, which is the bar a 'fully visible' pixel check measures against.

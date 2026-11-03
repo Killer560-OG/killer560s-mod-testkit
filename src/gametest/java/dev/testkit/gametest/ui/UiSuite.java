@@ -490,6 +490,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : EffectsSearchCases.CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : StorageSearchCases.CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -506,7 +509,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES) || any(TRAIL_HUD_CASES)
                 || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES) || any(SOUND_DESC_CASES) || any(MAP_OVERHAUL_CASES)
                 || any(TRAJECTORY_CASES) || any(MOB_SKIN_CASES) || any(PREDICT_IN_MAP_CASES)
-                || any(DocMenu1101Cases.CASES) || any(KeybindMouseCases.CASES) || any(EffectsSearchCases.CASES);
+                || any(DocMenu1101Cases.CASES) || any(KeybindMouseCases.CASES) || any(EffectsSearchCases.CASES) || any(StorageSearchCases.CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -960,6 +963,9 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1102-ui-search-queries", EffectsSearchCases::searchQueries);
                     UiCase.run(ctx, "1102-ui-search-commands", EffectsSearchCases::searchCommands);
                     UiCase.run(ctx, "1102-ui-search-readme", EffectsSearchCases::searchReadme);
+                    // ---- the Inventory Search bar never covers a slot or panel (mod storagesearch-1102) ----
+                    UiCase.run(ctx, "1102-ui-storagesearch-overlay", StorageSearchCases::overlay);
+                    UiCase.run(ctx, "1102-ui-storagesearch-screens", StorageSearchCases::screens);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
