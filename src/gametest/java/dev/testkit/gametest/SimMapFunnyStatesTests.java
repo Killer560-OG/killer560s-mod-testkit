@@ -78,6 +78,9 @@ public class SimMapFunnyStatesTests implements FabricClientGameTest {
                 restore.add(0, Mod.with(MAP, "RoomLabels", 1));
                 restore.add(0, Mod.with(MAP, "ColourByType", true));
                 restore.add(0, Mod.with(MAP, "DarkenUnopened", 0f));
+                // Predictive Rooms paints a room it names from what he has seen of it: timing, and not the map under test.
+                SimMapItemTests.tryWith(restore, "livemap.predict.PredictiveRoomsConfig", "Enabled", false);
+                SimMapItemTests.tryWith(restore, "livemap.predict.PredictiveRoomsConfig", "SpecialGuess", false);
                 SimMapItemTests.tryWith(restore, MAP, "CustomCheckmarks", false);
                 SimMapItemTests.tryWith(restore, MAP, "FunnyMap", false);
                 try {
