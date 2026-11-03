@@ -88,6 +88,9 @@ final class HxBloodCampCases {
         s.test("1101-bloodcamp-mage-only", HxBloodCampCases::mageOnly);
         s.test("1101-bloodcamp-teleport-step", HxBloodCampCases::teleportStep);
         s.test("1101-bloodcamp-stats", HxBloodCampCases::stats);
+        s.test("1102-bloodcamp-watcher-bar", HxBloodCampCases::watcherBar);
+        s.test("1102-bloodcamp-npc-deaths", HxBloodCampCases::npcDeaths);
+        s.test("1102-bloodcamp-hud-boss", HxBloodCampCases::hudBoss);
         s.test("1101-esp-fels", HxBloodCampCases::fels);
         s.test("1101-esp-starred-memory", HxBloodCampCases::starredMemory);
         s.test("1101-esp-mimic", HxBloodCampCases::mimic);
@@ -1802,6 +1805,298 @@ final class HxBloodCampCases {
             c.hx().removeStands();
         }
     }
+
+    // ---- 1102 (bloodleft-1102: Mobs Left from the Watcher's bar; player-model blood mobs' deaths) ----------------------
+
+    private static final String WATCHER_BAR = "k560:watcher";
+
+    @SuppressWarnings("unchecked")
+    private static String mobsLeftLine(Session c) {
+        List<String> hud = c.onClient(mc -> (List<String>) Mod.staticCall(BC_STATS, "hudLinesForTest"));
+        for (String l : hud) {
+            if (l.startsWith("Mobs Left: ")) {
+                return l.substring("Mobs Left: ".length());
+            }
+        }
+        return null;
+    }
+
+    private static void greet(Session c) {
+        c.hx().chat("[BOSS] The Watcher: Ah, you've finally arrived.");
+        c.ctx().waitTicks(5);
+        c.hx().chat("[BOSS] The Watcher: Let's see how you can handle this.");
+        c.ctx().waitTicks(5);
+        c.waitUntil("the camp starts", mc -> "WAITING_KILL".equals(Mod.staticCall(BC_STATS, "phaseName")), 40);
+    }
+
+    /** Sets the Watcher bar to value/max and returns the Mobs Left line the HUD shows once the client has it. */
+    private static String barAt(Session c, int value, int max) {
+        return barWalk(c, value, max, null);
+    }
+
+    /**
+     * {@link #barAt}, reading the HUD every tick until the client's bar settles (the same reading 4 ticks running after
+     * the server's packet can have arrived, at most 40 ticks): the server's packet and the client's 100 ms ease take a
+     * variable few ticks. Every reading on the way goes into {@code seen} when given, so a walk can check none was LOW.
+     */
+    private static String barWalk(Session c, int value, int max, List<String> seen) {
+        c.server().command("bossbar set " + WATCHER_BAR + " max " + max);
+        c.server().command("bossbar set " + WATCHER_BAR + " value " + value);
+        float want = value / (float) max;
+        String last = null;
+        int same = 0;
+        for (int t = 0; t < 40; t++) {
+            c.ctx().waitTicks(1);
+            Object[] r = c.onClient(mc -> new Object[]{Mod.staticCall(BC_STATS, "mobsLeftForTest"),
+                    Mod.staticCall(BC_STATS, "watcherBarForTest")});
+            String now = (String) r[0];
+            if (seen != null) {
+                seen.add(now);
+            }
+            boolean arrived = r[1] instanceof Float f && Math.abs(f - want) < 1e-4f;
+            same = now != null && now.equals(last) && arrived ? same + 1 : 0;
+            last = now;
+            if (same >= 4) {
+                break;
+            }
+        }
+        return mobsLeftLine(c);
+    }
+
+
+    /**
+     * killer560, 2026-11-02 (F7 solo, HUD "Mobs Left: 1+" with the Watcher's bar about 20% full): "if you can see that top
+     * bar that is how many mobs are left. i dont want it to say 1 if one mob is on the ground unless that 1 mob is the
+     * very last in the camp." A real server boss bar named "The Watcher" is driven through a whole F7 camp (16 mobs, the
+     * wiki's 9 + tier) one mob at a time, and the HUD must read exactly the mobs left at every step, never "1" while more
+     * than one is left; a part-drained step reads the higher count; with Odin's 15-mob size the bar's own steps calibrate
+     * the size; with no bar it says "?" rather than a low guess.
+     */
+    private static void watcherBar(Session c) {
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "HudMobsLeft", true)
+                    .custom(() -> Mod.staticCall(BC_STATS, "setWatcherBarFloorForTest", "F7"),
+                            () -> Mod.staticCall(BC_STATS, "setWatcherBarFloorForTest", ""));
+            c.server().command("bossbar remove " + WATCHER_BAR);
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            greet(c);
+            String none = mobsLeftLine(c);
+            c.note("no Watcher bar, spawning not done: Mobs Left " + none);
+            c.check("?".equals(none), "with no Watcher bar and mobs still to come Mobs Left read \"" + none + "\", want ?");
+
+            c.server().command("bossbar add " + WATCHER_BAR + " \"The Watcher\"");
+            c.server().command("bossbar set " + WATCHER_BAR + " color red");
+            c.server().command("bossbar set " + WATCHER_BAR + " players @a");
+            c.server().command("bossbar set " + WATCHER_BAR + " max 16");
+            c.server().command("bossbar set " + WATCHER_BAR + " value 16");
+            c.waitUntil("the client shows the Watcher's bar", mc -> "16".equals(Mod.staticCall(BC_STATS, "mobsLeftForTest")), 60);
+            StringBuilder walk = new StringBuilder("16");
+            for (int k = 15; k >= 0; k--) {
+                List<String> seen = new ArrayList<>();
+                String got = barWalk(c, k, 16, seen);
+                int kk = k;
+                List<String> low = seen.stream().filter(v -> v != null && !"?".equals(v) && Integer.parseInt(v) < kk).toList();
+                c.check(low.isEmpty(), "on the way from " + (k + 1) + " to " + k + " of 16 Mobs Left read low: " + seen);
+                walk.append(' ').append(got);
+                c.check(got != null, "the HUD has no Mobs Left line at " + k + "/16");
+                c.check(!(k > 1 && "1".equals(got)), "Mobs Left read 1 with " + k + " mobs left in the camp");
+                c.check(Integer.toString(k).equals(got), "Mobs Left read " + got + " with the bar at " + k + "/16");
+            }
+            int size16 = c.onClient(mc -> (Integer) Mod.staticCall(BC_STATS, "watcherBarSizeForTest"));
+            c.note("F7 camp of 16, one mob at a time: " + walk + "; calibrated size " + size16);
+            c.check(size16 == 16, "the bar's steps calibrated the camp to " + size16 + ", want 16");
+
+            // Part-drained steps read the higher count: 1.7 mobs is 2, 2.5 is 3, 1.1 is 2, exactly 1 is 1.
+            String p17 = barAt(c, 17, 160);
+            String p25 = barAt(c, 25, 160);
+            String p11 = barAt(c, 11, 160);
+            String p10 = barAt(c, 10, 160);
+            c.note("part steps of 16: 1.7 -> " + p17 + ", 2.5 -> " + p25 + ", 1.1 -> " + p11 + ", 1.0 -> " + p10);
+            c.check("2".equals(p17) && "3".equals(p25) && "2".equals(p11), "a part-drained step read low: 1.7 -> " + p17
+                    + ", 2.5 -> " + p25 + ", 1.1 -> " + p11);
+            c.check("1".equals(p10), "exactly one mob left read " + p10);
+
+            // A camp of 15 (Odin's and Noamm's 8 + floor): the first step calibrates the size from the bar.
+            greet(c);
+            String full15 = barAt(c, 15, 15);
+            String at14 = barAt(c, 14, 15);
+            int size15 = c.onClient(mc -> (Integer) Mod.staticCall(BC_STATS, "watcherBarSizeForTest"));
+            String at2 = barAt(c, 2, 15);
+            String at1 = barAt(c, 1, 15);
+            c.note("camp of 15: full -> " + full15 + " (before any step), 14 -> " + at14 + " (size " + size15 + "), 2 -> "
+                    + at2 + ", 1 -> " + at1);
+            c.check(size15 == 15, "a bar stepping in fifteenths calibrated to " + size15 + ", want 15");
+            c.check("14".equals(at14) && "2".equals(at2) && "1".equals(at1), "a camp of 15 read 14 -> " + at14 + ", 2 -> "
+                    + at2 + ", 1 -> " + at1);
+        } finally {
+            c.server().command("bossbar remove " + WATCHER_BAR);
+            c.onClient(mc -> {
+                Mod.staticCall(BC_MT, "reset");
+                return null;
+            });
+            c.hx().removeStands();
+        }
+    }
+
+    /**
+     * killer560, 2026-11-02: "blood camp hud should go away once boss is entered." The Blood Camp Stats HUD shows through
+     * the camp, stays after "You have proven yourself" (Mob Ticks and Camp Lag; Mobs Left goes with the camp), and is gone
+     * the moment the boss phase starts - here DungeonState's F7 boss state (its testkit override). The end-of-run stats still work in the boss.
+     */
+    @SuppressWarnings("unchecked")
+    private static void hudBoss(Session c) {
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "HudMobTicks", true).with(BC_CFG, "HudMobsLeft", true).with(BC_CFG, "HudCampLag", true)
+                    .with(BC_CFG, "PartyMessage", false);
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            greet(c);
+            c.onClient(mc -> {
+                long elapsed = (Long) Mod.staticCall(BC_MT, "elapsedSinceGreeting");
+                int lead = (Integer) Mod.call(Mod.cfg(BC_CFG), "getKillPopupLeadTicks");
+                Mod.setField(BC_MT, "moveAtElapsed", elapsed + 5 + lead);
+                return null;
+            });
+            c.waitUntil("the kill timer goes off", mc -> "FIRST".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
+            c.ctx().waitTicks(10);
+            List<String> camp = c.onClient(mc -> (List<String>) Mod.staticCall(BC_STATS, "hudLinesForTest"));
+            c.hx().chat("[BOSS] The Watcher: You have proven yourself. You may pass.");
+            c.ctx().waitTicks(3);
+            List<String> cleared = c.onClient(mc -> (List<String>) Mod.staticCall(BC_STATS, "hudLinesForTest"));
+            // DungeonState's F7 boss state, through its testkit override (simBossBegins only holds inside a running sim:
+            // DungeonState's tick clears a boss phase while no F7/M7 floor is read off the scoreboard).
+            boolean overrideWas = c.onClient(mc -> (Boolean) Mod.staticCall("secrets.DungeonState", "isSimOverrideActive"));
+            if (!overrideWas) {
+                c.onClient(mc -> Mod.staticCall("secrets.DungeonState", "toggleSimOverride"));
+            }
+            c.ctx().waitTicks(2);
+            Object[] boss = c.onClient(mc -> new Object[]{Mod.staticCall(BC_STATS, "hudLinesForTest"),
+                    Mod.staticCall("secrets.DungeonState", "isBossPhaseActive")});
+            c.onClient(mc -> Mod.staticCall(BC_STATS, "endOfRunForTest"));
+            String msg = c.onClient(mc -> (String) Mod.staticCall(BC_STATS, "lastMessage"));
+            c.note("camp: " + camp + "; after the last line: " + cleared + "; boss phase " + boss[1] + ": " + boss[0]
+                    + "; end-of-run message \"" + msg + "\"");
+            c.check(camp.size() == 3, "the HUD did not show all three lines during the camp: " + camp);
+            c.check(!cleared.isEmpty() && cleared.stream().anyMatch(l -> l.startsWith("Mob Ticks: ")),
+                    "the HUD went before the boss, at the camp's last line: " + cleared);
+            c.check(Boolean.TRUE.equals(boss[1]), "the sim's boss start did not start the boss phase - nothing was tested");
+            c.check(((List<String>) boss[0]).isEmpty(), "the HUD stayed up in the boss: " + boss[0]);
+            c.check(msg != null && msg.startsWith("Blood Camp: "), "the end-of-run stats stopped in the boss: " + msg);
+        } finally {
+            c.onClient(mc -> {
+                if ((Boolean) Mod.staticCall("secrets.DungeonState", "isSimOverrideActive")) {
+                    Mod.staticCall("secrets.DungeonState", "toggleSimOverride");
+                }
+                Mod.staticCall(BC_MT, "reset");
+                return null;
+            });
+            c.hx().removeStands();
+        }
+    }
+
+    private static final int NPC_ID_BASE = 1_902_200;
+    private static final double[][] NPC_AT = {{-421.5, -417.5}, {-417.5, -421.5}, {-420.5, -421.5}};
+
+    /**
+     * killer560, 2026-11-02: "i killed mobs and for some reason the counter kept ticking for about 6s after i killed the
+     * first 4 with no mobs spawned." Three of those four were player-model NPCs. Hypixel kills a mob with a death event
+     * (entity event 3); vanilla only zeroes health on that for a non-player, so the NPC stayed alive on the client. Here
+     * three player-model blood mobs (version-2 UUIDs, in the Blood Room) get the real death packet one by one through the
+     * client's own packet handler and stay in the level, alive as far as vanilla is concerned, exactly as on Hypixel:
+     * Mobs Left must drop on each kill and Mob Ticks must stop counting once none is left.
+     */
+    private static void npcDeaths(Session c) {
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "HudMobTicks", true).with(BC_CFG, "HudMobsLeft", true);
+            c.server().command("bossbar remove " + WATCHER_BAR);
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            greet(c);
+            c.onClient(mc -> {
+                for (int i = 0; i < NPC_AT.length; i++) {
+                    long msb = (java.util.UUID.randomUUID().getMostSignificantBits() & ~0xF000L) | 0x2000L;
+                    net.minecraft.client.player.RemotePlayer p = new net.minecraft.client.player.RemotePlayer(mc.level,
+                            new com.mojang.authlib.GameProfile(new java.util.UUID(msb, java.util.UUID.randomUUID()
+                                    .getLeastSignificantBits()), "BloodNpc" + i));
+                    p.setId(NPC_ID_BASE + i);
+                    p.setPos(NPC_AT[i][0], 151, NPC_AT[i][1]);
+                    mc.level.addEntity(p);
+                }
+                return null;
+            });
+            c.waitUntil("Blood Camp tags the three player-model NPCs", mc -> bloodIds(mc).containsAll(
+                    List.of(NPC_ID_BASE, NPC_ID_BASE + 1, NPC_ID_BASE + 2)), 60);
+            String before = mobsLeftLine(c);
+            c.hx().chat("[BOSS] The Watcher: That will be enough for now.");
+            c.ctx().waitTicks(3);
+            String three = mobsLeftLine(c);
+            c.note("Mobs Left with no bar: " + before + " while mobs are due, " + three + " after the last one was sent");
+            c.check("?".equals(before), "with mobs still due and no bar Mobs Left read " + before + ", want ?");
+            c.check("3".equals(three), "three blood mobs alive and none due read " + three);
+            c.onClient(mc -> {
+                long elapsed = (Long) Mod.staticCall(BC_MT, "elapsedSinceGreeting");
+                int lead = (Integer) Mod.call(Mod.cfg(BC_CFG), "getKillPopupLeadTicks");
+                Mod.setField(BC_MT, "moveAtElapsed", elapsed + 5 + lead);
+                return null;
+            });
+            c.waitUntil("the kill timer goes off", mc -> "FIRST".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
+            c.ctx().waitTicks(10);
+            StringBuilder trail = new StringBuilder();
+            for (int i = 0; i < NPC_AT.length; i++) {
+                int id = NPC_ID_BASE + i;
+                c.onClient(mc -> {
+                    net.minecraft.world.entity.Entity e = mc.level.getEntity(id);
+                    mc.getConnection().handleEntityEvent(new net.minecraft.network.protocol.game.ClientboundEntityEventPacket(e,
+                            (byte) 3));
+                    return null;
+                });
+                c.ctx().waitTicks(2);
+                int want = NPC_AT.length - 1 - i;
+                Object[] r = c.onClient(mc -> new Object[]{Mod.staticCall(BC_STATS, "aliveForTest"),
+                        Mod.staticCall(BC_STATS, "phaseName"), mc.level.getEntity(id) != null && mc.level.getEntity(id).isAlive()});
+                String left = mobsLeftLine(c);
+                trail.append(String.format(Locale.ROOT, "kill %d: alive %s, Mobs Left %s, phase %s, vanilla isAlive %s; ", i + 1,
+                        r[0], left, r[1], r[2]));
+                c.check(Boolean.TRUE.equals(r[2]), "the client took the death event as a death by itself, so this did not test"
+                        + " the player-model case: " + trail);
+                c.check(Integer.valueOf(want).equals(r[0]), "after kill " + (i + 1) + " Blood Camp counts " + r[0] + " alive, want "
+                        + want);
+                c.check(Integer.toString(want).equals(left), "after kill " + (i + 1) + " Mobs Left read " + left + ", want " + want);
+                c.check("ALIVE".equals(r[1]), "the first kill did not end the first-kill wait (phase " + r[1] + ")");
+                if (i < NPC_AT.length - 1) {
+                    long a = c.onClient(mc -> (Long) Mod.staticCall(BC_STATS, "ticksLost"));
+                    c.ctx().waitTicks(10);
+                    long b = c.onClient(mc -> (Long) Mod.staticCall(BC_STATS, "ticksLost"));
+                    trail.append("ticks ").append(a).append("->").append(b).append("; ");
+                    c.check(b - a >= 8, "with " + want + " blood mob(s) alive Mob Ticks went " + a + " -> " + b + " in 10 ticks");
+                }
+            }
+            long t0 = c.onClient(mc -> (Long) Mod.staticCall(BC_STATS, "ticksLost"));
+            c.ctx().waitTicks(40);
+            long t1 = c.onClient(mc -> (Long) Mod.staticCall(BC_STATS, "ticksLost"));
+            @SuppressWarnings("unchecked")
+            java.util.Set<Integer> dead = c.onClient(mc -> (java.util.Set<Integer>) Mod.staticCall(BC, "deadIds"));
+            boolean stillThere = c.onClient(mc -> mc.level.getEntity(NPC_ID_BASE) != null);
+            c.note(trail + "after the last kill " + t0 + " -> " + t1 + " over 40 ticks with the dead NPCs still in the level ("
+                    + stillThere + "); dead ids " + dead);
+            c.check(stillThere, "the dead NPCs left the level, so nothing tested that a dead one stops counting");
+            c.check(t1 == t0, "Mob Ticks kept counting with every blood mob dead: " + t0 + " -> " + t1);
+        } finally {
+            c.onClient(mc -> {
+                for (int i = 0; i < NPC_AT.length; i++) {
+                    net.minecraft.world.entity.Entity e = mc.level.getEntity(NPC_ID_BASE + i);
+                    if (e != null) {
+                        e.discard();
+                    }
+                }
+                Mod.staticCall(BC_MT, "reset");
+                return null;
+            });
+            c.hx().removeStands();
+        }
+    }
+
 
     // ---- Dungeon ESP (STARRED MOB HIGHLIGHT) ----
 

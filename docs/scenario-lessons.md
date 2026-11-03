@@ -1509,3 +1509,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 96-ar-1102-secrettaken: an ItemEntity added on the integrated server in the sim did not show up on the client under
   the server's entity id (`mc.level.getEntity(serverId)` never went null while the mod logged "item entity 3 picked
   up"), and one spawned inside a block is pushed out of it. Find a sim item on the client by place (8 blocks), not id.
+
+- **1102-bloodcamp-* (bloodleft-1102).** `DungeonState.simBossBegins` does not hold in an Hx case: DungeonState's tick ends a
+  boss phase on the next tick when no F7/M7 floor is read off the scoreboard (`roomSim` makes `getFloor` say M7, but the tick
+  reads the real floor). Use `toggleSimOverride` (restore it in `finally`). A boss bar driven by `/bossbar` reaches the client
+  a variable few ticks later and eases over 100 ms: read the HUD until the client's bar equals the target (the mod's
+  `BloodCampStats.watcherBarForTest`) rather than after a fixed wait (a fixed 8 ticks read "7" at 6/16 once). A player-model
+  NPC is added client-side as a `RemotePlayer` with a version-2 UUID and killed with the real packet,
+  `mc.getConnection().handleEntityEvent(new ClientboundEntityEventPacket(e, (byte) 3))`; vanilla leaves it `isAlive()`.
