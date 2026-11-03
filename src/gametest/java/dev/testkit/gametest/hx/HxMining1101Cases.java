@@ -383,8 +383,19 @@ final class HxMining1101Cases {
         return "§63,714/3,339\uE010     §7\uE067 §b" + area + "     §b2,785/2,884\uE003     §4140/140\uE028     ";
     }
 
+    /** Optional hooks: a jar before mining-1103 lacks them, and the case must then fail on behavior, not on a hook. */
+    private static void optional(Session c, String cls, String method) {
+        c.ctx().runOnClient(mc -> {
+            try {
+                Mod.staticCall(cls, method);
+            } catch (Throwable older) {
+                // not in this jar
+            }
+        });
+    }
+
     private static void clearActionBarArea(Session c) {
-        c.ctx().runOnClient(mc -> Mod.staticCall(ISLAND, "clearActionBarArea"));
+        optional(c, ISLAND, "clearActionBarArea");
     }
 
     /** Sends the action bar until the area reads {@code area} (Hypixel repeats it about once a second). */
@@ -412,11 +423,6 @@ final class HxMining1101Cases {
         Object area = c.onClient(mc -> Mod.enumValue("miningqol.MiningQolConfig$TitaniumMode", "COMMISSION"));
         try (Settings set = new Settings(c).with(CFG, "MithrilStone", true).with(CFG, "Titanium", true)
                 .with(CFG, "TitaniumMode", area)) {
-            String parsed = c.onClient(mc -> (String) Mod.staticCall(ISLAND, "parseActionBarArea",
-                    actionBar("Rampart's Quarry")));
-            c.check("Rampart's Quarry".equals(parsed), "action bar parsed as " + parsed);
-            Object none = c.onClient(mc -> Mod.staticCall(ISLAND, "parseActionBarArea", "§7Bob: Upper Mines"));
-            c.check(none == null, "a line without the area glyph gave an area: " + none);
             mines(c, "Royal Mines", "Upper Mines Mithril: 0%", "Upper Mines Titanium: 0%");
             c.waitUntil("Royal Mines on the sidebar: mithril is stone", mc -> (Boolean) Mod.staticCall(m, "isActive"), 40);
             setb(c, ti, "minecraft:polished_diorite");
@@ -436,6 +442,11 @@ final class HxMining1101Cases {
             c.hx().sidebar("SKYBLOCK", "Late Winter 3rd", "\uE067 Upper Mines", "Purse: 0");
             c.waitUntil("the sidebar's U+E067 area line reads", mc -> "Upper Mines".equals(Mod.staticCall(STATE, "area")), 40);
             c.waitUntil("and mithril shows", mc -> !(Boolean) Mod.staticCall(m, "isActive"), 40);
+            String parsed = c.onClient(mc -> (String) Mod.staticCall(ISLAND, "parseActionBarArea",
+                    actionBar("Rampart's Quarry")));
+            c.check("Rampart's Quarry".equals(parsed), "action bar parsed as " + parsed);
+            Object none = c.onClient(mc -> Mod.staticCall(ISLAND, "parseActionBarArea", "§7Bob: Upper Mines"));
+            c.check(none == null, "a line without the area glyph gave an area: " + none);
             c.note("action bar area " + parsed + "; Upper Mines Mithril/Titanium act in the Upper Mines from the action bar"
                     + " and from a U+E067 sidebar line, not in the Royal Mines");
         } finally {
@@ -484,7 +495,7 @@ final class HxMining1101Cases {
         }
         List<String> available = List.of("Pickaxe Ability:", " Pickobulus: Available", "");
         try (Settings set = new Settings(c).with(CFG, "Pickobulus", true)) {
-            c.ctx().runOnClient(mc -> Mod.staticCall(p, "resetChat"));
+            optional(c, p, "resetChat");
             for (BlockPos b : wall) {
                 setb(c, b, "minecraft:stone");
             }
@@ -518,7 +529,7 @@ final class HxMining1101Cases {
             c.note("hidden within 3 ticks of the use line with the tab saying Available, shown within 3 ticks of the ready"
                     + " line with the tab saying 3s; a player's line ignored");
         } finally {
-            c.ctx().runOnClient(mc -> Mod.staticCall(p, "resetChat"));
+            optional(c, p, "resetChat");
             for (BlockPos b : wall) {
                 setb(c, b, "minecraft:air");
             }
