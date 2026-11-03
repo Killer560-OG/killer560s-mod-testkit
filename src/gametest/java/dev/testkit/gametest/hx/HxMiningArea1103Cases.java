@@ -42,7 +42,8 @@ final class HxMiningArea1103Cases {
         s.test("1103-mining-block-area", HxMiningArea1103Cases::blockArea);
         s.test("1103-mining-block-area-titanium", HxMiningArea1103Cases::blockAreaTitanium);
         s.test("1103-mining-highlight-latency", HxMiningArea1103Cases::latency);
-        s.test("1103-mining-carpet-stable", HxMiningArea1103Cases::carpetStable);
+        s.test("1103-mining2-carpet-texture", HxMiningArea1103Cases::carpetTexture);
+        s.test("1103-mining2-area-inside", HxMiningArea1103Cases::areaInside);
         s.test("1103-mining-titanium-sight", HxMiningArea1103Cases::titaniumSight);
     }
 
@@ -163,13 +164,14 @@ final class HxMiningArea1103Cases {
         BlockPos f = feet(c);
         BlockPos upper = f.offset(-6, 1, -3);
         BlockPos cliff = f.offset(6, 1, -3);
-        BlockPos far = f.offset(0, 1, 30);
+        BlockPos far = f.offset(20, 1, 30);
         List<BlockPos> all = List.of(upper, cliff, far);
         try (Settings set = new Settings(c).with(CFG, "MithrilStone", true)) {
             useGraph(c, f);
             c.check("Upper Mines".equals(areaOf(c, upper)), "the west block's area is " + areaOf(c, upper));
             c.check("Cliffside Veins".equals(areaOf(c, cliff)), "the east block's area is " + areaOf(c, cliff));
-            c.check(areaOf(c, far) == null, "a block 30 blocks from any node got an area: " + areaOf(c, far));
+            c.check("Cliffside Veins".equals(areaOf(c, far)), "a block 30 blocks from any node: " + areaOf(c, far)
+                    + " (its nearest named area is Cliffside Veins)");
             setb(c, upper, "minecraft:gray_wool");
             setb(c, cliff, "minecraft:prismarine");
             setb(c, far, "minecraft:light_blue_wool");
@@ -188,8 +190,9 @@ final class HxMiningArea1103Cases {
                 boolean farSwapped = c.onClient(mc -> (Boolean) Mod.staticCall(STONE, "swappedAt", far.getX(), far.getY(),
                         far.getZ()));
                 c.check(!upperSwapped, "standing in " + standIn + ", the Upper Mines block was drawn as stone");
-                // The far block has no area: it follows where he stands.
-                boolean farWant = !standIn.equals("Upper Mines");
+                // The far block is outside every node's reach but still has its own area (the nearest one, Cliffside
+                // Veins), whatever area he stands in.
+                boolean farWant = true;
                 c.check(farSwapped == farWant, "standing in " + standIn + ", the far (unknown area) block stone=" + farSwapped);
                 c.note("standing in " + standIn + ": Upper Mines block mithril, Cliffside block stone, far block stone="
                         + farSwapped);
@@ -382,117 +385,98 @@ final class HxMiningArea1103Cases {
         }
     }
 
-    private static void carpetStable(Session c) throws Exception {
+    private static void carpetTexture(Session c) {
         BlockPos f = feet(c);
         BlockPos lantern = f.offset(0, -1, -2);
         BlockPos carpet = lantern.above();
-        List<BlockPos> platform = new ArrayList<>();
-        for (int dx = -2; dx <= 2; dx++) {
-            for (int dz = -4; dz <= 0; dz++) {
-                platform.add(f.offset(dx, -1, dz));
-            }
-        }
-        boolean hideGui = c.onClient(mc -> dev.testkit.compat.McCompat.hudHidden(mc));
-        List<String> was = c.onClient(mc -> {
-            List<String> out = new ArrayList<>();
-            for (BlockPos b : platform) {
-                out.add(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(mc.level.getBlockState(b).getBlock())
-                        .toString());
-            }
-            return out;
-        });
-        Boolean itBefore = c.onClient(HxMiningArea1103Cases::improvedTransparency);
-        try (Settings set = new Settings(c).with(CFG, "Carpet", true).with(CFG, "CarpetColor", 0xFF00FF00)) {
-            for (BlockPos b : platform) {
-                setb(c, b, "minecraft:stone");
-            }
+        BlockPos onStone = f.offset(3, -1, -2);
+        BlockPos light = f.offset(-3, -1, -2);
+        BlockPos lightCarpet = light.above();
+        List<BlockPos> all = List.of(lantern, carpet, onStone, onStone.above(), light, lightCarpet);
+        try (Settings set = new Settings(c).with(CFG, "Carpet", true)) {
             setb(c, lantern, "minecraft:sea_lantern");
             setb(c, carpet, "minecraft:gray_carpet");
+            setb(c, onStone, "minecraft:stone");
+            setb(c, onStone.above(), "minecraft:gray_carpet");
+            setb(c, light, "minecraft:sea_lantern");
+            setb(c, lightCarpet, "minecraft:light_blue_carpet");
             mines(c, "Royal Mines", "Goblin Slayer: 10%");
-            c.waitUntil("the carpet found", mc -> (Boolean) Mod.staticCall(HL, "hasCarpetAt", carpet.getX(),
-                    carpet.getY(), carpet.getZ()), 60);
-            c.ctx().runOnClient(mc -> {
-                dev.testkit.compat.McCompat.setHudHidden(mc, true);
-                dev.testkit.compat.McCompat.clearChatAndToasts(mc);
-            });
-            Vec3 top = new Vec3(carpet.getX() + 0.5, carpet.getY() + 0.0625, carpet.getZ() + 0.5);
-            // Stone 1.2 blocks past the carpet's far edge (never filled). Not nearer: the projection is read a moment before
-            // the screenshot's frame, and mid-jump the camera moves up to ~0.4 of a block a tick (0.45 past the edge read
-            // the fill on 3 of 24 frames in a full session, b2-c263-hx).
-            Vec3 past = new Vec3(carpet.getX() + 0.5, carpet.getY(), carpet.getZ() - 1.2);
-            List<Boolean> modes = itBefore == null ? List.of(false) : List.of(false, true);
-            for (boolean it : modes) {
-                if (itBefore != null) {
-                    c.ctx().runOnClient(mc -> setImprovedTransparency(mc, it));
-                }
-                c.ctx().waitTicks(10);
-                int frames = 0;
-                int bad = 0;
-                int leak = 0;
-                int minIn = 25;
-                List<String> fails = new ArrayList<>();
-                for (int i = 0; i < 24; i++) {
-                    final int k = i;
-                    // Jump the whole time; sneak in alternate stretches of 6 samples; look at the carpet.
-                    c.ctx().runOnClient(mc -> {
-                        mc.options.keyJump.setDown(true);
-                        mc.options.keyShift.setDown((k / 6) % 2 == 1);
-                        Vec3 eye = mc.player.getEyePosition();
-                        Vec3 d = top.subtract(eye);
-                        mc.player.setYRot((float) Math.toDegrees(Math.atan2(-d.x, d.z)));
-                        mc.player.setXRot((float) Math.toDegrees(Math.atan2(-d.y, Math.hypot(d.x, d.z))));
-                    });
-                    c.ctx().waitTicks(1 + (i % 3));
-                    int[][] at = c.onClient(mc -> new int[][]{project(mc, top), project(mc, past)});
-                    java.nio.file.Path p = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(
-                            c.name() + "-it" + it + "-" + i));
-                    BufferedImage img = javax.imageio.ImageIO.read(p.toFile());
-                    if (at[0] == null || at[1] == null) {
-                        continue;
-                    }
-                    // takeScreenshot may read a different-size framebuffer than the window.
-                    double sx = img.getWidth() / (double) c.onClient(mc -> mc.getWindow().getWidth());
-                    double sy = img.getHeight() / (double) c.onClient(mc -> mc.getWindow().getHeight());
-                    int[] in = {(int) (at[0][0] * sx), (int) (at[0][1] * sy)};
-                    int[] out = {(int) (at[1][0] * sx), (int) (at[1][1] * sy)};
-                    int g = greenPatch(img, in, 60);
-                    int o = greenPatch(img, out, 60);
-                    frames++;
-                    minIn = Math.min(minIn, g);
-                    if (g < 20) {
-                        bad++;
-                        fails.add("sample " + i + " in=" + g + "@" + in[0] + "," + in[1]);
-                    }
-                    if (o > 3) {
-                        leak++;
-                        fails.add("sample " + i + " past=" + o + "@" + out[0] + "," + out[1]);
-                    }
-                }
-                c.ctx().runOnClient(mc -> {
-                    mc.options.keyJump.setDown(false);
-                    mc.options.keyShift.setDown(false);
-                });
-                c.note(String.format(Locale.ROOT, "Improved Transparency %s: %d frames, carpet top filled in all but %d"
-                        + " (lowest 5x5 patch %d/25), fill past the edge in %d %s", it, frames, bad, minIn, leak,
-                        fails.isEmpty() ? "" : fails.subList(0, Math.min(6, fails.size())).toString()));
-                c.check(frames >= 20, "only " + frames + " frames sampled");
-                c.check(bad == 0, "Improved Transparency " + it + ": the carpet's top was not filled in " + bad + " frame(s): " + fails);
-                c.check(leak == 0, "Improved Transparency " + it + ": the fill showed past the carpet in " + leak + " frame(s): " + fails);
-            }
+            long swaps = c.onClient(mc -> (Long) Mod.staticCall(HL, "carpetSwapCount"));
+            c.waitUntil("both vein carpets found", mc -> (Boolean) Mod.staticCall(HL, "hasCarpetAt", carpet.getX(),
+                    carpet.getY(), carpet.getZ()) && (Boolean) Mod.staticCall(HL, "hasCarpetAt", lightCarpet.getX(),
+                    lightCarpet.getY(), lightCarpet.getZ()), 60);
+            c.waitUntil("the mesher drew them as red carpet", mc -> (Long) Mod.staticCall(HL, "carpetSwapCount") >= swaps + 2, 200);
+            c.check((Boolean) c.onClient(mc -> Mod.staticCall(HL, "carpetRetextured", carpet.getX(), carpet.getY(), carpet.getZ())),
+                    "the gray vein carpet is not retextured");
+            c.check((Boolean) c.onClient(mc -> Mod.staticCall(HL, "carpetRetextured", lightCarpet.getX(), lightCarpet.getY(),
+                    lightCarpet.getZ())), "the light blue vein carpet is not retextured");
+            c.check(!(Boolean) c.onClient(mc -> Mod.staticCall(HL, "carpetRetextured", onStone.getX(), onStone.getY() + 1, onStone.getZ())),
+                    "a carpet on plain stone was retextured");
+            // Off: the carpets go back to their own look (the mesher is asked again, and answers null).
+            c.ctx().runOnClient(mc -> Mod.set(CFG, "setCarpet", false));
+            c.waitUntil("retexture off with the switch", mc -> !(Boolean) Mod.staticCall(HL, "carpetRetextured", carpet.getX(),
+                    carpet.getY(), carpet.getZ()), 100);
+            c.note("2 vein carpets (gray, light blue) drawn as red carpet by the mesher; a carpet on stone untouched; off restores");
         } finally {
-            c.ctx().runOnClient(mc -> {
-                mc.options.keyJump.setDown(false);
-                mc.options.keyShift.setDown(false);
-                dev.testkit.compat.McCompat.setHudHidden(mc, hideGui);
-                if (itBefore != null) {
-                    setImprovedTransparency(mc, itBefore);
-                }
-            });
-            setb(c, carpet, "minecraft:air");
-            for (int i = 0; i < platform.size(); i++) {
-                setb(c, platform.get(i), was.get(i));
+            for (BlockPos b : all) {
+                setb(c, b, "minecraft:air");
             }
             hub(c);
+        }
+    }
+
+    /**
+     * "if i am in an area looking out with the stone highlight stuff on it treats everything outside my area as still in the
+     * area": standing in one area, the blocks of the other keep their own answer. Both ways round.
+     */
+    private static void areaInside(Session c) {
+        BlockPos f = feet(c);
+        BlockPos upper = f.offset(-6, 1, -3);
+        BlockPos cliff = f.offset(6, 1, -3);
+        BlockPos upperFar = f.offset(-20, 1, 30);
+        BlockPos cliffFar = f.offset(20, 1, 30);
+        List<BlockPos> all = List.of(upper, cliff, upperFar, cliffFar);
+        try (Settings set = new Settings(c).with(CFG, "MithrilStone", true)) {
+            useGraph(c, f);
+            for (BlockPos b : all) {
+                setb(c, b, "minecraft:gray_wool");
+            }
+            c.check("Upper Mines".equals(areaOf(c, upperFar)), "the far west block is " + areaOf(c, upperFar));
+            c.check("Cliffside Veins".equals(areaOf(c, cliffFar)), "the far east block is " + areaOf(c, cliffFar));
+            // Standing in Upper Mines with only Cliffside Veins open: Cliffside blocks mithril, Upper Mines blocks stone.
+            inside(c, "Upper Mines", "Cliffside Veins Mithril: 10%", all, upper, cliff, upperFar, cliffFar, true, false);
+            // The reverse.
+            inside(c, "Cliffside Veins", "Upper Mines Mithril: 10%", all, upper, cliff, upperFar, cliffFar, false, true);
+            c.note("in Upper Mines with Cliffside Veins open: Cliffside blocks mithril (near and far), Upper blocks stone; and the reverse");
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.staticCall(STONE, "recordSwapsForTest", false));
+            for (BlockPos b : all) {
+                setb(c, b, "minecraft:air");
+            }
+            clearGraph(c);
+            hub(c);
+        }
+    }
+
+    private static void inside(Session c, String standIn, String com, List<BlockPos> all, BlockPos upper, BlockPos cliff,
+                               BlockPos upperFar, BlockPos cliffFar, boolean upperStone, boolean cliffStone) {
+        mines(c, standIn, com);
+        c.waitUntil("the swap is on (" + standIn + ")", mc -> (Boolean) Mod.staticCall(STONE, "isEnabled"), 40);
+        c.ctx().waitTicks(12); // the commission the tick has just read must be the one the mesher judges by
+        c.ctx().runOnClient(mc -> {
+            Mod.staticCall(STONE, "recordSwapsForTest", true);
+            Mod.staticCall(STONE, "remeshForTest");
+        });
+        BlockPos stoneOne = upperStone ? upper : cliff;
+        c.waitUntil("the mesher drew a stone block (" + standIn + ")",
+                mc -> (Boolean) Mod.staticCall(STONE, "swappedAt", stoneOne.getX(), stoneOne.getY(), stoneOne.getZ()), 100);
+        c.ctx().waitTicks(10);
+        for (Object[] row : new Object[][]{{"near Upper Mines", upper, upperStone}, {"far Upper Mines", upperFar, upperStone},
+                {"near Cliffside Veins", cliff, cliffStone}, {"far Cliffside Veins", cliffFar, cliffStone}}) {
+            BlockPos b = (BlockPos) row[1];
+            boolean swapped = c.onClient(mc -> (Boolean) Mod.staticCall(STONE, "swappedAt", b.getX(), b.getY(), b.getZ()));
+            c.check(swapped == (Boolean) row[2], "standing in " + standIn + " (" + com + "), the " + row[0]
+                    + " block was drawn as " + (swapped ? "stone" : "mithril") + ", wanted " + ((Boolean) row[2] ? "stone" : "mithril"));
         }
     }
 }
