@@ -2583,18 +2583,27 @@ final class HxBloodCampCases {
             long min = lags.stream().mapToLong(Long::longValue).min().orElse(-1);
             long max = lags.stream().mapToLong(Long::longValue).max().orElse(-1);
             c.check(max - min <= 1, "Never Miss: the attack moved with Trigger Offset -5/0/+5: " + lags);
-            // Control: Never Miss OFF, the offset still moves the first click.
+            // Control: Never Miss OFF, the offset still moves the first click. Judged on the click's own countdown
+            // reading: the kill timer itself (ping in ticks) can read a tick apart between two trips (-0.2 / -1.2 seen on
+            // 2026-11-02), which is not the offset.
+            double[] at = new double[2];
+            int[] beforeOff = new int[2];
+            int k = 0;
             for (int off : new int[]{-5, 5}) {
                 setNeverMiss(c, false, off);
                 stand(c, 0f, 0f);
                 nextSummonDelay = 3;
                 Trip t = trip(c, Mob.HURTABLE, true, 20, null);
-                double late = t.killAt - t.triggerAt;
+                at[k] = t.triggerAt;
+                beforeOff[k] = lastClicksBeforeSummon;
                 c.note(String.format(Locale.ROOT, "Never Miss OFF, offset %+d: %s; clicks before the mob %d; first click %.1f"
-                        + " ticks after the kill timer", off, fmt(t), lastClicksBeforeSummon, late));
-                c.check(Math.abs(late - off) < 0.01, String.format(Locale.ROOT,
-                        "Never Miss OFF, offset %+d: the click went %.1f ticks after the kill timer, want %d", off, late, off));
+                        + " ticks after the kill timer", off, fmt(t), lastClicksBeforeSummon, t.killAt - t.triggerAt));
+                c.check(!Double.isNaN(t.triggerAt), "Never Miss OFF, offset " + off + ": no click - nothing was tested");
+                k++;
             }
+            c.check(Math.abs((at[0] - at[1]) - 10.0) < 1.01, String.format(Locale.ROOT, "Never Miss OFF: offsets -5 and +5"
+                    + " clicked at %.1f and %.1f ticks left, want 10 apart (the offset still applies)", at[0], at[1]));
+            c.check(beforeOff[0] >= 1, "Never Miss OFF, offset -5: the early click did not go before the mob appeared");
         } finally {
             nextSummonDelay = null;
             c.hx().removeStands();
@@ -2742,6 +2751,7 @@ final class HxBloodCampCases {
                 s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "NeverMiss", true);
             }
             long[] counts = new long[2];
+            int[] cooldown = {0};
             for (int pass = 0; pass < (cheat ? 2 : 1); pass++) {
                 boolean on = pass == 0;
                 if (cheat) {
@@ -2769,8 +2779,9 @@ final class HxBloodCampCases {
                             && le.getHealth() < le.getMaxHealth();
                 });
                 counts[pass] = namedAttacks(c, since, name);
+                cooldown[0] = c.onClient(mc -> (Integer) Mod.staticCall(BC, "lastCooldownTicks"));
                 c.note("Never Miss " + (on ? "ON" : "OFF") + ": " + counts[pass] + " attacks on a live blood mob in 40 ticks,"
-                        + " hurt " + hit);
+                        + " hurt " + hit + ", weapon cooldown " + cooldown[0] + " ticks");
                 clearDecoys(c);
                 if (!cheat) {
                     c.check(counts[0] == 0, "legit jar: something attacked");
@@ -2778,8 +2789,10 @@ final class HxBloodCampCases {
                 }
                 c.check(hit, (on ? "ON" : "OFF") + ": the mob was never hurt - nothing was tested");
             }
-            c.check(counts[0] >= 4, "Never Miss ON: a hit blood mob still alive was attacked only " + counts[0]
-                    + " time(s) in 40 ticks, want it hit again at the weapon's pace (5 ticks)");
+            long want = Math.max(2, 40 / Math.max(1, cooldown[0]) - 1);
+            c.check(counts[0] >= want, "Never Miss ON: a hit blood mob still alive was attacked only " + counts[0]
+                    + " time(s) in 40 ticks, want at least " + want + " (hit again at the weapon's pace, " + cooldown[0]
+                    + " ticks)");
             c.check(counts[1] == 1, "Never Miss OFF: want the one click as before, got " + counts[1]);
         } finally {
             clearDecoys(c);
