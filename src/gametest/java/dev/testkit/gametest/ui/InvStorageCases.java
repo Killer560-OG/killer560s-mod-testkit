@@ -976,12 +976,18 @@ final class InvStorageCases {
                 });
                 c.ticks(2);
             }
-            int box = 16 * 16 * gs * gs;
-            c.note("gold px, rarity on / off: pages grid " + g[0][0] + " / " + g[1][0] + ", inventory panel " + g[0][1]
-                    + " / " + g[1][1] + " (a 16-unit box is " + box + " px; the stick covers part of it)");
-            c.check(g[0][0] - g[1][0] >= box / 2, "the pages grid drew no rarity box: " + g[0][0] + " vs " + g[1][0]);
-            c.check(g[0][1] - g[1][1] >= box / 2, "the inventory panel drew no rarity box: " + g[0][1] + " vs " + g[1][1]);
-            c.check(g[1][0] == 0 && g[1][1] == 0, "gold with Item Rarity off: " + g[1][0] + " / " + g[1][1]);
+            // Both grids draw at their own scale (the overlay's slider/fit scale, the inventory panel's fit scale).
+            float gridScale = c.onClient(mc -> ((Number) Mod.field(SFEAT, "lastScale")).floatValue());
+            float invScale = c.onClient(mc -> ((Number) Mod.field(SFEAT, "lastInventoryScale")).floatValue());
+            int gridBox = (int) Math.pow(16 * gridScale * gs, 2);
+            int invBox = (int) Math.pow(16 * invScale * gs, 2);
+            c.note("gold px, rarity on / off: pages grid " + g[0][0] + " / " + g[1][0] + " (16-unit box at scale "
+                    + gridScale + " = " + gridBox + " px), inventory panel " + g[0][1] + " / " + g[1][1] + " (scale "
+                    + invScale + " = " + invBox + " px); the stick covers part of each box. The open page's title is the"
+                    + " same orange, so the pages grid has gold with rarity off too.");
+            c.check(g[0][0] - g[1][0] >= gridBox * 0.4, "the pages grid drew no rarity box: " + g[0][0] + " vs " + g[1][0]);
+            c.check(g[0][1] - g[1][1] >= invBox * 0.4, "the inventory panel drew no rarity box: " + g[0][1] + " vs " + g[1][1]);
+            c.check(g[1][1] == 0, "gold in the inventory panel with Item Rarity off: " + g[1][1]);
         } finally {
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);

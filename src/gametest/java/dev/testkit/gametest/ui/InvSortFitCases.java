@@ -390,11 +390,16 @@ final class InvSortFitCases {
         int cx0 = (int) Math.round(pc[0] * k);
         int cy0 = (int) Math.round(pc[1] * k);
         int white = InvBatchCases.count(img, cx0, cy0, cx0 + cellPx, cy0 + cellPx, 0xFFFFFF);
+        // The count scales with the item (vanilla's proportions: right-aligned at the icon's right edge, on its bottom), so
+        // a two-digit count reaches left past the middle; it must sit in the lower half and mostly in the right half.
+        int whiteLow = InvBatchCases.count(img, cx0, cy0 + cellPx / 2, cx0 + cellPx, cy0 + cellPx, 0xFFFFFF);
         int whiteRight = InvBatchCases.count(img, cx0 + cellPx / 2, cy0 + cellPx / 2, cx0 + cellPx, cy0 + cellPx, 0xFFFFFF);
         int whiteSpill = InvBatchCases.count(img, cx0 + cellPx, cy0, cx0 + cellPx + (int) (6 * k), cy0 + cellPx, 0xFFFFFF);
-        notes.add("count: " + white + " white px in the cell, " + whiteRight + " in its lower right, " + whiteSpill
-                + " spilling right");
-        c.check(white > 0 && whiteRight * 10 >= white * 8, tag + ": the count text is not in the cell's lower right");
+        notes.add("count: " + white + " white px in the cell, " + whiteLow + " in its lower half, " + whiteRight
+                + " in its lower right, " + whiteSpill + " spilling right");
+        c.check(white > 0 && whiteLow * 10 >= white * 9 && whiteRight * 10 >= white * 6,
+                tag + ": the count text is not in the cell's lower right (" + white + " px, " + whiteLow + " low, "
+                        + whiteRight + " lower right)");
         c.check(whiteSpill == 0, tag + ": the count text hangs out of its cell");
         n++;
         // The rarity box: gold right inside the frame's four corners when on, none when off.
