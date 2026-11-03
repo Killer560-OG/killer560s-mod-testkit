@@ -114,8 +114,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxDarkMode1102Cases.register(s);
                     HxStutterCases.register(s);
                     HxBossHealthCases.register(s);
-                    // 1103-kickhub-*: Kicked To Hub (mod kickhub-1103).
-                    HxKickHub1103Cases.register(s);
+                    // 1103-kickrejoin-*: Kick Rejoin Timer (mod kickhub-1103).
+                    HxKickRejoin1103Cases.register(s);
                 });
     }
 }
