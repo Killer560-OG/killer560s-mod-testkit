@@ -110,6 +110,11 @@ public class SimBossTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         List<String> failures = new ArrayList<>();
         for (String name : chosen) {
+            // P3 waits on Auto Terminal and AP3 on AP3; both are compiled out of a legit jar.
+            if ((name.equals(P3) || name.equals(AP3)) && !dev.testkit.gametest.mod.Mod.isCheat()) {
+                println(name, "SKIPPED: legit jar (Auto Terminal / AP3 are cheat-only)");
+                continue;
+            }
             List<String> f = new ArrayList<>();
             try {
                 switch (name) {
