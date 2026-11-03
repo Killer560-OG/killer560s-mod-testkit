@@ -112,7 +112,15 @@ final class HxEspDepth1103Cases {
                 dev.testkit.compat.McCompat.setHudHidden(mc, true);
                 dev.testkit.compat.McCompat.clearChatAndToasts(mc);
             });
-            List<String> modes = itBefore == null ? List.of("off") : List.of("off", "on");
+            // A jar from before the fix (no util.EspTypes) throws every frame with Improved Transparency on: only "off" there.
+            boolean fixed;
+            try {
+                Mod.staticCall("util.EspTypes", "init");
+                fixed = true;
+            } catch (Throwable t) {
+                fixed = false;
+            }
+            List<String> modes = itBefore == null || !fixed ? List.of("off") : List.of("off", "on");
             for (String m : modes) {
                 c.ctx().runOnClient(mc -> Mod.staticCall(HOOK, "setForced", (Object) null, (Object) null));
                 c.ctx().waitTicks(5);
@@ -165,7 +173,7 @@ final class HxEspDepth1103Cases {
                     BufferedImage base = javax.imageio.ImageIO.read(p0.toFile());
                     int frames = 6;
                     double sum = 0;
-                    int worst = 100;
+                    int worst = Integer.MAX_VALUE;
                     for (int i = 0; i < frames; i++) {
                         c.ctx().waitTicks(1 + (i % 2));
                         java.nio.file.Path p1 = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(
