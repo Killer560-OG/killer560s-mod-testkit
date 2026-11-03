@@ -31,6 +31,7 @@ final class HxDocDhud1101Cases {
     static void register(Session s) {
         s.test("1101-dhud-cryptreminder", HxDocDhud1101Cases::cryptReminder);
         s.test("1101-dhud-preboss", HxDocDhud1101Cases::preBoss);
+        s.test("1103-preboss-portal", HxDocDhud1101Cases::preBossPortal);
         s.test("1101-dhud-splitticks", HxDocDhud1101Cases::splitTicks);
         s.test("1101-dhud-coreentry", HxDocDhud1101Cases::coreEntry);
         s.test("1101-dhud-livid", HxDocDhud1101Cases::livid);
@@ -72,6 +73,61 @@ final class HxDocDhud1101Cases {
             Mod.setField("scorecalc.ScoreCalculatorFeature", "bloodDone", false);
             Mod.setField("scorecalc.ScoreCalculatorFeature", "expectingBloodUpdate", false);
         });
+    }
+
+    /** Owner 2026-11-03: Color Portal tints the boss portal red under 270, yellow from 270, green from 300. A real
+     *  obsidian frame with portal blocks is built; after the Watcher's line the tint must match the calculator's score. */
+    private static void preBossPortal(Session c) {
+        net.minecraft.core.BlockPos f = c.onClient(mc -> mc.player.blockPosition());
+        int x0 = f.getX() + 3;
+        int y0 = f.getY();
+        int z = f.getZ() + 4;
+        try (Settings set = new Settings(c).with(SCORE_CFG, "Enabled", false)
+                .with(SCORE_CFG, "CryptReminder", false)
+                .with(SCORE_CFG, "PreBossWarning", true)
+                .with(SCORE_CFG, "PreBossMageOnly", false)
+                .with(SCORE_CFG, "PreBossPermanent", false)
+                .with(SCORE_CFG, "PreBossPortalColor", true)
+                .with(SCORE_CFG, "ScoreWarningSound", false)) {
+            c.server().command("fill " + x0 + " " + y0 + " " + z + " " + (x0 + 3) + " " + (y0 + 4) + " " + z + " minecraft:obsidian");
+            c.server().command("fill " + (x0 + 1) + " " + (y0 + 1) + " " + z + " " + (x0 + 2) + " " + (y0 + 3) + " " + z
+                    + " minecraft:nether_portal[axis=x]");
+            c.check(Mod.staticCall(WARN, "portalColorFor", 269).equals(0xFFFF3030)
+                    && Mod.staticCall(WARN, "portalColorFor", 270).equals(0xFFFFD700)
+                    && Mod.staticCall(WARN, "portalColorFor", 299).equals(0xFFFFD700)
+                    && Mod.staticCall(WARN, "portalColorFor", 300).equals(0xFF30FF30), "color rule at 269/270/299/300");
+            dungeon(c, "crypts", 2, "secrets", 10, "secretsPercent", "30.0", "rooms", 20);
+            sidebar(c, "template", "dungeon", "floor", "F7", "time", "05m 00s", "cleared", 80);
+            freshRun(c);
+            c.check(c.onClient(mc -> ((Number) Mod.staticCall(WARN, "portalColor")).intValue()) == 0, "tinted before the Watcher's line");
+            c.hx().chat(WATCHER_LINE);
+            c.waitUntil("the portal tinted", mc -> ((Number) Mod.staticCall(WARN, "portalColor")).intValue() != 0
+                    && ((Number) Mod.staticCall(WARN, "portalBlockCount")).intValue() == 6, 100);
+            int frames = c.onClient(mc -> ((Number) Mod.staticCall(WARN, "portalFrames")).intValue());
+            c.ctx().waitTicks(5);
+            int frames2 = c.onClient(mc -> ((Number) Mod.staticCall(WARN, "portalFrames")).intValue());
+            int score = c.onClient(mc -> ((Number) Mod.staticCall(WARN, "portalScore")).intValue());
+            int color = c.onClient(mc -> ((Number) Mod.staticCall(WARN, "portalColor")).intValue());
+            int want = (Integer) Mod.staticCall(WARN, "portalColorFor", score);
+            c.check(color == want, "tint " + Integer.toHexString(color) + " for score " + score + ", want " + Integer.toHexString(want));
+            c.check(frames2 > frames, "the tint was not drawn (frames " + frames + " -> " + frames2 + ")");
+            int low = score;
+            // A full run: the tint follows the score up.
+            dungeon(c, "crypts", 5, "secrets", 60, "secretsPercent", "100.0", "rooms", 25);
+            sidebar(c, "template", "dungeon", "floor", "F7", "time", "05m 10s", "cleared", 100);
+            c.waitUntil("the score rose", mc -> ((Number) Mod.staticCall(WARN, "portalScore")).intValue() > low, 100);
+            int high = c.onClient(mc -> ((Number) Mod.staticCall(WARN, "portalScore")).intValue());
+            int color2 = c.onClient(mc -> ((Number) Mod.staticCall(WARN, "portalColor")).intValue());
+            c.check(color2 == (Integer) Mod.staticCall(WARN, "portalColorFor", high), "after the score rose to " + high
+                    + " the tint is " + Integer.toHexString(color2));
+            c.check(low < 270, "the low run scored " + low + " (expected under 270, so red)");
+            run(c, () -> Mod.set(SCORE_CFG, "setPreBossPortalColor", false));
+            c.waitUntil("Color Portal off clears the tint", mc -> ((Number) Mod.staticCall(WARN, "portalColor")).intValue() == 0, 40);
+            c.note("6 portal blocks; score " + low + " -> " + Integer.toHexString(want) + ", " + high + " -> "
+                    + Integer.toHexString(color2) + "; off clears it");
+        } finally {
+            c.server().command("fill " + x0 + " " + y0 + " " + z + " " + (x0 + 3) + " " + (y0 + 4) + " " + z + " minecraft:air");
+        }
     }
 
     private static void preBoss(Session c) {
