@@ -1576,3 +1576,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   client-side RemotePlayer HxMateA in the core before "The Core entrance is opening!" (both must read exactly 0) and moves
   HxMateB in once 1000 ms have passed since `openedMs`, from a tick poll (lands 1000-1050 ms). On batch N's jar core0 reads
   the client and HxMateA at a tick, not 0.
+
+- (f7hud-1102, 2026-11-02) A server-tick timer case needs Hypixel's per-tick pings to be exact: with GrimAC on, its
+  transaction pings keep the mod's `PerTickServerClock` untrusted and it wobbles 4-8 ticks on a loaded machine. Run such a
+  case under `-Pnogrim` with the testmod's `boss.pertickping` (1102-hx-goldor-tick does both, tolerance 1 vs 8), and
+  schedule events with `boss.timeline` (START_SERVER_TICK: a `damage` at END_SERVER_TICK sends its health a tick late).

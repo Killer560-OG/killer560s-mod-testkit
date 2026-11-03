@@ -25,6 +25,8 @@ final class BossTimerCases {
     private static final String TT = "ticktimers.TickTimersFeature";
     private static final String BC = "bloodcamp.BloodCampMoveTimer";
     private static final String I4 = "i4sensors.AutoI4Feature";
+    private static final String GT = "ticktimers.GoldorTick";
+    private static final String SL = "ticktimers.StormLine";
 
     private BossTimerCases() {
     }
@@ -54,10 +56,9 @@ final class BossTimerCases {
             c.eq("Goldor Start armed at 17 on Storm's death", 17, R.get(TT, "goldorStartTime"));
             chat(TT, "onChatMessage", "[BOSS] Goldor: Who dares trespass into my domain?");
             c.eq("Goldor's line ends Start", -1, R.get(TT, "goldorStartTime"));
-            c.eq("Goldor's line starts the 60-tick Tick", 60, R.get(TT, "goldorTickTime"));
-
-            chat(TT, "onChatMessage", "[BOSS] Storm: ENERGY HEED MY CALL!");
-            c.eq("PY window 62", 62, R.get(TT, "pyTickTime"));
+            // f7hud-1102: Goldor's tick is GoldorTick now (a remembered server tick, not a counter).
+            c.check("Goldor's line starts the Tick", (Boolean) Mod.staticCall(GT, "active"), "GoldorTick inactive");
+            c.eq("the Tick reads 60 on Goldor's line", 60, Mod.staticCall(GT, "remaining"));
 
             chat(TT, "onChatMessage", "[BOSS] Necron: I'm afraid, your journey ends now.");
             c.eq("old Necron line no longer starts the drop timer", -1, R.get(TT, "necronTicks"));
@@ -233,6 +234,309 @@ final class BossTimerCases {
         } finally {
             Mod.staticCall(CLOCK, "untrustForTest");
             Mod.staticCall(BC, "reset");
+        }
+    }
+
+    // ---- f7hud-1102: Goldor's tick, Storm's one line, old config keys ---------------------------------------------
+
+    /** n client ticks of a server that pings every tick (the clock trusted): n server ticks. */
+    private static void serverTicks(int n) {
+        for (int i = 0; i < n; i++) {
+            simTick(1);
+        }
+    }
+
+    private static long clock() {
+        return (Long) Mod.staticCall(CLOCK, "now");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Integer> offsets() {
+        return (List<Integer>) Mod.staticCall(GT, "testOffsetsAtHits");
+    }
+
+    private static String tickLine() {
+        for (String l : hudLines()) {
+            String plain = l.replaceAll("§.", "");
+            if (plain.startsWith("Tick:")) {
+                return plain;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * killer560, 2026-11-02: Goldor's "Tick:" "procced my mask at like 1.5s instead of at 0". Scripted server ticks, the
+     * clock driven by hand as a per-tick pinger: (a) hits on Goldor's 60-tick cycle read 0 at every hit and the line shows
+     * "Tick: 0.0s" on each; (b) hits 30 ticks off the line's phase (the reported error) re-lock on the second hit, after
+     * which every hit reads 0; (c) a stray hit between two real ones moves nothing; (d) two players hurt at once re-lock
+     * at once; a hit 2 ticks late snaps the phase; a mask proc line is a hit, a player's copy of it is not.
+     */
+    static void goldorTick(LogicCase c) throws Exception {
+        boolean gateWas = (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled");
+        Mod.staticCall("util.SkyblockGate", "setEnabled", false);
+        try (AutoCloseable on = Mod.with("ticktimers.TickTimersConfig", "Enabled", true);
+             AutoCloseable g = Mod.with("ticktimers.TickTimersConfig", "GoldorTimer", true);
+             AutoCloseable start = Mod.with("ticktimers.TickTimersConfig", "GoldorStartTimer", false);
+             AutoCloseable total = Mod.with("ticktimers.TickTimersConfig", "GoldorShowTotal", false)) {
+            Mod.staticCall(CLOCK, "untrustForTest");
+            serverTicks(40);
+            c.check("the hand-driven server is trusted", (Boolean) Mod.staticCall(CLOCK, "trusted"), "not trusted");
+
+            // (a) in phase.
+            Mod.staticCall(TT, "resetAll");
+            chat(TT, "onChatMessage", "[BOSS] Goldor: Who dares trespass into my domain?");
+            long line = clock();
+            c.eq("(a) 60 on the line", 60, Mod.staticCall(GT, "remaining"));
+            List<String> atHits = new ArrayList<>();
+            for (int k = 1; k <= 4; k++) {
+                serverTicks(60);
+                c.eq("(a) hit " + k + " at line+" + (60 * k) + ": the Tick reads 0 before the hit is seen", 0,
+                        Mod.staticCall(GT, "remaining"));
+                Mod.staticCall(GT, "testHitNow", false);
+                atHits.add(tickLine());
+            }
+            c.eq("(a) clock moved 240 server ticks", line + 240, clock());
+            c.eq("(a) offsets at the 4 hits", List.of(0, 0, 0, 0), offsets());
+            c.check("(a) the HUD read Tick: 0.0s at every hit", atHits.stream().allMatch("Tick: 0.0s"::equals), atHits.toString());
+            serverTicks(1);
+            c.eq("(a) 59 the tick after a hit", 59, Mod.staticCall(GT, "remaining"));
+
+            // (b) 30 ticks off: the first hit does not fit, the second (60 later) re-locks, then 0 at every hit.
+            Mod.staticCall(TT, "resetAll");
+            chat(TT, "onChatMessage", "[BOSS] Goldor: Who dares trespass into my domain?");
+            serverTicks(30);
+            Mod.staticCall(GT, "testHitNow", false);
+            for (int k = 0; k < 3; k++) {
+                serverTicks(60);
+                if (k > 0) {
+                    c.eq("(b) re-locked hit " + (k + 2) + " reads 0", 0, Mod.staticCall(GT, "remaining"));
+                }
+                Mod.staticCall(GT, "testHitNow", false);
+            }
+            List<Integer> off = offsets();
+            c.check("(b) the first two hits were ~30 off the line's phase", off.size() == 4
+                    && Math.abs(off.get(0)) == 30 && Math.abs(off.get(1)) == 30, off.toString());
+            c.check("(b) after the re-lock every hit is on 0", off.size() == 4 && off.get(2) == 0 && off.get(3) == 0, off.toString());
+            c.eq("(b) one re-lock", 1, Mod.staticCall(GT, "testRelocks"));
+
+            // (c) a stray hit 25 ticks after a real one moves nothing.
+            Mod.staticCall(TT, "resetAll");
+            chat(TT, "onChatMessage", "[BOSS] Goldor: Who dares trespass into my domain?");
+            serverTicks(60);
+            Mod.staticCall(GT, "testHitNow", false);
+            serverTicks(25);
+            Mod.staticCall(GT, "testHitNow", false);
+            serverTicks(35);
+            c.eq("(c) the next real hit still reads 0", 0, Mod.staticCall(GT, "remaining"));
+            Mod.staticCall(GT, "testHitNow", false);
+            c.eq("(c) offsets: real, stray, real", List.of(0, 25, 0), offsets());
+            c.eq("(c) no re-lock", 0, Mod.staticCall(GT, "testRelocks"));
+
+            // (d) two players hurt in one tick re-lock at once.
+            Mod.staticCall(TT, "resetAll");
+            chat(TT, "onChatMessage", "[BOSS] Goldor: Who dares trespass into my domain?");
+            serverTicks(17);
+            Mod.staticCall(GT, "testHitNow", true);
+            c.eq("(d) a two-player hit re-locks: 0 on its tick", 0, Mod.staticCall(GT, "remaining"));
+            serverTicks(60);
+            c.eq("(d) 0 again one period later", 0, Mod.staticCall(GT, "remaining"));
+
+            // Small drift: a hit 2 ticks late snaps the phase onto it.
+            Mod.staticCall(TT, "resetAll");
+            chat(TT, "onChatMessage", "[BOSS] Goldor: Who dares trespass into my domain?");
+            serverTicks(62);
+            Mod.staticCall(GT, "testHitNow", false);
+            serverTicks(60);
+            c.eq("a hit 2 ticks late moves the phase onto it", 0, Mod.staticCall(GT, "remaining"));
+
+            // A mask proc line is a hit.
+            Mod.staticCall(TT, "resetAll");
+            chat(TT, "onChatMessage", "[BOSS] Goldor: Who dares trespass into my domain?");
+            serverTicks(40);
+            chat(TT, "onChatMessage", "[MVP+] Bob: Second Wind Activated! Your Spirit Mask saved your life!");
+            Mod.staticCall(GT, "endOfTick");
+            c.eq("a player's copy of the proc line is not a hit", List.of(), offsets());
+            serverTicks(21);
+            chat(TT, "onChatMessage", "Second Wind Activated! Your Spirit Mask saved your life!");
+            Mod.staticCall(GT, "endOfTick"); // a proc is counted at the end of the client tick, with the health drops
+            c.eq("a Spirit Mask proc counts as a hit", List.of(1), offsets());
+
+            // The core opening ends it.
+            chat(TT, "onChatMessage", "The Core entrance is opening!");
+            c.check("the core opening stops the Tick", !(Boolean) Mod.staticCall(GT, "active"), "still active");
+            c.check("no Tick line after the core opens", tickLine() == null, hudLines().toString());
+        } finally {
+            Mod.staticCall(TT, "resetAll");
+            Mod.staticCall(CLOCK, "untrustForTest");
+            Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas);
+        }
+    }
+
+    private static String stormLine() {
+        List<String> out = new ArrayList<>();
+        for (String l : hudLines()) {
+            String plain = l.replaceAll("§.", "");
+            if (plain.startsWith("Lightning:") || plain.startsWith("Purple:") || plain.startsWith("Yellow:")
+                    || plain.startsWith("Pad:") || plain.startsWith("Storm:") || plain.startsWith("PY:") || plain.startsWith("Crush")) {
+                out.add(plain);
+            }
+        }
+        return out.size() == 1 ? out.get(0) : out.isEmpty() ? null : out.toString();
+    }
+
+    /**
+     * killer560, 2026-11-02: Storm's line is ONE line: Lightning counts down from Storm's opening line, the lightning line
+     * switches it to the purple pad timer (0 every 20 server ticks from the opening line), the first crush to yellow on
+     * the same cycle, Storm's death ends it. No Pad / Storm / PY / Crush line exists any more.
+     */
+    static void stormLineCase(LogicCase c) throws Exception {
+        boolean gateWas = (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled");
+        Mod.staticCall("util.SkyblockGate", "setEnabled", false);
+        try (AutoCloseable on = Mod.with("ticktimers.TickTimersConfig", "Enabled", true);
+             AutoCloseable st = Mod.with("ticktimers.TickTimersConfig", "StormLine", true);
+             AutoCloseable ticks = Mod.with("ticktimers.TickTimersConfig", "DisplayInTicks", true)) {
+            Mod.staticCall(CLOCK, "untrustForTest");
+            serverTicks(40);
+            Mod.staticCall(TT, "resetAll");
+            chat(TT, "onChatMessage", "[BOSS] Storm: Pathetic Maxor, just like expected.");
+            c.eq("Lightning 560t on Storm's line", "Lightning: 560t", stormLine());
+            serverTicks(100);
+            c.eq("Lightning 460t 100 ticks on", "Lightning: 460t", stormLine());
+            serverTicks(470);
+            c.eq("Lightning holds at 0 until the lightning goes off", "Lightning: 0t", stormLine());
+            // 570 ticks after the line: 570 % 20 = 10 ticks to the next pad tick.
+            chat(TT, "onChatMessage", "[BOSS] Storm: ENERGY HEED MY CALL!");
+            c.eq("the lightning line switches to the purple pad timer", "Purple: 10t", stormLine());
+            List<Integer> zeros = new ArrayList<>();
+            for (int i = 1; i <= 45; i++) {
+                serverTicks(1);
+                if ((Integer) Mod.staticCall(SL, "remaining") == 0) {
+                    zeros.add(i);
+                }
+            }
+            c.eq("the pad timer reads 0 every 20 server ticks, on the opening line's cycle", List.of(10, 30), zeros);
+            chat(TT, "onChatMessage", "[BOSS] Storm: Oof");
+            String y = stormLine();
+            c.check("the first crush keeps the same cycle for yellow", y != null && y.startsWith("Yellow: ")
+                    && y.equals("Yellow: " + Mod.staticCall(SL, "remaining") + "t"), "" + y);
+            chat(TT, "onChatMessage", "[BOSS] Storm: Ouch, that hurt!");
+            c.check("a second crush stays on yellow", String.valueOf(stormLine()).startsWith("Yellow: "), "" + stormLine());
+            chat(TT, "onChatMessage", "[BOSS] Storm: I should have known that I stood no chance.");
+            c.eq("Storm's death ends the line", null, stormLine());
+
+            // A crush with the lightning line missed: straight to yellow.
+            chat(TT, "onChatMessage", "[BOSS] Storm: Pathetic Maxor, just like expected.");
+            chat(TT, "onChatMessage", "[BOSS] Storm: Oof");
+            c.check("a crush before any lightning line goes to yellow", String.valueOf(stormLine()).startsWith("Yellow: "), "" + stormLine());
+            chat(TT, "onChatMessage", "[MVP+] Bob: [BOSS] Storm: Pathetic Maxor, just like expected.");
+            c.check("a player's copy of Storm's line restarts nothing", String.valueOf(stormLine()).startsWith("Yellow: "), "" + stormLine());
+
+            try (AutoCloseable off = Mod.with("ticktimers.TickTimersConfig", "StormLine", false)) {
+                c.eq("Storm Line off: no line", null, stormLine());
+            }
+        } finally {
+            Mod.staticCall(TT, "resetAll");
+            Mod.staticCall(CLOCK, "untrustForTest");
+            Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas);
+        }
+    }
+
+    /**
+     * killer560's 2026-11-02 screenshots (1920x1080, GUI 2 = 960x540 GUI px): the Storm line over Maxor's "Active", Team
+     * Melody over the Split Timers, the P3 list over chat. The F7 HUDs' DEFAULT boxes (their largest real content: Tick
+     * Timers 3 lines of 12, Maxor 3 of 10, P3 Status 4 of 10, Team Melody 120 with boards, 160 wide) must miss each other (Maxor and
+     * P3 Status never show together), the chat (x < 330, y 320-500 at 540 high), the Split Timers' default column (x 10)
+     * and the vanilla sidebar (right edge, y 200-340 at 540 high: Team Melody goes under it). Positions are read from the elements on this client's screen.
+     */
+    static void f7Slots(LogicCase c) {
+        int screenW = Minecraft.getInstance().getWindow().getGuiScaledWidth();
+        String[][] els = {{"tick_timers", "36"}, {"maxor_crystals", "30"}, {"p3_status", "40"}, {"team_melody", "120"}};
+        int[][] box = new int[els.length][];
+        for (int i = 0; i < els.length; i++) {
+            Object e = Mod.staticCall("hud.HudElementRegistry", "byId", els[i][0]);
+            if (!c.check(els[i][0] + " is registered", e != null)) {
+                return;
+            }
+            int x = (Integer) Mod.call(e, "defaultX");
+            int y = (Integer) Mod.call(e, "defaultY");
+            box[i] = new int[]{x, y, x + 160, y + Integer.parseInt(els[i][1])};
+            c.note(els[i][0] + " default " + x + "," + y + " on a " + screenW + " wide screen");
+            c.eq(els[i][0] + " sits in the right column", screenW - 170, x);
+            c.check(els[i][0] + " is clear of the chat and the Split Timers (x >= 330 at 960 wide)", screenW < 500 || x >= 330, "x " + x);
+            boolean melody = els[i][0].equals("team_melody");
+            c.check(els[i][0] + (melody ? " starts below the vanilla sidebar (y >= 345)" : " ends above the vanilla sidebar (y <= 200)"),
+                    melody ? y >= 345 : box[i][3] <= 200, "top " + y + ", bottom " + box[i][3]);
+        }
+        for (int a = 0; a < els.length; a++) {
+            for (int b = a + 1; b < els.length; b++) {
+                boolean together = !(els[a][0].equals("maxor_crystals") && els[b][0].equals("p3_status"));
+                boolean meet = box[a][0] < box[b][2] && box[b][0] < box[a][2] && box[a][1] < box[b][3] && box[b][1] < box[a][3];
+                if (together) {
+                    c.check(els[a][0] + " and " + els[b][0] + " do not overlap", !meet,
+                            java.util.Arrays.toString(box[a]) + " vs " + java.util.Arrays.toString(box[b]));
+                }
+            }
+        }
+    }
+
+    /**
+     * Old config files with the removed keys load without a fuss: Tick Timers' "stormTimer"/"padCycleTimer" become
+     * "stormLine" (ON if either was), the crush countdown keys are dropped by the next save, the pad outline keys are kept;
+     * P3 Status' "showWhoIsAt" is ignored and dropped.
+     */
+    static void oldConfigs(LogicCase c) throws Exception {
+        java.nio.file.Path tt = (java.nio.file.Path) R.get("ticktimers.TickTimersConfig", "CONFIG_PATH");
+        java.nio.file.Path p3 = (java.nio.file.Path) R.get("p3status.P3StatusConfig", "CONFIG_PATH");
+        byte[] ttWas = java.nio.file.Files.exists(tt) ? java.nio.file.Files.readAllBytes(tt) : null;
+        byte[] p3Was = java.nio.file.Files.exists(p3) ? java.nio.file.Files.readAllBytes(p3) : null;
+        try {
+            java.nio.file.Files.createDirectories(tt.getParent());
+            String[][] cases = {{"false", "true", "true"}, {"true", "false", "true"}, {"false", "false", "false"}};
+            for (String[] k : cases) {
+                java.nio.file.Files.writeString(tt, "{\"enabled\": true, \"stormTimer\": " + k[0] + ", \"padCycleTimer\": " + k[1]
+                        + ", \"crushTimer\": true, \"crushTitle\": true, \"crushIntervalSeconds\": 12.5,"
+                        + " \"crushWarnSeconds\": 4.0, \"crushExtraTrigger\": \"zap\", \"crushPadHighlight\": true,"
+                        + " \"crushPadColor\": 123456, \"goldorFrenzyMigrated\": true, \"f7spotsCrushMigrated\": true}");
+                Mod.staticCall("ticktimers.TickTimersConfig", "load");
+                Object cfg = Mod.cfg("ticktimers.TickTimersConfig");
+                c.eq("stormTimer " + k[0] + " + padCycleTimer " + k[1] + " -> Storm Line " + k[2],
+                        Boolean.parseBoolean(k[2]), Mod.call(cfg, "isStormLine"));
+                c.eq("pad highlight kept", true, Mod.call(cfg, "isCrushPadHighlightEnabled"));
+                c.eq("pad color kept", 123456, Mod.call(cfg, "getCrushPadColor"));
+            }
+            Mod.call(Mod.cfg("ticktimers.TickTimersConfig"), "save");
+            String saved = java.nio.file.Files.readString(tt);
+            for (String gone : new String[]{"stormTimer", "padCycleTimer", "crushTimer", "crushTitle", "crushIntervalSeconds",
+                    "crushWarnSeconds", "crushExtraTrigger"}) {
+                c.check("the save drops \"" + gone + "\"", !saved.contains("\"" + gone + "\""), saved);
+            }
+            c.check("the save writes stormLine", saved.contains("\"stormLine\": false"), saved);
+            Mod.staticCall("ticktimers.TickTimersConfig", "load");
+            c.eq("stormLine survives a reload", false, Mod.call(Mod.cfg("ticktimers.TickTimersConfig"), "isStormLine"));
+
+            java.nio.file.Files.createDirectories(p3.getParent());
+            java.nio.file.Files.writeString(p3, "{\"enabled\": true, \"showHud\": false, \"showWhoIsAt\": true, \"titleSound\": false}");
+            Mod.staticCall("p3status.P3StatusConfig", "load");
+            Object pc = Mod.cfg("p3status.P3StatusConfig");
+            c.eq("P3 Status loads with the old key: showHud", false, Mod.call(pc, "getShowHudRaw"));
+            c.eq("P3 Status loads with the old key: titleSound", false, Mod.call(pc, "getTitleSoundRaw"));
+            Mod.call(pc, "save");
+            String p3saved = java.nio.file.Files.readString(p3);
+            c.check("the save drops showWhoIsAt", !p3saved.contains("showWhoIsAt"), p3saved);
+        } finally {
+            if (ttWas == null) {
+                java.nio.file.Files.deleteIfExists(tt);
+            } else {
+                java.nio.file.Files.write(tt, ttWas);
+            }
+            if (p3Was == null) {
+                java.nio.file.Files.deleteIfExists(p3);
+            } else {
+                java.nio.file.Files.write(p3, p3Was);
+            }
+            Mod.staticCall("ticktimers.TickTimersConfig", "load");
+            Mod.staticCall("p3status.P3StatusConfig", "load");
         }
     }
 
