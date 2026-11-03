@@ -1523,3 +1523,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   front, F1 on and FOV effects off: 90% of 9 points on each of the 12 edges and of a 5x5 grid on each face. A spot outside
   the room (waypoints only draw the room you stand in) or with a block within 0.35 of the body (the in-wall overlay) is
   skipped. Main 0cb3d82a1 fails the lid check (Red Blue 9, Chambers 14 slabs outside); mod 90a1f145e passes.
+
+- 588-ui-invsort-fit / 589-*-rarity-* (invsortfit-1102): the mod's own item grids. 588 finds each icon's box by diffing its
+  cell against an empty cell of the same grid and wants it centered and >= 70% of the inside at four window/GUI sizes;
+  589 counts LEGENDARY gold (0xFFAA00, Item Rarity Square 100%) with the feature on and off. Use a stick, not a block,
+  for a 16-unit cell: the box sits right under the icon and a full block hides all of it. The Storage Overlay's open
+  page title is that same orange, so the pages grid is checked by the on/off difference. A two-digit count scales with
+  the fitted item and reaches past the cell's middle (still in its lower half).

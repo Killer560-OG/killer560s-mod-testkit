@@ -99,6 +99,7 @@ final class BazaarV3Cases {
         MenuSuite.test(s, "488-menu-bazaar-v3-followup", BazaarV3Cases::followUp);
         MenuSuite.test(s, "489-menu-bazaar-v3-themes", BazaarV3Cases::themes);
         MenuSuite.test(s, "490-menu-bazaar-v3-inventory", BazaarV3Cases::inventory);
+        MenuSuite.test(s, "589-menu-rarity-bazaar-inv", BazaarV3Cases::rarity);
     }
 
     // ---- environment ----------------------------------------------------------------------------------------------
@@ -1172,6 +1173,74 @@ final class BazaarV3Cases {
 
     static int[] box4(int[] b) {
         return new int[]{b[0], b[1], b[2], b[3]};
+    }
+
+    /** A stick Hypixel would call LEGENDARY (its lore's last line), with a Skyblock id. */
+    static String legendaryStick(String id) {
+        return "minecraft:stick[custom_data={id:\"" + id + "\"},lore=[{text:\"LEGENDARY\",color:\"gold\",bold:true}]]";
+    }
+
+    /** Gold (0xFFAA00, the LEGENDARY rarity color) pixels inside a GUI box. */
+    static int goldIn(Session c, BufferedImage img, int[] box) {
+        double[] a = BazaarReskinCases.toWindow(c, box[0], box[1]);
+        double[] b = BazaarReskinCases.toWindow(c, box[0] + box[2], box[1] + box[3]);
+        int n = 0;
+        for (int y = (int) a[1]; y < (int) b[1] && y < img.getHeight(); y++) {
+            for (int x = (int) a[0]; x < (int) b[0] && x < img.getWidth(); x++) {
+                if ((img.getRGB(x, y) & 0xFFFFFF) == 0xFFAA00) {
+                    n++;
+                }
+            }
+        }
+        return n;
+    }
+
+    /**
+     * 589-menu-rarity-bazaar-inv (mod invsortfit-1102): the Bazaar screen's inventory panel draws the Item Rarity box
+     * under a LEGENDARY item with Item Rarity on and nothing with it off; a plain item beside it gets none either way.
+     */
+    static void rarity(Session c) throws Exception {
+        try (Env env = new Env(c)) {
+            feedAll(c);
+            setWindow(c, 1920, 1080, 2);
+            c.hx().call("give", "slot", 9, "count", 1, "stack", legendaryStick("ENCHANTED_DIAMOND"));
+            c.hx().call("give", "slot", 10, "count", 1, "stack", "minecraft:stick[custom_data={id:\"WHEAT\"}]");
+            c.ctx().waitTicks(5);
+            env.cfg.set("itemrarity.ItemRarityConfig", "Style", Mod.enumValue("itemrarity.ItemRarityConfig$Style", "SQUARE"));
+            env.cfg.set("itemrarity.ItemRarityConfig", "Opacity", 100);
+            env.cfg.set("itemrarity.ItemRarityConfig", "SkyblockOnly", false);
+            env.cfg.set("itemrarity.ItemRarityConfig", "Enabled", true);
+            try {
+                int[][] g = new int[2][2];
+                int[] box = null;
+                for (int i = 0; i < 2; i++) {
+                    boolean on = i == 0;
+                    c.ctx().runOnClient(mc -> Mod.call(Mod.cfg("itemrarity.ItemRarityConfig"), "setEnabled", on));
+                    JsonObject main = MenuKit.menu("menus.reskin-bazaar-category");
+                    BazaarReskinCases.open(c, main, "CATEGORY");
+                    Map<Integer, int[]> inv = invBoxes(layout(c), new HashMap<>());
+                    c.check(inv.size() == 36, "the inventory panel drew " + inv.size() + " slots, not 36");
+                    BufferedImage img = shot(c, "rarity-inv-" + (on ? "on" : "off"));
+                    box = inv.get(0);
+                    g[i][0] = goldIn(c, img, box4(inv.get(0)));
+                    g[i][1] = goldIn(c, img, box4(inv.get(1)));
+                    c.ctx().runOnClient(mc -> McCompat.setScreen(mc, null));
+                    MenuKit.reset(c);
+                    c.ctx().waitTicks(3);
+                }
+                int gs = c.onClient(mc -> mc.getWindow().getGuiScale());
+                int area = 16 * 16 * gs * gs;
+                c.note("Bazaar inventory panel, gold px rarity on / off: legendary stick " + g[0][0] + " / " + g[1][0]
+                        + ", plain stick " + g[0][1] + " / " + g[1][1] + " (a 16-unit box is " + area + " px; cell "
+                        + (box == null ? "?" : box[2] + "x" + box[3]) + " u)");
+                c.check(g[0][0] >= area / 2, "rarity on: only " + g[0][0] + " gold px under the legendary stick");
+                c.check(g[1][0] == 0, "rarity off: " + g[1][0] + " gold px under the legendary stick");
+                c.check(g[0][1] == 0 && g[1][1] == 0, "the plain stick got gold: " + g[0][1] + " / " + g[1][1]);
+            } finally {
+                c.hx().give(9, "minecraft:air");
+                c.hx().give(10, "minecraft:air");
+            }
+        }
     }
 
     static void inventory(Session c) throws Exception {

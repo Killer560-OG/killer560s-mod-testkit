@@ -130,7 +130,8 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] DUNGEON_FIX_CASES = {"551-ui-splits-layout", "552-ui-blood-camp-stall", "553-ui-etherwarp-p3sim"};
     /** killer560's 2026-10-08 inventory batch ({@link InvBatchCases}); 583/585 are in the menu suite. Own block for merges. */
     static final String[] INV_BATCH_CASES = {"581-ui-itemprotect-star", "582-ui-slotlock-migration",
-            "584-ui-invsort-editor", "586-ui-custom-items", "587-ui-cosmetics-category"};
+            "584-ui-invsort-editor", "586-ui-custom-items", "587-ui-cosmetics-category", "588-ui-invsort-fit",
+            "589-ui-rarity-custom-items", "589-ui-rarity-pet-wheel", "589-ui-rarity-browser", "589-ui-rarity-storage"};
     /** killer560's 2026-10-07 Command Shortcuts requests ({@link CmdShortcutsCases}); 544 is in the Hx session. Own block. */
     static final String[] CMD_SHORTCUTS_CASES = {"541-ui-cmd-shortcuts-builtin-rows", "542-ui-cmd-shortcuts-custom-edit",
             "543-ui-cmd-shortcuts-refused-names", "545-ui-cmd-shortcuts-sweep"};
@@ -622,6 +623,11 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "584-ui-invsort-editor", InvBatchCases::invsortEditor);
                     UiCase.run(ctx, "586-ui-custom-items", InvBatchCases::customItems);
                     UiCase.run(ctx, "587-ui-cosmetics-category", InvBatchCases::cosmeticsCategory);
+                    UiCase.run(ctx, "588-ui-invsort-fit", InvSortFitCases::fit);
+                    UiCase.run(ctx, "589-ui-rarity-custom-items", InvSortFitCases::customItems);
+                    UiCase.run(ctx, "589-ui-rarity-pet-wheel", ItemUiCases::petWheelRarity);
+                    UiCase.run(ctx, "589-ui-rarity-browser", ItemUiCases::browserRarity);
+                    UiCase.run(ctx, "589-ui-rarity-storage", InvStorageCases::storageRarity);
                     // ---- command shortcuts (541-545) ----
                     UiCase.run(ctx, "541-ui-cmd-shortcuts-builtin-rows", CmdShortcutsCases::builtinRows);
                     UiCase.run(ctx, "542-ui-cmd-shortcuts-custom-edit", CmdShortcutsCases::customEdit);
