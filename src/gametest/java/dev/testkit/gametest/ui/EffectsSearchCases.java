@@ -39,7 +39,7 @@ import java.util.Map;
 final class EffectsSearchCases {
 
     static final String[] CASES = {"1102-ui-hide-effects", "1102-ui-hide-effects-hud", "1102-ui-hide-effects-config",
-            "1102-ui-search-queries"};
+            "1102-ui-search-queries", "1102-ui-search-commands", "1102-ui-search-readme"};
 
     private static final String CFG = "hideeffects.HideEffectsConfig";
     private static final String FEAT = "hideeffects.HideEffectsFeature";
@@ -518,6 +518,9 @@ final class EffectsSearchCases {
                     "AutoSimonSaysTab", "AutoBloodCampTab"},
             {"auto terms", "", "AutoTerminalTab"},
             {"breaker aura", "!", "BreakerAuraTab"},
+            // killer560 2026-11-02: "i search invsort and the inventory sorter doesnt show up even tho it is the command"
+            {"invsort", "!", "InventorySorterTab"},
+            {"/invsort", "!", "InventorySorterTab"},
     };
 
     private record Found(int index, String line) {
@@ -629,6 +632,171 @@ final class EffectsSearchCases {
                     counts[0], counts[1], counts[2]));
         }
         c.check(counts[0] >= 30, "only " + counts[0] + " queries ran - the list or the menu is not what it should be");
+    }
+
+    // ---- 1102-ui-search-commands --------------------------------------------------------------------------------------
+
+    /** The first result index (or -1) whose tab is {@code id}, after typing {@code q}. */
+    private static int rank(Screen s, String q, String id) {
+        setSearch(s, q);
+        List<?> results = MenuACases.results(s);
+        for (int i = 0; i < results.size(); i++) {
+            if (MenuACases.tabId(results.get(i)).equals(id)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * killer560 (2026-11-02): "i search invsort and the inventory sorter doesnt show up even tho it is the command". Every
+     * root chat command the mod registered (its handler's class is the mod's) has an owner card ({@code gui.SearchCommands})
+     * or a reason in NO_CARD; typing it, bare and with "/", lists that card in the first three results.
+     */
+    @SuppressWarnings("unchecked")
+    static void searchCommands(UiCase c) {
+        if (!Mod.has("gui.SearchCommands")) {
+            c.skipCase("the jar has no gui.SearchCommands (mod effects-search-1102)");
+            return;
+        }
+        Screen s = c.onClient(mc -> {
+            try {
+                return MenuACases.open(mc);
+            } catch (Exception e) {
+                throw new AssertionError(UiCase.describe(e), e);
+            }
+        });
+        int[] n = new int[4]; // commands, found, no card, owner not in this jar
+        try {
+            Map<String, String> owners = c.onClient(mc -> (Map<String, String>) Mod.staticCall("gui.SearchCommands", "owners"));
+            Map<String, String> noCard = (Map<String, String>) Mod.field("gui.SearchCommands", "NO_CARD");
+            Map<String, Object> leafById = c.onClient(mc -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                for (Object t : MenuACases.leaves()) {
+                    m.put(t.getClass().getSimpleName(), t);
+                }
+                return m;
+            });
+            c.check(owners.size() > 30, "only " + owners.size() + " mod commands on the dispatcher: " + owners.keySet());
+            for (Map.Entry<String, String> e : owners.entrySet()) {
+                String cmd = e.getKey();
+                String owner = e.getValue();
+                n[0]++;
+                if (owner == null) {
+                    if (noCard.containsKey(cmd)) {
+                        n[2]++;
+                        c.note("no card  /" + cmd + " (" + noCard.get(cmd) + ")");
+                    } else {
+                        c.problem("/" + cmd + " has no owner card and no NO_CARD reason");
+                    }
+                    continue;
+                }
+                if (!leafById.containsKey(owner)) {
+                    n[3]++;
+                    c.note("skip     /" + cmd + " -> " + owner + " (card not in this jar's menu)");
+                    continue;
+                }
+                int bare = c.onClient(mc -> rank(s, cmd, owner));
+                int slash = c.onClient(mc -> rank(s, "/" + cmd, owner));
+                boolean ok = bare >= 0 && bare < 3 && slash >= 0 && slash < 3;
+                if (ok) {
+                    n[1]++;
+                }
+                c.note((ok ? "PASS     " : "FAIL     ") + "/" + cmd + " -> " + owner + " at #" + (bare + 1) + " bare, #" + (slash + 1)
+                        + " with /");
+                if (!ok) {
+                    c.problem("searching '" + cmd + "' / '/" + cmd + "' does not list " + owner + " in the first three (#"
+                            + (bare + 1) + ", #" + (slash + 1) + ")");
+                }
+            }
+        } finally {
+            c.onClient(mc -> {
+                setSearch(s, "");
+                McCompat.setScreen(mc, null);
+                return null;
+            });
+            c.note(String.format(Locale.ROOT, "commands: %d registered by the mod, %d find their card, %d have no card on purpose,"
+                    + " %d belong to a card this jar lacks", n[0], n[1], n[2], n[3]));
+        }
+    }
+
+    // ---- 1102-ui-search-readme ----------------------------------------------------------------------------------------
+
+    /** README names with no card in the menu, and where they are instead. */
+    private static final Map<String, String> NO_CARD_NAMES = Map.of(
+            "Mod conflict warnings", "a chat warning, no setting",
+            "Proxy Client", "main menu, Swap Accounts page",
+            "Account Switcher", "main menu, Swap Accounts page",
+            "Favorites", "a sidebar page of the menu itself",
+            "Menu Memory", "the menu reopening where it was",
+            "Reboot", "the /reboot command");
+
+    private static final java.util.regex.Pattern README_LINE = java.util.regex.Pattern.compile("^\\*\\*([^*]{1,60})\\*\\* - (.+)$");
+
+    /**
+     * Every feature name in the mod README's name list (the checkout in TESTKIT_MOD_SOURCE / modSource) finds at least one
+     * result. The README's "Cheat Build Only" names are skipped on a legit jar.
+     */
+    static void searchReadme(UiCase c) throws Exception {
+        java.nio.file.Path src = dev.testkit.gametest.Machine.modSource();
+        if (src == null || !Files.exists(src.resolve("README.md"))) {
+            c.skipCase("no mod checkout with a README (TESTKIT_MOD_SOURCE / modSource)");
+            return;
+        }
+        List<String> names = new ArrayList<>();
+        boolean cheat = Mod.isCheat();
+        for (String line : Files.readAllLines(src.resolve("README.md"), StandardCharsets.UTF_8)) {
+            java.util.regex.Matcher m = README_LINE.matcher(line.trim());
+            if (!m.matches() || (!cheat && m.group(1).startsWith("Cheat"))) {
+                continue;
+            }
+            for (String part : m.group(2).split(",(?![^(]*\\))")) {
+                // "Auto Dialogue / Breaker Aura" is two features in one entry.
+                for (String piece : part.split(" / ")) {
+                    String name = piece.replace("\u2020", "").replaceAll("\\([^)]*\\)", "").trim();
+                    if (!name.isEmpty() && !NO_CARD_NAMES.containsKey(name)) {
+                        names.add(name);
+                    } else if (!name.isEmpty()) {
+                        c.note("no card  " + name + " (" + NO_CARD_NAMES.get(name) + ")");
+                    }
+                }
+            }
+        }
+        c.note("README " + src.resolve("README.md") + ": " + names.size() + " names" + (cheat ? "" : " (cheat block skipped)"));
+        c.check(names.size() > 100, "only " + names.size() + " README names parsed");
+        Screen s = c.onClient(mc -> {
+            try {
+                return MenuACases.open(mc);
+            } catch (Exception e) {
+                throw new AssertionError(UiCase.describe(e), e);
+            }
+        });
+        int found = 0;
+        List<String> missing = new ArrayList<>();
+        try {
+            for (String name : names) {
+                String top = c.onClient(mc -> {
+                    setSearch(s, name);
+                    List<?> r = MenuACases.results(s);
+                    return r.isEmpty() ? null : Mod.call(r.get(0), "label") + " @ " + MenuACases.tabId(r.get(0));
+                });
+                if (top == null) {
+                    missing.add(name);
+                } else {
+                    found++;
+                }
+            }
+        } finally {
+            c.onClient(mc -> {
+                setSearch(s, "");
+                McCompat.setScreen(mc, null);
+                return null;
+            });
+        }
+        c.note("README names: " + found + " of " + names.size() + " find something; nothing for: " + missing);
+        for (String m : missing) {
+            c.problem("README name '" + m + "' finds nothing in the menu search");
+        }
     }
 
     private static void setSearch(Screen s, String text) {

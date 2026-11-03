@@ -936,6 +936,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1102-ui-hide-effects-hud", EffectsSearchCases::hud);
                     UiCase.run(ctx, "1102-ui-hide-effects-config", EffectsSearchCases::config);
                     UiCase.run(ctx, "1102-ui-search-queries", EffectsSearchCases::searchQueries);
+                    UiCase.run(ctx, "1102-ui-search-commands", EffectsSearchCases::searchCommands);
+                    UiCase.run(ctx, "1102-ui-search-readme", EffectsSearchCases::searchReadme);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
