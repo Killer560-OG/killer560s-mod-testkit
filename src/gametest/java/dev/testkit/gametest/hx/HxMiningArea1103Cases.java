@@ -43,6 +43,60 @@ final class HxMiningArea1103Cases {
         s.test("1103-mining-block-area-titanium", HxMiningArea1103Cases::blockAreaTitanium);
         s.test("1103-mining-highlight-latency", HxMiningArea1103Cases::latency);
         s.test("1103-mining-carpet-stable", HxMiningArea1103Cases::carpetStable);
+        s.test("1103-mining-titanium-sight", HxMiningArea1103Cases::titaniumSight);
+    }
+
+    /** Owner 2026-11-03: without Through Walls, titanium in sight gets its whole box and hidden titanium none; with
+     *  Through Walls, Exposed Only keeps only titanium with a face open to air. */
+    private static void titaniumSight(Session c) {
+        BlockPos f = feet(c);
+        BlockPos open = f.offset(-3, 1, 3);
+        BlockPos hid = f.offset(4, 1, -4);
+        List<BlockPos> shell = new ArrayList<>();
+        for (net.minecraft.core.Direction d : net.minecraft.core.Direction.values()) {
+            shell.add(hid.relative(d));
+        }
+        Object always = c.onClient(mc -> Mod.enumValue("miningqol.MiningQolConfig$TitaniumMode", "ALWAYS"));
+        try (Settings set = new Settings(c).with(CFG, "Titanium", true).with(CFG, "TitaniumMode", always)
+                .with(CFG, "TitaniumEsp", false).with(CFG, "TitaniumExposedOnly", true)) {
+            mines(c, "Royal Mines");
+            setb(c, open, "minecraft:polished_diorite");
+            for (BlockPos b : shell) {
+                setb(c, b, "minecraft:stone");
+            }
+            setb(c, hid, "minecraft:polished_diorite");
+            c.waitUntil("both titanium blocks tracked", mc -> (Boolean) Mod.staticCall(HL, "hasTitaniumAt", open.getX(),
+                    open.getY(), open.getZ()) && (Boolean) Mod.staticCall(HL, "hasTitaniumAt", hid.getX(), hid.getY(), hid.getZ()), 60);
+            c.ctx().waitTicks(5);
+            c.check(drew(c, open), "titanium in plain sight was not drawn");
+            c.check(!drew(c, hid), "titanium hidden inside stone was drawn without Through Walls");
+            String note = "no walls: open drawn, hidden not";
+            if (Mod.isCheat()) {
+                Mod.set(CFG, "setTitaniumEsp", true);
+                Mod.set(CFG, "setTitaniumExposedOnly", true);
+                c.ctx().waitTicks(5);
+                c.check(drew(c, open) && !drew(c, hid), "Through Walls + Exposed Only: open " + drew(c, open) + ", hidden "
+                        + drew(c, hid) + " (want true, false)");
+                Mod.set(CFG, "setTitaniumExposedOnly", false);
+                c.ctx().waitTicks(5);
+                c.check(drew(c, open) && drew(c, hid), "Through Walls, Exposed Only off: hidden titanium not drawn");
+                Mod.set(CFG, "setTitaniumEsp", false);
+                Mod.set(CFG, "setTitaniumExposedOnly", true);
+                note += "; walls+exposed: hidden skipped; walls alone: hidden drawn";
+            }
+            c.note(note);
+        } finally {
+            setb(c, hid, "minecraft:air");
+            for (BlockPos b : shell) {
+                setb(c, b, "minecraft:air");
+            }
+            setb(c, open, "minecraft:air");
+            hub(c);
+        }
+    }
+
+    private static boolean drew(Session c, BlockPos p) {
+        return c.onClient(mc -> (Boolean) Mod.staticCall(HL, "drewTitaniumAt", p.getX(), p.getY(), p.getZ()));
     }
 
     // ---- shared ---------------------------------------------------------------------------------------------------
