@@ -52,6 +52,13 @@ final class HxMining1101Cases {
         s.test("1101-mining-mithril-stone", HxMining1101Cases::mithrilStone);
         s.test("1101-mining-titanium", HxMining1101Cases::titanium);
         s.test("1101-mining-raffle", HxMining1101Cases::raffle);
+        // Owner reports of 2026-11-03 (mod mining-1103): area from Hypixel's action bar, no Universal toggle,
+        // Pickobulus outlines from its chat lines, the carpet fill off the block faces, held left click diagnostics.
+        s.test("1103-mining-area", HxMining1101Cases::area1103);
+        s.test("1103-mining-no-universal", HxMining1101Cases::noUniversal1103);
+        s.test("1103-mining-pickobulus-chat", HxMining1101Cases::pickobulusChat1103);
+        s.test("1103-mining-carpet-margin", HxMining1101Cases::carpetMargin1103);
+        s.test("1103-mining-attack-hold", HxMining1101Cases::attackHold1103);
     }
 
     // ---- shared ---------------------------------------------------------------------------------------------------
@@ -261,7 +268,7 @@ final class HxMining1101Cases {
         String m = "miningqol.MithrilStone";
         BlockPos f = feet(c);
         List<BlockPos> ore = List.of(f.offset(2, 0, -3), f.offset(3, 0, -3), f.offset(2, 1, -3));
-        try (Settings set = new Settings(c).with(CFG, "MithrilStone", true).with(CFG, "UniversalAccess", false)) {
+        try (Settings set = new Settings(c).with(CFG, "MithrilStone", true)) {
             setb(c, ore.get(0), "minecraft:gray_wool");
             setb(c, ore.get(1), "minecraft:prismarine");
             setb(c, ore.get(2), "minecraft:light_blue_wool");
@@ -283,14 +290,10 @@ final class HxMining1101Cases {
             c.waitUntil("off with Mithril Miner", mc -> !(Boolean) Mod.staticCall(m, "isActive"), 40);
             mines(c, "Upper Mines", "Mithril Miner: DONE", "Goblin Slayer: 10%");
             c.waitUntil("on once Mithril Miner is DONE", mc -> (Boolean) Mod.staticCall(m, "isActive"), 40);
-            c.ctx().runOnClient(mc -> Mod.set(CFG, "setUniversalAccess", true));
-            c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(CFG), "save"));
-            c.waitUntil("off with Universal Area Access", mc -> !(Boolean) Mod.staticCall(m, "isActive"), 40);
-            c.ctx().runOnClient(mc -> Mod.set(CFG, "setUniversalAccess", false));
             mines(c, "Upper Mines");
             c.waitUntil("off with no Commissions widget", mc -> !(Boolean) Mod.staticCall(m, "isActive"), 40);
             c.note("swapped " + (after - before) + " mithril draw(s) after the switch; area, titanium, anywhere, DONE,"
-                    + " universal and no-widget rules hold");
+                    + " and no-widget rules hold");
         } finally {
             for (BlockPos b : ore) {
                 setb(c, b, "minecraft:air");
@@ -309,7 +312,7 @@ final class HxMining1101Cases {
         Object always = c.onClient(mc -> Mod.enumValue("miningqol.MiningQolConfig$TitaniumMode", "ALWAYS"));
         Object area = c.onClient(mc -> Mod.enumValue("miningqol.MiningQolConfig$TitaniumMode", "COMMISSION"));
         try (Settings set = new Settings(c).with(CFG, "Titanium", true).with(CFG, "TitaniumMode", always)
-                .with(CFG, "UniversalAccess", false).with(CFG, "TitaniumEsp", true)) {
+                .with(CFG, "TitaniumEsp", true)) {
             mines(c, "Royal Mines", "Goblin Slayer: 10%");
             c.ctx().waitTicks(25);
             int base = intCall(c, h, "titaniumCount");
@@ -332,9 +335,7 @@ final class HxMining1101Cases {
             c.waitUntil("Titanium Miner anywhere", mc -> (Integer) Mod.staticCall(h, "titaniumCount") >= 1, 60);
             mines(c, "Lava Springs", "Goblin Slayer: 10%");
             c.waitUntil("none again", mc -> (Integer) Mod.staticCall(h, "titaniumCount") == 0, 60);
-            c.ctx().runOnClient(mc -> Mod.set(CFG, "setUniversalAccess", true));
-            c.waitUntil("Universal Area Access", mc -> (Integer) Mod.staticCall(h, "titaniumCount") >= 1, 60);
-            c.note("Always, Commission Area (area and anywhere), Universal; Through Walls " + walls);
+            c.note("Always, Commission Area (area and anywhere); Through Walls " + walls);
         } finally {
             setb(c, ti, "minecraft:air");
             hub(c);
@@ -361,6 +362,232 @@ final class HxMining1101Cases {
             c.note("1 of 2 dropped items boxed; Through Walls " + walls);
         } finally {
             c.server().command("kill @e[type=item]");
+            hub(c);
+        }
+    }
+
+    // ---- 1103 (mod mining-1103) -------------------------------------------------------------------------------------
+
+    private static final String ISLAND = "pathfinding.IslandDetector";
+
+    /** Hypixel's 26.3 action bar as his log has it (2026-11-02), for {@code area}. */
+    private static String actionBar(String area) {
+        return "§63,714/3,339\uE010     §7\uE067 §b" + area + "     §b2,785/2,884\uE003     §4140/140\uE028     ";
+    }
+
+    private static void clearActionBarArea(Session c) {
+        c.ctx().runOnClient(mc -> Mod.staticCall(ISLAND, "clearActionBarArea"));
+    }
+
+    /** Sends the action bar until the area reads {@code area} (Hypixel repeats it about once a second). */
+    private static void actionBarUntil(Session c, String area) {
+        for (int i = 0; i < 12; i++) {
+            c.hx().overlay(actionBar(area));
+            c.ctx().waitTicks(5);
+            if (area.equals(c.onClient(mc -> Mod.staticCall(STATE, "area")))) {
+                return;
+            }
+        }
+        c.check(false, "the area never read " + area + " from the action bar (area is "
+                + c.onClient(mc -> Mod.staticCall(STATE, "area")) + ")");
+    }
+
+    /**
+     * "this shows as stone even though it is the right area": in the Upper Mines with Upper Mines Mithril open, Mithril As
+     * Stone must stay off. Hypixel's 26.3 client carries the area on the action bar (U+E067 glyph); the sidebar here says
+     * Royal Mines, as a stale or different sidebar would. Also the glyph on the sidebar, and the titanium side.
+     */
+    private static void area1103(Session c) {
+        String m = "miningqol.MithrilStone";
+        String h = "miningqol.MiningHighlights";
+        BlockPos ti = feet(c).offset(-3, 1, -3);
+        Object area = c.onClient(mc -> Mod.enumValue("miningqol.MiningQolConfig$TitaniumMode", "COMMISSION"));
+        try (Settings set = new Settings(c).with(CFG, "MithrilStone", true).with(CFG, "Titanium", true)
+                .with(CFG, "TitaniumMode", area)) {
+            String parsed = c.onClient(mc -> (String) Mod.staticCall(ISLAND, "parseActionBarArea",
+                    actionBar("Rampart's Quarry")));
+            c.check("Rampart's Quarry".equals(parsed), "action bar parsed as " + parsed);
+            Object none = c.onClient(mc -> Mod.staticCall(ISLAND, "parseActionBarArea", "§7Bob: Upper Mines"));
+            c.check(none == null, "a line without the area glyph gave an area: " + none);
+            mines(c, "Royal Mines", "Upper Mines Mithril: 0%", "Upper Mines Titanium: 0%");
+            c.waitUntil("Royal Mines on the sidebar: mithril is stone", mc -> (Boolean) Mod.staticCall(m, "isActive"), 40);
+            setb(c, ti, "minecraft:polished_diorite");
+            c.ctx().waitTicks(30);
+            c.check(intCall(c, h, "titaniumCount") == 0, "Upper Mines Titanium showed titanium in the Royal Mines");
+            actionBarUntil(c, "Upper Mines");
+            c.waitUntil("Upper Mines on the action bar: mithril shows", mc -> !(Boolean) Mod.staticCall(m, "isActive"), 40);
+            for (int i = 0; i < 6 && intCall(c, h, "titaniumCount") == 0; i++) {
+                c.hx().overlay(actionBar("Upper Mines"));
+                c.ctx().waitTicks(10);
+            }
+            c.check(intCall(c, h, "titaniumCount") >= 1, "Upper Mines Titanium found no titanium in the Upper Mines");
+            // The action bar goes stale: the sidebar decides again.
+            clearActionBarArea(c);
+            c.waitUntil("back to the sidebar's Royal Mines", mc -> "Royal Mines".equals(Mod.staticCall(STATE, "area")), 40);
+            // The area glyph on the sidebar too.
+            c.hx().sidebar("SKYBLOCK", "Late Winter 3rd", "\uE067 Upper Mines", "Purse: 0");
+            c.waitUntil("the sidebar's U+E067 area line reads", mc -> "Upper Mines".equals(Mod.staticCall(STATE, "area")), 40);
+            c.waitUntil("and mithril shows", mc -> !(Boolean) Mod.staticCall(m, "isActive"), 40);
+            c.note("action bar area " + parsed + "; Upper Mines Mithril/Titanium act in the Upper Mines from the action bar"
+                    + " and from a U+E067 sidebar line, not in the Royal Mines");
+        } finally {
+            setb(c, ti, "minecraft:air");
+            clearActionBarArea(c);
+            hub(c);
+        }
+    }
+
+    /** "the universal ... shouldnt be a toggle": the setting is gone and an old file's key changes nothing. */
+    private static void noUniversal1103(Session c) {
+        String m = "miningqol.MithrilStone";
+        boolean has = c.onClient(mc -> {
+            try {
+                Mod.call(Mod.cfg(CFG), "isUniversalAccess");
+                return true;
+            } catch (Throwable t) {
+                return false;
+            }
+        });
+        c.check(!has, "MiningQolConfig still has isUniversalAccess");
+        try (Settings set = new Settings(c).with(CFG, "MithrilStone", true)) {
+            mines(c, "Royal Mines", "Lava Springs Mithril: 10%");
+            c.waitUntil("an area commission elsewhere: stone", mc -> (Boolean) Mod.staticCall(m, "isActive"), 40);
+            mines(c, "Royal Mines", "Mithril Miner: 10%");
+            c.waitUntil("Mithril Miner (no area) applies everywhere", mc -> !(Boolean) Mod.staticCall(m, "isActive"), 40);
+            c.note("no Universal Area Access; a commission without an area applies everywhere by itself");
+        } finally {
+            hub(c);
+        }
+    }
+
+    /**
+     * "the block highlight sticks around for a long time after it ... when it comes back it can take a long time": the
+     * outlines go on Hypixel's use line while the (slow) tab widget still says Available, and come back on the ready line
+     * while it still shows seconds. A player's copy of the line does nothing.
+     */
+    private static void pickobulusChat1103(Session c) {
+        String p = "miningqol.PickobulusEstimate";
+        BlockPos f = feet(c);
+        List<BlockPos> wall = new ArrayList<>();
+        for (int y = 0; y <= 3; y++) {
+            for (int z = -2; z <= 2; z++) {
+                wall.add(f.offset(4, y, z));
+            }
+        }
+        List<String> available = List.of("Pickaxe Ability:", " Pickobulus: Available", "");
+        try (Settings set = new Settings(c).with(CFG, "Pickobulus", true)) {
+            c.ctx().runOnClient(mc -> Mod.staticCall(p, "resetChat"));
+            for (BlockPos b : wall) {
+                setb(c, b, "minecraft:stone");
+            }
+            c.hx().give(0, "minecraft:diamond_pickaxe[lore=[{text:\"Ability: Pickobulus  RIGHT CLICK\",italic:false}]]");
+            c.ctx().runOnClient(mc -> {
+                mc.player.getInventory().setSelectedSlot(0);
+                mc.player.setYRot(-90f);
+                mc.player.setXRot(10f);
+            });
+            mines(c, "Royal Mines", available, "Goblin Slayer: 10%");
+            c.waitUntil("an estimate", mc -> (Integer) Mod.staticCall(p, "count") > 0, 60);
+            c.hx().chat("§7[VIP] Bob§f: You used your Pickobulus Pickaxe Ability!");
+            c.ctx().waitTicks(5);
+            c.check(intCall(c, p, "count") > 0, "a player's chat line hid the outlines");
+            c.hx().chat("§aYou used your §r§6Pickobulus §r§aPickaxe Ability!");
+            c.waitUntil("hidden on the use line", mc -> (Integer) Mod.staticCall(p, "count") == 0, 3);
+            c.ctx().waitTicks(40);
+            c.check(intCall(c, p, "count") == 0, "the outlines came back while the tab still said Available");
+            // The tab now lags the other way.
+            mines(c, "Royal Mines", List.of("Pickaxe Ability:", " Pickobulus: 3s", ""), "Goblin Slayer: 10%");
+            c.hx().chat("§a§r§6Pickobulus §r§ais now available!");
+            c.waitUntil("back on the ready line", mc -> (Integer) Mod.staticCall(p, "count") > 0, 3);
+            c.ctx().waitTicks(20);
+            c.check(intCall(c, p, "count") > 0, "the outlines went again while the tab still showed seconds");
+            int frames = intCall(c, p, "frames");
+            c.ctx().waitTicks(5);
+            c.check(intCall(c, p, "frames") > frames, "the outlines were not drawn after the ready line");
+            // "Your Pickobulus destroyed N blocks!" alone hides it too.
+            c.hx().chat("§7Your §r§aPickobulus §r§7destroyed §r§a36 §r§7blocks!");
+            c.waitUntil("hidden on the destroyed line", mc -> (Integer) Mod.staticCall(p, "count") == 0, 3);
+            c.note("hidden within 3 ticks of the use line with the tab saying Available, shown within 3 ticks of the ready"
+                    + " line with the tab saying 3s; a player's line ignored");
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.staticCall(p, "resetChat"));
+            for (BlockPos b : wall) {
+                setb(c, b, "minecraft:air");
+            }
+            c.hx().give(0, "minecraft:air");
+            hub(c);
+        }
+    }
+
+    /** "the highlight will like phase through the block": no face of the fill lies on the carpet's or lantern's faces. */
+    private static void carpetMargin1103(Session c) {
+        String h = "miningqol.MiningHighlights";
+        BlockPos lantern = feet(c).offset(3, 0, 3);
+        BlockPos carpet = lantern.above();
+        try (Settings set = new Settings(c).with(CFG, "Carpet", true)) {
+            setb(c, lantern, "minecraft:sea_lantern");
+            setb(c, carpet, "minecraft:gray_carpet");
+            mines(c, "Royal Mines", "Goblin Slayer: 10%");
+            c.waitUntil("the carpet found", mc -> (Integer) Mod.staticCall(h, "carpetCount") == 1, 60);
+            int frames = intCall(c, h, "carpetFrames");
+            c.ctx().waitTicks(10);
+            c.check(intCall(c, h, "carpetFrames") > frames, "the carpet was never filled");
+            double[] b = c.onClient(mc -> (double[]) Mod.staticCall(h, "lastCarpetBox"));
+            c.check(b != null, "no carpet box recorded");
+            double top = carpet.getY() + 0.0625;
+            c.check(b[0] < carpet.getX() && b[2] < carpet.getZ() && b[3] > carpet.getX() + 1 && b[5] > carpet.getZ() + 1,
+                    "a side of the fill lies on the carpet's side: " + java.util.Arrays.toString(b));
+            c.check(b[4] > top && b[4] - top < 0.01, "the fill's top is not just above the carpet's top face: " + b[4]);
+            c.check(b[1] > carpet.getY() && b[1] < top, "the fill's bottom lies on the lantern's top face: " + b[1]);
+            c.note("fill " + java.util.Arrays.toString(b) + " vs carpet " + carpet.toShortString());
+        } finally {
+            setb(c, carpet, "minecraft:air");
+            setb(c, lantern, "minecraft:air");
+            hub(c);
+        }
+    }
+
+    /**
+     * "something keeps making my left click stop holding break": the diagnostics log a screen that opens while the left
+     * button is held, and the release it causes, so his next log names the cause. Proves both lines fire and that a plain
+     * let-go of the button logs nothing.
+     */
+    private static void attackHold1103(Session c) {
+        String probe = "miningqol.AttackHoldProbe";
+        try {
+            mines(c, "Royal Mines", "Goblin Slayer: 10%");
+            int screens = intCall(c, probe, "screenLines");
+            int releases = intCall(c, probe, "releaseLines");
+            // A plain press and let-go: nothing logged.
+            c.ctx().runOnClient(mc -> {
+                Mod.staticCall("util.MouseButtons", "onButton", 0, 1);
+                mc.options.keyAttack.setDown(true);
+            });
+            c.ctx().waitTicks(3);
+            c.ctx().runOnClient(mc -> {
+                Mod.staticCall("util.MouseButtons", "onButton", 0, 0);
+                mc.options.keyAttack.setDown(false);
+            });
+            c.ctx().waitTicks(30);
+            c.check(intCall(c, probe, "releaseLines") == releases, "a plain let-go of the button was logged");
+            // Held, then a screen opens: both lines.
+            c.ctx().runOnClient(mc -> {
+                Mod.staticCall("util.MouseButtons", "onButton", 0, 1);
+                mc.options.keyAttack.setDown(true);
+            });
+            c.ctx().waitTicks(3);
+            c.ctx().runOnClient(mc -> dev.testkit.compat.McCompat.setScreen(mc,
+                    new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player)));
+            c.ctx().waitTicks(3);
+            c.check(intCall(c, probe, "screenLines") == screens + 1, "no line for the screen opened under a held click");
+            c.check(intCall(c, probe, "releaseLines") == releases + 1, "no line for the release the screen caused");
+            c.note("screen line and release line written; a plain let-go wrote none");
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                dev.testkit.compat.McCompat.setScreen(mc, null);
+                Mod.staticCall("util.MouseButtons", "onButton", 0, 0);
+                mc.options.keyAttack.setDown(false);
+            });
             hub(c);
         }
     }
