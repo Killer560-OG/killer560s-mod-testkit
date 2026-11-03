@@ -1479,3 +1479,8 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   the inventory (the route waits under an open menu), and the close sent at an early END_CLIENT_TICK phase (after that
   tick's sneaking input, before Auto Routes acts). A close at START is useless: Inventory Walk makes that tick's input its
   still tick and the close goes clean. A screen set back with setScreen releases the route's keys. `-PiwRepeat=N` repeats.
+- 1102-online-* (hx/HxOnline1102Cases, mod onlinecount-1102): the Online Count heartbeat against an in-process stub relay on
+  32400-32499 (`killer560.net.presence-relay`), switched on with `killer560.test.presence=true` (off in every other gametest)
+  and a 3 s interval. Asserts what the STUB received: exactly {session, location}, one 32-hex session that is not the
+  player's UUID or name, 3-4.5 s gaps, Hub / Dwarven Mines / Catacombs F7 / sim Catacombs M7 / Hypixel (not Skyblock), one
+  Offline when the switch goes off and nothing after; with the stub closed, sends keep coming, one WARN, no chat, healthy.

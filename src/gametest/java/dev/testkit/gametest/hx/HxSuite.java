@@ -102,6 +102,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxMining1101Cases.register(s);
                     // Owner-evidence log lines (1102-diag-*, mod diag-1101): Fast Leap stuck state, Raffle start dump.
                     HxDiag1102Cases.register(s);
+                    // Online Count heartbeat against a stub relay (1102-online-*, mod onlinecount-1102), own block.
+                    HxOnline1102Cases.register(s);
                     // How Lucky Are You / Full RNG Tracker (1101-luck-*, mod branch doc-rng-1101), own block.
                     HxLuckCases.register(s);
                     // Every-drop coverage: mob/sea creature kills, Looting, slayer level, RNG Meter, Kuudra, Nucleus,
