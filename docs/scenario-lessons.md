@@ -1546,3 +1546,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   and a 3 s interval. Asserts what the STUB received: exactly {session, location}, one 32-hex session that is not the
   player's UUID or name, 3-4.5 s gaps, Hub / Dwarven Mines / Catacombs F7 / sim Catacombs M7 / Hypixel (not Skyblock), one
   Offline when the switch goes off and nothing after; with the stub closed, sends keep coming, one WARN, no chat, healthy.
+- 1102-ui-storagesearch-*: `getInput().holdKey(Ctrl)` + `pressKey(F)` did not reach a Fabric `ScreenKeyboardEvents` handler as
+  Ctrl+F on 26.3 (old and new mod jar alike), so a Ctrl shortcut case calls `KeyboardHandler.keyPress(window, PRESS,
+  McKeys.keyEvent(KEY_F, MOD_CONTROL))` by reflection (public on 26.3, private on 26.2; StorageSearchCases.ctrlF). A 3D
+  gold block icon changes 66% of an uncovered 16x16 cell, which is the bar a 'fully visible' pixel check measures against.
