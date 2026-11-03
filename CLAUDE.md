@@ -25,6 +25,20 @@ and pass -PtestVolume only when the user asks to hear one. Scenarios open a REAL
 bound every wait, say before a run that windows will open, and kill only processes you started (the scripts match
 clients by this checkout's path).
 
+A test client never takes OS focus and never holds his cursor (killer560, 2026-11-02: "my mouse is bugging out ... it
+keeps getting put in the game instances on the left monitor"). Fabric's gametest keeps the LOGICAL state (window
+"focused", mouse "grabbed") and cancels Minecraft's InputConstants grab, but the OS side still reached him: a passive
+probe saw the global ClipCursor rectangle equal to a running test client's window while the Claude app was in front.
+Causes: windows were shown activated (26.3 SDL flags 0x2020 = shown with SW_SHOW; 26.2 GLFW focus-on-show), so
+GLFW/SDL believed they had focus; then the mod's own native calls (FakeCursor's `McWindow.setCursorHidden` -> SDL relative
+mode / GLFW_CURSOR_DISABLED, Shorts' `McWindow.focus`) and Confine Mouse (user32 `ClipCursor`, gated on `isWindowActive()`,
+which the gametest forces TRUE) clipped and centered his cursor in the test window. Fix (`harness/OsInputGuard`,
+`MixinNoGrab*`): windows created NOT_FOCUSABLE + SDL activate hints 0 (26.3) / GLFW_FOCUSED and FOCUS_ON_SHOW false
+(26.2), WS_EX_NOACTIVATE set on the HWND, the mod's focus/setCursorHidden/restore and ConfineMouseFeature.tick cancelled,
+and every tick a clip inside our window is released. 1102-nograb proves it from the OS (foreground, focus, capture, clip).
+Never add a mod or testkit call that reaches the real cursor or focus without the guard covering it;
+`-PclientJvmArgs=-Dtestkit.osGrab=allow` turns the guard off for diagnosis only.
+
 ```
 ./doctor.ps1 [-Port N]                                                  # prerequisites, config, ports, monitors
 ./get-mod.ps1 [-Minecraft both]                                         # clone + build killer560s-mod into jarsDir
@@ -552,3 +566,7 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
 - Never start a second `run-scenario.ps1` in a checkout whose queue is between or inside runs: at its start the script kills
   that checkout's "leftover" client and server, which is the other run's live ones ("Killing a leftover test client", ship-1102h
   2026-11-02 killed a ZPEW half mid-run). One queue per checkout; make another detached worktree for a rerun.
+- 525-ui-menu-every-master (mod menufix-1102) switches every row a card stands for ON alone and needs the card ON. A row
+  drawn inactive for the account (Spotify Share My Song, a supporter perk) cannot be pressed and is skipped. RibbonTrailTab
+  is a section inside Cosmetics, not a card. A menu StringWidget built from `Component.literal("§7...")` keeps the
+  section codes in `getString()`: strip with `ChatFormatting.stripFormatting` before comparing text (526, 2026-11-02).
