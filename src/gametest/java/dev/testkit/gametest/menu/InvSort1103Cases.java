@@ -57,6 +57,7 @@ final class InvSort1103Cases {
         MenuSuite.test(s, "1103-invsort-dump-pick", InvSort1103Cases::dumpPick);
         MenuSuite.test(s, "1103-invsort-edit", InvSort1103Cases::edit);
         MenuSuite.test(s, "1103-invsort-locked-slot", InvSort1103Cases::lockedSlot);
+        MenuSuite.test(s, "1103-invsort-lobby-wait", InvSort1103Cases::lobbyWait);
     }
 
     // ------------------------------------------------------------------------------------------------- helpers
@@ -246,9 +247,10 @@ final class InvSort1103Cases {
         if (legit(c)) {
             return;
         }
+        c.hx().give(8, "minecraft:nether_star[custom_data={id:\"SKYBLOCK_MENU\"}]"); // the locked slot is never empty on Hypixel
         Path p = cfgPath(c);
         byte[] old = read(p);
-        String key = c.onClient(mc -> (String) Mod.staticCall("storageoverlay.StorageOverlayFeature", "storageKeyForTitle",
+        String key =c.onClient(mc -> (String) Mod.staticCall("storageoverlay.StorageOverlayFeature", "storageKeyForTitle",
                 "Ender Chest (1/9)"));
         try {
             pace(c);
@@ -363,6 +365,69 @@ final class InvSort1103Cases {
                 c.note("editor: " + ed);
                 c.check(ed.equals("free true, placed false, stick kept true"), "editor: " + ed);
             }
+        } finally {
+            finishRun(c);
+            MenuKit.reset(c);
+            restore(c, p, old);
+            InventoryCases.clearInv(c);
+        }
+    }
+
+    /**
+     * killer560, 2026-11-03: "if i join a lobby and try to swap too fast it wont work since it needs to wait ... 4 seconds
+     * after a warp". A layout that uses storage, started right after a world change, waits (no click), a second start is
+     * refused (nothing queued twice), then it runs by itself once the 4 s are up; a layout without storage does not wait.
+     */
+    static void lobbyWait(Session c) throws Exception {
+        MenuKit.reset(c);
+        InventoryCases.clearInv(c);
+        if (legit(c)) {
+            return;
+        }
+        Path p = cfgPath(c);
+        byte[] old = read(p);
+        String name = "hx-1103-lobby";
+        try {
+            pace(c);
+            c.hx().give(3, "minecraft:diamond");
+            c.hx().give(8, "minecraft:nether_star[custom_data={id:\"SKYBLOCK_MENU\"}]");
+            c.waitUntil("the items", mc -> mc.player.getInventory().getItem(3).is(Items.DIAMOND)
+                    && mc.player.getInventory().getItem(8).is(Items.NETHER_STAR), 80);
+            Map<Integer, String> want = new LinkedHashMap<>();
+            want.put(0, id(c, Items.DIAMOND));
+            Object fetchLayout = layout(c, name, want, Map.of(), Set.of(), true, null);
+            Object plainLayout = layout(c, name, want, Map.of(), Set.of(), false, null);
+            // Control: no storage, right after a world change -> no wait.
+            c.ctx().runOnClient(mc -> Mod.staticCall(EXEC, "noteWorldChange"));
+            int before = c.events("container.click").size();
+            c.check(c.onClient(mc -> (Boolean) Mod.staticCall(EXEC, "start", plainLayout)), "plain start refused");
+            boolean plainWaits = c.onClient(mc -> (Boolean) Mod.staticCall(EXEC, "isWaitingForLobby"));
+            c.check(!plainWaits, "a layout without storage waited for the lobby");
+            c.waitUntil("the plain sort", mc -> !(Boolean) Mod.staticCall(EXEC, "isRunning"), 200);
+            c.check(c.onClient(mc -> mc.player.getInventory().getItem(0).is(Items.DIAMOND)), "control: the plain sort did not run");
+            // Now with storage: put the diamond back in 3, change world, start.
+            c.ctx().runOnClient(mc -> mc.player.getInventory().setItem(0, ItemStack.EMPTY));
+            c.hx().give(3, "minecraft:diamond");
+            InventoryCases.clearInv(c);
+            c.hx().give(3, "minecraft:diamond");
+            c.hx().give(8, "minecraft:nether_star[custom_data={id:\"SKYBLOCK_MENU\"}]");
+            c.waitUntil("the items again", mc -> mc.player.getInventory().getItem(3).is(Items.DIAMOND)
+                    && mc.player.getInventory().getItem(8).is(Items.NETHER_STAR), 80);
+            before = c.events("container.click").size();
+            long t0 = System.currentTimeMillis();
+            c.ctx().runOnClient(mc -> Mod.staticCall(EXEC, "noteWorldChange"));
+            c.check(c.onClient(mc -> (Boolean) Mod.staticCall(EXEC, "start", fetchLayout)), "storage start refused");
+            c.check(c.onClient(mc -> (Boolean) Mod.staticCall(EXEC, "isWaitingForLobby")), "it did not wait for the lobby");
+            c.check(!c.onClient(mc -> (Boolean) Mod.staticCall(EXEC, "start", fetchLayout)), "a second press was accepted while waiting");
+            c.ctx().waitTicks(30);
+            c.check(c.onClient(mc -> (Boolean) Mod.staticCall(EXEC, "isWaitingForLobby")), "left the wait early (1.5 s)");
+            c.check(c.events("container.click").size() == before && c.onClient(mc -> mc.player.getInventory().getItem(3).is(Items.DIAMOND)),
+                    "it clicked during the wait");
+            c.waitUntil("the sorter to finish", mc -> !(Boolean) Mod.staticCall(EXEC, "isRunning"), 400);
+            long took = System.currentTimeMillis() - t0;
+            c.note("waited and sorted in " + took + " ms");
+            c.check(took >= 3900, "it started before the 4 s were up: " + took + " ms");
+            c.check(c.onClient(mc -> mc.player.getInventory().getItem(0).is(Items.DIAMOND)), "it never sorted after the wait");
         } finally {
             finishRun(c);
             MenuKit.reset(c);

@@ -589,9 +589,12 @@ final class InvSortDocCases {
             c.note("legit jar: no sorter");
             return;
         }
+        // On Hypixel the last hotbar slot always holds the Skyblock Menu (or map/arrows) and the sorter never touches it
+        // (killer560, 2026-11-03); an EMPTY slot 8 would be where a shift-click from storage lands first.
+        c.hx().give(8, "minecraft:nether_star[custom_data={id:\"SKYBLOCK_MENU\"}]");
         Path p = cfgPath(c);
         byte[] old = read(p);
-        String key = c.onClient(mc -> (String) Mod.staticCall("storageoverlay.StorageOverlayFeature", "storageKeyForTitle",
+        String key =c.onClient(mc -> (String) Mod.staticCall("storageoverlay.StorageOverlayFeature", "storageKeyForTitle",
                 "Ender Chest (1/9)"));
         try {
             cfg(c, "setTicksBetweenMoves", 2);
