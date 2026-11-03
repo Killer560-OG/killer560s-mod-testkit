@@ -50,6 +50,7 @@ final class InvSortDocCases {
         MenuSuite.test(s, "1101-invsort-menu-rows", InvSortDocCases::menuRows);
         MenuSuite.test(s, "1101-invsort-open-key", InvSortDocCases::openKey);
         MenuSuite.test(s, "1101-invsort-storage", InvSortDocCases::storage);
+        MenuSuite.test(s, "1103-invsort-dump-all", InvSortDocCases::dumpAll);
     }
 
     // ------------------------------------------------------------------------------------------------- helpers
@@ -582,6 +583,84 @@ final class InvSortDocCases {
      * inventory holds a stick and a bone the layout does not use; Put Others In is page 1. One visit: the stick and bone
      * go in, the diamond comes out, then the sort puts the diamond in its slot.
      */
+    /**
+     * killer560, 2026-11-03: "it should empty out my full inventory so only the stuff in the invsort menu is in my
+     * inventory at the end". A layout of 3 items, eight other items scattered over the hotbar and the main inventory, the
+     * Skyblock Menu in slot 9 (index 8), Put Others In = Ender Chest 1: afterwards the inventory holds exactly the three
+     * layout items and the menu, the eight are in the page (eight shift-clicks out), and no click touches slot 9.
+     */
+    static void dumpAll(Session c) throws Exception {
+        MenuKit.reset(c);
+        InventoryCases.clearInv(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: no sorter");
+            return;
+        }
+        Path p = cfgPath(c);
+        byte[] old = read(p);
+        try {
+            cfg(c, "setTicksBetweenMoves", 2);
+            cfg(c, "setRandomExtraTicks", 0);
+            cfg(c, "setInstant", false);
+            c.hx().stub(null, "enderchest", "backpack");
+            c.hx().give(10, "minecraft:diamond");
+            c.hx().give(11, "minecraft:emerald");
+            c.hx().give(12, "minecraft:stick");
+            String[] others = {"coal", "iron_ingot", "gold_ingot", "apple", "bread", "carrot", "cookie", "potato"};
+            int[] at = {3, 4, 5, 9, 13, 14, 15, 16};
+            for (int i = 0; i < others.length; i++) {
+                c.hx().give(at[i], "minecraft:" + others[i]);
+            }
+            c.hx().give(8, "minecraft:nether_star[custom_data={id:\"SKYBLOCK_MENU\"}]");
+            c.waitUntil("the items", mc -> mc.player.getInventory().getItem(16).is(Items.POTATO)
+                    && mc.player.getInventory().getItem(8).is(Items.NETHER_STAR)
+                    && mc.player.getInventory().getItem(10).is(Items.DIAMOND), 80);
+            Map<Integer, String> want = new LinkedHashMap<>();
+            want.put(0, id(c, Items.DIAMOND));
+            want.put(1, id(c, Items.EMERALD));
+            want.put(2, id(c, Items.STICK));
+            Object l = storageLayout(c, "hx-1103-dumpall", want, false, "enderchest_1");
+            long since = c.hx().head();
+            int before = c.events("container.click").size();
+            c.check(c.onClient(mc -> (Boolean) Mod.staticCall(EXEC, "start", l)), "start returned false");
+            boolean opened = false;
+            for (int i = 0; i < 200 && !opened; i++) {
+                c.ctx().waitTicks(1);
+                if (c.hx().commands(since).stream().anyMatch(cmd -> cmd.startsWith("enderchest 1"))) {
+                    c.hx().menu("Ender Chest (1/9)", 6, Map.of(0, "minecraft:black_stained_glass_pane"), "storage");
+                    opened = true;
+                }
+            }
+            c.check(opened, "the sorter never sent /enderchest 1; commands " + c.hx().commands(since));
+            c.waitUntil("the sorter to finish", mc -> !(Boolean) Mod.staticCall(EXEC, "isRunning"), 800);
+            c.ctx().waitTicks(10);
+            List<JsonObject> clicks = clicksSince(c, before);
+            String left = c.onClient(mc -> {
+                List<String> out = new ArrayList<>();
+                for (int i = 0; i < 36; i++) {
+                    ItemStack s = mc.player.getInventory().getItem(i);
+                    if (!s.isEmpty()) {
+                        out.add(i + ":" + s.getItem());
+                    }
+                }
+                return out.toString();
+            });
+            long out = clicks.stream().filter(e -> e.get("input").getAsString().equals("QUICK_MOVE")).count();
+            c.note("inventory after: " + left + "; shift-clicks " + out + "; clicks " + show(clicks));
+            c.check(left.equals("[0:minecraft:diamond, 1:minecraft:emerald, 2:minecraft:stick, 8:minecraft:nether_star]"),
+                    "the inventory is not just the layout and the menu: " + left);
+            c.check(out == 8, "want 8 shift-clicks out into the page: " + show(clicks));
+            c.check(clicks.stream().noneMatch(e -> e.get("slot").getAsInt() == 44 || e.get("slot").getAsInt() == 89),
+                    "a click touched slot 9: " + show(clicks));
+            checkStill(c, clicks);
+        } finally {
+            finishRun(c);
+            MenuKit.reset(c);
+            restore(c, p, old);
+            InventoryCases.clearInv(c);
+        }
+    }
+
     static void storage(Session c) throws Exception {
         MenuKit.reset(c);
         InventoryCases.clearInv(c);
