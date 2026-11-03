@@ -1479,12 +1479,20 @@ final class Doc1018MenuHudCases {
                 Mod.call(cfg, "setEnabled", true);
                 return null;
             });
-            c.check((Boolean) Mod.call(cfg, "isHidePotionEffects"), "the potion effects panel is not hidden with the theme on");
+            // Since mod effects-search-1102 the effects panel is the Hide Potion Effects card's (on by default), the same
+            // with the theme on or off; before it, it followed the theme (EffectsSearchCases has the pixel proof).
+            boolean ownCard = Mod.has("hideeffects.HideEffectsConfig");
+            Object hide = ownCard ? Mod.cfg("hideeffects.HideEffectsConfig") : cfg;
+            boolean withTheme = (Boolean) Mod.call(hide, "isHidePotionEffects");
+            c.check(ownCard ? withTheme == (Boolean) Mod.call(hide, "isHidePotionEffectsRaw") : withTheme,
+                    "the potion effects panel is not hidden as it should be with the theme on");
             c.onClient(mc -> {
                 Mod.call(cfg, "setEnabled", false);
                 return null;
             });
-            c.check(!(Boolean) Mod.call(cfg, "isHidePotionEffects"), "the potion effects panel is hidden with the theme off");
+            boolean withoutTheme = (Boolean) Mod.call(hide, "isHidePotionEffects");
+            c.check(ownCard ? withoutTheme == withTheme : !withoutTheme,
+                    "the potion effects panel " + (ownCard ? "changed with the theme" : "is hidden with the theme off"));
             c.onClient(mc -> {
                 Mod.call(cfg, "setEnabled", true);
                 return null;

@@ -566,6 +566,11 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
 - Never start a second `run-scenario.ps1` in a checkout whose queue is between or inside runs: at its start the script kills
   that checkout's "leftover" client and server, which is the other run's live ones ("Killing a leftover test client", ship-1102h
   2026-11-02 killed a ZPEW half mid-run). One queue per checkout; make another detached worktree for a rerun.
+- `effect give @a <effect> <s> <amp> true` (hideParticles) also hides that effect's HUD icon: MobEffectInstance takes showIcon
+  from visible, so 1102-ui-hide-effects-hud's first runs drew no icons with the hide switch OFF. Give HUD-icon effects with
+  `false`. Night Vision brightens the whole world, so a frame with it never matches a frame without (31,000 "changed" px).
+  The menu search cases (1102-ui-search-queries) take their queries from EffectsSearchCases.QUERIES: add a real query there
+  whenever he reports one that found nothing.
 - 525-ui-menu-every-master (mod menufix-1102) switches every row a card stands for ON alone and needs the card ON. A row
   drawn inactive for the account (Spotify Share My Song, a supporter perk) cannot be pressed and is skipped. RibbonTrailTab
   is a section inside Cosmetics, not a card. A menu StringWidget built from `Component.literal("§7...")` keeps the

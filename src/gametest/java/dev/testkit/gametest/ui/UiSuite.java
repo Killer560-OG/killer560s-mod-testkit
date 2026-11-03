@@ -481,6 +481,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : DocMenu1101Cases.CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : EffectsSearchCases.CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -497,7 +500,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES) || any(TRAIL_HUD_CASES)
                 || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES) || any(SOUND_DESC_CASES) || any(MAP_OVERHAUL_CASES)
                 || any(TRAJECTORY_CASES) || any(MOB_SKIN_CASES) || any(PREDICT_IN_MAP_CASES)
-                || any(DocMenu1101Cases.CASES);
+                || any(DocMenu1101Cases.CASES) || any(EffectsSearchCases.CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -928,6 +931,11 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1101-ui-docmenu-keybind", DocMenu1101Cases::keybind);
                     UiCase.run(ctx, "1101-ui-docmenu-etherwarp", DocMenu1101Cases::etherwarp);
                     UiCase.run(ctx, "1101-ui-docmenu-video-browser", DocMenu1101Cases::videoBrowser);
+                    // ---- Hide Potion Effects card and the menu search (mod effects-search-1102, EffectsSearchCases) ----
+                    UiCase.run(ctx, "1102-ui-hide-effects", EffectsSearchCases::panel);
+                    UiCase.run(ctx, "1102-ui-hide-effects-hud", EffectsSearchCases::hud);
+                    UiCase.run(ctx, "1102-ui-hide-effects-config", EffectsSearchCases::config);
+                    UiCase.run(ctx, "1102-ui-search-queries", EffectsSearchCases::searchQueries);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
