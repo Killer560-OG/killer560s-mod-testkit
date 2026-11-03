@@ -55,6 +55,7 @@ final class InvSort1103Cases {
         MenuSuite.test(s, "1103-invsort-exact-fetch", InvSort1103Cases::exactFetch);
         MenuSuite.test(s, "1103-invsort-free", InvSort1103Cases::free);
         MenuSuite.test(s, "1103-invsort-dump-pick", InvSort1103Cases::dumpPick);
+        MenuSuite.test(s, "1103-invsort-edit", InvSort1103Cases::edit);
     }
 
     // ------------------------------------------------------------------------------------------------- helpers
@@ -299,6 +300,171 @@ final class InvSort1103Cases {
             finishRun(c);
             MenuKit.reset(c);
             restore(c, p, old);
+            InventoryCases.clearInv(c);
+        }
+    }
+
+    /**
+     * killer560, 2026-11-03: the layouts screen's Edit button (in place of the "N slots, fetch" text) loads a layout into
+     * the editor, and an inventory item that is in NO saved layout can be picked up from the "your inventory" list and
+     * put in the grid (before, a loaded layout drew only its own items, so those items had nowhere to be picked up).
+     * Emerald in 0 is in the layout; diamond (1) and stick (5) are not. Draw-only: no container click, the real
+     * inventory is unchanged.
+     */
+    @SuppressWarnings("unchecked")
+    static void edit(Session c) throws Exception {
+        MenuKit.reset(c);
+        InventoryCases.clearInv(c);
+        if (!c.onClient(mc -> Mod.has(SCREEN))) {
+            c.note("no InventorySorterScreen in this jar");
+            return;
+        }
+        String name = "hx-1103-edit";
+        try {
+            c.hx().give(0, "minecraft:emerald");
+            c.hx().give(1, "minecraft:diamond");
+            c.hx().give(5, "minecraft:stick");
+            c.waitUntil("the three items", mc -> mc.player.getInventory().getItem(0).is(Items.EMERALD)
+                    && mc.player.getInventory().getItem(1).is(Items.DIAMOND)
+                    && mc.player.getInventory().getItem(5).is(Items.STICK), 80);
+            Map<Integer, String> want = new LinkedHashMap<>();
+            want.put(0, id(c, Items.EMERALD));
+            Object saved0 = layout(c, name, want, Map.of(), Set.of(), false, null);
+            c.ctx().runOnClient(mc -> Mod.call(store(), "save", saved0));
+            int clicksBefore = c.events("container.click").size();
+            c.ctx().runOnClient(mc -> {
+                try {
+                    McCompat.setScreen(mc, (Screen) Mod.cls(SCREEN).getConstructor(Screen.class).newInstance((Object) null));
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+            });
+            c.waitUntil("the layouts menu", mc -> McCompat.screen(mc) != null
+                    && McCompat.screen(mc).getClass().getSimpleName().equals("InventorySorterScreen"), 40);
+            c.ctx().waitTicks(4);
+
+            // Before: nothing selected, the grid is the real inventory (a constructor reset), so the pool is empty.
+            String before = c.onClient(mc -> {
+                Screen s = McCompat.screen(mc);
+                return "selected " + Mod.call(s, "selectedLayout") + ", pool " + ((List<?>) Mod.call(s, "pool")).size();
+            });
+            c.note("before: " + before);
+            c.check(before.startsWith("selected null, pool 0"), "before: " + before);
+
+            // Click the Edit button (where the old summary text was).
+            String edit = c.onClient(mc -> {
+                Screen s = McCompat.screen(mc);
+                int[] g = (int[]) Mod.call(s, "listGeometry");
+                List<String> names = (List<String>) Mod.call(store(), "listNames");
+                int row = names.indexOf(name);
+                if (row < 0 || row >= g[4]) {
+                    return "row " + row + " of " + names.size() + " not visible (rows shown " + g[4] + ")";
+                }
+                int[] eb = (int[]) Mod.call(s, "editRect", g[1] + 1 + row * g[3], g[2] - 2 - 50 - 2);
+                double x = eb[0] + eb[2] / 2.0;
+                double y = eb[1] + eb[3] / 2.0;
+                s.mouseClicked(ev(x, y, 0), false);
+                s.mouseReleased(ev(x, y, 0));
+                Object box = Mod.field(s, "nameBox");
+                return "selected " + Mod.call(s, "selectedLayout") + ", name box " + Mod.call(box, "getValue") + ", slot0 "
+                        + ((ItemStack) Mod.call(s, "gridAt", 0)).getItem() + ", slot1 "
+                        + ((ItemStack) Mod.call(s, "gridAt", 1)).isEmpty() + ", pool " + ((List<?>) Mod.call(s, "pool")).size();
+            });
+            c.note("after Edit: " + edit);
+            c.check(edit.startsWith("selected " + name + ", name box " + name + ", slot0 minecraft:emerald, slot1 true, pool 2"),
+                    "the Edit button did not load the layout: " + edit);
+
+            // Pick the diamond from the list and drop it on slot 3; drag the stick to slot 4.
+            String place = c.onClient(mc -> {
+                Screen s = McCompat.screen(mc);
+                List<ItemStack> pool = (List<ItemStack>) Mod.call(s, "pool");
+                int di = -1;
+                for (int k = 0; k < pool.size(); k++) {
+                    if (pool.get(k).is(Items.DIAMOND)) {
+                        di = k;
+                    }
+                }
+                if (di < 0) {
+                    return "pool lacks the diamond: " + pool;
+                }
+                int[] pd = (int[]) Mod.call(s, "poolCellPos", di);
+                int[] s3 = (int[]) Mod.call(s, "slotPos", 3);
+                s.mouseClicked(ev(pd[0] + 3, pd[1] + 3, 0), false);
+                s.mouseReleased(ev(pd[0] + 3, pd[1] + 3, 0));
+                boolean held = Mod.call(s, "heldPoolItem") != null;
+                s.mouseClicked(ev(s3[0] + 4, s3[1] + 4, 0), false);
+                s.mouseReleased(ev(s3[0] + 4, s3[1] + 4, 0));
+                pool = (List<ItemStack>) Mod.call(s, "pool");
+                int st = -1;
+                for (int k = 0; k < pool.size(); k++) {
+                    if (pool.get(k).is(Items.STICK)) {
+                        st = k;
+                    }
+                }
+                if (st < 0) {
+                    return "pool lacks the stick: " + pool;
+                }
+                int[] ps = (int[]) Mod.call(s, "poolCellPos", st);
+                int[] s4 = (int[]) Mod.call(s, "slotPos", 4);
+                s.mouseClicked(ev(ps[0] + 3, ps[1] + 3, 0), false);
+                s.mouseReleased(ev(s4[0] + 4, s4[1] + 4, 0));
+                return "held after pick " + held + ", slot3 " + ((ItemStack) Mod.call(s, "gridAt", 3)).getItem() + ", slot4 "
+                        + ((ItemStack) Mod.call(s, "gridAt", 4)).getItem() + ", pool "
+                        + ((List<?>) Mod.call(s, "pool")).size() + ", held now " + Mod.call(s, "heldPoolItem");
+            });
+            c.note("placing: " + place);
+            c.check(place.equals("held after pick true, slot3 minecraft:diamond, slot4 minecraft:stick, pool 0, held now null"),
+                    "placing an inventory item failed: " + place);
+
+            // Move (click 3, click 7 swaps), then clear by dropping on the list area.
+            String move = c.onClient(mc -> {
+                Screen s = McCompat.screen(mc);
+                int[] s3 = (int[]) Mod.call(s, "slotPos", 3);
+                int[] s7 = (int[]) Mod.call(s, "slotPos", 7);
+                s.mouseClicked(ev(s3[0] + 4, s3[1] + 4, 0), false);
+                s.mouseReleased(ev(s3[0] + 4, s3[1] + 4, 0));
+                s.mouseClicked(ev(s7[0] + 4, s7[1] + 4, 0), false);
+                s.mouseReleased(ev(s7[0] + 4, s7[1] + 4, 0));
+                String moved = "slot3 " + ((ItemStack) Mod.call(s, "gridAt", 3)).isEmpty() + ", slot7 "
+                        + ((ItemStack) Mod.call(s, "gridAt", 7)).getItem();
+                int[] p0 = (int[]) Mod.call(s, "poolCellPos", 0);
+                s.mouseClicked(ev(s7[0] + 4, s7[1] + 4, 0), false);
+                s.mouseReleased(ev(s7[0] + 4, s7[1] + 4, 0));
+                s.mouseClicked(ev(p0[0] + 3, p0[1] + 3, 0), false);
+                s.mouseReleased(ev(p0[0] + 3, p0[1] + 3, 0));
+                return moved + ", cleared slot7 " + ((ItemStack) Mod.call(s, "gridAt", 7)).isEmpty() + ", pool "
+                        + ((List<?>) Mod.call(s, "pool")).size();
+            });
+            c.note("moving: " + move);
+            c.check(move.equals("slot3 true, slot7 minecraft:diamond, cleared slot7 true, pool 1"), "moving/clearing: " + move);
+
+            // Put the diamond back in 7 and save: the layout now holds an item that was in no saved layout.
+            String saved = c.onClient(mc -> {
+                Screen s = McCompat.screen(mc);
+                Mod.call(s, "placeFromPool", 0, 7);
+                Mod.call(s, "saveTyped");
+                Object l = Mod.call(store(), "get", name);
+                return "entries " + Mod.call(l, "entries") + " exact " + Mod.call(l, "exactKeys");
+            });
+            c.note("saved: " + saved);
+            c.check(saved.contains("0=") && saved.contains("4=") && saved.contains("7=") && !saved.contains("3=")
+                    && !saved.contains("exact {}"), "saved layout: " + saved);
+
+            // Draw-only: no container click, and the real inventory is untouched.
+            List<JsonObject> clicks = clicksSince(c, clicksBefore);
+            c.check(clicks.isEmpty(), "the editor sent container clicks: " + show(clicks));
+            c.check(c.onClient(mc -> mc.player.getInventory().getItem(0).is(Items.EMERALD)
+                    && mc.player.getInventory().getItem(1).is(Items.DIAMOND)
+                    && mc.player.getInventory().getItem(5).is(Items.STICK)
+                    && mc.player.getInventory().getItem(3).isEmpty()), "the real inventory changed");
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                if (mc.player != null && McCompat.screen(mc) != null) {
+                    McCompat.setScreen(mc, null);
+                }
+                Mod.call(store(), "delete", name);
+            });
+            MenuKit.reset(c);
             InventoryCases.clearInv(c);
         }
     }
