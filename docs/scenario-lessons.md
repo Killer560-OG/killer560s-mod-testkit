@@ -1530,3 +1530,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   for a 16-unit cell: the box sits right under the icon and a full block hides all of it. The Storage Overlay's open
   page title is that same orange, so the pages grid is checked by the on/off difference. A two-digit count scales with
   the fitted item and reaches past the cell's middle (still in its lower half).
+- 1102-splitchat-colors / -core0 / -core0ticks (HxSplitChat1102Cases, mod splitchat-1102): colors feeds a whole F7 run to
+  `SplitTimersFeature.onLine` at exact times and compares every chat segment name's color (`Component.visit`) with the
+  color of the same row's label in `layoutRows` (20 names: each "X took Y!" and the summary). core0 puts the client and a
+  client-side RemotePlayer HxMateA in the core before "The Core entrance is opening!" (both must read exactly 0) and moves
+  HxMateB in once 1000 ms have passed since `openedMs`, from a tick poll (lands 1000-1050 ms). On batch N's jar core0 reads
+  the client and HxMateA at a tick, not 0.
