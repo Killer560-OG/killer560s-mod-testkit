@@ -196,8 +196,8 @@ final class DocDungeonsCases {
             c.check("true".equals(old[2]) && "false".equals(old[3]),
                     "the old P1 (on, Mode Auto) did not carry over to Crystal as Auto on / Fast off");
             c.check("true/false".equals(old[4]), "the old P3 (on, Mode Fast) is not Fast on / Auto off: " + old[4]);
-            // mod leapmenu-1102: one switch per leap, a switched-off leap (unused then) reads Fast
-            c.check((oneSwitch() ? "true/false/true/false" : "false/false/false/false").equals(old[5]),
+            // a switched-off leap stays unused (Off on mod leapmenu-1102's Off / Fast / Auto row)
+            c.check("false/false/false/false".equals(old[5]),
                     "a leap that was switched off reads " + old[5]);
             c.check("PER_LEAP".equals(old[6]), "an old Class mode reads as " + old[6]);
             c.check("true".equals(old[7]) && "HEALER".equals(old[8]) && "true".equals(old[9]) && "ARCHER".equals(old[10]),
@@ -243,10 +243,10 @@ final class DocDungeonsCases {
             long fasts = labels.stream().filter(l -> l.startsWith("Fast: ")).count();
             long autos = labels.stream().filter(l -> l.startsWith("Auto: ")).count();
             if (oneSwitch()) {
-                // mod leapmenu-1102: "Crystal Leap: ON (Auto)" / "OFF (Fast)", one per leap, no Fast/Auto rows
-                long switches = labels.stream().filter(l -> l.matches(".+ Leap: (ON \\(Auto\\)|OFF \\(Fast\\))")).count();
+                // mod leapmenu-1102: "Crystal Leap: Off / Fast / Auto", one row per leap, no Fast/Auto toggles
+                long switches = labels.stream().filter(l -> l.matches(".+ Leap: (Off|Fast|Auto)")).count();
                 c.check(fasts == 0 && autos == 0 && switches == 12, fasts + " Fast and " + autos + " Auto rows, "
-                        + switches + " Auto/Fast switches; want 0, 0 and 12: " + labels);
+                        + switches + " Off/Fast/Auto rows; want 0, 0 and 12: " + labels);
                 fasts = 12;
                 autos = 12;
             }
@@ -396,14 +396,14 @@ final class DocDungeonsCases {
     /** Mod leapmenu-1102 round 2: one switch per leap, on = Auto, off = Fast. */
     private static boolean oneSwitch() {
         for (java.lang.reflect.Method m : Mod.cls(FLC).getMethods()) {
-            if (m.getName().equals("setLeapAutoMode")) {
+            if (m.getName().equals("getLeapMode")) {
                 return true;
             }
         }
         return false;
     }
 
-    /** The Crystal switch reads OFF (Fast) with Fast set; a press makes it Auto (saved), a second press Fast again. */
+    /** The Crystal row reads Fast with Fast set; presses step Auto, Off, Fast (each saved). */
     private static void crystalSwitch(UiCase c, List<AbstractWidget> ws, List<String> labels, Path file) throws Exception {
         int at = -1;
         for (int i = 0; i < labels.size(); i++) {
@@ -411,15 +411,15 @@ final class DocDungeonsCases {
                 at = i;
             }
         }
-        c.check(at >= 0 && labels.get(at).equals("Crystal Leap: OFF (Fast)"), "Crystal's switch reads "
-                + (at < 0 ? "nothing" : labels.get(at)) + ", want Crystal Leap: OFF (Fast)");
+        c.check(at >= 0 && labels.get(at).equals("Crystal Leap: Fast"), "Crystal's row reads "
+                + (at < 0 ? "nothing" : labels.get(at)) + ", want Crystal Leap: Fast");
         if (at < 0) {
             return;
         }
         AbstractWidget sw = ws.get(at);
         Object p1 = Mod.enumValue(GROUP, "P1");
         List<String> walk = new ArrayList<>();
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < 3; i++) {
             c.onClient(mc -> Mod.call(sw, "press"));
             boolean[] st = c.onClient(mc -> {
                 Object cfg = Mod.staticCall(FLC, "getInstance");
@@ -430,10 +430,12 @@ final class DocDungeonsCases {
             walk.add(label(sw) + " fast " + st[0] + " auto " + st[1] + " saved " + saved);
         }
         c.note("Crystal switch presses: " + walk);
-        c.check(walk.get(0).startsWith("Crystal Leap: ON (Auto) fast false auto true") && walk.get(0).contains("\"auto\":true"),
+        c.check(walk.get(0).startsWith("Crystal Leap: Auto fast false auto true") && walk.get(0).contains("\"fast\":false,\"auto\":true"),
                 "one press did not make Crystal Auto: " + walk.get(0));
-        c.check(walk.get(1).startsWith("Crystal Leap: OFF (Fast) fast true auto false") && walk.get(1).contains("\"auto\":false"),
-                "a second press did not make Crystal Fast: " + walk.get(1));
+        c.check(walk.get(1).startsWith("Crystal Leap: Off fast false auto false") && walk.get(1).contains("\"fast\":false,\"auto\":false"),
+                "a second press did not make Crystal Off: " + walk.get(1));
+        c.check(walk.get(2).startsWith("Crystal Leap: Fast fast true auto false") && walk.get(2).contains("\"fast\":true,\"auto\":false"),
+                "a third press did not make Crystal Fast again: " + walk.get(2));
     }
 
     private static boolean pages() {

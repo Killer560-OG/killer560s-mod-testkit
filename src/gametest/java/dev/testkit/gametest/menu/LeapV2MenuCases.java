@@ -87,8 +87,8 @@ final class LeapV2MenuCases {
             c.check(r[1] == 4, "after the leap he holds slot " + (r[1] + 1) + ", Stay on Leap keeps the leap's slot 5");
 
             // ---- 3: Fast and Auto both on: the trigger leaps, then his left click leaps too ----
-            if (Mod.has(FLC) && hasMethod(Mod.cls(FLC), "setLeapAutoMode")) {
-                c.note("mod leapmenu-1102: one switch per leap (on = Auto, off = Fast), so Fast and Auto both on is gone;"
+            if (Mod.has(FLC) && hasMethod(Mod.cls(FLC), "getLeapMode")) {
+                c.note("mod leapmenu-1102: one Off / Fast / Auto row per leap, so Fast and Auto both on is gone;"
                         + " step 3 not run");
                 return;
             }
