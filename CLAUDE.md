@@ -573,3 +573,8 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
 - With the mod's Auto Scale on (the default) the menu is laid out on an 854-wide canvas whatever the window size, so a
   1920x1080 GUI 2 window still gives the narrowest drawer (362). For the wide drawer turn Auto Scale off as well
   (`HudConfig.setAutoScale(false)`; 1920x1080 GUI 2 is then 960 wide, drawer 406) and restore it (1102-ui-leapmenu-shots).
+- A UI run can pass every case and then hang closing its singleplayer world: Render thread in `IntegratedServer.halt` ->
+  `executeBlocking` (from the gametest's deferDisconnect), Server thread parked in the gametest `ThreadingImpl.enterPhase`
+  Phaser; the run log only says "Test client has stopped responding - watching it" and no summary.md is written (leapmenu-1102,
+  26.2, 15 of 15 PASS lines in the client log at 20:00, still hung at 20:21). The same filter passed and exited cleanly on the
+  run before. jstack it, kill only the client PID; the PASS lines and build/testkit-report/cases/*.log are the evidence.
