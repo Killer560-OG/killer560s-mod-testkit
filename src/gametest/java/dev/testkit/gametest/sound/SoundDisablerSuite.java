@@ -30,7 +30,7 @@ import java.util.Locale;
  *   <li>1102-sound-rows: Explosions (server and delayed local), the Custom Sound IDs list (exact and {@code *}) and Show Sound
  *       IDs; Bow Shots left off still plays.</li>
  *   <li>1102-sound-off: the master switch off, or the Bonzo's Staff row off, mutes nothing.</li>
- *   <li>1102-sound-persist: every setting survives save and load.</li>
+ *   <li>1102-sound-persist: a fresh config has the switch and every row off; every setting survives save and load.</li>
  * </ul>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -139,8 +139,27 @@ public class SoundDisablerSuite implements FabricClientGameTest {
         }
     }
 
-    private static void persist(Session c) {
+    private static void persist(Session c) throws Exception {
         try {
+            // A fresh config (no file) has the switch and EVERY row off (owner 2026-11-02: Bonzo's Staff not on by default).
+            java.nio.file.Path fresh = ModUnderTest.modConfig("killer560smod-sound-disabler.json");
+            java.nio.file.Files.deleteIfExists(fresh);
+            StringBuilder defaults = new StringBuilder();
+            boolean allOff = c.onClient(mc -> {
+                ModUnderTest.staticCall(CFG, "load");
+                Object cfg = cfg();
+                boolean off = !ModUnderTest.getBoolean(cfg, "isEnabled") && !ModUnderTest.getBoolean(cfg, "isShowIds")
+                        && ModUnderTest.getInt(cfg, "customCount") == 0;
+                defaults.append("enabled=").append(ModUnderTest.getBoolean(cfg, "isEnabled")).append(' ');
+                for (String r : ROWS) {
+                    boolean on = isRow(cfg, r);
+                    defaults.append(r).append('=').append(on).append(' ');
+                    off &= !on;
+                }
+                return off;
+            });
+            c.note("fresh config (file deleted, loaded): " + defaults);
+            c.check(allOff, "a fresh config does not have everything off: " + defaults);
             c.onClient(mc -> {
                 Object cfg = cfg();
                 ModUnderTest.call(cfg, "setEnabled", new Class<?>[]{boolean.class}, new Object[]{true});
