@@ -56,6 +56,7 @@ final class InvSort1103Cases {
         MenuSuite.test(s, "1103-invsort-free", InvSort1103Cases::free);
         MenuSuite.test(s, "1103-invsort-dump-pick", InvSort1103Cases::dumpPick);
         MenuSuite.test(s, "1103-invsort-edit", InvSort1103Cases::edit);
+        MenuSuite.test(s, "1103-invsort-locked-slot", InvSort1103Cases::lockedSlot);
     }
 
     // ------------------------------------------------------------------------------------------------- helpers
@@ -296,6 +297,72 @@ final class InvSort1103Cases {
             }
             c.check(a.equals(took[0]), "control: the id-only layout did not fetch the first book (A): " + took[0]);
             c.check(b.equals(took[1]), "the exact layout did not fetch its own book (B): " + took[1]);
+        } finally {
+            finishRun(c);
+            MenuKit.reset(c);
+            restore(c, p, old);
+            InventoryCases.clearInv(c);
+        }
+    }
+
+    /**
+     * killer560, 2026-11-03: "make sure it doesnt mess with the bottom right slot of my hotbar" (inventory index 8, container
+     * slot 44: Skyblock Menu / map / arrows, never removable). A layout that assigns an emerald to slot 8, with a stick
+     * really in slot 8: the sort moves the diamond 3 -&gt; 0 (so it ran), slot 8 keeps the stick, and no click touches
+     * container slot 44. The saved layout does not keep slot 8, and the editor will not edit it.
+     */
+    static void lockedSlot(Session c) throws Exception {
+        MenuKit.reset(c);
+        InventoryCases.clearInv(c);
+        if (legit(c)) {
+            return;
+        }
+        Path p = cfgPath(c);
+        byte[] old = read(p);
+        String name = "hx-1103-lock8";
+        try {
+            pace(c);
+            c.hx().give(3, "minecraft:diamond");
+            c.hx().give(5, "minecraft:emerald");
+            c.hx().give(8, "minecraft:stick");
+            c.waitUntil("the items", mc -> mc.player.getInventory().getItem(3).is(Items.DIAMOND)
+                    && mc.player.getInventory().getItem(5).is(Items.EMERALD)
+                    && mc.player.getInventory().getItem(8).is(Items.STICK), 80);
+            Map<Integer, String> want = new LinkedHashMap<>();
+            want.put(0, id(c, Items.DIAMOND));
+            want.put(8, id(c, Items.EMERALD));
+            Object l = layout(c, name, want, Map.of(), Set.of(), false, null);
+            String kept = c.onClient(mc -> String.valueOf(Mod.call(l, "entries")) + " free8 " + Mod.call(l, "isFree", 8));
+            c.note("layout: " + kept);
+            c.check(!kept.contains("8=") && kept.endsWith("free8 true"), "the layout kept slot 8: " + kept);
+            int before = c.events("container.click").size();
+            run(c, l, 400);
+            List<JsonObject> clicks = clicksSince(c, before);
+            c.note("clicks: " + show(clicks));
+            c.check(c.onClient(mc -> mc.player.getInventory().getItem(0).is(Items.DIAMOND)), "the sort did not run (diamond not in 0): "
+                    + show(clicks));
+            c.check(c.onClient(mc -> mc.player.getInventory().getItem(8).is(Items.STICK)), "slot 8 changed");
+            for (JsonObject e : clicks) {
+                c.check(e.get("slot").getAsInt() != 44, "a click touched the locked slot: " + show(List.of(e)));
+            }
+            checkStill(c, clicks);
+            // The editor: slot 8 cannot be freed, cleared or filled.
+            if (c.onClient(mc -> Mod.has(SCREEN))) {
+                String ed = c.onClient(mc -> {
+                    try {
+                        Screen s = (Screen) Mod.cls(SCREEN).getConstructor(Screen.class).newInstance((Object) null);
+                        Mod.call(s, "toggleFree", 8);
+                        Mod.call(s, "clearSlot", 8);
+                        boolean placed = (Boolean) Mod.call(s, "placeFromPool", 0, 8);
+                        return "free " + Mod.call(s, "isFreeSlot", 8) + ", placed " + placed + ", stick kept "
+                                + ((ItemStack) Mod.call(s, "gridAt", 8)).is(Items.STICK);
+                    } catch (ReflectiveOperationException e) {
+                        throw new AssertionError(e);
+                    }
+                });
+                c.note("editor: " + ed);
+                c.check(ed.equals("free true, placed false, stick kept true"), "editor: " + ed);
+            }
         } finally {
             finishRun(c);
             MenuKit.reset(c);
