@@ -30,7 +30,8 @@ final class HxBlazeWater1103Cases {
     }
 
     static void register(Session s) {
-        s.test("1103-blaze-water", HxBlazeWater1103Cases::run);
+        s.test("1103-blaze-water", c -> run(c, true));
+        s.test("1103-blaze-water-depth", c -> run(c, false));
     }
 
     private static int[] project(net.minecraft.client.Minecraft mc, Vec3 p) {
@@ -80,18 +81,29 @@ final class HxBlazeWater1103Cases {
         fill(c, f, -3, 0, lo, 3, 7, hi, "minecraft:water");
     }
 
+    private static void setWalls(boolean on) {
+        Object cfg = Mod.staticCall("puzzlesolvers.SolverEspConfig", "getInstance");
+        Mod.call(cfg, "setThroughWalls", Mod.enumValue("puzzlesolvers.SolverEspConfig$Solver", "BLAZE"), on);
+    }
+
     private static int greenness(int a) {
         return ((a >> 8) & 255) - Math.max((a >> 16) & 255, a & 255);
     }
 
-    private static void run(Session c) throws Exception {
+    private static void run(Session c, boolean walls) throws Exception {
+        if (walls && !Mod.isCheat()) {
+            c.note("through walls is cheat-only; nothing to do on this jar");
+            return;
+        }
         BlockPos f = c.onClient(mc -> mc.player.blockPosition());
         boolean hideGui = c.onClient(mc -> dev.testkit.compat.McCompat.hudHidden(mc));
         Boolean itBefore = c.onClient(mc -> improvedTransparency(mc));
         String[] scenes = {"control", "behind", "front", "around"};
+        List<String> fails = new ArrayList<>();
         // Everything the scene touches is cleared afterwards.
         try (Settings set = new Settings(c).with(CFG, "Enabled", true).with(CFG, "FillBox", true)
-                .with(CFG, "ShowLines", false)) {
+                .with(CFG, "ShowLines", false)
+                .custom(() -> setWalls(walls), () -> setWalls(true))) {
             fill(c, f, -6, -1, -14, 6, -1, 2, "minecraft:stone");
             fill(c, f, -6, 0, -14, 6, 9, 2, "minecraft:air");
             c.server().command("kill @e[type=minecraft:blaze]");
@@ -104,6 +116,8 @@ final class HxBlazeWater1103Cases {
             });
             List<String> modes = itBefore == null ? List.of("off") : List.of("off", "on");
             for (String m : modes) {
+                c.ctx().runOnClient(mc -> Mod.staticCall(FEATURE, "setForcedBlazesForTest", (Object) null));
+                c.ctx().waitTicks(5);
                 if (itBefore != null) {
                     c.ctx().runOnClient(mc -> setImprovedTransparency(mc, m.equals("on")));
                 }
@@ -191,17 +205,20 @@ final class HxBlazeWater1103Cases {
                         worst = Math.min(worst, pct);
                     }
                     int avg = (int) Math.round(sum / frames);
-                    c.note(String.format(Locale.ROOT, "Improved Transparency %s, %s: box interior tinted avg %d%% (worst %d%%)",
+                    c.note(String.format(Locale.ROOT, (walls ? "walls, " : "depth-tested, ") + "Improved Transparency %s, %s: box interior tinted avg %d%% (worst %d%%)",
                             m, scene, avg, worst));
                     if (scene.equals("control")) {
                         control = new int[]{avg, worst};
                         c.check(avg >= 80, "control (no water) only " + avg + "% tinted: the scene or the box is wrong");
                     } else if (scene.equals("behind") || scene.equals("around")) {
-                        c.check(control != null && worst >= control[1] - 15, "Improved Transparency " + m + ", water "
-                                + scene + ": box interior tinted " + avg + "% (worst " + worst + "%), control " + control[0] + "%");
+                        if (!(control != null && worst >= control[1] - 15)) {
+                            fails.add((walls ? "walls, " : "depth-tested, ") + "Improved Transparency " + m + ", water " + scene + ": box interior tinted " + avg
+                                    + "% (worst " + worst + "%), control " + control[0] + "%");
+                        }
                     }
                 }
             }
+            c.check(fails.isEmpty(), String.join("; ", fails));
         } finally {
             c.ctx().runOnClient(mc -> {
                 Mod.staticCall(FEATURE, "setForcedBlazesForTest", (Object) null);
