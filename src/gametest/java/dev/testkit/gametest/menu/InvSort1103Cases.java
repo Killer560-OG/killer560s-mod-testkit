@@ -261,7 +261,9 @@ final class InvSort1103Cases {
             for (int pass = 0; pass < 2; pass++) {
                 InventoryCases.clearInv(c);
                 c.hx().give(0, "minecraft:emerald");
-                c.waitUntil("the emerald", mc -> mc.player.getInventory().getItem(0).is(Items.EMERALD), 60);
+                c.hx().give(8, "minecraft:nether_star[custom_data={id:\"SKYBLOCK_MENU\"}]"); // the locked slot is never empty
+                c.waitUntil("the emerald", mc -> mc.player.getInventory().getItem(0).is(Items.EMERALD)
+                        && mc.player.getInventory().getItem(8).is(Items.NETHER_STAR), 60);
                 c.ctx().runOnClient(mc -> {
                     List<ItemStack> page = new ArrayList<>();
                     for (int i = 0; i < 45; i++) {
