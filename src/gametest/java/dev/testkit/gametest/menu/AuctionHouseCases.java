@@ -91,6 +91,7 @@ final class AuctionHouseCases {
         MenuSuite.test(s, "497-menu-ah-seamless", AuctionHouseCases::seamless);
         MenuSuite.test(s, "498-menu-ah-fallback", AuctionHouseCases::fallback);
         MenuSuite.test(s, "499-menu-ah-handoff", AuctionHouseCases::handoff);
+        MenuSuite.test(s, "589-menu-rarity-ah-inv", AuctionHouseCases::rarity);
     }
 
     // ---- shared ---------------------------------------------------------------------------------------------------
@@ -823,6 +824,73 @@ final class AuctionHouseCases {
             c.note("Create BIN Auction: press on his diamond -> " + describe(ic));
             c.hx().give(0, "minecraft:air");
         }
+    }
+
+    // ---- 589 ------------------------------------------------------------------------------------------------------
+
+    /**
+     * 589-menu-rarity-ah-inv (mod invsortfit-1102): the AH reskin's inventory panel (Create BIN Auction) draws the Item
+     * Rarity box under a LEGENDARY item with Item Rarity on and nothing with it off; a plain stick beside it gets none.
+     */
+    static void rarity(Session c) throws Exception {
+        try (Env env = new Env(c, false)) {
+            feedApi(c);
+            setWindow(c, 1920, 1080, 2);
+            c.hx().give(0, BazaarV3Cases.legendaryStick("IU_AH_STICK"));
+            c.hx().give(1, "minecraft:stick");
+            c.ctx().waitTicks(5);
+            env.cfg.set("itemrarity.ItemRarityConfig", "Style", Mod.enumValue("itemrarity.ItemRarityConfig$Style", "SQUARE"));
+            env.cfg.set("itemrarity.ItemRarityConfig", "Opacity", 100);
+            env.cfg.set("itemrarity.ItemRarityConfig", "SkyblockOnly", false);
+            env.cfg.set("itemrarity.ItemRarityConfig", "Enabled", true);
+            try {
+                int[][] g = new int[2][2];
+                int gs = 2;
+                for (int i = 0; i < 2; i++) {
+                    boolean on = i == 0;
+                    c.ctx().runOnClient(mc -> Mod.call(Mod.cfg("itemrarity.ItemRarityConfig"), "setEnabled", on));
+                    MenuKit.reset(c);
+                    show(c, "menus.ah-create-bin", "CREATE");
+                    int menuSlots = c.onClient(mc -> ((AbstractContainerScreen<?>) McCompat.screen(mc)).getMenu().slots.size());
+                    List<String> layout = reskinLayout(c);
+                    int[] leg = hotspot(layout, String.valueOf(menuSlots - 9));
+                    int[] plain = hotspot(layout, String.valueOf(menuSlots - 8));
+                    c.check(leg != null && plain != null, "hotbar items have no elements (menu slots " + (menuSlots - 9) + ", "
+                            + (menuSlots - 8) + ")");
+                    if (leg == null || plain == null) {
+                        return;
+                    }
+                    BufferedImage img = shot(c, "rarity-inv-" + (on ? "on" : "off"));
+                    float f = factor(c);
+                    gs = c.onClient(mc -> mc.getWindow().getGuiScale());
+                    g[i][0] = goldIn(img, leg, f * gs);
+                    g[i][1] = goldIn(img, plain, f * gs);
+                    c.ctx().runOnClient(mc -> McCompat.setScreen(mc, null));
+                    c.ctx().waitTicks(3);
+                }
+                int area = 16 * 16 * gs * gs;
+                c.note("AH Create BIN inventory panel, gold px rarity on / off: legendary stick " + g[0][0] + " / " + g[1][0]
+                        + ", plain stick " + g[0][1] + " / " + g[1][1] + " (a 16-unit box is about " + area + " px)");
+                c.check(g[0][0] >= area / 3, "rarity on: only " + g[0][0] + " gold px under the legendary stick");
+                c.check(g[1][0] == 0, "rarity off: " + g[1][0] + " gold px under the legendary stick");
+                c.check(g[0][1] == 0 && g[1][1] == 0, "the plain stick got gold: " + g[0][1] + " / " + g[1][1]);
+            } finally {
+                c.hx().give(0, "minecraft:air");
+                c.hx().give(1, "minecraft:air");
+            }
+        }
+    }
+
+    static int goldIn(BufferedImage img, int[] box, double px) {
+        int n = 0;
+        for (int y = (int) (box[1] * px); y < (int) ((box[1] + box[3]) * px) && y < img.getHeight(); y++) {
+            for (int x = (int) (box[0] * px); x < (int) ((box[0] + box[2]) * px) && x < img.getWidth(); x++) {
+                if ((img.getRGB(x, y) & 0xFFFFFF) == 0xFFAA00) {
+                    n++;
+                }
+            }
+        }
+        return n;
     }
 
     // ---- 496 ------------------------------------------------------------------------------------------------------

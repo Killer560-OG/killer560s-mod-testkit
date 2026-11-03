@@ -916,6 +916,85 @@ final class InvStorageCases {
         });
     }
 
+    // ==== 589-ui-rarity-storage (mod invsortfit-1102) ===================================================================
+
+    /**
+     * Both of the Storage Overlay's own grids draw the Item Rarity box: a LEGENDARY stick cached in Ender Chest page 2
+     * (the pages grid) and one in his inventory (the overlay's inventory panel) bring gold into each region with Item
+     * Rarity on and none with it off. A stick, not a block: a 16-unit box sits right under a 16-unit icon, and a full
+     * block would hide it.
+     */
+    static void storageRarity(UiCase c) throws Exception {
+        awaitNoLoadingOverlay(c);
+        Object scfg = Mod.cfg(SCFG);
+        boolean oldEnabled = c.onClient(mc -> (Boolean) Mod.call(scfg, "isEnabled"));
+        float oldScale = c.onClient(mc -> ((Number) Mod.call(scfg, "getScale")).floatValue());
+        Path rp = InvSortFitCases.rarityPath(c);
+        byte[] oldRarity = InvBatchCases.read(rp);
+        int[] window = HudEditorCases.windowSize(c);
+        int oldGui = c.onClient(mc -> mc.options.guiScale().get());
+        try {
+            c.onClient(mc -> {
+                String prefix = (String) Mod.staticCall(SFEAT, "accountProfilePrefix");
+                Object cache = Mod.staticCall("storageoverlay.StorageOverlayCache", "getInstance");
+                List<ItemStack> items = new ArrayList<>();
+                for (int i = 0; i < 45; i++) {
+                    items.add(i == 0 ? InvSortFitCases.legendary(Items.STICK, "IU_SO_STICK") : ItemStack.EMPTY);
+                }
+                Mod.call(cache, "put", prefix + "|enderchest_2", items);
+                Mod.call(scfg, "setEnabled", true);
+                Mod.call(scfg, "setScale", 1.0f);
+                return null;
+            });
+            InvBatchCases.survival(c);
+            InvBatchCases.inventory(c, java.util.Map.of(9, InvSortFitCases.legendary(Items.STICK, "IU_SO_STICK")));
+            HudEditorCases.setWindow(c, 1280, 720, 2);
+            int[][] g = new int[2][2]; // [on/off][grid, inventory panel]
+            int gs = 2;
+            for (int i = 0; i < 2; i++) {
+                boolean on = i == 0;
+                InvSortFitCases.rarity(c, on);
+                openEnderChest(c);
+                c.ctx().getInput().setCursorPos(1, 1);
+                c.ticks(4);
+                BufferedImage img = InvBatchCases.shot(c, "storage-" + (on ? "rarity" : "norarity"));
+                int[] inv = c.onClient(mc -> {
+                    int[] o = (int[]) Mod.field(SFEAT, "lastInventoryOrigin");
+                    return o == null ? null : o.clone();
+                });
+                gs = c.onClient(mc -> mc.getWindow().getGuiScale());
+                c.check(inv != null, "the overlay drew no inventory panel");
+                if (inv == null) {
+                    return;
+                }
+                int split = inv[1] * gs;
+                g[i][0] = InvSortFitCases.gold(img, 0, 0, img.getWidth(), split);
+                g[i][1] = InvSortFitCases.gold(img, 0, split, img.getWidth(), img.getHeight());
+                c.onClient(mc -> {
+                    McCompat.setScreen(mc, null);
+                    return null;
+                });
+                c.ticks(2);
+            }
+            int box = 16 * 16 * gs * gs;
+            c.note("gold px, rarity on / off: pages grid " + g[0][0] + " / " + g[1][0] + ", inventory panel " + g[0][1]
+                    + " / " + g[1][1] + " (a 16-unit box is " + box + " px; the stick covers part of it)");
+            c.check(g[0][0] - g[1][0] >= box / 2, "the pages grid drew no rarity box: " + g[0][0] + " vs " + g[1][0]);
+            c.check(g[0][1] - g[1][1] >= box / 2, "the inventory panel drew no rarity box: " + g[0][1] + " vs " + g[1][1]);
+            c.check(g[1][0] == 0 && g[1][1] == 0, "gold with Item Rarity off: " + g[1][0] + " / " + g[1][1]);
+        } finally {
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                Mod.call(scfg, "setEnabled", oldEnabled);
+                Mod.call(scfg, "setScale", oldScale);
+                return null;
+            });
+            HudEditorCases.restoreWindow(c, window, oldGui);
+            InvSortFitCases.restoreRarity(c, rp, oldRarity);
+            InvBatchCases.inventory(c, java.util.Map.of());
+        }
+    }
+
     static void storageCentre(UiCase c) throws Exception {
         awaitNoLoadingOverlay(c);
         Object scfg = Mod.cfg(SCFG);
