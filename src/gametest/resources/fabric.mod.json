@@ -89,6 +89,8 @@
 			"dev.testkit.gametest.SimAutoSecretBloodFirstTests",
 			"dev.testkit.gametest.SimKeyLookTests",
 			"dev.testkit.gametest.SimFairyDoorTests",
+			"dev.testkit.gametest.SimMapFunnyStatesTests",
+			"dev.testkit.gametest.SimKeyDoorTests",
 			"dev.testkit.gametest.SimDoorsPredictTests",
 			"dev.testkit.gametest.SimPredictHypixelTests",
 			"dev.testkit.gametest.SimPredictDiagTests",
