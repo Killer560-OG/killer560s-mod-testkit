@@ -54,10 +54,14 @@ final class HxAttackHold1103Cases {
         c.waitUntil("Dwarven Mines", mc -> "DWARVEN_MINES".equals(Mod.staticCall(STATE, "island")), 100);
     }
 
+    /** A real press, as MouseHandler.onButton makes it: the button tracked, the key set down AND a click counted (a held
+     *  key without a click on a block whose dig was aborted digs on the client only, see HeldBreakResume). */
     private static void press(Session c) {
         c.ctx().runOnClient(mc -> {
             Mod.staticCall("util.MouseButtons", "onButton", 0, 1);
-            mc.options.keyAttack.setDown(true);
+            var key = (com.mojang.blaze3d.platform.InputConstants.Key) Mod.field(mc.options.keyAttack, "key");
+            net.minecraft.client.KeyMapping.set(key, true);
+            net.minecraft.client.KeyMapping.click(key);
         });
     }
 
