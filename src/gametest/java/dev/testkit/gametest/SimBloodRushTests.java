@@ -95,8 +95,18 @@ public class SimBloodRushTests implements FabricClientGameTest {
                 if (name.equals(SPLIT)) {
                     splitRule(ctx, problems, facts);
                 } else if (name.equals(RUSH)) {
-                    if (SimMobFloorTests.buildMobFloor(ctx, problems, facts)) {
-                        rush(ctx, problems, facts);
+                    // The floor is random; the helper shows the FIRST key room on the rush path, which can hold only 2
+                    // starred mobs (2026-11-03 gate). Build a new floor until it has 3 or more (at most 3 floors).
+                    for (int attempt = 1; attempt <= 3; attempt++) {
+                        if (!SimMobFloorTests.buildMobFloor(ctx, problems, facts)) {
+                            break;
+                        }
+                        int n = firstKeyRoomStarred(ctx);
+                        if (n >= 3 || attempt == 3) {
+                            rush(ctx, problems, facts);
+                            break;
+                        }
+                        facts.add("floor " + attempt + ": first key room has only " + n + " starred mob(s), new floor");
                     }
                 } else if (name.equals(SPOTS)) {
                     starredSpots(ctx, problems, facts);
@@ -209,6 +219,13 @@ public class SimBloodRushTests implements FabricClientGameTest {
             }
         }
         return null;
+    }
+
+    /** Starred mobs the sim server holds in the floor's first key room, or -1 with no key room. */
+    private static int firstKeyRoomStarred(ClientGameTestContext ctx) {
+        @SuppressWarnings("unchecked")
+        List<String> keyRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(SIM_FLOOR, "keyRoomsForTest"));
+        return keyRooms.isEmpty() ? -1 : serverStarredIn(ctx, keyRooms.get(0).split("\\|")[0]).size();
     }
 
     private static void rush(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
