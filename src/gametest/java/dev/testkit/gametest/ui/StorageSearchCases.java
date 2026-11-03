@@ -25,21 +25,24 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * The Inventory Search bar ("Ctrl+F or click to search...") never covers a slot or a panel (killer560, 2026-11-02, two
- * screenshots: on the Storage Overlay it sat on the Inventory panel's third row, items hidden and unclickable under it;
- * on the plain inventory it sat over the hotbar, XP and health bars; mod storagesearch-1102).
+ * The Inventory Search bar ("Ctrl+F or click to search...") has ONE fixed spot at the bottom middle, the same on every
+ * screen at a given window size, and every menu lays out around it (killer560, 2026-11-02: first two screenshots of it
+ * covering the Storage Overlay's Inventory panel and the hotbar / hearts, then "no i want it always at the bottom. adjust
+ * other menus around it instead"; mod storagesearch-1102).
  * <ul>
- *   <li>1102-ui-storagesearch-overlay: the Storage Overlay with few and many storages, at seven window sizes / GUI scales
- *       (1920x1080 GUI 2 among them, and 854x480), slider 100% and 125%, Auto Scale on and off, Amber / Dark / Light: the
- *       bar's rect (the mod's own {@code lastBoxBounds}) against every rect the overlay drew, measured here from the
- *       overlay's own fields (grid viewport with its margin and scroll bar, Inventory panel, side buttons) - a real
- *       rectangle intersection, not "is it below". At three sizes a picture with gold blocks in the Inventory panel's
- *       third and fourth rows against one without: every item cell must change at least 60% of its pixels (a gold
- *       block's icon changes 66% of an uncovered cell; under the old bar 17-53%). Then Ctrl+F (through KeyboardHandler) starts typing, typed text is the query and points the grid at
- *       the matching item, and a click on the bar starts typing.</li>
- *   <li>1102-ui-storagesearch-screens: the plain inventory with the Item Browser on, a 6-row and a 3-row chest, at the
- *       same sizes: the bar clear of the container panel, every slot, every panel the mod reports over the screen
- *       (ContainerCover rects: the Item Browser) and the hotbar / XP / health zone at the bottom middle.</li>
+ *   <li>1102-ui-storagesearch-overlay: the Storage Overlay with few and many storages at seven window sizes / GUI scales
+ *       (1920x1080 GUI 2 and 854x480 among them), slider 125%, Auto Scale on and off, Amber / Dark / Light. The bar's rect
+ *       must be the fixed spot (bottom middle, 63 above the bottom; at the very bottom only in a window under ~280 GUI
+ *       units tall) and must not change with storages, slider, theme or a long typed query; every rect the overlay drew
+ *       (measured from its own fields: grid viewport with margin and scroll bar, Inventory panel, side buttons; and the
+ *       mod's drawnRects) must not intersect it. At three sizes a picture with gold blocks in the Inventory panel's third
+ *       and hotbar rows against one without: every cell changes at least 60% of its pixels (an uncovered gold block 66%,
+ *       under the old bar 17-53%). Ctrl+F (through KeyboardHandler) starts typing, the typed text points the grid at the
+ *       match, Escape stops typing, a click on the bar starts it.</li>
+ *   <li>1102-ui-storagesearch-screens: the plain inventory with the Item Browser (right-aligned, and centered with 9
+ *       columns), a 6-row and a 3-row chest at the same sizes: the bar in the same fixed spot as on the overlay, and no
+ *       slot, widget or ContainerCover panel (the Item Browser) under it; the hotbar / status bars only in the
+ *       very-bottom fallback; the Item Browser's sort footer text inside its panel.</li>
  * </ul>
  */
 final class StorageSearchCases {
@@ -51,6 +54,7 @@ final class StorageSearchCases {
     private static final String SCFG = "storageoverlay.StorageOverlayConfig";
     private static final String SFEAT = "storageoverlay.StorageOverlayFeature";
     private static final String IBC = "itembrowser.ItemBrowserConfig";
+    private static final String IBF = "itembrowser.ItemBrowserFeature";
     private static final int[][] SIZES = {{1920, 1080, 2}, {1280, 720, 2}, {854, 480, 2}, {1920, 1080, 3},
             {1600, 900, 4}, {2560, 1440, 3}, {1024, 768, 3}};
     /** Panel indices (0-35, row-major) of the gold blocks: third row (player slots 27..35) and the hotbar row. */
@@ -71,8 +75,41 @@ final class StorageSearchCases {
         return b == null ? null : new int[]{b[0], b[1], b[0] + b[2], b[1] + b[3]};
     }
 
-    private static String placement(UiCase c) {
-        return hasMethod(ISF, "barPlacement") ? c.onClient(mc -> (String) Mod.staticCall(ISF, "barPlacement")) : "-";
+    /** Rects of the bar per window size, from the overlay case, which the screens case must match. */
+    private static final Map<String, int[]> BAR_BY_SIZE = new HashMap<>();
+
+    /** The fixed spot as {x0, y0, x1, y1} for the open screen's size, worked out here independently of the mod. */
+    private static int[] expectedBar(UiCase c) {
+        return c.onClient(mc -> {
+            Screen s = McCompat.screen(mc);
+            float scale = ((Number) Mod.call(Mod.cfg(ISC), "getBoxScale")).floatValue();
+            int w = Math.min(Math.round(160 * scale), Math.max(20, s.width - 4));
+            int h = Math.round(16 * scale);
+            int y = s.height - 60 - 3 - h;
+            if (y < 200) { // a double chest's slots (18..213) would not fit above it
+                y = s.height - 2 - h;
+            }
+            int x = (s.width - w) / 2;
+            return new int[]{x, y, x + w, y + h};
+        });
+    }
+
+    /** "above hotbar" or "very bottom" (the documented small-window fallback). */
+    private static String mode(UiCase c, int[] b) {
+        int h = c.onClient(mc -> McCompat.screen(mc).height);
+        return b != null && b[3] == h - 2 ? "very bottom" : "above hotbar";
+    }
+
+    /** The bar must sit exactly in the fixed spot, and the same at every frame of this window size. */
+    private static void checkFixed(UiCase c, String sizeKey, String label, int[] b) {
+        int[] want = expectedBar(c);
+        if (b == null || !Arrays.equals(b, want)) {
+            c.problem(label + ": the bar " + r(b) + " is not in its fixed spot " + r(want));
+        }
+        int[] seen = BAR_BY_SIZE.putIfAbsent(sizeKey, b);
+        if (seen != null && !Arrays.equals(seen, b)) {
+            c.problem(label + ": the bar " + r(b) + " moved; at this size it was " + r(seen));
+        }
     }
 
     private static String r(int[] a) {
@@ -135,6 +172,10 @@ final class StorageSearchCases {
             }
             return null;
         });
+    }
+
+    private static String key(int[] sz) {
+        return sz[0] + "x" + sz[1] + "/" + sz[2];
     }
 
     // ==== overlay =====================================================================================================
@@ -233,8 +274,9 @@ final class StorageSearchCases {
     }
 
     /** One frame's check; returns the line noted. */
-    private static void checkOverlayFrame(UiCase c, String label) {
+    private static void checkOverlayFrame(UiCase c, String sizeKey, String label) {
         int[] b = bar(c);
+        checkFixed(c, sizeKey, label, b);
         Map<String, int[]> rects = overlayRects(c);
         int[] scr = c.onClient(mc -> new int[]{McCompat.screen(mc).width, McCompat.screen(mc).height});
         List<String> hits = new ArrayList<>();
@@ -257,7 +299,7 @@ final class StorageSearchCases {
             c.check(own.size() >= 2, label + ": drawnRects reports " + own.size() + " rects (no grid/inventory?)");
         }
         c.note(String.format(Locale.ROOT, "%s: screen %dx%d, bar %s (%s), inventory %s, grid %s -> overlaps %s", label,
-                scr[0], scr[1], r(b), placement(c), r(rects.get("inventory")), r(rects.get("grid")), hits));
+                scr[0], scr[1], r(b), mode(c, b), r(rects.get("inventory")), r(rects.get("grid")), hits));
         c.check(rects.containsKey("inventory"), label + ": the Inventory panel was not drawn");
         if (!hits.isEmpty()) {
             c.problem(label + ": the bar " + r(b) + " overlaps " + hits);
@@ -333,7 +375,7 @@ final class StorageSearchCases {
                     openEnderChest(c);
                     String label = String.format(Locale.ROOT, "%dx%d GUI %d, %d EC + %d BP", sz[0], sz[1], sz[2],
                             counts[0], counts[1]);
-                    checkOverlayFrame(c, label);
+                    checkOverlayFrame(c, key(sz), label);
                     close(c);
                 }
             }
@@ -350,7 +392,7 @@ final class StorageSearchCases {
                 for (int[] sz : new int[][]{{1920, 1080, 2}, {2560, 1440, 3}, {854, 480, 2}, {1600, 900, 4}}) {
                     HudEditorCases.setWindow(c, sz[0], sz[1], sz[2]);
                     openEnderChest(c);
-                    checkOverlayFrame(c, String.format(Locale.ROOT, "%dx%d GUI %d, slider %.0f%%, Auto Scale %s", sz[0],
+                    checkOverlayFrame(c, key(sz), String.format(Locale.ROOT, "%dx%d GUI %d, slider %.0f%%, Auto Scale %s", sz[0],
                             sz[1], sz[2], slider * 100, auto ? "on" : "off"));
                     close(c);
                 }
@@ -369,7 +411,7 @@ final class StorageSearchCases {
                 Object t = Mod.enumValue("gui.PanelTheme", theme);
                 c.onClient(mc -> Mod.call(scfg, "setTheme", t));
                 openEnderChest(c);
-                checkOverlayFrame(c, "1920x1080 GUI 2, " + theme);
+                checkOverlayFrame(c, "1920x1080/2", "1920x1080 GUI 2, " + theme);
                 close(c);
                 pixelCheck(c, "overlay-1920x1080-gui2-" + theme.toLowerCase(Locale.ROOT));
             }
@@ -398,12 +440,19 @@ final class StorageSearchCases {
             int highlight = c.onClient(mc -> ((Number) Mod.field(SFEAT, "highlightIndex")).intValue());
             BufferedImage typed = shot(c, "overlay-typed-diamond");
             c.note("Ctrl+F: listening " + before + " -> " + afterCtrlF + "; typed \"" + query + "\"; grid highlight index "
-                    + highlight + " (the diamond is page 1 content 0); bar " + r(bar(c)) + " " + placement(c));
+                    + highlight + " (the diamond is page 1 content 0); bar " + r(bar(c)));
             c.check(!before && afterCtrlF, "Ctrl+F did not start typing in the bar");
             c.check("diamond".equals(query), "typed query reads \"" + query + "\"");
             c.check(highlight == 0, "typing \"diamond\" did not point the grid at the diamond (highlight " + highlight + ")");
-            checkOverlayFrame(c, "1920x1080 GUI 2 with \"diamond\" typed");
+            checkOverlayFrame(c, "1920x1080/2", "1920x1080 GUI 2 with \"diamond\" typed");
+            // A long query: the bar keeps its width and place (its text shows the end of what is typed).
+            c.ctx().getInput().typeChars(" and a very long search that does not fit in the bar at all");
+            c.ticks(3);
+            checkOverlayFrame(c, "1920x1080/2", "1920x1080 GUI 2 with a long query typed");
+            shot(c, "overlay-long-query");
+            setQuery(c, "diamond");
             // Escape stops typing; a click on the bar starts it again.
+            c.onClient(mc -> Mod.staticCall(ISF, "setListening", true));
             c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(256));
             c.ticks(2);
             boolean afterEsc = c.onClient(mc -> (Boolean) Mod.staticCall(ISF, "isListening"));
@@ -462,6 +511,12 @@ final class StorageSearchCases {
             int w = (Integer) Mod.field(s, "imageWidth");
             int h = (Integer) Mod.field(s, "imageHeight");
             out.put("container", new int[]{left, top, left + w, top + h});
+            for (var child : s.children()) {
+                if (child instanceof net.minecraft.client.gui.components.AbstractWidget wd && wd.visible) {
+                    out.put("widget " + wd.getMessage().getString(), new int[]{wd.getX(), wd.getY(), wd.getX() + wd.getWidth(),
+                            wd.getY() + wd.getHeight()});
+                }
+            }
             for (Slot slot : s.getMenu().slots) {
                 out.put("slot " + slot.index, new int[]{left + slot.x, top + slot.y, left + slot.x + 16, top + slot.y + 16});
             }
@@ -475,6 +530,87 @@ final class StorageSearchCases {
             out.put("status bars", new int[]{cx - 91, s.height - 49, cx + 91, s.height - 22});
             return out;
         });
+    }
+
+    /**
+     * A moved chest must draw its gray panel where its slots are: the middle of the first and of the last slot must be
+     * slot gray (vanilla #8B8B8B) on the picture, and the panel's own light gray just above the first row. On the first
+     * fixed-spot jar the panel stayed centered while the slots moved (ContainerScreen re-centers its texture from height).
+     */
+    private static void backgroundAligned(UiCase c, String label, BufferedImage img) {
+        int[] g = c.onClient(mc -> {
+            AbstractContainerScreen<?> s = (AbstractContainerScreen<?>) McCompat.screen(mc);
+            int left = (Integer) Mod.field(s, "leftPos");
+            int top = (Integer) Mod.field(s, "topPos");
+            int minY = Integer.MAX_VALUE;
+            int maxY = Integer.MIN_VALUE;
+            int x0 = 0;
+            for (Slot slot : s.getMenu().slots) {
+                if (slot.y < minY || slot.y == minY && slot.x > x0) { // the rightmost of the top row: slot 0 holds the diamond
+                    minY = slot.y;
+                    x0 = slot.x;
+                }
+                maxY = Math.max(maxY, slot.y);
+            }
+            return new int[]{left + x0 + 8, top + minY + 8, top + maxY + 8, mc.getWindow().getGuiScale()};
+        });
+        int sc = g[3];
+        int first = img.getRGB(g[0] * sc, g[1] * sc) & 0xFFFFFF;
+        int last = img.getRGB(g[0] * sc, Math.min(img.getHeight() - 1, g[2] * sc)) & 0xFFFFFF;
+        c.note(String.format(Locale.ROOT, "%s: picture at the first slot #%06X, at the last slot #%06X", label, first, last));
+        if (!slotGray(first) || !slotGray(last)) {
+            c.problem(label + ": the chest's panel is not drawn under its slots (first #" + Integer.toHexString(first)
+                    + ", last #" + Integer.toHexString(last) + ", want slot gray #8B8B8B)");
+        }
+    }
+
+    private static boolean slotGray(int rgb) {
+        int r = (rgb >> 16) & 0xFF;
+        int gr = (rgb >> 8) & 0xFF;
+        int b = rgb & 0xFF;
+        return Math.abs(r - 0x8B) <= 12 && Math.abs(gr - 0x8B) <= 12 && Math.abs(b - 0x8B) <= 12;
+    }
+
+    private static void checkScreen(UiCase c, String sizeKey, String label, String kind) {
+        int[] b = bar(c);
+        checkFixed(c, sizeKey, label, b);
+        String how = mode(c, b);
+        Map<String, int[]> rects = screenRects(c);
+        List<String> hits = new ArrayList<>();
+        List<String> hudHits = new ArrayList<>();
+        List<String> panelHits = new ArrayList<>();
+        for (Map.Entry<String, int[]> e : rects.entrySet()) {
+            if (b != null && intersects(b, e.getValue())) {
+                String k = e.getKey();
+                (k.equals("hotbar") || k.equals("status bars") ? hudHits : k.equals("container") ? panelHits : hits)
+                        .add(k + " " + r(e.getValue()));
+            }
+        }
+        c.note(label + ": bar " + r(b) + " (" + how + "), container " + r(rects.get("container"))
+                + ", item browser " + r(rects.get("item browser")) + " -> overlaps " + hits + " " + hudHits
+                + (panelHits.isEmpty() ? "" : " (menu background only: " + panelHits + ")"));
+        if (b == null) {
+            c.problem(label + ": the bar was not drawn");
+        } else if (!hits.isEmpty()) {
+            c.problem(label + ": the bar " + r(b) + " overlaps " + hits);
+        } else if (!hudHits.isEmpty() && !how.equals("very bottom")) {
+            c.problem(label + ": the bar " + r(b) + " overlaps " + hudHits);
+        }
+        if (kind.equals("inventory")) {
+            int[] ib = rects.get("item browser");
+            if (ib == null) {
+                c.problem(label + ": the Item Browser did not report its panel (nothing to keep clear of)");
+            } else {
+                String footer = c.onClient(mc -> (String) Mod.field(IBF, "lastFooterText"));
+                int fw = c.onClient(mc -> footer == null ? -1 : mc.font.width(footer));
+                float sc = c.onClient(mc -> ((Number) Mod.call(Mod.cfg(IBC), "getScale")).floatValue());
+                int room = Math.round((ib[2] - ib[0]) / sc) - 2;
+                c.note(label + ": Item Browser footer \"" + footer + "\" " + fw + " wide, panel " + room + " inside");
+                if (footer == null || fw > room) {
+                    c.problem(label + ": the Item Browser footer \"" + footer + "\" (" + fw + ") runs past its panel (" + room + ")");
+                }
+            }
+        }
     }
 
     static void screens(UiCase c) throws Exception {
@@ -494,42 +630,43 @@ final class StorageSearchCases {
                 Object ib = Mod.cfg(IBC);
                 Mod.call(ib, "setEnabled", true);
                 Mod.call(ib, "setScale", 1.0f);
+                Mod.call(ib, "setColumns", 5);
+                Mod.call(ib, "setAlign", Mod.enumValue(IBC + "$HorizontalAlign", "RIGHT"));
                 return null;
             });
             for (int[] sz : SIZES) {
                 HudEditorCases.setWindow(c, sz[0], sz[1], sz[2]);
                 for (String kind : new String[]{"inventory", "chest6", "chest3"}) {
                     open(c, kind);
-                    int[] b = bar(c);
-                    String how = placement(c);
-                    Map<String, int[]> rects = screenRects(c);
-                    List<String> hits = new ArrayList<>();
-                    List<String> hudHits = new ArrayList<>();
-                    for (Map.Entry<String, int[]> e : rects.entrySet()) {
-                        if (b != null && intersects(b, e.getValue())) {
-                            (e.getKey().equals("hotbar") || e.getKey().equals("status bars") ? hudHits : hits)
-                                    .add(e.getKey() + " " + r(e.getValue()));
-                        }
-                    }
                     String label = String.format(Locale.ROOT, "%dx%d GUI %d %s", sz[0], sz[1], sz[2], kind);
-                    c.note(label + ": bar " + r(b) + " (" + how + "), container " + r(rects.get("container"))
-                            + ", item browser " + r(rects.get("item browser")) + " -> overlaps " + hits + " " + hudHits);
-                    if (b == null) {
-                        c.problem(label + ": the bar was not drawn");
-                    } else if (!hits.isEmpty()) {
-                        c.problem(label + ": the bar " + r(b) + " overlaps " + hits);
-                    } else if (!hudHits.isEmpty() && !how.equals("free-over-hud") && !how.equals("blocked")) {
-                        c.problem(label + ": the bar " + r(b) + " overlaps " + hudHits);
-                    }
-                    if (kind.equals("inventory") && rects.get("item browser") == null) {
-                        c.problem(label + ": the Item Browser did not report its panel (nothing to keep clear of)");
-                    }
+                    checkScreen(c, key(sz), label, kind);
                     if (kind.equals("inventory") && (sz[0] == 1920 && sz[1] == 1080 && sz[2] == 2
-                            || sz[0] == 854 && sz[2] == 2)) {
+                            || sz[0] == 854 && sz[2] == 2 || sz[0] == 1600 && sz[2] == 4)) {
                         shot(c, String.format(Locale.ROOT, "inventory-%dx%d-gui%d", sz[0], sz[1], sz[2]));
+                    }
+                    if (kind.equals("chest6") && (sz[0] == 854 && sz[2] == 2 || sz[0] == 1600 && sz[2] == 4
+                            || sz[0] == 1920 && sz[2] == 2)) {
+                        backgroundAligned(c, label, shot(c, String.format(Locale.ROOT, "chest6-%dx%d-gui%d", sz[0], sz[1], sz[2])));
                     }
                     close(c);
                 }
+            }
+            // The Item Browser centered and 9 columns wide reaches over the bar: it must stop above it.
+            c.onClient(mc -> {
+                Object ib = Mod.cfg(IBC);
+                Mod.call(ib, "setColumns", 9);
+                Mod.call(ib, "setAlign", Mod.enumValue(IBC + "$HorizontalAlign", "CENTER"));
+                return null;
+            });
+            for (int[] sz : new int[][]{{1920, 1080, 2}, {854, 480, 2}, {1600, 900, 4}}) {
+                HudEditorCases.setWindow(c, sz[0], sz[1], sz[2]);
+                open(c, "inventory");
+                checkScreen(c, key(sz), String.format(Locale.ROOT, "%dx%d GUI %d, Item Browser centered", sz[0], sz[1], sz[2]),
+                        "inventory");
+                if (sz[0] == 1920) {
+                    shot(c, "itembrowser-centered-1920x1080-gui2");
+                }
+                close(c);
             }
         } finally {
             setQuery(c, "");
