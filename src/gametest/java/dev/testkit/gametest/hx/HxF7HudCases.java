@@ -134,7 +134,9 @@ final class HxF7HudCases {
                 c.check(b.size() == 4, "(b) 4 hits seen, saw " + b.size() + ": " + b);
                 if (b.size() == 4) {
                     c.check(Math.abs(b.get(0)) >= 28 && Math.abs(b.get(1)) >= 28, "(b) the first two hits were ~30 off: " + b);
-                    c.check(Math.abs(b.get(2)) <= tol && Math.abs(b.get(3)) <= tol, "(b) after the re-lock the Tick read 0 (+-" + tol + ") at each hit: " + b);
+                    // The re-lock anchors on a hit that was itself seen within 1 tick, so a later hit can read 2 from it.
+                    int tolB = hypixelLike ? 2 : tol;
+                    c.check(Math.abs(b.get(2)) <= tolB && Math.abs(b.get(3)) <= tolB, "(b) after the re-lock the Tick read 0 (+-" + tolB + ") at each hit: " + b);
                 }
                 c.check(hypixelLike ? relocks == 1 : relocks >= 1, "(b) re-locked (once with per-tick pings), got " + relocks);
                 String line = c.onClient(mc -> String.valueOf(Mod.staticCall(GT, "remaining")));
