@@ -22,8 +22,8 @@ import static dev.testkit.gametest.hx.HxKit.*;
  * (WireCapture: START_DESTROY_BLOCK as encoded), not off the mod.
  * <ul>
  *   <li>1103-mining-hold-resume: held dig, the server opens and closes a container: within 1 tick of the close the attack
- *       key is down again with no new press (no click count), and a START_DESTROY_BLOCK on the obsidian goes out after the
- *       close; nothing but digging and swings is sent.</li>
+ *       key is down again without a new press from the test, the client digs the obsidian, and when the close aborted the
+ *       dig a START_DESTROY_BLOCK on it goes out again; nothing but digging, swings and moves is sent.</li>
  *   <li>1103-mining-hold-released: the button is let go during the menu: after the close the key stays up, no resume, no
  *       dig.</li>
  *   <li>1103-mining-hold-off: the setting off: nothing resumes.</li>
@@ -134,11 +134,7 @@ final class HxAttackHold1103Cases {
                 }
                 c.check(afterClose >= 0, "the attack key was not down again within 1 tick of the close");
                 c.check(intCall(c, RESUME, "resumes") == resumes + 1, "no resume counted");
-                boolean clicked = c.onClient(mc -> mc.options.keyAttack.consumeClick());
-                c.check(!clicked, "the resume added a click (a fresh press), not just the held key");
-                // Digging again: either a new START_DESTROY on the wire (vanilla aborted the dig on the close tick) or
-                // the same dig carried on (the close came after that tick's dig check, so nothing was aborted): the
-                // client's dig ticks on the obsidian keep counting either way, and stop when the key is up.
+                // Digging again: the client's dig on the obsidian counts ticks.
                 float t0 = destroyTicks(c);
                 c.ctx().waitTicks(5);
                 float t1 = destroyTicks(c);
@@ -146,6 +142,11 @@ final class HxAttackHold1103Cases {
                         && ob.equals(c.onClient(mc -> Mod.field(mc.gameMode, "destroyBlockPos")));
                 c.check(digging && t1 > t0, "not digging the obsidian after the close: destroying " + digging + ", ticks "
                         + t0 + " -> " + t1 + "; wire " + wire());
+                // The server must hear of it: a dig the close aborted needs a new START_DESTROY (the first run of this
+                // case caught the held key alone digging on the client only: ABORT, then only punches).
+                boolean aborted = wire().stream().anyMatch(w -> w.contains("ABORT_DESTROY_BLOCK"));
+                boolean started = wire().stream().anyMatch(w -> w.contains(dig));
+                c.check(!aborted || started, "the dig was aborted on the close and never started again on the wire: " + wire());
                 for (String w : wire()) {
                     boolean ok = w.contains("player_action") || w.contains("swing") || w.contains("move_player")
                             || w.contains("client_tick_end") || w.contains("keep_alive") || w.contains("pong")
