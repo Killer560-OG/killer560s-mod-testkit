@@ -141,6 +141,11 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 
 ## Quirks and lessons
 
+- A server `fill`/`setblock` in chunks no player has loaded does nothing (2026-11-03, 1103-mining-route arena: the first
+  case's floor never appeared), and teleporting there first so he falls onto a floor placed under him drew 7 GrimAC
+  `Simulation` flags. `forceload add` the area before building it, and in a Session case put him back where he stood
+  before removing a floor, or the next case starts falling (two Commission Mobs cases failed that way).
+
 - A client session that passes about 9.5 minutes OFTEN draws a steady experimental GrimAC `NegativeTimer* -1.3 s`
   (20 lines a second while the scenario runs), in whatever scenario is going at that point. 2026-11-02: all six fairy
   island sessions did, 9.5 to 10.1 minutes from the first join; one 29-minute fairy suite did too, at 9.6 minutes in
