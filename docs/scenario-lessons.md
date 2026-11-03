@@ -1499,3 +1499,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   config/killer560 is snapshotted first and restored (plus `ProfileManager.reloadAllConfigs`) after each drawer, since the
   non-key clicks change settings. "Saved" is checked generically: a file that changed contains -103 (Mouse 4). Measured on
   mod fddf98be6: 291 key rows cheat (26.3 and 26.2), 205 legit, about 150 s.
+
+- 1102-boss-maxorcrys (`SimBossTests`, mod maxorcrys-1102): a check made from the test thread between ticks runs BEFORE
+  that tick's END_CLIENT_TICK, so a feature reacting in its tick handler reads one tick late against an entity the test
+  already sees. The first version failed "counter on the tick the next set is on a tower: 2/2" though the mod reset it in
+  the same tick; the reset now runs on the add-entity packet. Assert the reset's own log line names the real signal
+  ("crystal on a tower"), not the 44-tick backstop.
