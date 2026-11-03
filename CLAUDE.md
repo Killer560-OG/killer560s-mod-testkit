@@ -570,3 +570,6 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
   drawn inactive for the account (Spotify Share My Song, a supporter perk) cannot be pressed and is skipped. RibbonTrailTab
   is a section inside Cosmetics, not a card. A menu StringWidget built from `Component.literal("§7...")` keeps the
   section codes in `getString()`: strip with `ChatFormatting.stripFormatting` before comparing text (526, 2026-11-02).
+- With the mod's Auto Scale on (the default) the menu is laid out on an 854-wide canvas whatever the window size, so a
+  1920x1080 GUI 2 window still gives the narrowest drawer (362). For the wide drawer turn Auto Scale off as well
+  (`HudConfig.setAutoScale(false)`; 1920x1080 GUI 2 is then 960 wide, drawer 406) and restore it (1102-ui-leapmenu-shots).
