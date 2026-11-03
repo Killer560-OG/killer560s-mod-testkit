@@ -41,6 +41,7 @@ final class Commissions1103MenuCases {
     static void register(Session s) {
         MenuSuite.test(s, "1103-menu-commissions-done", Commissions1103MenuCases::commissions);
         MenuSuite.test(s, "1103-menu-loadout-selected", Commissions1103MenuCases::loadout);
+        MenuSuite.test(s, "1103-menu-search-click", Commissions1103MenuCases::searchClick);
     }
 
     private static JsonObject book(String name, String... lore) {
@@ -70,6 +71,46 @@ final class Commissions1103MenuCases {
             c.check(c.events("container.click").isEmpty(), "a draw-only highlight clicked: " + c.events("container.click"));
             c.note("Commissions: mod slots " + mod + "; pixels changed only there; no click");
         } finally {
+            MenuKit.reset(c);
+        }
+    }
+
+    /** Owner 2026-11-03: "i cannot click into the inventory search bar to type stuff" (a Hypixel menu, Loadouts). A real
+     *  left click in the middle of the bar must start typing, and typed characters must land in the query. */
+    static void searchClick(Session c) throws Exception {
+        String isf = "inventorysearch.InventorySearchFeature";
+        MenuKit.reset(c);
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set("inventorysearch.InventorySearchConfig", "Enabled", true);
+            c.ctx().runOnClient(mc -> Mod.staticCall(isf, "setListening", false));
+            Map<Integer, JsonObject> slots = new LinkedHashMap<>();
+            slots.put(14, FlipCroesusCases.item("minecraft:iron_chestplate", "§aLoadout 1", "§7Armor: Iron", "", "§eClick to equip!"));
+            MenuKit.show(c, FlipCroesusCases.menu("(1/3) Loadouts", 6, slots, Map.of()));
+            MenuKit.awaitScreen(c, "(1/3) Loadouts", 100);
+            c.ctx().waitTicks(5);
+            int[] b = c.onClient(mc -> (int[]) Mod.field(isf, "lastBoxBounds"));
+            c.check(b != null, "the search bar was not drawn in the Loadouts menu");
+            if (b == null) {
+                return;
+            }
+            double scale = c.onClient(mc -> (double) mc.getWindow().getGuiScale());
+            c.ctx().getInput().setCursorPos((b[0] + b[2] / 2.0) * scale, (b[1] + b[3] / 2.0) * scale);
+            c.ctx().waitTicks(3);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
+            c.ctx().waitTicks(3);
+            boolean listening = c.onClient(mc -> (Boolean) Mod.staticCall(isf, "isListening"));
+            c.ctx().getInput().typeChars("iron");
+            c.ctx().waitTicks(3);
+            String q = c.onClient(mc -> (String) Mod.staticCall(isf, "getQuery"));
+            c.note("bar " + java.util.Arrays.toString(b) + " gui scale " + scale + "; after click listening " + listening
+                    + ", query \"" + q + "\"");
+            c.check(listening, "a click on the bar did not start typing");
+            c.check(q.contains("iron"), "typing after the click did not reach the query: \"" + q + "\"");
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                Mod.staticCall(isf, "setListening", false);
+                ((StringBuilder) Mod.field(isf, "QUERY")).setLength(0);
+            });
             MenuKit.reset(c);
         }
     }
