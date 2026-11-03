@@ -154,7 +154,10 @@ final class HxPowderGhast1103Cases {
             c.ctx().runOnClient(mc -> {
                 mc.player.setYRot(180f);
                 mc.player.setXRot(0f);
+                Mod.staticCall(PG, "expireNow"); // no event left over from an earlier case
             });
+            c.waitUntil("no event running", mc -> ((Number) Mod.staticCall(PG, "secondsLeft")).longValue() == -1, 20);
+            c.note("before the summon: target " + intCall(c, "targetId") + ", hud " + c.onClient(mc -> Mod.staticCall(PG, "hudLineNow")));
             // An unnamed ghast with no event running: never picked.
             c.server().command(String.format(java.util.Locale.ROOT, "summon ghast %.2f %.2f %.2f", at[0] + 10, at[1] + 2, at[2] - 14)
                     + " {Tags:[\"k1103pg\",\"k1103pgu\"]" + TAIL);
