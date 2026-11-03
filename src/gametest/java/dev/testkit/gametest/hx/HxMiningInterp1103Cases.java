@@ -64,12 +64,19 @@ final class HxMiningInterp1103Cases {
         return c.onClient(mc -> new ArrayList<>((List<String>) Mod.staticCall(ARA, "timerAtForTest", tab, now, readAt)));
     }
 
-    /** The seconds the Pickobulus line shows, -1 when there is none. */
+    /** The seconds the Pickobulus line shows ("1m 0s" is 60), -1 when there is none. */
     private static int secs(List<String> lines) {
         for (String l : lines) {
             String p = l.replaceAll("§.", "");
-            if (p.startsWith("Pickobulus: ") && p.endsWith("s") && !p.contains("m ")) {
-                return Integer.parseInt(p.substring("Pickobulus: ".length(), p.length() - 1));
+            if (p.startsWith("Pickobulus: ") && p.endsWith("s")) {
+                String v = p.substring("Pickobulus: ".length(), p.length() - 1);
+                int m = 0;
+                int sp = v.indexOf("m ");
+                if (sp >= 0) {
+                    m = Integer.parseInt(v.substring(0, sp));
+                    v = v.substring(sp + 2);
+                }
+                return m * 60 + Integer.parseInt(v);
             }
         }
         return -1;
