@@ -189,6 +189,7 @@ public class MenuSuite implements FabricClientGameTest {
                     // 491-499: the unified Auction House (API browser + reskinned real AH menus).
                     AuctionHouseCases.register(s);
                     BazaarV3Cases.register(s);
+                    BazaarOrderHelperCases.register(s); // 2810: Bazaar Order Helper colors in Manage Orders (bzorders-1102)
                     // ---- 591-596 social (Best Friends, Friends List), killer560 2026-10-08 ----
                     SocialCases.register(s);
                     // 554-555: dungeon-fixes (2026-10-08), terminals behind a decorated title.

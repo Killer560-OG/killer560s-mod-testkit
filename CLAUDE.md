@@ -165,6 +165,8 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 - A MenuSuite case (`menu/*Cases`, names like `1853-menu-...`) does NOT run from `-Scenario 1853-menu-...`: that filter
   reaches no session and reports only unrelated SKIP rows (2026-11-01). Run `-Scenario "-menu-"` with the environment
   variable `TESTKIT_MENU_ONLY=1853-menu-swap,...` (MenuSuite.selected) to pick the cases.
+- A new mod tab fails 511-ui-menu-layout with "unexpected new tab gui.tab.XTab" until its class is added to
+  `MenuLayoutCases.NEW_LEAVES` (bzorders-1102, 2026-11-02). Add it in the same branch as the case that tests the tab.
 - `c.server().command("playsound ... @p ~ ~ ~ ...")` runs at the console's position (world origin): "The sound is too far
   away to be heard" and the client gets nothing. Use `execute at @p run playsound ...` (1101-ap3-crystal-*, 2026-11-01).
   To prove a sound did or did not PLAY, read `harness/SoundProbe.count("minecraft:<id>")` (every sound reaching
