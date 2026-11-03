@@ -46,9 +46,11 @@ public class SimBloodRushTests implements FabricClientGameTest {
     static final String RUSH = "1103-sim-bloodrush";
     static final String SPOTS = "1103-sim-starredspots";
     static final String OFF = "1103-sim-starredoff";
+    static final String SPLIT = "1103-bloodrush-split";
     private static final String BR = "com.killer560.hub.bloodrush.BloodRushHelperFeature";
     private static final String BR_CFG = "com.killer560.hub.bloodrush.BloodRushConfig";
     private static final String BR_SPOTS = "com.killer560.hub.bloodrush.BloodRushSpots";
+    private static final String ROLES_CLS = "com.killer560.hub.bloodrush.BloodRushRoles";
     private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
     private static final String SIM_FLOOR = "com.killer560.hub.roomsim.SimMobFloor";
     private static final String SIM_MOBS = "com.killer560.hub.roomsim.SimMobs";
@@ -65,7 +67,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
             return;
         }
         List<String> failed = new ArrayList<>();
-        for (String name : List.of(RUSH, SPOTS, OFF)) {
+        for (String name : List.of(SPLIT, RUSH, SPOTS, OFF)) {
             if (Scenario.skip(name)) {
                 continue;
             }
@@ -90,7 +92,9 @@ public class SimBloodRushTests implements FabricClientGameTest {
             List<String> problems = new ArrayList<>();
             List<String> facts = new ArrayList<>();
             try {
-                if (name.equals(RUSH)) {
+                if (name.equals(SPLIT)) {
+                    splitRule(ctx, problems, facts);
+                } else if (name.equals(RUSH)) {
                     if (SimMobFloorTests.buildMobFloor(ctx, problems, facts)) {
                         rush(ctx, problems, facts);
                     }
@@ -147,17 +151,18 @@ public class SimBloodRushTests implements FabricClientGameTest {
         return ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(BR, "spotsForTest"));
     }
 
-    /** A spot line "room|order|mine|x0,y0,z0,x1,y1,z1|mobs|alive|learnedOnly|next|label" as its parts; x, y, z its box's
-     *  bottom middle. */
-    private record Spot(String room, int order, boolean mine, AABB box, double x, double y, double z, int mobs, int alive,
-                        boolean next, String label) {
+    /** A spot line "room|order|look|x0,y0,z0,x1,y1,z1|mobs|alive|learnedOnly|next|label|role" as its parts; x, y, z its
+     *  box's bottom middle. */
+    private record Spot(String room, int order, boolean mine, String look, AABB box, double x, double y, double z, int mobs,
+                        int alive, boolean next, String label, int role) {
         static Spot of(String line) {
             String[] p = line.split("\\|", -1);
             String[] c = p[3].split(",");
             AABB b = new AABB(Double.parseDouble(c[0]), Double.parseDouble(c[1]), Double.parseDouble(c[2]),
                     Double.parseDouble(c[3]), Double.parseDouble(c[4]), Double.parseDouble(c[5]));
-            return new Spot(p[0], Integer.parseInt(p[1]), Boolean.parseBoolean(p[2]), b, (b.minX + b.maxX) / 2, b.minY,
-                    (b.minZ + b.maxZ) / 2, Integer.parseInt(p[4]), Integer.parseInt(p[5]), Boolean.parseBoolean(p[7]), p[8]);
+            return new Spot(p[0], Integer.parseInt(p[1]), "MINE".equals(p[2]), p[2], b, (b.minX + b.maxX) / 2, b.minY,
+                    (b.minZ + b.maxZ) / 2, Integer.parseInt(p[4]), Integer.parseInt(p[5]), Boolean.parseBoolean(p[7]), p[8],
+                    Integer.parseInt(p[9]));
         }
     }
 
@@ -171,10 +176,46 @@ public class SimBloodRushTests implements FabricClientGameTest {
 
     // ---- 1103-sim-bloodrush -------------------------------------------------------------------------------------------
 
+    private static String me(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> mc.player.getGameProfile().name());
+    }
+
+    /** A chat line as the server sends it (a system line, as Hypixel's party chat arrives). */
+    private static void say(ClientGameTestContext ctx, String line) {
+        onServer(ctx, (level, sp) -> {
+            level.getServer().getPlayerList().broadcastSystemMessage(net.minecraft.network.chat.Component.literal(line), false);
+            return null;
+        });
+        ctx.waitTicks(6);
+    }
+
+    private static String roles(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(ROLES_CLS, "stateForTest")));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> hud(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(BR, "hudLines"));
+    }
+
+    private static double[] doorOf(ClientGameTestContext ctx, String room) {
+        @SuppressWarnings("unchecked")
+        List<String> doors = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(BR, "doorsForTest"));
+        for (String d : doors) {
+            String[] p = d.split("\\|");
+            if (p[0].equals(room)) {
+                String[] xz = p[1].split(",");
+                return new double[]{Double.parseDouble(xz[0]), Double.parseDouble(xz[1])};
+            }
+        }
+        return null;
+    }
+
     private static void rush(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
         Map<String, Integer> learnedBefore = learnedCounts(ctx);
         ctx.runOnClient(mc -> {
             ModUnderTest.staticCall(BR, "resetForTest");
+            ModUnderTest.staticCall(ROLES_CLS, "resetForTest");
             Object cfg = ModUnderTest.config(BR_CFG);
             ModUnderTest.set(cfg, "setEnabled", true);
             ModUnderTest.set(cfg, "setAllRooms", false);
@@ -187,9 +228,9 @@ public class SimBloodRushTests implements FabricClientGameTest {
         ctx.waitTicks(20);
         // Control: the Entrance is no mob room, so nothing shows there.
         List<String> atStart = spots(ctx);
-        facts.add("in the Entrance: " + atStart.size() + " spot(s); " + status(ctx));
+        facts.add("in the Entrance: " + atStart.size() + " box(es); " + status(ctx));
         if (!atStart.isEmpty()) {
-            problems.add("CONTROL FAILED: spots in the Entrance: " + atStart);
+            problems.add("CONTROL FAILED: boxes in the Entrance: " + atStart);
             return;
         }
         @SuppressWarnings("unchecked")
@@ -200,11 +241,10 @@ public class SimBloodRushTests implements FabricClientGameTest {
             problems.add("no key room on this floor");
             return;
         }
-        // Where he lands: on one of the room's starred mobs (the sim's own spot, standable), so spot 1 is that one.
         List<double[]> mobs = serverStarredIn(ctx, room);
         facts.add(room + ": the sim server has " + mobs.size() + " starred mob(s) there");
-        if (mobs.size() < 2) {
-            problems.add("only " + mobs.size() + " starred mob(s) in " + room + " - nothing to order");
+        if (mobs.size() < 3) {
+            problems.add("only " + mobs.size() + " starred mob(s) in " + room + " - nothing to split");
             return;
         }
         double[] land = mobs.get(0);
@@ -216,121 +256,302 @@ public class SimBloodRushTests implements FabricClientGameTest {
         }
         @SuppressWarnings("unchecked")
         List<String> rushRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(BR, "mapRushRoomsForTest"));
-        facts.add("hotbar-map rush rooms: " + rushRooms + "; " + status(ctx));
-        facts.add("spots in " + room + ": " + spots(ctx));
+        facts.add("rush path by the hotbar map: " + rushRooms + "; " + status(ctx));
+        facts.add("boxes in " + room + ": " + spots(ctx));
         if (!rushRooms.contains(room)) {
-            problems.add(room + " is not a rush room by the hotbar map (" + rushRooms + ")");
+            problems.add(room + " is not on the rush path by the hotbar map (" + rushRooms + ")");
         }
         if (shown.isEmpty()) {
-            problems.add("no spot shown in " + room);
+            problems.add("no box shown in " + room);
             return;
         }
-        // Every starred mob the server has in the room stands inside a drawn spot.
+        // Every starred mob the server has in the room stands inside a drawn box.
         mobs = serverStarredIn(ctx, room);
-        List<AABB> boxes = new ArrayList<>();
-        for (Spot s : shown) {
-            boxes.add(boxOf(ctx, s));
-        }
         int inside = 0;
         for (double[] m : mobs) {
             boolean in = false;
-            for (AABB b : boxes) {
-                in |= b.inflate(0.3).contains(m[0], m[1] + 0.1, m[2]);
+            for (Spot s : shown) {
+                in |= s.box().inflate(0.3).contains(m[0], m[1] + 0.1, m[2]);
             }
             if (in) {
                 inside++;
             } else {
-                problems.add(String.format(Locale.ROOT, "starred mob at %.1f %.1f %.1f in no spot", m[0], m[1], m[2]));
+                problems.add(String.format(Locale.ROOT, "starred mob at %.1f %.1f %.1f in no box", m[0], m[1], m[2]));
             }
         }
-        facts.add(inside + " of " + mobs.size() + " server starred mobs inside a spot; " + shown.size() + " spot(s)");
-        // Numbered 1..n, one next (spot 1), each next the nearest left to the last, from where he landed.
+        facts.add(inside + " of " + mobs.size() + " server starred mobs inside a box; " + shown.size() + " box(es)");
+        // Just Me: every box his, numbered 1..n from the door the split went by, each next the nearest to the last.
+        double[] door = doorOf(ctx, room);
+        facts.add("door the split went by: " + (door == null ? "none" : String.format(Locale.ROOT, "%.1f, %.1f", door[0], door[1])));
         List<Spot> mine = new ArrayList<>(shown);
         mine.sort((a, b) -> Integer.compare(a.order(), b.order()));
         for (int i = 0; i < mine.size(); i++) {
             if (mine.get(i).order() != i + 1 || !mine.get(i).mine()) {
-                problems.add("spot orders are not 1.." + mine.size() + ": " + spots(ctx));
+                problems.add("box orders are not 1.." + mine.size() + ": " + spots(ctx));
                 break;
             }
         }
         long nexts = mine.stream().filter(Spot::next).count();
         if (nexts != 1 || !mine.get(0).next()) {
-            problems.add(nexts + " next spot(s); the next should be spot 1 only");
+            problems.add(nexts + " next box(es); the next should be box 1 only");
         }
-        Vec3 at = new Vec3(land[0], land[1], land[2]);
-        if (!boxOf(ctx, mine.get(0)).inflate(0.3).contains(at.x, at.y + 0.1, at.z)) {
-            problems.add("spot 1 is not the one he came in on (" + mine.get(0) + ")");
-        }
-        Vec3 from = at;
-        for (int i = 0; i < mine.size(); i++) {
-            Spot s = mine.get(i);
-            Vec3 c = new Vec3(s.x(), s.y(), s.z());
-            for (int j = i + 1; j < mine.size(); j++) {
-                Spot o = mine.get(j);
-                // The order is by each spot's mob centroid, the line gives its box's middle: up to ~3 blocks apart for a
-                // big spot, so only a spot nearer by more than that is out of order.
-                if (new Vec3(o.x(), o.y(), o.z()).distanceTo(from) + 3.0 < c.distanceTo(from)) {
-                    problems.add("spot " + o.order() + " is nearer to spot " + (i == 0 ? "his entry" : i) + " than spot " + s.order());
+        if (door != null) {
+            Vec3 from = new Vec3(door[0], 0, door[1]);
+            for (int i = 0; i < mine.size(); i++) {
+                Spot s = mine.get(i);
+                Vec3 c = new Vec3(s.x(), 0, s.z());
+                for (int j = i + 1; j < mine.size(); j++) {
+                    Spot o = mine.get(j);
+                    if (new Vec3(o.x(), 0, o.z()).distanceTo(from) + 0.05 < c.distanceTo(from)) {
+                        problems.add("box " + o.order() + " is nearer to " + (i == 0 ? "the door" : "box " + i) + " than box " + s.order());
+                    }
                 }
+                from = c;
             }
-            from = c;
+        } else {
+            problems.add("no door recorded for " + room);
         }
-        // Kill spot 1's mobs: it goes, and spot 2 is the next.
-        if (mine.size() >= 2) {
-            AABB first = boxOf(ctx, mine.get(0)).inflate(0.3, 2.5, 0.3);
-            int killed = onServer(ctx, (level, sp) -> {
-                int n = 0;
-                for (Entity e : level.getEntitiesOfClass(Entity.class, first, e -> !(e instanceof Player))) {
-                    e.discard();
-                    n++;
-                }
-                return n;
-            });
-            ctx.waitTicks(20);
-            List<Spot> after = parsed(ctx);
-            facts.add("killed " + killed + " entities in spot 1; spots now " + spots(ctx));
-            boolean oneGone = after.stream().noneMatch(s -> s.order() == 1);
-            Spot nextNow = after.stream().filter(Spot::next).findFirst().orElse(null);
-            if (!oneGone) {
-                problems.add("spot 1 still shown after its mobs died");
+        // Kill box 1's mobs: it goes, and box 2 is the next.
+        AABB first = mine.get(0).box().inflate(0.3, 2.5, 0.3);
+        int killed = onServer(ctx, (level, sp) -> {
+            int n = 0;
+            for (Entity e : level.getEntitiesOfClass(Entity.class, first, e -> !(e instanceof Player))) {
+                e.discard();
+                n++;
             }
-            if (nextNow == null || nextNow.order() != 2) {
-                problems.add("after spot 1, the next is " + nextNow + ", not spot 2");
-            }
-            // Roles: two killers, me the second: only the second run is numbered (from 1), the rest marked R1.
-            ctx.runOnClient(mc -> {
-                Object cfg = ModUnderTest.config(BR_CFG);
-                ModUnderTest.call(cfg, "setKillers", new Class<?>[]{int.class}, new Object[]{2});
-                ModUnderTest.call(cfg, "setRole", new Class<?>[]{int.class}, new Object[]{2});
-            });
-            ctx.waitTicks(10);
-            List<Spot> roles = parsed(ctx);
-            long mineN = roles.stream().filter(Spot::mine).count();
-            long others = roles.stream().filter(s -> !s.mine()).count();
-            boolean othersMarked = roles.stream().filter(s -> !s.mine()).allMatch(s -> s.label().startsWith("R1"));
-            facts.add("two killers, role 2: " + mineN + " mine, " + others + " others: " + spots(ctx));
-            if (roles.size() != after.size() || (after.size() >= 2 && (mineN == 0 || others == 0)) || !othersMarked) {
-                problems.add("Killers 2 / My Role 2 did not split the " + after.size() + " spot(s): " + spots(ctx));
-            }
-            if (roles.stream().filter(Spot::mine).noneMatch(s -> s.order() == 1)) {
-                problems.add("role 2's spots are not numbered from 1");
-            }
-        }
-        // The blood door opens: every spot goes.
-        onServer(ctx, (level, sp) -> {
-            level.getServer().getPlayerList().broadcastSystemMessage(
-                    net.minecraft.network.chat.Component.literal("The BLOOD DOOR has been opened!"), false);
-            return null;
+            return n;
         });
-        ctx.waitTicks(10);
+        ctx.waitTicks(20);
+        List<Spot> after = parsed(ctx);
+        facts.add("killed " + killed + " entities in box 1; boxes now " + spots(ctx));
+        Spot nextNow = after.stream().filter(Spot::next).findFirst().orElse(null);
+        if (after.stream().anyMatch(s -> s.order() == 1)) {
+            problems.add("box 1 still shown after its mobs died");
+        }
+        if (nextNow == null || nextNow.order() != 2) {
+            problems.add("after box 1, the next is " + nextNow + ", not box 2");
+        }
+        String self = me(ctx);
+        // Forged role lines: none is Hypixel's own party line, so nothing changes and no notice shows.
+        for (String forged : List.of("Guild > Bob: !3br 2", "Bob: !br 1", "[VIP] Bob: Party > Evil: !br d",
+                "Party > Bob123456789012345x: !br 2", "Party > Bob: !5br 1", "Party > Bob: !3br 9",
+                "Co-op > Bob: !2br 1", "From Bob: !br 1", "Party > Bob: hi !br 1")) {
+            say(ctx, forged);
+        }
+        String forgedState = roles(ctx);
+        facts.add("after forged lines: " + forgedState + "; hud " + hud(ctx));
+        if (!forgedState.contains("seen=false") || !hud(ctx).isEmpty()) {
+            problems.add("a forged role line was taken: " + forgedState);
+        }
+        // Party lines: three killing, Bob 1, me 2, Jim on the door.
+        say(ctx, "Party > [MVP+] Bob: !3br 1");
+        say(ctx, "Party > " + self + ": !3br 2");
+        say(ctx, "Party > Jim: !br d");
+        ctx.waitTicks(6);
+        String claimed = roles(ctx);
+        List<String> hudNow = hud(ctx);
+        List<Spot> split = parsed(ctx);
+        facts.add("after party claims: " + claimed + "; hud " + hudNow + "; boxes " + spots(ctx));
+        if (!claimed.contains("count=3") || !claimed.contains("mine=2") || !claimed.contains("1 Bob, 2 you, door Jim")) {
+            problems.add("party claims not adopted: " + claimed);
+        }
+        if (hudNow.size() != 2 || !hudNow.get(0).startsWith("ADM players in party")) {
+            problems.add("no ADM notice on the HUD: " + hudNow);
+        }
+        if (split.stream().filter(Spot::mine).anyMatch(s -> s.role() != 2)
+                || split.stream().filter(s -> !s.mine() && s.role() == 1).anyMatch(s -> !s.label().contains("R1 Bob"))) {
+            problems.add("the split does not follow the claims: " + spots(ctx));
+        }
+        // Master mode class roles, under any party chat claim (claims cleared first).
+        Map<String, String> classes = new java.util.LinkedHashMap<>();
+        for (String[] t : new String[][]{{"ARCHER", "4"}, {"MAGE", "4"}, {"BERSERKER", "4"}, {"TANK", "4"}, {"HEALER", "4"},
+                {"TANK", "2"}}) {
+            ctx.runOnClient(mc -> {
+                ModUnderTest.staticCall(ROLES_CLS, "resetForTest");
+                ModUnderTest.staticCall(ROLES_CLS, "testClassAndFloor", new Class<?>[]{String.class, Boolean.class},
+                        new Object[]{t[0], true});
+                ModUnderTest.call(ModUnderTest.config(BR_CFG), "setKillers", new Class<?>[]{int.class},
+                        new Object[]{Integer.parseInt(t[1])});
+            });
+            classes.put(t[0] + "/" + t[1], roles(ctx));
+        }
+        facts.add("master mode class roles: " + classes);
+        check(problems, classes.get("ARCHER/4"), "mine=1", "Archer is role 1");
+        check(problems, classes.get("MAGE/4"), "mine=2", "Mage is role 2");
+        check(problems, classes.get("BERSERKER/4"), "mine=3", "Berserk is role 3");
+        check(problems, classes.get("TANK/4"), "mine=4", "Tank is role 4");
+        check(problems, classes.get("HEALER/4"), "door=true", "the Healer is on the door");
+        check(problems, classes.get("TANK/2"), "count=0", "Tank past two killers is roles off");
+        // A party chat claim overrides the class.
+        ctx.runOnClient(mc -> {
+            ModUnderTest.staticCall(ROLES_CLS, "resetForTest");
+            ModUnderTest.staticCall(ROLES_CLS, "testClassAndFloor", new Class<?>[]{String.class, Boolean.class},
+                    new Object[]{"MAGE", true});
+            ModUnderTest.call(ModUnderTest.config(BR_CFG), "setKillers", new Class<?>[]{int.class}, new Object[]{2});
+        });
+        say(ctx, "Party > " + self + ": !br 1");
+        String over = roles(ctx);
+        facts.add("Mage, then '!br 1' from him: " + over);
+        check(problems, over, "mine=1", "a party claim overrides the class role");
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(ROLES_CLS, "testClassAndFloor", new Class<?>[]{String.class,
+                Boolean.class}, new Object[]{null, null}));
+        // The blood door opens: every box goes.
+        say(ctx, "The BLOOD DOOR has been opened!");
         List<String> end = spots(ctx);
-        facts.add("after the blood door line: " + end.size() + " spot(s); " + status(ctx));
+        facts.add("after the blood door line: " + end.size() + " box(es); " + status(ctx));
         if (!end.isEmpty()) {
-            problems.add("spots still shown after the blood door opened: " + end);
+            problems.add("boxes still shown after the blood door opened: " + end);
         }
         Map<String, Integer> learnedAfter = learnedCounts(ctx);
         if (!learnedAfter.equals(learnedBefore)) {
             problems.add("spawn spots were learned in the sim: " + learnedBefore + " -> " + learnedAfter);
+        }
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(ROLES_CLS, "resetForTest"));
+    }
+
+    private static void check(List<String> problems, String state, String want, String what) {
+        if (state == null || !state.contains(want)) {
+            problems.add(what + ": " + state);
+        }
+    }
+
+    // ---- 1103-bloodrush-split -----------------------------------------------------------------------------------------
+
+    /**
+     * The split rule on hand-made rooms, from a door, at all four rotations about the room's middle: the same boxes go to
+     * the same roles at every rotation (door-relative, not world-relative); on normal floors role 1 is the region farthest
+     * from the door and the regions differ by at most one box; in master mode role 1 has the most boxes; inside a role the
+     * order is nearest the door first, then nearest the last; a one-box room is every role's.
+     */
+    @SuppressWarnings("unchecked")
+    private static void splitRule(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
+        // Room A (a 1x1, door on the south wall): a far-left cluster, a far-right pair, a near-right pair, one near-left.
+        double[][] a = {{4.3, 4.1}, {6.2, 5.4}, {5.1, 7.7}, {26.4, 4.6}, {28.1, 6.3}, {25.7, 25.2}, {27.4, 23.6}, {5.6, 24.9}};
+        // Room B (a 1x2 lying east-west, door on the west wall): boxes along the length and both sides.
+        double[][] b = {{3.2, 6.1}, {9.7, 25.3}, {18.4, 4.2}, {24.6, 27.1}, {33.3, 15.8}, {41.2, 5.7}, {47.9, 26.4}, {56.1, 15.2},
+                {60.3, 8.8}};
+        Object[][] rooms = {{"A", a, new double[]{16, 31.5}, new double[]{16, 16}}, {"B", b, new double[]{0.5, 16}, new double[]{32, 16}}};
+        for (Object[] r : rooms) {
+            double[][] pts = (double[][]) r[1];
+            double[] door = (double[]) r[2];
+            double[] mid = (double[]) r[3];
+            for (boolean master : new boolean[]{false, true}) {
+                for (int n = 2; n <= 3; n++) {
+                    List<List<Integer>> base = null;
+                    for (int rot = 0; rot < 4; rot++) {
+                        double[][] p = new double[pts.length][];
+                        for (int i = 0; i < pts.length; i++) {
+                            p[i] = turn(pts[i], mid, rot);
+                        }
+                        double[] d = turn(door, mid, rot);
+                        final int nn = n;
+                        final boolean mm = master;
+                        List<List<Integer>> got = ctx.computeOnClient(mc -> (List<List<Integer>>) ModUnderTest.staticCall(BR,
+                                "splitForTest", new Class<?>[]{double[][].class, double.class, double.class, int.class,
+                                        boolean.class}, new Object[]{p, d[0], d[1], nn, mm}));
+                        String tag = r[0] + (master ? " M7" : " normal") + " n=" + n + " rot " + (rot * 90);
+                        if (rot == 0) {
+                            facts.add(tag + ": " + got);
+                            base = got;
+                            judge(problems, tag, got, p, d, master, n);
+                        } else if (!sets(got).equals(sets(base))) {
+                            problems.add(tag + ": " + got + " differs from rotation 0 " + base);
+                        }
+                    }
+                }
+            }
+        }
+        // One box: every role kills it.
+        List<List<Integer>> one = ctx.computeOnClient(mc -> (List<List<Integer>>) ModUnderTest.staticCall(BR, "splitForTest",
+                new Class<?>[]{double[][].class, double.class, double.class, int.class, boolean.class},
+                new Object[]{new double[][]{{10.5, 10.5}}, 16.0, 31.5, 3, false}));
+        facts.add("one box, three killers: " + one);
+        if (one.size() != 3 || one.stream().anyMatch(l -> !l.equals(List.of(0)))) {
+            problems.add("a one-box room is not every role's: " + one);
+        }
+    }
+
+    private static List<Set<Integer>> sets(List<List<Integer>> roles) {
+        List<Set<Integer>> out = new ArrayList<>();
+        for (List<Integer> r : roles) {
+            out.add(new HashSet<>(r));
+        }
+        return out;
+    }
+
+    private static double[] turn(double[] p, double[] mid, int quarter) {
+        double x = p[0] - mid[0];
+        double z = p[1] - mid[1];
+        for (int i = 0; i < quarter; i++) {
+            double t = x;
+            x = -z;
+            z = t;
+        }
+        return new double[]{x + mid[0], z + mid[1]};
+    }
+
+    private static void judge(List<String> problems, String tag, List<List<Integer>> got, double[][] p, double[] d,
+                              boolean master, int n) {
+        if (got.size() != n) {
+            problems.add(tag + ": " + got.size() + " roles");
+            return;
+        }
+        Set<Integer> all = new HashSet<>();
+        for (List<Integer> r : got) {
+            all.addAll(r);
+        }
+        if (all.size() != p.length) {
+            problems.add(tag + ": not every box has a role: " + got);
+        }
+        double[] mean = new double[n];
+        for (int i = 0; i < n; i++) {
+            double s = 0;
+            for (int k : got.get(i)) {
+                s += Math.hypot(p[k][0] - d[0], p[k][1] - d[1]);
+            }
+            mean[i] = got.get(i).isEmpty() ? 0 : s / got.get(i).size();
+        }
+        if (!master) {
+            for (int i = 1; i < n; i++) {
+                if (mean[i] > mean[i - 1] + 1e-6) {
+                    problems.add(tag + ": role " + (i + 1) + " is farther from the door than role " + i + " " + got);
+                }
+            }
+            int min = Integer.MAX_VALUE;
+            int max = 0;
+            for (List<Integer> r : got) {
+                min = Math.min(min, r.size());
+                max = Math.max(max, r.size());
+            }
+            if (max - min > 1) {
+                problems.add(tag + ": uneven regions " + got);
+            }
+        } else {
+            for (int i = 1; i < n; i++) {
+                if (got.get(i).size() > got.get(0).size()) {
+                    problems.add(tag + ": role " + (i + 1) + " has more boxes than role 1 " + got);
+                }
+            }
+        }
+        for (List<Integer> r : got) {
+            double x = d[0];
+            double z = d[1];
+            List<Integer> left = new ArrayList<>(r);
+            for (int k : r) {
+                int best = left.get(0);
+                for (int o : left) {
+                    if (Math.hypot(p[o][0] - x, p[o][1] - z) < Math.hypot(p[best][0] - x, p[best][1] - z) - 1e-9) {
+                        best = o;
+                    }
+                }
+                if (best != k) {
+                    problems.add(tag + ": kill order " + r + " is not nearest-next from the door");
+                    break;
+                }
+                left.remove(Integer.valueOf(k));
+                x = p[k][0];
+                z = p[k][1];
+            }
         }
     }
 
