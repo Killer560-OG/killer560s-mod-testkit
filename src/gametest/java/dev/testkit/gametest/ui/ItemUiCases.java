@@ -573,6 +573,97 @@ final class ItemUiCases {
         }
     }
 
+    // ==== 589 rarity boxes in the Pet Wheel and the Item Browser (mod invsortfit-1102) ===================================
+
+    /**
+     * 589-ui-rarity-pet-wheel: a LEGENDARY pet's card carries the Item Rarity gold with the feature on, none with it off.
+     * The card's icon is a bare head with no lore, so the box must come from the pet's own tier.
+     */
+    static void petWheelRarity(UiCase c) throws Exception {
+        Path p = InvBatchCases.configPath(c, PWC);
+        byte[] old = InvBatchCases.read(p);
+        Path rp = InvSortFitCases.rarityPath(c);
+        byte[] oldRarity = InvBatchCases.read(rp);
+        int[] window = HudEditorCases.windowSize(c);
+        int oldGui = c.onClient(mc -> mc.options.guiScale().get());
+        try {
+            HudEditorCases.setWindow(c, 1280, 720, 2);
+            List<Object> one = List.of(pet("iu-pet-r", "Golden Dragon"));
+            int[] goldPx = new int[2];
+            int area = 0;
+            for (int i = 0; i < 2; i++) {
+                boolean on = i == 0;
+                InvSortFitCases.rarity(c, on);
+                c.onClient(mc -> {
+                    Mod.call(Mod.cfg(PWC), "setEnabled", true);
+                    McCompat.setScreen(mc, wheel(one, 1.0f));
+                    return null;
+                });
+                c.ctx().getInput().setCursorPos(640, 360); // the dead zone: nothing hovered
+                c.ticks(4);
+                area = c.onClient(mc -> {
+                    int tile = (Integer) Mod.call(McCompat.screen(mc), "currentTile");
+                    float f = (Float) Mod.staticCall("hud.AutoScale", "menuFactor");
+                    double side = (tile - 2) * f * mc.getWindow().getGuiScale();
+                    return (int) (side * side);
+                });
+                BufferedImage img = InvBatchCases.shot(c, "pet-wheel-" + (on ? "rarity" : "norarity"));
+                goldPx[i] = InvSortFitCases.gold(img, 0, 0, img.getWidth(), img.getHeight());
+            }
+            c.note("legendary pet card: " + goldPx[0] + " gold px with Item Rarity on, " + goldPx[1] + " off; the card's inside "
+                    + "is " + area + " px");
+            c.check(goldPx[0] - goldPx[1] >= area * 0.3, "rarity on drew only " + (goldPx[0] - goldPx[1])
+                    + " more gold px on a " + area + " px card");
+            c.check(goldPx[1] == 0, "rarity off still shows " + goldPx[1] + " gold px");
+        } finally {
+            closeScreen(c);
+            HudEditorCases.restoreWindow(c, window, oldGui);
+            InvBatchCases.restoreConfig(c, PWC, p, old);
+            InvSortFitCases.restoreRarity(c, rp, oldRarity);
+        }
+    }
+
+    /**
+     * 589-ui-rarity-browser: the Item Browser's LEGENDARY Test Blade cell carries the rarity gold with Item Rarity on, none
+     * with it off. Its stack is built from the catalog (shared by look, no lore), so the box must come from the tier.
+     */
+    static void browserRarity(UiCase c) throws Exception {
+        Path rp = InvSortFitCases.rarityPath(c);
+        byte[] oldRarity = InvBatchCases.read(rp);
+        try {
+            withBrowser(c, gs -> {
+                setQuery(c, "test blade");
+                int[] goldPx = new int[2];
+                int cell = (Integer) Mod.field(IBF, "CELL_SIZE");
+                double[] pl = null;
+                float[] scale = {1f};
+                for (int i = 0; i < 2; i++) {
+                    boolean on = i == 0;
+                    InvSortFitCases.rarity(c, on);
+                    openInventory(c);
+                    c.ctx().getInput().setCursorPos(2, 2);
+                    c.ticks(4);
+                    pl = panel(c);
+                    scale[0] = c.onClient(mc -> (Float) Mod.call(Mod.staticCall(IBF, "layout", McCompat.screen(mc),
+                            Mod.cfg(IBC)), "scale"));
+                    BufferedImage img = InvBatchCases.shot(c, "browser-" + (on ? "rarity" : "norarity"));
+                    goldPx[i] = InvSortFitCases.gold(img, (int) (pl[0] * gs), (int) (pl[1] * gs),
+                            (int) ((pl[0] + pl[2]) * gs), (int) ((pl[1] + pl[3]) * gs));
+                    closeScreen(c);
+                }
+                double side = (cell - 2) * scale[0] * gs;
+                int area = (int) (side * side);
+                c.note("Test Blade cell: " + goldPx[0] + " gold px in the panel with Item Rarity on, " + goldPx[1]
+                        + " off; the cell's inside is " + area + " px");
+                c.check(goldPx[0] - goldPx[1] >= area * 0.4, "rarity on drew only " + (goldPx[0] - goldPx[1])
+                        + " more gold px in a " + area + " px cell");
+                c.check(goldPx[1] == 0, "rarity off still shows " + goldPx[1] + " gold px in the panel");
+            });
+        } finally {
+            InvSortFitCases.restoreRarity(c, rp, oldRarity);
+        }
+    }
+
     // ==== 705 item protect: hovered star, drops to force ===============================================================
 
     static void protectHoverAndDrops(UiCase c) throws Exception {

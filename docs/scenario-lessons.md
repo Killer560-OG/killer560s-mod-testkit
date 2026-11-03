@@ -1473,9 +1473,80 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   list before that message. With the aimed aura every case is silent, the FLAGGED-expected ones included (0 lines).
   51's "never run into the wall" is recorded, not asserted, on a one-a-tick Multi Break jar: at Speed V a two-high wall
   needs ~1.1 digs a tick and GrimAC MultiBreak allows one (13 of 210 packets collided, both versions).
+- 1102-darkmode-* (hx/HxDarkMode1102Cases, mod darkmode-1102): Dark Mode judged by framebuffer luminance looking straight
+  down at the platform. The HUD pixels are found as those a 60 % under-HUD tint left identical (3600 of the hotbar box, 393
+  of the mod's overlay text), then checked for 1.000 (Tint HUD off) and 0.749/0.400 (on). The mod menu check uses the middle
+  70 % of the window: the blurred world around the menu's frame IS tinted (0.93 over the whole frame) and is not the menu.
+  Run with `-Scenario "100-hx-session+,1102-darkmode"`.
+
+- 1102-sound-session (`sound/SoundDisablerSuite`, mod sounddisable-1102): Sound Disabler. Server `playsound` and client
+  `playLocalSound` (play and, 15 blocks out, playDelayed); a muted sound must not reach `SoundEngine.play`
+  (`harness/SoundProbe`) while a control sent after it does, and the mod's row counter moves by one. Bonzo's Staff
+  is held by `item replace ... blaze_rod[custom_data={id:"BONZO_STAFF"}]` (also STARRED_ and a name-only staff).
 - **62-argrim-1102-iwclose** (iwcause-1102): Inventory Walk's held container close flushed by a route etherwarp's use
   with the sneak down (MultiActionsD). Deterministic only with all three: the route held on its use with the sneak down
   (`PlayerStatsFeature.manaShort`), the chest window hidden on arrival with no close packet and the client's menu set back to
   the inventory (the route waits under an open menu), and the close sent at an early END_CLIENT_TICK phase (after that
   tick's sneaking input, before Auto Routes acts). A close at START is useless: Inventory Walk makes that tick's input its
   still tick and the close goes clean. A screen set back with setScreen releases the route's keys. `-PiwRepeat=N` repeats.
+
+- 1102-map-run-start (SimMapRunStartTests, mod mapcolor-1102): 1102-map-funny-same-color draws the 1101 sim floor with
+  Funny Map ON before any map item (the pre-run state: Hypixel hands the map over at run start) and again after a painted
+  item showing only the Entrance opened; every room fill and the background must match within 2 per channel, with the
+  premise that the item was read and the mod reports at least one unexplored room. Saves 1102-map-funny-before/after
+  screenshots. 1102-map-wither-outline counts outline parts of the chosen color round the locked wither door at thickness
+  1 and 3 (3x as many) in the regular style and on Funny Map; 1102-map-funny-hides-rows builds LiveMapTab's widgets with
+  Funny Map on/off; 1102-map-outline-saved reloads the config. The outline case relies on 4 fills per GuiRects outline.
+
+- With a container open, the test server does not resend the player's armor: vanilla syncs the inventory menu only
+  while it is the open one, so `item replace ... armor.head` + waiting for the client helmet times out until the menu
+  closes (1889 cleanup, maskswap-1102). Close the menu first. The /stats fake (`equipHelmet`) broadcasts it itself;
+  1889 also holds the client helmet stale on purpose, which is what Hypixel's /stats evidently does.
+
+- Finding every key row in the menu (1103, keybindmouse-1102): there is no marker class, so the case real-clicks every
+  "Name: value" SettingsButtonWidget that is not ON/OFF, not cycling and not on the deny list, in every drawer as it opens
+  and again with its switch on, and counts it a key row when `ModScreen.isCapturingKey()` turns true. Every file under
+  config/killer560 is snapshotted first and restored (plus `ProfileManager.reloadAllConfigs`) after each drawer, since the
+  non-key clicks change settings. "Saved" is checked generically: a file that changed contains -103 (Mouse 4). Measured on
+  mod fddf98be6: 291 key rows cheat (26.3 and 26.2), 205 legit, about 150 s.
+
+- 1102-boss-maxorcrys (`SimBossTests`, mod maxorcrys-1102): a check made from the test thread between ticks runs BEFORE
+  that tick's END_CLIENT_TICK, so a feature reacting in its tick handler reads one tick late against an entity the test
+  already sees. The first version failed "counter on the tick the next set is on a tower: 2/2" though the mod reset it in
+  the same tick; the reset now runs on the add-entity packet. Assert the reset's own log line names the real signal
+  ("crystal on a tower"), not the 44-tick backstop.
+
+- 96-ar-1102-secrettaken: an ItemEntity added on the integrated server in the sim did not show up on the client under
+  the server's entity id (`mc.level.getEntity(serverId)` never went null while the mod logged "item entity 3 picked
+  up"), and one spawned inside a block is pushed out of it. Find a sim item on the client by place (8 blocks), not id.
+
+- **1102-bloodcamp-* (bloodleft-1102).** `DungeonState.simBossBegins` does not hold in an Hx case: DungeonState's tick ends a
+  boss phase on the next tick when no F7/M7 floor is read off the scoreboard (`roomSim` makes `getFloor` say M7, but the tick
+  reads the real floor). Use `toggleSimOverride` (restore it in `finally`). A boss bar driven by `/bossbar` reaches the client
+  a variable few ticks later and eases over 100 ms: read the HUD until the client's bar equals the target (the mod's
+  `BloodCampStats.watcherBarForTest`) rather than after a fixed wait (a fixed 8 ticks read "7" at 6/16 once). A player-model
+  NPC is added client-side as a `RemotePlayer` with a version-2 UUID and killed with the real packet,
+  `mc.getConnection().handleEntityEvent(new ClientboundEntityEventPacket(e, (byte) 3))`; vanilla leaves it `isAlive()`.
+
+- **98-prince-box** (2026-11-02): builds Red Blue, Pirate and Chambers in the sim, requires the Secret Waypoints prince box
+  to take in every touching slab lid (6+ slabs), and photographs it from four diagonals, plain and with a still zombie in
+  front, F1 on and FOV effects off: 90% of 9 points on each of the 12 edges and of a 5x5 grid on each face. A spot outside
+  the room (waypoints only draw the room you stand in) or with a block within 0.35 of the body (the in-wall overlay) is
+  skipped. Main 0cb3d82a1 fails the lid check (Red Blue 9, Chambers 14 slabs outside); mod 90a1f145e passes.
+
+- 588-ui-invsort-fit / 589-*-rarity-* (invsortfit-1102): the mod's own item grids. 588 finds each icon's box by diffing its
+  cell against an empty cell of the same grid and wants it centered and >= 70% of the inside at four window/GUI sizes;
+  589 counts LEGENDARY gold (0xFFAA00, Item Rarity Square 100%) with the feature on and off. Use a stick, not a block,
+  for a 16-unit cell: the box sits right under the icon and a full block hides all of it. The Storage Overlay's open
+  page title is that same orange, so the pages grid is checked by the on/off difference. A two-digit count scales with
+  the fitted item and reaches past the cell's middle (still in its lower half).
+
+- 1102-online-* (hx/HxOnline1102Cases, mod onlinecount-1102): the Online Count heartbeat against an in-process stub relay on
+  32400-32499 (`killer560.net.presence-relay`), switched on with `killer560.test.presence=true` (off in every other gametest)
+  and a 3 s interval. Asserts what the STUB received: exactly {session, location}, one 32-hex session that is not the
+  player's UUID or name, 3-4.5 s gaps, Hub / Dwarven Mines / Catacombs F7 / sim Catacombs M7 / Hypixel (not Skyblock), one
+  Offline when the switch goes off and nothing after; with the stub closed, sends keep coming, one WARN, no chat, healthy.
+- mining-1103: Pickobulus Estimate's chat state outlives a case (a "You used your Pickobulus" line hides the outlines until
+  its ready line, up to 2 minutes), so 1101-mining-pickobulus failed "waiting for: an estimate" after 1101-mining-ability's
+  last use line. A case that needs the estimate calls PickobulusEstimate.resetChat first (optional on older jars). Also: an
+  action-bar area outranks the sidebar for 5 s (IslandDetector), so a case that sends one clears it before mines().

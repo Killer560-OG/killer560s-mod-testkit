@@ -47,6 +47,9 @@ final class MasterSweepCases {
         PINNED.put("TerminalSolverTab", new String[]{"Terminal Solver", "Terminal Protection", "Terminal Drop Key",
                 "Melody Keys", "Hide Completion Titles", "Hide Completion Chat"});
         PINNED.put("ZeroPingEtherwarpTab", new String[]{"!Zero Ping Etherwarp", "!Left Click Etherwarp"});
+        // Mod menufix2-1102 (killer560 2026-11-02): Thorn Triggerbot folded into the Thorn card's cheat section.
+        PINNED.put("ThornTab", new String[]{"Spirit Bear HUD", "Overkill Chat", "Thorn Highlight", "Stun Spot Waypoints",
+                "!All Mobs Through Walls", "!Bats Through Walls", "!Thorn Triggerbot"});
     }
 
     /** Rows that do nothing on their own, so they must not make a card read ON. */

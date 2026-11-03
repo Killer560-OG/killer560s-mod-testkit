@@ -167,6 +167,10 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   variable `TESTKIT_MENU_ONLY=1853-menu-swap,...` (MenuSuite.selected) to pick the cases.
 - `c.server().command("playsound ... @p ~ ~ ~ ...")` runs at the console's position (world origin): "The sound is too far
   away to be heard" and the client gets nothing. Use `execute at @p run playsound ...` (1101-ap3-crystal-*, 2026-11-01).
+  To prove a sound did or did not PLAY, read `harness/SoundProbe.count("minecraft:<id>")` (every sound reaching
+  `SoundEngine.play`, counted even though test clients are muted) and send a control sound after it, waiting for the
+  control, so "0" means dropped rather than not yet arrived (1102-sound-*, 2026-11-02). `-Scenario "-sound-"` also ran
+  1021-theme-sound-import and three 102x blink/iw rows (a filter part is a substring): name cases `1102-sound`.
   AutoTrap.testTrapRoom (mod doc-routes-1101) makes the 62-argrim pasted room a trap room for a case; reset it to null.
 - A checkout's `run/testserver/world` written by a 26.3 server will not load on 26.2 ("IllegalStateException: Overworld
   settings missing"): the 26.2 server exits, the client reads FROZEN and the server JVM can be left holding the port. Before
@@ -566,6 +570,8 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
 - Never start a second `run-scenario.ps1` in a checkout whose queue is between or inside runs: at its start the script kills
   that checkout's "leftover" client and server, which is the other run's live ones ("Killing a leftover test client", ship-1102h
   2026-11-02 killed a ZPEW half mid-run). One queue per checkout; make another detached worktree for a rerun.
+- 529-ui-sidebar-scroll-spy maps menu coordinates to screenshot pixels by screenshot width / the screen's own width: the
+  menu is laid out at its own Auto Scale, so Window.getGuiScale() (2) put the probe on the background (menufix2-1102).
 - 525-ui-menu-every-master (mod menufix-1102) switches every row a card stands for ON alone and needs the card ON. A row
   drawn inactive for the account (Spotify Share My Song, a supporter perk) cannot be pressed and is skipped. RibbonTrailTab
   is a section inside Cosmetics, not a card. A menu StringWidget built from `Component.literal("§7...")` keeps the
@@ -577,3 +583,18 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
   `executeBlocking` (from the gametest's deferDisconnect), Server thread parked in the gametest `ThreadingImpl.enterPhase`
   Phaser; the run log only says "Test client has stopped responding - watching it" and no summary.md is written (leapmenu-1102,
   26.2, 15 of 15 PASS lines in the client log at 20:00, still hung at 20:21). It happened on 2 of 3 runs of that filter on 26.2 (none of 3 on 26.3); the run after a killed one in the same checkout then FROZE at startup twice, and a fresh rerun passed. jstack it, kill only the client PID; the PASS lines and build/testkit-report/cases/*.log are the evidence.
+
+- `run-scenario.ps1 ... *>&1 | Out-File log` holds only the script's own lines: gradle and the client are started with
+  `Start-Process -NoNewWindow`, so their output (and a gametest COMPILE ERROR) goes to the calling console, not the log; a
+  compile failure reads as "Run finished with exit code 1" and nothing else (termismss-1102). Compile first with
+  `./gradlew compileGametestJava -PmodUnderTest=<jar>`, and read `build/testkit-report/summary.md` for results. From Git Bash,
+  pass Windows paths (`cygpath -w`) to `Out-File` and `-ModUnderTest`: a `/c/...` path makes Out-File fail silently.
+- Termism (`termism.TermismPracticeScreen`) is a plain Screen, not a container: Hx sees none of its clicks. Its cases
+  (1102-menu-termism-ss-*) read the screen's own fields (`solved`, `cachedHighlights`, `probe*`) and FakeCursor's probes.
+- The default 854x480 test window at GUI scale 1 lays the mod's own screens out at Auto Scale factor 1, so a bug that
+  mixes canvas units with GUI units cannot show there: the termism-ss cases passed on the broken first fix. Any check
+  of a mod screen's coordinates needs a scaled pass too (`AuctionHouseCases.setWindow(c, 1920, 1080, 2)` + Auto Scale on
+  = factor 1.125), asserting the factor really is not 1 (termismss-1102, `TermismStreamSafeCases.scaledPass`).
+- A summoned entity's scoreboard `Tags` never reach the client: `Entity.getTags()` does not even exist on the client in
+  26.3's mapping (compile error, commissions-1103). Find a test's mob on the client by its custom name or position; keep
+  the tag for the server's `kill @e[tag=...]` cleanup.

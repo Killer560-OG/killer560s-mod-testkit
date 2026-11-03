@@ -41,6 +41,10 @@ import java.util.function.Predicate;
  * <li>{@code 1101-boss-p4p5}: the core (Goldor's arrival lines, his death), P4 Necron's lines and death, P5's dragons.</li>
  * <li>{@code 1101-boss-lava}: a step into P3's lava bounces him (motion 2.25 up), as Hypixel's server does.</li>
  * <li>{@code 1101-boss-ap3}: an AP3 RUN node on S1's floor carries him once he walks into it.</li>
+ * <li>{@code 1102-boss-maxorcrys}: Maxor's Crystals' Active counter (killer560, 2026-11-02: it "should go away as 0/2 the
+ * second that the next set can be picked up"). Both crystals placed by real clicks reads 2/2; it stays 2/2 until the
+ * next set's first crystal is on a tower on the client, reads 0/2 on that very tick (the tower crystal, not the backstop
+ * countdown, must be what reset it), and one of the new set placed reads 1/2.</li>
  * <li>{@code 1101-boss-portal}: a generated F7, /goto Blood, the portal opens (the sim has no Watcher yet: five seconds in
  * Blood), stepping in starts P1 with the floor's map code unchanged (the floor is not reset).</li>
  * </ul>
@@ -56,6 +60,8 @@ public class SimBossTests implements FabricClientGameTest {
     private static final String LAVA = "1101-boss-lava";
     private static final String AP3 = "1101-boss-ap3";
     private static final String PORTAL = "1101-boss-portal";
+    private static final String MAXOR_CRYS = "1102-boss-maxorcrys";
+    private static final String MAXOR = "com.killer560.hub.maxor.MaxorCrystalsFeature";
 
     private static final String B = "com.killer560.hub.bosssim.";
     private static final String SIM = B + "BossSim";
@@ -76,7 +82,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -100,6 +106,7 @@ public class SimBossTests implements FabricClientGameTest {
                     case P4P5 -> p4p5(ctx, f);
                     case LAVA -> lava(ctx, f);
                     case PORTAL -> portal(ctx, f);
+                    case MAXOR_CRYS -> maxorCrystals(ctx, f);
                     default -> ap3(ctx, f);
                 }
             } catch (Throwable t) {
@@ -218,6 +225,91 @@ public class SimBossTests implements FabricClientGameTest {
         if (y > 120) {
             f.add("the fall from Storm's floor did not reach S1 (y " + y + ")");
         }
+    }
+
+    private static void maxorCrystals(ClientGameTestContext ctx, List<String> f) {
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config("com.killer560.hub.maxor.MaxorConfig"), "setActiveCounter", true));
+        long mark = start(ctx, "P1", true);
+        if (!waitChat(ctx, mark, "[BOSS] Maxor: WELL! WELL! WELL! LOOK WHO'S HERE!", 40)
+                || !until(ctx, "both crystals on their towers", mc -> (Boolean) fight("crystalOnTower", 0) && (Boolean) fight("crystalOnTower", 1), 120)) {
+            f.add("P1 or its first crystals never came");
+            return;
+        }
+        long m = LogTap.mark();
+        tp(ctx, 64.5, 238, 50.5, 0, 0);
+        ctx.waitTicks(5);
+        tp(ctx, 82.5, 238, 50.5, 0, 0);
+        ctx.waitTicks(5);
+        tp(ctx, 52.5, 221, 44.5, 180, 30);
+        ctx.waitTicks(5);
+        useBlock(ctx, new BlockPos(52, 223, 42), Direction.SOUTH);
+        ctx.waitTicks(5);
+        tp(ctx, 94.5, 221, 44.5, 180, 30);
+        ctx.waitTicks(5);
+        useBlock(ctx, new BlockPos(94, 223, 42), Direction.SOUTH);
+        if (!waitChat(ctx, m, "2/2 Energy Crystals are now active!", 20)) {
+            f.add("placing both crystals never said 2/2");
+            return;
+        }
+        ctx.waitTicks(1);
+        expect(f, "counter after the 2/2 line", counter(ctx), "2/2");
+        if (!waitChatAny(ctx, m, new String[]{"[BOSS] Maxor: YOU TRICKED ME!", "[BOSS] Maxor: THAT BEAM! IT HURTS! IT HURTS!!"}, 120)) {
+            f.add("the laser never stunned Maxor");
+            return;
+        }
+        // Every tick from the laser line on: the counter, and whether a crystal is on a tower in the CLIENT's world.
+        String before = null;
+        int ticks = 0;
+        boolean seen = false;
+        String atSpawn = null;
+        for (; ticks < 120 && !seen; ticks++) {
+            ctx.waitTick();
+            String c = counter(ctx);
+            seen = ctx.computeOnClient(mc -> !mc.level.getEntitiesOfClass(net.minecraft.world.entity.boss.enderdragon.EndCrystal.class,
+                    new AABB(55, 230, 40, 92, 245, 60)).isEmpty());
+            if (seen) {
+                atSpawn = c;
+            } else {
+                before = c;
+                if (!"2/2".equals(c)) {
+                    f.add("the counter left 2/2 (" + c + ") " + ticks + " tick(s) after the laser line, before the next set was on a tower");
+                    return;
+                }
+            }
+        }
+        println(MAXOR_CRYS, "next set on a tower " + ticks + " tick(s) after the laser line; counter the tick before " + before
+                + ", on that tick " + atSpawn);
+        if (!seen) {
+            f.add("the next set never appeared on its towers within 120 ticks of the laser line");
+            return;
+        }
+        expect(f, "counter on the tick the next set is on a tower", atSpawn, "0/2");
+        boolean byTower = false;
+        for (String l : LogTap.since(m)) {
+            if (l.contains("[Maxor] next crystal set up (crystal on a tower")) {
+                byTower = true;
+            }
+        }
+        expect(f, "reset by the tower crystal (not the backstop)", byTower, true);
+        long m2 = LogTap.mark();
+        tp(ctx, 64.5, 238, 50.5, 0, 0);
+        ctx.waitTicks(5);
+        tp(ctx, 52.5, 221, 44.5, 180, 30);
+        ctx.waitTicks(5);
+        useBlock(ctx, new BlockPos(52, 223, 42), Direction.SOUTH);
+        if (!waitChat(ctx, m2, "1/2 Energy Crystals are now active!", 20)) {
+            f.add("placing one crystal of the next set never said 1/2");
+            return;
+        }
+        ctx.waitTicks(1);
+        expect(f, "counter after one of the next set placed", counter(ctx), "1/2");
+    }
+
+    private static String counter(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            int[] c = (int[]) ModUnderTest.staticCall(MAXOR, "activeCounter");
+            return c[0] + "/" + c[1];
+        });
     }
 
     private static void p3(ClientGameTestContext ctx, List<String> f) {

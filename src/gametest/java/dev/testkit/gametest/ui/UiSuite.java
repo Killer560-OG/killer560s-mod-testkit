@@ -130,7 +130,8 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] DUNGEON_FIX_CASES = {"551-ui-splits-layout", "552-ui-blood-camp-stall", "553-ui-etherwarp-p3sim"};
     /** killer560's 2026-10-08 inventory batch ({@link InvBatchCases}); 583/585 are in the menu suite. Own block for merges. */
     static final String[] INV_BATCH_CASES = {"581-ui-itemprotect-star", "582-ui-slotlock-migration",
-            "584-ui-invsort-editor", "586-ui-custom-items", "587-ui-cosmetics-category"};
+            "584-ui-invsort-editor", "586-ui-custom-items", "587-ui-cosmetics-category", "588-ui-invsort-fit",
+            "589-ui-rarity-custom-items", "589-ui-rarity-pet-wheel", "589-ui-rarity-browser", "589-ui-rarity-storage"};
     /** killer560's 2026-10-07 Command Shortcuts requests ({@link CmdShortcutsCases}); 544 is in the Hx session. Own block. */
     static final String[] CMD_SHORTCUTS_CASES = {"541-ui-cmd-shortcuts-builtin-rows", "542-ui-cmd-shortcuts-custom-edit",
             "543-ui-cmd-shortcuts-refused-names", "545-ui-cmd-shortcuts-sweep"};
@@ -295,7 +296,8 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-14 menu order + independent masters list ({@link MenuOrderCases}). Own block for merges. */
     static final String[] MENU_ORDER_CASES = {"515-ui-menu-order", "516-ui-menu-order-settings",
             "517-ui-menu-queue-masters", "518-ui-menu-independent-masters",
-            "519-ui-home-cleanup", "525-ui-menu-every-master", "526-ui-ban-report-text"};
+            "519-ui-home-cleanup", "525-ui-menu-every-master", "526-ui-ban-report-text",
+            "527-ui-thorn-triggerbot-fold", "528-ui-split-counting-legit", "529-ui-sidebar-scroll-spy"};
     /** Predictive Rooms inside the Dungeon Map tab (mod todo-predict-ui-1018, {@link PredictInMapCases}). Own block for merges. */
     static final String[] PREDICT_IN_MAP_CASES = {"1018-predict-in-map"};
     /** Lever Aura merged into Secret Aura + Menu Theme on overlays (mod aura-themes-1015, {@link AuraThemeCases}). Own block for merges. */
@@ -483,6 +485,9 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : DocMenu1101Cases.CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
+            for (String n : KeybindMouseCases.CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -499,7 +504,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES) || any(TRAIL_HUD_CASES)
                 || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES) || any(SOUND_DESC_CASES) || any(MAP_OVERHAUL_CASES)
                 || any(TRAJECTORY_CASES) || any(MOB_SKIN_CASES) || any(PREDICT_IN_MAP_CASES)
-                || any(DocMenu1101Cases.CASES);
+                || any(DocMenu1101Cases.CASES) || any(KeybindMouseCases.CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -620,6 +625,11 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "584-ui-invsort-editor", InvBatchCases::invsortEditor);
                     UiCase.run(ctx, "586-ui-custom-items", InvBatchCases::customItems);
                     UiCase.run(ctx, "587-ui-cosmetics-category", InvBatchCases::cosmeticsCategory);
+                    UiCase.run(ctx, "588-ui-invsort-fit", InvSortFitCases::fit);
+                    UiCase.run(ctx, "589-ui-rarity-custom-items", InvSortFitCases::customItems);
+                    UiCase.run(ctx, "589-ui-rarity-pet-wheel", ItemUiCases::petWheelRarity);
+                    UiCase.run(ctx, "589-ui-rarity-browser", ItemUiCases::browserRarity);
+                    UiCase.run(ctx, "589-ui-rarity-storage", InvStorageCases::storageRarity);
                     // ---- command shortcuts (541-545) ----
                     UiCase.run(ctx, "541-ui-cmd-shortcuts-builtin-rows", CmdShortcutsCases::builtinRows);
                     UiCase.run(ctx, "542-ui-cmd-shortcuts-custom-edit", CmdShortcutsCases::customEdit);
@@ -916,6 +926,10 @@ public class UiSuite implements FabricClientGameTest {
                     // ---- every card's rows switched on alone, Ban Reports text (mod menufix-1102) ----
                     UiCase.run(ctx, "525-ui-menu-every-master", MasterSweepCases::everyMaster);
                     UiCase.run(ctx, "526-ui-ban-report-text", MasterSweepCases::banReportText);
+                    // ---- Thorn Triggerbot in the Thorn tab, Split Timers Counting legit, sidebar scroll spy (mod menufix2-1102) ----
+                    UiCase.run(ctx, "527-ui-thorn-triggerbot-fold", Menufix2Cases::thornTriggerbotFold);
+                    UiCase.run(ctx, "528-ui-split-counting-legit", Menufix2Cases::splitCountingLegit);
+                    UiCase.run(ctx, "529-ui-sidebar-scroll-spy", Menufix2Cases::sidebarScrollSpy);
                     // ---- Lever Aura in Secret Aura + overlay Menu Themes (1420-1421) ----
                     UiCase.run(ctx, "1420-ui-secret-aura-merge", AuraThemeCases::secretAuraMerge);
                     UiCase.run(ctx, "1421-ui-overlay-themes", AuraThemeCases::overlayThemes);
@@ -935,6 +949,9 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1101-ui-docmenu-keybind", DocMenu1101Cases::keybind);
                     UiCase.run(ctx, "1101-ui-docmenu-etherwarp", DocMenu1101Cases::etherwarp);
                     UiCase.run(ctx, "1101-ui-docmenu-video-browser", DocMenu1101Cases::videoBrowser);
+                    // ---- every key row takes a mouse button (mod keybindmouse-1102, KeybindMouseCases) ----
+                    UiCase.run(ctx, KeybindMouseCases.WALK, c -> KeybindMouseCases.walk(c, deny));
+                    UiCase.run(ctx, KeybindMouseCases.GAME, KeybindMouseCases::game);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));

@@ -164,12 +164,9 @@ final class HxDocDhud1101Cases {
     // ---- Split Timers: Counting ---------------------------------------------------------------------------------------
 
     private static void splitTicks(Session c) {
-        if (!c.onClient(mc -> Mod.isCheat())) {
-            boolean shown = c.onClient(mc -> (Boolean) Mod.get(SPLIT_CFG, "isTickCounting"));
-            c.check(!shown, "a legit jar counts in ticks");
-            c.note("legit jar: Counting is cheat only, isTickCounting false");
-            return;
-        }
+        // Counting is legit since mod splitcount-1102 (killer560 2026-11-02: "this cheat portion should be legit"): the
+        // same rounding on every jar.
+        c.note(c.onClient(mc -> Mod.isCheat()) ? "cheat jar" : "legit jar");
         try (Settings set = new Settings(c).with(SPLIT_CFG, "TickCounting", false)) {
             String a = c.onClient(mc -> (String) Mod.staticCall(SPLITS, "formatTime", 12_324L));
             String b = c.onClient(mc -> (String) Mod.staticCall(SPLITS, "formatTime", 62_376L));

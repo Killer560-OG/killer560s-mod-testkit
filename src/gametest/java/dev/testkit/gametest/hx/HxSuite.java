@@ -100,13 +100,20 @@ public class HxSuite implements FabricClientGameTest {
                     // Before Boss Health, which latches the boss room until its cleanup case.
                     // The pre-2.0 mining features (1101-mining-*, mod doc-mining-1101), own block, before Boss Health.
                     HxMining1101Cases.register(s);
+                    // Commission Mobs and the Emissary label's gray distance (1103-mining-*, mod commissions-1103).
+                    HxCommissions1103Cases.register(s);
                     // Owner-evidence log lines (1102-diag-*, mod diag-1101): Fast Leap stuck state, Raffle start dump.
                     HxDiag1102Cases.register(s);
+                    // Online Count heartbeat against a stub relay (1102-online-*, mod onlinecount-1102), own block.
+                    HxOnline1102Cases.register(s);
                     // How Lucky Are You / Full RNG Tracker (1101-luck-*, mod branch doc-rng-1101), own block.
                     HxLuckCases.register(s);
                     // Every-drop coverage: mob/sea creature kills, Looting, slayer level, RNG Meter, Kuudra, Nucleus,
                     // Experiments, Unknown-floor claims (1102-luck-*, mod branch luck2-1101).
                     HxLuck1102Cases.register(s);
+                    // Dark Mode: world / HUD tint by framebuffer pixels, screens untouched, settings reload (1102-darkmode-*,
+                    // mod branch darkmode-1102), own block.
+                    HxDarkMode1102Cases.register(s);
                     HxStutterCases.register(s);
                     HxBossHealthCases.register(s);
                 });

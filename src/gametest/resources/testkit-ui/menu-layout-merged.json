@@ -28,9 +28,16 @@
     "gui.tab.SecretTab": "Dungeons > Secrets > Secret",
     "gui.tab.MaskKeybindsTab": "Dungeons > Mask Keybinds",
     "gui.tab.LuckTab": "Misc > How Lucky Are You",
-    "gui.tab.AutoSprintTab": "Misc > Auto Sprint"
+    "gui.tab.AutoSprintTab": "Misc > Auto Sprint",
+    "gui.tab.DarkModeTab": "Misc > Dark Mode",
+    "gui.tab.SoundDisablerTab": "Misc > Sound Disabler"
   },
   "tooltips": [
+    {
+      "owner": "Thorn (F4)",
+      "key": "cheat build - thorn esp",
+      "gone": "menufix2-1102: the header is \"Cheat Build - Thorn\" since Thorn Triggerbot moved under it (killer560 2026-11-02)"
+    },
     {
       "owner": "Party Interop",
       "key": "log pickups",
@@ -420,8 +427,20 @@
     {
       "owner": "Dungeon Map",
       "key": "darken unexplored",
-      "text": "How much darker unopened rooms are drawn, 0 to 0.9 (0 by default). On Funny Map, every room your hotbar map has not opened yet.",
-      "why": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list); rewritten again: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
+      "text": "How much darker unopened rooms are drawn, 0 to 0.9 (0 by default). On Funny Map, every room your hotbar map has not opened yet; at 0 Funny Map draws them in their own color, the same before and after the run starts.",
+      "why": "mapcolor-1102 (killer560 2026-11-02): Funny Map keeps room colors; before: map-overhaul-1015; rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "autopilot key",
+      "text": "Starts or stops Dungeon Autopilot (Backspace clears it). Works only in a dungeon, outside the boss.",
+      "why": "keybindmouse-1102 (killer560 2026-11-02): Escape cancels a key row, Backspace or Delete clears it"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "auto secret key",
+      "text": "Starts or stops Auto Secret (Backspace clears it). Works only in a dungeon, outside the boss.",
+      "why": "keybindmouse-1102 (killer560 2026-11-02): Escape cancels a key row, Backspace or Delete clears it"
     },
     {
       "owner": "Dungeon Map",

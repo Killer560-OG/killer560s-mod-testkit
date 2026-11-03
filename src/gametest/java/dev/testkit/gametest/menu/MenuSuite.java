@@ -177,6 +177,7 @@ public class MenuSuite implements FabricClientGameTest {
                     TermHoldCases.register(s); // 271-279: terms-1026 (Hover Melody, Hold To Click, lookahead, Fake Cursor)
                     Doc1101TermCases.register(s); // 1101-menu-term-*: doc-terms-1101
                     TermHumanCases.register(s); // 1027-menu-term-*: Stream Safe human cursor, Rubix repeats (autoterms-human-1027)
+                    TermismStreamSafeCases.register(s); // 1102-menu-termism-ss-*: Stream Safe in Termism (termismss-1102)
                     ExperimentCases.register(s);
                     DungeonMenuCases.register(s);
                     InventoryCases.register(s);
@@ -249,6 +250,8 @@ public class MenuSuite implements FabricClientGameTest {
                     AutoMaskCases.register(s);
                     // ---- 1092-1094 clickguards-1025: Reroll Protection, Kismet Count, Croesus Chests HUD ----
                     CroesusRerollCases.register(s);
+                    // ---- 1103-menu-* commissions-1103: Completed Commissions and Highlight Selected Loadout slots ----
+                    Commissions1103MenuCases.register(s);
                 });
     }
 }
