@@ -235,13 +235,31 @@ public class SimBloodRushTests implements FabricClientGameTest {
         }
         @SuppressWarnings("unchecked")
         List<String> keyRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(SIM_FLOOR, "keyRoomsForTest"));
-        String room = keyRooms.isEmpty() ? null : keyRooms.get(0).split("\\|")[0];
+        // The floor is random: a key room can hold only 2 starred mobs (26.3 legit gate, 2026-11-03), so take the first
+        // key room with 3 or more.
+        String room = null;
+        List<double[]> mobs = List.of();
+        for (String k : keyRooms) {
+            String r = k.split("\\|")[0];
+            List<double[]> m = serverStarredIn(ctx, r);
+            if (m.size() >= 3) {
+                room = r;
+                mobs = m;
+                break;
+            }
+            if (room == null && mobs.isEmpty()) {
+                facts.add(r + " has only " + m.size() + " starred mob(s): next key room");
+            }
+        }
+        if (room == null && !keyRooms.isEmpty()) {
+            room = keyRooms.get(0).split("\\|")[0];
+            mobs = serverStarredIn(ctx, room);
+        }
         facts.add("key rooms " + keyRooms + "; into " + room);
         if (room == null) {
             problems.add("no key room on this floor");
             return;
         }
-        List<double[]> mobs = serverStarredIn(ctx, room);
         facts.add(room + ": the sim server has " + mobs.size() + " starred mob(s) there");
         if (mobs.size() < 3) {
             problems.add("only " + mobs.size() + " starred mob(s) in " + room + " - nothing to split");
