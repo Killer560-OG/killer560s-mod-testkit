@@ -1530,3 +1530,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   for a 16-unit cell: the box sits right under the icon and a full block hides all of it. The Storage Overlay's open
   page title is that same orange, so the pages grid is checked by the on/off difference. A two-digit count scales with
   the fitted item and reaches past the cell's middle (still in its lower half).
+
+- 1102-online-* (hx/HxOnline1102Cases, mod onlinecount-1102): the Online Count heartbeat against an in-process stub relay on
+  32400-32499 (`killer560.net.presence-relay`), switched on with `killer560.test.presence=true` (off in every other gametest)
+  and a 3 s interval. Asserts what the STUB received: exactly {session, location}, one 32-hex session that is not the
+  player's UUID or name, 3-4.5 s gaps, Hub / Dwarven Mines / Catacombs F7 / sim Catacombs M7 / Hypixel (not Skyblock), one
+  Offline when the switch goes off and nothing after; with the stub closed, sends keep coming, one WARN, no chat, healthy.
