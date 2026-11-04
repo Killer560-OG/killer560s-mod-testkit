@@ -415,17 +415,13 @@ final class BossTimerCases {
             c.eq("Lightning 460t 100 ticks on", "Lightning: 460t", stormLine());
             serverTicks(470);
             c.eq("Lightning holds at 0 until the lightning goes off", "Lightning: 0t", stormLine());
-            // 570 ticks after the line: 570 % 20 = 10 ticks to the next pad tick.
+            // Purple is ONE 62-tick countdown from the lightning line (NoammAddons), then the line goes away (timers2-1103).
             chat(TT, "onChatMessage", "[BOSS] Storm: ENERGY HEED MY CALL!");
-            c.eq("the lightning line switches to the purple pad timer", "Purple: 10t", stormLine());
-            List<Integer> zeros = new ArrayList<>();
-            for (int i = 1; i <= 45; i++) {
-                serverTicks(1);
-                if ((Integer) Mod.staticCall(SL, "remaining") == 0) {
-                    zeros.add(i);
-                }
-            }
-            c.eq("the pad timer reads 0 every 20 server ticks, on the opening line's cycle", List.of(10, 30), zeros);
+            c.eq("the lightning line switches to the purple countdown", "Purple: 62t", stormLine());
+            serverTicks(62);
+            c.eq("purple reads 0 on the 62nd server tick", "Purple: 0t", stormLine());
+            serverTicks(11);
+            c.eq("the purple line goes away after its hold", null, stormLine());
             chat(TT, "onChatMessage", "[BOSS] Storm: Oof");
             String y = stormLine();
             c.check("the first crush keeps the same cycle for yellow", y != null && y.startsWith("Yellow: ")
