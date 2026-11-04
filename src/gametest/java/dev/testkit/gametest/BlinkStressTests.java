@@ -1067,7 +1067,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                                     && (kk != 2 || (s[2] >= 19 && bankAfter == 20)),
                             String.format(Locale.ROOT, "%d position packet(s), %d held through, moved %.2f, %sgap %.2f", sb, heldTp,
                                     moved, kk == 2 ? "bank after landing " + bankAfter + " (kept), shot " + (long) s[2] + " tick(s), " : "", g),
-                            kk == 2);
+                            kk == 2 ? Rows.KEPT : null);
                 }
                 // Hyperion and AOTV transmission, inside a hold and while charging.
                 hx.give(0, AOTV);
@@ -1122,7 +1122,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                                 // In a hold too: after the kept-bank teleports earlier in this session GrimAC's teleport
                                 // tracking stays off (BadPacketsN on the next teleport held through; the same hold is clean in
                                 // a fresh session, 1025-blink-etherwarp/-leap) - part of what the owner accepted 2026-10-27.
-                                true);
+                                Rows.KEPT);
                     }
                 }
                 // Five etherwarps in a row while charging (ZPEW on), then a refill and a shot.
@@ -1774,7 +1774,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                     rows.add(server, scenario, mode == 0 ? "LCEW charging" : "LCEW in holds", warps == 3 && (mode == 0 || g < 0.5)
                                     && (s == null || s[2] >= 19), String.format(Locale.ROOT, "%d server warp(s)%s, gap %.2f", warps,
                                     s == null ? "" : ", shot " + (long) s[2] + " tick(s)", g),
-                            true); // holds after the kept teleports above: see items-a (owner 2026-10-27)
+                            Rows.KEPT); // holds after the kept teleports above: see items-a (owner 2026-10-27)
                 }
             } finally {
                 ctx.runOnClient(mc -> Mod.set("leftclickew.LeftClickEtherwarpConfig", "setEnabled", false));
