@@ -91,7 +91,6 @@ final class HxDioriteGlass1103Cases {
                 c.server().command("setblock " + p.getX() + " " + p.getY() + " " + p.getZ() + " minecraft:air");
             }
             c.ctx().waitTicks(5);
-            c.server().command("fill 44 170 39 50 171 45 minecraft:air");
         } finally {
             if (c.onClient(mc -> (Boolean) Mod.staticCall(DS, "isSimOverrideActive")) != override) {
                 run(c, () -> Mod.staticCall(DS, "toggleSimOverride"));
