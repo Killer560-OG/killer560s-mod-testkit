@@ -159,8 +159,34 @@ final class Commissions1103MenuCases {
             c.ctx().waitTicks(3);
             int page2 = selected(c);
             c.check(page2 == 15, "page 2 with Loadout 14 picks " + page2 + ", want 15");
+            // A renamed loadout (slot 25 = Loadout 6, renamed): Hypixel says its NAME.
+            Map<Integer, JsonObject> named = new LinkedHashMap<>(plain);
+            named.put(25, FlipCroesusCases.item("minecraft:iron_chestplate", "§aDwarven Coms", "§7Armor: Iron"));
+            MenuKit.reset(c);
+            c.ctx().waitTicks(50); // the chat dedupes an identical line within about a second
+            c.hx().chat("§aYou equipped Loadout 5!");
+            c.waitUntil("Loadout 5 read", mc -> ((Number) Mod.staticCall(LH, "lastEquippedLoadout")).intValue() == 5, 60);
+            c.ctx().waitTicks(50);
+            c.hx().chat("§aYou equipped Dwarven Coms!");
+            c.waitUntil("the named line read", mc -> ((Number) Mod.staticCall(LH, "lastEquippedLoadout")).intValue() == 0, 60);
+            MenuKit.show(c, FlipCroesusCases.menu("(1/3) Loadouts", 6, named, Map.of()));
+            MenuKit.awaitScreen(c, "(1/3) Loadouts", 100);
+            c.ctx().waitTicks(3);
+            int byName = selected(c);
+            c.check(byName == 25, "after 'You equipped Dwarven Coms!' the mod picks " + byName + ", want 25");
+            MenuKit.reset(c);
+            c.ctx().waitTicks(50);
+            c.hx().chat("§b[VIP] Bob§f: You equipped Nothing Here!");
+            c.ctx().waitTicks(10);
+            c.hx().chat("§aYou equipped Nothing Here!");
+            c.ctx().waitTicks(10);
+            MenuKit.show(c, FlipCroesusCases.menu("(1/3) Loadouts", 6, named, Map.of()));
+            MenuKit.awaitScreen(c, "(1/3) Loadouts", 100);
+            c.ctx().waitTicks(3);
+            int none = selected(c);
+            c.check(none == -1, "a name on no slot of the page still highlights slot " + none + ", want none");
             c.check(c.events("container.click").isEmpty(), "a draw-only highlight clicked: " + c.events("container.click"));
-            c.note("Loadouts: lore -> 15 (pixels only there); a player's line ignored; chat 5 -> 24; page 2 chat 14 -> 15; no click");
+            c.note("Loadouts: lore -> 15 (pixels only there); a player's line ignored; chat 5 -> 24; page 2 chat 14 -> 15; renamed -> 25; unknown name -> none; no click");
         } finally {
             c.ctx().runOnClient(mc -> Mod.staticCall(LH, "setLastEquippedForTest", was));
             MenuKit.reset(c);

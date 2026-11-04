@@ -2029,9 +2029,13 @@ final class HxBloodCampCases {
             c.ctx().waitTicks(3);
             String phase = c.onClient(mc -> (String) Mod.staticCall(BC_STATS, "phaseName"));
             boolean camped = c.onClient(mc -> (Boolean) Mod.staticCall(BC_STATS, "camped"));
-            c.onClient(mc -> Mod.staticCall(BC_STATS, "endOfRunForTest"));
+            // The message went out at the clear line, before any EXTRA STATS; the summary line adds none.
             String msg = c.onClient(mc -> (String) Mod.staticCall(BC_STATS, "lastMessage"));
             int sent = c.onClient(mc -> (Integer) Mod.staticCall(BC_STATS, "partyMessagesSent")) - sent0;
+            c.hx().chat("  > EXTRA STATS <");
+            c.ctx().waitTicks(5);
+            int sentAfter = c.onClient(mc -> (Integer) Mod.staticCall(BC_STATS, "partyMessagesSent")) - sent0;
+            c.check(sentAfter == sent, "EXTRA STATS sent another party message: " + sent + " -> " + sentAfter);
             c.note(String.format(Locale.ROOT, "at KILL %d; first kill at %d (want ~20); after both kills %d (want ~35); 20"
                     + " idle ticks later %d; phase after the Watcher's last line %s; camped %s; HUD %s; message \"%s\", sent %d",
                     t0, first, after[0], idle, phase, camped, hud, msg, sent));
@@ -2225,7 +2229,6 @@ final class HxBloodCampCases {
             c.ctx().waitTicks(2);
             Object[] boss = c.onClient(mc -> new Object[]{Mod.staticCall(BC_STATS, "hudLinesForTest"),
                     Mod.staticCall("secrets.DungeonState", "isBossPhaseActive")});
-            c.onClient(mc -> Mod.staticCall(BC_STATS, "endOfRunForTest"));
             String msg = c.onClient(mc -> (String) Mod.staticCall(BC_STATS, "lastMessage"));
             c.note("camp: " + camp + "; after the last line: " + cleared + "; boss phase " + boss[1] + ": " + boss[0]
                     + "; end-of-run message \"" + msg + "\"");
