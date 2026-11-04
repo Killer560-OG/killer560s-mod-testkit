@@ -291,6 +291,7 @@ final class AutoScaleCases {
         }
         // Control: click where a lower row would be WITHOUT scaling. The screen sees that point divided by f, so the
         // row it hits is predictable - and is not that row unless the transform is missing.
+        rows = sideRows(menu); // the first click rebuilt the screen: judge the control against the rows it has NOW
         int[] low = rows.get(Math.min(rows.size() - 1, 5));
         int control = low[4];
         double ux = low[0] + low[2] / 2.0;
