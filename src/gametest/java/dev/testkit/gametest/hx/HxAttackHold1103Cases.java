@@ -47,6 +47,8 @@ final class HxAttackHold1103Cases {
         s.test("1103-mining-hold-off", c -> run(c, false, false));
         s.test("1103-mining-hold-dump", HxAttackHold1103Cases::dump);
         s.test("1103-mining-hold-stuck", HxAttackHold1103Cases::stuck);
+        s.test("1103-mining-hold-direction", c -> direction(c, true));
+        s.test("1103-mining-hold-direction-control", c -> direction(c, false));
     }
 
     /** Held left click on a block that never breaks, no screen: the STUCK DIG line fires once; idle time fires nothing. */
@@ -253,5 +255,86 @@ final class HxAttackHold1103Cases {
             release(c);
             hub(c);
         }
+    }
+
+    /** A dig that changes face mid-break (crosshair from the top face to the west face of the same block). On Hypixel the mod
+     *  must not send CHANGE_DESTROY_DIRECTION (it reset his digs one ping later); the dig must keep going. With the hook off
+     *  (control) the packet is sent, which proves the face change happened. */
+    private static void direction(Session c, boolean hypixel) {
+        boolean has = java.util.Arrays.stream(ServerboundPlayerActionPacket.Action.values())
+                .anyMatch(a -> a.name().equals("CHANGE_DESTROY_DIRECTION"));
+        if (!has) {
+            c.note("this Minecraft has no CHANGE_DESTROY_DIRECTION action: nothing to test");
+            return;
+        }
+        WireCapture.describe = p -> p instanceof ServerboundPlayerActionPacket a
+                ? a.getAction() + " " + a.getPos().toShortString() : p.getClass().getSimpleName();
+        String[] savedIp = new String[1];
+        BlockPos ob = null;
+        try {
+            c.ctx().runOnClient(mc -> Mod.staticCall(RESUME, "trustTrackedButtonForTest", true));
+            Mod.setField(PROBE, "forceHypixelForTest", hypixel);
+            // other hx cases leave the server address as mc.hypixel.net: the control needs a non-Hypixel one
+            savedIp[0] = c.onClient(mc -> mc.getCurrentServer().ip);
+            c.ctx().runOnClient(mc -> mc.getCurrentServer().ip = hypixel ? savedIp[0] : "localhost");
+            mines(c);
+            BlockPos f = c.onClient(mc -> mc.player.blockPosition());
+            ob = f.offset(2, 0, 0);
+            BlockPos obf = ob;
+            c.server().command("setblock " + ob.getX() + " " + ob.getY() + " " + ob.getZ() + " minecraft:obsidian");
+            c.hx().give(0, "minecraft:diamond_pickaxe");
+            aim(c, ob, 18f, net.minecraft.core.Direction.UP);
+            String dig = "START_DESTROY_BLOCK " + ob.toShortString();
+            int drops = intCall(c, PROBE, "directionDrops");
+            WireCapture.start();
+            press(c);
+            c.waitUntil("the held dig starts", mc -> wire().stream().anyMatch(w -> w.contains(dig)), 20);
+            c.ctx().waitTicks(20);
+            float t0 = destroyTicks(c);
+            c.check(t0 > 0, "the dig has no progress before the face change: " + t0);
+            aim(c, ob, 35f, net.minecraft.core.Direction.WEST);
+            c.ctx().waitTicks(10);
+            float t1 = destroyTicks(c);
+            boolean sent = wire().stream().anyMatch(w -> w.contains("CHANGE_DESTROY_DIRECTION"));
+            int dropped = intCall(c, PROBE, "directionDrops") - drops;
+            if (hypixel) {
+                c.check(!sent, "CHANGE_DESTROY_DIRECTION reached the wire on Hypixel: " + wire());
+                c.check(dropped >= 1, "the mod did not count a dropped CHANGE_DESTROY_DIRECTION (drops +" + dropped + "); wire " + wire());
+                c.check(t1 > t0, "the dig stopped after the face change: ticks " + t0 + " -> " + t1 + "; wire " + wire());
+                c.check(c.onClient(mc -> (Boolean) Mod.field(mc.gameMode, "isDestroying")), "no longer destroying after the face change");
+                c.waitUntil("the obsidian breaks", mc -> mc.level.getBlockState(obf).isAir(), 400);
+                c.note("face change top->west: no CHANGE_DESTROY_DIRECTION sent, " + dropped + " dropped, dig ticks " + t0 + " -> "
+                        + t1 + ", block broke");
+            } else {
+                c.check(sent, "control: the face change sent no CHANGE_DESTROY_DIRECTION (so the case proves nothing): " + "actions " + wire().stream().filter(w -> w.contains("player_action")).toList() + ", drops +" + dropped + ", dig ticks " + t0 + " -> " + t1);
+                c.check(dropped == 0, "control: a drop was counted with the hook off: " + dropped);
+                c.note("control: CHANGE_DESTROY_DIRECTION sent on the face change, dig ticks " + t0 + " -> " + t1);
+            }
+        } finally {
+            WireCapture.stop();
+            WireCapture.describe = null;
+            release(c);
+            if (savedIp[0] != null) {
+                String ip = savedIp[0];
+                c.ctx().runOnClient(mc -> mc.getCurrentServer().ip = ip);
+            }
+            Mod.setField(PROBE, "forceHypixelForTest", false);
+            c.ctx().runOnClient(mc -> Mod.staticCall(RESUME, "trustTrackedButtonForTest", false));
+            if (ob != null) {
+                c.server().command("setblock " + ob.getX() + " " + ob.getY() + " " + ob.getZ() + " minecraft:air");
+            }
+            c.hx().give(0, "minecraft:air");
+            hub(c);
+        }
+    }
+
+    private static void aim(Session c, BlockPos ob, float pitch, net.minecraft.core.Direction face) {
+        c.ctx().runOnClient(mc -> {
+            mc.player.getInventory().setSelectedSlot(0);
+            mc.player.setYRot(-90f);
+            mc.player.setXRot(pitch);
+        });
+        c.waitUntil("aiming at the " + face + " face", mc -> mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult b
+                && b.getBlockPos().equals(ob) && b.getDirection() == face, 40);
     }
 }
