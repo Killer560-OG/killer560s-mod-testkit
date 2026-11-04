@@ -193,22 +193,22 @@ final class LogicCase {
         long d;
         while ((d = atMs - System.currentTimeMillis()) > 0) {
             Thread.sleep(Math.min(d, 5L));
+            if (pollEvents == null) {
+                // LWJGL is not on the gametest compile classpath, nor visible to this class's loader: ask Minecraft's.
+                try {
+                    pollEvents = Class.forName("org.lwjgl.glfw.GLFW", false, net.minecraft.client.Minecraft.class.getClassLoader())
+                            .getMethod("glfwPollEvents");
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError("no org.lwjgl.glfw.GLFW.glfwPollEvents", e);
+                }
+            }
             try {
-                POLL_EVENTS.invoke(null);
+                pollEvents.invoke(null);
             } catch (ReflectiveOperationException e) {
                 throw new AssertionError("glfwPollEvents failed", e);
             }
         }
     }
 
-    /** LWJGL is on the game's classpath at run time but not on the gametest compile classpath. */
-    private static final java.lang.reflect.Method POLL_EVENTS;
-
-    static {
-        try {
-            POLL_EVENTS = Class.forName("org.lwjgl.glfw.GLFW").getMethod("glfwPollEvents");
-        } catch (ReflectiveOperationException e) {
-            throw new ExceptionInInitializerError(e);
-        }
-    }
+    private static java.lang.reflect.Method pollEvents;
 }
