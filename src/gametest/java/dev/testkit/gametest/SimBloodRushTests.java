@@ -1,5 +1,7 @@
 package dev.testkit.gametest;
 
+import dev.testkit.harness.Report;
+import dev.testkit.harness.SuiteVerdict;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.minecraft.client.Minecraft;
@@ -91,6 +93,8 @@ public class SimBloodRushTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> mc.options.renderDistance().set(16));
             List<String> problems = new ArrayList<>();
             List<String> facts = new ArrayList<>();
+            rushActed = 0;
+            Report.caseStarted(name);
             try {
                 if (name.equals(SPLIT)) {
                     splitRule(ctx, problems, facts);
@@ -130,6 +134,17 @@ public class SimBloodRushTests implements FabricClientGameTest {
             for (String f : facts) {
                 println("FACT " + f);
             }
+            if (name.equals(RUSH) && problems.isEmpty() && rushActed < 3) {
+                // A pass needs proof the helper acted: boxes drawn and at least three server starred mobs inside them.
+                problems.add("the helper never acted: " + rushActed + " starred mob(s) covered by a drawn box (want 3+)");
+            }
+            String verdict = problems.isEmpty() ? "PASS" : "FAIL";
+            String detail = problems.isEmpty()
+                    ? "helper acted" + (name.equals(RUSH) ? ": " + rushActed + " server starred mobs inside drawn boxes" : "")
+                            + "; " + String.join("; ", facts)
+                    : String.join("; ", problems);
+            Report.caseFinished(name, verdict, "n/a (singleplayer)", detail, List.of(), List.of());
+            SuiteVerdict.finished(name);
             if (!problems.isEmpty()) {
                 for (String p : problems) {
                     println("PROBLEM " + p);
@@ -228,6 +243,9 @@ public class SimBloodRushTests implements FabricClientGameTest {
         return keyRooms.isEmpty() ? -1 : serverStarredIn(ctx, keyRooms.get(0).split("\\|")[0]).size();
     }
 
+    /** How many server starred mobs the helper's boxes covered in the last rush case (0 = the helper never acted). */
+    private static int rushActed;
+
     private static void rush(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
         Map<String, Integer> learnedBefore = learnedCounts(ctx);
         ctx.runOnClient(mc -> {
@@ -297,6 +315,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
             }
         }
         facts.add(inside + " of " + mobs.size() + " server starred mobs inside a box; " + shown.size() + " box(es)");
+        rushActed = Math.min(inside, shown.size());
         // Just Me: every box his, numbered 1..n from the door the split went by, each next the nearest to the last.
         double[] door = doorOf(ctx, room);
         facts.add("door the split went by: " + (door == null ? "none" : String.format(Locale.ROOT, "%.1f, %.1f", door[0], door[1])));
