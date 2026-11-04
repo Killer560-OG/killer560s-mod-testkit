@@ -754,11 +754,13 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
     private void guess(ClientGameTestContext ctx, Floor f) {
         Report.caseStarted(R_GUESS);
         ctx.runOnClient(mc -> opt(HELD, "resetSimVisits", null));
-        // A one-tile room every in-floor neighbor tile of which is another room it has a door to at least one of.
+        // A one-tile room every in-floor neighbor tile of which is another room it has a door to at least one of. Not
+        // the Blood Room: a tile behind the blood door is guessed Blood alone (SpecialRoomGuess.behindBloodDoor, by
+        // design since 2026-10-19), so on a floor whose first such room was Blood the Puzzle check failed (2026-11-04).
         int pick = -1;
         List<Integer> around = new ArrayList<>();
         for (int r = 0; r < f.names.size(); r++) {
-            if (f.tiles.get(r).length != 1 || r == f.entrance || f.neighbours(r).isEmpty()) {
+            if (f.tiles.get(r).length != 1 || r == f.entrance || r == f.blood || f.neighbours(r).isEmpty()) {
                 continue;
             }
             List<Integer> rooms = f.roomsAroundTile(f.tiles.get(r)[0]);
