@@ -32,6 +32,7 @@
     "gui.tab.MiningRaffleTab": "Mining > Commissions and Mithril > Raffle Ticket Highlight",
     "gui.tab.TreasureChestHighlightTab": "Mining > Powder Mining > Treasure Chest Highlight",
     "gui.tab.TreasureChestAlertTab": "Mining > Powder Mining > Treasure Chest Alert",
+    "gui.tab.PowderBreakSoundsTab": "Mining > Powder Mining > Powder Break Sounds",
     "gui.tab.PowderTrackerTab": "Mining > Powder Mining > Powder Tracker",
     "gui.tab.DoublePowderAlertTab": "Mining > Powder Mining > 2x Powder Alert",
     "gui.tab.ChestLootCompactTab": "Mining > Powder Mining > Chest Loot Compact",

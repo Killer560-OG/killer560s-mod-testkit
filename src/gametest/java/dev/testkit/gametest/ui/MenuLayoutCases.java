@@ -69,7 +69,7 @@ final class MenuLayoutCases {
     /** The only folders a category may hold: each was asked for as one tab (killer560, 2026-09-20). */
     private static final Set<String> NESTED_OK = Set.of("Secrets", "Puzzle Solvers", "Commissions and Mithril", "Powder Mining", "General");
     /** Sections added by this change (cheat build): Home's Correction Alarm, out of the middle of Mod & HUD. */
-    private static final Set<String> NEW_LEAVES = Set.of("gui.tab.CorrectionAlarmTab",
+    private static final Set<String> NEW_LEAVES = Set.of("gui.tab.PowderBreakSoundsTab", "gui.tab.CorrectionAlarmTab",
             // Hide Potion Effects (mod effects-search-1102, killer560 2026-11-02): its own Items card again, legit in both builds.
             "gui.tab.HidePotionEffectsTab",
 
