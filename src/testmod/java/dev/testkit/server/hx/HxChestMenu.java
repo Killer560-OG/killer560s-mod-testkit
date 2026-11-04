@@ -99,10 +99,31 @@ public class HxChestMenu extends ChestMenu {
         }
         setCarried(ItemStack.EMPTY);
         if (silentNext) {
-            silentNext = false;
-            return;
+            return;   // cleared by resumeRemoteUpdates, after the click packet's predicted slots were (not) recorded
         }
         broadcastFullState();
+    }
+
+    /** While {@link #silentNext} is up the server also ignores what the client says it predicted, so its record of the
+     *  client (remoteSlots) stays "the real board" and the tick's broadcastChanges finds nothing to correct. */
+    @Override
+    public void setRemoteSlotUnsafe(int slot, net.minecraft.network.HashedStack stack) {
+        if (!silentNext) {
+            super.setRemoteSlotUnsafe(slot, stack);
+        }
+    }
+
+    @Override
+    public void setRemoteCarried(net.minecraft.network.HashedStack stack) {
+        if (!silentNext) {
+            super.setRemoteCarried(stack);
+        }
+    }
+
+    @Override
+    public void resumeRemoteUpdates() {
+        super.resumeRemoteUpdates();
+        silentNext = false;
     }
 
     @Override
