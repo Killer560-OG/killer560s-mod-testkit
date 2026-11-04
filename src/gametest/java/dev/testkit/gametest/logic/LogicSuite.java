@@ -117,6 +117,7 @@ public class LogicSuite implements FabricClientGameTest {
                 LogicCase.run(ctx, "1102-logic-f7hud-config", BossTimerCases::oldConfigs);
                 LogicCase.run(ctx, "1102-logic-f7hud-slots", BossTimerCases::f7Slots);
                 LogicCase.run(ctx, "1103-logic-timer-lag", TimerLagCases::timerLag);
+                LogicCase.run(ctx, "1103-logic-timer-monotonic", TimerLagCases::timerMonotonic);
                 LogicCase.run(ctx, "363-logic-roof-cover", RoofCoverCases::roofCover);
             }
         }

@@ -128,4 +128,89 @@ final class TimerLagCases {
             Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas);
         }
     }
+
+    /**
+     * 1103-logic-timer-monotonic (mod branch timers2-1103; killer560, 2026-11-03: "they seem to normally count down then they
+     * will randomly kind of jump back up and they keep getting off"). The reference mods (Odin, NoammAddons) count one tick
+     * per non-zero ping and never move a countdown back. A realistic Hypixel pattern is fed to the clock by hand: single
+     * pings, a burst after a network spike, stalls of 20 / 60 / 120 client ticks (the last six failing windows), pings of
+     * 2 and 3 a tick. The clock must never go down, must stay trusted through the stalls, and must end exactly on the number
+     * of pings sent; Goldor's "Tick:" and Storm's "Lightning:" must read exactly what the clock says (a whole number of
+     * server ticks lower each time, wrapping only at Goldor's hit), and an ordinary hit one tick off the prediction must
+     * not move the Goldor line.
+     */
+    static void timerMonotonic(LogicCase c) throws Exception {
+        Object simWas = R.get("secrets.DungeonState", "simOverrideActive");
+        boolean gateWas = (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled");
+        Mod.staticCall("util.SkyblockGate", "setEnabled", false);
+        R.set("secrets.DungeonState", "simOverrideActive", true);
+        String gt = "ticktimers.GoldorTick";
+        String sl = "ticktimers.StormLine";
+        try (AutoCloseable on = Mod.with("ticktimers.TickTimersConfig", "Enabled", true)) {
+            Mod.staticCall(CLOCK, "untrustForTest");
+            ticks(40, 1);
+            if (!c.check("trusted after two good windows", (Boolean) Mod.staticCall(CLOCK, "trusted"), "not trusted")) {
+                return;
+            }
+            Mod.staticCall(TT, "resetAll");
+            Mod.staticCall(TT, "onChatMessage", Component.literal("[BOSS] Storm: Pathetic Maxor, just like expected."));
+            Mod.staticCall(TT, "onChatMessage", Component.literal("[BOSS] Goldor: Who dares trespass into my domain?"));
+            ticks(1, 1);
+            Mod.staticCall(gt, "endOfTick");
+            Mod.staticCall(sl, "endOfTick");
+            long clock0 = (Long) Mod.staticCall(CLOCK, "now");
+            long sent = 0;
+            long prevClock = clock0;
+            int prevGoldor = (Integer) Mod.staticCall(gt, "remaining");
+            int prevStorm = (Integer) Mod.staticCall(sl, "remaining");
+            // {client ticks, pings per tick}: steady, burst, stalls of 20/60/120, doubles and triples, steady.
+            int[][] plan = {{30, 1}, {1, 12}, {20, 1}, {20, 0}, {25, 1}, {60, 0}, {1, 40}, {15, 1}, {120, 0}, {1, 90}, {20, 2},
+                    {10, 3}, {40, 1}};
+            boolean everDown = false;
+            boolean goldorOff = false;
+            boolean stormOff = false;
+            boolean untrusted = false;
+            for (int[] step : plan) {
+                for (int i = 0; i < step[0]; i++) {
+                    tick(step[1]);
+                    sent += step[1];
+                    Mod.staticCall(gt, "endOfTick");
+                    Mod.staticCall(sl, "endOfTick");
+                    long now = (Long) Mod.staticCall(CLOCK, "now");
+                    long d = now - prevClock;
+                    everDown |= d < 0;
+                    int g = (Integer) Mod.staticCall(gt, "remaining");
+                    int st = (Integer) Mod.staticCall(sl, "remaining");
+                    goldorOff |= Math.floorMod((prevGoldor - g) - d, 60L) != 0;
+                    stormOff |= st != Math.max(0L, prevStorm - d);
+                    untrusted |= !(Boolean) Mod.staticCall(CLOCK, "trusted");
+                    prevClock = now;
+                    prevGoldor = g;
+                    prevStorm = st;
+                }
+            }
+            c.check("the clock never went down", !everDown, "it did");
+            c.check("trusted through every stall and burst", !untrusted, "trust was dropped");
+            c.eq("the clock counted exactly the pings sent", sent, prevClock - clock0);
+            c.check("Goldor's Tick moved exactly the clock's ticks (mod 60) each tick, never up", !goldorOff, "it did not");
+            c.check("Storm's Lightning moved exactly the clock's ticks each tick, never up", !stormOff, "it did not");
+
+            // A hit one tick after the prediction (the observation noise) moves nothing once the phase is locked.
+            Mod.staticCall(gt, "testHitNow", false); // first hit: locks wherever it lands
+            int before = (Integer) Mod.staticCall(gt, "remaining");
+            c.eq("the first hit reads 0", 0, before);
+            ticks(60, 1);
+            ticks(1, 1);
+            Mod.staticCall(gt, "testHitNow", false); // 1 tick late
+            c.eq("a hit 1 tick late moved nothing: the line still reads 59 on it", 59, Mod.staticCall(gt, "remaining"));
+            ticks(59, 1);
+            Mod.staticCall(gt, "testHitNow", false); // exact
+            c.eq("the next hit reads 0", 0, Mod.staticCall(gt, "remaining"));
+        } finally {
+            Mod.staticCall(CLOCK, "untrustForTest");
+            Mod.staticCall(TT, "resetAll");
+            R.set("secrets.DungeonState", "simOverrideActive", simWas);
+            Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas);
+        }
+    }
 }
