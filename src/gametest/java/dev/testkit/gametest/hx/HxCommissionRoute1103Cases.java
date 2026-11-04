@@ -56,6 +56,11 @@ final class HxCommissionRoute1103Cases {
         s.test("1103-mining2-route-own-toggle", HxCommissionRoute1103Cases::ownToggle);
         s.test("1103-mining2-route-aote-air", HxCommissionRoute1103Cases::aoteAir);
         s.test("1103-mining2-route-claim", HxCommissionRoute1103Cases::claim);
+        s.test("1103-mining2-route-patch", HxCommissionRoute1103Cases::patch);
+        s.test("1103-mining2-route-stable", HxCommissionRoute1103Cases::stable);
+        s.test("1103-mining2-route-claim-matrix", HxCommissionRoute1103Cases::claimMatrix);
+        s.test("1103-mining2-route-claim-ends", HxCommissionRoute1103Cases::claimEnds);
+        s.test("1103-mining2-done-chat", HxCommissionRoute1103Cases::doneChat);
     }
 
     // ---- shared ---------------------------------------------------------------------------------------------------
@@ -258,12 +263,6 @@ final class HxCommissionRoute1103Cases {
             c.check(hops.size() == 2 && hops.get(0).equals("330,180,300")
                     && (hops.get(1).equals("365,180,300") || hops.get(1).equals("380,180,300")),
                     "open floor hops " + hops + ", wanted [330,180,300, then 365 or 380] (57-block range: the fewest warps)");
-            double[] patch = c.onClient(mc -> (double[]) Mod.staticCall(ROUTE, "lastPatch"));
-            c.check(patch != null && c.onClient(mc -> (Integer) Mod.staticCall(ROUTE, "patches")) > 0, "no 3x3 landing patch drawn");
-            if (patch != null) {
-                c.check(Math.abs(patch[3] - patch[0] - 3) < 1e-9 && Math.abs(patch[4] - patch[2] - 3) < 1e-9
-                        && Math.abs(patch[1] - 181.0) < 0.05, "patch is not a 3x3 on the block tops: " + java.util.Arrays.toString(patch));
-            }
             // A wall between node 2 and node 3: no warp through it.
             c.server().command("fill 347 181 296 347 185 304 minecraft:stone");
             c.waitUntil("the wall on the client", mc -> mc.level.getBlockState(new BlockPos(347, 182, 300)).isSolid(), 100);
@@ -295,7 +294,7 @@ final class HxCommissionRoute1103Cases {
             waitRoute(c, "a walking route");
             c.check(ids(c).equals(List.of(1, 2, 3)), "graph path " + ids(c));
             List<String> pts = list(c, "linePoints");
-            c.check(pts.equals(List.of("302.5,181.5,300.5", "330.5,181.5,300.5", "365.5,181.5,300.5")),
+            c.check(pts.equals(List.of("330.5,181.5,300.5", "365.5,181.5,300.5")), // node 1, where he stands, is already reached
                     "walk line points " + pts);
             c.check(list(c, "hops").isEmpty(), "walk mode has hops");
             // Area-less commission: no line.
@@ -454,7 +453,7 @@ final class HxCommissionRoute1103Cases {
                 List<String> hops = list(c, "hops");
                 List<String> pts = list(c, "linePoints");
                 if ("WALK".equals(m)) {
-                    c.check(pts.size() == 2, "walking goes node 1 then node 5: " + pts);
+                    c.check(pts.size() == 1 && pts.get(0).startsWith("307.5,"), "walking: node 1 is reached, node 5 is next: " + pts);
                     continue;
                 }
                 c.check(hops.equals(List.of("307," + (FY + 5) + ",300")), m + " hops " + hops + ", wanted the platform block");
@@ -487,13 +486,13 @@ final class HxCommissionRoute1103Cases {
             waitRoute(c, "the area line first");
             c.check("Lava Springs".equals(c.onClient(mc -> Mod.staticCall(ROUTE, "currentTargetArea"))), "target before the claim");
             // The commission completes.
-            c.hx().chat("Lava Springs Mithril Commission Complete! Visit the King to claim your rewards!");
+            c.hx().chat("LAVA SPRINGS MITHRIL Commission Complete! Visit the King to claim your rewards!");
             c.waitUntil("a claim due", mc -> (Boolean) Mod.staticCall(CLAIM, "claimDue"), 40);
             c.waitUntil("the line goes to an Emissary", mc -> "Emissary".equals(Mod.staticCall(ROUTE, "currentTargetArea"))
                     && (Integer) Mod.staticCall(ROUTE, "pointCount") > 0, 100);
             List<String> ids = ids(c).stream().map(String::valueOf).toList();
             c.check(ids(c).equals(List.of(1, 2)), "the claim path " + ids + ", wanted node 1, node 2 (the nearest Emissary)");
-            c.check(!(Boolean) c.onClient(mc -> Mod.staticCall(CLAIM, "pigeonPulse")), "the pigeon pulses with Emissary routing on");
+            c.check((Boolean) c.onClient(mc -> Mod.staticCall(CLAIM, "pigeonPulse")), "no pigeon pulse due beside the Emissary route");
             // Emissary routing off: no line, the pigeon pulses.
             c.server().command("item replace entity @a hotbar.4 with " + HxPigeon.stack());
             c.waitUntil("the pigeon in slot 5", mc -> (Integer) Mod.staticCall(CLAIM, "pigeonSlot") == 4, 60);
@@ -520,6 +519,192 @@ final class HxCommissionRoute1103Cases {
     private static final class HxPigeon {
         static String stack() {
             return "minecraft:feather[custom_data={id:\"ROYAL_PIGEON\"}]";
+        }
+    }
+
+    // ---- 1103-mining2-route-patch -----------------------------------------------------------------------------------
+
+    /** "3x3 in that area and full block not just top layer": a column one block up is highlighted at its own height. */
+    private static void patch(Session c) {
+        Object mode = c.onClient(mc -> Mod.enumValue(MODE, "ETHERWARP"));
+        try (Settings set = new Settings(c).with(CFG, "CommissionRoute", true).with(CFG, "CommissionRouteMode", mode)) {
+            arena(c);
+            // Beside the first landing (330,180,300): a step up at 331 and a hole at 329.
+            c.server().command("setblock 331 181 300 minecraft:stone");
+            c.server().command("setblock 329 180 300 minecraft:air");
+            c.waitUntil("the step and the hole on the client", mc -> mc.level.getBlockState(new BlockPos(331, 181, 300)).isSolid()
+                    && mc.level.getBlockState(new BlockPos(329, 180, 300)).isAir(), 100);
+            mines(c, "Royal Mines", "Lava Springs Mithril: 10%");
+            waitRoute(c, "an etherwarp route");
+            @SuppressWarnings("unchecked")
+            List<String> boxes = c.onClient(mc -> new ArrayList<>((List<String>) Mod.staticCall(ROUTE, "patchBlockList")));
+            c.note("patch blocks " + boxes);
+            c.check(boxes.contains("330,180,300"), "the landing block is not in its patch: " + boxes);
+            c.check(boxes.contains("331,181,300"), "the column with a block one up is not highlighted at that block: " + boxes);
+            c.check(!boxes.contains("331,180,300"), "the column with a step up also got the layer below it: " + boxes);
+            c.check(boxes.stream().noneMatch(b -> b.startsWith("329,") && b.endsWith(",300")), "the hole column was highlighted: " + boxes);
+            c.check(boxes.contains("329,180,301") && boxes.contains("331,180,299"), "plain columns around the landing missing: " + boxes);
+            int frames = count(c, "frames");
+            c.waitUntil("drawn", mc -> (Integer) Mod.staticCall(ROUTE, "frames") > frames + 2, 100);
+            c.check(count(c, "patches") >= 8, "the frame drew " + count(c, "patches") + " patch boxes");
+        } finally {
+            c.server().command("setblock 331 181 300 minecraft:air");
+            c.server().command("setblock 329 180 300 minecraft:stone");
+            cleanup(c);
+        }
+    }
+
+    // ---- 1103-mining2-route-stable ----------------------------------------------------------------------------------
+
+    /** "the waypoint routing stuff is still really janky": the plan holds still until he reaches a hop or leaves the line. */
+    private static void stable(Session c) {
+        Object mode = c.onClient(mc -> Mod.enumValue(MODE, "ETHERWARP"));
+        try (Settings set = new Settings(c).with(CFG, "CommissionRoute", true).with(CFG, "CommissionRouteMode", mode)) {
+            arena(c);
+            mines(c, "Royal Mines", "Lava Springs Mithril: 10%");
+            waitRoute(c, "an etherwarp route");
+            List<String> pts0 = list(c, "linePoints");
+            List<String> hops0 = list(c, "hops");
+            int comp0 = count(c, "computes");
+            c.check(pts0.size() == 2 && hops0.size() == 2, "plan " + pts0 + " / " + hops0);
+            // Standing still: the same plan on every one of 60 ticks, nothing rebuilt.
+            for (int i = 0; i < 60; i++) {
+                c.ctx().waitTicks(1);
+                c.check(list(c, "linePoints").equals(pts0), "the line changed while standing still, tick " + i + ": " + list(c, "linePoints"));
+            }
+            c.check(count(c, "computes") == comp0, "re-planned while standing still: " + (count(c, "computes") - comp0));
+            // The commission's percent moving (the tab refreshes every few seconds) is no reason to re-plan.
+            mines(c, "Royal Mines", "Lava Springs Mithril: 35%");
+            c.ctx().waitTicks(30);
+            c.check(list(c, "linePoints").equals(pts0) && count(c, "computes") == comp0, "a progress update re-planned: "
+                    + list(c, "linePoints") + " computes +" + (count(c, "computes") - comp0));
+            // Reaching the first hop: it is dropped from the front, nothing re-planned, then it holds again.
+            double[] q = dxyz(pts0.get(0));
+            c.server().command(String.format(java.util.Locale.ROOT, "tp @a %.3f %.3f %.3f", q[0], q[1], q[2]));
+            c.waitUntil("the first hop dropped", mc -> ((List<?>) Mod.staticCall(ROUTE, "hops")).size() == 1, 100);
+            List<String> after = list(c, "linePoints");
+            c.check(after.equals(pts0.subList(1, 2)), "after reaching the hop the line is " + after + ", wanted " + pts0.subList(1, 2));
+            for (int i = 0; i < 40; i++) {
+                c.ctx().waitTicks(1);
+                c.check(list(c, "linePoints").equals(after), "the line changed after the hop, tick " + i);
+            }
+            c.check(count(c, "computes") == comp0, "reaching a hop re-planned: " + (count(c, "computes") - comp0));
+            // Leaving the line for good: one re-plan, then stable again.
+            c.server().command("tp @a 298.5 181 300.5");
+            c.waitUntil("one re-plan", mc -> (Integer) Mod.staticCall(ROUTE, "computes") == comp0 + 1, 100);
+            List<String> moved = list(c, "linePoints");
+            c.ctx().waitTicks(40);
+            c.check(count(c, "computes") == comp0 + 1 && list(c, "linePoints").equals(moved), "unstable after the re-plan: computes +" + (count(c, "computes") - comp0) + ", line was " + moved + " now " + list(c, "linePoints")
+                    + ", hops " + list(c, "hops") + ", target " + c.onClient(mc -> Mod.staticCall(ROUTE, "currentTargetArea")));
+            c.note("60 ticks still: no change; progress update: none; reached hop: dropped once, no re-plan; left the line: 1 re-plan");
+        } finally {
+            cleanup(c);
+        }
+    }
+
+    // ---- 1103-mining2-route-claim-matrix ----------------------------------------------------------------------------
+
+    /** Route To Emissary and Highlight Royal Pigeon are two switches: all four combinations, and the route switch off. */
+    private static void claimMatrix(Session c) {
+        Object mode = c.onClient(mc -> Mod.enumValue(MODE, "WALK"));
+        try (Settings set = new Settings(c).with(CFG, "CommissionRoute", true).with(CFG, "CommissionRouteMode", mode)) {
+            arena(c);
+            c.ctx().runOnClient(mc -> Mod.staticCall(CLAIM, "emissariesForTest", List.of(new BlockPos(331, FY, Z))));
+            c.server().command("item replace entity @a hotbar.2 with " + HxPigeon.stack());
+            c.waitUntil("the pigeon in slot 3", mc -> (Integer) Mod.staticCall(CLAIM, "pigeonSlot") == 2, 60);
+            // One commission DONE (a claim is due), another open in a different area.
+            mines(c, "Royal Mines", "Lava Springs Mithril: DONE", "Cliffside Veins Titanium: 10%");
+            c.waitUntil("a claim due", mc -> (Boolean) Mod.staticCall(CLAIM, "claimDue"), 40);
+            for (boolean emissary : new boolean[]{true, false}) {
+                for (boolean pigeon : new boolean[]{true, false}) {
+                    c.ctx().runOnClient(mc -> {
+                        Mod.set(CFG, "setCommissionRouteEmissary", emissary);
+                        Mod.set(CFG, "setCommissionPigeon", pigeon);
+                    });
+                    c.ctx().waitTicks(30);
+                    String what = "Route To Emissary " + emissary + ", Highlight Royal Pigeon " + pigeon;
+                    Object target = c.onClient(mc -> Mod.staticCall(ROUTE, "currentTargetArea"));
+                    c.check("Emissary".equals(target) == emissary, what + ": route target " + target);
+                    if (!emissary) {
+                        c.check("Cliffside Veins".equals(target), what + ": without the Emissary route the normal area line carries on, target " + target);
+                    }
+                    int f0 = c.onClient(mc -> (Integer) Mod.staticCall(CLAIM, "pulseFrames"));
+                    c.ctx().waitTicks(20);
+                    int df = c.onClient(mc -> (Integer) Mod.staticCall(CLAIM, "pulseFrames")) - f0;
+                    c.check((df > 5) == pigeon, what + ": " + df + " pulse frames in 20 ticks");
+                    c.note(what + ": target " + target + ", pulse frames " + df);
+                }
+            }
+            // The route switch off: no line, the pigeon switch alone still pulses.
+            c.ctx().runOnClient(mc -> {
+                Mod.set(CFG, "setCommissionRoute", false);
+                Mod.set(CFG, "setCommissionRouteEmissary", true);
+                Mod.set(CFG, "setCommissionPigeon", true);
+            });
+            c.waitUntil("no line with the route switch off", mc -> (Integer) Mod.staticCall(ROUTE, "pointCount") == 0, 40);
+            int f1 = c.onClient(mc -> (Integer) Mod.staticCall(CLAIM, "pulseFrames"));
+            c.ctx().waitTicks(20);
+            c.check(c.onClient(mc -> (Integer) Mod.staticCall(CLAIM, "pulseFrames")) - f1 > 5, "no pulse with the route switch off");
+        } finally {
+            c.server().command("item replace entity @a hotbar.2 with minecraft:air");
+            cleanup(c);
+        }
+    }
+
+    // ---- 1103-mining2-route-claim-ends ------------------------------------------------------------------------------
+
+    /** The chat line only bridges to the tab's next update; the claim ends when the tab shows no DONE. */
+    private static void claimEnds(Session c) {
+        try (Settings set = new Settings(c).with(CFG, "CommissionPigeon", true)) {
+            c.ctx().runOnClient(mc -> Mod.staticCall(CLAIM, "resetForTest"));
+            mines(c, "Royal Mines", "Lava Springs Mithril: 40%", "Mithril Miner: 0%");
+            c.check(!(Boolean) c.onClient(mc -> Mod.staticCall(CLAIM, "claimDue")), "a claim due with nothing done");
+            c.hx().chat("LAVA SPRINGS MITHRIL Commission Complete! Visit the King to claim your rewards!");
+            c.waitUntil("pulse from the line alone", mc -> (Boolean) Mod.staticCall(CLAIM, "claimDue"), 40);
+            // The tab updates and shows no DONE: over within a tick or two, not 20 seconds.
+            mines(c, "Royal Mines", "Lava Springs Mithril: 0%", "Mithril Miner: 0%");
+            c.waitUntil("the claim over once the tab updated", mc -> !(Boolean) Mod.staticCall(CLAIM, "claimDue"), 40);
+            // DONE in the tab without any line.
+            c.ctx().runOnClient(mc -> Mod.staticCall(CLAIM, "resetForTest"));
+            mines(c, "Royal Mines", "Lava Springs Mithril: DONE", "Mithril Miner: 0%");
+            c.waitUntil("pulse from the tab's DONE", mc -> (Boolean) Mod.staticCall(CLAIM, "claimDue"), 40);
+            mines(c, "Royal Mines", "Lava Springs Mithril: 0%", "Mithril Miner: 0%");
+            c.waitUntil("over when the DONE is gone", mc -> !(Boolean) Mod.staticCall(CLAIM, "claimDue"), 40);
+            c.note("line -> due; tab without DONE -> over within ticks; tab DONE alone -> due; DONE gone -> over");
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.staticCall(CLAIM, "resetForTest"));
+            hub(c);
+        }
+    }
+
+    // ---- 1103-mining2-done-chat -------------------------------------------------------------------------------------
+
+    /** Hypixel's own completion line marks the commission DONE at once; a player's message cannot. */
+    private static void doneChat(Session c) {
+        try (Settings set = new Settings(c).with(CFG, "CommissionHud", true)) {
+            c.ctx().runOnClient(mc -> Mod.staticCall(CLAIM, "resetForTest"));
+            mines(c, "Royal Mines", "Royal Mines Mithril: 98%", "Mithril Miner: 10%");
+            c.check(!(Boolean) c.onClient(mc -> Mod.staticCall(STATE, "anyDone")), "DONE before the line");
+            // Forged lines from a player: nothing.
+            c.hx().chat("Bob: ROYAL MINES MITHRIL Commission Complete! Visit the King to claim your rewards!");
+            c.hx().chat("[VIP] Bob: ROYAL MINES MITHRIL Commission Complete! Visit the King to claim your rewards!");
+            c.ctx().waitTicks(25);
+            c.check(!(Boolean) c.onClient(mc -> Mod.staticCall(STATE, "anyDone")), "a player's chat marked a commission DONE");
+            // Hypixel's line, while the tab still says 98%.
+            c.hx().chat("ROYAL MINES MITHRIL Commission Complete! Visit the King to claim your rewards!");
+            c.waitUntil("DONE from the line, tab still 98%", mc -> (Boolean) Mod.staticCall(STATE, "anyDone"), 20);
+            c.ctx().waitTicks(25);
+            c.check((Boolean) c.onClient(mc -> Mod.staticCall(STATE, "anyDone")), "the tab's old 98% undid the DONE");
+            // The tab, lagging, still reads 99%: stays DONE. Then a new commission of that name reads 0%: not DONE.
+            mines(c, "Royal Mines", "Royal Mines Mithril: 99%", "Mithril Miner: 10%");
+            c.ctx().waitTicks(25);
+            c.check((Boolean) c.onClient(mc -> Mod.staticCall(STATE, "anyDone")), "a lagging 99% undid the DONE");
+            mines(c, "Royal Mines", "Royal Mines Mithril: 0%", "Mithril Miner: 10%");
+            c.waitUntil("a fresh 0% is not DONE", mc -> !(Boolean) Mod.staticCall(STATE, "anyDone"), 40);
+            c.note("line -> DONE at once; forged lines ignored; lagging tab keeps it; a lower reading ends it");
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.staticCall(CLAIM, "resetForTest"));
+            hub(c);
         }
     }
 }
