@@ -1600,6 +1600,11 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   transaction pings keep the mod's `PerTickServerClock` untrusted and it wobbles 4-8 ticks on a loaded machine. Run such a
   case under `-Pnogrim` with the testmod's `boss.pertickping` (1102-hx-goldor-tick does both, tolerance 1 vs 8), and
   schedule events with `boss.timeline` (START_SERVER_TICK: a `damage` at END_SERVER_TICK sends its health a tick late).
+- (tickfix-1104, 2026-11-04) A lag reading that nets wall time against ticks can pass "a stall reads ~1 s" while the
+  server's catch-up burst afterwards pays it back to 0 (his Split Timers Lag row read 0.00s for that reason). A lag case
+  must drive the clock at real wall pace (Thread.sleep to 50 ms marks), feed the burst after the stall, and check the
+  reading AFTER the burst (1104-logic-split-lag). A Goldor-phase case must hit near (not on) the prediction several
+  times on a trusted clock: on-phase hits never showed the snap walking the phase (1104-logic-goldor-trusted).
 
 - 1102-ui-storagesearch-*: `getInput().holdKey(Ctrl)` + `pressKey(F)` did not reach a Fabric `ScreenKeyboardEvents` handler as
   Ctrl+F on 26.3 (old and new mod jar alike), so a Ctrl shortcut case calls `KeyboardHandler.keyPress(window, PRESS,
