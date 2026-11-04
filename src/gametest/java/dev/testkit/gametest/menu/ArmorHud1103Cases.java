@@ -215,6 +215,18 @@ final class ArmorHud1103Cases {
         return c.onClient(mc -> (Integer) Mod.staticCall(FEAT, "loadoutSwapsForTest"));
     }
 
+    /** Waits for the HUD equipment to read {@code want}; a timeout carries the feature's own state. */
+    private static void ids(Session c, String what, List<String> want) {
+        try {
+            c.waitUntil(what, mc -> want.equals(Mod.staticCall(FEAT, "equipmentIds")), 60);
+        } catch (AssertionError e) {
+            throw new AssertionError(e.getMessage() + " (ids " + c.onClient(mc -> Mod.staticCall(FEAT, "equipmentIds")) + ", last loadout "
+                    + c.onClient(mc -> Mod.staticCall("loadoutkeybinds.LoadoutHighlight", "lastEquippedLoadout")) + ", swaps " + swaps(c)
+                    + ", seen " + c.onClient(mc -> Mod.field(FEAT, "loadoutSeen")) + ", map "
+                    + c.onClient(mc -> String.valueOf(((java.util.Map<?, ?>) Mod.field(FEAT, "BY_LOADOUT")).keySet())) + ")", e);
+        }
+    }
+
     static void loadouts(Session c) throws Exception {
         MenuKit.reset(c);
         int was = c.onClient(mc -> ((Number) Mod.staticCall("loadoutkeybinds.LoadoutHighlight", "lastEquippedLoadout")).intValue());
@@ -252,15 +264,9 @@ final class ArmorHud1103Cases {
             }));
             c.ctx().runOnClient(mc -> Mod.staticCall(FEAT, "reloadCacheForTest"));
             c.hx().chat("§aYou equipped Loadout 1!");
-            c.waitUntil("set A from the reloaded file", mc -> a.equals(Mod.staticCall(FEAT, "equipmentIds")), 60);
+            ids(c, "set A from the reloaded file", a);
             c.hx().chat("§aYou equipped Loadout 2!");
-            try {
-                c.waitUntil("set B from the reloaded file", mc -> b.equals(Mod.staticCall(FEAT, "equipmentIds")), 60);
-            } catch (AssertionError e) {
-                throw new AssertionError(e.getMessage() + " (ids " + c.onClient(mc -> Mod.staticCall(FEAT, "equipmentIds")) + ", last loadout "
-                        + c.onClient(mc -> Mod.staticCall("loadoutkeybinds.LoadoutHighlight", "lastEquippedLoadout")) + ", swaps " + swaps(c) + ", seen "
-                        + c.onClient(mc -> Mod.field(FEAT, "loadoutSeen")) + ", map " + c.onClient(mc -> String.valueOf(((java.util.Map<?, ?>) Mod.field(FEAT, "BY_LOADOUT")).keySet())) + ")", e);
-            }
+            ids(c, "set B from the reloaded file", b);
             c.note("Loadout 1 -> A, 2 -> B, back to 1 shows A with no menu; swaps " + swaps(c) + "; file reload keeps both");
         } finally {
             MenuKit.reset(c);
