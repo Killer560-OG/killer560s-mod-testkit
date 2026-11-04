@@ -128,7 +128,16 @@ final class HxChestGoblin1104Cases {
 
     private static int mobTagged(net.minecraft.client.Minecraft mc, String tag) {
         for (Entity e : mc.level.entitiesForRendering()) {
-            if (e.getTags().contains(tag) && e.isAlive()) {
+            // Tags are server data, so the client mob is told by its name (plain = a zombie with none).
+            String n = e.hasCustomName() ? e.getCustomName().getString() : "";
+            boolean zombie = e instanceof net.minecraft.world.entity.monster.zombie.Zombie;
+            boolean hit = switch (tag) {
+                case "k1104golden" -> n.equals("Golden Goblin");
+                case "k1104diamond" -> n.equals("Diamond Goblin");
+                case "k1104goblin" -> n.equals("Goblin");
+                default -> zombie && n.isEmpty();
+            };
+            if (hit && e.isAlive()) {
                 return e.getId();
             }
         }
