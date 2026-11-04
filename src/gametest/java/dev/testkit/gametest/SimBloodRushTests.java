@@ -1190,13 +1190,26 @@ public class SimBloodRushTests implements FabricClientGameTest {
             problems.add("the box is not in front of the camera");
             return;
         }
-        java.awt.image.BufferedImage on = settledShot(ctx, "on", r);
-        ctx.runOnClient(mc -> brSet("setEnabled", false));
-        java.awt.image.BufferedImage off1 = settledShot(ctx, "off1", r);
-        java.awt.image.BufferedImage off2 = shot(ctx, "off2");
-        int boxPx = diff(on, off1, r);
-        int noise = diff(off1, off2, r);
-        facts.add("PIXELS box on vs off " + boxPx + ", off vs off " + noise);
+        // The on/off pair needs a still scene (off vs off under 40 px). Something passing through the view (2026-11-04,
+        // 26.3 cheat under gate load: noise 2395 with the box at 22233 px) spoils one pair, so up to three pairs are
+        // taken and the first still one is judged; a box that never shows fails on every pair alike.
+        java.awt.image.BufferedImage on = null;
+        java.awt.image.BufferedImage off1 = null;
+        int boxPx = 0;
+        int noise = 0;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            ctx.runOnClient(mc -> brSet("setEnabled", true));
+            on = settledShot(ctx, "on", r);
+            ctx.runOnClient(mc -> brSet("setEnabled", false));
+            off1 = settledShot(ctx, "off1", r);
+            java.awt.image.BufferedImage off2 = shot(ctx, "off2");
+            boxPx = diff(on, off1, r);
+            noise = diff(off1, off2, r);
+            facts.add("PIXELS box on vs off " + boxPx + ", off vs off " + noise + " (pair " + attempt + ")");
+            if (noise < 40) {
+                break;
+            }
+        }
         if (boxPx < 300 || noise >= 40) {
             problems.add("the box is not plainly visible: " + boxPx + " pixels against the helper off (want 300+), noise " + noise);
         }
@@ -1228,6 +1241,10 @@ public class SimBloodRushTests implements FabricClientGameTest {
             brSet("setThroughWalls", false);
             return c;
         });
+        // The scene with the helper off and no wall yet: the wall shots below wait until the wall is drawn over it.
+        ctx.runOnClient(mc -> brSet("setEnabled", false));
+        java.awt.image.BufferedImage preWall = settledShot(ctx, "pre-wall", r);
+        ctx.runOnClient(mc -> brSet("setEnabled", true));
         List<BlockPos> wall = ctx.computeOnClient(mc -> {
             Vec3 eye = mc.player.getEyePosition();
             Vec3 dir = box.getCenter().subtract(eye).normalize();
@@ -1256,7 +1273,14 @@ public class SimBloodRushTests implements FabricClientGameTest {
         ctx.waitTicks(10);
         java.awt.image.BufferedImage wallOff;
         ctx.runOnClient(mc -> brSet("setEnabled", false));
+        // Settled is not enough: a section whose rebuild has not started yet gives two equal shots without the wall
+        // (2026-11-04, 26.3 legit under load: 122201 px "through the wall" was the wall itself, drawn only in the next
+        // shot). Wait until the shot differs plainly from the wall-less scene, then until it is still.
         wallOff = settledShot(ctx, "wall-off", r);
+        for (int i = 0; i < 20 && diff(wallOff, preWall, r) < 1000; i++) {
+            wallOff = settledShot(ctx, "wall-off", r);
+        }
+        facts.add("wall drawn: " + diff(wallOff, preWall, r) + " px against the scene before it");
         ctx.runOnClient(mc -> brSet("setEnabled", true));
         int hidden = diff(settledShot(ctx, "wall-on", r), wallOff, r);
         String walls = "PIXELS behind a " + wall.size() + "-block wall, depth-tested: " + hidden;
