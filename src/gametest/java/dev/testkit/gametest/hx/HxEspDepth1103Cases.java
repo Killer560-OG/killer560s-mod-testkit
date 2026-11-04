@@ -142,7 +142,11 @@ final class HxEspDepth1103Cases {
                     c.ctx().runOnClient(mc -> {
                         Vec3 eye = mc.player.getEyePosition();
                         Vec3 d = box.getCenter().subtract(eye);
-                        mc.player.setYRot((float) Math.toDegrees(Math.atan2(-d.x, d.z)));
+                        // The nearest equal yaw to the current one: a raw atan2 value after another case left the yaw unwrapped is an
+                        // AimModulo360 flag (1103-esp-depth-thru-fill, 2026-11-03).
+                        float want = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+                        float cur = mc.player.getYRot();
+                        mc.player.setYRot(cur + net.minecraft.util.Mth.wrapDegrees(want - cur));
                         mc.player.setXRot((float) Math.toDegrees(Math.atan2(-d.y, Math.hypot(d.x, d.z))));
                     });
                     c.ctx().waitTicks(5);
