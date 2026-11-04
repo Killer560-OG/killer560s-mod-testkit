@@ -178,6 +178,14 @@ final class HxMiningArea1103Cases {
             for (String standIn : new String[]{"Royal Mines", "Upper Mines", "Cliffside Veins"}) {
                 mines(c, standIn, "Upper Mines Mithril: 10%");
                 c.waitUntil("the swap is on (" + standIn + ")", mc -> (Boolean) Mod.staticCall(STONE, "isEnabled"), 40);
+                // isEnabled can still be true from the case before, whose commission wanted other areas: wait until the
+                // mod's tick has taken THIS commission (Cliffside stone, Upper Mines not), then let any section compile
+                // started under the old answer finish before recording, or it records the Upper Mines block as stone
+                // (gate-1104a 26.3 cheat, "standing in Royal Mines").
+                c.waitUntil("the Upper Mines Mithril commission applied (" + standIn + ")",
+                        mc -> (Boolean) Mod.staticCall(STONE, "stoneAt", cliff.getX(), cliff.getY(), cliff.getZ())
+                                && !(Boolean) Mod.staticCall(STONE, "stoneAt", upper.getX(), upper.getY(), upper.getZ()), 40);
+                c.ctx().waitTicks(10);
                 c.ctx().runOnClient(mc -> {
                     Mod.staticCall(STONE, "recordSwapsForTest", true);
                     Mod.staticCall(STONE, "remeshForTest");
