@@ -112,11 +112,11 @@ final class HxSpotifyControlsCases {
         }
     }
 
-    private static Object line(double t, String text) {
+    static Object line(double t, String text) {
         return newRecord("spotify.LyricsEngine$LyricLine", t, text, Mod.staticCall("spotify.LyricTiming", "parse", text, t));
     }
 
-    private static Object snapshot(long playedMs, long sinceMs, List<Object> lines) {
+    static Object snapshot(long playedMs, long sinceMs, List<Object> lines) {
         return newRecord("spotify.LyricsEngine$Snapshot", Mod.enumValue("spotify.NowPlaying$Kind", "TRACK"), "Artist",
                 "Song", playedMs, sinceMs, 200.0, lines, true, false, 0.0, true);
     }
