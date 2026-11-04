@@ -245,6 +245,32 @@ final class BossTimerCases {
                     "trusted=" + Mod.staticCall(CLOCK, "trusted"));
             c.eq("untrusted: 100 client ticks are 100 ticks", 100L, Mod.staticCall(BC, "elapsedSinceGreeting"));
             c.eq("untrusted: no camp lag", 0L, Mod.staticCall(BC, "lagMsSinceGreeting"));
+
+            // goldfix-1104: a quiet GrimAC server pings once a tick and was trusted; each hit then added transactions and
+            // ran the clock ahead (1102-hx-goldor-tick on 26.3 legit: hits read 5, 3, 7, 11). One ping a tick plus 2
+            // extra every 20 ticks: caught once the pings run more than 6 ahead of the wall clock, and not trusted again in
+            // that world, while a plain per-tick server (above, and after a new world) still is.
+            Mod.staticCall(CLOCK, "untrustForTest");
+            serverTicks(40);
+            c.check("a quiet per-tick-looking server is trusted at first", (Boolean) Mod.staticCall(CLOCK, "trusted"),
+                    "trusted=" + Mod.staticCall(CLOCK, "trusted"));
+            long g0 = clock();
+            for (int i = 0; i < 100; i++) {
+                simTick(i % 20 == 10 ? 3 : 1);
+            }
+            long ran = clock() - g0;
+            c.check("pings faster than the server can tick end the trust", !(Boolean) Mod.staticCall(CLOCK, "trusted")
+                    && (Boolean) Mod.staticCall(CLOCK, "notPerTick"), "trusted=" + Mod.staticCall(CLOCK, "trusted")
+                    + " notPerTick=" + Mod.staticCall(CLOCK, "notPerTick"));
+            c.check("the clock ran at most 6 extra ticks in 100 (every extra ping counted would be 10)", ran >= 100 && ran <= 106,
+                    "ran " + ran);
+            serverTicks(60);
+            c.check("not trusted again in the same world", !(Boolean) Mod.staticCall(CLOCK, "trusted"),
+                    "trusted=" + Mod.staticCall(CLOCK, "trusted"));
+            Mod.staticCall(CLOCK, "untrustForTest");
+            serverTicks(40);
+            c.check("a new world starts trusting afresh", (Boolean) Mod.staticCall(CLOCK, "trusted"),
+                    "trusted=" + Mod.staticCall(CLOCK, "trusted"));
         } finally {
             Mod.staticCall(CLOCK, "untrustForTest");
             Mod.staticCall(BC, "reset");
