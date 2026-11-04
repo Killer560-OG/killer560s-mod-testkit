@@ -713,6 +713,8 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         int blind = 0;
         int unloaded = 0;
         List<String> examples = new ArrayList<>();
+        double range = ((Number) dev.testkit.gametest.mod.Mod.field("livemap.predict.RoomPredictor", "RAY_RANGE"))
+                .doubleValue();
         for (int i = from; i < obs.size(); i++) {
             double[] o = (double[]) obs.get(i);
             BlockPos p = BlockPos.containing(o[0], o[1], o[2]);
@@ -721,11 +723,15 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
                 continue;
             }
             audited++;
-            // The recorded ray again, from the recorded eye through the point it met the block: the first block it
-            // meets must be that block, in the world as it stands now (audited before anything else changes it).
+            // The recorded ray again, from the recorded eye through the point it met the block, out to the predictor's
+            // full ray range: the first block it meets must be that block, in the world as it stands now (audited
+            // before anything else changes it). Full range, not just past the hit point (until 2026-11-04): a wall's or
+            // fence's shape stands up to half a block into the cell above it, so the ray can meet it in that cell
+            // before it enters the wall's own; a ray cut off just past the hit point never walks into the wall's cell,
+            // so level.clip never asks the wall and the audit read a seen wall as blind (cobblestone walls, 1-3 a run).
             Vec3 eye = new Vec3(o[3], o[4], o[5]);
             Vec3 at = new Vec3(o[6], o[7], o[8]);
-            Vec3 past = at.add(at.subtract(eye).normalize().scale(0.05));
+            Vec3 past = eye.add(at.subtract(eye).normalize().scale(range));
             HitResult again = mc.level.clip(new ClipContext(eye, past, ClipContext.Block.VISUAL, ClipContext.Fluid.NONE,
                     mc.player));
             boolean visible = again instanceof BlockHitResult br && again.getType() == HitResult.Type.BLOCK
@@ -734,7 +740,9 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
                 blind++;
                 if (examples.size() < 6) {
                     examples.add(mc.level.getBlockState(p).getBlock() + " at " + p.toShortString() + " from "
-                            + String.format(Locale.ROOT, "%.1f,%.1f,%.1f", o[3], o[4], o[5]));
+                            + String.format(Locale.ROOT, "%.1f,%.1f,%.1f", o[3], o[4], o[5]) + " now "
+                            + (again instanceof BlockHitResult b2 ? b2.getType() + " " + b2.getBlockPos().toShortString()
+                            : String.valueOf(again)));
                 }
             }
         }
