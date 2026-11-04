@@ -148,6 +148,10 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   cursor, ~55 px tall for a room): 851's inner corner sampled the tooltip's background (262320 / 27221D) at zoom 1 and now
   zooms 4x on the tile first. A HUD map fill count must skip fills nested in another: the Player Head marker (12 units plus
   a black frame, default on) is room-sized and was counted as a room by 1015-noamm-map (mapfail-1104).
+- Four `run-scenario.ps1` runs started from one PowerShell script with `Start-Job` (three in brand-new worktrees) all
+  ended "TIMED OUT after 240 s" with no client started (mapfail-1104). The same four ran fine after
+  `./gradlew compileGametestJava` in each new worktree, each started as its own PowerShell tool background command with
+  `-TimeoutSeconds 900`. Which change fixed it was not isolated, so for a parallel load check do all three.
 
 - A server `fill`/`setblock` in chunks no player has loaded does nothing (2026-11-03, 1103-mining-route arena: the first
   case's floor never appeared), and teleporting there first so he falls onto a floor placed under him drew 7 GrimAC
