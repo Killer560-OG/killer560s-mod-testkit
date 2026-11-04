@@ -49,6 +49,7 @@ final class InventoryCases {
         ContainerCoverCases.register(s);
         InvSortDocCases.register(s);
         InvSort1103Cases.register(s);
+        InvSortDump1104Cases.register(s);
         ItemUiMenuCases.register(s);
         // ---- 1361-1364 Loadout Keybinds per-key mode (loadout-modes, 2026-10-13) ----
         LoadoutModeCases.register(s);
