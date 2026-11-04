@@ -114,6 +114,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxBlazeWater1103Cases.register(s);
                     HxDioriteGlass1103Cases.register(s);
                     HxEspDepth1103Cases.register(s);
+                    HxPortalPixels1103Cases.register(s);
                     // Pickobulus timer and Commission HUD progress between tab refreshes (1103-mining-pick-timer,
                     // 1103-mining-com-progress*, mod mithril-interp-1103).
                     HxMiningInterp1103Cases.register(s);
