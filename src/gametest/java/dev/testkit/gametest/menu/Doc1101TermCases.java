@@ -33,6 +33,8 @@ final class Doc1101TermCases {
         MenuSuite.test(s, "1101-menu-term-human-melody-preaim", Doc1101TermCases::melodyPreAim);
         MenuSuite.test(s, "1101-menu-term-hover-gap300", c -> hoverGap(c, 300));
         MenuSuite.test(s, "1101-menu-term-hover-gap0", c -> hoverGap(c, 0));
+        MenuSuite.test(s, "1103-menu-term-firstdelay-fake", c -> firstDelay(c, true));
+        MenuSuite.test(s, "1103-menu-term-firstdelay-minmax", c -> firstDelay(c, false));
         MenuSuite.test(s, "1101-menu-melody-intel", Doc1101TermCases::melodyIntel);
         MenuSuite.test(s, "1101-menu-autosprint", Doc1101TermCases::autoSprint);
     }
@@ -278,6 +280,71 @@ final class Doc1101TermCases {
     }
 
     static final String CURSOR = "terminals.FakeCursor";
+
+    /**
+     * First Click Delay (2026-11-03): 0, 150 and 300 ms, in Stream Safe and in Min/Max mode. The first click of a Panes
+     * terminal comes no earlier than the delay itself after it opened (the delay REPLACES the old 500 ms settle; server ticks
+     * of 50 ms, one tick of slack; 0 ms clicks within the first ticks), and not absurdly later; a click actually happened and the terminal solved with none wrong.
+     * The setting also reads back, and the 300 ms first click comes at least ~4 ticks after the 0 ms one.
+     */
+    static void firstDelay(Session c, boolean fake) throws Exception {
+        MenuKit.reset(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto Terminals is cheat-only");
+            return;
+        }
+        TerminalCases.Spec spec = TerminalCases.SPECS.get(0);
+        List<String> problems = new ArrayList<>();
+        List<String> notes = new ArrayList<>();
+        long[] firstTicks = new long[3];
+        int[] delays = {0, 150, 300};
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutoTerminalsEnabled", true).set(CONFIG, spec.auto(), true)
+                    .set(CONFIG, "CustomGuiEnabled", true).set(CONFIG, "HoverTerminalsEnabled", false)
+                    .set(CONFIG, "HoldToClickEnabled", false).set(CONFIG, "CursorMissChance", 0).set(CONFIG, "CursorOvershootChance", 0)
+                    .set(CONFIG, "CursorReactionMs", 60).set(CONFIG, "FakeCursorSpeed", 300).set(CONFIG, "AutoStreamSafe", fake);
+            for (int i = 0; i < delays.length; i++) {
+                int d = delays[i];
+                cfg.set(CONFIG, "FirstClickDelayMs", d);
+                int back = c.onClient(mc -> (Integer) Mod.get(CONFIG, "getFirstClickDelayMs"));
+                if (back != d) {
+                    problems.add("First Click Delay " + d + " read back as " + back);
+                }
+                int solvedBefore = c.events("terminal.solved").size();
+                int before = c.events("terminal.click").size();
+                JsonObject t = TerminalCases.open(c, spec);
+                MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
+                c.waitUntil("delay " + d + " solved", mc -> c.events("terminal.solved").size() > solvedBefore, 900);
+                JsonObject solved = c.events("terminal.solved").get(c.events("terminal.solved").size() - 1);
+                MenuKit.awaitNoScreen(c, 60);
+                c.ctx().waitTicks(5);
+                List<JsonObject> evs = c.events("terminal.click");
+                if (evs.size() <= before) {
+                    problems.add("delay " + d + ": no click happened");
+                    continue;
+                }
+                if (solved.get("wrong").getAsInt() > 0) {
+                    problems.add("delay " + d + ": " + solved.get("wrong").getAsInt() + " wrong clicks");
+                }
+                long first = evs.get(before).get("tick").getAsLong() - solved.get("openedTick").getAsLong();
+                firstTicks[i] = first;
+                long min = d / 50 - 1;
+                long max = d / 50 + 8 + (fake ? 40 : 6);
+                if (first < min || first > max) {
+                    problems.add("delay " + d + ": first click " + first + " ticks after opening, expected " + min + ".." + max);
+                }
+                notes.add("delay " + d + ": first click " + first + " ticks (" + (first * 50) + " ms) after opening");
+            }
+            if (!fake && firstTicks[0] > 0 && firstTicks[2] > 0 && firstTicks[2] - firstTicks[0] < 4) {
+                problems.add("300 ms first click only " + (firstTicks[2] - firstTicks[0]) + " ticks later than 0 ms");
+            }
+        } finally {
+            MenuKit.reset(c);
+        }
+        c.note((fake ? "Stream Safe" : "Min/Max") + ": " + notes);
+        c.check(problems.isEmpty(), "problems: " + problems);
+    }
+
 
     /**
      * Stream Safe at the new top speed (300%): the setting takes 300 (it was capped at 200), two solves with zero wrong
