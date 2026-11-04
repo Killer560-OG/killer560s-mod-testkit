@@ -243,6 +243,13 @@ final class ArmorHud1103Cases {
             c.hx().chat("§aYou equipped Loadout 2!");
             c.waitUntil("Loadout 2's set B is back", mc -> b.equals(Mod.staticCall(FEAT, "equipmentIds")), 60);
             // The file keeps both loadouts: forget memory, read the file, swap again.
+            c.note("cache file before the reload: " + c.onClient(mc -> {
+                try {
+                    return java.nio.file.Files.readString((java.nio.file.Path) Mod.field(FEAT, "CACHE_PATH"));
+                } catch (Exception e) {
+                    return e.toString();
+                }
+            }));
             c.ctx().runOnClient(mc -> Mod.staticCall(FEAT, "reloadCacheForTest"));
             c.hx().chat("§aYou equipped Loadout 1!");
             c.waitUntil("set A from the reloaded file", mc -> a.equals(Mod.staticCall(FEAT, "equipmentIds")), 60);
