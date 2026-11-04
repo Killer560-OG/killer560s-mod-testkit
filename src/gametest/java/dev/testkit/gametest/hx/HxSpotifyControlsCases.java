@@ -519,6 +519,7 @@ final class HxSpotifyControlsCases {
         Path file = (Path) c.onClient(mc -> Mod.field(TAGC, "CONFIG_PATH"));
         byte[] orig = Files.exists(file) ? Files.readAllBytes(file) : null;
         try {
+            Files.createDirectories(file.getParent());
             Files.writeString(file, "{\"lyricsOverHead\":false,\"shareSong\":false}");
             boolean legacy = c.onClient(mc -> { Mod.staticCall(TAGC, "load"); return (Boolean) Mod.get(TAGC, "isLyricsOverHead"); });
             c.check(legacy, "an old file with lyricsOverHead=false (the old default) did not load ON");
@@ -543,14 +544,14 @@ final class HxSpotifyControlsCases {
     private static void f5Hypixel(Session c) throws Exception {
         c.check(has(c), "this jar has no My Lyrics In F5");
         long now = System.currentTimeMillis();
-        List<Object> lines = c.onClient(mc -> List.of(line(0.0, "the first line"), line(4.0, "Hello from the lyric"),
+        List<Object> lines = c.onClient(mc -> List.of(line(0.0, "the first line"), line(4.0, "<0:04.00>Hello <0:04.60>from <0:05.20>the <0:05.80>lyric"),
                 line(600.0, "much later")));
         Object snap = c.onClient(mc -> snapshot(5000, now, lines));
         UUID self = c.onClient(mc -> mc.player.getUUID());
         Object savedMap = c.onClient(mc -> Mod.field(SF, "byUuid"));
         String list = "[{\"uuid\":\"" + self + "\",\"name\":\"\",\"scale\":1}]";
         try (Settings s = new Settings(c).with(TAGC, "LyricsOverHead", true).with(TAGC, "ShareSong", true)
-                .with(TAGC, "SongInF5", true).with(TAGC, "HighlightWordInF5", true).with(SC, "OwnNameInF5", false)) {
+                .with(TAGC, "SongInF5", true).with(TAGC, "ShareWhat", Mod.enumValue("spotify.SongShareConfig$ShareWhat", "BOTH")).with(TAGC, "ShareWord", true).with(TAGC, "HighlightWordInF5", true).with(SC, "OwnNameInF5", false)) {
             c.onClient(mc -> {
                 Mod.setField(SLF, "testSnapshot", snap);
                 Mod.setField(SH, "testNowPlaying", Mod.staticCall("spotify.NowPlaying", "track", "Artist", "Song"));
