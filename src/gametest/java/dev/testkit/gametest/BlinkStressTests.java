@@ -89,10 +89,9 @@ public class BlinkStressTests implements FabricClientGameTest {
     private static final class Rows {
         final List<String> rows = new ArrayList<>();
         final List<String> bad = new ArrayList<>();
-        int kept;
 
         void add(TestServer server, Scenario scenario, String label, boolean ok, String detail) {
-            add(server, scenario, label, ok, detail, false);
+            add(server, scenario, label, ok, detail, null);
         }
 
         /**
@@ -101,13 +100,13 @@ public class BlinkStressTests implements FabricClientGameTest {
          * accepts that GrimAC flags the next shot), so its flags are recorded, not failed.
          */
         void addKept(TestServer server, Scenario scenario, String label, boolean ok, String detail) {
-            add(server, scenario, label, ok, detail, true);
+            add(server, scenario, label, ok, detail, KEPT);
         }
 
         /** {@link #addKept} after 60 ticks, so GrimAC's setback of the shot lands in this row and not the next. */
         void addKept(ClientGameTestContext ctx, TestServer server, Scenario scenario, String label, boolean ok, String detail) {
             ctx.waitTicks(60);
-            add(server, scenario, label, ok, detail, true);
+            add(server, scenario, label, ok, detail, KEPT);
         }
 
         /**
@@ -118,18 +117,18 @@ public class BlinkStressTests implements FabricClientGameTest {
         void addTimerLimit(TestServer server, Scenario scenario, String label, boolean ok, String detail, int max) {
             List<String> flags = scenario.flags();
             boolean only = flags.size() <= max && flags.stream().allMatch(f -> f.contains("TimerLimit"));
-            add(server, scenario, label, ok, detail, only);
+            add(server, scenario, label, ok, detail, only ? "up to " + max + " TimerLimit from the lag spike, owner 2026-11-04" : null);
         }
 
-        void add(TestServer server, Scenario scenario, String label, boolean ok, String detail, boolean flagsExpected) {
-            if (flagsExpected) {
-                kept++;
-            }
+        static final String KEPT = "bank kept through a teleport, owner 2026-10-27";
+
+        /** {@code accepted}: why this row's flags are expected (null: none are). */
+        void add(TestServer server, Scenario scenario, String label, boolean ok, String detail, String accepted) {
+            boolean flagsExpected = accepted != null;
             List<String> flags = scenario.flags();
             boolean clean = flags.isEmpty() || flagsExpected;
             String row = String.format(Locale.ROOT, "%-28s %s %s; %s", label, ok ? "acted" : "DID NOT ACT", detail,
-                    flags.isEmpty() ? "clean" : flags.size() + " flag(s)" + (flagsExpected ? " (expected: bank kept through a "
-                            + "teleport, owner 2026-10-27)" : "") + ": " + firstChecks(flags));
+                    flags.isEmpty() ? "clean" : flags.size() + " flag(s)" + (flagsExpected ? " (expected: " + accepted + ")" : "") + ": " + firstChecks(flags));
             rows.add(row);
             scenario.log(row);
             if (!ok || !clean) {
