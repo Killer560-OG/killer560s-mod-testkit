@@ -38,6 +38,10 @@ public class HxChestMenu extends ChestMenu {
         }
     }
 
+    /** Set by a script during a click: this click gets NO answer at all (no re-send), the way a server that rejects or
+     *  drops a click leaves the client's own prediction standing. Cleared after the click. */
+    public boolean silentNext;
+
     private final SimpleContainer items;
     private final String scriptName;
     private final String title;
@@ -94,6 +98,10 @@ public class HxChestMenu extends ChestMenu {
             }
         }
         setCarried(ItemStack.EMPTY);
+        if (silentNext) {
+            silentNext = false;
+            return;
+        }
         broadcastFullState();
     }
 
