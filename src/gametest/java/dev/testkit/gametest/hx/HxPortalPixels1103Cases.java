@@ -146,7 +146,8 @@ final class HxPortalPixels1103Cases {
         Vec3 home = c.onClient(mc -> mc.player.position());
         c.server().command("forceload add " + (AT_X - 16) + " " + (AT_Z - 16) + " " + (AT_X + 16) + " " + (AT_Z + 16));
         fill(c, AT_X - 8, AT_Y - 1, AT_Z - 2, AT_X + 10, AT_Y - 1, AT_Z + 12, "minecraft:stone");
-        c.server().command("tp @a " + AT_X + ".5 " + AT_Y + " " + AT_Z + ".5 0 0");
+        // AT_X + 0.5, not AT_X + ".5": "-300.5" is block -301.
+        c.server().command("tp @a " + (AT_X + 0.5) + " " + AT_Y + " " + (AT_Z + 0.5) + " 0 0");
         c.waitUntil("standing at the portal spot", mc -> mc.player.blockPosition().equals(new BlockPos(AT_X, AT_Y, AT_Z)), 100);
         c.ctx().waitTicks(20);
         try {
