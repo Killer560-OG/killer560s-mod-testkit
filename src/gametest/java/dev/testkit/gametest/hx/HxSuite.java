@@ -110,6 +110,7 @@ public class HxSuite implements FabricClientGameTest {
                     // Per-block commission areas, event-driven highlights, carpet stability (1103-mining-block-area,
                     // -highlight-latency, -carpet-stable; mod mithrilarea-1103).
                     HxMiningArea1103Cases.register(s);
+                    HxCrystalWalls1104Cases.register(s);
                     // Blaze Solver boxes against water behind / in front / around (1103-blaze-water, mod blazewater-1103).
                     HxBlazeWater1103Cases.register(s);
                     HxDioriteGlass1103Cases.register(s);
