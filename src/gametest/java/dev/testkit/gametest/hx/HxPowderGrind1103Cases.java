@@ -137,6 +137,28 @@ final class HxPowderGrind1103Cases {
             c.waitUntil("chest then line claimed", mc -> (Boolean) Mod.staticCall(TC, "tracked", bx - 3, by, bz + 1), 40);
             c.check(intCall(c, TC, "claims") == claims0 + 2, "claims " + (intCall(c, TC, "claims") - claims0));
 
+            // Opening a chest drops THAT chest, not the nearest (killer560, 2026-11-03). Each of two chests is opened in turn:
+            // a nearest-chest rule drops the same one both times, so it fails one round whatever the distances are.
+            int[][] two = {{bx + 3, by, bz + 1}, {bx - 3, by, bz + 1}};
+            for (int round = 0; round < 2; round++) {
+                int[] open = two[round];
+                int[] other = two[1 - round];
+                c.check(tracked(c, open[0], open[1], open[2]) && tracked(c, other[0], other[1], other[2]),
+                        "round " + round + ": both chests tracked before opening");
+                c.ctx().runOnClient(mc -> {
+                    Mod.staticCall(TC, "onUseBlock", new net.minecraft.core.BlockPos(open[0], open[1], open[2]));
+                    Mod.staticCall(TC, "onLooted");
+                });
+                c.check(!tracked(c, open[0], open[1], open[2]), "round " + round + ": the opened chest kept its highlight");
+                c.check(tracked(c, other[0], other[1], other[2]), "round " + round + ": the other chest lost its highlight");
+                // Put the opened chest back as a fresh claim for the next round.
+                setblock(c, open[0], open[1], open[2], "minecraft:air");
+                c.ctx().waitTicks(5);
+                c.hx().chat(UNCOVERED);
+                setblock(c, open[0], open[1], open[2], "minecraft:chest");
+                c.waitUntil("round " + round + " re-claimed", mc -> (Boolean) Mod.staticCall(TC, "tracked", open[0], open[1], open[2]), 40);
+            }
+
             // A chest block gone: dropped.
             setblock(c, bx + 3, by, bz + 1, "minecraft:air");
             c.waitUntil("a gone chest is dropped", mc -> !(Boolean) Mod.staticCall(TC, "tracked", bx + 3, by, bz + 1), 40);
