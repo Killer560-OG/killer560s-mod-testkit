@@ -61,6 +61,7 @@ final class HxScoreboardCases {
         s.test("1666-hx-sb-settings-page", HxScoreboardCases::settingsPage);
         s.test("1667-hx-sb-shot", HxScoreboardCases::shot);
         HxScoreboardAnchorCases.register(s);
+        HxBzScoreboard1104Cases.register(s);
     }
 
     // ---- helpers ----------------------------------------------------------------------------------------------------
