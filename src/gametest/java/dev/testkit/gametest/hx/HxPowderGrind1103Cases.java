@@ -137,6 +137,31 @@ final class HxPowderGrind1103Cases {
             c.waitUntil("chest then line claimed", mc -> (Boolean) Mod.staticCall(TC, "tracked", bx - 3, by, bz + 1), 40);
             c.check(intCall(c, TC, "claims") == claims0 + 2, "claims " + (intCall(c, TC, "claims") - claims0));
 
+            // Opening the FARTHER of two chests drops that one, not the nearest (killer560, 2026-11-03).
+            int[][] two = {{bx + 3, by, bz + 1}, {bx - 3, by, bz + 1}};
+            double d0 = c.onClient(mc -> mc.player.getEyePosition().distanceToSqr(two[0][0] + 0.5, two[0][1] + 0.5, two[0][2] + 0.5));
+            double d1 = c.onClient(mc -> mc.player.getEyePosition().distanceToSqr(two[1][0] + 0.5, two[1][1] + 0.5, two[1][2] + 0.5));
+            if (Math.abs(d0 - d1) < 0.01) {
+                c.ctx().runOnClient(mc -> { mc.player.snapTo(bx + 1.5, mc.player.getY(), bz + 1.5, mc.player.getYRot(), mc.player.getXRot()); return null; });
+                c.ctx().waitTicks(2);
+                d0 = c.onClient(mc -> mc.player.getEyePosition().distanceToSqr(two[0][0] + 0.5, two[0][1] + 0.5, two[0][2] + 0.5));
+                d1 = c.onClient(mc -> mc.player.getEyePosition().distanceToSqr(two[1][0] + 0.5, two[1][1] + 0.5, two[1][2] + 0.5));
+            }
+            int[] far = d0 > d1 ? two[0] : two[1];
+            int[] near = d0 > d1 ? two[1] : two[0];
+            c.check(Math.abs(d0 - d1) >= 0.01, "the two chests are equally far, the case proves nothing");
+            c.ctx().runOnClient(mc -> { Mod.staticCall(TC, "onUseBlock", new net.minecraft.core.BlockPos(far[0], far[1], far[2])); Mod.staticCall(TC, "onLooted"); return null; });
+            c.check(!tracked(c, far[0], far[1], far[2]), "the opened (farther) chest kept its highlight");
+            c.check(tracked(c, near[0], near[1], near[2]), "the nearer chest lost its highlight when the farther one was opened");
+            c.ctx().runOnClient(mc -> { Mod.staticCall(TC, "onLooted"); return null; });
+            c.check(!tracked(c, near[0], near[1], near[2]), "with no click remembered, the nearest chest was not dropped");
+            setblock(c, bx + 3, by, bz + 1, "minecraft:air");
+            setblock(c, bx - 3, by, bz + 1, "minecraft:air");
+            c.ctx().waitTicks(5);
+            c.hx().chat(UNCOVERED);
+            setblock(c, bx + 3, by, bz + 1, "minecraft:chest");
+            c.waitUntil("re-claimed for the gone-block check", mc -> (Boolean) Mod.staticCall(TC, "tracked", bx + 3, by, bz + 1), 40);
+
             // A chest block gone: dropped.
             setblock(c, bx + 3, by, bz + 1, "minecraft:air");
             c.waitUntil("a gone chest is dropped", mc -> !(Boolean) Mod.staticCall(TC, "tracked", bx + 3, by, bz + 1), 40);
