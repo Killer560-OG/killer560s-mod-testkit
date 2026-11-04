@@ -72,12 +72,15 @@ public class WorldExportTests implements FabricClientGameTest {
                     });
         }
         if (!ok) {
-            for (String n : new String[]{"1103-worldexport-export", "1103-worldexport-reload-fairy"}) {
+            for (String n : new String[]{"1103-worldexport-export", "1103-worldexport-reload-fairy", "1104-worldexport-guide"}) {
                 if (!Scenario.skip(n)) {
                     Scenario.skipped(n, "the world exporter is cheat dev builds only");
                 }
             }
             return;
+        }
+        if (!Scenario.skip("1104-worldexport-guide")) {
+            guideCase(ctx);
         }
         boolean built = false;
         if (!Scenario.skip("1103-worldexport-export")) {
@@ -94,6 +97,92 @@ public class WorldExportTests implements FabricClientGameTest {
             }
             reloadCase(ctx);
         }
+    }
+
+    // ------------------------------------------------------------------ capture area and end-of-walk guide
+
+    /**
+     * 1104-worldexport-guide (killer560, 2026-11-04: highlight the chunk to scan and a line to it near the end): with an
+     * area one column of chunks larger than what the client holds, the guide must pick a MISSING chunk, the nearest one,
+     * from the tick; a far area (most chunks missing) shows nothing; the area survives a reload from its file; an export
+     * keeps only chunks inside the area.
+     */
+    @SuppressWarnings("unchecked")
+    private static void guideCase(ClientGameTestContext ctx) {
+        System.setProperty("killer560.worldexport.dir", TestServer.savesDir().resolve("wex-guide").toString());
+        Scenario.run(ctx, "1104-worldexport-guide", (server, scenario) -> TestMap.on(server).survival().build(),
+                (server, scenario) -> {
+                    server.sync(60);
+                    ctx.waitTicks(60);
+                    java.util.Set<Long> have = new java.util.HashSet<>((java.util.Set<Long>) ctx.computeOnClient(mc ->
+                            ((java.util.Map<Long, ?>) Mod.staticCall("worldexport.WorldExporter", "collect", mc.level)).keySet()));
+                    int minX = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
+                    for (long k : have) {
+                        minX = Math.min(minX, net.minecraft.world.level.ChunkPos.getX(k));
+                        maxX = Math.max(maxX, net.minecraft.world.level.ChunkPos.getX(k));
+                        minZ = Math.min(minZ, net.minecraft.world.level.ChunkPos.getZ(k));
+                        maxZ = Math.max(maxZ, net.minecraft.world.level.ChunkPos.getZ(k));
+                    }
+                    scenario.log("client holds " + have.size() + " chunks, box " + minX + "," + minZ + " to " + maxX + "," + maxZ);
+                    if (have.size() < 30) {
+                        throw new AssertionError("too few chunks loaded to test the guide: " + have.size());
+                    }
+                    int[] pc = ctx.computeOnClient(mc -> new int[]{mc.player.blockPosition().getX() >> 4,
+                            mc.player.blockPosition().getZ() >> 4});
+
+                    // 1. one missing column on the +x side: the tick must highlight the nearest missing chunk
+                    Mod.staticCall("worldexport.CaptureGuide", "setArea", minX, minZ, maxX + 1, maxZ);
+                    Mod.staticCall("worldexport.EntityRecorder", "setRecording", true);
+                    ctx.waitTicks(40);
+                    int[] t = (int[]) Mod.staticCall("worldexport.CaptureGuide", "target");
+                    if (t == null) {
+                        throw new AssertionError("the guide shows nothing with one column of chunks missing (counts "
+                                + java.util.Arrays.toString((int[]) Mod.staticCall("worldexport.CaptureGuide", "lastCounts")) + ")");
+                    }
+                    if (t[0] != maxX + 1 || t[1] < minZ || t[1] > maxZ || have.contains(net.minecraft.world.level.ChunkPos.pack(t[0], t[1]))) {
+                        throw new AssertionError("the guide targets " + t[0] + "," + t[1] + ", not a missing chunk of column " + (maxX + 1));
+                    }
+                    int best = Integer.MAX_VALUE;
+                    for (int z = minZ; z <= maxZ; z++) {
+                        best = Math.min(best, (maxX + 1 - pc[0]) * (maxX + 1 - pc[0]) + (z - pc[1]) * (z - pc[1]));
+                    }
+                    int got = (t[0] - pc[0]) * (t[0] - pc[0]) + (t[1] - pc[1]) * (t[1] - pc[1]);
+                    if (got != best) {
+                        throw new AssertionError("the guide's chunk is at squared distance " + got + ", the nearest missing is " + best);
+                    }
+                    scenario.log("PASS guide targets missing chunk " + t[0] + "," + t[1] + " (nearest of the missing column)");
+
+                    // 2. a far-off area: nearly all missing, so no guide
+                    Mod.staticCall("worldexport.CaptureGuide", "setArea", minX, minZ, maxX + 60, maxZ + 60);
+                    ctx.waitTicks(40);
+                    if (Mod.staticCall("worldexport.CaptureGuide", "target") != null) {
+                        throw new AssertionError("the guide shows with most of the area missing");
+                    }
+                    scenario.log("PASS no guide while most of the area is missing");
+
+                    // 3. the area survives a restart (memory dropped, read from area.json)
+                    Mod.staticCall("worldexport.CaptureGuide", "setArea", minX, minZ, maxX + 1, maxZ);
+                    Mod.staticCall("worldexport.CaptureGuide", "forgetMemory");
+                    int[] back = (int[]) Mod.staticCall("worldexport.CaptureGuide", "area");
+                    if (back == null || back[0] != minX || back[1] != minZ || back[2] != maxX + 1 || back[3] != maxZ) {
+                        throw new AssertionError("the area did not reload: " + java.util.Arrays.toString(back));
+                    }
+                    scenario.log("PASS area reloads from its file");
+
+                    // 4. an export keeps only chunks inside the area
+                    Mod.staticCall("worldexport.EntityRecorder", "setRecording", false);
+                    Mod.staticCall("worldexport.CaptureGuide", "setArea", minX, minZ, minX + 1, minZ + 1);
+                    Object result = ctx.computeOnClient(mc -> Mod.staticCall("worldexport.WorldExporter", "export", mc.level, "guide-crop"));
+                    int chunks = ((Number) Mod.call(result, "chunks")).intValue();
+                    if (chunks < 1 || chunks > 4 || chunks >= have.size()) {
+                        throw new AssertionError("export kept " + chunks + " chunks for a 2x2 area (client held " + have.size() + ")");
+                    }
+                    scenario.log("PASS export cropped to the area: " + chunks + " of " + have.size() + " chunks");
+                    Mod.staticCall("worldexport.CaptureGuide", "clearArea");
+                    if (Mod.staticCall("worldexport.CaptureGuide", "area") != null) {
+                        throw new AssertionError("clearArea left an area");
+                    }
+                });
     }
 
     private static String id(net.minecraft.world.level.block.state.BlockState s) {
