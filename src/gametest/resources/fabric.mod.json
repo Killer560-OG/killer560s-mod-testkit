@@ -151,6 +151,7 @@
 			"dev.testkit.gametest.SimArrowTrapMapTests",
 			"dev.testkit.gametest.SimLeaveLoopTests",
 			"dev.testkit.gametest.SimThreadTests",
+			"dev.testkit.gametest.SimHeapHopTests",
 			"dev.testkit.gametest.SimEssenceAuraTests",
 			"dev.testkit.gametest.SimAuraRebuildTests",
 			"dev.testkit.gametest.SimSealTests",
