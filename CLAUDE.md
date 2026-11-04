@@ -639,3 +639,13 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
   the tag for the server's `kill @e[tag=...]` cleanup.
 - SimBossTests / SimQuizCooldownTests cases (1102-boss-maxorcrys, 1017-sim-quiz-timing) named alone report 0 passed and a vacuous pass; run them as `-Scenario "500-boss-session:,1102-boss-maxorcrys,1017-sim-quiz-timing"` and read the [STDOUT] PASS line in build/run/clientGameTest/logs/latest.log (timerlag-1103, 2026-11-03). 1103-logic-timer-lag drives PerTickServerClock by hand (a live `/tick rate` slows the client's ticks too, so it cannot make the client run ahead of the server).
 - Opening a real chest from a MenuSuite case (1104-invsort-dump-*): `mc.gameMode.useItemOn` with no look flags RotationPlace (and a server `tp ... facing` did not move the client look). Set the client yaw/pitch toward the block (InvWalkCampaignTests.look), wait 3 ticks, then `getInput().pressKey(o -> o.keyUse)`.
+
+- Map cases that read Predictive Rooms (1101-map-predicted-gray, so 1101-map-prerun as a whole) must clear `SimRoomState` first: it is
+  keyed by room NAME and earlier cases of the suite leave rooms "cleared", so a floor whose first room shares a name (Museum, Mines...)
+  draws no prediction, about every other run (f3f841a6, merged into prerun-1104 2026-11-04; it had sat unmerged on flaky-1104 while
+  handsizeA4/sizeA gates failed on it). A case also waits for `SimRun.hasStarted()` and `HeldMap.emulated()` (no held map before GO).
+- 75-sim-map-editor-filters failed once in a 4-client run and passed solo (prerun-1104): the designer's Generate is random with 12 whole-
+  floor tries and a 400 ms retry budget; a 1x1-only filter is a hard layout (most tries miss cells) and under load the wall-clock budget
+  stopped it at 11 floors, so the plan fell back with "filters too strict" and 3 checks failed. The mod's budget now counts thread CPU
+  time (km 195e48f88) and the case presses Generate again (up to 5) when a feasible set falls back (`generateFeasible`). The log line
+  to look for: "Sim floor: stopped after N whole floor(s), M ms". A case asserting a generator outcome needs this kind of retry.

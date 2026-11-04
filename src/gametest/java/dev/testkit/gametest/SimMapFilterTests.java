@@ -128,8 +128,7 @@ public class SimMapFilterTests implements FabricClientGameTest {
         }
 
         // ---- 2. Generate with those filters --------------------------------------------------------------------
-        click(ctx, "Generate");
-        Object plan = generated(ctx);
+        Object plan = generateFeasible(ctx);
         check(plan != null, "Generate with filters left no plan");
         if (plan != null) {
             String note = (String) call(ctx, plan, "filterNote");
@@ -167,8 +166,7 @@ public class SimMapFilterTests implements FabricClientGameTest {
         click(ctx, allowed.get(1));
         click(ctx, allowed.get(2));
         click(ctx, "Done");
-        click(ctx, "Generate");
-        plan = generated(ctx);
+        plan = generateFeasible(ctx);
         if (plan != null) {
             String note = (String) call(ctx, plan, "filterNote");
             int placed = (Integer) call(ctx, plan, "placedPuzzles");
@@ -402,6 +400,29 @@ public class SimMapFilterTests implements FabricClientGameTest {
     }
 
     // ---- real input ------------------------------------------------------------------------------------------------
+
+    /**
+     * Presses Generate for a filter set that IS feasible. The generator is random with a bounded retry budget and a 1x1-only
+     * floor is a hard layout (about one whole floor in several is exact), so now and then every try misses and it falls back
+     * with "filters too strict" (prerun-1104: 75 failed once in a sharded run, passed solo). That is luck, not the filter
+     * logic under test, so press again up to 5 times; the impossible-filter step (4) does not use this.
+     */
+    private Object generateFeasible(ClientGameTestContext ctx) {
+        Object plan = null;
+        for (int attempt = 1; attempt <= 5; attempt++) {
+            click(ctx, "Generate");
+            plan = generated(ctx);
+            if (plan == null) {
+                return null;
+            }
+            String note = (String) call(ctx, plan, "filterNote");
+            if (note == null || !note.startsWith("filters too strict")) {
+                return plan;
+            }
+            println("Generate fell back ('" + note + "') on attempt " + attempt + "; pressing again");
+        }
+        return plan;
+    }
 
     /** Clicks the visible control whose label (color codes stripped) is exactly {@code text}, or starts with it. */
     private void click(ClientGameTestContext ctx, String text) {

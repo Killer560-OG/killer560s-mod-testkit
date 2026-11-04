@@ -462,6 +462,33 @@ public class SimMapPrerunTests implements FabricClientGameTest {
             ctx.waitTick();
             w.sample(ctx);
         }
+        // SimRoomState is keyed by room NAME and an earlier case of this suite (prerun-start, seethrough: rooms walked through
+        // and cleared by Insta Clear) leaves its rooms "cleared" in it. When this floor's first room shares a name with one of
+        // them (about every other run: Museum, Mines, Chains...) the map reads it as a cleared room and "already names" it, so
+        // Predictive Rooms draws nothing (visibleState 1 = STATE_CLEARED in the failing runs' diagnostics, 2026-11-03). A real
+        // run starts with the state cleared; do the same, then require that the map agrees the room is unopened so the
+        // case cannot pass or fail on leftovers again.
+        ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRoomState", "clear"));
+        int[] firstTiles = f.tiles.get(firstRoom);
+        int settled = -1;
+        for (int i = 0; i < 200 && settled < 0; i++) {
+            boolean named = ctx.computeOnClient(mc -> {
+                try {
+                    Class<?> pp = Class.forName("com.killer560.hub.livemap.PredictedRoomsPainter");
+                    java.lang.reflect.Method an = pp.getDeclaredMethod("alreadyNamed", int[].class);
+                    an.setAccessible(true);
+                    return (Boolean) an.invoke(null, (Object) firstTiles);
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError("PredictedRoomsPainter.alreadyNamed: " + e, e);
+                }
+            });
+            if (!named) {
+                settled = i;
+            } else {
+                ctx.waitTick();
+            }
+        }
+        println("gray: map agreed the first room is unopened after " + settled + " tick(s)");
         ctx.waitTicks(2);
         String firstWord = f.names.get(firstRoom).split(" ")[0];
         List<Object[]> texts = ctx.computeOnClient(SimMapPrerunTests::hudTexts);
