@@ -879,6 +879,24 @@ public class SimBloodRushTests implements FabricClientGameTest {
         }
     }
 
+    /**
+     * A shot of a scene that has stopped changing inside {@code r}: shots are taken until two in a row differ by under 40
+     * pixels there (at most 12). Under load (three clients at once in a gate) the world can still be rebuilding the
+     * sections a test just changed - the stone wall drawn in the "on" shot but not yet in the "off" one read as 122190 px
+     * of box through the wall (2026-11-04) - or settling after a teleport (off vs off noise 123).
+     */
+    private static java.awt.image.BufferedImage settledShot(ClientGameTestContext ctx, String tag, int[] r) {
+        java.awt.image.BufferedImage prev = shot(ctx, tag);
+        for (int i = 0; i < 12; i++) {
+            java.awt.image.BufferedImage cur = shot(ctx, tag);
+            if (diff(prev, cur, r) < 40) {
+                return cur;
+            }
+            prev = cur;
+        }
+        return prev;
+    }
+
     /** Pixels inside {@code r} (window coordinates) that differ by more than 40 in any channel. */
     private static int diff(java.awt.image.BufferedImage a, java.awt.image.BufferedImage b, int[] r) {
         double sx = a.getWidth() / (double) r[4], sy = a.getHeight() / (double) r[5];
@@ -1160,9 +1178,9 @@ public class SimBloodRushTests implements FabricClientGameTest {
             problems.add("the box is not in front of the camera");
             return;
         }
-        java.awt.image.BufferedImage on = shot(ctx, "on");
+        java.awt.image.BufferedImage on = settledShot(ctx, "on", r);
         ctx.runOnClient(mc -> brSet("setEnabled", false));
-        java.awt.image.BufferedImage off1 = shot(ctx, "off1");
+        java.awt.image.BufferedImage off1 = settledShot(ctx, "off1", r);
         java.awt.image.BufferedImage off2 = shot(ctx, "off2");
         int boxPx = diff(on, off1, r);
         int noise = diff(off1, off2, r);
@@ -1221,12 +1239,14 @@ public class SimBloodRushTests implements FabricClientGameTest {
             }
             return null;
         });
+        ctx.waitFor(mc -> wall.stream().allMatch(p -> mc.level.getBlockState(p).is(net.minecraft.world.level.block.Blocks.STONE)),
+                200);
         ctx.waitTicks(10);
         java.awt.image.BufferedImage wallOff;
         ctx.runOnClient(mc -> brSet("setEnabled", false));
-        wallOff = shot(ctx, "wall-off");
+        wallOff = settledShot(ctx, "wall-off", r);
         ctx.runOnClient(mc -> brSet("setEnabled", true));
-        int hidden = diff(shot(ctx, "wall-on"), wallOff, r);
+        int hidden = diff(settledShot(ctx, "wall-on", r), wallOff, r);
         String walls = "PIXELS behind a " + wall.size() + "-block wall, depth-tested: " + hidden;
         if (hidden >= 40) {
             problems.add("the box shows through a stone wall without Through Walls (" + hidden + " px)");
