@@ -86,6 +86,7 @@ public class OceanFallsSuite implements FabricClientGameTest {
     }
 
     private static void around(UiCase c, boolean preview, Body body) throws Exception {
+        PaintedScenesSuite.warmWebp(c);
         FontsMainMenuSuite.MmState saved = FontsMainMenuSuite.saveMm(c);
         int[] win0 = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight(),
                 mc.options.guiScale().get()});

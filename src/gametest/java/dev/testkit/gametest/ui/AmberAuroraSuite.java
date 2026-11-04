@@ -77,6 +77,7 @@ public class AmberAuroraSuite implements FabricClientGameTest {
     /** Runs {@code body} at 1920x1080 GUI 2 in Amber (Separate style, scene Auto) with previewScenes as given, the title
      *  screen's settings saved and restored. */
     private static void around(UiCase c, boolean preview, Body body) throws Exception {
+        PaintedScenesSuite.warmWebp(c);
         FontsMainMenuSuite.MmState saved = FontsMainMenuSuite.saveMm(c);
         int[] win0 = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight(),
                 mc.options.guiScale().get()});
