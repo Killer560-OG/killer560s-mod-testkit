@@ -767,6 +767,20 @@ final class PackDisablerCases {
             String sellHand = c.onClient(mc -> handDrawn(mc, sell));
             ItemStack realMap = new ItemStack(Items.FILLED_MAP);
             realMap.set(DataComponents.MAP_ID, new net.minecraft.world.level.saveddata.maps.MapId(433));
+            // A real map has its picture on the client; a numbered map with no picture is a button (Create Buy
+            // Order, killer560 2026-11-03: "Unknown Map" in its tooltip).
+            c.onClient(mc -> {
+                mc.level.overrideMapData(new net.minecraft.world.level.saveddata.maps.MapId(433),
+                        net.minecraft.world.level.saveddata.maps.MapItemSavedData.createForClient((byte) 0, true, mc.level.dimension()));
+                return null;
+            });
+            ItemStack buyNumbered = button(Items.FILLED_MAP, "§aCreate Buy Order");
+            buyNumbered.set(DataComponents.MAP_ID, new net.minecraft.world.level.saveddata.maps.MapId(434001));
+            String buyNumGui = c.onClient(mc -> drawn(mc, buyNumbered));
+            c.note("numbered Create Buy Order with no map data drew " + buyNumGui);
+            if (mapsRedrawn) {
+                c.check(buyNumGui.equals(PAPER), version + " numbered Create Buy Order (no map data) drew " + buyNumGui + ", expected paper");
+            }
             String realGui = c.onClient(mc -> drawn(mc, realMap));
             String sbMap = c.onClient(mc -> drawn(mc, skyblockStack(Items.MAP, "TESTKIT_MAP_434", null)));
             c.note("ON: sell " + sellGui + ", buy " + buyGui + ", sell in hand " + sellHand + ", real map " + realGui
