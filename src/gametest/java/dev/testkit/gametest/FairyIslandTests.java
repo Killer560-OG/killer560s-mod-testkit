@@ -202,6 +202,8 @@ public class FairyIslandTests implements FabricClientGameTest {
 
     /** Set by a case: start here (x,y,z,yaw,pitch) instead of -Pfairy.start / the spawn. */
     static String startOverride;
+    /** 1103-worldexport: the island is already in the seeded world, so do not send its blocks again. */
+    static boolean skipPlace;
     /** Set by a case: end the run once this many souls are collected. */
     static int stopAfterSouls = Integer.MAX_VALUE;
     /** Set by a case: keep a 45-tick detailed trace and log it when the first anticheat line shows up. */
@@ -318,7 +320,9 @@ public class FairyIslandTests implements FabricClientGameTest {
         try (Hx hx = Hx.connect()) {
             long t0 = System.currentTimeMillis();
             List<String> lines = blocks(island);
-            place(hx, lines);
+            if (!skipPlace) {
+                place(hx, lines);
+            }
             server.sync(300);
             scenario.log("placed " + lines.size() + " blocks in " + (System.currentTimeMillis() - t0) + " ms");
             for (JsonElement c : meta.getAsJsonArray("crowds")) {
