@@ -141,6 +141,14 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 
 ## Quirks and lessons
 
+- A class that runs several cases and throws ONE AssertionError at the end is filed under the LAST case it started
+  (`SuiteVerdict.started`): SimImapGapTests' 851 inner-corner failure showed as "857-sim-imapgap-doorcam FAIL" while 857
+  itself printed PASS (mapfail-1104). Read the message's case prefix and the `[case] PASS/FAIL` lines before blaming the row.
+- Screenshot pixel samples on the Interactive Map must sit clear of the hover tooltip (12 GUI px right of and above the
+  cursor, ~55 px tall for a room): 851's inner corner sampled the tooltip's background (262320 / 27221D) at zoom 1 and now
+  zooms 4x on the tile first. A HUD map fill count must skip fills nested in another: the Player Head marker (12 units plus
+  a black frame, default on) is room-sized and was counted as a room by 1015-noamm-map (mapfail-1104).
+
 - A server `fill`/`setblock` in chunks no player has loaded does nothing (2026-11-03, 1103-mining-route arena: the first
   case's floor never appeared), and teleporting there first so he falls onto a floor placed under him drew 7 GrimAC
   `Simulation` flags. `forceload add` the area before building it, and in a Session case put him back where he stood
