@@ -444,6 +444,25 @@ public class SimImapGapTests implements FabricClientGameTest {
         double uz0 = cellPos(tz);
         double ux1 = ux0 + cellSize(tx);
         double uz1 = uz0 + cellSize(tz);
+        // Zoomed in on the corner tile first (scroll zoom, centered on it): the room tooltip opens 12 GUI px right of
+        // and above the cursor and is ~55 GUI px tall, and at zoom 1 (a tile ~20 GUI px) it lay over both notch edges,
+        // so the samples read its background (262320 / 27221D, hsA4f 2026-11-04). At zoom 4 the notch is ~60 GUI px
+        // below the cursor, under the tooltip's bottom.
+        ctx.runOnClient(mc -> {
+            Object screen = McCompat.screen(mc);
+            float ox = (Float) ModUnderTest.call(screen, "originX", new Class<?>[]{}, new Object[]{});
+            float oy = (Float) ModUnderTest.call(screen, "originY", new Class<?>[]{}, new Object[]{});
+            float ppu = (Float) ModUnderTest.call(screen, "ppu", new Class<?>[]{}, new Object[]{});
+            double mx = ox + (ux0 + ux1) / 2 * ppu;
+            double my = oy + (uz0 + uz1) / 2 * ppu;
+            for (int i = 0; i < 12; i++) {
+                ((net.minecraft.client.gui.screens.Screen) screen).mouseScrolled(mx, my, 0, 1);
+            }
+        });
+        ctx.waitTicks(2);
+        float zoomNow = ctx.computeOnClient(mc -> ((float[]) ModUnderTest.call(McCompat.screen(mc), "viewState",
+                new Class<?>[]{}, new Object[]{}))[0]);
+        System.out.println(String.format(Locale.US, "[%s] inner corner: map zoom %.2f", HOVER, zoomNow));
         double[] px = ctx.computeOnClient(mc -> {
             Object screen = McCompat.screen(mc);
             float ox = (Float) ModUnderTest.call(screen, "originX", new Class<?>[]{}, new Object[]{});
