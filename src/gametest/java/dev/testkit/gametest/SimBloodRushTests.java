@@ -982,6 +982,9 @@ public class SimBloodRushTests implements FabricClientGameTest {
         String room = ctx.computeOnClient(mc -> {
             seed(expected, rotation);
             List<String> names = new ArrayList<>(expected.keySet());
+            // Trap rooms are not functional in the sim yet and stay out of tests (project CLAUDE.md); Arrow Trap gave
+            // "no clear view point" on 26.2 (2026-11-04).
+            names.removeIf(n -> n.toLowerCase(Locale.ROOT).contains("trap"));
             names.sort(java.util.Comparator.comparing((String n) -> armed.contains(n)).thenComparing(n -> !table.containsKey(n))
                     .thenComparing(n -> n));
             return names.isEmpty() ? null : names.get(0);
@@ -1119,7 +1122,10 @@ public class SimBloodRushTests implements FabricClientGameTest {
             return;
         }
         // view: feet x, y, z, then the box index; wall: the blocks between his eye and the box (1.2-2.8 blocks out).
+        // The view point must lie in the room itself: the helper draws the current room's boxes, so from a point in the
+        // next room the box was gone and every shot read 0 px (26.3 legit, Cathedral, 2026-11-04).
         double[] view = ctx.computeOnClient(mc -> {
+            Object layoutV = ModUnderTest.staticCall(LAYOUT, "current");
             int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {1, -1}, {-1, 1}, {-1, -1}};
             int[] dists = {5, 4, 6, 7};
             int[] dys = {0, -1, 1, -2, 2};
@@ -1132,6 +1138,11 @@ public class SimBloodRushTests implements FabricClientGameTest {
                         for (int dy : dys) {
                             BlockPos f = new BlockPos(bx + d[0] * dist, by + dy, bz + d[1] * dist);
                             if (!clear(mc, f) || !clear(mc, f.above()) || clear(mc, f.below())) {
+                                continue;
+                            }
+                            int fr = (Integer) ModUnderTest.call(layoutV, "roomAtWorld",
+                                    new Class<?>[]{double.class, double.class}, new Object[]{f.getX() + 0.5, f.getZ() + 0.5});
+                            if (!room.equals(ModUnderTest.call(layoutV, "name", new Class<?>[]{int.class}, new Object[]{fr}))) {
                                 continue;
                             }
                             Vec3 eye = new Vec3(f.getX() + 0.5, f.getY() + 1.62, f.getZ() + 0.5);
@@ -1171,6 +1182,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
             mc.player.xRotO = pitch;
         });
         ctx.waitTicks(10);
+        facts.add("at the view point the helper shows: " + spots(ctx) + "; " + status(ctx));
         int[] r = rectOf(ctx, box);
         facts.add(String.format(Locale.ROOT, "view from %.1f %.1f %.1f, box %s on screen at %s", view[0], view[1], view[2], box,
                 r == null ? "null" : r[0] + "," + r[1] + "-" + r[2] + "," + r[3]));
