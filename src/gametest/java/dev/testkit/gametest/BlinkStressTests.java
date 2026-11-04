@@ -110,6 +110,17 @@ public class BlinkStressTests implements FabricClientGameTest {
             add(server, scenario, label, ok, detail, true);
         }
 
+        /**
+         * A lag-spike row: up to {@code max} TimerLimit flags are accepted (owner, 2026-11-04: a mid-Hold spike of 900 ms or
+         * more is his accepted exception; Charge is held to the Blink-off controls' count above Grim's own limit), any
+         * other check fails.
+         */
+        void addTimerLimit(TestServer server, Scenario scenario, String label, boolean ok, String detail, int max) {
+            List<String> flags = scenario.flags();
+            boolean only = flags.size() <= max && flags.stream().allMatch(f -> f.contains("TimerLimit"));
+            add(server, scenario, label, ok, detail, only);
+        }
+
         void add(TestServer server, Scenario scenario, String label, boolean ok, String detail, boolean flagsExpected) {
             if (flagsExpected) {
                 kept++;
@@ -1614,9 +1625,14 @@ public class BlinkStressTests implements FabricClientGameTest {
                         releaseKeys(ctx);
                         ctx.waitTicks(40);
                         double g = gap(server, ctx);
-                        rows.add(server, scenario, label, was && num(ctx, "releasedHolds") > holds0 && num(ctx, "heldPackets") == 0
-                                && g < 0.5, String.format(Locale.ROOT, "held %s, released, longest %d, gap %.2f", was,
-                                num(ctx, "longestHoldTicks"), g));
+                        boolean okHold = was && num(ctx, "releasedHolds") > holds0 && num(ctx, "heldPackets") == 0 && g < 0.5;
+                        String detail = String.format(Locale.ROOT, "held %s, released, longest %d, gap %.2f", was,
+                                num(ctx, "longestHoldTicks"), g);
+                        if (kk == 0 && Long.getLong("killer560.test.lagMs", 1500L) >= 900L) {
+                            rows.addTimerLimit(server, scenario, label, okHold, detail, Integer.MAX_VALUE);
+                        } else {
+                            rows.add(server, scenario, label, okHold, detail);
+                        }
                     } else {
                         chargeOn(ctx);
                         ctx.waitTicks(30);
@@ -1629,8 +1645,14 @@ public class BlinkStressTests implements FabricClientGameTest {
                         chargeOff(ctx);
                         ctx.waitTicks(20);
                         double g = gap(server, ctx);
-                        rows.add(server, scenario, label, bank == 20 && s[2] >= 1 && g < 0.5, String.format(Locale.ROOT,
-                                "bank %d before, %d after, shot %d tick(s) %.2f blocks, gap %.2f", bank, bank2, (long) s[2], s[0], g));
+                        boolean okCh = bank == 20 && s[2] >= 1 && g < 0.5;
+                        String detail = String.format(Locale.ROOT, "bank %d before, %d after, shot %d tick(s) %.2f blocks, gap %.2f",
+                                bank, bank2, (long) s[2], s[0], g);
+                        if (kk == 1 && Long.getLong("killer560.test.lagMs", 1500L) >= 1500L) {
+                            rows.addTimerLimit(server, scenario, label, okCh, detail, 8); // the Blink-off controls draw 6-8
+                        } else {
+                            rows.add(server, scenario, label, okCh, detail);
+                        }
                     }
                 }
             } finally {
