@@ -336,20 +336,32 @@ public class SimMobFloorTests implements FabricClientGameTest {
         if (!starting || !mort) {
             problems.add("Hypixel's start lines missing (Starting in 1 second " + starting + ", Mort " + mort + ")");
         }
-        // A sleeping starred Fel is an invisible enderman on the client (what Auto Clear reads); count them now, at GO.
-        int[] sleepers = ctx.computeOnClient(mc -> {
-            int inv = 0;
-            int all = 0;
-            for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
-                if (dev.testkit.compat.McEntities.endermanClass().isInstance(e)) {
-                    all++;
-                    inv += e.isInvisible() ? 1 : 0;
+        // A sleeping starred Fel is an invisible enderman on the client (what Auto Clear reads); count them at GO. Under a
+        // loaded gate the entities can reach the client a few ticks after GO (26.2, 2026-11-04: 0 at GO, the next case's
+        // floor 8), so give them up to 5 s to arrive.
+        boolean wantSleepers = felLine.matches(".*fels placed: [1-9][0-9]* starred.*");
+        int[] sleepers = new int[2];
+        int waited = 0;
+        for (; waited <= 100; waited += 10) {
+            int[] got = ctx.computeOnClient(mc -> {
+                int inv = 0;
+                int all = 0;
+                for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+                    if (dev.testkit.compat.McEntities.endermanClass().isInstance(e)) {
+                        all++;
+                        inv += e.isInvisible() ? 1 : 0;
+                    }
                 }
+                return new int[]{inv, all};
+            });
+            sleepers = got;
+            if (!wantSleepers || sleepers[0] >= 1) {
+                break;
             }
-            return new int[]{inv, all};
-        });
-        facts.add("client endermen at GO: " + sleepers[1] + ", invisible (sleeping Fels) " + sleepers[0]);
-        if (felLine.matches(".*fels placed: [1-9][0-9]* starred.*") && sleepers[0] < 1) {
+            ctx.waitTicks(10);
+        }
+        facts.add("client endermen at GO (+" + waited + " ticks): " + sleepers[1] + ", invisible (sleeping Fels) " + sleepers[0]);
+        if (wantSleepers && sleepers[0] < 1) {
             problems.add("starred Fels were placed but the client sees no invisible (sleeping) enderman");
         }
         return problems.isEmpty();
