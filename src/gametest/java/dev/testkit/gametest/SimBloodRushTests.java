@@ -955,15 +955,24 @@ public class SimBloodRushTests implements FabricClientGameTest {
         Map<String, List<BlockPos>> expected = new HashMap<>();
         Map<String, Integer> rotation = new HashMap<>();
         final Map<String, Integer> table = shipped == null ? Map.of() : shipped;
+        // Not a key room if the floor allows: the case teleports into the room, and the sim insta clears a key room whose
+        // first entry is a teleport (Hypixel's rule), so the map showed it cleared and the helper rightly hid its boxes
+        // (2026-11-04: Overgrown and Archway, both wither key rooms, "cleared on map true").
+        @SuppressWarnings("unchecked")
+        List<String> armed = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(
+                "com.killer560.hub.roomsim.SimKeyRoom", "armedRooms"));
         String room = ctx.computeOnClient(mc -> {
             seed(expected, rotation);
-            for (String n : expected.keySet()) {
-                if (table.containsKey(n)) {
-                    return n;
-                }
-            }
-            return expected.keySet().stream().sorted().findFirst().orElse(null);
+            List<String> names = new ArrayList<>(expected.keySet());
+            names.sort(java.util.Comparator.comparing((String n) -> armed.contains(n)).thenComparing(n -> !table.containsKey(n))
+                    .thenComparing(n -> n));
+            return names.isEmpty() ? null : names.get(0);
         });
+        if (room != null && armed.contains(room)) {
+            // Every mob room on the floor holds a key: no insta clear for this case (it is about known spots, not keys).
+            ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimKeyRoom", "disarm"));
+            facts.add("every mob room holds a key; key rooms disarmed so the teleport does not insta clear " + room);
+        }
         // seed() put secret spots in as LEARNED; forget those and hand the chosen room's to the shipped table instead.
         ctx.runOnClient(mc -> ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class},
                 new Object[]{false}));
