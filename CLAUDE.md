@@ -581,6 +581,16 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
 - Never start a second `run-scenario.ps1` in a checkout whose queue is between or inside runs: at its start the script kills
   that checkout's "leftover" client and server, which is the other run's live ones ("Killing a leftover test client", ship-1102h
   2026-11-02 killed a ZPEW half mid-run). One queue per checkout; make another detached worktree for a rerun.
+- A hung client blocked run-scenario.ps1's whole watch loop (no deadline, no freeze kill): `Sync-SlotWindow`'s plain
+  `SetWindowPos` WAITS for the window's own thread, so the first tile move after the client hung never returned (goldfix-1104:
+  a suspended client sat 22 min past a 2 min watchdog until the backstop; the likely cause of gate-1104c's two-hour 26.2 hang
+  at the title screen). It now passes SWP_ASYNCWINDOWPOS. Never make a synchronous window call on a test client's window.
+  Since goldfix-1104 the deadline, the freeze kill and the no-progress watchdog (`-ProgressMinutes`, default 20, env
+  `TESTKIT_PROGRESS_MINUTES`, 0 = off; progress = a `[Test thread/` or gametest-api line in build/run/clientGameTest/logs/latest.log,
+  never supporters/relay/catalog lines) end the WHOLE tree (by parent pid plus this checkout's clients and servers, taskkill /T /F);
+  a hang exits 5 (timeout 2) and writes a FAIL "hung" row into summary.md; a hidden backstop kills the tree 3 min after the
+  deadline if the script itself is stuck, and jcmd gets 20 s. Force a hang to test it with killer560s-mod-logs/goldfix-suspend.ps1
+  (NtSuspendProcess on the client) and `TESTKIT_HUNG_POLLS=100000` so the freeze watcher does not take it first.
 - 529-ui-sidebar-scroll-spy maps menu coordinates to screenshot pixels by screenshot width / the screen's own width: the
   menu is laid out at its own Auto Scale, so Window.getGuiScale() (2) put the probe on the background (menufix2-1102).
 
