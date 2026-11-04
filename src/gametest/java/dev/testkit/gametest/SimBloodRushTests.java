@@ -847,6 +847,48 @@ public class SimBloodRushTests implements FabricClientGameTest {
 
     /** The screen rect (window pixels) the box's eight corners project into, inflated by 8, or null if any is behind. */
     /** Client thread: no collision shape at {@code p}. */
+    /** Feet x, y, z and the box index of a spot 4-7 blocks from one of {@code boxes}, inside {@code room}, with a clear
+     * line to the box; null if there is none. */
+    private static double[] viewPoint(Minecraft mc, List<AABB> candidates, String room) {
+        Object layoutV = ModUnderTest.staticCall(LAYOUT, "current");
+        int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {1, -1}, {-1, 1}, {-1, -1}};
+        int[] dists = {5, 4, 6, 7};
+        int[] dys = {0, -1, 1, -2, 2};
+        for (int bi = 0; bi < candidates.size(); bi++) {
+            AABB b = candidates.get(bi);
+            Vec3 c = b.getCenter();
+            int bx = (int) Math.floor(c.x), bz = (int) Math.floor(c.z), by = (int) Math.floor(b.minY);
+            for (int dist : dists) {
+                for (int[] d : dirs) {
+                    for (int dy : dys) {
+                        BlockPos f = new BlockPos(bx + d[0] * dist, by + dy, bz + d[1] * dist);
+                        if (!clear(mc, f) || !clear(mc, f.above()) || clear(mc, f.below())) {
+                            continue;
+                        }
+                        int fr = (Integer) ModUnderTest.call(layoutV, "roomAtWorld",
+                                new Class<?>[]{double.class, double.class}, new Object[]{f.getX() + 0.5, f.getZ() + 0.5});
+                        if (!room.equals(ModUnderTest.call(layoutV, "name", new Class<?>[]{int.class}, new Object[]{fr}))) {
+                            continue;
+                        }
+                        Vec3 eye = new Vec3(f.getX() + 0.5, f.getY() + 1.62, f.getZ() + 0.5);
+                        boolean seen = true;
+                        for (int k = 1; k < 48 && seen; k++) {
+                            Vec3 p = eye.lerp(c, k / 48.0);
+                            BlockPos q = BlockPos.containing(p);
+                            if (!b.inflate(0.5).contains(p)) {
+                                seen = clear(mc, q);
+                            }
+                        }
+                        if (seen) {
+                            return new double[]{f.getX() + 0.5, f.getY(), f.getZ() + 0.5, bi};
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     private static boolean clear(Minecraft mc, BlockPos p) {
         return mc.level.getBlockState(p).getCollisionShape(mc.level, p).isEmpty();
     }
@@ -933,10 +975,17 @@ public class SimBloodRushTests implements FabricClientGameTest {
      */
     private static void known(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
         String[] floorRoom = new String[1];
+        // No particles in the pixel shots: Overgrown's leaves drop leaf particles, so two shots of the same still scene
+        // differed by 340-2077 px there (26.3 legit, 2026-11-04) and the box check read it as noise.
+        net.minecraft.server.level.ParticleStatus particlesBefore = ctx.computeOnClient(mc -> mc.options.particles().get());
+        ctx.runOnClient(mc -> mc.options.particles().set(net.minecraft.server.level.ParticleStatus.MINIMAL));
         try {
             knownPixels(ctx, problems, facts, floorRoom);
         } finally {
-            ctx.runOnClient(mc -> dev.testkit.compat.McCompat.setHudHidden(mc, false));
+            ctx.runOnClient(mc -> {
+                dev.testkit.compat.McCompat.setHudHidden(mc, false);
+                mc.options.particles().set(particlesBefore);
+            });
         }
         if (floorRoom[0] != null) {
             learnAfterBlood(ctx, problems, facts, floorRoom[0]);
@@ -987,6 +1036,17 @@ public class SimBloodRushTests implements FabricClientGameTest {
             names.removeIf(n -> n.toLowerCase(Locale.ROOT).contains("trap"));
             names.sort(java.util.Comparator.comparing((String n) -> armed.contains(n)).thenComparing(n -> !table.containsKey(n))
                     .thenComparing(n -> n));
+            // A room whose spots have no clear view point 4-7 blocks off (Cage: its spot sits in the cage, 26.2
+            // 2026-11-04) cannot show the box on screen; take the first room in that order that has one.
+            for (String n : names) {
+                List<AABB> boxes = new ArrayList<>();
+                for (BlockPos b : expected.get(n)) {
+                    boxes.add(new AABB(b.getX() - 0.3, b.getY(), b.getZ() - 0.3, b.getX() + 1.3, b.getY() + 2, b.getZ() + 1.3));
+                }
+                if (viewPoint(mc, boxes, n) != null) {
+                    return n;
+                }
+            }
             return names.isEmpty() ? null : names.get(0);
         });
         if (room != null && armed.contains(room)) {
@@ -1124,45 +1184,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
         // view: feet x, y, z, then the box index; wall: the blocks between his eye and the box (1.2-2.8 blocks out).
         // The view point must lie in the room itself: the helper draws the current room's boxes, so from a point in the
         // next room the box was gone and every shot read 0 px (26.3 legit, Cathedral, 2026-11-04).
-        double[] view = ctx.computeOnClient(mc -> {
-            Object layoutV = ModUnderTest.staticCall(LAYOUT, "current");
-            int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {1, -1}, {-1, 1}, {-1, -1}};
-            int[] dists = {5, 4, 6, 7};
-            int[] dys = {0, -1, 1, -2, 2};
-            for (int bi = 0; bi < candidates.size(); bi++) {
-                AABB b = candidates.get(bi);
-                Vec3 c = b.getCenter();
-                int bx = (int) Math.floor(c.x), bz = (int) Math.floor(c.z), by = (int) Math.floor(b.minY);
-                for (int dist : dists) {
-                    for (int[] d : dirs) {
-                        for (int dy : dys) {
-                            BlockPos f = new BlockPos(bx + d[0] * dist, by + dy, bz + d[1] * dist);
-                            if (!clear(mc, f) || !clear(mc, f.above()) || clear(mc, f.below())) {
-                                continue;
-                            }
-                            int fr = (Integer) ModUnderTest.call(layoutV, "roomAtWorld",
-                                    new Class<?>[]{double.class, double.class}, new Object[]{f.getX() + 0.5, f.getZ() + 0.5});
-                            if (!room.equals(ModUnderTest.call(layoutV, "name", new Class<?>[]{int.class}, new Object[]{fr}))) {
-                                continue;
-                            }
-                            Vec3 eye = new Vec3(f.getX() + 0.5, f.getY() + 1.62, f.getZ() + 0.5);
-                            boolean seen = true;
-                            for (int k = 1; k < 48 && seen; k++) {
-                                Vec3 p = eye.lerp(c, k / 48.0);
-                                BlockPos q = BlockPos.containing(p);
-                                if (!b.inflate(0.5).contains(p)) {
-                                    seen = clear(mc, q);
-                                }
-                            }
-                            if (seen) {
-                                return new double[]{f.getX() + 0.5, f.getY(), f.getZ() + 0.5, bi};
-                            }
-                        }
-                    }
-                }
-            }
-            return null;
-        });
+        double[] view = ctx.computeOnClient(mc -> viewPoint(mc, candidates, room));
         if (view == null) {
             problems.add("no clear view point 4-7 blocks from any of " + room + "'s " + candidates.size() + " box(es): " + candidates);
             return;
