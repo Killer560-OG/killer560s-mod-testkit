@@ -124,6 +124,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxCommissionMobs1103Cases.register(s);
                     // Powder Ghast alert, timer, box and tracer (1103-powderghast-*, mod powderghast-1103).
                     HxPowderGhast1103Cases.register(s);
+                    // Crystal Hollows powder grinding (1103-powdergrind-*, mod powdergrind-1103).
+                    HxPowderGrind1103Cases.register(s);
                     // Resume Held Break After Menus and the AttackHold dump (1103-mining-hold-*, mod mithril-hold-1103).
                     HxAttackHold1103Cases.register(s);
                     // Owner-evidence log lines (1102-diag-*, mod diag-1101): Fast Leap stuck state, Raffle start dump.
