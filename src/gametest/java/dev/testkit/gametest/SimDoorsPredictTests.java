@@ -495,6 +495,14 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         Report.caseStarted(R_NAMED);
         ctx.runOnClient(mc -> opt(HELD, "resetSimVisits", null));
         ctx.runOnClient(mc -> ModUnderTest.staticCall(PREDICTOR, "reset"));
+        // 1728's ground truth: every predictor ray is also cast with vanilla's level.clip at the moment it is cast and the
+        // answers compared (RoomPredictor.VERIFY_CLIP). A re-cast after the looks alone cannot tell a predictor that saw
+        // through a block from a world that changed after the look (2026-11-04: 326 "blind" behind blocks standing in a
+        // doorway 5 blocks from the eye).
+        long[] verifyBase = ctx.computeOnClient(mc -> {
+            setVerifyClip(true);
+            return (long[]) ModUnderTest.staticCall(PREDICTOR, "clipVerifyCounts");
+        });
         // Doorways from one room into another that is neither the Entrance nor Blood, with nothing in the doorway.
         List<int[]> tries = new ArrayList<>();
         for (Map.Entry<Integer, int[]> e : f.doorRooms.entrySet()) {
@@ -582,9 +590,17 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         // ---- 1728: every seen block is visible from where it was seen.
         Report.caseStarted(R_SIGHT);
         int[] audit = auditTotals;
-        row(R_SIGHT, audit[0] >= 500 && audit[1] == 0, audit[0] + " seen block(s) audited right after each look, " + audit[1]
-                + " whose recorded ray, cast again from the recorded eye, meets something else first (" + audit[2] + " unloaded); "
-                + "first blind ones " + blindExamples);
+        long[] verify = ctx.computeOnClient(mc -> {
+            long[] v = (long[]) ModUnderTest.staticCall(PREDICTOR, "clipVerifyCounts");
+            setVerifyClip(false);
+            return v;
+        });
+        long rays = verify[0] - verifyBase[0];
+        long mismatches = verify[1] - verifyBase[1];
+        row(R_SIGHT, audit[0] >= 500 && rays >= 1000 && mismatches == 0, rays + " predictor ray(s) cast again with vanilla's "
+                + "level.clip as they were cast, " + mismatches + " answering differently; " + audit[0] + " seen block(s), "
+                + audit[1] + " of which a re-cast after the looks finds behind something else (" + audit[2] + " unloaded; the "
+                + "world can change after a look, so this is a fact, not the verdict); first ones " + blindExamples);
 
         // ---- 1729: a block nobody could see is never seen.
         Report.caseStarted(R_HIDDEN);
@@ -729,6 +745,14 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ModUnderTest.staticCall(PREDICTOR, "settle"));
     }
 
+    private static void setVerifyClip(boolean on) {
+        try {
+            Class.forName(PREDICTOR).getField("VERIFY_CLIP").setBoolean(null, on);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("no " + PREDICTOR + ".VERIFY_CLIP (old jar?)", e);
+        }
+    }
+
     /** {audited, not visible, unloaded}: each seen block against 27 rays from its recorded eye to points on its box. */
     private static Object[] auditSight(Minecraft mc, int from) {
         List<?> obs = (List<?>) ModUnderTest.staticCall(PREDICTOR, "observations");
@@ -765,6 +789,7 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
                     examples.add(mc.level.getBlockState(p).getBlock() + " at " + p.toShortString() + " from "
                             + String.format(Locale.ROOT, "%.1f,%.1f,%.1f", o[3], o[4], o[5]) + " now "
                             + (again instanceof BlockHitResult b2 ? b2.getType() + " " + b2.getBlockPos().toShortString()
+                            + " " + mc.level.getBlockState(b2.getBlockPos()).getBlock()
                             : String.valueOf(again)));
                 }
             }
