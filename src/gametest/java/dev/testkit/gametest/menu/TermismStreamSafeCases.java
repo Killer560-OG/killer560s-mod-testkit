@@ -146,8 +146,8 @@ final class TermismStreamSafeCases {
         if (moves < 1) {
             problems.add("ON: the cursor never moved");
         }
-        if (firstClick >= 0 && firstClick < 480) {
-            problems.add("ON: first click " + firstClick + " ms after open, inside the 500 ms opening settle");
+        if (firstClick >= 0 && firstClick < 280) {
+            problems.add("ON: first click " + firstClick + " ms after open, inside the 300 ms First Click Delay (default)");
         }
         if (count != need) {
             problems.add("ON: " + count + " clicks, the board needed " + need);

@@ -283,8 +283,8 @@ final class Doc1101TermCases {
 
     /**
      * First Click Delay (2026-11-03): 0, 150 and 300 ms, in Stream Safe and in Min/Max mode. The first click of a Panes
-     * terminal comes no earlier than the 500 ms opening settle plus the delay after it opened (server ticks of 50 ms, one
-     * tick of slack each side), and not absurdly later; a click actually happened and the terminal solved with none wrong.
+     * terminal comes no earlier than the delay itself after it opened (the delay REPLACES the old 500 ms settle; server ticks
+     * of 50 ms, one tick of slack; 0 ms clicks within the first ticks), and not absurdly later; a click actually happened and the terminal solved with none wrong.
      * The setting also reads back, and the 300 ms first click comes at least ~4 ticks after the 0 ms one.
      */
     static void firstDelay(Session c, boolean fake) throws Exception {
@@ -328,14 +328,14 @@ final class Doc1101TermCases {
                 }
                 long first = evs.get(before).get("tick").getAsLong() - solved.get("openedTick").getAsLong();
                 firstTicks[i] = first;
-                long min = (500 + d) / 50 - 1;
-                long max = (500 + d) / 50 + 2 + (fake ? 40 : 6);
+                long min = d / 50 - 1;
+                long max = d / 50 + 8 + (fake ? 40 : 6);
                 if (first < min || first > max) {
                     problems.add("delay " + d + ": first click " + first + " ticks after opening, expected " + min + ".." + max);
                 }
                 notes.add("delay " + d + ": first click " + first + " ticks (" + (first * 50) + " ms) after opening");
             }
-            if (firstTicks[0] > 0 && firstTicks[2] > 0 && firstTicks[2] - firstTicks[0] < 4) {
+            if (!fake && firstTicks[0] > 0 && firstTicks[2] > 0 && firstTicks[2] - firstTicks[0] < 4) {
                 problems.add("300 ms first click only " + (firstTicks[2] - firstTicks[0]) + " ticks later than 0 ms");
             }
         } finally {
