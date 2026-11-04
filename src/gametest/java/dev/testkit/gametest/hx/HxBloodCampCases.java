@@ -2004,11 +2004,13 @@ final class HxBloodCampCases {
                 Mod.setField(BC_MT, "moveAtElapsed", elapsed + 10 + lead);
                 return null;
             });
-            c.waitUntil("the kill timer goes off", mc -> "FIRST".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
+            c.waitUntil("the kill timer goes off", mc -> "WAITING_SPAWN".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
+            // The count starts at the first mob that spawns after the kill timer (the two husks stood there before it).
+            c.onClient(mc -> Mod.staticCall(BC_STATS, "tripMobLandedForTest", 1));
             long t0 = c.onClient(mc -> (Long) Mod.staticCall(BC_STATS, "ticksLost"));
             c.ctx().waitTicks(20);
             c.server().command("kill @e[name=stat1]");
-            c.waitUntil("the first kill is counted", mc -> "ALIVE".equals(Mod.staticCall(BC_STATS, "phaseName")), 40);
+            c.waitUntil("the first kill is counted", mc -> (Long) Mod.staticCall(BC_STATS, "firstKillTicks") >= 0, 40);
             long first = c.onClient(mc -> (Long) Mod.staticCall(BC_STATS, "firstKillTicks"));
             c.ctx().waitTicks(15);
             long atKill2 = c.onClient(mc -> (Long) Mod.staticCall(BC_STATS, "ticksLost"));
@@ -2208,7 +2210,7 @@ final class HxBloodCampCases {
                 Mod.setField(BC_MT, "moveAtElapsed", elapsed + 5 + lead);
                 return null;
             });
-            c.waitUntil("the kill timer goes off", mc -> "FIRST".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
+            c.waitUntil("the kill timer goes off", mc -> "WAITING_SPAWN".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
             c.ctx().waitTicks(10);
             List<String> camp = c.onClient(mc -> (List<String>) Mod.staticCall(BC_STATS, "hudLinesForTest"));
             c.hx().chat("[BOSS] The Watcher: You have proven yourself. You may pass.");
@@ -2289,7 +2291,7 @@ final class HxBloodCampCases {
                 Mod.setField(BC_MT, "moveAtElapsed", elapsed + 5 + lead);
                 return null;
             });
-            c.waitUntil("the kill timer goes off", mc -> "FIRST".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
+            c.waitUntil("the kill timer goes off", mc -> "WAITING_SPAWN".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
             c.ctx().waitTicks(10);
             StringBuilder trail = new StringBuilder();
             for (int i = 0; i < NPC_AT.length; i++) {
