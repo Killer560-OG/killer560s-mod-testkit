@@ -184,7 +184,7 @@ final class LogicCase {
     }
 
     /**
-     * Waits until wall time {@code atMs} on the calling (render) thread, pumping the window's events every 5 ms: a
+     * Waits until wall time {@code atMs} on the calling (render) thread, pumping the window's events every 5 ms (SDL on 26.3, GLFW on 26.2): a
      * wall-paced case sleeps on the render thread for seconds, and with no events pumped Windows marks the window "not
      * responding" and run-scenario's freeze watcher killed the run (tickfix3-1104: 1104-logic-serverlag-grim, 14 s,
      * right after 1104-logic-split-lag's 12 s, twice in three runs).
@@ -193,22 +193,29 @@ final class LogicCase {
         long d;
         while ((d = atMs - System.currentTimeMillis()) > 0) {
             Thread.sleep(Math.min(d, 5L));
-            if (pollEvents == null) {
-                // LWJGL is not on the gametest compile classpath, nor visible to this class's loader: ask Minecraft's.
-                try {
-                    pollEvents = Class.forName("org.lwjgl.glfw.GLFW", false, net.minecraft.client.Minecraft.class.getClassLoader())
-                            .getMethod("glfwPollEvents");
-                } catch (ReflectiveOperationException e) {
-                    throw new AssertionError("no org.lwjgl.glfw.GLFW.glfwPollEvents", e);
+            if (!pumpLooked) {
+                // LWJGL is not on the gametest compile classpath: ask Minecraft's loader. 26.3 runs on SDL3, 26.2 on GLFW.
+                pumpLooked = true;
+                ClassLoader cl = net.minecraft.client.Minecraft.class.getClassLoader();
+                for (String[] m : new String[][] {{"org.lwjgl.sdl.SDLEvents", "SDL_PumpEvents"}, {"org.lwjgl.glfw.GLFW", "glfwPollEvents"}}) {
+                    try {
+                        pump = Class.forName(m[0], false, cl).getMethod(m[1]);
+                        break;
+                    } catch (ReflectiveOperationException ignored) {
+                        // try the next windowing library; with neither the wait is a plain sleep
+                    }
                 }
             }
-            try {
-                pollEvents.invoke(null);
-            } catch (ReflectiveOperationException e) {
-                throw new AssertionError("glfwPollEvents failed", e);
+            if (pump != null) {
+                try {
+                    pump.invoke(null);
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(pump.getName() + " failed", e);
+                }
             }
         }
     }
 
-    private static java.lang.reflect.Method pollEvents;
+    private static boolean pumpLooked;
+    private static java.lang.reflect.Method pump;
 }
