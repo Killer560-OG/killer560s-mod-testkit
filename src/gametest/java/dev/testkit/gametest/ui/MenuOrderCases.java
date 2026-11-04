@@ -337,7 +337,7 @@ final class MenuOrderCases {
                 Object ms = Mod.staticCall("gui.FeatureCards", "masterSwitch", tab, (Runnable) () -> { });
                 return ms == null ? 0 : ((List<?>) Mod.call(ms, "parts")).size();
             });
-            c.check(parts == 2, "the Dungeon Queue card should stand for 2 rows, it stands for " + parts);
+            c.check(parts == 3, "the Dungeon Queue card should stand for 3 rows, it stands for " + parts);
 
             // Each file holds just "enabled", as before there was more than one thing to switch.
             String[][] cases = {
@@ -345,9 +345,9 @@ final class MenuOrderCases {
                     {"{\"enabled\": true}", null, "true", "false", "true", "an old Auto Requeue file alone"},
                     {"{\"enabled\": false}", "{\"enabled\": true}", "false", "true", "true",
                             "Auto Requeue OFF, Party Finder Overlay ON"},
-                    {"{\"enabled\": false}", "{\"enabled\": false}", "false", "false", "false", "both OFF"},
+                    {"{\"enabled\": false, \"pvLinkOnJoin\": false}", "{\"enabled\": false}", "false", "false", "false", "all three OFF"},
                     {"{\"enabled\": true}", "{\"enabled\": true}", "true", "true", "true", "both ON"},
-                    {null, null, "false", "false", "false", "no files at all"},
+                    {null, null, "false", "false", "true", "no files at all (PV Link on Join defaults ON)"},
             };
             for (String[] t : cases) {
                 String why = c.onClient(mc -> {

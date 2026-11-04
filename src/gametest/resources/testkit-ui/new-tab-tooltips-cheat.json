@@ -484,6 +484,7 @@
     },
     "Dungeon Queue": {
       "auto requeue": "Sends /instancerequeue automatically when a dungeon run ends.",
+      "pv link on join": "When someone joins your party in a dungeon queue or run, adds a clickable [PV] line under the join message that opens their profile viewer.",
       "party finder overlay": "Adds join highlights, member counts and player stats to the Party Finder."
     },
     "Enchant Colors": {
