@@ -50,16 +50,19 @@ final class ProfitCases {
             new Exp("luck", "How Lucky Are You", "luck.LuckScreen"));
     /** Mod df2b3a1b added the Bazaar Flipper tracker, cheat build only (ProfitTracker.available() drops it in legit). */
     private static final Exp BAZAAR_FLIP = new Exp("bazaarflip", "Bazaar Flipper", "gui.profit.BazaarFlipProfitScreen");
+    // Mining Profit (/profit mining) and Nucleus Runs (/profit nucleus), both builds: pulled from staging-mining-3 onto
+    // main (mod chport-1104, killer560 2026-11-04); after the Bazaar Flipper in the mod's enum order.
+    private static final Exp MINING = new Exp("mining", "Mining Profit", "gui.profit.MiningProfitScreen");
+    private static final Exp NUCLEUS = new Exp("nucleus", "Nucleus Runs", "gui.profit.NucleusProfitScreen");
     private static final List<Exp> TRACKERS = Mod.isCheat()
-            ? List.of(LEGIT_TRACKERS.get(0), LEGIT_TRACKERS.get(1), LEGIT_TRACKERS.get(2), BAZAAR_FLIP) : LEGIT_TRACKERS;
-    // Mining Profit (/profit mining, gui.profit.MiningProfitScreen) and Nucleus Runs (/profit nucleus,
-    // gui.profit.NucleusProfitScreen) are shelved until after 2.0 with the rest of mining (mod shelved/mining/;
-    // 411-ui-mining-shelved checks they are gone). Put both rows back here, in WORDS and in direct() on restore.
+            ? List.of(LEGIT_TRACKERS.get(0), LEGIT_TRACKERS.get(1), LEGIT_TRACKERS.get(2), BAZAAR_FLIP, MINING, NUCLEUS)
+            : List.of(LEGIT_TRACKERS.get(0), LEGIT_TRACKERS.get(1), LEGIT_TRACKERS.get(2), MINING, NUCLEUS);
 
     /** Every word the command accepts: the names above plus their aliases. */
     private static final List<String> WORDS = Mod.isCheat()
-            ? List.of("croesus", "dungeon", "etable", "experiments", "luck", "rng", "bazaarflip", "bzflip")
-            : List.of("croesus", "dungeon", "etable", "experiments", "luck", "rng");
+            ? List.of("croesus", "dungeon", "etable", "experiments", "luck", "rng", "bazaarflip", "bzflip", "mining",
+                    "nucleus")
+            : List.of("croesus", "dungeon", "etable", "experiments", "luck", "rng", "mining", "nucleus");
 
     private ProfitCases() {
     }
@@ -186,7 +189,8 @@ final class ProfitCases {
                 {"profit etable", "gui.profit.ExperimentsProfitScreen"},
                 {"profit experiments", "gui.profit.ExperimentsProfitScreen"},
                 {"profit ETABLE", "gui.profit.ExperimentsProfitScreen"},
-                {"profit luck", "luck.LuckScreen"}, {"profit rng", "luck.LuckScreen"}};
+                {"profit luck", "luck.LuckScreen"}, {"profit rng", "luck.LuckScreen"},
+                {"profit mining", MINING.screen()}, {"profit nucleus", NUCLEUS.screen()}};
         if (Mod.isCheat()) {
             cases = java.util.Arrays.copyOf(cases, cases.length + 2);
             cases[cases.length - 2] = new String[]{"profit bazaarflip", BAZAAR_FLIP.screen()};

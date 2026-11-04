@@ -67,9 +67,17 @@ final class MenuLayoutCases {
     private static final String CHEAT = "§c§l";
     private static final String LEGIT = "§6§l";
     /** The only folders a category may hold: each was asked for as one tab (killer560, 2026-09-20). */
-    private static final Set<String> NESTED_OK = Set.of("Secrets", "Puzzle Solvers", "Commissions and Mithril", "Powder Mining", "General");
+    private static final Set<String> NESTED_OK = Set.of("Secrets", "Puzzle Solvers", "Commissions and Mithril", "Powder Mining", "General",
+            "Dwarven Mines and Glacite", "Crystal Hollows");
     /** Sections added by this change (cheat build): Home's Correction Alarm, out of the middle of Mod & HUD. */
     private static final Set<String> NEW_LEAVES = Set.of("gui.tab.CorrectionAlarmTab",
+            // The Mining features pulled from staging-mining-3 (mod chport-1104, killer560 2026-11-04); the last two are
+            // cheat jar only.
+            "gui.tab.FetchurSolverTab", "gui.tab.PuzzlerSolverTab", "gui.tab.ColdOverlayTab", "gui.tab.FossilSolverTab",
+            "gui.tab.CrystalHollowsMapTab", "gui.tab.CrystalTrackerTab", "gui.tab.WishingCompassTab",
+            "gui.tab.MetalDetectorTab", "gui.tab.WormAlertTab", "gui.tab.LobbyTrackerTab", "gui.tab.NucleusRunProfitTab",
+            "gui.tab.MiningEventsTab", "gui.tab.MiningProfitTab", "gui.tab.SkyMallDisplayTab",
+            "gui.tab.StructureScannerTab", "gui.tab.GhostEspTab",
             // Hide Potion Effects (mod effects-search-1102, killer560 2026-11-02): its own Items card again, legit in both builds.
             "gui.tab.HidePotionEffectsTab",
 
