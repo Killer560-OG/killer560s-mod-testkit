@@ -85,8 +85,8 @@ public final class UiCase {
                         + "case's world setup is wrong; respawned for the next case");
             }
             if (!c.problems.isEmpty()) {
-                throw new AssertionError("[" + name + "] " + c.problems.size() + " problem(s):\n    "
-                        + String.join("\n    ", c.problems));
+                throw new AssertionError("[" + name + "] " + c.problems.size() + " problem(s): "
+                        + String.join(" | ", c.problems));
             }
             Mod.assertHealthy(health);
             SuiteVerdict.finished(name);
