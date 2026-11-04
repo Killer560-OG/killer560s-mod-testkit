@@ -32,6 +32,7 @@ final class HxDocDhud1101Cases {
         s.test("1101-dhud-cryptreminder", HxDocDhud1101Cases::cryptReminder);
         s.test("1101-dhud-preboss", HxDocDhud1101Cases::preBoss);
         s.test("1103-preboss-portal", HxDocDhud1101Cases::preBossPortal);
+        s.test("1103-score-title-no-calc", HxDocDhud1101Cases::titleNoCalc);
         s.test("1101-dhud-splitticks", HxDocDhud1101Cases::splitTicks);
         s.test("1101-dhud-coreentry", HxDocDhud1101Cases::coreEntry);
         s.test("1101-dhud-livid", HxDocDhud1101Cases::livid);
@@ -77,6 +78,31 @@ final class HxDocDhud1101Cases {
 
     /** Owner 2026-11-03: Color Portal tints the boss portal red under 270, yellow from 270, green from 300. A real
      *  obsidian frame with portal blocks is built; after the Watcher's line the tint must match the calculator's score. */
+    /** killer560, 2026-11-03: the 300 (and 270) title popup works with the Score Calculator OFF; nothing goes to party. */
+    private static void titleNoCalc(Session c) {
+        String F = "scorecalc.ScoreCalculatorFeature";
+        try (Settings set = new Settings(c).with(SCORE_CFG, "Enabled", false)
+                .with(SCORE_CFG, "PreBossWarning", false)
+                .with(SCORE_CFG, "CryptReminder", false)
+                .with(SCORE_CFG, "Title270", false)
+                .with(SCORE_CFG, "Title300", true)
+                .with(SCORE_CFG, "Party270", true)
+                .with(SCORE_CFG, "Party300", true)) {
+            dungeon(c, "crypts", 5, "secrets", 60, "secretsPercent", "100.0", "rooms", 25);
+            sidebar(c, "template", "dungeon", "floor", "F7", "time", "05m 10s", "cleared", 100);
+            freshRun(c);
+            c.waitUntil("300 reached with the calculator off", mc -> (Boolean) Mod.field(F, "said300"), 200);
+            c.ctx().waitTicks(10);
+            c.note("said300 with Score Calculator OFF and 300 Title ON");
+        }
+        // Title OFF and nothing else wanting the estimate: the estimate does not run at all.
+        try (Settings set = new Settings(c).with(SCORE_CFG, "Enabled", false).with(SCORE_CFG, "PreBossWarning", false)
+                .with(SCORE_CFG, "CryptReminder", false).with(SCORE_CFG, "Title270", false).with(SCORE_CFG, "Title300", false)) {
+            boolean wanted = c.onClient(mc -> (Boolean) Mod.staticCall(F, "estimateWanted"));
+            c.note("estimateWanted with every consumer off: " + wanted + " (a map Extra Info may still want it)");
+        }
+    }
+
     private static void preBossPortal(Session c) {
         net.minecraft.core.BlockPos f = c.onClient(mc -> mc.player.blockPosition());
         int x0 = f.getX() + 3;
