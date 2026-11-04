@@ -47,6 +47,10 @@ import java.util.concurrent.atomic.AtomicReference;
  *     Fairy the frame differs from a Fairy-Door-off frame of the same view by hundreds of magenta pixels.</li>
  * <li>534 avoids: teleported into the room AFTER Fairy (blood side), his blood path no longer goes through Fairy, so no
  *     door; teleported back, it returns (a teleport past Fairy is not an entry).</li>
+ * <li>1104 renumbered (fairydoor-1104): standing before Fairy, the live map's room groups are renumbered - his room
+ *     takes the index Fairy had - as a new snapshot does on Hypixel when a room joins the map (the grouping is a HashMap
+ *     walk; his 2026-11-04 logs show Fairy's index going to the Entrance's). The Fairy Door must keep its door and not
+ *     clear; before the fix it took the old index for Fairy and cleared with "you entered Fairy" for the whole run.</li>
  * <li>535 teammate: a client player entity (v4 UUID, no party known - the map takes every real player as a teammate)
  *     next to him changes nothing; put inside Fairy it clears the highlight while he stays outside, and the magenta is
  *     gone from the frame.</li>
@@ -81,6 +85,9 @@ public class SimFairyDoorTests implements FabricClientGameTest {
     private static final String R_WITHER = "538-sim-fairy-door-wither-unchanged";
     /** dungeon-b2 (2026-10-09): the map says WITHER, the world has no coal - his 2026-10-08_15.48.34 F1 floor. */
     private static final String R_MAP_WITHER = "678-sim-fairy-door-map-wither-no-coal";
+    /** fairydoor-1104: a new layout snapshot numbers the rooms afresh (killer560: "sometimes fairy door doesnt work"). */
+    private static final String R_RENUMBER = "1104-sim-fairy-door-rooms-renumbered";
+    private static final String LIVE_MAP = "com.killer560.hub.livemap.LiveMapFeature";
     private static final Path B2_SHOTS = Path.of("C:/Users/Hunter/killer560s-mod-logs/dungeon-b2-shots");
     private static final String MAP_SCANNER = "com.killer560.hub.livemap.DungeonMapScanner";
 
@@ -288,6 +295,36 @@ public class SimFairyDoorTests implements FabricClientGameTest {
             row(R_AVOIDS, doorAfter == -1 && doorBack == -1, "legit jar: doors " + doorAfter + " / " + doorBack);
         }
 
+        // ---- 1104: the rooms are renumbered while he stands before Fairy ------------------------------------------
+        Report.caseStarted(R_RENUMBER);
+        int[] numbered = ctx.computeOnClient(mc -> fairyAndHisRoom(f));
+        String swap = ctx.computeOnClient(mc -> swapGroups(f.beforeRoomTile, f.fairyTile));
+        boolean renumberCleared = false;
+        int renumberDoor = f.entryDoor;
+        for (int t = 0; t < 30 && !renumberCleared && renumberDoor == f.entryDoor; t++) {
+            ctx.waitTick();
+            renumberCleared = ctx.computeOnClient(mc -> fairyCleared());
+            renumberDoor = ctx.computeOnClient(mc -> fairyDoor());
+        }
+        String renumberStatus = ctx.computeOnClient(mc -> fairyStatus());
+        int[] renumbered = ctx.computeOnClient(mc -> fairyAndHisRoom(f));
+        ctx.computeOnClient(mc -> swapGroups(f.beforeRoomTile, f.fairyTile));
+        if (renumberCleared) {
+            resetRun(ctx);
+        }
+        ctx.waitTicks(30);
+        String renumberDetail = "Fairy room " + numbered[0] + ", his " + numbered[1] + "; swap " + swap
+                + "; layout after it: Fairy is room " + renumbered[0] + ", he is in room " + renumbered[1] + "; Fairy Door cleared " + renumberCleared + ", door " + renumberDoor + ", status '"
+                + renumberStatus + "'";
+        if (cheat) {
+            // Premise: the swap reached the layout (Fairy took his room's index and he Fairy's) - else nothing was tested.
+            boolean premise = swap.startsWith("swapped") && numbered[0] >= 0 && numbered[1] >= 0
+                    && renumbered[0] == numbered[1] && renumbered[1] == numbered[0];
+            row(R_RENUMBER, premise && !renumberCleared && renumberDoor == f.entryDoor, renumberDetail);
+        } else {
+            row(R_RENUMBER, renumberDoor == -1 && !renumberCleared, "legit jar: " + renumberDetail);
+        }
+
         // ---- 535: a teammate enters Fairy -------------------------------------------------------------------------
         Report.caseStarted(R_MATE);
         List<?> party = ctx.computeOnClient(mc -> (List<?>) ModUnderTest.staticCall("com.killer560.hub.leapmenu.PartyTracker", "teammates"));
@@ -476,6 +513,45 @@ public class SimFairyDoorTests implements FabricClientGameTest {
             }
         }
         return out;
+    }
+
+    /** {Fairy's room index, his room index} on the layout of this tick. */
+    private static int[] fairyAndHisRoom(Floor f) {
+        Object layout = ModUnderTest.staticCall(LAYOUT, "current");
+        return new int[]{(Integer) inv(layout, "roomOfCell", f.fairyTile), (Integer) inv(layout, "currentRoom")};
+    }
+
+    /** Swaps the live map's room groups holding cells {@code a} and {@code b} (indices, cell table, map version), as a
+     *  fresh grouping numbers rooms differently; FairyDoor's path cadence is set to its longest so its cache is in use. */
+    private static String swapGroups(int a, int b) {
+        try {
+            Class<?> k = Class.forName(LIVE_MAP);
+            Field gf = k.getDeclaredField("groups");
+            gf.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            List<Object> groups = (List<Object>) gf.get(null);
+            Field cf = k.getDeclaredField("groupOfCell");
+            cf.setAccessible(true);
+            int[] cell = (int[]) cf.get(null);
+            int ga = cell[a];
+            int gb = cell[b];
+            if (ga < 0 || gb < 0 || ga == gb) {
+                return "not done: groups " + ga + "/" + gb;
+            }
+            Object t = groups.get(ga);
+            groups.set(ga, groups.get(gb));
+            groups.set(gb, t);
+            for (int i = 0; i < cell.length; i++) {
+                cell[i] = cell[i] == ga ? gb : cell[i] == gb ? ga : cell[i];
+            }
+            Field vf = k.getDeclaredField("mapVersion");
+            vf.setAccessible(true);
+            vf.setInt(null, vf.getInt(null) + 1);
+            setStaticInt(FAIRY, "ticksToPath", 10);
+            return "swapped groups " + ga + " (his room) and " + gb + " (Fairy)";
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("could not renumber the room groups", e);
+        }
     }
 
     /** The dungeon map item's reading of door cell {@code idx} as a WITHER door (on), or the scanner's reset (off). */
