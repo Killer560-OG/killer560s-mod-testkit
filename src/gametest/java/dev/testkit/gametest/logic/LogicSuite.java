@@ -65,6 +65,11 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "4102-logic-banreport-off", BanReportCases::off);
         LogicCase.run(ctx, "4103-logic-banreport-nothing-else", BanReportCases::nothingElse);
         // ---- end Auto Report Bans
+        // ---- Auto Crash Reports (mod crashrep-1104) - own block
+        LogicCase.run(ctx, "1104-logic-crashreport-live", CrashReportCases::live);
+        LogicCase.run(ctx, "1104-logic-crashreport-boot", CrashReportCases::boot);
+        LogicCase.run(ctx, "1104-logic-crashreport-off", CrashReportCases::off);
+        // ---- end Auto Crash Reports
         // ---- Auto Update (nt-auto-update, 2026-10-11) - own block
         AutoUpdateCases.ctx = ctx;
         LogicCase.runOffClient(ctx, "776-logic-autoupdate-asset", AutoUpdateCases::asset);

@@ -143,6 +143,8 @@ final class MenuLayoutCases {
             // Ban Reports (mod doc-ban-1101, to-do Doc "BAN LOGGER", 2026-11-01): Auto Report Bans, a Home section after
             // his ordered cards, legit in both builds, OFF by default.
             "gui.tab.BanReportTab",
+            // Crash Reports (mod crashrep-1104, 2026-11-04): Auto Crash Reports, next to Ban Reports, both builds, OFF.
+            "gui.tab.CrashReportTab",
             // To-do Doc items of 2026-11-01 (mod doc-extras-1101), legit in both builds: Creation Cooldown and Insta Clear
             // Warning (Dungeons), Gyrokinetic Wand Overlay (Items), Chat Tabs (Chat).
             "gui.tab.CreationCooldownTab", "gui.tab.InstaClearWarningTab", "gui.tab.GyroOverlayTab", "gui.tab.ChatTabsTab",

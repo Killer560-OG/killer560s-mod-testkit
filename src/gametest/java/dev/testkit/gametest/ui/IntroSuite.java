@@ -56,7 +56,7 @@ import java.util.Map;
 public class IntroSuite implements FabricClientGameTest {
 
     static final String[] CASES = {"1101-ui-intro-first-show", "1101-ui-intro-nav", "1101-ui-intro-skip",
-            "1101-ui-intro-theme", "1101-ui-intro-variant", "1101-ui-intro-banlogs", "1101-ui-intro-once",
+            "1101-ui-intro-theme", "1101-ui-intro-variant", "1101-ui-intro-banlogs", "1104-ui-intro-crashreports", "1101-ui-intro-once",
             "1101-ui-intro-sizes", "1101-ui-intro-anim", "1101-ui-intro-autoupdate", "1101-ui-intro-mouth",
             "1101-ui-intro-facing", "1101-ui-intro-still", "1101-ui-intro-timebox", "1101-ui-intro-grid"};
     static final String INTRO = "intro.IntroScreen";
@@ -84,6 +84,7 @@ public class IntroSuite implements FabricClientGameTest {
         UiCase.run(ctx, "1101-ui-intro-theme", IntroSuite::theme);
         UiCase.run(ctx, "1101-ui-intro-variant", IntroSuite::variant);
         UiCase.run(ctx, "1101-ui-intro-banlogs", IntroSuite::banLogs);
+        UiCase.run(ctx, "1104-ui-intro-crashreports", IntroSuite::crashReports);
         UiCase.run(ctx, "1101-ui-intro-once", IntroSuite::once);
         UiCase.run(ctx, "1101-ui-intro-sizes", IntroSuite::sizes);
         UiCase.run(ctx, "1101-ui-intro-anim", IntroSuite::anim);
@@ -232,6 +233,38 @@ public class IntroSuite implements FabricClientGameTest {
         });
     }
 
+    static boolean crash(UiCase c) {
+        return c.onClient(mc -> (Boolean) Mod.call(Mod.cfg("crashreport.CrashReportConfig"), "isEnabled"));
+    }
+
+    /** Auto Crash Reports (mod crashrep-1104): asked on BOTH jars, OFF through Next with no answer and through No thanks;
+     *  Yes turns it on and is saved, No after Yes turns it off again. */
+    static void crashReports(UiCase c) {
+        c.onClient(mc -> {
+            Object cfg = Mod.cfg("crashreport.CrashReportConfig");
+            Mod.call(cfg, "setEnabled", false);
+            Mod.call(cfg, "save");
+            return null;
+        });
+        open(c);
+        goTo(c, "CRASH_REPORTS");
+        shot(c, "crash-reports");
+        c.check(text(c).contains("Auto Crash Reports"), "the crash scene does not name Auto Crash Reports: " + text(c));
+        c.check(!crash(c), "Auto Crash Reports is on before any answer");
+        choiceGate(c, "CRASH_REPORTS", "Yes, send them");
+        c.check(!crash(c), "Next with no answer turned Auto Crash Reports on");
+        click(c, "No thanks");
+        c.check(!crash(c), "No thanks turned Auto Crash Reports on");
+        click(c, "Yes, send them");
+        c.check(crash(c), "Yes did not turn Auto Crash Reports on");
+        c.check(configFile(c, "killer560smod-crashreport.json").contains("\"enabled\": true"), "Yes was not saved");
+        click(c, "No thanks");
+        c.check(!crash(c), "No after Yes left Auto Crash Reports on");
+        c.check(configFile(c, "killer560smod-crashreport.json").contains("\"enabled\": false"), "No was not saved");
+        click(c, "Skip Guide");
+        c.check(!crash(c), "No did not stay after the tour ended");
+    }
+
     /** Answers a waiting question (No thanks for the ban logs, Yes for Auto Update: the defaults a test config has),
      *  then clicks Next (or Finish). */
     static void advance(UiCase c, boolean last) {
@@ -241,7 +274,7 @@ public class IntroSuite implements FabricClientGameTest {
         });
         if (blocked) {
             String sc = scene(c);
-            click(c, sc.equals("BAN_LOGS") ? "No thanks" : "Yes, keep me updated");
+            click(c, sc.equals("BAN_LOGS") || sc.equals("CRASH_REPORTS") ? "No thanks" : "Yes, keep me updated");
         }
         click(c, last ? "Finish" : "Next");
     }
@@ -582,6 +615,7 @@ public class IntroSuite implements FabricClientGameTest {
         c.note((cheat ? "cheat" : "legit") + " jar, scenes " + names);
         c.check(names.contains("BAN_LOGS") == cheat, "the ban-log scene is " + (cheat ? "missing on" : "present on")
                 + " a " + (cheat ? "cheat" : "legit") + " jar");
+        c.check(names.contains("CRASH_REPORTS"), "the crash-report scene is missing on a " + (cheat ? "cheat" : "legit") + " jar");
         goTo(c, "VARIANT");
         String t = text(c);
         c.note("variant scene: " + t.replace('\n', ' '));
