@@ -37,6 +37,10 @@ import java.util.concurrent.atomic.AtomicReference;
  *       those spots turned by the room's rotation (checked against RoomDatabase.toRealCoord, the proven transform, not the
  *       code under test), on the server, in at least three rooms and two rotations.</li>
  *   <li><b>1103-sim-starredoff</b> - Spawn Starred Mobs off: the floor's GO places no starred mob.</li>
+ *   <li><b>1104-bloodrush-known</b> - mod bloodrush2-1104: the shipped spot table shows a room's boxes with no mob in
+ *       view, proven in screen pixels (helper on vs off, Outline Width 1 vs 8, Filled Boxes, a wall hiding the box and
+ *       Through Walls showing it on a cheat jar), the new settings survive save + load, and spots are learned after the
+ *       blood door opens (see {@code known}).</li>
  * </ul>
  * Only when named. GrimAC does not apply (the sim's integrated server).
  */
@@ -47,6 +51,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
     static final String SPOTS = "1103-sim-starredspots";
     static final String OFF = "1103-sim-starredoff";
     static final String SPLIT = "1103-bloodrush-split";
+    static final String KNOWN = "1104-bloodrush-known";
     private static final String BR = "com.killer560.hub.bloodrush.BloodRushHelperFeature";
     private static final String BR_CFG = "com.killer560.hub.bloodrush.BloodRushConfig";
     private static final String BR_SPOTS = "com.killer560.hub.bloodrush.BloodRushSpots";
@@ -67,7 +72,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
             return;
         }
         List<String> failed = new ArrayList<>();
-        for (String name : List.of(SPLIT, RUSH, SPOTS, OFF)) {
+        for (String name : List.of(SPLIT, RUSH, SPOTS, OFF, KNOWN)) {
             if (Scenario.skip(name)) {
                 continue;
             }
@@ -110,6 +115,8 @@ public class SimBloodRushTests implements FabricClientGameTest {
                     }
                 } else if (name.equals(SPOTS)) {
                     starredSpots(ctx, problems, facts);
+                } else if (name.equals(KNOWN)) {
+                    known(ctx, problems, facts);
                 } else {
                     starredOff(ctx, problems, facts);
                 }
@@ -122,6 +129,12 @@ public class SimBloodRushTests implements FabricClientGameTest {
                     ModUnderTest.set(cfg, "setEnabled", false);
                     ModUnderTest.call(cfg, "setKillers", new Class<?>[]{int.class}, new Object[]{1});
                     ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{true});
+                    try {
+                        setStatic(BR, "learnInSimForTest", false);
+                    } catch (Throwable ignored) {
+                        // an older jar has no such hook
+                    }
+                    dev.testkit.compat.McCompat.setHudHidden(mc, false);
                 });
                 SimMobFloorTests.leave(ctx);
                 ctx.runOnClient(mc -> mc.options.renderDistance().set(renderBefore));
@@ -620,6 +633,18 @@ public class SimBloodRushTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> {
             ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{false});
             setSpawnStarred(true);
+            // This case checks placement on the spots it seeds, so the jar's shipped table (bloodrush2-1104) is emptied;
+            // an older jar has no table and no hook.
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Integer> shipped = (Map<String, Integer>) ModUnderTest.staticCall(BR_SPOTS, "bundledCounts");
+                for (String room : new ArrayList<>(shipped.keySet())) {
+                    ModUnderTest.staticCall(BR_SPOTS, "putBundledForTest", new Class<?>[]{String.class, List.class},
+                            new Object[]{room, new ArrayList<int[]>()});
+                }
+            } catch (Throwable t) {
+                // no shipped table in this jar
+            }
         });
         long mark = LogTap.mark();
         startFloor(ctx);
@@ -787,6 +812,573 @@ public class SimBloodRushTests implements FabricClientGameTest {
         }
         if (!savedOff || mobsOn || starred != 0 || placed) {
             problems.add("Spawn Starred Mobs off still spawned starred mobs (" + starred + ", placed line " + placed + ")");
+        }
+    }
+
+    // ---- 1104-bloodrush-known -----------------------------------------------------------------------------------------
+
+    private static final String BR_KNOWN_WHY = "bloodrush2-1104 (killer560 2026-11-03: \"the blood rush helper boxes arent really "
+            + "loading in properly or at all and it is really hard to see them\")";
+
+    private static void setStatic(String cls, String field, boolean v) {
+        try {
+            Class.forName(cls).getField(field).setBoolean(null, v);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("no " + cls + "." + field + " (old jar?)", e);
+        }
+    }
+
+    private static int[] project(Minecraft mc, Vec3 p) {
+        var cam = mc.gameRenderer.mainCamera();
+        Vec3 d = p.subtract(cam.position());
+        var fw = cam.forwardVector();
+        var up = cam.upVector();
+        var left = cam.leftVector();
+        double depth = d.x * fw.x() + d.y * fw.y() + d.z * fw.z();
+        if (depth <= 0.05) {
+            return null;
+        }
+        double u = -(d.x * left.x() + d.y * left.y() + d.z * left.z());
+        double v = d.x * up.x() + d.y * up.y() + d.z * up.z();
+        double fpx = (mc.getWindow().getHeight() / 2.0) / Math.tan(Math.toRadians(cam.getFov()) / 2.0);
+        return new int[]{(int) Math.round(mc.getWindow().getWidth() / 2.0 + u / depth * fpx),
+                (int) Math.round(mc.getWindow().getHeight() / 2.0 - v / depth * fpx)};
+    }
+
+    /** The screen rect (window pixels) the box's eight corners project into, inflated by 8, or null if any is behind. */
+    /** Client thread: no collision shape at {@code p}. */
+    private static boolean clear(Minecraft mc, BlockPos p) {
+        return mc.level.getBlockState(p).getCollisionShape(mc.level, p).isEmpty();
+    }
+
+    private static int[] rectOf(ClientGameTestContext ctx, AABB b) {
+        return ctx.computeOnClient(mc -> {
+            int x0 = Integer.MAX_VALUE, y0 = Integer.MAX_VALUE, x1 = Integer.MIN_VALUE, y1 = Integer.MIN_VALUE;
+            for (int i = 0; i < 8; i++) {
+                int[] p = project(mc, new Vec3((i & 1) == 0 ? b.minX : b.maxX, (i & 2) == 0 ? b.minY : b.maxY,
+                        (i & 4) == 0 ? b.minZ : b.maxZ));
+                if (p == null) {
+                    return null;
+                }
+                x0 = Math.min(x0, p[0]);
+                y0 = Math.min(y0, p[1]);
+                x1 = Math.max(x1, p[0]);
+                y1 = Math.max(y1, p[1]);
+            }
+            return new int[]{x0 - 8, y0 - 8, x1 + 8, y1 + 8, mc.getWindow().getWidth(), mc.getWindow().getHeight()};
+        });
+    }
+
+    private static java.awt.image.BufferedImage shot(ClientGameTestContext ctx, String tag) {
+        ctx.waitTicks(6);
+        java.nio.file.Path p = ctx.takeScreenshot(dev.testkit.harness.Report.fileName("1104-bloodrush-known-" + tag));
+        try {
+            return javax.imageio.ImageIO.read(p.toFile());
+        } catch (java.io.IOException e) {
+            throw new AssertionError("screenshot " + p, e);
+        }
+    }
+
+    /** Pixels inside {@code r} (window coordinates) that differ by more than 40 in any channel. */
+    private static int diff(java.awt.image.BufferedImage a, java.awt.image.BufferedImage b, int[] r) {
+        double sx = a.getWidth() / (double) r[4], sy = a.getHeight() / (double) r[5];
+        int n = 0;
+        for (int y = Math.max(0, (int) (r[1] * sy)); y < Math.min(a.getHeight(), (int) (r[3] * sy)); y++) {
+            for (int x = Math.max(0, (int) (r[0] * sx)); x < Math.min(a.getWidth(), (int) (r[2] * sx)); x++) {
+                int p = a.getRGB(x, y), q = b.getRGB(x, y);
+                int d = Math.max(Math.abs(((p >> 16) & 255) - ((q >> 16) & 255)),
+                        Math.max(Math.abs(((p >> 8) & 255) - ((q >> 8) & 255)), Math.abs((p & 255) - (q & 255))));
+                if (d > 40) {
+                    n++;
+                }
+            }
+        }
+        return n;
+    }
+
+    private static void brSet(String setter, boolean v) {
+        ModUnderTest.set(ModUnderTest.config(BR_CFG), setter, v);
+    }
+
+    private static void brSetInt(String setter, int v) {
+        ModUnderTest.call(ModUnderTest.config(BR_CFG), setter, new Class<?>[]{int.class}, new Object[]{v});
+    }
+
+    /**
+     * 1104-bloodrush-known: (1) the jar's shipped spot table loads, and a room that only it knows (his learned spots
+     * forgotten, no mob anywhere: Spawn Starred Mobs off) shows its boxes the moment he is in it; pixels: the box
+     * changes at least 300 pixels on screen against the helper off, two off shots differ by under 40. (2) Outline Width
+     * 8 draws more pixels than 1 (outline only), Filled Boxes adds pixels over outline only. (3) Cheat build: a stone wall
+     * between him and the box hides it (depth) and Through Walls shows it again. (4) Settings survive save + load. (5) A
+     * floor with mobs, after "The BLOOD DOOR has been opened!": mobs first seen with nobody near are learned (the clear
+     * teaches spots too, not only the rush), each learned spot on a server starred mob's block.
+     */
+    private static void known(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
+        String[] floorRoom = new String[1];
+        try {
+            knownPixels(ctx, problems, facts, floorRoom);
+        } finally {
+            ctx.runOnClient(mc -> dev.testkit.compat.McCompat.setHudHidden(mc, false));
+        }
+        if (floorRoom[0] != null) {
+            learnAfterBlood(ctx, problems, facts, floorRoom[0]);
+        }
+    }
+
+    /** Parts (1)-(4); {@code floorRoom[0]} is set once the mob floor stands (to the room whose mobs it hid, or ""). */
+    private static void knownPixels(ClientGameTestContext ctx, List<String> problems, List<String> facts, String[] floorRoom) {
+        facts.add(BR_KNOWN_WHY);
+        ctx.runOnClient(mc -> {
+            ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{false});
+        });
+        Map<String, Integer> shipped = null;
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Integer> got = ctx.computeOnClient(mc -> new HashMap<>((Map<String, Integer>) ModUnderTest.staticCall(BR_SPOTS,
+                    "bundledCounts")));
+            shipped = got;
+        } catch (Throwable t) {
+            problems.add("no shipped spawn spot table (BloodRushSpots.bundledCounts: " + t + ")");
+        }
+        facts.add("shipped table: " + shipped);
+        if (shipped != null && shipped.isEmpty()) {
+            problems.add("the shipped spawn spot table is empty");
+        }
+        // A floor WITH mobs: on a mobless floor every mob room clears as he walks in, and the helper rightly hides it.
+        List<String> floorProblems = new ArrayList<>();
+        if (!SimMobFloorTests.buildMobFloor(ctx, floorProblems, facts)) {
+            problems.add("no floor with mobs: " + floorProblems);
+            return;
+        }
+        floorRoom[0] = "";
+        // A mob room on this floor: a shipped one if the floor has it, else its own secret spots stand in as shipped.
+        Map<String, List<BlockPos>> expected = new HashMap<>();
+        Map<String, Integer> rotation = new HashMap<>();
+        final Map<String, Integer> table = shipped == null ? Map.of() : shipped;
+        String room = ctx.computeOnClient(mc -> {
+            seed(expected, rotation);
+            for (String n : expected.keySet()) {
+                if (table.containsKey(n)) {
+                    return n;
+                }
+            }
+            return expected.keySet().stream().sorted().findFirst().orElse(null);
+        });
+        // seed() put secret spots in as LEARNED; forget those and hand the chosen room's to the shipped table instead.
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class},
+                new Object[]{false}));
+        if (room == null) {
+            problems.add("no mob room on the floor");
+            return;
+        }
+        boolean fromJar = table.containsKey(room);
+        if (!fromJar) {
+            try {
+                List<int[]> rel = new ArrayList<>();
+                ctx.runOnClient(mc -> {
+                    Map<String, List<BlockPos>> e2 = new HashMap<>();
+                    seed(e2, new HashMap<>());
+                    @SuppressWarnings("unchecked")
+                    List<int[]> sp = (List<int[]>) ModUnderTest.staticCall(BR_SPOTS, "spots", new Class<?>[]{String.class},
+                            new Object[]{room});
+                    for (int[] s : sp) {
+                        rel.add(new int[]{s[0], s[1], s[2]});
+                    }
+                    ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{false});
+                    ModUnderTest.staticCall(BR_SPOTS, "putBundledForTest", new Class<?>[]{String.class, List.class},
+                            new Object[]{room, rel});
+                });
+            } catch (Throwable t) {
+                problems.add("could not give " + room + " shipped spots (old jar?): " + t);
+            }
+        }
+        facts.add("room " + room + " (rotation " + rotation.get(room) + "), spots " + (fromJar ? "from the jar's table" : "put in the shipped table")
+                + "; learned now " + learnedCounts(ctx));
+        ctx.runOnClient(mc -> {
+            ModUnderTest.staticCall(BR, "resetForTest");
+            ModUnderTest.staticCall(ROLES_CLS, "resetForTest");
+            Object cfg = ModUnderTest.config(BR_CFG);
+            ModUnderTest.set(cfg, "setEnabled", true);
+            ModUnderTest.set(cfg, "setAllRooms", true);
+            ModUnderTest.set(cfg, "setShowLearned", true);
+            ModUnderTest.set(cfg, "setThroughWalls", false);
+            ModUnderTest.set(cfg, "setWholePath", false);
+            ModUnderTest.call(cfg, "setKillers", new Class<?>[]{int.class}, new Object[]{1});
+            dev.testkit.compat.McCompat.setHudHidden(mc, true);
+        });
+        try {
+            brSet("setFilled", true);
+            brSetInt("setOutlineWidth", 4);
+            brSetInt("setFillOpacity", 25);
+        } catch (Throwable t) {
+            problems.add("no Filled Boxes / Outline Width settings (old jar?): " + t);
+        }
+        // Hide the room's starred mobs from the helper: every star tag in the room goes (so no starred mob is in view), and
+        // each mob is lifted 30 blocks, invisible and frozen. They stay alive, so the room is not cleared and the helper
+        // keeps showing it; any box in it now comes from known spots alone.
+        @SuppressWarnings("unchecked")
+        List<UUID[]> pairs = ctx.computeOnClient(mc -> (List<UUID[]>) ModUnderTest.staticCall(SIM_MOBS, "starredPairs"));
+        List<double[]> where = onServer(ctx, (level, sp) -> {
+            List<double[]> out = new ArrayList<>();
+            for (int i = 0; i < pairs.size(); i++) {
+                Entity e = level.getEntity(pairs.get(i)[0]);
+                if (e != null && e.isAlive()) {
+                    out.add(new double[]{i, e.getX(), e.getZ()});
+                }
+            }
+            return out;
+        });
+        List<Integer> mine = ctx.computeOnClient(mc -> {
+            Object layout = ModUnderTest.staticCall(LAYOUT, "current");
+            List<Integer> out = new ArrayList<>();
+            for (double[] w : where) {
+                int r = (Integer) ModUnderTest.call(layout, "roomAtWorld", new Class<?>[]{double.class, double.class},
+                        new Object[]{w[1], w[2]});
+                if (room.equals(ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{r}))) {
+                    out.add((int) w[0]);
+                }
+            }
+            return out;
+        });
+        int lifted = onServer(ctx, (level, sp) -> {
+            int n = 0;
+            for (int i : mine) {
+                Entity tag = level.getEntity(pairs.get(i)[1]);
+                if (tag != null) {
+                    tag.discard();
+                }
+                Entity mob = level.getEntity(pairs.get(i)[0]);
+                if (mob != null && !dev.testkit.compat.McEntities.endermanClass().isInstance(mob)) {
+                    if (mob instanceof net.minecraft.world.entity.Mob m) {
+                        m.setNoAi(true);
+                    }
+                    mob.setNoGravity(true);
+                    mob.setInvisible(true);
+                    mob.snapTo(mob.getX(), mob.getY() + 30, mob.getZ(), 0f, 0f);
+                    n++;
+                }
+            }
+            return n;
+        });
+        floorRoom[0] = room;
+        facts.add("hid " + mine.size() + " star tag(s) in " + room + ", lifted " + lifted + " mob(s)");
+        // Stand in the room, then find one of its boxes with a clear view 4-7 blocks off.
+        BlockPos s0 = expected.get(room).get(0);
+        SimMobFloorTests.teleport(ctx, s0.getX() + 0.5, s0.getY(), s0.getZ() + 0.5);
+        ctx.waitTicks(20);
+        List<Spot> shown = parsed(ctx);
+        facts.add("standing at " + s0.toShortString() + " in " + room + ": " + spots(ctx) + "; " + status(ctx));
+        List<AABB> candidates = new ArrayList<>();
+        for (Spot s : shown) {
+            if (s.room().equals(room)) {
+                candidates.add(s.box());
+            }
+        }
+        if (candidates.isEmpty()) {
+            problems.add("no box in " + room + " with no starred mob in it (its known spots did not show)");
+            return;
+        }
+        // view: feet x, y, z, then the box index; wall: the blocks between his eye and the box (1.2-2.8 blocks out).
+        double[] view = ctx.computeOnClient(mc -> {
+            int[][] dirs = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {1, -1}, {-1, 1}, {-1, -1}};
+            int[] dists = {5, 4, 6, 7};
+            int[] dys = {0, -1, 1, -2, 2};
+            for (int bi = 0; bi < candidates.size(); bi++) {
+                AABB b = candidates.get(bi);
+                Vec3 c = b.getCenter();
+                int bx = (int) Math.floor(c.x), bz = (int) Math.floor(c.z), by = (int) Math.floor(b.minY);
+                for (int dist : dists) {
+                    for (int[] d : dirs) {
+                        for (int dy : dys) {
+                            BlockPos f = new BlockPos(bx + d[0] * dist, by + dy, bz + d[1] * dist);
+                            if (!clear(mc, f) || !clear(mc, f.above()) || clear(mc, f.below())) {
+                                continue;
+                            }
+                            Vec3 eye = new Vec3(f.getX() + 0.5, f.getY() + 1.62, f.getZ() + 0.5);
+                            boolean seen = true;
+                            for (int k = 1; k < 48 && seen; k++) {
+                                Vec3 p = eye.lerp(c, k / 48.0);
+                                BlockPos q = BlockPos.containing(p);
+                                if (!b.inflate(0.5).contains(p)) {
+                                    seen = clear(mc, q);
+                                }
+                            }
+                            if (seen) {
+                                return new double[]{f.getX() + 0.5, f.getY(), f.getZ() + 0.5, bi};
+                            }
+                        }
+                    }
+                }
+            }
+            return null;
+        });
+        if (view == null) {
+            problems.add("no clear view point 4-7 blocks from any of " + room + "'s " + candidates.size() + " box(es): " + candidates);
+            return;
+        }
+        final AABB box = candidates.get((int) view[3]);
+        SimMobFloorTests.teleport(ctx, view[0], view[1], view[2]);
+        ctx.waitTicks(10);
+        ctx.runOnClient(mc -> {
+            Vec3 eye = mc.player.getEyePosition();
+            Vec3 c = box.getCenter();
+            double dx = c.x - eye.x, dy = c.y - eye.y, dz = c.z - eye.z;
+            float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+            float pitch = (float) Math.max(-89, Math.min(89, -Math.toDegrees(Math.atan2(dy, Math.hypot(dx, dz)))));
+            mc.player.setYRot(yaw);
+            mc.player.setXRot(pitch);
+            mc.player.yRotO = yaw;
+            mc.player.xRotO = pitch;
+        });
+        ctx.waitTicks(10);
+        int[] r = rectOf(ctx, box);
+        facts.add(String.format(Locale.ROOT, "view from %.1f %.1f %.1f, box %s on screen at %s", view[0], view[1], view[2], box,
+                r == null ? "null" : r[0] + "," + r[1] + "-" + r[2] + "," + r[3]));
+        if (r == null) {
+            problems.add("the box is not in front of the camera");
+            return;
+        }
+        java.awt.image.BufferedImage on = shot(ctx, "on");
+        ctx.runOnClient(mc -> brSet("setEnabled", false));
+        java.awt.image.BufferedImage off1 = shot(ctx, "off1");
+        java.awt.image.BufferedImage off2 = shot(ctx, "off2");
+        int boxPx = diff(on, off1, r);
+        int noise = diff(off1, off2, r);
+        facts.add("PIXELS box on vs off " + boxPx + ", off vs off " + noise);
+        if (boxPx < 300 || noise >= 40) {
+            problems.add("the box is not plainly visible: " + boxPx + " pixels against the helper off (want 300+), noise " + noise);
+        }
+        ctx.runOnClient(mc -> brSet("setEnabled", true));
+        try {
+            brSet("setFilled", false);
+            brSetInt("setOutlineWidth", 1);
+            int w1 = diff(shot(ctx, "w1"), off1, r);
+            brSetInt("setOutlineWidth", 8);
+            int w8 = diff(shot(ctx, "w8"), off1, r);
+            brSet("setFilled", true);
+            brSetInt("setOutlineWidth", 1);
+            int f1 = diff(shot(ctx, "fill-w1"), off1, r);
+            facts.add("PIXELS outline only width 1: " + w1 + ", width 8: " + w8 + "; filled width 1: " + f1);
+            if (w8 < w1 * 2 || w1 < 20) {
+                problems.add("Outline Width 8 (" + w8 + " px) is not plainly thicker than 1 (" + w1 + " px)");
+            }
+            if (f1 < w1 + 300) {
+                problems.add("Filled Boxes adds only " + (f1 - w1) + " pixels over outline only");
+            }
+            brSetInt("setOutlineWidth", 4);
+        } catch (Throwable t) {
+            problems.add("outline/fill shots: " + t);
+        }
+        // Depth, and Through Walls (cheat build): stone filling the line of sight 1.2-2.8 blocks out from his eye.
+        boolean cheat = ctx.computeOnClient(mc -> {
+            brSet("setThroughWalls", true);
+            boolean c = ModUnderTest.getBoolean(ModUnderTest.config(BR_CFG), "isThroughWalls");
+            brSet("setThroughWalls", false);
+            return c;
+        });
+        List<BlockPos> wall = ctx.computeOnClient(mc -> {
+            Vec3 eye = mc.player.getEyePosition();
+            Vec3 dir = box.getCenter().subtract(eye).normalize();
+            AABB me = mc.player.getBoundingBox().inflate(0.3);
+            List<BlockPos> out = new ArrayList<>();
+            BlockPos e = BlockPos.containing(eye);
+            for (BlockPos p : BlockPos.betweenClosed(e.offset(-4, -4, -4), e.offset(4, 4, 4))) {
+                Vec3 v = Vec3.atCenterOf(p).subtract(eye);
+                double along = v.dot(dir);
+                double off = v.subtract(dir.scale(along)).length();
+                if (along >= 1.2 && along <= 2.8 && off <= 1.8 && !me.intersects(new AABB(p))
+                        && !box.inflate(0.5).intersects(new AABB(p)) && clear(mc, p)) {
+                    out.add(p.immutable());
+                }
+            }
+            return out;
+        });
+        onServer(ctx, (level, sp) -> {
+            for (BlockPos p : wall) {
+                level.setBlockAndUpdate(p, net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+            }
+            return null;
+        });
+        ctx.waitTicks(10);
+        java.awt.image.BufferedImage wallOff;
+        ctx.runOnClient(mc -> brSet("setEnabled", false));
+        wallOff = shot(ctx, "wall-off");
+        ctx.runOnClient(mc -> brSet("setEnabled", true));
+        int hidden = diff(shot(ctx, "wall-on"), wallOff, r);
+        String walls = "PIXELS behind a " + wall.size() + "-block wall, depth-tested: " + hidden;
+        if (hidden >= 40) {
+            problems.add("the box shows through a stone wall without Through Walls (" + hidden + " px)");
+        }
+        if (cheat) {
+            ctx.runOnClient(mc -> brSet("setThroughWalls", true));
+            int through = diff(shot(ctx, "wall-through"), wallOff, r);
+            ctx.runOnClient(mc -> brSet("setThroughWalls", false));
+            walls += ", Through Walls: " + through;
+            if (through < 300) {
+                problems.add("Through Walls does not show the box behind the wall (" + through + " px)");
+            }
+        } else {
+            walls += " (legit build: Through Walls is off whatever is saved)";
+        }
+        facts.add(walls);
+        onServer(ctx, (level, sp) -> {
+            for (BlockPos p : wall) {
+                level.setBlockAndUpdate(p, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+            }
+            return null;
+        });
+        // The new settings survive a save and a load (what a restart and ProfileManager.reloadAllConfigs do).
+        try {
+            String kept = ctx.computeOnClient(mc -> {
+                Object cfg = ModUnderTest.config(BR_CFG);
+                ModUnderTest.set(cfg, "setFilled", false);
+                ModUnderTest.call(cfg, "setOutlineWidth", new Class<?>[]{int.class}, new Object[]{7});
+                ModUnderTest.call(cfg, "save", new Class<?>[0], new Object[0]);
+                ModUnderTest.staticCall(BR_CFG, "load");
+                Object again = ModUnderTest.config(BR_CFG);
+                String out = "filled=" + ModUnderTest.getBoolean(again, "isFilled") + " width="
+                        + ModUnderTest.getInt(again, "getOutlineWidth");
+                ModUnderTest.set(again, "setFilled", true);
+                ModUnderTest.call(again, "setOutlineWidth", new Class<?>[]{int.class}, new Object[]{4});
+                ModUnderTest.call(again, "save", new Class<?>[0], new Object[0]);
+                return out;
+            });
+            facts.add("after save + load: " + kept);
+            if (!kept.equals("filled=false width=7")) {
+                problems.add("Filled Boxes / Outline Width did not survive save + load: " + kept);
+            }
+        } catch (Throwable t) {
+            problems.add("settings round trip: " + t);
+        }
+    }
+
+    /** Part (5): the same mob floor, the blood door opened, learning switched on for the sim; spots learned on mob blocks
+     *  in a key room other than {@code skip} (whose mobs part 1 hid). */
+    private static void learnAfterBlood(ClientGameTestContext ctx, List<String> problems, List<String> facts, String skip) {
+        ctx.runOnClient(mc -> {
+            ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{false});
+            ModUnderTest.staticCall(BR, "resetForTest");
+            Object cfg = ModUnderTest.config(BR_CFG);
+            // The helper itself OFF: Learn Spawn Spots learns passively (bloodrush2-1104), here after the blood door too.
+            ModUnderTest.set(cfg, "setEnabled", false);
+            ModUnderTest.set(cfg, "setLearnSpots", true);
+        });
+        try {
+            ctx.runOnClient(mc -> setStatic(BR, "learnInSimForTest", true));
+        } catch (Throwable t) {
+            problems.add("no learnInSimForTest hook (old jar?): " + t);
+            return;
+        }
+        say(ctx, "The BLOOD DOOR has been opened!");
+        ctx.waitTicks(4);
+        String st = status(ctx);
+        if (!st.contains("learning spawn spots")) {
+            problems.add("with the helper off, its status is not 'off (learning spawn spots)': " + st);
+        }
+        // A mob room whose starred mobs all stand 11+ blocks from some clear standing block of the same room.
+        @SuppressWarnings("unchecked")
+        List<String> keyRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(SIM_FLOOR, "keyRoomsForTest"));
+        String room = null;
+        double[] stand = null;
+        List<double[]> mobs = List.of();
+        for (String k : keyRooms) {
+            String name = k.split("\\|")[0];
+            if (name.equals(skip)) {
+                continue;
+            }
+            List<double[]> ms = serverStarredIn(ctx, name);
+            if (ms.size() < 2) {
+                continue;
+            }
+            double[] got = ctx.computeOnClient(mc -> {
+                double[] m0 = ms.get(0);
+                Object layout = ModUnderTest.staticCall(LAYOUT, "current");
+                for (int dist = 12; dist <= 20; dist += 2) {
+                    for (int a = 0; a < 16; a++) {
+                        double x = m0[0] + dist * Math.cos(a * Math.PI / 8), z = m0[2] + dist * Math.sin(a * Math.PI / 8);
+                        int r = (Integer) ModUnderTest.call(layout, "roomAtWorld", new Class<?>[]{double.class, double.class},
+                                new Object[]{x, z});
+                        if (!name.equals(ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{r}))) {
+                            continue;
+                        }
+                        boolean far = true;
+                        for (double[] m : ms) {
+                            far &= Math.hypot(m[0] - x, m[2] - z) >= 11.5;
+                        }
+                        BlockPos f = BlockPos.containing(x, m0[1], z);
+                        if (far && mc.level.getBlockState(f).getCollisionShape(mc.level, f).isEmpty()
+                                && mc.level.getBlockState(f.above()).getCollisionShape(mc.level, f.above()).isEmpty()
+                                && !mc.level.getBlockState(f.below()).getCollisionShape(mc.level, f.below()).isEmpty()) {
+                            return new double[]{f.getX() + 0.5, f.getY(), f.getZ() + 0.5};
+                        }
+                    }
+                }
+                return null;
+            });
+            if (got != null) {
+                room = name;
+                stand = got;
+                mobs = ms;
+                break;
+            }
+        }
+        facts.add("after the blood door line: " + st + "; learning room " + room + " with " + mobs.size() + " starred mob(s)");
+        if (room == null) {
+            problems.add("no key room with a standing spot 11+ blocks from all its mobs (" + keyRooms + ")");
+            return;
+        }
+        final String learnRoom = room;
+        SimMobFloorTests.teleport(ctx, stand[0], stand[1], stand[2]);
+        Map<String, Integer> learned = Map.of();
+        for (int i = 0; i < 100; i += 5) {
+            ctx.waitTicks(5);
+            learned = learnedCounts(ctx);
+            if (learned.getOrDefault(learnRoom, 0) >= 2) {
+                break;
+            }
+        }
+        int pending = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(BR, "learningForTest"));
+        facts.add("learned after the blood door: " + learned + " (waiting " + pending + ")");
+        if (learned.getOrDefault(learnRoom, 0) < 1) {
+            problems.add("no spot learned in " + learnRoom + " after the blood door opened");
+            return;
+        }
+        // Each learned spot of the room is the block a server starred mob stands on (wanderers may have moved: 1 block).
+        List<double[]> nowMobs = serverStarredIn(ctx, learnRoom);
+        @SuppressWarnings("unchecked")
+        List<BlockPos> world = ctx.computeOnClient(mc -> {
+            Object layout = ModUnderTest.staticCall(LAYOUT, "current");
+            int n = (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[0], new Object[0]);
+            for (int r = 0; r < n; r++) {
+                if (learnRoom.equals(ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{r}))) {
+                    int[] cr = (int[]) ModUnderTest.call(layout, "clayRotation", new Class<?>[]{int.class}, new Object[]{r});
+                    try {
+                        Class<?> fc = Class.forName("com.killer560.hub.autoroutes.RouteCoords$Frame");
+                        Object frame = fc.getConstructor(String.class, int.class, int.class, int.class)
+                                .newInstance(learnRoom, cr[0], cr[1], cr[2]);
+                        return (List<BlockPos>) ModUnderTest.staticCall(BR_SPOTS, "worldSpots", new Class<?>[]{String.class, fc},
+                                new Object[]{learnRoom, frame});
+                    } catch (ReflectiveOperationException e) {
+                        throw new AssertionError("RouteCoords.Frame", e);
+                    }
+                }
+            }
+            return List.of();
+        });
+        int on = 0;
+        for (BlockPos p : world) {
+            boolean hit = false;
+            for (double[] m : nowMobs) {
+                hit |= Math.abs(p.getX() + 0.5 - m[0]) <= 1.5 && Math.abs(p.getZ() + 0.5 - m[2]) <= 1.5
+                        && Math.abs(p.getY() - m[1]) <= 1.5;
+            }
+            if (hit) {
+                on++;
+            }
+        }
+        facts.add(on + " of " + world.size() + " learned spot(s) in " + learnRoom + " on a server starred mob: " + world);
+        if (on < Math.max(1, world.size() - 1)) {
+            problems.add("learned spots in " + learnRoom + " are not on its mobs: " + on + " of " + world.size());
         }
     }
 
