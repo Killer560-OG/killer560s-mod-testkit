@@ -87,6 +87,8 @@ public class LogicSuite implements FabricClientGameTest {
         // ---- mana hold reset on world change (mod sweep-fix-1021) - opens and closes its own world, TEST thread
         ManaResetCases.ctx = ctx;
         LogicCase.runOffClient(ctx, "2776-logic-mana-world-reset", ManaResetCases::worldReset);
+        LogicCase.run(ctx, "1104-logic-leapcore", LeapCore1104Cases::leapCore);
+        LogicCase.run(ctx, "1104-logic-leapcore-suppress", LeapCore1104Cases::suppress);
         // ItemStacks need item components, which are bound only once a world's registries load ("Components not
         // bound yet" at the title screen). The two cases that build stacks run in a throwaway singleplayer world.
         if (!Scenario.skip("354-logic-terminals") || !Scenario.skip("357-logic-items-ap3-routes")
