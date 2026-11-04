@@ -603,6 +603,21 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         int doorY = f.doorBlock(hd).getY();
         double[] u = f.toward(hFrom, hd);
         double[] dc = f.doorCentre(hd);
+        // Emerald blocks the room already has (Mines does, 26.2 gate 2026-11-04): seeing one of those is no fault, so
+        // they are left out of the "emerald blocks among everything seen" count below.
+        Set<Long> naturalEmeralds = new HashSet<>();
+        server(ctx, level -> {
+            for (int y = doorY - 16; y <= doorY + 24; y++) {
+                for (int dx = -16; dx <= 16; dx++) {
+                    for (int dz = -16; dz <= 16; dz++) {
+                        BlockPos p = new BlockPos((int) Math.floor(centre[0]) + dx, y, (int) Math.floor(centre[2]) + dz);
+                        if (level.getBlockState(p).is(Blocks.EMERALD_BLOCK)) {
+                            naturalEmeralds.add(p.asLong());
+                        }
+                    }
+                }
+            }
+        });
         server(ctx, level -> {
             // Sealed: every neighbor solid. Searched through the room's tile - under its floor first, then up through
             // its walls and pillars - anywhere more than six blocks from the doorway.
@@ -652,7 +667,14 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
             int n = 0;
             for (Object o : (List<?>) ModUnderTest.staticCall(PREDICTOR, "observations")) {
                 double[] b = (double[]) o;
-                if (mc.level.getBlockState(BlockPos.containing(b[0], b[1], b[2])).is(Blocks.EMERALD_BLOCK)) {
+                BlockPos at = BlockPos.containing(b[0], b[1], b[2]);
+                boolean inRoom = Math.abs(at.getX() - (int) Math.floor(centre[0])) <= 16
+                        && Math.abs(at.getZ() - (int) Math.floor(centre[2])) <= 16
+                        && at.getY() >= doorY - 16 && at.getY() <= doorY + 24;
+                if (!inRoom || naturalEmeralds.contains(at.asLong())) {
+                    continue; // another room's or the room's own emerald, not the one placed here
+                }
+                if (mc.level.getBlockState(at).is(Blocks.EMERALD_BLOCK)) {
                     n++;
                 }
             }
@@ -665,7 +687,8 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         row(R_HIDDEN, "minecraft:gold_block".equals(atGold) && atEmerald == null && emeraldsSeen == 0,
                 "looking into " + f.names.get(hInto) + ": gold block in the open at " + gold.get().toShortString() + " seen as "
                         + atGold + "; emerald sealed at " + emerald.get().toShortString() + " seen as " + atEmerald
-                        + "; emerald blocks among everything seen: " + emeraldsSeen);
+                        + "; placed emerald blocks among everything seen in the room: " + emeraldsSeen + " (room's own emeralds "
+                        + naturalEmeralds.size() + ", left out)");
     }
 
     /** Stands in {@code from} and looks through door {@code d} into {@code into} from three distances and five angles. */
