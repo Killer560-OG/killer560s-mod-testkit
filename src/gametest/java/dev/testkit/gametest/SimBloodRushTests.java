@@ -1259,7 +1259,8 @@ public class SimBloodRushTests implements FabricClientGameTest {
             ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{false});
             ModUnderTest.staticCall(BR, "resetForTest");
             Object cfg = ModUnderTest.config(BR_CFG);
-            ModUnderTest.set(cfg, "setEnabled", true);
+            // The helper itself OFF: Learn Spawn Spots learns passively (bloodrush2-1104), here after the blood door too.
+            ModUnderTest.set(cfg, "setEnabled", false);
             ModUnderTest.set(cfg, "setLearnSpots", true);
         });
         try {
@@ -1269,7 +1270,11 @@ public class SimBloodRushTests implements FabricClientGameTest {
             return;
         }
         say(ctx, "The BLOOD DOOR has been opened!");
+        ctx.waitTicks(4);
         String st = status(ctx);
+        if (!st.contains("learning spawn spots")) {
+            problems.add("with the helper off, its status is not 'off (learning spawn spots)': " + st);
+        }
         // A mob room whose starred mobs all stand 11+ blocks from some clear standing block of the same room.
         @SuppressWarnings("unchecked")
         List<String> keyRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(SIM_FLOOR, "keyRoomsForTest"));
