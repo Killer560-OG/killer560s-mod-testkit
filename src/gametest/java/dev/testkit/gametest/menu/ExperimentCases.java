@@ -48,6 +48,7 @@ final class ExperimentCases {
         MenuSuite.test(s, "285-menu-exp-superpairs-clicks-free-space", ExperimentCases::clicksFreeSpace);
         MenuSuite.test(s, "286-menu-exp-superpairs-powerup-into-powerup", ExperimentCases::powerupIntoPowerup);
         MenuSuite.test(s, "287-menu-exp-superpairs-instant-find-stack", ExperimentCases::instantFindStack);
+        MenuSuite.test(s, "1104-menu-exp-superpairs-t7-search", ExperimentCases::t7Search);
         EtableDefaultsCases.register(s);
     }
 
@@ -224,10 +225,19 @@ final class ExperimentCases {
 
     static Played play(Session c, com.google.gson.JsonArray layout, int clicks, boolean valuableOnly, boolean skipGrand,
             boolean skipGuardian) throws Exception {
+        return play(c, layout, clicks, valuableOnly, skipGrand, skipGuardian, null);
+    }
+
+    /** {@code t7First} null leaves T7 Drops First at whatever the reset config holds. */
+    static Played play(Session c, com.google.gson.JsonArray layout, int clicks, boolean valuableOnly, boolean skipGrand,
+            boolean skipGuardian, Boolean t7First) throws Exception {
         MenuKit.reset(c);
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c); AutoCloseable armed = autoConfig(c, cfg)) {
             cfg.set(CONFIG, "SuperpairsValuableOnly", valuableOnly).set(CONFIG, "SkipGrandExpBottles", skipGrand)
                     .set(CONFIG, "SkipGuardianPets", skipGuardian);
+            if (t7First != null) {
+                cfg.set(CONFIG, "SuperpairsT7First", t7First);
+            }
             boolean gotVo = c.onClient(mc -> (Boolean) Mod.get(CONFIG, "isSuperpairsValuableOnly"));
             c.check(gotVo == valuableOnly, "SuperpairsValuableOnly read back " + gotVo);
             int clicksBefore = c.events("container.click").size();
@@ -311,6 +321,44 @@ final class ExperimentCases {
         c.check(two.claims().size() == 3, "board 2: expected all three pairs - got " + two.line());
         c.check(two.claims().contains(X50 + "*@10+12"), "board 2: the Instant Find should claim the 50k XP at 10+12 - got "
                 + two.line());
+    }
+
+    /**
+     * 1104 (killer560, 2026-11-04, Focus T7 on: "instead of continuing to use both clicks to search for it it would use
+     * the first on power 7 and the next on a blank and repeat that cycle"). Board 1: Power VII first, its partner the
+     * seventh tile, five other kinds between. Both clicks of a turn must turn over new tiles until the partner shows,
+     * so Power VII is claimed within 8 clicks and its first tile is clicked only twice (turned over, then claimed); the
+     * old solver reopened it every turn (12 clicks, clicked 6 times). Board 2 ("click it if it finds the instafind"):
+     * an Instant Find on the fourth tile; its free match must go to the covered Power VII.
+     */
+    static void t7Search(Session c) throws Exception {
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto E-Table clicks nothing (223-225 cover the no-click check)");
+            return;
+        }
+        String p7 = "Power VII";
+        Played one = play(c, board(book(p7), xp(XP), book(S5), xp(X50), xp(X100), book(P6), book(p7),
+                xp(XP), book(S5), xp(X50), xp(X100), book(P6)), 20, false, false, false, true);
+        c.note("board 1: " + one.line());
+        c.check(!one.claims().isEmpty() && one.claims().get(0).startsWith(p7 + "@"),
+                "board 1: Power VII must be the first claim - got " + one.line());
+        if (!one.claims().isEmpty() && one.claims().get(0).startsWith(p7 + "@")) {
+            String at = one.claims().get(0).substring(one.claims().get(0).indexOf('@') + 1);
+            int a = Integer.parseInt(at.substring(0, at.indexOf('+')));
+            int b = Integer.parseInt(at.substring(at.indexOf('+') + 1));
+            List<Integer> first8 = one.clicked().subList(0, Math.min(8, one.clicked().size()));
+            c.check(first8.contains(a) && first8.contains(b), "board 1: Power VII not claimed within 8 clicks - " + one.line());
+            int lastClaimClick = Math.max(one.clicked().indexOf(a), one.clicked().lastIndexOf(b));
+            long aBefore = one.clicked().subList(0, Math.max(0, lastClaimClick + 1)).stream().filter(s -> s == a).count();
+            long bBefore = one.clicked().subList(0, Math.max(0, lastClaimClick + 1)).stream().filter(s -> s == b).count();
+            c.check(aBefore + bBefore <= 3, "board 1: the Power VII tiles were clicked " + (aBefore + bBefore)
+                    + " times before the claim (expected 2-3; the bug reopened the known one every turn) - " + one.line());
+        }
+        Played two = play(c, board(book(p7), xp(XP), book(S5), powerup(), xp(X50), xp(X100), book(P6), book(p7),
+                xp(XP), book(S5), xp(X50), xp(X100), book(P6)), 20, false, false, false, true);
+        c.note("board 2: " + two.line());
+        c.check(!two.claims().isEmpty() && two.claims().get(0).startsWith(p7 + "*@"),
+                "board 2: the Instant Find must claim Power VII first - got " + two.line());
     }
 
     /**
