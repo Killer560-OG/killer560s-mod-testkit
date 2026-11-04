@@ -53,7 +53,8 @@ final class BossTimerCases {
             c.check("HUD has no Death tick line", lines.stream().noneMatch(l -> l.contains("Death")), lines.toString());
 
             chat(TT, "onChatMessage", "[BOSS] Storm: I should have known that I stood no chance.");
-            c.eq("Goldor Start armed at 17 on Storm's death", 17, R.get(TT, "goldorStartTime"));
+            c.eq("Goldor Start armed at GOLDOR_START_TICKS (64 since tickfix2-1104) on Storm's death",
+                    R.get(TT, "GOLDOR_START_TICKS"), R.get(TT, "goldorStartTime"));
             chat(TT, "onChatMessage", "[BOSS] Goldor: Who dares trespass into my domain?");
             c.eq("Goldor's line ends Start", -1, R.get(TT, "goldorStartTime"));
             // f7hud-1102: Goldor's tick is GoldorTick now (a remembered server tick, not a counter).
