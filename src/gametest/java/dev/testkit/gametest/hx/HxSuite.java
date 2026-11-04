@@ -154,6 +154,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxBossHealthCases.register(s);
                     // 1103-kickrejoin-*: Kick Rejoin Timer (mod kickhub-1103).
                     HxKickRejoin1103Cases.register(s);
+                    // mod chport-1104: the Mining features pulled from staging-mining-3 (2026-11-04).
+                    HxMining3Cases.register(s);
                 });
     }
 }

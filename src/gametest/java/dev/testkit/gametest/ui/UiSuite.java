@@ -103,7 +103,8 @@ public class UiSuite implements FabricClientGameTest {
             "394-ui-hud-boxes", "395-ui-map-heads",
             "399-ui-hud-editor-resize", "399-ui-hud-editor-snap",
             "399-ui-stat-bars-vitality-xp", "407-ui-stat-bars-layout", "401-ui-scoreboard-editor",
-            "411-ui-mining-shelved", "412-ui-no-new-tab", "413-ui-testing-variant",
+            "1104-ui-mining-pulled-jar", "1104-ui-mining-pulled-menu", "1104-ui-mining-pulled-tabs",
+            "1104-ui-mining-pulled-profit", "1104-ui-mining-chmap", "412-ui-no-new-tab", "413-ui-testing-variant",
             "425-ui-bazaar-icons", "427-ui-pack-disabler-models",
             "428-ui-pack-disabler-pack-push", "430-ui-pack-disabler-screens",
             "431-ui-pack-disabler-user-pack", "432-ui-pack-disabler-bazaar",
@@ -591,7 +592,12 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "407-ui-stat-bars-layout", StatBarsLayoutCases::run);
                     UiCase.run(ctx, "395-ui-map-heads", MapHeadCases::run);
                     UiCase.run(ctx, "401-ui-scoreboard-editor", ScoreboardEditorCases::run);
-                    UiCase.run(ctx, "411-ui-mining-shelved", MiningShelvedCases::run);
+                    // 411-ui-mining-shelved retired: mining was pulled onto main (mod chport-1104, 2026-11-04).
+                    UiCase.run(ctx, "1104-ui-mining-pulled-jar", MiningPulledCases::jar);
+                    UiCase.run(ctx, "1104-ui-mining-pulled-menu", MiningPulledCases::menu);
+                    UiCase.run(ctx, "1104-ui-mining-pulled-tabs", MiningPulledCases::tabs);
+                    UiCase.run(ctx, "1104-ui-mining-pulled-profit", MiningPulledCases::profit);
+                    UiCase.run(ctx, "1104-ui-mining-chmap", MiningPulledCases::chMap);
                     UiCase.run(ctx, "412-ui-no-new-tab", c -> NoNewTabCases.run(c, deny));
                     UiCase.run(ctx, "413-ui-testing-variant", TestingVariantCases::run);
                     UiCase.run(ctx, "425-ui-bazaar-icons", BazaarBrowserCases::icons);
