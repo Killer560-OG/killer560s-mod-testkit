@@ -128,6 +128,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxPowderGhast1103Cases.register(s);
                     // Crystal Hollows powder grinding (1103-powdergrind-*, mod powdergrind-1103).
                     HxPowderGrind1103Cases.register(s);
+                    // Chat Hider mining/sack hides and Hide Treasure Chest Uncovered (1104-chattidy-*, mod chattidy-1104).
+                    HxChatTidy1104Cases.register(s);
                     // Owner requests 2026-11-03 late (1103-mask-proc-title, 1103-partycmd-self).
                     HxOwner1103Cases.register(s);
                     // Resume Held Break After Menus and the AttackHold dump (1103-mining-hold-*, mod mithril-hold-1103).
