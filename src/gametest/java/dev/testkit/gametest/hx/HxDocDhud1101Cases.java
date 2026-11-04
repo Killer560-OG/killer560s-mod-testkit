@@ -32,6 +32,7 @@ final class HxDocDhud1101Cases {
         s.test("1101-dhud-cryptreminder", HxDocDhud1101Cases::cryptReminder);
         s.test("1101-dhud-preboss", HxDocDhud1101Cases::preBoss);
         s.test("1103-preboss-portal", HxDocDhud1101Cases::preBossPortal);
+        s.test("1104-portalpart-hide-particles", HxDocDhud1101Cases::portalParticles);
         s.test("1103-score-title-no-calc", HxDocDhud1101Cases::titleNoCalc);
         s.test("1101-dhud-splitticks", HxDocDhud1101Cases::splitTicks);
         s.test("1101-dhud-coreentry", HxDocDhud1101Cases::coreEntry);
@@ -152,6 +153,110 @@ final class HxDocDhud1101Cases {
             c.note("6 portal blocks; score " + low + " -> " + Integer.toHexString(want) + ", " + high + " -> "
                     + Integer.toHexString(color2) + "; off clears it");
         } finally {
+            c.server().command("fill " + x0 + " " + y0 + " " + z + " " + (x0 + 3) + " " + (y0 + 4) + " " + z + " minecraft:air");
+        }
+    }
+
+    /** Portal particles (real PortalParticle objects in the particle engine) alive within 6 blocks of (x, y, z). */
+    private static int portalParticlesNear(net.minecraft.client.Minecraft mc, double x, double y, double z) {
+        return countPortal(mc.particleEngine, x, y, z, 0, java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()));
+    }
+
+    private static int countPortal(Object o, double x, double y, double z, int depth, java.util.Set<Object> seen) {
+        if (o == null || depth > 4 || !seen.add(o)) {
+            return 0;
+        }
+        if (o instanceof net.minecraft.client.particle.PortalParticle pp) {
+            net.minecraft.world.phys.AABB a = pp.getBoundingBox();
+            return Math.abs((a.minX + a.maxX) / 2 - x) < 6 && Math.abs((a.minY + a.maxY) / 2 - y) < 6
+                    && Math.abs((a.minZ + a.maxZ) / 2 - z) < 6 ? 1 : 0;
+        }
+        int n = 0;
+        if (o instanceof java.util.Map<?, ?> m) {
+            for (Object v : new java.util.ArrayList<>(m.values())) {
+                n += countPortal(v, x, y, z, depth + 1, seen);
+            }
+        } else if (o instanceof java.util.Collection<?> col) {
+            for (Object v : new java.util.ArrayList<>(col)) {
+                n += countPortal(v, x, y, z, depth + 1, seen);
+            }
+        } else if (o.getClass().getName().startsWith("net.minecraft.client.particle.")) {
+            try {
+                for (Class<?> k = o.getClass(); k != null && k != Object.class; k = k.getSuperclass()) {
+                    for (java.lang.reflect.Field fd : k.getDeclaredFields()) {
+                        if (!java.lang.reflect.Modifier.isStatic(fd.getModifiers()) && !fd.getType().isPrimitive()) {
+                            fd.setAccessible(true);
+                            n += countPortal(fd.get(o), x, y, z, depth + 1, seen);
+                        }
+                    }
+                }
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+        return n;
+    }
+
+    private static void spawnPortalParticles(Session c, double x, double y, double z) {
+        c.ctx().runOnClient(mc -> {
+            for (int i = 0; i < 40; i++) {
+                mc.level.addParticle(net.minecraft.core.particles.ParticleTypes.PORTAL, x, y, z, 0, 0, 0);
+            }
+        });
+    }
+
+    /** portalpart-1104: Hide Portal Particles drops portal particles at the colored portal and nowhere else. */
+    private static void portalParticles(Session c) {
+        net.minecraft.core.BlockPos f = c.onClient(mc -> mc.player.blockPosition());
+        int x0 = f.getX() + 3;
+        int y0 = f.getY();
+        int z = f.getZ() + 4;
+        net.minecraft.server.level.ParticleStatus before = c.onClient(mc -> mc.options.particles().get());
+        c.ctx().runOnClient(mc -> mc.options.particles().set(net.minecraft.server.level.ParticleStatus.ALL));
+        try (Settings set = new Settings(c).with(SCORE_CFG, "Enabled", false)
+                .with(SCORE_CFG, "CryptReminder", false)
+                .with(SCORE_CFG, "PreBossWarning", true)
+                .with(SCORE_CFG, "PreBossMageOnly", false)
+                .with(SCORE_CFG, "PreBossPermanent", false)
+                .with(SCORE_CFG, "PreBossPortalColor", true)
+                .with(SCORE_CFG, "PreBossHidePortalParticles", false)
+                .with(SCORE_CFG, "ScoreWarningSound", false)) {
+            c.server().command("fill " + x0 + " " + y0 + " " + z + " " + (x0 + 3) + " " + (y0 + 4) + " " + z + " minecraft:obsidian");
+            c.server().command("fill " + (x0 + 1) + " " + (y0 + 1) + " " + z + " " + (x0 + 2) + " " + (y0 + 3) + " " + z
+                    + " minecraft:nether_portal[axis=x]");
+            dungeon(c, "crypts", 2, "secrets", 10, "secretsPercent", "30.0", "rooms", 20);
+            sidebar(c, "template", "dungeon", "floor", "F7", "time", "05m 00s", "cleared", 80);
+            freshRun(c);
+            c.hx().chat(WATCHER_LINE);
+            c.waitUntil("the portal tinted", mc -> ((Number) Mod.staticCall(WARN, "portalColor")).intValue() != 0
+                    && ((Number) Mod.staticCall(WARN, "portalBlockCount")).intValue() == 6, 100);
+            double px = x0 + 2.0, py = y0 + 2.0, pz = z + 0.5;
+            // OFF: the portal particles spawn and live in the engine.
+            spawnPortalParticles(c, px, py, pz);
+            c.ctx().waitTicks(2);
+            int off = c.onClient(mc -> portalParticlesNear(mc, px, py, pz));
+            c.check(off >= 10, "Hide Portal Particles OFF: only " + off + " of 40 portal particles in the engine");
+            // ON: dropped at the portal, a control batch 18 blocks away is kept.
+            run(c, () -> Mod.set(SCORE_CFG, "setPreBossHidePortalParticles", true));
+            c.ctx().waitTicks(60);
+            c.waitUntil("old particles gone", mc -> portalParticlesNear(mc, px, py, pz) == 0, 100);
+            spawnPortalParticles(c, px, py, pz);
+            spawnPortalParticles(c, px, py, pz + 18);
+            c.ctx().waitTicks(2);
+            int on = c.onClient(mc -> portalParticlesNear(mc, px, py, pz));
+            int far = c.onClient(mc -> portalParticlesNear(mc, px, py, pz + 18));
+            c.check(on == 0, "Hide Portal Particles ON: " + on + " portal particles at the portal");
+            c.check(far >= 10, "control 18 blocks away: only " + far + " of 40 kept");
+            // Color Portal off ends the window: particles spawn again.
+            run(c, () -> Mod.set(SCORE_CFG, "setPreBossPortalColor", false));
+            c.waitUntil("tint cleared", mc -> ((Number) Mod.staticCall(WARN, "portalColor")).intValue() == 0, 40);
+            spawnPortalParticles(c, px, py, pz);
+            c.ctx().waitTicks(2);
+            int after = c.onClient(mc -> portalParticlesNear(mc, px, py, pz));
+            c.check(after >= 10, "tint off: only " + after + " portal particles");
+            c.note("portal particles OFF " + off + ", ON " + on + " (control " + far + "), tint off " + after);
+        } finally {
+            c.ctx().runOnClient(mc -> mc.options.particles().set(before));
             c.server().command("fill " + x0 + " " + y0 + " " + z + " " + (x0 + 3) + " " + (y0 + 4) + " " + z + " minecraft:air");
         }
     }
