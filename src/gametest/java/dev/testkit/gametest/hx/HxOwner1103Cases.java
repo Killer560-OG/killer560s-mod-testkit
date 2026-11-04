@@ -45,14 +45,16 @@ final class HxOwner1103Cases {
     }
 
     private static void partySelf(Session c) {
-        String self = c.onClient(mc -> mc.player.getGameProfile().name());
-        long mark = LogTap.mark();
-        c.hx().chat("§9Party §8> §b[MVP§c+§b] " + self + "§f: !pt HxMateA");
-        c.waitUntil("the mod saw your own command", mc -> LogTap.since(mark).stream()
-                .anyMatch(l -> l.contains("Ignored your own \"!pt\"")), 40);
-        c.ctx().waitTicks(10);
-        boolean ran = LogTap.since(mark).stream().anyMatch(l -> l.contains("transferred the party"));
-        c.check(!ran, "your own !pt ran a transfer");
-        c.note("own !pt ignored for " + self);
+        try (Settings set = new Settings(c).with("partycommands.PartyCommandsConfig", "Enabled", true)) {
+            String self = c.onClient(mc -> mc.player.getGameProfile().name());
+            long mark = LogTap.mark();
+            c.hx().chat("§9Party §8> §b[MVP§c+§b] " + self + "§f: !pt HxMateA");
+            c.waitUntil("the mod saw your own command", mc -> LogTap.since(mark).stream()
+                    .anyMatch(l -> l.contains("Ignored your own \"!pt\"")), 40);
+            c.ctx().waitTicks(10);
+            boolean ran = LogTap.since(mark).stream().anyMatch(l -> l.contains("transferred the party"));
+            c.check(!ran, "your own !pt ran a transfer");
+            c.note("own !pt ignored for " + self);
+        }
     }
 }
