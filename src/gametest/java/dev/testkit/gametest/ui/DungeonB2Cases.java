@@ -181,8 +181,13 @@ final class DungeonB2Cases {
                     b.interacts, hp == null ? "gone" : String.valueOf(hp[0]), hp == null ? "?" : String.valueOf(hp[1]),
                     lastTrigger(c)));
             if (cheat) {
-                c.check(clicksB == 1 && attacksB == 1, "(B) want one click that is an attack, got " + clicksB + " / "
-                        + attacksB);
+                // The trip clicks once at the countdown's end; a husk that is hit and still alive is then finished off by
+                // the floor path (mod bloodcamp2-1102 hitButAlive / nevermiss-1102), so more clicks may follow - but every
+                // click is an attack, and the FIRST one is the trip's own, past the countdown's end.
+                c.check(clicksB >= 1 && attacksB == clicksB, "(B) want every click to be an attack (at least one), got "
+                        + clicksB + " / " + attacksB);
+                c.check(b.clickAt != null && b.clickAt <= -1.0, "(B) the first click was not the trip's, at " + b.clickAt
+                        + " ticks left");
                 c.check(b.interacts >= 1, "(B) no attack packet went out");
                 c.check(hp == null || hp[0] < hp[1], "(B) the husk on the landing spot was not hurt (" + hp[0] + ")");
             } else {
