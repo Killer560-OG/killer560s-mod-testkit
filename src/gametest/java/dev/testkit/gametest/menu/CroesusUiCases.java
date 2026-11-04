@@ -30,7 +30,7 @@ import java.util.Map;
  *       page was read, exact after.</li>
  * </ul>
  */
-final class CroesusUiCases {
+public final class CroesusUiCases {
 
     private CroesusUiCases() {
     }
@@ -116,7 +116,7 @@ final class CroesusUiCases {
         c.ctx().waitTicks(6);
     }
 
-    static BufferedImage shot(Session c, String label) {
+    public static BufferedImage shot(Session c, String label) {
         String name = c.name() + "-" + label;
         c.ctx().runOnClient(McCompat::clearChatAndToasts); // a fading toast is not something the mod drew
         c.ctx().waitTicks(2);
@@ -130,7 +130,7 @@ final class CroesusUiCases {
     }
 
     /** Pixels whose summed RGB differs by more than 30 (the testkit's changed-pixel rule). */
-    static boolean changed(int a, int b) {
+    public static boolean changed(int a, int b) {
         int d = Math.abs(((a >> 16) & 255) - ((b >> 16) & 255)) + Math.abs(((a >> 8) & 255) - ((b >> 8) & 255))
                 + Math.abs((a & 255) - (b & 255));
         return d > 30;
