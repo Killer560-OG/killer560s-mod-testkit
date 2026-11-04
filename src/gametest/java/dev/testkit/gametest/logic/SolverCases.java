@@ -441,7 +441,9 @@ final class SolverCases {
     /** Concrete lines a simple weirdo regex describes: ".+" -> a name, "\\." -> ".", "\\.?" -> both forms. */
     static List<String> samples(String regex) {
         List<String> out = new ArrayList<>();
-        String base = regex.replace(".+", "Berta");
+        String base = regex.replace(".+", "Berta")
+                // An optional character class ("[.!]?", "[.,!]?") is said with its first character.
+                .replaceAll("\\[(.)[^\\]]*\\]\\?", "$1");
         if (base.endsWith("\\.?")) {
             String stem = base.substring(0, base.length() - 3).replace("\\.", ".");
             out.add(stem + ".");
