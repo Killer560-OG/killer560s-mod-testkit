@@ -147,6 +147,7 @@ final class TimerLagCases {
         String gt = "ticktimers.GoldorTick";
         String sl = "ticktimers.StormLine";
         try (AutoCloseable on = Mod.with("ticktimers.TickTimersConfig", "Enabled", true)) {
+            Mod.staticCall(CLOCK, "hypixelForTest", Boolean.TRUE);
             Mod.staticCall(CLOCK, "untrustForTest");
             ticks(40, 1);
             if (!c.check("trusted after two good windows", (Boolean) Mod.staticCall(CLOCK, "trusted"), "not trusted")) {
@@ -207,6 +208,7 @@ final class TimerLagCases {
             Mod.staticCall(gt, "testHitNow", false); // exact
             c.eq("the next hit reads 0", 0, Mod.staticCall(gt, "remaining"));
         } finally {
+            Mod.staticCall(CLOCK, "hypixelForTest", (Object) null);
             Mod.staticCall(CLOCK, "untrustForTest");
             Mod.staticCall(TT, "resetAll");
             R.set("secrets.DungeonState", "simOverrideActive", simWas);
