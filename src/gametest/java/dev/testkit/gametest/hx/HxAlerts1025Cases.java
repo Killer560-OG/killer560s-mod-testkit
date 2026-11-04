@@ -34,6 +34,8 @@ final class HxAlerts1025Cases {
         // doc-auto-1101: Auto Ult's Wish On Clear (cheat jar only)
         s.test("1025-alerts-autoult-wish-clear", HxAlerts1025Cases::wishOnClear);
         s.test("1025-alerts-mutesounds", HxAlerts1025Cases::muteSounds);
+        // sndheld-1104: Mute Lever Sounds swallowed the dungeon start countdown's ticks (Hypixel's random.click).
+        s.test("1104-alerts-countdown-sound", HxAlerts1025Cases::countdownSound);
         s.test("1025-alerts-breakercharges", HxAlerts1025Cases::breakerCharges);
         s.test("1025-alerts-keyspawn", HxAlerts1025Cases::keySpawn);
     }
@@ -219,32 +221,97 @@ final class HxAlerts1025Cases {
         return c.onClient(mc -> (Integer) Mod.staticCall(CLICKED, "soundsMuted"));
     }
 
+    static final net.minecraft.core.BlockPos MUTE_CHEST = new net.minecraft.core.BlockPos(-417, 151, -422);
+    static final net.minecraft.core.BlockPos MUTE_LEVER = new net.minecraft.core.BlockPos(-415, 151, -422);
+
+    /** A chest and a lever for the mutes to find: since sndheld-1104 only a sound played IN one of them is muted. */
+    private static void placeMuteBlocks(Session c) {
+        c.server().command("setblock -417 151 -422 minecraft:chest");
+        c.server().command("setblock -415 150 -422 minecraft:stone");
+        c.server().command("setblock -415 151 -422 minecraft:lever[face=floor]");
+        c.waitUntil("the client sees the chest and the lever",
+                mc -> mc.level.getBlockState(MUTE_CHEST).getBlock() == net.minecraft.world.level.block.Blocks.CHEST
+                        && mc.level.getBlockState(MUTE_LEVER).getBlock() == net.minecraft.world.level.block.Blocks.LEVER, 60);
+    }
+
+    private static void soundIn(Session c, String id, net.minecraft.core.BlockPos pos) {
+        c.hx().soundAt(id, 1, 1, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5);
+    }
+
     private static void muteSounds(Session c) {
         try (Settings set = new Settings(c).with(ALERTS_CFG, "MuteChestSounds", true)
                 .with(ALERTS_CFG, "MuteLeverSounds", false)) {
             dungeon(c);
+            placeMuteBlocks(c);
             int base = muted(c);
-            c.hx().sound("minecraft:block.chest.open", 1, 1);
+            soundIn(c, "minecraft:block.chest.open", MUTE_CHEST);
             c.waitUntil("the chest open sound is muted", mc -> (Integer) Mod.staticCall(CLICKED, "soundsMuted") == base + 1, 20);
-            c.hx().sound("minecraft:block.chest.close", 1, 1);
+            soundIn(c, "minecraft:block.chest.close", MUTE_CHEST);
             c.waitUntil("the chest close sound is muted", mc -> (Integer) Mod.staticCall(CLICKED, "soundsMuted") == base + 2, 20);
-            c.hx().sound("minecraft:block.lever.click", 1, 1);
+            soundIn(c, "minecraft:block.lever.click", MUTE_LEVER);
             c.hx().sound("minecraft:entity.experience_orb.pickup", 1, 1);
             c.ctx().waitTicks(10);
             int leverOff = muted(c);
             c.check(leverOff == base + 2, "a lever or orb sound was muted with only Mute Chest Sounds on (" + leverOff + ")");
             run(c, () -> Mod.call(Mod.cfg(ALERTS_CFG), "setMuteLeverSounds", true));
-            c.hx().sound("minecraft:block.lever.click", 1, 1);
+            soundIn(c, "minecraft:block.lever.click", MUTE_LEVER);
             c.waitUntil("the lever sound is muted", mc -> (Integer) Mod.staticCall(CLICKED, "soundsMuted") == base + 3, 20);
             // Outside a dungeon nothing is muted.
             hub(c);
-            c.hx().sound("minecraft:block.chest.open", 1, 1);
+            soundIn(c, "minecraft:block.chest.open", MUTE_CHEST);
             c.ctx().waitTicks(10);
             int inHub = muted(c);
             c.check(inHub == base + 3, "a chest sound was muted outside a dungeon (" + inHub + ")");
             c.note("dungeon: chest open/close muted, lever + orb not (lever mute off), lever muted once on; hub: none");
         } finally {
             dungeon(c);
+        }
+    }
+
+    // ---- 1104-alerts-countdown-sound ---------------------------------------------------------------------------------
+
+    /**
+     * killer560 2026-11-04: "the sounds to the 5 4 3 2 1 for a run about to start dont come through". Hypixel ticks the
+     * "Starting in N seconds." countdown with 1.8's random.click, which arrives as block.lever.click at the player; Mute
+     * Lever Sounds (on in his config) dropped it. SoundProbe counts what reached the sound engine: the
+     * countdown ticks must play, a lever's own click must still be muted, and an orb sound proves the counter hears.
+     */
+    private static int heard(Session c, String id) {
+        return c.onClient(mc -> dev.testkit.harness.SoundProbe.count(id));
+    }
+
+    private static void countdownSound(Session c) {
+        final String click = "minecraft:block.lever.click";
+        final String orb = "minecraft:entity.experience_orb.pickup";
+        try (Settings set = new Settings(c).with(ALERTS_CFG, "MuteChestSounds", true)
+                .with(ALERTS_CFG, "MuteLeverSounds", true)) {
+            dungeon(c);
+            placeMuteBlocks(c);
+            int base = muted(c);
+            int clicks0 = heard(c, click);
+            for (int n = 4; n >= 1; n--) {
+                c.hx().chat("Starting in " + n + (n == 1 ? " second." : " seconds."));
+                c.hx().sound(click, 1, 1);
+                c.ctx().waitTicks(4);
+            }
+            // The control after the countdown: once it reached the engine, a missing tick was dropped, not late.
+            int orb0 = heard(c, orb);
+            c.hx().sound(orb, 1, 1);
+            c.waitUntil("the control sound reached the engine", mc -> dev.testkit.harness.SoundProbe.count(orb) > orb0, 100);
+            int played = heard(c, click) - clicks0;
+            int mutedNow = muted(c);
+            c.check(played == 4, "the countdown played " + played + " of 4 ticks (" + (mutedNow - base)
+                    + " muted by Mute Lever Sounds)");
+            // A lever's own click is still muted.
+            int clicks1 = heard(c, click);
+            soundIn(c, click, MUTE_LEVER);
+            c.waitUntil("the lever click is muted", mc -> (Integer) Mod.staticCall(CLICKED, "soundsMuted") == mutedNow + 1, 20);
+            int orb1 = heard(c, orb);
+            c.hx().sound(orb, 1, 1);
+            c.waitUntil("the second control sound reached the engine", mc -> dev.testkit.harness.SoundProbe.count(orb) > orb1, 100);
+            int leverPlayed = heard(c, click) - clicks1;
+            c.check(leverPlayed == 0, "a lever's own click played with Mute Lever Sounds on (" + leverPlayed + ")");
+            c.note("countdown: " + played + "/4 ticks reached the sound engine with Mute Lever Sounds on; the lever's own click muted");
         }
     }
 

@@ -274,6 +274,11 @@ public final class Hx implements AutoCloseable {
         call("sound", "id", id, "volume", volume, "pitch", pitch);
     }
 
+    /** A sound played at a point (a block's sound comes from its center). */
+    public void soundAt(String id, double volume, double pitch, double x, double y, double z) {
+        call("sound", "id", id, "volume", volume, "pitch", pitch, "x", x, "y", y, "z", z);
+    }
+
     // ---- events ----------------------------------------------------------------------------------------------
 
     /** The newest event seq: take it BEFORE making the client act, then read {@link #events} since it. */
