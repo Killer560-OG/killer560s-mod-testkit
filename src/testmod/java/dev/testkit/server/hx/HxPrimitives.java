@@ -373,7 +373,9 @@ public final class HxPrimitives implements HxModule {
         Holder<SoundEvent> holder = Holder.direct(SoundEvent.createVariableRangeEvent(id));
         SoundSource source = SoundSource.valueOf(a.has("source")
                 ? a.get("source").getAsString().toUpperCase(java.util.Locale.ROOT) : "MASTER");
-        p.connection.send(new ClientboundSoundPacket(holder, source, p.getX(), p.getY(), p.getZ(),
+        // Optional x/y/z: a block's sound is played at its center (a lever click, a chest), the default at the player.
+        p.connection.send(new ClientboundSoundPacket(holder, source, number(a, "x", p.getX()), number(a, "y", p.getY()),
+                number(a, "z", p.getZ()),
                 (float) number(a, "volume", 1), (float) number(a, "pitch", 1), p.getRandom().nextLong()));
         return null;
     }
