@@ -291,22 +291,18 @@ final class BossTimerCases {
             timedTicks(40);
             c.check("a new world starts trusting afresh", (Boolean) Mod.staticCall(CLOCK, "trusted"),
                     "trusted=" + Mod.staticCall(CLOCK, "trusted"));
-            // hypixel.net's sticky trust (timers2) gives way to it too: the testkit labels a GrimAC server mc.hypixel.net.
-            Mod.staticCall(CLOCK, "hypixelForTest", Boolean.TRUE);
-            Mod.staticCall(CLOCK, "untrustForTest");
-            timedTicks(40);
-            grimLike(100);
-            c.check("on hypixel.net too, pings faster than the server can tick end the sticky trust",
-                    !(Boolean) Mod.staticCall(CLOCK, "trusted"), "trusted=" + Mod.staticCall(CLOCK, "trusted"));
-            // A stall and its catch-up burst are not pings ahead of the wall clock: still trusted.
+            // (tickfix3-1104: real hypixel.net no longer uses this rule, see 1104-logic-hypixel-pings; the testkit's
+            // mc.hypixel.net label on its loopback GrimAC server is not real hypixel.net, so Grim is judged as above.)
+            // A stall and its catch-up burst are not pings ahead of the wall clock: trusted again two windows after it (off
+            // hypixel.net two failing windows end the trust; until tickfix3 this ran as hypixel.net, where it was sticky).
             Mod.staticCall(CLOCK, "untrustForTest");
             timedTicks(40);
             for (int i = 0; i < 40; i++) {
                 timedTick(0);
             }
             timedTick(41);
-            timedTicks(20);
-            c.check("a 2 s stall and its 41-ping burst keep the trust", (Boolean) Mod.staticCall(CLOCK, "trusted")
+            timedTicks(60); // the burst's window fails (41 pings), then two good ones
+            c.check("a 2 s stall and its 41-ping burst: trusted again, never caught pinging ahead", (Boolean) Mod.staticCall(CLOCK, "trusted")
                     && !(Boolean) Mod.staticCall(CLOCK, "notPerTick"), "trusted=" + Mod.staticCall(CLOCK, "trusted")
                     + " notPerTick=" + Mod.staticCall(CLOCK, "notPerTick"));
         } finally {

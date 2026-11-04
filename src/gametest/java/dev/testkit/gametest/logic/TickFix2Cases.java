@@ -100,19 +100,12 @@ final class TickFix2Cases {
         Mod.staticCall(STC, "onPing", grim ? -id : id);
     }
 
-    private static void waitUntil(long atMs) throws InterruptedException {
-        long d;
-        while ((d = atMs - System.currentTimeMillis()) > 0) {
-            Thread.sleep(Math.min(d, 5L));
-        }
-    }
-
     /** {@code n} client ticks 50 ms apart from {@code startMs}, each with the given pings (cycled). Returns the end. */
     private static long paced(long startMs, int n, int[] pings, boolean grim) throws InterruptedException {
         long t = startMs;
         for (int i = 0; i < n; i++) {
             t += 50L;
-            waitUntil(t);
+            LogicCase.waitUntil(t);
             for (int p = 0; p < pings[i % pings.length]; p++) {
                 ping(grim);
             }

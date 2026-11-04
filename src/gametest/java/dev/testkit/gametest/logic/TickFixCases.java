@@ -185,20 +185,12 @@ final class TickFixCases {
         return (Long) Mod.staticCall(LAG, "accumulatedLagMs");
     }
 
-    /** Waits (on this thread) until wall time {@code atMs}. */
-    private static void waitUntil(long atMs) throws InterruptedException {
-        long d;
-        while ((d = atMs - System.currentTimeMillis()) > 0) {
-            Thread.sleep(Math.min(d, 5L));
-        }
-    }
-
     /** {@code n} client ticks 50 ms apart from {@code startMs}, each carrying the given pings (cycled). Returns the end. */
     private static long paced(long startMs, int n, int[] pings) throws InterruptedException {
         long t = startMs;
         for (int i = 0; i < n; i++) {
             t += 50L;
-            waitUntil(t);
+            LogicCase.waitUntil(t);
             tick(pings[i % pings.length]);
         }
         return t;
@@ -228,7 +220,7 @@ final class TickFixCases {
             // A one-second stall: the server sends nothing, then catches up with 20 pings at once, then runs on.
             long l2 = lag();
             t += 1000L;
-            waitUntil(t);
+            LogicCase.waitUntil(t);
             long during = lag() - l2;
             c.check("during the stall the lag shows live (about 950 ms)", during >= 850L && during <= 1200L, during + " ms");
             tick(21);
