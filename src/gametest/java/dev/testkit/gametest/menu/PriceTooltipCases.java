@@ -177,6 +177,8 @@ final class PriceTooltipCases {
             {"FLAWLESS_SAPPHIRE_GEM", 2_000_000, 1_000_000},
             {"FLAWLESS_RUBY_GEM", 2_000_000, 1_000_000},
             {"FLAWLESS_AMETHYST_GEM", 2_000_000, 1_000_000},
+            {"DYE_AQUAMARINE", 5_000_000, 4_000_000},
+            {"PET_SKIN_ENDERMAN_X", 3_000_000, 2_000_000},
     });
 
     static String bazaar(Object[][] rows) {
@@ -215,7 +217,7 @@ final class PriceTooltipCases {
         return fake;
     }
 
-    static final int BAZAAR_ROWS = 16;
+    static final int BAZAAR_ROWS = 18;
 
     /** The lines the feature added (raw text, section codes kept), from the vanilla tooltip builder. */
     static List<String> priceLines(Session c, ItemStack stack) {

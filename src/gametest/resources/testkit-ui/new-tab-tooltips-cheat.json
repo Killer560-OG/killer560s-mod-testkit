@@ -660,6 +660,7 @@
     "Profile Viewer": {
       "clear": "Deletes the saved Hypixel API key.",
       "hypixel api key": "Optional. Paste your own Hypixel API key for faster lookups.",
+      "non-cosmetic networth": "The profile viewer's networth leaves out cosmetic value: pet skins, armor and helmet skins, dyes, runes, and items that are only cosmetic. The Networth page shows both totals either way.",
       "open key": "Key that opens this feature's screen.",
       "open my profile": "Opens the profile viewer on your own Skyblock profile.",
       "remember last page": "Reopens the profile viewer on the page you last used.",
