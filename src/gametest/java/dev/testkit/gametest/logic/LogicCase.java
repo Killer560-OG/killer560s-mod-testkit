@@ -193,7 +193,22 @@ final class LogicCase {
         long d;
         while ((d = atMs - System.currentTimeMillis()) > 0) {
             Thread.sleep(Math.min(d, 5L));
-            org.lwjgl.glfw.GLFW.glfwPollEvents();
+            try {
+                POLL_EVENTS.invoke(null);
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError("glfwPollEvents failed", e);
+            }
+        }
+    }
+
+    /** LWJGL is on the game's classpath at run time but not on the gametest compile classpath. */
+    private static final java.lang.reflect.Method POLL_EVENTS;
+
+    static {
+        try {
+            POLL_EVENTS = Class.forName("org.lwjgl.glfw.GLFW").getMethod("glfwPollEvents");
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
         }
     }
 }
