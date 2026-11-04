@@ -23,6 +23,7 @@
     "gui.tab.MiningAbilityReadyTab": "Mining > Ability Ready Alert",
     "gui.tab.MiningCarpetTab": "Mining > Carpet Highlighter",
     "gui.tab.MiningCommissionHudTab": "Mining > Commission HUD",
+    "gui.tab.MiningCommissionRouteTab": "Mining > Commission Route",
     "gui.tab.MiningMithrilStoneTab": "Mining > Mithril As Stone",
     "gui.tab.MiningPickobulusTab": "Mining > Pickobulus Estimate",
     "gui.tab.MiningRaffleTab": "Mining > Raffle Ticket Highlight",

@@ -53,6 +53,12 @@ final class ArmorHud1103Cases {
         return "minecraft:" + item + "[custom_data={id:\"" + id + "\"}]";
     }
 
+    /** A Skyblock item whose lore ends with Hypixel's rarity line ("LEGENDARY NECKLACE"). */
+    private static String lored(String item, String id, String rarityLine) {
+        return "minecraft:" + item + "[custom_data={id:\"" + id + "\"},lore=[{text:\"\",italic:false},{text:\"" + rarityLine
+                + "\",italic:false,bold:true}]]";
+    }
+
     /** Puts {@code ids} (helmet..boots; null = nothing) on him and waits until the client sees them. */
     private static void wear(Session c, String... ids) {
         for (int i = 0; i < 4; i++) {
@@ -159,7 +165,23 @@ final class ArmorHud1103Cases {
             awaitIcons(c, 7, "after the reload");
             c.ctx().runOnClient(mc -> Mod.set(CFG, "setShowEquipment", false));
             awaitIcons(c, 4, "Show Equipment off");
-            c.note("menu read " + want + "; file read back the same; 7 icons, 4 with Show Equipment off");
+            c.ctx().runOnClient(mc -> Mod.set(CFG, "setShowEquipment", true));
+            // Owner 2026-11-03: /stats too, and a layout unlike the wiki's: pieces found by their rarity line anywhere.
+            JsonObject stats = MenuKit.obj("{\"title\":\"Your Stats\",\"rows\":4,\"fill\":true,\"slots\":{},\"on\":{}}");
+            JsonObject ss = stats.getAsJsonObject("slots");
+            ss.addProperty("3", lored("player_head", "MAGMA_NECKLACE", "LEGENDARY NECKLACE"));
+            ss.addProperty("21", lored("player_head", "MOLTEN_BRACELET", "EPIC BRACELET"));
+            ss.addProperty("22", lored("player_head", "MOLTEN_BELT", "EPIC BELT"));
+            ss.addProperty("30", lored("leather_chestplate", "NOT_EQUIPMENT", "LEGENDARY CHESTPLATE"));
+            MenuKit.show(c, stats);
+            MenuKit.awaitScreen(c, "Your Stats", 100);
+            List<String> want2 = Arrays.asList("MAGMA_NECKLACE", "GHAST_CLOAK", "MOLTEN_BELT", "MOLTEN_BRACELET");
+            c.waitUntil("equipment read from /stats by kind", mc -> want2.equals(Mod.staticCall(FEAT, "equipmentIds")), 40);
+            MenuKit.reset(c);
+            MenuKit.awaitNoScreen(c, 40);
+            awaitIcons(c, 8, "armor + four pieces from /stats");
+            c.note("menu read " + want + "; file read back the same; 7 icons, 4 with Show Equipment off; /stats by kind: "
+                    + want2 + ", 8 icons");
         } finally {
             MenuKit.reset(c);
             wear(c, null, null, null, null);
@@ -265,7 +287,7 @@ final class ArmorHud1103Cases {
         try {
             c.ctx().runOnClient(mc -> {
                 Mod.set(MQ, "setWrongArmor", true);
-                Mod.set(MQ, "setWrongArmorSound", false);
+                Mod.set(MQ, "setWrongArmorSound", true);
             });
             // Adventure: holding attack on the platform sends nothing and breaks nothing.
             c.server().command("gamemode adventure @p");
@@ -285,6 +307,12 @@ final class ArmorHud1103Cases {
             c.waitUntil("Wrong Armor! drawn", mc -> (Integer) Mod.staticCall(WA, "frames") > frames + 2
                     && (Boolean) Mod.staticCall("hud.HudSeen", "drawnRecently", "mining_wrong_armor"), 40);
             notes.add("non-mining armor: " + reason(c));
+            // The alarm keeps going while the armor stays wrong: about one beep a second, none once it is right.
+            int beeps0 = c.onClient(mc -> (Integer) Mod.staticCall(WA, "soundCount"));
+            c.ctx().waitTicks(65);
+            int beeps = c.onClient(mc -> (Integer) Mod.staticCall(WA, "soundCount")) - beeps0;
+            c.check(beeps >= 2 && beeps <= 5, "the wrong-armor alarm beeped " + beeps + " times in 3.25 s, wanted about 3");
+            notes.add("alarm " + beeps + " beeps in 3.25 s");
             // An empty slot is wrong too.
             wear(c, "GOBLIN_HELMET", "GOBLIN_CHESTPLATE", "GOBLIN_LEGGINGS", null);
             c.ctx().waitTicks(10);
@@ -292,6 +320,9 @@ final class ArmorHud1103Cases {
             // 2. A full Goblin set: gone within a moment, and silent.
             wear(c, "GOBLIN_HELMET", "GOBLIN_CHESTPLATE", "GOBLIN_LEGGINGS", "GOBLIN_BOOTS");
             c.waitUntil("the alert gone in a mining set", mc -> !(Boolean) Mod.staticCall(WA, "showing"), 30);
+            int beepsDone = c.onClient(mc -> (Integer) Mod.staticCall(WA, "soundCount"));
+            c.ctx().waitTicks(45);
+            c.check(c.onClient(mc -> (Integer) Mod.staticCall(WA, "soundCount")) == beepsDone, "the alarm kept beeping in a mining set");
             silent(c, "full Goblin set", "mining set", 30);
             // Two mining sets mixed (lowercase ids as the wiki writes Glacite's).
             wear(c, "DIVAN_HELMET", "glacite_chestplate", "GOBLIN_LEGGINGS", "SORROW_BOOTS");

@@ -609,8 +609,15 @@ final class InvSortDocCases {
             String[] others = {"coal", "iron_ingot", "gold_ingot", "apple", "bread", "carrot", "cookie", "potato"};
             int[] at = {3, 4, 5, 9, 13, 14, 15, 16};
             for (int i = 0; i < others.length; i++) {
-                c.hx().give(at[i], "minecraft:" + others[i]);
+                // Owner 2026-11-03: Item Protect / Lock In Place must not keep an item out of storage - the coal is both.
+                c.hx().give(at[i], "minecraft:" + others[i] + (i == 0 ? "[custom_data={id:\"PROT_COAL\",uuid:\"prot-coal-1\"}]" : ""));
             }
+            c.ctx().runOnClient(mc -> {
+                Object pc = Mod.staticCall("itemprotect.ItemProtectConfig", "getInstance");
+                Mod.call(pc, "setProtectItemEnabled", true);
+                Mod.call(pc, "addProtectedKey", "prot-coal-1");
+                Mod.call(pc, "setLockInPlace", true);
+            });
             c.hx().give(8, "minecraft:nether_star[custom_data={id:\"SKYBLOCK_MENU\"}]");
             c.waitUntil("the items", mc -> mc.player.getInventory().getItem(16).is(Items.POTATO)
                     && mc.player.getInventory().getItem(8).is(Items.NETHER_STAR)
@@ -649,7 +656,7 @@ final class InvSortDocCases {
             c.note("inventory after: " + left + "; shift-clicks " + out + "; clicks " + show(clicks));
             c.check(left.equals("[0:minecraft:diamond, 1:minecraft:emerald, 2:minecraft:stick, 8:minecraft:nether_star]"),
                     "the inventory is not just the layout and the menu: " + left);
-            c.check(out == 8, "want 8 shift-clicks out into the page: " + show(clicks));
+            c.check(out == 8, "want 8 shift-clicks out into the page (the protected coal included): " + show(clicks));
             c.check(clicks.stream().noneMatch(e -> e.get("slot").getAsInt() == 44 || e.get("slot").getAsInt() == 89),
                     "a click touched slot 9: " + show(clicks));
             checkStill(c, clicks);
@@ -657,6 +664,14 @@ final class InvSortDocCases {
             finishRun(c);
             MenuKit.reset(c);
             restore(c, p, old);
+            c.ctx().runOnClient(mc -> {
+                Object pc = Mod.staticCall("itemprotect.ItemProtectConfig", "getInstance");
+                if ((Boolean) Mod.call(pc, "hasProtectedKey", "prot-coal-1")) {
+                    Mod.call(pc, "toggleProtectedKey", "prot-coal-1");
+                }
+                Mod.call(pc, "setLockInPlace", false);
+                Mod.call(pc, "setProtectItemEnabled", false);
+            });
             InventoryCases.clearInv(c);
         }
     }

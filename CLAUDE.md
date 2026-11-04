@@ -615,3 +615,4 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
 - A summoned entity's scoreboard `Tags` never reach the client: `Entity.getTags()` does not even exist on the client in
   26.3's mapping (compile error, commissions-1103). Find a test's mob on the client by its custom name or position; keep
   the tag for the server's `kill @e[tag=...]` cleanup.
+- SimBossTests / SimQuizCooldownTests cases (1102-boss-maxorcrys, 1017-sim-quiz-timing) named alone report 0 passed and a vacuous pass; run them as `-Scenario "500-boss-session:,1102-boss-maxorcrys,1017-sim-quiz-timing"` and read the [STDOUT] PASS line in build/run/clientGameTest/logs/latest.log (timerlag-1103, 2026-11-03). 1103-logic-timer-lag drives PerTickServerClock by hand (a live `/tick rate` slows the client's ticks too, so it cannot make the client run ahead of the server).
