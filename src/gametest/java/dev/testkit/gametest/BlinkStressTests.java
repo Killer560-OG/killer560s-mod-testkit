@@ -1585,7 +1585,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                     server.mark();
                     Runnable freeze = () -> {
                         if (kk < 2) {
-                            ctx.runOnClient(mc -> LagSpike.start(1500));
+                            ctx.runOnClient(mc -> LagSpike.start(Long.getLong("killer560.test.lagMs", 1500L)));
                             ctx.waitTicks(40);
                         } else {
                             ctx.runOnClient(mc -> {
@@ -1616,7 +1616,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                         double g = gap(server, ctx);
                         rows.add(server, scenario, label, was && num(ctx, "releasedHolds") > holds0 && num(ctx, "heldPackets") == 0
                                 && g < 0.5, String.format(Locale.ROOT, "held %s, released, longest %d, gap %.2f", was,
-                                num(ctx, "longestHoldTicks"), g), kk < 2 && timerOnly(scenario));
+                                num(ctx, "longestHoldTicks"), g));
                     } else {
                         chargeOn(ctx);
                         ctx.waitTicks(30);
@@ -1630,7 +1630,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                         ctx.waitTicks(20);
                         double g = gap(server, ctx);
                         rows.add(server, scenario, label, bank == 20 && s[2] >= 1 && g < 0.5, String.format(Locale.ROOT,
-                                "bank %d before, %d after, shot %d tick(s) %.2f blocks, gap %.2f", bank, bank2, (long) s[2], s[0], g), kk < 2 && timerOnly(scenario));
+                                "bank %d before, %d after, shot %d tick(s) %.2f blocks, gap %.2f", bank, bank2, (long) s[2], s[0], g));
                     }
                 }
             } finally {
@@ -1639,15 +1639,6 @@ public class BlinkStressTests implements FabricClientGameTest {
             }
             rows.finish(scenario, "1026-blink-lag");
         });
-    }
-
-    /**
-     * True when the scenario drew flags and every one is TimerLimit: the harness's 1.5 s two-way lag spike makes GrimAC
-     * flag TimerLimit with Blink OFF too (1026-blink-controls: 6-8), so those flags are the spike's, not Blink's.
-     */
-    private static boolean timerOnly(Scenario scenario) {
-        List<String> f = scenario.flags();
-        return !f.isEmpty() && f.stream().allMatch(x -> x.contains("TimerLimit"));
     }
 
     /**
@@ -2170,7 +2161,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                             }
                         });
                     } else {
-                        ctx.runOnClient(mc -> LagSpike.start(1500));
+                        ctx.runOnClient(mc -> LagSpike.start(Long.getLong("killer560.test.lagMs", 1500L)));
                         ctx.waitTicks(30);
                     }
                     ctx.waitTicks(10);
