@@ -44,6 +44,7 @@ final class HxSplitChat1102Cases {
         s.test("1102-splitchat-colors", HxSplitChat1102Cases::colors);
         s.test("1102-splitchat-core0", c -> coreZero(c, false));
         s.test("1102-splitchat-core0ticks", c -> coreZero(c, true));
+        s.test("1104-logic-core-dead", HxSplitChat1102Cases::coreDead);
     }
 
     // ---- segment colors -------------------------------------------------------------------------------------------
@@ -289,6 +290,93 @@ final class HxSplitChat1102Cases {
             });
             dungeon(c);
         }
+    }
+
+    /** 1104-logic-core-dead (mod coreentry-1104): HxMateA enters alive, HxMateB is dead (tab "DEAD") and flies through the
+     *  core, the client never enters. After P4 starts: only HxMateA is timed, B and the client read "Did not enter", the
+     *  slowest is HxMateA, and the party line went out as a "pc" command. */
+    private static void coreDead(Session c) {
+        String me = self(c);
+        c.server().command("forceload add 40 20 70 70");
+        c.ctx().waitTicks(10);
+        c.server().command("fill 50 114 54 58 114 62 minecraft:stone");
+        try (Settings set = new Settings(c).with(SPLIT_CFG, "Enabled", true)
+                .with(SPLIT_CFG, "AnnounceInChat", false)
+                .with(SPLIT_CFG, "CoreEntryTimes", true)
+                .with(SPLIT_CFG, "CoreEntryWithoutSplits", false)
+                .with(SPLIT_CFG, "CoreEntrySlowestChat", false)
+                .with(SPLIT_CFG, "CoreEntrySlowestParty", true)) {
+            dungeon(c);
+            tab(c, "template", "dungeon", "players", List.of(player("HxMateA", "Mage", "[MVP+]"),
+                    player("HxMateB", "DEAD", null), player(me, "Archer", null)));
+            c.waitUntil("HxMateB shows dead", mc -> (Boolean) Mod.staticCall("leapmenu.PartyTracker", "isDead", "HxMateB"), 100);
+            run(c, () -> Mod.staticCall(CORE, "reset"));
+            c.onClient(mc -> {
+                spawn(mc, 0, "HxMateA", 54.5, 80, 30.5);
+                spawn(mc, 1, "HxMateB", 54.5, 80, 30.5);
+                return null;
+            });
+            c.ctx().waitTicks(2);
+            long head = c.hx().head();
+            c.hx().chat("The Core entrance is opening!");
+            c.waitUntil("the core opening reached Core Entry", mc -> (Long) Mod.field(CORE, "openedMs") != 0L, 100);
+            c.ctx().waitTicks(4);
+            c.onClient(mc -> {
+                mc.level.getEntity(MATE_ID_BASE + 1).setPos(56.5, 115, 58.5);
+                return null;
+            });
+            c.ctx().waitTicks(6);
+            c.onClient(mc -> {
+                mc.level.getEntity(MATE_ID_BASE).setPos(52.5, 115, 58.5);
+                return null;
+            });
+            c.waitUntil("HxMateA timed into the core", mc -> coreEntriesNow().containsKey("HxMateA"), 40);
+            c.ctx().waitTicks(4);
+            @SuppressWarnings("unchecked")
+            List<String> live = c.onClient(mc -> (List<String>) Mod.staticCall(CORE, "lines"));
+            c.hx().chat("[BOSS] Necron: You went further than any human before, congratulations.");
+            c.waitUntil("Core Entry ended", mc -> (Boolean) Mod.field(CORE, "announced"), 60);
+            @SuppressWarnings("unchecked")
+            List<String> lines = c.onClient(mc -> (List<String>) Mod.staticCall(CORE, "lines"));
+            String slowest = c.onClient(mc -> (String) Mod.staticCall(CORE, "slowestHudLine"));
+            List<String> pcs = new ArrayList<>();
+            for (var e : c.hx().events(head, "cmd")) {
+                String cmd = e.get("command").getAsString();
+                if (cmd.startsWith("pc ")) {
+                    pcs.add(cmd);
+                }
+            }
+            c.note("entries " + coreEntriesNow() + "; live rows " + live + "; final rows " + lines + "; slowest " + slowest
+                    + "; party lines " + pcs);
+            c.check(!coreEntriesNow().containsKey("HxMateB"), "the dead HxMateB was timed: " + coreEntriesNow());
+            c.check(coreEntriesNow().containsKey("HxMateA"), "the living HxMateA was not timed: " + coreEntriesNow());
+            String rb = rowFor(lines, "HxMateB");
+            String rm = rowFor(lines, me);
+            c.check(rb != null && ChatFormatting.stripFormatting(rb).equals("HxMateB: Did not enter"), "HxMateB's row: " + rb);
+            c.check(rm != null && ChatFormatting.stripFormatting(rm).equals(me + ": Did not enter"), "my row: " + rm);
+            String rl = rowFor(live, "HxMateB");
+            c.check(rl != null && ChatFormatting.stripFormatting(rl).equals("HxMateB: -"), "HxMateB's row while timing: " + rl);
+            c.check(slowest != null && ChatFormatting.stripFormatting(slowest).startsWith("HxMateA: "), "slowest: " + slowest);
+            c.check(pcs.size() == 1 && pcs.get(0).startsWith("pc Slowest into core: HxMateA ("), "party lines: " + pcs);
+        } finally {
+            c.onClient(mc -> {
+                for (int i = 0; i < 2; i++) {
+                    if (mc.level != null && mc.level.getEntity(MATE_ID_BASE + i) != null) {
+                        mc.level.removeEntity(MATE_ID_BASE + i, Entity.RemovalReason.DISCARDED);
+                    }
+                }
+                return null;
+            });
+            c.server().command("tp @a -419.5 151 -419.5");
+            c.server().command("forceload remove 40 20 70 70");
+            run(c, () -> Mod.staticCall(CORE, "reset"));
+            dungeon(c);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Long> coreEntriesNow() {
+        return (Map<String, Long>) Mod.staticCall(CORE, "entries");
     }
 
     private static String rowFor(List<String> lines, String name) {
