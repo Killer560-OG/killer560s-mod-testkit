@@ -97,6 +97,7 @@ final class HxSpotifyControlsCases {
         s.test("2849-hx-spotify-word-sweep", HxSpotifyControlsCases::wordSweep);
         s.test("2850-hx-spotify-kugou-words", HxSpotifyControlsCases::kugouWords);
         s.test("2851-hx-spotify-f5-lyrics-default", HxSpotifyControlsCases::f5LyricsDefault);
+        s.test("2852-hx-spotify-f5-hypixel", HxSpotifyControlsCases::f5Hypixel);
     }
 
     // ---- reflection helpers -----------------------------------------------------------------------------------
@@ -518,6 +519,7 @@ final class HxSpotifyControlsCases {
         Path file = (Path) c.onClient(mc -> Mod.field(TAGC, "CONFIG_PATH"));
         byte[] orig = Files.exists(file) ? Files.readAllBytes(file) : null;
         try {
+            Files.createDirectories(file.getParent());
             Files.writeString(file, "{\"lyricsOverHead\":false,\"shareSong\":false}");
             boolean legacy = c.onClient(mc -> { Mod.staticCall(TAGC, "load"); return (Boolean) Mod.get(TAGC, "isLyricsOverHead"); });
             c.check(legacy, "an old file with lyricsOverHead=false (the old default) did not load ON");
@@ -534,6 +536,69 @@ final class HxSpotifyControlsCases {
                 Files.deleteIfExists(file);
             }
             c.onClient(mc -> { Mod.staticCall(TAGC, "load"); return null; });
+        }
+    }
+
+    /** Hypixel's F5: a supporter with Share My Song on (the song line comes from SongShare.ownTag), a scoreboard team that
+     *  hides the player's name tag, a below-name score, the real clock (no testSnapshot of the lyric line: lines at 0 s, 4 s). */
+    private static void f5Hypixel(Session c) throws Exception {
+        c.check(has(c), "this jar has no My Lyrics In F5");
+        long now = System.currentTimeMillis();
+        List<Object> lines = c.onClient(mc -> List.of(line(0.0, "the first line"), line(4.0, "<0:04.00>Hello <0:04.60>from <0:05.20>the <0:05.80>lyric"),
+                line(600.0, "much later")));
+        Object snap = c.onClient(mc -> snapshot(5000, now, lines));
+        UUID self = c.onClient(mc -> mc.player.getUUID());
+        Object savedMap = c.onClient(mc -> Mod.field(SF, "byUuid"));
+        String list = "[{\"uuid\":\"" + self + "\",\"name\":\"\",\"scale\":1}]";
+        try (Settings s = new Settings(c).with(TAGC, "LyricsOverHead", true).with(TAGC, "ShareSong", true)
+                .with(TAGC, "SongInF5", true).with(TAGC, "ShareWhat", Mod.enumValue("spotify.SongShareConfig$ShareWhat", "BOTH")).with(TAGC, "ShareWord", true).with(TAGC, "HighlightWordInF5", true).with(SC, "OwnNameInF5", false)) {
+            c.onClient(mc -> {
+                Mod.setField(SLF, "testSnapshot", snap);
+                Mod.setField(SH, "testNowPlaying", Mod.staticCall("spotify.NowPlaying", "track", "Artist", "Song"));
+                Mod.setField(CTL, "testSink", (Consumer<String>) x -> { });
+                Mod.staticCall(SF, "apply", 10,
+                        Mod.staticCall("supporters.SupportersFetcher", "parseSupporters", JsonParser.parseString(list)), false);
+                var sb = mc.level.getScoreboard();
+                var team = sb.addPlayerTeam("k560f5hyp");
+                team.setNameTagVisibility(net.minecraft.world.scores.Team.Visibility.NEVER);
+                sb.addPlayerToTeam(mc.player.getScoreboardName(), team);
+                var obj = sb.addObjective("k560f5hyp", net.minecraft.world.scores.criteria.ObjectiveCriteria.DUMMY,
+                        Component.literal("hp"), net.minecraft.world.scores.criteria.ObjectiveCriteria.RenderType.INTEGER,
+                        false, null);
+                sb.setDisplayObjective(net.minecraft.world.scores.DisplaySlot.BELOW_NAME, obj);
+                sb.getOrCreatePlayerScore(net.minecraft.world.scores.ScoreHolder.forNameOnly(mc.player.getScoreboardName()),
+                        obj).set(20);
+                return null;
+            });
+            HxCosmeticNameCases.look(c, 0f, 0f);
+            HxCosmeticNameCases.camera(c, CameraType.THIRD_PERSON_BACK);
+            c.ctx().waitTicks(10);
+            long b = counter(c, "ownLyricSubmitted");
+            long sb0 = counter(c, "ownSongSubmitted");
+            c.ctx().waitTicks(10);
+            long lyric = counter(c, "ownLyricSubmitted") - b;
+            long song = counter(c, "ownSongSubmitted") - sb0;
+            String tag = ownState(c, "killer560smod$lyricTag");
+            c.note("hypixel F5: song submits " + song + ", lyric submits " + lyric + ", state lyric '" + tag + "'");
+            c.check(song > 0, "the song line was not drawn in the Hypixel-style setup (" + song + ")");
+            c.check(lyric > 0, "the lyric line was not drawn in the Hypixel-style setup (" + lyric + ")");
+        } finally {
+            c.onClient(mc -> {
+                Mod.setField(SLF, "testSnapshot", null);
+                Mod.setField(SH, "testNowPlaying", null);
+                Mod.setField(SF, "byUuid", savedMap);
+                var sb = mc.level.getScoreboard();
+                var team = sb.getPlayerTeam("k560f5hyp");
+                if (team != null) {
+                    sb.removePlayerTeam(team);
+                }
+                var obj = sb.getObjective("k560f5hyp");
+                if (obj != null) {
+                    sb.removeObjective(obj);
+                }
+                return null;
+            });
+            HxCosmeticNameCases.camera(c, CameraType.FIRST_PERSON);
         }
     }
 
