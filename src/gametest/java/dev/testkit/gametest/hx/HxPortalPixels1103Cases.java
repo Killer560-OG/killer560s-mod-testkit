@@ -20,6 +20,10 @@ import static dev.testkit.gametest.hx.HxKit.*;
  * view with the tint off: a pixel is tinted when its redness (red minus the larger of green and blue) rose by 25 and is
  * positive. Sample points whose line of sight crosses the obsidian frame are skipped. Pass: at least 85% of the samples (portal particles drifting in front of the pane are the untinted rest; the pre-fix render scored 24-83%)
  * tinted and no row or column of samples 60% untinted.
+ * <p>
+ * Rim (owner 2026-11-03 23:13, "on the very edges it changes a lot if I change how I am looking"): samples on the frame's four
+ * inner faces across the pane's depth band, from every view but far-8, must hold one steady color (redness p90 - p10 at most
+ * {@link #RIM_SPREAD} per face): a pane rim face lying on a frame face z-fights it into stripes.
  */
 final class HxPortalPixels1103Cases {
 
@@ -72,6 +76,58 @@ final class HxPortalPixels1103Cases {
         c.server().command("fill " + x0 + " " + y0 + " " + z0 + " " + x1 + " " + y1 + " " + z1 + " " + block);
     }
 
+    /**
+     * Largest redness spread (p90 - p10) allowed across one rim face's samples in a view. Calibrated on 26.3 cheat
+     * (portalit-1103): the old slab, whose rim faces lay on the frame faces, scored 51-168 with Improved Transparency off (the
+     * band striped between the sheet's 110 and the rim face's 163); the two-face pane scores 4-6 off and 5-29 on.
+     */
+    private static final int RIM_SPREAD = 35;
+
+    /**
+     * Pixels of sample points on the frame's four inner faces, across the depth band the tint pane spans (0.345-0.655 of
+     * the portal block), that face the eye and are not hidden by another frame piece: {x, y, face} with face 0 west, 1 east,
+     * 2 bottom, 3 top.
+     */
+    private static List<int[]> rimPoints(net.minecraft.client.Minecraft mc, Vec3 eye, AABB[] solids, double ix0, double ix1,
+                                         double iy0, double iy1, int pz) {
+        List<int[]> out = new ArrayList<>();
+        double[] zs = {pz + 0.37, pz + 0.43, pz + 0.5, pz + 0.57, pz + 0.63};
+        for (int fi = 0; fi < 4; fi++) {
+            boolean side = fi < 2;
+            Vec3 n = switch (fi) {
+                case 0 -> new Vec3(1, 0, 0);
+                case 1 -> new Vec3(-1, 0, 0);
+                case 2 -> new Vec3(0, 1, 0);
+                default -> new Vec3(0, -1, 0);
+            };
+            int steps = side ? 16 : 10;
+            for (int i = 0; i < steps; i++) {
+                for (double z : zs) {
+                    Vec3 w = side
+                            ? new Vec3(fi == 0 ? ix0 : ix1, iy0 + (iy1 - iy0) * (i + 0.5) / steps, z)
+                            : new Vec3(ix0 + (ix1 - ix0) * (i + 0.5) / steps, fi == 2 ? iy0 : iy1, z);
+                    // Faces seen nearly edge-on leave the band a pixel or three wide, where a one-pixel projection error lands
+                    // on the frame's front: only faces seen at 15 degrees or more count.
+                    if (eye.subtract(w).normalize().dot(n) < 0.26) {
+                        continue;
+                    }
+                    Vec3 off = w.add(n.scale(0.01));
+                    boolean hidden = false;
+                    for (AABB b : solids) {
+                        if (b.clip(eye, off).isPresent()) {
+                            hidden = true;
+                        }
+                    }
+                    int[] p = hidden ? null : project(mc, w);
+                    if (p != null) {
+                        out.add(new int[]{p[0], p[1], fi});
+                    }
+                }
+            }
+        }
+        return out;
+    }
+
     private static int redness(int a) {
         return ((a >> 16) & 255) - Math.max((a >> 8) & 255, a & 255);
     }
@@ -84,6 +140,10 @@ final class HxPortalPixels1103Cases {
         BlockPos f = c.onClient(mc -> mc.player.blockPosition());
         boolean hideGui = c.onClient(mc -> dev.testkit.compat.McCompat.hudHidden(mc));
         Boolean itBefore = c.onClient(mc -> improvedTransparency(mc));
+        // Particles off for the run: portal particles drifting in front of the pane are noise, not the tint (at far-8 they cost
+        // 2-11 % of the samples, and one 26.2 run fell to 84 %).
+        net.minecraft.server.level.ParticleStatus particlesBefore = c.onClient(mc -> mc.options.particles().get());
+        c.ctx().runOnClient(mc -> mc.options.particles().set(net.minecraft.server.level.ParticleStatus.MINIMAL));
         // name, x offset of the frame's west edge from the player's block, distance in z to the portal plane
         Object[][] views = {{"straight-4", -1, 4}, {"angle-35", 1, 4}, {"close-2", -1, 2}, {"far-8", -1, 8}};
         List<String> modes = itBefore == null ? List.of("off") : List.of("off", "on");
@@ -160,7 +220,8 @@ final class HxPortalPixels1103Cases {
                             }
                         }
                         double ang = Math.toDegrees(Math.atan2(cx - eye.x, cz - eye.z));
-                        return new Object[]{pts, mc.getWindow().getWidth(), mc.getWindow().getHeight(), ang, Math.hypot(cx - eye.x, cz - eye.z)};
+                        return new Object[]{pts, mc.getWindow().getWidth(), mc.getWindow().getHeight(), ang, Math.hypot(cx - eye.x, cz - eye.z),
+                                rimPoints(mc, eye, solids, ix0, ix1, iy0, iy1, pz)};
                     });
                     int[][] pts = (int[][]) grid[0];
                     java.nio.file.Path p0 = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(c.name() + "-" + m + "-" + name + "-base"));
@@ -172,6 +233,12 @@ final class HxPortalPixels1103Cases {
                     c.ctx().waitTicks(5);
                     double sumPct = 0;
                     int worstPct = 100, worstLine = 0, valid = 0;
+                    @SuppressWarnings("unchecked")
+                    List<int[]> rim = (List<int[]>) grid[5];
+                    List<List<Integer>> rimRed = new ArrayList<>();
+                    for (int i = 0; i < 4; i++) {
+                        rimRed.add(new ArrayList<>());
+                    }
                     for (int i = 0; i < 4; i++) {
                         c.ctx().waitTicks(1 + (i % 2));
                         java.nio.file.Path p1 = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(c.name() + "-" + m + "-" + name + "-" + i));
@@ -214,6 +281,12 @@ final class HxPortalPixels1103Cases {
                                 line = Math.max(line, 100 * colUn[q] / colTot[q]);
                             }
                         }
+                        for (int[] rp : rim) {
+                            int x = (int) (rp[0] * sx), y = (int) (rp[1] * sy);
+                            if (x >= 0 && y >= 0 && x < img.getWidth() && y < img.getHeight()) {
+                                rimRed.get(rp[2]).add(redness(img.getRGB(x, y)));
+                            }
+                        }
                         valid = total;
                         int pct = total == 0 ? 0 : 100 * tinted / total;
                         sumPct += pct;
@@ -227,12 +300,31 @@ final class HxPortalPixels1103Cases {
                     if (valid < 40 || worstPct < 85 || worstLine >= 60) {
                         fails.add(msg);
                     }
+                    // The rim: the frame's inner faces across the pane's depth band. One steady color there in every view; a
+                    // pane face lying on a frame face z-fights it and the band breaks into stripes (owner 2026-11-03 23:13).
+                    String[] faceName = {"west", "east", "bottom", "top"};
+                    for (int fi = 0; fi < 4; fi++) {
+                        List<Integer> red = rimRed.get(fi);
+                        // far-8 leaves the band a pixel or two wide, so a one-pixel projection error reads as a stripe: skip it.
+                        if (red.size() < 100 || name.equals("far-8")) {
+                            continue;
+                        }
+                        java.util.Collections.sort(red);
+                        int p10 = red.get(red.size() / 10), p50 = red.get(red.size() / 2), p90 = red.get(red.size() * 9 / 10);
+                        String rm = String.format(Locale.ROOT, "portal rim, Improved Transparency %s, %s, %s face (%d samples): redness p10 %d median %d p90 %d, spread %d",
+                                m, name, faceName[fi], red.size(), p10, p50, p90, p90 - p10);
+                        c.note(rm);
+                        if (p90 - p10 > RIM_SPREAD) {
+                            fails.add(rm);
+                        }
+                    }
                 }
             }
             c.check(fails.isEmpty(), String.join("; ", fails));
         } finally {
             c.ctx().runOnClient(mc -> {
                 dev.testkit.compat.McCompat.setHudHidden(mc, hideGui);
+                mc.options.particles().set(particlesBefore);
                 if (itBefore != null) {
                     setImprovedTransparency(mc, itBefore);
                 }
