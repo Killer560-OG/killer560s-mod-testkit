@@ -40,6 +40,7 @@ final class HxCommissions1103Cases {
     static void register(Session s) {
         s.test("1103-mining-commission-mobs", HxCommissions1103Cases::mobs);
         s.test("1103-mining-emissary-label", HxCommissions1103Cases::label);
+        s.test("1103-mining-hide-while-powder", HxCommissions1103Cases::hideWhilePowder);
     }
 
     private static void mines(Session c, String area, String... coms) {
@@ -90,6 +91,31 @@ final class HxCommissions1103Cases {
 
     private static List<Integer> targets(Session c) {
         return c.onClient(mc -> targetsNow());
+    }
+
+    private static List<?> hudLines(Session c) {
+        return c.onClient(mc -> (List<?>) Mod.staticCall(HUD, "lines"));
+    }
+
+    /** Hide Commissions While Powder Mining: drawn in the Dwarven Mines; in the Crystal Hollows hidden with the option on,
+     *  shown with it off (killer560, 2026-11-03). */
+    private static void hideWhilePowder(Session c) {
+        try (Settings set = new Settings(c).with(CFG, "CommissionHud", true).with(CFG, "HideCommissionsPowder", true)) {
+            mines(c, "Royal Mines", "Goblin Slayer: 40%");
+            c.waitUntil("the HUD lines in the Dwarven Mines", mc -> !((List<?>) Mod.staticCall(HUD, "lines")).isEmpty(), 60);
+            c.check(!hudLines(c).isEmpty(), "the Commission HUD is empty in the Dwarven Mines");
+            c.hx().sidebar("SKYBLOCK", "Late Winter 3rd", "⏣ Jungle", "Purse: 0");
+            c.hx().tab(List.of("Area: Crystal Hollows", "Profile: Test", "", "Commissions:", " Goblin Slayer: 40%", ""), null, null);
+            c.waitUntil("Crystal Hollows", mc -> "CRYSTAL_HOLLOWS".equals(Mod.staticCall(STATE, "island")), 100);
+            c.waitUntil("the HUD hidden", mc -> ((List<?>) Mod.staticCall(HUD, "lines")).isEmpty(), 60);
+            c.check(hudLines(c).isEmpty(), "the HUD stayed drawn in the Crystal Hollows with the option on");
+            c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(CFG), "setHideCommissionsPowder", false));
+            c.waitUntil("the HUD shown again", mc -> !((List<?>) Mod.staticCall(HUD, "lines")).isEmpty(), 60);
+            c.check(!hudLines(c).isEmpty(), "the HUD stayed hidden in the Crystal Hollows with the option off");
+            c.note("hide-while-powder: lines " + hudLines(c));
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.staticCall(CFG, "load"));
+        }
     }
 
     private static void mobs(Session c) {

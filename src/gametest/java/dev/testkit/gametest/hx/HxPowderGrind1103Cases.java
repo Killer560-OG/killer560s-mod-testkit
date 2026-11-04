@@ -182,13 +182,10 @@ final class HxPowderGrind1103Cases {
             String face = c.onClient(mc -> (String) Mod.staticCall(LP, "faceNow"));
             int drawn = intCall(c, LP, "frames") - fr;
             c.note("samples +" + got + ", face " + face + ", frames +" + drawn);
-            if (Mod.isCheat()) {
-                c.check(got > 0, "no crit particle sampled at the chest");
-                c.check("EAST".equals(face), "the helper points at " + face + ", not EAST");
-                c.check(drawn > 0, "the helper drew nothing");
-            } else {
-                c.check(got == 0 && face == null && drawn == 0, "the Lockpick Helper acted on a legit jar");
-            }
+            // Legit in both builds since 2026-11-03.
+            c.check(got > 0, "no crit particle sampled at the chest");
+            c.check("EAST".equals(face), "the helper points at " + face + ", not EAST");
+            c.check(drawn > 0, "the helper drew nothing");
             c.check(c.events("container.click").isEmpty(), "the Lockpick Helper clicked something");
         } finally {
             setblock(c, x, y, z, "minecraft:air");
@@ -209,6 +206,31 @@ final class HxPowderGrind1103Cases {
         c.hx().chat("§6    ⸕ Rough Amber Gemstone §8x24");
         c.hx().chat("§9    Ascension Rope");
         c.hx().chat(SEP);
+    }
+
+    private static void rareBlock(Session c, String... rewards) {
+        c.hx().chat(SEP);
+        c.hx().chat("§6§l  CHEST LOCKPICKED ");
+        c.hx().chat("");
+        c.hx().chat("§a§l  REWARDS");
+        for (String r : rewards) {
+            c.hx().chat("§9    " + r);
+        }
+        c.hx().chat(SEP);
+    }
+
+    /** One block through the Show mode now set: the new compact line (null when none was printed), and the chest counted. */
+    private static String showMode(Session c, String label, String... rewards) {
+        int comp = intCall(c, PC, "compactLines"), chests = intCall(c, TR, "chests");
+        String before = c.onClient(mc -> (String) Mod.staticCall(PC, "lastCompact"));
+        rareBlock(c, rewards);
+        c.waitUntil(label + ": the chest counted", mc -> ((Number) Mod.staticCall(TR, "chests")).intValue() == chests + 1, 40);
+        c.ctx().waitTicks(8);
+        int printed = intCall(c, PC, "compactLines") - comp;
+        String line = c.onClient(mc -> (String) Mod.staticCall(PC, "lastCompact"));
+        c.note(label + ": printed " + printed + ", " + (printed > 0 ? line : "-"));
+        c.check(printed <= 1, label + ": printed " + printed + " lines");
+        return printed == 1 ? line : null;
     }
 
     private static void loot(Session c) {
@@ -263,6 +285,30 @@ final class HxPowderGrind1103Cases {
             c.check(c.onClient(mc -> (Boolean) Mod.staticCall(PC, "doublePowderActive")), "2x not active after the start line");
             c.hx().chat("§b§l2X POWDER ENDED!");
             c.waitUntil("2x ended", mc -> !(Boolean) Mod.staticCall(PC, "doublePowderActive"), 20);
+
+            // Show modes (killer560, 2026-11-03): All -> Powder Only -> Powder + Rare -> Hide All -> All, by left clicks.
+            c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(CFG), "setLootCompact", true));
+            String[] rich = {"Gemstone Powder §8x200", "⸕ Flawless Ruby Gemstone", "Ascension Rope"};
+            String all = showMode(c, "All", rich);
+            c.check(all != null && all.contains("+200 Gemstone") && all.contains("+2 items"), "All: " + all);
+            c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(CFG), "stepLootShow", 1));
+            String po = showMode(c, "Powder Only", rich);
+            c.check(po != null && po.contains("+200 Gemstone") && !po.contains("item"), "Powder Only: " + po);
+            c.check(showMode(c, "Powder Only, no powder", "Ascension Rope", "⸕ Flawless Ruby Gemstone") == null,
+                    "Powder Only printed a line with no powder");
+            c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(CFG), "stepLootShow", 1));
+            String pr = showMode(c, "Powder + Rare", rich);
+            c.check(pr != null && pr.contains("+200 Gemstone") && pr.contains("+1 item") && !pr.contains("+2 items"),
+                    "Powder + Rare: " + pr);
+            c.check(showMode(c, "Powder + Rare, only common", "Ascension Rope", "Gold Essence §8x2") == null,
+                    "Powder + Rare printed a line with nothing rare or powder");
+            c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(CFG), "stepLootShow", 1));
+            int h0 = intCall(c, PC, "hiddenLines");
+            c.check(showMode(c, "Hide All", rich) == null, "Hide All printed a line");
+            c.check(intCall(c, PC, "hiddenLines") - h0 >= 6, "Hide All did not hide the block");
+            c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(CFG), "stepLootShow", -1));
+            String back = showMode(c, "Right click back to Powder + Rare", rich);
+            c.check(back != null && back.contains("+1 item"), "right click did not step back: " + back);
             c.check(c.events("container.click").isEmpty(), "the loot features clicked something");
         } finally {
             c.ctx().runOnClient(mc -> Mod.staticCall(CFG, "load"));
