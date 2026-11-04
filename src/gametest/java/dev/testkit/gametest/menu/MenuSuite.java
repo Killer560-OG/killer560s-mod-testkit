@@ -258,6 +258,8 @@ public class MenuSuite implements FabricClientGameTest {
                     Commissions1103MenuCases.register(s);
                     // ---- 1103-menu-armorhud-*, 1103-menu-wrongarmor armorhud-1103: Armor HUD, Wrong Armor Alert ----
                     ArmorHud1103Cases.register(s);
+                    // ---- 1103-menu-tooltip-over-bar tooltipbar-1103: tooltips draw above the search bar ----
+                    TooltipBar1103Cases.register(s);
                 });
     }
 }
