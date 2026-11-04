@@ -76,6 +76,9 @@ final class PvJoinCases {
         c.onClient(mc -> {
             Mod.staticCall("util.SkyblockGate", "setEnabled", false);
             Mod.staticCall("secrets.DungeonState", "setRoomSim", dungeon);
+            // A queued-floor detection left by an earlier case (a Group Builder read) also lets a party join through
+            // outside a dungeon (PvJoinLink: isInDungeon() || hasDetection()), so the premise needs it cleared.
+            Mod.staticCall("autokick.QueuedFloorDetector", "reset");
             Mod.call(Mod.cfg(CFG), "setPvLinkOnJoin", on);
             return null;
         });

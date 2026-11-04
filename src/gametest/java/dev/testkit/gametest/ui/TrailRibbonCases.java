@@ -408,7 +408,9 @@ final class TrailRibbonCases {
     }
 
     private static boolean yellowish(double[] d) {
-        return d[0] > 15 && d[1] > 15 && d[2] < Math.min(d[0], d[1]);
+        // The hue, not the strength: the band fades along its length and the walk under load draws it shorter, so the
+        // middle's red/green lift ranged +36..+7 over three identical runs (2026-11-04) while its blue drop stayed 70-115.
+        return d[0] > 0 && d[1] > 0 && d[2] < Math.min(d[0], d[1]) - 40;
     }
 
     /** How far a change leans to blue over red. The tail is blue, but faded over the green grass, so this is judged as

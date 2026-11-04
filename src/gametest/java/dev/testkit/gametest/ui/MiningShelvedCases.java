@@ -105,6 +105,11 @@ final class MiningShelvedCases {
                     boolean byClass = cls.startsWith(MINING_PKG) || SHELVED_OUTSIDE.contains(cls)
                             || (n.tab().getClass().getEnclosingClass() != null
                                 && SHELVED_OUTSIDE.contains(n.tab().getClass().getEnclosingClass().getName()));
+                    if (!byClass && n.path().startsWith("Mining >")) {
+                        // A tab inside the pre-2.0 Mining category (Powder Mining, Commission Route, ...): the owner's seven
+                        // pre-2.0 features (to-do Doc, 2026-11-01). Only a class from the shelved set is wrong there.
+                        continue;
+                    }
                     boolean byName = MINING_WORDS.stream().anyMatch(name::contains);
                     if (byClass || byName) {
                         bad.add(n.path() + " [" + cls.replace("com.killer560.hub.", "") + "]");
