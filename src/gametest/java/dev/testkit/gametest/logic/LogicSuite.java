@@ -92,7 +92,8 @@ public class LogicSuite implements FabricClientGameTest {
         if (!Scenario.skip("354-logic-terminals") || !Scenario.skip("357-logic-items-ap3-routes")
                 || !Scenario.skip("362-logic-boss-timers") || !Scenario.skip("363-logic-roof-cover")
                 || !Scenario.skip("1102-logic-goldor-tick") || !Scenario.skip("1102-logic-storm-line")
-                || !Scenario.skip("1102-logic-f7hud-config") || !Scenario.skip("1102-logic-f7hud-slots")) {
+                || !Scenario.skip("1102-logic-f7hud-config") || !Scenario.skip("1102-logic-f7hud-slots")
+                || !Scenario.skip("1103-logic-timer-lag")) {
             try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
                 LogicCase.run(ctx, "354-logic-terminals", SolverCases::terminals);
                 LogicCase.run(ctx, "357-logic-items-ap3-routes", DomainCases::itemsAp3Routes);
@@ -115,6 +116,7 @@ public class LogicSuite implements FabricClientGameTest {
                 LogicCase.run(ctx, "1102-logic-storm-line", BossTimerCases::stormLineCase);
                 LogicCase.run(ctx, "1102-logic-f7hud-config", BossTimerCases::oldConfigs);
                 LogicCase.run(ctx, "1102-logic-f7hud-slots", BossTimerCases::f7Slots);
+                LogicCase.run(ctx, "1103-logic-timer-lag", TimerLagCases::timerLag);
                 LogicCase.run(ctx, "363-logic-roof-cover", RoofCoverCases::roofCover);
             }
         }
