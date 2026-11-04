@@ -188,6 +188,19 @@ final class BossTimerCases {
     }
 
     /**
+     * {@link #simTick} plus one tick of the level's game time. Since bctrig-1104 the camp's clock is the LOWER of the ping
+     * clock and the game time, and this case runs inside one client frame, where the game time would never move: so it is
+     * moved by hand, one tick per client tick (it runs on through a stall, as on a real server between set-time packets).
+     */
+    private static void campTick(int pings) {
+        simTick(pings);
+        ClientLevel level = Minecraft.getInstance().level;
+        if (level != null) {
+            level.setTimeFromServer(level.getGameTime() + 1);
+        }
+    }
+
+    /**
      * killer560, 2026-11-01: blood camp "if it lags", "sometimes the triggerbot comes out really late". Blood Camp's
      * countdowns and kill timer count server ticks. Driven by hand (no server here): a server pinging every tick is
      * trusted after two windows; a 20-tick stall (no pings) then stops the kill timer's clock and is measured as 1000 ms of
@@ -204,16 +217,16 @@ final class BossTimerCases {
             Mod.staticCall(BC, "reset");
             chat(BC, "onChat", "[BOSS] The Watcher: Ah, you've finally arrived.");
             for (int i = 0; i < 10; i++) {
-                simTick(1);
+                campTick(1);
             }
             long beforeStall = (Long) Mod.staticCall(BC, "elapsedSinceGreeting");
             for (int i = 0; i < 20; i++) {
-                simTick(0); // the server stood still
+                campTick(0); // the server stood still
             }
             long afterStall = (Long) Mod.staticCall(BC, "elapsedSinceGreeting");
             long lagMs = (Long) Mod.staticCall(BC, "lagMsSinceGreeting");
             for (int i = 0; i < 5; i++) {
-                simTick(1);
+                campTick(1);
             }
             long resumed = (Long) Mod.staticCall(BC, "elapsedSinceGreeting");
             c.eq("10 server ticks after the greeting", 10L, beforeStall);
@@ -226,7 +239,7 @@ final class BossTimerCases {
             Mod.staticCall(BC, "reset");
             chat(BC, "onChat", "[BOSS] The Watcher: Ah, you've finally arrived.");
             for (int i = 0; i < 100; i++) {
-                simTick(i % 4 == 3 ? 0 : 1);
+                campTick(i % 4 == 3 ? 0 : 1);
             }
             c.check("15 pings per 20 ticks is not a per-tick server", !(Boolean) Mod.staticCall(CLOCK, "trusted"),
                     "trusted=" + Mod.staticCall(CLOCK, "trusted"));
