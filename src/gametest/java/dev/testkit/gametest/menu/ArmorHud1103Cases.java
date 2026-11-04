@@ -239,19 +239,23 @@ final class ArmorHud1103Cases {
             wear(c, "POWER_WITHER_HELMET", "POWER_WITHER_CHESTPLATE", "POWER_WITHER_LEGGINGS", "POWER_WITHER_BOOTS");
             List<String> a = Arrays.asList("SET_A_NECKLACE", "SET_A_CLOAK", "SET_A_BELT", "SET_A_BRACELET");
             List<String> b = Arrays.asList("SET_B_NECKLACE", "SET_B_CLOAK", "SET_B_BELT", "SET_B_BRACELET");
+            c.ctx().waitTicks(50); // the chat dedupes an identical line within about a second
             c.hx().chat("§aYou equipped Loadout 1!");
             c.ctx().waitTicks(4);
             openStats(c, statsMenu("SET_A_NECKLACE", "SET_A_CLOAK", "SET_A_BELT", "SET_A_BRACELET"), "set A");
             c.waitUntil("set A read", mc -> a.equals(Mod.staticCall(FEAT, "equipmentIds")), 40);
             int s0 = swaps(c);
+            c.ctx().waitTicks(50); // the chat dedupes an identical line within about a second
             c.hx().chat("§aYou equipped Loadout 2!");
             c.ctx().waitTicks(6);
             openStats(c, statsMenu("SET_B_NECKLACE", "SET_B_CLOAK", "SET_B_BELT", "SET_B_BRACELET"), "set B");
             c.waitUntil("set B read", mc -> b.equals(Mod.staticCall(FEAT, "equipmentIds")), 40);
+            c.ctx().waitTicks(50); // the chat dedupes an identical line within about a second
             c.hx().chat("§aYou equipped Loadout 1!");
             c.waitUntil("Loadout 1's set A is back with no menu", mc -> a.equals(Mod.staticCall(FEAT, "equipmentIds")), 60);
             c.check(swaps(c) > s0, "no swap counted (" + s0 + " -> " + swaps(c) + ")");
             awaitIcons(c, 8, "armor + set A");
+            c.ctx().waitTicks(50); // the chat dedupes an identical line within about a second
             c.hx().chat("§aYou equipped Loadout 2!");
             c.waitUntil("Loadout 2's set B is back", mc -> b.equals(Mod.staticCall(FEAT, "equipmentIds")), 60);
             // The file keeps both loadouts: forget memory, read the file, swap again.
@@ -263,8 +267,10 @@ final class ArmorHud1103Cases {
                 }
             }));
             c.ctx().runOnClient(mc -> Mod.staticCall(FEAT, "reloadCacheForTest"));
+            c.ctx().waitTicks(50); // the chat dedupes an identical line within about a second
             c.hx().chat("§aYou equipped Loadout 1!");
             ids(c, "set A from the reloaded file", a);
+            c.ctx().waitTicks(50); // the chat dedupes an identical line within about a second
             c.hx().chat("§aYou equipped Loadout 2!");
             ids(c, "set B from the reloaded file", b);
             c.note("Loadout 1 -> A, 2 -> B, back to 1 shows A with no menu; swaps " + swaps(c) + "; file reload keeps both");
