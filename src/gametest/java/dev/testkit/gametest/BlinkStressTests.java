@@ -1616,7 +1616,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                         double g = gap(server, ctx);
                         rows.add(server, scenario, label, was && num(ctx, "releasedHolds") > holds0 && num(ctx, "heldPackets") == 0
                                 && g < 0.5, String.format(Locale.ROOT, "held %s, released, longest %d, gap %.2f", was,
-                                num(ctx, "longestHoldTicks"), g));
+                                num(ctx, "longestHoldTicks"), g), kk < 2 && timerOnly(scenario));
                     } else {
                         chargeOn(ctx);
                         ctx.waitTicks(30);
@@ -1630,7 +1630,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                         ctx.waitTicks(20);
                         double g = gap(server, ctx);
                         rows.add(server, scenario, label, bank == 20 && s[2] >= 1 && g < 0.5, String.format(Locale.ROOT,
-                                "bank %d before, %d after, shot %d tick(s) %.2f blocks, gap %.2f", bank, bank2, (long) s[2], s[0], g));
+                                "bank %d before, %d after, shot %d tick(s) %.2f blocks, gap %.2f", bank, bank2, (long) s[2], s[0], g), kk < 2 && timerOnly(scenario));
                     }
                 }
             } finally {
@@ -1639,6 +1639,15 @@ public class BlinkStressTests implements FabricClientGameTest {
             }
             rows.finish(scenario, "1026-blink-lag");
         });
+    }
+
+    /**
+     * True when the scenario drew flags and every one is TimerLimit: the harness's 1.5 s two-way lag spike makes GrimAC
+     * flag TimerLimit with Blink OFF too (1026-blink-controls: 6-8), so those flags are the spike's, not Blink's.
+     */
+    private static boolean timerOnly(Scenario scenario) {
+        List<String> f = scenario.flags();
+        return !f.isEmpty() && f.stream().allMatch(x -> x.contains("TimerLimit"));
     }
 
     /**
@@ -1772,7 +1781,7 @@ public class BlinkStressTests implements FabricClientGameTest {
     /**
      * 1026-blink-ui: Debug Log saved and loaded; a profile reload (configs re-read from disk) in the middle of a hold and
      * of a charge; the Hold key rebound and unbound mid-hold with no test hook (the real key read); both keys unbound do
-     * nothing; /blink starts ONE hold that ends at Hold Ticks; /blink release; /blink debug prints the state and the
+     * nothing (the /blink command was removed 2026-11-01); the debug lines carry the state and the
      * events; and the log carries every kind of Blink line the owner needs.
      */
     private static void ui(ClientGameTestContext ctx) {
@@ -1862,22 +1871,6 @@ public class BlinkStressTests implements FabricClientGameTest {
                     Mod.set(CFG, "setHoldKeyCode", -1);
                     Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE);
                 });
-                // /blink: one hold, ends at Hold Ticks and does not start again.
-                long holds0 = num(ctx, "releasedHolds");
-                sendCommand(ctx, "blink");
-                ctx.waitTicks(3);
-                boolean cmdHolding = holding(ctx);
-                ctx.waitTicks(60);
-                long cmdHolds = num(ctx, "releasedHolds") - holds0;
-                boolean cmdStill = holding(ctx);
-                // /blink 5 then /blink release after 2 ticks.
-                long holds1 = num(ctx, "releasedHolds");
-                sendCommand(ctx, "blink 5");
-                ctx.waitTicks(2);
-                boolean cmd5 = holding(ctx);
-                sendCommand(ctx, "blink release");
-                ctx.waitTicks(2);
-                boolean cmdReleased = !holding(ctx) && num(ctx, "releasedHolds") == holds1 + 1;
                 ctx.runOnClient(mc -> Mod.set(CFG, "setHoldKeyCode", -1));
                 // Charge events for the log: on, full, armed, shot, status (200 ticks), off.
                 ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
@@ -1890,18 +1883,14 @@ public class BlinkStressTests implements FabricClientGameTest {
                 ctx.waitTicks(25);
                 pressCharge(ctx);
                 ctx.waitTicks(5);
-                sendCommand(ctx, "blink debug 20");
-                ctx.waitTicks(5);
                 chargeOff(ctx);
                 List<String> dbgLines = ctx.computeOnClient(mc -> {
                     @SuppressWarnings("unchecked")
                     List<String> l = (List<String>) Mod.staticCall("blink.BlinkCommands", "debugLines", 20);
                     return l;
                 });
-                String[] needles = {"hold started by key", "released (key up)", "hold started by command", "released (tick limit)", "released (command)",
-                        "released (switched off)", "charge on:", "bank full", "Charge key pressed (Toggle): fire",
-                        "charge: ARMED", "charge SHOT", "charge status:", "charge off (", "/blink debug: Hold:",
-                        "/blink debug: Charge:", "Charge Ticks 20 (Toggle"};
+                String[] needles = {"hold started by key", "released (key up)", "released (switched off)", "charge on:", "bank full", "Charge key pressed (Toggle): fire",
+                        "charge: ARMED", "charge SHOT", "charge status:", "charge off (", "Charge Ticks 20 (Toggle"};
                 List<String> missing = new ArrayList<>();
                 for (String n : needles) {
                     if (!hasLog(mark, n)) {
@@ -1912,9 +1901,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                 scenario.log("ui: debugLog persisted " + dbg + "; held " + held + ", profile reload released " + releasedByReload
                         + "; charged " + charged + ", reload ended charge " + chargeOffByReload + "; bound-unpressed idle "
                         + boundIdle + ", unbound idle " + unboundIdle + "; rebind mid-hold held " + heldRebind + " released "
-                        + releasedRebind + "; /blink holding " + cmdHolding + ", " + cmdHolds + " release(s) in 60 ticks, still "
-                        + "holding " + cmdStill + "; /blink 5 " + cmd5 + ", /blink release " + cmdReleased + "; /blink debug "
-                        + dbgLines.size() + " line(s); " + blinkLines + " [Blink] log line(s); missing log kinds " + missing);
+                        + releasedRebind + "; debug " + dbgLines.size() + " line(s); " + blinkLines + " [Blink] log line(s); missing "
+                        + "log kinds " + missing);
                 for (String l : dbgLines) {
                     scenario.log("  debug> " + l);
                 }
@@ -1923,10 +1911,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                 check(charged && chargeOffByReload, "a profile reload switching Blink off did not end Charge cleanly");
                 check(boundIdle && unboundIdle, "Blink acted with no key pressed");
                 check(heldRebind && releasedRebind, "rebinding mid-hold broke the hold");
-                check(cmdHolding && cmdHolds == 1 && !cmdStill, "/blink did not make exactly one hold ending at Hold Ticks ("
-                        + cmdHolds + " release(s), still holding " + cmdStill + ")");
-                check(cmd5 && cmdReleased, "/blink 5 or /blink release did not work");
-                check(dbgLines.size() >= 5, "/blink debug printed too little");
+                check(dbgLines.size() >= 5, "the Blink debug lines were too few");
                 check(missing.isEmpty(), "log lines missing: " + missing);
             } finally {
                 ctx.runOnClient(mc -> {
@@ -2140,7 +2125,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                         + dbg[0] + " / " + dbg[1] + " line(s)");
                 check(lines[0] == 0, "a release jar logged Blink with Debug Log off: " + lines[0]);
                 check(lines[1] >= 6, "a release jar with Debug Log on logged only " + lines[1] + " Blink line(s)");
-                check(dbg[0] >= 5 && dbg[1] >= 5, "/blink debug printed too little");
+                check(dbg[0] >= 5 && dbg[1] >= 5, "the Blink debug lines were too few");
             } finally {
                 ctx.runOnClient(mc -> Mod.set(CFG, "setDebugLog", false));
                 chargeOff(ctx);
