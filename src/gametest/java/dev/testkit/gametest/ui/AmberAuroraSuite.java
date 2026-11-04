@@ -77,6 +77,7 @@ public class AmberAuroraSuite implements FabricClientGameTest {
     /** Runs {@code body} at 1920x1080 GUI 2 in Amber (Separate style, scene Auto) with previewScenes as given, the title
      *  screen's settings saved and restored. */
     private static void around(UiCase c, boolean preview, Body body) throws Exception {
+        PaintedScenesSuite.warmWebp(c);
         FontsMainMenuSuite.MmState saved = FontsMainMenuSuite.saveMm(c);
         int[] win0 = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight(),
                 mc.options.guiScale().get()});
@@ -192,6 +193,7 @@ public class AmberAuroraSuite implements FabricClientGameTest {
             long f1 = counter(c, "stillFrames");
             c.note("released: Amber draws " + scene + ", aurora frames +" + (s1 - s0) + " shader, +" + (f1 - f0) + " still");
             c.check("AURORA".equals(scene), "without previewScenes Amber draws " + scene + ", not AURORA");
+            PaintedScenesSuite.checkWebp(c, "amber_aurora", 2560, 2880);
             c.check(s1 - s0 >= 1 && f1 == f0, "without previewScenes the aurora shader drew " + (s1 - s0) + " frames, the still "
                     + (f1 - f0));
             c.onClient(mc -> {

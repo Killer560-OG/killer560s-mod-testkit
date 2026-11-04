@@ -86,6 +86,7 @@ public class OceanFallsSuite implements FabricClientGameTest {
     }
 
     private static void around(UiCase c, boolean preview, Body body) throws Exception {
+        PaintedScenesSuite.warmWebp(c);
         FontsMainMenuSuite.MmState saved = FontsMainMenuSuite.saveMm(c);
         int[] win0 = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight(),
                 mc.options.guiScale().get()});
@@ -189,6 +190,7 @@ public class OceanFallsSuite implements FabricClientGameTest {
             long[] alloc = GreenThemeSuite.alloc(c);
             String scene = c.onClient(mc -> String.valueOf(Mod.staticCall(SCENES, "oceanScene")));
             c.check("CAVERN_FALLS".equals(scene), "Ocean draws " + scene + ", not CAVERN_FALLS");
+            PaintedScenesSuite.checkWebp(c, "ocean_falls", 2560, 2880);
             c.check(alloc[1] >= 50 && alloc[2] > 0 && oldAlloc[1] >= 50, "the allocation probe did not run");
             double qpf = alloc[2] / (double) alloc[1];
             double bpq = alloc[0] / (double) Math.max(1, alloc[2]);

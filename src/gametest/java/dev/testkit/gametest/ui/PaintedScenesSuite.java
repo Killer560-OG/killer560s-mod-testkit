@@ -90,12 +90,101 @@ public class PaintedScenesSuite implements FabricClientGameTest {
 
     // ---- shared ---------------------------------------------------------------------------------------------------------
 
+    /** jarsize-1104: the main menu picture {@code name} ships as WebP and is loaded by the mod's own WebpPictures texture,
+     *  at full size (a texture that failed to load is vanilla's 16x16 missing one). Call it after the scene drew. */
+    static void checkWebp(UiCase c, String name, int w, int h) throws Exception {
+        // The mod decodes the picture in the background and registers it when ready (never on the render thread), so
+        // wait for it, reading TextureManager's map directly: getTexture() would register a vanilla SimpleTexture.
+        net.minecraft.resources.Identifier id = net.minecraft.resources.Identifier.fromNamespaceAndPath(
+                "killer560smod", "textures/gui/" + name + ".webp");
+        long waitStart = System.currentTimeMillis();
+        while (System.currentTimeMillis() - waitStart < 120_000L && c.onClient(mc -> registered(mc, id)) == null) {
+            c.ticks(10);
+        }
+        c.note(name + ".webp registered after " + (System.currentTimeMillis() - waitStart) + " ms of waiting");
+        Object[] got = c.onClient(mc -> {
+            try {
+                Object tex = registered(mc, id);
+                if (tex == null) {
+                    return new Object[]{-1, -1, "never registered"};
+                }
+                Object gpu = tex.getClass().getMethod("getTexture").invoke(tex);
+                int tw = (Integer) gpu.getClass().getMethod("getWidth", int.class).invoke(gpu, 0);
+                int th = (Integer) gpu.getClass().getMethod("getHeight", int.class).invoke(gpu, 0);
+                return new Object[]{tw, th, tex.getClass().getName()};
+            } catch (Throwable t) {
+                return new Object[]{-1, -1, String.valueOf(t)};
+            }
+        });
+        c.note(name + ".webp: " + got[0] + "x" + got[1] + " from " + got[2]);
+        c.check(((Integer) got[0]) == w && ((Integer) got[1]) == h, name + ".webp loaded as " + got[0] + "x" + got[1]
+                + ", not " + w + "x" + h);
+        c.check(String.valueOf(got[2]).contains("WebpPictures"), name + ".webp is not the mod's WebP texture: " + got[2]);
+    }
+
+    /**
+     * Since jarsize-1104 the four pictures are WebP decoded off the render thread and drawn only once ready, so a fresh
+     * client shows the scene without its picture for a moment. Decode all four first (the mod's own preload, then its
+     * ensure() until each is registered), so every shot below sees the picture. No-op on a jar without WebpPictures.
+     */
+    static void warmWebp(UiCase c) {
+        String cls = "mainmenu.WebpPictures";
+        String[] names = {"milkyway", "green_boss_target", "ocean_falls", "amber_aurora"};
+        try {
+            c.onClient(mc -> {
+                for (String n : names) {
+                    Mod.staticCall(cls, "preload", Mod.staticCall(cls, "id", n));
+                }
+                return null;
+            });
+        } catch (AssertionError e) {
+            c.note("no WebpPictures in this jar: " + e.getMessage());
+            return;
+        }
+        long t0 = System.currentTimeMillis();
+        boolean ready = false;
+        while (!ready && System.currentTimeMillis() - t0 < 180_000L) {
+            ready = c.onClient(mc -> {
+                boolean all = true;
+                for (String n : names) {
+                    all &= (Boolean) Mod.staticCall(cls, "ensure", Mod.staticCall(cls, "id", n));
+                }
+                return all;
+            });
+            if (!ready) {
+                c.ticks(10);
+            }
+        }
+        c.note("WebP pictures ready after " + (System.currentTimeMillis() - t0) + " ms");
+        c.check(ready, "the WebP pictures were not decoded within 180 s");
+    }
+
+    /** The texture registered under {@code id}, or null; never registers one. */
+    private static Object registered(net.minecraft.client.Minecraft mc, net.minecraft.resources.Identifier id) {
+        Object tm = mc.getTextureManager();
+        for (java.lang.reflect.Field f : tm.getClass().getDeclaredFields()) {
+            if (java.util.Map.class.isAssignableFrom(f.getType())) {
+                try {
+                    f.setAccessible(true);
+                    Object v = ((java.util.Map<?, ?>) f.get(tm)).get(id);
+                    if (v != null) {
+                        return v;
+                    }
+                } catch (ReflectiveOperationException | RuntimeException ignored) {
+                    // not the texture map
+                }
+            }
+        }
+        return null;
+    }
+
     private interface Body {
         void run() throws Exception;
     }
 
     /** Runs {@code body} at 1920x1080 GUI 2 with the title screen's settings saved and restored, previewScenes as given. */
     private static void around(UiCase c, boolean preview, Body body) throws Exception {
+        warmWebp(c);
         FontsMainMenuSuite.MmState saved = FontsMainMenuSuite.saveMm(c);
         int[] win0 = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight(),
                 mc.options.guiScale().get()});
@@ -242,6 +331,7 @@ public class PaintedScenesSuite implements FabricClientGameTest {
             c.check(hero.hero() > 20, "MILKY_WAY_HERO's cape did not move: " + hero.hero() + " tiles");
             c.check(plain.hero() == 0, "MILKY_WAY drew a character: " + plain.hero() + " rects");
             c.check(stars.hero() == 0, "STARS drew a character: " + stars.hero() + " rects");
+            checkWebp(c, "milkyway", 2560, 1440);
             for (Shot s : new Shot[]{plain, hero}) {
                 c.check(s.a().lum() < 0.25, s.name() + " is not dark: lum " + s.a().lum());
                 // a calm sky: twinkling stars, haze, a meteor now and then and (with her) the cape; 0.02-0.03% measured
@@ -310,6 +400,7 @@ public class PaintedScenesSuite implements FabricClientGameTest {
                         + Math.round(first.b()));
                 c.check(tiles > 50, "TARGET's cape and hair do not ripple: " + tiles + " tiles");
                 c.check(first.g() > first.r() + 4, "TARGET is not green: " + first);
+                checkWebp(c, "green_boss_target", 2560, 1440);
             } finally {
                 c.onClient(mc -> {
                     Mod.staticCall(SCENES, "setGreenSceneForTest", "");
@@ -573,7 +664,7 @@ public class PaintedScenesSuite implements FabricClientGameTest {
             int[] size = c.onClient(mc -> {
                 try {
                     Object tex = mc.getTextureManager().getTexture(net.minecraft.resources.Identifier.fromNamespaceAndPath(
-                            "killer560smod", "textures/gui/green_boss_target.png"));
+                            "killer560smod", "textures/gui/green_boss_target.webp"));
                     Object gpu = tex.getClass().getMethod("getTexture").invoke(tex);
                     int w = (Integer) gpu.getClass().getMethod("getWidth", int.class).invoke(gpu, 0);
                     int h = (Integer) gpu.getClass().getMethod("getHeight", int.class).invoke(gpu, 0);
