@@ -1624,3 +1624,7 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   arena first too. Alone, each case passed; only a run with trip-steal before them failed.
 
 - **1103-fairy-* (FairyTightTests, fairysouls-1103, 2026-11-03)**: souls in tight places and up ledges - boost2-ledge/-none (2-high ledge, Jump Boost II / none: none must give up with 0 clicks), boost6-pillar (his JB VI, speed 300, 2x2 pillar 5 up), hole, hole-raised6 (hole one block up, JB VI), tunnel (1x1 drop into a 1-wide L tunnel), overhang (1.5 gap, crouch only). Base jar failed boost6-pillar and overhang; hole and tunnel passed on it (the owner's 'small holes' report is more likely his JB VI). `-PclientJvmArgs=-Dtestkit.fairy.trace=true` logs every tick (pos, velocity, keys, rescue index, runner state) as `trN` lines in the client log - that trace found the 'walked back to the node' bug in one run.
+- 1103-worldexport-command / -export / -reload-fairy (WorldExportTests, mod worldexport-1103): proves the mod's `/k560worldexport` on
+  BAYOU_SPILL: command only in cheat dev builds; export of a client-loaded island; a new server on the export alone
+  (`seedWorldFrom`); 600 sampled blocks, sign text, head block entity; the real fairy soul walk to a soul (`FairyIslandTests.skipPlace`).
+  The loaded export has no light: grass dies to dirt on random ticks, so the case sets `random_tick_speed 0` and tolerates grass->dirt.
