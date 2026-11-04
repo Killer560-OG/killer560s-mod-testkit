@@ -182,4 +182,18 @@ final class LogicCase {
         }
         return t.toString();
     }
+
+    /**
+     * Waits until wall time {@code atMs} on the calling (render) thread, pumping the window's events every 5 ms: a
+     * wall-paced case sleeps on the render thread for seconds, and with no events pumped Windows marks the window "not
+     * responding" and run-scenario's freeze watcher killed the run (tickfix3-1104: 1104-logic-serverlag-grim, 14 s,
+     * right after 1104-logic-split-lag's 12 s, twice in three runs).
+     */
+    static void waitUntil(long atMs) throws InterruptedException {
+        long d;
+        while ((d = atMs - System.currentTimeMillis()) > 0) {
+            Thread.sleep(Math.min(d, 5L));
+            org.lwjgl.glfw.GLFW.glfwPollEvents();
+        }
+    }
 }
