@@ -41,6 +41,14 @@ import java.util.concurrent.atomic.AtomicReference;
  *       view, proven in screen pixels (helper on vs off, Outline Width 1 vs 8, Filled Boxes, a wall hiding the box and
  *       Through Walls showing it on a cheat jar), the new settings survive save + load, and spots are learned after the
  *       blood door opens (see {@code known}).</li>
+ *   <li><b>1104-sim-bloodrush-rooms-renumbered</b> - roomidx-1104: a new DungeonLayout snapshot numbers its rooms afresh
+ *       (fairydoor-1104 found it). Standing in the first key room with its boxes shown and it set as the next rush room,
+ *       the live map's groups for it and another room are swapped (proven: each now has the other's index); the next
+ *       room, his last room and the rushed rooms still name the same rooms, and the same boxes with the same mobs show in
+ *       it and nowhere else.</li>
+ *   <li><b>1104-sim-map-rooms-renumbered</b> - roomidx-1104: the same swap with an unopened room; the sim's held-map
+ *       stand-in still has exactly the same rooms opened, and a map press on the key room then one on the other room is
+ *       not a double press (a second press on the other room is).</li>
  * </ul>
  * Only when named. GrimAC does not apply (the sim's integrated server).
  */
@@ -52,6 +60,8 @@ public class SimBloodRushTests implements FabricClientGameTest {
     static final String OFF = "1103-sim-starredoff";
     static final String SPLIT = "1103-bloodrush-split";
     static final String KNOWN = "1104-bloodrush-known";
+    static final String RENUMBER = "1104-sim-bloodrush-rooms-renumbered";
+    static final String MAP_RENUMBER = "1104-sim-map-rooms-renumbered";
     private static final String BR = "com.killer560.hub.bloodrush.BloodRushHelperFeature";
     private static final String BR_CFG = "com.killer560.hub.bloodrush.BloodRushConfig";
     private static final String BR_SPOTS = "com.killer560.hub.bloodrush.BloodRushSpots";
@@ -72,7 +82,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
             return;
         }
         List<String> failed = new ArrayList<>();
-        for (String name : List.of(SPLIT, RUSH, SPOTS, OFF, KNOWN)) {
+        for (String name : List.of(SPLIT, RUSH, SPOTS, OFF, KNOWN, RENUMBER, MAP_RENUMBER)) {
             if (Scenario.skip(name)) {
                 continue;
             }
@@ -118,6 +128,22 @@ public class SimBloodRushTests implements FabricClientGameTest {
                     starredSpots(ctx, problems, facts);
                 } else if (name.equals(KNOWN)) {
                     known(ctx, problems, facts);
+                } else if (name.equals(RENUMBER) || name.equals(MAP_RENUMBER)) {
+                    for (int attempt = 1; attempt <= 8; attempt++) {
+                        if (!SimMobFloorTests.buildMobFloor(ctx, problems, facts)) {
+                            break;
+                        }
+                        int n = firstKeyRoomStarred(ctx);
+                        if (n >= 2 || attempt == 8) {
+                            if (name.equals(RENUMBER)) {
+                                rushRenumbered(ctx, problems, facts);
+                            } else {
+                                mapRenumbered(ctx, problems, facts);
+                            }
+                            break;
+                        }
+                        facts.add("floor " + attempt + ": first key room has only " + n + " starred mob(s), new floor");
+                    }
                 } else {
                     starredOff(ctx, problems, facts);
                 }
@@ -242,8 +268,8 @@ public class SimBloodRushTests implements FabricClientGameTest {
         return keyRooms.isEmpty() ? -1 : serverStarredIn(ctx, keyRooms.get(0).split("\\|")[0]).size();
     }
 
-    private static void rush(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
-        Map<String, Integer> learnedBefore = learnedCounts(ctx);
+    /** The helper on, Just Me, the room he is in only, mob boxes only (no learned spots). */
+    private static void rushSettings(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> {
             ModUnderTest.staticCall(BR, "resetForTest");
             ModUnderTest.staticCall(ROLES_CLS, "resetForTest");
@@ -256,6 +282,11 @@ public class SimBloodRushTests implements FabricClientGameTest {
             ModUnderTest.set(cfg, "setThroughWalls", false);
             ModUnderTest.set(cfg, "setWholePath", false);
         });
+    }
+
+    private static void rush(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
+        Map<String, Integer> learnedBefore = learnedCounts(ctx);
+        rushSettings(ctx);
         ctx.waitTicks(20);
         // Control: the Entrance is no mob room, so nothing shows there.
         List<String> atStart = spots(ctx);
@@ -1495,6 +1526,245 @@ public class SimBloodRushTests implements FabricClientGameTest {
     }
 
     @SuppressWarnings("unchecked")
+    // ---- 1104 renumbered rooms (roomidx-1104) ---------------------------------------------------------------------------
+
+    private static final String LIVE_CFG = "com.killer560.hub.livemap.LiveMapConfig";
+    private static final String MAP_FEATURE = "com.killer560.hub.livemap.InteractiveMapFeature";
+    private static final String HELD_MAP = "com.killer560.hub.livemap.HeldMap";
+
+    private static Object layoutNow() {
+        return ModUnderTest.staticCall(LAYOUT, "current");
+    }
+
+    private static String roomName(Object layout, int r) {
+        return r < 0 ? null : (String) ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{r});
+    }
+
+    private static int roomCount(Object layout) {
+        return (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[0], new Object[0]);
+    }
+
+    /** {room index, its first tile} of the room named {@code name} in the current layout, -1s when there is none. */
+    private static int[] roomAndTile(String name) {
+        Object layout = layoutNow();
+        for (int r = 0; r < roomCount(layout); r++) {
+            if (name.equals(roomName(layout, r))) {
+                int[] t = (int[]) ModUnderTest.call(layout, "tiles", new Class<?>[]{int.class}, new Object[]{r});
+                return new int[]{r, t[0]};
+            }
+        }
+        return new int[]{-1, -1};
+    }
+
+    /** A room of the current layout named once, not the Entrance, a trap room (not functional yet), "Unknown" or in
+     *  {@code not}; or null. */
+    private static String otherRoom(Set<String> not) {
+        Object layout = layoutNow();
+        Map<String, Integer> seen = new HashMap<>();
+        for (int r = 0; r < roomCount(layout); r++) {
+            seen.merge(String.valueOf(roomName(layout, r)), 1, Integer::sum);
+        }
+        for (int r = 0; r < roomCount(layout); r++) {
+            String name = roomName(layout, r);
+            if (name != null && seen.get(name) == 1 && !not.contains(name) && !"Entrance".equalsIgnoreCase(name)
+                    && !"Unknown".equals(name) && !name.contains("Trap")) {
+                return name;
+            }
+        }
+        return null;
+    }
+
+    private static Object brStatic(String field) {
+        try {
+            java.lang.reflect.Field f = Class.forName(BR).getDeclaredField(field);
+            f.setAccessible(true);
+            return f.get(null);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("no " + BR + "." + field, e);
+        }
+    }
+
+    private static void brSetStaticInt(String field, int v) {
+        try {
+            java.lang.reflect.Field f = Class.forName(BR).getDeclaredField(field);
+            f.setAccessible(true);
+            f.setInt(null, v);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("no " + BR + "." + field, e);
+        }
+    }
+
+    /** Blood Rush's kept rooms by name: next, last, and the rushed set. */
+    private static String keptRooms() {
+        Object layout = layoutNow();
+        List<String> rushed = new ArrayList<>();
+        for (Object r : (Iterable<?>) brStatic("RUSHED")) {
+            rushed.add(roomName(layout, (Integer) r));
+        }
+        rushed.sort(java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder()));
+        return "next=" + roomName(layout, (Integer) brStatic("nextRoom")) + " last="
+                + roomName(layout, (Integer) brStatic("lastRoom")) + " rushed=" + rushed;
+    }
+
+    /** Teleports him onto the first key room's first starred mob: that room's name, or null with a problem added. */
+    private static String intoFirstKeyRoom(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
+        @SuppressWarnings("unchecked")
+        List<String> keyRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(SIM_FLOOR, "keyRoomsForTest"));
+        String room = keyRooms.isEmpty() ? null : keyRooms.get(0).split("\\|")[0];
+        List<double[]> mobs = room == null ? List.of() : serverStarredIn(ctx, room);
+        facts.add("key rooms " + keyRooms + "; into " + room + " (" + mobs.size() + " starred mob(s) on the server)");
+        if (mobs.isEmpty()) {
+            problems.add("no key room with a starred mob on this floor");
+            return null;
+        }
+        SimMobFloorTests.teleport(ctx, mobs.get(0)[0], mobs.get(0)[1], mobs.get(0)[2]);
+        return room;
+    }
+
+    private static List<Spot> spotsIn(ClientGameTestContext ctx, String room) {
+        List<Spot> out = new ArrayList<>();
+        for (Spot s : parsed(ctx)) {
+            if (s.room().equals(room)) {
+                out.add(s);
+            }
+        }
+        return out;
+    }
+
+    private static boolean renumbered(String swap, int[] k, int[] x, int[] k2, int[] x2) {
+        return swap.startsWith("swapped") && k[0] >= 0 && x[0] >= 0 && k2[0] == x[0] && x2[0] == k[0];
+    }
+
+    private static void rushRenumbered(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
+        rushSettings(ctx);
+        ctx.waitTicks(20);
+        String room = intoFirstKeyRoom(ctx, problems, facts);
+        if (room == null) {
+            return;
+        }
+        List<Spot> before = List.of();
+        for (int i = 0; i < 100 && before.isEmpty(); i += 5) {
+            ctx.waitTicks(5);
+            before = spotsIn(ctx, room);
+        }
+        if (before.isEmpty()) {
+            problems.add("no box shown in " + room + " before the swap: " + spots(ctx) + "; " + status(ctx));
+            return;
+        }
+        int mobsBefore = before.stream().mapToInt(Spot::mobs).sum();
+        int[] k = ctx.computeOnClient(mc -> roomAndTile(room));
+        String other = ctx.computeOnClient(mc -> otherRoom(Set.of(room)));
+        if (other == null) {
+            problems.add("no other room to swap " + room + " with");
+            return;
+        }
+        int[] x = ctx.computeOnClient(mc -> roomAndTile(other));
+        // As after "opened a WITHER door!" into it: the key room is the next rush room.
+        ctx.runOnClient(mc -> brSetStaticInt("nextRoom", k[0]));
+        ctx.waitTicks(4);
+        String keptBefore = ctx.computeOnClient(mc -> keptRooms());
+        String swap = ctx.computeOnClient(mc -> SimFairyDoorTests.swapRoomGroups(k[1], x[1]));
+        ctx.waitTicks(12);
+        int[] k2 = ctx.computeOnClient(mc -> roomAndTile(room));
+        int[] x2 = ctx.computeOnClient(mc -> roomAndTile(other));
+        String keptAfter = ctx.computeOnClient(mc -> keptRooms());
+        String allAfter = String.valueOf(spots(ctx));
+        int shownAfter = parsed(ctx).size();
+        List<Spot> after = spotsIn(ctx, room);
+        int mobsAfter = after.stream().mapToInt(Spot::mobs).sum();
+        ctx.computeOnClient(mc -> SimFairyDoorTests.swapRoomGroups(k[1], x[1]));
+        ctx.runOnClient(mc -> brSetStaticInt("nextRoom", -1));
+        facts.add(room + " was room " + k[0] + ", " + other + " room " + x[0] + "; " + swap + "; now " + room + " is room "
+                + k2[0] + ", " + other + " room " + x2[0]);
+        facts.add("kept before: " + keptBefore + "; after: " + keptAfter);
+        facts.add("boxes in " + room + ": " + before.size() + " (" + mobsBefore + " mobs) before, " + after.size() + " ("
+                + mobsAfter + " mobs) after; all after " + allAfter);
+        if (!renumbered(swap, k, x, k2, x2)) {
+            problems.add("PREMISE: the swap did not renumber the layout");
+            return;
+        }
+        if (!keptBefore.startsWith("next=" + room + " last=" + room) || !keptAfter.equals(keptBefore)) {
+            problems.add("Blood Rush's kept rooms changed with the numbering: " + keptBefore + " -> " + keptAfter);
+        }
+        if (after.size() != before.size() || mobsAfter != mobsBefore) {
+            problems.add("the boxes in " + room + " changed with the numbering: " + before.size() + " box(es)/" + mobsBefore
+                    + " mobs -> " + after.size() + "/" + mobsAfter);
+        }
+        if (shownAfter != after.size()) {
+            problems.add("boxes shown outside " + room + " after the swap: " + allAfter);
+        }
+    }
+
+    /** The sim held-map stand-in's opened rooms, by name. */
+    private static Set<String> openedRooms() {
+        Object layout = layoutNow();
+        Set<String> out = new java.util.TreeSet<>();
+        for (int r : (int[]) ModUnderTest.staticCall(HELD_MAP, "simVisitedRooms")) {
+            out.add(String.valueOf(roomName(layout, r)));
+        }
+        return out;
+    }
+
+    /** One map press on room {@code room} (pressed at {@code cell}): whether it was the second of a double press. */
+    private static boolean press(int room, int cell) {
+        Object cfg = ModUnderTest.config(LIVE_CFG);
+        Class<?> layoutCls;
+        try {
+            layoutCls = Class.forName(LAYOUT);
+            Class.forName(MAP_FEATURE).getDeclaredMethod("registerPress", layoutCls, int.class, int.class, cfg.getClass());
+        } catch (ReflectiveOperationException e) {
+            // A jar before roomidx-1104: registerPress(room, cfg).
+            return (Boolean) ModUnderTest.staticCall(MAP_FEATURE, "registerPress", new Class<?>[]{int.class, cfg.getClass()},
+                    new Object[]{room, cfg});
+        }
+        return (Boolean) ModUnderTest.staticCall(MAP_FEATURE, "registerPress",
+                new Class<?>[]{layoutCls, int.class, int.class, cfg.getClass()}, new Object[]{layoutNow(), room, cell, cfg});
+    }
+
+    private static void mapRenumbered(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
+        String room = intoFirstKeyRoom(ctx, problems, facts);
+        if (room == null) {
+            return;
+        }
+        ctx.waitTicks(20);
+        Set<String> opened = ctx.computeOnClient(mc -> openedRooms());
+        Set<String> not = new HashSet<>(opened);
+        not.add(room);
+        String other = ctx.computeOnClient(mc -> otherRoom(not));
+        if (!opened.contains(room) || other == null) {
+            problems.add("PREMISE: " + room + " not opened by standing in it, or no unopened room (opened " + opened + ")");
+            return;
+        }
+        int[] k = ctx.computeOnClient(mc -> roomAndTile(room));
+        int[] x = ctx.computeOnClient(mc -> roomAndTile(other));
+        boolean first = ctx.computeOnClient(mc -> press(k[0], k[1]));
+        String swap = ctx.computeOnClient(mc -> SimFairyDoorTests.swapRoomGroups(k[1], x[1]));
+        ctx.waitTicks(6);
+        int[] k2 = ctx.computeOnClient(mc -> roomAndTile(room));
+        int[] x2 = ctx.computeOnClient(mc -> roomAndTile(other));
+        Set<String> openedAfter = ctx.computeOnClient(mc -> openedRooms());
+        boolean otherPress = ctx.computeOnClient(mc -> press(x2[0], x[1]));
+        boolean otherAgain = ctx.computeOnClient(mc -> press(x2[0], x[1]));
+        ctx.computeOnClient(mc -> SimFairyDoorTests.swapRoomGroups(k[1], x[1]));
+        facts.add(room + " was room " + k[0] + ", " + other + " room " + x[0] + "; " + swap + "; now " + room + " is room "
+                + k2[0] + ", " + other + " room " + x2[0]);
+        facts.add("opened before " + opened + ", after " + openedAfter + "; presses " + room + " " + first + ", " + other
+                + " " + otherPress + ", " + other + " again " + otherAgain);
+        if (!renumbered(swap, k, x, k2, x2)) {
+            problems.add("PREMISE: the swap did not renumber the layout");
+            return;
+        }
+        if (!openedAfter.equals(opened)) {
+            problems.add("the held-map stand-in's opened rooms changed with the numbering: " + opened + " -> " + openedAfter);
+        }
+        if (first || otherPress) {
+            problems.add("a press on " + other + " after one on " + room + " read as a double press (first " + first + ")");
+        }
+        if (!otherAgain) {
+            problems.add("control: two presses on " + other + " were no double press");
+        }
+    }
+
     private static <T> T onServer(ClientGameTestContext ctx,
                                   java.util.function.BiFunction<ServerLevel, net.minecraft.server.level.ServerPlayer, T> f) {
         AtomicReference<Object[]> box = new AtomicReference<>();
