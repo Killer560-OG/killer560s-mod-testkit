@@ -130,6 +130,11 @@ public class SimMapDoorColorTests implements FabricClientGameTest {
                 });
             });
             ctx.waitFor(mc -> placed.get() != null, 200);
+            // The coal's chunk first: the floor is built around the Entrance and the client is sent its chunks a batch at a
+            // time, so on 26.2 the doorway's chunk (3 chunks off) was still an EmptyLevelChunk, which reads void_air, after
+            // the 200 ticks below - it arrived after 494 (2026-11-03; with other clients running). A block read from an
+            // unloaded chunk proves nothing, so wait for the chunk itself, then for the block.
+            ctx.waitFor(mc -> !(mc.level.getChunkAt(coal) instanceof net.minecraft.world.level.chunk.EmptyLevelChunk), 2400);
             ctx.waitFor(mc -> !mc.level.getBlockState(coal).isAir(), 200);
 
             byte[] px = new byte[128 * 128];
