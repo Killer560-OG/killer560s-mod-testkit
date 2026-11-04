@@ -31,6 +31,9 @@ import java.util.Locale;
  *       IDs; Bow Shots left off still plays.</li>
  *   <li>1102-sound-off: the master switch off, or the Bonzo's Staff row off, mutes nothing.</li>
  *   <li>1102-sound-persist: a fresh config has the switch and every row off; every setting survives save and load.</li>
+ *   <li>1104-sound-weather (wxmute-1104): Skyblock Weather mutes a server sound sent in the Weather category (any id) and
+ *       weather.rain / lightning by id, only under a SKYBLOCK sidebar; the same sounds play under a LOBBY sidebar, with the row
+ *       off, and a Master-category note still plays with it on. Show Sound IDs names the category.</li>
  * </ul>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -43,7 +46,7 @@ public class SoundDisablerSuite implements FabricClientGameTest {
     private static final String ROW = "com.killer560.hub.sounddisabler.MutedSound";
     private static final String CONTROL = "entity.experience_orb.pickup";
     private static final String[] ROWS = {"BONZO_STAFF", "EXPLOSIONS", "BOW_SHOTS", "ENDERMEN", "BLAZES", "WOLVES",
-            "SPIDERS", "PHANTOMS", "WITHERS", "RAIN_AND_THUNDER"};
+            "SPIDERS", "PHANTOMS", "WITHERS", "RAIN_AND_THUNDER", "SKYBLOCK_WEATHER"};
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -61,6 +64,7 @@ public class SoundDisablerSuite implements FabricClientGameTest {
                     s.test("1102-sound-rows", SoundDisablerSuite::rows);
                     s.test("1102-sound-off", SoundDisablerSuite::off);
                     s.test("1102-sound-persist", SoundDisablerSuite::persist);
+                    s.test("1104-sound-weather", SoundDisablerSuite::weather);
                 });
     }
 
@@ -195,6 +199,49 @@ public class SoundDisablerSuite implements FabricClientGameTest {
         }
     }
 
+    private static void weather(Session c) {
+        try {
+            configure(c, true, "SKYBLOCK_WEATHER");
+            sidebar(c, "SKYBLOCK", true);
+            mutedFromServer(c, "block.note_block.harp", "weather", "~ ~ ~", "skyblock_weather",
+                    "a note sent in the Weather category on Skyblock");
+            mutedFromServer(c, "weather.rain", "master", "~ ~ ~", "skyblock_weather", "rain (by id) on Skyblock");
+            mutedFromServer(c, "entity.lightning_bolt.thunder", "master", "~ ~ ~", "skyblock_weather", "thunder (by id) on Skyblock");
+            playsFromServer(c, "block.note_block.harp", "~ ~ ~", "a Master-category note on Skyblock");
+            c.onClient(mc -> ModUnderTest.call(cfg(), "setShowIds", new Class<?>[]{boolean.class}, new Object[]{true}));
+            long mark = LogTap.mark();
+            mutedFromServer(c, "block.note_block.bell", "weather", "~ ~ ~", "skyblock_weather", "a bell in the Weather category");
+            boolean shown = false;
+            for (String l : LogTap.since(mark)) {
+                if (l.contains("minecraft:block.note_block.bell") && l.contains("[weather]") && l.contains("(muted)")) {
+                    shown = true;
+                    c.note("  " + l);
+                }
+            }
+            c.check(shown, "Show Sound IDs did not name minecraft:block.note_block.bell [weather] (muted) in chat");
+            c.onClient(mc -> ModUnderTest.call(cfg(), "setShowIds", new Class<?>[]{boolean.class}, new Object[]{false}));
+            sidebar(c, "LOBBY", false);
+            playsFromServer(c, "block.note_block.harp", "weather", "~ ~ ~", "a Weather-category note off Skyblock");
+            playsFromServer(c, "weather.rain", "~ ~ ~", "rain off Skyblock");
+            sidebar(c, "SKYBLOCK", true);
+            configure(c, true);
+            playsFromServer(c, "block.note_block.harp", "weather", "~ ~ ~", "a Weather-category note with the row off");
+            playsFromServer(c, "weather.rain", "~ ~ ~", "rain with the row off");
+        } finally {
+            c.server().command("scoreboard objectives remove sdwx");
+            reset(c);
+        }
+    }
+
+    /** Shows a sidebar titled {@code title} and waits until the mod's SkyblockGate reads it as {@code skyblock}. */
+    private static void sidebar(Session c, String title, boolean skyblock) {
+        c.server().command("scoreboard objectives remove sdwx");
+        c.server().command("scoreboard objectives add sdwx dummy {\"text\":\"" + title + "\"}");
+        c.server().command("scoreboard objectives setdisplay sidebar sdwx");
+        c.waitUntil("SkyblockGate to read the " + title + " sidebar",
+                mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.util.SkyblockGate", "isOnSkyblock") == skyblock, 100);
+    }
+
     // ------------------------------------------------------------------ helpers
 
     private static Object cfg() {
@@ -272,22 +319,34 @@ public class SoundDisablerSuite implements FabricClientGameTest {
     }
 
     private static void serverSound(Session c, String id, String at) {
-        c.server().command("execute at @p run playsound minecraft:" + id + " master @p " + at + " 1 1");
+        serverSound(c, id, "master", at);
+    }
+
+    private static void serverSound(Session c, String id, String category, String at) {
+        c.server().command("execute at @p run playsound minecraft:" + id + " " + category + " @p " + at + " 1 1");
     }
 
     /** Sends {@code id} and then the control sound; waits for the control, so {@code id} has arrived too. */
     private static int[] sendWithControl(Session c, String id, String at) {
+        return sendWithControl(c, id, "master", at);
+    }
+
+    private static int[] sendWithControl(Session c, String id, String category, String at) {
         int ctl0 = reached(c, CONTROL);
-        serverSound(c, id, at);
+        serverSound(c, id, category, at);
         serverSound(c, CONTROL, "~ ~ ~");
         c.waitUntil("the control sound to reach the engine", mc -> SoundProbe.count("minecraft:" + CONTROL) > ctl0, 100);
         return new int[]{reached(c, CONTROL) - ctl0};
     }
 
     private static void mutedFromServer(Session c, String id, String at, String row, String what) {
+        mutedFromServer(c, id, "master", at, row, what);
+    }
+
+    private static void mutedFromServer(Session c, String id, String category, String at, String row, String what) {
         int r0 = reached(c, id);
         int m0 = mutedBy(c, row);
-        sendWithControl(c, id, at);
+        sendWithControl(c, id, category, at);
         int r = reached(c, id) - r0;
         int m = mutedBy(c, row) - m0;
         c.note(String.format(Locale.ROOT, "%s (%s at %s): reached the engine %d, muted by %s %d", what, id, at, r, row, m));
@@ -296,8 +355,12 @@ public class SoundDisablerSuite implements FabricClientGameTest {
     }
 
     private static void playsFromServer(Session c, String id, String at, String what) {
+        playsFromServer(c, id, "master", at, what);
+    }
+
+    private static void playsFromServer(Session c, String id, String category, String at, String what) {
         int r0 = reached(c, id);
-        sendWithControl(c, id, at);
+        sendWithControl(c, id, category, at);
         int r = reached(c, id) - r0;
         c.note(String.format(Locale.ROOT, "%s (%s at %s): reached the engine %d", what, id, at, r));
         c.check(r == 1, what + ": " + id + " reached the sound engine " + r + " time(s), wanted 1");
