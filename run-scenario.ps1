@@ -360,7 +360,11 @@ function Sync-SlotWindow {
         if ([math]::Abs($r.Left - $t[0]) -gt 2 -or [math]::Abs($r.Top - $t[1]) -gt 2 -or
                 [math]::Abs(($r.Right - $r.Left) - $t[2]) -gt 2 -or [math]::Abs(($r.Bottom - $r.Top) - $t[3]) -gt 2) {
             # HWND_BOTTOM, SWP_NOACTIVATE: the client goes behind whatever is open on the monitor, and takes no focus.
-            [WinSlot]::SetWindowPos($p.MainWindowHandle, [IntPtr]::new(1), $t[0], $t[1], $t[2], $t[3], 0x10) | Out-Null
+            # SWP_ASYNCWINDOWPOS (0x4000), goldfix-1104: a plain SetWindowPos sends the move to the window's own thread and
+            # WAITS for it, so a hung client (render thread stuck) blocked this whole watch loop forever the first time
+            # another run moved the tiles - no deadline, no freeze kill (a forced hang sat 22 min past its 2 min
+            # watchdog until the backstop; the likely cause of gate-1104c's two-hour 26.2 hang).
+            [WinSlot]::SetWindowPos($p.MainWindowHandle, [IntPtr]::new(1), $t[0], $t[1], $t[2], $t[3], 0x4010) | Out-Null
         }
     }
 }
