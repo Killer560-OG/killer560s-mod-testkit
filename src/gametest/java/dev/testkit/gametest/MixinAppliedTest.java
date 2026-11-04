@@ -73,7 +73,9 @@ public class MixinAppliedTest implements FabricClientGameTest {
         EXCEPTIONS.put("ArrayBackedEventProbeMixin", "perfprobe/PerfProbeMixinPlugin applies the Perf Probe mixins only when PerfProbe.ENABLED (a dev property)");
         EXCEPTIONS.put("HudLayerProbeMixin", "Perf Probe, see ArrayBackedEventProbeMixin");
         EXCEPTIONS.put("ScreenProbeMixin", "Perf Probe, see ArrayBackedEventProbeMixin");
-        EXCEPTIONS.put("MenuModMenuListMixin", "Mod Menu 21 has no widget.ModListWidget (pre-existing, the themed Mod Menu list selection never applies; @Pseudo)");
+        if (!FabricLoader.getInstance().isModLoaded("modmenu")) {
+            EXCEPTIONS.put("MenuModMenuListMixin", "@Pseudo: its target is Mod Menu's ModListWidget (same drawSelectionHighlight on Mod Menu 20.0.2 and 21.0.0), and Mod Menu is not in this run; run with -ModUnderTest mod.jar,modmenu.jar and the exception drops away (1104-ui-modmenu-list-theme proves the effect)");
+        }
         String only263 = "26.3 only by design (the handler name ends 263; its 26.2 twin applies there): the call it wraps does not exist on 26.2";
         EXCEPTIONS.put("InventoryThemeInventoryBackgroundMixin#killer560smod$themeInventoryBackground263", only263);
         EXCEPTIONS.put("MenuCheckboxMixin#killer560smod$themedCheckbox263", only263);
