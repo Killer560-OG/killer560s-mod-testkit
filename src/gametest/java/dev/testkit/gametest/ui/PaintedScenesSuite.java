@@ -90,6 +90,27 @@ public class PaintedScenesSuite implements FabricClientGameTest {
 
     // ---- shared ---------------------------------------------------------------------------------------------------------
 
+    /** jarsize-1104: the main menu picture {@code name} ships as WebP and is loaded by the mod's own WebpPictures texture,
+     *  at full size (a texture that failed to load is vanilla's 16x16 missing one). Call it after the scene drew. */
+    static void checkWebp(UiCase c, String name, int w, int h) throws Exception {
+        Object[] got = c.onClient(mc -> {
+            try {
+                Object tex = mc.getTextureManager().getTexture(net.minecraft.resources.Identifier.fromNamespaceAndPath(
+                        "killer560smod", "textures/gui/" + name + ".webp"));
+                Object gpu = tex.getClass().getMethod("getTexture").invoke(tex);
+                int tw = (Integer) gpu.getClass().getMethod("getWidth", int.class).invoke(gpu, 0);
+                int th = (Integer) gpu.getClass().getMethod("getHeight", int.class).invoke(gpu, 0);
+                return new Object[]{tw, th, tex.getClass().getName()};
+            } catch (Throwable t) {
+                return new Object[]{-1, -1, String.valueOf(t)};
+            }
+        });
+        c.note(name + ".webp: " + got[0] + "x" + got[1] + " from " + got[2]);
+        c.check(((Integer) got[0]) == w && ((Integer) got[1]) == h, name + ".webp loaded as " + got[0] + "x" + got[1]
+                + ", not " + w + "x" + h);
+        c.check(String.valueOf(got[2]).contains("WebpPictures"), name + ".webp is not the mod's WebP texture: " + got[2]);
+    }
+
     private interface Body {
         void run() throws Exception;
     }
@@ -242,6 +263,7 @@ public class PaintedScenesSuite implements FabricClientGameTest {
             c.check(hero.hero() > 20, "MILKY_WAY_HERO's cape did not move: " + hero.hero() + " tiles");
             c.check(plain.hero() == 0, "MILKY_WAY drew a character: " + plain.hero() + " rects");
             c.check(stars.hero() == 0, "STARS drew a character: " + stars.hero() + " rects");
+            checkWebp(c, "milkyway", 2560, 1440);
             for (Shot s : new Shot[]{plain, hero}) {
                 c.check(s.a().lum() < 0.25, s.name() + " is not dark: lum " + s.a().lum());
                 // a calm sky: twinkling stars, haze, a meteor now and then and (with her) the cape; 0.02-0.03% measured
@@ -310,6 +332,7 @@ public class PaintedScenesSuite implements FabricClientGameTest {
                         + Math.round(first.b()));
                 c.check(tiles > 50, "TARGET's cape and hair do not ripple: " + tiles + " tiles");
                 c.check(first.g() > first.r() + 4, "TARGET is not green: " + first);
+                checkWebp(c, "green_boss_target", 2560, 1440);
             } finally {
                 c.onClient(mc -> {
                     Mod.staticCall(SCENES, "setGreenSceneForTest", "");
@@ -573,7 +596,7 @@ public class PaintedScenesSuite implements FabricClientGameTest {
             int[] size = c.onClient(mc -> {
                 try {
                     Object tex = mc.getTextureManager().getTexture(net.minecraft.resources.Identifier.fromNamespaceAndPath(
-                            "killer560smod", "textures/gui/green_boss_target.png"));
+                            "killer560smod", "textures/gui/green_boss_target.webp"));
                     Object gpu = tex.getClass().getMethod("getTexture").invoke(tex);
                     int w = (Integer) gpu.getClass().getMethod("getWidth", int.class).invoke(gpu, 0);
                     int h = (Integer) gpu.getClass().getMethod("getHeight", int.class).invoke(gpu, 0);

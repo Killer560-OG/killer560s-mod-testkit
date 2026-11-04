@@ -192,6 +192,7 @@ public class AmberAuroraSuite implements FabricClientGameTest {
             long f1 = counter(c, "stillFrames");
             c.note("released: Amber draws " + scene + ", aurora frames +" + (s1 - s0) + " shader, +" + (f1 - f0) + " still");
             c.check("AURORA".equals(scene), "without previewScenes Amber draws " + scene + ", not AURORA");
+            PaintedScenesSuite.checkWebp(c, "amber_aurora", 2560, 2880);
             c.check(s1 - s0 >= 1 && f1 == f0, "without previewScenes the aurora shader drew " + (s1 - s0) + " frames, the still "
                     + (f1 - f0));
             c.onClient(mc -> {
