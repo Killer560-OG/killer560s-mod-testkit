@@ -261,6 +261,8 @@ public class MenuSuite implements FabricClientGameTest {
                     ArmorHud1103Cases.register(s);
                     // ---- 1103-menu-tooltip-over-bar tooltipbar-1103: tooltips draw above the search bar ----
                     TooltipBar1103Cases.register(s);
+                    // ---- 1104-menu-friends-* friendsfilter-1104: area drop-down and /pv on the friends list ----
+                    Friends1104Cases.register(s);
                 });
     }
 }
