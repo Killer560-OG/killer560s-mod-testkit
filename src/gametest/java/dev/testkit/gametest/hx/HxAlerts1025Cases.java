@@ -405,7 +405,7 @@ final class HxAlerts1025Cases {
     private static void scoreWarning(Session c) {
         try (Settings set = new Settings(c).with(SCORE_CFG, "Enabled", false)
                 .with(SCORE_CFG, "CryptReminder", true)
-                .with(SCORE_CFG, "CryptReminderSeconds", 120)
+                .with(SCORE_CFG, "CryptReminderSeconds", 5)
                 .with(SCORE_CFG, "CryptReminderParty", true)
                 .with(SCORE_CFG, "PreBossWarning", false)
                 .with(SCORE_CFG, "ScoreWarningSound", false)) {
@@ -423,11 +423,13 @@ final class HxAlerts1025Cases {
             c.waitUntil("the Score Calculator tracks with only Score Warning on (crypts 2)",
                     mc -> ((Number) Mod.staticCall("scorecalc.ScoreCalculatorFeature", "getCrypts")).intValue() == 2, 100);
             int base = warnings(c);
+            // cryptgate-1104: the reminder counts from Mort's "found this map" line (first gate), not from entering.
+            c.ctx().waitTicks(160);
+            c.check(warnings(c) == base, "the crypt reminder fired 8 s after entering with no run start (Mort's line) seen");
+            c.hx().chat("[NPC] Mort: Here, I found this map when I first entered the dungeon.");
             c.ctx().waitTicks(40);
-            c.check(warnings(c) == base, "the crypt reminder fired at 1:23 with the reminder set to 2:00");
-
-            sidebar(c, "template", "dungeon", "floor", "F7", "time", "02m 05s", "cleared", 80);
-            c.waitUntil("the crypt reminder at 2:05", mc -> (Integer) Mod.staticCall(WARN, "warningsShown") == base + 1, 60);
+            c.check(warnings(c) == base, "the crypt reminder fired 2 s after the run started, with Remind At 0:05");
+            c.waitUntil("the crypt reminder 5 s after the run started", mc -> (Integer) Mod.staticCall(WARN, "warningsShown") == base + 1, 200);
             String crypt = c.onClient(mc -> (String) Mod.staticCall(WARN, "lastWarning"));
             String shownCrypt = c.onClient(HxAlerts1025Cases::guiTitle);
             String pc = awaitCommand(c, "pc ", 60);
