@@ -39,6 +39,7 @@ final class HxCommissionRoute1103Cases {
     private static final String MAP = "miningqol.MinesAreaMap";
     private static final String ROUTE = "miningqol.CommissionRoute";
     private static final String MODE = "miningqol.MiningQolConfig$CommissionRouteMode";
+    private static final String CLAIM = "miningqol.CommissionClaim";
 
     private static final int FY = 181;
     private static final int Z = 300;
@@ -51,6 +52,10 @@ final class HxCommissionRoute1103Cases {
         s.test("1103-mining-route-walk", HxCommissionRoute1103Cases::walk);
         s.test("1103-mining-route-aote", HxCommissionRoute1103Cases::aote);
         s.test("1103-mining-route-persist", HxCommissionRoute1103Cases::persist);
+        s.test("1103-mining2-route-origin", HxCommissionRoute1103Cases::origin);
+        s.test("1103-mining2-route-own-toggle", HxCommissionRoute1103Cases::ownToggle);
+        s.test("1103-mining2-route-aote-air", HxCommissionRoute1103Cases::aoteAir);
+        s.test("1103-mining2-route-claim", HxCommissionRoute1103Cases::claim);
     }
 
     // ---- shared ---------------------------------------------------------------------------------------------------
@@ -77,8 +82,12 @@ final class HxCommissionRoute1103Cases {
     }
 
     private static String node(int id, int x, int z, String area, String neighbours) {
+        return node(id, x, FY, z, area, neighbours);
+    }
+
+    private static String node(int id, int x, int y, int z, String area, String neighbours) {
         String tags = area == null ? "" : ",\"Name\":\"" + area + "\",\"Tags\":[\"area\"]";
-        return "\"" + id + "\":{\"Position\":\"" + x + ".0:" + FY + ".0:" + z + ".0\"" + tags
+        return "\"" + id + "\":{\"Position\":\"" + x + ".0:" + y + ".0:" + z + ".0\"" + tags
                 + ",\"Neighbours\":{" + neighbours + "}}";
     }
 
@@ -86,6 +95,10 @@ final class HxCommissionRoute1103Cases {
     private static Vec3 home = null;
 
     private static void arena(Session c) {
+        arenaWith(c, null);
+    }
+
+    private static void arenaWith(Session c, String custom) {
         if (home == null) {
             home = c.onClient(mc -> mc.player.position());
         }
@@ -101,7 +114,7 @@ final class HxCommissionRoute1103Cases {
                 && mc.level.getBlockState(new BlockPos(384, 180, 300)).isSolid()
                 && mc.level.getBlockState(new BlockPos(330, 180, 300)).isSolid(), 800);
         c.ctx().waitTicks(10);
-        String json = "{" + node(0, 300, Z, "Royal Mines", "\"1\":2.0")
+        String json = custom != null ? custom : "{" + node(0, 300, Z, "Royal Mines", "\"1\":2.0")
                 + "," + node(1, 302, Z, null, "\"0\":2.0,\"2\":28.0,\"6\":40.0")
                 + "," + node(2, 330, Z, null, "\"1\":28.0,\"3\":35.0")
                 + "," + node(3, 365, Z, null, "\"2\":35.0,\"4\":15.0,\"6\":40.0")
@@ -109,14 +122,17 @@ final class HxCommissionRoute1103Cases {
                 + "," + node(6, 330, 320, null, "\"1\":40.0,\"3\":40.0") + "}";
         c.ctx().runOnClient(mc -> Mod.staticCall(MAP, "useGraphJsonForTest", json));
         c.waitUntil("the test area map in use", mc -> (Boolean) Mod.staticCall(MAP, "loaded"), 20);
-        c.check("Lava Springs".equals(c.onClient(mc -> Mod.staticCall(MAP, "areaAt", 365, FY, Z))),
-                "node 3's block is not Lava Springs");
-        c.check("Royal Mines".equals(c.onClient(mc -> Mod.staticCall(MAP, "areaAt", 330, FY, Z))),
-                "node 2's block is not Royal Mines");
+        if (custom == null) {
+            c.check("Lava Springs".equals(c.onClient(mc -> Mod.staticCall(MAP, "areaAt", 365, FY, Z))),
+                    "node 3's block is not Lava Springs");
+            c.check("Royal Mines".equals(c.onClient(mc -> Mod.staticCall(MAP, "areaAt", 330, FY, Z))),
+                    "node 2's block is not Royal Mines");
+        }
     }
 
     private static void cleanup(Session c) {
         c.ctx().runOnClient(mc -> Mod.staticCall(MAP, "clearTestGraphForTest"));
+        c.ctx().runOnClient(mc -> Mod.staticCall(CLAIM, "resetForTest"));
         if (home != null) {
             Vec3 h = home;
             c.server().command(String.format(java.util.Locale.ROOT, "tp @a %.3f %.3f %.3f", h.x, h.y, h.z));
@@ -236,10 +252,18 @@ final class HxCommissionRoute1103Cases {
             mines(c, "Royal Mines", "Lava Springs Mithril: 10%");
             waitRoute(c, "an etherwarp route");
             List<Integer> path = ids(c);
-            c.check(path.equals(List.of(1, 2, 3)), "graph path " + path + ", wanted [1, 2, 3]");
+            c.check(path.size() == 2 && path.get(0) == 2 && (path.get(1) == 3 || path.get(1) == 4),
+                    "warp path " + path + ", wanted two warps: node 2, then node 3 or 4");
             List<String> hops = checkEther(c, "open floor");
-            c.check(hops.equals(List.of("330,180,300", "365,180,300")), "open floor hops " + hops
-                    + ", wanted [330,180,300, 365,180,300] (57-block range: 302 -> 365 is too far, 302 -> 330 -> 365 is not)");
+            c.check(hops.size() == 2 && hops.get(0).equals("330,180,300")
+                    && (hops.get(1).equals("365,180,300") || hops.get(1).equals("380,180,300")),
+                    "open floor hops " + hops + ", wanted [330,180,300, then 365 or 380] (57-block range: the fewest warps)");
+            double[] patch = c.onClient(mc -> (double[]) Mod.staticCall(ROUTE, "lastPatch"));
+            c.check(patch != null && c.onClient(mc -> (Integer) Mod.staticCall(ROUTE, "patches")) > 0, "no 3x3 landing patch drawn");
+            if (patch != null) {
+                c.check(Math.abs(patch[3] - patch[0] - 3) < 1e-9 && Math.abs(patch[4] - patch[2] - 3) < 1e-9
+                        && Math.abs(patch[1] - 181.0) < 0.05, "patch is not a 3x3 on the block tops: " + java.util.Arrays.toString(patch));
+            }
             // A wall between node 2 and node 3: no warp through it.
             c.server().command("fill 347 181 296 347 185 304 minecraft:stone");
             c.waitUntil("the wall on the client", mc -> mc.level.getBlockState(new BlockPos(347, 182, 300)).isSolid(), 100);
@@ -251,7 +275,7 @@ final class HxCommissionRoute1103Cases {
             c.ctx().waitTicks(8);
             waitRoute(c, "an etherwarp route with the wall");
             List<String> walled = checkEther(c, "wall at x 347");
-            c.check(!walled.contains("365,180,300") || walled.size() > 2, "warped through the wall: " + walled);
+            c.check(!walled.contains("365,180,300") && !walled.contains("380,180,300"), "warped through the wall: " + walled);
             c.server().command("fill 347 181 296 347 185 304 minecraft:air");
             arrival(c);
         } finally {
@@ -265,7 +289,7 @@ final class HxCommissionRoute1103Cases {
     private static void walk(Session c) {
         Object mode = c.onClient(mc -> Mod.enumValue(MODE, "WALK"));
         try (Settings set = new Settings(c).with(CFG, "CommissionHud", true).with(CFG, "CommissionRoute", true)
-                .with(CFG, "CommissionRouteMode", mode)) {
+                .with(CFG, "CommissionRouteEmissary", false).with(CFG, "CommissionRouteMode", mode)) {
             arena(c);
             mines(c, "Royal Mines", "Lava Springs Mithril: 10%");
             waitRoute(c, "a walking route");
@@ -299,20 +323,27 @@ final class HxCommissionRoute1103Cases {
         Object mode = c.onClient(mc -> Mod.enumValue(MODE, "AOTE"));
         try (Settings set = new Settings(c).with(CFG, "CommissionHud", true).with(CFG, "CommissionRoute", true)
                 .with(CFG, "CommissionRouteMode", mode)) {
-            arena(c);
+            // Nodes every 7 blocks along the floor, 302 .. 379; Royal Mines at the first, Lava Springs at the last.
+            StringBuilder sb = new StringBuilder("{");
+            for (int k = 0; k < 12; k++) {
+                String nb = (k > 0 ? "\"" + (k - 1) + "\":7.0" : "") + (k > 0 && k < 11 ? "," : "")
+                        + (k < 11 ? "\"" + (k + 1) + "\":7.0" : "");
+                sb.append(k > 0 ? "," : "").append(node(k, 302 + 7 * k, Z, k == 0 ? "Royal Mines" : k == 11 ? "Lava Springs" : null, nb));
+            }
+            arenaWith(c, sb.append("}").toString());
             mines(c, "Royal Mines", "Lava Springs Mithril: 10%");
             waitRoute(c, "an AOTE route");
             List<String> hops = list(c, "hops");
             List<String> pts = list(c, "linePoints");
             c.note("AOTE " + hops.size() + " landings: " + hops);
-            c.check(hops.size() >= 6, "only " + hops.size() + " landings for ~63 blocks");
-            c.check(hops.size() <= 12, hops.size() + " landings for ~63 blocks (it bounced)");
+            c.check(hops.size() >= 4, "only " + hops.size() + " landings for ~40 blocks");
+            c.check(hops.size() <= 9, hops.size() + " landings for ~40 blocks (it bounced)");
             double[] stand = {302.5, 181.0, 300.5};
             for (String pt : pts) {
                 double[] q = dxyz(pt);
                 double d = Math.sqrt(Math.pow(q[0] - stand[0], 2) + Math.pow(q[1] - stand[1], 2) + Math.pow(q[2] - stand[2], 2));
                 c.check(d <= 9.0, "a hop of " + d + " blocks to " + pt);
-                BlockPos f = BlockPos.containing(q[0], q[1], q[2]);
+                BlockPos f = BlockPos.containing(q[0], q[1] + 0.01, q[2]);
                 boolean free = c.onClient(mc -> mc.level.getBlockState(f).isAir() && mc.level.getBlockState(f.above()).isAir());
                 c.check(free, "landing " + pt + " has no room");
                 stand = q;
@@ -354,6 +385,141 @@ final class HxCommissionRoute1103Cases {
                 Mod.set(CFG, "setCommissionRouteMode", before[2]);
                 Mod.call(Mod.cfg(CFG), "save");
             });
+        }
+    }
+
+    // ---- 1103-mining2-route-origin ----------------------------------------------------------------------------------
+
+    /** "the line for the pathfinding to commission spots also still doesnt go from my crosshair". */
+    private static void origin(Session c) {
+        Object mode = c.onClient(mc -> Mod.enumValue(MODE, "WALK"));
+        try (Settings set = new Settings(c).with(CFG, "CommissionRoute", true).with(CFG, "CommissionRouteMode", mode)) {
+            arena(c);
+            mines(c, "Royal Mines", "Lava Springs Mithril: 10%");
+            waitRoute(c, "a walking route");
+            int frames = count(c, "frames");
+            c.waitUntil("the line drawn", mc -> (Integer) Mod.staticCall(ROUTE, "frames") > frames + 2, 100);
+            double[] o = c.onClient(mc -> (double[]) Mod.staticCall(ROUTE, "lastOrigin"));
+            Vec3 eye = c.onClient(mc -> mc.player.getEyePosition());
+            c.check(o != null, "no line origin recorded");
+            double d = new Vec3(o[0], o[1], o[2]).distanceTo(eye);
+            c.check(d > 0.3 && d < 0.7, "the line starts " + d + " blocks from the eye (the crosshair end is 0.5 along the look)");
+            c.check(o[1] > eye.y - 0.7, "the line starts at y " + o[1] + ", below the eye " + eye.y + " (the body)");
+            c.note("line origin " + java.util.Arrays.toString(o) + " is " + String.format(java.util.Locale.ROOT, "%.2f", d)
+                    + " from the eye " + eye);
+        } finally {
+            cleanup(c);
+        }
+    }
+
+    // ---- 1103-mining2-route-own-toggle ------------------------------------------------------------------------------
+
+    /** "make the pathfinding thing its own setting/toggle": the route runs with the Commission HUD switch off. */
+    private static void ownToggle(Session c) {
+        Object mode = c.onClient(mc -> Mod.enumValue(MODE, "WALK"));
+        try (Settings set = new Settings(c).with(CFG, "CommissionHud", false).with(CFG, "CommissionRoute", true)
+                .with(CFG, "CommissionRouteMode", mode)) {
+            arena(c);
+            mines(c, "Royal Mines", "Lava Springs Mithril: 10%");
+            waitRoute(c, "a route with the Commission HUD off");
+            c.check(!(Boolean) c.onClient(mc -> Mod.get(CFG, "isCommissionHud")), "the Commission HUD is on");
+            c.ctx().runOnClient(mc -> Mod.set(CFG, "setCommissionRoute", false));
+            c.waitUntil("no line with the route switch off", mc -> (Integer) Mod.staticCall(ROUTE, "pointCount") == 0, 40);
+            c.note("route draws with the Commission HUD off, and only its own switch turns it off");
+        } finally {
+            cleanup(c);
+        }
+    }
+
+    // ---- 1103-mining2-route-aote-air --------------------------------------------------------------------------------
+
+    /** "instead of just teleporting up through the air it just has me run around to it". */
+    private static void aoteAir(Session c) {
+        int uses = sentUses(c);
+        try (Settings set = new Settings(c).with(CFG, "CommissionRoute", true)) {
+            // Start node 1 at 302 (Royal Mines via node 0); the Lava Springs node 5 stands on a stone block 5 east and 6 up,
+            // 7.8 blocks away through air. The walking edge to it is 300 long: a walk is the long way round.
+            String json = "{" + node(0, 300, Z, "Royal Mines", "\"1\":2.0")
+                    + "," + node(1, 302, Z, null, "\"0\":2.0,\"5\":300.0")
+                    + "," + node(5, 307, FY + 6, Z, "Lava Springs", "\"1\":300.0") + "}";
+            arenaWith(c, json);
+            c.server().command("setblock 307 " + (FY + 5) + " 300 minecraft:stone");
+            c.waitUntil("the platform on the client", mc -> mc.level.getBlockState(new BlockPos(307, FY + 5, 300)).isSolid(), 100);
+            mines(c, "Royal Mines", "Lava Springs Mithril: 10%");
+            for (String m : new String[]{"AOTE", "ETHERWARP", "WALK"}) {
+                Object mode = c.onClient(mc -> Mod.enumValue(MODE, m));
+                c.ctx().runOnClient(mc -> Mod.set(CFG, "setCommissionRouteMode", mode));
+                c.waitUntil("a " + m + " route", mc -> (Integer) Mod.staticCall(ROUTE, "pointCount") > 0
+                        && ((List<?>) Mod.staticCall(ROUTE, "hops")).isEmpty() == "WALK".equals(m), 100);
+                List<String> hops = list(c, "hops");
+                List<String> pts = list(c, "linePoints");
+                if ("WALK".equals(m)) {
+                    c.check(pts.size() == 2, "walking goes node 1 then node 5: " + pts);
+                    continue;
+                }
+                c.check(hops.equals(List.of("307," + (FY + 5) + ",300")), m + " hops " + hops + ", wanted the platform block");
+                c.check(pts.size() == 1, m + " line " + pts + ": one hop straight to the platform, not the walking graph");
+                double[] q = dxyz(pts.get(0));
+                c.check(Math.abs(q[0] - 307.5) < 0.01 && Math.abs(q[1] - (FY + 6)) < 0.01 && Math.abs(q[2] - 300.5) < 0.01,
+                        m + " lands at " + pts.get(0));
+                c.note(m + ": one hop " + hops + " straight up through the air instead of the 300-long walk");
+            }
+        } finally {
+            c.server().command("setblock 307 " + (FY + 5) + " 300 minecraft:air");
+            cleanup(c);
+        }
+        c.check(sentUses(c) == uses, "the route sent use packets");
+    }
+
+    // ---- 1103-mining2-route-claim -----------------------------------------------------------------------------------
+
+    /** Claiming: route to the nearest Emissary, or with that off pulse the Royal Pigeon slot. */
+    private static void claim(Session c) {
+        Object mode = c.onClient(mc -> Mod.enumValue(MODE, "WALK"));
+        try (Settings set = new Settings(c).with(CFG, "CommissionRoute", true).with(CFG, "CommissionRouteMode", mode)
+                .with(CFG, "CommissionRouteEmissary", true)) {
+            arena(c);
+            // Two Emissaries: one by node 2 (330), one by node 4 (380). The nearest by the walk is node 2's.
+            c.ctx().runOnClient(mc -> Mod.staticCall(CLAIM, "emissariesForTest",
+                    List.of(new BlockPos(331, FY, Z), new BlockPos(381, FY, Z))));
+            // Nothing done: an area commission's line, not an emissary line.
+            mines(c, "Royal Mines", "Lava Springs Mithril: 10%");
+            waitRoute(c, "the area line first");
+            c.check("Lava Springs".equals(c.onClient(mc -> Mod.staticCall(ROUTE, "currentTargetArea"))), "target before the claim");
+            // The commission completes.
+            c.hx().chat("Lava Springs Mithril Commission Complete! Visit the King to claim your rewards!");
+            c.waitUntil("a claim due", mc -> (Boolean) Mod.staticCall(CLAIM, "claimDue"), 40);
+            c.waitUntil("the line goes to an Emissary", mc -> "Emissary".equals(Mod.staticCall(ROUTE, "currentTargetArea"))
+                    && (Integer) Mod.staticCall(ROUTE, "pointCount") > 0, 100);
+            List<String> ids = ids(c).stream().map(String::valueOf).toList();
+            c.check(ids(c).equals(List.of(1, 2)), "the claim path " + ids + ", wanted node 1, node 2 (the nearest Emissary)");
+            c.check(!(Boolean) c.onClient(mc -> Mod.staticCall(CLAIM, "pigeonPulse")), "the pigeon pulses with Emissary routing on");
+            // Emissary routing off: no line, the pigeon pulses.
+            c.server().command("item replace entity @a hotbar.4 with " + HxPigeon.stack());
+            c.waitUntil("the pigeon in slot 5", mc -> (Integer) Mod.staticCall(CLAIM, "pigeonSlot") == 4, 60);
+            c.ctx().runOnClient(mc -> Mod.set(CFG, "setCommissionRouteEmissary", false));
+            c.waitUntil("pigeon pulse due", mc -> (Boolean) Mod.staticCall(CLAIM, "pigeonPulse"), 40);
+            int frames = c.onClient(mc -> (Integer) Mod.staticCall(CLAIM, "pulseFrames"));
+            c.waitUntil("the pulse drawn", mc -> (Integer) Mod.staticCall(CLAIM, "pulseFrames") > frames + 5, 100);
+            c.check(Integer.valueOf(4).equals(c.onClient(mc -> Mod.staticCall(CLAIM, "lastPulseSlot"))), "pulsed the wrong slot");
+            c.check(!"Emissary".equals(c.onClient(mc -> Mod.staticCall(ROUTE, "currentTargetArea"))), "still routing to an Emissary");
+            // No pigeon in the hotbar: nothing to pulse (no crash, no draw).
+            c.server().command("item replace entity @a hotbar.4 with minecraft:air");
+            c.waitUntil("no pigeon", mc -> (Integer) Mod.staticCall(CLAIM, "pigeonSlot") == -1, 60);
+            int f2 = c.onClient(mc -> (Integer) Mod.staticCall(CLAIM, "pulseFrames"));
+            c.ctx().waitTicks(20);
+            c.check(c.onClient(mc -> (Integer) Mod.staticCall(CLAIM, "pulseFrames")) == f2, "pulsed with no pigeon");
+            c.note("claim: area line -> Emissary line (nearest, node 2) -> pigeon pulse on slot 5 with routing off -> nothing without a pigeon");
+        } finally {
+            c.server().command("item replace entity @a hotbar.4 with minecraft:air");
+            cleanup(c);
+        }
+    }
+
+    /** The Royal Pigeon as the server hands it out. */
+    private static final class HxPigeon {
+        static String stack() {
+            return "minecraft:feather[custom_data={id:\"ROYAL_PIGEON\"}]";
         }
     }
 }

@@ -287,7 +287,7 @@ final class ArmorHud1103Cases {
         try {
             c.ctx().runOnClient(mc -> {
                 Mod.set(MQ, "setWrongArmor", true);
-                Mod.set(MQ, "setWrongArmorSound", false);
+                Mod.set(MQ, "setWrongArmorSound", true);
             });
             // Adventure: holding attack on the platform sends nothing and breaks nothing.
             c.server().command("gamemode adventure @p");
@@ -307,6 +307,12 @@ final class ArmorHud1103Cases {
             c.waitUntil("Wrong Armor! drawn", mc -> (Integer) Mod.staticCall(WA, "frames") > frames + 2
                     && (Boolean) Mod.staticCall("hud.HudSeen", "drawnRecently", "mining_wrong_armor"), 40);
             notes.add("non-mining armor: " + reason(c));
+            // The alarm keeps going while the armor stays wrong: about one beep a second, none once it is right.
+            int beeps0 = c.onClient(mc -> (Integer) Mod.staticCall(WA, "soundCount"));
+            c.ctx().waitTicks(65);
+            int beeps = c.onClient(mc -> (Integer) Mod.staticCall(WA, "soundCount")) - beeps0;
+            c.check(beeps >= 2 && beeps <= 5, "the wrong-armor alarm beeped " + beeps + " times in 3.25 s, wanted about 3");
+            notes.add("alarm " + beeps + " beeps in 3.25 s");
             // An empty slot is wrong too.
             wear(c, "GOBLIN_HELMET", "GOBLIN_CHESTPLATE", "GOBLIN_LEGGINGS", null);
             c.ctx().waitTicks(10);
@@ -314,6 +320,9 @@ final class ArmorHud1103Cases {
             // 2. A full Goblin set: gone within a moment, and silent.
             wear(c, "GOBLIN_HELMET", "GOBLIN_CHESTPLATE", "GOBLIN_LEGGINGS", "GOBLIN_BOOTS");
             c.waitUntil("the alert gone in a mining set", mc -> !(Boolean) Mod.staticCall(WA, "showing"), 30);
+            int beepsDone = c.onClient(mc -> (Integer) Mod.staticCall(WA, "soundCount"));
+            c.ctx().waitTicks(45);
+            c.check(c.onClient(mc -> (Integer) Mod.staticCall(WA, "soundCount")) == beepsDone, "the alarm kept beeping in a mining set");
             silent(c, "full Goblin set", "mining set", 30);
             // Two mining sets mixed (lowercase ids as the wiki writes Glacite's).
             wear(c, "DIVAN_HELMET", "glacite_chestplate", "GOBLIN_LEGGINGS", "SORROW_BOOTS");

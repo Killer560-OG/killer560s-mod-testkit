@@ -40,6 +40,7 @@ final class HxMiningInterp1103Cases {
         s.test("1103-mining-pick-timer", HxMiningInterp1103Cases::pickTimer);
         s.test("1103-mining-com-progress", HxMiningInterp1103Cases::comProgress);
         s.test("1103-mining-com-progress-live", HxMiningInterp1103Cases::comProgressLive);
+        s.test("1103-mining2-com-spread", HxMiningInterp1103Cases::spread);
     }
 
     private static void mines(Session c, String area, String... coms) {
@@ -198,16 +199,12 @@ final class HxMiningInterp1103Cases {
             }
             double top = num(shown(c, um, tab42));
             c.check(top > 46 && top < 47, "11 blocks over 42% show " + top);
-            double prev = top;
-            for (int i = 0; i < 40; i++) {
-                long ti = t + 20_000 + 50L * i;
-                c.ctx().runOnClient(mc -> Mod.staticCall(PROG, "tabForTest", tab42, ti));
-                double v = num(shown(c, um, tab42));
-                c.check(v <= prev + 1e-9 && prev - v <= 0.4 + 0.11, "eased from " + prev + " to " + v + " in one tick");
-                c.check(v >= 42, "eased below the tab: " + v);
-                prev = v;
-            }
-            c.check(prev <= 42.4 + 1e-9, "never eased back to the tab: " + prev);
+            // Too far off the tab for longer than its lag: it resyncs to the tab at once (not a slow ease).
+            int rs0 = c.onClient(mc -> (Integer) Mod.staticCall(PROG, "resyncs"));
+            c.ctx().runOnClient(mc -> Mod.staticCall(PROG, "tabForTest", tab42, t + 20_000));
+            double prev = num(shown(c, um, tab42));
+            c.check(prev >= 42 && prev <= 42.4 + 1e-9, "after the tab updated, 4.4% over, it shows " + prev + " (want the tab's 42 + a step)");
+            c.check(c.onClient(mc -> (Integer) Mod.staticCall(PROG, "resyncs")) > rs0, "no resync counted");
             // Titanium Miner (15): one titanium block anywhere is 6.6%.
             c.ctx().runOnClient(mc -> Mod.staticCall(PROG, "breakForTest", "Titanium", "Cliffside Veins", "Upper Mines", tab42, t + 30_000));
             c.check("6.6%".equals(shown(c, "Titanium Miner", tab42)), "Titanium Miner after 1 block: " + shown(c, "Titanium Miner", tab42));
@@ -224,7 +221,7 @@ final class HxMiningInterp1103Cases {
             List<String> done = List.of(um + ": DONE");
             c.ctx().runOnClient(mc -> Mod.staticCall(PROG, "tabForTest", done, t + 41_000));
             c.check("DONE".equals(shown(c, um, done)), "DONE shows " + shown(c, um, done));
-            c.note("40% +5 -> " + five + ", tab 42% no jump, Cliffside Veins block ignored, over-count eased " + top + " -> "
+            c.note("40% +5 -> " + five + ", tab 42% no jump, Cliffside Veins block ignored, over-count resynced " + top + " -> "
                     + prev + ", Titanium Miner 6.6%, 99.8% + 5 stays under 100");
         } finally {
             c.ctx().runOnClient(mc -> Mod.staticCall(PROG, "holdLiveForTest", false));
@@ -323,6 +320,64 @@ final class HxMiningInterp1103Cases {
             setb(c, other, "minecraft:air");
             c.server().command("gamemode " + mode + " @p");
             hub(c);
+        }
+    }
+
+    // ---- 1103-mining2-com-spread ----------------------------------------------------------------------------------
+
+    /** "doesn't do a good job for when stuff is broken by mining spread and counting that". */
+    private static void spread(Session c) {
+        BlockPos f = c.onClient(mc -> mc.player.blockPosition());
+        BlockPos target = f.offset(0, 1, -3);
+        BlockPos n1 = f.offset(1, 1, -3);
+        BlockPos n2 = f.offset(-1, 1, -4);
+        BlockPos stray = f.offset(0, 1, -9);
+        BlockPos n3 = f.offset(2, 1, -3);
+        List<BlockPos> all = List.of(target, n1, n2, stray, n3);
+        String um = "Upper Mines Mithril";
+        List<String> tab = List.of(um + ": 40%");
+        try (Settings set = new Settings(c).with(CFG, "CommissionHud", true).with(CFG, "CommissionInterpolate", true)) {
+            for (BlockPos b : all) {
+                c.server().command("setblock " + b.getX() + " " + b.getY() + " " + b.getZ() + " minecraft:gray_wool");
+            }
+            mines(c, "Upper Mines", um + ": 40%");
+            c.waitUntil("the wool on the client", mc -> mc.level.getBlockState(n3).getBlock() == mc.level.getBlockState(target).getBlock()
+                    && !mc.level.getBlockState(n3).isAir(), 100);
+            c.ctx().runOnClient(mc -> Mod.staticCall(PROG, "resetForTest"));
+            c.ctx().runOnClient(mc -> Mod.staticCall(PROG, "holdLiveForTest", true));
+            long t = c.onClient(mc -> System.currentTimeMillis());
+            c.ctx().runOnClient(mc -> Mod.staticCall(PROG, "tabForTest", tab, t));
+            c.check("40%".equals(shown(c, um, tab)), "start " + shown(c, um, tab));
+            int counted0 = c.onClient(mc -> (Integer) Mod.staticCall(PROG, "countedBreaks"));
+            int spread0 = c.onClient(mc -> (Integer) Mod.staticCall(PROG, "spreadCounted"));
+            // He digs the target; Mining Spread takes n1 and n2 beside it in the same moment; the stray block (not near
+            // the dig when it began) goes too, and must not count.
+            c.ctx().runOnClient(mc -> Mod.staticCall(PROG, "aimForTest", target, List.of(n1, n2), System.currentTimeMillis()));
+            for (BlockPos b : List.of(target, n1, n2, stray)) {
+                c.server().command("setblock " + b.getX() + " " + b.getY() + " " + b.getZ() + " minecraft:bedrock");
+            }
+            c.waitUntil("the four changes seen", mc -> mc.level.getBlockState(stray).is(net.minecraft.world.level.block.Blocks.BEDROCK)
+                    && mc.level.getBlockState(n2).is(net.minecraft.world.level.block.Blocks.BEDROCK), 100);
+            c.ctx().waitTicks(3);
+            int counted = c.onClient(mc -> (Integer) Mod.staticCall(PROG, "countedBreaks")) - counted0;
+            int spreadN = c.onClient(mc -> (Integer) Mod.staticCall(PROG, "spreadCounted")) - spread0;
+            c.check(counted == 3, "counted " + counted + " blocks, wanted the target and its 2 spread blocks");
+            c.check(spreadN == 2, "spread blocks counted: " + spreadN + ", wanted 2");
+            c.check("41.2%".equals(shown(c, um, tab)), "3 blocks of 250 from 40% show " + shown(c, um, tab) + " (want 41.2%)");
+            // Control: a neighbour changing when no dig was aimed lately is somebody else's break.
+            c.ctx().runOnClient(mc -> Mod.staticCall(PROG, "aimForTest", target, List.of(n3), System.currentTimeMillis() - 2000));
+            c.server().command("setblock " + n3.getX() + " " + n3.getY() + " " + n3.getZ() + " minecraft:bedrock");
+            c.waitUntil("n3 changed", mc -> mc.level.getBlockState(n3).is(net.minecraft.world.level.block.Blocks.BEDROCK), 100);
+            c.ctx().waitTicks(3);
+            c.check(c.onClient(mc -> (Integer) Mod.staticCall(PROG, "countedBreaks")) - counted0 == 3, "a stale neighbour counted");
+            c.note("target + 2 spread blocks counted (40% -> 41.2%), the stray and the stale neighbour not");
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.staticCall(PROG, "holdLiveForTest", false));
+            c.ctx().runOnClient(mc -> Mod.staticCall(PROG, "resetForTest"));
+            for (BlockPos b : all) {
+                c.server().command("setblock " + b.getX() + " " + b.getY() + " " + b.getZ() + " minecraft:air");
+            }
+            HxKit.hub(c);
         }
     }
 }

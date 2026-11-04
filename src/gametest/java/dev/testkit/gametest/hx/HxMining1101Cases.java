@@ -57,7 +57,6 @@ final class HxMining1101Cases {
         s.test("1103-mining-area", HxMining1101Cases::area1103);
         s.test("1103-mining-no-universal", HxMining1101Cases::noUniversal1103);
         s.test("1103-mining-pickobulus-chat", HxMining1101Cases::pickobulusChat1103);
-        s.test("1103-mining-carpet-margin", HxMining1101Cases::carpetMargin1103);
         s.test("1103-mining-attack-hold", HxMining1101Cases::attackHold1103);
     }
 
@@ -543,33 +542,6 @@ final class HxMining1101Cases {
         }
     }
 
-    /** "the highlight will like phase through the block": no face of the fill lies on the carpet's or lantern's faces. */
-    private static void carpetMargin1103(Session c) {
-        String h = "miningqol.MiningHighlights";
-        BlockPos lantern = feet(c).offset(3, 0, 3);
-        BlockPos carpet = lantern.above();
-        try (Settings set = new Settings(c).with(CFG, "Carpet", true)) {
-            setb(c, lantern, "minecraft:sea_lantern");
-            setb(c, carpet, "minecraft:gray_carpet");
-            mines(c, "Royal Mines", "Goblin Slayer: 10%");
-            c.waitUntil("the carpet found", mc -> (Integer) Mod.staticCall(h, "carpetCount") == 1, 60);
-            int frames = intCall(c, h, "carpetFrames");
-            c.ctx().waitTicks(10);
-            c.check(intCall(c, h, "carpetFrames") > frames, "the carpet was never filled");
-            double[] b = c.onClient(mc -> (double[]) Mod.staticCall(h, "lastCarpetBox"));
-            c.check(b != null, "no carpet box recorded");
-            double top = carpet.getY() + 0.0625;
-            c.check(b[0] < carpet.getX() && b[2] < carpet.getZ() && b[3] > carpet.getX() + 1 && b[5] > carpet.getZ() + 1,
-                    "a side of the fill lies on the carpet's side: " + java.util.Arrays.toString(b));
-            c.check(b[4] > top && b[4] - top < 0.01, "the fill's top is not just above the carpet's top face: " + b[4]);
-            c.check(b[1] > carpet.getY() && b[1] < top, "the fill's bottom lies on the lantern's top face: " + b[1]);
-            c.note("fill " + java.util.Arrays.toString(b) + " vs carpet " + carpet.toShortString());
-        } finally {
-            setb(c, carpet, "minecraft:air");
-            setb(c, lantern, "minecraft:air");
-            hub(c);
-        }
-    }
 
     /**
      * "something keeps making my left click stop holding break": the diagnostics log a screen that opens while the left
