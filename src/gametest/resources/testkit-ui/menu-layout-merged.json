@@ -25,6 +25,7 @@
     "gui.tab.PriceTooltipTab": "Items > Price Tooltip",
     "gui.tab.MiningAbilityReadyTab": "Mining > General > Ability Ready Alert",
     "gui.tab.MiningCarpetTab": "Mining > General > Carpet Highlighter",
+    "gui.tab.MiningDarkStoneTab": "Mining > General > Dark Stone",
     "gui.tab.MiningCommissionHudTab": "Mining > Commissions and Mithril > Commission HUD",
     "gui.tab.MiningCommissionRouteTab": "Mining > Commissions and Mithril > Commission Route",
     "gui.tab.MiningMithrilStoneTab": "Mining > Commissions and Mithril > Mithril As Stone",
