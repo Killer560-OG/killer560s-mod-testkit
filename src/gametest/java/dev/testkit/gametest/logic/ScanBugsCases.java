@@ -24,6 +24,8 @@ import net.minecraft.network.chat.Component;
  */
 final class ScanBugsCases {
 
+    static net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext ctx;
+
     private ScanBugsCases() {
     }
 
@@ -54,23 +56,33 @@ final class ScanBugsCases {
                     String.valueOf(tabbed));
         }
 
-        // ---- 3. Revert Master Stars with a null name: no NullPointerException.
-        Method modify = Mod.cls("revertmasterstars.RevertMasterStarsFeature").getDeclaredMethod("modifyHoverName",
-                Component.class);
-        try (AutoCloseable on = Mod.with("revertmasterstars.RevertMasterStarsConfig", "Enabled", true)) {
-            Component starred = Component.literal("Hyperion ✪✪✪✪✪➋");
-            Object rebuilt = modify.invoke(null, starred);
-            c.check("control: the feature rebuilds a master-starred name", rebuilt != null && rebuilt != starred,
-                    String.valueOf(rebuilt));
-            Object out = null;
-            Throwable thrown = null;
+        // ---- 3. Revert Master Stars with a null name: no NullPointerException. Runs on the client thread, where
+        // the feature itself runs (its cache asks Minecraft.getInstance(), which the gametest thread may not).
+        String[] r = ctx.computeOnClient(mc -> {
+            Method modify;
             try {
-                out = modify.invoke(null, (Object) null);
-            } catch (InvocationTargetException e) {
-                thrown = e.getCause();
+                modify = Mod.cls("revertmasterstars.RevertMasterStarsFeature").getDeclaredMethod("modifyHoverName",
+                        Component.class);
+            } catch (NoSuchMethodException e) {
+                return new String[] {"no method", ""};
             }
-            c.check("modifyHoverName(null) with the feature on returns null without throwing",
-                    thrown == null && out == null, thrown == null ? String.valueOf(out) : thrown.toString());
-        }
+            try (AutoCloseable on = Mod.with("revertmasterstars.RevertMasterStarsConfig", "Enabled", true)) {
+                Component starred = Component.literal("Hyperion ✪✪✪✪✪➋");
+                Object rebuilt = modify.invoke(null, starred);
+                String control = rebuilt != null && rebuilt != starred ? "ok" : "not rebuilt: " + rebuilt;
+                String nul;
+                try {
+                    Object out = modify.invoke(null, (Object) null);
+                    nul = out == null ? "ok" : "returned " + out;
+                } catch (InvocationTargetException e) {
+                    nul = "threw " + e.getCause();
+                }
+                return new String[] {control, nul};
+            } catch (Exception e) {
+                return new String[] {"error " + e, ""};
+            }
+        });
+        c.check("control: the feature rebuilds a master-starred name", "ok".equals(r[0]), r[0]);
+        c.check("modifyHoverName(null) with the feature on returns null without throwing", "ok".equals(r[1]), r[1]);
     }
 }
