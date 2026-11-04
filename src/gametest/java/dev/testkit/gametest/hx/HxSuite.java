@@ -113,6 +113,7 @@ public class HxSuite implements FabricClientGameTest {
                     // Blaze Solver boxes against water behind / in front / around (1103-blaze-water, mod blazewater-1103).
                     HxBlazeWater1103Cases.register(s);
                     HxDioriteGlass1103Cases.register(s);
+                    HxEspDepth1103Cases.register(s);
                     // Pickobulus timer and Commission HUD progress between tab refreshes (1103-mining-pick-timer,
                     // 1103-mining-com-progress*, mod mithril-interp-1103).
                     HxMiningInterp1103Cases.register(s);
