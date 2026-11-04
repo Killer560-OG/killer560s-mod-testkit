@@ -137,30 +137,27 @@ final class HxPowderGrind1103Cases {
             c.waitUntil("chest then line claimed", mc -> (Boolean) Mod.staticCall(TC, "tracked", bx - 3, by, bz + 1), 40);
             c.check(intCall(c, TC, "claims") == claims0 + 2, "claims " + (intCall(c, TC, "claims") - claims0));
 
-            // Opening the FARTHER of two chests drops that one, not the nearest (killer560, 2026-11-03).
+            // Opening a chest drops THAT chest, not the nearest (killer560, 2026-11-03). Each of two chests is opened in turn:
+            // a nearest-chest rule drops the same one both times, so it fails one round whatever the distances are.
             int[][] two = {{bx + 3, by, bz + 1}, {bx - 3, by, bz + 1}};
-            double d0 = c.onClient(mc -> mc.player.getEyePosition().distanceToSqr(two[0][0] + 0.5, two[0][1] + 0.5, two[0][2] + 0.5));
-            double d1 = c.onClient(mc -> mc.player.getEyePosition().distanceToSqr(two[1][0] + 0.5, two[1][1] + 0.5, two[1][2] + 0.5));
-            if (Math.abs(d0 - d1) < 0.01) {
-                c.ctx().runOnClient(mc -> { mc.player.snapTo(bx + 1.5, mc.player.getY(), bz + 1.5, mc.player.getYRot(), mc.player.getXRot()); });
-                c.ctx().waitTicks(2);
-                d0 = c.onClient(mc -> mc.player.getEyePosition().distanceToSqr(two[0][0] + 0.5, two[0][1] + 0.5, two[0][2] + 0.5));
-                d1 = c.onClient(mc -> mc.player.getEyePosition().distanceToSqr(two[1][0] + 0.5, two[1][1] + 0.5, two[1][2] + 0.5));
+            for (int round = 0; round < 2; round++) {
+                int[] open = two[round];
+                int[] other = two[1 - round];
+                c.check(tracked(c, open[0], open[1], open[2]) && tracked(c, other[0], other[1], other[2]),
+                        "round " + round + ": both chests tracked before opening");
+                c.ctx().runOnClient(mc -> {
+                    Mod.staticCall(TC, "onUseBlock", new net.minecraft.core.BlockPos(open[0], open[1], open[2]));
+                    Mod.staticCall(TC, "onLooted");
+                });
+                c.check(!tracked(c, open[0], open[1], open[2]), "round " + round + ": the opened chest kept its highlight");
+                c.check(tracked(c, other[0], other[1], other[2]), "round " + round + ": the other chest lost its highlight");
+                // Put the opened chest back as a fresh claim for the next round.
+                setblock(c, open[0], open[1], open[2], "minecraft:air");
+                c.ctx().waitTicks(5);
+                c.hx().chat(UNCOVERED);
+                setblock(c, open[0], open[1], open[2], "minecraft:chest");
+                c.waitUntil("round " + round + " re-claimed", mc -> (Boolean) Mod.staticCall(TC, "tracked", open[0], open[1], open[2]), 40);
             }
-            int[] far = d0 > d1 ? two[0] : two[1];
-            int[] near = d0 > d1 ? two[1] : two[0];
-            c.check(Math.abs(d0 - d1) >= 0.01, "the two chests are equally far, the case proves nothing");
-            c.ctx().runOnClient(mc -> { Mod.staticCall(TC, "onUseBlock", new net.minecraft.core.BlockPos(far[0], far[1], far[2])); Mod.staticCall(TC, "onLooted"); });
-            c.check(!tracked(c, far[0], far[1], far[2]), "the opened (farther) chest kept its highlight");
-            c.check(tracked(c, near[0], near[1], near[2]), "the nearer chest lost its highlight when the farther one was opened");
-            c.ctx().runOnClient(mc -> { Mod.staticCall(TC, "onLooted"); });
-            c.check(!tracked(c, near[0], near[1], near[2]), "with no click remembered, the nearest chest was not dropped");
-            setblock(c, bx + 3, by, bz + 1, "minecraft:air");
-            setblock(c, bx - 3, by, bz + 1, "minecraft:air");
-            c.ctx().waitTicks(5);
-            c.hx().chat(UNCOVERED);
-            setblock(c, bx + 3, by, bz + 1, "minecraft:chest");
-            c.waitUntil("re-claimed for the gone-block check", mc -> (Boolean) Mod.staticCall(TC, "tracked", bx + 3, by, bz + 1), 40);
 
             // A chest block gone: dropped.
             setblock(c, bx + 3, by, bz + 1, "minecraft:air");
