@@ -12,6 +12,9 @@
   "goneCheatLeaves": {
     "gui.tab.LeverAuraTab": "aura-themes-1015: Lever Aura became the In Boss part of the Secret Aura tab (cheat jar only)"
   },
+  "newCheatLeaves": {
+    "gui.tab.MiningPigeonDrillTab": "Mining > Swap To Drill On Pigeon"
+  },
   "newLeaves": {
     "gui.tab.ChatHiderTab": "Chat > Chat Hider",
     "gui.tab.CustomItemsTab": "Cosmetics > Custom Items",
@@ -33,7 +36,6 @@
     "gui.tab.DoublePowderAlertTab": "Mining > Powder Mining > 2x Powder Alert",
     "gui.tab.ChestLootCompactTab": "Mining > Powder Mining > Chest Loot Compact",
     "gui.tab.LockpickHelperTab": "Mining > Powder Mining > Lockpick Helper",
-    "gui.tab.MiningPigeonDrillTab": "Mining > Swap To Drill On Pigeon",
     "gui.tab.MiningPowderGhastTab": "Mining > Powder Mining > Powder Ghast",
     "gui.tab.MiningResumeBreakTab": "Mining > General > Resume Held Break After Menus",
     "gui.tab.MiningTitaniumTab": "Mining > Commissions and Mithril > Titanium Highlight",

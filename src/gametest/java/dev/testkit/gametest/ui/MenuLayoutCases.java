@@ -271,7 +271,18 @@ final class MenuLayoutCases {
                     goneLeaves.add(g.getKey(), g.getValue());
                 }
             }
-            JsonObject newLeaves = merged.getAsJsonObject("newLeaves");
+            JsonObject newLeaves = merged.getAsJsonObject("newLeaves").deepCopy();
+            // New tabs only the cheat jar builds (Swap To Drill On Pigeon, 2026-11-04): expected on cheat, absent on legit.
+            if (merged.has("newCheatLeaves")) {
+                for (Map.Entry<String, com.google.gson.JsonElement> g : merged.getAsJsonObject("newCheatLeaves").entrySet()) {
+                    if (variant.equals("cheat")) {
+                        newLeaves.add(g.getKey(), g.getValue());
+                    } else {
+                        c.check(!leaves.containsKey(g.getKey()), g.getKey() + " is cheat-only but is in the legit menu at "
+                                + leaves.get(g.getKey()));
+                    }
+                }
+            }
             Set<String> before = new TreeSet<>(fixture.getAsJsonObject("leaves").keySet());
             int retired = 0;
             for (String cls : goneLeaves.keySet()) {
