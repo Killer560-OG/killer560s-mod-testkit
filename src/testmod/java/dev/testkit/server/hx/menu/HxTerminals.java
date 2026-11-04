@@ -109,6 +109,9 @@ final class HxTerminals {
         boolean solved;
         int clicks;
         int wrong;
+        /** The next this-many clicks are dropped with no answer (the board unchanged, nothing re-sent). */
+        int dropClicks;
+        int dropped;
         long openedTick;
         long firstTick = -1;
         long lastTick = -1;
@@ -443,6 +446,7 @@ final class HxTerminals {
             default -> throw new IllegalArgumentException("unknown terminal type " + type);
         }
         t.openedTick = server.getTickCount();
+        t.dropClicks = a.has("dropClicks") ? a.get("dropClicks").getAsInt() : 0;
         t.displayTitle = (a.has("titlePrefix") ? a.get("titlePrefix").getAsString() : "") + t.title
                 + (a.has("titleSuffix") ? a.get("titleSuffix").getAsString() : "");
         HxChestMenu menu = HxMenus.open(player, t.rows, Component.literal(t.displayTitle), items, SCRIPT, t);
@@ -520,6 +524,15 @@ final class HxTerminals {
         return out;
     }
 
+    /** menu.terminal.drop {count} - the open terminal drops its next {@code count} clicks silently (no answer, board unchanged). */
+    static JsonElement drop(MinecraftServer server, JsonObject a) {
+        if (last == null) {
+            return new JsonObject();
+        }
+        last.dropClicks = a.has("count") ? a.get("count").getAsInt() : 1;
+        return last.describe(lastMenu);
+    }
+
     static JsonElement state(MinecraftServer server, JsonObject a) {
         if (last == null) {
             return new JsonObject();
@@ -562,6 +575,18 @@ final class HxTerminals {
         }
         MinecraftServer server = player.level().getServer();
         long tick = server.getTickCount();
+        if (t.dropClicks > 0) {
+            t.dropClicks--;
+            t.dropped++;
+            menu.silentNext = true;
+            JsonObject d = new JsonObject();
+            d.addProperty("slot", slot);
+            d.addProperty("button", button);
+            d.addProperty("input", input.name());
+            d.addProperty("dropped", t.dropped);
+            HxEvents.custom("terminal.dropped", player, d);
+            return;
+        }
         t.clicks++;
         if (t.firstTick < 0) {
             t.firstTick = tick;

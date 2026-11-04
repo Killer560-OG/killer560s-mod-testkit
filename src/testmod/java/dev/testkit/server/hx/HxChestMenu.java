@@ -38,6 +38,10 @@ public class HxChestMenu extends ChestMenu {
         }
     }
 
+    /** Set by a script during a click: this click gets NO answer at all (no re-send), the way a server that rejects or
+     *  drops a click leaves the client's own prediction standing. Cleared after the click. */
+    public boolean silentNext;
+
     private final SimpleContainer items;
     private final String scriptName;
     private final String title;
@@ -94,7 +98,32 @@ public class HxChestMenu extends ChestMenu {
             }
         }
         setCarried(ItemStack.EMPTY);
+        if (silentNext) {
+            return;   // cleared by resumeRemoteUpdates, after the click packet's predicted slots were (not) recorded
+        }
         broadcastFullState();
+    }
+
+    /** While {@link #silentNext} is up the server also ignores what the client says it predicted, so its record of the
+     *  client (remoteSlots) stays "the real board" and the tick's broadcastChanges finds nothing to correct. */
+    @Override
+    public void setRemoteSlotUnsafe(int slot, net.minecraft.network.HashedStack stack) {
+        if (!silentNext) {
+            super.setRemoteSlotUnsafe(slot, stack);
+        }
+    }
+
+    @Override
+    public void setRemoteCarried(net.minecraft.network.HashedStack stack) {
+        if (!silentNext) {
+            super.setRemoteCarried(stack);
+        }
+    }
+
+    @Override
+    public void resumeRemoteUpdates() {
+        super.resumeRemoteUpdates();
+        silentNext = false;
     }
 
     @Override

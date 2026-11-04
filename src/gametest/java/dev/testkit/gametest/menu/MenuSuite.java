@@ -195,6 +195,7 @@ public class MenuSuite implements FabricClientGameTest {
                     // 554-555: dungeon-fixes (2026-10-08), terminals behind a decorated title.
                     DungeonFixTerminalCases.register(s);
                     TermHiddenSlotCases.register(s); // 1015: Custom GUI hides vanilla's hover and keys on hidden slots
+                    TermResyncCases.register(s); // 298-299: a click the server drops leaves the board completable (termresync-1103)
                     InvBatchMenuCases.register(s); // 583, 585: inventory batch 2026-10-08
                     LeapOrderMenuCases.register(s); // 670: leap menu follows the Leap Order defaults/pins, 2026-10-09
                     LeapBatchMenuCases.register(s); // 821-825: leap-menu batch 2026-10-11 (heads, map, delay, carried, freeze)
