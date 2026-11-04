@@ -862,7 +862,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
                 for (int[] d : dirs) {
                     for (int dy : dys) {
                         BlockPos f = new BlockPos(bx + d[0] * dist, by + dy, bz + d[1] * dist);
-                        if (!clear(mc, f) || !clear(mc, f.above()) || clear(mc, f.below())) {
+                        if (!open(mc, f) || !open(mc, f.above()) || clear(mc, f.below())) {
                             continue;
                         }
                         int fr = (Integer) ModUnderTest.call(layoutV, "roomAtWorld",
@@ -876,7 +876,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
                             Vec3 p = eye.lerp(c, k / 48.0);
                             BlockPos q = BlockPos.containing(p);
                             if (!b.inflate(0.5).contains(p)) {
-                                seen = clear(mc, q);
+                                seen = open(mc, q);
                             }
                         }
                         if (seen) {
@@ -887,6 +887,13 @@ public class SimBloodRushTests implements FabricClientGameTest {
             }
         }
         return null;
+    }
+
+    /** Client thread: no collision, no fluid and no fire at {@code p}. A view point in Crypt's lava put the fire overlay
+     * over every shot (off vs off 3142-7681 px, 26.3 legit, 2026-11-04), and lava in the line of sight hides the box. */
+    private static boolean open(Minecraft mc, BlockPos p) {
+        net.minecraft.world.level.block.state.BlockState st = mc.level.getBlockState(p);
+        return clear(mc, p) && st.getFluidState().isEmpty() && !st.is(net.minecraft.tags.BlockTags.FIRE);
     }
 
     private static boolean clear(Minecraft mc, BlockPos p) {
@@ -1191,6 +1198,10 @@ public class SimBloodRushTests implements FabricClientGameTest {
         }
         final AABB box = candidates.get((int) view[3]);
         SimMobFloorTests.teleport(ctx, view[0], view[1], view[2]);
+        onServer(ctx, (level, sp) -> {
+            sp.clearFire();
+            return 0;
+        });
         ctx.waitTicks(10);
         ctx.runOnClient(mc -> {
             Vec3 eye = mc.player.getEyePosition();
