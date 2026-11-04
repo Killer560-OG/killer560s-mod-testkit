@@ -26,6 +26,9 @@
 #                        not given and -ModUnderTest is, it is read from the jar's fabric.mod.json (depends.minecraft);
 #                        a jar whose range excludes the run's version is refused, because loader would only refuse it later.
 #   -NoMod               run WITHOUT any mod (no -PmodUnderTest): a baseline, e.g. for 65-join-fingerprint.
+#   -ProgressMinutes <n> no-progress watchdog (default 20, env TESTKIT_PROGRESS_MINUTES, 0 = off): once a client exists, a
+#                        run whose client log gets no test-thread line for n minutes is killed (whole process tree) and
+#                        ends as a FAIL "hung" (exit 5, a FAIL row in summary.md). The deadline kills the whole tree too.
 
 param(
     [string]$Scenario = "",
@@ -36,8 +39,14 @@ param(
     [string]$ModUnderTest = "",
     [string]$Minecraft = "26.3",
     [int]$TimeoutSeconds = 240,
+    [int]$ProgressMinutes = -1,
     [switch]$NoMod
 )
+if ($ProgressMinutes -lt 0) {
+    $ProgressMinutes = 20
+    if ($env:TESTKIT_PROGRESS_MINUTES) { $ProgressMinutes = [int]$env:TESTKIT_PROGRESS_MINUTES }
+}
+$runStart = Get-Date
 
 $here = $PSScriptRoot
 . (Join-Path $here "tools/testkit-config.ps1")
@@ -149,6 +158,116 @@ function Stop-TestServers([string]$why) {
     }
 }
 
+# goldfix-1104: the whole tree this run started, not just the processes found by command line. Ship 2's 26.2 round 1
+# (gate-1104c, 2026-11-04) sat at the title screen for two hours under a 3600 s deadline: the client never ran a test
+# and nothing ended it. Everything below gradlew.bat (wrapper, daemon, client, its GrimAC server) is found by parent pid
+# (a dead parent's children keep its pid as their ParentProcessId) plus this checkout's clients and servers by command
+# line, and each is ended with taskkill /T /F. Never this script or anything above it.
+function Get-RunTree([int]$rootPid) {
+    $all = @(Get-CimInstance Win32_Process -OperationTimeoutSec 30 -ErrorAction SilentlyContinue)
+    $kids = @{}
+    foreach ($p in $all) {
+        $pp = [int]$p.ParentProcessId
+        if (-not $kids.ContainsKey($pp)) { $kids[$pp] = New-Object System.Collections.ArrayList }
+        [void]$kids[$pp].Add($p)
+    }
+    $seen = @{}
+    $queue = New-Object System.Collections.Queue
+    if ($rootPid -gt 0) { $queue.Enqueue($rootPid) }
+    foreach ($c in @(Get-TestClients) + @(Get-TestServers)) { if ($c) { $queue.Enqueue([int]$c.ProcessId) } }
+    while ($queue.Count -gt 0) {
+        $id = [int]$queue.Dequeue()
+        if ($seen.ContainsKey($id) -or $id -eq $PID) { continue }
+        $seen[$id] = $true
+        if ($kids.ContainsKey($id)) { foreach ($k in $kids[$id]) { $queue.Enqueue([int]$k.ProcessId) } }
+    }
+    $names = @{}
+    foreach ($p in $all) { $names[[int]$p.ProcessId] = $p.Name }
+    return @($seen.Keys | Where-Object { $names.ContainsKey($_) } | ForEach-Object { [pscustomobject]@{ Id = $_; Name = $names[$_] } })
+}
+
+function Stop-RunTree([string]$why) {
+    $tree = @(Get-RunTree $proc.Id)
+    foreach ($t in $tree) {
+        Write-Host "  killing $($t.Name) pid $($t.Id) ($why)"
+        & taskkill.exe /PID $t.Id /T /F 2>&1 | Out-Null
+    }
+    Start-Sleep -Seconds 2
+    $left = @(Get-RunTree $proc.Id | Where-Object { Get-Process -Id $_.Id -ErrorAction SilentlyContinue })
+    foreach ($t in $left) { Stop-Process -Id $t.Id -Force -ErrorAction SilentlyContinue }
+    Write-Host "  run tree ended: $($tree.Count) process(es), $($left.Count) needed a second kill"
+}
+
+# jcmd against a wedged JVM can block forever, and with it this whole watch loop (a suspect for gate-1104c's two hours):
+# run it as its own process, wait 20 s at most, then kill it.
+function Write-ThreadDump([string]$jcmd, [int]$clientPid) {
+    $out = Join-Path $env:TEMP "tk-dump-$PID-$clientPid.txt"
+    try {
+        $j = Start-Process -FilePath $jcmd -ArgumentList @("$clientPid", "Thread.print") -NoNewWindow -PassThru -RedirectStandardOutput $out
+        if (-not $j.WaitForExit(20000)) {
+            Stop-Process -Id $j.Id -Force -ErrorAction SilentlyContinue
+            Write-Host "  (jcmd did not answer in 20 s)"
+        }
+        if (Test-Path $out) { Get-Content -Path $out | ForEach-Object { Write-Host "  $_" } }
+    } catch {
+        Write-Host "  (no thread dump: $($_.Exception.Message))"
+    } finally {
+        Remove-Item -Path $out -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# Marks a hung run as a FAILED case in this run's summary.md, so a gate reading it (ship-smoke4.ps1: the 'totals' line
+# and every FAIL row) reports the hang instead of NOT RUN or a stale PASS.
+function Write-HungSummary([string]$why) {
+    $dir = Join-Path $here "build/testkit-report"
+    $sum = Join-Path $dir "summary.md"
+    $row = "| hung | FAIL | 0 |  | $why |"
+    try {
+        if ((Test-Path $sum) -and (Get-Item $sum).LastWriteTime -ge $runStart) {
+            Add-Content -Path $sum -Encoding utf8 -Value @("", $row)
+        } else {
+            New-Item -ItemType Directory -Force -Path $dir | Out-Null
+            Set-Content -Path $sum -Encoding utf8 -Value @("# testkit run (hung)", "", "- totals: 0 passed, 1 failed (run hung)", "",
+                "| case | result | s | | detail |", "|---|---|---|---|---|", $row)
+        }
+    } catch {
+        Write-Host "  (could not write summary.md: $($_.Exception.Message))"
+    }
+}
+
+# The newest client log, read from where the last poll stopped: a line from the gametest's test thread is progress.
+# Supporters fetches, relay reconnects, item catalog and price refreshes keep printing while a client sits idle (a gate's
+# client sat 3.5 h after its last PASS writing only those), so they are NOT progress.
+$clientLog = Join-Path $here "build/run/clientGameTest/logs/latest.log"
+$logPos = 0L
+$logStamp = $null
+function Test-NewProgress {
+    if (-not (Test-Path $clientLog)) { return $false }
+    $found = $false
+    try {
+        $fi = Get-Item $clientLog
+        # A new client (deleteGameTestRunDir) starts a new file: read it from its start.
+        if ($null -eq $logStamp -or $fi.CreationTime -ne $logStamp -or $fi.Length -lt $script:logPos) {
+            $script:logStamp = $fi.CreationTime
+            $script:logPos = 0L
+        }
+        if ($fi.Length -le $script:logPos) { return $false }
+        $fs = [System.IO.File]::Open($clientLog, 'Open', 'Read', 'ReadWrite,Delete')
+        try {
+            [void]$fs.Seek($script:logPos, 'Begin')
+            $sr = New-Object System.IO.StreamReader($fs)
+            $text = $sr.ReadToEnd()
+            $script:logPos = $fs.Position
+        } finally {
+            $fs.Close()
+        }
+        foreach ($line in $text -split "`n") {
+            if ($line -match '\[Test thread/' -or $line -match '\(fabric-client-gametest-api-v1\)') { $found = $true; break }
+        }
+    } catch {}
+    return $found
+}
+
 # Screen slots. killer560 (2026-10-07): "I really like how it is split into those 4 quadrants with one test in each
 # quadrant so I can see all of them at once. If you are ever running more than 4 at once then resize them."
 # Every run without an explicit -Window claims a slot file in one directory shared by every checkout and worktree
@@ -241,7 +360,11 @@ function Sync-SlotWindow {
         if ([math]::Abs($r.Left - $t[0]) -gt 2 -or [math]::Abs($r.Top - $t[1]) -gt 2 -or
                 [math]::Abs(($r.Right - $r.Left) - $t[2]) -gt 2 -or [math]::Abs(($r.Bottom - $r.Top) - $t[3]) -gt 2) {
             # HWND_BOTTOM, SWP_NOACTIVATE: the client goes behind whatever is open on the monitor, and takes no focus.
-            [WinSlot]::SetWindowPos($p.MainWindowHandle, [IntPtr]::new(1), $t[0], $t[1], $t[2], $t[3], 0x10) | Out-Null
+            # SWP_ASYNCWINDOWPOS (0x4000), goldfix-1104: a plain SetWindowPos sends the move to the window's own thread and
+            # WAITS for it, so a hung client (render thread stuck) blocked this whole watch loop forever the first time
+            # another run moved the tiles - no deadline, no freeze kill (a forced hang sat 22 min past its 2 min
+            # watchdog until the backstop; the likely cause of gate-1104c's two-hour 26.2 hang).
+            [WinSlot]::SetWindowPos($p.MainWindowHandle, [IntPtr]::new(1), $t[0], $t[1], $t[2], $t[3], 0x4010) | Out-Null
         }
     }
 }
@@ -285,6 +408,29 @@ $proc = Start-Process -FilePath "$here\gradlew.bat" -ArgumentList $gradleArgs -W
 # (run-suite, parallel-suite) cannot tell a failed run from a passed one.
 $null = $proc.Handle
 
+# A backstop outside this script: if this script itself gets stuck (a hung jcmd or WMI call), a hidden PowerShell ends
+# the run's tree 3 minutes after the deadline. It is killed when this script ends on any path (Stop-Backstop).
+$backstopFile = Join-Path $env:TEMP "tk-backstop-$PID.ps1"
+$backstopBody = @'
+param([int]$Root, [int]$Owner, [int]$Seconds, [string]$Marker)
+Start-Sleep -Seconds $Seconds
+if (-not (Get-Process -Id $Owner -ErrorAction SilentlyContinue)) { exit 0 }
+$ids = New-Object System.Collections.ArrayList
+[void]$ids.Add($Root)
+foreach ($p in @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)) {
+    $cl = $p.CommandLine
+    if ($cl -and $cl.Replace('\', '/') -like "*$Marker*" -and $cl -like '*fabric.dli.env=*') { [void]$ids.Add([int]$p.ProcessId) }
+}
+foreach ($i in $ids) { & taskkill.exe /PID $i /T /F 2>&1 | Out-Null }
+'@
+Set-Content -Path $backstopFile -Encoding utf8 -Value $backstopBody
+$backstop = Start-Process -FilePath "powershell.exe" -WindowStyle Hidden -PassThru -ArgumentList @("-NoProfile", "-ExecutionPolicy",
+    "Bypass", "-File", "`"$backstopFile`"", "-Root", $proc.Id, "-Owner", $PID, "-Seconds", ($TimeoutSeconds + 180), "-Marker", "`"$marker`"")
+function Stop-Backstop {
+    if ($backstop -and -not $backstop.HasExited) { Stop-Process -Id $backstop.Id -Force -ErrorAction SilentlyContinue }
+    Remove-Item -Path $backstopFile -Force -ErrorAction SilentlyContinue
+}
+
 # Watch it WHILE it runs, not only at the deadline.
 #
 # killer560 (2026-09-28): "your sim server still doesnt close automatically whenever it gets stuck and
@@ -303,6 +449,8 @@ if ($env:TESTKIT_HUNG_SECONDS) { $hungLimit = [Math]::Max(8, [int]($env:TESTKIT_
 # the gametest API (the window reads Not Responding) for more than 16 s, and the client was killed mid-start (2026-11-01).
 if ($env:TESTKIT_HUNG_POLLS) { $hungLimit = [int]$env:TESTKIT_HUNG_POLLS }
 $killedHung = $false
+$noProgress = $false
+$lastProgress = $null   # set when the first client appears; before that only the deadline applies (Gradle compiling)
 
 # Loop while EITHER the launcher is alive OR a test client exists.
 #
@@ -314,6 +462,14 @@ while ((-not $proc.HasExited -or (Get-TestClients)) -and (Get-Date) -lt $deadlin
     Start-Sleep -Seconds 2
     Sync-SlotWindow
     $frozen = $false
+    if ($ProgressMinutes -gt 0) {
+        if (Test-NewProgress) { $lastProgress = Get-Date }
+        elseif ($null -eq $lastProgress -and @(Get-TestClients).Count -gt 0) { $lastProgress = Get-Date }
+        if ($null -ne $lastProgress -and ((Get-Date) - $lastProgress).TotalMinutes -ge $ProgressMinutes) {
+            $noProgress = $true
+            break
+        }
+    }
     foreach ($c in Get-TestClients) {
         $p = Get-Process -Id $c.ProcessId -ErrorAction SilentlyContinue
         # Responding is only meaningful once there is a window to be unresponsive.
@@ -332,16 +488,14 @@ while ((-not $proc.HasExited -or (Get-TestClients)) -and (Get-Date) -lt $deadlin
                     $jcmd = Join-Path (Split-Path $exe) "jcmd.exe"
                     if (Test-Path $jcmd) {
                         Write-Host "THREAD DUMP of the frozen client (pid $($c.ProcessId)):"
-                        & $jcmd $c.ProcessId Thread.print 2>&1 | ForEach-Object { Write-Host "  $_" }
+                        Write-ThreadDump $jcmd $c.ProcessId
                         Write-Host "END THREAD DUMP"
                     }
                 } catch {
                     Write-Host "  (no thread dump: $($_.Exception.Message))"
                 }
             }
-            foreach ($c in Get-TestClients) {
-                Stop-Process -Id $c.ProcessId -Force -ErrorAction SilentlyContinue
-            }
+            Stop-RunTree "frozen"
             $killedHung = $true
             break
         }
@@ -351,17 +505,40 @@ while ((-not $proc.HasExited -or (Get-TestClients)) -and (Get-Date) -lt $deadlin
 }
 
 if ($killedHung) {
-    # Give Gradle a moment to notice its child died, then stop it too rather than leave it waiting.
-    Start-Sleep -Seconds 5
     if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
     Stop-TestServers "the frozen run's"
     Write-Host "FROZEN - the client was closed automatically"
+    Stop-Backstop
     Release-Slot
     exit 3
 }
 
+if ($noProgress) {
+    $why = "run hung: no test line in the client log for $ProgressMinutes min (since $($lastProgress.ToString('HH:mm:ss')))"
+    Write-Host "HUNG - $why. Ending the whole run tree."
+    foreach ($c in Get-TestClients) {
+        try {
+            $exe = (Get-Process -Id $c.ProcessId -ErrorAction Stop).Path
+            $jcmd = Join-Path (Split-Path $exe) "jcmd.exe"
+            if (Test-Path $jcmd) {
+                Write-Host "THREAD DUMP of the hung client (pid $($c.ProcessId)):"
+                Write-ThreadDump $jcmd $c.ProcessId
+                Write-Host "END THREAD DUMP"
+            }
+        } catch {}
+    }
+    Stop-RunTree "no progress"
+    if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+    Write-HungSummary $why
+    Write-Host "FAILED hung - $why"
+    Stop-Backstop
+    Release-Slot
+    exit 5
+}
+
 if ((Get-Date) -ge $deadline) {
     Write-Host "Deadline passed - the run is hung. Cleaning up so nothing is left on screen."
+    Stop-RunTree "deadline"
     foreach ($p in Get-TestClients) {
         Write-Host "  killing test client pid $($p.ProcessId)"
         Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
@@ -377,6 +554,8 @@ if ((Get-Date) -ge $deadline) {
     Start-Sleep -Seconds 2
     if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
     Write-Host "TIMED OUT after $TimeoutSeconds s"
+    Write-HungSummary "run hung: TIMED OUT after $TimeoutSeconds s"
+    Stop-Backstop
     Release-Slot
     exit 2
 }
@@ -388,5 +567,6 @@ foreach ($p in Get-TestClients) {
 }
 Stop-TestServers "an orphaned"
 Write-Host "Run finished with exit code $($proc.ExitCode)"
+Stop-Backstop
 Release-Slot
 exit $proc.ExitCode

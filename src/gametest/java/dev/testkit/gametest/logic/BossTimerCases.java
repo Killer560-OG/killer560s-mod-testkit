@@ -187,6 +187,29 @@ final class BossTimerCases {
         Mod.staticCall(CLOCK, "tickForTest");
     }
 
+    /** {@link #simTick} with the pings timed on the test's wall clock (goldfix-1104's pace check sees them). */
+    private static void timedTick(int pings) {
+        for (int i = 0; i < pings; i++) {
+            Mod.staticCall(CLOCK, "pingForTestTimed");
+        }
+        Mod.staticCall(CLOCK, "tickForTest");
+    }
+
+    private static void timedTicks(int n) {
+        for (int i = 0; i < n; i++) {
+            timedTick(1);
+        }
+    }
+
+    /** goldfix-1104's pattern: one ping a tick plus 2 extra every 20 ticks (a quiet GrimAC server, hit every second). */
+    private static long grimLike(int n) {
+        long g0 = clock();
+        for (int i = 0; i < n; i++) {
+            timedTick(i % 20 == 10 ? 3 : 1);
+        }
+        return clock() - g0;
+    }
+
     /**
      * {@link #simTick} plus one tick of the level's game time. Since bctrig-1104 the camp's clock is the LOWER of the ping
      * clock and the game time, and this case runs inside one client frame, where the game time would never move: so it is
@@ -245,7 +268,49 @@ final class BossTimerCases {
                     "trusted=" + Mod.staticCall(CLOCK, "trusted"));
             c.eq("untrusted: 100 client ticks are 100 ticks", 100L, Mod.staticCall(BC, "elapsedSinceGreeting"));
             c.eq("untrusted: no camp lag", 0L, Mod.staticCall(BC, "lagMsSinceGreeting"));
+
+            // goldfix-1104: a quiet GrimAC server pings once a tick and was trusted; each hit then added transactions and
+            // ran the clock ahead (1102-hx-goldor-tick on 26.3 legit: hits read 5, 3, 7, 11). One ping a tick plus 2
+            // extra every 20 ticks: caught once the pings run more than 6 ahead of the wall clock, and not trusted again in
+            // that world, while a plain per-tick server (above, and after a new world) still is.
+            Mod.staticCall(CLOCK, "untrustForTest");
+            timedTicks(40);
+            c.check("a quiet per-tick-looking server is trusted at first", (Boolean) Mod.staticCall(CLOCK, "trusted"),
+                    "trusted=" + Mod.staticCall(CLOCK, "trusted"));
+            long ran = grimLike(100);
+            c.check("pings faster than the server can tick end the trust", !(Boolean) Mod.staticCall(CLOCK, "trusted")
+                    && (Boolean) Mod.staticCall(CLOCK, "notPerTick"), "trusted=" + Mod.staticCall(CLOCK, "trusted")
+                    + " notPerTick=" + Mod.staticCall(CLOCK, "notPerTick"));
+            // 6 extra pings counted before the 7th is caught, plus the switch tick (its ping and its client tick): 107.
+            c.check("the clock ran at most 7 extra ticks in 100 (every extra ping counted would be 10)", ran >= 100 && ran <= 107,
+                    "ran " + ran);
+            timedTicks(60);
+            c.check("not trusted again in the same world", !(Boolean) Mod.staticCall(CLOCK, "trusted"),
+                    "trusted=" + Mod.staticCall(CLOCK, "trusted"));
+            Mod.staticCall(CLOCK, "untrustForTest");
+            timedTicks(40);
+            c.check("a new world starts trusting afresh", (Boolean) Mod.staticCall(CLOCK, "trusted"),
+                    "trusted=" + Mod.staticCall(CLOCK, "trusted"));
+            // hypixel.net's sticky trust (timers2) gives way to it too: the testkit labels a GrimAC server mc.hypixel.net.
+            Mod.staticCall(CLOCK, "hypixelForTest", Boolean.TRUE);
+            Mod.staticCall(CLOCK, "untrustForTest");
+            timedTicks(40);
+            grimLike(100);
+            c.check("on hypixel.net too, pings faster than the server can tick end the sticky trust",
+                    !(Boolean) Mod.staticCall(CLOCK, "trusted"), "trusted=" + Mod.staticCall(CLOCK, "trusted"));
+            // A stall and its catch-up burst are not pings ahead of the wall clock: still trusted.
+            Mod.staticCall(CLOCK, "untrustForTest");
+            timedTicks(40);
+            for (int i = 0; i < 40; i++) {
+                timedTick(0);
+            }
+            timedTick(41);
+            timedTicks(20);
+            c.check("a 2 s stall and its 41-ping burst keep the trust", (Boolean) Mod.staticCall(CLOCK, "trusted")
+                    && !(Boolean) Mod.staticCall(CLOCK, "notPerTick"), "trusted=" + Mod.staticCall(CLOCK, "trusted")
+                    + " notPerTick=" + Mod.staticCall(CLOCK, "notPerTick"));
         } finally {
+            Mod.staticCall(CLOCK, "hypixelForTest", (Object) null);
             Mod.staticCall(CLOCK, "untrustForTest");
             Mod.staticCall(BC, "reset");
         }
