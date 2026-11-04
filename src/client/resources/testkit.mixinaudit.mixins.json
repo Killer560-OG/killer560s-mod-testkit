@@ -1,0 +1,12 @@
+{
+	"required": false,
+	"minVersion": "0.8",
+	"package": "dev.testkit.mixin.audit",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"AuditControlMixin"
+	],
+	"injectors": {
+		"defaultRequire": 0
+	}
+}
