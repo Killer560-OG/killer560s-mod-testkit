@@ -65,7 +65,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
 
     static final String[] TITLE_CASES = {"1565-ui-mainmenu-styles", "1566-ui-mainmenu-scenes",
             "1567-ui-mainmenu-real-name", "1568-ui-amber-scene", "1569-ui-amber-video",
-            "1571-ui-mainmenu-mod-settings", "1572-ui-vanilla-menus", "1574-ui-title-switcher"};
+            "1571-ui-mainmenu-mod-settings", "1572-ui-vanilla-menus", "1574-ui-title-switcher", "1575-ui-mainmenu-switch"};
     static final String[] WORLD_CASES = {"1561-ui-font-menu-only", "1562-ui-font-everything", "1563-ui-font-import",
             "1564-ui-font-settings", "1573-ui-vanilla-pause"};
 
@@ -108,6 +108,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
         UiCase.run(ctx, "1571-ui-mainmenu-mod-settings", FontsMainMenuSuite::modSettings);
         UiCase.run(ctx, "1572-ui-vanilla-menus", VanillaThemeCases::menus);
         UiCase.run(ctx, "1574-ui-title-switcher", TitleSwitcherCases::run);
+        UiCase.run(ctx, "1575-ui-mainmenu-switch", FontsMainMenuSuite::switchRows);
         if (anyWorld) {
             try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
                 ctx.waitTicks(40);
@@ -530,6 +531,87 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
 
     record MmState(Object style, Object theme, Object scene, Object density, int speed, boolean panel,
                    boolean particles, boolean enabled, Object menuTheme) {
+    }
+
+    /** mmtoggle-1104: the Themed Main Menu switch is Home's Mod row and Menu Theme's first Main Menu row (not Display Options). */
+    static void switchRows(UiCase c) {
+        MmState saved = saveMm(c);
+        try {
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(MM), "setEnabled", true);
+                return null;
+            });
+            for (String tab : new String[]{"DisplayOptionsTab"}) {
+                List<String> l = c.onClient(mc -> {
+                    List<String> out = new ArrayList<>();
+                    for (AbstractWidget w : Doc1018MenuHudCases.build(MenuACases.leaf(tab))) {
+                        out.add(ModScreenDriver.label(w));
+                    }
+                    return out;
+                });
+                c.check(l.stream().noneMatch(x -> x.startsWith("Themed Main Menu")), "Display Options still has the switch: " + l);
+            }
+            for (String tab : new String[]{"HomeMainTab", "MenuThemeTab"}) {
+                for (boolean startOn : new boolean[]{true, false}) {
+                    c.onClient(mc -> {
+                        Mod.call(Mod.cfg(MM), "setEnabled", startOn);
+                        return null;
+                    });
+                    String why = c.onClient(mc -> {
+                        List<AbstractWidget> rows = Doc1018MenuHudCases.build(MenuACases.leaf(tab));
+                        int at = -1;
+                        for (int i = 0; i < rows.size(); i++) {
+                            if (ModScreenDriver.label(rows.get(i)).startsWith("Themed Main Menu")) {
+                                at = i;
+                                break;
+                            }
+                        }
+                        if (at < 0) {
+                            return tab + ": no Themed Main Menu row";
+                        }
+                        String label = ModScreenDriver.label(rows.get(at));
+                        if (!label.contains(startOn ? "ON" : "OFF")) {
+                            return tab + ": label " + label + " with the config " + startOn;
+                        }
+                        if (tab.equals("MenuThemeTab")) {
+                            boolean styleRow = rows.stream().anyMatch(w -> ModScreenDriver.label(w).startsWith("Main Menu Style"));
+                            if (styleRow != startOn) {
+                                return tab + ": Main Menu Style row shown=" + styleRow + " with the switch " + startOn;
+                            }
+                            if (rows.stream().anyMatch(w -> ModScreenDriver.label(w).contains("is off (Display Options)"))) {
+                                return tab + ": the old Display Options line is still there";
+                            }
+                            if (!ModScreenDriver.label(rows.get(at - 1)).contains("Main Menu")) {
+                                return tab + ": the switch is not the first row of the Main Menu section";
+                            }
+                        }
+                        if (!ModScreenDriver.press(rows.get(at))) {
+                            return tab + ": the press was not taken";
+                        }
+                        return null;
+                    });
+                    c.check(why == null, why);
+                    boolean now = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(MM), "isEnabled"));
+                    c.check(now == !startOn, tab + ": config is " + now + " after pressing from " + startOn);
+                    // Saved on disk: a reload keeps it.
+                    boolean reloaded = c.onClient(mc -> {
+                        Mod.call(Mod.cfg(MM), "load");
+                        return (Boolean) Mod.call(Mod.cfg(MM), "isEnabled");
+                    });
+                    c.check(reloaded == !startOn, tab + ": the pressed value was not saved (reload gave " + reloaded + ")");
+                    // The title screen follows: vanilla when OFF, themed when ON.
+                    c.onClient(mc -> {
+                        McCompat.setScreen(mc, new TitleScreen());
+                        return null;
+                    });
+                    c.ticks(4);
+                    boolean active = c.onClient(mc -> (Boolean) Mod.staticCall("mainmenu.MainMenuTheme", "activeOnTitleScreen"));
+                    c.check(active == !startOn, tab + ": themed title screen active=" + active + " with the switch " + !startOn);
+                }
+            }
+        } finally {
+            restoreMm(c, saved);
+        }
     }
 
     static MmState saveMm(UiCase c) {
