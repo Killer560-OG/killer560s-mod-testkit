@@ -44,8 +44,11 @@ final class HxDioriteGlass1103Cases {
         boolean override = c.onClient(mc -> (Boolean) Mod.staticCall(DS, "isSimOverrideActive"));
         try (Settings st = new Settings(c)) {
             st.with(CFG, "Enabled", true);
+            // a floor under the player first: standing in the void flags GrimAC's Simulation on 26.2
+            c.server().command("forceload add 40 35 55 50");
+            c.ctx().waitTicks(20);
+            c.server().command("fill 44 170 39 50 171 45 minecraft:stone");
             c.server().command("tp " + self + " 47 172 42");
-            c.server().command("gamemode creative " + self);
             c.ctx().waitTicks(40);
             // Not in the boss: the setting does nothing (control).
             if (override) {
@@ -88,6 +91,7 @@ final class HxDioriteGlass1103Cases {
                 c.server().command("setblock " + p.getX() + " " + p.getY() + " " + p.getZ() + " minecraft:air");
             }
             c.ctx().waitTicks(5);
+            c.server().command("fill 44 170 39 50 171 45 minecraft:air");
         } finally {
             if (c.onClient(mc -> (Boolean) Mod.staticCall(DS, "isSimOverrideActive")) != override) {
                 run(c, () -> Mod.staticCall(DS, "toggleSimOverride"));
