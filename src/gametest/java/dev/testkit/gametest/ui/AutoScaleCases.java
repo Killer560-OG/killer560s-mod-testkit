@@ -257,7 +257,7 @@ final class AutoScaleCases {
         java.util.List<int[]> out = new java.util.ArrayList<>();
         for (Object e : (java.util.List<?>) R.get(menu, "side")) {
             out.add(new int[]{(Integer) Mod.call(e, "x"), (Integer) Mod.call(e, "y"), (Integer) Mod.call(e, "w"),
-                    (Integer) Mod.call(e, "h"), (Integer) Mod.call(e, "tab")});
+                    (Integer) Mod.call(e, "h"), (Integer) Mod.call(e, "tab"), Mod.call(e, "jump") != null ? 1 : 0});
         }
         return out;
     }
@@ -304,6 +304,11 @@ final class AutoScaleCases {
             }
         }
         int hit = clickAt(c, cls, ux, uy);
+        StringBuilder dump = new StringBuilder();
+        for (int[] r : rows) {
+            dump.append(String.format(Locale.ROOT, " [x%d y%d w%d h%d tab%d%s]", r[0], r[1], r[2], r[3], r[4], r[5] == 1 ? " sub" : ""));
+        }
+        c.note("sidebar rows:" + dump);
         c.note(String.format(Locale.ROOT, "control: click at tab %d's UNSCALED spot (GUI %.0f,%.0f) is seen at layout "
                 + "%.1f,%.1f; predicted tab %d, selected %d", control, ux, uy, seenX, seenY, predicted, hit));
         if (hit != predicted) {
