@@ -84,6 +84,9 @@ final class HxPowderSound1104Cases {
                 breakStone(c, false);
                 c.check(count(c, STONE) == s1 + 1, "Mute: a break with no entity (the server's) was silenced");
                 hub(c);
+                // A treasure chest from an earlier case (1104-chestgoblin-chest) keeps powder mining on for 2 minutes
+                // anywhere, by design; forget it so the hub really is outside powder mining.
+                Mod.setField("powdermining.PowderMining", "lastChestAt", -1L);
                 c.ctx().waitTicks(10);
                 int s2 = count(c, STONE);
                 breakStone(c, true);
