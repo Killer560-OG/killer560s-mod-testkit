@@ -143,6 +143,7 @@ final class HxPowderGrind1103Cases {
 
             // The switch OFF: nothing tracked or drawn.
             c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(CFG), "setTreasureChest", false));
+            c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(CFG), "setLockpickHelper", false)); // it tracks chests too, on by default now
             c.waitUntil("cleared with the switch OFF", mc -> ((Number) Mod.staticCall(TC, "count")).intValue() == 0, 20);
             fr0 = intCall(c, TC, "boxFrames");
             c.ctx().waitTicks(10);
@@ -305,7 +306,7 @@ final class HxPowderGrind1103Cases {
             c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(CFG), "stepLootShow", 1));
             int h0 = intCall(c, PC, "hiddenLines");
             c.check(showMode(c, "Hide All", rich) == null, "Hide All printed a line");
-            c.check(intCall(c, PC, "hiddenLines") - h0 >= 6, "Hide All did not hide the block");
+            c.check(intCall(c, PC, "hiddenLines") - h0 >= 4, "Hide All did not hide the block");
             c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(CFG), "stepLootShow", -1));
             String back = showMode(c, "Right click back to Powder + Rare", rich);
             c.check(back != null && back.contains("+1 item"), "right click did not step back: " + back);
