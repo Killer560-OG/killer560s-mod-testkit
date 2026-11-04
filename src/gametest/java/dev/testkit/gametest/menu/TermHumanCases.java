@@ -90,7 +90,10 @@ final class TermHumanCases {
                     .set(CONFIG, "CursorReactionMs", 130).set(CONFIG, "FakeCursorSpeed", 100)
                     .set(CONFIG, "AutoClickMinDelayMs", 120).set(CONFIG, "AutoClickMaxDelayMs", 200)
                     .set(CONFIG, "AutoStreamSafe", false);
-            for (int run = 0; run < 7; run++) {
+            // The mod's click order is random per terminal; a small board (Rubix: five panes) can repeat one order in four
+            // ON runs by chance (1027-menu-term-human-rubix, termfix-1104). Order-free boards play extra ON runs, up to 12 in
+            // all, until two orders differ.
+            for (int run = 0; run < 7 || (orderFree && new LinkedHashSet<>(orders).size() < 2 && run < 12); run++) {
                 boolean on = run >= 3;
                 c.onClient(mc -> Mod.with(CONFIG, "AutoStreamSafe", on));
                 int moves0 = intField(c, CURSOR, "moves");

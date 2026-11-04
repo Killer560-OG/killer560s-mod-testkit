@@ -314,6 +314,11 @@ final class TermismStreamSafeCases {
         Screen s = open(c, k.type());
         c.ctx().waitTicks(14);
         int seen = 0;
+        // The cursor shows only while Auto Terminals is driving the board (Melody idles between rows), so wait, bounded, for
+        // it to be up instead of sampling three fixed moments (1102-menu-termism-ss-melody failed on 26.2, termfix-1104).
+        for (int w = 0; w < 120 && !c.onClient(mc -> (Boolean) Mod.staticCall(CURSOR, "active")); w++) {
+            c.ctx().waitTicks(2);
+        }
         for (int n = 0; n < 3; n++) {
             float[] at = c.onClient(mc -> new float[]{(Float) Mod.field(CURSOR, "curX"), (Float) Mod.field(CURSOR, "curY"),
                     (Boolean) Mod.staticCall(CURSOR, "active") ? 1f : 0f, mc.getWindow().getWidth(),
