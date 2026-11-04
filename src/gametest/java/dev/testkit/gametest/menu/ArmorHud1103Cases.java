@@ -53,6 +53,12 @@ final class ArmorHud1103Cases {
         return "minecraft:" + item + "[custom_data={id:\"" + id + "\"}]";
     }
 
+    /** A Skyblock item whose lore ends with Hypixel's rarity line ("LEGENDARY NECKLACE"). */
+    private static String lored(String item, String id, String rarityLine) {
+        return "minecraft:" + item + "[custom_data={id:\"" + id + "\"},lore=[{text:\"\",italic:false},{text:\"" + rarityLine
+                + "\",italic:false,bold:true}]]";
+    }
+
     /** Puts {@code ids} (helmet..boots; null = nothing) on him and waits until the client sees them. */
     private static void wear(Session c, String... ids) {
         for (int i = 0; i < 4; i++) {
@@ -159,7 +165,23 @@ final class ArmorHud1103Cases {
             awaitIcons(c, 7, "after the reload");
             c.ctx().runOnClient(mc -> Mod.set(CFG, "setShowEquipment", false));
             awaitIcons(c, 4, "Show Equipment off");
-            c.note("menu read " + want + "; file read back the same; 7 icons, 4 with Show Equipment off");
+            c.ctx().runOnClient(mc -> Mod.set(CFG, "setShowEquipment", true));
+            // Owner 2026-11-03: /stats too, and a layout unlike the wiki's: pieces found by their rarity line anywhere.
+            JsonObject stats = MenuKit.obj("{\"title\":\"Your Stats\",\"rows\":4,\"fill\":true,\"slots\":{},\"on\":{}}");
+            JsonObject ss = stats.getAsJsonObject("slots");
+            ss.addProperty("3", lored("player_head", "MAGMA_NECKLACE", "LEGENDARY NECKLACE"));
+            ss.addProperty("21", lored("player_head", "MOLTEN_BRACELET", "EPIC BRACELET"));
+            ss.addProperty("22", lored("player_head", "MOLTEN_BELT", "EPIC BELT"));
+            ss.addProperty("30", lored("leather_chestplate", "NOT_EQUIPMENT", "LEGENDARY CHESTPLATE"));
+            MenuKit.show(c, stats);
+            MenuKit.awaitScreen(c, "Your Stats", 100);
+            List<String> want2 = Arrays.asList("MAGMA_NECKLACE", "GHAST_CLOAK", "MOLTEN_BELT", "MOLTEN_BRACELET");
+            c.waitUntil("equipment read from /stats by kind", mc -> want2.equals(Mod.staticCall(FEAT, "equipmentIds")), 40);
+            MenuKit.reset(c);
+            MenuKit.awaitNoScreen(c, 40);
+            awaitIcons(c, 8, "armor + four pieces from /stats");
+            c.note("menu read " + want + "; file read back the same; 7 icons, 4 with Show Equipment off; /stats by kind: "
+                    + want2 + ", 8 icons");
         } finally {
             MenuKit.reset(c);
             wear(c, null, null, null, null);
