@@ -633,6 +633,18 @@ public class SimBloodRushTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> {
             ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{false});
             setSpawnStarred(true);
+            // This case checks placement on the spots it seeds, so the jar's shipped table (bloodrush2-1104) is emptied;
+            // an older jar has no table and no hook.
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Integer> shipped = (Map<String, Integer>) ModUnderTest.staticCall(BR_SPOTS, "bundledCounts");
+                for (String room : new ArrayList<>(shipped.keySet())) {
+                    ModUnderTest.staticCall(BR_SPOTS, "putBundledForTest", new Class<?>[]{String.class, List.class},
+                            new Object[]{room, new ArrayList<int[]>()});
+                }
+            } catch (Throwable t) {
+                // no shipped table in this jar
+            }
         });
         long mark = LogTap.mark();
         startFloor(ctx);
