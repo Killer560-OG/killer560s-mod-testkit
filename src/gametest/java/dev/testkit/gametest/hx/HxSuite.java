@@ -136,6 +136,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxChestGoblin1104Cases.register(s);
                     // Owner requests 2026-11-03 late (1103-mask-proc-title, 1103-partycmd-self).
                     HxOwner1103Cases.register(s);
+                    // Party Commands floor requests: Creation Cooldown wait, retry, your own !f (1104-partycmd-floor-*, mod partycmd-1104).
+                    HxPartyFloor1104Cases.register(s);
                     // Resume Held Break After Menus and the AttackHold dump (1103-mining-hold-*, mod mithril-hold-1103).
                     HxAttackHold1103Cases.register(s);
                     // Powder Break Sounds (1104-powdersound-*, mod powdersound-1104).
