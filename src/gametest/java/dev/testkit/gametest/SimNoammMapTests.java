@@ -184,11 +184,33 @@ public class SimNoammMapTests implements FabricClientGameTest {
             awaitCalibration(ctx);
             ctx.waitTicks(10);
             int[] cal = SimMapItemTests.hook(ctx, PAINTER, "mapCalibration");
-            List<int[]> drawn = SimMapItemTests.roomFills(ctx);
+            // A fill lying wholly inside another is not a room: his own Player Head marker (on by default) is 12 map
+            // units with a 1-unit black frame since 2026-10-19 (NoammAddons' size), room-sized to roomFills' size
+            // window, and he stands in the Entrance, so it was counted as a 4th room (hsA4f 2026-11-04).
+            List<int[]> drawn = new ArrayList<>();
+            List<int[]> fillsNow = SimMapItemTests.roomFills(ctx);
+            for (int[] d : fillsNow) {
+                boolean inside = false;
+                for (int[] o : fillsNow) {
+                    if (o != d && o[0] <= d[0] && o[1] <= d[1] && o[2] >= d[2] && o[3] >= d[3]
+                            && (o[2] - o[0]) * (o[3] - o[1]) > (d[2] - d[0]) * (d[3] - d[1])) {
+                        inside = true;
+                    }
+                }
+                if (inside) {
+                    println(String.format(Locale.ROOT, "  not a room (inside another fill): %d,%d-%d,%d #%08X",
+                            d[0], d[1], d[2], d[3], d[4]));
+                } else {
+                    drawn.add(d);
+                }
+            }
             println(String.format(Locale.ROOT, "calibration with a stray green run: corner %s, %d room(s) drawn",
                     cal == null ? "no hook (old jar)" : cal[0] + "," + cal[1] + " size " + cal[2], drawn.size()));
             if (cal != null && (cal[0] != 5 || cal[1] != 5)) {
                 failures.add("the map calibrated at corner (" + cal[0] + "," + cal[1] + "), not the floor's (5,5)");
+            }
+            for (int[] d : drawn) {
+                println(String.format(Locale.ROOT, "  room fill %d,%d-%d,%d #%08X", d[0], d[1], d[2], d[3], d[4]));
             }
             if (drawn.size() != 3) {
                 failures.add("with a stray green run the map drew " + drawn.size() + " room(s), not the 3 the item shows");

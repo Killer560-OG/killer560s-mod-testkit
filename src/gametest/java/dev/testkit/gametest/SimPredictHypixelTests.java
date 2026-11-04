@@ -131,6 +131,11 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
         ctx.waitFor(mc -> mc.player.onGround() && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir(), 2400);
         ctx.waitTicks(40);
+        // Every case is a moment of a run in progress, so wait for GO: during the countdown the sim has no held map
+        // (HeldMap.emulated() is false, as on Hypixel before Mort), no room counts as opened, and a walk that starts
+        // there records the blocks of the room the late glance must not have seen yet (hsA4f/hsA4g, 2026-11-04).
+        ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRun", "hasStarted"), 600);
+        ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(HELD, "emulated"), 200);
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
             server.execute(() -> server.getCommands().performPrefixedCommand(
