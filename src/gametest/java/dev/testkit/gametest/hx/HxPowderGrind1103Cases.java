@@ -202,6 +202,7 @@ final class HxPowderGrind1103Cases {
     private static void block(Session c, int gem) {
         c.hx().chat(SEP);
         c.hx().chat("§6§l  CHEST LOCKPICKED ");
+        c.hx().chat(""); // Hypixel sends a blank line here (his log, 2026-11-03 22:56)
         c.hx().chat("§a§l  REWARDS");
         c.hx().chat("§d    Gemstone Powder §8x" + gem);
         c.hx().chat("§2    Mithril Powder §8x153");
