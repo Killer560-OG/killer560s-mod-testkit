@@ -1075,7 +1075,20 @@ public class SimBloodRushTests implements FabricClientGameTest {
             }
         }
         if (candidates.isEmpty()) {
-            problems.add("no box in " + room + " with no starred mob in it (its known spots did not show)");
+            String why = ctx.computeOnClient(mc -> {
+                Object layout = ModUnderTest.staticCall(LAYOUT, "current");
+                int cur = (Integer) ModUnderTest.call(layout, "currentRoom", new Class<?>[0], new Object[0]);
+                int r = (Integer) ModUnderTest.call(layout, "roomAtWorld", new Class<?>[]{double.class, double.class},
+                        new Object[]{s0.getX() + 0.5, s0.getZ() + 0.5});
+                Class<?> lc = layout.getClass();
+                Object cleared = ModUnderTest.staticCall("com.killer560.hub.autoclear.AutoClearTargets", "isClearedOnMap",
+                        new Class<?>[]{lc, int.class}, new Object[]{layout, r});
+                Object type = ModUnderTest.staticCall("com.killer560.hub.bloodrush.BloodRushHelperFeature", "type",
+                        new Class<?>[]{lc, int.class}, new Object[]{layout, r});
+                return "current room " + cur + " " + ModUnderTest.call(layout, "name", new Class<?>[]{int.class},
+                        new Object[]{cur}) + ", spot's room " + r + " type " + type + " cleared on map " + cleared;
+            });
+            problems.add("no box in " + room + " with no starred mob in it (its known spots did not show; " + why + ")");
             return;
         }
         // view: feet x, y, z, then the box index; wall: the blocks between his eye and the box (1.2-2.8 blocks out).
