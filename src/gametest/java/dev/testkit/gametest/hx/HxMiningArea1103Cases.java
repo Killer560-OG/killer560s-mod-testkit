@@ -433,8 +433,8 @@ final class HxMiningArea1103Cases {
         BlockPos f = feet(c);
         BlockPos upper = f.offset(-6, 1, -3);
         BlockPos cliff = f.offset(6, 1, -3);
-        BlockPos upperFar = f.offset(-20, 1, 30);
-        BlockPos cliffFar = f.offset(20, 1, 30);
+        BlockPos upperFar = f.offset(-12, 1, 26);
+        BlockPos cliffFar = f.offset(12, 1, 26);
         List<BlockPos> all = List.of(upper, cliff, upperFar, cliffFar);
         try (Settings set = new Settings(c).with(CFG, "MithrilStone", true)) {
             useGraph(c, f);
