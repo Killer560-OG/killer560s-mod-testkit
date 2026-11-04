@@ -60,8 +60,11 @@ import java.util.concurrent.atomic.AtomicReference;
  *     item), the doorway stays air: the Fairy Door must still mark it, from the grid. Coal put in the doorway (a real
  *     shut wither door): the Fairy Door steps aside and the normal wither highlight draws it, once.</li>
  * </ul>
- * The legit jar has no Fairy Door (cheat build only): there 533-537 assert that nothing is drawn and the state stays
- * empty. Between 535, 536 and 537 the run latch is reset by setting {@code FairyDoor.generation} back, which is the
+ * The Fairy Door draws in BOTH builds (docs/FEATURES.md: "Fairy Door (both builds, on by default)"): the legit jar draws
+ * it through the held-map rule (MapDoors, once the empty doorway has been looked at) and the cheat jar, with Show All
+ * Doors, through the FairyDoor path state. 533 and 538 therefore assert the same on both; 531 and 534-537 read the
+ * path state ({@code FairyDoor.door()}), which only the cheat jar's Show All Doors fills, so on legit they assert it
+ * stays empty (2026-11-03: 533/538 had asserted "nothing drawn" on legit and failed on a correct jar). Between 535, 536 and 537 the run latch is reset by setting {@code FairyDoor.generation} back, which is the
  * mod's own "new run" path. Screenshots: report screens/ and C:/Users/Hunter/killer560s-mod-logs/fairy-door-shots/.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -259,13 +262,10 @@ public class SimFairyDoorTests implements FabricClientGameTest {
         int[] px = magenta(on, off);
         String pxText = px[0] + " magenta px changed against the Fairy-Door-off frame, centroid " + px[1] + "," + px[2]
                 + " of " + px[3] + "x" + px[4];
-        if (cheat) {
-            boolean centred = px[0] > 0 && Math.abs(px[1] - px[3] / 2) < px[3] / 3 && Math.abs(px[2] - px[4] / 2) < px[4] / 3;
-            row(R_DRAWS, box != null && boxOff == null && px[0] >= 300 && centred,
-                    "box " + fmt(box) + " (door block y " + f.doorY + "), with the option off " + fmt(boxOff) + "; " + pxText);
-        } else {
-            row(R_DRAWS, box == null && px[0] < 30, "legit jar: box " + fmt(box) + "; " + pxText);
-        }
+        boolean centred = px[0] > 0 && Math.abs(px[1] - px[3] / 2) < px[3] / 3 && Math.abs(px[2] - px[4] / 2) < px[4] / 3;
+        row(R_DRAWS, box != null && boxOff == null && px[0] >= 300 && centred,
+                (cheat ? "" : "legit jar (map rule): ") + "box " + fmt(box) + " (door block y " + f.doorY
+                        + "), with the option off " + fmt(boxOff) + "; " + pxText);
 
         // ---- 534: from the room after Fairy the blood path avoids it --------------------------------------------
         Report.caseStarted(R_AVOIDS);
@@ -404,10 +404,9 @@ public class SimFairyDoorTests implements FabricClientGameTest {
         setFairyDoor(ctx, true);
         boolean same = describe(withFairy).equals(describe(withoutFairy));
         boolean heightOk = !withFairy.isEmpty() && Math.abs(withFairy.get(0)[1] - f.doorY) < 0.01;
-        // Legit jar (no Show All Doors) since mod doors-predict-1015: only the held map's doors, and nothing before the
-        // run has started - this floor never ran /start, so nothing at all may be drawn.
-        boolean legitOk = !cheat && made > 0 && withFairy.isEmpty() && withoutFairy.isEmpty();
-        row(R_WITHER, cheat ? made > 0 && same && heightOk : legitOk, (cheat ? "" : "legit jar, run not started: ")
+        // Both builds: the wither boxes are drawn (the sim run has started by now, which 533's own box shows) and are the
+        // same with the Fairy Door on and off.
+        row(R_WITHER, made > 0 && same && heightOk, (cheat ? "" : "legit jar: ")
                 + made + " wither door(s) made round " + f.afterRoomName
                 + "; wither boxes with the Fairy Door on " + describe(withFairy) + ", off " + describe(withoutFairy)
                 + " (door block y " + f.doorY + ")");
