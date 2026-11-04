@@ -101,13 +101,14 @@ public class SimBloodRushTests implements FabricClientGameTest {
                     splitRule(ctx, problems, facts);
                 } else if (name.equals(RUSH)) {
                     // The floor is random; the helper shows the FIRST key room on the rush path, which can hold only 2
-                    // starred mobs (2026-11-03 gate). Build a new floor until it has 3 or more (at most 3 floors).
-                    for (int attempt = 1; attempt <= 3; attempt++) {
+                    // starred mobs (2026-11-03 gate). Build a new floor until it has 3 or more (at most 8 floors: three in a row had 2,
+                    // 26.3 cheat, ship 2b gate 2026-11-04).
+                    for (int attempt = 1; attempt <= 8; attempt++) {
                         if (!SimMobFloorTests.buildMobFloor(ctx, problems, facts)) {
                             break;
                         }
                         int n = firstKeyRoomStarred(ctx);
-                        if (n >= 3 || attempt == 3) {
+                        if (n >= 3 || attempt == 8) {
                             rush(ctx, problems, facts);
                             break;
                         }
