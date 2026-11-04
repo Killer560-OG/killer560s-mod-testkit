@@ -42,6 +42,11 @@ final class HxCrystalWalls1104Cases {
     }
 
     private static void at(Session c, double x, double y, double z, float yaw) {
+        int bx = (int) Math.floor(x), bz = (int) Math.floor(z), by = (int) Math.floor(y) - 1;
+        // A floor under him: a server teleport into mid-air made Grim flag a few Simulation lines, which is the test's doing.
+        c.server().command("forceload add " + bx + " " + bz);
+        c.ctx().waitTicks(10);
+        c.server().command(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:glass", bx - 2, by, bz - 2, bx + 2, by, bz + 2));
         c.server().command(String.format(Locale.ROOT, "tp @p %.2f %.2f %.2f %.1f 0", x, y, z, yaw));
         c.waitUntil("at " + x + "," + z, mc -> Math.abs(mc.player.getX() - x) < 1.0 && Math.abs(mc.player.getZ() - z) < 1.0, 100);
     }
@@ -84,7 +89,6 @@ final class HxCrystalWalls1104Cases {
             c.ctx().runOnClient(mc -> Mod.call(cfg, "setChWalls", true));
             hollows(c);
             c.server().command("gamemode creative @p");
-            c.server().command("effect give @p minecraft:levitation 30 255 true"); // hold him up while the frames are read
             // 1) near the west edge: the Jungle slab is at 202.0-202.1, green (0x55FF55), alpha .25.
             at(c, 210, 100, 300, 90f);
             c.waitUntil("walls drawn near the west edge", mc -> !drawn(c).isEmpty(), 100);
@@ -133,7 +137,7 @@ final class HxCrystalWalls1104Cases {
             c.note("walls at X 202.0 (Jungle, green 25%), the 513 line (Jungle|Mithril), Magma top Y 64, Nucleus; Near Only clips; off and hub draw none");
         } finally {
             c.ctx().runOnClient(mc -> Mod.call(cfg, "setChWalls", old));
-            c.server().command("effect clear @p");
+            
             hub(c);
         }
     }
@@ -150,7 +154,6 @@ final class HxCrystalWalls1104Cases {
             });
             hollows(c);
             c.server().command("gamemode creative @p");
-            c.server().command("effect give @p minecraft:levitation 30 255 true");
             at(c, 205, 100, 300, 90f);
             c.waitUntil("the wall drawn", mc -> !drawn(c).isEmpty(), 100);
             c.ctx().waitTicks(5);
@@ -167,7 +170,7 @@ final class HxCrystalWalls1104Cases {
                 Mod.call(cfg, "setChWalls", old);
                 Mod.call(cfg, "setChWallOpacity", jungle, oldOp);
             });
-            c.server().command("effect clear @p");
+            
             hub(c);
         }
     }
