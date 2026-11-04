@@ -130,6 +130,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxPowderGrind1103Cases.register(s);
                     // Chat Hider mining/sack hides and Hide Treasure Chest Uncovered (1104-chattidy-*, mod chattidy-1104).
                     HxChatTidy1104Cases.register(s);
+                    // Treasure chest Hide Opened re-send and the chain tracer (1104-chestfx-*, mod chestfx-1104).
+                    HxChestFx1104Cases.register(s);
                     // Owner requests 2026-11-03 late (1103-mask-proc-title, 1103-partycmd-self).
                     HxOwner1103Cases.register(s);
                     // Resume Held Break After Menus and the AttackHold dump (1103-mining-hold-*, mod mithril-hold-1103).
