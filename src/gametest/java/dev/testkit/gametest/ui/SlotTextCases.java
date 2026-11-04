@@ -426,6 +426,60 @@ final class SlotTextCases {
         }
     }
 
+    /** 1104: an Attribute Shard stack of 5 in a hotbar slot of a container screen keeps its count readable: the level moves
+     *  off the bottom-right corner (top-left), a single shard keeps it at bottom-right (owner screenshot, 2026-11-04). */
+    static void countCorner(UiCase c) throws Exception {
+        Path path = InvBatchCases.configPath(c, STC);
+        byte[] old = InvBatchCases.read(path);
+        int[] window = HudEditorCases.windowSize(c);
+        int oldGui = c.onClient(mc -> mc.options.guiScale().get());
+        try {
+            CompoundTag shard = tag("ATTRIBUTE_SHARD");
+            CompoundTag attrs = new CompoundTag();
+            attrs.putInt("mana_pool", 3);
+            shard.put("attributes", attrs);
+            ItemStack stack = mk(Items.PRISMARINE_SHARD, "Mimic Shard", shard);
+            stack.setCount(5);
+            ItemStack single = mk(Items.PRISMARINE_SHARD, "Mimic Shard", shard);
+            // the helper the draw goes through, on the entries the feature really produced
+            List<?> entries = c.onClient(mc -> (List<?>) Mod.staticCall(STF, "textFor", stack, "Bazaar", 80, true));
+            c.check(entries.size() == 1, "expected one Slot Text entry for the shard, got " + entries.size());
+            c.check("BOTTOM_RIGHT".equals(String.valueOf(Mod.call(entries.get(0), "pos"))), "shard level should start bottom-right");
+            List<?> moved = c.onClient(mc -> (List<?>) Mod.staticCall(STF, "clearOfCount", entries, 5));
+            List<?> kept = c.onClient(mc -> (List<?>) Mod.staticCall(STF, "clearOfCount", entries, 1));
+            String movedPos = String.valueOf(Mod.call(moved.get(0), "pos"));
+            c.check("TOP_LEFT".equals(movedPos), "count 5: level should move to TOP_LEFT, got " + movedPos);
+            c.check("BOTTOM_RIGHT".equals(String.valueOf(Mod.call(kept.get(0), "pos"))), "count 1: level should stay bottom-right");
+            // pixels: hotbar slot 0 in an open container screen, feature off against on
+            InvBatchCases.survival(c);
+            InvBatchCases.inventory(c, Map.of(0, stack, 1, single));
+            HudEditorCases.setWindow(c, 1280, 720, 2);
+            int gs = c.onClient(mc -> mc.getWindow().getGuiScale());
+            slotText(c, false, "ALWAYS");
+            openInventory(c);
+            cursorGui(c, 2, 2);
+            int[] stacked = invSlotPos(c, 0);
+            int[] lone = invSlotPos(c, 1);
+            BufferedImage off = InvBatchCases.shot(c, "off");
+            slotText(c, true, "ALWAYS");
+            setType(c, "ATTRIBUTE_LEVEL", true);
+            c.ticks(3);
+            BufferedImage on = InvBatchCases.shot(c, "on");
+            int stackTl = quadrant(off, on, stacked, gs, 0);
+            int stackBr = quadrant(off, on, stacked, gs, 3);
+            int loneBr = quadrant(off, on, lone, gs, 3);
+            c.note("stack of 5: TL " + stackTl + " px, BR " + stackBr + " px; single: BR " + loneBr + " px");
+            c.check(stackTl >= 20, "stack of 5: level missing from the top-left (" + stackTl + " changed px)");
+            c.check(stackBr == 0, "stack of 5: level still drawn over the count (" + stackBr + " changed px)");
+            c.check(loneBr >= 20, "single shard: level missing from the bottom-right (" + loneBr + " changed px)");
+        } finally {
+            closeScreen(c);
+            HudEditorCases.restoreWindow(c, window, oldGui);
+            InvBatchCases.restoreConfig(c, STC, path, old);
+            InvBatchCases.inventory(c, Map.of());
+        }
+    }
+
     // ==== 962 modes ====================================================================================================
 
     static void modes(UiCase c) throws Exception {

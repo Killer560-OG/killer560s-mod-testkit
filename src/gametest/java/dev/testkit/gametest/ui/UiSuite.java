@@ -161,7 +161,7 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] SMALL_DUNGEON_CASES = {"1051-ui-thorn-through-walls", "1052-ui-esp-colour-tracer", "1053-ui-secrets-hud-colour"};
     /** killer560's 2026-10-15 Slot Text + Personal Compactor/Deletor overlay ({@link SlotTextCases}). Own block for merges. */
     static final String[] SLOT_TEXT_CASES = {"960-ui-slottext-types", "961-ui-slottext-drawn", "962-ui-slottext-modes",
-            "963-ui-compactor-contents", "964-ui-compactor-hover-drawn", "965-ui-compactor-modes", "966-ui-compactor-settings"};
+            "963-ui-compactor-contents", "964-ui-compactor-hover-drawn", "965-ui-compactor-modes", "966-ui-compactor-settings", "1104-ui-slottext-count"};
     static final String[] DUNGEON_B2_CASES = {"686-ui-blood-trigger", "687-ui-door-key-circle",
             "679-ui-ttt-prediction-misclicks", "680-ui-imap-binds-ticks", "681-ui-auto-kick-pf", "682-ui-dungeon-esp-switch"};
     /** killer560's 2026-10-11 Auto Kick Judge By + Detect Queued Floor ({@link AutoKick2Cases}). Own block for merges. */
@@ -719,6 +719,7 @@ public class UiSuite implements FabricClientGameTest {
                     // ---- slot text + compactor preview (960-966) ----
                     UiCase.run(ctx, "960-ui-slottext-types", SlotTextCases::types);
                     UiCase.run(ctx, "961-ui-slottext-drawn", SlotTextCases::drawn);
+                    UiCase.run(ctx, "1104-ui-slottext-count", SlotTextCases::countCorner);
                     UiCase.run(ctx, "962-ui-slottext-modes", SlotTextCases::modes);
                     UiCase.run(ctx, "963-ui-compactor-contents", SlotTextCases::contentsRead);
                     UiCase.run(ctx, "964-ui-compactor-hover-drawn", SlotTextCases::hoverDrawn);
