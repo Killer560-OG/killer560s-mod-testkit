@@ -1,5 +1,6 @@
 package dev.testkit.gametest.hx;
 
+import dev.testkit.gametest.LogTap;
 import dev.testkit.gametest.mod.Mod;
 
 import java.util.List;
@@ -42,6 +43,7 @@ final class HxPowderGrind1103Cases {
         s.test("1103-powdergrind-chest", HxPowderGrind1103Cases::chest);
         s.test("1103-powdergrind-lockpick", HxPowderGrind1103Cases::lockpick);
         s.test("1103-powdergrind-loot", HxPowderGrind1103Cases::loot);
+        s.test("1104-powdergrind-keep-rare", HxPowderGrind1103Cases::keepRare);
     }
 
     private static void hollows(Session c) {
@@ -254,6 +256,74 @@ final class HxPowderGrind1103Cases {
         c.note(label + ": printed " + printed + ", " + (printed > 0 ? line : "-"));
         c.check(printed <= 1, label + ": printed " + printed + " lines");
         return printed == 1 ? line : null;
+    }
+
+    private static int chatCount(long mark, String text) {
+        int n = 0;
+        for (String l : LogTap.since(mark)) {
+            if (l.contains("[CHAT]") && l.contains(text)) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /**
+     * Keep Rare Rewards (mod chport-1104, from staging-mining-3's Powder Chest Chat Filter): with Chest Loot Compact hiding a
+     * chest's block, a rare reward's own line still reaches the chat window (read from the client log's [CHAT] lines, the
+     * window's own record), a common one does not; switched off, the rare line is hidden too; the switch survives a re-read.
+     */
+    private static void keepRare(Session c) {
+        Settings s0 = new Settings(c);
+        on(c, s0, "PowderTracker");
+        on(c, s0, "LootCompact");
+        Object cfg = c.onClient(mc -> Mod.cfg(CFG));
+        boolean was = c.onClient(mc -> (Boolean) Mod.call(cfg, "isKeepRareRewards"));
+        try (Settings set = s0) {
+            hollows(c);
+            c.ctx().runOnClient(mc -> Mod.call(cfg, "setKeepRareRewards", true));
+            String[] rich = {"Gemstone Powder §8x50", "⸕ Flawless Ruby Gemstone", "Ascension Rope"};
+
+            long m1 = LogTap.mark();
+            int k0 = intCall(c, PC, "keptRare");
+            int comp0 = intCall(c, PC, "compactLines");
+            rareBlock(c, rich);
+            c.waitUntil("Keep Rare on: the compact line", mc -> ((Number) Mod.staticCall(PC, "compactLines")).intValue() == comp0 + 1, 40);
+            c.ctx().waitTicks(5);
+            int kept = intCall(c, PC, "keptRare") - k0;
+            int ruby = chatCount(m1, "Flawless Ruby Gemstone"), rope = chatCount(m1, "Ascension Rope");
+            c.note("Keep Rare on: kept " + kept + ", chat shows the ruby " + ruby + "x, the rope " + rope + "x");
+            c.check(kept == 1, "Keep Rare on: kept " + kept + " rare lines, want 1");
+            c.check(ruby == 1, "Keep Rare on: the Flawless Ruby line reached chat " + ruby + " times, want 1");
+            c.check(rope == 0, "Keep Rare on: the common Ascension Rope line reached chat");
+
+            c.ctx().runOnClient(mc -> Mod.call(cfg, "setKeepRareRewards", false));
+            long m2 = LogTap.mark();
+            int k1 = intCall(c, PC, "keptRare");
+            int comp1 = intCall(c, PC, "compactLines");
+            rareBlock(c, rich);
+            c.waitUntil("Keep Rare off: the compact line", mc -> ((Number) Mod.staticCall(PC, "compactLines")).intValue() == comp1 + 1, 40);
+            c.ctx().waitTicks(5);
+            c.check(intCall(c, PC, "keptRare") == k1, "Keep Rare off still kept a line");
+            c.check(chatCount(m2, "Flawless Ruby Gemstone") == 0, "Keep Rare off: the ruby line reached chat");
+
+            // Survives a save and a re-read: off saved, on in memory, re-read answers off.
+            boolean reread = c.onClient(mc -> {
+                Mod.call(cfg, "save");
+                Mod.call(cfg, "setKeepRareRewards", true);
+                Mod.staticCall(CFG, "load");
+                return (Boolean) Mod.call(Mod.cfg(CFG), "isKeepRareRewards");
+            });
+            c.check(!reread, "Keep Rare Rewards OFF did not survive a save and a re-read");
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                Object fresh = Mod.cfg(CFG);
+                Mod.call(fresh, "setKeepRareRewards", was);
+                Mod.call(fresh, "save");
+            });
+            c.ctx().runOnClient(mc -> Mod.staticCall(TR, "reset"));
+            hub(c);
+        }
     }
 
     private static void loot(Session c) {
