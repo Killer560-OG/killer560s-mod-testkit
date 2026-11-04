@@ -3,6 +3,9 @@
   "screens": [
     {"class": "gui.ModScreen", "args": ["null"], "source": "gui/ModScreen.java:84"},
     {"class": "gui.profit.BazaarFlipProfitScreen", "args": ["null"], "source": "gui/profit/BazaarFlipProfitScreen.java:16 (cheat only)"},
+    {"class": "gui.profit.MiningProfitScreen", "args": ["null"], "source": "gui/profit/MiningProfitScreen.java:13 (mod chport-1104)"},
+    {"class": "gui.profit.NucleusProfitScreen", "args": ["null"], "source": "gui/profit/NucleusProfitScreen.java:14 (mod chport-1104)"},
+    {"class": "mining.chmap.CrystalHollowsMapScreen", "args": [], "source": "mining/chmap/CrystalHollowsMapScreen.java:99 (mod chport-1104)"},
     {"class": "autoupdate.UpdatedScreen", "args": ["null", "str:abc1234", "str:v1.1.1", "str:Release notes"], "source": "autoupdate/UpdatedScreen.java:31"},
     {"class": "gui.ColorPickerScreen", "args": ["null", "str:Test Color", "int:-3381760", "int:-1", "intconsumer"], "source": "gui/ColorPickerScreen.java"},
     {"class": "hud.HudEditorScreen", "args": ["null"], "source": "hud/HudEditorScreen.java:70"},
