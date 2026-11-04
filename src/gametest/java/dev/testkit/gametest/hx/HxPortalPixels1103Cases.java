@@ -136,7 +136,29 @@ final class HxPortalPixels1103Cases {
         return c.onClient(mc -> ((Number) Mod.staticCall(WARN, "portalColor")).intValue());
     }
 
+    /** Where the case builds its portal: far from the session's rooms, and at x, z below -39 so no floor's "past the room
+     *  grid" boss coordinates (ScoreCalculatorFeature.updateBoss, LiveMapFeature) can count it as the boss room. */
+    private static final int AT_X = -300, AT_Y = 120, AT_Z = -300;
+
     private static void body(Session c) throws Exception {
+        // The case once built where the case before left him: at 47, 172, 42 (gate-1104a) the F7 boss coordinates latched
+        // "in boss" and the tint, rightly, never came on. Stand at a fixed spot outside every floor's boss area instead.
+        Vec3 home = c.onClient(mc -> mc.player.position());
+        c.server().command("forceload add " + (AT_X - 16) + " " + (AT_Z - 16) + " " + (AT_X + 16) + " " + (AT_Z + 16));
+        fill(c, AT_X - 8, AT_Y - 1, AT_Z - 2, AT_X + 10, AT_Y - 1, AT_Z + 12, "minecraft:stone");
+        c.server().command("tp @a " + AT_X + ".5 " + AT_Y + " " + AT_Z + ".5 0 0");
+        c.waitUntil("standing at the portal spot", mc -> mc.player.blockPosition().equals(new BlockPos(AT_X, AT_Y, AT_Z)), 100);
+        c.ctx().waitTicks(20);
+        try {
+            bodyAt(c);
+        } finally {
+            c.server().command("tp @a " + home.x + " " + home.y + " " + home.z);
+            c.server().command("forceload remove " + (AT_X - 16) + " " + (AT_Z - 16) + " " + (AT_X + 16) + " " + (AT_Z + 16));
+            run(c, () -> Mod.setField("livemap.LiveMapFeature", "bossLatched", false));
+        }
+    }
+
+    private static void bodyAt(Session c) throws Exception {
         BlockPos f = c.onClient(mc -> mc.player.blockPosition());
         boolean hideGui = c.onClient(mc -> dev.testkit.compat.McCompat.hudHidden(mc));
         Boolean itBefore = c.onClient(mc -> improvedTransparency(mc));
@@ -168,6 +190,8 @@ final class HxPortalPixels1103Cases {
             run(c, () -> {
                 Mod.staticCall(WARN, "reset");
                 Mod.setField("livemap.LiveMapFeature", "bossLatched", false);
+                // A boss phase an earlier case's boss lines set stays on while the floor is F7 (no world change here).
+                Mod.setField("secrets.DungeonState", "bossPhaseActive", false);
                 Mod.setField("scorecalc.ScoreCalculatorFeature", "inBoss", false);
                 Mod.setField("scorecalc.ScoreCalculatorFeature", "bloodDone", false);
                 Mod.setField("scorecalc.ScoreCalculatorFeature", "expectingBloodUpdate", false);
@@ -227,7 +251,14 @@ final class HxPortalPixels1103Cases {
                     java.nio.file.Path p0 = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(c.name() + "-" + m + "-" + name + "-base"));
                     BufferedImage base = javax.imageio.ImageIO.read(p0.toFile());
                     run(c, () -> Mod.set(SCORE_CFG, "setPreBossPortalColor", true));
-                    c.waitUntil("tint on", mc -> ((Number) Mod.staticCall(WARN, "portalColor")).intValue() != 0
+                    c.note("before tint on (" + m + " " + name + "): " + c.onClient(mc -> "pos " + mc.player.blockPosition().toShortString()
+                            + ", calc inBoss " + Mod.field("scorecalc.ScoreCalculatorFeature", "inBoss")
+                            + ", tabDataSeen " + Mod.field("scorecalc.ScoreCalculatorFeature", "tabDataSeen")
+                            + ", livemap inBoss " + Mod.staticCall("livemap.LiveMapFeature", "isInBoss")
+                            + ", watcherDoneTick " + Mod.field(WARN, "watcherDoneTick")
+                            + ", floor " + Mod.staticCall("secrets.DungeonState", "getFloor")
+                            + ", portal blocks " + Mod.staticCall(WARN, "portalBlockCount")));
+                    c.waitUntil("tint on",mc -> ((Number) Mod.staticCall(WARN, "portalColor")).intValue() != 0
                             && ((Number) Mod.staticCall(WARN, "portalBlockCount")).intValue() == 6, 100);
                     int color = portalColor(c);
                     c.ctx().waitTicks(5);
