@@ -103,7 +103,9 @@ final class HxBloodCampCases {
 
         // nevermiss-1102 (owner 2026-11-03): Never Miss ON = no Trigger Offset, no kill timer, attack the tick after spawn.
         s.test("1102-bloodcamp-nevermiss-offset", HxBloodCampCases::neverMissOffset);
-        s.test("1102-bloodcamp-nevermiss-killtimer", HxBloodCampCases::neverMissKillTimer);
+        // bctrig-1104 (killer560, 2026-11-04: "blood camp triggerbot still kills before the kill alert goes off"): Never
+        // Miss waits for KILL now; the 1102 case asserted the opposite.
+        s.test("1104-bloodcamp-nevermiss-waits-kill", HxBloodCampCases::neverMissKillTimer);
         s.test("1102-bloodcamp-nevermiss-offspot", HxBloodCampCases::neverMissOffSpot);
         s.test("1102-bloodcamp-nevermiss-rehit", HxBloodCampCases::neverMissRehit);
         s.test("1102-bloodcamp-nevermiss-tab", HxBloodCampCases::neverMissTab);
@@ -112,6 +114,9 @@ final class HxBloodCampCases {
         s.test("1103-bloodcamp-atkspeed-next", HxBloodCampCases::atkSpeedNext);
         s.test("1103-bloodcamp-overlap-trips", HxBloodCampCases::overlapTrips);
         s.test("1103-bloodcamp-watcher-line", HxBloodCampCases::watcherLine);
+        // bctrig-1104: Mob Ticks start at the first spawn after the kill timer; KILL on game time, never the ping clock.
+        s.test("1104-bloodcamp-stats-spawn", HxBloodCampCases::statsSpawn);
+        s.test("1104-bloodcamp-gametime", HxBloodCampCases::gameTimeKill);
         s.test("1101-esp-fels", HxBloodCampCases::fels);
         s.test("1101-esp-starred-memory", HxBloodCampCases::starredMemory);
         s.test("1101-esp-mimic", HxBloodCampCases::mimic);
@@ -2004,11 +2009,12 @@ final class HxBloodCampCases {
                 Mod.setField(BC_MT, "moveAtElapsed", elapsed + 10 + lead);
                 return null;
             });
-            c.waitUntil("the kill timer goes off", mc -> "FIRST".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
+            c.waitUntil("the kill timer goes off", mc -> "WAITING_SPAWN".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
+            c.onClient(mc -> Mod.staticCall(BC_STATS, "tripMobLandedForTest", -1));
             long t0 = c.onClient(mc -> (Long) Mod.staticCall(BC_STATS, "ticksLost"));
             c.ctx().waitTicks(20);
             c.server().command("kill @e[name=stat1]");
-            c.waitUntil("the first kill is counted", mc -> "ALIVE".equals(Mod.staticCall(BC_STATS, "phaseName")), 40);
+            c.waitUntil("the first kill is counted", mc -> (Long) Mod.staticCall(BC_STATS, "firstKillTicks") >= 0, 40);
             long first = c.onClient(mc -> (Long) Mod.staticCall(BC_STATS, "firstKillTicks"));
             c.ctx().waitTicks(15);
             long atKill2 = c.onClient(mc -> (Long) Mod.staticCall(BC_STATS, "ticksLost"));
@@ -2204,7 +2210,7 @@ final class HxBloodCampCases {
                 Mod.setField(BC_MT, "moveAtElapsed", elapsed + 5 + lead);
                 return null;
             });
-            c.waitUntil("the kill timer goes off", mc -> "FIRST".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
+            c.waitUntil("the kill timer goes off", mc -> "WAITING_SPAWN".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
             c.ctx().waitTicks(10);
             List<String> camp = c.onClient(mc -> (List<String>) Mod.staticCall(BC_STATS, "hudLinesForTest"));
             c.hx().chat("[BOSS] The Watcher: You have proven yourself. You may pass.");
@@ -2286,7 +2292,8 @@ final class HxBloodCampCases {
                 Mod.setField(BC_MT, "moveAtElapsed", elapsed + 5 + lead);
                 return null;
             });
-            c.waitUntil("the kill timer goes off", mc -> "FIRST".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
+            c.waitUntil("the kill timer goes off", mc -> "WAITING_SPAWN".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
+            c.onClient(mc -> Mod.staticCall(BC_STATS, "tripMobLandedForTest", -1));
             c.ctx().waitTicks(10);
             StringBuilder trail = new StringBuilder();
             for (int i = 0; i < NPC_AT.length; i++) {
@@ -3237,6 +3244,11 @@ final class HxBloodCampCases {
     }
 
     /** The Kill Popup's kill timer far away (closed): Never Miss attacks anyway; OFF holds every click. */
+    /**
+     * killer560, 2026-11-04: "blood camp triggerbot still kills before the kill alert goes off". His 00:25:01 camp: Never
+     * Miss clicked a floor giant and a player-model mob 11 and 4 ticks before the gate opened, as he walked in. Never Miss
+     * ON with the kill timer closed must not click; once KILL is up it hits the mob on its tag tick. OFF is the control.
+     */
     private static void neverMissKillTimer(Session c) {
         boolean cheat = Mod.isCheat();
         try (HxKit.Settings s = base(c)) {
@@ -3262,6 +3274,24 @@ final class HxBloodCampCases {
             setNeverMiss(c, true, 5);
             stand(c, 0f, 0f);
             nextSummonDelay = 3;
+            Trip closed = trip(c, Mob.HURTABLE, true, 20, null);
+            boolean openClosed = c.onClient(mc -> (Boolean) Mod.staticCall(BC, "lastAttackOpen"));
+            c.note("kill timer closed, Never Miss ON: " + fmt(closed) + "; attack gate open " + openClosed);
+            c.check(closed.tracked, "the trip was never tracked - nothing was tested");
+            c.check(!openClosed && closed.clicks == 0 && closed.serverAttacks.isEmpty(), "Never Miss clicked "
+                    + closed.clicks + " time(s) (server attacks " + closed.serverAttacks + ") before the Kill Popup's KILL");
+            // KILL is up: Never Miss hits the mob on its tag tick.
+            c.onClient(mc -> {
+                long elapsed = (Long) Mod.staticCall(BC_MT, "elapsedSinceGreeting");
+                int lead = (Integer) Mod.call(Mod.cfg(BC_CFG), "getKillPopupLeadTicks");
+                Mod.setField(BC_MT, "moveAtElapsed", elapsed + lead - 5);
+                return null;
+            });
+            c.ctx().waitTicks(2);
+            boolean nowOpen = c.onClient(mc -> (Boolean) Mod.staticCall(BC_MT, "killTimerAllowsForTest", 0));
+            c.check(nowOpen, "the kill timer did not open with KILL 5 ticks ago - nothing was tested");
+            stand(c, 0f, 0f);
+            nextSummonDelay = 3;
             long[] before0 = firstClick(c);
             Trip on;
             boolean sent;
@@ -3269,30 +3299,143 @@ final class HxBloodCampCases {
                 on = trip(c, Mob.HURTABLE, true, 20, null);
                 sent = sends.sentOn(firstClick(c)[1]);
             }
-            long summon = lastSummonTick;
             boolean open = c.onClient(mc -> (Boolean) Mod.staticCall(BC, "lastAttackOpen"));
             long[] fc = firstClick(c);
-            long lag = on.serverAttacks.isEmpty() ? -1 : on.serverAttacks.get(0) - summon;
-            c.note("kill timer closed, Never Miss ON: " + fmt(on) + "; attack gate open " + open + "; first attack +" + lag
-                    + " server ticks after the summon (not judged, see AttackSends); first click tick " + fc[1] + ", tagged "
-                    + fc[2] + ", attack packet sent that tick " + sent);
-            c.check(open, "Never Miss: the attack gate was closed by the kill timer");
-            c.check(on.attacks >= 1 && !on.serverAttacks.isEmpty(), "Never Miss: no attack handled while the kill timer was"
-                    + " closed");
+            c.note("kill timer open, Never Miss ON: " + fmt(on) + "; attack gate open " + open + "; first click tick "
+                    + fc[1] + ", tagged " + fc[2] + ", attack packet sent that tick " + sent);
+            c.check(open, "Never Miss: the attack gate stayed closed after KILL");
+            c.check(on.attacks >= 1 && !on.serverAttacks.isEmpty(), "Never Miss: no attack handled after KILL");
             c.check(fc[1] != before0[1] && fc[2] >= 0 && fc[1] == fc[2], "Never Miss: the first click (tick " + fc[1]
                     + ") was not on the mob's tag tick " + fc[2]);
             c.check(sent, "Never Miss: no attack packet left the client on its click tick " + fc[1]);
-            setNeverMiss(c, false, 5);
-            stand(c, 0f, 0f);
-            nextSummonDelay = 3;
-            Trip off = trip(c, Mob.HURTABLE, true, 20, null);
-            boolean openOff = c.onClient(mc -> (Boolean) Mod.staticCall(BC, "lastAttackOpen"));
-            c.note("kill timer closed, Never Miss OFF: " + fmt(off) + "; attack gate open " + openOff);
-            c.check(off.tracked, "control: the trip was never tracked");
-            c.check(!openOff && off.clicks == 0 && off.serverAttacks.isEmpty(), "control: Never Miss OFF clicked "
-                    + off.clicks + " time(s) before the kill timer");
         } finally {
             nextSummonDelay = null;
+            c.onClient(mc -> {
+                Mod.staticCall(BC_MT, "reset");
+                return null;
+            });
+            c.hx().removeStands();
+        }
+    }
+
+    /**
+     * killer560, 2026-11-04: "it will time mobs alive from the tick the kill timer goes off. it should wait till the mob
+     * after that spawns to count any alive mobs". Two blood mobs stand on the floor through the kill timer: Mob Ticks must
+     * stay 0 until a trip's mob lands after KILL, then count while mobs are alive.
+     */
+    private static void statsSpawn(Session c) {
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "HudMobTicks", true).with(BC_CFG, "HudMobsLeft", true).with(BC_CFG, "PartyMessage", false);
+            clearDecoys(c);
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            taggedHusk(c, "stat1", "Revoker 1M❤", -421.0, -417.5);
+            taggedHusk(c, "stat2", "Revoker 1M❤", -417.5, -421.0);
+            greet(c);
+            c.onClient(mc -> {
+                long elapsed = (Long) Mod.staticCall(BC_MT, "elapsedSinceGreeting");
+                int lead = (Integer) Mod.call(Mod.cfg(BC_CFG), "getKillPopupLeadTicks");
+                Mod.setField(BC_MT, "moveAtElapsed", elapsed + 10 + lead);
+                return null;
+            });
+            c.waitUntil("the kill timer goes off", mc -> !"WAITING_KILL".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
+            c.ctx().waitTicks(20);
+            Object[] r = c.onClient(mc -> new Object[]{Mod.staticCall(BC_STATS, "ticksLost"),
+                    Mod.staticCall(BC_STATS, "phaseName"), Mod.staticCall(BC_STATS, "aliveForTest")});
+            long waiting = (Long) r[0];
+            c.note("20 ticks after the kill timer with " + r[2] + " old blood mob(s) alive and no new spawn: Mob Ticks "
+                    + waiting + ", phase " + r[1]);
+            c.check(Integer.valueOf(2).equals(r[2]), "the two floor mobs were not counted alive (" + r[2]
+                    + ") - nothing was tested");
+            c.check(waiting == 0, "Mob Ticks counted " + waiting + " ticks from the kill timer with no mob spawned since");
+            c.check("WAITING_SPAWN".equals(r[1]), "phase " + r[1] + " after the kill timer, want WAITING_SPAWN");
+            Trip t = trip(c, Mob.HURTABLE, true, 20, null);
+            Object[] after = c.onClient(mc -> new Object[]{Mod.staticCall(BC_STATS, "ticksLost"),
+                    Mod.staticCall(BC_STATS, "phaseName")});
+            c.ctx().waitTicks(20);
+            long later = c.onClient(mc -> (Long) Mod.staticCall(BC_STATS, "ticksLost"));
+            c.note("after a trip's mob landed (" + fmt(t) + "): phase " + after[1] + ", Mob Ticks " + after[0] + ", 20 client ticks"
+                    + " later " + later);
+            c.check(t.tracked, "the trip was never tracked - nothing was tested");
+            c.check("ALIVE".equals(after[1]), "the first mob since the kill timer did not start the count (phase "
+                    + after[1] + ")");
+            c.check((Long) after[0] > 0 && later - (Long) after[0] >= 8, "with blood mobs alive after the new spawn Mob"
+                    + " Ticks went " + after[0] + " -> " + later + " in 20 client ticks (it counts server ticks)");
+        } finally {
+            clearDecoys(c);
+            c.onClient(mc -> {
+                Mod.staticCall(BC_MT, "reset");
+                return null;
+            });
+            c.hx().removeStands();
+        }
+    }
+
+    /** BloodCampMoveTimer's private {@code moveAtElapsed}. */
+    private static long moveAtElapsed() {
+        try {
+            java.lang.reflect.Field f = Mod.cls(BC_MT).getDeclaredField("moveAtElapsed");
+            f.setAccessible(true);
+            return f.getLong(null);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("cannot read moveAtElapsed", e);
+        }
+    }
+
+    /** Runs the ping clock {@code n} ticks ahead of the server's game time; returns how far it actually moved. */
+    private static long clockAhead(Session c, int n) {
+        return c.onClient(mc -> {
+            // tickForTest advances an untrusted clock by one; a trusted one ignores it, pingForTest advances that one.
+            long before = (Long) Mod.staticCall("util.PerTickServerClock", "now");
+            boolean trusted = (Boolean) Mod.staticCall("util.PerTickServerClock", "trusted");
+            for (int i = 0; i < n; i++) {
+                Mod.staticCall("util.PerTickServerClock", trusted ? "pingForTest" : "tickForTest");
+            }
+            return (Long) Mod.staticCall("util.PerTickServerClock", "now") - before;
+        });
+    }
+
+    /**
+     * killer560, 2026-11-04: "some watchers the kill still comes up way too late. its normally the really fast watchers".
+     * In his Blood Rooms Hypixel sent 20-24 pings per 20 ticks, so the ping clock ran up to a quarter ahead of game time:
+     * a 14 s last wave read 16-18 s, took the old long-gap table (24 s), and put KILL 60 ticks after the move; the same
+     * overcount opened the gate early elsewhere. The move time is the floor's whatever the gap, and KILL counts on the
+     * lesser of the ping clock and game time.
+     */
+    private static void gameTimeKill(Session c) {
+        try (HxKit.Settings s = base(c)) {
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            c.hx().chat("[BOSS] The Watcher: Ah, you've finally arrived.");
+            c.ctx().waitTicks(5);
+            long ahead = clockAhead(c, 400);
+            c.check(ahead >= 380, "the ping clock moved only " + ahead + " ticks - nothing was tested");
+            c.hx().chat("[BOSS] The Watcher: Let's see how you can handle this.");
+            c.ctx().waitTicks(5);
+            Object[] r = c.onClient(mc -> new Object[]{moveAtElapsed(),
+                    Mod.staticCall(BC_MT, "fastWatcherMoveTicksForTest",
+                            Mod.staticCall("secrets.DungeonState", "getFloor")),
+                    Mod.staticCall(BC_MT, "elapsedSinceGreeting")});
+            c.note("last wave 5 game ticks after the greeting with the ping clock " + ahead + " ahead: move at " + r[0]
+                    + ", floor time " + r[1] + ", elapsed " + r[2]);
+            c.check(String.valueOf(r[1]).equals(String.valueOf(r[0])), "a last wave read as " + (ahead + 5) / 20.0
+                    + " s on the ping clock moved the Watcher at " + r[0] + " ticks, want the floor's " + r[1]);
+            c.check(((Number) r[2]).longValue() < 60, "elapsed since the greeting reads " + r[2]
+                    + " ticks, 10 game ticks after it");
+            // KILL 40 game ticks away; the ping clock runs 100 more ahead.
+            c.onClient(mc -> {
+                long elapsed = (Long) Mod.staticCall(BC_MT, "elapsedSinceGreeting");
+                int lead = (Integer) Mod.call(Mod.cfg(BC_CFG), "getKillPopupLeadTicks");
+                Mod.setField(BC_MT, "moveAtElapsed", elapsed + 40 + lead);
+                return null;
+            });
+            long more = clockAhead(c, 100);
+            boolean early = c.onClient(mc -> (Boolean) Mod.staticCall(BC_MT, "killTimerAllowsForTest", 0));
+            c.note("KILL 40 game ticks away, ping clock " + more + " more ahead: open " + early);
+            c.check(more >= 90, "the ping clock moved only " + more + " ticks - nothing was tested");
+            c.check(!early, "the kill timer opened 40 game ticks early with the ping clock ahead");
+            c.waitUntil("KILL comes up on game time", mc -> (Boolean) Mod.staticCall(BC_MT, "killTimerAllowsForTest", 0), 80);
+        } finally {
             c.onClient(mc -> {
                 Mod.staticCall(BC_MT, "reset");
                 return null;
