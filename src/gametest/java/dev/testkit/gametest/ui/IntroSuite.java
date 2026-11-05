@@ -56,7 +56,7 @@ import java.util.Map;
 public class IntroSuite implements FabricClientGameTest {
 
     static final String[] CASES = {"1101-ui-intro-first-show", "1101-ui-intro-nav", "1101-ui-intro-skip",
-            "1101-ui-intro-theme", "1101-ui-intro-variant", "1101-ui-intro-banlogs", "1104-ui-intro-crashreports", "1101-ui-intro-once",
+            "1101-ui-intro-theme", "1101-ui-intro-variant", "1101-ui-intro-banlogs", "1104-ui-intro-crashreports", "1104-ui-intro-skipdefaults", "1101-ui-intro-once",
             "1101-ui-intro-sizes", "1101-ui-intro-anim", "1101-ui-intro-autoupdate", "1101-ui-intro-mouth",
             "1101-ui-intro-facing", "1101-ui-intro-still", "1101-ui-intro-timebox", "1101-ui-intro-grid"};
     static final String INTRO = "intro.IntroScreen";
@@ -85,6 +85,7 @@ public class IntroSuite implements FabricClientGameTest {
         UiCase.run(ctx, "1101-ui-intro-variant", IntroSuite::variant);
         UiCase.run(ctx, "1101-ui-intro-banlogs", IntroSuite::banLogs);
         UiCase.run(ctx, "1104-ui-intro-crashreports", IntroSuite::crashReports);
+        UiCase.run(ctx, "1104-ui-intro-skipdefaults", IntroSuite::skipDefaults);
         UiCase.run(ctx, "1101-ui-intro-once", IntroSuite::once);
         UiCase.run(ctx, "1101-ui-intro-sizes", IntroSuite::sizes);
         UiCase.run(ctx, "1101-ui-intro-anim", IntroSuite::anim);
@@ -400,6 +401,71 @@ public class IntroSuite implements FabricClientGameTest {
             c.check(frames1 - frames0 > 50, "the 3D guide drew only " + (frames1 - frames0) + " frames");
         } finally {
             FontsMainMenuSuite.setWindow(c, win0[0], win0[1], win0[2]);
+        }
+    }
+
+    static void setAll(UiCase c, boolean on) {
+        c.onClient(mc -> {
+            for (String n : new String[] {"banreport.BanReportConfig", "crashreport.CrashReportConfig", "autoupdate.AutoUpdateConfig"}) {
+                Object cfg = Mod.cfg(n);
+                Mod.call(cfg, "setEnabled", on);
+                Mod.call(cfg, "save");
+            }
+            return null;
+        });
+    }
+
+    /** Opens the tour the way the launcher does on first launch (auto path): skipping it turns on what was not answered. */
+    static void openAuto(UiCase c) {
+        c.onClient(mc -> {
+            try {
+                Class<?> k = Class.forName(Mod.ROOT + INTRO);
+                McCompat.setScreen(mc, (Screen) k.getConstructor(Screen.class, boolean.class).newInstance(new TitleScreen(), true));
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(e);
+            }
+            return null;
+        });
+        c.ticks(3);
+        c.check(intro(c) != null, "the auto tour did not open");
+        settle(c);
+    }
+
+    /** Skipping the auto-opened tour turns on each unanswered question; answered ones and a replay stay as they were. */
+    static void skipDefaults(UiCase c) {
+        boolean cheat = Mod.isCheat();
+        try {
+            setAll(c, false);
+            openAuto(c);
+            click(c, "Skip Guide");
+            c.check(done(c), "Skip Guide did not end the tour");
+            c.check(crash(c), "skipping did not turn Auto Crash Reports on");
+            c.check(autoUpdate(c), "skipping did not turn Auto Update on");
+            c.check(ban(c) == cheat, "skipping left Auto Report Bans " + ban(c) + " on a " + (cheat ? "cheat" : "legit") + " jar");
+            c.check(configFile(c, "killer560smod-crashreport.json").contains("\"enabled\": true"), "crash reports not saved ON");
+            c.check(configFile(c, "killer560smod-autoupdate.json").contains("\"enabled\": true"), "auto update not saved ON");
+
+            // Escape then Skip Tour is the same; answered Nos (goTo answers the ban scene No) stay No.
+            setAll(c, false);
+            openAuto(c);
+            goTo(c, "CRASH_REPORTS");
+            click(c, "No thanks");
+            key(c, 256);
+            click(c, "Skip Tour");
+            c.check(intro(c) == null, "Skip Tour did not close the tour");
+            c.check(!crash(c), "an answered No was overridden by the skip");
+            c.check(autoUpdate(c), "Skip Tour did not turn Auto Update on");
+            c.check(!ban(c), "Skip Tour overrode the ban-log No that goTo answered on the way");
+
+            // A replay that is skipped changes nothing.
+            setAll(c, false);
+            open(c);
+            click(c, "Skip Guide");
+            c.check(!crash(c) && !autoUpdate(c) && !ban(c), "a skipped replay changed a setting: crash=" + crash(c)
+                    + " update=" + autoUpdate(c) + " ban=" + ban(c));
+        } finally {
+            setAll(c, false);
+            setAutoUpdate(c, true);
         }
     }
 
