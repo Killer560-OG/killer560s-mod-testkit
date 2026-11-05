@@ -6,6 +6,8 @@ import dev.testkit.gametest.hx.Session;
 import dev.testkit.gametest.mod.Mod;
 
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 import java.nio.file.Files;
@@ -28,6 +30,7 @@ final class InvLoadout1104Cases {
     private static final String EXEC = "invsort.InventorySorterExecutor";
     private static final String STORE = "invsort.InventoryLayoutStore";
     private static final String SCREEN = "invsort.InventorySorterScreen";
+    private static final String CACHE = "invsort.InvSortLoadoutCache";
     private static final String ISC = "invsort.InventorySorterConfig";
 
     private InvLoadout1104Cases() {
@@ -36,6 +39,7 @@ final class InvLoadout1104Cases {
     static void register(Session s) {
         MenuSuite.test(s, "1104-invsort-loadout-save", InvLoadout1104Cases::save);
         MenuSuite.test(s, "1104-invsort-loadout-apply", InvLoadout1104Cases::apply);
+        MenuSuite.test(s, "1105-invsort-loadout-cache", InvLoadout1104Cases::cache);
     }
 
     private static Object layout(Session c, String name, Map<Integer, String> slots, int loadout) {
@@ -68,10 +72,9 @@ final class InvLoadout1104Cases {
                 && McCompat.screen(mc).getClass().getSimpleName().equals("InvSortLoadoutPick"), 40);
         c.ctx().runOnClient(mc -> {
             Object scr = McCompat.screen(mc);
-            int[] b = (int[]) Mod.call(scr, "themedPanelBounds");
-            // 6 columns of 28, 12 padding, header 22 + 4; the None button sits under the two rows of slots.
-            double x = n == 0 ? b[0] + b[2] / 2.0 : b[0] + 12 + ((n - 1) % 6) * 28 + 12;
-            double y = n == 0 ? b[1] + 22 + 4 + 12 + 56 + 4 + 9 : b[1] + 22 + 4 + 12 + ((n - 1) / 6) * 28 + 12;
+            int[] at = (int[]) Mod.call(scr, "centerOf", n); // the middle of that loadout's cell (or None) as drawn now
+            double x = at[0];
+            double y = at[1];
             ((Screen) scr).mouseClicked(new net.minecraft.client.input.MouseButtonEvent(x, y,
                     new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
         });
@@ -225,6 +228,8 @@ final class InvLoadout1104Cases {
                     "the sort did not come after the loadout click: " + clicks);
             c.check(c.onClient(mc -> mc.player.getInventory().getItem(0).is(Items.DIAMOND)),
                     "the diamond did not reach slot 0 after the loadout");
+            // The open menu was Hypixel's page 1 ("(1/2) Loadout"): the sorter's cache took a copy of it.
+            c.waitUntil("the loadout cache", mc -> Mod.staticCall(CACHE, "get") != null, 60);
             c.note("loadout 5: /loadouts x1, first click PICKUP menu slot 24 at tick " + first.get("tick") + ", menu closed, "
                     + (clicks.size() - 1) + " sort click(s) after it, diamond in slot 0; control sent no /loadouts");
         } finally {
@@ -245,5 +250,118 @@ final class InvLoadout1104Cases {
             }
             c.ctx().runOnClient(mc -> Mod.staticCall(ISC, "load"));
         }
+    }
+
+    /** A fake "(1/3) Loadouts" page: one distinct item per loadout in slots 14-16, 23-25, 32-34, 41-43. */
+    private static List<ItemStack> fakePage() {
+        Item[] kinds = {Items.DIAMOND_HELMET, Items.IRON_CHESTPLATE, Items.GOLDEN_LEGGINGS, Items.CHAINMAIL_BOOTS};
+        ItemStack[] page = new ItemStack[54];
+        java.util.Arrays.fill(page, ItemStack.EMPTY);
+        int[] slots = {14, 15, 16, 23, 24, 25, 32, 33, 34, 41, 42, 43};
+        for (int i = 0; i < slots.length; i++) {
+            page[slots[i]] = new ItemStack(kinds[i / 3], 1);
+        }
+        return java.util.Arrays.asList(page);
+    }
+
+    /** loadoutpick-1105: the picker draws the cached /loadouts page, the cache survives a "restart", a click on a loadout's
+     *  cell picks it, and with nothing cached the number buttons stay. */
+    static void cache(Session c) throws Exception {
+        MenuKit.reset(c);
+        InventoryCases.clearInv(c);
+        if (legit(c)) {
+            return;
+        }
+        String name = "hx-1105-lo";
+        Path file = c.onClient(mc -> (Path) Mod.field(CACHE, "FILE"));
+        byte[] old = null;
+        try {
+            if (Files.exists(file)) {
+                old = Files.readAllBytes(file);
+                Files.delete(file);
+            }
+        } catch (java.io.IOException e) {
+            throw new AssertionError(e);
+        }
+        try {
+            c.ctx().runOnClient(mc -> {
+                Mod.staticCall(CACHE, "forgetMemoryForTest");
+                Mod.call(store(), "delete", name);
+                Mod.call(store(), "save", layout(c, name, Map.of(0, "RUNEBOOK"), 0));
+                try {
+                    McCompat.setScreen(mc, (Screen) Mod.cls(SCREEN).getConstructor(Screen.class).newInstance((Object) null));
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+            });
+            c.waitUntil("the layouts menu", mc -> McCompat.screen(mc) != null
+                    && McCompat.screen(mc).getClass().getSimpleName().equals("InventorySorterScreen"), 40);
+            c.ctx().runOnClient(mc -> Mod.call(McCompat.screen(mc), "select", name));
+            c.ctx().waitTicks(3);
+            // Empty cache: the number buttons, and a click on 3 picks 3.
+            c.check(c.onClient(mc -> Mod.staticCall(CACHE, "get")) == null, "an empty cache should answer null");
+            pick(c, 3);
+            c.check(loadoutOf(c, name) == 3, "fallback: a click on button 3 should give 3, got " + loadoutOf(c, name));
+            int[] fallback5 = openPickerCenter(c, 5);
+            c.ctx().runOnClient(mc -> McCompat.screen(mc).onClose());
+
+            // Page seen: kept in memory and written to disk.
+            List<ItemStack> page = fakePage();
+            c.ctx().runOnClient(mc -> Mod.staticCall(CACHE, "capture", page));
+            c.check(c.onClient(mc -> Mod.staticCall(CACHE, "get")) != null, "after capture the cache should answer");
+            c.ctx().runOnClient(mc -> Mod.staticCall("shared.SharedWriter", "drain", 4000L));
+            String json = Files.exists(file) ? Files.readString(file) : "";
+            c.check(json.length() > 20, "the cache file was not written: " + file);
+            // "Restart": forget memory, the next get reads the file.
+            c.ctx().runOnClient(mc -> Mod.staticCall(CACHE, "forgetMemoryForTest"));
+            c.waitUntil("the cache read back from disk", mc -> {
+                Object got = Mod.staticCall(CACHE, "get");
+                return got != null && ((List<?>) got).size() == 54;
+            }, 100);
+            List<?> back = c.onClient(mc -> (List<?>) Mod.staticCall(CACHE, "get"));
+            c.check(((ItemStack) back.get(24)).is(Items.IRON_CHESTPLATE) && ((ItemStack) back.get(14)).is(Items.DIAMOND_HELMET)
+                            && ((ItemStack) back.get(0)).isEmpty(),
+                    "the reloaded page is not the saved one: slot 24 " + back.get(24) + ", slot 14 " + back.get(14));
+
+            // The picker now shows the page: loadout 5's cell is elsewhere than its fallback button, and a click on it picks 5.
+            int[] shown5 = openPickerCenter(c, 5);
+            c.check(shown5[0] != fallback5[0] || shown5[1] != fallback5[1], "the picker still draws the number buttons");
+            c.ctx().runOnClient(mc -> {
+                Object scr = McCompat.screen(mc);
+                ((Screen) scr).mouseClicked(new net.minecraft.client.input.MouseButtonEvent(shown5[0] + 5, shown5[1] - 6,
+                        new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
+            });
+            c.waitUntil("back in the layouts menu", mc -> McCompat.screen(mc) != null
+                    && McCompat.screen(mc).getClass().getSimpleName().equals("InventorySorterScreen"), 40);
+            c.check(loadoutOf(c, name) == 5, "a click inside loadout 5's cell should pick 5, got " + loadoutOf(c, name));
+            pick(c, 0);
+            c.check(loadoutOf(c, name) == 0, "None should still clear it, got " + loadoutOf(c, name));
+            c.ctx().runOnClient(mc -> McCompat.screen(mc).onClose());
+            c.note("picker: number buttons with an empty cache; cache of a fake page saved to disk, read back after a restart, "
+                    + "drawn as its cells (loadout 5 moved " + java.util.Arrays.toString(fallback5) + " -> "
+                    + java.util.Arrays.toString(shown5) + "), a click in the cell picked 5, None cleared");
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.call(store(), "delete", name));
+            try {
+                if (old == null) {
+                    Files.deleteIfExists(file);
+                } else {
+                    Files.write(file, old);
+                }
+            } catch (java.io.IOException e) {
+                throw new AssertionError(e);
+            }
+            c.ctx().runOnClient(mc -> Mod.staticCall(CACHE, "forgetMemoryForTest"));
+            MenuKit.reset(c);
+        }
+    }
+
+    /** Opens the picker and answers where choice n is drawn. Leaves the picker open. */
+    private static int[] openPickerCenter(Session c, int n) {
+        c.ctx().runOnClient(mc -> Mod.call(McCompat.screen(mc), "openLoadoutPicker"));
+        c.waitUntil("the loadout picker", mc -> McCompat.screen(mc) != null
+                && McCompat.screen(mc).getClass().getSimpleName().equals("InvSortLoadoutPick"), 40);
+        c.ctx().waitTicks(3);
+        return c.onClient(mc -> (int[]) Mod.call(McCompat.screen(mc), "centerOf", n));
     }
 }
