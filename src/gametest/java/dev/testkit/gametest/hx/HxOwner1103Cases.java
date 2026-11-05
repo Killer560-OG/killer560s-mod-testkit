@@ -23,6 +23,7 @@ final class HxOwner1103Cases {
     static void register(Session s) {
         s.test("1103-mask-proc-title", HxOwner1103Cases::maskTitle);
         s.test("1103-partycmd-self", HxOwner1103Cases::partySelf);
+        s.test("1104-mask-phoenix-icon", HxOwner1103Cases::phoenixIcon);
     }
 
     private static void maskTitle(Session c) {
@@ -56,5 +57,26 @@ final class HxOwner1103Cases {
             c.check(!ran, "your own !pt ran a transfer");
             c.note("own !pt ignored for " + self);
         }
+    }
+
+    /** phxicon-1104: the Phoenix is a pet (never in the inventory, not in Hypixel's catalog), so its HUD icon is a fixed
+     *  head whose PROFILE textures property decodes to the Phoenix skin 66b1b59b..., never a plain Steve head. */
+    private static void phoenixIcon(Session c) {
+        String tex = c.onClient(mc -> {
+            Object phx = Mod.enumValue(MASK + "$Type", "PHOENIX");
+            ((java.util.Map<?, ?>) Mod.field(MASK, "iconCache")).remove(phx);
+            ((java.util.Map<?, ?>) Mod.field(MASK, "fallbackIcon")).remove(phx);
+            var stack = (net.minecraft.world.item.ItemStack) Mod.staticCall(MASK, "icon", phx);
+            var prof = stack.get(net.minecraft.core.component.DataComponents.PROFILE);
+            if (prof == null) {
+                return "no PROFILE on " + stack;
+            }
+            var it = prof.partialProfile().properties().get("textures").iterator();
+            return it.hasNext() ? new String(java.util.Base64.getDecoder().decode(it.next().value()),
+                    java.nio.charset.StandardCharsets.UTF_8) : "no textures property";
+        });
+        c.note("Phoenix icon textures: " + (tex.length() > 160 ? tex.substring(0, 160) : tex));
+        c.check(tex.contains("textures.minecraft.net/texture/66b1b59bc890c9c97527787dde20600c8b86f6b9912d51a6bfcdb0e4c2aa3c97"),
+                "the Phoenix HUD icon is not the Phoenix skin: " + tex);
     }
 }
