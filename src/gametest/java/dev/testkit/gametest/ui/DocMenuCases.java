@@ -368,6 +368,9 @@ final class DocMenuCases {
                 if (Mod.has("gui.tab.CrashReportTab")) {
                     wantCards.add("CrashReportTab"); // mod crashrep-1104: next to Ban Reports, both builds
                 }
+                if (Mod.has("gui.tab.DiscordLinkTab")) {
+                    wantCards.add("DiscordLinkTab"); // mod discordlink-1105: after Crash Reports, both builds
+                }
                 if (Mod.isCheat()) {
                     wantCards.add("CorrectionAlarmTab");
                     wantCards.add("StreamerModeTab"); // mod 23ef23da (2026-10-19): Home's cheat block

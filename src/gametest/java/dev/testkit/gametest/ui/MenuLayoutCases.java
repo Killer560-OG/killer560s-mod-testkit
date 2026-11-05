@@ -147,6 +147,8 @@ final class MenuLayoutCases {
             "gui.tab.BanReportTab",
             // Crash Reports (mod crashrep-1104, 2026-11-04): Auto Crash Reports, next to Ban Reports, both builds, OFF.
             "gui.tab.CrashReportTab",
+            // Discord Link (mod discordlink-1105, 2026-11-05): Home, after Crash Reports, both builds.
+            "gui.tab.DiscordLinkTab",
             // To-do Doc items of 2026-11-01 (mod doc-extras-1101), legit in both builds: Creation Cooldown and Insta Clear
             // Warning (Dungeons), Gyrokinetic Wand Overlay (Items), Chat Tabs (Chat).
             "gui.tab.CreationCooldownTab", "gui.tab.InstaClearWarningTab", "gui.tab.GyroOverlayTab", "gui.tab.ChatTabsTab",
