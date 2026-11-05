@@ -45,7 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  *   <li>1754 shot: the real inventory screen hovering the Hyperion draws the lines (screenshot in the report).</li>
  *   <li>1104-pricetip-recomb (recombprice-1104, killer560: "it says an items value that a recomb is 7m but on bazaar it
  *       is 9m"): Value Mode defaults to Full Price (also over an old file's saved NETWORTH), the recomb line is the
- *       Bazaar Buy price (9,000,000 in the fake), Networth (Discounted) shows 80% of it, and the Profile Viewer's
+ *       Bazaar Buy price (9,000,000 in the fake), Networth shows 80% of it, and the Profile Viewer's
  *       networth of the item equals the tooltip's Est. Item Value in both modes.</li>
  * </ol>
  */
@@ -365,7 +365,7 @@ final class PriceTooltipCases {
         }
         c.check(String.valueOf(mode).equals("FULL"), "Value Mode after loading an old NETWORTH file: " + mode + ", expected FULL");
         c.check("Full Price".equals(Mod.field(Mod.enumValue(CFG + "$ValueMode", "FULL"), "label"))
-                        && "Networth (Discounted)".equals(Mod.field(Mod.enumValue(CFG + "$ValueMode", "NETWORTH"), "label")),
+                        && "Networth".equals(Mod.field(Mod.enumValue(CFG + "$ValueMode", "NETWORTH"), "label")),
                 "Value Mode labels");
 
         Fake.bazaarOverride = BAZAAR.replace("\"RECOMBOBULATOR_3000\",\"quick_status\":{\"buyPrice\":10000000,\"sellPrice\":9000000}",
@@ -388,8 +388,8 @@ final class PriceTooltipCases {
 
             cfg.set(CFG, "ValueMode", Mod.enumValue(CFG + "$ValueMode", "NETWORTH"));
             List<String> nw = priceLines(c, built);
-            c.note("Networth (Discounted) tooltip: " + nw);
-            c.check(nw.contains(" §8- §7Recombobulator: §b7,200,000.0"), "Networth (Discounted) recomb is not 80%: " + nw);
+            c.note("Networth tooltip: " + nw);
+            c.check(nw.contains(" §8- §7Recombobulator: §b7,200,000.0"), "Networth recomb is not 80%: " + nw);
             sameAsNetworth(c, built, nw);
         } finally {
             Fake.bazaarOverride = null;
