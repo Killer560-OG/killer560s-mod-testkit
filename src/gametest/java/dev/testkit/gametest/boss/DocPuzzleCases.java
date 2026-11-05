@@ -29,6 +29,9 @@ import java.util.Set;
  *   Sneak To Override off keeps a sneaking misclick blocked.</li>
  *   <li>1101-pz-beams: four real lantern pairs get four different palette colors at least 0.5 apart (RGB distance); All
  *   draws 4, One At A Time 1, Next 2; finishing the shown pair moves One At A Time on and leaves the others' colors.</li>
+ *   <li>1104-pz-beams-opening (mod beamsfirst-1104): with the creeper at the room centre, One At A Time opens with the
+ *   pair at its feet and straight above (candidate 0) although another lit pair is nearer the eye, Next adds that one;
+ *   with no creeper the nearest pair opens, as before.</li>
  *   <li>1101-pz-icefill: Etherwarp Protection on real sneaking right clicks with an ethermerged shovel over ice tiles.</li>
  *   <li>1102-pz-icefill-flick (mod icefill-1102): a right click made in the same tick the camera turns is judged on the
  *   look the server last HEARD (Hypixel warps along it): heard on the diagonal tile, aimed at the next one -> dropped
@@ -60,6 +63,7 @@ final class DocPuzzleCases {
         s.test("1101-pz-quiz", DocPuzzleCases::quiz);
         s.test("1101-pz-ttt", DocPuzzleCases::ticTacToe);
         s.test("1101-pz-beams", DocPuzzleCases::beams);
+        s.test("1104-pz-beams-opening", DocPuzzleCases::beamsOpening);
         s.test("1101-pz-icefill", DocPuzzleCases::iceFill);
         s.test("1102-pz-icefill-flick", DocPuzzleCases::iceFillFlick);
         s.test("1101-pz-tpmaze", DocPuzzleCases::teleportMaze);
@@ -512,6 +516,112 @@ final class DocPuzzleCases {
             restore(c, undo);
             c.hx().sidebarClear();
         }
+    }
+
+    // ---- 1104-pz-beams-opening -------------------------------------------------------------------------------------
+
+    static void beamsOpening(Session c) throws Exception {
+        List<AutoCloseable> undo = new ArrayList<>();
+        int[] cr = {-640, -640, 0};
+        List<BlockPos> lanterns = new ArrayList<>();
+        // The room's centre, where Hypixel's creeper stands on the lower lantern of candidate 0 ([15,74,15] - [15,84,13]).
+        BlockPos[] feet = new BlockPos[1];
+        try {
+            inDungeon(c);
+            undo.add(c.onClient(mc -> Mod.with(BEAMS_CFG, "Enabled", true)));
+            BlockPos[] vertical = new BlockPos[2];
+            BlockPos[] other = new BlockPos[2];
+            c.ctx().runOnClient(mc -> {
+                List<?> cands = (List<?>) Mod.field(BEAMS, "CANDIDATES");
+                for (Object cand : cands) {
+                    BlockPos a = (BlockPos) Mod.staticCall("puzzlesolvers.PuzzleCoords", "real",
+                            Mod.call(cand, "x1"), Mod.call(cand, "y1"), Mod.call(cand, "z1"), cr);
+                    BlockPos b = (BlockPos) Mod.staticCall("puzzlesolvers.PuzzleCoords", "real",
+                            Mod.call(cand, "x2"), Mod.call(cand, "y2"), Mod.call(cand, "z2"), cr);
+                    if (vertical[0] == null) {
+                        vertical[0] = a;
+                        vertical[1] = b;
+                    } else if (other[0] == null && !a.equals(vertical[0]) && !a.equals(vertical[1])
+                            && !b.equals(vertical[0]) && !b.equals(vertical[1])) {
+                        other[0] = a;
+                        other[1] = b;
+                    }
+                }
+                feet[0] = (BlockPos) Mod.staticCall("puzzlesolvers.PuzzleCoords", "real", 15, 75, 15, cr);
+            });
+            c.check(vertical[0] != null && other[0] != null, "no two disjoint candidate pairs");
+            c.check(vertical[0].getX() == feet[0].getX() && vertical[0].getZ() == feet[0].getZ() && vertical[1].getY() > vertical[0].getY(),
+                    "candidate 0 " + vertical[0] + " - " + vertical[1] + " is not the pair under the room centre " + feet[0]);
+            for (BlockPos q : List.of(vertical[0], vertical[1], other[0], other[1])) {
+                lanterns.add(q);
+                c.server().command("setblock " + q.getX() + " " + q.getY() + " " + q.getZ() + " minecraft:sea_lantern");
+            }
+            c.waitUntil("the lanterns on the client", mc -> {
+                for (BlockPos q : lanterns) {
+                    if (!mc.level.getBlockState(q).is(Blocks.SEA_LANTERN)) return false;
+                }
+                return true;
+            }, 100);
+            c.server().command("summon minecraft:creeper " + (feet[0].getX() + 0.5) + " " + feet[0].getY() + " " + (feet[0].getZ() + 0.5)
+                    + " {NoAI:1b,Silent:1b,Invulnerable:1b,Tags:[\"k560beams\"]}");
+            c.waitUntil("the creeper on the client", mc -> !mc.level.getEntitiesOfClass(net.minecraft.world.entity.monster.Creeper.class,
+                    new net.minecraft.world.phys.AABB(feet[0]).inflate(4)).isEmpty(), 100);
+            // The eye beside the other pair: plain "nearest" would open with it.
+            Vec3 eye = Vec3.atCenterOf(other[0]);
+            c.check(eye.distanceToSqr(Vec3.atCenterOf(vertical[0])) > 25, "the eye is not away from the creeper pair");
+
+            List<Object[]> one = c.onClient(mc -> scanAndDrawFresh(mc, cr, "ONE", eye));
+            Object seenFeet = c.onClient(mc -> Mod.field(BEAMS, "creeperFeet"));
+            List<Object[]> next = c.onClient(mc -> scanAndDrawAt(mc, cr, "NEXT", eye));
+            c.note("creeper at " + seenFeet + "; One At A Time drew " + firsts(one) + ", Next " + firsts(next));
+            c.check(seenFeet != null, "the solver never saw the creeper");
+            c.check(one.size() == 1 && vertical[0].equals(one.get(0)[0]),
+                    "One At A Time should open with the creeper's pair " + vertical[0].toShortString() + ", drew " + firsts(one));
+            c.check(next.size() == 2 && vertical[0].equals(next.get(0)[0]) && other[0].equals(next.get(1)[0]),
+                    "Next should show the creeper's pair then the nearest: " + firsts(next));
+
+            // No creeper: the nearest pair opens, as before (the control: the creeper is what made the difference).
+            c.server().command("kill @e[tag=k560beams]");
+            c.waitUntil("the creeper gone on the client", mc -> mc.level.getEntitiesOfClass(net.minecraft.world.entity.monster.Creeper.class,
+                    new net.minecraft.world.phys.AABB(feet[0]).inflate(4)).isEmpty(), 100);
+            List<Object[]> plain = c.onClient(mc -> scanAndDrawFresh(mc, cr, "ONE", eye));
+            c.note("no creeper: One At A Time drew " + firsts(plain));
+            c.check(plain.size() == 1 && other[0].equals(plain.get(0)[0]),
+                    "with no creeper One At A Time should open with the nearest pair " + other[0].toShortString() + ", drew " + firsts(plain));
+        } finally {
+            c.server().command("kill @e[tag=k560beams]");
+            for (BlockPos q : lanterns) {
+                c.server().command("setblock " + q.getX() + " " + q.getY() + " " + q.getZ() + " minecraft:air");
+            }
+            c.ctx().runOnClient(mc -> resetBeamsVisit());
+            restore(c, undo);
+            c.hx().sidebarClear();
+        }
+    }
+
+    /** A fresh visit's state: nothing shown yet, the opening pick not made, no creeper seen. */
+    private static void resetBeamsVisit() {
+        ((List<?>) Mod.field(BEAMS, "shownOrder")).clear();
+        Mod.setField(BEAMS, "openingUsed", false);
+        Mod.setField(BEAMS, "creeperFeet", null);
+    }
+
+    private static List<Object[]> scanAndDrawFresh(Minecraft mc, int[] cr, String mode, Vec3 eye) {
+        resetBeamsVisit();
+        return scanAndDrawAt(mc, cr, mode, eye);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Object[]> scanAndDrawAt(Minecraft mc, int[] cr, String mode, Vec3 eye) {
+        Mod.set(BEAMS_CFG, "setShowMode", Mod.enumValue(BEAMS_CFG + "$ShowMode", mode));
+        Mod.staticCall(BEAMS, "rescan", mc.level, cr);
+        return (List<Object[]>) Mod.staticCall(BEAMS, "drawnPairsForTest", eye);
+    }
+
+    private static String firsts(List<Object[]> drawn) {
+        List<String> out = new ArrayList<>();
+        for (Object[] d : drawn) out.add(((BlockPos) d[0]).toShortString());
+        return out.toString();
     }
 
     /** Rescan the beams "room" with the mod's own scan and return {what it draws under {@code mode}}. */

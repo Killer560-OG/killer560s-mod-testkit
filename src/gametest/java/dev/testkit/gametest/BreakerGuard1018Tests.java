@@ -51,6 +51,119 @@ public class BreakerGuard1018Tests implements FabricClientGameTest {
         secrets(ctx, "1018-breaker-secrets-on", true);
         secrets(ctx, "1018-breaker-secrets-off", false);
         fairy(ctx);
+        dungeonsOnly(ctx);
+    }
+
+    // ------------------------------------------------------------------------------------------------ dungeons only
+
+    /**
+     * {@code 1104-breaker-dungeons-only} (mod brkdun-1104, killer560 2026-11-04: "make dungeon breaker have a dungeons
+     * only option to it for zero ping"): outside a dungeon, Zero Ping's {@code onStartDestroyBlock} leaves the client's
+     * block with Dungeons Only ON (and logs the skip) and predicts air with it OFF (the control: the hook acts), and the
+     * setting survives a save + reload. Cheat jar only (Zero Ping is cheat-only).
+     */
+    private void dungeonsOnly(ClientGameTestContext ctx) {
+        String name = "1104-breaker-dungeons-only";
+        if (Scenario.skip(name)) {
+            return;
+        }
+        ModUnderTest.require(MOD_ID);
+        BlockPos on = new BlockPos(SECRET_CX, SURFACE_Y, SECRET_CZ + 2);
+        BlockPos off = new BlockPos(SECRET_CX + 1, SURFACE_Y, SECRET_CZ + 2);
+        Scenario.run(ctx, name,
+                (server, scenario) -> TestMap.on(server)
+                        .platform(SECRET_CX, SURFACE_Y - 1, SECRET_CZ, 6)
+                        .catchFloor(120)
+                        .survival()
+                        .clearInventory()
+                        .give("diamond_shovel", 1)
+                        .fill(on.getX(), on.getY(), on.getZ(), off.getX(), off.getY(), off.getZ(), "snow_block")
+                        .spawn(SECRET_CX + 0.5, SECRET_CZ + 0.5, -90f)
+                        .build(),
+                (server, scenario) -> {
+                    boolean cheat = ctx.computeOnClient(mc -> {
+                        try {
+                            return Class.forName("com.killer560.hub.BuildVariant").getField("CHEAT_FEATURES_ENABLED").getBoolean(null);
+                        } catch (ReflectiveOperationException e) {
+                            return false;
+                        }
+                    });
+                    if (!cheat) {
+                        scenario.log("legit jar: Zero Ping is cheat-only, nothing to check");
+                        return;
+                    }
+                    for (BlockPos p : List.of(on, off)) {
+                        if (isAir(ctx, p)) {
+                            throw new AssertionError("block " + p + " was never built - nothing would be measured");
+                        }
+                    }
+                    String feature = "com.killer560.hub.dungeonbreaker.DungeonBreakerFeature";
+                    boolean wasEnabled = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(ModUnderTest.config(BREAKER_CONFIG), "isEnabled"));
+                    try {
+                        boolean inDungeon = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(DUNGEON_STATE, "isInDungeon"));
+                        if (inDungeon) {
+                            throw new AssertionError("DungeonState reads in a dungeon on the test map - Dungeons Only cannot be tested");
+                        }
+                        stampBreaker(ctx);
+                        // ON: the hook runs (charged breaker in hand, Zero Ping on) and leaves the block.
+                        boolean airOn = ctx.computeOnClient(mc -> {
+                            Object cfg = ModUnderTest.config(BREAKER_CONFIG);
+                            ModUnderTest.set(cfg, "setEnabled", true);
+                            ModUnderTest.set(cfg, "setFatigueOnly", false);
+                            ModUnderTest.set(cfg, "setDungeonsOnly", true);
+                            ModUnderTest.staticCall(feature, "onStartDestroyBlock", new Class<?>[]{BlockPos.class}, new Object[]{on});
+                            return mc.level.getBlockState(on).isAir();
+                        });
+                        ctx.waitTicks(5);
+                        java.nio.file.Path log = ctx.computeOnClient(mc -> mc.gameDirectory.toPath().resolve("logs/latest.log"));
+                        boolean logged;
+                        try {
+                            logged = java.nio.file.Files.readString(log).contains("zero ping skipped: pos=" + on.toShortString()
+                                    + " tick=");
+                        } catch (java.io.IOException e) {
+                            throw new AssertionError("cannot read " + log + ": " + e);
+                        }
+                        scenario.log("Dungeons Only ON outside a dungeon: block air=" + airOn + ", skip line logged=" + logged);
+                        if (airOn) {
+                            throw new AssertionError("Dungeons Only is ON outside a dungeon but Zero Ping cleared " + on);
+                        }
+                        if (!logged) {
+                            throw new AssertionError("no \"[Breaker] zero ping skipped ... Dungeons Only\" line for " + on);
+                        }
+                        // OFF (the control): the same call predicts air, so the ON result is the option's doing.
+                        stampBreaker(ctx);
+                        boolean airOff = ctx.computeOnClient(mc -> {
+                            ModUnderTest.set(ModUnderTest.config(BREAKER_CONFIG), "setDungeonsOnly", false);
+                            ModUnderTest.staticCall(feature, "onStartDestroyBlock", new Class<?>[]{BlockPos.class}, new Object[]{off});
+                            return mc.level.getBlockState(off).isAir();
+                        });
+                        scenario.log("Dungeons Only off: block air=" + airOff);
+                        if (!airOff) {
+                            throw new AssertionError("with Dungeons Only off Zero Ping did not clear " + off
+                                    + " - the hook never acted, so the ON result proves nothing");
+                        }
+                        // Survives a save + reload.
+                        boolean reloaded = ctx.computeOnClient(mc -> {
+                            ModUnderTest.set(ModUnderTest.config(BREAKER_CONFIG), "setDungeonsOnly", true);
+                            ModUnderTest.call(ModUnderTest.config(BREAKER_CONFIG), "save", new Class<?>[0], new Object[0]);
+                            ModUnderTest.set(ModUnderTest.config(BREAKER_CONFIG), "setDungeonsOnly", false);
+                            ModUnderTest.staticCall(BREAKER_CONFIG, "load");
+                            return ModUnderTest.getBoolean(ModUnderTest.config(BREAKER_CONFIG), "isDungeonsOnly");
+                        });
+                        scenario.log("Dungeons Only after save + load: " + reloaded);
+                        if (!reloaded) {
+                            throw new AssertionError("Dungeons Only ON did not survive a save + reload");
+                        }
+                    } finally {
+                        ctx.runOnClient(mc -> {
+                            Object cfg = ModUnderTest.config(BREAKER_CONFIG);
+                            ModUnderTest.set(cfg, "setDungeonsOnly", false);
+                            ModUnderTest.set(cfg, "setEnabled", wasEnabled);
+                            ModUnderTest.call(cfg, "save", new Class<?>[0], new Object[0]);
+                        });
+                        cleanup(ctx);
+                    }
+                });
     }
 
     // ------------------------------------------------------------------------------------------------ secrets
