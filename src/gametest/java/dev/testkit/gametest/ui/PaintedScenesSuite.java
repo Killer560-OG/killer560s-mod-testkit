@@ -116,7 +116,14 @@ public class PaintedScenesSuite implements FabricClientGameTest {
                 return new Object[]{-1, -1, String.valueOf(t)};
             }
         });
-        c.note(name + ".webp: " + got[0] + "x" + got[1] + " from " + got[2]);
+        // themedl-1104: the jar holds a preview (a quarter each way; Amber's at full size), the full picture downloads.
+        boolean full = c.onClient(mc -> (Boolean) Mod.staticCall("mainmenu.WebpPictures", "fullForTest", name));
+        if (!full && !name.equals("amber_aurora")) {
+            w /= 4;
+            h /= 4;
+        }
+        c.note(name + ".webp: " + got[0] + "x" + got[1] + " from " + got[2] + (full ? " (downloaded)" : " (in-jar preview)"));
+        c.check(full || !ThemeAssetFeed.available(), name + ".webp never swapped to the downloaded full picture");
         c.check(((Integer) got[0]) == w && ((Integer) got[1]) == h, name + ".webp loaded as " + got[0] + "x" + got[1]
                 + ", not " + w + "x" + h);
         c.check(String.valueOf(got[2]).contains("WebpPictures"), name + ".webp is not the mod's WebP texture: " + got[2]);
@@ -130,6 +137,15 @@ public class PaintedScenesSuite implements FabricClientGameTest {
     static void warmWebp(UiCase c) {
         String cls = "mainmenu.WebpPictures";
         String[] names = {"milkyway", "green_boss_target", "ocean_falls", "amber_aurora"};
+        String fetched;
+        try {
+            fetched = ThemeAssetFeed.fetch(120_000L, () -> c.ticks(2), "milkyway.webp", "green_boss_target.webp", "ocean_falls.webp",
+                    "amber_aurora.webp");
+        } catch (Exception e) {
+            fetched = String.valueOf(e);
+        }
+        c.note("theme picture downloads: " + (fetched == null ? "all ready" : fetched));
+        boolean wantFull = fetched == null;
         try {
             c.onClient(mc -> {
                 for (String n : names) {
@@ -147,7 +163,8 @@ public class PaintedScenesSuite implements FabricClientGameTest {
             ready = c.onClient(mc -> {
                 boolean all = true;
                 for (String n : names) {
-                    all &= (Boolean) Mod.staticCall(cls, "ensure", Mod.staticCall(cls, "id", n));
+                    all &= (Boolean) Mod.staticCall(cls, "ensure", Mod.staticCall(cls, "id", n))
+                            && (!wantFull || (Boolean) Mod.staticCall(cls, "fullForTest", n));
                 }
                 return all;
             });
@@ -160,7 +177,7 @@ public class PaintedScenesSuite implements FabricClientGameTest {
     }
 
     /** The texture registered under {@code id}, or null; never registers one. */
-    private static Object registered(net.minecraft.client.Minecraft mc, net.minecraft.resources.Identifier id) {
+    static Object registered(net.minecraft.client.Minecraft mc, net.minecraft.resources.Identifier id) {
         Object tm = mc.getTextureManager();
         for (java.lang.reflect.Field f : tm.getClass().getDeclaredFields()) {
             if (java.util.Map.class.isAssignableFrom(f.getType())) {

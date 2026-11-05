@@ -230,9 +230,18 @@ public class ThemeExtrasSuite implements FabricClientGameTest {
     // 1021-theme-music
     // =================================================================================================================
 
+    /** themedl-1104: the theme loops are release assets now, downloaded on demand; serve them before a music case. */
+    static void needLoops(UiCase c) throws Exception {
+        String why = ThemeAssetFeed.fetch(120_000L, () -> c.ticks(2), "theme_amber.ogg", "theme_dark.ogg", "theme_light.ogg", "theme_ocean.ogg",
+                "theme_green.ogg");
+        c.note("theme loops: " + (why == null ? "downloaded" : why));
+        c.check(why == null, "the theme loops were not downloaded: " + why);
+    }
+
     static void music(UiCase c) throws Exception {
         Saved saved = save(c);
         try {
+            needLoops(c);
             // A fresh config (no file): Theme Music ON, every theme on its own track.
             Path file = c.onClient(mc -> (Path) Mod.staticCall(CFG, "path"));
             Files.deleteIfExists(file);
@@ -249,7 +258,7 @@ public class ThemeExtrasSuite implements FabricClientGameTest {
                 for (String[] t : own) {
                     Object b = Mod.staticCall(MUSIC, "themeTrack", theme(t[0]));
                     String ev = b == null ? null : String.valueOf(Mod.call(b, "event"));
-                    if (!("killer560smod:theme_music_" + t[1]).equals(ev)) {
+                    if (!("killer560smod:thememusic/theme_" + t[1]).equals(ev)) {
                         return t[0] + "'s own track is " + ev;
                     }
                 }
@@ -268,10 +277,11 @@ public class ThemeExtrasSuite implements FabricClientGameTest {
             Object[] byDefault = c.onClient(mc -> new Object[]{Mod.staticCall(MUSIC, "currentKey"),
                     Mod.staticCall(MUSIC, "engineActive")});
             c.note("fresh config on the title screen: playing " + byDefault[0] + ", engine active " + byDefault[1]);
-            c.check("killer560smod:theme_music_amber".equals(byDefault[0]) && Boolean.TRUE.equals(byDefault[1]),
+            c.check("killer560smod:thememusic/theme_amber".equals(byDefault[0]) && Boolean.TRUE.equals(byDefault[1]),
                     "with the defaults alone the title screen played " + byDefault[0] + " (active " + byDefault[1] + ")");
 
             // A file that saved OFF keeps OFF; one that never saved the switch gets the new default.
+            Files.createDirectories(file.getParent()); // ModPaths.config() does not create the folder
             Files.writeString(file, "{\"musicOn\": false, \"musicVolume\": 30}");
             Object[] savedOff = c.onClient(mc -> {
                 Mod.staticCall(CFG, "load");
@@ -313,19 +323,23 @@ public class ThemeExtrasSuite implements FabricClientGameTest {
             Object[] on = c.onClient(mc -> new Object[]{Mod.staticCall(MUSIC, "currentKey"),
                     Mod.staticCall(MUSIC, "engineActive"), Mod.staticCall(MUSIC, "lastResult"),
                     Mod.staticCall(MUSIC, "currentVolume"),
-                    mc.getSoundManager().getSoundEvent(Identifier.fromNamespaceAndPath("killer560smod", "theme_music_amber")) != null,
+                    Mod.staticCall("mainmenu.ThemeAssets", "ready", "theme_amber.ogg") != null,
                     mc.getMusicManager().getCurrentMusicTranslationKey()});
             c.note("Amber on: playing " + on[0] + ", engine active " + on[1] + ", result " + on[2] + ", volume " + on[3]
-                    + ", event loaded " + on[4] + ", vanilla music " + on[5]);
-            c.check("killer560smod:theme_music_amber".equals(on[0]), "the title screen played " + on[0] + ", not Amber's loop");
-            c.check((Boolean) on[4], "the jar's sounds.json has no theme_music_amber event");
+                    + ", loop downloaded " + on[4] + ", vanilla music " + on[5]);
+            c.check("killer560smod:thememusic/theme_amber".equals(on[0]), "the title screen played " + on[0] + ", not Amber's loop");
+            c.check((Boolean) on[4], "Amber's loop was not downloaded (themedl-1104: the loops are release assets)");
             c.check(Boolean.TRUE.equals(on[1]), "the sound engine holds no channel for Amber's loop (result " + on[2] + ")");
             c.check(String.valueOf(on[2]).startsWith("STARTED"), "the engine answered " + on[2]);
-            c.check(Math.abs((Float) on[3] - 0.4f) < 0.001f, "the track's volume is " + on[3] + ", the slider says 40%");
+            // The menu track fades in over 40 ticks (ThemeMusicInstance, 2026-10-24): 4 ticks in it is on its way up to 40%.
+            c.check((Float) on[3] > 0f && (Float) on[3] < 0.4f + 0.001f, "4 ticks in the track's volume is " + on[3]
+                    + ", not fading in toward the slider's 40%");
             c.check(on[5] == null, "vanilla menu music is playing beside it: " + on[5]);
             c.ticks(40);
             boolean still = c.onClient(mc -> (Boolean) Mod.staticCall(MUSIC, "engineActive"));
             c.check(still, "Amber's loop stopped within 40 ticks (the stream failed?) " + Mod.staticCall(MUSIC, "lastError"));
+            float held = c.onClient(mc -> (Float) Mod.staticCall(MUSIC, "currentVolume"));
+            c.check(Math.abs(held - 0.4f) < 0.001f, "after the fade-in the track's volume is " + held + ", the slider says 40%");
 
             // Volume follows the slider live.
             c.onClient(mc -> {
@@ -346,7 +360,7 @@ public class ThemeExtrasSuite implements FabricClientGameTest {
             Object[] ocean = c.onClient(mc -> new Object[]{Mod.staticCall(MUSIC, "currentKey"), Mod.staticCall(MUSIC, "stops"),
                     Mod.staticCall(MUSIC, "engineActive")});
             c.note("Ocean: " + ocean[0] + ", stops " + stops0 + " -> " + ocean[1]);
-            c.check("killer560smod:theme_music_ocean".equals(ocean[0]) && Boolean.TRUE.equals(ocean[2]),
+            c.check("killer560smod:thememusic/theme_ocean".equals(ocean[0]) && Boolean.TRUE.equals(ocean[2]),
                     "switching to Ocean played " + ocean[0] + " (active " + ocean[2] + ")");
             c.check((Integer) ocean[1] > stops0, "Amber's loop was not stopped when the theme changed");
 
@@ -375,7 +389,7 @@ public class ThemeExtrasSuite implements FabricClientGameTest {
             title(c);
             c.ticks(3);
             Object back = c.onClient(mc -> Mod.staticCall(MUSIC, "currentKey"));
-            c.check("killer560smod:theme_music_ocean".equals(back), "back on the title screen it played " + back);
+            c.check("killer560smod:thememusic/theme_ocean".equals(back), "back on the title screen it played " + back);
 
             // The drawer's rows, a real click on Music, and a reload.
             String why = c.onClient(mc -> {
@@ -444,6 +458,7 @@ public class ThemeExtrasSuite implements FabricClientGameTest {
     static void preview(UiCase c) throws Exception {
         Saved saved = save(c);
         try {
+            needLoops(c);
             // Amber on the main menu with its own loop playing; Ocean is the theme being set up.
             c.onClient(mc -> {
                 setMenuTheme(mc, "AMBER");
@@ -457,7 +472,7 @@ public class ThemeExtrasSuite implements FabricClientGameTest {
             title(c);
             c.ticks(5);
             String menuTrack = c.onClient(mc -> (String) Mod.staticCall(MUSIC, "currentKey"));
-            c.check("killer560smod:theme_music_amber".equals(menuTrack), "the title screen plays " + menuTrack
+            c.check("killer560smod:thememusic/theme_amber".equals(menuTrack), "the title screen plays " + menuTrack
                     + " before the preview");
 
             int starts0 = c.onClient(mc -> (Integer) Mod.staticCall(MUSIC, "previewStarts"));
@@ -490,7 +505,7 @@ public class ThemeExtrasSuite implements FabricClientGameTest {
             Object inst = st[8];
             c.note("pressed Play Preview: key " + st[1] + ", engine active " + st[2] + ", result " + st[3] + ", looping "
                     + st[4] + ", volume " + st[5] + ", menu track " + st[6] + ", row now '" + st[7] + "'");
-            c.check("killer560smod:theme_music_ocean".equals(st[1]), "Play Preview played " + st[1] + ", not Ocean's loop");
+            c.check("killer560smod:thememusic/theme_ocean".equals(st[1]), "Play Preview played " + st[1] + ", not Ocean's loop");
             c.check(Boolean.TRUE.equals(st[2]), "the sound engine holds no channel for the preview right after the click ("
                     + st[3] + ")");
             c.check(String.valueOf(st[3]).startsWith("STARTED"), "the engine answered " + st[3]);
@@ -557,7 +572,7 @@ public class ThemeExtrasSuite implements FabricClientGameTest {
                     + " tick(s), menu track " + menuTrack2);
             c.check(flagOff, "the preview was still on a tick after the menu closed");
             c.check(closeTicks <= 11, "the preview's channel was still playing 10 ticks after the menu closed");
-            c.check("killer560smod:theme_music_amber".equals(menuTrack2), "after the preview the title screen plays " + menuTrack2);
+            c.check("killer560smod:thememusic/theme_amber".equals(menuTrack2), "after the preview the title screen plays " + menuTrack2);
 
             // Music: Off for Ocean: nothing to preview, the button cannot be pressed.
             String off = c.onClient(mc -> {
@@ -950,7 +965,7 @@ public class ThemeExtrasSuite implements FabricClientGameTest {
                     Mod.staticCall(MUSIC_FILES, "streamsOpened")});
             c.note("imported track: playing " + st[0] + ", engine active " + st[1] + ", result " + st[2] + ", streams "
                     + streams0 + " -> " + st[4] + ", error " + st[3]);
-            c.check(String.valueOf(st[0]).startsWith("killer560smod:thememusic/"), "Amber plays " + st[0] + ", not the import");
+            c.check(String.valueOf(st[0]).startsWith("killer560smod:thememusic/") && !String.valueOf(st[0]).contains("/theme_"), "Amber plays " + st[0] + ", not the import");
             c.check(opened, "the engine never asked the mod's stream hook for the imported file");
             c.check(Boolean.TRUE.equals(st[1]), "the imported track is not live in the engine 40 ticks on (" + st[2] + ")");
             String others = c.onClient(mc -> {
