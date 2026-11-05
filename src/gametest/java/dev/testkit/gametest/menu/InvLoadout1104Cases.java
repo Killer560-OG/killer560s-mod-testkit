@@ -17,8 +17,7 @@ import java.util.Set;
 /**
  * Inventory Sorter layouts select a Hypixel loadout (killer560, 2026-11-04: "allow invsort to select a loadout"):
  * <ul>
- *   <li>1104-invsort-loadout-save: the layout's loadout is stepped from the menu's button (left forward, right back,
- *       wrapping through None), saved in the layout file, survives a reload from disk and a rename.</li>
+ *   <li>1104-invsort-loadout-save: the layout's loadout is picked in the menu's Loadout picker (a click on slot 1-12 or None), saved in the layout file, survives a reload from disk and a rename.</li>
  *   <li>1104-invsort-loadout-apply: applying a layout with loadout 5 sends /loadouts, clicks the faked "(1/2) Loadout"
  *       menu's slot 24 (loadout 5), closes it, and only then sorts (control: the same layout with no loadout sends no
  *       /loadouts and no menu click).</li>
@@ -62,13 +61,22 @@ final class InvLoadout1104Cases {
         });
     }
 
-    private static void step(Session c, int dir, int times) {
+    /** Opens the picker from the editor's Loadout button and really clicks choice n (1-12, 0 = None) in it. */
+    private static void pick(Session c, int n) {
+        c.ctx().runOnClient(mc -> Mod.call(McCompat.screen(mc), "openLoadoutPicker"));
+        c.waitUntil("the loadout picker", mc -> McCompat.screen(mc) != null
+                && McCompat.screen(mc).getClass().getSimpleName().equals("InvSortLoadoutPick"), 40);
         c.ctx().runOnClient(mc -> {
-            Object s = McCompat.screen(mc);
-            for (int i = 0; i < times; i++) {
-                Mod.call(s, "stepLoadout", dir);
-            }
+            Object scr = McCompat.screen(mc);
+            int[] b = (int[]) Mod.call(scr, "themedPanelBounds");
+            // 6 columns of 28, 12 padding, header 22 + 4; the None button sits under the two rows of slots.
+            double x = n == 0 ? b[0] + b[2] / 2.0 : b[0] + 12 + ((n - 1) % 6) * 28 + 12;
+            double y = n == 0 ? b[1] + 22 + 4 + 12 + 56 + 4 + 9 : b[1] + 22 + 4 + 12 + ((n - 1) / 6) * 28 + 12;
+            ((Screen) scr).mouseClicked(new net.minecraft.client.input.MouseButtonEvent(x, y,
+                    new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
         });
+        c.waitUntil("back in the layouts menu", mc -> McCompat.screen(mc) != null
+                && McCompat.screen(mc).getClass().getSimpleName().equals("InventorySorterScreen"), 40);
     }
 
     private static boolean legit(Session c) {
@@ -105,15 +113,22 @@ final class InvLoadout1104Cases {
                     && McCompat.screen(mc).getClass().getSimpleName().equals("InventorySorterScreen"), 40);
             c.ctx().runOnClient(mc -> Mod.call(McCompat.screen(mc), "select", name));
             c.ctx().waitTicks(3);
-            step(c, 1, 3);
-            c.check(loadoutOf(c, name) == 3, "three left clicks should give loadout 3, got " + loadoutOf(c, name));
-            step(c, -1, 1);
-            c.check(loadoutOf(c, name) == 2, "a right click should go back to 2, got " + loadoutOf(c, name));
-            step(c, -1, 3);
-            c.check(loadoutOf(c, name) == 12, "right click from None should wrap to 12, got " + loadoutOf(c, name));
-            step(c, 1, 1);
-            c.check(loadoutOf(c, name) == 0, "left click from 12 should wrap to None, got " + loadoutOf(c, name));
-            step(c, 1, 7);
+            pick(c, 5);
+            c.check(loadoutOf(c, name) == 5, "a click on slot 5 should give loadout 5, got " + loadoutOf(c, name));
+            String five = c.onClient(mc -> {
+                try {
+                    return Files.readString(((Path) Mod.staticCall(STORE, "directory")).resolve(name + ".json"));
+                } catch (Exception e) {
+                    return "ERR " + e;
+                }
+            });
+            c.check(five.contains("\"loadout\": 5") || five.contains("\"loadout\":5"),
+                    "the layout file does not hold loadout 5: " + five);
+            pick(c, 12);
+            c.check(loadoutOf(c, name) == 12, "a click on slot 12 should give loadout 12, got " + loadoutOf(c, name));
+            pick(c, 0);
+            c.check(loadoutOf(c, name) == 0, "a click on None should clear it, got " + loadoutOf(c, name));
+            pick(c, 7);
             c.check(loadoutOf(c, name) == 7, "expected 7, got " + loadoutOf(c, name));
             c.ctx().runOnClient(mc -> Mod.call(McCompat.screen(mc), "onClose"));
 
@@ -131,7 +146,7 @@ final class InvLoadout1104Cases {
             c.check(loadoutOf(c, name) == 7, "after a reload from disk the loadout is " + loadoutOf(c, name));
             c.ctx().runOnClient(mc -> Mod.call(store(), "rename", name, renamed));
             c.check(loadoutOf(c, renamed) == 7, "after a rename the loadout is " + loadoutOf(c, renamed));
-            c.note("loadout stepped 0,3,2,12,0,7 from the menu, written to the layout file, kept over reload and rename");
+            c.note("loadout picked 5,12,None,7 in the picker, written to the layout file, kept over reload and rename");
         } finally {
             c.ctx().runOnClient(mc -> {
                 Mod.call(store(), "delete", name);
