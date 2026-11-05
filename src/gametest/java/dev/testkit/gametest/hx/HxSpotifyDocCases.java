@@ -61,9 +61,10 @@ import static dev.testkit.gametest.hx.HxKit.*;
  *       sender's word times on its own clock, draws the line over the sender (render state and screenshot), keeps the
  *       song-only packet of an older client working, ignores bad word times and drops a stale line.</li>
  *   <li>2866 room: with Mod Chat off and no party, Share My Song or Show Others' Songs puts the relay in the LOBBY room;
- *       with both off it does not ask for one.</li>
- *   <li>2867 relay (needs a local relay; SKIP otherwise): through a real relay (wrangler dev) the client connects to its
- *       lobby room on its own, a second relay client in that room receives the song and lyric line the client shares,
+ *       with both off it does not ask for one. With Mod Chat ON in Party mode (its first-download default) and no party,
+ *       Song Tag still gets the lobby room and Mod Chat refuses to send there (songtag-1104).</li>
+ *   <li>2867 relay (needs a local relay; SKIP otherwise): with Mod Chat at its default (ON, Party) and no party, through
+ *       a real relay (wrangler dev) the client connects to its lobby room on its own, a second relay client in that room receives the song and lyric line the client shares,
  *       and the client draws the song and the lyric that second client shares over the matching player.</li>
  *   <li>2868 volume: 51 volume settings written at once to the real helper run as ONE (50 skipped), so the last value
  *       applies at once.</li>
@@ -913,7 +914,8 @@ final class HxSpotifyDocCases {
 
     private static void room(Session c) throws Exception {
         c.check(has(c), "this jar has no Song Tag relay room");
-        try (Settings s = new Settings(c).with("modchat.ModChatConfig", "Enabled", false).with(TAGC, "ShareSong", false)
+        noParty(c);
+        try (Settings s = noData(new Settings(c)).with("modchat.ModChatConfig", "Enabled", false).with(TAGC, "ShareSong", false)
                 .with(TAGC, "ShowOthers", false)
                 .custom(() -> {
                     Mod.setField("relay.HypixelLocation", "lastLevel", net.minecraft.client.Minecraft.getInstance().level);
@@ -933,8 +935,38 @@ final class HxSpotifyDocCases {
                     c.check(String.valueOf(mode).equals("LOBBY"), sw + " on: mode " + mode);
                 }
             }
+            // His case (killer560, 2026-11-04, "26.3 Default"): Mod Chat ON in Party mode, its default, and no party. Party
+            // mode had no room, so the relay stayed shut and no song went either way.
+            try (Settings on = new Settings(c).with("modchat.ModChatConfig", "Enabled", true)
+                    .with("modchat.ModChatConfig", "RoomMode", Mod.enumValue("relay.RelayRoom$Mode", "PARTY"))
+                    .with(TAGC, "ShowOthers", true)) {
+                noParty(c);
+                c.ctx().waitTicks(45); // past the next room check (every 40 ticks), so the wanted room is not the block above's
+                c.waitUntil("the lobby room wanted with Mod Chat on in Party mode", mc -> (Boolean) Mod.field("relay.RelayClient", "wantOn")
+                        && String.valueOf(Mod.field("relay.RelayClient", "wantRoom")).startsWith("lobby:"), 80);
+                String r = c.onClient(mc -> (String) Mod.field("relay.RelayClient", "wantRoom"));
+                String said = c.onClient(mc -> (String) Mod.staticCall("modchat.ModChatFeature", "send", "hello lobby"));
+                c.note("Mod Chat on, Party, no party: room '" + r + "'; /kc says: " + said);
+                c.check(said.contains("not in a party"), "Mod Chat would send into the Song Tag lobby room: " + said);
+            }
         }
         c.ctx().waitTicks(30);
+    }
+
+    /** Party data in a dungeon takes the party room before Song Tag; an earlier case (or the session's dungeon) can leave
+     *  it on, so these cases turn it off: their premise is no dungeon data, no party. */
+    private static Settings noData(Settings s) {
+        return s.with("interop.InteropConfig", "RelayData", false).with("partydata.PartyDataConfig", "ShareEnabled", false)
+                .with("melody.MelodyHudConfig", "ShareProgress", false);
+    }
+
+    /** His case is "no party": an earlier case may leave the session in its F7 dungeon, whose tab list keeps HxMateA and
+     *  HxMateB in PartyTracker (so Party mode HAS a room); go to the hub and forget them. */
+    private static void noParty(Session c) {
+        HxKit.hub(c);
+        c.onClient(mc -> Mod.staticCall("leapmenu.PartyTracker", "clearParty"));
+        c.check(c.onClient(mc -> ((List<?>) Mod.staticCall("leapmenu.PartyTracker", "teammates")).isEmpty()),
+                "PartyTracker still lists mates (premise: no party)");
     }
 
     // ---- 2867: through a real relay ----------------------------------------------------------------------------------
@@ -975,8 +1007,9 @@ final class HxSpotifyDocCases {
         List<Object> lines = c.onClient(mc -> List.of(line(0.0, "intro"),
                 line(4.0, "<00:04.00>shared <00:04.50>through <00:05.00>relay"), line(600.0, "end")));
         Object snap = c.onClient(mc -> snapshot("TRACK", 0, base0, lines));
-        try (Settings s = new Settings(c).with("modchat.ModChatConfig", "Enabled", false).with(TAGC, "ShareSong", true)
-                .with(TAGC, "ShowOthers", true).with(MUC, "Share", true).with(SC, "ShowSupporterNames", false)
+        try (Settings s = noData(new Settings(c)).with("modchat.ModChatConfig", "Enabled", true)
+                .with("modchat.ModChatConfig", "RoomMode", Mod.enumValue("relay.RelayRoom$Mode", "PARTY"))
+                .with(TAGC, "ShareSong", true).with(TAGC, "ShowOthers", true).with(MUC, "Share", true).with(SC, "ShowSupporterNames", false)
                 .with(NC, "RandomizeOthers", false)
                 .with(TAGC, "ShareWhat", Mod.enumValue(TAGC + "$ShareWhat", "BOTH")).with(TAGC, "ShareWord", true)
                 .custom(() -> {
@@ -988,6 +1021,7 @@ final class HxSpotifyDocCases {
             UUID botId = botUuid(c, botName);
             c.check(botId != null, "the bot is not in the world (premise)");
             supporters(c, self, botId);
+            noParty(c);
             // The client's own relay token, as the relay would issue it (an offline account cannot do Mojang's sign-in).
             String mine = token(self, selfName);
             c.onClient(mc -> {
