@@ -39,6 +39,10 @@ import java.util.function.Predicate;
  * Lights' levers flicked, the Arrows frames turned by real clicks, Target hit by arrows the test summons at the lit
  * block. P3SectionTracker and Floor7Tracker must walk S1 -> S2 -> S3 -> S4 -> core.</li>
  * <li>{@code 1101-boss-p4p5}: the core (Goldor's arrival lines, his death), P4 Necron's lines and death, P5's dragons.</li>
+ * <li>{@code 1105-boss-dragons} (simdragons-1105): P5 from its start. Wither Dragons (on for the case) reads the flame
+ * burst as Red's spawn timer, the dragon appears at its spawn point, flies (moves, stays in its area), its body parts are
+ * on it, real Terminator arrows kill Red and real melee kills Orange (8 hits each, the sim's log), the mod reads both
+ * deaths (health, "dragon counts" from the King's line); the other three fall to testHit and the boss ends.</li>
  * <li>{@code 1101-boss-lava}: a step into P3's lava bounces him (motion 2.25 up), as Hypixel's server does.</li>
  * <li>{@code 1101-boss-ap3}: an AP3 RUN node on S1's floor carries him once he walks into it.</li>
  * <li>{@code 1102-boss-maxorcrys}: Maxor's Crystals' Active counter (killer560, 2026-11-02: it "should go away as 0/2 the
@@ -80,6 +84,8 @@ public class SimBossTests implements FabricClientGameTest {
     private static final String MOVES = "1103-boss-moves";
     private static final String RULES = "1103-boss-rules";
     private static final String CAPTURE = "1104-boss-capture";
+    private static final String DRAGONS = "1105-boss-dragons";
+    private static final String WD = "com.killer560.hub.witherdragons.";
     private static final String MAXOR = "com.killer560.hub.maxor.MaxorCrystalsFeature";
 
     private static final String B = "com.killer560.hub.bosssim.";
@@ -102,7 +108,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -135,6 +141,7 @@ public class SimBossTests implements FabricClientGameTest {
                     case MOVES -> moves(ctx, f);
                     case RULES -> rules(ctx, f);
                     case CAPTURE -> capture(ctx, f);
+                    case DRAGONS -> dragons(ctx, f);
                     default -> ap3(ctx, f);
                 }
             } catch (Throwable t) {
@@ -265,6 +272,11 @@ public class SimBossTests implements FabricClientGameTest {
     // ---------------------------------------------------------------------------------------- 1104-boss-capture
 
     private static void capture(ClientGameTestContext ctx, List<String> f) throws Exception {
+        withCapture(f, () -> captureCase(ctx, f));
+    }
+
+    /** Runs {@code body} over his capture fixtures (P1 and P3 files in the sim folder), removed again after. */
+    private static void withCapture(List<String> f, Runnable body) throws Exception {
         java.nio.file.Path fixture = java.nio.file.Path.of(System.getProperty("testkit.bossCapture",
                 System.getProperty("user.home") + "/killer560s-mod-logs/fixtures/boss-arena-1104.bin"));
         if (!java.nio.file.Files.isRegularFile(fixture)) {
@@ -284,7 +296,7 @@ public class SimBossTests implements FabricClientGameTest {
         java.nio.file.Files.copy(fixture, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         java.nio.file.Files.copy(fixture3, target3, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         try {
-            captureCase(ctx, f);
+            body.run();
         } finally {
             java.nio.file.Files.deleteIfExists(target);
             java.nio.file.Files.deleteIfExists(target3);
@@ -984,6 +996,245 @@ public class SimBossTests implements FabricClientGameTest {
             f.add("the fight never ended after " + killed + " dragons (" + call(FIGHT, "describe") + ")");
         }
         expect(f, "Wither King counts lines", count(mark, "[BOSS] The Wither King: ") >= 6, true);
+    }
+
+    private static void dragons(ClientGameTestContext ctx, List<String> f) throws Exception {
+        Object cfg = ModUnderTest.config(WD + "WitherDragonsConfig");
+        ctx.runOnClient(mc -> ModUnderTest.set(cfg, "setEnabled", true));
+        try {
+            withCapture(f, () -> {
+                expectStartSource(ctx, f);
+                necronBreak(ctx, f);
+                dragonsRun(ctx, f);
+            });
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.set(cfg, "setEnabled", false));
+        }
+    }
+
+    private static void dragonsRun(ClientGameTestContext ctx, List<String> f) {
+        long mark = start(ctx, "P5", true);
+        if (!waitChat(ctx, mark, "[BOSS] The Wither King: You... again?", 160)) {
+            f.add("the Wither King's line never came");
+            return;
+        }
+        expect(f, "Floor7Tracker phase in P5", phase(ctx), "P5");
+        p5Arena(ctx, f);
+        Object red = ModUnderTest.enumValue(WD + "WitherDragon", "RED");
+        Object orange = ModUnderTest.enumValue(WD + "WitherDragon", "ORANGE");
+        if (!until(ctx, "Red's spawn timer", mc -> "SPAWNING".equals(String.valueOf(spec(red, "state"))), 80)) {
+            f.add("Wither Dragons never read Red's flame burst (state " + spec(red, "state") + ")");
+            return;
+        }
+        int timer = (Integer) spec(red, "timeToSpawn");
+        println(DRAGONS, "Red spawning, spawn timer " + timer);
+        if (timer < 80) {
+            f.add("Red's spawn timer read " + timer + " at the burst, want about 100");
+        }
+        net.minecraft.world.entity.boss.enderdragon.EnderDragon[] e = new net.minecraft.world.entity.boss.enderdragon.EnderDragon[1];
+        if (!until(ctx, "Red's dragon", mc -> (e[0] = dragonIn(mc, red)) != null, 140)) {
+            f.add("Red's dragon never spawned in its area");
+            return;
+        }
+        Vec3 spawn = Vec3.atBottomCenterOf((BlockPos) field(red, "spawnPos"));
+        Vec3 p0 = ctx.computeOnClient(mc -> e[0].position());
+        println(DRAGONS, "Red's dragon first seen at " + p0 + ", spawn point " + spawn);
+        if (p0.distanceTo(spawn) > 1.5) {
+            f.add("Red's dragon appeared at " + p0 + ", not at its spawn point " + spawn);
+        }
+        ctx.waitTicks(2);
+        expect(f, "Wither Dragons: Red alive", String.valueOf(spec(red, "state")), "ALIVE");
+        expect(f, "\"dragon spawned\" message", chatSeen(mark, "dragon spawned"), true);
+        expect(f, "priority dragon message (Red and Orange spawning together)", chatSeen(mark, "priority dragon"), true);
+        // Path length, not displacement: it turns toward a new goal whenever it reaches one, so it can end near its start.
+        double path = 0;
+        Vec3 p1 = p0;
+        for (int i = 0; i < 40; i++) {
+            ctx.waitTicks(1);
+            Vec3 at = ctx.computeOnClient(mc -> e[0].position());
+            path += at.distanceTo(p1);
+            p1 = at;
+        }
+        AABB area = (AABB) field(red, "box");
+        println(DRAGONS, "Red's dragon 40 ticks later at " + p1 + " (flew " + String.format(Locale.ROOT, "%.1f", path) + ")");
+        if (path < 4) {
+            f.add("Red's dragon did not fly (" + path + " blocks in 40 ticks)");
+        }
+        if (!area.contains(p1)) {
+            f.add("Red's dragon left its area: " + p1);
+        }
+        double partGap = ctx.computeOnClient(mc -> e[0].getSubEntities()[2].position().distanceTo(e[0].position()));
+        if (partGap > 2) {
+            f.add("Red's body part is " + partGap + " from the dragon (parts never placed: nothing can hit it)");
+        }
+        int arrowsBefore = (Integer) call("com.killer560.hub.roomsim.SimTerminator", "arrowsFired");
+        boolean redDown = false;
+        for (int shot = 0; shot < 40 && !redDown; shot++) {
+            Vec3 c = ctx.computeOnClient(mc -> e[0].getSubEntities()[2].getBoundingBox().getCenter());
+            tp(ctx, c.x - 7, c.y, c.z, 0, 0);
+            ctx.runOnClient(mc -> {
+                Vec3 at = e[0].getSubEntities()[2].getBoundingBox().getCenter().subtract(mc.player.getEyePosition());
+                mc.player.setYRot((float) Math.toDegrees(Math.atan2(-at.x, at.z)));
+                mc.player.setXRot((float) -Math.toDegrees(Math.atan2(at.y, Math.hypot(at.x, at.z))));
+                ModUnderTest.staticCall("com.killer560.hub.roomsim.SimTerminator", "use", new Class<?>[]{Minecraft.class, boolean.class},
+                        new Object[]{mc, false});
+            });
+            ctx.waitTicks(4);
+            redDown = logSeen(mark, "[BossSim] Red dragon down");
+        }
+        int arrows = (Integer) call("com.killer560.hub.roomsim.SimTerminator", "arrowsFired") - arrowsBefore;
+        println(DRAGONS, "arrows fired at Red: " + arrows);
+        if (!redDown) {
+            f.add("40 Terminator shots (" + arrows + " arrows) never killed Red");
+            return;
+        }
+        expect(f, "Red took 8 hits", logSeen(mark, "Red dragon down at P5") && logSeen(mark, "(8 hits)"), true);
+        if (!until(ctx, "Wither Dragons reads Red dead", mc -> "DEAD".equals(String.valueOf(spec(red, "state"))), 40)) {
+            f.add("Wither Dragons never read Red's death (state " + spec(red, "state") + ")");
+        }
+        expect(f, "\"alive for\" message (the synched health death)", chatSeen(mark, "alive for"), true);
+        expect(f, "\"dragon counts\" message (the King's counts line)", waitChat(ctx, mark, "dragon counts", 20), true);
+        // Orange: melee. Stand beside its body and swing at the nearest part, as a click would.
+        if (!until(ctx, "Orange's dragon", mc -> (e[0] = dragonIn(mc, orange)) != null, 200)) {
+            f.add("Orange's dragon never spawned in its area");
+            return;
+        }
+        boolean orangeDown = false;
+        int swings = 0;
+        for (int i = 0; i < 60 && !orangeDown; i++) {
+            Vec3 c = ctx.computeOnClient(mc -> e[0].getSubEntities()[2].getBoundingBox().getCenter());
+            tp(ctx, c.x + 3.5, c.y - 1, c.z, 90, 0);
+            boolean swung = ctx.computeOnClient(mc -> {
+                Entity best = null;
+                for (Entity part : e[0].getSubEntities()) {
+                    if (part.getBoundingBox().distanceToSqr(mc.player.getEyePosition()) < 9
+                            && (best == null || part.distanceToSqr(mc.player) < best.distanceToSqr(mc.player))) {
+                        best = part;
+                    }
+                }
+                if (best == null) {
+                    return false;
+                }
+                mc.gameMode.attack(mc.player, best);
+                return true;
+            });
+            swings += swung ? 1 : 0;
+            ctx.waitTicks(2);
+            orangeDown = logSeen(mark, "[BossSim] Orange dragon down");
+        }
+        println(DRAGONS, "melee swings at Orange: " + swings);
+        if (!orangeDown) {
+            f.add(swings + " melee swings never killed Orange");
+            return;
+        }
+        if (!until(ctx, "Wither Dragons reads Orange dead", mc -> "DEAD".equals(String.valueOf(spec(orange, "state"))), 40)) {
+            f.add("Wither Dragons never read Orange's death");
+        }
+        for (int i = 0; i < 3; i++) {
+            if (!until(ctx, "a dragon up", mc -> !mc.level.getEntitiesOfClass(net.minecraft.world.entity.boss.enderdragon.EnderDragon.class,
+                    new AABB(0, 0, 20, 110, 60, 150), d -> d.getHealth() > 0).isEmpty(), 260)) {
+                f.add("dragon " + (i + 3) + " never spawned");
+                return;
+            }
+            for (int h = 0; h < 8; h++) {
+                serverRun(ctx, s -> ModUnderTest.staticCall(FIGHT, "testHit", new Class<?>[]{String.class}, new Object[]{"Dragon"}));
+                ctx.waitTicks(2);
+            }
+            ctx.waitTicks(25);
+        }
+        if (!until(ctx, "boss cleared", mc -> "DONE".equals(String.valueOf(call(FIGHT, "phase"))), 100)) {
+            f.add("the fight never ended after five dragons (" + call(FIGHT, "describe") + ")");
+        }
+    }
+
+    private static void expectStartSource(ClientGameTestContext ctx, List<String> f) {
+        start(ctx, "P4", false);
+        expect(f, "arena source (dragons run in his capture)", call(ARENA, "source"), "capture");
+    }
+
+    /**
+     * His "offset lava" (simdragons-1105): Necron's platform break once laid a lava plane at y 62 over the capture's
+     * open sea (y 58). After the break: no lava anywhere over Necron's arena above the sea, and the platform's centre
+     * column is open to it.
+     */
+    private static void necronBreak(ClientGameTestContext ctx, List<String> f) {
+        if (!untilTick(ctx, 277, 300)) {
+            f.add("P4 never reached Necron's platform break (" + call(FIGHT, "describe") + ")");
+            return;
+        }
+        String pl = String.valueOf(call(FIGHT, "necronPlatform"));
+        int[][] centres = {{54, 42}, {28, 50}, {80, 50}, {28, 102}, {80, 102}};
+        int i = java.util.Arrays.asList("N", "NW", "NE", "SW", "SE").indexOf(pl);
+        if (i < 0) {
+            f.add("no platform reported broken (" + pl + ")");
+            return;
+        }
+        int[] cc = centres[i];
+        int[] high = ctx.computeOnClient(mc -> {
+            int n = 0;
+            BlockPos.MutableBlockPos q = new BlockPos.MutableBlockPos();
+            for (int x = 0; x <= 110; x++) {
+                for (int z = 20; z <= 135; z++) {
+                    for (int y = 59; y <= 66; y++) {
+                        n += mc.level.getBlockState(q.set(x, y, z)).is(net.minecraft.world.level.block.Blocks.LAVA) ? 1 : 0;
+                    }
+                }
+            }
+            int solid = 0;
+            for (int y = 59; y <= 64; y++) {
+                solid += mc.level.getBlockState(q.set(cc[0], y, cc[1])).isAir() ? 0 : 1;
+            }
+            return new int[]{n, solid};
+        });
+        println(DRAGONS, "Necron broke " + pl + ": lava blocks above the sea (y 59-66) " + high[0]
+                + ", solid blocks left in its centre column " + high[1]);
+        expect(f, "no lava above the lava sea after Necron's platform break", high[0], 0);
+        expect(f, "Necron's broken platform open at its centre (y 59-64)", high[1], 0);
+    }
+
+    /**
+     * His "missing the underside" (simdragons-1105): P5 clears only the disc over the shaft under Necron's platform,
+     * so the stone ring (y 54-62 around x 50-58, z 72-80) still holds the disc up.
+     */
+    private static void p5Arena(ClientGameTestContext ctx, List<String> f) {
+        int[][] ring = {{50, 61, 76}, {50, 62, 76}, {58, 62, 76}, {54, 62, 72}, {54, 62, 80}, {50, 59, 76}, {54, 57, 80}};
+        for (int[] r : ring) {
+            boolean solid = ctx.computeOnClient(mc -> !mc.level.getBlockState(new BlockPos(r[0], r[1], r[2])).isAir());
+            expect(f, "Necron's platform ring under the disc at " + r[0] + "," + r[1] + "," + r[2], solid, true);
+        }
+        boolean shaft = ctx.computeOnClient(mc -> mc.level.getBlockState(new BlockPos(54, 63, 76)).isAir()
+                && mc.level.getBlockState(new BlockPos(54, 64, 76)).isAir());
+        expect(f, "the disc over the shaft (54, 63-64, 76) open for the drop to P5", shaft, true);
+        boolean disc = ctx.computeOnClient(mc -> !mc.level.getBlockState(new BlockPos(50, 63, 76)).isAir());
+        expect(f, "the disc over the ring (50, 63, 76) kept", disc, true);
+    }
+
+    /** A living ender dragon inside this WitherDragon's area on the client, or null. */
+    private static net.minecraft.world.entity.boss.enderdragon.EnderDragon dragonIn(Minecraft mc, Object spec) {
+        List<net.minecraft.world.entity.boss.enderdragon.EnderDragon> in = mc.level.getEntitiesOfClass(
+                net.minecraft.world.entity.boss.enderdragon.EnderDragon.class, (AABB) field(spec, "box"), d -> d.getHealth() > 0);
+        return in.isEmpty() ? null : in.get(0);
+    }
+
+    private static Object spec(Object dragon, String getter) {
+        return ModUnderTest.call(dragon, getter, new Class<?>[]{}, new Object[]{});
+    }
+
+    private static Object field(Object target, String name) {
+        try {
+            return target.getClass().getField(name).get(target);
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError("no field " + name + " on " + target.getClass().getName(), ex);
+        }
+    }
+
+    private static boolean logSeen(long mark, String text) {
+        for (String l : LogTap.since(mark)) {
+            if (l.contains(text)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void lava(ClientGameTestContext ctx, List<String> f) {
