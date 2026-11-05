@@ -514,6 +514,13 @@
     },
     {
       "owner": "(unscoped)",
+      "key": "themed main menu",
+      "to": "Menu Theme",
+      "text": "Draws the title screen in the mod's themes (animated background, framed button column). Off: Minecraft's own title screen. The style and scene rows in Menu Theme show only while it is on and keep their values.",
+      "why": "mmtoggle-1104 (killer560 2026-11-04): the switch moved to Home (Mod) and the first row of Menu Theme's Main Menu section"
+    },
+    {
+      "owner": "(unscoped)",
       "key": "center dot",
       "to": "Custom Crosshair",
       "text": "Adds a dot in the middle of any style.",
@@ -726,7 +733,7 @@
       "why": "Cosmetics is the Player Cosmetics card (menu-a); its hover rewritten since"
     },
     {
-      "owner": "Display Options",
+      "owner": "(unscoped)",
       "key": "pack disabler",
       "to": "Pack Disabler",
       "text": "Draws SkyBlock items with their pre-resource-pack look. Off by default.",

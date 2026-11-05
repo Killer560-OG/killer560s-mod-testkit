@@ -595,7 +595,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                     c.check(now == !startOn, tab + ": config is " + now + " after pressing from " + startOn);
                     // Saved on disk: a reload keeps it.
                     boolean reloaded = c.onClient(mc -> {
-                        Mod.call(Mod.cfg(MM), "load");
+                        Mod.staticCall(MM, "load");
                         return (Boolean) Mod.call(Mod.cfg(MM), "isEnabled");
                     });
                     c.check(reloaded == !startOn, tab + ": the pressed value was not saved (reload gave " + reloaded + ")");
