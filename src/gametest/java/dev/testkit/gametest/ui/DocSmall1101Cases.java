@@ -257,7 +257,10 @@ final class DocSmall1101Cases {
                 }
             }
             c.check(edit != null, "no Edit button: " + rows);
-            c.check(rows.stream().anyMatch(l -> l.startsWith("Swing Range")), "no Swing Range slider: " + rows);
+            // Only the switch and Edit on the card (killer560, 2026-11-04); the menu search still scans the rest.
+            c.check(tab.size() == 2, "the card should hold only the switch and Edit: " + rows);
+            List<String> scan = c.onClient(mc -> labels((List<AbstractWidget>) Mod.call(newTab("gui.tab.HeldItemTab"), "searchScanWidgets")));
+            c.check(scan.stream().anyMatch(l -> l.startsWith("Swing Range")) && scan.contains("Separate Off Hand: OFF"), "search scan lost the moved rows: " + scan);
             c.check(edit == null || tab.indexOf(edit) <= 2, "Edit is not on the switch's row");
             if (edit != null) {
                 AbstractWidget e = edit;
@@ -273,7 +276,33 @@ final class DocSmall1101Cases {
                 c.note("Edit opened " + st[0] + ", sliders on the " + (Boolean.TRUE.equals(st[1]) ? "left" : "right")
                         + (bounds == null ? "" : " at x " + bounds[0] + " w " + bounds[2] + " of " + st[3]));
                 c.check("HeldItemEditScreen".equals(st[0]), "Edit opened " + st[0]);
-                boolean rightHanded = c.onClient(mc -> mc.player.getMainArm() == net.minecraft.world.entity.HumanoidArm.RIGHT);
+                // The moved rows are on the Edit screen and act: toggle No Hand Sway and Separate Off Hand there.
+                List<AbstractWidget> editRows = c.onClient(mc -> {
+                    List<AbstractWidget> out = new ArrayList<>();
+                    for (Object o : (List<?>) Mod.call(McCompat.screen(mc), "children")) {
+                        if (o instanceof AbstractWidget aw) out.add(aw);
+                    }
+                    return out;
+                });
+                List<String> editLabels = labels(editRows);
+                for (String want : new String[]{"Animations", "No Swing Animation", "No Equip Animation", "No Hand Sway", "Swing Speed", "Swing Range",
+                        "Both Hands", "Scale", "X Offset", "Z Rotation", "Separate Off Hand", "Reset to Defaults"}) {
+                    c.check(editLabels.stream().anyMatch(l -> l.contains(want)), "Edit screen has no " + want + " row: " + editLabels);
+                }
+                boolean swayBefore = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(cls), "isNoHandSway"));
+                for (AbstractWidget w : editRows) {
+                    if (ModScreenDriver.label(w).startsWith("No Hand Sway")) {
+                        c.onClient(mc -> ModScreenDriver.press(w));
+                    }
+                }
+                c.ticks(2);
+                boolean swayAfter = c.onClient(mc -> {
+                    Mod.call(Mod.cfg(cls), "save");
+                    Mod.staticCall(cls, "load");
+                    return (Boolean) Mod.call(Mod.cfg(cls), "isNoHandSway");
+                });
+                c.check(swayAfter != swayBefore, "No Hand Sway pressed on the Edit screen did not change/save: " + swayBefore + " -> " + swayAfter);
+                c.note("Edit screen rows: " + editLabels.size() + ", No Hand Sway " + swayBefore + " -> " + swayAfter);                boolean rightHanded = c.onClient(mc -> mc.player.getMainArm() == net.minecraft.world.entity.HumanoidArm.RIGHT);
                 c.check(Boolean.valueOf(rightHanded).equals(st[1]), "panel side " + st[1] + " for a "
                         + (rightHanded ? "right" : "left") + "-handed player");
                 c.check(bounds != null && (rightHanded ? bounds[0] < (Integer) st[3] / 2 : bounds[0] > (Integer) st[3] / 2),
