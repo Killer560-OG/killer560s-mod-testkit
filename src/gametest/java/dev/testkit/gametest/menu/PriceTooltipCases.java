@@ -53,7 +53,9 @@ import java.util.concurrent.atomic.AtomicInteger;
  *       take 2,500,000 off in Networth only (5,000,000 at 100); a Tier Boost is its held item on the stored tier's
  *       price; a bare listing within 3 levels wins over the line, one 4 levels away does not; a Golden Dragon is
  *       800,000,000 at level 150 (600M at 100, 1B at 200) and 1B at 200, candy never discounted; a pet with only the
- *       level-100 price uses it; a pet with no price has no Est. Item Value line.</li>
+ *       level-100 price uses it; a pet with no price has no Est. Item Value line. The Profile Viewer's pet list
+ *       (Networth.calculate) prices an API pet the same way: a half-XP Enderman with 3 candy and a level 100 one make
+ *       Pets 32,000,000 at Full Price and 29,500,000 in Networth, not the level-blind ENDERMAN;4 price.</li>
  * </ol>
  */
 final class PriceTooltipCases {
@@ -429,6 +431,29 @@ final class PriceTooltipCases {
     }
 
     static final double LEG_XP_100 = 25_353_230;
+
+    /** The Pets category of Networth.calculate for a profile holding a half-XP Enderman (3 candy) and a level 100 one. */
+    static long profilePets(Session c) {
+        String profile = "{\"profiles\":[{\"profile_id\":\"p1\",\"cute_name\":\"Test\",\"selected\":true,"
+                + "\"members\":{\"00000000000000000000000000000001\":{\"pets_data\":{\"pets\":["
+                + "{\"type\":\"ENDERMAN\",\"tier\":\"LEGENDARY\",\"exp\":" + LEG_XP_100 / 2 + ",\"candyUsed\":3},"
+                + "{\"type\":\"ENDERMAN\",\"tier\":\"LEGENDARY\",\"exp\":" + LEG_XP_100 + "}]}}}}]}";
+        return c.onClient(mc -> {
+            Object p = ((List<?>) Mod.staticCall("profileviewer.data.SbProfile", "parseAll",
+                    com.google.gson.JsonParser.parseString(profile).getAsJsonObject(),
+                    java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"))).get(0);
+            try {
+                Object inv = Mod.cls("profileviewer.data.SbProfile$Inventories").getDeclaredConstructors()[0].newInstance(
+                        List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), 0, List.of(), List.of(), List.of(),
+                        List.of(), List.of());
+                Object r = Mod.staticCall("profileviewer.data.Networth", "calculate", p, inv, null,
+                        Map.of("ENDERMAN;4", 99_000_000.0), null);
+                return Networth1104Cases.categoryTotal(r, false, "Pets");
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+        });
+    }
     static final double GD_XP_MAX = 214_023_230;
 
     static void pet(Session c) throws Exception {
@@ -476,6 +501,15 @@ final class PriceTooltipCases {
             List<String> boostParts = priceLines(c, give(c, 0, (String) rows[5][0]));
             c.check(boostParts.contains(" §8- §7Base (Lvl 91): §b11,000,000.0") && boostParts.contains(" §8- §7Pet Item: §b20,000,000.0"),
                     "Tier Boost breakdown: " + boostParts);
+
+            // The Profile Viewer's pet list prices API pets with the same method (not the level-blind NEU price).
+            for (String mode : new String[]{"FULL", "NETWORTH"}) {
+                cfg.set(CFG, "ValueMode", Mod.enumValue(CFG + "$ValueMode", mode));
+                long pets = profilePets(c);
+                long want = mode.equals("FULL") ? 32_000_000L : 29_500_000L;
+                c.note("Profile Viewer Pets " + mode + ": " + pets);
+                c.check(pets == want, "Profile Viewer Pets category in " + mode + " is " + pets + ", expected " + want);
+            }
 
             // A real bare listing within 3 levels is the base; one 4 levels away is not. The listings go through the
             // scan's own index: a BIN with a held item, a skinned one and a bid auction at closer levels are skipped.

@@ -176,7 +176,7 @@ final class Networth1104Cases {
         }
     }
 
-    private static long categoryTotal(Object result, boolean nonCosmetic, String name) {
+    static long categoryTotal(Object result, boolean nonCosmetic, String name) {
         for (Object cat : (List<?>) Mod.call(result, "categories", nonCosmetic)) {
             if (name.equals(Mod.call(cat, "name"))) {
                 return ((Number) Mod.call(cat, "total")).longValue();
