@@ -46,6 +46,10 @@ final class HxChestGoblin1104Cases {
         return c.onClient(mc -> ((Number) Mod.staticCall(cls, m)).intValue());
     }
 
+    private static int argb(Session c, boolean diamond) {
+        return c.onClient(mc -> ((Number) Mod.staticCall(GG, "drawnArgb", diamond)).intValue());
+    }
+
     private static int[] feet(Session c) {
         double[] at = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
         return new int[]{(int) Math.floor(at[0]), (int) Math.floor(at[1]), (int) Math.floor(at[2])};
@@ -157,7 +161,8 @@ final class HxChestGoblin1104Cases {
                 () -> Mod.call(cfg, "setGoldenGoblin", old));
         String wall = String.format(Locale.ROOT, "%d %d %d %d %d %d", bx - 4, by, bz - 6, bx + 4, by + 6, bz - 6);
         try (Settings set = s0.with(MCFG, "GoldenGoblinBox", true).with(MCFG, "GoldenGoblinTracer", true)
-                .with(MCFG, "GoldenGoblinEsp", false)) {
+                .with(MCFG, "GoldenGoblinEsp", false)
+                .with(MCFG, "GoldenGoblinColor", 0xFFFFD700).with(MCFG, "DiamondGoblinColor", 0xFF55FFFF)) {
             c.hx().sidebar("SKYBLOCK", "Late Winter 3rd", "⏣ Royal Mines", "Purse: 0");
             c.hx().tab(List.of("Area: Dwarven Mines", "Profile: Test", "", "Commissions:", " Goblin Slayer: 10%", ""), null, null);
             c.waitUntil("Dwarven Mines", mc -> "DWARVEN_MINES".equals(Mod.staticCall(STATE, "island")), 100);
@@ -189,6 +194,13 @@ final class HxChestGoblin1104Cases {
             c.ctx().waitTicks(20);
             c.check(intCall(c, GG, "boxFrames") > b0, "no box drawn on the goblins");
             c.check(intCall(c, GG, "tracerFrames") > t0, "no tracer drawn to the goblins");
+            // Each goblin's box and tracer take its own color: gold and aqua by default, then a custom Diamond Color.
+            c.check(argb(c, false) == 0xFFFFD700, "Golden Goblin color: " + Integer.toHexString(argb(c, false)));
+            c.check(argb(c, true) == 0xFF55FFFF, "Diamond Goblin color: " + Integer.toHexString(argb(c, true)));
+            c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(MCFG), "setDiamondGoblinColor", 0xFFAA3366));
+            c.ctx().waitTicks(10);
+            c.check(argb(c, true) == 0xFFAA3366, "custom Diamond Color not drawn: " + Integer.toHexString(argb(c, true)));
+            c.check(argb(c, false) == 0xFFFFD700, "Golden Goblin color moved with the Diamond Color");
 
             // Behind a wall: legit stops, Through Walls (cheat jar only) brings it back.
             c.server().command("fill " + wall + " minecraft:stone");
