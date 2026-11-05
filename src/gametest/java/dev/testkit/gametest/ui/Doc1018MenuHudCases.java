@@ -64,7 +64,7 @@ final class Doc1018MenuHudCases {
     // =================================================================================================================
 
     @SuppressWarnings("unchecked")
-    private static List<AbstractWidget> build(Object tab) {
+    static List<AbstractWidget> build(Object tab) {
         try {
             Method m = tab.getClass().getMethod("buildWidgets", int.class, int.class, int.class, Runnable.class);
             return (List<AbstractWidget>) m.invoke(tab, 10, 10, 330, (Runnable) () -> { });
