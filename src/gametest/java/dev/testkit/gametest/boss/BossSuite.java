@@ -71,6 +71,8 @@ public class BossSuite implements FabricClientGameTest {
                     PosmsgLeapCases.register(s);
                     // Keep Rotation On Leap: a leap keeps his look, a setback and OFF do not (1104-leaprot-*, leaprot-1104).
                     LeapRotationCases.register(s);
+                    // His own use / attack / hotbar swap in the same tick as each P3 aura's packet (1105-same-*, grimsame-1105).
+                    SameTickCases.register(s);
                 });
     }
 }
