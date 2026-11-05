@@ -1278,6 +1278,16 @@ public class BlinkStressTests implements FabricClientGameTest {
                 ctx.waitTicks(5);
                 TestEnemy dummy = null;
                 try {
+                    // A fresh server's first place takes longer than GrimAC's 15 ms rotation window and draws RotationPlace
+                    // whatever the mod does (3 of 4 runs, 2026-11-05; docs/LESSONS-AUTOMATION.md): warm it with one plain
+                    // place (Blink off, its look sent ticks before), then clear the block for the real one.
+                    ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+                    look(ctx, x - 1.5, SURFACE_Y - 0.5, z - 0.5);
+                    ctx.waitTicks(5);
+                    ctx.getInput().pressKey(o -> o.keyUse);
+                    ctx.waitTicks(10);
+                    server.command("setblock " + (x - 2) + " " + SURFACE_Y + " " + (z - 1) + " minecraft:air");
+                    ctx.waitTicks(3);
                     chargeOn(ctx);
                     ctx.waitTicks(30);
                     long bank0 = cnum(ctx, "banked");
