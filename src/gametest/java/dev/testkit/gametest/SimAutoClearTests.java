@@ -134,6 +134,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
     }
 
     private static void body(ClientGameTestContext ctx, List<String> failures) {
+        long warmMark = LogTap.mark();
         // ---- a floor with a mob room on the blood rush and two off it --------------------------------------------
         List<Room> rooms = null;
         Room rush = null;
@@ -264,6 +265,23 @@ public class SimAutoClearTests implements FabricClientGameTest {
                 ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig"), "setStatusHud", true);
             }
         });
+
+        // The Interactive Map plans room by room while the floor graph warms up, and a search that runs out of time then
+        // ends "no etherwarp path (4 tries)" with nothing moved (2026-11-04: three clients, the full graph came 28 s after
+        // the floor on an idle PC and later still under load; 131 failed room, correction and door cases that way). Wait
+        // up to 3 minutes for the full graph before the first case.
+        java.util.regex.Pattern warm = java.util.regex.Pattern.compile("\\[Path\\] floor graph warm: (\\d+) node");
+        boolean warmed = false;
+        for (int i = 0; i < 180 * 20 && !warmed; i += 20) {
+            for (String l : LogTap.since(warmMark)) {
+                java.util.regex.Matcher m = warm.matcher(l);
+                warmed |= m.find() && Integer.parseInt(m.group(1)) >= 3000;
+            }
+            if (!warmed) {
+                ctx.waitTicks(20);
+            }
+        }
+        println("floor graph " + (warmed ? "warm" : "NOT warm after 3 minutes - cases may plan room by room"));
 
         // ==== case 1: Blood Rush Split, Hyperion ====
         setMode(ctx, "BLOOD_RUSH_SPLIT", "HYPERION");
@@ -518,6 +536,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
         }
         long mark7 = LogTap.mark();
         PacketWatch.start();
+        Vec3 doorStart = ctx.computeOnClient(mc -> mc.player.position());
         ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "start"));
         boolean waiting = false;
         for (int t = 0; t < 600 && !waiting; t++) {
@@ -548,7 +567,11 @@ public class SimAutoClearTests implements FabricClientGameTest {
             });
         });
         ctx.waitFor(mc -> keyGiven.get() != null, 100);
+        Vec3 atDoor = ctx.computeOnClient(mc -> mc.player.position());
         Result r7 = runCase(ctx, "door", () -> { });
+        // The trip to the door ran before this measurement (the wait for "no key - waiting"); a mob the door opens onto can
+        // be in reach from the door, so nothing more moves (d-3, 2026-11-04: 0.0 blocks, room cleared, key used).
+        r7.travelled += atDoor.distanceTo(doorStart);
         Map<UUID, String> after7 = aliveReport(ctx, p7);
         boolean clicked = false;
         for (String l : LogTap.since(mark7)) {
@@ -1047,7 +1070,18 @@ public class SimAutoClearTests implements FabricClientGameTest {
             setSlot(ctx, 2, null);
         }
         try {
-            correctionCaseBody(ctx, failures, label, here, hops, withStart);
+            // Without hops the teleport waits for the trip; a zombie the mod WALKS to (close enough, or a cheaper walk,
+            // 2026-11-04 d-2: 7 blocks walked, no trip) never makes one, and nothing measured a correction. Try again
+            // from where he now stands, up to three times, before calling it a failure.
+            for (int attempt = 1; ; attempt++) {
+                List<String> tried = new ArrayList<>();
+                correctionCaseBody(ctx, tried, label, here, hops, withStart);
+                if (hops || attempt >= 3 || tried.isEmpty() || !tried.get(0).contains("teleport was never made")) {
+                    failures.addAll(tried);
+                    break;
+                }
+                println(label + ": no trip was made (attempt " + attempt + "): " + tried + " - trying another spot");
+            }
         } finally {
             if (!hops) {
                 setSlot(ctx, 2, "BAT_WAND");
