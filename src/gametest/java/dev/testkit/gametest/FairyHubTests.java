@@ -29,6 +29,7 @@ import java.util.Map;
  * The capture is PRIVATE and never in this repo: {@code -Pfairy.hubWorld=<save>} (property {@code testkit.fairy.hubWorld}),
  * default {@code killer560s-mod-logs/world-captures/hub-1104-main} beside the mod checkout. The graph is the mod's own
  * download in the rooms instance ({@code testkit.fairy.hubGraph} overrides). Missing either: the case SKIPs and says so.
+ * It also SKIPs on a game older than the capture ({@code export-info.json}'s "minecraft"): hub-1104-main is a 26.3 world.
  * {@code testkit.fairy.hubSouls} (default 7: fairyhub-1105 collected 7-8 in 8 minutes; the souls it skips are parkour,
  * a dead-end secret or a soul set in a hillside, skipped at once) souls are required in {@code testkit.fairy.hubMinutes} (default 8, under
  * the 9.5-minute NegativeTimer harness quirk) from {@code testkit.fairy.hubStart} (x,y,z[,yaw,pitch], default the
@@ -58,6 +59,12 @@ public class FairyHubTests implements FabricClientGameTest {
         Path graph = hubGraph();
         if (world == null || graph == null) {
             Scenario.skipped(NAME, "no hub capture (" + world + ") or HUB graph (" + graph + ") on this machine");
+            return;
+        }
+        String made = madeOn(world);
+        if (made != null && newerThanGame(made)) {
+            // a server cannot load a world from a newer version: on 26.2 the 26.3 capture loaded empty, he fell to y -75
+            Scenario.skipped(NAME, "the hub capture is a " + made + " world; this game cannot load a newer world");
             return;
         }
         JsonObject meta = meta(world, graph);
@@ -111,6 +118,27 @@ public class FairyHubTests implements FabricClientGameTest {
                 : Machine.modSource().resolveSibling("killer560s-mod-logs").resolve("world-captures").resolve("hub-1104-main");
         return dir != null && Files.isRegularFile(dir.resolve("level.dat")) && Files.isRegularFile(dir.resolve("entities.json"))
                 ? dir : null;
+    }
+
+    /** The Minecraft version the capture was exported on ({@code export-info.json}), or null. */
+    static String madeOn(Path world) {
+        try {
+            JsonObject info = JsonParser.parseString(Files.readString(world.resolve("export-info.json"), StandardCharsets.UTF_8))
+                    .getAsJsonObject();
+            return info.has("minecraft") ? info.get("minecraft").getAsString() : null;
+        } catch (java.io.IOException | RuntimeException e) {
+            return null;
+        }
+    }
+
+    static boolean newerThanGame(String made) {
+        try {
+            net.fabricmc.loader.api.Version game = net.fabricmc.loader.api.FabricLoader.getInstance()
+                    .getModContainer("minecraft").orElseThrow().getMetadata().getVersion();
+            return net.fabricmc.loader.api.Version.parse(made).compareTo(game) > 0;
+        } catch (net.fabricmc.loader.api.VersionParsingException | RuntimeException e) {
+            return false;
+        }
     }
 
     static Path hubGraph() {
