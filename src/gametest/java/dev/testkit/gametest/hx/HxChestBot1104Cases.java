@@ -13,7 +13,7 @@ import java.util.Locale;
  * <ul>
  *   <li>1104-chestbot-click: a claimed treasure chest under the crosshair, a stick held, Ruby Drill (+5% Gemstone Powder) in
  *       slot 3, Jasper Drill (+20%) in slot 5 and a Divan's Drill (no powder line) in slot 7. The bot swaps to slot 5 first
- *       (one set_carried_item before any use_item_on), then clicks: at Triggerbot CPS 20 (the slider's top, the GrimAC
+ *       (one set_carried_item before any use_item_on), then clicks: at Min = Max = 20 CPS (the sliders' top, the GrimAC
  *       check) one click a tick and never two use_item_on in one tick (killer560, 2026-11-04: "no more than once per tick
  *       on a chest"), at CPS 5 one every 4 ticks. A stone block on the chest keeps the vanilla server from opening it.
  *       Then a second chest whose lock particles (crit) sit on its TOP face: a crosshair on its side is never clicked, one on
@@ -33,6 +33,8 @@ final class HxChestBot1104Cases {
 
     static void register(Session s) {
         s.test("1104-chestbot-click", HxChestBot1104Cases::click);
+        s.test("1104-chestbot-swapback", HxChestBot1104Cases::swapBack);
+        s.test("1104-chestbot-nomineswap", HxChestBot1104Cases::noSwapWhileMining);
     }
 
     private static void click(Session c) {
@@ -53,7 +55,7 @@ final class HxChestBot1104Cases {
         boolean old = c.onClient(mc -> (Boolean) Mod.call(cfg, "isChestTriggerbotRaw"));
         try (HxKit.Settings set = new HxKit.Settings(c)
                 .custom(() -> Mod.call(cfg, "setChestTriggerbot", true), () -> Mod.call(cfg, "setChestTriggerbot", old))
-                .with(CFG, "ChestTriggerbotSwap", true).with(CFG, "ChestTriggerbotCps", 20).with(CFG, "ChestAlertSound", false)
+                .with(CFG, "ChestTriggerbotSwap", true).with(CFG, "ChestTriggerbotMaxCps", 20).with(CFG, "ChestTriggerbotMinCps", 20).with(CFG, "ChestAlertSound", false)
                 .with(CFG, "ChestAlertTitle", false)) {
             c.hx().give(0, "minecraft:stick");
             c.hx().give(2, drill("GEMSTONE_DRILL_1", "Ruby Drill TX-15", 5));
@@ -90,12 +92,36 @@ final class HxChestBot1104Cases {
             c.check(fast >= 36 && fast <= 41, fast + " clicks in 40 ticks at 20 CPS (want one a tick)");
             c.check(PacketTrace.maxPerTick("use_item_on") == 1, PacketTrace.maxPerTick("use_item_on")
                     + " use_item_on in one tick (the limit is one a tick on a chest)");
-            c.ctx().runOnClient(mc -> Mod.call(cfg, "setChestTriggerbotCps", 5));
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfg, "setChestTriggerbotMinCps", 5);
+                Mod.call(cfg, "setChestTriggerbotMaxCps", 5);
+            });
             c.ctx().waitTicks(4);
             int at5 = clicks(c);
             c.ctx().waitTicks(60);
             int slow = clicks(c) - at5;
             c.check(slow >= 14 && slow <= 16, slow + " clicks in 60 ticks at 5 CPS (want 15)");
+            // Min 4 / Max 8: every click rolls a rate in [4, 8], so 100 ticks hold 20-40 clicks; the setters keep Min <= Max.
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfg, "setChestTriggerbotMaxCps", 8);
+                Mod.call(cfg, "setChestTriggerbotMinCps", 4);
+            });
+            c.ctx().waitTicks(4);
+            int atRange = clicks(c);
+            c.ctx().waitTicks(100);
+            int ranged = clicks(c) - atRange;
+            c.check(ranged >= 18 && ranged <= 42, ranged + " clicks in 100 ticks at 4-8 CPS (want 20-40)");
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfg, "setChestTriggerbotMinCps", 15);
+                Mod.call(cfg, "setChestTriggerbotMaxCps", 2);
+            });
+            int[] mm = c.onClient(mc -> new int[]{((Number) Mod.call(cfg, "getChestTriggerbotMinCps")).intValue(),
+                    ((Number) Mod.call(cfg, "getChestTriggerbotMaxCps")).intValue()});
+            c.check(mm[0] == 8 && mm[1] == 8, "Min above Max / Max below Min not clamped: min " + mm[0] + " max " + mm[1]);
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfg, "setChestTriggerbotMinCps", 5);
+                Mod.call(cfg, "setChestTriggerbotMaxCps", 5);
+            });
             int total = clicks(c);
             int sentUse = PacketTrace.sent("use_item_on");
             c.check(sentUse == total, sentUse + " use_item_on sent for " + total + " clicks");
@@ -134,6 +160,154 @@ final class HxChestBot1104Cases {
                 setblock(c, p[0], p[1] + 1, p[2], "minecraft:air");
                 setblock(c, p[0], p[1], p[2], "minecraft:air");
             }
+            c.ctx().runOnClient(mc -> Mod.staticCall(CFG, "load"));
+            HxKit.hub(c);
+        }
+    }
+
+    /**
+     * Swap Back When Mining: chest claimed, the bot swaps from the stick (slot 0) to the Jasper Drill (slot 4); the first dig
+     * start on a stone puts the stick back (a set_carried_item to 0 ahead of the dig, GrimAC silent). A second visit with
+     * the stick replaced by an apple before the dig: no swap back (the slot no longer holds what he had).
+     */
+    private static void swapBack(Session c) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: Powder Chest Triggerbot is cheat-only");
+            return;
+        }
+        c.waitUntil("standing still", mc -> mc.player.onGround()
+                && mc.player.getDeltaMovement().horizontalDistanceSqr() < 1e-4, 200);
+        int[] f = feet(c);
+        int[] a = {f[0], f[1], f[2] + 2};
+        int[] st = {f[0] - 2, f[1], f[2] + 2};
+        Object cfg = c.onClient(mc -> Mod.cfg(CFG));
+        boolean old = c.onClient(mc -> (Boolean) Mod.call(cfg, "isChestTriggerbotRaw"));
+        try (HxKit.Settings set = new HxKit.Settings(c)
+                .custom(() -> Mod.call(cfg, "setChestTriggerbot", true), () -> Mod.call(cfg, "setChestTriggerbot", old))
+                .with(CFG, "ChestTriggerbotSwap", true).with(CFG, "ChestTriggerbotSwapBack", true)
+                .with(CFG, "ChestTriggerbotNoSwapMining", false).with(CFG, "ChestTriggerbotMaxCps", 20)
+                .with(CFG, "ChestTriggerbotMinCps", 20).with(CFG, "ChestAlertSound", false).with(CFG, "ChestAlertTitle", false)) {
+            c.hx().give(0, "minecraft:stick");
+            c.hx().give(4, drill("GEMSTONE_DRILL_4", "Jasper Drill X", 20));
+            hollows(c);
+            claim(c, a);
+            setblock(c, a[0], a[1] + 1, a[2], "minecraft:stone");
+            setblock(c, st[0], st[1], st[2], "minecraft:stone");
+            for (int round = 0; round < 2; round++) {
+                boolean moved = round == 1;
+                c.ctx().runOnClient(mc -> {
+                    mc.player.getInventory().setSelectedSlot(0);
+                    Mod.staticCall(BOT, "resetForTest");
+                });
+                if (moved) {
+                    c.hx().give(0, "minecraft:stick"); // restored below by the swap-back round's end
+                }
+                PacketTrace.start();
+                for (int i = 0; i < 60 && intCall(c, "swaps") == 0; i++) {
+                    look(c, a[0] + 0.5, a[1] + 0.4, a[2] + 0.05);
+                    c.ctx().waitTicks(1);
+                }
+                c.check(intCall(c, "swaps") == 1, "round " + round + ": no swap to the drill");
+                c.check(c.onClient(mc -> mc.player.getInventory().getSelectedSlot()) == 4, "round " + round + ": not on the drill");
+                look(c, st[0] + 0.5, st[1] + 0.5, st[2] + 0.5);
+                if (moved) {
+                    c.hx().give(0, "minecraft:apple"); // slot 0 no longer holds the stick
+                }
+                c.ctx().waitTicks(2);
+                for (int i = 0; i < 12 && intCall(c, "swapBacks") == 0; i++) {
+                    c.ctx().runOnClient(mc -> mc.gameMode.startDestroyBlock(new net.minecraft.core.BlockPos(st[0], st[1], st[2]),
+                            net.minecraft.core.Direction.UP));
+                    c.ctx().waitTicks(2);
+                    setblock(c, st[0], st[1], st[2], "minecraft:stone");
+                    c.ctx().waitTicks(2);
+                }
+                int slot = c.onClient(mc -> mc.player.getInventory().getSelectedSlot());
+                if (!moved) {
+                    c.check(intCall(c, "swapBacks") == 1 && slot == 0, "swap back: swapBacks " + intCall(c, "swapBacks")
+                            + ", held slot " + slot + " (want 0)");
+                    List<String> lines = PacketTrace.lines();
+                    int last = -1;
+                    for (int i = 0; i < lines.size(); i++) {
+                        if ((" " + lines.get(i).split("<")[0] + " ").contains(" set_carried_item ")) last = i;
+                    }
+                    c.check(last >= 0, "no set_carried_item sent for the swap back");
+                } else {
+                    c.check(intCall(c, "swapBacks") == 0 && slot == 4, "slot 0 changed but it swapped back: swapBacks "
+                            + intCall(c, "swapBacks") + ", slot " + slot);
+                }
+                PacketTrace.stop();
+            }
+        } finally {
+            PacketTrace.stop();
+            setblock(c, a[0], a[1] + 1, a[2], "minecraft:air");
+            setblock(c, a[0], a[1], a[2], "minecraft:air");
+            setblock(c, st[0], st[1], st[2], "minecraft:air");
+            c.ctx().runOnClient(mc -> Mod.staticCall(CFG, "load"));
+            HxKit.hub(c);
+        }
+    }
+
+    /**
+     * Don't Swap While Mining: with the attack key held and the crosshair on the claimed chest the bot never swaps (20 ticks,
+     * zero swaps, still on the stick); released, it swaps to the drill. The switch off: it swaps with the key held.
+     */
+    private static void noSwapWhileMining(Session c) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: Powder Chest Triggerbot is cheat-only");
+            return;
+        }
+        c.waitUntil("standing still", mc -> mc.player.onGround()
+                && mc.player.getDeltaMovement().horizontalDistanceSqr() < 1e-4, 200);
+        int[] f = feet(c);
+        int[] a = {f[0], f[1], f[2] + 2};
+        Object cfg = c.onClient(mc -> Mod.cfg(CFG));
+        boolean old = c.onClient(mc -> (Boolean) Mod.call(cfg, "isChestTriggerbotRaw"));
+        try (HxKit.Settings set = new HxKit.Settings(c)
+                .custom(() -> Mod.call(cfg, "setChestTriggerbot", true), () -> Mod.call(cfg, "setChestTriggerbot", old))
+                .with(CFG, "ChestTriggerbotSwap", true).with(CFG, "ChestTriggerbotNoSwapMining", true)
+                .with(CFG, "ChestTriggerbotMaxCps", 20).with(CFG, "ChestTriggerbotMinCps", 20)
+                .with(CFG, "ChestAlertSound", false).with(CFG, "ChestAlertTitle", false)) {
+            c.server().command("gamemode adventure @p"); // a held attack key must not break the chest
+            c.hx().give(0, "minecraft:stick");
+            c.hx().give(4, drill("GEMSTONE_DRILL_4", "Jasper Drill X", 20));
+            c.ctx().runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+            hollows(c);
+            claim(c, a);
+            setblock(c, a[0], a[1] + 1, a[2], "minecraft:stone");
+            c.ctx().runOnClient(mc -> Mod.staticCall(BOT, "resetForTest"));
+            c.ctx().runOnClient(mc -> mc.options.keyAttack.setDown(true));
+            for (int i = 0; i < 20; i++) {
+                look(c, a[0] + 0.5, a[1] + 0.4, a[2] + 0.05);
+                c.ctx().waitTicks(1);
+            }
+            boolean onChest = c.onClient(mc -> mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult h
+                    && h.getBlockPos().equals(new net.minecraft.core.BlockPos(a[0], a[1], a[2])));
+            c.check(onChest, "the crosshair is not on the chest, the case proves nothing");
+            c.check(intCall(c, "swaps") == 0 && c.onClient(mc -> mc.player.getInventory().getSelectedSlot()) == 0,
+                    "swapped while the attack key was held: swaps " + intCall(c, "swaps"));
+            c.ctx().runOnClient(mc -> mc.options.keyAttack.setDown(false));
+            for (int i = 0; i < 20 && intCall(c, "swaps") == 0; i++) {
+                look(c, a[0] + 0.5, a[1] + 0.4, a[2] + 0.05);
+                c.ctx().waitTicks(1);
+            }
+            c.check(intCall(c, "swaps") == 1, "no swap once the attack key was released");
+            // Switch off: the held key no longer stops it.
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfg, "setChestTriggerbotNoSwapMining", false);
+                mc.player.getInventory().setSelectedSlot(0);
+                Mod.staticCall(BOT, "resetForTest");
+                mc.options.keyAttack.setDown(true);
+            });
+            for (int i = 0; i < 40 && intCall(c, "swaps") == 0; i++) {
+                look(c, a[0] + 0.5, a[1] + 0.4, a[2] + 0.05);
+                c.ctx().waitTicks(1);
+            }
+            c.check(intCall(c, "swaps") == 1, "the switch is off but the held attack key still stopped the swap");
+        } finally {
+            c.ctx().runOnClient(mc -> mc.options.keyAttack.setDown(false));
+            c.server().command("gamemode creative @p");
+            setblock(c, a[0], a[1] + 1, a[2], "minecraft:air");
+            setblock(c, a[0], a[1], a[2], "minecraft:air");
             c.ctx().runOnClient(mc -> Mod.staticCall(CFG, "load"));
             HxKit.hub(c);
         }
