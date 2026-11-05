@@ -215,8 +215,11 @@ final class HxChestBot1104Cases {
                 }
                 c.ctx().waitTicks(2);
                 for (int i = 0; i < 12 && intCall(c, "swapBacks") == 0; i++) {
-                    c.ctx().runOnClient(mc -> mc.gameMode.startDestroyBlock(new net.minecraft.core.BlockPos(st[0], st[1], st[2]),
-                            net.minecraft.core.Direction.UP));
+                    c.ctx().runOnClient(mc -> { // a real dig start: startDestroyBlock then the swing vanilla's startAttack adds
+                        mc.gameMode.startDestroyBlock(new net.minecraft.core.BlockPos(st[0], st[1], st[2]),
+                                net.minecraft.core.Direction.UP);
+                        mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+                    });
                     c.ctx().waitTicks(2);
                     setblock(c, st[0], st[1], st[2], "minecraft:stone");
                     c.ctx().waitTicks(2);
