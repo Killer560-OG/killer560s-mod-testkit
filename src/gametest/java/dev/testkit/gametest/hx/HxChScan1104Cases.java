@@ -19,10 +19,10 @@ final class HxChScan1104Cases {
     private static final String CFG = "mining.scanner.StructureScannerConfig";
     private static final String FEATURE = "mining.scanner.StructureScannerFeature";
     private static final String STATE = "miningqol.MiningState";
-    /** Where the player stands for the first scan, and the Mines of Divan column (chunk 34 vs 25: 9 chunks out). */
-    private static final int[] B = {400, 100, 300};
+    /** Where the player stands for the first scan, and the Mines of Divan column (chunk 34 vs 43: 9 chunks out). */
+    private static final int[] B = {700, 100, 300};
     private static final int[] DIVAN = {552, 60, 300};
-    /** Far from B (chunk 13 vs 25): the Jungle Temple column, loaded only when the player goes there. */
+    /** Far from B (chunk 13 vs 43, past render distance 12): the Jungle Temple column, loaded only when the player goes there. */
     private static final int[] A = {210, 100, 210};
     private static final int[] TEMPLE = {212, 60, 212};
 
@@ -55,8 +55,9 @@ final class HxChScan1104Cases {
     }
 
     private static void tp(Session c, int[] at) {
-        c.server().command(String.format(Locale.ROOT, "tp @a %.1f %d %.1f 0 90", at[0] + 0.5, at[1], at[2] + 0.5));
+        // The floor first (its chunk is forceloaded), so the player lands on it instead of falling (Grim Simulation).
         c.server().command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:stone", at[0], at[1] - 1, at[2]));
+        c.server().command(String.format(Locale.ROOT, "tp @a %.1f %d %.1f 0 90", at[0] + 0.5, at[1], at[2] + 0.5));
     }
 
     /** On the client thread only (inside onClient or a waitUntil predicate). */
@@ -81,7 +82,7 @@ final class HxChScan1104Cases {
         try (Settings set = new Settings(c).with(CFG, "Enabled", false).with(CFG, "Waypoints", true)
                 .with(CFG, "ShowOnMap", true).with(CFG, "ChatOnFind", false)) {
             // Both columns placed while the scanner is off; the temple's chunk then unloads on the client (the player goes
-            // 12+ chunks away).
+            // 30 chunks away).
             forceload(c, "add");
             // The test client's render distance is 5; the Mines of Divan sits 9 chunks out (server view distance 10).
             c.ctx().runOnClient(mc -> {
