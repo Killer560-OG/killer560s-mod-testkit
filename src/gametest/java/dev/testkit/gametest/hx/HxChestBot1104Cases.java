@@ -214,12 +214,11 @@ final class HxChestBot1104Cases {
                     c.hx().give(0, "minecraft:apple"); // slot 0 no longer holds the stick
                 }
                 c.ctx().waitTicks(2);
-                for (int i = 0; i < 12 && intCall(c, "swapBacks") == 0; i++) {
-                    c.ctx().runOnClient(mc -> { // a real dig start: startDestroyBlock then the swing vanilla's startAttack adds
-                        mc.gameMode.startDestroyBlock(new net.minecraft.core.BlockPos(st[0], st[1], st[2]),
-                                net.minecraft.core.Direction.UP);
-                        Mod.staticCall("compat.McCompat", "swingUse", mc.player);
-                    });
+                // He mines the stone with the real attack key (vanilla's startAttack: dig, then the swing GrimAC wants).
+                for (int i = 0; i < 6 && (moved ? i < 4 : intCall(c, "swapBacks") == 0); i++) {
+                    c.ctx().runOnClient(mc -> mc.options.keyAttack.setDown(true));
+                    c.ctx().waitTicks(2);
+                    c.ctx().runOnClient(mc -> mc.options.keyAttack.setDown(false));
                     c.ctx().waitTicks(2);
                     setblock(c, st[0], st[1], st[2], "minecraft:stone");
                     c.ctx().waitTicks(2);
@@ -241,6 +240,7 @@ final class HxChestBot1104Cases {
                 PacketTrace.stop();
             }
         } finally {
+            c.ctx().runOnClient(mc -> mc.options.keyAttack.setDown(false));
             PacketTrace.stop();
             setblock(c, a[0], a[1] + 1, a[2], "minecraft:air");
             setblock(c, a[0], a[1], a[2], "minecraft:air");
