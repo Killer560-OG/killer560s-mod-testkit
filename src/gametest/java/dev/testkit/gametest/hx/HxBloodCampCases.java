@@ -120,6 +120,8 @@ final class HxBloodCampCases {
         s.test("1101-esp-fels", HxBloodCampCases::fels);
         s.test("1101-esp-starred-memory", HxBloodCampCases::starredMemory);
         s.test("1101-esp-mimic", HxBloodCampCases::mimic);
+        // mobespscan-1105: Mob ESP reads a stand's name only when it changes, not every tick.
+        s.test("1105-esp-scan", HxBloodCampCases::espScan);
     }
 
     // ---- 1022 -------------------------------------------------------------------------------------------------------
@@ -2451,6 +2453,176 @@ final class HxBloodCampCases {
         } finally {
             clearDecoys(c);
         }
+    }
+
+    /**
+     * mobespscan-1105: Mob ESP built every named armor stand's name into a String every tick.
+     * Run with -PperfProbe for the MB/min figures and ceiling. A room of 30 starred mobs, 40
+     * named and 40 unnamed decoration stands stands still for 200 ticks: the ESP may read the 70 names once, not 14000
+     * times (MobEspFeature.nameReadsForTest), and with -PperfProbe its tick + render stay under 6 MB/min (reported always).
+     * Behavior: a stand whose name turns starred highlights its mob within 4 ticks (the line-of-sight cache) of the client
+     * seeing the new name, a new starred pair within 2 ticks of the client seeing it, and a killed mob is no longer drawn
+     * within 2 ticks.
+     */
+    private static void espScan(Session c) {
+        try (HxKit.Settings s = base(c)) {
+            boolean was = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(ESP_CFG), "getStarredMobsRaw"));
+            boolean felWas = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(ESP_CFG), "getFelSkullsRaw"));
+            s.custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setStarredMobs", true),
+                    () -> Mod.call(Mod.cfg(ESP_CFG), "setStarredMobs", was));
+            s.custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setFelSkulls", true),
+                    () -> Mod.call(Mod.cfg(ESP_CFG), "setFelSkulls", felWas));
+            c.hx().removeStands();
+            stand(c, AWAY_YAW, 10f);
+            int star = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(ESP_CFG), "getStarredColor"));
+            for (int i = 0; i < 30; i++) {
+                double x = -428.5 + (i % 10), z = -426.5 + (i / 10);
+                c.server().command(String.format(Locale.ROOT, "summon zombie %.1f 151 %.1f {Tags:[\"bcstar\"],NoAI:1b,"
+                        + "NoGravity:1b,Silent:1b,PersistenceRequired:1b,Invulnerable:1b,CustomName:\"scan%d\"}", x, z, i));
+                c.server().command(String.format(Locale.ROOT, "summon armor_stand %.1f 152 %.1f {Tags:[\"bcstar\"],"
+                        + "Invisible:1b,NoGravity:1b,CustomNameVisible:1b,CustomName:\"✯ Zombie %d❤\"}", x, z, 100 + i));
+            }
+            for (int i = 0; i < 80; i++) {
+                double x = -428.5 + (i % 10), z = -431.5 + (i / 10) * 0.5;
+                c.server().command(String.format(Locale.ROOT, "summon armor_stand %.1f 151 %.1f {Tags:[\"bcdecoy\"],"
+                        + "NoGravity:1b%s}", x, z, i < 40 ? ",CustomName:\"Decor " + i + "\"" : ""));
+            }
+            c.ctx().waitTicks(20);
+            int stands = c.onClient(mc -> {
+                int n = 0;
+                for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+                    if (e instanceof net.minecraft.world.entity.decoration.ArmorStand) n++;
+                }
+                return n;
+            });
+            boolean probe = c.onClient(mc -> (Boolean) Mod.staticCall("perfprobe.PerfProbe", "enabled"));
+            if (probe) {
+                c.onClient(mc -> Mod.staticCall("perfprobe.PerfProbe", "reset"));
+            }
+            int reads0 = nameReads(c);
+            int drawn0 = c.onClient(mc -> drawn(mc).size());
+            c.ctx().waitTicks(200);
+            int reads1 = nameReads(c);
+            int reads = reads0 < 0 || reads1 < 0 ? -1 : reads1 - reads0;
+            String snap = probe ? c.onClient(mc -> (String) Mod.staticCall("perfprobe.PerfProbe", "snapshot")) : "";
+            // [calls, ns, bytes] of the tick and of the render callback
+            long[] tick = new long[3], frame = new long[3];
+            for (String line : snap.split("\n")) {
+                String[] f = line.split("\t");
+                if (f.length >= 6 && f[0].startsWith("mobesp.MobEspFeature ")) {
+                    long[] t = f[0].contains("Tick") ? tick : frame;
+                    t[0] += Long.parseLong(f[2]);
+                    t[1] += Long.parseLong(f[3]);
+                    t[2] += Long.parseLong(f[4]);
+                }
+            }
+            // Per minute at 20 ticks/s, and the render at 60 frames/s (it allocates per frame, so a raw total moves with the FPS).
+            double tickMb = tick[2] / (double) Math.max(1, tick[0]) * 1200 / 1e6;
+            double frameMb = frame[2] / (double) Math.max(1, frame[0]) * 3600 / 1e6;
+            c.note(stands + " armor stands on the client, " + drawn0 + " highlighted; " + reads + " name reads in 200 ticks"
+                    + (probe ? String.format(Locale.ROOT, "; Mob ESP tick %.2f MB/min (%d B, %d us a tick over %d), render "
+                    + "%.2f MB/min at 60 FPS (%d B, %d us a frame over %d)", tickMb, tick[2] / Math.max(1, tick[0]),
+                    tick[1] / 1000 / Math.max(1, tick[0]), tick[0], frameMb, frame[2] / Math.max(1, frame[0]),
+                    frame[1] / 1000 / Math.max(1, frame[0]), frame[0]) : " (no -PperfProbe: MB/min not measured)"));
+
+            // A plain-named stand turns starred: its mob is drawn within 2 ticks of the client seeing the name.
+            c.server().command("summon zombie -422.5 151 -421.5 {Tags:[\"bcstar\"],NoAI:1b,NoGravity:1b,Silent:1b,"
+                    + "PersistenceRequired:1b,Invulnerable:1b,CustomName:\"scanr\"}");
+            c.server().command("summon armor_stand -422.5 152 -421.5 {Tags:[\"bcstar\",\"bcscanr\"],Invisible:1b,"
+                    + "NoGravity:1b,CustomNameVisible:1b,CustomName:\"Zombie 100❤\"}");
+            c.ctx().waitTicks(10);
+            Object plain = c.onClient(mc -> drawn(mc).get(clientId(mc, "scanr")));
+            c.server().command("data merge entity @e[tag=bcscanr,limit=1] {CustomName:\"✯ Zombie 100❤\"}");
+            int renameLag = ticksUntilDrawn(c, "scanr", "✯ Zombie 100❤", star);
+            // A new starred pair: drawn within 2 ticks of the client seeing its stand.
+            c.server().command("summon zombie -421.5 151 -422.5 {Tags:[\"bcstar\"],NoAI:1b,NoGravity:1b,Silent:1b,"
+                    + "PersistenceRequired:1b,Invulnerable:1b,CustomName:\"scann\"}");
+            c.server().command("summon armor_stand -421.5 152 -422.5 {Tags:[\"bcstar\"],Invisible:1b,"
+                    + "NoGravity:1b,CustomNameVisible:1b,CustomName:\"✯ Zombie 200❤\"}");
+            int loadLag = ticksUntilDrawn(c, "scann", "✯ Zombie 200❤", star);
+            // Killed with its tag, as Hypixel removes both: no longer drawn within 2 ticks of dying on the client. (With the
+            // tag left standing the dying body stays drawn until it is removed, on the base jar too.)
+            int id = c.onClient(mc -> clientId(mc, "scann"));
+            c.server().command("kill @e[name=scann]");
+            c.server().command("kill @e[type=armor_stand,name=\"✯ Zombie 200❤\"]");
+            int goneAt = -1;
+            int deathLag = -1;
+            for (int t = 0; t < 60 && deathLag < 0; t++) {
+                c.ctx().waitTicks(1);
+                int[] st = c.onClient(mc -> {
+                    net.minecraft.world.entity.Entity e = mc.level.getEntity(id);
+                    return new int[]{e == null || !e.isAlive() || e.isRemoved() ? 1 : 0, drawn(mc).containsKey(id) ? 1 : 0};
+                });
+                if (st[0] == 1 && goneAt < 0) goneAt = t;
+                if (goneAt >= 0 && st[1] == 0) deathLag = t - goneAt;
+                if (goneAt >= 0 && t - goneAt > 5) break;
+            }
+            c.note("plain-named mob highlighted: " + plain + "; ticks to highlight after rename " + renameLag
+                    + ", after load " + loadLag + ", to drop after death " + deathLag);
+            c.check(stands >= 100, "the stands never reached the client - nothing was tested");
+            c.check(drawn0 >= 25, "control: the starred mobs were not highlighted (" + drawn0 + " of 30)");
+            if (probe) {
+                c.check(tick[0] >= 150 && frame[0] > 0, "the probe saw no Mob ESP tick or render - nothing was measured");
+                c.check(tickMb < TICK_MB_MAX, String.format(Locale.ROOT, "Mob ESP's tick allocates %.2f MB/min standing "
+                        + "still (ceiling %.1f)", tickMb, TICK_MB_MAX));
+            }
+            c.check(reads >= 0 && reads <= 10, "Mob ESP read stand names " + reads
+                    + " times in 200 ticks with nothing renamed (once each is 0; -1 = no nameReadsForTest hook)");
+            c.check(id >= 0, "the new starred mob never reached the client - nothing was tested");
+            c.check(plain == null, "control: a mob under a stand with no star was highlighted");
+            // The line-of-sight answer is cached for up to 4 ticks (MobEspFeature.LOS_REFRESH_TICKS), so a mob first seen
+            // while plain-named can wait that long: the base jar (4e2daf09b, reads every name every tick) showed 3 too.
+            c.check(renameLag >= 0 && renameLag <= 4, "a stand renamed to a starred tag was not highlighted within 4 ticks ("
+                    + renameLag + ")");
+            c.check(loadLag >= 0 && loadLag <= 2, "a new starred mob was not highlighted within 2 ticks (" + loadLag + ")");
+            c.check(goneAt >= 0, "the killed mob never died on the client - nothing was tested");
+            c.check(deathLag >= 0 && deathLag <= 2, "a killed starred mob was still drawn 2 ticks after it died (" + deathLag + ")");
+        } finally {
+            clearDecoys(c);
+        }
+    }
+
+    /** 1105-esp-scan's ceiling on Mob ESP's tick garbage, MB/min (base 4e2daf09b: 31.8-34.3; mobespscan-1105: 6.5-6.7). */
+    private static final double TICK_MB_MAX = 12.0;
+
+    /** MobEspFeature.nameReadsForTest, or -1 on a jar without it (the base jar of mobespscan-1105). */
+    private static int nameReads(Session c) {
+        return c.onClient(mc -> {
+            try {
+                return (Integer) Mod.staticCall(ESP, "nameReadsForTest");
+            } catch (RuntimeException | AssertionError e) {
+                return -1;
+            }
+        });
+    }
+
+    /** Ticks from the client first reading {@code tag} on a stand to {@code mob} being drawn in {@code color}; -1 if never. */
+    private static int ticksUntilDrawn(Session c, String mob, String tag, int color) {
+        int seenAt = -1;
+        for (int t = 0; t < 60; t++) {
+            boolean[] st = c.onClient(mc -> {
+                boolean seen = false;
+                for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+                    if (e instanceof net.minecraft.world.entity.decoration.ArmorStand && e.getCustomName() != null
+                            && tag.equals(e.getCustomName().getString())) {
+                        seen = true;
+                    }
+                }
+                return new boolean[]{seen, Integer.valueOf(color).equals(drawn(mc).get(clientId(mc, mob)))};
+            });
+            if (st[0] && seenAt < 0) seenAt = t;
+            if (seenAt >= 0) {
+                Object[] d = c.onClient(mc -> {
+                    int id = clientId(mc, mob);
+                    return new Object[]{id, drawn(mc).get(id)};
+                });
+                c.note(mob + " +" + (t - seenAt) + " ticks: mob #" + d[0] + " drawn " + d[1]);
+            }
+            if (seenAt >= 0 && st[1]) return t - seenAt;
+            if (seenAt >= 0 && t - seenAt > 5) return 99;
+            c.ctx().waitTicks(1);
+        }
+        return -1;
     }
 
     /** killer560, 2026-11-01: "Add an option for mimic highlight as well." A trapped chest in range is drawn; a baby zombie
