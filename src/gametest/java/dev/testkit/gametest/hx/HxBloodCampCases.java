@@ -2565,6 +2565,8 @@ final class HxBloodCampCases {
                 c.check(tick[0] >= 150 && frame[0] > 0, "the probe saw no Mob ESP tick or render - nothing was measured");
                 c.check(tickMb < TICK_MB_MAX, String.format(Locale.ROOT, "Mob ESP's tick allocates %.2f MB/min standing "
                         + "still (ceiling %.1f)", tickMb, TICK_MB_MAX));
+                c.check(frameMb < FRAME_MB_MAX, String.format(Locale.ROOT, "Mob ESP's render allocates %.2f MB/min at 60 FPS "
+                        + "(ceiling %.1f; BoxBatch copied its array per draw: base 7.0-7.4)", frameMb, FRAME_MB_MAX));
             }
             c.check(reads >= 0 && reads <= 10, "Mob ESP read stand names " + reads
                     + " times in 200 ticks with nothing renamed (once each is 0; -1 = no nameReadsForTest hook)");
@@ -2584,6 +2586,8 @@ final class HxBloodCampCases {
 
     /** 1105-esp-scan's ceiling on Mob ESP's tick garbage, MB/min (base 4e2daf09b: 31.8-34.3; mobespscan-1105: 6.5-6.7). */
     private static final double TICK_MB_MAX = 12.0;
+    /** 1105-esp-scan's ceiling on Mob ESP's render garbage, MB/min at 60 FPS (boxbatch-1105). */
+    private static final double FRAME_MB_MAX = 3.0;
 
     /** MobEspFeature.nameReadsForTest, or -1 on a jar without it (the base jar of mobespscan-1105). */
     private static int nameReads(Session c) {
