@@ -166,7 +166,7 @@ final class TitleWidgetCases {
         return what.contains("[menu.singleplayer]") || what.contains("[menu.multiplayer]")
                 || what.contains("[menu.options]") || what.contains("[menu.quit]")
                 || what.startsWith("SwapAccountsButton[") || what.contains("[Dungeon Sim]")
-                || what.contains("[Mod Settings]");
+                || what.contains("[Mod Settings]") || what.startsWith("ModsButton[");
         // Vanilla's copyright link (PlainTextButton) is removed since mod mainmenu-footer-1015 (killer560, 2026-10-15).
     }
 
