@@ -51,6 +51,10 @@ import java.util.concurrent.atomic.AtomicReference;
  *   <li><b>1104-sim-map-rooms-renumbered</b> - roomidx-1104: the same swap with an unopened room; the sim's held-map
  *       stand-in still has exactly the same rooms opened, and a map press on the key room then one on the other room is
  *       not a double press (a second press on the other room is).</li>
+ *   <li><b>1104-bloodrush-pathcache</b> - mod rushcache-1104: the rush path is cached, not rebuilt every other tick. Standing
+ *       in a key room: boxes drawn, the path is not rebuilt over 200 ticks, bytes allocated per minute are reported; then every
+ *       room of the floor becomes visited on the map (new rooms and doors appear) and after each the cached path must equal a
+ *       from-scratch one, the path must have changed and been rebuilt, and the boxes must still be drawn.</li>
  * </ul>
  * Only when named. GrimAC does not apply (the sim's integrated server).
  */
@@ -66,6 +70,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
     static final String MAP_RENUMBER = "1104-sim-map-rooms-renumbered";
     static final String HIDE = "1104-bloodrush-hidesecrets";
     private static final String SW = "com.killer560.hub.secretwaypoints.SecretWaypointsFeature";
+    static final String PATHCACHE = "1104-bloodrush-pathcache";
     private static final String BR = "com.killer560.hub.bloodrush.BloodRushHelperFeature";
     private static final String BR_CFG = "com.killer560.hub.bloodrush.BloodRushConfig";
     private static final String BR_SPOTS = "com.killer560.hub.bloodrush.BloodRushSpots";
@@ -86,7 +91,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
             return;
         }
         List<String> failed = new ArrayList<>();
-        for (String name : List.of(SPLIT, RUSH, SPOTS, OFF, KNOWN, RENUMBER, MAP_RENUMBER, HIDE)) {
+        for (String name : List.of(SPLIT, RUSH, SPOTS, OFF, KNOWN, RENUMBER, MAP_RENUMBER, HIDE, PATHCACHE)) {
             if (Scenario.skip(name)) {
                 continue;
             }
@@ -115,6 +120,10 @@ public class SimBloodRushTests implements FabricClientGameTest {
             try {
                 if (name.equals(SPLIT)) {
                     splitRule(ctx, problems, facts);
+                } else if (name.equals(PATHCACHE)) {
+                    if (SimMobFloorTests.buildMobFloor(ctx, problems, facts)) {
+                        pathCache(ctx, problems, facts);
+                    }
                 } else if (name.equals(RUSH)) {
                     // The floor is random; the helper shows the FIRST key room on the rush path, which can hold only 2
                     // starred mobs (2026-11-03 gate). Build a new floor until it has 3 or more (at most 8 floors: three in a row had 2,
@@ -966,6 +975,141 @@ public class SimBloodRushTests implements FabricClientGameTest {
         }
         if (!savedOff || mobsOn || starred != 0 || placed) {
             problems.add("Spawn Starred Mobs off still spawned starred mobs (" + starred + ", placed line " + placed + ")");
+        }
+    }
+
+    // ---- 1104-bloodrush-pathcache -------------------------------------------------------------------------------------
+    private static long allocated(long threadId) {
+        return ((com.sun.management.ThreadMXBean) java.lang.management.ManagementFactory.getThreadMXBean())
+                .getThreadAllocatedBytes(threadId);
+    }
+
+    private static int computes(ClientGameTestContext ctx) {
+        try {
+            return ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(BR, "pathComputesForTest"));
+        } catch (Throwable t) {
+            return -1; // a jar from before the cache has no counter
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, String> path(ClientGameTestContext ctx, boolean fresh) {
+        return ctx.computeOnClient(mc -> (Map<String, String>) ModUnderTest.staticCall(BR, "pathForTest",
+                new Class<?>[]{boolean.class}, new Object[]{fresh}));
+    }
+
+    private static void pathCache(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
+        ctx.runOnClient(mc -> {
+            ModUnderTest.staticCall(BR, "resetForTest");
+            ModUnderTest.staticCall(ROLES_CLS, "resetForTest");
+            Object cfg = ModUnderTest.config(BR_CFG);
+            ModUnderTest.set(cfg, "setEnabled", true);
+            ModUnderTest.set(cfg, "setAllRooms", false);
+            ModUnderTest.set(cfg, "setShowOthers", true);
+            ModUnderTest.set(cfg, "setShowLearned", false);
+            ModUnderTest.set(cfg, "setWholePath", false);
+        });
+        ctx.waitTicks(20);
+        @SuppressWarnings("unchecked")
+        List<String> keyRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(SIM_FLOOR, "keyRoomsForTest"));
+        String room = keyRooms.isEmpty() ? null : keyRooms.get(0).split("\\|")[0];
+        List<double[]> mobs = room == null ? List.of() : serverStarredIn(ctx, room);
+        if (mobs.isEmpty()) {
+            problems.add("no key room with a starred mob (" + keyRooms + ")");
+            return;
+        }
+        SimMobFloorTests.teleport(ctx, mobs.get(0)[0], mobs.get(0)[1], mobs.get(0)[2]);
+        List<Spot> shown = List.of();
+        for (int i = 0; i < 100 && shown.isEmpty(); i += 5) {
+            ctx.waitTicks(5);
+            shown = parsed(ctx);
+        }
+        if (shown.isEmpty()) {
+            problems.add("no box drawn in " + room + ": the path never reached the screen (" + status(ctx) + ")");
+            return;
+        }
+        long tid = ctx.computeOnClient(mc -> Thread.currentThread().threadId());
+        // The sim's own client thread allocates GB a minute, so the helper's share is the difference between helper ON and
+        // helper OFF, three alternating rounds of 200 ticks each.
+        long on = 0;
+        long off = 0;
+        ctx.waitTicks(40);
+        int c0 = computes(ctx);
+        ctx.waitTicks(200);
+        int c1 = computes(ctx);
+        int still = c1 - c0;
+        c0 = c1;
+        for (int round = 0; round < 3; round++) {
+            for (boolean enabled : new boolean[]{true, false}) {
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(BR_CFG), "setEnabled", enabled));
+                ctx.waitTicks(10);
+                int cb = computes(ctx);
+                long a0 = allocated(tid);
+                ctx.waitTicks(200);
+                long used = allocated(tid) - a0;
+                if (enabled) {
+                    on += used;
+                    c1 += computes(ctx) - cb;
+                } else {
+                    off += used;
+                }
+            }
+        }
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(BR_CFG), "setEnabled", true));
+        ctx.waitTicks(20);
+        facts.add(String.format(Locale.ROOT, "standing in %s: %d box(es); client thread allocates %.1f MB/min with the helper on, %.1f off, helper share %.1f MB/min; path rebuilt %d time(s) in 200 still ticks",
+                room, shown.size(), on * 2 / 1048576.0, off * 2 / 1048576.0, (on - off) * 2 / 1048576.0, still));
+        if (c0 >= 0 && still != 0) {
+            problems.add("the path was rebuilt " + still + " time(s) over 200 ticks with nothing changing");
+        }
+        if (c0 < 0) {
+            return; // baseline jar: allocation figure only
+        }
+        // The path lookup alone, in this room's state: 20000 lookups (allocation is counted per TLAB, so a long run), scaled to the
+        // helper's 600 a minute.
+        long freshB = ctx.computeOnClient(mc -> (Long) ModUnderTest.staticCall(BR, "pathAllocForTest",
+                new Class<?>[]{boolean.class, int.class}, new Object[]{true, 20000}));
+        long cachedB = ctx.computeOnClient(mc -> (Long) ModUnderTest.staticCall(BR, "pathAllocForTest",
+                new Class<?>[]{boolean.class, int.class}, new Object[]{false, 20000}));
+        facts.add(String.format(Locale.ROOT, "path lookups, 600 a minute: %.2f MB/min rebuilt every time (before), %.3f MB/min cached",
+                freshB * 0.03 / 1048576.0, cachedB * 0.03 / 1048576.0));
+        if (cachedB * 20 > freshB) {
+            problems.add("the cached path still allocates " + cachedB + " B per 20000 lookups (rebuilding: " + freshB + ")");
+        }
+        Map<String, String> before = path(ctx, false);
+        int rebuilt = 0;
+        int changed = 0;
+        int rooms = ctx.computeOnClient(mc -> ((int[]) ModUnderTest.staticCall("com.killer560.hub.livemap.HeldMap", "simVisitedRooms")).length);
+        int n = ctx.computeOnClient(mc -> (Integer) ModUnderTest.call(ModUnderTest.staticCall(LAYOUT, "current"), "roomCount", new Class<?>[0], new Object[0]));
+        Map<String, String> last = before;
+        for (int r = 0; r < n; r++) {
+            int room2 = r;
+            int cb = computes(ctx);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.livemap.HeldMap", "simVisit",
+                    new Class<?>[]{int.class}, new Object[]{room2}));
+            ctx.waitTicks(4);
+            Map<String, String> cached = path(ctx, false);
+            Map<String, String> fresh = path(ctx, true);
+            if (!cached.equals(fresh)) {
+                problems.add("STALE path after room " + r + " appeared: cached " + cached + " vs fresh " + fresh);
+                return;
+            }
+            if (computes(ctx) > cb) {
+                rebuilt++;
+            }
+            if (!cached.equals(last)) {
+                changed++;
+            }
+            last = cached;
+        }
+        facts.add("visited rooms before " + rooms + ", then all " + n + ": path " + before.size() + " -> " + last.size()
+                + " room(s), changed " + changed + "x, rebuilt " + rebuilt + "x, always equal to a fresh one");
+        if (changed == 0 || rebuilt == 0) {
+            problems.add("the path never changed as rooms and doors appeared (changed " + changed + ", rebuilt " + rebuilt + ")");
+        }
+        ctx.waitTicks(10);
+        if (parsed(ctx).isEmpty()) {
+            problems.add("boxes are no longer drawn after the path changed");
         }
     }
 
