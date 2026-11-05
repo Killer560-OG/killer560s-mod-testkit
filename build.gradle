@@ -206,29 +206,81 @@ def filePort = {
 	def v = p.getProperty("server-port")
 	return v == null ? null : v.trim().toInteger()
 }
+// Port registry (portfix-1105): every checkout's port is recorded in one file, under a file lock, so two checkouts never
+// hold the same port even when neither server runs. A carried-over port is kept only if it is still free (or ours) and
+// no other living checkout owns it; a clash re-picks. Lines are "port<TAB>checkout path"; paths that no longer exist drop out.
+def portRegistry = new File(System.getProperty("user.home"), "killer560s-mod-logs/testkit-ports.txt")
+def myKey = rootDir.absolutePath.replace('\\', '/')
+def withRegistry = { Closure body ->
+	portRegistry.parentFile.mkdirs()
+	def ch = java.nio.channels.FileChannel.open(new File(portRegistry.parentFile, "testkit-ports.lock").toPath(),
+			java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.WRITE)
+	try {
+		def lock = ch.lock()
+		try {
+			def owners = new LinkedHashMap<Integer, String>()
+			if (portRegistry.exists()) {
+				portRegistry.eachLine("UTF-8") { l ->
+					def parts = l.split("\t", 2)
+					if (parts.length == 2 && parts[0].isInteger() && (parts[1] == myKey || new File(parts[1]).isDirectory())) {
+						owners.put(parts[0].toInteger(), parts[1])
+					}
+				}
+			}
+			def result = body(owners)
+			portRegistry.write(owners.collect { k, v -> "${k}\t${v}" }.join("\n") + "\n", "UTF-8")
+			return result
+		} finally {
+			lock.release()
+		}
+	} finally {
+		ch.close()
+	}
+}
+// Records p as this checkout's only port (a port is also refused to a checkout when another owns it: callers check first).
+def claimPort = { int p ->
+	withRegistry { owners ->
+		owners.entrySet().removeIf { it.value == myKey }
+		owners.put(p, myKey)
+	}
+	return p
+}
+def usable = { int p, Map owners -> (owners.get(p) == null || owners.get(p) == myKey) }
 def effectivePort = {
 	if (requestedPort != null) {
-		return requestedPort
+		return claimPort(requestedPort)
 	}
 	def inFile = filePort()
 	if (portPinFile.exists() && inFile != null) {
-		return inFile
+		return claimPort(inFile)
 	}
 	// A checkout from before the pin file whose server.properties carries a port other than 25565 got it from -Pport.
 	def autoFile = file("${rootDir}/run/testserver/port-auto.txt")
-	if (!portPinFile.exists() && !autoFile.exists() && inFile != null && inFile != 25565) {
-		return inFile
-	}
+	boolean carried = !portPinFile.exists() && !autoFile.exists() && inFile != null && inFile != 25565
 	boolean worktree = new File(rootDir, ".git").isFile()
-	String key = rootDir.absolutePath.replace('\\', '/').toLowerCase()
+	String key = myKey.toLowerCase()
 	int base = worktree ? 26000 + 10 * Math.floorMod(key.hashCode(), 90) : 25565
-	for (int i = 0; i < 90; i++) {
-		int p = worktree ? 26000 + Math.floorMod(base - 26000 + 10 * i, 900) : base + 10 * i
-		if (portFree(p)) {
-			return p
+	return withRegistry { owners ->
+		// a carried-over port counts as ours only if free now (or already registered to us) and nobody else owns it
+		if (carried && usable(inFile, owners) && (owners.get(inFile) == myKey || portFree(inFile))) {
+			owners.entrySet().removeIf { it.value == myKey }
+			owners.put(inFile, myKey)
+			return inFile
 		}
+		int chosen = -1
+		for (int i = 0; i < 90 && chosen < 0; i++) {
+			int p = worktree ? 26000 + Math.floorMod(base - 26000 + 10 * i, 900) : base + 10 * i
+			if (usable(p, owners) && portFree(p)) {
+				chosen = p
+			}
+		}
+		if (chosen < 0) {
+			chosen = base
+		}
+		owners.entrySet().removeIf { it.value == myKey }
+		owners.put(chosen, myKey)
+		return chosen
 	}
-	return base
 }
 def serverPort = effectivePort()
 def hxPort = serverPort + 5
