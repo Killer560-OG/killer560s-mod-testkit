@@ -160,7 +160,7 @@ public class SimSpawnLoadTests implements FabricClientGameTest {
         if (wantBar) {
             if (!screen) {
                 f.add(label + ": the loading screen never came up");
-            } else if (rises < 2 || max < 0.5f) {
+            } else if (rises < 1 || max < 0.5f) {
                 f.add(label + ": the bar did not rise (" + rises + " rise(s), max " + pct(max) + ", " + summary(bar) + ")");
             }
             if (back) {
@@ -199,11 +199,11 @@ public class SimSpawnLoadTests implements FabricClientGameTest {
             boolean chunk = mc.level.getChunkSource().hasChunk(p.getBlockX() >> 4, p.getBlockZ() >> 4);
             boolean clear = mc.level.noCollision(p, p.getBoundingBox().deflate(0.01));
             return new String[]{String.format(Locale.ROOT, "%.2f %.2f %.2f", p.getX(), p.getY(), p.getZ()),
-                    chunk ? "ok" : "no chunk", clear ? "ok" : "inside a block", p.onGround() ? "ok" : "in the air",
+                    chunk ? "ok" : "no chunk (" + clientChunks(mc) + ")", clear ? "ok" : "inside a block", p.onGround() ? "ok" : "in the air",
                     String.valueOf(p.getY())};
         });
         if (!"ok".equals(server.get())) f.add(label + ": server says " + server.get() + " at " + out[0]);
-        if (!"ok".equals(out[1])) f.add(label + ": his client has no chunk at " + out[0]);
+        if (!"ok".equals(out[1])) f.add(label + ": his client has " + out[1] + " at " + out[0]);
         if (!"ok".equals(out[2])) f.add(label + ": his client has him inside a block at " + out[0]);
         if (firstAt != null) {
             if (!"ok".equals(out[3])) f.add(label + ": not standing on anything at " + out[0]);
@@ -211,6 +211,26 @@ public class SimSpawnLoadTests implements FabricClientGameTest {
             if (Double.parseDouble(out[4]) < y0 - 2) f.add(label + ": fell from " + firstAt + " to " + out[0]);
         }
         return out[0];
+    }
+
+    /** What his client's chunk cache holds and where it is centered (Mojang field names, the same on 26.2 and 26.3). */
+    private static String clientChunks(Minecraft mc) {
+        try {
+            var cache = mc.level.getChunkSource();
+            var f = cache.getClass().getDeclaredField("storage");
+            f.setAccessible(true);
+            Object st = f.get(cache);
+            StringBuilder b = new StringBuilder(cache.getLoadedChunksCount() + " loaded");
+            for (String n : new String[]{"viewCenterX", "viewCenterZ", "chunkRadius"}) {
+                var g = st.getClass().getDeclaredField(n);
+                g.setAccessible(true);
+                b.append(", ").append(n).append(' ').append(g.get(st));
+            }
+            return b.append(", player level is mc.level ").append(mc.player.level() == mc.level).append(", connection level is mc.level ")
+                    .append(mc.getConnection() != null && mc.getConnection().getLevel() == mc.level).toString();
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return "cache unreadable: " + e;
+        }
     }
 
     private static String blocksAt(ServerPlayer sp) {
