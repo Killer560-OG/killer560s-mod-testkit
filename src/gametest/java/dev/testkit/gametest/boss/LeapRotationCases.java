@@ -64,7 +64,10 @@ final class LeapRotationCases {
                 mc.player.setXRot(PITCH);
                 return null;
             });
-            c.ctx().waitTicks(5);
+            // Settle first: the session's first case met a run of server setbacks (a teleport every 2 ticks, GrimAC default)
+            // while he stood at A, and a look sent while one is unanswered is dropped (gate2 c263 default, 2026-11-04).
+            c.waitUntil("he stands at A", mc -> mc.player.onGround(), 100);
+            c.ctx().waitTicks(30);
             long before = taken(c);
             if (relative) {
                 c.hx().call("dungeon.tp", "x", BX + 0.5, "y", (double) Y, "z", Z + 0.5, "yaw", 0f, "pitch", 0f, "relRot", true);
@@ -84,10 +87,17 @@ final class LeapRotationCases {
             float tol = turns ? 1.5f : 0.5f;
             float[] look = c.onClient(mc -> new float[] {mc.player.getYRot(), mc.player.getXRot()});
             long after = taken(c);
-            c.ctx().waitTicks(6);
-            JsonObject st = c.hx().call("player.state").getAsJsonObject();
-            float serverYaw = st.get("yaw").getAsFloat();
-            float serverPitch = st.get("pitch").getAsFloat();
+            float serverYaw = Float.NaN;
+            float serverPitch = Float.NaN;
+            for (int i = 0; i < 8; i++) { // the next movement packet carries the look; up to 40 ticks for it
+                c.ctx().waitTicks(5);
+                JsonObject st = c.hx().call("player.state").getAsJsonObject();
+                serverYaw = st.get("yaw").getAsFloat();
+                serverPitch = st.get("pitch").getAsFloat();
+                if (Math.abs(Mth.wrapDegrees(serverYaw - wantYaw)) < 1.5f && Math.abs(serverPitch - wantPitch) < 1.5f) {
+                    break;
+                }
+            }
             c.note(String.format(Locale.ROOT, "setting %s, %s look, leap line %s: camera %.1f/%.1f (want %.0f/%.0f), taken "
                     + "%d -> %d, server look %.1f/%.1f", on ? "ON" : "OFF", relative ? "relative" : "absolute", line,
                     look[0], look[1], wantYaw, wantPitch, before, after, serverYaw, serverPitch));
