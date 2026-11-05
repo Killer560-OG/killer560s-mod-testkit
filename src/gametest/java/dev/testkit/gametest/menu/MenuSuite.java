@@ -191,6 +191,7 @@ public class MenuSuite implements FabricClientGameTest {
                     AuctionHouseCases.register(s);
                     BazaarV3Cases.register(s);
                     BazaarOrderHelperCases.register(s); // 2810: Bazaar Order Helper colors in Manage Orders (bzorders-1102)
+                    ReforgeHelperCases.register(s); // 2851: Reforge Helper panel and Block When Wanted (reforge-1104)
                     // ---- 591-596 social (Best Friends, Friends List), killer560 2026-10-08 ----
                     SocialCases.register(s);
                     // 554-555: dungeon-fixes (2026-10-08), terminals behind a decorated title.

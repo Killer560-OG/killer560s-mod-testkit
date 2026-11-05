@@ -22,6 +22,7 @@
     "gui.tab.ChocolateFactoryTab": "Misc > Chocolate Factory",
     "gui.tab.KickRejoinTab": "Misc > Kick Rejoin Timer",
     "gui.tab.BazaarOrderHelperTab": "Items > Bazaar Order Helper",
+    "gui.tab.ReforgeHelperTab": "Items > Reforge Helper",
     "gui.tab.PeekChatTab": "Chat > Peek Chat",
     "gui.tab.PriceTooltipTab": "Items > Price Tooltip",
     "gui.tab.MiningAbilityReadyTab": "Mining > General > Ability Ready Alert",
