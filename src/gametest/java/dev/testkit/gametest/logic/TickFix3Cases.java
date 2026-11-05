@@ -57,6 +57,152 @@ final class TickFix3Cases {
         }
     }
 
+    /**
+     * 1104-logic-hypixel-goldor-drift (mod branch goldor2-1104; killer560, 2026-11-04: "goldore was still off by a little
+     * bit. whenever it hits 0 i should proc a mask"). His census lines read 0.99 to 1.18 pings per 50 ms that are ALL in the
+     * per-tick chain (1355 of 1359): Hypixel's extra transactions step the same counter, so counting the chain ran the clock
+     * 5% ahead, and his mask procs (on exact 60-tick multiples of wall time) read 6, 10, 12, -13 ticks off Goldor's line.
+     * This replays that: one chain ping per server tick plus 13% extra chain pings, a few random ids, network bunching (8% of
+     * ticks' packets land with the next tick) and a 500 ms stall with its catch-up burst; the first mask proc locks the
+     * phase, the line must read the server's real Goldor tick within 1 at every tick of 25 cycles, and a mask proc 26
+     * periods later must read within 1 of tick 0.
+     */
+    static void hypixelGoldorDrift(LogicCase c) throws Exception {
+        Object simWas = R.get("secrets.DungeonState", "simOverrideActive");
+        boolean gateWas = (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled");
+        Mod.staticCall("util.SkyblockGate", "setEnabled", false);
+        R.set("secrets.DungeonState", "simOverrideActive", true);
+        try (AutoCloseable on = Mod.with("ticktimers.TickTimersConfig", "Enabled", true);
+             AutoCloseable g = Mod.with("ticktimers.TickTimersConfig", "GoldorTimer", true)) {
+            Mod.staticCall(CLOCK, "hypixelForTest", Boolean.TRUE);
+            Mod.staticCall(CLOCK, "untrustForTest");
+            java.util.Random random = new java.util.Random(11042L);
+            int[] chain = {-500};
+            // One server tick's pings: its chain ping, an extra chain ping on 13% (two on 2%), a random id on 0.5%.
+            java.util.function.Consumer<java.util.List<Integer>> serverTick = out -> {
+                out.add(chain[0]--);
+                double r = random.nextDouble();
+                for (int e = r < 0.02 ? 2 : r < 0.13 ? 1 : 0; e > 0; e--) {
+                    out.add(chain[0]--);
+                }
+                if (random.nextDouble() < 0.005) {
+                    out.add(-1 - random.nextInt(32766));
+                }
+            };
+            java.util.function.Consumer<java.util.List<Integer>> deliver = p -> {
+                for (int id : p) {
+                    Mod.staticCall(PINGS, "onPing", id);
+                }
+                Mod.staticCall(CLOCK, "tickForTest");
+            };
+            // Settle a world first (2 s): the chain starts, extras come.
+            long trueTick = 0;
+            for (int i = 0; i < 40; i++) {
+                java.util.List<Integer> p = new java.util.ArrayList<>();
+                serverTick.accept(p);
+                trueTick++;
+                deliver.accept(p);
+            }
+            Mod.staticCall(TT, "resetAll");
+            Mod.staticCall(TT, "onChatMessage", Component.literal("[BOSS] Goldor: Who dares trespass into my domain?"));
+            long goldor0 = trueTick + 37; // the server's first Goldor hit
+            long clock0 = (Long) Mod.staticCall(CLOCK, "now");
+            long true0 = trueTick;
+            long raw0 = (Long) Mod.staticCall(CLOCK, "rawPings");
+            java.util.List<Integer> held = new java.util.ArrayList<>();
+            boolean locked = false;
+            boolean caughtUp = false;
+            int worst = 0;
+            String worstAt = "";
+            int checked = 0;
+            int stallLeft = 0;
+            int stalled = 0;
+            long stallAt = goldor0 + 10L * 60 + 25;
+            long end = goldor0 + 25L * 60 + 1;
+            while (trueTick < end) {
+                java.util.List<Integer> p = new java.util.ArrayList<>(held);
+                boolean wasHeld = !held.isEmpty();
+                held.clear();
+                if (trueTick == stallAt && stalled == 0) {
+                    stallLeft = 10; // the server stands still for 500 ms...
+                }
+                int ticksNow = 1;
+                if (stallLeft > 0) {
+                    stallLeft--;
+                    stalled++;
+                    ticksNow = 0;
+                } else if (stalled == 10 && !caughtUp) {
+                    caughtUp = true;
+                    ticksNow = 11; // ...then catches all of it up at once
+                }
+                boolean hitTick = false;
+                for (int k = 0; k < ticksNow; k++) {
+                    serverTick.accept(p);
+                    trueTick++;
+                    hitTick |= trueTick == goldor0;
+                }
+                long delivered = trueTick;
+                if (ticksNow == 1 && !wasHeld && !hitTick && trueTick != goldor0 - 1 && random.nextDouble() < 0.08) {
+                    held.addAll(p); // bunched by the network: lands with the next tick
+                    p.clear();
+                    delivered--;
+                }
+                deliver.accept(p);
+                if (hitTick && !locked) {
+                    Mod.staticCall(GT, "testHitKindNow", "PROC"); // the first mask proc locks the phase
+                    locked = true;
+                }
+                Mod.staticCall(GT, "endOfTick");
+                if (!locked) {
+                    continue;
+                }
+                int expected = (int) Math.floorMod(goldor0 - delivered, 60L);
+                int shown = (Integer) Mod.staticCall(GT, "remaining");
+                int err = (int) (Math.floorMod(shown - expected + 30L, 60L) - 30L);
+                checked++;
+                if (Math.abs(err) > Math.abs(worst)) {
+                    worst = err;
+                    worstAt = "server tick " + (delivered - goldor0) + " after the first hit: shows " + shown + ", real "
+                            + expected;
+                }
+            }
+            // Up to the server's Goldor tick 26 periods after the first, then a mask proc on it.
+            while (trueTick < goldor0 + 26L * 60) {
+                java.util.List<Integer> p = new java.util.ArrayList<>(held);
+                held.clear();
+                serverTick.accept(p);
+                trueTick++;
+                deliver.accept(p);
+                Mod.staticCall(GT, "endOfTick");
+            }
+            Mod.staticCall(GT, "testHitKindNow", "PROC");
+            @SuppressWarnings("unchecked")
+            java.util.List<Integer> offsets = (java.util.List<Integer>) Mod.staticCall(GT, "testOffsetsAtHits");
+            long raw = (Long) Mod.staticCall(CLOCK, "rawPings") - raw0;
+            long ran = (Long) Mod.staticCall(CLOCK, "now") - clock0;
+            long real = trueTick - true0;
+            c.check("the stream carried Hypixel's extra chain pings (about 1.13 a tick, as his census)",
+                    raw >= real * 110 / 100 && raw <= real * 120 / 100, raw + " pings for " + real + " server ticks");
+            c.check("the 500 ms stall happened and was caught up", stalled == 10 && caughtUp, "stalled " + stalled);
+            c.check("trusted throughout", (Boolean) Mod.staticCall(CLOCK, "trusted"), "not trusted");
+            c.check("the clock counted the server's ticks, not the extras (within 1)", Math.abs(ran - real) <= 1,
+                    "ran " + ran + " for " + real + " server ticks and " + raw + " pings");
+            c.check("the first mask proc locked the phase", locked && (Boolean) Mod.staticCall(GT, "testLocked"), "not locked");
+            c.check("checked every tick of 25 Goldor cycles", checked >= 25 * 60, checked + " ticks checked");
+            c.check("Goldor's line read the server's real Goldor tick within 1 at every tick", Math.abs(worst) <= 1,
+                    "worst " + worst + " (" + worstAt + ")");
+            int last = offsets.isEmpty() ? 99 : offsets.get(offsets.size() - 1);
+            c.check("a mask proc 26 periods after the first reads within 1 of tick 0", Math.abs(last) <= 1,
+                    "offset " + last + " (offsets " + offsets + ")");
+        } finally {
+            Mod.staticCall(CLOCK, "hypixelForTest", (Object) null);
+            Mod.staticCall(CLOCK, "untrustForTest");
+            Mod.staticCall(TT, "resetAll");
+            R.set("secrets.DungeonState", "simOverrideActive", simWas);
+            Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas);
+        }
+    }
+
     static void hypixelPings(LogicCase c) throws Exception {
         Object simWas = R.get("secrets.DungeonState", "simOverrideActive");
         boolean gateWas = (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled");
