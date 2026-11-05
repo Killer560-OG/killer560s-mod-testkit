@@ -64,6 +64,8 @@ public class SimBloodRushTests implements FabricClientGameTest {
     static final String KNOWN = "1104-bloodrush-known";
     static final String RENUMBER = "1104-sim-bloodrush-rooms-renumbered";
     static final String MAP_RENUMBER = "1104-sim-map-rooms-renumbered";
+    static final String HIDE = "1104-bloodrush-hidesecrets";
+    private static final String SW = "com.killer560.hub.secretwaypoints.SecretWaypointsFeature";
     private static final String BR = "com.killer560.hub.bloodrush.BloodRushHelperFeature";
     private static final String BR_CFG = "com.killer560.hub.bloodrush.BloodRushConfig";
     private static final String BR_SPOTS = "com.killer560.hub.bloodrush.BloodRushSpots";
@@ -84,7 +86,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
             return;
         }
         List<String> failed = new ArrayList<>();
-        for (String name : List.of(SPLIT, RUSH, SPOTS, OFF, KNOWN, RENUMBER, MAP_RENUMBER)) {
+        for (String name : List.of(SPLIT, RUSH, SPOTS, OFF, KNOWN, RENUMBER, MAP_RENUMBER, HIDE)) {
             if (Scenario.skip(name)) {
                 continue;
             }
@@ -147,6 +149,10 @@ public class SimBloodRushTests implements FabricClientGameTest {
                             break;
                         }
                         facts.add("floor " + attempt + ": first key room has only " + n + " starred mob(s), new floor");
+                    }
+                } else if (name.equals(HIDE)) {
+                    if (SimMobFloorTests.buildMobFloor(ctx, problems, facts)) {
+                        hideSecrets(ctx, problems, facts);
                     }
                 } else {
                     starredOff(ctx, problems, facts);
@@ -277,6 +283,103 @@ public class SimBloodRushTests implements FabricClientGameTest {
     }
 
     /** Starred mobs the sim server holds in the floor's first key room, or -1 with no key room. */
+    private static int drawn(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SW, "drawnForTest"));
+    }
+
+    /** Waits up to {@code max} ticks for the next frame to draw at least one secret waypoint; returns how many it draws. */
+    private static int drawnSoon(ClientGameTestContext ctx, int max) {
+        int n = 0;
+        for (int i = 0; i < max && n == 0; i += 5) {
+            ctx.waitTicks(5);
+            n = drawn(ctx);
+        }
+        return n;
+    }
+
+    /**
+     * 1104-bloodrush-hidesecrets (mod brhide-1104): with Hide Secret Waypoints on, the secret waypoints the next frame
+     * draws are none in a rush-path room while the blood door is closed, still drawn in a room off the rush path, and
+     * drawn again in the rush room once the door opens. Each "drawn" state needs a count above 0, so a floor with no
+     * waypoints fails (control) instead of passing vacuously.
+     */
+    private static void hideSecrets(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
+        ctx.runOnClient(mc -> {
+            ModUnderTest.staticCall(BR, "resetForTest");
+            Object cfg = ModUnderTest.config(BR_CFG);
+            ModUnderTest.set(cfg, "setEnabled", true);
+            ModUnderTest.set(cfg, "setAllRooms", false);
+            ModUnderTest.set(cfg, "setHideSecrets", false);
+            ModUnderTest.set(ModUnderTest.config("com.killer560.hub.secretwaypoints.SecretWaypointsConfig"), "setEnabled", true);
+        });
+        @SuppressWarnings("unchecked")
+        List<String> keyRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(SIM_FLOOR, "keyRoomsForTest"));
+        String room = keyRooms.isEmpty() ? null : keyRooms.get(0).split("[|]")[0];
+        List<double[]> mobs = room == null ? List.of() : serverStarredIn(ctx, room);
+        if (mobs.isEmpty()) {
+            problems.add("no key room with a starred mob to stand in");
+            return;
+        }
+        double[] land = mobs.get(0);
+        SimMobFloorTests.teleport(ctx, land[0], land[1], land[2]);
+        int control = drawnSoon(ctx, 200);
+        facts.add("in rush room " + room + ", setting off: " + control + " waypoint(s) drawn; " + status(ctx));
+        if (control == 0) {
+            problems.add("CONTROL FAILED: no secret waypoint drawn in " + room + " with the setting off");
+            return;
+        }
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(BR_CFG), "setHideSecrets", true));
+        ctx.waitTicks(20);
+        int hidden = drawn(ctx);
+        facts.add("rush room, setting on, door closed: " + hidden + " drawn; " + status(ctx));
+        if (hidden != 0 || !status(ctx).contains("inRush=true")) {
+            problems.add("rush room not hidden: " + hidden + " drawn; " + status(ctx));
+        }
+        @SuppressWarnings("unchecked")
+        List<String> rushRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(BR, "mapRushRoomsForTest"));
+        List<double[]> others = ctx.computeOnClient(mc -> {
+            List<double[]> out = new ArrayList<>();
+            Object layout = ModUnderTest.staticCall(LAYOUT, "current");
+            int n = (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[0], new Object[0]);
+            for (int r = 0; r < n; r++) {
+                String nm = String.valueOf(ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{r}));
+                int[] tiles = (int[]) ModUnderTest.call(layout, "tiles", new Class<?>[]{int.class}, new Object[]{r});
+                if (rushRooms.contains(nm) || tiles == null || tiles.length == 0) {
+                    continue;
+                }
+                BlockPos c = (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class}, new Object[]{tiles[0]});
+                out.add(new double[]{c.getX() + 0.5, c.getZ() + 0.5});
+            }
+            return out;
+        });
+        int offDrawn = 0;
+        String offStatus = "";
+        for (int i = 0; i < Math.min(others.size(), 12) && offDrawn == 0; i++) {
+            SimMobFloorTests.teleport(ctx, others.get(i)[0], land[1], others.get(i)[1]);
+            offDrawn = drawnSoon(ctx, 60);
+            offStatus = status(ctx);
+            if (offDrawn > 0 && offStatus.contains("inRush=true")) {
+                offDrawn = 0; // that room is on the rush path after all: keep looking
+            }
+        }
+        facts.add("room off the rush path (" + others.size() + " candidates), setting on: " + offDrawn + " drawn; " + offStatus);
+        if (offDrawn == 0) {
+            problems.add("no room off the rush path drew a secret waypoint with the setting on (" + others.size() + " tried)");
+        }
+        SimMobFloorTests.teleport(ctx, land[0], land[1], land[2]);
+        ctx.waitTicks(30);
+        int before = drawn(ctx);
+        say(ctx, "The BLOOD DOOR has been opened!");
+        int after = drawnSoon(ctx, 100);
+        facts.add("back in the rush room: " + before + " drawn before the door opened, " + after + " after; " + status(ctx));
+        if (before != 0) {
+            problems.add("rush room drew " + before + " waypoint(s) before the door opened");
+        }
+        if (after == 0) {
+            problems.add("rush room still hides its waypoints after the blood door opened");
+        }
+    }
+
     private static int firstKeyRoomStarred(ClientGameTestContext ctx) {
         @SuppressWarnings("unchecked")
         List<String> keyRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(SIM_FLOOR, "keyRoomsForTest"));
