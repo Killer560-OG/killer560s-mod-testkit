@@ -527,6 +527,25 @@ final class PackDisablerCases {
 
     // ---- 432 ------------------------------------------------------------------------------------------------------
 
+    /** 1105-ui-goblin-egg-look: all five Goblin Eggs are one spawn-egg model (same shape, vanilla recolors it), five colors. */
+    static void goblinEggs(UiCase c) {
+        java.util.Set<String> colors = new java.util.HashSet<>();
+        for (String id : new String[]{"GOBLIN_EGG", "GOBLIN_EGG_GREEN", "GOBLIN_EGG_RED", "GOBLIN_EGG_YELLOW", "GOBLIN_EGG_BLUE"}) {
+            String v = c.onClient(mc -> {
+                Object look = Mod.staticCall("packdisabler.ItemLooks", "get", id);
+                if (look == null) {
+                    return "no row";
+                }
+                Object item = Mod.staticCall("packdisabler.ItemLooks", "vanillaItem", look);
+                return item == null ? "no item" : String.valueOf(Mod.call(look, "vanillaId"));
+            });
+            c.note(id + " -> " + v);
+            c.check(v.endsWith("_spawn_egg"), id + " is drawn as '" + v + "', not a spawn-egg model");
+            colors.add(v);
+        }
+        c.check(colors.size() == 5, "the five eggs share a color: " + colors);
+    }
+
     static void bazaar(UiCase c) {
         @SuppressWarnings("unchecked")
         Set<String> ids = c.onClient(mc -> (Set<String>) Mod.staticCall("auction.BazaarCatalog", "ids"));
