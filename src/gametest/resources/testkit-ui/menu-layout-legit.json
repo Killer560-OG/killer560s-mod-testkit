@@ -723,7 +723,7 @@
       "gifs": "Shows the GIFs toggled on below as looping HUD overlays.",
       "gifs (toggle which ones show at once)": "",
       "no audio files found.": "",
-      "open gif folder": "Opens the folder where you drop .gif and audio files.",
+      "open gif folder": "Opens the folder where you drop .gif and audio files. It is shared by every instance and Minecraft version on this PC.",
       "rescan folder": "Reloads the GIF folder so new or removed files show in the lists.",
       "set": "Applies the number typed in the box to its left.",
       "speed": "GIF playback speed, 0.25x-4x (1 = normal).",

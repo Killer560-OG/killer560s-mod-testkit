@@ -177,7 +177,7 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-11 "left click forward, right click backward" for every cycling setting ({@link CycleButtonCases}). Own block. */
     static final String[] CYCLE_BACK_CASES = {"806-ui-cycle-buttons-both-ways"};
     /** killer560's 2026-11-01 "press enter should save that value" for every mod text box ({@link TextBoxEnterCases}). Own block. */
-    static final String[] TEXTBOX_ENTER_CASES = {"1101-ui-textbox-enter", "1104-ui-block-colorpicker-drag", "1104-ui-defaults-off"};
+    static final String[] TEXTBOX_ENTER_CASES = {"1101-ui-textbox-enter", "1104-ui-block-colorpicker-drag", "1104-ui-defaults-off", "1104-ui-univfolders"};
     /** killer560's 2026-10-14 to-do batch: defaults on, removed toggles gone ({@link DocSmall1014Cases}). Own block. */
     static final String[] DOC_SMALL_CASES = {"807-ui-doc-small-1014"};
     /** killer560's 2026-11-01 small to-do items (mod doc-small-1101, {@link DocSmall1101Cases}). Own block for merges. */
@@ -772,6 +772,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1101-ui-textbox-enter", c -> TextBoxEnterCases.enterSaves(c, deny));
                     UiCase.run(ctx, "1104-ui-block-colorpicker-drag", ScanBlock1104Cases::colorPickerDrag);
                     UiCase.run(ctx, "1104-ui-defaults-off", DefaultsOff1104Cases::defaultsOff);
+                    UiCase.run(ctx, "1104-ui-univfolders", UniversalFolders1104Cases::moved);
                     // ---- doc-small (807) ----
                     UiCase.run(ctx, "807-ui-doc-small-1014", DocSmall1014Cases::docSmall);
                     // ---- doc-small 1101 (1101-ds-*) ----

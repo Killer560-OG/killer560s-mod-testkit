@@ -76,19 +76,20 @@ final class ProfileDataCases {
             clearFolder(gifs);
             clearFolder(presets);
             writeGif(gifs.resolve("tk-a.gif"), MAGENTA, 64, 64);
+            writeGif(gifs.resolve("tk-b.gif"), GREEN, 48, 48);
+            gifOnly(c, "tk-a.gif", "tk-b.gif");
             savePreset(c, "tk-preset-a");
             Files.writeString(speed, "432");
             String saveA = save(c, a);
-            Map<String, String> liveA = hashes(gifs, presets);
+            Map<String, String> liveA = hashes(presets);
             liveA.put("speed", sha(speed));
             // ---- state B ----
-            clearFolder(gifs);
             clearFolder(presets);
-            writeGif(gifs.resolve("tk-b.gif"), GREEN, 48, 48);
+            gifOnly(c, "tk-b.gif", "tk-a.gif");
             savePreset(c, "tk-preset-b");
             Files.writeString(speed, "555");
             String saveB = save(c, b);
-            Map<String, String> liveB = hashes(gifs, presets);
+            Map<String, String> liveB = hashes(presets);
             liveB.put("speed", sha(speed));
             c.note("save A: " + saveA);
             c.note("save B: " + saveB);
@@ -99,10 +100,9 @@ final class ProfileDataCases {
             c.check(Files.isRegularFile(dirA.resolve("profile.json")), "profile A has no profile.json stamp");
             c.check(Files.readString(dirA.resolve("profile.json")).contains("\"format\": 2"),
                     "profile A's stamp is not format 2: " + Files.readString(dirA.resolve("profile.json")));
-            c.check(Files.isRegularFile(dirA.resolve("data/killer560smod-gifs/tk-a.gif")), "A did not store tk-a.gif");
-            c.check(!Files.exists(dirA.resolve("data/killer560smod-gifs/tk-b.gif")), "A stored B's GIF");
-            c.check(Files.isRegularFile(dirB.resolve("data/killer560smod-gifs/tk-b.gif")), "B did not store tk-b.gif");
-            c.check(!Files.exists(dirB.resolve("data/killer560smod-gifs/tk-a.gif")), "B stored A's GIF");
+            // The GIF files are shared by every instance (univfolders-1104): a profile keeps which are on, never the files.
+            c.check(!Files.exists(dirA.resolve("data/killer560smod-gifs")) && !Files.exists(dirB.resolve("data/killer560smod-gifs")),
+                    "a profile stored the shared GIF folder");
 
             String[] order = {a, b, a};
             for (int i = 0; i < order.length; i++) {
@@ -113,7 +113,7 @@ final class ProfileDataCases {
                 c.check(apply.startsWith("true"), "loading " + p + " failed: " + apply);
                 c.ticks(20);
                 // ---- on disk: the live files are this profile's, byte for byte ----
-                Map<String, String> live = hashes(gifs, presets);
+                Map<String, String> live = hashes(presets);
                 live.put("speed", sha(speed));
                 Map<String, String> want = isA ? liveA : liveB;
                 c.note("step " + (i + 1) + " live " + live.keySet());
@@ -144,10 +144,8 @@ final class ProfileDataCases {
                         "crosshair presets after loading " + p + ": " + presetNames);
             }
             // The profiles themselves were not damaged by the switching (auto-save went to the right one).
-            c.check(sha(dirA.resolve("data/killer560smod-gifs/tk-a.gif")).equals(liveA.get("killer560smod-gifs/tk-a.gif")),
-                    "profile A's GIF changed during the switches");
-            c.check(!Files.exists(dirA.resolve("data/killer560smod-gifs/tk-b.gif")), "B's GIF leaked into profile A");
-            c.check(!Files.exists(dirB.resolve("data/killer560smod-gifs/tk-a.gif")), "A's GIF leaked into profile B");
+            c.check(Files.isRegularFile(gifs.resolve("tk-a.gif")) && Files.isRegularFile(gifs.resolve("tk-b.gif")),
+                    "a profile switch deleted a shared GIF");
         } finally {
             restore.end(c, a, b);
         }
@@ -216,10 +214,8 @@ final class ProfileDataCases {
             c.note("source profile " + a.size() + " file(s), imported " + b.size());
             c.check(a.equals(b), "the imported profile differs from the source: only in source "
                     + diffKeys(a, b) + ", only in import " + diffKeys(b, a));
-            c.check(a.containsKey("data/killer560smod-gifs/tk-x.gif") && a.containsKey("data/killer560smod-gifs/tk-y.gif"),
-                    "the GIFs are not in the profile: " + a.keySet());
-            c.check(a.get("data/killer560smod-gifs/tk-x.gif").equals(sha(gifs.resolve("tk-x.gif"))),
-                    "the profile's GIF is not byte-identical to the live one");
+            c.check(a.keySet().stream().noneMatch(k -> k.startsWith("data/killer560smod-gifs/")),
+                    "the shared GIF folder is in the profile: " + a.keySet());
             // No secrets, no caches.
             List<String> leaks = new ArrayList<>();
             List<String> entries = new ArrayList<>();
@@ -380,7 +376,8 @@ final class ProfileDataCases {
             Path dir = profilesDir().resolve(name);
             Map<String, String> files = tree(dir);
             c.note("imported profile: " + files.keySet());
-            c.check(files.containsKey("data/killer560smod-gifs/tk-future.gif"), "the GIF was not imported");
+            c.check(files.keySet().stream().noneMatch(k -> k.contains("killer560smod-gifs/")),
+                    "a profile's GIF folder was imported (GIFs are shared files now)");
             c.check(files.containsKey("data/killer560smod-tk-new-feature/notes/tk.txt"),
                     "an unknown (future) data folder was dropped");
             c.check(!files.containsKey("killer560smod-tk-broken.json"), "the damaged file was imported");
@@ -402,9 +399,7 @@ final class ProfileDataCases {
             c.ticks(10);
             float speed = c.onClient(mc -> (Float) Mod.get(GIF_CFG, "getSpeedMultiplier"));
             c.check(Math.abs(speed - 1.25f) < 1e-4, "the future gifplayer settings did not apply (speed " + speed + ")");
-            @SuppressWarnings("unchecked")
-            List<String> playing = c.onClient(mc -> (List<String>) Mod.staticCall(GIF_FEATURE, "playingFileNames"));
-            c.check(playing.contains("tk-future.gif"), "the future profile's GIF is not playing: " + playing);
+            c.check(!Files.exists(gifDir(c).resolve("tk-future.gif")), "the future profile planted a file in the shared GIF folder");
             newData = modPath(c, "killer560smod-tk-new-feature");
             c.check(Files.isRegularFile(newData.resolve("notes/tk.txt")),
                     "the unknown data folder was not restored at " + newData);
@@ -493,8 +488,8 @@ final class ProfileDataCases {
                 return null;
             });
             c.check(Files.isRegularFile(dir.resolve("profile.json")), "the auto-save did not stamp the old profile");
-            c.check(Files.isRegularFile(dir.resolve("data/killer560smod-gifs/tk-live.gif")),
-                    "the auto-save did not add the live GIF to the old profile");
+            c.check(!Files.exists(dir.resolve("data/killer560smod-gifs")),
+                    "the auto-save put the shared GIF folder into the old profile");
         } finally {
             restore.end(c, name);
         }
@@ -567,6 +562,9 @@ final class ProfileDataCases {
         List<String> made = new ArrayList<>();
         try {
             Path gifs = gifDir(c);
+            // GIF files are shared by every instance now, never in a profile: put the one the export used on this PC's folder.
+            writeGif(gifs.resolve("tk-xfer.gif"), YELLOW, 40, 40);
+            gifSetup(c);
             Path arFile = modPath(c, "killer560smod-autoroutes-settings.json");
             for (int i = 0; i < zips.size(); i++) {
                 Path zip = zips.get(i);
@@ -713,6 +711,18 @@ final class ProfileDataCases {
             Mod.call(g, "save");
             return null;
         });
+    }
+
+    /** Only {@code on} of the two GIFs is switched on (the profile keeps the switches, the files are shared). */
+    static void gifOnly(UiCase c, String on, String off) {
+        c.onClient(mc -> {
+            Object g = Mod.cfg(GIF_CFG);
+            Mod.call(g, "setGifFileEnabled", on, true);
+            Mod.call(g, "setGifFileEnabled", off, false);
+            Mod.call(g, "save");
+            return null;
+        });
+        Mod.staticCall(GIF_FEATURE, "reload");
     }
 
     static void savePreset(UiCase c, String name) {
