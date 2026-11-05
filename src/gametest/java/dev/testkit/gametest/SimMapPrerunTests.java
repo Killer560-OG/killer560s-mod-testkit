@@ -356,6 +356,14 @@ public class SimMapPrerunTests implements FabricClientGameTest {
             if (tried >= 10 || !middles.add(pick[1])) {
                 continue;
             }
+            // B must be a room he has not been in: a room the map already shows opened (state below 4, Hypixel's own
+            // opening of the rooms next to the Entrance) is the live scanner's, never predicted (ship3 gate, 26.3 cheat:
+            // Entrance -> Mines read "map state 2, 0 block(s) seen").
+            int bt0 = f.tiles.get(pick[1])[0];
+            if (ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(HELD, "roomState", new Class<?>[]{int.class},
+                    new Object[]{bt0})) < 4) {
+                continue;
+            }
             tried++;
             int a = pick[0];
             int b = pick[1];
