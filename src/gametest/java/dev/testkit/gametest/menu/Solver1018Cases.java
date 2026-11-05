@@ -298,11 +298,14 @@ final class Solver1018Cases {
         c.check(auto[0] == 0.1f && auto[1] == 0.2f && auto[2] == 0.3f && auto[3] == 1f, "Auto did not follow the key color");
         float[] custom = (float[]) Mod.staticCall(feature, "resolveColor", 0xFF336699, new float[]{0.1f, 0.2f, 0.3f}, 1f);
         c.check(Math.abs(custom[0] - 0x33 / 255f) < 0.01f && Math.abs(custom[2] - 0x99 / 255f) < 0.01f, "a chosen color was not used");
-        try (AutoCloseable t = Mod.with(cfgClass, "CircleThickness", 2f);
-             AutoCloseable l = Mod.with(cfgClass, "CircleLift", 0.5f);
-             AutoCloseable a = Mod.with(cfgClass, "TracerColor", 0);
-             AutoCloseable b = Mod.with(cfgClass, "CircleColor", 0);
-             AutoCloseable f = Mod.with(cfgClass, "FillColor", 0)) {
+        // The reload below swaps in a new config instance, so Mod.with would restore the old one: put the values back on the
+        // live instance and save (until 2026-11-05 the gray test color stayed, and 687's red Blood Key circle drew gray).
+        String[] props = {"CircleThickness", "CircleLift", "TracerColor", "CircleColor", "FillColor"};
+        Object[] old = new Object[props.length];
+        for (int i = 0; i < props.length; i++) {
+            old[i] = Mod.get(cfgClass, "get" + props[i]);
+        }
+        try {
             Mod.set(cfgClass, "setCircleThickness", 99f);
             c.check((Float) Mod.get(cfgClass, "getCircleThickness") == 10f, "thickness is not clamped to 10");
             Mod.set(cfgClass, "setCircleThickness", 6f);
@@ -317,6 +320,11 @@ final class Solver1018Cases {
             c.check((Integer) Mod.get(cfgClass, "getTracerColor") == 0xFF112233, "tracer color did not survive a reload");
             c.check((Integer) Mod.get(cfgClass, "getCircleColor") == 0xFF445566, "circle color did not survive a reload");
             c.check((Integer) Mod.get(cfgClass, "getFillColor") == 0x80778899, "fill color did not survive a reload");
+        } finally {
+            for (int i = 0; i < props.length; i++) {
+                Mod.set(cfgClass, "set" + props[i], i < 2 ? old[i] : (Object) 0);   // colors back to Auto, the default
+            }
+            Mod.call(Mod.cfg(cfgClass), "save");
         }
         try (AutoCloseable sphere = Mod.with(cfgClass, "RangeStyle", 1)) {
             List<String> texts = tabTexts(c, "gui.tab.DoorKeysTab", cfgClass, "Enabled");

@@ -46,6 +46,7 @@
     "gui.tab.MiningPowderGhastTab": "Mining > Powder Mining > Powder Ghast",
     "gui.tab.MiningResumeBreakTab": "Mining > General > Resume Held Break After Menus",
     "gui.tab.MiningGoldenGoblinTab": "Mining > General > Golden Goblin",
+    "gui.tab.MiningDeployablesTab": "Mining > General > Deployables",
     "gui.tab.MiningTitaniumTab": "Mining > Commissions and Mithril > Titanium Highlight",
     "gui.tab.MiningWrongArmorTab": "Mining > General > Wrong Armor Alert",
     "gui.tab.ArmorHudTab": "Items > Armor HUD",
