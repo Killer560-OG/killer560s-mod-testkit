@@ -1,11 +1,20 @@
 package dev.testkit.gametest.boss;
 
 import com.google.gson.JsonObject;
+import com.mojang.blaze3d.platform.InputConstants;
+import dev.testkit.compat.McPackets;
 import dev.testkit.gametest.hx.Session;
 import dev.testkit.gametest.mod.Mod;
+import dev.testkit.harness.WireCapture;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
 import net.minecraft.util.Mth;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -46,6 +55,205 @@ final class LeapRotationCases {
         s.test("1104-leaplook-relative-off", c -> run(c, false, true, true));
         s.test("1104-leaplook-no-line", c -> run(c, true, true, false));
         s.test("1104-leaplook-absolute", c -> run(c, true, false, true));
+        for (Act a : Act.values()) {
+            s.test("1105-leaplook-same-" + a.id, c -> sameTick(c, a));
+        }
+    }
+
+    /**
+     * leapsame-1105 (killer560, 2026-11-05: "if I leap in the exact same tick that rotation packet is server side ... is it
+     * going to flag"): what he (or Fast Leap) does in the very client tick the turn goes out. The turn tick is made exact:
+     * after the relative-look teleport landed, one client task delivers the leap line (LeapManager.onChat, as the chat
+     * packet does) and starts the action, so the pending turn and the action meet on the next tick. The wire (encoder
+     * level, split at client_tick_end) must show the action in the same client tick as the first movement packet with the
+     * mate's look; the session's GrimAC check judges it.
+     */
+    enum Act {
+        USE_HAND("use-hand"), USE_FASTLEAP("use-fastleap"), CLICK_HAND("click-hand"), CLICK_FASTLEAP("click-fastleap"),
+        ATTACK_HAND("attack-hand"), ACCEPT("accept");
+
+        final String id;
+
+        Act(String id) {
+            this.id = id;
+        }
+    }
+
+    private static final String LM = "fastleap.LeapManager";
+    private static final String LINE = "You have teleported to " + MATE + "!";
+
+    private static void sameTick(Session c, Act act) throws Exception {
+        // ATTACK_HAND: the mate looks straight at +x (where he stands, a block from the landing), so the turned
+        // crosshair lands on him and the click is a real attack, not a swing at air.
+        float mYaw = act == Act.ATTACK_HAND ? 270f : MATE_YAW;
+        float mPitch = act == Act.ATTACK_HAND ? 15f : MATE_PITCH;
+        boolean menu = act == Act.CLICK_HAND || act == Act.CLICK_FASTLEAP;
+        DungeonFixBossCases.floor(c, AX, Y, Z);
+        DungeonFixBossCases.floor(c, BX, Y, Z);
+        TerminalAuraCases.tp(c, AX + 0.5, Y, Z + 0.5, 0f);
+        c.server().command(String.format(Locale.ROOT, "testkit spawn %s %.1f %d %.1f", MATE, BX + 1.5, Y, Z + 0.5));
+        c.server().sync(20);
+        c.hx().call("player.look", "player", MATE, "yaw", mYaw, "pitch", mPitch);
+        c.hx().call("sidebar.set", dev.testkit.gametest.Fixtures.byId("core.sidebar-catacombs-f7").payload().getAsJsonObject().deepCopy());
+        c.hx().give(0, dev.testkit.gametest.Fixtures.byId("items.spirit-leap").payload().getAsJsonObject().get("stack").getAsString());
+        c.hx().call("menu.onUse", "id", "SPIRIT_LEAP", "menu", null); // a use opens nothing
+        WireCapture.describe = LeapRotationCases::describe;
+        try (AutoCloseable cfg = c.onClient(mc -> Mod.with(CONFIG, "LeapTakesTargetLook", true))) {
+            c.waitUntil("F7 and the leap in slot 0", mc -> "F7".equals(Mod.staticCall("secrets.DungeonState", "getFloor"))
+                    && "SPIRIT_LEAP".equals(Mod.staticCall("cheatutils.CheatUtils", "skyblockId", mc.player.getInventory().getItem(0))), 100);
+            c.waitUntil("the client sees " + MATE + " at " + mYaw + "/" + mPitch, mc -> mc.level != null
+                    && mc.level.players().stream().anyMatch(p -> p.getName().getString().equals(MATE)
+                    && Math.abs(Mth.wrapDegrees(p.getYHeadRot() - mYaw)) < 1f && Math.abs(p.getXRot() - mPitch) < 1f), 100);
+            c.onClient(mc -> {
+                mc.player.getInventory().setSelectedSlot(act == Act.ATTACK_HAND ? 1 : 0); // an empty hand attacks
+                mc.player.setYRot(YAW);
+                mc.player.setXRot(PITCH);
+                Mod.staticCall(LM, "setCooldownTicksForTest", 0.0);
+                return null;
+            });
+            c.waitUntil("he stands at A", mc -> mc.player.onGround(), 100);
+            c.ctx().waitTicks(30);
+            long before = taken(c);
+            WireCapture.start();
+            if (act == Act.ACCEPT) {
+                // the line first, then the teleport: the pair is made as the teleport is applied (its accept just sent),
+                // so the turn goes out in the tick whose packets begin with that accept
+                c.ctx().runOnClient(mc -> Mod.staticCall(LM, "onChat", LINE));
+                c.hx().call("dungeon.tp", "x", BX + 0.5, "y", (double) Y, "z", Z + 0.5, "yaw", 0f, "pitch", 0f, "relRot", true);
+            } else {
+                c.hx().call("dungeon.tp", "x", BX + 0.5, "y", (double) Y, "z", Z + 0.5, "yaw", 0f, "pitch", 0f, "relRot", true);
+                c.waitUntil("the client at the leap target", mc -> mc.player != null
+                        && mc.player.position().distanceTo(new Vec3(BX + 0.5, Y, Z + 0.5)) < 0.05, 100);
+                if (menu) {
+                    JsonObject spec = dev.testkit.gametest.Fixtures.byId("menus.spirit-leap").payload().getAsJsonObject().deepCopy();
+                    spec.getAsJsonObject("slots").getAsJsonObject("13").addProperty("name", "§a" + MATE);
+                    c.hx().call("menu.show", spec);
+                    c.waitUntil("the Spirit Leap menu", mc -> mc.player.containerMenu != mc.player.inventoryMenu, 60);
+                }
+                c.ctx().runOnClient(mc -> {
+                    Mod.staticCall(LM, "onChat", LINE); // the pair: the turn is pending for the next tick
+                    Mod.staticCall(LM, "setCooldownTicksForTest", 0.0); // the line set the leap cooldown; Fast Leap may go
+                    switch (act) {
+                        case USE_HAND -> KeyMapping.click((InputConstants.Key) Mod.field(mc.options.keyUse, "key"));
+                        case ATTACK_HAND -> KeyMapping.click((InputConstants.Key) Mod.field(mc.options.keyAttack, "key"));
+                        case CLICK_HAND -> mc.gameMode.handleContainerInput(mc.player.containerMenu.containerId, 13, 0,
+                                ContainerInput.PICKUP, mc.player);
+                        default -> Mod.staticCall(LM, "leap", MATE, true, false, false); // Fast Leap: use, or click the head
+                    }
+                });
+            }
+            c.ctx().waitTicks(12);
+            WireCapture.stop();
+            boolean turns = cheat();
+            long after = taken(c);
+            List<List<String>> ticks = ticks();
+            int turnTick = -1;
+            for (int i = 0; i < ticks.size() && turnTick < 0; i++) {
+                for (String p : ticks.get(i)) {
+                    float[] l = look(p);
+                    if (p.startsWith("move") && l != null && near(l, mYaw, mPitch)) {
+                        turnTick = i;
+                        break;
+                    }
+                }
+            }
+            String marker = switch (act) {
+                case USE_HAND, USE_FASTLEAP -> "use ";
+                case CLICK_HAND, CLICK_FASTLEAP -> "ServerboundContainerClickPacket";
+                case ATTACK_HAND -> "ServerboundInteractPacket";
+                case ACCEPT -> "ServerboundAcceptTeleportationPacket";
+            };
+            StringBuilder wire = new StringBuilder();
+            for (int i = 0; i < ticks.size(); i++) {
+                wire.append(i == turnTick ? "\n  TURN TICK " : "\n  tick ").append(i).append(": ").append(String.join(", ", ticks.get(i)));
+            }
+            c.note(act.id + ": taken " + before + " -> " + after + ", wire by client tick:" + wire);
+            int actTick = -1;
+            for (int i = 0; i < ticks.size() && actTick < 0; i++) {
+                for (String p : ticks.get(i)) {
+                    if (p.startsWith(marker)) {
+                        actTick = i;
+                        break;
+                    }
+                }
+            }
+            if (!turns) { // a legit jar has the switch but never turns
+                c.check(after == before && turnTick < 0, "a legit jar turned him (taken " + before + " -> " + after + ")");
+                return;
+            }
+            c.check(after - before == 1, "taken count went " + before + " -> " + after);
+            c.check(turnTick >= 0, "no movement packet carried the mate's look " + mYaw + "/" + mPitch);
+            c.check(actTick == turnTick, act.id + ": the action went in client tick " + actTick + ", the turn in " + turnTick);
+            if (marker.equals("use ")) { // what BadPacketsJ compares: the use's look with that tick's movement look
+                for (String p : ticks.get(turnTick)) {
+                    if (p.startsWith("use ")) {
+                        c.check(near(look(p), mYaw, mPitch), "the use in the turn tick carried " + p + ", the move "
+                                + mYaw + "/" + mPitch);
+                    }
+                }
+            }
+            JsonObject st = c.hx().call("player.state").getAsJsonObject();
+            c.note(String.format(Locale.ROOT, "server look %.1f/%.1f", st.get("yaw").getAsFloat(), st.get("pitch").getAsFloat()));
+        } finally {
+            WireCapture.stop();
+            WireCapture.describe = null;
+            c.ctx().runOnClient(mc -> {
+                if (mc.player.containerMenu != mc.player.inventoryMenu) {
+                    mc.player.closeContainer();
+                }
+                Mod.staticCall(LM, "setCooldownTicksForTest", 0.0);
+            });
+            c.hx().call("menu.onUse", "id", "SPIRIT_LEAP", "menu", null);
+            c.hx().call("give", "slot", 0, "stack", "minecraft:air");
+            c.hx().sidebarClear();
+            c.server().command("testkit remove " + MATE);
+            c.ctx().waitTicks(50); // past the pairing window and Fast Leap's menu wait before the next case
+        }
+    }
+
+    private static String describe(Object p) {
+        if (p instanceof ServerboundUseItemPacket u) {
+            return String.format(Locale.ROOT, "use %.1f/%.1f", McPackets.useItemYRot(u), McPackets.useItemXRot(u));
+        }
+        if (p instanceof ServerboundMovePlayerPacket m) {
+            return m.hasRotation() ? String.format(Locale.ROOT, "move%s %.1f/%.1f", m.hasPosition() ? "+pos" : "",
+                    m.getYRot(0f), m.getXRot(0f)) : "move pos";
+        }
+        return p.getClass().getSimpleName();
+    }
+
+    /** The captured play packets, one list per client tick (client_tick_end closes a tick). */
+    private static List<List<String>> ticks() {
+        List<List<String>> out = new ArrayList<>();
+        List<String> cur = new ArrayList<>();
+        for (WireCapture.Sent s : WireCapture.snapshot()) {
+            if (!s.phase().equals("play")) {
+                continue;
+            }
+            if (s.text().equals("ServerboundClientTickEndPacket")) {
+                out.add(cur);
+                cur = new ArrayList<>();
+            } else if (!s.text().equals("ServerboundKeepAlivePacket") && !s.text().equals("ServerboundPongPacket")) {
+                cur.add(s.text());
+            }
+        }
+        if (!cur.isEmpty()) {
+            out.add(cur);
+        }
+        return out;
+    }
+
+    private static float[] look(String p) {
+        int sp = p.lastIndexOf(' ');
+        int sl = p.lastIndexOf('/');
+        if (sp < 0 || sl < sp) {
+            return null;
+        }
+        return new float[] {Float.parseFloat(p.substring(sp + 1, sl)), Float.parseFloat(p.substring(sl + 1))};
+    }
+
+    private static boolean near(float[] l, float yaw, float pitch) {
+        return l != null && Math.abs(Mth.wrapDegrees(l[0] - yaw)) < 1.5f && Math.abs(l[1] - pitch) < 1.5f;
     }
 
     private static void run(Session c, boolean on, boolean relative, boolean line) throws Exception {
