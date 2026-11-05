@@ -520,15 +520,16 @@ final class HxSpotifyControlsCases {
         byte[] orig = Files.exists(file) ? Files.readAllBytes(file) : null;
         try {
             Files.createDirectories(file.getParent());
+            // OFF by default since defoff-1104 (killer560 2026-11-04); a saved choice loads as saved, either way.
             Files.writeString(file, "{\"lyricsOverHead\":false,\"shareSong\":false}");
-            boolean legacy = c.onClient(mc -> { Mod.staticCall(TAGC, "load"); return (Boolean) Mod.get(TAGC, "isLyricsOverHead"); });
-            c.check(legacy, "an old file with lyricsOverHead=false (the old default) did not load ON");
-            Files.writeString(file, "{\"lyricsOverHead\":false,\"lyricsOverHeadV2\":true}");
-            boolean chosen = c.onClient(mc -> { Mod.staticCall(TAGC, "load"); return (Boolean) Mod.get(TAGC, "isLyricsOverHead"); });
-            c.check(!chosen, "a file with the V2 marker and lyricsOverHead=false lost the player's choice");
+            boolean off = c.onClient(mc -> { Mod.staticCall(TAGC, "load"); return (Boolean) Mod.get(TAGC, "isLyricsOverHead"); });
+            c.check(!off, "a file with lyricsOverHead=false loaded ON");
+            Files.writeString(file, "{\"lyricsOverHead\":true}");
+            boolean on = c.onClient(mc -> { Mod.staticCall(TAGC, "load"); return (Boolean) Mod.get(TAGC, "isLyricsOverHead"); });
+            c.check(on, "a file with lyricsOverHead=true lost the player's choice");
             Files.delete(file);
             boolean none = c.onClient(mc -> { Mod.staticCall(TAGC, "load"); return (Boolean) Mod.get(TAGC, "isLyricsOverHead"); });
-            c.check(none, "a missing config file did not default to lyrics ON");
+            c.check(!none, "a missing config file did not default to lyrics OFF");
         } finally {
             if (orig != null) {
                 Files.write(file, orig);
@@ -973,8 +974,9 @@ final class HxSpotifyControlsCases {
         long now = System.currentTimeMillis();
         List<Object> lines = c.onClient(mc -> List.of(line(0.0, "a line"), line(600.0, "later")));
         Object snap = c.onClient(mc -> snapshot(5000, now, lines));
-        int panelH = c.onClient(mc -> (Integer) Mod.call(Mod.field(HUD, "INSTANCE"), "height"));
+        // The panel height is read with Show Lyrics on: it is OFF by default since defoff-1104, and the panel is shorter.
         try (Settings s = new Settings(c).with(HC, "HudEnabled", true).with(HC, "ShowLyrics", true)) {
+            int panelH = c.onClient(mc -> (Integer) Mod.call(Mod.field(HUD, "INSTANCE"), "height"));
             c.onClient(mc -> {
                 Mod.setField(CTL, "testSink", sink);
                 Mod.setField(CTL, "testReason", "");
