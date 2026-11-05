@@ -72,6 +72,7 @@ final class PartyFinder1018Cases {
             Object cfg = Mod.cfg(CFG);
             Mod.call(cfg, "setEnabled", true);
             Mod.call(cfg, "setDualList", true);
+            Mod.call(cfg, "setAutoAcceptRequests", false); // on by default: it would invite Bob_J before the Accept click
             Mod.call(cfg, "setAutoAcceptInvite", true);
             Mod.call(cfg, "setCheckRequirements", true);
             Mod.call(cfg, "setLastTab", Mod.enumValue(CAT, "DUNGEONS"));
@@ -189,6 +190,13 @@ final class PartyFinder1018Cases {
         try {
             reset(c);
             String me = self(c);
+            c.onClient(mc -> {
+                putStats("Bob_J", 45.0, 9000); // offline, so the finder cannot look him up; the listing asks Cata 40
+                for (int i = 0; i < 8; i++) {
+                    putStats("Crowd" + i, 45.0, 9000);
+                }
+                return null;
+            });
             c.onClient(mc -> {
                 Map<String, Integer> reqs = new LinkedHashMap<>();
                 reqs.put("cata", 40);
