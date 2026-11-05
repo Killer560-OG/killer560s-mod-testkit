@@ -213,12 +213,14 @@ public class WorldExportTests implements FabricClientGameTest {
                     JsonObject meta = FairyIslandTests.meta(ISLAND);
                     JsonArray spawn = meta.getAsJsonArray("spawn");
                     try (Hx hx = Hx.connect()) {
+                        // The island first, then the player (as FairyIslandTests does): a player put 3 blocks above a void for
+                        // the 100+ ticks the island took drew GrimAC Simulation on 26.2 (ship4fu-1105).
+                        List<String> lines = FairyIslandTests.blocks(ISLAND);
+                        FairyIslandTests.place(hx, lines);
                         server.command(String.format(java.util.Locale.ROOT, "tp @p %.2f %d %.2f 0 0", spawn.get(0).getAsDouble(),
                                 spawn.get(1).getAsInt() + 3, spawn.get(2).getAsDouble()));
                         server.sync(60);
                         ctx.waitTicks(40);
-                        List<String> lines = FairyIslandTests.blocks(ISLAND);
-                        FairyIslandTests.place(hx, lines);
                         server.command("setblock " + SIGN.getX() + " " + SIGN.getY() + " " + SIGN.getZ() + " minecraft:oak_sign");
                         server.command("data merge block " + SIGN.getX() + " " + SIGN.getY() + " " + SIGN.getZ()
                                 + " {front_text:{messages:['\"" + SIGN_TEXT + "\"','\"\"','\"\"','\"\"']}}");
