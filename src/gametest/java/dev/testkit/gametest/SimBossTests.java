@@ -376,6 +376,8 @@ public class SimBossTests implements FabricClientGameTest {
         if (Math.abs(a - b) > 0.001f) {
             f.add("Necron's bar moved with no hit from him: " + a + " -> " + b);
         }
+    }
+
     // ============================================================================================== 1105-boss-fix3
 
     /** Each P3 door's box (x1, y1, z1, x2, y2, z2): the gate's arch and the door's blocks are their kinds inside it. */

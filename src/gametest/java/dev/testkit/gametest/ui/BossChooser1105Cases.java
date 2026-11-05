@@ -1,5 +1,6 @@
 package dev.testkit.gametest.ui;
 
+import dev.testkit.compat.McCompat;
 import dev.testkit.gametest.mod.Mod;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
@@ -25,7 +26,7 @@ final class BossChooser1105Cases {
         }
         c.onClient(mc -> {
             try {
-                mc.setScreen((Screen) Mod.cls("bosssim.BossStartScreen").getConstructor(Screen.class).newInstance((Screen) null));
+                McCompat.setScreen(mc, (Screen) Mod.cls("bosssim.BossStartScreen").getConstructor(Screen.class).newInstance((Screen) null));
             } catch (ReflectiveOperationException e) {
                 throw new IllegalStateException(e);
             }
@@ -36,9 +37,9 @@ final class BossChooser1105Cases {
             List<String> labels = new ArrayList<>();
             List<String> tooWide = c.onClient(mc -> {
                 List<String> bad = new ArrayList<>();
-                c.check(mc.screen != null && mc.screen.getClass().getSimpleName().equals("BossStartScreen"),
-                        "the chooser did not open: " + mc.screen);
-                for (var w : mc.screen.children()) {
+                c.check(McCompat.screen(mc) != null && McCompat.screen(mc).getClass().getSimpleName().equals("BossStartScreen"),
+                        "the chooser did not open: " + McCompat.screen(mc));
+                for (var w : McCompat.screen(mc).children()) {
                     if (!(w instanceof AbstractWidget a)) {
                         continue;
                     }
@@ -60,7 +61,7 @@ final class BossChooser1105Cases {
             HudEditorCases.screenshot(c, "chooser");
         } finally {
             c.onClient(mc -> {
-                mc.setScreen(null);
+                McCompat.setScreen(mc, null);
                 return null;
             });
         }
