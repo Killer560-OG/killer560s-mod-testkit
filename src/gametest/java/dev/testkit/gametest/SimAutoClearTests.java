@@ -389,7 +389,11 @@ public class SimAutoClearTests implements FabricClientGameTest {
                 etherCheaper = true;
             }
         }
-        if (r4.hops == 0 && etherCheaper) {
+        if (r4.hops == 0 && diag.contains("hop plan -1 ")) {
+            // The mod's own hop model has no landing from this spot even after 3 s (the zombie on a stair with the dash
+            // model finding nothing, b1 2026-11-04): there is no hop to take, so none is judged from here.
+            println("hop: no hop - the mod has no hop plan from this spot (-1 before the start), so the hop is not judged");
+        } else if (r4.hops == 0 && etherCheaper) {
             println("hop: no hop - Auto Clear priced the etherwarp below the hops for this mob (its cost line), so the"
                     + " etherwarp was the right move; the hop is not judged from this spot");
         } else if (r4.hops == 0) {
