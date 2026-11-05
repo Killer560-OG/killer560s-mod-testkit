@@ -97,6 +97,81 @@ public class WorldExportTests implements FabricClientGameTest {
             }
             reloadCase(ctx);
         }
+        if (!Scenario.skip("1105-worldexport-record")) {
+            recordCase(ctx, ok);
+        }
+    }
+
+    /**
+     * 1105-worldexport-record (killer560, 2026-11-05: "/killer560 record (name) then /killer560 stop record. I'll fly around
+     * and get the whole map scanned"): with the Chunk Cache switched OFF, a recording must still keep the chunks he flew
+     * away from. Start at the spawn, teleport 2000 blocks east (the spawn's chunks unload), stop: the save must hold the
+     * spawn's region AND the far one. /killer560 alone must still be the menu command.
+     */
+    private static void recordCase(ClientGameTestContext ctx, boolean ok) {
+        Path base = TestServer.savesDir().resolve("wexrec");
+        System.setProperty("killer560.worldexport.dir", base.toString());
+        Scenario.run(ctx, "1105-worldexport-record", (server, scenario) -> TestMap.on(server).survival().build(),
+                (server, scenario) -> {
+                    boolean[] nodes = ctx.computeOnClient(mc -> {
+                        var d = net.fabricmc.fabric.impl.command.client.ClientCommandInternals.getActiveDispatcher();
+                        var k = d == null ? null : d.getRoot().getChild("killer560");
+                        return new boolean[]{k != null && k.getCommand() != null, k != null && k.getChild("record") != null,
+                                k != null && k.getChild("stop") != null && k.getChild("stop").getChild("record") != null};
+                    });
+                    if (!nodes[0]) throw new AssertionError("/killer560 lost its own command (the menu)");
+                    if ((nodes[1] && nodes[2]) != ok) {
+                        throw new AssertionError("/killer560 record/stop record registered=" + nodes[1] + "/" + nodes[2]
+                                + " but cheat dev build=" + ok);
+                    }
+                    if (!ok) {
+                        scenario.log("/killer560 record absent (as it must be outside cheat dev builds)");
+                        return;
+                    }
+                    Object cfg = Mod.staticCall("chunkcache.ChunkCacheConfig", "getInstance");
+                    Mod.call(cfg, "setEnabled", false);
+                    ctx.waitTicks(5);
+                    if ((Boolean) Mod.staticCall("chunkcache.ChunkCacheManager", "isActive")) {
+                        throw new AssertionError("the chunk cache is still active with its switch off; the case proves nothing");
+                    }
+                    // spectator first: no gravity, so the far teleports over void do not draw Grim Simulation (run 2 did)
+                    server.command("gamemode spectator @p");
+                    server.sync(20);
+                    server.command("tp @p 8.5 120 8.5 0 0");
+                    server.sync(60);
+                    ctx.waitTicks(60);
+                    int started = ctx.computeOnClient(mc -> (Integer) Mod.staticCall("worldexport.WorldExportCommand", "startScan", "testkit-record"));
+                    ctx.waitTicks(5);
+                    if (started != 1 || !(Boolean) Mod.staticCall("chunkcache.ChunkCacheManager", "isActive")) {
+                        throw new AssertionError("record did not start or did not force the chunk cache on");
+                    }
+                    server.command("tp @p 2008.5 120 8.5 0 0");
+                    server.sync(60);
+                    ctx.waitTicks(200);
+                    boolean spawnLive = ctx.computeOnClient(mc -> mc.level.getChunkSource().hasChunk(0, 0)
+                            && (Boolean) Mod.staticCall("chunkcache.ChunkCacheManager", "isLive", mc.level.getChunk(0, 0)));
+                    if (spawnLive) {
+                        throw new AssertionError("the spawn chunk is still live 2000 blocks away; the case proves nothing");
+                    }
+                    int saved = ctx.computeOnClient(mc -> (Integer) Mod.staticCall("worldexport.WorldExportCommand", "stopScan"));
+                    ctx.waitTicks(5);
+                    Mod.call(cfg, "setEnabled", true);
+                    if (saved != 1) throw new AssertionError("stop record did not save");
+                    if ((Boolean) Mod.staticCall("worldexport.EntityRecorder", "isRecording")) {
+                        throw new AssertionError("entity recording still on after stop record");
+                    }
+                    Path region = base.resolve("testkit-record/dimensions/minecraft/overworld/region");
+                    if (!Files.isRegularFile(region.resolve("r.0.0.mca")) || !Files.isRegularFile(region.resolve("r.3.0.mca"))) {
+                        String have;
+                        try (var s = Files.list(region)) {
+                            have = s.map(p -> p.getFileName().toString()).sorted().toList().toString();
+                        } catch (IOException e) {
+                            have = e.toString();
+                        }
+                        throw new AssertionError("the save lacks the spawn region r.0.0 or the far region r.3.0: " + have);
+                    }
+                    scenario.log("record kept the unloaded spawn chunks: r.0.0 and r.3.0 saved, cache forced on then off");
+                });
     }
 
     // ------------------------------------------------------------------ capture area and end-of-walk guide
