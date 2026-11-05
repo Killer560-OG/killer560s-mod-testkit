@@ -75,6 +75,10 @@ import java.util.function.Predicate;
  * fire and lava damage offered to him keeps his bar for 60 ticks, and the refusal is logged with its source.</li>
  * <li>{@code 1101-boss-portal}: a generated F7, /goto Blood, the portal opens (the sim has no Watcher yet: five seconds in
  * Blood), stepping in starts P1 with the floor's map code unchanged (the floor is not reset).</li>
+ * <li>{@code 1105-boss-fix3} (bossfix3-1105, both captures): items kept across phase starts; the Simon Says skip (start,
+ * reset, start 3 ticks apart: the first round put in is round 2), no button under a lit lamp, 16 west-facing buttons at
+ * input; S1's boundary gone after its gate line (arch, door, portcullis); a Superboom on gate 2 during S2 takes the arch
+ * at once and leaves the door, one on gate 3 does nothing, and S2 then done opens its door at once with no countdown.</li>
  * </ul>
  * Only when named. Hits on the bosses (Maxor, Goldor, Necron, the dragons) go through {@code BossFight.testHit}, the same
  * path a weapon's hit takes - the test has no weapon to swing at a boss floating out of reach.
@@ -96,6 +100,7 @@ public class SimBossTests implements FabricClientGameTest {
     private static final String WD = "com.killer560.hub.witherdragons.";
     private static final String ONEHIT = "1105-boss-onehit";
     private static final String NOSTRAY = "1105-boss-nostray";
+    private static final String FIX3 = "1105-boss-fix3";
     private static final String MAXOR = "com.killer560.hub.maxor.MaxorCrystalsFeature";
 
     private static final String B = "com.killer560.hub.bosssim.";
@@ -118,7 +123,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -154,6 +159,7 @@ public class SimBossTests implements FabricClientGameTest {
                     case DRAGONS -> dragons(ctx, f);
                     case ONEHIT -> oneHit(ctx, f);
                     case NOSTRAY -> noStray(ctx, f);
+                    case FIX3 -> fix3(ctx, f);
                     default -> ap3(ctx, f);
                 }
             } catch (Throwable t) {
@@ -361,6 +367,316 @@ public class SimBossTests implements FabricClientGameTest {
         if (Math.abs(a - b) > 0.001f) {
             f.add("Necron's bar moved with no hit from him: " + a + " -> " + b);
         }
+    // ============================================================================================== 1105-boss-fix3
+
+    /** Each P3 door's box (x1, y1, z1, x2, y2, z2): the gate's arch and the door's blocks are their kinds inside it. */
+    private static final int[][] DOOR_BOX = {{95, 115, 121, 105, 136, 124}, {16, 115, 127, 19, 136, 137}, {3, 115, 48, 13, 136, 51}};
+
+    /** Boundary {@code s}'s cells on the server: {arch (gate), door, portcullis}. */
+    private static int[] gateCells(ClientGameTestContext ctx, int s) {
+        int[] b = DOOR_BOX[s - 1];
+        int[] n = new int[3];
+        for (String id : serverBox(ctx, b[0], b[1], b[2], b[3], b[4], b[5])) {
+            String k = id.replace("minecraft:", "");
+            n[0] += k.equals("cracked_stone_bricks") || k.equals("stone_brick_stairs") ? 1 : 0;
+            n[1] += k.equals("barrier") || k.equals("iron_block") || k.equals("nether_brick_stairs") ? 1 : 0;
+            n[2] += k.equals("cobblestone") || k.equals("cobblestone_wall") || k.equals("nether_brick_fence") ? 1 : 0;
+        }
+        println(FIX3, "boundary " + s + ": arch " + n[0] + ", door " + n[1] + ", portcullis " + n[2]);
+        return n;
+    }
+
+    /** The arch cell of boundary {@code s} nearest {@code eye} on the server, or null. */
+    private static BlockPos archCell(ClientGameTestContext ctx, int s, Vec3 eye) {
+        int[] b = DOOR_BOX[s - 1];
+        String[] ids = serverBox(ctx, b[0], b[1], b[2], b[3], b[4], b[5]);
+        BlockPos best = null;
+        int i = 0;
+        for (int y = b[1]; y <= b[4]; y++) {
+            for (int z = b[2]; z <= b[5]; z++) {
+                for (int x = b[0]; x <= b[3]; x++) {
+                    String k = ids[i++];
+                    if ((k.endsWith(":cracked_stone_bricks") || k.endsWith(":stone_brick_stairs"))
+                            && (best == null || Vec3.atCenterOf(new BlockPos(x, y, z)).distanceTo(eye) < Vec3.atCenterOf(best).distanceTo(eye))) {
+                        best = new BlockPos(x, y, z);
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
+    /** Flying, his eyes level with {@code cell} and {@code dx, dz} blocks out from it. */
+    private static void hover(ClientGameTestContext ctx, BlockPos cell, int dx, int dz, float yaw) {
+        if (cell == null) {
+            return;
+        }
+        serverRun(ctx, s -> {
+            var sp = s.getPlayerList().getPlayers().get(0);
+            sp.getAbilities().mayfly = true;
+            sp.getAbilities().flying = true;
+            sp.onUpdateAbilities();
+        });
+        tp(ctx, cell.getX() + 0.5 + dx, cell.getY() + 0.5 - 1.62, cell.getZ() + 0.5 + dz, yaw, 0);
+        ctx.waitTicks(5);
+    }
+
+    /** The player's inventory on the server: every non-empty slot and the armor, "0=stick x1 ...". */
+    private static String inventory(ClientGameTestContext ctx) {
+        java.util.concurrent.atomic.AtomicReference<String> out = new java.util.concurrent.atomic.AtomicReference<>();
+        serverRun(ctx, s -> {
+            var sp = s.getPlayerList().getPlayers().get(0);
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 36; i++) {
+                var st = sp.getInventory().getItem(i);
+                if (!st.isEmpty()) {
+                    sb.append(i).append('=').append(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(st.getItem()).getPath())
+                            .append(" x").append(st.getCount()).append(' ');
+                }
+            }
+            for (var slot : new net.minecraft.world.entity.EquipmentSlot[]{net.minecraft.world.entity.EquipmentSlot.HEAD,
+                    net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS,
+                    net.minecraft.world.entity.EquipmentSlot.FEET, net.minecraft.world.entity.EquipmentSlot.OFFHAND}) {
+                sb.append(slot.getName()).append('=').append(net.minecraft.core.registries.BuiltInRegistries.ITEM
+                        .getKey(sp.getItemBySlot(slot).getItem()).getPath()).append(' ');
+            }
+            out.set(sb.toString().trim());
+        });
+        until(ctx, "an inventory read", mc -> out.get() != null, 20);
+        return out.get();
+    }
+
+    /** The client's Simon Says grid: {buttons up, of them facing west, lamps lit, cells with both a lamp and a button}. */
+    private static int[] ssGrid(Minecraft mc) {
+        int[] n = new int[4];
+        for (int y = 120; y <= 123; y++) {
+            for (int z = 92; z <= 95; z++) {
+                var b = mc.level.getBlockState(new BlockPos(110, y, z));
+                boolean button = b.is(net.minecraft.world.level.block.Blocks.STONE_BUTTON);
+                boolean lit = mc.level.getBlockState(new BlockPos(111, y, z)).is(net.minecraft.world.level.block.Blocks.SEA_LANTERN);
+                n[0] += button ? 1 : 0;
+                n[1] += button && b.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING)
+                        == Direction.WEST ? 1 : 0;
+                n[2] += lit ? 1 : 0;
+                n[3] += button && lit ? 1 : 0;
+            }
+        }
+        return n;
+    }
+
+    private static void fix3(ClientGameTestContext ctx, List<String> f) throws Exception {
+        java.nio.file.Path fixture = java.nio.file.Path.of(System.getProperty("user.home"), "killer560s-mod-logs", "fixtures", "boss-arena-1104.bin");
+        java.nio.file.Path fixture3 = java.nio.file.Path.of(System.getProperty("user.home"), "killer560s-mod-logs", "fixtures", "boss-arena-p3-1104.bin");
+        if (!java.nio.file.Files.isRegularFile(fixture) || !java.nio.file.Files.isRegularFile(fixture3)) {
+            f.add("no capture fixtures at " + fixture.getParent());
+            return;
+        }
+        java.nio.file.Path target = (java.nio.file.Path) call(ARENA, "capturePath");
+        java.nio.file.Path target3 = (java.nio.file.Path) ModUnderTest.staticCall(ARENA, "capturePath",
+                new Class<?>[]{String.class}, new Object[]{"P3"});
+        java.nio.file.Files.createDirectories(target.getParent());
+        java.nio.file.Files.copy(fixture, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        java.nio.file.Files.copy(fixture3, target3, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        try {
+            fix3Items(ctx, f);
+            fix3Ss(ctx, f);
+            fix3Gates(ctx, f);
+        } finally {
+            java.nio.file.Files.deleteIfExists(target);
+            java.nio.file.Files.deleteIfExists(target3);
+        }
+    }
+
+    /** killer560: "if you start a phase of the boss you should keep the items you had from any phase". */
+    private static void fix3Items(ClientGameTestContext ctx, List<String> f) {
+        start(ctx, "P1", false);
+        serverRun(ctx, s -> {
+            var sp = s.getPlayerList().getPlayers().get(0);
+            net.minecraft.world.item.Item[] kinds = {net.minecraft.world.item.Items.STICK, net.minecraft.world.item.Items.BONE,
+                    net.minecraft.world.item.Items.ARROW, net.minecraft.world.item.Items.FEATHER};
+            for (int i = 0; i < 36; i++) {
+                sp.getInventory().setItem(i, new net.minecraft.world.item.ItemStack(kinds[i % 4], i + 1));
+            }
+            sp.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_HELMET));
+            sp.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_CHESTPLATE));
+            sp.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_LEGGINGS));
+            sp.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_BOOTS));
+            sp.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.SHIELD));
+        });
+        ctx.waitTicks(2);
+        String want = inventory(ctx);
+        expect(f, "the test's items went in (36 slots + armor)", want.contains("35=feather x36") && want.contains("head=diamond_helmet"), true);
+        for (String phase : new String[]{"S2", "P4", "S1", "P1", "P5"}) {
+            start(ctx, phase, false);
+            ctx.waitTicks(10);
+            String got = inventory(ctx);
+            if (!got.equals(want)) {
+                f.add("items after starting " + phase + ": " + got + " (want " + want + ")");
+            } else {
+                println(FIX3, "items kept after starting " + phase);
+            }
+        }
+        serverRun(ctx, s -> {
+            var sp = s.getPlayerList().getPlayers().get(0);
+            for (int i = 0; i < 36; i++) {
+                sp.getInventory().setItem(i, net.minecraft.world.item.ItemStack.EMPTY);
+            }
+        });
+    }
+
+    /** killer560: "the simon says logic is still broken. skip doesnt work and the buttons dont show right". */
+    private static void fix3Ss(ClientGameTestContext ctx, List<String> f) {
+        long mark = start(ctx, "S1", false);
+        expect(f, "arena source", call(ARENA, "source"), "capture");
+        if (!waitChat(ctx, mark, "[BOSS] Goldor: Who dares trespass into my domain?", 40)) {
+            f.add("Goldor's line never came");
+            return;
+        }
+        tp(ctx, 108.5, 120, 93.5, -90, 0);
+        ctx.waitTicks(8);
+        // The skip: start, reset 3 ticks later, start 3 ticks after that. Round 1 shows off the first start's task and
+        // the second start's adds round 2: the first input is round 2.
+        // Paced on the server's ticks (a press is handled on the tick after it is sent): client ticks drift against them.
+        BlockPos startButton = new BlockPos(110, 121, 91);
+        String[] steps = {"Simon Says started", "Simon Says reset by the start button", "Simon Says started"};
+        int[] at = new int[3];
+        for (int i = 0; i < 3; i++) {
+            if (i > 0) {
+                untilTick(ctx, at[i - 1] + 2, 20);
+            }
+            long pm = LogTap.mark();
+            useBlock(ctx, startButton, Direction.EAST);
+            String step = steps[i];
+            if (!until(ctx, step, mc -> LogTap.since(pm).stream().anyMatch(l -> l.contains(step)), 20)) {
+                f.add("SS skip press " + (i + 1) + " never landed as '" + step + "' (" + call(DEVICES, "describe") + ")");
+                return;
+            }
+            at[i] = phaseTick();
+        }
+        println(FIX3, "SS skip presses at P3 t " + at[0] + ", " + at[1] + ", " + at[2]);
+        int[] during = new int[]{-1, 0, 0, 0};
+        boolean shown = until(ctx, "a lamp of the show", mc -> {
+            int[] g = ssGrid(mc);
+            if (g[2] > 0) {
+                System.arraycopy(g, 0, during, 0, 4);
+                return true;
+            }
+            return false;
+        }, 30);
+        expect(f, "SS show: a lamp lit on the client", shown, true);
+        expect(f, "SS show: no button in front of a lit lamp", during[3], 0);
+        if (!until(ctx, "SS input", mc -> (Boolean) call(DEVICES, "ssInput"), 80)) {
+            f.add("SS never took input after the skip (" + call(DEVICES, "describe") + ")");
+            return;
+        }
+        expect(f, "SS skip: the first round put in is round 2", ((List<?>) call(DEVICES, "ssSequence")).size(), 2);
+        // Two shows overlap in a skip: the buttons come back on the first one's timer, the button under the second one's
+        // last lamp with its own (8n+10 after it began), so all 16 stand about 14 ticks into input.
+        ctx.waitTicks(18);
+        int[] g = ctx.computeOnClient(SimBossTests::ssGrid);
+        expect(f, "SS input: 16 buttons up on the client", g[0], 16);
+        expect(f, "SS input: every button faces west (on the wall's face toward him)", g[1], 16);
+        long dm = LogTap.mark();
+        for (int round = 2; round <= 4; round++) {
+            int r = round;
+            if (!until(ctx, "SS round " + round + " input", mc -> (Boolean) call(DEVICES, "ssInput")
+                    && ((List<?>) call(DEVICES, "ssSequence")).size() == r, 200)) {
+                f.add("Simon Says never reached round " + round + " (" + call(DEVICES, "describe") + ")");
+                return;
+            }
+            ctx.waitTicks(3);
+            @SuppressWarnings("unchecked")
+            List<int[]> seq = (List<int[]>) call(DEVICES, "ssSequence");
+            for (int[] lantern : seq) {
+                useBlock(ctx, new BlockPos(110, lantern[1], lantern[2]), Direction.EAST);
+                ctx.waitTicks(3);
+            }
+        }
+        expect(f, "SS done after the skip (completed a device!)", waitChat(ctx, dm, "completed a device!", 40), true);
+        expect(f, "SS state", call(DEVICES, "ssState"), "DONE");
+        ctx.waitTicks(3);
+        int[] after = ctx.computeOnClient(SimBossTests::ssGrid);
+        expect(f, "SS done: buttons and lamps gone", after[0] + after[2], 0);
+    }
+
+    /**
+     * killer560: "once the gate has been destroyed the gate needs to be removed", and a Superboom on a gate destroys it
+     * at once, but the way opens only once the section before it is done.
+     */
+    private static void fix3Gates(ClientGameTestContext ctx, List<String> f) {
+        // Continues fix3Ss's S1 with Simon Says done: the rest of S1, then the 5 s countdown and the gate.
+        int[] g1 = gateCells(ctx, 1);
+        expect(f, "boundary 1 standing before S1 ends (arch, door, portcullis > 0)", g1[0] > 0 && g1[1] > 0 && g1[2] > 0, true);
+        long end = LogTap.mark();
+        for (String label : new String[]{"T1", "T2", "T3", "T4", "east lever", "west lever"}) {
+            serverRun(ctx, s -> ModUnderTest.staticCall(STATIONS, "testComplete",
+                    new Class<?>[]{MinecraftServer.class, int.class, String.class}, new Object[]{s, 1, label}));
+        }
+        expect(f, "S1 done: 'The gate will open in 5 seconds!'", waitChat(ctx, end, "The gate will open in 5 seconds!", 20), true);
+        if (!waitChat(ctx, end, "The gate has been destroyed!", 130)) {
+            f.add("S1's gate never went (" + call(STATIONS, "describe") + ")");
+            return;
+        }
+        ctx.waitTicks(10);
+        int[] a1 = gateCells(ctx, 1);
+        expect(f, "boundary 1 after its gate line: arch, door and portcullis all gone", a1[0] + a1[1] + a1[2], 0);
+        expect(f, "boundary 1's top (103 134 123) air", serverBlockId(ctx, new BlockPos(103, 134, 123)), "minecraft:air");
+        expect(f, "section after S1", call(FIGHT, "section"), 2);
+
+        // A Superboom on gate 2 while S2 is not done: the gate goes at once, the door stays, S2 goes on.
+        serverRun(ctx, s -> s.getPlayerList().getPlayers().get(0).setItemInHand(InteractionHand.MAIN_HAND,
+                (net.minecraft.world.item.ItemStack) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimItems", "build",
+                        new Class<?>[]{String.class}, new Object[]{"SUPERBOOM_TNT"})));
+        int[] g2 = gateCells(ctx, 2);
+        expect(f, "boundary 2 standing in S2 (arch, door > 0)", g2[0] > 0 && g2[1] > 0, true);
+        // In front of the gate there is a drop to y 106: he hovers 3 blocks out from an arch cell on S2's side.
+        BlockPos aim = archCell(ctx, 2, new Vec3(25, 120, 132));
+        hover(ctx, aim, 3, 0, 90);
+        println(FIX3, "Superboom on gate 2 at " + aim + " from " + ctx.computeOnClient(mc -> mc.player.getEyePosition()));
+        long boom = LogTap.mark();
+        if (aim != null) {
+            useBlock(ctx, aim, Direction.EAST);
+        }
+        expect(f, "Superboom on gate 2 in S2: 'The gate has been destroyed!' at once", waitChat(ctx, boom, "The gate has been destroyed!", 10), true);
+        ctx.waitTicks(6);
+        int[] b2 = gateCells(ctx, 2);
+        expect(f, "gate 2's arch gone", b2[0], 0);
+        expect(f, "gate 2's top (17 134 135) air", serverBlockId(ctx, new BlockPos(17, 134, 135)), "minecraft:air");
+        expect(f, "door 2 still shut while S2 is not done", b2[1], g2[1]);
+        expect(f, "no countdown for an unfinished section", chatSeen(boom, "The gate will open in 5 seconds!"), false);
+        expect(f, "section after the early Superboom", call(FIGHT, "section"), 2);
+
+        // A Superboom on gate 3 during S2 does nothing: its section has not begun.
+        int[] g3 = gateCells(ctx, 3);
+        BlockPos aim3 = archCell(ctx, 3, new Vec3(8, 120, 57));
+        hover(ctx, aim3, 0, 3, 180);
+        println(FIX3, "Superboom on gate 3 at " + aim3 + " from " + ctx.computeOnClient(mc -> mc.player.getEyePosition()));
+        long boom3 = LogTap.mark();
+        if (aim3 != null) {
+            useBlock(ctx, aim3, Direction.SOUTH);
+        }
+        ctx.waitTicks(10);
+        expect(f, "Superboom on gate 3 during S2: no gate line", chatSeen(boom3, "The gate has been destroyed!"), false);
+        expect(f, "gate 3 untouched (arch cells as before)", gateCells(ctx, 3)[0], g3[0]);
+        expect(f, "gate 3's (5 134 49) still cracked stone bricks", serverBlockId(ctx, new BlockPos(5, 134, 49)), "minecraft:cracked_stone_bricks");
+
+        // S2 done with its gate already down: the door opens at once, no countdown.
+        long done2 = LogTap.mark();
+        for (String label : new String[]{"T1", "T2", "T3", "T4", "T5", "low lever", "high lever", "Lights"}) {
+            serverRun(ctx, s -> ModUnderTest.staticCall(STATIONS, "testComplete",
+                    new Class<?>[]{MinecraftServer.class, int.class, String.class}, new Object[]{s, 2, label}));
+        }
+        boolean next = until(ctx, "S3 in progress", mc -> Integer.valueOf(3).equals(call(FIGHT, "section")), 20);
+        expect(f, "S2 done with its gate down: S3 begins at once", next, true);
+        ctx.waitTicks(8);
+        expect(f, "S2 done with its gate down: no countdown", chatSeen(done2, "The gate will open in 5 seconds!"), false);
+        int[] d2 = gateCells(ctx, 2);
+        expect(f, "door 2 open (door and portcullis gone)", d2[1] + d2[2], 0);
+        serverRun(ctx, s -> {
+            var sp = s.getPlayerList().getPlayers().get(0);
+            sp.getAbilities().mayfly = sp.getAbilities().flying = false;
+            sp.onUpdateAbilities();
+        });
     }
 
     private static void p1p2(ClientGameTestContext ctx, List<String> f) {
