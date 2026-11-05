@@ -218,7 +218,7 @@ final class HxChestBot1104Cases {
                     c.ctx().runOnClient(mc -> { // a real dig start: startDestroyBlock then the swing vanilla's startAttack adds
                         mc.gameMode.startDestroyBlock(new net.minecraft.core.BlockPos(st[0], st[1], st[2]),
                                 net.minecraft.core.Direction.UP);
-                        mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+                        Mod.staticCall("compat.McCompat", "swingUse", mc.player);
                     });
                     c.ctx().waitTicks(2);
                     setblock(c, st[0], st[1], st[2], "minecraft:stone");
