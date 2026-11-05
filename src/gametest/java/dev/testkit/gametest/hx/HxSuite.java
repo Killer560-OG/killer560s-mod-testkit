@@ -117,6 +117,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxDioriteGlass1103Cases.register(s);
                     HxEspDepth1103Cases.register(s);
                     HxPortalPixels1103Cases.register(s);
+                    HxZFight1104Cases.register(s);
                     // My Lyrics In F5 on screen, real Spotify, as the player and as Play As Mob (1103-f5-lyric-pixels, mod f5lyrics2-1103).
                     HxF5LyricPixels1103Cases.register(s);
                     // Pickobulus timer and Commission HUD progress between tab refreshes (1103-mining-pick-timer,
