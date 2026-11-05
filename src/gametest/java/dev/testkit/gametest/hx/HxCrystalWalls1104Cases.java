@@ -34,11 +34,13 @@ final class HxCrystalWalls1104Cases {
         s.test("1104-chwalls-edges", HxCrystalWalls1104Cases::edges);
         s.test("1104-chwalls-pixels", HxCrystalWalls1104Cases::pixels);
         s.test("1104-chwalls-nucleus", HxCrystalWalls1104Cases::nucleus);
+        s.test("1105-chwalls-structure", HxCrystalWalls1104Cases::structure);
+        s.test("1105-chwalls-nearest", HxCrystalWalls1104Cases::nearest);
     }
 
     /**
      * Nucleus (chnucwall-1104, owner: "the area walls should not go into the nucleus"): with every zone on Near Only Always, no
-     * drawn slab other than the Nucleus's own reaches inside the box (465..562, Y 64..189), the quadrants' inner walls end at
+     * drawn slab other than the Nucleus's own reaches inside the box (X 462..564, Z 461..565, Y 64..189), the quadrants' inner walls end at
      * 465 / start at 562 and still reach the Hollows edge, and the Nucleus is white by default and from an old pink save.
      */
     private static void nucleus(Session c) {
@@ -79,17 +81,17 @@ final class HxCrystalWalls1104Cases {
                 }
                 zoneWalls++;
                 double[] r = row(l);
-                boolean inside = r[0] < 562 && r[3] > 465 && r[2] < 562 && r[5] > 465 && r[4] > 64 && r[1] < 189;
+                boolean inside = r[0] < 564 && r[3] > 462 && r[2] < 565 && r[5] > 461 && r[4] > 64 && r[1] < 189;
                 c.check(!inside, "a zone wall reaches inside the Nucleus box: " + l);
             }
             c.check(zoneWalls >= 16, "too few zone walls drawn to prove anything: " + d);
             // the inner walls still run from the Hollows edge to the Nucleus
             c.check(find(d, "JUNGLE", r -> Math.abs(r[3] - 513.0) < 1e-6 && Math.abs(r[2] - 202.0) < 1e-6
-                    && Math.abs(r[5] - 465.0) < 1e-6) != null, "Jungle X 513 wall is not Z 202..465: " + d);
-            c.check(find(d, "PRECURSOR", r -> Math.abs(r[0] - 513.0) < 1e-6 && Math.abs(r[2] - 562.0) < 1e-6
-                    && Math.abs(r[5] - 824.0) < 1e-6) != null, "Precursor X 513 wall is not Z 562..824: " + d);
-            c.check(find(d, "GOBLIN", r -> Math.abs(r[3] - 465.0) < 1e-6 && Math.abs(r[0] - 202.0) < 1e-6
-                    && Math.abs(r[5] - 513.1) < 1e-6) != null, "Goblin Z 513 wall is not X 202..465: " + d);
+                    && Math.abs(r[5] - 461.0) < 1e-6) != null, "Jungle X 513 wall is not Z 202..461: " + d);
+            c.check(find(d, "PRECURSOR", r -> Math.abs(r[0] - 513.0) < 1e-6 && Math.abs(r[2] - 565.0) < 1e-6
+                    && Math.abs(r[5] - 824.0) < 1e-6) != null, "Precursor X 513 wall is not Z 565..824: " + d);
+            c.check(find(d, "GOBLIN", r -> Math.abs(r[3] - 462.0) < 1e-6 && Math.abs(r[0] - 202.0) < 1e-6
+                    && Math.abs(r[5] - 513.1) < 1e-6) != null, "Goblin Z 513 wall is not X 202..462: " + d);
             // white by default, and a saved old pink moves to white
             double[] w = find(d, "NUCLEUS", r -> true);
             c.check(w[6] > 0.99 && w[7] > 0.99 && w[8] > 0.99, "the Nucleus walls are not white: " + java.util.Arrays.toString(w));
@@ -108,7 +110,7 @@ final class HxCrystalWalls1104Cases {
             });
             int kept = c.onClient(mc -> ((Number) Mod.call(Mod.cfg(CFG), "getChWallColor", zones[nuc])).intValue());
             c.check(kept == 0xFF00AA, "a picked Nucleus color was changed on load: " + Integer.toHexString(kept));
-            c.note("no zone wall inside the Nucleus box (" + zoneWalls + " zone slabs checked), inner walls end at 465/562, Nucleus white");
+            c.note("no zone wall inside the Nucleus box (" + zoneWalls + " zone slabs checked), inner walls end at 462/461 and 564/565, Nucleus white");
         } finally {
             c.ctx().runOnClient(mc -> {
                 Object cur = Mod.cfg(CFG);
@@ -120,6 +122,108 @@ final class HxCrystalWalls1104Cases {
                 Mod.call(cur, "save");
             });
             hub(c);
+        }
+    }
+
+    /** Hide Walls In Structures (nucwall-1105): walls drawn outside a structure, hidden inside one with the switch ON, drawn inside with it OFF. */
+    private static void structure(Session c) {
+        Object cfg = c.onClient(mc -> Mod.cfg(CFG));
+        boolean old = c.onClient(mc -> (Boolean) Mod.call(cfg, "isChWallsRaw"));
+        boolean oldHide = c.onClient(mc -> (Boolean) Mod.call(cfg, "isChWallsHideInStructures"));
+        try {
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfg, "setChWalls", true);
+                Mod.call(cfg, "setChWallsHideInStructures", true);
+            });
+            hollows(c);
+            c.server().command("gamemode creative @p");
+            at(c, 210, 100, 300, 90f);
+            c.waitUntil("walls drawn outside a structure", mc -> !drawn(c).isEmpty(), 100);
+            c.check(!(Boolean) c.onClient(mc -> Mod.staticCall(W, "inStructure")), "a plain Jungle biome read as a structure");
+            c.hx().sidebar("SKYBLOCK", "Late Winter 3rd", "⏣ Mines of Divan", "Purse: 0");
+            c.waitUntil("Mines of Divan read", mc -> (Boolean) Mod.staticCall(W, "inStructure"), 100);
+            c.waitUntil("walls hidden inside the structure with the switch ON", mc -> drawn(c).isEmpty(), 100);
+            c.ctx().runOnClient(mc -> Mod.call(cfg, "setChWallsHideInStructures", false));
+            c.waitUntil("walls drawn inside the structure with the switch OFF", mc -> !drawn(c).isEmpty(), 100);
+            c.ctx().runOnClient(mc -> Mod.call(cfg, "setChWallsHideInStructures", true));
+            c.waitUntil("hidden again with the switch ON", mc -> drawn(c).isEmpty(), 100);
+            c.hx().sidebar("SKYBLOCK", "Late Winter 3rd", "⏣ Jungle", "Purse: 0");
+            c.waitUntil("walls back outside the structure", mc -> !drawn(c).isEmpty(), 100);
+            c.note("walls drawn in the Jungle, hidden in Mines of Divan with Hide ON, drawn there with it OFF");
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfg, "setChWalls", old);
+                Mod.call(cfg, "setChWallsHideInStructures", oldHide);
+            });
+            hub(c);
+        }
+    }
+
+    /**
+     * Nearest layer only (nucwall-1105, owner: "the blue looks different than jungle looking at the goblin area"): the Jungle wall
+     * seen with the Mithril wall right behind it (the 513 line, looking east) must be the color of the same wall with nothing behind
+     * it (the X 202 edge, looking west), at 50 percent; and a wall still lets the scene through (it is not opaque).
+     */
+    private static void nearest(Session c) {
+        Object cfg = c.onClient(mc -> Mod.cfg(CFG));
+        boolean old = c.onClient(mc -> (Boolean) Mod.call(cfg, "isChWallsRaw"));
+        Object jungle = c.onClient(mc -> Mod.enumValue(ZONE, "JUNGLE"));
+        Object mithril = c.onClient(mc -> Mod.enumValue(ZONE, "MITHRIL"));
+        int oj = c.onClient(mc -> ((Number) Mod.call(cfg, "getChWallOpacity", jungle)).intValue());
+        int om = c.onClient(mc -> ((Number) Mod.call(cfg, "getChWallOpacity", mithril)).intValue());
+        try {
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfg, "setChWalls", true);
+                Mod.call(cfg, "setChWallOpacity", jungle, 50);
+                Mod.call(cfg, "setChWallOpacity", mithril, 50);
+            });
+            hollows(c);
+            c.server().command("gamemode creative @p");
+            at(c, 214, 100, 300, 90f);
+            c.waitUntil("the X 202 wall drawn", mc -> find(drawn(c), "JUNGLE", r -> Math.abs(r[0] - 202.0) < 1e-6) != null, 100);
+            c.ctx().waitTicks(5);
+            int[] alone = patchAtCenter(c, "chwalls-alone");
+            at(c, 501, 100, 300, -90f);
+            c.waitUntil("both walls of the 513 line drawn", mc -> find(drawn(c), "MITHRIL", r -> Math.abs(r[0] - 513.0) < 1e-6) != null
+                    && find(drawn(c), "JUNGLE", r -> Math.abs(r[3] - 513.0) < 1e-6) != null, 100);
+            c.ctx().waitTicks(80);
+            int[] front = patchAtCenter(c, "chwalls-front");
+            int worst = 0;
+            for (int i = 0; i < 3; i++) {
+                worst = Math.max(worst, Math.abs(alone[i] - front[i]));
+            }
+            c.note("Jungle wall rgb alone " + java.util.Arrays.toString(alone) + ", in front of Mithril " + java.util.Arrays.toString(front));
+            c.check(worst <= 14, "the Jungle wall looks different in front of another wall (worst channel gap " + worst + ")");
+            c.check(alone[1] - Math.max(alone[0], alone[2]) >= 10, "the lone wall is not visibly green: " + java.util.Arrays.toString(alone));
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfg, "setChWalls", old);
+                Mod.call(cfg, "setChWallOpacity", jungle, oj);
+                Mod.call(cfg, "setChWallOpacity", mithril, om);
+            });
+            hub(c);
+        }
+    }
+
+    /** Mean RGB of a 9x9 patch at the screen center. */
+    private static int[] patchAtCenter(Session c, String name) {
+        try {
+            java.nio.file.Path shot = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(name));
+            dev.testkit.harness.Report.screenshot(c.name(), shot);
+            BufferedImage img = javax.imageio.ImageIO.read(shot.toFile());
+            int cx = img.getWidth() / 2, cy = img.getHeight() / 2, r = 0, g = 0, b = 0, n = 0;
+            for (int dy = -4; dy <= 4; dy++) {
+                for (int dx = -4; dx <= 4; dx++) {
+                    int a = img.getRGB(cx + dx, cy + dy);
+                    r += (a >> 16) & 255;
+                    g += (a >> 8) & 255;
+                    b += a & 255;
+                    n++;
+                }
+            }
+            return new int[]{r / n, g / n, b / n};
+        } catch (java.io.IOException e) {
+            throw new AssertionError("screenshot unreadable", e);
         }
     }
 
