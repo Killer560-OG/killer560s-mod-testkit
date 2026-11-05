@@ -368,7 +368,7 @@ public class BreakerGuard1018Tests implements FabricClientGameTest {
         boolean started = ctx.computeOnClient(mc -> {
             boolean s = mc.gameMode.startDestroyBlock(pos, Direction.UP);
             if (s) {
-                mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+                dev.testkit.compat.McCompat.swingArm(mc.player);
             }
             return s;
         });
