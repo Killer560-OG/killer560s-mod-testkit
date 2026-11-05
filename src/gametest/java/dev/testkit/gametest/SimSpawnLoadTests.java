@@ -160,7 +160,7 @@ public class SimSpawnLoadTests implements FabricClientGameTest {
         if (wantBar) {
             if (!screen) {
                 f.add(label + ": the loading screen never came up");
-            } else if (rises < 1 || max < 0.5f) {
+            } else if ((rises < 1 && bar.size() > 5) || max < 0.5f) {   // a 3-tick load has no time to move
                 f.add(label + ": the bar did not rise (" + rises + " rise(s), max " + pct(max) + ", " + summary(bar) + ")");
             }
             if (back) {
@@ -178,6 +178,7 @@ public class SimSpawnLoadTests implements FabricClientGameTest {
     /** Where he stands, failing if his box hits a block (server and client) or his chunk is missing; null on error. */
     private static String judge(ClientGameTestContext ctx, List<String> f, String label, String firstAt) {
         AtomicReference<String> server = new AtomicReference<>();
+        AtomicReference<String> send = new AtomicReference<>("");
         ctx.runOnClient(mc -> {
             MinecraftServer s = mc.getSingleplayerServer();
             java.util.UUID id = mc.player.getUUID();
@@ -188,6 +189,7 @@ public class SimSpawnLoadTests implements FabricClientGameTest {
                     return;
                 }
                 boolean clear = sp.level().noCollision(sp, sp.getBoundingBox().deflate(0.01));
+                send.set(senderState(sp));
                 server.set(clear ? "ok" : "inside " + blocksAt(sp));
             });
         });
@@ -199,7 +201,7 @@ public class SimSpawnLoadTests implements FabricClientGameTest {
             boolean chunk = mc.level.getChunkSource().hasChunk(p.getBlockX() >> 4, p.getBlockZ() >> 4);
             boolean clear = mc.level.noCollision(p, p.getBoundingBox().deflate(0.01));
             return new String[]{String.format(Locale.ROOT, "%.2f %.2f %.2f", p.getX(), p.getY(), p.getZ()),
-                    chunk ? "ok" : "no chunk (" + clientChunks(mc) + ")", clear ? "ok" : "inside a block", p.onGround() ? "ok" : "in the air",
+                    chunk ? "ok" : "no chunk (" + clientChunks(mc) + "; server " + send.get() + ")", clear ? "ok" : "inside a block", p.onGround() ? "ok" : "in the air",
                     String.valueOf(p.getY())};
         });
         if (!"ok".equals(server.get())) f.add(label + ": server says " + server.get() + " at " + out[0]);
@@ -211,6 +213,23 @@ public class SimSpawnLoadTests implements FabricClientGameTest {
             if (Double.parseDouble(out[4]) < y0 - 2) f.add(label + ": fell from " + firstAt + " to " + out[0]);
         }
         return out[0];
+    }
+
+    /** The server's chunk sender for him: chunks queued and batches the client has not acknowledged. */
+    private static String senderState(ServerPlayer sp) {
+        StringBuilder b = new StringBuilder();
+        Object cs = sp.connection.chunkSender;
+        for (String n : new String[]{"pendingChunks", "unacknowledgedBatches", "maxUnacknowledgedBatches", "batchQuota"}) {
+            try {
+                var g = cs.getClass().getDeclaredField(n);
+                g.setAccessible(true);
+                Object v = g.get(cs);
+                b.append(n).append(' ').append(v instanceof java.util.Collection<?> c ? c.size() + " queued" : v).append(", ");
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                b.append(n).append(" ?, ");
+            }
+        }
+        return b.append("view ").append(sp.getChunkTrackingView()).toString();
     }
 
     /** What his client's chunk cache holds and where it is centered (Mojang field names, the same on 26.2 and 26.3). */
@@ -226,6 +245,17 @@ public class SimSpawnLoadTests implements FabricClientGameTest {
                 g.setAccessible(true);
                 b.append(", ").append(n).append(' ').append(g.get(st));
             }
+            var cf = st.getClass().getDeclaredField("chunks");
+            cf.setAccessible(true);
+            var arr = (java.util.concurrent.atomic.AtomicReferenceArray<?>) cf.get(st);
+            int x0 = Integer.MAX_VALUE, x1 = Integer.MIN_VALUE, z0 = Integer.MAX_VALUE, z1 = Integer.MIN_VALUE;
+            for (int i = 0; i < arr.length(); i++) {
+                if (arr.get(i) instanceof net.minecraft.world.level.chunk.LevelChunk c) {
+                    x0 = Math.min(x0, c.getPos().x()); x1 = Math.max(x1, c.getPos().x());
+                    z0 = Math.min(z0, c.getPos().z()); z1 = Math.max(z1, c.getPos().z());
+                }
+            }
+            b.append(", chunks x ").append(x0).append("..").append(x1).append(" z ").append(z0).append("..").append(z1);
             return b.append(", player level is mc.level ").append(mc.player.level() == mc.level).append(", connection level is mc.level ")
                     .append(mc.getConnection() != null && mc.getConnection().getLevel() == mc.level).toString();
         } catch (ReflectiveOperationException | RuntimeException e) {
