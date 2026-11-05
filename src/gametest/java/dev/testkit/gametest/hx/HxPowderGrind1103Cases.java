@@ -44,12 +44,83 @@ final class HxPowderGrind1103Cases {
         s.test("1103-powdergrind-lockpick", HxPowderGrind1103Cases::lockpick);
         s.test("1103-powdergrind-loot", HxPowderGrind1103Cases::loot);
         s.test("1104-powdergrind-keep-rare", HxPowderGrind1103Cases::keepRare);
+        s.test("1104-powdertrk-tab", HxPowderGrind1103Cases::tabPowder);
     }
 
     private static void hollows(Session c) {
         c.hx().sidebar("SKYBLOCK", "Late Winter 3rd", "⏣ Jungle", "Purse: 0");
         c.hx().tab(List.of("Area: Crystal Hollows", "Profile: Test", "", "Powders:", " Gemstone: 1,000", ""), null, null);
         c.waitUntil("Crystal Hollows", mc -> "CRYSTAL_HOLLOWS".equals(Mod.staticCall(STATE, "island")), 100);
+    }
+
+    /** The Hollows tab with a Powders widget of these totals ("Mithril: 1,000"); none at all with no lines. */
+    private static void powders(Session c, String... lines) {
+        List<String> tab = new java.util.ArrayList<>(List.of("Area: Crystal Hollows", "Profile: Test", ""));
+        if (lines.length > 0) {
+            tab.add("Powders:");
+            for (String l : lines) tab.add(" " + l);
+        }
+        tab.add("");
+        c.hx().tab(tab, null, null);
+    }
+
+    private static long tr(Session c, String m) {
+        return c.onClient(mc -> ((Number) Mod.staticCall(TR, m)).longValue());
+    }
+
+    /**
+     * powdertrk-1104 (killer560: "it doesnt apply any buffs"): powder comes from the tab's Powders totals, so a 2x chest
+     * counts double; the loot lines are not added on top; spending and a HotM-reset refund are not gains; with no widget
+     * the loot lines count.
+     */
+    private static void tabPowder(Session c) {
+        Settings s0 = new Settings(c);
+        on(c, s0, "PowderTracker");
+        try (Settings set = s0.with(CFG, "DoublePowderSound", false)) {
+            hollows(c);
+            powders(c, "Mithril: 1,000", "Gemstone: 1,000");
+            c.waitUntil("the widget read", mc -> (Boolean) Mod.staticCall(TR, "widgetShows", "Mithril"), 40);
+            c.ctx().runOnClient(mc -> Mod.staticCall(TR, "reset"));
+            c.hx().chat("§b§l2X POWDER STARTED! §7Powder is doubled!");
+            c.waitUntil("2x active", mc -> (Boolean) Mod.staticCall(PC, "doublePowderActive"), 20);
+            block(c, 537); // the loot line says 537 and 153; the profile got twice that
+            c.waitUntil("the chest counted", mc -> ((Number) Mod.staticCall(TR, "chests")).intValue() == 1, 40);
+            c.check(tr(c, "gemstone") == 0 && tr(c, "mithril") == 0,
+                    "loot lines counted while the widget shows: gem " + tr(c, "gemstone") + ", mithril " + tr(c, "mithril"));
+            powders(c, "Mithril: 1,306", "Gemstone: 2,074");
+            c.waitUntil("the 2x gain read", mc -> ((Number) Mod.staticCall(TR, "gemstone")).longValue() == 1074, 40);
+            c.ctx().waitTicks(30);
+            c.check(tr(c, "gemstone") == 1074 && tr(c, "mithril") == 306,
+                    "after the 2x chest: gem " + tr(c, "gemstone") + " (want 1074), mithril " + tr(c, "mithril") + " (want 306)");
+            String hud = c.onClient(mc -> String.join("|", (List<String>) Mod.staticCall(TR, "lines")));
+            c.check(hud.contains("Gemstone: §d1,074") && hud.contains("2x"), "HUD " + hud);
+            // A gain with no chest (ore mining, a goblin) counts; spending does not take any back.
+            powders(c, "Mithril: 1,306", "Gemstone: 74");
+            c.ctx().waitTicks(25);
+            powders(c, "Mithril: 1,306", "Gemstone: 574");
+            c.waitUntil("the gain after spending", mc -> ((Number) Mod.staticCall(TR, "gemstone")).longValue() == 1574, 40);
+            // A HotM reset refunds millions in one read: not a gain.
+            powders(c, "Mithril: 2,501,306", "Gemstone: 574");
+            c.ctx().waitTicks(25);
+            c.check(tr(c, "mithril") == 306, "a refund counted: mithril " + tr(c, "mithril"));
+            // No widget: the loot lines are the fallback, counted once.
+            powders(c);
+            c.waitUntil("the widget gone", mc -> !(Boolean) Mod.staticCall(TR, "widgetShows", "Gemstone"), 40);
+            block(c, 100);
+            c.waitUntil("the second chest counted", mc -> ((Number) Mod.staticCall(TR, "chests")).intValue() == 2, 40);
+            c.check(tr(c, "gemstone") == 1674 && tr(c, "mithril") == 459,
+                    "fallback: gem " + tr(c, "gemstone") + " (want 1674), mithril " + tr(c, "mithril") + " (want 459)");
+            // The widget back: its first read is a baseline, not a gain.
+            powders(c, "Mithril: 9,000", "Gemstone: 9,000");
+            c.waitUntil("the widget back", mc -> (Boolean) Mod.staticCall(TR, "widgetShows", "Gemstone"), 40);
+            c.check(tr(c, "gemstone") == 1674, "the first read after the widget came back counted " + tr(c, "gemstone"));
+            c.note("2x chest " + 1074 + " gem from the tab, fallback +100, uptime " + tr(c, "activeMs") + " ms");
+        } finally {
+            c.hx().chat("§b§l2X POWDER ENDED!");
+            c.ctx().runOnClient(mc -> Mod.staticCall(CFG, "load"));
+            c.ctx().runOnClient(mc -> Mod.staticCall(TR, "reset"));
+            hub(c);
+        }
     }
 
     /** A main switch ON for the case (read raw: the gated getter reads false outside Skyblock), restored on close. */
@@ -333,6 +404,8 @@ final class HxPowderGrind1103Cases {
         on(c, s0, "DoublePowder");
         try (Settings set = s0.with(CFG, "DoublePowderSound", false)) {
             hollows(c);
+            powders(c); // no Powders widget: the loot lines are what counts (1104-powdertrk-tab covers the widget)
+            c.waitUntil("no widget", mc -> !(Boolean) Mod.staticCall(TR, "widgetShows", "Gemstone"), 40);
             c.ctx().runOnClient(mc -> Mod.staticCall(TR, "reset"));
             int comp0 = intCall(c, PC, "compactLines"), hid0 = intCall(c, PC, "hiddenLines");
             block(c, 537);
