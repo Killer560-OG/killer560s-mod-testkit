@@ -69,6 +69,8 @@ public class BossSuite implements FabricClientGameTest {
                     TeamMelodyRelayCases.register(s);
                     // A leap into a Posmsg ring: leap lines first, then the callout, spaced (1102-posmsg-*, posmsgleap-1102).
                     PosmsgLeapCases.register(s);
+                    // Keep Rotation On Leap: a leap keeps his look, a setback and OFF do not (1104-leaprot-*, leaprot-1104).
+                    LeapRotationCases.register(s);
                 });
     }
 }
