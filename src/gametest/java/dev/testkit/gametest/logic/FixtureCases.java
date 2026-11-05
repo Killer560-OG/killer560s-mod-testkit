@@ -1,6 +1,7 @@
 package dev.testkit.gametest.logic;
 
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 import dev.testkit.gametest.Fixtures;
 import dev.testkit.harness.Report;
@@ -137,16 +138,28 @@ final class FixtureCases {
             c.check("source exists " + id, exists, f.sourceFile());
             if (exists) {
                 List<String> lines = cache.computeIfAbsent(f.sourceFile(), k -> readLines(mod.resolve(k)));
-                boolean inRange = f.sourceLine() >= 1 && f.sourceLine() <= lines.size();
-                c.check("source line in range " + id, inRange, f.sourceFile() + ":" + f.sourceLine() + " of "
-                        + lines.size());
+                // "anchor" (optional) is text on the cited line; with it the line is looked up by the text, so a moved
+                // line cannot rot the citation, and an anchor gone from the file fails.
+                int line = f.sourceLine();
+                JsonObject srcJson = f.json().getAsJsonObject("source");
+                if (srcJson.has("anchor")) {
+                    String anchor = srcJson.get("anchor").getAsString();
+                    int at = 0;
+                    while (at < lines.size() && !lines.get(at).contains(anchor)) {
+                        at++;
+                    }
+                    c.check("source anchor found " + id, at < lines.size(), f.sourceFile() + " has no \"" + anchor + "\"");
+                    line = at < lines.size() ? at + 1 : -1;
+                }
+                boolean inRange = line >= 1 && line <= lines.size();
+                c.check("source line in range " + id, inRange, f.sourceFile() + ":" + line + " of " + lines.size());
                 if (inRange) {
-                    String text = lines.get(f.sourceLine() - 1).trim();
+                    String text = lines.get(line - 1).trim();
                     boolean substantive = text.length() > 3 && !text.matches("[{}();,\\s]*");
                     c.check("source line is substantive " + id, substantive,
-                            f.sourceFile() + ":" + f.sourceLine() + " reads \"" + text + "\"");
+                            f.sourceFile() + ":" + line + " reads \"" + text + "\"");
                     c.check("source line relates to the fixture " + id, relates(text, f),
-                            f.sourceFile() + ":" + f.sourceLine() + " reads \"" + text
+                            f.sourceFile() + ":" + line + " reads \"" + text
                                     + "\" - no word of the payload, no cited field, no Pattern.compile (line moved?)");
                 }
             }

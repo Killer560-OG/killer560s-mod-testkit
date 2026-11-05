@@ -186,10 +186,7 @@
     "id": "logic.device-done",
     "kind": "chat",
     "payload": "Killer560 completed a device! (3/7)",
-    "source": {
-      "file": "src/main/java/com/killer560/hub/leveraura/P3SectionTracker.java",
-      "line": 37
-    },
+    "source": {"file": "src/main/java/com/killer560/hub/leveraura/P3SectionTracker.java", "line": 38, "anchor": "private static final Pattern TERM_COMPLETED"},
     "matches": [
       "fastleap.I4LeapFeature#DEVICE_DONE_REGEX",
       "ap3.Ap3Feature#TERM_COMPLETED",
@@ -206,10 +203,7 @@
     "id": "logic.device-done-find",
     "kind": "chat",
     "payload": "Killer560 completed a device! (3/7)",
-    "source": {
-      "file": "src/main/java/com/killer560/hub/i4sensors/AutoI4Feature.java",
-      "line": 70
-    },
+    "source": {"file": "src/main/java/com/killer560/hub/i4sensors/AutoI4Feature.java", "line": 75, "anchor": "private static final Pattern DEVICE_DONE"},
     "matches": [
       "i4sensors.AutoI4Feature#DEVICE_DONE"
     ],
@@ -222,10 +216,7 @@
     "id": "logic.leap-teleported",
     "kind": "chat",
     "payload": "You have teleported to Killer560!",
-    "source": {
-      "file": "src/main/java/com/killer560/hub/leapmessage/LeapMessageFeature.java",
-      "line": 35
-    },
+    "source": {"file": "src/main/java/com/killer560/hub/leapmessage/LeapMessageFeature.java", "line": 33, "anchor": "private static final Pattern LEAP_MESSAGE"},
     "matches": [
       "leapmessage.LeapMessageFeature#LEAP_MESSAGE",
       "ap3.Ap3Feature#SELF_LEAP",
@@ -240,10 +231,7 @@
     "id": "logic.goldor-start",
     "kind": "chat",
     "payload": "[BOSS] Goldor: Who dares trespass into my domain?",
-    "source": {
-      "file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java",
-      "line": 89
-    },
+    "source": {"file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java", "line": 85, "anchor": "private static final Pattern AUTO_START_TRIGGER_PATTERN"},
     "matches": [
       "simonsays.SimonSaysFeature#AUTO_START_TRIGGER_PATTERN"
     ],
@@ -347,10 +335,7 @@
     "id": "logic.extra-stats-matches",
     "kind": "chat",
     "payload": "> EXTRA STATS <",
-    "source": {
-      "file": "src/main/java/com/killer560/hub/partycommands/PartyCommandsFeature.java",
-      "line": 71
-    },
+    "source": {"file": "src/main/java/com/killer560/hub/partycommands/PartyCommandsFeature.java", "line": 75, "anchor": "private static final Pattern END_OF_RUN"},
     "matches": [
       "partycommands.PartyCommandsFeature#END_OF_RUN"
     ],
@@ -362,10 +347,7 @@
     "id": "logic.door-opened",
     "kind": "chat",
     "payload": "Killer560 opened a WITHER door!",
-    "source": {
-      "file": "src/main/java/com/killer560/hub/fastleap/FastLeapFeature.java",
-      "line": 60
-    },
+    "source": {"file": "src/main/java/com/killer560/hub/fastleap/FastLeapFeature.java", "line": 59, "anchor": "private static final Pattern DOOR_OPEN_REGEX"},
     "matches": [
       "fastleap.FastLeapFeature#DOOR_OPEN_REGEX"
     ],
@@ -394,10 +376,7 @@
     "id": "logic.simon-says-progress",
     "kind": "chat",
     "payload": "Party > [MVP+] Killer560: SS 3/5",
-    "source": {
-      "file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java",
-      "line": 82
-    },
+    "source": {"file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java", "line": 79, "anchor": "private static final Pattern PROGRESS_PATTERN_SIMPLE"},
     "matches": [
       "simonsays.SimonSaysFeature#PROGRESS_PATTERN_SIMPLE",
       "simonsays.SimonSaysFeature#PROGRESS_PATTERN"

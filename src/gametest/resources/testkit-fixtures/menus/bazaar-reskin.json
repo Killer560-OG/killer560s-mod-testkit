@@ -214,10 +214,7 @@
         }
       }
     },
-    "source": {
-      "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
-      "line": 93
-    },
+    "source": {"file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java", "line": 92, "anchor": "public static final Set<String> CATEGORIES"},
     "verifiedBy": "regex",
     "notes": "Bazaar category page, layout and names from hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07); title 'Bazaar ➜ .*' from SkyHanni BazaarApi.kt. Mapped: CATEGORY."
   },
@@ -548,10 +545,7 @@
         }
       }
     },
-    "source": {
-      "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
-      "line": 104
-    },
+    "source": {"file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java", "line": 103, "anchor": "* arrow is {@link #instantBuyCut}'s job."},
     "verifiedBy": "regex",
     "notes": "'<Item> ➜ Instant Buy' from hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07) (not in SkyHanni's list). Mapped: INSTANT_BUY."
   },
@@ -977,10 +971,7 @@
         }
       }
     },
-    "source": {
-      "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
-      "line": 280
-    },
+    "source": {"file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java", "line": 267, "anchor": "* Instant Buy names and the \"Buy N!\" shape ({@link #BUY_N}) are presets on both pages."},
     "verifiedBy": "regex",
     "notes": "Sell Inventory Now's 'Are you sure?' (3 rows, 11 hopper 'Selling whole inventory', 15 'Cancel'), hypixelskyblock.minecraft.wiki Bazaar/UI/General and /Farming (wikitext, read 2026-10-07). Mapped: CONFIRM_SELL_INVENTORY."
   },
@@ -1338,10 +1329,7 @@
         }
       }
     },
-    "source": {
-      "file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java",
-      "line": 93
-    },
+    "source": {"file": "src/main/java/com/killer560/hub/bazaar/BazaarPages.java", "line": 92, "anchor": "public static final Set<String> CATEGORIES"},
     "verifiedBy": "regex",
     "notes": "The category page without its Manage Orders button: the signature item is missing, so it must stay Hypixel's GUI."
   }

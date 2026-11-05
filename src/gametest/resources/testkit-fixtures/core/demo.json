@@ -16,7 +16,7 @@
         "§ewww.hypixel.net"
       ]
     },
-    "source": {"file": "src/main/java/com/killer560/hub/secrets/DungeonState.java", "line": 43},
+    "source": {"file": "src/main/java/com/killer560/hub/secrets/DungeonState.java", "line": 42, "anchor": "private static final Pattern CATACOMBS_FLOOR_PATTERN"},
     "matches": ["secrets.DungeonState#CATACOMBS_FLOOR_PATTERN"],
     "mode": "find",
     "verifiedBy": "regex",
@@ -26,7 +26,7 @@
     "id": "core.overlay-stats",
     "kind": "overlay",
     "payload": "§c1234/2345❤     §a567§a❈ Defense     §b890/900✎ Mana",
-    "source": {"file": "src/main/java/com/killer560/hub/playerstats/PlayerStatsFeature.java", "line": 43},
+    "source": {"file": "src/main/java/com/killer560/hub/playerstats/PlayerStatsFeature.java", "line": 55, "anchor": "private static final Pattern HEALTH_REGEX"},
     "matches": [
       "playerstats.PlayerStatsFeature#HEALTH_REGEX",
       "playerstats.PlayerStatsFeature#MANA_REGEX",

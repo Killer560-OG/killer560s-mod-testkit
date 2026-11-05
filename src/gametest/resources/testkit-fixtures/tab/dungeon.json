@@ -13,7 +13,7 @@
     "id": "tab.area-crystal-hollows",
     "kind": "tab",
     "payload": {"entries": ["§r§b§lArea: §r§7Crystal Hollows"]},
-    "source": {"file": "src/main/java/com/killer560/hub/pathfinding/IslandDetector.java", "line": 35},
+    "source": {"file": "src/main/java/com/killer560/hub/pathfinding/IslandDetector.java", "line": 33, "anchor": "private static final Pattern TAB_AREA"},
     "matches": ["pathfinding.IslandDetector#TAB_AREA", "scoreboard.ScoreboardPattern#TAB_AREA"],
     "mode": "matches",
     "verifiedBy": "regex",

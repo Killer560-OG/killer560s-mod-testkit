@@ -353,7 +353,7 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
 - `pattern-catalog.json` is generated, and goes stale with every mod commit that adds or moves a `Pattern.compile`:
   350/351 failed on 2026-10-05 for that alone. Regenerate it (`python -X utf8 tools/extract-patterns.py --mod-source
   <mod checkout>`) before reading a logic failure as a mod bug, and point `TESTKIT_MOD_SOURCE` at the checkout the jar
-  came from - the default is `<modSource>`, which may be on another commit.
+  came from - the default is `<modSource>`, which may be on another commit. Since catalogfix-1105 the extractor also lists a static Pattern field built by something other than Pattern.compile (regex null), and fixture sources may carry an `anchor` (SCHEMA.md; `tools/fix-fixture-lines.py` re-aims a rotten citation).
 - One Session case: `-Pscenario=200-menu-session:,226-menu` - a part that CONTAINS the session's name selects the
   session without selecting all of its cases, then the other parts pick cases.
 - A scenario that only calls `Scenario.skip` writes no report row of its own; `SuiteVerdict` gives it a RAN row (under
