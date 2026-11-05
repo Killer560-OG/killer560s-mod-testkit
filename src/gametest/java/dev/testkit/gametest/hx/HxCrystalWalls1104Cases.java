@@ -119,6 +119,7 @@ final class HxCrystalWalls1104Cases {
                 Mod.call(cur, "setChWallColor", zones[nuc], oldColor);
                 Mod.call(cur, "save");
             });
+            c.server().command("gamemode survival @p");
             hub(c);
         }
     }
@@ -228,7 +229,7 @@ final class HxCrystalWalls1104Cases {
             c.note("walls at X 202.0 (Jungle, green 25%), the 513 line (Jungle|Mithril), Magma top Y 64, Nucleus; Near Only clips; off and hub draw none");
         } finally {
             c.ctx().runOnClient(mc -> Mod.call(cfg, "setChWalls", old));
-            
+            c.server().command("gamemode survival @p");
             hub(c);
         }
     }
@@ -261,7 +262,7 @@ final class HxCrystalWalls1104Cases {
                 Mod.call(cfg, "setChWalls", old);
                 Mod.call(cfg, "setChWallOpacity", jungle, oldOp);
             });
-            
+            c.server().command("gamemode survival @p");
             hub(c);
         }
     }

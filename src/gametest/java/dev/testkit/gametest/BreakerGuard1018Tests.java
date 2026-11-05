@@ -360,8 +360,18 @@ public class BreakerGuard1018Tests implements FabricClientGameTest {
     /** A plain left click start on the block, as the player's attack key does (the mod's HEAD hook sees it). */
     private static void click(ClientGameTestContext ctx, BlockPos pos) {
         // The server's inventory sync wipes the client-side stamp within a tick or two, so stamp right before the click.
+        // Aim first and swing after, as the attack key does: a bare startDestroyBlock drew GrimAC's experimental
+        // NoSwingBreak and RotationBreak (a dig with no swing and a look off the block), a test artifact (ship4fu-1105).
+        ctx.runOnClient(mc -> mc.player.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, new net.minecraft.world.phys.Vec3(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5)));
+        ctx.waitTicks(3);
         stampBreaker(ctx);
-        boolean started = ctx.computeOnClient(mc -> mc.gameMode.startDestroyBlock(pos, Direction.UP));
+        boolean started = ctx.computeOnClient(mc -> {
+            boolean s = mc.gameMode.startDestroyBlock(pos, Direction.UP);
+            if (s) {
+                mc.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+            }
+            return s;
+        });
         System.out.println("[1018-breaker] click " + pos + " -> startDestroyBlock returned " + started);
     }
 
