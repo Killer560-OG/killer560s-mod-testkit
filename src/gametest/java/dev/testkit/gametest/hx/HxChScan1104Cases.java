@@ -80,7 +80,9 @@ final class HxChScan1104Cases {
                 "minecraft:chiseled_stone_bricks");
         List<String> temple = List.of("minecraft:bedrock", "minecraft:bedrock", "minecraft:clay", "minecraft:clay");
         try (Settings set = new Settings(c).with(CFG, "Enabled", false).with(CFG, "Waypoints", true)
-                .with(CFG, "ShowOnMap", true).with(CFG, "ChatOnFind", false)) {
+                .with(CFG, "ShowOnMap", true).with(CFG, "ChatOnFind", false)
+                // Live Map's Keep Chunks Loaded (default ON) cancels the forget-chunk packet, so the temple would never unload.
+                .with("livemap.LiveMapConfig", "KeepChunksLoaded", false)) {
             // Both columns placed while the scanner is off; the temple's chunk then unloads on the client (the player goes
             // 30 chunks away).
             forceload(c, "add");
