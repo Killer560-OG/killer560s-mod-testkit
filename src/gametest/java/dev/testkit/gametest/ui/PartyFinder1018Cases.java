@@ -211,7 +211,7 @@ final class PartyFinder1018Cases {
             c.check(inbox == 1, "the inbox should hold Bob_J only (the two non-Minecraft names dropped), holds " + inbox);
             c.check(sent.isEmpty(), "a command went before the leader clicked anything: " + sent);
 
-            Screen s = openScreen(c);
+            Screen s = openDungeons(c);
             List<AbstractWidget> accepts = widgets(c, s, "Accept");
             c.check(accepts.size() == 1, "the menu should show one Accept button, shows " + accepts.size());
             if (accepts.size() == 1) {
@@ -289,7 +289,7 @@ final class PartyFinder1018Cases {
                 Mod.staticCall(F, "onListingsForTest", "dungeons", "{\"listings\":[" + alice + "," + carl + "]}");
                 return null;
             });
-            Screen s = openScreen(c);
+            Screen s = openDungeons(c);
             List<AbstractWidget> joins = widgets(c, s, "Join");
             c.check(joins.size() == 2, "the Dungeons tab should show two Join buttons, shows " + joins.size());
             if (!joins.isEmpty()) {
@@ -342,7 +342,7 @@ final class PartyFinder1018Cases {
             c.check(sent.equals(List.of("/party accept Alice_L")), "a second invite from Alice was accepted again: " + sent);
 
             // The race: Carl's invite arrives before the relay poll says he accepted.
-            Screen s2 = openScreen(c);
+            Screen s2 = openDungeons(c);
             List<AbstractWidget> joins2 = widgets(c, s2, "Join");
             c.check(joins2.size() == 1, "Carl's listing should still offer Join (Alice's shows Accepted): " + joins2.size());
             sleep(2100);
@@ -464,7 +464,7 @@ final class PartyFinder1018Cases {
                 Mod.staticCall(F, "onListingsForTest", "dungeons", "{\"listings\":[" + hard + "," + easy + "]}");
                 return null;
             });
-            Screen s = openScreen(c);
+            Screen s = openDungeons(c);
             List<AbstractWidget> joins = widgets(c, s, "Join");
             c.check(joins.size() == 2, "two Join buttons expected, " + joins.size());
             if (joins.size() == 2) {
@@ -520,14 +520,14 @@ final class PartyFinder1018Cases {
                 return out;
             });
             c.note("categories: " + cats);
-            c.check(cats.equals(List.of("DUNGEONS", "DIANA", "FISHING")), "the finder's categories are not exactly Dungeons, Diana, Fishing: " + cats);
+            c.check(cats.equals(List.of("DUNGEONS", "DIANA", "FISHING", "MISC")), "the finder's categories are not exactly Dungeons, Diana, Fishing, Misc: " + cats);
             Screen s = openScreen(c);
             List<String> tabs = c.onClient(mc -> {
                 List<String> out = new ArrayList<>();
                 for (GuiEventListener l : s.children()) {
                     if (l instanceof AbstractWidget w) {
                         String t = ModScreenDriver.label(w);
-                        if (t.equals("Kuudra") || t.equals("Dungeons") || t.equals("Diana") || t.equals("Fishing")) {
+                        if (t.equals("Kuudra") || t.equals("Dungeons") || t.equals("Diana") || t.equals("Fishing") || t.equals("Misc")) {
                             out.add(t);
                         }
                     }
@@ -535,7 +535,7 @@ final class PartyFinder1018Cases {
                 return out;
             });
             c.note("tab buttons on the menu: " + tabs);
-            c.check(tabs.equals(List.of("Dungeons", "Diana", "Fishing")), "the menu's tab buttons are not Dungeons, Diana, Fishing: " + tabs);
+            c.check(tabs.equals(List.of("Dungeons", "Diana", "Fishing", "Misc")), "the menu's tab buttons are not Dungeons, Diana, Fishing, Misc: " + tabs);
             boolean detector = c.onClient(mc -> {
                 try {
                     Class.forName("com.killer560.hub.lfg.KuudraQueueDetector");
@@ -833,7 +833,7 @@ final class PartyFinder1018Cases {
                 }
             });
             c.note("tab: " + firstRow);
-            c.check(firstRow.startsWith("Custom Party Finder: ON") && firstRow.endsWith("5 rows"), "the tab's first row is not its switch: " + firstRow);
+            c.check(firstRow.startsWith("Custom Party Finder: ON") && firstRow.endsWith("6 rows"), "the tab's first row is not its switch: " + firstRow);
             boolean inDungeon = c.onClient(mc -> {
                 try {
                     Object folder = Mod.cls("gui.tab.DungeonTab").getConstructor().newInstance();
