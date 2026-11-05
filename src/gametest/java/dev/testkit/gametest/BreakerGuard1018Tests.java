@@ -54,6 +54,16 @@ public class BreakerGuard1018Tests implements FabricClientGameTest {
         dungeonsOnly(ctx);
     }
 
+    private static boolean cheat(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                return Class.forName("com.killer560.hub.BuildVariant").getField("CHEAT_FEATURES_ENABLED").getBoolean(null);
+            } catch (ReflectiveOperationException e) {
+                return false;
+            }
+        });
+    }
+
     // ------------------------------------------------------------------------------------------------ dungeons only
 
     /**
@@ -81,14 +91,7 @@ public class BreakerGuard1018Tests implements FabricClientGameTest {
                         .spawn(SECRET_CX + 0.5, SECRET_CZ + 0.5, -90f)
                         .build(),
                 (server, scenario) -> {
-                    boolean cheat = ctx.computeOnClient(mc -> {
-                        try {
-                            return Class.forName("com.killer560.hub.BuildVariant").getField("CHEAT_FEATURES_ENABLED").getBoolean(null);
-                        } catch (ReflectiveOperationException e) {
-                            return false;
-                        }
-                    });
-                    if (!cheat) {
+                    if (!cheat(ctx)) {
                         scenario.log("legit jar: Zero Ping is cheat-only, nothing to check");
                         return;
                     }
@@ -211,6 +214,14 @@ public class BreakerGuard1018Tests implements FabricClientGameTest {
                                 "com.killer560.hub.dungeonbreaker.DungeonBreakerFeature", "shouldBlockStart",
                                 new Class<?>[]{BlockPos.class}, new Object[]{lever}));
                         scenario.log("setting reads " + cfgOn + ", shouldBlockStart(lever) = " + blocksLever);
+                        if (!cheat(ctx)) {
+                            // The guard is cheat-only (shouldBlockStart is false on a legit jar whatever the option).
+                            if (blocksLever) {
+                                throw new AssertionError("a legit jar's shouldBlockStart(lever) is true");
+                            }
+                            scenario.log("legit jar: the breaker guard is cheat-only, it blocks nothing");
+                            return;
+                        }
                         if (cfgOn != optionOn || blocksLever != optionOn) {
                             throw new AssertionError("setting " + cfgOn + " / shouldBlockStart(lever) " + blocksLever
                                     + " do not match the option " + optionOn);
