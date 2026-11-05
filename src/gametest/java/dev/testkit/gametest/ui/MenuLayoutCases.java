@@ -77,7 +77,7 @@ final class MenuLayoutCases {
             "gui.tab.CrystalHollowsMapTab", "gui.tab.CrystalTrackerTab", "gui.tab.WishingCompassTab",
             "gui.tab.MetalDetectorTab", "gui.tab.WormAlertTab", "gui.tab.LobbyTrackerTab", "gui.tab.NucleusRunProfitTab",
             "gui.tab.MiningEventsTab", "gui.tab.MiningProfitTab", "gui.tab.SkyMallDisplayTab",
-            "gui.tab.StructureScannerTab", "gui.tab.GhostEspTab",
+            "gui.tab.GhostEspTab",
             // Hide Potion Effects (mod effects-search-1102, killer560 2026-11-02): its own Items card again, legit in both builds.
             "gui.tab.HidePotionEffectsTab",
 
