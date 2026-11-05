@@ -76,7 +76,7 @@ final class LeapRotationCases {
             }
             c.waitUntil("the client at the leap target", mc -> mc.player != null
                     && mc.player.position().distanceTo(new Vec3(BX + 0.5, Y, Z + 0.5)) < 0.05, 100);
-            boolean turns = on && relative && line;
+            boolean turns = cheat() && on && relative && line; // a legit jar has the switch but never turns
             float wantYaw = turns ? MATE_YAW : relative ? YAW : 0f;
             float wantPitch = turns ? MATE_PITCH : relative ? PITCH : 0f;
             c.ctx().waitTicks(10);
@@ -102,6 +102,14 @@ final class LeapRotationCases {
         } finally {
             c.server().command("testkit remove " + MATE);
             c.ctx().waitTicks(30); // past the 1.5 s pairing window before the next case
+        }
+    }
+
+    private static boolean cheat() {
+        try {
+            return Class.forName("com.killer560.hub.BuildVariant").getField("CHEAT_FEATURES_ENABLED").getBoolean(null);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
         }
     }
 
