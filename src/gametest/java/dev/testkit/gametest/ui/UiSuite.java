@@ -107,7 +107,7 @@ public class UiSuite implements FabricClientGameTest {
             "1104-ui-mining-pulled-profit", "1104-ui-mining-chmap", "1105-ui-chmap-tab", "1104-ui-themematch-pixels", "1104-ui-themematch-audit", "412-ui-no-new-tab", "413-ui-testing-variant",
             "425-ui-bazaar-icons", "427-ui-pack-disabler-models",
             "428-ui-pack-disabler-pack-push", "430-ui-pack-disabler-screens",
-            "431-ui-pack-disabler-user-pack", "432-ui-pack-disabler-bazaar", "1105-ui-goblin-egg-look",
+            "431-ui-pack-disabler-user-pack", "432-ui-pack-disabler-bazaar", "1105-ui-goblin-egg-look", "1105-ui-boss-chooser",
             "433-ui-pack-disabler-refresh", "434-ui-pack-disabler-menu-maps",
             "451-ui-hotbar-theme", "452-ui-inventory-theme-settings", "453-ui-storage-overlay-centre",
             "454-ui-storage-overlay-themes",
@@ -610,6 +610,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "431-ui-pack-disabler-user-pack", PackDisablerCases::userPack);
                     UiCase.run(ctx, "432-ui-pack-disabler-bazaar", PackDisablerCases::bazaar);
                     UiCase.run(ctx, "1105-ui-goblin-egg-look", PackDisablerCases::goblinEggs);
+                    UiCase.run(ctx, "1105-ui-boss-chooser", BossChooser1105Cases::run);
                     UiCase.run(ctx, "433-ui-pack-disabler-refresh", PackDisablerCases::refresh);
                     UiCase.run(ctx, "434-ui-pack-disabler-menu-maps", PackDisablerCases::menuMaps);
                     UiCase.run(ctx, "451-ui-hotbar-theme", InvStorageCases::hotbar);
