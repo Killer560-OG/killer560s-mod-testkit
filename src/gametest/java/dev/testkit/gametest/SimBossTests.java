@@ -55,6 +55,12 @@ import java.util.function.Predicate;
  * lever), another section's lever toggling with no credit, a terminal keeping its type across reopens, Melody's six
  * rows, the 5-clicks-in-10-ticks limit, Simon Says' start-button reset and wrong-press stop (and its timing), the Lights
  * neighbour rule, the Target plate (off it, the attempt resets), and a death tick in a section not started yet.</li>
+ * <li>{@code 1104-boss-capture} (bossfloor-1104): the boss built from a capture of Hypixel's room (fixture
+ * {@code ~/killer560s-mod-logs/fixtures/boss-arena-1104.bin}, or {@code -Dtestkit.bossCapture}; kept out of this repo)
+ * equals the capture block for block; the spots the owner found wrong read the real blocks (Storm's red floor, no iron
+ * gate walls, redstone lamps on Lights, the plate on its block, the Simon Says frame, Storm's pillars as diorite); the
+ * Arrows frames hang from P1; its lava does not move in 200 ticks; Lights lights by Hypixel's rule and stays so; Simon
+ * Says plays through on the real wall; a gate opening clears only its barriers.</li>
  * <li>{@code 1101-boss-portal}: a generated F7, /goto Blood, the portal opens (the sim has no Watcher yet: five seconds in
  * Blood), stepping in starts P1 with the floor's map code unchanged (the floor is not reset).</li>
  * </ul>
@@ -73,6 +79,7 @@ public class SimBossTests implements FabricClientGameTest {
     private static final String MAXOR_CRYS = "1102-boss-maxorcrys";
     private static final String MOVES = "1103-boss-moves";
     private static final String RULES = "1103-boss-rules";
+    private static final String CAPTURE = "1104-boss-capture";
     private static final String MAXOR = "com.killer560.hub.maxor.MaxorCrystalsFeature";
 
     private static final String B = "com.killer560.hub.bosssim.";
@@ -84,6 +91,7 @@ public class SimBossTests implements FabricClientGameTest {
     private static final String TERMS = B + "BossTerminals";
     private static final String LAVA_CLASS = B + "BossLava";
     private static final String ARENA = B + "BossArena";
+    private static final String STATIC_WATER = "com.killer560.hub.roomsim.SimStaticWater";
     private static final String F7 = "com.killer560.hub.fastleap.Floor7Tracker";
     private static final String SECTIONS = "com.killer560.hub.leveraura.P3SectionTracker";
     private static final String DUNGEON = "com.killer560.hub.secrets.DungeonState";
@@ -94,7 +102,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -126,6 +134,7 @@ public class SimBossTests implements FabricClientGameTest {
                     case MAXOR_CRYS -> maxorCrystals(ctx, f);
                     case MOVES -> moves(ctx, f);
                     case RULES -> rules(ctx, f);
+                    case CAPTURE -> capture(ctx, f);
                     default -> ap3(ctx, f);
                 }
             } catch (Throwable t) {
@@ -251,6 +260,224 @@ public class SimBossTests implements FabricClientGameTest {
         if (y > 120) {
             f.add("the fall from Storm's floor did not reach S1 (y " + y + ")");
         }
+    }
+
+    // ---------------------------------------------------------------------------------------- 1104-boss-capture
+
+    private static void capture(ClientGameTestContext ctx, List<String> f) throws Exception {
+        java.nio.file.Path fixture = java.nio.file.Path.of(System.getProperty("testkit.bossCapture",
+                System.getProperty("user.home") + "/killer560s-mod-logs/fixtures/boss-arena-1104.bin"));
+        if (!java.nio.file.Files.isRegularFile(fixture)) {
+            f.add("no capture fixture at " + fixture + " (a copy of /simbosscapture's killer560smod-sim-bossarena.bin)");
+            return;
+        }
+        java.nio.file.Path target = (java.nio.file.Path) call(ARENA, "capturePath");
+        java.nio.file.Files.createDirectories(target.getParent());
+        java.nio.file.Files.copy(fixture, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        try {
+            captureCase(ctx, f);
+        } finally {
+            java.nio.file.Files.deleteIfExists(target);
+        }
+    }
+
+    private static void captureCase(ClientGameTestContext ctx, List<String> f) {
+        start(ctx, "P1", false);
+        expect(f, "arena source", call(ARENA, "source"), "capture");
+        Object cap = call(ARENA, "readCapture");
+        if (cap == null) {
+            f.add("the mod could not read the fixture");
+            return;
+        }
+        // The whole room against the capture, right after the build.
+        int[] diff = diff(ctx, cap, false);
+        expect(f, "blocks differing from the capture after the build", diff[0], 0);
+        if (diff[1] == 0) {
+            f.add("the capture holds no lava, so the still-lava check proves nothing");
+        }
+        // The owner's spots (2026-11-04), each read on the server.
+        String[][] spots = {
+                {"100,168,40", "minecraft:red_terracotta", "Storm's floor where the gray pad was"},
+                {"100,125,122", "minecraft:barrier", "S1's gate (barriers, no iron wall)"},
+                {"60,134,143", "minecraft:redstone_lamp", "a Lights lamp"},
+                {"63,127,35", "minecraft:light_weighted_pressure_plate", "Target's plate"},
+                {"63,126,35", "minecraft:blue_terracotta", "the block under Target's plate"},
+                {"111,119,91", "minecraft:sea_lantern", "Simon Says' frame"},
+                {"111,121,93", "minecraft:obsidian", "a Simon Says lamp cell"},
+                {"100,180,65", "minecraft:polished_diorite", "Storm's Purple pillar (the capture's I Hate Diorite glass undone)"}};
+        for (String[] sp : spots) {
+            String[] c = sp[0].split(",");
+            BlockPos pos = new BlockPos(Integer.parseInt(c[0]), Integer.parseInt(c[1]), Integer.parseInt(c[2]));
+            expect(f, sp[2] + " at " + sp[0], serverBlockId(ctx, pos), sp[1]);
+        }
+        // The Arrows frames hang from P1 (Hypixel's are entities; the capture has none).
+        int want = 0;
+        for (int i = 0; i < 25; i++) {
+            if ((Integer) ModUnderTest.staticCall(DEVICES, "arrowSolution", new Class<?>[]{int.class}, new Object[]{i}) >= 0) {
+                want++;
+            }
+        }
+        tp(ctx, -0.5, 120, 77.5, 90, 0);
+        int need = want;
+        boolean hung = until(ctx, "the Arrows frames in P1", mc -> mc.level.getEntitiesOfClass(ItemFrame.class,
+                new AABB(-3, 119, 74, 0, 126, 81), fr -> fr.getItem().is(net.minecraft.world.item.Items.ARROW)).size() == need, 60);
+        expect(f, "Arrows frames with arrows in P1 (want " + want + ")", hung && want > 0, true);
+        // Lava stands still: 200 ticks on, no fluid cell differs, and the hook canceled ticks.
+        ctx.waitTicks(200);
+        int[] later = diff(ctx, cap, true);
+        expect(f, "fluid cells differing from the capture after 200 ticks", later[0], 0);
+        // The build places blocks without onPlace, so no fluid tick was due; wake a falling lava cell and see it held.
+        BlockPos fall = new BlockPos(later[2], later[3], later[4]);
+        long frozen0 = (Long) call(STATIC_WATER, "frozenTicks");
+        serverRun(ctx, s -> s.overworld().scheduleTick(fall, s.overworld().getFluidState(fall).getType(), 1));
+        ctx.waitTicks(40);
+        expect(f, "a woken lava tick at " + fall.toShortString() + " canceled", (Long) call(STATIC_WATER, "frozenTicks") > frozen0, true);
+        expect(f, "fluid cells differing 40 ticks after the lava tick", diff(ctx, cap, true)[0], 0);
+        // Lights on the real wall: a pull lights by Hypixel's rule, on redstone lamps, and nothing dims it after.
+        start(ctx, "S2", false);
+        tp(ctx, 60.5, 132, 140.5, 180, -20);
+        ctx.waitTicks(8);
+        BlockPos pull = null;
+        for (int y = 133; y <= 136 && pull == null; y++) {
+            for (int x = 58; x <= 62 && pull == null; x++) {
+                BlockPos p = new BlockPos(x, y, 142);
+                if (!ctx.computeOnClient(mc -> mc.level.getBlockState(p).getValue(
+                        net.minecraft.world.level.block.state.properties.BlockStateProperties.POWERED))) {
+                    pull = p;
+                }
+            }
+        }
+        if (pull == null) {
+            f.add("Lights started with all twenty levers on");
+        } else {
+            BlockPos lever = pull;
+            useBlock(ctx, pull, Direction.NORTH);
+            ctx.waitTicks(4);
+            // With most levers on, a pull may light nothing new (its lamps are lit by neighbours); the lever must move.
+            expect(f, "Lights: the pulled lever is on", ctx.computeOnClient(mc -> mc.level.getBlockState(lever).getValue(
+                    net.minecraft.world.level.block.state.properties.BlockStateProperties.POWERED)), true);
+            expect(f, "Lights: every lamp by Hypixel's rule after a pull", lightsRuleHolds(ctx), "ok");
+            ctx.waitTicks(12);
+            expect(f, "Lights: still by the rule 12 ticks later (no vanilla dimming)", lightsRuleHolds(ctx), "ok");
+        }
+        // Simon Says on the real wall, played through.
+        long mark = start(ctx, "S1", false);
+        if (!waitChat(ctx, mark, "[BOSS] Goldor: Who dares trespass into my domain?", 40)) {
+            f.add("Goldor's line never came");
+            return;
+        }
+        int failsBefore = f.size();
+        simonSays(ctx, f);
+        if (f.size() == failsBefore) {
+            boolean done = until(ctx, "Simon Says done", mc -> String.valueOf(call(DEVICES, "describe")).contains("ss=DONE"), 60);
+            expect(f, "Simon Says done on the captured wall (" + call(DEVICES, "describe") + ")", done, true);
+        }
+        // A gate opening clears its barriers and leaves the room's wall in its box.
+        serverRun(ctx, s -> ModUnderTest.staticCall(B + "BossBlocks", "open",
+                new Class<?>[]{net.minecraft.server.level.ServerLevel.class, int[].class},
+                new Object[]{s.overworld(), new int[]{89, 107, 122, 113, 134, 124}}));
+        ctx.waitTicks(2);
+        expect(f, "S1 gate opened: its barrier", serverBlockId(ctx, new BlockPos(100, 125, 122)), "minecraft:air");
+        expect(f, "S1 gate opened: the wall beside it", serverBlockId(ctx, new BlockPos(89, 125, 122)), "minecraft:stone_bricks");
+    }
+
+    /** {differing cells, lava cells in the capture, x y z of a falling lava cell}; each kind of difference is printed. Fluid cells only when asked. */
+    private static int[] diff(ClientGameTestContext ctx, Object cap, boolean fluidOnly) {
+        java.util.concurrent.atomic.AtomicReference<int[]> out = new java.util.concurrent.atomic.AtomicReference<>();
+        int x0 = (Integer) acc(cap, "x0"), y0 = (Integer) acc(cap, "y0"), z0 = (Integer) acc(cap, "z0");
+        int w = (Integer) acc(cap, "w"), d = (Integer) acc(cap, "d");
+        net.minecraft.world.level.block.state.BlockState[] states = (net.minecraft.world.level.block.state.BlockState[]) acc(cap, "states");
+        short[] cells = (short[]) acc(cap, "cells");
+        serverRun(ctx, s -> {
+            var level = s.overworld();
+            java.util.Map<String, Integer> pairs = new java.util.TreeMap<>();
+            int n = 0, lava = 0, fx = 0, fy = 0, fz = 0;
+            boolean fall = false;
+            BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+            for (int i = 0; i < cells.length; i++) {
+                var want = states[cells[i]];
+                pos.set(x0 + i % w, y0 + i / (w * d), z0 + (i / w) % d);
+                var got = level.getBlockState(pos);
+                if (want.getFluidState().is(net.minecraft.tags.FluidTags.LAVA)) {
+                    lava++;
+                    if (fy == 0 || !fall && !want.getFluidState().isSource()) {
+                        fx = pos.getX(); fy = pos.getY(); fz = pos.getZ();
+                        fall = !want.getFluidState().isSource();
+                    }
+                }
+                if (got == want || fluidOnly && got.getFluidState().isEmpty() && want.getFluidState().isEmpty()) {
+                    continue;
+                }
+                n++;
+                String k = want + " -> " + got;
+                if (pairs.merge(k, 1, Integer::sum) == 1 && pairs.size() <= 40) {
+                    println(CAPTURE, "differs at " + pos.toShortString() + ": " + k);
+                }
+            }
+            pairs.forEach((k, v) -> println(CAPTURE, "  " + v + " x " + k));
+            out.set(new int[]{n, lava, fx, fy, fz});
+        });
+        until(ctx, "the arena diff", mc -> out.get() != null, 600);
+        int[] r = out.get();
+        println(CAPTURE, (fluidOnly ? "fluid " : "") + "diff: " + (r == null ? "none" : r[0] + " cell(s), capture lava " + r[1]));
+        return r == null ? new int[]{-1, 0, 0, 0, 0} : r;
+    }
+
+    private static Object acc(Object rec, String name) {
+        try {
+            var m = rec.getClass().getDeclaredMethod(name);
+            m.setAccessible(true);
+            return m.invoke(rec);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("capture record has no " + name, e);
+        }
+    }
+
+    private static String serverBlockId(ClientGameTestContext ctx, BlockPos pos) {
+        java.util.concurrent.atomic.AtomicReference<String> out = new java.util.concurrent.atomic.AtomicReference<>();
+        serverRun(ctx, s -> out.set(net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(
+                s.overworld().getBlockState(pos).getBlock()).toString()));
+        until(ctx, "a server block read", mc -> out.get() != null, 20);
+        return out.get();
+    }
+
+    private static boolean litLamp(net.minecraft.world.level.block.state.BlockState st) {
+        return st.is(net.minecraft.world.level.block.Blocks.REDSTONE_LAMP)
+                && st.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.LIT);
+    }
+
+    private static boolean[] lampsLit(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            boolean[] lit = new boolean[20];
+            for (int i = 0; i < 20; i++) {
+                lit[i] = litLamp(mc.level.getBlockState(new BlockPos(58 + i % 5, 133 + i / 5, 143)));
+            }
+            return lit;
+        });
+    }
+
+    /** "ok", or the first lamp that is not a redstone lamp lit exactly when its lever or a neighbour's is on. */
+    private static String lightsRuleHolds(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            for (int y = 133; y <= 136; y++) {
+                for (int x = 58; x <= 62; x++) {
+                    boolean on = false;
+                    for (int[] o : new int[][]{{0, 0}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}}) {
+                        int lx = x + o[0], ly = y + o[1];
+                        if (lx >= 58 && lx <= 62 && ly >= 133 && ly <= 136) {
+                            var st = mc.level.getBlockState(new BlockPos(lx, ly, 142));
+                            on |= st.is(net.minecraft.world.level.block.Blocks.LEVER) && st.getValue(
+                                    net.minecraft.world.level.block.state.properties.BlockStateProperties.POWERED);
+                        }
+                    }
+                    var lamp = mc.level.getBlockState(new BlockPos(x, y, 143));
+                    if (!lamp.is(net.minecraft.world.level.block.Blocks.REDSTONE_LAMP) || litLamp(lamp) != on) {
+                        return "lamp " + x + "," + y + " is " + lamp + ", want lit=" + on;
+                    }
+                }
+            }
+            return "ok";
+        });
     }
 
     private static void maxorCrystals(ClientGameTestContext ctx, List<String> f) {
@@ -545,7 +772,7 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     private static void target(ClientGameTestContext ctx, List<String> f) {
-        tp(ctx, 63.5, 126, 35.5, 0, -20);
+        tp(ctx, 63.5, 127, 35.5, 0, -20);
         ctx.waitTicks(8);
         for (int hit = 0; hit < 9; hit++) {
             if (!until(ctx, "a lit target", mc -> call(DEVICES, "litTarget") != null, 40)) {
@@ -1155,7 +1382,7 @@ public class SimBossTests implements FabricClientGameTest {
         boolean lit = ctx.computeOnClient(mc -> {
             for (BlockPos q : new BlockPos[]{new BlockPos(59, 134, 143), new BlockPos(58, 134, 143), new BlockPos(60, 134, 143),
                     new BlockPos(59, 133, 143), new BlockPos(59, 135, 143)}) {
-                if (!mc.level.getBlockState(q).is(net.minecraft.world.level.block.Blocks.SEA_LANTERN)) {
+                if (!litLamp(mc.level.getBlockState(q))) {
                     return false;
                 }
             }
@@ -1163,10 +1390,10 @@ public class SimBossTests implements FabricClientGameTest {
         });
         expect(f, "Lights: a lever lights its lamp and its four neighbours'", lit, true);
         // ---- Target: on the plate it lights; off it, the attempt resets ----
-        tp(ctx, 63.5, 126, 35.5, 0, -20);
+        tp(ctx, 63.5, 127, 35.5, 0, -20);
         boolean shown = until(ctx, "a lit target", mc -> call(DEVICES, "litTarget") != null, 30);
         expect(f, "Target lights while he is on the plate", shown, true);
-        tp(ctx, 61.5, 126, 33.5, 0, -20);
+        tp(ctx, 61.5, 127, 33.5, 0, -20);
         boolean reset = until(ctx, "the target going out", mc -> call(DEVICES, "litTarget") == null, 40);
         expect(f, "Target: off the plate, the lit one goes out", reset, true);
         // ---- a death tick in a section not started yet ----
