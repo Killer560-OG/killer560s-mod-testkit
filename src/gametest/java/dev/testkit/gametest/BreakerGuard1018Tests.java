@@ -380,6 +380,10 @@ public class BreakerGuard1018Tests implements FabricClientGameTest {
         });
         ctx.waitTicks(2);
         // The server's inventory sync wipes the client-side stamp within a tick or two, so stamp right before the click.
+        // Aim first and swing after, as the attack key does: a bare startDestroyBlock drew GrimAC's experimental
+        // NoSwingBreak and RotationBreak (a dig with no swing and a look off the block), a test artifact (ship4fu-1105).
+        ctx.runOnClient(mc -> mc.player.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, new net.minecraft.world.phys.Vec3(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5)));
+        ctx.waitTicks(3);
         stampBreaker(ctx);
         String aimed = ctx.computeOnClient(mc -> mc.hitResult instanceof BlockHitResult b
                 && b.getType() == HitResult.Type.BLOCK ? b.getBlockPos().toShortString() : String.valueOf(mc.hitResult));
