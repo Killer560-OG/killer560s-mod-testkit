@@ -1610,6 +1610,17 @@ final class Doc1018MenuHudCases {
         c.check(!leafNames().contains("Ribbon Trail"), "a 'Ribbon Trail' card is still listed");
         c.check(hasLeaf("TrailTab"), "the squares Trail card is gone");
         Object tab = c.onClient(mc -> MenuACases.leaf("CosmeticsTab"));
+        // An earlier case in the session (530 steps every row) can leave the section open; start from closed.
+        c.onClient(mc -> {
+            try {
+                java.lang.reflect.Field open = tab.getClass().getDeclaredField("ribbonTrailOpen");
+                open.setAccessible(true);
+                open.setBoolean(tab, false);
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError("CosmeticsTab.ribbonTrailOpen", e);
+            }
+            return null;
+        });
         List<AbstractWidget> closed = c.onClient(mc -> build(tab));
         List<String> before = new ArrayList<>();
         for (AbstractWidget w : closed) {
