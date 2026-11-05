@@ -29,6 +29,7 @@ final class HxChatTidy1104Cases {
     static void register(Session s) {
         s.test("1104-chattidy-mining", HxChatTidy1104Cases::mining);
         s.test("1104-chattidy-sacks", HxChatTidy1104Cases::sacks);
+        s.test("1104-chattidy-looted", HxChatTidy1104Cases::looted);
         s.test("1104-chattidy-treasure", HxChatTidy1104Cases::treasure);
     }
 
@@ -129,6 +130,25 @@ final class HxChatTidy1104Cases {
             long h0 = hiddenCount(c);
             say(c, "§6" + plus);
             c.check(hiddenCount(c) == h0 && shown(c, plus), "OFF: the sack line was hidden: " + lines(c));
+        });
+    }
+
+    private static void looted(Session c) {
+        hub(c);
+        skyblock(c);
+        String line = "This chest has already been looted.";
+        withSwitch(c, "HideAlreadyLooted", true, () -> {
+            long h0 = hiddenCount(c);
+            say(c, "§c" + line);
+            c.check(hiddenCount(c) - h0 == 1, "ON: the mod hid " + (hiddenCount(c) - h0) + " of the looted line");
+            c.check(!shown(c, line), "ON: the line is in the chat window: " + lines(c));
+            say(c, "§7[VIP] Bob§f: " + line);
+            c.check(shown(c, "[VIP] Bob: " + line), "ON: a player's copy was hidden: " + lines(c));
+        });
+        withSwitch(c, "HideAlreadyLooted", false, () -> {
+            long h0 = hiddenCount(c);
+            say(c, "§c" + line);
+            c.check(hiddenCount(c) == h0 && shown(c, line), "OFF: the line was hidden: " + lines(c));
         });
     }
 

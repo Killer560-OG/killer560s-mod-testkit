@@ -145,7 +145,7 @@ final class ChatBatchUiCases {
             // mod 4a7ffc31 (Menu and HUD list of 2026-10-18): Hypixel's Watchdog ban announcement gets its own switch
             "Hide Ban Announcements",
             // mod mining2-1103 / mining reminders and sack lines (the mod lists them right after the ban switch)
-            "Hide Mining Reminders", "Hide Sack Messages",
+            "Hide Mining Reminders", "Hide Sack Messages", "Hide Already Looted Chests",
             // Chat Hider's dungeon pack (mod p3-chat-1025, 2026-10-25): six switches under the rest
             "Hide Boss Dialogue", "Hide Mort", "Hide Blessings", "Hide Others' Pickups", "Hide Ability Spam",
             "Hide Dungeon Breaker Spam");
