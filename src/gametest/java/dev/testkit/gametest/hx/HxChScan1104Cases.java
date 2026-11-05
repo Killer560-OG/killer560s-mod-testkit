@@ -74,6 +74,7 @@ final class HxChScan1104Cases {
             return;
         }
         double[] home = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+        int rd = c.onClient(mc -> mc.options.renderDistance().get());
         List<String> divan = List.of("minecraft:quartz_pillar", "minecraft:quartz_stairs", "minecraft:stone_brick_stairs",
                 "minecraft:chiseled_stone_bricks");
         List<String> temple = List.of("minecraft:bedrock", "minecraft:bedrock", "minecraft:clay", "minecraft:clay");
@@ -82,6 +83,11 @@ final class HxChScan1104Cases {
             // Both columns placed while the scanner is off; the temple's chunk then unloads on the client (the player goes
             // 12+ chunks away).
             forceload(c, "add");
+            // The test client's render distance is 5; the Mines of Divan sits 9 chunks out (server view distance 10).
+            c.ctx().runOnClient(mc -> {
+                mc.options.renderDistance().set(12);
+                mc.options.broadcastOptions();
+            });
             c.ctx().waitTicks(20);
             tp(c, A);
             c.ctx().waitTicks(40);
@@ -135,6 +141,10 @@ final class HxChScan1104Cases {
             c.ctx().runOnClient(mc -> Mod.staticCall("mining.chmap.ChDiscovery", "clear"));
             c.server().command(String.format(Locale.ROOT, "tp @a %.2f %.2f %.2f", home[0], home[1], home[2]));
             forceload(c, "remove");
+            c.ctx().runOnClient(mc -> {
+                mc.options.renderDistance().set(rd);
+                mc.options.broadcastOptions();
+            });
             hub(c);
         }
     }
