@@ -165,7 +165,9 @@ final class MenuLayoutCases {
     static final Map<String, String> MERGED = Map.of("gui.tab.CommandShortcutsTab", "gui.tab.CommandKeybindsTab",
             // The Secrets HUD is a section of the one Secret tab (mod doc-auto-1101, killer560 2026-11-01); 511 lists it
             // in goneLeaves, 412 (whose New fixture had it) finds its rows there.
-            "gui.tab.DungeonInfoTab", "gui.tab.SecretTab");
+            "gui.tab.DungeonInfoTab", "gui.tab.SecretTab",
+            // Sim Keybinds is a section of Sim Settings (mod defoff-1104, killer560 2026-11-04).
+            "gui.tab.SimKeybindsTab", "gui.tab.SimSettingsTab");
     private static final Pattern COMBINED = Pattern.compile(".*(, | & ).*");
     /**
      * What the branches merged with this change (mod 3744aa32, 2026-10-08: chat-batch, inv-batch, modchat-party)
@@ -962,6 +964,18 @@ final class MenuLayoutCases {
     private static Map<String, Map<String, String>> collect(UiCase c, ModScreenDriver d, List<ModScreenDriver.Node> tree,
                                                             Deny deny) {
         Map<String, Map<String, String>> out = new TreeMap<>();
+        // The switches that start OFF since defoff-1104 are put ON for the walk: their rows hide while off, and the
+        // fixtures were recorded with them on.
+        try (AutoCloseable on = DefaultsOff1104Cases.allOn(c)) {
+            walk(c, d, tree, deny, out);
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        }
+        return out;
+    }
+
+    private static void walk(UiCase c, ModScreenDriver d, List<ModScreenDriver.Node> tree, Deny deny,
+                             Map<String, Map<String, String>> out) {
         for (int i = 0; i < tree.size(); i++) {
             ModScreenDriver.Node topNode = tree.get(i);
             // The accordion's header rows are cards since the Option A menu (mod menu-a): their hover text.
@@ -988,7 +1002,6 @@ final class MenuLayoutCases {
                 });
             }
         }
-        return out;
     }
 
     private static void record(UiCase c, ModScreenDriver d, List<ModScreenDriver.Node> tree,

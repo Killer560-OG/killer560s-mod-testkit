@@ -1225,7 +1225,7 @@ final class Doc1018MenuHudCases {
     // =================================================================================================================
 
     static void simKeybindsText(UiCase c) {
-        List<String> l = labels(c, "SimKeybindsTab");
+        List<String> l = labels(c, "SimSettingsTab");
         c.note("Sim keybind rows: " + l);
         c.check(count(l, "Dungeon Sim only") == 0, "the Sim keybinds still show the 'Dungeon Sim only' line: " + l);
         c.check(has(l, "Next Room") && has(l, "Previous Room"), "the probe did not build the Sim keybinds: " + l);

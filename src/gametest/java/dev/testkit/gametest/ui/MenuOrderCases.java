@@ -347,7 +347,7 @@ final class MenuOrderCases {
                             "Auto Requeue OFF, Party Finder Overlay ON"},
                     {"{\"enabled\": false, \"pvLinkOnJoin\": false}", "{\"enabled\": false}", "false", "false", "false", "all three OFF"},
                     {"{\"enabled\": true}", "{\"enabled\": true}", "true", "true", "true", "both ON"},
-                    {null, null, "false", "false", "true", "no files at all (PV Link on Join defaults ON)"},
+                    {null, null, "false", "false", "false", "no files at all (all three default OFF, defoff-1104)"},
             };
             for (String[] t : cases) {
                 String why = c.onClient(mc -> {
