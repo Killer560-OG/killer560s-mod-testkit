@@ -382,6 +382,10 @@ public class SimBossTests implements FabricClientGameTest {
             return;
         }
         expect(f, "P3 band cells differing from the P3 capture at S1 (Lights left out)", diff(ctx, cap3, false, 100, 145)[0], 0);
+        // Maxor's and Storm's holes as the P3 capture shows them (solid in P1, air in P3), open at S1.
+        int[] holes = holesLeft(ctx, ModUnderTest.staticCall(ARENA, "readCapture", new Class<?>[]{String.class}, new Object[]{"P1"}), cap3);
+        println(CAPTURE, "boss holes: " + holes[0] + " cell(s), " + holes[1] + " still solid");
+        expect(f, "Maxor's and Storm's holes from the P3 capture (cells > 500, none left solid)", holes[0] > 500 && holes[1] == 0, true);
         ctx.waitTicks(10);
         double[] stand = ctx.computeOnClient(mc -> new double[]{mc.player.getY(), mc.player.onGround() ? 1 : 0});
         println(CAPTURE, "S1 spawn: y " + stand[0] + " on ground " + stand[1]);
@@ -401,6 +405,34 @@ public class SimBossTests implements FabricClientGameTest {
         ctx.waitTicks(2);
         expect(f, "S1 gate opened: its barrier", serverBlockId(ctx, new BlockPos(100, 125, 122)), "minecraft:air");
         expect(f, "S1 gate opened: the wall beside it", serverBlockId(ctx, new BlockPos(89, 125, 122)), "minecraft:stone_bricks");
+        // The core door over the capture: opening the core removes its 35 gold blocks (x 52-56, y 115-121, z 54), nothing else.
+        String[] before = serverBox(ctx, 50, 113, 53, 58, 123, 55);
+        start(ctx, "CORE", false);
+        ctx.waitTicks(3);
+        String[] after = serverBox(ctx, 50, 113, 53, 58, 123, 55);
+        int goldGone = 0, otherChanged = 0;
+        for (int i = 0; i < before.length; i++) {
+            boolean gold = before[i].equals("minecraft:gold_block");
+            goldGone += gold && after[i].equals("minecraft:air") ? 1 : 0;
+            otherChanged += !gold && !before[i].equals(after[i]) ? 1 : 0;
+        }
+        expect(f, "core door gold blocks gone on core open", goldGone, 35);
+        expect(f, "other cells around the core door changed on core open", otherChanged, 0);
+        // The core's floor over the capture is its 7x7 gold and bedrock plug at y 113 over an open shaft to P4 (63).
+        expect(f, "core plug before P4 (54 113 114)", serverBlockId(ctx, new BlockPos(54, 113, 114)), "minecraft:gold_block");
+        start(ctx, "P4", false);
+        int solid = 0;
+        for (String id : serverBox(ctx, 51, 113, 111, 57, 113, 117)) {
+            solid += id.equals("minecraft:air") ? 0 : 1;
+        }
+        for (String id : serverBox(ctx, 54, 64, 114, 54, 112, 114)) {
+            solid += id.equals("minecraft:air") ? 0 : 1;
+        }
+        expect(f, "solid cells left in the core plug and the shaft under it at P4", solid, 0);
+        ctx.waitTicks(10);
+        double[] p4 = ctx.computeOnClient(mc -> new double[]{mc.player.getY(), mc.player.onGround() ? 1 : 0});
+        println(CAPTURE, "P4 spawn: y " + p4[0] + " on ground " + p4[1]);
+        expect(f, "P4 spawn on the captured platform (y 64), on ground", Math.abs(p4[0] - 64) < 0.01 && p4[1] == 1, true);
     }
 
     /** {differing cells, lava cells in the capture, x y z of a falling lava cell}; each kind of difference is printed. Fluid cells only when asked. */
@@ -463,6 +495,52 @@ public class SimBossTests implements FabricClientGameTest {
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("capture record has no " + name, e);
         }
+    }
+
+    /** {cells solid in the P1 capture and air in the P3 one over y 214-224 and 160-170, of those not air on the server}. */
+    private static int[] holesLeft(ClientGameTestContext ctx, Object cap1, Object cap3) {
+        java.util.concurrent.atomic.AtomicReference<int[]> out = new java.util.concurrent.atomic.AtomicReference<>();
+        int x0 = (Integer) acc(cap3, "x0"), y0 = (Integer) acc(cap3, "y0"), z0 = (Integer) acc(cap3, "z0");
+        int w = (Integer) acc(cap3, "w"), d = (Integer) acc(cap3, "d");
+        var s1 = (net.minecraft.world.level.block.state.BlockState[]) acc(cap1, "states");
+        var s3 = (net.minecraft.world.level.block.state.BlockState[]) acc(cap3, "states");
+        short[] c1 = (short[]) acc(cap1, "cells"), c3 = (short[]) acc(cap3, "cells");
+        serverRun(ctx, s -> {
+            int n = 0, left = 0;
+            BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+            for (int[] band : new int[][]{{214, 224}, {160, 170}}) {
+                for (int i = (band[0] - y0) * w * d; i < (band[1] - y0 + 1) * w * d; i++) {
+                    var a = s1[c1[i]];
+                    if (s3[c3[i]].isAir() && !a.isAir() && a.getFluidState().isEmpty()) {
+                        n++;
+                        left += s.overworld().getBlockState(pos.set(x0 + i % w, y0 + i / (w * d), z0 + (i / w) % d)).isAir() ? 0 : 1;
+                    }
+                }
+            }
+            out.set(new int[]{n, left});
+        });
+        until(ctx, "the holes read", mc -> out.get() != null, 200);
+        return out.get() == null ? new int[]{0, -1} : out.get();
+    }
+
+    /** The block ids of a box on the server, x fastest, then z, then y, in one server read. */
+    private static String[] serverBox(ClientGameTestContext ctx, int x1, int y1, int z1, int x2, int y2, int z2) {
+        java.util.concurrent.atomic.AtomicReference<String[]> out = new java.util.concurrent.atomic.AtomicReference<>();
+        serverRun(ctx, s -> {
+            String[] ids = new String[(x2 - x1 + 1) * (y2 - y1 + 1) * (z2 - z1 + 1)];
+            int i = 0;
+            for (int y = y1; y <= y2; y++) {
+                for (int z = z1; z <= z2; z++) {
+                    for (int x = x1; x <= x2; x++) {
+                        ids[i++] = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(
+                                s.overworld().getBlockState(new BlockPos(x, y, z)).getBlock()).toString();
+                    }
+                }
+            }
+            out.set(ids);
+        });
+        until(ctx, "a server box read", mc -> out.get() != null, 20);
+        return out.get();
     }
 
     private static String serverBlockId(ClientGameTestContext ctx, BlockPos pos) {
