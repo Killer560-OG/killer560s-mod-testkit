@@ -14,7 +14,8 @@
   },
   "newCheatLeaves": {
     "gui.tab.MiningPigeonDrillTab": "Mining > Swap To Drill On Pigeon",
-    "gui.tab.StructureScannerTab": "Mining > Crystal Hollows > Structure Scanner"
+    "gui.tab.StructureScannerTab": "Mining > Crystal Hollows > Structure Scanner",
+    "gui.tab.PowderChestTriggerbotTab": "Mining > Powder Chest Triggerbot"
   },
   "newLeaves": {
     "gui.tab.ChatHiderTab": "Chat > Chat Hider",

@@ -141,6 +141,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxChScan1104Cases.register(s);
                     // Treasure chest Hide Opened re-send and the chain tracer (1104-chestfx-*, mod chestfx-1104).
                     HxChestFx1104Cases.register(s);
+                    // Powder Chest Triggerbot: swap to the best Gemstone Powder drill, click, rate limit (1104-chestbot-*, mod chestbot-1104).
+                    HxChestBot1104Cases.register(s);
                     // Owner requests 2026-11-03 late (1103-mask-proc-title, 1103-partycmd-self).
                     HxOwner1103Cases.register(s);
                     // Party Commands floor requests: Creation Cooldown wait, retry, your own !f (1104-partycmd-floor-*, mod partycmd-1104).
