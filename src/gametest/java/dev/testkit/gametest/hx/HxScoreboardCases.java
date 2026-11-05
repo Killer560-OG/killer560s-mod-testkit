@@ -435,7 +435,7 @@ final class HxScoreboardCases {
     private static String drawnText(Minecraft mc) {
         GuiRenderState state = new GuiRenderState();
         GuiGraphicsExtractor g = new GuiGraphicsExtractor(mc, state, -1, -1);
-        Mod.staticCall(FEATURE, "drawInGame", g);
+        Mod.staticCall(FEATURE, "drawInGame", g, false);
         StringBuilder sb = new StringBuilder();
         state.forEachText(t -> sb.append(dev.testkit.gametest.TextRuns.string(t)).append(" | "));
         return sb.toString();

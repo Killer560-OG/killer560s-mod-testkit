@@ -53,6 +53,7 @@ final class HxScoreboardAnchorCases {
         s.test("1668-hx-sb-anchor-edges", c -> edges(c, false));
         s.test("1669-hx-sb-anchor-preview", c -> edges(c, true));
         s.test("1670-hx-sb-anchor-side", HxScoreboardAnchorCases::side);
+        s.test("1671-hx-sb-name-width", HxScoreboardAnchorCases::nameWidth);
     }
 
     // ---- measuring --------------------------------------------------------------------------------------------------
@@ -75,7 +76,7 @@ final class HxScoreboardAnchorCases {
                 g.pose().popMatrix();
             }
         } else {
-            Mod.staticCall(FEATURE, "drawInGame", g);
+            Mod.staticCall(FEATURE, "drawInGame", g, false);
         }
         // The box's outer walls: the exact (unrounded) extent of every visible fill the board submitted. Since mod
         // b7dd38cd (2026-10-18) the border is on by default, so the background fill is inset by the border and the
@@ -305,7 +306,7 @@ final class HxScoreboardAnchorCases {
         try {
             GuiRenderState state = new GuiRenderState();
             GuiGraphicsExtractor g = new GuiGraphicsExtractor(mc, state, -1, -1);
-            Mod.staticCall(FEATURE, "drawInGame", g);
+            Mod.staticCall(FEATURE, "drawInGame", g, false);
             Object layout = Mod.field(FEATURE, "lastLayout");
             if (layout == null) {
                 return "no layout with chat open";
@@ -397,6 +398,68 @@ final class HxScoreboardAnchorCases {
                 }
             }
             c.check(bad.isEmpty(), String.join("; ", bad));
+        }
+    }
+
+    /** 1671: Name Changer on as in the owner's config (own name changed, orange hex color, bold): a sidebar line holding
+     *  the player's own name must draw inside the box (killer560 2026-11-05, the sim's "personal testing sim" line ran
+     *  past the border). Drawn width = the sequence the Font really prepares, {@code animate(replace(text))}, measured
+     *  with the styles it carries (Skip stops a second replace) - not the Font.width the box was sized from. */
+    private static void nameWidth(Session c) {
+        try (Saved saved = new Saved(c); Settings st = new Settings(c)) {
+            skyblock(c);
+            enable(c);
+            String nc = "namechanger.NameChangerConfig";
+            st.with(nc, "Enabled", true).with(nc, "OwnNameEnabled", true).with(nc, "OwnDisplayName", "Killer560")
+                    .with(nc, "OwnColor", 0xFFFF8A1F).with(nc, "OwnColorFadeEnabled", false).with(nc, "OwnBold", true)
+                    .with(nc, "RandomizeOthers", false);
+            String me = c.onClient(mc -> mc.getUser().getName());
+            setWindow(c, 1366, 768, 2);
+            configure(c, "RIGHT", "LEFT", 1.0f, 0);
+            sidebar(c, "template", "hub", "area", "Village", "extra", List.of(me.toLowerCase() + "'s personal testing sim"));
+            c.waitUntil("the board shows the line", mc -> String.valueOf(Mod.staticCall(FEATURE, "currentTexts")).contains("personal testing sim"), 100);
+            c.ctx().waitTicks(3);
+            double[] r = c.onClient(mc -> {
+                GuiRenderState state = new GuiRenderState();
+                GuiGraphicsExtractor g = new GuiGraphicsExtractor(mc, state, -1, -1);
+                Mod.staticCall(FEATURE, "drawInGame", g, false);
+                double[] bg = {Double.NaN, Double.NaN};
+                state.forEachElement(el -> {
+                    for (Object part : fillParts(el)) {
+                        float[] lr = fillLR(part);
+                        if (lr != null) {
+                            bg[0] = Double.isNaN(bg[0]) ? lr[0] : Math.min(bg[0], lr[0]);
+                            bg[1] = Double.isNaN(bg[1]) ? lr[1] : Math.max(bg[1], lr[1]);
+                        }
+                    }
+                }, GuiRenderState.TraverseRange.ALL);
+                double[] out = {bg[0], bg[1], -Double.MAX_VALUE, 0, 0};
+                state.forEachText(t -> {
+                    Font font = (Font) get(t, "font");
+                    FormattedCharSequence seq = (FormattedCharSequence) get(t, "text");
+                    Object drawn = Mod.staticCall("namechanger.NameAnimation", "animate",
+                            (FormattedCharSequence) Mod.staticCall("namechanger.NameReplacer", "replace", seq));
+                    FormattedCharSequence skip;
+                    try {
+                        skip = (FormattedCharSequence) Mod.cls("namechanger.NameReplacer$Skip").getConstructors()[0].newInstance(drawn);
+                    } catch (ReflectiveOperationException e) {
+                        throw new AssertionError(e);
+                    }
+                    int dw = font.width(skip);
+                    if (dw <= 0) {
+                        return;
+                    }
+                    out[3]++;
+                    out[4] = Math.max(out[4], dw - font.width(seq));
+                    org.joml.Vector2f b = t.pose.transformPosition(new org.joml.Vector2f((Integer) get(t, "x") + dw, (Integer) get(t, "y")));
+                    out[2] = Math.max(out[2], b.x);
+                });
+                return out;
+            });
+            System.out.println("[1671] lines " + r[3] + ", text right " + r[2] + ", box right " + r[1] + ", drawn-minus-measured max " + r[4]);
+            c.check(r[3] > 0 && !Double.isNaN(r[1]), "the board drew nothing");
+            c.check(r[2] <= r[1] + 0.01, "a line draws past the box: text right " + r[2] + " box right " + r[1]
+                    + " (drawn wider than measured by " + r[4] + ")");
         }
     }
 }
