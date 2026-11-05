@@ -271,13 +271,23 @@ public class SimBossTests implements FabricClientGameTest {
             f.add("no capture fixture at " + fixture + " (a copy of /simbosscapture's killer560smod-sim-bossarena.bin)");
             return;
         }
+        java.nio.file.Path fixture3 = java.nio.file.Path.of(System.getProperty("testkit.bossCaptureP3",
+                System.getProperty("user.home") + "/killer560s-mod-logs/fixtures/boss-arena-p3-1104.bin"));
+        if (!java.nio.file.Files.isRegularFile(fixture3)) {
+            f.add("no P3 capture fixture at " + fixture3);
+            return;
+        }
         java.nio.file.Path target = (java.nio.file.Path) call(ARENA, "capturePath");
+        java.nio.file.Path target3 = (java.nio.file.Path) ModUnderTest.staticCall(ARENA, "capturePath",
+                new Class<?>[]{String.class}, new Object[]{"P3"});
         java.nio.file.Files.createDirectories(target.getParent());
         java.nio.file.Files.copy(fixture, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        java.nio.file.Files.copy(fixture3, target3, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         try {
             captureCase(ctx, f);
         } finally {
             java.nio.file.Files.deleteIfExists(target);
+            java.nio.file.Files.deleteIfExists(target3);
         }
     }
 
@@ -360,12 +370,24 @@ public class SimBossTests implements FabricClientGameTest {
             ctx.waitTicks(12);
             expect(f, "Lights: still by the rule 12 ticks later (no vanilla dimming)", lightsRuleHolds(ctx), "ok");
         }
-        // Simon Says on the real wall, played through.
+        // P3 from the P3 capture: its band equals it, and S1's spawn stands on the captured ground.
         long mark = start(ctx, "S1", false);
         if (!waitChat(ctx, mark, "[BOSS] Goldor: Who dares trespass into my domain?", 40)) {
             f.add("Goldor's line never came");
             return;
         }
+        Object cap3 = ModUnderTest.staticCall(ARENA, "readCapture", new Class<?>[]{String.class}, new Object[]{"P3"});
+        if (cap3 == null) {
+            f.add("the mod could not read the P3 fixture");
+            return;
+        }
+        expect(f, "P3 band cells differing from the P3 capture at S1 (Lights left out)", diff(ctx, cap3, false, 100, 145)[0], 0);
+        ctx.waitTicks(10);
+        double[] stand = ctx.computeOnClient(mc -> new double[]{mc.player.getY(), mc.player.onGround() ? 1 : 0});
+        println(CAPTURE, "S1 spawn: y " + stand[0] + " on ground " + stand[1]);
+        expect(f, "S1 spawn on the captured ground (y 116.0625, the carpet), on ground",
+                Math.abs(stand[0] - 116.0625) < 0.01 && stand[1] == 1, true);
+        // Simon Says on the real wall, played through.
         int failsBefore = f.size();
         simonSays(ctx, f);
         if (f.size() == failsBefore) {
@@ -383,6 +405,12 @@ public class SimBossTests implements FabricClientGameTest {
 
     /** {differing cells, lava cells in the capture, x y z of a falling lava cell}; each kind of difference is printed. Fluid cells only when asked. */
     private static int[] diff(ClientGameTestContext ctx, Object cap, boolean fluidOnly) {
+        return diff(ctx, cap, fluidOnly, 0, 255);
+    }
+
+    /** As {@link #diff(ClientGameTestContext, Object, boolean)}, over y {@code yFrom..yTo} only; a band below the whole
+     *  box leaves out the Lights levers and lamps, whose start the sim deals itself (a device mechanic). */
+    private static int[] diff(ClientGameTestContext ctx, Object cap, boolean fluidOnly, int yFrom, int yTo) {
         java.util.concurrent.atomic.AtomicReference<int[]> out = new java.util.concurrent.atomic.AtomicReference<>();
         int x0 = (Integer) acc(cap, "x0"), y0 = (Integer) acc(cap, "y0"), z0 = (Integer) acc(cap, "z0");
         int w = (Integer) acc(cap, "w"), d = (Integer) acc(cap, "d");
@@ -394,10 +422,14 @@ public class SimBossTests implements FabricClientGameTest {
             int n = 0, lava = 0, fx = 0, fy = 0, fz = 0;
             boolean fall = false;
             BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-            for (int i = 0; i < cells.length; i++) {
+            for (int i = Math.max(0, (yFrom - y0) * w * d); i < Math.min(cells.length, (yTo - y0 + 1) * w * d); i++) {
                 var want = states[cells[i]];
                 pos.set(x0 + i % w, y0 + i / (w * d), z0 + (i / w) % d);
                 var got = level.getBlockState(pos);
+                if (yTo < 255 && pos.getZ() >= 142 && pos.getZ() <= 143 && pos.getX() >= 58 && pos.getX() <= 62
+                        && pos.getY() >= 133 && pos.getY() <= 136) {
+                    continue;
+                }
                 if (want.getFluidState().is(net.minecraft.tags.FluidTags.LAVA)) {
                     lava++;
                     if (fy == 0 || !fall && !want.getFluidState().isSource()) {
