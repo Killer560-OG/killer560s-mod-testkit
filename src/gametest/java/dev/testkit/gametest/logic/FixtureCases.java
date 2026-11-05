@@ -68,13 +68,14 @@ final class FixtureCases {
                 c.check("flags " + ref, (live.flags() & Pattern.CASE_INSENSITIVE) != 0, "flags " + live.flags());
             }
         }
-        // The other direction: a static Pattern field the jar has that the catalog does not.
+        // The other direction: a static FINAL Pattern field the jar has that the catalog does not. A non-final one with no
+        // initializer is a runtime cache (AutoSellFeature#compiled holds the player's title regex), not a cataloged regex.
         int missing = 0;
         for (Map.Entry<String, Set<String>> cls : byClass.entrySet()) {
             Class<?> k = dev.testkit.gametest.mod.Mod.cls(cls.getKey());
             for (var f : k.getDeclaredFields()) {
-                if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && f.getType() == Pattern.class
-                        && !cls.getValue().contains(f.getName())) {
+                if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) && java.lang.reflect.Modifier.isFinal(f.getModifiers())
+                        && f.getType() == Pattern.class && !cls.getValue().contains(f.getName())) {
                     missing++;
                     c.check("cataloged " + cls.getKey() + "#" + f.getName(), false,
                             "the jar has this static Pattern but the catalog does not");
