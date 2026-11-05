@@ -63,7 +63,8 @@ final class ThemeMatchCases {
         // and the Profile Viewer's Amber start values (syncTheme replaces them every frame) and its fixed dark tooltip.
         allow("theme definitions", "gui.MenuStyle", 9, "gui.MenuTheme", 2, "gui.PanelTheme", 5, "livemap.MapThemes", 2,
                 "bazaar.BazaarTheme", 3, "auction.ah.AhTheme", 1, "mainmenu.MenuChrome", 6, "mainmenu.MenuWidgets", 4,
-                "inventorytheme.InventoryThemeConfig", 1, "profileviewer.screen.ProfileViewerScreen", 8);
+                "inventorytheme.InventoryThemeConfig", 1, "profileviewer.screen.ProfileViewerScreen", 8,
+                "profileviewer.ProfileViewerConfig", 1); // the /pv Styles' palettes (NEU Classic is NEU's own gold)
         // Stored as the amber constant, mapped onto the theme where it is drawn (ProfitPanels.themed,
         // ChestProfitFeature.themed).
         allow("mapped at draw", "gui.profit.ProfitPanels", 1, "gui.profit.BazaarFlipProfitScreen", 1,
@@ -87,7 +88,8 @@ final class ThemeMatchCases {
                 "gui.tab.MiningRaffleTab", 1, "gui.tab.MobEspTab", 1, "gui.tab.P3NavTab", 2, "gui.tab.PathfindingTab", 2,
                 "gui.tab.PosmsgTab", 1, "gui.tab.RealTimeTab", 1, "gui.tab.RibbonTrailTab", 1, "gui.tab.ScoreCalculatorTab", 2,
                 "gui.tab.SecretWaypointsTab", 1, "gui.tab.SimonSaysTab", 1, "gui.tab.SlotBindsTab", 1, "gui.tab.SpotifyF5Rows", 1,
-                "gui.tab.ThornTab", 2, "gui.tab.TreasureChestHighlightTab", 1, "gui.tab.WaypointRoutesTab", 1);
+                "gui.tab.ThornTab", 2, "gui.tab.TreasureChestHighlightTab", 1, "gui.tab.WaypointRoutesTab", 1,
+                "mining.deployables.MiningDeployables", 2, "gui.tab.MiningDeployablesTab", 1);
         // A color that means something: rarity / Minecraft gold, a zone, a dragon or relic, a state, a warning mark.
         allow("meaning", "itemrarity.ItemRarity", 1, "profileviewer.data.LevelTables", 1, "profileviewer.screen.ExtraPages", 2,
                 "util.ChatColors", 1, "slottext.SlotTextFeature", 3, "miningqol.CrystalHollowsWalls", 1,
