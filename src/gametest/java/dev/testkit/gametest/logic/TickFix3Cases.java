@@ -105,7 +105,7 @@ final class TickFix3Cases {
             }
             Mod.staticCall(TT, "resetAll");
             Mod.staticCall(TT, "onChatMessage", Component.literal("[BOSS] Goldor: Who dares trespass into my domain?"));
-            long goldor0 = trueTick + 37; // the server's first Goldor hit
+            long goldor0 = trueTick + 60; // the server's first Goldor hit: a period after his line (masktimer-1105)
             long clock0 = (Long) Mod.staticCall(CLOCK, "now");
             long true0 = trueTick;
             long raw0 = (Long) Mod.staticCall(CLOCK, "rawPings");

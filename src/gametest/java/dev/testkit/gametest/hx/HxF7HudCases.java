@@ -109,15 +109,15 @@ final class HxF7HudCases {
                 c.server().command("effect give " + self + " minecraft:instant_health 1 4 true");
                 c.ctx().waitTicks(20);
 
-                // (a) Hits on Goldor's cycle as his real run showed it (2026-11-03): the first hit 42 ticks after the line,
-                // then every 60: the Tick reads 0 at the FIRST hit too. Line at 5, hits at 47, 107, 167, 227.
+                // (a) Hits on Goldor's cycle as his real runs show it (masktimer-1105, Odin's rule): the first hit a period
+                // after the line, then every 60: the Tick reads 0 at the FIRST hit too. Line at 5, hits at 65, 125, 185, 245.
                 run(c, () -> Mod.staticCall(TT, "resetAll"));
                 List<JsonObject> steps = new ArrayList<>();
                 steps.add(step(5, GOLDOR, 0f));
                 for (int k = 0; k < 4; k++) {
-                    steps.add(step(47 + 60 * k, null, 1f));
+                    steps.add(step(65 + 60 * k, null, 1f));
                 }
-                timeline(c, self, steps, 235);
+                timeline(c, self, steps, 250);
                 List<Integer> a = offsets(c);
                 c.note("(a) in phase, offsets at the hits: " + a + ", re-locks " + c.onClient(mc -> Mod.staticCall(GT, "testRelocks")));
                 c.check(a.size() == 4, "(a) 4 hits seen from the health drops, saw " + a.size() + ": " + a);
@@ -128,15 +128,15 @@ final class HxF7HudCases {
                 c.server().command("effect give " + self + " minecraft:instant_health 1 4 true");
                 c.ctx().waitTicks(20);
 
-                // (b) His 2026-11-03 log, replayed: hits 18 ticks LATER than the start phase (line + 60, the old start; the mod
-                // logged "-18 ticks off"). ONE hit must re-lock it, and the next three read 0. Line at 5, hits 65, 125, 185, 245.
+                // (b) Off hypixel.net (this server): hits 18 ticks off the start phase (line + 60) re-lock on ONE hit, and the
+                // next three read 0. Line at 5, hits 47, 107, 167, 227.
                 run(c, () -> Mod.staticCall(TT, "resetAll"));
                 steps = new ArrayList<>();
                 steps.add(step(5, GOLDOR, 0f));
                 for (int k = 0; k < 4; k++) {
-                    steps.add(step(65 + 60 * k, null, 1f));
+                    steps.add(step(47 + 60 * k, null, 1f));
                 }
-                timeline(c, self, steps, 250);
+                timeline(c, self, steps, 235);
                 List<Integer> b = offsets(c);
                 int relocks = c.onClient(mc -> (Integer) Mod.staticCall(GT, "testRelocks"));
                 c.note("(b) 18 ticks off the start phase, offsets at the hits: " + b + ", re-locks " + relocks);

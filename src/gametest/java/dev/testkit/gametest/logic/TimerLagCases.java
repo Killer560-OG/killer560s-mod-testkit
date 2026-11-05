@@ -199,12 +199,14 @@ final class TimerLagCases {
             c.check("Goldor's Tick moved exactly the clock's ticks (mod 60) each tick, never up", !goldorOff, "it did not");
             c.check("Storm's Lightning moved exactly the clock's ticks each tick, never up", !stormOff, "it did not");
 
-            // A hit one tick after the prediction (the observation noise) moves nothing once the phase is locked.
-            Mod.staticCall(gt, "testHitNow", false); // first hit: locks wherever it lands
+            // masktimer-1105: on hypixel.net the phase stands from Goldor's line, so a health drop off it moves nothing; a
+            // hit one tick after the prediction (the observation noise) moves nothing either.
             int before = (Integer) Mod.staticCall(gt, "remaining");
-            c.eq("the first hit reads 0", 0, before);
-            ticks(60, 1);
-            ticks(1, 1);
+            Mod.staticCall(gt, "testHitNow", false); // a health drop off the phase
+            c.eq("a health drop off the line's phase moves nothing", before, Mod.staticCall(gt, "remaining"));
+            ticks(before, 1);
+            c.eq("0 on the line's phase", 0, Mod.staticCall(gt, "remaining"));
+            ticks(61, 1);
             Mod.staticCall(gt, "testHitNow", false); // 1 tick late
             c.eq("a hit 1 tick late moved nothing: the line still reads 59 on it", 59, Mod.staticCall(gt, "remaining"));
             ticks(59, 1);

@@ -95,64 +95,61 @@ final class TickFixCases {
                 return;
             }
 
-            // (a) Hits a few ticks off the locked phase do not walk it (his 23:55:05-11 procs: the third read 16 off).
+            // masktimer-1105: on hypixel.net the line's phase stands from the line (first hit line+60, Odin's rule and his
+            // 2026-11-04/05 procs); your own health never moves it, two procs a whole number of periods apart do.
+            // (a) Health drops off the phase (a mob, a laser; his 11-05 run had them at line+11, +71) move nothing.
             long line = goldorLine();
-            ticks(30);
-            hit("SELF"); // the first hit locks the phase at line+30 (that lock counts as one re-lock)
-            c.eq("(a) the first hit locks: 0 on its tick", 0, remaining());
+            c.eq("(a) 60 on the line, locked from it", 60, remaining());
+            c.check("(a) locked from the line", (Boolean) Mod.staticCall(GT, "testLocked"), "not locked");
             int r0 = relocks();
-            ticks(66);
-            hit("SELF"); // 6 late
-            ticks(61);
-            hit("SELF"); // 7 late
-            ticks(53);
-            c.eq("(a) clock at line+210", line + 210, clock());
-            c.eq("(a) three periods after the lock the Tick reads 0, not walked by hits 6 and 7 ticks off", 0, remaining());
-            c.eq("(a) no re-lock after the first hit", 0, relocks() - r0);
-
-            // (b) Two stray health drops exactly a period apart are not Goldor (a mob, fire): no re-lock. A mask proc in
-            // phase with them is: re-lock there.
-            line = goldorLine();
             ticks(30);
             hit("SELF");
-            r0 = relocks();
-            ticks(20);
-            hit("SELF"); // line+50, 20 off
-            ticks(60);
-            hit("SELF"); // line+110, 20 off, a period after the first stray
-            ticks(40);
-            c.eq("(b) clock at line+150", line + 150, clock());
-            c.eq("(b) two health-only strays a period apart move nothing: 0 at line+150", 0, remaining());
-            c.eq("(b) no re-lock on two health-only strays", 0, relocks() - r0);
-            ticks(20);
-            hit("PROC"); // line+170, in phase with both strays
-            c.eq("(b) a mask proc in phase with them re-locks", 1, relocks() - r0);
-            ticks(60);
-            c.eq("(b) 0 a period after the proc", 0, remaining());
-
-            // (c) A wrong first lock (a mob hit 25 ticks after the line), then his procs on Goldor's real tick (line+42,
-            // line+102): the second proc re-locks onto them.
-            line = goldorLine();
-            ticks(25);
+            ticks(66);
             hit("SELF");
+            ticks(61);
+            hit("SELF");
+            ticks(23);
+            c.eq("(a) clock at line+180", line + 180, clock());
+            c.eq("(a) the Tick reads 0 on line+180 whatever the health drops did", 0, remaining());
+            c.eq("(a) no re-lock", 0, relocks() - r0);
+
+            // (b) Health strays a period apart, then a mask proc in phase with them: health is no partner, no re-lock;
+            // a second proc a period after the first is, re-lock there.
+            line = goldorLine();
             r0 = relocks();
-            ticks(17);
-            hit("PROC");
+            ticks(50);
+            hit("SELF"); // line+50, 10 off
+            ticks(60);
+            hit("SELF"); // line+110
+            ticks(60);
+            hit("PROC"); // line+170, in phase with both strays
+            c.eq("(b) health drops and one proc in phase with them: no re-lock", 0, relocks() - r0);
+            ticks(10);
+            c.eq("(b) still the line's phase: 0 at line+180", 0, remaining());
+            ticks(50);
+            hit("PROC"); // line+230, a period after the first proc
+            c.eq("(b) a second proc a period after the first re-locks", 1, relocks() - r0);
+            ticks(60);
+            c.eq("(b) 0 a period after the second proc", 0, remaining());
+
+            // (c) Procs on Goldor's tick of the line's phase confirm it.
+            line = goldorLine();
+            r0 = relocks();
             ticks(60);
             hit("PROC");
-            c.eq("(c) the second proc a period after the first re-locked", 1, relocks() - r0);
-            ticks(60);
-            c.eq("(c) clock at line+162", line + 162, clock());
-            c.eq("(c) the Tick reads 0 on Goldor's next real hit", 0, remaining());
+            ticks(120);
+            hit("PROC");
+            c.eq("(c) clock at line+180", line + 180, clock());
+            c.eq("(c) procs on the line's phase need no re-lock", 0, relocks() - r0);
+            c.check("(c) both read 0", offsets().subList(Math.max(0, offsets().size() - 2), offsets().size()).equals(List.of(0, 0)),
+                    offsets().toString());
 
             // (d) Bunched pings: before each of Goldor's real hits one client tick carries none and the next carries three
-            // server ticks, the hit being the first of them, so it is read 2 ticks late. The phase must stay put.
+            // server ticks, the hit being the first of them, so its health drop is read 2 ticks late. The phase stays put.
             line = goldorLine();
-            ticks(30);
-            hit("SELF");
             r0 = relocks();
-            long hitPhase = clock();
-            for (int k = 1; k <= 4; k++) {
+            long hitPhase = line + 60;
+            for (int k = 0; k < 4; k++) {
                 long target = hitPhase + 60L * k;
                 int i = 0;
                 while (clock() < target - 1) {
@@ -165,7 +162,7 @@ final class TickFixCases {
                 tick(1);
             }
             c.eq("(d) on Goldor's real tick after the bunched hits the Tick reads 0", 0, remaining());
-            c.eq("(d) no re-lock after the first hit", 0, relocks() - r0);
+            c.eq("(d) no re-lock", 0, relocks() - r0);
             List<Integer> off = offsets();
             List<Integer> later = off.subList(Math.max(0, off.size() - 4), off.size());
             c.check("(d) the four bunched hits read 2 ticks after the phase", later.size() == 4
