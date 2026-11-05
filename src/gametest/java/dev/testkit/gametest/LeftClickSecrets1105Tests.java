@@ -137,6 +137,14 @@ public class LeftClickSecrets1105Tests implements FabricClientGameTest {
                 scenario.log(String.format(Locale.ROOT, "%s chest: %d use_item_on, %d player_action, %d set_carried_item, "
                         + "%d open_screen, container screen %s, chest still there %s", held, chestUses, chestDigs,
                         chestSwaps, opened, screen, chestThere));
+                if (!cheat) {
+                    // A legit jar: vanilla's attack (a dig START, no use). The lever is skipped: a held vanilla left
+                    // click simply mines it.
+                    long legitUses = ctx.computeOnClient(mc -> ((Number) Mod.staticCall(FEATURE, "uses")).longValue());
+                    check(legitUses == usesBefore && chestUses == 0 && opened == 0, "the feature acted on a legit jar");
+                    check(chestDigs >= 1, "the legit left click sent no dig - the click never ran, nothing was tested");
+                    return;
+                }
 
                 // ---- the lever: one press, then held for 15 ticks
                 aim(ctx, lever, new Vec3(bx + 0.8, SURFACE_Y + 1.5, Z + 0.5));
