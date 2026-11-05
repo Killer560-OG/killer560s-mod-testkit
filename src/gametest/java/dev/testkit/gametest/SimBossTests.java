@@ -1957,10 +1957,10 @@ public class SimBossTests implements FabricClientGameTest {
                 f.add("dragon " + (i + 3) + " never spawned");
                 return;
             }
-            for (int h = 0; h < 8; h++) {
-                serverRun(ctx, s -> ModUnderTest.staticCall(FIGHT, "testHit", new Class<?>[]{String.class}, new Object[]{"Dragon"}));
-                ctx.waitTicks(2);
-            }
+            // One hit kills a dragon since simitems-1105: eight hits here also killed the NEXT dragon the moment it spawned,
+            // so the loop ran out of dragons (ship7 merge of simdragons + simitems).
+            serverRun(ctx, s -> ModUnderTest.staticCall(FIGHT, "testHit", new Class<?>[]{String.class}, new Object[]{"Dragon"}));
+            ctx.waitTicks(2);
             ctx.waitTicks(25);
         }
         if (!until(ctx, "boss cleared", mc -> "DONE".equals(String.valueOf(call(FIGHT, "phase"))), 100)) {
