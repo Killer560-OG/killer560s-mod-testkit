@@ -1025,6 +1025,12 @@ public class SimBloodRushTests implements FabricClientGameTest {
                             continue;
                         }
                         Vec3 eye = new Vec3(f.getX() + 0.5, f.getY() + 1.62, f.getZ() + 0.5);
+                        // The depth check builds its wall 1.2-2.8 blocks out and never inside the box (inflated 0.5): a
+                        // view 4-7 from a big box's CENTER stood 2.2 from its face, the wall came out 0 blocks and the
+                        // unwalled box read as 122201 px "through the wall" (ship3 gate, 26.3 cheat, Waterfall, 2026-11-04).
+                        if (b.inflate(0.5).distanceToSqr(eye) < 3.2 * 3.2) {
+                            continue;
+                        }
                         boolean seen = true;
                         for (int k = 1; k < 48 && seen; k++) {
                             Vec3 p = eye.lerp(c, k / 48.0);
@@ -1455,6 +1461,10 @@ public class SimBloodRushTests implements FabricClientGameTest {
             }
             return null;
         });
+        if (wall.size() < 3) {
+            problems.add("no room for a wall between the view point and the box (" + wall.size() + " block(s))");
+            return;
+        }
         ctx.waitFor(mc -> wall.stream().allMatch(p -> mc.level.getBlockState(p).is(net.minecraft.world.level.block.Blocks.STONE)),
                 200);
         ctx.waitTicks(10);

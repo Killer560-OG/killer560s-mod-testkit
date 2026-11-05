@@ -162,7 +162,7 @@ function Stop-TestServers([string]$why) {
 # (gate-1104c, 2026-11-04) sat at the title screen for two hours under a 3600 s deadline: the client never ran a test
 # and nothing ended it. Everything below gradlew.bat (wrapper, daemon, client, its GrimAC server) is found by parent pid
 # (a dead parent's children keep its pid as their ParentProcessId) plus this checkout's clients and servers by command
-# line, and each is ended with taskkill /T /F. Never this script or anything above it.
+# line, and each is ended with taskkill /F (no /T, see below). Never this script or anything above it.
 function Get-RunTree([int]$rootPid) {
     $all = @(Get-CimInstance Win32_Process -OperationTimeoutSec 30 -ErrorAction SilentlyContinue)
     $kids = @{}
@@ -171,6 +171,8 @@ function Get-RunTree([int]$rootPid) {
         if (-not $kids.ContainsKey($pp)) { $kids[$pp] = New-Object System.Collections.ArrayList }
         [void]$kids[$pp].Add($p)
     }
+    $born = @{}
+    foreach ($p in $all) { if ($p.CreationDate) { $born[[int]$p.ProcessId] = $p.CreationDate } }
     $seen = @{}
     $queue = New-Object System.Collections.Queue
     if ($rootPid -gt 0) { $queue.Enqueue($rootPid) }
@@ -179,7 +181,12 @@ function Get-RunTree([int]$rootPid) {
         $id = [int]$queue.Dequeue()
         if ($seen.ContainsKey($id) -or $id -eq $PID) { continue }
         $seen[$id] = $true
-        if ($kids.ContainsKey($id)) { foreach ($k in $kids[$id]) { $queue.Enqueue([int]$k.ProcessId) } }
+        # A child must be younger than its parent: Windows keeps a dead parent's PID in ParentProcessId, and once that PID
+        # is reused by a process in this tree, the orphans of the dead one (another run's Gradle daemon, its client) looked
+        # like ours and were killed with it (2026-11-04: other agents' runs died "Gradle build daemon disappeared").
+        if ($kids.ContainsKey($id)) { foreach ($k in $kids[$id]) {
+            if ($born.ContainsKey($id) -and $k.CreationDate -and $k.CreationDate -lt $born[$id]) { continue }
+            $queue.Enqueue([int]$k.ProcessId) } }
     }
     $names = @{}
     foreach ($p in $all) { $names[[int]$p.ProcessId] = $p.Name }
@@ -190,7 +197,8 @@ function Stop-RunTree([string]$why) {
     $tree = @(Get-RunTree $proc.Id)
     foreach ($t in $tree) {
         Write-Host "  killing $($t.Name) pid $($t.Id) ($why)"
-        & taskkill.exe /PID $t.Id /T /F 2>&1 | Out-Null
+        # No /T: taskkill's own tree walk trusts reused parent PIDs (see Get-RunTree); the tree is already listed.
+        & taskkill.exe /PID $t.Id /F 2>&1 | Out-Null
     }
     Start-Sleep -Seconds 2
     $left = @(Get-RunTree $proc.Id | Where-Object { Get-Process -Id $_.Id -ErrorAction SilentlyContinue })
