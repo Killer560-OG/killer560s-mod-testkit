@@ -251,7 +251,13 @@ final class BazaarOrderHelperCases {
             c.ctx().waitTicks(4);
 
             expect(c, "fresh", List.of(10, 11), List.of(12, 13));
+            // Up to three shots: under gate load one shot read slot 16 with a black top-right corner (a frame caught
+            // mid-draw; it passed alone on the same jar), so judge the first shot whose four corners agree.
             String ex = outlines(c, "expired").get(16);
+            for (int n = 1; n < 3 && ex.startsWith("mixed:"); n++) {
+                c.ctx().waitTicks(2);
+                ex = outlines(c, "expired-" + n).get(16);
+            }
             c.check(String.format("%06X", EXPIRED).equals(ex), "expired order outline " + ex + ", want "
                     + String.format("%06X", EXPIRED));
             String tExpired = tooltip(c, 16);
