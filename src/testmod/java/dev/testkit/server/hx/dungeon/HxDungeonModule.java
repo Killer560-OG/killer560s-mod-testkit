@@ -147,11 +147,15 @@ public final class HxDungeonModule implements HxModule {
         return new JsonPrimitive(state);
     }
 
-    /** A server teleport to x, y, z with an absolute yaw/pitch - what {@code /tp} does, but answered synchronously. */
+    /** A server teleport to x, y, z with an absolute yaw/pitch - what {@code /tp} does, but answered synchronously.
+     *  Optional {@code relRot: true} sends the look RELATIVE (yaw/pitch are then the change, usually 0/0): what Hypixel
+     *  sends for a teleport within about 1 s of the one before (leaprot-1104). */
     private static JsonElement tp(MinecraftServer server, JsonObject a) {
         net.minecraft.server.level.ServerPlayer sp = dev.testkit.server.hx.HxPrimitives.player(server, a);
+        boolean rel = a.has("relRot") && a.get("relRot").getAsBoolean();
         sp.teleportTo(server.overworld(), a.get("x").getAsDouble(), a.get("y").getAsDouble(), a.get("z").getAsDouble(),
-                java.util.Set.<net.minecraft.world.entity.Relative>of(), a.get("yaw").getAsFloat(),
+                rel ? java.util.Set.of(net.minecraft.world.entity.Relative.Y_ROT, net.minecraft.world.entity.Relative.X_ROT)
+                        : java.util.Set.<net.minecraft.world.entity.Relative>of(), a.get("yaw").getAsFloat(),
                 a.get("pitch").getAsFloat(), false);
         return null;
     }

@@ -180,6 +180,7 @@ public final class HxPrimitives implements HxModule {
         HxBridge.register("particle", HxPrimitives::particle);
         HxBridge.register("give", HxPrimitives::give);
         HxBridge.register("player.state", HxPrimitives::playerState);
+        HxBridge.register("player.look", HxPrimitives::playerLook);
         HxBridge.register("stand", HxPrimitives::stand);
         HxBridge.register("entity.remove", HxPrimitives::entityRemove);
         HxBridge.register("entity.move", HxPrimitives::entityMove);
@@ -416,6 +417,18 @@ public final class HxPrimitives implements HxModule {
      * the last input the client sent, the open menu (id, class, every slot as "id*count" or "", the carried stack) and the
      * 41 inventory slots. Read without waiting for a client tick, unlike {@code data get entity}.
      */
+    /** Sets a player's look on the server (args player, yaw, pitch; body and head), for a fake player whose look the
+     *  client must see (leaprot-1104: the leaped-to teammate's look). No teleport packet is sent. */
+    private static JsonElement playerLook(MinecraftServer s, JsonObject a) {
+        ServerPlayer p = player(s, a);
+        float yaw = a.get("yaw").getAsFloat();
+        p.setYRot(yaw);
+        p.setYHeadRot(yaw);
+        p.setYBodyRot(yaw);
+        p.setXRot(a.get("pitch").getAsFloat());
+        return null;
+    }
+
     private static JsonElement playerState(MinecraftServer s, JsonObject a) {
         ServerPlayer p = player(s, a);
         JsonObject o = new JsonObject();
@@ -423,6 +436,8 @@ public final class HxPrimitives implements HxModule {
         o.addProperty("y", p.getY());
         o.addProperty("z", p.getZ());
         o.addProperty("onGround", p.onGround());
+        o.addProperty("yaw", p.getYRot());
+        o.addProperty("pitch", p.getXRot());
         o.addProperty("sprinting", p.isSprinting());
         o.addProperty("shift", p.isShiftKeyDown());
         o.addProperty("input", inputText(p.getLastClientInput()));
