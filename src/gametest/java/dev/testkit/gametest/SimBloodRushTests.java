@@ -984,6 +984,16 @@ public class SimBloodRushTests implements FabricClientGameTest {
                 .getThreadAllocatedBytes(threadId);
     }
 
+    /** The mod's allocation meter (rushalloc-1105): turns it on/off and returns the bytes since the last call; -1 on an older jar. */
+    private static long meter(ClientGameTestContext ctx, boolean on) {
+        try {
+            return ctx.computeOnClient(mc -> (Long) ModUnderTest.staticCall(BR, "allocMeterForTest",
+                    new Class<?>[]{boolean.class}, new Object[]{on}));
+        } catch (Throwable t) {
+            return -1;
+        }
+    }
+
     private static int computes(ClientGameTestContext ctx) {
         try {
             return ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(BR, "pathComputesForTest"));
@@ -1033,6 +1043,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
         // helper OFF, three alternating rounds of 200 ticks each.
         long on = 0;
         long off = 0;
+        long helperOwn = 0;
         ctx.waitTicks(40);
         int c0 = computes(ctx);
         ctx.waitTicks(200);
@@ -1044,11 +1055,14 @@ public class SimBloodRushTests implements FabricClientGameTest {
                 ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(BR_CFG), "setEnabled", enabled));
                 ctx.waitTicks(10);
                 int cb = computes(ctx);
+                meter(ctx, enabled);
                 long a0 = allocated(tid);
                 ctx.waitTicks(200);
                 long used = allocated(tid) - a0;
+                long own = meter(ctx, false);
                 if (enabled) {
                     on += used;
+                    helperOwn = own < 0 ? -1 : helperOwn + own;
                     c1 += computes(ctx) - cb;
                 } else {
                     off += used;
@@ -1059,6 +1073,28 @@ public class SimBloodRushTests implements FabricClientGameTest {
         ctx.waitTicks(20);
         facts.add(String.format(Locale.ROOT, "standing in %s: %d box(es); client thread allocates %.1f MB/min with the helper on, %.1f off, helper share %.1f MB/min; path rebuilt %d time(s) in 200 still ticks",
                 room, shown.size(), on * 2 / 1048576.0, off * 2 / 1048576.0, (on - off) * 2 / 1048576.0, still));
+        if (helperOwn >= 0) {
+            // rushalloc-1105: the helper's own tick + render, metered inside the mod (the on/off difference above swings by
+            // tens of MB a minute with the sim's own load).
+            double own = helperOwn * 2 / 1048576.0;
+            // The same with Show Learned Spots on (its default): the room's shipped and learned spots become boxes too.
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(BR_CFG), "setShowLearned", true));
+            ctx.waitTicks(20);
+            int learnedBoxes = parsed(ctx).size();
+            meter(ctx, true);
+            ctx.waitTicks(200);
+            double withLearned = meter(ctx, false) * 6 / 1048576.0;
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(BR_CFG), "setShowLearned", false));
+            ctx.waitTicks(20);
+            facts.add(String.format(Locale.ROOT, "helper's own tick + render allocate %.2f MB/min (metered, 600 ticks); "
+                    + "%.2f MB/min with Show Learned Spots on (%d box(es), 200 ticks)", own, withLearned, learnedBoxes));
+            // Before rushalloc-1105 it was 36 MB/min standing in an 8-box room (arrays, labels and the starred scan every
+            // other tick); after, 4-14 (it moves with the frame rate).
+            if (Math.max(own, withLearned) > 20) {
+                problems.add(String.format(Locale.ROOT, "the helper's own tick + render allocate %.1f MB/min (over 20)",
+                        Math.max(own, withLearned)));
+            }
+        }
         if (c0 >= 0 && still != 0) {
             problems.add("the path was rebuilt " + still + " time(s) over 200 ticks with nothing changing");
         }
