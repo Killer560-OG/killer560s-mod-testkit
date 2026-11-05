@@ -173,11 +173,30 @@ final class HxChestBot1104Cases {
         return new int[]{(int) Math.floor(at[0]), (int) Math.floor(at[1]), (int) Math.floor(at[2])};
     }
 
+    /**
+     * The line then the chest block, waited for. Retried (block cleared, island re-sent) because as the session's first
+     * case the claim was missed about one run in three (26.2 and 26.3 experimental, chestbot-1104: the line and the block
+     * both arrived, nothing was tracked) - the session's own start-up traffic, not the triggerbot under test.
+     */
     private static void claim(Session c, int[] p) {
-        c.hx().chat(UNCOVERED);
-        c.ctx().waitTicks(2);
-        setblock(c, p[0], p[1], p[2], "minecraft:chest");
-        c.waitUntil("claimed " + p[0] + " " + p[1] + " " + p[2],
-                mc -> (Boolean) Mod.staticCall(TC, "tracked", p[0], p[1], p[2]), 40);
+        for (int attempt = 1; ; attempt++) {
+            c.hx().chat(UNCOVERED);
+            c.ctx().waitTicks(2);
+            setblock(c, p[0], p[1], p[2], "minecraft:chest");
+            for (int i = 0; i < 40; i++) {
+                if (c.onClient(mc -> (Boolean) Mod.staticCall(TC, "tracked", p[0], p[1], p[2]))) {
+                    return;
+                }
+                c.ctx().waitTicks(1);
+            }
+            c.check(attempt < 3, "chest " + p[0] + " " + p[1] + " " + p[2] + " never claimed in 3 tries");
+            if (attempt >= 3) return;
+            c.note("claim of " + p[0] + " " + p[1] + " " + p[2] + " missed on try " + attempt + " (island "
+                    + c.onClient(mc -> String.valueOf(Mod.staticCall(STATE, "island"))) + ", server tick "
+                    + c.onClient(mc -> String.valueOf(Mod.staticCall("util.PerTickServerClock", "now"))) + "); retrying");
+            setblock(c, p[0], p[1], p[2], "minecraft:air");
+            c.ctx().waitTicks(10);
+            hollows(c);
+        }
     }
 }
