@@ -191,13 +191,26 @@ public class BlinkStressTests implements FabricClientGameTest {
 
     /** Charge on, stand {@code wait} ticks, fire sprinting. Returns {bank before, shot ticks, blocks in the firing tick}. */
     private static double[] chargeShot(ClientGameTestContext ctx, int wait, boolean sprint) {
+        return chargeShot(ctx, wait, 0, sprint);
+    }
+
+    /** As above, then {@link #waitBank} for {@code full}. */
+    private static double[] chargeShot(ClientGameTestContext ctx, int wait, int full, boolean sprint) {
         chargeOn(ctx);
         ctx.waitTicks(wait);
+        waitBank(ctx, full);
         long bank = cnum(ctx, "banked");
         double[] s = shootByPress(ctx, sprint);
         ctx.waitTicks(5);
         chargeOff(ctx);
         return new double[]{bank, s[1] == 1 ? s[2] : 0, s[0]};
+    }
+
+    /** Up to 60 ticks until {@code full} are banked: server lag pauses banking (the mod keeps the bank). */
+    private static void waitBank(ClientGameTestContext ctx, int full) {
+        for (int t = 0; t < 60 && cnum(ctx, "banked") < full; t++) {
+            ctx.waitTicks(1);
+        }
     }
 
     private static int setbacksDuring(ClientGameTestContext ctx, Runnable r) {
@@ -874,6 +887,9 @@ public class BlinkStressTests implements FabricClientGameTest {
                     tp(server, ctx, x - 14.5, SURFACE_Y, lz + 0.5, -90f);
                     chargeOn(ctx);
                     ctx.waitTicks(30);
+                    if (!lane.name().startsWith("water") && !lane.name().startsWith("cobweb")) {
+                        waitBank(ctx, 20);
+                    }
                     long bank = cnum(ctx, "banked");
                     if (lane.keyExtra() != null) {
                         holdExtra(ctx, lane.keyExtra(), true);
@@ -1562,7 +1578,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                     rows.add(server, scenario, ms + " ms hold", h[0] > 3 && h[1] == 20 && g < 0.5,
                             String.format(Locale.ROOT, "hold %d tick(s) moved %.2f, gap %.2f", (int) h[1], h[0], g));
                     tp(server, ctx, x - 15.5, SURFACE_Y, z + 0.5, -90f);
-                    double[] s = chargeShot(ctx, 30, true);
+                    double[] s = chargeShot(ctx, 30, 20, true);
                     ctx.waitTicks(20);
                     g = gap(server, ctx);
                     rows.add(server, scenario, ms + " ms shot", s[0] == 20 && s[1] == 20 && s[2] > 4.5 && g < 0.5,
@@ -2511,6 +2527,10 @@ public class BlinkStressTests implements FabricClientGameTest {
                 float[] mid = hudState(ctx);
                 java.nio.file.Path shot2 = ctx.takeScreenshot(dev.testkit.harness.Report.fileName("1026-blink-hud-bar-filling"));
                 ctx.waitTicks(25);
+                // Server lag pauses banking (the bank is kept), so wait for the full bank rather than a fixed time.
+                for (int t = 0; t < 60 && !"full".equals(ctx.computeOnClient(mc -> (String) Mod.field(HUD, "chargeState"))); t++) {
+                    ctx.waitTicks(1);
+                }
                 float[] full = hudState(ctx);
                 String fullState = ctx.computeOnClient(mc -> (String) Mod.field(HUD, "chargeState"));
                 pressCharge(ctx);
@@ -2520,7 +2540,12 @@ public class BlinkStressTests implements FabricClientGameTest {
                 ctx.waitTicks(1);
                 ctx.getInput().releaseKey(o -> o.keyUp);
                 ctx.waitTicks(10);
+                // Under server lag the shot first waits (up to 2 s) for the bank to be covered again, so give it that long.
                 float[] drained = hudState(ctx);
+                for (int t = 0; t < 60 && drained[1] >= 0.2f; t += 2) {
+                    ctx.waitTicks(2);
+                    drained = hudState(ctx);
+                }
                 chargeOff(ctx);
                 holdDown(ctx);
                 ctx.waitTicks(6);
