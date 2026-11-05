@@ -284,7 +284,7 @@ public class UiSuite implements FabricClientGameTest {
             "1018-ui-inventory-theme-settings",
             "1018-ui-ribbon-in-cosmetics"};
     static final String[] EW_NEARFACE_CASES = {"1321-ui-etherwarp-box-faces", "1322-ui-etherwarp-walk",
-            "1323-ui-etherwarp-back-edges", "1324-ui-etherwarp-nonfull"};
+            "1323-ui-etherwarp-back-edges", "1324-ui-etherwarp-nonfull", "1104-ui-etherwarp-thru"};
     /** On Teleport for the trails and the Auto Routes Progress HUD (mod trail-hud-1015, {@link TrailTeleportCases},
      *  {@link RoutesProgressHudCases}). Own block for merges. */
     static final String[] TRAIL_HUD_CASES = {"1042-ui-trail-teleport-ribbon", "1043-ui-trail-teleport-squares",
@@ -924,6 +924,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1322-ui-etherwarp-walk", EtherwarpFaceCases::walk);
                     UiCase.run(ctx, "1323-ui-etherwarp-back-edges", EtherwarpFaceCases::backEdges);
                     UiCase.run(ctx, "1324-ui-etherwarp-nonfull", EtherwarpFaceCases::nonFull);
+                    UiCase.run(ctx, "1104-ui-etherwarp-thru", EtherwarpFaceCases::thru);
                     // ---- On Teleport + Auto Routes Progress HUD (1042-1047) ----
                     UiCase.run(ctx, "1042-ui-trail-teleport-ribbon", TrailTeleportCases::ribbon);
                     UiCase.run(ctx, "1043-ui-trail-teleport-squares", TrailTeleportCases::squares);

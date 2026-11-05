@@ -488,6 +488,118 @@ final class EtherwarpFaceCases {
         c.check(bad.isEmpty(), bad.size() + " view(s) where the box did not show: " + bad);
     }
 
+    /**
+     * 1104-ui-etherwarp-thru (mod ewthru-1104, killer560 2026-11-04: "an option for our etherwarp to show the highlight of
+     * the actual whole block not just the parts it can see"). A stone target with a stone block right in front of it; the
+     * aim passes above the front block onto the target's top, so the target's near face is hidden behind the front block.
+     * Filled style, opaque magenta. Pixels of that covered face and of the visible top, against the overlay switched off:
+     * Show Through Blocks OFF must leave the covered face bare (and the top tinted, proving the overlay drew), ON must tint both.
+     */
+    static void thru(UiCase c) throws Exception {
+        List<AutoCloseable> restore = new ArrayList<>();
+        boolean hideWas = c.onClient(mc -> dev.testkit.compat.McCompat.hudHidden(mc));
+        try {
+            c.onClient(mc -> {
+                restore.add(0, Mod.with(EWC, "Enabled", true));
+                restore.add(0, Mod.with(EWC, "ShowWhenFailed", true));
+                restore.add(0, Mod.with(EWC, "FullBlock", true));
+                restore.add(0, Mod.with(EWC, "ShowThroughBlocks", false));
+                restore.add(0, Mod.with(EWC, "SafeColor", 0xFFFF00FF));
+                restore.add(0, Mod.with(EWC, "FailedColor", 0xFFFF00FF));
+                restore.add(0, Mod.with(EWC, "Style", Mod.enumValue(STYLE, "FILLED")));
+                dev.testkit.compat.McCompat.setHudHidden(mc, true);
+                return null;
+            });
+            DocDungeonsCases.command(c, "tp @a " + CX + " 120 " + CZ);
+            c.ticks(20);
+            DocDungeonsCases.command(c, "fill 330 99 330 350 99 350 minecraft:stone");
+            DocDungeonsCases.command(c, "fill 330 100 330 350 108 350 minecraft:air");
+            DocDungeonsCases.command(c, "setblock " + CX + " 100 " + CZ + " minecraft:stone");
+            DocDungeonsCases.command(c, "setblock " + (CX - 1) + " 100 " + CZ + " minecraft:stone");
+            double px = CX + 0.5 - 2.6, pz = CZ + 0.5;
+            DocDungeonsCases.command(c, "setblock " + (int) Math.floor(px) + " 100 " + CZ + " minecraft:stone");
+            DocDungeonsCases.command(c, "clear @a");
+            DocDungeonsCases.command(c,
+                    "give @a minecraft:diamond_shovel[custom_data={id:\"ASPECT_OF_THE_VOID\",ethermerge:1}]");
+            DocDungeonsCases.flightOff(c);
+            DocDungeonsCases.command(c, String.format(Locale.ROOT, "tp @a %.4f 101 %.4f -90 30", px, pz));
+            c.onClient(mc -> {
+                mc.player.getInventory().setSelectedSlot(0);
+                mc.options.keyShift.setDown(true);
+                return null;
+            });
+            DocDungeonsCases.await(c, "crouching on the step", mc -> mc.player != null && mc.player.onGround()
+                    && mc.player.isCrouching() && Math.abs(mc.player.getY() - 101) < 1e-6, 100);
+            final Vec3 aimAt = new Vec3(CX + 0.5, 100.95, CZ + 0.5);
+            for (int i = 0; i < 10; i++) {
+                c.onClient(mc -> {
+                    Vec3 d = aimAt.subtract(mc.player.getEyePosition());
+                    float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+                    float pitch = (float) Math.toDegrees(-Math.atan2(d.y, Math.sqrt(d.x * d.x + d.z * d.z)));
+                    mc.player.setYRot(yaw);
+                    mc.player.setXRot(pitch);
+                    mc.player.yRotO = yaw;
+                    mc.player.xRotO = pitch;
+                    mc.player.setYHeadRot(yaw);
+                    return null;
+                });
+                c.ticks(1);
+            }
+            c.ticks(10);
+            String outcome = c.onClient(mc -> (String) Mod.staticCall(EW, "lastOutcome"));
+            c.check(outcome.startsWith("drawn " + CX + ", 100, " + CZ), "overlay not on the target: " + outcome);
+            BufferedImage offThru = grab(c, "thru-off", false);
+            c.onClient(mc -> {
+                Mod.set(EWC, "setShowThroughBlocks", true);
+                return null;
+            });
+            c.ticks(3);
+            BufferedImage onThru = grab(c, "thru-on", false);
+            c.onClient(mc -> {
+                Mod.set(EWC, "setEnabled", false);
+                return null;
+            });
+            c.ticks(3);
+            BufferedImage none = grab(c, "overlay-off", false);
+            Cam cam = c.onClient(EtherwarpFaceCases::camera);
+            int w = none.getWidth(), h = none.getHeight();
+            // {changed with the switch OFF, changed with it ON, usable} on the covered near face and on the visible top
+            int[][] r = new int[2][3];
+            for (int face = 0; face < 2; face++) {
+                for (int i = 0; i < 5; i++) {
+                    for (int j = 0; j < 5; j++) {
+                        double a = 0.15 + 0.7 * i / 4.0, b = 0.15 + 0.7 * j / 4.0;
+                        Vec3 v = face == 0 ? new Vec3(CX, 100 + a, CZ + b) : new Vec3(CX + a, 101, CZ + b);
+                        int[] p = cam.project(v, w, h);
+                        if (p == null) {
+                            continue;
+                        }
+                        r[face][2]++;
+                        r[face][0] += dev.testkit.gametest.ui.MapHeadCases.changed(offThru.getRGB(p[0], p[1]), none.getRGB(p[0], p[1])) ? 1 : 0;
+                        r[face][1] += dev.testkit.gametest.ui.MapHeadCases.changed(onThru.getRGB(p[0], p[1]), none.getRGB(p[0], p[1])) ? 1 : 0;
+                    }
+                }
+            }
+            c.note(String.format(Locale.ROOT, "covered face: tinted OFF %d/%d, ON %d/%d; visible top: OFF %d/%d, ON %d/%d",
+                    r[0][0], r[0][2], r[0][1], r[0][2], r[1][0], r[1][2], r[1][1], r[1][2]));
+            c.check(r[0][2] >= 15 && r[1][2] >= 15, "too few usable samples: " + r[0][2] + " / " + r[1][2]);
+            c.check(r[1][0] >= 0.85 * r[1][2] && r[1][1] >= 0.85 * r[1][2], "the overlay did not tint the visible top");
+            c.check(r[0][0] <= 0.1 * r[0][2], "OFF tinted the covered face: " + r[0][0] + "/" + r[0][2]);
+            c.check(r[0][1] >= 0.85 * r[0][2], "ON did not tint the covered face: " + r[0][1] + "/" + r[0][2]);
+        } finally {
+            c.onClient(mc -> {
+                mc.options.keyShift.setDown(false);
+                dev.testkit.compat.McCompat.setHudHidden(mc, hideWas);
+                return null;
+            });
+            for (AutoCloseable r : restore) {
+                r.close();
+            }
+            DocDungeonsCases.command(c, "fill 330 99 330 350 108 350 minecraft:air");
+            DocDungeonsCases.command(c, "clear @a");
+        }
+    }
+
     private static String nonFullView(UiCase c, String block, String above, boolean full, int angle, String label,
                                       boolean keep) throws Exception {
         DocDungeonsCases.command(c, "tp @a " + CX + " 120 " + CZ);
