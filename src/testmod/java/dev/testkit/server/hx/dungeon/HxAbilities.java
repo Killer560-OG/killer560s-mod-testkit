@@ -88,6 +88,7 @@ public final class HxAbilities {
             return;
         }
         registered = true;
+        HxLaunchItems.register();
         UseItemCallback.EVENT.register((player, level, hand) -> player instanceof ServerPlayer sp && enabled
                 ? onUse(sp, hand) : InteractionResult.PASS);
         UseBlockCallback.EVENT.register((player, level, hand, hit) -> {
@@ -136,6 +137,7 @@ public final class HxAbilities {
         o.addProperty("dungeonBreaks", dungeonBreaks);
         o.addProperty("witherImpacts", witherImpacts);
         o.addProperty("witherHits", witherHits);
+        HxLaunchItems.stats(o);
         if (lastLanding != null) {
             JsonArray l = new JsonArray();
             l.add(lastLanding.x);
@@ -156,6 +158,11 @@ public final class HxAbilities {
         witherImpacts = 0;
         witherHits = 0;
         lastLanding = null;
+        HxLaunchItems.reset();
+    }
+
+    static String idOf(ItemStack stack) {
+        return skyblockId(stack);
     }
 
     private static String skyblockId(ItemStack stack) {
@@ -173,6 +180,9 @@ public final class HxAbilities {
     private static InteractionResult onUse(ServerPlayer sp, InteractionHand hand) {
         ItemStack held = sp.getItemInHand(hand);
         String id = skyblockId(held);
+        if (HxLaunchItems.use(sp, id)) {
+            return InteractionResult.SUCCESS;
+        }
         if ("HYPERION".equals(id)) {
             witherImpact(sp);
             return InteractionResult.SUCCESS;

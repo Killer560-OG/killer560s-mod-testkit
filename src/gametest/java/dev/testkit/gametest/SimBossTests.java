@@ -65,6 +65,14 @@ import java.util.function.Predicate;
  * gate walls, redstone lamps on Lights, the plate on its block, the Simon Says frame, Storm's pillars as diorite); the
  * Arrows frames hang from P1; its lava does not move in 200 ticks; Lights lights by Hypixel's rule and stays so; Simon
  * Says plays through on the real wall; a gate opening clears only its barriers.</li>
+ * <li>{@code 1105-boss-onehit} (simitems-1105, killer560 2026-11-05: "my mage beam should do all the damage for a phase of
+ * any boss andd term as well"): one weapon hit (the Mage beam's own {@code hurtServer} with his player-attack source,
+ * {@code BossFight.testWeaponHit}) is each boss's whole damage part: a stunned Maxor's bar drops to the stun's floor and
+ * he enrages within 12 ticks; a pinned Storm's bar drops to 0.45; Goldor in the core goes down; Necron's first drop
+ * (1 to 0.8) lands; a P5 dragon dies. Before each hit the bar is proved to hold still with no hit. A real Terminator
+ * volley at Necron drops his bar the same way.</li>
+ * <li>{@code 1105-boss-nostray} ("necron took a bunch of damage withotu me hitting him"): Necron with lava under him and
+ * fire and lava damage offered to him keeps his bar for 60 ticks, and the refusal is logged with its source.</li>
  * <li>{@code 1101-boss-portal}: a generated F7, /goto Blood, the portal opens (the sim has no Watcher yet: five seconds in
  * Blood), stepping in starts P1 with the floor's map code unchanged (the floor is not reset).</li>
  * </ul>
@@ -86,6 +94,8 @@ public class SimBossTests implements FabricClientGameTest {
     private static final String CAPTURE = "1104-boss-capture";
     private static final String DRAGONS = "1105-boss-dragons";
     private static final String WD = "com.killer560.hub.witherdragons.";
+    private static final String ONEHIT = "1105-boss-onehit";
+    private static final String NOSTRAY = "1105-boss-nostray";
     private static final String MAXOR = "com.killer560.hub.maxor.MaxorCrystalsFeature";
 
     private static final String B = "com.killer560.hub.bosssim.";
@@ -108,7 +118,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -142,6 +152,8 @@ public class SimBossTests implements FabricClientGameTest {
                     case RULES -> rules(ctx, f);
                     case CAPTURE -> capture(ctx, f);
                     case DRAGONS -> dragons(ctx, f);
+                    case ONEHIT -> oneHit(ctx, f);
+                    case NOSTRAY -> noStray(ctx, f);
                     default -> ap3(ctx, f);
                 }
             } catch (Throwable t) {
@@ -164,6 +176,192 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     // ============================================================================================== cases
+
+    private static float bar() {
+        return ((Number) call(FIGHT, "barProgress")).floatValue();
+    }
+
+    private static float testBar(String boss) {
+        return ((Number) ModUnderTest.staticCall(FIGHT, "testBar", new Class<?>[]{String.class}, new Object[]{boss})).floatValue();
+    }
+
+    private static boolean weaponHit(ClientGameTestContext ctx, String boss) {
+        boolean[] ok = {false};
+        serverRun(ctx, s -> ok[0] = (Boolean) ModUnderTest.staticCall(FIGHT, "testWeaponHit", new Class<?>[]{String.class},
+                new Object[]{boss}));
+        ctx.waitTicks(2);
+        return ok[0];
+    }
+
+    /** The bar holds still for {@code ticks} with no hit (a refresh lands at most every 20). */
+    private static void barHolds(ClientGameTestContext ctx, List<String> f, String who, int ticks) {
+        ctx.waitTicks(21);
+        float a = bar();
+        ctx.waitTicks(ticks);
+        float b = bar();
+        println(ONEHIT, who + " bar with no hit: " + a + " -> " + b);
+        if (Math.abs(a - b) > 0.001f) {
+            f.add(who + "'s bar moved with no hit: " + a + " -> " + b);
+        }
+    }
+
+    private static void oneHit(ClientGameTestContext ctx, List<String> f) {
+        // Maxor: the laser's stun (the rule step), then one hit.
+        long mark = start(ctx, "P1", true);
+        if (!waitChat(ctx, mark, "[BOSS] Maxor: WELL! WELL! WELL! LOOK WHO'S HERE!", 40)) {
+            f.add("Maxor's first line never came");
+            return;
+        }
+        long stun = LogTap.mark();
+        serverRun(ctx, s -> call(FIGHT, "testLaser"));
+        barHolds(ctx, f, "Maxor (stunned)", 40);
+        float m0 = bar();
+        expect(f, "a hit on stunned Maxor landed", weaponHit(ctx, "Maxor"), true);
+        ctx.waitTicks(21);
+        float m1 = bar();
+        println(ONEHIT, "Maxor bar " + m0 + " -> " + m1 + " from one hit");
+        if (!(m1 < m0 - 0.05f)) {
+            f.add("one hit on stunned Maxor did not drop his bar (" + m0 + " -> " + m1 + ")");
+        }
+        expect(f, "Maxor enraged after one hit", waitChat(ctx, stun, "Maxor is enraged!", 20), true);
+        cleanup(ctx);
+        // Storm: a crush (the rule step) pins him; one hit is the pin's damage. Read in the same server task, before his
+        // enrage (0-60 ticks after the crush) could set the bar itself.
+        start(ctx, "P2", true);
+        if (!until(ctx, "Storm up", mc -> ModUnderTest.staticCall(FIGHT, "bossPos", new Class<?>[]{String.class},
+                new Object[]{"Storm"}) != null, 300)) {
+            f.add("Storm never appeared");
+            return;
+        }
+        float[] st = new float[3];
+        serverRun(ctx, s -> {
+            ModUnderTest.staticCall(FIGHT, "testCrush", new Class<?>[]{String.class}, new Object[]{"Purple"});
+            st[0] = testBar("Storm");
+            st[2] = (Boolean) ModUnderTest.staticCall(FIGHT, "testWeaponHit", new Class<?>[]{String.class},
+                    new Object[]{"Storm"}) ? 1f : 0f;
+            st[1] = testBar("Storm");
+        });
+        println(ONEHIT, "Storm (pinned) " + st[0] + " -> " + st[1] + " from one hit");
+        expect(f, "a hit on pinned Storm landed", st[2], 1.0f);
+        if (!(st[0] > 0.9f && Math.abs(st[1] - 0.45f) < 0.001f)) {
+            f.add("one hit on pinned Storm did not take his bar from 0.95 to 0.45 (" + st[0] + " -> " + st[1] + ")");
+        }
+        cleanup(ctx);
+        // Goldor in the core: one hit and he is down.
+        mark = start(ctx, "CORE", true);
+        tp(ctx, 54.5, 107, 90.5, 0, 0);
+        if (!waitChat(ctx, mark, "[BOSS] Goldor: You have done it, you destroyed the factory...", 400)) {
+            f.add("walking into the core never brought Goldor's arrival lines");
+            return;
+        }
+        long g = LogTap.mark();
+        ctx.waitTicks(20);
+        expect(f, "a hit on Goldor landed", weaponHit(ctx, "Goldor"), true);
+        ctx.waitTicks(3);
+        boolean down = false;
+        for (String l : LogTap.since(g)) {
+            down |= l.contains("[BossSim] Goldor down");
+        }
+        expect(f, "Goldor down from one hit", down, true);
+        cleanup(ctx);
+        // Necron: his first drop waits for the hit, and one real Terminator volley deals it.
+        start(ctx, "P4", true);
+        if (!until(ctx, "Necron's first drop part (t 80)", mc -> ((Number) call(FIGHT, "phaseTick")).intValue() >= 82, 200)) {
+            f.add("P4 never reached t 82");
+            return;
+        }
+        barHolds(ctx, f, "Necron", 10);
+        float n0 = bar();
+        boolean term = terminatorAt(ctx, "Necron");
+        ctx.waitTicks(10);
+        if (!term || bar() > n0 - 0.1f) {
+            println(ONEHIT, "the Terminator volley " + (term ? "missed" : "was not fired") + "; a weapon hit instead");
+            f.add("a real Terminator volley at Necron did not deal his drop (" + n0 + " -> " + bar() + ")");
+            weaponHit(ctx, "Necron");
+        }
+        ctx.waitTicks(21);
+        float n1 = bar();
+        println(ONEHIT, "Necron bar " + n0 + " -> " + n1);
+        if (Math.abs(n1 - 0.8f) > 0.011f) {
+            f.add("Necron's bar after one volley: " + n1 + ", want 0.8");
+        }
+        cleanup(ctx);
+        // A P5 dragon: one hit kills it.
+        start(ctx, "P5", true);
+        if (!until(ctx, "a dragon up", mc -> !mc.level.getEntitiesOfClass(net.minecraft.world.entity.boss.enderdragon.EnderDragon.class,
+                new AABB(0, 0, 20, 110, 60, 150), d -> d.getHealth() > 0).isEmpty(), 400)) {
+            f.add("no dragon spawned");
+            return;
+        }
+        long d = LogTap.mark();
+        expect(f, "a hit on a dragon landed", weaponHit(ctx, "Dragon"), true);
+        ctx.waitTicks(3);
+        boolean dead = false;
+        for (String l : LogTap.since(d)) {
+            dead |= l.contains("dragon down at P5");
+        }
+        expect(f, "the dragon down from one hit", dead, true);
+    }
+
+    /** Fires a real Terminator volley (the sim's own right click) at {@code boss} from 6 blocks; true if it fired. */
+    private static boolean terminatorAt(ClientGameTestContext ctx, String boss) {
+        double[] b = (double[]) ModUnderTest.staticCall(FIGHT, "bossPos", new Class<?>[]{String.class}, new Object[]{boss});
+        if (b == null) {
+            return false;
+        }
+        serverRun(ctx, s -> s.getPlayerList().getPlayers().get(0).setItemInHand(InteractionHand.MAIN_HAND,
+                (net.minecraft.world.item.ItemStack) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimItems", "build",
+                        new Class<?>[]{String.class}, new Object[]{"TERMINATOR"})));
+        command(ctx, String.format(Locale.ROOT, "tp @p %.2f %.2f %.2f", b[0], b[1], b[2] - 6.0));
+        ctx.waitTicks(3);
+        return ctx.computeOnClient(mc -> {
+            Entity w = null;
+            for (Entity e : mc.level.getEntitiesOfClass(net.minecraft.world.entity.boss.wither.WitherBoss.class,
+                    mc.player.getBoundingBox().inflate(16))) {
+                if (w == null || e.distanceTo(mc.player) < w.distanceTo(mc.player)) {
+                    w = e;
+                }
+            }
+            if (w == null) {
+                return false;
+            }
+            Vec3 d = w.getBoundingBox().getCenter().subtract(mc.player.getEyePosition());
+            mc.player.setYRot((float) Math.toDegrees(Math.atan2(-d.x, d.z)));
+            mc.player.setXRot((float) -Math.toDegrees(Math.atan2(d.y, Math.hypot(d.x, d.z))));
+            mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
+            return true;
+        });
+    }
+
+    private static void noStray(ClientGameTestContext ctx, List<String> f) {
+        start(ctx, "P4", true);
+        if (!until(ctx, "Necron's first drop part (t 80)", mc -> ((Number) call(FIGHT, "phaseTick")).intValue() >= 82, 200)) {
+            f.add("P4 never reached t 82");
+            return;
+        }
+        ctx.waitTicks(21);
+        float a = bar();
+        long mark = LogTap.mark();
+        boolean offered = false;
+        for (int i = 0; i < 3; i++) {
+            boolean[] ok = {false};
+            serverRun(ctx, s -> ok[0] = (Boolean) ModUnderTest.staticCall(FIGHT, "testStrayDamage",
+                    new Class<?>[]{String.class}, new Object[]{"Necron"}));
+            offered |= ok[0];
+            ctx.waitTicks(20);
+        }
+        float b = bar();
+        boolean logged = false;
+        for (String l : LogTap.since(mark)) {
+            logged |= l.contains("[BossSim] refused") && (l.contains("lava") || l.contains("inFire"));
+        }
+        println(NOSTRAY, "Necron bar " + a + " -> " + b + " over 60 ticks of lava and fire; refusal logged " + logged);
+        expect(f, "lava and fire damage offered to Necron", offered, true);
+        expect(f, "the refusal logged with its source", logged, true);
+        if (Math.abs(a - b) > 0.001f) {
+            f.add("Necron's bar moved with no hit from him: " + a + " -> " + b);
+        }
+    }
 
     private static void p1p2(ClientGameTestContext ctx, List<String> f) {
         long mark = start(ctx, "P1", true);
@@ -985,10 +1183,9 @@ public class SimBossTests implements FabricClientGameTest {
                 f.add("dragon " + (i + 1) + " never spawned");
                 return;
             }
-            for (int h = 0; h < 8; h++) {
-                serverRun(ctx, s -> ModUnderTest.staticCall(FIGHT, "testHit", new Class<?>[]{String.class}, new Object[]{"Dragon"}));
-                ctx.waitTicks(2);
-            }
+            // One hit is a dragon's whole damage since simitems-1105.
+            serverRun(ctx, s -> ModUnderTest.staticCall(FIGHT, "testHit", new Class<?>[]{String.class}, new Object[]{"Dragon"}));
+            ctx.waitTicks(2);
             killed++;
             ctx.waitTicks(25);
         }
@@ -1246,14 +1443,20 @@ public class SimBossTests implements FabricClientGameTest {
         int before = (Integer) call(LAVA_CLASS, "bounces");
         tp(ctx, 30.5, 109, 90.5, 0, 0);
         double[] top = {0};
+        int[] hurt = {0};
         boolean bounced = until(ctx, "a lava bounce", mc -> {
+            hurt[0] = Math.max(hurt[0], mc.player.hurtTime);
             top[0] = Math.max(top[0], mc.player.getY());
             return (Integer) call(LAVA_CLASS, "bounces") > before && mc.player.getY() > 108.5;
         }, 80);
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 40; i++) {
             ctx.waitTick();
             top[0] = Math.max(top[0], ctx.computeOnClient(mc -> mc.player.getY()));
+            hurt[0] = Math.max(hurt[0], ctx.computeOnClient(mc -> mc.player.hurtTime));
         }
+        // simitems-1105 ("everytime i hit lava in the sim it moves my pov like im taking damage even though i am not"):
+        // the bounces (several in 50 ticks of lava) send no hurt tilt.
+        expect(f, "his hurt tilt (hurtTime) over every lava bounce", hurt[0], 0);
         println(LAVA, "bounces " + ((Integer) call(LAVA_CLASS, "bounces") - before) + ", highest y " + top[0]);
         if (!bounced) {
             f.add("standing in P3's lava never bounced him");
