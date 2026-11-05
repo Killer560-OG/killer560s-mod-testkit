@@ -45,6 +45,10 @@ import java.util.function.Predicate;
  * second that the next set can be picked up"). Both crystals placed by real clicks reads 2/2; it stays 2/2 until the
  * next set's first crystal is on a tower on the client, reads 0/2 on that very tick (the tower crystal, not the backstop
  * countdown, must be what reset it), and one of the new set placed reads 1/2.</li>
+ * <li>{@code 1105-boss-crystalwalk} (simcrystal-1105, owner: Hypixel's crystals need no click near them): 2 blocks from a
+ * tower crystal nothing is picked up; walking within 1 block picks it up; a carried crystal is not placed 2 blocks from a
+ * pad but is within 1; a right click (crystal 0) and a left click (crystal 1) from 3 blocks pick up. Each asserts the tower
+ * crystal is gone, the Energy Crystal star is in slot 8 and the chat line came.</li>
  * <li>{@code 1103-boss-moves} (bossparity-1103, ADM's facts): where each boss is over time. Maxor holds at (73, 226, 53)
  * until t 84, then flies at the player at no more than 0.9 a tick; Storm flies his opening route at 0.4 a tick, parks
  * at (102.375, 183, 52.375) and chases from t 647, and Giga Lightning reaches an exposed player; Goldor walks his loop from
@@ -80,6 +84,7 @@ public class SimBossTests implements FabricClientGameTest {
     private static final String MOVES = "1103-boss-moves";
     private static final String RULES = "1103-boss-rules";
     private static final String CAPTURE = "1104-boss-capture";
+    private static final String CRYS_WALK = "1105-boss-crystalwalk";
     private static final String MAXOR = "com.killer560.hub.maxor.MaxorCrystalsFeature";
 
     private static final String B = "com.killer560.hub.bosssim.";
@@ -102,7 +107,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, CRYS_WALK};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -135,6 +140,7 @@ public class SimBossTests implements FabricClientGameTest {
                     case MOVES -> moves(ctx, f);
                     case RULES -> rules(ctx, f);
                     case CAPTURE -> capture(ctx, f);
+                    case CRYS_WALK -> crystalWalk(ctx, f);
                     default -> ap3(ctx, f);
                 }
             } catch (Throwable t) {
@@ -588,6 +594,54 @@ public class SimBossTests implements FabricClientGameTest {
             }
             return "ok";
         });
+    }
+
+    private static void crystalWalk(ClientGameTestContext ctx, List<String> f) {
+        long m = start(ctx, "P1", true);
+        if (!until(ctx, "both crystals on their towers", mc -> (Boolean) fight("crystalOnTower", 0) && (Boolean) fight("crystalOnTower", 1), 160)) {
+            f.add("the crystals never appeared");
+            return;
+        }
+        tp(ctx, 64.5, 238, 48.5, 0, 0);
+        ctx.waitTicks(5);
+        expect(f, "2 blocks from a crystal: still on its tower", fight("crystalOnTower", 0), true);
+        expect(f, "2 blocks from a crystal: nothing picked up", count(m, "picked up an Energy Crystal!"), 0);
+        tp(ctx, 63.5, 238, 49.5, 0, 0);
+        ctx.waitTicks(3);
+        expect(f, "walk-in: crystal 0 left its tower", fight("crystalOnTower", 0), false);
+        expect(f, "walk-in: picked up once", count(m, "picked up an Energy Crystal!"), 1);
+        expect(f, "walk-in: star in slot 8", ctx.computeOnClient(mc -> mc.player.getInventory().getItem(8).getHoverName().getString().contains("Energy Crystal")), true);
+        until(ctx, "the pylons open (P1 t 80)", mc -> (Integer) call(FIGHT, "phaseTick") > 81, 200);
+        tp(ctx, 52.5, 224, 43.5, 180, 0);
+        ctx.waitTicks(5);
+        expect(f, "2 blocks from a pad: nothing placed", count(m, "Energy Crystals are now active!"), 0);
+        tp(ctx, 52.5, 224, 42.5, 180, 0);
+        ctx.waitTicks(3);
+        expect(f, "walk-in: placed at the pad", count(m, "1/2 Energy Crystals are now active!"), 1);
+        expect(f, "walk-in: star gone from slot 8", ctx.computeOnClient(mc -> mc.player.getInventory().getItem(8).getHoverName().getString().contains("Energy Crystal")), false);
+        cleanup(ctx);
+        m = start(ctx, "P1", true);
+        if (!until(ctx, "both crystals on their towers again", mc -> (Boolean) fight("crystalOnTower", 0) && (Boolean) fight("crystalOnTower", 1), 160)) {
+            f.add("the crystals never appeared (second start)");
+            return;
+        }
+        tp(ctx, 64.5, 238, 47.5, 0, 0);
+        clickCrystal(ctx, 64.5, 238.375, 50.5);
+        ctx.waitTicks(3);
+        expect(f, "right click from 3 blocks: crystal 0 gone", fight("crystalOnTower", 0), false);
+        tp(ctx, 82.5, 238, 47.5, 0, 0);
+        boolean hit = ctx.computeOnClient(mc -> {
+            for (net.minecraft.world.entity.boss.enderdragon.EndCrystal c : mc.level.getEntitiesOfClass(
+                    net.minecraft.world.entity.boss.enderdragon.EndCrystal.class, new AABB(81, 237, 49, 84, 240, 52))) {
+                mc.gameMode.attack(mc.player, c);
+                return true;
+            }
+            return false;
+        });
+        ctx.waitTicks(3);
+        expect(f, "left click: a crystal was there to hit", hit, true);
+        expect(f, "left click from 3 blocks: crystal 1 gone", fight("crystalOnTower", 1), false);
+        expect(f, "clicks: two pickups", count(m, "picked up an Energy Crystal!"), 2);
     }
 
     private static void maxorCrystals(ClientGameTestContext ctx, List<String> f) {
