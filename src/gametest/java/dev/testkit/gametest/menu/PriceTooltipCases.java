@@ -43,6 +43,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  *   <li>1752 obtained: the long-millis timestamp and the old "M/d/yy h:mm a" string both read April 24, 2026.</li>
  *   <li>1753 off: switched off no line is added; a plain vanilla item never gets one; the settings survive a reload.</li>
  *   <li>1754 shot: the real inventory screen hovering the Hyperion draws the lines (screenshot in the report).</li>
+ *   <li>1104-pricetip-recomb (recombprice-1104, killer560: "it says an items value that a recomb is 7m but on bazaar it
+ *       is 9m"): Value Mode defaults to Full Price (also over an old file's saved NETWORTH), the recomb line is the
+ *       Bazaar Buy price (9,000,000 in the fake), Networth (Discounted) shows 80% of it, and the Profile Viewer's
+ *       networth of the item equals the tooltip's Est. Item Value in both modes.</li>
  * </ol>
  */
 final class PriceTooltipCases {
@@ -69,6 +73,7 @@ final class PriceTooltipCases {
         MenuSuite.test(s, "1752-menu-pricetip-obtained", PriceTooltipCases::obtained);
         MenuSuite.test(s, "1753-menu-pricetip-off", PriceTooltipCases::off);
         MenuSuite.test(s, "1754-menu-pricetip-shot", PriceTooltipCases::shot);
+        MenuSuite.test(s, "1104-pricetip-recomb", PriceTooltipCases::recomb);
     }
 
     // ---- the fake -----------------------------------------------------------------------------------------------
@@ -106,7 +111,8 @@ final class PriceTooltipCases {
                 return ITEMS;
             }
             if (path.startsWith("/hx/v2/skyblock/bazaar")) {
-                return BAZAAR;
+                String b = bazaarOverride;
+                return b != null ? b : BAZAAR;
             }
             if (path.startsWith("/hy/api/auctions/lowestbins/average")) {
                 return path.contains("days=3") ? "{\"HYPERION\":4790000}" : "{\"HYPERION\":4500000}";
@@ -127,8 +133,12 @@ final class PriceTooltipCases {
             return n;
         }
 
+        /** A case's own Bazaar body (same row count as {@link #BAZAAR}); null serves BAZAAR. Cleared on close. */
+        static volatile String bazaarOverride;
+
         @Override
         public void close() {
+            bazaarOverride = null;
             restore("killer560.net.hypixel", oldHypixel);
             restore("killer560.net.hysky", oldHysky);
             server.stop(0);
@@ -331,6 +341,76 @@ final class PriceTooltipCases {
             shift(null);
             ItemCases.clear(c, 0);
         }
+    }
+
+    static void recomb(Session c) throws Exception {
+        // Default: a file from before recombprice-1104 saved "valueMode":"NETWORTH" (the old default); it must load FULL.
+        Path file = c.onClient(mc -> (Path) Mod.staticCall("util.ModPaths", "config", "killer560smod-pricetooltip.json"));
+        byte[] old = java.nio.file.Files.exists(file) ? java.nio.file.Files.readAllBytes(file) : null;
+        Object mode;
+        try {
+            java.nio.file.Files.createDirectories(file.getParent());
+            java.nio.file.Files.writeString(file, "{\"enabled\":true,\"valueMode\":\"NETWORTH\"}");
+            mode = c.onClient(mc -> {
+                Mod.staticCall(CFG, "load");
+                return Mod.get(CFG, "getValueMode");
+            });
+        } finally {
+            if (old != null) {
+                java.nio.file.Files.write(file, old);
+            } else {
+                java.nio.file.Files.deleteIfExists(file);
+            }
+            c.onClient(mc -> Mod.staticCall(CFG, "load"));
+        }
+        c.check(String.valueOf(mode).equals("FULL"), "Value Mode after loading an old NETWORTH file: " + mode + ", expected FULL");
+        c.check("Full Price".equals(Mod.field(Mod.enumValue(CFG + "$ValueMode", "FULL"), "label"))
+                        && "Networth (Discounted)".equals(Mod.field(Mod.enumValue(CFG + "$ValueMode", "NETWORTH"), "label")),
+                "Value Mode labels");
+
+        Fake.bazaarOverride = BAZAAR.replace("\"RECOMBOBULATOR_3000\",\"quick_status\":{\"buyPrice\":10000000,\"sellPrice\":9000000}",
+                "\"RECOMBOBULATOR_3000\",\"quick_status\":{\"buyPrice\":9000000,\"sellPrice\":8500000}");
+        c.check(!Fake.bazaarOverride.equals(BAZAAR), "the recomb row of the fake Bazaar was not rewritten");
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c); Fake fake = loadPrices(c, cfg)) {
+            cfg.set(CFG, "ValueMode", mode);
+            cfg.set(CFG, "NpcPrice", false);
+            cfg.set(CFG, "Obtained", false);
+            cfg.set(CFG, "Museum", false);
+            double bz = c.onClient(mc -> ((Number) Mod.staticCall(DATA, "unitPrice", "RECOMBOBULATOR_3000")).doubleValue());
+            c.check(bz == 9_000_000.0, "the fake Bazaar Buy price of the recomb loaded as " + bz);
+            ItemStack built = give(c, 0, HYPERION_BUILT);
+            shift(true);
+            List<String> full = priceLines(c, built);
+            c.note("default mode tooltip: " + full);
+            c.check(full.contains(" §8- §7Recombobulator: §b9,000,000.0"), "the recomb part is not the Bazaar price 9,000,000: " + full);
+            c.check(full.contains("§eEst. Item Value: §b190,500,000.0 Coins"), "full total: " + full);
+            sameAsNetworth(c, built, full);
+
+            cfg.set(CFG, "ValueMode", Mod.enumValue(CFG + "$ValueMode", "NETWORTH"));
+            List<String> nw = priceLines(c, built);
+            c.note("Networth (Discounted) tooltip: " + nw);
+            c.check(nw.contains(" §8- §7Recombobulator: §b7,200,000.0"), "Networth (Discounted) recomb is not 80%: " + nw);
+            sameAsNetworth(c, built, nw);
+        } finally {
+            Fake.bazaarOverride = null;
+            shift(null);
+            ItemCases.clear(c, 0);
+        }
+    }
+
+    /** The Profile Viewer's networth of {@code stack} must be the tooltip's Est. Item Value (one shared calculation). */
+    private static void sameAsNetworth(Session c, ItemStack stack, List<String> lines) {
+        String est = null;
+        for (String l : lines) {
+            if (l.startsWith("§eEst. Item Value: §b")) {
+                est = l.substring("§eEst. Item Value: §b".length(), l.length() - " Coins".length()).replace(",", "");
+            }
+        }
+        c.check(est != null, "no Est. Item Value line: " + lines);
+        double tip = Double.parseDouble(est);
+        double nw = c.onClient(mc -> ((Number) Mod.call(Mod.staticCall("profileviewer.data.Networth", "itemValue", stack, Map.of()), "total")).doubleValue());
+        c.note("tooltip " + tip + ", networth " + nw);
+        c.check(Math.abs(tip - nw) < 0.5, "networth " + nw + " differs from the tooltip's Est. Item Value " + tip);
     }
 
     static void obtained(Session c) throws Exception {

@@ -67,6 +67,8 @@ final class Networth1104Cases {
 
     static void itemValue(Session c) throws Exception {
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c); PriceTooltipCases.Fake fake = PriceTooltipCases.loadPrices(c, cfg)) {
+            // Networth follows the Price Tooltip's Value Mode since recombprice-1104; these numbers are its NETWORTH weights.
+            cfg.set(PriceTooltipCases.CFG, "ValueMode", Mod.enumValue(PriceTooltipCases.CFG + "$ValueMode", "NETWORTH"));
             Map<String, Double> bins = Map.of("HYPERION", 5_900_000.0, "FALLBACK_X", 1234.0);
             ItemStack built = PriceTooltipCases.give(c, 0, PriceTooltipCases.HYPERION_BUILT);
 
@@ -112,6 +114,7 @@ final class Networth1104Cases {
     static void cosmetic(Session c) throws Exception {
         boolean oldNon = c.onClient(mc -> (Boolean) Mod.get(PVCFG, "isNonCosmeticNetworth"));
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c); PriceTooltipCases.Fake fake = PriceTooltipCases.loadPrices(c, cfg)) {
+            cfg.set(PriceTooltipCases.CFG, "ValueMode", Mod.enumValue(PriceTooltipCases.CFG + "$ValueMode", "NETWORTH"));
             Map<String, Double> bins = Map.of("FAIRY_CHESTPLATE", 200_000.0, "ENDERMAN;4", 1_000_000.0,
                     "PET_SKIN_ENDERMAN_X", 700_000.0);
             ItemStack armor = PriceTooltipCases.give(c, 0, DYED_ARMOR);
