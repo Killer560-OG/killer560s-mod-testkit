@@ -14,7 +14,8 @@
   },
   "newCheatLeaves": {
     "gui.tab.MiningPigeonDrillTab": "Mining > Swap To Drill On Pigeon",
-    "gui.tab.PowderChestTriggerbotTab": "Mining > Powder Chest Triggerbot"
+    "gui.tab.PowderChestTriggerbotTab": "Mining > Powder Chest Triggerbot",
+    "gui.tab.LeftClickSecretsTab": "Dungeons > Secrets > Left Click Opens Secrets"
   },
   "newLeaves": {
     "gui.tab.ChatHiderTab": "Chat > Chat Hider",

@@ -22,6 +22,7 @@ final class DefaultsOff1104Cases {
     /** class (under com.killer560.hub.) -> fields that must be false with no saved file. */
     private static final String[][] TABLE = {
             {"croesus.CroesusConfig", "chestProfitEnabled", "loggerEnabled"},
+            {"leftclicksecrets.LeftClickSecretsConfig", "enabled"},
             {"bloodrush.BloodRushConfig", "enabled", "learnSpots"},
             {"lfg.LfgConfig", "enabled"},
             {"dungeonqueue.DungeonQueueConfig", "enabled", "pvLinkOnJoin"},
