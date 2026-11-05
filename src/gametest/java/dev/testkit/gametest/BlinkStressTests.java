@@ -365,8 +365,9 @@ public class BlinkStressTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> Mod.set(CFG, "setChargeMode", Mod.enumValue(MODE, mode)));
             Rows rows = new Rows();
             try {
-                for (int len = 1; len <= 20; len++) {
+                for (int len = 1, lagRetries = 0; len <= 20; len++) {
                     int l = len;
+                    long stalls0 = cnum(ctx, "stallsSeen");
                     tp(server, ctx, x - 15.5, SURFACE_Y, z + 0.5, -90f);
                     ctx.runOnClient(mc -> Mod.set(CFG, "setChargeTicks", l));
                     server.mark();
@@ -392,8 +393,20 @@ public class BlinkStressTests implements FabricClientGameTest {
                         releaseKeys(ctx);
                         shotTicks = cnum(ctx, "shots") > shots0 ? cnum(ctx, "lastShotTicks") : 0;
                         ctx.waitTicks(3);
-                        check(!charging(ctx), "Hold mode: Charge still on after the key came up and the shot went");
                     }
+                    if (cnum(ctx, "stallsSeen") > stalls0 && lagRetries < 3) {
+                        // A server stall mid-charge (machine load) keeps the bank but holds the shot until it is covered
+                        // again, so this try does not measure the length. The shot must still go and Charge end; then retry.
+                        for (int i = 0; i < 60 && "HOLD".equals(mode) && charging(ctx); i++) {
+                            ctx.waitTicks(1);
+                        }
+                        check(!"HOLD".equals(mode) || !charging(ctx), "Hold mode: Charge still on 60 ticks after a server stall");
+                        chargeOff(ctx);
+                        scenario.log("Charge Ticks " + len + ": server stall mid-charge - repeated (" + (++lagRetries) + ")");
+                        len--;
+                        continue;
+                    }
+                    check(!"HOLD".equals(mode) || !charging(ctx), "Hold mode: Charge still on after the key came up and the shot went");
                     double g = gap(server, ctx);
                     rows.add(server, scenario, "Charge Ticks " + len, bank == len && shotTicks == len && g < 0.5,
                             String.format(Locale.ROOT, "banked %d, shot %d tick(s), %.2f blocks in the firing tick, gap %.2f",
