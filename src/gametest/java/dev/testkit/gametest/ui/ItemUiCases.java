@@ -514,8 +514,11 @@ final class ItemUiCases {
             for (int i = 0; i < 14; i++) {
                 many.add(pet("iu-pet-" + i, "Pet" + i));
             }
-            int pages = c.onClient(mc -> (Integer) Mod.call(wheel(many, 1.0f), "pageCount"));
-            c.check(pages == 1, "14 pets take " + pages + " pages");
+            int[] slots = c.onClient(mc -> {
+                Object w = wheel(many, 1.0f);
+                return new int[] {(Integer) Mod.call(w, "slotsOnPage", 0), (Integer) Mod.call(w, "slotsOnPage", 1)};
+            });
+            c.check(slots[0] == 14 && slots[1] == 0, "14 pets should all sit on page 0, slots per page 0/1: " + slots[0] + "/" + slots[1]);
 
             // The label grows with Scale: label pixels = (name shown) vs (name and level hidden), at 100% and 200%.
             HudEditorCases.setWindow(c, 1280, 720, 2);
