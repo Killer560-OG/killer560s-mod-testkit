@@ -288,7 +288,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
         });
         @SuppressWarnings("unchecked")
         List<String> keyRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(SIM_FLOOR, "keyRoomsForTest"));
-        String room = keyRooms.isEmpty() ? null : keyRooms.get(0).split("\|")[0];
+        String room = keyRooms.isEmpty() ? null : keyRooms.get(0).split("\|")\|")[0];
         List<double[]> mobs = room == null ? List.of() : serverStarredIn(ctx, room);
         if (mobs.isEmpty()) {
             problems.add("no key room with a starred mob to stand in");
