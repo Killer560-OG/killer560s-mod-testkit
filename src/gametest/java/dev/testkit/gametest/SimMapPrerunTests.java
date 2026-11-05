@@ -360,18 +360,22 @@ public class SimMapPrerunTests implements FabricClientGameTest {
             int a = pick[0];
             int b = pick[1];
             int c = pick[2];
+            double[] dc = f.doorCentre(pick[3]);
+            double[] dc2 = f.doorCentre(pick[4]);
+            double[] u = f.toward(a, pick[3]);
+            // Into A first, and only then the visits: HeldMap's sim stand-in also opens whatever room he stands in, so
+            // resetting while he was still in the previous line's A opened that room again - and when it was this line's
+            // B (Mines -> Flags, then Gold -> Mines, 2026-11-04) B read opened and was never predicted (map state 2).
+            place(ctx, new double[]{dc[0] - u[0] * 3, dc[1] + 0.2, dc[2] - u[1] * 3},
+                    new double[]{dc2[0] + u[0] * 12, dc2[1] + 1.0, dc2[2] + u[1] * 12});
+            ctx.waitFor(mc -> ((Number) ModUnderTest.call(ModUnderTest.staticCall(LAYOUT, "current"), "currentRoom", new Class<?>[0], new Object[0])).intValue() == a, 100);
             ctx.runOnClient(mc -> {
                 ModUnderTest.staticCall(HELD, "resetSimVisits");
                 ModUnderTest.staticCall(HELD, "simVisit", new Class<?>[]{int.class}, new Object[]{a});
                 ModUnderTest.staticCall(PREDICTOR, "reset");
             });
-            double[] dc = f.doorCentre(pick[3]);
-            double[] dc2 = f.doorCentre(pick[4]);
-            double[] u = f.toward(a, pick[3]);
             Watch w = new Watch(f, -1, b);
             Watch wc = new Watch(f, -1, c);
-            place(ctx, new double[]{dc[0] - u[0] * 3, dc[1] + 0.2, dc[2] - u[1] * 3},
-                    new double[]{dc2[0] + u[0] * 12, dc2[1] + 1.0, dc2[2] + u[1] * 12});
             for (int t = 1; t <= 40; t++) {
                 ctx.waitTick();
                 w.sample(ctx);

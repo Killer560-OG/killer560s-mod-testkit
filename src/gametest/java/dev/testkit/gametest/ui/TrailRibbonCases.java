@@ -386,10 +386,13 @@ final class TrailRibbonCases {
                 seedRows, mean[0], mean[1], mean[2], mag[0], mag[1], mag[2]);
     }
 
-    /** Changed pixels within {@code half} px of the center column (the player's body in F5). */
+    /** Changed pixels within {@code half} px of the center column, between a third and three quarters of the screen's
+     *  height (the player's body in F5: 854x480 has him at rows ~215-325). The full column also took in the grass at the
+     *  screen's bottom edge, which differed between the on and off shots by 60 px every run (2026-11-04, rows 473-479)
+     *  while the band itself started beside his arm. */
     private static int overPlayer(BufferedImage off, BufferedImage on, int half) {
         int n = 0, cx = on.getWidth() / 2;
-        for (int y = 0; y < on.getHeight(); y++) {
+        for (int y = on.getHeight() / 3; y < on.getHeight() * 3 / 4; y++) {
             for (int x = cx - half; x <= cx + half; x++) {
                 if (delta(on.getRGB(x, y), off.getRGB(x, y)) > 30) {
                     n++;
