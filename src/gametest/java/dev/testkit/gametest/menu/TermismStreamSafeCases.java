@@ -314,12 +314,15 @@ final class TermismStreamSafeCases {
         Screen s = open(c, k.type());
         c.ctx().waitTicks(14);
         int seen = 0;
+        int judged = 0;
         // The cursor shows only while Auto Terminals is driving the board (Melody idles between rows), so wait, bounded, for
         // it to be up instead of sampling three fixed moments (1102-menu-termism-ss-melody failed on 26.2, termfix-1104).
         for (int w = 0; w < 120 && !c.onClient(mc -> (Boolean) Mod.staticCall(CURSOR, "active")); w++) {
             c.ctx().waitTicks(2);
         }
-        for (int n = 0; n < 3; n++) {
+        // Up to 12 shots until 3 caught the cursor up: it hides between a board's clicks, and the scaled pass's three fixed
+        // shots all fell in such gaps on 26.2 (ship3 gate: Rubix, 10 clicks over 4.9 s, "not found in any of 3").
+        for (int n = 0; n < 12 && judged < 3; n++) {
             float[] at = c.onClient(mc -> new float[]{(Float) Mod.field(CURSOR, "curX"), (Float) Mod.field(CURSOR, "curY"),
                     (Boolean) Mod.staticCall(CURSOR, "active") ? 1f : 0f, mc.getWindow().getWidth(),
                     (float) (mc.getWindow().getGuiScale() * ((Number) Mod.staticCall("hud.AutoScale", "appliedFactor", s)).doubleValue())});
@@ -354,6 +357,7 @@ final class TermismStreamSafeCases {
                         && at[1] <= (b[1] + b[3]) * at[4];
                 System.out.println(String.format("[menu] %s: cursor at (%.0f, %.0f), panel %s x %.2f, on panel %s, arrow pixels white %d black %d",
                         name, at[0], at[1], java.util.Arrays.toString(b), at[4], onPanel, white, black));
+                judged++;
                 if (white >= 20 && black >= 20 && onPanel) {
                     seen++;
                 }
@@ -363,7 +367,7 @@ final class TermismStreamSafeCases {
             c.ctx().waitTicks(5);
         }
         if (seen == 0) {
-            problems.add("the cursor arrow was not found on the board in any of 3 screenshots");
+            problems.add("the cursor arrow was not found on the board in any of " + judged + " screenshot(s) with it up");
         }
         for (int t = 0; t < 1200 && !c.onClient(mc -> (Boolean) Mod.field(s, "solved")); t++) {
             c.ctx().waitTicks(1);
