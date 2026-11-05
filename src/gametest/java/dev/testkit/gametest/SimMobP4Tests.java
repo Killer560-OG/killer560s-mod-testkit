@@ -68,6 +68,12 @@ public class SimMobP4Tests implements FabricClientGameTest {
             }
             current = name;
             ModUnderTest.require("killer560smod");
+            if (name.equals(FELS) && !dev.testkit.gametest.mod.Mod.isCheat()) {
+                // It sets Through Walls and expects far starred mobs and skulls drawn; a legit jar has no through-walls
+                // (MobEspConfig.isThroughWalls is cheat-only), so it failed there on the base jar too (mobespscan-1105).
+                Scenario.skipped(name, "cheat jar: checks Fel skulls and far starred mobs drawn through walls");
+                continue;
+            }
             LogTap.install();
             ctx.waitTicks(40);
             ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
