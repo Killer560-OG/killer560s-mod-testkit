@@ -17,6 +17,7 @@
   },
   "newLeaves": {
     "gui.tab.ChatHiderTab": "Chat > Chat Hider",
+    "gui.tab.ModsScreenTab": "Misc > Mods Screen",
     "gui.tab.CustomItemsTab": "Cosmetics > Custom Items",
     "gui.tab.ChocolateFactoryTab": "Misc > Chocolate Factory",
     "gui.tab.KickRejoinTab": "Misc > Kick Rejoin Timer",
