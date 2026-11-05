@@ -47,9 +47,16 @@ final class HxChMapHud1104Cases {
         try (Settings set = new Settings(c).with(CFG, "Enabled", true).with(CFG, "HudEnabled", true)
                 .with(CFG, "ShowZones", true).with(CFG, "ShowBorders", true)) {
             hollows(c);
-            c.server().command("setblock 400 99 300 minecraft:stone");
+            // Load the chunk and lay a floor first, then wait until the client stands on it: a teleport into an unloaded
+            // chunk drew Grim Simulation flags and a setback loop (ship3 gate, all three builds), which is the test's doing.
+            c.server().command("forceload add 400 300");
+            c.ctx().waitTicks(10);
+            c.server().command("fill 396 99 296 404 99 304 minecraft:stone");
             c.server().command("tp @a 400.5 100 300.5 0 90");
-            c.ctx().waitTicks(20);
+            c.waitUntil("standing on the floor at 400,300", mc -> Math.abs(mc.player.getX() - 400.5) < 0.6
+                    && Math.abs(mc.player.getZ() - 300.5) < 0.6 && mc.player.onGround()
+                    && mc.level.getBlockState(new net.minecraft.core.BlockPos(400, 99, 300)).isSolid(), 200);
+            c.ctx().waitTicks(10);
             // A first-hand find: Mines of Divan, x 600..700, z 300..400 (cyan border).
             c.ctx().runOnClient(mc -> {
                 Object s = Mod.enumValue("mining.chmap.ChStructure", "MINES_OF_DIVAN");
@@ -115,8 +122,8 @@ final class HxChMapHud1104Cases {
                     g[0], g[1], g[2], changed, samples, orange, edge, cyan, green, rects));
 
             // Outside the Crystal Hollows, switch on: nothing in the box changes and nothing draws.
-            // Back home first and settled, so the world behind the box holds still between the two shots.
-            c.server().command(String.format(Locale.ROOT, "tp @a %.2f %.2f %.2f 0 90", home[0], home[1], home[2]));
+            // Still on the stone floor looking down, so the world behind the box holds still between the two shots (home
+            // was glass over water on the hx world, and the animated water changed 65 samples, ship3fix2 26.3 cheat).
             hub(c);
             c.waitUntil("out of the Crystal Hollows", mc -> !"CRYSTAL_HOLLOWS".equals(Mod.staticCall(STATE, "island")), 100);
             c.ctx().waitTicks(60);
@@ -141,7 +148,8 @@ final class HxChMapHud1104Cases {
         } finally {
             c.ctx().runOnClient(mc -> Mod.staticCall("mining.chmap.ChDiscovery", "clear"));
             c.server().command(String.format(Locale.ROOT, "tp @a %.2f %.2f %.2f", home[0], home[1], home[2]));
-            c.server().command("setblock 400 99 300 minecraft:air");
+            c.server().command("fill 396 99 296 404 99 304 minecraft:air");
+            c.server().command("forceload remove 400 300");
         }
     }
 

@@ -48,7 +48,10 @@ final class HxCrystalWalls1104Cases {
         c.ctx().waitTicks(10);
         c.server().command(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:glass", bx - 2, by, bz - 2, bx + 2, by, bz + 2));
         c.server().command(String.format(Locale.ROOT, "tp @p %.2f %.2f %.2f %.1f 0", x, y, z, yaw));
-        c.waitUntil("at " + x + "," + z, mc -> Math.abs(mc.player.getX() - x) < 1.0 && Math.abs(mc.player.getZ() - z) < 1.0, 100);
+        // ...and wait until he stands on it: arriving before the client had the glass drew one Simulation line (26.2).
+        c.waitUntil("standing at " + x + "," + z, mc -> Math.abs(mc.player.getX() - x) < 1.0 && Math.abs(mc.player.getZ() - z) < 1.0
+                && mc.player.onGround() && mc.level.getBlockState(new net.minecraft.core.BlockPos(bx, by, bz)).isSolid(), 200);
+        c.ctx().waitTicks(5);
     }
 
     @SuppressWarnings("unchecked")
