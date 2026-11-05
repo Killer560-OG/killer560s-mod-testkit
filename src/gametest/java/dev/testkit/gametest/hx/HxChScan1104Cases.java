@@ -98,11 +98,13 @@ final class HxChScan1104Cases {
             tp(c, B);
             c.ctx().waitTicks(40);
             column(c, DIVAN, divan);
-            // The server's forget-chunk packet for the temple can lag under load: give it up to 10 s.
+            // The real (vanilla) chunk: level.getChunk also serves the Chunk Cache's kept copy (default ON). The forget
+            // packet can lag under load: give it up to 10 s.
             boolean templeLoaded = true;
             for (int i = 0; i < 20 && templeLoaded; i++) {
                 c.ctx().waitTicks(10);
-                templeLoaded = c.onClient(mc -> mc.level.getChunk(TEMPLE[0] >> 4, TEMPLE[2] >> 4,
+                templeLoaded = c.onClient(mc -> Mod.staticCall("chunkcache.ChunkCacheManager", "vanillaGetChunk",
+                        mc.level, TEMPLE[0] >> 4, TEMPLE[2] >> 4,
                         net.minecraft.world.level.chunk.status.ChunkStatus.FULL, false) != null);
             }
             c.note("temple chunk loaded at B: " + templeLoaded);
