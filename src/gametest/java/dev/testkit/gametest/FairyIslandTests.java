@@ -206,6 +206,8 @@ public class FairyIslandTests implements FabricClientGameTest {
     static boolean skipPlace;
     /** Set by a case: end the run once this many souls are collected. */
     static int stopAfterSouls = Integer.MAX_VALUE;
+    /** Soul indexes to route to (the rest are logged found first), or null for all (1105-fairy-hub's -Pfairy.hubOnly). */
+    static java.util.Set<Integer> onlySouls;
     /** Set by a case: keep a 45-tick detailed trace and log it when the first anticheat line shows up. */
     static boolean ringTrace;
     static final List<String> ring = new ArrayList<>();
@@ -319,13 +321,13 @@ public class FairyIslandTests implements FabricClientGameTest {
         JsonArray spawn = meta.getAsJsonArray("spawn");
         try (Hx hx = Hx.connect()) {
             long t0 = System.currentTimeMillis();
-            List<String> lines = blocks(island);
+            List<String> lines = skipPlace ? List.of() : blocks(island);
             if (!skipPlace) {
                 place(hx, lines);
             }
             server.sync(300);
             scenario.log("placed " + lines.size() + " blocks in " + (System.currentTimeMillis() - t0) + " ms");
-            for (JsonElement c : meta.getAsJsonArray("crowds")) {
+            for (JsonElement c : meta.has("crowds") ? meta.getAsJsonArray("crowds") : new JsonArray()) {
                 JsonArray p = c.getAsJsonArray();
                 for (int k = 0; k < 2; k++) {
                     server.command(String.format(Locale.ROOT, "summon minecraft:villager %.2f %d %.2f "
@@ -382,12 +384,34 @@ public class FairyIslandTests implements FabricClientGameTest {
             ctx.waitFor(mc -> "Test".equals(Mod.staticCall("pathfinding.ProfileTracker", "displayName")), 200);
             ctx.waitFor(mc -> (Boolean) Mod.staticCall("pathfinding.GraphRepository", "isLoaded", "HUB"), 400);
             ctx.runOnClient(mc -> Mod.staticCall("pathfinding.FairySoulsFeature", "resetIsland"));
+            if (onlySouls != null) {
+                // only these souls: log every other soul's node found, so the route holds just the ones asked for
+                ctx.runOnClient(mc -> {
+                    Object profile = Mod.staticCall("pathfinding.ProfileTracker", "key");
+                    for (int i = 0; i < souls.size(); i++) {
+                        if (!onlySouls.contains(i)) {
+                            String[] p = meta.getAsJsonObject("graph").getAsJsonObject(souls.get(i).getAsJsonObject().get("node")
+                                    .getAsString()).get("Position").getAsString().split(":");
+                            Mod.staticCall("pathfinding.FairySoulStore", "markFound", profile, "HUB", Double.parseDouble(p[0]),
+                                    Double.parseDouble(p[1]), Double.parseDouble(p[2]));
+                        }
+                    }
+                });
+                o.souls = onlySouls.size();
+                scenario.log("only souls " + onlySouls);
+            }
             hx.removeStands();
             Map<String, Integer> stands = new HashMap<>();
             for (int i = 0; i < souls.size(); i++) {
-                JsonArray head = souls.get(i).getAsJsonObject().getAsJsonArray("head");
-                // A full-size invisible stand wearing a head: the head renders in NEU's block, sitting on what is under it.
-                String uuid = hx.stand(head.get(0).getAsInt() + 0.5, head.get(1).getAsInt() - 1.4, head.get(2).getAsInt() + 0.5,
+                JsonObject sj = souls.get(i).getAsJsonObject();
+                JsonArray head = sj.getAsJsonArray("head");
+                // A full-size invisible stand wearing a head: the head renders in NEU's block, sitting on what is under it;
+                // "stand" (the hub world's souls) is where Hypixel's own stand stood.
+                JsonArray at0 = sj.has("stand") ? sj.getAsJsonArray("stand") : null;
+                String uuid = at0 != null
+                        ? hx.stand(at0.get(0).getAsDouble(), at0.get(1).getAsDouble(), at0.get(2).getAsDouble(),
+                        null, "marker", false, "invisible", true, "helmet", "minecraft:player_head")
+                        : hx.stand(head.get(0).getAsInt() + 0.5, head.get(1).getAsInt() - 1.4, head.get(2).getAsInt() + 0.5,
                         null, "marker", false, "invisible", true, "helmet", "minecraft:player_head");
                 stands.put(uuid, i);
             }
@@ -509,7 +533,16 @@ public class FairyIslandTests implements FabricClientGameTest {
                     }
                 }
                 prev = s;
-                if (tick < Integer.getInteger("testkit.fairy.traceTicks", 0)) {
+                // -Pfairy.traceNear=R: also every tick he is within R blocks of a soul not collected yet
+                int near = Integer.getInteger("testkit.fairy.traceNear", 0);
+                boolean nearSoul = false;
+                for (int i = 0; near > 0 && i < souls.size() && !nearSoul; i++) {
+                    JsonArray h = souls.get(i).getAsJsonObject().getAsJsonArray("head");
+                    nearSoul = !o.collectedAt.containsKey(i) && (onlySouls == null || onlySouls.contains(i))
+                            && Math.abs(h.get(0).getAsInt() + .5 - s[0]) < near && Math.abs(h.get(1).getAsInt() - s[1]) < near
+                            && Math.abs(h.get(2).getAsInt() + .5 - s[2]) < near;
+                }
+                if (nearSoul || tick < Integer.getInteger("testkit.fairy.traceTicks", 0)) {
                     // -Pfairy.traceTicks=N: every tick of the first N, what the walker pressed and how he moved
                     String tr = ctx.computeOnClient(mc -> String.format(Locale.US,
                             "pos %.4f %.4f %.4f v %.4f %.4f %.4f yaw %.2f pitch %.2f ground %s ladder %s water %s hcol %s "

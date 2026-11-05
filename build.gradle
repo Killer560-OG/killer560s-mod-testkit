@@ -668,7 +668,7 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 		}
 	}
 	// 1101-fairy-island-*: -Pfairy.speed=300 (Hypixel speed), -Pfairy.maxMinutes=20
-	["fairy.speed", "fairy.maxMinutes", "fairy.start", "fairy.traceTicks", "fairy.record", "fairy.replay", "fairy.flowRuns", "fairy.keys", "fairy.keysTicks", "fairy.spillRuns", "fairy.arrivals", "fairy.arrivalSeed", "fairy.arrivalPillar", "fairy.soul3Runs", "fairy.soul3Start"].each { k ->
+	["fairy.speed", "fairy.maxMinutes", "fairy.start", "fairy.traceTicks", "fairy.record", "fairy.replay", "fairy.flowRuns", "fairy.keys", "fairy.keysTicks", "fairy.spillRuns", "fairy.arrivals", "fairy.arrivalSeed", "fairy.arrivalPillar", "fairy.soul3Runs", "fairy.soul3Start", "fairy.hubWorld", "fairy.hubGraph", "fairy.hubSouls", "fairy.hubMinutes", "fairy.hubStart", "fairy.hubOnly", "fairy.traceNear"].each { k ->
 		if (project.hasProperty(k)) {
 			systemProperty "testkit.${k}", project.property(k)
 		}
