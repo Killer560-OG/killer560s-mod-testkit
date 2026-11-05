@@ -303,7 +303,7 @@ final class HxF7HudCases {
                 c.waitUntil("Lightning line", mc -> "LIGHTNING".equals(String.valueOf(Mod.staticCall(SL, "phase"))), 60);
                 List<String> l1 = stormLines(c);
                 c.note("after Storm's line: " + l1);
-                c.check(l1.size() == 1 && l1.get(0).startsWith("Lightning: 5"), "one Lightning line near 560t: " + l1);
+                c.check(l1.size() == 1 && l1.get(0).startsWith("Lightning: 5"), "one Lightning line near 555t: " + l1);
 
                 c.hx().chat("[BOSS] Storm: ENERGY HEED MY CALL!");
                 c.waitUntil("Purple line", mc -> "PURPLE".equals(String.valueOf(Mod.staticCall(SL, "phase"))), 60);

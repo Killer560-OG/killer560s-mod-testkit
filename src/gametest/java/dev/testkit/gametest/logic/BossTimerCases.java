@@ -485,9 +485,9 @@ final class BossTimerCases {
             serverTicks(40);
             Mod.staticCall(TT, "resetAll");
             chat(TT, "onChatMessage", "[BOSS] Storm: Pathetic Maxor, just like expected.");
-            c.eq("Lightning 560t on Storm's line", "Lightning: 560t", stormLine());
+            c.eq("Lightning 555t on Storm's line", "Lightning: 555t", stormLine());
             serverTicks(100);
-            c.eq("Lightning 460t 100 ticks on", "Lightning: 460t", stormLine());
+            c.eq("Lightning 455t 100 ticks on", "Lightning: 455t", stormLine());
             serverTicks(470);
             c.eq("Lightning holds at 0 until the lightning goes off", "Lightning: 0t", stormLine());
             // Purple is ONE 62-tick countdown from the lightning line (NoammAddons), then the line goes away (timers2-1103).
