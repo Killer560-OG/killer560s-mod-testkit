@@ -95,7 +95,7 @@ public class LeftClickSecrets1105Tests implements FabricClientGameTest {
             if (item != null) {
                 map.give(item, 1);
             }
-            return map.build();
+            map.build();
         }, (server, scenario) -> {
             scenario.assertDetectorWorks();
             ctx.waitTicks(20);
