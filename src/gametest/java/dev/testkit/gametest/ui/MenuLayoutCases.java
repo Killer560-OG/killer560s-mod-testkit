@@ -83,6 +83,8 @@ final class MenuLayoutCases {
 
             // Bazaar Order Helper (mod bzorders-1102, killer560 2026-11-02): its own card in Items.
             "gui.tab.BazaarOrderHelperTab",
+            // Reforge Helper (mod reforge-1104, killer560 2026-11-04): pulled from staging-minigames-3, its own Items card.
+            "gui.tab.ReforgeHelperTab",
             // Armor HUD (Items) and Wrong Armor Alert (Mining), mod armorhud-1103 (killer560 2026-11-03); legit in both builds.
             "gui.tab.ArmorHudTab", "gui.tab.MiningWrongArmorTab",
             // Thorn Triggerbot (mod doc-auto-1101, killer560 2026-11-01): its own card in Dungeons' cheat block; cheat jar only.
