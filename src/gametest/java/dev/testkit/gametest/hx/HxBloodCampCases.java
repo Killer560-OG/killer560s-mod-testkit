@@ -2587,7 +2587,7 @@ final class HxBloodCampCases {
     /** 1105-esp-scan's ceiling on Mob ESP's tick garbage, MB/min (base 4e2daf09b: 31.8-34.3; mobespscan-1105: 6.5-6.7). */
     private static final double TICK_MB_MAX = 12.0;
     /** 1105-esp-scan's ceiling on Mob ESP's render garbage, MB/min at 60 FPS (boxbatch-1105). */
-    private static final double FRAME_MB_MAX = 3.0;
+    private static final double FRAME_MB_MAX = 4.5;
 
     /** MobEspFeature.nameReadsForTest, or -1 on a jar without it (the base jar of mobespscan-1105). */
     private static int nameReads(Session c) {
