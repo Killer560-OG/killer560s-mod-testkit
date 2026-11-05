@@ -32,6 +32,7 @@ final class InventoryCases {
         // doc-auto-1101: any NPC sell menu (slot 49's sell lore, a title the pattern refuses) and a ghost sell resold
         MenuSuite.test(s, "240-menu-autosell-npc-menu", InventoryCases::autosellNpcMenu);
         MenuSuite.test(s, "240-menu-autosell-ghost-resell", InventoryCases::autosellGhost);
+        MenuSuite.test(s, "1105-autosell-potion", InventoryCases::autosellPotion);
         MenuSuite.test(s, "241-menu-itemprotect-bin-auction", InventoryCases::itemProtect);
         MenuSuite.test(s, "242-menu-invsort-swap", InventoryCases::invsort);
         MenuSuite.test(s, "243-menu-slotbinds-shift-click", InventoryCases::slotBinds);
@@ -98,6 +99,44 @@ final class InventoryCases {
                     + "; stone kept; " + MenuKit.cadence(c));
         } finally {
             c.ctx().runOnClient(mc -> Mod.call(cfgObj, "removeSellIdentity", "ENCHANTED_DIAMOND"));
+            MenuKit.reset(c);
+            clearInv(c);
+        }
+    }
+
+    /**
+     * autosellpot-1105: Hypixel's dungeon Healing VIII Splash Potion (id POTION, name carrying a count tail) in a "Trades" menu
+     * is sold through the default list entry, and a different potion with the same id is not.
+     */
+    static void autosellPotion(Session c) throws Exception {
+        MenuKit.reset(c);
+        clearInv(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto Sell does not exist - nothing to check");
+            return;
+        }
+        Object cfgObj = c.onClient(mc -> Mod.cfg("autosell.AutoSellConfig"));
+        String tail = "minecraft:splash_potion[custom_data={id:\"POTION\"},custom_name={text:\"%s\"}]";
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set("autosell.AutoSellConfig", "Enabled", true);
+            c.ctx().runOnClient(mc -> Mod.call(cfgObj, "addSellIdentity", "HEALING_VIII_SPLASH_POTION"));
+            c.hx().call("give", "slot", 0, "stack", String.format(tail, "Healing VIII Splash Potion x1"));
+            c.hx().call("give", "slot", 1, "stack", String.format(tail, "Strength VII Splash Potion x1"));
+            c.hx().call("give", "slot", 2, "stack", "minecraft:splash_potion[custom_data={id:\"HEALING_VIII_SPLASH_POTION_X1\"}]");
+            JsonObject shop = MenuKit.menu("menus.sell");
+            shop.addProperty("title", "Trades");
+            MenuKit.show(c, shop);
+            MenuKit.awaitScreen(c, "Trades", 100);
+            MenuKit.awaitEvent(c, "sell.sold", 200);
+            c.waitUntil("Auto Sell to finish", mc -> !(Boolean) Mod.staticCall("autosell.AutoSellFeature", "isRunning"), 300);
+            List<String> ids = new ArrayList<>();
+            c.events("sell.sold").forEach(e -> ids.add(e.get("skyblockId").getAsString()));
+            c.check(c.onClient(mc -> mc.player.getInventory().getItem(0).isEmpty()), "named Healing VIII potion not sold; sold " + ids);
+            c.check(c.onClient(mc -> mc.player.getInventory().getItem(2).isEmpty()), "id-tailed Healing VIII potion not sold; sold " + ids);
+            c.check(c.onClient(mc -> !mc.player.getInventory().getItem(1).isEmpty()), "the Strength potion was sold; sold " + ids);
+            c.note("Trades: sold " + ids + ", Strength VII potion kept");
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.call(cfgObj, "removeSellIdentity", "HEALING_VIII_SPLASH_POTION"));
             MenuKit.reset(c);
             clearInv(c);
         }
