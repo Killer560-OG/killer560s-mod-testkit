@@ -55,7 +55,8 @@
     "gui.tab.LuckTab": "Misc > How Lucky Are You",
     "gui.tab.AutoSprintTab": "Misc > Auto Sprint",
     "gui.tab.DarkModeTab": "Misc > Dark Mode",
-    "gui.tab.SoundDisablerTab": "Misc > Sound Disabler"
+    "gui.tab.SoundDisablerTab": "Misc > Sound Disabler",
+    "gui.tab.CollectionTrackerTab": "Misc > Collection Tracker"
   },
   "tooltips": [
     {
