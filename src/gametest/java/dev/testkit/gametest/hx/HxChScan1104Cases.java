@@ -33,6 +33,16 @@ final class HxChScan1104Cases {
         s.test("1104-chscan-scan", HxChScan1104Cases::scan);
     }
 
+    /** Every spot the case uses, kept loaded on the server so its setblock/fill land (9 chunks out is past what a
+     *  fresh teleport has loaded). */
+    private static final int[][] SPOTS = {A, B, DIVAN, TEMPLE};
+
+    private static void forceload(Session c, String verb) {
+        for (int[] at : SPOTS) {
+            c.server().command(String.format(Locale.ROOT, "forceload %s %d %d", verb, at[0], at[2]));
+        }
+    }
+
     private static void column(Session c, int[] at, List<String> blocks) {
         for (int i = 0; i < blocks.size(); i++) {
             c.server().command(String.format(Locale.ROOT, "setblock %d %d %d %s", at[0], at[1] + i, at[2], blocks.get(i)));
@@ -69,7 +79,10 @@ final class HxChScan1104Cases {
         List<String> temple = List.of("minecraft:bedrock", "minecraft:bedrock", "minecraft:clay", "minecraft:clay");
         try (Settings set = new Settings(c).with(CFG, "Enabled", false).with(CFG, "Waypoints", true)
                 .with(CFG, "ShowOnMap", true).with(CFG, "ChatOnFind", false)) {
-            // Both columns placed while the scanner is off; the temple's chunk then unloads (the player goes 12+ chunks away).
+            // Both columns placed while the scanner is off; the temple's chunk then unloads on the client (the player goes
+            // 12+ chunks away).
+            forceload(c, "add");
+            c.ctx().waitTicks(20);
             tp(c, A);
             c.ctx().waitTicks(40);
             column(c, TEMPLE, temple);
@@ -121,6 +134,7 @@ final class HxChScan1104Cases {
             clear(c, DIVAN);
             c.ctx().runOnClient(mc -> Mod.staticCall("mining.chmap.ChDiscovery", "clear"));
             c.server().command(String.format(Locale.ROOT, "tp @a %.2f %.2f %.2f", home[0], home[1], home[2]));
+            forceload(c, "remove");
             hub(c);
         }
     }
