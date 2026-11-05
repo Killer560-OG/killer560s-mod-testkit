@@ -220,9 +220,11 @@ public class SimLaunchItemsTests implements FabricClientGameTest {
             sp.hurtServer(level, level.damageSources().mobAttack((net.minecraft.world.entity.LivingEntity) z), 1f);
             return sp.getLastDamageSource() == null ? "none" : sp.getLastDamageSource().getMsgId();
         });
-        ctx.waitTicks(15);
+        ctx.waitTicks(25); // past his 20-tick hurt cooldown from the zombie's hit
+        // The zombie stands in the arrow's path; it goes first, so the arrow reaches him.
+        command(ctx, "kill @e[tag=tkkb]");
         command(ctx, "effect give @p minecraft:instant_health 1 1 true");
-        command(ctx, String.format(Locale.ROOT, "summon minecraft:arrow %.2f %.2f %.2f {Motion:[0.0d,0.0d,-1.6d]}",
+        command(ctx, String.format(Locale.ROOT, "summon minecraft:arrow %.2f %.2f %.2f {pickup:1b,Motion:[0.0d,0.0d,-1.6d]}",
                 at.x, at.y + 1.0, at.z + 3.5));
         ctx.waitTicks(15);
         String arrow = serverPlayer(ctx, sp -> sp.getLastDamageSource() == null ? "none" : sp.getLastDamageSource().getMsgId());
