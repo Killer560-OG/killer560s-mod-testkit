@@ -27,7 +27,12 @@ import java.util.Map;
  *       answer ON).</li>
  *   <li>1104-ui-mining-pulled-profit: /profit has the Mining Profit and Nucleus Runs cards.</li>
  *   <li>1104-ui-mining-chmap: a Mines of Divan find recorded through ChDiscovery is listed by it, the Crystal Hollows Map
- *       tab's real Open Map button opens the map screen, it draws 20 ticks with nothing disabled by FeatureGuard.</li>
+ *       tab's real Open Map button opens the map screen, it draws 20 ticks with nothing disabled by FeatureGuard. The tab
+ *       lists a visited find with "(visited)" and a scanned one by its name alone, no "(scanned)" line (mod chscan-1104),
+ *       and has the Names On HUD switch.</li>
+ *   <li>chscan-1104 in -menu and -tabs: on a cheat jar the Structure Scanner is the last card of Mining &gt; Crystal Hollows
+ *       (its cheat block, after the Crystal Hollows Map), and its tab has no Scan Again button and no "chunks scanned"
+ *       line.</li>
  * </ul>
  */
 final class MiningPulledCases {
@@ -152,6 +157,22 @@ final class MiningPulledCases {
             }
         }
         c.note("pulled cards in the menu: " + found + "; e.g. " + paths.get("Crystal Hollows Map"));
+        if (Mod.isCheat()) {
+            // killer560, 2026-11-04: "the cheat map scanner should be under the crystal hollows map".
+            String group = "Mining > Crystal Hollows > ";
+            c.check(List.of(group + "Structure Scanner").equals(paths.get("Structure Scanner")),
+                    "Structure Scanner is at " + paths.get("Structure Scanner") + ", want " + group + "Structure Scanner");
+            String last = null;
+            for (Map.Entry<String, List<String>> e : paths.entrySet()) {
+                for (String p : e.getValue()) {
+                    if (p.startsWith(group)) {
+                        last = e.getKey();
+                    }
+                }
+            }
+            c.check("Structure Scanner".equals(last), "the last card of Crystal Hollows is " + last
+                    + ", want the cheat-only Structure Scanner at the bottom");
+        }
         c.check(!paths.containsKey("Lobby Swapper"), "Lobby Swapper (a macro) is in the menu: " + paths.get("Lobby Swapper"));
         List<String> anr = paths.getOrDefault("Auto Nucleus Run", List.of());
         c.check(anr.isEmpty() || anr.equals(List.of("Misc > Auto Nucleus Run")),
@@ -186,6 +207,9 @@ final class MiningPulledCases {
                         err = card.name() + ": first row is '" + first + "', want the '" + card.switchLabel() + ":' switch";
                     } else if (rows.size() < 2) {
                         err = card.name() + ": switched on, the tab built only " + rows;
+                    } else if (card.name().equals("Structure Scanner") && rows.stream().anyMatch(r ->
+                            r.startsWith("Scan Again") || r.contains("chunks scanned"))) {
+                        err = card.name() + ": still has Scan Again or the chunks-scanned line: " + rows;
                     }
                     Mod.call(fresh, "setEnabled", was);
                     Mod.call(fresh, "save");
@@ -300,6 +324,26 @@ final class MiningPulledCases {
         Object find = c.onClient(mc -> Mod.staticCall("mining.chmap.ChDiscovery", "find", structure));
         c.note("ChDiscovery after two Mines of Divan records: " + finds + " find(s), " + find);
         c.check(finds == 1 && find != null, "ChDiscovery holds " + finds + " finds, want the one Mines of Divan find");
+
+        // The Structures list: a scanned find is its name alone (killer560, 2026-11-04: "remove the mines of divan
+        // (scanned) line in structures"), a visited one keeps "(visited)".
+        Object temple = Mod.enumValue("mining.chmap.ChStructure", "JUNGLE_TEMPLE");
+        Object scanned = Mod.enumValue("mining.chmap.ChFind$Source", "SCANNED");
+        List<String> listed = c.onClient(mc -> {
+            Mod.staticCall("mining.chmap.ChDiscovery", "record", temple, scanned, 400.0, 100.0, 400.0);
+            Object cfg = Mod.cfg("mining.chmap.CrystalHollowsMapConfig");
+            Mod.call(cfg, "setEnabled", true);
+            List<String> rows = new ArrayList<>();
+            for (String l : labels(tabNamed("Crystal Hollows Map"))) {
+                rows.add(l.replaceAll("§.", ""));
+            }
+            return rows;
+        });
+        c.note("Crystal Hollows Map rows: " + listed);
+        c.check(listed.contains("- Jungle Temple"), "no '- Jungle Temple' line for the scanned find: " + listed);
+        c.check(listed.contains("- Mines of Divan (visited)"), "no '- Mines of Divan (visited)' line: " + listed);
+        c.check(listed.stream().noneMatch(l -> l.contains("(scanned)")), "a '(scanned)' line is still listed: " + listed);
+        c.check(listed.stream().anyMatch(l -> l.startsWith("Names On HUD")), "no Names On HUD switch: " + listed);
 
         String pressed = c.onClient(mc -> {
             Object tab = tabNamed("Crystal Hollows Map");
