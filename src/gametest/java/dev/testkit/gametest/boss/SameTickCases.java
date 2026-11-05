@@ -185,6 +185,13 @@ final class SameTickCases {
             undo.add(c.onClient(mc -> Mod.with(cfg, "FovDegrees", 360)));
             undo.add(c.onClient(mc -> Mod.with(cfg, "TurnToTerminal", true)));
             undo.add(c.onClient(mc -> Mod.with(cfg, "Enabled", false)));
+            if (act == SameTick.Act.ATTACK) {
+                // A mob where he is looking (facing away from the stand): he hits it while the aura turns the body.
+                c.server().command("summon zombie " + (x - 3.5) + " " + (g + 3) + " " + (z + 0.5)
+                        + " {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}");
+                c.waitUntil("the zombie under his crosshair", mc -> mc.hitResult instanceof
+                        net.minecraft.world.phys.EntityHitResult, 100);
+            }
             int before = c.events("term.interact").size();
             st = start(c, act, p -> p instanceof ServerboundInteractPacket);
             c.onClient(mc -> {
@@ -213,6 +220,7 @@ final class SameTickCases {
                 return null;
             });
             c.hx().call("boss.term.clear");
+            c.server().command("kill @e[tag=sametick]");
             c.server().command("clear @a stick");
             GrimTickCases.home(c);
         }

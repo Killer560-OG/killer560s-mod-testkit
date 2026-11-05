@@ -158,7 +158,10 @@ public final class SameTick implements AutoCloseable {
             boolean echo = echoNext && p instanceof ServerboundMovePlayerPacket;
             if (!echo) echoNext = false;
             if (p instanceof ServerboundAcceptTeleportationPacket) echoNext = true;
-            boolean mine = injecting || p instanceof ServerboundAcceptTeleportationPacket;
+            // A SWAP's slot change goes out later, from vanilla's gameMode.tick: it is his by its slot.
+            boolean mine = injecting || p instanceof ServerboundAcceptTeleportationPacket
+                    || (act == Act.SWAP && p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket h
+                    && (h.getSlot() == slotA || h.getSlot() == slotB));
             boolean feat = !mine && feature.test(p);
             if (mine) winPlayer = true;
             if (feat) winFeature = true;
