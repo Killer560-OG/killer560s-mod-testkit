@@ -107,6 +107,11 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.runOffClient(ctx, "1104-logic-themedl-delete", ThemeAssetsCases::delete);
         LogicCase.run(ctx, "1104-logic-leapcore", LeapCore1104Cases::leapCore);
         LogicCase.run(ctx, "1104-logic-leapcore-suppress", LeapCore1104Cases::suppress);
+        LogicCase.run(ctx, "1105-logic-mapinfer-pit", MapInfer1105Cases::pit);
+        LogicCase.run(ctx, "1105-logic-mapinfer-ambiguous", MapInfer1105Cases::ambiguous);
+        LogicCase.run(ctx, "1105-logic-mapinfer-override", MapInfer1105Cases::override);
+        LogicCase.run(ctx, "1105-logic-mapinfer-draw", MapInfer1105Cases::draw);
+        LogicCase.run(ctx, "1105-logic-mapinfer-live", MapInfer1105Cases::live);
         // ItemStacks need item components, which are bound only once a world's registries load ("Components not
         // bound yet" at the title screen). The two cases that build stacks run in a throwaway singleplayer world.
         if (!Scenario.skip("354-logic-terminals") || !Scenario.skip("357-logic-items-ap3-routes")
