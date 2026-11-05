@@ -96,6 +96,15 @@ public class LogicSuite implements FabricClientGameTest {
         // ---- static scan fixes (mod scanbugs-1104): \s escapes, Revert Master Stars null name
         ScanBugsCases.ctx = ctx;
         LogicCase.runOffClient(ctx, "1104-logic-scanbugs", ScanBugsCases::scan);
+        // ---- theme assets on demand (mod themedl-1104): a local release, TEST thread
+        ThemeAssetsCases.ctx = ctx;
+        LogicCase.runOffClient(ctx, "1104-logic-themedl-offline", ThemeAssetsCases::offline);
+        LogicCase.runOffClient(ctx, "1104-logic-themedl-download", ThemeAssetsCases::download);
+        LogicCase.runOffClient(ctx, "1104-logic-themedl-badsha", ThemeAssetsCases::badSha);
+        LogicCase.runOffClient(ctx, "1104-logic-themedl-switch", ThemeAssetsCases::themeSwitch);
+        LogicCase.runOffClient(ctx, "1104-logic-themedl-oldconfig", ThemeAssetsCases::oldConfig);
+        LogicCase.runOffClient(ctx, "1104-logic-themedl-notheme", ThemeAssetsCases::noTheme);
+        LogicCase.runOffClient(ctx, "1104-logic-themedl-delete", ThemeAssetsCases::delete);
         LogicCase.run(ctx, "1104-logic-leapcore", LeapCore1104Cases::leapCore);
         LogicCase.run(ctx, "1104-logic-leapcore-suppress", LeapCore1104Cases::suppress);
         // ItemStacks need item components, which are bound only once a world's registries load ("Components not
