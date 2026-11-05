@@ -40,6 +40,7 @@
 			"dev.testkit.gametest.PlacementExamples",
 			"dev.testkit.gametest.BreakerAuraTests",
 			"dev.testkit.gametest.BreakerGuard1018Tests",
+			"dev.testkit.gametest.LeftClickSecrets1105Tests",
 			"dev.testkit.gametest.AuraSweepTests",
 			"dev.testkit.gametest.InventoryAutomationTests",
 			"dev.testkit.gametest.FullBlockTests",
