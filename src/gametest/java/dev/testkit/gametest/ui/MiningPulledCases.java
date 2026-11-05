@@ -57,7 +57,6 @@ final class MiningPulledCases {
             new Card("Puzzler Solver", "island:puzzler", "Puzzler Solver", false),
             new Card("Sky Mall Display", "island:skymall", "Sky Mall Display", false),
             new Card("Worm Alert", "island:worms", "Worm Alert", false),
-            new Card("Structure Scanner", "mining.scanner.StructureScannerConfig", "Structure Scanner", true),
             new Card("Ghost ESP", "mining.ghosts.GhostEspConfig", "Ghost ESP", true));
 
     private static final List<String> PRESENT = List.of(
@@ -157,22 +156,9 @@ final class MiningPulledCases {
             }
         }
         c.note("pulled cards in the menu: " + found + "; e.g. " + paths.get("Crystal Hollows Map"));
-        if (Mod.isCheat()) {
-            // killer560, 2026-11-04: "the cheat map scanner should be under the crystal hollows map".
-            String group = "Mining > Crystal Hollows > ";
-            c.check(List.of(group + "Structure Scanner").equals(paths.get("Structure Scanner")),
-                    "Structure Scanner is at " + paths.get("Structure Scanner") + ", want " + group + "Structure Scanner");
-            String last = null;
-            for (Map.Entry<String, List<String>> e : paths.entrySet()) {
-                for (String p : e.getValue()) {
-                    if (p.startsWith(group)) {
-                        last = e.getKey();
-                    }
-                }
-            }
-            c.check("Structure Scanner".equals(last), "the last card of Crystal Hollows is " + last
-                    + ", want the cheat-only Structure Scanner at the bottom");
-        }
+        // scanfold-1105 (killer560, 2026-11-05: "structure scanner should not be here it should be inside of the crystal hollows
+        // map at the bottom as a cheat setting"): no Structure Scanner card on any jar.
+        c.check(!paths.containsKey("Structure Scanner"), "a Structure Scanner card is still in the menu: " + paths.get("Structure Scanner"));
         c.check(!paths.containsKey("Lobby Swapper"), "Lobby Swapper (a macro) is in the menu: " + paths.get("Lobby Swapper"));
         List<String> anr = paths.getOrDefault("Auto Nucleus Run", List.of());
         // The stub moved from Misc to the Mining cheat block (defoff-1104, killer560 2026-11-04).
@@ -208,9 +194,6 @@ final class MiningPulledCases {
                         err = card.name() + ": first row is '" + first + "', want the '" + card.switchLabel() + ":' switch";
                     } else if (rows.size() < 2) {
                         err = card.name() + ": switched on, the tab built only " + rows;
-                    } else if (card.name().equals("Structure Scanner") && rows.stream().anyMatch(r ->
-                            r.startsWith("Scan Again") || r.contains("chunks scanned"))) {
-                        err = card.name() + ": still has Scan Again or the chunks-scanned line: " + rows;
                     }
                     Mod.call(fresh, "setEnabled", was);
                     Mod.call(fresh, "save");
@@ -225,7 +208,7 @@ final class MiningPulledCases {
                 problems.add(result);
             }
         }
-        c.check(checked >= 14, "only " + checked + " cards checked - the walk is broken");
+        c.check(checked >= 13, "only " + checked + " cards checked - the walk is broken");
         c.check(problems.isEmpty(), "Mining cards failing: " + problems);
     }
 
@@ -326,8 +309,7 @@ final class MiningPulledCases {
         c.note("ChDiscovery after two Mines of Divan records: " + finds + " find(s), " + find);
         c.check(finds == 1 && find != null, "ChDiscovery holds " + finds + " finds, want the one Mines of Divan find");
 
-        // The Structures list: a scanned find is its name alone (killer560, 2026-11-04: "remove the mines of divan
-        // (scanned) line in structures"), a visited one keeps "(visited)".
+        // scanfold-1105 (killer560, 2026-11-05): no list of found structures, no Open Map, Map Scale or Map HUD row.
         Object temple = Mod.enumValue("mining.chmap.ChStructure", "JUNGLE_TEMPLE");
         Object scanned = Mod.enumValue("mining.chmap.ChFind$Source", "SCANNED");
         List<String> listed = c.onClient(mc -> {
@@ -341,37 +323,157 @@ final class MiningPulledCases {
             return rows;
         });
         c.note("Crystal Hollows Map rows: " + listed);
-        c.check(listed.contains("- Jungle Temple"), "no '- Jungle Temple' line for the scanned find: " + listed);
-        c.check(listed.contains("- Mines of Divan (visited)"), "no '- Mines of Divan (visited)' line: " + listed);
-        c.check(listed.stream().noneMatch(l -> l.contains("(scanned)")), "a '(scanned)' line is still listed: " + listed);
+        c.check(listed.stream().noneMatch(l -> l.startsWith("- ")), "the found-structures list is still there: " + listed);
+        c.check(listed.stream().noneMatch(l -> l.startsWith("Open Map") || l.startsWith("Map Scale") || l.startsWith("Map HUD")),
+                "Open Map / Map Scale / Map HUD rows are still there: " + listed);
         c.check(listed.stream().anyMatch(l -> l.startsWith("Names On HUD")), "no Names On HUD switch: " + listed);
+        c.check(listed.stream().anyMatch(l -> l.startsWith("HUD Name Size")), "no HUD Name Size slider: " + listed);
 
-        String pressed = c.onClient(mc -> {
-            Object tab = tabNamed("Crystal Hollows Map");
-            Object cfg = Mod.cfg("mining.chmap.CrystalHollowsMapConfig");
-            Mod.call(cfg, "setEnabled", true);
-            for (AbstractWidget w : build(tab)) {
-                if (ModScreenDriver.label(w).startsWith("Open Map")) {
-                    return ModScreenDriver.press(w) ? "pressed" : "press refused";
-                }
+        // The map has no button now: /chmap opens it (and the HUD shows whenever the map is on).
+        c.check("CrystalHollowsMapTab".equals(((Map<?, ?>) Mod.field("gui.SearchCommands", "BY_COMMAND")).get("chmap")),
+                "/chmap has no owner card");
+        String screen = c.onClient(mc -> {
+            try {
+                Object s = Mod.cls("mining.chmap.CrystalHollowsMapScreen").getConstructor().newInstance();
+                McCompat.setScreen(mc, (Screen) s);
+            } catch (ReflectiveOperationException e) {
+                return "threw " + e;
             }
-            return "no Open Map row";
+            return "ok";
         });
         c.ticks(20);
-        String screen = c.onClient(mc -> {
+        String now = c.onClient(mc -> {
             Screen s = McCompat.screen(mc);
             return s == null ? "none" : s.getClass().getName();
         });
-        c.note("Open Map: " + pressed + "; screen after 20 ticks: " + screen);
-        c.check("pressed".equals(pressed), "Open Map: " + pressed);
-        c.check(screen.equals(Mod.ROOT + "mining.chmap.CrystalHollowsMapScreen"),
-                "Open Map did not leave the map screen open: " + screen);
+        c.check("ok".equals(screen) && now.equals(Mod.ROOT + "mining.chmap.CrystalHollowsMapScreen"),
+                "the map screen did not stay open: " + screen + " / " + now);
         c.onClient(mc -> {
             McCompat.setScreen(mc, null);
             Mod.call(Mod.cfg("mining.chmap.CrystalHollowsMapConfig"), "setEnabled", false);
             Mod.staticCall("mining.chmap.ChDiscovery", "clear");
             return null;
         });
+        Mod.assertHealthy(mark);
+    }
+
+    /** scanfold-1105: waypoint rename, coordinate edit, per-row remove, color (disk + drawn), Nucleus never a waypoint, the
+     *  scanner's Cheat block at the bottom of the map tab (cheat jars only), HUD name size saved and used by the layout. */
+    static void chMapTab(UiCase c) {
+        Mod.Mark mark = Mod.mark();
+        String cfgClass = "mining.chmap.CrystalHollowsMapConfig";
+        String err = c.onClient(mc -> {
+            Object cfg = Mod.cfg(cfgClass);
+            try {
+                Mod.call(cfg, "setEnabled", true);
+                List<?> wps = (List<?>) Mod.call(cfg, "getWaypoints");
+                wps.clear();
+                Class<?> wc = Mod.cls("mining.chmap.CrystalHollowsWaypoint");
+                @SuppressWarnings("unchecked")
+                List<Object> list = (List<Object>) wps;
+                list.add(wc.getConstructor(String.class, double.class, double.class, double.class).newInstance("First", 10.0, 70.0, 20.0));
+                list.add(wc.getConstructor(String.class, double.class, double.class, double.class).newInstance("Second", 30.0, 80.0, 40.0));
+                Object tab = tabNamed("Crystal Hollows Map");
+                // rename: the first CommitEditBox is waypoint 1's name; Enter (commit) saves it.
+                List<AbstractWidget> w = build(tab);
+                List<AbstractWidget> boxes = new ArrayList<>();
+                for (AbstractWidget x : w) {
+                    if (x.getClass().getSimpleName().equals("CommitEditBox")) {
+                        boxes.add(x);
+                    }
+                }
+                if (boxes.size() != 8) {
+                    return "want 8 text boxes (name, X, Y, Z for two waypoints), got " + boxes.size();
+                }
+                Mod.call(boxes.get(0), "setValue", "Renamed");
+                Mod.call(boxes.get(0), "commit");
+                Mod.call(boxes.get(1), "setValue", "111");
+                Mod.call(boxes.get(2), "setValue", "99");
+                Mod.call(boxes.get(3), "setValue", "222");
+                Mod.call(boxes.get(3), "commit");
+                Mod.staticCall(cfgClass, "load");
+                cfg = Mod.cfg(cfgClass);
+                List<?> after = (List<?>) Mod.call(cfg, "getWaypoints");
+                Object w0 = after.get(0);
+                if (!"Renamed".equals(Mod.field(w0, "name"))) {
+                    return "rename not saved: " + Mod.field(w0, "name");
+                }
+                if ((double) Mod.field(w0, "x") != 111 || (double) Mod.field(w0, "y") != 99 || (double) Mod.field(w0, "z") != 222) {
+                    return "coordinates not saved: " + Mod.field(w0, "x") + "," + Mod.field(w0, "y") + "," + Mod.field(w0, "z");
+                }
+                // color: set, saved, read back, and what the map and the world draw
+                Mod.field(w0, "color");
+                w0.getClass().getField("color").setInt(w0, 0xFF33AA55);
+                Mod.call(cfg, "save");
+                Mod.staticCall(cfgClass, "load");
+                Object w0b = ((List<?>) Mod.call(Mod.cfg(cfgClass), "getWaypoints")).get(0);
+                if ((int) Mod.call(w0b, "drawColor", 0xFFCC6600) != 0xFF33AA55) {
+                    return "color not saved/drawn: " + Integer.toHexString((int) Mod.call(w0b, "drawColor", 0xFFCC6600));
+                }
+                Object w1 = ((List<?>) Mod.call(Mod.cfg(cfgClass), "getWaypoints")).get(1);
+                if (w1.getClass().getField("color").getInt(w1) != 0) {
+                    return "an unpicked waypoint has its own color";
+                }
+                // per-row Remove deletes just that waypoint
+                for (AbstractWidget x : build(tabNamed("Crystal Hollows Map"))) {
+                    if (ModScreenDriver.label(x).equals("Remove")) {
+                        ModScreenDriver.press(x);
+                        break;
+                    }
+                }
+                List<?> left = (List<?>) Mod.call(Mod.cfg(cfgClass), "getWaypoints");
+                if (left.size() != 1 || !"Second".equals(Mod.field(left.get(0), "name"))) {
+                    return "Remove on row 1 left " + left.size() + " waypoint(s), first " + (left.isEmpty() ? "-" : Mod.field(left.get(0), "name"));
+                }
+                // HUD name size: saved, clamped, and the layout's stacking uses it
+                Mod.call(Mod.cfg(cfgClass), "setHudNameSize", 9f);
+                if ((float) Mod.call(Mod.cfg(cfgClass), "getHudNameSize") != 2f) {
+                    return "HUD Name Size not clamped to 2x";
+                }
+                Mod.call(Mod.cfg(cfgClass), "setHudNameSize", 1.5f);
+                Mod.call(Mod.cfg(cfgClass), "save");
+                Mod.staticCall(cfgClass, "load");
+                if ((float) Mod.call(Mod.cfg(cfgClass), "getHudNameSize") != 1.5f) {
+                    return "HUD Name Size not saved";
+                }
+                // the Nucleus is never a waypoint: a find of it adds no marker or label (it is skipped by the renderer)
+                // Cheat block: last rows of the tab are the scanner's, under a Cheat header; none on a legit jar.
+                List<String> rows = labels(tabNamed("Crystal Hollows Map"));
+                boolean has = rows.stream().anyMatch(r -> r.startsWith("Structure Scanner"));
+                if (Mod.isCheat()) {
+                    String last = rows.get(rows.size() - 1);
+                    if (!has || !last.startsWith("Structure Scanner")) {
+                        return "cheat jar: the map tab should end with the scanner's block, rows end " + last + "; " + rows;
+                    }
+                    if (rows.stream().noneMatch(r -> r.startsWith("Fairy Grottos") || r.startsWith("Structure Scanner"))) {
+                        return "cheat block rows missing: " + rows;
+                    }
+                } else if (has || rows.stream().anyMatch(r -> r.startsWith("Scanner Toggle"))) {
+                    return "a legit jar shows the scanner: " + rows;
+                }
+                return null;
+            } catch (Throwable t) {
+                return UiCase.describe(t);
+            } finally {
+                ((List<?>) Mod.call(Mod.cfg(cfgClass), "getWaypoints")).clear();
+                Mod.call(Mod.cfg(cfgClass), "setEnabled", false);
+                Mod.call(Mod.cfg(cfgClass), "setHudNameSize", 1f);
+                Mod.call(Mod.cfg(cfgClass), "save");
+            }
+        });
+        c.check(err == null, "Crystal Hollows Map tab: " + err);
+        // far label readability: a label at 150, 300 and 450 blocks keeps at least the on-screen size it has at 96
+        double[] size = c.onClient(mc -> {
+            double[] r = new double[4];
+            double[] d = {96, 150, 300, 450};
+            for (int i = 0; i < 4; i++) {
+                r[i] = (float) Mod.staticCall("islands.IslandRender", "labelGrowth", d[i]) / d[i];
+            }
+            return r;
+        });
+        for (int i = 1; i < 4; i++) {
+            c.check(size[i] >= size[0] * 0.99, "a label far away shrinks on screen: apparent size ratio " + size[i] / size[0] + " at distance index " + i);
+        }
         Mod.assertHealthy(mark);
     }
 }

@@ -35,7 +35,11 @@ final class HxChScan1104Cases {
 
     /** Every spot the case uses, kept loaded on the server so its setblock/fill land (9 chunks out is past what a
      *  fresh teleport has loaded). */
-    private static final int[][] SPOTS = {A, B, DIVAN, TEMPLE};
+    private static final int[][] SPOTS = {A, B, DIVAN, TEMPLE, {572, 100, 320}};
+    /** The Mines of Divan as built here: a 21 x 7 x 21 block of marker blocks whose corner holds the matched column, so its
+     *  true center is (562, 63, 310), not the column (scanfold-1105, killer560 2026-11-05: "make this waypoint actually be
+     *  in the middle of the area"). */
+    private static final int[] DIVAN_CENTER = {562, 63, 310};
 
     private static void forceload(Session c, String verb) {
         for (int[] at : SPOTS) {
@@ -50,6 +54,7 @@ final class HxChScan1104Cases {
     }
 
     private static void clear(Session c, int[] at) {
+        c.server().command("fill 552 60 300 572 66 320 minecraft:air");
         c.server().command(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:air",
                 at[0], at[1], at[2], at[0], at[1] + 3, at[2]));
     }
@@ -58,6 +63,16 @@ final class HxChScan1104Cases {
         // The floor first (its chunk is forceloaded), so the player lands on it instead of falling (Grim Simulation).
         c.server().command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:stone", at[0], at[1] - 1, at[2]));
         c.server().command(String.format(Locale.ROOT, "tp @a %.1f %d %.1f 0 90", at[0] + 0.5, at[1], at[2] + 0.5));
+    }
+
+    private static int[] xyz(String blockPos) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("x=(-?\\d+), y=(-?\\d+), z=(-?\\d+)").matcher(blockPos);
+        return m.find() ? new int[]{Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)), Integer.parseInt(m.group(3))}
+                : new int[]{Integer.MIN_VALUE, 0, 0};
+    }
+
+    private static boolean near(int[] a, int[] b, int tol) {
+        return Math.abs(a[0] - b[0]) <= tol && Math.abs(a[1] - b[1]) <= tol && Math.abs(a[2] - b[2]) <= tol;
     }
 
     /** On the client thread only (inside onClient or a waitUntil predicate). */
@@ -97,6 +112,7 @@ final class HxChScan1104Cases {
             column(c, TEMPLE, temple);
             tp(c, B);
             c.ctx().waitTicks(40);
+            c.server().command("fill 552 60 300 572 66 320 minecraft:chiseled_stone_bricks");
             column(c, DIVAN, divan);
             // The real (vanilla) chunk: level.getChunk also serves the Chunk Cache's kept copy (default ON). The forget
             // packet can lag under load: give it up to 10 s.
@@ -120,12 +136,31 @@ final class HxChScan1104Cases {
 
             c.waitUntil("the scanner finds the Mines of Divan 9 chunks out", mc -> at("MINES_OF_DIVAN") != null, 400);
             c.note("Mines of Divan at " + position(c, "MINES_OF_DIVAN"));
-            c.check(String.valueOf(position(c, "MINES_OF_DIVAN")).contains("x=552, y=65, z=300"),
-                    "Mines of Divan marked at " + position(c, "MINES_OF_DIVAN") + ", want 552, 65, 300");
+            int[] got = xyz(String.valueOf(position(c, "MINES_OF_DIVAN")));
+            c.check(near(got, DIVAN_CENTER, 3), "Mines of Divan marked at " + java.util.Arrays.toString(got)
+                    + ", want within 3 blocks of the structure's center " + java.util.Arrays.toString(DIVAN_CENTER)
+                    + " (not the stair column at its corner)");
             Object find = c.onClient(mc -> Mod.staticCall("mining.chmap.ChDiscovery", "find",
                     Mod.enumValue("mining.chmap.ChStructure", "MINES_OF_DIVAN")));
             c.check(find != null && "SCANNED".equals(String.valueOf(Mod.field(find, "source"))),
                     "Show On Map: the map holds " + find + ", want a SCANNED Mines of Divan");
+            c.check(find != null && Math.abs((double) Mod.call(find, "centreX") - DIVAN_CENTER[0]) <= 3
+                            && Math.abs((double) Mod.call(find, "centreZ") - DIVAN_CENTER[2]) <= 3,
+                    "the map's Mines of Divan is centered on " + (find == null ? "nothing" : Mod.call(find, "centreX") + ", "
+                            + Mod.call(find, "centreZ")) + ", want the structure's center");
+            // Waypoint color = the zone's Crystal Hollows Walls color, and follows a change of it.
+            Object divanKind = Mod.enumValue("mining.chmap.ChStructure", "MINES_OF_DIVAN");
+            Object zone = Mod.enumValue("miningqol.CrystalHollowsWalls$Zone", "MITHRIL");
+            Object qol = Mod.staticCall("miningqol.MiningQolConfig", "getInstance");
+            int before = c.onClient(mc -> (Integer) Mod.call(divanKind, "zoneColor", 562.0, 63.0, 310.0));
+            int want = c.onClient(mc -> 0xFF000000 | (Integer) Mod.call(qol, "getChWallColor", zone));
+            c.check(before == want, "Mines of Divan waypoint color " + Integer.toHexString(before) + ", want its zone's "
+                    + Integer.toHexString(want));
+            int oldRgb = want & 0xFFFFFF;
+            c.ctx().runOnClient(mc -> Mod.call(qol, "setChWallColor", zone, 0x123456));
+            int changed = c.onClient(mc -> (Integer) Mod.call(divanKind, "zoneColor", 562.0, 63.0, 310.0));
+            c.ctx().runOnClient(mc -> Mod.call(qol, "setChWallColor", zone, oldRgb));
+            c.check(changed == 0xFF123456, "after changing the Mithril zone color the waypoint is " + Integer.toHexString(changed));
             c.waitUntil("the waypoint draws its name", mc -> "Mines of Divan".equals(Mod.staticCall(FEATURE, "lastLabel")), 60);
             c.check(position(c, "JUNGLE_TEMPLE") == null, "the Jungle Temple was found while its chunk was not loaded");
 
