@@ -70,7 +70,10 @@ final class LeapRotationCases {
      */
     enum Act {
         USE_HAND("use-hand"), USE_FASTLEAP("use-fastleap"), CLICK_HAND("click-hand"), CLICK_FASTLEAP("click-fastleap"),
-        ATTACK_HAND("attack-hand"), ACCEPT("accept");
+        ATTACK_HAND("attack-hand"), ACCEPT("accept"),
+        /** A use sent between ticks (a frame, a packet handler) at the old look just before the turn tick: the turn must
+         *  wait one tick, or that tick's movement packet reports another look than the use's (BadPacketsJ). */
+        USE_EARLY("use-early");
 
         final String id;
 
@@ -130,12 +133,18 @@ final class LeapRotationCases {
                     c.hx().call("menu.show", spec);
                     c.waitUntil("the Spirit Leap menu", mc -> mc.player.containerMenu != mc.player.inventoryMenu, 60);
                 }
+                if (act == Act.USE_FASTLEAP || act == Act.CLICK_FASTLEAP) {
+                    // past ActionGate's 6-tick teleport settle (and the menu's 3-tick screen settle), inside the 1.5 s
+                    // pairing window: Fast Leap then acts on the very tick it is asked to, the tick the turn goes
+                    c.ctx().waitTicks(10);
+                }
                 c.ctx().runOnClient(mc -> {
                     Mod.staticCall(LM, "onChat", LINE); // the pair: the turn is pending for the next tick
                     Mod.staticCall(LM, "setCooldownTicksForTest", 0.0); // the line set the leap cooldown; Fast Leap may go
                     switch (act) {
                         case USE_HAND -> KeyMapping.click((InputConstants.Key) Mod.field(mc.options.keyUse, "key"));
                         case ATTACK_HAND -> KeyMapping.click((InputConstants.Key) Mod.field(mc.options.keyAttack, "key"));
+                        case USE_EARLY -> mc.gameMode.useItem(mc.player, net.minecraft.world.InteractionHand.MAIN_HAND);
                         case CLICK_HAND -> mc.gameMode.handleContainerInput(mc.player.containerMenu.containerId, 13, 0,
                                 ContainerInput.PICKUP, mc.player);
                         default -> Mod.staticCall(LM, "leap", MATE, true, false, false); // Fast Leap: use, or click the head
@@ -158,9 +167,9 @@ final class LeapRotationCases {
                 }
             }
             String marker = switch (act) {
-                case USE_HAND, USE_FASTLEAP -> "use ";
+                case USE_HAND, USE_FASTLEAP, USE_EARLY -> "use ";
                 case CLICK_HAND, CLICK_FASTLEAP -> "ServerboundContainerClickPacket";
-                case ATTACK_HAND -> "ServerboundInteractPacket";
+                case ATTACK_HAND -> "ServerboundAttackPacket"; // 26.3; 26.2 sends ServerboundInteractPacket
                 case ACCEPT -> "ServerboundAcceptTeleportationPacket";
             };
             StringBuilder wire = new StringBuilder();
@@ -171,7 +180,7 @@ final class LeapRotationCases {
             int actTick = -1;
             for (int i = 0; i < ticks.size() && actTick < 0; i++) {
                 for (String p : ticks.get(i)) {
-                    if (p.startsWith(marker)) {
+                    if (p.startsWith(marker) || act == Act.ATTACK_HAND && p.equals("ServerboundInteractPacket")) {
                         actTick = i;
                         break;
                     }
@@ -183,6 +192,11 @@ final class LeapRotationCases {
             }
             c.check(after - before == 1, "taken count went " + before + " -> " + after);
             c.check(turnTick >= 0, "no movement packet carried the mate's look " + mYaw + "/" + mPitch);
+            if (act == Act.USE_EARLY) { // the use leaves at the old look, the turn one tick later
+                c.check(actTick >= 0 && turnTick == actTick + 1, act.id + ": the use went in client tick " + actTick
+                        + ", the turn in " + turnTick + ", want the next one");
+                return;
+            }
             c.check(actTick == turnTick, act.id + ": the action went in client tick " + actTick + ", the turn in " + turnTick);
             if (marker.equals("use ")) { // what BadPacketsJ compares: the use's look with that tick's movement look
                 for (String p : ticks.get(turnTick)) {
