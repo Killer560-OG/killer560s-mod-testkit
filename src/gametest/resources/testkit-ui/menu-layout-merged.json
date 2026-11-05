@@ -513,7 +513,7 @@
       "why": "hover rewritten: ca1c6cb5 2026-10-20 Auto Sell: click every stack, not one per identity; sell an item added while the sell scre"
     },
     {
-      "owner": "(unscoped)",
+      "owner": "Display Options",
       "key": "themed main menu",
       "to": "Menu Theme",
       "text": "Draws the title screen in the mod's themes (animated background, framed button column). Off: Minecraft's own title screen. The style and scene rows in Menu Theme show only while it is on and keep their values.",
@@ -731,6 +731,13 @@
       "to": "Player Cosmetics",
       "text": "Automatically shares your display name, your own player size and your Play as Mob choice with other players who have this mod.",
       "why": "Cosmetics is the Player Cosmetics card (menu-a); its hover rewritten since"
+    },
+    {
+      "owner": "Display Options",
+      "key": "pack disabler",
+      "to": "Pack Disabler",
+      "text": "Draws SkyBlock items with their pre-resource-pack look. Off by default.",
+      "why": "39f341e8 (2026-10-18): Pack Disabler is its own tab; this fixture row was listed under Display Options (failing since before mmtoggle-1104)"
     },
     {
       "owner": "(unscoped)",
