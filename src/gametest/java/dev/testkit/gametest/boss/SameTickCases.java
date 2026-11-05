@@ -65,7 +65,9 @@ final class SameTickCases {
     }
 
     static SameTick start(Session c, SameTick.Act act, Predicate<Packet<?>> feature) {
-        return c.onClient(mc -> SameTick.start(act, 1, feature, null, 4, 5));
+        // His left click every tick would hold every world aura for good (ActionGate: his queued attack click goes
+        // first), so ATTACK clicks every other tick.
+        return c.onClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK ? 2 : 1, feature, 4, 5));
     }
 
     /** Stops his action, notes the counts, and fails a case that tested nothing. */
@@ -76,6 +78,14 @@ final class SameTickCases {
         });
         c.note(what + " " + st.report());
         c.check(st.done() > 0, what + ": his action never went in (nothing tested)");
+        if (st.act() == SameTick.Act.ATTACK) {
+            // ActionGate holds a world aura for a tick his left click is queued in (PacketOrderI / MultiInteractA when
+            // his attack follows the aura's interact in one server tick): both act, never in one tick.
+            c.check(st.playerWindows() > 0 && st.featureWindows() > 0, what + ": his attack or the feature never went out ("
+                    + st.report() + ")");
+            c.check(st.both() == 0, what + ": his attack and the feature shared a server tick (" + st.report() + ")");
+            return;
+        }
         c.check(st.both() > 0, what + ": no server tick carried both the feature's packet and his - nothing tested ("
                 + st.report() + ")");
     }

@@ -10,12 +10,10 @@ import net.minecraft.network.protocol.game.ServerboundClientTickEndPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.Entity;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
 
 /**
  * SAME-TICK GRIM CASES (grimsame-1105; killer560 2026-11-05: an idle-after test is not a Grim test). While a feature runs,
@@ -27,9 +25,11 @@ import java.util.function.Supplier;
  *   <li>{@link Act#USE}: a right click into the air, {@code gameMode.useItem}, at START after every mod's START
  *       handler (where {@code handleKeybinds} would send it: after the START actors, before the movement packet). Its
  *       {@code use_item} carries his body look.</li>
- *   <li>{@link Act#ATTACK}: {@code gameMode.attack} + swing on the entity his crosshair is on (or the case's target),
- *       same place.</li>
- *   <li>{@link Act#DIG}: his hand dig, {@code gameMode.startDestroyBlock} on the block his crosshair is on, same place.</li>
+ *   <li>{@link Act#ATTACK} / {@link Act#DIG}: a left click queued at END ({@code KeyMapping.click} on the attack key, a
+ *       mouse press between ticks) while his crosshair is on an entity / a block, so vanilla's {@code handleKeybinds}
+ *       attacks or digs next tick after the START actors - and the mod can see the queued click at START, as it can in
+ *       real play. His packets are the {@code attack} / the {@code player_action} digs the feature's predicate does not
+ *       claim.</li>
  *   <li>{@link Act#SWAP}: the selected slot moves between two slots at END (a scroll or a hotbar key between ticks);
  *       vanilla's {@code gameMode.tick} (or the next action through the game mode) sends it next tick.</li>
  *   <li>{@link Act#CLICK}: a container click on an empty player slot of the open menu at END (a mouse click between
@@ -49,7 +49,6 @@ public final class SameTick implements AutoCloseable {
     private final Act act;
     private final int every;
     private final Predicate<Packet<?>> feature;
-    private final Supplier<Entity> target;
     private final int slotA;
     private final int slotB;
     private final java.util.function.Consumer<Packet<?>> prevTap;
@@ -67,35 +66,32 @@ public final class SameTick implements AutoCloseable {
     private int featureWindows;
     private int playerWindows;
 
-    private SameTick(Act act, int every, Predicate<Packet<?>> feature, Supplier<Entity> target, int slotA, int slotB) {
+    private SameTick(Act act, int every, Predicate<Packet<?>> feature, int slotA, int slotB) {
         this.act = act;
         this.every = Math.max(1, every);
         this.feature = feature;
-        this.target = target;
         this.slotA = slotA;
         this.slotB = slotB;
         this.prevTap = PacketTrace.tap;
     }
 
     /**
-     * Starts putting {@code act} into every {@code every}-th client tick. Client thread. {@code target} is the entity an
-     * ATTACK hits (null for the others); SWAP moves between {@code slotA} and {@code slotB}.
+     * Starts putting {@code act} into every {@code every}-th client tick. Client thread. SWAP moves between {@code slotA} and {@code slotB}.
      */
-    public static SameTick start(Act act, int every, Predicate<Packet<?>> feature, Supplier<Entity> target, int slotA,
-                                 int slotB) {
+    public static SameTick start(Act act, int every, Predicate<Packet<?>> feature, int slotA, int slotB) {
         if (!hooked) {
             hooked = true;
             ClientTickEvents.START_CLIENT_TICK.addPhaseOrdering(net.fabricmc.fabric.api.event.Event.DEFAULT_PHASE, LATE);
             ClientTickEvents.START_CLIENT_TICK.register(LATE, mc -> {
                 SameTick s = active;
-                if (s != null && (s.act == Act.USE || s.act == Act.ATTACK || s.act == Act.DIG)) s.inject(mc);
+                if (s != null && s.act == Act.USE) s.inject(mc);
             });
             ClientTickEvents.END_CLIENT_TICK.register(mc -> {
                 SameTick s = active;
-                if (s != null && (s.act == Act.SWAP || s.act == Act.CLICK)) s.inject(mc);
+                if (s != null && s.act != Act.USE) s.inject(mc);
             });
         }
-        SameTick s = new SameTick(act, every, feature, target, slotA, slotB);
+        SameTick s = new SameTick(act, every, feature, slotA, slotB);
         PacketTrace.tap = s::onSent;
         active = s;
         return s;
@@ -111,21 +107,13 @@ public final class SameTick implements AutoCloseable {
                     mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
                     done++;
                 }
-                case ATTACK -> {
-                    // What his crosshair (the body's look, which automation may have turned) is on, unless the case names it.
-                    Entity e = target != null ? target.get()
-                            : mc.hitResult instanceof net.minecraft.world.phys.EntityHitResult eh ? eh.getEntity() : null;
-                    if (e != null && e.isAlive()) {
-                        mc.gameMode.attack(mc.player, e);
-                        dev.testkit.compat.McCompat.swingArm(mc.player);
-                        done++;
-                    }
-                }
-                case DIG -> {
-                    if (mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult bh
-                            && bh.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK) {
-                        mc.gameMode.startDestroyBlock(bh.getBlockPos(), bh.getDirection());
-                        dev.testkit.compat.McCompat.swingArm(mc.player);
+                case ATTACK, DIG -> {
+                    // What his crosshair is on decides what vanilla's startAttack does with the click.
+                    boolean on = act == Act.ATTACK ? mc.hitResult instanceof net.minecraft.world.phys.EntityHitResult
+                            : mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult bh
+                            && bh.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK;
+                    if (on) {
+                        net.minecraft.client.KeyMapping.click(mc.options.keyAttack.getDefaultKey());
                         done++;
                     }
                 }
@@ -161,7 +149,10 @@ public final class SameTick implements AutoCloseable {
             // A SWAP's slot change goes out later, from vanilla's gameMode.tick: it is his by its slot.
             boolean mine = injecting || p instanceof ServerboundAcceptTeleportationPacket
                     || (act == Act.SWAP && p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket h
-                    && (h.getSlot() == slotA || h.getSlot() == slotB));
+                    && (h.getSlot() == slotA || h.getSlot() == slotB))
+                    || (act == Act.ATTACK && "attack".equals(name))
+                    || (act == Act.DIG && p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket
+                    && !feature.test(p));
             boolean feat = !mine && feature.test(p);
             if (mine) winPlayer = true;
             if (feat) winFeature = true;
@@ -190,10 +181,21 @@ public final class SameTick implements AutoCloseable {
         }
     }
 
+    /** Server ticks that carried his action. */
+    public int playerWindows() {
+        synchronized (window) {
+            return playerWindows;
+        }
+    }
+
     public int featureWindows() {
         synchronized (window) {
             return featureWindows;
         }
+    }
+
+    public Act act() {
+        return act;
     }
 
     /** How many times his action was put in. */

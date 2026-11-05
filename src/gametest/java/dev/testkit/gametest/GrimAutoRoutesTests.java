@@ -2036,7 +2036,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // Armed once the route runs: his own hand warp onto the start node is not the route's.
             warpOnto(ctx, 6.5, 10.5, 6, 6);
             holder[0] = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
-                    p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, null, 0, 4));
+                    p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 4));
             st = holder[0];
             Vec3 landed = waitLanded(ctx, end[0], end[1], 400);
             ctx.waitTicks(10);
