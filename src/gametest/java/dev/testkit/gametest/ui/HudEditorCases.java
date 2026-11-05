@@ -481,6 +481,9 @@ final class HudEditorCases {
         String hudJson = "{\"editKeyCode\":-1,\"positions\":{\"player_stats\":{\"x\":120,\"y\":90,\"scale\":1.5}}}";
         String oldPs = "{\"enabled\":true,\"showHealth\":true,\"showMana\":true,\"showDefense\":true,"
                 + "\"showText\":true,\"showBar\":true,\"barHeight\":8,\"readouts\":{}}";
+        // A fresh run folder has no config/killer560/<category> folders yet (the mod creates them on its first save).
+        Files.createDirectories(hudPath.getParent());
+        Files.createDirectories(psPath.getParent());
         Files.writeString(hudPath, hudJson, StandardCharsets.UTF_8);
         Files.writeString(psPath, oldPs, StandardCharsets.UTF_8);
         Map<String, Object> got = c.onClient(mc -> {
@@ -561,7 +564,7 @@ final class HudEditorCases {
         c.problem("timed out waiting for " + what);
     }
 
-    private static void serverPlayer(UiCase c, java.util.function.Consumer<net.minecraft.server.level.ServerPlayer> f) {
+    static void serverPlayer(UiCase c, java.util.function.Consumer<net.minecraft.server.level.ServerPlayer> f) {
         c.onClient(mc -> {
             var server = mc.getSingleplayerServer();
             if (server == null || mc.player == null) {
@@ -580,7 +583,7 @@ final class HudEditorCases {
     }
 
     /** Sends {@code text} as an action bar from the integrated server: the real packet, the real MODIFY_GAME path. */
-    private static void actionBar(UiCase c, String text) {
+    static void actionBar(UiCase c, String text) {
         serverPlayer(c, sp -> sp.sendSystemMessage(Component.literal(text), true));
     }
 
@@ -939,6 +942,7 @@ final class HudEditorCases {
                         if (e.getValue() == null) {
                             Files.deleteIfExists(e.getKey());
                         } else {
+                            Files.createDirectories(e.getKey().getParent());
                             Files.write(e.getKey(), e.getValue());
                         }
                     }

@@ -111,7 +111,7 @@ public class UiSuite implements FabricClientGameTest {
             "433-ui-pack-disabler-refresh", "434-ui-pack-disabler-menu-maps",
             "451-ui-hotbar-theme", "452-ui-inventory-theme-settings", "453-ui-storage-overlay-centre",
             "454-ui-storage-overlay-themes",
-            "441-ui-bars-under-screens", "442-ui-bars-absorption", "443-ui-bars-predefined-scale", "444-ui-bars-padding",
+            "441-ui-bars-under-screens", "1104-ui-barsedit-panel", "1104-ui-drill-fuel", "1104-ui-maniac-mana", "442-ui-bars-absorption", "443-ui-bars-predefined-scale", "444-ui-bars-padding",
             "445-ui-map-info", "446-ui-split-format", "447-ui-scoreboard-solo"};
     /** killer560's 2026-10-07 22:08 polish report ({@link PolishCases}); 472 is in the menu suite. Own block for merges. */
     static final String[] POLISH_CASES = {"471-ui-held-item-name", "473-ui-inventory-line-pixels",
@@ -621,6 +621,9 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "445-ui-map-info", HudFixCases::mapInfo);
                     UiCase.run(ctx, "446-ui-split-format", HudFixCases::splitFormat);
                     UiCase.run(ctx, "447-ui-scoreboard-solo", HudFixCases::scoreboardSolo);
+                    UiCase.run(ctx, "1104-ui-barsedit-panel", BarsEditPanelCases::run);
+                    UiCase.run(ctx, "1104-ui-drill-fuel", BarsEditPanelCases::drillFuel);
+                    UiCase.run(ctx, "1104-ui-maniac-mana", BarsEditPanelCases::maniacMana);
                     // ---- polish (471-476) ----
                     UiCase.run(ctx, "471-ui-held-item-name", PolishCases::heldItemName);
                     UiCase.run(ctx, "473-ui-inventory-line-pixels", PolishCases::linePixels);

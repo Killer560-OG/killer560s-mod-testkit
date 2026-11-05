@@ -478,7 +478,7 @@ final class BarStyleCases {
     /** Labels the main view may show with Stat Bars on and Advanced closed (killer560, 2026-10-12: "simplify the health
      *  and mana bar menu"): the switch, Edit Bars, one on/off per bar, Style, Text Size and the Advanced header. */
     private static final String[] MAIN_ROWS = {"Stat Bars", "Edit Bars", "Health Bar", "Mana Bar", "Defense Bar",
-            "Vitality Bar", "Other Resource Bar", "XP Bar", "Style", "Text Size", "▶ Advanced"};
+            "Vitality Bar", "Other Resource Bar", "XP Bar", "Drill Fuel Bar", "Style", "Text Size", "▶ Advanced"};
 
     static void menu(UiCase c) throws Exception {
         boolean has = c.onClient(mc -> {

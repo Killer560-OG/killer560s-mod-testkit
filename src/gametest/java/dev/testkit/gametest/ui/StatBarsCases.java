@@ -70,7 +70,7 @@ final class StatBarsCases {
                 {"Overflow Mana Text", "OVERFLOW_TEXT"}, {"Intelligence Text", "INTELLIGENCE_TEXT"},
                 {"Defense Text", "DEFENCE_TEXT"}, {"Effective Health Text", "EFFECTIVE_HEALTH_TEXT"},
                 {"Other Resource Text", "OTHER_TEXT"}, {"Vitality Bar", "VITALITY_BAR"}, {"XP Bar", "XP_BAR"},
-                {"Vitality Text", "VITALITY_TEXT"}, {"XP Text", "XP_TEXT"}};
+                {"Vitality Text", "VITALITY_TEXT"}, {"XP Text", "XP_TEXT"}, {"Drill Fuel Bar", "DRILL_FUEL_BAR"}};
         for (String[] p : r) {
             READOUTS.put(p[0], p[1]);
         }
@@ -81,7 +81,8 @@ final class StatBarsCases {
                 {"Absorption", OH, "getHideAbsorptionHeartsRaw"}, {"Mount Health", OH, "getHideMountHealthBarRaw"},
                 {"Regeneration Bounce", OH, "getHideRegenBounceRaw"}, {"Armor", OH, "getHideArmorBarRaw"},
                 {"Hunger", OH, "getHideHungerBarRaw"}, {"XP Bar And Level", PS, "isHideXpBar"},
-                {"Hypixel Stat Text", PS, "isHideHypixelStatText"}, {"Text Shadow", PS, "isTextShadow"}};
+                {"Hypixel Stat Text", PS, "isHideHypixelStatText"}, {"Drill Fuel Text", PS, "isHideDrillFuelText"},
+                {"Text Shadow", PS, "isTextShadow"}};
         for (String[] p : t) {
             TOGGLES.put(p[0], new String[]{p[1], p[2]});
         }
@@ -171,7 +172,7 @@ final class StatBarsCases {
                 }
                 // Independent of Stat Bars: they must stay reachable with it off.
                 for (String s : new String[]{"Health", "Absorption", "Mount Health", "Regeneration Bounce", "Armor",
-                        "Hunger", "XP Bar And Level", "Hypixel Stat Text"}) {
+                        "Hunger", "XP Bar And Level", "Hypixel Stat Text", "Drill Fuel Text"}) {
                     present(c, l, s, "Stat Bars is OFF (it never depended on Stat Bars)");
                 }
 
@@ -394,7 +395,7 @@ final class StatBarsCases {
     }
 
     private static final Set<String> BAR_COLOURS = Set.of("Health Color", "Mana Color", "Defense Color",
-            "Vitality Color", "Other Color", "XP Color");
+            "Vitality Color", "Other Color", "XP Color", "Drill Fuel Color");
 
     private static void expectColours(UiCase c, List<AbstractWidget> ws, int want, String when) {
         int n = 0;

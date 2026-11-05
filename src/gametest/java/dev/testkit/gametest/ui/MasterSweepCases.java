@@ -42,7 +42,7 @@ final class MasterSweepCases {
         PINNED.put("CosmeticsTab", new String[]{"Supporter Names", "Supporter Sizes", "Show Others' Trails",
                 "Show Others' Mobs", "My Name in F5"});
         PINNED.put("GifPlayerTab", new String[]{"GIFs", "Audio"});
-        PINNED.put("HealthAndManaBarsTab", new String[]{"Stat Bars", "XP Bar And Level", "Hypixel Stat Text"});
+        PINNED.put("HealthAndManaBarsTab", new String[]{"Stat Bars", "XP Bar And Level", "Hypixel Stat Text", "Drill Fuel Text"});
         PINNED.put("TeamMelodyTab", new String[]{"Team Melody HUD", "Share My Progress"});
         PINNED.put("TerminalSolverTab", new String[]{"Terminal Solver", "Terminal Protection", "Terminal Drop Key",
                 "Melody Keys", "Hide Completion Titles", "Hide Completion Chat"});
