@@ -966,7 +966,8 @@
       "open my profile": "Opens the profile viewer on your own Skyblock profile.",
       "remember last page": "Reopens the profile viewer on the page you last used.",
       "show skin": "Shows the player's 3D skin on the profile viewer's main page.",
-      "source": "Where profile data comes from: your Hypixel API key, SkyBlockPV, or Auto."
+      "source": "Where profile data comes from: your Hypixel API key, SkyBlockPV, or Auto.",
+      "style": "How /pv is laid out and drawn: Default (this mod's look), NEU Classic (NotEnoughUpdates' old profile viewer), or SkyBlockPV Light, Dark or Transparent (SkyBlockPV's three themes). Any style but Default brings its own colors in place of the Theme. The Style button inside /pv changes it too."
     },
     "Puzzle Solvers": {
       "blaze solver": "Outlines blazes in kill order: red, orange, yellow, then white.",
