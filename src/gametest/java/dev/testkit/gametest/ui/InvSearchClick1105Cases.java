@@ -3,6 +3,7 @@ package dev.testkit.gametest.ui;
 import dev.testkit.compat.McCompat;
 import dev.testkit.gametest.mod.Mod;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.ContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
@@ -180,10 +181,16 @@ final class InvSearchClick1105Cases {
         }
     }
 
-    /** The mod's other typing targets that are not a focused EditBox: type-anywhere screens and the Bazaar search. */
+    /** The mod's other typing targets that are not a focused EditBox: type-anywhere screens and the Bazaar search. Each
+     *  screen's search box gains focus and loses it again (a click away, Escape in the Auction House), and typing must
+     *  still reach the search after that (an EditBox losing focus stops SDL text input). */
     private static void otherTargets(UiCase c) {
-        String[] screens = {"auction.screen.AuctionHouseScreen", "social.BestFriendsScreen", "accounts.gui.AccountSwitcherScreen"};
-        for (String cls : screens) {
+        // {class, its search EditBox field (null: the AH browser draws its own and keeps the text in "query")}
+        String[][] screens = {{"auction.screen.AuctionHouseScreen", null}, {"social.BestFriendsScreen", "searchBox"},
+                {"social.FriendsListScreen", "addBox"}, {"accounts.gui.AccountSwitcherScreen", "searchBox"}};
+        for (String[] row : screens) {
+            String cls = row[0];
+            String boxField = row[1];
             c.onClient(mc -> {
                 try {
                     McCompat.setScreen(mc, (Screen) Mod.cls(cls).getConstructor(Screen.class).newInstance((Screen) null));
@@ -194,14 +201,60 @@ final class InvSearchClick1105Cases {
             });
             c.ticks(5);
             Boolean open = c.onClient(InvSearchClick1105Cases::textInputOn);
+            c.check(open == null || open, cls + ": typing anywhere cannot reach it, text input is off while it is open");
+            boolean hasBox = boxField != null && c.onClient(mc -> Mod.field(McCompat.screen(mc), boxField) != null);
+            if (boxField != null && !hasBox) {
+                c.note(cls + ": no search box on this screen here (no accounts in the test launcher file); text input checked only");
+                c.onClient(mc -> {
+                    McCompat.setScreen(mc, null);
+                    return null;
+                });
+                c.ticks(3);
+                continue;
+            }
+            if (boxField != null) {
+                int[] r = c.onClient(mc -> {
+                    EditBox b = (EditBox) Mod.field(McCompat.screen(mc), boxField);
+                    return new int[]{b.getX(), b.getY(), b.getWidth(), b.getHeight()};
+                });
+                cursorModScreen(c, r[0] + r[2] / 2.0, r[1] + r[3] / 2.0);
+                c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
+                c.ticks(2);
+                boolean focused = c.onClient(mc -> ((EditBox) Mod.field(McCompat.screen(mc), boxField)).isFocused());
+                c.check(focused, cls + ": a click on its search box did not focus it");
+                // Tab moves focus on to the next widget, as clicking a button does: the box loses focus.
+                MenuOpenSuite.realKey(c, dev.testkit.compat.McKeys.nat(258));
+                c.ticks(2);
+                boolean left = !c.onClient(mc -> ((EditBox) Mod.field(McCompat.screen(mc), boxField)).isFocused());
+                c.check(left, cls + ": Tab did not move focus off its search box");
+            } else {
+                c.ctx().getInput().typeChars("a"); // typing focuses the AH search ...
+                c.ticks(2);
+                MenuOpenSuite.realKey(c, dev.testkit.compat.McKeys.nat(256)); // ... and Escape leaves it
+                c.ticks(2);
+            }
+            String screenNow = c.onClient(mc -> McCompat.screen(mc) == null ? "null" : McCompat.screen(mc).getClass().getName());
+            Boolean after = c.onClient(InvSearchClick1105Cases::textInputOn);
+            c.ctx().getInput().typeChars("z");
+            c.ticks(2);
+            String text = c.onClient(mc -> {
+                Screen sc = McCompat.screen(mc);
+                if (sc == null) {
+                    return "(no screen)";
+                }
+                return boxField == null ? (String) Mod.field(sc, "query") : ((EditBox) Mod.field(sc, boxField)).getValue();
+            });
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
                 return null;
             });
             c.ticks(3);
             Boolean closed = c.onClient(InvSearchClick1105Cases::textInputOn);
-            c.note(cls + ": text input open " + open + ", closed " + closed);
-            c.check(open == null || open, cls + ": typing anywhere cannot reach it, text input is off while it is open");
+            c.note(cls + ": text input open " + open + ", after the search lost focus " + after + " (screen " + screenNow
+                    + "), then typed z: search \"" + text + "\"; closed " + closed);
+            c.check(screenNow.endsWith(cls.substring(cls.lastIndexOf('.') + 1)), cls + ": leaving the search closed the screen (" + screenNow + ")");
+            c.check(after == null || after, cls + ": after its search box gained and lost focus, text input is off, so typing anywhere stops working");
+            c.check(text.contains("z"), cls + ": typing after the search lost focus did not reach it (\"" + text + "\")");
             c.check(closed == null || !closed, cls + ": text input stayed on after it closed");
         }
         Boolean[] bz = c.onClient(mc -> {
@@ -224,6 +277,12 @@ final class InvSearchClick1105Cases {
             return null;
         });
         c.ticks(4);
+    }
+
+    /** A mod screen is laid out at hud/AutoScale's factor for it, so its GUI units are scaled once more. */
+    private static void cursorModScreen(UiCase c, double sx, double sy) {
+        double f = c.onClient(mc -> ((Number) Mod.staticCall("hud.AutoScale", "appliedFactor", McCompat.screen(mc))).doubleValue());
+        cursorGui(c, sx * f, sy * f);
     }
 
     private static void cursorGui(UiCase c, double gx, double gy) {
