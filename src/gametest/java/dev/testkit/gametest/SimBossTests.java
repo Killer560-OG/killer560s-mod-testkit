@@ -79,7 +79,8 @@ import java.util.function.Predicate;
  * fire and lava damage offered to him keeps his bar for 60 ticks, and the refusal is logged with its source.</li>
  * <li>{@code 1101-boss-portal}: a generated F7, /goto Blood, the portal opens (the sim has no Watcher yet: five seconds in
  * Blood), stepping in starts P1 with the floor's map code unchanged (the floor is not reset).</li>
- * <li>{@code 1105-boss-fix3} (bossfix3-1105, both captures): items kept across phase starts; the Simon Says skip (start,
+ * <li>{@code 1105-boss-fix3} (bossfix3-1105, both captures): items kept across phase starts and through the chooser's
+ * Section 1 button; the Arrows wall's lime (start) and red (end) wool frames; the Simon Says skip (start,
  * reset, start 3 ticks apart: the first round put in is round 2), no button under a lit lamp, 16 west-facing buttons at
  * input; S1's boundary gone after its gate line (arch, door, portcullis); a Superboom on gate 2 during S2 takes the arch
  * at once and leaves the door, one on gate 3 does nothing, and S2 then done opens its door at once with no countdown.</li>
@@ -487,6 +488,8 @@ public class SimBossTests implements FabricClientGameTest {
         java.nio.file.Files.copy(fixture3, target3, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         try {
             fix3Items(ctx, f);
+            fix3Chooser(ctx, f);
+            fix3Marks(ctx, f);
             fix3Ss(ctx, f);
             fix3Gates(ctx, f);
         } finally {
@@ -529,6 +532,134 @@ public class SimBossTests implements FabricClientGameTest {
             for (int i = 0; i < 36; i++) {
                 sp.getInventory().setItem(i, net.minecraft.world.item.ItemStack.EMPTY);
             }
+        });
+    }
+
+    /**
+     * killer560: "i set up a hotbar in p1 but then in p3 it was a different one. a whole new inventory". Lays out a hotbar
+     * and inventory in P1, rearranges it, then starts Section 1 through the F7 Boss chooser's own button: every slot stays.
+     */
+    private static void fix3Chooser(ClientGameTestContext ctx, List<String> f) throws Exception {
+        start(ctx, "P1", false);
+        serverRun(ctx, s -> {
+            var inv = s.getPlayerList().getPlayers().get(0).getInventory();
+            net.minecraft.world.item.Item[] kinds = {net.minecraft.world.item.Items.DIAMOND_SWORD, net.minecraft.world.item.Items.BOW,
+                    net.minecraft.world.item.Items.ENDER_PEARL, net.minecraft.world.item.Items.GOLDEN_APPLE, net.minecraft.world.item.Items.TNT};
+            for (int i = 0; i < 36; i++) {
+                inv.setItem(i, i % 3 == 0 ? net.minecraft.world.item.ItemStack.EMPTY : new net.minecraft.world.item.ItemStack(kinds[i % 5], 1 + i % 7));
+            }
+            // His rearranging: a swap inside the hotbar and one item moved up into the inventory.
+            var a = inv.getItem(1);
+            inv.setItem(1, inv.getItem(8));
+            inv.setItem(8, a);
+            inv.setItem(30, inv.getItem(2));
+            inv.setItem(2, net.minecraft.world.item.ItemStack.EMPTY);
+        });
+        ctx.waitTicks(2);
+        String want = inventory(ctx);
+        Class<?> screen = Class.forName(B + "BossStartScreen");
+        ctx.runOnClient(mc -> {
+            try {
+                McCompat.setScreen(mc, (net.minecraft.client.gui.screens.Screen) screen.getConstructor(net.minecraft.client.gui.screens.Screen.class).newInstance((Object) null));
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+        });
+        ctx.waitTicks(3);
+        String pressed = ctx.computeOnClient(mc -> {
+            var sc = McCompat.screen(mc);
+            for (var child : sc.children()) {
+                if (child instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getMessage().getString().equals("Section 1")) {
+                    var ev = new net.minecraft.client.input.MouseButtonEvent(w.getX() + w.getWidth() / 2.0, w.getY() + w.getHeight() / 2.0,
+                            new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0));
+                    sc.mouseClicked(ev, false);
+                    if (McCompat.screen(mc) == sc) {
+                        sc.mouseReleased(ev);
+                    }
+                    return "ok";
+                }
+            }
+            return "no Section 1 button on " + sc;
+        });
+        expect(f, "the chooser's Section 1 button", pressed, "ok");
+        boolean p3 = until(ctx, "P3 from the chooser", mc -> "P3".equals(String.valueOf(call(FIGHT, "phase")))
+                && Integer.valueOf(1).equals(call(FIGHT, "section")), 400);
+        expect(f, "the chooser started P3 Section 1", p3, true);
+        ctx.waitTicks(10);
+        String got = inventory(ctx);
+        expect(f, "every slot after Change Phase to P3", got, want);
+        if (got.equals(want)) {
+            println(FIX3, "chooser P1 -> S1 kept: " + want);
+        }
+    }
+
+    /** killer560: "for frames wherever it starts is the green where it ends should be red". */
+    private static void fix3Marks(ClientGameTestContext ctx, List<String> f) {
+        start(ctx, "P1", false);
+        hover(ctx, new BlockPos(-2, 122, 77), 3, 0, 90); // in front of the wall, so its frames are on the client
+        until(ctx, "the Arrows frames", mc -> !mc.level.getEntitiesOfClass(ItemFrame.class,
+                new AABB(-3, 119, 74, -1, 126, 81), fr -> fr.getItem().is(net.minecraft.world.item.Items.ARROW)).isEmpty(), 100);
+        int[] sol = new int[25];
+        for (int i = 0; i < 25; i++) {
+            sol[i] = (Integer) ModUnderTest.staticCall(DEVICES, "arrowSolution", new Class<?>[]{int.class}, new Object[]{i});
+        }
+        // The test's own reading of the layout: rotation 1/5 = -z/+z, 3/7 = down/up along the wall (the mapping under
+        // which every one of the nine layouts' arrows stays on the wall). Red = an empty cell an arrow points into;
+        // green = the empty cell behind an arrow nothing points into.
+        java.util.Set<Integer> red = new java.util.TreeSet<>(), green = new java.util.TreeSet<>(), heads = new java.util.TreeSet<>();
+        for (int i = 0; i < 25; i++) {
+            if (sol[i] >= 0) {
+                heads.add(i);
+            }
+        }
+        for (int i = 0; i < 25; i++) {
+            if (sol[i] < 0) {
+                continue;
+            }
+            int y = i % 5 + (sol[i] == 7 ? 1 : sol[i] == 3 ? -1 : 0), z = i / 5 + (sol[i] == 5 ? 1 : sol[i] == 1 ? -1 : 0);
+            if (y < 0 || y > 4 || z < 0 || z > 4) {
+                f.add("Arrows: cell " + i + " points off the wall");
+                continue;
+            }
+            heads.remove(y + 5 * z);
+            if (sol[y + 5 * z] < 0) {
+                red.add(y + 5 * z);
+            }
+        }
+        for (int h : heads) {
+            int y = h % 5 - (sol[h] == 7 ? 1 : sol[h] == 3 ? -1 : 0), z = h / 5 - (sol[h] == 5 ? 1 : sol[h] == 1 ? -1 : 0);
+            if (y >= 0 && y <= 4 && z >= 0 && z <= 4 && sol[y + 5 * z] < 0) {
+                green.add(y + 5 * z);
+            }
+        }
+        java.util.Set<Integer> gotRed = new java.util.TreeSet<>(), gotGreen = new java.util.TreeSet<>();
+        int arrows = 0;
+        for (int i = 0; i < 25; i++) {
+            BlockPos pos = new BlockPos(-2, 120 + i % 5, 75 + i / 5);
+            int cell = i;
+            String item = ctx.computeOnClient(mc -> {
+                ItemFrame fr = frameAt(mc, pos);
+                return fr == null ? "" : net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(fr.getItem().getItem()).getPath();
+            });
+            switch (item) {
+                case "red_wool" -> gotRed.add(cell);
+                case "lime_wool" -> gotGreen.add(cell);
+                case "arrow" -> arrows++;
+                default -> { }
+            }
+        }
+        println(FIX3, "Arrows marks: green " + gotGreen + " red " + gotRed + " (layout's starts " + green + ", ends " + red + "), " + arrows + " arrows");
+        expect(f, "Arrows: at least one red and one green frame", !gotRed.isEmpty() && !gotGreen.isEmpty(), true);
+        expect(f, "Arrows: red wool where the path ends", gotRed, red);
+        if (!gotGreen.containsAll(green)) {
+            f.add("Arrows: green wool " + gotGreen + " misses a start behind an arrow " + green);
+        }
+        expect(f, "Arrows: one frame per arrow", arrows, (int) java.util.Arrays.stream(sol).filter(v -> v >= 0).count());
+        serverRun(ctx, s -> {
+            var sp = s.getPlayerList().getPlayers().get(0);
+            sp.getAbilities().flying = false;
+            sp.getAbilities().mayfly = false;
+            sp.onUpdateAbilities();
         });
     }
 
