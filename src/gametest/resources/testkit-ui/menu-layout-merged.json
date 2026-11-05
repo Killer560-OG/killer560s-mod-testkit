@@ -13,7 +13,8 @@
     "gui.tab.LeverAuraTab": "aura-themes-1015: Lever Aura became the In Boss part of the Secret Aura tab (cheat jar only)"
   },
   "newCheatLeaves": {
-    "gui.tab.MiningPigeonDrillTab": "Mining > Swap To Drill On Pigeon"
+    "gui.tab.MiningPigeonDrillTab": "Mining > Swap To Drill On Pigeon",
+    "gui.tab.PowderChestTriggerbotTab": "Mining > Powder Chest Triggerbot"
   },
   "newLeaves": {
     "gui.tab.ChatHiderTab": "Chat > Chat Hider",
