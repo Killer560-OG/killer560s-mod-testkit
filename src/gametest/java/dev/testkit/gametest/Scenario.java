@@ -389,6 +389,16 @@ public final class Scenario {
         connect();
     }
 
+    /** Go back to the title screen but keep the server label, so {@link #join} can come back (1104-online-menu). */
+    public void toTitle() {
+        disconnect();
+    }
+
+    /** Join the server again from the title screen with the same label. */
+    public void join() {
+        connect();
+    }
+
     /** Leave the server and go back to the title screen; clears the server label. Safe to call twice. */
     public void leave() {
         try {

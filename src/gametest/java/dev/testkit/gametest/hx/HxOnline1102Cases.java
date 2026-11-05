@@ -53,6 +53,48 @@ final class HxOnline1102Cases {
         s.test("1102-online-dungeon", HxOnline1102Cases::dungeonLocations);
         s.test("1102-online-down", HxOnline1102Cases::down);
         s.test("1102-online-gate", HxOnline1102Cases::gate);
+        s.test("1104-online-menu", HxOnline1102Cases::menu);
+    }
+
+    // ---- 1104-online-menu (presmenu-1104: "/online doesnt work if someone is just on the start screen") -------------------
+
+    /** Title screen sends "Main Menu"; joining Hypixel switches to the island; leaving sends Offline then Main Menu. */
+    private static void menu(Session c) throws Exception {
+        Mod.Mark mark = Mod.mark();
+        try (Stub stub = new Stub()) {
+            hub(c);
+            on(stub);
+            awaitLocation(c, stub, 0, "Hub", 300);
+            int from = stub.beats.size();
+            c.scenario().toTitle();
+            c.check(c.onClient(mc -> mc.level == null && mc.getConnection() == null), "not on the title screen");
+            Beat menu = awaitLocation(c, stub, from, "Main Menu", 600);
+            c.check(json(menu).keySet().equals(Set.of("session", "location")), "menu body keys: " + menu.body());
+            c.check(json(menu).get("session").getAsString().equals(Mod.staticCall(P, "sessionForTest")), "menu session differs");
+            List<Beat> left = stub.since(from);
+            c.check(left.stream().anyMatch(b -> "Offline".equals(location(b))), "no Offline on leaving: " + left);
+            c.check(left.indexOf(menu) > left.stream().filter(b -> "Offline".equals(location(b))).mapToInt(left::indexOf).findFirst().orElse(99),
+                    "Main Menu did not follow Offline");
+            c.note("menu beat: " + menu.body());
+            // Joining Hypixel again switches to the island, and the 10 s relay floor holds across the switch.
+            from = stub.beats.size();
+            c.scenario().join();
+            hub(c);
+            Beat back = awaitLocation(c, stub, from, "Hub", 800);
+            Beat lastMenu = stub.since(from).stream().filter(b -> "Main Menu".equals(location(b))).reduce((x, y) -> y).orElse(null);
+            c.check(lastMenu == null || back.at() - lastMenu.at() >= 2500, "Hub beat came too soon after a menu beat");
+            // Leaving again: Offline then Main Menu.
+            from = stub.beats.size();
+            c.scenario().toTitle();
+            awaitLocation(c, stub, from, "Main Menu", 600);
+            c.check(stub.since(from).stream().anyMatch(b -> "Offline".equals(location(b))), "no Offline on the second leave");
+            c.check(stub.wrong.isEmpty(), "the stub saw other requests: " + stub.wrong);
+            c.scenario().join();
+        } finally {
+            off();
+            hub(c);
+        }
+        Mod.assertHealthy(mark);
     }
 
     // ---- the stub relay ---------------------------------------------------------------------------------------------
