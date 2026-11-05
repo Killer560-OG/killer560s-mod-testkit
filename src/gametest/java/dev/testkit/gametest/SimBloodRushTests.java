@@ -1529,7 +1529,9 @@ public class SimBloodRushTests implements FabricClientGameTest {
         }
         // The on/off pair needs a still scene (off vs off under 40 px). Something passing through the view (2026-11-04,
         // 26.3 cheat under gate load: noise 2395 with the box at 22233 px) spoils one pair, so up to three pairs are
-        // taken and the first still one is judged; a box that never shows fails on every pair alike.
+        // taken and the first still one is judged; a box that never shows fails on every pair alike. "Still" is under 40 px
+        // or under 1/20 of the box's own pixels: a few animated pixels (lava, a particle; off vs off 195 against a box of
+        // 20000, 26.2 under load) do not make a box of 300+ pixels invisible.
         java.awt.image.BufferedImage on = null;
         java.awt.image.BufferedImage off1 = null;
         int boxPx = 0;
@@ -1543,11 +1545,11 @@ public class SimBloodRushTests implements FabricClientGameTest {
             boxPx = diff(on, off1, r);
             noise = diff(off1, off2, r);
             facts.add("PIXELS box on vs off " + boxPx + ", off vs off " + noise + " (pair " + attempt + ")");
-            if (noise < 40) {
+            if (noise < Math.max(40, boxPx / 20)) {
                 break;
             }
         }
-        if (boxPx < 300 || noise >= 40) {
+        if (boxPx < 300 || noise >= Math.max(40, boxPx / 20)) {
             problems.add("the box is not plainly visible: " + boxPx + " pixels against the helper off (want 300+), noise " + noise);
         }
         ctx.runOnClient(mc -> brSet("setEnabled", true));
