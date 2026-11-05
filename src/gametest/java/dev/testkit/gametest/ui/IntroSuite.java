@@ -56,7 +56,7 @@ import java.util.Map;
 public class IntroSuite implements FabricClientGameTest {
 
     static final String[] CASES = {"1101-ui-intro-first-show", "1101-ui-intro-nav", "1101-ui-intro-skip",
-            "1101-ui-intro-theme", "1101-ui-intro-variant", "1101-ui-intro-banlogs", "1104-ui-intro-crashreports", "1104-ui-intro-skipdefaults", "1101-ui-intro-once",
+            "1101-ui-intro-theme", "1101-ui-intro-variant", "1101-ui-intro-banlogs", "1104-ui-intro-crashreports", "1105-discordlink-intro", "1104-ui-intro-skipdefaults", "1101-ui-intro-once",
             "1101-ui-intro-sizes", "1101-ui-intro-anim", "1101-ui-intro-autoupdate", "1101-ui-intro-mouth",
             "1101-ui-intro-facing", "1101-ui-intro-still", "1101-ui-intro-timebox", "1101-ui-intro-grid"};
     static final String INTRO = "intro.IntroScreen";
@@ -85,6 +85,7 @@ public class IntroSuite implements FabricClientGameTest {
         UiCase.run(ctx, "1101-ui-intro-variant", IntroSuite::variant);
         UiCase.run(ctx, "1101-ui-intro-banlogs", IntroSuite::banLogs);
         UiCase.run(ctx, "1104-ui-intro-crashreports", IntroSuite::crashReports);
+        UiCase.run(ctx, "1105-discordlink-intro", IntroSuite::discordLink);
         UiCase.run(ctx, "1104-ui-intro-skipdefaults", IntroSuite::skipDefaults);
         UiCase.run(ctx, "1101-ui-intro-once", IntroSuite::once);
         UiCase.run(ctx, "1101-ui-intro-sizes", IntroSuite::sizes);
@@ -264,6 +265,61 @@ public class IntroSuite implements FabricClientGameTest {
         c.check(configFile(c, "killer560smod-crashreport.json").contains("\"enabled\": false"), "No was not saved");
         click(c, "Skip Guide");
         c.check(!crash(c), "No did not stay after the tour ended");
+    }
+
+    /** The tour's words with its line breaks as spaces (the bubble wraps them). */
+    static String flat(UiCase c) {
+        return text(c).replaceAll("\\s+", " ");
+    }
+
+    /** Waits (bounded, in ticks) for the tour's words to contain {@code want}. */
+    static boolean waitText(UiCase c, String want) {
+        for (int i = 0; i < 300 && !flat(c).contains(want); i++) {
+            c.ticks(2);
+        }
+        return flat(c).contains(want);
+    }
+
+    /** Discord Link (mod discordlink-1105, killer560 2026-11-05: "prompt them to link in the startup animation as well"):
+     *  a step after the crash reports that never blocks the tour. A relay that cannot be reached says try later from the
+     *  card and Skip goes on; with the (stub) relay, Get Link Code shows the code and the /link instruction. */
+    static void discordLink(UiCase c) throws Exception {
+        try (dev.testkit.gametest.logic.DiscordLinkCases.Stub stub = new dev.testkit.gametest.logic.DiscordLinkCases.Stub()) {
+            open(c);
+            goTo(c, "DISCORD_LINK");
+            c.check(flat(c).contains("Discord") && flat(c).contains("Home > Discord Link"), "the link step says: " + flat(c));
+            boolean blocked = c.onClient(mc -> (Boolean) Mod.call(McCompat.screen(mc), "nextBlocked"));
+            c.check(!blocked, "the Discord Link step blocks Next");
+            c.check(buttons(c).containsKey("Skip"), "no Skip on the link step (buttons " + buttons(c).keySet() + ")");
+            c.check(stub.calls.isEmpty(), "reaching the step called the relay: " + stub.calls);
+
+            // Offline: nothing listens there.
+            String live = System.getProperty("killer560.net.discordlink-relay");
+            try {
+                System.setProperty("killer560.net.discordlink-relay", dev.testkit.gametest.logic.DiscordLinkCases.deadUrl());
+            } catch (java.io.IOException e) {
+                throw new AssertionError(e);
+            }
+            click(c, "Get Link Code");
+            c.check(waitText(c, "try later from"), "an unreachable relay did not say try later: " + flat(c));
+            c.check(flat(c).contains("Home > Discord Link"), "the offline words do not name the card: " + flat(c));
+            shot(c, "discord-link-offline");
+            c.check(stub.calls.isEmpty(), "the dead URL reached the stub: " + stub.calls);
+
+            // Online (the stub): a code and the instruction.
+            System.setProperty("killer560.net.discordlink-relay", live);
+            click(c, "Get Link Code");
+            c.check(waitText(c, "/link code:" + dev.testkit.gametest.logic.DiscordLinkCases.CODE),
+                    "no code on the step: " + flat(c) + " (relay calls " + stub.calls + ")");
+            c.check(stub.calls.stream().anyMatch(s -> s.startsWith("POST /discord-link/start Bearer "
+                    + dev.testkit.gametest.logic.DiscordLinkCases.TOKEN)), "the step never asked the relay: " + stub.calls);
+            settle(c);
+            c.check(buttons(c).containsKey("Copy /link Command"), "no Copy /link Command chip (buttons " + buttons(c).keySet() + ")");
+            shot(c, "discord-link-code");
+            click(c, "Skip");
+            c.check(scene(c).equals("AUTO_UPDATE"), "Skip did not go on (at " + scene(c) + ")");
+            click(c, "Skip Guide");
+        }
     }
 
     /** Answers a waiting question (No thanks for the ban logs, Yes for Auto Update: the defaults a test config has),
