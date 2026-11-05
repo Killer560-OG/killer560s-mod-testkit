@@ -202,7 +202,7 @@ public class FairyIslandTests implements FabricClientGameTest {
 
     /** Set by a case: start here (x,y,z,yaw,pitch) instead of -Pfairy.start / the spawn. */
     static String startOverride;
-    /** 1103-worldexport: the island is already in the seeded world, so do not send its blocks again. */
+    /** FairyHubTests: the island is already in the seeded world, so do not send its blocks again. */
     static boolean skipPlace;
     /** Set by a case: end the run once this many souls are collected. */
     static int stopAfterSouls = Integer.MAX_VALUE;
