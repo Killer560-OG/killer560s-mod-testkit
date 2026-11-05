@@ -46,6 +46,7 @@ public class SimMapMimicTests implements FabricClientGameTest {
     private static final String PAINTER = "com.killer560.hub.livemap.MapPainter";
     private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
     private static final String CONFIG = "com.killer560.hub.livemap.LiveMapConfig";
+    private static final List<AutoCloseable> RESTORE = new ArrayList<>();
     private static final int GRID = 11;
     private static final int MIMIC_TINT = 0x33FF0000;
 
@@ -72,6 +73,16 @@ public class SimMapMimicTests implements FabricClientGameTest {
         try {
             run(ctx, cheat);
         } finally {
+            ctx.runOnClient(mc -> {
+                for (AutoCloseable r : RESTORE) {
+                    try {
+                        r.close();
+                    } catch (Exception e) {
+                        System.out.println("[" + CASE + "] restore failed: " + e);
+                    }
+                }
+                RESTORE.clear();
+            });
             SimChestHook.restore(ctx);
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "leave"));
             ctx.runOnClient(mc -> mc.execute(() -> {
@@ -97,8 +108,15 @@ public class SimMapMimicTests implements FabricClientGameTest {
         if (cheat) {
             // Since mod map-overhaul-1015 the scan that knows the mimic's room in advance is the cheat build's Funny Map
             // with Show Mimic Room (killer560, 2026-10-15); this case is about that scan's latch.
-            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CONFIG), "setFunnyMap", true));
-            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CONFIG), "setShowMimicRoom", true));
+            // Put back afterwards: the client outlives the case, and a Funny Map left on hides Predictive Rooms from
+            // the 1101-map-predicted-gray case that runs later in the same batch (predgray-1105).
+            ctx.runOnClient(mc -> {
+                RESTORE.add(0, dev.testkit.gametest.mod.Mod.with(CONFIG, "FunnyMap", true));
+                Object cfg = ModUnderTest.config(CONFIG);
+                boolean oldShow = (Boolean) dev.testkit.gametest.mod.Mod.call(cfg, "isShowMimicRoomRaw");
+                ModUnderTest.set(cfg, "setShowMimicRoom", true);
+                RESTORE.add(0, () -> ModUnderTest.set(cfg, "setShowMimicRoom", oldShow));
+            });
         }
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter",
                 new Class<?>[]{String.class}, new Object[]{"gametest"}));
