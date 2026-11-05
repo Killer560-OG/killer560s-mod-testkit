@@ -692,43 +692,70 @@ final class DocMiscCases {
         return c.onClient(mc -> (Integer) Mod.field(chat(mc), "chatScrollbarPos"));
     }
 
-    private static boolean peekOpen(Minecraft mc) {
-        Screen s = McCompat.screen(mc);
-        return s != null && s.getClass().getName().endsWith(".peekchat.PeekChatScreen");
+    /** Peek Chat shows no screen since peekmove-1104 (killer560, 2026-11-04: "it just shows the chat but i can still
+     *  move"): the overlay is up while {@code PeekChatFeature.isPeeking()}. */
+    private static boolean peeking(Minecraft mc) {
+        return (Boolean) Mod.staticCall("peekchat.PeekChatFeature", "isPeeking");
     }
 
-    /** Pixels in the input bar strip (GUI y h-14..h-2) that differ from {@code base} by more than 30, from x 2 to the
-     *  left of the hotbar: the held item on the right sways between two pictures (2,053 px of it in one run). */
-    private static int barChanged(BufferedImage base, BufferedImage img, int gs, int w, int h) {
-        int n = 0;
-        for (int y = (h - 14) * gs; y < (h - 2) * gs; y++) {
-            for (int x = 2 * gs; x < (w / 2 - 100) * gs; x++) {
-                if (delta(rgb(base, x, y), rgb(img, x, y)) > 30) {
-                    n++;
+    private static String screenName(Minecraft mc) {
+        return McCompat.screen(mc) == null ? "none" : McCompat.screen(mc).getClass().getSimpleName();
+    }
+
+    /** The top GUI row with a light purple (section-d) chat letter in the left half of the picture, or -1. */
+    private static int topPurple(BufferedImage img, double scale) {
+        for (int y = 0; y < img.getHeight(); y++) {
+            for (int x = 0; x < img.getWidth() / 2; x++) {
+                if (rgb(img, x, y) == 0xFF55FF) {
+                    return (int) (y / scale);
                 }
             }
         }
-        return n;
+        return -1;
     }
 
+    private static void peekSetup(UiCase c, int lines) {
+        closeScreen(c);
+        c.onClient(mc -> {
+            Object cfg = Mod.cfg(PEEK);
+            Mod.call(cfg, "setEnabled", true);
+            Mod.call(cfg, "setKeyCode", PEEK_KEY);
+            Mod.call(cfg, "setHoldToPeek", false);
+            Object chat = chat(mc);
+            for (int i = 1; i <= lines; i++) {
+                Mod.call(chat, "addClientSystemMessage", Component.literal("§dpeek history line " + i));
+            }
+            return null;
+        });
+        c.ticks(3);
+    }
+
+    private static void peekRestore(UiCase c, Path file, byte[] saved) throws Exception {
+        Mod.setField("peekchat.PeekChatFeature", "keyHeldForTest", null);
+        c.onClient(mc -> {
+            Mod.staticCall("peekchat.PeekChatFeature", "close", mc);
+            return null;
+        });
+        closeScreen(c);
+        if (saved != null) {
+            Files.write(file, saved);
+        } else {
+            Files.deleteIfExists(file);
+        }
+        c.onClient(mc -> {
+            Mod.staticCall(PEEK, "load");
+            return null;
+        });
+    }
+
+    /** 1314: Toggle Peek's keys with no screen: the key shows it, the wheel and Page Up scroll the chat (never the hotbar),
+     *  Home goes back, Escape hides it without the pause menu, any screen ends it, and nothing is sent or drafted. */
     static void peekChat(UiCase c) throws Exception {
         Path file = c.onClient(mc -> (Path) R.getStatic(R.cls(PEEK), "CONFIG_PATH"));
         byte[] saved = Files.exists(file) ? Files.readAllBytes(file) : null;
         List<String> sent = new CopyOnWriteArrayList<>();
         try {
-            closeScreen(c);
-            c.onClient(mc -> {
-                Object cfg = Mod.cfg(PEEK);
-                Mod.call(cfg, "setEnabled", true);
-                Mod.call(cfg, "setKeyCode", PEEK_KEY);
-                Object chat = chat(mc);
-                for (int i = 1; i <= 80; i++) {
-                    Mod.call(chat, "addClientSystemMessage", Component.literal("§7peek history line " + i));
-                }
-                Mod.call(chat, "addClientSystemMessage", Component.literal("§bclick this link")
-                        .withStyle(s -> s.withClickEvent(new ClickEvent.OpenUrl(URI.create("https://example.com/peek")))));
-                return null;
-            });
+            peekSetup(c, 80);
             PacketTrace.tap = p -> {
                 if (p instanceof ServerboundChatCommandPacket cmd) {
                     sent.add("/" + cmd.command());
@@ -736,68 +763,18 @@ final class DocMiscCases {
                     sent.add(msg.message());
                 }
             };
-            c.ticks(3);
-            int[] g = c.onClient(mc -> new int[]{mc.getWindow().getGuiScale(), mc.getWindow().getGuiScaledWidth(),
-                    mc.getWindow().getGuiScaledHeight()});
-            int gs = g[0];
-            BufferedImage none = shot(c, "peek-chat-none");
-
-            // ---- control: plain chat draws its input bar ----
-            c.onClient(mc -> {
-                McCompat.setScreen(mc, new ChatScreen("", false));
-                return null;
-            });
-            c.ticks(3);
-            BufferedImage plain = shot(c, "peek-chat-control-plain-chat");
-            int plainBar = barChanged(none, plain, gs, g[1], g[2]);
-            closeScreen(c);
-            c.note("plain chat: " + plainBar + " px changed in the input bar strip (the probe sees a bar)");
-            int area = 12 * gs * ((g[1] / 2 - 100) - 2) * gs;
-            c.check(plainBar > area / 2, "the probe does not see plain chat's input bar (" + plainBar + " px) - it would prove nothing");
-
-            // A half-typed message saved in the real chat (after the control: closing plain chat with an empty box
-            // discards the draft, as vanilla does).
             c.onClient(mc -> {
                 Mod.call(chat(mc), "saveAsDraft", "half typed message");
                 return null;
             });
-            // ---- the key opens Peek Chat ----
             press(c, PEEK_KEY);
-            boolean opened = c.onClient(DocMiscCases::peekOpen);
-            c.check(opened, "pressing the Peek Chat key did not open Peek Chat (screen " + c.onClient(mc ->
-                    String.valueOf(McCompat.screen(mc))) + ")");
-            String box = c.onClient(mc -> {
-                EditBox in = (EditBox) Mod.field(McCompat.screen(mc), "input");
-                return in.isVisible() + "/" + in.isFocused() + "/" + McCompat.screen(mc).getFocused();
-            });
-            c.note("input box visible/focused/screen focus: " + box);
-            c.check(box.startsWith("false/false/null"), "Peek Chat has an input box that shows or takes keys: " + box);
-            BufferedImage peek = shot(c, "peek-chat-open");
-            int peekBar = barChanged(none, peek, gs, g[1], g[2]);
-            c.note("Peek Chat: " + peekBar + " px changed in the input bar strip");
-            // Grass shimmer between two pictures moves a few dozen pixels; a bar darkens most of the strip.
-            c.check(peekBar < area / 50, "Peek Chat still draws an input bar: " + peekBar + " of " + area + " px changed (plain chat " + plainBar + ")");
-            boolean expanded = c.onClient(mc -> (Boolean) Mod.call(chat(mc), "isChatFocused"));
-            c.check(expanded, "the chat is not shown as open (isChatFocused false) behind Peek Chat");
+            String opened = c.onClient(mc -> peeking(mc) + "/" + screenName(mc) + "/" + Mod.call(chat(mc), "isChatFocused"));
+            c.note("after the key: peeking/screen/chat focused = " + opened);
+            c.check(opened.equals("true/none/true"), "the Peek Chat key did not show the peek with no screen: " + opened);
 
-            // ---- typing does nothing and sends nothing ----
-            c.ctx().getInput().typeChars("hello");
-            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(257)); // Enter
-            c.ticks(3);
-            String typed = c.onClient(mc -> peekOpen(mc) ? ((EditBox) Mod.field(McCompat.screen(mc), "input")).getValue() : "<closed>");
-            c.note("typed 'hello' + Enter: input '" + typed + "', sent " + sent);
-            c.check("".equals(typed), "typing reached Peek Chat's input: '" + typed + "'");
-            c.check(sent.isEmpty(), "Peek Chat sent something: " + sent);
-
-            // ---- scrolling: the mouse wheel over the chat, then Page Up, then Home ----
+            // ---- the wheel scrolls the chat, not the hotbar; Page Up a page more; Home back ----
+            int slot0 = c.onClient(mc -> mc.player.getInventory().getSelectedSlot());
             int s0 = scrollPos(c);
-            double[] over = c.onClient(mc -> {
-                Window w = mc.getWindow();
-                return new double[]{20.0 * w.getScreenWidth() / w.getGuiScaledWidth(),
-                        (w.getGuiScaledHeight() - 60.0) * w.getScreenHeight() / w.getGuiScaledHeight()};
-            });
-            c.ctx().getInput().setCursorPos(over[0], over[1]);
-            c.ticks(2);
             c.ctx().getInput().scroll(3.0);
             c.ticks(2);
             int s1 = scrollPos(c);
@@ -808,60 +785,42 @@ final class DocMiscCases {
             c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(268)); // Home
             c.ticks(2);
             int s3 = scrollPos(c);
-            c.note("scroll position: open " + s0 + ", after the wheel " + s1 + ", after Page Up " + s2 + ", after Home " + s3);
+            int slot1 = c.onClient(mc -> mc.player.getInventory().getSelectedSlot());
+            c.note("scroll position: shown " + s0 + ", after the wheel " + s1 + ", after Page Up " + s2 + ", after Home " + s3
+                    + "; hotbar slot " + slot0 + " -> " + slot1);
             c.check(s0 == 0 && s1 > 0 && s2 > s1 && s3 == 0, "Peek Chat did not scroll: " + s0 + " -> " + s1 + " -> " + s2
                     + " -> " + s3);
-            c.check(c.onClient(DocMiscCases::peekOpen), "Peek Chat closed while scrolling");
+            c.check(slot0 == slot1, "the wheel moved the hotbar from slot " + slot0 + " to " + slot1);
+            c.check(scrolled != null && c.onClient(DocMiscCases::peeking), "the peek ended while scrolling");
 
-            // ---- the link is clickable: found on the open picture by its aqua letters (where the chat sits depends on the
-            // window), then clicked with the real mouse ----
-            double scale = peek.getWidth() / (double) g[1];
-            int[] aqua = null;
-            for (int y = 0; y < peek.getHeight() && aqua == null; y++) {
-                for (int x = 0; x < peek.getWidth() / 2; x++) {
-                    if (rgb(peek, x, y) == 0x55FFFF) {
-                        aqua = new int[]{x, y};
-                        break;
-                    }
-                }
-            }
-            c.check(aqua != null, "no aqua link letters on the Peek Chat picture");
-            String linkHit = null;
-            for (int dy = 0; dy <= 6 && linkHit == null; dy += 3) {
-                double gx = aqua[0] / scale + 3;
-                double gy = aqua[1] / scale + dy;
-                double[] at = c.onClient(mc -> {
-                    Window w = mc.getWindow();
-                    return new double[]{gx * w.getScreenWidth() / w.getGuiScaledWidth(),
-                            gy * w.getScreenHeight() / w.getGuiScaledHeight()};
-                });
-                c.ctx().getInput().setCursorPos(at[0], at[1]);
-                c.ticks(1);
-                c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
-                c.ticks(2);
-                String now = c.onClient(mc -> McCompat.screen(mc) == null ? "none" : McCompat.screen(mc).getClass().getSimpleName());
-                if (!now.equals("PeekChatScreen")) {
-                    linkHit = now + String.format(Locale.ROOT, " at GUI (%.0f, %.0f)", gx, gy);
-                }
-            }
-            c.note("clicking the link line: " + linkHit);
-            c.check(linkHit != null && linkHit.startsWith("ConfirmLinkScreen"), "clicking the link in Peek Chat did not open the "
-                    + "link prompt: " + linkHit);
-            closeScreen(c);
-
-            // ---- Escape and the key close it; the draft is untouched ----
-            press(c, PEEK_KEY);
-            boolean again = c.onClient(DocMiscCases::peekOpen);
+            // ---- Escape hides it and opens no pause menu ----
             c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(256)); // Escape
             c.ticks(3);
-            boolean afterEsc = c.onClient(DocMiscCases::peekOpen);
+            String afterEsc = c.onClient(mc -> peeking(mc) + "/" + screenName(mc));
+            c.note("after Escape: peeking/screen = " + afterEsc);
+            c.check(afterEsc.equals("false/none"), "Escape did not just hide the peek: " + afterEsc);
+
+            // ---- the key shows it again and hides it ----
             press(c, PEEK_KEY);
-            boolean third = c.onClient(DocMiscCases::peekOpen);
+            boolean again = c.onClient(DocMiscCases::peeking);
             press(c, PEEK_KEY);
-            boolean afterKey = c.onClient(mc -> McCompat.screen(mc) != null);
-            c.note("open " + again + ", after Escape " + afterEsc + "; open " + third + ", after the key " + afterKey);
-            c.check(again && !afterEsc && third && !afterKey, "Escape / the Peek Chat key did not open and close it: "
-                    + again + "/" + afterEsc + "/" + third + "/" + afterKey);
+            String afterKey = c.onClient(mc -> peeking(mc) + "/" + screenName(mc));
+            c.note("key again: shown " + again + ", after the next press " + afterKey);
+            c.check(again && afterKey.equals("false/none"), "the Peek Chat key did not show and hide it: " + again + "/" + afterKey);
+
+            // ---- a screen opening ends it ----
+            press(c, PEEK_KEY);
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player));
+                return null;
+            });
+            c.ticks(3);
+            closeScreen(c);
+            c.ticks(2);
+            boolean afterScreen = c.onClient(DocMiscCases::peeking);
+            c.note("peeking after the inventory opened and closed: " + afterScreen);
+            c.check(!afterScreen, "a screen opening did not end the peek");
+
             String draft = c.onClient(mc -> {
                 Object d = Mod.field(chat(mc), "latestDraft");
                 return d == null ? null : (String) Mod.call(d, "text");
@@ -869,23 +828,73 @@ final class DocMiscCases {
             c.note("draft after Peek Chat: " + draft);
             c.check("half typed message".equals(draft), "Peek Chat lost or changed the saved chat draft: " + draft);
             c.check(sent.isEmpty(), "something was sent during the case: " + sent);
-            c.check(scrolled != null, "no scrolled picture");
         } finally {
             PacketTrace.tap = null;
-            closeScreen(c);
             c.onClient(mc -> {
                 Mod.call(chat(mc), "discardDraft");
                 return null;
             });
-            if (saved != null) {
-                Files.write(file, saved);
-            } else {
-                Files.deleteIfExists(file);
+            peekRestore(c, file, saved);
+        }
+    }
+
+    /** 1104-ui-peek-move (killer560, 2026-11-04: "chat peak should not be able to stop my movement"): in both Peek Modes
+     *  the player walks while the peek is up, no screen is open, and the overlay draws older lines than the closed chat. */
+    static void peekMove(UiCase c) throws Exception {
+        Path file = c.onClient(mc -> (Path) R.getStatic(R.cls(PEEK), "CONFIG_PATH"));
+        byte[] saved = Files.exists(file) ? Files.readAllBytes(file) : null;
+        int fwd = 87;
+        int back = 83;
+        try {
+            peekSetup(c, 60);
+            double scale = c.onClient(mc -> (double) mc.getWindow().getWidth() / mc.getWindow().getGuiScaledWidth());
+            BufferedImage closed = shot(c, "peek-move-closed");
+            int closedTop = topPurple(closed, scale);
+            c.note("closed chat: top purple line at GUI y " + closedTop);
+            c.check(closedTop > 0, "the closed chat shows no purple lines - the comparison would prove nothing");
+            for (boolean hold : new boolean[]{false, true}) {
+                String mode = hold ? "Hold To Peek" : "Toggle Peek";
+                c.onClient(mc -> {
+                    Mod.call(Mod.cfg(PEEK), "setHoldToPeek", hold);
+                    return null;
+                });
+                if (hold) {
+                    Mod.setField("peekchat.PeekChatFeature", "keyHeldForTest", Boolean.TRUE);
+                    c.ticks(3);
+                } else {
+                    press(c, PEEK_KEY);
+                }
+                double[] p0 = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getZ()});
+                c.ctx().getInput().holdKey(dev.testkit.compat.McKeys.nat(fwd));
+                c.ticks(20);
+                String during = c.onClient(mc -> peeking(mc) + "/" + screenName(mc) + "/" + mc.options.keyUp.isDown());
+                BufferedImage img = shot(c, "peek-move-" + (hold ? "hold" : "toggle"));
+                double[] p1 = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getZ()});
+                c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(fwd));
+                double dist = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+                int top = topPurple(img, scale);
+                c.note(mode + ": peeking/screen/forward down = " + during + ", walked " + String.format(Locale.ROOT, "%.2f", dist)
+                        + " blocks, top purple line at GUI y " + top + " (closed " + closedTop + ")");
+                c.check(during.equals("true/none/true"), mode + ": the peek was not up with no screen and W held: " + during);
+                c.check(dist > 1.0, mode + ": the player did not move while peeking (" + String.format(Locale.ROOT, "%.2f", dist) + " blocks)");
+                c.check(top >= 0 && top < closedTop - 30, mode + ": the overlay does not show older lines than the closed chat (top "
+                        + top + " vs closed " + closedTop + ")");
+                c.ctx().getInput().holdKey(dev.testkit.compat.McKeys.nat(back));
+                c.ticks(20);
+                c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(back));
+                if (hold) {
+                    Mod.setField("peekchat.PeekChatFeature", "keyHeldForTest", Boolean.FALSE);
+                    c.ticks(3);
+                } else {
+                    press(c, PEEK_KEY);
+                }
+                boolean after = c.onClient(DocMiscCases::peeking);
+                c.check(!after, mode + ": the peek stayed up after the key");
             }
-            c.onClient(mc -> {
-                Mod.staticCall(PEEK, "load");
-                return null;
-            });
+        } finally {
+            c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(fwd));
+            c.ctx().getInput().releaseKey(dev.testkit.compat.McKeys.nat(back));
+            peekRestore(c, file, saved);
         }
     }
 

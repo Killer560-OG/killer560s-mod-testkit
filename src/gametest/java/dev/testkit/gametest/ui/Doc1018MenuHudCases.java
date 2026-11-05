@@ -835,9 +835,9 @@ final class Doc1018MenuHudCases {
     // 36 Peek Chat: Toggle / Hold, the wheel scrolls the chat
     // =================================================================================================================
 
+    /** No screen since peekmove-1104: the peek is up while {@code PeekChatFeature.isPeeking()}. */
     private static boolean peekOpen(Minecraft mc) {
-        Screen s = McCompat.screen(mc);
-        return s != null && s.getClass().getName().endsWith(".peekchat.PeekChatScreen");
+        return McCompat.screen(mc) == null && (Boolean) Mod.staticCall("peekchat.PeekChatFeature", "isPeeking");
     }
 
     static void peekModes(UiCase c) {
@@ -909,7 +909,9 @@ final class Doc1018MenuHudCases {
             Mod.setField(feature, "keyHeldForTest", Boolean.FALSE);
             c.ticks(3);
             boolean stays = c.onClient(Doc1018MenuHudCases::peekOpen);
-            c.ctx().getInput().pressKey(dev.testkit.compat.McKeys.nat(KEY));
+            Mod.setField(feature, "keyHeldForTest", Boolean.TRUE);
+            c.ticks(3);
+            Mod.setField(feature, "keyHeldForTest", Boolean.FALSE);
             c.ticks(3);
             boolean closed = !c.onClient(Doc1018MenuHudCases::peekOpen);
             c.note("Toggle Peek: still open after release " + stays + ", closed by a second press " + closed);
