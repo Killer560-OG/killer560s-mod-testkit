@@ -21,6 +21,7 @@
     {"input": "breakeraura config list", "expect": "ok", "source": "dungeonextras/BreakerAuraCommands.java:82 (prints to chat; list is under config)"}
   ],
   "parseOnly": [
+    {"root": "chmap", "why": "opens the Crystal Hollows Map screen, only while that map is on (else one chat line); mod scanfold-1105, its tab is covered by 1105-ui-chmap-tab"},
     {"root": "reboot", "why": "closes the game and relaunches it through Prism (reboot-cmd); the test client is not started by Prism so it only refuses, but running it in a sweep is pointless - testkit 995 drives it"},
     {"root": "k560tested", "why": "testing jars only (mod -PtestingBuild, testing/TestingCommands.java): prints the marks; 413 runs it and checks its output"},
     {"root": "simwhere", "why": "sim only: .requires the sim, so outside it the command is not even visible (roomsim/SimWhere.java:54)"},
