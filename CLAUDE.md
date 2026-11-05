@@ -157,6 +157,10 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   case's floor never appeared), and teleporting there first so he falls onto a floor placed under him drew 7 GrimAC
   `Simulation` flags. `forceload add` the area before building it, and in a Session case put him back where he stood
   before removing a floor, or the next case starts falling (two Commission Mobs cases failed that way).
+- An arena carved into natural terrain (the nether's 0 0 room of the Blink cases) lets lava flow in from the walls, and a
+  forceloaded chunk keeps it flowing across sessions: 1026-blink-dimension-charge's shot crossed lava levels 2-7 on the floor
+  and moved 1.98 instead of 4.27 (ship5 2026-11-05, read off that checkout's saved region file). Build such a room as a sealed
+  shell (`BlinkTests.netherRoom`: stone box, then air inside), so the shell replaces any lava next to it.
 
 - A client session that passes about 9.5 minutes OFTEN draws a steady experimental GrimAC `NegativeTimer* -1.3 s`
   (20 lines a second while the scenario runs), in whatever scenario is going at that point. 2026-11-02: all six fairy

@@ -76,6 +76,17 @@ public class BlinkTests implements FabricClientGameTest {
         }
     }
 
+    /**
+     * A sealed stone room around the nether's 0 0 (floor y 100, air 101-105, -8..8). Open to the netherrack, natural lava
+     * flowed in onto the floor and a shot crossed it at a third of the speed (1026-blink-dimension-charge "shot moved 1.98",
+     * ship5 2026-11-05: lava levels 2-7 on y 101 in that checkout's saved world); the shell replaces any lava next to it.
+     */
+    static void netherRoom(TestServer server) {
+        server.command("execute in minecraft:the_nether run forceload add -16 -16 15 15");
+        server.command("execute in minecraft:the_nether run fill -9 100 -9 9 106 9 minecraft:stone");
+        server.command("execute in minecraft:the_nether run fill -8 101 -8 8 105 8 minecraft:air");
+    }
+
     static void arena(TestServer server, int x, int z) {
         TestMap.on(server)
                 .platform(x, SURFACE_Y - 1, z, 40)
@@ -2624,9 +2635,7 @@ public class BlinkTests implements FabricClientGameTest {
             try {
                 String name = playerName(ctx);
                 String dimBefore = ctx.computeOnClient(mc -> mc.level.dimension().toString());
-                server.command("execute in minecraft:the_nether run forceload add 0 0");
-                server.command("execute in minecraft:the_nether run fill -8 100 -8 8 100 8 minecraft:stone");
-                server.command("execute in minecraft:the_nether run fill -8 101 -8 8 105 8 minecraft:air");
+                netherRoom(server);
                 ctx.getInput().holdKey(o -> o.keyUp);
                 ctx.getInput().holdKey(o -> o.keySprint);
                 ctx.waitTicks(5);

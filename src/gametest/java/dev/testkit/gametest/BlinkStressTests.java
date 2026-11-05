@@ -365,8 +365,9 @@ public class BlinkStressTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> Mod.set(CFG, "setChargeMode", Mod.enumValue(MODE, mode)));
             Rows rows = new Rows();
             try {
-                for (int len = 1; len <= 20; len++) {
+                for (int len = 1, lagRetries = 0; len <= 20; len++) {
                     int l = len;
+                    long stalls0 = cnum(ctx, "stallsSeen");
                     tp(server, ctx, x - 15.5, SURFACE_Y, z + 0.5, -90f);
                     ctx.runOnClient(mc -> Mod.set(CFG, "setChargeTicks", l));
                     server.mark();
@@ -392,8 +393,20 @@ public class BlinkStressTests implements FabricClientGameTest {
                         releaseKeys(ctx);
                         shotTicks = cnum(ctx, "shots") > shots0 ? cnum(ctx, "lastShotTicks") : 0;
                         ctx.waitTicks(3);
-                        check(!charging(ctx), "Hold mode: Charge still on after the key came up and the shot went");
                     }
+                    if (cnum(ctx, "stallsSeen") > stalls0 && lagRetries < 3) {
+                        // A server stall mid-charge (machine load) keeps the bank but holds the shot until it is covered
+                        // again, so this try does not measure the length. The shot must still go and Charge end; then retry.
+                        for (int i = 0; i < 60 && "HOLD".equals(mode) && charging(ctx); i++) {
+                            ctx.waitTicks(1);
+                        }
+                        check(!"HOLD".equals(mode) || !charging(ctx), "Hold mode: Charge still on 60 ticks after a server stall");
+                        chargeOff(ctx);
+                        scenario.log("Charge Ticks " + len + ": server stall mid-charge - repeated (" + (++lagRetries) + ")");
+                        len--;
+                        continue;
+                    }
+                    check(!"HOLD".equals(mode) || !charging(ctx), "Hold mode: Charge still on after the key came up and the shot went");
                     double g = gap(server, ctx);
                     rows.add(server, scenario, "Charge Ticks " + len, bank == len && shotTicks == len && g < 0.5,
                             String.format(Locale.ROOT, "banked %d, shot %d tick(s), %.2f blocks in the firing tick, gap %.2f",
@@ -1490,9 +1503,7 @@ public class BlinkStressTests implements FabricClientGameTest {
             boolean gate = setUp(ctx, 20);
             String name = playerName(ctx);
             try {
-                server.command("execute in minecraft:the_nether run forceload add 0 0");
-                server.command("execute in minecraft:the_nether run fill -8 100 -8 8 100 8 minecraft:stone");
-                server.command("execute in minecraft:the_nether run fill -8 101 -8 8 105 8 minecraft:air");
+                BlinkTests.netherRoom(server);
                 ctx.runOnClient(mc -> {
                     Mod.set(CFG, "setChargeMode", Mod.enumValue(MODE, "HOLD"));
                     Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE);
@@ -2169,7 +2180,8 @@ public class BlinkStressTests implements FabricClientGameTest {
     /**
      * 1026-blink-controls: the same disturbances with Blink OFF, so a flag in a Blink case can be told apart from what
      * GrimAC says anyway: (1) a server tp back to the start one tick after a sprint, (2) a 1.5 s two-way lag spike while
-     * sprinting, (3) the same standing still, (4) a 2.5 s frozen client while sprinting. Records the flags of each.
+     * sprinting, (3) the same standing still, (4) a 2.5 s frozen client while sprinting, (5) the same standing still (the
+     * control for 1026-blink-lag "frozen client charging": GrimAC's experimental BadPacketsR). Records the flags of each.
      */
     private static void controls(ClientGameTestContext ctx) {
         int x = -9500;
@@ -2178,12 +2190,12 @@ public class BlinkStressTests implements FabricClientGameTest {
             Rows rows = new Rows();
             String name = playerName(ctx);
             try {
-                for (int k = 0; k < 4; k++) {
+                for (int k = 0; k < 5; k++) {
                     int kk = k;
                     tp(server, ctx, x - 15.5, SURFACE_Y, z + 0.5, -90f);
                     server.mark();
                     double[] start = serverPos(server, ctx, name);
-                    boolean moving = kk != 2;
+                    boolean moving = kk != 2 && kk != 4;
                     if (moving) {
                         ctx.getInput().holdKey(o -> o.keyUp);
                         ctx.getInput().holdKey(o -> o.keySprint);
@@ -2193,7 +2205,10 @@ public class BlinkStressTests implements FabricClientGameTest {
                         server.command(String.format(Locale.ROOT, "tp %s %.4f %.4f %.4f", name, start[0], start[1], start[2]));
                         ctx.waitTicks(1);
                         releaseKeys(ctx);
-                    } else if (kk == 3) {
+                    } else if (kk >= 3) {
+                        if (kk == 4) {
+                            ctx.waitTicks(40); // standing: one vanilla position reminder at least before the freeze
+                        }
                         ctx.runOnClient(mc -> {
                             try {
                                 Thread.sleep(2500);
@@ -2210,7 +2225,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                     ctx.waitTicks(40);
                     double g = gap(server, ctx);
                     String label = kk == 0 ? "tp back after a sprint" : kk == 1 ? "lag spike sprinting" : kk == 2
-                            ? "lag spike standing" : "frozen client sprinting";
+                            ? "lag spike standing" : kk == 3 ? "frozen client sprinting" : "frozen client standing";
                     rows.add(server, scenario, label, true, String.format(Locale.ROOT, "gap %.2f", g));
                 }
             } finally {
