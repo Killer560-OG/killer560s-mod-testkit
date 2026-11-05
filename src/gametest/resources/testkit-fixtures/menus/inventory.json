@@ -18,10 +18,7 @@
         }
       }
     },
-    "source": {
-      "file": "src/main/java/com/killer560/hub/itemprotect/ItemProtect.java",
-      "line": 268
-    },
+    "source": {"file": "src/main/java/com/killer560/hub/itemprotect/ItemProtect.java", "line": 267, "anchor": "return LossScreen.SELL;"},
     "verifiedBy": "regex",
     "notes": "An NPC Sell menu as the mod recognizes it: ItemProtect's SELL detection reads slot 49's first lore line (:268); Auto Sell's default title pattern is '(?i).*sell.*' (autosell/AutoSellConfig.java:38), so the title is 'Sell'. Real shops are titled by NPC; any title containing 'sell' is the same to the mod. Shift-clicking an inventory stack sells it (server event sell.sold). The second lore line is a placeholder."
   },
@@ -327,10 +324,7 @@
         }
       }
     },
-    "source": {
-      "file": "src/main/java/com/killer560/hub/storageoverlay/StorageOverlayFeature.java",
-      "line": 54
-    },
+    "source": {"file": "src/main/java/com/killer560/hub/storageoverlay/StorageOverlayFeature.java", "line": 53, "anchor": "private static final Pattern BACKPACK_TITLE"},
     "verifiedBy": "regex",
     "notes": "BACKPACK_TITLE (:54) - what a /backpack visit opens during Scan All in case 455."
   }
