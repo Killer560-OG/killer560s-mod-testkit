@@ -1309,6 +1309,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   account cannot do Mojang's sign-in) and a second socket in the client's lobby room plays the other player. Without the
   override it is a SKIP row. The override reaches the client as the system property `killer560.net.relay`, not
   `killer560.net.override`. A filter must name the session too: `100-hx-session+,-hx-spotify-`.
+  2866/2867 run with Mod Chat at its DEFAULT (ON, Party; songtag-1104: with it OFF they missed that Party mode with no
+  party left Song Tag with no room). After the 57x Mod Chat cases the session sits in HxKit's F7 dungeon, whose tab list
+  keeps HxMateA/B in PartyTracker (so Party mode has a room and party data takes the party room): a no-party case calls
+  `HxKit.hub` and `PartyTracker.clearParty` first. 874's echo check ignores the relay keep-alive ping.
 - 1101-ap3-*-once-reenter / 1101-boss-ap3-termaura-run (`Ap3Stop1101Cases`, `boss/Ap3TermAuraCases.runIn`, mod ap3-stop-1101):
   a Stop / Term Aura fires once per entry and a Term Aura stops him. Judged from per-tick positions (a standstill is a tick
   moving < 0.01). A Term Aura node only clicks a stand whose feet are at or below his EYES (`TerminalAuraFeature.pick`,

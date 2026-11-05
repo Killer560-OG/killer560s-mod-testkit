@@ -115,7 +115,9 @@ final class HxAutoMeowChannelCases {
                 Mod.call(Mod.field(RC, "listener"), "onChat", self, "meow");
             });
             c.ctx().waitTicks(25);
-            c.check(relay.size() == before, "his own Mod Chat echo was answered: " + relay.subList(before, relay.size()));
+            // The relay keep-alive ping can land in this window (874 on 26.2 and 26.3, songtag-1104); only a chat packet is an answer.
+            List<String> answered = relay.subList(before, relay.size()).stream().filter(m -> !m.contains("\"type\":\"ping\"")).toList();
+            c.check(answered.isEmpty(), "his own Mod Chat echo was answered: " + answered);
             assertNothingToHypixel(c, head, "his own Mod Chat echo");
 
             // ---- /cringe kc -> relay ----
