@@ -340,32 +340,73 @@ public class SimMobFloorTests implements FabricClientGameTest {
         // loaded gate the entities can reach the client a few ticks after GO (26.2, 2026-11-04: 0 at GO, the next case's
         // floor 8), so give them up to 5 s to arrive.
         boolean wantSleepers = felLine.matches(".*fels placed: [1-9][0-9]* starred.*");
-        int[] sleepers = new int[2];
+        // The server only sends an entity to a player inside its tracking range (an enderman: 128 blocks, less on a small view
+        // distance) and a floor is 192 blocks across, so a floor whose only starred Fel lies at the far end has nothing for the
+        // client to see at GO (felflake-1105: the "flake"). Ask the server where its sleepers are and demand the client sees one
+        // only when one is well inside the range; otherwise the server's own sleeper (alive, invisible) is the check.
+        double[] serverSleepers = serverSleeperDistances(ctx);
+        double nearest = 1e9;
+        for (double d : serverSleepers) {
+            nearest = Math.min(nearest, d);
+        }
+        boolean inRange = nearest <= TRACK_SAFE;
+        facts.add("server sleeping Fels: " + serverSleepers.length + ", nearest " + (int) nearest + " blocks (client must see one within " + (int) TRACK_SAFE + ")");
+        if (wantSleepers && serverSleepers.length < 1) {
+            problems.add("starred Fels were placed but the server has no invisible (sleeping) enderman");
+        }
+        int[] sleepers = new int[3];
         int waited = 0;
         for (; waited <= 100; waited += 10) {
             int[] got = ctx.computeOnClient(mc -> {
                 int inv = 0;
                 int all = 0;
+                int far = 0;
                 for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
                     if (dev.testkit.compat.McEntities.endermanClass().isInstance(e)) {
                         all++;
                         inv += e.isInvisible() ? 1 : 0;
+                        far = Math.max(far, (int) Math.hypot(e.getX() - mc.player.getX(), e.getZ() - mc.player.getZ()));
                     }
                 }
-                return new int[]{inv, all};
+                return new int[]{inv, all, far};
             });
             sleepers = got;
-            if (!wantSleepers || sleepers[0] >= 1) {
+            if (!wantSleepers || !inRange || sleepers[0] >= 1) {
                 break;
             }
             ctx.waitTicks(10);
         }
-        facts.add("client endermen at GO (+" + waited + " ticks): " + sleepers[1] + ", invisible (sleeping Fels) " + sleepers[0]);
-        if (wantSleepers && sleepers[0] < 1) {
+        facts.add("client endermen at GO (+" + waited + " ticks): " + sleepers[1] + ", invisible (sleeping Fels) " + sleepers[0] + ", farthest seen " + sleepers[2] + " blocks");
+        if (wantSleepers && inRange && sleepers[0] < 1) {
             problems.add("starred Fels were placed but the client sees no invisible (sleeping) enderman");
         }
         return problems.isEmpty();
 
+    }
+
+    /** Blocks inside which the client must see a sleeping Fel (the server's range is 128 at most). */
+    private static final double TRACK_SAFE = 64;
+
+    /** Horizontal distance from the player of each alive invisible enderman on the server (a sleeping starred Fel). */
+    private static double[] serverSleeperDistances(ClientGameTestContext ctx) {
+        AtomicReference<double[]> box = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            UUID id = mc.player.getUUID();
+            server.execute(() -> {
+                var level = server.overworld();
+                var sp = server.getPlayerList().getPlayer(id);
+                List<Double> out = new ArrayList<>();
+                for (net.minecraft.world.entity.Entity e : level.getAllEntities()) {
+                    if (dev.testkit.compat.McEntities.endermanClass().isInstance(e) && e.isAlive() && e.isInvisible()) {
+                        out.add(Math.hypot(e.getX() - sp.getX(), e.getZ() - sp.getZ()));
+                    }
+                }
+                box.set(out.stream().mapToDouble(Double::doubleValue).toArray());
+            });
+        });
+        ctx.waitFor(mc -> box.get() != null, 400);
+        return box.get();
     }
 
     private static void bloodDoor(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
