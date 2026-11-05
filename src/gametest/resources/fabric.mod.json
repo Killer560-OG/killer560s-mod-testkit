@@ -149,6 +149,7 @@
 			"dev.testkit.gametest.SimMenuRedoTests",
 			"dev.testkit.gametest.SimSavedRunTests",
 			"dev.testkit.gametest.SimRoomSpawnTests",
+			"dev.testkit.gametest.SimSpawnLoadTests",
 			"dev.testkit.gametest.SimLShapeSoloTests",
 			"dev.testkit.gametest.SimArrowTrapMapTests",
 			"dev.testkit.gametest.SimLeaveLoopTests",

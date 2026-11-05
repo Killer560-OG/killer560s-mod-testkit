@@ -636,9 +636,10 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	// a tile, -PacsHp=H their health, -PacsWalk=true walking, -PacsHype=true a Hyperion too, -PacsMinutes=M a floor's limit.
 	// 1020-sim-300: -Pfullclear300=true (set by the scenario itself), -PfullclearLive=N live mobs a tile instead of the
 	// testkit's own placement, -PfullclearLiveHp=H.
+	// 1104-sim-spawnload: -PspawnloadReps=N rounds (default 3).
 	["fullclearRuns", "fullclearCode", "fullclearOut", "fullclearMobs", "fullclearCodes", "fullclearPlan", "fullclearNoTraps", "acCode",
 	 "acsCodes", "acsRuns", "acsMobs", "acsHp", "acsWalk", "acsHype", "acsHypeWeapon", "acsMinutes", "fullclearLive",
-	 "fullclearLiveHp", "mobfloorCode", "mobfloorMinutes", "fullclearMobFloor"].each { k ->
+	 "fullclearLiveHp", "mobfloorCode", "mobfloorMinutes", "fullclearMobFloor", "spawnloadReps"].each { k ->
 		if (project.hasProperty(k)) {
 			systemProperty "testkit.${k}", project.property(k)
 		}
