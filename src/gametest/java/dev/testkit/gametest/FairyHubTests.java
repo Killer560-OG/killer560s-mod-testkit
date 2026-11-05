@@ -29,15 +29,20 @@ import java.util.Map;
  * The capture is PRIVATE and never in this repo: {@code -Pfairy.hubWorld=<save>} (property {@code testkit.fairy.hubWorld}),
  * default {@code killer560s-mod-logs/world-captures/hub-1104-main} beside the mod checkout. The graph is the mod's own
  * download in the rooms instance ({@code testkit.fairy.hubGraph} overrides). Missing either: the case SKIPs and says so.
- * {@code testkit.fairy.hubSouls} (default 10) souls are required in {@code testkit.fairy.hubMinutes} (default 8, under
+ * {@code testkit.fairy.hubSouls} (default 7: fairyhub-1105 collected 7-8 in 8 minutes; the souls it skips are parkour,
+ * a dead-end secret or a soul set in a hillside, skipped at once) souls are required in {@code testkit.fairy.hubMinutes} (default 8, under
  * the 9.5-minute NegativeTimer harness quirk) from {@code testkit.fairy.hubStart} (x,y,z[,yaw,pitch], default the
  * /hub warp). {@code testkit.fairy.hubOnly=3,7} routes to those souls only (this case's indexes, logged at the start).
+ * A full run must also collect soul 48, clicked from the ladder of its hut (before fairyhub-1105 he slid down out of
+ * reach while the look turned, four times, and gave up).
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class FairyHubTests implements FabricClientGameTest {
 
     static final String NAME = "1105-fairy-hub";
     /** The skin hash of Hypixel's fairy soul head (all 80 hub soul stands in the capture wear it). */
+    /** The soul in the trunk hut at 98,74,-28, clicked from the top of its ladder. */
+    static final int LADDER_SOUL = 48;
     static final String SOUL_SKIN = "299ea120bd83d0c81a3c4627f5bce1b12fb03bcb57779c63dcc77e3f4ae8a793";
 
     @Override
@@ -65,7 +70,7 @@ public class FairyHubTests implements FabricClientGameTest {
                 String only = System.getProperty("testkit.fairy.hubOnly", "");
                 FairyIslandTests.onlySouls = only.isBlank() ? null : java.util.Arrays.stream(only.split(","))
                         .map(String::trim).map(Integer::valueOf).collect(java.util.stream.Collectors.toSet());
-                int need = Math.min(Integer.getInteger("testkit.fairy.hubSouls", 10),
+                int need = Math.min(Integer.getInteger("testkit.fairy.hubSouls", 7),
                         only.isBlank() ? Integer.MAX_VALUE : FairyIslandTests.onlySouls.size());
                 int maxTicks = Integer.getInteger("testkit.fairy.hubMinutes", 8) * 60 * 20;
                 scenario.log("hub world " + world.getFileName() + ", " + meta.getAsJsonArray("souls").size() + " soul stands, "
@@ -87,10 +92,12 @@ public class FairyHubTests implements FabricClientGameTest {
                 int flags = scenario.flags().size();
                 FairyIslandTests.appendRow("HUB_WORLD", 100, o, flags);
                 // the run must have acted: real walking and real clicks the server took
-                if (o.collected < need || o.travelled < 30 * need || o.clicks < o.collected) {
+                boolean ladderSoul = !only.isBlank() || o.collectedAt.containsKey(LADDER_SOUL);
+                if (o.collected < need || o.travelled < 30 * need || o.clicks < o.collected || !ladderSoul) {
                     o.missed.stream().limit(20).forEach(m -> scenario.log("MISSED " + m));
                     throw new AssertionError(String.format(Locale.US, "hub: collected %d/%d needed, traveled %.0f blocks, "
-                            + "%d clicks - %s", o.collected, need, o.travelled, o.clicks, o.stopReason));
+                            + "%d clicks, ladder soul %d %s - %s", o.collected, need, o.travelled, o.clicks, LADDER_SOUL,
+                            ladderSoul ? "collected" : "NOT collected", o.stopReason));
                 }
             });
         } finally {
