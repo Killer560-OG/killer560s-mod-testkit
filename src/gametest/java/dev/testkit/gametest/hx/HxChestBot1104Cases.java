@@ -13,8 +13,9 @@ import java.util.Locale;
  * <ul>
  *   <li>1104-chestbot-click: a claimed treasure chest under the crosshair, a stick held, Ruby Drill (+5% Gemstone Powder) in
  *       slot 3, Jasper Drill (+20%) in slot 5 and a Divan's Drill (no powder line) in slot 7. The bot swaps to slot 5 first
- *       (one set_carried_item before any use_item_on), then clicks; no second click inside 0.75 s, at most one per 0.75 s
- *       after it, and never more than 8 on the chest. A stone block on the chest keeps the vanilla server from opening it.
+ *       (one set_carried_item before any use_item_on), then clicks: at Triggerbot CPS 20 (the slider's top, the GrimAC
+ *       check) one click a tick and never two use_item_on in one tick (killer560, 2026-11-04: "no more than once per tick
+ *       on a chest"), at CPS 5 one every 4 ticks. A stone block on the chest keeps the vanilla server from opening it.
  *       Then a second chest whose lock particles (crit) sit on its TOP face: a crosshair on its side is never clicked, one on
  *       its top is. GrimAC must stay silent (default and experimental checks).</li>
  * </ul>
@@ -41,6 +42,10 @@ final class HxChestBot1104Cases {
             c.note("legit jar: Powder Chest Triggerbot is cheat-only");
             return;
         }
+        // As a session's first case the player can still be falling or taking teleports from the join: chest A must be
+        // placed and aimed from where he stands.
+        c.waitUntil("standing still", mc -> mc.player.onGround()
+                && mc.player.getDeltaMovement().horizontalDistanceSqr() < 1e-4, 200);
         int[] f = feet(c);
         int[] a = {f[0], f[1], f[2] + 2};
         int[] b = {f[0] + 2, f[1], f[2] + 2};
@@ -48,7 +53,7 @@ final class HxChestBot1104Cases {
         boolean old = c.onClient(mc -> (Boolean) Mod.call(cfg, "isChestTriggerbotRaw"));
         try (HxKit.Settings set = new HxKit.Settings(c)
                 .custom(() -> Mod.call(cfg, "setChestTriggerbot", true), () -> Mod.call(cfg, "setChestTriggerbot", old))
-                .with(CFG, "ChestTriggerbotSwap", true).with(CFG, "ChestAlertSound", false)
+                .with(CFG, "ChestTriggerbotSwap", true).with(CFG, "ChestTriggerbotCps", 20).with(CFG, "ChestAlertSound", false)
                 .with(CFG, "ChestAlertTitle", false)) {
             c.hx().give(0, "minecraft:stick");
             c.hx().give(2, drill("GEMSTONE_DRILL_1", "Ruby Drill TX-15", 5));
@@ -62,9 +67,14 @@ final class HxChestBot1104Cases {
             c.ctx().waitTicks(3);
 
             PacketTrace.start();
-            look(c, a[0] + 0.5, a[1] + 0.4, a[2] + 0.05); // its north face
-            c.waitUntil("the bot clicked chest A", mc -> clicks(c) >= 1, 60);
-            long firstSeen = System.currentTimeMillis();
+            for (int i = 0; i < 60 && clicks(c) == 0; i++) {
+                look(c, a[0] + 0.5, a[1] + 0.4, a[2] + 0.05); // its north face, re-aimed while he settles
+                c.ctx().waitTicks(1);
+            }
+            c.check(clicks(c) >= 1, "chest A never clicked: " + c.<String>onClient(mc -> "hit " + mc.hitResult.getType() + " "
+                    + (mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult h ? h.getBlockPos() + " " + h.getDirection()
+                    : "") + ", at " + mc.player.blockPosition() + ", tracked " + Mod.staticCall(TC, "tracked", a[0], a[1], a[2])
+                    + ", chests " + Mod.field(TC, "CHESTS")));
             int slot = c.onClient(mc -> mc.player.getInventory().getSelectedSlot());
             c.check(slot == 4, "held slot is " + slot + ", not the Jasper Drill's 4 (highest Gemstone Powder)");
             c.check(intCall(c, "swaps") == 1 && intCall(c, "lastSwapSlot") == 4, "swaps " + intCall(c, "swaps")
@@ -74,20 +84,26 @@ final class HxChestBot1104Cases {
             int useAt = firstLine(lines, "use_item_on");
             c.check(swapAt >= 0 && useAt > swapAt, "the swap (tick " + swapAt + ") did not go a tick before the click (tick "
                     + useAt + ")");
-            c.ctx().waitTicks(10); // 0.5 s: inside the 0.75 s cooldown
-            c.check(clicks(c) == 1, clicks(c) + " clicks within 0.5 s of the first - the cooldown did not hold");
-            c.ctx().waitTicks(30); // ~2 s after the first click
-            int two = clicks(c);
-            long most = 2 + (System.currentTimeMillis() - firstSeen) / 750;
-            c.check(two >= 2 && two <= most, two + " clicks in ~2 s (want 2.." + most + " at one per 0.75 s)");
-            c.ctx().waitTicks(140); // ~9 s: past the 8-click cap
-            int capped = clicks(c);
-            c.check(capped == 8, capped + " clicks after 9 s on one chest (cap 8)");
+            int at20 = clicks(c);
+            c.ctx().waitTicks(40);
+            int fast = clicks(c) - at20;
+            c.check(fast >= 36 && fast <= 41, fast + " clicks in 40 ticks at 20 CPS (want one a tick)");
+            c.check(PacketTrace.maxPerTick("use_item_on") == 1, PacketTrace.maxPerTick("use_item_on")
+                    + " use_item_on in one tick (the limit is one a tick on a chest)");
+            c.ctx().runOnClient(mc -> Mod.call(cfg, "setChestTriggerbotCps", 5));
+            c.ctx().waitTicks(4);
+            int at5 = clicks(c);
+            c.ctx().waitTicks(60);
+            int slow = clicks(c) - at5;
+            c.check(slow >= 14 && slow <= 16, slow + " clicks in 60 ticks at 5 CPS (want 15)");
+            int total = clicks(c);
             int sentUse = PacketTrace.sent("use_item_on");
-            c.check(sentUse == capped, sentUse + " use_item_on sent for " + capped + " clicks");
+            c.check(sentUse == total, sentUse + " use_item_on sent for " + total + " clicks");
             c.check(PacketTrace.sentOutsideTick().isEmpty(), "sent outside a tick: " + PacketTrace.sentOutsideTick());
 
-            // Chest B: its lock is on the top face. A side hit is never clicked; a top hit is.
+            // Chest B: its lock is on the top face. A side hit is never clicked; a top hit is. Look away from A first.
+            c.ctx().runOnClient(mc -> mc.player.setXRot(-90f));
+            c.ctx().waitTicks(2);
             claim(c, b);
             int base = clicks(c);
             for (int i = 0; i < 6; i++) {
@@ -106,7 +122,7 @@ final class HxChestBot1104Cases {
                 crit(c, b);
                 c.ctx().waitTicks(3);
             }
-            c.check(clicks(c) == base + 1, "chest B's top (its lock face) was not clicked: " + (clicks(c) - base));
+            c.check(clicks(c) > base, "chest B's top (its lock face) was not clicked");
         } finally {
             PacketTrace.stop();
             c.ctx().runOnClient(mc -> {
@@ -173,30 +189,31 @@ final class HxChestBot1104Cases {
         return new int[]{(int) Math.floor(at[0]), (int) Math.floor(at[1]), (int) Math.floor(at[2])};
     }
 
-    /**
-     * The line then the chest block, waited for. Retried (block cleared, island re-sent) because as the session's first
-     * case the claim was missed about one run in three (26.2 and 26.3 experimental, chestbot-1104: the line and the block
-     * both arrived, nothing was tracked) - the session's own start-up traffic, not the triggerbot under test.
-     */
+    /** The line then the chest block, waited for; a miss fails with every tick's state (who dropped it). */
     private static void claim(Session c, int[] p) {
-        for (int attempt = 1; ; attempt++) {
-            c.hx().chat(UNCOVERED);
-            c.ctx().waitTicks(2);
-            setblock(c, p[0], p[1], p[2], "minecraft:chest");
-            for (int i = 0; i < 40; i++) {
-                if (c.onClient(mc -> (Boolean) Mod.staticCall(TC, "tracked", p[0], p[1], p[2]))) {
-                    return;
-                }
-                c.ctx().waitTicks(1);
+        StringBuilder trace = new StringBuilder();
+        snap(c, p, "before", trace);
+        c.hx().chat(UNCOVERED);
+        c.ctx().waitTicks(2);
+        snap(c, p, "line", trace);
+        setblock(c, p[0], p[1], p[2], "minecraft:chest");
+        for (int i = 0; i < 40; i++) {
+            if (c.onClient(mc -> (Boolean) Mod.staticCall(TC, "tracked", p[0], p[1], p[2]))) {
+                return;
             }
-            c.check(attempt < 3, "chest " + p[0] + " " + p[1] + " " + p[2] + " never claimed in 3 tries");
-            if (attempt >= 3) return;
-            c.note("claim of " + p[0] + " " + p[1] + " " + p[2] + " missed on try " + attempt + " (island "
-                    + c.onClient(mc -> String.valueOf(Mod.staticCall(STATE, "island"))) + ", server tick "
-                    + c.onClient(mc -> String.valueOf(Mod.staticCall("util.PerTickServerClock", "now"))) + "); retrying");
-            setblock(c, p[0], p[1], p[2], "minecraft:air");
-            c.ctx().waitTicks(10);
-            hollows(c);
+            snap(c, p, "t" + i, trace);
+            c.ctx().waitTicks(1);
         }
+        c.check(false, "chest " + p[0] + " " + p[1] + " " + p[2] + " never claimed:" + trace);
+    }
+
+    private static void snap(Session c, int[] p, String tag, StringBuilder trace) {
+        trace.append(" | ").append(tag).append(' ').append(c.<String>onClient(mc -> "isl=" + Mod.staticCall(STATE, "island")
+                + " trk=" + Mod.staticCall(TC, "tracking") + " pend=" + Mod.field(TC, "pendingLines") + "@"
+                + Mod.field(TC, "pendingAt") + " now=" + Mod.staticCall("util.PerTickServerClock", "now") + " unc="
+                + Mod.field(TC, "UNCLAIMED") + " chests=" + Mod.field(TC, "CHESTS") + " blk="
+                + mc.level.getBlockState(new net.minecraft.core.BlockPos(p[0], p[1], p[2])).getBlock().getDescriptionId()
+                .replace("block.minecraft.", "") + " d2=" + mc.player.blockPosition()
+                .distSqr(new net.minecraft.core.BlockPos(p[0], p[1], p[2]))));
     }
 }
