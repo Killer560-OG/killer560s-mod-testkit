@@ -521,9 +521,18 @@ public class SimFairyDoorTests implements FabricClientGameTest {
         return new int[]{(Integer) inv(layout, "roomOfCell", f.fairyTile), (Integer) inv(layout, "currentRoom")};
     }
 
-    /** Swaps the live map's room groups holding cells {@code a} and {@code b} (indices, cell table, map version), as a
-     *  fresh grouping numbers rooms differently; FairyDoor's path cadence is set to its longest so its cache is in use. */
+    /** {@link #swapRoomGroups}, with FairyDoor's path cadence set to its longest so its cache is in use. */
     private static String swapGroups(int a, int b) {
+        String r = swapRoomGroups(a, b);
+        if (r.startsWith("swapped")) {
+            setStaticInt(FAIRY, "ticksToPath", 10);
+        }
+        return r.replace("(first)", "(his room)").replace("(second)", "(Fairy)");
+    }
+
+    /** Swaps the live map's room groups holding cells {@code a} and {@code b} (indices, cell table, map version), as a
+     *  fresh grouping numbers rooms differently (roomidx-1104 reuses it for every feature that keeps a room). */
+    static String swapRoomGroups(int a, int b) {
         try {
             Class<?> k = Class.forName(LIVE_MAP);
             Field gf = k.getDeclaredField("groups");
@@ -547,8 +556,7 @@ public class SimFairyDoorTests implements FabricClientGameTest {
             Field vf = k.getDeclaredField("mapVersion");
             vf.setAccessible(true);
             vf.setInt(null, vf.getInt(null) + 1);
-            setStaticInt(FAIRY, "ticksToPath", 10);
-            return "swapped groups " + ga + " (his room) and " + gb + " (Fairy)";
+            return "swapped groups " + ga + " (first) and " + gb + " (second)";
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("could not renumber the room groups", e);
         }
