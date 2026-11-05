@@ -227,8 +227,15 @@ public class SimBossTests implements FabricClientGameTest {
             f.add("Maxor's first line never came");
             return;
         }
+        // Maxor spawns 5 ticks after his first line: a laser before that is a no-op (ship7 gate, 1.0 -> 1.0).
+        ctx.waitTicks(8);
         long stun = LogTap.mark();
         serverRun(ctx, s -> call(FIGHT, "testLaser"));
+        if (!until(ctx, "the laser hit Maxor", mc -> LogTap.since(stun).stream().anyMatch(l -> l.contains("Maxor laser hit 1")), 20)) {
+            f.add("the test laser never hit Maxor");
+            cleanup(ctx);
+            return;
+        }
         barHolds(ctx, f, "Maxor (stunned)", 40);
         float m0 = bar();
         expect(f, "a hit on stunned Maxor landed", weaponHit(ctx, "Maxor"), true);

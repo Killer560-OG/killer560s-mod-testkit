@@ -156,6 +156,7 @@ final class HxCrystalWalls1104Cases {
                 Mod.call(cfg, "setChWalls", old);
                 Mod.call(cfg, "setChWallsHideInStructures", oldHide);
             });
+            c.server().command("gamemode survival @p");
             hub(c);
         }
     }
@@ -202,6 +203,8 @@ final class HxCrystalWalls1104Cases {
                 Mod.call(cfg, "setChWallOpacity", jungle, oj);
                 Mod.call(cfg, "setChWallOpacity", mithril, om);
             });
+            // Back to survival: a later case digging in creative breaks at once (1103-mining-hold-* after this, ship7 gate).
+            c.server().command("gamemode survival @p");
             hub(c);
         }
     }
