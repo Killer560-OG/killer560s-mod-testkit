@@ -1529,7 +1529,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         if (!other.isEmpty()) {
                             throw new AssertionError("GrimAC flagged something other than MultiBreak: " + other);
                         }
-                        if (multi == 0) {
+                        if (multi == 0 && dev.testkit.gametest.boss.AaFastCases.experimentalChecks()) {
                             throw new AssertionError("no MultiBreak line - is this checkout's experimental-checks on?");
                         }
                     } finally {
