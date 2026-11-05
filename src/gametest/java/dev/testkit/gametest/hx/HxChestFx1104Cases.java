@@ -34,6 +34,9 @@ final class HxChestFx1104Cases {
         s.test("1104-chestfx-hide-resend", HxChestFx1104Cases::hideResend);
         s.test("1104-chestfx-tracer", HxChestFx1104Cases::tracer);
         s.test("1104-chestfx-loot-owner", HxChestFx1104Cases::lootOwner);
+        s.test("1104-chestfx-race-spawn", HxChestFx1104Cases::raceSpawn);
+        s.test("1104-chestfx-race-resend", HxChestFx1104Cases::raceResend);
+        s.test("1104-chestfx-race-click", HxChestFx1104Cases::raceClick);
     }
 
     // ---- 1104-chestfx-loot-owner -------------------------------------------------------------------------------------
@@ -65,6 +68,7 @@ final class HxChestFx1104Cases {
             use(c, b);
             use(c, x);
             c.ctx().runOnClient(mc -> Mod.staticCall(TC, "onLooted"));
+            c.ctx().waitTicks(8); // the loot waits 200 ms for a lid event before it picks the chest he clicked
             c.check(tracked(c, b[0], b[1], b[2]), "a click on an untracked chest let its loot take a live chest's highlight");
             c.check(tracked(c, a[0], a[1], a[2]), "the other live chest lost its highlight");
 
@@ -81,12 +85,175 @@ final class HxChestFx1104Cases {
             c.check(tracked(c, b[0], b[1], b[2]), "the opened chest's loot took the highlight of the next chest he clicked");
             // B's own loot then ends B.
             c.ctx().runOnClient(mc -> Mod.staticCall(TC, "onLooted"));
+            c.ctx().waitTicks(8);
             c.check(!tracked(c, b[0], b[1], b[2]), "B's loot did not end B");
             c.check(c.events("container.click").isEmpty(), "the chest features clicked something");
         } finally {
             for (int[] p : new int[][]{a, b, x}) {
                 setblock(c, p[0], p[1], p[2], "minecraft:air");
             }
+            c.ctx().runOnClient(mc -> Mod.staticCall(CFG, "load"));
+            hub(c);
+        }
+    }
+
+    // ---- 1104-chestfx-race-* (chestrace-1105: "if i spawn them too fast or click them too fast") ----------------------
+
+    /** Positions around the player, all within the 10-block claim range. */
+    private static int[][] ring(Session c, int n) {
+        int[] f = feet(c);
+        int[][] off = {{3, 0}, {-3, 0}, {0, 3}, {0, -3}, {4, 2}, {-4, 2}, {2, -4}, {-2, 4}};
+        int[][] out = new int[n][];
+        for (int i = 0; i < n; i++) {
+            out[i] = new int[]{f[0] + off[i][0], f[1], f[2] + off[i][1]};
+        }
+        return out;
+    }
+
+    /** The client is told these blocks changed (as the server's block updates do), all in one client tick. */
+    private static void put(Session c, boolean chest, int[]... ps) {
+        c.ctx().runOnClient(mc -> {
+            for (int[] p : ps) {
+                mc.getConnection().handleBlockUpdate(new net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket(
+                        new net.minecraft.core.BlockPos(p[0], p[1], p[2]), (chest ? net.minecraft.world.level.block.Blocks.CHEST
+                        : net.minecraft.world.level.block.Blocks.AIR).defaultBlockState()));
+            }
+        });
+    }
+
+    private static void lid(Session c, int[] p) {
+        c.ctx().runOnClient(mc -> mc.getConnection().handleBlockEvent(new net.minecraft.network.protocol.game
+                .ClientboundBlockEventPacket(new net.minecraft.core.BlockPos(p[0], p[1], p[2]),
+                net.minecraft.world.level.block.Blocks.CHEST, 1, 1)));
+    }
+
+    private static void gone(Session c, int[]... ps) {
+        put(c, false, ps);
+        c.ctx().waitTicks(16); // past the 10-tick grace
+        c.check(intCall(c, "count") == 0, "chests still tracked after their blocks went: " + intCall(c, "count"));
+    }
+
+    private static void sees(Session c, String what, int want) {
+        c.check(intCall(c, "count") == want, what + ": " + intCall(c, "count") + " chests highlighted, want " + want);
+    }
+
+    /** Six chests and six "uncovered" lines in four arrival orders (lines first, chests first, interleaved twice). */
+    private static void raceSpawn(Session c) {
+        int[][] ps = ring(c, 6);
+        Settings s0 = new Settings(c);
+        on(c, s0, "TreasureChest");
+        try (Settings set = s0.with(CFG, "ChestAlertSound", false).with(CFG, "ChestAlertTitle", false)) {
+            hollows(c);
+            c.ctx().waitTicks(80);
+            String[] orders = {"LLLLLLCCCCCC", "CCCCCCLLLLLL", "CLCCLLLCCLCL", "LLCLCCLCLCLC"};
+            for (String order : orders) {
+                int cs = 0, ls = 0, claims0 = intCall(c, "claims");
+                for (char ch : order.toCharArray()) {
+                    if (ch == 'L') {
+                        c.hx().chat(UNCOVERED);
+                        ls++;
+                    } else {
+                        put(c, true, ps[cs++]);
+                    }
+                    c.ctx().waitTicks(2);
+                    sees(c, order + " after " + ls + " lines " + cs + " chests", Math.min(ls, cs));
+                }
+                for (int i = 0; i < 6; i++) {
+                    c.check(tracked(c, ps[i][0], ps[i][1], ps[i][2]), order + ": chest " + i + " lost its highlight");
+                }
+                c.check(intCall(c, "claims") == claims0 + 6, order + ": claimed " + (intCall(c, "claims") - claims0) + " of 6");
+                c.check(Mod.field(TC, "pendingLines").equals(0), order + ": a line is still pending");
+                gone(c, ps);
+            }
+        } finally {
+            put(c, false, ps);
+            c.ctx().runOnClient(mc -> Mod.staticCall(CFG, "load"));
+            hub(c);
+        }
+    }
+
+    /** Chest -> air -> chest in one client tick (the server's resend on a click) must neither drop the highlight nor eat a
+     *  pending line; a chest that really stays gone loses it after the grace. */
+    private static void raceResend(Session c) {
+        int[][] ps = ring(c, 4);
+        Settings s0 = new Settings(c);
+        on(c, s0, "TreasureChest");
+        try (Settings set = s0.with(CFG, "ChestAlertSound", false).with(CFG, "ChestAlertTitle", false)) {
+            hollows(c);
+            c.ctx().waitTicks(80);
+            for (int i = 0; i < 3; i++) {
+                c.hx().chat(UNCOVERED);
+                c.ctx().waitTicks(2);
+                put(c, true, ps[i]);
+                c.ctx().waitTicks(2);
+            }
+            sees(c, "three claimed", 3);
+            c.hx().chat(UNCOVERED); // the fourth chest's line, its block not here yet
+            c.ctx().waitTicks(2);
+            int claims0 = intCall(c, "claims");
+            for (int i = 0; i < 3; i++) { // a resend of each: air then chest, one tick
+                put(c, false, ps[i]);
+                put(c, true, ps[i]);
+                c.ctx().waitTicks(3);
+            }
+            sees(c, "after three resends", 3);
+            c.check(intCall(c, "claims") == claims0, "a resent chest was claimed again (" + (intCall(c, "claims") - claims0) + ")");
+            c.check(Mod.field(TC, "pendingLines").equals(1), "a resend ate the pending line: " + Mod.field(TC, "pendingLines"));
+            put(c, false, ps[0]); // air across two ticks, back before the grace ends
+            c.ctx().waitTicks(4);
+            put(c, true, ps[0]);
+            c.ctx().waitTicks(2);
+            c.check(tracked(c, ps[0][0], ps[0][1], ps[0][2]), "a 4-tick gap dropped the highlight");
+            put(c, true, ps[3]);
+            c.ctx().waitTicks(2);
+            sees(c, "the fourth chest took the pending line", 4);
+            put(c, false, ps[1]);
+            c.ctx().waitTicks(16);
+            c.check(!tracked(c, ps[1][0], ps[1][1], ps[1][2]), "a chest that stayed gone kept its highlight");
+            sees(c, "one really gone", 3);
+        } finally {
+            put(c, false, ps);
+            c.ctx().runOnClient(mc -> Mod.staticCall(CFG, "load"));
+            hub(c);
+        }
+    }
+
+    /** Three chests clicked in a row; lid events and loot lines in both orders: each step removes exactly the right chest. */
+    private static void raceClick(Session c) {
+        int[][] ps = ring(c, 3);
+        int[] a = ps[0], b = ps[1], d = ps[2];
+        Settings s0 = new Settings(c);
+        on(c, s0, "TreasureChest");
+        try (Settings set = s0.with(CFG, "ChestAlertSound", false).with(CFG, "ChestAlertTitle", false)) {
+            hollows(c);
+            c.ctx().waitTicks(80);
+            for (int[] p : ps) {
+                c.hx().chat(UNCOVERED);
+                c.ctx().waitTicks(2);
+                put(c, true, p);
+                c.ctx().waitTicks(2);
+            }
+            sees(c, "three claimed", 3);
+            use(c, a);
+            use(c, b);
+            use(c, d); // clicked A, B, D; D's lid opens, but its loot line comes first
+            c.ctx().runOnClient(mc -> Mod.staticCall(TC, "onLooted"));
+            lid(c, d);
+            c.ctx().waitTicks(8);
+            c.check(!tracked(c, d[0], d[1], d[2]) && tracked(c, a[0], a[1], a[2]) && tracked(c, b[0], b[1], b[2]),
+                    "loot before lid: A " + tracked(c, a[0], a[1], a[2]) + " B " + tracked(c, b[0], b[1], b[2]) + " D "
+                    + tracked(c, d[0], d[1], d[2]) + " (want A, B kept, D gone)");
+            lid(c, a); // A's lid first, then its loot line
+            c.ctx().runOnClient(mc -> Mod.staticCall(TC, "onLooted"));
+            c.ctx().waitTicks(8);
+            c.check(!tracked(c, a[0], a[1], a[2]) && tracked(c, b[0], b[1], b[2]),
+                    "lid before loot: A " + tracked(c, a[0], a[1], a[2]) + " B " + tracked(c, b[0], b[1], b[2]) + " (want B kept)");
+            use(c, b); // B's loot with no lid event ever: the chest clicked last owns it
+            c.ctx().runOnClient(mc -> Mod.staticCall(TC, "onLooted"));
+            c.ctx().waitTicks(8);
+            sees(c, "B's loot without a lid event", 0);
+        } finally {
+            put(c, false, ps);
             c.ctx().runOnClient(mc -> Mod.staticCall(CFG, "load"));
             hub(c);
         }
