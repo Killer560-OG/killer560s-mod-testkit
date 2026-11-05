@@ -125,7 +125,8 @@ final class PvJoinCases {
             got = pvLines(c, b);
             c.note("party join outside a dungeon -> " + got);
             c.check(got.isEmpty(), "a party join outside a dungeon should add nothing, got " + got);
-            c.check(def, "PV Link on Join should default ON");
+            // OFF by default since defoff-1104 (killer560 2026-11-04).
+            c.check(!def, "PV Link on Join should default OFF");
         } finally {
             teardown(c, gate);
         }

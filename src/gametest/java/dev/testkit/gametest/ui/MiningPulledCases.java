@@ -154,8 +154,9 @@ final class MiningPulledCases {
         c.note("pulled cards in the menu: " + found + "; e.g. " + paths.get("Crystal Hollows Map"));
         c.check(!paths.containsKey("Lobby Swapper"), "Lobby Swapper (a macro) is in the menu: " + paths.get("Lobby Swapper"));
         List<String> anr = paths.getOrDefault("Auto Nucleus Run", List.of());
-        c.check(anr.isEmpty() || anr.equals(List.of("Misc > Auto Nucleus Run")),
-                "Auto Nucleus Run should be only the old Misc stub: " + anr);
+        // The stub moved from Misc to the Mining cheat block (defoff-1104, killer560 2026-11-04).
+        c.check(anr.isEmpty() || anr.equals(List.of("Mining > Auto Nucleus Run")),
+                "Auto Nucleus Run should be only the stub in Mining: " + anr);
     }
 
     // ---- tabs -----------------------------------------------------------------------------------------------------
