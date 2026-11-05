@@ -80,6 +80,7 @@ public class SimBossTests implements FabricClientGameTest {
     private static final String MOVES = "1103-boss-moves";
     private static final String RULES = "1103-boss-rules";
     private static final String CAPTURE = "1104-boss-capture";
+    private static final String GATES = "1105-boss-simgates";
     private static final String MAXOR = "com.killer560.hub.maxor.MaxorCrystalsFeature";
 
     private static final String B = "com.killer560.hub.bosssim.";
@@ -102,7 +103,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, GATES};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -119,7 +120,7 @@ public class SimBossTests implements FabricClientGameTest {
         List<String> failures = new ArrayList<>();
         for (String name : chosen) {
             // P3 waits on Auto Terminal and AP3 on AP3; both are compiled out of a legit jar.
-            if ((name.equals(P3) || name.equals(AP3)) && !dev.testkit.gametest.mod.Mod.isCheat()) {
+            if ((name.equals(P3) || name.equals(AP3) || name.equals(GATES)) && !dev.testkit.gametest.mod.Mod.isCheat()) {
                 println(name, "SKIPPED: legit jar (Auto Terminal / AP3 are cheat-only)");
                 continue;
             }
@@ -135,6 +136,7 @@ public class SimBossTests implements FabricClientGameTest {
                     case MOVES -> moves(ctx, f);
                     case RULES -> rules(ctx, f);
                     case CAPTURE -> capture(ctx, f);
+                    case GATES -> simGates(ctx, f);
                     default -> ap3(ctx, f);
                 }
             } catch (Throwable t) {
@@ -801,6 +803,125 @@ public class SimBossTests implements FabricClientGameTest {
         expect(f, "Floor7Tracker stage at the end", ctx.computeOnClient(mc ->
                 String.valueOf(ModUnderTest.staticCall(F7, "getStage"))), "S5");
         println(P3, "stations: " + call(STATIONS, "describe"));
+    }
+
+    /**
+     * simgates-1105 (killer560, 2026-11-05: every solver, auto and dungeon-only feature treats the sim as a dungeon, the boss
+     * as the boss room). In the boss sim at P3 the shared gates report the F7/M7 boss at the right phase, floor and section,
+     * and the Terminal Solver, Auto Terminals, the Simon Says solver and Auto Simon Says each act (each proved by what it did).
+     */
+    private static void simGates(ClientGameTestContext ctx, List<String> f) {
+        long mark = start(ctx, "S1", true);
+        if (!waitChat(ctx, mark, "[BOSS] Goldor: Who dares trespass into my domain?", 40)) {
+            f.add("Goldor's line never came");
+            return;
+        }
+        ctx.waitTicks(10);
+        gates(ctx, f, "M7 S1", "M7", "S1");
+        String tsf = "terminals.TerminalSolverFeature";
+        // ---- the Terminal Solver alone: it reads the window and works out the clicks, and clicks nothing ----
+        System.setProperty("killer560.bosssim.terminal", "PANES");
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(TERM_CFG);
+            ModUnderTest.set(cfg, "setEnabled", true);
+            ModUnderTest.set(cfg, "setPanesEnabled", true);
+            ModUnderTest.set(cfg, "setAutoTerminalsEnabled", false);
+        });
+        int solved0 = (Integer) call(TERMS, "solvedCount");
+        int opened0 = (Integer) call(TERMS, "openedCount");
+        if (!clickTerminal(ctx, 1, "T1", "Inactive Terminal")
+                || !until(ctx, "T1 opened", mc -> (Integer) call(TERMS, "openedCount") > opened0, 20)) {
+            f.add("S1 T1 never opened");
+            return;
+        }
+        boolean solver = until(ctx, "the Terminal Solver's highlights", mc ->
+                dev.testkit.gametest.mod.Mod.field(tsf, "currentType") != null
+                        && !((java.util.Map<?, ?>) dev.testkit.gametest.mod.Mod.field(tsf, "currentHighlights")).isEmpty(), 40);
+        expect(f, "Terminal Solver read the sim's Panes terminal", solver
+                ? ctx.computeOnClient(mc -> String.valueOf(dev.testkit.gametest.mod.Mod.field(tsf, "currentType"))) : "nothing", "PANES");
+        ctx.waitTicks(10);
+        expect(f, "terminals solved with the solver alone (it must not click)", (Integer) call(TERMS, "solvedCount"), solved0);
+        closeMenu(ctx);
+        // ---- Auto Terminals: the mod solves it ----
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(TERM_CFG);
+            ModUnderTest.set(cfg, "setAutoTerminalsEnabled", true);
+            ModUnderTest.set(cfg, "setAutoPanesEnabled", true);
+        });
+        long tm = LogTap.mark();
+        if (!clickTerminal(ctx, 1, "T1", "Inactive Terminal")) {
+            f.add("S1 T1: no Inactive Terminal stand for the second open");
+        } else if (!until(ctx, "Auto Terminals solved T1", mc -> (Integer) call(TERMS, "solvedCount") > solved0, 600)) {
+            f.add("Auto Terminals never solved S1 T1 in the sim");
+        } else if (!waitChat(ctx, tm, "activated a terminal!", 20)) {
+            f.add("T1 solved but no 'activated a terminal!' line");
+        }
+        closeMenu(ctx);
+        System.clearProperty("killer560.bosssim.terminal");
+        ctx.runOnClient(mc -> ModUnderTest.turnOff(TERM_CFG, "setAutoTerminalsEnabled"));
+        // ---- Simon Says: the solver records the shown steps; Auto Simon Says presses them ----
+        String ssCfg = "com.killer560.hub.simonsays.SimonSaysConfig";
+        String ssf = "simonsays.SimonSaysFeature";
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(ssCfg);
+            ModUnderTest.set(cfg, "setEnabled", true);
+            ModUnderTest.set(cfg, "setSolverEnabled", true);
+            ModUnderTest.set(cfg, "setAutoStartEnabled", false);
+            ModUnderTest.set(cfg, "setTriggerBotEnabled", false);
+            ModUnderTest.set(cfg, "setAutoSolveRotate", false);
+            ModUnderTest.set(cfg, "setDiagnosticLoggingEnabled", true);
+            ModUnderTest.set(cfg, "setAutoSimonSaysEnabled", true);
+            ModUnderTest.set(cfg, "setAutoSolveEnabled", true);
+        });
+        tp(ctx, 108.5, 120, 93.5, -90, 0);
+        if (!until(ctx, "Simon Says at the device", mc -> (Boolean) dev.testkit.gametest.mod.Mod.field(ssf, "wasActive"), 100)) {
+            f.add("the Simon Says solver never armed at the sim's device");
+        }
+        long sm = LogTap.mark();
+        useBlock(ctx, new BlockPos(110, 121, 91), Direction.EAST);
+        boolean recorded = until(ctx, "the solver recorded a step", mc ->
+                !((List<?>) dev.testkit.gametest.mod.Mod.field(ssf, "clickInOrder")).isEmpty(), 200);
+        expect(f, "Simon Says solver recorded the sim's first step", recorded, true);
+        try {
+            if (!waitChat(ctx, sm, "completed a device!", 1200)) {
+                f.add("Auto Simon Says never completed the sim's device (" + call(DEVICES, "describe") + ")");
+            } else {
+                println(GATES, "Auto Simon Says completed the device; the test pressed only the start button");
+            }
+        } finally {
+            ctx.runOnClient(mc -> {
+                Object cfg = ModUnderTest.config(ssCfg);
+                ModUnderTest.set(cfg, "setAutoSolveEnabled", false);
+                ModUnderTest.set(cfg, "setAutoSimonSaysEnabled", false);
+                ModUnderTest.set(cfg, "setDiagnosticLoggingEnabled", false);
+            });
+        }
+        // ---- a Floor 7 fight started at S2: F7, and the section the player stands in ----
+        long m2 = start(ctx, "S2", false);
+        if (!waitChat(ctx, m2, "[BOSS] Goldor: Who dares trespass into my domain?", 40)) {
+            f.add("S2 start: Goldor's line never came");
+            return;
+        }
+        ctx.waitTicks(10);
+        gates(ctx, f, "F7 S2", "F7", "S2");
+    }
+
+    /** The shared dungeon gates as a feature reads them, in the sim's boss at P3. */
+    private static void gates(ClientGameTestContext ctx, List<String> f, String what, String floor, String stage) {
+        ctx.waitTicks(6); // SkyblockGate reads the sidebar every 5 ticks
+        String got = ctx.computeOnClient(mc -> "inDungeon=" + call(DUNGEON, "isInDungeon")
+                + " f7OrM7=" + call(DUNGEON, "isF7OrM7")
+                + " bossPhase=" + call(DUNGEON, "isBossPhaseActive")
+                + " simBoss=" + call(DUNGEON, "isSimBoss")
+                + " floor=" + call(DUNGEON, "getFloor")
+                + " inF7Boss=" + call(F7, "inF7Boss")
+                + " phase=" + call(F7, "getPhase")
+                + " stage=" + call(F7, "getStage")
+                + " dungeonServer=" + ModUnderTest.staticCall("com.killer560.hub.cheatutils.CheatUtils", "isOnDungeonServer",
+                new Class<?>[]{Minecraft.class}, new Object[]{mc})
+                + " skyblock=" + call("com.killer560.hub.util.SkyblockGate", "isOnSkyblock"));
+        expect(f, what + " gates", got, "inDungeon=true f7OrM7=true bossPhase=true simBoss=true floor=" + floor
+                + " inF7Boss=true phase=P3 stage=" + stage + " dungeonServer=true skyblock=true");
     }
 
     private static void simonSays(ClientGameTestContext ctx, List<String> f) {
