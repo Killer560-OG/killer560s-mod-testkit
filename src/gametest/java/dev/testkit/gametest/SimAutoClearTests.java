@@ -339,7 +339,14 @@ public class SimAutoClearTests implements FabricClientGameTest {
         List<Placed> hopPlaced = hopMob == null ? List.of() : List.of(new Placed(here, false, hopMob, near.get()));
         println("hop: a zombie at " + near.get().toShortString() + String.format(java.util.Locale.US,
                 " (%.1f blocks from his eye)", eye.distanceTo(Vec3.atCenterOf(near.get()))));
-        println("hop: before the start - " + hopDiagnosis(ctx, near.get()));
+        // Under load the client can still be missing the mob or its blocks when the plan is read (hop plan -1, a mob the
+        // mod does not see yet): give it up to 3 s to show a hop plan before the start, so "no hop" means no hop.
+        String diag = hopDiagnosis(ctx, near.get());
+        for (int i = 0; i < 60 && diag.contains("hop plan -1 "); i += 5) {
+            ctx.waitTicks(5);
+            diag = hopDiagnosis(ctx, near.get());
+        }
+        println("hop: before the start - " + diag);
         long hopMark = LogTap.mark();
         AtomicReference<String> done4 = new AtomicReference<>();
         AtomicReference<String> gaveUp4 = new AtomicReference<>();
@@ -369,7 +376,8 @@ public class SimAutoClearTests implements FabricClientGameTest {
                     + " etherwarp was the right move; the hop is not judged from this spot");
         } else if (r4.hops == 0) {
             failures.add("hop: no Hyperion hop for a mob " + String.format(java.util.Locale.US, "%.1f",
-                    eye.distanceTo(Vec3.atCenterOf(near.get()))) + " blocks away in the open");
+                    eye.distanceTo(Vec3.atCenterOf(near.get()))) + " blocks away in the open (" + r4.lastLine + "; before: "
+                    + diag + "; after: " + hopDiagnosis(ctx, near.get()) + ")");
         }
         if (r4.interacts > 0) {
             failures.add("hop: " + r4.interacts + " entity interaction packet(s)");
@@ -780,7 +788,17 @@ public class SimAutoClearTests implements FabricClientGameTest {
             bats += l.contains("[AutoClear] cost for") && l.contains("bat from here") && l.contains("- the Spirit Sceptre")
                     ? 1 : 0;
         }
-        if (trips > 2 || (trips < 2 && bats == 0)) {
+        // The mod may take a one-warp block that reaches only part of what the plan's block does (AutoClear.preferOneWarp:
+        // "a direct warp is half a searched trip"), so three direct warps (each trip 5 ticks or less) are right too; the
+        // plan line below still proves the two-block plan was made (a trip count of 3 failed that way, 2026-11-04).
+        boolean allDirect = trips == 3;
+        java.util.regex.Matcher tm = java.util.regex.Pattern.compile("\\[AutoClear\\] trip time: .* - (\\d+) tick").matcher("");
+        for (String l : LogTap.since(mark)) {
+            if (tm.reset(l).find() && Integer.parseInt(tm.group(1)) > 5) {
+                allDirect = false;
+            }
+        }
+        if ((trips > 2 && !allDirect) || (trips < 2 && bats == 0)) {
             failures.add("repositions: " + trips + " etherwarp trip(s) (" + bats + " sceptre bat(s)) for the three zombies"
                     + " in a line - two blocks reach all three (the first between the first two)");
         }

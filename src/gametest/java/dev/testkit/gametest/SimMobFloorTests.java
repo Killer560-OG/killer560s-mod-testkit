@@ -340,6 +340,22 @@ public class SimMobFloorTests implements FabricClientGameTest {
         // loaded gate the entities can reach the client a few ticks after GO (26.2, 2026-11-04: 0 at GO, the next case's
         // floor 8), so give them up to 5 s to arrive.
         boolean wantSleepers = felLine.matches(".*fels placed: [1-9][0-9]* starred.*");
+        if (wantSleepers) {
+            // The client only gets entities the server tracks (enderman range 128 blocks): a floor whose starred Fels are
+            // all farther from him than 96 blocks has none to show at GO, whatever the load (26.2, 2026-11-04, 0 after 110
+            // ticks). Ask the server for an invisible enderman within 96 blocks first.
+            AtomicReference<Integer> near = new AtomicReference<>();
+            ctx.runOnClient(mc -> {
+                var server = mc.getSingleplayerServer();
+                Vec3 at = mc.player.position();
+                server.execute(() -> near.set(server.overworld().getEntitiesOfClass(
+                        dev.testkit.compat.McEntities.endermanClass(),
+                        new net.minecraft.world.phys.AABB(at, at).inflate(96), net.minecraft.world.entity.Entity::isInvisible).size()));
+            });
+            ctx.waitFor(mc -> near.get() != null, 200);
+            facts.add("sleeping Fels within 96 blocks of him on the server: " + near.get());
+            wantSleepers = near.get() > 0;
+        }
         int[] sleepers = new int[2];
         int waited = 0;
         for (; waited <= 100; waited += 10) {
