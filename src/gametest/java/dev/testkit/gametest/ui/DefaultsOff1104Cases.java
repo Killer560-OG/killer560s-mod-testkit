@@ -33,7 +33,7 @@ final class DefaultsOff1104Cases {
             {"simonsays.SimonSaysConfig", "autoSimonSaysEnabled"},
             {"mining.nucleus.NucleusRunProfitConfig", "enabled"},
             {"mining.profit.MiningProfitConfig", "enabled"},
-            {"miningqol.MiningQolConfig", "wrongArmor", "resumeHeldBreak", "powderGhast"},
+            {"miningqol.MiningQolConfig", "wrongArmor", "junglePick", "resumeHeldBreak", "powderGhast"},
             {"powdermining.PowderMiningConfig", "doublePowder", "lootCompact", "lockpickHelper", "powderTracker",
                     "chestAlert", "treasureChest"},
             {"gifplayer.GifPlayerConfig", "enabled", "audioEnabled"},

@@ -46,6 +46,7 @@ final class ArmorHud1103Cases {
         MenuSuite.test(s, "1103-menu-armorhud-settings", ArmorHud1103Cases::settings);
         MenuSuite.test(s, "1103-menu-armorhud-loadouts", ArmorHud1103Cases::loadouts);
         MenuSuite.test(s, "1103-menu-wrongarmor", ArmorHud1103Cases::wrongArmor);
+        MenuSuite.test(s, "1105-menu-junglepick", ArmorHud1103Cases::junglePick);
     }
 
     // ---- fixtures -----------------------------------------------------------------------------------------------------
@@ -455,6 +456,99 @@ final class ArmorHud1103Cases {
             });
             c.server().command("item replace entity @a weapon.mainhand with minecraft:air");
             wear(c, null, null, null, null);
+            c.server().command("gamemode " + mode + " @p");
+            HxKit.hub(c);
+        }
+    }
+
+    // ---- Jungle Pickaxe Alert (junglepick-1105) ---------------------------------------------------------------------
+
+    private static final String JP = "miningqol.JunglePickAlert";
+
+    private static int jp(Session c, String m) {
+        return c.onClient(mc -> (Integer) Mod.staticCall(JP, m));
+    }
+
+    private static boolean jpShowing(Session c) {
+        return c.onClient(mc -> (Boolean) Mod.staticCall(JP, "showing"));
+    }
+
+    private static String jpReason(Session c) {
+        return c.onClient(mc -> (String) Mod.staticCall(JP, "lastReason"));
+    }
+
+    /** Lays a floor under (x, 99, 300), loads it, and stands on it looking down. */
+    private static void standAt(Session c, int x) {
+        c.server().command("forceload add " + x + " 300");
+        c.ctx().waitTicks(10);
+        c.server().command("fill " + (x - 4) + " 99 296 " + (x + 4) + " 99 304 minecraft:stone");
+        c.server().command("tp @a " + x + ".5 100 300.5 0 90");
+        c.waitUntil("standing at x " + x, mc -> Math.abs(mc.player.getX() - (x + 0.5)) < 0.6 && mc.player.onGround()
+                && mc.level.getBlockState(new net.minecraft.core.BlockPos(x, 99, 300)).isSolid(), 200);
+        c.ctx().waitTicks(5);
+    }
+
+    /** Breaking with the Jungle Pickaxe outside the Jungle alerts once; inside it, with another pickaxe, or switched off, never. */
+    static void junglePick(Session c) {
+        MenuKit.reset(c);
+        String mode = c.onClient(mc -> mc.gameMode.getPlayerMode().name().toLowerCase(Locale.ROOT));
+        try {
+            c.ctx().runOnClient(mc -> {
+                Mod.set(MQ, "setJunglePick", true);
+                Mod.set(MQ, "setJunglePickSound", true);
+            });
+            c.server().command("gamemode adventure @p");
+            c.server().command("item replace entity @a weapon.mainhand with " + stack("diamond_pickaxe", "JUNGLE_PICKAXE"));
+            c.waitUntil("the Jungle Pickaxe in hand", mc -> "JUNGLE_PICKAXE".equals(Mod.staticCall("cheatutils.CheatUtils",
+                    "skyblockId", mc.player.getMainHandItem())), 60);
+            c.hx().sidebar("SKYBLOCK", "Late Winter 3rd", "\u23e3 Jungle", "Purse: 0");
+            c.hx().tab(List.of("Area: Crystal Hollows", "Profile: Test", ""), null, null);
+            c.waitUntil("Crystal Hollows", mc -> "CRYSTAL_HOLLOWS".equals(Mod.staticCall("miningqol.MiningState", "island")), 100);
+            // 1. In the Jungle (x 300): digging, no alert.
+            standAt(c, 300);
+            int shown = jp(c, "shownCount");
+            int beeps = jp(c, "soundCount");
+            dig(c, true);
+            c.waitUntil("aimed at a block", mc -> mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult h
+                    && h.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK, 40);
+            c.ctx().waitTicks(20);
+            c.check(!jpShowing(c) && jp(c, "shownCount") == shown && jpReason(c).equals("in the Jungle"),
+                    "alert in the Jungle: " + jpReason(c));
+            // 2. Outside the Jungle (x 700, the Mithril quadrant): the alert, drawn, one beep.
+            int frames = jp(c, "frames");
+            standAt(c, 700);
+            c.waitUntil("Jungle Pickaxe alert showing", mc -> (Boolean) Mod.staticCall(JP, "showing"), 40);
+            c.check(jp(c, "shownCount") == shown + 1, "shown count did not rise by one");
+            c.waitUntil("Jungle Pickaxe alert drawn", mc -> (Integer) Mod.staticCall(JP, "frames") > frames + 2
+                    && (Boolean) Mod.staticCall("hud.HudSeen", "drawnRecently", "mining_jungle_pick"), 40);
+            c.ctx().waitTicks(50);
+            c.check(jp(c, "soundCount") == beeps + 1, "beeps " + (jp(c, "soundCount") - beeps) + ", wanted exactly one per stretch");
+            c.check(jp(c, "shownCount") == shown + 1, "the alert re-triggered inside one stretch");
+            // 3. Back into the Jungle: gone.
+            standAt(c, 300);
+            c.waitUntil("the alert gone in the Jungle", mc -> !(Boolean) Mod.staticCall(JP, "showing"), 40);
+            // 4. Another pickaxe outside: silent.
+            standAt(c, 700);
+            c.waitUntil("alert back outside", mc -> (Boolean) Mod.staticCall(JP, "showing"), 40);
+            c.server().command("item replace entity @a weapon.mainhand with " + stack("diamond_pickaxe", "MITHRIL_PICKAXE"));
+            c.waitUntil("the alert gone with another pickaxe", mc -> !(Boolean) Mod.staticCall(JP, "showing"), 40);
+            c.check(jpReason(c).equals("no Jungle Pickaxe"), "another pickaxe: " + jpReason(c));
+            // 5. The Jungle Pickaxe back, then the switch off: silent.
+            c.server().command("item replace entity @a weapon.mainhand with " + stack("diamond_pickaxe", "JUNGLE_PICKAXE"));
+            c.waitUntil("alert back with the Jungle Pickaxe", mc -> (Boolean) Mod.staticCall(JP, "showing"), 40);
+            int shown2 = jp(c, "shownCount");
+            c.ctx().runOnClient(mc -> Mod.set(MQ, "setJunglePick", false));
+            c.waitUntil("the alert gone with the switch off", mc -> !(Boolean) Mod.staticCall(JP, "showing"), 20);
+            c.ctx().waitTicks(20);
+            c.check(jp(c, "shownCount") == shown2 && jpReason(c).equals("off"), "switch off: " + jpReason(c));
+            c.note("Jungle: silent; outside: shown 1x, 1 beep, drawn; another pickaxe and switch off: silent");
+        } finally {
+            dig(c, false);
+            c.ctx().runOnClient(mc -> {
+                Mod.set(MQ, "setJunglePick", false);
+                Mod.set(MQ, "setJunglePickSound", true);
+            });
+            c.server().command("item replace entity @a weapon.mainhand with minecraft:air");
             c.server().command("gamemode " + mode + " @p");
             HxKit.hub(c);
         }
