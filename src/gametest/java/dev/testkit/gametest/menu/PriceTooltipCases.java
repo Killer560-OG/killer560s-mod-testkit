@@ -200,7 +200,6 @@ final class PriceTooltipCases {
         cfg.set(CFG, "NumberFormat", Mod.enumValue(CFG + "$NumberFormat", "EXACT"));
         cfg.set(CFG, "AverageDays", 3);
         cfg.set(CFG, "ValueMode", Mod.enumValue(CFG + "$ValueMode", "FULL"));
-        cfg.set(CFG, "StackPrice", Mod.enumValue(CFG + "$When", "SHIFT"));
         cfg.set(CFG, "Breakdown", Mod.enumValue(CFG + "$When", "SHIFT"));
         Fake fake = new Fake();
         Mod.staticCall(DATA, "markStartedForTest");
