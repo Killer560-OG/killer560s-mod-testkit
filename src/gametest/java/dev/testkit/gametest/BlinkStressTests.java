@@ -1498,6 +1498,10 @@ public class BlinkStressTests implements FabricClientGameTest {
                     Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE);
                 });
                 ctx.waitTicks(30);
+                // Under server lag Charge withholds extra still ticks to back the bank, so it can fill later than 30 ticks.
+                for (int i = 0; i < 100 && cnum(ctx, "banked") < 20; i++) {
+                    ctx.waitTicks(1);
+                }
                 long bank = cnum(ctx, "banked");
                 String dim0 = ctx.computeOnClient(mc -> mc.level.dimension().toString());
                 server.command("execute in minecraft:the_nether run tp " + name + " 0.5 101 0.5");
