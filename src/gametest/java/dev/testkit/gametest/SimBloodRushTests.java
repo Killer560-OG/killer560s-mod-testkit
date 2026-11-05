@@ -1288,19 +1288,28 @@ public class SimBloodRushTests implements FabricClientGameTest {
 
     /** Pixels inside {@code r} (window coordinates) that differ by more than 40 in any channel. */
     private static int diff(java.awt.image.BufferedImage a, java.awt.image.BufferedImage b, int[] r) {
+        return diff(a, b, r, null);
+    }
+
+    /** As {@link #diff(java.awt.image.BufferedImage, java.awt.image.BufferedImage, int[])}, ignoring pixels where the two {@code still} shots differ (water, lava, banners animate by themselves). */
+    private static int diff(java.awt.image.BufferedImage a, java.awt.image.BufferedImage b, int[] r,
+            java.awt.image.BufferedImage[] still) {
         double sx = a.getWidth() / (double) r[4], sy = a.getHeight() / (double) r[5];
         int n = 0;
         for (int y = Math.max(0, (int) (r[1] * sy)); y < Math.min(a.getHeight(), (int) (r[3] * sy)); y++) {
             for (int x = Math.max(0, (int) (r[0] * sx)); x < Math.min(a.getWidth(), (int) (r[2] * sx)); x++) {
-                int p = a.getRGB(x, y), q = b.getRGB(x, y);
-                int d = Math.max(Math.abs(((p >> 16) & 255) - ((q >> 16) & 255)),
-                        Math.max(Math.abs(((p >> 8) & 255) - ((q >> 8) & 255)), Math.abs((p & 255) - (q & 255))));
-                if (d > 40) {
+                if (pixelDiff(a.getRGB(x, y), b.getRGB(x, y)) > 40
+                        && (still == null || pixelDiff(still[0].getRGB(x, y), still[1].getRGB(x, y)) <= 40)) {
                     n++;
                 }
             }
         }
         return n;
+    }
+
+    private static int pixelDiff(int p, int q) {
+        return Math.max(Math.abs(((p >> 16) & 255) - ((q >> 16) & 255)),
+                Math.max(Math.abs(((p >> 8) & 255) - ((q >> 8) & 255)), Math.abs((p & 255) - (q & 255))));
     }
 
     private static void brSet(String setter, boolean v) {
@@ -1578,14 +1587,17 @@ public class SimBloodRushTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> brSet("setEnabled", false));
             off1 = settledShot(ctx, "off1", r);
             java.awt.image.BufferedImage off2 = shot(ctx, "off2");
-            boxPx = diff(on, off1, r);
             noise = diff(off1, off2, r);
+            // A room with something that moves by itself (Banners' flags, Golden Oasis' water: off vs off 1900 / 1400 px, the
+            // 1105 flake) cannot be still: the pixels that differ between the two helper-off shots are ignored, and the
+            // box still has to cover 300+ of the rest and 10x the noise. A still room has noise < 40 and is judged as before.
+            boxPx = noise < 40 ? diff(on, off1, r) : diff(on, off1, r, new java.awt.image.BufferedImage[]{off1, off2});
             facts.add("PIXELS box on vs off " + boxPx + ", off vs off " + noise + " (pair " + attempt + ")");
-            if (noise < Math.max(40, boxPx / 20)) {
+            if (noise < 40 || boxPx > noise * 10) {
                 break;
             }
         }
-        if (boxPx < 300 || noise >= Math.max(40, boxPx / 20)) {
+        if (boxPx < 300 || (noise >= 40 && boxPx <= noise * 10)) {
             problems.add("the box is not plainly visible: " + boxPx + " pixels against the helper off (want 300+), noise " + noise);
         }
         ctx.runOnClient(mc -> brSet("setEnabled", true));
