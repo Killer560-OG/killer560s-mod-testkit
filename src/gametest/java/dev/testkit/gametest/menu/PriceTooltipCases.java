@@ -43,6 +43,19 @@ import java.util.concurrent.atomic.AtomicInteger;
  *   <li>1752 obtained: the long-millis timestamp and the old "M/d/yy h:mm a" string both read April 24, 2026.</li>
  *   <li>1753 off: switched off no line is added; a plain vanilla item never gets one; the settings survive a reload.</li>
  *   <li>1754 shot: the real inventory screen hovering the Hyperion draws the lines (screenshot in the report).</li>
+ *   <li>1104-pricetip-recomb (recombprice-1104, killer560: "it says an items value that a recomb is 7m but on bazaar it
+ *       is 9m"): Value Mode defaults to Full Price (also over an old file's saved NETWORTH), the recomb line is the
+ *       Bazaar Buy price (9,000,000 in the fake), Networth shows 80% of it, and the Profile Viewer's
+ *       networth of the item equals the tooltip's Est. Item Value in both modes.</li>
+ *   <li>1104-pricetip-pet (petvalue-1104, killer560: "for pets it should go off of the level of the pet ... percent to
+ *       100 and similar listings"): fake LVL_1/LVL_100/LVL_200 lowest BINs; a Legendary Enderman (1M at 1, 21M at 100)
+ *       is 1,000,000 at 0 XP, 11,000,000 at half the XP to 100 (level 91) and 21,000,000 at 100 in both modes; 3 candy
+ *       take 2,500,000 off in Networth only (5,000,000 at 100); a Tier Boost is its held item on the stored tier's
+ *       price; a bare listing within 3 levels wins over the line, one 4 levels away does not; a Golden Dragon is
+ *       800,000,000 at level 150 (600M at 100, 1B at 200) and 1B at 200, candy never discounted; a pet with only the
+ *       level-100 price uses it; a pet with no price has no Est. Item Value line. The Profile Viewer's pet list
+ *       (Networth.calculate) prices an API pet the same way: a half-XP Enderman with 3 candy and a level 100 one make
+ *       Pets 32,000,000 at Full Price and 29,500,000 in Networth, not the level-blind ENDERMAN;4 price.</li>
  * </ol>
  */
 final class PriceTooltipCases {
@@ -69,6 +82,8 @@ final class PriceTooltipCases {
         MenuSuite.test(s, "1752-menu-pricetip-obtained", PriceTooltipCases::obtained);
         MenuSuite.test(s, "1753-menu-pricetip-off", PriceTooltipCases::off);
         MenuSuite.test(s, "1754-menu-pricetip-shot", PriceTooltipCases::shot);
+        MenuSuite.test(s, "1104-pricetip-recomb", PriceTooltipCases::recomb);
+        MenuSuite.test(s, "1104-pricetip-pet", PriceTooltipCases::pet);
     }
 
     // ---- the fake -----------------------------------------------------------------------------------------------
@@ -106,12 +121,15 @@ final class PriceTooltipCases {
                 return ITEMS;
             }
             if (path.startsWith("/hx/v2/skyblock/bazaar")) {
-                return BAZAAR;
+                String b = bazaarOverride;
+                return b != null ? b : BAZAAR;
             }
             if (path.startsWith("/hy/api/auctions/lowestbins/average")) {
                 return path.contains("days=3") ? "{\"HYPERION\":4790000}" : "{\"HYPERION\":4500000}";
             }
             if (path.startsWith("/hy/api/auctions/lowestbins")) {
+                String o = lbinOverride;
+                if (o != null) return o;
                 return "{\"HYPERION\":5900000,\"SHINY_HYPERION\":9000000}";
             }
             return null;
@@ -127,8 +145,15 @@ final class PriceTooltipCases {
             return n;
         }
 
+        /** A case's own Bazaar body (same row count as {@link #BAZAAR}); null serves BAZAAR. Cleared on close. */
+        static volatile String bazaarOverride;
+        /** A case's own lowest-BIN body (flat id -> coins); null serves the two Hyperion keys. Cleared on close. */
+        static volatile String lbinOverride;
+
         @Override
         public void close() {
+            bazaarOverride = null;
+            lbinOverride = null;
             restore("killer560.net.hypixel", oldHypixel);
             restore("killer560.net.hysky", oldHysky);
             server.stop(0);
@@ -211,7 +236,9 @@ final class PriceTooltipCases {
                 "the fake was not asked for every source: " + fake.hits);
         int bins = (Integer) Mod.staticCall(DATA, "lowestBinCount");
         int bz = (Integer) Mod.staticCall(DATA, "bazaarCount");
-        c.check(bins == 2 && bz == BAZAAR_ROWS, "loaded " + bins + " BIN and " + bz + " Bazaar prices from the fake, expected 2 and " + BAZAAR_ROWS);
+        int wantBins = Fake.lbinOverride == null ? 2 : Fake.lbinOverride.split(",").length;
+        c.check(bins == wantBins && bz == BAZAAR_ROWS, "loaded " + bins + " BIN and " + bz + " Bazaar prices from the fake, expected "
+                + wantBins + " and " + BAZAAR_ROWS);
         c.note("fake asked: " + fake.hits + "; loaded " + bins + " BIN, " + bz + " Bazaar");
         return fake;
     }
@@ -331,6 +358,200 @@ final class PriceTooltipCases {
             shift(null);
             ItemCases.clear(c, 0);
         }
+    }
+
+    static void recomb(Session c) throws Exception {
+        // Default: a file from before recombprice-1104 saved "valueMode":"NETWORTH" (the old default); it must load FULL.
+        Path file = c.onClient(mc -> (Path) Mod.staticCall("util.ModPaths", "config", "killer560smod-pricetooltip.json"));
+        byte[] old = java.nio.file.Files.exists(file) ? java.nio.file.Files.readAllBytes(file) : null;
+        Object mode;
+        try {
+            java.nio.file.Files.createDirectories(file.getParent());
+            java.nio.file.Files.writeString(file, "{\"enabled\":true,\"valueMode\":\"NETWORTH\"}");
+            mode = c.onClient(mc -> {
+                Mod.staticCall(CFG, "load");
+                return Mod.get(CFG, "getValueMode");
+            });
+        } finally {
+            if (old != null) {
+                java.nio.file.Files.write(file, old);
+            } else {
+                java.nio.file.Files.deleteIfExists(file);
+            }
+            c.onClient(mc -> Mod.staticCall(CFG, "load"));
+        }
+        c.check(String.valueOf(mode).equals("FULL"), "Value Mode after loading an old NETWORTH file: " + mode + ", expected FULL");
+        c.check("Full Price".equals(Mod.field(Mod.enumValue(CFG + "$ValueMode", "FULL"), "label"))
+                        && "Networth".equals(Mod.field(Mod.enumValue(CFG + "$ValueMode", "NETWORTH"), "label")),
+                "Value Mode labels");
+
+        Fake.bazaarOverride = BAZAAR.replace("\"RECOMBOBULATOR_3000\",\"quick_status\":{\"buyPrice\":10000000,\"sellPrice\":9000000}",
+                "\"RECOMBOBULATOR_3000\",\"quick_status\":{\"buyPrice\":9000000,\"sellPrice\":8500000}");
+        c.check(!Fake.bazaarOverride.equals(BAZAAR), "the recomb row of the fake Bazaar was not rewritten");
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c); Fake fake = loadPrices(c, cfg)) {
+            cfg.set(CFG, "ValueMode", mode);
+            cfg.set(CFG, "NpcPrice", false);
+            cfg.set(CFG, "Obtained", false);
+            cfg.set(CFG, "Museum", false);
+            double bz = c.onClient(mc -> ((Number) Mod.staticCall(DATA, "unitPrice", "RECOMBOBULATOR_3000")).doubleValue());
+            c.check(bz == 9_000_000.0, "the fake Bazaar Buy price of the recomb loaded as " + bz);
+            ItemStack built = give(c, 0, HYPERION_BUILT);
+            shift(true);
+            List<String> full = priceLines(c, built);
+            c.note("default mode tooltip: " + full);
+            c.check(full.contains(" §8- §7Recombobulator: §b9,000,000.0"), "the recomb part is not the Bazaar price 9,000,000: " + full);
+            c.check(full.contains("§eEst. Item Value: §b190,500,000.0 Coins"), "full total: " + full);
+            sameAsNetworth(c, built, full);
+
+            cfg.set(CFG, "ValueMode", Mod.enumValue(CFG + "$ValueMode", "NETWORTH"));
+            List<String> nw = priceLines(c, built);
+            c.note("Networth tooltip: " + nw);
+            c.check(nw.contains(" §8- §7Recombobulator: §b7,200,000.0"), "Networth recomb is not 80%: " + nw);
+            sameAsNetworth(c, built, nw);
+        } finally {
+            Fake.bazaarOverride = null;
+            shift(null);
+            ItemCases.clear(c, 0);
+        }
+    }
+
+    /** A pet stack: {@code petInfo} as Hypixel writes it (a JSON string). */
+    static String pet(String type, String tier, double exp, int candy, String held) {
+        String json = "{\"type\":\"" + type + "\",\"tier\":\"" + tier + "\",\"exp\":" + exp + ",\"candyUsed\":" + candy
+                + (held == null ? "" : ",\"heldItem\":\"" + held + "\"") + "}";
+        return "minecraft:player_head[custom_data={id:\"PET\",petInfo:'" + json + "'}]";
+    }
+
+    /** An Auction House listing (the mod's AuctionListing) of a Legendary Enderman, its icon the stack given in {@code slot}. */
+    static Object listing(Session c, int slot, String stack, int level, long price, boolean bin) throws Exception {
+        ItemStack icon = give(c, slot, stack).copy();
+        return Mod.cls("auction.AuctionListing").getConstructors()[0].newInstance(java.util.UUID.randomUUID(),
+                java.util.UUID.randomUUID(), "[Lvl " + level + "] Enderman", "PET", "LEGENDARY", "misc", price, bin, 0L, 0,
+                0L, level, null, 0, true, icon);
+    }
+
+    static final double LEG_XP_100 = 25_353_230;
+
+    /** The Pets category of Networth.calculate for a profile holding a half-XP Enderman (3 candy) and a level 100 one. */
+    static long profilePets(Session c) {
+        String profile = "{\"profiles\":[{\"profile_id\":\"p1\",\"cute_name\":\"Test\",\"selected\":true,"
+                + "\"members\":{\"00000000000000000000000000000001\":{\"pets_data\":{\"pets\":["
+                + "{\"type\":\"ENDERMAN\",\"tier\":\"LEGENDARY\",\"exp\":" + LEG_XP_100 / 2 + ",\"candyUsed\":3},"
+                + "{\"type\":\"ENDERMAN\",\"tier\":\"LEGENDARY\",\"exp\":" + LEG_XP_100 + "}]}}}}]}";
+        return c.onClient(mc -> {
+            Object p = ((List<?>) Mod.staticCall("profileviewer.data.SbProfile", "parseAll",
+                    com.google.gson.JsonParser.parseString(profile).getAsJsonObject(),
+                    java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"))).get(0);
+            try {
+                Object inv = Mod.cls("profileviewer.data.SbProfile$Inventories").getDeclaredConstructors()[0].newInstance(
+                        List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), 0, List.of(), List.of(), List.of(),
+                        List.of(), List.of());
+                Object r = Mod.staticCall("profileviewer.data.Networth", "calculate", p, inv, null,
+                        Map.of("ENDERMAN;4", 99_000_000.0), null);
+                return Networth1104Cases.categoryTotal(r, false, "Pets");
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+        });
+    }
+    static final double GD_XP_MAX = 214_023_230;
+
+    static void pet(Session c) throws Exception {
+        Fake.lbinOverride = "{\"LVL_1_LEGENDARY_ENDERMAN\":1000000,\"LVL_100_LEGENDARY_ENDERMAN\":21000000,"
+                + "\"LVL_1_LEGENDARY_GOLDEN_DRAGON\":400000000,\"LVL_100_LEGENDARY_GOLDEN_DRAGON\":600000000,"
+                + "\"LVL_200_LEGENDARY_GOLDEN_DRAGON\":1000000000,\"LVL_100_LEGENDARY_GRIFFIN\":50000000,"
+                + "\"PET_ITEM_TIER_BOOST\":20000000}";
+        String ah = "auction.ah.AhMarket";
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c); Fake fake = loadPrices(c, cfg)) {
+            Mod.staticCall(ah, "setPetListingsForTest", List.of());
+            cfg.set(CFG, "NpcPrice", false);
+            cfg.set(CFG, "Obtained", false);
+            cfg.set(CFG, "Museum", false);
+            cfg.set(CFG, "LowestBin", false);
+            cfg.set(CFG, "AverageBin", false);
+            shift(true);
+            Object[][] rows = {
+                    // stack, Full Price, Networth
+                    {pet("ENDERMAN", "LEGENDARY", 0, 0, null), "1,000,000.0", "1,000,000.0"},
+                    {pet("ENDERMAN", "LEGENDARY", LEG_XP_100 / 2, 0, null), "11,000,000.0", "11,000,000.0"},
+                    {pet("ENDERMAN", "LEGENDARY", LEG_XP_100, 0, null), "21,000,000.0", "21,000,000.0"},
+                    {pet("ENDERMAN", "LEGENDARY", LEG_XP_100 / 2, 3, null), "11,000,000.0", "8,500,000.0"},
+                    {pet("ENDERMAN", "LEGENDARY", LEG_XP_100 + 5_000_000, 10, null), "21,000,000.0", "16,000,000.0"},
+                    {pet("ENDERMAN", "LEGENDARY", LEG_XP_100 / 2, 0, "PET_ITEM_TIER_BOOST"), "31,000,000.0", "31,000,000.0"},
+                    {pet("GOLDEN_DRAGON", "LEGENDARY", LEG_XP_100 + (GD_XP_MAX - LEG_XP_100) / 2, 50, null), "800,000,000.0", "800,000,000.0"},
+                    {pet("GOLDEN_DRAGON", "LEGENDARY", GD_XP_MAX, 0, null), "1,000,000,000.0", "1,000,000,000.0"},
+                    {pet("GOLDEN_DRAGON", "LEGENDARY", LEG_XP_100, 0, null), "600,000,000.0", "600,000,000.0"},
+                    {pet("GRIFFIN", "LEGENDARY", LEG_XP_100 / 2, 0, null), "50,000,000.0", "50,000,000.0"},
+            };
+            for (String mode : new String[]{"FULL", "NETWORTH"}) {
+                cfg.set(CFG, "ValueMode", Mod.enumValue(CFG + "$ValueMode", mode));
+                for (int i = 0; i < rows.length; i++) {
+                    ItemStack st = give(c, 0, (String) rows[i][0]);
+                    List<String> got = priceLines(c, st);
+                    String want = "§eEst. Item Value: §b" + rows[i][mode.equals("FULL") ? 1 : 2] + " Coins";
+                    c.note(mode + " row " + i + ": " + got);
+                    c.check(got.contains(want), mode + " row " + i + " " + rows[i][0] + ": " + got + ", expected " + want);
+                    sameAsNetworth(c, st, got);
+                }
+            }
+            // The breakdown names the level: 3 candy at half XP (level 91) in Networth.
+            List<String> nwParts = priceLines(c, give(c, 0, (String) rows[3][0]));
+            c.check(nwParts.contains(" §8- §7Base (Lvl 91): §b11,000,000.0") && nwParts.contains(" §8- §7Pet Candy (3): §b-2,500,000.0"),
+                    "Networth breakdown of the candied level 91 Enderman: " + nwParts);
+            List<String> boostParts = priceLines(c, give(c, 0, (String) rows[5][0]));
+            c.check(boostParts.contains(" §8- §7Base (Lvl 91): §b11,000,000.0") && boostParts.contains(" §8- §7Pet Item: §b20,000,000.0"),
+                    "Tier Boost breakdown: " + boostParts);
+
+            // The Profile Viewer's pet list prices API pets with the same method (not the level-blind NEU price).
+            for (String mode : new String[]{"FULL", "NETWORTH"}) {
+                cfg.set(CFG, "ValueMode", Mod.enumValue(CFG + "$ValueMode", mode));
+                long pets = profilePets(c);
+                long want = mode.equals("FULL") ? 32_000_000L : 29_500_000L;
+                c.note("Profile Viewer Pets " + mode + ": " + pets);
+                c.check(pets == want, "Profile Viewer Pets category in " + mode + " is " + pets + ", expected " + want);
+            }
+
+            // A real bare listing within 3 levels is the base; one 4 levels away is not. The listings go through the
+            // scan's own index: a BIN with a held item, a skinned one and a bid auction at closer levels are skipped.
+            cfg.set(CFG, "ValueMode", Mod.enumValue(CFG + "$ValueMode", "FULL"));
+            String bare = pet("ENDERMAN", "LEGENDARY", 1000, 0, null);
+            Mod.staticCall(ah, "setPetListingsForTest", List.of(
+                    listing(c, 1, bare, 89, 9_000_000L, true),
+                    listing(c, 2, pet("ENDERMAN", "LEGENDARY", 1000, 0, "PET_ITEM_TIER_BOOST"), 90, 1_000_000L, true),
+                    listing(c, 3, bare.replace("\"candyUsed\"", "\"skin\":\"ENDERMAN\",\"candyUsed\""), 91, 1_000_000L, true),
+                    listing(c, 4, bare, 92, 500_000L, false),
+                    listing(c, 5, bare, 95, 30_000_000L, true)));
+            List<String> listed = priceLines(c, give(c, 0, (String) rows[5][0]));
+            c.check(listed.contains("§eEst. Item Value: §b29,000,000.0 Coins") && listed.contains(" §8- §7Base (Lvl 91, listed Lvl 89): §b9,000,000.0"),
+                    "a level 89 listing for the level 91 pet: " + listed);
+            Mod.staticCall(ah, "setPetListingsForTest", List.of(listing(c, 1, bare, 87, 9_000_000L, true)));
+            List<String> far = priceLines(c, give(c, 0, (String) rows[5][0]));
+            c.check(far.contains("§eEst. Item Value: §b31,000,000.0 Coins"), "a listing 4 levels away was used: " + far);
+            c.note("listing near: " + listed + "; far: " + far);
+
+            List<String> none = priceLines(c, give(c, 0, pet("BLAZE", "EPIC", 1000, 0, null)));
+            c.check(none.stream().noneMatch(l -> l.startsWith("§eEst. Item Value")), "a pet with no price has a value line: " + none);
+        } finally {
+            Fake.lbinOverride = null;
+            Mod.staticCall(ah, "setPetListingsForTest", List.of());
+            shift(null);
+            ItemCases.clear(c, 0, 1, 2, 3, 4, 5);
+        }
+    }
+
+    /** The Profile Viewer's networth of {@code stack} must be the tooltip's Est. Item Value (one shared calculation). */
+    private static void sameAsNetworth(Session c, ItemStack stack, List<String> lines) {
+        String est = null;
+        for (String l : lines) {
+            if (l.startsWith("§eEst. Item Value: §b")) {
+                est = l.substring("§eEst. Item Value: §b".length(), l.length() - " Coins".length()).replace(",", "");
+            }
+        }
+        c.check(est != null, "no Est. Item Value line: " + lines);
+        double tip = Double.parseDouble(est);
+        double nw = c.onClient(mc -> ((Number) Mod.call(Mod.staticCall("profileviewer.data.Networth", "itemValue", stack, Map.of()), "total")).doubleValue());
+        c.note("tooltip " + tip + ", networth " + nw);
+        c.check(Math.abs(tip - nw) < 0.5, "networth " + nw + " differs from the tooltip's Est. Item Value " + tip);
     }
 
     static void obtained(Session c) throws Exception {
