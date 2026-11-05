@@ -87,7 +87,7 @@ public class SimSpawnLoadTests implements FabricClientGameTest {
             }
             for (String l : LogTap.since(mark)) {
                 if (l.contains("[SimPhase]") && (l.contains("stages") || l.contains("world loaded") || l.contains("not clear")
-                        || l.contains("no clear") || l.contains("still had") || l.contains("re-sending"))) {
+                        || l.contains("no clear") || l.contains("still had") || l.contains("not on his client"))) {
                     System.out.println("[" + NAME + "] mod: " + l.substring(Math.max(0, l.indexOf("[SimPhase]"))));
                 }
             }
