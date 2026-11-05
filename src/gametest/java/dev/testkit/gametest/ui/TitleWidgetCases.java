@@ -55,6 +55,7 @@ final class TitleWidgetCases {
 
         Object cfg = Mod.cfg("mainmenu.MainMenuThemeConfig");
         boolean e0 = (Boolean) Mod.call(cfg, "isEnabled");
+        boolean mods = c.onClient(m -> (Boolean) Mod.call(Mod.cfg("modlist.ModListConfig"), "isMainMenuButton"));
         Object style0 = modMenu ? styleValue() : null;
         int[] win0 = c.onClient(m -> new int[]{m.getWindow().getWidth(), m.getWindow().getHeight(),
                 m.options.guiScale().get()});
@@ -104,8 +105,9 @@ final class TitleWidgetCases {
                     }
                     long columnRows = boxes.stream().filter(b -> b.w == 200).count();
                     c.check(columnRows >= 5, tag + ": only " + columnRows + " full-width column rows: " + boxes);
-                    c.check(columnRows == 5, tag + ": " + columnRows + " full-width rows, expected exactly 5 "
-                            + "(Singleplayer, Multiplayer, Dungeon Sim, Mod Settings, Swap Accounts)");
+                    int rows = mods ? 6 : 5; // Mods (modsbtn-1104) sits under Mod Settings while its switch is ON
+                    c.check(columnRows == rows, tag + ": " + columnRows + " full-width rows, expected exactly " + rows
+                            + " (Singleplayer, Multiplayer, Dungeon Sim, Mod Settings, " + (mods ? "Mods, " : "") + "Swap Accounts)");
                     if (size[0] == 1920) {
                         Path shot = c.ctx().takeScreenshot(Report.fileName(c.name() + "-" + style.toLowerCase()));
                         Report.screenshot(c.name(), shot);
@@ -164,7 +166,7 @@ final class TitleWidgetCases {
         return what.contains("[menu.singleplayer]") || what.contains("[menu.multiplayer]")
                 || what.contains("[menu.options]") || what.contains("[menu.quit]")
                 || what.startsWith("SwapAccountsButton[") || what.contains("[Dungeon Sim]")
-                || what.contains("[Mod Settings]");
+                || what.contains("[Mod Settings]") || what.startsWith("ModsButton[");
         // Vanilla's copyright link (PlainTextButton) is removed since mod mainmenu-footer-1015 (killer560, 2026-10-15).
     }
 

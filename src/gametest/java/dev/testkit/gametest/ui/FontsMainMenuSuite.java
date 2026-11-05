@@ -66,9 +66,9 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
     static final String[] TITLE_CASES = {"1565-ui-mainmenu-styles", "1566-ui-mainmenu-scenes",
             "1567-ui-mainmenu-real-name", "1568-ui-amber-scene", "1569-ui-amber-video",
             "1571-ui-mainmenu-mod-settings", "1572-ui-vanilla-menus", "1574-ui-title-switcher",
-            "1104-ui-modmenu-list-theme", "1575-ui-mainmenu-switch"};
+            "1104-ui-modmenu-list-theme", "1575-ui-mainmenu-switch", ModsScreenCases.TITLE};
     static final String[] WORLD_CASES = {"1561-ui-font-menu-only", "1562-ui-font-everything", "1563-ui-font-import",
-            "1564-ui-font-settings", "1573-ui-vanilla-pause"};
+            "1564-ui-font-settings", "1573-ui-vanilla-pause", ModsScreenCases.PAUSE};
 
     static final String FC = "fonts.FontConfig";
     static final String CF = "fonts.CustomFonts";
@@ -111,6 +111,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
         UiCase.run(ctx, "1574-ui-title-switcher", TitleSwitcherCases::run);
         UiCase.run(ctx, "1104-ui-modmenu-list-theme", ModMenuListThemeCases::run);
         UiCase.run(ctx, "1575-ui-mainmenu-switch", FontsMainMenuSuite::switchRows);
+        UiCase.run(ctx, ModsScreenCases.TITLE, ModsScreenCases::title);
         if (anyWorld) {
             try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
                 ctx.waitTicks(40);
@@ -120,6 +121,7 @@ public class FontsMainMenuSuite implements FabricClientGameTest {
                 UiCase.run(ctx, "1563-ui-font-import", FontsMainMenuSuite::importFont);
                 UiCase.run(ctx, "1564-ui-font-settings", FontsMainMenuSuite::settings);
                 UiCase.run(ctx, "1573-ui-vanilla-pause", VanillaThemeCases::pause);
+                UiCase.run(ctx, ModsScreenCases.PAUSE, ModsScreenCases::pause);
             }
         }
     }
