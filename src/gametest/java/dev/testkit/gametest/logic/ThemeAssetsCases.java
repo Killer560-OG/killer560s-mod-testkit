@@ -254,7 +254,13 @@ final class ThemeAssetsCases {
             c.check("cached in the shared store under its hash", Files.isRegularFile(f) && f.startsWith(cacheDir())
                     && f.getFileName().toString().startsWith("ocean_falls-"), String.valueOf(f));
             c.eq("the cached file is the release file (sha256)", sha256(src), sha256(f));
-            c.check("no .part left", waitFor(10_000, () -> cached().stream().noneMatch(n -> n.endsWith(".part"))), String.valueOf(cached()));
+            c.check("no .part left", waitFor(10_000, () -> {
+                try {
+                    return cached().stream().noneMatch(n -> n.endsWith(".part"));
+                } catch (Exception e) {
+                    return false;
+                }
+            }), String.valueOf(cached()));
 
             // Next start: a scan finds it without the network.
             Mod.staticCall(A, "resetForTest");
