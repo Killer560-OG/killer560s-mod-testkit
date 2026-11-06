@@ -32,6 +32,9 @@ import java.util.function.Predicate;
  *       claim.</li>
  *   <li>{@link Act#SWAP}: the selected slot moves between two slots at END (a scroll or a hotbar key between ticks);
  *       vanilla's {@code gameMode.tick} (or the next action through the game mode) sends it next tick.</li>
+ *   <li>{@link Act#DIG_HELD} (grimgapB-1105): his left click HELD on a block (the attack key down every tick, no new
+ *       press), so vanilla's {@code continueAttack} digs block after block from {@code handleKeybinds}; released on
+ *       {@link #close}.</li>
  *   <li>{@link Act#CLICK}: a container click on an empty player slot of the open menu at END (a mouse click between
  *       ticks), so it lands in the next server tick ahead of the START actors.</li>
  * </ul>
@@ -40,7 +43,7 @@ import java.util.function.Predicate;
  */
 public final class SameTick implements AutoCloseable {
 
-    public enum Act { USE, ATTACK, DIG, SWAP, CLICK }
+    public enum Act { USE, ATTACK, DIG, SWAP, CLICK, DIG_HELD }
 
     private static final Identifier LATE = Identifier.parse("testkit:sametick_late");
     private static boolean hooked;
@@ -120,6 +123,13 @@ public final class SameTick implements AutoCloseable {
                         done++;
                     }
                 }
+                case DIG_HELD -> {
+                    mc.options.keyAttack.setDown(true);
+                    if (mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult bh
+                            && bh.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK) {
+                        done++;
+                    }
+                }
                 case SWAP -> {
                     var inv = mc.player.getInventory();
                     inv.setSelectedSlot(inv.getSelectedSlot() == slotA ? slotB : slotA);
@@ -156,8 +166,8 @@ public final class SameTick implements AutoCloseable {
             boolean mine = (injecting && !accept)
                     || (act == Act.SWAP && p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket h
                     && (h.getSlot() == slotA || h.getSlot() == slotB))
-                    || (act == Act.ATTACK && "attack".equals(name))
-                    || (act == Act.DIG && p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket
+                    || (act == Act.ATTACK && "attack".equals(name) && !feature.test(p))
+                    || ((act == Act.DIG || act == Act.DIG_HELD) && p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket
                     && !feature.test(p));
             boolean feat = !mine && !accept && feature.test(p);
             if (mine && winFeature && !winPlayerAfter) {
@@ -233,6 +243,7 @@ public final class SameTick implements AutoCloseable {
     @Override
     public void close() {
         active = null;
+        if (act == Act.DIG_HELD) Minecraft.getInstance().options.keyAttack.setDown(false);
         PacketTrace.tap = prevTap;
     }
 }

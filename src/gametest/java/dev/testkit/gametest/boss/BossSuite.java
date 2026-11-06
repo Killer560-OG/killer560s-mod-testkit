@@ -73,6 +73,7 @@ public class BossSuite implements FabricClientGameTest {
                     LeapRotationCases.register(s);
                     // His own use / attack / hotbar swap in the same tick as each P3 aura's packet (1105-same-*, grimsame-1105).
                     SameTickCases.register(s);
+                    SameTickGapCases.register(s); // grimgapB-1105
                 });
     }
 }

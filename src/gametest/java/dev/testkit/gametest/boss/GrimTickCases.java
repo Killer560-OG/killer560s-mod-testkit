@@ -40,7 +40,7 @@ final class GrimTickCases {
     private static final String SS_CFG = SimonSaysCases.CONFIG;
     private static final String AA_CFG = "arrowalign.ArrowAlignConfig";
     private static final String I4_CFG = "i4sensors.I4SensorsConfig";
-    private static final String GT_CFG = "goldor.GoldorTriggerbotConfig";
+    static final String GT_CFG = "goldor.GoldorTriggerbotConfig";
     /** Layout 7 of the mod's Arrow Align solutions (grid index dy + dz * 5), every frame wanting rotation 1. */
     private static final int[] LAYOUT = {5, 7, 9, 10, 12, 14, 15, 17, 19};
 
@@ -75,7 +75,7 @@ final class GrimTickCases {
                 () -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas));
     }
 
-    private static HxKit.Settings hypixelIp(Session c) {
+    static HxKit.Settings hypixelIp(Session c) {
         String ipWas = c.onClient(mc -> mc.getCurrentServer().ip);
         return new HxKit.Settings(c).custom(
                 () -> net.minecraft.client.Minecraft.getInstance().getCurrentServer().ip = "mc.hypixel.net",
@@ -1070,8 +1070,8 @@ final class GrimTickCases {
 
     // ---- 835-thorn-triggerbot (doc-auto-1101) ------------------------------------------------------------------------
 
-    private static final String THORN_CFG = "thorn.ThornConfig";
-    private static final String TRIBAL = "minecraft:iron_sword[custom_data={id:\"TRIBAL_SPEAR\"},"
+    static final String THORN_CFG = "thorn.ThornConfig";
+    static final String TRIBAL = "minecraft:iron_sword[custom_data={id:\"TRIBAL_SPEAR\"},"
             + "custom_name={text:\"Tribal Spear\",color:\"blue\",italic:false}]";
 
     /**
