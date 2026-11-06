@@ -16,7 +16,7 @@ import static dev.testkit.gametest.hx.HxKit.*;
  *       Jungle color; standing at the 513 line the Jungle and Mithril slabs flank it; at the center only the Nucleus and the
  *       Magma top are within Near Only; Near Only 0 draws the outer walls from the center; the switch OFF and the hub draw nothing
  *       and do not move the frame counter.</li>
- *   <li>1104-chwalls-pixels: a screenshot looking at the X 202 wall from 3 blocks (opacity 100) is green at the center, and the
+ *   <li>1104-chwalls-pixels: a screenshot looking at the X 202 wall from 3 blocks (opacity 100) is purple at the center, and the
  *       same view in the hub is not.</li>
  * </ul>
  */
@@ -204,7 +204,7 @@ final class HxCrystalWalls1104Cases {
             c.check(worst <= 14, "the Jungle wall looks different in front of another wall (worst channel gap " + worst + ")");
             int darker = alone[0] + alone[1] + alone[2] - front[0] - front[1] - front[2];
             c.check(darker <= 15, "a solid wall behind darkened the Jungle wall in front by " + darker + " (old jar: 35, nearest layer: -9)");
-            c.check(alone[1] - Math.max(alone[0], alone[2]) >= 10, "the lone wall is not visibly green: " + java.util.Arrays.toString(alone));
+            c.check((alone[0] + alone[2]) / 2 - alone[1] >= 10, "the lone wall is not visibly purple: " + java.util.Arrays.toString(alone));
         } finally {
             c.ctx().runOnClient(mc -> {
                 Mod.call(cfg, "setChWalls", old);
@@ -309,14 +309,14 @@ final class HxCrystalWalls1104Cases {
             c.ctx().runOnClient(mc -> Mod.call(cfg, "setChWalls", true));
             hollows(c);
             c.server().command("gamemode creative @p");
-            // 1) near the west edge: the Jungle slab is at 202.0-202.1, green (0x55FF55), alpha .25.
+            // 1) near the west edge: the Jungle slab is at 202.0-202.1, purple (0xC050FF), alpha .25.
             at(c, 210, 100, 300, 90f);
             c.waitUntil("walls drawn near the west edge", mc -> !drawn(c).isEmpty(), 100);
             List<String> d = drawn(c);
             double[] jw = find(d, "JUNGLE", r -> Math.abs(r[0] - 202.0) < 1e-6 && Math.abs(r[3] - 202.1) < 1e-6);
             c.check(jw != null, "no Jungle slab at X 202.0-202.1; drawn: " + d);
-            c.check(Math.abs(jw[6] - 0x55 / 255.0) < 0.01 && Math.abs(jw[7] - 1.0) < 0.01 && Math.abs(jw[9] - 0.25) < 0.01,
-                    "the Jungle wall is not the default green at 25%: " + java.util.Arrays.toString(jw));
+            c.check(Math.abs(jw[6] - 0xC0 / 255.0) < 0.01 && Math.abs(jw[7] - 0x50 / 255.0) < 0.01 && Math.abs(jw[8] - 1.0) < 0.01 && Math.abs(jw[9] - 0.25) < 0.01,
+                    "the Jungle wall is not the default purple at 25%: " + java.util.Arrays.toString(jw));
             c.check(find(d, "JUNGLE", r -> Math.abs(r[1] - 64.0) < 1e-6) != null,
                     "the Jungle wall does not start at Y 64");
             c.check(find(d, "MITHRIL", r -> true) == null && find(d, "PRECURSOR", r -> true) == null,
@@ -354,7 +354,7 @@ final class HxCrystalWalls1104Cases {
             long f0 = frames(c);
             c.ctx().waitTicks(20);
             c.check(frames(c) == f0, "walls drew outside the Crystal Hollows");
-            c.note("walls at X 202.0 (Jungle, green 25%), the 513 line (Jungle|Mithril), Magma top Y 64, Nucleus; Near Only clips; off and hub draw none");
+            c.note("walls at X 202.0 (Jungle, purple 25%), the 513 line (Jungle|Mithril), Magma top Y 64, Nucleus; Near Only clips; off and hub draw none");
         } finally {
             c.ctx().runOnClient(mc -> Mod.call(cfg, "setChWalls", old));
             c.server().command("gamemode survival @p");
