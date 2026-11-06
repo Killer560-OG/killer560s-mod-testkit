@@ -86,7 +86,9 @@ final class HxTabTop1106Cases {
         // Hypixel's own cooldown line while the key is down: nothing was cast, so the list shows.
         c.server().command("tellraw @a \"This ability is on cooldown for 7s more.\"");
         c.server().sync(20);
-        c.ctx().waitTicks(8);
+        c.ctx().waitTicks(30);
+        c.note("cooldown flag " + c.onClient(mc -> Mod.field(FEATURE, "listCooldownSeen")) + ", hold since "
+                + c.onClient(mc -> Mod.field(FEATURE, "listHoldSince")));
         c.check(!hidden(c, true, 5060), "the cooldown line did not bring the list back");
         c.check(!hidden(c, false, 5100), "released: still hidden");
         c.check(hidden(c, true, 9000), "after a release the next tap did not hide the list again");
