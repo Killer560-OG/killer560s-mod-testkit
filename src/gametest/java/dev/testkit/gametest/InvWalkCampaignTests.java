@@ -146,7 +146,7 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
             if (tolerate != null) {
                 int all = flags.size();
                 flags = flags.stream().filter(f -> !f.contains(tolerate)).toList();
-                tolerated.merge(label, all - flags.size(), Integer::sum);
+                tolerated.put(label + " #" + (tolerated.size() + 1), all - flags.size());
             }
             String names = checks(flags);
             boolean ok;
