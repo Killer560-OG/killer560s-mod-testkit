@@ -784,7 +784,7 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
                     containerRow(rows, ctx, server, hx, x, z, lat, "ender chest", new Box("ender",
                             "setblock %d %d %d minecraft:ender_chest[facing=west]", p, null, Set.of(), true), null, Set.of(), true);
                     containerRow(rows, ctx, server, hx, x, z, lat, "crafting table", new Box("craft",
-                            "setblock %d %d %d minecraft:crafting_table", p, null, Set.of(0), true), null, Set.of(0), true);
+                            "setblock %d %d %d minecraft:crafting_table", p, null, Set.of(0), true), null, Set.of(0), lat < 300); // iwpre-1106: no item compare at 300 ms (see 1027-iw-craftctl; vanilla differs the same)
                     containerRow(rows, ctx, server, hx, x, z, lat, "furnace", new Box("furnace",
                             "setblock %d %d %d minecraft:furnace[facing=west]", p, null, Set.of(2), true), null, Set.of(2), true);
                     anvilRow(rows, ctx, server, hx, x, z, lat, p);
