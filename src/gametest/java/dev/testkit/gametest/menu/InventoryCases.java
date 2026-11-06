@@ -51,6 +51,7 @@ final class InventoryCases {
         InvSort1103Cases.register(s);
         InvSortDump1104Cases.register(s);
         InvLoadout1104Cases.register(s);
+        SameTickMenu1105Cases.register(s); // 1105-same-autosell/autoterm/invsort-click (grimgapC-1105)
         ItemUiMenuCases.register(s);
         // ---- 1361-1364 Loadout Keybinds per-key mode (loadout-modes, 2026-10-13) ----
         LoadoutModeCases.register(s);

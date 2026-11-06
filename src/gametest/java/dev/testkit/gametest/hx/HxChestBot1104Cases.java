@@ -33,6 +33,92 @@ final class HxChestBot1104Cases {
 
     static void register(Session s) {
         s.test("1104-chestbot-click", HxChestBot1104Cases::click);
+        // grimgapC-1105: his right click, his left click on the chest and his scroll in the bot's server ticks.
+        s.test("1105-same-chestbot-use", c -> same(c, dev.testkit.gametest.SameTick.Act.USE));
+        s.test("1105-same-chestbot-dig", c -> same(c, dev.testkit.gametest.SameTick.Act.DIG));
+        s.test("1105-same-chestbot-swap", c -> same(c, dev.testkit.gametest.SameTick.Act.SWAP));
+    }
+
+    /**
+     * SAME-TICK GRIM CASES (grimgapC-1105): a claimed chest under the crosshair at Triggerbot CPS 20 while HIS action goes
+     * into the bot's ticks ({@link dev.testkit.gametest.SameTick}). use: his right click every tick, after the bot's
+     * use_item_on in the same tick (Auto Swap on: the swap to the Jasper Drill in slot 2 goes first). dig: his left click
+     * on the chest every other tick; ActionGate holds the bot's click for a tick his attack click is queued in (a dig after
+     * a use_item_on in one tick is PacketOrderI), so the two are apart. swap: his scroll 4/5 every other tick with Auto
+     * Swap OFF (on, the bot takes the slot back before his ever leaves): his slot goes out inside the bot's useItemOn,
+     * ahead of the use. The server must record the bot's use_block, and GrimAC stay silent.
+     */
+    private static void same(Session c, dev.testkit.gametest.SameTick.Act act) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: Powder Chest Triggerbot is cheat-only");
+            return;
+        }
+        c.waitUntil("standing still", mc -> mc.player.onGround()
+                && mc.player.getDeltaMovement().horizontalDistanceSqr() < 1e-4, 200);
+        int[] f = feet(c);
+        int[] a = {f[0], f[1], f[2] + 2};
+        Object cfg = c.onClient(mc -> Mod.cfg(CFG));
+        boolean old = c.onClient(mc -> (Boolean) Mod.call(cfg, "isChestTriggerbotRaw"));
+        dev.testkit.gametest.SameTick st = null;
+        try (HxKit.Settings set = new HxKit.Settings(c)
+                .custom(() -> Mod.call(cfg, "setChestTriggerbot", true), () -> Mod.call(cfg, "setChestTriggerbot", old))
+                .with(CFG, "ChestTriggerbotSwap", act != dev.testkit.gametest.SameTick.Act.SWAP).with(CFG, "ChestTriggerbotCps", 20)
+                .with(CFG, "ChestAlertSound", false).with(CFG, "ChestAlertTitle", false)) {
+            c.hx().give(2, drill("GEMSTONE_DRILL_4", "Jasper Drill X", 20));
+            c.hx().give(4, "minecraft:stick");
+            c.hx().give(5, "minecraft:stick");
+            c.ctx().runOnClient(mc -> mc.player.getInventory().setSelectedSlot(4));
+            hollows(c);
+            claim(c, a);
+            setblock(c, a[0], a[1] + 1, a[2], "minecraft:stone");
+            c.ctx().runOnClient(mc -> Mod.staticCall(BOT, "resetForTest"));
+            for (int i = 0; i < 40; i++) {
+                look(c, a[0] + 0.5, a[1] + 0.4, a[2] + 0.05);
+                c.ctx().waitTicks(1);
+                if (c.onClient(mc -> mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult h
+                        && h.getBlockPos().equals(new net.minecraft.core.BlockPos(a[0], a[1], a[2])))) {
+                    break;
+                }
+            }
+            long since = c.hx().head();
+            int every = act == dev.testkit.gametest.SameTick.Act.USE ? 1 : 2;
+            st = c.onClient(mc -> dev.testkit.gametest.SameTick.start(act, every,
+                    p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemOnPacket, 4, 5));
+            c.ctx().waitTicks(60);
+            int clicks = clicks(c);
+            int served = c.hx().events(since, "use_block").size();
+            c.note("bot clicks " + clicks + ", server use_block " + served + ", swaps " + intCall(c, "swaps"));
+            c.check(clicks >= 15 && served >= 15, "the bot clicked " + clicks + " time(s), the server saw " + served);
+            if (act != dev.testkit.gametest.SameTick.Act.SWAP) {
+                c.check(intCall(c, "lastSwapSlot") == 2, "the bot never swapped to the Jasper Drill (slot 2)");
+            }
+            dev.testkit.gametest.SameTick.judge(c, st, "chest triggerbot", act == dev.testkit.gametest.SameTick.Act.DIG
+                    ? dev.testkit.gametest.SameTick.Expect.APART : dev.testkit.gametest.SameTick.Expect.SHARE);
+            if (act == dev.testkit.gametest.SameTick.Act.SWAP) {
+                c.check(st.playerAfterFeature() == 0, "his slot went out after the bot's click in a server tick: " + st.report());
+            }
+            st = null;
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick s2 = st;
+                c.onClient(mc -> {
+                    s2.close();
+                    return null;
+                });
+            }
+            c.ctx().runOnClient(mc -> {
+                if (mc.player != null && mc.player.containerMenu != mc.player.inventoryMenu) {
+                    mc.player.closeContainer();
+                }
+            });
+            setblock(c, a[0], a[1] + 1, a[2], "minecraft:air");
+            setblock(c, a[0], a[1], a[2], "minecraft:air");
+            for (int s : new int[]{2, 4, 5}) {
+                c.hx().give(s, "minecraft:air");
+            }
+            c.ctx().runOnClient(mc -> Mod.staticCall(CFG, "load"));
+            HxKit.hub(c);
+        }
     }
 
     private static void click(Session c) {
