@@ -281,7 +281,10 @@ final class HxSongTagCases {
                 Mod.staticCall(MU, "onPresence", botName, null);
                 return null;
             });
-            c.check("not a mod user".equals(feed(c, botName, id, PLAY)), "a sender not showing as a mod user was not dropped");
+            // spotreal-1106: a song packet is its own proof the sender runs the mod. Requiring his mod-user hello lost every
+            // song whose hello missed the room (killer560's other account saw nothing for minutes).
+            c.check("".equals(feed(c, botName, id, PLAY)) && TAG.equals(tagText(c, botName, botId)),
+                    "a song from a sender the room does not list as a mod user was dropped (it is its own proof)");
 
             send(c);
             settings(c);
