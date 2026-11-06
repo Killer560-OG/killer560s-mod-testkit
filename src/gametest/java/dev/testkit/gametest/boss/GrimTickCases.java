@@ -69,7 +69,7 @@ final class GrimTickCases {
         s.test("840-boss-grim-autoi4-arrowfirst-shortbow", c -> arrowFirst(c, true, "MACHINE_GUN_BOW", "MACHINE_GUN_SHORTBOW"));
     }
 
-    private static HxKit.Settings gateOff(Session c) {
+    static HxKit.Settings gateOff(Session c) {
         boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
         return new HxKit.Settings(c).custom(() -> Mod.staticCall("util.SkyblockGate", "setEnabled", false),
                 () -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas));
@@ -82,7 +82,7 @@ final class GrimTickCases {
                 () -> net.minecraft.client.Minecraft.getInstance().getCurrentServer().ip = ipWas);
     }
 
-    private static void home(Session c) {
+    static void home(Session c) {
         c.hx().sidebarClear();
         c.hx().call("dungeon.tp", "x", -619.5, "y", 151.0, "z", -619.5, "yaw", 0f, "pitch", 0f);
     }
@@ -335,7 +335,7 @@ final class GrimTickCases {
         }
     }
 
-    private static void aura(Session c, boolean on) {
+    static void aura(Session c, boolean on) {
         c.onClient(mc -> {
             Mod.set(AA_CFG, "setAuraEnabled", on);
             return null;
@@ -350,7 +350,7 @@ final class GrimTickCases {
      * Layout 7 afresh (old frames removed), each frame one click from solved; {@code seven} (a grid index, or -1) starts
      * at rotation 2 instead, seven clicks from solved. Returns that frame's entity id (or -1) once the mod reads the grid.
      */
-    private static int[] grid(Session c, int seven) {
+    static int[] grid(Session c, int seven) {
         // Hx removes its own frames; a console kill here could land AFTER the new frames were spawned and kill them
         // (this case's first aura-cps run: "the client to have the frames" never came).
         c.hx().removeStands();

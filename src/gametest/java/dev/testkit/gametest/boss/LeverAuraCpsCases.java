@@ -24,7 +24,7 @@ import java.util.Locale;
 final class LeverAuraCpsCases {
 
     private static final String CFG = LightsDeviceCases.CFG;
-    private static final int[][] LIGHTS = {{62, 136}, {58, 136}, {60, 135}, {60, 134}, {62, 133}, {58, 133}};
+    static final int[][] LIGHTS = {{62, 136}, {58, 136}, {60, 135}, {60, 134}, {62, 133}, {58, 133}};
     private static final int ROUNDS = 3;
 
     private LeverAuraCpsCases() {
@@ -37,11 +37,11 @@ final class LeverAuraCpsCases {
         s.test("846-boss-lights-aura-cps", LeverAuraCpsCases::cps);
     }
 
-    private static BlockPos lever(int[] l) {
+    static BlockPos lever(int[] l) {
         return new BlockPos(l[0], l[1], 142);
     }
 
-    private static void resetLevers(Session c) {
+    static void resetLevers(Session c) {
         for (int[] l : LIGHTS) {
             c.server().command("setblock " + l[0] + " " + l[1] + " 142 minecraft:lever[face=wall,facing=north,powered=false]");
         }
