@@ -2057,7 +2057,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 // the wire mid-chain: none shares a tick with a warp.
                 check(st.playerWindows() == 0, act + ": his left click reached the wire mid-route (" + st.report() + ")");
             } else {
-                check(st.both() > 0, act + ": no server tick carried a route warp and his packet (" + st.report() + ")");
+                // The route reselects its slot at START, so his swap often never reaches the wire mid-chain; where it does
+                // share a warp's tick it must go first (after the use it is PacketOrderE and the warp used his old item).
+                check(st.playerWindows() > 0, act + ": no swap of his reached the wire (nothing tested: " + st.report() + ")");
+                check(st.playerAfterFeature() == 0, act + ": his slot went out after a route warp in one tick ("
+                        + st.report() + ")");
             }
             st = null;
         } finally {

@@ -62,9 +62,12 @@ public final class SameTick implements AutoCloseable {
     private final List<String> window = new ArrayList<>();
     private boolean winFeature;
     private boolean winPlayer;
+    private boolean winPlayerAfter;
     private final List<String> both = new ArrayList<>();
     private int featureWindows;
     private int playerWindows;
+    /** Server ticks in which a packet of his went out AFTER the feature's (a swap after a use is PacketOrderE). */
+    private int playerAfterFeature;
 
     private SameTick(Act act, int every, Predicate<Packet<?>> feature, int slotA, int slotB) {
         this.act = act;
@@ -157,6 +160,10 @@ public final class SameTick implements AutoCloseable {
                     || (act == Act.DIG && p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket
                     && !feature.test(p));
             boolean feat = !mine && !accept && feature.test(p);
+            if (mine && winFeature && !winPlayerAfter) {
+                winPlayerAfter = true;
+                playerAfterFeature++;
+            }
             if (mine) winPlayer = true;
             if (feat) winFeature = true;
             window.add(name + (mine ? "(P)" : feat ? "(F)" : accept ? "(T)" : ""));
@@ -175,12 +182,20 @@ public final class SameTick implements AutoCloseable {
         window.clear();
         winFeature = false;
         winPlayer = false;
+        winPlayerAfter = false;
     }
 
     /** Server ticks that carried both the feature's packet and his. */
     public int both() {
         synchronized (window) {
             return both.size();
+        }
+    }
+
+    /** Server ticks in which his packet followed the feature's. */
+    public int playerAfterFeature() {
+        synchronized (window) {
+            return playerAfterFeature;
         }
     }
 
@@ -210,7 +225,7 @@ public final class SameTick implements AutoCloseable {
     public String report() {
         synchronized (window) {
             return act + ": his action x" + done + ", feature ticks " + featureWindows + ", his ticks " + playerWindows
-                    + ", SHARED " + both.size() + (both.isEmpty() ? "" : " e.g. [" + String.join("] [",
+                    + ", his after the feature's " + playerAfterFeature + ", SHARED " + both.size() + (both.isEmpty() ? "" : " e.g. [" + String.join("] [",
                     both.subList(0, Math.min(3, both.size()))) + "]");
         }
     }
