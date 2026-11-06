@@ -942,7 +942,7 @@ public class SimBossTests implements FabricClientGameTest {
         java.nio.file.Path fixture = java.nio.file.Path.of(System.getProperty("testkit.bossCapture",
                 System.getProperty("user.home") + "/killer560s-mod-logs/fixtures/boss-arena-1104.bin"));
         if (!java.nio.file.Files.isRegularFile(fixture)) {
-            f.add("no capture fixture at " + fixture + " (a copy of /simbosscapture's killer560smod-sim-bossarena.bin)");
+            f.add("no capture fixture at " + fixture + " (a copy of a captured killer560smod-sim-bossarena.bin)");
             return;
         }
         java.nio.file.Path fixture3 = java.nio.file.Path.of(System.getProperty("testkit.bossCaptureP3",

@@ -275,7 +275,7 @@
       "auto mode": "How it crosses gaps it can't walk: Walk, Etherwarp, Fast Etherwarp or Pearls Only.",
       "auto walk path": "Turns on the walking engine Auto Fairy Souls needs to move you.",
       "sprint": "Sprints on long straight stretches.",
-      "start/stop key": "Starts or stops Auto Fairy Souls (it has no button; /k560path souls auto starts it too).",
+      "start/stop key": "Starts or stops Auto Fairy Souls (it has no button).",
       "turn on fairy souls in the pathfinding tab first.": "",
       "turn speed": "Top speed the camera turns while auto walking, in degrees per tick; it eases smoothly every frame below that."
     },
@@ -544,7 +544,7 @@
       "/fl passes straight through to hypixel. use /flcustom for ours.": "",
       "0 friends on your list.": "",
       "open friends list (/flcustom)": "",
-      "use our /fl": "Makes /fl open this mod's Friends List instead of Hypixel's. /flcustom always opens ours and /flhypixel always opens Hypixel's."
+      "use our /fl": "Makes /fl open this mod's Friends List instead of Hypixel's. /flcustom always opens ours."
     },
     "Goldor Triggerbot": {
       "goldor triggerbot": "Cheat build: in F7/M7 P3, clicks Goldor while your crosshair is on him."
