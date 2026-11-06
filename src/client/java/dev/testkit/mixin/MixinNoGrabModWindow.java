@@ -12,7 +12,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * The mod's window facade must not reach the OS cursor or focus in a test client ({@link OsInputGuard}):
  * {@code focus} (SDL_RaiseWindow / glfwFocusWindow, Shorts), {@code setCursorHidden} (FakeCursor: SDL relative mode /
  * GLFW_CURSOR_DISABLED straight to the native API, past Fabric's InputConstants cancel) and {@code restore}
- * (SW_RESTORE activates). The mod's own state (FakeCursor.hidden, which 1027-menu-term-normal-hide reads) is untouched.
+ * (SW_RESTORE activates), {@code warpCursor} (Inventory Walk's Look Key puts the OS cursor back; a test drives
+ * MouseHandler.onMove directly and the mod's xpos never moves, so nothing is lost). The mod's own state (FakeCursor.hidden, which 1027-menu-term-normal-hide reads) is untouched.
  * Same signatures in the mod's mc26_2 and mc26_3 copies; inert without the mod.
  */
 @Pseudo
@@ -39,6 +40,14 @@ public abstract class MixinNoGrabModWindow {
     private static void testkit$noRestore(CallbackInfo ci) {
         if (OsInputGuard.active()) {
             OsInputGuard.blocked("McWindow.restore");
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "warpCursor(Lcom/mojang/blaze3d/platform/Window;DD)V", at = @At("HEAD"), cancellable = true, require = 0, remap = false)
+    private static void testkit$noWarp(CallbackInfo ci) {
+        if (OsInputGuard.active()) {
+            OsInputGuard.blocked("McWindow.warpCursor");
             ci.cancel();
         }
     }

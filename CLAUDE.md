@@ -218,6 +218,15 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   before the feature ever saved must `Files.createDirectories(p.getParent())` first (981 and six others did not, 2026-10-26).
   1026-layout-* (seed `fixtures/seed-layout-fixes-1026`) covers the layout; on an old jar 1026-layout-empty lists ~83 empty folders.
 
+- Since mod 03c7270d Inventory Walk's Stop To Click waits for a FULL stop (then 3 still ticks), so 1027-iw-* walkRow waits
+  until `InventoryWalkFeature.heldNow()` is 0, reads the server's items, then walks 20 more ticks and requires >= 1 block
+  ("walked on N after the last held packet"). Read items BEFORE walking on: the walk picks up what a Q / ctrl+Q click
+  dropped (1027-iw-clicks "one tick" read dirt*11 for dirt*2, 2026-10-27).
+- `wire.record` (Hx, testmod) turns on wire.* events: every move, input, player command, click and close the server
+  handles, in arrival order. 1027-iwl-diff uses it to compare Inventory Walk's packet shape with a vanilla run. A vanilla
+  run in a test must set the movement keys down again itself after closing a screen: vanilla's `KeyMapping.setAll` reads
+  the physical keyboard, which a test's held keys are not.
+
 The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [docs/scenario-lessons.md](docs/scenario-lessons.md).
 
 - The mod arrives via Fabric Loader's `fabric.addMods` (`-PmodUnderTest`). `modLocalRuntime` does not exist
@@ -666,3 +675,4 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
   Spotify app open (it plays, pauses, seeks and skips it through tools/spotify-real/truth.ps1, ~45 s). Both are SKIP in a
   normal gate; run them after it on the ship's jar (killer560s-mod-logs/spotreal/run-real.sh). FakeRelay calls
   `RelayClient.handle` directly and so cannot see a socket-ordering bug: 2870 caught the lost hello the fake hid.
+- iwpre-1106 (2026-11-06): 1027-iw-craftctl at 300 ms and 1027-iw-warp's Simulation rows failed on every base because the TESTS were wrong, not Inventory Walk: the crafting-grid script outruns server answers at 300 ms so the server's final menu differs from the immediate client prediction with IW OFF too (items are compared only below 300 ms), and the Hx etherwarp landing (+0.05 above the block) draws Grim Simulation .068 decaying x0.546 (8 lines) on a client with NO mod (`-NoMod`, same strafe) when a key first goes down the tick after it. Flags carry no tick, so `Rows.tolerate` lets a warp row draw Simulation only up to the control rows' count (min one 8-line chain). From PowerShell call bash by full path (`C:\Program Files\Git\bin\bash.exe`): plain `bash` is not on its PATH, so a clientslot.sh call in a .ps1 silently did nothing.
