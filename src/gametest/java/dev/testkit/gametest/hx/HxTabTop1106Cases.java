@@ -68,30 +68,44 @@ final class HxTabTop1106Cases {
         }
     }
 
-    private static boolean hidden(Session c, boolean shared, long now) {
-        return c.onClient(mc -> (Boolean) Mod.staticCall(FEATURE, "listHidden", shared, now));
+    private static boolean hidden(boolean shared, long now) {
+        return (Boolean) Mod.staticCall(FEATURE, "listHidden", shared, now);
     }
 
+    /** The whole sequence runs in ONE client task: the real HUD layer asks the same rule every frame with the real,
+     *  unheld key, and a frame in between would reset the held state. */
     private static void hold(Session c) throws Exception {
         HxKit.hub(c);
-        c.onClient(mc -> Mod.staticCall(FEATURE, "listHidden", false, 0L));
-        c.check(!hidden(c, false, 100), "an unshared key hid the list");
-        c.check(hidden(c, true, 1000), "a tap on the shared key showed the list at once");
-        c.check(hidden(c, true, 1150), "the list showed 150 ms into a tap");
-        c.check(hidden(c, true, 1299), "the list showed 299 ms into a hold");
-        c.check(!hidden(c, true, 1300), "the list stayed hidden after a 300 ms hold");
-        c.check(!hidden(c, true, 2500), "a long hold hid the list");
-        c.check(!hidden(c, false, 2600), "the key was released and the list was still hidden");
-        c.check(hidden(c, true, 5000), "a second tap showed the list (the hold clock did not restart)");
-        // Hypixel's own cooldown line while the key is down: nothing was cast, so the list shows.
-        c.server().command("tellraw @a \"This ability is on cooldown for 7s more.\"");
-        c.server().sync(20);
-        c.ctx().waitTicks(30);
-        c.note("cooldown flag " + c.onClient(mc -> Mod.field(FEATURE, "listCooldownSeen")) + ", hold since "
-                + c.onClient(mc -> Mod.field(FEATURE, "listHoldSince")));
-        c.check(!hidden(c, true, 5060), "the cooldown line did not bring the list back");
-        c.check(!hidden(c, false, 5100), "released: still hidden");
-        c.check(hidden(c, true, 9000), "after a release the next tap did not hide the list again");
+        boolean[] r = c.onClient(mc -> {
+            hidden(false, 0L);
+            boolean[] o = new boolean[11];
+            o[0] = hidden(false, 100);
+            o[1] = hidden(true, 1000);
+            o[2] = hidden(true, 1150);
+            o[3] = hidden(true, 1299);
+            o[4] = hidden(true, 1300);
+            o[5] = hidden(true, 2500);
+            o[6] = hidden(false, 2600);
+            o[7] = hidden(true, 5000);
+            // Hypixel's own cooldown line while the key is down: nothing was cast, so the list shows.
+            Mod.staticCall("util.ChatObserver", "onChatComponentAdd", net.minecraft.network.chat.Component.literal(
+                    "This ability is on cooldown for 7s more."));
+            o[8] = hidden(true, 5060);
+            o[9] = hidden(false, 5100);
+            o[10] = hidden(true, 9000);
+            return o;
+        });
+        c.check(!r[0], "an unshared key hid the list");
+        c.check(r[1], "a tap on the shared key showed the list at once");
+        c.check(r[2], "the list showed 150 ms into a tap");
+        c.check(r[3], "the list showed 299 ms into a hold");
+        c.check(!r[4], "the list stayed hidden after a 300 ms hold");
+        c.check(!r[5], "a long hold hid the list");
+        c.check(!r[6], "the key was released and the list was still hidden");
+        c.check(r[7], "a second tap showed the list (the hold clock did not restart)");
+        c.check(!r[8], "the cooldown line did not bring the list back");
+        c.check(!r[9], "released: still hidden");
+        c.check(r[10], "after a release the next tap did not hide the list again");
     }
 
     private static void cast(Session c) throws Exception {
