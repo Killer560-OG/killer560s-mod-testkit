@@ -111,13 +111,14 @@ final class HxSameTick1105Cases {
                     p -> p instanceof ServerboundSetCarriedItemPacket h && h.getSlot() == 2);
             int rounds = 0;
             for (int i = 0; i < 8 && rounds < 3; i++) {
+                // Read before the pigeon goes back in his hand: with his use every tick the swap comes at once.
+                long mark = c.hx().head();
+                int swaps = c.onClient(mc -> (Integer) Mod.staticCall("miningqol.PigeonDrillSwap", "swaps"));
                 c.onClient(mc -> {
                     mc.player.getInventory().setSelectedSlot(4);
                     return null;
                 });
                 c.ctx().waitTicks(3);
-                long mark = c.hx().head();
-                int swaps = c.onClient(mc -> (Integer) Mod.staticCall("miningqol.PigeonDrillSwap", "swaps"));
                 if (act != SameTick.Act.USE) {
                     // His right click on the pigeon, as a mouse press: vanilla's handleKeybinds uses it next tick.
                     c.onClient(mc -> {
@@ -135,7 +136,9 @@ final class HxSameTick1105Cases {
             c.note("server held=2 events " + seen + ", rounds the server saw " + rounds);
             c.check(rounds >= (act == SameTick.Act.SWAP ? 1 : 3), "the server saw the drill slot in only " + rounds + " round(s)");
             if (st != null) {
-                SameTick.judge(c, st, "pigeon drill", act == SameTick.Act.SWAP ? SameTick.Expect.APART : SameTick.Expect.SHARE);
+                // His attack and scroll at END come after the tick's client_tick_end, so the swap waits a tick
+                // (swapWouldFlag, PacketOrderE): apart by design.
+                SameTick.judge(c, st, "pigeon drill", act == SameTick.Act.USE ? SameTick.Expect.SHARE : SameTick.Expect.APART);
                 st = null;
             }
         } finally {
@@ -196,7 +199,9 @@ final class HxSameTick1105Cases {
                 c.hx().chat("Used Wish!");
                 c.hx().chat("Wish is ready to use! Press DROP to activate it!");
                 c.waitUntil("Wish " + (i + 1), mc -> (Integer) Mod.staticCall(ULT, "wishesSent") >= want, 60);
-                c.ctx().waitTicks(3);
+                // Past ChatObserver's 250 ms de-dupe of a repeated line, and the stick gone before its 40-tick pickup delay.
+                c.ctx().waitTicks(8);
+                c.server().command("kill @e[type=item]");
             }
             c.ctx().waitTicks(10);
             int dropped = before - sticks(c);

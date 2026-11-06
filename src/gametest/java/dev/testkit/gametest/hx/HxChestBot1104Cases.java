@@ -65,8 +65,11 @@ final class HxChestBot1104Cases {
                 .with(CFG, "ChestTriggerbotSwap", act != dev.testkit.gametest.SameTick.Act.SWAP).with(CFG, "ChestTriggerbotCps", 20)
                 .with(CFG, "ChestAlertSound", false).with(CFG, "ChestAlertTitle", false)) {
             c.hx().give(2, drill("GEMSTONE_DRILL_4", "Jasper Drill X", 20));
-            c.hx().give(4, "minecraft:stick");
-            c.hx().give(5, "minecraft:stick");
+            // SWAP (Auto Swap off): his scroll moves between two drills; a click with a stick opens the lid, which ends the
+            // claim after one click.
+            String held = act == dev.testkit.gametest.SameTick.Act.SWAP ? drill("GEMSTONE_DRILL_4", "Jasper Drill X", 20) : "minecraft:stick";
+            c.hx().give(4, held);
+            c.hx().give(5, held);
             c.ctx().runOnClient(mc -> mc.player.getInventory().setSelectedSlot(4));
             hollows(c);
             claim(c, a);
