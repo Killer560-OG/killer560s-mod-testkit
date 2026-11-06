@@ -47,7 +47,8 @@ import static dev.testkit.gametest.hx.HxKit.*;
  *   <li>2847 version: {@code LyricsEngine.chooseFrom} on made-up lrclib listings - his log's "High Forever - Marlon
  *       Hoffstadt Remix" against lrclib's real "High Forever (Marlon Hoffstadt Remix)" listings (229-230 s), one song in
  *       four lengths and versions, remaster and feat. suffixes, a sped-up listing ahead of the plain one, and no listing
- *       of Spotify's length (closest used, note kept).</li>
+ *       of Spotify's length (closest used, note kept); and (spotreal-1106) among same-length listings the one whose line
+ *       times agree with the others wins over a hand sync of the exact length.</li>
  *   <li>2848 HUD in chat: with chat open, a click on each control under the Spotify HUD calls that control, the chat
  *       input is unchanged, and a click on the panel is consumed; with chat closed no row is shown.</li>
  *   <li>2849 word sweep (spotify-wordfix-1027): a LyricsEngine fed a simulated Spotify through {@code pollAt} (200 ppm
@@ -99,6 +100,116 @@ final class HxSpotifyControlsCases {
         s.test("2851-hx-spotify-f5-lyrics-default", HxSpotifyControlsCases::f5LyricsDefault);
         s.test("2852-hx-spotify-f5-hypixel", HxSpotifyControlsCases::f5Hypixel);
         s.test("2853-hx-spotify-event-timing", HxSpotifyControlsCases::eventTiming);
+        if ("1".equals(System.getenv("TESTKIT_REAL_SPOTIFY"))) {
+            s.test("2871-hx-spotify-real-clock-1106", HxSpotifyControlsCases::realClock);
+        } else {
+            s.shelved("2871-hx-spotify-real-clock-1106", "needs the Spotify desktop app open with a song (it is played, paused,"
+                    + " seeked and skipped): set TESTKIT_REAL_SPOTIFY=1", HxSpotifyControlsCases::realClock);
+        }
+    }
+
+    // ---- 2871: the lyric clock against the REAL Spotify app (spotreal-1106) -----------------------------------------
+
+    /**
+     * killer560, 2026-11-06: "the timing is still off ... you can play the spotify to test this stuff". tools/spotify-real/
+     * truth.ps1 plays, pauses, seeks (forward and back) and skips the real Spotify app and records every reading Windows
+     * gives; Spotify's position at a wall time is the latest reading before it run forward (within ~70 ms of the sound,
+     * measured on the loopback). At every client tick the HUD's clock ({@code snapshot().elapsedSeconds(now)}) must be
+     * within 100 ms of that, except in the 600 ms after each action (the reading still on its way) and until the new
+     * track's title is known after a skip; each action's settle time is reported.
+     */
+    private static void realClock(Session c) throws Exception {
+        Path script = null;
+        for (Path d = Path.of(System.getProperty("user.dir")).toAbsolutePath(); d != null && script == null; d = d.getParent()) {
+            Path f = d.resolve("tools/spotify-real/truth.ps1");
+            if (Files.exists(f)) script = f;
+        }
+        c.check(script != null, "tools/spotify-real/truth.ps1 not found above " + System.getProperty("user.dir"));
+        Path out = Files.createTempFile("spotify-truth", ".tsv");
+        List<long[]> frames = new java.util.ArrayList<>();   // wall, HUD ms (-1 = no track)
+        List<String> titles = new java.util.ArrayList<>();
+        try (Settings s = new Settings(c).with(HC, "HudEnabled", true).with(HC, "ShowLyrics", true)) {
+            c.onClient(mc -> {
+                Mod.setField(SLF, "testSnapshot", null);
+                Mod.setField(SLF, "testNowMs", 0L);
+                return null;
+            });
+            Process p = new ProcessBuilder("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script.toString(),
+                    "-Out", out.toString()).redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
+            long deadline = System.currentTimeMillis() + 120_000;
+            while (p.isAlive() && System.currentTimeMillis() < deadline) {
+                c.ctx().waitTicks(1);
+                Object[] f = c.onClient(mc -> {
+                    Object snap = Mod.staticCall(SLF, "snapshot");
+                    long now = System.currentTimeMillis();
+                    boolean has = (Boolean) Mod.call(snap, "hasTrack");
+                    return new Object[]{now, has ? Math.round((Double) Mod.call(snap, "elapsedSeconds", now) * 1000) : -1L,
+                            has ? (String) Mod.call(snap, "title") : ""};
+                });
+                frames.add(new long[]{(Long) f[0], (Long) f[1]});
+                titles.add((String) f[2]);
+            }
+            c.check(!p.isAlive(), "truth.ps1 did not finish in 120 s");
+        }
+        List<String> rows = Files.readAllLines(out);
+        c.check(!rows.isEmpty() && !rows.get(0).startsWith("E"), "truth.ps1: " + (rows.isEmpty() ? "no output" : rows.get(0)));
+        List<long[]> readings = new java.util.ArrayList<>();   // updated, status, pos
+        List<String> readingTitle = new java.util.ArrayList<>();
+        List<long[]> actions = new java.util.ArrayList<>();
+        List<String> actionName = new java.util.ArrayList<>();
+        for (String r : rows) {
+            String[] f = r.split("\t", -1);
+            if (f[0].equals("A")) {
+                actions.add(new long[]{Long.parseLong(f[1])});
+                actionName.add(f[2]);
+            } else if (f[0].equals("R") && (readings.isEmpty() || readings.get(readings.size() - 1)[0] != Long.parseLong(f[4])
+                    || !readingTitle.get(readingTitle.size() - 1).equals(f[5]))) {
+                readings.add(new long[]{Long.parseLong(f[4]), Long.parseLong(f[2]), Long.parseLong(f[3])});
+                readingTitle.add(f[5]);
+            }
+        }
+        readings.sort(java.util.Comparator.comparingLong(x -> x[0]));
+        int judged = 0;
+        int bad = 0;
+        long worst = 0;
+        StringBuilder worstAt = new StringBuilder();
+        long[] settle = new long[actions.size()];
+        java.util.Arrays.fill(settle, -1);
+        for (int i = 0; i < frames.size(); i++) {
+            long w = frames.get(i)[0];
+            long[] r = null;
+            String rt = "";
+            for (int k = 0; k < readings.size() && readings.get(k)[0] <= w; k++) {
+                r = readings.get(k);
+                rt = readingTitle.get(k);
+            }
+            int last = -1;
+            for (int a = 0; a < actions.size(); a++) {
+                if (actions.get(a)[0] <= w) last = a;
+            }
+            if (r == null || last < 1 || frames.get(i)[1] < 0) continue;
+            long truth = r[2] + (r[1] == 4 ? w - r[0] : 0);
+            long err = frames.get(i)[1] - truth;
+            boolean titleKnown = !rt.isEmpty() && rt.equals(titles.get(i));
+            if (Math.abs(err) <= 100 && titleKnown && settle[last] < 0) settle[last] = w - actions.get(last)[0];
+            if (w - actions.get(last)[0] < 600 || !titleKnown) continue;
+            judged++;
+            if (Math.abs(err) > 100) bad++;
+            if (Math.abs(err) > Math.abs(worst)) {
+                worst = err;
+                worstAt.setLength(0);
+                worstAt.append(w - actions.get(last)[0]).append(" ms after ").append(actionName.get(last));
+            }
+        }
+        StringBuilder settles = new StringBuilder();
+        for (int a = 1; a < actions.size(); a++) {
+            settles.append(a == 1 ? "" : ", ").append(actionName.get(a)).append(' ').append(settle[a]).append(" ms");
+        }
+        c.note(frames.size() + " frames, " + readings.size() + " readings; judged " + judged + ", over 100 ms off: " + bad
+                + "; worst " + worst + " ms (" + worstAt + "); settled within 100 ms after: " + settles);
+        c.check(judged > 200, "too few frames judged (" + judged + "): did Spotify play?");
+        c.check(bad == 0, bad + " of " + judged + " frames were over 100 ms off Spotify's position; worst " + worst + " ms (" + worstAt + ")");
+        Files.deleteIfExists(out);
     }
 
     // ---- 2853: pause, resume and seek reach the lit line within one frame of Spotify's reading ----------------
@@ -1015,6 +1126,15 @@ final class HxSpotifyControlsCases {
         return newRecord("spotify.LyricsEngine$Candidate", artist, title, seconds, List.of(line(1.0, "a line")));
     }
 
+    /** A listing with twelve lines 4-6 s apart, every line moved by {@code shift} s (alternating sign past 0.5 s). */
+    private static Object timed(String artist, String title, double seconds, double shift) {
+        List<Object> lines = new java.util.ArrayList<>();
+        for (int i = 0; i < 12; i++) {
+            lines.add(line(2.0 + i * 4.0 + (i % 3) + (shift > 0.5 && i % 2 == 1 ? -shift : shift), "line " + i));
+        }
+        return newRecord("spotify.LyricsEngine$Candidate", artist, title, seconds, List.copyOf(lines));
+    }
+
     /** "title|seconds|mismatch|nearest|why" of the choice. */
     private static String choose(Session c, String artist, String title, double spotify, Object... cands) {
         return c.onClient(mc -> {
@@ -1070,6 +1190,15 @@ final class HxSpotifyControlsCases {
         expect(c, "another artist's song only", choose(c, "Artist", "Song", 200.0,
                         cand("Someone Else", "Song", 200.0)),
                 "none", 0.0, true);
+        // spotreal-1106, measured with the real Spotify app: of "I Really Want to Stay at Your House"'s 19 lrclib listings
+        // within 2 s of Spotify's 246.653 s, the one of exactly that length was a hand sync off by -0.8..+1.0 s from
+        // Spotify's own lyric view, and the 17 others agreed within 50 ms. Here: three agreeing listings (+-30 ms) and
+        // one of the exact length with its lines 0.8-1.0 s off; the agreeing one closest in length must win.
+        String irw = "I Really Want to Stay at Your House";
+        expect(c, "a hand sync of the exact length", choose(c, "Rosa Walton", irw, 246.653,
+                        timed("Rosa Walton", irw, 246.653, 0.9), timed("Rosa Walton", irw, 246.0, 0.03),
+                        timed("Rosa Walton", irw, 246.7, 0.0), timed("Rosa Walton", irw, 247.0, -0.02)),
+                irw, 246.7, false);
         String clean = c.onClient(mc -> (String) Mod.staticCall(E, "titleKey", "Clean"));
         String dashed = c.onClient(mc -> (String) Mod.staticCall(E, "titleKey", "Song - X Remix"));
         String paren = c.onClient(mc -> (String) Mod.staticCall(E, "titleKey", "Song (X Remix) [feat. Y]"));
