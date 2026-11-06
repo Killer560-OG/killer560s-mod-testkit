@@ -42,8 +42,11 @@ final class InvSortDump1104Cases {
     }
 
     static void register(Session s) {
-        MenuSuite.test(s, "1104-invsort-dump-basic", c -> run(c, false));
-        MenuSuite.test(s, "1104-invsort-dump-hotbar", c -> run(c, true));
+        MenuSuite.test(s, "1104-invsort-dump-basic", c -> run(c, Boolean.FALSE));
+        MenuSuite.test(s, "1104-invsort-dump-hotbar", c -> run(c, Boolean.TRUE));
+        MenuSuite.test(s, "1105-invsort-dump-hotbar-default", c -> run(c, null));
+        MenuSuite.test(s, "1105-invsort-dump-hotbar-migrate", InvSortDump1104Cases::migrate);
+        MenuSuite.test(s, "1105-invsort-dump-below-scan", InvSortDump1104Cases::belowScan);
         MenuSuite.test(s, "1104-invsort-dump-full", InvSortDump1104Cases::full);
         MenuSuite.test(s, "1104-invsort-dump-refuse", InvSortDump1104Cases::refuse);
     }
@@ -171,7 +174,8 @@ final class InvSortDump1104Cases {
                 && mc.player.getInventory().getItem(7).is(Items.STICK) && mc.player.getInventory().getItem(8).is(Items.NETHER_STAR), 80);
     }
 
-    private static void run(Session c, boolean hotbar) throws Exception {
+    private static void run(Session c, Boolean hotbarOpt) throws Exception {
+        boolean hotbar = hotbarOpt == null || hotbarOpt;
         MenuKit.reset(c);
         if (legit(c)) {
             return;
@@ -183,7 +187,23 @@ final class InvSortDump1104Cases {
             cfg(c, "setEnabled", true);
             cfg(c, "setTicksBetweenMoves", 2);
             cfg(c, "setRandomExtraTicks", 0);
-            cfg(c, "setDumpHotbar", hotbar);
+            if (hotbarOpt == null) {
+                // A fresh config (no file): Dump Hotbar must come up ON by itself.
+                c.ctx().runOnClient(mc -> {
+                    try {
+                        Files.deleteIfExists(p);
+                    } catch (java.io.IOException e) {
+                        throw new AssertionError(e);
+                    }
+                    Mod.staticCall(ISC, "load");
+                });
+                cfg(c, "setEnabled", true);
+                cfg(c, "setTicksBetweenMoves", 2);
+                cfg(c, "setRandomExtraTicks", 0);
+                c.check((Boolean) c.onClient(mc -> Mod.call(Mod.cfg(ISC), "isDumpHotbar")), "Dump Hotbar is not ON in a fresh config");
+            } else {
+                cfg(c, "setDumpHotbar", hotbar);
+            }
             give(c);
             openChest(c, pos, 0);
             int before = c.events("container.click").size();
@@ -209,6 +229,100 @@ final class InvSortDump1104Cases {
                 c.ctx().runOnClient(mc -> Mod.staticCall("invsort.InvSortDump", "isRunning"));
             }
             closeChest(c, pos);
+            restore(c, p, old);
+            InventoryCases.clearInv(c);
+            MenuKit.reset(c);
+        }
+    }
+
+    /** A saved file with Dump Hotbar off and no version key loads ON once; with the key it stays as saved. */
+    private static void migrate(Session c) throws Exception {
+        MenuKit.reset(c);
+        if (legit(c)) {
+            return;
+        }
+        Path p = cfgPath(c);
+        byte[] old = read(p);
+        try {
+            for (String[] t : new String[][]{{"{\"dumpHotbar\":false}", "true"}, {"{\"dumpHotbar\":false,\"dumpHotbarV2\":true}", "false"}}) {
+                c.ctx().runOnClient(mc -> {
+                    try {
+                        Files.createDirectories(p.getParent());
+                        Files.writeString(p, t[0]);
+                    } catch (java.io.IOException e) {
+                        throw new AssertionError(e);
+                    }
+                    Mod.staticCall(ISC, "load");
+                });
+                boolean got = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(ISC), "isDumpHotbar"));
+                c.check(String.valueOf(got).equals(t[1]), t[0] + " loaded dumpHotbar=" + got + ", want " + t[1]);
+            }
+            c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(ISC), "save"));
+            c.check(Files.readString(p).contains("dumpHotbarV2"), "a saved file lacks the version key: " + Files.readString(p));
+        } finally {
+            restore(c, p, old);
+            MenuKit.reset(c);
+        }
+    }
+
+    /** With the Storage Overlay up, Dump Into Chest sits below Scan All, clear of every drawn rect, and its click starts the dump. */
+    private static void belowScan(Session c) throws Exception {
+        MenuKit.reset(c);
+        if (legit(c)) {
+            return;
+        }
+        Path p = cfgPath(c);
+        byte[] old = read(p);
+        String sf = ContainerCoverCases.SFEAT;
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set(ContainerCoverCases.SCFG, "Enabled", true);
+            cfg(c, "setEnabled", true);
+            cfg(c, "setDumpButton", true);
+            cfg(c, "setTicksBetweenMoves", 40);
+            AuctionHouseCases.setWindow(c, 1280, 720, 2);
+            c.onClient(mc -> {
+                Mod.setField(sf, "lastPos", null);
+                return null;
+            });
+            String focus = c.onClient(mc -> Mod.staticCall(sf, "accountProfilePrefix") + "|enderchest_1");
+            c.onClient(mc -> {
+                Object cache = Mod.staticCall("storageoverlay.StorageOverlayCache", "getInstance");
+                if (!(Boolean) Mod.call(cache, "hasContents", focus)) {
+                    List<net.minecraft.world.item.ItemStack> items = new ArrayList<>();
+                    for (int i = 0; i < 45; i++) {
+                        items.add(i == 0 ? new net.minecraft.world.item.ItemStack(Items.DIAMOND, 5) : net.minecraft.world.item.ItemStack.EMPTY);
+                    }
+                    Mod.call(cache, "put", focus, items);
+                }
+                Mod.staticCall(sf, "setFocus", focus);
+                return null;
+            });
+            MenuKit.show(c, MenuKit.menu("menus.ender-chest-1"));
+            MenuKit.awaitScreen(c, "Ender Chest (1/9)", 100);
+            c.waitUntil("the overlay's Scan All button", mc -> Mod.field(sf, "lastScanButton") != null
+                    && Mod.staticCall(sf, "dumpSlot", McCompat.screen(mc)) != null, 100);
+            c.ctx().waitTicks(6);
+            int[] scan = c.onClient(mc -> (int[]) Mod.field(sf, "lastScanButton"));
+            int[] dump = c.onClient(mc -> (int[]) Mod.staticCall(sf, "dumpSlot", McCompat.screen(mc)));
+            List<int[]> drawn = c.onClient(mc -> new ArrayList<>((List<int[]>) Mod.staticCall(sf, "drawnRects", McCompat.screen(mc))));
+            c.note("scan " + java.util.Arrays.toString(scan) + " dump " + java.util.Arrays.toString(dump) + " drawn " + drawn.size());
+            boolean below = dump[0] == scan[0] && dump[1] == scan[1] + scan[3] + 4;
+            boolean row = dump[1] == scan[1] && dump[0] == scan[0] + scan[2] + 4;
+            c.check(below || row, "Dump Into Chest is neither below Scan All (+4) nor next in the row");
+            c.check(dump[2] >= scan[2] && dump[2] == scan[2], "the side buttons differ in width: scan " + scan[2] + " dump " + dump[2]);
+            for (int[] r : drawn) {
+                boolean over = dump[0] < r[2] && dump[0] + dump[2] > r[0] && dump[1] < r[3] && dump[1] + dump[3] > r[1];
+                c.check(!over, "the dump button overlaps a drawn rect " + java.util.Arrays.toString(r));
+            }
+            // The click on that rect starts the dump (give it something to dump first).
+            c.hx().call("give", "slot", 9, "stack", "minecraft:stone", "count", 5);
+            c.ctx().waitTicks(5);
+            ContainerCoverCases.cursor(c, dump[0] + dump[2] / 2.0, dump[1] + dump[3] / 2.0);
+            ContainerCoverCases.press(c, 0, 0);
+            c.check(dumping(c), "a click on the dump rect did not start the dump");
+            ContainerCoverCases.press(c, 0, 0); // toggles it off again
+            c.check(!dumping(c), "a second click did not stop the dump");
+        } finally {
             restore(c, p, old);
             InventoryCases.clearInv(c);
             MenuKit.reset(c);
