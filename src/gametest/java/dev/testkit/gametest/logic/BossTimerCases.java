@@ -291,6 +291,27 @@ final class BossTimerCases {
             timedTicks(40);
             c.check("a new world starts trusting afresh", (Boolean) Mod.staticCall(CLOCK, "trusted"),
                     "trusted=" + Mod.staticCall(CLOCK, "trusted"));
+            // gold-flake-1105: the same Grim server LOADED (ship 6 gate, other clients running; 1102-hx-goldor-tick read
+            // 0, 4, 8, 12). Its pings first ran behind the wall clock (a ping every other tick for 2 s), which banked the
+            // pace rule 20 ticks under, so it never fired; then a ping a tick earned the trust and each hit's 4 extra
+            // transactions counted. A trusted ping now counts only within 1.5 ticks of the wall clock.
+            Mod.staticCall(CLOCK, "untrustForTest");
+            for (int i = 0; i < 40; i++) {
+                timedTick(i % 2);
+            }
+            timedTicks(40);
+            c.check("loaded Grim: trusted once it pings every tick", (Boolean) Mod.staticCall(CLOCK, "trusted"),
+                    "trusted=" + Mod.staticCall(CLOCK, "trusted"));
+            long l0 = clock();
+            for (int i = 0; i < 180; i++) {
+                timedTick(i % 60 == 42 ? 5 : 1);
+            }
+            long loaded = clock() - l0;
+            c.check("loaded Grim: still trusted (the pace rule's banked lag hides the extras from it)",
+                    (Boolean) Mod.staticCall(CLOCK, "trusted") && !(Boolean) Mod.staticCall(CLOCK, "notPerTick"),
+                    "trusted=" + Mod.staticCall(CLOCK, "trusted"));
+            c.check("loaded Grim: 180 ticks with 12 extra pings count 180 (within 2; every extra counted is 192)",
+                    loaded >= 180 && loaded <= 182, "ran " + loaded);
             // (tickfix3-1104: real hypixel.net no longer uses this rule, see 1104-logic-hypixel-pings; the testkit's
             // mc.hypixel.net label on its loopback GrimAC server is not real hypixel.net, so Grim is judged as above.)
             // A stall and its catch-up burst are not pings ahead of the wall clock: trusted again two windows after it (off
