@@ -156,10 +156,6 @@ final class HxSameTick1105Cases {
         return c.onClient(mc -> (Integer) Mod.staticCall(ULT, "wishesSent"));
     }
 
-    private static int sticks(Session c) {
-        return c.onClient(mc -> mc.player.getInventory().getItem(4).getCount() + mc.player.getInventory().getItem(5).getCount());
-    }
-
     private static void autoUlt(Session c, SameTick.Act act) {
         if (!Mod.isCheat()) {
             c.note("legit jar: Auto Ult is cheat-only");
@@ -190,7 +186,9 @@ final class HxSameTick1105Cases {
             // A Wish still blocked from an earlier case is freed by Hypixel's ready line.
             c.hx().chat("Wish is ready to use! Press DROP to activate it!");
             c.ctx().waitTicks(10);
-            int before = sticks(c);
+            // The server drops a stick per DROP_ITEM but never re-sends the slot (vanilla predicts its own drop), so the
+            // drops are counted from the server's "Killed Stick" lines, one per cycle.
+            int before = c.server().countSince("Killed Stick");
             int base = wishes(c);
             st = start(c, act, act == SameTick.Act.ATTACK ? 2 : 1, p -> p instanceof ServerboundPlayerActionPacket a
                     && a.getAction() == ServerboundPlayerActionPacket.Action.DROP_ITEM);
@@ -204,7 +202,7 @@ final class HxSameTick1105Cases {
                 c.server().command("kill @e[type=item]");
             }
             c.ctx().waitTicks(10);
-            int dropped = before - sticks(c);
+            int dropped = c.server().countSince("Killed Stick") - before;
             c.server().command("kill @e[type=item]");
             c.note("wishes " + (wishes(c) - base) + ", sticks the server dropped " + dropped);
             c.check(dropped >= 8, "the server dropped " + dropped + " sticks for 8 Wishes");
