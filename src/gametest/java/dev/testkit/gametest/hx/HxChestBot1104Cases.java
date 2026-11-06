@@ -64,7 +64,7 @@ final class HxChestBot1104Cases {
         dev.testkit.gametest.SameTick st = null;
         try (HxKit.Settings set = new HxKit.Settings(c)
                 .custom(() -> Mod.call(cfg, "setChestTriggerbot", true), () -> Mod.call(cfg, "setChestTriggerbot", old))
-                .with(CFG, "ChestTriggerbotSwap", act != dev.testkit.gametest.SameTick.Act.SWAP).with(CFG, "ChestTriggerbotCps", 20)
+                .with(CFG, "ChestTriggerbotSwap", act != dev.testkit.gametest.SameTick.Act.SWAP).with(CFG, "ChestTriggerbotMaxCps", 20).with(CFG, "ChestTriggerbotMinCps", 20)
                 .with(CFG, "ChestAlertSound", false).with(CFG, "ChestAlertTitle", false)) {
             c.hx().give(2, drill("GEMSTONE_DRILL_4", "Jasper Drill X", 20));
             // SWAP (Auto Swap off): his scroll moves between two drills.

@@ -163,9 +163,9 @@ final class MaskTimer1105Cases {
             double banked = 0.0; // the credit is drained in at the next ping, so read it after each tick
             while (hx.tick < open + 554) {
                 hx.clientTick(1, null, false);
-                banked = Math.min(banked, ((Number) R.get(CLOCK, "excess")).doubleValue());
+                banked = Math.min(banked, ((Number) R.get(CLOCK, "wallExcess")).doubleValue());
             }
-            double paid = ((Number) R.get(CLOCK, "excess")).doubleValue();
+            double paid = ((Number) R.get(CLOCK, "wallExcess")).doubleValue();
             // The feature acted: the stall banked the wall clock's credit, and the server's time packets took it back (the
             // extra chain pings ate it before 2026-11-05 and ran the count ahead: his Purple read 62 in 59.3 wall ticks).
             c.check("the stall banked credit and the next time packets took it back", banked <= -30.0 && paid >= -3.0,
