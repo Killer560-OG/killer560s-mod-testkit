@@ -103,9 +103,11 @@ final class SameTickMenu1105Cases {
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set(cfgName, "Enabled", true).set(cfgName, "AutoTerminalsEnabled", true).set(cfgName, spec.auto(), true)
                     .set(cfgName, "BlockInputWhileAutoClicking", block);
-            st = start(c);
             JsonObject t = TerminalCases.open(c, spec);
             MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
+            // From the screen's first drawn frame on: a real click reaches a screen only after it is drawn, and the solver
+            // reads the terminal at the head of that draw (the harness's END click could come before it).
+            st = start(c);
             int last = c.onClient(mc -> ((net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>)
                     dev.testkit.compat.McCompat.screen(mc)).getMenu().slots.size() - 1);
             JsonObject solved = MenuKit.awaitEvent(c, "terminal.solved", 500);

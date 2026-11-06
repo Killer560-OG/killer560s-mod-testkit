@@ -156,6 +156,20 @@ final class HxSameTick1105Cases {
         return c.onClient(mc -> (Integer) Mod.staticCall(ULT, "wishesSent"));
     }
 
+    /** His sticks as the server holds them ({@code clear ... 0} only counts). */
+    private static int serverSticks(Session c) {
+        c.server().command("clear @p minecraft:stick 0");
+        c.ctx().waitTicks(5);
+        java.util.List<String> lines = c.server().since();
+        for (int i = lines.size() - 1; i >= 0; i--) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("Found (\\d+) matching item").matcher(lines.get(i));
+            if (m.find()) {
+                return Integer.parseInt(m.group(1));
+            }
+        }
+        throw new AssertionError("no 'Found N matching item' line from clear");
+    }
+
     private static void autoUlt(Session c, SameTick.Act act) {
         if (!Mod.isCheat()) {
             c.note("legit jar: Auto Ult is cheat-only");
@@ -187,8 +201,8 @@ final class HxSameTick1105Cases {
             c.hx().chat("Wish is ready to use! Press DROP to activate it!");
             c.ctx().waitTicks(10);
             // The server drops a stick per DROP_ITEM but never re-sends the slot (vanilla predicts its own drop), so the
-            // drops are counted from the server's "Killed Stick" lines, one per cycle.
-            int before = c.server().countSince("Killed Stick");
+            // drops are counted in the server's own inventory.
+            int before = serverSticks(c);
             int base = wishes(c);
             st = start(c, act, act == SameTick.Act.ATTACK ? 2 : 1, p -> p instanceof ServerboundPlayerActionPacket a
                     && a.getAction() == ServerboundPlayerActionPacket.Action.DROP_ITEM);
@@ -202,7 +216,7 @@ final class HxSameTick1105Cases {
                 c.server().command("kill @e[type=item]");
             }
             c.ctx().waitTicks(10);
-            int dropped = c.server().countSince("Killed Stick") - before;
+            int dropped = before - serverSticks(c);
             c.server().command("kill @e[type=item]");
             c.note("wishes " + (wishes(c) - base) + ", sticks the server dropped " + dropped);
             c.check(dropped >= 8, "the server dropped " + dropped + " sticks for 8 Wishes");

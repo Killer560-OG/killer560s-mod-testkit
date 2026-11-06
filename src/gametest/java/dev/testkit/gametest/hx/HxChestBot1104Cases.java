@@ -65,15 +65,16 @@ final class HxChestBot1104Cases {
                 .with(CFG, "ChestTriggerbotSwap", act != dev.testkit.gametest.SameTick.Act.SWAP).with(CFG, "ChestTriggerbotCps", 20)
                 .with(CFG, "ChestAlertSound", false).with(CFG, "ChestAlertTitle", false)) {
             c.hx().give(2, drill("GEMSTONE_DRILL_4", "Jasper Drill X", 20));
-            // SWAP (Auto Swap off): his scroll moves between two drills; a click with a stick opens the lid, which ends the
-            // claim after one click.
+            // SWAP (Auto Swap off): his scroll moves between two drills.
             String held = act == dev.testkit.gametest.SameTick.Act.SWAP ? drill("GEMSTONE_DRILL_4", "Jasper Drill X", 20) : "minecraft:stick";
             c.hx().give(4, held);
             c.hx().give(5, held);
             c.ctx().runOnClient(mc -> mc.player.getInventory().setSelectedSlot(4));
             hollows(c);
-            claim(c, a);
+            // The stone goes on BEFORE the claim: a bot click on a chest that can still open lifts its lid, and an opened
+            // chest is no longer claimed (the crosshair is often on the spot already from the case before).
             setblock(c, a[0], a[1] + 1, a[2], "minecraft:stone");
+            claim(c, a);
             c.ctx().runOnClient(mc -> Mod.staticCall(BOT, "resetForTest"));
             for (int i = 0; i < 40; i++) {
                 look(c, a[0] + 0.5, a[1] + 0.4, a[2] + 0.05);
