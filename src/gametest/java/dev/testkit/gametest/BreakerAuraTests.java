@@ -101,6 +101,14 @@ public class BreakerAuraTests implements FabricClientGameTest {
             // Burst Multi Break (owner exception 2026-11-02): all six on ONE tick; MultiBreak* accepted, nothing else.
             burstRun(ctx, "1102-breaker-aura-burst" + r, -120);
         }
+        // SAME-TICK GRIM CASES (grimgapB-1105): his own held dig / click dig / attack / use / hotbar swap while the aura
+        // digs its six picks one a tick.
+        int sz = -150;
+        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.DIG_HELD, SameTick.Act.DIG, SameTick.Act.ATTACK,
+                SameTick.Act.USE, SameTick.Act.SWAP}) {
+            sameTickRun(ctx, "1105-same-breaker-" + a.name().toLowerCase(Locale.ROOT).replace('_', '-'), a, sz);
+            sz -= 30;
+        }
         // The floor cases repeat -PfloorRepeat=N times (default 1): the GroundSpoof they chase was intermittent,
         // so one verdict is not a measurement. Repeats are named "#k" so the filter still selects them.
         int repeat = Integer.getInteger("testkit.floorRepeat", 1);
@@ -1277,6 +1285,161 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             throw new AssertionError("the UNPICKED front layer was broken");
                         }
                     } finally {
+                        unconfigure(ctx);
+                    }
+                });
+    }
+
+    /**
+     * 1105-same-breaker-&lt;act&gt; (grimgapB-1105, SAME-TICK GRIM CASES). The six picks of 1102-breaker-aura-multibreak, Multi
+     * Break ON, while HIS own action goes into every tick ({@link SameTick}), looking away from the picks (yaw 180):
+     * <ul>
+     *   <li>dig-held: his left click HELD on snow in front of his feet, refilled by the server, so vanilla digs one block
+     *       after another from handleKeybinds - after the aura's START dig. Two blocks in one server tick is GrimAC
+     *       MultiBreak (experimental); the aura must give his dig the tick (mod DigWindow.handDigsThisTick).</li>
+     *   <li>dig: the same with a fresh click each tick (ActionGate holds world actors for his queued click).</li>
+     *   <li>attack: a NoAI zombie under his crosshair; an attack after the aura's dig in one tick is PacketOrderI.</li>
+     *   <li>use / swap: his right click into the air, his hotbar swap between two breakers (slots 0 and 1).</li>
+     * </ul>
+     * Passes only when every pick broke (the aura acted), his action reached the wire, MultiBreakWatch replays clean,
+     * GrimAC is silent, and for dig / attack his packet and the aura's never shared a server tick (for use / swap: at least
+     * one did, or nothing was tested).
+     */
+    private void sameTickRun(ClientGameTestContext ctx, String name, SameTick.Act act, int cz) {
+        if (Scenario.skip(name)) {
+            return;
+        }
+        ModUnderTest.require(MOD_ID);
+        int cx = -60;
+        int fy = SURFACE_Y - 1;
+        double dx = -Math.sin(Math.toRadians(MB_YAW));
+        double dz = Math.cos(Math.toRadians(MB_YAW));
+        java.util.LinkedHashSet<BlockPos> line = new java.util.LinkedHashSet<>();
+        for (double t = 0.05; t <= 4.4; t += 0.01) {
+            BlockPos b = BlockPos.containing(cx + 0.5 + dx * t, SURFACE_Y + 1.62, cz + 0.5 + dz * t);
+            if (b.getX() != cx || b.getZ() != cz) {
+                line.add(b);
+            }
+        }
+        boolean dig = act == SameTick.Act.DIG || act == SameTick.Act.DIG_HELD;
+        // His glass: the floor cell his crosshair is on (yaw 180, pitch 60), refilled while he digs. Glass with a shovel
+        // and Haste V takes him five ticks (START, STOP five ticks on, then vanilla's five-tick destroy delay), so his held
+        // dig leaves the aura ticks. With his attack key down the aura never turns his body (BreakerAim.handsBusy), so for
+        // dig / dig-held its picks are the cells BEHIND his glass on his own look: the look the server heard strikes them
+        // (DigAim has no occlusion) and the aura digs them without a turn, in the ticks his hand digs the glass.
+        String snow = cx + " " + fy + " " + (cz - 1) + " " + cx + " " + fy + " " + (cz - 1);
+        if (dig) {
+            double py = -Math.sin(Math.toRadians(60));
+            double pz = -Math.cos(Math.toRadians(60));
+            line.clear();
+            for (double t = 0.05; t <= 4.4; t += 0.01) {
+                BlockPos b = BlockPos.containing(cx + 0.5, SURFACE_Y + 1.62 + py * t, cz + 0.5 + pz * t);
+                if (b.getY() < fy && b.getY() >= fy - 3) {
+                    line.add(b);
+                }
+            }
+        }
+        List<BlockPos> picks = List.copyOf(line);
+        float pitch = dig ? 60f : act == SameTick.Act.ATTACK ? 15f : 0f;
+        String breaker = "give @p minecraft:diamond_shovel[custom_data={id:\"DUNGEONBREAKER\"},"
+                + "unbreakable={},lore=[{text:\"Charges: 5000/5000\",italic:false}]] 1";
+        Scenario.run(ctx, name,
+                (server, scenario) -> {
+                    TestMap m = TestMap.on(server)
+                            .platform(cx, fy, cz, 6)
+                            .catchFloor(120)
+                            .survival()
+                            .clearInventory()
+                            .command(breaker)
+                            .command(breaker)
+                            .command("effect give @p minecraft:haste 99999 4 true")
+                            .command("effect clear @p minecraft:speed");
+                    for (BlockPos b : picks) {
+                        m = m.fill(b.getX(), b.getY(), b.getZ(), b.getX(), b.getY(), b.getZ(), "snow_block");
+                    }
+                    if (dig) {
+                        m = m.command("fill " + snow + " minecraft:glass");
+                    }
+                    if (act == SameTick.Act.ATTACK) {
+                        m = m.command("summon zombie " + (cx + 0.5) + " " + SURFACE_Y + " " + (cz - 1.5)
+                                + " {NoAI:1b,Invulnerable:1b,Silent:1b}");
+                    }
+                    m.spawn(cx + 0.5, cz + 0.5, 180f, pitch).build();
+                },
+                (server, scenario) -> {
+                    scenario.assertDetectorWorks();
+                    for (BlockPos b : picks) {
+                        if (isAir(ctx, b)) {
+                            throw new AssertionError("pick " + xyz(b) + " was never built");
+                        }
+                    }
+                    ctx.waitTicks(5);
+                    boolean onIt = ctx.computeOnClient(mc -> dig
+                            ? mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult bh
+                            && bh.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK && !picks.contains(bh.getBlockPos())
+                            : act != SameTick.Act.ATTACK || mc.hitResult instanceof net.minecraft.world.phys.EntityHitResult);
+                    if (!onIt) {
+                        throw new AssertionError("his crosshair is not on his own target: " + ctx.computeOnClient(mc ->
+                                String.valueOf(mc.hitResult == null ? null : mc.hitResult.getType())));
+                    }
+                    ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CONFIG), "setBreakerAuraCooldownTicks",
+                            MB_COOLDOWN));
+                    ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.start());
+                    java.util.function.Predicate<net.minecraft.network.protocol.Packet<?>> feature = p ->
+                            p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket a
+                                    && picks.contains(a.getPos());
+                    SameTick st = ctx.computeOnClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK ? 3 : act == SameTick.Act.DIG ? 2 : 1,
+                            feature, 0, 1));
+                    boolean[] closed = {false};
+                    try {
+                        configure(ctx, scenario, true, picks);
+                        boolean gone = false;
+                        for (int i = 0; i < 80 && !gone; i++) {
+                            ctx.waitTicks(1);
+                            if (dig && i % 3 == 0) {
+                                server.command("fill " + snow + " minecraft:glass replace minecraft:air");
+                            }
+                            gone = picks.stream().allMatch(b -> isAir(ctx, b));
+                        }
+                        ctx.waitTicks(20);
+                        ctx.runOnClient(mc -> {
+                            st.close();
+                            dev.testkit.harness.MultiBreakWatch.stop();
+                        });
+                        closed[0] = true;
+                        gone = picks.stream().allMatch(b -> isAir(ctx, b));
+                        List<String> replay = dev.testkit.harness.MultiBreakWatch.violations();
+                        scenario.log(name + ": " + st.report() + "; all picks gone " + gone + ", MultiBreak replay "
+                                + (replay.isEmpty() ? "clean" : replay) + ", digs "
+                                + dev.testkit.harness.MultiBreakWatch.digs().size());
+                        if (!gone) {
+                            throw new AssertionError("not every pick broke - the aura did not act");
+                        }
+                        if (st.done() == 0 || st.playerWindows() == 0 || st.featureWindows() == 0) {
+                            throw new AssertionError("his action or the aura's dig never reached the wire - nothing tested ("
+                                    + st.report() + ")");
+                        }
+                        if (!replay.isEmpty()) {
+                            throw new AssertionError("two blocks dug in one server tick (GrimAC MultiBreak): " + replay);
+                        }
+                        if (dig || act == SameTick.Act.ATTACK) {
+                            if (st.both() != 0) {
+                                throw new AssertionError("his " + act + " and the aura's dig shared a server tick ("
+                                        + st.report() + ")");
+                            }
+                        } else if (st.both() == 0) {
+                            throw new AssertionError("no server tick carried both his " + act + " and the aura's dig - "
+                                    + "nothing tested (" + st.report() + ")");
+                        }
+                    } finally {
+                        if (!closed[0]) {
+                            ctx.runOnClient(mc -> {
+                                st.close();
+                                dev.testkit.harness.MultiBreakWatch.stop();
+                            });
+                        }
+                        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CONFIG), "setBreakerAuraCooldownTicks",
+                                0));
                         unconfigure(ctx);
                     }
                 });

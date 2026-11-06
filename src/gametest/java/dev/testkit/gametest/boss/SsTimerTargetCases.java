@@ -69,7 +69,7 @@ final class SsTimerTargetCases {
                 .with(SS_CFG, "SolverEnabled", true).with(SS_CFG, "AutoRestartEnabled", true)
                 .with(SS_CFG, "AnnounceProgress", true)
                 .with(SS_CFG, "AutoStartEnabled", false).with(SS_CFG, "TriggerBotEnabled", false)
-                .with(SS_CFG, "AutoSolveRotate", !fastReveal).with(SS_CFG, "AutoSolveEnabled", false)
+                .with(SS_CFG, "AutoSolveRotate", !fastReveal).with(SS_CFG, "AutoSimonSaysEnabled", true).with(SS_CFG, "AutoSolveEnabled", false)
                 .with(SS_CFG, "AutoSolveFixedDelayMode", false).with(SS_CFG, "AutoSolveStim", false)
                 .with(SS_CFG, "AutoSolveMomentum", 0).with(SS_CFG, "DiagnosticLoggingEnabled", true)
                 .with(SS_CFG, "ClickTimerTargetMs", targetMs).with(SS_CFG, "ClickTimerVarianceMs", 0);

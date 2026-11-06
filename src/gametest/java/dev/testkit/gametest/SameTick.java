@@ -32,20 +32,24 @@ import java.util.function.Predicate;
  *       claim.</li>
  *   <li>{@link Act#SWAP}: the selected slot moves between two slots at END (a scroll or a hotbar key between ticks);
  *       vanilla's {@code gameMode.tick} (or the next action through the game mode) sends it next tick.</li>
+ *   <li>{@link Act#DIG_HELD} (grimgapB-1105): his left click HELD on a block (the attack key down every tick, no new
+ *       press), so vanilla's {@code continueAttack} digs block after block from {@code handleKeybinds}; released on
+ *       {@link #close}.</li>
  *   <li>{@link Act#CLICK}: a container click on an empty player slot of the open menu at END (a mouse click between
  *       ticks), so it lands in the next server tick ahead of the START actors.</li>
  *   <li>{@link Act#TP}: nothing is put in; the case has the server teleport him, and his teleport accept (with its echo)
  *       is the action (grimgapA-1105: a feature acting in the tick he answers a teleport).</li>
- *   <li>{@link Act#KEYUSE}: a click of the use key at START, so vanilla's own {@code handleKeybinds} sends the right
- *       click, after {@code gameMode.tick} has sent a pending hotbar change (USE goes before it, which no real click can).
- *       His packets are the uses sent while slotA or slotB is held (grimgapA-1105).</li>
+ *   <li>{@link Act#USE_KEY}: a click of the use key at END, so the next tick's {@code handleKeybinds} sends the right
+ *       click as vanilla does (on a block use_item_on then use_item), after {@code gameMode.tick} has sent a pending hotbar
+ *       change, and a feature sees it queued at START as it sees his real clicks. His packets are the uses and interacts
+ *       sent while slotA or slotB is held (grimgapA/B-1105; one act since ship8, was KEYUSE and USE_KEY).</li>
  * </ul>
  * Packets sent while the player's action runs (or, for SWAP / ATTACK / DIG, the packet vanilla sends for it next tick)
  * are his; a teleport accept is marked (T) and is neither. Everything else matching the case's predicate is the feature's.
  */
 public final class SameTick implements AutoCloseable {
 
-    public enum Act { USE, ATTACK, DIG, SWAP, CLICK, SCREEN_CLICK, TP, KEYUSE }
+    public enum Act { USE, ATTACK, DIG, SWAP, CLICK, SCREEN_CLICK, TP, DIG_HELD, USE_KEY }
 
     private static final Identifier LATE = Identifier.parse("testkit:sametick_late");
     private static boolean hooked;
@@ -94,11 +98,11 @@ public final class SameTick implements AutoCloseable {
             ClientTickEvents.START_CLIENT_TICK.addPhaseOrdering(net.fabricmc.fabric.api.event.Event.DEFAULT_PHASE, LATE);
             ClientTickEvents.START_CLIENT_TICK.register(LATE, mc -> {
                 SameTick s = active;
-                if (s != null && (s.act == Act.USE || s.act == Act.KEYUSE)) s.inject(mc);
+                if (s != null && s.act == Act.USE) s.inject(mc);
             });
             ClientTickEvents.END_CLIENT_TICK.register(mc -> {
                 SameTick s = active;
-                if (s != null && s.act != Act.USE && s.act != Act.KEYUSE) s.inject(mc);
+                if (s != null && s.act != Act.USE) s.inject(mc);
             });
         }
         SameTick s = new SameTick(act, every, feature, slotA, slotB);
@@ -119,10 +123,6 @@ public final class SameTick implements AutoCloseable {
                     mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
                     done++;
                 }
-                case KEYUSE -> {
-                    net.minecraft.client.KeyMapping.click(mc.options.keyUse.getDefaultKey());
-                    done++;
-                }
                 case ATTACK, DIG -> {
                     // What his crosshair is on decides what vanilla's startAttack does with the click.
                     boolean on = act == Act.ATTACK ? mc.hitResult instanceof net.minecraft.world.phys.EntityHitResult
@@ -130,6 +130,20 @@ public final class SameTick implements AutoCloseable {
                             && bh.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK;
                     if (on) {
                         net.minecraft.client.KeyMapping.click(mc.options.keyAttack.getDefaultKey());
+                        done++;
+                    }
+                }
+                case USE_KEY -> {
+                    // His right click as he makes it: a press queued for the next tick's handleKeybinds (vanilla
+                    // startUseItem: on a block use_item_on then use_item, into the air use_item), so a feature can see it
+                    // coming at START_CLIENT_TICK the way it sees his real clicks.
+                    net.minecraft.client.KeyMapping.click(mc.options.keyUse.getDefaultKey());
+                    done++;
+                }
+                case DIG_HELD -> {
+                    mc.options.keyAttack.setDown(true);
+                    if (mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult bh
+                            && bh.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK) {
                         done++;
                     }
                 }
@@ -202,11 +216,12 @@ public final class SameTick implements AutoCloseable {
             boolean mine = (injecting && !accept && !carried) || (accept && act == Act.TP)
                     || (act == Act.SWAP && p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket h
                     && (h.getSlot() == slotA || h.getSlot() == slotB))
-                    || (act == Act.ATTACK && "attack".equals(name))
-                    || (act == Act.KEYUSE && (p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
-                    || p instanceof net.minecraft.network.protocol.game.ServerboundUseItemOnPacket)
+                    || (act == Act.ATTACK && "attack".equals(name) && !feature.test(p))
+                    || (act == Act.USE_KEY && (p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
+                    || p instanceof net.minecraft.network.protocol.game.ServerboundUseItemOnPacket
+                    || p instanceof net.minecraft.network.protocol.game.ServerboundInteractPacket)
                     && (heldSlot() == slotA || heldSlot() == slotB))
-                    || (act == Act.DIG && p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket
+                    || ((act == Act.DIG || act == Act.DIG_HELD) && p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket
                     && !feature.test(p));
             boolean feat = !mine && !accept && feature.test(p);
             if (mine && winFeature && !winPlayerAfter) {
@@ -271,11 +286,11 @@ public final class SameTick implements AutoCloseable {
     }
 
     /**
-     * Null when the case really tested something, else why not. A left click (ATTACK / DIG) holds a world actor for the tick
-     * it is queued in (ActionGate), so both must have gone out but never in one server tick; any other act must share one.
+     * Null when the case really tested something, else why not. A queued click (ATTACK / DIG / USE_KEY) holds a world actor for the
+     * tick it is queued in (ActionGate), so both must have gone out but never in one server tick; any other act must share one.
      */
     public String verdict(String what) {
-        return verdict(what, act == Act.ATTACK || act == Act.DIG);
+        return verdict(what, act == Act.ATTACK || act == Act.DIG || act == Act.USE_KEY);
     }
 
     /** As {@link #verdict(String)}; {@code apart}: the feature must wait out his action (both out, never one tick). */
@@ -338,6 +353,7 @@ public final class SameTick implements AutoCloseable {
     @Override
     public void close() {
         active = null;
+        if (act == Act.DIG_HELD) Minecraft.getInstance().options.keyAttack.setDown(false);
         PacketTrace.tap = prevTap;
     }
 }

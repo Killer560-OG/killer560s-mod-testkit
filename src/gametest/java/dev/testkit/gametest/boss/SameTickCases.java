@@ -67,7 +67,7 @@ final class SameTickCases {
     static SameTick start(Session c, SameTick.Act act, Predicate<Packet<?>> feature) {
         // His left click every tick would hold every world aura for good (ActionGate: his queued attack click goes
         // first), so ATTACK clicks every other tick.
-        return c.onClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK ? 2 : 1, feature, 4, 5));
+        return c.onClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK || act == SameTick.Act.USE_KEY ? 2 : 1, feature, 4, 5));
     }
 
     /** Stops his action, notes the counts, and fails a case that tested nothing. */
