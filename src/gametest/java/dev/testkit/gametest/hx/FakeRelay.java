@@ -128,9 +128,17 @@ public final class FakeRelay implements AutoCloseable {
 
     /** A data packet from {@code from} reaches the client, through the real socket's handler. */
     public void deliver(String from, String key, JsonElement value) {
+        deliver(from, null, key, value);
+    }
+
+    /** {@link #deliver} with the sender's uuid (dashless) stamped as well, as the relay does from the token (Song Tag needs it). */
+    public void deliver(String from, java.util.UUID uuid, String key, JsonElement value) {
         JsonObject p = new JsonObject();
         p.addProperty("type", "data");
         p.addProperty("from", from);
+        if (uuid != null) {
+            p.addProperty("uuid", uuid.toString().replace("-", ""));
+        }
         p.addProperty("key", key);
         p.add("value", value);
         handle(p);

@@ -352,7 +352,7 @@ final class HxSongTagCases {
         }
     }
 
-    /** Defaults OFF, save + load, profile reload, tooltips. */
+    /** Defaults (Share My Song OFF, Show Others' Songs ON since 2026-11-06), save + load, profile reload, tooltips. */
     private static void settings(Session c) throws Exception {
         boolean[] defaults = c.onClient(mc -> {
             try {
@@ -364,10 +364,26 @@ final class HxSongTagCases {
                 throw new AssertionError(e);
             }
         });
-        c.check(!defaults[0] && !defaults[1], "Song Tag switches do not default OFF: share " + defaults[0] + ", show " + defaults[1]);
+        // killer560, 2026-11-06: "make sure spotify lyrics show other peoples is on by default".
+        c.check(!defaults[0] && defaults[1], "Song Tag defaults wrong (want share OFF, show ON): share " + defaults[0] + ", show " + defaults[1]);
         Path file = c.onClient(mc -> (Path) Mod.field(CFG, "CONFIG_PATH"));
         byte[] before = Files.exists(file) ? Files.readAllBytes(file) : null;
         try {
+            // No file: load() reads Show Others' Songs ON. A saved explicit OFF stays OFF.
+            Files.deleteIfExists(file);
+            boolean noFile = c.onClient(mc -> {
+                Mod.staticCall(CFG, "load");
+                return (Boolean) Mod.get(CFG, "isShowOthers");
+            });
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, "{\"showOthers\": false}");
+            boolean savedOff = c.onClient(mc -> {
+                Mod.staticCall(CFG, "load");
+                return (Boolean) Mod.get(CFG, "isShowOthers");
+            });
+            c.note("Show Others' Songs: no file " + noFile + ", saved false " + savedOff);
+            c.check(noFile, "a fresh install (no file) has Show Others' Songs OFF");
+            c.check(!savedOff, "a saved Show Others' Songs OFF loaded as ON");
             c.onClient(mc -> {
                 Mod.set(CFG, "setShareSong", true);
                 Mod.set(CFG, "setShowOthers", true);
