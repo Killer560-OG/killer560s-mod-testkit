@@ -98,6 +98,157 @@ final class HxSpotifyControlsCases {
         s.test("2850-hx-spotify-kugou-words", HxSpotifyControlsCases::kugouWords);
         s.test("2851-hx-spotify-f5-lyrics-default", HxSpotifyControlsCases::f5LyricsDefault);
         s.test("2852-hx-spotify-f5-hypixel", HxSpotifyControlsCases::f5Hypixel);
+        s.test("2853-hx-spotify-event-timing", HxSpotifyControlsCases::eventTiming);
+    }
+
+    // ---- 2853: pause, resume and seek reach the lit line within one frame of Spotify's reading ----------------
+
+    /**
+     * lyrictime-1106 (killer560 2026-11-06: "the spotify lyrics are off again"). His log showed every pause and resume
+     * corrected 0.35-0.83 s late. Here the window title and Spotify's media reading each show an event with their own lag,
+     * in both orders (title first, reading first), and the engine polls on its 250 ms beat plus at once on a changed
+     * reading (the mod's {@code pollSoon}). From one 16 ms frame after the reading of an event reaches the engine, the
+     * HUD's clock must be within 20 ms of Spotify's true position and the lit line must be the true line, until the next
+     * event; a playing reading Spotify took BEFORE a pause the title already shows must not restart the clock.
+     */
+    private static void eventTiming(Session c) throws Exception {
+        c.check(c.onClient(mc -> Mod.has(E) && Mod.has(CTL)), "this jar has no Spotify Controls (mod before spotify-controls-1026)");
+        String result = c.onClient(mc -> {
+            try {
+                Object eng = Mod.cls(E).getDeclaredConstructor().newInstance();
+                Mod.call(eng, "setFetchLyrics", false);
+                Object track = Mod.staticCall("spotify.NowPlaying", "track", "Artist", "Song");
+                Object paused = Mod.staticCall("spotify.NowPlaying", "paused");
+                List<Object> lines = new ArrayList<>();
+                for (int i = 0; i < 100; i++) {
+                    lines.add(line(i * 2.0, "line number " + i));
+                }
+                long t0 = 1_000_000_000_000L;
+                // {time, kind (0 play, 1 pause, 2 seek), title lag, reading lag, seek target}
+                long[][] events = {
+                        {0, 0, 0, 300, 0},
+                        {10_000, 1, 100, 1200, 0},      // pause, the title first: the reading still says playing
+                        {14_000, 0, 150, 1600, 0},      // resume, the title first, the reading 1.6 s behind
+                        {24_000, 1, 800, 100, 0},       // pause, the reading first
+                        {28_000, 0, 900, 100, 0},       // resume, the reading first
+                        {38_000, 2, 0, 120, 5_000},     // seek back in Spotify
+                        {46_000, 2, 0, 400, 40_000}};   // seek ahead
+                Spot spot = new Spot();
+                List<long[]> readings = new ArrayList<>();   // {wall taken, delivered at, status, position}
+                int next = 0;
+                long nextRefresh = Long.MAX_VALUE;
+                boolean titlePlaying = false;
+                long titleFlipAt = Long.MAX_VALUE;
+                boolean titleWill = false;
+                Object timeline = null;
+                long delivered = -1;
+                long checkFrom = Long.MAX_VALUE;
+                long holdFrom = Long.MAX_VALUE;
+                long holdTo = 0;
+                double heldAt = Double.NaN;
+                double maxErr = 0;
+                long maxAt = 0;
+                int samples = 0;
+                int lineChanges = 0;
+                int lastTrueLine = -2;
+                String bad = "";
+                for (long t = 0; t <= 56_000; t += 16) {
+                    long w = t0 + t;
+                    while (next < events.length && events[next][0] <= t) {
+                        long[] ev = events[next++];
+                        long ew = t0 + ev[0];
+                        if (ev[1] == 0) {
+                            spot.play(ew);
+                        } else if (ev[1] == 1) {
+                            spot.pause(ew);
+                        } else {
+                            spot.seek(ew, ev[4]);
+                        }
+                        readings.add(new long[]{ew, ew + ev[3], spot.playing ? 4 : 5, spot.refreshPos});
+                        nextRefresh = ew + 4500;
+                        if (ev[1] != 2) {
+                            titleFlipAt = ew + ev[2];
+                            titleWill = spot.playing;
+                        }
+                        checkFrom = ew + ev[3] + 16;
+                        if (ev[1] == 1 && ev[2] < ev[3]) {
+                            holdFrom = ew + ev[2] + 300;
+                            holdTo = ew + ev[3];
+                            heldAt = Double.NaN;
+                        }
+                    }
+                    if (w >= nextRefresh) {
+                        spot.refresh(w);
+                        readings.add(new long[]{w, w + 300, spot.playing ? 4 : 5, spot.refreshPos});
+                        nextRefresh = w + 4500;
+                    }
+                    if (w >= titleFlipAt) {
+                        titlePlaying = titleWill;
+                        titleFlipAt = Long.MAX_VALUE;
+                    }
+                    boolean changed = false;
+                    for (long[] r : readings) {
+                        if (r[1] <= w && r[0] > delivered) {
+                            delivered = r[0];
+                            timeline = newRecord("spotify.SpotifyMediaSession$Timeline", "Artist", "Song",
+                                    (int) r[2], r[3], 200_000L, r[0], r[1], 0);
+                            changed = true;
+                        }
+                    }
+                    if (t % 256 == 0 || changed) {
+                        Mod.call(eng, "pollAt", titlePlaying ? track : paused, timeline, w, false);
+                        // The engine clears its lines on the track change and again on learning Spotify's length.
+                        if (((List<?>) Mod.call(Mod.call(eng, "snapshot"), "lines")).isEmpty()) {
+                            setInstanceField(eng, "syncedLyrics", List.copyOf(lines));
+                            Mod.call(eng, "pollAt", titlePlaying ? track : paused, timeline, w, false);
+                        }
+                    }
+                    Object snap = Mod.call(eng, "snapshot");
+                    double shown = (Double) Mod.call(snap, "elapsedSeconds", w) * 1000.0;
+                    if (w >= holdFrom && w < holdTo) {
+                        if (Double.isNaN(heldAt)) {
+                            heldAt = shown;
+                        } else if (shown > heldAt + 1 && bad.isEmpty()) {
+                            bad = "a reading from before the pause restarted the clock at t=" + t + " (" + Math.round(heldAt)
+                                    + " -> " + Math.round(shown) + " ms)";
+                        }
+                    }
+                    if (w < checkFrom) {
+                        continue;
+                    }
+                    double truth = spot.pos(w);
+                    double err = Math.abs(shown - truth);
+                    samples++;
+                    if (err > maxErr) {
+                        maxErr = err;
+                        maxAt = t;
+                    }
+                    int trueLine = (int) Math.floor(truth / 2000.0);
+                    if (trueLine != lastTrueLine) {
+                        lineChanges++;
+                        lastTrueLine = trueLine;
+                    }
+                    double intoLine = truth - trueLine * 2000.0;
+                    int lit = (Integer) Mod.call(snap, "lineAt", shown / 1000.0);
+                    if (lit != trueLine && intoLine > 20 && intoLine < 1980 && bad.isEmpty()) {
+                        bad = "line " + lit + " lit at t=" + t + " ms while Spotify was " + Math.round(intoLine)
+                                + " ms into line " + trueLine;
+                    }
+                }
+                return maxErr + "|" + maxAt + "|" + samples + "|" + lineChanges + "|" + bad;
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+        });
+        String[] f = result.split("\\|", -1);
+        double maxErr = Double.parseDouble(f[0]);
+        c.note("event timing: max error " + Math.round(maxErr) + " ms at t=" + f[1] + " ms over " + f[2] + " frames, "
+                + f[3] + " line changes checked");
+        c.check(Integer.parseInt(f[2]) > 2500, "too few frames were checked: " + f[2]);
+        c.check(Integer.parseInt(f[3]) >= 20, "too few line changes were checked: " + f[3]);
+        c.check(f[4].isEmpty(), f[4]);
+        c.check(maxErr <= 20, "the lyric clock was " + Math.round(maxErr) + " ms off Spotify at t=" + f[1]
+                + " ms, after Spotify's reading of the event had reached the engine");
     }
 
     // ---- reflection helpers -----------------------------------------------------------------------------------
