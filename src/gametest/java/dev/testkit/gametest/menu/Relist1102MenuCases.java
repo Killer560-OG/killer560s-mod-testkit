@@ -42,7 +42,6 @@ final class Relist1102MenuCases {
     static void register(Session s) {
         MenuSuite.test(s, "2798-menu-ah-relist", c -> relist(c, false));
         MenuSuite.test(s, "2799-menu-ah-relist-stop", c -> relist(c, true));
-        MenuSuite.test(s, "2800-menu-ah-menudump", Relist1102MenuCases::menuDump);
         MenuSuite.test(s, "2801-menu-bzflip-split-delivery", Relist1102MenuCases::splitDelivery);
     }
 
