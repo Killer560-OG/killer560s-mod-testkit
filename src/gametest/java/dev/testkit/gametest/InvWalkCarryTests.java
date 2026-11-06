@@ -86,6 +86,15 @@ public class InvWalkCarryTests implements FabricClientGameTest {
             boolean gate = gateOff(ctx);
             Rows rows = new Rows(ctx, server, scenario);
             try (Hx hx = Hx.connect()) {
+                // Warm-up walk, not a row: the run's first walk on a cold server moved under a block (0.81 in 20 ticks).
+                iwOn(ctx, true, 0);
+                tp(server, ctx, x + 0.5, SURFACE_Y, z + 0.5, -90f);
+                openInventory(ctx);
+                keys(ctx, SPRINT);
+                ctx.waitTicks(20);
+                keys(ctx, Set.of());
+                closeScreen(ctx);
+                ctx.waitTicks(10);
                 for (int lat : latencies()) {
                     latency(ctx, lat);
                     String L = "L" + lat + " ";
@@ -186,6 +195,15 @@ public class InvWalkCarryTests implements FabricClientGameTest {
         }
     }
 
+    /** Clicks held for the put-down; 0 on a jar before invwalk-1105 (no getter), whose test then reads the server only. */
+    static int carryingNow() {
+        try {
+            return ((Number) Mod.staticCall(IW, "carryingNow")).intValue();
+        } catch (Throwable t) {
+            return 0;
+        }
+    }
+
     static void row(Rows rows, ClientGameTestContext ctx, TestServer server, Hx hx, int x, int z, String label, Body body) {
         iwOn(ctx, true, 0);
         keys(ctx, Set.of());
@@ -202,7 +220,7 @@ public class InvWalkCarryTests implements FabricClientGameTest {
         Set<String> walkKeys = FWD;
         keys(ctx, walkKeys);
         for (int i = 0; i < 60 && ctx.computeOnClient(mc -> ((Number) Mod.staticCall(IW, "heldNow")).intValue()
-                + ((Number) Mod.staticCall(IW, "carryingNow")).intValue()) > 0; i++) {
+                + carryingNow()) > 0; i++) {
             ctx.waitTicks(1);
         }
         boolean screenOpen = ctx.computeOnClient(mc -> McCompat.screen(mc) != null);
