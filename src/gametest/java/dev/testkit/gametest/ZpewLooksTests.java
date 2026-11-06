@@ -59,10 +59,13 @@ public class ZpewLooksTests implements FabricClientGameTest {
                 first = first == null ? e : first;
             }
         }
-        try {
-            emergencyCancel(ctx);
-        } catch (AssertionError e) {
-            first = first == null ? e : first;
+        for (Runnable r : new Runnable[]{() -> emergencyCancel(ctx), () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.SWAP),
+                () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.USE)}) {
+            try {
+                r.run();
+            } catch (AssertionError e) {
+                first = first == null ? e : first;
+            }
         }
         if (first != null) {
             throw first;
@@ -394,6 +397,82 @@ public class ZpewLooksTests implements FabricClientGameTest {
             }
             if (!problems.isEmpty()) {
                 throw new AssertionError("zpewlk " + lat + " ms: " + problems);
+            }
+        });
+    }
+
+    /**
+     * 1105-zpew-aimed-same-&lt;swap|use&gt; (grimgapA-1105; the SAME-TICK GRIM CASES rule). Aimed Warps n=3 with a Blink bank,
+     * three times, while HIS action goes into every client tick ({@link dev.testkit.gametest.SameTick}): a scroll between
+     * two AOTVs (slots 1 and 2; the raw aimed use must send his pending slot first, else PacketOrderE), or his own right
+     * click with the AOTV (an etherwarp of his at his look, after the burst in the same tick). Every burst must send its
+     * three aimed warps (swap: landing on every planned corner; use: the server casting at least those three), a GrimAC
+     * tick must carry an aimed use with his packet, and GrimAC says nothing (Scenario.run). Cheat jar only.
+     */
+    static void aimedSame(ClientGameTestContext ctx, dev.testkit.gametest.SameTick.Act act) {
+        String name = "1105-zpew-aimed-same-" + act.name().toLowerCase(Locale.ROOT);
+        Scenario.run(ctx, name, (server, scenario) -> ZpewMultiTickTests.build(server), (server, scenario) -> {
+            Hx hx = null;
+            boolean gate = false;
+            boolean cheat = cheat(ctx);
+            dev.testkit.gametest.SameTick[] st = {null};
+            List<String> problems = new ArrayList<>();
+            try {
+                hx = ZpewCampaignTests.setUp(ctx, 4);
+                if (!cheat) {
+                    scenario.log(name + ": legit jar, no Aimed Warps - nothing to test");
+                    return;
+                }
+                hx.give(1, ZpewCampaignTests.aotv(4));
+                ZpewMultiTickTests.hookTicks(ctx);
+                String who = ZpewCampaignTests.name(ctx);
+                ctx.runOnClient(mc -> {
+                    Mod.set(ZP_CFG, "setWarpsPerTick", 1);
+                    ZpewMultiTickTests.multiWarps(true);
+                    Mod.set(ZP_CFG, "setAimedWarps", true);
+                });
+                ctx.getInput().holdKey(o -> o.keyShift);
+                gate = BlinkTests.setUp(ctx, 20);
+                BlinkTests.chargeOn(ctx);
+                waitAimed = true;
+                st[0] = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
+                        p -> p instanceof ServerboundUseItemPacket, 0, 1));
+                for (int rep = 0; rep < 3; rep++) {
+                    ZpewCampaignTests.tpTo(ctx, server, who, feet(0).x, feet(0).y, feet(0).z, true);
+                    ctx.waitTicks(30);
+                    long bank = BlinkTests.cnum(ctx, "banked");
+                    long sent0 = ZpewCampaignTests.num(ctx, "aimedWarpsSent");
+                    Result r = shot(ctx, server, hx, scenario, who, 0, "aimed-same n=3 rep " + rep + " (bank " + bank + ")",
+                            presses(ctx, 3), 3);
+                    long sent = ZpewCampaignTests.num(ctx, "aimedWarpsSent") - sent0;
+                    boolean landed = act == dev.testkit.gametest.SameTick.Act.SWAP ? landedAll(r, 3) : r.warps() >= 3;
+                    if (sent != 3 || !landed || !r.flags().isEmpty()) {
+                        problems.add("rep " + rep + ": aimed sent " + sent + ", " + r);
+                    }
+                }
+                dev.testkit.gametest.SameTick done = st[0];
+                ctx.runOnClient(mc -> done.close());
+                st[0] = null;
+                scenario.log(name + ": " + done.report());
+                String why = done.verdict("aimed warps");
+                if (why != null) {
+                    problems.add(why);
+                }
+            } finally {
+                if (st[0] != null) {
+                    dev.testkit.gametest.SameTick open = st[0];
+                    ctx.runOnClient(mc -> open.close());
+                }
+                waitAimed = false;
+                if (cheat) {
+                    BlinkTests.chargeOff(ctx);
+                    BlinkTests.tearDown(ctx, gate);
+                    ctx.runOnClient(mc -> Mod.set(ZP_CFG, "setAimedWarps", false));
+                }
+                ZpewCampaignTests.tearDown(ctx, hx);
+            }
+            if (!problems.isEmpty()) {
+                throw new AssertionError(name + ": " + problems);
             }
         });
     }

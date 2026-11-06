@@ -34,13 +34,15 @@ import java.util.function.Predicate;
  *       vanilla's {@code gameMode.tick} (or the next action through the game mode) sends it next tick.</li>
  *   <li>{@link Act#CLICK}: a container click on an empty player slot of the open menu at END (a mouse click between
  *       ticks), so it lands in the next server tick ahead of the START actors.</li>
+ *   <li>{@link Act#TP}: nothing is put in; the case has the server teleport him, and his teleport accept (with its echo)
+ *       is the action (grimgapA-1105: a feature acting in the tick he answers a teleport).</li>
  * </ul>
  * Packets sent while the player's action runs (or, for SWAP / ATTACK / DIG, the packet vanilla sends for it next tick)
  * are his; a teleport accept is marked (T) and is neither. Everything else matching the case's predicate is the feature's.
  */
 public final class SameTick implements AutoCloseable {
 
-    public enum Act { USE, ATTACK, DIG, SWAP, CLICK }
+    public enum Act { USE, ATTACK, DIG, SWAP, CLICK, TP }
 
     private static final Identifier LATE = Identifier.parse("testkit:sametick_late");
     private static boolean hooked;
@@ -101,7 +103,7 @@ public final class SameTick implements AutoCloseable {
     }
 
     private void inject(Minecraft mc) {
-        if (mc.player == null || mc.gameMode == null || tick++ % every != 0) return;
+        if (act == Act.TP || mc.player == null || mc.gameMode == null || tick++ % every != 0) return;
         injecting = true;
         try {
             switch (act) {
@@ -153,7 +155,8 @@ public final class SameTick implements AutoCloseable {
             // A teleport accept is marked (T) and never counts as his action: every warp has one, so it would make any
             // route case "share" a tick without his action in it.
             boolean accept = p instanceof ServerboundAcceptTeleportationPacket;
-            boolean mine = (injecting && !accept)
+            if (accept && act == Act.TP) done++;
+            boolean mine = (injecting && !accept) || (accept && act == Act.TP)
                     || (act == Act.SWAP && p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket h
                     && (h.getSlot() == slotA || h.getSlot() == slotB))
                     || (act == Act.ATTACK && "attack".equals(name))
@@ -219,6 +222,19 @@ public final class SameTick implements AutoCloseable {
     /** How many times his action was put in. */
     public int done() {
         return done;
+    }
+
+    /**
+     * Null when the case really tested something, else why not. A left click (ATTACK / DIG) holds a world actor for the tick
+     * it is queued in (ActionGate), so both must have gone out but never in one server tick; any other act must share one.
+     */
+    public String verdict(String what) {
+        if (done == 0) return what + ": his action never went in (nothing tested)";
+        if (act == Act.ATTACK || act == Act.DIG) {
+            if (playerWindows() == 0 || featureWindows() == 0) return what + ": his click or the feature never went out (" + report() + ")";
+            return both() == 0 ? null : what + ": his click and the feature shared a server tick (" + report() + ")";
+        }
+        return both() > 0 ? null : what + ": no server tick carried both the feature's packet and his - nothing tested (" + report() + ")";
     }
 
     /** One line for the case's note: counts and the first few shared ticks. */
