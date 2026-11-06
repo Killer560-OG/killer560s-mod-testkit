@@ -176,4 +176,101 @@ final class LagLag1105Cases {
             end();
         }
     }
+
+    // ---- 1105-logic-bcstall-jitter / -stall (mod branch bcstall-1105) ----------------------------------------------
+
+    /**
+     * Feeds the packets in [fromMs, toMs) with the client's own ticks between them, every 50 ms (each 0-8 ms late, as a
+     * frame lands), so {@code PerTickServerClock.stallTicksSince} (Blood Camp's camp lag, PingTracker's clean round trip)
+     * sees the stream as the game does. Before bcstall-1105 it counted the client-tick deficit's rise over its all-time
+     * low, the same ratchet laglag-1105 took out of Split Timers. Returns the clock's ticks over the span.
+     */
+    private static long feedWithTicks(List<Packet> packets, long fromMs, long toMs, Random rnd) {
+        long c0 = (Long) Mod.staticCall(CLOCK, "now");
+        long nextTick = fromMs + 50L;
+        long tickAt = nextTick + rnd.nextInt(9);
+        int i = 0;
+        while (true) {
+            Packet p = null;
+            while (i < packets.size() && (packets.get(i).atMs < fromMs)) i++;
+            if (i < packets.size() && packets.get(i).atMs < toMs) p = packets.get(i);
+            if (p != null && p.atMs < tickAt) {
+                Mod.staticCall(CLOCK, "wallForTest", p.atMs);
+                if (p.ping) {
+                    Mod.staticCall(CLOCK, "pingForTestTimed");
+                } else {
+                    Mod.staticCall(CLOCK, "serverTimeForTest", p.gameTime);
+                }
+                i++;
+                continue;
+            }
+            if (tickAt >= toMs) break;
+            Mod.staticCall(CLOCK, "wallForTest", tickAt - 50L); // tickForTest moves the test clocks 50 ms on
+            Mod.staticCall(CLOCK, "tickForTest");
+            Mod.staticCall(CLOCK, "wallForTest", tickAt);
+            nextTick += 50L;
+            tickAt = nextTick + rnd.nextInt(9);
+        }
+        Mod.staticCall(CLOCK, "wallForTest", toMs);
+        return (Long) Mod.staticCall(CLOCK, "now") - c0;
+    }
+
+    private static long stallTicks(long[] mark) {
+        return (Long) Mod.staticCall(CLOCK, "stallTicksSince", (Object) mark);
+    }
+
+    /** A true 20 TPS server with late pings: under 3 stall ticks over 120 s (Blood Camp's camp lag stays near 0). */
+    static void bcJitter(LogicCase c) {
+        try {
+            for (long seed = 0; seed < 3; seed++) {
+                start();
+                Random rnd = new Random(100 + seed);
+                List<Packet> s = stream(20.0, 125, seed, 0, 0L);
+                feedWithTicks(s, BASE, BASE + 2000L, rnd);
+                c.check("seed " + seed + ": the clock is trusted on the stream", (Boolean) Mod.staticCall(CLOCK, "trusted"),
+                        "not trusted");
+                long[] mark = (long[]) Mod.staticCall(CLOCK, "mark");
+                long ticks = feedWithTicks(s, BASE + 2000L, BASE + 122_000L, rnd);
+                c.check("seed " + seed + ": the clock counted the server's ticks over 120 s (2400, within 5)",
+                        Math.abs(ticks - 2400L) <= 5L, ticks + " ticks");
+                long st = stallTicks(mark);
+                System.out.println("[bcstall-jitter] seed " + seed + ": " + st + " stall ticks, " + ticks + " clock ticks");
+                c.check("seed " + seed + ": a true 20 TPS server with late pings reads under 3 stall ticks in 120 s",
+                        st < 3L, st + " ticks");
+                end();
+            }
+        } finally {
+            end();
+        }
+    }
+
+    /** A real 1 s stall the server catches up at once, with the same late pings around it: about 14 stall ticks 0.7 s in
+     *  (live), and 18-23 for the whole 70 s span, so it is not paid back by its burst and the jitter adds nothing (the old
+     *  ratchet added its jitter count, ~5 ticks a minute, on top). */
+    static void bcStall(LogicCase c) {
+        try {
+            for (long seed = 0; seed < 3; seed++) {
+                start();
+                Random rnd = new Random(200 + seed);
+                List<Packet> s = stream(20.0, 95, seed, 600, 1000L); // the stall starts 30 s in
+                feedWithTicks(s, BASE, BASE + 20_000L, rnd);
+                long[] mark = (long[]) Mod.staticCall(CLOCK, "mark");
+                feedWithTicks(s, BASE + 20_000L, BASE + 30_000L + 800L, rnd); // 0.7 s into the stall
+                long during = stallTicks(mark);
+                System.out.println("[bcstall-stall] seed " + seed + ": " + during + " stall ticks 0.7 s in");
+                c.check("seed " + seed + ": 0.7 s into a 1 s stall reads 10-16 stall ticks (counted live)",
+                        during >= 10L && during <= 16L, during + " ticks");
+                long ticks = feedWithTicks(s, BASE + 30_000L + 800L, BASE + 90_000L, rnd);
+                c.check("seed " + seed + ": the clock ran again after the stall (its burst and 59 s: ~1180 ticks)",
+                        ticks >= 1170L, ticks + " ticks");
+                long after = stallTicks(mark);
+                System.out.println("[bcstall-stall] seed " + seed + ": " + after + " stall ticks over 70 s, " + ticks + " clock ticks after");
+                c.check("seed " + seed + ": the 1 s stall reads 18-23 stall ticks over 70 s with jitter, its catch-up burst 59 s back",
+                        after >= 18L && after <= 23L, after + " ticks");
+                end();
+            }
+        } finally {
+            end();
+        }
+    }
 }
