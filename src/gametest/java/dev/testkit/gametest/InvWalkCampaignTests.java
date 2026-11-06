@@ -125,8 +125,9 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
         final TestServer server;
         final Scenario scenario;
         final ClientGameTestContext ctx;
-        /** Grim lines containing this are not counted (set by 1027-iw-warp, see there). */
+        /** Grim lines containing this are not counted but tallied in {@link #tolerated} (set by 1027-iw-warp, see there). */
         String tolerate;
+        final Map<String, Integer> tolerated = new java.util.LinkedHashMap<>();
 
         Rows(ClientGameTestContext ctx, TestServer server, Scenario scenario) {
             this.ctx = ctx;
@@ -143,7 +144,9 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
             ctx.waitTicks(15);
             List<String> flags = scenario.flags();
             if (tolerate != null) {
+                int all = flags.size();
                 flags = flags.stream().filter(f -> !f.contains(tolerate)).toList();
+                tolerated.merge(label, all - flags.size(), Integer::sum);
             }
             String names = checks(flags);
             boolean ok;
@@ -1499,7 +1502,9 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
             Rows rows = new Rows(ctx, server, scenario);
             // iwpre-1106: the Hx etherwarp lands 0.05 above the block, and a key first pressed the tick after the landing
             // draws Simulation (.068, decaying x0.546) from Grim 2.3.74 on a client with NO mod at all (run with -NoMod,
-            // same arena and strafe: 5 lines in 1 of 3 reps), so it is not Inventory Walk's. Every other check still counts.
+            // same arena and strafe: 5 lines in 1 of 3 reps), so it is not Inventory Walk's. The flags carry no tick, so a
+            // row may draw Simulation only up to what the control rows (no screen / IW off / keys after landing) draw, never
+            // fewer than one landing chain (8 lines); more than that is Inventory Walk's and fails. Other checks always count.
             rows.tolerate = "failed Simulation";
             try (Hx hx = Hx.connect()) {
                 hx.call("dungeon.abilities", "enabled", true);
@@ -1608,6 +1613,18 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
             } finally {
                 tearDown(ctx, gate);
             }
+            int limit = 8;
+            for (Map.Entry<String, Integer> e : rows.tolerated.entrySet()) {
+                if (e.getKey().contains("control")) {
+                    limit = Math.max(limit, e.getValue());
+                }
+            }
+            for (Map.Entry<String, Integer> e : rows.tolerated.entrySet()) {
+                if (e.getValue() > limit) {
+                    rows.bad.add(e.getKey() + " (Simulation x" + e.getValue() + " beyond the controls' " + limit + ")");
+                }
+            }
+            scenario.log("SIMULATION tolerated per row, limit " + limit + ": " + rows.tolerated);
             rows.finish("1027-iw-warp");
         });
     }
