@@ -63,6 +63,8 @@ public class BlinkTests implements FabricClientGameTest {
                 BlinkTests::holdRapid, BlinkTests::chargeRapid, BlinkTests::chargeArmedMenu,
                 BlinkTests::clicks, BlinkTests::chargeFar, BlinkTests::chargeLong, BlinkTests::shotLever,
                 BlinkTests::worldChange, BlinkTests::bow, BlinkTests::chargeSameUse, BlinkTests::chargeSameSwap,
+                BlinkTests::oneShot, BlinkTests::predictStep, BlinkTests::oneShotSameUse, BlinkTests::oneShotSameSwap,
+                BlinkTests::oneShotSameAttack, BlinkTests::oneShotSameClick, BlinkTests::oneShotSameTp,
                 BlinkTests::sweepWalk, BlinkTests::sweepStill,
                 BlinkTests::sweepLatency)) {
             try {
@@ -1212,11 +1214,222 @@ public class BlinkTests implements FabricClientGameTest {
     }
 
     private static void chargeSameUse(ClientGameTestContext ctx) {
-        chargeSame(ctx, SameTick.Act.USE, -6400, -3400);
+        chargeSame(ctx, SameTick.Act.USE, -6400, -3400, false);
     }
 
     private static void chargeSameSwap(ClientGameTestContext ctx) {
-        chargeSame(ctx, SameTick.Act.SWAP, -6400, -3600);
+        chargeSame(ctx, SameTick.Act.SWAP, -6400, -3600, false);
+    }
+
+    private static void oneShotSameUse(ClientGameTestContext ctx) {
+        chargeSame(ctx, SameTick.Act.USE, -6800, -3800, true);
+    }
+
+    private static void oneShotSameSwap(ClientGameTestContext ctx) {
+        chargeSame(ctx, SameTick.Act.SWAP, -6800, -4000, true);
+    }
+
+    private static void oneShotSameAttack(ClientGameTestContext ctx) {
+        chargeSame(ctx, SameTick.Act.ATTACK, -6800, -4200, true);
+    }
+
+    private static void oneShotSameClick(ClientGameTestContext ctx) {
+        chargeSame(ctx, SameTick.Act.CLICK, -6800, -4400, true);
+    }
+
+    private static void oneShotSameTp(ClientGameTestContext ctx) {
+        chargeSame(ctx, SameTick.Act.TP, -6800, -4600, true);
+    }
+
+    /**
+     * Mod blinkone-1105's test hook {@code BlinkCharge.tickBudgetForTest} (null = by the server, FALSE = Hypixel's
+     * per-packet rule, no split). False when the jar has no such hook (before blinkone-1105).
+     */
+    static boolean budgetHook(ClientGameTestContext ctx, Boolean value) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                Mod.setField(CHARGE, "tickBudgetForTest", value);
+                return true;
+            } catch (RuntimeException | AssertionError e) {
+                return false;
+            }
+        });
+    }
+
+    /** Sizes of the bursts of movement packets WireCapture saw (a burst: packets under 20 ms apart). */
+    static List<Integer> moveBursts() {
+        List<Integer> out = new ArrayList<>();
+        long last = Long.MIN_VALUE;
+        for (dev.testkit.harness.WireCapture.Sent sent : dev.testkit.harness.WireCapture.snapshot()) {
+            if (!sent.className().contains("MovePlayerPacket")) {
+                continue;
+            }
+            if (out.isEmpty() || sent.nanos() - last > 20_000_000L) {
+                out.add(0);
+            }
+            out.set(out.size() - 1, out.get(out.size() - 1) + 1);
+            last = sent.nanos();
+        }
+        return out;
+    }
+
+    /**
+     * One sprinting Speed IV shot of a full 20-tick bank from the arena's west side, the wire captured. Returns {bank,
+     * shots made, ticks shot, the biggest move burst, bursts of 3+ moves (the shot's parts), client-server gap after}.
+     */
+    static double[] speedShot(ClientGameTestContext ctx, TestServer server, Scenario scenario, String name, int x, int z,
+                              StringBuilder rows, String label) {
+        chargeOff(ctx);
+        server.command("tp " + name + " " + (x - 15.5) + " " + SURFACE_Y + " " + (z + 0.5) + " -90 0");
+        ctx.waitTicks(10);
+        chargeOn(ctx);
+        ctx.waitTicks(45);
+        long bank = cnum(ctx, "banked");
+        long shots0 = cnum(ctx, "shots");
+        long st0 = cnum(ctx, "shotTicks");
+        ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+        ctx.getInput().holdKey(o -> o.keySprint);
+        ctx.getInput().holdKey(o -> o.keyUp);
+        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
+        ctx.waitTicks(2);
+        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+        for (int i = 0; i < 8 && ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "shotPending")); i++) {
+            ctx.waitTicks(1);
+        }
+        ctx.waitTicks(1);
+        ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
+        ctx.getInput().releaseKey(o -> o.keyUp);
+        ctx.getInput().releaseKey(o -> o.keySprint);
+        List<Integer> bursts = moveBursts();
+        long shots = cnum(ctx, "shots") - shots0;
+        long ticks = cnum(ctx, "shotTicks") - st0;
+        ctx.waitTicks(30);
+        double[] client = scenario.playerPosition();
+        double[] srv = serverPos(server, ctx, name);
+        int biggest = 0;
+        int parts = 0;
+        for (int b : bursts) {
+            biggest = Math.max(biggest, b);
+            parts += b >= 3 ? 1 : 0;
+        }
+        rows.append(String.format(Locale.ROOT, " [%s: bank %d, %d shot(s) %d tick(s); move bursts %s (biggest %d, %d part(s)); "
+                + "client %s server %s]", label, bank, shots, ticks, bursts, biggest, parts, fmt(client), fmt(srv)));
+        return new double[]{bank, shots, ticks, biggest, parts, flat(client, srv)};
+    }
+
+    /**
+     * 1105-blink-oneshot (blinkone-1105; killer560 2026-11-05: "it releases the blink in 3 packets sets"): on Hypixel's
+     * 1.8 server "moved too quickly" is judged per move packet, so a whole 20-tick Speed IV shot must leave in ONE burst
+     * (all banked moves and the firing tick's on the wire inside one flush, one shot counted), with the server agreeing
+     * and GrimAC silent. The server's {@code player_movement_check} gamerule is off for that part (the testkit's vanilla
+     * server stands in for Hypixel's per-packet rule) and the mod is told it is on that rule. A second shot right after
+     * it fires too. Then, on a modern server rule (the default off Hypixel), the same shot still splits under 10 blocks
+     * a server tick and the server agrees.
+     */
+    private static void oneShot(ClientGameTestContext ctx) {
+        int x = -6800;
+        int z = -3400;
+        Scenario.run(ctx, "1105-blink-oneshot", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            String name = playerName(ctx);
+            boolean hook = budgetHook(ctx, Boolean.FALSE);
+            try {
+                server.command("gamerule player_movement_check false");
+                server.command("effect give " + name + " minecraft:speed 120 3 true");
+                StringBuilder rows = new StringBuilder();
+                double[] one = speedShot(ctx, server, scenario, name, x, z, rows, "per-packet rule");
+                ctx.waitTicks(2);
+                double[] second = shootByPress(ctx, true);
+                ctx.waitTicks(20);
+                double[] afterSecond = serverPos(server, ctx, name);
+                double secondGap = flat(scenario.playerPosition(), afterSecond);
+                rows.append(String.format(Locale.ROOT, " [second shot 2 ticks after: %d shot(s) %d tick(s), %.2f blocks; "
+                        + "client-server %.2f]", (long) second[1], (long) second[2], second[0], secondGap));
+                budgetHook(ctx, null);
+                server.command("gamerule player_movement_check true");
+                double[] split = speedShot(ctx, server, scenario, name, x, z, rows, "modern rule");
+                scenario.log("oneshot: test hook " + (hook ? "present" : "MISSING (jar before blinkone-1105)") + ";" + rows);
+                check(hook, "the jar has no BlinkCharge.tickBudgetForTest (built before blinkone-1105)");
+                check(one[0] == 20, "the bank was not full before the shot");
+                check(one[1] == 1 && one[2] == 20, "the per-packet shot was not one 20-tick shot:" + rows);
+                check(one[4] == 1 && one[3] >= 20, "the per-packet shot did not leave in one burst:" + rows);
+                check(one[5] < 0.5, "client and server disagree after the one-burst shot");
+                check(second[1] == 1 && secondGap < 0.5, "the second shot did not fire with the server agreeing:" + rows);
+                check(split[4] >= 2 && split[5] < 0.5, "on the modern rule the shot did not split with the server agreeing:"
+                        + rows);
+            } finally {
+                budgetHook(ctx, null);
+                server.command("gamerule player_movement_check true");
+                server.command("effect clear " + name);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /**
+     * 1105-blink-predict-step (killer560 2026-11-05: "the prediction needs to account for things like stepping up over
+     * half slabs"): charged and sprinting east toward a bottom half slab, then a stair, then a floor one block up. The
+     * landing estimate read the tick before the shot must be where the shot left him, height included (within 0.25), and
+     * the server must end on the raised floor with him.
+     */
+    private static void predictStep(ClientGameTestContext ctx) {
+        int x = -6800;
+        int z = -3600;
+        Scenario.run(ctx, "1105-blink-predict-step", (server, scenario) -> {
+            arena(server, x, z);
+            server.command("fill " + (x + 5) + " " + SURFACE_Y + " " + (z - 3) + " " + (x + 5) + " " + SURFACE_Y + " " + (z + 3)
+                    + " minecraft:stone_slab[type=bottom]");
+            server.command("fill " + (x + 6) + " " + SURFACE_Y + " " + (z - 3) + " " + (x + 6) + " " + SURFACE_Y + " " + (z + 3)
+                    + " minecraft:stone_stairs[facing=east]");
+            server.command("fill " + (x + 7) + " " + SURFACE_Y + " " + (z - 3) + " " + (x + 18) + " " + SURFACE_Y + " " + (z + 3)
+                    + " minecraft:stone");
+        }, (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            try {
+                String name = playerName(ctx);
+                chargeOn(ctx);
+                ctx.waitTicks(35);
+                long bank = cnum(ctx, "banked");
+                ctx.getInput().holdKey(o -> o.keyUp);
+                ctx.getInput().holdKey(o -> o.keySprint);
+                ctx.waitTicks(10);
+                double[] est = ctx.computeOnClient(mc -> {
+                    net.minecraft.world.phys.Vec3 v = (net.minecraft.world.phys.Vec3) Mod.staticCall(CHARGE, "landingEstimate");
+                    Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE);
+                    return v == null ? null : new double[]{v.x, v.y, v.z};
+                });
+                double[] from = scenario.playerPosition();
+                ctx.waitTicks(1);
+                ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+                double[] landed = scenario.playerPosition();
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                ctx.getInput().releaseKey(o -> o.keySprint);
+                long ticks = cnum(ctx, "lastShotTicks");
+                ctx.waitTicks(20);
+                double[] client = scenario.playerPosition();
+                double[] srv = serverPos(server, ctx, name);
+                double err = est == null ? -1 : Math.sqrt(Math.pow(est[0] - landed[0], 2) + Math.pow(est[1] - landed[1], 2)
+                        + Math.pow(est[2] - landed[2], 2));
+                scenario.log(String.format(Locale.ROOT, "predict-step: bank %d; estimate %s from %s; the shot (%d tick(s)) left "
+                                + "him at %s, %.3f from the estimate; settled client %s server %s", bank,
+                        est == null ? "-" : fmt(est), fmt(from), ticks, fmt(landed), err, fmt(client), fmt(srv)));
+                check(bank == 20, "the bank was not full");
+                check(est != null, "no landing estimate while charging and moving");
+                check(ticks == 20 && landed[0] > x + 7.5 && landed[1] > SURFACE_Y + 0.99, "the shot did not carry him up onto "
+                        + "the raised floor");
+                check(err >= 0 && err < 0.25, String.format(Locale.ROOT, "the estimate was %.3f blocks off", err));
+                check(Math.abs(srv[1] - (SURFACE_Y + 1)) < 0.01 && flat(client, srv) < 0.5, "the server did not end on the "
+                        + "raised floor with him");
+            } finally {
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                ctx.getInput().releaseKey(o -> o.keySprint);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
     }
 
     /**
@@ -1226,13 +1439,24 @@ public class BlinkTests implements FabricClientGameTest {
      * every tick leaves nothing to shoot). The shot's banked moves and the firing tick's own move are the feature's; a GrimAC tick must carry
      * his packet with one of them, every shot must run its full 20 ticks with the server agreeing, and GrimAC says nothing.
      */
-    private static void chargeSame(ClientGameTestContext ctx, SameTick.Act act, int x, int z) {
-        String name = "1105-blink-charge-same-" + act.name().toLowerCase(Locale.ROOT);
+    private static void chargeSame(ClientGameTestContext ctx, SameTick.Act act, int x, int z, boolean oneTick) {
+        // oneTick (blinkone-1105, 1105-blink-oneshot-same-*): Hypixel's per-packet rule and Speed IV, so each shot is one
+        // burst of over 10 blocks.
+        String name = (oneTick ? "1105-blink-oneshot-same-" : "1105-blink-charge-same-") + act.name().toLowerCase(Locale.ROOT);
         Scenario.run(ctx, name, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             SameTick[] st = {null};
+            String who = playerName(ctx);
             try {
-                String who = playerName(ctx);
+                if (oneTick) {
+                    check(budgetHook(ctx, Boolean.FALSE), "the jar has no BlinkCharge.tickBudgetForTest (before blinkone-1105)");
+                    server.command("gamerule player_movement_check false");
+                    server.command("effect give " + who + " minecraft:speed 120 3 true");
+                }
+                if (act == SameTick.Act.ATTACK) {
+                    server.command("summon zombie " + (x + 2.5) + " " + (SURFACE_Y + 2) + " " + (z + 0.5)
+                            + " {NoAI:1b,NoGravity:1b,Invulnerable:1b,Silent:1b,Tags:[\"blinkst\"]}");
+                }
                 server.command("item replace entity @a hotbar.4 with minecraft:blaze_rod");
                 server.command("item replace entity @a hotbar.5 with minecraft:blaze_rod");
                 ctx.waitTicks(3);
@@ -1254,26 +1478,54 @@ public class BlinkTests implements FabricClientGameTest {
                     return f;
                 }, 4, 5));
                 SameTick hold = st[0];
-                boolean use = act == SameTick.Act.USE;
-                if (use) {
+                // A tick with his action is never banked, so his action goes in only around the shot (all but SWAP).
+                boolean around = act != SameTick.Act.SWAP;
+                if (around) {
                     ctx.runOnClient(mc -> hold.allow(0));
                 }
                 StringBuilder rounds = new StringBuilder();
                 int good = 0;
                 for (int round = 0; round < 3; round++) {
+                    if (act == SameTick.Act.CLICK) {
+                        ctx.runOnClient(mc -> dev.testkit.compat.McCompat.setScreen(mc, new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player)));
+                    }
                     ctx.waitTicks(40);
                     long bank = cnum(ctx, "banked");
-                    if (use) {
+                    if (act == SameTick.Act.ATTACK) {
+                        // The zombie two blocks ahead of him, up out of his way, under his crosshair at the shot.
+                        double[] at = scenario.playerPosition();
+                        float yaw = ctx.computeOnClient(mc -> mc.player.getYRot());
+                        double fx = -Math.sin(Math.toRadians(yaw));
+                        double fz = Math.cos(Math.toRadians(yaw));
+                        server.command(String.format(Locale.ROOT, "tp @e[tag=blinkst] %.3f %.3f %.3f", at[0] + 2 * fx,
+                                SURFACE_Y + 2.0, at[2] + 2 * fz));
+                        ctx.waitTicks(3);
+                        look(ctx, at[0] + 2 * fx, SURFACE_Y + 3.0, at[2] + 2 * fz);
+                        ctx.waitTicks(2);
+                    }
+                    if (around) {
                         ctx.runOnClient(mc -> hold.allow(3));
                     }
+                    if (act == SameTick.Act.TP) {
+                        server.command("execute as " + who + " at @s run tp @s ~ ~ ~");
+                    }
                     double[] shot = shootByPress(ctx, true);
+                    if (act == SameTick.Act.TP) {
+                        server.command("execute as " + who + " at @s run tp @s ~ ~ ~");
+                    }
                     ctx.waitTicks(10);
-                    ctx.runOnClient(mc -> mc.player.setYRot(mc.player.getYRot() + 180f));
+                    if (act == SameTick.Act.CLICK) {
+                        ctx.runOnClient(mc -> dev.testkit.compat.McCompat.setScreen(mc, null));
+                    }
+                    ctx.runOnClient(mc -> {
+                        mc.player.setYRot(mc.player.getYRot() + 180f);
+                        mc.player.setXRot(0f);
+                    });
                     double[] client = scenario.playerPosition();
                     double[] srv = serverPos(server, ctx, who);
                     rounds.append(String.format(Locale.ROOT, " [round %d: bank %d, shot %d tick(s) %.2f blocks; client %s server %s]",
                             round + 1, bank, (long) shot[2], shot[0], fmt(client), fmt(srv)));
-                    if (bank == 20 && shot[1] == 1 && shot[2] == 20 && shot[0] > 4.5 && flat(client, srv) < 0.5) {
+                    if (bank == 20 && shot[1] == 1 && shot[2] == 20 && shot[0] > (oneTick ? 9.6 : 4.5) && flat(client, srv) < 0.5) {
                         good++;
                     }
                 }
@@ -1292,6 +1544,12 @@ public class BlinkTests implements FabricClientGameTest {
                 chargeOff(ctx);
                 tearDown(ctx, gate);
                 server.command("clear @a minecraft:blaze_rod");
+                if (oneTick) {
+                    budgetHook(ctx, null);
+                    server.command("gamerule player_movement_check true");
+                    server.command("effect clear " + who);
+                }
+                server.command("kill @e[tag=blinkst]");
             }
             ctx.waitTicks(40);
         });
