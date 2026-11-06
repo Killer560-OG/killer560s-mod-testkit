@@ -39,6 +39,101 @@ final class HxChestBot1104Cases {
         s.test("1105-same-chestbot-use", c -> same(c, dev.testkit.gametest.SameTick.Act.USE));
         s.test("1105-same-chestbot-dig", c -> same(c, dev.testkit.gametest.SameTick.Act.DIG));
         s.test("1105-same-chestbot-swap", c -> same(c, dev.testkit.gametest.SameTick.Act.SWAP));
+        s.test("1105-chestbot-retry", HxChestBot1104Cases::retry);
+    }
+
+    /**
+     * 1105-chestbot-retry (chestretry-1105, killer560 2026-11-05: "it just tried clicking this chest but it didnt collect
+     * it. so noww it doenst have a waypoint and the triggerbot doesnt get it"). The bot's clicks on chest A reach the server
+     * and are ignored (a stone keeps it shut: no lid, no loot). He clicked chest B too, and B's loot block comes: it must
+     * not be pinned on A (the jar before took the chest clicked last), so A keeps its highlight and the bot keeps clicking
+     * it at its CPS; B goes when its block goes. A's own loot (only A clicked for 1.5 s) then ends A and the clicks stop.
+     * Last, "This chest has already been looted." after clicks on C alone ends C (the give-up).
+     */
+    private static void retry(Session c) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: Powder Chest Triggerbot is cheat-only");
+            return;
+        }
+        c.waitUntil("standing still", mc -> mc.player.onGround()
+                && mc.player.getDeltaMovement().horizontalDistanceSqr() < 1e-4, 200);
+        int[] f = feet(c);
+        int[] a = {f[0], f[1], f[2] + 2};
+        int[] b = {f[0] - 2, f[1], f[2] + 2};
+        int[] d = {f[0] + 2, f[1], f[2] + 2};
+        Object cfg = c.onClient(mc -> Mod.cfg(CFG));
+        boolean old = c.onClient(mc -> (Boolean) Mod.call(cfg, "isChestTriggerbotRaw"));
+        try (HxKit.Settings set = new HxKit.Settings(c)
+                .custom(() -> Mod.call(cfg, "setChestTriggerbot", true), () -> Mod.call(cfg, "setChestTriggerbot", old))
+                .with(CFG, "ChestTriggerbotSwap", false).with(CFG, "ChestTriggerbotMaxCps", 10).with(CFG, "ChestTriggerbotMinCps", 10)
+                .with(CFG, "ChestAlertSound", false).with(CFG, "ChestAlertTitle", false)) {
+            hollows(c);
+            for (int[] p : new int[][]{a, b, d}) {
+                setblock(c, p[0], p[1] + 1, p[2], "minecraft:stone"); // a vanilla chest under a solid block never opens
+            }
+            claim(c, a);
+            claim(c, b);
+            c.ctx().runOnClient(mc -> Mod.staticCall(BOT, "resetForTest"));
+            long since = c.hx().head();
+            aimUntilClicked(c, a, "A");
+            c.ctx().runOnClient(mc -> Mod.staticCall(TC, "useForTest", b[0], b[1], b[2])); // he clicked B as well
+            c.ctx().waitTicks(3); // the bot clicks A again (the chest clicked last)
+            lootBlock(c); // B's loot
+            c.ctx().waitTicks(10);
+            c.check(trackedAt(c, a), "A lost its highlight to another chest's loot (the server never answered A's click)");
+            c.check(trackedAt(c, b), "B went on a loot block two chests could own (its block is still there)");
+            setblock(c, b[0], b[1], b[2], "minecraft:air");
+            c.waitUntil("B gone with its block", mc -> !(Boolean) Mod.staticCall(TC, "tracked", b[0], b[1], b[2]), 40);
+            int n0 = clicks(c);
+            c.ctx().waitTicks(40);
+            int more = clicks(c) - n0;
+            int served = c.hx().events(since, "use_block").size();
+            c.note("A clicked " + more + " more time(s) in 40 ticks at 10 CPS, server use_block " + served);
+            c.check(more >= 15 && more <= 21, "the bot clicked A " + more + " time(s) in 40 ticks after the stray loot (want ~20)");
+            c.check(served >= 15, "the server saw " + served + " use_block (the clicks did not reach it)");
+            c.check(trackedAt(c, a), "A lost its highlight while uncollected");
+            lootBlock(c); // A's loot: only A clicked in the last 1.5 s
+            c.waitUntil("A collected by its loot", mc -> !(Boolean) Mod.staticCall(TC, "tracked", a[0], a[1], a[2]), 20);
+            int n1 = clicks(c);
+            c.ctx().waitTicks(10);
+            c.check(clicks(c) == n1, "the bot kept clicking the collected chest: " + (clicks(c) - n1));
+
+            claim(c, d);
+            aimUntilClicked(c, d, "C");
+            c.hx().chat("§cThis chest has already been looted.");
+            c.waitUntil("C ended by \"already looted\"", mc -> !(Boolean) Mod.staticCall(TC, "tracked", d[0], d[1], d[2]), 20);
+        } finally {
+            for (int[] p : new int[][]{a, b, d}) {
+                setblock(c, p[0], p[1] + 1, p[2], "minecraft:air");
+                setblock(c, p[0], p[1], p[2], "minecraft:air");
+            }
+            c.ctx().runOnClient(mc -> Mod.staticCall(CFG, "load"));
+            HxKit.hub(c);
+        }
+    }
+
+    private static void aimUntilClicked(Session c, int[] p, String name) {
+        int n = clicks(c);
+        for (int i = 0; i < 60 && clicks(c) == n; i++) {
+            look(c, p[0] + 0.5, p[1] + 0.4, p[2] + 0.05); // its north face
+            c.ctx().waitTicks(1);
+        }
+        c.check(clicks(c) > n, "chest " + name + " never clicked");
+    }
+
+    private static boolean trackedAt(Session c, int[] p) {
+        return c.onClient(mc -> (Boolean) Mod.staticCall(TC, "tracked", p[0], p[1], p[2]));
+    }
+
+    /** Hypixel's loot block (as 1103-powdergrind-loot sends it). */
+    private static void lootBlock(Session c) {
+        String sep = "§e§l" + "▬".repeat(64);
+        c.hx().chat(sep);
+        c.hx().chat("§6§l  CHEST LOCKPICKED ");
+        c.hx().chat("");
+        c.hx().chat("§a§l  REWARDS");
+        c.hx().chat("§d    Gemstone Powder §8x120");
+        c.hx().chat(sep);
     }
 
     /**
