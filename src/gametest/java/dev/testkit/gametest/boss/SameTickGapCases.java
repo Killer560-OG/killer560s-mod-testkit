@@ -118,7 +118,9 @@ final class SameTickGapCases {
             if (act == SameTick.Act.ATTACK) {
                 zombie(c, 105.5, 120, 93.5);
             }
-            st = SameTickCases.start(c, act, p -> p instanceof ServerboundUseItemOnPacket);
+            // His attack every third tick: each button behind him needs a free tick to turn and one to click, and TurnFirst
+            // gives the body back on his attack ticks (Hitboxes), so at every other tick no turned click ever goes.
+            st = c.onClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK ? 3 : 1, p -> p instanceof ServerboundUseItemOnPacket, 4, 5));
             try {
                 c.waitUntil("ss.completed (Hx) with Auto Solve playing", mc -> !c.events("ss.completed").isEmpty(), 1200);
             } finally {
@@ -218,7 +220,9 @@ final class SameTickGapCases {
             }
             c.note(what + ": " + (attackMode ? "attacks" : "uses") + " " + mine + ", server " + server + "; " + st.report());
             c.check(mine >= 10, what + ": only " + mine + " clicks in 60 ticks at 16 CPS");
-            c.check(server >= mine, what + ": the server saw " + server + " of " + mine + " clicks");
+            // Against the wire (ticks the bot's packet went out in): the client counter ran one ahead of it now and then.
+            c.check(server >= st.featureWindows(), what + ": the server saw " + server + " of the " + st.featureWindows()
+                    + " ticks with the bot's click on the wire (client count " + mine + ")");
             SameTickCases.judge(c, st, what);
             st = null;
         } finally {
