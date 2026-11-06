@@ -2553,7 +2553,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     /**
      * SAME-TICK GRIM CASES (grimgapB-1105): Secret Aura flips seven floor levers around him (three behind him, so the body
      * turns) while HIS OWN action goes into every client tick ({@link dev.testkit.gametest.SameTick}): a right click into
-     * the air with a stick (USE), his left click on a NoAI zombie in front of him every other tick (ATTACK), a swap between
+     * the air with a stick (USE), his left click on a NoAI zombie in front of him every third tick (ATTACK: a turned click needs a tick to turn and one to click between his hits, TurnFirst gives the body back on his), a swap between
      * the sticks in slots 7 and 8 (SWAP). Passes when the server powered the levers (the aura acted), his action and the
      * aura's use_item_on reached the wire, for ATTACK never in one server tick (ActionGate holds the aura for his click:
      * PacketOrderI), for USE / SWAP at least once in one, and GrimAC is silent.
@@ -2589,7 +2589,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         dev.testkit.gametest.SameTick st = null;
         try {
             dev.testkit.gametest.SameTick s1 = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act,
-                    act == dev.testkit.gametest.SameTick.Act.ATTACK ? 2 : 1,
+                    act == dev.testkit.gametest.SameTick.Act.ATTACK ? 3 : 1,
                     p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemOnPacket, 7, 8));
             st = s1;
             ctx.runOnClient(mc -> {

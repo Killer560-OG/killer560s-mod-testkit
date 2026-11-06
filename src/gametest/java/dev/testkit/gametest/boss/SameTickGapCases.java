@@ -98,6 +98,7 @@ final class SameTickGapCases {
             undo.add(c.onClient(mc -> Mod.with(cfg, "TriggerBotEnabled", false)));
             undo.add(c.onClient(mc -> Mod.with(cfg, "AutoSolveRotate", false)));
             undo.add(c.onClient(mc -> Mod.with(cfg, "AutoSolveEnabled", true)));
+            undo.add(c.onClient(mc -> Mod.with(cfg, "DiagnosticLoggingEnabled", true)));
             c.hx().call("boss.ss.build", "rounds", 4, "line", true, "seed", 31 + act.ordinal());
             c.hx().call("dungeon.tp", "x", 107.5, "y", 120.0, "z", 93.5, "yaw", -90f, "pitch", 0f);
             c.waitUntil("the client to have the device wall and start button", mc ->
@@ -212,7 +213,7 @@ final class SameTickGapCases {
             for (JsonObject e : c.hx().events(since, attackMode ? "attack_entity" : "use_item")) {
                 if (!attackMode || e.get("entityId").getAsInt() == wither[0]) server++;
             }
-            c.note(what + ": " + (attackMode ? "attacks" : "uses") + " " + mine + ", server " + server);
+            c.note(what + ": " + (attackMode ? "attacks" : "uses") + " " + mine + ", server " + server + "; " + st.report());
             c.check(mine >= 10, what + ": only " + mine + " clicks in 60 ticks at 16 CPS");
             c.check(server >= mine, what + ": the server saw " + server + " of " + mine + " clicks");
             SameTickCases.judge(c, st, what);

@@ -1388,7 +1388,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                     java.util.function.Predicate<net.minecraft.network.protocol.Packet<?>> feature = p ->
                             p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket a
                                     && picks.contains(a.getPos());
-                    SameTick st = ctx.computeOnClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK || act == SameTick.Act.DIG ? 2 : 1,
+                    SameTick st = ctx.computeOnClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK ? 3 : act == SameTick.Act.DIG ? 2 : 1,
                             feature, 0, 1));
                     boolean[] closed = {false};
                     try {
