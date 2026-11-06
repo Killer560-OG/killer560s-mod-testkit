@@ -99,6 +99,11 @@ final class HxChestBot1104Cases {
             int n1 = clicks(c);
             c.ctx().waitTicks(10);
             c.check(clicks(c) == n1, "the bot kept clicking the collected chest: " + (clicks(c) - n1));
+            // Hypixel takes a looted chest away. A test chest stays, and a late block resend made it a fresh unclaimed chest
+            // that took C's line (new-exp2, one run in two).
+            setblock(c, a[0], a[1], a[2], "minecraft:air");
+            c.waitUntil("A's block gone", mc -> mc.level.getBlockState(new net.minecraft.core.BlockPos(a[0], a[1], a[2])).isAir(), 40);
+            c.ctx().waitTicks(65); // out of the 3 s match window too
 
             claim(c, d);
             aimUntilClicked(c, d, "C");
