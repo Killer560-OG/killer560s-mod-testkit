@@ -405,6 +405,9 @@ final class HxPowderGrind1103Cases {
         on(c, s0, "DoublePowder");
         try (Settings set = s0.with(CFG, "DoublePowderSound", false)) {
             hollows(c);
+            // The tracker reads the tab every 10 ticks: wait until it has SEEN the widget, or "no widget" below passes before the first read and the
+            // late read of the first tab lands after the block (gem 0 on 26.2, 2026-11-05).
+            c.waitUntil("widget seen", mc -> (Boolean) Mod.staticCall(TR, "widgetShows", "Gemstone"), 60);
             powders(c); // no Powders widget: the loot lines are what counts (1104-powdertrk-tab covers the widget)
             c.waitUntil("no widget", mc -> !(Boolean) Mod.staticCall(TR, "widgetShows", "Gemstone"), 40);
             c.ctx().runOnClient(mc -> Mod.staticCall(TR, "reset"));
