@@ -115,8 +115,8 @@ final class HxSpotifyControlsCases {
      * truth.ps1 plays, pauses, seeks (forward and back) and skips the real Spotify app and records every reading Windows
      * gives; Spotify's position at a wall time is the latest reading before it run forward (within ~70 ms of the sound,
      * measured on the loopback). At every client tick the HUD's clock ({@code snapshot().elapsedSeconds(now)}) must be
-     * within 100 ms of that, except in the 600 ms after each action (the reading still on its way) and until the new
-     * track's title is known after a skip; each action's settle time is reported.
+     * within 100 ms of that, except in the 600 ms after each action (the reading still on its way; 1 s after a skip, whose
+     * sound starts ~130 ms after its first reading) and until the new track's title is known; each settle time is reported.
      */
     private static void realClock(Session c) throws Exception {
         Path script = null;
@@ -173,6 +173,7 @@ final class HxSpotifyControlsCases {
         int bad = 0;
         long worst = 0;
         StringBuilder worstAt = new StringBuilder();
+        StringBuilder badList = new StringBuilder();
         long[] settle = new long[actions.size()];
         java.util.Arrays.fill(settle, -1);
         for (int i = 0; i < frames.size(); i++) {
@@ -192,9 +193,12 @@ final class HxSpotifyControlsCases {
             long err = frames.get(i)[1] - truth;
             boolean titleKnown = !rt.isEmpty() && rt.equals(titles.get(i));
             if (Math.abs(err) <= 100 && titleKnown && settle[last] < 0) settle[last] = w - actions.get(last)[0];
-            if (w - actions.get(last)[0] < 600 || !titleKnown) continue;
+            // after a skip Spotify sends a second reading when the new track's sound starts (~130 ms after its first)
+            if (w - actions.get(last)[0] < (actionName.get(last).equals("next") ? 1000 : 600) || !titleKnown) continue;
             judged++;
-            if (Math.abs(err) > 100) bad++;
+            if (Math.abs(err) > 100 && bad++ < 60) {
+                badList.append(' ').append(actionName.get(last)).append('+').append(w - actions.get(last)[0]).append(':').append(err);
+            }
             if (Math.abs(err) > Math.abs(worst)) {
                 worst = err;
                 worstAt.setLength(0);
@@ -207,6 +211,7 @@ final class HxSpotifyControlsCases {
         }
         c.note(frames.size() + " frames, " + readings.size() + " readings; judged " + judged + ", over 100 ms off: " + bad
                 + "; worst " + worst + " ms (" + worstAt + "); settled within 100 ms after: " + settles);
+        c.note("over 100 ms (action+ms:error):" + badList);
         c.check(judged > 200, "too few frames judged (" + judged + "): did Spotify play?");
         c.check(bad == 0, bad + " of " + judged + " frames were over 100 ms off Spotify's position; worst " + worst + " ms (" + worstAt + ")");
         Files.deleteIfExists(out);
