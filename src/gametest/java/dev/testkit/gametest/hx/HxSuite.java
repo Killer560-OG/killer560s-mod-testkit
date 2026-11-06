@@ -169,6 +169,8 @@ public class HxSuite implements FabricClientGameTest {
                     // Dark Mode: world / HUD tint by framebuffer pixels, screens untouched, settings reload (1102-darkmode-*,
                     // mod branch darkmode-1102), own block.
                     HxDarkMode1102Cases.register(s);
+                    // Tab on top: the player list over every mod HUD, the shared Ability key tap/hold rule (1106-tabtop-*).
+                    HxTabTop1106Cases.register(s);
                     HxStutterCases.register(s);
                     HxBossHealthCases.register(s);
                     // 1103-kickrejoin-*: Kick Rejoin Timer (mod kickhub-1103).
