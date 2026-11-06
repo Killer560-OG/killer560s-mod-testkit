@@ -2052,7 +2052,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             check(landed != null, act + ": the chain did not reach its end (at " + relPos(ctx) + ")");
             check(acted >= pts.length - 1, act + ": only " + acted + " route etherwarps acted");
             check(st.done() > 0, act + ": his action never went in (nothing tested)");
-            check(st.both() > 0, act + ": no server tick carried a route warp and his packet (" + st.report() + ")");
+            if (act == dev.testkit.gametest.SameTick.Act.DIG) {
+                // Auto Routes takes his left click while it warps (held for the next await), so no dig may reach
+                // the wire mid-chain: none shares a tick with a warp.
+                check(st.playerWindows() == 0, act + ": his left click reached the wire mid-route (" + st.report() + ")");
+            } else {
+                check(st.both() > 0, act + ": no server tick carried a route warp and his packet (" + st.report() + ")");
+            }
             st = null;
         } finally {
             if (st != null) {
