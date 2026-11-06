@@ -212,7 +212,7 @@ final class HxSpotifyDocCases {
         });
     }
 
-    private static String botState(Session c, String botName, String accessor) {
+    static String botState(Session c, String botName, String accessor) {
         return c.onClient(mc -> {
             for (Player p : mc.level.players()) {
                 if (p.getGameProfile().name().equals(botName)) {
@@ -248,7 +248,7 @@ final class HxSpotifyDocCases {
         }
     }
 
-    private static UUID botUuid(Session c, String botName) {
+    static UUID botUuid(Session c, String botName) {
         return c.onClient(mc -> {
             for (Player p : mc.level.players()) {
                 if (p.getGameProfile().name().equals(botName)) {
@@ -288,7 +288,7 @@ final class HxSpotifyDocCases {
     }
 
     /** Supporter list: these uuids. */
-    private static void supporters(Session c, UUID... ids) {
+    static void supporters(Session c, UUID... ids) {
         StringBuilder b = new StringBuilder("[");
         for (int i = 0; i < ids.length; i++) {
             b.append(i == 0 ? "" : ",").append("{\"uuid\":\"").append(ids[i]).append("\",\"name\":\"\",\"scale\":1}");
@@ -766,6 +766,9 @@ final class HxSpotifyDocCases {
 
     private static void shareLyrics(Session c) throws Exception {
         c.check(has(c), "this jar has no lyric sharing");
+        // No relay room: a party left by an earlier case (578) made the relay retry, and each retry's disconnect resends
+        // the payload, which the "into alone" check below reads as a resend (passed alone, failed after 578; spotshare-1105).
+        noParty(c);
         long base = 1_900_000_000_000L;
         List<String> handed = new CopyOnWriteArrayList<>();
         BiPredicate<String, JsonElement> sink = (key, value) -> handed.add(key + " " + value);
@@ -774,7 +777,7 @@ final class HxSpotifyDocCases {
         List<Object> lines = c.onClient(mc -> List.of(line(0.0, "intro"),
                 line(4.0, "<00:04.00>alpha <00:04.50>beta <00:05.00>gamma"), line(8.0, "next line here"), line(600.0, "end")));
         Object snap = c.onClient(mc -> snapshot("TRACK", 0, base, lines));
-        try (Settings s = new Settings(c).with(TAGC, "ShareSong", true).with(MUC, "Share", true)
+        try (Settings s = noData(new Settings(c)).with("modchat.ModChatConfig", "Enabled", false).with(TAGC, "ShareSong", true).with(MUC, "Share", true)
                 .with(TAGC, "ShareWhat", Mod.enumValue(TAGC + "$ShareWhat", "BOTH")).with(TAGC, "ShareWord", true)) {
             supporters(c, self);
             freeze(c, base + 4_600);
@@ -955,14 +958,14 @@ final class HxSpotifyDocCases {
 
     /** Party data in a dungeon takes the party room before Song Tag; an earlier case (or the session's dungeon) can leave
      *  it on, so these cases turn it off: their premise is no dungeon data, no party. */
-    private static Settings noData(Settings s) {
+    static Settings noData(Settings s) {
         return s.with("interop.InteropConfig", "RelayData", false).with("partydata.PartyDataConfig", "ShareEnabled", false)
                 .with("melody.MelodyHudConfig", "ShareProgress", false);
     }
 
     /** His case is "no party": an earlier case may leave the session in its F7 dungeon, whose tab list keeps HxMateA and
      *  HxMateB in PartyTracker (so Party mode HAS a room); go to the hub and forget them. */
-    private static void noParty(Session c) {
+    static void noParty(Session c) {
         HxKit.hub(c);
         c.onClient(mc -> Mod.staticCall("leapmenu.PartyTracker", "clearParty"));
         c.check(c.onClient(mc -> ((List<?>) Mod.staticCall("leapmenu.PartyTracker", "teammates")).isEmpty()),
