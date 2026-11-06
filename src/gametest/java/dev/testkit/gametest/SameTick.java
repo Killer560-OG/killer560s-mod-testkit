@@ -34,13 +34,18 @@ import java.util.function.Predicate;
  *       vanilla's {@code gameMode.tick} (or the next action through the game mode) sends it next tick.</li>
  *   <li>{@link Act#CLICK}: a container click on an empty player slot of the open menu at END (a mouse click between
  *       ticks), so it lands in the next server tick ahead of the START actors.</li>
+ *   <li>{@link Act#TP}: nothing is put in; the case has the server teleport him, and his teleport accept (with its echo)
+ *       is the action (grimgapA-1105: a feature acting in the tick he answers a teleport).</li>
+ *   <li>{@link Act#KEYUSE}: a click of the use key at START, so vanilla's own {@code handleKeybinds} sends the right
+ *       click, after {@code gameMode.tick} has sent a pending hotbar change (USE goes before it, which no real click can).
+ *       His packets are the uses sent while slotA or slotB is held (grimgapA-1105).</li>
  * </ul>
  * Packets sent while the player's action runs (or, for SWAP / ATTACK / DIG, the packet vanilla sends for it next tick)
  * are his; a teleport accept is marked (T) and is neither. Everything else matching the case's predicate is the feature's.
  */
 public final class SameTick implements AutoCloseable {
 
-    public enum Act { USE, ATTACK, DIG, SWAP, CLICK, SCREEN_CLICK }
+    public enum Act { USE, ATTACK, DIG, SWAP, CLICK, SCREEN_CLICK, TP, KEYUSE }
 
     private static final Identifier LATE = Identifier.parse("testkit:sametick_late");
     private static boolean hooked;
@@ -55,6 +60,8 @@ public final class SameTick implements AutoCloseable {
 
     private boolean injecting;
     private int tick;
+    /** Injections still allowed; -1 (the default) is no limit. See {@link #allow}. */
+    private volatile int left = -1;
     private int done;
     private boolean movedSinceEnd;
     private boolean echoNext;
@@ -87,11 +94,11 @@ public final class SameTick implements AutoCloseable {
             ClientTickEvents.START_CLIENT_TICK.addPhaseOrdering(net.fabricmc.fabric.api.event.Event.DEFAULT_PHASE, LATE);
             ClientTickEvents.START_CLIENT_TICK.register(LATE, mc -> {
                 SameTick s = active;
-                if (s != null && s.act == Act.USE) s.inject(mc);
+                if (s != null && (s.act == Act.USE || s.act == Act.KEYUSE)) s.inject(mc);
             });
             ClientTickEvents.END_CLIENT_TICK.register(mc -> {
                 SameTick s = active;
-                if (s != null && s.act != Act.USE) s.inject(mc);
+                if (s != null && s.act != Act.USE && s.act != Act.KEYUSE) s.inject(mc);
             });
         }
         SameTick s = new SameTick(act, every, feature, slotA, slotB);
@@ -101,13 +108,19 @@ public final class SameTick implements AutoCloseable {
     }
 
     private void inject(Minecraft mc) {
-        if (mc.player == null || mc.gameMode == null || tick++ % every != 0) return;
+        if (act == Act.TP || mc.player == null || mc.gameMode == null || tick++ % every != 0) return;
+        if (left == 0) return;
+        if (left > 0) left--;
         injecting = true;
         try {
             switch (act) {
                 case USE -> {
                     // A stick's use passes, so vanilla sends the use_item and no swing.
                     mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
+                    done++;
+                }
+                case KEYUSE -> {
+                    net.minecraft.client.KeyMapping.click(mc.options.keyUse.getDefaultKey());
                     done++;
                 }
                 case ATTACK, DIG -> {
@@ -185,10 +198,14 @@ public final class SameTick implements AutoCloseable {
             // A held-item change inside his use / click is a slot someone set earlier (vanilla sends it first): his only
             // in SWAP, by its slot.
             boolean carried = p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
-            boolean mine = (injecting && !accept && !carried)
+            if (accept && act == Act.TP) done++;
+            boolean mine = (injecting && !accept && !carried) || (accept && act == Act.TP)
                     || (act == Act.SWAP && p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket h
                     && (h.getSlot() == slotA || h.getSlot() == slotB))
                     || (act == Act.ATTACK && "attack".equals(name))
+                    || (act == Act.KEYUSE && (p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
+                    || p instanceof net.minecraft.network.protocol.game.ServerboundUseItemOnPacket)
+                    && (heldSlot() == slotA || heldSlot() == slotB))
                     || (act == Act.DIG && p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket
                     && !feature.test(p));
             boolean feat = !mine && !accept && feature.test(p);
@@ -251,6 +268,34 @@ public final class SameTick implements AutoCloseable {
     /** How many times his action was put in. */
     public int done() {
         return done;
+    }
+
+    /**
+     * Null when the case really tested something, else why not. A left click (ATTACK / DIG) holds a world actor for the tick
+     * it is queued in (ActionGate), so both must have gone out but never in one server tick; any other act must share one.
+     */
+    public String verdict(String what) {
+        return verdict(what, act == Act.ATTACK || act == Act.DIG);
+    }
+
+    /** As {@link #verdict(String)}; {@code apart}: the feature must wait out his action (both out, never one tick). */
+    public String verdict(String what, boolean apart) {
+        if (done == 0) return what + ": his action never went in (nothing tested)";
+        if (apart) {
+            if (playerWindows() == 0 || featureWindows() == 0) return what + ": his click or the feature never went out (" + report() + ")";
+            return both() == 0 ? null : what + ": his click and the feature shared a server tick (" + report() + ")";
+        }
+        return both() > 0 ? null : what + ": no server tick carried both the feature's packet and his - nothing tested (" + report() + ")";
+    }
+
+    private static int heldSlot() {
+        Minecraft mc = Minecraft.getInstance();
+        return mc.player == null ? -1 : mc.player.getInventory().getSelectedSlot();
+    }
+
+    /** Only the next {@code n} injections go in (0: none until the next allow): his action around one moment. */
+    public void allow(int n) {
+        left = n;
     }
 
     /** One line for the case's note: counts and the first few shared ticks. */

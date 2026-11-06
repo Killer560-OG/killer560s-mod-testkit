@@ -62,7 +62,7 @@ public class BlinkTests implements FabricClientGameTest {
                 BlinkTests::chargeInPlace, BlinkTests::chargeLanding, BlinkTests::hud,
                 BlinkTests::holdRapid, BlinkTests::chargeRapid, BlinkTests::chargeArmedMenu,
                 BlinkTests::clicks, BlinkTests::chargeFar, BlinkTests::chargeLong, BlinkTests::shotLever,
-                BlinkTests::worldChange, BlinkTests::bow,
+                BlinkTests::worldChange, BlinkTests::bow, BlinkTests::chargeSameUse, BlinkTests::chargeSameSwap,
                 BlinkTests::sweepWalk, BlinkTests::sweepStill,
                 BlinkTests::sweepLatency)) {
             try {
@@ -1206,6 +1206,92 @@ public class BlinkTests implements FabricClientGameTest {
             } finally {
                 chargeOff(ctx);
                 tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    private static void chargeSameUse(ClientGameTestContext ctx) {
+        chargeSame(ctx, SameTick.Act.USE, -6400, -3400);
+    }
+
+    private static void chargeSameSwap(ClientGameTestContext ctx) {
+        chargeSame(ctx, SameTick.Act.SWAP, -6400, -3600);
+    }
+
+    /**
+     * 1105-blink-charge-same-&lt;use|swap&gt; (grimgapA-1105; the SAME-TICK GRIM CASES rule): three sprinting charge shots
+     * while HIS scroll between two rods goes into every client tick, or his right click (a blaze rod: use_item, no swing)
+     * into the shot's tick and the two after it ({@link SameTick}; a tick with a use is never banked, by design, so a use
+     * every tick leaves nothing to shoot). The shot's banked moves and the firing tick's own move are the feature's; a GrimAC tick must carry
+     * his packet with one of them, every shot must run its full 20 ticks with the server agreeing, and GrimAC says nothing.
+     */
+    private static void chargeSame(ClientGameTestContext ctx, SameTick.Act act, int x, int z) {
+        String name = "1105-blink-charge-same-" + act.name().toLowerCase(Locale.ROOT);
+        Scenario.run(ctx, name, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            SameTick[] st = {null};
+            try {
+                String who = playerName(ctx);
+                server.command("item replace entity @a hotbar.4 with minecraft:blaze_rod");
+                server.command("item replace entity @a hotbar.5 with minecraft:blaze_rod");
+                ctx.waitTicks(3);
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(4));
+                ctx.waitTicks(3);
+                chargeOn(ctx);
+                // The shot's moves, then the firing tick's own move (the first after the loop).
+                boolean[] justShot = {false};
+                st[0] = ctx.computeOnClient(mc -> SameTick.start(act, 1, p -> {
+                    if (!(p instanceof net.minecraft.network.protocol.game.ServerboundMovePlayerPacket)) {
+                        return false;
+                    }
+                    if (Boolean.TRUE.equals(Mod.staticCall(CHARGE, "inShotLoop"))) {
+                        justShot[0] = true;
+                        return true;
+                    }
+                    boolean f = justShot[0];
+                    justShot[0] = false;
+                    return f;
+                }, 4, 5));
+                SameTick hold = st[0];
+                boolean use = act == SameTick.Act.USE;
+                if (use) {
+                    ctx.runOnClient(mc -> hold.allow(0));
+                }
+                StringBuilder rounds = new StringBuilder();
+                int good = 0;
+                for (int round = 0; round < 3; round++) {
+                    ctx.waitTicks(40);
+                    long bank = cnum(ctx, "banked");
+                    if (use) {
+                        ctx.runOnClient(mc -> hold.allow(3));
+                    }
+                    double[] shot = shootByPress(ctx, true);
+                    ctx.waitTicks(10);
+                    ctx.runOnClient(mc -> mc.player.setYRot(mc.player.getYRot() + 180f));
+                    double[] client = scenario.playerPosition();
+                    double[] srv = serverPos(server, ctx, who);
+                    rounds.append(String.format(Locale.ROOT, " [round %d: bank %d, shot %d tick(s) %.2f blocks; client %s server %s]",
+                            round + 1, bank, (long) shot[2], shot[0], fmt(client), fmt(srv)));
+                    if (bank == 20 && shot[1] == 1 && shot[2] == 20 && shot[0] > 4.5 && flat(client, srv) < 0.5) {
+                        good++;
+                    }
+                }
+                SameTick done = st[0];
+                ctx.runOnClient(mc -> done.close());
+                st[0] = null;
+                scenario.log(name + ":" + rounds + "; " + done.report());
+                check(good == 3, good + " of 3 charge shots ran 20 ticks with the server agreeing:" + rounds);
+                String why = done.verdict("charge shot");
+                check(why == null, why);
+            } finally {
+                if (st[0] != null) {
+                    SameTick open = st[0];
+                    ctx.runOnClient(mc -> open.close());
+                }
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+                server.command("clear @a minecraft:blaze_rod");
             }
             ctx.waitTicks(40);
         });

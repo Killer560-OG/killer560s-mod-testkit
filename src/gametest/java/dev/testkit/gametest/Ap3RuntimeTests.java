@@ -144,6 +144,8 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             Ap3BlinkCombo1027Cases.register(s);
             // mod ap3-stop-1101: a Term Aura stops him like a Stop; a Stop / Term Aura fires once per entry.
             Ap3Stop1101Cases.register(s);
+            // grimgapA-1105: his own use / swap / teleport answer / left click in the tick a node acts.
+            Ap3SameTick1105Cases.register(s);
             // mod ap3-blink-1026: the Blink Charge and Blink Release nodes. Registered last: 1026-ap3-blink-leap keeps the
             // bank through a leap (killer560 2026-10-27) and GrimAC's BadPacketsN from it lands on the next case's lane
             // teleport, so the Blink cases run right before 63-ap3-corrections (blinkmerge-1027).
