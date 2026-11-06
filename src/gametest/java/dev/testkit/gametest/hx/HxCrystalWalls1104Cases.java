@@ -34,6 +34,7 @@ final class HxCrystalWalls1104Cases {
         s.test("1104-chwalls-edges", HxCrystalWalls1104Cases::edges);
         s.test("1104-chwalls-pixels", HxCrystalWalls1104Cases::pixels);
         s.test("1104-chwalls-nucleus", HxCrystalWalls1104Cases::nucleus);
+        s.test("1106-chwalls-mapcolor", HxCrystalWalls1104Cases::mapColor);
     }
 
     /**
@@ -248,14 +249,14 @@ final class HxCrystalWalls1104Cases {
             at(c, 205, 100, 300, 90f);
             c.waitUntil("the wall drawn", mc -> !drawn(c).isEmpty(), 100);
             c.ctx().waitTicks(5);
-            int in = greenAtCenter(c, "chwalls-hollows");
+            int in = purpleAtCenter(c, "chwalls-hollows");
             hub(c);
             at(c, 205, 100, 300, 90f);
             c.ctx().waitTicks(10);
-            int out = greenAtCenter(c, "chwalls-hub");
-            c.check(in >= 80, "the center pixel is not wall green in the Hollows (greenness " + in + ")");
-            c.check(out < 40, "the center pixel is green in the hub (greenness " + out + ")");
-            c.note("center greenness " + in + " in the Hollows (wall 3 blocks ahead), " + out + " in the hub");
+            int out = purpleAtCenter(c, "chwalls-hub");
+            c.check(in >= 40, "the center pixel is not wall purple in the Hollows (purpleness " + in + ")");
+            c.check(out < 40, "the center pixel is purple in the hub (purpleness " + out + ")");
+            c.note("center purpleness " + in + " in the Hollows (wall 3 blocks ahead), " + out + " in the hub");
         } finally {
             c.ctx().runOnClient(mc -> {
                 Mod.call(cfg, "setChWalls", old);
@@ -266,8 +267,82 @@ final class HxCrystalWalls1104Cases {
         }
     }
 
-    /** Greenness (G minus the larger of R and B), averaged over a 9x9 patch at the center of a screenshot. */
-    private static int greenAtCenter(Session c, String name) {
+    private static final String MAP = "mining.chmap.ChMapRenderer";
+
+    /**
+     * chwallcolor-1106 (owner: "the area wall looking into jungle is blue ... jungle should be purple themed"): every drawn wall's
+     * rgb equals the map's quadrant color for its zone (Nucleus: its own, the map draws none), by default (Jungle is purple) and
+     * after Jungle is given a custom color.
+     */
+    private static void mapColor(Session c) {
+        Object cfg = c.onClient(mc -> Mod.cfg(CFG));
+        boolean old = c.onClient(mc -> (Boolean) Mod.call(cfg, "isChWallsRaw"));
+        String[] names = {"JUNGLE", "MITHRIL", "GOBLIN", "PRECURSOR"};
+        Object[] zones = c.onClient(mc -> {
+            Object[] z = new Object[names.length];
+            for (int i = 0; i < z.length; i++) {
+                z[i] = Mod.enumValue(ZONE, names[i]);
+            }
+            return z;
+        });
+        int[] nears = new int[zones.length];
+        for (int i = 0; i < zones.length; i++) {
+            final int k = i;
+            nears[i] = c.onClient(mc -> ((Number) Mod.call(cfg, "getChWallNear", zones[k])).intValue());
+        }
+        int oldJungle = c.onClient(mc -> ((Number) Mod.call(cfg, "getChWallColor", zones[0])).intValue());
+        try {
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfg, "setChWalls", true);
+                for (Object z : zones) {
+                    Mod.call(cfg, "setChWallNear", z, 0);
+                }
+            });
+            hollows(c);
+            c.server().command("gamemode creative @p");
+            at(c, 300, 100, 300, 90f);
+            c.waitUntil("walls drawn", mc -> !drawn(c).isEmpty(), 100);
+            for (int pass = 0; pass < 2; pass++) {
+                if (pass == 1) {
+                    c.ctx().runOnClient(mc -> Mod.call(cfg, "setChWallColor", zones[0], 0x123456));
+                    c.ctx().waitTicks(5);
+                }
+                List<String> lines = drawn(c);
+                for (int i = 0; i < zones.length; i++) {
+                    final int k = i;
+                    int fill = c.onClient(mc -> ((Number) Mod.staticCall(MAP, "zoneFill", k)).intValue());
+                    int cfgColor = c.onClient(mc -> ((Number) Mod.call(cfg, "getChWallColor", zones[k])).intValue());
+                    c.check((fill & 0xFFFFFF) == cfgColor, names[i] + " map fill " + Integer.toHexString(fill) + " is not the wall color " + Integer.toHexString(cfgColor));
+                    int seen = 0;
+                    for (String l : lines) {
+                        if (l.startsWith(names[i] + " ")) {
+                            double[] r = row(l);
+                            int rgb = ((int) Math.round(r[6] * 255) << 16) | ((int) Math.round(r[7] * 255) << 8) | (int) Math.round(r[8] * 255);
+                            c.check(rgb == (fill & 0xFFFFFF), names[i] + " wall drawn " + Integer.toHexString(rgb) + " but the map shows " + Integer.toHexString(fill & 0xFFFFFF));
+                            seen++;
+                        }
+                    }
+                    c.check(seen > 0, names[i] + " drew no wall (pass " + pass + ")");
+                }
+                if (pass == 0) {
+                    int jf = c.onClient(mc -> ((Number) Mod.staticCall(MAP, "zoneFill", 0)).intValue());
+                    c.check((jf & 0xFFFFFF) == 0xC050FF, "Jungle default is not purple: " + Integer.toHexString(jf));
+                }
+            }
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfg, "setChWalls", old);
+                Mod.call(cfg, "setChWallColor", zones[0], oldJungle);
+                for (int i = 0; i < zones.length; i++) {
+                    Mod.call(cfg, "setChWallNear", zones[i], nears[i]);
+                }
+            });
+            hub(c);
+        }
+    }
+
+    /** Purpleness (the mean of R and B minus G), averaged over a 9x9 patch at the center of a screenshot. */
+    private static int purpleAtCenter(Session c, String name) {
         try {
             java.nio.file.Path shot = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(name));
             dev.testkit.harness.Report.screenshot(c.name(), shot);
@@ -276,7 +351,7 @@ final class HxCrystalWalls1104Cases {
             for (int dy = -4; dy <= 4; dy++) {
                 for (int dx = -4; dx <= 4; dx++) {
                     int a = img.getRGB(cx + dx, cy + dy);
-                    sum += ((a >> 8) & 255) - Math.max((a >> 16) & 255, a & 255);
+                    sum += (((a >> 16) & 255) + (a & 255)) / 2 - ((a >> 8) & 255);
                     n++;
                 }
             }
