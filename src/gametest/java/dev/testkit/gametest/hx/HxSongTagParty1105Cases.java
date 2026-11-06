@@ -113,7 +113,7 @@ final class HxSongTagParty1105Cases {
             BufferedImage songOnly = HxCosmeticNameCases.shot(c, "lobby-party-song-only");
             String song = HxSpotifyDocCases.botState(c, otherName, "killer560smod$songTag");
             c.note("after the lobby song: last reject '" + c.onClient(mc -> Mod.field(RS, "lastReject")) + "', lobby mod users "
-                    + c.onClient(mc -> String.valueOf(Mod.field("relay.RelayTap", "MODS"))) + ", tap connected "
+                    + c.onClient(mc -> String.valueOf(Mod.field("relay.RelayTap", "online"))) + ", tap connected "
                     + c.onClient(mc -> Mod.staticCall("relay.RelayTap", "isConnected")));
             c.check("♪ Tune - Band".equals(song), "the unpartied player's song drew no line: " + song);
             c.ctx().waitTicks(12);
