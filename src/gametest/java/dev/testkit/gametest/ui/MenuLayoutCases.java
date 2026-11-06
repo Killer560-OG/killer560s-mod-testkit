@@ -78,6 +78,8 @@ final class MenuLayoutCases {
             "gui.tab.MetalDetectorTab", "gui.tab.WormAlertTab", "gui.tab.LobbyTrackerTab", "gui.tab.NucleusRunProfitTab",
             "gui.tab.MiningEventsTab", "gui.tab.MiningProfitTab", "gui.tab.SkyMallDisplayTab",
             "gui.tab.GhostEspTab",
+            // Discord Link (mod discordlink-1105, killer560 2026-11-05): its own Home card, legit in both builds.
+            "gui.tab.DiscordLinkTab",
             // Hide Potion Effects (mod effects-search-1102, killer560 2026-11-02): its own Items card again, legit in both builds.
             "gui.tab.HidePotionEffectsTab",
 
