@@ -457,12 +457,27 @@ final class HxCrystalWalls1104Cases {
                     c.check((jf & 0xFFFFFF) == 0xC050FF, "Jungle default is not purple: " + Integer.toHexString(jf));
                 }
             }
+            // a saved OLD default (green 0x55FF55) moves to the new purple on load; a picked color stays
+            c.ctx().runOnClient(mc -> {
+                Mod.call(Mod.cfg(CFG), "setChWallColor", zones[0], 0x55FF55);
+                Mod.call(Mod.cfg(CFG), "save");
+                Mod.staticCall("miningqol.MiningQolConfig", "load");
+            });
+            int moved = c.onClient(mc -> ((Number) Mod.call(Mod.cfg(CFG), "getChWallColor", zones[0])).intValue());
+            c.check(moved == 0xC050FF, "a saved old green Jungle default did not move to purple: " + Integer.toHexString(moved));
+            c.ctx().runOnClient(mc -> {
+                Mod.call(Mod.cfg(CFG), "setChWallColor", zones[0], 0x123456);
+                Mod.call(Mod.cfg(CFG), "save");
+                Mod.staticCall("miningqol.MiningQolConfig", "load");
+            });
+            int kept = c.onClient(mc -> ((Number) Mod.call(Mod.cfg(CFG), "getChWallColor", zones[0])).intValue());
+            c.check(kept == 0x123456, "a picked Jungle color was changed on load: " + Integer.toHexString(kept));
         } finally {
             c.ctx().runOnClient(mc -> {
-                Mod.call(cfg, "setChWalls", old);
-                Mod.call(cfg, "setChWallColor", zones[0], oldJungle);
+                Mod.call(Mod.cfg(CFG), "setChWalls", old);
+                Mod.call(Mod.cfg(CFG), "setChWallColor", zones[0], oldJungle);
                 for (int i = 0; i < zones.length; i++) {
-                    Mod.call(cfg, "setChWallNear", zones[i], nears[i]);
+                    Mod.call(Mod.cfg(CFG), "setChWallNear", zones[i], nears[i]);
                 }
             });
             hub(c);
