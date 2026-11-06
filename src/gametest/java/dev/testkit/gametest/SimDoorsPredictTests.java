@@ -187,28 +187,40 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
         });
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
                 new Object[]{"gametest"}));
-        long before = Scenario.simBuildCount(ctx);
-        ctx.runOnClient(mc -> mc.execute(() -> {
-            Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
-            ModUnderTest.staticCall(FLOOR_GEN, "generate",
-                    new Class<?>[]{Minecraft.class, floor.getClass(), int.class, int.class},
-                    new Object[]{mc, floor, 3, 4});
-        }));
-        Scenario.awaitSimBuild(ctx, before);
-        ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
-        ctx.waitFor(mc -> mc.player.onGround() && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir(), 2400);
-        ctx.waitTicks(40);
-        ctx.runOnClient(mc -> {
-            var server = mc.getSingleplayerServer();
-            server.execute(() -> server.getCommands().performPrefixedCommand(
-                    server.createCommandSourceStack().withSuppressedOutput(), "time set noon"));
-        });
-        Floor f = ctx.computeOnClient(SimDoorsPredictTests::readFloor);
-        println("floor: " + f);
-        if (f.problem != null) {
-            row(R_BEFORE, false, "premise: " + f.problem);
+        Floor last = null;
+        // 1726/1728 need a floor with enough open doorways into rooms nobody has seen (2026-11-05: a floor with two gave one
+        // room, "1 named right"): regenerate until the floor has them.
+        for (int attempt = 1; attempt <= MAX_FLOORS; attempt++) {
+            long before = Scenario.simBuildCount(ctx);
+            ctx.runOnClient(mc -> mc.execute(() -> {
+                Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
+                ModUnderTest.staticCall(FLOOR_GEN, "generate",
+                        new Class<?>[]{Minecraft.class, floor.getClass(), int.class, int.class},
+                        new Object[]{mc, floor, 3, 4});
+            }));
+            Scenario.awaitSimBuild(ctx, before);
+            ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
+            ctx.waitFor(mc -> mc.player.onGround() && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir(), 2400);
+            ctx.waitTicks(40);
+            ctx.runOnClient(mc -> {
+                var server = mc.getSingleplayerServer();
+                server.execute(() -> server.getCommands().performPrefixedCommand(
+                        server.createCommandSourceStack().withSuppressedOutput(), "time set noon"));
+            });
+            last = ctx.computeOnClient(SimDoorsPredictTests::readFloor);
+            Floor g = last;
+            int rooms = last.problem != null ? 0 : ctx.computeOnClient(mc -> disjointTries(mc, g));
+            println("floor " + attempt + ": " + last + "; " + rooms + " usable doorway(s) into rooms to look at (need " + NEED_TRIES + ")");
+            if (last.problem == null && rooms >= NEED_TRIES) {
+                break;
+            }
+            last.problem = last.problem != null ? last.problem : "only " + rooms + " usable doorway(s) into rooms to look at (need " + NEED_TRIES + ")";
+        }
+        if (last.problem != null) {
+            row(R_BEFORE, false, "premise: " + last.problem + " after " + MAX_FLOORS + " floor(s)");
             return;
         }
+        final Floor f = last;
         creativeFlying(ctx);
 
         // Each part on its own, so a jar without one of these features (main, for the old-vs-new run) fails that
@@ -491,6 +503,44 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
 
     // ---- 1726-1729 -------------------------------------------------------------------------------------------------
 
+    private static final int MAX_FLOORS = 8;
+    /** One doorway is kept for 1729, two or more are looked through for 1726/1728, one spare for a door an earlier part closed. */
+    private static final int NEED_TRIES = 4;
+
+    /** Open doorways (nothing in them) from one room into another that is neither the Entrance nor Blood, shuffled by a fixed seed. */
+    private static List<int[]> predictTries(Minecraft mc, Floor f) {
+        List<int[]> tries = new ArrayList<>();
+        for (Map.Entry<Integer, int[]> e : f.doorRooms.entrySet()) {
+            int d = e.getKey();
+            if (!mc.level.getBlockState(f.doorBlock(d)).isAir() || !mc.level.getBlockState(f.doorBlock(d).above()).isAir()) {
+                continue;
+            }
+            int a = e.getValue()[0];
+            int b = e.getValue()[1];
+            for (int[] ab : new int[][]{{a, b}, {b, a}}) {
+                if (ab[1] != f.entrance && ab[1] != f.blood && ab[0] != f.blood) {
+                    tries.add(new int[]{d, ab[0], ab[1]});
+                }
+            }
+        }
+        java.util.Collections.shuffle(tries, new java.util.Random(1720));
+        return tries;
+    }
+
+    /** How many of those doorways predict() can use: each room only once, as it picks them. */
+    private static int disjointTries(Minecraft mc, Floor f) {
+        Set<Integer> used = new HashSet<>();
+        int n = 0;
+        for (int[] t : predictTries(mc, f)) {
+            if (!used.contains(t[1]) && !used.contains(t[2])) {
+                used.add(t[1]);
+                used.add(t[2]);
+                n++;
+            }
+        }
+        return n;
+    }
+
     private void predict(ClientGameTestContext ctx, Floor f) {
         Report.caseStarted(R_NAMED);
         ctx.runOnClient(mc -> opt(HELD, "resetSimVisits", null));
@@ -503,19 +553,7 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
             setVerifyClip(true);
             return (long[]) ModUnderTest.staticCall(PREDICTOR, "clipVerifyCounts");
         });
-        // Doorways from one room into another that is neither the Entrance nor Blood, with nothing in the doorway.
-        List<int[]> tries = new ArrayList<>();
-        for (Map.Entry<Integer, int[]> e : f.doorRooms.entrySet()) {
-            int d = e.getKey();
-            int a = e.getValue()[0];
-            int b = e.getValue()[1];
-            for (int[] ab : new int[][]{{a, b}, {b, a}}) {
-                if (ab[1] != f.entrance && ab[1] != f.blood && ab[0] != f.blood) {
-                    tries.add(new int[]{d, ab[0], ab[1]});
-                }
-            }
-        }
-        java.util.Collections.shuffle(tries, new java.util.Random(1720));
+        List<int[]> tries = ctx.computeOnClient(mc -> predictTries(mc, f));
         List<String> wrong = new ArrayList<>();
         List<String> right = new ArrayList<>();
         List<String> partial = new ArrayList<>();
@@ -529,11 +567,6 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
             int from = t[1];
             int into = t[2];
             if (usedTargets.contains(into) || usedTargets.contains(from)) {
-                continue;
-            }
-            boolean open = ctx.computeOnClient(mc -> mc.level.getBlockState(f.doorBlock(d)).isAir()
-                    && mc.level.getBlockState(f.doorBlock(d).above()).isAir());
-            if (!open) {
                 continue;
             }
             if (hiddenDoor < 0) {
@@ -579,6 +612,10 @@ public class SimDoorsPredictTests implements FabricClientGameTest {
             }
         }
         shot(ctx, "predict-last-view");
+        if (tried.size() < 2 || hiddenDoor < 0) {
+            throw new AssertionError("1726/1728 tested too few rooms: " + tried.size() + " tried (need 2), hidden-block door "
+                    + (hiddenDoor < 0 ? "missing" : "found") + "; " + tries.size() + " open doorway(s) at the start");
+        }
         int obs = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(PREDICTOR, "observationCount"));
         String status = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(PREDICTOR, "status"));
         String detail = obs + " block(s) seen, status '" + status + "'; tried " + tried + "; wrong " + wrong;
