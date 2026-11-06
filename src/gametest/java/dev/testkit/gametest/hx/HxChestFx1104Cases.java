@@ -211,8 +211,8 @@ final class HxChestFx1104Cases {
             c.ctx().waitTicks(2);
             sees(c, "the fourth chest took the pending line", 4);
             put(c, false, ps[1]);
-            c.ctx().waitTicks(16);
-            c.check(!tracked(c, ps[1][0], ps[1][1], ps[1][2]), "a chest that stayed gone kept its highlight");
+            // the grace counts server-clock ticks, which lag the client under load (ship10u: 26.2 failed once at 16 client ticks)
+            c.waitUntil("a chest that stayed gone to lose its highlight", mc -> !tracked(c, ps[1][0], ps[1][1], ps[1][2]), 100);
             sees(c, "one really gone", 3);
         } finally {
             put(c, false, ps);
