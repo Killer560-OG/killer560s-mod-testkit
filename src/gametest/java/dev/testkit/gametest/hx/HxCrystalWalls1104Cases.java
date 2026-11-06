@@ -173,19 +173,24 @@ final class HxCrystalWalls1104Cases {
         Object mithril = c.onClient(mc -> Mod.enumValue(ZONE, "MITHRIL"));
         int oj = c.onClient(mc -> ((Number) Mod.call(cfg, "getChWallOpacity", jungle)).intValue());
         int om = c.onClient(mc -> ((Number) Mod.call(cfg, "getChWallOpacity", mithril)).intValue());
+        int cm = c.onClient(mc -> ((Number) Mod.call(cfg, "getChWallColor", mithril)).intValue());
         try {
             c.ctx().runOnClient(mc -> {
                 Mod.call(cfg, "setChWalls", true);
                 Mod.call(cfg, "setChWallOpacity", jungle, 50);
-                Mod.call(cfg, "setChWallOpacity", mithril, 50);
+                // Solid black right behind the Jungle wall: the old jar blended it through, so the Jungle wall read darker.
+                Mod.call(cfg, "setChWallOpacity", mithril, 100);
+                Mod.call(cfg, "setChWallColor", mithril, 0x000000);
             });
             hollows(c);
             c.server().command("gamemode creative @p");
             at(c, 214, 100, 300, 90f);
+            clearSight(c, 214, 300, -1);
             c.waitUntil("the X 202 wall drawn", mc -> find(drawn(c), "JUNGLE", r -> Math.abs(r[0] - 202.0) < 1e-6) != null, 100);
-            c.ctx().waitTicks(5);
+            c.ctx().waitTicks(60);
             int[] alone = patchAtCenter(c, "chwalls-alone");
             at(c, 501, 100, 300, -90f);
+            clearSight(c, 501, 300, 1);
             c.waitUntil("both walls of the 513 line drawn", mc -> find(drawn(c), "MITHRIL", r -> Math.abs(r[0] - 513.0) < 1e-6) != null
                     && find(drawn(c), "JUNGLE", r -> Math.abs(r[3] - 513.0) < 1e-6) != null, 100);
             c.ctx().waitTicks(80);
@@ -196,12 +201,15 @@ final class HxCrystalWalls1104Cases {
             }
             c.note("Jungle wall rgb alone " + java.util.Arrays.toString(alone) + ", in front of Mithril " + java.util.Arrays.toString(front));
             c.check(worst <= 14, "the Jungle wall looks different in front of another wall (worst channel gap " + worst + ")");
+            int darker = alone[0] + alone[1] + alone[2] - front[0] - front[1] - front[2];
+            c.check(darker <= 15, "a solid wall behind darkened the Jungle wall in front by " + darker + " (old jar: 35, nearest layer: -9)");
             c.check(alone[1] - Math.max(alone[0], alone[2]) >= 10, "the lone wall is not visibly green: " + java.util.Arrays.toString(alone));
         } finally {
             c.ctx().runOnClient(mc -> {
                 Mod.call(cfg, "setChWalls", old);
                 Mod.call(cfg, "setChWallOpacity", jungle, oj);
                 Mod.call(cfg, "setChWallOpacity", mithril, om);
+                Mod.call(cfg, "setChWallColor", mithril, cm);
             });
             // Back to survival: a later case digging in creative breaks at once (1103-mining-hold-* after this, ship7 gate).
             c.server().command("gamemode survival @p");
@@ -229,6 +237,18 @@ final class HxCrystalWalls1104Cases {
         } catch (java.io.IOException e) {
             throw new AssertionError("screenshot unreadable", e);
         }
+    }
+
+    /**
+     * Air along the line of sight, 5 x 5 and 100 blocks long: the test world is random, and a hill in front of the camera is
+     * the plain gray frame ([102,101,101], about 1 run in 4) the walls were measured against.
+     */
+    private static void clearSight(Session c, int x, int z, int dir) {
+        int far = x + dir * 100;
+        c.server().command(String.format(Locale.ROOT, "forceload add %d %d %d %d", x, z - 2, far, z + 2));
+        c.ctx().waitTicks(20);
+        c.server().command(String.format(Locale.ROOT, "fill %d 98 %d %d 102 %d minecraft:air", x + dir * 2, z - 2, far, z + 2));
+        c.ctx().waitTicks(20);
     }
 
     private static void hollows(Session c) {
