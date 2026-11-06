@@ -174,7 +174,7 @@ public final class SameTick implements AutoCloseable {
                     || (act == Act.SWAP && p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket h
                     && (h.getSlot() == slotA || h.getSlot() == slotB))
                     || (act == Act.ATTACK && "attack".equals(name) && !feature.test(p))
-                    || (act == Act.USE_KEY && (p instanceof ServerboundUseItemPacket
+                    || (act == Act.USE_KEY && (p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
                     || p instanceof net.minecraft.network.protocol.game.ServerboundUseItemOnPacket
                     || p instanceof net.minecraft.network.protocol.game.ServerboundInteractPacket) && !feature.test(p))
                     || ((act == Act.DIG || act == Act.DIG_HELD) && p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket
