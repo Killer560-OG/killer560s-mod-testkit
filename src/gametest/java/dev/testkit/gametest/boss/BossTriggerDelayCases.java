@@ -156,7 +156,7 @@ final class BossTriggerDelayCases {
         try (HxKit.Settings off = gateOff(c);
              HxKit.Settings on = new HxKit.Settings(c).with(cfg, "SolverEnabled", true)
                      .with(cfg, "AutoRestartEnabled", false).with(cfg, "AutoSolveEnabled", false)
-                     .with(cfg, "TriggerBotEnabled", true).with(cfg, "TriggerBotDelayMs", 0)) {
+                     .with(cfg, "AutoSimonSaysEnabled", true).with(cfg, "TriggerBotEnabled", true).with(cfg, "TriggerBotDelayMs", 0)) {
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
             c.waitUntil("DungeonState F7", mc -> "F7".equals(Mod.staticCall("secrets.DungeonState", "getFloor")), 100);
             for (int i = 0; i < 2; i++) {

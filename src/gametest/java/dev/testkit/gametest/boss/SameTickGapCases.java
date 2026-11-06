@@ -97,6 +97,7 @@ final class SameTickGapCases {
             undo.add(c.onClient(mc -> Mod.with(cfg, "AutoStartEnabled", false)));
             undo.add(c.onClient(mc -> Mod.with(cfg, "TriggerBotEnabled", false)));
             undo.add(c.onClient(mc -> Mod.with(cfg, "AutoSolveRotate", false)));
+            undo.add(c.onClient(mc -> Mod.with(cfg, "AutoSimonSaysEnabled", true))); // the master switch (1a4e48f60)
             undo.add(c.onClient(mc -> Mod.with(cfg, "AutoSolveEnabled", true)));
             undo.add(c.onClient(mc -> Mod.with(cfg, "DiagnosticLoggingEnabled", true)));
             c.hx().call("boss.ss.build", "rounds", 4, "line", true, "seed", 31 + act.ordinal());
@@ -133,6 +134,9 @@ final class SameTickGapCases {
             st = null;
         } finally {
             stop(c, st);
+            // Home before the floor under him goes: clearing first dropped him a tick (GroundSpoof + Simulation).
+            GrimTickCases.home(c);
+            c.server().sync(5);
             c.hx().call("boss.ss.clear");
             c.onClient(mc -> {
                 BossAuraTurnCases.restore(undo);
@@ -140,7 +144,6 @@ final class SameTickGapCases {
             });
             c.server().command("kill @e[tag=sametick]");
             c.server().command("clear @a stick");
-            GrimTickCases.home(c);
         }
     }
 
@@ -226,10 +229,12 @@ final class SameTickGapCases {
             });
             c.server().command("kill @e[tag=pnggoldor]");
             c.server().command("kill @e[tag=sametick]");
+            // Home before the floor under him goes: clearing first dropped him a tick (GroundSpoof + Simulation).
+            GrimTickCases.home(c);
+            c.server().sync(5);
             c.server().command("fill 34 148 42 46 154 56 air");
             c.server().command("forceload remove 34 42 46 56");
             c.server().command("clear @a");
-            GrimTickCases.home(c);
         }
     }
 
@@ -306,10 +311,12 @@ final class SameTickGapCases {
             });
             c.server().command("kill @e[tag=pngthorn]");
             c.server().command("kill @e[tag=sametick]");
+            // Home before the floor under him goes: clearing first dropped him a tick (GroundSpoof + Simulation).
+            GrimTickCases.home(c);
+            c.server().sync(5);
             c.server().command("fill 34 167 42 46 169 56 air");
             c.server().command("forceload remove 34 42 46 76");
             c.server().command("clear @a");
-            GrimTickCases.home(c);
         }
     }
 }

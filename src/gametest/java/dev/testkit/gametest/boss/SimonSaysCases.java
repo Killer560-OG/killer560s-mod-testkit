@@ -64,6 +64,7 @@ final class SimonSaysCases {
                 }
             });
             undo.add(c.onClient(mc -> Mod.with(CONFIG, "SolverEnabled", true)));
+            undo.add(c.onClient(mc -> Mod.with(CONFIG, "AutoSimonSaysEnabled", true))); // the master switch (1a4e48f60)
             undo.add(c.onClient(mc -> Mod.with(CONFIG, "AutoRestartEnabled", true)));
             undo.add(c.onClient(mc -> Mod.with(CONFIG, "AnnounceProgress", true)));
             boolean restartOn = c.onClient(mc -> (Boolean) Mod.get(CONFIG, "isAutoRestartEnabled"));

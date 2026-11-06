@@ -103,7 +103,7 @@ final class GrimTickCases {
              HxKit.Settings on = new HxKit.Settings(c).with(SS_CFG, "SolverEnabled", true)
                      .with(SS_CFG, "AutoRestartEnabled", false).with(SS_CFG, "AutoStartEnabled", false)
                      .with(SS_CFG, "TriggerBotEnabled", false).with(SS_CFG, "AutoSolveRotate", true)
-                     .with(SS_CFG, "AutoSolveEnabled", false)) {
+                     .with(SS_CFG, "AutoSimonSaysEnabled", true).with(SS_CFG, "AutoSolveEnabled", false)) {
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
             c.waitUntil("DungeonState F7", mc -> "F7".equals(Mod.staticCall("secrets.DungeonState", "getFloor")), 100);
             c.onClient(mc -> {
