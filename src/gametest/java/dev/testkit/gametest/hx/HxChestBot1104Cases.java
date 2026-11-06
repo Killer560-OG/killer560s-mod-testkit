@@ -66,7 +66,8 @@ final class HxChestBot1104Cases {
         try (HxKit.Settings set = new HxKit.Settings(c)
                 .custom(() -> Mod.call(cfg, "setChestTriggerbot", true), () -> Mod.call(cfg, "setChestTriggerbot", old))
                 .with(CFG, "ChestTriggerbotSwap", false).with(CFG, "ChestTriggerbotMaxCps", 10).with(CFG, "ChestTriggerbotMinCps", 10)
-                .with(CFG, "ChestAlertSound", false).with(CFG, "ChestAlertTitle", false)) {
+                .with(CFG, "ChestAlertSound", false).with(CFG, "ChestAlertTitle", false)
+                .with(CFG, "TreasureChestHideOpened", true)) {
             hollows(c);
             for (int[] p : new int[][]{a, b, d}) {
                 setblock(c, p[0], p[1], p[2], "minecraft:air"); // an earlier case's chest here would take the line
@@ -84,6 +85,7 @@ final class HxChestBot1104Cases {
             c.ctx().waitTicks(10);
             c.check(trackedAt(c, a), "A lost its highlight to another chest's loot (the server never answered A's click)");
             c.check(trackedAt(c, b), "B went on a loot block two chests could own (its block is still there)");
+            c.check(!hiddenAt(c, a) && !hiddenAt(c, b), "Hide Opened Chests hid a chest the stray loot could not name");
             setblock(c, b[0], b[1], b[2], "minecraft:air");
             c.waitUntil("B gone with its block", mc -> !(Boolean) Mod.staticCall(TC, "tracked", b[0], b[1], b[2]), 40);
             int n0 = clicks(c);
@@ -94,8 +96,10 @@ final class HxChestBot1104Cases {
             c.check(more >= 15 && more <= 21, "the bot clicked A " + more + " time(s) in 40 ticks after the stray loot (want ~20)");
             c.check(served >= 15, "the server saw " + served + " use_block (the clicks did not reach it)");
             c.check(trackedAt(c, a), "A lost its highlight while uncollected");
+            c.check(!hiddenAt(c, a), "Hide Opened Chests hid A on clicks the server dropped");
             lootBlock(c); // A's loot: only A clicked in the last 1.5 s
             c.waitUntil("A collected by its loot", mc -> !(Boolean) Mod.staticCall(TC, "tracked", a[0], a[1], a[2]), 20);
+            c.check(hiddenAt(c, a), "A's model still draws after its loot (Hide Opened Chests on)");
             int n1 = clicks(c);
             c.ctx().waitTicks(10);
             c.check(clicks(c) == n1, "the bot kept clicking the collected chest: " + (clicks(c) - n1));
@@ -557,6 +561,10 @@ final class HxChestBot1104Cases {
 
     private static void setblock(Session c, int x, int y, int z, String block) {
         c.server().command(String.format(Locale.ROOT, "setblock %d %d %d %s", x, y, z, block));
+    }
+
+    private static boolean hiddenAt(Session c, int[] p) {
+        return c.onClient(mc -> (Boolean) Mod.staticCall(TC, "hidden", p[0], p[1], p[2]));
     }
 
     private static int[] feet(Session c) {

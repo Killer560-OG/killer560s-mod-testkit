@@ -329,7 +329,9 @@ final class HxChestFx1104Cases {
             c.check(intCall(c, "hiddenSkips") == sk0, "a chest he never clicked was skipped");
 
             c.ctx().runOnClient(mc -> Mod.staticCall(TC, "useForTest", x, y, z));
-            c.check(intCall(c, "hiddenCount") == 1, "the clicked chest is not hidden");
+            c.check(intCall(c, "hiddenCount") == 0, "the chest was hidden on a click the server never answered");
+            c.ctx().runOnClient(mc -> Mod.staticCall(TC, "onLooted")); // its loot confirms the opening (chestretry-1105)
+            c.waitUntil("hidden by its loot", mc -> ((Number) Mod.staticCall(TC, "hiddenCount")).intValue() == 1, 20);
             sk0 = intCall(c, "hiddenSkips");
             c.ctx().waitTicks(10);
             int sk1 = intCall(c, "hiddenSkips");
