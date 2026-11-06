@@ -1284,6 +1284,10 @@ public class BlinkTests implements FabricClientGameTest {
         ctx.waitTicks(10);
         chargeOn(ctx);
         ctx.waitTicks(45);
+        // A shot after a teleport waits for GrimAC's cover (campaign-blink-1027): let it come first, standing.
+        for (int i = 0; i < 100 && !shotCoveredNow(ctx); i++) {
+            ctx.waitTicks(1);
+        }
         long bank = cnum(ctx, "banked");
         long shots0 = cnum(ctx, "shots");
         long st0 = cnum(ctx, "shotTicks");
@@ -1378,17 +1382,33 @@ public class BlinkTests implements FabricClientGameTest {
         int x = -6800;
         int z = -3600;
         Scenario.run(ctx, "1105-blink-predict-step", (server, scenario) -> {
-            arena(server, x, z);
-            server.command("fill " + (x + 5) + " " + SURFACE_Y + " " + (z - 3) + " " + (x + 5) + " " + SURFACE_Y + " " + (z + 3)
-                    + " minecraft:stone_slab[type=bottom]");
-            server.command("fill " + (x + 6) + " " + SURFACE_Y + " " + (z - 3) + " " + (x + 6) + " " + SURFACE_Y + " " + (z + 3)
-                    + " minecraft:stone_stairs[facing=east]");
-            server.command("fill " + (x + 7) + " " + SURFACE_Y + " " + (z - 3) + " " + (x + 18) + " " + SURFACE_Y + " " + (z + 3)
-                    + " minecraft:stone");
+            // testkit fill places default states (a bottom half slab); the stairs go in one by one, facing east.
+            TestMap map = TestMap.on(server)
+                    .platform(x, SURFACE_Y - 1, z, 40)
+                    .walls(x, SURFACE_Y, z, 40, 3)
+                    .catchFloor(120)
+                    .survival()
+                    .clearInventory()
+                    .fill(x + 5, SURFACE_Y, z - 3, x + 5, SURFACE_Y, z + 3, "stone_slab")
+                    .fill(x + 7, SURFACE_Y, z - 3, x + 18, SURFACE_Y, z + 3, "stone");
+            for (int dz = -3; dz <= 3; dz++) {
+                map.command("setblock " + (x + 6) + " " + SURFACE_Y + " " + (z + dz) + " minecraft:stone_stairs[facing=east]");
+            }
+            map.spawn(x + 0.5, z + 0.5, -90f).build();
         }, (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             try {
                 String name = playerName(ctx);
+                String course = ctx.computeOnClient(mc -> {
+                    StringBuilder b = new StringBuilder();
+                    for (int dx = 5; dx <= 7; dx++) {
+                        b.append(mc.level.getBlockState(new net.minecraft.core.BlockPos(x + dx, SURFACE_Y, z))).append(' ');
+                    }
+                    return b.toString();
+                });
+                scenario.log("predict-step course: " + course);
+                check(course.contains("stone_slab") && course.contains("stone_stairs") && course.contains("Block{minecraft:stone}"),
+                        "the slab, stair and raised floor are not there: " + course);
                 chargeOn(ctx);
                 ctx.waitTicks(35);
                 long bank = cnum(ctx, "banked");
@@ -1451,11 +1471,24 @@ public class BlinkTests implements FabricClientGameTest {
                 if (oneTick) {
                     check(budgetHook(ctx, Boolean.FALSE), "the jar has no BlinkCharge.tickBudgetForTest (before blinkone-1105)");
                     server.command("gamerule player_movement_check false");
-                    server.command("effect give " + who + " minecraft:speed 120 3 true");
+                    // His hits on the stand slow him as vanilla does, so ATTACK gets Speed VI to stay over 10 blocks.
+                    server.command("effect give " + who + " minecraft:speed 120 " + (act == SameTick.Act.ATTACK ? 5 : 3) + " true");
+                }
+                if (act == SameTick.Act.CLICK) {
+                    // He can only run with a menu open through Inventory Walk; its clicks go at once (no Stop To Click).
+                    ctx.runOnClient(mc -> {
+                        Mod.set("invwalk.InventoryWalkConfig", "setEnabled", true);
+                        Mod.set("invwalk.InventoryWalkConfig", "setScreens",
+                                Mod.enumValue("invwalk.InventoryWalkConfig$Screens", "CONTAINERS"));
+                        Mod.set("invwalk.InventoryWalkConfig", "setSprint", true);
+                        Mod.set("invwalk.InventoryWalkConfig", "setPauseAfterClickTicks", 0);
+                        Mod.set("invwalk.InventoryWalkConfig", "setStopToClick", false);
+                    });
                 }
                 if (act == SameTick.Act.ATTACK) {
-                    server.command("summon zombie " + (x + 2.5) + " " + (SURFACE_Y + 2) + " " + (z + 0.5)
-                            + " {NoAI:1b,NoGravity:1b,Invulnerable:1b,Silent:1b,Tags:[\"blinkst\"]}");
+                    // An armor stand: a peaceful test server would despawn a zombie at once.
+                    server.command("summon armor_stand " + (x + 2.5) + " " + (SURFACE_Y + 2) + " " + (z + 0.5)
+                            + " {NoGravity:1b,Invulnerable:1b,Tags:[\"blinkst\"]}");
                 }
                 server.command("item replace entity @a hotbar.4 with minecraft:blaze_rod");
                 server.command("item replace entity @a hotbar.5 with minecraft:blaze_rod");
@@ -1486,37 +1519,98 @@ public class BlinkTests implements FabricClientGameTest {
                 StringBuilder rounds = new StringBuilder();
                 int good = 0;
                 for (int round = 0; round < 3; round++) {
-                    if (act == SameTick.Act.CLICK) {
-                        ctx.runOnClient(mc -> dev.testkit.compat.McCompat.setScreen(mc, new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player)));
-                    }
                     ctx.waitTicks(40);
+                    for (int i = 0; i < 60 && cnum(ctx, "banked") < 20; i++) {
+                        ctx.waitTicks(1);
+                    }
                     long bank = cnum(ctx, "banked");
                     if (act == SameTick.Act.ATTACK) {
-                        // The zombie two blocks ahead of him, up out of his way, under his crosshair at the shot.
+                        // The stand two blocks ahead of him, up out of his way, under his crosshair at the shot.
                         double[] at = scenario.playerPosition();
                         float yaw = ctx.computeOnClient(mc -> mc.player.getYRot());
                         double fx = -Math.sin(Math.toRadians(yaw));
                         double fz = Math.cos(Math.toRadians(yaw));
                         server.command(String.format(Locale.ROOT, "tp @e[tag=blinkst] %.3f %.3f %.3f", at[0] + 2 * fx,
                                 SURFACE_Y + 2.0, at[2] + 2 * fz));
-                        ctx.waitTicks(3);
+                        // His client eases the stand over (r6: still 3 blocks short 5 ticks after a 9-block tp): wait for it.
+                        double sx = at[0] + 2 * fx;
+                        double sz = at[2] + 2 * fz;
+                        for (int i = 0; i < 40 && !ctx.computeOnClient(mc -> {
+                            for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+                                if (e instanceof net.minecraft.world.entity.decoration.ArmorStand
+                                        && Math.hypot(e.getX() - sx, e.getZ() - sz) < 0.1) {
+                                    return true;
+                                }
+                            }
+                            return false;
+                        }); i++) {
+                            ctx.waitTicks(1);
+                        }
                         look(ctx, at[0] + 2 * fx, SURFACE_Y + 3.0, at[2] + 2 * fz);
+                        ctx.waitTicks(2);
+                        String aim = ctx.computeOnClient(mc -> {
+                            StringBuilder b = new StringBuilder(mc.hitResult instanceof net.minecraft.world.phys.EntityHitResult
+                                    ? "ON" : "off: " + (mc.hitResult == null ? "none" : mc.hitResult.getType()));
+                            b.append(String.format(Locale.ROOT, ", look %.1f/%.1f, him %s, camera %s, paused %s, entities near:",
+                                    mc.player.getYRot(), mc.player.getXRot(),
+                                    fmt(new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()}),
+                                    mc.getCameraEntity() == mc.player ? "him" : String.valueOf(mc.getCameraEntity()), mc.isPaused()));
+                            net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition();
+                            net.minecraft.world.phys.Vec3 end = eye.add(mc.player.getViewVector(1f).scale(3));
+                            for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+                                if (e != mc.player && e.distanceTo(mc.player) < 8) {
+                                    b.append(' ').append(e.getType().toShortString()).append(fmt(new double[]{e.getX(), e.getY(), e.getZ()}))
+                                            .append(" pickable ").append(e.isPickable()).append(" clip ")
+                                            .append(e.getBoundingBox().clip(eye, end).isPresent());
+                                }
+                            }
+                            return b.toString();
+                        });
+                        check(aim.startsWith("ON"), "the armor stand is not under his crosshair before round " + (round + 1)
+                                + ": " + aim);
                         ctx.waitTicks(2);
                     }
                     if (around) {
                         ctx.runOnClient(mc -> hold.allow(3));
                     }
+                    if (act == SameTick.Act.ATTACK) {
+                        // His click goes in at the END of this tick, so the next tick's attack and the shot share it (the
+                        // shot carries him 11 blocks past the stand, so a click after it hits nothing).
+                        ctx.waitTicks(1);
+                    }
                     if (act == SameTick.Act.TP) {
                         server.command("execute as " + who + " at @s run tp @s ~ ~ ~");
                     }
-                    double[] shot = shootByPress(ctx, true);
+                    double[] shot;
+                    if (act == SameTick.Act.CLICK) {
+                        // A shot fired under a screen waits for it to close (BlinkCharge.fire), so his clicks can only go
+                        // right before it: he clicks every tick with his inventory open, fires, and closes it at the END
+                        // of the tick after his last click, so that click, the close and the shot share a server tick.
+                        long shots0 = cnum(ctx, "shots");
+                        ctx.runOnClient(mc -> dev.testkit.compat.McCompat.setScreen(mc,
+                                new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player)));
+                        ctx.waitTicks(2);
+                        ctx.runOnClient(mc -> hold.allow(3));
+                        double[] before = scenario.playerPosition();
+                        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
+                        ctx.waitTicks(2);
+                        check(cnum(ctx, "shots") == shots0, "the shot went with his inventory open");
+                        ctx.getInput().holdKey(o -> o.keyUp);
+                        ctx.getInput().holdKey(o -> o.keySprint);
+                        ctx.runOnClient(mc -> dev.testkit.compat.McCompat.setScreen(mc, null));
+                        ctx.waitTicks(2);
+                        double[] after = scenario.playerPosition();
+                        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+                        ctx.getInput().releaseKey(o -> o.keyUp);
+                        ctx.getInput().releaseKey(o -> o.keySprint);
+                        shot = new double[]{flat(before, after), cnum(ctx, "shots") - shots0, cnum(ctx, "lastShotTicks")};
+                    } else {
+                        shot = shootByPress(ctx, true);
+                    }
                     if (act == SameTick.Act.TP) {
                         server.command("execute as " + who + " at @s run tp @s ~ ~ ~");
                     }
                     ctx.waitTicks(10);
-                    if (act == SameTick.Act.CLICK) {
-                        ctx.runOnClient(mc -> dev.testkit.compat.McCompat.setScreen(mc, null));
-                    }
                     ctx.runOnClient(mc -> {
                         mc.player.setYRot(mc.player.getYRot() + 180f);
                         mc.player.setXRot(0f);
@@ -1534,7 +1628,9 @@ public class BlinkTests implements FabricClientGameTest {
                 st[0] = null;
                 scenario.log(name + ":" + rounds + "; " + done.report());
                 check(good == 3, good + " of 3 charge shots ran 20 ticks with the server agreeing:" + rounds);
-                String why = done.verdict("charge shot");
+                // A shot after a teleport waits for GrimAC's cover by design (campaign-blink-1027): his accept and the
+                // shot never share a server tick.
+                String why = act == SameTick.Act.TP ? done.verdict("charge shot", true) : done.verdict("charge shot");
                 check(why == null, why);
             } finally {
                 if (st[0] != null) {
@@ -1550,6 +1646,13 @@ public class BlinkTests implements FabricClientGameTest {
                     server.command("effect clear " + who);
                 }
                 server.command("kill @e[tag=blinkst]");
+                if (act == SameTick.Act.CLICK) {
+                    ctx.runOnClient(mc -> {
+                        Mod.setField("invwalk.InventoryWalkFeature", "heldForTest", null);
+                        Mod.set("invwalk.InventoryWalkConfig", "setEnabled", false);
+                        Mod.set("invwalk.InventoryWalkConfig", "setStopToClick", true);
+                    });
+                }
             }
             ctx.waitTicks(40);
         });
