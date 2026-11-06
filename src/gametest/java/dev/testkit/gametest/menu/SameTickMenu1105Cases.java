@@ -106,7 +106,9 @@ final class SameTickMenu1105Cases {
             JsonObject t = TerminalCases.open(c, spec);
             MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
             // From the screen's first drawn frame on: a real click reaches a screen only after it is drawn, and the solver
-            // reads the terminal at the head of that draw (the harness's END click could come before it).
+            // reads the terminal at the head of that draw (the harness's END click could come before it: awaitScreen can
+            // return in the tick the screen opened, so one more tick lets a frame draw).
+            c.ctx().waitTicks(1);
             st = start(c);
             int last = c.onClient(mc -> ((net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>)
                     dev.testkit.compat.McCompat.screen(mc)).getMenu().slots.size() - 1);
