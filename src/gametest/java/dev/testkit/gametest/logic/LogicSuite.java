@@ -127,7 +127,8 @@ public class LogicSuite implements FabricClientGameTest {
                 || !Scenario.skip("1104-logic-goldor-trusted") || !Scenario.skip("1104-logic-split-lag")
                 || !Scenario.skip("1104-logic-stall-burst") || !Scenario.skip("1104-logic-serverlag-grim")
                 || !Scenario.skip("1104-logic-hypixel-pings") || !Scenario.skip("1104-logic-hypixel-goldor-drift")
-                || !Scenario.skip("1105-logic-hypixel-servertime")) {
+                || !Scenario.skip("1105-logic-hypixel-servertime") || !Scenario.skip("1105-logic-ticklog")
+                || !Scenario.skip("1105-logic-ticklog-off")) {
             try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
                 LogicCase.run(ctx, "354-logic-terminals", SolverCases::terminals);
                 LogicCase.run(ctx, "357-logic-items-ap3-routes", DomainCases::itemsAp3Routes);
@@ -156,6 +157,8 @@ public class LogicSuite implements FabricClientGameTest {
                 LogicCase.run(ctx, "1104-logic-hypixel-pings", TickFix3Cases::hypixelPings);
                 LogicCase.run(ctx, "1104-logic-hypixel-goldor-drift", TickFix3Cases::hypixelGoldorDrift);
                 LogicCase.run(ctx, "1105-logic-hypixel-servertime", MaskTimer1105Cases::hypixelServerTime);
+                LogicCase.run(ctx, "1105-logic-ticklog", TickLogCases::ticklog);
+                LogicCase.run(ctx, "1105-logic-ticklog-off", TickLogCases::ticklogOff);
                 LogicCase.run(ctx, "1104-logic-split-lag", TickFixCases::splitLag);
                 LogicCase.run(ctx, "1104-logic-stall-burst", TickFix2Cases::stallBurst);
                 LogicCase.run(ctx, "1104-logic-serverlag-grim", TickFix2Cases::serverLagGrim);
