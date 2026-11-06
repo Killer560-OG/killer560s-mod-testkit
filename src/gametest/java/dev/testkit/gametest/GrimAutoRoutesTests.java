@@ -2544,8 +2544,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         }
     }
 
-    /** The seven floor levers of 62-argrim-1105-same-secretaura-*, relative, around him at (15.5, 15.5). */
-    private static final int[][] SAME_LEVERS = {{13, 15}, {17, 15}, {15, 13}, {13, 13}, {17, 13}, {13, 17}, {17, 17}};
+    /**
+     * The seven floor levers of 62-argrim-1105-same-secretaura-*, around him (x 15.5, z per case), relative. Each case
+     * stands on its own z: Secret Aura remembers the levers it flipped for the whole run.
+     */
+    private static final int[][] SAME_LEVERS = {{-2, 0}, {2, 0}, {0, -2}, {-2, -2}, {2, -2}, {-2, 2}, {2, 2}};
 
     /**
      * SAME-TICK GRIM CASES (grimgapB-1105): Secret Aura flips seven floor levers around him (three behind him, so the body
@@ -2560,12 +2563,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         resetRoutes(ctx);
         arena(ctx, false);
         String cheat = "com.killer560.hub.cheatutils.CheatUtilsConfig";
+        int cz = 8 + 6 * act.ordinal();
         Map<int[], String> levers = new java.util.LinkedHashMap<>();
         for (int[] l : SAME_LEVERS) {
-            levers.put(new int[]{l[0], F, l[1]}, "minecraft:lever[face=floor,facing=north,powered=false]");
+            levers.put(new int[]{15 + l[0], F, cz + l[1]}, "minecraft:lever[face=floor,facing=north,powered=false]");
         }
         setBlocks(ctx, levers);
-        tpRel(ctx, 15.5, 15.5, 0f, 0f);
+        tpRel(ctx, 15.5, cz + 0.5, 0f, 0f);
         session.server().command("item replace entity @a hotbar.7 with stick");
         session.server().command("item replace entity @a hotbar.8 with stick");
         ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(7));
@@ -2574,7 +2578,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             double[] z = ctx.computeOnClient(mc -> {
                 Object frame = ModUnderTest.staticCall(FRAME, "current");
                 Vec3 v = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
-                        double.class, double.class}, new Object[]{frame, 15.5, (double) F, 17.0});
+                        double.class, double.class}, new Object[]{frame, 15.5, (double) F, cz + 2.0});
                 return new double[]{v.x, v.y, v.z};
             });
             session.server().command("summon zombie " + z[0] + " " + z[1] + " " + z[2]
@@ -2594,11 +2598,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 ModUnderTest.set(cfg, "setAuraPauseWhileSneaking", false);
                 ModUnderTest.set(cfg, "setSecretAuraEnabled", true);
             });
-            boolean all = waitFor(ctx, 200, () -> powered(ctx) == SAME_LEVERS.length);
+            boolean all = waitFor(ctx, 200, () -> powered(ctx, cz) == SAME_LEVERS.length);
             ctx.waitTicks(10);
             ctx.runOnClient(mc -> s1.close());
             st = null;
-            int on = powered(ctx);
+            int on = powered(ctx, cz);
             c.note("same-tick secret aura " + act + ": " + s1.report() + "; levers powered " + on + "/" + SAME_LEVERS.length);
             check(all, act + ": the server powered only " + on + " of " + SAME_LEVERS.length + " levers - the aura did not act");
             check(s1.done() > 0 && s1.playerWindows() > 0 && s1.featureWindows() > 0, act
@@ -2622,10 +2626,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         }
     }
 
-    private static int powered(ClientGameTestContext ctx) {
+    private static int powered(ClientGameTestContext ctx, int cz) {
         int n = 0;
         for (int[] l : SAME_LEVERS) {
-            n += String.valueOf(blockState(ctx, l[0], F, l[1])).contains("powered=true") ? 1 : 0;
+            n += String.valueOf(blockState(ctx, 15 + l[0], F, cz + l[1])).contains("powered=true") ? 1 : 0;
         }
         return n;
     }

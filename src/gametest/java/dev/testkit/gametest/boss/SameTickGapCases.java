@@ -47,7 +47,8 @@ final class SameTickGapCases {
             String n = a.name().toLowerCase(Locale.ROOT);
             s.test("1105-same-autoss-" + n, c -> autoSs(c, a));
             s.test("1105-same-goldor-" + n, c -> goldor(c, a, false));
-            s.test("1105-same-witherbot-" + n, c -> goldor(c, a, true));
+            // Wither bot: his right click as a real key press, so the bot can see it coming (USE_KEY).
+            s.test("1105-same-witherbot-" + n, c -> goldor(c, a == SameTick.Act.USE ? SameTick.Act.USE_KEY : a, true));
             if (a != SameTick.Act.USE) {
                 s.test("1105-same-thorn-" + n, c -> thorn(c, a));
             }
@@ -57,6 +58,20 @@ final class SameTickGapCases {
     private static void zombie(Session c, double x, double y, double z) {
         c.server().command("summon zombie " + x + " " + y + " " + z + " {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}");
         c.waitUntil("the zombie under his crosshair", mc -> mc.hitResult instanceof net.minecraft.world.phys.EntityHitResult, 100);
+    }
+
+    /**
+     * Onto a platform just built far from home: the first teleport lands before the client has the chunk (GroundSpoof /
+     * Simulation at the landing, setup only), so it goes there once, waits for the blocks, and lands again.
+     */
+    private static void onPlatform(Session c, double x, double y, double z, BlockPos floor) {
+        c.hx().call("dungeon.tp", "x", x, "y", y, "z", z, "yaw", 0f, "pitch", 0f);
+        c.waitUntil("the client to have the platform", mc -> mc.level.getBlockState(floor)
+                .is(net.minecraft.world.level.block.Blocks.STONE), 200);
+        c.ctx().waitTicks(10);
+        c.hx().call("dungeon.tp", "x", x, "y", y, "z", z, "yaw", 0f, "pitch", 0f);
+        c.waitUntil("the player on the platform", mc -> mc.player.position().distanceTo(new Vec3(x, y, z)) < 0.1
+                && mc.player.onGround(), 200);
     }
 
     private static void stop(Session c, SameTick st) {
@@ -102,7 +117,14 @@ final class SameTickGapCases {
                 zombie(c, 105.5, 120, 93.5);
             }
             st = SameTickCases.start(c, act, p -> p instanceof ServerboundUseItemOnPacket);
-            c.waitUntil("ss.completed (Hx) with Auto Solve playing", mc -> !c.events("ss.completed").isEmpty(), 1200);
+            try {
+                c.waitUntil("ss.completed (Hx) with Auto Solve playing", mc -> !c.events("ss.completed").isEmpty(), 1200);
+            } finally {
+                SameTick s0 = st;
+                c.note("auto ss: state " + SimonSaysCases.state(c) + ", server presses " + c.events("ss.press").size()
+                        + ", breaks " + c.events("ss.broke").size() + ", " + s0.report() + ", held " + c.onClient(mc ->
+                        String.valueOf(mc.player.getMainHandItem())));
+            }
             c.ctx().waitTicks(5);
             c.note("server presses " + c.events("ss.press").size() + ", breaks " + c.events("ss.broke").size());
             c.check(c.events("ss.broke").isEmpty(), "the device broke: " + c.events("ss.broke"));
@@ -139,9 +161,7 @@ final class SameTickGapCases {
             c.server().command("forceload add 34 42 46 56");
             c.server().sync(20);
             c.server().command("fill 34 148 42 46 150 56 stone");
-            c.hx().call("dungeon.tp", "x", 40.5, "y", 151.0, "z", 47.7, "yaw", 0f, "pitch", 0f);
-            c.waitUntil("the player on the platform", mc -> mc.player.position().distanceTo(new Vec3(40.5, 151.0, 47.7))
-                    < 0.1 && mc.player.onGround(), 200);
+            onPlatform(c, 40.5, 151.0, 47.7, new BlockPos(40, 150, 47));
             SameTickCases.sticks(c);
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
             c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
@@ -163,6 +183,14 @@ final class SameTickGapCases {
             if (act == SameTick.Act.ATTACK) {
                 zombie(c, 40.5, 151, 49.0);
             }
+            if (act == SameTick.Act.USE_KEY) {
+                // A glass block between him and the wither, on his crosshair: his right click is use_item_on + use_item
+                // (no entity interact), which after the bot's attack in one tick is PacketOrderJ. The bot traces Goldor
+                // through it (no occlusion), so it keeps attacking.
+                c.server().command("setblock 40 152 49 minecraft:glass");
+                c.waitUntil("the glass under his crosshair", mc -> mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult bh
+                        && bh.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK, 100);
+            }
             int[] before = c.onClient(mc -> (int[]) Mod.staticCall("goldor.GoldorTriggerbotFeature", "clickCounts"));
             long since = c.hx().head();
             st = SameTickCases.start(c, act, attackMode
@@ -177,7 +205,7 @@ final class SameTickGapCases {
                 Mod.set(cfg, "setEnabled", false);
                 return null;
             });
-            c.ctx().waitTicks(5);
+            c.ctx().waitTicks(20);
             int[] after = c.onClient(mc -> (int[]) Mod.staticCall("goldor.GoldorTriggerbotFeature", "clickCounts"));
             int mine = attackMode ? after[0] - before[0] : after[2] - before[2];
             int server = 0;
@@ -197,7 +225,7 @@ final class SameTickGapCases {
             });
             c.server().command("kill @e[tag=pnggoldor]");
             c.server().command("kill @e[tag=sametick]");
-            c.server().command("fill 34 148 42 46 150 56 air");
+            c.server().command("fill 34 148 42 46 154 56 air");
             c.server().command("forceload remove 34 42 46 56");
             c.server().command("clear @a");
             GrimTickCases.home(c);
@@ -219,9 +247,7 @@ final class SameTickGapCases {
             c.server().command("forceload add 34 42 46 76");
             c.server().sync(20);
             c.server().command("fill 34 167 42 46 169 56 stone");
-            c.hx().call("dungeon.tp", "x", 40.5, "y", 170.0, "z", 47.7, "yaw", 0f, "pitch", 0f);
-            c.waitUntil("the player on the platform", mc -> mc.player.position().distanceTo(new Vec3(40.5, 170.0, 47.7))
-                    < 0.1 && mc.player.onGround(), 200);
+            onPlatform(c, 40.5, 170.0, 47.7, new BlockPos(40, 169, 47));
             c.onClient(mc -> {
                 mc.player.getInventory().setSelectedSlot(4);
                 return null;

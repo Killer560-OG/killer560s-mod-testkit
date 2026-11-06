@@ -67,7 +67,7 @@ final class SameTickCases {
     static SameTick start(Session c, SameTick.Act act, Predicate<Packet<?>> feature) {
         // His left click every tick would hold every world aura for good (ActionGate: his queued attack click goes
         // first), so ATTACK clicks every other tick.
-        return c.onClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK ? 2 : 1, feature, 4, 5));
+        return c.onClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK || act == SameTick.Act.USE_KEY ? 2 : 1, feature, 4, 5));
     }
 
     /** Stops his action, notes the counts, and fails a case that tested nothing. */
@@ -78,9 +78,10 @@ final class SameTickCases {
         });
         c.note(what + " " + st.report());
         c.check(st.done() > 0, what + ": his action never went in (nothing tested)");
-        if (st.act() == SameTick.Act.ATTACK) {
+        if (st.act() == SameTick.Act.ATTACK || st.act() == SameTick.Act.USE_KEY) {
             // ActionGate holds a world aura for a tick his left click is queued in (PacketOrderI / MultiInteractA when
-            // his attack follows the aura's interact in one server tick): both act, never in one tick.
+            // his attack follows the aura's interact in one server tick): both act, never in one tick. A clicker that
+            // attacks holds the same way for his queued right click (USE_KEY: use after attack is PacketOrderJ).
             c.check(st.playerWindows() > 0 && st.featureWindows() > 0, what + ": his attack or the feature never went out ("
                     + st.report() + ")");
             c.check(st.both() == 0, what + ": his attack and the feature shared a server tick (" + st.report() + ")");

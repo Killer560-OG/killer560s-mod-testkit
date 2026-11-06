@@ -43,7 +43,7 @@ import java.util.function.Predicate;
  */
 public final class SameTick implements AutoCloseable {
 
-    public enum Act { USE, ATTACK, DIG, SWAP, CLICK, DIG_HELD }
+    public enum Act { USE, ATTACK, DIG, SWAP, CLICK, DIG_HELD, USE_KEY }
 
     private static final Identifier LATE = Identifier.parse("testkit:sametick_late");
     private static boolean hooked;
@@ -123,6 +123,13 @@ public final class SameTick implements AutoCloseable {
                         done++;
                     }
                 }
+                case USE_KEY -> {
+                    // His right click as he makes it: a press queued for the next tick's handleKeybinds (vanilla
+                    // startUseItem: on a block use_item_on then use_item, into the air use_item), so a feature can see it
+                    // coming at START_CLIENT_TICK the way it sees his real clicks.
+                    net.minecraft.client.KeyMapping.click(mc.options.keyUse.getDefaultKey());
+                    done++;
+                }
                 case DIG_HELD -> {
                     mc.options.keyAttack.setDown(true);
                     if (mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult bh
@@ -167,6 +174,9 @@ public final class SameTick implements AutoCloseable {
                     || (act == Act.SWAP && p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket h
                     && (h.getSlot() == slotA || h.getSlot() == slotB))
                     || (act == Act.ATTACK && "attack".equals(name) && !feature.test(p))
+                    || (act == Act.USE_KEY && (p instanceof ServerboundUseItemPacket
+                    || p instanceof net.minecraft.network.protocol.game.ServerboundUseItemOnPacket
+                    || p instanceof net.minecraft.network.protocol.game.ServerboundInteractPacket) && !feature.test(p))
                     || ((act == Act.DIG || act == Act.DIG_HELD) && p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket
                     && !feature.test(p));
             boolean feat = !mine && !accept && feature.test(p);
