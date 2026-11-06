@@ -222,6 +222,7 @@ final class HxPowderGrind1103Cases {
                     Mod.staticCall(TC, "onUseBlock", new net.minecraft.core.BlockPos(open[0], open[1], open[2]));
                     Mod.staticCall(TC, "onLooted");
                 });
+                c.ctx().waitTicks(8); // a loot line waits 200 ms for a lid event before it names its chest (chestrace-1105)
                 c.check(!tracked(c, open[0], open[1], open[2]), "round " + round + ": the opened chest kept its highlight");
                 c.check(tracked(c, other[0], other[1], other[2]), "round " + round + ": the other chest lost its highlight");
                 // Put the opened chest back as a fresh claim for the next round.

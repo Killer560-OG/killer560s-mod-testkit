@@ -69,8 +69,10 @@ final class HxChestBot1104Cases {
                 .with(CFG, "ChestAlertSound", false).with(CFG, "ChestAlertTitle", false)) {
             hollows(c);
             for (int[] p : new int[][]{a, b, d}) {
+                setblock(c, p[0], p[1], p[2], "minecraft:air"); // an earlier case's chest here would take the line
                 setblock(c, p[0], p[1] + 1, p[2], "minecraft:stone"); // a vanilla chest under a solid block never opens
             }
+            c.ctx().waitTicks(65); // and any chest seen in the last 3 s (TreasureChests.MATCH_TICKS) is out of the window
             claim(c, a);
             claim(c, b);
             c.ctx().runOnClient(mc -> Mod.staticCall(BOT, "resetForTest"));
@@ -162,6 +164,11 @@ final class HxChestBot1104Cases {
                 .with(CFG, "ChestTriggerbotSwap", act != dev.testkit.gametest.SameTick.Act.SWAP).with(CFG, "ChestTriggerbotNoSwapMining", false).with(CFG, "ChestTriggerbotMaxCps", 20).with(CFG, "ChestTriggerbotMinCps", 20)
                 .with(CFG, "ChestAlertSound", false).with(CFG, "ChestAlertTitle", false)) {
             c.hx().give(2, drill("GEMSTONE_DRILL_4", "Jasper Drill X", 20));
+            if (act == dev.testkit.gametest.SameTick.Act.DIG) {
+                // The session plays in creative, where his left click breaks the chest at once and the bot has nothing left
+                // to click (0 or 1 clicks, about one run in two): survival takes 3.75 s to break it by hand.
+                c.server().command("gamemode survival @p");
+            }
             // SWAP (Auto Swap off): his scroll moves between two drills.
             String held = act == dev.testkit.gametest.SameTick.Act.SWAP ? drill("GEMSTONE_DRILL_4", "Jasper Drill X", 20) : "minecraft:stick";
             c.hx().give(4, held);
@@ -214,6 +221,7 @@ final class HxChestBot1104Cases {
             });
             setblock(c, a[0], a[1] + 1, a[2], "minecraft:air");
             setblock(c, a[0], a[1], a[2], "minecraft:air");
+            if (act == dev.testkit.gametest.SameTick.Act.DIG) c.server().command("gamemode creative @p");
             for (int s : new int[]{2, 4, 5}) {
                 c.hx().give(s, "minecraft:air");
             }
