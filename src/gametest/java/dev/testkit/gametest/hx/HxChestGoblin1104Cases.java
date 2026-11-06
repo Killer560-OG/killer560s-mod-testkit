@@ -102,9 +102,12 @@ final class HxChestGoblin1104Cases {
             c.check(intCall(c, TC, "hiddenSkips") == skip0 && intCall(c, TC, "hiddenCount") == 0,
                     "the render skip fired before any click");
 
-            // The click: the model is skipped every frame, the block stays a chest.
+            // The click alone hides nothing (the server may drop it); its loot does (chestretry-1105). Then the model is
+            // skipped every frame and the block stays a chest.
             c.ctx().runOnClient(mc -> Mod.staticCall(TC, "onUseBlock", new BlockPos(cx, by, cz)));
-            c.check(intCall(c, TC, "hiddenCount") == 1, "the clicked chest was not marked hidden");
+            c.check(intCall(c, TC, "hiddenCount") == 0, "the chest was hidden on a click the server never answered");
+            c.ctx().runOnClient(mc -> Mod.staticCall(TC, "onLooted"));
+            c.waitUntil("hidden by its loot", mc -> ((Number) Mod.staticCall(TC, "hiddenCount")).intValue() == 1, 20);
             int s1 = intCall(c, TC, "hiddenSkips");
             c.ctx().waitTicks(30);
             int s2 = intCall(c, TC, "hiddenSkips");
@@ -112,7 +115,7 @@ final class HxChestGoblin1104Cases {
             c.check(s2 > s1, "the chest's model was still extracted for drawing after the click");
             c.check(c.onClient(mc -> mc.level.getBlockState(new BlockPos(cx, by, cz)).is(net.minecraft.world.level.block.Blocks.CHEST)),
                     "the chest block was changed on the client (ghost block)");
-            c.check(c.onClient(mc -> (Boolean) Mod.staticCall(TC, "tracked", cx, by, cz)), "the click removed the tracking");
+            c.check(!c.onClient(mc -> (Boolean) Mod.staticCall(TC, "tracked", cx, by, cz)), "the looted chest is still tracked");
 
             // Setting OFF: the skip stops (the chest draws again).
             c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(PCFG), "setTreasureChestHideOpened", false));

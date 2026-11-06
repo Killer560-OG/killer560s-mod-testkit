@@ -64,7 +64,8 @@ final class HxChestFx1104Cases {
             claim(c, b[0], b[1], b[2]);
             c.check(!tracked(c, x[0], x[1], x[2]), "the untracked chest was claimed");
 
-            // He clicks B (lockpicking), then the looted chest X; X's "loot" (any loot block) must not take B's highlight.
+            // He clicks B (lockpicking), then the looted chest X; a loot block two chests could own takes nobody's highlight
+            // (chestretry-1105: until then the chest clicked last owned it).
             use(c, b);
             use(c, x);
             c.ctx().runOnClient(mc -> Mod.staticCall(TC, "onLooted"));
@@ -72,7 +73,9 @@ final class HxChestFx1104Cases {
             c.check(tracked(c, b[0], b[1], b[2]), "a click on an untracked chest let its loot take a live chest's highlight");
             c.check(tracked(c, a[0], a[1], a[2]), "the other live chest lost its highlight");
 
-            // He clicks A, then B before A's loot comes; A's lid opens: A is done, B stays.
+            // He clicks A, then B before A's loot comes; A's lid opens: A is done, B stays. First the clicks above age out
+            // (TreasureChests.CLICK_MS, 1.5 s), so B's own loot below has only B's click before it.
+            c.ctx().waitTicks(36);
             int op0 = intCall(c, "opened");
             use(c, a);
             use(c, b);
@@ -326,7 +329,9 @@ final class HxChestFx1104Cases {
             c.check(intCall(c, "hiddenSkips") == sk0, "a chest he never clicked was skipped");
 
             c.ctx().runOnClient(mc -> Mod.staticCall(TC, "useForTest", x, y, z));
-            c.check(intCall(c, "hiddenCount") == 1, "the clicked chest is not hidden");
+            c.check(intCall(c, "hiddenCount") == 0, "the chest was hidden on a click the server never answered");
+            c.ctx().runOnClient(mc -> Mod.staticCall(TC, "onLooted")); // its loot confirms the opening (chestretry-1105)
+            c.waitUntil("hidden by its loot", mc -> ((Number) Mod.staticCall(TC, "hiddenCount")).intValue() == 1, 20);
             sk0 = intCall(c, "hiddenSkips");
             c.ctx().waitTicks(10);
             int sk1 = intCall(c, "hiddenSkips");
