@@ -35,8 +35,8 @@ import java.util.function.Predicate;
  *   <li>{@link Act#CLICK}: a container click on an empty player slot of the open menu at END (a mouse click between
  *       ticks), so it lands in the next server tick ahead of the START actors.</li>
  * </ul>
- * Packets sent while the player's action runs are his; a teleport accept is always his. Everything else matching the
- * case's predicate is the feature's.
+ * Packets sent while the player's action runs (or, for SWAP / ATTACK / DIG, the packet vanilla sends for it next tick)
+ * are his; a teleport accept is marked (T) and is neither. Everything else matching the case's predicate is the feature's.
  */
 public final class SameTick implements AutoCloseable {
 
@@ -147,16 +147,19 @@ public final class SameTick implements AutoCloseable {
             if (!echo) echoNext = false;
             if (p instanceof ServerboundAcceptTeleportationPacket) echoNext = true;
             // A SWAP's slot change goes out later, from vanilla's gameMode.tick: it is his by its slot.
-            boolean mine = injecting || p instanceof ServerboundAcceptTeleportationPacket
+            // A teleport accept is marked (T) and never counts as his action: every warp has one, so it would make any
+            // route case "share" a tick without his action in it.
+            boolean accept = p instanceof ServerboundAcceptTeleportationPacket;
+            boolean mine = (injecting && !accept)
                     || (act == Act.SWAP && p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket h
                     && (h.getSlot() == slotA || h.getSlot() == slotB))
                     || (act == Act.ATTACK && "attack".equals(name))
                     || (act == Act.DIG && p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket
                     && !feature.test(p));
-            boolean feat = !mine && feature.test(p);
+            boolean feat = !mine && !accept && feature.test(p);
             if (mine) winPlayer = true;
             if (feat) winFeature = true;
-            window.add(name + (mine ? "(P)" : feat ? "(F)" : ""));
+            window.add(name + (mine ? "(P)" : feat ? "(F)" : accept ? "(T)" : ""));
             boolean tickPacket = (p instanceof ServerboundMovePlayerPacket && !echo)
                     || (p instanceof ServerboundClientTickEndPacket && !movedSinceEnd);
             if (p instanceof ServerboundMovePlayerPacket && !echo) movedSinceEnd = true;
