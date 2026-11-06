@@ -96,6 +96,6 @@
     {"root": "bzflip", "why": "opens BazaarAdvisorSetupScreen (305 shows it) and its subcommands save Bazaar Advisor settings (bazaaradvisor/BazaarAdvisorCommands.java:21)"},
     {"root": "bzscan", "why": "runs a bazaar scan, network (bazaarflip/BazaarFlipCommands.java:55)"},
     {"root": "simboss", "why": "mod doc-adm-boss-1101: starts the F7 boss sim (builds a world); SimBossTests 1101-boss-* run it"},
-    {"root": "luck", "why": "mod doc-rng-1101: opens the How Lucky Are You screen; HxLuckCases 1101-luck-* run it and check it"},
+    {"root": "luck", "why": "mod doc-rng-1101: opens the How Lucky Are You screen; HxLuckCases 1101-luck-* run it and check it"}
   ]
 }
