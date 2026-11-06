@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 2798-2800 (ahrelist-1101, the Doc audit's P3): the AH Flipper's Auto Relist and the /ahmenudump recorder, against a fake
+ * 2798-2800 (ahrelist-1101, the Doc audit's P3): the AH Flipper's Auto Relist against a fake
  * Hypixel Auction House built from the best-known menu names (public mods; no recording of the real menus existed yet).
  * Judged by what the SERVER recorded: menu.click, menu.list (an inventory item moved into Create BIN Auction), sign.update.
  * <ul>
@@ -30,7 +30,6 @@ import java.util.Map;
  *       the copier's Undercut, the expired item at its lowest BIN less the Undercut; each price typed into the sign, read
  *       back off the menu, then Create BIN Auction and Confirm.</li>
  *   <li>2799 the Emergency Cancel Key while the price sign is open: the relist stops and no price reaches the server.</li>
- *   <li>2800 /ahmenudump: a shown menu is written to the dump file (title, slots, lore) and nothing is clicked.</li>
  *   <li>2801 the Bazaar Flipper's Insta Buy delivered over two parts six ticks apart (his "Bought 1,472x Gravel" was first
  *       counted as 832, 2026-10-30): the cycle records and sells every unit delivered, not the first part.</li>
  * </ul>
@@ -304,61 +303,6 @@ final class Relist1102MenuCases {
             out.add(e.getAsJsonArray("lines").get(0).getAsString());
         }
         return out;
-    }
-
-    // ---- 2800 -------------------------------------------------------------------------------------------------------
-
-    static void menuDump(Session c) throws Exception {
-        if (!newMod(c)) {
-            return;
-        }
-        boolean registered = c.onClient(mc -> {
-            var d = net.fabricmc.fabric.impl.command.client.ClientCommandInternals.getActiveDispatcher();
-            return d != null && d.getRoot().getChild("ahmenudump") != null;
-        });
-        if (!Mod.isCheat() && !registered) {
-            c.note("legit release-less jar: /ahmenudump is dev/cheat only; registered=" + registered);
-            return;
-        }
-        c.check(registered, "/ahmenudump is not registered");
-        MenuKit.reset(c);
-        Path dump = c.onClient(mc -> (Path) Mod.staticCall("ahflip.AhMenuRecorder", "dumpPath"));
-        long before = Files.exists(dump) ? Files.size(dump) : 0L;
-        try {
-            c.ctx().runOnClient(mc -> mc.player.connection.sendCommand("ahmenudump"));
-            c.waitUntil("recording to start", mc -> (Boolean) Mod.staticCall("ahflip.AhMenuRecorder", "isArmed"), 40);
-            JsonObject page = FlipCroesusCases.menu("Manage Auctions", 6, Map.of(
-                    10, FlipCroesusCases.item("minecraft:paper", "§fSold Paper", "§7Buyer: §bBob", "§7Status: §aSold!"),
-                    22, FlipCroesusCases.item("minecraft:cauldron", "§aClaim All")), Map.of());
-            MenuKit.show(c, page);
-            c.waitUntil("the page to be written", mc -> (Integer) Mod.staticCall("ahflip.AhMenuRecorder",
-                    "pagesWrittenForTest") >= 1, 100);
-            c.ctx().runOnClient(mc -> {
-                if (McCompat.screen(mc) != null) {
-                    McCompat.setScreen(mc, null);
-                }
-                mc.player.connection.sendCommand("ahmenudump");
-            });
-            c.waitUntil("recording to stop", mc -> !(Boolean) Mod.staticCall("ahflip.AhMenuRecorder", "isArmed"), 40);
-            byte[] all = Files.readAllBytes(dump);
-            String added = new String(all, (int) Math.min(before, all.length), (int) (all.length - Math.min(before, all.length)),
-                    StandardCharsets.UTF_8);
-            c.check(added.contains("MENU \"Manage Auctions\""), "dump has no Manage Auctions page:\n" + added);
-            c.check(added.contains("slot 22: minecraft:cauldron") && added.contains("Claim All"), "no Claim All slot:\n" + added);
-            c.check(added.contains("| Status: Sold!"), "no lore line:\n" + added);
-            c.check(c.events("menu.click").isEmpty(), "the recorder clicked: " + FlipCroesusCases.allClicks(c));
-            c.note("dump " + dump.getFileName() + " +" + added.length() + " chars; " + added.lines().count() + " lines");
-        } finally {
-            c.ctx().runOnClient(mc -> {
-                if ((Boolean) Mod.staticCall("ahflip.AhMenuRecorder", "isArmed")) {
-                    Mod.staticCall("ahflip.AhMenuRecorder", "toggle");
-                }
-                if (McCompat.screen(mc) != null) {
-                    McCompat.setScreen(mc, null);
-                }
-            });
-            MenuKit.reset(c);
-        }
     }
 
     // ---- 2801 -------------------------------------------------------------------------------------------------------

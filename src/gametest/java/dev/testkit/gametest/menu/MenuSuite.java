@@ -217,7 +217,7 @@ public class MenuSuite implements FabricClientGameTest {
                     BazaarFlipCustomCases.register(s);
                     // ---- 2790-2796 doc-flip-1101: Bazaar Flipper sizing/reserve/min profit/rounds, AH Flipper, AH Price Copier ----
                     Flip1101MenuCases.register(s);
-                    // ---- 2798-2800 ahrelist-1101: AH Flipper's Auto Relist cycle, its stop, /ahmenudump ----
+                    // ---- 2798-2799 ahrelist-1101: AH Flipper's Auto Relist cycle, its stop ----
                     Relist1102MenuCases.register(s);
                     // ---- 2802-2804 ahbuttons-1103: AH Price Buttons (normal menu, reskin, switch) ----
                     AhPriceButtonsCases.register(s);
