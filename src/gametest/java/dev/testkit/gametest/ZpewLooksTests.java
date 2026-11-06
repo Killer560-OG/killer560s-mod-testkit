@@ -404,8 +404,9 @@ public class ZpewLooksTests implements FabricClientGameTest {
     /**
      * 1105-zpew-aimed-same-&lt;swap|use&gt; (grimgapA-1105; the SAME-TICK GRIM CASES rule). Aimed Warps n=3 with a Blink bank,
      * three times, while HIS action goes into every client tick ({@link dev.testkit.gametest.SameTick}): a scroll between
-     * two AOTVs (slots 1 and 2; the raw aimed use must send his pending slot first, else PacketOrderE), or his own right
-     * click with the AOTV (an etherwarp of his at his look, after the burst in the same tick). Every burst must send its
+     * two AOTVs (slots 1 and 2; the raw aimed use must send his pending slot first, else PacketOrderE) every tick, or his
+     * own right click with the AOTV in the burst's tick and the two after it (an etherwarp of his at his look, after the
+     * burst in the same tick; every tick he would warp himself off the square). Every burst must send its
      * three aimed warps (swap: landing on every planned corner; use: the server casting at least those three), a GrimAC
      * tick must carry an aimed use with his packet, and GrimAC says nothing (Scenario.run). Cheat jar only.
      */
@@ -437,13 +438,21 @@ public class ZpewLooksTests implements FabricClientGameTest {
                 waitAimed = true;
                 st[0] = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
                         p -> p instanceof ServerboundUseItemPacket, 0, 1));
+                dev.testkit.gametest.SameTick hold = st[0];
+                boolean use = act == dev.testkit.gametest.SameTick.Act.USE;
+                if (use) {
+                    ctx.runOnClient(mc -> hold.allow(0));
+                }
                 for (int rep = 0; rep < 3; rep++) {
                     ZpewCampaignTests.tpTo(ctx, server, who, feet(0).x, feet(0).y, feet(0).z, true);
                     ctx.waitTicks(30);
                     long bank = BlinkTests.cnum(ctx, "banked");
                     long sent0 = ZpewCampaignTests.num(ctx, "aimedWarpsSent");
                     Result r = shot(ctx, server, hx, scenario, who, 0, "aimed-same n=3 rep " + rep + " (bank " + bank + ")",
-                            presses(ctx, 3), 3);
+                            use ? () -> {
+                                ctx.runOnClient(mc -> hold.allow(3));
+                                presses(ctx, 3).run();
+                            } : presses(ctx, 3), 3);
                     long sent = ZpewCampaignTests.num(ctx, "aimedWarpsSent") - sent0;
                     boolean landed = act == dev.testkit.gametest.SameTick.Act.SWAP ? landedAll(r, 3) : r.warps() >= 3;
                     if (sent != 3 || !landed || !r.flags().isEmpty()) {

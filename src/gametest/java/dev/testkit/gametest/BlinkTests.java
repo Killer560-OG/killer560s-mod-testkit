@@ -1221,8 +1221,9 @@ public class BlinkTests implements FabricClientGameTest {
 
     /**
      * 1105-blink-charge-same-&lt;use|swap&gt; (grimgapA-1105; the SAME-TICK GRIM CASES rule): three sprinting charge shots
-     * while HIS right click (a blaze rod: use_item, no swing) or a scroll between two rods goes into every client tick
-     * ({@link SameTick}). The shot's banked moves and the firing tick's own move are the feature's; a GrimAC tick must carry
+     * while HIS scroll between two rods goes into every client tick, or his right click (a blaze rod: use_item, no swing)
+     * into the shot's tick and the two after it ({@link SameTick}; a tick with a use is never banked, by design, so a use
+     * every tick leaves nothing to shoot). The shot's banked moves and the firing tick's own move are the feature's; a GrimAC tick must carry
      * his packet with one of them, every shot must run its full 20 ticks with the server agreeing, and GrimAC says nothing.
      */
     private static void chargeSame(ClientGameTestContext ctx, SameTick.Act act, int x, int z) {
@@ -1252,11 +1253,19 @@ public class BlinkTests implements FabricClientGameTest {
                     justShot[0] = false;
                     return f;
                 }, 4, 5));
+                SameTick hold = st[0];
+                boolean use = act == SameTick.Act.USE;
+                if (use) {
+                    ctx.runOnClient(mc -> hold.allow(0));
+                }
                 StringBuilder rounds = new StringBuilder();
                 int good = 0;
                 for (int round = 0; round < 3; round++) {
                     ctx.waitTicks(40);
                     long bank = cnum(ctx, "banked");
+                    if (use) {
+                        ctx.runOnClient(mc -> hold.allow(3));
+                    }
                     double[] shot = shootByPress(ctx, true);
                     ctx.waitTicks(10);
                     ctx.runOnClient(mc -> mc.player.setYRot(mc.player.getYRot() + 180f));

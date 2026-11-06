@@ -52,8 +52,9 @@ final class Ap3SameTick1105Cases {
             return;
         }
         for (String type : new String[]{"USE", "BLOCK", "BOOM"}) {
-            for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.TP}) {
-                s.test("1105-ap3-same-" + type.toLowerCase(Locale.ROOT) + "-" + a.name().toLowerCase(Locale.ROOT),
+            for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.KEYUSE, SameTick.Act.SWAP, SameTick.Act.TP}) {
+                s.test("1105-ap3-same-" + type.toLowerCase(Locale.ROOT) + "-" + (a == SameTick.Act.KEYUSE ? "use"
+                        : a.name().toLowerCase(Locale.ROOT)),
                         c -> node1(c, type, a));
             }
         }
@@ -79,8 +80,10 @@ final class Ap3SameTick1105Cases {
     }
 
     private static SameTick start(Session c, SameTick.Act act, Predicate<Packet<?>> feature) {
-        // A left click every tick would hold AP3's act for good (ActionGate gives his queued click the tick): every other.
-        return onClient(c.ctx(), mc -> SameTick.start(act, act == SameTick.Act.DIG ? 2 : 1, feature, ROD_A, ROD_B));
+        // A left click every tick would hold AP3's act for good (ActionGate gives his queued click the tick), and so would a
+        // right click every tick (the act's hotbar change waits out his use: PacketOrderE): every other tick, a 10 cps click.
+        return onClient(c.ctx(), mc -> SameTick.start(act, act == SameTick.Act.DIG || act == SameTick.Act.KEYUSE ? 2 : 1,
+                feature, ROD_A, ROD_B));
     }
 
     private static void close(Session c, SameTick st) {
@@ -129,6 +132,13 @@ final class Ap3SameTick1105Cases {
             rods(c);
             long since = c.hx().head();
             Ap3RuntimeTests.walkIntoRun(c, z, run, n, stop);
+            if (act == SameTick.Act.DIG) {
+                // His crosshair on the floor ahead, so his left clicks dig from the start (AP3 aims the node itself).
+                onClient(ctx, mc -> {
+                    mc.player.setXRot(50f);
+                    return null;
+                });
+            }
             st = start(c, act, feature);
             run(c, act, 60);
             close(c, st);
@@ -143,8 +153,12 @@ final class Ap3SameTick1105Cases {
                 default -> boomTaps(c.hx().events(since, "held", "attack_block"));
             };
             c.note("server saw the node act " + acted.size() + " time(s)");
-            c.check(acted.size() == 1, type + ": the server saw the node act " + acted.size() + " time(s), not once");
-            String why = done.verdict(type);
+            // A USE node leaves him on its wand, so his own right clicks after it are wand uses too.
+            boolean onWand = type.equals("USE") && act == SameTick.Act.KEYUSE;
+            c.check(onWand ? !acted.isEmpty() : acted.size() == 1, type + ": the server saw the node act " + acted.size()
+                    + " time(s), not once");
+            // His right click comes first in a tick, so the node's hotbar change waits for the next one (PacketOrderE).
+            String why = done.verdict(type, act == SameTick.Act.KEYUSE || act == SameTick.Act.DIG);
             c.check(why == null, why);
         } finally {
             close(c, st);
