@@ -125,6 +125,9 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
         final TestServer server;
         final Scenario scenario;
         final ClientGameTestContext ctx;
+        /** Grim lines containing this are not counted but tallied in {@link #tolerated} (set by 1027-iw-warp, see there). */
+        String tolerate;
+        final Map<String, Integer> tolerated = new java.util.LinkedHashMap<>();
 
         Rows(ClientGameTestContext ctx, TestServer server, Scenario scenario) {
             this.ctx = ctx;
@@ -140,6 +143,11 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
         void end(String label, boolean acted, String detail, String expect) {
             ctx.waitTicks(15);
             List<String> flags = scenario.flags();
+            if (tolerate != null) {
+                int all = flags.size();
+                flags = flags.stream().filter(f -> !f.contains(tolerate)).toList();
+                tolerated.put(label + " #" + (tolerated.size() + 1), all - flags.size());
+            }
             String names = checks(flags);
             boolean ok;
             String verdict;
@@ -217,7 +225,11 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
         ctx.waitTicks(10);
     }
 
+    /** iwpre-1106: at 300 ms the click scripts outrun the server answers, so walkRow compares no items there (vanilla differs the same). */
+    private static int curLat;
+
     static void latency(ClientGameTestContext ctx, int ms) {
+        curLat = ms;
         ctx.runOnClient(mc -> {
             if (ms <= 0) {
                 Latency.remove();
@@ -526,12 +538,20 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
     static void walkRow(Rows rows, ClientGameTestContext ctx, Hx hx, String label, List<Seg> segs, int[] at,
                         List<List<Click>> clicks, Set<Integer> ignore, double minMove, String expect, boolean itemsMove) {
         long since = hx.head();
+        final boolean cmpItems = itemsMove && curLat < 300;
         List<String> before = ctx.computeOnClient(InvWalkCampaignTests::clientSlots);
         Walk w = walk(ctx, hx, segs, at, clicks);
         w.clicksSent += extraClicks;
         extraClicks = 0;
+        // Since 03c7270d (Stop To Click waits for a full stop, then 3 still ticks) a click stops him for ~11 ticks, so a
+        // walk with many clicks covers little ground. Keep the last keys held until every held packet has gone, then walk
+        // RESUME_TICKS more and require that he really moved again: "stops for the click, then walks on".
+        Set<String> lastKeys = segs.get(segs.size() - 1).keys();
+        awaitFlush(ctx, w, lastKeys);
         List<JsonObject> ev = awaitClicks(ctx, hx, since, w.clicksSent);
+        // Items are read BEFORE walking on: the walk would pick up what a Q / ctrl+Q click dropped.
         JsonObject st = state(hx);
+        double resumed = walkOn(ctx, hx, w, lastKeys);
         List<String> server = serverSlots(st);
         String d = w.prediction == null ? "no prediction" : diff(w.prediction, server, ignore);
         boolean changed = !diff(before, server, ignore).isEmpty();
@@ -551,11 +571,12 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
         boolean movingClose = closes.stream().anyMatch(InvWalkCampaignTests::moving);
         int mc = movingClicks(ev);
         boolean acted = w.screenAll && w.clientPath >= minMove && w.serverPath >= minMove * 0.5 && ev.size() == w.clicksSent
-                && (!itemsMove || (d.isEmpty() && changed)) && !closes.isEmpty();
-        String detail = String.format(Locale.ROOT, "%s; clicks sent %d, server handled %d (%d while it had him moving), items %s%s; "
-                        + "close reached server %s%s", w.text(), w.clicksSent, ev.size(), mc,
-                itemsMove ? (d.isEmpty() ? (changed ? "as predicted" : "UNCHANGED") : "DIFFER [" + d + "]") : "n/a",
-                itemsMove ? "" : "", !closes.isEmpty(), movingClose ? " (while moving)" : "");
+                && (!cmpItems || (d.isEmpty() && changed)) && !closes.isEmpty() && (minMove <= 0 || resumed >= RESUME_MIN);
+        String detail = String.format(Locale.ROOT, "%s; walked on %.2f after the last held packet; clicks sent %d, server handled "
+                        + "%d (%d while it had him moving), items %s%s; close reached server %s%s", w.text(), resumed,
+                w.clicksSent, ev.size(), mc,
+                cmpItems ? (d.isEmpty() ? (changed ? "as predicted" : "UNCHANGED") : "DIFFER [" + d + "]") : "n/a",
+                cmpItems ? "" : "", !closes.isEmpty(), movingClose ? " (while moving)" : "");
         // A click or close handled while the server had him moving is exactly MultiActionsC/D: count it as a fault even if
         // Grim's own view (packet order) happened to differ, unless this is a control.
         if (expect == null && (mc > 0 || movingClose)) {
@@ -563,6 +584,46 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
             detail += " [MOVING CLICK/CLOSE]";
         }
         rows.end(label, acted, detail, expect);
+    }
+
+    static final int RESUME_TICKS = 20;
+    static final double RESUME_MIN = 1.0;
+
+    /** After a walk: holds {@code keys} while Inventory Walk still holds packets (bounded 80 ticks). */
+    static void awaitFlush(ClientGameTestContext ctx, Walk w, Set<String> keys) {
+        keys(ctx, keys);
+        double[] prev = cpos(ctx);
+        for (int i = 0; i < 80 && ctx.computeOnClient(mc -> ((Number) Mod.staticCall(IW, "heldNow")).intValue()) > 0; i++) {
+            ctx.waitTicks(1);
+            double[] now = cpos(ctx);
+            w.clientPath += flat(prev, now);
+            prev = now;
+        }
+    }
+
+    /**
+     * Walks RESUME_TICKS more with {@code keys}; adds the ground covered to the walk's paths and returns the client distance
+     * walked after the last held packet left (he stops for the click, then walks on).
+     */
+    static double walkOn(ClientGameTestContext ctx, Hx hx, Walk w, Set<String> keys) {
+        keys(ctx, keys);
+        double[] prev = cpos(ctx);
+        double[] sPrev = spos(state(hx));
+        double after = 0;
+        double afterFlat = 0;
+        for (int i = 0; i < RESUME_TICKS; i++) {
+            ctx.waitTicks(1);
+            double[] now = cpos(ctx);
+            // 3D: on a ladder he walks on by climbing (1027-iw-terrain ladder read 0.00 flat).
+            after += dist3(prev, now);
+            afterFlat += flat(prev, now);
+            prev = now;
+        }
+        w.clientPath += afterFlat;
+        double[] sp = spos(state(hx));
+        w.serverPath += flat(sPrev, sp);
+        w.ticks += RESUME_TICKS;
+        return after;
     }
 
     // =================================================================================================== cases
@@ -928,9 +989,12 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
                             iwOn(ctx, true, 0);
                             ctx.runOnClient(mc -> Mod.set(IW_CFG, "setEnabled", on));
                             rowMinMove = on ? 4 : 0;
+                            // iwpre-1106: at 300 ms the grid clicks outrun the server's answers and the server ends in a state
+                            // the client's immediate prediction did not have, with IW OFF too (vanilla latency, not IW's):
+                            // so items are not compared there; the walk, clicks and close still are.
                             containerRow(rows, ctx, server, hx, x, z, lat, "crafting table, IW " + (on ? "on" : "OFF (control)"),
                                     new Box("craft", "setblock %d %d %d minecraft:crafting_table", p, null, Set.of(0), true), null,
-                                    Set.of(0), true);
+                                    Set.of(0), lat < 300);
                         }
                     }
                 }
@@ -1048,8 +1112,10 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
                     ctx.getInput().releaseKey(o -> o.keyUp);
                     ctx.getInput().releaseKey(o -> o.keySprint);
                     extraClicks = 2;
-                    walkRow(rows, ctx, hx, "L" + lat + " click on the open tick", shuttle(5), new int[]{2},
-                            singles(List.of(Click.right(10))), Set.of(0), 3, null, true);
+                    // A right-click pick-up is followed by its put-down: since invwalk-legit-1027 an own-inventory pick-up
+                    // waits (he keeps walking) until the cursor is empty again, so a lone pick-up would still be waiting.
+                    walkRow(rows, ctx, hx, "L" + lat + " click on the open tick", shuttle(5), new int[]{2, 6},
+                            singles(List.of(Click.right(10), Click.left(20))), Set.of(0), 3, null, true);
                     List<JsonObject> ev = hx.events(since, "container.click");
                     rows.scenario.log("  open-tick: " + ev.size() + " click(s) on the server, " + movingClicks(ev) + " while moving");
                     if (movingClicks(ev) > 0) {
@@ -1439,6 +1505,12 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
         Scenario.runExpectingFlags(ctx, "1027-iw-warp", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = gateOff(ctx);
             Rows rows = new Rows(ctx, server, scenario);
+            // iwpre-1106: the Hx etherwarp lands 0.05 above the block, and a key first pressed the tick after the landing
+            // draws Simulation (.068, decaying x0.546) from Grim 2.3.74 on a client with NO mod at all (run with -NoMod,
+            // same arena and strafe: 5 lines in 1 of 3 reps), so it is not Inventory Walk's. The flags carry no tick, so a
+            // row may draw Simulation only up to what the control rows (no screen / IW off / keys after landing) draw, never
+            // fewer than one landing chain (8 lines); more than that is Inventory Walk's and fails. Other checks always count.
+            rows.tolerate = "failed Simulation";
             try (Hx hx = Hx.connect()) {
                 hx.call("dungeon.abilities", "enabled", true);
                 iwOn(ctx, true, 0);
@@ -1546,6 +1618,18 @@ public class InvWalkCampaignTests implements FabricClientGameTest {
             } finally {
                 tearDown(ctx, gate);
             }
+            int limit = 8;
+            for (Map.Entry<String, Integer> e : rows.tolerated.entrySet()) {
+                if (e.getKey().contains("control")) {
+                    limit = Math.max(limit, e.getValue());
+                }
+            }
+            for (Map.Entry<String, Integer> e : rows.tolerated.entrySet()) {
+                if (e.getValue() > limit) {
+                    rows.bad.add(e.getKey() + " (Simulation x" + e.getValue() + " beyond the controls' " + limit + ")");
+                }
+            }
+            scenario.log("SIMULATION tolerated per row, limit " + limit + ": " + rows.tolerated);
             rows.finish("1027-iw-warp");
         });
     }

@@ -25,6 +25,8 @@
 			"dev.testkit.gametest.LayoutFixTests",
 			"dev.testkit.gametest.InvWalkZpewTests",
 			"dev.testkit.gametest.InvWalkCampaignTests",
+			"dev.testkit.gametest.InvWalkLegitTests",
+			"dev.testkit.gametest.InvWalkCarryTests",
 			"dev.testkit.gametest.ZpewCampaignTests",
 			"dev.testkit.gametest.ZpewMultiTickTests",
 			"dev.testkit.gametest.ZpewLooksTests",

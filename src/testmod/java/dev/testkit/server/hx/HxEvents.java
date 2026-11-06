@@ -114,8 +114,26 @@ public final class HxEvents {
         System.out.println("[hx] cmd /" + full);
     }
 
+    /** Hx {@code wire.record}: record every move, input and player command the server handles (wire.* events). */
+    public static volatile boolean wire;
+
+    /** From the packet-listener mixin (server thread), only while {@link #wire}: one handled packet, in arrival order. */
+    public static void wire(ServerPlayer player, String kind, String detail) {
+        if (!wire || player == null || player.getGameProfile().name().startsWith("SicoKaleb")) {
+            return;
+        }
+        JsonObject e = base("wire", player);
+        e.addProperty("kind", kind);
+        e.addProperty("detail", detail);
+        e.addProperty("x", player.getX());
+        e.addProperty("y", player.getY());
+        e.addProperty("z", player.getZ());
+        add(e);
+    }
+
     /** From the packet-listener mixin, on the server thread. */
     public static void containerClick(ServerPlayer player, int containerId, int slot, int button, String input) {
+        wire(player, "click", containerId + " " + slot + " " + button + " " + input);
         JsonObject e = base("container.click", player);
         e.addProperty("containerId", containerId);
         e.addProperty("slot", slot);
@@ -127,6 +145,7 @@ public final class HxEvents {
     }
 
     public static void containerClose(ServerPlayer player, int containerId) {
+        wire(player, "close", String.valueOf(containerId));
         JsonObject e = base("container.close", player);
         e.addProperty("containerId", containerId);
         serverView(e, player);
