@@ -1198,7 +1198,8 @@ public class BlinkStressTests implements FabricClientGameTest {
             Rows rows = new Rows();
             String name = playerName(ctx);
             try {
-                // Food inside holds.
+                // Food inside holds. This case drains food on purpose, so the server's keep-fed refill is off for it.
+                server.command("testkit keepfed false");
                 for (int mode = 0; mode < 2; mode++) {
                     server.command("clear " + name);
                     server.command("give " + name + " minecraft:cooked_beef 8");
@@ -1326,6 +1327,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                     }
                 }
             } finally {
+                server.command("testkit keepfed true");
                 ctx.getInput().releaseKey(o -> o.keyUse);
                 ctx.getInput().releaseKey(o -> o.keyAttack);
                 BlinkTests.Pulser.stop(ctx);
