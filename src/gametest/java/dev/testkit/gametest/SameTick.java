@@ -40,7 +40,7 @@ import java.util.function.Predicate;
  */
 public final class SameTick implements AutoCloseable {
 
-    public enum Act { USE, ATTACK, DIG, SWAP, CLICK }
+    public enum Act { USE, ATTACK, DIG, SWAP, CLICK, SCREEN_CLICK }
 
     private static final Identifier LATE = Identifier.parse("testkit:sametick_late");
     private static boolean hooked;
@@ -135,10 +135,39 @@ public final class SameTick implements AutoCloseable {
                         done++;
                     }
                 }
+                case SCREEN_CLICK -> {
+                    // His mouse on the open menu's last slot (his hotbar slot 9, left empty), through the screen as a real
+                    // press and release: a screen that holds his clicks (the sorter's) sends nothing.
+                    if (dev.testkit.compat.McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> scr) {
+                        var slot = scr.getMenu().slots.get(scr.getMenu().slots.size() - 1);
+                        double x = intField(scr, "leftPos") + slot.x + 8;
+                        double y = intField(scr, "topPos") + slot.y + 8;
+                        var ev = new net.minecraft.client.input.MouseButtonEvent(x, y, new net.minecraft.client.input.MouseButtonInfo(
+                                com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT, 0));
+                        scr.mouseClicked(ev, false);
+                        scr.mouseReleased(ev);
+                        done++;
+                    }
+                }
             }
         } finally {
             injecting = false;
         }
+    }
+
+    private static int intField(Object o, String name) {
+        for (Class<?> k = o.getClass(); k != null; k = k.getSuperclass()) {
+            try {
+                java.lang.reflect.Field f = k.getDeclaredField(name);
+                f.setAccessible(true);
+                return f.getInt(o);
+            } catch (NoSuchFieldException e) {
+                // the next superclass
+            } catch (IllegalAccessException e) {
+                throw new AssertionError(e);
+            }
+        }
+        throw new AssertionError("no field " + name + " on " + o.getClass());
     }
 
     private void onSent(Packet<?> p) {
@@ -153,7 +182,10 @@ public final class SameTick implements AutoCloseable {
             // A teleport accept is marked (T) and never counts as his action: every warp has one, so it would make any
             // route case "share" a tick without his action in it.
             boolean accept = p instanceof ServerboundAcceptTeleportationPacket;
-            boolean mine = (injecting && !accept)
+            // A held-item change inside his use / click is a slot someone set earlier (vanilla sends it first): his only
+            // in SWAP, by its slot.
+            boolean carried = p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+            boolean mine = (injecting && !accept && !carried)
                     || (act == Act.SWAP && p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket h
                     && (h.getSlot() == slotA || h.getSlot() == slotB))
                     || (act == Act.ATTACK && "attack".equals(name))
@@ -227,6 +259,34 @@ public final class SameTick implements AutoCloseable {
             return act + ": his action x" + done + ", feature ticks " + featureWindows + ", his ticks " + playerWindows
                     + ", his after the feature's " + playerAfterFeature + ", SHARED " + both.size() + (both.isEmpty() ? "" : " e.g. [" + String.join("] [",
                     both.subList(0, Math.min(3, both.size()))) + "]");
+        }
+    }
+
+    /** What a case wants of the shared ticks. */
+    public enum Expect {
+        /** Some server tick carried both. */
+        SHARE,
+        /** Both acted, never in one server tick (the feature waits for his action, or the two cannot meet). */
+        APART,
+        /** The feature acted and none of his action reached the wire (the feature holds it). */
+        HELD
+    }
+
+    /** Stops his action, notes the counts, and fails a case that tested nothing or broke {@code want}. */
+    public static void judge(dev.testkit.gametest.hx.Session c, SameTick st, String what, Expect want) {
+        c.onClient(mc -> {
+            st.close();
+            return null;
+        });
+        String r = st.report();
+        c.note(what + " " + r);
+        c.check(st.done() > 0, what + ": his action never went in (nothing tested)");
+        c.check(st.featureWindows() > 0, what + ": the feature sent nothing (nothing tested; " + r + ")");
+        switch (want) {
+            case SHARE -> c.check(st.both() > 0, what + ": no server tick carried both the feature's packet and his ("
+                    + r + ")");
+            case APART -> c.check(st.playerWindows() > 0 && st.both() == 0, what + ": want both apart (" + r + ")");
+            case HELD -> c.check(st.playerWindows() == 0, what + ": his action reached the wire (" + r + ")");
         }
     }
 
