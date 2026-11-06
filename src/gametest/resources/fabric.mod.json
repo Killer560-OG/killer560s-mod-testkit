@@ -35,6 +35,7 @@
 			"dev.testkit.gametest.ProofTest",
 			"dev.testkit.gametest.SeedWorldTest",
 			"dev.testkit.gametest.FairyHubTests",
+			"dev.testkit.gametest.KeepFedTest",
 			"dev.testkit.gametest.ExampleTest",
 			"dev.testkit.gametest.MovementExamples",
 			"dev.testkit.gametest.CombatExamples",

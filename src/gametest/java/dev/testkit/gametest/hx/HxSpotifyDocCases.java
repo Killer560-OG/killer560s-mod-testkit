@@ -105,7 +105,9 @@ final class HxSpotifyDocCases {
         String override = System.getProperty("killer560.net.relay", "");
         if (override.startsWith("http://127.0.0.1") || override.startsWith("http://localhost")) {
             s.test("2867-hx-spotify-relay-1101", HxSpotifyDocCases::relay);
+            s.test("2870-hx-songtag-relay-live-1106", HxSpotifyDocCases::relayLive);
         } else {
+            s.shelved("2870-hx-songtag-relay-live-1106", "needs a local relay (as 2867)", HxSpotifyDocCases::relayLive);
             s.shelved("2867-hx-spotify-relay-1101", "needs a local relay: wrangler dev with TOKEN_SECRET " + E2E_SECRET
                     + " and -PnetOverride=relay=http://127.0.0.1:<port>", HxSpotifyDocCases::relay);
         }
@@ -212,7 +214,7 @@ final class HxSpotifyDocCases {
         });
     }
 
-    private static String botState(Session c, String botName, String accessor) {
+    static String botState(Session c, String botName, String accessor) {
         return c.onClient(mc -> {
             for (Player p : mc.level.players()) {
                 if (p.getGameProfile().name().equals(botName)) {
@@ -248,7 +250,7 @@ final class HxSpotifyDocCases {
         }
     }
 
-    private static UUID botUuid(Session c, String botName) {
+    static UUID botUuid(Session c, String botName) {
         return c.onClient(mc -> {
             for (Player p : mc.level.players()) {
                 if (p.getGameProfile().name().equals(botName)) {
@@ -288,7 +290,7 @@ final class HxSpotifyDocCases {
     }
 
     /** Supporter list: these uuids. */
-    private static void supporters(Session c, UUID... ids) {
+    static void supporters(Session c, UUID... ids) {
         StringBuilder b = new StringBuilder("[");
         for (int i = 0; i < ids.length; i++) {
             b.append(i == 0 ? "" : ",").append("{\"uuid\":\"").append(ids[i]).append("\",\"name\":\"\",\"scale\":1}");
@@ -766,6 +768,9 @@ final class HxSpotifyDocCases {
 
     private static void shareLyrics(Session c) throws Exception {
         c.check(has(c), "this jar has no lyric sharing");
+        // No relay room: a party left by an earlier case (578) made the relay retry, and each retry's disconnect resends
+        // the payload, which the "into alone" check below reads as a resend (passed alone, failed after 578; spotshare-1105).
+        noParty(c);
         long base = 1_900_000_000_000L;
         List<String> handed = new CopyOnWriteArrayList<>();
         BiPredicate<String, JsonElement> sink = (key, value) -> handed.add(key + " " + value);
@@ -774,7 +779,7 @@ final class HxSpotifyDocCases {
         List<Object> lines = c.onClient(mc -> List.of(line(0.0, "intro"),
                 line(4.0, "<00:04.00>alpha <00:04.50>beta <00:05.00>gamma"), line(8.0, "next line here"), line(600.0, "end")));
         Object snap = c.onClient(mc -> snapshot("TRACK", 0, base, lines));
-        try (Settings s = new Settings(c).with(TAGC, "ShareSong", true).with(MUC, "Share", true)
+        try (Settings s = noData(new Settings(c)).with("modchat.ModChatConfig", "Enabled", false).with(TAGC, "ShareSong", true).with(MUC, "Share", true)
                 .with(TAGC, "ShareWhat", Mod.enumValue(TAGC + "$ShareWhat", "BOTH")).with(TAGC, "ShareWord", true)) {
             supporters(c, self);
             freeze(c, base + 4_600);
@@ -955,14 +960,14 @@ final class HxSpotifyDocCases {
 
     /** Party data in a dungeon takes the party room before Song Tag; an earlier case (or the session's dungeon) can leave
      *  it on, so these cases turn it off: their premise is no dungeon data, no party. */
-    private static Settings noData(Settings s) {
+    static Settings noData(Settings s) {
         return s.with("interop.InteropConfig", "RelayData", false).with("partydata.PartyDataConfig", "ShareEnabled", false)
                 .with("melody.MelodyHudConfig", "ShareProgress", false);
     }
 
     /** His case is "no party": an earlier case may leave the session in its F7 dungeon, whose tab list keeps HxMateA and
      *  HxMateB in PartyTracker (so Party mode HAS a room); go to the hub and forget them. */
-    private static void noParty(Session c) {
+    static void noParty(Session c) {
         HxKit.hub(c);
         c.onClient(mc -> Mod.staticCall("leapmenu.PartyTracker", "clearParty"));
         c.check(c.onClient(mc -> ((List<?>) Mod.staticCall("leapmenu.PartyTracker", "teammates")).isEmpty()),
@@ -1105,6 +1110,211 @@ final class HxSpotifyDocCases {
                 Mod.setField(SH, "testSnapshot", null);
                 Mod.setField(SLF, "testNowMs", 0L);
                 Mod.staticCall(MU, "onPresence", botName, null);
+                Mod.staticCall(RS, "clear");
+                Mod.setField(SF, "byUuid", savedMap);
+                return null;
+            });
+            bot.remove();
+        }
+    }
+
+    // ---- 2870: Song Tag through a real relay, as killer560 saw it fail (spotreal-1106) -------------------------------
+
+    /** A raw relay member (another account's mod, as the relay sees it): every text frame it gets lands in {@code got}. */
+    private static final class Peer implements AutoCloseable {
+        final List<String> got = new CopyOnWriteArrayList<>();
+        final WebSocket ws;
+
+        Peer(String base, String room, UUID id, String name) throws Exception {
+            StringBuilder partial = new StringBuilder();
+            URI uri = URI.create(base.replaceFirst("^http", "ws") + "/ws?room=" + java.net.URLEncoder.encode(room, StandardCharsets.UTF_8)
+                    + "&token=" + java.net.URLEncoder.encode(token(id, name), StandardCharsets.UTF_8));
+            ws = HttpClient.newHttpClient().newWebSocketBuilder().buildAsync(uri, new WebSocket.Listener() {
+                @Override
+                public CompletionStage<?> onText(WebSocket w, CharSequence data, boolean last) {
+                    partial.append(data);
+                    if (last) {
+                        got.add(partial.toString());
+                        partial.setLength(0);
+                    }
+                    w.request(1);
+                    return null;
+                }
+            }).get(15, java.util.concurrent.TimeUnit.SECONDS);
+        }
+
+        void song(String title) throws Exception {
+            ws.sendText("{\"type\":\"data\",\"key\":\"np.v1\",\"value\":{\"state\":\"play\",\"artist\":\"PeerBand\","
+                    + "\"title\":\"" + title + "\"}}", true).get();
+        }
+
+        /** Whether the relay told this peer that {@code name} is a mod user (its welcome's mods, or a later hello). */
+        boolean listsMod(String name) {
+            for (String m : got) {
+                if (m.contains("\"type\":\"welcome\"") && m.contains("\"mods\":{") && m.substring(m.indexOf("\"mods\":{")).contains("\"" + name + "\":")
+                        || m.contains("\"event\":\"mod\"") && m.contains("\"name\":\"" + name + "\"") && !m.contains("\"shareAs\":null")) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        boolean saw(String event, String name) {
+            for (String m : got) {
+                if (m.contains("\"event\":\"" + event + "\"") && m.contains("\"name\":\"" + name + "\"")) return true;
+            }
+            return false;
+        }
+
+        @Override
+        public void close() {
+            ws.abort();
+        }
+    }
+
+    private static String room(net.minecraft.client.Minecraft mc) {
+        return String.valueOf(Mod.staticCall("relay.RelayClient", "room"));
+    }
+
+    /**
+     * killer560, 2026-11-06: his second account (26.3 Default, swapped to autoballz with the Account Swapper, not a supporter)
+     * logged "dropped a song from Killer560: not a mod user" the second its lobby link connected, and never showed the tag.
+     * Two faults: the relay's welcome reached the socket's handler before the socket was stored, so the hello (what lists you
+     * as a mod user) was dropped on some connects; and a viewer refused a song from anyone the relay did not list, so a lost
+     * hello, or a sender who hides his variant, meant no tag. Through a local relay: (a) on 8 warps the client's hello always
+     * reaches a member who joins after it; (b) a member who never says hello (a supporter) sends a song, and the client
+     * draws it over him within 2 s; (c) he warps (a new socket) with a new song, drawn within 2 s; (d) the client warps,
+     * he follows and resends, drawn within 2 s; (e) the client swaps account (AccountApplier, as the Account Swapper): its
+     * socket reconnects as the new account (the member sees it join and the old name leave), and his song still shows.
+     */
+    private static void relayLive(Session c) throws Exception {
+        c.check(has(c), "this jar has no 2026-11-01 Song Tag");
+        String base = localRelay();
+        c.check(base != null, "no relay override");
+        double[] at = c.scenario().playerPosition();
+        HxCosmeticNameCases.camera(c, CameraType.FIRST_PERSON);
+        HxCosmeticNameCases.look(c, 0f, -12f);
+        TestEnemy bot = TestEnemy.named("Pe", "R").at(at[0], at[1], at[2] + 5).frozen(true).spawn(c.ctx(), c.server());
+        String botName = bot.name();
+        Object savedMap = c.onClient(mc -> Mod.field(SF, "byUuid"));
+        net.minecraft.client.User savedUser = c.onClient(mc -> mc.getUser());
+        try (Settings s = noData(new Settings(c)).with("modchat.ModChatConfig", "Enabled", true)
+                .with("modchat.ModChatConfig", "RoomMode", Mod.enumValue("relay.RelayRoom$Mode", "LOBBY"))
+                .with(TAGC, "ShareSong", false).with(TAGC, "ShowOthers", true).with(MUC, "Share", true).with(SC, "ShowSupporterNames", false)
+                .with(NC, "RandomizeOthers", false)
+                .custom(() -> { }, () -> Mod.setField("relay.HypixelLocation", "serverId", null))) {
+            UUID self = c.onClient(mc -> mc.player.getUUID());
+            String selfName = c.onClient(mc -> mc.player.getGameProfile().name());
+            UUID botId = botUuid(c, botName);
+            c.check(botId != null, "the bot is not in the world (premise)");
+            supporters(c, botId);
+            noParty(c);
+            String mine = token(self, selfName);
+            c.onClient(mc -> {
+                String url = (String) Mod.staticCall("relay.RelayEndpoint", "normalise", Mod.call(Mod.cfg("modchat.ModChatConfig"), "getRelayUrl"));
+                Mod.setField("relay.RelayClient", "token", newRecord("relay.RelayAuth$Token", mine, System.currentTimeMillis() + 3_600_000L));
+                Mod.setField("relay.RelayClient", "tokenUrl", url);
+                Mod.setField("relay.RelayClient", "tokenAccount", mc.getUser().getProfileId().toString());
+                Mod.staticCall(RS, "clear");
+                return null;
+            });
+
+            // (a) the hello on every connect
+            int listed = 0;
+            String room = "";
+            for (int i = 0; i < 8; i++) {
+                String before = room;
+                c.onClient(mc -> {
+                    Mod.setField("relay.HypixelLocation", "lastLevel", mc.level);
+                    return null;
+                });
+                String id = "mini1106" + (char) ('A' + i);
+                c.onClient(mc -> {
+                    Mod.setField("relay.HypixelLocation", "serverId", id);
+                    return null;
+                });
+                c.waitUntil("the client's relay socket moved to " + id, mc -> (Boolean) Mod.staticCall("relay.RelayClient", "isConnected")
+                        && room(mc).startsWith("lobby:") && !room(mc).equals(before), 400);
+                room = c.onClient(mc -> room(mc));
+                try (Peer p = new Peer(base, room, botId, botName)) {
+                    long until = System.currentTimeMillis() + 1500;
+                    while (!p.listsMod(selfName) && System.currentTimeMillis() < until) {
+                        c.ctx().waitTicks(2);
+                    }
+                    if (p.listsMod(selfName)) listed++;
+                }
+            }
+            c.note("(a) the relay listed the client as a mod user after " + listed + " of 8 connects");
+            c.check(listed == 8, "(a) the client's hello was lost on " + (8 - listed) + " of 8 connects");
+
+            // (b) a member who never says hello shares a song: drawn within 2 s
+            BufferedImage none = HxCosmeticNameCases.shot(c, "relaylive-before");
+            try (Peer p = new Peer(base, room, botId, botName)) {
+                c.ctx().waitTicks(5);
+                long t0 = System.currentTimeMillis();
+                p.song("FirstSong");
+                c.waitUntil("(b) the client drew the song of a member the relay never listed",
+                        mc -> "♪ FirstSong - PeerBand".equals(botStateHere(mc, botName, "killer560smod$songTag")), 40);
+                c.note("(b) drawn " + (System.currentTimeMillis() - t0) + " ms after the member sent it");
+                HxCosmeticNameCases.look(c, 0f, -12f);
+                c.ctx().waitTicks(3);
+                int[] rows = HxCosmeticNameCases.tagAndHead(HxCosmeticNameCases.shot(c, "relaylive-b-song"), none);
+                c.check(rows[0] < rows[1], "(b) the screenshot shows nothing over the member");
+            }
+            // (c) he warps: a new socket, a new song
+            try (Peer p = new Peer(base, room, botId, botName)) {
+                c.ctx().waitTicks(5);
+                p.song("AfterHisWarp");
+                c.waitUntil("(c) the member's song after his warp", mc -> "♪ AfterHisWarp - PeerBand".equals(botStateHere(mc, botName, "killer560smod$songTag")), 40);
+                HxCosmeticNameCases.shot(c, "relaylive-c-his-warp");
+            }
+            // (d) the client warps; he follows and resends
+            c.onClient(mc -> {
+                Mod.setField("relay.HypixelLocation", "serverId", "mini1106W");
+                return null;
+            });
+            String before = room;
+            c.waitUntil("the client's relay socket moved to mini1106W", mc -> (Boolean) Mod.staticCall("relay.RelayClient", "isConnected")
+                    && room(mc).startsWith("lobby:") && !room(mc).equals(before), 400);
+            room = c.onClient(mc -> room(mc));
+            try (Peer p = new Peer(base, room, botId, botName)) {
+                c.ctx().waitTicks(5);
+                p.song("AfterYourWarp");
+                c.waitUntil("(d) the member's song after the client's warp", mc -> "♪ AfterYourWarp - PeerBand".equals(botStateHere(mc, botName, "killer560smod$songTag")), 40);
+                HxCosmeticNameCases.shot(c, "relaylive-d-your-warp");
+
+                // (e) the Account Swapper's swap: the socket signs in again as the new account
+                boolean hook = c.onClient(mc -> {
+                    try {
+                        Mod.cls("relay.RelayCalls").getDeclaredMethod("tokenForTest");
+                        return true;
+                    } catch (ReflectiveOperationException e) {
+                        return false;
+                    }
+                });
+                c.check(hook, "(e) this jar's relay sockets take no test token (mod before spotreal-1106)");
+                UUID swapId = UUID.nameUUIDFromBytes("spotreal-swap".getBytes(StandardCharsets.UTF_8));
+                String swapName = "SwapAcct1106";
+                String swapTok = token(swapId, swapName);
+                c.onClient(mc -> {
+                    Mod.staticCall("relay.RelayCalls", "setTokenForTest", swapTok);
+                    Mod.staticCall("accounts.AccountApplier", "apply", newRecord("accounts.core.AuthResult", swapId, swapName, "0", null, null, null));
+                    return null;
+                });
+                c.waitUntil("(e) the member saw the swapped account join and the old one leave",
+                        mc -> p.saw("join", swapName) && p.saw("leave", selfName), 200);
+                c.note("(e) after the swap the relay has the client as " + swapName);
+                p.song("AfterTheSwap");
+                c.waitUntil("(e) the member's song after the swap", mc -> "♪ AfterTheSwap - PeerBand".equals(botStateHere(mc, botName, "killer560smod$songTag")), 40);
+                HxCosmeticNameCases.shot(c, "relaylive-e-swapped");
+            }
+        } finally {
+            c.onClient(mc -> {
+                Mod.staticCall("relay.RelayCalls", "setTokenForTest", (Object) null);
+                if (mc.getUser() != savedUser) {
+                    Mod.staticCall("accounts.AccountApplier", "apply", newRecord("accounts.core.AuthResult", savedUser.getProfileId(),
+                            savedUser.getName(), savedUser.getAccessToken(), null, null, null));
+                }
                 Mod.staticCall(RS, "clear");
                 Mod.setField(SF, "byUuid", savedMap);
                 return null;

@@ -65,10 +65,27 @@ public class TestKitServer implements DedicatedServerModInitializer {
      */
     private static final List<net.minecraft.world.phys.AABB> PROTECTED = new ArrayList<>();
 
+    /**
+     * Real players' food stays full (killer560, 2026-11-05: "some of the tests are running out of hunger"). Natural
+     * regeneration is off here, so a long walk or sprint drained the bar and he lost sprint mid-test, as Hypixel
+     * never does. {@code /testkit keepfed false} turns it off for a case that drains food on purpose.
+     */
+    private static volatile boolean keepFed = true;
+
+    private static void keepFed(net.minecraft.server.MinecraftServer server) {
+        if (!keepFed) return;
+        for (net.minecraft.server.level.ServerPlayer sp : server.getPlayerList().getPlayers()) {
+            if (sp.getFoodData().getFoodLevel() < 20 || sp.getFoodData().getSaturationLevel() < 5f) {
+                sp.getFoodData().eat(20, 1.0f);
+            }
+        }
+    }
+
 
     @Override
     public void onInitializeServer() {
         ServerTickEvents.END_SERVER_TICK.register(FakePlayerManager::tick);
+        ServerTickEvents.END_SERVER_TICK.register(TestKitServer::keepFed);
         // Set the rules in code rather than through /gamerule. Their ids went snake_case in 26.1.2
         // (fall_damage, not fallDamage), so every camelCase gamerule command in every scenario had been
         // failing silently -- which meant natural regeneration was quietly healing the client back up
@@ -136,6 +153,12 @@ public class TestKitServer implements DedicatedServerModInitializer {
                             return say(context, "unprotected");
                         }))
                         .then(Commands.literal("sweep").executes(TestKitServer::sweep))
+                        .then(Commands.literal("keepfed")
+                                .then(Commands.argument("value", com.mojang.brigadier.arguments.BoolArgumentType.bool())
+                                        .executes(context -> {
+                                            keepFed = com.mojang.brigadier.arguments.BoolArgumentType.getBool(context, "value");
+                                            return say(context, "keepfed " + keepFed);
+                                        })))
                         // Send ClientboundOpenSignEditorPacket for a sign to every real player, the way an anticheat's
                         // translation probe does. Vanilla's own right-click path refuses to open the editor for a sign
                         // whose lines are not plain text (SignBlock.hasEditableText), the client handler does not.
@@ -222,7 +245,7 @@ public class TestKitServer implements DedicatedServerModInitializer {
         // scenario sticks for the whole session.
         server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "time set noon");
         System.out.println("[testkit] test rules applied: permanent noon, no fall damage, "
-                + "no regen, no mob spawning");
+                + "no regen, no mob spawning, food kept full");
     }
 
     /**

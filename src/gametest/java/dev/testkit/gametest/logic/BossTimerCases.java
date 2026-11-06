@@ -232,6 +232,8 @@ final class BossTimerCases {
     static void bloodCampClock(LogicCase c) {
         try {
             Mod.staticCall(CLOCK, "untrustForTest");
+            // The camp lag is wall time (bcstall-1105): each hand tick moves the test's wall clock 50 ms.
+            Mod.staticCall(CLOCK, "wallForTest", 40_000_000L);
             for (int i = 0; i < 40; i++) {
                 simTick(1);
             }

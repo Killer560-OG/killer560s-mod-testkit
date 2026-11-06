@@ -39,7 +39,6 @@
     {"root": "next", "why": "sim only: loads the next room of the All Rooms set, and only while All Rooms is running (roomsim/SimRoomCycle.isActive)"},
     {"root": "back", "why": "sim only: loads the previous room of the All Rooms set, and only while All Rooms is running (roomsim/SimRoomCycle.isActive)"},
     {"root": "tpto", "why": "sim only: teleports (roomsim/SimTeleportCommands)"},
-    {"root": "k560path", "why": "pathfinding walks the player (pathfinding/PathfindingFeature.java:129)"},
     {"root": "ar", "why": "Auto Routes editing and automation (autoroutes/AutoRoutesCommands)"},
     {"root": "autoroutes", "why": "Auto Routes editing and automation (autoroutes/AutoRoutesCommands)"},
     {"root": "search", "why": "executed only bare (see execute); 'search <text>' is parse-only (/k560search was removed, mod cmdclean-1101)"},
@@ -67,9 +66,7 @@
     {"root": "fabric-command-api-v2:client", "why": "Fabric API's own, not the mod's"},
     {"root": "fcc", "why": "Fabric API's own, not the mod's"},
     {"root": "ah", "why": "auction browser: network (AuctionHouseFeature.java:45)"},
-    {"root": "hypixelah", "why": "forwards /ah to the server (AuctionHouseFeature.java:55)"},
     {"root": "bz", "why": "bazaar browser: network (BazaarFeature.java:45)"},
-    {"root": "hypixelbz", "why": "forwards /bz to the server (BazaarFeature.java:54)"},
     {"root": "ap3", "why": "AP3 route editing/recording writes route files and drives automation (Ap3Commands.java:229)"},
     {"root": "autokick", "why": "populate sends party kicks (AutoKickCommands.java:31)"},
     {"root": "autosell", "why": "on/start drive selling; only 'autosell list' is executed"},
@@ -81,7 +78,6 @@
     {"root": "ew", "why": "adds/removes saved etherwarp waypoints (Killer560ModClient.java:386)"},
     {"root": "fl", "why": "forwards to Hypixel's /fl (social/FriendsListCommands.java:122)"},
     {"root": "flcustom", "why": "edits the custom friends list (social/FriendsListCommands.java:44)"},
-    {"root": "flhypixel", "why": "forwards to Hypixel (social/FriendsListCommands.java:49)"},
     {"root": "fly", "why": "sim survival flight (SimSurvival.java:106)"},
     {"root": "invsort", "why": "apply/stop drive inventory clicks; only 'invsort' (the menu) and 'invsort list' are executed"},
     {"root": "kuudra", "why": "command shortcut that sends a server command (CommandShortcutsFeature.java:241)"},
@@ -100,8 +96,6 @@
     {"root": "bzflip", "why": "opens BazaarAdvisorSetupScreen (305 shows it) and its subcommands save Bazaar Advisor settings (bazaaradvisor/BazaarAdvisorCommands.java:21)"},
     {"root": "bzscan", "why": "runs a bazaar scan, network (bazaarflip/BazaarFlipCommands.java:55)"},
     {"root": "simboss", "why": "mod doc-adm-boss-1101: starts the F7 boss sim (builds a world); SimBossTests 1101-boss-* run it"},
-    {"root": "simbosscapture", "why": "mod doc-adm-boss-1101: captures the real F7 boss room on Hypixel (dev/cheat build); nothing to capture in a smoke world"},
-    {"root": "luck", "why": "mod doc-rng-1101: opens the How Lucky Are You screen; HxLuckCases 1101-luck-* run it and check it"},
-    {"root": "ahmenudump", "why": "mod ahrelist-1101: records Hypixel's AH menus to a file for 15 minutes (dev/cheat build); 2800-menu-ah-menudump runs it and checks the file"}
+    {"root": "luck", "why": "mod doc-rng-1101: opens the How Lucky Are You screen; HxLuckCases 1101-luck-* run it and check it"}
   ]
 }

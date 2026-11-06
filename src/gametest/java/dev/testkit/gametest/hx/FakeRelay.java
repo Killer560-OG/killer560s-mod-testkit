@@ -41,6 +41,8 @@ import java.util.concurrent.TimeUnit;
 public final class FakeRelay implements AutoCloseable {
 
     private static final String RC = "relay.RelayClient";
+    /** Song Tag's lobby link (spotshare-1105), the second socket a partied client keeps in the lobby room. */
+    private static final String TAP = "relay.RelayTap";
 
     private final List<JsonObject> sent = new CopyOnWriteArrayList<>();
     private final ExecutorService wire = Executors.newSingleThreadExecutor(r -> {
@@ -51,9 +53,65 @@ public final class FakeRelay implements AutoCloseable {
     private volatile String mirrorAs;
     private volatile boolean closed;
     private final String room;
+    /** The mod class whose socket this fakes: RelayClient, or RelayTap for {@link #installTap}. */
+    private final String rc;
 
-    private FakeRelay(String room) {
+    private FakeRelay(String room, String rc) {
         this.room = room;
+        this.rc = rc;
+    }
+
+    /** The lobby room Song Tag's second socket ({@code RelayTap.wantRoom}) wants, "" if none (or a jar without it). */
+    public static String wantedTapRoom() {
+        try {
+            Object r = Mod.field(TAP, "wantRoom");
+            return r == null ? "" : r.toString();
+        } catch (RuntimeException | AssertionError e) {
+            return "";
+        }
+    }
+
+    /** {@link #install} for Song Tag's lobby link: connects {@code RelayTap} to a fake of the lobby room it wants. */
+    public static FakeRelay installTap(List<String> online) throws Exception {
+        String room = wantedTapRoom();
+        if (room.isEmpty()) {
+            throw new AssertionError("RelayTap wants no lobby room - nothing to fake");
+        }
+        FakeRelay fake = new FakeRelay(room, TAP);
+        ScheduledExecutorService worker = (ScheduledExecutorService) Mod.field(RC, "WORKER");
+        worker.submit(() -> {
+            Mod.staticCall(TAP, "shutdown");
+            Mod.setField(TAP, "generation", ((Long) Mod.field(TAP, "generation")) + 1L);
+            Mod.setField(TAP, "connectedRoom", room);
+            Mod.setField(TAP, "socket", fake.new Socket());
+            Mod.setField(TAP, "activeRoom", room);
+            return null;
+        }).get(10, TimeUnit.SECONDS);
+        fake.welcome(online);
+        return fake;
+    }
+
+    private void welcome(List<String> online) {
+        JsonObject welcome = new JsonObject();
+        welcome.addProperty("type", "welcome");
+        JsonArray names = new JsonArray();
+        online.forEach(names::add);
+        welcome.add("online", names);
+        welcome.add("mods", new JsonObject());
+        handle(welcome);
+    }
+
+    /** A presence packet into the room ({@code event} join, leave or mod; {@code shareAs} for mod). */
+    public void presence(String event, String name, String shareAs) {
+        JsonObject p = new JsonObject();
+        p.addProperty("type", "presence");
+        p.addProperty("event", event);
+        p.addProperty("name", name);
+        if (shareAs != null) {
+            p.addProperty("shareAs", shareAs);
+        }
+        p.add("online", new JsonArray());
+        handle(p);
     }
 
     /** The room {@code ModChatFeature} has asked the relay for ({@code RelayClient.wantRoom}), "" if none yet. */
@@ -71,7 +129,7 @@ public final class FakeRelay implements AutoCloseable {
         if (room.isEmpty()) {
             throw new AssertionError("RelayClient wants no room yet - nothing to fake");
         }
-        FakeRelay fake = new FakeRelay(room);
+        FakeRelay fake = new FakeRelay(room, RC);
         ScheduledExecutorService worker = (ScheduledExecutorService) Mod.field(RC, "WORKER");
         worker.submit(() -> {
             // What connect() does once the socket is open, minus the login: a new generation (a connect or retry still
@@ -89,13 +147,7 @@ public final class FakeRelay implements AutoCloseable {
             Mod.setField(RC, "state", Mod.enumValue(RC + "$State", "CONNECTED"));
             return null;
         }).get(10, TimeUnit.SECONDS);
-        JsonObject welcome = new JsonObject();
-        welcome.addProperty("type", "welcome");
-        JsonArray names = new JsonArray();
-        online.forEach(names::add);
-        welcome.add("online", names);
-        welcome.add("mods", new JsonObject());
-        fake.handle(welcome);
+        fake.welcome(online);
         return fake;
     }
 
@@ -128,9 +180,17 @@ public final class FakeRelay implements AutoCloseable {
 
     /** A data packet from {@code from} reaches the client, through the real socket's handler. */
     public void deliver(String from, String key, JsonElement value) {
+        deliver(from, null, key, value);
+    }
+
+    /** {@link #deliver} with the sender's uuid (dashless) stamped as well, as the relay does from the token (Song Tag needs it). */
+    public void deliver(String from, java.util.UUID uuid, String key, JsonElement value) {
         JsonObject p = new JsonObject();
         p.addProperty("type", "data");
         p.addProperty("from", from);
+        if (uuid != null) {
+            p.addProperty("uuid", uuid.toString().replace("-", ""));
+        }
         p.addProperty("key", key);
         p.add("value", value);
         handle(p);
@@ -140,11 +200,11 @@ public final class FakeRelay implements AutoCloseable {
      *  may call Minecraft.getInstance(), which the gametest thread is not allowed to. Waits for it to finish. */
     private void handle(JsonObject packet) {
         if (Thread.currentThread().getName().equals("testkit-fake-relay")) {
-            Mod.staticCall(RC, "handle", packet.toString());
+            Mod.staticCall(rc, "handle", packet.toString());
             return;
         }
         try {
-            wire.submit(() -> Mod.staticCall(RC, "handle", packet.toString())).get(10, TimeUnit.SECONDS);
+            wire.submit(() -> Mod.staticCall(rc, "handle", packet.toString())).get(10, TimeUnit.SECONDS);
         } catch (Exception e) {
             throw new AssertionError("the fake relay could not hand a packet to RelayClient.handle: " + e, e);
         }
@@ -191,6 +251,12 @@ public final class FakeRelay implements AutoCloseable {
         mirrorAs = null;
         ScheduledExecutorService worker = (ScheduledExecutorService) Mod.field(RC, "WORKER");
         worker.submit(() -> {
+            if (TAP.equals(rc)) {
+                Mod.staticCall(TAP, "shutdown");
+                Mod.setField(TAP, "wantUrl", "");
+                Mod.setField(TAP, "wantRoom", "");
+                return null;
+            }
             Mod.staticCall(RC, "shutdown", Mod.enumValue(RC + "$State", "OFF"), "");
             // Forget what was wanted, so ModChatFeature's next update() differs and reconciles the normal way.
             Mod.setField(RC, "wantOn", false);

@@ -46,6 +46,8 @@ final class TickFix2Cases {
         try {
             Mod.staticCall(CLOCK, "hypixelForTest", Boolean.TRUE);
             Mod.staticCall(CLOCK, "untrustForTest");
+            // The stall count is wall time (bcstall-1105): each hand tick moves the test's wall clock 50 ms.
+            Mod.staticCall(CLOCK, "wallForTest", 30_000_000L);
             for (int i = 0; i < 40; i++) {
                 tick(1);
             }
