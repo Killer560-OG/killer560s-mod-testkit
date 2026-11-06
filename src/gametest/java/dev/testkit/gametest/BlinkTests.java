@@ -1574,8 +1574,9 @@ public class BlinkTests implements FabricClientGameTest {
                         ctx.runOnClient(mc -> hold.allow(3));
                     }
                     if (act == SameTick.Act.ATTACK) {
-                        // His click goes in at the END of this tick, so the next tick's attack and the shot share it (the
-                        // shot carries him 11 blocks past the stand, so a click after it hits nothing).
+                        // His click goes in at the END of this tick, queued for the tick he presses the Charge key in. Fired
+                        // first, the shot carried him 11 blocks past the stand and his attack never went out (blinkone-1105
+                        // r6b: "his ticks 0"); the shot now waits for it.
                         ctx.waitTicks(1);
                     }
                     if (act == SameTick.Act.TP) {
@@ -1603,6 +1604,26 @@ public class BlinkTests implements FabricClientGameTest {
                         ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
                         ctx.getInput().releaseKey(o -> o.keyUp);
                         ctx.getInput().releaseKey(o -> o.keySprint);
+                        shot = new double[]{flat(before, after), cnum(ctx, "shots") - shots0, cnum(ctx, "lastShotTicks")};
+                    } else if (act == SameTick.Act.ATTACK) {
+                        // blinkone-1106: a key shot waits while his left click is queued (it goes first, the shot the tick
+                        // after, at most 250 ms), so he keeps running and the shot comes once his clicks are out.
+                        long shots0 = cnum(ctx, "shots");
+                        double[] before = scenario.playerPosition();
+                        ctx.getInput().holdKey(o -> o.keyUp);
+                        ctx.getInput().holdKey(o -> o.keySprint);
+                        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
+                        ctx.waitTicks(1);
+                        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+                        int waited = 0;
+                        for (; waited < 10 && cnum(ctx, "shots") == shots0; waited++) {
+                            ctx.waitTicks(1);
+                        }
+                        ctx.waitTicks(1);
+                        double[] after = scenario.playerPosition();
+                        ctx.getInput().releaseKey(o -> o.keyUp);
+                        ctx.getInput().releaseKey(o -> o.keySprint);
+                        check(waited >= 1, "the shot did not wait for his queued attack click (fired the tick he pressed)");
                         shot = new double[]{flat(before, after), cnum(ctx, "shots") - shots0, cnum(ctx, "lastShotTicks")};
                     } else {
                         shot = shootByPress(ctx, true);
