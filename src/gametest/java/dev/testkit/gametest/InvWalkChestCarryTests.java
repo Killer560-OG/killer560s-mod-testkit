@@ -205,6 +205,12 @@ public class InvWalkChestCarryTests implements FabricClientGameTest {
      */
     static void chestRow(Rows rows, ClientGameTestContext ctx, TestServer server, Hx hx, int x, int z, int[] p, String box,
                          String label, Body body) {
+        chestRow(rows, ctx, server, hx, x, z, p, box, label, body, null);
+    }
+
+    /** As above; {@code after} runs before the row is judged and returns null or why the row failed (its text is noted). */
+    static void chestRow(Rows rows, ClientGameTestContext ctx, TestServer server, Hx hx, int x, int z, int[] p, String box,
+                         String label, Body body, java.util.function.Supplier<String[]> extra) {
         iwOn(ctx, true, 0);
         boolean setting = ctx.computeOnClient(mc -> {
             try {
@@ -318,6 +324,12 @@ public class InvWalkChestCarryTests implements FabricClientGameTest {
                 clicks.size(), closes.size(), movingClicks + (movingClose ? 1 : 0),
                 slotsBad.isEmpty() ? "right" : "WRONG " + slotsBad, conserved ? "conserved" : "LOST " + tot,
                 carriedLeft ? "; CURSOR LEFT ON SERVER" : "");
+        if (extra != null) {
+            // [0] null or why it failed, [1] the note.
+            String[] a = extra.get();
+            acted &= a[0] == null;
+            detail += "; " + a[1] + (a[0] == null ? "" : " FAILED: " + a[0]);
+        }
         rows.end(label, acted, detail, null);
         ctx.waitTicks(5);
     }
