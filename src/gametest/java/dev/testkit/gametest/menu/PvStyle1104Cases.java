@@ -44,7 +44,7 @@ final class PvStyle1104Cases {
             + "\"banking\":{\"balance\":4200000},\"members\":{\"000000000000000000000000000000a1\":{\"currencies\":{\"coin_purse\":123456},"
             + "\"player_data\":{\"experience\":{\"SKILL_COMBAT\":55000000,\"SKILL_MINING\":12000000,\"SKILL_FARMING\":3000000}},"
             + "\"inventory\":{\"inv_contents\":{\"type\":0,\"data\":\"\"}},"
-            + "\"collection\":{\"WHEAT\":1000},\"nether_island_player_data\":{\"selected_faction\":\"mages\",\"mages_reputation\":1200,"
+            + "\"bestiary\":{\"kills\":{\"zombie_1\":100}},\"collection\":{\"WHEAT\":1000},\"nether_island_player_data\":{\"selected_faction\":\"mages\",\"mages_reputation\":1200,"
             + "\"kuudra_completed_tiers\":{\"none\":5,\"highest_wave_none\":3},\"dojo\":{\"dojo_points_mob_kb\":500}},\"mining_core\":{\"powder_mithril\":500000,\"powder_spent_mithril\":100000,"
             + "\"crystals\":{\"jade_crystal\":{\"state\":\"FOUND\",\"total_placed\":3}}},"
             + "\"skill_tree\":{\"experience\":{\"mining\":600000},\"nodes\":{\"mining\":{\"mining_speed\":50}}},\"pets_data\":{\"pets\":[{\"type\":\"ENDER_DRAGON\",\"tier\":\"LEGENDARY\",\"exp\":25000000,\"active\":true}]},"
@@ -350,6 +350,24 @@ final class PvStyle1104Cases {
                 }
             }
             look(bad, gold >= 10, "NEU Museum: " + gold + " gold Museum Value pixels at 21, 25 (want 10+)");
+            // NEU's Bestiary page: a two-category table goes into the download's future; Zombie (100 kills) is maxed, so the
+            // first cell's tier reads gold at 29, 73 and the first category cell at 30, 10 is the selected one.
+            BufferedImage bes = remoteShot(c, s, "BESTIARY", "parseBestiary", "{\"brackets\":{\"1\":[10,100]},"
+                    + "\"island\":{\"name\":\"Private Island\",\"icon\":{\"item\":\"GRASS\"},\"mobs\":[{\"name\":\"Zombie\",\"cap\":100,\"bracket\":1,\"mobs\":[\"zombie_1\"],\"item\":\"ROTTEN_FLESH\"}]},"
+                    + "\"hub\":{\"name\":\"Hub\",\"icon\":{\"item\":\"BRICK\"},\"mobs\":[{\"name\":\"Crypt Ghoul\",\"cap\":100,\"bracket\":1,\"mobs\":[\"ghoul_1\"],\"item\":\"BONE\"}]}}",
+                    6, "neu-bestiary");
+            neuOverlay(bad, "NEU Bestiary", bes, scale, geo, "neu/pv_bestiary.png", 120, 290, 390);
+            if (on != null && under != null) {
+                int got = gp(bes, scale, geo[0] + 30, geo[1] + 10), exp = blend(on.getRGB(0, 0), under.getRGB(30, 10) & 0xFFFFFF);
+                look(bad, near(got, exp), "NEU Bestiary: first category cell corner " + String.format("%06X, expected %06X", got, exp));
+            }
+            int tierGold = 0;
+            for (int gx = 29; gx < 50; gx++) {
+                for (int gy = 73; gy < 81; gy++) {
+                    tierGold += near(gp(bes, scale, geo[0] + gx, geo[1] + gy), 0xFFAA00) ? 1 : 0;
+                }
+            }
+            look(bad, tierGold >= 3, "NEU Bestiary: " + tierGold + " gold tier pixels under Zombie at 29, 73 (want 3+)");
         } else if (sprite == null) {
             look(bad, false, want + ": no slot sprite in the jar");
         } else {
@@ -385,6 +403,27 @@ final class PvStyle1104Cases {
         }
         c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 0));
         c.ctx().waitTicks(3);
+    }
+
+    /** A page shot with one of ExtraTables' downloads (field, its parser) answered by the given JSON for the shot. */
+    private static BufferedImage remoteShot(Session c, Screen s, String field, String parser, String json, int page, String name) throws Exception {
+        Object remote = c.onClient(mc -> Mod.field("profileviewer.data.ExtraTables", field));
+        java.lang.reflect.Field future = remote.getClass().getDeclaredField("future");
+        future.setAccessible(true);
+        Object old = future.get(remote);
+        Object parsed = c.onClient(mc -> Mod.staticCall("profileviewer.data.ExtraTables", parser, JsonParser.parseString(json).getAsJsonObject()));
+        try {
+            synchronized (remote) {
+                future.set(remote, CompletableFuture.completedFuture(parsed));
+            }
+            c.ctx().runOnClient(mc -> Mod.call(s, "setPage", page));
+            c.ctx().waitTicks(5);
+            return BazaarReskinCases.shot(c, name);
+        } finally {
+            synchronized (remote) {
+                future.set(remote, old);
+            }
+        }
     }
 
     /** Collections (page 4) with a two-tier Wheat collection injected for the shot (the tier list is a download). */
