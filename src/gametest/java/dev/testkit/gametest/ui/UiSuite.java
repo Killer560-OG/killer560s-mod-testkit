@@ -1013,6 +1013,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1104-ui-pvjoin-link", PvJoinCases::link);
                     UiCase.run(ctx, "1104-ui-pvjoin-forged", PvJoinCases::forged);
                     UiCase.run(ctx, "1104-ui-pvjoin-off", PvJoinCases::off);
+                    UiCase.run(ctx, "1108-ui-pvjoin-whole", PvJoinCases::whole);
                 }
             }
             UiCase.run(ctx, DENY_CASE, c -> MiscCases.deny(c, watch, suiteMark));
