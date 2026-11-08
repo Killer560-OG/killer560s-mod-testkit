@@ -41,7 +41,8 @@ final class InvLoadout1104Cases {
         MenuSuite.test(s, "1104-invsort-loadout-apply", InvLoadout1104Cases::apply);
         MenuSuite.test(s, "1105-invsort-loadout-cache", InvLoadout1104Cases::cache);
         MenuSuite.test(s, "1105-invsort-loadout-equipped", InvLoadout1104Cases::equipped);
-        MenuSuite.test(s, "1108-invsort-loadout-hypixel-closes", InvLoadout1104Cases::hypixelCloses);
+        MenuSuite.test(s, "1108-invsort-loadout-hypixel-closes", c -> closes(c, false));
+        MenuSuite.test(s, "1108-invsort-loadout-sametick", c -> closes(c, true));
     }
 
     private static Object layout(Session c, String name, Map<Integer, String> slots, int loadout) {
@@ -259,6 +260,8 @@ final class InvLoadout1104Cases {
      *  gone" with lastSwapped false, and the sorter stopped "loadout was not selected, so nothing was sorted" although
      *  the loadout had changed. The fake menu here closes on the click. The swap must read as done and the sort must run. */
     private static volatile boolean closeHookArmed;
+    private static volatile boolean sameTickArmed;
+    private static volatile int sameTickClicks;
     private static volatile int closedByHook;
     private static boolean closeHookRegistered;
 
@@ -269,6 +272,16 @@ final class InvLoadout1104Cases {
             return;
         }
         closeHookRegistered = true;
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.START_CLIENT_TICK.register(mc -> {
+            // Registered after the mod's, so it runs after the swapper's click of this tick: the player's own click, same tick.
+            if (sameTickArmed && sameTickClicks == 0 && "CLOSE".equals(String.valueOf(Mod.field(SWAP, "stage")))
+                    && mc.player != null && Long.valueOf((Long) Mod.field(SWAP, "clickTick"))
+                    .equals(Mod.staticCall("util.ActionGate", "currentTick"))) {
+                sameTickClicks++;
+                mc.gameMode.handleContainerInput(mc.player.containerMenu.containerId, 0, 0,
+                        net.minecraft.world.inventory.ContainerInput.PICKUP, mc.player);
+            }
+        });
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             if (closeHookArmed && "CLOSE".equals(String.valueOf(Mod.field(SWAP, "stage"))) && McCompat.screen(mc) != null) {
                 closedByHook++;
@@ -277,7 +290,9 @@ final class InvLoadout1104Cases {
         });
     }
 
-    static void hypixelCloses(Session c) throws Exception {
+    /** @param sameTick also fire the player's own container click in the tick the swapper's loadout click goes out, and
+     *  check on the wire (WireCapture) that both clicks left in one client tick; the run's anticheat column is the Grim verdict. */
+    static void closes(Session c, boolean sameTick) throws Exception {
         MenuKit.reset(c);
         InventoryCases.clearInv(c);
         if (legit(c)) {
@@ -296,6 +311,10 @@ final class InvLoadout1104Cases {
             c.hx().call("menu.onCommand", "name", "loadouts", "menu", loadoutsPage(1, null));
             armCloseHook();
             closedByHook = 0;
+            sameTickClicks = 0;
+            sameTickArmed = sameTick;
+            dev.testkit.harness.WireCapture.describe = p -> p.getClass().getSimpleName();
+            dev.testkit.harness.WireCapture.start();
             c.hx().give(3, "minecraft:diamond");
             c.waitUntil("the diamond", mc -> mc.player.getInventory().getItem(3).is(Items.DIAMOND), 80);
             String diamond = c.onClient(mc -> (String) Mod.staticCall("autoroutes.ItemIdentity", "of",
@@ -306,6 +325,20 @@ final class InvLoadout1104Cases {
             c.waitUntil("the loadout then the sort", mc -> !(Boolean) Mod.staticCall(EXEC, "isRunning"), 600);
             c.ctx().waitTicks(10);
             List<JsonObject> clicks = clicksSince(c, before);
+            dev.testkit.harness.WireCapture.stop();
+            if (sameTick) {
+                int best = 0;
+                int cur = 0;
+                for (dev.testkit.harness.WireCapture.Sent sent : dev.testkit.harness.WireCapture.snapshot()) {
+                    if (sent.text().equals("ServerboundClientTickEndPacket")) {
+                        cur = 0;
+                    } else if (sent.text().equals("ServerboundContainerClickPacket")) {
+                        best = Math.max(best, ++cur);
+                    }
+                }
+                c.check(sameTickClicks == 1 && best >= 2, "no tick carried both the player's click and the swapper's (hook "
+                        + sameTickClicks + ", most container clicks in one tick " + best + ")");
+            }
             c.check(closedByHook == 1, "the menu was not closed in the tick after the click (" + closedByHook + "), so the case proves nothing");
             c.check(!clicks.isEmpty() && clicks.get(0).get("slot").getAsInt() == 24, "the loadout (slot 24) was not clicked: " + clicks);
             c.check(c.onClient(mc -> (Boolean) Mod.staticCall(SWAP, "lastSwapped")),
@@ -315,6 +348,9 @@ final class InvLoadout1104Cases {
             c.note("loadout 5 clicked, Hypixel closed the menu itself, the sort went on: " + (clicks.size() - 1) + " click(s) after it");
         } finally {
             closeHookArmed = false;
+            sameTickArmed = false;
+            dev.testkit.harness.WireCapture.stop();
+            dev.testkit.harness.WireCapture.describe = null;
             if (c.onClient(mc -> (Boolean) Mod.staticCall(EXEC, "isRunning"))) {
                 c.ctx().runOnClient(mc -> Mod.staticCall(EXEC, "requestStop"));
             }
