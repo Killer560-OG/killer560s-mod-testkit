@@ -224,7 +224,7 @@ final class HxSpotifyLyrics1108Cases {
             else System.setProperty("killer560.net.offline", offline);
         }
         c.note("his " + HIS_SONGS.length + " songs: " + withLines + " with lines, " + withWords + " with Kugou word times" + rows);
-        // base 4f46f8ca5: Kugou word times for 1 (Succubus, a keyword-search hit); the hash route finds 7.
+        // measured 2026-11-08: base 4f46f8ca5 has Kugou word times for 2 (keyword-search hits), spotify1108 for 6 (hash route).
         c.check(withWords >= 5, "Kugou word times for only " + withWords + " of his songs");
     }
 
