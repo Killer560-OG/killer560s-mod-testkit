@@ -22,7 +22,10 @@ import java.util.UUID;
  * 1104-menu-pvstyle: opens /pv on an offline profile at 1600x900 GUI 2, then presses the in-screen Style button (a real
  * left click) through every Style. Each press must change the config, the screen and the saved file at once, lay the
  * page out for that style (icon tabs above the panel, content under a 26 px header), draw that style's panel edge
- * (sampled off a screenshot, kept for the owner), and let a real click on an icon tab change the page. A right click
+ * (sampled off a screenshot, kept for the owner), and let a real click on an icon tab change the page.
+ * pvthemes-1108 (killer560 2026-11-08: "make sure they are exactly 1-1 of the other mods"): each icon style also has
+ * the original's panel size and place, its Style button where the original keeps its controls, and its own sprite
+ * pixels on the panel edge and the selected tab. A right click
  * steps back, and a fresh load of the file keeps the last style (a restart).
  */
 final class PvStyle1104Cases {
@@ -39,8 +42,11 @@ final class PvStyle1104Cases {
             + "\"dungeons\":{\"dungeon_types\":{\"catacombs\":{\"experience\":180000000}}}}}}]}";
 
     static final String[] ORDER = {"DEFAULT", "NEU", "SBPV_LIGHT", "SBPV_DARK", "SBPV_CLEAR"};
-    /** The panel's left edge one GUI unit in, per style (null: Default follows the theme). */
-    static final Integer[] EDGE = {null, 0x555555, 0xA0A0A0, 0x212121, 0x1C1C1C};
+    /** The panel's left edge at x + 0 and x + 1 (mid height), per style: the originals' own sprite pixels (pvthemes-1108:
+     *  NEU pv_bg.png, SkyBlockPV buttons/normal.png of its default, darkmode and neu themes). Null: Default follows the theme. */
+    static final int[][] EDGE = {null, {0x000000, 0x555555}, {0x1E1E1F, 0xECEDEE}, {0x000000, 0x656565}, {0x000000, 0x555555}};
+    /** The selected first tab's pixel at column 10, row 2 (NEU, pv_elements v 52) or row 3 (SkyBlockPV tabs/top/selected). */
+    static final int[] TAB = {0, 0x555555, 0x3C8527, 0x3C8527, 0x555555};
 
     static void register(Session s) {
         MenuSuite.test(s, "1104-menu-pvstyle", PvStyle1104Cases::styles);
@@ -101,6 +107,8 @@ final class PvStyle1104Cases {
             c.waitUntil("the PV shows the offline profile", mc -> "READY".equals(String.valueOf(Mod.field(s, "state"))), 100);
             c.ctx().waitTicks(3);
 
+            // The look checks are gathered so one run shows every style (and a base jar every difference).
+            List<String> bad = new java.util.ArrayList<>();
             for (int n = 0; n < ORDER.length; n++) {
                 String want = ORDER[n];
                 if (n > 0) {
@@ -121,10 +129,21 @@ final class PvStyle1104Cases {
                 int[] geo = c.onClient(mc -> new int[]{i(s, "panelX"), i(s, "panelY"), i(s, "panelW"), i(s, "panelH"),
                         i(s, "contentY"), s.width});
                 boolean icons = n > 0;
-                int tabH = n == 1 ? 28 : 24;
+                boolean neu = n == 1;
+                int rise = neu ? 28 : 22;
                 if (icons) {
-                    c.check(geo[4] == geo[1] + 26, want + ": content starts at " + geo[4] + ", expected panelY + 26 = " + (geo[1] + 26));
-                    c.check(geo[1] >= tabH, want + ": the panel top " + geo[1] + " leaves no room for the " + tabH + " px tabs");
+                    // pvthemes-1108: the originals' sizes on an 800 x 450 GUI, centered. NEU GuiProfileViewer 431 x 202;
+                    // SkyBlockPV BaseWindowedPvScreen height (int) (450 * 0.65) = 292, width (int) (292 * 16 / 9) = 519.
+                    int[] want4 = neu ? new int[]{184, 124, 431, 202} : new int[]{140, 79, 519, 292};
+                    look(bad, geo[0] == want4[0] && geo[1] == want4[1] && geo[2] == want4[2] && geo[3] == want4[3],
+                            want + ": panel " + geo[0] + "," + geo[1] + " " + geo[2] + "x" + geo[3] + ", expected "
+                                    + want4[0] + "," + want4[1] + " " + want4[2] + "x" + want4[3]);
+                    look(bad, geo[4] == geo[1] + 26, want + ": content starts at " + geo[4] + ", expected panelY + 26 = " + (geo[1] + 26));
+                    // NEU: the Style dropdown 106 right of the profile one, 3 under the panel; SkyBlockPV: top left, 20 tall.
+                    int[] sb = c.onClient(mc -> ((int[]) Mod.field(s, "styleButton")).clone());
+                    boolean at = neu ? sb[0] == geo[0] + 106 && sb[1] == geo[1] + geo[3] + 3 && sb[2] == 100 && sb[3] == 20
+                            : sb[0] == 5 && sb[1] == 5 && sb[3] == 20;
+                    look(bad, at, want + ": the Style button is at " + sb[0] + "," + sb[1] + " " + sb[2] + "x" + sb[3]);
                 } else {
                     c.check(geo[4] == geo[1] + 29 + 2 * 21, "Default: content starts at " + geo[4] + ", expected panelY + 71");
                 }
@@ -134,11 +153,17 @@ final class PvStyle1104Cases {
                 int px = (int) ((geo[0] + 1) * scale + scale / 2);
                 int py = (int) ((geo[1] + geo[3] / 2) * scale + scale / 2);
                 int rgb = img.getRGB(px, py) & 0xFFFFFF;
+                int rgb0 = img.getRGB((int) (geo[0] * scale + scale / 2), py) & 0xFFFFFF;
                 c.note(want + ": panel " + geo[0] + "," + geo[1] + " " + geo[2] + "x" + geo[3] + ", content y " + geo[4]
-                        + ", edge pixel " + String.format("%06X", rgb));
+                        + ", edge pixels " + String.format("%06X %06X", rgb0, rgb));
                 if (EDGE[n] != null) {
-                    c.check(near(rgb, EDGE[n]), want + ": the panel edge is " + String.format("%06X", rgb) + ", expected "
-                            + String.format("%06X", EDGE[n]));
+                    look(bad, near(rgb0, EDGE[n][0]) && near(rgb, EDGE[n][1]), want + ": the panel edge is "
+                            + String.format("%06X %06X", rgb0, rgb) + ", expected " + String.format("%06X %06X", EDGE[n][0], EDGE[n][1]));
+                    int tx = geo[0] + (neu ? 0 : 20) + 10;
+                    int ty = geo[1] - rise + (neu ? 2 : 3);
+                    int tab = img.getRGB((int) (tx * scale + scale / 2), (int) (ty * scale + scale / 2)) & 0xFFFFFF;
+                    look(bad, near(tab, TAB[n]), want + ": the selected tab's pixel is " + String.format("%06X", tab)
+                            + ", expected " + String.format("%06X", TAB[n]));
                 }
 
                 if (icons) {
@@ -146,15 +171,19 @@ final class PvStyle1104Cases {
                     int x0 = n == 1 ? 0 : 20;
                     int step = n == 1 ? 28 : 22;
                     int w = n == 1 ? 28 : 20;
-                    int ty = geo[1] - tabH;
+                    int ty = geo[1] - rise;
+                    int tabH = 25;
                     BazaarReskinCases.pressAt(c, new int[]{geo[0] + x0 + step, ty + 4, w, tabH - 6}, 0);
                     int page = c.onClient(mc -> (Integer) Mod.field(s, "page"));
-                    c.check(page == 1, want + ": a click on the second tab left the page at " + page);
+                    look(bad, page == 1, want + ": a click on the second tab left the page at " + page);
+                    BazaarReskinCases.shot(c, want.toLowerCase() + "-dungeons"); // kept for the owner
                     BazaarReskinCases.pressAt(c, new int[]{geo[0] + x0, ty + 4, w, tabH - 6}, 0);
                     page = c.onClient(mc -> (Integer) Mod.field(s, "page"));
-                    c.check(page == 0, want + ": a click on the first tab left the page at " + page);
+                    look(bad, page == 0, want + ": a click on the first tab left the page at " + page);
                 }
             }
+
+            c.check(bad.isEmpty(), bad.size() + " look differences: " + String.join("; ", bad));
 
             // Wraps to Default, then a right click steps back to the last one.
             int[] btn = c.onClient(mc -> ((int[]) Mod.field(s, "styleButton")).clone());
@@ -179,6 +208,12 @@ final class PvStyle1104Cases {
                 Mod.call(cfg, "save");
                 ((Map<?, ?>) Mod.field(API, "CACHE")).remove(ID);
             });
+        }
+    }
+
+    private static void look(List<String> bad, boolean ok, String what) {
+        if (!ok) {
+            bad.add(what);
         }
     }
 
