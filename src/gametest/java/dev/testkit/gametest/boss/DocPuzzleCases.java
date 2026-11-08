@@ -1179,6 +1179,7 @@ final class DocPuzzleCases {
                 }
             });
             c.ctx().waitTicks(1);
+            Thread.sleep(80); // real time passes between the rays, as on a server
             c.ctx().runOnClient(mc -> {
                 for (int i = 0; i < 8; i++) {
                     Mod.staticCall(beam, "pointForTest", 0.0, 70.0, 0.5 * i + 20);
@@ -1187,7 +1188,7 @@ final class DocPuzzleCases {
             long[] t = c.onClient(mc -> (long[]) Mod.staticCall(beam, "startTimesForTest"));
             c.note("beam start times " + java.util.Arrays.toString(t));
             c.check(t.length >= 2, "the two rays did not make two beams: " + t.length);
-            c.check(t.length >= 2 && t[0] == t[1], "the rays of one shot start fading at different times: " + java.util.Arrays.toString(t));
+            c.check(t.length >= 2 && t[0] == t[t.length - 1], "the rays of one shot start fading at different times: " + java.util.Arrays.toString(t));
         } finally {
             c.ctx().runOnClient(mc -> Mod.staticCall(beam, "clearForTest"));
         }
