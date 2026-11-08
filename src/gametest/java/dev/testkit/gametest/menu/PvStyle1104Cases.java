@@ -43,6 +43,7 @@ final class PvStyle1104Cases {
             + "\"banking\":{\"balance\":4200000},\"members\":{\"000000000000000000000000000000a1\":{\"currencies\":{\"coin_purse\":123456},"
             + "\"player_data\":{\"experience\":{\"SKILL_COMBAT\":55000000,\"SKILL_MINING\":12000000,\"SKILL_FARMING\":3000000}},"
             + "\"inventory\":{\"inv_contents\":{\"type\":0,\"data\":\"\"}},"
+            + "\"collection\":{\"WHEAT\":1000},\"pets_data\":{\"pets\":[{\"type\":\"ENDER_DRAGON\",\"tier\":\"LEGENDARY\",\"exp\":25000000,\"active\":true}]},"
             + "\"dungeons\":{\"dungeon_types\":{\"catacombs\":{\"experience\":180000000}}}}}}]}";
 
     static final String[] ORDER = {"DEFAULT", "NEU", "SBPV_LIGHT", "SBPV_DARK", "SBPV_CLEAR"};
@@ -249,10 +250,55 @@ final class PvStyle1104Cases {
         c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 2));
         c.ctx().waitTicks(5);
         BufferedImage inv = BazaarReskinCases.shot(c, want.toLowerCase() + "-inventory");
-        int rx = cx + 90, rw = cw - 90;
-        int mainX = Math.max(rx + 8 + 46, rx + (rw - 162) / 2), top = cy + 22;
-        BufferedImage sprite = res(neu ? "neu/slot.png" : "sbpv/" + (n == 2 ? "light" : n == 3 ? "dark" : "clear") + "/slot.png");
-        if (sprite == null) {
+        // Round 3: SkyBlockPV's Inventory view is one centered row, armor 2 x 4 + 10 px + the 9 x 4 grid, 20 px cells, 2 px in.
+        int mainX = geo[0] + (geo[2] - 238) / 2 + 56, top = geo[1] + (geo[3] - 84) / 2 + 2;
+        BufferedImage sprite = neu ? null : res("sbpv/" + (n == 2 ? "light" : n == 3 ? "dark" : "clear") + "/slot.png");
+        if (neu) {
+            // Round 3: NEU's Inventories page lies over pv_invs.png (the weapon/armor boxes' top edge, row 6).
+            neuOverlay(bad, "NEU Inventories", inv, scale, geo, "neu/pv_invs.png", 6, 139, 212);
+            // ... and its Pets page over pv_pets.png (the white pet frame's top edge, row 45).
+            c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 3));
+            c.ctx().waitTicks(5);
+            BufferedImage pets = BazaarReskinCases.shot(c, "neu-pets");
+            neuOverlay(bad, "NEU Pets", pets, scale, geo, "neu/pv_pets.png", 45, 213, 292);
+            // The seed's one (active) pet sits in NEU's first grid cell (20, 31), its cell tinted orange (pet_sel.png).
+            BufferedImage sel = res("neu/pet_sel.png"), under = res("neu/panel.png");
+            if (sel == null || under == null) {
+                look(bad, false, "NEU Pets: no pet_sel.png in the jar");
+            } else {
+                int got = gp(pets, scale, geo[0] + 20, geo[1] + 31), exp = blend(sel.getRGB(0, 0), under.getRGB(20, 31) & 0xFFFFFF);
+                look(bad, near(got, exp), "NEU Pets: first pet cell corner " + String.format("%06X, expected %06X", got, exp));
+            }
+            // ... and Collections: the seed's 1000 Wheat (tiers 50/1000, injected below, the tier list is a download) maxes
+            // the first cell of NEU's grid (54, 31), filled orange (pet_sel.png) over its pv_elements cell.
+            Object remote = c.onClient(mc -> Mod.field("profileviewer.data.ExtraTables", "COLLECTIONS"));
+            java.lang.reflect.Field future = remote.getClass().getDeclaredField("future");
+            future.setAccessible(true);
+            Object old = future.get(remote);
+            Object cats = c.onClient(mc -> Mod.staticCall("profileviewer.data.ExtraTables", "parseCollections", JsonParser.parseString("{\"collections\":{\"FARMING\":{\"name\":\"Farming\",\"items\":{\"WHEAT\":{\"name\":\"Wheat\","
+                            + "\"maxTiers\":2,\"tiers\":[{\"tier\":1,\"amountRequired\":50},{\"tier\":2,\"amountRequired\":1000}]}}}}}").getAsJsonObject()));
+            BufferedImage cols;
+            try {
+                synchronized (remote) {
+                    future.set(remote, java.util.concurrent.CompletableFuture.completedFuture(cats));
+                }
+                c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 4));
+                c.ctx().waitTicks(5);
+                cols = BazaarReskinCases.shot(c, "neu-collections");
+            } finally {
+                synchronized (remote) {
+                    future.set(remote, old);
+                }
+            }
+            BufferedImage tab = res("neu/inv_tab.png");
+            if (sel == null || under == null || tab == null) {
+                look(bad, false, "NEU Collections: no inv_tab.png in the jar");
+            } else {
+                int got = gp(cols, scale, geo[0] + 54, geo[1] + 31);
+                int exp = blend(sel.getRGB(0, 0), blend(tab.getRGB(0, 0), under.getRGB(54, 31) & 0xFFFFFF));
+                look(bad, near(got, exp), "NEU Collections: first collection cell corner " + String.format("%06X, expected %06X", got, exp));
+            }
+        } else if (sprite == null) {
             look(bad, false, want + ": no slot sprite in the jar");
         } else {
             int bg = gp(inv, scale, mainX - 2, top + 9);
