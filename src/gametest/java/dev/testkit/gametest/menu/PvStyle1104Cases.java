@@ -48,7 +48,7 @@ final class PvStyle1104Cases {
             + "\"kuudra_completed_tiers\":{\"none\":5,\"highest_wave_none\":3},\"dojo\":{\"dojo_points_mob_kb\":500}},\"mining_core\":{\"powder_mithril\":500000,\"powder_spent_mithril\":100000,"
             + "\"crystals\":{\"jade_crystal\":{\"state\":\"FOUND\",\"total_placed\":3}}},"
             + "\"skill_tree\":{\"experience\":{\"mining\":600000},\"nodes\":{\"mining\":{\"mining_speed\":50}}},\"pets_data\":{\"pets\":[{\"type\":\"ENDER_DRAGON\",\"tier\":\"LEGENDARY\",\"exp\":25000000,\"active\":true}]},"
-            + "\"dungeons\":{\"dungeon_types\":{\"catacombs\":{\"experience\":180000000}}}}}}]}";
+            + "\"dungeons\":{\"dungeon_types\":{\"catacombs\":{\"experience\":600000000}}}}}}]}";
 
     static final String[] ORDER = {"DEFAULT", "NEU", "SBPV_LIGHT", "SBPV_DARK", "SBPV_CLEAR"};
     /** The panel's left edge at x + 0 and x + 1 (mid height), per style: the originals' own sprite pixels (pvthemes-1108:
@@ -400,6 +400,16 @@ final class PvStyle1104Cases {
             int bx = geo[0] + 10 + (geo[2] - 20 - w0) / 2 + 21;
             int bar = gp(cols, scale, bx + 45, cy + 14);
             look(bad, near(bar, 0xE8B923), want + ": Wheat's maxed bar middle is " + String.format("%06X", bar) + ", expected E8B923");
+            // ... and its Dungeons page (DungeonScreen): the seed's Catacombs (600M XP, past 50) is the first Dungeon Levels
+            // line, its maxed 91 px bar 10 under it, so the bar's middle row (content top + 27 + 12) reads gold E8B923.
+            c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 1));
+            c.ctx().waitTicks(5);
+            BufferedImage dun = BazaarReskinCases.shot(c, want.toLowerCase() + "-sbpv-dungeons");
+            int gold = 0;
+            for (int gx = geo[0]; gx < geo[0] + geo[2]; gx++) {
+                gold += near(gp(dun, scale, gx, cy + 39), 0xE8B923) ? 1 : 0;
+            }
+            look(bad, gold >= 40, want + ": " + gold + " gold Catacombs bar pixels on the Dungeons page's row " + (cy + 39) + " (want 40+)");
         }
         c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 0));
         c.ctx().waitTicks(3);
