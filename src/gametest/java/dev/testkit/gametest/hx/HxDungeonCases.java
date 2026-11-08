@@ -213,6 +213,33 @@ final class HxDungeonCases {
                 run(c, () -> Mod.setField("runstats.RunStatsFeature", "pendingTicks", -1));
             }
         });
+        s.test("1108-hx-runstats-secrets", c -> {
+            try (Settings set = new Settings(c).with("runstats.RunStatsConfig", "Enabled", true)
+                    .with("runstats.RunStatsConfig", "FetchSecrets", true)) {
+                dungeon(c);
+                run(c, () -> Mod.staticCall("runstats.RunStatsTracker", "resetRun"));
+                run(c, () -> Mod.setField("runstats.RunStatsFeature", "summarisedThisRun", true));
+                String me = c.onClient(mc -> mc.player.getGameProfile().name().toLowerCase(java.util.Locale.ROOT));
+                Map<String, Long> before = c.onClient(mc -> (Map<String, Long>) Mod.field("runstats.RunStatsTracker", "SECRETS_BEFORE"));
+                Map<String, Long> afterMap = c.onClient(mc -> (Map<String, Long>) Mod.field("runstats.RunStatsTracker", "SECRETS_AFTER"));
+                before.put(me, 100L);
+                afterMap.put(me, 103L);
+                c.check(((Number) c.onClient(mc -> Mod.staticCall("runstats.RunStatsTracker", "teamSecrets"))).intValue() == -1,
+                        "premise: a team total before the Stats block");
+                send(c, "chat.team-secrets-found");
+                c.waitUntil("RunStatsTracker.teamSecrets() == 8",
+                        mc -> ((Number) Mod.staticCall("runstats.RunStatsTracker", "teamSecrets")).intValue() == 8, 40);
+                c.check(c.onClient(mc -> (Boolean) Mod.staticCall("runstats.RunStatsTracker", "secretsPending")),
+                        "deltas 3 of a team 8 were not pending (the API still lags the run)");
+                afterMap.put(me, 108L);
+                c.check(!c.onClient(mc -> (Boolean) Mod.staticCall("runstats.RunStatsTracker", "secretsPending")),
+                        "deltas 8 of a team 8 were still pending");
+                List<?> rows = c.onClient(mc -> (List<?>) Mod.staticCall("runstats.RunStatsTracker", "buildRows", mc));
+                int secrets = ((Number) Mod.call(rows.get(0), "secrets")).intValue();
+                c.check(secrets == 8, "the player's row read " + secrets + " secrets, expected 108 - 100");
+                c.note("team total 8 read from the Stats line; 3/8 pending, 8/8 settled, row secrets " + secrets);
+            }
+        });
     }
 
     // ---- 107 runsummary -----------------------------------------------------------------------------------
