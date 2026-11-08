@@ -381,6 +381,38 @@ final class PvStyle1104Cases {
                 }
             }
             look(bad, riftRed >= 20, "NEU Rift: " + riftRed + " red 'Inventory API not enabled!' pixels at 61 (want 20+)");
+            // NEU's Garden page (Farming): a garden answer goes into ExtraPages' aux cache for the seed profile, so GardenPage's
+            // yellow "Crop Milestones" header is drawn at 26 + 70, 15 over garden/background.
+            c.ctx().runOnClient(mc -> {
+                try {
+                    java.lang.reflect.Field ef = s.getClass().getDeclaredField("extraPages");
+                    ef.setAccessible(true);
+                    Object ep = ef.get(s);
+                    java.lang.reflect.Field af = ep.getClass().getDeclaredField("aux");
+                    af.setAccessible(true);
+                    Class<?> ar = Class.forName("com.killer560.hub.profileviewer.api.ProfileViewerApi$AuxResult", true, s.getClass().getClassLoader());
+                    Object res = ar.getDeclaredConstructor(com.google.gson.JsonObject.class, String.class, long.class).newInstance(JsonParser.parseString(
+                            "{\"unlocked_plots_ids\":[\"beginner_1\"],\"crop_upgrade_levels\":{\"WHEAT\":9},\"resources_collected\":{\"WHEAT\":1000},"
+                            + "\"garden_experience\":100,\"commission_data\":{\"visits\":{\"adventurer\":3},\"completed\":{\"adventurer\":2},"
+                            + "\"unique_npcs_served\":1},\"composter_data\":{\"upgrades\":{\"speed\":4}}}").getAsJsonObject(), "test", 0L);
+                    @SuppressWarnings("unchecked")
+                    java.util.Map<String, Object> aux = (java.util.Map<String, Object>) af.get(ep);
+                    aux.put("GARDEN:p1", CompletableFuture.completedFuture(res));
+                } catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+                Mod.call(s, "setPage", 10);
+            });
+            c.ctx().waitTicks(5);
+            BufferedImage gar = BazaarReskinCases.shot(c, "neu-garden");
+            neuOverlay(bad, "NEU Garden", gar, scale, geo, "neu/pv_garden.png", 70, 340, 400);
+            int yellow = 0;
+            for (int gx = 40; gx < 150; gx++) {
+                for (int gy = 15; gy < 23; gy++) {
+                    yellow += near(gp(gar, scale, geo[0] + gx, geo[1] + gy), 0xFFFF55) ? 1 : 0;
+                }
+            }
+            look(bad, yellow >= 20, "NEU Garden: " + yellow + " yellow 'Crop Milestones' pixels at 15 (want 20+)");
         } else if (sprite == null) {
             look(bad, false, want + ": no slot sprite in the jar");
         } else {
