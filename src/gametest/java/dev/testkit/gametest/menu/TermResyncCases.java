@@ -32,11 +32,14 @@ final class TermResyncCases {
             String t = spec.type().toLowerCase().replace("_", "");
             MenuSuite.test(s, "298-menu-term-resync-" + t, c -> manual(c, spec));
             MenuSuite.test(s, "299-menu-term-resync-auto-" + t, c -> auto(c, spec));
-            if (!spec.type().equals("RUBIX")) {
-                MenuSuite.test(s, "1108-term-lastpane-auto-" + t, c -> lastPane(c, spec, false, false));
-                MenuSuite.test(s, "1108-term-lastpane-stream-" + t, c -> lastPane(c, spec, true, false));
-                MenuSuite.test(s, "1108-term-lastpane-reopen-" + t, c -> lastPane(c, spec, false, true));
-            }
+            MenuSuite.test(s, "1108-term-lastpane-auto-" + t, c -> lastPane(c, spec, false, "dropFinal", true));
+            MenuSuite.test(s, "1108-term-lastpane-stream-" + t, c -> lastPane(c, spec, true, "dropFinal", true));
+            MenuSuite.test(s, "1108-term-lastpane-reopen-" + t, c -> lastPane(c, spec, false, "dropFinal", true, "dropReopen", true));
+            // termlast-1108: the final click dropped three times running (his 11-06 Rubix log: slot 32 restored three
+            // times, about a second apart, never answered), and the final click answered and then taken back.
+            MenuSuite.test(s, "1108-term-lastpane-thrice-" + t, c -> lastPane(c, spec, false, "dropFinal", true, "dropFinalTimes", 3));
+            MenuSuite.test(s, "1108-term-lastpane-revert-" + t, c -> lastPane(c, spec, false, "revertFinal", true));
+            MenuSuite.test(s, "1108-term-lastpane-revert-stream-" + t, c -> lastPane(c, spec, true, "revertFinal", true));
         }
     }
 
@@ -127,7 +130,7 @@ final class TermResyncCases {
      * again"): the server drops the click that would SOLVE the board, so the last slot stays as it was. Auto Terminals must
      * click it again like any other slot. Asserts the final click really was dropped and that a later click solved it.
      */
-    private static void lastPane(Session c, TerminalCases.Spec spec, boolean streamSafe, boolean reopen) throws Exception {
+    private static void lastPane(Session c, TerminalCases.Spec spec, boolean streamSafe, Object... mode) throws Exception {
         MenuKit.reset(c);
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             if (!MenuKit.cheat()) {
@@ -138,13 +141,22 @@ final class TermResyncCases {
                     .set(TerminalCases.CONFIG, spec.auto(), true).set(TerminalCases.CONFIG, "AutoStreamSafe", streamSafe);
             List<Object> kv = new java.util.ArrayList<>(List.of("type", spec.type()));
             kv.addAll(List.of(spec.args()));
-            kv.addAll(List.of("dropFinal", true, "dropReopen", reopen));
+            kv.addAll(List.of(mode));
             JsonObject t = c.hx().call("menu.terminal", kv.toArray()).getAsJsonObject();
             MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
-            JsonObject solved = MenuKit.awaitEvent(c, "terminal.solved", 400);
+            JsonObject solved = MenuKit.awaitEvent(c, "terminal.solved", 600);
+            boolean revert = List.of(mode).contains("revertFinal");
+            int times = List.of(mode).contains("dropFinalTimes") ? 3 : 1;
             int dropped = c.events("terminal.dropped").size();
-            c.check(dropped == 1, "the server should drop exactly the final click, it dropped " + dropped + " (nothing was tested)");
-            c.note("Auto " + spec.type() + ": final click dropped, solved after a re-click with " + solved.get("clicks") + " server clicks");
+            int reverted = c.events("terminal.reverted").size();
+            if (revert) {
+                c.check(dropped == 0 && reverted == 1, "the server should answer and then take back the final click once: dropped "
+                        + dropped + ", reverted " + reverted + " (nothing was tested)");
+            } else {
+                c.check(dropped == times, "the server should drop the final click " + times + "x, it dropped " + dropped + " (nothing was tested)");
+            }
+            c.note("Auto " + spec.type() + ": final click " + (revert ? "answered then taken back" : "dropped " + times + "x")
+                    + ", solved after a re-click with " + solved.get("clicks") + " server clicks");
             MenuKit.awaitNoScreen(c, 40);
         } finally {
             MenuKit.reset(c);
