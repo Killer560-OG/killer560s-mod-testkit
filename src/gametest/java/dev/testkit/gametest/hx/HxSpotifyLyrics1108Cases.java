@@ -205,6 +205,9 @@ final class HxSpotifyLyrics1108Cases {
         int withLines = 0;
         int withWords = 0;
         StringBuilder rows = new StringBuilder();
+        // the testkit client runs with killer560.net.offline; this case asks the real servers (ModNet reads it per call)
+        String offline = System.getProperty("killer560.net.offline");
+        System.setProperty("killer560.net.offline", "false");
         try (Settings st = new Settings(c).with(HC, "WordTimedLyrics", true)) {
             for (Object[] s : HIS_SONGS) {
                 Object eng = engine(c, null, (String) s[0], (String) s[1], (Double) s[2], true);
@@ -216,6 +219,9 @@ final class HxSpotifyLyrics1108Cases {
                 String why = c.onClient(mc -> (String) Mod.staticCall(K, "lastResult"));
                 rows.append(String.format("%n  %s - %s: %d lines, %d word-timed (%s)", s[0], s[1], n, w, why));
             }
+        } finally {
+            if (offline == null) System.clearProperty("killer560.net.offline");
+            else System.setProperty("killer560.net.offline", offline);
         }
         c.note("his " + HIS_SONGS.length + " songs: " + withLines + " with lines, " + withWords + " with Kugou word times" + rows);
         // base 4f46f8ca5: Kugou word times for 1 (Succubus, a keyword-search hit); the hash route finds 7.
