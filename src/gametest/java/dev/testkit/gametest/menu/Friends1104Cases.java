@@ -180,7 +180,8 @@ final class Friends1104Cases {
             } finally {
                 PacketTrace.stop();
             }
-            String open = c.onClient(mc -> mc.screen == null ? "none" : mc.screen.getClass().getSimpleName());
+            Screen now = SocialCases.current(c);
+            String open = now == null ? "none" : now.getClass().getSimpleName();
             c.check(sent.isEmpty(), "the /pv click must send nothing to the server (it is a client command), sent " + sent);
             c.check(open.equals("ProfileViewerScreen"), "the /pv click should open the mod's profile viewer, screen is " + open);
             c.note("/pv click sent " + sent + ", screen " + open);
