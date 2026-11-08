@@ -43,7 +43,8 @@ final class PvStyle1104Cases {
             + "\"banking\":{\"balance\":4200000},\"members\":{\"000000000000000000000000000000a1\":{\"currencies\":{\"coin_purse\":123456},"
             + "\"player_data\":{\"experience\":{\"SKILL_COMBAT\":55000000,\"SKILL_MINING\":12000000,\"SKILL_FARMING\":3000000}},"
             + "\"inventory\":{\"inv_contents\":{\"type\":0,\"data\":\"\"}},"
-            + "\"collection\":{\"WHEAT\":1000},\"mining_core\":{\"powder_mithril\":500000,\"powder_spent_mithril\":100000,"
+            + "\"collection\":{\"WHEAT\":1000},\"nether_island_player_data\":{\"selected_faction\":\"mages\",\"mages_reputation\":1200,"
+            + "\"kuudra_completed_tiers\":{\"none\":5,\"highest_wave_none\":3},\"dojo\":{\"dojo_points_mob_kb\":500}},\"mining_core\":{\"powder_mithril\":500000,\"powder_spent_mithril\":100000,"
             + "\"crystals\":{\"jade_crystal\":{\"state\":\"FOUND\",\"total_placed\":3}}},"
             + "\"skill_tree\":{\"experience\":{\"mining\":600000},\"nodes\":{\"mining\":{\"mining_speed\":50}}},\"pets_data\":{\"pets\":[{\"type\":\"ENDER_DRAGON\",\"tier\":\"LEGENDARY\",\"exp\":25000000,\"active\":true}]},"
             + "\"dungeons\":{\"dungeon_types\":{\"catacombs\":{\"experience\":180000000}}}}}}]}";
@@ -306,6 +307,18 @@ final class PvStyle1104Cases {
                 }
             }
             look(bad, green >= 10, "NEU Mining: " + green + " Jade-green label pixels at 20, 101 (want 10+)");
+            // NEU's Crimson Isle page: pv_crimson_isle_page's boxes, and the red "Kuudra Stats" heading at y 14.
+            c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 7));
+            c.ctx().waitTicks(5);
+            BufferedImage crim = BazaarReskinCases.shot(c, "neu-crimson");
+            neuOverlay(bad, "NEU Crimson", crim, scale, geo, "neu/pv_crimson.png", 100, 40, 100);
+            int red = 0;
+            for (int gx = 40; gx < 118; gx++) {
+                for (int gy = 14; gy < 22; gy++) {
+                    red += near(gp(crim, scale, geo[0] + gx, geo[1] + gy), 0xFF5555) ? 1 : 0;
+                }
+            }
+            look(bad, red >= 10, "NEU Crimson: " + red + " red Kuudra Stats heading pixels at y 14 (want 10+)");
         } else if (sprite == null) {
             look(bad, false, want + ": no slot sprite in the jar");
         } else {
