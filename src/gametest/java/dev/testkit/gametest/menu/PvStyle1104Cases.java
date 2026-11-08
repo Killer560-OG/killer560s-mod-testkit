@@ -17,6 +17,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * pvstyle-1104 (killer560 2026-11-04: "add different formats to the pv menu. you should be able to change them in the
@@ -319,6 +320,34 @@ final class PvStyle1104Cases {
                 }
             }
             look(bad, red >= 10, "NEU Crimson: " + red + " red Kuudra Stats heading pixels at y 14 (want 10+)");
+            // NEU's Museum page: the museum answer goes straight into the page's aux cache (no network here), then
+            // pv_museum's boxes, the Weapons cell turned over at 16, 172 and the gold "Museum Value" at 21, 25.
+            c.ctx().runOnClient(mc -> {
+                try {
+                    Class<?> ar = Mod.cls("profileviewer.api.ProfileViewerApi$AuxResult");
+                    Object answer = ar.getDeclaredConstructor(com.google.gson.JsonObject.class, String.class, long.class).newInstance(
+                            JsonParser.parseString("{\"000000000000000000000000000000a1\":{\"value\":2500000,\"items\":{},\"special\":[]}}")
+                                    .getAsJsonObject(), "test", 0L);
+                    ((Map<String, Object>) Mod.field(Mod.field(s, "extraPages"), "aux")).put("MUSEUM:p1", CompletableFuture.completedFuture(answer));
+                } catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+                Mod.call(s, "setPage", 8);
+            });
+            c.ctx().waitTicks(5);
+            BufferedImage mus = BazaarReskinCases.shot(c, "neu-museum");
+            neuOverlay(bad, "NEU Museum", mus, scale, geo, "neu/pv_museum.png", 64, 30, 120);
+            if (on != null && under != null) {
+                int got = gp(mus, scale, geo[0] + 16, geo[1] + 172), exp = blend(on.getRGB(0, 0), under.getRGB(16, 172) & 0xFFFFFF);
+                look(bad, near(got, exp), "NEU Museum: Weapons cell corner " + String.format("%06X, expected %06X", got, exp));
+            }
+            int gold = 0;
+            for (int gx = 21; gx < 80; gx++) {
+                for (int gy = 25; gy < 33; gy++) {
+                    gold += near(gp(mus, scale, geo[0] + gx, geo[1] + gy), 0xFFAA00) ? 1 : 0;
+                }
+            }
+            look(bad, gold >= 10, "NEU Museum: " + gold + " gold Museum Value pixels at 21, 25 (want 10+)");
         } else if (sprite == null) {
             look(bad, false, want + ": no slot sprite in the jar");
         } else {
