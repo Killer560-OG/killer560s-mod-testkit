@@ -44,7 +44,7 @@ final class PvStyle1104Cases {
             + "\"banking\":{\"balance\":4200000},\"members\":{\"000000000000000000000000000000a1\":{\"currencies\":{\"coin_purse\":123456},"
             + "\"player_data\":{\"experience\":{\"SKILL_COMBAT\":55000000,\"SKILL_MINING\":12000000,\"SKILL_FARMING\":3000000}},"
             + "\"inventory\":{\"inv_contents\":{\"type\":0,\"data\":\"\"}},"
-            + "\"bestiary\":{\"kills\":{\"zombie_1\":100}},\"collection\":{\"WHEAT\":1000},\"nether_island_player_data\":{\"selected_faction\":\"mages\",\"mages_reputation\":1200,"
+            + "\"rift\":{\"castle\":{\"grubber_stacks\":3}},\"bestiary\":{\"kills\":{\"zombie_1\":100}},\"collection\":{\"WHEAT\":1000},\"nether_island_player_data\":{\"selected_faction\":\"mages\",\"mages_reputation\":1200,"
             + "\"kuudra_completed_tiers\":{\"none\":5,\"highest_wave_none\":3},\"dojo\":{\"dojo_points_mob_kb\":500}},\"mining_core\":{\"powder_mithril\":500000,\"powder_spent_mithril\":100000,"
             + "\"crystals\":{\"jade_crystal\":{\"state\":\"FOUND\",\"total_placed\":3}}},"
             + "\"skill_tree\":{\"experience\":{\"mining\":600000},\"nodes\":{\"mining\":{\"mining_speed\":50}}},\"pets_data\":{\"pets\":[{\"type\":\"ENDER_DRAGON\",\"tier\":\"LEGENDARY\",\"exp\":25000000,\"active\":true}]},"
@@ -368,6 +368,19 @@ final class PvStyle1104Cases {
                 }
             }
             look(bad, tierGold >= 3, "NEU Bestiary: " + tierGold + " gold tier pixels under Zombie at 29, 73 (want 3+)");
+            // NEU's Rift page: the seed has Rift data but no inventory, so RiftPage's red "Inventory API not enabled!" is
+            // centered at 61 over pv_rift.
+            c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 9));
+            c.ctx().waitTicks(5);
+            BufferedImage rift = BazaarReskinCases.shot(c, "neu-rift");
+            neuOverlay(bad, "NEU Rift", rift, scale, geo, "neu/pv_rift.png", 120, 340, 416);
+            int riftRed = 0;
+            for (int gx = 140; gx < 290; gx++) {
+                for (int gy = 61; gy < 69; gy++) {
+                    riftRed += near(gp(rift, scale, geo[0] + gx, geo[1] + gy), 0xFF5555) ? 1 : 0;
+                }
+            }
+            look(bad, riftRed >= 20, "NEU Rift: " + riftRed + " red 'Inventory API not enabled!' pixels at 61 (want 20+)");
         } else if (sprite == null) {
             look(bad, false, want + ": no slot sprite in the jar");
         } else {
