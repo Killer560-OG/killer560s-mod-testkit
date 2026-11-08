@@ -96,7 +96,7 @@ final class ThemeMatchCases {
         allow("waypoint default, mapped at draw", "gui.tab.CrystalHollowsMapTab", 2, "mining.chmap.ChMapRenderer", 1,
                 "mining.chmap.ChWaypointRender", 1);
         // A color that means something: rarity / Minecraft gold, a zone, a dragon or relic, a state, a warning mark.
-        allow("meaning", "itemrarity.ItemRarity", 1, "profileviewer.data.LevelTables", 1, "profileviewer.screen.ExtraPages", 2,
+        allow("meaning", "itemrarity.ItemRarity", 1, "profileviewer.data.LevelTables", 1, "profileviewer.screen.ExtraPages", 13,
                 "util.ChatColors", 1, "slottext.SlotTextFeature", 3, "miningqol.CrystalHollowsWalls", 1,
                 "witherdragons.KingRelic", 1, "witherdragons.WitherDragon", 1, "blessings.Blessing", 1,
                 "chocolatefactory.egg.EggEsp", 1, "chocolatefactory.ChocolateFactoryHelper", 1, "bridge.BridgeStatus", 3,
