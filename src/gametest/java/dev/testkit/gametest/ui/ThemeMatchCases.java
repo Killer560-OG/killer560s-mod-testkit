@@ -75,7 +75,7 @@ final class ThemeMatchCases {
                 "croesus.CroesusConfig", 1, "dungeonalerts.DungeonAlertsConfig", 2, "dungeonalerts.RoomAlerts", 1,
                 "dungeonextras.DungeonExtrasConfig", 1, "enchantcolors.EnchantColorsConfig", 2, "f7spots.F7SpotsConfig", 2,
                 "heldoutline.HeldOutlineConfig", 2, "itemprotect.ItemProtectConfig", 2, "lagdisplay.LagDisplayConfig", 1,
-                "livemap.LiveMapConfig", 4, "miningqol.MiningQolConfig", 1, "mobesp.MobEspConfig", 4, "p3nav.P3NavConfig", 4,
+                "livemap.LiveMapConfig", 4, "miningqol.MiningQolConfig", 2, "mobesp.MobEspConfig", 4, "p3nav.P3NavConfig", 4,
                 "pathfinding.PathfindingConfig", 5, "playerstats.PlayerStatsConfig", 1, "posmsg.PosmsgEntry", 1,
                 "powdermining.PowderMiningConfig", 1, "realtime.RealTimeConfig", 1, "routes.Route", 1, "routes.RouteStore", 1,
                 "scoreboard.CustomScoreboardConfig", 4, "scoreboard.ScoreboardEditorScreen", 2, "scorecalc.ScoreCalculatorConfig", 2,
@@ -90,6 +90,11 @@ final class ThemeMatchCases {
                 "gui.tab.SecretWaypointsTab", 1, "gui.tab.SimonSaysTab", 1, "gui.tab.SlotBindsTab", 1, "gui.tab.SpotifyF5Rows", 1,
                 "gui.tab.ThornTab", 2, "gui.tab.TreasureChestHighlightTab", 1, "gui.tab.WaypointRoutesTab", 1,
                 "mining.deployables.MiningDeployables", 2, "gui.tab.MiningDeployablesTab", 1);
+        // Crystal Hollows Map waypoint default: stored as the amber literal and mapped onto the theme where it is drawn
+        // (CrystalHollowsWaypoint.drawColor -> ThemeAccent.accent); a color the player picked per waypoint stays.
+        // MiningQolConfig's second one is OLD_WALL_DEFAULTS' 0xFFAA00, the pre-chwallcolor value migrated on load (data).
+        allow("waypoint default, mapped at draw", "gui.tab.CrystalHollowsMapTab", 2, "mining.chmap.ChMapRenderer", 1,
+                "mining.chmap.ChWaypointRender", 1);
         // A color that means something: rarity / Minecraft gold, a zone, a dragon or relic, a state, a warning mark.
         allow("meaning", "itemrarity.ItemRarity", 1, "profileviewer.data.LevelTables", 1, "profileviewer.screen.ExtraPages", 2,
                 "util.ChatColors", 1, "slottext.SlotTextFeature", 3, "miningqol.CrystalHollowsWalls", 1,
