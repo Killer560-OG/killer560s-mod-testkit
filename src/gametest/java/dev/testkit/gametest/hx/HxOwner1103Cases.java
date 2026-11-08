@@ -9,7 +9,7 @@ import static dev.testkit.gametest.hx.HxKit.*;
  * Owner requests of 2026-11-03 (late):
  * <ul>
  *   <li>1103-mask-proc-title: a mask's "saved your life" line shows a title when Proc Title is on, and none when off.</li>
- *   <li>1103-partycmd-self: your own "!pt name" in party chat runs nothing (it transferred his party away).</li>
+ *   <li>1103-partycmd-self: your own bare "!pt" in party chat runs nothing (a name runs since ptself-1106).</li>
  * </ul>
  */
 final class HxOwner1103Cases {
@@ -49,13 +49,13 @@ final class HxOwner1103Cases {
         try (Settings set = new Settings(c).with("partycommands.PartyCommandsConfig", "Enabled", true)) {
             String self = c.onClient(mc -> mc.player.getGameProfile().name());
             long mark = LogTap.mark();
-            c.hx().chat("§9Party §8> §b[MVP§c+§b] " + self + "§f: !pt HxMateA");
+            c.hx().chat("§9Party §8> §b[MVP§c+§b] " + self + "§f: !pt");
             c.waitUntil("the mod saw your own command", mc -> LogTap.since(mark).stream()
                     .anyMatch(l -> l.contains("Ignored your own \"!pt\"")), 40);
             c.ctx().waitTicks(10);
             boolean ran = LogTap.since(mark).stream().anyMatch(l -> l.contains("transferred the party"));
-            c.check(!ran, "your own !pt ran a transfer");
-            c.note("own !pt ignored for " + self);
+            c.check(!ran, "your own bare !pt ran a transfer");
+            c.note("own bare !pt ignored for " + self);
         }
     }
 
