@@ -588,6 +588,17 @@ final class DocPuzzleCases {
             c.note("no creeper: One At A Time drew " + firsts(plain));
             c.check(plain.size() == 1 && other[0].equals(plain.get(0)[0]),
                     "with no creeper One At A Time should open with the nearest pair " + other[0].toShortString() + ", drew " + firsts(plain));
+
+            // 1108 (dungsolve): the creeper loads AFTER the first frames drew (nearest pair picked): the opening must still
+            // go to the creeper's pair, not stay on the early pick.
+            c.server().command("summon minecraft:creeper " + (feet[0].getX() + 0.5) + " " + feet[0].getY() + " " + (feet[0].getZ() + 0.5)
+                    + " {NoAI:1b,Silent:1b,Invulnerable:1b,Tags:[\"k560beams\"]}");
+            c.waitUntil("the creeper back on the client", mc -> !mc.level.getEntitiesOfClass(net.minecraft.world.entity.monster.Creeper.class,
+                    new net.minecraft.world.phys.AABB(feet[0]).inflate(4)).isEmpty(), 100);
+            List<Object[]> late = c.onClient(mc -> scanAndDrawAt(mc, cr, "ONE", eye));
+            c.note("creeper seen after an early pick: One At A Time drew " + firsts(late));
+            c.check(late.size() == 1 && vertical[0].equals(late.get(0)[0]),
+                    "a creeper that loads after the first draw must still open the creeper's pair " + vertical[0].toShortString() + ", drew " + firsts(late));
         } finally {
             c.server().command("kill @e[tag=k560beams]");
             for (BlockPos q : lanterns) {

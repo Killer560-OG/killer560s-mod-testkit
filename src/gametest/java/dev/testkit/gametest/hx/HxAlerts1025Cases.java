@@ -32,6 +32,7 @@ final class HxAlerts1025Cases {
         s.test("1025-alerts-secretclicked", HxAlerts1025Cases::secretClicked);
         // doc-auto-1101: the chest secret sound waits out "That chest is locked!"
         s.test("1025-alerts-secretsound-locked", HxAlerts1025Cases::secretSoundLocked);
+        s.test("1108-alerts-secretsound-every-click", HxAlerts1025Cases::secretSoundEveryClick);
         // doc-auto-1101: Auto Ult's Wish On Clear (cheat jar only)
         s.test("1025-alerts-autoult-wish-clear", HxAlerts1025Cases::wishOnClear);
         s.test("1025-alerts-mutesounds", HxAlerts1025Cases::muteSounds);
@@ -138,6 +139,71 @@ final class HxAlerts1025Cases {
             });
             c.server().command("setblock -417 151 -422 minecraft:air");
         }
+    }
+
+    // ---- 1108-alerts-secretsound-every-click (dungsolve) ---------------------------------------------------------------
+
+    /** killer560, 2026-11-08: "The secret sounds still dont play every time i click a chest". (1) Two different chests
+     *  clicked inside the 500 ms wait: both play (one pending slot played one sound). (2) A chest click that reaches the wire
+     *  without UseBlockCallback having seen it (a listener ahead answered non-PASS, or another sender): plays once. */
+    private static void secretSoundEveryClick(Session c) {
+        net.minecraft.core.BlockPos a = new net.minecraft.core.BlockPos(-417, 151, -422);
+        net.minecraft.core.BlockPos b = new net.minecraft.core.BlockPos(-414, 151, -422);
+        c.server().command("setblock -417 151 -422 minecraft:chest");
+        c.server().command("setblock -414 151 -422 minecraft:chest");
+        Object cfg = c.onClient(mc -> Mod.cfg(ALERTS_CFG));
+        boolean soundWas = c.onClient(mc -> (Boolean) Mod.field(cfg, "secretSoundEnabled"));
+        try (Settings set = new Settings(c).with(ALERTS_CFG, "SecretClickedEnabled", false)) {
+            c.onClient(mc -> setSound(cfg, true));
+            dungeon(c);
+            c.waitUntil("the client sees both chests", mc -> mc.level.getBlockState(a).getBlock() == net.minecraft.world.level.block.Blocks.CHEST
+                    && mc.level.getBlockState(b).getBlock() == net.minecraft.world.level.block.Blocks.CHEST, 60);
+            int[] before = c.onClient(mc -> (int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"));
+            clickChest(c, a);
+            c.ctx().waitTicks(2);
+            clickChest(c, b);
+            c.waitUntil("both chests' sounds", mc -> ((int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"))[0] >= before[0] + 2, 60);
+            c.ctx().waitTicks(15);
+            int[] two = c.onClient(mc -> (int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"));
+            c.check(two[0] == before[0] + 2, "two chests clicked inside the wait should play exactly 2 sounds, played " + (two[0] - before[0]));
+            // The wire only: a real look at the chest first (a made-up hit draws RotationPlace), then the packet leaves.
+            c.server().command("tp @p -417.5 151 -419.5");
+            c.ctx().waitTicks(5);
+            c.onClient(mc -> {
+                mc.player.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, net.minecraft.world.phys.Vec3.atCenterOf(a));
+                return null;
+            });
+            c.ctx().waitTicks(5);
+            c.onClient(mc -> {
+                net.minecraft.world.phys.HitResult pick = mc.player.pick(6.0, 1.0f, false);
+                c.check(pick instanceof net.minecraft.world.phys.BlockHitResult bh && bh.getBlockPos().equals(a), "the look should be on the chest, was " + pick);
+                mc.getConnection().send(new net.minecraft.network.protocol.game.ServerboundUseItemOnPacket(
+                        net.minecraft.world.InteractionHand.MAIN_HAND, (net.minecraft.world.phys.BlockHitResult) pick, 0));
+                return null;
+            });
+            c.waitUntil("the wire-only click's sound", mc -> ((int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"))[0] >= two[0] + 1, 60);
+            c.ctx().waitTicks(15);
+            int[] wire = c.onClient(mc -> (int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"));
+            c.check(wire[0] == two[0] + 1, "a wire-only chest click should play exactly 1 sound, played " + (wire[0] - two[0]));
+            c.note("two chests inside the wait: +" + (two[0] - before[0]) + " sounds; wire-only click: +" + (wire[0] - two[0]));
+        } finally {
+            c.onClient(mc -> {
+                if (mc.player != null) mc.player.closeContainer();
+                setSound(cfg, soundWas);
+                return null;
+            });
+            c.server().command("setblock -417 151 -422 minecraft:air");
+            c.server().command("setblock -414 151 -422 minecraft:air");
+        }
+    }
+
+    private static Object setSound(Object cfg, boolean on) {
+        try {
+            cfg.getClass().getField("secretSoundEnabled").set(cfg, on);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+        return null;
     }
 
     private static void clickChest(Session c, net.minecraft.core.BlockPos chest) {
