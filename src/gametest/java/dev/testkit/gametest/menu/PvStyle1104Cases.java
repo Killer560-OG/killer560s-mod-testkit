@@ -114,6 +114,8 @@ final class PvStyle1104Cases {
                 }
             });
             c.waitUntil("the PV shows the offline profile", mc -> "READY".equals(String.valueOf(Mod.field(s, "state"))), 100);
+            // The extra pages draw "Loading" until the profile's extras are parsed (off thread; slow under a loaded gate).
+            c.waitUntil("the profile's extras are parsed", mc -> ((java.util.concurrent.Future<?>) Mod.call(Mod.call(s, "profile"), "extras")).isDone(), 400);
             c.ctx().waitTicks(3);
 
             // The look checks are gathered so one run shows every style (and a base jar every difference).
