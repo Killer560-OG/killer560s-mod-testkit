@@ -313,6 +313,16 @@ final class PvStyle1104Cases {
                 look(bad, near(got, exp), want + ": slot pixel +" + q[0] + "," + q[1] + " is " + String.format("%06X", got)
                         + ", the slot sprite gives " + String.format("%06X", exp));
             }
+            // Round 3: SkyBlockPV's Pets page puts the seed's active pet in the first 22 px slot at the panel's x + 5, at the
+            // content top, the slot tinted green (PvColors.GREEN); the 5 px gap after it shows the panel.
+            c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 3));
+            c.ctx().waitTicks(5);
+            BufferedImage pets = BazaarReskinCases.shot(c, want.toLowerCase() + "-pets");
+            int px = geo[0] + 5, sp = sprite.getRGB(1, 1);
+            int tinted = (sp & 0xFF000000) | (((sp >> 16) & 0xFF) * 0x55 / 255) << 16 | (sp & 0xFF00) | ((sp & 0xFF) * 0x55 / 255);
+            int got = gp(pets, scale, px + 1, cy + 1), exp = blend(tinted, gp(pets, scale, px + 24, cy + 11));
+            look(bad, near(got, exp), want + ": active pet slot +1,+1 is " + String.format("%06X", got)
+                    + ", the green-tinted slot gives " + String.format("%06X", exp));
         }
         c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 0));
         c.ctx().waitTicks(3);
