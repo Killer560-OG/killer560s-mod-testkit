@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-06T05:52:36",
- "modSource": "km-ship10u",
- "modGitSha": "8b8050eb88cc8958a1bb3bc08d05f7f7af2486d9",
+ "generatedAt": "2026-11-08T12:21:45",
+ "modSource": "km-ship11",
+ "modGitSha": "4f46f8ca56b4d6898c3436310515a7a6912e5538",
  "modSourceDirty": false,
- "count": 913,
+ "count": 915,
  "byKind": {
   "dynamic": 9,
   "element": 76,
-  "field": 785,
+  "field": 787,
   "local": 43
  },
  "unresolved": 159,
@@ -36,6 +36,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^Creeper Veil Activated!$\""
+  },
+  {
+   "id": "abilitykeybinds.AbilityKeybindsFeature#ON_COOLDOWN",
+   "cls": "abilitykeybinds.AbilityKeybindsFeature",
+   "field": "ON_COOLDOWN",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/abilitykeybinds/AbilityKeybindsFeature.java",
+   "line": 41,
+   "regex": "^This [A-Za-z]+ is on cooldown",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^This [A-Za-z]+ is on cooldown\""
   },
   {
    "id": "ahflip.AhFlipMacro#PURCHASED_LINE",
@@ -6132,6 +6144,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^ *> EXTRA STATS < *$\""
+  },
+  {
+   "id": "partycommands.PartyCommandsFeature#INVITED_YOU",
+   "cls": "partycommands.PartyCommandsFeature",
+   "field": "INVITED_YOU",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/partycommands/PartyCommandsFeature.java",
+   "line": 660,
+   "regex": "^(?:\\[[^]]{1,20}] )?([A-Za-z0-9_]{1,16}) has invited you to join (?:their|[A-Za-z0-9_]{1,16}'s) party!",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(?:\\\\[[^]]{1,20}] )?([A-Za-z0-9_]{1,16}) has invited you to join (?:their|[A-Za-z0-9_]{1,16}'s) party!\""
   },
   {
    "id": "partycommands.PartyLeaderTracker#YOU_JOINED",
