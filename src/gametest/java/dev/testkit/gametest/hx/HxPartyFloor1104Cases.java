@@ -12,7 +12,7 @@ import static dev.testkit.gametest.hx.HxKit.*;
  * <ul>
  *   <li>1104-partycmd-floor-cooldown: a teammate's "!f3" inside Creation Cooldown waits it out and is then sent (it was
  *   dropped and still logged "queued F3").</li>
- *   <li>1104-partycmd-floor-retry: a retry while one waits is not rate limited, and only one /joininstance goes.</li>
+ *   <li>1104-partycmd-floor-retry: a retry while one waits replaces it, and only one /joininstance goes.</li>
  *   <li>1104-partycmd-floor-self: your own "!f2" in party chat queues F2 (it was "Ignored your own"); your own "!pt"
  *   still runs nothing (1103-partycmd-self).</li>
  * </ul>
@@ -34,6 +34,7 @@ final class HxPartyFloor1104Cases {
         s.test("1106-ptself-selftarget", HxPartyFloor1104Cases::ptSelfTarget);
         s.test("1106-ptself-reinv-disband", HxPartyFloor1104Cases::reinvDisband);
         s.test("1106-ptself-rejoin", HxPartyFloor1104Cases::rejoin);
+        s.test("1108-partycmd-no-cooldown", HxPartyFloor1104Cases::noCooldown);
     }
 
     private static Settings settings(Session c) {
@@ -52,7 +53,6 @@ final class HxPartyFloor1104Cases {
         c.hx().stub(null, "joininstance");
         dungeon(c);
         run(c, () -> {
-            HxSocialCases.resetPartyCommandLimits();
             Mod.staticCall("partycommands.PartyLeaderTracker", "resetIfSet");
             Mod.staticCall(CC, "testReset");
         });
@@ -114,7 +114,6 @@ final class HxPartyFloor1104Cases {
             c.hx().chat("§9Party §8> §b[MVP§c+§b] " + me + "§f: !f2");
             String cmd = awaitCommand(c, "joininstance", 60);
             c.check(cmd.equals("joininstance catacombs_floor_two"), "your own !f2 sent /" + cmd);
-            run(c, HxSocialCases::resetPartyCommandLimits);
             c.hx().chat("§9Party §8> §b[MVP§c+§b] " + me + "§f: !pt HxMateA");
             String pt = awaitCommand(c, "p transfer", 60);
             c.check(pt.equals("p transfer HxMateA"), "your own !pt HxMateA sent /" + pt);
@@ -143,9 +142,30 @@ final class HxPartyFloor1104Cases {
         c.hx().stub(null, "p");
         dungeon(c);
         run(c, () -> {
-            HxSocialCases.resetPartyCommandLimits();
             Mod.staticCall("partycommands.PartyLeaderTracker", "resetIfSet");
         });
+    }
+
+    /** partymsg-1108: no cooldown on players. A teammate's three commands inside 3 s all go (the old limit took the first
+     *  and refused the rest for 8 s with "Ignoring X - they just ran one"), and so do two of yours; no "Ignoring" line. */
+    private static void noCooldown(Session c) {
+        try (Settings set = ptSettings(c)) {
+            ptPrepare(c);
+            long mark = LogTap.mark();
+            for (int i = 0; i < 3; i++) {
+                c.hx().chat(PARTY_LINE + "HxMateA§f: !pt HxMateB");
+                c.ctx().waitTicks(8);
+            }
+            c.hx().chat(PARTY_LINE + self(c) + "§f: !pt HxMateB");
+            c.ctx().waitTicks(8);
+            c.hx().chat(PARTY_LINE + self(c) + "§f: !pt HxMateB");
+            c.waitUntil("five transfers at the server", mc -> commandsStarting(c, "p transfer").size() >= 5, 200);
+            c.ctx().waitTicks(30);
+            List<String> sent = commandsStarting(c, "p transfer");
+            c.check(sent.size() == 5, "5 commands asked inside 3 s sent " + sent);
+            c.check(!logged(mark, "Rate limited") && !logged(mark, "Ignoring"), "a cooldown line was logged");
+            c.note("three teammate and two own !pt inside 3 s sent " + sent);
+        }
     }
 
     private static void ptTransfer(Session c) {
@@ -164,7 +184,6 @@ final class HxPartyFloor1104Cases {
             long mark = LogTap.mark();
             c.hx().chat(PARTY_LINE + self(c) + "§f: !pt");
             c.waitUntil("the mod saw your own bare !pt", mc -> logged(mark, "Ignored your own \"!pt\""), 40);
-            run(c, HxSocialCases::resetPartyCommandLimits);
             long mark2 = LogTap.mark();
             c.hx().chat(PARTY_LINE + self(c) + "§f: !pt " + self(c));
             c.waitUntil("the mod saw your own !pt <you>", mc -> logged(mark2, "Ignored your own \"!pt\""), 40);

@@ -10,7 +10,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.PlayerInfo;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import static dev.testkit.gametest.hx.HxKit.*;
@@ -57,7 +56,6 @@ final class HxSocialCases {
                     .custom(() -> Mod.call(cfg, "setChannelOn", partyCh, true), () -> Mod.call(cfg, "setChannelOn", partyCh, wasCh))
                     .custom(() -> Mod.call(cfg, "setOn", coords, true), () -> Mod.call(cfg, "setOn", coords, wasOn))) {
                 dungeon(c);
-                run(c, HxSocialCases::resetPartyCommandLimits);
                 send(c, "hostile.allchat-party-warp");
                 c.hx().chat("§7[VIP] HxEvil§f: Party > HxMateA: !coords");
                 assertNoCommand(c, 30, "pc ");
@@ -69,15 +67,6 @@ final class HxSocialCases {
                 c.note("all-chat quotes ignored; party !coords -> /" + cmd);
             }
         });
-    }
-
-    /** Party Commands' rate limiter (2 s between any two commands, per-sender and per-minute caps) outlives cases. */
-    @SuppressWarnings("unchecked")
-    static void resetPartyCommandLimits() {
-        String pc = "partycommands.PartyCommandsFeature";
-        Mod.setField(pc, "lastGlobalAtMs", 0L);
-        ((java.util.Collection<Long>) Mod.field(pc, "GLOBAL_TIMES")).clear();
-        ((Map<String, ?>) Mod.field(pc, "SENDER_TIMES")).clear();
     }
 
     // ---- 121 partycommands -------------------------------------------------------------------------------------
@@ -93,7 +82,6 @@ final class HxSocialCases {
                     .custom(() -> Mod.call(cfg, "setChannelOn", partyCh, true), () -> Mod.call(cfg, "setChannelOn", partyCh, wasCh))
                     .custom(() -> Mod.call(cfg, "setOn", warp, true), () -> Mod.call(cfg, "setOn", warp, wasOn))) {
                 dungeon(c);
-                run(c, HxSocialCases::resetPartyCommandLimits);
                 c.check(c.onClient(mc -> Mod.staticCall("partycommands.PartyLeaderTracker", "get")) == null,
                         "premise: a party leader is already known");
                 send(c, "hostile.allchat-party-warp");
