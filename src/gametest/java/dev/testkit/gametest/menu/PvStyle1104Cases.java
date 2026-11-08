@@ -271,25 +271,7 @@ final class PvStyle1104Cases {
             }
             // ... and Collections: the seed's 1000 Wheat (tiers 50/1000, injected below, the tier list is a download) maxes
             // the first cell of NEU's grid (54, 31), filled orange (pet_sel.png) over its pv_elements cell.
-            Object remote = c.onClient(mc -> Mod.field("profileviewer.data.ExtraTables", "COLLECTIONS"));
-            java.lang.reflect.Field future = remote.getClass().getDeclaredField("future");
-            future.setAccessible(true);
-            Object old = future.get(remote);
-            Object cats = c.onClient(mc -> Mod.staticCall("profileviewer.data.ExtraTables", "parseCollections", JsonParser.parseString("{\"collections\":{\"FARMING\":{\"name\":\"Farming\",\"items\":{\"WHEAT\":{\"name\":\"Wheat\","
-                            + "\"maxTiers\":2,\"tiers\":[{\"tier\":1,\"amountRequired\":50},{\"tier\":2,\"amountRequired\":1000}]}}}}}").getAsJsonObject()));
-            BufferedImage cols;
-            try {
-                synchronized (remote) {
-                    future.set(remote, java.util.concurrent.CompletableFuture.completedFuture(cats));
-                }
-                c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 4));
-                c.ctx().waitTicks(5);
-                cols = BazaarReskinCases.shot(c, "neu-collections");
-            } finally {
-                synchronized (remote) {
-                    future.set(remote, old);
-                }
-            }
+            BufferedImage cols = collectionsShot(c, s, "neu-collections");
             BufferedImage tab = res("neu/inv_tab.png");
             if (sel == null || under == null || tab == null) {
                 look(bad, false, "NEU Collections: no inv_tab.png in the jar");
@@ -323,9 +305,40 @@ final class PvStyle1104Cases {
             int got = gp(pets, scale, px + 1, cy + 1), exp = blend(tinted, gp(pets, scale, px + 24, cy + 11));
             look(bad, near(got, exp), want + ": active pet slot +1,+1 is " + String.format("%06X", got)
                     + ", the green-tinted slot gives " + String.format("%06X", exp));
+            // ... and its Collections page: the maxed Wheat entry alone, centered, its 91 px bar (bar_foreground_maxed.png,
+            // gold mid-bar E8B923) at item 16 + 5 in, 12 below the content top.
+            BufferedImage cols = collectionsShot(c, s, want.toLowerCase() + "-collections");
+            int w0 = 21 + c.onClient(mc -> Math.max(mc.font.width("Wheat: 1,000"), 94 + mc.font.width("Maxed")));
+            int bx = geo[0] + 10 + (geo[2] - 20 - w0) / 2 + 21;
+            int bar = gp(cols, scale, bx + 45, cy + 14);
+            look(bad, near(bar, 0xE8B923), want + ": Wheat's maxed bar middle is " + String.format("%06X", bar) + ", expected E8B923");
         }
         c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 0));
         c.ctx().waitTicks(3);
+    }
+
+    /** Collections (page 4) with a two-tier Wheat collection injected for the shot (the tier list is a download). */
+    private static BufferedImage collectionsShot(Session c, Screen s, String name) throws Exception {
+        Object remote = c.onClient(mc -> Mod.field("profileviewer.data.ExtraTables", "COLLECTIONS"));
+        java.lang.reflect.Field future = remote.getClass().getDeclaredField("future");
+        future.setAccessible(true);
+        Object old = future.get(remote);
+        Object cats = c.onClient(mc -> Mod.staticCall("profileviewer.data.ExtraTables", "parseCollections", JsonParser.parseString("{\"collections\":{\"FARMING\":{\"name\":\"Farming\",\"items\":{\"WHEAT\":{\"name\":\"Wheat\","
+                        + "\"maxTiers\":2,\"tiers\":[{\"tier\":1,\"amountRequired\":50},{\"tier\":2,\"amountRequired\":1000}]}}}}}").getAsJsonObject()));
+        BufferedImage cols;
+        try {
+            synchronized (remote) {
+                future.set(remote, java.util.concurrent.CompletableFuture.completedFuture(cats));
+            }
+            c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 4));
+            c.ctx().waitTicks(5);
+            cols = BazaarReskinCases.shot(c, name);
+        } finally {
+            synchronized (remote) {
+                future.set(remote, old);
+            }
+        }
+        return cols;
     }
 
     /** Up to 8 pixels on one row where NEU's page texture changes pv_bg must show the page texture over pv_bg. */
