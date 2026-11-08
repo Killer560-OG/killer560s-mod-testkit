@@ -111,6 +111,9 @@ final class HxTerminals {
         int wrong;
         /** The next this-many clicks are dropped with no answer (the board unchanged, nothing re-sent). */
         int dropClicks;
+        /** Drops the click that would solve the board (the last wrong slot), once (1108 last-pane case). */
+        boolean dropFinal;
+        boolean dropReopen;
         int dropped;
         long openedTick;
         long firstTick = -1;
@@ -447,6 +450,8 @@ final class HxTerminals {
         }
         t.openedTick = server.getTickCount();
         t.dropClicks = a.has("dropClicks") ? a.get("dropClicks").getAsInt() : 0;
+        t.dropFinal = a.has("dropFinal") && a.get("dropFinal").getAsBoolean();
+        t.dropReopen = a.has("dropReopen") && a.get("dropReopen").getAsBoolean();
         t.displayTitle = (a.has("titlePrefix") ? a.get("titlePrefix").getAsString() : "") + t.title
                 + (a.has("titleSuffix") ? a.get("titleSuffix").getAsString() : "");
         HxChestMenu menu = HxMenus.open(player, t.rows, Component.literal(t.displayTitle), items, SCRIPT, t);
@@ -575,8 +580,14 @@ final class HxTerminals {
         }
         MinecraftServer server = player.level().getServer();
         long tick = server.getTickCount();
-        if (t.dropClicks > 0) {
-            t.dropClicks--;
+        boolean dropFinalNow = t.dropFinal && t.type != Type.MELODY && t.type != Type.RUBIX && t.remaining(menu).size() == 1;
+        if (dropFinalNow) {
+            t.dropFinal = false;
+        }
+        if (dropFinalNow || t.dropClicks > 0) {
+            if (!dropFinalNow) {
+                t.dropClicks--;
+            }
             t.dropped++;
             menu.silentNext = true;
             JsonObject d = new JsonObject();
@@ -585,6 +596,18 @@ final class HxTerminals {
             d.addProperty("input", input.name());
             d.addProperty("dropped", t.dropped);
             HxEvents.custom("terminal.dropped", player, d);
+            if (dropFinalNow && t.dropReopen) {
+                // Hypixel's re-send: the unanswered final pane comes back in the same terminal under a NEW container id.
+                HxMenus.later(() -> {
+                    List<ItemStack> now = new ArrayList<>();
+                    for (int i = 0; i < t.rows * 9; i++) {
+                        now.add(menu.items().getItem(i).copy());
+                    }
+                    HxChestMenu again = HxMenus.open(player, t.rows, Component.literal(t.displayTitle), now, SCRIPT, t);
+                    t.containerId = again.containerId;
+                    lastMenu = again;
+                });
+            }
             return;
         }
         t.clicks++;
