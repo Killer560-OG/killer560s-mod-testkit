@@ -258,6 +258,25 @@ final class InvLoadout1104Cases {
      *  the /loadouts menu itself when a loadout is clicked; the swapper then saw the menu gone, finished as "menu already
      *  gone" with lastSwapped false, and the sorter stopped "loadout was not selected, so nothing was sorted" although
      *  the loadout had changed. The fake menu here closes on the click. The swap must read as done and the sort must run. */
+    private static volatile boolean closeHookArmed;
+    private static volatile int closedByHook;
+    private static boolean closeHookRegistered;
+
+    /** Closes the loadout menu at the end of the tick that clicked it, as Hypixel does, before the swapper's own close tick. */
+    private static void armCloseHook() {
+        closeHookArmed = true;
+        if (closeHookRegistered) {
+            return;
+        }
+        closeHookRegistered = true;
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+            if (closeHookArmed && "CLOSE".equals(String.valueOf(Mod.field(SWAP, "stage"))) && McCompat.screen(mc) != null) {
+                closedByHook++;
+                McCompat.screen(mc).onClose();
+            }
+        });
+    }
+
     static void hypixelCloses(Session c) throws Exception {
         MenuKit.reset(c);
         InventoryCases.clearInv(c);
@@ -274,13 +293,9 @@ final class InvLoadout1104Cases {
                 Mod.call(cfg, "setRandomExtraTicks", 0);
                 Mod.call(cfg, "setInstant", false);
             });
-            JsonObject page = loadoutsPage(1, null);
-            JsonObject on = new JsonObject();
-            JsonObject close = new JsonObject();
-            close.addProperty("close", true);
-            on.add("24", close);
-            page.add("on", on);
-            c.hx().call("menu.onCommand", "name", "loadouts", "menu", page);
+            c.hx().call("menu.onCommand", "name", "loadouts", "menu", loadoutsPage(1, null));
+            armCloseHook();
+            closedByHook = 0;
             c.hx().give(3, "minecraft:diamond");
             c.waitUntil("the diamond", mc -> mc.player.getInventory().getItem(3).is(Items.DIAMOND), 80);
             String diamond = c.onClient(mc -> (String) Mod.staticCall("autoroutes.ItemIdentity", "of",
@@ -291,6 +306,7 @@ final class InvLoadout1104Cases {
             c.waitUntil("the loadout then the sort", mc -> !(Boolean) Mod.staticCall(EXEC, "isRunning"), 600);
             c.ctx().waitTicks(10);
             List<JsonObject> clicks = clicksSince(c, before);
+            c.check(closedByHook == 1, "the menu was not closed in the tick after the click (" + closedByHook + "), so the case proves nothing");
             c.check(!clicks.isEmpty() && clicks.get(0).get("slot").getAsInt() == 24, "the loadout (slot 24) was not clicked: " + clicks);
             c.check(c.onClient(mc -> (Boolean) Mod.staticCall(SWAP, "lastSwapped")),
                     "Hypixel closed the menu after the click and the swap still read as failed");
@@ -298,6 +314,7 @@ final class InvLoadout1104Cases {
                     "the sort never ran after the swap: diamond not in slot 0, clicks " + clicks);
             c.note("loadout 5 clicked, Hypixel closed the menu itself, the sort went on: " + (clicks.size() - 1) + " click(s) after it");
         } finally {
+            closeHookArmed = false;
             if (c.onClient(mc -> (Boolean) Mod.staticCall(EXEC, "isRunning"))) {
                 c.ctx().runOnClient(mc -> Mod.staticCall(EXEC, "requestStop"));
             }
