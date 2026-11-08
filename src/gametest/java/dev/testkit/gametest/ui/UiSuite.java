@@ -601,6 +601,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1105-ui-chmap-tab", MiningPulledCases::chMapTab);
                     UiCase.run(ctx, "1104-ui-themematch-pixels", ThemeMatchCases::pixels);
                     UiCase.run(ctx, "1104-ui-themematch-audit", ThemeMatchCases::audit);
+                    UiCase.run(ctx, "1108-ui-map-border-theme", MapSplitThemeCases::mapBorder);
+                    UiCase.run(ctx, "1108-ui-splittimers-columns", MapSplitThemeCases::splitColumns);
                     UiCase.run(ctx, "412-ui-no-new-tab", c -> NoNewTabCases.run(c, deny));
                     UiCase.run(ctx, "413-ui-testing-variant", TestingVariantCases::run);
                     UiCase.run(ctx, "425-ui-bazaar-icons", BazaarBrowserCases::icons);

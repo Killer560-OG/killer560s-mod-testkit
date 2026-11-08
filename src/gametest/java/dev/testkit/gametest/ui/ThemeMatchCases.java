@@ -75,7 +75,7 @@ final class ThemeMatchCases {
                 "croesus.CroesusConfig", 1, "dungeonalerts.DungeonAlertsConfig", 2, "dungeonalerts.RoomAlerts", 1,
                 "dungeonextras.DungeonExtrasConfig", 1, "enchantcolors.EnchantColorsConfig", 2, "f7spots.F7SpotsConfig", 2,
                 "heldoutline.HeldOutlineConfig", 2, "itemprotect.ItemProtectConfig", 2, "lagdisplay.LagDisplayConfig", 1,
-                "livemap.LiveMapConfig", 3, "miningqol.MiningQolConfig", 1, "mobesp.MobEspConfig", 4, "p3nav.P3NavConfig", 4,
+                "livemap.LiveMapConfig", 4, "miningqol.MiningQolConfig", 1, "mobesp.MobEspConfig", 4, "p3nav.P3NavConfig", 4,
                 "pathfinding.PathfindingConfig", 5, "playerstats.PlayerStatsConfig", 1, "posmsg.PosmsgEntry", 1,
                 "powdermining.PowderMiningConfig", 1, "realtime.RealTimeConfig", 1, "routes.Route", 1, "routes.RouteStore", 1,
                 "scoreboard.CustomScoreboardConfig", 4, "scoreboard.ScoreboardEditorScreen", 2, "scorecalc.ScoreCalculatorConfig", 2,
