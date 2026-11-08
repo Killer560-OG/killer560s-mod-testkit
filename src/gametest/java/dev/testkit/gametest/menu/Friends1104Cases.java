@@ -35,6 +35,7 @@ final class Friends1104Cases {
     static void register(Session s) {
         MenuSuite.test(s, "1104-menu-friends-area-filter", Friends1104Cases::areaFilter);
         MenuSuite.test(s, "1104-menu-friends-pv", Friends1104Cases::pv);
+        MenuSuite.test(s, "1108-menu-friends-scan-rows", Friends1104Cases::scanRows);
     }
 
     /** name, area (null: no line), online hint. */
@@ -179,8 +180,42 @@ final class Friends1104Cases {
             } finally {
                 PacketTrace.stop();
             }
-            c.check(sent.equals(List.of("pv HxPalD")), "the /pv click should send exactly [pv HxPalD], sent " + sent);
-            c.note("/pv click sent " + sent);
+            String open = c.onClient(mc -> mc.screen == null ? "none" : mc.screen.getClass().getSimpleName());
+            c.check(sent.isEmpty(), "the /pv click must send nothing to the server (it is a client command), sent " + sent);
+            c.check(open.equals("ProfileViewerScreen"), "the /pv click should open the mod's profile viewer, screen is " + open);
+            c.note("/pv click sent " + sent + ", screen " + open);
         }
+    }
+
+    /** 1108: rows appear while a /fl scan is still walking (killer560: "it should update as it goes"). */
+    static void scanRows(Session c) throws Exception {
+        try (SocialCases.Env env = new SocialCases.Env(c)) {
+            c.ctx().runOnClient(mc -> {
+                Mod.call(Mod.cfg(CFG), "applyRealSync", new ArrayList<String>(), false);
+                Mod.setField("social.FriendsListSync", "walking", true);
+                Mod.setField("social.FriendsListSync", "awaitingSinceMs", System.currentTimeMillis());
+                Mod.setField("social.FriendsListScreen", "areaFilter", "All");
+            });
+            SocialCases.open(c, FL_SCREEN);
+            c.ctx().waitTicks(4);
+            try {
+                feed(c, "Friends (Page 1 of 3) >>");
+                feed(c, "ScanAlpha is currently offline");
+                c.ctx().waitTicks(3);
+                c.check(shownNames(c).equals(List.of("ScanAlpha")), "first row should show mid-scan, got " + shownNames(c));
+                feed(c, "ScanBeta is in SkyBlock - Hub");
+                c.ctx().waitTicks(3);
+                c.check(shownNames(c).equals(List.of("ScanAlpha", "ScanBeta")), "second row should show mid-scan, got " + shownNames(c));
+                boolean walking = c.onClient(mc -> (Boolean) Mod.staticCall("social.FriendsListSync", "isSyncing"));
+                c.check(walking, "the scan must still be walking while the rows show (premise)");
+                c.note("rows during scan: " + shownNames(c));
+            } finally {
+                c.ctx().runOnClient(mc -> Mod.staticCall("social.FriendsListSync", "endWalk"));
+            }
+        }
+    }
+
+    private static void feed(Session c, String line) {
+        c.ctx().runOnClient(mc -> Mod.staticCall("social.FriendsListSync", "onGameLine", net.minecraft.network.chat.Component.literal(line)));
     }
 }
