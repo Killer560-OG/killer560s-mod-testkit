@@ -16,7 +16,7 @@ import static dev.testkit.gametest.hx.HxKit.*;
  *       Jungle color; standing at the 513 line the Jungle and Mithril slabs flank it; at the center only the Nucleus and the
  *       Magma top are within Near Only; Near Only 0 draws the outer walls from the center; the switch OFF and the hub draw nothing
  *       and do not move the frame counter.</li>
- *   <li>1104-chwalls-pixels: a screenshot looking at the X 202 wall from 3 blocks (opacity 100) is green at the center, and the
+ *   <li>1104-chwalls-pixels: a screenshot looking at the X 202 wall from 3 blocks (opacity 100) is purple at the center, and the
  *       same view in the hub is not.</li>
  * </ul>
  */
@@ -36,6 +36,7 @@ final class HxCrystalWalls1104Cases {
         s.test("1104-chwalls-nucleus", HxCrystalWalls1104Cases::nucleus);
         s.test("1105-chwalls-structure", HxCrystalWalls1104Cases::structure);
         s.test("1105-chwalls-nearest", HxCrystalWalls1104Cases::nearest);
+        s.test("1106-chwalls-mapcolor", HxCrystalWalls1104Cases::mapColor);
     }
 
     /**
@@ -203,7 +204,7 @@ final class HxCrystalWalls1104Cases {
             c.check(worst <= 14, "the Jungle wall looks different in front of another wall (worst channel gap " + worst + ")");
             int darker = alone[0] + alone[1] + alone[2] - front[0] - front[1] - front[2];
             c.check(darker <= 15, "a solid wall behind darkened the Jungle wall in front by " + darker + " (old jar: 35, nearest layer: -9)");
-            c.check(alone[1] - Math.max(alone[0], alone[2]) >= 10, "the lone wall is not visibly green: " + java.util.Arrays.toString(alone));
+            c.check((alone[0] + alone[2]) / 2 - alone[1] >= 10, "the lone wall is not visibly purple: " + java.util.Arrays.toString(alone));
         } finally {
             c.ctx().runOnClient(mc -> {
                 Mod.call(cfg, "setChWalls", old);
@@ -308,14 +309,14 @@ final class HxCrystalWalls1104Cases {
             c.ctx().runOnClient(mc -> Mod.call(cfg, "setChWalls", true));
             hollows(c);
             c.server().command("gamemode creative @p");
-            // 1) near the west edge: the Jungle slab is at 202.0-202.1, green (0x55FF55), alpha .25.
+            // 1) near the west edge: the Jungle slab is at 202.0-202.1, purple (0xC050FF), alpha .25.
             at(c, 210, 100, 300, 90f);
             c.waitUntil("walls drawn near the west edge", mc -> !drawn(c).isEmpty(), 100);
             List<String> d = drawn(c);
             double[] jw = find(d, "JUNGLE", r -> Math.abs(r[0] - 202.0) < 1e-6 && Math.abs(r[3] - 202.1) < 1e-6);
             c.check(jw != null, "no Jungle slab at X 202.0-202.1; drawn: " + d);
-            c.check(Math.abs(jw[6] - 0x55 / 255.0) < 0.01 && Math.abs(jw[7] - 1.0) < 0.01 && Math.abs(jw[9] - 0.25) < 0.01,
-                    "the Jungle wall is not the default green at 25%: " + java.util.Arrays.toString(jw));
+            c.check(Math.abs(jw[6] - 0xC0 / 255.0) < 0.01 && Math.abs(jw[7] - 0x50 / 255.0) < 0.01 && Math.abs(jw[8] - 1.0) < 0.01 && Math.abs(jw[9] - 0.25) < 0.01,
+                    "the Jungle wall is not the default purple at 25%: " + java.util.Arrays.toString(jw));
             c.check(find(d, "JUNGLE", r -> Math.abs(r[1] - 64.0) < 1e-6) != null,
                     "the Jungle wall does not start at Y 64");
             c.check(find(d, "MITHRIL", r -> true) == null && find(d, "PRECURSOR", r -> true) == null,
@@ -353,7 +354,7 @@ final class HxCrystalWalls1104Cases {
             long f0 = frames(c);
             c.ctx().waitTicks(20);
             c.check(frames(c) == f0, "walls drew outside the Crystal Hollows");
-            c.note("walls at X 202.0 (Jungle, green 25%), the 513 line (Jungle|Mithril), Magma top Y 64, Nucleus; Near Only clips; off and hub draw none");
+            c.note("walls at X 202.0 (Jungle, purple 25%), the 513 line (Jungle|Mithril), Magma top Y 64, Nucleus; Near Only clips; off and hub draw none");
         } finally {
             c.ctx().runOnClient(mc -> Mod.call(cfg, "setChWalls", old));
             c.server().command("gamemode survival @p");
@@ -376,14 +377,14 @@ final class HxCrystalWalls1104Cases {
             at(c, 205, 100, 300, 90f);
             c.waitUntil("the wall drawn", mc -> !drawn(c).isEmpty(), 100);
             c.ctx().waitTicks(5);
-            int in = greenAtCenter(c, "chwalls-hollows");
+            int in = purpleAtCenter(c, "chwalls-hollows");
             hub(c);
             at(c, 205, 100, 300, 90f);
             c.ctx().waitTicks(10);
-            int out = greenAtCenter(c, "chwalls-hub");
-            c.check(in >= 80, "the center pixel is not wall green in the Hollows (greenness " + in + ")");
-            c.check(out < 40, "the center pixel is green in the hub (greenness " + out + ")");
-            c.note("center greenness " + in + " in the Hollows (wall 3 blocks ahead), " + out + " in the hub");
+            int out = purpleAtCenter(c, "chwalls-hub");
+            c.check(in >= 40, "the center pixel is not wall purple in the Hollows (purpleness " + in + ")");
+            c.check(out < 40, "the center pixel is purple in the hub (purpleness " + out + ")");
+            c.note("center purpleness " + in + " in the Hollows (wall 3 blocks ahead), " + out + " in the hub");
         } finally {
             c.ctx().runOnClient(mc -> {
                 Mod.call(cfg, "setChWalls", old);
@@ -394,8 +395,97 @@ final class HxCrystalWalls1104Cases {
         }
     }
 
-    /** Greenness (G minus the larger of R and B), averaged over a 9x9 patch at the center of a screenshot. */
-    private static int greenAtCenter(Session c, String name) {
+    private static final String MAP = "mining.chmap.ChMapRenderer";
+
+    /**
+     * chwallcolor-1106 (owner: "the area wall looking into jungle is blue ... jungle should be purple themed"): every drawn wall's
+     * rgb equals the map's quadrant color for its zone (Nucleus: its own, the map draws none), by default (Jungle is purple) and
+     * after Jungle is given a custom color.
+     */
+    private static void mapColor(Session c) {
+        Object cfg = c.onClient(mc -> Mod.cfg(CFG));
+        boolean old = c.onClient(mc -> (Boolean) Mod.call(cfg, "isChWallsRaw"));
+        String[] names = {"JUNGLE", "MITHRIL", "GOBLIN", "PRECURSOR"};
+        Object[] zones = c.onClient(mc -> {
+            Object[] z = new Object[names.length];
+            for (int i = 0; i < z.length; i++) {
+                z[i] = Mod.enumValue(ZONE, names[i]);
+            }
+            return z;
+        });
+        int[] nears = new int[zones.length];
+        for (int i = 0; i < zones.length; i++) {
+            final int k = i;
+            nears[i] = c.onClient(mc -> ((Number) Mod.call(cfg, "getChWallNear", zones[k])).intValue());
+        }
+        int oldJungle = c.onClient(mc -> ((Number) Mod.call(cfg, "getChWallColor", zones[0])).intValue());
+        try {
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfg, "setChWalls", true);
+                for (Object z : zones) {
+                    Mod.call(cfg, "setChWallNear", z, 0);
+                }
+            });
+            hollows(c);
+            c.server().command("gamemode creative @p");
+            at(c, 300, 100, 300, 90f);
+            c.waitUntil("walls drawn", mc -> !drawn(c).isEmpty(), 100);
+            for (int pass = 0; pass < 2; pass++) {
+                if (pass == 1) {
+                    c.ctx().runOnClient(mc -> Mod.call(cfg, "setChWallColor", zones[0], 0x123456));
+                    c.ctx().waitTicks(5);
+                }
+                List<String> lines = drawn(c);
+                for (int i = 0; i < zones.length; i++) {
+                    final int k = i;
+                    int fill = c.onClient(mc -> ((Number) Mod.staticCall(MAP, "zoneFill", k)).intValue());
+                    int cfgColor = c.onClient(mc -> ((Number) Mod.call(cfg, "getChWallColor", zones[k])).intValue());
+                    c.check((fill & 0xFFFFFF) == cfgColor, names[i] + " map fill " + Integer.toHexString(fill) + " is not the wall color " + Integer.toHexString(cfgColor));
+                    int seen = 0;
+                    for (String l : lines) {
+                        if (l.startsWith(names[i] + " ")) {
+                            double[] r = row(l);
+                            int rgb = ((int) Math.round(r[6] * 255) << 16) | ((int) Math.round(r[7] * 255) << 8) | (int) Math.round(r[8] * 255);
+                            c.check(rgb == (fill & 0xFFFFFF), names[i] + " wall drawn " + Integer.toHexString(rgb) + " but the map shows " + Integer.toHexString(fill & 0xFFFFFF));
+                            seen++;
+                        }
+                    }
+                    c.check(seen > 0, names[i] + " drew no wall (pass " + pass + ")");
+                }
+                if (pass == 0) {
+                    int jf = c.onClient(mc -> ((Number) Mod.staticCall(MAP, "zoneFill", 0)).intValue());
+                    c.check((jf & 0xFFFFFF) == 0xC050FF, "Jungle default is not purple: " + Integer.toHexString(jf));
+                }
+            }
+            // a saved OLD default (green 0x55FF55) moves to the new purple on load; a picked color stays
+            c.ctx().runOnClient(mc -> {
+                Mod.call(Mod.cfg(CFG), "setChWallColor", zones[0], 0x55FF55);
+                Mod.call(Mod.cfg(CFG), "save");
+                Mod.staticCall("miningqol.MiningQolConfig", "load");
+            });
+            int moved = c.onClient(mc -> ((Number) Mod.call(Mod.cfg(CFG), "getChWallColor", zones[0])).intValue());
+            c.check(moved == 0xC050FF, "a saved old green Jungle default did not move to purple: " + Integer.toHexString(moved));
+            c.ctx().runOnClient(mc -> {
+                Mod.call(Mod.cfg(CFG), "setChWallColor", zones[0], 0x123456);
+                Mod.call(Mod.cfg(CFG), "save");
+                Mod.staticCall("miningqol.MiningQolConfig", "load");
+            });
+            int kept = c.onClient(mc -> ((Number) Mod.call(Mod.cfg(CFG), "getChWallColor", zones[0])).intValue());
+            c.check(kept == 0x123456, "a picked Jungle color was changed on load: " + Integer.toHexString(kept));
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                Mod.call(Mod.cfg(CFG), "setChWalls", old);
+                Mod.call(Mod.cfg(CFG), "setChWallColor", zones[0], oldJungle);
+                for (int i = 0; i < zones.length; i++) {
+                    Mod.call(Mod.cfg(CFG), "setChWallNear", zones[i], nears[i]);
+                }
+            });
+            hub(c);
+        }
+    }
+
+    /** Purpleness (the mean of R and B minus G), averaged over a 9x9 patch at the center of a screenshot. */
+    private static int purpleAtCenter(Session c, String name) {
         try {
             java.nio.file.Path shot = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(name));
             dev.testkit.harness.Report.screenshot(c.name(), shot);
@@ -404,7 +494,7 @@ final class HxCrystalWalls1104Cases {
             for (int dy = -4; dy <= 4; dy++) {
                 for (int dx = -4; dx <= 4; dx++) {
                     int a = img.getRGB(cx + dx, cy + dy);
-                    sum += ((a >> 8) & 255) - Math.max((a >> 16) & 255, a & 255);
+                    sum += (((a >> 16) & 255) + (a & 255)) / 2 - ((a >> 8) & 255);
                     n++;
                 }
             }
