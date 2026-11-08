@@ -61,6 +61,9 @@ final class DocPuzzleCases {
 
     static void register(Session s) {
         s.test("1101-pz-quiz", DocPuzzleCases::quiz);
+        s.test("1108-pz-quiz-boss", DocPuzzleCases::quizBoss);
+        s.test("1108-wither-dying", DocPuzzleCases::witherDying);
+        s.test("1108-magebeam-fade-together", DocPuzzleCases::mageBeamTogether);
         s.test("1101-pz-ttt", DocPuzzleCases::ticTacToe);
         s.test("1101-pz-beams", DocPuzzleCases::beams);
         s.test("1104-pz-beams-opening", DocPuzzleCases::beamsOpening);
@@ -1111,5 +1114,82 @@ final class DocPuzzleCases {
     private static BlockPos at(com.google.gson.JsonArray seq, int k) {
         var xyz = seq.get(k).getAsJsonArray();
         return new BlockPos(xyz.get(0).getAsInt(), xyz.get(1).getAsInt(), xyz.get(2).getAsInt());
+    }
+
+    // ---- 1108 dungeon HUD fixes -------------------------------------------------------------------------------------
+
+    /** The Quiz Timer must not outlive the boss entry (it used to stay until the run ended). */
+    static void quizBoss(Session c) throws Exception {
+        List<AutoCloseable> undo = new ArrayList<>();
+        try {
+            inDungeon(c);
+            undo.add(c.onClient(mc -> Mod.with(QUIZ_CFG, "Enabled", true)));
+            undo.add(c.onClient(mc -> Mod.with(QUIZ_CFG, "ShowTimer", true)));
+            c.hx().chat("[STATUE] Oruo the Omniscient: I am Oruo the Omniscient. I have lived many lives. I have learned all there is to know.");
+            c.waitUntil("QuizState in progress", mc -> (Boolean) Mod.staticCall("puzzlesolvers.QuizState", "inProgress"), 60);
+            String before = c.onClient(mc -> (String) Mod.staticCall(QUIZ, "timerText"));
+            c.check(before != null && before.contains("Quiz 1/3"), "the timer never showed before the boss: " + before);
+            c.ctx().runOnClient(mc -> Mod.setField("livemap.LiveMapFeature", "bossLatched", true));
+            c.ctx().waitTicks(5);
+            String after = c.onClient(mc -> (String) Mod.staticCall(QUIZ, "timerText"));
+            boolean going = c.onClient(mc -> (Boolean) Mod.staticCall("puzzlesolvers.QuizState", "inProgress"));
+            c.note("timer before boss \"" + before + "\", after \"" + after + "\", quiz still in progress " + going);
+            c.check(after == null, "the Quiz Timer still shows after entering the boss: " + after);
+            c.check(!going, "the quiz state survived the boss entry");
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.setField("livemap.LiveMapFeature", "bossLatched", false));
+            restore(c, undo);
+        }
+    }
+
+    /** A wither at 0 hp (death animation) must stop counting as a real boss wither, so its highlight drops. */
+    static void witherDying(Session c) throws Exception {
+        try {
+            c.server().sync(20);
+            c.server().command("execute at @p run summon wither ~ ~6 ~ {Tags:[\"wd1108\"],NoAI:1b,Silent:1b,Invul:0,PersistenceRequired:1b}");
+            c.waitUntil("the client to have the wither", mc -> !mc.level.getEntitiesOfClass(
+                    net.minecraft.world.entity.boss.wither.WitherBoss.class,
+                    mc.player.getBoundingBox().inflate(20)).isEmpty(), 200);
+            boolean alive = c.onClient(mc -> (Boolean) Mod.staticCall("cheatutils.WitherEspFeature", "isRealWither",
+                    mc.level.getEntitiesOfClass(net.minecraft.world.entity.boss.wither.WitherBoss.class,
+                            mc.player.getBoundingBox().inflate(20)).get(0)));
+            boolean dying = c.onClient(mc -> {
+                net.minecraft.world.entity.boss.wither.WitherBoss w = mc.level.getEntitiesOfClass(
+                        net.minecraft.world.entity.boss.wither.WitherBoss.class,
+                        mc.player.getBoundingBox().inflate(20)).get(0);
+                w.setHealth(0f);
+                return (Boolean) Mod.staticCall("cheatutils.WitherEspFeature", "isRealWither", w);
+            });
+            c.note("real wither at full hp: " + alive + ", at 0 hp: " + dying);
+            c.check(alive, "a live wither was not counted as a real boss wither (test premise)");
+            c.check(!dying, "a wither at 0 hp still counts as a real boss wither, so its highlight stays");
+        } finally {
+            c.server().command("kill @e[tag=wd1108]");
+        }
+    }
+
+    /** Rays of one shot (new Beam objects a tick apart) share one start time, so they fade out together. */
+    static void mageBeamTogether(Session c) throws Exception {
+        String beam = "dungeonextras.MageBeamFeature";
+        try {
+            c.ctx().runOnClient(mc -> {
+                Mod.staticCall(beam, "clearForTest");
+                for (int i = 0; i < 8; i++) {
+                    Mod.staticCall(beam, "pointForTest", 0.5 * i, 70.0, 0.0);
+                }
+            });
+            c.ctx().waitTicks(1);
+            c.ctx().runOnClient(mc -> {
+                for (int i = 0; i < 8; i++) {
+                    Mod.staticCall(beam, "pointForTest", 0.0, 70.0, 0.5 * i + 20);
+                }
+            });
+            long[] t = c.onClient(mc -> (long[]) Mod.staticCall(beam, "startTimesForTest"));
+            c.note("beam start times " + java.util.Arrays.toString(t));
+            c.check(t.length >= 2, "the two rays did not make two beams: " + t.length);
+            c.check(t.length >= 2 && t[0] == t[1], "the rays of one shot start fading at different times: " + java.util.Arrays.toString(t));
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.staticCall(beam, "clearForTest"));
+        }
     }
 }
