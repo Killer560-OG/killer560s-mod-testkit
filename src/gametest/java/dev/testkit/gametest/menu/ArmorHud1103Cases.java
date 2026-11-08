@@ -45,6 +45,7 @@ final class ArmorHud1103Cases {
         MenuSuite.test(s, "1103-menu-armorhud-equipment", ArmorHud1103Cases::equipment);
         MenuSuite.test(s, "1103-menu-armorhud-settings", ArmorHud1103Cases::settings);
         MenuSuite.test(s, "1103-menu-armorhud-loadouts", ArmorHud1103Cases::loadouts);
+        MenuSuite.test(s, "1108-menu-armorhud-unseen-loadout", ArmorHud1103Cases::unseenLoadout);
         MenuSuite.test(s, "1103-menu-wrongarmor", ArmorHud1103Cases::wrongArmor);
         MenuSuite.test(s, "1105-menu-junglepick", ArmorHud1103Cases::junglePick);
     }
@@ -278,6 +279,47 @@ final class ArmorHud1103Cases {
         } finally {
             MenuKit.reset(c);
             wear(c, null, null, null, null);
+            c.ctx().runOnClient(mc -> {
+                Mod.staticCall(FEAT, "clearCacheForTest");
+                Mod.staticCall("loadoutkeybinds.LoadoutHighlight", "setLastEquippedForTest", was);
+            });
+            defaults(c);
+        }
+    }
+
+    /** invfix-1108 (killer560 to-do: the armor HUD "doesnt update equipment if i change my loadout"). A swap to a loadout no
+     *  menu has shown yet, or to a renamed one, used to keep the old loadout's equipment on screen. Now the equipment reads
+     *  "never seen" (nothing drawn) until /equipment or /stats is read, and that read is kept for the new loadout. */
+    static void unseenLoadout(Session c) throws Exception {
+        MenuKit.reset(c);
+        int was = c.onClient(mc -> ((Number) Mod.staticCall("loadoutkeybinds.LoadoutHighlight", "lastEquippedLoadout")).intValue());
+        try {
+            defaults(c);
+            c.ctx().runOnClient(mc -> {
+                Mod.staticCall(FEAT, "clearCacheForTest");
+                Mod.staticCall("loadoutkeybinds.LoadoutHighlight", "setLastEquippedForTest", 0);
+            });
+            List<String> a = Arrays.asList("SET_A_NECKLACE", "SET_A_CLOAK", "SET_A_BELT", "SET_A_BRACELET");
+            List<String> none = Arrays.asList(null, null, null, null);
+            c.ctx().waitTicks(50); // the chat dedupes an identical line within about a second
+            c.hx().chat("§aYou equipped Loadout 1!");
+            c.ctx().waitTicks(4);
+            openStats(c, statsMenu("SET_A_NECKLACE", "SET_A_CLOAK", "SET_A_BELT", "SET_A_BRACELET"), "set A");
+            c.waitUntil("set A read", mc -> a.equals(Mod.staticCall(FEAT, "equipmentIds")), 40);
+            int s0 = swaps(c);
+            c.ctx().waitTicks(50);
+            c.hx().chat("§aYou equipped Loadout 7!");
+            c.waitUntil("Loadout 7 (never shown) must not keep set A", mc -> none.equals(Mod.staticCall(FEAT, "equipmentIds")), 60);
+            c.check(swaps(c) > s0, "no swap counted");
+            c.ctx().waitTicks(50);
+            c.hx().chat("§aYou equipped Loadout 1!");
+            c.waitUntil("Loadout 1's set A is back", mc -> a.equals(Mod.staticCall(FEAT, "equipmentIds")), 60);
+            c.ctx().waitTicks(50);
+            c.hx().chat("§aYou equipped Shadow Set!");
+            c.waitUntil("a renamed loadout must not keep set A", mc -> none.equals(Mod.staticCall(FEAT, "equipmentIds")), 60);
+            c.note("Loadout 1 -> A, unseen Loadout 7 -> none, back to 1 -> A, renamed loadout -> none");
+        } finally {
+            MenuKit.reset(c);
             c.ctx().runOnClient(mc -> {
                 Mod.staticCall(FEAT, "clearCacheForTest");
                 Mod.staticCall("loadoutkeybinds.LoadoutHighlight", "setLastEquippedForTest", was);

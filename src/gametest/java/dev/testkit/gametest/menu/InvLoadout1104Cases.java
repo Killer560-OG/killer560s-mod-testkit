@@ -41,6 +41,7 @@ final class InvLoadout1104Cases {
         MenuSuite.test(s, "1104-invsort-loadout-apply", InvLoadout1104Cases::apply);
         MenuSuite.test(s, "1105-invsort-loadout-cache", InvLoadout1104Cases::cache);
         MenuSuite.test(s, "1105-invsort-loadout-equipped", InvLoadout1104Cases::equipped);
+        MenuSuite.test(s, "1108-invsort-loadout-hypixel-closes", InvLoadout1104Cases::hypixelCloses);
     }
 
     private static Object layout(Session c, String name, Map<Integer, String> slots, int loadout) {
@@ -248,6 +249,65 @@ final class InvLoadout1104Cases {
                 }
             } catch (java.io.IOException e) {
                 throw new AssertionError(e);
+            }
+            c.ctx().runOnClient(mc -> Mod.staticCall(ISC, "load"));
+        }
+    }
+
+    /** invfix-1108 (killer560 to-do: "i run /invsort and it changes my wardrobe but doesnt get my items"). Hypixel can close
+     *  the /loadouts menu itself when a loadout is clicked; the swapper then saw the menu gone, finished as "menu already
+     *  gone" with lastSwapped false, and the sorter stopped "loadout was not selected, so nothing was sorted" although
+     *  the loadout had changed. The fake menu here closes on the click. The swap must read as done and the sort must run. */
+    static void hypixelCloses(Session c) throws Exception {
+        MenuKit.reset(c);
+        InventoryCases.clearInv(c);
+        if (legit(c)) {
+            return;
+        }
+        String name = "hx-1108-close";
+        Path cfgPath = c.onClient(mc -> (Path) Mod.field(ISC, "CONFIG_PATH"));
+        byte[] old = Files.exists(cfgPath) ? Files.readAllBytes(cfgPath) : null;
+        try {
+            c.ctx().runOnClient(mc -> {
+                Object cfg = Mod.cfg(ISC);
+                Mod.call(cfg, "setTicksBetweenMoves", 2);
+                Mod.call(cfg, "setRandomExtraTicks", 0);
+                Mod.call(cfg, "setInstant", false);
+            });
+            JsonObject page = loadoutsPage(1, null);
+            JsonObject on = new JsonObject();
+            JsonObject close = new JsonObject();
+            close.addProperty("close", true);
+            on.add("24", close);
+            page.add("on", on);
+            c.hx().call("menu.onCommand", "name", "loadouts", "menu", page);
+            c.hx().give(3, "minecraft:diamond");
+            c.waitUntil("the diamond", mc -> mc.player.getInventory().getItem(3).is(Items.DIAMOND), 80);
+            String diamond = c.onClient(mc -> (String) Mod.staticCall("autoroutes.ItemIdentity", "of",
+                    mc.player.getInventory().getItem(3)));
+            int before = c.events("container.click").size();
+            Object lo = layout(c, name, Map.of(0, diamond), 5);
+            c.check(c.onClient(mc -> (Boolean) Mod.staticCall(EXEC, "start", lo)), "start returned false");
+            c.waitUntil("the loadout then the sort", mc -> !(Boolean) Mod.staticCall(EXEC, "isRunning"), 600);
+            c.ctx().waitTicks(10);
+            List<JsonObject> clicks = clicksSince(c, before);
+            c.check(!clicks.isEmpty() && clicks.get(0).get("slot").getAsInt() == 24, "the loadout (slot 24) was not clicked: " + clicks);
+            c.check(c.onClient(mc -> (Boolean) Mod.staticCall(SWAP, "lastSwapped")),
+                    "Hypixel closed the menu after the click and the swap still read as failed");
+            c.check(clicks.size() >= 2 && c.onClient(mc -> mc.player.getInventory().getItem(0).is(Items.DIAMOND)),
+                    "the sort never ran after the swap: diamond not in slot 0, clicks " + clicks);
+            c.note("loadout 5 clicked, Hypixel closed the menu itself, the sort went on: " + (clicks.size() - 1) + " click(s) after it");
+        } finally {
+            if (c.onClient(mc -> (Boolean) Mod.staticCall(EXEC, "isRunning"))) {
+                c.ctx().runOnClient(mc -> Mod.staticCall(EXEC, "requestStop"));
+            }
+            c.hx().call("menu.onCommand", "name", "loadouts", "menu", null);
+            MenuKit.reset(c);
+            InventoryCases.clearInv(c);
+            if (old == null) {
+                Files.deleteIfExists(cfgPath);
+            } else {
+                Files.write(cfgPath, old);
             }
             c.ctx().runOnClient(mc -> Mod.staticCall(ISC, "load"));
         }
