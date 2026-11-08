@@ -43,7 +43,9 @@ final class PvStyle1104Cases {
             + "\"banking\":{\"balance\":4200000},\"members\":{\"000000000000000000000000000000a1\":{\"currencies\":{\"coin_purse\":123456},"
             + "\"player_data\":{\"experience\":{\"SKILL_COMBAT\":55000000,\"SKILL_MINING\":12000000,\"SKILL_FARMING\":3000000}},"
             + "\"inventory\":{\"inv_contents\":{\"type\":0,\"data\":\"\"}},"
-            + "\"collection\":{\"WHEAT\":1000},\"pets_data\":{\"pets\":[{\"type\":\"ENDER_DRAGON\",\"tier\":\"LEGENDARY\",\"exp\":25000000,\"active\":true}]},"
+            + "\"collection\":{\"WHEAT\":1000},\"mining_core\":{\"powder_mithril\":500000,\"powder_spent_mithril\":100000,"
+            + "\"crystals\":{\"jade_crystal\":{\"state\":\"FOUND\",\"total_placed\":3}}},"
+            + "\"skill_tree\":{\"experience\":{\"mining\":600000},\"nodes\":{\"mining\":{\"mining_speed\":50}}},\"pets_data\":{\"pets\":[{\"type\":\"ENDER_DRAGON\",\"tier\":\"LEGENDARY\",\"exp\":25000000,\"active\":true}]},"
             + "\"dungeons\":{\"dungeon_types\":{\"catacombs\":{\"experience\":180000000}}}}}}]}";
 
     static final String[] ORDER = {"DEFAULT", "NEU", "SBPV_LIGHT", "SBPV_DARK", "SBPV_CLEAR"};
@@ -285,6 +287,25 @@ final class PvStyle1104Cases {
                 int exp = blend(sel.getRGB(0, 0), blend(tab.getRGB(0, 0), under.getRGB(54, 31) & 0xFFFFFF));
                 look(bad, near(got, exp), "NEU Collections: first collection cell corner " + String.format("%06X, expected %06X", got, exp));
             }
+            // Round 4: NEU's Mining page (plain pv_bg): the HOTM view's selector cell turned over at 226, 18, and the
+            // seed's found Jade crystal's label in NEU's green (55FF55) from 20, 101.
+            c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 5));
+            c.ctx().waitTicks(5);
+            BufferedImage mine = BazaarReskinCases.shot(c, "neu-mining");
+            BufferedImage on = res("neu/inv_tab_on.png");
+            if (on == null || under == null) {
+                look(bad, false, "NEU Mining: no inv_tab_on.png in the jar");
+            } else {
+                int got = gp(mine, scale, geo[0] + 226, geo[1] + 18), exp = blend(on.getRGB(0, 0), under.getRGB(226, 18) & 0xFFFFFF);
+                look(bad, near(got, exp), "NEU Mining: HOTM cell corner " + String.format("%06X, expected %06X", got, exp));
+            }
+            int green = 0;
+            for (int gx = 20; gx < 50; gx++) {
+                for (int gy = 101; gy < 109; gy++) {
+                    green += near(gp(mine, scale, geo[0] + gx, geo[1] + gy), 0x55FF55) ? 1 : 0;
+                }
+            }
+            look(bad, green >= 10, "NEU Mining: " + green + " Jade-green label pixels at 20, 101 (want 10+)");
         } else if (sprite == null) {
             look(bad, false, want + ": no slot sprite in the jar");
         } else {
