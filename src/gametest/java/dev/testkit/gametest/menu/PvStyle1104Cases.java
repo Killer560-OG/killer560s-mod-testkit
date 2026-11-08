@@ -6,7 +6,10 @@ import dev.testkit.gametest.hx.Session;
 import dev.testkit.gametest.mod.Mod;
 import net.minecraft.client.gui.screens.Screen;
 
+import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Constructor;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -39,6 +42,7 @@ final class PvStyle1104Cases {
     static final String PROFILE = "{\"success\":true,\"profiles\":[{\"profile_id\":\"p1\",\"cute_name\":\"Mango\",\"selected\":true,"
             + "\"banking\":{\"balance\":4200000},\"members\":{\"000000000000000000000000000000a1\":{\"currencies\":{\"coin_purse\":123456},"
             + "\"player_data\":{\"experience\":{\"SKILL_COMBAT\":55000000,\"SKILL_MINING\":12000000,\"SKILL_FARMING\":3000000}},"
+            + "\"inventory\":{\"inv_contents\":{\"type\":0,\"data\":\"\"}},"
             + "\"dungeons\":{\"dungeon_types\":{\"catacombs\":{\"experience\":180000000}}}}}}]}";
 
     static final String[] ORDER = {"DEFAULT", "NEU", "SBPV_LIGHT", "SBPV_DARK", "SBPV_CLEAR"};
@@ -167,6 +171,10 @@ final class PvStyle1104Cases {
                 }
 
                 if (icons) {
+                    lookRound2(c, s, bad, n, img, scale, geo);
+                }
+
+                if (icons) {
                     // A real click on the second icon tab opens Dungeons; the first brings Basic Info back.
                     int x0 = n == 1 ? 0 : 20;
                     int step = n == 1 ? 28 : 22;
@@ -176,7 +184,11 @@ final class PvStyle1104Cases {
                     BazaarReskinCases.pressAt(c, new int[]{geo[0] + x0 + step, ty + 4, w, tabH - 6}, 0);
                     int page = c.onClient(mc -> (Integer) Mod.field(s, "page"));
                     look(bad, page == 1, want + ": a click on the second tab left the page at " + page);
-                    BazaarReskinCases.shot(c, want.toLowerCase() + "-dungeons"); // kept for the owner
+                    BufferedImage dung = BazaarReskinCases.shot(c, want.toLowerCase() + "-dungeons"); // kept for the owner
+                    if (neu) {
+                        // pv_dung over pv_bg: the floors box's top edge (row 16, x 154..277).
+                        neuOverlay(bad, "NEU Dungeons", dung, scale, geo, "neu/pv_dung.png", 16, 154, 278);
+                    }
                     BazaarReskinCases.pressAt(c, new int[]{geo[0] + x0, ty + 4, w, tabH - 6}, 0);
                     page = c.onClient(mc -> (Integer) Mod.field(s, "page"));
                     look(bad, page == 0, want + ": a click on the first tab left the page at " + page);
@@ -209,6 +221,138 @@ final class PvStyle1104Cases {
                 ((Map<?, ?>) Mod.field(API, "CACHE")).remove(ID);
             });
         }
+    }
+
+    /** pvthemes-1108 round 2: the SkyBlockPv styles draw text with no shadow (NEU still has one), NEU's Basic page lies
+     *  over pv_basic.png, and every icon style's item slot is that mod's own slot sprite. */
+    private static void lookRound2(Session c, Screen s, List<String> bad, int n, BufferedImage img, double scale, int[] geo)
+            throws Exception {
+        String want = ORDER[n];
+        boolean neu = n == 1;
+        int[] cg = c.onClient(mc -> new int[]{i(s, "contentX"), i(s, "contentY"), i(s, "contentW"), i(s, "contentH")});
+        int cx = cg[0], cy = cg[1], cw = cg[2], ch = cg[3];
+        boolean skin = c.onClient(mc -> Mod.field(s, "skinProfile") != null && (Boolean) Mod.call(Mod.cfg(PVCFG), "isShowSkin"));
+        // The stat lines (SB Level, Fairy Souls, Purse, Bank, Networth): NEU's stats box, else the left box under the skin.
+        int sx = neu ? geo[0] + 132 : cx + 4;
+        int sy = neu ? geo[1] + 53 : Math.max(cy + 4 + (skin ? Math.min(120, ch - 90) + 4 : 0), cy + 6);
+        double[] sh = shadowShare(img, scale, sx, sy, neu ? 85 : 110, Math.min(55, cy + ch - sy));
+        c.note(want + ": text " + (int) sh[1] + " px, shadowed share " + String.format("%.2f", sh[0]));
+        look(bad, sh[1] >= 30, want + ": no stat text found at " + sx + "," + sy);
+        look(bad, neu ? sh[0] > 0.15 : sh[0] < 0.05, want + ": text shadow share " + String.format("%.2f", sh[0])
+                + (neu ? ", NEU draws a shadow" : ", SkyBlockPV draws none"));
+        if (neu) {
+            // pv_basic over pv_bg: the skills box's top edge (row 15, x 232..412).
+            neuOverlay(bad, "NEU Basic", img, scale, geo, "neu/pv_basic.png", 15, 232, 413);
+        }
+
+        // Inventories page: the first main-grid slot (ProfileViewerScreen.drawInventories' layout) against the sprite.
+        c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 2));
+        c.ctx().waitTicks(5);
+        BufferedImage inv = BazaarReskinCases.shot(c, want.toLowerCase() + "-inventory");
+        int rx = cx + 90, rw = cw - 90;
+        int mainX = Math.max(rx + 8 + 46, rx + (rw - 162) / 2), top = cy + 22;
+        BufferedImage sprite = res(neu ? "neu/slot.png" : "sbpv/" + (n == 2 ? "light" : n == 3 ? "dark" : "clear") + "/slot.png");
+        if (sprite == null) {
+            look(bad, false, want + ": no slot sprite in the jar");
+        } else {
+            int bg = gp(inv, scale, mainX - 2, top + 9);
+            int sw = sprite.getWidth();
+            int[][] pairs = {{0, 0, 0, 0}, {1, 1, 1, 1}, {9, 9, sw / 2, sw / 2}};
+            for (int[] q : pairs) {
+                int sp = sprite.getRGB(q[2], q[3]);
+                if ((sp >>> 24) == 0) {
+                    continue;
+                }
+                int got = gp(inv, scale, mainX + q[0], top + q[1]), exp = blend(sp, bg);
+                look(bad, near(got, exp), want + ": slot pixel +" + q[0] + "," + q[1] + " is " + String.format("%06X", got)
+                        + ", the slot sprite gives " + String.format("%06X", exp));
+            }
+        }
+        c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 0));
+        c.ctx().waitTicks(3);
+    }
+
+    /** Up to 8 pixels on one row where NEU's page texture changes pv_bg must show the page texture over pv_bg. */
+    private static void neuOverlay(List<String> bad, String what, BufferedImage img, double scale, int[] geo, String page,
+                                   int row, int x0, int x1) throws IOException {
+        BufferedImage over = res(page), under = res("neu/panel.png");
+        if (over == null || under == null) {
+            look(bad, false, what + ": no " + page + " in the jar");
+            return;
+        }
+        int checked = 0, wrong = 0;
+        String first = "";
+        for (int x = x0; x < x1 && checked < 8; x++) {
+            int bgPx = under.getRGB(x, row) & 0xFFFFFF, exp = blend(over.getRGB(x, row), bgPx);
+            if (near(exp, bgPx)) {
+                continue;
+            }
+            checked++;
+            int got = gp(img, scale, geo[0] + x, geo[1] + row);
+            if (!near(got, exp)) {
+                wrong++;
+                if (first.isEmpty()) {
+                    first = " (x " + x + ": " + String.format("%06X, expected %06X", got, exp) + ")";
+                }
+            }
+        }
+        look(bad, checked > 0 && wrong == 0, what + ": " + wrong + " of " + checked + " page-texture pixels differ" + first);
+    }
+
+    /** {shadowed share, text pixels} in a GUI rect: a text pixel is far from the rect's commonest color; it is shadowed
+     *  when the pixel one down-right is vanilla's shadow of it ((c & 0xFCFCFC) >> 2) and neither text nor background. */
+    private static double[] shadowShare(BufferedImage img, double scale, int x0, int y0, int w, int h) {
+        Map<Integer, Integer> freq = new java.util.HashMap<>();
+        for (int y = y0; y < y0 + h; y++) {
+            for (int x = x0; x < x0 + w; x++) {
+                freq.merge(gp(img, scale, x, y), 1, Integer::sum);
+            }
+        }
+        int bg = freq.entrySet().stream().max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse(0);
+        int text = 0, shadowed = 0;
+        for (int y = y0; y < y0 + h; y++) {
+            for (int x = x0; x < x0 + w; x++) {
+                int p = gp(img, scale, x, y);
+                if (!far(p, bg)) {
+                    continue;
+                }
+                text++;
+                int q = gp(img, scale, x + 1, y + 1);
+                if (!near(q, p) && !near(q, bg) && near(q, (p & 0xFCFCFC) >> 2)) {
+                    shadowed++;
+                }
+            }
+        }
+        return new double[]{text == 0 ? 0 : shadowed / (double) text, text};
+    }
+
+    private static int gp(BufferedImage img, double scale, int gx, int gy) {
+        return img.getRGB((int) (gx * scale + scale / 2), (int) (gy * scale + scale / 2)) & 0xFFFFFF;
+    }
+
+    private static int blend(int argb, int bg) {
+        double a = (argb >>> 24) / 255.0;
+        int out = 0;
+        for (int sh = 0; sh <= 16; sh += 8) {
+            out |= (int) Math.round(((argb >> sh) & 0xFF) * a + ((bg >> sh) & 0xFF) * (1 - a)) << sh;
+        }
+        return out;
+    }
+
+    private static BufferedImage res(String path) throws IOException {
+        try (InputStream in = Mod.cls("profileviewer.screen.ProfileViewerScreen")
+                .getResourceAsStream("/assets/killer560smod/textures/gui/sprites/pv/" + path)) {
+            return in == null ? null : ImageIO.read(in);
+        }
+    }
+
+    private static boolean far(int a, int b) {
+        for (int sh = 0; sh <= 16; sh += 8) {
+            if (Math.abs(((a >> sh) & 0xFF) - ((b >> sh) & 0xFF)) > 40) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void look(List<String> bad, boolean ok, String what) {
