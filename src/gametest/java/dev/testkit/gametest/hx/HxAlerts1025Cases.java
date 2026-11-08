@@ -26,6 +26,7 @@ final class HxAlerts1025Cases {
 
     static void register(Session s) {
         s.test("1025-alerts-lowhealth", HxAlerts1025Cases::lowHealth);
+        s.test("1108-alerts-lowhealth-yellow", HxAlerts1025Cases::lowHealthYellow);
         s.test("1025-alerts-scorewarning", HxAlerts1025Cases::scoreWarning);
         s.test("1025-alerts-livid", HxAlerts1025Cases::livid);
         s.test("1025-alerts-secretclicked", HxAlerts1025Cases::secretClicked);
@@ -600,6 +601,43 @@ final class HxAlerts1025Cases {
 
     private static int fired(Session c) {
         return c.onClient(mc -> (Integer) Mod.staticCall(LOW_HEALTH, "alertsFired"));
+    }
+
+    // ---- 1108-alerts-lowhealth-yellow: the tier above red alerts too, and within a few ticks ----------------------------
+
+    private static void lowHealthYellow(Session c) {
+        try (Settings set = new Settings(c).with(ALERTS_CFG, "LowHealthEnabled", true)
+                .with(ALERTS_CFG, "LowHealthOnlyHealer", false)
+                .with(ALERTS_CFG, "LowHealthSound", false)
+                .with(ALERTS_CFG, "LowHealthYellow", true)) {
+            dungeon(c);
+            mates(c, "§a25,000§c❤", "§a30,100§c❤");
+            c.ctx().waitTicks(20);
+            int base = fired(c);
+            mates(c, "§e9,000§c❤", "§a30,100§c❤");
+            // The sidebar is read every tick now (it was every fifth): the alert is in within 4 ticks of the line.
+            c.waitUntil("the yellow alert for HxMateA", mc -> (Integer) Mod.staticCall(LOW_HEALTH, "alertsFired") == base + 1, 4);
+            String yel = c.onClient(mc -> (String) Mod.staticCall(LOW_HEALTH, "lastAlertTitle"));
+            c.check(yel != null && yel.contains("HxMateA") && yel.contains("getting low"), "yellow alert title was '" + yel + "'");
+            // Yellow -> red alerts again; red -> yellow does not.
+            mates(c, "§c2,900§c❤", "§a30,100§c❤");
+            c.waitUntil("the red alert after yellow", mc -> (Integer) Mod.staticCall(LOW_HEALTH, "alertsFired") == base + 2, 4);
+            String red = c.onClient(mc -> (String) Mod.staticCall(LOW_HEALTH, "lastAlertTitle"));
+            c.check(red != null && red.contains("is low") && !red.contains("getting"), "red alert title was '" + red + "'");
+            mates(c, "§e5,000§c❤", "§a30,100§c❤");
+            c.ctx().waitTicks(15);
+            c.check(fired(c) == base + 2, "an alert fired as health went red -> yellow (" + fired(c) + ")");
+            // Switch off: yellow is quiet, red still alerts.
+            run(c, () -> Mod.call(Mod.cfg(ALERTS_CFG), "setLowHealthYellow", false));
+            mates(c, "§a25,000§c❤", "§e8,000§c❤");
+            c.ctx().waitTicks(15);
+            c.check(fired(c) == base + 2, "a yellow alert fired with Alert At Yellow Health off (" + fired(c) + ")");
+            mates(c, "§a25,000§c❤", "§c1,000§c❤");
+            c.waitUntil("red still alerts with yellow off", mc -> (Integer) Mod.staticCall(LOW_HEALTH, "alertsFired") == base + 3, 6);
+            c.note("yellow -> '" + yel + "' within 4 ticks; red after yellow -> '" + red + "'; red->yellow quiet; yellow off quiet, red alerts");
+        } finally {
+            dungeon(c);
+        }
     }
 
     // ---- 1025-alerts-lowhealth -----------------------------------------------------------------------------------
