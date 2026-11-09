@@ -34,7 +34,7 @@ import static dev.testkit.gametest.InvWalkCampaignTests.*;
  * wire split into GrimAC's ticks, both must share ticks), and with Hide Keys For 10 ticks. Asserted:
  * he really walked, no input packet with a movement, jump or sprint flag reached the wire while the menu was up (what
  * Hypixel closes a terminal on), every pane click was handled with the server holding no keys and no sprint, the terminal
- * is solved, his real keys reach the server within 3 ticks of the close; setbacks are counted.
+ * is solved, his real input (the last one on the wire) reaches the server within 3 ticks of the close; setbacks counted.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class InvWalkTermTests implements FabricClientGameTest {
@@ -233,6 +233,7 @@ public class InvWalkTermTests implements FabricClientGameTest {
         int[] afterClose = {-1};
         int[] tickNo = {0};
         StringBuilder closeWire = new StringBuilder();
+        Input[] lastWire = {null};
         java.util.function.Consumer<Packet<?>> prev = dev.testkit.harness.PacketTrace.tap;
         java.util.function.Consumer<Packet<?>> tap = pk -> {
             if (prev != null) {
@@ -248,7 +249,8 @@ public class InvWalkTermTests implements FabricClientGameTest {
                     }
                 } else {
                     closeWire.append(' ').append(tickNo[0]).append(':').append(mv ? "keys" : "none");
-                    if (mv && afterClose[0] < 0) {
+                    lastWire[0] = i;
+                    if (afterClose[0] < 0) {
                         afterClose[0] = tickNo[0];
                     }
                 }
@@ -283,7 +285,7 @@ public class InvWalkTermTests implements FabricClientGameTest {
         JsonObject state = hx.call("menu.terminal.state").getAsJsonObject();
         boolean solved = state.has("solved") && state.get("solved").getAsBoolean();
         int moving = movingClicks(ev);
-        // Close while still walking: the real keys must reach the server right after.
+        // Close while still walking: his real input must reach the server right after.
         Set<String> k = Set.of("key.forward");
         keys(ctx, k);
         ctx.waitTicks(2);
@@ -294,13 +296,11 @@ public class InvWalkTermTests implements FabricClientGameTest {
         closeScreen(ctx);
         for (int i = 0; i < 6; i++) {
             ctx.waitTicks(1);
-            if (i == 0) {
-                // Vanilla re-reads the keyboard when a screen closes (KeyMapping.setAll): the test's key is let go, so the
-                // server rightly hears "none" first. He keeps walking: press it again.
-                keys(ctx, k);
-            }
             ctx.runOnClient(mc -> tickNo[0]++);
         }
+        // The test's keys act only inside a screen, so after the close he holds none: the server must hear exactly his real
+        // input (none) within 3 ticks, never be left with the hidden or the pre-close keys.
+        boolean realAfter = ctx.computeOnClient(mc -> lastWire[0] != null && lastWire[0].equals(mc.player.getLastSentInput()));
         keys(ctx, Set.of());
         ctx.runOnClient(mc -> {
             dev.testkit.harness.PacketTrace.stop();
@@ -312,7 +312,7 @@ public class InvWalkTermTests implements FabricClientGameTest {
         // clicks after that wait for Stop To Click's stop (still none handled while the server has him moving).
         boolean ok = masked && cost.screenAll && cost.path >= 3 && (whole ? wireMoving[0] == 0 : wireMoving[0] > 0)
                 && clicks == red.size() && !red.isEmpty() && ev.size() >= clicks && moving == 0 && solved
-                && afterClose[0] >= 0 && afterClose[0] <= 3 && sameVerdict == null;
+                && afterClose[0] >= 0 && afterClose[0] <= 3 && realAfter && sameVerdict == null;
         ctx.waitTicks(15);
         List<String> other = rows.scenario.flags().stream().filter(f -> !f.contains("Simulation")).toList();
         if (!other.isEmpty()) {
@@ -320,9 +320,9 @@ public class InvWalkTermTests implements FabricClientGameTest {
         }
         String detail = String.format(Locale.ROOT, "masked %s, walked %.2f (screen up all along %s), wire inputs while open %d (%d "
                         + "with movement/jump/sprint), panes %d clicked %d handled %d (%d while the server had him moving), solved %s "
-                        + "(clicks %s wrong %s), real keys on the wire %d tick(s) after the close (inputs after it:%s), setbacks %d%s", masked, cost.path,
+                        + "(clicks %s wrong %s), his real input on the wire %d tick(s) after the close (%s; inputs after it:%s), setbacks %d%s", masked, cost.path,
                 cost.screenAll, wireInputs[0], wireMoving[0], red.size(), clicks, ev.size(), moving, solved, state.get("clicks"),
-                state.get("wrong"), afterClose[0], closeWire, setbacks, same == null ? "" : "; " + same.report()
+                state.get("wrong"), afterClose[0], realAfter ? "matches" : "DOES NOT MATCH", closeWire, setbacks, same == null ? "" : "; " + same.report()
                         + (sameVerdict == null ? "" : " [" + sameVerdict + "]"));
         if (!other.isEmpty()) {
             detail += " [FLAGS OTHER THAN Simulation: " + String.join(" | ", other.subList(0, Math.min(3, other.size()))) + "]";
