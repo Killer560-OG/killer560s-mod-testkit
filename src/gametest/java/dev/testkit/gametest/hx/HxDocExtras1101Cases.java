@@ -32,6 +32,7 @@ final class HxDocExtras1101Cases {
 
     static void register(Session s) {
         s.test("1101-extras-creation", HxDocExtras1101Cases::creation);
+        s.test("1109-extras-creation-gui", HxDocExtras1101Cases::creationOverGui);
         s.test("1101-extras-instaclear", HxDocExtras1101Cases::instaClear);
         s.test("1101-extras-gyro", HxDocExtras1101Cases::gyro);
         s.test("1101-extras-chattabs", HxDocExtras1101Cases::chatTabs);
@@ -93,6 +94,45 @@ final class HxDocExtras1101Cases {
         } finally {
             run(c, () -> Mod.staticCall(CC, "testReset"));
             dungeon(c);
+        }
+    }
+
+    /**
+     * untestbugs-1109 (item 3, "show in any gui"): the Creation Cooldown HUD draws over a container screen (the HUD layer sits
+     * under it and bails out while a menu is open; the screen's own afterExtract draws it now). Switched OFF it draws nothing
+     * there (control), and the layer still draws it with no screen open.
+     */
+    private static void creationOverGui(Session c) {
+        try (Settings set = new Settings(c).with(CC_CFG, "Enabled", true).with(CC_CFG, "OnlyInGreenRoom", false)
+                .with(CC_CFG, "ShowOnAllIslands", false)) {
+            dungeon(c);
+            run(c, () -> {
+                Mod.staticCall(CC, "testReset");
+                Mod.staticCall(CC, "start", System.currentTimeMillis());
+                McCompat.setScreen(net.minecraft.client.Minecraft.getInstance(),
+                        new net.minecraft.client.gui.screens.inventory.InventoryScreen(net.minecraft.client.Minecraft.getInstance().player));
+            });
+            c.waitUntil("the Creation Cooldown HUD draws over an open inventory screen", mc -> Mod.staticCall(CC, "lastDrawn") != null, 60);
+            // Control: the setting off, the same screen draws nothing.
+            run(c, () -> {
+                Mod.set(CC_CFG, "setEnabled", false);
+                Mod.staticCall(CC, "testReset");
+                Mod.staticCall(CC, "start", System.currentTimeMillis());
+            });
+            c.ctx().waitTicks(20);
+            c.check(c.onClient(mc -> Mod.staticCall(CC, "lastDrawn")) == null, "the HUD drew over the screen with its switch OFF");
+            run(c, () -> {
+                Mod.set(CC_CFG, "setEnabled", true);
+                Mod.staticCall(CC, "testReset");
+                Mod.staticCall(CC, "start", System.currentTimeMillis());
+                McCompat.setScreen(net.minecraft.client.Minecraft.getInstance(), null);
+            });
+            c.waitUntil("the HUD layer still draws it with no screen open", mc -> Mod.staticCall(CC, "lastDrawn") != null, 60);
+        } finally {
+            run(c, () -> {
+                Mod.staticCall(CC, "testReset");
+                McCompat.setScreen(net.minecraft.client.Minecraft.getInstance(), null);
+            });
         }
     }
 

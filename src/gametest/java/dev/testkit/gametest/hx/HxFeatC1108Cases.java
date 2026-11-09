@@ -30,6 +30,7 @@ final class HxFeatC1108Cases {
 
     static void register(Session s) {
         s.test("1108-puzzlehud-rows", HxFeatC1108Cases::puzzleRows);
+        s.test("1109-puzzlehud-funnymap", HxFeatC1108Cases::puzzleFunnyMap);
         s.test("1108-reparty-run", HxFeatC1108Cases::repartyRun);
         s.test("1108-reparty-notleader", HxFeatC1108Cases::repartyNotLeader);
         s.test("1108-reparty-auto", HxFeatC1108Cases::repartyAuto);
@@ -54,6 +55,31 @@ final class HxFeatC1108Cases {
 
     private static String header(Session c) {
         return (String) c.onClient(mc -> Mod.staticCall(PUZZLE, "headerForTest"));
+    }
+
+    /**
+     * untestbugs-1109 (item 7): a puzzle room the map identified is listed at 0:00 before anyone opens it; the clock starts when
+     * the tab list names it, and a puzzle the tab list already shows is not listed twice. {@code seedFromMap} is the entry the
+     * Funny Map tick calls (cheat build) with the live map's identified puzzle names.
+     */
+    private static void puzzleFunnyMap(Session c) {
+        try (Settings set = new Settings(c).with(PUZZLE_CFG, "Enabled", true).with(PUZZLE_CFG, "ShowTimes", true)) {
+            dungeon(c, "puzzles", puzzles("\u00a7e" + OPEN, "\u00a7e" + OPEN));
+            c.waitUntil("two open puzzle rows", mc -> ((List<?>) Mod.staticCall(PUZZLE, "rowsForTest")).size() == 2, 80);
+            run(c, () -> Mod.staticCall(PUZZLE, "seedFromMap", List.of("Teleport Maze", "Water Board"), System.currentTimeMillis()));
+            c.waitUntil("the map's puzzle listed", mc -> ((List<?>) Mod.staticCall(PUZZLE, "rowsForTest")).toString().contains("Teleport Maze"), 40);
+            c.check(rows(c).size() == 3, "Water Board (already in the tab list) was listed twice, or Teleport Maze not once: " + rows(c));
+            c.check(rowOf(c, "Teleport Maze").endsWith("0:00"), "the map's puzzle is not at 0:00: " + rowOf(c, "Teleport Maze"));
+            c.ctx().waitTicks(60);
+            c.check(rowOf(c, "Teleport Maze").endsWith("0:00"), "the clock of a puzzle nobody opened ran: " + rowOf(c, "Teleport Maze"));
+            // The tab list names it: the clock starts.
+            dungeon(c, "puzzles", List.of(Map.of("name", "Water Board", "state", "\u00a7r" + OPEN),
+                    Map.of("name", "Boulder", "state", "\u00a7r" + OPEN), Map.of("name", "Teleport Maze", "state", "\u00a7r" + OPEN)));
+            c.waitUntil("the clock of the opened puzzle runs", mc -> !rowOf(c, "Teleport Maze").endsWith("0:00"), 200);
+            c.note("seeded row after it was opened: " + rowOf(c, "Teleport Maze"));
+        } finally {
+            hub(c);
+        }
     }
 
     private static void puzzleRows(Session c) {
