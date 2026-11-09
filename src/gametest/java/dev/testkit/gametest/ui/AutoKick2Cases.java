@@ -324,6 +324,7 @@ final class AutoKick2Cases {
 
             // Save/load, defaults and old files.
             Path p = saved.keySet().iterator().next();
+            Files.createDirectories(p.getParent()); // run alone, nothing has made the folder yet
             String[] files = {
                     "{\"enabled\":true}",
                     "{\"enabled\":true,\"queueFloor\":\"\"}",
@@ -674,6 +675,8 @@ final class AutoKick2Cases {
                 putStats("FiveNotSeven", normal, new JsonObject());
                 putStats("FiveNotSeven2", normal, new JsonObject());
                 putStats("FiveNotSeven3", normal, new JsonObject());
+                putStats("FiveNotSeven4", normal, new JsonObject());
+                putStats("FiveNotSeven5", normal, new JsonObject());
                 return null;
             });
             // Control: my own F5 queue (the acting proof that a floor is judged at all).
@@ -695,6 +698,21 @@ final class AutoKick2Cases {
             c.ticks(5);
             List<String> other = tail(decisions(c), d1);
             List<String> kicks = c.onClient(mc -> (List<String>) Mod.staticCall(AK, "kicksSent"));
+            // I click an F5 listing in Party Finder, then the join line: the floor is the listing's.
+            clickListing(c, "Floor V", false);
+            chat(c, "You have joined [MVP+] SomeLeader's party!");
+            String listed = floor(c);
+            int dl = decisions(c).size();
+            chat(c, "Party Finder > FiveNotSeven4 joined the dungeon group! (Mage Level 40)");
+            c.ticks(5);
+            List<String> listedJudged = tail(decisions(c), dl);
+            // A join with no click (an invite, /p join) forgets the floor again.
+            chat(c, "You have joined [MVP+] OtherLeader's party!");
+            String noClick = floor(c);
+            // A listing clicked long before the join does not count.
+            clickListing(c, "Floor V", true);
+            chat(c, "You have joined [MVP+] SomeLeader's party!");
+            String stale = floor(c);
             // A fresh queue of my own brings the floor back.
             c.onClient(mc -> {
                 Mod.staticCall(DET, "onBuilderItems", List.of("Currently Selected: The Catacombs"),
@@ -714,6 +732,10 @@ final class AutoKick2Cases {
             c.check(other.equals(List.of("FiveNotSeven2 no floor -> none")),
                     "a joiner of another party was judged on a stale floor: " + other);
             c.check(!kicks.contains("FiveNotSeven") && !kicks.contains("FiveNotSeven2"), "someone was kicked: " + kicks);
+            c.check("F5".equals(listed) && listedJudged.equals(List.of("FiveNotSeven4 F5 S+ 3:00 limit 4:00 -> ok")),
+                    "a clicked F5 listing then the join line did not give F5 and the F5 rule: " + listed + " " + listedJudged);
+            c.check("null".equals(noClick), "a join with no listing click kept a floor: " + noClick);
+            c.check("null".equals(stale), "a listing clicked long before the join was used: " + stale);
             c.check(again.equals(List.of("FiveNotSeven3 F5 S+ 3:00 limit 4:00 -> ok")),
                     "a new queue did not bring the floor back: " + again);
         } finally {
@@ -774,6 +796,42 @@ final class AutoKick2Cases {
     private static void show(net.minecraft.client.Minecraft mc, SimpleContainer box) {
         McCompat.setScreen(mc, new ContainerScreen(ChestMenu.sixRows(0, mc.player.getInventory(), box),
                 mc.player.getInventory(), Component.literal("Group Builder")));
+    }
+
+    /**
+     * Opens a client-side "Party Finder" holding one listing head in slot 11 (Hypixel's lore: "Dungeon: The Catacombs",
+     * "Floor: Floor V", " Name: Class (Level)") and clicks it through the real slotClicked (CLONE: nothing is picked up).
+     * {@code old} backdates the click past the join window.
+     */
+    private static void clickListing(UiCase c, String floorText, boolean old) {
+        c.onClient(mc -> {
+            SimpleContainer box = new SimpleContainer(54);
+            box.setItem(11, item(Items.PLAYER_HEAD, "SomeLeader's Party", "Dungeon: The Catacombs", "Floor: " + floorText,
+                    "", "Members:", " SomeLeader: Mage (45)", "", "Click to join!"));
+            McCompat.setScreen(mc, new ContainerScreen(ChestMenu.sixRows(0, mc.player.getInventory(), box),
+                    mc.player.getInventory(), Component.literal("Party Finder")));
+            return null;
+        });
+        c.ticks(3);
+        c.onClient(mc -> {
+            try {
+                net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> screen =
+                        (net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>) McCompat.screen(mc);
+                java.lang.reflect.Method m = net.minecraft.client.gui.screens.inventory.AbstractContainerScreen.class
+                        .getDeclaredMethod("slotClicked", net.minecraft.world.inventory.Slot.class, int.class, int.class,
+                                net.minecraft.world.inventory.ContainerInput.class);
+                m.setAccessible(true);
+                m.invoke(screen, screen.getMenu().slots.get(11), 11, 0, net.minecraft.world.inventory.ContainerInput.CLONE);
+                if (old) {
+                    Mod.setField(Mod.ROOT + DET, "clickedAtMs", System.currentTimeMillis() - 60_000L);
+                }
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+            McCompat.setScreen(mc, null);
+            return null;
+        });
+        c.ticks(2);
     }
 
     private static void close(UiCase c) {
