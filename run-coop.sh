@@ -40,6 +40,7 @@ if [ -z "$jar" ]; then
   jar=$(powershell -NoProfile -ExecutionPolicy Bypass -Command ". '$here/tools/testkit-config.ps1'; \$c = Get-TestkitConfig '$here'; Find-TestkitSnapshotJar \$c '$mc'" < /dev/null | tr -d '\r' | tail -1)
 fi
 [ -f "$jar" ] || { echo "no mod jar ($jar); pass -j"; exit 4; }
+jar=$(cygpath -m "$jar")   # PowerShell cannot open a /c/... path
 
 dir="$here/build/coop-$(date +%s)"
 mkdir -p "$dir"
@@ -65,6 +66,7 @@ for side in host guest; do
   grep -aE "^\[(coop|1109-coop[^]]*)\] |\] (PASS|FAIL)$" "$dir/$side.log" | grep -av "wrote" | cut -c1-300 | tail -25
 done
 for c in "$here" "$guest"; do
-  echo "== $c/build/testkit-report/summary.md"; grep -aE "^\| |totals" "$c/build/testkit-report/summary.md" 2>/dev/null | head -8
+  sm="$c/build/testkit-report/summary.md"
+  if [ "$sm" -nt "$dir" ]; then echo "== $sm"; grep -aE "^\| |totals" "$sm" | head -8; else echo "== $sm: none from this run"; fi
 done
 [ $he -eq 0 ] && [ $ge -eq 0 ]
