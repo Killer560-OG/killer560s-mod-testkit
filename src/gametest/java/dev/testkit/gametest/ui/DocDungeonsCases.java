@@ -258,7 +258,7 @@ final class DocDungeonsCases {
             c.check(labels.stream().anyMatch(l -> l.equals("Crystal Leap") || l.startsWith("Crystal Leap: ")),
                     "no \"Crystal Leap\" row");
             c.check(labels.stream().noneMatch(l -> l.startsWith("P1 Leap")), "a \"P1 Leap\" row is still there");
-            c.check(modes == targets, modes + " Mode buttons, one per leap target (" + targets + ") expected");
+            c.check(modes == targets + sections, modes + " Mode buttons, one per leap target (" + (targets + sections) + ") expected");
             c.check(fasts == 12 && autos == 12, fasts + " Fast and " + autos + " Auto toggles, one each per leap is 12");
             c.check(targets == 10 && sections == 4, targets + " Target and " + sections + " S1-S4 buttons, want 10 and 4");
             c.check(labels.contains("After Blood Off: OFF") || labels.contains("After Blood Off: ON"), "Door Opener lost After Blood Off");

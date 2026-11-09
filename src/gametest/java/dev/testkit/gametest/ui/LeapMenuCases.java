@@ -363,8 +363,11 @@ final class LeapMenuCases {
                 long rowsN = ls.stream().filter(l -> l.matches(".+ Leap: (Off|Fast|Auto)")).count();
                 c.check(rowsN == 0 && ls.stream().noneMatch(l -> l.startsWith("Fast: ") || l.startsWith("Auto: ")),
                         rowsN + " leap rows on the front page (want 0: they are on the Universal page): " + ls);
-                c.check(ls.contains("Crystal Leap: Fast") && ls.contains("P3 Leap: Auto") && ls.contains("Relic Leap: Off"),
-                        "Crystal (set Fast), P3 (set Auto) and Relic (unset, Off) read wrong: " + ls);
+                // the per-leap rows live on the Universal page now (untestbugs-1109)
+                press(c, d, uni);
+                List<String> uls = labels(rows(c, d));
+                c.check(uls.contains("Crystal Leap: Fast") && uls.contains("P3 Leap: Auto") && uls.contains("Relic Leap: Off"),
+                        "Crystal (set Fast), P3 (set Auto) and Relic (unset, Off) read wrong: " + uls);
                 List<String> walk = new ArrayList<>();
                 for (int i = 0; i < 3; i++) {
                     press(c, d, find(rows(c, d), "Door Opener Leap:"));
@@ -401,6 +404,7 @@ final class LeapMenuCases {
                         Mod.enumValue(FLC + "$LeapGroup", "DOOR"))));
                 c.note("Door Opener after a right click from Off: " + back);
                 c.check("AUTO".equals(back), "a right click on Door Opener: Off gave " + back + ", want Auto (back, wrapping)");
+                press(c, d, find(rows(c, d), "< Back"));
             }
             cardSwitch(c, d, "front");
 
