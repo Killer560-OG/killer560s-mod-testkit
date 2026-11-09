@@ -104,7 +104,7 @@ public class UiSuite implements FabricClientGameTest {
             "399-ui-hud-editor-resize", "399-ui-hud-editor-snap",
             "399-ui-stat-bars-vitality-xp", "407-ui-stat-bars-layout", "401-ui-scoreboard-editor",
             "1104-ui-mining-pulled-jar", "1104-ui-mining-pulled-menu", "1104-ui-mining-pulled-tabs",
-            "1104-ui-mining-pulled-profit", "1104-ui-mining-chmap", "1105-ui-chmap-tab", "1104-ui-themematch-pixels", "1104-ui-themematch-audit", "412-ui-no-new-tab", "413-ui-testing-variant",
+            "1104-ui-mining-pulled-profit", "1104-ui-mining-chmap", "1105-ui-chmap-tab", "1104-ui-themematch-pixels", "1104-ui-themematch-audit", "1108-ui-lightcontrast", "412-ui-no-new-tab", "413-ui-testing-variant",
             "425-ui-bazaar-icons", "427-ui-pack-disabler-models",
             "428-ui-pack-disabler-pack-push", "430-ui-pack-disabler-screens",
             "431-ui-pack-disabler-user-pack", "432-ui-pack-disabler-bazaar", "1105-ui-goblin-egg-look", "1105-ui-boss-chooser",
@@ -603,6 +603,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1104-ui-themematch-audit", ThemeMatchCases::audit);
                     UiCase.run(ctx, "1108-ui-map-border-theme", MapSplitThemeCases::mapBorder);
                     UiCase.run(ctx, "1108-ui-splittimers-columns", MapSplitThemeCases::splitColumns);
+                    UiCase.run(ctx, "1108-ui-lightcontrast", ThemeMatchCases::lightContrast);
                     UiCase.run(ctx, "412-ui-no-new-tab", c -> NoNewTabCases.run(c, deny));
                     UiCase.run(ctx, "413-ui-testing-variant", TestingVariantCases::run);
                     UiCase.run(ctx, "425-ui-bazaar-icons", BazaarBrowserCases::icons);
