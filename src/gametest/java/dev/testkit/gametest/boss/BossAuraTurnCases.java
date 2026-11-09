@@ -44,8 +44,9 @@ final class BossAuraTurnCases {
         s.test("1109-boss-ss-auto-only", c -> simonAuto(c, -90f, 23, true));
         s.test("1109-boss-lever-cooldown", BossAuraTurnCases::leverCooldown);
         s.test("1109-boss-lever-cps-migrates", BossAuraTurnCases::leverMigrate);
+        // (no use-key act: his right click on the lever flicks it himself, the Aura then has nothing to do)
         for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{dev.testkit.gametest.SameTick.Act.USE,
-                dev.testkit.gametest.SameTick.Act.USE_KEY, dev.testkit.gametest.SameTick.Act.SWAP}) {
+                dev.testkit.gametest.SameTick.Act.SWAP}) {
             s.test("1109-boss-lever-50ms-" + a.name().toLowerCase(Locale.ROOT), c -> leverSameTick(c, a));
         }
     }
@@ -180,7 +181,8 @@ final class BossAuraTurnCases {
             c.note("lever flicked in " + flicks + " of 12 rounds at 50 ms");
             c.check(flicks >= 3, "the Lever Aura flicked the lever in only " + flicks + " of 12 rounds (the feature did not act)");
             dev.testkit.gametest.SameTick.judge(c, st, "lever aura 50 ms, his " + act,
-                    dev.testkit.gametest.SameTick.Expect.SHARE);
+                    act == dev.testkit.gametest.SameTick.Act.SWAP ? dev.testkit.gametest.SameTick.Expect.ACTED
+                            : dev.testkit.gametest.SameTick.Expect.SHARE);
             st = null;
             c.check(c.scenario().flags().size() == flags0, "GrimAC flagged during the levers with his " + act + " in the same ticks");
         } finally {

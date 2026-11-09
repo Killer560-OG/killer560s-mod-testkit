@@ -170,7 +170,7 @@ final class HxCheatBugs1109Cases {
             long since = c.hx().head();
             c.hx().give(6, "minecraft:stick");
             st = c.onClient(mc -> SameTick.start(act, act == SameTick.Act.DIG ? 4 : 1, p -> p instanceof ServerboundSetCarriedItemPacket h
-                    && (h.getSlot() == 2 || act != SameTick.Act.SWAP && h.getSlot() == 4), 5, 6));
+                    && (h.getSlot() == 2 || act != SameTick.Act.SWAP && h.getSlot() == 4), act == SameTick.Act.SWAP ? 5 : 4, act == SameTick.Act.SWAP ? 6 : 5));
             for (int r = 0; r < 6; r++) {
                 build.run();
                 c.waitUntil("the " + kind + " block under his crosshair", mc -> mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult bh
@@ -192,7 +192,8 @@ final class HxCheatBugs1109Cases {
                     }
                 }
             }
-            SameTick.judge(c, st, "auto superboom " + kind + ", his " + act, SameTick.Expect.SHARE);
+            SameTick.judge(c, st, "auto superboom " + kind + ", his " + act,
+                    act == SameTick.Act.SWAP || act == SameTick.Act.USE_KEY ? SameTick.Expect.ACTED : SameTick.Expect.SHARE);
             st = null;
             c.ctx().waitTicks(10);
             var held = c.hx().events(since, "held");
