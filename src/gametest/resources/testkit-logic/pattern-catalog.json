@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-08T22:33:08",
- "modSource": "km-ship14",
- "modGitSha": "a37ff1b6ff788cfb55c4717fd408893961f64fad",
+ "generatedAt": "2026-11-09T00:13:10",
+ "modSource": "km-ship15",
+ "modGitSha": "95c6a7df347cea2b4ccd4f2eaa3b3033f67cc0bf",
  "modSourceDirty": false,
- "count": 918,
+ "count": 922,
  "byKind": {
   "dynamic": 9,
   "element": 76,
-  "field": 790,
+  "field": 794,
   "local": 43
  },
  "unresolved": 159,
@@ -6950,6 +6950,42 @@
    "expr": "\"Value:\\\"([A-Za-z0-9+/=]{20,})\\\"\""
   },
   {
+   "id": "puzzlehud.PuzzleHudFeature#COUNT",
+   "cls": "puzzlehud.PuzzleHudFeature",
+   "field": "COUNT",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/puzzlehud/PuzzleHudFeature.java",
+   "line": 40,
+   "regex": "^\\s*Puzzles: \\((\\d+)\\)\\s*$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^\\\\s*Puzzles: \\\\((\\\\d+)\\\\)\\\\s*$\""
+  },
+  {
+   "id": "puzzlehud.PuzzleHudFeature#SOLVED",
+   "cls": "puzzlehud.PuzzleHudFeature",
+   "field": "SOLVED",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/puzzlehud/PuzzleHudFeature.java",
+   "line": 41,
+   "regex": "^PUZZLE SOLVED! (?:\\[[^\\]]{1,20}\\] )?([A-Za-z0-9_]{1,16}) ([^!]{1,80})! Good job!$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^PUZZLE SOLVED! (?:\\\\[[^\\\\]]{1,20}\\\\] )?([A-Za-z0-9_]{1,16}) ([^!]{1,80})! Good job!$\""
+  },
+  {
+   "id": "puzzlehud.PuzzleHudFeature#FAILED",
+   "cls": "puzzlehud.PuzzleHudFeature",
+   "field": "FAILED",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/puzzlehud/PuzzleHudFeature.java",
+   "line": 42,
+   "regex": "^PUZZLE FAIL! (?:\\[[^\\]]{1,20}\\] )?([A-Za-z0-9_]{1,16}) ",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^PUZZLE FAIL! (?:\\\\[[^\\\\]]{1,20}\\\\] )?([A-Za-z0-9_]{1,16}) \""
+  },
+  {
    "id": "puzzlesolvers.BlazeSolverFeature#BLAZE_NAME",
    "cls": "puzzlesolvers.BlazeSolverFeature",
    "field": "BLAZE_NAME",
@@ -7272,6 +7308,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"Strength: \\\\+(\\\\d{1,9})\""
+  },
+  {
+   "id": "reparty.RepartyFeature#NAME",
+   "cls": "reparty.RepartyFeature",
+   "field": "NAME",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/reparty/RepartyFeature.java",
+   "line": 31,
+   "regex": "(?:\\[[^\\]]+\\] ?)?([A-Za-z0-9_]{1,16}) ?●",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"(?:\\\\[[^\\\\]]+\\\\] ?)?([A-Za-z0-9_]{1,16}) ?●\""
   },
   {
    "id": "rngmeter.MagicFindTracker#MAGIC_FIND_PATTERN",
