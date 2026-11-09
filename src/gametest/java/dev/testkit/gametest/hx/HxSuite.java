@@ -63,7 +63,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxSongTagCases.register(s);
                     // Spotify Controls, lyric clock re-sync, My Lyrics In F5, Smooth Lyric Scroll, supporter-only
                     // Share My Song (2840-2845, branch spotify-controls-1026), own block.
-                    HxSpotifyControlsCases.register(s);
+                    HxSpotifyControlsCases.register(s); HxSpotifyLyrics1108Cases.register(s);
                     HxSpotifyDocCases.register(s);
                     HxSongTagParty1105Cases.register(s); // spotshare-1105: the party room survives a warp
                     HxSongFix1106Cases.register(s); // songfix-1106: a non-supporter sees a supporter's song and name
@@ -169,6 +169,8 @@ public class HxSuite implements FabricClientGameTest {
                     // Dark Mode: world / HUD tint by framebuffer pixels, screens untouched, settings reload (1102-darkmode-*,
                     // mod branch darkmode-1102), own block.
                     HxDarkMode1102Cases.register(s);
+                    // Tab on top: the player list over every mod HUD, the shared Ability key tap/hold rule (1106-tabtop-*).
+                    HxTabTop1106Cases.register(s);
                     HxStutterCases.register(s);
                     HxBossHealthCases.register(s);
                     // 1103-kickrejoin-*: Kick Rejoin Timer (mod kickhub-1103).

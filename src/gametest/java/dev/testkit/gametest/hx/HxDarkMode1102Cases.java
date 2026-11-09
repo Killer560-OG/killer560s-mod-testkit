@@ -40,7 +40,7 @@ final class HxDarkMode1102Cases {
 
     // ---- shared -----------------------------------------------------------------------------------------------------
 
-    private static void settings(Session c, boolean enabled, int opacity, boolean tintHud) {
+    static void settings(Session c, boolean enabled, int opacity, boolean tintHud) {
         c.onClient(mc -> {
             Object cfg = Mod.cfg(CFG);
             Mod.call(cfg, "setEnabled", enabled);
@@ -51,7 +51,7 @@ final class HxDarkMode1102Cases {
     }
 
     /** A still frame: looking straight down at the platform, chat and titles cleared, the overlay message up. */
-    private static void still(Session c) {
+    static void still(Session c) {
         c.onClient(mc -> {
             if (McCompat.screen(mc) != null) {
                 McCompat.setScreen(mc, null);
@@ -75,7 +75,7 @@ final class HxDarkMode1102Cases {
         c.ctx().waitTicks(10);
     }
 
-    private static BufferedImage shot(Session c, String tag) throws Exception {
+    static BufferedImage shot(Session c, String tag) throws Exception {
         c.ctx().waitTicks(4);
         Path p = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(c.name() + "-" + tag));
         String dir = System.getProperty("testkit.darkmodeShots", "");
@@ -88,7 +88,7 @@ final class HxDarkMode1102Cases {
         return javax.imageio.ImageIO.read(p.toFile());
     }
 
-    private static int lum(int rgb) {
+    static int lum(int rgb) {
         return ((rgb >> 16) & 255) + ((rgb >> 8) & 255) + (rgb & 255);
     }
 
@@ -98,7 +98,7 @@ final class HxDarkMode1102Cases {
     }
 
     /** {x0, y0, x1, y1} in window pixels. */
-    private static int[] worldBox(BufferedImage img) {
+    static int[] worldBox(BufferedImage img) {
         int w = img.getWidth(), h = img.getHeight();
         return new int[]{w * 30 / 100, h * 12 / 100, w * 70 / 100, h * 35 / 100};
     }
@@ -182,7 +182,7 @@ final class HxDarkMode1102Cases {
         return ((Number) Mod.field(FEATURE, field)).intValue();
     }
 
-    private static String f3(double v) {
+    static String f3(double v) {
         return String.format(java.util.Locale.ROOT, "%.3f", v);
     }
 
@@ -424,12 +424,12 @@ final class HxDarkMode1102Cases {
 
     // ---- file snapshot ----------------------------------------------------------------------------------------------
 
-    private static byte[] saveFile(Session c) throws Exception {
+    static byte[] saveFile(Session c) throws Exception {
         Path p = c.onClient(mc -> (Path) Mod.field(CFG, "CONFIG_PATH"));
         return Files.exists(p) ? Files.readAllBytes(p) : null;
     }
 
-    private static void restore(Session c, byte[] saved) {
+    static void restore(Session c, byte[] saved) {
         c.onClient(mc -> {
             try {
                 if (McCompat.screen(mc) != null) {
@@ -450,7 +450,7 @@ final class HxDarkMode1102Cases {
         });
     }
 
-    private static void hub(Session c) {
+    static void hub(Session c) {
         HxKit.hub(c);
     }
 }
