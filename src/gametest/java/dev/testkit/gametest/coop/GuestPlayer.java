@@ -82,7 +82,8 @@ public final class GuestPlayer {
             // (hasClientLoaded), the same gate a real client clears with this packet.
             p.connection.handleAcceptPlayerLoad(new ServerboundPlayerLoadedPacket());
             p.setGameMode(GameType.SURVIVAL);
-            p.teleportTo(level, pos.x, pos.y, pos.z, java.util.Set.of(), 0f, 0f, false);
+            p.snapTo(pos.x, pos.y, pos.z, 0f, 0f);
+            settle(p);
             return new GuestPlayer(ctx, server, p);
         });
     }
@@ -112,7 +113,27 @@ public final class GuestPlayer {
 
     /** Puts the guest at {@code pos} looking {@code yaw}/{@code pitch} (a teleport; it has no client to walk). */
     public void moveTo(Vec3 pos, float yaw, float pitch) {
-        run(p -> p.teleportTo((ServerLevel) p.level(), pos.x, pos.y, pos.z, java.util.Set.of(), yaw, pitch, false));
+        run(p -> {
+            p.snapTo(pos.x, pos.y, pos.z, yaw, pitch);
+            settle(p);
+        });
+    }
+
+    /**
+     * Clears the listener's pending teleport (placeNewPlayer sends one, and every {@code teleportTo} another): until a
+     * client accepts it, {@code handleUseItemOn} ignores the player. The accept packet's shape differs between 26.2 and
+     * 26.3, the field does not.
+     */
+    private static void settle(ServerPlayer p) {
+        try {
+            java.lang.reflect.Field f = net.minecraft.server.network.ServerGamePacketListenerImpl.class
+                    .getDeclaredField("awaitingPositionFromClient");
+            f.setAccessible(true);
+            f.set(p.connection, null);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("GuestPlayer: cannot clear awaitingPositionFromClient: " + e, e);
+        }
+        p.connection.resetPosition();
     }
 
     /** Turns the guest's look only. */
@@ -193,7 +214,8 @@ public final class GuestPlayer {
     /**
      * What the server's handlers did with this guest's actions, oldest first, as seen by Fabric's server-side callbacks
      * in a phase ahead of every mod's: {@code use <item>}, {@code useOn x,y,z}, {@code attack <entity type>},
-     * {@code interact <entity type>}, {@code break x,y,z}. A case asserts its action ARRIVED here before judging what
+     * {@code interact <entity type>}, {@code dig x,y,z} (a START reached handleBlockBreakAction), {@code break x,y,z} (a break got
+     * as far as the break event). A case asserts its action ARRIVED here before judging what
      * the mod made of it.
      */
     public List<String> events() {
@@ -254,6 +276,11 @@ public final class GuestPlayer {
         net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.addPhaseOrdering(phase, def);
         net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.register(phase, (p, level, hand, e, hit) -> {
             record(p, "interact " + type(e));
+            return pass;
+        });
+        net.fabricmc.fabric.api.event.player.AttackBlockCallback.EVENT.addPhaseOrdering(phase, def);
+        net.fabricmc.fabric.api.event.player.AttackBlockCallback.EVENT.register(phase, (p, level, hand, pos, dir) -> {
+            record(p, "dig " + pos.getX() + "," + pos.getY() + "," + pos.getZ());
             return pass;
         });
         net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.BEFORE.addPhaseOrdering(phase, def);

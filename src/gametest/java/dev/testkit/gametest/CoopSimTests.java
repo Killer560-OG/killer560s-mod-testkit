@@ -236,7 +236,9 @@ public class CoopSimTests implements FabricClientGameTest {
                 return null;
             });
         }
-        expect(f, facts, "guest break reached handlePlayerAction", ev.contains("break " + b), true);
+        // The dig START must reach the server's handler; whether the block then goes is the sim's own rule (SimItems
+        // refuses vanilla breaks there), so it is a fact, not a verdict.
+        expect(f, facts, "guest dig reached handleBlockBreakAction", ev.contains("dig " + b), true);
     }
 
     // ========================================================================================= 1109-coop-two
