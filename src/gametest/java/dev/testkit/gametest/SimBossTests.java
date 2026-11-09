@@ -109,6 +109,8 @@ public class SimBossTests implements FabricClientGameTest {
     private static final String FIX3 = "1105-boss-fix3";
     private static final String GATES = "1105-boss-simgates";
     private static final String CRYS_WALK = "1105-boss-crystalwalk";
+    private static final String BREAKER = "1108-boss-breaker";
+    private static final String BREAKER_CHARGE = "1108-boss-breaker-charge";
     private static final String MAXOR = "com.killer560.hub.maxor.MaxorCrystalsFeature";
 
     private static final String B = "com.killer560.hub.bosssim.";
@@ -131,7 +133,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -148,7 +150,7 @@ public class SimBossTests implements FabricClientGameTest {
         List<String> failures = new ArrayList<>();
         for (String name : chosen) {
             // P3 waits on Auto Terminal and AP3 on AP3; both are compiled out of a legit jar.
-            if ((name.equals(P3) || name.equals(AP3) || name.equals(GATES)) && !dev.testkit.gametest.mod.Mod.isCheat()) {
+            if ((name.equals(P3) || name.equals(AP3) || name.equals(GATES) || name.equals(BREAKER) || name.equals(BREAKER_CHARGE)) && !dev.testkit.gametest.mod.Mod.isCheat()) {
                 println(name, "SKIPPED: legit jar (Auto Terminal / AP3 are cheat-only)");
                 continue;
             }
@@ -171,6 +173,8 @@ public class SimBossTests implements FabricClientGameTest {
                     case FIX3 -> fix3(ctx, f);
                     case GATES -> simGates(ctx, f);
                     case CRYS_WALK -> crystalWalk(ctx, f);
+                    case BREAKER -> SimBossBreaker1108.run(ctx, f, false);
+                    case BREAKER_CHARGE -> SimBossBreaker1108.run(ctx, f, true);
                     default -> ap3(ctx, f);
                 }
             } catch (Throwable t) {
@@ -2733,7 +2737,7 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     /** Starts the boss at {@code phase} (opening the sim world from the title screen) and waits for it to be running. */
-    private static long start(ClientGameTestContext ctx, String phase, boolean master) {
+    static long start(ClientGameTestContext ctx, String phase, boolean master) {
         long mark = LogTap.mark();
         Object start = ModUnderTest.enumValue(START, phase);
         ctx.runOnClient(mc -> mc.execute(() -> ModUnderTest.staticCall(SIM, "start",
@@ -2783,11 +2787,11 @@ public class SimBossTests implements FabricClientGameTest {
         ctx.waitTicks(1);
     }
 
-    private static void command(ClientGameTestContext ctx, String cmd) {
+    static void command(ClientGameTestContext ctx, String cmd) {
         serverRun(ctx, s -> s.getCommands().performPrefixedCommand(s.createCommandSourceStack(), cmd));
     }
 
-    private static void tp(ClientGameTestContext ctx, double x, double y, double z, float yaw, float pitch) {
+    static void tp(ClientGameTestContext ctx, double x, double y, double z, float yaw, float pitch) {
         command(ctx, String.format(Locale.ROOT, "tp @p %.2f %.2f %.2f %.1f %.1f", x, y, z, yaw, pitch));
         ctx.waitTicks(3);
     }
@@ -2848,7 +2852,7 @@ public class SimBossTests implements FabricClientGameTest {
         return n;
     }
 
-    private static boolean waitChat(ClientGameTestContext ctx, long mark, String text, int ticks) {
+    static boolean waitChat(ClientGameTestContext ctx, long mark, String text, int ticks) {
         return until(ctx, "chat '" + text + "'", mc -> chatSeen(mark, text), ticks);
     }
 
