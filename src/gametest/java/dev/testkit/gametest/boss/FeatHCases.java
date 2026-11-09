@@ -48,6 +48,7 @@ final class FeatHCases {
         s.test("1109-ghost-basic", c -> ghost(c, null, false, true));
         s.test("1109-ghost-walk", c -> ghost(c, null, true, true));
         s.test("1109-ghost-walk-control", c -> ghost(c, null, true, false));
+        s.test("1109-walk-open", FeatHCases::walkOpen);
         for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.DIG, SameTick.Act.SWAP}) {
             s.test("1109-ghost-" + a.name().toLowerCase(Locale.ROOT), c -> ghost(c, a, false, true));
         }
@@ -135,6 +136,21 @@ final class FeatHCases {
             st = null;
         } finally {
             leave(c, undo, st);
+        }
+    }
+
+    /** Control: the same walk with no wall and no feature - does the arena walk itself draw a flag? */
+    private static void walkOpen(Session c) throws Exception {
+        try (HxKit.Settings off = GrimTickCases.gateOff(c)) {
+            arena(c, false, "stick");
+            c.onClient(mc -> {
+                mc.options.keyUp.setDown(true);
+                return null;
+            });
+            c.ctx().waitTicks(20);
+            c.note("open walk ended at z=" + c.onClient(mc -> mc.player.getZ()));
+        } finally {
+            leave(c, new ArrayList<>(), null);
         }
     }
 
