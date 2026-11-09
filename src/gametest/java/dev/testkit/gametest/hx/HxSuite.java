@@ -65,6 +65,7 @@ public class HxSuite implements FabricClientGameTest {
                     // Share My Song (2840-2845, branch spotify-controls-1026), own block.
                     HxSpotifyControlsCases.register(s);
                     HxSpotifyDocCases.register(s);
+                    HxYtLyrics1108Cases.register(s);
                     // Auto Meow replies in the trigger's channel, and Mod Chat sends (874, branch
                     // nt-automeow-channel), own block.
                     HxAutoMeowChannelCases.register(s);
