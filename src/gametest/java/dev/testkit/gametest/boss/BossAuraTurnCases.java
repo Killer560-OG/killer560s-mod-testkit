@@ -91,8 +91,8 @@ final class BossAuraTurnCases {
             undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "SectionLevers", true)));
             undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "SectionLeversEarly", true)));
             undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "Range", 4.5)));
-            // Lever Aura's Min/Max Delay became a CPS slider (mod aura-2): 20 is the old 50-100 ms band's quick end.
-            undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "Cps", 20)));
+            // Lever Aura cooldown (2026-11-09; was the CPS slider): 50 ms is one flick a tick.
+            undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "CooldownMs", 50)));
             c.note("anticheat lines before Lever Aura is switched on: " + c.scenario().flags().size()
                     + ", on ground " + c.onClient(mc -> mc.player.onGround()) + " at " + c.onClient(mc -> mc.player.position()));
             float[] cam = start(c);
