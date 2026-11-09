@@ -32,7 +32,9 @@ final class HxFeatC1108Cases {
         s.test("1108-puzzlehud-rows", HxFeatC1108Cases::puzzleRows);
         s.test("1108-reparty-run", HxFeatC1108Cases::repartyRun);
         s.test("1108-reparty-notleader", HxFeatC1108Cases::repartyNotLeader);
-        s.test("1108-reparty-auto", HxFeatC1108Cases::repartyAuto);
+        s.test("1109-reparty-delay", HxFeatC1108Cases::repartyDelay);
+        s.test("1109-reparty-rejoin", HxFeatC1108Cases::repartyRejoin);
+        s.test("1109-reparty-settings", HxFeatC1108Cases::repartySettings);
         s.test("1108-reparty-moving", HxFeatC1108Cases::repartyMoving);
         s.test("1108-watcher-helper", HxFeatC1108Cases::watcherHelper);
     }
@@ -117,7 +119,7 @@ final class HxFeatC1108Cases {
         try (Settings set = new Settings(c).with(RP_CFG, "Enabled", true)) {
             hub(c);
             run(c, () -> Mod.staticCall(RP, "reset"));
-            run(c, () -> Mod.staticCall(RP, "start", false));
+            run(c, () -> Mod.staticCall(RP, "start"));
             c.waitUntil("party list sent", mc -> c.commands().contains("party list"), 60);
             c.check(!c.commands().contains("party disband"), "disband went before the list was read");
             partyList(c, self(c));
@@ -133,7 +135,7 @@ final class HxFeatC1108Cases {
         try (Settings set = new Settings(c).with(RP_CFG, "Enabled", true)) {
             hub(c);
             run(c, () -> Mod.staticCall(RP, "reset"));
-            run(c, () -> Mod.staticCall(RP, "start", false));
+            run(c, () -> Mod.staticCall(RP, "start"));
             c.waitUntil("party list sent", mc -> c.commands().contains("party list"), 60);
             partyList(c, "HxMateA");
             c.waitUntil("not-leader line", mc -> chat(c).stream().anyMatch(l -> l.contains("Only the party leader")), 100);
@@ -142,26 +144,138 @@ final class HxFeatC1108Cases {
                     "a non-leader sent " + c.commands());
         }
         // Switch OFF: /rp says so and sends nothing.
-        run(c, () -> Mod.staticCall(RP, "start", false));
+        run(c, () -> Mod.staticCall(RP, "start"));
         c.ctx().waitTicks(20);
         c.check(c.commands().stream().noneMatch(s -> s.equals("party list")) || c.commands().stream().filter(s -> s.equals("party list")).count() == 1,
                 "Reparty OFF sent a second party list");
         c.check(chat(c).stream().anyMatch(l -> l.contains("Reparty is off")), "no 'Reparty is off' line");
     }
 
-    private static void repartyAuto(Session c) {
-        try (Settings set = new Settings(c).with(RP_CFG, "Enabled", true).with(RP_CFG, "Auto", false).with(RP_CFG, "DelaySeconds", 3)) {
-            dungeon(c);
-            c.hx().chat(" > EXTRA STATS <");
-            c.ctx().waitTicks(100);
-            c.check(!c.commands().contains("party list"), "Auto Reparty OFF reparty'd");
-            run(c, () -> Mod.set(RP_CFG, "setAuto", true));
-            c.hx().chat(" > EXTRA STATS <");
-            c.ctx().waitTicks(30);
-            c.check(!c.commands().contains("party list"), "Auto Reparty started before its 3 s delay");
-            c.waitUntil("Auto Reparty sent party list after the delay", mc -> c.commands().contains("party list"), 100);
-            c.note("auto: party list sent after the run's end line");
+    private static void repartyDelay(Session c) {
+        try (Settings set = new Settings(c).with(RP_CFG, "Enabled", true).with(RP_CFG, "InviteDelay", 4.0)) {
+            hub(c);
+            run(c, () -> Mod.staticCall(RP, "reset"));
+            run(c, () -> Mod.staticCall(RP, "start"));
+            c.waitUntil("party list sent", mc -> c.commands().contains("party list"), 60);
+            partyList(c, self(c));
+            c.waitUntil("disband sent", mc -> c.commands().contains("party disband"), 100);
+            c.ctx().waitTicks(60);
+            c.check(c.commands().stream().noneMatch(s -> s.startsWith("party invite")), "invite went 3 s after the disband with a 4 s delay: " + c.commands());
+            c.waitUntil("invite sent after the 4 s delay", mc -> c.commands().stream().anyMatch(s -> s.startsWith("party invite")), 100);
         }
+        try (Settings set = new Settings(c).with(RP_CFG, "Enabled", true).with(RP_CFG, "InviteDelay", 0.0)) {
+            hub(c);
+            run(c, () -> Mod.staticCall(RP, "reset"));
+            run(c, () -> Mod.staticCall(RP, "start"));
+            c.waitUntil("party list sent", mc -> c.commands().contains("party list"), 60);
+            partyList(c, self(c));
+            c.waitUntil("disband sent", mc -> c.commands().contains("party disband"), 100);
+            c.waitUntil("invite right behind the disband at delay 0", mc -> c.commands().stream().anyMatch(s -> s.startsWith("party invite")), 40);
+            c.note("delay: 4 s held the invite back 3 s+, 0 s sent it behind the disband");
+        }
+    }
+
+    private static final String LEADER = "HxLeader";
+
+    /** The party list (leader, A, B) read by the tracker, then one more line so Reparty's member snapshot is refreshed. */
+    private static void rejoinParty(Session c) {
+        run(c, () -> Mod.staticCall(RP, "reset"));
+        partyList(c, LEADER);
+        c.hx().chat("You are in a party.");
+        c.ctx().waitTicks(10);
+    }
+
+    private static int accepts(Session c, String who) {
+        return (int) c.commands().stream().filter(s -> s.equals("party accept " + who)).count();
+    }
+
+    private static void repartyRejoin(Session c) {
+        try (Settings set = new Settings(c).with(RP_CFG, "Enabled", true).with(RP_CFG, "AutoRejoin", true).with(RP_CFG, "RejoinWindow", 60)) {
+            hub(c);
+            long t0 = System.currentTimeMillis(); // real clock: the accept expiry in step() uses it
+            // A stranger invites after the leader disbanded: refused. The leader inside the window: accepted, once.
+            rejoinParty(c);
+            run(c, () -> Mod.staticCall(RP, "onLine", "[MVP+] " + LEADER + " has disbanded the party!", t0));
+            run(c, () -> Mod.staticCall(RP, "onLine", "[VIP] HxStranger has invited you to join their party!", t0 + 5_000L));
+            c.ctx().waitTicks(30);
+            c.check(c.commands().stream().noneMatch(s -> s.startsWith("party accept")), "accepted a stranger: " + c.commands());
+            run(c, () -> Mod.staticCall(RP, "onLine", "[MVP+] " + LEADER + " has invited you to join their party!", t0 + 30_000L));
+            c.waitUntil("accepted the leader's invite inside the window", mc -> accepts(c, LEADER) == 1, 60);
+            run(c, () -> Mod.staticCall(RP, "onLine", "[MVP+] " + LEADER + " has invited you to join their party!", t0 + 31_000L));
+            c.ctx().waitTicks(30);
+            c.check(accepts(c, LEADER) == 1, "accepted the same disband twice: " + c.commands());
+
+            // After the window: refused (61 s with a 60 s window).
+            rejoinParty(c);
+            run(c, () -> Mod.staticCall(RP, "onLine", LEADER + " has disbanded the party!", t0));
+            run(c, () -> Mod.staticCall(RP, "onLine", LEADER + " has invited you to join their party!", t0 + 61_000L));
+            c.ctx().waitTicks(30);
+            c.check(accepts(c, LEADER) == 1, "accepted an invite after the window: " + c.commands());
+
+            // A disband by someone who was not in the party arms nothing, even if a member then invites.
+            rejoinParty(c);
+            run(c, () -> Mod.staticCall(RP, "onLine", "[MVP] HxStranger has disbanded the party!", t0));
+            run(c, () -> Mod.staticCall(RP, "onLine", "HxMateA has invited you to join their party!", t0 + 2_000L));
+            c.ctx().waitTicks(30);
+            c.check(accepts(c, "HxMateA") == 0, "accepted after a disband by a non-member: " + c.commands());
+
+            // A shorter window is honored: 10 s, invite at 11 s refused, at 9 s accepted.
+            run(c, () -> Mod.set(RP_CFG, "setRejoinWindow", 10));
+            rejoinParty(c);
+            run(c, () -> Mod.staticCall(RP, "onLine", LEADER + " has disbanded the party!", t0));
+            run(c, () -> Mod.staticCall(RP, "onLine", LEADER + " has invited you to join their party!", t0 + 11_000L));
+            c.ctx().waitTicks(30);
+            c.check(accepts(c, LEADER) == 1, "10 s window accepted at 11 s: " + c.commands());
+            rejoinParty(c);
+            run(c, () -> Mod.staticCall(RP, "onLine", LEADER + " has disbanded the party!", t0));
+            run(c, () -> Mod.staticCall(RP, "onLine", LEADER + " has invited you to join their party!", t0 + 9_000L));
+            c.waitUntil("10 s window accepted at 9 s", mc -> accepts(c, LEADER) == 2, 60);
+        }
+        // Auto Rejoin OFF: nothing is accepted.
+        try (Settings set = new Settings(c).with(RP_CFG, "Enabled", true).with(RP_CFG, "AutoRejoin", false)) {
+            rejoinParty(c);
+            int before = accepts(c, LEADER);
+            run(c, () -> Mod.staticCall(RP, "onLine", LEADER + " has disbanded the party!", System.currentTimeMillis()));
+            run(c, () -> Mod.staticCall(RP, "onLine", LEADER + " has invited you to join their party!", System.currentTimeMillis() + 1_000L));
+            c.ctx().waitTicks(30);
+            c.check(accepts(c, LEADER) == before, "Auto Rejoin OFF accepted: " + c.commands());
+            c.note("rejoin: stranger, window, one-use, non-member disband and OFF all refused; leader inside the window accepted");
+        }
+    }
+
+    private static void repartySettings(Session c) {
+        c.onClient(mc -> {
+            Object cfg = Mod.cfg(RP_CFG);
+            Mod.call(cfg, "setEnabled", true);
+            Mod.call(cfg, "setAutoRejoin", true);
+            Mod.call(cfg, "setInviteDelay", 7.3);
+            Mod.call(cfg, "setRejoinWindow", 45);
+            Mod.call(cfg, "save");
+            return null;
+        });
+        c.onClient(mc -> Mod.staticCall(RP_CFG, "load"));
+        Object[] got = c.onClient(mc -> new Object[]{Mod.get(RP_CFG, "getEnabledRaw"), Mod.get(RP_CFG, "isAutoRejoin"),
+                Mod.get(RP_CFG, "getInviteDelay"), Mod.get(RP_CFG, "getRejoinWindow")});
+        c.check(Boolean.TRUE.equals(got[0]) && Boolean.TRUE.equals(got[1]), "switches did not survive a reload: " + java.util.Arrays.toString(got));
+        c.check(((Number) got[2]).doubleValue() == 7.5, "delay 7.3 should snap to 7.5, got " + got[2]);
+        c.check(((Number) got[3]).intValue() == 45, "window lost: " + got[3]);
+        c.onClient(mc -> {
+            Object cfg = Mod.cfg(RP_CFG);
+            Mod.call(cfg, "setInviteDelay", 99.0);
+            Mod.call(cfg, "setRejoinWindow", 1);
+            return null;
+        });
+        c.check(((Number) c.onClient(mc -> Mod.get(RP_CFG, "getInviteDelay"))).doubleValue() == 10.0, "delay not clamped to 10");
+        c.check(((Number) c.onClient(mc -> Mod.get(RP_CFG, "getRejoinWindow"))).intValue() == 10, "window not clamped to 10");
+        c.onClient(mc -> {
+            Object cfg = Mod.cfg(RP_CFG);
+            Mod.call(cfg, "setEnabled", false);
+            Mod.call(cfg, "setAutoRejoin", false);
+            Mod.call(cfg, "setInviteDelay", 1.0);
+            Mod.call(cfg, "setRejoinWindow", 60);
+            Mod.call(cfg, "save");
+            return null;
+        });
     }
 
     private static void repartyMoving(Session c) {
@@ -170,7 +284,7 @@ final class HxFeatC1108Cases {
             run(c, () -> Mod.staticCall(RP, "reset"));
             c.ctx().runOnClient(mc -> mc.options.keyUp.setDown(true));
             try {
-                run(c, () -> Mod.staticCall(RP, "start", false));
+                run(c, () -> Mod.staticCall(RP, "start"));
                 c.ctx().waitTicks(40);
                 c.check(!c.commands().contains("party list"), "party list sent while a movement key was held (ChatC)");
             } finally {

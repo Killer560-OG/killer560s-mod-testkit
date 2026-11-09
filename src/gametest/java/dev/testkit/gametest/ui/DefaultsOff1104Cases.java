@@ -30,7 +30,7 @@ final class DefaultsOff1104Cases {
             {"terminals.TerminalQolConfig", "terminalSounds", "clickPath"},
             {"terminals.TerminalSolverConfig", "queueTerms"},
             {"puzzlehud.PuzzleHudConfig", "enabled"},
-            {"reparty.RepartyConfig", "enabled", "auto"},
+            {"reparty.RepartyConfig", "enabled", "autoRejoin"},
             {"splittimers.WatcherHelperConfig", "enabled"},
             {"carrytracker.CarryTrackerConfig", "enabled"},
             {"livemap.RoomPreviewConfig", "enabled"},
