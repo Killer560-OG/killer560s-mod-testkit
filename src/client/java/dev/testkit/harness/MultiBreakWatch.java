@@ -87,6 +87,13 @@ public final class MultiBreakWatch {
         }
     }
 
+    /** client_tick_end packets sent since {@link #start}: the clock {@link Dig#tick} is on (balate-1109). */
+    public static int ticks() {
+        synchronized (violations) {
+            return ticks;
+        }
+    }
+
     /** Every START/STOP dig since {@link #start}, in order. */
     public static List<Dig> digs() {
         synchronized (violations) {
