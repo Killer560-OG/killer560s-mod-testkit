@@ -64,6 +64,10 @@ public class CoopSimTests implements FabricClientGameTest {
             if (Scenario.skip(name)) {
                 continue;
             }
+            if (name.equals(FAKE) && CoopSync.role().equals("guest")) {
+                Scenario.skipped(name, "the guest side of a two-client run (the host runs it)");
+                continue;
+            }
             if (name.equals(TWO) && !CoopSync.active()) {
                 Scenario.skipped(name, "two-client case: run it with run-coop.sh (no testkit.coop.role here)");
                 continue;
@@ -119,9 +123,11 @@ public class CoopSimTests implements FabricClientGameTest {
         MinecraftServer s = ctx.computeOnClient(Minecraft::getSingleplayerServer);
         UUID host = ctx.computeOnClient(mc -> mc.player.getUUID());
         Vec3 hostAt = ctx.computeOnClient(mc -> mc.player.position());
+        // Maxor appears with his first line (a few ticks in) and holds still at (73, 226, 53) until t 84.
+        until(ctx, mc -> bossPos("Maxor") != null && phaseTick() >= 60, 300);
         Vec3 maxor = bossPos("Maxor");
         if (maxor == null) {
-            f.add("no Maxor at P1's start");
+            f.add("no Maxor by P1 t 60");
             return;
         }
         // On the far side of Maxor from the host, 8 blocks out: closer to him than the host is.
