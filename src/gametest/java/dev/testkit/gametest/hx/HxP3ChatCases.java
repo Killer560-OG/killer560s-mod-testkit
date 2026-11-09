@@ -3,6 +3,7 @@ package dev.testkit.gametest.hx;
 import dev.testkit.compat.McCompat;
 import dev.testkit.gametest.mod.Mod;
 
+import net.minecraft.client.multiplayer.chat.GuiMessage;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
@@ -44,6 +45,42 @@ final class HxP3ChatCases {
         statusHud(s);
         titles(s);
         chatHider(s);
+        s.test("1108-hx-terminal-breakdown", HxP3ChatCases::breakdown);
+    }
+
+    /** featA-1108 Terminal Breakdown: per-player objective counts posted when the core opens; a forged line does not count. */
+    private static void breakdown(Session c) {
+        String tt = "splittimers.TerminalTimersConfig";
+        try (Settings st = new Settings(c).with(tt, "Enabled", true).with(tt, "Breakdown", true).with(tt, "Splits", false)) {
+            dungeon(c);
+            int before = c.onClient(mc -> HxSplitChat1102Cases.allMessages(mc).size());
+            c.hx().chat(GOLDOR);
+            c.hx().chat("Alice activated a terminal! (1/7)");
+            c.hx().chat("Alice completed a device! (2/7)");
+            c.hx().chat("Alice activated a terminal! (3/7)");
+            c.hx().chat("Bob activated a lever! (3/7)");
+            c.hx().chat("[VIP] Bob: a activated a terminal! (4/7)");
+            c.ctx().waitTicks(10);
+            @SuppressWarnings("unchecked")
+            List<String> tally = c.onClient(mc -> (List<String>) Mod.staticCall("splittimers.TerminalTimersFeature", "breakdownForTest"));
+            c.note("tally " + tally);
+            c.check(tally.equals(List.of("Alice 2 1 0", "Bob 0 0 1")), "tally was " + tally);
+            c.hx().chat("The Core entrance is opening!");
+            c.ctx().waitTicks(10);
+            List<String> texts = c.onClient(mc -> {
+                List<GuiMessage> all = HxSplitChat1102Cases.allMessages(mc);
+                List<String> out = new ArrayList<>();
+                for (int i = Math.min(all.size() - before, all.size()) - 1; i >= 0; i--) out.add(all.get(i).content().getString());
+                return out;
+            });
+            String a = texts.stream().filter(t -> t.contains("Alice")).filter(t -> t.contains("Breakdown")).findFirst().orElse("");
+            String b = texts.stream().filter(t -> t.contains("Bob")).filter(t -> t.contains("Breakdown")).findFirst().orElse("");
+            c.note("new chat " + texts);
+            c.check(a.contains("2 terminals, 1 devices, 0 levers"), "Alice's line: " + a);
+            c.check(b.contains("0 terminals, 0 devices, 1 levers"), "Bob's line: " + b);
+            c.check(texts.indexOf(a) < texts.indexOf(b), "most objectives first");
+            c.check(c.onClient(mc -> ((List<?>) Mod.staticCall("splittimers.TerminalTimersFeature", "breakdownForTest")).isEmpty()), "tally not cleared after posting");
+        }
     }
 
     @SuppressWarnings("unchecked")

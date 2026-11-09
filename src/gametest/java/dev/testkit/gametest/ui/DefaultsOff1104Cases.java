@@ -24,6 +24,8 @@ final class DefaultsOff1104Cases {
             {"croesus.CroesusConfig", "chestProfitEnabled", "loggerEnabled"},
             {"bloodrush.BloodRushConfig", "enabled", "learnSpots"},
             {"lfg.LfgConfig", "enabled"},
+            {"terminals.TerminalQolConfig", "terminalSounds", "clickPath"},
+            {"terminals.TerminalSolverConfig", "queueTerms"},
             {"dungeonqueue.DungeonQueueConfig", "enabled", "pvLinkOnJoin"},
             {"partyfinder.PartyFinderOverlayConfig", "enabled"},
             {"posmsg.PosmsgConfig", "enabled"},
