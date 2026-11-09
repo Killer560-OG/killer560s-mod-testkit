@@ -142,7 +142,10 @@ public class InvWalkTermTests implements FabricClientGameTest {
         server.sync(5);
         ctx.waitTicks(5);
         server.command(String.format(Locale.ROOT, "tp %s %.2f %d %.2f -90 0", name(ctx), x + 0.5, SURFACE_Y + 4, z + 0.5));
-        ctx.waitTicks(2);
+        // Under latency the tp lands late: switch flight on once he is up there, before he falls back down.
+        for (int i = 0; i < 40 && ctx.computeOnClient(mc -> mc.player.getY() < SURFACE_Y + 3.5); i++) {
+            ctx.waitTicks(1);
+        }
         ctx.runOnClient(mc -> {
             mc.player.getAbilities().flying = true;
             mc.player.onUpdateAbilities();
