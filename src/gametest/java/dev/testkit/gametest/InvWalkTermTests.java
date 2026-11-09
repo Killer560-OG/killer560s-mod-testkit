@@ -65,7 +65,8 @@ public class InvWalkTermTests implements FabricClientGameTest {
                     stillRow(rows, ctx, server, hx, x, z, lat, null, 41);
                     stillRow(rows, ctx, server, hx, x, z, lat, null, 40);
                     stillRow(rows, ctx, server, hx, x, z, lat, null, 10);
-                    for (SameTick.Act st : List.of(SameTick.Act.SWAP, SameTick.Act.ATTACK, SameTick.Act.USE, SameTick.Act.SCREEN_CLICK)) {
+                    // No ATTACK row: with a menu open vanilla runs no keybinds, so he cannot attack (SameTick's attack never went in).
+                    for (SameTick.Act st : List.of(SameTick.Act.SWAP, SameTick.Act.USE, SameTick.Act.SCREEN_CLICK)) {
                         stillRow(rows, ctx, server, hx, x, z, lat, st, 41);
                     }
                     stillRow(rows, ctx, server, hx, x, z, lat, SameTick.Act.SWAP, 10);
@@ -264,6 +265,10 @@ public class InvWalkTermTests implements FabricClientGameTest {
         }
         Vec3 at = ctx.computeOnClient(mc -> mc.player.position());
         ctx.waitTicks(3);
+        // Under latency the panes come a few ticks after the screen.
+        for (int i = 0; i < 30 && ctx.computeOnClient(mc -> mc.player.containerMenu.getSlot(0).getItem().isEmpty()); i++) {
+            ctx.waitTicks(1);
+        }
         List<Integer> red = ctx.computeOnClient(mc -> {
             List<Integer> out = new ArrayList<>();
             var m = mc.player.containerMenu;
@@ -276,7 +281,8 @@ public class InvWalkTermTests implements FabricClientGameTest {
         });
         double slid = ctx.computeOnClient(mc -> Math.hypot(mc.player.getX() - at.x, mc.player.getZ() - at.z));
         long since = hx.head();
-        SameTick same = st == null ? null : ctx.computeOnClient(mc -> SameTick.start(st, 3,
+        // Every 2nd tick: the panes are clicked every 15 ticks, so a 3-tick rhythm would share a tick with all of them or none.
+        SameTick same = st == null ? null : ctx.computeOnClient(mc -> SameTick.start(st, 2,
                 pk -> pk instanceof ServerboundContainerClickPacket, 1, 2));
         List<Set<String>> segs = List.of(SPRINT, Set.of("key.back", "key.sprint"), Set.of("key.left"), Set.of("key.right"));
         Cost cost = new Cost();
