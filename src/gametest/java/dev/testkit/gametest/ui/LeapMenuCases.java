@@ -417,7 +417,7 @@ final class LeapMenuCases {
             c.check(ls.size() > 2 && ls.get(0).equals("Fast Leap: ON") && ls.get(1).equals("< Back"),
                     "the Universal page starts " + ls.subList(0, Math.min(3, ls.size())));
             c.check(ls.stream().anyMatch(l -> l.startsWith("Universal Targets (in use)")), "the Universal page's title is not 'in use'");
-            c.check(ls.contains("Crystal: Healer") && ls.stream().anyMatch(l -> l.startsWith("Storm Death: LeapMate"))
+            c.check(ls.contains("Crystal: Healer") && ls.stream().anyMatch(l -> l.startsWith("Storm Death: "))
                             && ls.stream().filter(l -> l.matches("S[1-4]: .*")).count() == 4,
                     "the Universal page's targets: " + ls);
             cardSwitch(c, d, "Universal");

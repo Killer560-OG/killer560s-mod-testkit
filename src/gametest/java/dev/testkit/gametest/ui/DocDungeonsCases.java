@@ -334,13 +334,10 @@ final class DocDungeonsCases {
                         (String) Mod.call(cfg, "getTargetName", tP1)};
             });
             c.note("Target presses: " + walk + "; saved by class " + pick[0] + " class " + pick[1] + " name " + pick[2]);
-            c.check(walk.get(0).equals(tp() + "Archer (LeapMate)"), "after Healer the Target reads \"" + walk.get(0)
-                    + "\", want Archer with LeapMate (his Leap Order class pick)");
-            c.check(walk.get(1).equals(tp() + "Berserker"), "then \"" + walk.get(1) + "\", want Berserker");
-            c.check(walk.get(2).equals(tp() + "LeapMate (Archer)"), "then \"" + walk.get(2) + "\", want the party member LeapMate");
-            c.check(walk.get(3).equals(tp() + "None") && walk.get(4).equals(tp() + "Mage"), "then " + walk.subList(3, 5)
-                    + ", want None then Mage (wrapping)");
-            c.check("true".equals(pick[0]) && "MAGE".equals(pick[1]), "the Target presses did not save Mage as a class pick");
+            // class-only targets (untestbugs-1109): Healer -> Archer -> Berserker -> None -> Mage -> Tank, wrapping
+            c.check(walk.equals(List.of(tp() + "Archer", tp() + "Berserker", tp() + "None", tp() + "Mage", tp() + "Tank")),
+                    "the Target presses read " + walk + ", want Archer, Berserker, None, Mage, Tank");
+            c.check("true".equals(pick[0]) && "TANK".equals(pick[1]), "the Target presses did not save Tank as a class pick");
             // saved and read back
             c.onClient(mc -> {
                 Mod.call(Mod.staticCall(FLC, "getInstance"), "save");
@@ -362,7 +359,7 @@ final class DocDungeonsCases {
                     "the saved file still uses the old per-leap keys or Swap Back: P1 " + savedP1);
             c.check(text.contains("\"byClass\"") && !text.contains("testLeapClass") && !text.contains("\"TEST\""),
                     "the saved file still has the Test leap, or no byClass");
-            c.check(back, "the Mage class pick did not survive a save and load");
+            c.check(back, "the Tank class pick did not survive a save and load");
         } finally {
             if (was != null) {
                 Files.write(file, was);
