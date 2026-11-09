@@ -148,7 +148,9 @@ final class ChatBatchUiCases {
             "Hide Mining Reminders", "Hide Sack Messages", "Hide Already Looted Chests",
             // Chat Hider's dungeon pack (mod p3-chat-1025, 2026-10-25): six switches under the rest
             "Hide Boss Dialogue", "Hide Mort", "Hide Blessings", "Hide Others' Pickups", "Hide Ability Spam",
-            "Hide Dungeon Breaker Spam");
+            "Hide Dungeon Breaker Spam",
+            // featF-1108
+            "Compact Melody Messages", "Mute Melody Messages");
 
     static void hiderTab(UiCase c) throws Exception {
         // A -PtestingBuild jar keeps every untested tab in its Untested category; count them all tested meanwhile so
