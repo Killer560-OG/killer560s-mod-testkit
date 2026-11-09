@@ -215,6 +215,7 @@ final class FeatE1108Cases {
             c.check(count(c) == 0, "the wand boxed mobs with the switch OFF");
             set(c, QOL, "setIcedBoxes", true);
             use(c);
+            c.ticks(6); // no ice marker on any mob: the estimate takes over after 4 ticks
             int n = count(c);
             c.note("mobs boxed by one wand click: " + n + " of 3 (one in front, one behind, one 12 blocks away)");
             c.check(n == 1, "expected only the zombie in front boxed, got " + n);
@@ -222,6 +223,17 @@ final class FeatE1108Cases {
             c.check(count(c) == 1, "the box did not last");
             c.ticks(105);
             c.check(count(c) == 0, "the box outlived the 5 second freeze");
+            // untestbugs-1109: a mob wearing ice on its head is boxed, its neighbor without is not (marker beats the estimate).
+            server(c, "kill @e[tag=feiced]", "summon zombie 0.5 -60 3.5 {Tags:[\"feiced\"],NoAI:1b,NoGravity:1b,Silent:1b,Invulnerable:1b,"
+                    + "PersistenceRequired:1b,equipment:{head:{id:\"minecraft:packed_ice\",count:1}}}",
+                    "summon zombie 3.5 -60 3.5 " + ZOMBIE);
+            c.ctx().waitFor(mc -> mc.level.getEntitiesOfClass(Zombie.class, mc.player.getBoundingBox().inflate(20)).size() >= 2, 200);
+            use(c);
+            c.ticks(8);
+            int marked = c.onClient(mc -> (Integer) Mod.staticCall("dungeonqol.IcedMobsFeature", "markedCount"));
+            c.note("mobs boxed by the ice marker: " + marked + " of 2 (one wears packed ice)");
+            c.check(marked == 1, "expected exactly the mob wearing ice boxed, got " + marked);
+            c.check(count(c) == 1, "the boxed count disagrees with the marker count: " + count(c));
         } finally {
             server(c, "kill @e[tag=feiced]");
             DungeonB2Cases.restoreConfig(c, saved, QOL);

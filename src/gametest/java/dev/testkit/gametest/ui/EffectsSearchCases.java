@@ -520,7 +520,7 @@ final class EffectsSearchCases {
             {"motion blur", "!", "MotionBlurTab"},
             // cheat jar only (skipped where the card is not in the menu)
             {"auto routes", "!", "AutoRoutesTab"},
-            {"trigger bot", "", "SecretTriggerbotTab", "TerminalTriggerbotTab", "GoldorTriggerbotTab", "ThornTriggerbotTab",
+            {"trigger bot", "", "SecretAuraTab", "TerminalTriggerbotTab", "GoldorTriggerbotTab", "ThornTriggerbotTab",
                     "AutoSimonSaysTab", "AutoBloodCampTab"},
             {"auto terms", "", "AutoTerminalTab"},
             {"breaker aura", "!", "BreakerAuraTab"},

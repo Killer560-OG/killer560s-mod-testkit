@@ -786,8 +786,19 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1108-ui-chestclick", FeatE1108Cases::chestClick);
                     UiCase.run(ctx, "1108-ui-icedmobs", FeatE1108Cases::icedMobs);
                     UiCase.run(ctx, "1108-ui-roomname", FeatE1108Cases::roomName);
+                    UiCase.run(ctx, "1109-ui-ub-menumerges", UntestBugs1109Cases::menuMerges);
+                    UiCase.run(ctx, "1109-ui-ub-darkchat", UntestBugs1109Cases::darkChat);
+                    UiCase.run(ctx, "1109-ui-ub-switches", UntestBugs1109Cases::newSwitches);
+                    UiCase.run(ctx, "1109-ui-ub-cards", UntestBugs1109Cases::cards);
+                    UiCase.run(ctx, "1109-ui-ub-shortbows", UntestBugs1109MoreCases::shortbows);
+                    UiCase.run(ctx, "1109-ui-ub-friends", UntestBugs1109MoreCases::friends);
+                    UiCase.run(ctx, "1109-ui-ub-leapmodes", UntestBugs1109MoreCases::leapModes);
+                    UiCase.run(ctx, "1109-ui-ub-itemquality", UntestBugs1109MoreCases::itemQualityContainer);
+                    UiCase.run(ctx, "1109-ui-ub-ethershape", UntestBugs1109MoreCases::etherShape);
+                    UiCase.run(ctx, "1109-ui-ub-chatsuggest", UntestBugs1109MoreCases::chatSuggestions);
                     UiCase.run(ctx, "1104-ui-univfolders", UniversalFolders1104Cases::moved);
                     UiCase.run(ctx, "1108-ui-salvage-highlight", Salvage1108Cases::salvage);
+                    UiCase.run(ctx, "1109-ui-ub-salvagebg", Salvage1108Cases::salvageBackgrounds);
                     // ---- doc-small (807) ----
                     UiCase.run(ctx, "807-ui-doc-small-1014", DocSmall1014Cases::docSmall);
                     // ---- doc-small 1101 (1101-ds-*) ----

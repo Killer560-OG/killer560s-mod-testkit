@@ -33,6 +33,7 @@ final class HxAlerts1025Cases {
         // doc-auto-1101: the chest secret sound waits out "That chest is locked!"
         s.test("1025-alerts-secretsound-locked", HxAlerts1025Cases::secretSoundLocked);
         s.test("1108-alerts-secretsound-every-click", HxAlerts1025Cases::secretSoundEveryClick);
+        s.test("1109-alerts-secretsound-timing", HxAlerts1025Cases::secretSoundTiming);
         // doc-auto-1101: Auto Ult's Wish On Clear (cheat jar only)
         s.test("1025-alerts-autoult-wish-clear", HxAlerts1025Cases::wishOnClear);
         s.test("1025-alerts-mutesounds", HxAlerts1025Cases::muteSounds);
@@ -754,6 +755,98 @@ final class HxAlerts1025Cases {
                     + " as Healer -> '" + title2 + "'");
         } finally {
             dungeon(c);
+        }
+    }
+
+    // ---- 1109-alerts-secretsound-timing (untestbugs-1109 item 8) ---------------------------------------------------------
+
+    /**
+     * killer560, 2026-11-09: the secret sound was "extremely delayed, 1-2 seconds" and played for a teammate's pickup.
+     * (1) A chest click with no menu and no locked line plays within the connection's round trip (150 ms floor on this
+     * local server, never the old fixed 500 ms). (2) A real click that opens the chest's menu plays at once. (3) A teammate's
+     * pickup of a secret item beside him is no secret of ours; his own is. Secret Clicked's box count is the detection
+     * counter for (3) (a sound has none), the chest counters for (1) and (2).
+     */
+    private static void secretSoundTiming(Session c) {
+        net.minecraft.core.BlockPos chest = new net.minecraft.core.BlockPos(-417, 151, -422);
+        c.server().command("setblock -417 151 -422 minecraft:chest");
+        Object cfg = c.onClient(mc -> Mod.cfg(ALERTS_CFG));
+        boolean soundWas = c.onClient(mc -> (Boolean) Mod.field(cfg, "secretSoundEnabled"));
+        try (Settings set = new Settings(c).with(ALERTS_CFG, "SecretClickedEnabled", false)) {
+            c.onClient(mc -> setSound(cfg, true));
+            dungeon(c);
+            c.server().command("tp @p -417.5 151 -419.5");
+            c.waitUntil("the client sees the chest", mc -> mc.level.getBlockState(chest).getBlock() == net.minecraft.world.level.block.Blocks.CHEST, 60);
+            // (1) callback-only click, no menu, no locked line.
+            int[] b1 = c.onClient(mc -> (int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"));
+            long t1 = System.nanoTime();
+            clickChest(c, chest);
+            c.waitUntil("the chest's sound with no menu", mc -> ((int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"))[0] > b1[0], 40);
+            long ms1 = (System.nanoTime() - t1) / 1_000_000L;
+            c.note("chest click with no menu: sound after " + ms1 + " ms");
+            c.check(ms1 < 400, "a chest with no menu and no locked line played after " + ms1 + " ms (the wait is the round trip, 150 ms here)");
+            c.ctx().waitTicks(20);
+            // (2) the real wire click: the server opens the menu, the sound goes at once.
+            c.onClient(mc -> {
+                mc.player.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, net.minecraft.world.phys.Vec3.atCenterOf(chest));
+                return null;
+            });
+            c.ctx().waitTicks(5);
+            int[] b2 = c.onClient(mc -> (int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"));
+            long[] t2 = new long[1];
+            c.onClient(mc -> {
+                net.minecraft.world.phys.HitResult pick = mc.player.pick(6.0, 1.0f, false);
+                c.check(pick instanceof net.minecraft.world.phys.BlockHitResult bh && bh.getBlockPos().equals(chest), "the look should be on the chest, was " + pick);
+                t2[0] = System.nanoTime();
+                mc.getConnection().send(new net.minecraft.network.protocol.game.ServerboundUseItemOnPacket(
+                        net.minecraft.world.InteractionHand.MAIN_HAND, (net.minecraft.world.phys.BlockHitResult) pick, 0));
+                return null;
+            });
+            c.waitUntil("the opened chest's sound", mc -> ((int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"))[0] > b2[0], 60);
+            long ms2 = (System.nanoTime() - t2[0]) / 1_000_000L;
+            c.note("chest click that opens the menu: sound after " + ms2 + " ms");
+            c.check(ms2 < 400, "a chest whose menu opened played after " + ms2 + " ms");
+            c.onClient(mc -> {
+                mc.player.closeContainer();
+                return null;
+            });
+            // (3) a secret item picked up: his own counts, a teammate's does not.
+            c.onClient(mc -> {
+                Mod.setField("livemap.LiveMapFeature", "bossLatched", false); // an earlier case left the boss latched: item secrets are not read there
+                return null;
+            });
+            c.onClient(mc -> setSound(cfg, true));
+            c.server().command("summon item -417.5 151 -419.5 {Item:{id:\"minecraft:stick\",count:1,components:{\"minecraft:custom_name\":{text:\"Decoy\"}}},PickupDelay:32767s}");
+            c.waitUntil("the client has the Decoy item", mc -> !mc.level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                    mc.player.getBoundingBox().inflate(4)).isEmpty(), 60);
+            try (Settings clicked = new Settings(c).with(ALERTS_CFG, "SecretClickedEnabled", true)) {
+                int boxes0 = c.onClient(mc -> (Integer) Mod.staticCall("dungeonalerts.SecretClicked", "boxesAdded"));
+                c.onClient(mc -> {
+                    var item = mc.level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, mc.player.getBoundingBox().inflate(4)).get(0);
+                    Mod.staticCall("dungeonalerts.SecretSound", "onTakeItem",
+                            new net.minecraft.network.protocol.game.ClientboundTakeItemEntityPacket(item.getId(), mc.player.getId() + 1000, 1), mc.level);
+                    return null;
+                });
+                int boxes1 = c.onClient(mc -> (Integer) Mod.staticCall("dungeonalerts.SecretClicked", "boxesAdded"));
+                c.check(boxes1 == boxes0, "a teammate's pickup of a Decoy beside him was taken as his secret (" + boxes0 + " -> " + boxes1 + ")");
+                c.onClient(mc -> {
+                    var item = mc.level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, mc.player.getBoundingBox().inflate(4)).get(0);
+                    Mod.staticCall("dungeonalerts.SecretSound", "onTakeItem",
+                            new net.minecraft.network.protocol.game.ClientboundTakeItemEntityPacket(item.getId(), mc.player.getId(), 1), mc.level);
+                    return null;
+                });
+                int boxes2 = c.onClient(mc -> (Integer) Mod.staticCall("dungeonalerts.SecretClicked", "boxesAdded"));
+                c.check(boxes2 == boxes0 + 1, "his own pickup of a Decoy was not taken as a secret (" + boxes0 + " -> " + boxes2 + ") - nothing tested");
+                c.note("chest no menu " + ms1 + " ms, chest menu " + ms2 + " ms; Decoy pickup: teammate +" + (boxes1 - boxes0) + ", own +" + (boxes2 - boxes1));
+            }
+        } finally {
+            c.onClient(mc -> {
+                if (mc.player != null) mc.player.closeContainer();
+                setSound(cfg, soundWas);
+                return null;
+            });
+            c.server().command("kill @e[type=item]");
+            c.server().command("setblock -417 151 -422 minecraft:air");
         }
     }
 }

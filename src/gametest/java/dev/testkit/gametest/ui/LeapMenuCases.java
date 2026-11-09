@@ -354,16 +354,20 @@ final class LeapMenuCases {
             c.check(uni.getY() == cls.getY() || uni.getY() < cls.getY(), "the page buttons are out of order");
             c.check(ls.stream().noneMatch(l -> l.startsWith("Crystal:") || l.startsWith("S1:")),
                     "a target row is on the front page: " + ls);
-            c.check(ls.stream().anyMatch(l -> l.startsWith("Crystal Leap")) && ls.contains("Block Inputs: OFF")
+            // untestbugs-1109: each leap's Off/Fast/Auto sits on the Universal / Class pages, not on the front page.
+            c.check(ls.stream().noneMatch(l -> l.startsWith("Crystal Leap")) && ls.contains("Block Inputs: OFF")
                             && find(ws, "Return To") != null,
-                    "the front page lost its leap switches or Click Behavior: " + ls);
+                    "the front page has leap switches or lost Click Behavior: " + ls);
             if (oneSwitch()) {
                 // round 3 (killer560, 2026-11-03): one Off / Fast / Auto row per leap
                 long rowsN = ls.stream().filter(l -> l.matches(".+ Leap: (Off|Fast|Auto)")).count();
-                c.check(rowsN == 12 && ls.stream().noneMatch(l -> l.startsWith("Fast: ") || l.startsWith("Auto: ")),
-                        rowsN + " Off/Fast/Auto leap rows (want 12, and no Fast:/Auto: rows): " + ls);
-                c.check(ls.contains("Crystal Leap: Fast") && ls.contains("P3 Leap: Auto") && ls.contains("Relic Leap: Off"),
-                        "Crystal (set Fast), P3 (set Auto) and Relic (unset, Off) read wrong: " + ls);
+                c.check(rowsN == 0 && ls.stream().noneMatch(l -> l.startsWith("Fast: ") || l.startsWith("Auto: ")),
+                        rowsN + " leap rows on the front page (want 0: they are on the Universal page): " + ls);
+                // the per-leap rows live on the Universal page now (untestbugs-1109)
+                press(c, d, uni);
+                List<String> uls = labels(rows(c, d));
+                c.check(uls.contains("Crystal Leap: Fast") && uls.contains("P3 Leap: Auto") && uls.contains("Relic Leap: Off"),
+                        "Crystal (set Fast), P3 (set Auto) and Relic (unset, Off) read wrong: " + uls);
                 List<String> walk = new ArrayList<>();
                 for (int i = 0; i < 3; i++) {
                     press(c, d, find(rows(c, d), "Door Opener Leap:"));
@@ -400,6 +404,7 @@ final class LeapMenuCases {
                         Mod.enumValue(FLC + "$LeapGroup", "DOOR"))));
                 c.note("Door Opener after a right click from Off: " + back);
                 c.check("AUTO".equals(back), "a right click on Door Opener: Off gave " + back + ", want Auto (back, wrapping)");
+                press(c, d, find(rows(c, d), "< Back"));
             }
             cardSwitch(c, d, "front");
 
@@ -412,7 +417,7 @@ final class LeapMenuCases {
             c.check(ls.size() > 2 && ls.get(0).equals("Fast Leap: ON") && ls.get(1).equals("< Back"),
                     "the Universal page starts " + ls.subList(0, Math.min(3, ls.size())));
             c.check(ls.stream().anyMatch(l -> l.startsWith("Universal Targets (in use)")), "the Universal page's title is not 'in use'");
-            c.check(ls.contains("Crystal: Healer") && ls.stream().anyMatch(l -> l.startsWith("Storm Death: LeapMate"))
+            c.check(ls.contains("Crystal: Healer") && ls.stream().anyMatch(l -> l.startsWith("Storm Death: "))
                             && ls.stream().filter(l -> l.matches("S[1-4]: .*")).count() == 4,
                     "the Universal page's targets: " + ls);
             cardSwitch(c, d, "Universal");
@@ -535,6 +540,18 @@ final class LeapMenuCases {
                 // the leap modes are checked combination by combination below (one switch since round 2)
                 old.remove("groups");
             }
+            // untestbugs-1109: no leap goes by a player's name (a name with no known class is dropped, its saved class stays),
+            // and the one global targetMode is each leap's own "mode" now.
+            old.remove("targetMode");
+            for (String t : new String[]{"P1", "RELIC"}) {
+                JsonObject o = old.getAsJsonObject("targets").getAsJsonObject(t);
+                o.addProperty("name", "");
+                o.addProperty("byClass", true);
+            }
+            old.getAsJsonObject("targets").getAsJsonObject("P1").getAsJsonObject("classTargets").remove("MAGE");
+            for (String key : new ArrayList<>(now.getAsJsonObject("targets").keySet())) {
+                now.getAsJsonObject("targets").getAsJsonObject(key).remove("mode");
+            }
             compare("", old, now, diff);
             c.note("old file with per-class targets: Targets Set Class " + use + "; keys that changed after load + save: " + diff);
             c.check(use, "an old file with per-class targets set loads as Targets Universal (it applied them before)");
@@ -550,7 +567,7 @@ final class LeapMenuCases {
                         Mod.enumValue("dungeonclass.DungeonClass", "TANK"));
             });
             c.note("read back: " + vals);
-            c.check(vals.equals("POSMSG/300/2750/4/false/Bob/ClassPick[clazz=ARCHER, name=null]"), "old values read back as " + vals);
+            c.check(vals.equals("POSMSG/300/2750/4/true//ClassPick[clazz=ARCHER, name=null]"), "old values read back as " + vals);
             // no per-class targets: Universal; an explicit false stays false whatever is set
             Files.writeString(st.file, OLD.replace("\"classTargets\":{\"MAGE\":{\"name\":\"Alice\"},\"TANK\":{\"class\":\"ARCHER\"}}",
                     "\"classTargets\":{}"));
@@ -707,7 +724,7 @@ final class LeapMenuCases {
                 List<String> out = new ArrayList<>();
                 for (String l : new String[]{"Crystal", "Predev", "Green Pad", "Yellow Pad", "Purple Pad", "PY Healer",
                         "Storm Death", "Middle", "P4", "Relic", "S1", "S2", "S3", "S4", "When You Play", "S1 Keywords",
-                        "Click Delay", "Fast Mode", "Target Mode"}) {
+                        "Click Delay", "Fast Mode", "Mode"}) {
                     @SuppressWarnings("unchecked")
                     List<String> hits = (List<String>) Mod.call(tab, "searchHits", l);
                     if (hits.stream().noneMatch(h -> h.equalsIgnoreCase(l))) {
