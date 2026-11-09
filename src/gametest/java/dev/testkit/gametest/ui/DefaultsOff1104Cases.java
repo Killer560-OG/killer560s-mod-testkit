@@ -54,6 +54,7 @@ final class DefaultsOff1104Cases {
             {"emotes.ChatEmoteConfig", "enabled"},
             {"clicktranslate.ClickTranslateConfig", "enabled"},
             {"commandkeybinds.CommandKeybindsConfig", "enabled"},
+            {"commandprefix.CommandPrefixConfig", "altOn"},
             {"translate.TranslateConfig", "enabled"},
             {"imagepreview.ImagePreviewConfig", "enabled"},
             {"spotify.SongShareConfig", "lyricsOverHead"},
