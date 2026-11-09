@@ -70,6 +70,11 @@ final class HxBloodCampCases {
         s.test("187-hx-bloodcamp-never-miss", HxBloodCampCases::neverMiss);
         // bloodcamp-3-1015: any range with whatever he holds, and human clicks between the hits.
         s.test("188-hx-bloodcamp-ranged", HxBloodCampCases::ranged);
+        for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{dev.testkit.gametest.SameTick.Act.USE,
+                dev.testkit.gametest.SameTick.Act.USE_KEY, dev.testkit.gametest.SameTick.Act.SWAP}) {
+            s.test("1109-bloodcamp-outside-fire" + (a == dev.testkit.gametest.SameTick.Act.USE ? "" : "-" + a.name().toLowerCase(Locale.ROOT)),
+                    c -> outsideFire(c, a));
+        }
         s.test("189-hx-bloodcamp-human-clicks", HxBloodCampCases::humanClicks);
         // bloodcamp-4-1015: Blood Mob ESP, blood mobs only, a clear line of fire.
         s.test("190-hx-bloodcamp-blood-esp", HxBloodCampCases::bloodEsp);
@@ -1184,8 +1189,12 @@ final class HxBloodCampCases {
     /** The Aura on a blood mob that takes no damage, him standing 6 blocks off, holding {@code stack}. Returns
      *  {swings, uses, attacks at server, use_item at server}; {@code regGaps} gets the client's click gaps. */
     private static long[] farAura(Session c, String stack, int extra, List<Long> regGaps) {
+        return farAura(c, stack, extra, regGaps, FAR_STAND[0]);
+    }
+
+    private static long[] farAura(Session c, String stack, int extra, List<Long> regGaps, double standX) {
         holding(c, stack);
-        standAt(c, FAR_STAND[0], FAR_STAND[1], 0f, 0f);
+        standAt(c, standX, FAR_STAND[1], 0f, 0f);
         int sw0 = kind(c, "SWING");
         int use0 = kind(c, "USE");
         long since = c.hx().head();
@@ -1200,6 +1209,58 @@ final class HxBloodCampCases {
         regGaps.addAll(gaps(reg.subList(Math.max(0, reg.size() - n), reg.size())));
         return new long[]{kind(c, "SWING") - sw0, kind(c, "USE") - use0, t.serverAttacks.size(),
                 useItemsSince(c, since).size()};
+    }
+
+    // ---- 1109 --------------------------------------------------------------------------------------------------------
+
+    /**
+     * Work Just Outside Blood Room at its full margin (cheat, cheatbugs-1109): he stands {@code OUTSIDE_MARGIN - 0.2} blocks
+     * outside the room's west edge (tile -7 spans x -425..-393; x -430.8 is 5.8 out). With the switch OFF the Aura does nothing
+     * there; ON it swings at the blood mob inside, with his own right-click use landing in the same ticks, and the case
+     * reads the anticheat flags the run drew (the harness fails a flagged case).
+     */
+    private static void outsideFire(Session c, dev.testkit.gametest.SameTick.Act act) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: Work Just Outside Blood Room is cheat-only");
+            return;
+        }
+        double edge = -409.0 - 16.0;
+        double standX = edge - ((Integer) Mod.field(Mod.ROOT + "bloodcamp.BloodCampConfig", "OUTSIDE_MARGIN") - 0.2);
+        dev.testkit.gametest.SameTick st = null;
+        // A floor under the outside spot: with none he fell 40 blocks in 2 s and the room test (|dy| < 40) dropped him.
+        String floor = String.format(Locale.ROOT, "%d 150 -423 %d 150 -415 minecraft:stone", (int) standX - 4, (int) standX + 4);
+        try (HxKit.Settings s = base(c)) {
+            c.server().command("fill " + floor);
+            s.with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "WorkOutside", false);
+            watcher(c, WATCHER_IN);
+            List<Long> offGaps = new ArrayList<>();
+            long[] off = farAura(c, MAGE, 50, offGaps, standX);
+            c.note("switch OFF, " + (edge - standX) + " blocks outside the edge: " + off[0] + " swing(s), " + off[1] + " use(s)");
+            c.check(off[0] + off[1] == 0, "the Aura clicked from outside the room with Work Just Outside OFF");
+            c.onClient(mc -> Mod.with(BC_CFG, "WorkOutside", true));
+            c.hx().give(1, MAGE);
+            st = c.onClient(mc -> dev.testkit.gametest.SameTick.start(act, 3,
+                    p -> dev.testkit.compat.McPackets.isSwing(p), 0, 1));
+            List<Long> onGaps = new ArrayList<>();
+            long[] on = farAura(c, MAGE, 50, onGaps, standX);
+            dev.testkit.gametest.SameTick.judge(c, st, "blood aura outside the room, his " + act,
+                    dev.testkit.gametest.SameTick.Expect.SHARE);
+            st = null;
+            c.note("switch ON at x " + standX + ": " + on[0] + " swing(s), " + on[1] + " use(s), " + on[2] + " attack(s); gaps " + onGaps);
+            c.check(on[0] >= 3, "Work Just Outside ON at the full margin: the Aura swung " + on[0] + " time(s), wanted 3 or more");
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick s2 = st;
+                c.onClient(mc -> {
+                    s2.close();
+                    return null;
+                });
+            }
+            holding(c, "minecraft:air");
+            standAt(c, PX, PZ, 0f, 0f);
+            c.hx().removeStands();
+            c.server().command("fill " + floor.replace("minecraft:stone", "minecraft:air"));
+        }
     }
 
     // ---- 188 --------------------------------------------------------------------------------------------------------

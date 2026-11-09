@@ -41,6 +41,7 @@ final class TermHoldCases {
     static void register(Session s) {
         MenuSuite.test(s, "271-menu-term-hover-melody3", c -> hoverMelody(c, true));
         MenuSuite.test(s, "272-menu-term-hover-melody3-vanilla", c -> hoverMelody(c, false));
+        MenuSuite.test(s, "1109-menu-term-hover-solver-off", c -> hoverMelody(c, false, false)); // Hover Terms with the Terminal Solver OFF
         MenuSuite.test(s, "273-menu-term-hold-numbers", c -> hold(c, TerminalCases.NUMBERS_10, true));
         MenuSuite.test(s, "274-menu-term-hold-select", c -> hold(c, TerminalCases.SPECS.get(4), false));
         MenuSuite.test(s, "275-menu-term-lookahead0", c -> lookahead(c, 0));
@@ -116,13 +117,17 @@ final class TermHoldCases {
     // ---- 271/272 Hover Melody -----------------------------------------------------------------------------------
 
     static void hoverMelody(Session c, boolean customGui) throws Exception {
+        hoverMelody(c, customGui, true);
+    }
+
+    static void hoverMelody(Session c, boolean customGui, boolean solverOn) throws Exception {
         MenuKit.reset(c);
         if (!MenuKit.cheat()) {
             c.note("legit jar: Hover Terminals is cheat-only");
             return;
         }
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
-            cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutoTerminalsEnabled", false)
+            cfg.set(CONFIG, "Enabled", solverOn).set(CONFIG, "AutoTerminalsEnabled", false)
                     .set(CONFIG, "CustomGuiEnabled", customGui).set(CONFIG, "MelodyEnabled", true)
                     .set(CONFIG, "HoverTerminalsEnabled", true).set(CONFIG, "HoverMelodyEnabled", true)
                     .set(CONFIG, "HoverDelayMs", 100).set(CONFIG, "HoverJitterMs", 0);

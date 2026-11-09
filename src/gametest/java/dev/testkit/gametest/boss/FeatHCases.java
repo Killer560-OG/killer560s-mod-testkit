@@ -37,9 +37,16 @@ final class FeatHCases {
         }
         for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.USE_KEY, SameTick.Act.SWAP,
                 SameTick.Act.ATTACK, SameTick.Act.TP}) {
-            s.test("1109-termclick-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""), c -> term(c, a, true));
+            s.test("1109-termclick-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""), c -> term(c, a, true, TERM, true));
         }
-        s.test("1109-termclick-off", c -> term(c, SameTick.Act.USE, false));
+        s.test("1109-termclick-off", c -> term(c, SameTick.Act.USE, false, TERM, false));
+        // 2026-11-09: every shortbow (a Juju by id, one known only by its lore line), never a plain bow.
+        s.test("1109-shortbow-juju", c -> term(c, SameTick.Act.USE, true, "bow[custom_data={id:\"JUJU_SHORTBOW\"}]", true));
+        s.test("1109-shortbow-juju-use-key", c -> term(c, SameTick.Act.USE_KEY, true, "bow[custom_data={id:\"JUJU_SHORTBOW\"}]", true));
+        s.test("1109-shortbow-lore", c -> term(c, SameTick.Act.USE, true,
+                "bow[custom_data={id:\"SOME_NEW_BOW\"},lore=['{\"text\":\"Shortbow: Instantly shoots!\"}']]", true));
+        s.test("1109-shortbow-plain-bow", c -> term(c, SameTick.Act.USE, true, "bow[custom_data={id:\"RUNAANS_BOW\"}]", false));
+        s.test("1109-shortbow-last-breath", c -> term(c, SameTick.Act.USE, true, "bow[custom_data={id:\"LAST_BREATH\"}]", false));
         s.test("1109-walk-open", FeatHCases::walkOpen);
     }
 
@@ -81,13 +88,17 @@ final class FeatHCases {
         return (Integer) c.onClient(mc -> Mod.staticCall(TF, "clicks"));
     }
 
-    private static void term(Session c, SameTick.Act act, boolean on) throws Exception {
+    private static final String TERM = "bow[custom_data={id:\"TERMINATOR\"}]";
+
+    /** {@code on}: the switch; {@code expect}: whether this held item should be clicked for. */
+    private static void term(Session c, SameTick.Act act, boolean on, String item, boolean expect) throws Exception {
         List<AutoCloseable> undo = new ArrayList<>();
         SameTick st = null;
         try (HxKit.Settings off = GrimTickCases.gateOff(c)) {
-            arena(c, false, "bow[custom_data={id:\"TERMINATOR\"}]");
+            arena(c, false, item);
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
-            undo.add(c.onClient(mc -> Mod.with(TC, "Cps", 15)));
+            c.onClient(mc -> Mod.call(Mod.cfg(TC), "setCpsRange", 15, 15)); // the range slider's top end
+            undo.add(() -> c.onClient(mc -> Mod.call(Mod.cfg(TC), "setCpsRange", 8, 8)));
             undo.add(c.onClient(mc -> Mod.with(TC, "Enabled", on)));
             if (act == SameTick.Act.ATTACK) {
                 c.server().command("summon zombie 60.5 133 142.5 {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"feathh\"]}");
@@ -113,10 +124,10 @@ final class FeatHCases {
                 return null;
             });
             c.note("terminator clicker " + act + " clicks " + sent + ", " + st.report());
-            if (!on) {
-                c.check(sent == 0, "switch off but the clicker clicked " + sent + " times");
+            if (!on || !expect) {
+                c.check(sent == 0, (on ? "a non-shortbow was clicked for " : "switch off but the clicker clicked ") + sent + " times");
             } else {
-                c.check(sent >= 10, "the Terminator Auto Clicker barely acted: " + sent + " clicks in 80 ticks");
+                c.check(sent >= 10, "the Shortbow Auto Clicker barely acted: " + sent + " clicks in 80 ticks");
                 if (act != SameTick.Act.TP) {
                     c.check(!st.report().contains("his action x0,"), "his own action never went in (nothing tested)");
                 }

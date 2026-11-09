@@ -114,14 +114,14 @@ final class AuraThemeCases {
                 c.note("both off: " + off);
                 c.check(hasRow(off, "Secret Aura") && hasRow(off, "In Boss"),
                         "the tab should show Secret Aura and In Boss while both are off: " + off);
-                c.check(!hasRow(off, "S2 Section Levers") && !hasRow(off, "Boss Lever CPS"),
+                c.check(!hasRow(off, "S2 Section Levers") && !hasRow(off, "Boss Lever Cooldown"),
                         "the boss-lever options show with In Boss off: " + off);
                 // In Boss on, Secret Aura still off: In Boss is its own feature
                 Mod.call(cu, "setAuraBossLevers", true);
                 List<String> boss = c.onClient(mc -> labels(build(tab)));
                 c.note("In Boss on: " + boss);
                 for (String row : new String[]{"S2 Section Levers",
-                        "Boss Lever Range", "Boss Lever CPS", "Boss Lever Swing Hand", "Boss Lever Chat Feedback"}) {
+                        "Boss Lever Range", "Boss Lever Cooldown", "Boss Lever Swing Hand", "Boss Lever Chat Feedback"}) {
                     c.check(hasRow(boss, row), "In Boss on but no '" + row + "' row: " + boss);
                 }
                 // mod lights-aura-1015: the Lights rows left In Boss for the Lights Device tab
