@@ -816,7 +816,7 @@ final class HxAlerts1025Cases {
                 return null;
             });
             c.onClient(mc -> setSound(cfg, true));
-            c.server().command("summon item -417.5 151 -419.5 {Item:{id:\"minecraft:stick\",count:1,components:{\"minecraft:custom_name\":\"Decoy\"}},PickupDelay:32767s}");
+            c.server().command("summon item -417.5 151 -419.5 {Item:{id:\"minecraft:stick\",count:1,components:{\"minecraft:custom_name\":{text:\"Decoy\"}}},PickupDelay:32767s}");
             c.waitUntil("the client has the Decoy item", mc -> !mc.level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
                     mc.player.getBoundingBox().inflate(4)).isEmpty(), 60);
             try (Settings clicked = new Settings(c).with(ALERTS_CFG, "SecretClickedEnabled", true)) {
