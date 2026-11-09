@@ -202,6 +202,7 @@ public class MenuSuite implements FabricClientGameTest {
                     InvBatchMenuCases.register(s); // 583, 585: inventory batch 2026-10-08
                     LeapOrderMenuCases.register(s); // 670: leap menu follows the Leap Order defaults/pins, 2026-10-09
                     LeapTickCases.register(s); // 1106-leaptick-*: tick timers over the leap menu
+                    LeapHudCases.register(s); // 1108-leaphud-lag: Performance HUD over the leap menu
                     LeapBatchMenuCases.register(s); // 821-825: leap-menu batch 2026-10-11 (heads, map, delay, carried, freeze)
                     LeapRunMemoryCases.register(s); // 829-834: how long class picks and pins last, 2026-10-12
                     LeapPartyChangeCases.register(s); // 1102-menu-leaporder-*: party change slots + own class, 2026-11-02
