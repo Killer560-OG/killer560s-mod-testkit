@@ -143,6 +143,7 @@ final class FeatHCases {
     private static void walkOpen(Session c) throws Exception {
         try (HxKit.Settings off = GrimTickCases.gateOff(c)) {
             arena(c, false, "stick");
+            c.ctx().waitTicks(60);
             c.onClient(mc -> {
                 mc.options.keyUp.setDown(true);
                 return null;
@@ -159,6 +160,10 @@ final class FeatHCases {
         SameTick st = null;
         try (HxKit.Settings off = GrimTickCases.gateOff(c)) {
             arena(c, true, "stick");
+            if (walk) {
+                // The arena fill and teleport draw a Simulation .15 on the first steps (1109-walk-open); settle first.
+                c.ctx().waitTicks(60);
+            }
             undo.add(c.onClient(mc -> Mod.with(GC, "Enabled", true)));
             if (act != null) {
                 st = SameTickCases.start(c, act, p -> false);
