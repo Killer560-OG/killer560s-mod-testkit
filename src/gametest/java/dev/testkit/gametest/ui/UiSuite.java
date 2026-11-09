@@ -780,6 +780,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1104-ui-defaults-off", DefaultsOff1104Cases::defaultsOff);
                     UiCase.run(ctx, "1108-ui-itemquality", FeatE1108Cases::itemQuality);
                     UiCase.run(ctx, "1108-ui-chestclick", FeatE1108Cases::chestClick);
+                    UiCase.run(ctx, "1109-ui-autoclose-migrate", FeatE1108Cases::chestMigrate);
                     UiCase.run(ctx, "1108-ui-icedmobs", FeatE1108Cases::icedMobs);
                     UiCase.run(ctx, "1108-ui-roomname", FeatE1108Cases::roomName);
                     UiCase.run(ctx, "1104-ui-univfolders", UniversalFolders1104Cases::moved);

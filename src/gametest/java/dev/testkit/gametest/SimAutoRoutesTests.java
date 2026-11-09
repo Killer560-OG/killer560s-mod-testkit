@@ -2067,6 +2067,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 ModUnderTest.set(cfg, "setAuraPauseWhileSneaking", true);
                 ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"),
                         "setEnabled", true);
+                ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"), "setAuto", true);   // the cheat Auto (was the default mode)
             });
             writeRoute(ctx, museumNodes());
             // Where he stood before his 01:16:30 press: real (-120.46, -128.33) in his frame (clay -74,-136, rotation 90).
@@ -2319,6 +2320,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 ModUnderTest.set(cfg, "setAuraPauseWhileSneaking", true);
                 ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"),
                         "setEnabled", true);
+                ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"), "setAuto", true);   // the cheat Auto (was the default mode)
             });
             writeRoute(ctx, museumNodes());
             // His frame (clay -74,-136, rotation 90): where he pressed from, and his mimic chest.
@@ -5290,6 +5292,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> {
                 ModUnderTest.set(ModUnderTest.config(CHEAT_CFG), "setSecretAuraEnabled", true);
                 ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"), "setEnabled", true);
+                ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"), "setAuto", true);   // the cheat Auto (was the default mode)
             });
             List<JsonObject> nodes = new ArrayList<>();
             for (JsonElement e : JsonParser.parseString(BRIDGES_ROUTE).getAsJsonArray()) {

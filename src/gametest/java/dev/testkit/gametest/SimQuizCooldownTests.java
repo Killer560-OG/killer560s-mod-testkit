@@ -388,6 +388,7 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
             // chest's window stayed up and nothing moved for four minutes (first run, 2026-10-18).
             ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"), "setEnabled",
                     true);
+            ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"), "setAuto", true);   // the cheat Auto (was the default mode)
             Object ar = ModUnderTest.config(AR_CONFIG);
             ModUnderTest.set(ar, "setEnabled", true);
             ModUnderTest.set(ar, "setLegitMode", false);

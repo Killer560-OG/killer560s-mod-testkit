@@ -400,6 +400,7 @@ public class SimAutoSecretOptimizeTests implements FabricClientGameTest {
             // His setting too: the chest's window never opens, its lid does (and no warp goes under a window).
             ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"), "setEnabled",
                     true);
+            ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"), "setAuto", true);   // the cheat Auto (was the default mode)
         });
         List<SimAutoSecretTests.Room> eligible = notPreBlood(ctx, eligible(ctx.computeOnClient(SimAutoSecretTests::readRooms)));
         Map<Integer, SimAutoSecretTests.Room> byId = new HashMap<>();
