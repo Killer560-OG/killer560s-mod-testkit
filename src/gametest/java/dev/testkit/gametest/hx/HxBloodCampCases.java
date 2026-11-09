@@ -4002,7 +4002,7 @@ final class HxBloodCampCases {
             c.note("option OFF, 4.5 past the wall: " + fmt(off));
             c.check(off.tracked && !off.inRoom && off.clicks == 0 && useItemsSince(c, s0).isEmpty(),
                     "option OFF: outside his tile Blood Camp clicked " + off.clicks + " time(s), inRoom " + off.inRoom);
-            s.with(BC_CFG, "OutsideRoom", true);
+            s.with(BC_CFG, "WorkOutside", true);
             standAt(c, NEAR_OUT_X, PZ, 0f, 0f);
             long s1 = c.hx().head();
             Trip near = trip(c, Mob.HURTABLE, true, 20, null);
@@ -4027,7 +4027,7 @@ final class HxBloodCampCases {
         }
         dev.testkit.gametest.SameTick st = null;
         try (HxKit.Settings s = base(c)) {
-            s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "OutsideRoom", true);
+            s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "WorkOutside", true);
             outsidePlatform(c, "minecraft:stone");
             c.server().command("item replace entity @a hotbar.5 with stick");
             watcher(c, WATCHER_IN);

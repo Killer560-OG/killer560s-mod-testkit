@@ -175,16 +175,16 @@ final class UntestBugs1109Cases {
             return;
         }
         Object b = Mod.cfg("bloodcamp.BloodCampConfig");
-        boolean was = (Boolean) Mod.call(b, "isOutsideRoom");
+        boolean was = (Boolean) Mod.call(b, "isWorkOutside");
         try {
             c.check(!was, "Work Just Outside Blood Room should default OFF");
-            Mod.call(b, "setOutsideRoom", true);
+            Mod.call(b, "setWorkOutside", true);
             Mod.call(b, "save");
             Mod.staticCall("bloodcamp.BloodCampConfig", "load");
-            c.check((Boolean) Mod.call(Mod.cfg("bloodcamp.BloodCampConfig"), "isOutsideRoom"),
+            c.check((Boolean) Mod.call(Mod.cfg("bloodcamp.BloodCampConfig"), "isWorkOutside"),
                     "Work Just Outside Blood Room did not survive a reload");
         } finally {
-            Mod.call(Mod.cfg("bloodcamp.BloodCampConfig"), "setOutsideRoom", was);
+            Mod.call(Mod.cfg("bloodcamp.BloodCampConfig"), "setWorkOutside", was);
             Mod.call(Mod.cfg("bloodcamp.BloodCampConfig"), "save");
         }
     }
