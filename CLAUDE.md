@@ -712,3 +712,5 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
   constructor differs between 26.2 and 26.3). GuestPlayer moves with `snapTo` and nulls that field. A sim break is refused
   by the mod's own `SimItems` gates, so a guest dig is asserted at `handleBlockBreakAction` (`dig x,y,z`), not by the block
   going. Maxor spawns a few ticks into P1: wait for him before placing anyone by his position.
+  When the host's server stops first, the guest client is left on a DisconnectedScreen and its gametest class fails
+  "did not finish on the title screen"; CoopSimTests' cleanup sets the title screen when no world is loaded.
