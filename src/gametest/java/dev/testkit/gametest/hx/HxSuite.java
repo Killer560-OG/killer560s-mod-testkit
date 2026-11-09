@@ -178,6 +178,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxKickRejoin1103Cases.register(s);
                     // mod chport-1104: the Mining features pulled from staging-mining-3 (2026-11-04).
                     HxMining3Cases.register(s);
+                    // mod featC-1108: Puzzle HUD, Reparty, Watcher Helper.
+                    HxFeatC1108Cases.register(s);
                 });
     }
 }
