@@ -1217,7 +1217,10 @@ final class HxBloodCampCases {
         double edge = -409.0 - 16.0;
         double standX = edge - ((Integer) Mod.field(Mod.ROOT + "bloodcamp.BloodCampConfig", "OUTSIDE_MARGIN") - 0.2);
         dev.testkit.gametest.SameTick st = null;
+        // A floor under the outside spot: with none he fell 40 blocks in 2 s and the room test (|dy| < 40) dropped him.
+        String floor = String.format(Locale.ROOT, "%d 150 -423 %d 150 -415 minecraft:stone", (int) standX - 4, (int) standX + 4);
         try (HxKit.Settings s = base(c)) {
+            c.server().command("fill " + floor);
             s.with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "WorkOutside", false);
             watcher(c, WATCHER_IN);
             List<Long> offGaps = new ArrayList<>();
@@ -1244,6 +1247,7 @@ final class HxBloodCampCases {
             holding(c, "minecraft:air");
             standAt(c, PX, PZ, 0f, 0f);
             c.hx().removeStands();
+            c.server().command("fill " + floor.replace("minecraft:stone", "minecraft:air"));
         }
     }
 

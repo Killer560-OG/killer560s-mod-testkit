@@ -135,7 +135,7 @@ final class HxCheatBugs1109Cases {
             boolean g = kind.equals("gate");
             double pz = g ? 127.5 : 126.5;
             BlockPos target = g ? new BlockPos(17, 121, 129) : new BlockPos(17, 120, 129);
-            double dy = 121.62 - (g ? 121.5 : kind.equals("crypt") ? 120.5 : 120.5);
+            double dy = 121.62 - (g ? 121.5 : kind.equals("crypt") ? 121.25 : 120.5);
             float pitch = g ? 0f : (float) Math.toDegrees(Math.atan2(dy, 129 - pz));
             Runnable build = () -> {
                 if (g) {
