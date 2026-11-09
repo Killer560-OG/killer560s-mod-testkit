@@ -1330,6 +1330,10 @@ public class BreakerAuraTests implements FabricClientGameTest {
         if (Scenario.skip(name)) {
             return;
         }
+        if (burst && !dev.testkit.gametest.mod.Mod.isCheat()) {
+            Scenario.skipped(name, "legit jar (Burst Multi Break is cheat-only)");
+            return;
+        }
         ModUnderTest.require(MOD_ID);
         int cx = -60;
         int fy = SURFACE_Y - 1;

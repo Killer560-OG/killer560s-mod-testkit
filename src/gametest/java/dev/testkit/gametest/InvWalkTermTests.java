@@ -27,8 +27,8 @@ import static dev.testkit.gametest.InvWalkCampaignTests.*;
  * on the ground): before the fix a held click never went out (his 26.3 log 2026-11-08 21:19:27-32, a ghost's "Teleport to
  * Player" clicks held 40 ticks at 0.00 blocks/s, then dropped). Rows, each asserted on the server (Hx container.click):
  * a click in a plain server menu and in "Teleport to Player" while he hovers still goes out at once; a click made while he
- * flies forward is held (none reaches the server while it has him moving) and goes out once he lets go and stops.
- * (Terminals while walking are not tested: Hypixel itself closes a terminal on his first movement, his log 21:23:56-21:24:27.)
+ * flies forward waits for Stop To Click's one keyless tick (none reaches the server while it has him moving), then goes
+ * while he still drifts (air drag keeps a flyer sliding for seconds; GrimAC judges the click on keys and sprint).
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class InvWalkTermTests implements FabricClientGameTest {
@@ -42,7 +42,7 @@ public class InvWalkTermTests implements FabricClientGameTest {
         }
         int x = -11400;
         int z = -9000;
-        Scenario.run(ctx, nm, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+        Scenario.runExpectingFlags(ctx, nm, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = gateOff(ctx);
             Rows rows = new Rows(ctx, server, scenario);
             try (Hx hx = Hx.connect()) {
@@ -129,10 +129,14 @@ public class InvWalkTermTests implements FabricClientGameTest {
         boolean move = mode == 2;
         String label = "L" + lat + " flying " + (leap ? "leap menu, " : "server menu, ") + (move ? "moving then stop" : "hovering");
         keys(ctx, Set.of());
-        tp(server, ctx, x + 0.5, SURFACE_Y + 3, z + 0.5, -90f);
         server.command("gamemode creative " + name(ctx));
         server.sync(5);
         ctx.waitTicks(5);
+        server.command(String.format(Locale.ROOT, "tp %s %.2f %d %.2f -90 0", name(ctx), x + 0.5, SURFACE_Y + 4, z + 0.5));
+        // Under latency the tp lands late: switch flight on once he is up there, before he falls back down.
+        for (int i = 0; i < 40 && ctx.computeOnClient(mc -> mc.player.getY() < SURFACE_Y + 3.5); i++) {
+            ctx.waitTicks(1);
+        }
         ctx.runOnClient(mc -> {
             mc.player.getAbilities().flying = true;
             mc.player.onUpdateAbilities();
@@ -168,7 +172,8 @@ public class InvWalkTermTests implements FabricClientGameTest {
         long gave = ctx.computeOnClient(mc -> ((Number) Mod.staticCall(IW, "gaveUp")).longValue()) - gave0;
         int moving = movingClicks(ev);
         boolean ok = flying && ev.size() == 1 && moving == 0 && gave == 0
-                && (move ? waited > 6 && waited <= 6 + 20 + lat / 50 : waited <= 1 + lat / 50 + 2);
+                // Moving: Stop To Click's one keyless tick, then the click goes while he still drifts (flying needs no full stop).
+                && (move ? cost.keyless >= 1 && waited <= 1 + lat / 50 + 3 : waited <= 1 + lat / 50 + 2);
         String detail = String.format(Locale.ROOT, "flying %s, click handled %d after %d tick(s) (%d while moving), dropped batches %d, "
                 + "keyless %d of %d walking tick(s), path %.2f", flying, ev.size(), waited, moving, gave, cost.keyless, cost.ticks, cost.path);
         closeScreen(ctx);
