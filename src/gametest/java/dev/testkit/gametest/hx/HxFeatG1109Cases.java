@@ -25,6 +25,7 @@ final class HxFeatG1109Cases {
     }
 
     static void register(Session s) {
+        HxCarryHud1109Cases.register(s);
         s.test("1109-carry-count", HxFeatG1109Cases::carryCount);
         s.test("1109-carry-run", HxFeatG1109Cases::carryRun);
         s.test("1109-roompreview-lines", HxFeatG1109Cases::previewLines);
