@@ -63,7 +63,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxSongTagCases.register(s);
                     // Spotify Controls, lyric clock re-sync, My Lyrics In F5, Smooth Lyric Scroll, supporter-only
                     // Share My Song (2840-2845, branch spotify-controls-1026), own block.
-                    HxSpotifyControlsCases.register(s);
+                    HxSpotifyControlsCases.register(s); HxSpotifyLyrics1108Cases.register(s);
                     HxSpotifyDocCases.register(s);
                     HxSongTagParty1105Cases.register(s); // spotshare-1105: the party room survives a warp
                     HxSongFix1106Cases.register(s); // songfix-1106: a non-supporter sees a supporter's song and name

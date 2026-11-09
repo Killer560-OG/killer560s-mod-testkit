@@ -116,6 +116,7 @@ final class HxBloodCampCases {
         s.test("1103-bloodcamp-watcher-line", HxBloodCampCases::watcherLine);
         // bctrig-1104: Mob Ticks start at the first spawn after the kill timer; KILL on game time, never the ping clock.
         s.test("1104-bloodcamp-stats-spawn", HxBloodCampCases::statsSpawn);
+        s.test("1108-bloodcamp-party-wire", HxBloodCampCases::partyWire);
         s.test("1104-bloodcamp-gametime", HxBloodCampCases::gameTimeKill);
         s.test("1101-esp-fels", HxBloodCampCases::fels);
         s.test("1101-esp-starred-memory", HxBloodCampCases::starredMemory);
@@ -1991,6 +1992,33 @@ final class HxBloodCampCases {
      * message. The Watcher's lines arrive as chat; the kill timer is brought to 10 ticks away; two tagged blood husks are
      * killed 20 and 35 ticks after it. The count must be ~20 at the first kill, ~35 at the second and then stop.
      */
+    /** partymsg-1108: the camp clears before the kill timer was read (phase WAITING_KILL: the Watcher's move not seen). The
+     *  old code returned without a word and the party never got its line; the /pc must reach the server. */
+    private static void partyWire(Session c) {
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "PartyMessage", true).with(BC_CFG, "PartyMessageAnyClass", true).with(BC_CFG, "PartyMessageLag", false);
+            c.hx().stub(null, "pc");
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            c.hx().chat("[BOSS] The Watcher: Ah, you've finally arrived.");
+            c.ctx().waitTicks(5);
+            String phase0 = c.onClient(mc -> (String) Mod.staticCall(BC_STATS, "phaseName"));
+            c.check("WAITING_KILL".equals(phase0), "setup: phase " + phase0 + ", want WAITING_KILL");
+            c.hx().chat("[BOSS] The Watcher: You have proven yourself. You may pass.");
+            String pc = HxKit.awaitCommand(c, "pc Blood Camp", 60);
+            c.ctx().waitTicks(20);
+            List<String> sent = HxKit.commandsStarting(c, "pc Blood Camp");
+            c.check(sent.size() == 1, "the party line went " + sent.size() + " times: " + sent);
+            c.note("clear before the kill timer sent /" + pc);
+        } finally {
+            c.onClient(mc -> {
+                Mod.staticCall(BC_MT, "reset");
+                return null;
+            });
+            c.hx().removeStands();
+        }
+    }
+
     private static void stats(Session c) {
         try (HxKit.Settings s = base(c)) {
             s.with(BC_CFG, "HudMobTicks", true).with(BC_CFG, "HudMobsLeft", true).with(BC_CFG, "HudCampLag", true)

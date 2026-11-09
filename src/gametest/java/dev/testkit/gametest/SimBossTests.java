@@ -101,6 +101,7 @@ public class SimBossTests implements FabricClientGameTest {
     private static final String MOVES = "1103-boss-moves";
     private static final String RULES = "1103-boss-rules";
     private static final String CAPTURE = "1104-boss-capture";
+    private static final String FRESH = "1108-boss-fresh";
     private static final String DRAGONS = "1105-boss-dragons";
     private static final String WD = "com.killer560.hub.witherdragons.";
     private static final String ONEHIT = "1105-boss-onehit";
@@ -130,7 +131,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -163,6 +164,7 @@ public class SimBossTests implements FabricClientGameTest {
                     case MOVES -> moves(ctx, f);
                     case RULES -> rules(ctx, f);
                     case CAPTURE -> capture(ctx, f);
+                    case FRESH -> fresh(ctx, f);
                     case DRAGONS -> dragons(ctx, f);
                     case ONEHIT -> oneHit(ctx, f);
                     case NOSTRAY -> noStray(ctx, f);
@@ -928,6 +930,41 @@ public class SimBossTests implements FabricClientGameTest {
         println(P1P2, "after the drop from Storm's floor: y " + y);
         if (y > 120) {
             f.add("the fall from Storm's floor did not reach S1 (y " + y + ")");
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------- 1108-boss-fresh
+
+    /**
+     * bosssim1108: a fresh instance had only the built-in plan because the capture sat in the instance it was taken in.
+     * (A) an instance's old config copy is moved into the shared store's sim-boss folder; (B) with only the shared copy,
+     * a P1 start builds from the capture.
+     */
+    private static void fresh(ClientGameTestContext ctx, List<String> f) throws Exception {
+        java.nio.file.Path fixture = java.nio.file.Path.of(System.getProperty("testkit.bossCapture",
+                System.getProperty("user.home") + "/killer560s-mod-logs/fixtures/boss-arena-1104.bin"));
+        if (!java.nio.file.Files.isRegularFile(fixture)) {
+            f.add("no capture fixture at " + fixture);
+            return;
+        }
+        java.nio.file.Path shared = ((java.nio.file.Path) ModUnderTest.staticCall("com.killer560.hub.shared.SharedRecords", "root",
+                new Class<?>[0], new Object[0])).resolve("sim-boss");
+        java.nio.file.Path legacy = (java.nio.file.Path) ModUnderTest.staticCall("com.killer560.hub.util.ModPaths", "config",
+                new Class<?>[]{String.class}, new Object[]{"killer560smod-sim-bossarena.bin"});
+        java.nio.file.Path inShared = shared.resolve("killer560smod-sim-bossarena.bin");
+        java.nio.file.Files.deleteIfExists(inShared);
+        java.nio.file.Files.createDirectories(legacy.getParent());
+        java.nio.file.Files.copy(fixture, legacy, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        try {
+            java.nio.file.Path got = (java.nio.file.Path) call(ARENA, "capturePath");
+            expect(f, "the capture path is in the shared store", got.toAbsolutePath().normalize().equals(inShared.toAbsolutePath().normalize()), true);
+            expect(f, "the instance's old copy was moved into the shared store", java.nio.file.Files.isRegularFile(inShared), true);
+            expect(f, "the old copy is gone from the config folder", java.nio.file.Files.exists(legacy), false);
+            start(ctx, "P1", false);
+            expect(f, "arena source with only the shared copy", call(ARENA, "source"), "capture");
+        } finally {
+            java.nio.file.Files.deleteIfExists(inShared);
+            java.nio.file.Files.deleteIfExists(legacy);
         }
     }
 

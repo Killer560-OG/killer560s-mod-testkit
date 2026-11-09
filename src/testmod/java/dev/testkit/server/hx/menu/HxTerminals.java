@@ -111,6 +111,14 @@ final class HxTerminals {
         int wrong;
         /** The next this-many clicks are dropped with no answer (the board unchanged, nothing re-sent). */
         int dropClicks;
+        /** Drops the click that would solve the board (the last wrong slot), once (1108 last-pane case). */
+        boolean dropFinal;
+        boolean dropReopen;
+        /** How many times the final click is dropped (dropFinal; 1 unless "dropFinalTimes"). */
+        int dropFinalTimes = 1;
+        /** Answers the click that solves the board, then puts that slot back as it was two ticks later, once (1108). */
+        boolean revertFinal;
+        int reverted;
         int dropped;
         long openedTick;
         long firstTick = -1;
@@ -447,6 +455,10 @@ final class HxTerminals {
         }
         t.openedTick = server.getTickCount();
         t.dropClicks = a.has("dropClicks") ? a.get("dropClicks").getAsInt() : 0;
+        t.dropFinal = a.has("dropFinal") && a.get("dropFinal").getAsBoolean();
+        t.dropReopen = a.has("dropReopen") && a.get("dropReopen").getAsBoolean();
+        t.dropFinalTimes = a.has("dropFinalTimes") ? a.get("dropFinalTimes").getAsInt() : 1;
+        t.revertFinal = a.has("revertFinal") && a.get("revertFinal").getAsBoolean();
         t.displayTitle = (a.has("titlePrefix") ? a.get("titlePrefix").getAsString() : "") + t.title
                 + (a.has("titleSuffix") ? a.get("titleSuffix").getAsString() : "");
         HxChestMenu menu = HxMenus.open(player, t.rows, Component.literal(t.displayTitle), items, SCRIPT, t);
@@ -575,8 +587,14 @@ final class HxTerminals {
         }
         MinecraftServer server = player.level().getServer();
         long tick = server.getTickCount();
-        if (t.dropClicks > 0) {
-            t.dropClicks--;
+        boolean dropFinalNow = t.dropFinal && t.type != Type.MELODY && t.remaining(menu).size() == 1;
+        if (dropFinalNow && --t.dropFinalTimes <= 0) {
+            t.dropFinal = false;
+        }
+        if (dropFinalNow || t.dropClicks > 0) {
+            if (!dropFinalNow) {
+                t.dropClicks--;
+            }
             t.dropped++;
             menu.silentNext = true;
             JsonObject d = new JsonObject();
@@ -585,6 +603,18 @@ final class HxTerminals {
             d.addProperty("input", input.name());
             d.addProperty("dropped", t.dropped);
             HxEvents.custom("terminal.dropped", player, d);
+            if (dropFinalNow && t.dropReopen) {
+                // Hypixel's re-send: the unanswered final pane comes back in the same terminal under a NEW container id.
+                HxMenus.later(() -> {
+                    List<ItemStack> now = new ArrayList<>();
+                    for (int i = 0; i < t.rows * 9; i++) {
+                        now.add(menu.items().getItem(i).copy());
+                    }
+                    HxChestMenu again = HxMenus.open(player, t.rows, Component.literal(t.displayTitle), now, SCRIPT, t);
+                    t.containerId = again.containerId;
+                    lastMenu = again;
+                });
+            }
             return;
         }
         t.clicks++;
@@ -595,6 +625,7 @@ final class HxTerminals {
         t.perTick.merge(tick, 1, Integer::sum);
         boolean correct = false;
         String before = slot >= 0 && slot < menu.items().getContainerSize() ? id(menu.items().getItem(slot)) : "";
+        ItemStack beforeStack = slot >= 0 && slot < menu.items().getContainerSize() ? menu.items().getItem(slot).copy() : ItemStack.EMPTY;
         if (slot >= 0 && slot < t.rows * 9 && (t.type == Type.MELODY || inGrid(t, slot))) {
             ItemStack s = menu.items().getItem(slot);
             String id = id(s);
@@ -684,6 +715,22 @@ final class HxTerminals {
             e.addProperty("prevStepGapMs", t.melodyPrevStepGapMs);
         }
         HxEvents.custom("terminal.click", player, e);
+        if (t.revertFinal && correct && t.type != Type.MELODY && isSolved(t, menu)) {
+            // The answer arrives (lime / glint / the target color), then the server takes it back: the last slot reappears.
+            t.revertFinal = false;
+            t.reverted++;
+            ItemStack old = beforeStack;
+            int id = menu.containerId;
+            HxMenus.later(() -> HxMenus.later(() -> {
+                if (player.containerMenu.containerId == id) {
+                    menu.items().setItem(slot, old);
+                    JsonObject r = new JsonObject();
+                    r.addProperty("slot", slot);
+                    HxEvents.custom("terminal.reverted", player, r);
+                }
+            }));
+            return;
+        }
         if (isSolved(t, menu)) {
             t.solved = true;
             t.solvedTick = tick;
