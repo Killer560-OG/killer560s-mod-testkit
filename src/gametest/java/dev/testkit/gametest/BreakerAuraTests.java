@@ -1599,6 +1599,10 @@ public class BreakerAuraTests implements FabricClientGameTest {
                     for (BlockPos b : picks) {
                         m = m.fill(b.getX(), b.getY(), b.getZ(), b.getX(), b.getY(), b.getZ(), "snow_block");
                     }
+                    // Off the ground a vanilla server mines at a fifth of the speed, so snow is no longer one tick and a
+                    // dig in a jump never breaks (the Dungeon Breaker breaks server-side on Hypixel either way).
+                    m = m.command("attribute @p minecraft:block_break_speed base set "
+                            + (walk == Walk.SPRINT_JUMP ? 6 : 1));
                     m.spawn(cx + 0.5, cz + 0.5, 0f, 0f).build();
                 },
                 (server, scenario) -> {
@@ -1749,6 +1753,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                     + "nothing tested (" + st.report() + ")");
                         }
                     } finally {
+                        server.command("attribute @p minecraft:block_break_speed base set 1");
                         unconfigure(ctx);
                     }
                 });
