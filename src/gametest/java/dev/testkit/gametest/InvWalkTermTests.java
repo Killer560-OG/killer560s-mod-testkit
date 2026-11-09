@@ -29,6 +29,8 @@ import static dev.testkit.gametest.InvWalkCampaignTests.*;
  * a click in a plain server menu and in "Teleport to Player" while he hovers still goes out at once; a click made while he
  * flies forward waits for Stop To Click's one keyless tick (none reaches the server while it has him moving), then goes
  * while he still drifts (air drag keeps a flyer sliding for seconds; GrimAC judges the click on keys and sprint).
+ * Stand Still In Server Menus rows (invwalkclean-1109, see stillRow): whole menu, 40 and 10 ticks, and the same-tick acts;
+ * every row must be clean on both GrimAC configs.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class InvWalkTermTests implements FabricClientGameTest {
@@ -60,10 +62,19 @@ public class InvWalkTermTests implements FabricClientGameTest {
                     for (int mode = 0; mode < 3; mode++) {
                         flyRow(rows, ctx, server, hx, x, z, lat, mode);
                     }
+                    stillRow(rows, ctx, server, hx, x, z, lat, null, 41);
+                    stillRow(rows, ctx, server, hx, x, z, lat, null, 40);
+                    stillRow(rows, ctx, server, hx, x, z, lat, null, 10);
+                    // No ATTACK row: with a menu open vanilla runs no keybinds, so he cannot attack (SameTick's attack never went in).
+                    for (SameTick.Act st : List.of(SameTick.Act.SWAP, SameTick.Act.USE, SameTick.Act.SCREEN_CLICK)) {
+                        stillRow(rows, ctx, server, hx, x, z, lat, st, 41);
+                    }
+                    stillRow(rows, ctx, server, hx, x, z, lat, SameTick.Act.SWAP, 10);
                 }
             } finally {
                 server.command("kill @e[type=minecraft:interaction]");
                 server.command("gamemode survival " + name(ctx));
+                ctx.runOnClient(mc -> Mod.set(IW_CFG, "setStillInMenus", false));
                 tearDown(ctx, gate);
             }
             rows.finish(nm);
@@ -183,6 +194,138 @@ public class InvWalkTermTests implements FabricClientGameTest {
             mc.player.onUpdateAbilities();
         });
         server.command("gamemode survival " + name(ctx));
+        ctx.waitTicks(20);
+        rows.end(label, ok, detail, null);
+    }
+
+    /**
+     * Stand Still In Server Menus (invwalkclean-1109): he runs (sprint) with his inventory open, a terminal (Correct all the
+     * panes!) opens on top while he still holds his keys, and he keeps holding a shuttle of keys for 5 s with a red pane
+     * clicked every 15 ticks. The mod really lets his keys go (vanilla then sends an honest keyless input and his momentum
+     * decays as GrimAC predicts), so this must be clean on both Grim configs. Asserted on the wire: it acted (stand-still
+     * ticks counted, he held keys the whole time), no input with a movement, jump or sprint flag went out while it stood him
+     * still (whole menu: none while the menu was up), a {@code stillTicks} window walks on after it (path, movement inputs),
+     * every pane click handled with the server holding no keys, the terminal solved; {@code st}: his act in the same tick.
+     */
+    private static void stillRow(Rows rows, ClientGameTestContext ctx, TestServer server, Hx hx, int x, int z, int lat, SameTick.Act st,
+                                 int stillTicks) {
+        boolean whole = stillTicks >= 41;
+        String label = "L" + lat + " stand still " + (whole ? "whole menu" : stillTicks + " ticks") + ", terminal opened running"
+                + (st == null ? "" : ", same tick " + st);
+        keys(ctx, Set.of());
+        tp(server, ctx, x + 0.5, SURFACE_Y, z + 0.5, -90f);
+        ctx.runOnClient(mc -> {
+            Mod.set(IW_CFG, "setStillInMenus", true);
+            Mod.set(IW_CFG, "setStillTicks", stillTicks);
+        });
+        rows.begin();
+        long still0 = ctx.computeOnClient(mc -> ((Number) Mod.staticCall(IW, "standStillTicks")).longValue());
+        // Running when the terminal opens: walk with the inventory open first (own inventory, Inventory Walk moves him).
+        openInventory(ctx);
+        keys(ctx, SPRINT);
+        ctx.waitTicks(15);
+        int[] wireMoving = {0};
+        int[] wireStillMoving = {0};
+        int[] wireStill = {0};
+        int[] wireInputs = {0};
+        boolean[] open = {true};
+        java.util.function.Consumer<Packet<?>> prev = dev.testkit.harness.PacketTrace.tap;
+        java.util.function.Consumer<Packet<?>> tap = pk -> {
+            if (prev != null) {
+                prev.accept(pk);
+            }
+            if (open[0] && pk instanceof net.minecraft.network.protocol.game.ServerboundPlayerInputPacket in
+                    && McCompat.screen(net.minecraft.client.Minecraft.getInstance()) instanceof AbstractContainerScreen<?> s
+                    && s.getMenu().containerId != 0) {
+                Input i = in.input();
+                boolean mv = i.forward() || i.backward() || i.left() || i.right() || i.jump() || i.sprint();
+                boolean still = (Boolean) Mod.staticCall(IW, "isStandingStill");
+                wireInputs[0]++;
+                wireMoving[0] += mv ? 1 : 0;
+                wireStill[0] += still ? 1 : 0;
+                wireStillMoving[0] += still && mv ? 1 : 0;
+            }
+        };
+        ctx.runOnClient(mc -> {
+            dev.testkit.harness.PacketTrace.tap = tap;
+            dev.testkit.harness.PacketTrace.start();
+        });
+        double speed0 = ctx.computeOnClient(mc -> Math.hypot(mc.player.getDeltaMovement().x, mc.player.getDeltaMovement().z));
+        hx.call("menu.terminal", "type", "PANES", "seed", 31 + lat + (st == null ? 0 : st.ordinal()) + stillTicks, "count", 5,
+                "closeOnSolve", false, "interval", 0);
+        if (!openMenu(ctx)) {
+            keys(ctx, Set.of());
+            closeScreen(ctx);
+            ctx.runOnClient(mc -> {
+                dev.testkit.harness.PacketTrace.stop();
+                dev.testkit.harness.PacketTrace.tap = prev;
+            });
+            rows.end(label, false, "the terminal never opened", null);
+            return;
+        }
+        Vec3 at = ctx.computeOnClient(mc -> mc.player.position());
+        ctx.waitTicks(3);
+        // Under latency the panes come a few ticks after the screen.
+        for (int i = 0; i < 30 && ctx.computeOnClient(mc -> mc.player.containerMenu.getSlot(0).getItem().isEmpty()); i++) {
+            ctx.waitTicks(1);
+        }
+        List<Integer> red = ctx.computeOnClient(mc -> {
+            List<Integer> out = new ArrayList<>();
+            var m = mc.player.containerMenu;
+            for (int i = 0; i < m.slots.size() - 36; i++) {
+                if (stackText(m.slots.get(i).getItem()).startsWith("minecraft:red_stained_glass_pane")) {
+                    out.add(i);
+                }
+            }
+            return out;
+        });
+        double slid = ctx.computeOnClient(mc -> Math.hypot(mc.player.getX() - at.x, mc.player.getZ() - at.z));
+        long since = hx.head();
+        // Every 2nd tick: the panes are clicked every 15 ticks, so a 3-tick rhythm would share a tick with all of them or none.
+        SameTick same = st == null ? null : ctx.computeOnClient(mc -> SameTick.start(st, 2,
+                pk -> pk instanceof ServerboundContainerClickPacket, 1, 2));
+        List<Set<String>> segs = List.of(SPRINT, Set.of("key.back", "key.sprint"), Set.of("key.left"), Set.of("key.right"));
+        Cost cost = new Cost();
+        int clicks = 0;
+        for (int t = 0; t < 100; t++) {
+            Set<String> k = segs.get((t / 12) % segs.size());
+            keys(ctx, k);
+            if (t >= 10 && (t - 10) % 15 == 0 && clicks < red.size()) {
+                click(ctx, List.of(Click.left(red.get(clicks++))));
+            }
+            cost.tick(ctx, k);
+        }
+        if (same != null) {
+            ctx.runOnClient(mc -> same.close());
+        }
+        List<JsonObject> ev = InvWalkCampaignTests.awaitClicks(ctx, hx, since, clicks);
+        JsonObject state = hx.call("menu.terminal.state").getAsJsonObject();
+        boolean solved = state.has("solved") && state.get("solved").getAsBoolean();
+        int moving = movingClicks(ev);
+        open[0] = false;
+        long still = ctx.computeOnClient(mc -> ((Number) Mod.staticCall(IW, "standStillTicks")).longValue()) - still0;
+        keys(ctx, Set.of());
+        closeScreen(ctx);
+        ctx.waitTicks(3);
+        ctx.runOnClient(mc -> {
+            dev.testkit.harness.PacketTrace.stop();
+            dev.testkit.harness.PacketTrace.tap = prev;
+        });
+        String sameVerdict = same == null ? null : same.verdict("stand still + " + st);
+        int setbacks = dev.testkit.harness.PacketTrace.received("player_position");
+        // Acted: stood him still for its window although he held keys all along, never sent a key while it did, and (a
+        // tick window) let him walk on after it. Whole menu: no movement key reached the server while the menu was up.
+        boolean acted = speed0 > 0.1 && still >= Math.min(stillTicks, 100) && wireStill[0] >= 1 && wireStillMoving[0] == 0
+                && (whole ? wireMoving[0] == 0 && cost.path < 1.5 : wireMoving[0] > 0 && cost.path >= 3);
+        boolean ok = acted && clicks == red.size() && !red.isEmpty() && ev.size() >= clicks && moving == 0 && solved
+                && sameVerdict == null && setbacks == 0;
+        String detail = String.format(Locale.ROOT, "speed at open %.3f, slid %.2f in 3 ticks, stood still %d tick(s), walked %.2f after "
+                        + "(screen up all along %s), wire inputs in the menu %d (%d with movement/jump/sprint, %d while standing still, %d of "
+                        + "them with keys), panes %d clicked %d handled %d (%d while the server had him moving), solved %s (clicks %s "
+                        + "wrong %s), setbacks %d%s", speed0, slid, still, cost.path, cost.screenAll, wireInputs[0], wireMoving[0],
+                wireStill[0], wireStillMoving[0], red.size(), clicks, ev.size(), moving, solved, state.get("clicks"), state.get("wrong"),
+                setbacks, same == null ? "" : "; " + same.report() + (sameVerdict == null ? "" : " [" + sameVerdict + "]"));
+        ctx.runOnClient(mc -> Mod.set(IW_CFG, "setStillInMenus", false));
         ctx.waitTicks(20);
         rows.end(label, ok, detail, null);
     }
