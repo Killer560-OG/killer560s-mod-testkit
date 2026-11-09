@@ -109,6 +109,7 @@ public class SimBossTests implements FabricClientGameTest {
     private static final String FIX3 = "1105-boss-fix3";
     private static final String GATES = "1105-boss-simgates";
     private static final String CRYS_WALK = "1105-boss-crystalwalk";
+    private static final String NOWITHER = "1109-boss-nowither";
     private static final String BREAKER = "1108-boss-breaker";
     private static final String BREAKER_CHARGE = "1108-boss-breaker-charge";
     private static final String MAXOR = "com.killer560.hub.maxor.MaxorCrystalsFeature";
@@ -133,7 +134,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, NOWITHER};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -173,6 +174,7 @@ public class SimBossTests implements FabricClientGameTest {
                     case FIX3 -> fix3(ctx, f);
                     case GATES -> simGates(ctx, f);
                     case CRYS_WALK -> crystalWalk(ctx, f);
+                    case NOWITHER -> SimBossNoWither1109.run(ctx, f);
                     case BREAKER -> SimBossBreaker1108.run(ctx, f, false);
                     case BREAKER_CHARGE -> SimBossBreaker1108.run(ctx, f, true);
                     default -> ap3(ctx, f);
