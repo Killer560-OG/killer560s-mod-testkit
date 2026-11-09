@@ -279,34 +279,27 @@ public class CoopSimTests implements FabricClientGameTest {
             f.add("the first crystal never sat on its tower");
             return;
         }
+        // Hypixel needs no click: standing within a block of the tower crystal picks it up (BossFight.walkInCrystals).
+        long pick = LogTap.mark();
         GuestPlayer g = GuestPlayer.joinBesideHost(ctx, s, host, GUEST_NAME, new Vec3(63.5, 238, 49.5));
         UUID guest = g.entity().getUUID();
-        ctx.waitTicks(5);
-        Entity crystal = GuestPlayer.onServer(ctx, s, () -> g.entity().level().getEntitiesOfClass(
-                net.minecraft.world.entity.boss.enderdragon.EndCrystal.class, new AABB(63, 236.9, 49, 66, 239.9, 52))
-                .stream().findFirst().orElse(null));
-        if (crystal == null) {
-            f.add("no tower crystal by (64.5, 238.4, 50.5)");
-        } else {
-            g.interact(crystal);
-            ctx.waitTicks(3);
-        }
+        expect(f, facts, "pickup line names the guest", until(ctx, mc -> chatSeen(pick, GUEST_NAME + " picked up an Energy Crystal!"), 40), true);
         expect(f, facts, "crystals the guest carries", carried(guest), 1);
         expect(f, facts, "crystals the host carries", carried(host), 0);
         expect(f, facts, "the guest's slot 8 holds the Energy Crystal",
                 g.ask(p -> p.getInventory().getItem(8).getHoverName().getString().contains("Energy Crystal")), true);
 
-        // Vanilla break: an instant-break block above its head.
+        // Vanilla break: an instant-break block above its head. SimItems.onServerAttack refuses every START on the sim's
+        // server (as for the host, creative too); only the Dungeon Breaker breaks.
         BlockPos slime = new BlockPos(63, 240, 49);
         SimBossTests.command(ctx, "setblock 63 240 49 minecraft:slime_block");
-        long mark = LogTap.mark();
         boolean gone = g.breakBlock(slime, Direction.DOWN, false);
         ctx.waitTicks(2);
         expect(f, facts, "survival guest's instant break left the block", !gone, true);
-        expect(f, facts, "refusal logged for the guest", logSeen(mark, "vanilla break refused for " + GUEST_NAME), true);
         g.run(p -> p.setGameMode(net.minecraft.world.level.GameType.CREATIVE));
-        expect(f, facts, "creative guest's break took the block", g.breakBlock(slime, Direction.DOWN, false), true);
+        expect(f, facts, "creative guest's break left the block", !g.breakBlock(slime, Direction.DOWN, false), true);
         g.run(p -> p.setGameMode(net.minecraft.world.level.GameType.SURVIVAL));
+        expect(f, facts, "the guest's START reached the server", g.events().contains("dig 63,240,49"), true);
 
         // Terminator: the arrows are the guest's.
         g.hold(simItem(ctx, "TERMINATOR"));
@@ -351,7 +344,9 @@ public class CoopSimTests implements FabricClientGameTest {
         expect(f, facts, "the guest's Salvation used up its charge", armed(guest), false);
         expect(f, facts, "the beam hurt its target as the guest", hurtBy(ctx, s, beamTarget), guest);
 
-        // Spirit Sceptre straight down: the blast hurts as the guest and is sent to both players.
+        // Spirit Sceptre straight down: the blast hurts as the guest and is sent to both players (the host stands by: a
+        // particle packet goes to players within 32 blocks, as vanilla's).
+        SimBossTests.tp(ctx, 63.5, 238, 49.5, 0, 0);
         net.minecraft.world.entity.LivingEntity blastTarget = target(ctx, s, "65.0 238 49.5", "tkcoopz2");
         g.hold(simItem(ctx, "BAT_WAND"));
         int b0 = ((Number) ModUnderTest.staticCall(R + "SimSpiritSceptre", "blasts")).intValue();
