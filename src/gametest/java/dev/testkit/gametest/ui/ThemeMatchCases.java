@@ -90,16 +90,11 @@ final class ThemeMatchCases {
                 "gui.tab.SecretWaypointsTab", 1, "gui.tab.SimonSaysTab", 1, "gui.tab.SlotBindsTab", 1, "gui.tab.SpotifyF5Rows", 1,
                 "gui.tab.ThornTab", 2, "gui.tab.TreasureChestHighlightTab", 1, "gui.tab.WaypointRoutesTab", 1,
                 "mining.deployables.MiningDeployables", 2, "gui.tab.MiningDeployablesTab", 1);
-<<<<<<< HEAD
         // Crystal Hollows Map waypoint default: stored as the amber literal and mapped onto the theme where it is drawn
         // (CrystalHollowsWaypoint.drawColor -> ThemeAccent.accent); a color the player picked per waypoint stays.
         // MiningQolConfig's second one is OLD_WALL_DEFAULTS' 0xFFAA00, the pre-chwallcolor value migrated on load (data).
         allow("waypoint default, mapped at draw", "gui.tab.CrystalHollowsMapTab", 2, "mining.chmap.ChMapRenderer", 1,
                 "mining.chmap.ChWaypointRender", 1);
-=======
-        // Default waypoint colors: the waypoint resolves them through ThemeAccent at draw time (CrystalHollowsWaypoint.drawColor).
-        allow("waypoint default", "gui.tab.CrystalHollowsMapTab", 2, "mining.chmap.ChMapRenderer", 1, "mining.chmap.ChWaypointRender", 1);
->>>>>>> lightcontrast-1108
         // A color that means something: rarity / Minecraft gold, a zone, a dragon or relic, a state, a warning mark.
         allow("meaning", "itemrarity.ItemRarity", 1, "profileviewer.data.LevelTables", 1, "profileviewer.screen.ExtraPages", 13,
                 "util.ChatColors", 1, "slottext.SlotTextFeature", 3, "miningqol.CrystalHollowsWalls", 1,
