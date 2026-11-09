@@ -776,6 +776,196 @@ final class DocSmall1101Cases {
         return new int[]{after[0] - before[0], after[1] - before[1]};
     }
 
+    // ---- mage beam from his own eye (magebeamfade-1109) ------------------------------------------------------------------
+
+    /**
+     * His own shot (killer560 2026-11-09: "see how the mage beam is fading out weirdly"): the beam starts at his eye, a
+     * little right and down, and runs 15 blocks along his look. Before the fix the body's near end sat inside the near
+     * plane, so each face drew as one flat wedge from the crosshair over the bottom-right of the screen. Checks the
+     * geometry (no vertex near the eye or behind it), the frame (beam pixels a thin band, not a wedge) and the fade (one
+     * alpha per frame, falling evenly to nothing). On a jar without the fix's hooks only the frame is judged.
+     */
+    static void mageBeamOwnShot(UiCase c) throws Exception {
+        String f = "dungeonextras.MageBeamFeature";
+        String cls = "dungeonextras.DungeonExtrasConfig";
+        Map<Path, byte[]> saved = DungeonB2Cases.snapshotConfig(c, cls);
+        boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+        boolean hooks = c.onClient(mc -> {
+            try {
+                Mod.staticCall(f, "frameStatsForTest");
+                return true;
+            } catch (Throwable e) {
+                return false;
+            }
+        });
+        c.note(hooks ? "jar has the magebeamfade-1109 hooks" : "jar WITHOUT the magebeamfade-1109 hooks: only the frame is judged");
+        try {
+            c.onClient(mc -> {
+                Mod.staticCall("util.SkyblockGate", "setEnabled", false);
+                Object cfg = Mod.cfg(cls);
+                Mod.call(cfg, "setMageBeamEnabled", true);
+                Mod.call(cfg, "setMageBeamFade", false);
+                Mod.call(cfg, "setMageBeamWidth", 2f);
+                Mod.call(cfg, "setMageBeamShape", 0);
+                Mod.call(cfg, "setMageBeamColorMode", 0);
+                Mod.call(cfg, "setMageBeamColor", 0xC0FF6000);
+                Mod.call(cfg, "setMageBeamDurationTicks", 200);
+                ((List<?>) Mod.field(f, "BEAMS")).clear();
+                mc.player.setXRot(0f);
+                return null;
+            });
+            c.ticks(8);
+            java.awt.image.BufferedImage base = shot(c, "no-beam");
+            c.onClient(mc -> {
+                fireOwnBeam(mc, f, 0.35, 0.3);
+                return null;
+            });
+            if (hooks) {
+                c.onClient(mc -> Mod.staticCall(f, "frameStatsForTest"));
+            }
+            c.ticks(6);
+            java.awt.image.BufferedImage beam = shot(c, "own-shot");
+            int w = beam.getWidth(), h = beam.getHeight();
+            int all = 0, corner = 0;
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) {
+                    if (beamPixel(beam.getRGB(x, y), base.getRGB(x, y))) {
+                        all++;
+                        if (x > w * 3 / 4 && y > h * 3 / 4) {
+                            corner++;
+                        }
+                    }
+                }
+            }
+            double share = all / (double) (w * h);
+            double cornerShare = corner / (double) (w * h / 16);
+            c.note(String.format(java.util.Locale.ROOT, "own shot: beam on %.2f%% of the frame, %.2f%% of the bottom-right "
+                    + "sixteenth (%d px of %dx%d)", share * 100, cornerShare * 100, all, w, h));
+            c.check(all > 50, "the beam drew no pixels (" + all + ")");
+            c.check(share < 0.03, String.format(java.util.Locale.ROOT, "the beam covers %.1f%% of the frame: a wedge, not a band",
+                    share * 100));
+            c.check(cornerShare < 0.02, String.format(java.util.Locale.ROOT,
+                    "the beam covers %.1f%% of the bottom-right corner: it sweeps toward the camera", cornerShare * 100));
+            if (!hooks) {
+                return;
+            }
+            double[] real = c.onClient(mc -> (double[]) Mod.staticCall(f, "frameStatsForTest"));
+            c.note(String.format(java.util.Locale.ROOT, "real draws: nearest vertex %.2f blocks, alpha %d-%d, %d vertices",
+                    real[0], (int) real[1], (int) real[2], (int) real[3]));
+            c.check(real[3] > 0, "the real render drew no body vertex");
+            c.check(real[0] >= 0.99, "a drawn vertex was " + real[0] + " blocks from the camera");
+            c.check(real[1] == real[2], "one frame drew more than one alpha: " + real[1] + "-" + real[2]);
+            // The geometry from his exact eye and from the hand-side start, at every shape and the widest width.
+            String geo = c.onClient(mc -> {
+                Vec3 eye = mc.player.getEyePosition();
+                Vec3 look = mc.player.getLookAngle();
+                Vec3 right = new Vec3(-look.z, 0, look.x).normalize();
+                StringBuilder bad = new StringBuilder();
+                for (double off : new double[]{0, 0.35}) {
+                    Vec3 start = eye.add(right.scale(off)).add(0, -off, 0);
+                    for (int shape = 0; shape < 3; shape++) {
+                        for (float width : new float[]{0.1f, 1f}) {
+                            double[] v = (double[]) Mod.staticCall(f, "bodyForTest", eye, start, start.add(look.scale(15)),
+                                    shape, width, 0xC0FF6000, 0.75f);
+                            if (v.length == 0) {
+                                bad.append(" shape ").append(shape).append(" width ").append(width).append(": nothing drawn;");
+                            }
+                            for (int i = 0; i < v.length; i += 4) {
+                                Vec3 p = new Vec3(v[i], v[i + 1], v[i + 2]).subtract(eye);
+                                if (p.length() < 0.99 || p.dot(look) < 0.05 || v[i + 3] != v[3]) {
+                                    bad.append(String.format(java.util.Locale.ROOT, " shape %d width %.1f off %.2f: vertex %.2f "
+                                            + "away, %.2f ahead, alpha %d vs %d;", shape, width, off, p.length(), p.dot(look),
+                                            (int) v[i + 3], (int) v[3]));
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                return bad.toString();
+            });
+            c.check(geo.isEmpty(), "beam geometry:" + geo);
+            // Fade: over a 2 s beam, the alpha the real draws used must only fall, evenly, to nothing.
+            c.onClient(mc -> {
+                Object cfg = Mod.cfg(cls);
+                Mod.call(cfg, "setMageBeamFade", true);
+                Mod.call(cfg, "setMageBeamDurationTicks", 40);
+                ((List<?>) Mod.field(f, "BEAMS")).clear();
+                fireOwnBeam(mc, f, 0.35, 0.3);
+                Mod.staticCall(f, "frameStatsForTest");
+                return null;
+            });
+            List<double[]> samples = new ArrayList<>();
+            long t0 = System.nanoTime();
+            for (int i = 0; i < 12; i++) {
+                c.ticks(4);
+                double[] s = c.onClient(mc -> (double[]) Mod.staticCall(f, "frameStatsForTest"));
+                samples.add(new double[]{(System.nanoTime() - t0) / 1.0E6, s[1], s[2], s[3]});
+            }
+            StringBuilder line = new StringBuilder();
+            double prevHi = 256;
+            boolean rises = false;
+            for (double[] s : samples) {
+                line.append(String.format(java.util.Locale.ROOT, " %.0fms:%d-%d", s[0], (int) s[1], (int) s[2]));
+                if (s[3] > 0) {
+                    rises |= s[2] > prevHi;
+                    prevHi = s[1];
+                }
+            }
+            c.note("fade samples (ms: alpha lo-hi):" + line);
+            c.check(!rises, "the fade's alpha went back up:" + line);
+            c.check(samples.get(0)[3] > 0 && samples.get(0)[2] > 100, "the fading beam did not start bright:" + line);
+            c.check(samples.get(samples.size() - 1)[3] == 0, "the beam was still drawn after its 2 s life:" + line);
+            // Evenly: the alpha before the one-layer correction (a, from 1 - (1 - a)^2) falls at a steady rate.
+            double[] firstFull = samples.get(0);
+            int halfIdx = 0;
+            for (int i = 0; i < samples.size(); i++) {
+                if (samples.get(i)[3] > 0 && samples.get(i)[0] < 1000) {
+                    halfIdx = i;
+                }
+            }
+            double a0 = 1 - Math.sqrt(1 - firstFull[2] / 255.0);
+            double a1 = 1 - Math.sqrt(1 - samples.get(halfIdx)[1] / 255.0);
+            double rate = (a0 - a1) / Math.max(1, samples.get(halfIdx)[0] - firstFull[0]) * 2000 / 0.75;
+            c.note(String.format(java.util.Locale.ROOT, "fade rate %.2f of the expected (1.00 = linear over 2 s)", rate));
+            c.check(rate > 0.6 && rate < 1.5, "the fade does not fall evenly over its life (rate " + rate + ")");
+        } finally {
+            c.onClient(mc -> {
+                Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas);
+                ((List<?>) Mod.field(f, "BEAMS")).clear();
+                return null;
+            });
+            DungeonB2Cases.restoreConfig(c, saved, cls);
+        }
+    }
+
+    /** One beam as Hypixel sends his own shot: points 0.45 apart from beside his eye along his look, 15 blocks. */
+    private static void fireOwnBeam(net.minecraft.client.Minecraft mc, String f, double right, double down) {
+        Vec3 eye = mc.player.getEyePosition();
+        Vec3 look = mc.player.getLookAngle();
+        Vec3 side = new Vec3(-look.z, 0, look.x).normalize();
+        Vec3 start = eye.add(side.scale(right)).add(0, -down, 0);
+        for (int i = 0; i < 34; i++) {
+            Mod.staticCall(f, "onPoint", start.add(look.scale(i * 0.45)));
+        }
+    }
+
+    private static java.awt.image.BufferedImage shot(UiCase c, String label) throws java.io.IOException {
+        String name = c.name() + "-" + label;
+        Path taken = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(name));
+        Path kept = dev.testkit.harness.Report.screenshot(name, taken);
+        c.note(label + " -> " + (kept != null ? kept : taken));
+        return javax.imageio.ImageIO.read(taken.toFile());
+    }
+
+    /** A pixel the orange beam changed: clearly redder against blue than the frame without it. */
+    private static boolean beamPixel(int rgb, int was) {
+        int dr = ((rgb >> 16) & 0xFF) - ((was >> 16) & 0xFF);
+        int dg = ((rgb >> 8) & 0xFF) - ((was >> 8) & 0xFF);
+        int db = (rgb & 0xFF) - (was & 0xFF);
+        return dr - db > 40 && Math.abs(dr) + Math.abs(dg) + Math.abs(db) > 40;
+    }
+
     // ---- commands ------------------------------------------------------------------------------------------------------
 
     static void commands(UiCase c) {

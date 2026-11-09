@@ -183,7 +183,7 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-11-01 small to-do items (mod doc-small-1101, {@link DocSmall1101Cases}). Own block for merges. */
     static final String[] DOC_SMALL_1101_CASES = {"1101-ds-chat-history", "1101-ds-bugged", "1101-ds-confine-mouse",
             "1101-ds-held-item", "1104-ui-helditem-stuck", "1105-ui-invsearch-click", "1101-ds-dvd", "1101-ds-edit-hud-bars", "1101-ds-ping-colors", "1101-ds-streamer",
-            "1101-ds-tab-texts", "1101-ds-chocolate", "1101-ds-nickhider", "1101-ds-mage-beam", "1101-ds-commands"};
+            "1101-ds-tab-texts", "1101-ds-chocolate", "1101-ds-nickhider", "1101-ds-mage-beam", "1109-ui-magebeam-own-shot", "1101-ds-commands"};
     /** killer560's 2026-11-01 command removals (mod cmdclean-1101, {@link CmdClean1101Cases}). Own block for merges. */
     static final String[] CMDCLEAN_1101_CASES = {"1101-cmdclean-gone", "1101-cmdclean-reach"};
     /** killer560's 2026-10-15 Dungeon Map list (mod map-overhaul-1015, {@link MapOverhaulCases}). Own block for merges. */
@@ -816,6 +816,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1101-ds-chocolate", DocSmall1101Cases::chocolate);
                     UiCase.run(ctx, "1101-ds-nickhider", DocSmall1101Cases::nickhider);
                     UiCase.run(ctx, "1101-ds-mage-beam", DocSmall1101Cases::mageBeam);
+                    UiCase.run(ctx, "1109-ui-magebeam-own-shot", DocSmall1101Cases::mageBeamOwnShot);
                     UiCase.run(ctx, "1101-ds-commands", DocSmall1101Cases::commands);
                     // ---- cmdclean 1101 ----
                     UiCase.run(ctx, "1101-cmdclean-gone", CmdClean1101Cases::gone);
