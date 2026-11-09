@@ -130,6 +130,9 @@ final class HxFeatG1109Cases {
         Object scan = null;
         try (Settings set = new Settings(c).with("livemap.LiveMapConfig", "Enabled", true).with(RP_CFG, "Enabled", false)) {
             dungeon(c);
+            // Earlier cases of a full session leave him inside the F7 boss box, where the map HUD hides: step out of it first.
+            c.server().command("tp @a -419.5 151 -419.5");
+            c.ctx().waitTicks(10);
             scan = c.onClient(mc -> Mod.staticCall("livemap.MapPainter", "beginFullScan"));
             run(c, () -> Mod.staticCall("livemap.LiveMapFeature", "testLoadFloor", new String[]{"a"}, new String[]{"Blaze|1x1|PUZZLE"}));
             run(c, () -> McCompat.setScreen(Minecraft.getInstance(), new ChatScreen("", false)));
