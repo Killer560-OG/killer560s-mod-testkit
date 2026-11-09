@@ -60,9 +60,9 @@ final class HxCheatBugs1109Cases {
                     try (Settings a = new Settings(c).with(TERM, "AutoTerminalsEnabled", true)) {
                         c.check(c.onClient(mc -> b(cfg, "isMachineryOn")), "Auto Terms on: machinery off");
                     }
-                }
-                try (Settings q = new Settings(c).with(TERM, "QueueTerms", true)) {
-                    c.check(c.onClient(mc -> b(cfg, "isMachineryOn")), "Queue Terms on with the solver off: machinery off");
+                    try (Settings q = new Settings(c).with(TERM, "QueueTerms", true)) {
+                        c.check(c.onClient(mc -> b(cfg, "isMachineryOn")), "Queue Terms on with the solver off: machinery off");
+                    }
                 }
                 c.check(!c.onClient(mc -> b(cfg, "isMachineryOn")), "back to all off: the machinery still runs");
             }
