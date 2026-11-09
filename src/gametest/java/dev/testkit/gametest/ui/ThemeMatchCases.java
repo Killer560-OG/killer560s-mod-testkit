@@ -241,6 +241,114 @@ final class ThemeMatchCases {
         return true;
     }
 
+    // ---- light themes: accent text must be readable (lightcontrast-1108) ------------------------------------------
+
+    /** WCAG contrast ratio of two opaque colors. */
+    static double contrast(int a, int b) {
+        double la = lum(a);
+        double lb = lum(b);
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+    }
+
+    private static double lum(int c) {
+        double[] v = new double[3];
+        for (int i = 0; i < 3; i++) {
+            double s = ((c >> (16 - 8 * i)) & 0xFF) / 255.0;
+            v[i] = s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+        }
+        return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+    }
+
+    /**
+     * Under every light menu theme the accent text drawn over the game (chat prefix and value, the Crystal Hollows Map header
+     * pixels) reads at 4.5:1 or better against the dark chat / world, and a dark theme's text is exactly its accent.
+     */
+    static void lightContrast(UiCase c) throws Exception {
+        String old = MenuACases.themeName();
+        int lightThemes = 0;
+        try {
+            for (String theme : new String[]{"AMBER", "DARK", "LIGHT", "OCEAN", "GREEN"}) {
+                c.onClient(mc -> {
+                    Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", Mod.enumValue("gui.MenuTheme", theme));
+                    return null;
+                });
+                Object pal = Mod.staticCall("gui.OverlayThemes", "menu");
+                boolean light = (Boolean) Mod.call(pal, "light");
+                int accent = (Integer) Mod.call(pal, "accent") | 0xFF000000;
+                int hover = (Integer) Mod.call(pal, "accentHover") | 0xFF000000;
+                int prefix = c.onClient(mc -> ((net.minecraft.network.chat.Component) Mod.staticCall("util.ModChat", "prefix", "X"))
+                        .getStyle().getColor().getValue()) | 0xFF000000;
+                int value = c.onClient(mc -> ((net.minecraft.network.chat.Component) Mod.staticCall("util.ModChat", "value", "X"))
+                        .getStyle().getColor().getValue()) | 0xFF000000;
+                if (!light) {
+                    c.note(theme + " (dark): prefix " + MenuACases.hex(prefix) + " value " + MenuACases.hex(value));
+                    if (!theme.equals("AMBER")) {
+                        c.check(prefix == accent && value == hover, theme + " is a dark theme and its chat text must stay"
+                                + " its accent " + MenuACases.hex(accent) + " / " + MenuACases.hex(hover));
+                    }
+                    continue;
+                }
+                lightThemes++;
+                double rp = contrast(prefix, 0xFF202020);
+                double rv = contrast(value, 0xFF202020);
+                c.note(theme + " (light): chat prefix " + MenuACases.hex(prefix) + " " + String.format("%.2f", rp)
+                        + ":1, value " + MenuACases.hex(value) + " " + String.format("%.2f", rv) + ":1 on the dark chat");
+                c.check(rp >= 4.5, theme + " chat prefix is " + String.format("%.2f", rp) + ":1 on dark chat (needs 4.5)");
+                c.check(rv >= 4.5, theme + " chat value is " + String.format("%.2f", rv) + ":1 on dark chat (needs 4.5)");
+
+                // The Crystal Hollows Map header, as drawn pixels: the drawn text colour in the header strip
+                // (see below).
+                Screen ch = open(c, "mining.chmap.CrystalHollowsMapScreen");
+                BufferedImage img = shot(c, "lightcontrast-" + theme.toLowerCase());
+                int[] p = c.onClient(mc -> (int[]) Mod.call(ch, "panel"));
+                double f = img.getWidth() / (double) ch.width;
+                int x0 = (int) (p[0] * f);
+                int x1 = Math.min(img.getWidth() - 1, (int) ((p[0] + 110) * f));
+                int y0 = (int) ((p[1] - 12) * f);
+                int y1 = (int) ((p[1] - 3) * f);
+                // Per row the world behind is the pixel just past the text (the test world's bright sky); text pixels differ from
+                // it, and the black shadow is left out. The commonest such colour is the text fill, judged against the dark
+                // cave / chat the HUD is meant for.
+                java.util.Map<Integer, Integer> hist = new java.util.HashMap<>();
+                for (int y = y0; y < y1; y++) {
+                    int bg = img.getRGB(x1, y);
+                    for (int x = x0; x < x1; x++) {
+                        int px = img.getRGB(x, y) | 0xFF000000;
+                        int d = Math.abs(((px >> 16) & 255) - ((bg >> 16) & 255)) + Math.abs(((px >> 8) & 255) - ((bg >> 8) & 255))
+                                + Math.abs((px & 255) - (bg & 255));
+                        if (d > 15 && contrast(px, 0xFF202020) > 1.5) {
+                            hist.merge(px, 1, Integer::sum);
+                        }
+                    }
+                }
+                int text = 0xFF202020;
+                int most = 0;
+                for (java.util.Map.Entry<Integer, Integer> e : hist.entrySet()) {
+                    if (e.getValue() > most) {
+                        most = e.getValue();
+                        text = e.getKey();
+                    }
+                }
+                double best = contrast(text, 0xFF202020);
+                c.note(theme + " CH map header: text pixel " + MenuACases.hex(text) + " = " + String.format("%.2f", best) + ":1 on 0x202020");
+                c.check(most > 0, theme + ": the header strip holds no text pixels (sample misses)");
+                c.check(best >= 4.5, theme + " CH map header text " + MenuACases.hex(text) + " is " + String.format("%.2f", best)
+                        + ":1 on the dark cave (needs 4.5)");
+                c.onClient(mc -> {
+                    McCompat.setScreen(mc, null);
+                    return null;
+                });
+            }
+            c.check(lightThemes >= 1, "no light menu theme was found: the check measured nothing");
+        } finally {
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", Mod.enumValue("gui.MenuTheme", old));
+                return null;
+            });
+        }
+    }
+
     // ---- source audit (bytecode) ----------------------------------------------------------------------------------
 
     static void audit(UiCase c) throws Exception {
