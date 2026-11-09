@@ -55,7 +55,7 @@ final class TitleWidgetCases {
 
         Object cfg = Mod.cfg("mainmenu.MainMenuThemeConfig");
         boolean e0 = (Boolean) Mod.call(cfg, "isEnabled");
-        boolean mods = c.onClient(m -> (Boolean) Mod.call(Mod.cfg("modlist.ModListConfig"), "isMainMenuButton"));
+        boolean mods = true; // the Mods button has no switch since 2026-11-09
         Object style0 = modMenu ? styleValue() : null;
         int[] win0 = c.onClient(m -> new int[]{m.getWindow().getWidth(), m.getWindow().getHeight(),
                 m.options.guiScale().get()});

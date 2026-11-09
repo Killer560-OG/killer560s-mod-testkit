@@ -133,7 +133,6 @@
     "Scrollable Tooltips",
     "Secret Aura",
     "Secret Sound",
-    "Secret Triggerbot",
     "Secret Waypoints",
     "Secrets",
     "Secrets HUD",
@@ -300,7 +299,6 @@
     "gui.tab.ScreenshotCopyTab": "Chat > Screenshot Copy",
     "gui.tab.SecretAuraTab": "Dungeon > Secrets > Secret Aura",
     "gui.tab.SecretSoundTab": "Dungeon > Secrets > Secret Sound",
-    "gui.tab.SecretTriggerbotTab": "Dungeon > Secrets > Secret Triggerbot",
     "gui.tab.SecretWaypointsTab": "Dungeon > Secrets > Secret Waypoints",
     "gui.tab.ShortsTab": "Display > Video Browser",
     "gui.tab.SimKeybindsTab": "Dungeon > Sim Keybinds",
@@ -1293,9 +1291,6 @@
     },
     "Secret Sound": {
       "secret sound": "Plays a sound when you collect a dungeon secret."
-    },
-    "Secret Triggerbot": {
-      "secret triggerbot": "Right-clicks a dungeon secret as soon as your crosshair is on it (cheat build only)."
     },
     "Secret Waypoints": {
       "secret waypoints": "Draws a colored box on every secret in rooms the mod has recognized."

@@ -50,7 +50,6 @@ final class DefaultsOff1104Cases {
             {"dvd.DvdConfig", "dvdEnabled"},
             {"objecthider.ObjectHiderConfig", "objectHiderEnabled", "noGlow"},
             {"terminatorclicker.TerminatorClickerConfig", "enabled"},
-            {"ghostblock.GhostBlockConfig", "enabled"},
             {"emotes.ChatEmoteConfig", "enabled"},
             {"clicktranslate.ClickTranslateConfig", "enabled"},
             {"commandkeybinds.CommandKeybindsConfig", "enabled"},
@@ -65,7 +64,6 @@ final class DefaultsOff1104Cases {
             {"experiments.ExperimentsConfig", "enabled", "profitTrackerEnabled"},
             {"dungeonalerts.DungeonAlertsConfig", "rareRoomAlert", "rareDropAlert", "duplicateClassAlert", "duplicateClassParty",
                     "witherKingStatueBox", "dimensionalSlashAlert"},
-            {"dungeonwaypoints.DungeonWaypointsConfig", "enabled"},
             {"dungeonqol.DungeonQolConfig", "itemQuality", "icedBoxes", "roomHud"},
             {"autoclosechest.AutoCloseChestConfig", "enabled"},
     };
