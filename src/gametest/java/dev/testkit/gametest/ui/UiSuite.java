@@ -778,6 +778,10 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1101-ui-textbox-enter", c -> TextBoxEnterCases.enterSaves(c, deny));
                     UiCase.run(ctx, "1104-ui-block-colorpicker-drag", ScanBlock1104Cases::colorPickerDrag);
                     UiCase.run(ctx, "1104-ui-defaults-off", DefaultsOff1104Cases::defaultsOff);
+                    UiCase.run(ctx, "1108-ui-itemquality", FeatE1108Cases::itemQuality);
+                    UiCase.run(ctx, "1108-ui-chestclick", FeatE1108Cases::chestClick);
+                    UiCase.run(ctx, "1108-ui-icedmobs", FeatE1108Cases::icedMobs);
+                    UiCase.run(ctx, "1108-ui-roomname", FeatE1108Cases::roomName);
                     UiCase.run(ctx, "1104-ui-univfolders", UniversalFolders1104Cases::moved);
                     // ---- doc-small (807) ----
                     UiCase.run(ctx, "807-ui-doc-small-1014", DocSmall1014Cases::docSmall);
