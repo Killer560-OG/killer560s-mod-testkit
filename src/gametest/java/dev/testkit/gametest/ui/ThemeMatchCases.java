@@ -102,6 +102,7 @@ final class ThemeMatchCases {
                 "chocolatefactory.egg.EggEsp", 1, "chocolatefactory.ChocolateFactoryHelper", 1, "bridge.BridgeStatus", 3,
                 "modusers.ModUserTag", 1, "p3status.P3StatusFeature", 1, "livemap.MapPainter", 7, "runsummary.RunMapPainter", 1,
                 "abilitycooldown.AbilityCooldownFeature", 1, "maskinvincibility.MaskInvincibilityFeature", 1,
+                "milestone.MilestoneFeature", 1,
                 "lagdisplay.LagDisplayFeature", 1, "miningqol.CommissionClaim", 1, "dvd.DvdFeature", 1,
                 "gui.SectionHeaders", 1, "bloodrush.BloodRushHelperFeature", 2, "experiments.ExperimentsFeature", 2,
                 "arrowalign.ArrowAlignFeature", 1, "f7spots.AimSpots", 2);
