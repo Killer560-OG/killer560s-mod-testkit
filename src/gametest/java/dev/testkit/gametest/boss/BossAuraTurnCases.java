@@ -125,7 +125,7 @@ final class BossAuraTurnCases {
     /**
      * Lever Cooldown (2026-11-09): with the cooldown at 800 ms, the lever flicked right after the first one waits out the cooldown
      * (+-10%): lever 1 (27,124,127) is flicked, he is put beside lever 2 (23,132,138) at once, and the second flick must come
-     * 0.9 * 800 / 50 = 14.4 ticks or more after the first (and not much later), with GrimAC silent.
+     * about 0.9 * 800 / 50 = 14.4 ticks (less the ticks the turn to lever 1 took) after the first (and not much later), with GrimAC silent.
      */
     static void leverCooldown(Session c) throws Exception {
         List<AutoCloseable> undo = new ArrayList<>();
@@ -179,7 +179,8 @@ final class BossAuraTurnCases {
             c.note("lever 2 flicked " + t1 + " ticks after lever 1 was seen flicked (he was beside it within ~2); anticheat lines "
                     + (c.scenario().flags().size() - flags0));
             c.check(t1 < 200, "lever 2 was never flicked");
-            c.check(t1 >= 13, "lever 2 went " + t1 + " ticks after lever 1, inside the 800 ms cooldown (14.4 ticks at -10%)");
+            // The cooldown counts from the tick the turn to lever 1 began (a few ticks before its flick), so 14.4 - turn ticks; 50 ms would give 3-5.
+            c.check(t1 >= 9, "lever 2 went " + t1 + " ticks after lever 1, inside the 800 ms cooldown (14.4 ticks at -10%, less the turn)");
             c.check(t1 <= 45, "lever 2 waited " + t1 + " ticks, far past the 800 ms cooldown");
             c.check(c.scenario().flags().size() == flags0, "GrimAC flagged during the levers");
         } finally {
