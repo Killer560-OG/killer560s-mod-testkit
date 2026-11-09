@@ -44,6 +44,10 @@ final class BossAuraTurnCases {
         s.test("1109-boss-ss-auto-only", c -> simonAuto(c, -90f, 23, true));
         s.test("1109-boss-lever-cooldown", BossAuraTurnCases::leverCooldown);
         s.test("1109-boss-lever-cps-migrates", BossAuraTurnCases::leverMigrate);
+        for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{dev.testkit.gametest.SameTick.Act.USE,
+                dev.testkit.gametest.SameTick.Act.USE_KEY, dev.testkit.gametest.SameTick.Act.SWAP}) {
+            s.test("1109-boss-lever-50ms-" + a.name().toLowerCase(Locale.ROOT), c -> leverSameTick(c, a));
+        }
     }
 
     // ---------------------------------------------------------------------------------------------------- Lever Aura
@@ -117,6 +121,83 @@ final class BossAuraTurnCases {
             c.server().command("kill @e[type=armor_stand,x=27,y=125,z=127,distance=..3]");
             c.server().command("fill 21 123 123 30 129 131 minecraft:air");
             c.server().command("forceload remove 21 123 30 131");
+            c.hx().sidebarClear();
+            c.hx().call("dungeon.tp", "x", -619.5, "y", 151.0, "z", -619.5, "yaw", 0f, "pitch", 0f);
+        }
+    }
+
+    /**
+     * Lever Cooldown at its 50 ms floor with his own action in the same ticks (a right-click use, a use-key click, a hotbar swap), on
+     * the one lever: reset to unpowered every 10 ticks so the Aura flicks it again and again. The feature's packet is use_item_on;
+     * the case needs it out, his action in, and (use or swap) at least one server tick carrying both; GrimAC must stay silent.
+     */
+    static void leverSameTick(Session c, dev.testkit.gametest.SameTick.Act act) throws Exception {
+        List<AutoCloseable> undo = new ArrayList<>();
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            c.server().command("forceload add 18 123 30 142");
+            c.server().sync(20);
+            c.server().command("fill 21 123 123 30 123 131 minecraft:stone");
+            c.server().command("fill 21 124 123 30 129 131 minecraft:air");
+            c.server().command("setblock 28 124 127 minecraft:stone");
+            c.server().command("setblock 27 124 127 minecraft:lever[face=wall,facing=west,powered=false]");
+            c.ctx().waitTicks(10);
+            TerminalAuraCases.tp(c, 25.5, 124, 127.5, 90f);
+            c.ctx().waitTicks(20);
+            c.server().command("kill @e[type=armor_stand,x=27,y=125,z=127,distance=..3]");
+            c.server().command("summon armor_stand 27.5 125 127.5 {NoGravity:1b,Invisible:1b,CustomName:\"Not Activated\",CustomNameVisible:1b}");
+            c.hx().give(4, "minecraft:stick");
+            c.hx().give(5, "minecraft:stick");
+            c.onClient(mc -> {
+                mc.player.getInventory().setSelectedSlot(4);
+                return null;
+            });
+            c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
+            c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
+            c.hx().chat(TerminalAuraCases.GOLDOR);
+            c.waitUntil("Floor7Tracker phase P3",
+                    mc -> "P3".equals(String.valueOf(Mod.staticCall(TerminalAuraCases.TRACKER, "getPhase"))), 100);
+            c.waitUntil("the lever and its stand on the client", mc -> mc.level.getBlockState(LEVER).getBlock() instanceof LeverBlock, 100);
+            undo.add(c.onClient(mc -> LightsDeviceCases.raw(LightsDeviceCases.CFG, "AuraEnabled", false)));
+            undo.add(c.onClient(mc -> LightsDeviceCases.raw(LightsDeviceCases.CFG, "TriggerEnabled", false)));
+            undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "SectionLevers", true)));
+            undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "SectionLeversEarly", true)));
+            undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "Range", 4.5)));
+            undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "CooldownMs", 50)));
+            int flags0 = c.scenario().flags().size();
+            st = c.onClient(mc -> dev.testkit.gametest.SameTick.start(act, 2,
+                    p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemOnPacket, 4, 5));
+            undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "Enabled", true)));
+            int flicks = 0;
+            for (int r = 0; r < 12; r++) {
+                c.server().command("setblock 27 124 127 minecraft:lever[face=wall,facing=west,powered=false]");
+                c.ctx().waitTicks(10);
+                if (c.onClient(mc -> mc.level.getBlockState(LEVER).getValue(LeverBlock.POWERED))) flicks++;
+            }
+            c.note("lever flicked in " + flicks + " of 12 rounds at 50 ms");
+            c.check(flicks >= 3, "the Lever Aura flicked the lever in only " + flicks + " of 12 rounds (the feature did not act)");
+            dev.testkit.gametest.SameTick.judge(c, st, "lever aura 50 ms, his " + act,
+                    act == dev.testkit.gametest.SameTick.Act.USE_KEY ? dev.testkit.gametest.SameTick.Expect.APART
+                            : dev.testkit.gametest.SameTick.Expect.SHARE);
+            st = null;
+            c.check(c.scenario().flags().size() == flags0, "GrimAC flagged during the levers with his " + act + " in the same ticks");
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick s2 = st;
+                c.onClient(mc -> {
+                    s2.close();
+                    return null;
+                });
+            }
+            c.onClient(mc -> {
+                restore(undo);
+                return null;
+            });
+            c.server().command("kill @e[type=armor_stand,x=27,y=125,z=127,distance=..3]");
+            c.server().command("fill 21 123 123 30 129 131 minecraft:air");
+            c.server().command("forceload remove 18 123 30 142");
+            c.hx().give(4, "minecraft:air");
+            c.hx().give(5, "minecraft:air");
             c.hx().sidebarClear();
             c.hx().call("dungeon.tp", "x", -619.5, "y", 151.0, "z", -619.5, "yaw", 0f, "pitch", 0f);
         }

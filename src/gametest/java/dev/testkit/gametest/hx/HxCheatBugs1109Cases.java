@@ -27,9 +27,11 @@ final class HxCheatBugs1109Cases {
         s.test("1109-terms-own-switches", HxCheatBugs1109Cases::terms);
         s.test("1109-ss-own-switch", HxCheatBugs1109Cases::ss);
         s.test("1109-bloodcamp-outside-setting", HxCheatBugs1109Cases::bloodSetting);
-        s.test("1109-superboom-gate", c -> boom(c, "gate"));
-        s.test("1109-superboom-crypt", c -> boom(c, "crypt"));
-        s.test("1109-superboom-prince", c -> boom(c, "prince"));
+        for (String k : new String[]{"gate", "crypt", "prince"}) {
+            for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.DIG, SameTick.Act.USE, SameTick.Act.USE_KEY, SameTick.Act.SWAP}) {
+                s.test("1109-superboom-" + k + (a == SameTick.Act.DIG ? "" : "-" + a.name().toLowerCase(java.util.Locale.ROOT)), c -> boom(c, k, a));
+            }
+        }
     }
 
     private static boolean b(Object cfg, String m) {
@@ -109,7 +111,7 @@ final class HxCheatBugs1109Cases {
 
     /** Auto Superboom on one target kind: "gate" (a P3 gate block, in P3), "crypt" (a lid of bottom slabs on a stone base) or
      *  "prince" (a sea lantern ringed by polished andesite). The server must see held=2 with his dig in the swap's tick. */
-    private static void boom(Session c, String kind) {
+    private static void boom(Session c, String kind, SameTick.Act act) {
         if (!Mod.isCheat()) {
             c.note("legit jar: Auto Superboom is cheat-only");
             return;
@@ -166,8 +168,9 @@ final class HxCheatBugs1109Cases {
                 c.check(String.valueOf(found).contains(kind.equals("crypt") ? "CRYPT" : "PRINCE"), "the scanner does not see the " + kind);
             }
             long since = c.hx().head();
-            st = c.onClient(mc -> SameTick.start(SameTick.Act.DIG, 4, p -> p instanceof ServerboundSetCarriedItemPacket h
-                    && (h.getSlot() == 2 || h.getSlot() == 4), 4, 5));
+            c.hx().give(6, "minecraft:stick");
+            st = c.onClient(mc -> SameTick.start(act, 4, p -> p instanceof ServerboundSetCarriedItemPacket h
+                    && (h.getSlot() == 2 || act != SameTick.Act.SWAP && h.getSlot() == 4), 5, 6));
             for (int r = 0; r < 6; r++) {
                 build.run();
                 c.waitUntil("the " + kind + " block under his crosshair", mc -> mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult bh
@@ -176,7 +179,7 @@ final class HxCheatBugs1109Cases {
                         && bh.getBlockPos().getY() <= 121), 100);
                 c.ctx().waitTicks(10);
             }
-            SameTick.judge(c, st, "auto superboom " + kind, SameTick.Expect.SHARE);
+            SameTick.judge(c, st, "auto superboom " + kind + ", his " + act, SameTick.Expect.SHARE);
             st = null;
             c.ctx().waitTicks(10);
             var held = c.hx().events(since, "held");
