@@ -362,11 +362,11 @@ public class InvWalkCarryTests implements FabricClientGameTest {
                 // Held: the move turns him, the cursor and slots stay, no click.
                 rows.begin();
                 long since = hx.head();
+                double[] cur0 = ctx.computeOnClient(mc -> new double[]{mc.mouseHandler.xpos(), mc.mouseHandler.ypos()});
                 ctx.getInput().holdKey(keyNat);
                 ctx.waitTicks(2);
                 nudge(ctx, 3, 0); // the frame that grabs drops its own motion
                 ctx.waitTicks(3);
-                double[] cur0 = ctx.computeOnClient(mc -> new double[]{mc.mouseHandler.xpos(), mc.mouseHandler.ypos()});
                 float[] l0 = look(ctx);
                 long looks0 = ctx.computeOnClient(mc -> ((Number) Mod.staticCall(IW, "looks")).longValue());
                 List<String> slots0 = serverSlots(state(hx));
