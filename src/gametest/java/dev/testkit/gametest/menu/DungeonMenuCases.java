@@ -87,6 +87,7 @@ final class DungeonMenuCases {
         MenuKit.reset(c);
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set("autoclosechest.AutoCloseChestConfig", "Enabled", true);
+            cfg.set("autoclosechest.AutoCloseChestConfig", "Auto", true);
             // control first: outside a dungeon a "Chest" opens normally
             leaveDungeon(c);
             MenuKit.show(c, MenuKit.menu("menus.dungeon-secret-chest"));
