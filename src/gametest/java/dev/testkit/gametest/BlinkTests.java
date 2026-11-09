@@ -63,6 +63,8 @@ public class BlinkTests implements FabricClientGameTest {
                 BlinkTests::holdRapid, BlinkTests::chargeRapid, BlinkTests::chargeArmedMenu,
                 BlinkTests::clicks, BlinkTests::chargeFar, BlinkTests::chargeLong, BlinkTests::shotLever,
                 BlinkTests::worldChange, BlinkTests::bow, BlinkTests::chargeSameUse, BlinkTests::chargeSameSwap,
+                BlinkTests::oneShot, BlinkTests::predictStep, BlinkTests::oneShotSameUse, BlinkTests::oneShotSameSwap,
+                BlinkTests::oneShotSameAttack, BlinkTests::oneShotSameClick, BlinkTests::oneShotSameTp,
                 BlinkTests::sweepWalk, BlinkTests::sweepStill,
                 BlinkTests::sweepLatency)) {
             try {
@@ -1212,11 +1214,242 @@ public class BlinkTests implements FabricClientGameTest {
     }
 
     private static void chargeSameUse(ClientGameTestContext ctx) {
-        chargeSame(ctx, SameTick.Act.USE, -6400, -3400);
+        chargeSame(ctx, SameTick.Act.USE, -6400, -3400, false);
     }
 
     private static void chargeSameSwap(ClientGameTestContext ctx) {
-        chargeSame(ctx, SameTick.Act.SWAP, -6400, -3600);
+        chargeSame(ctx, SameTick.Act.SWAP, -6400, -3600, false);
+    }
+
+    private static void oneShotSameUse(ClientGameTestContext ctx) {
+        chargeSame(ctx, SameTick.Act.USE, -6800, -3800, true);
+    }
+
+    private static void oneShotSameSwap(ClientGameTestContext ctx) {
+        chargeSame(ctx, SameTick.Act.SWAP, -6800, -4000, true);
+    }
+
+    private static void oneShotSameAttack(ClientGameTestContext ctx) {
+        chargeSame(ctx, SameTick.Act.ATTACK, -6800, -4200, true);
+    }
+
+    private static void oneShotSameClick(ClientGameTestContext ctx) {
+        chargeSame(ctx, SameTick.Act.CLICK, -6800, -4400, true);
+    }
+
+    private static void oneShotSameTp(ClientGameTestContext ctx) {
+        chargeSame(ctx, SameTick.Act.TP, -6800, -4600, true);
+    }
+
+    /**
+     * Mod blinkone-1105's test hook {@code BlinkCharge.tickBudgetForTest} (null = by the server, FALSE = Hypixel's
+     * per-packet rule, no split). False when the jar has no such hook (before blinkone-1105).
+     */
+    static boolean budgetHook(ClientGameTestContext ctx, Boolean value) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                Mod.setField(CHARGE, "tickBudgetForTest", value);
+                return true;
+            } catch (RuntimeException | AssertionError e) {
+                return false;
+            }
+        });
+    }
+
+    /** Sizes of the bursts of movement packets WireCapture saw (a burst: packets under 20 ms apart). */
+    static List<Integer> moveBursts() {
+        List<Integer> out = new ArrayList<>();
+        long last = Long.MIN_VALUE;
+        for (dev.testkit.harness.WireCapture.Sent sent : dev.testkit.harness.WireCapture.snapshot()) {
+            if (!sent.className().contains("MovePlayerPacket")) {
+                continue;
+            }
+            if (out.isEmpty() || sent.nanos() - last > 20_000_000L) {
+                out.add(0);
+            }
+            out.set(out.size() - 1, out.get(out.size() - 1) + 1);
+            last = sent.nanos();
+        }
+        return out;
+    }
+
+    /**
+     * One sprinting Speed IV shot of a full 20-tick bank from the arena's west side, the wire captured. Returns {bank,
+     * shots made, ticks shot, the biggest move burst, bursts of 3+ moves (the shot's parts), client-server gap after}.
+     */
+    static double[] speedShot(ClientGameTestContext ctx, TestServer server, Scenario scenario, String name, int x, int z,
+                              StringBuilder rows, String label) {
+        chargeOff(ctx);
+        server.command("tp " + name + " " + (x - 15.5) + " " + SURFACE_Y + " " + (z + 0.5) + " -90 0");
+        ctx.waitTicks(10);
+        chargeOn(ctx);
+        ctx.waitTicks(45);
+        // A shot after a teleport waits for GrimAC's cover (campaign-blink-1027): let it come first, standing.
+        for (int i = 0; i < 100 && !shotCoveredNow(ctx); i++) {
+            ctx.waitTicks(1);
+        }
+        long bank = cnum(ctx, "banked");
+        long shots0 = cnum(ctx, "shots");
+        long st0 = cnum(ctx, "shotTicks");
+        ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+        ctx.getInput().holdKey(o -> o.keySprint);
+        ctx.getInput().holdKey(o -> o.keyUp);
+        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
+        ctx.waitTicks(2);
+        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+        for (int i = 0; i < 8 && ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "shotPending")); i++) {
+            ctx.waitTicks(1);
+        }
+        ctx.waitTicks(1);
+        ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
+        ctx.getInput().releaseKey(o -> o.keyUp);
+        ctx.getInput().releaseKey(o -> o.keySprint);
+        List<Integer> bursts = moveBursts();
+        long shots = cnum(ctx, "shots") - shots0;
+        long ticks = cnum(ctx, "shotTicks") - st0;
+        ctx.waitTicks(30);
+        double[] client = scenario.playerPosition();
+        double[] srv = serverPos(server, ctx, name);
+        int biggest = 0;
+        int parts = 0;
+        for (int b : bursts) {
+            biggest = Math.max(biggest, b);
+            parts += b >= 3 ? 1 : 0;
+        }
+        rows.append(String.format(Locale.ROOT, " [%s: bank %d, %d shot(s) %d tick(s); move bursts %s (biggest %d, %d part(s)); "
+                + "client %s server %s]", label, bank, shots, ticks, bursts, biggest, parts, fmt(client), fmt(srv)));
+        return new double[]{bank, shots, ticks, biggest, parts, flat(client, srv)};
+    }
+
+    /**
+     * 1105-blink-oneshot (blinkone-1105; killer560 2026-11-05: "it releases the blink in 3 packets sets"): on Hypixel's
+     * 1.8 server "moved too quickly" is judged per move packet, so a whole 20-tick Speed IV shot must leave in ONE burst
+     * (all banked moves and the firing tick's on the wire inside one flush, one shot counted), with the server agreeing
+     * and GrimAC silent. The server's {@code player_movement_check} gamerule is off for that part (the testkit's vanilla
+     * server stands in for Hypixel's per-packet rule) and the mod is told it is on that rule. A second shot right after
+     * it fires too. Then, on a modern server rule (the default off Hypixel), the same shot still splits under 10 blocks
+     * a server tick and the server agrees.
+     */
+    private static void oneShot(ClientGameTestContext ctx) {
+        int x = -6800;
+        int z = -3400;
+        Scenario.run(ctx, "1105-blink-oneshot", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            String name = playerName(ctx);
+            boolean hook = budgetHook(ctx, Boolean.FALSE);
+            try {
+                server.command("gamerule player_movement_check false");
+                server.command("effect give " + name + " minecraft:speed 120 3 true");
+                StringBuilder rows = new StringBuilder();
+                double[] one = speedShot(ctx, server, scenario, name, x, z, rows, "per-packet rule");
+                ctx.waitTicks(2);
+                double[] second = shootByPress(ctx, true);
+                ctx.waitTicks(20);
+                double[] afterSecond = serverPos(server, ctx, name);
+                double secondGap = flat(scenario.playerPosition(), afterSecond);
+                rows.append(String.format(Locale.ROOT, " [second shot 2 ticks after: %d shot(s) %d tick(s), %.2f blocks; "
+                        + "client-server %.2f]", (long) second[1], (long) second[2], second[0], secondGap));
+                budgetHook(ctx, null);
+                server.command("gamerule player_movement_check true");
+                double[] split = speedShot(ctx, server, scenario, name, x, z, rows, "modern rule");
+                scenario.log("oneshot: test hook " + (hook ? "present" : "MISSING (jar before blinkone-1105)") + ";" + rows);
+                check(hook, "the jar has no BlinkCharge.tickBudgetForTest (built before blinkone-1105)");
+                check(one[0] == 20, "the bank was not full before the shot");
+                check(one[1] == 1 && one[2] == 20, "the per-packet shot was not one 20-tick shot:" + rows);
+                check(one[4] == 1 && one[3] >= 20, "the per-packet shot did not leave in one burst:" + rows);
+                check(one[5] < 0.5, "client and server disagree after the one-burst shot");
+                check(second[1] == 1 && secondGap < 0.5, "the second shot did not fire with the server agreeing:" + rows);
+                check(split[4] >= 2 && split[5] < 0.5, "on the modern rule the shot did not split with the server agreeing:"
+                        + rows);
+            } finally {
+                budgetHook(ctx, null);
+                server.command("gamerule player_movement_check true");
+                server.command("effect clear " + name);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    /**
+     * 1105-blink-predict-step (killer560 2026-11-05: "the prediction needs to account for things like stepping up over
+     * half slabs"): charged and sprinting east toward a bottom half slab, then a stair, then a floor one block up. The
+     * landing estimate read the tick before the shot must be where the shot left him, height included (within 0.25), and
+     * the server must end on the raised floor with him.
+     */
+    private static void predictStep(ClientGameTestContext ctx) {
+        int x = -6800;
+        int z = -3600;
+        Scenario.run(ctx, "1105-blink-predict-step", (server, scenario) -> {
+            // testkit fill places default states (a bottom half slab); the stairs go in one by one, facing east.
+            TestMap map = TestMap.on(server)
+                    .platform(x, SURFACE_Y - 1, z, 40)
+                    .walls(x, SURFACE_Y, z, 40, 3)
+                    .catchFloor(120)
+                    .survival()
+                    .clearInventory()
+                    .fill(x + 5, SURFACE_Y, z - 3, x + 5, SURFACE_Y, z + 3, "stone_slab")
+                    .fill(x + 7, SURFACE_Y, z - 3, x + 18, SURFACE_Y, z + 3, "stone");
+            for (int dz = -3; dz <= 3; dz++) {
+                map.command("setblock " + (x + 6) + " " + SURFACE_Y + " " + (z + dz) + " minecraft:stone_stairs[facing=east]");
+            }
+            map.spawn(x + 0.5, z + 0.5, -90f).build();
+        }, (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            try {
+                String name = playerName(ctx);
+                String course = ctx.computeOnClient(mc -> {
+                    StringBuilder b = new StringBuilder();
+                    for (int dx = 5; dx <= 7; dx++) {
+                        b.append(mc.level.getBlockState(new net.minecraft.core.BlockPos(x + dx, SURFACE_Y, z))).append(' ');
+                    }
+                    return b.toString();
+                });
+                scenario.log("predict-step course: " + course);
+                check(course.contains("stone_slab") && course.contains("stone_stairs") && course.contains("Block{minecraft:stone}"),
+                        "the slab, stair and raised floor are not there: " + course);
+                chargeOn(ctx);
+                ctx.waitTicks(35);
+                long bank = cnum(ctx, "banked");
+                ctx.getInput().holdKey(o -> o.keyUp);
+                ctx.getInput().holdKey(o -> o.keySprint);
+                ctx.waitTicks(10);
+                double[] est = ctx.computeOnClient(mc -> {
+                    net.minecraft.world.phys.Vec3 v = (net.minecraft.world.phys.Vec3) Mod.staticCall(CHARGE, "landingEstimate");
+                    Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE);
+                    return v == null ? null : new double[]{v.x, v.y, v.z};
+                });
+                double[] from = scenario.playerPosition();
+                ctx.waitTicks(1);
+                ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+                double[] landed = scenario.playerPosition();
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                ctx.getInput().releaseKey(o -> o.keySprint);
+                long ticks = cnum(ctx, "lastShotTicks");
+                ctx.waitTicks(20);
+                double[] client = scenario.playerPosition();
+                double[] srv = serverPos(server, ctx, name);
+                double err = est == null ? -1 : Math.sqrt(Math.pow(est[0] - landed[0], 2) + Math.pow(est[1] - landed[1], 2)
+                        + Math.pow(est[2] - landed[2], 2));
+                scenario.log(String.format(Locale.ROOT, "predict-step: bank %d; estimate %s from %s; the shot (%d tick(s)) left "
+                                + "him at %s, %.3f from the estimate; settled client %s server %s", bank,
+                        est == null ? "-" : fmt(est), fmt(from), ticks, fmt(landed), err, fmt(client), fmt(srv)));
+                check(bank == 20, "the bank was not full");
+                check(est != null, "no landing estimate while charging and moving");
+                check(ticks == 20 && landed[0] > x + 7.5 && landed[1] > SURFACE_Y + 0.99, "the shot did not carry him up onto "
+                        + "the raised floor");
+                check(err >= 0 && err < 0.25, String.format(Locale.ROOT, "the estimate was %.3f blocks off", err));
+                check(Math.abs(srv[1] - (SURFACE_Y + 1)) < 0.01 && flat(client, srv) < 0.5, "the server did not end on the "
+                        + "raised floor with him");
+            } finally {
+                ctx.getInput().releaseKey(o -> o.keyUp);
+                ctx.getInput().releaseKey(o -> o.keySprint);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
     }
 
     /**
@@ -1226,13 +1459,37 @@ public class BlinkTests implements FabricClientGameTest {
      * every tick leaves nothing to shoot). The shot's banked moves and the firing tick's own move are the feature's; a GrimAC tick must carry
      * his packet with one of them, every shot must run its full 20 ticks with the server agreeing, and GrimAC says nothing.
      */
-    private static void chargeSame(ClientGameTestContext ctx, SameTick.Act act, int x, int z) {
-        String name = "1105-blink-charge-same-" + act.name().toLowerCase(Locale.ROOT);
+    private static void chargeSame(ClientGameTestContext ctx, SameTick.Act act, int x, int z, boolean oneTick) {
+        // oneTick (blinkone-1105, 1105-blink-oneshot-same-*): Hypixel's per-packet rule and Speed IV, so each shot is one
+        // burst of over 10 blocks.
+        String name = (oneTick ? "1105-blink-oneshot-same-" : "1105-blink-charge-same-") + act.name().toLowerCase(Locale.ROOT);
         Scenario.run(ctx, name, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             SameTick[] st = {null};
+            String who = playerName(ctx);
             try {
-                String who = playerName(ctx);
+                if (oneTick) {
+                    check(budgetHook(ctx, Boolean.FALSE), "the jar has no BlinkCharge.tickBudgetForTest (before blinkone-1105)");
+                    server.command("gamerule player_movement_check false");
+                    // His hits on the stand slow him as vanilla does, so ATTACK gets Speed VI to stay over 10 blocks.
+                    server.command("effect give " + who + " minecraft:speed 120 " + (act == SameTick.Act.ATTACK ? 5 : 3) + " true");
+                }
+                if (act == SameTick.Act.CLICK) {
+                    // He can only run with a menu open through Inventory Walk; its clicks go at once (no Stop To Click).
+                    ctx.runOnClient(mc -> {
+                        Mod.set("invwalk.InventoryWalkConfig", "setEnabled", true);
+                        Mod.set("invwalk.InventoryWalkConfig", "setScreens",
+                                Mod.enumValue("invwalk.InventoryWalkConfig$Screens", "CONTAINERS"));
+                        Mod.set("invwalk.InventoryWalkConfig", "setSprint", true);
+                        Mod.set("invwalk.InventoryWalkConfig", "setPauseAfterClickTicks", 0);
+                        Mod.set("invwalk.InventoryWalkConfig", "setStopToClick", false);
+                    });
+                }
+                if (act == SameTick.Act.ATTACK) {
+                    // An armor stand: a peaceful test server would despawn a zombie at once.
+                    server.command("summon armor_stand " + (x + 2.5) + " " + (SURFACE_Y + 2) + " " + (z + 0.5)
+                            + " {NoGravity:1b,Invulnerable:1b,Tags:[\"blinkst\"]}");
+                }
                 server.command("item replace entity @a hotbar.4 with minecraft:blaze_rod");
                 server.command("item replace entity @a hotbar.5 with minecraft:blaze_rod");
                 ctx.waitTicks(3);
@@ -1254,26 +1511,136 @@ public class BlinkTests implements FabricClientGameTest {
                     return f;
                 }, 4, 5));
                 SameTick hold = st[0];
-                boolean use = act == SameTick.Act.USE;
-                if (use) {
+                // A tick with his action is never banked, so his action goes in only around the shot (all but SWAP).
+                boolean around = act != SameTick.Act.SWAP;
+                if (around) {
                     ctx.runOnClient(mc -> hold.allow(0));
                 }
                 StringBuilder rounds = new StringBuilder();
                 int good = 0;
                 for (int round = 0; round < 3; round++) {
                     ctx.waitTicks(40);
+                    for (int i = 0; i < 60 && cnum(ctx, "banked") < 20; i++) {
+                        ctx.waitTicks(1);
+                    }
                     long bank = cnum(ctx, "banked");
-                    if (use) {
+                    if (act == SameTick.Act.ATTACK) {
+                        // The stand two blocks ahead of him, up out of his way, under his crosshair at the shot.
+                        double[] at = scenario.playerPosition();
+                        float yaw = ctx.computeOnClient(mc -> mc.player.getYRot());
+                        double fx = -Math.sin(Math.toRadians(yaw));
+                        double fz = Math.cos(Math.toRadians(yaw));
+                        server.command(String.format(Locale.ROOT, "tp @e[tag=blinkst] %.3f %.3f %.3f", at[0] + 2 * fx,
+                                SURFACE_Y + 2.0, at[2] + 2 * fz));
+                        // His client eases the stand over (r6: still 3 blocks short 5 ticks after a 9-block tp): wait for it.
+                        double sx = at[0] + 2 * fx;
+                        double sz = at[2] + 2 * fz;
+                        for (int i = 0; i < 40 && !ctx.computeOnClient(mc -> {
+                            for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+                                if (e instanceof net.minecraft.world.entity.decoration.ArmorStand
+                                        && Math.hypot(e.getX() - sx, e.getZ() - sz) < 0.1) {
+                                    return true;
+                                }
+                            }
+                            return false;
+                        }); i++) {
+                            ctx.waitTicks(1);
+                        }
+                        look(ctx, at[0] + 2 * fx, SURFACE_Y + 3.0, at[2] + 2 * fz);
+                        ctx.waitTicks(2);
+                        String aim = ctx.computeOnClient(mc -> {
+                            StringBuilder b = new StringBuilder(mc.hitResult instanceof net.minecraft.world.phys.EntityHitResult
+                                    ? "ON" : "off: " + (mc.hitResult == null ? "none" : mc.hitResult.getType()));
+                            b.append(String.format(Locale.ROOT, ", look %.1f/%.1f, him %s, camera %s, paused %s, entities near:",
+                                    mc.player.getYRot(), mc.player.getXRot(),
+                                    fmt(new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()}),
+                                    mc.getCameraEntity() == mc.player ? "him" : String.valueOf(mc.getCameraEntity()), mc.isPaused()));
+                            net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition();
+                            net.minecraft.world.phys.Vec3 end = eye.add(mc.player.getViewVector(1f).scale(3));
+                            for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+                                if (e != mc.player && e.distanceTo(mc.player) < 8) {
+                                    b.append(' ').append(e.getType().toShortString()).append(fmt(new double[]{e.getX(), e.getY(), e.getZ()}))
+                                            .append(" pickable ").append(e.isPickable()).append(" clip ")
+                                            .append(e.getBoundingBox().clip(eye, end).isPresent());
+                                }
+                            }
+                            return b.toString();
+                        });
+                        check(aim.startsWith("ON"), "the armor stand is not under his crosshair before round " + (round + 1)
+                                + ": " + aim);
+                        ctx.waitTicks(2);
+                    }
+                    if (around) {
                         ctx.runOnClient(mc -> hold.allow(3));
                     }
-                    double[] shot = shootByPress(ctx, true);
+                    if (act == SameTick.Act.ATTACK) {
+                        // His click goes in at the END of this tick, queued for the tick he presses the Charge key in. Fired
+                        // first, the shot carried him 11 blocks past the stand and his attack never went out (blinkone-1105
+                        // r6b: "his ticks 0"); the shot now waits for it.
+                        ctx.waitTicks(1);
+                    }
+                    if (act == SameTick.Act.TP) {
+                        server.command("execute as " + who + " at @s run tp @s ~ ~ ~");
+                    }
+                    double[] shot;
+                    if (act == SameTick.Act.CLICK) {
+                        // A shot fired under a screen waits for it to close (BlinkCharge.fire), so his clicks can only go
+                        // right before it: he clicks every tick with his inventory open, fires, and closes it at the END
+                        // of the tick after his last click, so that click, the close and the shot share a server tick.
+                        long shots0 = cnum(ctx, "shots");
+                        ctx.runOnClient(mc -> dev.testkit.compat.McCompat.setScreen(mc,
+                                new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player)));
+                        ctx.waitTicks(2);
+                        ctx.runOnClient(mc -> hold.allow(3));
+                        double[] before = scenario.playerPosition();
+                        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
+                        ctx.waitTicks(2);
+                        check(cnum(ctx, "shots") == shots0, "the shot went with his inventory open");
+                        ctx.getInput().holdKey(o -> o.keyUp);
+                        ctx.getInput().holdKey(o -> o.keySprint);
+                        ctx.runOnClient(mc -> dev.testkit.compat.McCompat.setScreen(mc, null));
+                        ctx.waitTicks(2);
+                        double[] after = scenario.playerPosition();
+                        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+                        ctx.getInput().releaseKey(o -> o.keyUp);
+                        ctx.getInput().releaseKey(o -> o.keySprint);
+                        shot = new double[]{flat(before, after), cnum(ctx, "shots") - shots0, cnum(ctx, "lastShotTicks")};
+                    } else if (act == SameTick.Act.ATTACK) {
+                        // blinkone-1106: a key shot waits while his left click is queued (it goes first, the shot the tick
+                        // after, at most 250 ms), so he keeps running and the shot comes once his clicks are out.
+                        long shots0 = cnum(ctx, "shots");
+                        double[] before = scenario.playerPosition();
+                        ctx.getInput().holdKey(o -> o.keyUp);
+                        ctx.getInput().holdKey(o -> o.keySprint);
+                        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
+                        ctx.waitTicks(1);
+                        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+                        int waited = 0;
+                        for (; waited < 10 && cnum(ctx, "shots") == shots0; waited++) {
+                            ctx.waitTicks(1);
+                        }
+                        ctx.waitTicks(1);
+                        double[] after = scenario.playerPosition();
+                        ctx.getInput().releaseKey(o -> o.keyUp);
+                        ctx.getInput().releaseKey(o -> o.keySprint);
+                        check(waited >= 1, "the shot did not wait for his queued attack click (fired the tick he pressed)");
+                        shot = new double[]{flat(before, after), cnum(ctx, "shots") - shots0, cnum(ctx, "lastShotTicks")};
+                    } else {
+                        shot = shootByPress(ctx, true);
+                    }
+                    if (act == SameTick.Act.TP) {
+                        server.command("execute as " + who + " at @s run tp @s ~ ~ ~");
+                    }
                     ctx.waitTicks(10);
-                    ctx.runOnClient(mc -> mc.player.setYRot(mc.player.getYRot() + 180f));
+                    ctx.runOnClient(mc -> {
+                        mc.player.setYRot(mc.player.getYRot() + 180f);
+                        mc.player.setXRot(0f);
+                    });
                     double[] client = scenario.playerPosition();
                     double[] srv = serverPos(server, ctx, who);
                     rounds.append(String.format(Locale.ROOT, " [round %d: bank %d, shot %d tick(s) %.2f blocks; client %s server %s]",
                             round + 1, bank, (long) shot[2], shot[0], fmt(client), fmt(srv)));
-                    if (bank == 20 && shot[1] == 1 && shot[2] == 20 && shot[0] > 4.5 && flat(client, srv) < 0.5) {
+                    if (bank == 20 && shot[1] == 1 && shot[2] == 20 && shot[0] > (oneTick ? 9.6 : 4.5) && flat(client, srv) < 0.5) {
                         good++;
                     }
                 }
@@ -1282,7 +1649,9 @@ public class BlinkTests implements FabricClientGameTest {
                 st[0] = null;
                 scenario.log(name + ":" + rounds + "; " + done.report());
                 check(good == 3, good + " of 3 charge shots ran 20 ticks with the server agreeing:" + rounds);
-                String why = done.verdict("charge shot");
+                // A shot after a teleport waits for GrimAC's cover by design (campaign-blink-1027): his accept and the
+                // shot never share a server tick.
+                String why = act == SameTick.Act.TP ? done.verdict("charge shot", true) : done.verdict("charge shot");
                 check(why == null, why);
             } finally {
                 if (st[0] != null) {
@@ -1292,6 +1661,19 @@ public class BlinkTests implements FabricClientGameTest {
                 chargeOff(ctx);
                 tearDown(ctx, gate);
                 server.command("clear @a minecraft:blaze_rod");
+                if (oneTick) {
+                    budgetHook(ctx, null);
+                    server.command("gamerule player_movement_check true");
+                    server.command("effect clear " + who);
+                }
+                server.command("kill @e[tag=blinkst]");
+                if (act == SameTick.Act.CLICK) {
+                    ctx.runOnClient(mc -> {
+                        Mod.setField("invwalk.InventoryWalkFeature", "heldForTest", null);
+                        Mod.set("invwalk.InventoryWalkConfig", "setEnabled", false);
+                        Mod.set("invwalk.InventoryWalkConfig", "setStopToClick", true);
+                    });
+                }
             }
             ctx.waitTicks(40);
         });
