@@ -324,6 +324,7 @@ final class AutoKick2Cases {
 
             // Save/load, defaults and old files.
             Path p = saved.keySet().iterator().next();
+            Files.createDirectories(p.getParent()); // run alone, nothing has made the folder yet
             String[] files = {
                     "{\"enabled\":true}",
                     "{\"enabled\":true,\"queueFloor\":\"\"}",
@@ -645,6 +646,103 @@ final class AutoKick2Cases {
         return -1;
     }
 
+    // ---- 808 (pvkick-1109) ------------------------------------------------------------------------------------------
+
+    /**
+     * 808: joining ANOTHER player's party must not judge on the floor my own earlier queue (or last run) left behind
+     * ("I joined an F5 party and Auto Kick used my F7 time"). Control: my own F5 queue judges a joiner who fails F7 but
+     * passes F5 as ok. Then "You have joined Leader's party!" forgets the floor: the same joiner and a slow one are not
+     * judged, nothing is kicked, and a fresh queue brings the floor back.
+     */
+    @SuppressWarnings("unchecked")
+    static void joinedOtherParty(UiCase c) throws Exception {
+        Map<Path, byte[]> saved = DungeonB2Cases.snapshotConfig(c, AK_CFG);
+        try {
+            setup(c, null, 0);
+            c.onClient(mc -> {
+                Object k = Mod.cfg(AK_CFG);
+                Mod.call(k, "setFloorSource", Mod.enumValue(AK_CFG + "$FloorSource", "DETECT"));
+                Mod.call(k, "setTargetSeconds", Mod.enumValue(AK_CFG + "$Floor", "F7"), 300);
+                Mod.call(k, "setTargetSeconds", Mod.enumValue(AK_CFG + "$Floor", "F5"), 240);
+                Mod.staticCall(DET, "reset");
+                Mod.setField(Mod.ROOT + AK, "lastRunFloor", Mod.enumValue(AK_CFG + "$Floor", "F7"));
+                JsonObject normal = new JsonObject();
+                JsonObject sp = new JsonObject();
+                sp.addProperty("floor_5", "3:00");
+                sp.addProperty("floor_7", "5:40");
+                normal.add("s_plus", sp);
+                normal.add("s", new JsonObject());
+                putStats("FiveNotSeven", normal, new JsonObject());
+                putStats("FiveNotSeven2", normal, new JsonObject());
+                putStats("FiveNotSeven3", normal, new JsonObject());
+                putStats("FiveNotSeven4", normal, new JsonObject());
+                putStats("FiveNotSeven5", normal, new JsonObject());
+                return null;
+            });
+            // Control: my own F5 queue (the acting proof that a floor is judged at all).
+            c.onClient(mc -> {
+                Mod.staticCall(DET, "onBuilderItems", List.of("Currently Selected: The Catacombs"),
+                        List.of("Currently Selected: Floor V"));
+                return null;
+            });
+            chat(c, QUEUED);
+            int d0 = decisions(c).size();
+            chat(c, "Party Finder > FiveNotSeven joined the dungeon group! (Mage Level 40)");
+            c.ticks(5);
+            List<String> own = tail(decisions(c), d0);
+            // I join someone else's party: the floor is unknown.
+            chat(c, "You have joined [MVP+] SomeLeader's party!");
+            String afterJoin = floor(c);
+            int d1 = decisions(c).size();
+            chat(c, "Party Finder > FiveNotSeven2 joined the dungeon group! (Mage Level 40)");
+            c.ticks(5);
+            List<String> other = tail(decisions(c), d1);
+            List<String> kicks = c.onClient(mc -> (List<String>) Mod.staticCall(AK, "kicksSent"));
+            // I click an F5 listing in Party Finder, then the join line: the floor is the listing's.
+            clickListing(c, "Floor V", false);
+            chat(c, "You have joined [MVP+] SomeLeader's party!");
+            String listed = floor(c);
+            int dl = decisions(c).size();
+            chat(c, "Party Finder > FiveNotSeven4 joined the dungeon group! (Mage Level 40)");
+            c.ticks(5);
+            List<String> listedJudged = tail(decisions(c), dl);
+            // A join with no click (an invite, /p join) forgets the floor again.
+            chat(c, "You have joined [MVP+] OtherLeader's party!");
+            String noClick = floor(c);
+            // A listing clicked long before the join does not count.
+            clickListing(c, "Floor V", true);
+            chat(c, "You have joined [MVP+] SomeLeader's party!");
+            String stale = floor(c);
+            // A fresh queue of my own brings the floor back.
+            c.onClient(mc -> {
+                Mod.staticCall(DET, "onBuilderItems", List.of("Currently Selected: The Catacombs"),
+                        List.of("Currently Selected: Floor V"));
+                return null;
+            });
+            chat(c, QUEUED);
+            int d2 = decisions(c).size();
+            chat(c, "Party Finder > FiveNotSeven3 joined the dungeon group! (Mage Level 40)");
+            c.ticks(5);
+            List<String> again = tail(decisions(c), d2);
+            c.note("own F5 queue: " + own + "; after joining another party: floor " + afterJoin + ", " + other
+                    + ", kicks " + kicks + "; queued again: " + again);
+            c.check(own.equals(List.of("FiveNotSeven F5 S+ 3:00 limit 4:00 -> ok")),
+                    "own F5 queue did not judge on F5 (F7 time would fail): " + own);
+            c.check("null".equals(afterJoin), "joining another party left a floor behind: " + afterJoin);
+            c.check(other.equals(List.of("FiveNotSeven2 no floor -> none")),
+                    "a joiner of another party was judged on a stale floor: " + other);
+            c.check(!kicks.contains("FiveNotSeven") && !kicks.contains("FiveNotSeven2"), "someone was kicked: " + kicks);
+            c.check("F5".equals(listed) && listedJudged.equals(List.of("FiveNotSeven4 F5 S+ 3:00 limit 4:00 -> ok")),
+                    "a clicked F5 listing then the join line did not give F5 and the F5 rule: " + listed + " " + listedJudged);
+            c.check("null".equals(noClick), "a join with no listing click kept a floor: " + noClick);
+            c.check("null".equals(stale), "a listing clicked long before the join was used: " + stale);
+            c.check(again.equals(List.of("FiveNotSeven3 F5 S+ 3:00 limit 4:00 -> ok")),
+                    "a new queue did not bring the floor back: " + again);
+        } finally {
+            DungeonB2Cases.restoreConfig(c, saved, AK_CFG);
+        }
+    }
+
     // ---- helpers --------------------------------------------------------------------------------------------------
 
     /** Auto Kick on (it always kicks - no Warn Only since 2026-10-14), out of a dungeon; {@code fixed} (with its limit)
@@ -698,6 +796,42 @@ final class AutoKick2Cases {
     private static void show(net.minecraft.client.Minecraft mc, SimpleContainer box) {
         McCompat.setScreen(mc, new ContainerScreen(ChestMenu.sixRows(0, mc.player.getInventory(), box),
                 mc.player.getInventory(), Component.literal("Group Builder")));
+    }
+
+    /**
+     * Opens a client-side "Party Finder" holding one listing head in slot 11 (Hypixel's lore: "Dungeon: The Catacombs",
+     * "Floor: Floor V", " Name: Class (Level)") and clicks it through the real slotClicked (CLONE: nothing is picked up).
+     * {@code old} backdates the click past the join window.
+     */
+    private static void clickListing(UiCase c, String floorText, boolean old) {
+        c.onClient(mc -> {
+            SimpleContainer box = new SimpleContainer(54);
+            box.setItem(11, item(Items.PLAYER_HEAD, "SomeLeader's Party", "Dungeon: The Catacombs", "Floor: " + floorText,
+                    "", "Members:", " SomeLeader: Mage (45)", "", "Click to join!"));
+            McCompat.setScreen(mc, new ContainerScreen(ChestMenu.sixRows(0, mc.player.getInventory(), box),
+                    mc.player.getInventory(), Component.literal("Party Finder")));
+            return null;
+        });
+        c.ticks(3);
+        c.onClient(mc -> {
+            try {
+                net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> screen =
+                        (net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>) McCompat.screen(mc);
+                java.lang.reflect.Method m = net.minecraft.client.gui.screens.inventory.AbstractContainerScreen.class
+                        .getDeclaredMethod("slotClicked", net.minecraft.world.inventory.Slot.class, int.class, int.class,
+                                net.minecraft.world.inventory.ContainerInput.class);
+                m.setAccessible(true);
+                m.invoke(screen, screen.getMenu().slots.get(11), 11, 0, net.minecraft.world.inventory.ContainerInput.CLONE);
+                if (old) {
+                    Mod.setField(Mod.ROOT + DET, "clickedAtMs", System.currentTimeMillis() - 60_000L);
+                }
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+            McCompat.setScreen(mc, null);
+            return null;
+        });
+        c.ticks(2);
     }
 
     private static void close(UiCase c) {
