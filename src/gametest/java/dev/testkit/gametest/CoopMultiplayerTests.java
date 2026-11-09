@@ -839,7 +839,7 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
 
     private static String confirmText(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> McCompat.screen(mc) instanceof ConfirmScreen c
-                ? c.getNarrationMessage().getString().replace("\n", " ").replaceAll("\\s+", " ").trim() : "not a ConfirmScreen: "
+                ? c.getNarrationMessage().getString().replace("?.", "?").replace("\n", " ").replaceAll("\\s+", " ").trim() : "not a ConfirmScreen: "
                 + (McCompat.screen(mc) == null ? null : McCompat.screen(mc).getClass().getSimpleName()));
     }
 
