@@ -116,6 +116,7 @@ final class HxFeatC1108Cases {
     private static void repartyRun(Session c) {
         try (Settings set = new Settings(c).with(RP_CFG, "Enabled", true)) {
             hub(c);
+            run(c, () -> Mod.staticCall(RP, "reset"));
             run(c, () -> Mod.staticCall(RP, "start", false));
             c.waitUntil("party list sent", mc -> c.commands().contains("party list"), 60);
             c.check(!c.commands().contains("party disband"), "disband went before the list was read");
@@ -131,6 +132,7 @@ final class HxFeatC1108Cases {
     private static void repartyNotLeader(Session c) {
         try (Settings set = new Settings(c).with(RP_CFG, "Enabled", true)) {
             hub(c);
+            run(c, () -> Mod.staticCall(RP, "reset"));
             run(c, () -> Mod.staticCall(RP, "start", false));
             c.waitUntil("party list sent", mc -> c.commands().contains("party list"), 60);
             partyList(c, "HxMateA");
@@ -165,6 +167,7 @@ final class HxFeatC1108Cases {
     private static void repartyMoving(Session c) {
         try (Settings set = new Settings(c).with(RP_CFG, "Enabled", true)) {
             hub(c);
+            run(c, () -> Mod.staticCall(RP, "reset"));
             c.ctx().runOnClient(mc -> mc.options.keyUp.setDown(true));
             try {
                 run(c, () -> Mod.staticCall(RP, "start", false));
