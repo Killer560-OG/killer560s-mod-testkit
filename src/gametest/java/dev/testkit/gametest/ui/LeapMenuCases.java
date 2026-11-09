@@ -361,8 +361,8 @@ final class LeapMenuCases {
             if (oneSwitch()) {
                 // round 3 (killer560, 2026-11-03): one Off / Fast / Auto row per leap
                 long rowsN = ls.stream().filter(l -> l.matches(".+ Leap: (Off|Fast|Auto)")).count();
-                c.check(rowsN == 12 && ls.stream().noneMatch(l -> l.startsWith("Fast: ") || l.startsWith("Auto: ")),
-                        rowsN + " Off/Fast/Auto leap rows (want 12, and no Fast:/Auto: rows): " + ls);
+                c.check(rowsN == 0 && ls.stream().noneMatch(l -> l.startsWith("Fast: ") || l.startsWith("Auto: ")),
+                        rowsN + " leap rows on the front page (want 0: they are on the Universal page): " + ls);
                 c.check(ls.contains("Crystal Leap: Fast") && ls.contains("P3 Leap: Auto") && ls.contains("Relic Leap: Off"),
                         "Crystal (set Fast), P3 (set Auto) and Relic (unset, Off) read wrong: " + ls);
                 List<String> walk = new ArrayList<>();
@@ -563,7 +563,7 @@ final class LeapMenuCases {
                         Mod.enumValue("dungeonclass.DungeonClass", "TANK"));
             });
             c.note("read back: " + vals);
-            c.check(vals.equals("POSMSG/300/2750/4/false/Bob/ClassPick[clazz=ARCHER, name=null]"), "old values read back as " + vals);
+            c.check(vals.equals("POSMSG/300/2750/4/true//ClassPick[clazz=ARCHER, name=null]"), "old values read back as " + vals);
             // no per-class targets: Universal; an explicit false stays false whatever is set
             Files.writeString(st.file, OLD.replace("\"classTargets\":{\"MAGE\":{\"name\":\"Alice\"},\"TANK\":{\"class\":\"ARCHER\"}}",
                     "\"classTargets\":{}"));

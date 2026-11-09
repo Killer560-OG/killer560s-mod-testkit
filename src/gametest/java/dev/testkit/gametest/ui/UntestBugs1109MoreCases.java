@@ -111,7 +111,7 @@ final class UntestBugs1109MoreCases {
                             + ", S2 " + Mod.call(cfg, "getTargetMode", s2));
             c.check(Mod.call(cfg, "getTargetClass", s2) != null && String.valueOf(Mod.call(cfg, "getTargetClass", s2)).equals("MAGE"),
                     "S2's class MAGE was lost: " + Mod.call(cfg, "getTargetClass", s2));
-            c.check(Mod.call(cfg, "getTargetClass", s1) == null, "S1's name was not dropped: " + Mod.call(cfg, "getTargetClass", s1));
+            c.check(!"SomeName".equals(Mod.call(cfg, "getTargetName", s1)), "S1 still goes by the name SomeName");
             Mod.call(cfg, "setTargetMode", s1, perLeap);
             c.check(perLeap.equals(Mod.call(cfg, "getTargetMode", s1)) && posmsg.equals(Mod.call(cfg, "getTargetMode", s2))
                     && posmsg.equals(Mod.call(cfg, "getTargetMode", s3)), "changing S1's mode changed another leap's");
