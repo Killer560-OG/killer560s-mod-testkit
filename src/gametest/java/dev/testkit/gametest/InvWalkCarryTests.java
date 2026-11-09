@@ -309,7 +309,7 @@ public class InvWalkCarryTests implements FabricClientGameTest {
     // ============================================================================================== 1105-iw-look
 
     /** MouseHandler.onMove by reflection: (long, x, y, dx, dy) on 26.3, (long, x, y) on 26.2 - the real mouse path. */
-    static void mouseTo(Minecraft mc, double x, double y) {
+    public static void mouseTo(Minecraft mc, double x, double y) {
         try {
             MouseHandler mh = mc.mouseHandler;
             for (Method m : MouseHandler.class.getDeclaredMethods()) {
