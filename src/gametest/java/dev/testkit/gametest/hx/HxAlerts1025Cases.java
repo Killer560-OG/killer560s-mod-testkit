@@ -95,7 +95,7 @@ final class HxAlerts1025Cases {
     // ---- 1025-alerts-secretsound-locked (doc-auto-1101) -------------------------------------------------------------
 
     /** Secret Sound on a chest: (1) Hypixel's locked line inside the wait drops the sound; (2) no line plays it after the
-     *  wait (500 ms). Counted by SecretSound.chestSoundsPlayed. A player's copy of the line is ignored. */
+     *  wait (500 ms). Counted by SecretSound.chestSoundCounts {played, dropped}. A player's copy of the line is ignored. */
     private static void secretSoundLocked(Session c) {
         net.minecraft.core.BlockPos chest = new net.minecraft.core.BlockPos(-417, 151, -422);
         c.server().command("setblock -417 151 -422 minecraft:chest");
@@ -112,17 +112,22 @@ final class HxAlerts1025Cases {
             });
             dungeon(c);
             c.waitUntil("the client sees the chest", mc -> mc.level.getBlockState(chest).getBlock() == net.minecraft.world.level.block.Blocks.CHEST, 60);
-            int before = c.onClient(mc -> (Integer) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundsPlayed"));
+            int[] before = c.onClient(mc -> (int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"));
             clickChest(c, chest);
             c.hx().chat("§7Bob§7: That chest is locked!");
             c.hx().chat("§cThat chest is locked!");
-            c.ctx().waitTicks(5);
-            int mid = c.onClient(mc -> (Integer) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundsPlayed"));
-            c.check(mid == before + 1, "untestbugs-1109: the sound plays at the click, even on a locked chest; played " + (mid - before) + ", want 1");
-            c.ctx().waitTicks(25);
+            c.ctx().waitTicks(20);
+            int[] mid = c.onClient(mc -> (int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"));
+            c.check(mid[0] == before[0] && mid[1] == before[1] + 1, "locked chest: played/dropped "
+                    + (mid[0] - before[0]) + "/" + (mid[1] - before[1]) + ", want 0/1");
+            c.ctx().waitTicks(25); // past the 1500 ms Secret Clicked window and the same-click guard
             clickChest(c, chest);
-            c.waitUntil("the second chest click's sound", mc -> (Integer) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundsPlayed") == mid + 1, 40);
-            c.note("chest sound at the click: locked +" + (mid - before) + ", next click +1");
+            c.waitUntil("the unlocked chest's sound after the wait", mc -> ((int[]) Mod.staticCall("dungeonalerts.SecretSound",
+                    "chestSoundCounts"))[0] == mid[0] + 1, 40);
+            int[] after = c.onClient(mc -> (int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"));
+            c.check(after[1] == mid[1], "the unlocked chest's sound was dropped");
+            c.note("locked chest: sound dropped (played/dropped +" + (mid[0] - before[0]) + "/+" + (mid[1] - before[1])
+                    + "); chest with no locked line: played after the wait (+" + (after[0] - mid[0]) + ")");
         } finally {
             c.onClient(mc -> {
                 try {
@@ -153,14 +158,14 @@ final class HxAlerts1025Cases {
             dungeon(c);
             c.waitUntil("the client sees both chests", mc -> mc.level.getBlockState(a).getBlock() == net.minecraft.world.level.block.Blocks.CHEST
                     && mc.level.getBlockState(b).getBlock() == net.minecraft.world.level.block.Blocks.CHEST, 60);
-            int before = c.onClient(mc -> (Integer) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundsPlayed"));
+            int[] before = c.onClient(mc -> (int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"));
             clickChest(c, a);
             c.ctx().waitTicks(2);
             clickChest(c, b);
-            c.waitUntil("both chests' sounds", mc -> (Integer) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundsPlayed") >= before + 2, 60);
+            c.waitUntil("both chests' sounds", mc -> ((int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"))[0] >= before[0] + 2, 60);
             c.ctx().waitTicks(15);
-            int two = c.onClient(mc -> (Integer) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundsPlayed"));
-            c.check(two == before + 2, "two chests clicked should play exactly 2 sounds, played " + (two - before));
+            int[] two = c.onClient(mc -> (int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"));
+            c.check(two[0] == before[0] + 2, "two chests clicked inside the wait should play exactly 2 sounds, played " + (two[0] - before[0]));
             // The wire only: a real look at the chest first (a made-up hit draws RotationPlace), then the packet leaves.
             c.server().command("tp @p -417.5 151 -419.5");
             c.ctx().waitTicks(5);
@@ -176,11 +181,11 @@ final class HxAlerts1025Cases {
                         net.minecraft.world.InteractionHand.MAIN_HAND, (net.minecraft.world.phys.BlockHitResult) pick, 0));
                 return null;
             });
-            c.waitUntil("the wire-only click's sound", mc -> (Integer) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundsPlayed") >= two + 1, 60);
+            c.waitUntil("the wire-only click's sound", mc -> ((int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"))[0] >= two[0] + 1, 60);
             c.ctx().waitTicks(15);
-            int wire = c.onClient(mc -> (Integer) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundsPlayed"));
-            c.check(wire == two + 1, "a wire-only chest click should play exactly 1 sound, played " + (wire - two));
-            c.note("two chests: +" + (two - before) + " sounds; wire-only click: +" + (wire - two));
+            int[] wire = c.onClient(mc -> (int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"));
+            c.check(wire[0] == two[0] + 1, "a wire-only chest click should play exactly 1 sound, played " + (wire[0] - two[0]));
+            c.note("two chests inside the wait: +" + (two[0] - before[0]) + " sounds; wire-only click: +" + (wire[0] - two[0]));
         } finally {
             c.onClient(mc -> {
                 if (mc.player != null) mc.player.closeContainer();
