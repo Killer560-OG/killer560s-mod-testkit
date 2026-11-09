@@ -21,6 +21,9 @@
     {"input": "breakeraura config list", "expect": "ok", "source": "dungeonextras/BreakerAuraCommands.java:82 (prints to chat; list is under config)"}
   ],
   "parseOnly": [
+    {"root": "k", "why": "Command Prefixes (mod cmdprefix-1109): a second name for /killer560, OFF by default (requires), so a sweep cannot run it; testkit 1109-ui-cmdprefix-names runs each"},
+    {"root": "k5", "why": "Command Prefixes (mod cmdprefix-1109): same as k"},
+    {"root": "k560", "why": "Command Prefixes (mod cmdprefix-1109): same as k"},
     {"root": "dwp", "why": "Dungeon Waypoints (mod featD-1108): add/remove/clear/export/import in the current dungeon room, needs a dungeon; testkit 1108-dwp-* drive it"},
     {"root": "rp", "why": "Reparty (mod featC-1108): as party leader it sends /party disband and /party invite lines to the server; testkit 1108-reparty-* drive it"},
     {"root": "reparty", "why": "Reparty (mod featC-1108): same command as rp (both names), see rp"},

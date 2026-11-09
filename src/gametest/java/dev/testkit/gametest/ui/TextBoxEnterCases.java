@@ -48,7 +48,7 @@ final class TextBoxEnterCases {
     /** Search boxes and live filters: left as they were on purpose (owner, 2026-11-01). Matched on the box's label. */
     private static final Set<String> SEARCH = Set.of("search", "search zones");
     /** Boxes whose saved value is a number though they open empty: what to type. */
-    private static final Map<String, String> TYPE = Map.of("target purse", "1500000");
+    private static final Map<String, String> TYPE = Map.of("target purse", "1500000", "custom character", "~");
     /** Switches the walk never turns on: Streamer Mode keeps its state in memory (a config reload does not reset it) and
      *  hides every cheat tab from the search, which failed 944 after this case on the first run (2026-11-02). */
     // AP3's Test Mode and Force Dungeon are session state, not a config file, so the disk restore never turns them back off:
