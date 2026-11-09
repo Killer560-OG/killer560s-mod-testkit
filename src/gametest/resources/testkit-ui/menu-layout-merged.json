@@ -14,8 +14,8 @@
   },
   "newCheatLeaves": {
     "gui.tab.MiningPigeonDrillTab": "Mining > Swap To Drill On Pigeon",
-    "gui.tab.StructureScannerTab": "Mining > Crystal Hollows > Structure Scanner",
-    "gui.tab.PowderChestTriggerbotTab": "Mining > Powder Chest Triggerbot"
+    "gui.tab.PowderChestTriggerbotTab": "Mining > Powder Chest Triggerbot",
+    "gui.tab.LeftClickSecretsTab": "Dungeons > Secrets > Left Click Opens Secrets"
   },
   "newLeaves": {
     "gui.tab.ChatHiderTab": "Chat > Chat Hider",
@@ -864,6 +864,17 @@
     },
     {
       "owner": "Timers, Score & Boss",
+      "key": "wither dragons",
+      "gone": "Wither Dragons is its own card (the row is not built in the old group any more)"
+    },
+    {
+      "owner": "Wither Dragons",
+      "key": "wither dragons",
+      "text": "Tracks the five M7 Phase 5 dragons with spawn timers, health and which one to take (the first to spawn).",
+      "why": "bcec9c6fe: spawn-order priority replaced the class pick"
+    },
+    {
+      "owner": "Timers, Score & Boss",
       "key": "custom mage beam",
       "to": "Custom Mage Beam",
       "text": "In dungeons, redraws every Mage beam as one clean colored line.",
@@ -915,10 +926,6 @@
       "why": "412's fixture row: 73a70ba3 Play as Mob (supporters share their mob choice too)"
     },
     {
-      "owner": "Party Interop",
-      "key": "cross-mod bridge",
-      "text": "Shares dungeon data both ways with users of Devonian and Odin.",
-      "why": "958f6442 (2026-10-29) Cross-Mod Bridge no longer opens NoammAddons' socket; the hover dropped NoammAddons (doc-menu-1101)",
       "owner": "(unscoped)",
       "key": "freeze state",
       "text": "!! NEVER ON HYPIXEL - INSTANT BAN !! Freezes your character in place while your camera looks around freely.",
@@ -963,6 +970,19 @@
       "to": "Secret",
       "text": "Shows the secrets found in your current dungeon room over its total, as a small movable HUD.",
       "why": "doc-auto-1101 e94d4bcf (killer560 2026-11-01): Secrets HUD is a section of the Secret tab, its hover keyed secret/secrets hud"
+    },
+    {
+      "owner": "Timers, Score & Boss",
+      "key": "wither dragons",
+      "to": "Wither Dragons",
+      "text": "Tracks the five M7 Phase 5 dragons with spawn timers, health and which one to take (the first to spawn).",
+      "why": "dragons1108 (killer560 2026-11-08): priority is the first dragon to spawn, as Odin and NoammAddons do now"
+    },
+    {
+      "owner": "Wither Dragons",
+      "key": "wither dragons",
+      "text": "Tracks the five M7 Phase 5 dragons with spawn timers, health and which one to take (the first to spawn).",
+      "why": "dragons1108 (killer560 2026-11-08): priority is the first dragon to spawn, as Odin and NoammAddons do now"
     }
   ]
 }

@@ -32,9 +32,11 @@ final class InventoryCases {
         // doc-auto-1101: any NPC sell menu (slot 49's sell lore, a title the pattern refuses) and a ghost sell resold
         MenuSuite.test(s, "240-menu-autosell-npc-menu", InventoryCases::autosellNpcMenu);
         MenuSuite.test(s, "240-menu-autosell-ghost-resell", InventoryCases::autosellGhost);
+        MenuSuite.test(s, "1105-autosell-potion", InventoryCases::autosellPotion);
         MenuSuite.test(s, "241-menu-itemprotect-bin-auction", InventoryCases::itemProtect);
         MenuSuite.test(s, "242-menu-invsort-swap", InventoryCases::invsort);
         MenuSuite.test(s, "243-menu-slotbinds-shift-click", InventoryCases::slotBinds);
+        MenuSuite.test(s, "1108-slotbinds-shared-remove", InventoryCases::slotBindsSharedRemove);
         MenuSuite.test(s, "244-menu-storageoverlay-ender-chest", InventoryCases::storageOverlay);
         MenuSuite.test(s, "245-menu-storagesearch-index", InventoryCases::storageSearch);
         MenuSuite.test(s, "246-menu-petwheel-scan-summon", InventoryCases::petWheel);
@@ -51,6 +53,7 @@ final class InventoryCases {
         InvSort1103Cases.register(s);
         InvSortDump1104Cases.register(s);
         InvLoadout1104Cases.register(s);
+        SameTickMenu1105Cases.register(s); // 1105-same-autosell/autoterm/invsort-click (grimgapC-1105)
         ItemUiMenuCases.register(s);
         // ---- 1361-1364 Loadout Keybinds per-key mode (loadout-modes, 2026-10-13) ----
         LoadoutModeCases.register(s);
@@ -98,6 +101,44 @@ final class InventoryCases {
                     + "; stone kept; " + MenuKit.cadence(c));
         } finally {
             c.ctx().runOnClient(mc -> Mod.call(cfgObj, "removeSellIdentity", "ENCHANTED_DIAMOND"));
+            MenuKit.reset(c);
+            clearInv(c);
+        }
+    }
+
+    /**
+     * autosellpot-1105: Hypixel's dungeon Healing VIII Splash Potion (id POTION, name carrying a count tail) in a "Trades" menu
+     * is sold through the default list entry, and a different potion with the same id is not.
+     */
+    static void autosellPotion(Session c) throws Exception {
+        MenuKit.reset(c);
+        clearInv(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto Sell does not exist - nothing to check");
+            return;
+        }
+        Object cfgObj = c.onClient(mc -> Mod.cfg("autosell.AutoSellConfig"));
+        String tail = "minecraft:splash_potion[custom_data={id:\"POTION\"},custom_name={text:\"%s\"}]";
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set("autosell.AutoSellConfig", "Enabled", true);
+            c.ctx().runOnClient(mc -> Mod.call(cfgObj, "addSellIdentity", "HEALING_VIII_SPLASH_POTION"));
+            c.hx().call("give", "slot", 0, "stack", String.format(tail, "Healing VIII Splash Potion x1"));
+            c.hx().call("give", "slot", 1, "stack", String.format(tail, "Strength VII Splash Potion x1"));
+            c.hx().call("give", "slot", 2, "stack", "minecraft:splash_potion[custom_data={id:\"HEALING_VIII_SPLASH_POTION_X1\"}]");
+            JsonObject shop = MenuKit.menu("menus.sell");
+            shop.addProperty("title", "Trades");
+            MenuKit.show(c, shop);
+            MenuKit.awaitScreen(c, "Trades", 100);
+            MenuKit.awaitEvent(c, "sell.sold", 200);
+            c.waitUntil("Auto Sell to finish", mc -> !(Boolean) Mod.staticCall("autosell.AutoSellFeature", "isRunning"), 300);
+            List<String> ids = new ArrayList<>();
+            c.events("sell.sold").forEach(e -> ids.add(e.get("skyblockId").getAsString()));
+            c.check(c.onClient(mc -> mc.player.getInventory().getItem(0).isEmpty()), "named Healing VIII potion not sold; sold " + ids);
+            c.check(c.onClient(mc -> mc.player.getInventory().getItem(2).isEmpty()), "id-tailed Healing VIII potion not sold; sold " + ids);
+            c.check(c.onClient(mc -> !mc.player.getInventory().getItem(1).isEmpty()), "the Strength potion was sold; sold " + ids);
+            c.note("Trades: sold " + ids + ", Strength VII potion kept");
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.call(cfgObj, "removeSellIdentity", "HEALING_VIII_SPLASH_POTION"));
             MenuKit.reset(c);
             clearInv(c);
         }
@@ -302,6 +343,84 @@ final class InventoryCases {
             c.note("slot bind 9<->36: shift-click on slot 9 sent " + click.get("input") + " slot 9 button 0 (hotbar 0)");
         } finally {
             c.ctx().runOnClient(mc -> Mod.call(cfgObj, "removeBind", 9));
+            MenuKit.reset(c);
+            clearInv(c);
+        }
+    }
+
+    /** 1108: Slot Binds and Item Protect on ONE key. A press over a bound slot only removes the bind (Protect does not
+     *  fire); the next press protects. The Slot Binds tab draws no "Slot a <-> Slot b" text for a bind. */
+    static void slotBindsSharedRemove(Session c) throws Exception {
+        MenuKit.reset(c);
+        clearInv(c);
+        Object cfgObj = c.onClient(mc -> Mod.cfg("slotbinds.SlotBindsConfig"));
+        Object protectObj = c.onClient(mc -> Mod.cfg("itemprotect.ItemProtectConfig"));
+        boolean had = c.onClient(mc -> (Boolean) Mod.call(protectObj, "hasProtectedKey", "hx-hyp-1"));
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            int code = c.onClient(mc -> (Integer) Mod.staticCall("util.KeyUtil", "codeForMouseButton", 2));
+            cfg.set("slotbinds.SlotBindsConfig", "Enabled", true).set("slotbinds.SlotBindsConfig", "BindKey", code);
+            cfg.set("itemprotect.ItemProtectConfig", "Enabled", true).set("itemprotect.ItemProtectConfig", "ProtectItemEnabled", true)
+                    .set("itemprotect.ItemProtectConfig", "ProtectKey", code);
+            if (had) {
+                c.ctx().runOnClient(mc -> Mod.call(protectObj, "toggleProtectedKey", "hx-hyp-1"));
+            }
+            c.ctx().runOnClient(mc -> Mod.call(cfgObj, "addBind", 9, 36));
+            c.hx().give(9, MenuKit.item("items.hyperion-protected-uuid"));
+            c.waitUntil("the Hyperion in inventory slot 9", mc -> !mc.player.getInventory().getItem(9).isEmpty(), 60);
+
+            // The tab: a bind shows no slot text.
+            String texts = c.onClient(mc -> {
+                Object tab;
+                try {
+                    java.lang.reflect.Constructor<?> k = Mod.cls("gui.tab.SlotBindsTab").getDeclaredConstructor();
+                    k.setAccessible(true);
+                    tab = k.newInstance();
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+                StringBuilder sb = new StringBuilder();
+                for (Object w : (List<?>) Mod.call(tab, "buildWidgets", 0, 0, 320, (Runnable) () -> { })) {
+                    sb.append(((net.minecraft.client.gui.components.AbstractWidget) w).getMessage().getString()).append(" | ");
+                }
+                return sb.toString();
+            });
+            c.check(!texts.contains("Slot 9") && !texts.contains("<->"), "Slot Binds tab still lists the bind: " + texts);
+
+            c.ctx().runOnClient(mc -> McCompat.setScreen(mc, new InventoryScreen(mc.player)));
+            c.waitUntil("the inventory screen", mc -> McCompat.screen(mc) instanceof InventoryScreen, 40);
+            double[] at = c.onClient(mc -> {
+                AbstractContainerScreen<?> s = (AbstractContainerScreen<?>) McCompat.screen(mc);
+                Slot slot = s.getMenu().slots.get(9);
+                int left = (Integer) Mod.field(s, "leftPos");
+                int top = (Integer) Mod.field(s, "topPos");
+                double scale = mc.getWindow().getGuiScale();
+                return new double[]{(left + slot.x + 8) * scale, (top + slot.y + 8) * scale};
+            });
+            c.ctx().getInput().setCursorPos(at[0], at[1]);
+            c.ctx().waitTicks(3);
+            Runnable tap = () -> c.ctx().runOnClient(mc -> {
+                long window = mc.getWindow().handle();
+                Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(2), 0), 1);
+                Mod.call(mc.mouseHandler, "onButton", window, new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(2), 0), 0);
+            });
+            tap.run();
+            c.ctx().waitTicks(5);
+            boolean bound = c.onClient(mc -> ((Map<?, ?>) Mod.call(cfgObj, "getBinds")).containsKey(9));
+            boolean prot = c.onClient(mc -> (Boolean) Mod.call(protectObj, "hasProtectedKey", "hx-hyp-1"));
+            c.check(!bound, "first press on a bound slot did not remove the bind");
+            c.check(!prot, "first press on a bound slot also protected the item");
+            tap.run();
+            c.ctx().waitTicks(5);
+            boolean prot2 = c.onClient(mc -> (Boolean) Mod.call(protectObj, "hasProtectedKey", "hx-hyp-1"));
+            c.check(prot2, "second press did not protect the item");
+            c.note("shared key: press 1 removed the bind (bound=" + bound + ", protected=" + prot + "), press 2 protected=" + prot2);
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfgObj, "removeBind", 9);
+                if ((Boolean) Mod.call(protectObj, "hasProtectedKey", "hx-hyp-1")) {
+                    Mod.call(protectObj, "toggleProtectedKey", "hx-hyp-1");
+                }
+            });
             MenuKit.reset(c);
             clearInv(c);
         }

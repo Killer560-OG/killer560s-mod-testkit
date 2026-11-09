@@ -292,7 +292,7 @@ final class HxStaleCases {
     }
 
     private static String drawnBoard(Minecraft mc) {
-        return drawn(mc, g -> Mod.staticCall("scoreboard.CustomScoreboardFeature", "drawInGame", g));
+        return drawn(mc, g -> Mod.staticCall("scoreboard.CustomScoreboardFeature", "drawInGame", g, false)); // (g, bazaar) since the Bazaar draws the board itself
     }
 
     /** {kept (client thread), fresh (this thread)} DungeonState sidebar text. */

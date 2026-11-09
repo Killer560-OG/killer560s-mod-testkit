@@ -25,8 +25,9 @@ import java.util.List;
 final class CmdClean1101Cases {
 
     private static final List<String> GONE_ROOTS = List.of("class", "log", "k560search", "lag", "k560textures", "autoclear",
-            "autosecret", "blink", "freezestate", "rewind", "test");
-    private static final List<String> GONE_SUBS = List.of("class", "ew", "mapdump", "profile", "sim");
+            "autosecret", "blink", "freezestate", "rewind", "test", "k560worldexport", "k560path", "hypixelah", "hypixelbz",
+            "flhypixel", "ahmenudump", "simbosscapture");
+    private static final List<String> GONE_SUBS = List.of("class", "ew", "mapdump", "profile", "sim", "record", "stop");
 
     private CmdClean1101Cases() {
     }

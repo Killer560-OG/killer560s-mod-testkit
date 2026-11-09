@@ -281,7 +281,10 @@ final class HxSongTagCases {
                 Mod.staticCall(MU, "onPresence", botName, null);
                 return null;
             });
-            c.check("not a mod user".equals(feed(c, botName, id, PLAY)), "a sender not showing as a mod user was not dropped");
+            // spotreal-1106: a song packet is its own proof the sender runs the mod. Requiring his mod-user hello lost every
+            // song whose hello missed the room (killer560's other account saw nothing for minutes).
+            c.check("".equals(feed(c, botName, id, PLAY)) && TAG.equals(tagText(c, botName, botId)),
+                    "a song from a sender the room does not list as a mod user was dropped (it is its own proof)");
 
             send(c);
             settings(c);
@@ -352,7 +355,7 @@ final class HxSongTagCases {
         }
     }
 
-    /** Defaults OFF, save + load, profile reload, tooltips. */
+    /** Defaults (Share My Song OFF, Show Others' Songs ON since 2026-11-06), save + load, profile reload, tooltips. */
     private static void settings(Session c) throws Exception {
         boolean[] defaults = c.onClient(mc -> {
             try {
@@ -364,10 +367,26 @@ final class HxSongTagCases {
                 throw new AssertionError(e);
             }
         });
-        c.check(!defaults[0] && !defaults[1], "Song Tag switches do not default OFF: share " + defaults[0] + ", show " + defaults[1]);
+        // killer560, 2026-11-06: "make sure spotify lyrics show other peoples is on by default".
+        c.check(!defaults[0] && defaults[1], "Song Tag defaults wrong (want share OFF, show ON): share " + defaults[0] + ", show " + defaults[1]);
         Path file = c.onClient(mc -> (Path) Mod.field(CFG, "CONFIG_PATH"));
         byte[] before = Files.exists(file) ? Files.readAllBytes(file) : null;
         try {
+            // No file: load() reads Show Others' Songs ON. A saved explicit OFF stays OFF.
+            Files.deleteIfExists(file);
+            boolean noFile = c.onClient(mc -> {
+                Mod.staticCall(CFG, "load");
+                return (Boolean) Mod.get(CFG, "isShowOthers");
+            });
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, "{\"showOthers\": false}");
+            boolean savedOff = c.onClient(mc -> {
+                Mod.staticCall(CFG, "load");
+                return (Boolean) Mod.get(CFG, "isShowOthers");
+            });
+            c.note("Show Others' Songs: no file " + noFile + ", saved false " + savedOff);
+            c.check(noFile, "a fresh install (no file) has Show Others' Songs OFF");
+            c.check(!savedOff, "a saved Show Others' Songs OFF loaded as ON");
             c.onClient(mc -> {
                 Mod.set(CFG, "setShareSong", true);
                 Mod.set(CFG, "setShowOthers", true);

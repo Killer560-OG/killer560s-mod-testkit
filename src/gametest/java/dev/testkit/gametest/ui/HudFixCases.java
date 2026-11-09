@@ -925,6 +925,7 @@ final class HudFixCases {
                 Mod.staticCall(BOARD, "load");
                 return (Boolean) Mod.call(Mod.cfg(BOARD), "isUnknownLinesWarning");
             });
+            Files.createDirectories(file.getParent()); // ModPaths.config() does not create it (2026-10-26)
             Files.writeString(file, "{\"unknownLinesWarning\":true}");
             boolean oldTrue = c.onClient(mc -> {
                 Mod.staticCall(BOARD, "load");

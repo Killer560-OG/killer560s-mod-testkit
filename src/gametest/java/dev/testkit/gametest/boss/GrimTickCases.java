@@ -40,7 +40,7 @@ final class GrimTickCases {
     private static final String SS_CFG = SimonSaysCases.CONFIG;
     private static final String AA_CFG = "arrowalign.ArrowAlignConfig";
     private static final String I4_CFG = "i4sensors.I4SensorsConfig";
-    private static final String GT_CFG = "goldor.GoldorTriggerbotConfig";
+    static final String GT_CFG = "goldor.GoldorTriggerbotConfig";
     /** Layout 7 of the mod's Arrow Align solutions (grid index dy + dz * 5), every frame wanting rotation 1. */
     private static final int[] LAYOUT = {5, 7, 9, 10, 12, 14, 15, 17, 19};
 
@@ -69,20 +69,20 @@ final class GrimTickCases {
         s.test("840-boss-grim-autoi4-arrowfirst-shortbow", c -> arrowFirst(c, true, "MACHINE_GUN_BOW", "MACHINE_GUN_SHORTBOW"));
     }
 
-    private static HxKit.Settings gateOff(Session c) {
+    static HxKit.Settings gateOff(Session c) {
         boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
         return new HxKit.Settings(c).custom(() -> Mod.staticCall("util.SkyblockGate", "setEnabled", false),
                 () -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas));
     }
 
-    private static HxKit.Settings hypixelIp(Session c) {
+    static HxKit.Settings hypixelIp(Session c) {
         String ipWas = c.onClient(mc -> mc.getCurrentServer().ip);
         return new HxKit.Settings(c).custom(
                 () -> net.minecraft.client.Minecraft.getInstance().getCurrentServer().ip = "mc.hypixel.net",
                 () -> net.minecraft.client.Minecraft.getInstance().getCurrentServer().ip = ipWas);
     }
 
-    private static void home(Session c) {
+    static void home(Session c) {
         c.hx().sidebarClear();
         c.hx().call("dungeon.tp", "x", -619.5, "y", 151.0, "z", -619.5, "yaw", 0f, "pitch", 0f);
     }
@@ -103,7 +103,7 @@ final class GrimTickCases {
              HxKit.Settings on = new HxKit.Settings(c).with(SS_CFG, "SolverEnabled", true)
                      .with(SS_CFG, "AutoRestartEnabled", false).with(SS_CFG, "AutoStartEnabled", false)
                      .with(SS_CFG, "TriggerBotEnabled", false).with(SS_CFG, "AutoSolveRotate", true)
-                     .with(SS_CFG, "AutoSolveEnabled", false)) {
+                     .with(SS_CFG, "AutoSimonSaysEnabled", true).with(SS_CFG, "AutoSolveEnabled", false)) {
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
             c.waitUntil("DungeonState F7", mc -> "F7".equals(Mod.staticCall("secrets.DungeonState", "getFloor")), 100);
             c.onClient(mc -> {
@@ -335,7 +335,7 @@ final class GrimTickCases {
         }
     }
 
-    private static void aura(Session c, boolean on) {
+    static void aura(Session c, boolean on) {
         c.onClient(mc -> {
             Mod.set(AA_CFG, "setAuraEnabled", on);
             return null;
@@ -350,7 +350,7 @@ final class GrimTickCases {
      * Layout 7 afresh (old frames removed), each frame one click from solved; {@code seven} (a grid index, or -1) starts
      * at rotation 2 instead, seven clicks from solved. Returns that frame's entity id (or -1) once the mod reads the grid.
      */
-    private static int[] grid(Session c, int seven) {
+    static int[] grid(Session c, int seven) {
         // Hx removes its own frames; a console kill here could land AFTER the new frames were spawned and kill them
         // (this case's first aura-cps run: "the client to have the frames" never came).
         c.hx().removeStands();
@@ -1070,8 +1070,8 @@ final class GrimTickCases {
 
     // ---- 835-thorn-triggerbot (doc-auto-1101) ------------------------------------------------------------------------
 
-    private static final String THORN_CFG = "thorn.ThornConfig";
-    private static final String TRIBAL = "minecraft:iron_sword[custom_data={id:\"TRIBAL_SPEAR\"},"
+    static final String THORN_CFG = "thorn.ThornConfig";
+    static final String TRIBAL = "minecraft:iron_sword[custom_data={id:\"TRIBAL_SPEAR\"},"
             + "custom_name={text:\"Tribal Spear\",color:\"blue\",italic:false}]";
 
     /**

@@ -57,6 +57,7 @@ final class LeapRunMemoryCases {
         MenuSuite.test(s, "2345-menu-leap-memory-swap-takes-class", LeapRunMemoryCases::swapTakesClass);
         MenuSuite.test(s, "2346-menu-leap-memory-two-leave-notice", LeapRunMemoryCases::twoLeaveNotice);
         MenuSuite.test(s, "2347-menu-leap-memory-class-change-notice", LeapRunMemoryCases::classChangeNotice);
+        MenuSuite.test(s, "1108-menu-leap-memory-notice-off", LeapRunMemoryCases::noticeOff);
     }
 
     // ---- fixture ------------------------------------------------------------------------------------------------------
@@ -584,6 +585,33 @@ final class LeapRunMemoryCases {
             c.check(after.get(vacated.get(0)).equals("LrE") && after.get(vacated.get(1)).equals("LrF"),
                     "vacated spots " + vacated + " hold " + after + ", want LrE then LrF");
             c.note("two left: notice shown (title '" + title + "'), LrC's pick gone, " + before + " -> " + after + "; " + out);
+        } finally {
+            restore(c, sv);
+        }
+    }
+
+    /** Show Leap Order Reset off: the same two-leave reset happens (LrC's pick goes) but no title and no chat line. */
+    static void noticeOff(Session c) throws Exception {
+        Saved sv = setUp(c);
+        try {
+            run(c, P);
+            pick(c, "LrC", "ARCHER");
+            c.onClient(mc -> {
+                Object cfg = Mod.cfg(LEAPCFG);
+                Mod.call(cfg, "setShowResetNotice", false);
+                Mod.call(cfg, "save");
+                return null;
+            });
+            c.check(Files.readString(sv.leap).contains("\"showResetNotice\": false"), "the switch was not saved");
+            long n0 = notices(c);
+            long shown0 = c.onClient(mc -> ((Number) Mod.staticCall(MEM, "noticesShown")).longValue());
+            String out = run(c, List.of("LrA", "LrB", "LrE", "LrF"));
+            c.ctx().waitTicks(5);
+            c.check(!overrides(c).containsKey("LrC"), "the reset did not happen (LrC's pick survived): " + overrides(c));
+            c.check(notices(c) == n0, "a reset notice was put in chat with the switch off");
+            c.check(c.onClient(mc -> ((Number) Mod.staticCall(MEM, "noticesShown")).longValue()) == shown0, "the notice counter moved");
+            c.check(!title(c).contains("Leap Order reset"), "the title reads '" + title(c) + "'");
+            c.note("switch off: pick reset happened, no chat line, no title; " + out);
         } finally {
             restore(c, sv);
         }

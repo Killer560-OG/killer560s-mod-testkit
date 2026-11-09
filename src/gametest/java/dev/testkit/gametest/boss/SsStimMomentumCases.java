@@ -58,7 +58,7 @@ final class SsStimMomentumCases {
                         () -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas))
                 .with(SS_CFG, "SolverEnabled", true).with(SS_CFG, "AutoRestartEnabled", false)
                 .with(SS_CFG, "AutoStartEnabled", false).with(SS_CFG, "TriggerBotEnabled", false)
-                .with(SS_CFG, "AutoSolveRotate", true).with(SS_CFG, "AutoSolveEnabled", false)
+                .with(SS_CFG, "AutoSolveRotate", true).with(SS_CFG, "AutoSimonSaysEnabled", true).with(SS_CFG, "AutoSolveEnabled", false)
                 .with(SS_CFG, "AutoSolveFixedDelayMode", fixedDelay).with(SS_CFG, "AutoSolveFixedDelayMs", 150);
         try (on) {
             if (momentum >= 0) {

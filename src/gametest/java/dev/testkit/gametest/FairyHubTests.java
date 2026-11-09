@@ -22,7 +22,7 @@ import java.util.Map;
 /**
  * 1105-fairy-hub (killer560, 2026-11-05: "you got that world download of the hub right so you should be able to test the
  * auto fairy soul stuff on it as well"): Auto Fairy Souls on the REAL Hypixel hub, on GrimAC. The server loads the
- * owner's private hub capture ({@code /k560worldexport}, cropped to the main island), the mod gets SkyHanni's real HUB
+ * owner's private hub capture (taken with the since-removed {@code /k560worldexport}, cropped to the main island), the mod gets SkyHanni's real HUB
  * graph, and every soul stand stands where Hypixel's stood (the capture's {@code entities.json}, the soul head texture).
  * Proof is the server's, as in {@link FairyIslandTests}: a soul counts only on a {@code use_entity} on its stand.
  * <p>

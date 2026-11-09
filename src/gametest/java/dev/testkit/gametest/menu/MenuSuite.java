@@ -202,6 +202,8 @@ public class MenuSuite implements FabricClientGameTest {
                     TermResyncCases.register(s); // 298-299: a click the server drops leaves the board completable (termresync-1103)
                     InvBatchMenuCases.register(s); // 583, 585: inventory batch 2026-10-08
                     LeapOrderMenuCases.register(s); // 670: leap menu follows the Leap Order defaults/pins, 2026-10-09
+                    LeapTickCases.register(s); // 1106-leaptick-*: tick timers over the leap menu
+                    LeapHudCases.register(s); // 1108-leaphud-lag: Performance HUD over the leap menu
                     LeapBatchMenuCases.register(s); // 821-825: leap-menu batch 2026-10-11 (heads, map, delay, carried, freeze)
                     LeapRunMemoryCases.register(s); // 829-834: how long class picks and pins last, 2026-10-12
                     LeapPartyChangeCases.register(s); // 1102-menu-leaporder-*: party change slots + own class, 2026-11-02
@@ -218,7 +220,7 @@ public class MenuSuite implements FabricClientGameTest {
                     BazaarFlipCustomCases.register(s);
                     // ---- 2790-2796 doc-flip-1101: Bazaar Flipper sizing/reserve/min profit/rounds, AH Flipper, AH Price Copier ----
                     Flip1101MenuCases.register(s);
-                    // ---- 2798-2800 ahrelist-1101: AH Flipper's Auto Relist cycle, its stop, /ahmenudump ----
+                    // ---- 2798-2799 ahrelist-1101: AH Flipper's Auto Relist cycle, its stop ----
                     Relist1102MenuCases.register(s);
                     // ---- 2802-2804 ahbuttons-1103: AH Price Buttons (normal menu, reskin, switch) ----
                     AhPriceButtonsCases.register(s);

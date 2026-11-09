@@ -12,7 +12,7 @@ import static dev.testkit.gametest.hx.HxKit.*;
  * <ul>
  *   <li>1104-partycmd-floor-cooldown: a teammate's "!f3" inside Creation Cooldown waits it out and is then sent (it was
  *   dropped and still logged "queued F3").</li>
- *   <li>1104-partycmd-floor-retry: a retry while one waits is not rate limited, and only one /joininstance goes.</li>
+ *   <li>1104-partycmd-floor-retry: a retry while one waits replaces it, and only one /joininstance goes.</li>
  *   <li>1104-partycmd-floor-self: your own "!f2" in party chat queues F2 (it was "Ignored your own"); your own "!pt"
  *   still runs nothing (1103-partycmd-self).</li>
  * </ul>
@@ -30,6 +30,11 @@ final class HxPartyFloor1104Cases {
         s.test("1104-partycmd-floor-cooldown", HxPartyFloor1104Cases::cooldown);
         s.test("1104-partycmd-floor-retry", HxPartyFloor1104Cases::retry);
         s.test("1104-partycmd-floor-self", HxPartyFloor1104Cases::ownFloor);
+        s.test("1106-ptself-transfer", HxPartyFloor1104Cases::ptTransfer);
+        s.test("1106-ptself-selftarget", HxPartyFloor1104Cases::ptSelfTarget);
+        s.test("1106-ptself-reinv-disband", HxPartyFloor1104Cases::reinvDisband);
+        s.test("1106-ptself-rejoin", HxPartyFloor1104Cases::rejoin);
+        s.test("1108-partycmd-no-cooldown", HxPartyFloor1104Cases::noCooldown);
     }
 
     private static Settings settings(Session c) {
@@ -48,7 +53,6 @@ final class HxPartyFloor1104Cases {
         c.hx().stub(null, "joininstance");
         dungeon(c);
         run(c, () -> {
-            HxSocialCases.resetPartyCommandLimits();
             Mod.staticCall("partycommands.PartyLeaderTracker", "resetIfSet");
             Mod.staticCall(CC, "testReset");
         });
@@ -110,11 +114,111 @@ final class HxPartyFloor1104Cases {
             c.hx().chat("§9Party §8> §b[MVP§c+§b] " + me + "§f: !f2");
             String cmd = awaitCommand(c, "joininstance", 60);
             c.check(cmd.equals("joininstance catacombs_floor_two"), "your own !f2 sent /" + cmd);
-            run(c, HxSocialCases::resetPartyCommandLimits);
             c.hx().chat("§9Party §8> §b[MVP§c+§b] " + me + "§f: !pt HxMateA");
-            c.waitUntil("your own !pt is ignored", mc -> logged(mark, "Ignored your own \"!pt\""), 40);
+            String pt = awaitCommand(c, "p transfer", 60);
+            c.check(pt.equals("p transfer HxMateA"), "your own !pt HxMateA sent /" + pt);
+            c.note("own !f2 -> /" + cmd + "; own !pt HxMateA -> /" + pt);
+        }
+    }
+
+    // ---- ptself-1106: own party commands run; !reinv survives a disband and the former party's invites are accepted ----
+
+    private static final String PARTY_LINE = "§9Party §8> §b[MVP§c+§b] ";
+
+    private static Settings ptSettings(Session c) {
+        Object cfg = c.onClient(mc -> Mod.cfg(PCC));
+        Object party = c.onClient(mc -> Mod.enumValue(PCC + "$Channel", "PARTY"));
+        Settings set = new Settings(c).with(PCC, "Enabled", true)
+                .custom(() -> Mod.call(cfg, "setChannelOn", party, true), () -> { });
+        for (String name : new String[]{"TRANSFER", "REINVITE"}) {
+            Object cmd = c.onClient(mc -> Mod.enumValue(PCC + "$Command", name));
+            boolean was = c.onClient(mc -> (Boolean) Mod.call(cfg, "isOn", cmd));
+            set.custom(() -> Mod.call(cfg, "setOn", cmd, true), () -> Mod.call(cfg, "setOn", cmd, was));
+        }
+        return set;
+    }
+
+    private static void ptPrepare(Session c) {
+        c.hx().stub(null, "p");
+        dungeon(c);
+        run(c, () -> {
+            Mod.staticCall("partycommands.PartyLeaderTracker", "resetIfSet");
+        });
+    }
+
+    /** partymsg-1108: no cooldown on players. A teammate's three commands inside 3 s all go (the old limit took the first
+     *  and refused the rest for 8 s with "Ignoring X - they just ran one"), and so do two of yours; no "Ignoring" line. */
+    private static void noCooldown(Session c) {
+        try (Settings set = ptSettings(c)) {
+            ptPrepare(c);
+            long mark = LogTap.mark();
+            for (int i = 0; i < 3; i++) {
+                c.hx().chat(PARTY_LINE + "HxMateA§f: !pt HxMateB");
+                c.ctx().waitTicks(8);
+            }
+            c.hx().chat(PARTY_LINE + self(c) + "§f: !pt HxMateB");
+            c.ctx().waitTicks(8);
+            c.hx().chat(PARTY_LINE + self(c) + "§f: !pt HxMateB");
+            c.waitUntil("five transfers at the server", mc -> commandsStarting(c, "p transfer").size() >= 5, 200);
+            c.ctx().waitTicks(30);
+            List<String> sent = commandsStarting(c, "p transfer");
+            c.check(sent.size() == 5, "5 commands asked inside 3 s sent " + sent);
+            c.check(!logged(mark, "Rate limited") && !logged(mark, "Ignoring"), "a cooldown line was logged");
+            c.note("three teammate and two own !pt inside 3 s sent " + sent);
+        }
+    }
+
+    private static void ptTransfer(Session c) {
+        try (Settings set = ptSettings(c)) {
+            ptPrepare(c);
+            c.hx().chat(PARTY_LINE + self(c) + "§f: !pt HxMateB");
+            String pt = awaitCommand(c, "p transfer", 60);
+            c.check(pt.equals("p transfer HxMateB"), "your own !pt HxMateB sent /" + pt);
+            c.note("own !pt HxMateB -> /" + pt);
+        }
+    }
+
+    private static void ptSelfTarget(Session c) {
+        try (Settings set = ptSettings(c)) {
+            ptPrepare(c);
+            long mark = LogTap.mark();
+            c.hx().chat(PARTY_LINE + self(c) + "§f: !pt");
+            c.waitUntil("the mod saw your own bare !pt", mc -> logged(mark, "Ignored your own \"!pt\""), 40);
+            long mark2 = LogTap.mark();
+            c.hx().chat(PARTY_LINE + self(c) + "§f: !pt " + self(c));
+            c.waitUntil("the mod saw your own !pt <you>", mc -> logged(mark2, "Ignored your own \"!pt\""), 40);
             assertNoCommand(c, 20, "p transfer");
-            c.note("own !f2 -> /" + cmd + "; own !pt ignored");
+            c.note("own bare !pt and !pt <own name> send nothing");
+        }
+    }
+
+    private static void reinvDisband(Session c) {
+        try (Settings set = ptSettings(c)) {
+            ptPrepare(c);
+            long mark = LogTap.mark();
+            c.hx().chat(PARTY_LINE + "HxMateA§f: !reinv");
+            awaitCommand(c, "p kick HxMateA", 60);
+            c.hx().chat("§eThe party was disbanded because all invites expired and the party was empty.");
+            String inv = awaitCommand(c, "p invite HxMateA", 200);
+            c.check(!logged(mark, "Re-invite canceled"), "the re-invite was canceled by the disband");
+            c.note("!reinv after a disband -> /" + inv);
+        }
+    }
+
+    private static void rejoin(Session c) {
+        try (Settings set = ptSettings(c)) {
+            ptPrepare(c);
+            c.hx().chat(PARTY_LINE + "HxMateA§f: !reinv");
+            awaitCommand(c, "p kick HxMateA", 60);
+            c.hx().chat("§eThe party was disbanded because all invites expired and the party was empty.");
+            awaitCommand(c, "p invite HxMateA", 200);
+            c.hx().chat("§r§9-----------------------------------------------------");
+            c.hx().chat("§b[MVP§c+§b] HxMateB §ehas invited you to join their party!");
+            String acc = awaitCommand(c, "p accept", 60);
+            c.check(acc.equals("p accept HxMateB"), "invite from a former member sent /" + acc);
+            c.hx().chat("§bHxStranger §ehas invited you to join their party!");
+            assertNoCommand(c, 30, "p accept HxStranger");
+            c.note("former member's invite -> /" + acc + "; stranger's invite not accepted");
         }
     }
 }

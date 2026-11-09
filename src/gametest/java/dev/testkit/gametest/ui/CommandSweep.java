@@ -149,8 +149,7 @@ final class CommandSweep {
             }
             // Hypixel commands the mod shadows must still take Hypixel's arguments: "/bz rec" failed on the client
             // with "Incorrect argument for command at position 3" and never reached Hypixel (killer560, 2026-10-06).
-            for (String line : List.of("bz rec", "bz Recombobulator 3000", "ah Technoblade", "hypixelbz rec",
-                    "hypixelah Technoblade")) {
+            for (String line : List.of("bz rec", "bz Recombobulator 3000", "ah Technoblade")) {
                 if (d.getRoot().getChild(line.substring(0, line.indexOf(' '))) == null) {
                     continue;   // not registered by this jar (legit builds may lack a root)
                 }

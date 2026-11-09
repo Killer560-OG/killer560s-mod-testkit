@@ -157,6 +157,10 @@ never be described as one. The numbers transfer between anticheats; the verdict 
   case's floor never appeared), and teleporting there first so he falls onto a floor placed under him drew 7 GrimAC
   `Simulation` flags. `forceload add` the area before building it, and in a Session case put him back where he stood
   before removing a floor, or the next case starts falling (two Commission Mobs cases failed that way).
+- An arena carved into natural terrain (the nether's 0 0 room of the Blink cases) lets lava flow in from the walls, and a
+  forceloaded chunk keeps it flowing across sessions: 1026-blink-dimension-charge's shot crossed lava levels 2-7 on the floor
+  and moved 1.98 instead of 4.27 (ship5 2026-11-05, read off that checkout's saved region file). Build such a room as a sealed
+  shell (`BlinkTests.netherRoom`: stone box, then air inside), so the shell replaces any lava next to it.
 
 - A client session that passes about 9.5 minutes OFTEN draws a steady experimental GrimAC `NegativeTimer* -1.3 s`
   (20 lines a second while the scenario runs), in whatever scenario is going at that point. 2026-11-02: all six fairy
@@ -213,6 +217,15 @@ never be described as one. The numbers transfer between anticheats; the verdict 
 - Since mod layout-fixes-1026 `ModPaths.config(name)` no longer creates the folder: a case that writes a mod config path
   before the feature ever saved must `Files.createDirectories(p.getParent())` first (981 and six others did not, 2026-10-26).
   1026-layout-* (seed `fixtures/seed-layout-fixes-1026`) covers the layout; on an old jar 1026-layout-empty lists ~83 empty folders.
+
+- Since mod 03c7270d Inventory Walk's Stop To Click waits for a FULL stop (then 3 still ticks), so 1027-iw-* walkRow waits
+  until `InventoryWalkFeature.heldNow()` is 0, reads the server's items, then walks 20 more ticks and requires >= 1 block
+  ("walked on N after the last held packet"). Read items BEFORE walking on: the walk picks up what a Q / ctrl+Q click
+  dropped (1027-iw-clicks "one tick" read dirt*11 for dirt*2, 2026-10-27).
+- `wire.record` (Hx, testmod) turns on wire.* events: every move, input, player command, click and close the server
+  handles, in arrival order. 1027-iwl-diff uses it to compare Inventory Walk's packet shape with a vanilla run. A vanilla
+  run in a test must set the movement keys down again itself after closing a screen: vanilla's `KeyMapping.setAll` reads
+  the physical keyboard, which a test's held keys are not.
 
 The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [docs/scenario-lessons.md](docs/scenario-lessons.md).
 
@@ -349,7 +362,7 @@ The 95-sim-map-warp notes (render distance, graph warm-up, press lines) are in [
 - `pattern-catalog.json` is generated, and goes stale with every mod commit that adds or moves a `Pattern.compile`:
   350/351 failed on 2026-10-05 for that alone. Regenerate it (`python -X utf8 tools/extract-patterns.py --mod-source
   <mod checkout>`) before reading a logic failure as a mod bug, and point `TESTKIT_MOD_SOURCE` at the checkout the jar
-  came from - the default is `<modSource>`, which may be on another commit.
+  came from - the default is `<modSource>`, which may be on another commit. Since catalogfix-1105 the extractor also lists a static Pattern field built by something other than Pattern.compile (regex null), and fixture sources may carry an `anchor` (SCHEMA.md; `tools/fix-fixture-lines.py` re-aims a rotten citation).
 - One Session case: `-Pscenario=200-menu-session:,226-menu` - a part that CONTAINS the session's name selects the
   session without selecting all of its cases, then the other parts pick cases.
 - A scenario that only calls `Scenario.skip` writes no report row of its own; `SuiteVerdict` gives it a RAN row (under
@@ -653,3 +666,13 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
 - The testkit checkout's `master` lags the ship branches (2026-11-04: it lacked b674aadb's Mining groups, so 511 failed "a folder inside a category: Mining > Crystal Hollows" on a correct mod). Cut a testkit worktree from the newest `ship-*` branch (`git for-each-ref --sort=-committerdate refs/heads`), not from master.
 - A full `-ui-` run needs `-TimeoutSeconds 5400`: run-scenario.ps1's default 240 s deadline ends it after ~16 cases ("TIMED OUT after 240 s"), and the suite is ~560 cases / 48 min on one client with no hang (uihang-1104, 2026-11-05; 385 pass, 2 real fails fixed: 704 called the removed PetWheelScreen.pageCount, 1060 two card blurbs the menu cut). `1101-map-seethrough` is selected by the filter `1101-map-prerun` (its own name runs nothing); 6/6 pass in 7-16 s on a quiet PC, the freeze-watcher kill came from the ~33 s loaded run: set TESTKIT_HUNG_SECONDS=120 on a loaded PC rather than loosen the watcher.
 - Port clash (portfix-1105): a checkout copied WITH run/testserver/server.properties but no port-auto.txt/port-pinned.txt kept that port unchecked, so tk-fairygold-x/powdergrind/timerlag shared 26790 with tk-ship4-x and tk-pvstyle/iw1027/menufix2/nmflake 26560 with tk-ship4-1104-m1; every Blink case failed "server exited with code 0 before it was ready". Fix: build.gradle keeps every checkout's port in `killer560s-mod-logs/testkit-ports.txt` (`port<TAB>path`, written under `testkit-ports.lock`; paths that no longer exist drop out). A carried-over port is kept only if free now (or already ours) and not owned by another living checkout; otherwise a new one is picked from the path-hash order, skipping registry ports. Two checkouts never hold one port even when no server runs. After copying a checkout nothing else is needed; delete a checkout and its port frees on the next run anywhere.
+- Ship 6 (2026-11-05): 1026-blink-items-b failed 3 of 4 runs on default Grim with one RotationPlace (the first place of a fresh server judged 548 ms after the last movement packet, look turned from -90 to -243): the session had no place before it, the same cold-server effect as Ap3RuntimeTests.warmPlaces. It now warms with one plain place (Blink off) and clears the block; 3 of 3 default and 1 experimental clean. 95-perf-gate's FIRST round runs ~6x more frames than rounds 2-3 (n=40000 vs 600 for DEFAULTS) and reads far lower totals (ALL ON 232 vs 383-397 us), and the gate takes the minimum, so its ALL ON total is lenient; the per-feature OVER lines of ship 6 (chocolatefactory, util, mining, miningqol) were features newer than the 10-15 baseline (Hoppity egg HUD 10-19), now in perf/perf-baseline.properties. 95-perf-features -PperfOnly=... names the callbacks: RoomPredictor tick allocates 156 KB per tick and the Hoppity Eggs HUD 12.9 KB per frame (WORKQUEUE perfalloc-1105).
+- Case leaks (ship4fu-1105): a case that runs `gamemode creative @p` must restore survival in its `finally` (HxCrystalWalls1104Cases did not): `1103-mining-hold-resume` ran after `1104-chwalls-edges` in one session, the obsidian broke instantly in creative and the case read "not digging". A case that aims with a fixed pitch depends on where the previous case left the player (a whole-number x hit the WEST face at pitch 18, `1103-mining-hold-direction`): aim with `player.lookAt(EYES, face centre)`. A breaker/dig case that calls `startDestroyBlock` directly draws experimental NoSwingBreak and RotationBreak (no swing, look off the block): aim first, then `McCompat.swingArm` (26.3 `swing` takes three arguments, `InteractionHand.MAIN_HAND` alone does not compile there). `1103-worldexport-export` put the player 3 blocks above a void BEFORE placing the island and drew GrimAC Simulation on 26.2 (and broke the cases after it in the session, e.g. `1103-powderghast-draw`): place first, then tp. `1026-blink-` on 26.2 needs about 45 min alone (and `1026-blink-both` "(b) did not act", bank 13 of 20, is a load flake that passes alone): give it -Timeout 6000, not 2400.
+- A `LogicCase.runOffClient` case that waits on a mod thread (a stub relay, a poll) must wait with `ctx.waitTicks`, never `Thread.sleep`: the client runs only while the test thread waits ticks, so a sleeping case freezes it (discordlink-1105: the 1105-discordlink-card run with sleeps printed "Test client has stopped responding", with waitTicks it did not). Mod code that calls `Minecraft.getInstance()` (a button action) must be called through `ctx.runOnClient`: from the test thread it throws.
+- Real relay and real Spotify cases (spotreal-1106): 2867 and 2870 run only with a local relay (`wrangler dev --port 8811
+  --local --var TOKEN_SECRET:song-e2e-secret-not-real --var MOJANG_STUB:1` in a relay worktree, and
+  `-PnetOverride=relay=http://127.0.0.1:8811;lrclib=https://lrclib.net`); 2871 only with `TESTKIT_REAL_SPOTIFY=1` and the
+  Spotify app open (it plays, pauses, seeks and skips it through tools/spotify-real/truth.ps1, ~45 s). Both are SKIP in a
+  normal gate; run them after it on the ship's jar (killer560s-mod-logs/spotreal/run-real.sh). FakeRelay calls
+  `RelayClient.handle` directly and so cannot see a socket-ordering bug: 2870 caught the lost hello the fake hid.
+- iwpre-1106 (2026-11-06): 1027-iw-craftctl at 300 ms and 1027-iw-warp's Simulation rows failed on every base because the TESTS were wrong, not Inventory Walk: the crafting-grid script outruns server answers at 300 ms so the server's final menu differs from the immediate client prediction with IW OFF too (items are compared only below 300 ms), and the Hx etherwarp landing (+0.05 above the block) draws Grim Simulation .068 decaying x0.546 (8 lines) on a client with NO mod (`-NoMod`, same strafe) when a key first goes down the tick after it. Flags carry no tick, so `Rows.tolerate` lets a warp row draw Simulation only up to the control rows' count (min one 8-line chain). From PowerShell call bash by full path (`C:\Program Files\Git\bin\bash.exe`): plain `bash` is not on its PATH, so a clientslot.sh call in a .ps1 silently did nothing.

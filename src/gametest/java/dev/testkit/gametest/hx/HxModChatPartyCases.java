@@ -527,7 +527,6 @@ final class HxModChatPartyCases {
     }
 
     private static long measure(Session c) {
-        run(c, HxSocialCases::resetPartyCommandLimits);
         long head = c.hx().head();
         coordsSeenAt = 0;
         replySentAt = 0;
@@ -570,13 +569,11 @@ final class HxModChatPartyCases {
                 });
                 dungeon(c);
                 // All chat OFF: even a teammate's all-chat !coords gets nothing (the channel gate, not the sender gate).
-                run(c, HxSocialCases::resetPartyCommandLimits);
                 c.hx().chat("§7[300] §b[MVP§c+§b] HxMateA§f: !coords");
                 assertNoCommand(c, 30, "ac ", "pc ");
                 // All chat ON: a stranger still gets nothing - since mod 41099b8f (security audit 2026-10-24) no
                 // command, info replies included, answers anyone who is neither a teammate nor a friend.
                 run(c, () -> {
-                    HxSocialCases.resetPartyCommandLimits();
                     Mod.call(cfg, "setChannelOn", all, true);
                 });
                 long markStranger = LogTap.mark();
@@ -585,25 +582,21 @@ final class HxModChatPartyCases {
                 c.check(LogTap.since(markStranger).stream().anyMatch(l -> l.contains("HxStranger")
                         && l.contains("not a teammate or friend")), "the stranger's all-chat !coords was not refused");
                 // ...and a teammate's all-chat !coords is answered back into all chat.
-                run(c, HxSocialCases::resetPartyCommandLimits);
                 c.hx().chat("§7[300] §b[MVP§c+§b] HxMateA§f: !coords");
                 String ac = awaitCommand(c, "ac ", 60);
                 double[] at = c.scenario().playerPosition();
                 String want = String.format(Locale.US, "ac %.0f, %.0f, %.0f", at[0], at[1], at[2]);
                 c.check(ac.equals(want), "/" + ac + " != /" + want);
                 // ...but a stranger's !warp from all chat stops at the teammate gate.
-                run(c, HxSocialCases::resetPartyCommandLimits);
                 long mark = LogTap.mark();
                 c.hx().chat("§7[312] §b[MVP§c+§b] HxStranger§f: !warp");
                 assertNoCommand(c, 30, "p warp");
                 c.check(LogTap.since(mark).stream().anyMatch(l -> l.contains("HxStranger") && l.contains("not a party/dungeon teammate")),
                         "the stranger's all-chat !warp was not refused at the teammate gate");
                 // A teammate (on the dungeon tab) asking in all chat does warp: the gate is who, not where.
-                run(c, HxSocialCases::resetPartyCommandLimits);
                 c.hx().chat("§7[300] §b[MVP§c+§b] HxMateA§f: !warp");
                 awaitCommand(c, "p warp", 60);
                 // Mod Chat ("kc"): a relay line runs the command and answers into Mod Chat, never into Hypixel.
-                run(c, HxSocialCases::resetPartyCommandLimits);
                 long mark2 = LogTap.mark();
                 long head = c.hx().head();
                 run(c, () -> Mod.call(Mod.field("relay.RelayClient", "listener"), "onChat", "HxMateA", "!coords"));
@@ -617,7 +610,6 @@ final class HxModChatPartyCases {
                         "a Mod Chat command answered into Hypixel: " + leaked);
                 // Mod Chat OFF as a command chat: the same line does nothing.
                 run(c, () -> {
-                    HxSocialCases.resetPartyCommandLimits();
                     Mod.call(cfg, "setChannelOn", modChat, false);
                 });
                 long mark3 = LogTap.mark();
@@ -930,7 +922,6 @@ final class HxModChatPartyCases {
             Object cfg = c.onClient(mc -> Mod.cfg(PCC));
             try (Settings set = new Settings(c).with(PCC, "Enabled", true)) {
                 dungeon(c);
-                run(c, HxSocialCases::resetPartyCommandLimits);
                 c.hx().chat("§9Party §8> §b[MVP§c+§b] HxMateA§f: !racism");
                 assertNoCommand(c, 30, "pc ", "gc ", "msg ");
             }

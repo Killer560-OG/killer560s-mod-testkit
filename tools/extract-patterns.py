@@ -515,6 +515,18 @@ def main(argv):
                 'cls': cls_name, 'field': field, 'index': None, 'file': rel, 'line': line, 'regex': regex,
                 'flags': flags, 'kind': kind, 'expr': re.sub(r'\s+', ' ', expr)[:300],
             })
+        # A static Pattern field not built by Pattern.compile here (MELODY_TITLE = TerminalType.MELODY.titlePattern()):
+        # reflection reaches it, so the catalog lists it, regex unknown (kind "field").
+        for m in re.finditer(r'\bstatic\s+(?:final\s+)?(?:java\.util\.regex\.)?Pattern\s+([A-Za-z_]\w*)\s*=', masked):
+            init = masked[m.end():statement_end(masked, m.end())]
+            if 'Pattern.compile' in init or init.strip() == 'null' or member_depth(masked, spans, m.start()) != 1:
+                continue
+            nested = class_at(spans, m.start(), simple)
+            entries.append({
+                'cls': cls_rel.rsplit('.', 1)[0] + '.' + nested if '.' in cls_rel else nested, 'field': m.group(1),
+                'index': None, 'file': rel, 'line': src.count(chr(10), 0, m.start()) + 1, 'regex': None, 'flags': None,
+                'kind': 'field', 'expr': re.sub(r'\s+', ' ', init.strip())[:300],
+            })
         for (cls_name, field, _), idxs in per_stmt.items():
             if field is None:
                 continue

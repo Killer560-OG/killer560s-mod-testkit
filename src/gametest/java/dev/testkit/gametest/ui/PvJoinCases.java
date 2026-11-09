@@ -18,7 +18,7 @@ import java.util.List;
  */
 final class PvJoinCases {
 
-    static final String[] CASES = {"1104-ui-pvjoin-link", "1104-ui-pvjoin-forged", "1104-ui-pvjoin-off"};
+    static final String[] CASES = {"1104-ui-pvjoin-link", "1104-ui-pvjoin-forged", "1104-ui-pvjoin-off", "1108-ui-pvjoin-whole"};
 
     private static final String CFG = "dungeonqueue.DungeonQueueConfig";
     private static final String PF = "Party Finder > Zedname joined the dungeon group! (Mage Level 40)";
@@ -127,6 +127,35 @@ final class PvJoinCases {
             c.check(got.isEmpty(), "a party join outside a dungeon should add nothing, got " + got);
             // OFF by default since defoff-1104 (killer560 2026-11-04).
             c.check(!def, "PV Link on Join should default OFF");
+        } finally {
+            teardown(c, gate);
+        }
+    }
+
+    /** 1108: the click and hover sit on the root of the whole line, so any word of it opens the viewer. */
+    static void whole(UiCase c) {
+        Object[] gate = gateState(c);
+        try {
+            setup(c, true, true);
+            int b = size(c);
+            chat(c, PF);
+            List<String> got = c.onClient(mc -> {
+                List<GuiMessage> all = all(mc);
+                List<String> out = new ArrayList<>();
+                for (int i = Math.min(all.size() - b, all.size()) - 1; i >= 0; i--) {
+                    Component m = all.get(i).content();
+                    if (m.getString().contains("[PV]")) {
+                        out.add(m.getStyle().getClickEvent() instanceof ClickEvent.RunCommand rc ? rc.command() : "none");
+                        out.add(m.getStyle().getHoverEvent() == null ? "nohover" : "hover");
+                        out.add(m.getStyle().isBold() ? "bold" : "plain");
+                        out.add(m.getString().contains("Zedname") ? "name" : "noname");
+                    }
+                }
+                return out;
+            });
+            c.note("root style -> " + got);
+            c.check(got.equals(List.of("/pv Zedname", "hover", "bold", "name")),
+                    "the whole [PV] line should be one clickable bold component naming the player, got " + got);
         } finally {
             teardown(c, gate);
         }

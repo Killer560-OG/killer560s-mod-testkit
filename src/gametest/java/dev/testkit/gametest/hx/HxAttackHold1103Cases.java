@@ -283,7 +283,7 @@ final class HxAttackHold1103Cases {
             BlockPos obf = ob;
             c.server().command("setblock " + ob.getX() + " " + ob.getY() + " " + ob.getZ() + " minecraft:obsidian");
             c.hx().give(0, "minecraft:diamond_pickaxe");
-            aim(c, ob, 18f, net.minecraft.core.Direction.UP);
+            aim(c, ob, net.minecraft.core.Direction.UP);
             String dig = "START_DESTROY_BLOCK " + ob.toShortString();
             int drops = intCall(c, PROBE, "directionDrops");
             WireCapture.start();
@@ -292,7 +292,7 @@ final class HxAttackHold1103Cases {
             c.ctx().waitTicks(20);
             float t0 = destroyTicks(c);
             c.check(t0 > 0, "the dig has no progress before the face change: " + t0);
-            aim(c, ob, 35f, net.minecraft.core.Direction.WEST);
+            aim(c, ob, net.minecraft.core.Direction.WEST);
             c.ctx().waitTicks(10);
             float t1 = destroyTicks(c);
             boolean sent = wire().stream().anyMatch(w -> w.contains("CHANGE_DESTROY_DIRECTION"));
@@ -328,11 +328,12 @@ final class HxAttackHold1103Cases {
         }
     }
 
-    private static void aim(Session c, BlockPos ob, float pitch, net.minecraft.core.Direction face) {
+    /** Looks at the centre of {@code face}: a fixed pitch hit the west face where the player stood on a whole block (ship4fu-1105). */
+    private static void aim(Session c, BlockPos ob, net.minecraft.core.Direction face) {
         c.ctx().runOnClient(mc -> {
             mc.player.getInventory().setSelectedSlot(0);
-            mc.player.setYRot(-90f);
-            mc.player.setXRot(pitch);
+            mc.player.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, new net.minecraft.world.phys.Vec3(
+                    ob.getX() + 0.5 + face.getStepX() * 0.5, ob.getY() + 0.5 + face.getStepY() * 0.5, ob.getZ() + 0.5 + face.getStepZ() * 0.5));
         });
         c.waitUntil("aiming at the " + face + " face", mc -> mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult b
                 && b.getBlockPos().equals(ob) && b.getDirection() == face, 40);

@@ -181,6 +181,11 @@ public final class HxPrimitives implements HxModule {
         HxBridge.register("give", HxPrimitives::give);
         HxBridge.register("player.state", HxPrimitives::playerState);
         HxBridge.register("player.look", HxPrimitives::playerLook);
+        // 1027-iwl-*: the server-side packet order (moves, inputs, sprint commands) next to container.click/close.
+        HxBridge.register("wire.record", (srv, args) -> {
+            HxEvents.wire = args.has("on") && args.get("on").getAsBoolean();
+            return new JsonPrimitive(HxEvents.wire);
+        });
         HxBridge.register("stand", HxPrimitives::stand);
         HxBridge.register("entity.remove", HxPrimitives::entityRemove);
         HxBridge.register("entity.move", HxPrimitives::entityMove);

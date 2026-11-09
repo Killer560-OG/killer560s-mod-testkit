@@ -39,12 +39,20 @@ import java.util.function.Predicate;
  * Lights' levers flicked, the Arrows frames turned by real clicks, Target hit by arrows the test summons at the lit
  * block. P3SectionTracker and Floor7Tracker must walk S1 -> S2 -> S3 -> S4 -> core.</li>
  * <li>{@code 1101-boss-p4p5}: the core (Goldor's arrival lines, his death), P4 Necron's lines and death, P5's dragons.</li>
+ * <li>{@code 1105-boss-dragons} (simdragons-1105): P5 from its start. Wither Dragons (on for the case) reads the flame
+ * burst as Red's spawn timer, the dragon appears at its spawn point, flies (moves, stays in its area), its body parts are
+ * on it, real Terminator arrows kill Red and real melee kills Orange (8 hits each, the sim's log), the mod reads both
+ * deaths (health, "dragon counts" from the King's line); the other three fall to testHit and the boss ends.</li>
  * <li>{@code 1101-boss-lava}: a step into P3's lava bounces him (motion 2.25 up), as Hypixel's server does.</li>
  * <li>{@code 1101-boss-ap3}: an AP3 RUN node on S1's floor carries him once he walks into it.</li>
  * <li>{@code 1102-boss-maxorcrys}: Maxor's Crystals' Active counter (killer560, 2026-11-02: it "should go away as 0/2 the
  * second that the next set can be picked up"). Both crystals placed by real clicks reads 2/2; it stays 2/2 until the
  * next set's first crystal is on a tower on the client, reads 0/2 on that very tick (the tower crystal, not the backstop
  * countdown, must be what reset it), and one of the new set placed reads 1/2.</li>
+ * <li>{@code 1105-boss-crystalwalk} (simcrystal-1105, owner: Hypixel's crystals need no click near them): 2 blocks from a
+ * tower crystal nothing is picked up; walking within 1 block picks it up; a carried crystal is not placed 2 blocks from a
+ * pad but is within 1; a right click (crystal 0) and a left click (crystal 1) from 3 blocks pick up. Each asserts the tower
+ * crystal is gone, the Energy Crystal star is in slot 8 and the chat line came.</li>
  * <li>{@code 1103-boss-moves} (bossparity-1103, ADM's facts): where each boss is over time. Maxor holds at (73, 226, 53)
  * until t 84, then flies at the player at no more than 0.9 a tick; Storm flies his opening route at 0.4 a tick, parks
  * at (102.375, 183, 52.375) and chases from t 647, and Giga Lightning reaches an exposed player; Goldor walks his loop from
@@ -61,8 +69,21 @@ import java.util.function.Predicate;
  * gate walls, redstone lamps on Lights, the plate on its block, the Simon Says frame, Storm's pillars as diorite); the
  * Arrows frames hang from P1; its lava does not move in 200 ticks; Lights lights by Hypixel's rule and stays so; Simon
  * Says plays through on the real wall; a gate opening clears only its barriers.</li>
+ * <li>{@code 1105-boss-onehit} (simitems-1105, killer560 2026-11-05: "my mage beam should do all the damage for a phase of
+ * any boss andd term as well"): one weapon hit (the Mage beam's own {@code hurtServer} with his player-attack source,
+ * {@code BossFight.testWeaponHit}) is each boss's whole damage part: a stunned Maxor's bar drops to the stun's floor and
+ * he enrages within 12 ticks; a pinned Storm's bar drops to 0.45; Goldor in the core goes down; Necron's first drop
+ * (1 to 0.8) lands; a P5 dragon dies. Before each hit the bar is proved to hold still with no hit. A real Terminator
+ * volley at Necron drops his bar the same way.</li>
+ * <li>{@code 1105-boss-nostray} ("necron took a bunch of damage withotu me hitting him"): Necron with lava under him and
+ * fire and lava damage offered to him keeps his bar for 60 ticks, and the refusal is logged with its source.</li>
  * <li>{@code 1101-boss-portal}: a generated F7, /goto Blood, the portal opens (the sim has no Watcher yet: five seconds in
  * Blood), stepping in starts P1 with the floor's map code unchanged (the floor is not reset).</li>
+ * <li>{@code 1105-boss-fix3} (bossfix3-1105, both captures): items kept across phase starts and through the chooser's
+ * Section 1 button; the Arrows wall's lime (start) and red (end) wool frames; the Simon Says skip (start,
+ * reset, start 3 ticks apart: the first round put in is round 2), no button under a lit lamp, 16 west-facing buttons at
+ * input; S1's boundary gone after its gate line (arch, door, portcullis); a Superboom on gate 2 during S2 takes the arch
+ * at once and leaves the door, one on gate 3 does nothing, and S2 then done opens its door at once with no countdown.</li>
  * </ul>
  * Only when named. Hits on the bosses (Maxor, Goldor, Necron, the dragons) go through {@code BossFight.testHit}, the same
  * path a weapon's hit takes - the test has no weapon to swing at a boss floating out of reach.
@@ -80,6 +101,14 @@ public class SimBossTests implements FabricClientGameTest {
     private static final String MOVES = "1103-boss-moves";
     private static final String RULES = "1103-boss-rules";
     private static final String CAPTURE = "1104-boss-capture";
+    private static final String FRESH = "1108-boss-fresh";
+    private static final String DRAGONS = "1105-boss-dragons";
+    private static final String WD = "com.killer560.hub.witherdragons.";
+    private static final String ONEHIT = "1105-boss-onehit";
+    private static final String NOSTRAY = "1105-boss-nostray";
+    private static final String FIX3 = "1105-boss-fix3";
+    private static final String GATES = "1105-boss-simgates";
+    private static final String CRYS_WALK = "1105-boss-crystalwalk";
     private static final String MAXOR = "com.killer560.hub.maxor.MaxorCrystalsFeature";
 
     private static final String B = "com.killer560.hub.bosssim.";
@@ -102,7 +131,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -119,7 +148,7 @@ public class SimBossTests implements FabricClientGameTest {
         List<String> failures = new ArrayList<>();
         for (String name : chosen) {
             // P3 waits on Auto Terminal and AP3 on AP3; both are compiled out of a legit jar.
-            if ((name.equals(P3) || name.equals(AP3)) && !dev.testkit.gametest.mod.Mod.isCheat()) {
+            if ((name.equals(P3) || name.equals(AP3) || name.equals(GATES)) && !dev.testkit.gametest.mod.Mod.isCheat()) {
                 println(name, "SKIPPED: legit jar (Auto Terminal / AP3 are cheat-only)");
                 continue;
             }
@@ -135,6 +164,13 @@ public class SimBossTests implements FabricClientGameTest {
                     case MOVES -> moves(ctx, f);
                     case RULES -> rules(ctx, f);
                     case CAPTURE -> capture(ctx, f);
+                    case FRESH -> fresh(ctx, f);
+                    case DRAGONS -> dragons(ctx, f);
+                    case ONEHIT -> oneHit(ctx, f);
+                    case NOSTRAY -> noStray(ctx, f);
+                    case FIX3 -> fix3(ctx, f);
+                    case GATES -> simGates(ctx, f);
+                    case CRYS_WALK -> crystalWalk(ctx, f);
                     default -> ap3(ctx, f);
                 }
             } catch (Throwable t) {
@@ -157,6 +193,641 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     // ============================================================================================== cases
+
+    private static float bar() {
+        return ((Number) call(FIGHT, "barProgress")).floatValue();
+    }
+
+    private static float testBar(String boss) {
+        return ((Number) ModUnderTest.staticCall(FIGHT, "testBar", new Class<?>[]{String.class}, new Object[]{boss})).floatValue();
+    }
+
+    private static boolean weaponHit(ClientGameTestContext ctx, String boss) {
+        boolean[] ok = {false};
+        serverRun(ctx, s -> ok[0] = (Boolean) ModUnderTest.staticCall(FIGHT, "testWeaponHit", new Class<?>[]{String.class},
+                new Object[]{boss}));
+        ctx.waitTicks(2);
+        return ok[0];
+    }
+
+    /** The bar holds still for {@code ticks} with no hit (a refresh lands at most every 20). */
+    private static void barHolds(ClientGameTestContext ctx, List<String> f, String who, int ticks) {
+        ctx.waitTicks(21);
+        float a = bar();
+        ctx.waitTicks(ticks);
+        float b = bar();
+        println(ONEHIT, who + " bar with no hit: " + a + " -> " + b);
+        if (Math.abs(a - b) > 0.001f) {
+            f.add(who + "'s bar moved with no hit: " + a + " -> " + b);
+        }
+    }
+
+    private static void oneHit(ClientGameTestContext ctx, List<String> f) {
+        // Maxor: the laser's stun (the rule step), then one hit.
+        long mark = start(ctx, "P1", true);
+        if (!waitChat(ctx, mark, "[BOSS] Maxor: WELL! WELL! WELL! LOOK WHO'S HERE!", 40)) {
+            f.add("Maxor's first line never came");
+            return;
+        }
+        // Maxor spawns 5 ticks after his first line: a laser before that is a no-op (ship7 gate, 1.0 -> 1.0).
+        ctx.waitTicks(8);
+        long stun = LogTap.mark();
+        serverRun(ctx, s -> call(FIGHT, "testLaser"));
+        if (!until(ctx, "the laser hit Maxor", mc -> LogTap.since(stun).stream().anyMatch(l -> l.contains("Maxor laser hit 1")), 20)) {
+            f.add("the test laser never hit Maxor");
+            cleanup(ctx);
+            return;
+        }
+        barHolds(ctx, f, "Maxor (stunned)", 40);
+        float m0 = bar();
+        expect(f, "a hit on stunned Maxor landed", weaponHit(ctx, "Maxor"), true);
+        ctx.waitTicks(21);
+        float m1 = bar();
+        println(ONEHIT, "Maxor bar " + m0 + " -> " + m1 + " from one hit");
+        if (!(m1 < m0 - 0.05f)) {
+            f.add("one hit on stunned Maxor did not drop his bar (" + m0 + " -> " + m1 + ")");
+        }
+        expect(f, "Maxor enraged after one hit", waitChat(ctx, stun, "Maxor is enraged!", 20), true);
+        cleanup(ctx);
+        // Storm: a crush (the rule step) pins him; one hit is the pin's damage. Read in the same server task, before his
+        // enrage (0-60 ticks after the crush) could set the bar itself.
+        start(ctx, "P2", true);
+        if (!until(ctx, "Storm up", mc -> ModUnderTest.staticCall(FIGHT, "bossPos", new Class<?>[]{String.class},
+                new Object[]{"Storm"}) != null, 300)) {
+            f.add("Storm never appeared");
+            return;
+        }
+        float[] st = new float[3];
+        serverRun(ctx, s -> {
+            ModUnderTest.staticCall(FIGHT, "testCrush", new Class<?>[]{String.class}, new Object[]{"Purple"});
+            st[0] = testBar("Storm");
+            st[2] = (Boolean) ModUnderTest.staticCall(FIGHT, "testWeaponHit", new Class<?>[]{String.class},
+                    new Object[]{"Storm"}) ? 1f : 0f;
+            st[1] = testBar("Storm");
+        });
+        println(ONEHIT, "Storm (pinned) " + st[0] + " -> " + st[1] + " from one hit");
+        expect(f, "a hit on pinned Storm landed", st[2], 1.0f);
+        if (!(st[0] > 0.9f && Math.abs(st[1] - 0.45f) < 0.001f)) {
+            f.add("one hit on pinned Storm did not take his bar from 0.95 to 0.45 (" + st[0] + " -> " + st[1] + ")");
+        }
+        cleanup(ctx);
+        // Goldor in the core: one hit and he is down.
+        mark = start(ctx, "CORE", true);
+        tp(ctx, 54.5, 107, 90.5, 0, 0);
+        if (!waitChat(ctx, mark, "[BOSS] Goldor: You have done it, you destroyed the factory...", 400)) {
+            f.add("walking into the core never brought Goldor's arrival lines");
+            return;
+        }
+        long g = LogTap.mark();
+        ctx.waitTicks(20);
+        expect(f, "a hit on Goldor landed", weaponHit(ctx, "Goldor"), true);
+        ctx.waitTicks(3);
+        boolean down = false;
+        for (String l : LogTap.since(g)) {
+            down |= l.contains("[BossSim] Goldor down");
+        }
+        expect(f, "Goldor down from one hit", down, true);
+        cleanup(ctx);
+        // Necron: his first drop waits for the hit, and one real Terminator volley deals it.
+        start(ctx, "P4", true);
+        if (!until(ctx, "Necron's first drop part (t 80)", mc -> ((Number) call(FIGHT, "phaseTick")).intValue() >= 82, 200)) {
+            f.add("P4 never reached t 82");
+            return;
+        }
+        barHolds(ctx, f, "Necron", 10);
+        float n0 = bar();
+        boolean term = terminatorAt(ctx, "Necron");
+        ctx.waitTicks(10);
+        if (!term || bar() > n0 - 0.1f) {
+            println(ONEHIT, "the Terminator volley " + (term ? "missed" : "was not fired") + "; a weapon hit instead");
+            f.add("a real Terminator volley at Necron did not deal his drop (" + n0 + " -> " + bar() + ")");
+            weaponHit(ctx, "Necron");
+        }
+        ctx.waitTicks(21);
+        float n1 = bar();
+        println(ONEHIT, "Necron bar " + n0 + " -> " + n1);
+        if (Math.abs(n1 - 0.8f) > 0.011f) {
+            f.add("Necron's bar after one volley: " + n1 + ", want 0.8");
+        }
+        cleanup(ctx);
+        // A P5 dragon: one hit kills it.
+        start(ctx, "P5", true);
+        if (!until(ctx, "a dragon up", mc -> !mc.level.getEntitiesOfClass(net.minecraft.world.entity.boss.enderdragon.EnderDragon.class,
+                new AABB(0, 0, 20, 110, 60, 150), d -> d.getHealth() > 0).isEmpty(), 400)) {
+            f.add("no dragon spawned");
+            return;
+        }
+        long d = LogTap.mark();
+        expect(f, "a hit on a dragon landed", weaponHit(ctx, "Dragon"), true);
+        ctx.waitTicks(3);
+        boolean dead = false;
+        for (String l : LogTap.since(d)) {
+            dead |= l.contains("dragon down at P5");
+        }
+        expect(f, "the dragon down from one hit", dead, true);
+    }
+
+    /** Fires a real Terminator volley (the sim's own right click) at {@code boss} from 6 blocks; true if it fired. */
+    private static boolean terminatorAt(ClientGameTestContext ctx, String boss) {
+        double[] b = (double[]) ModUnderTest.staticCall(FIGHT, "bossPos", new Class<?>[]{String.class}, new Object[]{boss});
+        if (b == null) {
+            return false;
+        }
+        serverRun(ctx, s -> s.getPlayerList().getPlayers().get(0).setItemInHand(InteractionHand.MAIN_HAND,
+                (net.minecraft.world.item.ItemStack) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimItems", "build",
+                        new Class<?>[]{String.class}, new Object[]{"TERMINATOR"})));
+        command(ctx, String.format(Locale.ROOT, "tp @p %.2f %.2f %.2f", b[0], b[1], b[2] - 6.0));
+        ctx.waitTicks(3);
+        return ctx.computeOnClient(mc -> {
+            Entity w = null;
+            for (Entity e : mc.level.getEntitiesOfClass(net.minecraft.world.entity.boss.wither.WitherBoss.class,
+                    mc.player.getBoundingBox().inflate(16))) {
+                if (w == null || e.distanceTo(mc.player) < w.distanceTo(mc.player)) {
+                    w = e;
+                }
+            }
+            if (w == null) {
+                return false;
+            }
+            Vec3 d = w.getBoundingBox().getCenter().subtract(mc.player.getEyePosition());
+            mc.player.setYRot((float) Math.toDegrees(Math.atan2(-d.x, d.z)));
+            mc.player.setXRot((float) -Math.toDegrees(Math.atan2(d.y, Math.hypot(d.x, d.z))));
+            mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND);
+            return true;
+        });
+    }
+
+    private static void noStray(ClientGameTestContext ctx, List<String> f) {
+        start(ctx, "P4", true);
+        if (!until(ctx, "Necron's first drop part (t 80)", mc -> ((Number) call(FIGHT, "phaseTick")).intValue() >= 82, 200)) {
+            f.add("P4 never reached t 82");
+            return;
+        }
+        ctx.waitTicks(21);
+        float a = bar();
+        long mark = LogTap.mark();
+        boolean offered = false;
+        for (int i = 0; i < 3; i++) {
+            boolean[] ok = {false};
+            serverRun(ctx, s -> ok[0] = (Boolean) ModUnderTest.staticCall(FIGHT, "testStrayDamage",
+                    new Class<?>[]{String.class}, new Object[]{"Necron"}));
+            offered |= ok[0];
+            ctx.waitTicks(20);
+        }
+        float b = bar();
+        boolean logged = false;
+        for (String l : LogTap.since(mark)) {
+            logged |= l.contains("[BossSim] refused") && (l.contains("lava") || l.contains("inFire"));
+        }
+        println(NOSTRAY, "Necron bar " + a + " -> " + b + " over 60 ticks of lava and fire; refusal logged " + logged);
+        expect(f, "lava and fire damage offered to Necron", offered, true);
+        expect(f, "the refusal logged with its source", logged, true);
+        if (Math.abs(a - b) > 0.001f) {
+            f.add("Necron's bar moved with no hit from him: " + a + " -> " + b);
+        }
+    }
+
+    // ============================================================================================== 1105-boss-fix3
+
+    /** Each P3 door's box (x1, y1, z1, x2, y2, z2): the gate's arch and the door's blocks are their kinds inside it. */
+    private static final int[][] DOOR_BOX = {{95, 115, 121, 105, 136, 124}, {16, 115, 127, 19, 136, 137}, {3, 115, 48, 13, 136, 51}};
+
+    /** Boundary {@code s}'s cells on the server: {arch (gate), door, portcullis}. */
+    private static int[] gateCells(ClientGameTestContext ctx, int s) {
+        int[] b = DOOR_BOX[s - 1];
+        int[] n = new int[3];
+        for (String id : serverBox(ctx, b[0], b[1], b[2], b[3], b[4], b[5])) {
+            String k = id.replace("minecraft:", "");
+            n[0] += k.equals("cracked_stone_bricks") || k.equals("stone_brick_stairs") ? 1 : 0;
+            n[1] += k.equals("barrier") || k.equals("iron_block") || k.equals("nether_brick_stairs") ? 1 : 0;
+            n[2] += k.equals("cobblestone") || k.equals("cobblestone_wall") || k.equals("nether_brick_fence") ? 1 : 0;
+        }
+        println(FIX3, "boundary " + s + ": arch " + n[0] + ", door " + n[1] + ", portcullis " + n[2]);
+        return n;
+    }
+
+    /** The arch cell of boundary {@code s} nearest {@code eye} on the server, or null. */
+    private static BlockPos archCell(ClientGameTestContext ctx, int s, Vec3 eye) {
+        int[] b = DOOR_BOX[s - 1];
+        String[] ids = serverBox(ctx, b[0], b[1], b[2], b[3], b[4], b[5]);
+        BlockPos best = null;
+        int i = 0;
+        for (int y = b[1]; y <= b[4]; y++) {
+            for (int z = b[2]; z <= b[5]; z++) {
+                for (int x = b[0]; x <= b[3]; x++) {
+                    String k = ids[i++];
+                    if ((k.endsWith(":cracked_stone_bricks") || k.endsWith(":stone_brick_stairs"))
+                            && (best == null || Vec3.atCenterOf(new BlockPos(x, y, z)).distanceTo(eye) < Vec3.atCenterOf(best).distanceTo(eye))) {
+                        best = new BlockPos(x, y, z);
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
+    /** Flying, his eyes level with {@code cell} and {@code dx, dz} blocks out from it. */
+    private static void hover(ClientGameTestContext ctx, BlockPos cell, int dx, int dz, float yaw) {
+        if (cell == null) {
+            return;
+        }
+        serverRun(ctx, s -> {
+            var sp = s.getPlayerList().getPlayers().get(0);
+            sp.getAbilities().mayfly = true;
+            sp.getAbilities().flying = true;
+            sp.onUpdateAbilities();
+        });
+        tp(ctx, cell.getX() + 0.5 + dx, cell.getY() + 0.5 - 1.62, cell.getZ() + 0.5 + dz, yaw, 0);
+        ctx.waitTicks(5);
+    }
+
+    /** The player's inventory on the server: every non-empty slot and the armor, "0=stick x1 ...". */
+    private static String inventory(ClientGameTestContext ctx) {
+        java.util.concurrent.atomic.AtomicReference<String> out = new java.util.concurrent.atomic.AtomicReference<>();
+        serverRun(ctx, s -> {
+            var sp = s.getPlayerList().getPlayers().get(0);
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 36; i++) {
+                var st = sp.getInventory().getItem(i);
+                if (!st.isEmpty()) {
+                    sb.append(i).append('=').append(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(st.getItem()).getPath())
+                            .append(" x").append(st.getCount()).append(' ');
+                }
+            }
+            for (var slot : new net.minecraft.world.entity.EquipmentSlot[]{net.minecraft.world.entity.EquipmentSlot.HEAD,
+                    net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.LEGS,
+                    net.minecraft.world.entity.EquipmentSlot.FEET, net.minecraft.world.entity.EquipmentSlot.OFFHAND}) {
+                sb.append(slot.getName()).append('=').append(net.minecraft.core.registries.BuiltInRegistries.ITEM
+                        .getKey(sp.getItemBySlot(slot).getItem()).getPath()).append(' ');
+            }
+            out.set(sb.toString().trim());
+        });
+        until(ctx, "an inventory read", mc -> out.get() != null, 20);
+        return out.get();
+    }
+
+    /** The client's Simon Says grid: {buttons up, of them facing west, lamps lit, cells with both a lamp and a button}. */
+    private static int[] ssGrid(Minecraft mc) {
+        int[] n = new int[4];
+        for (int y = 120; y <= 123; y++) {
+            for (int z = 92; z <= 95; z++) {
+                var b = mc.level.getBlockState(new BlockPos(110, y, z));
+                boolean button = b.is(net.minecraft.world.level.block.Blocks.STONE_BUTTON);
+                boolean lit = mc.level.getBlockState(new BlockPos(111, y, z)).is(net.minecraft.world.level.block.Blocks.SEA_LANTERN);
+                n[0] += button ? 1 : 0;
+                n[1] += button && b.getValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.HORIZONTAL_FACING)
+                        == Direction.WEST ? 1 : 0;
+                n[2] += lit ? 1 : 0;
+                n[3] += button && lit ? 1 : 0;
+            }
+        }
+        return n;
+    }
+
+    private static void fix3(ClientGameTestContext ctx, List<String> f) throws Exception {
+        java.nio.file.Path fixture = java.nio.file.Path.of(System.getProperty("user.home"), "killer560s-mod-logs", "fixtures", "boss-arena-1104.bin");
+        java.nio.file.Path fixture3 = java.nio.file.Path.of(System.getProperty("user.home"), "killer560s-mod-logs", "fixtures", "boss-arena-p3-1104.bin");
+        if (!java.nio.file.Files.isRegularFile(fixture) || !java.nio.file.Files.isRegularFile(fixture3)) {
+            f.add("no capture fixtures at " + fixture.getParent());
+            return;
+        }
+        java.nio.file.Path target = (java.nio.file.Path) call(ARENA, "capturePath");
+        java.nio.file.Path target3 = (java.nio.file.Path) ModUnderTest.staticCall(ARENA, "capturePath",
+                new Class<?>[]{String.class}, new Object[]{"P3"});
+        java.nio.file.Files.createDirectories(target.getParent());
+        java.nio.file.Files.copy(fixture, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        java.nio.file.Files.copy(fixture3, target3, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        try {
+            fix3Items(ctx, f);
+            fix3Chooser(ctx, f);
+            fix3Marks(ctx, f);
+            fix3Ss(ctx, f);
+            fix3Gates(ctx, f);
+        } finally {
+            java.nio.file.Files.deleteIfExists(target);
+            java.nio.file.Files.deleteIfExists(target3);
+        }
+    }
+
+    /** killer560: "if you start a phase of the boss you should keep the items you had from any phase". */
+    private static void fix3Items(ClientGameTestContext ctx, List<String> f) {
+        start(ctx, "P1", false);
+        serverRun(ctx, s -> {
+            var sp = s.getPlayerList().getPlayers().get(0);
+            net.minecraft.world.item.Item[] kinds = {net.minecraft.world.item.Items.STICK, net.minecraft.world.item.Items.BONE,
+                    net.minecraft.world.item.Items.ARROW, net.minecraft.world.item.Items.FEATHER};
+            for (int i = 0; i < 36; i++) {
+                sp.getInventory().setItem(i, new net.minecraft.world.item.ItemStack(kinds[i % 4], i + 1));
+            }
+            sp.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_HELMET));
+            sp.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_CHESTPLATE));
+            sp.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_LEGGINGS));
+            sp.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_BOOTS));
+            sp.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.SHIELD));
+        });
+        ctx.waitTicks(2);
+        String want = inventory(ctx);
+        expect(f, "the test's items went in (36 slots + armor)", want.contains("35=feather x36") && want.contains("head=diamond_helmet"), true);
+        for (String phase : new String[]{"S2", "P4", "S1", "P1", "P5"}) {
+            start(ctx, phase, false);
+            ctx.waitTicks(10);
+            String got = inventory(ctx);
+            if (!got.equals(want)) {
+                f.add("items after starting " + phase + ": " + got + " (want " + want + ")");
+            } else {
+                println(FIX3, "items kept after starting " + phase);
+            }
+        }
+        serverRun(ctx, s -> {
+            var sp = s.getPlayerList().getPlayers().get(0);
+            for (int i = 0; i < 36; i++) {
+                sp.getInventory().setItem(i, net.minecraft.world.item.ItemStack.EMPTY);
+            }
+        });
+    }
+
+    /**
+     * killer560: "i set up a hotbar in p1 but then in p3 it was a different one. a whole new inventory". Lays out a hotbar
+     * and inventory in P1, rearranges it, then starts Section 1 through the F7 Boss chooser's own button: every slot stays.
+     */
+    private static void fix3Chooser(ClientGameTestContext ctx, List<String> f) throws Exception {
+        start(ctx, "P1", false);
+        serverRun(ctx, s -> {
+            var inv = s.getPlayerList().getPlayers().get(0).getInventory();
+            net.minecraft.world.item.Item[] kinds = {net.minecraft.world.item.Items.DIAMOND_SWORD, net.minecraft.world.item.Items.BOW,
+                    net.minecraft.world.item.Items.ENDER_PEARL, net.minecraft.world.item.Items.GOLDEN_APPLE, net.minecraft.world.item.Items.TNT};
+            for (int i = 0; i < 36; i++) {
+                inv.setItem(i, i % 3 == 0 ? net.minecraft.world.item.ItemStack.EMPTY : new net.minecraft.world.item.ItemStack(kinds[i % 5], 1 + i % 7));
+            }
+            // His rearranging: a swap inside the hotbar and one item moved up into the inventory.
+            var a = inv.getItem(1);
+            inv.setItem(1, inv.getItem(8));
+            inv.setItem(8, a);
+            inv.setItem(30, inv.getItem(2));
+            inv.setItem(2, net.minecraft.world.item.ItemStack.EMPTY);
+        });
+        ctx.waitTicks(2);
+        String want = inventory(ctx);
+        Class<?> screen = Class.forName(B + "BossStartScreen");
+        ctx.runOnClient(mc -> {
+            try {
+                McCompat.setScreen(mc, (net.minecraft.client.gui.screens.Screen) screen.getConstructor(net.minecraft.client.gui.screens.Screen.class).newInstance((Object) null));
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+        });
+        ctx.waitTicks(3);
+        String pressed = ctx.computeOnClient(mc -> {
+            var sc = McCompat.screen(mc);
+            for (var child : sc.children()) {
+                if (child instanceof net.minecraft.client.gui.components.AbstractWidget w && w.getMessage().getString().equals("Section 1")) {
+                    var ev = new net.minecraft.client.input.MouseButtonEvent(w.getX() + w.getWidth() / 2.0, w.getY() + w.getHeight() / 2.0,
+                            new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0));
+                    sc.mouseClicked(ev, false);
+                    if (McCompat.screen(mc) == sc) {
+                        sc.mouseReleased(ev);
+                    }
+                    return "ok";
+                }
+            }
+            return "no Section 1 button on " + sc;
+        });
+        expect(f, "the chooser's Section 1 button", pressed, "ok");
+        boolean p3 = until(ctx, "P3 from the chooser", mc -> "P3".equals(String.valueOf(call(FIGHT, "phase")))
+                && Integer.valueOf(1).equals(call(FIGHT, "section")), 400);
+        expect(f, "the chooser started P3 Section 1", p3, true);
+        ctx.waitTicks(10);
+        String got = inventory(ctx);
+        expect(f, "every slot after Change Phase to P3", got, want);
+        if (got.equals(want)) {
+            println(FIX3, "chooser P1 -> S1 kept: " + want);
+        }
+    }
+
+    /** killer560: "for frames wherever it starts is the green where it ends should be red". */
+    private static void fix3Marks(ClientGameTestContext ctx, List<String> f) {
+        start(ctx, "P1", false);
+        hover(ctx, new BlockPos(-2, 122, 77), 3, 0, 90); // in front of the wall, so its frames are on the client
+        until(ctx, "the Arrows frames", mc -> !mc.level.getEntitiesOfClass(ItemFrame.class,
+                new AABB(-3, 119, 74, -1, 126, 81), fr -> fr.getItem().is(net.minecraft.world.item.Items.ARROW)).isEmpty(), 100);
+        int[] sol = new int[25];
+        for (int i = 0; i < 25; i++) {
+            sol[i] = (Integer) ModUnderTest.staticCall(DEVICES, "arrowSolution", new Class<?>[]{int.class}, new Object[]{i});
+        }
+        // The test's own reading of the layout: rotation 1/5 = -z/+z, 3/7 = down/up along the wall (the mapping under
+        // which every one of the nine layouts' arrows stays on the wall). Red = an empty cell an arrow points into;
+        // green = the empty cell behind an arrow nothing points into.
+        java.util.Set<Integer> red = new java.util.TreeSet<>(), green = new java.util.TreeSet<>(), heads = new java.util.TreeSet<>();
+        for (int i = 0; i < 25; i++) {
+            if (sol[i] >= 0) {
+                heads.add(i);
+            }
+        }
+        for (int i = 0; i < 25; i++) {
+            if (sol[i] < 0) {
+                continue;
+            }
+            int y = i % 5 + (sol[i] == 7 ? 1 : sol[i] == 3 ? -1 : 0), z = i / 5 + (sol[i] == 5 ? 1 : sol[i] == 1 ? -1 : 0);
+            if (y < 0 || y > 4 || z < 0 || z > 4) {
+                f.add("Arrows: cell " + i + " points off the wall");
+                continue;
+            }
+            heads.remove(y + 5 * z);
+            if (sol[y + 5 * z] < 0) {
+                red.add(y + 5 * z);
+            }
+        }
+        for (int h : heads) {
+            int y = h % 5 - (sol[h] == 7 ? 1 : sol[h] == 3 ? -1 : 0), z = h / 5 - (sol[h] == 5 ? 1 : sol[h] == 1 ? -1 : 0);
+            if (y >= 0 && y <= 4 && z >= 0 && z <= 4 && sol[y + 5 * z] < 0) {
+                green.add(y + 5 * z);
+            }
+        }
+        java.util.Set<Integer> gotRed = new java.util.TreeSet<>(), gotGreen = new java.util.TreeSet<>();
+        int arrows = 0;
+        for (int i = 0; i < 25; i++) {
+            BlockPos pos = new BlockPos(-2, 120 + i % 5, 75 + i / 5);
+            int cell = i;
+            String item = ctx.computeOnClient(mc -> {
+                ItemFrame fr = frameAt(mc, pos);
+                return fr == null ? "" : net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(fr.getItem().getItem()).getPath();
+            });
+            switch (item) {
+                case "red_wool" -> gotRed.add(cell);
+                case "lime_wool" -> gotGreen.add(cell);
+                case "arrow" -> arrows++;
+                default -> { }
+            }
+        }
+        println(FIX3, "Arrows marks: green " + gotGreen + " red " + gotRed + " (layout's starts " + green + ", ends " + red + "), " + arrows + " arrows");
+        expect(f, "Arrows: at least one red and one green frame", !gotRed.isEmpty() && !gotGreen.isEmpty(), true);
+        expect(f, "Arrows: red wool where the path ends", gotRed, red);
+        if (!gotGreen.containsAll(green)) {
+            f.add("Arrows: green wool " + gotGreen + " misses a start behind an arrow " + green);
+        }
+        expect(f, "Arrows: one frame per arrow", arrows, (int) java.util.Arrays.stream(sol).filter(v -> v >= 0).count());
+        serverRun(ctx, s -> {
+            var sp = s.getPlayerList().getPlayers().get(0);
+            sp.getAbilities().flying = false;
+            sp.getAbilities().mayfly = false;
+            sp.onUpdateAbilities();
+        });
+    }
+
+    /** killer560: "the simon says logic is still broken. skip doesnt work and the buttons dont show right". */
+    private static void fix3Ss(ClientGameTestContext ctx, List<String> f) {
+        long mark = start(ctx, "S1", false);
+        expect(f, "arena source", call(ARENA, "source"), "capture");
+        if (!waitChat(ctx, mark, "[BOSS] Goldor: Who dares trespass into my domain?", 40)) {
+            f.add("Goldor's line never came");
+            return;
+        }
+        tp(ctx, 108.5, 120, 93.5, -90, 0);
+        ctx.waitTicks(8);
+        // The skip: start, reset 3 ticks later, start 3 ticks after that. Round 1 shows off the first start's task and
+        // the second start's adds round 2: the first input is round 2.
+        // Paced on the server's ticks (a press is handled on the tick after it is sent): client ticks drift against them.
+        BlockPos startButton = new BlockPos(110, 121, 91);
+        String[] steps = {"Simon Says started", "Simon Says reset by the start button", "Simon Says started"};
+        int[] at = new int[3];
+        for (int i = 0; i < 3; i++) {
+            if (i > 0) {
+                untilTick(ctx, at[i - 1] + 2, 20);
+            }
+            long pm = LogTap.mark();
+            useBlock(ctx, startButton, Direction.EAST);
+            String step = steps[i];
+            if (!until(ctx, step, mc -> LogTap.since(pm).stream().anyMatch(l -> l.contains(step)), 20)) {
+                f.add("SS skip press " + (i + 1) + " never landed as '" + step + "' (" + call(DEVICES, "describe") + ")");
+                return;
+            }
+            at[i] = phaseTick();
+        }
+        println(FIX3, "SS skip presses at P3 t " + at[0] + ", " + at[1] + ", " + at[2]);
+        int[] during = new int[]{-1, 0, 0, 0};
+        boolean shown = until(ctx, "a lamp of the show", mc -> {
+            int[] g = ssGrid(mc);
+            if (g[2] > 0) {
+                System.arraycopy(g, 0, during, 0, 4);
+                return true;
+            }
+            return false;
+        }, 30);
+        expect(f, "SS show: a lamp lit on the client", shown, true);
+        expect(f, "SS show: no button in front of a lit lamp", during[3], 0);
+        if (!until(ctx, "SS input", mc -> (Boolean) call(DEVICES, "ssInput"), 80)) {
+            f.add("SS never took input after the skip (" + call(DEVICES, "describe") + ")");
+            return;
+        }
+        expect(f, "SS skip: the first round put in is round 2", ((List<?>) call(DEVICES, "ssSequence")).size(), 2);
+        // Two shows overlap in a skip: the buttons come back on the first one's timer, the button under the second one's
+        // last lamp with its own (8n+10 after it began), so all 16 stand about 14 ticks into input.
+        ctx.waitTicks(18);
+        int[] g = ctx.computeOnClient(SimBossTests::ssGrid);
+        expect(f, "SS input: 16 buttons up on the client", g[0], 16);
+        expect(f, "SS input: every button faces west (on the wall's face toward him)", g[1], 16);
+        long dm = LogTap.mark();
+        for (int round = 2; round <= 4; round++) {
+            int r = round;
+            if (!until(ctx, "SS round " + round + " input", mc -> (Boolean) call(DEVICES, "ssInput")
+                    && ((List<?>) call(DEVICES, "ssSequence")).size() == r, 200)) {
+                f.add("Simon Says never reached round " + round + " (" + call(DEVICES, "describe") + ")");
+                return;
+            }
+            ctx.waitTicks(3);
+            @SuppressWarnings("unchecked")
+            List<int[]> seq = (List<int[]>) call(DEVICES, "ssSequence");
+            for (int[] lantern : seq) {
+                useBlock(ctx, new BlockPos(110, lantern[1], lantern[2]), Direction.EAST);
+                ctx.waitTicks(3);
+            }
+        }
+        expect(f, "SS done after the skip (completed a device!)", waitChat(ctx, dm, "completed a device!", 40), true);
+        expect(f, "SS state", call(DEVICES, "ssState"), "DONE");
+        ctx.waitTicks(3);
+        int[] after = ctx.computeOnClient(SimBossTests::ssGrid);
+        expect(f, "SS done: buttons and lamps gone", after[0] + after[2], 0);
+    }
+
+    /**
+     * killer560: "once the gate has been destroyed the gate needs to be removed", and a Superboom on a gate destroys it
+     * at once, but the way opens only once the section before it is done.
+     */
+    private static void fix3Gates(ClientGameTestContext ctx, List<String> f) {
+        // Continues fix3Ss's S1 with Simon Says done: the rest of S1, then the 5 s countdown and the gate.
+        int[] g1 = gateCells(ctx, 1);
+        expect(f, "boundary 1 standing before S1 ends (arch, door, portcullis > 0)", g1[0] > 0 && g1[1] > 0 && g1[2] > 0, true);
+        long end = LogTap.mark();
+        for (String label : new String[]{"T1", "T2", "T3", "T4", "east lever", "west lever"}) {
+            serverRun(ctx, s -> ModUnderTest.staticCall(STATIONS, "testComplete",
+                    new Class<?>[]{MinecraftServer.class, int.class, String.class}, new Object[]{s, 1, label}));
+        }
+        expect(f, "S1 done: 'The gate will open in 5 seconds!'", waitChat(ctx, end, "The gate will open in 5 seconds!", 20), true);
+        if (!waitChat(ctx, end, "The gate has been destroyed!", 130)) {
+            f.add("S1's gate never went (" + call(STATIONS, "describe") + ")");
+            return;
+        }
+        ctx.waitTicks(10);
+        int[] a1 = gateCells(ctx, 1);
+        expect(f, "boundary 1 after its gate line: arch, door and portcullis all gone", a1[0] + a1[1] + a1[2], 0);
+        expect(f, "boundary 1's top (103 134 123) air", serverBlockId(ctx, new BlockPos(103, 134, 123)), "minecraft:air");
+        expect(f, "section after S1", call(FIGHT, "section"), 2);
+
+        // A Superboom on gate 2 while S2 is not done: the gate goes at once, the door stays, S2 goes on.
+        serverRun(ctx, s -> s.getPlayerList().getPlayers().get(0).setItemInHand(InteractionHand.MAIN_HAND,
+                (net.minecraft.world.item.ItemStack) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimItems", "build",
+                        new Class<?>[]{String.class}, new Object[]{"SUPERBOOM_TNT"})));
+        int[] g2 = gateCells(ctx, 2);
+        expect(f, "boundary 2 standing in S2 (arch, door > 0)", g2[0] > 0 && g2[1] > 0, true);
+        // In front of the gate there is a drop to y 106: he hovers 3 blocks out from an arch cell on S2's side.
+        BlockPos aim = archCell(ctx, 2, new Vec3(25, 120, 132));
+        hover(ctx, aim, 3, 0, 90);
+        println(FIX3, "Superboom on gate 2 at " + aim + " from " + ctx.computeOnClient(mc -> mc.player.getEyePosition()));
+        long boom = LogTap.mark();
+        if (aim != null) {
+            useBlock(ctx, aim, Direction.EAST);
+        }
+        expect(f, "Superboom on gate 2 in S2: 'The gate has been destroyed!' at once", waitChat(ctx, boom, "The gate has been destroyed!", 10), true);
+        ctx.waitTicks(6);
+        int[] b2 = gateCells(ctx, 2);
+        expect(f, "gate 2's arch gone", b2[0], 0);
+        expect(f, "gate 2's top (17 134 135) air", serverBlockId(ctx, new BlockPos(17, 134, 135)), "minecraft:air");
+        expect(f, "door 2 still shut while S2 is not done", b2[1], g2[1]);
+        expect(f, "no countdown for an unfinished section", chatSeen(boom, "The gate will open in 5 seconds!"), false);
+        expect(f, "section after the early Superboom", call(FIGHT, "section"), 2);
+
+        // A Superboom on gate 3 during S2 does nothing: its section has not begun.
+        int[] g3 = gateCells(ctx, 3);
+        BlockPos aim3 = archCell(ctx, 3, new Vec3(8, 120, 57));
+        hover(ctx, aim3, 0, 3, 180);
+        println(FIX3, "Superboom on gate 3 at " + aim3 + " from " + ctx.computeOnClient(mc -> mc.player.getEyePosition()));
+        long boom3 = LogTap.mark();
+        if (aim3 != null) {
+            useBlock(ctx, aim3, Direction.SOUTH);
+        }
+        ctx.waitTicks(10);
+        expect(f, "Superboom on gate 3 during S2: no gate line", chatSeen(boom3, "The gate has been destroyed!"), false);
+        expect(f, "gate 3 untouched (arch cells as before)", gateCells(ctx, 3)[0], g3[0]);
+        expect(f, "gate 3's (5 134 49) still cracked stone bricks", serverBlockId(ctx, new BlockPos(5, 134, 49)), "minecraft:cracked_stone_bricks");
+
+        // S2 done with its gate already down: the door opens at once, no countdown.
+        long done2 = LogTap.mark();
+        for (String label : new String[]{"T1", "T2", "T3", "T4", "T5", "low lever", "high lever", "Lights"}) {
+            serverRun(ctx, s -> ModUnderTest.staticCall(STATIONS, "testComplete",
+                    new Class<?>[]{MinecraftServer.class, int.class, String.class}, new Object[]{s, 2, label}));
+        }
+        boolean next = until(ctx, "S3 in progress", mc -> Integer.valueOf(3).equals(call(FIGHT, "section")), 20);
+        expect(f, "S2 done with its gate down: S3 begins at once", next, true);
+        ctx.waitTicks(8);
+        expect(f, "S2 done with its gate down: no countdown", chatSeen(done2, "The gate will open in 5 seconds!"), false);
+        int[] d2 = gateCells(ctx, 2);
+        expect(f, "door 2 open (door and portcullis gone)", d2[1] + d2[2], 0);
+        serverRun(ctx, s -> {
+            var sp = s.getPlayerList().getPlayers().get(0);
+            sp.getAbilities().mayfly = sp.getAbilities().flying = false;
+            sp.onUpdateAbilities();
+        });
+    }
 
     private static void p1p2(ClientGameTestContext ctx, List<String> f) {
         long mark = start(ctx, "P1", true);
@@ -262,13 +933,53 @@ public class SimBossTests implements FabricClientGameTest {
         }
     }
 
-    // ---------------------------------------------------------------------------------------- 1104-boss-capture
+    // ---------------------------------------------------------------------------------------- 1108-boss-fresh
 
-    private static void capture(ClientGameTestContext ctx, List<String> f) throws Exception {
+    /**
+     * bosssim1108: a fresh instance had only the built-in plan because the capture sat in the instance it was taken in.
+     * (A) an instance's old config copy is moved into the shared store's sim-boss folder; (B) with only the shared copy,
+     * a P1 start builds from the capture.
+     */
+    private static void fresh(ClientGameTestContext ctx, List<String> f) throws Exception {
         java.nio.file.Path fixture = java.nio.file.Path.of(System.getProperty("testkit.bossCapture",
                 System.getProperty("user.home") + "/killer560s-mod-logs/fixtures/boss-arena-1104.bin"));
         if (!java.nio.file.Files.isRegularFile(fixture)) {
-            f.add("no capture fixture at " + fixture + " (a copy of /simbosscapture's killer560smod-sim-bossarena.bin)");
+            f.add("no capture fixture at " + fixture);
+            return;
+        }
+        java.nio.file.Path shared = ((java.nio.file.Path) ModUnderTest.staticCall("com.killer560.hub.shared.SharedRecords", "root",
+                new Class<?>[0], new Object[0])).resolve("sim-boss");
+        java.nio.file.Path legacy = (java.nio.file.Path) ModUnderTest.staticCall("com.killer560.hub.util.ModPaths", "config",
+                new Class<?>[]{String.class}, new Object[]{"killer560smod-sim-bossarena.bin"});
+        java.nio.file.Path inShared = shared.resolve("killer560smod-sim-bossarena.bin");
+        java.nio.file.Files.deleteIfExists(inShared);
+        java.nio.file.Files.createDirectories(legacy.getParent());
+        java.nio.file.Files.copy(fixture, legacy, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        try {
+            java.nio.file.Path got = (java.nio.file.Path) call(ARENA, "capturePath");
+            expect(f, "the capture path is in the shared store", got.toAbsolutePath().normalize().equals(inShared.toAbsolutePath().normalize()), true);
+            expect(f, "the instance's old copy was moved into the shared store", java.nio.file.Files.isRegularFile(inShared), true);
+            expect(f, "the old copy is gone from the config folder", java.nio.file.Files.exists(legacy), false);
+            start(ctx, "P1", false);
+            expect(f, "arena source with only the shared copy", call(ARENA, "source"), "capture");
+        } finally {
+            java.nio.file.Files.deleteIfExists(inShared);
+            java.nio.file.Files.deleteIfExists(legacy);
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------- 1104-boss-capture
+
+    private static void capture(ClientGameTestContext ctx, List<String> f) throws Exception {
+        withCapture(f, () -> captureCase(ctx, f));
+    }
+
+    /** Runs {@code body} over his capture fixtures (P1 and P3 files in the sim folder), removed again after. */
+    private static void withCapture(List<String> f, Runnable body) throws Exception {
+        java.nio.file.Path fixture = java.nio.file.Path.of(System.getProperty("testkit.bossCapture",
+                System.getProperty("user.home") + "/killer560s-mod-logs/fixtures/boss-arena-1104.bin"));
+        if (!java.nio.file.Files.isRegularFile(fixture)) {
+            f.add("no capture fixture at " + fixture + " (a copy of a captured killer560smod-sim-bossarena.bin)");
             return;
         }
         java.nio.file.Path fixture3 = java.nio.file.Path.of(System.getProperty("testkit.bossCaptureP3",
@@ -284,7 +995,7 @@ public class SimBossTests implements FabricClientGameTest {
         java.nio.file.Files.copy(fixture, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         java.nio.file.Files.copy(fixture3, target3, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         try {
-            captureCase(ctx, f);
+            body.run();
         } finally {
             java.nio.file.Files.deleteIfExists(target);
             java.nio.file.Files.deleteIfExists(target3);
@@ -590,6 +1301,54 @@ public class SimBossTests implements FabricClientGameTest {
         });
     }
 
+    private static void crystalWalk(ClientGameTestContext ctx, List<String> f) {
+        long m = start(ctx, "P1", true);
+        if (!until(ctx, "both crystals on their towers", mc -> (Boolean) fight("crystalOnTower", 0) && (Boolean) fight("crystalOnTower", 1), 160)) {
+            f.add("the crystals never appeared");
+            return;
+        }
+        tp(ctx, 64.5, 238, 48.5, 0, 0);
+        ctx.waitTicks(5);
+        expect(f, "2 blocks from a crystal: still on its tower", fight("crystalOnTower", 0), true);
+        expect(f, "2 blocks from a crystal: nothing picked up", count(m, "picked up an Energy Crystal!"), 0);
+        tp(ctx, 63.5, 238, 49.5, 0, 0);
+        ctx.waitTicks(3);
+        expect(f, "walk-in: crystal 0 left its tower", fight("crystalOnTower", 0), false);
+        expect(f, "walk-in: picked up once", count(m, "picked up an Energy Crystal!"), 1);
+        expect(f, "walk-in: star in slot 8", ctx.computeOnClient(mc -> mc.player.getInventory().getItem(8).getHoverName().getString().contains("Energy Crystal")), true);
+        until(ctx, "the pylons open (P1 t 80)", mc -> (Integer) call(FIGHT, "phaseTick") > 81, 200);
+        tp(ctx, 52.5, 224, 43.5, 180, 0);
+        ctx.waitTicks(5);
+        expect(f, "2 blocks from a pad: nothing placed", count(m, "Energy Crystals are now active!"), 0);
+        tp(ctx, 52.5, 224, 42.5, 180, 0);
+        ctx.waitTicks(3);
+        expect(f, "walk-in: placed at the pad", count(m, "1/2 Energy Crystals are now active!"), 1);
+        expect(f, "walk-in: star gone from slot 8", ctx.computeOnClient(mc -> mc.player.getInventory().getItem(8).getHoverName().getString().contains("Energy Crystal")), false);
+        cleanup(ctx);
+        m = start(ctx, "P1", true);
+        if (!until(ctx, "both crystals on their towers again", mc -> (Boolean) fight("crystalOnTower", 0) && (Boolean) fight("crystalOnTower", 1), 160)) {
+            f.add("the crystals never appeared (second start)");
+            return;
+        }
+        tp(ctx, 64.5, 238, 47.5, 0, 0);
+        clickCrystal(ctx, 64.5, 238.375, 50.5);
+        ctx.waitTicks(3);
+        expect(f, "right click from 3 blocks: crystal 0 gone", fight("crystalOnTower", 0), false);
+        tp(ctx, 82.5, 238, 47.5, 0, 0);
+        boolean hit = ctx.computeOnClient(mc -> {
+            for (net.minecraft.world.entity.boss.enderdragon.EndCrystal c : mc.level.getEntitiesOfClass(
+                    net.minecraft.world.entity.boss.enderdragon.EndCrystal.class, new AABB(81, 237, 49, 84, 240, 52))) {
+                mc.gameMode.attack(mc.player, c);
+                return true;
+            }
+            return false;
+        });
+        ctx.waitTicks(3);
+        expect(f, "left click: a crystal was there to hit", hit, true);
+        expect(f, "left click from 3 blocks: crystal 1 gone", fight("crystalOnTower", 1), false);
+        expect(f, "clicks: two pickups", count(m, "picked up an Energy Crystal!"), 2);
+    }
+
     private static void maxorCrystals(ClientGameTestContext ctx, List<String> f) {
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config("com.killer560.hub.maxor.MaxorConfig"), "setActiveCounter", true));
         long mark = start(ctx, "P1", true);
@@ -803,6 +1562,125 @@ public class SimBossTests implements FabricClientGameTest {
         println(P3, "stations: " + call(STATIONS, "describe"));
     }
 
+    /**
+     * simgates-1105 (killer560, 2026-11-05: every solver, auto and dungeon-only feature treats the sim as a dungeon, the boss
+     * as the boss room). In the boss sim at P3 the shared gates report the F7/M7 boss at the right phase, floor and section,
+     * and the Terminal Solver, Auto Terminals, the Simon Says solver and Auto Simon Says each act (each proved by what it did).
+     */
+    private static void simGates(ClientGameTestContext ctx, List<String> f) {
+        long mark = start(ctx, "S1", true);
+        if (!waitChat(ctx, mark, "[BOSS] Goldor: Who dares trespass into my domain?", 40)) {
+            f.add("Goldor's line never came");
+            return;
+        }
+        ctx.waitTicks(10);
+        gates(ctx, f, "M7 S1", "M7", "S1");
+        String tsf = "terminals.TerminalSolverFeature";
+        // ---- the Terminal Solver alone: it reads the window and works out the clicks, and clicks nothing ----
+        System.setProperty("killer560.bosssim.terminal", "PANES");
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(TERM_CFG);
+            ModUnderTest.set(cfg, "setEnabled", true);
+            ModUnderTest.set(cfg, "setPanesEnabled", true);
+            ModUnderTest.set(cfg, "setAutoTerminalsEnabled", false);
+        });
+        int solved0 = (Integer) call(TERMS, "solvedCount");
+        int opened0 = (Integer) call(TERMS, "openedCount");
+        if (!clickTerminal(ctx, 1, "T1", "Inactive Terminal")
+                || !until(ctx, "T1 opened", mc -> (Integer) call(TERMS, "openedCount") > opened0, 20)) {
+            f.add("S1 T1 never opened");
+            return;
+        }
+        boolean solver = until(ctx, "the Terminal Solver's highlights", mc ->
+                dev.testkit.gametest.mod.Mod.field(tsf, "currentType") != null
+                        && !((java.util.Map<?, ?>) dev.testkit.gametest.mod.Mod.field(tsf, "currentHighlights")).isEmpty(), 40);
+        expect(f, "Terminal Solver read the sim's Panes terminal", solver
+                ? ctx.computeOnClient(mc -> String.valueOf(dev.testkit.gametest.mod.Mod.field(tsf, "currentType"))) : "nothing", "PANES");
+        ctx.waitTicks(10);
+        expect(f, "terminals solved with the solver alone (it must not click)", (Integer) call(TERMS, "solvedCount"), solved0);
+        closeMenu(ctx);
+        // ---- Auto Terminals: the mod solves it ----
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(TERM_CFG);
+            ModUnderTest.set(cfg, "setAutoTerminalsEnabled", true);
+            ModUnderTest.set(cfg, "setAutoPanesEnabled", true);
+        });
+        long tm = LogTap.mark();
+        if (!clickTerminal(ctx, 1, "T1", "Inactive Terminal")) {
+            f.add("S1 T1: no Inactive Terminal stand for the second open");
+        } else if (!until(ctx, "Auto Terminals solved T1", mc -> (Integer) call(TERMS, "solvedCount") > solved0, 600)) {
+            f.add("Auto Terminals never solved S1 T1 in the sim");
+        } else if (!waitChat(ctx, tm, "activated a terminal!", 20)) {
+            f.add("T1 solved but no 'activated a terminal!' line");
+        }
+        closeMenu(ctx);
+        System.clearProperty("killer560.bosssim.terminal");
+        ctx.runOnClient(mc -> ModUnderTest.turnOff(TERM_CFG, "setAutoTerminalsEnabled"));
+        // ---- Simon Says: the solver records the shown steps; Auto Simon Says presses them ----
+        String ssCfg = "com.killer560.hub.simonsays.SimonSaysConfig";
+        String ssf = "simonsays.SimonSaysFeature";
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(ssCfg);
+            ModUnderTest.set(cfg, "setEnabled", true);
+            ModUnderTest.set(cfg, "setSolverEnabled", true);
+            ModUnderTest.set(cfg, "setAutoStartEnabled", false);
+            ModUnderTest.set(cfg, "setTriggerBotEnabled", false);
+            ModUnderTest.set(cfg, "setAutoSolveRotate", false);
+            ModUnderTest.set(cfg, "setDiagnosticLoggingEnabled", true);
+            ModUnderTest.set(cfg, "setAutoSimonSaysEnabled", true);
+            ModUnderTest.set(cfg, "setAutoSolveEnabled", true);
+        });
+        tp(ctx, 108.5, 120, 93.5, -90, 0);
+        if (!until(ctx, "Simon Says at the device", mc -> (Boolean) dev.testkit.gametest.mod.Mod.field(ssf, "wasActive"), 100)) {
+            f.add("the Simon Says solver never armed at the sim's device");
+        }
+        long sm = LogTap.mark();
+        useBlock(ctx, new BlockPos(110, 121, 91), Direction.EAST);
+        boolean recorded = until(ctx, "the solver recorded a step", mc ->
+                !((List<?>) dev.testkit.gametest.mod.Mod.field(ssf, "clickInOrder")).isEmpty(), 200);
+        expect(f, "Simon Says solver recorded the sim's first step", recorded, true);
+        try {
+            if (!waitChat(ctx, sm, "completed a device!", 1200)) {
+                f.add("Auto Simon Says never completed the sim's device (" + call(DEVICES, "describe") + ")");
+            } else {
+                println(GATES, "Auto Simon Says completed the device; the test pressed only the start button");
+            }
+        } finally {
+            ctx.runOnClient(mc -> {
+                Object cfg = ModUnderTest.config(ssCfg);
+                ModUnderTest.set(cfg, "setAutoSolveEnabled", false);
+                ModUnderTest.set(cfg, "setAutoSimonSaysEnabled", false);
+                ModUnderTest.set(cfg, "setDiagnosticLoggingEnabled", false);
+            });
+        }
+        // ---- a Floor 7 fight started at S2: F7, and the section the player stands in ----
+        long m2 = start(ctx, "S2", false);
+        if (!waitChat(ctx, m2, "[BOSS] Goldor: Who dares trespass into my domain?", 40)) {
+            f.add("S2 start: Goldor's line never came");
+            return;
+        }
+        ctx.waitTicks(10);
+        gates(ctx, f, "F7 S2", "F7", "S2");
+    }
+
+    /** The shared dungeon gates as a feature reads them, in the sim's boss at P3. */
+    private static void gates(ClientGameTestContext ctx, List<String> f, String what, String floor, String stage) {
+        ctx.waitTicks(6); // SkyblockGate reads the sidebar every 5 ticks
+        String got = ctx.computeOnClient(mc -> "inDungeon=" + call(DUNGEON, "isInDungeon")
+                + " f7OrM7=" + call(DUNGEON, "isF7OrM7")
+                + " bossPhase=" + call(DUNGEON, "isBossPhaseActive")
+                + " simBoss=" + call(DUNGEON, "isSimBoss")
+                + " floor=" + call(DUNGEON, "getFloor")
+                + " inF7Boss=" + call(F7, "inF7Boss")
+                + " phase=" + call(F7, "getPhase")
+                + " stage=" + call(F7, "getStage")
+                + " dungeonServer=" + ModUnderTest.staticCall("com.killer560.hub.cheatutils.CheatUtils", "isOnDungeonServer",
+                new Class<?>[]{Minecraft.class}, new Object[]{mc})
+                + " skyblock=" + call("com.killer560.hub.util.SkyblockGate", "isOnSkyblock"));
+        expect(f, what + " gates", got, "inDungeon=true f7OrM7=true bossPhase=true simBoss=true floor=" + floor
+                + " inF7Boss=true phase=P3 stage=" + stage + " dungeonServer=true skyblock=true");
+    }
+
     private static void simonSays(ClientGameTestContext ctx, List<String> f) {
         tp(ctx, 108.5, 120, 93.5, -90, 0);
         ctx.waitTicks(8);
@@ -973,10 +1851,9 @@ public class SimBossTests implements FabricClientGameTest {
                 f.add("dragon " + (i + 1) + " never spawned");
                 return;
             }
-            for (int h = 0; h < 8; h++) {
-                serverRun(ctx, s -> ModUnderTest.staticCall(FIGHT, "testHit", new Class<?>[]{String.class}, new Object[]{"Dragon"}));
-                ctx.waitTicks(2);
-            }
+            // One hit is a dragon's whole damage since simitems-1105.
+            serverRun(ctx, s -> ModUnderTest.staticCall(FIGHT, "testHit", new Class<?>[]{String.class}, new Object[]{"Dragon"}));
+            ctx.waitTicks(2);
             killed++;
             ctx.waitTicks(25);
         }
@@ -984,6 +1861,245 @@ public class SimBossTests implements FabricClientGameTest {
             f.add("the fight never ended after " + killed + " dragons (" + call(FIGHT, "describe") + ")");
         }
         expect(f, "Wither King counts lines", count(mark, "[BOSS] The Wither King: ") >= 6, true);
+    }
+
+    private static void dragons(ClientGameTestContext ctx, List<String> f) throws Exception {
+        Object cfg = ModUnderTest.config(WD + "WitherDragonsConfig");
+        ctx.runOnClient(mc -> ModUnderTest.set(cfg, "setEnabled", true));
+        try {
+            withCapture(f, () -> {
+                expectStartSource(ctx, f);
+                necronBreak(ctx, f);
+                dragonsRun(ctx, f);
+            });
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.set(cfg, "setEnabled", false));
+        }
+    }
+
+    private static void dragonsRun(ClientGameTestContext ctx, List<String> f) {
+        long mark = start(ctx, "P5", true);
+        if (!waitChat(ctx, mark, "[BOSS] The Wither King: You... again?", 160)) {
+            f.add("the Wither King's line never came");
+            return;
+        }
+        expect(f, "Floor7Tracker phase in P5", phase(ctx), "P5");
+        p5Arena(ctx, f);
+        Object red = ModUnderTest.enumValue(WD + "WitherDragon", "RED");
+        Object orange = ModUnderTest.enumValue(WD + "WitherDragon", "ORANGE");
+        if (!until(ctx, "Red's spawn timer", mc -> "SPAWNING".equals(String.valueOf(spec(red, "state"))), 80)) {
+            f.add("Wither Dragons never read Red's flame burst (state " + spec(red, "state") + ")");
+            return;
+        }
+        int timer = (Integer) spec(red, "timeToSpawn");
+        println(DRAGONS, "Red spawning, spawn timer " + timer);
+        if (timer < 80) {
+            f.add("Red's spawn timer read " + timer + " at the burst, want about 100");
+        }
+        net.minecraft.world.entity.boss.enderdragon.EnderDragon[] e = new net.minecraft.world.entity.boss.enderdragon.EnderDragon[1];
+        if (!until(ctx, "Red's dragon", mc -> (e[0] = dragonIn(mc, red)) != null, 140)) {
+            f.add("Red's dragon never spawned in its area");
+            return;
+        }
+        Vec3 spawn = Vec3.atBottomCenterOf((BlockPos) field(red, "spawnPos"));
+        Vec3 p0 = ctx.computeOnClient(mc -> e[0].position());
+        println(DRAGONS, "Red's dragon first seen at " + p0 + ", spawn point " + spawn);
+        if (p0.distanceTo(spawn) > 1.5) {
+            f.add("Red's dragon appeared at " + p0 + ", not at its spawn point " + spawn);
+        }
+        ctx.waitTicks(2);
+        expect(f, "Wither Dragons: Red alive", String.valueOf(spec(red, "state")), "ALIVE");
+        expect(f, "\"dragon spawned\" message", chatSeen(mark, "dragon spawned"), true);
+        expect(f, "priority dragon message (Red and Orange spawning together)", chatSeen(mark, "priority dragon"), true);
+        // Path length, not displacement: it turns toward a new goal whenever it reaches one, so it can end near its start.
+        double path = 0;
+        Vec3 p1 = p0;
+        for (int i = 0; i < 40; i++) {
+            ctx.waitTicks(1);
+            Vec3 at = ctx.computeOnClient(mc -> e[0].position());
+            path += at.distanceTo(p1);
+            p1 = at;
+        }
+        AABB area = (AABB) field(red, "box");
+        println(DRAGONS, "Red's dragon 40 ticks later at " + p1 + " (flew " + String.format(Locale.ROOT, "%.1f", path) + ")");
+        if (path < 4) {
+            f.add("Red's dragon did not fly (" + path + " blocks in 40 ticks)");
+        }
+        if (!area.contains(p1)) {
+            f.add("Red's dragon left its area: " + p1);
+        }
+        double partGap = ctx.computeOnClient(mc -> e[0].getSubEntities()[2].position().distanceTo(e[0].position()));
+        if (partGap > 2) {
+            f.add("Red's body part is " + partGap + " from the dragon (parts never placed: nothing can hit it)");
+        }
+        int arrowsBefore = (Integer) call("com.killer560.hub.roomsim.SimTerminator", "arrowsFired");
+        boolean redDown = false;
+        for (int shot = 0; shot < 40 && !redDown; shot++) {
+            Vec3 c = ctx.computeOnClient(mc -> e[0].getSubEntities()[2].getBoundingBox().getCenter());
+            tp(ctx, c.x - 7, c.y, c.z, 0, 0);
+            ctx.runOnClient(mc -> {
+                Vec3 at = e[0].getSubEntities()[2].getBoundingBox().getCenter().subtract(mc.player.getEyePosition());
+                mc.player.setYRot((float) Math.toDegrees(Math.atan2(-at.x, at.z)));
+                mc.player.setXRot((float) -Math.toDegrees(Math.atan2(at.y, Math.hypot(at.x, at.z))));
+                ModUnderTest.staticCall("com.killer560.hub.roomsim.SimTerminator", "use", new Class<?>[]{Minecraft.class, boolean.class},
+                        new Object[]{mc, false});
+            });
+            ctx.waitTicks(4);
+            redDown = logSeen(mark, "[BossSim] Red dragon down");
+        }
+        int arrows = (Integer) call("com.killer560.hub.roomsim.SimTerminator", "arrowsFired") - arrowsBefore;
+        println(DRAGONS, "arrows fired at Red: " + arrows);
+        if (!redDown) {
+            f.add("40 Terminator shots (" + arrows + " arrows) never killed Red");
+            return;
+        }
+        expect(f, "Red took 8 hits", logSeen(mark, "Red dragon down at P5") && logSeen(mark, "(8 hits)"), true);
+        if (!until(ctx, "Wither Dragons reads Red dead", mc -> "DEAD".equals(String.valueOf(spec(red, "state"))), 40)) {
+            f.add("Wither Dragons never read Red's death (state " + spec(red, "state") + ")");
+        }
+        expect(f, "\"alive for\" message (the synched health death)", chatSeen(mark, "alive for"), true);
+        expect(f, "\"dragon counts\" message (the King's counts line)", waitChat(ctx, mark, "dragon counts", 20), true);
+        // Orange: melee. Stand beside its body and swing at the nearest part, as a click would.
+        if (!until(ctx, "Orange's dragon", mc -> (e[0] = dragonIn(mc, orange)) != null, 200)) {
+            f.add("Orange's dragon never spawned in its area");
+            return;
+        }
+        boolean orangeDown = false;
+        int swings = 0;
+        for (int i = 0; i < 60 && !orangeDown; i++) {
+            Vec3 c = ctx.computeOnClient(mc -> e[0].getSubEntities()[2].getBoundingBox().getCenter());
+            tp(ctx, c.x + 3.5, c.y - 1, c.z, 90, 0);
+            boolean swung = ctx.computeOnClient(mc -> {
+                Entity best = null;
+                for (Entity part : e[0].getSubEntities()) {
+                    if (part.getBoundingBox().distanceToSqr(mc.player.getEyePosition()) < 9
+                            && (best == null || part.distanceToSqr(mc.player) < best.distanceToSqr(mc.player))) {
+                        best = part;
+                    }
+                }
+                if (best == null) {
+                    return false;
+                }
+                mc.gameMode.attack(mc.player, best);
+                return true;
+            });
+            swings += swung ? 1 : 0;
+            ctx.waitTicks(2);
+            orangeDown = logSeen(mark, "[BossSim] Orange dragon down");
+        }
+        println(DRAGONS, "melee swings at Orange: " + swings);
+        if (!orangeDown) {
+            f.add(swings + " melee swings never killed Orange");
+            return;
+        }
+        if (!until(ctx, "Wither Dragons reads Orange dead", mc -> "DEAD".equals(String.valueOf(spec(orange, "state"))), 40)) {
+            f.add("Wither Dragons never read Orange's death");
+        }
+        for (int i = 0; i < 3; i++) {
+            if (!until(ctx, "a dragon up", mc -> !mc.level.getEntitiesOfClass(net.minecraft.world.entity.boss.enderdragon.EnderDragon.class,
+                    new AABB(0, 0, 20, 110, 60, 150), d -> d.getHealth() > 0).isEmpty(), 260)) {
+                f.add("dragon " + (i + 3) + " never spawned");
+                return;
+            }
+            // One hit kills a dragon since simitems-1105: eight hits here also killed the NEXT dragon the moment it spawned,
+            // so the loop ran out of dragons (ship7 merge of simdragons + simitems).
+            serverRun(ctx, s -> ModUnderTest.staticCall(FIGHT, "testHit", new Class<?>[]{String.class}, new Object[]{"Dragon"}));
+            ctx.waitTicks(2);
+            ctx.waitTicks(25);
+        }
+        if (!until(ctx, "boss cleared", mc -> "DONE".equals(String.valueOf(call(FIGHT, "phase"))), 100)) {
+            f.add("the fight never ended after five dragons (" + call(FIGHT, "describe") + ")");
+        }
+    }
+
+    private static void expectStartSource(ClientGameTestContext ctx, List<String> f) {
+        start(ctx, "P4", false);
+        expect(f, "arena source (dragons run in his capture)", call(ARENA, "source"), "capture");
+    }
+
+    /**
+     * His "offset lava" (simdragons-1105): Necron's platform break once laid a lava plane at y 62 over the capture's
+     * open sea (y 58). After the break: no lava anywhere over Necron's arena above the sea, and the platform's centre
+     * column is open to it.
+     */
+    private static void necronBreak(ClientGameTestContext ctx, List<String> f) {
+        if (!untilTick(ctx, 277, 300)) {
+            f.add("P4 never reached Necron's platform break (" + call(FIGHT, "describe") + ")");
+            return;
+        }
+        String pl = String.valueOf(call(FIGHT, "necronPlatform"));
+        int[][] centres = {{54, 42}, {28, 50}, {80, 50}, {28, 102}, {80, 102}};
+        int i = java.util.Arrays.asList("N", "NW", "NE", "SW", "SE").indexOf(pl);
+        if (i < 0) {
+            f.add("no platform reported broken (" + pl + ")");
+            return;
+        }
+        int[] cc = centres[i];
+        int[] high = ctx.computeOnClient(mc -> {
+            int n = 0;
+            BlockPos.MutableBlockPos q = new BlockPos.MutableBlockPos();
+            for (int x = 0; x <= 110; x++) {
+                for (int z = 20; z <= 135; z++) {
+                    for (int y = 59; y <= 66; y++) {
+                        n += mc.level.getBlockState(q.set(x, y, z)).is(net.minecraft.world.level.block.Blocks.LAVA) ? 1 : 0;
+                    }
+                }
+            }
+            int solid = 0;
+            for (int y = 59; y <= 64; y++) {
+                solid += mc.level.getBlockState(q.set(cc[0], y, cc[1])).isAir() ? 0 : 1;
+            }
+            return new int[]{n, solid};
+        });
+        println(DRAGONS, "Necron broke " + pl + ": lava blocks above the sea (y 59-66) " + high[0]
+                + ", solid blocks left in its centre column " + high[1]);
+        expect(f, "no lava above the lava sea after Necron's platform break", high[0], 0);
+        expect(f, "Necron's broken platform open at its centre (y 59-64)", high[1], 0);
+    }
+
+    /**
+     * His "missing the underside" (simdragons-1105): P5 clears only the disc over the shaft under Necron's platform,
+     * so the stone ring (y 54-62 around x 50-58, z 72-80) still holds the disc up.
+     */
+    private static void p5Arena(ClientGameTestContext ctx, List<String> f) {
+        int[][] ring = {{50, 61, 76}, {50, 62, 76}, {58, 62, 76}, {54, 62, 72}, {54, 62, 80}, {50, 59, 76}, {54, 57, 80}};
+        for (int[] r : ring) {
+            boolean solid = ctx.computeOnClient(mc -> !mc.level.getBlockState(new BlockPos(r[0], r[1], r[2])).isAir());
+            expect(f, "Necron's platform ring under the disc at " + r[0] + "," + r[1] + "," + r[2], solid, true);
+        }
+        boolean shaft = ctx.computeOnClient(mc -> mc.level.getBlockState(new BlockPos(54, 63, 76)).isAir()
+                && mc.level.getBlockState(new BlockPos(54, 64, 76)).isAir());
+        expect(f, "the disc over the shaft (54, 63-64, 76) open for the drop to P5", shaft, true);
+        boolean disc = ctx.computeOnClient(mc -> !mc.level.getBlockState(new BlockPos(50, 63, 76)).isAir());
+        expect(f, "the disc over the ring (50, 63, 76) kept", disc, true);
+    }
+
+    /** A living ender dragon inside this WitherDragon's area on the client, or null. */
+    private static net.minecraft.world.entity.boss.enderdragon.EnderDragon dragonIn(Minecraft mc, Object spec) {
+        List<net.minecraft.world.entity.boss.enderdragon.EnderDragon> in = mc.level.getEntitiesOfClass(
+                net.minecraft.world.entity.boss.enderdragon.EnderDragon.class, (AABB) field(spec, "box"), d -> d.getHealth() > 0);
+        return in.isEmpty() ? null : in.get(0);
+    }
+
+    private static Object spec(Object dragon, String getter) {
+        return ModUnderTest.call(dragon, getter, new Class<?>[]{}, new Object[]{});
+    }
+
+    private static Object field(Object target, String name) {
+        try {
+            return target.getClass().getField(name).get(target);
+        } catch (ReflectiveOperationException ex) {
+            throw new AssertionError("no field " + name + " on " + target.getClass().getName(), ex);
+        }
+    }
+
+    private static boolean logSeen(long mark, String text) {
+        for (String l : LogTap.since(mark)) {
+            if (l.contains(text)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void lava(ClientGameTestContext ctx, List<String> f) {
@@ -995,14 +2111,20 @@ public class SimBossTests implements FabricClientGameTest {
         int before = (Integer) call(LAVA_CLASS, "bounces");
         tp(ctx, 30.5, 109, 90.5, 0, 0);
         double[] top = {0};
+        int[] hurt = {0};
         boolean bounced = until(ctx, "a lava bounce", mc -> {
+            hurt[0] = Math.max(hurt[0], mc.player.hurtTime);
             top[0] = Math.max(top[0], mc.player.getY());
             return (Integer) call(LAVA_CLASS, "bounces") > before && mc.player.getY() > 108.5;
         }, 80);
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 40; i++) {
             ctx.waitTick();
             top[0] = Math.max(top[0], ctx.computeOnClient(mc -> mc.player.getY()));
+            hurt[0] = Math.max(hurt[0], ctx.computeOnClient(mc -> mc.player.hurtTime));
         }
+        // simitems-1105 ("everytime i hit lava in the sim it moves my pov like im taking damage even though i am not"):
+        // the bounces (several in 50 ticks of lava) send no hurt tilt.
+        expect(f, "his hurt tilt (hurtTime) over every lava bounce", hurt[0], 0);
         println(LAVA, "bounces " + ((Integer) call(LAVA_CLASS, "bounces") - before) + ", highest y " + top[0]);
         if (!bounced) {
             f.add("standing in P3's lava never bounced him");

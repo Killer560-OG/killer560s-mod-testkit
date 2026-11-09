@@ -49,10 +49,7 @@
     "id": "hostile.allchat-run-start",
     "kind": "chat",
     "payload": "§7[VIP] HxEvil§f: Starting in 1 second.",
-    "source": {
-      "file": "src/main/java/com/killer560/hub/runsummary/RunSummaryFeature.java",
-      "line": 64
-    },
+    "source": {"file": "src/main/java/com/killer560/hub/runsummary/RunSummaryFeature.java", "line": 63, "anchor": "private static final String RUN_START_LINE"},
     "verifiedBy": "regex",
     "notes": "RunSummary/SplitTimers compare the whole stripped line with equals(); this must not start a run."
   },
@@ -93,10 +90,7 @@
     "id": "hostile.allchat-leap",
     "kind": "chat",
     "payload": "§7[VIP] HxEvil§f: You have teleported to HxMateA!",
-    "source": {
-      "file": "src/main/java/com/killer560/hub/leapmessage/LeapMessageFeature.java",
-      "line": 35
-    },
+    "source": {"file": "src/main/java/com/killer560/hub/leapmessage/LeapMessageFeature.java", "line": 33, "anchor": "private static final Pattern LEAP_MESSAGE"},
     "mustNotMatch": [
       "leapmessage.LeapMessageFeature#LEAP_MESSAGE"
     ],
@@ -121,10 +115,7 @@
     "id": "hostile.allchat-quiz-year",
     "kind": "chat",
     "payload": "§7[VIP] HxEvil§f: What SkyBlock year is it?",
-    "source": {
-      "file": "src/main/java/com/killer560/hub/puzzlesolvers/QuizSolverFeature.java",
-      "line": 151
-    },
+    "source": {"file": "src/main/java/com/killer560/hub/puzzlesolvers/QuizSolverFeature.java", "line": 187, "anchor": "if (trimmed.equals(\"What SkyBlock year is it?\")) {"},
     "verifiedBy": "regex",
     "notes": "Must not set Quiz answers (comment :157-160)."
   },
@@ -132,10 +123,7 @@
     "id": "hostile.allchat-quiz-answer",
     "kind": "chat",
     "payload": "§7[VIP] HxEvil§f: ⓐ Year 400",
-    "source": {
-      "file": "src/main/java/com/killer560/hub/puzzlesolvers/QuizSolverFeature.java",
-      "line": 171
-    },
+    "source": {"file": "src/main/java/com/killer560/hub/puzzlesolvers/QuizSolverFeature.java", "line": 169, "anchor": "case 'ⓐ' -> 0;"},
     "verifiedBy": "regex",
     "notes": "An answer line must start with the circled letter (startsWithAnswerLetter, :169-173; the gate is :137)."
   },
@@ -211,10 +199,7 @@
     "id": "hostile.ss-overflow",
     "kind": "chat",
     "payload": "§7[VIP] HxEvil§f: SS 99999999999/5",
-    "source": {
-      "file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java",
-      "line": 81
-    },
+    "source": {"file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java", "line": 78, "anchor": "private static final Pattern PROGRESS_PATTERN"},
     "mustNotMatch": [
       "simonsays.SimonSaysFeature#PROGRESS_PATTERN"
     ],
@@ -225,15 +210,12 @@
     "id": "hostile.party-team-score-overflow",
     "kind": "chat",
     "payload": "Team Score: 99999999999999999999 (S+)",
-    "source": {
-      "file": "src/main/java/com/killer560/hub/runsummary/RunSummaryFeature.java",
-      "line": 71
-    },
-    "matches": [
+    "source": {"file": "src/main/java/com/killer560/hub/runsummary/RunSummaryFeature.java", "line": 70, "anchor": "private static final Pattern TEAM_SCORE"},
+    "mustNotMatch": [
       "runsummary.RunSummaryFeature#TEAM_SCORE"
     ],
     "verifiedBy": "regex",
-    "notes": "A server-shaped line with an unbounded number ([\\d,]+ into parseInt): must not throw out of a chat listener."
+    "notes": "A server-shaped line with an unbounded number ([\\d,]+ into parseInt): the digit group is now bounded to {1,15}, so the pattern rejects it; must not throw out of a chat listener."
   },
   {
     "id": "hostile.tab-secrets-overflow",
@@ -279,10 +261,7 @@
     "id": "hostile.overlay-huge-stats",
     "kind": "overlay",
     "payload": "§c99999999999999999999/1❤     §b-99999999999999999999 Mana (§6Ender Warp§b)",
-    "source": {
-      "file": "src/main/java/com/killer560/hub/playerstats/PlayerStatsFeature.java",
-      "line": 43
-    },
+    "source": {"file": "src/main/java/com/killer560/hub/playerstats/PlayerStatsFeature.java", "line": 55, "anchor": "private static final Pattern HEALTH_REGEX"},
     "matches": [
       "playerstats.PlayerStatsFeature#HEALTH_REGEX",
       "abilitycooldown.AbilityCooldownState#ABILITY_USE"

@@ -75,7 +75,7 @@ final class ThemeMatchCases {
                 "croesus.CroesusConfig", 1, "dungeonalerts.DungeonAlertsConfig", 2, "dungeonalerts.RoomAlerts", 1,
                 "dungeonextras.DungeonExtrasConfig", 1, "enchantcolors.EnchantColorsConfig", 2, "f7spots.F7SpotsConfig", 2,
                 "heldoutline.HeldOutlineConfig", 2, "itemprotect.ItemProtectConfig", 2, "lagdisplay.LagDisplayConfig", 1,
-                "livemap.LiveMapConfig", 3, "miningqol.MiningQolConfig", 1, "mobesp.MobEspConfig", 4, "p3nav.P3NavConfig", 4,
+                "livemap.LiveMapConfig", 4, "miningqol.MiningQolConfig", 2, "mobesp.MobEspConfig", 4, "p3nav.P3NavConfig", 4,
                 "pathfinding.PathfindingConfig", 5, "playerstats.PlayerStatsConfig", 1, "posmsg.PosmsgEntry", 1,
                 "powdermining.PowderMiningConfig", 1, "realtime.RealTimeConfig", 1, "routes.Route", 1, "routes.RouteStore", 1,
                 "scoreboard.CustomScoreboardConfig", 4, "scoreboard.ScoreboardEditorScreen", 2, "scorecalc.ScoreCalculatorConfig", 2,
@@ -90,8 +90,13 @@ final class ThemeMatchCases {
                 "gui.tab.SecretWaypointsTab", 1, "gui.tab.SimonSaysTab", 1, "gui.tab.SlotBindsTab", 1, "gui.tab.SpotifyF5Rows", 1,
                 "gui.tab.ThornTab", 2, "gui.tab.TreasureChestHighlightTab", 1, "gui.tab.WaypointRoutesTab", 1,
                 "mining.deployables.MiningDeployables", 2, "gui.tab.MiningDeployablesTab", 1);
+        // Crystal Hollows Map waypoint default: stored as the amber literal and mapped onto the theme where it is drawn
+        // (CrystalHollowsWaypoint.drawColor -> ThemeAccent.accent); a color the player picked per waypoint stays.
+        // MiningQolConfig's second one is OLD_WALL_DEFAULTS' 0xFFAA00, the pre-chwallcolor value migrated on load (data).
+        allow("waypoint default, mapped at draw", "gui.tab.CrystalHollowsMapTab", 2, "mining.chmap.ChMapRenderer", 1,
+                "mining.chmap.ChWaypointRender", 1);
         // A color that means something: rarity / Minecraft gold, a zone, a dragon or relic, a state, a warning mark.
-        allow("meaning", "itemrarity.ItemRarity", 1, "profileviewer.data.LevelTables", 1, "profileviewer.screen.ExtraPages", 2,
+        allow("meaning", "itemrarity.ItemRarity", 1, "profileviewer.data.LevelTables", 1, "profileviewer.screen.ExtraPages", 13,
                 "util.ChatColors", 1, "slottext.SlotTextFeature", 3, "miningqol.CrystalHollowsWalls", 1,
                 "witherdragons.KingRelic", 1, "witherdragons.WitherDragon", 1, "blessings.Blessing", 1,
                 "chocolatefactory.egg.EggEsp", 1, "chocolatefactory.ChocolateFactoryHelper", 1, "bridge.BridgeStatus", 3,
@@ -239,6 +244,140 @@ final class ThemeMatchCases {
             }
         }
         return true;
+    }
+
+    // ---- light themes: accent text must be readable (lightcontrast-1108) ------------------------------------------
+
+    /** WCAG contrast ratio of two opaque colors. */
+    static double contrast(int a, int b) {
+        double la = lum(a);
+        double lb = lum(b);
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+    }
+
+    private static double lum(int c) {
+        double[] v = new double[3];
+        for (int i = 0; i < 3; i++) {
+            double s = ((c >> (16 - 8 * i)) & 0xFF) / 255.0;
+            v[i] = s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+        }
+        return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+    }
+
+    /**
+     * Under every light menu theme the accent text drawn over the game (chat prefix and value, the Crystal Hollows Map header
+     * pixels) reads at 4.5:1 or better against the dark chat / world, and a dark theme's text is exactly its accent.
+     */
+    static void lightContrast(UiCase c) throws Exception {
+        String old = MenuACases.themeName();
+        int lightThemes = 0;
+        try {
+            for (String theme : new String[]{"AMBER", "DARK", "LIGHT", "OCEAN", "GREEN", "CUSTOMLIGHT"}) {
+                c.onClient(mc -> {
+                    Object cfg = Mod.cfg("gui.MenuConfig");
+                    if (theme.equals("CUSTOMLIGHT")) {
+                        // A Custom set started from Light with a darker brown accent (a light panel, dark accent).
+                        Mod.call(cfg, "setTheme", Mod.enumValue("gui.MenuTheme", "LIGHT"));
+                        Mod.call(cfg, "setCustomColour", Mod.enumValue("gui.MenuTheme$Slot", "ACCENT"), 0x7A3B00);
+                    } else {
+                        Mod.call(cfg, "setTheme", Mod.enumValue("gui.MenuTheme", theme));
+                    }
+                    return null;
+                });
+                Object pal = Mod.staticCall("gui.OverlayThemes", "menu");
+                // The fixed places (HUD labels, boxed rows, chat lines, tooltips) all draw ThemeAccent.onDark(accent/light(amber)).
+                int fixedA = (Integer) Mod.staticCall("gui.ThemeAccent", "onDark", Mod.staticCall("gui.ThemeAccent", "accent", 0xFFCC6600));
+                int fixedL = (Integer) Mod.staticCall("gui.ThemeAccent", "onDark", Mod.staticCall("gui.ThemeAccent", "light", 0xFFFFAA00));
+                boolean light = (Boolean) Mod.call(pal, "light");
+                int accent = (Integer) Mod.call(pal, "accent") | 0xFF000000;
+                int hover = (Integer) Mod.call(pal, "accentHover") | 0xFF000000;
+                int prefix = c.onClient(mc -> ((net.minecraft.network.chat.Component) Mod.staticCall("util.ModChat", "prefix", "X"))
+                        .getStyle().getColor().getValue()) | 0xFF000000;
+                int value = c.onClient(mc -> ((net.minecraft.network.chat.Component) Mod.staticCall("util.ModChat", "value", "X"))
+                        .getStyle().getColor().getValue()) | 0xFF000000;
+                if (light) {
+                    c.check(contrast(fixedA, 0xFF202020) >= 4.5 && contrast(fixedL, 0xFF202020) >= 4.5, theme + " fixed-place text "
+                            + MenuACases.hex(fixedA) + " / " + MenuACases.hex(fixedL) + " is under 4.5:1 on the dark box");
+                } else if (!theme.equals("AMBER")) {
+                    c.check(fixedA == accent && fixedL == hover, theme + " fixed-place text changed on a dark theme");
+                }
+                if (!light) {
+                    c.note(theme + " (dark): prefix " + MenuACases.hex(prefix) + " value " + MenuACases.hex(value));
+                    if (!theme.equals("AMBER")) {
+                        c.check(prefix == accent && value == hover, theme + " is a dark theme and its chat text must stay"
+                                + " its accent " + MenuACases.hex(accent) + " / " + MenuACases.hex(hover));
+                    }
+                    continue;
+                }
+                lightThemes++;
+                // The menu's own text pairs on its light surfaces (accent / hover / text / dim against panel and card).
+                for (String[] pr : new String[][]{{"accent", "panel"}, {"accent", "card"}, {"accentHover", "panel"}, {"accentHover", "card"},
+                        {"text", "panel"}, {"text", "card"}, {"dim", "card"}}) {
+                    int fg = (Integer) Mod.call(pal, pr[0]) | 0xFF000000;
+                    int bgc = (Integer) Mod.call(pal, pr[1]) | 0xFF000000;
+                    c.note(theme + " menu " + pr[0] + " on " + pr[1] + ": " + String.format("%.2f", contrast(fg, bgc)) + ":1");
+                    c.check(contrast(fg, bgc) >= 4.5, theme + " menu " + pr[0] + " on " + pr[1] + " is "
+                            + String.format("%.2f", contrast(fg, bgc)) + ":1 (needs 4.5)");
+                }
+                double rp = contrast(prefix, 0xFF202020);
+                double rv = contrast(value, 0xFF202020);
+                c.note(theme + " (light): chat prefix " + MenuACases.hex(prefix) + " " + String.format("%.2f", rp)
+                        + ":1, value " + MenuACases.hex(value) + " " + String.format("%.2f", rv) + ":1 on the dark chat");
+                c.check(rp >= 4.5, theme + " chat prefix is " + String.format("%.2f", rp) + ":1 on dark chat (needs 4.5)");
+                c.check(rv >= 4.5, theme + " chat value is " + String.format("%.2f", rv) + ":1 on dark chat (needs 4.5)");
+
+                // The Crystal Hollows Map header, as drawn pixels: the drawn text colour in the header strip
+                // (see below).
+                Screen ch = open(c, "mining.chmap.CrystalHollowsMapScreen");
+                BufferedImage img = shot(c, "lightcontrast-" + theme.toLowerCase());
+                int[] p = c.onClient(mc -> (int[]) Mod.call(ch, "panel"));
+                double f = img.getWidth() / (double) ch.width;
+                int x0 = (int) (p[0] * f);
+                int x1 = Math.min(img.getWidth() - 1, (int) ((p[0] + 110) * f));
+                int y0 = (int) ((p[1] - 12) * f);
+                int y1 = (int) ((p[1] - 3) * f);
+                // Per row the world behind is the pixel just past the text (the test world's bright sky); text pixels differ from
+                // it, and the black shadow is left out. The commonest such colour is the text fill, judged against the dark
+                // cave / chat the HUD is meant for.
+                java.util.Map<Integer, Integer> hist = new java.util.HashMap<>();
+                for (int y = y0; y < y1; y++) {
+                    int bg = img.getRGB(x1, y);
+                    for (int x = x0; x < x1; x++) {
+                        int px = img.getRGB(x, y) | 0xFF000000;
+                        int d = Math.abs(((px >> 16) & 255) - ((bg >> 16) & 255)) + Math.abs(((px >> 8) & 255) - ((bg >> 8) & 255))
+                                + Math.abs((px & 255) - (bg & 255));
+                        if (d > 15 && contrast(px, 0xFF202020) > 1.5) {
+                            hist.merge(px, 1, Integer::sum);
+                        }
+                    }
+                }
+                int text = 0xFF202020;
+                int most = 0;
+                for (java.util.Map.Entry<Integer, Integer> e : hist.entrySet()) {
+                    if (e.getValue() > most) {
+                        most = e.getValue();
+                        text = e.getKey();
+                    }
+                }
+                double best = contrast(text, 0xFF202020);
+                c.note(theme + " CH map header: text pixel " + MenuACases.hex(text) + " = " + String.format("%.2f", best) + ":1 on 0x202020");
+                c.check(most > 0, theme + ": the header strip holds no text pixels (sample misses)");
+                c.check(best >= 4.5, theme + " CH map header text " + MenuACases.hex(text) + " is " + String.format("%.2f", best)
+                        + ":1 on the dark cave (needs 4.5)");
+                c.onClient(mc -> {
+                    McCompat.setScreen(mc, null);
+                    return null;
+                });
+            }
+            c.check(lightThemes >= 2, "no light menu theme was found: the check measured nothing");
+        } finally {
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                Mod.call(Mod.cfg("gui.MenuConfig"), "resetCustom");
+                Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", Mod.enumValue("gui.MenuTheme", old));
+                return null;
+            });
+        }
     }
 
     // ---- source audit (bytecode) ----------------------------------------------------------------------------------

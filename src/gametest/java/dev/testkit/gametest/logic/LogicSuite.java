@@ -70,6 +70,11 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "1104-logic-crashreport-live", CrashReportCases::live);
         LogicCase.run(ctx, "1104-logic-crashreport-boot", CrashReportCases::boot);
         LogicCase.run(ctx, "1104-logic-crashreport-off", CrashReportCases::off);
+        LogicCase.run(ctx, "1105-discordlink-payload", CrashReportCases::discordPayload);
+        // Discord Link (mod discordlink-1105): off the client thread, the cases wait seconds on the stub relay.
+        DiscordLinkCases.ctx = ctx;
+        LogicCase.runOffClient(ctx, "1105-discordlink-card", DiscordLinkCases::card);
+        LogicCase.runOffClient(ctx, "1105-discordlink-offline", DiscordLinkCases::offline);
         // ---- end Auto Crash Reports
         // ---- Auto Update (nt-auto-update, 2026-10-11) - own block
         AutoUpdateCases.ctx = ctx;
@@ -107,6 +112,14 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.runOffClient(ctx, "1104-logic-themedl-delete", ThemeAssetsCases::delete);
         LogicCase.run(ctx, "1104-logic-leapcore", LeapCore1104Cases::leapCore);
         LogicCase.run(ctx, "1104-logic-leapcore-suppress", LeapCore1104Cases::suppress);
+        LogicCase.run(ctx, "1105-logic-mapinfer-pit", MapInfer1105Cases::pit);
+        LogicCase.run(ctx, "1105-logic-mapinfer-ambiguous", MapInfer1105Cases::ambiguous);
+        LogicCase.run(ctx, "1105-logic-mapinfer-override", MapInfer1105Cases::override);
+        LogicCase.run(ctx, "1105-logic-mapinfer-draw", MapInfer1105Cases::draw);
+        LogicCase.run(ctx, "1105-logic-mapinfer-live", MapInfer1105Cases::live);
+        LogicCase.run(ctx, "1105-logic-mapq-infer-noquestion", MapInfer1105Cases::noQuestion);
+        LogicCase.run(ctx, "1105-logic-mapq-predict-unsure", MapInfer1105Cases::predictUnsure);
+        LogicCase.run(ctx, "1106-maplabel-recenter", MapLabel1106Cases::recenter);
         // ItemStacks need item components, which are bound only once a world's registries load ("Components not
         // bound yet" at the title screen). The two cases that build stacks run in a throwaway singleplayer world.
         if (!Scenario.skip("354-logic-terminals") || !Scenario.skip("357-logic-items-ap3-routes")
@@ -116,7 +129,11 @@ public class LogicSuite implements FabricClientGameTest {
                 || !Scenario.skip("1103-logic-timer-lag")
                 || !Scenario.skip("1104-logic-goldor-trusted") || !Scenario.skip("1104-logic-split-lag")
                 || !Scenario.skip("1104-logic-stall-burst") || !Scenario.skip("1104-logic-serverlag-grim")
-                || !Scenario.skip("1104-logic-hypixel-pings") || !Scenario.skip("1104-logic-hypixel-goldor-drift")) {
+                || !Scenario.skip("1104-logic-hypixel-pings") || !Scenario.skip("1104-logic-hypixel-goldor-drift")
+                || !Scenario.skip("1105-logic-hypixel-servertime") || !Scenario.skip("1105-logic-ticklog")
+                || !Scenario.skip("1105-logic-ticklog-off")
+                || !Scenario.skip("1105-logic-split-jitter") || !Scenario.skip("1105-logic-split-slow")
+                || !Scenario.skip("1105-logic-bcstall-jitter") || !Scenario.skip("1105-logic-bcstall-stall")) {
             try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
                 LogicCase.run(ctx, "354-logic-terminals", SolverCases::terminals);
                 LogicCase.run(ctx, "357-logic-items-ap3-routes", DomainCases::itemsAp3Routes);
@@ -144,8 +161,15 @@ public class LogicSuite implements FabricClientGameTest {
                 LogicCase.run(ctx, "1104-logic-goldor-trusted", TickFixCases::goldorTrusted);
                 LogicCase.run(ctx, "1104-logic-hypixel-pings", TickFix3Cases::hypixelPings);
                 LogicCase.run(ctx, "1104-logic-hypixel-goldor-drift", TickFix3Cases::hypixelGoldorDrift);
+                LogicCase.run(ctx, "1105-logic-hypixel-servertime", MaskTimer1105Cases::hypixelServerTime);
+                LogicCase.run(ctx, "1105-logic-ticklog", TickLogCases::ticklog);
+                LogicCase.run(ctx, "1105-logic-ticklog-off", TickLogCases::ticklogOff);
                 LogicCase.run(ctx, "1104-logic-split-lag", TickFixCases::splitLag);
                 LogicCase.run(ctx, "1104-logic-stall-burst", TickFix2Cases::stallBurst);
+                LogicCase.run(ctx, "1105-logic-split-jitter", LagLag1105Cases::jitter);
+                LogicCase.run(ctx, "1105-logic-split-slow", LagLag1105Cases::slow);
+                LogicCase.run(ctx, "1105-logic-bcstall-jitter", LagLag1105Cases::bcJitter);
+                LogicCase.run(ctx, "1105-logic-bcstall-stall", LagLag1105Cases::bcStall);
                 LogicCase.run(ctx, "1104-logic-serverlag-grim", TickFix2Cases::serverLagGrim);
                 LogicCase.run(ctx, "363-logic-roof-cover", RoofCoverCases::roofCover);
             }

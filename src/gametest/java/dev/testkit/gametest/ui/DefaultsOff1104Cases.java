@@ -22,6 +22,7 @@ final class DefaultsOff1104Cases {
     /** class (under com.killer560.hub.) -> fields that must be false with no saved file. */
     private static final String[][] TABLE = {
             {"croesus.CroesusConfig", "chestProfitEnabled", "loggerEnabled"},
+            {"leftclicksecrets.LeftClickSecretsConfig", "enabled"},
             {"bloodrush.BloodRushConfig", "enabled", "learnSpots"},
             {"lfg.LfgConfig", "enabled"},
             {"terminals.TerminalQolConfig", "terminalSounds", "clickPath"},
@@ -35,7 +36,7 @@ final class DefaultsOff1104Cases {
             {"simonsays.SimonSaysConfig", "autoSimonSaysEnabled"},
             {"mining.nucleus.NucleusRunProfitConfig", "enabled"},
             {"mining.profit.MiningProfitConfig", "enabled"},
-            {"miningqol.MiningQolConfig", "wrongArmor", "resumeHeldBreak", "powderGhast"},
+            {"miningqol.MiningQolConfig", "wrongArmor", "junglePick", "resumeHeldBreak", "powderGhast"},
             {"powdermining.PowderMiningConfig", "doublePowder", "lootCompact", "lockpickHelper", "powderTracker",
                     "chestAlert", "treasureChest"},
             {"gifplayer.GifPlayerConfig", "enabled", "audioEnabled"},

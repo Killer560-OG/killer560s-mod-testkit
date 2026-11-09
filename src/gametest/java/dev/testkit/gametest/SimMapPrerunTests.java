@@ -92,6 +92,9 @@ public class SimMapPrerunTests implements FabricClientGameTest {
                 restore.add(0, Mod.with("hud.HudConfig", "AutoScale", false));
                 restore.add(0, Mod.with(MAP, "Enabled", true));
                 restore.add(0, Mod.with(MAP, "RoomLabels", 1));
+                // Funny Map hides Predictive Rooms and counts every scanned room as named, so pin it OFF: the 1013 mimic case left it
+                // on in the same client and alreadyNamed then stayed true for good (predgray-1105).
+                restore.add(0, Mod.with(MAP, "FunnyMap", false));
                 restore.add(0, Mod.with("mapping.MappingConfig", "ExtraInfoEnabled", false));
                 restore.add(0, Mod.with("autopuzzles.AutoPuzzlesConfig", "AutoPuzzlesMasterEnabled", false));
                 Object p = ModUnderTest.config(PCFG);

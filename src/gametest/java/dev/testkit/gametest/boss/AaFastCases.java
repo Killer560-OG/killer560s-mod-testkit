@@ -62,7 +62,7 @@ import java.util.regex.Pattern;
  *   (and on a legit jar reads false whatever is saved).</li>
  * </ul>
  */
-final class AaFastCases {
+public final class AaFastCases {
 
     private static final String AA_CFG = "arrowalign.ArrowAlignConfig";
     /** Layout 7 (grid index dy + dz * 5); every frame's target rotation is 1. */
@@ -86,7 +86,7 @@ final class AaFastCases {
             new Mode("cpt7", 7, false, 1), new Mode("same1", 1, true, 1), new Mode("same7", 7, true, 1)};
 
     /** Whether the test server's GrimAC runs its experimental checks (MultiInteractA/B among them): its config.yml. */
-    private static boolean experimentalChecks() {
+    public static boolean experimentalChecks() {
         try {
             java.util.Properties props = new java.util.Properties();
             try (var in = java.nio.file.Files.newInputStream(java.nio.file.Path.of(

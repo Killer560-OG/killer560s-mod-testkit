@@ -63,8 +63,11 @@ public class HxSuite implements FabricClientGameTest {
                     HxSongTagCases.register(s);
                     // Spotify Controls, lyric clock re-sync, My Lyrics In F5, Smooth Lyric Scroll, supporter-only
                     // Share My Song (2840-2845, branch spotify-controls-1026), own block.
-                    HxSpotifyControlsCases.register(s);
+                    HxSpotifyControlsCases.register(s); HxSpotifyLyrics1108Cases.register(s);
                     HxSpotifyDocCases.register(s);
+                    HxSongTagParty1105Cases.register(s); // spotshare-1105: the party room survives a warp
+                    HxSongFix1106Cases.register(s); // songfix-1106: a non-supporter sees a supporter's song and name
+                    HxYtLyrics1108Cases.register(s);
                     // Auto Meow replies in the trigger's channel, and Mod Chat sends (874, branch
                     // nt-automeow-channel), own block.
                     HxAutoMeowChannelCases.register(s);
@@ -143,6 +146,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxChestFx1104Cases.register(s);
                     // Powder Chest Triggerbot: swap to the best Gemstone Powder drill, click, rate limit (1104-chestbot-*, mod chestbot-1104).
                     HxChestBot1104Cases.register(s);
+                    // Swap To Drill On Pigeon and Auto Ult, idle and with his use / attack / swap in their ticks (1105-same-*, grimgapC-1105).
+                    HxSameTick1105Cases.register(s);
                     // Deployables: lantern circles, in-radius and the timer HUD (1104-minedeploy, mod minedeploy-1104).
                     HxMineDeploy1104Cases.register(s);
                     // Owner requests 2026-11-03 late (1103-mask-proc-title, 1103-partycmd-self).
@@ -165,6 +170,8 @@ public class HxSuite implements FabricClientGameTest {
                     // Dark Mode: world / HUD tint by framebuffer pixels, screens untouched, settings reload (1102-darkmode-*,
                     // mod branch darkmode-1102), own block.
                     HxDarkMode1102Cases.register(s);
+                    // Tab on top: the player list over every mod HUD, the shared Ability key tap/hold rule (1106-tabtop-*).
+                    HxTabTop1106Cases.register(s);
                     HxStutterCases.register(s);
                     HxBossHealthCases.register(s);
                     // 1103-kickrejoin-*: Kick Rejoin Timer (mod kickhub-1103).

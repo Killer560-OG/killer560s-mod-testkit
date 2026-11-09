@@ -32,7 +32,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *                              sends exactly one report as it crashes, scrubbed (tokens, IP, server, home folder, other
  *                              players, his own name and UUID); the next boot's scan sends nothing more (same crash file)
  * 1104-logic-crashreport-boot  a JVM crash (an hs_err_pid log the game never saw) is sent by the next boot's scan, once;
- *                              with Include My Username on, his name and UUID stay and other players still go
+ *                              with Include My Minecraft Name on, his name and UUID stay and other players still go
  * 1104-logic-crashreport-off   switch OFF (the default): a forced crash and a boot scan send nothing and build nothing;
  *                              ON again, a crash from before the switch went on is not sent either
  * </pre>
@@ -100,6 +100,7 @@ final class CrashReportCases {
 
     private static void restore(boolean wasOn, boolean wasShare) {
         Object cfg = Mod.cfg(CFG);
+        Mod.call(cfg, "setShareDiscord", true);
         Mod.call(cfg, "setEnabled", wasOn);
         Mod.call(cfg, "setShareName", wasShare);
         Mod.staticCall(FEATURE, "clearForTest", 0L);
@@ -149,7 +150,7 @@ final class CrashReportCases {
         c.check("another player's UUID is gone", !body.contains(OTHER_UUID) && body.contains("<uuid>"), "");
         String dashless = selfUuid.replace("-", "");
         if (identify) {
-            c.check("with Include My Username his name stays", body.contains(self), "");
+            c.check("with Include My Minecraft Name his name stays", body.contains(self), "");
             c.check("and his UUID stays", body.contains(selfUuid), "");
         } else {
             c.check("his own name is gone", !body.matches("(?s).*(?<![A-Za-z0-9_])" + java.util.regex.Pattern.quote(self)
@@ -186,7 +187,8 @@ final class CrashReportCases {
                     r.get("summary").getAsString());
             c.eq("kind java", "java", r.get("kind").getAsString());
             c.eq("sent live", "live", r.get("source").getAsString());
-            c.eq("not identified by default", false, r.get("identify").getAsBoolean());
+            c.eq("not identified with the name switch off", false, r.get("identify").getAsBoolean());
+            c.eq("and no Discord asked for without the name", false, r.get("shareDiscord").getAsBoolean());
             c.eq("the crash key is a 64-hex hash", true, r.get("crashKey").getAsString().matches("[0-9a-f]{64}"));
             c.eq("the variant is the jar's", Mod.isCheat() ? "cheat" : "legit", r.get("variant").getAsString());
             c.check("the Minecraft version is set", r.get("minecraft").getAsString().matches("26\\.\\d+(\\.\\d+)?"),
@@ -239,7 +241,8 @@ final class CrashReportCases {
             JsonObject r = JsonParser.parseString(body).getAsJsonObject();
             c.eq("kind native", "native", r.get("kind").getAsString());
             c.eq("sent at boot", "boot", r.get("source").getAsString());
-            c.eq("identified (Include My Username is on)", true, r.get("identify").getAsBoolean());
+            c.eq("identified (Include My Minecraft Name is on)", true, r.get("identify").getAsBoolean());
+            c.eq("and asks for his linked Discord (Include My Discord defaults ON)", true, r.get("shareDiscord").getAsBoolean());
             c.check("the summary is the hs_err header", r.get("summary").getAsString().contains("EXCEPTION_ACCESS_VIOLATION"),
                     r.get("summary").getAsString());
             c.check("the crash text is the hs_err log", r.get("crash").getAsString().contains("testkit_gpu.dll"));
@@ -250,6 +253,49 @@ final class CrashReportCases {
         } finally {
             restore(wasOn, wasShare);
             Files.deleteIfExists(hsErr);
+        }
+    }
+
+    /** 1105-discordlink-payload: shareDiscord rides only with BOTH name switches on (the relay then adds his Discord). */
+    static void discordPayload(LogicCase c) throws Exception {
+        Minecraft mc = Minecraft.getInstance();
+        boolean wasOn = (Boolean) Mod.get(CFG, "isEnabled");
+        boolean wasShare = (Boolean) Mod.get(CFG, "isShareName");
+        List<Path> made = new ArrayList<>();
+        try (Stub stub = new Stub()) {
+            String self = mc.getUser().getName();
+            String selfUuid = mc.getUser().getProfileId().toString();
+            boolean[][] combos = {{true, true}, {true, false}, {false, true}};
+            for (boolean[] k : combos) {
+                reset(true, k[0]);
+                Mod.call(Mod.cfg(CFG), "setShareDiscord", k[1]);
+                int n = stub.bodies.size();
+                forcedCrash(self, selfUuid, made);
+                String label = "name " + (k[0] ? "on" : "off") + ", Discord " + (k[1] ? "on" : "off");
+                if (!c.eq(label + ": one report sent", n + 1, stub.bodies.size())) {
+                    c.note("decisions: " + decisions());
+                    return;
+                }
+                JsonObject r = JsonParser.parseString(stub.bodies.get(n)).getAsJsonObject();
+                c.eq(label + ": identify", k[0], r.get("identify").getAsBoolean());
+                c.eq(label + ": shareDiscord", k[0] && k[1], r.get("shareDiscord").getAsBoolean());
+            }
+            Object fresh;
+            try {
+                var ctor = Mod.cls(CFG).getDeclaredConstructor();
+                ctor.setAccessible(true);
+                fresh = ctor.newInstance();
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+            c.eq("a fresh config shares the name", true, Mod.call(fresh, "isShareName"));
+            c.eq("and the Discord", true, Mod.call(fresh, "isShareDiscord"));
+            c.eq("while Auto Crash Reports itself stays OFF", false, Mod.call(fresh, "isEnabled"));
+        } finally {
+            restore(wasOn, wasShare);
+            for (Path p : made) {
+                Files.deleteIfExists(p);
+            }
         }
     }
 
@@ -268,7 +314,9 @@ final class CrashReportCases {
                 throw new AssertionError(e);
             }
             c.eq("Auto Crash Reports is OFF by default in a fresh config", false, Mod.call(fresh, "isEnabled"));
-            c.eq("and Include My Username is OFF by default", false, Mod.call(fresh, "isShareName"));
+            // killer560, 2026-11-05: "Have share name on by default" (the switch itself stays OFF).
+            c.eq("and Include My Minecraft Name is ON by default", true, Mod.call(fresh, "isShareName"));
+            c.eq("and Include My Discord is ON by default", true, Mod.call(fresh, "isShareDiscord"));
 
             reset(false, false);
             String self = mc.getUser().getName();

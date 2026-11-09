@@ -83,6 +83,9 @@ final class HxChatTidy1104Cases {
         String bpOne = "You need a tool with a Breaking Power of 7 to mine Amethyst Gemstone Block!";
         String fragilis = "Speak to Fragilis by the entrance to the Crystal Hollows to learn more!";
         String tokens = "You have unspent Tokens of the Mountain! Use /hotm to assign them!";
+        String seren = "SERENDIPITOUS! Your Crystal Serendipity attribute doubled your rewards!";
+        String compact = "COMPACT! You found an Enchanted Hard Stone!";
+        String bobSeren = "[VIP] Bob: " + seren;
         String bobBp = "[VIP] Bob: " + bp;
         String bobTokens = "[MVP+] Eve: " + tokens;
         withSwitch(c, "HideMiningReminders", true, () -> {
@@ -91,19 +94,27 @@ final class HxChatTidy1104Cases {
             say(c, "§c" + bpOne);
             say(c, "§c" + fragilis);
             say(c, "§c" + tokens);
-            c.check(hiddenCount(c) - h0 == 4, "ON: the mod hid " + (hiddenCount(c) - h0) + " of the 4 reminder lines");
+            say(c, "§6" + seren);
+            say(c, "§6" + compact);
+            say(c, "§6" + compact);
+            c.check(hiddenCount(c) - h0 == 7, "ON: the mod hid " + (hiddenCount(c) - h0) + " of the 7 mining lines");
+            c.check(!shown(c, seren) && !shown(c, compact) && lines(c).stream().noneMatch(l -> l.contains("(x")),
+                    "ON: a Serendipity or Compact line (or a stack count) is in the chat window: " + lines(c));
             c.check(!shown(c, bp) && !shown(c, bpOne) && !shown(c, fragilis) && !shown(c, tokens),
                     "ON: a reminder line is still in the chat window: " + lines(c));
             say(c, "§7[VIP] Bob§f: " + bp);
             say(c, "§7[MVP+] Eve§f: " + tokens);
-            c.check(shown(c, bobBp) && shown(c, bobTokens), "ON: a player's copy was hidden: " + lines(c));
+            say(c, "§7[VIP] Bob§f: " + seren);
+            c.check(shown(c, bobBp) && shown(c, bobTokens) && shown(c, bobSeren), "ON: a player's copy was hidden: " + lines(c));
         });
         withSwitch(c, "HideMiningReminders", false, () -> {
             long h0 = hiddenCount(c);
             say(c, "§c" + bp);
             say(c, "§c" + tokens);
+            say(c, "§6" + seren);
+            say(c, "§6" + compact);
             c.check(hiddenCount(c) == h0, "OFF: the mod still hid a line");
-            c.check(shown(c, bp) && shown(c, tokens), "OFF: the reminder lines are not in the chat window: " + lines(c));
+            c.check(shown(c, bp) && shown(c, tokens) && shown(c, seren) && shown(c, compact), "OFF: the reminder lines are not in the chat window: " + lines(c));
         });
     }
 

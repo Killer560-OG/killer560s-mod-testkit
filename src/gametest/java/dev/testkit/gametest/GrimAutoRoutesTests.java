@@ -216,6 +216,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1017-breakerwarp", GrimAutoRoutesTests::caseBreakerWarpPaired); // ar-bridges-bat-1017
             s.test("62-argrim-pingpong", GrimAutoRoutesTests::casePingPong);
             s.test("62-argrim-chain", GrimAutoRoutesTests::caseChain);
+            // grimsame-1105: his hotbar scroll / left click in the same server tick as the chain's warps.
+            s.test("62-argrim-1105-same-chain-swap", c -> caseChainSame(c, dev.testkit.gametest.SameTick.Act.SWAP));
+            s.test("62-argrim-1105-same-chain-dig", c -> caseChainSame(c, dev.testkit.gametest.SameTick.Act.DIG));
             s.test("62-argrim-1025-zpchain", GrimAutoRoutesTests::caseZeroPingChain); // mod blink-1025
             // mod blink-charge-1025. Expecting flags since mod blink-keep-1027 (owner, 2026-10-27): the 12 ticks the chain
             // does not spend stay banked through its 11 server teleports, and each kept teleport costs the GrimAC lines
@@ -230,6 +233,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             }
             s.test("62-argrim-hand", GrimAutoRoutesTests::caseHand);
             s.test("62-argrim-1016-auraawait", GrimAutoRoutesTests::caseAuraAwait); // aura-await-only-1016
+            // grimgapB-1105: his use / attack / hotbar swap in the same server tick as Secret Aura's lever clicks.
+            for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{
+                    dev.testkit.gametest.SameTick.Act.USE, dev.testkit.gametest.SameTick.Act.ATTACK,
+                    dev.testkit.gametest.SameTick.Act.SWAP}) {
+                s.test("62-argrim-1105-same-secretaura-" + a.name().toLowerCase(Locale.ROOT), c -> caseSecretAuraSame(c, a));
+            }
             s.test("62-argrim-crypt", GrimAutoRoutesTests::caseCrypt);
             s.test("62-argrim-1015-cryptaim", GrimAutoRoutesTests::caseCryptAim); // crypt-aim-1015
             s.test("62-argrim-mimic", GrimAutoRoutesTests::caseMimic);
@@ -2006,6 +2015,73 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     }
 
     /**
+     * SAME-TICK GRIM CASES (grimsame-1105): the twelve-warp chain at 20/s while HIS OWN action goes into every client tick
+     * ({@link dev.testkit.gametest.SameTick}): SWAP scrolls between the AOTV (slot 0) and the Hyperion (slot 4) between
+     * ticks, DIG is his left click on the block his crosshair is on (the floor the warp aims at).
+     * Passes when the chain reaches its end, some server tick carried a route warp and his packet, and GrimAC is silent.
+     */
+    private static void caseChainSame(Session c, dev.testkit.gametest.SameTick.Act act) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        int[][] pts = ArChainMeasure.CHAIN;
+        int[] end = ArChainMeasure.END;
+        List<JsonObject> n = new ArrayList<>();
+        for (int i = 0; i < pts.length; i++) {
+            int[] to = i + 1 < pts.length ? pts[i + 1] : end;
+            n.add(ew(pts[i][0], pts[i][1], to[0], to[1], i == 0));
+        }
+        writeRoute(ctx, n);
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setEtherwarpsPerSecond",
+                    new Class<?>[]{int.class}, new Object[]{20}));
+            JsonObject before = stats();
+            long m = LogTap.mark();
+            dev.testkit.gametest.SameTick[] holder = new dev.testkit.gametest.SameTick[1];
+            // Armed once the route runs: his own hand warp onto the start node is not the route's.
+            warpOnto(ctx, 6.5, 10.5, 6, 6);
+            holder[0] = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
+                    p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 4));
+            st = holder[0];
+            Vec3 landed = waitLanded(ctx, end[0], end[1], 400);
+            ctx.waitTicks(10);
+            dev.testkit.gametest.SameTick s2 = st;
+            ctx.runOnClient(mc -> s2.close());
+            int acted = 0;
+            for (String l : LogTap.since(m)) {
+                acted += l.contains("ETHERWARP acted") ? 1 : 0;
+            }
+            int serverWarps = delta(before, "etherwarps");
+            c.note("same-tick chain " + act + ": " + st.report() + "; route warps acted " + acted + ", server etherwarps "
+                    + serverWarps);
+            check(landed != null, act + ": the chain did not reach its end (at " + relPos(ctx) + ")");
+            check(acted >= pts.length - 1, act + ": only " + acted + " route etherwarps acted");
+            check(st.done() > 0, act + ": his action never went in (nothing tested)");
+            if (act == dev.testkit.gametest.SameTick.Act.DIG) {
+                // Auto Routes takes his left click while it warps (held for the next await), so no dig may reach
+                // the wire mid-chain: none shares a tick with a warp.
+                check(st.playerWindows() == 0, act + ": his left click reached the wire mid-route (" + st.report() + ")");
+            } else {
+                // The route reselects its slot at START, so his swap often never reaches the wire mid-chain; where it does
+                // share a warp's tick it must go first (after the use it is PacketOrderE and the warp used his old item).
+                check(st.playerWindows() > 0, act + ": no swap of his reached the wire (nothing tested: " + st.report() + ")");
+                check(st.playerAfterFeature() == 0, act + ": his slot went out after a route warp in one tick ("
+                        + st.report() + ")");
+            }
+            st = null;
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick s3 = st;
+                ctx.runOnClient(mc -> s3.close());
+            }
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                    new Object[]{"test"}));
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+        }
+    }
+
+    /**
      * 62-argrim-1025-zpchain (killer560, 2026-10-25: zero ping etherwarp "for auto routes and such"): the twelve-warp chain
      * at 150 ms of latency, first as it is (the control: each warp waits for the previous landing, a round trip), then with
      * Zero Ping Chain on (each warp aimed from the previous one's PREDICTED landing, one a tick). Both must reach the end
@@ -2466,6 +2542,96 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> ModUnderTest.turnOff(cheat, "setSecretAuraEnabled"));
             resetRoutes(ctx);
         }
+    }
+
+    /**
+     * The seven floor levers of 62-argrim-1105-same-secretaura-*, around him (x 15.5, z per case), relative. Each case
+     * stands on its own z: Secret Aura remembers the levers it flipped for the whole run.
+     */
+    private static final int[][] SAME_LEVERS = {{-2, 0}, {2, 0}, {0, -2}, {-2, -2}, {2, -2}, {-2, 2}, {2, 2}};
+
+    /**
+     * SAME-TICK GRIM CASES (grimgapB-1105): Secret Aura flips seven floor levers around him (three behind him, so the body
+     * turns) while HIS OWN action goes into every client tick ({@link dev.testkit.gametest.SameTick}): a right click into
+     * the air with a stick (USE), his left click on a NoAI zombie in front of him every third tick (ATTACK: a turned click needs a tick to turn and one to click between his hits, TurnFirst gives the body back on his), a swap between
+     * the sticks in slots 7 and 8 (SWAP). Passes when the server powered the levers (the aura acted), his action and the
+     * aura's use_item_on reached the wire, for ATTACK never in one server tick (ActionGate holds the aura for his click:
+     * PacketOrderI), for USE / SWAP at least once in one, and GrimAC is silent.
+     */
+    private static void caseSecretAuraSame(Session c, dev.testkit.gametest.SameTick.Act act) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        String cheat = "com.killer560.hub.cheatutils.CheatUtilsConfig";
+        int cz = 8 + 6 * act.ordinal();
+        Map<int[], String> levers = new java.util.LinkedHashMap<>();
+        for (int[] l : SAME_LEVERS) {
+            levers.put(new int[]{15 + l[0], F, cz + l[1]}, "minecraft:lever[face=floor,facing=north,powered=false]");
+        }
+        setBlocks(ctx, levers);
+        tpRel(ctx, 15.5, cz + 0.5, 0f, 0f);
+        session.server().command("item replace entity @a hotbar.7 with stick");
+        session.server().command("item replace entity @a hotbar.8 with stick");
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(7));
+        ctx.waitTicks(5);
+        if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+            double[] z = ctx.computeOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                Vec3 v = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                        double.class, double.class}, new Object[]{frame, 15.5, (double) F, cz + 2.0});
+                return new double[]{v.x, v.y, v.z};
+            });
+            session.server().command("summon zombie " + z[0] + " " + z[1] + " " + z[2]
+                    + " {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}");
+            check(waitFor(ctx, 100, () -> ctx.computeOnClient(mc ->
+                    mc.hitResult instanceof net.minecraft.world.phys.EntityHitResult)), "the zombie is not under his crosshair");
+        }
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            dev.testkit.gametest.SameTick s1 = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act,
+                    act == dev.testkit.gametest.SameTick.Act.ATTACK ? 3 : 1,
+                    p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemOnPacket, 7, 8));
+            st = s1;
+            ctx.runOnClient(mc -> {
+                Object cfg = ModUnderTest.config(cheat);
+                ModUnderTest.set(cfg, "setAuraLevers", true);
+                ModUnderTest.set(cfg, "setAuraPauseWhileSneaking", false);
+                ModUnderTest.set(cfg, "setSecretAuraEnabled", true);
+            });
+            boolean all = waitFor(ctx, 200, () -> powered(ctx, cz) == SAME_LEVERS.length);
+            ctx.waitTicks(10);
+            ctx.runOnClient(mc -> s1.close());
+            st = null;
+            int on = powered(ctx, cz);
+            c.note("same-tick secret aura " + act + ": " + s1.report() + "; levers powered " + on + "/" + SAME_LEVERS.length);
+            check(all, act + ": the server powered only " + on + " of " + SAME_LEVERS.length + " levers - the aura did not act");
+            check(s1.done() > 0 && s1.playerWindows() > 0 && s1.featureWindows() > 0, act
+                    + ": his action or the aura's click never reached the wire - nothing tested (" + s1.report() + ")");
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                check(s1.both() == 0, act + ": his attack and the aura's click shared a server tick (" + s1.report() + ")");
+            } else {
+                check(s1.both() > 0, act + ": no server tick carried both his " + act + " and the aura's click - nothing "
+                        + "tested (" + s1.report() + ")");
+            }
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick s3 = st;
+                ctx.runOnClient(mc -> s3.close());
+            }
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(cheat, "setSecretAuraEnabled"));
+            session.server().command("kill @e[tag=sametick]");
+            session.server().command("clear @a stick");
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            resetRoutes(ctx);
+        }
+    }
+
+    private static int powered(ClientGameTestContext ctx, int cz) {
+        int n = 0;
+        for (int[] l : SAME_LEVERS) {
+            n += String.valueOf(blockState(ctx, 15 + l[0], F, cz + l[1])).contains("powered=true") ? 1 : 0;
+        }
+        return n;
     }
 
     /**

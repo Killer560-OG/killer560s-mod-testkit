@@ -51,6 +51,7 @@ final class CroesusPriceCases {
         MenuSuite.test(s, "774-menu-croesus-m4-chest-prices", CroesusPriceCases::chestScreen);
         MenuSuite.test(s, "775-menu-croesus-price-mode-decides", CroesusPriceCases::decides);
         MenuSuite.test(s, "776-menu-croesus-price-mode-saved", CroesusPriceCases::saved);
+        MenuSuite.test(s, "1108-menu-croesus-shards", CroesusPriceCases::shards);
     }
 
     /** id -> {insta-sell, sell offer}. */
@@ -293,6 +294,45 @@ final class CroesusPriceCases {
                 Mod.set("rngmeter.RngMeterConfig", "setUseInstantBuyPrice", rngWas);
                 Mod.staticCall("croesus.CroesusConfig", "load");
             });
+        }
+    }
+
+    /** Attribute shards in a chest carry the one id ATTRIBUTE_SHARD, so they priced as nothing (croesus1108): the name
+     *  decides, and the stack count is the amount when the name has no "xN". */
+    static void shards(Session c) throws Exception {
+        Map<String, long[]> p = Map.of("SHARD_THORN", new long[]{44_252, 145_094}, "SHARD_WITHER", new long[]{20_000, 30_000},
+                "SHARD_APEX_DRAGON", new long[]{1_000_000, 1_500_000});
+        MenuKit.reset(c);
+        MenuKit.Cfg cfg = new MenuKit.Cfg(c);
+        cfg.set("croesus.CroesusConfig", "ChestProfitEnabled", true).set("croesus.CroesusConfig", "PriceMode", mode("INSTA_SELL"));
+        c.ctx().runOnClient(mc -> {
+            Object prices = Mod.field("rngmeter.RngMeterEngine", "PRICES");
+            p.forEach((id, v) -> Mod.call(prices, "putBazaarPriceForTest", id, v[0], v[1]));
+        });
+        try {
+            MenuKit.show(c, FlipCroesusCases.menu("Obsidian Chest", 6, Map.of(
+                    10, stack("minecraft:player_head", "ATTRIBUTE_SHARD", "§5Thorn Shard", 1),
+                    11, stack("minecraft:player_head", "ATTRIBUTE_SHARD", "§9Wither Shard §8x2", 1),
+                    12, stack("minecraft:player_head", "ATTRIBUTE_SHARD", "§6Apex Dragon Shard", 3),
+                    31, FlipCroesusCases.item("minecraft:chest", "§aOpen Reward Chest", "§7Cost", "§62,000,000 Coins"),
+                    49, FlipCroesusCases.item("minecraft:arrow", "§aGo Back")),
+                    Map.of(31, FlipCroesusCases.closeWith("§aYou claimed the Obsidian Chest!"))));
+            MenuKit.awaitScreen(c, "Obsidian Chest", 100);
+            c.ctx().waitTicks(10);
+            Object chest = c.onClient(mc -> Mod.staticCall("croesus.DungeonChestValuer", "fromChestScreen",
+                    Mod.enumValue("croesus.DungeonChestValuer$ChestType", "OBSIDIAN"),
+                    Mod.staticCall("croesus.ChestProfitFeature", "containerStacks", (AbstractContainerScreen<?>) McCompat.screen(mc))));
+            long want = 44_252 + 2 * 20_000 + 3 * 1_000_000;
+            long value = ((Number) Mod.call(chest, "value")).longValue();
+            c.check(value == want, "shards valued " + value + ", want " + want + " (" + c.<String>onClient(mc -> describe(chest)) + ")");
+            c.note(c.<String>onClient(mc -> describe(chest)));
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                Object prices = Mod.field("rngmeter.RngMeterEngine", "PRICES");
+                p.keySet().forEach(id -> Mod.call(prices, "removeBazaarPriceForTest", id));
+            });
+            MenuKit.reset(c);
+            cfg.close();
         }
     }
 }

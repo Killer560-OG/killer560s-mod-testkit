@@ -1392,6 +1392,12 @@ public class SimBloodRushTests implements FabricClientGameTest {
             names.removeIf(n -> n.toLowerCase(Locale.ROOT).contains("trap"));
             names.sort(java.util.Comparator.comparing((String n) -> armed.contains(n)).thenComparing(n -> !table.containsKey(n))
                     .thenComparing(n -> n));
+            // Test-only: KM_BLOODRUSH_ROOM=Banners makes this case use that room (a moving one, to prove the noise mask live);
+            // a floor without it fails fast and the caller reruns.
+            String forced = System.getenv("KM_BLOODRUSH_ROOM");
+            if (forced != null && !forced.isEmpty()) {
+                return names.contains(forced) ? forced : null;
+            }
             // A room whose spots have no clear view point 4-7 blocks off (Cage: its spot sits in the cage, 26.2
             // 2026-11-04) cannot show the box on screen; take the first room in that order that has one.
             for (String n : names) {

@@ -1633,7 +1633,9 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   arena first too. Alone, each case passed; only a run with trip-steal before them failed.
 
 - **1103-fairy-* (FairyTightTests, fairysouls-1103, 2026-11-03)**: souls in tight places and up ledges - boost2-ledge/-none (2-high ledge, Jump Boost II / none: none must give up with 0 clicks), boost6-pillar (his JB VI, speed 300, 2x2 pillar 5 up), hole, hole-raised6 (hole one block up, JB VI), tunnel (1x1 drop into a 1-wide L tunnel), overhang (1.5 gap, crouch only). Base jar failed boost6-pillar and overhang; hole and tunnel passed on it (the owner's 'small holes' report is more likely his JB VI). `-PclientJvmArgs=-Dtestkit.fairy.trace=true` logs every tick (pos, velocity, keys, rescue index, runner state) as `trN` lines in the client log - that trace found the 'walked back to the node' bug in one run.
-- 1103-worldexport-command / -export / -reload-fairy (WorldExportTests, mod worldexport-1103): proves the mod's `/k560worldexport` on
+- 1103-worldexport-command / -export / -reload-fairy and 1104-worldexport-guide (WorldExportTests) were REMOVED with the mod's
+  world export (cmdtrim-1105; 1101-cmdclean-gone checks /k560worldexport and /killer560 record|stop stay gone). What they taught:
+  they proved the mod's `/k560worldexport` on
   BAYOU_SPILL: command only in cheat dev builds; export of a client-loaded island; a new server on the export alone
   (`seedWorldFrom`); 600 sampled blocks, sign text, head block entity; the real fairy soul walk to a soul (`FairyIslandTests.skipPlace`).
   The loaded export has no light: grass dies to dirt on random ticks, so the case sets `random_tick_speed 0` and tolerates grass->dirt.
@@ -1646,3 +1648,5 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
 - 511 `menu-layout-merged.json` has `newCheatLeaves` (since ship-1104b): a new cheat-only tab goes there, not in `newLeaves`, or 511 fails on legit with "is not in the menu".
 - 1104-ui-mods-title / 1104-ui-mods-pause (mod modsbtn-1104, FontsMainMenuSuite title and world groups): the built-in Mods screen from the Themed Main Menu and the pause menu; lists this mod and Fabric API with FabricLoader's versions and Fabric API's modules folded under it, checks the icon was uploaded and released on close, the search, Configure (our ModScreen) and Website (the no-external-open line), and that each button's switch OFF removes it. Run: `-Scenario 1104-ui-mods`.
 - `Mod.with(cfgClass, prop, v)` restores onto the instance it captured; a case that then calls the config's static `load()` (which builds a NEW instance) leaves its test values live for every later case (2026-11-05, minedeploy-1104: 1018-doorkeys-circle left the circle color gray and 687-ui-door-key-circle failed after it with 0 red px). Restore on `Mod.cfg(cfgClass)` in a finally and save.
+
+- Waiting for a tracker value to be ABSENT passes vacuously when it never became present: MiningIsland reads the tab every 10 ticks, so `waitUntil(!widgetShows)` right after sending a widget tab passed before the first read, and the late read then made the loot line uncounted (1103-powdergrind-loot "gem 0", 2026-11-05). Wait for it to be present first, then send the clearing tab and wait for absent (pgloot-1106).

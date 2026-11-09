@@ -6,13 +6,15 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.ItemLore;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
 
@@ -244,6 +246,9 @@ public class BreakerGuard1018Tests implements FabricClientGameTest {
                             throw new AssertionError("the breaker click on the snow at " + snow + " sent no dig (digs "
                                     + dug + ") - the run proves nothing about the secrets");
                         }
+                        if (!isAir(ctx, snow)) {
+                            throw new AssertionError("the dig on the snow at " + snow + " went out but the snow still stands");
+                        }
                         if (optionOn) {
                             if (dug.contains(lever) || dug.contains(chest) || isAir(ctx, lever) || isAir(ctx, chest)) {
                                 throw new AssertionError("Don't break secrets is ON but a secret was dug or broken: digs "
@@ -357,12 +362,37 @@ public class BreakerGuard1018Tests implements FabricClientGameTest {
         return ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(LIVE_MAP, "currentRoomType"));
     }
 
-    /** A plain left click start on the block, as the player's attack key does (the mod's HEAD hook sees it). */
+    /**
+     * A real left click on the block: the camera turns onto it (the mouse), waits two ticks so the server has HEARD that
+     * look, then the attack key is pressed, so vanilla's startAttack digs the crosshair block and swings, as a player
+     * does (the mod's HEAD hook sees that startDestroyBlock). Calling startDestroyBlock straight from a test task sent a
+     * dig after the tick's movement packet with no swing and a look off the block: experimental GrimAC read it as
+     * NoSwingBreak* and RotationBreak* post-flying (brksec-1105) - the test's click, not the mod.
+     */
     private static void click(ClientGameTestContext ctx, BlockPos pos) {
+        ctx.runOnClient(mc -> {
+            var shape = mc.level.getBlockState(pos).getShape(mc.level, pos);
+            Vec3 to = shape.isEmpty() ? Vec3.atCenterOf(pos) : shape.bounds().getCenter().add(pos.getX(), pos.getY(), pos.getZ());
+            Vec3 eye = mc.player.getEyePosition();
+            double dx = to.x - eye.x, dy = to.y - eye.y, dz = to.z - eye.z;
+            mc.player.setYRot((float) Math.toDegrees(Math.atan2(-dx, dz)));
+            mc.player.setXRot((float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz))));
+        });
+        ctx.waitTicks(2);
         // The server's inventory sync wipes the client-side stamp within a tick or two, so stamp right before the click.
+        // Aim first and swing after, as the attack key does: a bare startDestroyBlock drew GrimAC's experimental
+        // NoSwingBreak and RotationBreak (a dig with no swing and a look off the block), a test artifact (ship4fu-1105).
+        ctx.runOnClient(mc -> mc.player.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, new net.minecraft.world.phys.Vec3(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5)));
+        ctx.waitTicks(3);
         stampBreaker(ctx);
-        boolean started = ctx.computeOnClient(mc -> mc.gameMode.startDestroyBlock(pos, Direction.UP));
-        System.out.println("[1018-breaker] click " + pos + " -> startDestroyBlock returned " + started);
+        String aimed = ctx.computeOnClient(mc -> mc.hitResult instanceof BlockHitResult b
+                && b.getType() == HitResult.Type.BLOCK ? b.getBlockPos().toShortString() : String.valueOf(mc.hitResult));
+        if (!aimed.equals(pos.toShortString())) {
+            throw new AssertionError("the crosshair is on " + aimed + ", not " + pos.toShortString()
+                    + " - the click would not be on the block under test");
+        }
+        ctx.getInput().pressKey(o -> o.keyAttack);
+        System.out.println("[1018-breaker] click " + pos + " (attack key, crosshair on it)");
     }
 
     // ------------------------------------------------------------------------------------------------ helpers

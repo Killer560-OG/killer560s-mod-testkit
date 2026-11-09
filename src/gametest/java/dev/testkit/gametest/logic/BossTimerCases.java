@@ -59,7 +59,7 @@ final class BossTimerCases {
             c.eq("Goldor's line ends Start", -1, R.get(TT, "goldorStartTime"));
             // f7hud-1102: Goldor's tick is GoldorTick now (a remembered server tick, not a counter).
             c.check("Goldor's line starts the Tick", (Boolean) Mod.staticCall(GT, "active"), "GoldorTick inactive");
-            c.eq("the Tick reads 42 on Goldor's line (his first hit comes 42 ticks after it, 2026-11-03)", 42, Mod.staticCall(GT, "remaining"));
+            c.eq("the Tick reads 60 on Goldor's line (his first hit is a period after it: Odin, NoammAddons, masktimer-1105)", 60, Mod.staticCall(GT, "remaining"));
 
             chat(TT, "onChatMessage", "[BOSS] Necron: I'm afraid, your journey ends now.");
             c.eq("old Necron line no longer starts the drop timer", -1, R.get(TT, "necronTicks"));
@@ -232,6 +232,8 @@ final class BossTimerCases {
     static void bloodCampClock(LogicCase c) {
         try {
             Mod.staticCall(CLOCK, "untrustForTest");
+            // The camp lag is wall time (bcstall-1105): each hand tick moves the test's wall clock 50 ms.
+            Mod.staticCall(CLOCK, "wallForTest", 40_000_000L);
             for (int i = 0; i < 40; i++) {
                 simTick(1);
             }
@@ -291,6 +293,27 @@ final class BossTimerCases {
             timedTicks(40);
             c.check("a new world starts trusting afresh", (Boolean) Mod.staticCall(CLOCK, "trusted"),
                     "trusted=" + Mod.staticCall(CLOCK, "trusted"));
+            // gold-flake-1105: the same Grim server LOADED (ship 6 gate, other clients running; 1102-hx-goldor-tick read
+            // 0, 4, 8, 12). Its pings first ran behind the wall clock (a ping every other tick for 2 s), which banked the
+            // pace rule 20 ticks under, so it never fired; then a ping a tick earned the trust and each hit's 4 extra
+            // transactions counted. A trusted ping now counts only within 1.5 ticks of the wall clock.
+            Mod.staticCall(CLOCK, "untrustForTest");
+            for (int i = 0; i < 40; i++) {
+                timedTick(i % 2);
+            }
+            timedTicks(40);
+            c.check("loaded Grim: trusted once it pings every tick", (Boolean) Mod.staticCall(CLOCK, "trusted"),
+                    "trusted=" + Mod.staticCall(CLOCK, "trusted"));
+            long l0 = clock();
+            for (int i = 0; i < 180; i++) {
+                timedTick(i % 60 == 42 ? 5 : 1);
+            }
+            long loaded = clock() - l0;
+            c.check("loaded Grim: still trusted (the pace rule's banked lag hides the extras from it)",
+                    (Boolean) Mod.staticCall(CLOCK, "trusted") && !(Boolean) Mod.staticCall(CLOCK, "notPerTick"),
+                    "trusted=" + Mod.staticCall(CLOCK, "trusted"));
+            c.check("loaded Grim: 180 ticks with 12 extra pings count 180 (within 2; every extra counted is 192)",
+                    loaded >= 180 && loaded <= 182, "ran " + loaded);
             // (tickfix3-1104: real hypixel.net no longer uses this rule, see 1104-logic-hypixel-pings; the testkit's
             // mc.hypixel.net label on its loopback GrimAC server is not real hypixel.net, so Grim is judged as above.)
             // A stall and its catch-up burst are not pings ahead of the wall clock: trusted again two windows after it (off
@@ -362,25 +385,25 @@ final class BossTimerCases {
             Mod.staticCall(TT, "resetAll");
             chat(TT, "onChatMessage", "[BOSS] Goldor: Who dares trespass into my domain?");
             long line = clock();
-            c.eq("(a) 42 on the line", 42, Mod.staticCall(GT, "remaining"));
+            c.eq("(a) 60 on the line", 60, Mod.staticCall(GT, "remaining"));
             List<String> atHits = new ArrayList<>();
             for (int k = 0; k < 4; k++) {
-                serverTicks(k == 0 ? 42 : 60);
-                c.eq("(a) hit " + (k + 1) + " at line+" + (42 + 60 * k) + ": the Tick reads 0 before the hit is seen", 0,
+                serverTicks(60);
+                c.eq("(a) hit " + (k + 1) + " at line+" + (60 + 60 * k) + ": the Tick reads 0 before the hit is seen", 0,
                         Mod.staticCall(GT, "remaining"));
                 Mod.staticCall(GT, "testHitNow", false);
                 atHits.add(tickLine());
             }
-            c.eq("(a) clock moved 222 server ticks", line + 222, clock());
+            c.eq("(a) clock moved 240 server ticks", line + 240, clock());
             c.eq("(a) offsets at the 4 hits", List.of(0, 0, 0, 0), offsets());
             c.check("(a) the HUD read Tick: 0.0s at every hit", atHits.stream().allMatch("Tick: 0.0s"::equals), atHits.toString());
             serverTicks(1);
             c.eq("(a) 59 the tick after a hit", 59, Mod.staticCall(GT, "remaining"));
 
-            // (b) His 2026-11-03 log replayed: hits 18 ticks off the start phase (line + 60). The FIRST hit re-locks, then 0.
+            // (b) Off hypixel.net: hits 18 ticks off the start phase (line + 60). The FIRST hit re-locks, then 0.
             Mod.staticCall(TT, "resetAll");
             chat(TT, "onChatMessage", "[BOSS] Goldor: Who dares trespass into my domain?");
-            serverTicks(60);
+            serverTicks(78);
             Mod.staticCall(GT, "testHitNow", false);
             c.eq("(b) one hit locked the phase: 0 on its tick", 0, Mod.staticCall(GT, "remaining"));
             for (int k = 0; k < 3; k++) {
@@ -399,8 +422,8 @@ final class BossTimerCases {
             serverTicks(10);
             Mod.staticCall(GT, "testHitNow", false);
             c.eq("(b2) not locked by a hit 10 ticks after the line", false, Mod.staticCall(GT, "testLocked"));
-            serverTicks(32);
-            c.eq("(b2) the Tick still reads 0 at line+42", 0, Mod.staticCall(GT, "remaining"));
+            serverTicks(50);
+            c.eq("(b2) the Tick still reads 0 at line+60", 0, Mod.staticCall(GT, "remaining"));
             Mod.staticCall(GT, "testHitNow", false);
             c.eq("(b2) the real first hit locks", true, Mod.staticCall(GT, "testLocked"));
             c.eq("(b2) no re-lock was needed", 0, Mod.staticCall(GT, "testRelocks"));
@@ -408,7 +431,7 @@ final class BossTimerCases {
             // (c) a stray hit 25 ticks after a real one moves nothing.
             Mod.staticCall(TT, "resetAll");
             chat(TT, "onChatMessage", "[BOSS] Goldor: Who dares trespass into my domain?");
-            serverTicks(42);
+            serverTicks(60);
             Mod.staticCall(GT, "testHitNow", false);
             serverTicks(25);
             Mod.staticCall(GT, "testHitNow", false);
@@ -430,7 +453,7 @@ final class BossTimerCases {
             // Small drift: a hit 2 ticks late snaps the phase onto it.
             Mod.staticCall(TT, "resetAll");
             chat(TT, "onChatMessage", "[BOSS] Goldor: Who dares trespass into my domain?");
-            serverTicks(44);
+            serverTicks(62);
             Mod.staticCall(GT, "testHitNow", false);
             serverTicks(60);
             c.eq("a hit 2 ticks late moves the phase onto it", 0, Mod.staticCall(GT, "remaining"));
@@ -438,7 +461,7 @@ final class BossTimerCases {
             // A mask proc line is a hit.
             Mod.staticCall(TT, "resetAll");
             chat(TT, "onChatMessage", "[BOSS] Goldor: Who dares trespass into my domain?");
-            serverTicks(40);
+            serverTicks(58);
             chat(TT, "onChatMessage", "[MVP+] Bob: Second Wind Activated! Your Spirit Mask saved your life!");
             Mod.staticCall(GT, "endOfTick");
             c.eq("a player's copy of the proc line is not a hit", List.of(), offsets());

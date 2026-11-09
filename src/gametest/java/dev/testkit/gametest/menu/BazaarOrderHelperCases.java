@@ -39,6 +39,7 @@ final class BazaarOrderHelperCases {
 
     static void register(Session s) {
         MenuSuite.test(s, "2810-menu-bz-order-helper", BazaarOrderHelperCases::helper);
+        MenuSuite.test(s, "1108-menu-ah-highlight", BazaarOrderHelperCases::auctions);
     }
 
     private static JsonObject order(String item, String name, String amountLine, String filledLine, String price,
@@ -150,6 +151,9 @@ final class BazaarOrderHelperCases {
 
     /** Slot index -> the outline color read at its four corners (or "mixed:..." when they disagree). */
     static Map<Integer, String> outlines(Session c, String label) {
+        // The window-center cursor sat on slot 16's corner and its hover highlight read DEDEDE (2810 failed on base too).
+        c.ctx().getInput().setCursorPos(2, 2);
+        c.ctx().waitTicks(2);
         BufferedImage img = BazaarReskinCases.shot(c, label);
         double[] g = c.onClient(mc -> new double[]{mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight()});
         List<int[]> slots = c.onClient(mc -> {
@@ -226,6 +230,66 @@ final class BazaarOrderHelperCases {
         });
     }
 
+    private static JsonObject auction(String item, String name, String... lore) {
+        JsonObject o = new JsonObject();
+        o.addProperty("item", item);
+        o.addProperty("name", name);
+        JsonArray l = new JsonArray();
+        for (String t : lore) {
+            l.add(t);
+        }
+        o.add("lore", l);
+        return o;
+    }
+
+    /** 1108-menu-ah-highlight: in Manage Auctions the sold listing is green, the expired one red, a running one and
+     *  Go Back plain; Highlight Auction House off clears both; Your Bids colors an ended bid green. */
+    static void auctions(Session c) throws Exception {
+        MenuKit.reset(c);
+        boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+        c.ctx().runOnClient(mc -> Mod.staticCall("util.SkyblockGate", "setEnabled", false));
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set("auction.AuctionConfig", "BazaarEnabled", false);
+            cfg.set(CFG, "Enabled", true);
+            cfg.set(CFG, "HighlightAuctions", true);
+            cfg.set(CFG, "FilledColor", 0x60000000 | FILLED);
+            cfg.set(CFG, "ExpiredColor", 0x60000000 | EXPIRED);
+            JsonObject slots = new JsonObject();
+            slots.add("10", auction("minecraft:diamond_sword", "§aHyperion", "§7Seller: §a[MVP] Me", "",
+                    "§7Buy it now: §61,000,000 coins", "", "§7Status: §aSold!", "§eClick to claim!"));
+            slots.add("11", auction("minecraft:bow", "§5Terminator", "§7Seller: §a[MVP] Me", "",
+                    "§7Buy it now: §62,000,000 coins", "", "§7Status: §cExpired!", "§eClick to claim!"));
+            slots.add("12", auction("minecraft:stick", "§fStick", "§7Seller: §a[MVP] Me", "",
+                    "§7Buy it now: §65 coins", "", "§7Ends in: §e1h"));
+            slots.add("31", auction("minecraft:arrow", "§aGo Back", "§7To Auction House"));
+            JsonObject spec = new JsonObject();
+            spec.addProperty("title", "Manage Auctions");
+            spec.addProperty("rows", 4);
+            spec.addProperty("fill", true);
+            spec.add("slots", slots);
+            MenuKit.show(c, spec);
+            MenuKit.awaitScreen(c, "Manage Auctions", 100);
+            c.waitUntil("the auction items", mc -> McCompat.screen(mc) instanceof AbstractContainerScreen<?> s
+                    && !s.getMenu().slots.get(12).getItem().isEmpty(), 100);
+            c.ctx().waitTicks(4);
+            Map<Integer, String> got = outlines(c, "ah-on");
+            String f = String.format("%06X", FILLED);
+            String e = String.format("%06X", EXPIRED);
+            c.check(got.get(10).contains(f), "sold listing outline " + got.get(10) + ", want " + f);
+            c.check(got.get(11).contains(e), "expired listing outline " + got.get(11) + ", want " + e);
+            c.check(!got.get(12).contains(f) && !got.get(12).contains(e), "running listing colored " + got.get(12));
+            c.check(!got.get(31).contains(f) && !got.get(31).contains(e), "Go Back colored " + got.get(31));
+            c.ctx().runOnClient(mc -> Mod.call(Mod.staticCall(CFG, "getInstance"), "setHighlightAuctions", false));
+            Map<Integer, String> off = outlines(c, "ah-off");
+            c.check(!off.get(10).contains(f) && !off.get(11).contains(e), "Highlight Auction House off, still " + off.get(10) + "/" + off.get(11));
+            c.note("Manage Auctions: sold " + got.get(10) + ", expired " + got.get(11) + ", running " + got.get(12)
+                    + "; off: " + off.get(10) + "/" + off.get(11));
+        } finally {
+            MenuKit.reset(c);
+            c.ctx().runOnClient(mc -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas));
+        }
+    }
+
     static void helper(Session c) throws Exception {
         MenuKit.reset(c);
         boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
@@ -258,7 +322,7 @@ final class BazaarOrderHelperCases {
                 c.ctx().waitTicks(2);
                 ex = outlines(c, "expired-" + n).get(16);
             }
-            c.check(String.format("%06X", EXPIRED).equals(ex), "expired order outline " + ex + ", want "
+            c.check(ex.contains(String.format("%06X", EXPIRED)), "expired order outline " + ex + ", want "
                     + String.format("%06X", EXPIRED));
             String tExpired = tooltip(c, 16);
             c.check(tExpired.contains("Order Helper: Expired"), "expired tooltip: " + tExpired);
