@@ -515,6 +515,9 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             facts.add("guest verdict: " + verdict);
             expect(f, facts, "guest's own checks", verdict, "PASS");
         } finally {
+            for (String c : stub.calls("POST /simrooms/join")) {
+                facts.add("stub " + c);
+            }
             setAllowed("SPEED", true);
             stub.stop();
         }
@@ -547,8 +550,9 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             DesignerKit.click(ctx, "Join");
             paceUntil(ctx, () -> message(ctx).equals("Wrong password."), 10_000);
             expect(f, facts, "wrong password", message(ctx), "Wrong password.");
-            setBox(ctx, "Password", PW);
-            DesignerKit.click(ctx, "Join");
+            expect(f, facts, "password box for the right one", setBox(ctx, "Password", PW), true);
+            expect(f, facts, "clicked Join (right password)", DesignerKit.click(ctx, "Join"), true);
+            facts.add("after the click: " + message(ctx) + " / " + screenName(ctx));
             if (!inWorld(ctx)) {
                 f.add("did not join with the right password: " + message(ctx) + " / " + screenName(ctx));
                 return;
