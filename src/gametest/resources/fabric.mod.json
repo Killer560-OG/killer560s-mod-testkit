@@ -90,6 +90,7 @@
 			"dev.testkit.gametest.SimAutoSecretTests",
 			"dev.testkit.gametest.SimQuizCooldownTests",
 			"dev.testkit.gametest.SimBossTests",
+			"dev.testkit.gametest.CoopSimTests",
 			"dev.testkit.gametest.SimFullClearTests",
 			"dev.testkit.gametest.RoomTourLogicTests",
 			"dev.testkit.gametest.RoomOrder1018LogicTests",

@@ -860,6 +860,17 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	if (project.hasProperty("world")) {
 		systemProperty "testkit.world", project.property("world")
 	}
+	// Two-client mode (run-coop.sh, coopsim-1109): the role (host|guest), the shared rendezvous folder and the LAN port
+	// the host publishes on, read by dev.testkit.gametest.coop.CoopSync. -Pusername gives this client its own offline
+	// name (every client is Player0 otherwise, and two Player0s are one player to the host).
+	["coopRole": "testkit.coop.role", "coopDir": "testkit.coop.dir", "coopPort": "testkit.coop.port"].each { p, key ->
+		if (project.hasProperty(p)) {
+			systemProperty key, project.property(p).toString()
+		}
+	}
+	if (project.hasProperty("username")) {
+		args "--username", project.property("username").toString()
+	}
 
 	// --- WP1 foundation -----------------------------------------------------------------------------------
 	//
