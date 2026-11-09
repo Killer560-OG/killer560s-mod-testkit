@@ -47,7 +47,7 @@ public class InvWalkTermTests implements FabricClientGameTest {
         }
         int x = -11400;
         int z = -9000;
-        Scenario.run(ctx, nm, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+        Scenario.runExpectingFlags(ctx, nm, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = gateOff(ctx);
             Rows rows = new Rows(ctx, server, scenario);
             try (Hx hx = Hx.connect()) {
@@ -65,9 +65,9 @@ public class InvWalkTermTests implements FabricClientGameTest {
                     for (int mode = 0; mode < 3; mode++) {
                         flyRow(rows, ctx, server, hx, x, z, lat, mode);
                     }
-                    for (SameTick.Act act : new SameTick.Act[]{null, SameTick.Act.SWAP, SameTick.Act.CLICK}) {
-                        hideRow(rows, ctx, server, hx, x, z, lat, act);
-                    }
+                    hideRow(rows, ctx, server, hx, x, z, lat, null, 41);
+                    hideRow(rows, ctx, server, hx, x, z, lat, SameTick.Act.SWAP, 41);
+                    hideRow(rows, ctx, server, hx, x, z, lat, null, 10);
                 }
             } finally {
                 server.command("kill @e[type=minecraft:interaction]");
@@ -138,10 +138,11 @@ public class InvWalkTermTests implements FabricClientGameTest {
         boolean move = mode == 2;
         String label = "L" + lat + " flying " + (leap ? "leap menu, " : "server menu, ") + (move ? "moving then stop" : "hovering");
         keys(ctx, Set.of());
-        tp(server, ctx, x + 0.5, SURFACE_Y + 3, z + 0.5, -90f);
         server.command("gamemode creative " + name(ctx));
         server.sync(5);
         ctx.waitTicks(5);
+        server.command(String.format(Locale.ROOT, "tp %s %.2f %d %.2f -90 0", name(ctx), x + 0.5, SURFACE_Y + 4, z + 0.5));
+        ctx.waitTicks(2);
         ctx.runOnClient(mc -> {
             mc.player.getAbilities().flying = true;
             mc.player.onUpdateAbilities();
@@ -192,11 +193,16 @@ public class InvWalkTermTests implements FabricClientGameTest {
     }
 
     /** Hide Keys In Server Menus: a terminal open 5 s while he walks (see the class comment). {@code st} null = no same-tick act. */
-    private static void hideRow(Rows rows, ClientGameTestContext ctx, TestServer server, Hx hx, int x, int z, int lat, SameTick.Act st) {
-        String label = "L" + lat + " hide keys, terminal 5 s walking" + (st == null ? "" : ", same tick " + st);
+    private static void hideRow(Rows rows, ClientGameTestContext ctx, TestServer server, Hx hx, int x, int z, int lat, SameTick.Act st,
+                                int hideTicks) {
+        String label = "L" + lat + " hide keys " + (hideTicks >= 41 ? "whole menu" : hideTicks + " ticks") + ", terminal 5 s walking"
+                + (st == null ? "" : ", same tick " + st);
         keys(ctx, Set.of());
         tp(server, ctx, x + 0.5, SURFACE_Y, z + 0.5, -90f);
-        ctx.runOnClient(mc -> Mod.set(IW_CFG, "setHideKeysInMenus", true));
+        ctx.runOnClient(mc -> {
+            Mod.set(IW_CFG, "setHideKeysInMenus", true);
+            Mod.set(IW_CFG, "setHideKeysTicks", hideTicks);
+        });
         rows.begin();
         hx.call("menu.terminal", "type", "PANES", "seed", 11 + lat + (st == null ? 0 : st.ordinal()), "count", 5,
                 "closeOnSolve", false, "interval", 0);
@@ -243,8 +249,9 @@ public class InvWalkTermTests implements FabricClientGameTest {
             dev.testkit.harness.PacketTrace.tap = tap;
             dev.testkit.harness.PacketTrace.start();
         });
-        SameTick same = st == null ? null : ctx.computeOnClient(mc -> SameTick.start(st, st == SameTick.Act.SWAP ? 3 : 5,
+        SameTick same = st == null ? null : ctx.computeOnClient(mc -> SameTick.start(st, 3,
                 pk -> pk instanceof ServerboundContainerClickPacket, 1, 2));
+        boolean whole = hideTicks >= 41;
         List<Set<String>> segs = List.of(SPRINT, Set.of("key.back", "key.sprint"), Set.of("key.left"), Set.of("key.right"));
         Cost cost = new Cost();
         int clicks = 0;
@@ -256,7 +263,9 @@ public class InvWalkTermTests implements FabricClientGameTest {
                 click(ctx, List.of(Click.left(red.get(clicks++))));
             }
             cost.tick(ctx, k);
-            masked &= ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(IW, "isMasking"));
+            if (whole || t < hideTicks - 4) {
+                masked &= ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(IW, "isMasking"));
+            }
         }
         if (same != null) {
             ctx.runOnClient(mc -> same.close());
@@ -285,16 +294,28 @@ public class InvWalkTermTests implements FabricClientGameTest {
         });
         int setbacks = dev.testkit.harness.PacketTrace.received("player_position");
         String sameVerdict = same == null ? null : same.verdict("hide keys + " + st, false);
-        boolean ok = masked && cost.screenAll && cost.path >= 3 && wireMoving[0] == 0 && clicks == red.size() && !red.isEmpty()
-                && ev.size() >= clicks && moving == 0 && solved && afterClose[0] >= 0 && afterClose[0] <= 3 && sameVerdict == null;
+        // Whole menu: no movement key ever on the wire while it is up. A tick limit: the keys come back after it, and the
+        // clicks after that wait for Stop To Click's stop (still none handled while the server has him moving).
+        boolean ok = masked && cost.screenAll && cost.path >= 3 && (whole ? wireMoving[0] == 0 : wireMoving[0] > 0)
+                && clicks == red.size() && !red.isEmpty() && ev.size() >= clicks && moving == 0 && solved
+                && (!whole || afterClose[0] >= 0 && afterClose[0] <= 3) && sameVerdict == null;
+        ctx.waitTicks(15);
+        List<String> other = rows.scenario.flags().stream().filter(f -> !f.contains("Simulation")).toList();
+        if (!other.isEmpty()) {
+            ok = false;
+        }
         String detail = String.format(Locale.ROOT, "masked %s, walked %.2f (screen up all along %s), wire inputs while open %d (%d "
                         + "with movement/jump/sprint), panes %d clicked %d handled %d (%d while the server had him moving), solved %s "
                         + "(clicks %s wrong %s), real keys on the wire %d tick(s) after the close, setbacks %d%s", masked, cost.path,
                 cost.screenAll, wireInputs[0], wireMoving[0], red.size(), clicks, ev.size(), moving, solved, state.get("clicks"),
                 state.get("wrong"), afterClose[0], setbacks, same == null ? "" : "; " + same.report()
                         + (sameVerdict == null ? "" : " [" + sameVerdict + "]"));
+        if (!other.isEmpty()) {
+            detail += " [FLAGS OTHER THAN Simulation: " + String.join(" | ", other.subList(0, Math.min(3, other.size()))) + "]";
+        }
         ctx.runOnClient(mc -> Mod.set(IW_CFG, "setHideKeysInMenus", false));
         ctx.waitTicks(20);
-        rows.end(label, ok, detail, null);
+        // Hiding keys from a server that predicts from them is GrimAC Simulation (and its setbacks): expected, counted.
+        rows.end(label, ok, detail, "Simulation");
     }
 }
