@@ -27,6 +27,7 @@
     "gui.tab.IcedMobsTab": "Dungeons > Iced Mob Boxes",
     "gui.tab.AutoCloseChestTab": "Dungeons > Auto Close Chest",
     "gui.tab.ChatHiderTab": "Chat > Chat Hider",
+    "gui.tab.CommandPrefixesTab": "Chat > Command Prefixes",
     "gui.tab.ModsScreenTab": "Misc > Mods Screen",
     "gui.tab.CustomItemsTab": "Cosmetics > Custom Items",
     "gui.tab.ChocolateFactoryTab": "Misc > Chocolate Factory",

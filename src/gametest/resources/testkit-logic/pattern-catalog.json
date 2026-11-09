@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-09T09:00:48",
- "modSource": "km-ship18",
- "modGitSha": "814ee7fda378252dfcfcba66e7cc1804c6ad8c29",
+ "generatedAt": "2026-11-09T11:11:23",
+ "modSource": "km-ship19",
+ "modGitSha": "2135aecf133ced2f89c33b74989682d156469935",
  "modSourceDirty": false,
  "count": 925,
  "byKind": {
