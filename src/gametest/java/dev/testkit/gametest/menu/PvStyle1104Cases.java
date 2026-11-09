@@ -139,6 +139,13 @@ final class PvStyle1104Cases {
 
                 int[] geo = c.onClient(mc -> new int[]{i(s, "panelX"), i(s, "panelY"), i(s, "panelW"), i(s, "panelH"),
                         i(s, "contentY"), s.width});
+                // Each style's content fits: the panel sits inside the window, and the Switch/Recent column (when drawn)
+                // starts right of the panel and ends inside the window.
+                int[] side = c.onClient(mc -> new int[]{i(s, "sidebarX"), i(s, "sidebarW"), i(s, "sidebarH"),
+                        Boolean.TRUE.equals(Mod.field(s, "sidebarVisible")) ? 1 : 0});
+                look(bad, geo[0] >= 0 && geo[0] + geo[2] <= geo[5], want + ": the panel leaves the window");
+                look(bad, side[3] == 0 || (side[0] >= geo[0] + geo[2] && side[0] + side[1] <= geo[5] && side[2] == geo[3]),
+                        want + ": the Switch/Recent column at " + side[0] + " w" + side[1] + " h" + side[2] + " overlaps the panel or leaves the window");
                 boolean icons = n > 0;
                 boolean neu = n == 1;
                 int rise = neu ? 28 : 22;
@@ -150,12 +157,13 @@ final class PvStyle1104Cases {
                             want + ": panel " + geo[0] + "," + geo[1] + " " + geo[2] + "x" + geo[3] + ", expected "
                                     + want4[0] + "," + want4[1] + " " + want4[2] + "x" + want4[3]);
                     look(bad, geo[4] == geo[1] + 26, want + ": content starts at " + geo[4] + ", expected panelY + 26 = " + (geo[1] + 26));
-                    // NEU: the Style dropdown 106 right of the profile one, 3 under the panel; SkyBlockPV: top left, 20 tall.
+                    // The Style button is top left (5,5), 20 tall, in every style (killer560, 2026-11-09).
                     int[] sb = c.onClient(mc -> ((int[]) Mod.field(s, "styleButton")).clone());
-                    boolean at = neu ? sb[0] == geo[0] + 106 && sb[1] == geo[1] + geo[3] + 3 && sb[2] == 100 && sb[3] == 20
-                            : sb[0] == 5 && sb[1] == 5 && sb[3] == 20;
-                    look(bad, at, want + ": the Style button is at " + sb[0] + "," + sb[1] + " " + sb[2] + "x" + sb[3]);
+                    look(bad, sb[0] == 5 && sb[1] == 5 && sb[3] == 20,
+                            want + ": the Style button is at " + sb[0] + "," + sb[1] + " " + sb[2] + "x" + sb[3]);
                 } else {
+                    int[] sb = c.onClient(mc -> ((int[]) Mod.field(s, "styleButton")).clone());
+                    look(bad, sb[0] == 5 && sb[1] == 5 && sb[2] > 0, "Default: the Style button is at " + sb[0] + "," + sb[1]);
                     c.check(geo[4] == geo[1] + 29 + 2 * 21, "Default: content starts at " + geo[4] + ", expected panelY + 71");
                 }
 

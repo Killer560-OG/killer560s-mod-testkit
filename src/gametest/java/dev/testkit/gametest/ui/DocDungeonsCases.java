@@ -383,10 +383,8 @@ final class DocDungeonsCases {
     private static List<AbstractWidget> buildLeapList(UiCase c) {
         List<AbstractWidget> ws = new ArrayList<>();
         if (pages()) {
-            c.onClient(mc -> {
-                int y = (Integer) Mod.staticCall(FLS, "buildLeapSwitches", ws, 0, 0, 400);
-                return Mod.staticCall(FLS, "buildUniversalTargets", ws, 0, y, 400, false);
-            });
+            // Since untestbugs-1109 each leap's switch and its target sit together on the Universal Targets page.
+            c.onClient(mc -> Mod.staticCall(FLS, "buildUniversalTargets", ws, 0, 0, 400, false));
         } else {
             c.onClient(mc -> Mod.staticCall(FLS, "buildLeapList", ws, 0, 0, 400, (Runnable) () -> { }));
         }

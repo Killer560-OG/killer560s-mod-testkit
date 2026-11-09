@@ -67,10 +67,6 @@ final class UntestBugs1109Cases {
             for (String r : new String[]{"Secret Aura", "Secret Triggerbot", "Delay", "Cooldown", "Swap To Slot"}) {
                 c.check(has(rows, r), "the merged Secret Aura card has no '" + r + "' row: " + rows);
             }
-            Object ids = Mod.staticCall("gui.ModuleKeybinds", "idsForTest");
-            c.note("toggle key ids: " + ids);
-        } catch (Exception e) {
-            c.note("no ModuleKeybinds.idsForTest hook (" + e.getClass().getSimpleName() + "): the Extra is read by the bind press");
         } finally {
             Mod.call(cfg, "setEnabled", was);
         }
@@ -213,7 +209,9 @@ final class UntestBugs1109Cases {
             return;
         }
         // (the live config may carry his own values; the default is read off a new instance)
-        Object fresh = Mod.cls("croesus.CroesusConfig").getDeclaredConstructor().newInstance();
+        java.lang.reflect.Constructor<?> ctor = Mod.cls("croesus.CroesusConfig").getDeclaredConstructor();
+        ctor.setAccessible(true);
+        Object fresh = ctor.newInstance();
         c.check((Boolean) Mod.call(fresh, "isRerollFloor", "F7") && (Boolean) Mod.call(fresh, "isRerollFloor", "M7"),
                 "F7 and M7 are not on by default");
         c.check(!(Boolean) Mod.call(fresh, "isRerollFloor", "F1"), "F1 is on by default");

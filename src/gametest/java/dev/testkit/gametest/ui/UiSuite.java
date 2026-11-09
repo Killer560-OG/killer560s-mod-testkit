@@ -786,6 +786,12 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1109-ui-ub-darkchat", UntestBugs1109Cases::darkChat);
                     UiCase.run(ctx, "1109-ui-ub-switches", UntestBugs1109Cases::newSwitches);
                     UiCase.run(ctx, "1109-ui-ub-cards", UntestBugs1109Cases::cards);
+                    UiCase.run(ctx, "1109-ui-ub-shortbows", UntestBugs1109MoreCases::shortbows);
+                    UiCase.run(ctx, "1109-ui-ub-friends", UntestBugs1109MoreCases::friends);
+                    UiCase.run(ctx, "1109-ui-ub-leapmodes", UntestBugs1109MoreCases::leapModes);
+                    UiCase.run(ctx, "1109-ui-ub-itemquality", UntestBugs1109MoreCases::itemQualityContainer);
+                    UiCase.run(ctx, "1109-ui-ub-ethershape", UntestBugs1109MoreCases::etherShape);
+                    UiCase.run(ctx, "1109-ui-ub-chatsuggest", UntestBugs1109MoreCases::chatSuggestions);
                     UiCase.run(ctx, "1104-ui-univfolders", UniversalFolders1104Cases::moved);
                     UiCase.run(ctx, "1108-ui-salvage-highlight", Salvage1108Cases::salvage);
                     // ---- doc-small (807) ----
