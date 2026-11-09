@@ -66,7 +66,8 @@
     {
       "owner": "Auto Close Chest",
       "key": "auto close chest",
-      "text": "Closes a dungeon secret chest: with Click, the first key or mouse press you make closes it (read the loot first); the cheat build can also close it before it opens."
+      "text": "Closes a dungeon secret chest: with Click, the first key or mouse press you make closes it (read the loot first); the cheat build can also close it before it opens.",
+      "why": "featE-1108: Auto Close Chest is a legit tab with a Click mode"
     },
     {
       "owner": "Timers, Score & Boss",
