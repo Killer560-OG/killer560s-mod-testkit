@@ -33,7 +33,6 @@ final class DefaultsOff1104Cases {
             {"reparty.RepartyConfig", "enabled", "autoRejoin"},
             {"splittimers.WatcherHelperConfig", "enabled"},
             {"carrytracker.CarryTrackerConfig", "enabled"},
-            {"livemap.RoomPreviewConfig", "enabled"},
             {"dungeonqueue.DungeonQueueConfig", "enabled", "pvLinkOnJoin"},
             {"partyfinder.PartyFinderOverlayConfig", "enabled"},
             {"posmsg.PosmsgConfig", "enabled"},

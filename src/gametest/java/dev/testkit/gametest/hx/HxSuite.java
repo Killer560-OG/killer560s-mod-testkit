@@ -187,7 +187,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxGhostMob1109Cases.register(s);
                     // mod featC-1108: Puzzle HUD, Reparty, Watcher Helper.
                     HxFeatC1108Cases.register(s);
-                    // mod featG-1109: Carry Tracker, Room Preview.
+                    // mod featG-1109: Carry Tracker.
                     HxFeatG1109Cases.register(s);
                 });
     }
