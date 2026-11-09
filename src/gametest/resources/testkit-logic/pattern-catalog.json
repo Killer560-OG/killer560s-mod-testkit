@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-08T18:53:02",
- "modSource": "km-ship13",
- "modGitSha": "3167ff3a581825d799b943fe5dac2d527a6ef362",
+ "generatedAt": "2026-11-09T02:21:02",
+ "modSource": "km-ship16",
+ "modGitSha": "451a28cc29ffa836f6675269f260b7b9a0dce6bd",
  "modSourceDirty": false,
- "count": 918,
+ "count": 925,
  "byKind": {
   "dynamic": 9,
   "element": 76,
-  "field": 790,
+  "field": 797,
   "local": 43
  },
  "unresolved": 159,
@@ -2234,6 +2234,18 @@
    "expr": "\"^(?:A mystical force prevents you (?:from digging that block|digging in this \" + \"room|digging there)|You don't have enough charges to break this block right now)!$\""
   },
   {
+   "id": "chattidy.DungeonChatHider#MELODY",
+   "cls": "chattidy.DungeonChatHider",
+   "field": "MELODY",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/chattidy/DungeonChatHider.java",
+   "line": 71,
+   "regex": "^Party > (?:\\[[^\\]]{1,20}\\] )?[A-Za-z0-9_]{1,16}: (?i:melody|mel) (?:(\\d)/(\\d)(?: - \\d{1,3}%)?|(\\d{1,3})%)$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^Party > (?:\\\\[[^\\\\]]{1,20}\\\\] )?\" + NAME + \": (?i:melody|mel) (?:(\\\\d)/(\\\\d)(?: - \\\\d{1,3}%)?|(\\\\d{1,3})%)$\""
+  },
+  {
    "id": "cheatutils.AutoUltFeature#ON_COOLDOWN",
    "cls": "cheatutils.AutoUltFeature",
    "field": "ON_COOLDOWN",
@@ -4046,6 +4058,18 @@
    "expr": "\"%%([a-z_]+)%%\""
   },
   {
+   "id": "itemhighlight.DungeonItemHighlighter#GEAR",
+   "cls": "itemhighlight.DungeonItemHighlighter",
+   "field": "GEAR",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/itemhighlight/DungeonItemHighlighter.java",
+   "line": 23,
+   "regex": "DUNGEON(?! ITEM)",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"DUNGEON(?! ITEM)\""
+  },
+  {
    "id": "itemrarity.ItemRarityFeature#LORE_RARITY",
    "cls": "itemrarity.ItemRarityFeature",
    "field": "LORE_RARITY",
@@ -4980,6 +5004,18 @@
    "flags": null,
    "kind": "field",
    "expr": "TerminalType.MELODY.titlePattern()"
+  },
+  {
+   "id": "milestone.MilestoneFeature#MILESTONE",
+   "cls": "milestone.MilestoneFeature",
+   "field": "MILESTONE",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/milestone/MilestoneFeature.java",
+   "line": 25,
+   "regex": "^[^:\\[]{0,6}Milestone .: You have (?:tanked and )?(?:dealt|healed) .*so far! .*$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^[^:\\\\[]{0,6}Milestone .: You have (?:tanked and )?(?:dealt|healed) .*so far! .*$\""
   },
   {
    "id": "mining.cold.ColdOverlay#COLD",
@@ -6950,6 +6986,42 @@
    "expr": "\"Value:\\\"([A-Za-z0-9+/=]{20,})\\\"\""
   },
   {
+   "id": "puzzlehud.PuzzleHudFeature#COUNT",
+   "cls": "puzzlehud.PuzzleHudFeature",
+   "field": "COUNT",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/puzzlehud/PuzzleHudFeature.java",
+   "line": 40,
+   "regex": "^\\s*Puzzles: \\((\\d+)\\)\\s*$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^\\\\s*Puzzles: \\\\((\\\\d+)\\\\)\\\\s*$\""
+  },
+  {
+   "id": "puzzlehud.PuzzleHudFeature#SOLVED",
+   "cls": "puzzlehud.PuzzleHudFeature",
+   "field": "SOLVED",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/puzzlehud/PuzzleHudFeature.java",
+   "line": 41,
+   "regex": "^PUZZLE SOLVED! (?:\\[[^\\]]{1,20}\\] )?([A-Za-z0-9_]{1,16}) ([^!]{1,80})! Good job!$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^PUZZLE SOLVED! (?:\\\\[[^\\\\]]{1,20}\\\\] )?([A-Za-z0-9_]{1,16}) ([^!]{1,80})! Good job!$\""
+  },
+  {
+   "id": "puzzlehud.PuzzleHudFeature#FAILED",
+   "cls": "puzzlehud.PuzzleHudFeature",
+   "field": "FAILED",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/puzzlehud/PuzzleHudFeature.java",
+   "line": 42,
+   "regex": "^PUZZLE FAIL! (?:\\[[^\\]]{1,20}\\] )?([A-Za-z0-9_]{1,16}) ",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^PUZZLE FAIL! (?:\\\\[[^\\\\]]{1,20}\\\\] )?([A-Za-z0-9_]{1,16}) \""
+  },
+  {
    "id": "puzzlesolvers.BlazeSolverFeature#BLAZE_NAME",
    "cls": "puzzlesolvers.BlazeSolverFeature",
    "field": "BLAZE_NAME",
@@ -7272,6 +7344,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"Strength: \\\\+(\\\\d{1,9})\""
+  },
+  {
+   "id": "reparty.RepartyFeature#NAME",
+   "cls": "reparty.RepartyFeature",
+   "field": "NAME",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/reparty/RepartyFeature.java",
+   "line": 31,
+   "regex": "(?:\\[[^\\]]+\\] ?)?([A-Za-z0-9_]{1,16}) ?●",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"(?:\\\\[[^\\\\]]+\\\\] ?)?([A-Za-z0-9_]{1,16}) ?●\""
   },
   {
    "id": "rngmeter.MagicFindTracker#MAGIC_FIND_PATTERN",

@@ -23,8 +23,15 @@ final class DefaultsOff1104Cases {
     private static final String[][] TABLE = {
             {"croesus.CroesusConfig", "chestProfitEnabled", "loggerEnabled"},
             {"leftclicksecrets.LeftClickSecretsConfig", "enabled"},
+            {"milestone.MilestoneConfig", "enabled"},
+            {"itemhighlight.DungeonItemHighlightConfig", "enabled"},
             {"bloodrush.BloodRushConfig", "enabled", "learnSpots"},
             {"lfg.LfgConfig", "enabled"},
+            {"terminals.TerminalQolConfig", "terminalSounds", "clickPath"},
+            {"terminals.TerminalSolverConfig", "queueTerms"},
+            {"puzzlehud.PuzzleHudConfig", "enabled"},
+            {"reparty.RepartyConfig", "enabled", "auto"},
+            {"splittimers.WatcherHelperConfig", "enabled"},
             {"dungeonqueue.DungeonQueueConfig", "enabled", "pvLinkOnJoin"},
             {"partyfinder.PartyFinderOverlayConfig", "enabled"},
             {"posmsg.PosmsgConfig", "enabled"},
@@ -52,6 +59,11 @@ final class DefaultsOff1104Cases {
             {"bazaar.BazaarOrderHelperConfig", "enabled"},
             {"hideeffects.HideEffectsConfig", "hidePotionEffects"},
             {"experiments.ExperimentsConfig", "enabled", "profitTrackerEnabled"},
+            {"dungeonalerts.DungeonAlertsConfig", "rareRoomAlert", "rareDropAlert", "duplicateClassAlert", "duplicateClassParty",
+                    "witherKingStatueBox", "dimensionalSlashAlert"},
+            {"dungeonwaypoints.DungeonWaypointsConfig", "enabled"},
+            {"dungeonqol.DungeonQolConfig", "itemQuality", "icedBoxes", "roomHud"},
+            {"autoclosechest.AutoCloseChestConfig", "enabled"},
     };
 
     /**

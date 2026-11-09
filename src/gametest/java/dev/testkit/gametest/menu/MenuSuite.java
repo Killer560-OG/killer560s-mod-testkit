@@ -175,6 +175,7 @@ public class MenuSuite implements FabricClientGameTest {
                     ModUnderTest.require("killer560smod");
                     TerminalCases.register(s);
                     TermHoldCases.register(s); // 271-279: terms-1026 (Hover Melody, Hold To Click, lookahead, Fake Cursor)
+                    TermFeatACases.register(s); // 1108: terminal sounds, click path, click order, queue terms
                     Doc1101TermCases.register(s); // 1101-menu-term-*: doc-terms-1101
                     TermHumanCases.register(s); // 1027-menu-term-*: Stream Safe human cursor, Rubix repeats (autoterms-human-1027)
                     TermismStreamSafeCases.register(s); // 1102-menu-termism-ss-*: Stream Safe in Termism (termismss-1102)
@@ -202,6 +203,7 @@ public class MenuSuite implements FabricClientGameTest {
                     InvBatchMenuCases.register(s); // 583, 585: inventory batch 2026-10-08
                     LeapOrderMenuCases.register(s); // 670: leap menu follows the Leap Order defaults/pins, 2026-10-09
                     LeapTickCases.register(s); // 1106-leaptick-*: tick timers over the leap menu
+                    LeapHudCases.register(s); // 1108-leaphud-lag: Performance HUD over the leap menu
                     LeapBatchMenuCases.register(s); // 821-825: leap-menu batch 2026-10-11 (heads, map, delay, carried, freeze)
                     LeapRunMemoryCases.register(s); // 829-834: how long class picks and pins last, 2026-10-12
                     LeapPartyChangeCases.register(s); // 1102-menu-leaporder-*: party change slots + own class, 2026-11-02

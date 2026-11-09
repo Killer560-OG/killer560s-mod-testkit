@@ -90,6 +90,8 @@ public class HxSuite implements FabricClientGameTest {
                     // Dungeon alerts of 2026-10-25: low health, Livid extras, score warning, secret feedback, breaker
                     // charges, key spawn (1025-alerts-*, branch dungeon-alerts-1025), own block.
                     HxAlerts1025Cases.register(s);
+                    // featB-1108 dungeon alerts (Rare Room, Rare Drop, Duplicate Class, Wither King), mod branch featB-1108.
+                    HxFeatB1108Cases.register(s);
                     // To-do Doc items of 2026-11-01: Creation Cooldown, Insta Clear Warning, Gyrokinetic Wand Overlay,
                     // Chat Tabs (1101-extras-*, mod branch doc-extras-1101), own block.
                     HxDocExtras1101Cases.register(s);
@@ -148,6 +150,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxChestBot1104Cases.register(s);
                     // Swap To Drill On Pigeon and Auto Ult, idle and with his use / attack / swap in their ticks (1105-same-*, grimgapC-1105).
                     HxSameTick1105Cases.register(s);
+                    // Auto Superboom, cheat only, with his dig / use / scroll / teleport in the swap tick (1108-same-superboom-*, featD-1108).
+                    HxSuperboom1108Cases.register(s);
                     // Deployables: lantern circles, in-radius and the timer HUD (1104-minedeploy, mod minedeploy-1104).
                     HxMineDeploy1104Cases.register(s);
                     // Owner requests 2026-11-03 late (1103-mask-proc-title, 1103-partycmd-self).
@@ -178,6 +182,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxKickRejoin1103Cases.register(s);
                     // mod chport-1104: the Mining features pulled from staging-mining-3 (2026-11-04).
                     HxMining3Cases.register(s);
+                    // mod featC-1108: Puzzle HUD, Reparty, Watcher Helper.
+                    HxFeatC1108Cases.register(s);
                 });
     }
 }

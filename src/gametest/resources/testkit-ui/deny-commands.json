@@ -21,6 +21,9 @@
     {"input": "breakeraura config list", "expect": "ok", "source": "dungeonextras/BreakerAuraCommands.java:82 (prints to chat; list is under config)"}
   ],
   "parseOnly": [
+    {"root": "dwp", "why": "Dungeon Waypoints (mod featD-1108): add/remove/clear/export/import in the current dungeon room, needs a dungeon; testkit 1108-dwp-* drive it"},
+    {"root": "rp", "why": "Reparty (mod featC-1108): as party leader it sends /party disband and /party invite lines to the server; testkit 1108-reparty-* drive it"},
+    {"root": "reparty", "why": "Reparty (mod featC-1108): same command as rp (both names), see rp"},
     {"root": "chmap", "why": "opens the Crystal Hollows Map screen, only while that map is on (else one chat line); mod scanfold-1105, its tab is covered by 1105-ui-chmap-tab"},
     {"root": "reboot", "why": "closes the game and relaunches it through Prism (reboot-cmd); the test client is not started by Prism so it only refuses, but running it in a sweep is pointless - testkit 995 drives it"},
     {"root": "k560tested", "why": "testing jars only (mod -PtestingBuild, testing/TestingCommands.java): prints the marks; 413 runs it and checks its output"},

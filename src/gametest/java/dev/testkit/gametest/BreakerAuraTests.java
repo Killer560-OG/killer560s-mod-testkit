@@ -109,6 +109,13 @@ public class BreakerAuraTests implements FabricClientGameTest {
             sameTickRun(ctx, "1105-same-breaker-" + a.name().toLowerCase(Locale.ROOT).replace('_', '-'), a, sz);
             sz -= 30;
         }
+        // burstmax-1108: the same five with Burst Multi Break ON (his use, container click, attack, hotbar swap and held
+        // dig while the burst digs its picks several a tick); MultiBreak* is the accepted line, nothing else may flag.
+        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.CLICK, SameTick.Act.ATTACK,
+                SameTick.Act.SWAP, SameTick.Act.DIG_HELD}) {
+            sameTickRun(ctx, "1108-same-burst-" + a.name().toLowerCase(Locale.ROOT).replace('_', '-'), a, sz, true);
+            sz -= 30;
+        }
         // The floor cases repeat -PfloorRepeat=N times (default 1): the GroundSpoof they chase was intermittent,
         // so one verdict is not a measurement. Repeats are named "#k" so the filter still selects them.
         int repeat = Integer.getInteger("testkit.floorRepeat", 1);
@@ -1306,7 +1313,25 @@ public class BreakerAuraTests implements FabricClientGameTest {
      * one did, or nothing was tested).
      */
     private void sameTickRun(ClientGameTestContext ctx, String name, SameTick.Act act, int cz) {
+        sameTickRun(ctx, name, act, cz, false);
+    }
+
+    private static void runMaybeFlags(boolean flags, ClientGameTestContext ctx, String name,
+                                      java.util.function.BiConsumer<TestServer, Scenario> build,
+                                      java.util.function.BiConsumer<TestServer, Scenario> body) {
+        if (flags) {
+            Scenario.runExpectingFlags(ctx, name, build, body);
+        } else {
+            Scenario.run(ctx, name, build, body);
+        }
+    }
+
+    private void sameTickRun(ClientGameTestContext ctx, String name, SameTick.Act act, int cz, boolean burst) {
         if (Scenario.skip(name)) {
+            return;
+        }
+        if (burst && !dev.testkit.gametest.mod.Mod.isCheat()) {
+            Scenario.skipped(name, "legit jar (Burst Multi Break is cheat-only)");
             return;
         }
         ModUnderTest.require(MOD_ID);
@@ -1343,7 +1368,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
         float pitch = dig ? 60f : act == SameTick.Act.ATTACK ? 15f : 0f;
         String breaker = "give @p minecraft:diamond_shovel[custom_data={id:\"DUNGEONBREAKER\"},"
                 + "unbreakable={},lore=[{text:\"Charges: 5000/5000\",italic:false}]] 1";
-        Scenario.run(ctx, name,
+        runMaybeFlags(burst, ctx, name,
                 (server, scenario) -> {
                     TestMap m = TestMap.on(server)
                             .platform(cx, fy, cz, 6)
@@ -1391,10 +1416,27 @@ public class BreakerAuraTests implements FabricClientGameTest {
                     SameTick st = ctx.computeOnClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK ? 3 : act == SameTick.Act.DIG ? 2 : 1,
                             feature, 0, 1));
                     boolean[] closed = {false};
+                    boolean click = act == SameTick.Act.CLICK;
                     try {
-                        configure(ctx, scenario, true, picks);
+                        if (click) {
+                            // The aura is idle under a container screen (BreakerAuraFeature, containerScreenOpen), so his
+                            // click comes in the last tick his inventory is open and the burst the tick after he closes it.
+                            ctx.runOnClient(mc -> dev.testkit.compat.McCompat.setScreen(mc,
+                                    new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player)));
+                        }
+                        // configure turns Burst off, so with Burst the picks go in after it (as burstRun does).
+                        configure(ctx, scenario, true, burst ? List.of() : picks);
+                        if (burst) {
+                            ctx.runOnClient(mc -> {
+                                ModUnderTest.set(ModUnderTest.config(CONFIG), "setBreakerAuraBurstMultiBreak", true);
+                                setPicks(picks);
+                            });
+                        }
                         boolean gone = false;
                         for (int i = 0; i < 80 && !gone; i++) {
+                            if (click && i == 3) {
+                                ctx.runOnClient(mc -> mc.player.closeContainer());
+                            }
                             ctx.waitTicks(1);
                             if (dig && i % 3 == 0) {
                                 server.command("fill " + snow + " minecraft:glass replace minecraft:air");
@@ -1419,6 +1461,35 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             throw new AssertionError("his action or the aura's dig never reached the wire - nothing tested ("
                                     + st.report() + ")");
                         }
+                        if (burst) {
+                            java.util.Map<Integer, java.util.Set<BlockPos>> perWindow = new java.util.TreeMap<>();
+                            for (var d : dev.testkit.harness.MultiBreakWatch.digs()) {
+                                if (picks.contains(d.pos())) {
+                                    perWindow.computeIfAbsent(d.window(), w -> new java.util.HashSet<>()).add(d.pos());
+                                }
+                            }
+                            int most = perWindow.values().stream().mapToInt(java.util.Set::size).max().orElse(0);
+                            List<String> other = scenario.flags().stream().filter(f -> !f.contains("MultiBreak")).toList();
+                            scenario.log(name + ": burst most picks in one server tick " + most + " of " + picks.size()
+                                    + ", per tick " + perWindow.values().stream().map(java.util.Set::size).toList()
+                                    + ", other Grim lines " + other.size() + (other.isEmpty() ? "" : ": " + other));
+                            if (most < 2) {
+                                throw new AssertionError("Burst never put two picks in one server tick - the burst did not act");
+                            }
+                            if (!other.isEmpty()) {
+                                throw new AssertionError("GrimAC flagged something other than MultiBreak: " + other);
+                            }
+                            if (act == SameTick.Act.USE || act == SameTick.Act.SWAP) {
+                                if (st.both() == 0) {
+                                    throw new AssertionError("no server tick carried both his " + act
+                                            + " and the burst - nothing tested (" + st.report() + ")");
+                                }
+                            } else if (act != SameTick.Act.CLICK && st.both() != 0) {
+                                throw new AssertionError("his " + act + " and the burst shared a server tick ("
+                                        + st.report() + ")");
+                            }
+                            return;
+                        }
                         if (!replay.isEmpty()) {
                             throw new AssertionError("two blocks dug in one server tick (GrimAC MultiBreak): " + replay);
                         }
@@ -1438,8 +1509,13 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                 dev.testkit.harness.MultiBreakWatch.stop();
                             });
                         }
-                        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CONFIG), "setBreakerAuraCooldownTicks",
-                                0));
+                        ctx.runOnClient(mc -> {
+                            ModUnderTest.set(ModUnderTest.config(CONFIG), "setBreakerAuraCooldownTicks", 0);
+                            ModUnderTest.setIfPresent(ModUnderTest.config(CONFIG), "setBreakerAuraBurstMultiBreak", false);
+                            if (dev.testkit.compat.McCompat.screen(mc) != null) {
+                                mc.player.closeContainer();
+                            }
+                        });
                         unconfigure(ctx);
                     }
                 });

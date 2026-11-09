@@ -15,14 +15,23 @@
   "newCheatLeaves": {
     "gui.tab.MiningPigeonDrillTab": "Mining > Swap To Drill On Pigeon",
     "gui.tab.PowderChestTriggerbotTab": "Mining > Powder Chest Triggerbot",
-    "gui.tab.LeftClickSecretsTab": "Dungeons > Secrets > Left Click Opens Secrets"
+    "gui.tab.LeftClickSecretsTab": "Dungeons > Secrets > Left Click Opens Secrets",
+    "gui.tab.AutoSuperboomTab": "Dungeons > Auto Superboom"
   },
   "newLeaves": {
+    "gui.tab.DungeonWaypointsTab": "Dungeons > Secrets > Dungeon Waypoints",
+    "gui.tab.RoomNameTab": "Dungeons > Current Room Name",
+    "gui.tab.ItemQualityTab": "Dungeons > Item Quality",
+    "gui.tab.IcedMobsTab": "Dungeons > Iced Mob Boxes",
+    "gui.tab.AutoCloseChestTab": "Dungeons > Auto Close Chest",
     "gui.tab.ChatHiderTab": "Chat > Chat Hider",
     "gui.tab.ModsScreenTab": "Misc > Mods Screen",
     "gui.tab.CustomItemsTab": "Cosmetics > Custom Items",
     "gui.tab.ChocolateFactoryTab": "Misc > Chocolate Factory",
     "gui.tab.KickRejoinTab": "Misc > Kick Rejoin Timer",
+    "gui.tab.PuzzleHudTab": "Dungeons > Puzzle HUD",
+    "gui.tab.RepartyTab": "Dungeons > Reparty",
+    "gui.tab.WatcherHelperTab": "Dungeons > Watcher Helper",
     "gui.tab.BazaarOrderHelperTab": "Items > Bazaar Order Helper",
     "gui.tab.ReforgeHelperTab": "Items > Reforge Helper",
     "gui.tab.PeekChatTab": "Chat > Peek Chat",
@@ -59,6 +68,17 @@
     "gui.tab.CollectionTrackerTab": "Misc > Collection Tracker"
   },
   "tooltips": [
+    {
+      "owner": "Auto Close Chest",
+      "key": "auto close chest",
+      "text": "Closes a dungeon secret chest: with Click, the first key or mouse press you make closes it (read the loot first); the cheat build can also close it before it opens.",
+      "why": "featE-1108: Auto Close Chest is a legit tab with a Click mode"
+    },
+    {
+      "owner": "Timers, Score & Boss",
+      "key": "auto close chest",
+      "gone": "featE-1108: Auto Close Chest is a legit tab with Click mode (the card hover moved to its own tab)"
+    },
     {
       "owner": "Thorn (F4)",
       "key": "cheat build - thorn esp",
@@ -861,6 +881,17 @@
       "owner": "Terminal Solver",
       "key": "terminals to solve",
       "gone": "3d1859a8 (2026-10-18): the Terminals to solve label was removed"
+    },
+    {
+      "owner": "Timers, Score & Boss",
+      "key": "wither dragons",
+      "gone": "Wither Dragons is its own card (the row is not built in the old group any more)"
+    },
+    {
+      "owner": "Wither Dragons",
+      "key": "wither dragons",
+      "text": "Tracks the five M7 Phase 5 dragons with spawn timers, health and which one to take (the first to spawn).",
+      "why": "bcec9c6fe: spawn-order priority replaced the class pick"
     },
     {
       "owner": "Timers, Score & Boss",
