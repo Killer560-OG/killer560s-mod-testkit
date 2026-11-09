@@ -44,6 +44,8 @@ final class HxP3ChatCases {
         statusHud(s);
         titles(s);
         chatHider(s);
+        melodyChat(s);
+        milestoneHud(s);
     }
 
     @SuppressWarnings("unchecked")
@@ -304,6 +306,100 @@ final class HxP3ChatCases {
 
     private static String plain(String s) {
         return s.replaceAll("§.", "");
+    }
+
+    /** featF-1108: Compact Melody Messages hides the in-progress callouts and keeps the finished one; Mute hides all. */
+    private static void melodyChat(Session s) {
+        s.test("1108-hx-melody-chat", c -> {
+            dungeon(c);
+            List<String> progress = List.of("Party > [MVP+] HxMateA: Melody 1/3 - 33%", "Party > HxMateB: Melody 67%",
+                    "Party > [VIP] HxMateA: mel 2/4");
+            List<String> done = List.of("Party > [MVP+] HxMateA: Melody 3/3 - 100%", "Party > HxMateB: Melody 100%");
+            List<String> keep = List.of("Party > [MVP+] Eve: melody is hard", "Guild > Eve [Member]: Melody 1/3 - 33%",
+                    "[MVP+] Eve: Melody 67%");
+            try (Settings st = new Settings(c)) {
+                st.custom(() -> Mod.set(TIDY_CFG, "setEnabled", true), () -> Mod.set(TIDY_CFG, "setEnabled", false));
+                st.custom(() -> Mod.set(TIDY_CFG, "setStackDuplicates", false), () -> Mod.set(TIDY_CFG, "setStackDuplicates", false));
+                st.custom(() -> Mod.set(TIDY_CFG, "setHideDamageMessages", false), () -> Mod.set(TIDY_CFG, "setHideDamageMessages", false));
+                st.custom(() -> Mod.set(TIDY_CFG, "setHideMelodyProgress", false), () -> Mod.set(TIDY_CFG, "setHideMelodyProgress", false));
+                st.custom(() -> Mod.set(TIDY_CFG, "setMuteMelody", false), () -> Mod.set(TIDY_CFG, "setMuteMelody", false));
+                melodyShown(c, progress, true, "both switches off");
+                melodyShown(c, done, true, "both switches off");
+                long p0 = c.onClient(mc -> (Long) Mod.staticCall(HIDER, "testHidden", "MELODY_PROGRESS"));
+                long d0 = c.onClient(mc -> (Long) Mod.staticCall(HIDER, "testHidden", "MELODY_DONE"));
+                run(c, () -> Mod.set(TIDY_CFG, "setHideMelodyProgress", true));
+                melodyShown(c, progress, false, "Compact on");
+                melodyShown(c, done, true, "Compact on");
+                melodyShown(c, keep, true, "Compact on");
+                run(c, () -> Mod.set(TIDY_CFG, "setHideMelodyProgress", false));
+                run(c, () -> Mod.set(TIDY_CFG, "setMuteMelody", true));
+                melodyShown(c, progress, false, "Mute on");
+                melodyShown(c, done, false, "Mute on");
+                melodyShown(c, keep, true, "Mute on");
+                long p = c.onClient(mc -> (Long) Mod.staticCall(HIDER, "testHidden", "MELODY_PROGRESS")) - p0;
+                long d = c.onClient(mc -> (Long) Mod.staticCall(HIDER, "testHidden", "MELODY_DONE")) - d0;
+                c.check(p == progress.size() * 2L && d == done.size(), "the mod counted " + p + " progress / " + d
+                        + " finished melody lines hidden, wanted " + progress.size() * 2 + " / " + done.size());
+                c.note("Compact hid " + progress.size() + " progress lines and kept " + done.size() + " finished; Mute hid all "
+                        + (progress.size() + done.size()) + "; look-alikes shown; counted " + p + "/" + d);
+                hub(c);
+                run(c, () -> Mod.set(TIDY_CFG, "setMuteMelody", true));
+                melodyShown(c, progress, true, "out of a dungeon");
+            } finally {
+                dungeon(c);
+            }
+        });
+    }
+
+    /** featF-1108: the Milestone Display counts real milestone lines (not player chat), caps at 3 and draws its HUD. */
+    private static void milestoneHud(Session s) {
+        s.test("1108-hx-milestone-hud", c -> {
+            dungeon(c);
+            String ms = "milestone.MilestoneFeature";
+            String cfg = "milestone.MilestoneConfig";
+            try (Settings st = new Settings(c)) {
+                st.custom(() -> Mod.set(cfg, "setEnabled", true), () -> Mod.set(cfg, "setEnabled", false));
+                c.onClient(mc -> Mod.staticCall(ms, "resetForTest"));
+                c.hx().chat("Party > [MVP+] Eve: Milestone ❖: You have dealt 5 damage so far! (3s)");
+                c.hx().chat("[MVP+] Eve: Milestone ❖: You have dealt 5 damage so far! (3s)");
+                c.ctx().waitTicks(3);
+                c.check(milestones(c) == 0, "player chat counted as a milestone: " + milestones(c));
+                String[] lines = {"Milestone ❖: You have dealt 1.2M damage so far! (3s)",
+                        "Milestone ☠: You have tanked and healed 3.1M so far! (5s)",
+                        "Milestone ❤: You have healed 900k so far! (8s)", "Milestone ❖: You have dealt 9M damage so far! (12s)"};
+                int[] want = {1, 2, 3, 3};
+                for (int i = 0; i < lines.length; i++) {
+                    c.hx().chat(lines[i]);
+                    final int n = want[i];
+                    c.waitUntil("milestone count " + n, mc -> (Integer) Mod.staticCall(ms, "count") == n, 40);
+                }
+                c.waitUntil("the Milestone HUD drawn", mc -> (Boolean) Mod.staticCall("hud.HudSeen", "drawnRecently", "milestone"), 100);
+                c.note("player chat ignored; 4 lines counted 1,2,3,3 (capped); HUD drawn in game");
+                Mod.set(cfg, "setEnabled", false);
+                c.onClient(mc -> Mod.staticCall(ms, "resetForTest"));
+                c.hx().chat(lines[0]);
+                c.ctx().waitTicks(3);
+                c.check(milestones(c) == 0, "counted a milestone with the switch off: " + milestones(c));
+            } finally {
+                dungeon(c);
+            }
+        });
+    }
+
+    private static int milestones(Session c) {
+        return c.onClient(mc -> (Integer) Mod.staticCall("milestone.MilestoneFeature", "count"));
+    }
+
+    private static void melodyShown(Session c, List<String> lines, boolean shown, String when) {
+        for (String l : lines) {
+            String marker = "melody marker " + System.nanoTime();
+            c.hx().chat(marker);
+            c.hx().chat(l);
+            c.ctx().waitTicks(2);
+            List<String> w = chatWindow(c, 2);
+            boolean hidden = w.get(0).equals(marker);
+            c.check(hidden == !shown, (shown ? "hidden" : "NOT hidden") + " with " + when + ": " + l + " (newest: " + w + ")");
+        }
     }
 
     private static void chatHider(Session s) {

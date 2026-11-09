@@ -23,6 +23,8 @@ final class DefaultsOff1104Cases {
     private static final String[][] TABLE = {
             {"croesus.CroesusConfig", "chestProfitEnabled", "loggerEnabled"},
             {"leftclicksecrets.LeftClickSecretsConfig", "enabled"},
+            {"milestone.MilestoneConfig", "enabled"},
+            {"itemhighlight.DungeonItemHighlightConfig", "enabled"},
             {"bloodrush.BloodRushConfig", "enabled", "learnSpots"},
             {"lfg.LfgConfig", "enabled"},
             {"dungeonqueue.DungeonQueueConfig", "enabled", "pvLinkOnJoin"},

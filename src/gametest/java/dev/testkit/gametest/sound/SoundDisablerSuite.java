@@ -34,6 +34,9 @@ import java.util.Locale;
  *   <li>1104-sound-weather (wxmute-1104): Skyblock Weather mutes a server sound sent in the Weather category (any id) and
  *       weather.rain / lightning by id, only under a SKYBLOCK sidebar; the same sounds play under a LOBBY sidebar, with the row
  *       off, and a Master-category note still plays with it on. Show Sound IDs names the category.</li>
+ *   <li>1108-sound-lastbreath-cooldown (featF-1108): Last Breath mutes the bow shot only where a player holding Last Breath
+ *       (id, Starred id, or name) stands, a bow shot with another item or nothing held still plays; Ability Cooldown mutes
+ *       the note block bass only right after the real "This ability is on cooldown" chat line, and plays it with no line.</li>
  * </ul>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -46,7 +49,7 @@ public class SoundDisablerSuite implements FabricClientGameTest {
     private static final String ROW = "com.killer560.hub.sounddisabler.MutedSound";
     private static final String CONTROL = "entity.experience_orb.pickup";
     private static final String[] ROWS = {"BONZO_STAFF", "EXPLOSIONS", "BOW_SHOTS", "ENDERMEN", "BLAZES", "WOLVES",
-            "SPIDERS", "PHANTOMS", "WITHERS", "RAIN_AND_THUNDER", "SKYBLOCK_WEATHER"};
+            "SPIDERS", "PHANTOMS", "WITHERS", "RAIN_AND_THUNDER", "SKYBLOCK_WEATHER", "LAST_BREATH", "ABILITY_COOLDOWN"};
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -65,6 +68,7 @@ public class SoundDisablerSuite implements FabricClientGameTest {
                     s.test("1102-sound-off", SoundDisablerSuite::off);
                     s.test("1102-sound-persist", SoundDisablerSuite::persist);
                     s.test("1104-sound-weather", SoundDisablerSuite::weather);
+                    s.test("1108-sound-lastbreath-cooldown", SoundDisablerSuite::lastBreathCooldown);
                 });
     }
 
@@ -195,6 +199,44 @@ public class SoundDisablerSuite implements FabricClientGameTest {
             c.note("config file " + file + " exists " + java.nio.file.Files.exists(file));
             c.check(java.nio.file.Files.exists(file), "no config file at " + file);
         } finally {
+            reset(c);
+        }
+    }
+
+    private static void lastBreathCooldown(Session c) throws Exception {
+        try {
+            configure(c, true, "LAST_BREATH");
+            hold(c, "minecraft:bow[custom_data={id:\"LAST_BREATH\"}]");
+            mutedFromServer(c, "entity.arrow.shoot", "~ ~ ~", "last_breath", "a bow shot with Last Breath held");
+            hold(c, "minecraft:bow[custom_data={id:\"STARRED_LAST_BREATH\"}]");
+            mutedFromServer(c, "entity.arrow.shoot", "~ ~ ~", "last_breath", "a bow shot with Starred Last Breath held");
+            hold(c, "minecraft:bow[custom_name=\"Last Breath\"]");
+            mutedFromServer(c, "entity.arrow.shoot", "~ ~ ~", "last_breath", "a Last Breath known by name alone");
+            playsFromServer(c, "entity.arrow.shoot", "~10 ~ ~", "a bow shot 10 blocks from the Last Breath holder");
+            hold(c, "minecraft:bow[custom_data={id:\"TERMINATOR\"}]");
+            playsFromServer(c, "entity.arrow.shoot", "~ ~ ~", "a bow shot with another bow held");
+            hold(c, "minecraft:air");
+            playsFromServer(c, "entity.arrow.shoot", "~ ~ ~", "a bow shot with nothing held");
+            configure(c, true, "EXPLOSIONS");
+            hold(c, "minecraft:bow[custom_data={id:\"LAST_BREATH\"}]");
+            playsFromServer(c, "entity.arrow.shoot", "~ ~ ~", "a Last Breath shot with its row off");
+
+            configure(c, true, "ABILITY_COOLDOWN");
+            hold(c, "minecraft:air");
+            playsFromServer(c, "block.note_block.bass", "~ ~ ~", "a note block bass with no cooldown line before it");
+            c.server().command("tellraw @p {\"text\":\"This ability is on cooldown for 3s.\"}");
+            mutedFromServer(c, "block.note_block.bass", "~ ~ ~", "ability_cooldown", "the bass right after the cooldown line");
+            c.server().sync(20);
+            Thread.sleep(800); // the window is wall time (600 ms) and synced ticks can pass faster than that
+            playsFromServer(c, "block.note_block.bass", "~ ~ ~", "a note block bass long after the cooldown line");
+            c.server().command("tellraw @p {\"text\":\"Party > Eve: This ability is on cooldown for 3s.\"}");
+            c.server().sync(2);
+            playsFromServer(c, "block.note_block.bass", "~ ~ ~", "a bass after a player-typed look-alike");
+            configure(c, true, "EXPLOSIONS");
+            c.server().command("tellraw @p {\"text\":\"This ability is on cooldown for 3s.\"}");
+            playsFromServer(c, "block.note_block.bass", "~ ~ ~", "the bass right after the line with the row off");
+        } finally {
+            hold(c, "minecraft:air");
             reset(c);
         }
     }
