@@ -354,9 +354,10 @@ final class LeapMenuCases {
             c.check(uni.getY() == cls.getY() || uni.getY() < cls.getY(), "the page buttons are out of order");
             c.check(ls.stream().noneMatch(l -> l.startsWith("Crystal:") || l.startsWith("S1:")),
                     "a target row is on the front page: " + ls);
-            c.check(ls.stream().anyMatch(l -> l.startsWith("Crystal Leap")) && ls.contains("Block Inputs: OFF")
+            // untestbugs-1109: each leap's Off/Fast/Auto sits on the Universal / Class pages, not on the front page.
+            c.check(ls.stream().noneMatch(l -> l.startsWith("Crystal Leap")) && ls.contains("Block Inputs: OFF")
                             && find(ws, "Return To") != null,
-                    "the front page lost its leap switches or Click Behavior: " + ls);
+                    "the front page has leap switches or lost Click Behavior: " + ls);
             if (oneSwitch()) {
                 // round 3 (killer560, 2026-11-03): one Off / Fast / Auto row per leap
                 long rowsN = ls.stream().filter(l -> l.matches(".+ Leap: (Off|Fast|Auto)")).count();
@@ -535,6 +536,18 @@ final class LeapMenuCases {
                 // the leap modes are checked combination by combination below (one switch since round 2)
                 old.remove("groups");
             }
+            // untestbugs-1109: no leap goes by a player's name (a name with no known class is dropped, its saved class stays),
+            // and the one global targetMode is each leap's own "mode" now.
+            old.remove("targetMode");
+            for (String t : new String[]{"P1", "RELIC"}) {
+                JsonObject o = old.getAsJsonObject("targets").getAsJsonObject(t);
+                o.addProperty("name", "");
+                o.addProperty("byClass", true);
+            }
+            old.getAsJsonObject("targets").getAsJsonObject("P1").getAsJsonObject("classTargets").remove("MAGE");
+            for (String key : new ArrayList<>(now.getAsJsonObject("targets").keySet())) {
+                now.getAsJsonObject("targets").getAsJsonObject(key).remove("mode");
+            }
             compare("", old, now, diff);
             c.note("old file with per-class targets: Targets Set Class " + use + "; keys that changed after load + save: " + diff);
             c.check(use, "an old file with per-class targets set loads as Targets Universal (it applied them before)");
@@ -707,7 +720,7 @@ final class LeapMenuCases {
                 List<String> out = new ArrayList<>();
                 for (String l : new String[]{"Crystal", "Predev", "Green Pad", "Yellow Pad", "Purple Pad", "PY Healer",
                         "Storm Death", "Middle", "P4", "Relic", "S1", "S2", "S3", "S4", "When You Play", "S1 Keywords",
-                        "Click Delay", "Fast Mode", "Target Mode"}) {
+                        "Click Delay", "Fast Mode", "Mode"}) {
                     @SuppressWarnings("unchecked")
                     List<String> hits = (List<String>) Mod.call(tab, "searchHits", l);
                     if (hits.stream().noneMatch(h -> h.equalsIgnoreCase(l))) {

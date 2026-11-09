@@ -211,7 +211,8 @@ final class DocDungeonsCases {
                 Object cfg = Mod.staticCall(FLC, "getInstance");
                 return new String[]{"" + Mod.call(cfg, "isTargetByClass", tP1), (String) Mod.call(cfg, "getTargetName", tP1)};
             });
-            c.check("false".equals(named[0]) && "Bob".equals(named[1]), "an old Name mode's P1 is not the name pick Bob: "
+            // untestbugs-1109: leaps go by class only; the name is dropped and the class saved beside it stays.
+            c.check("true".equals(named[0]) && named[1].isEmpty(), "an old Name mode's P1 still goes by the name Bob: "
                     + named[0] + " " + named[1]);
             Files.writeString(file, "{\"enabled\":true,\"targetMode\":\"POSMSG\",\"targets\":{"
                     + "\"P1\":{\"name\":\"\",\"class\":\"MAGE\",\"keywords\":\"p2\"}}}");

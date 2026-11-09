@@ -641,7 +641,7 @@
     },
     {
       "owner": "Auto Clear",
-      "key": "autopilot",
+      "key": "start autopilot",
       "text": "Cheat build: Dungeon Autopilot runs Auto Secret, Auto Clear and Auto Puzzles under one planner; any movement key takes over.",
       "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, label spelling outside gui/"
     },
