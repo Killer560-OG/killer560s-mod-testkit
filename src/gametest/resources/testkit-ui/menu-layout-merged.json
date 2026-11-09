@@ -864,6 +864,17 @@
     },
     {
       "owner": "Timers, Score & Boss",
+      "key": "wither dragons",
+      "gone": "Wither Dragons is its own card (the row is not built in the old group any more)"
+    },
+    {
+      "owner": "Wither Dragons",
+      "key": "wither dragons",
+      "text": "Tracks the five M7 Phase 5 dragons with spawn timers, health and which one to take (the first to spawn).",
+      "why": "bcec9c6fe: spawn-order priority replaced the class pick"
+    },
+    {
+      "owner": "Timers, Score & Boss",
       "key": "custom mage beam",
       "to": "Custom Mage Beam",
       "text": "In dungeons, redraws every Mage beam as one clean colored line.",
