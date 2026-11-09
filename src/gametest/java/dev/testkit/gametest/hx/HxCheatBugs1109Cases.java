@@ -1,0 +1,164 @@
+package dev.testkit.gametest.hx;
+
+import dev.testkit.gametest.SameTick;
+import dev.testkit.gametest.mod.Mod;
+
+import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
+
+import static dev.testkit.gametest.hx.HxKit.*;
+
+/**
+ * cheatbugs-1109: Terminal machinery on its own switches (Auto/Hover/Queue with the Terminal Solver off), Auto Simon Says
+ * with every other Simon Says switch off, Blood Camp's Work Just Outside Blood Room default, and Auto Superboom on a P3
+ * gate block (the server saw held=2 with his own dig in the swap's tick, Grim default and experimental checkouts).
+ */
+final class HxCheatBugs1109Cases {
+
+    private static final String TERM = "terminals.TerminalSolverConfig";
+    private static final String SS = "simonsays.SimonSaysConfig";
+    private static final String BLOOD = "bloodcamp.BloodCampConfig";
+    private static final String BOOM = "minecraft:tnt[custom_data={id:\"SUPERBOOM_TNT\"},item_name=\"Superboom TNT\"]";
+
+    private HxCheatBugs1109Cases() {
+    }
+
+    static void register(Session s) {
+        s.test("1109-terms-own-switches", HxCheatBugs1109Cases::terms);
+        s.test("1109-ss-own-switch", HxCheatBugs1109Cases::ss);
+        s.test("1109-bloodcamp-outside-setting", HxCheatBugs1109Cases::bloodSetting);
+        s.test("1109-superboom-gate", HxCheatBugs1109Cases::gate);
+    }
+
+    private static boolean b(Object cfg, String m) {
+        return (Boolean) Mod.call(cfg, m);
+    }
+
+    private static void gateOff(Session c, boolean on) {
+        c.onClient(mc -> {
+            Mod.staticCall("util.SkyblockGate", "setEnabled", on);
+            return null;
+        });
+    }
+
+    private static void terms(Session c) {
+        boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+        gateOff(c, false);
+        try {
+            Object cfg = Mod.cfg(TERM);
+            try (Settings set = new Settings(c).with(TERM, "enabled", false).with(TERM, "autoTerminalsEnabled", false)
+                    .with(TERM, "hoverTerminalsEnabled", false).with(TERM, "queueTerms", false)) {
+                c.check(!c.onClient(mc -> b(cfg, "isMachineryOn")), "all four off: the terminal machinery still runs");
+                if (Mod.isCheat()) {
+                    try (Settings h = new Settings(c).with(TERM, "hoverTerminalsEnabled", true)) {
+                        c.check(c.onClient(mc -> b(cfg, "isHoverTerminalsEnabled")), "Hover Terms on with the solver off: not enabled");
+                        c.check(c.onClient(mc -> b(cfg, "isMachineryOn")), "Hover Terms on: machinery off");
+                        c.check(!c.onClient(mc -> b(cfg, "isEnabled")), "the solver switch followed Hover Terms");
+                    }
+                    try (Settings a = new Settings(c).with(TERM, "autoTerminalsEnabled", true)) {
+                        c.check(c.onClient(mc -> b(cfg, "isMachineryOn")), "Auto Terms on: machinery off");
+                    }
+                }
+                try (Settings q = new Settings(c).with(TERM, "queueTerms", true)) {
+                    c.check(c.onClient(mc -> b(cfg, "isMachineryOn")), "Queue Terms on with the solver off: machinery off");
+                }
+                c.check(!c.onClient(mc -> b(cfg, "isMachineryOn")), "back to all off: the machinery still runs");
+            }
+        } finally {
+            gateOff(c, gateWas);
+        }
+    }
+
+    private static void ss(Session c) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: Auto Simon Says is cheat-only");
+            return;
+        }
+        boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+        gateOff(c, false);
+        try {
+            Object cfg = Mod.cfg(SS);
+            try (Settings set = new Settings(c).with(SS, "enabled", false).with(SS, "autoSimonSaysEnabled", false)
+                    .with(SS, "autoSolveEnabled", false).with(SS, "autoStartEnabled", false).with(SS, "triggerBotEnabled", false)) {
+                c.check(!c.onClient(mc -> b(cfg, "isMachineryOn")), "everything off: Simon Says machinery runs");
+                try (Settings a = new Settings(c).with(SS, "autoSimonSaysEnabled", true).with(SS, "autoSolveEnabled", true)) {
+                    c.check(c.onClient(mc -> b(cfg, "isMachineryOn")), "Auto SS on with the solver switch off: machinery off");
+                    c.check(!c.onClient(mc -> b(cfg, "isEnabled")), "the solver switch followed Auto SS");
+                }
+            }
+        } finally {
+            gateOff(c, gateWas);
+        }
+    }
+
+    private static void bloodSetting(Session c) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: Work Just Outside Blood Room is cheat-only");
+            return;
+        }
+        Object cfg = Mod.cfg(BLOOD);
+        try (Settings set = new Settings(c).with(BLOOD, "workOutside", false)) {
+            c.check(!c.onClient(mc -> b(cfg, "isWorkOutside")), "Work Just Outside is not OFF");
+        }
+        try (Settings set = new Settings(c).with(BLOOD, "workOutside", true)) {
+            c.check(c.onClient(mc -> b(cfg, "isWorkOutside")), "Work Just Outside did not turn ON");
+        }
+    }
+
+    private static void gate(Session c) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: Auto Superboom is cheat-only");
+            return;
+        }
+        boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+        SameTick st = null;
+        try (Settings set = new Settings(c).with("autosuperboom.AutoSuperboomConfig", "Enabled", true)) {
+            gateOff(c, false);
+            c.hx().give(2, BOOM);
+            c.hx().give(4, "minecraft:stick");
+            c.hx().give(5, "minecraft:stick");
+            dungeon(c);
+            c.hx().chat("[BOSS] Maxor: WELL! WELL! WELL! LOOK WHO'S HERE!");
+            c.server().command("tellraw @a \"[BOSS] Goldor: Who dares trespass into my domain?\"");
+            c.waitUntil("P3 running", mc -> (Boolean) Mod.staticCall("leveraura.P3SectionTracker", "running"), 100);
+            c.server().command("setblock 17 119 127 minecraft:stone");
+            c.server().command("tp @p 17.5 120 127.5 0 0");
+            c.onClient(mc -> {
+                mc.player.setYRot(0f);
+                mc.player.setXRot(0f);
+                mc.player.getInventory().setSelectedSlot(4);
+                return null;
+            });
+            c.ctx().waitTicks(5);
+            long since = c.hx().head();
+            st = c.onClient(mc -> SameTick.start(SameTick.Act.DIG, 4, p -> p instanceof ServerboundSetCarriedItemPacket h
+                    && (h.getSlot() == 2 || h.getSlot() == 4), 4, 5));
+            for (int r = 0; r < 6; r++) {
+                c.server().command("setblock 17 121 129 minecraft:cracked_stone_bricks");
+                c.waitUntil("the gate block under his crosshair", mc -> mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult bh
+                        && bh.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
+                        && mc.level.getBlockState(bh.getBlockPos()).is(net.minecraft.world.level.block.Blocks.CRACKED_STONE_BRICKS), 100);
+                c.ctx().waitTicks(10);
+            }
+            SameTick.judge(c, st, "auto superboom gate", SameTick.Expect.SHARE);
+            st = null;
+            c.ctx().waitTicks(10);
+            var held = c.hx().events(since, "held");
+            long boom = held.stream().filter(e -> e.get("slot").getAsInt() == 2).count();
+            c.note("server held=2 events " + boom);
+            c.check(boom >= 1, "the server never saw the Superboom slot on a P3 gate block (the feature did not act)");
+        } finally {
+            if (st != null) {
+                SameTick s2 = st;
+                c.onClient(mc -> {
+                    s2.close();
+                    return null;
+                });
+            }
+            gateOff(c, gateWas);
+            for (int s : new int[]{2, 4, 5}) {
+                c.hx().give(s, "minecraft:air");
+            }
+            hub(c);
+        }
+    }
+}

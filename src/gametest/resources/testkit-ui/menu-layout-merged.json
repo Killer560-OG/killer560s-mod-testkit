@@ -17,7 +17,7 @@
     "gui.tab.PowderChestTriggerbotTab": "Mining > Powder Chest Triggerbot",
     "gui.tab.LeftClickSecretsTab": "Dungeons > Secrets > Left Click Opens Secrets",
     "gui.tab.AutoSuperboomTab": "Dungeons > Auto Superboom",
-    "gui.tab.TerminatorClickerTab": "Dungeons > Terminator Auto Clicker",
+    "gui.tab.TerminatorClickerTab": "Dungeons > Shortbow Auto Clicker",
     "gui.tab.GhostBlockTab": "Dungeons > Ghost Block"
   },
   "newLeaves": {
