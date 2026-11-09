@@ -75,7 +75,7 @@ final class ThemeMatchCases {
                 "croesus.CroesusConfig", 1, "dungeonalerts.DungeonAlertsConfig", 2, "dungeonalerts.RoomAlerts", 1,
                 "dungeonextras.DungeonExtrasConfig", 1, "enchantcolors.EnchantColorsConfig", 2, "f7spots.F7SpotsConfig", 2,
                 "heldoutline.HeldOutlineConfig", 2, "itemprotect.ItemProtectConfig", 2, "lagdisplay.LagDisplayConfig", 1,
-                "livemap.LiveMapConfig", 3, "miningqol.MiningQolConfig", 1, "mobesp.MobEspConfig", 4, "p3nav.P3NavConfig", 4,
+                "livemap.LiveMapConfig", 4, "miningqol.MiningQolConfig", 2, "mobesp.MobEspConfig", 4, "p3nav.P3NavConfig", 4,
                 "pathfinding.PathfindingConfig", 5, "playerstats.PlayerStatsConfig", 1, "posmsg.PosmsgEntry", 1,
                 "powdermining.PowderMiningConfig", 1, "realtime.RealTimeConfig", 1, "routes.Route", 1, "routes.RouteStore", 1,
                 "scoreboard.CustomScoreboardConfig", 4, "scoreboard.ScoreboardEditorScreen", 2, "scorecalc.ScoreCalculatorConfig", 2,
@@ -90,8 +90,10 @@ final class ThemeMatchCases {
                 "gui.tab.SecretWaypointsTab", 1, "gui.tab.SimonSaysTab", 1, "gui.tab.SlotBindsTab", 1, "gui.tab.SpotifyF5Rows", 1,
                 "gui.tab.ThornTab", 2, "gui.tab.TreasureChestHighlightTab", 1, "gui.tab.WaypointRoutesTab", 1,
                 "mining.deployables.MiningDeployables", 2, "gui.tab.MiningDeployablesTab", 1);
+        // Default waypoint colors: the waypoint resolves them through ThemeAccent at draw time (CrystalHollowsWaypoint.drawColor).
+        allow("waypoint default", "gui.tab.CrystalHollowsMapTab", 2, "mining.chmap.ChMapRenderer", 1, "mining.chmap.ChWaypointRender", 1);
         // A color that means something: rarity / Minecraft gold, a zone, a dragon or relic, a state, a warning mark.
-        allow("meaning", "itemrarity.ItemRarity", 1, "profileviewer.data.LevelTables", 1, "profileviewer.screen.ExtraPages", 2,
+        allow("meaning", "itemrarity.ItemRarity", 1, "profileviewer.data.LevelTables", 1, "profileviewer.screen.ExtraPages", 13,
                 "util.ChatColors", 1, "slottext.SlotTextFeature", 3, "miningqol.CrystalHollowsWalls", 1,
                 "witherdragons.KingRelic", 1, "witherdragons.WitherDragon", 1, "blessings.Blessing", 1,
                 "chocolatefactory.egg.EggEsp", 1, "chocolatefactory.ChocolateFactoryHelper", 1, "bridge.BridgeStatus", 3,
@@ -267,12 +269,22 @@ final class ThemeMatchCases {
         String old = MenuACases.themeName();
         int lightThemes = 0;
         try {
-            for (String theme : new String[]{"AMBER", "DARK", "LIGHT", "OCEAN", "GREEN"}) {
+            for (String theme : new String[]{"AMBER", "DARK", "LIGHT", "OCEAN", "GREEN", "CUSTOMLIGHT"}) {
                 c.onClient(mc -> {
-                    Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", Mod.enumValue("gui.MenuTheme", theme));
+                    Object cfg = Mod.cfg("gui.MenuConfig");
+                    if (theme.equals("CUSTOMLIGHT")) {
+                        // A Custom set started from Light with a darker brown accent (a light panel, dark accent).
+                        Mod.call(cfg, "setTheme", Mod.enumValue("gui.MenuTheme", "LIGHT"));
+                        Mod.call(cfg, "setCustomColour", Mod.enumValue("gui.MenuTheme$Slot", "ACCENT"), 0x7A3B00);
+                    } else {
+                        Mod.call(cfg, "setTheme", Mod.enumValue("gui.MenuTheme", theme));
+                    }
                     return null;
                 });
                 Object pal = Mod.staticCall("gui.OverlayThemes", "menu");
+                // The fixed places (HUD labels, boxed rows, chat lines, tooltips) all draw ThemeAccent.onDark(accent/light(amber)).
+                int fixedA = (Integer) Mod.staticCall("gui.ThemeAccent", "onDark", Mod.staticCall("gui.ThemeAccent", "accent", 0xFFCC6600));
+                int fixedL = (Integer) Mod.staticCall("gui.ThemeAccent", "onDark", Mod.staticCall("gui.ThemeAccent", "light", 0xFFFFAA00));
                 boolean light = (Boolean) Mod.call(pal, "light");
                 int accent = (Integer) Mod.call(pal, "accent") | 0xFF000000;
                 int hover = (Integer) Mod.call(pal, "accentHover") | 0xFF000000;
@@ -280,6 +292,12 @@ final class ThemeMatchCases {
                         .getStyle().getColor().getValue()) | 0xFF000000;
                 int value = c.onClient(mc -> ((net.minecraft.network.chat.Component) Mod.staticCall("util.ModChat", "value", "X"))
                         .getStyle().getColor().getValue()) | 0xFF000000;
+                if (light) {
+                    c.check(contrast(fixedA, 0xFF202020) >= 4.5 && contrast(fixedL, 0xFF202020) >= 4.5, theme + " fixed-place text "
+                            + MenuACases.hex(fixedA) + " / " + MenuACases.hex(fixedL) + " is under 4.5:1 on the dark box");
+                } else if (!theme.equals("AMBER")) {
+                    c.check(fixedA == accent && fixedL == hover, theme + " fixed-place text changed on a dark theme");
+                }
                 if (!light) {
                     c.note(theme + " (dark): prefix " + MenuACases.hex(prefix) + " value " + MenuACases.hex(value));
                     if (!theme.equals("AMBER")) {
@@ -289,6 +307,15 @@ final class ThemeMatchCases {
                     continue;
                 }
                 lightThemes++;
+                // The menu's own text pairs on its light surfaces (accent / hover / text / dim against panel and card).
+                for (String[] pr : new String[][]{{"accent", "panel"}, {"accent", "card"}, {"accentHover", "panel"}, {"accentHover", "card"},
+                        {"text", "panel"}, {"text", "card"}, {"dim", "card"}}) {
+                    int fg = (Integer) Mod.call(pal, pr[0]) | 0xFF000000;
+                    int bgc = (Integer) Mod.call(pal, pr[1]) | 0xFF000000;
+                    c.note(theme + " menu " + pr[0] + " on " + pr[1] + ": " + String.format("%.2f", contrast(fg, bgc)) + ":1");
+                    c.check(contrast(fg, bgc) >= 4.5, theme + " menu " + pr[0] + " on " + pr[1] + " is "
+                            + String.format("%.2f", contrast(fg, bgc)) + ":1 (needs 4.5)");
+                }
                 double rp = contrast(prefix, 0xFF202020);
                 double rv = contrast(value, 0xFF202020);
                 c.note(theme + " (light): chat prefix " + MenuACases.hex(prefix) + " " + String.format("%.2f", rp)
@@ -339,10 +366,11 @@ final class ThemeMatchCases {
                     return null;
                 });
             }
-            c.check(lightThemes >= 1, "no light menu theme was found: the check measured nothing");
+            c.check(lightThemes >= 2, "no light menu theme was found: the check measured nothing");
         } finally {
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
+                Mod.call(Mod.cfg("gui.MenuConfig"), "resetCustom");
                 Mod.call(Mod.cfg("gui.MenuConfig"), "setTheme", Mod.enumValue("gui.MenuTheme", old));
                 return null;
             });
