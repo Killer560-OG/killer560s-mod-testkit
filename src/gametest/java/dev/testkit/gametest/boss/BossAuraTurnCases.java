@@ -41,6 +41,9 @@ final class BossAuraTurnCases {
         s.test("421-boss-leveraura-behind", BossAuraTurnCases::leverBehind);
         s.test("422-boss-ss-autosolve-norotate-behind", c -> simonAuto(c, 90f, 21));
         s.test("423-boss-ss-autosolve-norotate-front", c -> simonAuto(c, -90f, 22));
+        s.test("1109-boss-ss-auto-only", c -> simonAuto(c, -90f, 23, true));
+        s.test("1109-boss-lever-cooldown", BossAuraTurnCases::leverCooldown);
+        s.test("1109-boss-lever-cps-migrates", BossAuraTurnCases::leverMigrate);
     }
 
     // ---------------------------------------------------------------------------------------------------- Lever Aura
@@ -119,16 +122,126 @@ final class BossAuraTurnCases {
         }
     }
 
+    /**
+     * Lever Cooldown (2026-11-09): with the cooldown at 800 ms, the lever flicked right after the first one waits out the cooldown
+     * (+-10%): lever 1 (27,124,127) is flicked, he is put beside lever 2 (23,132,138) at once, and the second flick must come
+     * 0.9 * 800 / 50 = 14.4 ticks or more after the first (and not much later), with GrimAC silent.
+     */
+    static void leverCooldown(Session c) throws Exception {
+        List<AutoCloseable> undo = new ArrayList<>();
+        BlockPos lever2 = new BlockPos(23, 132, 138);
+        try {
+            c.server().command("forceload add 18 123 30 142");
+            c.server().sync(20);
+            c.server().command("fill 21 123 123 30 123 131 minecraft:stone");
+            c.server().command("fill 21 124 123 30 129 131 minecraft:air");
+            c.server().command("fill 18 131 134 26 131 142 minecraft:stone");
+            c.server().command("fill 18 132 134 26 136 142 minecraft:air");
+            c.server().command("setblock 28 124 127 minecraft:stone");
+            c.server().command("setblock 27 124 127 minecraft:lever[face=wall,facing=west,powered=false]");
+            c.server().command("setblock 24 132 138 minecraft:stone");
+            c.server().command("setblock 23 132 138 minecraft:lever[face=wall,facing=west,powered=false]");
+            c.ctx().waitTicks(10);
+            TerminalAuraCases.tp(c, 25.5, 124, 127.5, 90f);
+            c.ctx().waitTicks(20);
+            c.server().command("kill @e[type=armor_stand,x=27,y=125,z=127,distance=..3]");
+            c.server().command("summon armor_stand 27.5 125 127.5 {NoGravity:1b,Invisible:1b,CustomName:\"Not Activated\",CustomNameVisible:1b}");
+            c.server().command("summon armor_stand 23.5 133 138.5 {NoGravity:1b,Invisible:1b,CustomName:\"Not Activated\",CustomNameVisible:1b}");
+            c.hx().sidebar("SKYBLOCK", "The Catac\u00a7combs \u00a77(F7)");
+            c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
+            c.hx().chat(TerminalAuraCases.GOLDOR);
+            c.waitUntil("Floor7Tracker phase P3",
+                    mc -> "P3".equals(String.valueOf(Mod.staticCall(TerminalAuraCases.TRACKER, "getPhase"))), 100);
+            c.waitUntil("both levers and their stands on the client", mc -> mc.level.getBlockState(LEVER).getBlock() instanceof LeverBlock
+                    && mc.level.getBlockState(lever2).getBlock() instanceof LeverBlock
+                    && mc.level.getEntitiesOfClass(net.minecraft.world.entity.decoration.ArmorStand.class,
+                    new net.minecraft.world.phys.AABB(lever2.above()).inflate(1.5)).size() > 0, 100);
+            undo.add(c.onClient(mc -> LightsDeviceCases.raw(LightsDeviceCases.CFG, "AuraEnabled", false)));
+            undo.add(c.onClient(mc -> LightsDeviceCases.raw(LightsDeviceCases.CFG, "TriggerEnabled", false)));
+            undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "SectionLevers", true)));
+            undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "SectionLeversEarly", true)));
+            undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "Range", 4.5)));
+            undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "CooldownMs", 800)));
+            int flags0 = c.scenario().flags().size();
+            undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "Enabled", true)));
+            int t = 0;
+            while (t < 120 && !c.onClient(mc -> mc.level.getBlockState(LEVER).getValue(LeverBlock.POWERED))) {
+                c.ctx().waitTicks(1);
+                t++;
+            }
+            c.check(t < 120, "lever 1 was never flicked (the feature did not act)");
+            TerminalAuraCases.tp(c, 21.5, 132, 138.5, 90f);
+            int t1 = 0;
+            while (t1 < 200 && !c.onClient(mc -> mc.level.getBlockState(lever2).getValue(LeverBlock.POWERED))) {
+                c.ctx().waitTicks(1);
+                t1++;
+            }
+            c.note("lever 2 flicked " + t1 + " ticks after lever 1 was seen flicked (he was beside it within ~2); anticheat lines "
+                    + (c.scenario().flags().size() - flags0));
+            c.check(t1 < 200, "lever 2 was never flicked");
+            c.check(t1 >= 13, "lever 2 went " + t1 + " ticks after lever 1, inside the 800 ms cooldown (14.4 ticks at -10%)");
+            c.check(t1 <= 45, "lever 2 waited " + t1 + " ticks, far past the 800 ms cooldown");
+            c.check(c.scenario().flags().size() == flags0, "GrimAC flagged during the levers");
+        } finally {
+            c.onClient(mc -> {
+                restore(undo);
+                return null;
+            });
+            c.server().command("kill @e[type=armor_stand,x=27,y=125,z=127,distance=..3]");
+            c.server().command("kill @e[type=armor_stand,x=23,y=133,z=138,distance=..3]");
+            c.server().command("fill 21 123 123 30 129 131 minecraft:air");
+            c.server().command("fill 18 131 134 26 136 142 minecraft:air");
+            c.server().command("forceload remove 18 123 30 142");
+            c.hx().sidebarClear();
+            c.hx().call("dungeon.tp", "x", -619.5, "y", 151.0, "z", -619.5, "yaw", 0f, "pitch", 0f);
+        }
+    }
+
+    /** An old Lever Aura file with a "cps" (no "cooldownMs") loads as a cooldown of 1000 / cps ms, clamped to 50..1000. */
+    static void leverMigrate(Session c) throws Exception {
+        java.nio.file.Path file = c.onClient(mc -> (java.nio.file.Path) Mod.field(LEVER_CONFIG, "CONFIG_PATH"));
+        byte[] old = java.nio.file.Files.exists(file) ? java.nio.file.Files.readAllBytes(file) : null;
+        try {
+            int[][] cases = {{4, 250}, {10, 100}, {20, 50}, {2, 500}, {1, 1000}, {50, 50}};
+            for (int[] cs : cases) {
+                java.nio.file.Files.createDirectories(file.getParent());
+                java.nio.file.Files.writeString(file, "{\"cps\": " + cs[0] + "}");
+                c.onClient(mc -> Mod.staticCall(LEVER_CONFIG, "load"));
+                int got = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(LEVER_CONFIG), "getCooldownMs"));
+                c.note("old cps " + cs[0] + " -> cooldown " + got + " ms (expected " + cs[1] + ")");
+                c.check(got == cs[1], "cps " + cs[0] + " migrated to " + got + " ms, expected " + cs[1]);
+            }
+            java.nio.file.Files.writeString(file, "{\"cps\": 4, \"cooldownMs\": 300}");
+            c.onClient(mc -> Mod.staticCall(LEVER_CONFIG, "load"));
+            int kept = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(LEVER_CONFIG), "getCooldownMs"));
+            c.check(kept == 300, "a file with cooldownMs 300 loaded as " + kept);
+        } finally {
+            if (old != null) {
+                java.nio.file.Files.write(file, old);
+            } else {
+                java.nio.file.Files.deleteIfExists(file);
+            }
+            c.onClient(mc -> Mod.staticCall(LEVER_CONFIG, "load"));
+        }
+    }
+
     // ---------------------------------------------------------------------------------------------------- Simon Says
 
     static void simonAuto(Session c, float yaw, int seed) throws Exception {
+        simonAuto(c, yaw, seed, false);
+    }
+
+    /** {@code only}: Auto Simon Says alone (2026-11-09): the solver, number overlay, party tracker and the Simon Says switch OFF. */
+    static void simonAuto(Session c, float yaw, int seed, boolean only) throws Exception {
         String cfg = SimonSaysCases.CONFIG;
         List<AutoCloseable> undo = new ArrayList<>();
         try {
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
             c.waitUntil("DungeonState.getFloor()==F7",
                     mc -> "F7".equals(Mod.staticCall("secrets.DungeonState", "getFloor")), 100);
-            undo.add(c.onClient(mc -> Mod.with(cfg, "SolverEnabled", true)));
+            undo.add(c.onClient(mc -> Mod.with(cfg, "SolverEnabled", !only)));
+            undo.add(c.onClient(mc -> Mod.with(cfg, "NumberOverlay", !only)));
+            undo.add(c.onClient(mc -> Mod.with(cfg, "PartyProgressTrackerEnabled", !only)));
             undo.add(c.onClient(mc -> Mod.with(cfg, "AutoRestartEnabled", false)));
             undo.add(c.onClient(mc -> Mod.with(cfg, "AutoStartEnabled", false)));
             undo.add(c.onClient(mc -> Mod.with(cfg, "TriggerBotEnabled", false)));
@@ -141,7 +254,7 @@ final class BossAuraTurnCases {
                     mc.level.getBlockState(new BlockPos(111, 120, 92)).is(net.minecraft.world.level.block.Blocks.OBSIDIAN)
                             && mc.level.getBlockState(SimonSaysCases.START).is(net.minecraft.world.level.block.Blocks.STONE_BUTTON), 200);
             c.ctx().waitTicks(5);
-            undo.add(c.onClient(mc -> Mod.with(cfg, "Enabled", true)));
+            undo.add(c.onClient(mc -> Mod.with(cfg, "Enabled", !only)));
             c.waitUntil("the mod to be at the device", mc -> (Boolean) Mod.field(SimonSaysCases.FEATURE, "wasActive"), 200);
             c.ctx().waitTicks(5);
             SimonSaysCases.click(c, SimonSaysCases.START);

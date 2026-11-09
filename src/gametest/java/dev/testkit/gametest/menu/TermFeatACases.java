@@ -40,6 +40,8 @@ final class TermFeatACases {
         MenuSuite.test(s, "1108-menu-term-queue-select", c -> queue(c, TerminalCases.SPECS.get(4), false));
         MenuSuite.test(s, "1108-menu-term-queue-numbers", c -> queue(c, TerminalCases.NUMBERS_10, false));
         MenuSuite.test(s, "1108-menu-term-queue-sametick", c -> queue(c, TerminalCases.SPECS.get(4), true));
+        // 2026-11-09: Queue Terms on its own switch (the Terminal Solver OFF), his hotbar swap and use in the click tick.
+        MenuSuite.test(s, "1109-menu-term-queue-solver-off", c -> queue(c, TerminalCases.SPECS.get(4), true, false));
     }
 
     private static int num(Session c, String cls, String field) {
@@ -160,6 +162,10 @@ final class TermFeatACases {
     // ---- Queue Terms (cheat) ----------------------------------------------------------------------------------------
 
     static void queue(Session c, TerminalCases.Spec spec, boolean sameTick) throws Exception {
+        queue(c, spec, sameTick, true);
+    }
+
+    static void queue(Session c, TerminalCases.Spec spec, boolean sameTick, boolean solverOn) throws Exception {
         MenuKit.reset(c);
         if (!MenuKit.cheat()) {
             c.note("legit jar: Queue Terms is cheat-only");
@@ -167,7 +173,7 @@ final class TermFeatACases {
         }
         WireCapture.describe = p -> p.getClass().getSimpleName();
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
-            cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutoTerminalsEnabled", false).set(CONFIG, "CustomGuiEnabled", false)
+            cfg.set(CONFIG, "Enabled", solverOn).set(CONFIG, "AutoTerminalsEnabled", false).set(CONFIG, "CustomGuiEnabled", false)
                     .set(CONFIG, "HoverTerminalsEnabled", false).set(CONFIG, "QueueTerms", true);
             int held0 = num(c, QUEUE, "held");
             int sent0 = num(c, QUEUE, "sent");

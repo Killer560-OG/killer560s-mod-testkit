@@ -51,6 +51,7 @@ final class FeatHCases {
         s.test("1109-shortbow-lore", c -> term(c, SameTick.Act.USE, true,
                 "bow[custom_data={id:\"SOME_NEW_BOW\"},lore=['{\"text\":\"Shortbow: Instantly shoots!\"}']]", true));
         s.test("1109-shortbow-plain-bow", c -> term(c, SameTick.Act.USE, true, "bow[custom_data={id:\"RUNAANS_BOW\"}]", false));
+        s.test("1109-shortbow-last-breath", c -> term(c, SameTick.Act.USE, true, "bow[custom_data={id:\"LAST_BREATH\"}]", false));
         s.test("1109-ghost-basic", c -> ghost(c, null, false, true));
         s.test("1109-ghost-walk", c -> ghost(c, null, true, true));
         s.test("1109-ghost-walk-control", c -> ghost(c, null, true, false));

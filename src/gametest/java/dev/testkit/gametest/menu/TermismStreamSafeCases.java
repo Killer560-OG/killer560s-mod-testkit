@@ -47,6 +47,9 @@ final class TermismStreamSafeCases {
             MenuSuite.test(s, "1102-menu-termism-ss-" + k.type().toLowerCase().replace("_", ""), c -> streamSafe(c, k));
         }
         MenuSuite.test(s, "1102-menu-termism-ss-legit", TermismStreamSafeCases::legit);
+        for (Kind k : List.of(KINDS.get(0), KINDS.get(2))) {
+            MenuSuite.test(s, "1109-menu-termism-cursor-back-" + k.type().toLowerCase(), c -> cursorBack(c, k));
+        }
     }
 
     static Screen open(Session c, String type) {
@@ -203,6 +206,57 @@ final class TermismStreamSafeCases {
         }
         closeTo(c, s);
         return String.join("; ", problems);
+    }
+
+    /**
+     * cheatbugs-1109 (killer560: "in termism if i have legit auto terms on then it doesnt reshow my mouse at the end"): after a
+     * solved Termism board played by Auto Terminals with Stream Safe on, the drawn cursor is gone and the real pointer is not
+     * hidden, with the screen still open (the player's hand is his again). Also samples the tick of every click: the gap from
+     * click 1 to click 2 against the later gaps (Termism has no server, so any long gap here is the mod's own).
+     */
+    static void cursorBack(Session c, Kind k) throws Exception {
+        MenuKit.reset(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto Terminals is cheat-only");
+            return;
+        }
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutoTerminalsEnabled", true).set(CONFIG, k.auto(), true)
+                    .set(CONFIG, "CustomGuiEnabled", true).set(CONFIG, "HoverTerminalsEnabled", false)
+                    .set(CONFIG, "HoldToClickEnabled", false).set(CONFIG, "CursorReactionMs", 130).set(CONFIG, "FakeCursorSpeed", 100)
+                    .set(CONFIG, "AutoClickMinDelayMs", 120).set(CONFIG, "AutoClickMaxDelayMs", 200).set(CONFIG, "AutoStreamSafe", true);
+            List<String> gaps = new ArrayList<>();
+            for (int run = 0; run < 3; run++) {
+                Screen s = open(c, k.type());
+                List<Integer> at = new ArrayList<>();
+                int last = (Integer) c.onClient(mc -> Mod.field(CURSOR, "clickCount"));
+                boolean showed = false;
+                int t = 0;
+                for (; t < 1200 && !c.onClient(mc -> (Boolean) Mod.field(s, "solved")); t++) {
+                    int n = c.onClient(mc -> (Integer) Mod.field(CURSOR, "clickCount"));
+                    for (; last < n; last++) {
+                        at.add(t);
+                    }
+                    showed |= c.onClient(mc -> (Boolean) Mod.staticCall(CURSOR, "active"));
+                    c.ctx().waitTicks(1);
+                }
+                c.ctx().waitTicks(3);
+                boolean open = c.onClient(mc -> McCompat.screen(mc) == s);
+                boolean active = c.onClient(mc -> (Boolean) Mod.staticCall(CURSOR, "active"));
+                boolean hidden = c.onClient(mc -> (Boolean) Mod.staticCall(CURSOR, "realPointerHidden"));
+                c.note(k.type() + " run " + run + ": " + at.size() + " clicks at ticks " + at + ", cursor showed " + showed
+                        + ", after solving: screen open " + open + ", cursor drawn " + active + ", real pointer hidden " + hidden);
+                c.check(showed && at.size() >= 2, "the auto terms did not act (cursor showed " + showed + ", clicks " + at.size() + ")");
+                c.check(!active, "the drawn cursor is still up after the board was solved");
+                c.check(!hidden, "the real mouse pointer is still hidden after the board was solved");
+                gaps.add(at.get(1) - at.get(0) + " (click 1 to 2) vs later max "
+                        + java.util.stream.IntStream.range(2, at.size()).map(i -> at.get(i) - at.get(i - 1)).max().orElse(-1));
+                closeTo(c, s);
+            }
+            c.note(k.type() + " gap ticks: " + gaps);
+        } finally {
+            MenuKit.reset(c);
+        }
     }
 
     static void closeTo(Session c, Screen s) {

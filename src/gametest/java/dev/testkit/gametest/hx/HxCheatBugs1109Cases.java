@@ -3,6 +3,7 @@ package dev.testkit.gametest.hx;
 import dev.testkit.gametest.SameTick;
 import dev.testkit.gametest.mod.Mod;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
 
 import static dev.testkit.gametest.hx.HxKit.*;
@@ -26,7 +27,9 @@ final class HxCheatBugs1109Cases {
         s.test("1109-terms-own-switches", HxCheatBugs1109Cases::terms);
         s.test("1109-ss-own-switch", HxCheatBugs1109Cases::ss);
         s.test("1109-bloodcamp-outside-setting", HxCheatBugs1109Cases::bloodSetting);
-        s.test("1109-superboom-gate", HxCheatBugs1109Cases::gate);
+        s.test("1109-superboom-gate", c -> boom(c, "gate"));
+        s.test("1109-superboom-crypt", c -> boom(c, "crypt"));
+        s.test("1109-superboom-prince", c -> boom(c, "prince"));
     }
 
     private static boolean b(Object cfg, String m) {
@@ -104,7 +107,9 @@ final class HxCheatBugs1109Cases {
         }
     }
 
-    private static void gate(Session c) {
+    /** Auto Superboom on one target kind: "gate" (a P3 gate block, in P3), "crypt" (a lid of bottom slabs on a stone base) or
+     *  "prince" (a sea lantern ringed by polished andesite). The server must see held=2 with his dig in the swap's tick. */
+    private static void boom(Session c, String kind) {
         if (!Mod.isCheat()) {
             c.note("legit jar: Auto Superboom is cheat-only");
             return;
@@ -117,38 +122,67 @@ final class HxCheatBugs1109Cases {
             c.hx().give(4, "minecraft:stick");
             c.hx().give(5, "minecraft:stick");
             dungeon(c);
-            c.hx().chat("[BOSS] Maxor: WELL! WELL! WELL! LOOK WHO'S HERE!");
-            c.server().command("tellraw @a \"[BOSS] Goldor: Who dares trespass into my domain?\"");
-            c.waitUntil("P3 running", mc -> (Boolean) Mod.staticCall("leveraura.P3SectionTracker", "running"), 100);
+            if (kind.equals("gate")) {
+                c.hx().chat("[BOSS] Maxor: WELL! WELL! WELL! LOOK WHO'S HERE!");
+                c.server().command("tellraw @a \"[BOSS] Goldor: Who dares trespass into my domain?\"");
+                c.waitUntil("P3 running", mc -> (Boolean) Mod.staticCall("leveraura.P3SectionTracker", "running"), 100);
+            }
             c.server().command("forceload add 10 120 24 135");
             c.server().sync(20);
             c.server().command("fill 14 119 124 20 119 132 minecraft:stone");
             c.server().command("fill 14 120 124 20 125 132 minecraft:air");
-            c.server().command("tp @p 17.5 120 127.5 0 0");
+            // The player at 17.5,120,126.5 (gate: 127.5) and the block he is aimed at, pitched at its middle.
+            boolean g = kind.equals("gate");
+            double pz = g ? 127.5 : 126.5;
+            BlockPos target = g ? new BlockPos(17, 121, 129) : new BlockPos(17, 120, 129);
+            double dy = 121.62 - (g ? 121.5 : kind.equals("crypt") ? 120.5 : 120.5);
+            float pitch = g ? 0f : (float) Math.toDegrees(Math.atan2(dy, 129 - pz));
+            Runnable build = () -> {
+                if (g) {
+                    c.server().command("setblock 17 121 129 minecraft:cracked_stone_bricks");
+                } else if (kind.equals("crypt")) {
+                    c.server().command("fill 16 120 129 18 120 130 minecraft:stone_bricks");
+                    c.server().command("fill 16 121 129 18 121 130 minecraft:smooth_stone_slab[type=bottom]");
+                } else {
+                    c.server().command("setblock 17 120 130 minecraft:sea_lantern");
+                    for (String o : new String[]{"16 120 130", "18 120 130", "17 120 129", "17 120 131"}) {
+                        c.server().command("setblock " + o + " minecraft:polished_andesite");
+                    }
+                }
+            };
+            build.run();
+            c.server().command(String.format(java.util.Locale.ROOT, "tp @p 17.5 120 %.1f 0 %.2f", pz, pitch));
             c.onClient(mc -> {
                 mc.player.setYRot(0f);
-                mc.player.setXRot(0f);
+                mc.player.setXRot(pitch);
                 mc.player.getInventory().setSelectedSlot(4);
                 return null;
             });
             c.ctx().waitTicks(5);
+            if (!g) {
+                Object found = c.onClient(mc -> Mod.staticCall("secretwaypoints.CryptScanner", "scan", mc.level,
+                        new int[]{1, 113, 33, 145}));
+                c.note(kind + ": CryptScanner found " + found);
+                c.check(String.valueOf(found).contains(kind.equals("crypt") ? "CRYPT" : "PRINCE"), "the scanner does not see the " + kind);
+            }
             long since = c.hx().head();
             st = c.onClient(mc -> SameTick.start(SameTick.Act.DIG, 4, p -> p instanceof ServerboundSetCarriedItemPacket h
                     && (h.getSlot() == 2 || h.getSlot() == 4), 4, 5));
             for (int r = 0; r < 6; r++) {
-                c.server().command("setblock 17 121 129 minecraft:cracked_stone_bricks");
-                c.waitUntil("the gate block under his crosshair", mc -> mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult bh
+                build.run();
+                c.waitUntil("the " + kind + " block under his crosshair", mc -> mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult bh
                         && bh.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
-                        && mc.level.getBlockState(bh.getBlockPos()).is(net.minecraft.world.level.block.Blocks.CRACKED_STONE_BRICKS), 100);
+                        && (g ? bh.getBlockPos().equals(target) : bh.getBlockPos().getZ() <= 131 && bh.getBlockPos().getZ() >= 129
+                        && bh.getBlockPos().getY() <= 121), 100);
                 c.ctx().waitTicks(10);
             }
-            SameTick.judge(c, st, "auto superboom gate", SameTick.Expect.SHARE);
+            SameTick.judge(c, st, "auto superboom " + kind, SameTick.Expect.SHARE);
             st = null;
             c.ctx().waitTicks(10);
             var held = c.hx().events(since, "held");
             long boom = held.stream().filter(e -> e.get("slot").getAsInt() == 2).count();
             c.note("server held=2 events " + boom);
-            c.check(boom >= 1, "the server never saw the Superboom slot on a P3 gate block (the feature did not act)");
+            c.check(boom >= 1, "the server never saw the Superboom slot on a " + kind + " block (the feature did not act)");
         } finally {
             if (st != null) {
                 SameTick s2 = st;
