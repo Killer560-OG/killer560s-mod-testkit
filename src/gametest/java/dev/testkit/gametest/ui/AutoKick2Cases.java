@@ -645,6 +645,82 @@ final class AutoKick2Cases {
         return -1;
     }
 
+    // ---- 808 (pvkick-1109) ------------------------------------------------------------------------------------------
+
+    /**
+     * 808: joining ANOTHER player's party must not judge on the floor my own earlier queue (or last run) left behind
+     * ("I joined an F5 party and Auto Kick used my F7 time"). Control: my own F5 queue judges a joiner who fails F7 but
+     * passes F5 as ok. Then "You have joined Leader's party!" forgets the floor: the same joiner and a slow one are not
+     * judged, nothing is kicked, and a fresh queue brings the floor back.
+     */
+    @SuppressWarnings("unchecked")
+    static void joinedOtherParty(UiCase c) throws Exception {
+        Map<Path, byte[]> saved = DungeonB2Cases.snapshotConfig(c, AK_CFG);
+        try {
+            setup(c, null, 0);
+            c.onClient(mc -> {
+                Object k = Mod.cfg(AK_CFG);
+                Mod.call(k, "setFloorSource", Mod.enumValue(AK_CFG + "$FloorSource", "DETECT"));
+                Mod.call(k, "setTargetSeconds", Mod.enumValue(AK_CFG + "$Floor", "F7"), 300);
+                Mod.call(k, "setTargetSeconds", Mod.enumValue(AK_CFG + "$Floor", "F5"), 240);
+                Mod.staticCall(DET, "reset");
+                Mod.setField(Mod.ROOT + AK, "lastRunFloor", Mod.enumValue(AK_CFG + "$Floor", "F7"));
+                JsonObject normal = new JsonObject();
+                JsonObject sp = new JsonObject();
+                sp.addProperty("floor_5", "3:00");
+                sp.addProperty("floor_7", "5:40");
+                normal.add("s_plus", sp);
+                normal.add("s", new JsonObject());
+                putStats("FiveNotSeven", normal, new JsonObject());
+                putStats("FiveNotSeven2", normal, new JsonObject());
+                putStats("FiveNotSeven3", normal, new JsonObject());
+                return null;
+            });
+            // Control: my own F5 queue (the acting proof that a floor is judged at all).
+            c.onClient(mc -> {
+                Mod.staticCall(DET, "onBuilderItems", List.of("Currently Selected: The Catacombs"),
+                        List.of("Currently Selected: Floor V"));
+                return null;
+            });
+            chat(c, QUEUED);
+            int d0 = decisions(c).size();
+            chat(c, "Party Finder > FiveNotSeven joined the dungeon group! (Mage Level 40)");
+            c.ticks(5);
+            List<String> own = tail(decisions(c), d0);
+            // I join someone else's party: the floor is unknown.
+            chat(c, "You have joined [MVP+] SomeLeader's party!");
+            String afterJoin = floor(c);
+            int d1 = decisions(c).size();
+            chat(c, "Party Finder > FiveNotSeven2 joined the dungeon group! (Mage Level 40)");
+            c.ticks(5);
+            List<String> other = tail(decisions(c), d1);
+            List<String> kicks = c.onClient(mc -> (List<String>) Mod.staticCall(AK, "kicksSent"));
+            // A fresh queue of my own brings the floor back.
+            c.onClient(mc -> {
+                Mod.staticCall(DET, "onBuilderItems", List.of("Currently Selected: The Catacombs"),
+                        List.of("Currently Selected: Floor V"));
+                return null;
+            });
+            chat(c, QUEUED);
+            int d2 = decisions(c).size();
+            chat(c, "Party Finder > FiveNotSeven3 joined the dungeon group! (Mage Level 40)");
+            c.ticks(5);
+            List<String> again = tail(decisions(c), d2);
+            c.note("own F5 queue: " + own + "; after joining another party: floor " + afterJoin + ", " + other
+                    + ", kicks " + kicks + "; queued again: " + again);
+            c.check(own.equals(List.of("FiveNotSeven F5 S+ 3:00 limit 4:00 -> ok")),
+                    "own F5 queue did not judge on F5 (F7 time would fail): " + own);
+            c.check("null".equals(afterJoin), "joining another party left a floor behind: " + afterJoin);
+            c.check(other.equals(List.of("FiveNotSeven2 no floor -> none")),
+                    "a joiner of another party was judged on a stale floor: " + other);
+            c.check(!kicks.contains("FiveNotSeven") && !kicks.contains("FiveNotSeven2"), "someone was kicked: " + kicks);
+            c.check(again.equals(List.of("FiveNotSeven3 F5 S+ 3:00 limit 4:00 -> ok")),
+                    "a new queue did not bring the floor back: " + again);
+        } finally {
+            DungeonB2Cases.restoreConfig(c, saved, AK_CFG);
+        }
+    }
+
     // ---- helpers --------------------------------------------------------------------------------------------------
 
     /** Auto Kick on (it always kicks - no Warn Only since 2026-10-14), out of a dungeon; {@code fixed} (with its limit)

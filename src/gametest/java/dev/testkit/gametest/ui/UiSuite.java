@@ -761,6 +761,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "805-ui-autokick-floor-source", AutoKick2Cases::floorSourceSettings);
                     UiCase.run(ctx, "806-ui-autokick-floor-switch", AutoKick2Cases::floorSwitch);
                     UiCase.run(ctx, "807-ui-autokick-populate", AutoKick2Cases::populate);
+                    UiCase.run(ctx, "1109-ui-autokick-joined-other-party", AutoKick2Cases::joinedOtherParty);
                     // ---- Custom Party Finder (1018-pf-*) ----
                     UiCase.run(ctx, "1018-pf-leader-accept", PartyFinder1018Cases::leaderAccept);
                     UiCase.run(ctx, "1018-pf-joiner-accept", PartyFinder1018Cases::joinerAccept);

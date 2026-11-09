@@ -149,12 +149,16 @@ final class PvJoinCases {
                         out.add(m.getStyle().getHoverEvent() == null ? "nohover" : "hover");
                         out.add(m.getStyle().isBold() ? "bold" : "plain");
                         out.add(m.getString().contains("Zedname") ? "name" : "noname");
+                        // pvkick-1109: the whole line is the accent; the children carry no color of their own.
+                        out.add(m.getStyle().getColor() != null ? "accent" : "nocolor");
+                        out.add(m.getSiblings().stream().allMatch(x -> x.getStyle().getColor() == null) ? "inherit" : "ownColor");
+                        out.add(m.getString().equals(">> [PV] Zedname - click to open their profile") ? "text" : "badtext:" + m.getString());
                     }
                 }
                 return out;
             });
             c.note("root style -> " + got);
-            c.check(got.equals(List.of("/pv Zedname", "hover", "bold", "name")),
+            c.check(got.equals(List.of("/pv Zedname", "hover", "bold", "name", "accent", "inherit", "text")),
                     "the whole [PV] line should be one clickable bold component naming the player, got " + got);
         } finally {
             teardown(c, gate);
