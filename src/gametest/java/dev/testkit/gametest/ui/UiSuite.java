@@ -310,7 +310,7 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] LIGHTS_DEVICE_CASES = {"1475-ui-lights-device"};
     /** killer560's 2026-10-15 click sounds and short descriptions ({@link SoundDescCases}). Own block for merges. */
     static final String[] SOUND_DESC_CASES = {"1060-ui-card-descriptions", "1061-ui-descriptions-toggle",
-            "1062-ui-editor-hint-narrow", "1063-ui-click-presets", "1064-ui-click-import"};
+            "1062-ui-editor-hint-narrow", "1063-ui-click-presets", "1064-ui-click-import", "1109-ui-soundfx", "1109-ui-soundfx-layout"};
     /** killer560's 2026-10-15 Trajectories for shortbows (mod shortbow-traj-1015, {@link TrajectoryCases}). Own block. */
     static final String[] TRAJECTORY_CASES = {"1080-ui-traj-shortbow", "1081-ui-traj-terminator-spread",
             "1082-ui-traj-normal-bow-drawn-only", "1083-ui-traj-shortbows-setting"};
@@ -1001,6 +1001,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1062-ui-editor-hint-narrow", SoundDescCases::editorNarrow);
                     UiCase.run(ctx, "1063-ui-click-presets", SoundDescCases::presets);
                     UiCase.run(ctx, "1064-ui-click-import", SoundDescCases::imported);
+                    UiCase.run(ctx, "1109-ui-soundfx", SoundFx1109Cases::effects);
+                    UiCase.run(ctx, "1109-ui-soundfx-layout", SoundFx1109Cases::layout);
                     // ---- killer560's 2026-11-01 to-do Doc menu items (mod doc-menu-1101, DocMenu1101Cases) ----
                     UiCase.run(ctx, "1101-ui-docmenu-sections", DocMenu1101Cases::sections);
                     UiCase.run(ctx, "1101-ui-docmenu-scrollbar", DocMenu1101Cases::scrollbar);
