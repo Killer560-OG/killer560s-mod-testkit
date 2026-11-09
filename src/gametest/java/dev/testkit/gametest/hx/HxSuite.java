@@ -90,6 +90,8 @@ public class HxSuite implements FabricClientGameTest {
                     // Dungeon alerts of 2026-10-25: low health, Livid extras, score warning, secret feedback, breaker
                     // charges, key spawn (1025-alerts-*, branch dungeon-alerts-1025), own block.
                     HxAlerts1025Cases.register(s);
+                    // featB-1108 dungeon alerts (Rare Room, Rare Drop, Duplicate Class, Wither King), mod branch featB-1108.
+                    HxFeatB1108Cases.register(s);
                     // To-do Doc items of 2026-11-01: Creation Cooldown, Insta Clear Warning, Gyrokinetic Wand Overlay,
                     // Chat Tabs (1101-extras-*, mod branch doc-extras-1101), own block.
                     HxDocExtras1101Cases.register(s);
