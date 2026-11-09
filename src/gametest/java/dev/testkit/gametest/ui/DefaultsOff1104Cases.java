@@ -60,6 +60,8 @@ final class DefaultsOff1104Cases {
             {"dungeonalerts.DungeonAlertsConfig", "rareRoomAlert", "rareDropAlert", "duplicateClassAlert", "duplicateClassParty",
                     "witherKingStatueBox", "dimensionalSlashAlert"},
             {"dungeonwaypoints.DungeonWaypointsConfig", "enabled"},
+            {"dungeonqol.DungeonQolConfig", "itemQuality", "icedBoxes", "roomHud"},
+            {"autoclosechest.AutoCloseChestConfig", "enabled"},
     };
 
     /**
