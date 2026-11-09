@@ -27,10 +27,11 @@ import static dev.testkit.gametest.InvWalkCampaignTests.*;
  * on the ground): before the fix a held click never went out (his 26.3 log 2026-11-08 21:19:27-32, a ghost's "Teleport to
  * Player" clicks held 40 ticks at 0.00 blocks/s, then dropped). Rows, each asserted on the server (Hx container.click):
  * a click in a plain server menu and in "Teleport to Player" while he hovers still goes out at once; a click made while he
- * flies forward is held (none reaches the server while it has him moving) and goes out once he lets go and stops.
+ * flies forward waits for Stop To Click's one keyless tick (none reaches the server while it has him moving), then goes
+ * while he still drifts (air drag keeps a flyer sliding for seconds; GrimAC judges the click on keys and sprint).
  * Hide Keys In Server Menus rows: a terminal (Correct all the panes!) open 5 s while he walks a shuttle (sprint held, which
- * the switch suppresses), a red pane clicked every 15 ticks; alone, with a hotbar swap put into every 3rd tick, and with a
- * second click of his own in every 5th tick (SameTick, the wire split into GrimAC's ticks, both must share ticks). Asserted:
+ * the switch suppresses), a red pane clicked every 15 ticks; alone, with a hotbar swap put into every 3rd tick (SameTick, the
+ * wire split into GrimAC's ticks, both must share ticks), and with Hide Keys For 10 ticks. Asserted:
  * he really walked, no input packet with a movement, jump or sprint flag reached the wire while the menu was up (what
  * Hypixel closes a terminal on), every pane click was handled with the server holding no keys and no sprint, the terminal
  * is solved, his real keys reach the server within 3 ticks of the close; setbacks are counted.
@@ -181,7 +182,8 @@ public class InvWalkTermTests implements FabricClientGameTest {
         long gave = ctx.computeOnClient(mc -> ((Number) Mod.staticCall(IW, "gaveUp")).longValue()) - gave0;
         int moving = movingClicks(ev);
         boolean ok = flying && ev.size() == 1 && moving == 0 && gave == 0
-                && (move ? waited > 6 && waited <= 6 + 20 + lat / 50 : waited <= 1 + lat / 50 + 2);
+                // Moving: Stop To Click's one keyless tick, then the click goes while he still drifts (flying needs no full stop).
+                && (move ? cost.keyless >= 1 && waited <= 1 + lat / 50 + 3 : waited <= 1 + lat / 50 + 2);
         String detail = String.format(Locale.ROOT, "flying %s, click handled %d after %d tick(s) (%d while moving), dropped batches %d, "
                 + "keyless %d of %d walking tick(s), path %.2f", flying, ev.size(), waited, moving, gave, cost.keyless, cost.ticks, cost.path);
         closeScreen(ctx);
@@ -230,6 +232,7 @@ public class InvWalkTermTests implements FabricClientGameTest {
         boolean[] open = {true};
         int[] afterClose = {-1};
         int[] tickNo = {0};
+        StringBuilder closeWire = new StringBuilder();
         java.util.function.Consumer<Packet<?>> prev = dev.testkit.harness.PacketTrace.tap;
         java.util.function.Consumer<Packet<?>> tap = pk -> {
             if (prev != null) {
@@ -243,8 +246,11 @@ public class InvWalkTermTests implements FabricClientGameTest {
                     if (mv) {
                         wireMoving[0]++;
                     }
-                } else if (mv && afterClose[0] < 0) {
-                    afterClose[0] = tickNo[0];
+                } else {
+                    closeWire.append(' ').append(tickNo[0]).append(':').append(mv ? "keys" : "none");
+                    if (mv && afterClose[0] < 0) {
+                        afterClose[0] = tickNo[0];
+                    }
                 }
             }
         };
@@ -288,6 +294,11 @@ public class InvWalkTermTests implements FabricClientGameTest {
         closeScreen(ctx);
         for (int i = 0; i < 6; i++) {
             ctx.waitTicks(1);
+            if (i == 0) {
+                // Vanilla re-reads the keyboard when a screen closes (KeyMapping.setAll): the test's key is let go, so the
+                // server rightly hears "none" first. He keeps walking: press it again.
+                keys(ctx, k);
+            }
             ctx.runOnClient(mc -> tickNo[0]++);
         }
         keys(ctx, Set.of());
@@ -301,7 +312,7 @@ public class InvWalkTermTests implements FabricClientGameTest {
         // clicks after that wait for Stop To Click's stop (still none handled while the server has him moving).
         boolean ok = masked && cost.screenAll && cost.path >= 3 && (whole ? wireMoving[0] == 0 : wireMoving[0] > 0)
                 && clicks == red.size() && !red.isEmpty() && ev.size() >= clicks && moving == 0 && solved
-                && (!whole || afterClose[0] >= 0 && afterClose[0] <= 3) && sameVerdict == null;
+                && afterClose[0] >= 0 && afterClose[0] <= 3 && sameVerdict == null;
         ctx.waitTicks(15);
         List<String> other = rows.scenario.flags().stream().filter(f -> !f.contains("Simulation")).toList();
         if (!other.isEmpty()) {
@@ -309,9 +320,9 @@ public class InvWalkTermTests implements FabricClientGameTest {
         }
         String detail = String.format(Locale.ROOT, "masked %s, walked %.2f (screen up all along %s), wire inputs while open %d (%d "
                         + "with movement/jump/sprint), panes %d clicked %d handled %d (%d while the server had him moving), solved %s "
-                        + "(clicks %s wrong %s), real keys on the wire %d tick(s) after the close, setbacks %d%s", masked, cost.path,
+                        + "(clicks %s wrong %s), real keys on the wire %d tick(s) after the close (inputs after it:%s), setbacks %d%s", masked, cost.path,
                 cost.screenAll, wireInputs[0], wireMoving[0], red.size(), clicks, ev.size(), moving, solved, state.get("clicks"),
-                state.get("wrong"), afterClose[0], setbacks, same == null ? "" : "; " + same.report()
+                state.get("wrong"), afterClose[0], closeWire, setbacks, same == null ? "" : "; " + same.report()
                         + (sameVerdict == null ? "" : " [" + sameVerdict + "]"));
         if (!other.isEmpty()) {
             detail += " [FLAGS OTHER THAN Simulation: " + String.join(" | ", other.subList(0, Math.min(3, other.size()))) + "]";
