@@ -1546,7 +1546,10 @@ public class BreakerAuraTests implements FabricClientGameTest {
     }
 
     /** balate-1109 walk-past cases: his keys (yaw 0 faces +z; STRAFE is W+D, so he goes +z and -x). */
-    private enum Walk { STRAIGHT, SPRINT, STRAFE, SPRINT_JUMP, ONE }
+    /** INTO (balatefix-1109, killer560 2026-11-09 "i still run into breaker blocks"): a two-high column straight in his sprint
+     *  path, 0.75 off his line (clipped by his hitbox, missed by every walk-keeping look until too late), at sim speed 600
+     *  (movement_speed 0.6), his AP3 run's geometry at 55,132-133,141. */
+    private enum Walk { STRAIGHT, SPRINT, STRAFE, SPRINT_JUMP, ONE, INTO }
 
     /**
      * 1109-breaker-walkpast-* (balate-1109, killer560 2026-11-09: "it was very late to break the blocks"): he walks past
@@ -1574,9 +1577,15 @@ public class BreakerAuraTests implements FabricClientGameTest {
         double dz = walk == Walk.STRAFE ? Math.sqrt(0.5) : 1;
         double nx = dz;
         double nz = -dx;
-        int[] along = walk == Walk.ONE ? new int[]{9} : new int[]{6, 9, 12, 15, 18};
+        int[] along = walk == Walk.ONE || walk == Walk.INTO ? new int[]{9} : new int[]{6, 9, 12, 15, 18};
+        boolean into = walk == Walk.INTO;
+        double sx = into ? 0.75 : 0.5;
         java.util.LinkedHashSet<BlockPos> set = new java.util.LinkedHashSet<>();
-        for (int i = 0; i < along.length; i++) {
+        if (into) {
+            set.add(new BlockPos(cx + 1, SURFACE_Y + 1, cz + 9));
+            set.add(new BlockPos(cx + 1, SURFACE_Y + 2, cz + 9));
+        }
+        for (int i = 0; i < along.length && !into; i++) {
             int side = i % 2 == 0 ? 2 : -2;
             int y = SURFACE_Y + 1 + (i % 3 == 2 ? 1 : 0);
             set.add(BlockPos.containing(cx + 0.5 + dx * along[i] + nx * side, y, cz + 0.5 + dz * along[i] + nz * side));
@@ -1603,7 +1612,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
                     // dig in a jump never breaks (the Dungeon Breaker breaks server-side on Hypixel either way).
                     m = m.command("attribute @p minecraft:block_break_speed base set "
                             + (walk == Walk.SPRINT_JUMP ? 6 : 1));
-                    m.spawn(cx + 0.5, cz + 0.5, 0f, 0f).build();
+                    m = m.command("attribute @p minecraft:movement_speed base set " + (into ? "0.6" : "0.10"));
+                    m.spawn(cx + sx, cz + 0.5, 0f, 0f).build();
                 },
                 (server, scenario) -> {
                     scenario.assertDetectorWorks();
@@ -1625,6 +1635,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
                     float maxCamYaw = 0f;
                     float maxCamPitch = 0f;
                     double drift = 0;
+                    int bumped = 0;
+                    long offWalk0 = offWalkAims(ctx);
                     int turned = 0;
                     int walkEnd = 0;
                     float[] lastCam = null;
@@ -1632,7 +1644,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                     if (walk == Walk.STRAFE) {
                         ctx.getInput().holdKey(options -> options.keyRight);
                     }
-                    if (walk == Walk.SPRINT || walk == Walk.SPRINT_JUMP) {
+                    if (walk == Walk.SPRINT || walk == Walk.SPRINT_JUMP || into) {
                         ctx.getInput().holdKey(options -> options.keySprint);
                     }
                     if (walk == Walk.SPRINT_JUMP) {
@@ -1647,7 +1659,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                 var p = mc.player;
                                 var eye = p.getEyePosition();
                                 return new double[]{dev.testkit.harness.MultiBreakWatch.ticks(), eye.x, eye.y, eye.z,
-                                        p.getViewYRot(1f), p.getViewXRot(1f), p.getYRot(), p.getX(), p.getZ()};
+                                        p.getViewYRot(1f), p.getViewXRot(1f), p.getYRot(), p.getX(), p.getZ(),
+                                        p.horizontalCollision ? 1 : 0};
                             });
                             int tick = (int) t[0];
                             for (BlockPos b : picks) {
@@ -1672,6 +1685,9 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             double ox = t[7] - s0[0];
                             double oz = t[8] - s0[1];
                             drift = Math.max(drift, Math.abs(ox * nx + oz * nz));
+                            if (t[9] != 0) {
+                                bumped++;
+                            }
                             walkEnd = tick;
                             if (ox * dx + oz * dz > endAlong) {
                                 break;
@@ -1740,7 +1756,16 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         if (turned == 0) {
                             throw new AssertionError("the body never left his view - the aura never aimed");
                         }
-                        if (drift > 0.02) {
+                        long offWalk = offWalkAims(ctx) - offWalk0;
+                        scenario.log(name + ": ticks against a block " + bumped + ", looks off his walk " + offWalk);
+                        if (bumped > 0) {
+                            throw new AssertionError("he walked into a pick on " + bumped + " tick(s) - it was in reach and "
+                                    + "not broken before he reached it");
+                        }
+                        if (into && offWalk == 0) {
+                            throw new AssertionError("no look off his walk was taken - the in-his-way rule never acted");
+                        }
+                        if (drift > (into ? 0.25 : 0.02)) {
                             throw new AssertionError(String.format(Locale.ROOT, "his path left the line his keys walk "
                                     + "by %.4f blocks - the aim changed his walk", drift));
                         }
@@ -1754,9 +1779,23 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         }
                     } finally {
                         server.command("attribute @p minecraft:block_break_speed base set 1");
+                        server.command("attribute @p minecraft:movement_speed base set 0.10");
                         unconfigure(ctx);
                     }
                 });
+    }
+
+    /** BreakerAim's count of looks turned off his walk for a pick in his way (0 on a jar without it). */
+    private static long offWalkAims(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                var m = Class.forName("com.killer560.hub.dungeonextras.BreakerAim").getDeclaredMethod("offWalkAims");
+                m.setAccessible(true);
+                return (Long) m.invoke(null);
+            } catch (ReflectiveOperationException e) {
+                return 0L;
+            }
+        });
     }
 
     /** The relative yaw of 1102-breaker-aura-multibreak's look: +x by 2, +z by 1, so the ray crosses six blocks. */
