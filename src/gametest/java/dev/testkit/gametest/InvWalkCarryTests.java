@@ -381,11 +381,26 @@ public class InvWalkCarryTests implements FabricClientGameTest {
                 float dpitch = l1[1] - l0[1];
                 float syaw = st.get("yaw").getAsFloat();
                 float spitch = st.get("pitch").getAsFloat();
-                boolean cursorStill = cur0[0] == cur1[0] && cur0[1] == cur1[1];
+                // The look is a real grab (vanilla accumulates), so the cursor is only put back on release.
+                ctx.getInput().releaseKey(keyNat);
+                ctx.waitTicks(3);
+                double[] cur2 = ctx.computeOnClient(mc -> new double[]{mc.mouseHandler.xpos(), mc.mouseHandler.ypos()});
+                boolean cursorStill = cur0[0] == cur2[0] && cur0[1] == cur2[1];
+                double sens = ctx.computeOnClient(mc -> mc.options.sensitivity().get());
+                double scale = Math.pow(sens * 0.6 + 0.2, 3) * 8.0 * 0.15;
+                double expYaw = 6 * 40 * scale;
+                double expPitch = 6 * 12 * scale;
+                boolean feel = Math.abs(dyaw - expYaw) < expYaw * 0.02 && Math.abs(dpitch - expPitch) < expPitch * 0.02;
                 int clicks = hx.events(since, "container.click").size();
                 boolean slotsSame = slots0.equals(serverSlots(st));
                 boolean acted = Math.abs(dyaw) > 5 && dpitch > 1 && Math.abs(syaw - l1[0]) < 0.5 && Math.abs(spitch - l1[1]) < 0.5
                         && cursorStill && clicks == 0 && slotsSame && looks1 - looks0 >= 6;
+                rows.begin();
+                rows.end("look feel = in-game", feel, String.format(Locale.ROOT, "%.4f deg/count yaw (vanilla %.4f), %.4f pitch "
+                        + "(vanilla %.4f), sensitivity %.2f", dyaw / 240, scale, dpitch / 72, scale, sens), null);
+                ctx.getInput().holdKey(keyNat);
+                ctx.waitTicks(2);
+                rows.begin();
                 rows.end("look key held, 6 moves", acted, String.format(Locale.ROOT, "client turned yaw %+.2f pitch %+.2f, server "
                                 + "yaw %.2f pitch %.2f (client %.2f %.2f), cursor %s, %d click(s), slots %s, %d turn(s)", dyaw, dpitch,
                         syaw, spitch, l1[0], l1[1], cursorStill ? "still" : "MOVED", clicks, slotsSame ? "unchanged" : "CHANGED",

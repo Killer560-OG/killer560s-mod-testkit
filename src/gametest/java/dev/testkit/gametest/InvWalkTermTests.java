@@ -29,7 +29,7 @@ import static dev.testkit.gametest.InvWalkCampaignTests.*;
  * a click in a plain server menu and in "Teleport to Player" while he hovers still goes out at once; a click made while he
  * flies forward waits for Stop To Click's one keyless tick (none reaches the server while it has him moving), then goes
  * while he still drifts (air drag keeps a flyer sliding for seconds; GrimAC judges the click on keys and sprint).
- * Stand Still In Server Menus rows (invwalkclean-1109, see stillRow): whole menu, 40 and 10 ticks, and the same-tick acts;
+ * Stand Still In Server Menus rows (invwalkclean-1109, see stillRow): whole menu (Hypixel closes a server menu on movement keys at any tick, so no timed window), and the same-tick acts;
  * every row must be clean on both GrimAC configs.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -62,14 +62,11 @@ public class InvWalkTermTests implements FabricClientGameTest {
                     for (int mode = 0; mode < 3; mode++) {
                         flyRow(rows, ctx, server, hx, x, z, lat, mode);
                     }
-                    stillRow(rows, ctx, server, hx, x, z, lat, null, 41);
-                    stillRow(rows, ctx, server, hx, x, z, lat, null, 40);
-                    stillRow(rows, ctx, server, hx, x, z, lat, null, 10);
+                    stillRow(rows, ctx, server, hx, x, z, lat, null);
                     // No ATTACK row: with a menu open vanilla runs no keybinds, so he cannot attack (SameTick's attack never went in).
                     for (SameTick.Act st : List.of(SameTick.Act.SWAP, SameTick.Act.USE, SameTick.Act.SCREEN_CLICK)) {
-                        stillRow(rows, ctx, server, hx, x, z, lat, st, 41);
+                        stillRow(rows, ctx, server, hx, x, z, lat, st);
                     }
-                    stillRow(rows, ctx, server, hx, x, z, lat, SameTick.Act.SWAP, 10);
                 }
             } finally {
                 server.command("kill @e[type=minecraft:interaction]");
@@ -204,19 +201,16 @@ public class InvWalkTermTests implements FabricClientGameTest {
      * clicked every 15 ticks. The mod really lets his keys go (vanilla then sends an honest keyless input and his momentum
      * decays as GrimAC predicts), so this must be clean on both Grim configs. Asserted on the wire: it acted (stand-still
      * ticks counted, he held keys the whole time), no input with a movement, jump or sprint flag went out while it stood him
-     * still (whole menu: none while the menu was up), a {@code stillTicks} window walks on after it (path, movement inputs),
+     * still (whole menu: none while the menu was up), 
      * every pane click handled with the server holding no keys, the terminal solved; {@code st}: his act in the same tick.
      */
-    private static void stillRow(Rows rows, ClientGameTestContext ctx, TestServer server, Hx hx, int x, int z, int lat, SameTick.Act st,
-                                 int stillTicks) {
-        boolean whole = stillTicks >= 41;
-        String label = "L" + lat + " stand still " + (whole ? "whole menu" : stillTicks + " ticks") + ", terminal opened running"
+    private static void stillRow(Rows rows, ClientGameTestContext ctx, TestServer server, Hx hx, int x, int z, int lat, SameTick.Act st) {
+        String label = "L" + lat + " stand still whole menu, terminal opened running"
                 + (st == null ? "" : ", same tick " + st);
         keys(ctx, Set.of());
         tp(server, ctx, x + 0.5, SURFACE_Y, z + 0.5, -90f);
         ctx.runOnClient(mc -> {
             Mod.set(IW_CFG, "setStillInMenus", true);
-            Mod.set(IW_CFG, "setStillTicks", stillTicks);
         });
         rows.begin();
         long still0 = ctx.computeOnClient(mc -> ((Number) Mod.staticCall(IW, "standStillTicks")).longValue());
@@ -251,7 +245,7 @@ public class InvWalkTermTests implements FabricClientGameTest {
             dev.testkit.harness.PacketTrace.start();
         });
         double speed0 = ctx.computeOnClient(mc -> Math.hypot(mc.player.getDeltaMovement().x, mc.player.getDeltaMovement().z));
-        hx.call("menu.terminal", "type", "PANES", "seed", 31 + lat + (st == null ? 0 : st.ordinal()) + stillTicks, "count", 5,
+        hx.call("menu.terminal", "type", "PANES", "seed", 31 + lat + (st == null ? 0 : st.ordinal()) , "count", 5,
                 "closeOnSolve", false, "interval", 0);
         if (!openMenu(ctx)) {
             keys(ctx, Set.of());
@@ -315,8 +309,8 @@ public class InvWalkTermTests implements FabricClientGameTest {
         int setbacks = dev.testkit.harness.PacketTrace.received("player_position");
         // Acted: stood him still for its window although he held keys all along, never sent a key while it did, and (a
         // tick window) let him walk on after it. Whole menu: no movement key reached the server while the menu was up.
-        boolean acted = speed0 > 0.1 && still >= Math.min(stillTicks, 100) && wireStill[0] >= 1 && wireStillMoving[0] == 0
-                && (whole ? wireMoving[0] == 0 && cost.path < 1.5 : wireMoving[0] > 0 && cost.path >= 3);
+        boolean acted = speed0 > 0.1 && still >= 1 && wireStill[0] >= 1 && wireStillMoving[0] == 0
+                && (wireMoving[0] == 0 && cost.path < 1.5);
         boolean ok = acted && clicks == red.size() && !red.isEmpty() && ev.size() >= clicks && moving == 0 && solved
                 && sameVerdict == null && setbacks == 0;
         String detail = String.format(Locale.ROOT, "speed at open %.3f, slid %.2f in 3 ticks, stood still %d tick(s), walked %.2f after "
