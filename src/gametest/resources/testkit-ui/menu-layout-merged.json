@@ -15,9 +15,11 @@
   "newCheatLeaves": {
     "gui.tab.MiningPigeonDrillTab": "Mining > Swap To Drill On Pigeon",
     "gui.tab.PowderChestTriggerbotTab": "Mining > Powder Chest Triggerbot",
-    "gui.tab.LeftClickSecretsTab": "Dungeons > Secrets > Left Click Opens Secrets"
+    "gui.tab.LeftClickSecretsTab": "Dungeons > Secrets > Left Click Opens Secrets",
+    "gui.tab.AutoSuperboomTab": "Dungeons > Auto Superboom"
   },
   "newLeaves": {
+    "gui.tab.DungeonWaypointsTab": "Dungeons > Secrets > Dungeon Waypoints",
     "gui.tab.ChatHiderTab": "Chat > Chat Hider",
     "gui.tab.ModsScreenTab": "Misc > Mods Screen",
     "gui.tab.CustomItemsTab": "Cosmetics > Custom Items",

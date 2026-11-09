@@ -59,6 +59,7 @@ final class DefaultsOff1104Cases {
             {"experiments.ExperimentsConfig", "enabled", "profitTrackerEnabled"},
             {"dungeonalerts.DungeonAlertsConfig", "rareRoomAlert", "rareDropAlert", "duplicateClassAlert", "duplicateClassParty",
                     "witherKingStatueBox", "dimensionalSlashAlert"},
+            {"dungeonwaypoints.DungeonWaypointsConfig", "enabled"},
     };
 
     /**
