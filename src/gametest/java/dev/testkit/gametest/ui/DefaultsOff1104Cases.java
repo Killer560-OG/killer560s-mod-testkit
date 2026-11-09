@@ -32,6 +32,8 @@ final class DefaultsOff1104Cases {
             {"puzzlehud.PuzzleHudConfig", "enabled"},
             {"reparty.RepartyConfig", "enabled", "auto"},
             {"splittimers.WatcherHelperConfig", "enabled"},
+            {"carrytracker.CarryTrackerConfig", "enabled"},
+            {"livemap.RoomPreviewConfig", "enabled"},
             {"dungeonqueue.DungeonQueueConfig", "enabled", "pvLinkOnJoin"},
             {"partyfinder.PartyFinderOverlayConfig", "enabled"},
             {"posmsg.PosmsgConfig", "enabled"},
