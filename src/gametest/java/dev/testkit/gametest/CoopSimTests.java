@@ -1,5 +1,6 @@
 package dev.testkit.gametest;
 
+import dev.testkit.compat.McCompat;
 import dev.testkit.gametest.coop.CoopSync;
 import dev.testkit.gametest.coop.GuestPlayer;
 import dev.testkit.harness.Disconnects;
@@ -361,6 +362,10 @@ public class CoopSimTests implements FabricClientGameTest {
             } else {
                 SimPuzzleSolveTests.teardown(ctx);
             }
+        }
+        // A guest whose host stopped first sits on a DisconnectedScreen, and a gametest class must end on the title.
+        if (ctx.computeOnClient(mc -> mc.level == null && !(McCompat.screen(mc) instanceof TitleScreen))) {
+            ctx.setScreen(TitleScreen::new);
         }
     }
 
