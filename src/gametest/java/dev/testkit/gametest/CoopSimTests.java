@@ -522,6 +522,21 @@ public class CoopSimTests implements FabricClientGameTest {
         return (List<String>) mod(COOP, "partyNames", new Class<?>[]{Minecraft.class}, mc);
     }
 
+    /** The client's tab list shows "Party (2)" and a row for each of the two names. */
+    private static boolean tabHasParty(Minecraft mc, String first, String second) {
+        if (mc.getConnection() == null) {
+            return false;
+        }
+        boolean header = false, a = false, b = false;
+        for (var info : mc.getConnection().getOnlinePlayers()) {
+            String t = info.getTabListDisplayName() == null ? "" : info.getTabListDisplayName().getString();
+            header |= t.equals("Party (2)");
+            a |= t.contains("] " + first + " (");
+            b |= t.contains("] " + second + " (");
+        }
+        return header && a && b;
+    }
+
     private static boolean logSeen(long mark, String text) {
         for (String l : LogTap.since(mark)) {
             if (l.contains(text)) {
@@ -558,6 +573,8 @@ public class CoopSimTests implements FabricClientGameTest {
         List<String> party = List.of(hostName, guestName);
         until(ctx, mc -> party.equals(partyNames(mc)), 200);
         expect(f, facts, "host's tab party", ctx.computeOnClient(CoopSimTests::partyNames), party);
+        expect(f, facts, "host's tab shows Party (2) with both names",
+                until(ctx, mc -> tabHasParty(mc, hostName, guestName), 100), true);
         expect(f, facts, "host isGuest", ctx.computeOnClient(mc -> ModUnderTest.staticCall(R + "SimState", "isGuest",
                 new Class<?>[]{Minecraft.class}, new Object[]{mc})), false);
 
@@ -642,9 +659,9 @@ public class CoopSimTests implements FabricClientGameTest {
                 new Class<?>[]{Minecraft.class}, new Object[]{mc})), false);
         until(ctx, mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.secrets.DungeonState", "isSimBoss"), 200);
         expect(f, facts, "guest DungeonState.isSimBoss", ModUnderTest.staticCall("com.killer560.hub.secrets.DungeonState", "isSimBoss"), true);
-        List<String> party = List.of(hostName, me);
-        until(ctx, mc -> party.equals(partyNames(mc)), 200);
-        expect(f, facts, "guest's tab party", ctx.computeOnClient(CoopSimTests::partyNames), party);
+        // The guest's tab is the host server's sim tab (fake player-info rows), so its party rows come from the host.
+        until(ctx, mc -> tabHasParty(mc, hostName, me), 200);
+        expect(f, facts, "guest's tab shows Party (2) with both names", ctx.computeOnClient(mc -> tabHasParty(mc, hostName, me)), true);
         int[] g0 = guestCounts();
         String hostLine = CoopSync.await(ctx, "host-said", 120).trim();
         long since = 0;
