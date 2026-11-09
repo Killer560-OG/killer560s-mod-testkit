@@ -58,7 +58,7 @@ public class SimWaypointRoomsTests implements FabricClientGameTest {
     private static final String NAME = "1101-wp";
     private static final String[] CASES = {"1101-wp-pressure-levers", "1101-wp-mines-levers", "1101-wp-waterboard",
             "1101-wp-prison-crypt", "1101-wp-teleport-nocrypt", "1101-wp-item-walkaway", "1101-wp-flags",
-            "1102-diag-wp-roomchange", "1102-diag-wp-gold"};
+            "1102-diag-wp-roomchange", "1102-diag-wp-gold", "1108-dwp-place"};
 
     private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
@@ -121,6 +121,7 @@ public class SimWaypointRoomsTests implements FabricClientGameTest {
                         case "1101-wp-flags" -> flags(ctx, cfg);
                         case "1102-diag-wp-roomchange" -> roomChange(ctx);
                         case "1102-diag-wp-gold" -> goldPrince(ctx);
+                        case "1108-dwp-place" -> dungeonWaypoints(ctx);
                         default -> throw new AssertionError("no such case " + c);
                     }
                     RESULTS.add(c + " PASS");
@@ -488,6 +489,94 @@ public class SimWaypointRoomsTests implements FabricClientGameTest {
 
         List<String> after = waitForAll(ctx, before, 100);
         check(after.equals(before), "the room's waypoints changed: before " + before + ", after " + after);
+    }
+
+    /**
+     * 1108-dwp-place (featD-1108): Dungeon Waypoints in a built Prison Cell. A box and a line placed on two capture blocks are
+     * stored room-relative and DRAWN (the render cache holds the box on the placed block); the pack text is on the clipboard;
+     * the saved file reloads with both; after the room is rebuilt (its own placement) the box is drawn on the SAME capture
+     * block, wherever the sim put the room; remove, clear and import each change the list by the amount they say, and a
+     * second import adds nothing.
+     */
+    private void dungeonWaypoints(ClientGameTestContext ctx) {
+        String dwp = "com.killer560.hub.dungeonwaypoints.DungeonWaypointsFeature";
+        String dcfg = "com.killer560.hub.dungeonwaypoints.DungeonWaypointsConfig";
+        Object cfg = ModUnderTest.config(dcfg);
+        ctx.runOnClient(mc -> ModUnderTest.set(cfg, "setEnabled", true));
+        try {
+            build(ctx, "Prison Cell");
+            BlockPos a = capW(ctx, 24, 70, 21);
+            BlockPos b = capW(ctx, 25, 70, 21);
+            standNear(ctx, a);
+            String cleared = dwpSay(ctx, dwp, "clearRoom");
+            say("start: " + cleared);
+            String r1 = dwpAdd(ctx, dwp, a, false, "FF0000");
+            String r2 = dwpAdd(ctx, dwp, b, true, null);
+            say(r1 + " / " + r2);
+            check(r1.startsWith("Added a box") && r2.startsWith("Added a line"), "adding did not say it added: " + r1 + " / " + r2);
+            check(count(ctx, cfg) == 2, "the list holds " + count(ctx, cfg) + ", not 2");
+            drawn(ctx, dwp, a, 1);
+            String exp = dwpSay(ctx, dwp, "export");
+            String clip = ctx.computeOnClient(mc -> mc.keyboardHandler.getClipboard());
+            say(exp);
+            check(exp.startsWith("Copied 2") && clip.contains("\"waypoints\"") && clip.contains("Prison Cell"),
+                    "the pack is not on the clipboard: " + exp + " / " + clip);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(dcfg, "load"));
+            check(count(ctx, ModUnderTest.config(dcfg)) == 2, "the saved file did not reload with both waypoints");
+            // The room again, placed by the sim on its own: the box must follow the room, not the old world position.
+            build(ctx, "Prison Cell");
+            BlockPos a2 = capW(ctx, 24, 70, 21);
+            say("rebuilt: capture block was " + a.toShortString() + ", now " + a2.toShortString());
+            standNear(ctx, a2);
+            drawn(ctx, dwp, a2, 1);
+            String rm = dwpSay(ctx, dwp, "removeNearest");
+            say(rm);
+            check(rm.startsWith("Removed") && count(ctx, ModUnderTest.config(dcfg)) == 1, "remove: " + rm);
+            String cl = dwpSay(ctx, dwp, "clearRoom");
+            check(cl.startsWith("Cleared 1") && count(ctx, ModUnderTest.config(dcfg)) == 0, "clear: " + cl);
+            String im = dwpSay(ctx, dwp, "importClipboard");
+            check(im.startsWith("Imported 2") && count(ctx, ModUnderTest.config(dcfg)) == 2, "import: " + im);
+            String im2 = dwpSay(ctx, dwp, "importClipboard");
+            check(im2.startsWith("Imported 0") && count(ctx, ModUnderTest.config(dcfg)) == 2, "second import: " + im2);
+            drawn(ctx, dwp, a2, 1);
+        } finally {
+            try {
+                dwpSay(ctx, dwp, "clearRoom");
+            } catch (Throwable ignored) {
+                // cleanup must not replace the verdict
+            }
+            ctx.runOnClient(mc -> ModUnderTest.set(cfg, "setEnabled", false));
+        }
+    }
+
+    private static int count(ClientGameTestContext ctx, Object cfg) {
+        return ctx.computeOnClient(mc -> (Integer) ModUnderTest.call(cfg, "count", new Class<?>[]{}, new Object[]{}));
+    }
+
+    private static String dwpSay(ClientGameTestContext ctx, String dwp, String method) {
+        return ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(dwp, method));
+    }
+
+    private static String dwpAdd(ClientGameTestContext ctx, String dwp, BlockPos at, boolean line, String hex) {
+        return ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(dwp, "addAt",
+                new Class<?>[]{BlockPos.class, boolean.class, String.class}, new Object[]{at, line, hex}));
+    }
+
+    /** Waits for the mod's last render to hold a box on {@code at} and {@code segments} line(s). */
+    @SuppressWarnings("unchecked")
+    private static void drawn(ClientGameTestContext ctx, String dwp, BlockPos at, int segments) {
+        net.minecraft.world.phys.AABB want = new net.minecraft.world.phys.AABB(at).inflate(0.002);
+        List<net.minecraft.world.phys.AABB> boxes = List.of();
+        for (int t = 0; t < 200; t++) {
+            boxes = ctx.computeOnClient(mc -> (List<net.minecraft.world.phys.AABB>) ModUnderTest.staticCall(dwp, "drawnBoxes"));
+            if (boxes.contains(want)) {
+                break;
+            }
+            ctx.waitTicks(1);
+        }
+        check(boxes.contains(want), "no box was drawn on " + at.toShortString() + ", drawn: " + boxes);
+        int segs = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(dwp, "drawnSegments"));
+        check(segs == segments, "drawn line segments " + segs + ", want " + segments);
     }
 
     private void goldPrince(ClientGameTestContext ctx) {

@@ -52,6 +52,7 @@ final class DefaultsOff1104Cases {
             {"bazaar.BazaarOrderHelperConfig", "enabled"},
             {"hideeffects.HideEffectsConfig", "hidePotionEffects"},
             {"experiments.ExperimentsConfig", "enabled", "profitTrackerEnabled"},
+            {"dungeonwaypoints.DungeonWaypointsConfig", "enabled"},
     };
 
     /**
