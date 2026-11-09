@@ -29,6 +29,7 @@
 			"dev.testkit.gametest.InvWalkCarryTests",
 			"dev.testkit.gametest.InvWalkChestCarryTests",
 			"dev.testkit.gametest.InvWalkChestCarrySameTickTests",
+			"dev.testkit.gametest.InvWalkTermTests",
 			"dev.testkit.gametest.ZpewCampaignTests",
 			"dev.testkit.gametest.ZpewMultiTickTests",
 			"dev.testkit.gametest.ZpewLooksTests",
