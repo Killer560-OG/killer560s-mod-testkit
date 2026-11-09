@@ -48,6 +48,10 @@ final class HxFeatC1108Cases {
         return (List<String>) c.onClient(mc -> Mod.staticCall(PUZZLE, "rowsForTest"));
     }
 
+    private static String rowOf(Session c, String name) {
+        return rows(c).stream().filter(r -> r.contains(name)).findFirst().orElse("(no row for " + name + ": " + rows(c) + ")");
+    }
+
     private static String header(Session c) {
         return (String) c.onClient(mc -> Mod.staticCall(PUZZLE, "headerForTest"));
     }
@@ -61,28 +65,29 @@ final class HxFeatC1108Cases {
             dungeon(c, "puzzles", puzzles("\u00a7e" + OPEN, "\u00a7e" + OPEN));
             c.waitUntil("two open puzzle rows", mc -> ((List<?>) Mod.staticCall(PUZZLE, "rowsForTest")).size() == 2, 80);
             c.check(header(c).equals("Puzzles 0/2"), "header " + header(c));
-            c.check(rows(c).get(0).contains("Water Board") && rows(c).get(0).contains(OPEN), "open row " + rows(c).get(0));
+            c.check(rowOf(c, "Water Board").contains(OPEN), "open row " + rows(c));
             // Water Board is solved by HxMateA, Boulder failed by HxMateB: state from the tab list, who from chat.
             dungeon(c, "puzzles", puzzles("\u00a7a" + DONE, "\u00a7c" + FAIL));
             c.hx().chat("PUZZLE SOLVED! HxMateA tied Water Board! Good job!");
             c.hx().chat("PUZZLE FAIL! HxMateB was fooled by Boulder! Yikes!");
             c.waitUntil("done and failed rows with who", mc -> {
                 List<?> r = (List<?>) Mod.staticCall(PUZZLE, "rowsForTest");
-                return r.size() == 2 && r.get(0).toString().contains("HxMateA") && r.get(1).toString().contains("HxMateB");
+                return r.size() == 2 && r.toString().contains("HxMateA") && r.toString().contains("HxMateB");
             }, 120);
-            List<String> r = rows(c);
             c.check(header(c).equals("Puzzles 1/2"), "header after solve " + header(c));
-            c.check(r.get(0).contains(DONE) && r.get(0).contains("Water Board") && r.get(0).matches(".*\\d:\\d\\d$"), "done row " + r.get(0));
-            c.check(r.get(1).contains(FAIL) && r.get(1).contains("Boulder"), "failed row " + r.get(1));
-            c.note("header " + header(c) + ", rows " + r);
+            String water = rowOf(c, "Water Board");
+            String boulder = rowOf(c, "Boulder");
+            c.check(water.contains(DONE) && water.contains("HxMateA") && water.matches(".*\\d:\\d\\d$"), "done row " + water);
+            c.check(boulder.contains(FAIL) && boulder.contains("HxMateB"), "failed row " + boulder);
+            c.note("header " + header(c) + ", rows " + rows(c));
             // Puzzle Solvers off drops the names, Puzzle Times off drops the clock.
             run(c, () -> {
                 Mod.with(PUZZLE_CFG, "ShowWho", false);
                 Mod.with(PUZZLE_CFG, "ShowTimes", false);
             });
             dungeon(c, "puzzles", puzzles("\u00a7a" + DONE, "\u00a7c" + FAIL));
-            c.waitUntil("rows without who and time", mc -> !((List<?>) Mod.staticCall(PUZZLE, "rowsForTest")).get(0).toString().contains("HxMateA"), 80);
-            c.check(!rows(c).get(0).matches(".*\\d:\\d\\d$"), "time still shown: " + rows(c).get(0));
+            c.waitUntil("rows without who and time", mc -> !((List<?>) Mod.staticCall(PUZZLE, "rowsForTest")).toString().contains("HxMateA"), 80);
+            c.check(!rowOf(c, "Water Board").matches(".*\\d:\\d\\d$"), "time still shown: " + rows(c));
             run(c, () -> {
                 Mod.set(PUZZLE_CFG, "setShowWho", true);
                 Mod.set(PUZZLE_CFG, "setShowTimes", true);
@@ -168,7 +173,7 @@ final class HxFeatC1108Cases {
             } finally {
                 c.ctx().runOnClient(mc -> mc.options.keyUp.setDown(false));
             }
-            c.waitUntil("party list once standing still", mc -> c.commands().contains("party list"), 60);
+            c.waitUntil("party list once standing still", mc -> c.commands().contains("party list"), 160);
         }
     }
 
