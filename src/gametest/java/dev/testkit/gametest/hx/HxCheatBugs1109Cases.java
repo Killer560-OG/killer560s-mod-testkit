@@ -45,20 +45,20 @@ final class HxCheatBugs1109Cases {
         gateOff(c, false);
         try {
             Object cfg = Mod.cfg(TERM);
-            try (Settings set = new Settings(c).with(TERM, "enabled", false).with(TERM, "autoTerminalsEnabled", false)
-                    .with(TERM, "hoverTerminalsEnabled", false).with(TERM, "queueTerms", false)) {
+            try (Settings set = new Settings(c).with(TERM, "Enabled", false).with(TERM, "AutoTerminalsEnabled", false)
+                    .with(TERM, "HoverTerminalsEnabled", false).with(TERM, "QueueTerms", false)) {
                 c.check(!c.onClient(mc -> b(cfg, "isMachineryOn")), "all four off: the terminal machinery still runs");
                 if (Mod.isCheat()) {
-                    try (Settings h = new Settings(c).with(TERM, "hoverTerminalsEnabled", true)) {
+                    try (Settings h = new Settings(c).with(TERM, "HoverTerminalsEnabled", true)) {
                         c.check(c.onClient(mc -> b(cfg, "isHoverTerminalsEnabled")), "Hover Terms on with the solver off: not enabled");
                         c.check(c.onClient(mc -> b(cfg, "isMachineryOn")), "Hover Terms on: machinery off");
                         c.check(!c.onClient(mc -> b(cfg, "isEnabled")), "the solver switch followed Hover Terms");
                     }
-                    try (Settings a = new Settings(c).with(TERM, "autoTerminalsEnabled", true)) {
+                    try (Settings a = new Settings(c).with(TERM, "AutoTerminalsEnabled", true)) {
                         c.check(c.onClient(mc -> b(cfg, "isMachineryOn")), "Auto Terms on: machinery off");
                     }
                 }
-                try (Settings q = new Settings(c).with(TERM, "queueTerms", true)) {
+                try (Settings q = new Settings(c).with(TERM, "QueueTerms", true)) {
                     c.check(c.onClient(mc -> b(cfg, "isMachineryOn")), "Queue Terms on with the solver off: machinery off");
                 }
                 c.check(!c.onClient(mc -> b(cfg, "isMachineryOn")), "back to all off: the machinery still runs");
@@ -77,10 +77,10 @@ final class HxCheatBugs1109Cases {
         gateOff(c, false);
         try {
             Object cfg = Mod.cfg(SS);
-            try (Settings set = new Settings(c).with(SS, "enabled", false).with(SS, "autoSimonSaysEnabled", false)
-                    .with(SS, "autoSolveEnabled", false).with(SS, "autoStartEnabled", false).with(SS, "triggerBotEnabled", false)) {
+            try (Settings set = new Settings(c).with(SS, "Enabled", false).with(SS, "AutoSimonSaysEnabled", false)
+                    .with(SS, "AutoSolveEnabled", false).with(SS, "AutoStartEnabled", false).with(SS, "TriggerBotEnabled", false)) {
                 c.check(!c.onClient(mc -> b(cfg, "isMachineryOn")), "everything off: Simon Says machinery runs");
-                try (Settings a = new Settings(c).with(SS, "autoSimonSaysEnabled", true).with(SS, "autoSolveEnabled", true)) {
+                try (Settings a = new Settings(c).with(SS, "AutoSimonSaysEnabled", true).with(SS, "AutoSolveEnabled", true)) {
                     c.check(c.onClient(mc -> b(cfg, "isMachineryOn")), "Auto SS on with the solver switch off: machinery off");
                     c.check(!c.onClient(mc -> b(cfg, "isEnabled")), "the solver switch followed Auto SS");
                 }
@@ -96,10 +96,10 @@ final class HxCheatBugs1109Cases {
             return;
         }
         Object cfg = Mod.cfg(BLOOD);
-        try (Settings set = new Settings(c).with(BLOOD, "workOutside", false)) {
+        try (Settings set = new Settings(c).with(BLOOD, "WorkOutside", false)) {
             c.check(!c.onClient(mc -> b(cfg, "isWorkOutside")), "Work Just Outside is not OFF");
         }
-        try (Settings set = new Settings(c).with(BLOOD, "workOutside", true)) {
+        try (Settings set = new Settings(c).with(BLOOD, "WorkOutside", true)) {
             c.check(c.onClient(mc -> b(cfg, "isWorkOutside")), "Work Just Outside did not turn ON");
         }
     }
@@ -120,7 +120,10 @@ final class HxCheatBugs1109Cases {
             c.hx().chat("[BOSS] Maxor: WELL! WELL! WELL! LOOK WHO'S HERE!");
             c.server().command("tellraw @a \"[BOSS] Goldor: Who dares trespass into my domain?\"");
             c.waitUntil("P3 running", mc -> (Boolean) Mod.staticCall("leveraura.P3SectionTracker", "running"), 100);
-            c.server().command("setblock 17 119 127 minecraft:stone");
+            c.server().command("forceload add 10 120 24 135");
+            c.server().sync(20);
+            c.server().command("fill 14 119 124 20 119 132 minecraft:stone");
+            c.server().command("fill 14 120 124 20 125 132 minecraft:air");
             c.server().command("tp @p 17.5 120 127.5 0 0");
             c.onClient(mc -> {
                 mc.player.setYRot(0f);
