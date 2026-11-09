@@ -2203,7 +2203,7 @@ public class SimBossTests implements FabricClientGameTest {
         buildFloorAndEnter(ctx, f, code);
     }
 
-    private static String planF7(ClientGameTestContext ctx) {
+    static String planF7(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> {
             Object floor = ModUnderTest.enumValue("com.killer560.hub.roomsim.SimFloorGen$Floor", "F7");
             Object planned = ModUnderTest.staticCall("com.killer560.hub.roomsim.SimFloorGen", "plan",
@@ -2213,28 +2213,11 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     private static void buildFloorAndEnter(ClientGameTestContext ctx, List<String> f, String code) {
-        long before = Scenario.simBuildCount(ctx);
-        ctx.runOnClient(mc -> mc.execute(() -> {
-            java.util.function.Consumer<Minecraft> build = c -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBuilder",
-                    "build", new Class<?>[]{Minecraft.class, String.class}, new Object[]{c, code});
-            ModUnderTest.staticCall("com.killer560.hub.roomsim.SimWorld", "open", new Class<?>[]{Minecraft.class, String.class,
-                    java.util.function.Consumer.class, String.class}, new Object[]{mc, code, build, "Generating Floor 7"});
-        }));
-        ctx.waitFor(mc -> mc.level != null, 2400);
-        Scenario.awaitSimBuild(ctx, before);
-        ctx.waitTicks(80);
+        int[] p = floorWithPortal(ctx, f, code);
+        if (p == null) {
+            return;
+        }
         String mapBefore = String.valueOf(call("com.killer560.hub.roomsim.SimState", "mapCode"));
-        ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimTeleportCommands", "goTo",
-                new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, "Blood"}));
-        if (!until(ctx, "standing in Blood", mc -> "Blood".equals(call("com.killer560.hub.roomsim.SimState", "currentRoomName")), 100)) {
-            f.add("/goto Blood never put him in the Blood room");
-            return;
-        }
-        if (!until(ctx, "the portal", mc -> call(B + "BossPortal", "portal") != null, 200)) {
-            f.add("no portal opened in Blood");
-            return;
-        }
-        int[] p = (int[]) call(B + "BossPortal", "portal");
         ctx.waitTicks(10);
         expect(f, "standing on the spot as it opened did not take him in", call(FIGHT, "running"), false);
         tp(ctx, p[0] + 4.5, p[1] + 1, p[2] + 0.5, 0, 0);
@@ -2252,6 +2235,31 @@ public class SimBossTests implements FabricClientGameTest {
         expect(f, "the floor's map code after entering the boss",
                 String.valueOf(call("com.killer560.hub.roomsim.SimState", "mapCode")), mapBefore);
         expect(f, "Floor7Tracker phase after the portal", phase(ctx), "P1");
+    }
+
+    /** Builds floor {@code code}, puts him in Blood and waits for its portal: the portal block, or null (failure added). */
+    static int[] floorWithPortal(ClientGameTestContext ctx, List<String> f, String code) {
+        long before = Scenario.simBuildCount(ctx);
+        ctx.runOnClient(mc -> mc.execute(() -> {
+            java.util.function.Consumer<Minecraft> build = c -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBuilder",
+                    "build", new Class<?>[]{Minecraft.class, String.class}, new Object[]{c, code});
+            ModUnderTest.staticCall("com.killer560.hub.roomsim.SimWorld", "open", new Class<?>[]{Minecraft.class, String.class,
+                    java.util.function.Consumer.class, String.class}, new Object[]{mc, code, build, "Generating Floor 7"});
+        }));
+        ctx.waitFor(mc -> mc.level != null, 2400);
+        Scenario.awaitSimBuild(ctx, before);
+        ctx.waitTicks(80);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimTeleportCommands", "goTo",
+                new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, "Blood"}));
+        if (!until(ctx, "standing in Blood", mc -> "Blood".equals(call("com.killer560.hub.roomsim.SimState", "currentRoomName")), 100)) {
+            f.add("/goto Blood never put him in the Blood room");
+            return null;
+        }
+        if (!until(ctx, "the portal", mc -> call(B + "BossPortal", "portal") != null, 200)) {
+            f.add("no portal opened in Blood");
+            return null;
+        }
+        return (int[]) call(B + "BossPortal", "portal");
     }
 
     // ============================================================================================== bossparity-1103
@@ -2434,7 +2442,7 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     /** Teleports beside a terminal's stand and clicks it. False when there is no stand named {@code name}. */
-    private static boolean clickTerminal(ClientGameTestContext ctx, int sec, String label, String name) {
+    static boolean clickTerminal(ClientGameTestContext ctx, int sec, String label, String name) {
         double[] at = (double[]) ModUnderTest.staticCall(STATIONS, "position", new Class<?>[]{int.class, String.class},
                 new Object[]{sec, label});
         int[][] dirs = {{-1, 0}, {0, -1}, {1, 0}, {0, 1}};

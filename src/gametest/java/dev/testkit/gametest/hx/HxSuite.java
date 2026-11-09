@@ -186,6 +186,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxFeatC1108Cases.register(s);
                     // mod featG-1109: Carry Tracker, Room Preview.
                     HxFeatG1109Cases.register(s);
+                    // mod staging-coopsim: the co-op sim's guest channels stay shut on a Hypixel-labeled server.
+                    HxCoop1109Cases.register(s);
                 });
     }
 }
