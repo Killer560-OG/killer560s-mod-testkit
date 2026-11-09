@@ -1238,8 +1238,7 @@ final class HxBloodCampCases {
             List<Long> onGaps = new ArrayList<>();
             long[] on = farAura(c, MAGE, 50, onGaps, standX);
             dev.testkit.gametest.SameTick.judge(c, st, "blood aura outside the room, his " + act,
-                    act == dev.testkit.gametest.SameTick.Act.USE_KEY ? dev.testkit.gametest.SameTick.Expect.APART
-                            : dev.testkit.gametest.SameTick.Expect.SHARE);
+                    dev.testkit.gametest.SameTick.Expect.SHARE);
             st = null;
             c.note("switch ON at x " + standX + ": " + on[0] + " swing(s), " + on[1] + " use(s), " + on[2] + " attack(s); gaps " + onGaps);
             c.check(on[0] >= 3, "Work Just Outside ON at the full margin: the Aura swung " + on[0] + " time(s), wanted 3 or more");

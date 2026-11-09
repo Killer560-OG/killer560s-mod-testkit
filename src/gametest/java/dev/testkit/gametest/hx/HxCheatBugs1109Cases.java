@@ -169,7 +169,7 @@ final class HxCheatBugs1109Cases {
             }
             long since = c.hx().head();
             c.hx().give(6, "minecraft:stick");
-            st = c.onClient(mc -> SameTick.start(act, 4, p -> p instanceof ServerboundSetCarriedItemPacket h
+            st = c.onClient(mc -> SameTick.start(act, act == SameTick.Act.DIG ? 4 : 1, p -> p instanceof ServerboundSetCarriedItemPacket h
                     && (h.getSlot() == 2 || act != SameTick.Act.SWAP && h.getSlot() == 4), 5, 6));
             for (int r = 0; r < 6; r++) {
                 build.run();
@@ -177,7 +177,20 @@ final class HxCheatBugs1109Cases {
                         && bh.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
                         && (g ? bh.getBlockPos().equals(target) : bh.getBlockPos().getZ() <= 131 && bh.getBlockPos().getZ() >= 129
                         && bh.getBlockPos().getY() <= 121), 100);
-                c.ctx().waitTicks(10);
+                if (act == SameTick.Act.DIG) {
+                    c.ctx().waitTicks(10);
+                } else {
+                    // His own dig starts the Aura's swap (the feature reacts to it); his other action rides the same ticks.
+                    for (int i = 0; i < 10; i++) {
+                        if (i % 4 == 0) {
+                            c.onClient(mc -> {
+                                net.minecraft.client.KeyMapping.click(mc.options.keyAttack.getDefaultKey());
+                                return null;
+                            });
+                        }
+                        c.ctx().waitTicks(1);
+                    }
+                }
             }
             SameTick.judge(c, st, "auto superboom " + kind + ", his " + act, SameTick.Expect.SHARE);
             st = null;

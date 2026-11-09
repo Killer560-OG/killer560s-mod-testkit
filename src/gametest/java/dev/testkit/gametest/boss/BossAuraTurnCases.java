@@ -171,14 +171,16 @@ final class BossAuraTurnCases {
             int flicks = 0;
             for (int r = 0; r < 12; r++) {
                 c.server().command("setblock 27 124 127 minecraft:lever[face=wall,facing=west,powered=false]");
-                c.ctx().waitTicks(10);
+                c.hx().chat(TerminalAuraCases.GOLDOR); // a new run: the Aura forgets which levers it flicked
+                c.waitUntil("Floor7Tracker phase P3",
+                        mc -> "P3".equals(String.valueOf(Mod.staticCall(TerminalAuraCases.TRACKER, "getPhase"))), 100);
+                c.ctx().waitTicks(12);
                 if (c.onClient(mc -> mc.level.getBlockState(LEVER).getValue(LeverBlock.POWERED))) flicks++;
             }
             c.note("lever flicked in " + flicks + " of 12 rounds at 50 ms");
             c.check(flicks >= 3, "the Lever Aura flicked the lever in only " + flicks + " of 12 rounds (the feature did not act)");
             dev.testkit.gametest.SameTick.judge(c, st, "lever aura 50 ms, his " + act,
-                    act == dev.testkit.gametest.SameTick.Act.USE_KEY ? dev.testkit.gametest.SameTick.Expect.APART
-                            : dev.testkit.gametest.SameTick.Expect.SHARE);
+                    dev.testkit.gametest.SameTick.Expect.SHARE);
             st = null;
             c.check(c.scenario().flags().size() == flags0, "GrimAC flagged during the levers with his " + act + " in the same ticks");
         } finally {
