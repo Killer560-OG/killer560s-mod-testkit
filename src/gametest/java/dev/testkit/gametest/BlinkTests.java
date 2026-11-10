@@ -223,34 +223,31 @@ public class BlinkTests implements FabricClientGameTest {
         return ctx.computeOnClient(mc -> mc.player.getName().getString());
     }
 
-    /** The server's own idea of where the player is, from {@code data get entity}. */
+    /**
+     * The server's own idea of where the player is, from {@code data get entity}. The request is tagged with a {@code say}
+     * line and the answer read after it in the last 1500 console lines: counting answers in a fixed 400-line tail missed
+     * one whenever an old answer scrolled out as the new one came in (1027-ap3-blink-combo-rcn/-rnc/-ncr "never answered"
+     * in the 63-ap3 group, ap3grp-1109), and a flagged shot puts 30-60 GrimAC lines after it (1027-blink-c-interleave).
+     */
     public static double[] serverPos(TestServer server, ClientGameTestContext ctx, String name) {
-        int before = countPosLines(server);
+        String tag = "cbpos" + System.nanoTime();
+        server.command("say " + tag);
         server.command("data get entity " + name + " Pos");
-        for (int i = 0; i < 40; i++) {
+        for (int i = 0; i < 60; i++) {
             ctx.waitTicks(1);
-            String tail = server.tail(60);
-            if (countPosLines(server) > before) {
-                Matcher m = POS.matcher(tail);
-                double[] out = null;
-                while (m.find()) {
-                    out = new double[]{Double.parseDouble(m.group(1)), Double.parseDouble(m.group(2)),
+            String tail = server.tail(1500);
+            int at = tail.lastIndexOf(tag);
+            if (at >= 0) {
+                Matcher m = POS.matcher(tail.substring(at));
+                if (m.find()) {
+                    return new double[]{Double.parseDouble(m.group(1)), Double.parseDouble(m.group(2)),
                             Double.parseDouble(m.group(3))};
-                }
-                if (out != null) {
-                    return out;
                 }
             }
         }
         throw new AssertionError("the server never answered data get entity " + name + " Pos");
     }
 
-    private static int countPosLines(TestServer server) {
-        Matcher m = POS.matcher(server.tail(400));
-        int n = 0;
-        while (m.find()) {
-            n++;
-        }
         return n;
     }
 
