@@ -210,6 +210,13 @@ public class CoopFloorTests implements FabricClientGameTest {
     }
 
     private static void door(ClientGameTestContext ctx, MinecraftServer s, GuestPlayer g, List<String> f, List<String> facts) {
+        Vec3 hostAt = hostNow(ctx);
+        int cell = ctx.computeOnClient(mc -> nearestDoorCell(hostAt));
+        facts.add("door cell nearest the host " + cell);
+        if (cell >= 0) {
+            ctx.runOnClient(mc -> call("SimDoors", "makeWitherDoor", new Class<?>[]{Minecraft.class, int.class}, mc, cell));
+            ctx.waitTicks(20);
+        }
         @SuppressWarnings("unchecked")
         List<BlockPos> doors = ctx.computeOnClient(mc -> (List<BlockPos>) call("SimDoors", "doorBlocksForTest",
                 new Class<?>[]{int.class}, 2));
@@ -244,10 +251,37 @@ public class CoopFloorTests implements FabricClientGameTest {
         g.hold(ctx.computeOnClient(mc -> (ItemStack) call("SimDoors", "createWitherKey")));
         long mark = LogTap.mark();
         g.useOn(d, Direction.UP);
-        boolean open = until(ctx, mc -> GuestPlayer.onServer(ctx, s, () -> g.entity().level().getBlockState(d).isAir()), 120);
+        boolean open = false;
+        for (int i = 0; i < 120 && !open; i++) {
+            open = GuestPlayer.onServer(ctx, s, () -> g.entity().level().getBlockState(d).isAir());
+            if (!open) ctx.waitTick();
+        }
         expect(f, facts, "door at " + d.toShortString() + " opened by the guest's key", open, true);
         expect(f, facts, "the guest's key was used", g.ask(p -> p.getMainHandItem().isEmpty()), true);
         facts.add("open line seen " + logSeen(mark, "opened a WITHER door") + " (a held key says nothing on Hypixel)");
+    }
+
+    /** The 11x11 gap cell of a layout door (not the entrance's) nearest {@code at}, or -1. Client thread. */
+    private static int nearestDoorCell(Vec3 at) {
+        Object layout = ModUnderTest.staticCall("com.killer560.hub.livemap.DungeonLayout", "current");
+        int best = -1;
+        double bestD = Double.MAX_VALUE;
+        for (int idx = 0; idx < 121; idx++) {
+            int gx = idx % 11;
+            int gz = idx / 11;
+            if (gx % 2 == gz % 2) continue;
+            int type = num(ModUnderTest.call(layout, "doorType", new Class<?>[]{int.class}, new Object[]{idx}));
+            if (type != 1) continue; // a normal door: made wither here
+            BlockPos b = (BlockPos) ModUnderTest.staticCall("com.killer560.hub.livemap.DungeonLayout", "doorBlock",
+                    new Class<?>[]{int.class}, new Object[]{idx});
+            if (b == null) continue;
+            double d = at.distanceToSqr(Vec3.atCenterOf(b));
+            if (d < bestD) {
+                bestD = d;
+                best = idx;
+            }
+        }
+        return best;
     }
 
     private static void ticTacToe(ClientGameTestContext ctx, MinecraftServer s, GuestPlayer g, List<String> f, List<String> facts) {
@@ -262,6 +296,7 @@ public class CoopFloorTests implements FabricClientGameTest {
         }
         ctx.waitTicks(10);
         int marks0 = num(call("puzzles.SimTicTacToePuzzle", "playerMarksForTest"));
+        g.moveTo(g.position(), 0, 0); // acks the death's teleport, as a real client does; until then uses are dropped
         g.useOn(cell[0], Direction.WEST);
         expect(f, facts, "the guest's Tic Tac Toe move was played", until(ctx, mc ->
                 num(call("puzzles.SimTicTacToePuzzle", "playerMarksForTest")) > marks0, 40), true);
@@ -419,11 +454,22 @@ public class CoopFloorTests implements FabricClientGameTest {
             f.add("/goto Blood never put the host in the Blood room");
             return null;
         }
-        if (!until(ctx, mc -> ModUnderTest.staticCall("com.killer560.hub.bosssim.BossPortal", "portal") != null, 400)) {
+        if (!until(ctx, mc -> bossPortal() != null, 400)) {
             f.add("no portal opened in Blood");
             return null;
         }
-        return (int[]) ModUnderTest.staticCall("com.killer560.hub.bosssim.BossPortal", "portal");
+        return ctx.computeOnClient(mc -> bossPortal());
+    }
+
+    /** BossPortal.portal(): the class is package-private, so reflection needs setAccessible. */
+    private static int[] bossPortal() {
+        try {
+            java.lang.reflect.Method m = Class.forName("com.killer560.hub.bosssim.BossPortal").getDeclaredMethod("portal");
+            m.setAccessible(true);
+            return (int[]) m.invoke(null);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("BossPortal.portal(): " + e, e);
+        }
     }
 
     /** A mob room ({name, center}) that is not the room the host stands in. Client thread. */
