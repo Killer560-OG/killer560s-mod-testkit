@@ -953,25 +953,28 @@ public class SimBossTests implements FabricClientGameTest {
             var sp = s.getPlayerList().getPlayers().get(0);
             sp.getInventory().setItem(0, (net.minecraft.world.item.ItemStack) ModUnderTest.staticCall(
                     "com.killer560.hub.roomsim.SimItems", "build", new Class<?>[]{String.class}, new Object[]{"HYPERION"}));
-            var z = new net.minecraft.world.entity.monster.zombie.Zombie(net.minecraft.world.entity.EntityType.ZOMBIE, sp.level());
-            z.setPos(sp.getX() + 2, sp.getY(), sp.getZ());
-            sp.level().addFreshEntity(z);
-            zombie[0] = z.getId();
             pos[0] = sp.position();
         });
         ctx.runOnClient(mc -> {
             mc.player.getInventory().setSelectedSlot(0);
             mc.player.setXRot(0f);
         });
+        command(ctx, String.format(Locale.ROOT, "summon minecraft:zombie %.2f %.2f %.2f {NoAI:1b}", pos[0].x + 2, pos[0].y, pos[0].z));
         ctx.waitTicks(3);
+        serverRun(ctx, s -> {
+            var sp = s.getPlayerList().getPlayers().get(0);
+            zombie[0] = sp.level().getEntitiesOfClass(net.minecraft.world.entity.monster.zombie.Zombie.class,
+                    sp.getBoundingBox().inflate(4)).size();
+        });
+        expect(f, "a zombie stands beside him", zombie[0] >= 1, true);
         ctx.runOnClient(mc -> mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND));
         ctx.waitTicks(20);
         boolean[] dead = new boolean[1];
         serverRun(ctx, s -> {
             var sp = s.getPlayerList().getPlayers().get(0);
             pos[1] = sp.position();
-            var z = sp.level().getEntity(zombie[0]);
-            dead[0] = z == null || !z.isAlive();
+            dead[0] = sp.level().getEntitiesOfClass(net.minecraft.world.entity.monster.zombie.Zombie.class,
+                    sp.getBoundingBox().inflate(4), e -> e.isAlive()).isEmpty();
         });
         println(HYPE, String.format(Locale.US, "hype in the boss: %s -> %s, zombie dead %b", pos[0], pos[1], dead[0]));
         if (pos[0].distanceTo(pos[1]) > 0.5) {
