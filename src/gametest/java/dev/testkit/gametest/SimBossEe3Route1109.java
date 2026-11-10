@@ -159,7 +159,7 @@ final class SimBossEe3Route1109 {
                 // The sim's S2 start leaves the section tracker at 1 (no terminal chat): the early switch reads the same S2 levers.
                 ModUnderTest.call(la, "setSectionLeversEarly", new Class<?>[]{boolean.class}, new Object[]{true});
                 ModUnderTest.call(la, "setRange", new Class<?>[]{double.class}, new Object[]{REACH});
-                ModUnderTest.call(la, "setCps", new Class<?>[]{int.class}, new Object[]{Integer.parseInt(System.getenv().getOrDefault("KM_LEVER_CPS", "20"))}); // his instance: default 4
+                ModUnderTest.call(la, "setCooldownMs", new Class<?>[]{int.class}, new Object[]{Integer.parseInt(System.getenv().getOrDefault("KM_LEVER_CD", "50"))}); // his instance: default 250
                 Path dir = (Path) ModUnderTest.staticCall(Ap3RuntimeTests.STORE, "directory");
                 Files.createDirectories(dir);
                 Files.copy(route, dir.resolve(file), StandardCopyOption.REPLACE_EXISTING);
