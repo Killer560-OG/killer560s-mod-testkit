@@ -189,6 +189,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxFeatC1108Cases.register(s);
                     // mod featG-1109: Carry Tracker.
                     HxFeatG1109Cases.register(s);
+                    // mod nobosspearl-1110: Block Ender Pearls In Boss.
+                    HxNoBossPearl1110Cases.register(s);
                 });
     }
 }
