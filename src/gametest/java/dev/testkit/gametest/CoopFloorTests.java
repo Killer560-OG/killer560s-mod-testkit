@@ -139,7 +139,7 @@ public class CoopFloorTests implements FabricClientGameTest {
 
         // ---- the guests' dungeon map: an item in slot 9 and a picture the scanner calibrates on ----
         int sends0 = num(call("SimCoopMap", "sendsForTest"));
-        boolean sent = until(ctx, mc -> num(call("SimCoopMap", "sendsForTest")) > 0, 60);
+        boolean sent = until(ctx, mc -> num(call("SimCoopMap", "sendsForTest")) > sends0, 60);
         expect(f, facts, "map sent to the guest", sent, true);
         facts.add("map sends before/after " + sends0 + "/" + num(call("SimCoopMap", "sendsForTest")));
         expect(f, facts, "guest slot 9 holds the guests' map", g.ask(p -> {
