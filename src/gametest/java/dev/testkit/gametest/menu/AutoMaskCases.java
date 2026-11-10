@@ -78,6 +78,7 @@ final class AutoMaskCases {
         // doc-auto-1101: Mask Keybinds (legit) - a key in the open /stats menu equips a mask; both jars
         MenuSuite.test(s, "1888-menu-maskkeybinds", AutoMaskCases::maskKeybinds);
         MenuSuite.test(s, "1889-menu-maskkeybinds-alternate", AutoMaskCases::maskKeybindsAlternate);
+        MenuSuite.test(s, "1890-menu-mask-summon-levels", AutoMaskCases::summonLevels);
         // Auto Mask is cheat-only (compiled out of legit); on a legit jar these eight read as failures in the legit menu
         // suite (preexisting-1026). Its absence from the legit menu is 511/512's job, as for every cheat tab.
         if (!Mod.isCheat()) {
@@ -91,6 +92,39 @@ final class AutoMaskCases {
         MenuSuite.test(s, "1885-menu-automask-settings", AutoMaskCases::settings);
         MenuSuite.test(s, "1886-menu-automask-step-ticks", AutoMaskCases::stepTicks);
         MenuSuite.test(s, "1887-menu-automask-rod", AutoMaskCases::rod);
+    }
+
+    /** patch-0273: Hypixel's summon line may carry the pet's level. Each form of the summon and despawn line must move the
+     *  swapper's Phoenix-out state (read through isPhoenixSummoned; same on both jars, no Auto Mask settings needed). */
+    static void summonLevels(Session c) throws Exception {
+        String[] summons = {"You summoned your Phoenix!", "You summoned your [Lvl 100] Phoenix!",
+                "You summoned your Phoenix [Lvl 100]!", "You summoned your Phoenix (Lvl 100)!",
+                "You summoned your Phoenix Lvl 7!", "You summoned your [Lvl 1] Phoenix " + (char) 0x2726 + "!",
+                "Autopet equipped your [Lvl 100] Phoenix! VIEW RULE"};
+        String[] despawns = {"You despawned your Phoenix!", "You despawned your [Lvl 100] Phoenix!",
+                "You despawned your Phoenix [Lvl 100]!"};
+        resetPhoenix(c, false);
+        for (String line : summons) {
+            resetPhoenix(c, false);
+            c.hx().call("chat", "text", line);
+            c.waitUntil("Phoenix out after: " + line, mc -> (Boolean) Mod.staticCall(SW, "isPhoenixSummoned"), 40);
+            c.hx().call("chat", "text", "You summoned your [Lvl 100] Golden Dragon!");
+            c.waitUntil("another pet clears Phoenix", mc -> !(Boolean) Mod.staticCall(SW, "isPhoenixSummoned"), 40);
+        }
+        for (String line : despawns) {
+            resetPhoenix(c, true);
+            c.check((Boolean) Mod.staticCall(SW, "isPhoenixSummoned"), "setup: Phoenix not out");
+            c.hx().call("chat", "text", line);
+            c.waitUntil("Phoenix gone after: " + line, mc -> !(Boolean) Mod.staticCall(SW, "isPhoenixSummoned"), 40);
+        }
+        // a different pet's line must not set it
+        c.hx().call("chat", "text", "You summoned your [Lvl 100] Bat!");
+        c.ctx().waitTicks(5);
+        c.check(!(Boolean) Mod.staticCall(SW, "isPhoenixSummoned"), "a Bat summon set Phoenix out");
+    }
+
+    private static void resetPhoenix(Session c, boolean out) {
+        c.ctx().runOnClient(mc -> Mod.setField(SW, "phoenixSummoned", out));
     }
 
     // ---- fixtures ----------------------------------------------------------------------------------------------------
