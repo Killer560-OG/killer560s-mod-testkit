@@ -5,6 +5,7 @@ import dev.testkit.gametest.SameTick;
 import dev.testkit.gametest.hx.Session;
 import dev.testkit.gametest.mod.Mod;
 import dev.testkit.harness.PacketTrace;
+import dev.testkit.harness.WireCapture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ServerboundClientTickEndPacket;
@@ -131,6 +132,46 @@ final class Ee3RouteGrimCases {
         }
     }
 
+    private static String describe(Object p) {
+        if (p instanceof ServerboundPlayerActionPacket a) {
+            return "dig " + a.getAction();
+        }
+        if (p instanceof ServerboundMovePlayerPacket m) {
+            return m.hasRotation() ? "move rot" : "move";
+        }
+        return p.getClass().getSimpleName();
+    }
+
+    /** From the wire (encoder order): {ticks with a START dig, of those a rotating move after the dig, a move before it}. */
+    private static int[] digTicks() {
+        int[] out = new int[3];
+        boolean dig = false;
+        boolean before = false;
+        boolean after = false;
+        boolean moved = false;
+        for (WireCapture.Sent s : WireCapture.snapshot()) {
+            if (!s.phase().equals("play")) {
+                continue;
+            }
+            String t = s.text();
+            if (t.equals("dig START_DESTROY_BLOCK")) {
+                dig = true;
+                before |= moved;
+            } else if (t.startsWith("move")) {
+                moved = true;
+                after |= dig && t.equals("move rot");
+            } else if (t.equals("ServerboundClientTickEndPacket")) {
+                if (dig) {
+                    out[0]++;
+                    out[1] += after ? 1 : 0;
+                    out[2] += before ? 1 : 0;
+                }
+                dig = before = after = moved = false;
+            }
+        }
+        return out;
+    }
+
     static void run(Session c, SameTick.Act act) throws Exception {
         List<AutoCloseable> undo = new ArrayList<>();
         Path route = DIR.resolve(System.getenv().getOrDefault("KM_EE3_DIR", "candidates")).resolve(ROUTE + ".json");
@@ -211,6 +252,11 @@ final class Ee3RouteGrimCases {
             if (act != null) {
                 st = SameTickCases.start(c, act, LEVER_CLICK);
             }
+            int turns0 = act == SameTick.Act.DIG ? ((Number) Mod.staticCall("util.HandDigAim", "turns")).intValue() : 0;
+            if (act == SameTick.Act.DIG) {
+                WireCapture.describe = Ee3RouteGrimCases::describe;
+                WireCapture.start();
+            }
             // Leave and re-enter HEE2's box: a tp lands him in it, as a leap would.
             TerminalAuraCases.tp(c, 62.5, 132, 139, 72f);
             c.ctx().waitTicks(5);
@@ -262,6 +308,17 @@ final class Ee3RouteGrimCases {
                 c.check(boomAt >= 0, "the BOOM node never sent its tap");
             }
             c.check(ticks.leverAndDig == 0, "a lever click and a dig in one server tick: " + wire);
+            if (act == SameTick.Act.DIG) {
+                // ap3digrot-1109: his dig under AP3's held camera turns the body onto his block, and the movement packet
+                // carrying that look follows the dig in the same tick (GrimAC RotationBreak lends a dig that packet's look).
+                WireCapture.stop();
+                int turned = ((Number) Mod.staticCall("util.HandDigAim", "turns")).intValue() - turns0;
+                int[] w = digTicks();
+                c.note("hand-dig turns " + turned + "; dig ticks " + w[0] + ", with a turned move after the dig " + w[1]
+                        + ", with a move before it " + w[2]);
+                c.check(turned > 0, "his digs under the AP3 walk were never turned for (HandDigAim did not act)");
+                c.check(w[0] > 0 && w[2] == 0, "a dig went after its tick's movement packet: " + w[2] + " of " + w[0]);
+            }
         } finally {
             if (st != null) {
                 SameTick s2 = st;
@@ -270,6 +327,8 @@ final class Ee3RouteGrimCases {
                     return null;
                 });
             }
+            WireCapture.stop();
+            WireCapture.describe = null;
             c.onClient(mc -> {
                 if (PacketTrace.tap == ticks) {
                     PacketTrace.tap = ticks.prev;
