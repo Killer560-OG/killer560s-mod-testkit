@@ -564,8 +564,9 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
                 f.add("did not join with the right password: " + message(ctx) + " / " + screenName(ctx));
                 return;
             }
-            expect(f, facts, "isGuest", ctx.computeOnClient(mc -> ModUnderTest.staticCall(R + "SimState", "isGuest",
-                    new Class<?>[]{Minecraft.class}, new Object[]{mc})), true);
+            // The hello comes a few ticks after the world opens.
+            expect(f, facts, "isGuest", until(ctx, () -> Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(
+                    R + "SimState", "isGuest", new Class<?>[]{Minecraft.class}, new Object[]{mc}))), 200), true);
             CoopSync.put("mp-guest-in", me);
             CoopSync.await(ctx, "mp-admit-checked", 120);
             expect(f, facts, "still connected after the admit window", ctx.computeOnClient(mc -> mc.level != null), true);
