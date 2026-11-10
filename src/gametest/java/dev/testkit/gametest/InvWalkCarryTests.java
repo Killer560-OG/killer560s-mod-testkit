@@ -339,6 +339,30 @@ public class InvWalkCarryTests implements FabricClientGameTest {
         return ctx.computeOnClient(mc -> new float[]{mc.player.getYRot(), mc.player.getXRot()});
     }
 
+    /** The screen's pointer (scaled x, y) and its hovered slot index (null = none), as hover and tooltips read them. */
+    static Object[] pointer(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            var w = mc.getWindow();
+            Object slot = null;
+            if (McCompat.screen(mc) instanceof AbstractContainerScreen<?> s) {
+                Object h = Mod.field(s, "hoveredSlot");
+                slot = h == null ? null : ((net.minecraft.world.inventory.Slot) h).index;
+            }
+            return new Object[]{mc.mouseHandler.getScaledXPos(w), mc.mouseHandler.getScaledYPos(w), slot};
+        });
+    }
+
+    static void tap(ClientGameTestContext ctx, int keyNat) {
+        ctx.getInput().holdKey(keyNat);
+        ctx.waitTicks(2);
+        ctx.getInput().releaseKey(keyNat);
+        ctx.waitTicks(2);
+    }
+
+    static boolean toggled(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(IW, "lookToggled"));
+    }
+
     private static void lookKey(ClientGameTestContext ctx) {
         String nm = "1105-iw-look";
         if (!Mod.isCheat()) {
@@ -360,6 +384,15 @@ public class InvWalkCarryTests implements FabricClientGameTest {
                 ctx.waitTicks(3);
 
                 // Held: the move turns him, the cursor and slots stay, no click.
+                ctx.runOnClient(mc -> {
+                    var s = (AbstractContainerScreen<?>) McCompat.screen(mc);
+                    var sl = s.getMenu().slots.get(20);
+                    double gui = mc.getWindow().getGuiScale();
+                    mouseTo(mc, (((Number) Mod.field(s, "leftPos")).intValue() + sl.x + 8) * gui,
+                            (((Number) Mod.field(s, "topPos")).intValue() + sl.y + 8) * gui);
+                });
+                ctx.waitTicks(3);
+                Object[] seen0 = pointer(ctx);
                 rows.begin();
                 long since = hx.head();
                 double[] cur0 = ctx.computeOnClient(mc -> new double[]{mc.mouseHandler.xpos(), mc.mouseHandler.ypos()});
@@ -375,6 +408,7 @@ public class InvWalkCarryTests implements FabricClientGameTest {
                     ctx.waitTicks(1);
                 }
                 ctx.waitTicks(4);
+                Object[] seen1 = pointer(ctx);
                 float[] l1 = look(ctx);
                 double[] cur1 = ctx.computeOnClient(mc -> new double[]{mc.mouseHandler.xpos(), mc.mouseHandler.ypos()});
                 JsonObject st = state(hx);
@@ -407,6 +441,13 @@ public class InvWalkCarryTests implements FabricClientGameTest {
                                 + "yaw %.2f pitch %.2f (client %.2f %.2f), cursor %s, %d click(s), slots %s, %d turn(s)", dyaw, dpitch,
                         syaw, spitch, l1[0], l1[1], cursorStill ? "still" : "MOVED", clicks, slotsSame ? "unchanged" : "CHANGED",
                         looks1 - looks0), null);
+
+                // invlook-1110: the screen's pointer, its hovered slot and tooltip stay where they were while he looks.
+                rows.begin();
+                boolean frozen = seen0[2] != null && java.util.Arrays.equals(seen0, seen1) && Math.abs(dyaw) > 5;
+                rows.end("look key held: cursor and hovered slot frozen", frozen, String.format(Locale.ROOT,
+                        "before %.1f,%.1f slot %s; looking %.1f,%.1f slot %s; yaw %+.2f", seen0[0], seen0[1], seen0[2], seen1[0],
+                        seen1[1], seen1[2], dyaw), null);
 
                 // Pitch stays inside -90..90 however far the mouse goes; yaw is never wrapped.
                 rows.begin();
@@ -508,9 +549,42 @@ public class InvWalkCarryTests implements FabricClientGameTest {
                 boolean back = Math.abs(rc1[0] - rc0[0] - 50) < 0.01 && r1[0] == r0[0] && r1[1] == r0[1];
                 rows.end("key released: mouse moves the cursor", back, String.format(Locale.ROOT, "cursor moved %+.1f,%+.1f, "
                         + "yaw %+.2f pitch %+.2f", rc1[0] - rc0[0], rc1[1] - rc0[1], r1[0] - r0[0], r1[1] - r0[1]), null);
+
+                // Look Key Mode Toggle (invlook-1110): a press starts looking, the next stops it, closing the menu ends it.
+                rows.begin();
+                ctx.runOnClient(mc -> Mod.set(IW_CFG, "setLookMode", Mod.enumValue(IW_CFG + "$LookMode", "TOGGLE")));
+                tap(ctx, keyNat);
+                boolean on1 = toggled(ctx);
+                Object[] t0 = pointer(ctx);
+                float[] ty0 = look(ctx);
+                for (int i = 0; i < 4; i++) {
+                    nudge(ctx, 40, 0);
+                    ctx.waitTicks(1);
+                }
+                ctx.waitTicks(3);
+                Object[] t1 = pointer(ctx);
+                float turned = look(ctx)[0] - ty0[0];
+                tap(ctx, keyNat);
+                boolean off = !toggled(ctx);
+                float[] ty1 = look(ctx);
+                nudge(ctx, 30, 0);
+                ctx.waitTicks(3);
+                boolean stillAfter = look(ctx)[0] == ty1[0];
+                tap(ctx, keyNat);
+                boolean on2 = toggled(ctx);
+                closeScreen(ctx);
+                ctx.waitTicks(3);
+                boolean closedOff = !toggled(ctx);
+                boolean tog = on1 && turned > 5 && java.util.Arrays.equals(t0, t1) && off && stillAfter && on2 && closedOff;
+                rows.end("look key mode toggle", tog, String.format(Locale.ROOT, "press: on %s, turned %+.2f, pointer %s; press: off "
+                        + "%s, mouse then turns %s; press: on %s; menu closed: off %s", on1, turned, java.util.Arrays.equals(t0, t1)
+                        ? "frozen" : "MOVED", off, stillAfter ? "nothing" : "HIM", on2, closedOff), null);
             } finally {
                 ctx.getInput().releaseKey(keyNat);
-                ctx.runOnClient(mc -> Mod.set(IW_CFG, "setLookKeyCode", -1));
+                ctx.runOnClient(mc -> {
+                    Mod.set(IW_CFG, "setLookKeyCode", -1);
+                    Mod.set(IW_CFG, "setLookMode", Mod.enumValue(IW_CFG + "$LookMode", "HOLD"));
+                });
                 tearDown(ctx, gate);
             }
             rows.finish(nm);
