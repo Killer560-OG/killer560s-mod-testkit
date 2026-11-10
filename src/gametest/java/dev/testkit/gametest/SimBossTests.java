@@ -103,6 +103,7 @@ public class SimBossTests implements FabricClientGameTest {
     private static final String RULES = "1103-boss-rules";
     private static final String CAPTURE = "1104-boss-capture";
     private static final String FRESH = "1108-boss-fresh";
+    private static final String HYPE = "1109-boss-hype";
     private static final String DRAGONS = "1105-boss-dragons";
     private static final String WD = "com.killer560.hub.witherdragons.";
     private static final String ONEHIT = "1105-boss-onehit";
@@ -135,7 +136,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossEe3Route1109.NAME, LIGHTS1109};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, HYPE, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossEe3Route1109.NAME, LIGHTS1109};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -170,6 +171,7 @@ public class SimBossTests implements FabricClientGameTest {
                     case RULES -> rules(ctx, f);
                     case CAPTURE -> capture(ctx, f);
                     case FRESH -> fresh(ctx, f);
+                    case HYPE -> hype(ctx, f);
                     case DRAGONS -> dragons(ctx, f);
                     case ONEHIT -> oneHit(ctx, f);
                     case NOSTRAY -> noStray(ctx, f);
@@ -936,6 +938,49 @@ public class SimBossTests implements FabricClientGameTest {
      * bosssim1108 / coopnet-1110: every instance (and every co-op host) builds his capture, bundled in the jar; a capture
      * file left in the shared store or the config folder changes nothing.
      */
+    // ---------------------------------------------------------------------------------------- 1109-boss-hype
+
+    /** simhype-1109: in the boss fight the Hyperion does not teleport, but its blast still kills what is near him. */
+    private static void hype(ClientGameTestContext ctx, List<String> f) {
+        long mark = start(ctx, "P1", true);
+        if (!waitChat(ctx, mark, "[BOSS] Maxor: WELL! WELL! WELL! LOOK WHO'S HERE!", 40)) {
+            f.add("Maxor's first line never came");
+            return;
+        }
+        Vec3[] pos = new Vec3[2];
+        int[] zombie = new int[2];
+        serverRun(ctx, s -> {
+            var sp = s.getPlayerList().getPlayers().get(0);
+            sp.getInventory().setItem(0, (net.minecraft.world.item.ItemStack) ModUnderTest.staticCall(
+                    "com.killer560.hub.roomsim.SimItems", "build", new Class<?>[]{String.class}, new Object[]{"HYPERION"}));
+            var z = new net.minecraft.world.entity.monster.zombie.Zombie(net.minecraft.world.entity.EntityType.ZOMBIE, sp.level());
+            z.setPos(sp.getX() + 2, sp.getY(), sp.getZ());
+            sp.level().addFreshEntity(z);
+            zombie[0] = z.getId();
+            pos[0] = sp.position();
+        });
+        ctx.runOnClient(mc -> {
+            mc.player.getInventory().setSelectedSlot(0);
+            mc.player.setXRot(0f);
+        });
+        ctx.waitTicks(3);
+        ctx.runOnClient(mc -> mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND));
+        ctx.waitTicks(20);
+        boolean[] dead = new boolean[1];
+        serverRun(ctx, s -> {
+            var sp = s.getPlayerList().getPlayers().get(0);
+            pos[1] = sp.position();
+            var z = sp.level().getEntity(zombie[0]);
+            dead[0] = z == null || !z.isAlive();
+        });
+        println(HYPE, String.format(Locale.US, "hype in the boss: %s -> %s, zombie dead %b", pos[0], pos[1], dead[0]));
+        if (pos[0].distanceTo(pos[1]) > 0.5) {
+            f.add("the Hyperion teleported him in the boss fight: moved " + pos[0].distanceTo(pos[1]));
+        }
+        expect(f, "the blast still killed the zombie 2 blocks away", dead[0], true);
+        cleanup(ctx);
+    }
+
     private static void fresh(ClientGameTestContext ctx, List<String> f) throws Exception {
         java.nio.file.Path shared = ((java.nio.file.Path) ModUnderTest.staticCall("com.killer560.hub.shared.SharedRecords", "root",
                 new Class<?>[0], new Object[0])).resolve("sim-boss").resolve("killer560smod-sim-bossarena.bin");

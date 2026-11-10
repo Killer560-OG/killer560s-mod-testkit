@@ -73,7 +73,7 @@ public class SimWorldTests implements FabricClientGameTest {
 
     private static final String NAME = "64x-sim-world";
     private static final String[] CASES = {"641-sim-pickup", "642-sim-boom-crypts", "643-sim-bat",
-            "644-sim-hype-down", "645-sim-prince-brf", "646-sim-prince-head", "647-sim-lever-bridges", "648-sim-lever-raccoon",
+            "644-sim-hype-down", "1109-sim-hype-forward", "645-sim-prince-brf", "646-sim-prince-head", "647-sim-lever-bridges", "648-sim-lever-raccoon",
             "649-sim-lever-logs", "650-sim-lever-arrowtrap",
             // sim-levers2 (2026-10-12): flicked as the player, every door block must go (no screenshots)
             "856-sim-lever-redstone-warrior", "857-sim-lever-hallway", "858-sim-lever-knight", "859-sim-lever-atlas",
@@ -147,6 +147,7 @@ public class SimWorldTests implements FabricClientGameTest {
                         case "642-sim-boom-crypts" -> caseBoomCrypts(ctx);
                         case "643-sim-bat" -> caseBat(ctx);
                         case "644-sim-hype-down" -> caseHypeDown(ctx);
+                        case "1109-sim-hype-forward" -> caseHypeForward(ctx);
                         case "645-sim-prince-brf" -> casePrinceBrf(ctx);
                         case "646-sim-prince-head" -> casePrinceHead(ctx);
                         case "647-sim-lever-bridges" -> caseLever(ctx, c, "Bridges", new int[]{55, 59, 29},
@@ -568,6 +569,25 @@ public class SimWorldTests implements FabricClientGameTest {
         check(alive == 0, "the straight-down Wither Impact did not kill the mob 2 blocks away");
         check(from.distanceTo(to) < 0.05, String.format(Locale.US,
                 "a straight-down Hyperion moved him %.3f blocks (to his block's center)", from.distanceTo(to)));
+    }
+
+    /** simhype-1109 control: outside the boss the Hyperion still dashes 10 blocks and blasts there. */
+    private void caseHypeForward(ClientGameTestContext ctx) {
+        build(ctx, "Mossy");
+        BlockPos feet = arena(ctx);
+        onServer(ctx, (level, sp) -> {
+            sp.getInventory().setItem(0, (ItemStack) ModUnderTest.staticCall(SIM_ITEMS, "build",
+                    new Class<?>[]{String.class}, new Object[]{"HYPERION"}));
+            return null;
+        });
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+        tp(ctx, feet.getX() + 0.5, feet.getY(), feet.getZ() + 0.5, -90f, 0f);
+        Vec3 from = onServer(ctx, (level, sp) -> sp.position());
+        ctx.runOnClient(mc -> mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND));
+        ctx.waitTicks(20);
+        Vec3 to = onServer(ctx, (level, sp) -> sp.position());
+        say(String.format(Locale.US, "1109 hype forward: moved %.2f", from.distanceTo(to)));
+        check(from.distanceTo(to) > 2.0, "outside the boss the Hyperion did not teleport him (moved " + from.distanceTo(to) + ")");
     }
 
     private static Class<?> enumClass(String name) {
