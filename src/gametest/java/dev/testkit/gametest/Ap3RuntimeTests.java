@@ -67,7 +67,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
     /** Enough for every case in the session: lane() must never wrap. With 32 the 33rd lane (1018-ap3-run-centre) went
      *  back to lane 0, a 248-block teleport into chunks the client no longer had - it fell into them, the server put
      *  it back, and about one run in four Grim set back the case's own hand walk (Simulation .150944, before AP3 ran). */
-    private static final int LANES = 110;
+    private static final int LANES = 170;
     private static final String WAND = "AP3_TEST_WAND";
 
     private static int nextLane;
