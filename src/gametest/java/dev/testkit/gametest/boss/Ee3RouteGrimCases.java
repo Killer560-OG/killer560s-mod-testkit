@@ -28,7 +28,7 @@ import java.util.function.Predicate;
  * (corridor, S2 pit, low-lever platform, Breaker tunnel, walkway to EE3) is rebuilt from his P3 capture as /fill commands
  * ({@code killer560s-mod-logs/ee3route-1109/fills-env.txt}, written by fills.py there; full cubes as stone). Lever Aura
  * flicks both S2 levers (with their "Not Activated" stands) while AP3 holds the walk (leverap3-1109: the off-walk look),
- * the BOOM node sends its Superboom tap and the server then clears gate 2's arch, as Hypixel would; GrimAC must stay
+ * the BOOM node sends its Superboom tap and the server then clears gate 2's arch cells (SimBossTests DOOR_BOX 2), as Hypixel would; GrimAC must stay
  * silent (Session.test) on the default and experimental configs.
  * <ul>
  *   <li>1109-boss-ee3route-grim: the route's Breaker picks cleared before the run.</li>
@@ -218,7 +218,7 @@ final class Ee3RouteGrimCases {
                 if (boomAt < 0 && LogTap.since(mark).stream().anyMatch(l -> l.contains("[AP3] boom #") && l.contains("use sent"))) {
                     boomAt = t;
                     // Hypixel blows gate 2 a tick or two after the Superboom lands; nothing breaks it here on its own.
-                    c.server().command("fill 16 132 128 18 135 136 minecraft:air");
+                    c.server().command("fill 16 115 127 19 136 137 minecraft:air replace minecraft:stone"); // the capture's arch is stone here
                 }
                 if (Math.abs(s[0] - 2.5) <= 1 && Math.abs(s[2] - 105.5) <= 1 && Math.abs(s[1] - 109) <= 1.5 && s[3] > 0) {
                     arrive = t;
@@ -238,12 +238,14 @@ final class Ee3RouteGrimCases {
                 st = null;
                 SameTickCases.judge(c, s2, "ee3 route levers");
             }
-            c.check(t0 >= 0 && arrive >= 0, "the route never reached EE3 (lowest y " + minY + ")");
             c.check(lev[0] && lev[1], "levers low/high powered " + lev[0] + "/" + lev[1]);
             c.check(ticks.lever >= 2, "fewer than two lever clicks on the wire: " + wire);
             c.check(ticks.twoLevers == 0, "two lever clicks in one server tick: " + wire);
-            if (act != SameTick.Act.SWAP) {
+            if (act == null) {
+                // With his action in every tick the route's own end is not this case's question: a right click every tick
+                // holds the Superboom tap (ActionGate), a swap every tick takes the TNT out of his hand.
                 c.check(boomAt >= 0, "the BOOM node never sent its tap");
+                c.check(t0 >= 0 && arrive >= 0, "the route never reached EE3 (lowest y " + minY + ")");
             }
             c.check(ticks.leverAndDig == 0, "a lever click and a dig in one server tick: " + wire);
         } finally {
