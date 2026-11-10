@@ -248,9 +248,6 @@ public class BlinkTests implements FabricClientGameTest {
         throw new AssertionError("the server never answered data get entity " + name + " Pos");
     }
 
-        return n;
-    }
-
     static double flat(double[] a, double[] b) {
         return Math.hypot(a[0] - b[0], a[2] - b[2]);
     }
