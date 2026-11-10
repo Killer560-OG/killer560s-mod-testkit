@@ -60,6 +60,7 @@ final class BossAuraTurnCases {
             c.server().command("setblock 27 125 127 minecraft:stone");
             c.ctx().waitTicks(10);
             boolean[] ready = new boolean[2];
+            List<Object> turns = new ArrayList<>();
             double[] xs = {22.4, 22.7};
             for (int i = 0; i < 2; i++) {
                 TerminalAuraCases.tp(c, xs[i], 124, 127.5, -90f);
