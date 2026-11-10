@@ -51,7 +51,14 @@ final class Align12Cases {
             s.test("1110-align12-same-" + a.name().toLowerCase(Locale.ROOT), c -> run(c, 0.5, true, false, 10 + a.ordinal(), a, false));
         }
         s.test("1110-align12-same-again", c -> run(c, 0.5, true, false, 20, null, true));
+        // The approach-tick steer (killer560 2026-11-10: only while AP3 drives, else only on a tick with no input from him):
+        // carried in by a RUN node (must steer), and walking in himself while his look moves every tick (must not steer).
+        s.test("1110-align12-ap3run", c -> run(c, 0.5, true, false, 30, null, false, Mode.DRIVEN));
+        s.test("1110-align12-mouse-500", c -> run(c, 0.5, true, false, 31, null, false, Mode.MOUSE));
     }
+
+    /** How he comes in: walking himself, carried by AP3's RUN node, or walking himself with the mouse moving every tick. */
+    enum Mode { HAND, DRIVEN, MOUSE }
 
     private static final int ROD_A = 7;
     private static final int ROD_B = 8;
@@ -62,6 +69,11 @@ final class Align12Cases {
 
     /** {@code act}: his action in every tick (null: none); {@code again}: the align is armed a second time while it runs. */
     private static void run(Session c, double speed, boolean sprint, boolean near, long seed, SameTick.Act act, boolean again) {
+        run(c, speed, sprint, near, seed, act, again, Mode.HAND);
+    }
+
+    private static void run(Session c, double speed, boolean sprint, boolean near, long seed, SameTick.Act act, boolean again,
+            Mode mode) {
         ClientGameTestContext ctx = c.ctx();
         c.server().command(String.format(Locale.ROOT, "attribute @p minecraft:movement_speed base set %.2f", speed));
         c.server().sync(20);
@@ -70,7 +82,7 @@ final class Align12Cases {
         double y = FLOOR + 1;
         Random rnd = new Random(1110L * 31 + seed);
         int[] hist = new int[12];
-        int planned = 0, fellBack = 0;
+        int planned = 0, fellBack = 0, steered = 0;
         List<String> fails = new ArrayList<>();
         boolean same = act != null || again;
         int trials = same ? Math.max(4, TRIALS / 2) : TRIALS;
@@ -94,8 +106,8 @@ final class Align12Cases {
                         ROD_A, ROD_B));
             }
             for (int t = 0; t < trials; t++) {
-                double head = (rnd.nextDouble() - 0.5) * 70; // degrees off +x
-                boolean diag = rnd.nextBoolean();
+                double head = mode == Mode.DRIVEN ? 0 : (rnd.nextDouble() - 0.5) * 70; // degrees off +x
+                boolean diag = mode != Mode.DRIVEN && rnd.nextBoolean();
                 double side = (rnd.nextDouble() - 0.5) * 0.9;
                 double dist = near ? 1.2 + rnd.nextDouble() * 1.8 : 6 + rnd.nextDouble() * 3;
                 double hr = Math.toRadians(head);
@@ -109,27 +121,33 @@ final class Align12Cases {
                     Ap3RuntimeTests.staticCallStop();
                     return null;
                 });
-                // DIG: his crosshair on the floor ahead (pitch 60), so his left click digs a block every other tick
-                c.server().command(String.format(Locale.ROOT, "tp @p %.4f %.2f %.4f %.3f %d", sx, y, sz, yaw,
-                        act == SameTick.Act.DIG ? 60 : 0));
-                c.server().sync(20);
-                ctx.waitTicks(10);
                 Object align = node("FAST_ALIGN", tx, tz, 0f, 0f, 1.0, 1.0);
                 set(align, "y", y);
-                onClient(ctx, mc -> {
-                    setChain(align);
-                    return null;
-                });
-                ctx.waitTicks(2);
-                ctx.getInput().holdKey(o -> o.keyUp);
-                if (diag) {
-                    ctx.getInput().holdKey(o -> o.keyLeft);
+                if (mode == Mode.DRIVEN) {
+                    Ap3RuntimeTests.walkIntoRun(c, tz + side, Ap3RuntimeTests.runNode(tz + side), align);
                 }
-                if (sprint) {
-                    ctx.getInput().holdKey(o -> o.keySprint);
+                // DIG: his crosshair on the floor ahead (pitch 60), so his left click digs a block every other tick
+                if (mode != Mode.DRIVEN) {
+                    c.server().command(String.format(Locale.ROOT, "tp @p %.4f %.2f %.4f %.3f %d", sx, y, sz, yaw,
+                            act == SameTick.Act.DIG ? 60 : 0));
+                    c.server().sync(20);
+                    ctx.waitTicks(10);
+                    onClient(ctx, mc -> {
+                        setChain(align);
+                        return null;
+                    });
+                    ctx.waitTicks(2);
+                    ctx.getInput().holdKey(o -> o.keyUp);
+                    if (diag) {
+                        ctx.getInput().holdKey(o -> o.keyLeft);
+                    }
+                    if (sprint) {
+                        ctx.getInput().holdKey(o -> o.keySprint);
+                    }
                 }
                 List<double[]> tr = new ArrayList<>();
-                boolean held = true;
+                boolean held = mode != Mode.DRIVEN;
+                Object runNodeType = mode == Mode.DRIVEN ? "RUN" : null;
                 int armed = -1;
                 for (int i = 0; i < 120; i++) {
                     if (act == SameTick.Act.TP && !held && i % 2 == 0) {
@@ -142,11 +160,19 @@ final class Align12Cases {
                         });
                         rearmed++;
                     }
+                    if (held && mode == Mode.MOUSE) {
+                        onClient(ctx, mc -> {
+                            mc.player.setYRot(mc.player.getYRot() + ((tr.size() & 1) == 0 ? 0.01f : -0.01f)); // his mouse
+                            return null;
+                        });
+                    }
                     ctx.waitTick();
                     double[] r = onClient(ctx, mc -> {
                         Vec3 v = mc.player.getDeltaMovement();
                         Object n = dev.testkit.gametest.mod.Mod.field("ap3.Ap3Executor", "activeNode");
-                        return new double[]{mc.player.getX(), mc.player.getZ(), v.x, v.z, n != null ? 1 : 0};
+                        // 1: the align (or any node of a hand walk-in) is active; a RUN node carrying him in is not the align
+                        boolean on = n != null && (runNodeType == null || !String.valueOf(dev.testkit.gametest.mod.Mod.field(n, "type")).equals("RUN"));
+                        return new double[]{mc.player.getX(), mc.player.getZ(), v.x, v.z, on ? 1 : 0};
                     });
                     tr.add(r);
                     if (held && r[4] == 1) {
@@ -154,7 +180,7 @@ final class Align12Cases {
                         armed = i;
                         release(ctx);
                     }
-                    if (!held && r[4] == 0 && tr.size() > 8 && same(tr, 5)) {
+                    if (!held && r[4] == 0 && tr.size() > 8 && same(tr, 5) && (mode != Mode.DRIVEN || entered(tr, tx, tz))) {
                         break;
                     }
                 }
@@ -174,6 +200,10 @@ final class Align12Cases {
                 boolean stays = done >= 0 && Math.abs(last[0] - tx) < 2e-4 && Math.abs(last[1] - tz) < 2e-4;
                 List<String> plan = lines(mark, "tick-exact plan");
                 List<String> lost = lines(mark, "tick-exact align handed");
+                List<String> steer = lines(mark, "approach tick steered");
+                if (!steer.isEmpty()) {
+                    steered++;
+                }
                 if (!plan.isEmpty()) {
                     planned++;
                 }
@@ -187,7 +217,7 @@ final class Align12Cases {
                 c.note(String.format(Locale.ROOT, "trial %d: heading %+.1f %s side %+.2f from %.1f: entered at sample %d, on the"
                                 + " point and stopped %s; end off (%+.6f, %+.6f)%s%s", t, head, diag ? "W+A" : "W", side, dist,
                         entry, n >= 0 ? n + " tick(s) after entering" : "NEVER", last[0] - tx, last[1] - tz,
-                        plan.isEmpty() ? "; no tick-exact plan" : "; " + tail(plan.get(0)),
+                        plan.isEmpty() ? "; no tick-exact plan" : "; " + tail(plan.get(plan.size() - 1)),
                         lost.isEmpty() ? "" : "; " + tail(lost.get(0))));
                 if (entry < 0) {
                     fails.add("trial " + t + " never entered the block");
@@ -218,8 +248,15 @@ final class Align12Cases {
                 h.append(String.format(Locale.ROOT, " %d-tick %d of %d;", i, hist[i], trials));
             }
         }
-        c.note(String.format(Locale.ROOT, "align12 speed %.1f %s%s: tick-exact plans %d, handed to the regular align %d;%s",
-                speed, sprint ? "sprint" : "walk", near ? " near" : "", planned, fellBack, h));
+        c.note(String.format(Locale.ROOT, "align12 speed %.1f %s%s %s: tick-exact plans %d, approach tick steered %d, handed to the"
+                        + " regular align %d;%s", speed, sprint ? "sprint" : "walk", near ? " near" : "", mode, planned, steered,
+                fellBack, h));
+        if (mode == Mode.DRIVEN) {
+            c.check(steered > 0, "AP3 carried him in and the approach tick was never steered");
+        }
+        if (mode == Mode.MOUSE) {
+            c.check(steered == 0, "the approach tick was steered on a tick his mouse moved (" + steered + " trial(s))");
+        }
         if (st != null) {
             c.note(st.report());
             String why = st.verdict("align12 " + act, false);
@@ -241,6 +278,16 @@ final class Align12Cases {
         ctx.getInput().releaseKey(o -> o.keyUp);
         ctx.getInput().releaseKey(o -> o.keyLeft);
         ctx.getInput().releaseKey(o -> o.keySprint);
+    }
+
+    /** He has been in the 1x1 block around (tx, tz) at some sample. */
+    private static boolean entered(List<double[]> tr, double tx, double tz) {
+        for (double[] r : tr) {
+            if (Math.abs(r[0] - tx) <= 0.5 && Math.abs(r[1] - tz) <= 0.5) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** The last k samples all at the same spot. */
