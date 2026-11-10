@@ -159,6 +159,7 @@ public class CollectionTrackerSuite implements FabricClientGameTest {
             return ModUnderTest.getBoolean(cfg, "isOnlyRecent") + " " + ModUnderTest.call(cfg, "getRecentSeconds", new Class<?>[0], new Object[0]);
         });
         c.check(saved.equals("true 10"), "Only Recent and its window did not survive save and load: " + saved);
+        c.ctx().waitTicks(210); // the earlier cases just gained Wheat; let the 10 s window pass first
         c.check(!lines(c).toString().contains("Wheat") && !lines(c).toString().contains("Mithril"),
                 "Only Recent listed a pick with no gain yet: " + lines(c));
         sack(c, "+100 Wheat (Farming Sack)");
