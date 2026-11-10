@@ -57,8 +57,8 @@ final class LeapRotationCases {
         s.test("1104-leaplook-absolute", c -> run(c, true, false, true));
         // fastleap-guard-0273: 0.27.3 sends a pearl / AOTE teleport with a relative 0/0 look too; his own use of one right
         // after the leap line must not pair with that teleport (the leap above still does)
-        s.test("1110-leaplook-pearl", c -> run(c, true, true, true, "pearl"));
-        s.test("1110-leaplook-aote", c -> run(c, true, true, true, "aote"));
+        s.test("1110-leaplook-pearl", c -> run(c, true, true, false, "pearl"));
+        s.test("1110-leaplook-aote", c -> run(c, true, true, false, "aote"));
         for (Act a : Act.values()) {
             s.test("1105-leaplook-same-" + a.id, c -> sameTick(c, a));
         }
