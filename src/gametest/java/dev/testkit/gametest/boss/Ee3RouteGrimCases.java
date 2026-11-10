@@ -160,7 +160,7 @@ final class Ee3RouteGrimCases {
             c.server().command("item replace entity @p hotbar.6 with minecraft:tnt[minecraft:custom_data={id:\"SUPERBOOM_TNT\"}] 64");
             c.server().command("attribute @p minecraft:movement_speed base set 0.6");
             c.server().sync(30);
-            TerminalAuraCases.tp(c, 60.5, 132, 139, 72f);
+            TerminalAuraCases.tp(c, 62.5, 132, 139, 72f); // beside HEE2: AP3 must not start before the run (a tp under its walk is a Simulation flag)
             c.ctx().waitTicks(10);
             if (act != null) {
                 SameTickCases.sticks(c);
