@@ -893,8 +893,13 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
         ctx.waitTicks(3);
         setBox(ctx, "Room Name", name);
         setBox(ctx, "Password (optional)", pw);
-        for (int i = 0; i < 5 && rowLabel(ctx, "Max Players: " + max) == null; i++) {
-            clickRow(ctx, "Max Players: ");
+        // A 2..5 slider since coopsim-ui-1110: click the track at the value's place (4 stops, knob 6 px wide).
+        double[] box = ctx.computeOnClient(mc -> {
+            AbstractWidget w = first(mc, l -> l.startsWith("Max Players: "));
+            return w == null ? null : new double[]{w.getX(), w.getY() + w.getHeight() / 2.0, w.getWidth()};
+        });
+        if (box != null) {
+            DesignerKit.clickAt(ctx, box[0] + 3 + (box[2] - 6) * (max - 2) / 3.0, box[1], 0);
         }
         expect(f, facts, "Max Players", rowLabel(ctx, "Max Players: "), "Max Players: " + max);
         long mark = LogTap.mark();
