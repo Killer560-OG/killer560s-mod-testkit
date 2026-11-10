@@ -134,8 +134,8 @@ final class AuraThemeCases {
                         "Secret Aura on should show In Rooms, Chests and In Boss: " + both);
                 // the card stands for both
                 Object ms = c.onClient(mc -> Mod.staticCall("gui.FeatureCards", "masterSwitch", tab, (Runnable) () -> { }));
-                c.check(ms != null && ((List<?>) Mod.call(ms, "parts")).size() == 2,
-                        "the Secret Aura card should stand for two switches (Secret Aura, In Boss)");
+                c.check(ms != null && ((List<?>) Mod.call(ms, "parts")).size() == 3,
+                        "the Secret Aura card should stand for three switches (Secret Aura, In Boss, Secret Triggerbot)");
 
                 // migration: a Lever Aura file as it was before the merge
                 Mod.call(cu, "setAuraBossLevers", false);
