@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-10T16:54:22",
- "modSource": "ship22-1110",
- "modGitSha": "b09a21e75b73a2c9134d5b3865dacceabbef5322",
+ "generatedAt": "2026-11-10T17:34:50",
+ "modSource": "ship23-1110",
+ "modGitSha": "cbc0861f42eec4fb58f9eaca3f586afe0ad6ddea",
  "modSourceDirty": false,
  "count": 929,
  "byKind": {
