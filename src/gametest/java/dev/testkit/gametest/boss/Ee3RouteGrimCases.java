@@ -254,6 +254,7 @@ final class Ee3RouteGrimCases {
             if (act != null) {
                 st = SameTickCases.start(c, act, LEVER_CLICK);
             }
+            int holds0 = ((Number) Mod.staticCall("ap3.Ap3Executor", "handHolds")).intValue();
             int turns0 = act == SameTick.Act.DIG ? ((Number) Mod.staticCall("util.HandDigAim", "turns")).intValue() : 0;
             if (act == SameTick.Act.DIG) {
                 WireCapture.describe = Ee3RouteGrimCases::describe;
@@ -312,12 +313,21 @@ final class Ee3RouteGrimCases {
             c.check(dig || lev[1], "the high S2 lever was not powered (low/high " + lev[0] + "/" + lev[1] + ")");
             c.check(dig || ticks.lever >= 1, "no lever click on the wire: " + wire);
             c.check(ticks.twoLevers == 0, "two lever clicks in one server tick: " + wire);
-            if (act == null) {
-                // With his action in every tick the route's own end is not this case's question: a right click every tick
-                // holds the Superboom tap (ActionGate), a swap every tick takes the TNT out of his hand.
-                // grimreach-1110: the route waits at the low S2 lever (out of Grim reach), so the BOOM node is not reached until ap3brute
-                // gives a route that passes it closer; the high lever flick above is the proof the feature acted.
-                c.note("BOOM tap at t" + boomAt);
+            // ap3holddig-1110: his right click or dig in every tick must never stop AP3. grimreach-1110: the route waits at the
+            // low S2 lever while it is out of Grim's 4.5 (or his dig keeps Lever Aura off), so the BOOM and EE3 are only
+            // asked once that lever went; then his act is held one tick and goes. A swap every tick takes the TNT away.
+            List<String> stops = LogTap.since(mark).stream().filter(l -> l.contains("[AP3] Stopped:")).toList();
+            c.check(stops.isEmpty(), "AP3 stopped on the route: " + stops);
+            if (!lev[0]) {
+                c.note("route waits at the low S2 lever; BOOM tap at t" + boomAt);
+            } else if (act != SameTick.Act.SWAP) {
+                c.check(boomAt >= 0, "the BOOM node never sent its tap");
+                c.check(arrive >= 0, "the route never reached EE3 (lowest y " + minY + ")");
+                if (act != null) {
+                    int holds = ((Number) Mod.staticCall("ap3.Ap3Executor", "handHolds")).intValue() - holds0;
+                    c.check(holds > 0, "AP3 never held his hand for its act (" + act + ")");
+                    c.note("hand holds: " + holds);
+                }
             }
             c.check(ticks.leverAndDig == 0, "a lever click and a dig in one server tick: " + wire);
             if (act == SameTick.Act.DIG) {
