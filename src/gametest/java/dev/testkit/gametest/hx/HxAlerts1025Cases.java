@@ -813,6 +813,7 @@ final class HxAlerts1025Cases {
             // (3) a secret item picked up: his own counts, a teammate's does not.
             c.onClient(mc -> {
                 Mod.setField("livemap.LiveMapFeature", "bossLatched", false); // an earlier case left the boss latched: item secrets are not read there
+                Mod.setField("secrets.DungeonState", "bossPhaseActive", false); // ... or the boss phase on (a full hx session leaves it: 3 of 3 gate runs)
                 return null;
             });
             c.onClient(mc -> setSound(cfg, true));
