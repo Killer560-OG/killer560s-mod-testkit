@@ -35,7 +35,8 @@ import java.util.Set;
  */
 final class SimBossEe3Route1109 {
     static final String NAME = "1109-boss-ee3route";
-    private static final Path DIR = Path.of(System.getProperty("user.home"), "killer560s-mod-logs", "ee3route-1109", "candidates");
+    private static final Path DIR = Path.of(System.getProperty("user.home"), "killer560s-mod-logs", "ee3route-1109",
+            System.getenv().getOrDefault("KM_EE3_DIR", "candidates")); // leverap3-1109: a run of its own
     private static final BlockPos LOW = new BlockPos(27, 124, 127);
     private static final BlockPos HIGH = new BlockPos(23, 132, 138);
     private static final double REACH = 4.5;

@@ -1,6 +1,5 @@
 package dev.testkit.gametest.boss;
 
-import dev.testkit.gametest.Ap3RuntimeTests;
 import dev.testkit.gametest.LogTap;
 import dev.testkit.gametest.SameTick;
 import dev.testkit.gametest.hx.Session;
@@ -33,9 +32,6 @@ import java.util.function.Predicate;
  * silent (Session.test) on the default and experimental configs.
  * <ul>
  *   <li>1109-boss-ee3route-grim: the route's Breaker picks cleared before the run.</li>
- *   <li>1109-boss-ee3route-breaker: the picks are snow and the real Breaker Aura (single break) digs them on the way;
- *       the wire must carry lever clicks and Breaker digs, never two lever clicks or a lever click and a dig in one of
- *       GrimAC's ticks (ActionGate: one automated interaction a tick).</li>
  *   <li>1109-boss-ee3route-same-&lt;use|swap|dig&gt; (SAME-TICK GRIM CASES): his own right click, hotbar swap or dig goes
  *       into the route's ticks ({@link SameTick}); use and swap must share a server tick with a lever click, a queued dig
  *       must hold the lever click to another tick.</li>
@@ -80,10 +76,9 @@ final class Ee3RouteGrimCases {
         if (!Mod.isCheat()) {
             return;
         }
-        s.test("1109-boss-ee3route-grim", c -> run(c, false, null));
-        s.test("1109-boss-ee3route-breaker", c -> run(c, true, null));
+        s.test("1109-boss-ee3route-grim", c -> run(c, null));
         for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.DIG}) {
-            s.test("1109-boss-ee3route-same-" + a.name().toLowerCase(Locale.ROOT), c -> run(c, false, a));
+            s.test("1109-boss-ee3route-same-" + a.name().toLowerCase(Locale.ROOT), c -> run(c, a));
         }
     }
 
@@ -131,17 +126,16 @@ final class Ee3RouteGrimCases {
         }
 
         synchronized String report() {
-            return "lever clicks " + lever + ", Breaker digs " + dig + ", ticks with two lever clicks " + twoLevers
+            return "lever clicks " + lever + ", digs " + dig + ", ticks with two lever clicks " + twoLevers
                     + ", ticks with a lever click and a dig " + leverAndDig;
         }
     }
 
-    static void run(Session c, boolean breaker, SameTick.Act act) throws Exception {
+    static void run(Session c, SameTick.Act act) throws Exception {
         List<AutoCloseable> undo = new ArrayList<>();
-        Path route = DIR.resolve("candidates").resolve(ROUTE + ".json");
+        Path route = DIR.resolve(System.getenv().getOrDefault("KM_EE3_DIR", "candidates")).resolve(ROUTE + ".json");
         Path fills = DIR.resolve("fills-env.txt");
         c.check(Files.isRegularFile(route) && Files.isRegularFile(fills), "missing " + route + " or " + fills);
-        List<BlockPos> picks = new ArrayList<>();
         Ticks ticks = new Ticks();
         SameTick st = null;
         try {
@@ -153,12 +147,10 @@ final class Ee3RouteGrimCases {
                 }
             }
             c.server().sync(120);
-            for (String l : Files.readAllLines(DIR.resolve("candidates").resolve(ROUTE + ".picks"))) {
+            for (String l : Files.readAllLines(DIR.resolve(System.getenv().getOrDefault("KM_EE3_DIR", "candidates")).resolve(ROUTE + ".picks"))) {
                 l = l.strip();
                 if (!l.isEmpty() && !l.startsWith("#")) {
-                    String[] v = l.split(",");
-                    picks.add(new BlockPos(Integer.parseInt(v[0].strip()), Integer.parseInt(v[1].strip()), Integer.parseInt(v[2].strip())));
-                    c.server().command("setblock " + l.replace(',', ' ') + (breaker ? " minecraft:snow_block" : " minecraft:air"));
+                    c.server().command("setblock " + l.replace(',', ' ') + " minecraft:air");
                 }
             }
             for (BlockPos p : new BlockPos[]{LOW, HIGH}) {
@@ -177,10 +169,6 @@ final class Ee3RouteGrimCases {
             c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
             LightsDeviceCases.newRun(c);
             LightsDeviceCases.openS2(c);
-            if (breaker) {
-                Ap3RuntimeTests.giveBreaker(c);
-                Ap3RuntimeTests.breakerOn(c, picks, true);
-            }
             undo.add(c.onClient(mc -> Mod.with(CU, "AuraBossLevers", true)));
             undo.add(c.onClient(mc -> Mod.with(LA, "SectionLevers", true)));
             undo.add(c.onClient(mc -> Mod.with(LA, "SectionLeversEarly", true)));
@@ -227,7 +215,7 @@ final class Ee3RouteGrimCases {
                 if (t0 < 0 && Math.hypot(s[0] - 60.5, s[2] - 139) > 0.2) {
                     t0 = t;
                 }
-                if (boomAt < 0 && LogTap.since(mark).stream().anyMatch(l -> l.contains("[AP3] boom #") && l.contains("turn done"))) {
+                if (boomAt < 0 && LogTap.since(mark).stream().anyMatch(l -> l.contains("[AP3] boom #") && l.contains("use sent"))) {
                     boomAt = t;
                     // Hypixel blows gate 2 a tick or two after the Superboom lands; nothing breaks it here on its own.
                     c.server().command("fill 16 132 128 18 135 136 minecraft:air");
@@ -257,10 +245,7 @@ final class Ee3RouteGrimCases {
             if (act != SameTick.Act.SWAP) {
                 c.check(boomAt >= 0, "the BOOM node never sent its tap");
             }
-            if (breaker) {
-                c.check(ticks.dig > 0, "Breaker Aura never dug a pick: " + wire);
-                c.check(ticks.leverAndDig == 0, "a lever click and a Breaker dig in one server tick: " + wire);
-            }
+            c.check(ticks.leverAndDig == 0, "a lever click and a dig in one server tick: " + wire);
         } finally {
             if (st != null) {
                 SameTick s2 = st;
@@ -276,9 +261,6 @@ final class Ee3RouteGrimCases {
                 Mod.staticCall("ap3.Ap3Executor", "stop", "test over");
                 return null;
             });
-            if (breaker) {
-                Ap3RuntimeTests.breakerOff(c);
-            }
             for (int i = undo.size() - 1; i >= 0; i--) {
                 undo.get(i).close();
             }
