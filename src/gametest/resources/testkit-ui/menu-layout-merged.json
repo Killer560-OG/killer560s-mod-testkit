@@ -1006,6 +1006,18 @@
       "key": "wither dragons",
       "text": "Tracks the five M7 Phase 5 dragons with spawn timers, health and which one to take (the first to spawn).",
       "why": "dragons1108 (killer560 2026-11-08): priority is the first dragon to spawn, as Odin and NoammAddons do now"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "auto close chest",
+      "text": "Closes a dungeon secret chest: with Close On Any Key, the first key or mouse press you make closes it (read the loot first); the cheat build can also close it before it opens.",
+      "why": "autoclose-1109: the card text follows the rewritten tooltip (found by nobosspearl-1110, failed on origin too)"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "wither dragons",
+      "text": "Tracks the five M7 Phase 5 dragons with spawn timers, health and which one to take (the first to spawn).",
+      "why": "dragons1108: the card text follows the first-to-spawn rule (found by nobosspearl-1110, failed on origin too)"
     }
   ]
 }
