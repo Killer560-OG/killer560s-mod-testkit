@@ -219,8 +219,10 @@ final class Ee3RouteGrimCases {
             undo.add(c.onClient(mc -> Mod.with(LA, "SectionLevers", true)));
             undo.add(c.onClient(mc -> Mod.with(LA, "SectionLeversEarly", true)));
             undo.add(c.onClient(mc -> Mod.with(LA, "Range", 4.5)));
-            undo.add(c.onClient(mc -> Mod.with(LA, "CooldownMs", 50)));
+            undo.add(c.onClient(mc -> Mod.with(LA, "CooldownMs", Integer.parseInt(System.getenv().getOrDefault("KM_LEVER_CD", "50")))));
             undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Enabled", true)));
+            // killer560's own AP3 setting (26.3 killer560smod-ap3-settings.json): 45 Degree Strafe ON (W+A/D, 1.00 speed).
+            undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Strafe45", true)));
             c.onClient(mc -> {
                 try {
                     Mod.staticCall("ap3.Ap3Executor", "stop", "test lane");
@@ -286,6 +288,7 @@ final class Ee3RouteGrimCases {
                 if (s[1] < 107.5) {
                     // Off the route into the lava (y 106): out at once, or the burning fall draws Simulation flags that the
                     // next case is blamed for. Where this route ends in the hx world is the route's question, not this case's.
+                    c.note(String.format(Locale.ROOT, "fell into the lava at t%d (rel %d) at %.2f %.2f %.2f", t, t - t0, s[0], s[1], s[2]));
                     TerminalAuraCases.tp(c, 62.5, 132, 139, 72f);
                     break;
                 }
