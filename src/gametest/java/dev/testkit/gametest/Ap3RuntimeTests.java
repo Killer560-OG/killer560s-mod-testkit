@@ -454,12 +454,18 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         // place that instead of the slab, with no slot change to judge.
         c.server().command("kill @e[type=item]");
         c.server().command("item replace entity @p hotbar.0 with minecraft:air");
+        // After a long teleport (the 1027 S2EE3 and boss-floor cases sit far from the lanes) the client does not have the
+        // lane's chunks yet, and standing in them while they arrive drew GrimAC Simulation .150944 before AP3 ran
+        // (1027-ap3-close-terminal after 1027-ap3-s2ee3-leapin-low, every full 63-ap3 group, ap3grp-1109). Such a jump
+        // goes in spectator, which Grim does not simulate, and he is put back in his mode once every chunk is in.
+        String mode = onClient(ctx, mc -> mc.level.hasChunkAt(net.minecraft.core.BlockPos.containing(LANE_X0 + 0.5, FLOOR, z))
+                ? null : mc.gameMode.getPlayerMode().name().toLowerCase(Locale.ROOT));
+        if (mode != null) {
+            c.server().command("gamemode spectator @p");
+        }
         c.server().command(String.format(Locale.ROOT, "tp @p %.2f %d %.2f -90 0", LANE_X0 + 0.5, FLOOR + 1, z));
         c.server().sync(20);
         ctx.waitTicks(15);
-        // After a long teleport (the 1027 S2EE3 and boss-floor cases sit far from the lanes) the client may not have the
-        // lane's chunks yet: walking onto one it lacks drew GrimAC Simulation .150944 on the hand walk, before AP3 ran
-        // (1027-ap3-close-terminal on 26.2, ship2 and ap3-s2ee3-262-1027). Wait until every chunk of the lane is in.
         c.waitUntil("the lane's chunks on the client", mc -> {
             for (int x = LANE_X0 - 8; x <= LANE_X0 + LANE_LEN + 8; x += 8) {
                 if (!mc.level.hasChunkAt(new net.minecraft.core.BlockPos(x, FLOOR, (int) Math.floor(z)))) {
@@ -468,6 +474,11 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             }
             return true;
         }, 200);
+        if (mode != null) {
+            c.server().command("gamemode " + mode + " @p");
+            c.server().sync(20);
+            ctx.waitTicks(10);
+        }
         ctx.waitTicks(5);
         Object[] all = new Object[rest.length + 1];
         all[0] = run;
