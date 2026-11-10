@@ -1443,7 +1443,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
     }
 
     /** Breaker Aura on for these picks (single break, no Zero Ping), the dungeon gate opened by the mod's own sim toggle. */
-    private static void breakerOn(Session c, List<net.minecraft.core.BlockPos> picks, boolean autoSwap) {
+    public static void breakerOn(Session c, List<net.minecraft.core.BlockPos> picks, boolean autoSwap) {
         String failed = onClient(c.ctx(), mc -> {
             Object cfg = ModUnderTest.config(DX);
             ModUnderTest.set(cfg, "setBreakerAuraEnabled", true);
@@ -1477,7 +1477,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         }
     }
 
-    private static void breakerOff(Session c) {
+    public static void breakerOff(Session c) {
         try {
             onClient(c.ctx(), mc -> {
                 probePicks = List.of();
@@ -1499,7 +1499,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
     }
 
     /** The Dungeon Breaker in hotbar index BREAKER_SLOT, Efficiency V under Haste V so snow goes in one dig. */
-    private static void giveBreaker(Session c) {
+    public static void giveBreaker(Session c) {
         ClientGameTestContext ctx = c.ctx();
         c.hx().give(BREAKER_SLOT, "minecraft:diamond_shovel[custom_data={id:\"DUNGEONBREAKER\"},unbreakable={},"
                 + "lore=[{text:\"Charges: 9999/9999\",italic:false}]]");

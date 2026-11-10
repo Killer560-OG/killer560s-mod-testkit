@@ -1,9 +1,17 @@
 package dev.testkit.gametest.boss;
 
+import dev.testkit.gametest.Ap3RuntimeTests;
 import dev.testkit.gametest.LogTap;
+import dev.testkit.gametest.SameTick;
 import dev.testkit.gametest.hx.Session;
 import dev.testkit.gametest.mod.Mod;
+import dev.testkit.harness.PacketTrace;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ServerboundClientTickEndPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
 import net.minecraft.world.level.block.LeverBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -13,14 +21,25 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /**
  * 1109-boss-ee3route-grim (ee3route-1109): the HEE2 -> EE3 route file {@code fastest.json} on GrimAC. The stretch's map
  * (corridor, S2 pit, low-lever platform, Breaker tunnel, walkway to EE3) is rebuilt from his P3 capture as /fill commands
- * ({@code killer560s-mod-logs/ee3route-1109/fills-env.txt}, written by fills.py there; full cubes as stone). The route's
- * Breaker picks are cleared before the run (his rule: "assume that breaker is working as intended"; Breaker Aura's own
- * Grim tests cover its digs). Lever Aura flicks both S2 levers (with their "Not Activated" stands) and the BOOM node sends
- * its Superboom tap; GrimAC must stay silent (Session.test) on the default and experimental configs.
+ * ({@code killer560s-mod-logs/ee3route-1109/fills-env.txt}, written by fills.py there; full cubes as stone). Lever Aura
+ * flicks both S2 levers (with their "Not Activated" stands) while AP3 holds the walk (leverap3-1109: the off-walk look),
+ * the BOOM node sends its Superboom tap and the server then clears gate 2's arch, as Hypixel would; GrimAC must stay
+ * silent (Session.test) on the default and experimental configs.
+ * <ul>
+ *   <li>1109-boss-ee3route-grim: the route's Breaker picks cleared before the run.</li>
+ *   <li>1109-boss-ee3route-breaker: the picks are snow and the real Breaker Aura (single break) digs them on the way;
+ *       the wire must carry lever clicks and Breaker digs, never two lever clicks or a lever click and a dig in one of
+ *       GrimAC's ticks (ActionGate: one automated interaction a tick).</li>
+ *   <li>1109-boss-ee3route-same-&lt;use|swap|dig&gt; (SAME-TICK GRIM CASES): his own right click, hotbar swap or dig goes
+ *       into the route's ticks ({@link SameTick}); use and swap must share a server tick with a lever click, a queued dig
+ *       must hold the lever click to another tick.</li>
+ * </ul>
  */
 final class Ee3RouteGrimCases {
 
@@ -30,6 +49,29 @@ final class Ee3RouteGrimCases {
     private static final BlockPos HIGH = new BlockPos(23, 132, 138);
     private static final String CU = "cheatutils.CheatUtilsConfig";
     private static final String LA = "leveraura.LeverAuraConfig";
+    private static final Predicate<Packet<?>> LEVER_CLICK = p -> p instanceof ServerboundUseItemOnPacket u
+            && (hitPos(u).equals(LOW) || hitPos(u).equals(HIGH));
+    /** The clicked block (26.3's record accessor is hitResult(), 26.2's getHitResult()). */
+    private static final java.lang.reflect.Method HIT = hitMethod();
+
+    private static java.lang.reflect.Method hitMethod() {
+        for (String n : new String[]{"hitResult", "getHitResult"}) {
+            try {
+                return ServerboundUseItemOnPacket.class.getMethod(n);
+            } catch (NoSuchMethodException e) {
+                // the other name
+            }
+        }
+        throw new AssertionError("no hit result accessor on ServerboundUseItemOnPacket");
+    }
+
+    private static BlockPos hitPos(ServerboundUseItemOnPacket u) {
+        try {
+            return ((net.minecraft.world.phys.BlockHitResult) HIT.invoke(u)).getBlockPos();
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
 
     private Ee3RouteGrimCases() {
     }
@@ -38,7 +80,11 @@ final class Ee3RouteGrimCases {
         if (!Mod.isCheat()) {
             return;
         }
-        s.test("1109-boss-ee3route-grim", Ee3RouteGrimCases::run);
+        s.test("1109-boss-ee3route-grim", c -> run(c, false, null));
+        s.test("1109-boss-ee3route-breaker", c -> run(c, true, null));
+        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.DIG}) {
+            s.test("1109-boss-ee3route-same-" + a.name().toLowerCase(Locale.ROOT), c -> run(c, false, a));
+        }
     }
 
     private static boolean powered(net.minecraft.client.Minecraft mc, BlockPos p) {
@@ -46,11 +92,58 @@ final class Ee3RouteGrimCases {
         return st.getBlock() instanceof LeverBlock && st.getValue(LeverBlock.POWERED);
     }
 
-    static void run(Session c) throws Exception {
+    /** GrimAC's ticks on the wire (a movement packet, or client_tick_end with none before it): lever clicks and digs. */
+    private static final class Ticks implements Consumer<Packet<?>> {
+        final Consumer<Packet<?>> prev = PacketTrace.tap;
+        int lever;
+        int dig;
+        int twoLevers;
+        int leverAndDig;
+        int curLever;
+        int curDig;
+        boolean moved;
+
+        @Override
+        public synchronized void accept(Packet<?> p) {
+            if (prev != null) {
+                prev.accept(p);
+            }
+            if (LEVER_CLICK.test(p)) {
+                lever++;
+                curLever++;
+            } else if (p instanceof ServerboundPlayerActionPacket a
+                    && a.getAction() == ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK) {
+                dig++;
+                curDig++;
+            }
+            boolean end = p instanceof ServerboundMovePlayerPacket || (p instanceof ServerboundClientTickEndPacket && !moved);
+            if (p instanceof ServerboundMovePlayerPacket) {
+                moved = true;
+            } else if (p instanceof ServerboundClientTickEndPacket) {
+                moved = false;
+            }
+            if (end) {
+                twoLevers += curLever > 1 ? 1 : 0;
+                leverAndDig += curLever > 0 && curDig > 0 ? 1 : 0;
+                curLever = 0;
+                curDig = 0;
+            }
+        }
+
+        synchronized String report() {
+            return "lever clicks " + lever + ", Breaker digs " + dig + ", ticks with two lever clicks " + twoLevers
+                    + ", ticks with a lever click and a dig " + leverAndDig;
+        }
+    }
+
+    static void run(Session c, boolean breaker, SameTick.Act act) throws Exception {
         List<AutoCloseable> undo = new ArrayList<>();
         Path route = DIR.resolve("candidates").resolve(ROUTE + ".json");
         Path fills = DIR.resolve("fills-env.txt");
         c.check(Files.isRegularFile(route) && Files.isRegularFile(fills), "missing " + route + " or " + fills);
+        List<BlockPos> picks = new ArrayList<>();
+        Ticks ticks = new Ticks();
+        SameTick st = null;
         try {
             c.server().command("forceload add -2 100 63 146");
             c.server().sync(30);
@@ -63,7 +156,9 @@ final class Ee3RouteGrimCases {
             for (String l : Files.readAllLines(DIR.resolve("candidates").resolve(ROUTE + ".picks"))) {
                 l = l.strip();
                 if (!l.isEmpty() && !l.startsWith("#")) {
-                    c.server().command("setblock " + l.replace(',', ' ') + " minecraft:air");
+                    String[] v = l.split(",");
+                    picks.add(new BlockPos(Integer.parseInt(v[0].strip()), Integer.parseInt(v[1].strip()), Integer.parseInt(v[2].strip())));
+                    c.server().command("setblock " + l.replace(',', ' ') + (breaker ? " minecraft:snow_block" : " minecraft:air"));
                 }
             }
             for (BlockPos p : new BlockPos[]{LOW, HIGH}) {
@@ -75,10 +170,17 @@ final class Ee3RouteGrimCases {
             c.server().sync(30);
             TerminalAuraCases.tp(c, 60.5, 132, 139, 72f);
             c.ctx().waitTicks(10);
+            if (act != null) {
+                SameTickCases.sticks(c);
+            }
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
             c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
             LightsDeviceCases.newRun(c);
             LightsDeviceCases.openS2(c);
+            if (breaker) {
+                Ap3RuntimeTests.giveBreaker(c);
+                Ap3RuntimeTests.breakerOn(c, picks, true);
+            }
             undo.add(c.onClient(mc -> Mod.with(CU, "AuraBossLevers", true)));
             undo.add(c.onClient(mc -> Mod.with(LA, "SectionLevers", true)));
             undo.add(c.onClient(mc -> Mod.with(LA, "SectionLeversEarly", true)));
@@ -102,12 +204,20 @@ final class Ee3RouteGrimCases {
             c.ctx().waitTicks(5);
             c.check(c.onClient(mc -> !powered(mc, LOW) && !powered(mc, HIGH)), "an S2 lever was already on before the run");
             long mark = LogTap.mark();
+            c.onClient(mc -> {
+                PacketTrace.tap = ticks;
+                return null;
+            });
+            if (act != null) {
+                st = SameTickCases.start(c, act, LEVER_CLICK);
+            }
             // Leave and re-enter HEE2's box: a tp lands him in it, as a leap would.
             TerminalAuraCases.tp(c, 62.5, 132, 139, 72f);
             c.ctx().waitTicks(5);
             TerminalAuraCases.tp(c, 60.5, 132, 139, 72f);
             int t0 = -1;
             int arrive = -1;
+            int boomAt = -1;
             double minY = 999;
             for (int t = 0; t < 400 && arrive < 0; t++) {
                 c.ctx().waitTick();
@@ -116,6 +226,11 @@ final class Ee3RouteGrimCases {
                 minY = Math.min(minY, s[1]);
                 if (t0 < 0 && Math.hypot(s[0] - 60.5, s[2] - 139) > 0.2) {
                     t0 = t;
+                }
+                if (boomAt < 0 && LogTap.since(mark).stream().anyMatch(l -> l.contains("[AP3] boom #") && l.contains("turn done"))) {
+                    boomAt = t;
+                    // Hypixel blows gate 2 a tick or two after the Superboom lands; nothing breaks it here on its own.
+                    c.server().command("fill 16 132 128 18 135 136 minecraft:air");
                 }
                 if (Math.abs(s[0] - 2.5) <= 1 && Math.abs(s[2] - 105.5) <= 1 && Math.abs(s[1] - 109) <= 1.5 && s[3] > 0) {
                     arrive = t;
@@ -126,22 +241,44 @@ final class Ee3RouteGrimCases {
             }
             c.ctx().waitTicks(20);
             boolean[] lev = c.onClient(mc -> new boolean[]{powered(mc, LOW), powered(mc, HIGH)});
-            boolean boomSent = false;
-            for (String l : LogTap.since(mark)) {
-                if (l.contains("[AP3] boom #") && l.contains("turn done")) {
-                    boomSent = true;
-                }
+            String wire = ticks.report();
+            c.note(String.format(Locale.ROOT, "route %s: left HEE2 t%d, at EE3 t%d (%d ticks), levers low/high %s/%s, boom t%d,"
+                            + " lowest y %.2f; wire: %s", ROUTE, t0, arrive, arrive < 0 || t0 < 0 ? -1 : arrive - t0, lev[0], lev[1],
+                    boomAt < 0 || t0 < 0 ? -1 : boomAt - t0, minY, wire));
+            if (st != null) {
+                SameTick s2 = st;
+                st = null;
+                SameTickCases.judge(c, s2, "ee3 route levers");
             }
-            c.note(String.format(Locale.ROOT, "route %s: left HEE2 t%d, at EE3 t%d (%d ticks), levers low/high %s/%s, boom tap %s,"
-                    + " lowest y %.2f", ROUTE, t0, arrive, arrive < 0 || t0 < 0 ? -1 : arrive - t0, lev[0], lev[1], boomSent, minY));
             c.check(t0 >= 0 && arrive >= 0, "the route never reached EE3 (lowest y " + minY + ")");
             c.check(lev[0] && lev[1], "levers low/high powered " + lev[0] + "/" + lev[1]);
-            c.check(boomSent, "the BOOM node never sent its tap");
+            c.check(ticks.lever >= 2, "fewer than two lever clicks on the wire: " + wire);
+            c.check(ticks.twoLevers == 0, "two lever clicks in one server tick: " + wire);
+            if (act != SameTick.Act.SWAP) {
+                c.check(boomAt >= 0, "the BOOM node never sent its tap");
+            }
+            if (breaker) {
+                c.check(ticks.dig > 0, "Breaker Aura never dug a pick: " + wire);
+                c.check(ticks.leverAndDig == 0, "a lever click and a Breaker dig in one server tick: " + wire);
+            }
         } finally {
+            if (st != null) {
+                SameTick s2 = st;
+                c.onClient(mc -> {
+                    s2.close();
+                    return null;
+                });
+            }
             c.onClient(mc -> {
+                if (PacketTrace.tap == ticks) {
+                    PacketTrace.tap = ticks.prev;
+                }
                 Mod.staticCall("ap3.Ap3Executor", "stop", "test over");
                 return null;
             });
+            if (breaker) {
+                Ap3RuntimeTests.breakerOff(c);
+            }
             for (int i = undo.size() - 1; i >= 0; i--) {
                 undo.get(i).close();
             }

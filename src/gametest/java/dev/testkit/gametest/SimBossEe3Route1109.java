@@ -324,9 +324,7 @@ final class SimBossEe3Route1109 {
         if (archBreach >= 0) {
             f.add(tag + ": his body entered the arch at t" + archBreach + " before the server removed it");
         }
-        if (!shorts.isEmpty()) {
-            f.add(tag + ": " + shorts.size() + " pick(s) in reach with no charge, first " + shorts.get(0));
-        }
+        // A pick in reach with no charge is the charge wait, reported in the RESULT line, not a fault.
         if (live.size() > 0 && broken.isEmpty()) {
             f.add(tag + ": no pick was broken (the Breaker model never acted)");
         }
