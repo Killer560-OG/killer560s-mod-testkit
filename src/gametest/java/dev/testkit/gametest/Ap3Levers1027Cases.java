@@ -76,5 +76,9 @@ final class Ap3Levers1027Cases {
         c.note("look " + off + " degrees off the lever: " + r[1] + "; lever powered after the click: " + powered);
         c.server().command(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:air", lever.getX(), FLOOR + 1, zc,
                 post.getX(), FLOOR + 3, zc));
+        // A click this far off draws RotationPlace on purpose; drain GrimAC's buffer so the cases after it are judged clean.
+        if (off >= 30) {
+            Ap3RuntimeTests.drainRotationPlace(ctx, c);
+        }
     }
 }

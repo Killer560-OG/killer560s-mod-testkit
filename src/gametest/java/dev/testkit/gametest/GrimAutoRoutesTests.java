@@ -1223,7 +1223,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * One plain dig by hand (the breaker in hand, attack pressed with the look already on a snow block) before a case
      * whose first dig is turned at the movement packet. A fresh server's first dig takes it longer than GrimAC's 15 ms to
      * process, so a turned dig as the session's first draws RotationBreak post-flying, then pre-flying on every later one
-     * (the place version: Ap3RuntimeTests.warmPlaces). Run alone, 62-argrim-breaker drew 36 that way on 26.3.
+     * (the place version: Ap3RuntimeTests.plainPlaces). Run alone, 62-argrim-breaker drew 36 that way on 26.3.
      */
     private static void warmDig(ClientGameTestContext ctx) {
         setBlocks(ctx, Map.of(new int[]{13, F, 6}, "minecraft:snow_block"));
