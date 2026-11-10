@@ -308,6 +308,17 @@ public class InvWalkCarryTests implements FabricClientGameTest {
 
     // ============================================================================================== 1105-iw-look
 
+    /** The field MouseHandler.onMove moves (xpos()/ypos() read the menu's frozen spot while the Look Key is held). */
+    static double rawPos(MouseHandler mh, String field) {
+        try {
+            var f = MouseHandler.class.getDeclaredField(field);
+            f.setAccessible(true);
+            return f.getDouble(mh);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("MouseHandler." + field + ": " + e);
+        }
+    }
+
     /** MouseHandler.onMove by reflection: (long, x, y, dx, dy) on 26.3, (long, x, y) on 26.2 - the real mouse path. */
     public static void mouseTo(Minecraft mc, double x, double y) {
         try {
@@ -317,7 +328,7 @@ public class InvWalkCarryTests implements FabricClientGameTest {
                     m.setAccessible(true);
                     long w = mc.getWindow().handle();
                     if (m.getParameterCount() == 5) {
-                        m.invoke(mh, w, x, y, x - mh.xpos(), y - mh.ypos());
+                        m.invoke(mh, w, x, y, x - rawPos(mh, "xpos"), y - rawPos(mh, "ypos"));
                     } else {
                         m.invoke(mh, w, x, y);
                     }
@@ -332,7 +343,7 @@ public class InvWalkCarryTests implements FabricClientGameTest {
 
     /** One mouse move of (dx, dy) window units from where the cursor is, on the client thread. */
     static void nudge(ClientGameTestContext ctx, double dx, double dy) {
-        ctx.runOnClient(mc -> mouseTo(mc, mc.mouseHandler.xpos() + dx, mc.mouseHandler.ypos() + dy));
+        ctx.runOnClient(mc -> mouseTo(mc, rawPos(mc.mouseHandler, "xpos") + dx, rawPos(mc.mouseHandler, "ypos") + dy));
     }
 
     static float[] look(ClientGameTestContext ctx) {
@@ -467,7 +478,7 @@ public class InvWalkCarryTests implements FabricClientGameTest {
                 rows.begin();
                 since = hx.head();
                 ctx.runOnClient(mc -> {
-                    mouseTo(mc, mc.mouseHandler.xpos() + 60, mc.mouseHandler.ypos());
+                    mouseTo(mc, rawPos(mc.mouseHandler, "xpos") + 60, rawPos(mc.mouseHandler, "ypos"));
                     var m = mc.player.containerMenu;
                     mc.gameMode.handleContainerInput(m.containerId, 10, 0, net.minecraft.world.inventory.ContainerInput.QUICK_MOVE,
                             mc.player);
@@ -502,7 +513,7 @@ public class InvWalkCarryTests implements FabricClientGameTest {
                 rows.begin();
                 since = hx.head();
                 ctx.runOnClient(mc -> {
-                    mouseTo(mc, mc.mouseHandler.xpos() + 60, mc.mouseHandler.ypos() + 10);
+                    mouseTo(mc, rawPos(mc.mouseHandler, "xpos") + 60, rawPos(mc.mouseHandler, "ypos") + 10);
                     McCompat.screen(mc).onClose();
                 });
                 ctx.waitTicks(10);
