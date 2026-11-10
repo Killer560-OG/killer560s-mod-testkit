@@ -1482,7 +1482,9 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         scenario.log(name + ": " + st.report() + "; all picks gone " + gone + ", MultiBreak replay "
                                 + (replay.isEmpty() ? "clean" : replay) + ", digs "
                                 + dev.testkit.harness.MultiBreakWatch.digs().size());
-                        if (!gone) {
+                        // Burst flags newest Grim by design (owner exception): experimental MultiBreak cancels the extra digs of
+                        // a burst that shares its tick with his action, so the picks stay; the dig reaching the wire is checked below.
+                        if (!gone && !(burst && dev.testkit.gametest.boss.AaFastCases.experimentalChecks())) {
                             throw new AssertionError("not every pick broke - the aura did not act");
                         }
                         if (st.done() == 0 || st.playerWindows() == 0 || st.featureWindows() == 0) {
