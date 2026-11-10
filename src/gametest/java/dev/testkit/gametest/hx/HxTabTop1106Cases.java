@@ -7,8 +7,8 @@ import java.awt.image.BufferedImage;
 /**
  * Tab on top (mod branch tabtop-1106, killer560 2026-11-06: "tab should always go over any other thing on screen"):
  * <ul>
- *   <li>1106-tabtop-order: the player list is drawn after every mod HUD layer. Dark Mode's Tint HUD is the mod's last
- *       layer; with the list shown, its white text pixels must come through untinted (the old jar tinted them).</li>
+ *   <li>1106-tabtop-order: the player list is drawn after every mod HUD layer. With Dark Mode (one fill at the end of
+ *       the frame, darkall-1110) the list is darkened once like everything else: its white text must still show (0.40).</li>
  *   <li>1106-tabtop-hold: a shared Ability/player-list key hides the list for a quick tap, shows it once held 300 ms,
  *       shows it at once when Hypixel answers "on cooldown", and a release starts over (the tap/hold rule is driven with
  *       its own clock, because the real key poll cannot be faked).</li>
