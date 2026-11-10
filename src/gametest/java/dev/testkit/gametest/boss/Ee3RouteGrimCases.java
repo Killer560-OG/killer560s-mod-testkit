@@ -141,6 +141,10 @@ final class Ee3RouteGrimCases {
         try {
             c.server().command("forceload add -2 100 63 146");
             c.server().sync(30);
+            // Off the map first: the fills below must not land on him where the last case left him (Simulation flags
+            // charged to this case, experimental Grim, x4/x5).
+            TerminalAuraCases.tp(c, 62.5, 132, 139, 72f);
+            c.ctx().waitTicks(5);
             for (String l : Files.readAllLines(fills)) {
                 if (!l.isBlank()) {
                     c.server().command(l);
