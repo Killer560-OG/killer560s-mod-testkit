@@ -196,6 +196,13 @@ final class Ee3RouteGrimCases {
             });
             c.ctx().waitTicks(5);
             c.check(c.onClient(mc -> !powered(mc, LOW) && !powered(mc, HIGH)), "an S2 lever was already on before the run");
+            // Judge Grim from the run on: the session join and the setup fills/tps (AP3 and Lever Aura idle) drew a lone
+            // Simulation .284 in x6's first case. Print them, never hide them silently.
+            List<String> setupFlags = c.scenario().flags();
+            if (!setupFlags.isEmpty()) {
+                System.out.println("[ee3route] setup flags before the run (not judged): " + setupFlags);
+            }
+            c.server().mark();
             long mark = LogTap.mark();
             c.onClient(mc -> {
                 PacketTrace.tap = ticks;
