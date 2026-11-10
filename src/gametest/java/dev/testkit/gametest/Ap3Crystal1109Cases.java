@@ -28,9 +28,19 @@ final class Ap3Crystal1109Cases {
     }
 
     static void register(Session s) {
-        s.test("1109-ap3-crystal-1", c -> crystalCase(c, 1));
-        s.test("1109-ap3-crystal-2", c -> crystalCase(c, 2));
+        if (cheatBuild()) { // AP3 does not run on a legit jar
+            s.test("1109-ap3-crystal-1", c -> crystalCase(c, 1));
+            s.test("1109-ap3-crystal-2", c -> crystalCase(c, 2));
+        }
         s.test("1109-ap3-crystal-store", Ap3Crystal1109Cases::store);
+    }
+
+    private static boolean cheatBuild() {
+        try {
+            return Class.forName("com.killer560.hub.BuildVariant").getField("CHEAT_FEATURES_ENABLED").getBoolean(null);
+        } catch (ReflectiveOperationException e) {
+            return true;
+        }
     }
 
     private static void summon(Session c, double x, double y, double z) {
