@@ -119,9 +119,7 @@ final class CheatTabsCases {
 
             if (cheat) {
                 c.check(abc.size() == 1, "cheat jar: expected one Auto Blood Camp tab, found " + paths(abc));
-                c.check(acc.size() == 1, "cheat jar: expected one Auto Close Chest tab, found " + paths(acc));
                 c.check(isCheatOnly(c, abc.get(0)), "Auto Blood Camp is not marked cheat-only (red title)");
-                c.check(isCheatOnly(c, acc.get(0)), "Auto Close Chest is not marked cheat-only (red title)");
                 List<String> abcLabels = labels(c, abc.get(0));
                 c.note("Auto Blood Camp builds " + abcLabels);
                 for (String row : AUTO_ROWS) {
@@ -131,38 +129,24 @@ final class CheatTabsCases {
                     String tip = tooltip(c, "Auto Blood Camp", row, "auto blood camp/");
                     c.note("tooltip Auto Blood Camp/" + row + ": " + tip);
                 }
-                List<String> accLabels = labels(c, acc.get(0));
-                c.note("Auto Close Chest builds " + accLabels);
-                if (!hasRow(accLabels, "Auto Close Chest")) {
-                    c.problem("Auto Close Chest builds no 'Auto Close Chest' row");
-                }
-                c.note("tooltip Auto Close Chest: " + tooltip(c, "Auto Close Chest", "Auto Close Chest",
-                        "auto close chest/"));
             } else {
-                if (!abc.isEmpty() || !acc.isEmpty()) {
-                    c.problem("legit jar has tab(s) " + paths(abc) + " " + paths(acc));
-                }
-                // No leaf anywhere builds an Auto Close Chest or Blood Camp automation row.
-                List<String> leaks = new ArrayList<>();
-                for (ModScreenDriver.Node n : flat) {
-                    if (n.folder()) {
-                        continue;
-                    }
-                    for (String l : labels(c, n)) {
-                        if (l.startsWith("Auto Close Chest")) {
-                            leaks.add(n.path() + " / " + l);
-                        }
-                    }
-                }
-                if (!leaks.isEmpty()) {
-                    c.problem("legit jar builds Auto Close Chest rows: " + leaks);
-                }
-                String tip = c.onClient(mc -> (String) Mod.staticCall(TIPS, "describe", "Auto Close Chest",
-                        "Auto Close Chest"));
-                if (tip != null) {
-                    c.problem("legit jar still carries an Auto Close Chest tooltip: " + tip);
+                if (!abc.isEmpty()) {
+                    c.problem("legit jar has tab(s) " + paths(abc));
                 }
             }
+            // Auto Close Chest is a legit card since featE-1108: Close On Any Key in both jars, the Auto row (cheat section) only in cheat.
+            c.check(acc.size() == 1, "expected one Auto Close Chest tab, found " + paths(acc));
+            c.check(!isCheatOnly(c, acc.get(0)), "Auto Close Chest is marked cheat-only");
+            Object accRows = c.onClient(mc -> Mod.cfg(ACC_CFG));
+            boolean accWas = c.onClient(mc -> (Boolean) Mod.call(accRows, "isEnabledRaw"));
+            c.onClient(mc -> Mod.call(accRows, "setEnabled", true));
+            List<String> accLabels = labels(c, acc.get(0));
+            c.onClient(mc -> Mod.call(accRows, "setEnabled", accWas));
+            c.note("Auto Close Chest builds " + accLabels);
+            c.check(hasRow(accLabels, "Auto Close Chest") && hasRow(accLabels, "Close On Any Key"),
+                    "Auto Close Chest rows " + accLabels);
+            c.check(accLabels.stream().noneMatch(l -> l.startsWith("Close Mode")), "the Close Mode row is back: " + accLabels);
+            c.check(hasRow(accLabels, "Auto") == cheat, (cheat ? "cheat jar lacks" : "legit jar has") + " the Auto row: " + accLabels);
         } finally {
             c.onClient(mc -> {
                 Mod.call(bcCfg, "setEnabled", saved[0]);
@@ -194,6 +178,7 @@ final class CheatTabsCases {
         try {
             c.onClient(mc -> {
                 Mod.call(accCfg, "setEnabled", true);
+                Mod.call(accCfg, "setAuto", true);
                 Mod.staticCall("secrets.DungeonState", "setRoomSim", true);
                 return null;
             });
@@ -215,7 +200,7 @@ final class CheatTabsCases {
                 c.check(gated, "cheat jar: isEnabled() false with the setting ON (Skyblock gate is off here)");
                 c.check(!opened, "cheat jar: the secret chest screen opened - Auto Close Chest did not close it");
             } else {
-                c.check(!gated, "legit jar: isEnabled() is true with a saved ON - the gate is missing");
+                c.check(gated, "legit jar: isEnabled() false with the setting ON (Close On Any Key needs it)");
                 c.check(opened, "legit jar: the chest screen did not open - something closed it");
             }
         } finally {

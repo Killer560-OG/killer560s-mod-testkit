@@ -55,6 +55,7 @@ public class CollectionTrackerSuite implements FabricClientGameTest {
                     s.test("1104-colltrack-hud", CollectionTrackerSuite::hud);
                     s.test("1104-colltrack-sacks", CollectionTrackerSuite::sacks);
                     s.test("1104-colltrack-pickup", CollectionTrackerSuite::pickup);
+                    s.test("1109-colltrack-recent", CollectionTrackerSuite::recent);
                     s.test("1104-colltrack-persist", CollectionTrackerSuite::persist);
                 });
     }
@@ -142,6 +143,53 @@ public class CollectionTrackerSuite implements FabricClientGameTest {
         c.check(end == got, "Wheat put into the sack was counted again: " + got + " -> " + end);
     }
 
+    /** Only Recent (colrecent-1109): window 10 s; Wheat gains, Mithril gains 5 s later; at 11 s only Mithril is listed; Wheat returns on its next gain. */
+    private static void recent(Session c) {
+        Class<?>[] bool = {boolean.class};
+        c.onClient(mc -> {
+            Object cfg = ModUnderTest.config(CFG);
+            ModUnderTest.call(cfg, "setRecentSeconds", new Class<?>[]{int.class}, new Object[]{10});
+            ModUnderTest.call(cfg, "setOnlyRecent", bool, new Object[]{true});
+            ModUnderTest.call(cfg, "save", new Class<?>[0], new Object[0]);
+            ModUnderTest.staticCall(CFG, "load");
+            return null;
+        });
+        String saved = c.onClient(mc -> {
+            Object cfg = ModUnderTest.config(CFG);
+            return ModUnderTest.getBoolean(cfg, "isOnlyRecent") + " " + ModUnderTest.call(cfg, "getRecentSeconds", new Class<?>[0], new Object[0]);
+        });
+        c.check(saved.equals("true 10"), "Only Recent and its window did not survive save and load: " + saved);
+        c.ctx().waitTicks(210); // the earlier cases just gained Wheat; let the 10 s window pass first
+        c.check(!lines(c).toString().contains("Wheat") && !lines(c).toString().contains("Mithril"),
+                "Only Recent listed a pick with no gain yet: " + lines(c));
+        sack(c, "+100 Wheat (Farming Sack)");
+        c.ctx().waitTicks(20);
+        c.note("20 ticks after the Wheat sack line: " + lines(c) + " wheat=" + amount(c, "WHEAT"));
+        c.waitUntil("Wheat listed after its gain",mc -> linesIn().toString().contains("Wheat"), 100);
+        c.ctx().waitTicks(100);
+        sack(c, "+5 Mithril (Mining Sack)");
+        c.waitUntil("Mithril listed after its gain", mc -> linesIn().toString().contains("Mithril"), 100);
+        c.check(lines(c).toString().contains("Wheat"), "Wheat should still be listed 5 s after its gain: " + lines(c));
+        c.waitUntil("Wheat drops off", mc -> !linesIn().toString().contains("Wheat"), 160);
+        String both = lines(c).toString();
+        c.note("after Wheat's window: " + both);
+        c.check(both.contains("Mithril"), "Mithril (gained 5 s later) should still be listed: " + both);
+        sack(c, "+100 Wheat (Farming Sack)");
+        c.waitUntil("Wheat returns on its next gain", mc -> linesIn().toString().contains("Wheat"), 100);
+        c.onClient(mc -> {
+            Object cfg = ModUnderTest.config(CFG);
+            ModUnderTest.call(cfg, "setOnlyRecent", bool, new Object[]{false});
+            ModUnderTest.call(cfg, "setRecentSeconds", new Class<?>[]{int.class}, new Object[]{60});
+            ModUnderTest.call(cfg, "save", new Class<?>[0], new Object[0]);
+            return null;
+        });
+    }
+
+    private static void sack(Session c, String item) {
+        c.server().command("tellraw @a {\"text\":\"[Sacks] +100 items. (Last 5s.)\",\"hover_event\":{\"action\":\"show_text\",\"value\":"
+                + "\"Added items:\\n  " + item + "\"}}");
+    }
+
     private static void persist(Session c) {
         c.onClient(mc -> {
             Object cfg = ModUnderTest.config(CFG);
@@ -197,6 +245,11 @@ public class CollectionTrackerSuite implements FabricClientGameTest {
 
     private static long amount(Session c, String id) {
         return c.onClient(mc -> amount(id));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> linesIn() {
+        return ((List<String>) ModUnderTest.staticCall(CT, "lines")).stream().map(s -> s.replaceAll("§.", "")).toList();
     }
 
     @SuppressWarnings("unchecked")

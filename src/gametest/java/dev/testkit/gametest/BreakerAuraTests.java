@@ -116,6 +116,30 @@ public class BreakerAuraTests implements FabricClientGameTest {
             sameTickRun(ctx, "1108-same-burst-" + a.name().toLowerCase(Locale.ROOT).replace('_', '-'), a, sz, true);
             sz -= 30;
         }
+        // balate-1109: picks beside his path, off his look, as he walks past (straight, sprint, strafe, sprint-jump, one
+        // pick) and with his own use / right click / hotbar swap in the aura's ticks. Latency reach -> dig, camera still.
+        int wz = 0;
+        AssertionError firstWalk = null;
+        for (Walk w : Walk.values()) {
+            try {
+                walkPastRun(ctx, "1109-breaker-walkpast-" + w.name().toLowerCase(Locale.ROOT).replace("_", ""), w, wz, null);
+            } catch (AssertionError e) {
+                firstWalk = firstWalk == null ? e : firstWalk;
+            }
+            wz += 50;
+        }
+        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.USE_KEY, SameTick.Act.SWAP}) {
+            try {
+                walkPastRun(ctx, "1109-breaker-walkpast-same-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""),
+                        Walk.STRAIGHT, wz, a);
+            } catch (AssertionError e) {
+                firstWalk = firstWalk == null ? e : firstWalk;
+            }
+            wz += 50;
+        }
+        if (firstWalk != null) {
+            throw firstWalk;
+        }
         // The floor cases repeat -PfloorRepeat=N times (default 1): the GroundSpoof they chase was intermittent,
         // so one verdict is not a measurement. Repeats are named "#k" so the filter still selects them.
         int repeat = Integer.getInteger("testkit.floorRepeat", 1);
@@ -1519,6 +1543,259 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         unconfigure(ctx);
                     }
                 });
+    }
+
+    /** balate-1109 walk-past cases: his keys (yaw 0 faces +z; STRAFE is W+D, so he goes +z and -x). */
+    /** INTO (balatefix-1109, killer560 2026-11-09 "i still run into breaker blocks"): a two-high column straight in his sprint
+     *  path, 0.75 off his line (clipped by his hitbox, missed by every walk-keeping look until too late), at sim speed 600
+     *  (movement_speed 0.6), his AP3 run's geometry at 55,132-133,141. */
+    private enum Walk { STRAIGHT, SPRINT, STRAFE, SPRINT_JUMP, ONE, INTO }
+
+    /**
+     * 1109-breaker-walkpast-* (balate-1109, killer560 2026-11-09: "it was very late to break the blocks"): he walks past
+     * picks beside his path and off his look (two blocks to each side, at and above head height), with nothing in his
+     * way. The old aura turned the body's yaw only while no movement key was down, so these waited until he stopped, and
+     * most never broke. Measured per pick on the wire: the client tick it came into reach (eye to box 4.5) against its
+     * first dig on MultiBreakWatch's clock; that latency is the headline. Asserted: every pick broke while he walked; his
+     * path is the one his keys make (no drift off the line his keys walk); the CAMERA (getViewYRot/XRot, what he sees) never
+     * moved more than 0.5 degrees in a tick (the S1 "look angle snap"); the body did turn (the aura acted); the MultiBreak
+     * replay is clean; nothing was sent outside a tick; GrimAC was silent. With {@code act}, his own use, right click or
+     * hotbar swap lands in the aura's ticks (SAME-TICK GRIM CASES).
+     */
+    private void walkPastRun(ClientGameTestContext ctx, String name, Walk walk, int cz, SameTick.Act act) {
+        if (Scenario.skip(name)) {
+            return;
+        }
+        if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+            Scenario.skipped(name, "legit jar (Breaker Aura is cheat-only)");
+            return;
+        }
+        ModUnderTest.require(MOD_ID);
+        int cx = 120;
+        int fy = SURFACE_Y - 1;
+        double dx = walk == Walk.STRAFE ? -Math.sqrt(0.5) : 0;
+        double dz = walk == Walk.STRAFE ? Math.sqrt(0.5) : 1;
+        double nx = dz;
+        double nz = -dx;
+        int[] along = walk == Walk.ONE || walk == Walk.INTO ? new int[]{9} : new int[]{6, 9, 12, 15, 18};
+        boolean into = walk == Walk.INTO;
+        double sx = into ? 0.75 : 0.5;
+        java.util.LinkedHashSet<BlockPos> set = new java.util.LinkedHashSet<>();
+        if (into) {
+            set.add(new BlockPos(cx + 1, SURFACE_Y + 1, cz + 9));
+            set.add(new BlockPos(cx + 1, SURFACE_Y + 2, cz + 9));
+        }
+        for (int i = 0; i < along.length && !into; i++) {
+            int side = i % 2 == 0 ? 2 : -2;
+            int y = SURFACE_Y + 1 + (i % 3 == 2 ? 1 : 0);
+            set.add(BlockPos.containing(cx + 0.5 + dx * along[i] + nx * side, y, cz + 0.5 + dz * along[i] + nz * side));
+        }
+        List<BlockPos> picks = List.copyOf(set);
+        double endAlong = along[along.length - 1] + 6;
+        String breaker = "give @p minecraft:diamond_shovel[custom_data={id:\"DUNGEONBREAKER\"},"
+                + "unbreakable={},lore=[{text:\"Charges: 5000/5000\",italic:false}]] 1";
+        Scenario.run(ctx, name,
+                (server, scenario) -> {
+                    TestMap m = TestMap.on(server)
+                            .platform((int) Math.floor(cx + dx * 12), fy, (int) Math.floor(cz + dz * 12), 16)
+                            .catchFloor(120)
+                            .survival()
+                            .clearInventory()
+                            .command(breaker)
+                            .command(breaker)
+                            .command("effect give @p minecraft:haste 99999 4 true")
+                            .command("effect clear @p minecraft:speed");
+                    for (BlockPos b : picks) {
+                        m = m.fill(b.getX(), b.getY(), b.getZ(), b.getX(), b.getY(), b.getZ(), "snow_block");
+                    }
+                    // Off the ground a vanilla server mines at a fifth of the speed, so snow is no longer one tick and a
+                    // dig in a jump never breaks (the Dungeon Breaker breaks server-side on Hypixel either way).
+                    m = m.command("attribute @p minecraft:block_break_speed base set "
+                            + (walk == Walk.SPRINT_JUMP ? 6 : 1));
+                    m = m.command("attribute @p minecraft:movement_speed base set " + (into ? "0.6" : "0.10"));
+                    m.spawn(cx + sx, cz + 0.5, 0f, 0f).build();
+                },
+                (server, scenario) -> {
+                    scenario.assertDetectorWorks();
+                    for (BlockPos b : picks) {
+                        if (isAir(ctx, b)) {
+                            throw new AssertionError("pick " + xyz(b) + " was never built");
+                        }
+                    }
+                    PacketWatch.start();
+                    traceStart(ctx);
+                    ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.start());
+                    configure(ctx, scenario, true, picks);
+                    java.util.function.Predicate<net.minecraft.network.protocol.Packet<?>> feature = p ->
+                            p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket a
+                                    && picks.contains(a.getPos());
+                    SameTick st = act == null ? null : ctx.computeOnClient(mc -> SameTick.start(act, 2, feature, 0, 1));
+                    double[] s0 = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getZ()});
+                    java.util.Map<BlockPos, Integer> reach = new java.util.HashMap<>();
+                    float maxCamYaw = 0f;
+                    float maxCamPitch = 0f;
+                    double drift = 0;
+                    int bumped = 0;
+                    long offWalk0 = offWalkAims(ctx);
+                    int turned = 0;
+                    int walkEnd = 0;
+                    float[] lastCam = null;
+                    ctx.getInput().holdKey(options -> options.keyUp);
+                    if (walk == Walk.STRAFE) {
+                        ctx.getInput().holdKey(options -> options.keyRight);
+                    }
+                    if (walk == Walk.SPRINT || walk == Walk.SPRINT_JUMP || into) {
+                        ctx.getInput().holdKey(options -> options.keySprint);
+                    }
+                    if (walk == Walk.SPRINT_JUMP) {
+                        ctx.getInput().holdKey(options -> options.keyJump);
+                    }
+                    try {
+                        for (int i = 0; i < 200; i++) {
+                            stampBreakerAt(ctx, 0);
+                            stampBreakerAt(ctx, 1);
+                            ctx.waitTicks(1);
+                            double[] t = ctx.computeOnClient(mc -> {
+                                var p = mc.player;
+                                var eye = p.getEyePosition();
+                                return new double[]{dev.testkit.harness.MultiBreakWatch.ticks(), eye.x, eye.y, eye.z,
+                                        p.getViewYRot(1f), p.getViewXRot(1f), p.getYRot(), p.getX(), p.getZ(),
+                                        p.horizontalCollision ? 1 : 0};
+                            });
+                            int tick = (int) t[0];
+                            for (BlockPos b : picks) {
+                                if (!reach.containsKey(b)) {
+                                    double ex = Math.max(Math.max(b.getX() - t[1], 0), t[1] - (b.getX() + 1));
+                                    double ey = Math.max(Math.max(b.getY() - t[2], 0), t[2] - (b.getY() + 1));
+                                    double ez = Math.max(Math.max(b.getZ() - t[3], 0), t[3] - (b.getZ() + 1));
+                                    if (ex * ex + ey * ey + ez * ez <= 4.5 * 4.5) {
+                                        reach.put(b, tick);
+                                    }
+                                }
+                            }
+                            float[] cam = {(float) t[4], (float) t[5]};
+                            if (lastCam != null) {
+                                maxCamYaw = Math.max(maxCamYaw, Math.abs(cam[0] - lastCam[0]));
+                                maxCamPitch = Math.max(maxCamPitch, Math.abs(cam[1] - lastCam[1]));
+                            }
+                            lastCam = cam;
+                            if (Math.abs(net.minecraft.util.Mth.wrapDegrees((float) (t[6] - t[4]))) > 1f) {
+                                turned++;
+                            }
+                            double ox = t[7] - s0[0];
+                            double oz = t[8] - s0[1];
+                            drift = Math.max(drift, Math.abs(ox * nx + oz * nz));
+                            if (t[9] != 0) {
+                                bumped++;
+                            }
+                            walkEnd = tick;
+                            if (ox * dx + oz * dz > endAlong) {
+                                break;
+                            }
+                        }
+                    } finally {
+                        ctx.getInput().releaseKey(options -> options.keyJump);
+                        ctx.getInput().releaseKey(options -> options.keySprint);
+                        ctx.getInput().releaseKey(options -> options.keyRight);
+                        ctx.getInput().releaseKey(options -> options.keyUp);
+                        ctx.waitTicks(10);
+                        ctx.runOnClient(mc -> {
+                            if (st != null) {
+                                st.close();
+                            }
+                            dev.testkit.harness.MultiBreakWatch.stop();
+                        });
+                        PacketWatch.stop();
+                    }
+                    try {
+                        requireInTick(ctx, scenario);
+                        java.util.Map<BlockPos, Integer> firstDig = new java.util.HashMap<>();
+                        for (var d : dev.testkit.harness.MultiBreakWatch.digs()) {
+                            firstDig.putIfAbsent(d.pos(), d.tick());
+                        }
+                        List<Integer> lat = new java.util.ArrayList<>();
+                        StringBuilder per = new StringBuilder();
+                        for (BlockPos b : picks) {
+                            Integer r = reach.get(b);
+                            Integer d = firstDig.get(b);
+                            per.append(' ').append(xyz(b)).append(" reach ").append(r).append(" dig ").append(d);
+                            if (r != null && d != null) {
+                                lat.add(d - r);
+                            }
+                        }
+                        List<Integer> sorted = lat.stream().sorted().toList();
+                        int walked = walkEnd;
+                        boolean allGone = picks.stream().allMatch(b -> isAir(ctx, b));
+                        List<String> replay = dev.testkit.harness.MultiBreakWatch.violations();
+                        scenario.log(String.format(Locale.ROOT, "%s: %s walk, %d pick(s), %d dug while walking (walk "
+                                        + "ended tick %d), latency reach->first dig (ticks) %s, median %s, max %s; camera "
+                                        + "max step yaw %.2f pitch %.2f deg; body off the view on %d tick(s); drift off "
+                                        + "his line %.4f; MultiBreak replay %s; all gone %s;%s%s", name, walk, picks.size(),
+                                firstDig.values().stream().filter(d -> d <= walked).count(), walkEnd, lat,
+                                sorted.isEmpty() ? "-" : sorted.get(sorted.size() / 2),
+                                sorted.isEmpty() ? "-" : sorted.get(sorted.size() - 1), maxCamYaw, maxCamPitch, turned,
+                                drift, replay.isEmpty() ? "clean" : replay, allGone, per,
+                                st == null ? "" : "; same tick: " + st.report()));
+                        System.out.println("[walkpast] " + name + " latency=" + lat + " cam=" + maxCamYaw + "/"
+                                + maxCamPitch + " drift=" + drift);
+                        if (!allGone || lat.size() != picks.size()) {
+                            throw new AssertionError("not every pick was dug as he walked past (" + lat.size() + " of "
+                                    + picks.size() + ", latencies " + lat + ")");
+                        }
+                        if (firstDig.values().stream().anyMatch(d -> d > walked)) {
+                            throw new AssertionError("a pick was dug only after he stopped walking");
+                        }
+                        if (sorted.get(sorted.size() - 1) > 20) {
+                            throw new AssertionError("a pick waited " + sorted.get(sorted.size() - 1)
+                                    + " ticks after it came into reach");
+                        }
+                        if (maxCamYaw > 0.5f || maxCamPitch > 0.5f) {
+                            throw new AssertionError(String.format(Locale.ROOT, "the camera jumped %.2f yaw / %.2f pitch "
+                                    + "in one tick while he never moved his mouse", maxCamYaw, maxCamPitch));
+                        }
+                        if (turned == 0) {
+                            throw new AssertionError("the body never left his view - the aura never aimed");
+                        }
+                        long offWalk = offWalkAims(ctx) - offWalk0;
+                        scenario.log(name + ": ticks against a block " + bumped + ", looks off his walk " + offWalk);
+                        if (bumped > 0) {
+                            throw new AssertionError("he walked into a pick on " + bumped + " tick(s) - it was in reach and "
+                                    + "not broken before he reached it");
+                        }
+                        if (into && offWalk == 0) {
+                            throw new AssertionError("no look off his walk was taken - the in-his-way rule never acted");
+                        }
+                        if (drift > (into ? 0.25 : 0.02)) {
+                            throw new AssertionError(String.format(Locale.ROOT, "his path left the line his keys walk "
+                                    + "by %.4f blocks - the aim changed his walk", drift));
+                        }
+                        if (!replay.isEmpty()) {
+                            throw new AssertionError("two blocks dug in one server tick (GrimAC MultiBreak): " + replay);
+                        }
+                        if (st != null && (st.done() == 0 || st.featureWindows() == 0
+                                || (act != SameTick.Act.USE_KEY && st.both() == 0))) {
+                            throw new AssertionError("his " + act + " and the aura's digs never shared a server tick - "
+                                    + "nothing tested (" + st.report() + ")");
+                        }
+                    } finally {
+                        server.command("attribute @p minecraft:block_break_speed base set 1");
+                        server.command("attribute @p minecraft:movement_speed base set 0.10");
+                        unconfigure(ctx);
+                    }
+                });
+    }
+
+    /** BreakerAim's count of looks turned off his walk for a pick in his way (0 on a jar without it). */
+    private static long offWalkAims(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                var m = Class.forName("com.killer560.hub.dungeonextras.BreakerAim").getDeclaredMethod("offWalkAims");
+                m.setAccessible(true);
+                return (Long) m.invoke(null);
+            } catch (ReflectiveOperationException e) {
+                return 0L;
+            }
+        });
     }
 
     /** The relative yaw of 1102-breaker-aura-multibreak's look: +x by 2, +z by 1, so the ray crosses six blocks. */

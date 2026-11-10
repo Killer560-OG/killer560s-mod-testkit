@@ -211,7 +211,8 @@ final class DocDungeonsCases {
                 Object cfg = Mod.staticCall(FLC, "getInstance");
                 return new String[]{"" + Mod.call(cfg, "isTargetByClass", tP1), (String) Mod.call(cfg, "getTargetName", tP1)};
             });
-            c.check("false".equals(named[0]) && "Bob".equals(named[1]), "an old Name mode's P1 is not the name pick Bob: "
+            // untestbugs-1109: leaps go by class only; the name is dropped and the class saved beside it stays.
+            c.check("true".equals(named[0]) && named[1].isEmpty(), "an old Name mode's P1 still goes by the name Bob: "
                     + named[0] + " " + named[1]);
             Files.writeString(file, "{\"enabled\":true,\"targetMode\":\"POSMSG\",\"targets\":{"
                     + "\"P1\":{\"name\":\"\",\"class\":\"MAGE\",\"keywords\":\"p2\"}}}");
@@ -257,7 +258,7 @@ final class DocDungeonsCases {
             c.check(labels.stream().anyMatch(l -> l.equals("Crystal Leap") || l.startsWith("Crystal Leap: ")),
                     "no \"Crystal Leap\" row");
             c.check(labels.stream().noneMatch(l -> l.startsWith("P1 Leap")), "a \"P1 Leap\" row is still there");
-            c.check(modes == 0, modes + " Mode button(s) left, the Mode button is gone");
+            c.check(modes == targets + sections, modes + " Mode buttons, one per leap target (" + (targets + sections) + ") expected");
             c.check(fasts == 12 && autos == 12, fasts + " Fast and " + autos + " Auto toggles, one each per leap is 12");
             c.check(targets == 10 && sections == 4, targets + " Target and " + sections + " S1-S4 buttons, want 10 and 4");
             c.check(labels.contains("After Blood Off: OFF") || labels.contains("After Blood Off: ON"), "Door Opener lost After Blood Off");
@@ -333,13 +334,10 @@ final class DocDungeonsCases {
                         (String) Mod.call(cfg, "getTargetName", tP1)};
             });
             c.note("Target presses: " + walk + "; saved by class " + pick[0] + " class " + pick[1] + " name " + pick[2]);
-            c.check(walk.get(0).equals(tp() + "Archer (LeapMate)"), "after Healer the Target reads \"" + walk.get(0)
-                    + "\", want Archer with LeapMate (his Leap Order class pick)");
-            c.check(walk.get(1).equals(tp() + "Berserker"), "then \"" + walk.get(1) + "\", want Berserker");
-            c.check(walk.get(2).equals(tp() + "LeapMate (Archer)"), "then \"" + walk.get(2) + "\", want the party member LeapMate");
-            c.check(walk.get(3).equals(tp() + "None") && walk.get(4).equals(tp() + "Mage"), "then " + walk.subList(3, 5)
-                    + ", want None then Mage (wrapping)");
-            c.check("true".equals(pick[0]) && "MAGE".equals(pick[1]), "the Target presses did not save Mage as a class pick");
+            // class-only targets (untestbugs-1109): Healer -> Archer -> Berserker -> None -> Mage -> Tank, wrapping
+            c.check(walk.equals(List.of(tp() + "Archer", tp() + "Berserker", tp() + "None", tp() + "Mage", tp() + "Tank")),
+                    "the Target presses read " + walk + ", want Archer, Berserker, None, Mage, Tank");
+            c.check("true".equals(pick[0]) && "TANK".equals(pick[1]), "the Target presses did not save Tank as a class pick");
             // saved and read back
             c.onClient(mc -> {
                 Mod.call(Mod.staticCall(FLC, "getInstance"), "save");
@@ -361,7 +359,7 @@ final class DocDungeonsCases {
                     "the saved file still uses the old per-leap keys or Swap Back: P1 " + savedP1);
             c.check(text.contains("\"byClass\"") && !text.contains("testLeapClass") && !text.contains("\"TEST\""),
                     "the saved file still has the Test leap, or no byClass");
-            c.check(back, "the Mage class pick did not survive a save and load");
+            c.check(back, "the Tank class pick did not survive a save and load");
         } finally {
             if (was != null) {
                 Files.write(file, was);
@@ -383,10 +381,8 @@ final class DocDungeonsCases {
     private static List<AbstractWidget> buildLeapList(UiCase c) {
         List<AbstractWidget> ws = new ArrayList<>();
         if (pages()) {
-            c.onClient(mc -> {
-                int y = (Integer) Mod.staticCall(FLS, "buildLeapSwitches", ws, 0, 0, 400);
-                return Mod.staticCall(FLS, "buildUniversalTargets", ws, 0, y, 400, false);
-            });
+            // Since untestbugs-1109 each leap's switch and its target sit together on the Universal Targets page.
+            c.onClient(mc -> Mod.staticCall(FLS, "buildUniversalTargets", ws, 0, 0, 400, false));
         } else {
             c.onClient(mc -> Mod.staticCall(FLS, "buildLeapList", ws, 0, 0, 400, (Runnable) () -> { }));
         }

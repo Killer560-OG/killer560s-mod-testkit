@@ -110,6 +110,7 @@ public class SimBossTests implements FabricClientGameTest {
     private static final String FIX3 = "1105-boss-fix3";
     private static final String GATES = "1105-boss-simgates";
     private static final String CRYS_WALK = "1105-boss-crystalwalk";
+    private static final String NOWITHER = "1109-boss-nowither";
     private static final String BREAKER = "1108-boss-breaker";
     private static final String BREAKER_CHARGE = "1108-boss-breaker-charge";
     private static final String MAXOR = "com.killer560.hub.maxor.MaxorCrystalsFeature";
@@ -134,7 +135,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, LIGHTS1109};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, LIGHTS1109};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -175,6 +176,8 @@ public class SimBossTests implements FabricClientGameTest {
                     case FIX3 -> fix3(ctx, f);
                     case GATES -> simGates(ctx, f);
                     case CRYS_WALK -> crystalWalk(ctx, f);
+                    case SimBossTpto1109.NAME -> SimBossTpto1109.run(ctx, f);
+                    case NOWITHER -> SimBossNoWither1109.run(ctx, f);
                     case BREAKER -> SimBossBreaker1108.run(ctx, f, false);
                     case BREAKER_CHARGE -> SimBossBreaker1108.run(ctx, f, true);
                     default -> ap3(ctx, f);
@@ -208,7 +211,7 @@ public class SimBossTests implements FabricClientGameTest {
         return ((Number) ModUnderTest.staticCall(FIGHT, "testBar", new Class<?>[]{String.class}, new Object[]{boss})).floatValue();
     }
 
-    private static boolean weaponHit(ClientGameTestContext ctx, String boss) {
+    static boolean weaponHit(ClientGameTestContext ctx, String boss) {
         boolean[] ok = {false};
         serverRun(ctx, s -> ok[0] = (Boolean) ModUnderTest.staticCall(FIGHT, "testWeaponHit", new Class<?>[]{String.class},
                 new Object[]{boss}));
@@ -316,7 +319,7 @@ public class SimBossTests implements FabricClientGameTest {
             f.add("Necron's bar after one volley: " + n1 + ", want 0.8");
         }
         cleanup(ctx);
-        // A P5 dragon: one hit kills it.
+        // A P5 dragon: 15 arrow hits kill it (boss-tpto-1109; one hit was a kill from simitems-1105 to then).
         start(ctx, "P5", true);
         if (!until(ctx, "a dragon up", mc -> !mc.level.getEntitiesOfClass(net.minecraft.world.entity.boss.enderdragon.EnderDragon.class,
                 new AABB(0, 0, 20, 110, 60, 150), d -> d.getHealth() > 0).isEmpty(), 400)) {
@@ -324,13 +327,17 @@ public class SimBossTests implements FabricClientGameTest {
             return;
         }
         long d = LogTap.mark();
-        expect(f, "a hit on a dragon landed", weaponHit(ctx, "Dragon"), true);
+        boolean landed = true;
+        for (int i = 0; i < 15; i++) {
+            landed &= weaponHit(ctx, "Dragon");
+        }
+        expect(f, "15 hits on a dragon landed", landed, true);
         ctx.waitTicks(3);
         boolean dead = false;
         for (String l : LogTap.since(d)) {
             dead |= l.contains("dragon down at P5");
         }
-        expect(f, "the dragon down from one hit", dead, true);
+        expect(f, "the dragon down from 15 hits", dead, true);
     }
 
     /** Fires a real Terminator volley (the sim's own right click) at {@code boss} from 6 blocks; true if it fired. */
@@ -981,7 +988,7 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     /** Runs {@code body} over his capture fixtures (P1 and P3 files in the sim folder), removed again after. */
-    private static void withCapture(List<String> f, Runnable body) throws Exception {
+    static void withCapture(List<String> f, Runnable body) throws Exception {
         java.nio.file.Path fixture = java.nio.file.Path.of(System.getProperty("testkit.bossCapture",
                 System.getProperty("user.home") + "/killer560s-mod-logs/fixtures/boss-arena-1104.bin"));
         if (!java.nio.file.Files.isRegularFile(fixture)) {
@@ -1994,7 +2001,7 @@ public class SimBossTests implements FabricClientGameTest {
             f.add("40 Terminator shots (" + arrows + " arrows) never killed Red");
             return;
         }
-        expect(f, "Red took 8 hits", logSeen(mark, "Red dragon down at P5") && logSeen(mark, "(8 hits)"), true);
+        expect(f, "Red took 8 hits", logSeen(mark, "Red dragon down at P5") && logSeen(mark, "(15 hits)"), true);
         if (!until(ctx, "Wither Dragons reads Red dead", mc -> "DEAD".equals(String.valueOf(spec(red, "state"))), 40)) {
             f.add("Wither Dragons never read Red's death (state " + spec(red, "state") + ")");
         }
@@ -2797,7 +2804,7 @@ public class SimBossTests implements FabricClientGameTest {
         return mark;
     }
 
-    private static void cleanup(ClientGameTestContext ctx) {
+    static void cleanup(ClientGameTestContext ctx) {
         System.clearProperty("killer560.bosssim.terminal");
         try {
             ctx.runOnClient(mc -> {
@@ -2812,7 +2819,7 @@ public class SimBossTests implements FabricClientGameTest {
         }
     }
 
-    private static Object call(String cls, String method) {
+    static Object call(String cls, String method) {
         return ModUnderTest.staticCall(cls, method, new Class<?>[]{}, new Object[]{});
     }
 
@@ -2824,7 +2831,7 @@ public class SimBossTests implements FabricClientGameTest {
         return ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(F7, "getPhase")));
     }
 
-    private static void serverRun(ClientGameTestContext ctx, java.util.function.Consumer<MinecraftServer> body) {
+    static void serverRun(ClientGameTestContext ctx, java.util.function.Consumer<MinecraftServer> body) {
         ctx.runOnClient(mc -> {
             MinecraftServer s = mc.getSingleplayerServer();
             s.execute(() -> body.accept(s));
@@ -2867,7 +2874,7 @@ public class SimBossTests implements FabricClientGameTest {
         return null;
     }
 
-    private static boolean until(ClientGameTestContext ctx, String what, Predicate<Minecraft> p, int ticks) {
+    static boolean until(ClientGameTestContext ctx, String what, Predicate<Minecraft> p, int ticks) {
         for (int i = 0; i < ticks; i++) {
             if (ctx.computeOnClient(p::test)) {
                 return true;
@@ -2912,7 +2919,7 @@ public class SimBossTests implements FabricClientGameTest {
         }, ticks);
     }
 
-    private static void expect(List<String> f, String what, Object got, Object want) {
+    static void expect(List<String> f, String what, Object got, Object want) {
         boolean ok = String.valueOf(want).equals(String.valueOf(got));
         println("boss", what + ": " + got + (ok ? "" : " (want " + want + ")"));
         if (!ok) {
@@ -2920,7 +2927,7 @@ public class SimBossTests implements FabricClientGameTest {
         }
     }
 
-    private static void println(String name, String line) {
+    static void println(String name, String line) {
         System.out.println("[" + name + "] " + line);
     }
 }

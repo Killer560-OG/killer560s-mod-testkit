@@ -90,6 +90,71 @@ final class Salvage1108Cases {
         Mod.staticCall("pricetooltip.PriceData", "clearForTest");
     }
 
+    /**
+     * untestbugs-1109 (item 6, "for the salvage items remove all other backgrounds"): in the Salvage Items menu the rarity
+     * backgrounds skip every item that is not to be salvaged. The decision ({@code hidesBackground}) is read per stack, and a
+     * real extract of the screen draws fewer elements than the same menu with the salvage highlight off (control).
+     */
+    static void salvageBackgrounds(UiCase c) throws Exception {
+        String rar = "itemrarity.ItemRarityConfig";
+        boolean rarWas = (Boolean) Mod.call(Mod.cfg(rar), "isEnabled");
+        Mod.staticCall("pricetooltip.PriceData", "markStartedForTest");
+        Mod.staticCall("pricetooltip.PriceData", "clearForTest");
+        R.setStatic(Mod.cls("pricetooltip.PriceData"), "lowestBin", Map.of("CHEAP_HELM", 20_000.0, "RICH_HELM", 9_000_000.0));
+        try {
+            Mod.set(rar, "setEnabled", true);
+            Mod.set(CFG, "setEnabled", true);
+            Mod.set(CFG, "setSalvage", true);
+            Mod.set(CFG, "setSell", false);
+            ItemStack cheap = gear("CHEAP_HELM", "COMMON DUNGEON HELMET");
+            ItemStack rich = gear("RICH_HELM", "COMMON DUNGEON HELMET");
+            ItemStack item = gear("CHEAP_HELM", "COMMON DUNGEON ITEM");
+            open(c, "Salvage Items");
+            c.ticks(4);
+            boolean[] hides = c.onClient(mc -> {
+                var screen = (net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>) McCompat.screen(mc);
+                return new boolean[]{(Boolean) Mod.staticCall(HL, "hidesBackground", screen, cheap),
+                        (Boolean) Mod.staticCall(HL, "hidesBackground", screen, rich),
+                        (Boolean) Mod.staticCall(HL, "hidesBackground", screen, item),
+                        (Boolean) Mod.staticCall(HL, "hidesBackground", screen, new ItemStack(Items.STICK)),
+                        (Boolean) Mod.staticCall(HL, "hidesBackground", screen, ItemStack.EMPTY)};
+            });
+            c.note("Salvage Items hides the background of: cheap " + hides[0] + ", rich " + hides[1] + ", DUNGEON ITEM "
+                    + hides[2] + ", stick " + hides[3] + ", empty " + hides[4]);
+            c.check(!hides[0], "the piece to salvage lost its rarity background");
+            c.check(hides[1] && hides[2] && hides[3], "a piece not to be salvaged kept its rarity background");
+            c.check(!hides[4], "an empty stack was said to hide a background");
+            int withHide = c.onClient(mc -> Frames.extract(mc, McCompat.screen(mc), -1, -1).total());
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                return null;
+            });
+            // Controls: a plain chest hides nothing, and with Salvage Helper off the Salvage Items menu hides nothing.
+            open(c, "Chest");
+            c.ticks(4);
+            boolean chest = c.onClient(mc -> (Boolean) Mod.staticCall(HL, "hidesBackground",
+                    (net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>) McCompat.screen(mc), rich));
+            c.check(!chest, "a plain chest hid a rarity background");
+            Mod.set(CFG, "setSalvage", false);
+            open(c, "Salvage Items");
+            c.ticks(4);
+            boolean off = c.onClient(mc -> (Boolean) Mod.staticCall(HL, "hidesBackground",
+                    (net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>) McCompat.screen(mc), rich));
+            int noHide = c.onClient(mc -> Frames.extract(mc, McCompat.screen(mc), -1, -1).total());
+            c.check(!off, "Salvage Helper OFF still hid a rarity background");
+            c.note("elements drawn: " + withHide + " with the hiding, " + noHide + " without it");
+            c.check(withHide < noHide, "the Salvage Items screen drew " + withHide + " elements with the hiding and " + noHide
+                    + " without: the rarity backgrounds were not skipped (or none were drawn at all)");
+        } finally {
+            Mod.set(rar, "setEnabled", rarWas);
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                return null;
+            });
+            Mod.staticCall("pricetooltip.PriceData", "clearForTest");
+        }
+    }
+
     private static int marked(UiCase c) {
         return c.onClient(mc -> (Integer) Mod.staticCall(HL, "marked"));
     }

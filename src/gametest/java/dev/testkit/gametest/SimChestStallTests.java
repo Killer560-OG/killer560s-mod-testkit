@@ -85,6 +85,7 @@ public final class SimChestStallTests {
                 hook();
                 ModUnderTest.set(cheat, "setSecretAuraEnabled", false);
                 ModUnderTest.set(ModUnderTest.config(CLOSE_CONFIG), "setEnabled", true);
+                ModUnderTest.set(ModUnderTest.config(CLOSE_CONFIG), "setAuto", true);   // the cheat Auto (was the default mode)
             }
 
             @Override

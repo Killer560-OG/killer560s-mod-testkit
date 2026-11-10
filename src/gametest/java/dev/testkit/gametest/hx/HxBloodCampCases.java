@@ -70,6 +70,11 @@ final class HxBloodCampCases {
         s.test("187-hx-bloodcamp-never-miss", HxBloodCampCases::neverMiss);
         // bloodcamp-3-1015: any range with whatever he holds, and human clicks between the hits.
         s.test("188-hx-bloodcamp-ranged", HxBloodCampCases::ranged);
+        for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{dev.testkit.gametest.SameTick.Act.USE,
+                dev.testkit.gametest.SameTick.Act.USE_KEY, dev.testkit.gametest.SameTick.Act.SWAP}) {
+            s.test("1109-bloodcamp-outside-fire" + (a == dev.testkit.gametest.SameTick.Act.USE ? "" : "-" + a.name().toLowerCase(Locale.ROOT)),
+                    c -> outsideFire(c, a));
+        }
         s.test("189-hx-bloodcamp-human-clicks", HxBloodCampCases::humanClicks);
         // bloodcamp-4-1015: Blood Mob ESP, blood mobs only, a clear line of fire.
         s.test("190-hx-bloodcamp-blood-esp", HxBloodCampCases::bloodEsp);
@@ -123,6 +128,12 @@ final class HxBloodCampCases {
         s.test("1101-esp-mimic", HxBloodCampCases::mimic);
         // mobespscan-1105: Mob ESP reads a stand's name only when it changes, not every tick.
         s.test("1105-esp-scan", HxBloodCampCases::espScan);
+        // untestbugs-1109 (16b): Work Just Outside Blood Room, and his own use / attack / swap / container click in the same tick.
+        s.test("1109-bloodcamp-outside", HxBloodCampCases::outsideRoom);
+        for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{dev.testkit.gametest.SameTick.Act.USE,
+                dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK}) {
+            s.test("1109-same-bloodcamp-" + a.name().toLowerCase(Locale.ROOT), c -> sameTickOutside(c, a));
+        }
     }
 
     // ---- 1022 -------------------------------------------------------------------------------------------------------
@@ -1178,8 +1189,12 @@ final class HxBloodCampCases {
     /** The Aura on a blood mob that takes no damage, him standing 6 blocks off, holding {@code stack}. Returns
      *  {swings, uses, attacks at server, use_item at server}; {@code regGaps} gets the client's click gaps. */
     private static long[] farAura(Session c, String stack, int extra, List<Long> regGaps) {
+        return farAura(c, stack, extra, regGaps, FAR_STAND[0]);
+    }
+
+    private static long[] farAura(Session c, String stack, int extra, List<Long> regGaps, double standX) {
         holding(c, stack);
-        standAt(c, FAR_STAND[0], FAR_STAND[1], 0f, 0f);
+        standAt(c, standX, FAR_STAND[1], 0f, 0f);
         int sw0 = kind(c, "SWING");
         int use0 = kind(c, "USE");
         long since = c.hx().head();
@@ -1194,6 +1209,58 @@ final class HxBloodCampCases {
         regGaps.addAll(gaps(reg.subList(Math.max(0, reg.size() - n), reg.size())));
         return new long[]{kind(c, "SWING") - sw0, kind(c, "USE") - use0, t.serverAttacks.size(),
                 useItemsSince(c, since).size()};
+    }
+
+    // ---- 1109 --------------------------------------------------------------------------------------------------------
+
+    /**
+     * Work Just Outside Blood Room at its full margin (cheat, cheatbugs-1109): he stands {@code OUTSIDE_MARGIN - 0.2} blocks
+     * outside the room's west edge (tile -7 spans x -425..-393; x -430.8 is 5.8 out). With the switch OFF the Aura does nothing
+     * there; ON it swings at the blood mob inside, with his own right-click use landing in the same ticks, and the case
+     * reads the anticheat flags the run drew (the harness fails a flagged case).
+     */
+    private static void outsideFire(Session c, dev.testkit.gametest.SameTick.Act act) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: Work Just Outside Blood Room is cheat-only");
+            return;
+        }
+        double edge = -409.0 - 16.0;
+        double standX = edge - ((Integer) Mod.field(Mod.ROOT + "bloodcamp.BloodCampConfig", "OUTSIDE_MARGIN") - 0.2);
+        dev.testkit.gametest.SameTick st = null;
+        // A floor under the outside spot: with none he fell 40 blocks in 2 s and the room test (|dy| < 40) dropped him.
+        String floor = String.format(Locale.ROOT, "%d 150 -423 %d 150 -415 minecraft:stone", (int) standX - 4, (int) standX + 4);
+        try (HxKit.Settings s = base(c)) {
+            c.server().command("fill " + floor);
+            s.with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "WorkOutside", false);
+            watcher(c, WATCHER_IN);
+            List<Long> offGaps = new ArrayList<>();
+            long[] off = farAura(c, MAGE, 50, offGaps, standX);
+            c.note("switch OFF, " + (edge - standX) + " blocks outside the edge: " + off[0] + " swing(s), " + off[1] + " use(s)");
+            c.check(off[0] + off[1] == 0, "the Aura clicked from outside the room with Work Just Outside OFF");
+            c.onClient(mc -> Mod.with(BC_CFG, "WorkOutside", true));
+            c.hx().give(1, MAGE);
+            st = c.onClient(mc -> dev.testkit.gametest.SameTick.start(act, 3,
+                    p -> dev.testkit.compat.McPackets.isSwing(p), 0, 1));
+            List<Long> onGaps = new ArrayList<>();
+            long[] on = farAura(c, MAGE, 50, onGaps, standX);
+            dev.testkit.gametest.SameTick.judge(c, st, "blood aura outside the room, his " + act,
+                    dev.testkit.gametest.SameTick.Expect.SHARE);
+            st = null;
+            c.note("switch ON at x " + standX + ": " + on[0] + " swing(s), " + on[1] + " use(s), " + on[2] + " attack(s); gaps " + onGaps);
+            c.check(on[0] >= 3, "Work Just Outside ON at the full margin: the Aura swung " + on[0] + " time(s), wanted 3 or more");
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick s2 = st;
+                c.onClient(mc -> {
+                    s2.close();
+                    return null;
+                });
+            }
+            holding(c, "minecraft:air");
+            standAt(c, PX, PZ, 0f, 0f);
+            c.hx().removeStands();
+            c.server().command("fill " + floor.replace("minecraft:stone", "minecraft:air"));
+        }
     }
 
     // ---- 188 --------------------------------------------------------------------------------------------------------
@@ -3901,6 +3968,139 @@ final class HxBloodCampCases {
                     + " (want 0)");
             c.check(back.stream().anyMatch(l -> l.startsWith("Trigger Offset: +5t")), "Never Miss OFF again: the row did not"
                     + " come back with its value");
+        }
+    }
+
+    // ---- untestbugs-1109 (item 16b): Work Just Outside Blood Room, and his own actions in the same tick ----------------
+
+    /** 4.5 blocks past the Blood Room's west wall (x -425): inside Work Just Outside's 6; 7.5 past it is outside. */
+    private static final double NEAR_OUT_X = -429.5;
+    private static final double FAR_OUT_X = -432.5;
+
+    /**
+     * Work Just Outside Blood Room: OFF (default) the Trigger Bot and the Aura do nothing outside his tile; ON they act
+     * from 4.5 blocks past the wall and still not from 7.5 blocks past it. Cheat build only.
+     */
+    /** Floor under the spots outside the Blood Room's west wall: the test world has none there and the player fell to y 67. */
+    private static void outsidePlatform(Session c, String block) {
+        c.server().command("fill -434 150 -421 -427 150 -418 " + block);
+    }
+
+    private static void outsideRoom(Session c) {
+        if (!Mod.isCheat()) {
+            return;
+        }
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "AuraEnabled", true);
+            outsidePlatform(c, "minecraft:stone");
+            watcher(c, WATCHER_IN);
+            // A shortbow: 9 blocks from the mob is out of melee reach; the Trigger Bot uses it (a use_item per shot).
+            holding(c, SHORTBOW);
+            standAt(c, NEAR_OUT_X, PZ, 0f, 0f);
+            long s0 = c.hx().head();
+            Trip off = trip(c, Mob.HURTABLE, true, 20, null);
+            c.note("option OFF, 4.5 past the wall: " + fmt(off));
+            c.check(off.tracked && !off.inRoom && off.clicks == 0 && useItemsSince(c, s0).isEmpty(),
+                    "option OFF: outside his tile Blood Camp clicked " + off.clicks + " time(s), inRoom " + off.inRoom);
+            s.with(BC_CFG, "WorkOutside", true);
+            standAt(c, NEAR_OUT_X, PZ, 0f, 0f);
+            long s1 = c.hx().head();
+            Trip near = trip(c, Mob.HURTABLE, true, 20, null);
+            c.note("option ON, 4.5 past the wall: " + fmt(near));
+            c.check(near.inRoom && near.clicks >= 1 && !useItemsSince(c, s1).isEmpty(),
+                    "option ON, 4.5 blocks past the wall: inRoom " + near.inRoom + ", clicks " + near.clicks + ", server use_item "
+                            + useItemsSince(c, s1).size() + " - it did not act");
+            standAt(c, FAR_OUT_X, PZ, 0f, 0f);
+            Trip far = trip(c, Mob.HURTABLE, true, 20, null);
+            c.note("option ON, 7.5 past the wall: " + fmt(far));
+            c.check(!far.inRoom && far.clicks == 0, "option ON, 7.5 blocks past the wall: inRoom " + far.inRoom + ", clicks "
+                    + far.clicks + " (the margin is 6)");
+        } finally {
+            outsidePlatform(c, "minecraft:air");
+            c.hx().removeStands();
+        }
+    }
+
+    private static void sameTickOutside(Session c, dev.testkit.gametest.SameTick.Act act) {
+        if (!Mod.isCheat()) {
+            return;
+        }
+        dev.testkit.gametest.SameTick st = null;
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "WorkOutside", true);
+            outsidePlatform(c, "minecraft:stone");
+            c.server().command("item replace entity @a hotbar.5 with stick");
+            watcher(c, WATCHER_IN);
+            holding(c, SHORTBOW); // slot 0 selected; the swap goes between it and the stick in slot 5
+            standAt(c, NEAR_OUT_X, PZ, 0f, 0f);
+            // ATTACK needs his crosshair on an entity within his reach (3 blocks; the husk is 9 away): an INVISIBLE NoAI zombie 1.6
+            // blocks ahead on his look (an invisible thing never holds the Trigger Bot's line of fire; a visible one would).
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                nextServerStep = i -> {
+                    if (i == 0) {
+                        Vec3 end = c.onClient(mc -> endVector());
+                        Vec3 eye = c.onClient(mc -> mc.player.getEyePosition());
+                        Vec3 at = eye.add(end.add(0, 1.4, 0).subtract(eye).normalize().scale(1.6));
+                        c.server().command(String.format(Locale.ROOT, "summon zombie %.3f %.3f %.3f {Tags:[\"bc1015\"],NoAI:1b,"
+                                + "NoGravity:1b,Silent:1b,Invulnerable:1b,PersistenceRequired:1b,active_effects:[{id:\"minecraft:invisibility\",duration:99999,show_particles:0b}]}", at.x, at.y - 1.0, at.z));
+                    }
+                };
+            }
+            boolean firstWave = c.onClient(mc -> (Boolean) Mod.staticCall("bloodcamp.BloodCampMoveTimer", "isFirstSpawns"));
+            int closeAt = (firstWave ? 40 : 0) + 30;
+            st = c.onClient(mc -> dev.testkit.gametest.SameTick.start(act,
+                    act == dev.testkit.gametest.SameTick.Act.ATTACK ? 2 : 1,
+                    p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 5));
+            int clicks = 0;
+            for (int run = 0; run < 2; run++) { // the second run of the feature right after the first
+                Trip t = trip(c, Mob.HURTABLE, true, 20, act != dev.testkit.gametest.SameTick.Act.CLICK ? null : (tick, mc) -> {
+                    // A container open holds the Trigger Bot and the Aura (ActionGate): his clicks go, then it closes and they act.
+                    if (tick == 0) {
+                        dev.testkit.compat.McCompat.setScreen(mc, new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player));
+                    } else if (tick == closeAt) {
+                        mc.player.closeContainer();
+                    }
+                });
+                c.note(act + " run " + (run + 1) + ": " + fmt(t));
+                c.check(t.inRoom && t.clicks >= 1, act + " run " + (run + 1) + ": the Trigger Bot did not act (inRoom " + t.inRoom
+                        + ", clicks " + t.clicks + ") - nothing tested");
+                clicks += t.clicks;
+            }
+            dev.testkit.gametest.SameTick done = st;
+            st = null;
+            c.onClient(mc -> {
+                done.close();
+                return null;
+            });
+            c.note("Blood Camp " + act + ": " + done.report());
+            c.check(done.done() > 0, act + ": his action never went in (nothing tested)");
+            c.check(done.featureWindows() >= 2, act + ": only " + done.featureWindows() + " server ticks carried the feature's"
+                    + " attack on the wire for " + clicks + " clicks (want one per run)");
+            if (act == dev.testkit.gametest.SameTick.Act.CLICK) {
+                c.check(done.playerWindows() > 0, "CLICK: his container clicks never reached the wire");
+            } else {
+                String why = done.verdict("Blood Camp " + act);
+                c.check(why == null, why);
+            }
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick left = st;
+                c.onClient(mc -> {
+                    left.close();
+                    return null;
+                });
+            }
+            c.onClient(mc -> {
+                if (mc.player != null && mc.player.containerMenu != mc.player.inventoryMenu) {
+                    mc.player.closeContainer();
+                }
+                dev.testkit.compat.McCompat.setScreen(mc, null);
+                return null;
+            });
+            c.server().command("kill @e[tag=bc1015]");
+            outsidePlatform(c, "minecraft:air");
+            c.server().command("clear @a");
+            c.hx().removeStands();
         }
     }
 }

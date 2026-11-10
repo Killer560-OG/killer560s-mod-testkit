@@ -102,7 +102,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     // he has been through one (the map-arrival interlock), so the cases that arm non-start nodes run before it.
     private static final String[] CASES = {"96-ar-add", "96-ar-play", "96-ar-interact", "96-ar-await",
             "96-ar-awaitskip", "96-ar-leverwp", "96-ar-complete", "96-ar-mimic",
-            "96-ar-crypt", "96-ar-breaker", "96-ar-breakerwait", "96-ar-pingpong", "96-ar-chain", "96-ar-stackorder", "96-ar-crypthold",
+            "96-ar-crypt", "96-ar-breaker", "96-ar-breakerwait", "96-ar-vanillabreak", "96-ar-pingpong", "96-ar-chain", "96-ar-stackorder", "96-ar-crypthold",
             "96-ar-charges", "96-ar-museum",
             // boom-eye-1020: a stack's booms aim at the block they were recorded on, whatever eye the warp's sneak leaves
             "96-ar-1020-boomsneak",
@@ -312,6 +312,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-crypt" -> caseCrypt(ctx);
                         case "96-ar-breaker" -> caseBreaker(ctx);
                         case "96-ar-breakerwait" -> caseBreakerWait(ctx);
+                        case "96-ar-vanillabreak" -> caseVanillaBreak(ctx);
                         case "96-ar-pingpong" -> casePingPong(ctx);
                         case "96-ar-chain" -> caseChain(ctx);
                         case "96-ar-stackorder" -> caseStackOrder(ctx);
@@ -1071,6 +1072,34 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             }
         }
         check(settled, part + ": the map's path never finished");
+    }
+
+    /**
+     * simbreak-1109: the sim's PlayerBlockBreakEvents.BEFORE gate compared the SERVER player with client.player, never
+     * equal, so it never blocked. A vanilla break (ServerPlayerGameMode.destroyBlock, which fires that event) of a stone
+     * block in the sim must return false and leave the block standing, and the sim must be active while it does.
+     */
+    private void caseVanillaBreak(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        Map<int[], BlockState> put = new HashMap<>();
+        put.put(new int[]{10, F, 10}, Blocks.STONE.defaultBlockState());
+        setBlocks(ctx, put);
+        check(ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_STATE, "isActive")), "the sim is not active");
+        check(blockState(ctx, 10, F, 10).is(Blocks.STONE), "the test block was not placed");
+        AtomicReference<Boolean> result = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            var uuid = mc.player.getUUID();
+            BlockPos pos = real(ModUnderTest.staticCall(FRAME, "current"), 10, F, 10);
+            server.execute(() -> result.set(server.getPlayerList().getPlayer(uuid).gameMode.destroyBlock(pos)));
+        });
+        ctx.waitFor(mc -> result.get() != null, 100);
+        ctx.waitTicks(5);
+        boolean stands = blockState(ctx, 10, F, 10).is(Blocks.STONE);
+        println("vanillabreak: destroyBlock returned " + result.get() + ", block still stone " + stands);
+        check(result.get() != null && !result.get(), "the vanilla break attempt was not refused (returned " + result.get() + ")");
+        check(stands, "the vanilla break removed the block in the sim");
     }
 
     /** Spends sim breaker charges on the server until {@code left} remain, and returns the count it read after. */
@@ -2067,6 +2096,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 ModUnderTest.set(cfg, "setAuraPauseWhileSneaking", true);
                 ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"),
                         "setEnabled", true);
+                ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"), "setAuto", true);   // the cheat Auto (was the default mode)
             });
             writeRoute(ctx, museumNodes());
             // Where he stood before his 01:16:30 press: real (-120.46, -128.33) in his frame (clay -74,-136, rotation 90).
@@ -2319,6 +2349,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 ModUnderTest.set(cfg, "setAuraPauseWhileSneaking", true);
                 ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"),
                         "setEnabled", true);
+                ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"), "setAuto", true);   // the cheat Auto (was the default mode)
             });
             writeRoute(ctx, museumNodes());
             // His frame (clay -74,-136, rotation 90): where he pressed from, and his mimic chest.
@@ -5290,6 +5321,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> {
                 ModUnderTest.set(ModUnderTest.config(CHEAT_CFG), "setSecretAuraEnabled", true);
                 ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"), "setEnabled", true);
+                ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig"), "setAuto", true);   // the cheat Auto (was the default mode)
             });
             List<JsonObject> nodes = new ArrayList<>();
             for (JsonElement e : JsonParser.parseString(BRIDGES_ROUTE).getAsJsonArray()) {

@@ -388,7 +388,7 @@ final class HxP3ChatCases {
         });
     }
 
-    /** featF-1108: the Milestone Display counts real milestone lines (not player chat), caps at 3 and draws its HUD. */
+    /** featF-1108: the Milestone Display counts real milestone lines (not player chat), caps at 9 and draws its HUD. */
     private static void milestoneHud(Session s) {
         s.test("1108-hx-milestone-hud", c -> {
             dungeon(c);
@@ -403,15 +403,18 @@ final class HxP3ChatCases {
                 c.check(milestones(c) == 0, "player chat counted as a milestone: " + milestones(c));
                 String[] lines = {"Milestone ❖: You have dealt 1.2M damage so far! (3s)",
                         "Milestone ☠: You have tanked and healed 3.1M so far! (5s)",
-                        "Milestone ❤: You have healed 900k so far! (8s)", "Milestone ❖: You have dealt 9M damage so far! (12s)"};
-                int[] want = {1, 2, 3, 3};
+                        "Milestone ❤: You have healed 900k so far! (8s)", "Milestone ❖: You have dealt 9M damage so far! (12s)",
+                        "Milestone ❖: You have dealt 12M damage so far! (15s)", "Milestone ❖: You have dealt 15M damage so far! (18s)",
+                        "Milestone ❖: You have dealt 18M damage so far! (21s)", "Milestone ❖: You have dealt 21M damage so far! (24s)",
+                        "Milestone ❖: You have dealt 24M damage so far! (27s)", "Milestone ❖: You have dealt 27M damage so far! (30s)"};
+                int[] want = {1, 2, 3, 4, 5, 6, 7, 8, 9, 9};
                 for (int i = 0; i < lines.length; i++) {
                     c.hx().chat(lines[i]);
                     final int n = want[i];
                     c.waitUntil("milestone count " + n, mc -> (Integer) Mod.staticCall(ms, "count") == n, 40);
                 }
                 c.waitUntil("the Milestone HUD drawn", mc -> (Boolean) Mod.staticCall("hud.HudSeen", "drawnRecently", "milestone"), 100);
-                c.note("player chat ignored; 4 lines counted 1,2,3,3 (capped); HUD drawn in game");
+                c.note("player chat ignored; 10 lines counted 1..9,9 (capped at 9); HUD drawn in game");
                 Mod.set(cfg, "setEnabled", false);
                 c.onClient(mc -> Mod.staticCall(ms, "resetForTest"));
                 c.hx().chat(lines[0]);

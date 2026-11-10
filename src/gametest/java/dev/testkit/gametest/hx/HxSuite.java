@@ -152,6 +152,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxSameTick1105Cases.register(s);
                     // Auto Superboom, cheat only, with his dig / use / scroll / teleport in the swap tick (1108-same-superboom-*, featD-1108).
                     HxSuperboom1108Cases.register(s);
+                    HxCheatBugs1109Cases.register(s);
                     // Deployables: lantern circles, in-radius and the timer HUD (1104-minedeploy, mod minedeploy-1104).
                     HxMineDeploy1104Cases.register(s);
                     // Owner requests 2026-11-03 late (1103-mask-proc-title, 1103-partycmd-self).
@@ -182,9 +183,11 @@ public class HxSuite implements FabricClientGameTest {
                     HxKickRejoin1103Cases.register(s);
                     // mod chport-1104: the Mining features pulled from staging-mining-3 (2026-11-04).
                     HxMining3Cases.register(s);
+                    // Hide Ghost Mobs: a mob the server stopped sending is hidden, a still real one never (1109-ghostmob-hide, mod ghostmob-1109).
+                    HxGhostMob1109Cases.register(s);
                     // mod featC-1108: Puzzle HUD, Reparty, Watcher Helper.
                     HxFeatC1108Cases.register(s);
-                    // mod featG-1109: Carry Tracker, Room Preview.
+                    // mod featG-1109: Carry Tracker.
                     HxFeatG1109Cases.register(s);
                     // mod staging-coopsim: the co-op sim's guest channels stay shut on a Hypixel-labeled server.
                     HxCoop1109Cases.register(s);

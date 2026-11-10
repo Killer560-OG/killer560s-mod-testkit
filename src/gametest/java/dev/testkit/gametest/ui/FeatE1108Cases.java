@@ -134,17 +134,18 @@ final class FeatE1108Cases {
         boolean wasDungeon = c.onClient(mc -> (Boolean) Mod.staticCall("secrets.DungeonState", "isInDungeon"));
         try {
             set(c, CLOSE, "setEnabled", true);
-            set(c, CLOSE, "setMode", Mod.enumValue("autoclosechest.AutoCloseChestConfig$Mode", "CLICK"));
+            set(c, CLOSE, "setAnyKey", true);
+            set(c, CLOSE, "setAuto", false);
             roomSim(c, true);
             c.check(c.onClient(mc -> (Boolean) Mod.staticCall("secrets.DungeonState", "isInDungeon")), "not in a dungeon");
             int before = c.onClient(mc -> (Integer) Mod.staticCall(CLICK, "closedCount"));
             // A secret chest stays open until a press: it is still there after 2 ticks, then a key closes it.
             openChest(c, "Chest");
-            c.check(chestOpen(c), "the chest never opened (Click mode must not close it by itself)");
+            c.check(chestOpen(c), "the chest never opened (Close On Any Key must not close it by itself)");
             press(c, InputConstants.KEY_A);
             c.check(!chestOpen(c), "a key press did not close the chest");
             c.check(c.onClient(mc -> (Integer) Mod.staticCall(CLICK, "closedCount")) == before + 1,
-                    "the close was not Click mode's");
+                    "the close was not Close On Any Key's");
             // A mouse press does the same (the event Fabric runs for every click on the screen).
             openChest(c, "Large Chest");
             boolean allowed = c.onClient(mc -> {
@@ -162,6 +163,15 @@ final class FeatE1108Cases {
                 McCompat.setScreen(mc, null);
                 return null;
             });
+            set(c, CLOSE, "setAnyKey", false);
+            openChest(c, "Chest");
+            press(c, InputConstants.KEY_A);
+            c.check(chestOpen(c), "the chest closed with Close On Any Key OFF");
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                return null;
+            });
+            set(c, CLOSE, "setAnyKey", true);
             set(c, CLOSE, "setEnabled", false);
             openChest(c, "Chest");
             press(c, InputConstants.KEY_A);
@@ -175,6 +185,31 @@ final class FeatE1108Cases {
                 roomSim(c, false);
             }
             DungeonB2Cases.restoreConfig(c, saved, CLOSE);
+        }
+    }
+
+    /** autoclose-1109: a file from before the Close Mode row left becomes Close On Any Key ON, and Auto ON only for mode AUTO on a cheat jar. */
+    static void chestMigrate(UiCase c) throws Exception {
+        Map<Path, byte[]> saved = DungeonB2Cases.snapshotConfig(c, CLOSE);
+        Path p = saved.keySet().iterator().next();
+        try {
+            for (String mode : new String[]{"AUTO", "CLICK"}) {
+                java.nio.file.Files.createDirectories(p.getParent());
+                java.nio.file.Files.writeString(p, "{\"enabled\":true,\"mode\":\"" + mode + "\"}");
+                c.onClient(mc -> Mod.staticCall(CLOSE, "load"));
+                Object cfg = c.onClient(mc -> Mod.cfg(CLOSE));
+                boolean anyKey = c.onClient(mc -> (Boolean) Mod.call(cfg, "isAnyKey"));
+                boolean auto = c.onClient(mc -> (Boolean) Mod.call(cfg, "isAutoRaw"));
+                c.note("old mode " + mode + " -> anyKey " + anyKey + ", auto " + auto + (Mod.isCheat() ? " (cheat jar)" : " (legit jar)"));
+                c.check(anyKey, "old mode " + mode + ": Close On Any Key is OFF");
+                c.check(auto == (mode.equals("AUTO") && Mod.isCheat()), "old mode " + mode + ": Auto is " + auto);
+                c.onClient(mc -> Mod.call(cfg, "save"));
+                String text = java.nio.file.Files.readString(p);
+                c.check(!text.contains("\"mode\"") && text.contains("\"anyKey\""), "saved file still has mode: " + text);
+            }
+        } finally {
+            DungeonB2Cases.restoreConfig(c, saved, CLOSE);
+            c.onClient(mc -> Mod.staticCall(CLOSE, "load"));
         }
     }
 
@@ -215,6 +250,7 @@ final class FeatE1108Cases {
             c.check(count(c) == 0, "the wand boxed mobs with the switch OFF");
             set(c, QOL, "setIcedBoxes", true);
             use(c);
+            c.ticks(6); // no ice marker on any mob: the estimate takes over after 4 ticks
             int n = count(c);
             c.note("mobs boxed by one wand click: " + n + " of 3 (one in front, one behind, one 12 blocks away)");
             c.check(n == 1, "expected only the zombie in front boxed, got " + n);
@@ -222,6 +258,17 @@ final class FeatE1108Cases {
             c.check(count(c) == 1, "the box did not last");
             c.ticks(105);
             c.check(count(c) == 0, "the box outlived the 5 second freeze");
+            // untestbugs-1109: a mob wearing ice on its head is boxed, its neighbor without is not (marker beats the estimate).
+            server(c, "kill @e[tag=feiced]", "summon zombie 0.5 -60 3.5 {Tags:[\"feiced\"],NoAI:1b,NoGravity:1b,Silent:1b,Invulnerable:1b,"
+                    + "PersistenceRequired:1b,equipment:{head:{id:\"minecraft:packed_ice\",count:1}}}",
+                    "summon zombie 3.5 -60 3.5 " + ZOMBIE);
+            c.ctx().waitFor(mc -> mc.level.getEntitiesOfClass(Zombie.class, mc.player.getBoundingBox().inflate(20)).size() >= 2, 200);
+            use(c);
+            c.ticks(8);
+            int marked = c.onClient(mc -> (Integer) Mod.staticCall("dungeonqol.IcedMobsFeature", "markedCount"));
+            c.note("mobs boxed by the ice marker: " + marked + " of 2 (one wears packed ice)");
+            c.check(marked == 1, "expected exactly the mob wearing ice boxed, got " + marked);
+            c.check(count(c) == 1, "the boxed count disagrees with the marker count: " + count(c));
         } finally {
             server(c, "kill @e[tag=feiced]");
             DungeonB2Cases.restoreConfig(c, saved, QOL);

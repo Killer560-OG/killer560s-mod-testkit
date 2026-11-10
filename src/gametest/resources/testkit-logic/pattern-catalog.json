@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-10T00:02:03",
+ "generatedAt": "2026-11-10T03:26:43",
  "modSource": "staging-coopsim-247980",
- "modGitSha": "b8b69f1782930f097766f0491c1aceb09b9a14fe",
+ "modGitSha": "6e6add488182a2c230ff8145258210575024b349",
  "modSourceDirty": false,
- "count": 928,
+ "count": 929,
  "byKind": {
   "dynamic": 10,
-  "element": 76,
-  "field": 799,
+  "element": 75,
+  "field": 801,
   "local": 43
  },
  "unresolved": 160,
@@ -576,6 +576,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^(\\\\d{1,3}):(\\\\d{2})$\""
+  },
+  {
+   "id": "autokick.AutoKickFeature#YOU_JOINED",
+   "cls": "autokick.AutoKickFeature",
+   "field": "YOU_JOINED",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/autokick/AutoKickFeature.java",
+   "line": 62,
+   "regex": "^You have joined (?:\\[[A-Za-z+]{1,12}] )?[A-Za-z0-9_]{1,16}'s? party!$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^You have joined (?:\\\\[[A-Za-z+]{1,12}] )?[A-Za-z0-9_]{1,16}'s? party!$\""
   },
   {
    "id": "autokick.QueuedFloorDetector#QUEUED",
@@ -3007,7 +3019,7 @@
    "field": "NPC_LINE",
    "index": null,
    "file": "src/main/java/com/killer560/hub/dungeonextras/AutoDialogueFeature.java",
-   "line": 29,
+   "line": 28,
    "regex": "^\\[NPC] ([^:]+): (.*)$",
    "flags": null,
    "kind": "field",
@@ -3019,7 +3031,7 @@
    "field": "UNSAFE_PATTERN",
    "index": null,
    "file": "src/main/java/com/killer560/hub/dungeonextras/AutoDialogueFeature.java",
-   "line": 39,
+   "line": 38,
    "regex": null,
    "flags": null,
    "kind": "field",
@@ -3031,7 +3043,7 @@
    "field": "COST_NUMBER",
    "index": null,
    "file": "src/main/java/com/killer560/hub/dungeonextras/AutoDialogueFeature.java",
-   "line": 42,
+   "line": 41,
    "regex": "\\b\\d+(?:\\.\\d+)?[kmb]\\b|\\b\\d{1,3}(?:,\\d{3})+\\b|\\bx\\d+\\b|\\b\\d+x\\b",
    "flags": null,
    "kind": "field",
@@ -4466,16 +4478,28 @@
    "expr": "\"^(?:\\\\[[A-Z+]{1,12}\\\\] )?([A-Za-z0-9_]{1,16}) has invited you to join their party!$\""
   },
   {
+   "id": "lfg.LfgFeature#DISBANDED",
+   "cls": "lfg.LfgFeature",
+   "field": "DISBANDED",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/lfg/LfgFeature.java",
+   "line": 73,
+   "regex": "^(?:\\[[A-Z+]{1,12}\\] )?([A-Za-z0-9_]{1,16}) has disbanded the party!$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(?:\\\\[[A-Z+]{1,12}\\\\] )?([A-Za-z0-9_]{1,16}) has disbanded the party!$\""
+  },
+  {
    "id": "lfg.LfgFeature#PARTY_ENDED[0]",
    "cls": "lfg.LfgFeature",
    "field": "PARTY_ENDED",
    "index": 0,
    "file": "src/main/java/com/killer560/hub/lfg/LfgFeature.java",
-   "line": 74,
-   "regex": "^(?:\\[[A-Z+]{1,12}\\] )?[A-Za-z0-9_]{1,16} has disbanded the party!$",
+   "line": 76,
+   "regex": "^You have been kicked from the party by (?:\\[[A-Z+]{1,12}\\] )?[A-Za-z0-9_]{1,16}$",
    "flags": null,
    "kind": "element",
-   "expr": "\"^\" + RANKED + \" has disbanded the party!$\""
+   "expr": "\"^You have been kicked from the party by \" + RANKED + \"$\""
   },
   {
    "id": "lfg.LfgFeature#PARTY_ENDED[1]",
@@ -4483,11 +4507,11 @@
    "field": "PARTY_ENDED",
    "index": 1,
    "file": "src/main/java/com/killer560/hub/lfg/LfgFeature.java",
-   "line": 75,
-   "regex": "^You have been kicked from the party by (?:\\[[A-Z+]{1,12}\\] )?[A-Za-z0-9_]{1,16}$",
+   "line": 77,
+   "regex": "^The party was disbanded because all invites expired and the party was empty\\.$",
    "flags": null,
    "kind": "element",
-   "expr": "\"^You have been kicked from the party by \" + RANKED + \"$\""
+   "expr": "\"^The party was disbanded because all invites expired and the party was empty\\\\.$\""
   },
   {
    "id": "lfg.LfgFeature#PARTY_ENDED[2]",
@@ -4495,11 +4519,11 @@
    "field": "PARTY_ENDED",
    "index": 2,
    "file": "src/main/java/com/killer560/hub/lfg/LfgFeature.java",
-   "line": 76,
-   "regex": "^The party was disbanded because all invites expired and the party was empty\\.$",
+   "line": 78,
+   "regex": "^The party was disbanded because the party leader disconnected\\.$",
    "flags": null,
    "kind": "element",
-   "expr": "\"^The party was disbanded because all invites expired and the party was empty\\\\.$\""
+   "expr": "\"^The party was disbanded because the party leader disconnected\\\\.$\""
   },
   {
    "id": "lfg.LfgFeature#PARTY_ENDED[3]",
@@ -4507,19 +4531,7 @@
    "field": "PARTY_ENDED",
    "index": 3,
    "file": "src/main/java/com/killer560/hub/lfg/LfgFeature.java",
-   "line": 77,
-   "regex": "^The party was disbanded because the party leader disconnected\\.$",
-   "flags": null,
-   "kind": "element",
-   "expr": "\"^The party was disbanded because the party leader disconnected\\\\.$\""
-  },
-  {
-   "id": "lfg.LfgFeature#PARTY_ENDED[4]",
-   "cls": "lfg.LfgFeature",
-   "field": "PARTY_ENDED",
-   "index": 4,
-   "file": "src/main/java/com/killer560/hub/lfg/LfgFeature.java",
-   "line": 78,
+   "line": 79,
    "regex": "^You left the party\\.$",
    "flags": null,
    "kind": "element",
@@ -7351,7 +7363,7 @@
    "field": "NAME",
    "index": null,
    "file": "src/main/java/com/killer560/hub/reparty/RepartyFeature.java",
-   "line": 31,
+   "line": 36,
    "regex": "(?:\\[[^\\]]+\\] ?)?([A-Za-z0-9_]{1,16}) ?●",
    "flags": null,
    "kind": "field",
@@ -10411,7 +10423,7 @@
    "field": "VALID_NAME",
    "index": null,
    "file": "src/main/java/com/killer560/hub/social/FriendsListSync.java",
-   "line": 353,
+   "line": 360,
    "regex": "^[A-Za-z0-9_]{1,16}$",
    "flags": null,
    "kind": "field",

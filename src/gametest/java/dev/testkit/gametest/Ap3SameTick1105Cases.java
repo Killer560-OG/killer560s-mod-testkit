@@ -108,6 +108,14 @@ final class Ap3SameTick1105Cases {
     private static void node1(Session c, String type, SameTick.Act act) {
         ClientGameTestContext ctx = c.ctx();
         double z = Ap3RuntimeTests.lane();
+        // A BLOCK node places the HELD block first: an earlier case of a big session left the TNT in slot 7 selected, so it placed that, not the slab. Hold the empty slot 1.
+        onClient(ctx, mc -> {
+            mc.player.getInventory().setSelectedSlot(0);
+            return null;
+        });
+        c.server().command("item replace entity @p hotbar.3 with minecraft:stick[minecraft:custom_data={id:\"AP3_TEST_WAND\"}]");
+        c.server().command("item replace entity @p hotbar.5 with minecraft:smooth_stone_slab 64");
+        c.server().command("item replace entity @p hotbar.6 with minecraft:tnt[minecraft:custom_data={id:\"SUPERBOOM_TNT\"}] 64");
         Object run = Ap3RuntimeTests.runNode(z);
         Object n = switch (type) {
             case "USE" -> node("USE", LANE_X0 + 10.0, z, 20f, -35f, 1.0, 3.0);

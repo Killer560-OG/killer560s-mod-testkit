@@ -328,6 +328,8 @@ public final class SameTick implements AutoCloseable {
         SHARE,
         /** Both acted, never in one server tick (the feature waits for his action, or the two cannot meet). */
         APART,
+        /** Both went out on the wire (in one server tick or apart); GrimAC's flags decide the rest (the harness fails a flagged case). */
+        ACTED,
         /** The feature acted and none of his action reached the wire (the feature holds it). */
         HELD
     }
@@ -345,6 +347,7 @@ public final class SameTick implements AutoCloseable {
         switch (want) {
             case SHARE -> c.check(st.both() > 0, what + ": no server tick carried both the feature's packet and his ("
                     + r + ")");
+            case ACTED -> c.check(st.playerWindows() > 0, what + ": his action never reached the wire (" + r + ")");
             case APART -> c.check(st.playerWindows() > 0 && st.both() == 0, what + ": want both apart (" + r + ")");
             case HELD -> c.check(st.playerWindows() == 0, what + ": his action reached the wire (" + r + ")");
         }

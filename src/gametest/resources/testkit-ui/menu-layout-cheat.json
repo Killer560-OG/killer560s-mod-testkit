@@ -133,7 +133,6 @@
     "Scrollable Tooltips",
     "Secret Aura",
     "Secret Sound",
-    "Secret Triggerbot",
     "Secret Waypoints",
     "Secrets",
     "Secrets HUD",
@@ -300,7 +299,6 @@
     "gui.tab.ScreenshotCopyTab": "Chat > Screenshot Copy",
     "gui.tab.SecretAuraTab": "Dungeon > Secrets > Secret Aura",
     "gui.tab.SecretSoundTab": "Dungeon > Secrets > Secret Sound",
-    "gui.tab.SecretTriggerbotTab": "Dungeon > Secrets > Secret Triggerbot",
     "gui.tab.SecretWaypointsTab": "Dungeon > Secrets > Secret Waypoints",
     "gui.tab.ShortsTab": "Display > Video Browser",
     "gui.tab.SimKeybindsTab": "Dungeon > Sim Keybinds",
@@ -565,7 +563,7 @@
       "auto clear rooms": "At the end, hand an uncleared room to Auto Clear and carry on once it is cleared. OFF: warp to it and hand control back.",
       "auto secret": "Cheat build: secrets the floor with your Auto Routes - the reachable room with the most unfound secrets first, warping to its route's start node. Any movement key takes over. Needs Auto Routes on.",
       "auto secret key": "Starts or stops Auto Secret (Esc clears it). Works only in a dungeon, outside the boss.",
-      "autopilot": "Cheat build: Dungeon Autopilot - Auto Secret, Auto Clear and Auto Puzzles under one planner. Each step it re-reads the map and score and picks the next route, clear, puzzle or door. Any movement key takes over; a server correction only warns you.",
+      "start autopilot": "Cheat build: Dungeon Autopilot - Auto Secret, Auto Clear and Auto Puzzles under one planner. Each step it re-reads the map and score and picks the next route, clear, puzzle or door. Any movement key takes over; a server correction only warns you.",
       "autopilot key": "Starts or stops Dungeon Autopilot (Esc clears it). Works only in a dungeon, outside the boss.",
       "blood first": "First clear the Blood Rush Split path and open its doors (wither doors with a key, then the blood door), then the rest of the floor by the Run Mode. Without the key it does the rest meanwhile.",
       "chat feedback": "Chat lines for each room Auto Secret goes to or skips. Stops and server corrections are always said.",
@@ -1293,9 +1291,6 @@
     },
     "Secret Sound": {
       "secret sound": "Plays a sound when you collect a dungeon secret."
-    },
-    "Secret Triggerbot": {
-      "secret triggerbot": "Right-clicks a dungeon secret as soon as your crosshair is on it (cheat build only)."
     },
     "Secret Waypoints": {
       "secret waypoints": "Draws a colored box on every secret in rooms the mod has recognized."

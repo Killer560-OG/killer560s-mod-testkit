@@ -17,11 +17,10 @@
     "gui.tab.PowderChestTriggerbotTab": "Mining > Powder Chest Triggerbot",
     "gui.tab.LeftClickSecretsTab": "Dungeons > Secrets > Left Click Opens Secrets",
     "gui.tab.AutoSuperboomTab": "Dungeons > Auto Superboom",
-    "gui.tab.TerminatorClickerTab": "Dungeons > Terminator Auto Clicker",
-    "gui.tab.GhostBlockTab": "Dungeons > Ghost Block"
+    "gui.tab.TerminatorClickerTab": "Dungeons > Shortbow Auto Clicker",
+    "gui.tab.NoRotateTab": "Dungeons > No Rotate"
   },
   "newLeaves": {
-    "gui.tab.DungeonWaypointsTab": "Dungeons > Secrets > Dungeon Waypoints",
     "gui.tab.RoomNameTab": "Dungeons > Current Room Name",
     "gui.tab.ItemQualityTab": "Dungeons > Item Quality",
     "gui.tab.IcedMobsTab": "Dungeons > Iced Mob Boxes",
@@ -36,8 +35,7 @@
     "gui.tab.RepartyTab": "Dungeons > Reparty",
     "gui.tab.WatcherHelperTab": "Dungeons > Watcher Helper",
     "gui.tab.CarryTrackerTab": "Dungeons > Carry Tracker",
-    "gui.tab.RoomPreviewTab": "Dungeons > Room Preview",
-    "gui.tab.BazaarOrderHelperTab": "Items > Bazaar Order Helper",
+    "gui.tab.BazaarOrderHelperTab": "Items > Order Helper",
     "gui.tab.ReforgeHelperTab": "Items > Reforge Helper",
     "gui.tab.PeekChatTab": "Chat > Peek Chat",
     "gui.tab.PriceTooltipTab": "Items > Price Tooltip",
@@ -76,8 +74,8 @@
     {
       "owner": "Auto Close Chest",
       "key": "auto close chest",
-      "text": "Closes a dungeon secret chest: with Click, the first key or mouse press you make closes it (read the loot first); the cheat build can also close it before it opens.",
-      "why": "featE-1108: Auto Close Chest is a legit tab with a Click mode"
+      "text": "Closes a dungeon secret chest: with Close On Any Key, the first key or mouse press you make closes it (read the loot first); the cheat build can also close it before it opens.",
+      "why": "featE-1108: Auto Close Chest is a legit tab with Close On Any Key (autoclose-1109)"
     },
     {
       "owner": "Timers, Score & Boss",
@@ -643,7 +641,7 @@
     },
     {
       "owner": "Auto Clear",
-      "key": "autopilot",
+      "key": "start autopilot",
       "text": "Cheat build: Dungeon Autopilot runs Auto Secret, Auto Clear and Auto Puzzles under one planner; any movement key takes over.",
       "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, label spelling outside gui/"
     },

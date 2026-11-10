@@ -587,13 +587,26 @@ final class DocPuzzleCases {
             c.server().command("kill @e[tag=k560beams]");
             c.waitUntil("the creeper gone on the client", mc -> mc.level.getEntitiesOfClass(net.minecraft.world.entity.monster.Creeper.class,
                     new net.minecraft.world.phys.AABB(feet[0]).inflate(4)).isEmpty(), 100);
-            List<Object[]> plain = c.onClient(mc -> scanAndDrawFresh(mc, cr, "ONE", eye));
-            c.note("no creeper: One At A Time drew " + firsts(plain));
+            // untestbugs-1109 (creeper beams): while the solver still waits for the creeper (at most 40 scans) it draws NO step,
+            // because a nearest pair shown now would be replaced by the creeper's pair a few ticks later; then the nearest opens.
+            List<Object[]> waiting = c.onClient(mc -> scanAndDrawFresh(mc, cr, "ONE", eye));
+            c.note("no creeper yet: One At A Time drew " + firsts(waiting));
+            c.check(waiting.isEmpty(), "while waiting for the creeper One At A Time drew " + firsts(waiting) + ", want nothing");
+            List<Object[]> plain = c.onClient(mc -> {
+                List<Object[]> d = List.of();
+                for (int i = 0; i < 45; i++) {
+                    d = scanAndDrawAt(mc, cr, "ONE", eye);
+                }
+                return d;
+            });
+            c.note("no creeper after 45 scans: One At A Time drew " + firsts(plain));
             c.check(plain.size() == 1 && other[0].equals(plain.get(0)[0]),
-                    "with no creeper One At A Time should open with the nearest pair " + other[0].toShortString() + ", drew " + firsts(plain));
+                    "with no creeper after the wait One At A Time should open with the nearest pair " + other[0].toShortString() + ", drew " + firsts(plain));
 
             // 1108 (dungsolve): the creeper loads AFTER the first frames drew (nearest pair picked): the opening must still
             // go to the creeper's pair, not stay on the early pick.
+            List<Object[]> early = c.onClient(mc -> scanAndDrawFresh(mc, cr, "ONE", eye));
+            c.check(early.isEmpty(), "the first scan, before the creeper loaded, drew " + firsts(early) + ", want nothing");
             c.server().command("summon minecraft:creeper " + (feet[0].getX() + 0.5) + " " + feet[0].getY() + " " + (feet[0].getZ() + 0.5)
                     + " {NoAI:1b,Silent:1b,Invulnerable:1b,Tags:[\"k560beams\"]}");
             c.waitUntil("the creeper back on the client", mc -> !mc.level.getEntitiesOfClass(net.minecraft.world.entity.monster.Creeper.class,
@@ -618,6 +631,7 @@ final class DocPuzzleCases {
         ((List<?>) Mod.field(BEAMS, "shownOrder")).clear();
         Mod.setField(BEAMS, "openingUsed", false);
         Mod.setField(BEAMS, "creeperFeet", null);
+        Mod.setField(BEAMS, "creeperMisses", 0);
     }
 
     private static List<Object[]> scanAndDrawFresh(Minecraft mc, int[] cr, String mode, Vec3 eye) {

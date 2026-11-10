@@ -97,24 +97,14 @@ final class ModsScreenCases {
                 .orElse(null);
     }
 
-    private static void setButtons(UiCase c, boolean title, boolean pause) {
-        c.onClient(mc -> {
-            Object cfg = Mod.cfg(CFG);
-            Mod.call(cfg, "setMainMenuButton", title);
-            Mod.call(cfg, "setPauseButton", pause);
-            return null;
-        });
-    }
-
     static void title(UiCase c) {
         boolean mm0 = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(MM), "isEnabled"));
         boolean defaults = c.onClient(mc -> {
             Mod.staticCall(CFG, "load");
             Object cfg = Mod.cfg(CFG);
-            return (Boolean) Mod.call(cfg, "isMainMenuButton") && (Boolean) Mod.call(cfg, "isPauseButton")
-                    && (Boolean) Mod.call(cfg, "isShowLibraries");
+            return (Boolean) Mod.call(cfg, "isShowLibraries");
         });
-        c.check(defaults, "the Mods buttons and Libraries should all default ON");
+        c.check(defaults, "Libraries should default ON (the Mods buttons have no switch since 2026-11-09)");
         try {
             c.onClient(mc -> {
                 Mod.call(Mod.cfg(MM), "setEnabled", true);
@@ -254,17 +244,7 @@ final class ModsScreenCases {
                 return icons.isEmpty() ? null : "the icons were not released on close: " + icons.keySet();
             });
             c.check(closed == null, closed);
-
-            setButtons(c, false, true);
-            c.onClient(mc -> {
-                McCompat.setScreen(mc, new TitleScreen());
-                return null;
-            });
-            c.ticks(4);
-            int off = c.onClient(mc -> named(McCompat.screen(mc), "Mods").size());
-            c.check(off == 0, "with Main Menu Mods Button OFF the title screen still has " + off + " Mods buttons");
         } finally {
-            setButtons(c, true, true);
             c.onClient(mc -> {
                 Mod.call(Mod.cfg(MM), "setEnabled", mm0);
                 McCompat.setScreen(mc, new TitleScreen());
@@ -300,14 +280,7 @@ final class ModsScreenCases {
                 c.check(why == null, why);
                 c.note("icons hidden " + hide + ": one Mods button, opens and returns");
             }
-            setButtons(c, true, false);
-            int off = c.onClient(mc -> {
-                McCompat.setScreen(mc, new PauseScreen(true));
-                return named(McCompat.screen(mc), "Mods").size();
-            });
-            c.check(off == 0, "with Pause Menu Mods Button OFF the pause menu still has " + off + " Mods buttons");
         } finally {
-            setButtons(c, true, true);
             c.onClient(mc -> {
                 Mod.call(Mod.cfg(MM), "setHidePauseIcons", icons0);
                 McCompat.setScreen(mc, null);

@@ -183,7 +183,7 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-11-01 small to-do items (mod doc-small-1101, {@link DocSmall1101Cases}). Own block for merges. */
     static final String[] DOC_SMALL_1101_CASES = {"1101-ds-chat-history", "1101-ds-bugged", "1101-ds-confine-mouse",
             "1101-ds-held-item", "1104-ui-helditem-stuck", "1105-ui-invsearch-click", "1101-ds-dvd", "1101-ds-edit-hud-bars", "1101-ds-ping-colors", "1101-ds-streamer",
-            "1101-ds-tab-texts", "1101-ds-chocolate", "1101-ds-nickhider", "1101-ds-mage-beam", "1101-ds-commands"};
+            "1101-ds-tab-texts", "1101-ds-chocolate", "1101-ds-nickhider", "1101-ds-mage-beam", "1109-ui-magebeam-own-shot", "1101-ds-commands"};
     /** killer560's 2026-11-01 command removals (mod cmdclean-1101, {@link CmdClean1101Cases}). Own block for merges. */
     static final String[] CMDCLEAN_1101_CASES = {"1101-cmdclean-gone", "1101-cmdclean-reach"};
     /** killer560's 2026-10-15 Dungeon Map list (mod map-overhaul-1015, {@link MapOverhaulCases}). Own block for merges. */
@@ -310,7 +310,7 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] LIGHTS_DEVICE_CASES = {"1475-ui-lights-device"};
     /** killer560's 2026-10-15 click sounds and short descriptions ({@link SoundDescCases}). Own block for merges. */
     static final String[] SOUND_DESC_CASES = {"1060-ui-card-descriptions", "1061-ui-descriptions-toggle",
-            "1062-ui-editor-hint-narrow", "1063-ui-click-presets", "1064-ui-click-import"};
+            "1062-ui-editor-hint-narrow", "1063-ui-click-presets", "1064-ui-click-import", "1109-ui-soundfx", "1109-ui-soundfx-layout"};
     /** killer560's 2026-10-15 Trajectories for shortbows (mod shortbow-traj-1015, {@link TrajectoryCases}). Own block. */
     static final String[] TRAJECTORY_CASES = {"1080-ui-traj-shortbow", "1081-ui-traj-terminator-spread",
             "1082-ui-traj-normal-bow-drawn-only", "1083-ui-traj-shortbows-setting"};
@@ -761,6 +761,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "805-ui-autokick-floor-source", AutoKick2Cases::floorSourceSettings);
                     UiCase.run(ctx, "806-ui-autokick-floor-switch", AutoKick2Cases::floorSwitch);
                     UiCase.run(ctx, "807-ui-autokick-populate", AutoKick2Cases::populate);
+                    UiCase.run(ctx, "1109-ui-autokick-joined-other-party", AutoKick2Cases::joinedOtherParty);
                     // ---- Custom Party Finder (1018-pf-*) ----
                     UiCase.run(ctx, "1018-pf-leader-accept", PartyFinder1018Cases::leaderAccept);
                     UiCase.run(ctx, "1018-pf-joiner-accept", PartyFinder1018Cases::joinerAccept);
@@ -783,10 +784,22 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1109-ui-cmdprefix-persist", CmdPrefix1109Cases::persist);
                     UiCase.run(ctx, "1108-ui-itemquality", FeatE1108Cases::itemQuality);
                     UiCase.run(ctx, "1108-ui-chestclick", FeatE1108Cases::chestClick);
+                    UiCase.run(ctx, "1109-ui-autoclose-migrate", FeatE1108Cases::chestMigrate);
                     UiCase.run(ctx, "1108-ui-icedmobs", FeatE1108Cases::icedMobs);
                     UiCase.run(ctx, "1108-ui-roomname", FeatE1108Cases::roomName);
+                    UiCase.run(ctx, "1109-ui-ub-menumerges", UntestBugs1109Cases::menuMerges);
+                    UiCase.run(ctx, "1109-ui-ub-darkchat", UntestBugs1109Cases::darkChat);
+                    UiCase.run(ctx, "1109-ui-ub-switches", UntestBugs1109Cases::newSwitches);
+                    UiCase.run(ctx, "1109-ui-ub-cards", UntestBugs1109Cases::cards);
+                    UiCase.run(ctx, "1109-ui-ub-shortbows", UntestBugs1109MoreCases::shortbows);
+                    UiCase.run(ctx, "1109-ui-ub-friends", UntestBugs1109MoreCases::friends);
+                    UiCase.run(ctx, "1109-ui-ub-leapmodes", UntestBugs1109MoreCases::leapModes);
+                    UiCase.run(ctx, "1109-ui-ub-itemquality", UntestBugs1109MoreCases::itemQualityContainer);
+                    UiCase.run(ctx, "1109-ui-ub-ethershape", UntestBugs1109MoreCases::etherShape);
+                    UiCase.run(ctx, "1109-ui-ub-chatsuggest", UntestBugs1109MoreCases::chatSuggestions);
                     UiCase.run(ctx, "1104-ui-univfolders", UniversalFolders1104Cases::moved);
                     UiCase.run(ctx, "1108-ui-salvage-highlight", Salvage1108Cases::salvage);
+                    UiCase.run(ctx, "1109-ui-ub-salvagebg", Salvage1108Cases::salvageBackgrounds);
                     // ---- doc-small (807) ----
                     UiCase.run(ctx, "807-ui-doc-small-1014", DocSmall1014Cases::docSmall);
                     // ---- doc-small 1101 (1101-ds-*) ----
@@ -804,6 +817,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1101-ds-chocolate", DocSmall1101Cases::chocolate);
                     UiCase.run(ctx, "1101-ds-nickhider", DocSmall1101Cases::nickhider);
                     UiCase.run(ctx, "1101-ds-mage-beam", DocSmall1101Cases::mageBeam);
+                    UiCase.run(ctx, "1109-ui-magebeam-own-shot", DocSmall1101Cases::mageBeamOwnShot);
                     UiCase.run(ctx, "1101-ds-commands", DocSmall1101Cases::commands);
                     // ---- cmdclean 1101 ----
                     UiCase.run(ctx, "1101-cmdclean-gone", CmdClean1101Cases::gone);
@@ -1000,6 +1014,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1062-ui-editor-hint-narrow", SoundDescCases::editorNarrow);
                     UiCase.run(ctx, "1063-ui-click-presets", SoundDescCases::presets);
                     UiCase.run(ctx, "1064-ui-click-import", SoundDescCases::imported);
+                    UiCase.run(ctx, "1109-ui-soundfx", SoundFx1109Cases::effects);
+                    UiCase.run(ctx, "1109-ui-soundfx-layout", SoundFx1109Cases::layout);
                     // ---- killer560's 2026-11-01 to-do Doc menu items (mod doc-menu-1101, DocMenu1101Cases) ----
                     UiCase.run(ctx, "1101-ui-docmenu-sections", DocMenu1101Cases::sections);
                     UiCase.run(ctx, "1101-ui-docmenu-scrollbar", DocMenu1101Cases::scrollbar);
