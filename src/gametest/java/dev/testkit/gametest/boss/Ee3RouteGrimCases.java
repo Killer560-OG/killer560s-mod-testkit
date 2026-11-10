@@ -240,6 +240,7 @@ final class Ee3RouteGrimCases {
                 if (s[1] < 107.5) {
                     // Off the route into the lava (y 106): out at once, or the burning fall draws Simulation flags that the
                     // next case is blamed for. Where this route ends in the hx world is the route's question, not this case's.
+                    c.note(String.format(Locale.ROOT, "fell into the lava at t%d (rel %d) at %.2f %.2f %.2f", t, t - t0, s[0], s[1], s[2]));
                     TerminalAuraCases.tp(c, 62.5, 132, 139, 72f);
                     break;
                 }
