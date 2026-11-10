@@ -121,6 +121,8 @@ final class HxBloodCampCases {
         s.test("1103-bloodcamp-watcher-line", HxBloodCampCases::watcherLine);
         // bctrig-1104: Mob Ticks start at the first spawn after the kill timer; KILL on game time, never the ping clock.
         s.test("1104-bloodcamp-stats-spawn", HxBloodCampCases::statsSpawn);
+        s.test("1109-bloodcamp-lost-far", c -> statsFar(c, false));
+        s.test("1109-bloodcamp-lost-far-partial", c -> statsFar(c, true));
         s.test("1108-bloodcamp-party-wire", HxBloodCampCases::partyWire);
         s.test("1104-bloodcamp-gametime", HxBloodCampCases::gameTimeKill);
         s.test("1101-esp-fels", HxBloodCampCases::fels);
@@ -3642,6 +3644,54 @@ final class HxBloodCampCases {
                 return null;
             });
             c.hx().removeStands();
+        }
+    }
+
+    /**
+     * bloodlost-1109 (killer560: the time-lost figure "not working if i am far away nor not in blood room or mage myself"):
+     * with the Watcher and every blood mob out of the client world (entity range) the greeting and KILL still arrive, but
+     * nothing can be seen, and the old figure was a flat 0. It must read unknown (no party message), or "at least N" when a
+     * count had started in view and the mobs then left it.
+     */
+    private static void statsFar(Session c, boolean partial) {
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "HudMobTicks", true).with(BC_CFG, "PartyMessage", false);
+            clearDecoys(c);
+            c.hx().removeStands();
+            greet(c);
+            c.onClient(mc -> {
+                long elapsed = (Long) Mod.staticCall(BC_MT, "elapsedSinceGreeting");
+                int lead = (Integer) Mod.call(Mod.cfg(BC_CFG), "getKillPopupLeadTicks");
+                Mod.setField(BC_MT, "moveAtElapsed", elapsed + 10 + lead);
+                return null;
+            });
+            c.waitUntil("the kill timer goes off", mc -> "WAITING_SPAWN".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
+            if (partial) {
+                c.onClient(mc -> Mod.staticCall(BC_STATS, "tripMobLandedForTest", -1));
+            }
+            c.ctx().waitTicks(30);
+            Object[] r = c.onClient(mc -> new Object[]{Mod.staticCall(BC_STATS, "lostUnknown"),
+                    Mod.staticCall(BC_STATS, "blindTicks"), Mod.staticCall(BC_STATS, "ticksLost"),
+                    Mod.staticCall(BC_STATS, "hudLinesForTest")});
+            c.hx().chat("[BOSS] The Watcher: You have proven yourself. You may pass.");
+            c.ctx().waitTicks(3);
+            String msg = c.onClient(mc -> (String) Mod.staticCall(BC_STATS, "lastMessage"));
+            c.note("far, partial=" + partial + ": unknown " + r[0] + ", blind ticks " + r[1] + ", counted " + r[2] + ", HUD "
+                    + r[3] + ", message \"" + msg + "\"");
+            if (partial) {
+                c.check(Boolean.FALSE.equals(r[0]) && (Long) r[1] >= 8, "a count started in view and the mobs left it: unknown "
+                        + r[0] + ", blind ticks " + r[1] + ", want a lower bound");
+                c.check(msg != null && msg.contains("at least"), "the summary did not say \"at least\": " + msg);
+            } else {
+                c.check(Boolean.TRUE.equals(r[0]), "never in view for 30 ticks and the figure is not unknown (" + r[0] + ", "
+                        + r[2] + ")");
+                c.check(msg != null && msg.contains("unknown") && !msg.contains("0 ticks"), "the summary quotes a number: " + msg);
+            }
+        } finally {
+            c.onClient(mc -> {
+                Mod.staticCall(BC_MT, "reset");
+                return null;
+            });
         }
     }
 
