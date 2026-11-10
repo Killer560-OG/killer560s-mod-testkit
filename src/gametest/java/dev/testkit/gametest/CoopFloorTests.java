@@ -42,6 +42,7 @@ public class CoopFloorTests implements FabricClientGameTest {
 
     static final String FAKE = "1109-coopfloor-fake";
     static final String TWO = "1109-coopfloor-two";
+    static final String ICE = "1109-coopfloor-ice";
     private static final String R = "com.killer560.hub.roomsim.";
     private static final String GUEST_NAME = "TkFloorGuest";
     private static final int MAP_ID = 1_234_560;
@@ -52,12 +53,12 @@ public class CoopFloorTests implements FabricClientGameTest {
             return;
         }
         List<String> failed = new ArrayList<>();
-        for (String name : new String[]{FAKE, TWO}) {
+        for (String name : new String[]{FAKE, ICE, TWO}) {
             if (Scenario.skip(name)) {
                 continue;
             }
             boolean guestSide = CoopSync.role().equals("guest");
-            if (name.equals(FAKE) && guestSide) {
+            if (!name.equals(TWO) && guestSide) {
                 Scenario.skipped(name, "the guest side of a two-client run (the host runs it)");
                 continue;
             }
@@ -82,6 +83,8 @@ public class CoopFloorTests implements FabricClientGameTest {
             try {
                 if (name.equals(FAKE)) {
                     fake(ctx, problems, facts);
+                } else if (name.equals(ICE)) {
+                    ice(ctx, problems, facts);
                 } else if (!guestSide) {
                     twoHost(ctx, problems, facts);
                 } else {
@@ -131,6 +134,8 @@ public class CoopFloorTests implements FabricClientGameTest {
         g.run(p -> p.getAbilities().invulnerable = true); // void damage below still reaches it
         expect(f, facts, "run started", until(ctx, mc -> (Boolean) call("SimRun", "hasStarted"), 400), true);
         expect(f, facts, "SimCoop sees one guest", until(ctx, mc -> ((List<?>) call("SimCoop", "guestSpots")).size() == 1, 40), true);
+        expect(f, facts, "the guest's tab row reads the sim's only class", until(ctx, mc -> tabHas(mc, "] " + GUEST_NAME
+                + " (Mage L)"), 200), true);
 
         // ---- the guests' dungeon map: an item in slot 9 and a picture the scanner calibrates on ----
         int sends0 = num(call("SimCoopMap", "sendsForTest"));
@@ -303,6 +308,63 @@ public class CoopFloorTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> call("puzzles.SimTicTacToePuzzle", "reset"));
     }
 
+    // ===================================================================================== 1109-coopfloor-ice
+
+    /** The Ice Path silverfish is put back when a GUEST is near it, though the host is far away (server-side check). */
+    private static void ice(ClientGameTestContext ctx, List<String> f, List<String> facts) {
+        long before = Scenario.simBuildCount(ctx);
+        ctx.runOnClient(mc -> mc.execute(() -> ModUnderTest.staticCall(R + "SimBuilder", "buildSingleRoom",
+                new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, "Ice Path"})));
+        ctx.waitFor(mc -> mc.level != null && mc.player != null, 2400);
+        Scenario.awaitSimBuild(ctx, before);
+        ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
+        ctx.waitTicks(40);
+        expect(f, facts, "client stands on the room", until(ctx, mc -> mc.player.onGround()
+                && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir(), 1800), true);
+        MinecraftServer s = ctx.computeOnClient(Minecraft::getSingleplayerServer);
+        UUID host = ctx.computeOnClient(mc -> mc.player.getUUID());
+        Vec3 hostAt = hostNow(ctx);
+        net.minecraft.world.phys.AABB box = new net.minecraft.world.phys.AABB(hostAt, hostAt).inflate(48, 24, 48);
+        Vec3 fishAt = GuestPlayer.onServer(ctx, s, () -> {
+            var list = s.overworld().getEntitiesOfClass(net.minecraft.world.entity.monster.Silverfish.class, box);
+            return list.isEmpty() ? null : list.get(0).position();
+        });
+        if (fishAt == null) {
+            f.add("no sim silverfish near the host to start from");
+            return;
+        }
+        GuestPlayer g = GuestPlayer.joinBesideHost(ctx, s, host, GUEST_NAME, fishAt.add(0, 1, 0));
+        g.run(p -> p.getAbilities().invulnerable = true);
+        // The host flies 60 blocks away (over RESPAWN_RANGE 24); the guest stays on the fish's cell.
+        GuestPlayer.onServer(ctx, s, () -> {
+            ServerPlayer hp = s.getPlayerList().getPlayer(host);
+            hp.getAbilities().invulnerable = true;
+            hp.getAbilities().mayfly = true;
+            hp.getAbilities().flying = true;
+            return call("SimArrival", "teleport", new Class<?>[]{ServerPlayer.class, ServerLevel.class, double.class,
+                    double.class, double.class, java.util.Set.class, float.class, float.class},
+                    hp, (ServerLevel) hp.level(), fishAt.x + 60, fishAt.y + 20, fishAt.z, java.util.Set.of(), 0f, 0f);
+        });
+        ctx.waitTicks(10);
+        double far = hostNow(ctx).distanceTo(fishAt);
+        facts.add("host " + (int) far + " blocks from the fish, guest on it");
+        expect(f, facts, "host is beyond the respawn range", far > 30, true);
+        int gone = GuestPlayer.onServer(ctx, s, () -> {
+            var list = s.overworld().getEntitiesOfClass(net.minecraft.world.entity.monster.Silverfish.class, box);
+            list.forEach(net.minecraft.world.entity.Entity::discard);
+            return list.size();
+        });
+        expect(f, facts, "a fish was there to remove", gone >= 1, true);
+        boolean back = false;
+        for (int i = 0; i < 40 && !back; i++) {
+            ctx.waitTicks(10);
+            back = GuestPlayer.onServer(ctx, s, () -> !s.overworld().getEntitiesOfClass(
+                    net.minecraft.world.entity.monster.Silverfish.class, box, e -> e.isAlive()).isEmpty());
+        }
+        expect(f, facts, "the guest's presence put the silverfish back", back, true);
+        g.remove();
+    }
+
     // ===================================================================================== 1109-coopfloor-two
 
     private static void twoHost(ClientGameTestContext ctx, List<String> f, List<String> facts) {
@@ -324,6 +386,17 @@ public class CoopFloorTests implements FabricClientGameTest {
         expect(f, facts, "guest in the PlayerList", until(ctx, mc -> mc.getSingleplayerServer().getPlayerList()
                 .getPlayerByName(guestName) != null, 200), true);
         CoopSync.await(ctx, "guest-settled", 120);
+
+        // Party chat: the host's /pc reaches the guest (the guest checks its log), the guest's /pc reaches the host.
+        long pcMark = LogTap.mark();
+        ctx.runOnClient(mc -> mc.player.connection.sendCommand("pc hello guest"));
+        CoopSync.put("host-pc", "1");
+        CoopSync.await(ctx, "guest-pc-sent", 60);
+        expect(f, facts, "host sees its own /pc in party format", until(ctx, mc -> logSeen(pcMark,
+                "Party > " + hostName + ": hello guest"), 100), true);
+        expect(f, facts, "host sees the guest's /pc in party format", until(ctx, mc -> logSeen(pcMark,
+                "Party > " + guestName + ": hello host"), 200), true);
+        expect(f, facts, "a guest's /pc is no unknown command on the host", logSeen(pcMark, "Unknown or incomplete"), false);
 
         // A rebuild lands everyone at the entrance.
         int landings0 = num(call("SimBuilder", "partyLandingsForTest"));
@@ -371,9 +444,23 @@ public class CoopFloorTests implements FabricClientGameTest {
             return;
         }
         String me = ctx.computeOnClient(mc -> mc.player.getGameProfile().name());
+        long pcMark = LogTap.mark();
         CoopSync.put("guest-in", me);
         CoopSync.pace(ctx, 2000);
         CoopSync.put("guest-settled", "1");
+
+        // Party chat from the host arrives in party format; the guest's own /pc goes up and comes back the same way.
+        CoopSync.await(ctx, "host-pc", 60);
+        int pc0 = num(call("SimPartyChat", "sentForTest"));
+        expect(f, facts, "guest sees the host's /pc in party format", paceUntil(ctx, () -> logSeen(pcMark,
+                "Party > " + hostName + ": hello guest"), 10_000), true);
+        ctx.runOnClient(mc -> mc.player.connection.sendCommand("pc hello host"));
+        expect(f, facts, "guest's /pc went up as the co-op payload", paceUntil(ctx, () -> num(call("SimPartyChat",
+                "sentForTest")) == pc0 + 1, 5_000), true);
+        expect(f, facts, "guest sees its own /pc in party format", paceUntil(ctx, () -> logSeen(pcMark,
+                "Party > " + me + ": hello host"), 10_000), true);
+        expect(f, facts, "a guest's /pc is no unknown command", logSeen(pcMark, "Unknown or incomplete"), false);
+        CoopSync.put("guest-pc-sent", "1");
 
         String[] at = CoopSync.await(ctx, "host-landed", 300).trim().split(" ");
         Vec3 hostAt = new Vec3(Double.parseDouble(at[0]), Double.parseDouble(at[1]), Double.parseDouble(at[2]));
@@ -390,6 +477,8 @@ public class CoopFloorTests implements FabricClientGameTest {
         String t1 = ctx.computeOnClient(mc -> tabLine(mc, " Time: "));
         facts.add("tab clock " + t0 + " -> " + t1);
         expect(f, facts, "guest's tab clock moves", t0 != null && t1 != null && !t0.equals(t1), true);
+        expect(f, facts, "guest's tab class text is the sim's only class", ctx.computeOnClient(mc ->
+                tabHas(mc, "] " + me + " (Mage L)")), true);
         expect(f, facts, "guest's tab has the secrets line", ctx.computeOnClient(mc -> tabLine(mc, " Secrets Found: ") != null), true);
 
         // Its own map features read the map item the host sends.
