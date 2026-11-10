@@ -219,7 +219,7 @@ final class Ee3RouteGrimCases {
             undo.add(c.onClient(mc -> Mod.with(LA, "SectionLevers", true)));
             undo.add(c.onClient(mc -> Mod.with(LA, "SectionLeversEarly", true)));
             undo.add(c.onClient(mc -> Mod.with(LA, "Range", 4.5)));
-            undo.add(c.onClient(mc -> Mod.with(LA, "Cps", 20)));
+            undo.add(c.onClient(mc -> Mod.with(LA, "CooldownMs", 50)));
             undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Enabled", true)));
             c.onClient(mc -> {
                 try {

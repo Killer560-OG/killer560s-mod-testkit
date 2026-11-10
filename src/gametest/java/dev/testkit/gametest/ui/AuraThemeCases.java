@@ -148,7 +148,7 @@ final class AuraThemeCases {
                 Object la = Mod.cfg(LA);
                 c.check((Boolean) Mod.get(CU, "isAuraBossLevers"), "an old enabled:true file did not turn In Boss on");
                 c.check((Boolean) Mod.call(la, "isEnabledRaw"), "Lever Aura's own switch should read In Boss");
-                c.check(((Integer) Mod.call(la, "getCps")) == 9, "cps 9 did not carry over: " + Mod.call(la, "getCps"));
+                c.check(((Integer) Mod.call(la, "getCooldownMs")) == 111, "cps 9 did not carry over as 111 ms: " + Mod.call(la, "getCooldownMs"));
                 c.check((Boolean) Mod.call(la, "isSectionLeversRaw"), "sectionLevers did not carry over");
                 // lightsFinish now belongs to the Lights Device (mod lights-aura-1015): it carries over THERE.
                 c.check(!(Boolean) Mod.get("lightsdevice.LightsDeviceConfig", "isFinish"), "lightsFinish false did not carry over");
