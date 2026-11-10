@@ -191,6 +191,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxFeatG1109Cases.register(s);
                     // mod staging-coopsim: the co-op sim's guest channels stay shut on a Hypixel-labeled server.
                     HxCoop1109Cases.register(s);
+                    // mod nobosspearl-1110: Block Ender Pearls In Boss.
+                    HxNoBossPearl1110Cases.register(s);
                 });
     }
 }
