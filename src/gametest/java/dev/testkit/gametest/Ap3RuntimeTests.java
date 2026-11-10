@@ -1271,7 +1271,9 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
                     Field f = sc.getClass().getDeclaredField("shown");
                     f.setAccessible(true);
                     for (Object el : (java.util.Collection<?>) f.get(sc)) {
-                        ids.add(String.valueOf(ModUnderTest.call(el, "id", new Class<?>[]{}, new Object[]{})));
+                        java.lang.reflect.Method idm = el.getClass().getMethod("id"); // inherited from BasicHud now, not declared on the element
+                        idm.setAccessible(true);
+                        ids.add(String.valueOf(idm.invoke(el)));
                     }
                 } catch (ReflectiveOperationException | RuntimeException e) {
                     ids.add(e.toString());
