@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-10T11:49:56",
+ "generatedAt": "2026-11-10T16:54:22",
  "modSource": "ship22-1110",
- "modGitSha": "e5efb9d947abd4e9c9ad8e608853386b0edd31c3",
+ "modGitSha": "b09a21e75b73a2c9134d5b3865dacceabbef5322",
  "modSourceDirty": false,
  "count": 929,
  "byKind": {
@@ -4903,11 +4903,11 @@
    "field": "SUMMONED",
    "index": null,
    "file": "src/main/java/com/killer560/hub/maskinvincibility/MaskSwapper.java",
-   "line": 165,
-   "regex": "^You summoned your ([A-Za-z' ]{1,32}?)(?: ✦)?!$",
+   "line": 169,
+   "regex": "^You summoned your (?:(?:\\[Lvl \\d{1,3}]|\\(Lvl \\d{1,3}\\)|Lvl \\d{1,3}) )?([A-Za-z' ]{1,32}?)(?: (?:\\[Lvl \\d{1,3}]|\\(Lvl \\d{1,3}\\)|Lvl \\d{1,3}))?(?: ✦)?(?: (?:\\[Lvl \\d{1,3}]|\\(Lvl \\d{1,3}\\)|Lvl \\d{1,3}))?!$",
    "flags": null,
    "kind": "field",
-   "expr": "\"^You summoned your ([A-Za-z' ]{1,32}?)(?: \\u2726)?!$\""
+   "expr": "\"^You summoned your \" + PET + \"!$\""
   },
   {
    "id": "maskinvincibility.MaskSwapper#AUTOPET",
@@ -4915,11 +4915,11 @@
    "field": "AUTOPET",
    "index": null,
    "file": "src/main/java/com/killer560/hub/maskinvincibility/MaskSwapper.java",
-   "line": 166,
-   "regex": "^Autopet equipped your \\[Lvl \\d{1,3}] ([A-Za-z' ]{1,32}?)(?: ✦)?! VIEW RULE$",
+   "line": 170,
+   "regex": "^Autopet equipped your (?:(?:\\[Lvl \\d{1,3}]|\\(Lvl \\d{1,3}\\)|Lvl \\d{1,3}) )?([A-Za-z' ]{1,32}?)(?: (?:\\[Lvl \\d{1,3}]|\\(Lvl \\d{1,3}\\)|Lvl \\d{1,3}))?(?: ✦)?(?: (?:\\[Lvl \\d{1,3}]|\\(Lvl \\d{1,3}\\)|Lvl \\d{1,3}))?! VIEW RULE$",
    "flags": null,
    "kind": "field",
-   "expr": "\"^Autopet equipped your \\\\[Lvl \\\\d{1,3}] ([A-Za-z' ]{1,32}?)(?: \\u2726)?! VIEW RULE$\""
+   "expr": "\"^Autopet equipped your \" + PET + \"! VIEW RULE$\""
   },
   {
    "id": "maskinvincibility.MaskSwapper#DESPAWNED",
@@ -4927,11 +4927,11 @@
    "field": "DESPAWNED",
    "index": null,
    "file": "src/main/java/com/killer560/hub/maskinvincibility/MaskSwapper.java",
-   "line": 168,
-   "regex": "^You despawned your ([A-Za-z' ]{1,32}?)(?: ✦)?!$",
+   "line": 171,
+   "regex": "^You despawned your (?:(?:\\[Lvl \\d{1,3}]|\\(Lvl \\d{1,3}\\)|Lvl \\d{1,3}) )?([A-Za-z' ]{1,32}?)(?: (?:\\[Lvl \\d{1,3}]|\\(Lvl \\d{1,3}\\)|Lvl \\d{1,3}))?(?: ✦)?(?: (?:\\[Lvl \\d{1,3}]|\\(Lvl \\d{1,3}\\)|Lvl \\d{1,3}))?!$",
    "flags": null,
    "kind": "field",
-   "expr": "\"^You despawned your ([A-Za-z' ]{1,32}?)(?: \\u2726)?!$\""
+   "expr": "\"^You despawned your \" + PET + \"!$\""
   },
   {
    "id": "maxor.MaxorCrystalsFeature#PICKUP",
