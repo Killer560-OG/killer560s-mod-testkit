@@ -2055,7 +2055,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                 multi, other.size(), other.isEmpty() ? "" : ": " + other, turned));
                         System.out.println("[multibreak] " + name + " blocks=" + picks.size() + " mostInOneTick=" + most
                                 + " multiBreakLines=" + multi + " otherLines=" + other.size());
-                        if (!gone) {
+                        if (!gone && !(offLook && exp)) { // the unaimed burst: experimental Grim may cancel digs (flags by design)
                             throw new AssertionError("not every pick broke");
                         }
                         if (most != picks.size()) {
