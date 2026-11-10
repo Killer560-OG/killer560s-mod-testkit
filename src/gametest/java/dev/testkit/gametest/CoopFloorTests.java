@@ -128,7 +128,7 @@ public class CoopFloorTests implements FabricClientGameTest {
         Vec3 hostAt = hostNow(ctx);
         GuestPlayer g = GuestPlayer.joinBesideHost(ctx, s, host, GUEST_NAME, hostAt.add(1, 0, 0));
         UUID guest = g.entity().getUUID();
-        g.run(p -> p.setInvulnerable(true));
+        g.run(p -> p.getAbilities().invulnerable = true); // void damage below still reaches it
         expect(f, facts, "run started", until(ctx, mc -> (Boolean) call("SimRun", "hasStarted"), 400), true);
         expect(f, facts, "SimCoop sees one guest", until(ctx, mc -> ((List<?>) call("SimCoop", "guestSpots")).size() == 1, 40), true);
 
@@ -185,9 +185,7 @@ public class CoopFloorTests implements FabricClientGameTest {
         // ---- a death counts for the team and for the guest ----
         int deaths0 = num(call("SimScore", "deaths"));
         g.run(p -> {
-            p.setInvulnerable(false);
             p.hurtServer((ServerLevel) p.level(), p.damageSources().fellOutOfWorld(), 1000f);
-            p.setInvulnerable(true);
         });
         ctx.waitTicks(2);
         expect(f, facts, "team deaths after the guest's death", num(call("SimScore", "deaths")) - deaths0, 1);
