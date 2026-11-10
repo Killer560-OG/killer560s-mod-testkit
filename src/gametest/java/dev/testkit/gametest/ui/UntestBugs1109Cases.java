@@ -81,36 +81,33 @@ final class UntestBugs1109Cases {
         c.check(noFilter, "Auto Dialogue still has an NPC names filter");
     }
 
-    /** Dark Mode tints the open chat screen (and the HUD editor) with Tint HUD on; off draws nothing. */
+    /** Dark Mode fills exactly once per GUI frame with the chat or the HUD editor open; off draws nothing. */
     static void darkChat(UiCase c) throws Exception {
         Object cfg = Mod.cfg("darkmode.DarkModeConfig");
         boolean en = (Boolean) Mod.call(cfg, "isEnabled");
-        boolean tint = (Boolean) Mod.call(cfg, "isTintHud");
         Object ct = Mod.cfg("chattabs.ChatTabsConfig");
         boolean ctOn = (Boolean) Mod.call(ct, "isEnabledRaw");
         try {
             c.onClient(mc -> {
                 Mod.call(cfg, "setEnabled", true);
-                Mod.call(cfg, "setTintHud", true);
                 Mod.call(ct, "setEnabled", true);
                 return null;
             });
             for (String screenName : new String[]{"chat", "hudeditor"}) {
-                long before = (Integer) Mod.field("darkmode.DarkModeFeature", "screenFills");
+                long before = (Integer) Mod.field("darkmode.DarkModeFeature", "frameFills");
                 c.onClient(mc -> {
                     McCompat.setScreen(mc, screenName.equals("chat") ? new ChatScreen("", false) : newHudEditor());
                     return null;
                 });
                 c.ticks(4);
                 c.onClient(mc -> {
-                    Screen s = McCompat.screen(mc);
                     for (int i = 0; i < 3; i++) {
-                        Frames.extract(mc, s, -1, -1);
+                        mc.gui.extractRenderState(mc.getDeltaTracker(), false, false);
                     }
                     return null;
                 });
-                long after = (Integer) Mod.field("darkmode.DarkModeFeature", "screenFills");
-                c.check(after > before, "Dark Mode did not tint the " + screenName + " screen (" + before + " -> " + after + ")");
+                long after = (Integer) Mod.field("darkmode.DarkModeFeature", "frameFills");
+                c.check(after - before >= 3, "Dark Mode did not fill on the " + screenName + " screen (" + before + " -> " + after + ")");
                 if (screenName.equals("chat")) {
                     long frames = (Long) Mod.staticCall("chattabs.ChatTabsFeature", "framesDrawn");
                     c.check(frames > 0, "Chat Tabs drew no frame from the chat screen's own render (the mixin never ran)");
@@ -119,12 +116,12 @@ final class UntestBugs1109Cases {
                     Mod.call(cfg, "setEnabled", false);
                     return null;
                 });
-                long off0 = (Integer) Mod.field("darkmode.DarkModeFeature", "screenFills");
+                long off0 = (Integer) Mod.field("darkmode.DarkModeFeature", "frameFills");
                 c.onClient(mc -> {
-                    Frames.extract(mc, McCompat.screen(mc), -1, -1);
+                    mc.gui.extractRenderState(mc.getDeltaTracker(), false, false);
                     return null;
                 });
-                long off1 = (Integer) Mod.field("darkmode.DarkModeFeature", "screenFills");
+                long off1 = (Integer) Mod.field("darkmode.DarkModeFeature", "frameFills");
                 c.check(off1 == off0, "Dark Mode OFF still tinted the " + screenName + " screen");
                 c.onClient(mc -> {
                     Mod.call(cfg, "setEnabled", true);
@@ -135,7 +132,6 @@ final class UntestBugs1109Cases {
         } finally {
             c.onClient(mc -> {
                 Mod.call(cfg, "setEnabled", en);
-                Mod.call(cfg, "setTintHud", tint);
                 Mod.call(ct, "setEnabled", ctOn);
                 McCompat.setScreen(mc, null);
                 return null;

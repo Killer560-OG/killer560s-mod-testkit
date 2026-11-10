@@ -7,8 +7,8 @@ import java.awt.image.BufferedImage;
 /**
  * Tab on top (mod branch tabtop-1106, killer560 2026-11-06: "tab should always go over any other thing on screen"):
  * <ul>
- *   <li>1106-tabtop-order: the player list is drawn after every mod HUD layer. Dark Mode's Tint HUD is the mod's last
- *       layer; with the list shown, its white text pixels must come through untinted (the old jar tinted them).</li>
+ *   <li>1106-tabtop-order: the player list is drawn after every mod HUD layer. With Dark Mode (one fill at the end of
+ *       the frame, darkall-1110) the list is darkened once like everything else: its white text must still show (0.40).</li>
  *   <li>1106-tabtop-hold: a shared Ability/player-list key hides the list for a quick tap, shows it once held 300 ms,
  *       shows it at once when Hypixel answers "on cooldown", and a release starts over (the tap/hold rule is driven with
  *       its own clock, because the real key poll cannot be faked).</li>
@@ -39,11 +39,11 @@ final class HxTabTop1106Cases {
         HxKit.hub(c);
         byte[] saved = HxDarkMode1102Cases.saveFile(c);
         try {
-            HxDarkMode1102Cases.settings(c, false, 60, false);
+            HxDarkMode1102Cases.settings(c, false, 60);
             HxDarkMode1102Cases.still(c);
             tab(c, true);
             BufferedImage base = HxDarkMode1102Cases.shot(c, "list");
-            HxDarkMode1102Cases.settings(c, true, 60, true);
+            HxDarkMode1102Cases.settings(c, true, 60);
             BufferedImage tinted = HxDarkMode1102Cases.shot(c, "list-tinthud");
             tab(c, false);
             int w = base.getWidth(), h = base.getHeight();
@@ -52,7 +52,7 @@ final class HxTabTop1106Cases {
                 for (int x = w * 30 / 100; x < w * 70 / 100; x++) {
                     if (HxDarkMode1102Cases.lum(base.getRGB(x, y)) >= 700) {
                         white++;
-                        if (HxDarkMode1102Cases.lum(tinted.getRGB(x, y)) >= 600) {
+                        if (HxDarkMode1102Cases.lum(tinted.getRGB(x, y)) >= 250) {
                             kept++;
                         }
                     }
@@ -60,7 +60,7 @@ final class HxTabTop1106Cases {
             }
             c.note("player list white pixels " + white + ", still bright under the over-HUD tint " + kept);
             c.check(white > 40, "the player list never showed (" + white + " white pixels in the top band)");
-            c.check(kept * 10 >= white * 8, "the mod's last HUD layer was drawn over the player list: " + kept + " of " + white
+            c.check(kept * 10 >= white * 8, "the player list vanished under Dark Mode: " + kept + " of " + white
                     + " white pixels survived the tint");
         } finally {
             tab(c, false);
