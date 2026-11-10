@@ -45,9 +45,23 @@ final class Align12Cases {
         s.test("1110-align12-walk-400", c -> run(c, 0.4, false, false, 4));
         s.test("1110-align12-walk-600", c -> run(c, 0.6, false, false, 5));
         s.test("1110-align12-accel-500", c -> run(c, 0.5, true, true, 6));
+        // SAME-TICK GRIM CASES: his own action in every tick of the approach and the align (a container click cannot be
+        // one: AP3 stops when a screen opens), and the align armed again while it runs.
+        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.TP, SameTick.Act.DIG}) {
+            s.test("1110-align12-same-" + a.name().toLowerCase(Locale.ROOT), c -> run(c, 0.5, true, false, 10 + a.ordinal(), a, false));
+        }
+        s.test("1110-align12-same-again", c -> run(c, 0.5, true, false, 20, null, true));
     }
 
+    private static final int ROD_A = 7;
+    private static final int ROD_B = 8;
+
     private static void run(Session c, double speed, boolean sprint, boolean near, long seed) {
+        run(c, speed, sprint, near, seed, null, false);
+    }
+
+    /** {@code act}: his action in every tick (null: none); {@code again}: the align is armed a second time while it runs. */
+    private static void run(Session c, double speed, boolean sprint, boolean near, long seed, SameTick.Act act, boolean again) {
         ClientGameTestContext ctx = c.ctx();
         c.server().command(String.format(Locale.ROOT, "attribute @p minecraft:movement_speed base set %.2f", speed));
         c.server().sync(20);
@@ -58,8 +72,28 @@ final class Align12Cases {
         int[] hist = new int[12];
         int planned = 0, fellBack = 0;
         List<String> fails = new ArrayList<>();
+        boolean same = act != null || again;
+        int trials = same ? Math.max(4, TRIALS / 2) : TRIALS;
+        SameTick st = null;
+        int rearmed = 0;
+        if (act == SameTick.Act.USE || act == SameTick.Act.SWAP) {
+            c.server().command("item replace entity @p hotbar." + ROD_A + " with minecraft:blaze_rod");
+            c.server().command("item replace entity @p hotbar." + ROD_B + " with minecraft:blaze_rod");
+            ctx.waitTicks(3);
+            onClient(ctx, mc -> {
+                mc.player.getInventory().setSelectedSlot(ROD_A);
+                return null;
+            });
+        }
         try {
-            for (int t = 0; t < TRIALS; t++) {
+            if (act != null) {
+                // the align's packets: every movement packet while AP3 runs
+                st = onClient(ctx, mc -> SameTick.start(act, act == SameTick.Act.DIG ? 2 : 1, p -> p instanceof
+                        net.minecraft.network.protocol.game.ServerboundMovePlayerPacket
+                        && Boolean.TRUE.equals(dev.testkit.gametest.mod.Mod.staticCall("ap3.Ap3Executor", "isRunning")),
+                        ROD_A, ROD_B));
+            }
+            for (int t = 0; t < trials; t++) {
                 double head = (rnd.nextDouble() - 0.5) * 70; // degrees off +x
                 boolean diag = rnd.nextBoolean();
                 double side = (rnd.nextDouble() - 0.5) * 0.9;
@@ -75,7 +109,9 @@ final class Align12Cases {
                     Ap3RuntimeTests.staticCallStop();
                     return null;
                 });
-                c.server().command(String.format(Locale.ROOT, "tp @p %.4f %.2f %.4f %.3f 0", sx, y, sz, yaw));
+                // DIG: his crosshair on the floor ahead (pitch 60), so his left click digs a block every other tick
+                c.server().command(String.format(Locale.ROOT, "tp @p %.4f %.2f %.4f %.3f %d", sx, y, sz, yaw,
+                        act == SameTick.Act.DIG ? 60 : 0));
                 c.server().sync(20);
                 ctx.waitTicks(10);
                 Object align = node("FAST_ALIGN", tx, tz, 0f, 0f, 1.0, 1.0);
@@ -94,7 +130,18 @@ final class Align12Cases {
                 }
                 List<double[]> tr = new ArrayList<>();
                 boolean held = true;
+                int armed = -1;
                 for (int i = 0; i < 120; i++) {
+                    if (act == SameTick.Act.TP && !held && i % 2 == 0) {
+                        c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+                    }
+                    if (again && armed >= 0 && i == armed + 1) {
+                        onClient(ctx, mc -> {
+                            setChain(align); // a second run of the align, one tick into the first
+                            return null;
+                        });
+                        rearmed++;
+                    }
                     ctx.waitTick();
                     double[] r = onClient(ctx, mc -> {
                         Vec3 v = mc.player.getDeltaMovement();
@@ -104,6 +151,7 @@ final class Align12Cases {
                     tr.add(r);
                     if (held && r[4] == 1) {
                         held = false;
+                        armed = i;
                         release(ctx);
                     }
                     if (!held && r[4] == 0 && tr.size() > 8 && same(tr, 5)) {
@@ -148,22 +196,39 @@ final class Align12Cases {
                 }
             }
         } finally {
+            if (st != null) {
+                SameTick done = st;
+                onClient(ctx, mc -> {
+                    done.close();
+                    return null;
+                });
+            }
             release(ctx);
             onClient(ctx, mc -> {
                 Ap3RuntimeTests.staticCallStop();
                 return null;
             });
             c.server().command("attribute @p minecraft:movement_speed base set 0.10");
+            c.server().command("clear @p minecraft:blaze_rod");
             c.server().sync(20);
         }
         StringBuilder h = new StringBuilder();
         for (int i = 0; i < hist.length; i++) {
             if (hist[i] > 0) {
-                h.append(String.format(Locale.ROOT, " %d-tick %d of %d;", i, hist[i], TRIALS));
+                h.append(String.format(Locale.ROOT, " %d-tick %d of %d;", i, hist[i], trials));
             }
         }
         c.note(String.format(Locale.ROOT, "align12 speed %.1f %s%s: tick-exact plans %d, handed to the regular align %d;%s",
                 speed, sprint ? "sprint" : "walk", near ? " near" : "", planned, fellBack, h));
+        if (st != null) {
+            c.note(st.report());
+            String why = st.verdict("align12 " + act, false);
+            c.check(why == null, why);
+        }
+        if (again) {
+            c.note("armed again mid-align " + rearmed + " time(s)");
+            c.check(rearmed > 0, "the align was never armed a second time");
+        }
         if (planned == 0) {
             throw new AssertionError("no tick-exact plan in any trial - the feature never acted");
         }
