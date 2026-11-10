@@ -109,6 +109,12 @@ and the guest joins `127.0.0.1:port` through `ConnectScreen`. Logs: `build/coop-
 writes its own summary.md, the script prints both and exits 0 only when both passed. A new co-op case: a `CoopSimTests`
 method that skips unless `CoopSync.active()`, branches on `CoopSync.role()`, and paces with `CoopSync.pace` (a published host
 only ticks while its test thread does).
+`-w` (sim invites, 1109-mp-invite) also starts a LOCAL `wrangler dev` relay from RELAY_DIR (default C:/Users/Hunter/relay-coopsim,
+never the live worker) on a free port from 8811 with TOKEN_SECRET simreach-e2e-secret-not-real and MOJANG_STUB, writes
+`relay-port.txt` for `CoopSync.get("relay-port")`, and kills only its own tree at the end. The case mints both tokens itself,
+and the host's FakeGateway answers 127.0.0.1 so the relay's join answer carries an endpoint the guest can reach. The
+relay's room list is the real one here (not SimRoomsStub): an idle wrangler Durable Object is evicted after ~10 s, which
+lost every room until relay 967d76f stored them.
 
 ## Sharding (run-sharded.ps1)
 
