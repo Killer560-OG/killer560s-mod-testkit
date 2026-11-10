@@ -450,6 +450,13 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
                     .contains("UPnP is off in this test client"), true);
             expect(f, facts, "list line", ModUnderTest.staticCall(HOSTC, "listLine"), "Listed in the room list (LAN only).");
             int port = (Integer) ModUnderTest.staticCall(HOSTC, "port");
+            // Both test clients are offline accounts: like CoopSimTests.publish, take the published server off online mode
+            // (the mod keeps vanilla's authentication; real accounts pass it).
+            facts.add("online mode was " + ctx.computeOnClient(mc -> {
+                boolean was = mc.getSingleplayerServer().usesAuthentication();
+                mc.getSingleplayerServer().setUsesAuthentication(false);
+                return was;
+            }));
             JsonObject ep = new JsonObject();
             ep.addProperty("host", "127.0.0.1");
             ep.addProperty("port", port);
