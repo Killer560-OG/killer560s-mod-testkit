@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-10T03:26:43",
- "modSource": "staging-coopsim-247980",
- "modGitSha": "6e6add488182a2c230ff8145258210575024b349",
+ "generatedAt": "2026-11-10T11:49:56",
+ "modSource": "ship22-1110",
+ "modGitSha": "e5efb9d947abd4e9c9ad8e608853386b0edd31c3",
  "modSourceDirty": false,
  "count": 929,
  "byKind": {
