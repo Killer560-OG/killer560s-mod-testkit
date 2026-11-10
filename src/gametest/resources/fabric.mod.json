@@ -178,6 +178,7 @@
 			"dev.testkit.gametest.SimDoorHeightTests",
 			"dev.testkit.gametest.SimOneDoorTests",
 			"dev.testkit.gametest.SimChunkLoadedTests",
+			"dev.testkit.gametest.SimPartyChatTests",
 			"dev.testkit.gametest.AuraQuoiTests",
 			"dev.testkit.gametest.SimAuraSkipTests",
 			"dev.testkit.gametest.SimDummyLeverTests",
