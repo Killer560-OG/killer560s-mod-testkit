@@ -43,6 +43,10 @@ final class Ap3BlinkOff1109Cases {
     static void run(Session c) {
         ClientGameTestContext ctx = c.ctx();
         boolean cheat = cheat();
+        if (!cheat) {
+            Scenario.skipped("1026-ap3-blink-off", "AP3 is cheat-only: a legit jar has no AP3 route to carry Blink nodes");
+            return;
+        }
         c.server().command("attribute @p minecraft:movement_speed base set 0.10");
         c.server().sync(20);
         boolean gate = onClient(ctx, mc -> {
@@ -151,7 +155,7 @@ final class Ap3BlinkOff1109Cases {
             Tick s = onClient(ctx, mc -> {
                 Object n = Mod.field(EXEC_SHORT, "activeNode");
                 String active = n == null ? "none" : String.valueOf(Ap3RuntimeTests.field(n, "type"));
-                return new Tick(mc.player.getX(), mc.player.getY(), mc.player.getZ(),
+                return new Tick(mc.player.getX(), mc.player.getY(), mc.player.getZ() - z,
                         String.valueOf(mc.player.input.keyPresses), active,
                         ((Boolean) Mod.staticCall(CHARGE, "isActive")) ? ((Number) Mod.staticCall(CHARGE, "banked")).intValue() : 0);
             });
