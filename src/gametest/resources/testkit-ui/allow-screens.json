@@ -38,7 +38,6 @@
     {"class": "roomsim.SimMapEditorScreen", "args": ["null"], "source": "roomsim/SimMapEditorScreen.java"},
     {"class": "roomsim.SimRoomFilterScreen", "args": ["null"], "source": "roomsim/SimRoomFilterScreen.java - the shared room Filters panel; this constructor opens it on the designer's filter (Load a Room and All Rooms open it on theirs, see ui/FilterPanelCases)"},
     {"class": "roomsim.SimMultiplayerScreen", "args": ["null"], "source": "roomsim/SimMultiplayerScreen.java (mod coopsim)"},
-    {"class": "roomsim.SimSessionEndedScreen", "args": ["str:testkit"], "source": "roomsim/SimSessionEndedScreen.java (mod coopsim)"},
     {"class": "roomsim.SimMenuScreen", "args": ["null"], "source": "roomsim/SimMenuScreen.java - render only; its buttons open sim worlds"},
     {"class": "mainmenu.TitleScreenLooksScreen", "args": ["null"], "source": "mainmenu/TitleScreenLooksScreen.java (the Title Screen GUI instance's main menu look picker; testkit 1574 drives it)"},
     {"class": "scoreboard.ScoreboardEditorScreen", "args": ["null"], "source": "scoreboard/ScoreboardEditorScreen.java"},
@@ -59,6 +58,7 @@
     {"class": "mobskin.MobPickerScreen", "args": ["null", "null", "consumer"], "source": "mobskin/MobPickerScreen.java:56 (null current = the player; render only)"}
   ],
   "deny": [
+    {"class": "roomsim.SimSessionEndedScreen", "why": "package-private constructor; a co-op guest sees it only when the owner drops the session (testkit 1109-coop-two opens it for real)"},
     {"class": "imagepreview.ImageViewerScreen", "why": "Image Preview's viewer needs a hovered chat link's resolved pictures (a package-private Entry), and opens only by a middle click on one; testkit 1077-imgprev-imgur opens it for real and steps it"},
     {"class": "accounts.gui.AccountProxyConfigScreen", "why": "needs a real PrismAccount (accounts/gui/AccountProxyConfigScreen.java:24); the accounts store is the empty fixture"},
     {"class": "autoroutes.AutoRoutesEditScreen", "why": "needs a Route and RouteNode of the dungeon room the player stands in (autoroutes/AutoRoutesCommands.java:390 refuses to open it otherwise)"},
