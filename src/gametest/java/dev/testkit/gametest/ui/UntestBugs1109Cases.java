@@ -85,13 +85,11 @@ final class UntestBugs1109Cases {
     static void darkChat(UiCase c) throws Exception {
         Object cfg = Mod.cfg("darkmode.DarkModeConfig");
         boolean en = (Boolean) Mod.call(cfg, "isEnabled");
-        boolean tint = (Boolean) Mod.call(cfg, "isTintHud");
         Object ct = Mod.cfg("chattabs.ChatTabsConfig");
         boolean ctOn = (Boolean) Mod.call(ct, "isEnabledRaw");
         try {
             c.onClient(mc -> {
                 Mod.call(cfg, "setEnabled", true);
-                Mod.call(cfg, "setTintHud", true);
                 Mod.call(ct, "setEnabled", true);
                 return null;
             });
@@ -134,7 +132,6 @@ final class UntestBugs1109Cases {
         } finally {
             c.onClient(mc -> {
                 Mod.call(cfg, "setEnabled", en);
-                Mod.call(cfg, "setTintHud", tint);
                 Mod.call(ct, "setEnabled", ctOn);
                 McCompat.setScreen(mc, null);
                 return null;
