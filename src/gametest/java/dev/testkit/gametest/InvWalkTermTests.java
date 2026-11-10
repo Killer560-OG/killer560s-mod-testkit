@@ -212,6 +212,8 @@ public class InvWalkTermTests implements FabricClientGameTest {
         ctx.waitTicks(15);
         int[] wireMoving = {0};
         int[] wireInputs = {0};
+        // His own act on the wire (a use, or a click beside the pane clicks): Stop To Click holds it with the pane clicks.
+        int[] wireHis = {0};
         boolean[] open = {true};
         java.util.function.Consumer<Packet<?>> prev = dev.testkit.harness.PacketTrace.tap;
         java.util.function.Consumer<Packet<?>> tap = pk -> {
@@ -224,6 +226,10 @@ public class InvWalkTermTests implements FabricClientGameTest {
                 Input i = in.input();
                 wireInputs[0]++;
                 wireMoving[0] += i.forward() || i.backward() || i.left() || i.right() ? 1 : 0;
+            }
+            if (open[0] && (st == SameTick.Act.USE ? pk instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
+                    : st == SameTick.Act.SCREEN_CLICK && pk instanceof ServerboundContainerClickPacket)) {
+                wireHis[0]++;
             }
         };
         ctx.runOnClient(mc -> {
@@ -257,20 +263,27 @@ public class InvWalkTermTests implements FabricClientGameTest {
             return out;
         });
         long since = hx.head();
-        // Every 2nd tick: the panes are clicked every 15 ticks, so a 3-tick rhythm would share a tick with all of them or none.
-        SameTick same = st == null ? null : ctx.computeOnClient(mc -> SameTick.start(st, 2,
-                pk -> pk instanceof ServerboundContainerClickPacket, 1, 2));
+        // SWAP every 2nd tick (the panes are clicked every 15 ticks, so a 3-tick rhythm would share a tick with all of them or
+        // none). A use or a click of his is held by Stop To Click like a pane click (he stands still for each), so it goes in
+        // the pane clicks' own tick, every 15 from the first: every 2nd tick would hold his keys up for the whole menu.
+        boolean held = st == SameTick.Act.USE || st == SameTick.Act.SCREEN_CLICK;
+        SameTick[] sameBox = {null};
         List<Set<String>> segs = List.of(SPRINT, Set.of("key.back", "key.sprint"), Set.of("key.left"), Set.of("key.right"));
         Cost cost = new Cost();
         int clicks = 0;
         for (int t = 0; t < 100; t++) {
             Set<String> k = segs.get((t / 12) % segs.size());
             keys(ctx, k);
+            if (st != null && sameBox[0] == null && (!held || t == 10)) {
+                sameBox[0] = ctx.computeOnClient(mc -> SameTick.start(st, held ? 15 : 2,
+                        pk -> pk instanceof ServerboundContainerClickPacket, 1, 2));
+            }
             if (t >= 10 && (t - 10) % 15 == 0 && clicks < red.size()) {
                 click(ctx, List.of(Click.left(red.get(clicks++))));
             }
             cost.tick(ctx, k);
         }
+        SameTick same = sameBox[0];
         if (same != null) {
             ctx.runOnClient(mc -> same.close());
         }
@@ -295,7 +308,12 @@ public class InvWalkTermTests implements FabricClientGameTest {
             dev.testkit.harness.PacketTrace.stop();
             dev.testkit.harness.PacketTrace.tap = prev;
         });
-        String sameVerdict = same == null ? null : same.verdict("walk + " + st);
+        // A held act goes out in Stop To Click's still tick with the pane clicks, sent by the mod, so SameTick (which knows his
+        // packets by its own injection) cannot see that tick: assert on the wire that every act of his went out instead.
+        int hisWire = st == SameTick.Act.SCREEN_CLICK ? wireHis[0] - clicks : wireHis[0];
+        String sameVerdict = same == null ? null : !held ? same.verdict("walk + " + st)
+                : same.done() == 0 ? "walk + " + st + ": his action never went in (nothing tested)"
+                : hisWire < same.done() ? "walk + " + st + ": " + same.done() + " of his act(s) put in, " + hisWire + " on the wire" : null;
         int setbacks = dev.testkit.harness.PacketTrace.received("player_position");
         boolean walked = wireMoving[0] >= 3 && cost.path > 3 && cost.screenAll;
         boolean logged = closeLine != null && closeLine.contains("keys first down at tick") && !closeLine.contains("at tick never")
@@ -306,7 +324,8 @@ public class InvWalkTermTests implements FabricClientGameTest {
                         + "movement), panes %d clicked %d handled %d (%d while the server had him moving), solved %s (clicks %s wrong %s), "
                         + "setbacks %d, close line %s%s", cost.path, cost.screenAll, wireInputs[0], wireMoving[0], red.size(), clicks,
                 ev.size(), moving, solved, state.get("clicks"), state.get("wrong"), setbacks, closeLine,
-                same == null ? "" : "; " + same.report() + (sameVerdict == null ? "" : " [" + sameVerdict + "]"));
+                same == null ? "" : "; " + same.report() + (held ? ", his on the wire " + hisWire : "")
+                        + (sameVerdict == null ? "" : " [" + sameVerdict + "]"));
         ctx.waitTicks(20);
         rows.end(label, ok, detail, null);
     }
