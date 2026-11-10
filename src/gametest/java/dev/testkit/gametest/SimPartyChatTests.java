@@ -90,6 +90,9 @@ public class SimPartyChatTests implements FabricClientGameTest {
             }));
             ctx.waitFor(mc -> mc.level == null && mc.getSingleplayerServer() == null, 1200);
             ctx.waitTicks(40);
+            ctx.runOnClient(mc -> mc.execute(() ->
+                    McCompat.setScreen(mc, new net.minecraft.client.gui.screens.TitleScreen())));
+            ctx.waitFor(mc -> McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.TitleScreen, 400);
         }
         if (fail == null) {
             System.out.println("[" + NAME + "] PASS - /pc at ss in the sim shows the Party > line and no unknown-command error");
