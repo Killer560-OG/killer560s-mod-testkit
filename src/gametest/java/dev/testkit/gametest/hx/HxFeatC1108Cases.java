@@ -185,8 +185,12 @@ final class HxFeatC1108Cases {
             c.waitUntil("party list sent", mc -> c.commands().contains("party list"), 60);
             partyList(c, self(c));
             c.waitUntil("disband sent", mc -> c.commands().contains("party disband"), 100);
-            c.ctx().waitTicks(60);
-            c.check(c.commands().stream().noneMatch(s -> s.startsWith("party invite")), "invite went 3 s after the disband with a 4 s delay: " + c.commands());
+            long d0 = System.currentTimeMillis(); // wall clock: the delay is wall time, a loaded client runs 60 ticks in more than 3 s
+            while (System.currentTimeMillis() - d0 < 3000 && c.commands().stream().noneMatch(s -> s.startsWith("party invite"))) {
+                c.ctx().waitTicks(2);
+            }
+            c.check(c.commands().stream().noneMatch(s -> s.startsWith("party invite")) || System.currentTimeMillis() - d0 >= 3800,
+                    "invite went " + (System.currentTimeMillis() - d0) + " ms after the disband with a 4 s delay: " + c.commands());
             c.waitUntil("invite sent after the 4 s delay", mc -> c.commands().stream().anyMatch(s -> s.startsWith("party invite")), 100);
         }
         try (Settings set = new Settings(c).with(RP_CFG, "Enabled", true).with(RP_CFG, "InviteDelay", 0.0)) {
@@ -247,14 +251,16 @@ final class HxFeatC1108Cases {
 
             // A shorter window is honored: 10 s, invite at 11 s refused, at 9 s accepted.
             run(c, () -> Mod.set(RP_CFG, "setRejoinWindow", 10));
+            long t1 = System.currentTimeMillis(); // fresh: a slow client must not outlive the accept expiry
             rejoinParty(c);
-            run(c, () -> Mod.staticCall(RP, "onLine", LEADER + " has disbanded the party!", t0));
-            run(c, () -> Mod.staticCall(RP, "onLine", LEADER + " has invited you to join their party!", t0 + 11_000L));
+            run(c, () -> Mod.staticCall(RP, "onLine", LEADER + " has disbanded the party!", t1));
+            run(c, () -> Mod.staticCall(RP, "onLine", LEADER + " has invited you to join their party!", t1 + 11_000L));
             c.ctx().waitTicks(30);
             c.check(accepts(c, LEADER) == 1, "10 s window accepted at 11 s: " + c.commands());
             rejoinParty(c);
-            run(c, () -> Mod.staticCall(RP, "onLine", LEADER + " has disbanded the party!", t0));
-            run(c, () -> Mod.staticCall(RP, "onLine", LEADER + " has invited you to join their party!", t0 + 9_000L));
+            long t2 = System.currentTimeMillis();
+            run(c, () -> Mod.staticCall(RP, "onLine", LEADER + " has disbanded the party!", t2));
+            run(c, () -> Mod.staticCall(RP, "onLine", LEADER + " has invited you to join their party!", t2 + 9_000L));
             c.waitUntil("10 s window accepted at 9 s", mc -> accepts(c, LEADER) == 2, 60);
         }
         // Auto Rejoin OFF: nothing is accepted.
