@@ -265,11 +265,13 @@ final class Ee3RouteGrimCases {
             int arrive = -1;
             int boomAt = -1;
             double minY = 999;
+            StringBuilder path = new StringBuilder();
             for (int t = 0; t < 400 && arrive < 0; t++) {
                 c.ctx().waitTick();
                 double[] s = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ(),
                         mc.player.onGround() ? 1 : 0});
                 minY = Math.min(minY, s[1]);
+                path.append(String.format(Locale.ROOT, " %d:%.2f,%.2f,%.2f", t, s[0], s[1], s[2]));
                 if (t0 < 0 && Math.hypot(s[0] - 60.5, s[2] - 139) > 0.2) {
                     t0 = t;
                 }
@@ -288,6 +290,7 @@ final class Ee3RouteGrimCases {
                     break;
                 }
             }
+            System.out.println("[ee3route] path " + (act == null ? "none" : act) + ":" + path);
             c.ctx().waitTicks(20);
             boolean[] lev = c.onClient(mc -> new boolean[]{powered(mc, LOW), powered(mc, HIGH)});
             String wire = ticks.report();
