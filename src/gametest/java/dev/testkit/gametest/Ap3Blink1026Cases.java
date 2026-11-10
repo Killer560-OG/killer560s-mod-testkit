@@ -30,8 +30,7 @@ import static dev.testkit.gametest.Ap3RuntimeTests.set;
  *   <li>1026-ap3-blink-max: charge with no number banks the Charge Ticks setting (20); release with no number fires all 20.</li>
  *   <li>1026-ap3-blink-split: charge 10, release 4, release 6: two shots, 4 then 6 ticks, the bank 6 between them and the
  *       charge over after; a third release with nothing banked fires nothing and says why.</li>
- *   <li>1026-ap3-blink-off: Blink switched off: the charge node waits on the node (it does not skip), says so in chat once,
- *       and carries on to a full charge and release when Blink is switched on.</li>
+ *   <li>1026-ap3-blink-off: Blink switched off: see Ap3BlinkOff1109Cases (the nodes are invisible).</li>
  * </ul>
  */
 final class Ap3Blink1026Cases {
@@ -48,7 +47,8 @@ final class Ap3Blink1026Cases {
         s.test("1026-ap3-blink-3", c -> chargeRelease(c, 3, new int[]{3}, false, false));
         s.test("1026-ap3-blink-max", c -> chargeRelease(c, 0, new int[]{0}, true, false));
         s.test("1026-ap3-blink-split", c -> chargeRelease(c, 10, new int[]{4, 6}, true, false));
-        s.test("1026-ap3-blink-off", c -> chargeRelease(c, 3, new int[]{3}, false, true));
+        // 1026-ap3-blink-off: Blink off now makes the node invisible (killer560 2026-11-09), see Ap3BlinkOff1109Cases.
+        s.test("1026-ap3-blink-off", c -> Ap3BlinkOff1109Cases.run(c));
         // killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff like that"; the
         // next shot must draw no flag (killer560 2026-11-11: a kept-teleport flag is a bug to fix).
         s.test("1026-ap3-blink-leap", Ap3Blink1026Cases::chargeLeapRelease);
@@ -307,9 +307,8 @@ final class Ap3Blink1026Cases {
      * @param chargeTicks the charge node's number, 0 = none (the max)
      * @param releases    each release node's number in order, 0 = none (all)
      * @param keyBound    his Charge key bound (to V, never pressed) instead of unbound
-     * @param startOff    Blink starts switched off: the charge must wait, then go once it is on
      */
-    private static void chargeRelease(Session c, int chargeTicks, int[] releases, boolean keyBound, boolean startOff) {
+    private static void chargeRelease(Session c, int chargeTicks, int[] releases, boolean keyBound) {
         ClientGameTestContext ctx = c.ctx();
         double z = Ap3RuntimeTests.lane();
         c.server().command("attribute @p minecraft:movement_speed base set 0.10");
@@ -322,7 +321,7 @@ final class Ap3Blink1026Cases {
             // His real keys are read: no key hooks.
             Mod.setField("blink.BlinkFeature", "keyHeldForTest", null);
             Mod.setField(CHARGE, "keyHeldForTest", null);
-            Mod.set(CFG, "setEnabled", !startOff);
+            Mod.set(CFG, "setEnabled", true);
             Mod.set(CFG, "setChargeMode", Mod.enumValue(CFG + "$Mode", "TOGGLE"));
             Mod.set(CFG, "setChargeTicks", 20);
             Mod.set(CFG, "setChargeKeyCode", keyBound ? KEY_V : -1);
@@ -360,28 +359,6 @@ final class Ap3Blink1026Cases {
         try {
             Ap3RuntimeTests.walkIntoRun(c, z, run, chain.toArray());
             int t = 0;
-            if (startOff) {
-                // Blink off: the charge must hold him on the node and wait, not skip.
-                c.waitUntil("the Blink Charge node to begin", mc -> "BLINK_CHARGE".equals(activeTypeOn()), 80);
-                ctx.waitTicks(60);
-                Sample s = sample(ctx, -1);
-                c.note(String.format(Locale.ROOT, "60 ticks on the node with Blink off: active %s, charging %s, at x %.3f",
-                        s.active(), s.charging(), s.x()));
-                c.check("BLINK_CHARGE".equals(s.active()), "with Blink off the route did not wait on the charge node (active "
-                        + s.active() + ")");
-                c.check(!s.charging(), "Blink is off but Charge is on");
-                List<String> said = logSince(mark, "waiting - Blink is off");
-                c.note("wait lines: " + said.size() + (said.isEmpty() ? "" : " - " + said.get(0)));
-                c.check(said.size() == 1, "the node should say once that it waits for Blink, said " + said.size() + " times");
-                ctx.waitTicks(5);
-                Sample s2 = sample(ctx, -1);
-                c.check(Math.abs(s2.x() - s.x()) < 1e-6, "he moved while the node waited for Blink");
-                onClient(ctx, mc -> {
-                    Mod.set(CFG, "setEnabled", true);
-                    return null;
-                });
-                c.note("Blink switched on");
-            }
             int chargeTarget = chargeTicks > 0 ? chargeTicks : 20;
             boolean done = false;
             for (; t < 400 && !done; t++) {
