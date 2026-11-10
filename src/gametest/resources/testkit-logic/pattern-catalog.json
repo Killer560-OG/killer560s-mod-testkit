@@ -1,17 +1,17 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-09T17:29:25",
- "modSource": "ship21-1109",
- "modGitSha": "2a1496a63545b47998e14fe2fdf4c596f7fd85bc",
+ "generatedAt": "2026-11-10T03:26:43",
+ "modSource": "staging-coopsim-247980",
+ "modGitSha": "6e6add488182a2c230ff8145258210575024b349",
  "modSourceDirty": false,
- "count": 926,
+ "count": 929,
  "byKind": {
-  "dynamic": 9,
+  "dynamic": 10,
   "element": 75,
-  "field": 799,
+  "field": 801,
   "local": 43
  },
- "unresolved": 159,
+ "unresolved": 160,
  "patterns": [
   {
    "id": "abilitycooldown.AbilityCooldownState#ABILITY_USE",
@@ -7500,6 +7500,42 @@
    "flags": null,
    "kind": "field",
    "expr": "\"Charges: \\\\d+/\\\\d+\""
+  },
+  {
+   "id": "roomsim.SimPartyChat#PARTY_CHAT",
+   "cls": "roomsim.SimPartyChat",
+   "field": "PARTY_CHAT",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/roomsim/SimPartyChat.java",
+   "line": 27,
+   "regex": "(?i)(?:pc|pchat|(?:party|p) chat)(?:\\s+(.*))?",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"(?i)(?:pc|pchat|(?:party|p) chat)(?:\\\\s+(.*))?\""
+  },
+  {
+   "id": "roomsim.SimUpnp#LOCATION",
+   "cls": "roomsim.SimUpnp",
+   "field": "LOCATION",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/roomsim/SimUpnp.java",
+   "line": 42,
+   "regex": "(?im)^location:\\s*(\\S+)\\s*$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"(?im)^location:\\\\s*(\\\\S+)\\\\s*$\""
+  },
+  {
+   "id": "roomsim.SimUpnp@221",
+   "cls": "roomsim.SimUpnp",
+   "field": null,
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/roomsim/SimUpnp.java",
+   "line": 221,
+   "regex": null,
+   "flags": null,
+   "kind": "dynamic",
+   "expr": "\"<(?:\\\\w+:)?\" + tag + \">([^<]*)</\""
   },
   {
    "id": "routes.SkyblockArea#AREA_PATTERN",

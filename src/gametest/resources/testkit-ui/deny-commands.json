@@ -38,6 +38,7 @@
     {"root": "simmobs", "why": "the sim's Mobs switch for the next generated floor (roomsim/SimMobFloor.java, mod doc-adm-sim-1101): on/off change a session setting, bare only says which; 1101-sim-mobfloor drives the floor"},
     {"root": "simitem", "why": "sim only: gives sim items (roomsim/SimItems)"},
     {"root": "item", "why": "sim only: alias of simitem (roomsim/SimItems)"},
+    {"root": "siminvite", "why": "sim invites (roomsim/SimReach): join leaves the current world for an invited room; testkit 1109-mp-invite drives it"},
     {"root": "map", "why": "sim only: builds a floor (roomsim/SimBuilder.java:49)"},
     {"root": "simbuild", "why": "sim only: builds a floor (roomsim/SimBuilder.java:57)"},
     {"root": "summon", "why": "sim only: spawns sim mobs (roomsim/SimMobs.java:692)"},

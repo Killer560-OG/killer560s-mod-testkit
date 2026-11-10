@@ -99,6 +99,7 @@ public class SimBossTests implements FabricClientGameTest {
     private static final String PORTAL = "1101-boss-portal";
     private static final String MAXOR_CRYS = "1102-boss-maxorcrys";
     private static final String MOVES = "1103-boss-moves";
+    private static final String LIGHTS1109 = "1109-boss-lights";
     private static final String RULES = "1103-boss-rules";
     private static final String CAPTURE = "1104-boss-capture";
     private static final String FRESH = "1108-boss-fresh";
@@ -134,7 +135,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossEe3Route1109.NAME};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossEe3Route1109.NAME, LIGHTS1109};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -165,6 +166,7 @@ public class SimBossTests implements FabricClientGameTest {
                     case PORTAL -> portal(ctx, f);
                     case MAXOR_CRYS -> maxorCrystals(ctx, f);
                     case MOVES -> moves(ctx, f);
+                    case LIGHTS1109 -> lights1109(ctx, f);
                     case RULES -> rules(ctx, f);
                     case CAPTURE -> capture(ctx, f);
                     case FRESH -> fresh(ctx, f);
@@ -1718,20 +1720,55 @@ public class SimBossTests implements FabricClientGameTest {
         tp(ctx, 60.5, 131, 140.5, 180, -20);
         ctx.waitTicks(8);
         int[][] levers = {{62, 136, 142}, {58, 136, 142}, {60, 135, 142}, {60, 134, 142}, {62, 133, 142}, {58, 133, 142}};
-        int flicked = 0;
-        for (int[] l : levers) {
-            BlockPos p = new BlockPos(l[0], l[1], l[2]);
-            boolean on = ctx.computeOnClient(mc -> mc.level.getBlockState(p).getValue(
-                    net.minecraft.world.level.block.state.properties.BlockStateProperties.POWERED));
-            if (!on) {
-                useBlock(ctx, p, Direction.NORTH);
-                flicked++;
-                ctx.waitTicks(3);
+        // The device starts with the corners and the middle two on (1109): the first pull of any lever completes it.
+        useBlock(ctx, new BlockPos(levers[0][0], levers[0][1], levers[0][2]), Direction.NORTH);
+        ctx.waitTicks(3);
+        println(P3, "Lights: flicked one lever");
+    }
+
+    private static boolean leverOn(ClientGameTestContext ctx, int x, int y) {
+        return ctx.computeOnClient(mc -> mc.level.getBlockState(new BlockPos(x, y, 142)).getValue(
+                net.minecraft.world.level.block.state.properties.BlockStateProperties.POWERED));
+    }
+
+    /** Lights starts as the corners + the middle two, one pull of any lever (on or off) completes it, /pc answers quietly. */
+    private static void lights1109(ClientGameTestContext ctx, List<String> f) {
+        java.util.Set<String> start = java.util.Set.of("58,133", "62,133", "58,136", "62,136", "60,134", "60,135");
+        java.util.Random rnd = new java.util.Random();
+        for (int run = 0; run < 2; run++) {
+            start(ctx, "S2", false);
+            tp(ctx, 60.5, 132, 140.5, 180, -20);
+            ctx.waitTicks(8);
+            for (int y = 133; y <= 136; y++) {
+                for (int x = 58; x <= 62; x++) {
+                    expect(f, "run " + run + " lever " + x + "," + y + " at the start", leverOn(ctx, x, y), start.contains(x + "," + y));
+                }
             }
-        }
-        println(P3, "Lights: flicked " + flicked + " lever(s) on");
-        if (flicked == 0) {
-            f.add("Lights started with every lever on - nothing was done");
+            expect(f, "run " + run + " lamps by the rule at the start", lightsRuleHolds(ctx), "ok");
+            expect(f, "run " + run + " not done before a pull", String.valueOf(call(DEVICES, "describe")).contains("lights=false"), true);
+            int x, y;
+            if (run == 0) {
+                do {
+                    x = 58 + rnd.nextInt(5);
+                    y = 133 + rnd.nextInt(4);
+                } while (start.contains(x + "," + y));
+            } else {
+                x = 60;
+                y = 135;
+            }
+            long mark = LogTap.mark();
+            useBlock(ctx, new BlockPos(x, y, 142), Direction.NORTH);
+            ctx.waitTicks(10);
+            expect(f, "run " + run + " (" + x + "," + y + ") completed by one flick", String.valueOf(call(DEVICES, "describe")).contains("lights=true"), true);
+            expect(f, "run " + run + " completion line", chatSeen(mark, "completed a device!"), true);
+            if (run == 1) {
+                mark = LogTap.mark();
+                ctx.runOnClient(mc -> mc.player.connection.sendCommand("pc at ee2"));
+                ctx.waitTicks(6);
+                expect(f, "/pc at ee2 is not an unknown command", chatSeen(mark, "Unknown or incomplete"), false);
+                expect(f, "/pc at ee2 shows the local Party > line (simpc-1110)", chatSeen(mark, ": at ee2"), true);
+            }
+            cleanup(ctx);
         }
     }
 
@@ -2211,7 +2248,7 @@ public class SimBossTests implements FabricClientGameTest {
         buildFloorAndEnter(ctx, f, code);
     }
 
-    private static String planF7(ClientGameTestContext ctx) {
+    static String planF7(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> {
             Object floor = ModUnderTest.enumValue("com.killer560.hub.roomsim.SimFloorGen$Floor", "F7");
             Object planned = ModUnderTest.staticCall("com.killer560.hub.roomsim.SimFloorGen", "plan",
@@ -2221,28 +2258,11 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     private static void buildFloorAndEnter(ClientGameTestContext ctx, List<String> f, String code) {
-        long before = Scenario.simBuildCount(ctx);
-        ctx.runOnClient(mc -> mc.execute(() -> {
-            java.util.function.Consumer<Minecraft> build = c -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBuilder",
-                    "build", new Class<?>[]{Minecraft.class, String.class}, new Object[]{c, code});
-            ModUnderTest.staticCall("com.killer560.hub.roomsim.SimWorld", "open", new Class<?>[]{Minecraft.class, String.class,
-                    java.util.function.Consumer.class, String.class}, new Object[]{mc, code, build, "Generating Floor 7"});
-        }));
-        ctx.waitFor(mc -> mc.level != null, 2400);
-        Scenario.awaitSimBuild(ctx, before);
-        ctx.waitTicks(80);
+        int[] p = floorWithPortal(ctx, f, code);
+        if (p == null) {
+            return;
+        }
         String mapBefore = String.valueOf(call("com.killer560.hub.roomsim.SimState", "mapCode"));
-        ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimTeleportCommands", "goTo",
-                new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, "Blood"}));
-        if (!until(ctx, "standing in Blood", mc -> "Blood".equals(call("com.killer560.hub.roomsim.SimState", "currentRoomName")), 100)) {
-            f.add("/goto Blood never put him in the Blood room");
-            return;
-        }
-        if (!until(ctx, "the portal", mc -> call(B + "BossPortal", "portal") != null, 200)) {
-            f.add("no portal opened in Blood");
-            return;
-        }
-        int[] p = (int[]) call(B + "BossPortal", "portal");
         ctx.waitTicks(10);
         expect(f, "standing on the spot as it opened did not take him in", call(FIGHT, "running"), false);
         tp(ctx, p[0] + 4.5, p[1] + 1, p[2] + 0.5, 0, 0);
@@ -2260,6 +2280,31 @@ public class SimBossTests implements FabricClientGameTest {
         expect(f, "the floor's map code after entering the boss",
                 String.valueOf(call("com.killer560.hub.roomsim.SimState", "mapCode")), mapBefore);
         expect(f, "Floor7Tracker phase after the portal", phase(ctx), "P1");
+    }
+
+    /** Builds floor {@code code}, puts him in Blood and waits for its portal: the portal block, or null (failure added). */
+    static int[] floorWithPortal(ClientGameTestContext ctx, List<String> f, String code) {
+        long before = Scenario.simBuildCount(ctx);
+        ctx.runOnClient(mc -> mc.execute(() -> {
+            java.util.function.Consumer<Minecraft> build = c -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBuilder",
+                    "build", new Class<?>[]{Minecraft.class, String.class}, new Object[]{c, code});
+            ModUnderTest.staticCall("com.killer560.hub.roomsim.SimWorld", "open", new Class<?>[]{Minecraft.class, String.class,
+                    java.util.function.Consumer.class, String.class}, new Object[]{mc, code, build, "Generating Floor 7"});
+        }));
+        ctx.waitFor(mc -> mc.level != null, 2400);
+        Scenario.awaitSimBuild(ctx, before);
+        ctx.waitTicks(80);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimTeleportCommands", "goTo",
+                new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, "Blood"}));
+        if (!until(ctx, "standing in Blood", mc -> "Blood".equals(call("com.killer560.hub.roomsim.SimState", "currentRoomName")), 100)) {
+            f.add("/goto Blood never put him in the Blood room");
+            return null;
+        }
+        if (!until(ctx, "the portal", mc -> call(B + "BossPortal", "portal") != null, 200)) {
+            f.add("no portal opened in Blood");
+            return null;
+        }
+        return (int[]) call(B + "BossPortal", "portal");
     }
 
     // ============================================================================================== bossparity-1103
@@ -2442,7 +2487,7 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     /** Teleports beside a terminal's stand and clicks it. False when there is no stand named {@code name}. */
-    private static boolean clickTerminal(ClientGameTestContext ctx, int sec, String label, String name) {
+    static boolean clickTerminal(ClientGameTestContext ctx, int sec, String label, String name) {
         double[] at = (double[]) ModUnderTest.staticCall(STATIONS, "position", new Class<?>[]{int.class, String.class},
                 new Object[]{sec, label});
         int[][] dirs = {{-1, 0}, {0, -1}, {1, 0}, {0, 1}};
