@@ -43,6 +43,7 @@
 			"dev.testkit.gametest.KeepFedTest",
 			"dev.testkit.gametest.ExampleTest",
 			"dev.testkit.gametest.MovementExamples",
+			"dev.testkit.gametest.Align12PhysTests",
 			"dev.testkit.gametest.CombatExamples",
 			"dev.testkit.gametest.PlacementExamples",
 			"dev.testkit.gametest.BreakerAuraTests",
