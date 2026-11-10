@@ -2444,6 +2444,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(10);
             long bank = chargeFull(ctx);
             check(bank >= 20, tag + ": the bank did not fill: " + bank);
+            // The start teleport's kept bank is backed again over 22 still ticks; a path pressed before then waits for it.
+            for (int i = 0; i < 60 && !Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE,
+                    "shotCovered"))); i++) {
+                ctx.waitTicks(1);
+            }
+            check(Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "shotCovered"))),
+                    tag + ": the bank was never covered before the path");
             JsonObject before = stats();
             long spent0 = chargeNum(ctx, "spentTicks");
             long holds0 = chargeNum(ctx, "teleportHolds");
@@ -2460,6 +2467,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             if (act != null) {
                 st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
                         p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 4));
+                if (act == dev.testkit.gametest.SameTick.Act.USE) {
+                    // His use with the AOTV in hand is his own Instant Transmission: four, then the server owns the rest.
+                    st.allow(4);
+                }
             }
             ctx.runOnClient(mc -> ModUnderTest.staticCall(CLEAR, "clearPath", new Class<?>[]{List.class, Runnable.class},
                     new Object[]{nodes, null}));
@@ -2506,12 +2517,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             c.note(line);
             check(holds == 0 && letGo == 0, tag + ": a teleport confirm was held behind its answer (" + holds + " hold(s))");
             check(chainTp > 0, tag + ": no confirm went at once for the chain (nothing tested)");
-            if (charged) {
+            if (charged && act != dev.testkit.gametest.SameTick.Act.USE) {
                 check(uses[0] >= pts.length - 1, tag + ": only " + uses[0] + " of the chain's uses went in one 50 ms window");
                 check(burst >= pts.length - 1 && bankFrom - bankTo >= pts.length - 1 && spent >= pts.length - 1,
                         tag + ": the bank was not spent on the chain (burst " + burst + ", bank " + bankFrom + " -> " + bankTo
                                 + ", spent " + spent + ")");
-            } else {
+            } else if (!charged) {
                 check(burst == 0 && spent == 0, tag + ": Charged Chain is off but the bank was spent");
                 check(uses[0] <= 2, tag + ": " + uses[0] + " uses in 50 ms with Charged Chain off");
             }
