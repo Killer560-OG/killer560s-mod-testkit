@@ -538,6 +538,11 @@ tasks.register("writeTestServerLaunch") {
 		// starts a server that dies before printing anything, which reads as a server that is merely slow.
 		def jvm = new ArrayList<String>(run.jvmArgs)
 		run.jvmArgumentProviders.each { jvm.addAll(it.asArguments()) }
+		// With no -Xmx the JVM takes a quarter of RAM (~15 GB) and a test server grew to 7.5 GB, so a few servers
+		// filled memory and the client gate (free RAM >= 6 GB) starved for hours (2026-11-10). -PtestServerXmx overrides.
+		if (!jvm.any { it.startsWith("-Xmx") }) {
+			jvm.add("-Xmx" + (project.findProperty("testServerXmx") ?: "4G"))
+		}
 		// Joined with NUL, which TestServer.split() splits on, and not a space: on Windows loom passes the
 		// dev-launch flags in an @argfile whose path can contain spaces, and a space-joined list comes back as
 		// the wrong arguments -- a server that exits before printing anything. Written as the escape rather
