@@ -55,6 +55,10 @@ final class LeapRotationCases {
         s.test("1104-leaplook-relative-off", c -> run(c, false, true, true));
         s.test("1104-leaplook-no-line", c -> run(c, true, true, false));
         s.test("1104-leaplook-absolute", c -> run(c, true, false, true));
+        // fastleap-guard-0273: 0.27.3 sends a pearl / AOTE teleport with a relative 0/0 look too; his own use of one right
+        // after the leap line must not pair with that teleport (the leap above still does)
+        s.test("1110-leaplook-pearl", c -> run(c, true, true, true, "pearl"));
+        s.test("1110-leaplook-aote", c -> run(c, true, true, true, "aote"));
         for (Act a : Act.values()) {
             s.test("1105-leaplook-same-" + a.id, c -> sameTick(c, a));
         }
@@ -271,6 +275,10 @@ final class LeapRotationCases {
     }
 
     private static void run(Session c, boolean on, boolean relative, boolean line) throws Exception {
+        run(c, on, relative, line, null);
+    }
+
+    private static void run(Session c, boolean on, boolean relative, boolean line, String tpItem) throws Exception {
         DungeonFixBossCases.floor(c, AX, Y, Z);
         DungeonFixBossCases.floor(c, BX, Y, Z);
         TerminalAuraCases.tp(c, AX + 0.5, Y, Z + 0.5, 0f);
@@ -291,6 +299,24 @@ final class LeapRotationCases {
             c.waitUntil("he stands at A", mc -> mc.player.onGround(), 100);
             c.ctx().waitTicks(30);
             long before = taken(c);
+            if (tpItem != null) { // the leap line first, then his own pearl / AOTE use, then its teleport (look kept)
+                c.ctx().runOnClient(mc -> {
+                    Mod.staticCall(LM, "onChat", LINE);
+                    net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+                    tag.putString("id", "ASPECT_OF_THE_END");
+                    net.minecraft.world.item.ItemStack st = "pearl".equals(tpItem)
+                            ? new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.ENDER_PEARL)
+                            : new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND_SWORD);
+                    if (!"pearl".equals(tpItem)) {
+                        st.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA,
+                                net.minecraft.world.item.component.CustomData.of(tag));
+                    }
+                    mc.player.getInventory().setItem(0, st);
+                    mc.player.getInventory().setSelectedSlot(0);
+                    mc.gameMode.useItem(mc.player, net.minecraft.world.InteractionHand.MAIN_HAND);
+                });
+                c.ctx().waitTicks(2);
+            }
             if (relative) {
                 c.hx().call("dungeon.tp", "x", BX + 0.5, "y", (double) Y, "z", Z + 0.5, "yaw", 0f, "pitch", 0f, "relRot", true);
             } else {
@@ -301,7 +327,7 @@ final class LeapRotationCases {
             }
             c.waitUntil("the client at the leap target", mc -> mc.player != null
                     && mc.player.position().distanceTo(new Vec3(BX + 0.5, Y, Z + 0.5)) < 0.05, 100);
-            boolean turns = cheat() && on && relative && line; // a legit jar has the switch but never turns
+            boolean turns = cheat() && on && relative && line && tpItem == null; // a legit jar has the switch but never turns
             float wantYaw = turns ? MATE_YAW : relative ? YAW : 0f;
             float wantPitch = turns ? MATE_PITCH : relative ? PITCH : 0f;
             c.ctx().waitTicks(10);
