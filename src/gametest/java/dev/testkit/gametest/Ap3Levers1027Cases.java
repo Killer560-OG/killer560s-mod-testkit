@@ -78,7 +78,7 @@ final class Ap3Levers1027Cases {
                 post.getX(), FLOOR + 3, zc));
         // A click this far off draws RotationPlace on purpose; drain GrimAC's buffer so the cases after it are judged clean.
         if (off >= 30) {
-            Ap3RuntimeTests.drainRotationPlace(ctx, c);
+            Ap3RuntimeTests.drainRotationPlace(ctx, c, z);
         }
     }
 }

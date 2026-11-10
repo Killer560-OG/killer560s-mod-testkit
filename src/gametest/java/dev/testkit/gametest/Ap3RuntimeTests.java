@@ -193,7 +193,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             ModUnderTest.set(cfg, "setChatFeedback", true);
             installProbe();
         });
-        if (plainPlaces(ctx, s, new int[]{5, 5, 3}) == 0) {
+        if (plainPlaces(ctx, s, 0.5, new int[]{5, 5, 3}) == 0) {
             throw new AssertionError("warm-up placed nothing: the cases would meet a cold server");
         }
     }
@@ -204,13 +204,14 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
      * (pre-flying), so AP3's place, whose look rides the movement packet right after it, is cancelled and never reaches
      * the server. Only a clean place drains it, by 0.1 (a cancelled one does not), so it takes 11 (1 - 10 x 0.1 is still
      * above 0 in doubles). A case that draws RotationPlace on purpose (1027-ap3-lever-noturn) calls this after it, or
-     * every place in the cases after it (1105-ap3-same-block-*) fails "server look -90/0".
+     * every place in the cases after it (1105-ap3-same-block-*) fails "server look -90/0". It places on lane {@code z}, the
+     * case's own: lane 0 is far away by then and its chunks gone (the next case read its lever as air).
      */
-    static void drainRotationPlace(ClientGameTestContext ctx, Session s) {
+    static void drainRotationPlace(ClientGameTestContext ctx, Session s, double z) {
         s.server().command("item replace entity @p hotbar.5 with minecraft:smooth_stone_slab 64");
         int[] slots = new int[11];
         java.util.Arrays.fill(slots, 5);
-        int placed = plainPlaces(ctx, s, slots);
+        int placed = plainPlaces(ctx, s, z, slots);
         if (placed < slots.length) {
             throw new AssertionError("RotationPlace drain sent " + placed + " of " + slots.length + " plain places");
         }
@@ -218,7 +219,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
 
     /**
      * Plain places from the hotbar {@code slots}, each with the look sent ticks before it (40 degrees down at the floor
-     * ahead of the lane's start, each cleared after it); returns how many went out. ap3-blockuse-1027: the session starts
+     * ahead of lane {@code z}'s start, each cleared after it); returns how many went out. ap3-blockuse-1027: the session starts
      * with three (slab, slab, wand use-on-block) before any case.
      * A freshly started test server takes 8-40 ms to process its FIRST block place (cold code in the anticheat and the
      * server; measured by the testmod's {@code [testkit-gap]} probe), and GrimAC 2.3.74 counts that time against the 15 ms
@@ -228,12 +229,13 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
      * every place after it (ten cases, 2026-10-26/27). A place whose look went out ticks before it is clean however slow
      * the server is, and afterwards the cases measure AP3, not a cold server.
      */
-    private static int plainPlaces(ClientGameTestContext ctx, Session s, int[] slots) {
-        s.server().command(String.format(Locale.ROOT, "tp @p %.1f %d %.1f -90 40", LANE_X0 + 0.5, FLOOR + 1, 0.5));
+    private static int plainPlaces(ClientGameTestContext ctx, Session s, double z, int[] slots) {
+        int zc = (int) Math.floor(z);
+        s.server().command(String.format(Locale.ROOT, "tp @p %.2f %d %.2f -90 40", LANE_X0 + 0.5, FLOOR + 1, z));
         s.server().sync(20);
         ctx.waitTicks(10);
-        String clear = String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:air", LANE_X0 + 1, FLOOR + 1, -1,
-                LANE_X0 + 5, FLOOR + 3, 1);
+        String clear = String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:air", LANE_X0 + 1, FLOOR + 1, zc - 1,
+                LANE_X0 + 5, FLOOR + 3, zc + 1);
         int placed = 0;
         for (int slot : slots) {
             ctx.getInput().pressKey(options -> options.keyHotbarSlots[slot]);
@@ -262,7 +264,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             s.server().sync(5);
         }
         ctx.getInput().pressKey(options -> options.keyHotbarSlots[0]);
-        s.server().command(String.format(Locale.ROOT, "tp @p %.1f %d %.1f -90 0", LANE_X0 + 0.5, FLOOR + 1, 0.5));
+        s.server().command(String.format(Locale.ROOT, "tp @p %.2f %d %.2f -90 0", LANE_X0 + 0.5, FLOOR + 1, z));
         s.server().sync(20);
         ctx.waitTicks(10);
         System.out.println("[" + SESSION + "] plain places: " + placed + " of " + slots.length + " sent"
