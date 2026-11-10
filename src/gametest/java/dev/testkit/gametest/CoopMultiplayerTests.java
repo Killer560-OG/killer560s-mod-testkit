@@ -64,6 +64,8 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
     static final String HOST = "1109-mp-host";
     static final String UPNP = "1109-mp-upnp";
     static final String TWO = "1109-mp-two";
+    /** Phase 3: invites through a local wrangler dev relay (run-coop.sh -w). */
+    static final String INVITE = "1109-mp-invite";
     private static final String R = "com.killer560.hub.roomsim.";
     private static final String HOSTC = R + "SimHost";
     private static final String REQ = R + "SimRequests";
@@ -79,16 +81,17 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             return;
         }
         List<String> failed = new ArrayList<>();
-        for (String name : new String[]{MENU, UPNP, HOST, TWO}) {
+        for (String name : new String[]{MENU, UPNP, HOST, TWO, INVITE}) {
             if (Scenario.skip(name)) {
                 continue;
             }
-            if (!name.equals(TWO) && CoopSync.role().equals("guest")) {
+            boolean two = name.equals(TWO) || name.equals(INVITE);
+            if (!two && CoopSync.role().equals("guest")) {
                 Scenario.skipped(name, "the guest side of a two-client run (the host runs it)");
                 continue;
             }
-            if (name.equals(TWO) && !CoopSync.active()) {
-                Scenario.skipped(name, "two-client case: run it with run-coop.sh -s 1109-mp-two");
+            if (two && !CoopSync.active()) {
+                Scenario.skipped(name, "two-client case: run it with run-coop.sh -s " + name + (name.equals(INVITE) ? " -w" : ""));
                 continue;
             }
             ModUnderTest.require("killer560smod");
@@ -102,6 +105,13 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
                     case MENU -> menu(ctx, problems, facts);
                     case UPNP -> upnp(ctx, problems, facts);
                     case HOST -> host(ctx, problems, facts);
+                    case INVITE -> {
+                        if (CoopSync.role().equals("host")) {
+                            inviteHost(ctx, problems, facts);
+                        } else {
+                            inviteGuest(ctx, problems, facts);
+                        }
+                    }
                     default -> {
                         if (CoopSync.role().equals("host")) {
                             twoHost(ctx, problems, facts);
@@ -114,7 +124,7 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
                 problems.add("threw: " + t);
                 t.printStackTrace(System.out);
             } finally {
-                if (name.equals(TWO) && !problems.isEmpty()) {
+                if (two && !problems.isEmpty()) {
                     CoopSync.fail(String.join("; ", problems));
                 }
                 cleanup(ctx);
@@ -528,6 +538,217 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             setAllowed("SPEED", true);
             stub.stop();
         }
+    }
+
+    // ============================================================================================ 1109-mp-invite
+
+    private static final String IROOM = "Tk Invite Room";
+    private static final String REACH = R + "SimReach";
+    /** The TOKEN_SECRET run-coop.sh -w gives its wrangler dev relay (never a real one). */
+    private static final String E2E_SECRET = "simreach-e2e-secret-not-real";
+
+    /** A relay bearer token exactly as the relay's src/token.ts makes one: base64url(payload).base64url(hmac). */
+    private static String mint(String uuid, String name) throws Exception {
+        var b64 = java.util.Base64.getUrlEncoder().withoutPadding();
+        String body = b64.encodeToString(("{\"uuid\":\"" + uuid + "\",\"name\":\"" + name + "\",\"exp\":"
+                + (System.currentTimeMillis() + 3_600_000L) + "}").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+        mac.init(new javax.crypto.spec.SecretKeySpec(E2E_SECRET.getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256"));
+        return body + "." + b64.encodeToString(mac.doFinal(body.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    }
+
+    /** Points the client at run-coop.sh's local relay with its own token, and has SimReach connect again. */
+    private static boolean localRelay(ClientGameTestContext ctx, List<String> f, String uuid, String name) throws Exception {
+        String port = CoopSync.get("relay-port");
+        if (port == null || port.isBlank()) {
+            f.add("no local relay: run it with run-coop.sh -s " + INVITE + " -w");
+            return false;
+        }
+        System.setProperty(RELAY, "http://127.0.0.1:" + port.trim());
+        token(mint(uuid, name));
+        ModUnderTest.staticCall(REACH, "reconnectForTest");
+        return true;
+    }
+
+    private static boolean reachConnected() { return (Boolean) ModUnderTest.staticCall(REACH, "connectedForTest"); }
+
+    private static int invitesReceived() { return (Integer) ModUnderTest.staticCall(REACH, "receivedForTest"); }
+
+    /** Focuses a box and presses Enter (its wired button runs). */
+    private static boolean enterIn(ClientGameTestContext ctx, String label) {
+        boolean focused = ctx.computeOnClient(mc -> {
+            Screen s = McCompat.screen(mc);
+            for (var ch : s == null ? List.<net.minecraft.client.gui.components.events.GuiEventListener>of() : s.children()) {
+                if (ch instanceof EditBox b && b.getMessage().getString().equals(label)) {
+                    s.setFocused(b);
+                    return true;
+                }
+            }
+            return false;
+        });
+        if (focused) {
+            ctx.getInput().pressKey(dev.testkit.compat.McKeys.nat(257)); // GLFW_KEY_ENTER
+            ctx.waitTicks(2);
+        }
+        return focused;
+    }
+
+    private static void inviteHost(ClientGameTestContext ctx, List<String> f, List<String> facts) throws Exception {
+        FakeGateway gw = new FakeGateway();
+        try {
+            CoopSync.put("inv-host-up", "1");
+            CoopSync.await(ctx, "inv-guest-up", 900);
+            String uuid = ctx.computeOnClient(mc -> mc.getUser().getProfileId().toString());
+            String hostName = ctx.computeOnClient(mc -> mc.getUser().getName());
+            if (!localRelay(ctx, f, uuid, hostName)) {
+                return;
+            }
+            // UPnP against the fake gateway, whose "public" address is loopback here, so the relay's join answer
+            // carries an endpoint the guest can really connect to (no LAN pick).
+            FakeGateway.externalIp = "127.0.0.1";
+            System.setProperty(SSDP, "127.0.0.1:" + gw.ssdpPort());
+            if (!createRoom(ctx, f, facts, IROOM, PW, 3)) {
+                return;
+            }
+            expect(f, facts, "listed on the local relay", paceUntil(ctx, () -> ModUnderTest.staticCall(HOSTC, "roomIdForTest") != null,
+                    20_000), true);
+            int port = (Integer) ModUnderTest.staticCall(HOSTC, "port");
+            expect(f, facts, "public address", ModUnderTest.staticCall(HOSTC, "publicAddress"), "127.0.0.1:" + port);
+            ctx.runOnClient(mc -> mc.getSingleplayerServer().setUsesAuthentication(false));
+            CoopSync.put("inv-room", hostName);
+            String guest = CoopSync.await(ctx, "inv-off", 300).trim();
+            // Guest's setting OFF: not on the reach list, and an invite by name is refused.
+            ModUnderTest.staticCall("com.killer560.hub.modusers.ModUsers", "onPresence", new Class<?>[]{String.class, String.class},
+                    new Object[]{guest, "cheat"});
+            openSession(ctx);
+            expect(f, facts, "clicked Invite Players", DesignerKit.click(ctx, "Invite Players"), true);
+            CoopSync.pace(ctx, 300);
+            expect(f, facts, "Invite page has the by-name box", has(ctx, "Invite by name"), true);
+            CoopSync.pace(ctx, 3000);
+            expect(f, facts, "OFF: the reach was asked", String.valueOf(ModUnderTest.staticCall(R + "SimRooms", "calls")).contains("POST /simrooms/reach"), true);
+            expect(f, facts, "OFF: not reachable", String.valueOf(ModUnderTest.staticCall(R + "SimMultiplayerScreen", "reachableForTest")), "[]");
+            setBox(ctx, "Invite by name", guest);
+            expect(f, facts, "Enter in the by-name box", enterIn(ctx, "Invite by name"), true);
+            boolean refused = paceUntil(ctx, () -> message(ctx).contains("cannot take an invite now"), 10_000);
+            expect(f, facts, "OFF: invite refused", refused ? "refused" : message(ctx), "refused");
+            CoopSync.put("inv-off-checked", "1");
+
+            // ON: the reach list shows the guest (a mod user here), and its Invite button sends.
+            CoopSync.await(ctx, "inv-on", 120);
+            CoopSync.pace(ctx, 31_000); // Refresh asks at most once per 30 s
+            DesignerKit.click(ctx, "Refresh");
+            boolean listed = paceUntil(ctx, () -> String.valueOf(ModUnderTest.staticCall(R + "SimMultiplayerScreen", "reachableForTest"))
+                    .equals("[" + guest + "]"), 10_000);
+            expect(f, facts, "ON: guest reachable", listed ? "listed" : String.valueOf(ModUnderTest.staticCall(R + "SimMultiplayerScreen",
+                    "reachableForTest")), "listed");
+            expect(f, facts, "clicked the row's Invite", DesignerKit.click(ctx, "Invite"), true);
+            boolean sent = paceUntil(ctx, () -> message(ctx).equals("Invited " + guest + "."), 10_000);
+            expect(f, facts, "first invite sent", sent ? "sent" : message(ctx), "sent");
+            expect(f, facts, "row now reads Invited", has(ctx, "Invited"), true);
+            CoopSync.put("inv-sent1", "1");
+
+            // Declined (nothing comes back); a second invite by name after the 30 s re-invite window.
+            CoopSync.await(ctx, "inv-declined", 120);
+            expect(f, facts, "guest still not in the room after Decline", onServer(ctx, guest), false);
+            CoopSync.pace(ctx, 31_000);
+            setBox(ctx, "Invite by name", guest);
+            enterIn(ctx, "Invite by name");
+            boolean sent2 = paceUntil(ctx, () -> message(ctx).equals("Invited " + guest + "."), 10_000);
+            expect(f, facts, "second invite sent", sent2 ? "sent" : message(ctx), "sent");
+            long mark = LogTap.mark();
+            CoopSync.put("inv-sent2", "1");
+
+            CoopSync.await(ctx, "inv-joined", 240);
+            boolean admitted = paceUntil(ctx, () -> logSeen(mark, "[SimCoop] " + guest + " admitted with a ticket")
+                    || guestsKey().equals(guest + ":true"), 20_000);
+            expect(f, facts, "invited guest admitted with its ticket (no password)", admitted, true);
+            CoopSync.put("inv-host-done", "1");
+            String verdict = CoopSync.await(ctx, "inv-guest-done", 180).trim();
+            facts.add("guest verdict: " + verdict);
+            expect(f, facts, "guest's own checks", verdict, "PASS");
+        } finally {
+            FakeGateway.externalIp = FakeGateway.EXTERNAL_IP;
+            System.clearProperty(SSDP);
+            gw.stop();
+        }
+    }
+
+    private static void inviteGuest(ClientGameTestContext ctx, List<String> f, List<String> facts) throws Exception {
+        try {
+            CoopSync.put("inv-guest-up", "1");
+            CoopSync.await(ctx, "inv-host-up", 900);
+            String me = ctx.computeOnClient(mc -> mc.getUser().getName());
+            UUID offline = net.minecraft.core.UUIDUtil.createOfflinePlayerUUID(me);
+            if (!localRelay(ctx, f, offline.toString(), me)) {
+                return;
+            }
+            expect(f, facts, "Receive Sim Invites defaults ON", invitesOn(), true);
+            expect(f, facts, "socket up while ON", paceUntil(ctx, SimInviteWait::connected, 20_000), true);
+            CoopSync.await(ctx, "inv-room", 600);
+
+            // OFF: the socket closes, the setting survives a reload, nothing arrives.
+            setInvites(ctx, false);
+            ModUnderTest.staticCall(CFG, "load");
+            expect(f, facts, "OFF survives a reload", invitesOn(), false);
+            expect(f, facts, "socket closed while OFF", paceUntil(ctx, () -> !SimInviteWait.connected(), 10_000), true);
+            CoopSync.put("inv-off", me);
+            CoopSync.await(ctx, "inv-off-checked", 180);
+            expect(f, facts, "nothing received while OFF", invitesReceived(), 0);
+
+            setInvites(ctx, true);
+            expect(f, facts, "socket back when ON", paceUntil(ctx, SimInviteWait::connected, 20_000), true);
+            ctx.runOnClient(mc -> McCompat.setScreen(mc, new TitleScreen()));
+            CoopSync.put("inv-on", "1");
+
+            // First invite: the prompt on the title screen, Decline.
+            boolean got = paceUntil(ctx, () -> invitesReceived() >= 1, 120_000);
+            expect(f, facts, "first invite received", got, true);
+            expect(f, facts, "prompt shown", paceUntil(ctx, () -> "ConfirmScreen".equals(screenName(ctx)), 5_000), true);
+            expect(f, facts, "prompt text", confirmText(ctx).contains(" invited you to " + IROOM), true);
+            expect(f, facts, "clicked Decline", DesignerKit.click(ctx, "Decline"), true);
+            CoopSync.pace(ctx, 500);
+            expect(f, facts, "Decline: nothing pending", String.valueOf(ModUnderTest.staticCall(REACH, "pending")), "[]");
+            expect(f, facts, "Decline: still out of a world", ctx.computeOnClient(mc -> mc.level == null), true);
+            CoopSync.put("inv-declined", "1");
+
+            // Second invite: Join, no password asked.
+            got = paceUntil(ctx, () -> invitesReceived() >= 2, 120_000);
+            expect(f, facts, "second invite received", got, true);
+            expect(f, facts, "prompt again", paceUntil(ctx, () -> "ConfirmScreen".equals(screenName(ctx)), 5_000), true);
+            ModUnderTest.staticCall(R + "SimRooms", "clearCallsForTest");
+            expect(f, facts, "clicked Join", DesignerKit.click(ctx, "Join"), true);
+            if (!inWorld(ctx)) {
+                f.add("did not join with the invite: " + message(ctx) + " / " + screenName(ctx));
+                return;
+            }
+            expect(f, facts, "isGuest", until(ctx, () -> Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(
+                    R + "SimState", "isGuest", new Class<?>[]{Minecraft.class}, new Object[]{mc}))), 200), true);
+            facts.add("relay calls " + ModUnderTest.staticCall(R + "SimRooms", "calls"));
+            CoopSync.put("inv-joined", me);
+            CoopSync.await(ctx, "inv-host-done", 120);
+        } finally {
+            try {
+                setInvites(ctx, true);
+            } catch (Throwable ignored) {
+                // cleanup
+            }
+            CoopSync.put("inv-guest-done", f.isEmpty() ? "PASS" : "FAIL: " + String.join("; ", f));
+            CoopSync.pace(ctx, 1000);
+        }
+    }
+
+    private static boolean invitesOn() {
+        return (Boolean) ModUnderTest.call(ModUnderTest.staticCall(CFG, "get"), "receiveInvites", new Class<?>[]{}, new Object[]{});
+    }
+
+    private static void setInvites(ClientGameTestContext ctx, boolean on) {
+        ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.staticCall(CFG, "get"), "setReceiveInvites",
+                new Class<?>[]{boolean.class}, new Object[]{on}));
+    }
+
+    /** Small named suppliers for paceUntil. */
+    private static final class SimInviteWait {
+        static boolean connected() { return reachConnected(); }
     }
 
     private static void twoGuest(ClientGameTestContext ctx, List<String> f, List<String> facts) {

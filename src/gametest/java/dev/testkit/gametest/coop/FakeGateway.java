@@ -22,6 +22,8 @@ import java.util.List;
 public final class FakeGateway {
 
     public static final String EXTERNAL_IP = "203.0.113.7";
+    /** The address GetExternalIPAddress answers; 127.0.0.1 when a test must really connect to the "public" endpoint. */
+    public static volatile String externalIp = EXTERNAL_IP;
 
     private final DatagramSocket udp;
     private final HttpServer http;
@@ -45,7 +47,7 @@ public final class FakeGateway {
                 reply(ex, 500, "<s:Envelope><s:Body><s:Fault><detail><UPnPError><errorCode>718</errorCode>"
                         + "<errorDescription>ConflictInMappingEntry</errorDescription></UPnPError></detail></s:Fault></s:Body></s:Envelope>");
             } else if (action.equals("GetExternalIPAddress")) {
-                reply(ex, 200, "<s:Envelope><s:Body><u:GetExternalIPAddressResponse><NewExternalIPAddress>" + EXTERNAL_IP
+                reply(ex, 200, "<s:Envelope><s:Body><u:GetExternalIPAddressResponse><NewExternalIPAddress>" + externalIp
                         + "</NewExternalIPAddress></u:GetExternalIPAddressResponse></s:Body></s:Envelope>");
             } else {
                 reply(ex, 200, "<s:Envelope><s:Body/></s:Envelope>");
