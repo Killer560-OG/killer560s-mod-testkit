@@ -1765,7 +1765,7 @@ public class SimBossTests implements FabricClientGameTest {
                 ctx.runOnClient(mc -> mc.player.connection.sendCommand("pc at ee2"));
                 ctx.waitTicks(6);
                 expect(f, "/pc at ee2 is not an unknown command", chatSeen(mark, "Unknown or incomplete"), false);
-                expect(f, "/pc at ee2 gets Hypixel's no-party line", chatSeen(mark, "You are not in a party right now."), true);
+                expect(f, "/pc at ee2 shows the local Party > line (simpc-1110)", chatSeen(mark, ": at ee2"), true);
             }
             cleanup(ctx);
         }
