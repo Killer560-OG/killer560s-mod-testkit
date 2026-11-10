@@ -133,7 +133,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossEe3Route1109.NAME};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -150,7 +150,7 @@ public class SimBossTests implements FabricClientGameTest {
         List<String> failures = new ArrayList<>();
         for (String name : chosen) {
             // P3 waits on Auto Terminal and AP3 on AP3; both are compiled out of a legit jar.
-            if ((name.equals(P3) || name.equals(AP3) || name.equals(GATES) || name.equals(BREAKER) || name.equals(BREAKER_CHARGE)) && !dev.testkit.gametest.mod.Mod.isCheat()) {
+            if ((name.equals(P3) || name.equals(AP3) || name.equals(GATES) || name.equals(BREAKER) || name.equals(BREAKER_CHARGE) || name.equals(SimBossEe3Route1109.NAME)) && !dev.testkit.gametest.mod.Mod.isCheat()) {
                 println(name, "SKIPPED: legit jar (Auto Terminal / AP3 are cheat-only)");
                 continue;
             }
@@ -175,6 +175,7 @@ public class SimBossTests implements FabricClientGameTest {
                     case CRYS_WALK -> crystalWalk(ctx, f);
                     case BREAKER -> SimBossBreaker1108.run(ctx, f, false);
                     case BREAKER_CHARGE -> SimBossBreaker1108.run(ctx, f, true);
+                    case SimBossEe3Route1109.NAME -> SimBossEe3Route1109.run(ctx, f);
                     default -> ap3(ctx, f);
                 }
             } catch (Throwable t) {
@@ -397,7 +398,7 @@ public class SimBossTests implements FabricClientGameTest {
     private static final int[][] DOOR_BOX = {{95, 115, 121, 105, 136, 124}, {16, 115, 127, 19, 136, 137}, {3, 115, 48, 13, 136, 51}};
 
     /** Boundary {@code s}'s cells on the server: {arch (gate), door, portcullis}. */
-    private static int[] gateCells(ClientGameTestContext ctx, int s) {
+    static int[] gateCells(ClientGameTestContext ctx, int s) {
         int[] b = DOOR_BOX[s - 1];
         int[] n = new int[3];
         for (String id : serverBox(ctx, b[0], b[1], b[2], b[3], b[4], b[5])) {
@@ -979,7 +980,7 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     /** Runs {@code body} over his capture fixtures (P1 and P3 files in the sim folder), removed again after. */
-    private static void withCapture(List<String> f, Runnable body) throws Exception {
+    static void withCapture(List<String> f, Runnable body) throws Exception {
         java.nio.file.Path fixture = java.nio.file.Path.of(System.getProperty("testkit.bossCapture",
                 System.getProperty("user.home") + "/killer560s-mod-logs/fixtures/boss-arena-1104.bin"));
         if (!java.nio.file.Files.isRegularFile(fixture)) {
@@ -2752,7 +2753,7 @@ public class SimBossTests implements FabricClientGameTest {
         return mark;
     }
 
-    private static void cleanup(ClientGameTestContext ctx) {
+    static void cleanup(ClientGameTestContext ctx) {
         System.clearProperty("killer560.bosssim.terminal");
         try {
             ctx.runOnClient(mc -> {
