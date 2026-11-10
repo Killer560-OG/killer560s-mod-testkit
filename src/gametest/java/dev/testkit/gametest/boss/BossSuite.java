@@ -77,6 +77,7 @@ public class BossSuite implements FabricClientGameTest {
                     FeatHCases.register(s); // Terminator Auto Clicker on both Grim configs (1109-termclick-*, 1109-ghost-*, featH-1109)
                     // M7 P5 with Hypixel's floorless P5 sidebar: dragons tracked, box, tracer, title, end splits (1108-boss-dragons-p5, dragons1108).
                     WitherDragonsP5Cases.register(s);
+                    Ee3RouteGrimCases.register(s); // ee3route-1109
                 });
     }
 }
