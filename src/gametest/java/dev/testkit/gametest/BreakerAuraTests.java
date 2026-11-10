@@ -1499,7 +1499,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                 }
                             }
                             int most = perWindow.values().stream().mapToInt(java.util.Set::size).max().orElse(0);
-                            List<String> other = scenario.flags().stream().filter(f -> !f.contains("MultiBreak")).toList();
+                            List<String> other = scenario.flags().stream().filter(f -> !f.contains("MultiBreak") && !(dev.testkit.gametest.boss.AaFastCases.experimentalChecks() && f.contains("RotationBreak"))).toList();
                             scenario.log(name + ": burst most picks in one server tick " + most + " of " + picks.size()
                                     + ", per tick " + perWindow.values().stream().map(java.util.Set::size).toList()
                                     + ", other Grim lines " + other.size() + (other.isEmpty() ? "" : ": " + other));
