@@ -81,6 +81,7 @@ final class Ee3RouteGrimCases {
             LightsDeviceCases.openS2(c);
             undo.add(c.onClient(mc -> Mod.with(CU, "AuraBossLevers", true)));
             undo.add(c.onClient(mc -> Mod.with(LA, "SectionLevers", true)));
+            undo.add(c.onClient(mc -> Mod.with(LA, "SectionLeversEarly", true)));
             undo.add(c.onClient(mc -> Mod.with(LA, "Range", 4.5)));
             undo.add(c.onClient(mc -> Mod.with(LA, "Cps", 20)));
             undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Enabled", true)));

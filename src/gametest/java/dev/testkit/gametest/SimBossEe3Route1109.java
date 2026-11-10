@@ -65,7 +65,10 @@ final class SimBossEe3Route1109 {
                 int reps = p.length > 1 ? Integer.parseInt(p[1]) : 1;
                 for (int i = 0; i < reps; i++) {
                     try {
-                        one(ctx, f, p[0], i);
+                        // "name reps x y z yaw": start there instead of HEE2 (one segment of a route, while designing it).
+                        double[] at = p.length >= 6 ? new double[]{Double.parseDouble(p[2]), Double.parseDouble(p[3]),
+                                Double.parseDouble(p[4]), Double.parseDouble(p[5])} : new double[]{60.5, 132, 139, 72};
+                        one(ctx, f, p[0], i, at);
                     } catch (Exception e) {
                         f.add(p[0] + " #" + i + " threw: " + e);
                         e.printStackTrace(System.out);
@@ -119,8 +122,9 @@ final class SimBossEe3Route1109 {
         System.out.println("[" + NAME + "] " + line);
     }
 
-    private static void one(ClientGameTestContext ctx, List<String> f, String name, int rep) throws Exception {
-        String tag = name + " #" + rep;
+    private static void one(ClientGameTestContext ctx, List<String> f, String name, int rep, double[] at) throws Exception {
+        boolean seg = at[0] != 60.5 || at[2] != 139;
+        String tag = name + (seg ? "@" + (int) at[0] + "," + (int) at[2] : "") + " #" + rep;
         boolean his = name.startsWith("his");
         Path route = DIR.resolve(name + ".json");
         if (!Files.isRegularFile(route)) {
@@ -143,6 +147,8 @@ final class SimBossEe3Route1109 {
                 ModUnderTest.call(cu, "setAuraBossLevers", new Class<?>[]{boolean.class}, new Object[]{true});
                 Object la = ModUnderTest.staticCall("com.killer560.hub.leveraura.LeverAuraConfig", "getInstance");
                 ModUnderTest.call(la, "setSectionLevers", new Class<?>[]{boolean.class}, new Object[]{true});
+                // The sim's S2 start leaves the section tracker at 1 (no terminal chat): the early switch reads the same S2 levers.
+                ModUnderTest.call(la, "setSectionLeversEarly", new Class<?>[]{boolean.class}, new Object[]{true});
                 ModUnderTest.call(la, "setRange", new Class<?>[]{double.class}, new Object[]{REACH});
                 ModUnderTest.call(la, "setCps", new Class<?>[]{int.class}, new Object[]{20});
                 Path dir = (Path) ModUnderTest.staticCall(Ap3RuntimeTests.STORE, "directory");
@@ -186,7 +192,7 @@ final class SimBossEe3Route1109 {
                 + hasBoom + ", Superboom in slot " + boomSlot + ", levers low/high powered at start " + lev0[0] + "/" + lev0[1]);
 
         long mark = LogTap.mark();
-        SimBossTests.tp(ctx, 60.5, 132, 139, 72f, 0f);
+        SimBossTests.tp(ctx, at[0], at[1], at[2], (float) at[3], 0f);
         int charges = MAX_CHARGES;
         int rc = 0;
         int minCharges = MAX_CHARGES;
@@ -212,7 +218,7 @@ final class SimBossEe3Route1109 {
             });
             Vec3 pos = new Vec3(s[0], s[1], s[2]);
             Vec3 eye = pos.add(0, 1.62, 0);
-            if (t0 < 0 && Math.hypot(s[0] - 60.5, s[2] - 139) > 0.2 && t > 2) {
+            if (t0 < 0 && Math.hypot(s[0] - at[0], s[2] - at[2]) > 0.2 && t > 2) {
                 t0 = t;
             }
             if (lowAt < 0 && s[6] > 0) {
@@ -284,8 +290,8 @@ final class SimBossEe3Route1109 {
             if (aligned >= 0 && t > aligned + 5 || arrive >= 0 && t > arrive + 40) {
                 break;
             }
-            if (s[1] < 100) {
-                break; // fell in the water / out of the line
+            if (s[1] < 107 && !his) {
+                break; // in the lava: off the line
             }
         }
         ctx.waitTicks(5);
@@ -300,7 +306,7 @@ final class SimBossEe3Route1109 {
                 shorts.isEmpty() ? "" : " first " + String.join(", ", shorts.subList(0, Math.min(6, shorts.size())))));
         ctx.runOnClient(mc -> ModUnderTest.staticCall(Ap3RuntimeTests.EXEC, "stop", new Class<?>[]{String.class},
                 new Object[]{"test over"}));
-        if (his) {
+        if (his || seg) {
             return;
         }
         if (t0 < 0) {
