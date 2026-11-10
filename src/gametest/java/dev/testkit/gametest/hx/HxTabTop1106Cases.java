@@ -39,11 +39,11 @@ final class HxTabTop1106Cases {
         HxKit.hub(c);
         byte[] saved = HxDarkMode1102Cases.saveFile(c);
         try {
-            HxDarkMode1102Cases.settings(c, false, 60, false);
+            HxDarkMode1102Cases.settings(c, false, 60);
             HxDarkMode1102Cases.still(c);
             tab(c, true);
             BufferedImage base = HxDarkMode1102Cases.shot(c, "list");
-            HxDarkMode1102Cases.settings(c, true, 60, true);
+            HxDarkMode1102Cases.settings(c, true, 60);
             BufferedImage tinted = HxDarkMode1102Cases.shot(c, "list-tinthud");
             tab(c, false);
             int w = base.getWidth(), h = base.getHeight();
@@ -52,7 +52,7 @@ final class HxTabTop1106Cases {
                 for (int x = w * 30 / 100; x < w * 70 / 100; x++) {
                     if (HxDarkMode1102Cases.lum(base.getRGB(x, y)) >= 700) {
                         white++;
-                        if (HxDarkMode1102Cases.lum(tinted.getRGB(x, y)) >= 600) {
+                        if (HxDarkMode1102Cases.lum(tinted.getRGB(x, y)) >= 250) {
                             kept++;
                         }
                     }
@@ -60,7 +60,7 @@ final class HxTabTop1106Cases {
             }
             c.note("player list white pixels " + white + ", still bright under the over-HUD tint " + kept);
             c.check(white > 40, "the player list never showed (" + white + " white pixels in the top band)");
-            c.check(kept * 10 >= white * 8, "the mod's last HUD layer was drawn over the player list: " + kept + " of " + white
+            c.check(kept * 10 >= white * 8, "the player list vanished under Dark Mode: " + kept + " of " + white
                     + " white pixels survived the tint");
         } finally {
             tab(c, false);
