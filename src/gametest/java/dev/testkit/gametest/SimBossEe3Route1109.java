@@ -61,6 +61,11 @@ final class SimBossEe3Route1109 {
             plan.add(new String[]{"his"});
             plan.add(new String[]{"fastest"});
         }
+        // killer560's own AP3 movement setting (26.3 killer560smod-ap3-settings.json): 45 Degree Strafe ON; restored after.
+        boolean strafeWas = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.call(ModUnderTest.config(Ap3RuntimeTests.CONFIG),
+                "isStrafe45", new Class<?>[]{}, new Object[]{}));
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(Ap3RuntimeTests.CONFIG), "setStrafe45", true));
+        try {
         SimBossTests.withCapture(f, () -> {
             for (String[] p : plan) {
                 int reps = p.length > 1 ? Integer.parseInt(p[1]) : 1;
@@ -79,6 +84,9 @@ final class SimBossEe3Route1109 {
                 }
             }
         });
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(Ap3RuntimeTests.CONFIG), "setStrafe45", strafeWas));
+        }
     }
 
     private static List<BlockPos> picks(Path file) throws Exception {
