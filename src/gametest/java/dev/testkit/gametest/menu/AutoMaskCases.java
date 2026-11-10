@@ -104,11 +104,12 @@ final class AutoMaskCases {
         String[] despawns = {"You despawned your Phoenix!", "You despawned your [Lvl 100] Phoenix!",
                 "You despawned your Phoenix [Lvl 100]!"};
         resetPhoenix(c, false);
+        int n = 10;
         for (String line : summons) {
             resetPhoenix(c, false);
             c.hx().call("chat", "text", line);
             c.waitUntil("Phoenix out after: " + line, mc -> (Boolean) Mod.staticCall(SW, "isPhoenixSummoned"), 40);
-            c.hx().call("chat", "text", "You summoned your [Lvl 100] Golden Dragon!");
+            c.hx().call("chat", "text", "You summoned your [Lvl " + (n++) + "] Golden Dragon!");
             c.waitUntil("another pet clears Phoenix", mc -> !(Boolean) Mod.staticCall(SW, "isPhoenixSummoned"), 40);
         }
         for (String line : despawns) {
