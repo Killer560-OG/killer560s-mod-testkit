@@ -262,7 +262,7 @@ public final class Session {
     }
 
     /** KM_HX_LAG_MS / -Dtestkit.hxLagMs (flaghunt-1110): every case of the session runs with this much latency both ways. */
-    private static final int LAG_MS = Integer.getInteger("testkit.hxLagMs",
+    public static final int LAG_MS = Integer.getInteger("testkit.hxLagMs",
             System.getenv("KM_HX_LAG_MS") == null ? 0 : Integer.parseInt(System.getenv("KM_HX_LAG_MS").trim()));
 
     private void runCase(String caseName, Case body, boolean expectFlags) {
