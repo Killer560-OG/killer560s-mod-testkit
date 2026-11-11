@@ -477,7 +477,8 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
             tps = new ArrayList<>(ZpewCampaignTests.TELEPORTS);
         }
         // Tick Split runs his clock ahead: GrimAC Timer answers with set-backs to where he already is (the start, or a
-        // landing again). Those are not warps; drop them and allow a ZPEW miss for each.
+        // landing again). Those are not warps; drop them and allow a ZPEW miss for each (a set-back drops the pending
+        // predictions, so the later landings are not counted as hits either).
         int setbacks = 0;
         if (timerSetbacksOk) {
             for (int k = tps.size() - 1; k >= 0; k--) {
@@ -536,7 +537,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
         if (extra != expectExtra) {
             problems.add(label + ": expected " + expectExtra + " extra warp(s), the mod sent " + extra + " | " + line);
         }
-        if (warps != expectWarps || c1.hits() - c0.hits() != expectWarps || c1.misses() - c0.misses() > setbacks
+        if (warps != expectWarps || (setbacks == 0 && c1.hits() - c0.hits() != expectWarps) || c1.misses() - c0.misses() > setbacks
                 || c1.timeouts() != c0.timeouts()) {
             problems.add(label + ": expected " + expectWarps + " server warp(s) all predicted | " + line);
         }
