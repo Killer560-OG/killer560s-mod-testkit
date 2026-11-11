@@ -386,6 +386,8 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             openSession(ctx);
             expect(f, facts, "owner Session page", has(ctx, "Close Room") && has(ctx, "Kick")
                     && has(ctx, "Guests May Change Speed: ON"), true);
+            // coop262's Move row: every widget of the owner's page is on screen and none overlaps another.
+            expect(f, facts, "Session page fits (on screen, no overlap)", ctx.computeOnClient(mc -> layoutFault(mc)), "");
             DesignerKit.click(ctx, "Guests May Change Speed: ON");
             ctx.waitTicks(2);
             expect(f, facts, "switch shows OFF", has(ctx, "Guests May Change Speed: OFF"), true);
@@ -1094,6 +1096,32 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
         var fl = Class.forName(cls).getDeclaredField(name);
         fl.setAccessible(true);
         return fl.get(null);
+    }
+
+    /** "" when every visible widget of the open screen lies inside it and no two overlap, else the first fault. */
+    private static String layoutFault(Minecraft mc) {
+        Screen s = McCompat.screen(mc);
+        if (s == null) return "no screen";
+        List<AbstractWidget> ws = new java.util.ArrayList<>();
+        for (var ch : s.children()) {
+            if (ch instanceof AbstractWidget w && w.visible) ws.add(w);
+        }
+        if (ws.size() < 4) return "only " + ws.size() + " widgets";
+        for (int i = 0; i < ws.size(); i++) {
+            AbstractWidget a = ws.get(i);
+            if (a.getX() < 0 || a.getY() < 0 || a.getX() + a.getWidth() > s.width || a.getY() + a.getHeight() > s.height) {
+                return "off screen: '" + DesignerKit.label(a) + "' at " + a.getX() + "," + a.getY() + " " + a.getWidth() + "x" + a.getHeight()
+                        + " in " + s.width + "x" + s.height;
+            }
+            for (int k = i + 1; k < ws.size(); k++) {
+                AbstractWidget b = ws.get(k);
+                if (a.getX() < b.getX() + b.getWidth() && b.getX() < a.getX() + a.getWidth()
+                        && a.getY() < b.getY() + b.getHeight() && b.getY() < a.getY() + a.getHeight()) {
+                    return "overlap: '" + DesignerKit.label(a) + "' and '" + DesignerKit.label(b) + "'";
+                }
+            }
+        }
+        return "";
     }
 
     private static AbstractWidget widget(Minecraft mc, String label) {
