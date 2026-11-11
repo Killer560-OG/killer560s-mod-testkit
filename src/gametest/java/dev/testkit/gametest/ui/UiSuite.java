@@ -715,6 +715,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1102-ui-leapmenu-oldconfig", LeapMenuCases::oldConfig);
                     UiCase.run(ctx, "1102-ui-leapmenu-search", LeapMenuCases::search);
                     UiCase.run(ctx, "1102-ui-leapmenu-shots", LeapMenuCases::shots);
+                    UiCase.run(ctx, "1110-ui-leaprow", LeapMenuCases::leapRow);
                     // ---- /class + /leaporder, overrides folded in, editor layout, Party Finder styles (1071-1075) ----
                     UiCase.run(ctx, "1071-ui-class-commands", LeapQueueCases::commands);
                     UiCase.run(ctx, "1072-ui-class-overrides-migrated", LeapQueueCases::overridesGoneAndMigrated);
