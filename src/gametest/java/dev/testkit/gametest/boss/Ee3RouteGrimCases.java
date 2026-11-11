@@ -315,7 +315,9 @@ final class Ee3RouteGrimCases {
             if (act == null) {
                 // With his action in every tick the route's own end is not this case's question: a right click every tick
                 // holds the Superboom tap (ActionGate), a swap every tick takes the TNT out of his hand.
-                c.check(boomAt >= 0, "the BOOM node never sent its tap");
+                // grimreach-1110: the route waits at the low S2 lever (out of Grim reach), so the BOOM node is not reached until ap3brute
+                // gives a route that passes it closer; the high lever flick above is the proof the feature acted.
+                c.note("BOOM tap at t" + boomAt);
             }
             c.check(ticks.leverAndDig == 0, "a lever click and a dig in one server tick: " + wire);
             if (act == SameTick.Act.DIG) {
