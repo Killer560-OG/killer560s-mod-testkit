@@ -52,7 +52,7 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
                 ctx.runOnClient(mc -> Mod.set(IW_CFG, "setPulseEvery", 4));
                 // Menu Walk's modes (invwalkpulse-1111): Lag Back and Hidden Pulse hide the keys (Simulation accepted),
                 // Pulse sends them honestly on one tick in four and coasts between, so it must draw no flag at all.
-                for (String mode : List.of("LAG_BACK", "PULSE", "HIDDEN_PULSE")) {
+                for (String mode : List.of("KEEP_INPUT", "LAG_BACK", "PULSE", "HIDDEN_PULSE")) {
                     ctx.runOnClient(mc -> Mod.set(IW_CFG, "setMenuWalkMode", Mod.enumValue(IW_CFG + "$MenuWalkMode", mode)));
                     rows.tolerate = mode.equals("PULSE") ? null : "Simulation";
                     for (int lat : latencies()) {
@@ -65,7 +65,7 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
                     }
                 }
             } finally {
-                ctx.runOnClient(mc -> Mod.set(IW_CFG, "setMenuWalkMode", Mod.enumValue(IW_CFG + "$MenuWalkMode", "PULSE")));
+                ctx.runOnClient(mc -> Mod.set(IW_CFG, "setMenuWalkMode", Mod.enumValue(IW_CFG + "$MenuWalkMode", "KEEP_INPUT")));
                 ctx.runOnClient(mc -> Mod.set(IW_CFG, "setLagBackWalk", false));
                 tearDown(ctx, gate);
             }
@@ -91,6 +91,12 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
         keys(ctx, Set.of());
         tp(server, ctx, x + 0.5, SURFACE_Y, z + 0.5, -90f);
         ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+        boolean keep = mode.equals("KEEP_INPUT");
+        if (keep) {
+            // Keep Input: he walks into the menu, so the server holds forward when it opens and keeps it.
+            keys(ctx, Set.of("key.forward"));
+            ctx.waitTicks(3);
+        }
         rows.begin();
         hx.menu("SkyBlock Menu", 4, Map.of(11, "minecraft:player_head", 13, "minecraft:diamond"), null);
         if (!InvWalkTermTests.openMenu(ctx)) {
@@ -112,7 +118,7 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
         SameTick[] same = {null};
         if (st != null) {
             same[0] = ctx.computeOnClient(mc -> SameTick.start(st, st == SameTick.Act.SWAP ? 2 : 5,
-                    pk -> pk instanceof ServerboundPlayerInputPacket, 1, 2));
+                    pk -> keep ? pk instanceof ServerboundMovePlayerPacket : pk instanceof ServerboundPlayerInputPacket, 1, 2));
         }
         boolean up = true;
         double path = 0;
@@ -191,8 +197,10 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
         // back); what must hold is that he keeps walking: a new position every tick, keys hidden in every input, menu up.
         // Pulse: honest keys on one tick in four (about 20 of 80 ticks, two inputs each: down and up), coasting between, and
         // nothing to set him back, so he really gets somewhere.
-        boolean walked = distinct >= 20 && inputs >= 8 && up && unmasked && masking == hides
-                && (hides ? hiddenN >= 5 && moving == 0 : hiddenN == 0 && moving >= 10 && moving <= 30 && path >= 2.0);
+        // Keep Input: no player_input at all while the menu is up (a click's still tick excepted), every one swallowed.
+        boolean walked = distinct >= 20 && up && unmasked && masking == hides && (keep
+                ? hiddenN >= 5 && inputs <= (st == SameTick.Act.SCREEN_CLICK ? 12 : 0)
+                : inputs >= 8 && (hides ? hiddenN >= 5 && moving == 0 : hiddenN == 0 && moving >= 10 && moving <= 30 && path >= 2.0));
         // The forced pullback: the client lands where the server put him (2 back) and the mod counted it; "walked" holds after.
         boolean pulled = st != null || (pulls >= 1 && landed != 0 && landed < before - 1);
         boolean ok = walked && pulled && sameVerdict == null && clicksMoving == 0;
