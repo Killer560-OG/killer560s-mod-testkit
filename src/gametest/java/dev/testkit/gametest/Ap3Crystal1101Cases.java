@@ -36,6 +36,11 @@ final class Ap3Crystal1101Cases {
             "1.0476191", "1.1746032"};
 
     static void register(Session s) {
+        if (!Ap3Crystal1109Cases.cheatBuild()) { // AP3 does not run on a legit jar
+            Scenario.skipped("1101-ap3-crystal-height", "AP3 is cheat-only (legit jar)");
+            Scenario.skipped("1101-ap3-crystal-auto", "AP3 is cheat-only (legit jar)");
+            return;
+        }
         s.test("1101-ap3-crystal-height", c -> run(c, 11.5, 4, false));
         s.test("1101-ap3-crystal-auto", c -> run(c, 0, 3, true));
     }
