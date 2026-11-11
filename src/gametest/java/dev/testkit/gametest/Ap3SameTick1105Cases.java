@@ -105,7 +105,23 @@ final class Ap3SameTick1105Cases {
         }
     }
 
+    /**
+     * A TP case retries a node whose use the server dropped (flake-sameblocktp-1111, 18 of 59 runs): the server's /tp sets
+     * the player's awaiting-position state, and vanilla ignores a use_item_on until it gets the matching accept, so a use
+     * that reaches the server after a NEWER /tp (the test issues one every other tick, on a thread of its own) is dropped
+     * whatever the client sent; the client cannot know of a teleport still in flight. A drop with the node's use on the
+     * wire is retried up to {@link #TP_ATTEMPTS} times; a node that never acts in any attempt still fails.
+     */
+    private static final int TP_ATTEMPTS = 6;
+
     private static void node1(Session c, String type, SameTick.Act act) {
+        for (int attempt = 1; !node1Once(c, type, act, act != SameTick.Act.TP || attempt == TP_ATTEMPTS); attempt++) {
+            c.note("attempt " + attempt + ": the server dropped the node's use (a newer teleport was in flight), again");
+        }
+    }
+
+    /** Runs the case once; false = no node act seen and {@code last} is false (the caller runs it again). */
+    private static boolean node1Once(Session c, String type, SameTick.Act act, boolean last) {
         ClientGameTestContext ctx = c.ctx();
         double z = Ap3RuntimeTests.lane();
         // A BLOCK node places the HELD block first: an earlier case of a big session left the TNT in slot 7 selected, so it placed that, not the slab. Hold the empty slot 1.
@@ -161,6 +177,10 @@ final class Ap3SameTick1105Cases {
                 default -> boomTaps(c.hx().events(since, "held", "attack_block"));
             };
             c.note("server saw the node act " + acted.size() + " time(s)");
+            c.note("server events " + c.hx().events(since, "held", "use_block", "use_item").stream().map(e -> e.get("type") + ":" + (e.has("item") ? e.get("item") : e.has("slot") ? e.get("slot") : "") + "@" + e.get("tick")).toList());
+            if (acted.isEmpty() && !last) {
+                return false;
+            }
             // A USE node leaves him on its wand, so his own right clicks after it are wand uses too.
             boolean onWand = type.equals("USE") && act == SameTick.Act.USE_KEY;
             c.check(onWand ? !acted.isEmpty() : acted.size() == 1, type + ": the server saw the node act " + acted.size()
@@ -168,6 +188,7 @@ final class Ap3SameTick1105Cases {
             // His right click comes first in a tick, so the node's hotbar change waits for the next one (PacketOrderE).
             String why = done.verdict(type, act == SameTick.Act.USE_KEY || act == SameTick.Act.DIG);
             c.check(why == null, why);
+            return true;
         } finally {
             close(c, st);
             onClient(c.ctx(), mc -> {

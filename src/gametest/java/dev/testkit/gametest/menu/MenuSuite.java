@@ -132,7 +132,7 @@ public class MenuSuite implements FabricClientGameTest {
      */
     static void home(Session c, String name) {
         double[] p = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ(),
-                mc.level.hasChunk(((int) Math.floor(SPAWN_X)) >> 4, ((int) Math.floor(SPAWN_Z)) >> 4) ? 1 : 0});
+                mc.level.getChunkSource().hasChunk(((int) Math.floor(SPAWN_X)) >> 4, ((int) Math.floor(SPAWN_Z)) >> 4) ? 1 : 0});
         if (Math.abs(p[0] - SPAWN_X) <= 6 && Math.abs(p[2] - SPAWN_Z) <= 6 && Math.abs(p[1] - SPAWN_Y) < 1e-3) {
             return;
         }

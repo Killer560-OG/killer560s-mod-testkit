@@ -139,6 +139,11 @@ final class Ee3RouteGrimCases {
         if (p instanceof ServerboundMovePlayerPacket m) {
             return m.hasRotation() ? "move rot" : "move";
         }
+        if (p instanceof net.minecraft.network.protocol.game.ServerboundPlayerInputPacket in) {
+            net.minecraft.world.entity.player.Input i = in.input();
+            return "input " + (i.forward() ? "W" : "") + (i.left() ? "A" : "") + (i.backward() ? "S" : "") + (i.right() ? "D" : "")
+                    + (i.sprint() ? " sprint" : "");
+        }
         return p.getClass().getSimpleName();
     }
 
@@ -222,7 +227,7 @@ final class Ee3RouteGrimCases {
             undo.add(c.onClient(mc -> Mod.with(LA, "CooldownMs", Integer.parseInt(System.getenv().getOrDefault("KM_LEVER_CD", "50")))));
             undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Enabled", true)));
             // killer560's own AP3 setting (26.3 killer560smod-ap3-settings.json): 45 Degree Strafe ON (W+A/D, 1.00 speed).
-            undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Strafe45", true)));
+            undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Strafe45", !"0".equals(System.getenv("KM_EE3_STRAFE45")))));
             c.onClient(mc -> {
                 try {
                     Mod.staticCall("ap3.Ap3Executor", "stop", "test lane");
@@ -255,10 +260,8 @@ final class Ee3RouteGrimCases {
                 st = SameTickCases.start(c, act, LEVER_CLICK);
             }
             int turns0 = act == SameTick.Act.DIG ? ((Number) Mod.staticCall("util.HandDigAim", "turns")).intValue() : 0;
-            if (act == SameTick.Act.DIG) {
-                WireCapture.describe = Ee3RouteGrimCases::describe;
-                WireCapture.start();
-            }
+            WireCapture.describe = Ee3RouteGrimCases::describe;
+            WireCapture.start();
             // Leave and re-enter HEE2's box: a tp lands him in it, as a leap would.
             TerminalAuraCases.tp(c, 62.5, 132, 139, 72f);
             c.ctx().waitTicks(5);
@@ -271,9 +274,9 @@ final class Ee3RouteGrimCases {
             for (int t = 0; t < 400 && arrive < 0; t++) {
                 c.ctx().waitTick();
                 double[] s = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ(),
-                        mc.player.onGround() ? 1 : 0});
+                        mc.player.onGround() ? 1 : 0, mc.player.input.keyPresses.jump() ? 1 : 0});
                 minY = Math.min(minY, s[1]);
-                path.append(String.format(Locale.ROOT, " %d:%.2f,%.2f,%.2f", t, s[0], s[1], s[2]));
+                path.append(String.format(Locale.ROOT, " %d:%.2f,%.2f,%.2f%s%s", t, s[0], s[1], s[2], s[3] > 0 ? "g" : "", s[4] > 0 ? "J" : ""));
                 if (t0 < 0 && Math.hypot(s[0] - 60.5, s[2] - 139) > 0.2) {
                     t0 = t;
                 }
@@ -319,6 +322,36 @@ final class Ee3RouteGrimCases {
                 // gives a route that passes it closer; the high lever flick above is the proof the feature acted.
                 c.note("BOOM tap at t" + boomAt);
             }
+            // leverkey-1110: Lever Aura's pre-turn re-picked the keys as A alone for a tick (W and sprint dropped mid-route).
+            // On the wire: no player_input of A alone, and the turn itself must have run (lines "turning body" / "keys re-picked").
+            int aAlone = 0;
+            for (WireCapture.Sent w : WireCapture.snapshot()) {
+                aAlone += w.phase().equals("play") && w.text().startsWith("input A") && !w.text().startsWith("input AS")
+                        && !w.text().startsWith("input AD") ? 1 : 0;
+            }
+            List<String> logs = LogTap.since(mark);
+            long turns = logs.stream().filter(l -> l.contains("[LeverAura] turning body")).count();
+            // A lever turn is a re-pick (route yaw A -> aura yaw B) that the hand-back (B -> A) follows; its keys must hold W.
+            // The hand-back's own keys are the route's, and another feature's one-way turn is not Lever Aura's.
+            java.util.regex.Pattern rp = java.util.regex.Pattern.compile("turned from (\\S+) to (\\S+) before the move.*yaw: (\\w*)");
+            List<String[]> reps = new ArrayList<>();
+            for (String l : logs) {
+                java.util.regex.Matcher m = rp.matcher(l);
+                if (m.find()) {
+                    reps.add(new String[]{m.group(1), m.group(2), m.group(3)});
+                }
+            }
+            long noW = 0;
+            long pairs = 0;
+            for (int i = 0; i + 1 < reps.size(); i++) {
+                if (reps.get(i)[0].equals(reps.get(i + 1)[1]) && reps.get(i)[1].equals(reps.get(i + 1)[0])) {
+                    pairs++;
+                    noW += reps.get(i)[2].contains("W") ? 0 : 1;
+                }
+            }
+            c.note("lever pre-turns " + turns + ", lever re-pick pairs " + pairs + ", without W " + noW + ", A-alone inputs on the wire " + aAlone);
+            c.check(dig || turns > 0, "Lever Aura never turned the body under the walk (the pre-turn did not act)");
+            c.check(noW == 0 && aAlone == 0, "the lever turn dropped W/sprint: re-picks without W " + noW + ", A-alone inputs " + aAlone);
             c.check(ticks.leverAndDig == 0, "a lever click and a dig in one server tick: " + wire);
             if (act == SameTick.Act.DIG) {
                 // ap3digrot-1109: his dig under AP3's held camera turns the body onto his block, and the movement packet

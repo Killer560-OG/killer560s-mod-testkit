@@ -132,7 +132,7 @@ final class UntestBugs1109MoreCases {
             boolean globalRow = false;
             for (AbstractWidget w : ws) {
                 String l = net.minecraft.ChatFormatting.stripFormatting(w.getMessage().getString());
-                modes += l != null && l.startsWith("Mode: ") ? 1 : 0;
+                modes += l != null && l.matches(".+ Mode: .*") ? 1 : 0;
                 globalRow |= l != null && l.startsWith("Target Mode");
             }
             int leaps = ((Object[]) Mod.cls(FLC + "$LeapTarget").getEnumConstants()).length;

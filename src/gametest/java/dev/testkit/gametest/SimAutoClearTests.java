@@ -75,6 +75,10 @@ public class SimAutoClearTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank() || Scenario.skip(NAME)) {
             return;
         }
+        if (!dev.testkit.gametest.mod.Mod.isCheat()) { // Auto Clear is cheat build only
+            Scenario.skipped(NAME, "Auto Clear is cheat build only");
+            return;
+        }
         ModUnderTest.require("killer560smod");
         LogTap.install();
         ctx.waitTicks(40);
@@ -1870,7 +1874,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
                 int n = 0;
                 for (int cx = (first.getX() - 16) >> 4; cx <= (last.getX() + 16) >> 4; cx++) {
                     for (int cz = (first.getZ() - 16) >> 4; cz <= (last.getZ() + 16) >> 4; cz++) {
-                        if (!mc.level.hasChunk(cx, cz)) {
+                        if (!mc.level.getChunkSource().hasChunk(cx, cz)) {
                             n++;
                         }
                     }

@@ -66,6 +66,8 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
     static final String TWO = "1109-mp-two";
     /** Phase 3: invites through a local wrangler dev relay (run-coop.sh -w). */
     static final String INVITE = "1109-mp-invite";
+    /** coopnet-1110: no UPnP on the host, the guest joins through the local relay's tunnel (run-coop.sh -w). */
+    static final String TUNNEL = "1110-mp-tunnel";
     private static final String R = "com.killer560.hub.roomsim.";
     private static final String HOSTC = R + "SimHost";
     private static final String REQ = R + "SimRequests";
@@ -81,17 +83,18 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             return;
         }
         List<String> failed = new ArrayList<>();
-        for (String name : new String[]{MENU, UPNP, HOST, TWO, INVITE}) {
+        for (String name : new String[]{MENU, UPNP, HOST, TWO, INVITE, TUNNEL}) {
+            CoopSync.scope(name);
             if (Scenario.skip(name)) {
                 continue;
             }
-            boolean two = name.equals(TWO) || name.equals(INVITE);
+            boolean two = name.equals(TWO) || name.equals(INVITE) || name.equals(TUNNEL);
             if (!two && CoopSync.role().equals("guest")) {
                 Scenario.skipped(name, "the guest side of a two-client run (the host runs it)");
                 continue;
             }
             if (two && !CoopSync.active()) {
-                Scenario.skipped(name, "two-client case: run it with run-coop.sh -s " + name + (name.equals(INVITE) ? " -w" : ""));
+                Scenario.skipped(name, "two-client case: run it with run-coop.sh -s " + name + (name.equals(TWO) ? "" : " -w"));
                 continue;
             }
             ModUnderTest.require("killer560smod");
@@ -110,6 +113,13 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
                             inviteHost(ctx, problems, facts);
                         } else {
                             inviteGuest(ctx, problems, facts);
+                        }
+                    }
+                    case TUNNEL -> {
+                        if (CoopSync.role().equals("host")) {
+                            tunnelHost(ctx, problems, facts);
+                        } else {
+                            tunnelGuest(ctx, problems, facts);
                         }
                     }
                     default -> {
@@ -161,6 +171,8 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             stub.addRoom(UUID.randomUUID().toString(), "TkOwnerB", "Tk Full Room", null, 2, mcv, protocol, null);
             String fullOwner = stub.calls().isEmpty() ? null : null;
             stub.addRoom(UUID.randomUUID().toString(), "TkOwnerC", "Tk Old Room", null, 4, mcv, protocol - 1, null);
+            String otherMc = mcv.equals("26.3") ? "26.2" : "26.3";
+            stub.addRoom(UUID.randomUUID().toString(), "TkOwnerD", "Tk Other Version Room", null, 4, otherMc, protocol, null);
 
             // The sim menu: Multiplayer between its own separator and Back, set apart from F7 Boss above it.
             ctx.runOnClient(mc -> McCompat.setScreen(mc, (Screen) ModUnderTest.staticCall(R + "SimMenuNav", "open",
@@ -188,7 +200,16 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             boolean rows = paceUntil(ctx, () -> rowLabel(ctx, "[Locked] Tk Locked Room") != null, 10_000);
             expect(f, facts, "Join fetched the list", stub.calls("GET /simrooms/list").size() - lists0 >= 1, true);
             expect(f, facts, "locked room row", rows ? rowLabel(ctx, "[Locked] Tk Locked Room") : null,
-                    "[Locked] Tk Locked Room  -  TkOwnerA  1/4  F7 Boss  v1.1.0");
+                    "[" + mcv + "] [Locked] Tk Locked Room  -  TkOwnerA  1/4  F7 Boss  v1.1.0");
+            // coopnet-1110: every version is listed (all=1), a room on another version says so and Join is refused.
+            expect(f, facts, "list asked for every version", stub.calls("GET /simrooms/list").stream()
+                    .allMatch(c -> c.contains("all=1")), true);
+            expect(f, facts, "other-version row", rowLabel(ctx, "Tk Other Version Room"),
+                    "[" + otherMc + " - other version] Tk Other Version Room  -  TkOwnerD  1/4  F7 Boss  v1.1.0");
+            int joinsBefore = stub.calls("POST /simrooms/join").size();
+            clickRow(ctx, "Tk Other Version Room");
+            expect(f, facts, "other version: Join refused", message(ctx), "Host is on " + otherMc + " - open " + otherMc + " to join.");
+            expect(f, facts, "other version: no ticket asked", stub.calls("POST /simrooms/join").size() - joinsBefore, 0);
             int lists1 = stub.calls("GET /simrooms/list").size();
             DesignerKit.click(ctx, "Refresh");
             paceUntil(ctx, () -> stub.calls("GET /simrooms/list").size() > lists1, 5_000);
@@ -203,8 +224,10 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             expect(f, facts, "wrong password", message(ctx), "Wrong password.");
             setBox(ctx, "Password", "sesame");
             DesignerKit.click(ctx, "Join");
-            paceUntil(ctx, () -> message(ctx).startsWith("That room is LAN only"), 5_000);
-            expect(f, facts, "right password accepted (ticket, LAN-only room)", message(ctx).startsWith("That room is LAN only"), true);
+            String noWay = "Could not reach Tk Locked Room: the relay tunnel is out of capacity for today";
+            paceUntil(ctx, () -> message(ctx).startsWith(noWay), 5_000);
+            expect(f, facts, "right password accepted (ticket; no endpoint and the stub's tunnel is off)", message(ctx), noWay
+                    + "; try the owner's address or the LAN list.");
             expect(f, facts, "join calls (403 then 200)", stub.calls("POST /simrooms/join").size(), 2);
             facts.add("locked room " + locked + ", fullOwner " + fullOwner);
 
@@ -364,6 +387,8 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             openSession(ctx);
             expect(f, facts, "owner Session page", has(ctx, "Close Room") && has(ctx, "Kick")
                     && has(ctx, "Guests May Change Speed: ON"), true);
+            // coop262's Move row: every widget of the owner's page is on screen and none overlaps another.
+            expect(f, facts, "Session page fits (on screen, no overlap)", ctx.computeOnClient(mc -> layoutFault(mc)), "");
             DesignerKit.click(ctx, "Guests May Change Speed: ON");
             ctx.waitTicks(2);
             expect(f, facts, "switch shows OFF", has(ctx, "Guests May Change Speed: OFF"), true);
@@ -458,7 +483,7 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             paceUntil(ctx, () -> ModUnderTest.staticCall(HOSTC, "roomIdForTest") != null, 15_000);
             expect(f, facts, "router line (no UPnP in a test client)", String.valueOf(ModUnderTest.staticCall(HOSTC, "upnpLine"))
                     .contains("UPnP is off in this test client"), true);
-            expect(f, facts, "list line", ModUnderTest.staticCall(HOSTC, "listLine"), "Listed in the room list (LAN only).");
+            expect(f, facts, "list line", ModUnderTest.staticCall(HOSTC, "listLine"), "Listed in the room list (joins go through the relay).");
             int port = (Integer) ModUnderTest.staticCall(HOSTC, "port");
             // Both test clients are offline accounts: like CoopSimTests.publish, take the published server off online mode
             // (the mod keeps vanilla's authentication; real accounts pass it).
@@ -737,6 +762,113 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
         }
     }
 
+    // ============================================================================================ 1110-mp-tunnel
+
+    private static final String TROOM = "Tk Tunnel Room";
+
+    /** No UPnP (no gateway named): the room lists with no endpoint and keeps a relay tunnel socket open. */
+    private static void tunnelHost(ClientGameTestContext ctx, List<String> f, List<String> facts) throws Exception {
+        CoopSync.put("tun-host-up", "1");
+        CoopSync.await(ctx, "tun-guest-up", 900);
+        String uuid = ctx.computeOnClient(mc -> mc.getUser().getProfileId().toString());
+        String hostName = ctx.computeOnClient(mc -> mc.getUser().getName());
+        if (!localRelay(ctx, f, uuid, hostName)) {
+            return;
+        }
+        System.clearProperty(SSDP);
+        long mark = LogTap.mark();
+        if (!createRoom(ctx, f, facts, TROOM, PW, 3)) {
+            return;
+        }
+        expect(f, facts, "listed on the local relay", paceUntil(ctx, () -> ModUnderTest.staticCall(HOSTC, "roomIdForTest") != null,
+                20_000), true);
+        expect(f, facts, "no public address (UPnP off)", ModUnderTest.staticCall(HOSTC, "publicAddress"), null);
+        expect(f, facts, "list line", ModUnderTest.staticCall(HOSTC, "listLine"), "Listed in the room list (joins go through the relay).");
+        expect(f, facts, "tunnel socket up", paceUntil(ctx, () -> logSeen(mark, "[SimTunnel] host socket up"), 20_000), true);
+        ctx.runOnClient(mc -> mc.getSingleplayerServer().setUsesAuthentication(false));
+        CoopSync.put("tun-room", hostName);
+        String guest = CoopSync.await(ctx, "tun-guest-in", 300).trim();
+        expect(f, facts, "guest admitted with its ticket", paceUntil(ctx, () -> logSeen(mark, "[SimCoop] " + guest + " admitted with a ticket")
+                || guestsKey().equals(guest + ":true"), 20_000), true);
+        MinecraftServer s = ctx.computeOnClient(Minecraft::getSingleplayerServer);
+        double[] p0 = posOf(ctx, s, guest);
+        CoopSync.put("tun-move", p0 == null ? "none" : "1");
+        CoopSync.await(ctx, "tun-moved", 120);
+        double[] p1 = posOf(ctx, s, guest);
+        double moved = p0 == null || p1 == null ? -1 : Math.hypot(p1[0] - p0[0], p1[2] - p0[2]);
+        facts.add(String.format("guest moved %.2f blocks on the host's server", moved));
+        expect(f, facts, "guest moved on the host's server (through the tunnel)", moved > 1.0, true);
+        CoopSync.put("tun-host-done", "1");
+        String verdict = CoopSync.await(ctx, "tun-guest-done", 180).trim();
+        facts.add("guest verdict: " + verdict);
+        expect(f, facts, "guest's own checks", verdict, "PASS");
+    }
+
+    private static void tunnelGuest(ClientGameTestContext ctx, List<String> f, List<String> facts) throws Exception {
+        try {
+            CoopSync.put("tun-guest-up", "1");
+            CoopSync.await(ctx, "tun-host-up", 900);
+            String me = ctx.computeOnClient(mc -> mc.getUser().getName());
+            UUID offline = net.minecraft.core.UUIDUtil.createOfflinePlayerUUID(me);
+            if (!localRelay(ctx, f, offline.toString(), me)) {
+                return;
+            }
+            String hostName = CoopSync.await(ctx, "tun-room", 600).trim();
+            ctx.runOnClient(mc -> McCompat.setScreen(mc, multiplayer(new TitleScreen())));
+            CoopSync.pace(ctx, 300);
+            DesignerKit.click(ctx, "Join");
+            String want = "[" + SimMcv.mc() + "] [Locked] " + TROOM + "  -  " + hostName;
+            boolean row = paceUntil(ctx, () -> {
+                String l = rowLabel(ctx, "[Locked] " + TROOM);
+                if (l == null) {
+                    DesignerKit.click(ctx, "Refresh");
+                }
+                return l != null && l.startsWith(want);
+            }, 30_000);
+            expect(f, facts, "room row (own version tag)", row ? "found" : rowLabel(ctx, "[Locked] " + TROOM), "found");
+            ModUnderTest.staticCall(R + "SimRooms", "clearCallsForTest");
+            long mark = LogTap.mark();
+            clickRow(ctx, "[Locked] " + TROOM);
+            setBox(ctx, "Password", PW);
+            DesignerKit.click(ctx, "Join");
+            facts.add("after Join: " + message(ctx));
+            if (!inWorld(ctx)) {
+                f.add("did not join through the tunnel: " + message(ctx) + " / " + screenName(ctx));
+                return;
+            }
+            String server = ctx.computeOnClient(mc -> mc.getCurrentServer() == null ? null : mc.getCurrentServer().ip);
+            facts.add("connected to " + server);
+            expect(f, facts, "connected through the local tunnel port", server != null && server.startsWith("127.0.0.1:"), true);
+            expect(f, facts, "no direct address to try (logged nothing direct)", logSeen(mark, "direct address not reachable"), false);
+            expect(f, facts, "isGuest", until(ctx, () -> Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(
+                    R + "SimState", "isGuest", new Class<?>[]{Minecraft.class}, new Object[]{mc}))), 200), true);
+            CoopSync.put("tun-guest-in", me);
+            String go = CoopSync.await(ctx, "tun-move", 120).trim();
+            expect(f, facts, "host sees me", go, "1");
+            ctx.runOnClient(mc -> {
+                McCompat.setScreen(mc, null);
+                mc.options.keyUp.setDown(true);
+            });
+            ctx.waitTicks(40);
+            ctx.runOnClient(mc -> mc.options.keyUp.setDown(false));
+            ctx.waitTicks(10);
+            expect(f, facts, "still connected after walking", ctx.computeOnClient(mc -> mc.level != null), true);
+            CoopSync.put("tun-moved", "1");
+            CoopSync.await(ctx, "tun-host-done", 120);
+        } finally {
+            ctx.runOnClient(mc -> mc.options.keyUp.setDown(false));
+            CoopSync.put("tun-guest-done", f.isEmpty() ? "PASS" : "FAIL: " + String.join("; ", f));
+            CoopSync.pace(ctx, 1000);
+        }
+    }
+
+    private static double[] posOf(ClientGameTestContext ctx, MinecraftServer s, String name) {
+        return GuestPlayer.onServer(ctx, s, () -> {
+            ServerPlayer p = s.getPlayerList().getPlayerByName(name);
+            return p == null ? null : new double[]{p.getX(), p.getY(), p.getZ()};
+        });
+    }
+
     private static boolean invitesOn() {
         return (Boolean) ModUnderTest.call(ModUnderTest.staticCall(CFG, "get"), "receiveInvites", new Class<?>[]{}, new Object[]{});
     }
@@ -764,7 +896,7 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> McCompat.setScreen(mc, multiplayer(new TitleScreen())));
             CoopSync.pace(ctx, 300);
             DesignerKit.click(ctx, "Join");
-            String want = "[Locked] " + ROOM + "  -  " + hostName + "  1/3";
+            String want = "[" + SimMcv.mc() + "] [Locked] " + ROOM + "  -  " + hostName + "  1/3";
             boolean row = paceUntil(ctx, () -> {
                 String l = rowLabel(ctx, "[Locked] " + ROOM);
                 if (l == null) {
@@ -893,8 +1025,13 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
         ctx.waitTicks(3);
         setBox(ctx, "Room Name", name);
         setBox(ctx, "Password (optional)", pw);
-        for (int i = 0; i < 5 && rowLabel(ctx, "Max Players: " + max) == null; i++) {
-            clickRow(ctx, "Max Players: ");
+        // A 2..5 slider since coopsim-ui-1110: click the track at the value's place (4 stops, knob 6 px wide).
+        double[] box = ctx.computeOnClient(mc -> {
+            AbstractWidget w = first(mc, l -> l.startsWith("Max Players: "));
+            return w == null ? null : new double[]{w.getX(), w.getY() + w.getHeight() / 2.0, w.getWidth()};
+        });
+        if (box != null) {
+            DesignerKit.clickAt(ctx, box[0] + 3 + (box[2] - 6) * (max - 2) / 3.0, box[1], 0);
         }
         expect(f, facts, "Max Players", rowLabel(ctx, "Max Players: "), "Max Players: " + max);
         long mark = LogTap.mark();
@@ -962,6 +1099,32 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
         return fl.get(null);
     }
 
+    /** "" when every visible widget of the open screen lies inside it and no two overlap, else the first fault. */
+    private static String layoutFault(Minecraft mc) {
+        Screen s = McCompat.screen(mc);
+        if (s == null) return "no screen";
+        List<AbstractWidget> ws = new java.util.ArrayList<>();
+        for (var ch : s.children()) {
+            if (ch instanceof AbstractWidget w && w.visible) ws.add(w);
+        }
+        if (ws.size() < 4) return "only " + ws.size() + " widgets";
+        for (int i = 0; i < ws.size(); i++) {
+            AbstractWidget a = ws.get(i);
+            if (a.getX() < 0 || a.getY() < 0 || a.getX() + a.getWidth() > s.width || a.getY() + a.getHeight() > s.height) {
+                return "off screen: '" + DesignerKit.label(a) + "' at " + a.getX() + "," + a.getY() + " " + a.getWidth() + "x" + a.getHeight()
+                        + " in " + s.width + "x" + s.height;
+            }
+            for (int k = i + 1; k < ws.size(); k++) {
+                AbstractWidget b = ws.get(k);
+                if (a.getX() < b.getX() + b.getWidth() && b.getX() < a.getX() + a.getWidth()
+                        && a.getY() < b.getY() + b.getHeight() && b.getY() < a.getY() + a.getHeight()) {
+                    return "overlap: '" + DesignerKit.label(a) + "' and '" + DesignerKit.label(b) + "'";
+                }
+            }
+        }
+        return "";
+    }
+
     private static AbstractWidget widget(Minecraft mc, String label) {
         Screen s = McCompat.screen(mc);
         if (s == null) {
@@ -995,9 +1158,18 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
     }
 
     /** The first visible control whose label starts with {@code prefix}, or null. */
+    /** A room row's label without its leading Minecraft version tag ("[26.3] ", "[26.2 - other version] "). */
+    private static String untagged(String l) {
+        return l.replaceFirst("^\\[(\\d+(\\.\\d+)*|\\?)( - other version)?\\] ", "");
+    }
+
+    private static final class SimMcv {
+        static String mc() { return (String) ModUnderTest.staticCall(R + "SimGuest", "mc", new Class<?>[]{}, new Object[]{}); }
+    }
+
     private static String rowLabel(ClientGameTestContext ctx, String prefix) {
         return ctx.computeOnClient(mc -> {
-            AbstractWidget w = first(mc, l -> l.startsWith(prefix));
+            AbstractWidget w = first(mc, l -> untagged(l).startsWith(prefix));
             return w == null ? null : DesignerKit.label(w);
         });
     }
@@ -1017,7 +1189,7 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
 
     private static void clickRow(ClientGameTestContext ctx, String prefix) {
         double[] c = ctx.computeOnClient(mc -> {
-            AbstractWidget w = first(mc, l -> l.startsWith(prefix));
+            AbstractWidget w = first(mc, l -> untagged(l).startsWith(prefix));
             return w == null ? null : new double[]{w.getX() + w.getWidth() / 2.0, w.getY() + w.getHeight() / 2.0};
         });
         if (c != null) {
