@@ -346,4 +346,65 @@ final class CrashReportCases {
             }
         }
     }
+
+    /**
+     * 1110-logic-crashguard-shutdown: a stray non-daemon thread (a fake package, like SecretRoutes' HttpClient.send) is
+     * named by the shutdown guard's WARN, and a "Client shutdown from post-main" report text says what held it open.
+     * The real close-then-exit path cannot run inside a gametest (it would end the client), so the classification and the
+     * summary are tested directly.
+     */
+    static void crashguardShutdown(LogicCase c) throws Exception {
+        String guard = "crashreport.ShutdownGuard";
+        // Loading the target runs the mixin transform; the mod config says require 1, so a missed target would throw here.
+        Class<?> wd = Class.forName("com.mojang.blaze3d.platform.ClientShutdownWatchdog", false, Minecraft.class.getClassLoader());
+        c.check("vanilla's shutdown watchdog loads with the guard mixin applied", wd != null);
+        long main = Thread.currentThread().threadId();
+        java.util.concurrent.CountDownLatch stop = new java.util.concurrent.CountDownLatch(1);
+        Thread stray = new Thread(() -> {
+            try {
+                stop.await();
+            } catch (InterruptedException ignored) {
+                // done
+            }
+        }, "Thread-fake-http");
+        stray.setDaemon(false);
+        stray.start();
+        try {
+            Object msg = Mod.staticCall(guard, "check", main);
+            c.check("the guard sees the stray non-daemon thread and names it", msg != null && msg.toString().contains("Thread-fake-http"),
+                    String.valueOf(msg));
+            c.check("and a mod or package owner", msg != null && msg.toString().contains("dev.testkit"), String.valueOf(msg));
+        } finally {
+            stop.countDown();
+            stray.join(2000);
+        }
+        Object after = Mod.staticCall(guard, "check", main);
+        c.check("once it ends the guard no longer names it", after == null || !after.toString().contains("Thread-fake-http"), String.valueOf(after));
+        String dump = "Description: Watchdog
+
+java.lang.Error: Watchdog (Client shutdown from post-main)
+
+"
+                + "\"DestroyJavaVM\" prio=5 Id=1184 RUNNABLE
+
+"
+                + "\"Thread-100\" prio=10 Id=1128 WAITING on x
+"
+                + "	at java.base@25.0.1/jdk.internal.misc.Unsafe.park(Native Method)
+"
+                + "	at platform/java.net.http@25.0.1/jdk.internal.net.http.HttpClientFacade.send(HttpClientFacade.java:133)
+"
+                + "	at knot//xyz.yourboykyle.secretroutes.utils.APIUtils.addMember(APIUtils.java:60)
+
+"
+                + "\"AWT-Windows\" daemon prio=6 Id=257 RUNNABLE
+"
+                + "	at knot//com.other.Thing.run(Thing.java:1)
+";
+        Object held = Mod.staticCall(guard, "heldBy", dump);
+        c.eq("the report names the holder", "Held open by thread \"Thread-100\" (xyz.yourboykyle.secretroutes.utils)", held);
+        c.eq("another report names nothing", null, Mod.staticCall(guard, "heldBy", dump.replace("post-main", "elsewhere")));
+        Object sum = Mod.staticCall(FEATURE, "summary", dump, false);
+        c.check("the summary starts with it", sum.toString().startsWith("Held open by thread \"Thread-100\""), String.valueOf(sum));
+    }
 }
