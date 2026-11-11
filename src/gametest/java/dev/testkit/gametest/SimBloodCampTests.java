@@ -501,7 +501,7 @@ public class SimBloodCampTests implements FabricClientGameTest {
             ctx.waitTicks(5);
             portalByLine = LogTap.since(mark).stream().anyMatch(l -> l.contains("[BossSim] Blood done (the Watcher's line)"));
         }
-        int[] portal = ctx.computeOnClient(mc -> (int[]) ModUnderTest.staticCall(PORTAL, "portal"));
+        int[] portal = ctx.computeOnClient(mc -> (int[]) ModUnderTest.staticCall(PORTAL, "portal", new Class<?>[0], new Object[0]));
         // The helper's predictions against the real ends: every path has a prediction within a block.
         int matched = 0, firstLen = 0, laterLen = 0;
         double worst = 0;
