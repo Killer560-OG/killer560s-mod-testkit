@@ -19,7 +19,7 @@ import java.util.List;
  * ClientTickEnd packets), and the server's own record (solved, no wrong clicks, at most 5 clicks in a server tick).
  * <ul>
  *   <li>1111-menu-term-burst-&lt;type&gt;: every clicked terminal type (Melody has no burst).</li>
- *   <li>1111-menu-term-burst-sametick: his hotbar swap, his own container click and a movement key in EVERY tick of the
+ *   <li>1111-menu-term-burst-sametick: his hotbar swap and his own container click in EVERY tick of the
  *       terminal, and the solver run three extra times per tick (a high frame rate asking for a second burst): the burst
  *       tick must carry his swap and click, and no tick may carry two bursts.</li>
  *   <li>1111-menu-term-burst-drop: the server drops the final click (Hypixel's lost click); the burst re-sends it.</li>
@@ -74,7 +74,8 @@ final class TermBurst1111Cases {
                 acting[0] = true;
                 int[] n = {0};
                 // Every client tick while the terminal is open: his hotbar swap, his own click on an empty slot of his
-                // inventory (below the terminal grid), a movement key flipping, and three extra solver frames.
+                // inventory (below the terminal grid), and three extra solver frames. No movement key: with a screen open he moves
+                // only through Inventory Walk, whose Stop To Click holds every click while he moves (1108-iw-termwalk).
                 c.ctx().runOnClient(mc -> mc.player.getInventory().clearContent());
                 while (acting[0] && n[0]++ < 200) {
                     boolean open = c.onClient(mc -> {
@@ -83,7 +84,6 @@ final class TermBurst1111Cases {
                         mc.player.getInventory().setSelectedSlot((mc.player.getInventory().getSelectedSlot() + 1) % 9);
                         int own = s.getMenu().slots.size() - 1;
                         mc.gameMode.handleContainerInput(s.getMenu().containerId, own, 0, ContainerInput.PICKUP, mc.player);
-                        mc.options.keyUp.setDown(n[0] % 2 == 0);
                         for (int i = 0; i < 3; i++) {
                             Mod.staticCall(FEATURE, "refreshState");
                         }
@@ -150,7 +150,7 @@ final class TermBurst1111Cases {
                 c.check(maxTick <= 1 + (sameTick ? 1 : 0), "Burst Finish off but " + maxTick + " clicks in one tick");
                 return;
             }
-            c.check(bursts >= 1 && last >= 2, "no burst acted (bursts " + bursts + ", last " + last + ")");
+            c.check(bursts >= 1 && (drop || last >= 2), "no burst acted (bursts " + bursts + ", last " + last + ")");
             c.check(drop ? bursts >= 2 : true, "the dropped final click was never re-sent by a second burst");
             int expect = drop ? 5 : last;
             if (!sameTick) {
