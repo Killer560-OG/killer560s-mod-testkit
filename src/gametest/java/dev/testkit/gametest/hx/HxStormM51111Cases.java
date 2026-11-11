@@ -256,11 +256,19 @@ final class HxStormM51111Cases {
                 return null;
             });
             c.waitUntil("the solver names Hockey Livid", mc -> "Hockey Livid".equals(Mod.staticCall(lividCls, "currentLividName")), 100);
+            // The previous case ends with a far teleport out of the arena; let him land and stand before the run
+            // starts, as he would on entering the boss room (a walk begun in the tick after a teleport read as a
+            // setup flag, not the feature).
+            c.waitUntil("standing in the arena", mc -> mc.player.onGround() && mc.player.getDeltaMovement().horizontalDistanceSqr() < 1e-6, 100);
+            c.ctx().waitTicks(10);
             int runs0 = c.onClient(mc -> intOf(M5, "runs"));
             int hits0 = c.onClient(mc -> intOf(M5, "hits"));
             int casts0 = c.onClient(mc -> intOf(M5, "casts"));
-            Predicate<Packet<?>> feature = p -> attack(p)
-                    || (p instanceof ServerboundSetCarriedItemPacket h && h.getSlot() == 3);
+            // With his own attacks in the case, an attack packet cannot be told apart by type, so the feature's
+            // marker there is the Ragnarock swap and cast; the hits still count on the wire.
+            Predicate<Packet<?>> feature = act == SameTick.Act.ATTACK
+                    ? p -> p instanceof ServerboundUseItemPacket || (p instanceof ServerboundSetCarriedItemPacket h && h.getSlot() == 3)
+                    : p -> attack(p) || (p instanceof ServerboundSetCarriedItemPacket h && h.getSlot() == 3);
             c.onClient(mc -> {
                 PacketTrace.tap = p -> {
                     if (prev != null) prev.accept(p);
