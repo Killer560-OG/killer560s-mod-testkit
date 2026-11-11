@@ -224,6 +224,17 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // does not spend stay banked through its 11 server teleports, and each kept teleport costs the GrimAC lines
             // docs/LESSONS-AUTOMATION.md lists. The case still fails on any other check, and waits for the leak.
             s.testExpectingFlags("62-argrim-1025-chargechain", GrimAutoRoutesTests::caseChargedChain);
+            // mod mapchain-1110 (killer560 2026-11-10: "it waits a really long time sometimes to release all of them"): the
+            // Interactive Map's path with Blink charging - Charged Chain sends it in one tick from the bank, and with or
+            // without it no landing's confirm waits a second behind Charge's answers; then his own actions in its ticks.
+            s.test("62-argrim-1110-mapchain-charged", c -> caseMapChain(c, true, null));
+            s.test("62-argrim-1110-mapchain-nobank", c -> caseMapChain(c, false, null));
+            s.test("62-argrim-1110-archain-nohold", GrimAutoRoutesTests::caseRouteChainNoHold);
+            for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                    dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK)) {
+                // No ATTACK: the burst leaves the whole path in one real tick, so his crosshair is off the stand by the next.
+                s.test("62-argrim-1110-mapchain-same-" + a.name().toLowerCase(Locale.ROOT), c -> caseMapChain(c, true, a));
+            }
             s.test("62-argrim-path", GrimAutoRoutesTests::casePath);
             // mod ar-obvious-only (2026-10-11): legit mode exists only in -PtestingBuild jars.
             if (SimAutoRoutesTests.legitSelectable()) {
@@ -2320,6 +2331,323 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             }
         }
         check(other.isEmpty(), other.size() + " GrimAC line(s) outside what a kept Blink teleport costs: " + other);
+    }
+
+    private static final String CLEAR = "com.killer560.hub.livemap.autoclear.ClearExecutor";
+    private static final String CHARGE = "com.killer560.hub.blink.BlinkCharge";
+
+    private static long chargeNum(ClientGameTestContext ctx, String method) {
+        return ctx.computeOnClient(mc -> ((Number) ModUnderTest.staticCall(CHARGE, method)).longValue());
+    }
+
+    /** Blink on, Charge TOGGLE at 20 ticks, Zero Ping Chain on, Charged Chain as asked; null puts every one back off. */
+    private static void chainSettings(ClientGameTestContext ctx, Boolean charged) {
+        boolean on = charged != null;
+        ctx.runOnClient(mc -> {
+            ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setZeroPingChain", new Class<?>[]{boolean.class},
+                    new Object[]{on});
+            ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setChargedChain", new Class<?>[]{boolean.class},
+                    new Object[]{on && charged});
+            if (on) {
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChargeMode",
+                        dev.testkit.gametest.mod.Mod.enumValue("blink.BlinkConfig$Mode", "TOGGLE"));
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChargeTicks", 20);
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChatMessages", false);
+            } else {
+                dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", null);
+                dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "reset", "test teardown");
+            }
+            dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", on);
+        });
+    }
+
+    /** Toggles Charge on with the test hook and waits for a full bank of 20; the bank. */
+    private static long chargeFull(ClientGameTestContext ctx) {
+        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE));
+        ctx.waitTicks(1);
+        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
+        for (int i = 0; i < 80 && chargeNum(ctx, "banked") < 20; i++) {
+            ctx.waitTicks(1);
+        }
+        ctx.waitTicks(25); // the answers reach their steady delay, so the bank is covered
+        return chargeNum(ctx, "banked");
+    }
+
+    /** The twelve-warp chain of {@link ArChainMeasure} as the map's own path nodes (ClearNode.EtherNode), from where he stands. */
+    private static List<Object> mapChainNodes(net.minecraft.client.Minecraft mc, int[][] pts, int[] end) throws Exception {
+        Object frame = ModUnderTest.staticCall(FRAME, "current");
+        Class<?> ether = Class.forName("com.killer560.hub.livemap.autoclear.ClearNode$EtherNode");
+        Class<?> tu = Class.forName("com.killer560.hub.livemap.autoclear.TeleportUtils");
+        double eyeH = (Double) tu.getMethod("eyeHeight", boolean.class).invoke(null, true);
+        java.lang.reflect.Method dir = tu.getMethod("getEtherwarpDirection", Vec3.class, BlockPos.class, double.class);
+        List<Object> out = new ArrayList<>();
+        Vec3 at = mc.player.position();
+        for (int i = 0; i < pts.length; i++) {
+            int[] to = i + 1 < pts.length ? pts[i + 1] : end;
+            BlockPos block = real(frame, to[0], F - 1, to[1]);
+            Object rot = dir.invoke(null, new Vec3(at.x, at.y + eyeH, at.z), block, 62.0);
+            check(rot != null, "no etherwarp look from " + at + " onto " + block);
+            float yaw = (Float) rot.getClass().getMethod("yaw").invoke(rot);
+            float pitch = (Float) rot.getClass().getMethod("pitch").invoke(rot);
+            out.add(ether.getConstructor(Vec3.class, float.class, float.class, int.class, List.class)
+                    .newInstance(at, yaw, pitch, 0xFFA500, List.of()));
+            at = new Vec3(block.getX() + 0.5, block.getY() + 1.05, block.getZ() + 0.5);
+        }
+        return out;
+    }
+
+    /** The largest number of {@code type} packets on the wire inside any 50 ms, and the span first-to-last in ms. */
+    private static int[] wireBurst(List<dev.testkit.harness.WireCapture.Sent> sent, String type) {
+        List<Long> t = sent.stream().filter(x -> x.type().equals(type)).map(dev.testkit.harness.WireCapture.Sent::nanos)
+                .toList();
+        int best = 0;
+        for (int i = 0, j = 0; j < t.size(); j++) {
+            while (t.get(j) - t.get(i) > 50_000_000L) {
+                i++;
+            }
+            best = Math.max(best, j - i + 1);
+        }
+        return new int[]{best, t.size()};
+    }
+
+    /**
+     * 62-argrim-1110-mapchain-* (mod mapchain-1110). His 26.3 log 2026-11-10 08:39: a 12-warp map path with Blink charging
+     * went in two ~1030 ms stalls ("teleport hold let go after 1027 ms") and never spent the bank. The same twelve warps as
+     * the route chain, sent through the map's executor ({@code ClearExecutor.clearPath}) at 150 ms, Charge full. Charged:
+     * the eleven warps after the first leave inside one 50 ms window on the WIRE and the bank falls by them. Not charged
+     * (Charge on, Charged Chain off): one warp a tick. Both: no teleport hold, every confirm on the wire within 1.5 s of the
+     * first use, all twelve server etherwarps, GrimAC silent. With {@code act}, his own action goes into every tick.
+     */
+    private static void caseMapChain(Session c, boolean charged, dev.testkit.gametest.SameTick.Act act) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        int[][] pts = ArChainMeasure.CHAIN;
+        int[] end = ArChainMeasure.END;
+        String tag = (charged ? "charged" : "nobank") + (act == null ? "" : " same-" + act);
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            chainSettings(ctx, charged);
+            ctx.runOnClient(mc -> dev.testkit.harness.Latency.install(150));
+            ctx.waitTicks(40);
+            tpRel(ctx, pts[0][0] + 0.5, pts[0][1] + 0.5, relYawTo(pts[0][0], pts[0][1], pts[1][0], pts[1][1]), 0f);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                Vec3 p = relFeet(ctx, pts[0][0] + 0.5, pts[0][1] + 2.5);
+                c.server().command(String.format(Locale.ROOT, "summon armor_stand %.2f %.2f %.2f {NoGravity:1b,"
+                        + "Invulnerable:1b,Tags:[\"mapchainst\"]}", p.x, p.y, p.z));
+            }
+            if (act == dev.testkit.gametest.SameTick.Act.CLICK) {
+                ctx.runOnClient(mc -> McCompat.setScreen(mc,
+                        new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player)));
+            }
+            ctx.waitTicks(10);
+            long bank = chargeFull(ctx);
+            check(bank >= 20, tag + ": the bank did not fill: " + bank);
+            // The start teleport's kept bank is backed again over 22 still ticks; a path pressed before then waits for it.
+            for (int i = 0; i < 60 && !Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE,
+                    "shotCovered"))); i++) {
+                ctx.waitTicks(1);
+            }
+            check(Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "shotCovered"))),
+                    tag + ": the bank was never covered before the path");
+            JsonObject before = stats();
+            long spent0 = chargeNum(ctx, "spentTicks");
+            long holds0 = chargeNum(ctx, "teleportHolds");
+            long chainTp0 = chargeNum(ctx, "chainConfirms");
+            long m = LogTap.mark();
+            List<Object> nodes = ctx.computeOnClient(mc -> {
+                try {
+                    return mapChainNodes(mc, pts, end);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+            if (act != null) {
+                st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
+                        p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 4));
+                if (act == dev.testkit.gametest.SameTick.Act.USE) {
+                    // His use with the AOTV in hand is his own Instant Transmission: four, then the server owns the rest.
+                    st.allow(4);
+                }
+            }
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(CLEAR, "clearPath", new Class<?>[]{List.class, Runnable.class},
+                    new Object[]{nodes, null}));
+            if (act == dev.testkit.gametest.SameTick.Act.CLICK) {
+                // His inventory is open and he clicks in it every tick: a hop on such a tick is GrimAC MultiActionsC (the mod's
+                // sneak, his click), so the path waits and then stops (no use goes out).
+                ctx.waitTicks(40);
+                long held = dev.testkit.harness.WireCapture.snapshot().stream().filter(x -> x.type().equals("minecraft:use_item"))
+                        .count();
+                check(held == 0, tag + ": " + held + " warp(s) went out with his inventory open");
+                ctx.runOnClient(mc -> McCompat.setScreen(mc, null));
+            }
+            Vec3 landed = act == dev.testkit.gametest.SameTick.Act.CLICK ? null : waitLanded(ctx, end[0], end[1], 300);
+            ctx.waitTicks(20);
+            if (st != null) {
+                dev.testkit.gametest.SameTick s2 = st;
+                ctx.runOnClient(mc -> s2.close());
+            }
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
+            List<dev.testkit.harness.WireCapture.Sent> wire = dev.testkit.harness.WireCapture.snapshot();
+            int[] uses = wireBurst(wire, "minecraft:use_item");
+            long firstUse = wire.stream().filter(x -> x.type().equals("minecraft:use_item")).mapToLong(
+                    dev.testkit.harness.WireCapture.Sent::nanos).min().orElse(0L);
+            long lastTp = wire.stream().filter(x -> x.type().equals("minecraft:accept_teleportation")).mapToLong(
+                    dev.testkit.harness.WireCapture.Sent::nanos).max().orElse(0L);
+            long tpCount = wire.stream().filter(x -> x.type().equals("minecraft:accept_teleportation")).count();
+            long spanMs = (lastTp - firstUse) / 1_000_000L;
+            int serverWarps = delta(before, "etherwarps");
+            long spent = chargeNum(ctx, "spentTicks") - spent0;
+            long holds = chargeNum(ctx, "teleportHolds") - holds0;
+            long chainTp = chargeNum(ctx, "chainConfirms") - chainTp0;
+            int letGo = 0;
+            int bankFrom = -1;
+            int bankTo = -1;
+            int burst = 0;
+            java.util.regex.Pattern bp = java.util.regex.Pattern.compile(
+                    "\\[Path\\] Charged Chain: (\\d+) warp\\(s\\) sent in one tick from Blink's bank \\((\\d+) -> (\\d+) banked\\)");
+            for (String l : LogTap.since(m)) {
+                letGo += l.contains("teleport hold let go") ? 1 : 0;
+                java.util.regex.Matcher bm = bp.matcher(l);
+                if (bm.find() && Integer.parseInt(bm.group(1)) > burst) {
+                    burst = Integer.parseInt(bm.group(1));
+                    bankFrom = Integer.parseInt(bm.group(2));
+                    bankTo = Integer.parseInt(bm.group(3));
+                }
+            }
+            String line = String.format(Locale.ROOT, "map chain %s: bank %d; wire: %d use(s), at most %d in 50 ms, %d confirm(s), "
+                            + "last confirm %d ms after the first use; charged burst %d (bank %d -> %d), %d banked tick(s) spent; "
+                            + "server etherwarps %d; teleport holds %d (%d let go), chain confirms %d; landed %s%s", tag, bank,
+                    uses[1], uses[0], tpCount, spanMs, burst, bankFrom, bankTo, spent, serverWarps, holds, letGo, chainTp,
+                    landed, st == null ? "" : "; same-tick " + st.report());
+            println(line);
+            c.note(line);
+            // His own Instant Transmission uses (four, Act USE) make their own teleports, which Blink may hold; the chain's never.
+            int ownHolds = act == dev.testkit.gametest.SameTick.Act.USE ? 4 : 0;
+            check(holds <= ownHolds && letGo <= ownHolds, tag + ": a teleport confirm was held behind its answer (" + holds + " hold(s))");
+            // While his inventory is open the path waits and then stops (the MultiActionsC gate), so CLICK has no chain to count.
+            boolean clickAct = act == dev.testkit.gametest.SameTick.Act.CLICK;
+            check(clickAct || chainTp > 0, tag + ": no confirm went at once for the chain (nothing tested)");
+            if (clickAct) {
+                check(uses[1] == 0, tag + ": " + uses[1] + " use(s) went out while his inventory was open");
+            } else if (charged && act != dev.testkit.gametest.SameTick.Act.USE) {
+                check(uses[0] >= pts.length - 1, tag + ": only " + uses[0] + " of the chain's uses went in one 50 ms window");
+                check(burst >= pts.length - 1 && bankFrom - bankTo >= pts.length - 1 && spent >= pts.length - 1,
+                        tag + ": the bank was not spent on the chain (burst " + burst + ", bank " + bankFrom + " -> " + bankTo
+                                + ", spent " + spent + ")");
+            } else if (!charged) {
+                check(burst == 0 && spent == 0, tag + ": Charged Chain is off but the bank was spent");
+                check(uses[0] <= 2, tag + ": " + uses[0] + " uses in 50 ms with Charged Chain off");
+            }
+            if (act == null || act == dev.testkit.gametest.SameTick.Act.SWAP) {
+                check(landed != null, tag + ": the path did not reach its end (at " + relPos(ctx) + ")");
+                check(serverWarps == pts.length && uses[1] == pts.length, tag + ": " + uses[1] + " use(s) on the wire, the "
+                        + "server made " + serverWarps + " etherwarp(s), expected " + pts.length);
+                check(spanMs < 1500, tag + ": the last confirm went " + spanMs + " ms after the first use");
+            }
+            if (st != null) {
+                check(st.done() > 0, tag + ": his action never went in (nothing tested)");
+                check(st.playerWindows() > 0, tag + ": his action never reached the wire (" + st.report() + ")");
+                // A charged chain sends each warp as a whole spent tick of its own (its own tick end), so his action cannot
+                // share a server tick with one; both went out and GrimAC, which fails a flagged case, judges the order.
+                check(charged || st.both() > 0, tag + ": no server tick carried both a chain warp and his action (" + st.report() + ")");
+                if (act == dev.testkit.gametest.SameTick.Act.SWAP) {
+                    check(st.playerAfterFeature() == 0, tag + ": his slot went out after a warp in one tick (" + st.report()
+                            + ")");
+                }
+                st = null;
+            }
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick s3 = st;
+                ctx.runOnClient(mc -> s3.close());
+            }
+            ctx.runOnClient(mc -> {
+                ModUnderTest.staticCall(CLEAR, "cancel");
+                McCompat.setScreen(mc, null);
+                dev.testkit.harness.WireCapture.stop();
+                dev.testkit.harness.Latency.remove();
+                mc.player.getInventory().setSelectedSlot(3);
+            });
+            chainSettings(ctx, null);
+            c.server().command("kill @e[tag=mapchainst]");
+            ctx.waitTicks(5);
+        }
+    }
+
+    /**
+     * 62-argrim-1110-archain-nohold (mod mapchain-1110): the route chain with Charge full and Zero Ping Chain on but Charged
+     * Chain off, at 150 ms: one warp a tick, and since mapchain-1110 no landing's confirm waits behind its ping's answer (it
+     * held the rest of the chain a second, as on the map). Every warp lands, the last confirm within 1.5 s of the first use.
+     */
+    private static void caseRouteChainNoHold(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        int[][] pts = ArChainMeasure.CHAIN;
+        int[] end = ArChainMeasure.END;
+        List<JsonObject> n = new ArrayList<>();
+        for (int i = 0; i < pts.length; i++) {
+            int[] to = i + 1 < pts.length ? pts[i + 1] : end;
+            n.add(ew(pts[i][0], pts[i][1], to[0], to[1], i == 0));
+        }
+        writeRoute(ctx, n);
+        try {
+            chainSettings(ctx, false);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                    new Object[]{"test"}));
+            ctx.runOnClient(mc -> dev.testkit.harness.Latency.install(150));
+            ctx.waitTicks(40);
+            ctx.runOnClient(mc -> McCompat.setScreen(mc, new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player)));
+            ctx.waitTicks(3);
+            tpRel(ctx, pts[0][0] + 0.5, pts[0][1] + 0.5, relYawTo(pts[0][0], pts[0][1], pts[1][0], pts[1][1]), 0f);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+            ctx.waitTicks(10);
+            long bank = chargeFull(ctx);
+            JsonObject before = stats();
+            long holds0 = chargeNum(ctx, "teleportHolds");
+            long chainTp0 = chargeNum(ctx, "chainConfirms");
+            long spent0 = chargeNum(ctx, "spentTicks");
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+            ctx.runOnClient(mc -> McCompat.setScreen(mc, null));
+            Vec3 landed = waitLanded(ctx, end[0], end[1], 400);
+            ctx.waitTicks(20);
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
+            List<dev.testkit.harness.WireCapture.Sent> wire = dev.testkit.harness.WireCapture.snapshot();
+            int[] uses = wireBurst(wire, "minecraft:use_item");
+            long firstUse = wire.stream().filter(x -> x.type().equals("minecraft:use_item")).mapToLong(
+                    dev.testkit.harness.WireCapture.Sent::nanos).min().orElse(0L);
+            long lastTp = wire.stream().filter(x -> x.type().equals("minecraft:accept_teleportation")).mapToLong(
+                    dev.testkit.harness.WireCapture.Sent::nanos).max().orElse(0L);
+            long spanMs = (lastTp - firstUse) / 1_000_000L;
+            long holds = chargeNum(ctx, "teleportHolds") - holds0;
+            long chainTp = chargeNum(ctx, "chainConfirms") - chainTp0;
+            long spent = chargeNum(ctx, "spentTicks") - spent0;
+            int serverWarps = delta(before, "etherwarps");
+            String line = String.format(Locale.ROOT, "route chain, Charge on, Charged Chain off: bank %d; wire %d use(s), at most %d "
+                            + "in 50 ms, last confirm %d ms after the first use; holds %d, chain confirms %d, spent %d; server "
+                            + "etherwarps %d; landed %s", bank, uses[1], uses[0], spanMs, holds, chainTp, spent, serverWarps,
+                    landed);
+            println(line);
+            c.note(line);
+            check(bank >= 20, "the bank did not fill: " + bank);
+            check(landed != null, "the chain did not reach its end (at " + relPos(ctx) + ")");
+            check(serverWarps == pts.length, "the server made " + serverWarps + " etherwarps, expected " + pts.length);
+            check(holds == 0, holds + " teleport confirm(s) held behind their answers during the chain");
+            check(chainTp > 0, "no confirm went at once for the chain (nothing tested)");
+            check(spent == 0, "Charged Chain is off but " + spent + " banked tick(s) were spent");
+            check(spanMs < 1500, "the last confirm went " + spanMs + " ms after the first use");
+        } finally {
+            ctx.runOnClient(mc -> {
+                McCompat.setScreen(mc, null);
+                ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"});
+                dev.testkit.harness.WireCapture.stop();
+                dev.testkit.harness.Latency.remove();
+            });
+            chainSettings(ctx, null);
+        }
     }
 
     /**
