@@ -69,6 +69,7 @@ final class Carnival1110Cases {
 
     /** {label, shovel mode} of the solver's pick, or null. */
     private static String[] pick(Session c) {
+        c.waitUntil("the solver picks a tile", mc -> Mod.field(Mod.ROOT + "carnival.FruitDigging", "recommendation") != null, 80);
         return c.onClient(mc -> {
             Object rec = Mod.field(Mod.ROOT + "carnival.FruitDigging", "recommendation");
             return rec == null ? null : new String[]{String.valueOf(Mod.call(rec, "label")), (String) Mod.call(rec, "shovel")};
@@ -350,12 +351,16 @@ final class Carnival1110Cases {
                     CarnivalSuite.holdSlot(c, slotA);
                     aimAt(c, p[0], false);
                 }
-                mine = q -> q instanceof ServerboundPlayerActionPacket || q instanceof ServerboundUseItemPacket
+                // His DIG is the same player_action as the triggerbot's tap (both the attack key on the same tile), so
+                // under DIG the wire cannot tell them apart: count every dig as his and prove the bot acted by its taps.
+                boolean digs = act == SameTick.Act.DIG || act == SameTick.Act.DIG_HELD;
+                mine = q -> (!digs && q instanceof ServerboundPlayerActionPacket) || q instanceof ServerboundUseItemPacket
                         || q instanceof ServerboundSetCarriedItemPacket;
             }
             int a = slotA;
             int b = slotB;
             Predicate<Packet<?>> m = mine;
+            int taps0 = c.onClient(mc -> (Integer) Mod.staticCall("carnival.CarnivalInput", "taps"));
             st = c.onClient(mc -> SameTick.start(act, 1, m, a, b));
             String tp = String.format(Locale.ROOT, "tp @p %.3f %d %.3f", PX, Y + 1, PZ);
             for (int i = 0; i < 12; i++) {
@@ -367,6 +372,9 @@ final class Carnival1110Cases {
             SameTick cur = st;
             st = null;
             SameTick.judge(c, cur, "carnival " + feat, SameTick.Expect.ACTED);
+            int taps1 = c.onClient(mc -> (Integer) Mod.staticCall("carnival.CarnivalInput", "taps"));
+            c.note("carnival taps " + (taps1 - taps0));
+            c.check(taps1 > taps0, "the carnival auto sent no tap");
         } finally {
             if (st != null) {
                 SameTick s2 = st;

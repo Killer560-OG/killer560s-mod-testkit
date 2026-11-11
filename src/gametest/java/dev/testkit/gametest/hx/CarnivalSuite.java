@@ -109,10 +109,12 @@ public class CarnivalSuite implements FabricClientGameTest {
     }
 
     static void stand(Session c, double x, double z, float yaw, float pitch) {
-        c.server().command(String.format(Locale.ROOT, "tp @a %.2f %d %.2f %.1f %.1f", x, Y + 1, z, yaw, pitch));
+        // The server wraps a /tp yaw into -180..180; the client takes the same wrapped value, or GrimAC flags AimModulo360.
+        float w = net.minecraft.util.Mth.wrapDegrees(yaw);
+        c.server().command(String.format(Locale.ROOT, "tp @a %.2f %d %.2f %.1f %.1f", x, Y + 1, z, w, pitch));
         c.ctx().waitTicks(5);
         c.onClient(mc -> {
-            mc.player.setYRot(yaw);
+            mc.player.setYRot(w);
             mc.player.setXRot(pitch);
             return null;
         });
