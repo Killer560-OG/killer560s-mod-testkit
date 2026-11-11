@@ -1463,6 +1463,12 @@ public class BlinkTests implements FabricClientGameTest {
         // oneTick (blinkone-1105, 1105-blink-oneshot-same-*): Hypixel's per-packet rule and Speed IV, so each shot is one
         // burst of over 10 blocks.
         String name = (oneTick ? "1105-blink-oneshot-same-" : "1105-blink-charge-same-") + act.name().toLowerCase(Locale.ROOT);
+        if (!Mod.isCheat()) {
+            if (!Scenario.skip(name)) {
+                Scenario.skipped(name, "Blink is cheat-build only");
+            }
+            return;
+        }
         Scenario.run(ctx, name, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             SameTick[] st = {null};
