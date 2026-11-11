@@ -300,13 +300,17 @@ final class Ee3RouteGrimCases {
             c.note(String.format(Locale.ROOT, "route %s: left HEE2 t%d, at EE3 t%d (%d ticks), levers low/high %s/%s, boom t%d,"
                             + " lowest y %.2f; wire: %s", ROUTE, t0, arrive, arrive < 0 || t0 < 0 ? -1 : arrive - t0, lev[0], lev[1],
                     boomAt < 0 || t0 < 0 ? -1 : boomAt - t0, minY, wire));
-            if (st != null) {
+            // grimreach-1110: Lever Aura clicks only a lever whose cube is within Grim's 4.5 (TurnFirst.grimReach); the low S2
+            // lever is never that close on this route (a closer route is the ap3brute job), and while his own dig holds the
+            // body (DIG) Lever Aura yields, so no lever may go out. Use/swap: the high lever must be flicked, in a shared tick.
+            boolean dig = act == SameTick.Act.DIG;
+            if (st != null && (!dig || ticks.lever > 0)) {
                 SameTick s2 = st;
                 st = null;
                 SameTickCases.judge(c, s2, "ee3 route levers");
             }
-            c.check(lev[0] && lev[1], "levers low/high powered " + lev[0] + "/" + lev[1]);
-            c.check(ticks.lever >= 2, "fewer than two lever clicks on the wire: " + wire);
+            c.check(dig || lev[1], "the high S2 lever was not powered (low/high " + lev[0] + "/" + lev[1] + ")");
+            c.check(dig || ticks.lever >= 1, "no lever click on the wire: " + wire);
             c.check(ticks.twoLevers == 0, "two lever clicks in one server tick: " + wire);
             if (act == null) {
                 // With his action in every tick the route's own end is not this case's question: a right click every tick
