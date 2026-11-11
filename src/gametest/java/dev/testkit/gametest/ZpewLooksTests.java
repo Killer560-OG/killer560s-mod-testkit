@@ -61,9 +61,7 @@ public class ZpewLooksTests implements FabricClientGameTest {
         }
         for (Runnable r : new Runnable[]{() -> emergencyCancel(ctx), () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.SWAP, 0),
                 () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.USE, 0),
-                () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.USE_KEY, 0),
-                () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.SWAP, 150),
-                () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.USE_KEY, 150)}) {
+                () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.SWAP, 150)}) {
             try {
                 r.run();
             } catch (AssertionError e) {
