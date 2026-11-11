@@ -871,6 +871,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "961-ui-lockstar-heads", LockStarHeadCases::heads);
                     // ---- Item Protect Show Star switch (mod protectstar-1102, ProtectStarCases) ----
                     UiCase.run(ctx, ProtectStarCases.SHOW_STAR, ProtectStarCases::showStar);
+                    UiCase.run(ctx, ProtectStarCases.TRADE, ProtectStarCases::starredTrade);
                     // ---- the Carnival category (3760-3772, mod carnival-1110) ----
                     UiCase.run(ctx, "3760-ui-carnival-category", CarnivalUiCases::category);
                     UiCase.run(ctx, "3761-ui-carnival-tracker", c -> CarnivalUiCases.tab(c, "Carnival Tracker"));

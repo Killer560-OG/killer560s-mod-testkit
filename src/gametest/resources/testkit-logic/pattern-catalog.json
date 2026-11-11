@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-10T23:02:57",
+ "generatedAt": "2026-11-11T00:54:20",
  "modSource": "carnival",
- "modGitSha": "92bb7a572431453356cbf01e911d1d44c41bd838",
+ "modGitSha": "f1ecfdda07577d705bef768ab793f51d7c889dd7",
  "modSourceDirty": false,
  "count": 949,
  "byKind": {
