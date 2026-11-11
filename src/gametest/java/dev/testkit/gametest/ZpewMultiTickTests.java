@@ -168,7 +168,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                     // double: his second click first closes the tick the first chain left open (ZeroPingEtherwarp.beforeClick,
                     // experimental GrimAC PacketOrderN), so 19 split ticks, every use closed alone.
                     int split = bank ? (int) Math.max(0, 19 - banked0) : 19;
-                    String wire = splitWire(dev.testkit.harness.WireCapture.snapshot(), 20, split + 1, problems, label);
+                    String wire = splitWire(dev.testkit.harness.WireCapture.snapshot(), 20, 20, problems, label); // every use in a tick of its own
                     scenario.log(label + ": " + un + " unbanked tick(s)" + (bank ? " (bank " + banked0 + " before)" : "")
                             + "; " + countLooks(dev.testkit.harness.WireCapture.snapshot()) + " look move(s); wire " + wire);
                     if (un != split) {
@@ -477,13 +477,15 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
             tps = new ArrayList<>(ZpewCampaignTests.TELEPORTS);
         }
         // Tick Split runs his clock ahead: GrimAC Timer answers with set-backs to where he already is (the start, or a
-        // landing again). Those are not warps; drop them and allow a ZPEW miss for each (a set-back drops the pending
+        // landing again), and the tp variant's own teleport is off the lane.
+        // Those are not warps; drop them and allow a ZPEW miss for each (a set-back drops the pending
         // predictions, so the later landings are not counted as hits either).
         int setbacks = 0;
         if (timerSetbacksOk) {
             for (int k = tps.size() - 1; k >= 0; k--) {
                 double prevX = k == 0 ? X0 + 0.5 : tps.get(k - 1).x;
-                if (Math.abs(tps.get(k).x - prevX) < 0.01) {
+                double dx = tps.get(k).x - X0;
+                if (Math.abs(tps.get(k).x - prevX) < 0.01 || dx < 0 || dx > step * expectWarps + 0.51) {
                     tps.remove(k);
                     setbacks++;
                 }
