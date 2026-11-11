@@ -4,6 +4,7 @@ import com.google.gson.JsonObject;
 import dev.testkit.compat.McCompat;
 import dev.testkit.gametest.coop.CoopSync;
 import dev.testkit.gametest.coop.FakeGateway;
+import dev.testkit.gametest.coop.FakeNatPmp;
 import dev.testkit.gametest.coop.GuestPlayer;
 import dev.testkit.gametest.coop.SimRoomsStub;
 import dev.testkit.harness.Report;
@@ -68,12 +69,15 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
     static final String INVITE = "1109-mp-invite";
     /** coopnet-1110: no UPnP on the host, the guest joins through the local relay's tunnel (run-coop.sh -w). */
     static final String TUNNEL = "1110-mp-tunnel";
+    /** coopfree-1111: no UPnP, the guest gets in by a TCP hole punch through the local relay (run-coop.sh -w). */
+    static final String PUNCH = "1111-mp-punch";
+    private static final String PUNCH_PROP = "killer560.simcoop.punch";
     private static final String R = "com.killer560.hub.roomsim.";
     private static final String HOSTC = R + "SimHost";
     private static final String REQ = R + "SimRequests";
     private static final String CFG = R + "SimCoopConfig";
     private static final String RELAY = "killer560.net.simrooms-relay";
-    private static final String SSDP = "killer560.simcoop.ssdp";
+    private static final String SSDP = "killer560.simcoop.ssdp", NATPMP = "killer560.simcoop.natpmp";
     private static final String SIM = "com.killer560.hub.bosssim.BossSim";
     private static final String FIGHT = "com.killer560.hub.bosssim.BossFight";
 
@@ -83,12 +87,13 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             return;
         }
         List<String> failed = new ArrayList<>();
-        for (String name : new String[]{MENU, UPNP, HOST, TWO, INVITE, TUNNEL}) {
+        for (String name : new String[]{MENU, UPNP, HOST, TWO, INVITE, TUNNEL, PUNCH}) {
             CoopSync.scope(name);
             if (Scenario.skip(name)) {
                 continue;
             }
-            boolean two = name.equals(TWO) || name.equals(INVITE) || name.equals(TUNNEL);
+            boolean two = name.equals(TWO) || name.equals(INVITE) || name.equals(TUNNEL)
+                    || name.equals(PUNCH);
             if (!two && CoopSync.role().equals("guest")) {
                 Scenario.skipped(name, "the guest side of a two-client run (the host runs it)");
                 continue;
@@ -115,11 +120,11 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
                             inviteGuest(ctx, problems, facts);
                         }
                     }
-                    case TUNNEL -> {
+                    case TUNNEL, PUNCH -> {
                         if (CoopSync.role().equals("host")) {
-                            tunnelHost(ctx, problems, facts);
+                            tunnelHost(ctx, problems, facts, name.equals(PUNCH));
                         } else {
-                            tunnelGuest(ctx, problems, facts);
+                            tunnelGuest(ctx, problems, facts, name.equals(PUNCH));
                         }
                     }
                     default -> {
@@ -229,6 +234,15 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             expect(f, facts, "right password accepted (ticket; no endpoint and the stub's tunnel is off)", message(ctx), noWay
                     + "; try the owner's address or the LAN list.");
             expect(f, facts, "join calls (403 then 200)", stub.calls("POST /simrooms/join").size(), 2);
+            // coopfree-1111: a relay past its free daily budget says so in the join answer, and the guest shows its words.
+            stub.relayFull = "relay full today, host needs UPnP or a port forward";
+            clickRow(ctx, "[Locked] Tk Locked Room");
+            setBox(ctx, "Password", "sesame");
+            DesignerKit.click(ctx, "Join");
+            String fullText = "Could not reach Tk Locked Room: relay full today, host needs UPnP or a port forward.";
+            paceUntil(ctx, () -> message(ctx).equals(fullText), 5_000);
+            expect(f, facts, "relay full today (join answer's relayFull)", message(ctx), fullText);
+            stub.relayFull = null;
             facts.add("locked room " + locked + ", fullOwner " + fullOwner);
 
             // Full: max 2 with the owner and another player's live ticket.
@@ -284,9 +298,43 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             paceUntil(ctx, () -> gw.actions().contains("DeletePortMapping 25996"), 5_000);
             expect(f, facts, "gateway calls", gw.actions(), List.of("AddPortMapping 25997", "AddPortMapping 25996",
                     "GetExternalIPAddress ", "DeletePortMapping 25996"));
+            // coopfree-1111: a one-hour lease, renewed; a router that takes only permanent leases (725) gets one.
+            int before = gw.actions().size();
+            expect(f, facts, "lease asked (s)", ModUnderTest.staticCall(R + "SimUpnp", "leaseForTest"), 3600);
+            gw.permanentOnly = true;
+            expect(f, facts, "permanent-only router mapped", map(ctx, 25995), "Port 25995 is open on " + FakeGateway.EXTERNAL_IP);
+            expect(f, facts, "permanent lease after 725", ModUnderTest.staticCall(R + "SimUpnp", "leaseForTest"), 0);
+            ModUnderTest.staticCall(R + "SimUpnp", "renewForTest");
+            ModUnderTest.staticCall(R + "SimUpnp", "unmap");
+            paceUntil(ctx, () -> gw.actions().contains("DeletePortMapping 25995"), 5_000);
+            expect(f, facts, "725 retry, renew, delete", gw.actions().subList(before, gw.actions().size()), List.of(
+                    "AddPortMapping 25995", "AddPortMapping 25995", "GetExternalIPAddress ", "AddPortMapping 25995",
+                    "DeletePortMapping 25995"));
         } finally {
             gw.stop();
             System.clearProperty(SSDP);
+        }
+        // No UPnP router: NAT-PMP, then PCP for a router that answers NAT-PMP with UNSUPP_VERSION; the external port is the
+        // router's (the fake maps +7), and close deletes it (lifetime 0).
+        FakeNatPmp pmp = new FakeNatPmp();
+        try (DatagramSocket mute = new DatagramSocket(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0))) {
+            System.setProperty(SSDP, "127.0.0.1:" + mute.getLocalPort());
+            System.setProperty(NATPMP, "127.0.0.1:" + pmp.port());
+            int ext = 25994 + FakeNatPmp.EXTERNAL_PORT_OFFSET;
+            expect(f, facts, "NAT-PMP mapped", map(ctx, 25994), "Port " + ext + " is open on " + FakeGateway.EXTERNAL_IP);
+            ModUnderTest.staticCall(R + "SimUpnp", "unmap");
+            paceUntil(ctx, () -> pmp.requests().contains("pmp-map 25994 0"), 5_000);
+            pmp.pcpOnly = true;
+            int ext2 = 25993 + FakeNatPmp.EXTERNAL_PORT_OFFSET;
+            expect(f, facts, "PCP mapped", map(ctx, 25993), "Port " + ext2 + " is open on " + FakeGateway.EXTERNAL_IP);
+            ModUnderTest.staticCall(R + "SimUpnp", "unmap");
+            paceUntil(ctx, () -> pmp.requests().contains("pcp-map 25993 0"), 5_000);
+            expect(f, facts, "NAT-PMP / PCP requests", pmp.requests(), List.of("pmp-map 25994 3600", "pmp-addr",
+                    "pmp-map 25994 0", "pmp-unsupp", "pcp-map 25993 3600", "pcp-map 25993 0"));
+        } finally {
+            pmp.stop();
+            System.clearProperty(SSDP);
+            System.clearProperty(NATPMP);
         }
     }
 
@@ -483,7 +531,7 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             paceUntil(ctx, () -> ModUnderTest.staticCall(HOSTC, "roomIdForTest") != null, 15_000);
             expect(f, facts, "router line (no UPnP in a test client)", String.valueOf(ModUnderTest.staticCall(HOSTC, "upnpLine"))
                     .contains("UPnP is off in this test client"), true);
-            expect(f, facts, "list line", ModUnderTest.staticCall(HOSTC, "listLine"), "Listed in the room list (joins go through the relay).");
+            expect(f, facts, "list line", ModUnderTest.staticCall(HOSTC, "listLine"), "Listed in the room list (guests join by hole punch, else through the relay).");
             int port = (Integer) ModUnderTest.staticCall(HOSTC, "port");
             // Both test clients are offline accounts: like CoopSimTests.publish, take the published server off online mode
             // (the mod keeps vanilla's authentication; real accounts pass it).
@@ -764,86 +812,106 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
 
     // ============================================================================================ 1110-mp-tunnel
 
-    private static final String TROOM = "Tk Tunnel Room";
+    private static final String TROOM = "Tk Tunnel Room", PROOM = "Tk Punch Room";
 
-    /** No UPnP (no gateway named): the room lists with no endpoint and keeps a relay tunnel socket open. */
-    private static void tunnelHost(ClientGameTestContext ctx, List<String> f, List<String> facts) throws Exception {
-        CoopSync.put("tun-host-up", "1");
-        CoopSync.await(ctx, "tun-guest-up", 900);
+    /**
+     * No UPnP (no gateway named): the room lists with no endpoint, advertises a hole-punch port and keeps a relay tunnel
+     * socket open. {@code punch}: the guest gets in by the hole punch; else the host drops the punch (property "drop") and
+     * the guest must fall back to the relay tunnel (coopfree-1111).
+     */
+    private static void tunnelHost(ClientGameTestContext ctx, List<String> f, List<String> facts, boolean punch) throws Exception {
+        String k = punch ? "pun-" : "tun-", room = punch ? PROOM : TROOM;
+        CoopSync.put(k + "host-up", "1");
+        CoopSync.await(ctx, k + "guest-up", 900);
         String uuid = ctx.computeOnClient(mc -> mc.getUser().getProfileId().toString());
         String hostName = ctx.computeOnClient(mc -> mc.getUser().getName());
         if (!localRelay(ctx, f, uuid, hostName)) {
             return;
         }
         System.clearProperty(SSDP);
+        if (punch) {
+            System.clearProperty(PUNCH_PROP);
+        } else {
+            System.setProperty(PUNCH_PROP, "drop");
+        }
         long mark = LogTap.mark();
-        if (!createRoom(ctx, f, facts, TROOM, PW, 3)) {
+        if (!createRoom(ctx, f, facts, room, PW, 3)) {
             return;
         }
         expect(f, facts, "listed on the local relay", paceUntil(ctx, () -> ModUnderTest.staticCall(HOSTC, "roomIdForTest") != null,
                 20_000), true);
         expect(f, facts, "no public address (UPnP off)", ModUnderTest.staticCall(HOSTC, "publicAddress"), null);
-        expect(f, facts, "list line", ModUnderTest.staticCall(HOSTC, "listLine"), "Listed in the room list (joins go through the relay).");
+        expect(f, facts, "list line", ModUnderTest.staticCall(HOSTC, "listLine"), "Listed in the room list (guests join by hole punch, else through the relay).");
         expect(f, facts, "tunnel socket up", paceUntil(ctx, () -> logSeen(mark, "[SimTunnel] host socket up"), 20_000), true);
         ctx.runOnClient(mc -> mc.getSingleplayerServer().setUsesAuthentication(false));
-        CoopSync.put("tun-room", hostName);
-        String guest = CoopSync.await(ctx, "tun-guest-in", 300).trim();
+        CoopSync.put(k + "room", hostName);
+        String guest = CoopSync.await(ctx, k + "guest-in", 300).trim();
         expect(f, facts, "guest admitted with its ticket", paceUntil(ctx, () -> logSeen(mark, "[SimCoop] " + guest + " admitted with a ticket")
                 || guestsKey().equals(guest + ":true"), 20_000), true);
+        expect(f, facts, punch ? "host joined the punched socket to the game" : "host dropped the punch (drop mode)",
+                paceUntil(ctx, () -> logSeen(mark, punch ? "[SimPunch] host joined a punched guest"
+                        : "[SimPunch] punch request ignored (drop mode)"), 10_000), true);
         MinecraftServer s = ctx.computeOnClient(Minecraft::getSingleplayerServer);
         double[] p0 = posOf(ctx, s, guest);
-        CoopSync.put("tun-move", p0 == null ? "none" : "1");
-        CoopSync.await(ctx, "tun-moved", 120);
+        CoopSync.put(k + "move", p0 == null ? "none" : "1");
+        CoopSync.await(ctx, k + "moved", 120);
         double[] p1 = posOf(ctx, s, guest);
         double moved = p0 == null || p1 == null ? -1 : Math.hypot(p1[0] - p0[0], p1[2] - p0[2]);
         facts.add(String.format("guest moved %.2f blocks on the host's server", moved));
-        expect(f, facts, "guest moved on the host's server (through the tunnel)", moved > 1.0, true);
-        CoopSync.put("tun-host-done", "1");
-        String verdict = CoopSync.await(ctx, "tun-guest-done", 180).trim();
+        expect(f, facts, "guest moved on the host's server (" + (punch ? "punched" : "through the tunnel") + ")", moved > 1.0, true);
+        CoopSync.put(k + "host-done", "1");
+        String verdict = CoopSync.await(ctx, k + "guest-done", 180).trim();
         facts.add("guest verdict: " + verdict);
         expect(f, facts, "guest's own checks", verdict, "PASS");
     }
 
-    private static void tunnelGuest(ClientGameTestContext ctx, List<String> f, List<String> facts) throws Exception {
+    private static void tunnelGuest(ClientGameTestContext ctx, List<String> f, List<String> facts, boolean punch) throws Exception {
+        String k = punch ? "pun-" : "tun-", room = punch ? PROOM : TROOM;
         try {
-            CoopSync.put("tun-guest-up", "1");
-            CoopSync.await(ctx, "tun-host-up", 900);
+            CoopSync.put(k + "guest-up", "1");
+            CoopSync.await(ctx, k + "host-up", 900);
             String me = ctx.computeOnClient(mc -> mc.getUser().getName());
             UUID offline = net.minecraft.core.UUIDUtil.createOfflinePlayerUUID(me);
             if (!localRelay(ctx, f, offline.toString(), me)) {
                 return;
             }
-            String hostName = CoopSync.await(ctx, "tun-room", 600).trim();
+            String hostName = CoopSync.await(ctx, k + "room", 600).trim();
             ctx.runOnClient(mc -> McCompat.setScreen(mc, multiplayer(new TitleScreen())));
             CoopSync.pace(ctx, 300);
             DesignerKit.click(ctx, "Join");
-            String want = "[" + SimMcv.mc() + "] [Locked] " + TROOM + "  -  " + hostName;
+            String want = "[" + SimMcv.mc() + "] [Locked] " + room + "  -  " + hostName;
             boolean row = paceUntil(ctx, () -> {
-                String l = rowLabel(ctx, "[Locked] " + TROOM);
+                String l = rowLabel(ctx, "[Locked] " + room);
                 if (l == null) {
                     DesignerKit.click(ctx, "Refresh");
                 }
                 return l != null && l.startsWith(want);
             }, 30_000);
-            expect(f, facts, "room row (own version tag)", row ? "found" : rowLabel(ctx, "[Locked] " + TROOM), "found");
+            expect(f, facts, "room row (own version tag)", row ? "found" : rowLabel(ctx, "[Locked] " + room), "found");
+            String label = rowLabel(ctx, "[Locked] " + room);
+            expect(f, facts, "row shows the punch path", label != null && label.endsWith("  [Punch]"), true);
             ModUnderTest.staticCall(R + "SimRooms", "clearCallsForTest");
             long mark = LogTap.mark();
-            clickRow(ctx, "[Locked] " + TROOM);
+            clickRow(ctx, "[Locked] " + room);
             setBox(ctx, "Password", PW);
             DesignerKit.click(ctx, "Join");
             facts.add("after Join: " + message(ctx));
             if (!inWorld(ctx)) {
-                f.add("did not join through the tunnel: " + message(ctx) + " / " + screenName(ctx));
+                f.add("did not join: " + message(ctx) + " / " + screenName(ctx));
                 return;
             }
             String server = ctx.computeOnClient(mc -> mc.getCurrentServer() == null ? null : mc.getCurrentServer().ip);
             facts.add("connected to " + server);
             expect(f, facts, "connected through the local tunnel port", server != null && server.startsWith("127.0.0.1:"), true);
             expect(f, facts, "no direct address to try (logged nothing direct)", logSeen(mark, "direct address not reachable"), false);
+            expect(f, facts, "join path", logSeen(mark, "[SimCoop] join path: " + (punch ? "Punched" : "Relay")), true);
+            expect(f, facts, punch ? "punched through (no relay tunnel)" : "punch failed first, then the relay",
+                    punch ? logSeen(mark, "[SimPunch] guest punched through") && !logSeen(mark, "[SimTunnel]")
+                            : logSeen(mark, "[SimCoop] hole punch failed"), true);
             expect(f, facts, "isGuest", until(ctx, () -> Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(
                     R + "SimState", "isGuest", new Class<?>[]{Minecraft.class}, new Object[]{mc}))), 200), true);
-            CoopSync.put("tun-guest-in", me);
-            String go = CoopSync.await(ctx, "tun-move", 120).trim();
+            CoopSync.put(k + "guest-in", me);
+            String go = CoopSync.await(ctx, k + "move", 120).trim();
             expect(f, facts, "host sees me", go, "1");
             ctx.runOnClient(mc -> {
                 McCompat.setScreen(mc, null);
@@ -853,11 +921,11 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> mc.options.keyUp.setDown(false));
             ctx.waitTicks(10);
             expect(f, facts, "still connected after walking", ctx.computeOnClient(mc -> mc.level != null), true);
-            CoopSync.put("tun-moved", "1");
-            CoopSync.await(ctx, "tun-host-done", 120);
+            CoopSync.put(k + "moved", "1");
+            CoopSync.await(ctx, k + "host-done", 120);
         } finally {
             ctx.runOnClient(mc -> mc.options.keyUp.setDown(false));
-            CoopSync.put("tun-guest-done", f.isEmpty() ? "PASS" : "FAIL: " + String.join("; ", f));
+            CoopSync.put(k + "guest-done", f.isEmpty() ? "PASS" : "FAIL: " + String.join("; ", f));
             CoopSync.pace(ctx, 1000);
         }
     }
@@ -1261,6 +1329,7 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             // never let cleanup replace the verdict
         }
         System.clearProperty(RELAY);
+        System.clearProperty(PUNCH_PROP);
         System.clearProperty(SSDP);
         try {
             token(null);
