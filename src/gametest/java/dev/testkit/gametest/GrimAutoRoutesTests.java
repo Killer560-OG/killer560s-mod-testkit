@@ -2535,7 +2535,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             if (st != null) {
                 check(st.done() > 0, tag + ": his action never went in (nothing tested)");
                 check(st.playerWindows() > 0, tag + ": his action never reached the wire (" + st.report() + ")");
-                check(st.both() > 0, tag + ": no server tick carried both a chain warp and his action (" + st.report() + ")");
+                // A charged chain sends each warp as a whole spent tick of its own (its own tick end), so his action cannot
+                // share a server tick with one; both went out and GrimAC, which fails a flagged case, judges the order.
+                check(charged || st.both() > 0, tag + ": no server tick carried both a chain warp and his action (" + st.report() + ")");
                 if (act == dev.testkit.gametest.SameTick.Act.SWAP) {
                     check(st.playerAfterFeature() == 0, tag + ": his slot went out after a warp in one tick (" + st.report()
                             + ")");
