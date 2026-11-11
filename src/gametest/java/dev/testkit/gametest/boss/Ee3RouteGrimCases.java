@@ -331,9 +331,26 @@ final class Ee3RouteGrimCases {
             }
             List<String> logs = LogTap.since(mark);
             long turns = logs.stream().filter(l -> l.contains("[LeverAura] turning body")).count();
-            long noW = logs.stream().filter(l -> l.contains("keys re-picked for that yaw") && !l.matches(".*yaw: *W.*")).count();
-            c.note("lever pre-turns " + turns + ", re-picked without W " + noW + ", A-alone inputs on the wire " + aAlone);
-            c.check(dig || turns > 0, "Lever Aura never turned the body (the pre-turn did not act)");
+            // A lever turn is a re-pick (route yaw A -> aura yaw B) that the hand-back (B -> A) follows; its keys must hold W.
+            // The hand-back's own keys are the route's, and another feature's one-way turn is not Lever Aura's.
+            \\w\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S \S\S \S \S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S \S\S\S\S \S\S\S\S\S \S\S \S\S\S\S\S \S\S\S\S\S\S \S\S\S \S\S\S\S\S\S\S\S\S\S \S\S\S\S\S\S\S\S
+            List<String[]> reps = new ArrayList<>();
+            for (String l : logs) {
+                java.util.regex.Matcher m = rp.matcher(l);
+                if (m.find()) {
+                    reps.add(new String[]{m.group(1), m.group(2), m.group(3)});
+                }
+            }
+            long noW = 0;
+            long pairs = 0;
+            for (int i = 0; i + 1 < reps.size(); i++) {
+                if (reps.get(i)[0].equals(reps.get(i + 1)[1]) && reps.get(i)[1].equals(reps.get(i + 1)[0])) {
+                    pairs++;
+                    noW += reps.get(i)[2].contains("W") ? 0 : 1;
+                }
+            }
+            c.note("lever pre-turns " + turns + ", lever re-pick pairs " + pairs + ", without W " + noW + ", A-alone inputs on the wire " + aAlone);
+            c.check(dig || (turns > 0 && pairs > 0), "Lever Aura never turned the body under the walk (the pre-turn did not act)");
             c.check(noW == 0 && aAlone == 0, "the lever turn dropped W/sprint: re-picks without W " + noW + ", A-alone inputs " + aAlone);
             c.check(ticks.leverAndDig == 0, "a lever click and a dig in one server tick: " + wire);
             if (act == SameTick.Act.DIG) {
