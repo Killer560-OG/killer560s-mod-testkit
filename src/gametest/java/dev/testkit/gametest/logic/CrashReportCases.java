@@ -380,27 +380,14 @@ final class CrashReportCases {
         }
         Object after = Mod.staticCall(guard, "check", main);
         c.check("once it ends the guard no longer names it", after == null || !after.toString().contains("Thread-fake-http"), String.valueOf(after));
-        String dump = "Description: Watchdog
-
-java.lang.Error: Watchdog (Client shutdown from post-main)
-
-"
-                + "\"DestroyJavaVM\" prio=5 Id=1184 RUNNABLE
-
-"
-                + "\"Thread-100\" prio=10 Id=1128 WAITING on x
-"
-                + "	at java.base@25.0.1/jdk.internal.misc.Unsafe.park(Native Method)
-"
-                + "	at platform/java.net.http@25.0.1/jdk.internal.net.http.HttpClientFacade.send(HttpClientFacade.java:133)
-"
-                + "	at knot//xyz.yourboykyle.secretroutes.utils.APIUtils.addMember(APIUtils.java:60)
-
-"
-                + "\"AWT-Windows\" daemon prio=6 Id=257 RUNNABLE
-"
-                + "	at knot//com.other.Thing.run(Thing.java:1)
-";
+        String dump = "Description: Watchdog\n\njava.lang.Error: Watchdog (Client shutdown from post-main)\n\n"
+                + "\"DestroyJavaVM\" prio=5 Id=1184 RUNNABLE\n\n"
+                + "\"Thread-100\" prio=10 Id=1128 WAITING on x\n"
+                + "\tat java.base@25.0.1/jdk.internal.misc.Unsafe.park(Native Method)\n"
+                + "\tat platform/java.net.http@25.0.1/jdk.internal.net.http.HttpClientFacade.send(HttpClientFacade.java:133)\n"
+                + "\tat knot//xyz.yourboykyle.secretroutes.utils.APIUtils.addMember(APIUtils.java:60)\n\n"
+                + "\"AWT-Windows\" daemon prio=6 Id=257 RUNNABLE\n"
+                + "\tat knot//com.other.Thing.run(Thing.java:1)\n";
         Object held = Mod.staticCall(guard, "heldBy", dump);
         c.eq("the report names the holder", "Held open by thread \"Thread-100\" (xyz.yourboykyle.secretroutes.utils)", held);
         c.eq("another report names nothing", null, Mod.staticCall(guard, "heldBy", dump.replace("post-main", "elsewhere")));
