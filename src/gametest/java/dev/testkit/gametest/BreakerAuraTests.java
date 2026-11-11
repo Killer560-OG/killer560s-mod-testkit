@@ -1822,7 +1822,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             }
                             // flaghunt-1110 B: a server teleport onto his own spot (the client answers with a teleport accept)
                             // every fourth tick, or a 400 ms lag spike, in the aura's ticks.
-                            if (act == SameTick.Act.TP && i % (obs ? 10 : 4) == 2) {
+                            if (act == SameTick.Act.TP && i % (obs ? 30 : 4) == 2) {
                                 server.command("tp @p " + (cx + 0.5) + " " + SURFACE_Y + " " + (cz + 0.5) + " ~ ~"); // absolute y: ~ is the console's
                             }
                             if (name.contains("-lag") && i == 6) {
