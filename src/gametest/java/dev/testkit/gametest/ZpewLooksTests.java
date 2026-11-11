@@ -59,8 +59,11 @@ public class ZpewLooksTests implements FabricClientGameTest {
                 first = first == null ? e : first;
             }
         }
-        for (Runnable r : new Runnable[]{() -> emergencyCancel(ctx), () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.SWAP),
-                () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.USE)}) {
+        for (Runnable r : new Runnable[]{() -> emergencyCancel(ctx), () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.SWAP, 0),
+                () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.USE, 0),
+                () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.USE_KEY, 0),
+                () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.SWAP, 150),
+                () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.USE_KEY, 150)}) {
             try {
                 r.run();
             } catch (AssertionError e) {
@@ -410,8 +413,8 @@ public class ZpewLooksTests implements FabricClientGameTest {
      * three aimed warps (swap: landing on every planned corner; use: the server casting at least those three), a GrimAC
      * tick must carry an aimed use with his packet, and GrimAC says nothing (Scenario.run). Cheat jar only.
      */
-    static void aimedSame(ClientGameTestContext ctx, dev.testkit.gametest.SameTick.Act act) {
-        String name = "1105-zpew-aimed-same-" + act.name().toLowerCase(Locale.ROOT);
+    static void aimedSame(ClientGameTestContext ctx, dev.testkit.gametest.SameTick.Act act, int lat) {
+        String name = "1105-zpew-aimed-same-" + act.name().toLowerCase(Locale.ROOT) + (lat > 0 ? "-lag" + lat : "");
         Scenario.run(ctx, name, (server, scenario) -> ZpewMultiTickTests.build(server), (server, scenario) -> {
             Hx hx = null;
             boolean gate = false;
@@ -435,11 +438,12 @@ public class ZpewLooksTests implements FabricClientGameTest {
                 ctx.getInput().holdKey(o -> o.keyShift);
                 gate = BlinkTests.setUp(ctx, 20);
                 BlinkTests.chargeOn(ctx);
+                ZpewCampaignTests.latency(ctx, lat);
                 waitAimed = true;
                 st[0] = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
                         p -> p instanceof ServerboundUseItemPacket, 0, 1));
                 dev.testkit.gametest.SameTick hold = st[0];
-                boolean use = act == dev.testkit.gametest.SameTick.Act.USE;
+                boolean use = act == dev.testkit.gametest.SameTick.Act.USE || act == dev.testkit.gametest.SameTick.Act.USE_KEY;
                 if (use) {
                     ctx.runOnClient(mc -> hold.allow(0));
                 }
@@ -448,13 +452,13 @@ public class ZpewLooksTests implements FabricClientGameTest {
                     ctx.waitTicks(30);
                     long bank = BlinkTests.cnum(ctx, "banked");
                     long sent0 = ZpewCampaignTests.num(ctx, "aimedWarpsSent");
-                    Result r = shot(ctx, server, hx, scenario, who, 0, "aimed-same n=3 rep " + rep + " (bank " + bank + ")",
+                    Result r = shot(ctx, server, hx, scenario, who, lat, "aimed-same n=3 rep " + rep + " (bank " + bank + ")",
                             use ? () -> {
                                 ctx.runOnClient(mc -> hold.allow(3));
                                 presses(ctx, 3).run();
                             } : presses(ctx, 3), 3);
                     long sent = ZpewCampaignTests.num(ctx, "aimedWarpsSent") - sent0;
-                    boolean landed = act == dev.testkit.gametest.SameTick.Act.SWAP ? landedAll(r, 3) : r.warps() >= 3;
+                    boolean landed = act == dev.testkit.gametest.SameTick.Act.SWAP && lat == 0 ? landedAll(r, 3) : r.warps() >= 3;
                     if (sent != 3 || !landed || !r.flags().isEmpty()) {
                         problems.add("rep " + rep + ": aimed sent " + sent + ", " + r);
                     }
@@ -473,6 +477,7 @@ public class ZpewLooksTests implements FabricClientGameTest {
                     ctx.runOnClient(mc -> open.close());
                 }
                 waitAimed = false;
+                ZpewCampaignTests.latency(ctx, 0);
                 if (cheat) {
                     BlinkTests.chargeOff(ctx);
                     BlinkTests.tearDown(ctx, gate);
