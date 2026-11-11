@@ -98,7 +98,7 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] WORLD_CASES = {"301-ui-smoke-tabs", "302-ui-smoke-search", "303-ui-smoke-toggles",
             "304-ui-smoke-hud-editor", "305-ui-smoke-screens", "306-ui-smoke-commands", "350-ui-termism",
             "360-ui-visuals", "365-ui-overlay-draws", "307-ui-profit", "385-ui-interactive-map", "386-ui-sliders",
-            "387-ui-ap3-edit", "1026-ui-ap3-angle-leapcounter", "1026-ui-ap3-blink-nodes", "1102-ui-ap3-crystal-height", "388-ui-breaker-display", "389-ui-crosshair",
+            "387-ui-ap3-edit", "1026-ui-ap3-angle-leapcounter", "1026-ui-ap3-blink-nodes", "1102-ui-ap3-crystal-height", "1110-ui-ap3-edit-layout", "388-ui-breaker-display", "389-ui-crosshair",
             "390-ui-wither-doors-fill", "391-ui-cheat-tabs", "392-ui-blood-camp", "393-ui-stat-bars",
             "394-ui-hud-boxes", "395-ui-map-heads",
             "399-ui-hud-editor-resize", "399-ui-hud-editor-snap",
@@ -583,6 +583,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1026-ui-ap3-blink-nodes", Ap3BlinkNodeCases::run);
                     // mod zpew2-1101: the Crystal node's Height box in the AP3 node editor.
                     UiCase.run(ctx, "1102-ui-ap3-crystal-height", Ap3CrystalEditCases::run);
+                    UiCase.run(ctx, "1110-ui-ap3-edit-layout", Ap3EditLayoutCases::run);
                     UiCase.run(ctx, "388-ui-breaker-display", BreakerDisplayCases::run);
                     UiCase.run(ctx, "389-ui-crosshair", CrosshairCases::run);
                     UiCase.run(ctx, "390-ui-wither-doors-fill", WitherDoorFillCases::run);
