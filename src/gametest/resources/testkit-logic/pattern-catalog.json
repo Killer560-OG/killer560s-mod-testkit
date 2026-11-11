@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-10T20:18:05",
+ "generatedAt": "2026-11-10T20:27:28",
  "modSource": "leaprow-1110",
- "modGitSha": "61e88e856829e10ef7c0bd4967234477ae82d16d",
+ "modGitSha": "51191de7a619976db6a569ca4943047f1ab43eff",
  "modSourceDirty": false,
  "count": 930,
  "byKind": {
