@@ -48,11 +48,12 @@ final class HxStormM51111Cases {
         s.test("1111-same-stormbow-swap", c -> stormSame(c, SameTick.Act.SWAP));
         s.test("1111-same-stormbow-usekey", c -> stormSame(c, SameTick.Act.USE_KEY));
         s.test("1111-same-stormbow-tp", c -> stormSame(c, SameTick.Act.TP));
-        s.test("1111-autom5-fight", c -> m5(c, null));
-        s.test("1111-same-autom5-use", c -> m5(c, SameTick.Act.USE));
-        s.test("1111-same-autom5-swap", c -> m5(c, SameTick.Act.SWAP));
-        s.test("1111-same-autom5-tp", c -> m5(c, SameTick.Act.TP));
-        s.test("1111-same-autom5-attack", c -> m5(c, SameTick.Act.ATTACK));
+        // Flags are judged in m5: only experimental Grim's InvalidInteractTarget on the client-only Livids is allowed.
+        s.testExpectingFlags("1111-autom5-fight", c -> m5(c, null));
+        s.testExpectingFlags("1111-same-autom5-use", c -> m5(c, SameTick.Act.USE));
+        s.testExpectingFlags("1111-same-autom5-swap", c -> m5(c, SameTick.Act.SWAP));
+        s.testExpectingFlags("1111-same-autom5-tp", c -> m5(c, SameTick.Act.TP));
+        s.testExpectingFlags("1111-same-autom5-attack", c -> m5(c, SameTick.Act.ATTACK));
     }
 
     /** An entity attack on the wire: ServerboundAttackPacket on 26.3, an interact packet on 26.2. */
@@ -307,6 +308,12 @@ final class HxStormM51111Cases {
             if (act != SameTick.Act.SWAP) {
                 c.check(held == 0, "held slot is " + held + ", want the sword back in 0");
                 c.check(fromMid < 2.5, "he did not walk to mid (" + fromMid + " blocks off)");
+            }
+            // The Livids are client-side players the server never sent, so experimental Grim flags each hit on one as
+            // InvalidInteractTarget; any other flag fails the case.
+            c.ctx().waitTicks(10);
+            for (String f : c.scenario().flags()) {
+                c.check(f.contains("InvalidInteractTarget") && f.contains("entityId=7725"), "anticheat flagged: " + f);
             }
             if (st != null) {
                 SameTick cur = st;
