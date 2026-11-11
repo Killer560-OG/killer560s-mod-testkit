@@ -227,8 +227,8 @@ final class Ee3RouteGrimCases {
             undo.add(c.onClient(mc -> Mod.with(LA, "CooldownMs", Integer.parseInt(System.getenv().getOrDefault("KM_LEVER_CD", "50")))));
             undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Enabled", true)));
             // killer560's own AP3 setting (26.3 killer560smod-ap3-settings.json): 45 Degree Strafe ON (W+A/D, 1.00 speed).
-            boolean strafe45 = !"0".equals(System.getenv("KM_EE3_STRAFE45"));
-            undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Strafe45", strafe45)));
+=======
+>>>>>>> ap3strafe-1110
             c.onClient(mc -> {
                 try {
                     Mod.staticCall("ap3.Ap3Executor", "stop", "test lane");
@@ -275,9 +275,9 @@ final class Ee3RouteGrimCases {
             for (int t = 0; t < 400 && arrive < 0; t++) {
                 c.ctx().waitTick();
                 double[] s = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ(),
-                        mc.player.onGround() ? 1 : 0});
+                        mc.player.onGround() ? 1 : 0, mc.player.input.keyPresses.jump() ? 1 : 0});
                 minY = Math.min(minY, s[1]);
-                path.append(String.format(Locale.ROOT, " %d:%.2f,%.2f,%.2f", t, s[0], s[1], s[2]));
+                path.append(String.format(Locale.ROOT, " %d:%.2f,%.2f,%.2f%s%s", t, s[0], s[1], s[2], s[3] > 0 ? "g" : "", s[4] > 0 ? "J" : ""));
                 if (t0 < 0 && Math.hypot(s[0] - 60.5, s[2] - 139) > 0.2) {
                     t0 = t;
                 }
