@@ -2524,7 +2524,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     landed, st == null ? "" : "; same-tick " + st.report());
             println(line);
             c.note(line);
-            check(holds == 0 && letGo == 0, tag + ": a teleport confirm was held behind its answer (" + holds + " hold(s))");
+            // His own Instant Transmission uses (four, Act USE) make their own teleports, which Blink may hold; the chain's never.
+            int ownHolds = act == dev.testkit.gametest.SameTick.Act.USE ? 4 : 0;
+            check(holds <= ownHolds && letGo <= ownHolds, tag + ": a teleport confirm was held behind its answer (" + holds + " hold(s))");
             // While his inventory is open the path waits and then stops (the MultiActionsC gate), so CLICK has no chain to count.
             boolean clickAct = act == dev.testkit.gametest.SameTick.Act.CLICK;
             check(clickAct || chainTp > 0, tag + ": no confirm went at once for the chain (nothing tested)");
