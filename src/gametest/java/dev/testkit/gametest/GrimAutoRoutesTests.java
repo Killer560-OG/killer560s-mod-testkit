@@ -2372,6 +2372,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     /** Multi Warp Mode Tick Split on or off (mod mwtick-1111); a jar without it skips. Client thread. */
     static void tickSplit(boolean on) {
         ModUnderTest.set(ModUnderTest.config("com.killer560.hub.zpew.ZeroPingEtherwarpConfig"), "setTickSplit", on);
+        // A chain sends up to Warps Per Tick of its warps a real tick (mwtick-1111): 20 while on, 1 (the default) after.
+        ModUnderTest.set(ModUnderTest.config("com.killer560.hub.zpew.ZeroPingEtherwarpConfig"), "setWarpsPerTick", on ? 20 : 1);
     }
 
     private static long chargeNum(ClientGameTestContext ctx, String method) {
