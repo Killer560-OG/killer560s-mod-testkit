@@ -84,9 +84,207 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 first = first == null ? e : first;
             }
         }
+        for (String v : List.of("plain", "swap", "tp", "double", "bank")) {
+            try {
+                mwtick(ctx, v);
+            } catch (AssertionError e) {
+                first = first == null ? e : first;
+            }
+        }
         if (first != null) {
             throw first;
         }
+    }
+
+    /**
+     * 1111-mwtick-wpt-* (mod mwtick-1111; killer560 2026-11-11): Multi Warp Mode
+     * Tick Split. Warps Per Tick at its top, 20, with no Blink: every warp must sit in a GrimAC tick of its own on the WIRE
+     * (a {@code client_tick_end} between each two uses), all 20 inside ONE real client tick, 20 server warps landing 8
+     * apart, and 19 unbanked ticks counted by the mod. GrimAC may say only Timer* (the extra tick-ends; his accepted price,
+     * the label says so); any other check fails the case. Variants (the SAME-TICK rule): {@code swap} (his scroll every
+     * tick), {@code tp} (the server teleports him just before each burst, so his accept rides with it), {@code double} (two
+     * clicks of his in one tick, Warps Per Tick 10: his second use and a second chain in the first chain's tick, 20 uses).
+     * A container click cannot share a tick with a manual warp (the use key does nothing under a screen); the map chain's
+     * same-click case covers it. {@code bank}: Blink Charge on and full (20, covered) before each burst, so Tick Split spends
+     * the bank first: the 19 extra ticks are banked time, 0 unbanked, and its GrimAC line count is the one to compare with
+     * {@code plain}'s (the Timer price only for ticks past the bank).
+     */
+    static void mwtick(ClientGameTestContext ctx, String variant) {
+        String name = "1111-mwtick-wpt-" + variant;
+        boolean dbl = variant.equals("double");
+        boolean bank = variant.equals("bank");
+        int n = dbl ? 10 : 20;
+        dev.testkit.gametest.SameTick.Act act = variant.equals("swap") ? dev.testkit.gametest.SameTick.Act.SWAP
+                : variant.equals("tp") ? dev.testkit.gametest.SameTick.Act.TP : null;
+        Scenario.runExpectingFlags(ctx, name, (server, scenario) -> build(server), (server, scenario) -> {
+            Hx hx = null;
+            dev.testkit.gametest.SameTick[] st = {null};
+            List<String> problems = new ArrayList<>();
+            try {
+                hx = ZpewCampaignTests.setUp(ctx, 4);
+                hx.give(1, ZpewCampaignTests.aotv(4));
+                hookTicks(ctx);
+                String who = ZpewCampaignTests.name(ctx);
+                ctx.getInput().holdKey(o -> o.keyShift);
+                setWpt(ctx, n);
+                ctx.runOnClient(mc -> Mod.set(ZP_CFG, "setTickSplit", true));
+                if (bank) {
+                    ctx.runOnClient(mc -> {
+                        Mod.set("blink.BlinkConfig", "setChargeMode", Mod.enumValue("blink.BlinkConfig$Mode", "TOGGLE"));
+                        Mod.set("blink.BlinkConfig", "setChargeTicks", 20);
+                        Mod.set("blink.BlinkConfig", "setChatMessages", false);
+                        Mod.set("blink.BlinkConfig", "setEnabled", true);
+                        Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE);
+                    });
+                    ctx.waitTicks(1);
+                    ctx.runOnClient(mc -> Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
+                }
+                if (act != null) {
+                    st[0] = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
+                            p -> p instanceof ServerboundUseItemPacket, 0, 1));
+                }
+                for (int rep = 0; rep < 3; rep++) {
+                    long banked0 = bank ? fillBank(ctx) : 0;
+                    long un0 = unfunded(ctx);
+                    Runnable press = dbl ? clicks(2) : () -> ctx.getInput().pressKey(o -> o.keyUse);
+                    Runnable fire = () -> {
+                        ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+                        if (act == dev.testkit.gametest.SameTick.Act.TP) {
+                            server.command("execute as " + who + " at @s run tp @s ~ ~ ~");
+                            ctx.waitTicks(1);
+                        }
+                        press.run();
+                    };
+                    String label = name + " rep " + rep;
+                    problems.addAll(shot(ctx, server, hx, scenario, who, 0, label, 1, STEP, fire, 20, 20, 20 - (dbl ? 2 : 1),
+                            1));
+                    ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
+                    long un = unfunded(ctx) - un0;
+                    // double: his second click is a vanilla use in the tick of the first chain's last warp (as vanilla sends
+                    // two clicks), so 18 split ticks and 19 uses closed alone.
+                    int split = bank ? (int) Math.max(0, 19 - banked0) : dbl ? 18 : 19;
+                    String wire = splitWire(dev.testkit.harness.WireCapture.snapshot(), 20, split + 1, problems, label);
+                    scenario.log(label + ": " + un + " unbanked tick(s)" + (bank ? " (bank " + banked0 + " before)" : "")
+                            + "; " + countLooks(dev.testkit.harness.WireCapture.snapshot()) + " look move(s); wire " + wire);
+                    if (un != split) {
+                        problems.add(label + ": expected " + split + " unbanked ticks, the mod ran " + un);
+                    }
+                }
+                if (st[0] != null) {
+                    dev.testkit.gametest.SameTick done = st[0];
+                    ctx.runOnClient(mc -> done.close());
+                    st[0] = null;
+                    scenario.log(name + ": " + done.report());
+                    if (done.done() == 0 && act != dev.testkit.gametest.SameTick.Act.TP || done.playerWindows() == 0
+                            || done.featureWindows() == 0) {
+                        problems.add(name + ": his action or the warps never reached the wire (" + done.report() + ")");
+                    }
+                }
+            } finally {
+                if (st[0] != null) {
+                    dev.testkit.gametest.SameTick open = st[0];
+                    ctx.runOnClient(mc -> open.close());
+                }
+                ctx.runOnClient(mc -> {
+                    dev.testkit.harness.WireCapture.stop();
+                    Mod.set(ZP_CFG, "setTickSplit", false);
+                    if (bank) {
+                        Mod.setField("blink.BlinkCharge", "keyHeldForTest", null);
+                        Mod.staticCall("blink.BlinkCharge", "reset", "test teardown");
+                        Mod.set("blink.BlinkConfig", "setEnabled", false);
+                    }
+                });
+                setWpt(ctx, 1);
+                ZpewCampaignTests.tearDown(ctx, hx);
+            }
+            ctx.waitTicks(30); // a late GrimAC line lands before the flags are read
+            problems.addAll(timerOnly(scenario, name));
+            if (!problems.isEmpty()) {
+                throw new AssertionError(name + ": " + problems);
+            }
+        });
+    }
+
+    /** Waits (max 6 s) for Blink Charge's bank to refill to 20 and be covered; returns the bank. */
+    static long fillBank(ClientGameTestContext ctx) {
+        for (int i = 0; i < 120; i++) {
+            boolean ok = ctx.computeOnClient(mc -> ((Number) Mod.staticCall("blink.BlinkCharge", "banked")).longValue() >= 20
+                    && Boolean.TRUE.equals(Mod.staticCall("blink.BlinkCharge", "shotCovered")));
+            if (ok) {
+                break;
+            }
+            ctx.waitTicks(1);
+        }
+        return ctx.computeOnClient(mc -> ((Number) Mod.staticCall("blink.BlinkCharge", "banked")).longValue());
+    }
+
+    /** Moves on the wire that carry a look (rot / pos_rot). */
+    static int countLooks(List<dev.testkit.harness.WireCapture.Sent> wire) {
+        int n = 0;
+        for (dev.testkit.harness.WireCapture.Sent x : wire) {
+            n += x.type().startsWith("minecraft:move_player") && x.type().contains("rot") ? 1 : 0;
+        }
+        return n;
+    }
+
+    static long unfunded(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> ((Number) Mod.staticCall("blink.BlinkCharge", "unfundedTicks")).longValue());
+    }
+
+    /**
+     * Tick Split on the wire: each use must be closed by a {@code client_tick_end} before the next use (its own GrimAC
+     * tick). Adds a problem when {@code want} uses were not each in a tick of their own.
+     * @return a short form, "U r T | U r T | ..." (U use, r move with a look, p move without, T tick end, A accept)
+     */
+    static String splitWire(List<dev.testkit.harness.WireCapture.Sent> wire, int want, int wantAlone, List<String> problems,
+                            String label) {
+        StringBuilder b = new StringBuilder();
+        int uses = 0;
+        int alone = 0;
+        boolean open = false;
+        for (dev.testkit.harness.WireCapture.Sent x : wire) {
+            String t = x.type();
+            if (t.equals("minecraft:use_item")) {
+                uses++;
+                open = true;
+                b.append(uses == 1 ? "U" : " | U");
+            } else if (t.equals("minecraft:client_tick_end")) {
+                if (open) {
+                    alone++;
+                }
+                open = false;
+                b.append(" T");
+            } else if (t.startsWith("minecraft:move_player")) {
+                b.append(t.contains("rot") ? " r" : " p");
+            } else if (t.equals("minecraft:accept_teleportation")) {
+                b.append(" A");
+            } else if (t.equals("minecraft:set_carried_item")) {
+                b.append(" S");
+            }
+        }
+        if (uses != want || alone != wantAlone) {
+            problems.add(label + ": " + uses + " use(s) on the wire, " + alone + " closed by a tick end before the next use, "
+                    + "expected " + want + " and " + wantAlone + " | " + b);
+        }
+        String s = b.toString();
+        return s.length() > 400 ? s.substring(0, 400) + " ..." : s;
+    }
+
+    /** Tick Split's accepted price: GrimAC Timer* lines only. Logs the measured list; returns a problem per other line. */
+    static List<String> timerOnly(Scenario scenario, String name) {
+        List<String> other = new ArrayList<>();
+        java.util.Map<String, Integer> byCheck = new java.util.TreeMap<>();
+        for (String f : scenario.flags()) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("failed ([A-Za-z]+)").matcher(f);
+            String check = m.find() ? m.group(1) : "?";
+            byCheck.merge(check, 1, Integer::sum);
+            if (!check.contains("Timer")) {
+                other.add(name + ": GrimAC " + f);
+            }
+        }
+        System.out.println("[mwtick] " + name + ": GrimAC lines by check " + byCheck);
+        scenario.log(name + ": GrimAC lines by check " + byCheck + " (Timer* accepted for Tick Split)");
+        return other;
     }
 
     /**
