@@ -347,7 +347,7 @@ final class Ee3RouteGrimCases {
             for (String l : logs) {
                 java.util.regex.Matcher m = rp.matcher(l);
                 if (m.find()) {
-                    reps.add(new String[]{m.group(1), m.group(2), m.group(3)});
+                    reps.add(new String[]{m.group(1), m.group(2), m.group(3), l.contains("(in the air)") ? "air" : ""});
                 }
             }
             long noW = 0;
@@ -355,7 +355,8 @@ final class Ee3RouteGrimCases {
             for (int i = 0; i + 1 < reps.size(); i++) {
                 if (reps.get(i)[0].equals(reps.get(i + 1)[1]) && reps.get(i)[1].equals(reps.get(i + 1)[0])) {
                     pairs++;
-                    noW += reps.get(i)[2].contains("W") ? 0 : 1;
+                    // leverjump-1111: in the air a W-less re-pick is allowed (the S2 high lever goes right after node 23's jump).
+                    noW += reps.get(i)[2].contains("W") || !reps.get(i)[3].isEmpty() ? 0 : 1;
                 }
             }
             c.note("lever pre-turns " + turns + ", lever re-pick pairs " + pairs + ", without W " + noW + ", A-alone inputs on the wire " + aAlone);
