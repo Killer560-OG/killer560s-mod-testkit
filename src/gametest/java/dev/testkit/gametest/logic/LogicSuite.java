@@ -106,6 +106,7 @@ public class LogicSuite implements FabricClientGameTest {
         ThemeAssetsCases.ctx = ctx;
         LogicCase.runOffClient(ctx, "1104-logic-themedl-offline", ThemeAssetsCases::offline);
         LogicCase.runOffClient(ctx, "1104-logic-themedl-download", ThemeAssetsCases::download);
+        LogicCase.runOffClient(ctx, "1110-logic-boss-bundled", ThemeAssetsCases::arenaBundled);
         LogicCase.runOffClient(ctx, "1104-logic-themedl-badsha", ThemeAssetsCases::badSha);
         LogicCase.runOffClient(ctx, "1104-logic-themedl-switch", ThemeAssetsCases::themeSwitch);
         LogicCase.runOffClient(ctx, "1104-logic-themedl-oldconfig", ThemeAssetsCases::oldConfig);

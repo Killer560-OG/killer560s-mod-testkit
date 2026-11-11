@@ -251,6 +251,7 @@
 			"dev.testkit.gametest.SimPuzzleSolveTests$Summary",
 			"dev.testkit.gametest.SessionDemoTest",
 			"dev.testkit.gametest.hx.HxSuite",
+			"dev.testkit.gametest.hx.CarnivalSuite",
 			"dev.testkit.gametest.menu.MenuSuite",
 			"dev.testkit.gametest.ui.UiSuite",
 			"dev.testkit.gametest.ui.FontsMainMenuSuite",
