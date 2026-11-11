@@ -333,7 +333,7 @@ final class Ee3RouteGrimCases {
             long turns = logs.stream().filter(l -> l.contains("[LeverAura] turning body")).count();
             // A lever turn is a re-pick (route yaw A -> aura yaw B) that the hand-back (B -> A) follows; its keys must hold W.
             // The hand-back's own keys are the route's, and another feature's one-way turn is not Lever Aura's.
-            \\w\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S \S\S \S \S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S\S \S\S\S\S \S\S\S\S\S \S\S \S\S\S\S\S \S\S\S\S\S\S \S\S\S \S\S\S\S\S\S\S\S\S\S \S\S\S\S\S\S\S\S
+            java.util.regex.Pattern rp = java.util.regex.Pattern.compile("turned from (\S+) to (\S+) before the move.*yaw: (\w*)");
             List<String[]> reps = new ArrayList<>();
             for (String l : logs) {
                 java.util.regex.Matcher m = rp.matcher(l);
