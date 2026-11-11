@@ -2476,14 +2476,14 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     new Object[]{nodes, null}));
             if (act == dev.testkit.gametest.SameTick.Act.CLICK) {
                 // His inventory is open and he clicks in it every tick: a hop on such a tick is GrimAC MultiActionsC (the mod's
-                // sneak, his click), so the path waits; it goes on when he closes the screen.
+                // sneak, his click), so the path waits and then stops (no use goes out).
                 ctx.waitTicks(40);
                 long held = dev.testkit.harness.WireCapture.snapshot().stream().filter(x -> x.type().equals("minecraft:use_item"))
                         .count();
                 check(held == 0, tag + ": " + held + " warp(s) went out with his inventory open");
                 ctx.runOnClient(mc -> McCompat.setScreen(mc, null));
             }
-            Vec3 landed = waitLanded(ctx, end[0], end[1], 300);
+            Vec3 landed = act == dev.testkit.gametest.SameTick.Act.CLICK ? null : waitLanded(ctx, end[0], end[1], 300);
             ctx.waitTicks(20);
             if (st != null) {
                 dev.testkit.gametest.SameTick s2 = st;
@@ -2525,8 +2525,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             println(line);
             c.note(line);
             check(holds == 0 && letGo == 0, tag + ": a teleport confirm was held behind its answer (" + holds + " hold(s))");
-            check(chainTp > 0, tag + ": no confirm went at once for the chain (nothing tested)");
-            if (charged && act != dev.testkit.gametest.SameTick.Act.USE) {
+            // While his inventory is open the path waits and then stops (the MultiActionsC gate), so CLICK has no chain to count.
+            boolean clickAct = act == dev.testkit.gametest.SameTick.Act.CLICK;
+            check(clickAct || chainTp > 0, tag + ": no confirm went at once for the chain (nothing tested)");
+            if (clickAct) {
+                check(uses[1] == 0, tag + ": " + uses[1] + " use(s) went out while his inventory was open");
+            } else if (charged && act != dev.testkit.gametest.SameTick.Act.USE) {
                 check(uses[0] >= pts.length - 1, tag + ": only " + uses[0] + " of the chain's uses went in one 50 ms window");
                 check(burst >= pts.length - 1 && bankFrom - bankTo >= pts.length - 1 && spent >= pts.length - 1,
                         tag + ": the bank was not spent on the chain (burst " + burst + ", bank " + bankFrom + " -> " + bankTo
@@ -2535,7 +2539,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 check(burst == 0 && spent == 0, tag + ": Charged Chain is off but the bank was spent");
                 check(uses[0] <= 2, tag + ": " + uses[0] + " uses in 50 ms with Charged Chain off");
             }
-            if (act == null || act == dev.testkit.gametest.SameTick.Act.SWAP || act == dev.testkit.gametest.SameTick.Act.CLICK) {
+            if (act == null || act == dev.testkit.gametest.SameTick.Act.SWAP) {
                 check(landed != null, tag + ": the path did not reach its end (at " + relPos(ctx) + ")");
                 check(serverWarps == pts.length && uses[1] == pts.length, tag + ": " + uses[1] + " use(s) on the wire, the "
                         + "server made " + serverWarps + " etherwarp(s), expected " + pts.length);
