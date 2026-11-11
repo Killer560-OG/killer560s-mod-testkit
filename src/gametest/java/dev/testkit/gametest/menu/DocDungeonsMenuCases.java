@@ -270,7 +270,8 @@ final class DocDungeonsMenuCases {
                         + " / " + Mod.call(fresh, "getClassTarget", tP1, archer);
             });
             c.note("after load: as Mage / Healer / Archer = " + loaded);
-            c.check(loaded.equals("ClassPick[clazz=null, name=Alice] / ClassPick[clazz=ARCHER, name=null] / null"),
+            // since 8512a1e9d leaps go by class only: the saved name Alice loads as her class (Mage)
+            c.check(loaded.equals("ClassPick[clazz=MAGE, name=null] / ClassPick[clazz=ARCHER, name=null] / null"),
                     "per-class targets after a reload are " + loaded);
         } finally {
             if (was != null) {
