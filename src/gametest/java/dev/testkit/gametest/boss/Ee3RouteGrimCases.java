@@ -270,6 +270,7 @@ final class Ee3RouteGrimCases {
             int arrive = -1;
             int boomAt = -1;
             double minY = 999;
+            double[] fell = null;
             StringBuilder path = new StringBuilder();
             for (int t = 0; t < 400 && arrive < 0; t++) {
                 c.ctx().waitTick();
@@ -292,6 +293,7 @@ final class Ee3RouteGrimCases {
                     // Off the route into the lava (y 106): out at once, or the burning fall draws Simulation flags that the
                     // next case is blamed for. Where this route ends in the hx world is the route's question, not this case's.
                     c.note(String.format(Locale.ROOT, "fell into the lava at t%d (rel %d) at %.2f %.2f %.2f", t, t - t0, s[0], s[1], s[2]));
+                    fell = s;
                     TerminalAuraCases.tp(c, 62.5, 132, 139, 72f);
                     break;
                 }
@@ -315,6 +317,13 @@ final class Ee3RouteGrimCases {
             c.check(dig || lev[1], "the high S2 lever was not powered (low/high " + lev[0] + "/" + lev[1] + ")");
             c.check(dig || ticks.lever >= 1, "no lever click on the wire: " + wire);
             c.check(ticks.twoLevers == 0, "two lever clicks in one server tick: " + wire);
+            // leverjump-1111: the route must get through. A lever turn under the jump of node 23 threw him into the lava and AP3
+            // stopped ("you leapt", the lava tp), while every check above still passed. Any case: no lava, no AP3 stop; the
+            // plain run must also reach EE3 (with his action every tick the Boom is held or the TNT swapped out, see below).
+            long stops = LogTap.since(mark).stream().filter(l -> l.contains("[AP3] Stopped")).count();
+            c.check(fell == null, "fell into the lava (path above)");
+            c.check(stops == 0, "AP3 stopped " + stops + " time(s) on the route");
+            c.check(act != null || arrive >= 0, "never reached EE3 (lowest y " + String.format(Locale.ROOT, "%.2f", minY) + ")");
             if (act == null) {
                 // With his action in every tick the route's own end is not this case's question: a right click every tick
                 // holds the Superboom tap (ActionGate), a swap every tick takes the TNT out of his hand.
