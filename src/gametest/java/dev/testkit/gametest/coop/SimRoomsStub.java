@@ -42,8 +42,6 @@ public final class SimRoomsStub {
     private final List<String> calls = new ArrayList<>();
     /** When set, every join answers this endpoint (a test's loopback stand-in for the owner's public address). */
     public volatile JsonObject joinEndpoint;
-    /** coopfree-1111: the relay's "relay full today" text on a join answer (null: none). */
-    public volatile String relayFull;
 
     public SimRoomsStub() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -222,8 +220,7 @@ public final class SimRoomsStub {
                                 ? com.google.gson.JsonNull.INSTANCE : r.endpoint);
                         out.addProperty("nonce", t.get("nonce").getAsString());
                         out.addProperty("expires", t.get("expires").getAsLong());
-                        out.addProperty("tunnel", false);
-                        if (relayFull != null) out.addProperty("relayFull", relayFull);
+                        out.addProperty("punch", false);
                     }
                 }
             }

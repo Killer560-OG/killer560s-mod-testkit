@@ -67,7 +67,7 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
     static final String TWO = "1109-mp-two";
     /** Phase 3: invites through a local wrangler dev relay (run-coop.sh -w). */
     static final String INVITE = "1109-mp-invite";
-    /** coopnet-1110: no UPnP on the host, the guest joins through the local relay's tunnel (run-coop.sh -w). */
+    /** coopfree-1111: no UPnP on the host and the punch dropped: the guest must NOT connect and is told why (run-coop.sh -w). */
     static final String TUNNEL = "1110-mp-tunnel";
     /** coopfree-1111: no UPnP, the guest gets in by a TCP hole punch through the local relay (run-coop.sh -w). */
     static final String PUNCH = "1111-mp-punch";
@@ -229,20 +229,11 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             expect(f, facts, "wrong password", message(ctx), "Wrong password.");
             setBox(ctx, "Password", "sesame");
             DesignerKit.click(ctx, "Join");
-            String noWay = "Could not reach Tk Locked Room: the relay tunnel is out of capacity for today";
-            paceUntil(ctx, () -> message(ctx).startsWith(noWay), 5_000);
-            expect(f, facts, "right password accepted (ticket; no endpoint and the stub's tunnel is off)", message(ctx), noWay
-                    + "; try the owner's address or the LAN list.");
+            // coopfree-1111: no endpoint and no punch port: never the relay, the guest is told what the host can do.
+            String noWay = "Can't connect to Tk Locked Room: " + "the host's router blocks direct connections; the host can enable UPnP or forward the co-op port shown on their Host page.";
+            paceUntil(ctx, () -> message(ctx).equals(noWay), 5_000);
+            expect(f, facts, "right password accepted (ticket), then the plain can't-connect text", message(ctx), noWay);
             expect(f, facts, "join calls (403 then 200)", stub.calls("POST /simrooms/join").size(), 2);
-            // coopfree-1111: a relay past its free daily budget says so in the join answer, and the guest shows its words.
-            stub.relayFull = "relay full today, host needs UPnP or a port forward";
-            clickRow(ctx, "[Locked] Tk Locked Room");
-            setBox(ctx, "Password", "sesame");
-            DesignerKit.click(ctx, "Join");
-            String fullText = "Could not reach Tk Locked Room: relay full today, host needs UPnP or a port forward.";
-            paceUntil(ctx, () -> message(ctx).equals(fullText), 5_000);
-            expect(f, facts, "relay full today (join answer's relayFull)", message(ctx), fullText);
-            stub.relayFull = null;
             facts.add("locked room " + locked + ", fullOwner " + fullOwner);
 
             // Full: max 2 with the owner and another player's live ticket.
@@ -531,8 +522,9 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             paceUntil(ctx, () -> ModUnderTest.staticCall(HOSTC, "roomIdForTest") != null, 15_000);
             expect(f, facts, "router line (no UPnP in a test client)", String.valueOf(ModUnderTest.staticCall(HOSTC, "upnpLine"))
                     .contains("UPnP is off in this test client"), true);
-            expect(f, facts, "list line", ModUnderTest.staticCall(HOSTC, "listLine"), "Listed in the room list (guests join by hole punch, else through the relay).");
             int port = (Integer) ModUnderTest.staticCall(HOSTC, "port");
+            expect(f, facts, "list line", ModUnderTest.staticCall(HOSTC, "listLine"),
+                    "Listed in the room list (guests join by hole punch; if that fails, enable UPnP or forward port " + port + ").");
             // Both test clients are offline accounts: like CoopSimTests.publish, take the published server off online mode
             // (the mod keeps vanilla's authentication; real accounts pass it).
             facts.add("online mode was " + ctx.computeOnClient(mc -> {
@@ -815,9 +807,9 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
     private static final String TROOM = "Tk Tunnel Room", PROOM = "Tk Punch Room";
 
     /**
-     * No UPnP (no gateway named): the room lists with no endpoint, advertises a hole-punch port and keeps a relay tunnel
-     * socket open. {@code punch}: the guest gets in by the hole punch; else the host drops the punch (property "drop") and
-     * the guest must fall back to the relay tunnel (coopfree-1111).
+     * No UPnP (no gateway named): the room lists with no endpoint, advertises a hole-punch port and keeps its signal socket
+     * open. {@code punch}: the guest gets in by the hole punch; else the host drops the punch (property "drop") and the guest
+     * must NOT connect: co-op games never go through the relay (coopfree-1111, killer560 2026-11-11).
      */
     private static void tunnelHost(ClientGameTestContext ctx, List<String> f, List<String> facts, boolean punch) throws Exception {
         String k = punch ? "pun-" : "tun-", room = punch ? PROOM : TROOM;
@@ -841,10 +833,22 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
         expect(f, facts, "listed on the local relay", paceUntil(ctx, () -> ModUnderTest.staticCall(HOSTC, "roomIdForTest") != null,
                 20_000), true);
         expect(f, facts, "no public address (UPnP off)", ModUnderTest.staticCall(HOSTC, "publicAddress"), null);
-        expect(f, facts, "list line", ModUnderTest.staticCall(HOSTC, "listLine"), "Listed in the room list (guests join by hole punch, else through the relay).");
-        expect(f, facts, "tunnel socket up", paceUntil(ctx, () -> logSeen(mark, "[SimTunnel] host socket up"), 20_000), true);
+        int port = (Integer) ModUnderTest.staticCall(HOSTC, "port");
+        expect(f, facts, "list line", ModUnderTest.staticCall(HOSTC, "listLine"),
+                "Listed in the room list (guests join by hole punch; if that fails, enable UPnP or forward port " + port + ").");
+        expect(f, facts, "signal socket up", paceUntil(ctx, () -> logSeen(mark, "[SimSignal] host signal socket up"), 20_000), true);
         ctx.runOnClient(mc -> mc.getSingleplayerServer().setUsesAuthentication(false));
         CoopSync.put(k + "room", hostName);
+        if (!punch) {
+            expect(f, facts, "host dropped the punch (drop mode)", paceUntil(ctx,
+                    () -> logSeen(mark, "[SimPunch] punch request ignored (drop mode)"), 30_000), true);
+            String verdict = CoopSync.await(ctx, k + "guest-done", 180).trim();
+            facts.add("guest verdict: " + verdict);
+            expect(f, facts, "guest's own checks", verdict, "PASS");
+            expect(f, facts, "nobody joined the host", ctx.computeOnClient(mc -> mc.getSingleplayerServer().getPlayerList()
+                    .getPlayerCount()), 1);
+            return;
+        }
         String guest = CoopSync.await(ctx, k + "guest-in", 300).trim();
         expect(f, facts, "guest admitted with its ticket", paceUntil(ctx, () -> logSeen(mark, "[SimCoop] " + guest + " admitted with a ticket")
                 || guestsKey().equals(guest + ":true"), 20_000), true);
@@ -896,18 +900,26 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             setBox(ctx, "Password", PW);
             DesignerKit.click(ctx, "Join");
             facts.add("after Join: " + message(ctx));
+            if (!punch) {
+                String noWay = "Can't connect to " + room + ": " + "the host's router blocks direct connections; the host can enable UPnP or forward the co-op port shown on their Host page.";
+                expect(f, facts, "plain can't-connect text (no relay fallback)", paceUntil(ctx, () -> message(ctx).equals(noWay),
+                        30_000) ? noWay : message(ctx), noWay);
+                expect(f, facts, "punch tried first", logSeen(mark, "[SimCoop] hole punch failed"), true);
+                expect(f, facts, "join failed logged", logSeen(mark, "[SimCoop] join failed"), true);
+                expect(f, facts, "never connected", ctx.computeOnClient(mc -> mc.level == null && mc.getCurrentServer() == null), true);
+                expect(f, facts, "no join path logged", logSeen(mark, "[SimCoop] join path:"), false);
+                return;
+            }
             if (!inWorld(ctx)) {
                 f.add("did not join: " + message(ctx) + " / " + screenName(ctx));
                 return;
             }
             String server = ctx.computeOnClient(mc -> mc.getCurrentServer() == null ? null : mc.getCurrentServer().ip);
             facts.add("connected to " + server);
-            expect(f, facts, "connected through the local tunnel port", server != null && server.startsWith("127.0.0.1:"), true);
+            expect(f, facts, "connected through the local punched port", server != null && server.startsWith("127.0.0.1:"), true);
             expect(f, facts, "no direct address to try (logged nothing direct)", logSeen(mark, "direct address not reachable"), false);
-            expect(f, facts, "join path", logSeen(mark, "[SimCoop] join path: " + (punch ? "Punched" : "Relay")), true);
-            expect(f, facts, punch ? "punched through (no relay tunnel)" : "punch failed first, then the relay",
-                    punch ? logSeen(mark, "[SimPunch] guest punched through") && !logSeen(mark, "[SimTunnel]")
-                            : logSeen(mark, "[SimCoop] hole punch failed"), true);
+            expect(f, facts, "join path", logSeen(mark, "[SimCoop] join path: Punched"), true);
+            expect(f, facts, "punched through", logSeen(mark, "[SimPunch] guest punched through"), true);
             expect(f, facts, "isGuest", until(ctx, () -> Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(
                     R + "SimState", "isGuest", new Class<?>[]{Minecraft.class}, new Object[]{mc}))), 200), true);
             CoopSync.put(k + "guest-in", me);
