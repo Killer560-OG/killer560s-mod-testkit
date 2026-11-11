@@ -161,9 +161,12 @@ final class HxStormM51111Cases {
             c.ctx().waitTicks(3);
             st = c.onClient(mc -> {
                 mc.options.keyUse.setDown(true);
-                return SameTick.start(act, 3, HxStormM51111Cases::release, 1, 3);
+                // A slot change ends a draw (the server stops the use and tells the client), so his swaps are
+                // spaced past one 20-tick draw; every 3 ticks no draw would ever reach its release.
+                return SameTick.start(act, act == SameTick.Act.SWAP ? 30 : 3, HxStormM51111Cases::release, 1, 3);
             });
-            for (int i = 0; i < 12; i++) {
+            int rounds = act == SameTick.Act.SWAP ? 18 : 12;
+            for (int i = 0; i < rounds; i++) {
                 if (act == SameTick.Act.TP) {
                     c.server().command(tp);
                 }
@@ -178,7 +181,7 @@ final class HxStormM51111Cases {
             int releases = c.onClient(mc -> intOf(STORM, "releases")) - r0;
             int deferred = c.onClient(mc -> intOf(STORM, "deferred"));
             c.note("Storm Bow releases " + releases + ", deferred (total) " + deferred);
-            c.check(releases >= 2, "Storm Bow released " + releases + " times in 120 ticks (the feature barely acted)");
+            c.check(releases >= 2, "Storm Bow released " + releases + " times in " + rounds * 10 + " ticks (the feature barely acted)");
             SameTick.judge(c, cur, "storm bow", act == SameTick.Act.TP ? SameTick.Expect.ACTED : SameTick.Expect.ACTED);
             c.check(cur.playerAfterFeature() == 0, "his packet went after the release in one server tick ("
                     + cur.report() + ")");
