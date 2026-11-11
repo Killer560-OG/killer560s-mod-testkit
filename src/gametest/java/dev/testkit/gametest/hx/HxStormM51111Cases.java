@@ -55,6 +55,12 @@ final class HxStormM51111Cases {
         s.test("1111-same-autom5-attack", c -> m5(c, SameTick.Act.ATTACK));
     }
 
+    /** An entity attack on the wire: ServerboundAttackPacket on 26.3, an interact packet on 26.2. */
+    private static boolean attack(Packet<?> p) {
+        String n = p.getClass().getSimpleName();
+        return n.equals("ServerboundAttackPacket") || p instanceof ServerboundInteractPacket;
+    }
+
     private static boolean release(Packet<?> p) {
         return p instanceof ServerboundPlayerActionPacket a
                 && a.getAction() == ServerboundPlayerActionPacket.Action.RELEASE_USE_ITEM;
@@ -253,12 +259,12 @@ final class HxStormM51111Cases {
             int runs0 = c.onClient(mc -> intOf(M5, "runs"));
             int hits0 = c.onClient(mc -> intOf(M5, "hits"));
             int casts0 = c.onClient(mc -> intOf(M5, "casts"));
-            Predicate<Packet<?>> feature = p -> p instanceof ServerboundInteractPacket
+            Predicate<Packet<?>> feature = p -> attack(p)
                     || (p instanceof ServerboundSetCarriedItemPacket h && h.getSlot() == 3);
             c.onClient(mc -> {
                 PacketTrace.tap = p -> {
                     if (prev != null) prev.accept(p);
-                    if (p instanceof ServerboundInteractPacket) wire[0]++;
+                    if (attack(p)) wire[0]++;
                     if (p instanceof ServerboundUseItemPacket && mc.player.getInventory().getSelectedSlot() == 3) wire[1]++;
                     if (p instanceof ServerboundSetCarriedItemPacket h && h.getSlot() == 3) wire[2]++;
                 };
