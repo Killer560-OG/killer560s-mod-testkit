@@ -21,14 +21,12 @@ import java.util.Set;
 import static dev.testkit.gametest.InvWalkCampaignTests.*;
 
 /**
- * 1111-iw-lagback (invwalkmenu-1111): Inventory Walk's cheat "Lag Back Walk". In a server menu (containerId != 0) he walks
- * on his real keys with vanilla physics, but every player_input the server gets says no movement key (Hypixel closes a
- * SkyBlock menu 1-4 ticks after a movement key goes down; drift with no keys keeps it open), while his positions still go
- * out. GrimAC then predicts no movement and flags Simulation every tick: the owner's accepted exception (killer560
- * 2026-11-11), so Simulation lines are tallied, any OTHER check fails the row. Asserted on the wire (encoder level, after
- * the mod's rewrite): no movement key in any player_input while the menu is open, positions moving; a server pullback is
- * honored (the client lands where the server put him), counted by the mod, and he walks on with the keys still hidden;
- * and his own container click, hotbar swap and teleport accept in the same tick as a hidden input.
+ * 1111-iw-lagback (invwalkmenu-1111): Inventory Walk's cheat "Menu Walk". In a Hypixel menu that closes on movement
+ * (SkyBlock Menu here) no player_input and no sprint change goes while the menu is up, so the server keeps the input he
+ * walked in with; his own movement copies it, so GrimAC sees both sides agree and no flag at all is allowed. Asserted on
+ * the wire (encoder level): no movement key in any player_input, positions moving straight on although his keys alternate,
+ * one keyless input when he lets go; a server pullback is honored (the client lands where the server put him) and counted;
+ * and his own container click, hotbar swap and teleport accept in the same tick as a movement packet of the walk.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class InvWalkLagBackTests implements FabricClientGameTest {
@@ -45,31 +43,21 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
         Scenario.runExpectingFlags(ctx, nm, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = gateOff(ctx);
             Rows rows = new Rows(ctx, server, scenario);
-            rows.tolerate = "Simulation";
             try (Hx hx = Hx.connect()) {
                 iwOn(ctx, true, 0);
-                ctx.runOnClient(mc -> Mod.set(IW_CFG, "setLagBackWalk", true));
-                ctx.runOnClient(mc -> Mod.set(IW_CFG, "setPulseEvery", 4));
-                // Menu Walk's modes (invwalkpulse-1111): Lag Back and Hidden Pulse hide the keys (Simulation accepted),
-                // Pulse sends them honestly on one tick in four and coasts between, so it must draw no flag at all.
-                for (String mode : List.of("KEEP_INPUT", "LAG_BACK", "PULSE", "HIDDEN_PULSE")) {
-                    ctx.runOnClient(mc -> Mod.set(IW_CFG, "setMenuWalkMode", Mod.enumValue(IW_CFG + "$MenuWalkMode", mode)));
-                    rows.tolerate = mode.equals("PULSE") ? null : "Simulation";
-                    for (int lat : latencies()) {
-                        latency(ctx, lat);
-                        row(rows, ctx, server, hx, x, z, lat, null, mode);
-                        for (SameTick.Act st : mode.equals("HIDDEN_PULSE") ? List.<SameTick.Act>of()
-                                : List.of(SameTick.Act.SCREEN_CLICK, SameTick.Act.SWAP, SameTick.Act.TP)) {
-                            row(rows, ctx, server, hx, x, z, lat, st, mode);
-                        }
+                ctx.runOnClient(mc -> Mod.set(IW_CFG, "setMenuWalk", true));
+                // Menu Walk holds the server's input and copies it locally, so Grim sees both sides agree: no flag is allowed.
+                for (int lat : latencies()) {
+                    latency(ctx, lat);
+                    row(rows, ctx, server, hx, x, z, lat, null);
+                    for (SameTick.Act st : List.of(SameTick.Act.SCREEN_CLICK, SameTick.Act.SWAP, SameTick.Act.TP)) {
+                        row(rows, ctx, server, hx, x, z, lat, st);
                     }
                 }
             } finally {
-                ctx.runOnClient(mc -> Mod.set(IW_CFG, "setMenuWalkMode", Mod.enumValue(IW_CFG + "$MenuWalkMode", "KEEP_INPUT")));
-                ctx.runOnClient(mc -> Mod.set(IW_CFG, "setLagBackWalk", false));
+                ctx.runOnClient(mc -> Mod.set(IW_CFG, "setMenuWalk", false));
                 tearDown(ctx, gate);
             }
-            scenario.log("Simulation lines tallied (accepted for Lag Back Walk): " + rows.tolerated);
             rows.finish(nm);
         });
     }
@@ -84,19 +72,15 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
 
     /** {@code st} null: walk, a forced pullback, walk on. Otherwise his act in the same ticks as the hidden inputs. */
     private static void row(Rows rows, ClientGameTestContext ctx, TestServer server, Hx hx, int x, int z,
-            int lat, SameTick.Act st, String mode) {
-        String label = "L" + lat + " " + mode + (st == null ? ", pullback" : ", same tick " + st);
-        boolean hides = !mode.equals("PULSE");
+            int lat, SameTick.Act st) {
+        String label = "L" + lat + " menu walk" + (st == null ? ", pullback" : ", same tick " + st);
         String who = name(ctx);
         keys(ctx, Set.of());
         tp(server, ctx, x + 0.5, SURFACE_Y, z + 0.5, -90f);
         ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
-        boolean keep = mode.equals("KEEP_INPUT");
-        if (keep) {
-            // Keep Input: he walks into the menu, so the server holds forward when it opens and keeps it.
-            keys(ctx, Set.of("key.forward"));
-            ctx.waitTicks(3);
-        }
+        // He walks into the menu, so the server holds forward when it opens and keeps it.
+        keys(ctx, Set.of("key.forward"));
+        ctx.waitTicks(3);
         rows.begin();
         hx.menu("SkyBlock Menu", 4, Map.of(11, "minecraft:player_head", 13, "minecraft:diamond"), null);
         if (!InvWalkTermTests.openMenu(ctx)) {
@@ -118,9 +102,10 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
         SameTick[] same = {null};
         if (st != null) {
             same[0] = ctx.computeOnClient(mc -> SameTick.start(st, st == SameTick.Act.SWAP ? 2 : 5,
-                    pk -> keep ? pk instanceof ServerboundMovePlayerPacket : pk instanceof ServerboundPlayerInputPacket, 1, 2));
+                    pk -> pk instanceof ServerboundMovePlayerPacket, 1, 2));
         }
         boolean up = true;
+        double z0 = ctx.computeOnClient(mc -> mc.player.getZ());
         double path = 0;
         Vec3 prev = ctx.computeOnClient(mc -> mc.player.position());
         double before = 0;
@@ -158,6 +143,7 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> s.close());
         }
         boolean masking = ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(IW, "isMasking"));
+        double zDrift = Math.abs(ctx.computeOnClient(mc -> mc.player.getZ()) - z0);
         ctx.waitTicks(3);
         WireCapture.stop();
         WireCapture.describe = null;
@@ -191,20 +177,18 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
                     // rewritten input; what counts is that every click reached the server and none while it had him moving.
                     ? (s.done() == 0 ? "his click never went in" : clicks.size() < s.done() ? s.done() + " click(s) put in, "
                     + clicks.size() + " handled by the server" : null)
-                    : s.verdict("lag back walk + " + st);
+                    : s.verdict("menu walk + " + st);
         }
-        // GrimAC sets him back on every Simulation flag, so on a fast connection he gains almost nothing (L0: 0.1 a tick and
-        // back); what must hold is that he keeps walking: a new position every tick, keys hidden in every input, menu up.
-        // Pulse: honest keys on one tick in four (about 20 of 80 ticks, two inputs each: down and up), coasting between, and
-        // nothing to set him back, so he really gets somewhere.
-        // Keep Input: no player_input at all while the menu is up (a click's still tick excepted), every one swallowed.
-        boolean walked = distinct >= 20 && up && unmasked && masking == hides && (keep
-                ? hiddenN >= 5 && inputs <= (st == SameTick.Act.SCREEN_CLICK ? 12 : 0)
-                : inputs >= 8 && (hides ? hiddenN >= 5 && moving == 0 : hiddenN == 0 && moving >= 10 && moving <= 30 && path >= 2.0));
+        // He walked into the menu holding forward: the server keeps that input and he walks straight on it although his keys
+        // alternate forward / forward+left (his local keys copy the server's: no z drift), no player_input goes while he
+        // walks, and letting go sends exactly one, keyless. A click's still tick sends a keyless input and stops him there.
+        boolean click = st == SameTick.Act.SCREEN_CLICK;
+        boolean walked = up && unmasked && masking && moving == 0 && zDrift < 0.3
+                && (click ? inputs >= 1 : distinct >= 20 && inputs == 1 && path >= 2.0);
         // The forced pullback: the client lands where the server put him (2 back) and the mod counted it; "walked" holds after.
         boolean pulled = st != null || (pulls >= 1 && landed != 0 && landed < before - 1);
         boolean ok = walked && pulled && sameVerdict == null && clicksMoving == 0;
-        String detail = String.format(Locale.ROOT, "path %.2f with the menu up all along %s, wire: %d player_input (%d with a "
+        String detail = String.format(Locale.ROOT, "z drift %.2f, ", zDrift) + String.format(Locale.ROOT, "path %.2f with the menu up all along %s, wire: %d player_input (%d with a "
                         + "movement key), %d positions (%d changes), mod hid %d, masking %s then off %s, pullbacks %d%s, clicks "
                         + "handled %d (%d while the server had him moving)%s", path, up, inputs, moving, pos, distinct, hiddenN,
                 masking, unmasked, pulls, st != null ? "" : String.format(Locale.ROOT, " (x %.2f -> %.2f at t%d, walked on %.2f)",
