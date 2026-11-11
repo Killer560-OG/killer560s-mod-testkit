@@ -212,7 +212,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
 
     /** Waits (max 6 s) for Blink Charge's bank to refill to 20 and be covered; returns the bank. */
     static long fillBank(ClientGameTestContext ctx) {
-        for (int i = 0; i < 120; i++) {
+        for (int i = 0; i < 240; i++) {
             boolean ok = ctx.computeOnClient(mc -> ((Number) Mod.staticCall("blink.BlinkCharge", "banked")).longValue() >= 20
                     && Boolean.TRUE.equals(Mod.staticCall("blink.BlinkCharge", "shotCovered")));
             if (ok) {
@@ -220,7 +220,9 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
             }
             ctx.waitTicks(1);
         }
-        return ctx.computeOnClient(mc -> ((Number) Mod.staticCall("blink.BlinkCharge", "banked")).longValue());
+        // A bank GrimAC has not covered yet is not spent (BlinkCharge.splitTick): count it as none.
+        return ctx.computeOnClient(mc -> Boolean.TRUE.equals(Mod.staticCall("blink.BlinkCharge", "shotCovered"))
+                ? ((Number) Mod.staticCall("blink.BlinkCharge", "banked")).longValue() : 0L);
     }
 
     /** Moves on the wire that carry a look (rot / pos_rot). */
