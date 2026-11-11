@@ -768,8 +768,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             ctx.getInput().releaseKey(o -> o.keySprint);
                             ctx.waitTicks(20);
                             long shots = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "shots")).longValue()) - shots0;
-                            // The gap cases judge his own lane (z = cz): Breaker Aura may leave the far side column, which he never touches.
-                            server.command("execute if blocks " + (gap ? path : fill) + " " + air + " all run say WALL_GONE");
+                            // Judge his own lane (z = cz): Breaker Aura may leave the side columns, which he never touches (the no-Blink walk does too).
+                            server.command("execute if blocks " + path + " " + air + " all run say WALL_GONE");
                             ctx.waitTicks(5);
                             boolean wallGone = server.tail(40).contains("WALL_GONE");
                             double clientX = ctx.computeOnClient(mc -> mc.player.getX());
