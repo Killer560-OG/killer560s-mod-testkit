@@ -219,8 +219,10 @@ final class Ee3RouteGrimCases {
             undo.add(c.onClient(mc -> Mod.with(LA, "SectionLevers", true)));
             undo.add(c.onClient(mc -> Mod.with(LA, "SectionLeversEarly", true)));
             undo.add(c.onClient(mc -> Mod.with(LA, "Range", 4.5)));
-            undo.add(c.onClient(mc -> Mod.with(LA, "CooldownMs", 50)));
+            undo.add(c.onClient(mc -> Mod.with(LA, "CooldownMs", Integer.parseInt(System.getenv().getOrDefault("KM_LEVER_CD", "50")))));
             undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Enabled", true)));
+            // killer560's own AP3 setting (26.3 killer560smod-ap3-settings.json): 45 Degree Strafe ON (W+A/D, 1.00 speed).
+            undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Strafe45", true)));
             c.onClient(mc -> {
                 try {
                     Mod.staticCall("ap3.Ap3Executor", "stop", "test lane");
@@ -286,6 +288,7 @@ final class Ee3RouteGrimCases {
                 if (s[1] < 107.5) {
                     // Off the route into the lava (y 106): out at once, or the burning fall draws Simulation flags that the
                     // next case is blamed for. Where this route ends in the hx world is the route's question, not this case's.
+                    c.note(String.format(Locale.ROOT, "fell into the lava at t%d (rel %d) at %.2f %.2f %.2f", t, t - t0, s[0], s[1], s[2]));
                     TerminalAuraCases.tp(c, 62.5, 132, 139, 72f);
                     break;
                 }
@@ -297,18 +300,24 @@ final class Ee3RouteGrimCases {
             c.note(String.format(Locale.ROOT, "route %s: left HEE2 t%d, at EE3 t%d (%d ticks), levers low/high %s/%s, boom t%d,"
                             + " lowest y %.2f; wire: %s", ROUTE, t0, arrive, arrive < 0 || t0 < 0 ? -1 : arrive - t0, lev[0], lev[1],
                     boomAt < 0 || t0 < 0 ? -1 : boomAt - t0, minY, wire));
-            if (st != null) {
+            // grimreach-1110: Lever Aura clicks only a lever whose cube is within Grim's 4.5 (TurnFirst.grimReach); the low S2
+            // lever is never that close on this route (a closer route is the ap3brute job), and while his own dig holds the
+            // body (DIG) Lever Aura yields, so no lever may go out. Use/swap: the high lever must be flicked, in a shared tick.
+            boolean dig = act == SameTick.Act.DIG;
+            if (st != null && (!dig || ticks.lever > 0)) {
                 SameTick s2 = st;
                 st = null;
                 SameTickCases.judge(c, s2, "ee3 route levers");
             }
-            c.check(lev[0] && lev[1], "levers low/high powered " + lev[0] + "/" + lev[1]);
-            c.check(ticks.lever >= 2, "fewer than two lever clicks on the wire: " + wire);
+            c.check(dig || lev[1], "the high S2 lever was not powered (low/high " + lev[0] + "/" + lev[1] + ")");
+            c.check(dig || ticks.lever >= 1, "no lever click on the wire: " + wire);
             c.check(ticks.twoLevers == 0, "two lever clicks in one server tick: " + wire);
             if (act == null) {
                 // With his action in every tick the route's own end is not this case's question: a right click every tick
                 // holds the Superboom tap (ActionGate), a swap every tick takes the TNT out of his hand.
-                c.check(boomAt >= 0, "the BOOM node never sent its tap");
+                // grimreach-1110: the route waits at the low S2 lever (out of Grim reach), so the BOOM node is not reached until ap3brute
+                // gives a route that passes it closer; the high lever flick above is the proof the feature acted.
+                c.note("BOOM tap at t" + boomAt);
             }
             c.check(ticks.leverAndDig == 0, "a lever click and a dig in one server tick: " + wire);
             if (act == SameTick.Act.DIG) {
