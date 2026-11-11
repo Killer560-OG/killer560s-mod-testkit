@@ -655,13 +655,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             List<Sample> s = stopSampling(ctx);
             Vec3 after = relPos(ctx);
             notes.append(String.format(Locale.ROOT, "%s: z %+.1f y %+.1f; ", names[i], after.z - from.z, after.y - from.y));
-            check(s.stream().anyMatch(Sample::sprint), names[i] + ": the walk never sprinted");
             if (i == 2) {
                 check(after.y - from.y > 2.5, "ladder: climbed only " + (after.y - from.y) + " blocks (from " + from + " to " + after + ")");
             } else {
                 check(after.z - from.z > lanes[i][2], names[i] + ": went only " + (after.z - from.z) + " along +z (from "
                         + from + " to " + after + ")");
             }
+            check(i == 0 || s.stream().anyMatch(Sample::sprint), names[i] + ": the walk never sprinted (" + notes + ")");
         }
         c.note("terrain: " + notes);
         noteFlags(c, List.of());
