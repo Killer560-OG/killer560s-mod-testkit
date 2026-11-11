@@ -175,7 +175,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             session = s;
             s.test("62-argrim-ew-add", GrimAutoRoutesTests::caseEwAdd);
             s.test("62-argrim-walk", GrimAutoRoutesTests::caseWalk);
-            s.test("62-argrim-1110-terrain", GrimAutoRoutesTests::caseTerrain);
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1110-terrain", GrimAutoRoutesTests::caseTerrain);
             // mod doc-routes-1101 (to-do Doc "AUTO ROUTES TRAP RELATED NODES"): in a trap room a walk node turns the body
             // onto its yaw before it walks, like AP3; any node takes a w<n> l<n> box there and only there.
             s.test("62-argrim-1101-trapwalk", c -> caseTrapWalk(c, true));
@@ -216,22 +216,22 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1015-clickwarp", GrimAutoRoutesTests::caseClickWarp); // ar-nexttick-1015
             s.test("62-argrim-1017-breakerwarp", GrimAutoRoutesTests::caseBreakerWarpPaired); // ar-bridges-bat-1017
             s.test("62-argrim-pingpong", GrimAutoRoutesTests::casePingPong);
-            s.test("62-argrim-chain", GrimAutoRoutesTests::caseChain);
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-chain", GrimAutoRoutesTests::caseChain);
             // grimsame-1105: his hotbar scroll / left click in the same server tick as the chain's warps.
-            s.test("62-argrim-1105-same-chain-swap", c -> caseChainSame(c, dev.testkit.gametest.SameTick.Act.SWAP));
-            s.test("62-argrim-1105-same-chain-dig", c -> caseChainSame(c, dev.testkit.gametest.SameTick.Act.DIG));
-            s.test("62-argrim-1025-zpchain", GrimAutoRoutesTests::caseZeroPingChain); // mod blink-1025
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1105-same-chain-swap", c -> caseChainSame(c, dev.testkit.gametest.SameTick.Act.SWAP));
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1105-same-chain-dig", c -> caseChainSame(c, dev.testkit.gametest.SameTick.Act.DIG));
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1025-zpchain", GrimAutoRoutesTests::caseZeroPingChain); // mod blink-1025
             // mod blink-charge-1025. Expecting flags since mod blink-keep-1027 (owner, 2026-10-27): the 12 ticks the chain
             // does not spend stay banked through its 11 server teleports, and each kept teleport costs the GrimAC lines
             // docs/LESSONS-AUTOMATION.md lists. The case still fails on any other check, and waits for the leak.
-            s.testExpectingFlags("62-argrim-1025-chargechain", GrimAutoRoutesTests::caseChargedChain);
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.testExpectingFlags("62-argrim-1025-chargechain", GrimAutoRoutesTests::caseChargedChain);
             // mod mapchain-1110 (killer560 2026-11-10: "it waits a really long time sometimes to release all of them"): the
             // Interactive Map's path with Blink charging - Charged Chain sends it in one tick from the bank, and with or
             // without it no landing's confirm waits a second behind Charge's answers; then his own actions in its ticks.
-            s.test("62-argrim-1110-mapchain-charged", c -> caseMapChain(c, true, null));
-            s.test("62-argrim-1110-mapchain-nobank", c -> caseMapChain(c, false, null));
-            s.test("62-argrim-1110-archain-nohold", GrimAutoRoutesTests::caseRouteChainNoHold);
-            for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1110-mapchain-charged", c -> caseMapChain(c, true, null));
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1110-mapchain-nobank", c -> caseMapChain(c, false, null));
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1110-archain-nohold", GrimAutoRoutesTests::caseRouteChainNoHold);
+            if (dev.testkit.gametest.mod.Mod.isCheat()) for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
                     dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK)) {
                 // No ATTACK: the burst leaves the whole path in one real tick, so his crosshair is off the stand by the next.
                 s.test("62-argrim-1110-mapchain-same-" + a.name().toLowerCase(Locale.ROOT), c -> caseMapChain(c, true, a));
@@ -268,7 +268,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // The Interactive Map's own executor (livemap/autoclear/ClearExecutor), last: a map warp or a Go To sets the
             // map-arrival interlock (only a START node arms afterwards) and Go To leaves edit mode on.
             // Auto Secret (mod auto-secret): drives the same map warp and route; before imwarp, after the AR cases.
-            s.test("62-argrim-autosecret", c -> caseAutoSecret(c, false));
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-autosecret", c -> caseAutoSecret(c, false));
             // Dungeon Autopilot (mod dungeon-autopilot): the same room through the planner - Solo, nothing but the route.
             s.test("62-argrim-autopilot", c -> caseAutoSecret(c, true));
             // grim-post-autopilot-1016: started by his key (END_CLIENT_TICK) with a non-AOTV slot held and the first trip
@@ -281,14 +281,14 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1017-autosecret-bloodfirst", GrimAutoRoutesTests::caseAutoSecretBloodFirst);
             // acplan-1020: Auto Secret's Fastest Total - the route, then the room's clear in the same visit.
             s.test("62-argrim-1020-clearhere", GrimAutoRoutesTests::caseClearHere);
-            s.test("62-argrim-imwarp", c -> caseMapWarp(c, false));
-            s.test("62-argrim-imwarp-run", c -> caseMapWarp(c, true));
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-imwarp", c -> caseMapWarp(c, false));
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-imwarp-run", c -> caseMapWarp(c, true));
             s.test("62-argrim-goto", GrimAutoRoutesTests::caseGoTo);
             // imap-zpew-1026 (killer560, 2026-10-27): Zero Ping Etherwarp's Works For list - each sender's hops predicted
             // with its switch on, none with it off, the others unaffected, nothing with ZPEW off.
-            s.test("62-argrim-1027-zpew-map", GrimAutoRoutesTests::caseZpewMap);
-            s.test("62-argrim-1027-zpew-routes", GrimAutoRoutesTests::caseZpewRoutes);
-            s.test("62-argrim-1027-zpew-secret", GrimAutoRoutesTests::caseZpewSecret);
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1027-zpew-map", GrimAutoRoutesTests::caseZpewMap);
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1027-zpew-routes", GrimAutoRoutesTests::caseZpewRoutes);
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1027-zpew-secret", GrimAutoRoutesTests::caseZpewSecret);
             // midas-1020: pastes King Midas over the session's room, so it goes last.
             s.test("62-argrim-1020-midas", GrimAutoRoutesTests::caseMidas);
             teardown(ctx);
