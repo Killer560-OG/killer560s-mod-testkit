@@ -53,9 +53,12 @@ echo "coop run: $scen, MC $mc, jar $jar, LAN port $port, guest $gname in $guest,
 rwin=""
 if [ $relay -eq 1 ]; then
   rdir=${RELAY_DIR:-/c/Users/Hunter/relay-coopsim}
-  rport=8811
+  # RELAY_PORT per parallel run: a relay still starting is not LISTENING yet, so two runs 40 s apart both took 8811 and
+  # shared one relay (coopnet-1110 gate); the health probe also skips a port another run's relay already answers on.
+  rport=${RELAY_PORT:-8811}
   for i in $(seq 0 40); do
-    if ! netstat -ano | grep -q "[:.]$((rport + i)) .*LISTENING"; then rport=$((rport + i)); break; fi
+    p=$((rport + i))
+    if ! netstat -ano | grep -q "[:.]$p .*LISTENING" && ! curl -fs -m 2 "http://127.0.0.1:$p/health" > /dev/null 2>&1; then rport=$p; break; fi
   done
   ( cd "$rdir" && exec node node_modules/wrangler/bin/wrangler.js dev --port $rport --inspector-port $((rport + 1000)) --local       --persist-to "$(cygpath -m "$dir/relay-state")" --var TOKEN_SECRET:simreach-e2e-secret-not-real --var MOJANG_STUB:1 )       < /dev/null > "$dir/relay.log" 2>&1 &
   rpid=$!
@@ -91,7 +94,7 @@ wait $gp; ge=$?
 
 for side in host guest; do
   echo "== $side (exit $([ $side = host ] && echo $he || echo $ge))"
-  grep -aE "^\[(coop|1109-(coop|mp)[^]]*)\] |\] (PASS|FAIL)$" "$dir/$side.log" | grep -av "wrote" | cut -c1-300 | tail -25
+  grep -aE "^\[(coop|11[0-9][0-9]-(coop|mp)[^]]*)\] |\] (PASS|FAIL)$" "$dir/$side.log" | grep -av "wrote" | cut -c1-300 | tail -25
 done
 for c in "$here" "$guest"; do
   sm="$c/build/testkit-report/summary.md"
