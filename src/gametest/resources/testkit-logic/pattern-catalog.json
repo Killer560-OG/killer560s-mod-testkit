@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-11T00:54:20",
+ "generatedAt": "2026-11-11T01:12:52",
  "modSource": "carnival",
- "modGitSha": "f1ecfdda07577d705bef768ab793f51d7c889dd7",
+ "modGitSha": "df9bddac0f6a4f66c8941e506fe10fa474eb5c41",
  "modSourceDirty": false,
  "count": 949,
  "byKind": {
@@ -5671,7 +5671,7 @@
    "field": "ROMAN",
    "index": null,
    "file": "src/main/java/com/killer560/hub/miningqol/PigeonDrillSwap.java",
-   "line": 43,
+   "line": 44,
    "regex": "\\bCompact ([IVXLC]{1,6})\\b",
    "flags": null,
    "kind": "field",
@@ -5683,7 +5683,7 @@
    "field": "NUMBER",
    "index": null,
    "file": "src/main/java/com/killer560/hub/miningqol/PigeonDrillSwap.java",
-   "line": 44,
+   "line": 45,
    "regex": "([0-9][0-9,.]{0,9})",
    "flags": null,
    "kind": "field",
