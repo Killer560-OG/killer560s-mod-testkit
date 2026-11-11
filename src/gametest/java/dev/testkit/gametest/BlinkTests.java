@@ -1467,7 +1467,15 @@ public class BlinkTests implements FabricClientGameTest {
             boolean gate = setUp(ctx, 20);
             SameTick[] st = {null};
             String who = playerName(ctx);
+            // KM_HX_LAG_MS (flaghunt-1110): these cases are not hx-session cases, so the session's latency never reached
+            // them; fhA2-1111 found the earlier "150 ms" runs of them were unlagged (their ping gaps were PC load).
+            int lag = dev.testkit.gametest.hx.Session.LAG_MS;
             try {
+                if (lag > 0) {
+                    ctx.runOnClient(mc -> Latency.install(lag));
+                    ctx.waitTicks(20);
+                    scenario.log(name + ": +" + lag + " ms latency each way installed");
+                }
                 if (oneTick) {
                     check(budgetHook(ctx, Boolean.FALSE), "the jar has no BlinkCharge.tickBudgetForTest (before blinkone-1105)");
                     server.command("gamerule player_movement_check false");
@@ -1677,6 +1685,9 @@ public class BlinkTests implements FabricClientGameTest {
                     server.command("effect clear " + who);
                 }
                 server.command("kill @e[tag=blinkst]");
+                if (lag > 0) {
+                    ctx.runOnClient(mc -> Latency.remove());
+                }
                 if (act == SameTick.Act.CLICK) {
                     ctx.runOnClient(mc -> {
                         Mod.setField("invwalk.InventoryWalkFeature", "heldForTest", null);
