@@ -1127,6 +1127,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
         });
     }
 
+    private static boolean autoSwapNext;
+
     /** Turn the module on exactly the way his own menu does, and nothing else. */
     private void configure(ClientGameTestContext ctx, Scenario scenario, boolean multiBreak,
                            List<BlockPos> picks) {
@@ -1140,7 +1142,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
             boolean legacySide = setIfPresent(cfg, "setBreakerAuraSideReach", double.class, 0.0);
             scenario.log("jar has Only Picked Blocks: " + legacyPicked + ", Side Reach: " + legacySide
                     + (legacyPicked || legacySide ? " (older jar, forced to picked-only)" : " (picked-only build)"));
-            ModUnderTest.set(cfg, "setBreakerAuraAutoSwap", false);
+            ModUnderTest.set(cfg, "setBreakerAuraAutoSwap", autoSwapNext); // before the aura's first tick, or it digs with the stick in hand
             ModUnderTest.setIfPresent(cfg, "setBreakerAuraMultiBreak", multiBreak);
             // Burst Multi Break (owner exception, flags newest Grim) stays OFF in every case but 1102-breaker-aura-burst.
             ModUnderTest.setIfPresent(cfg, "setBreakerAuraBurstMultiBreak", false);
@@ -1798,7 +1800,9 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                     new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player)));
                         }
                         // configure turns Burst off, so with Burst the picks go in after it (as burstRun does).
+                        autoSwapNext = asw;
                         configure(ctx, scenario, true, burst ? List.of() : picks);
+                        autoSwapNext = false;
                         if (asw) {
                             ctx.runOnClient(mc -> {
                                 ModUnderTest.set(ModUnderTest.config(CONFIG), "setBreakerAuraAutoSwap", true);
