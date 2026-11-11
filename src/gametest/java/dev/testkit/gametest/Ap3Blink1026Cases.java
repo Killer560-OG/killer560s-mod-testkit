@@ -455,6 +455,13 @@ final class Ap3Blink1026Cases {
             long shots = samples.get(samples.size() - 1).shots() - shots0;
             c.note("shots: " + shots + " at sample(s) " + shotIdx);
             c.check(shots == releases.length, "expected " + releases.length + " shot(s), saw " + shots);
+            // ap3grp2-1110: under server lag Charge sends its held answers early and the bank is no longer covered; AP3
+            // then holds him on the node until it is, so the shot fires from a standstill (k2, 26.3: "no server ping for
+            // 172 ms"). That release cannot show a running step; it must still run exactly the asked ticks.
+            boolean heldForCover = !logSince(mark, "holds on the node until it is").isEmpty();
+            if (heldForCover) {
+                c.note("server lag: AP3 held him on the node until the kept bank was covered - step checks skipped");
+            }
             int bankLeft = chargeTarget;
             for (int r = 0; r < releases.length && r < shotIdx.size(); r++) {
                 int i = shotIdx.get(r);
@@ -474,9 +481,9 @@ final class Ap3Blink1026Cases {
                 c.check(ran == want, "release " + (r + 1) + " ran " + ran + " tick(s), expected " + want);
                 c.check(b.banked() == bankLeft && s.banked() == bankLeft - want, "release " + (r + 1) + ": bank " + b.banked()
                         + " -> " + s.banked() + ", expected " + bankLeft + " -> " + (bankLeft - want));
-                c.check(step > 0.15, String.format(Locale.ROOT, "he was not running when release %d fired (step %.4f)", r + 1,
-                        step));
-                c.check(Math.abs(moved - expect) <= 0.03 * expect, String.format(Locale.ROOT, "release %d moved %.4f in its tick, "
+                c.check(heldForCover || step > 0.15, String.format(Locale.ROOT, "he was not running when release %d fired "
+                        + "(step %.4f)", r + 1, step));
+                c.check(heldForCover || Math.abs(moved - expect) <= 0.03 * expect, String.format(Locale.ROOT, "release %d moved %.4f in its tick, "
                         + "expected %.4f (%d ticks of %.4f)", r + 1, moved, expect, want + 1, step));
                 bankLeft -= want;
             }
