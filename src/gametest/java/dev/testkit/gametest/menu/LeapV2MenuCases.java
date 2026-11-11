@@ -311,8 +311,15 @@ final class LeapV2MenuCases {
                 c.ctx().waitTicks(5);
             }
             c.note("menu never opens: busy " + busy[0] + " ticks at 0.5 s, " + busy[1] + " ticks at 2.5 s (old fixed wait: 40)");
-            c.check(busy[0] >= 8 && busy[0] <= 16, "0.5 s timeout held the leap " + busy[0] + " ticks, want about 10");
-            c.check(busy[1] >= 48 && busy[1] <= 58, "2.5 s timeout held the leap " + busy[1] + " ticks, want about 50");
+            // since a7e3cb0ab a menu that never opens is given up after the server's normal reply time
+            // (LeapManager.menuWaitCapTicks: 2 pings + 6 ticks, at least 8), never more than the Leap Timeout
+            c.ctx().runOnClient(mc -> Mod.call(cfgObj, "setTimeoutMs", 500));
+            int cap0 = c.onClient(mc -> (Integer) Mod.staticCall(LM, "menuWaitCapTicks"));
+            c.ctx().runOnClient(mc -> Mod.call(cfgObj, "setTimeoutMs", 2500));
+            int cap1 = c.onClient(mc -> (Integer) Mod.staticCall(LM, "menuWaitCapTicks"));
+            c.note("menu wait caps: " + cap0 + " ticks at 0.5 s, " + cap1 + " at 2.5 s");
+            c.check(busy[0] >= cap0 && busy[0] <= cap0 + 8, "0.5 s timeout held the leap " + busy[0] + " ticks, cap " + cap0);
+            c.check(busy[1] >= cap1 && busy[1] <= cap1 + 8, "2.5 s timeout held the leap " + busy[1] + " ticks, cap " + cap1);
         } finally {
             c.ctx().runOnClient(mc -> Mod.call(cfgObj, "setTimeoutMs", 2000));
             restore(c, file, was);
