@@ -565,4 +565,78 @@ final class BarsEditPanelCases {
         }
         return n;
     }
+    /**
+     * 1110-ui-skillxp-text (mod hideskillxp-1110): Skill XP Text takes only Hypixel's "+0.6 Mining (15.05%)" segment
+     * (each form) off the shown action bar, with health, defense and drill fuel mixed in; OFF leaves every line as sent;
+     * the row exists in Edit Bars and the switch is on disk (default OFF).
+     */
+    static void skillXpText(UiCase c) throws Exception {
+        Map<Path, byte[]> saved = HudFixCases.snapshot(c, PS, HUD);
+        int[] window = HudEditorCases.windowSize(c);
+        int gui = c.onClient(mc -> mc.options.guiScale().get());
+        boolean gate = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+        String stats = "§c1,000/1,000❤     §a100§a❈ Defense     §21,650/3k Drill Fuel";
+        String[] xp = {"§3+0.6 Mining (15.05%)", "§3+12.5 Combat (1,234/50,000)", "§3+12.5 Combat XP (3.2%)"};
+        try {
+            HudEditorCases.setWindow(c, 854, 480, 2);
+            setup(c);
+            c.check(!c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(PS), "isHideSkillXpText")), "Skill XP Text is not OFF by default");
+            c.onClient(mc -> {
+                Mod.staticCall("util.SkyblockGate", "setEnabled", false);
+                Object ps = Mod.cfg(PS);
+                Mod.call(ps, "setHideHypixelStatText", false);
+                Mod.call(ps, "setHideDrillFuelText", false);
+                Mod.call(ps, "setHideSkillXpText", false);
+                Mod.call(ps, "save");
+                return null;
+            });
+            for (String x : xp) {
+                String line = stats + "     " + x;
+                HudEditorCases.actionBar(c, line);
+                c.ticks(5);
+                String off = overlay(c);
+                c.check(off.contains("Combat") || off.contains("Mining"), "OFF: the XP segment is missing from " + off);
+                c.check(off.contains("Drill Fuel") && off.contains("1,000/1,000"), "OFF: the line changed: " + off);
+            }
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(PS), "setHideSkillXpText", true);
+                Mod.call(Mod.cfg(PS), "save");
+                return null;
+            });
+            for (String x : xp) {
+                for (String line : new String[]{stats + "     " + x, x + "     " + stats}) {
+                    HudEditorCases.actionBar(c, line);
+                    c.ticks(5);
+                    String on = overlay(c);
+                    c.note("on: " + on);
+                    c.check(!on.contains("Mining") && !on.contains("Combat") && !on.contains("%") && !on.contains("50,000"),
+                            "ON: the XP segment stayed: " + on);
+                    c.check(on.contains("1,000/1,000") && on.contains("Defense") && on.contains("1,650/3k Drill Fuel"),
+                            "ON: another segment went too: " + on);
+                }
+            }
+            c.check(c.onClient(mc -> diskJson()).contains("\"hideSkillXpText\":true"), "Skill XP Text not saved");
+            Screen ed = c.onClient(mc -> {
+                try {
+                    Screen s = (Screen) R.cls("hud.HudEditorScreen").getMethod("forBars", Screen.class)
+                            .invoke(null, (Object) null);
+                    McCompat.setScreen(mc, s);
+                    return s;
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+            });
+            c.ticks(3);
+            c.check(c.onClient(mc -> seek(ed, "Skill XP Text") != null), "the Edit Bars panel has no 'Skill XP Text' row");
+        } finally {
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                Mod.staticCall("util.SkyblockGate", "setEnabled", gate);
+                return null;
+            });
+            HudEditorCases.setWindow(c, window[0], window[1], gui);
+            HudFixCases.restore(c, saved);
+        }
+    }
+
 }
