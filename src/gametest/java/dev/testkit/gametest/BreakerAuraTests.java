@@ -178,6 +178,10 @@ public class BreakerAuraTests implements FabricClientGameTest {
                 } else {
                     blinkBreakerHypixel(ctx, "1027-blink-breaker-stand", false, true);
                 }
+                // A one-wide trench right before the wall (blinkbreaker-1110, his boss sim AP3 #38: the paused shot's live
+                // ticks walked him off the ledge into the lava). Walk is the no-Blink control: he must land the same.
+                blinkBreakerHypixel(ctx, "1110-blink-breaker-gap-" + (v == 0 ? "walk" : v == 1 ? "leap" : "stand"), v == 1,
+                        v != 0, true);
             } catch (AssertionError e) {
                 firstBreaker = firstBreaker == null ? e : firstBreaker;
             }
@@ -657,11 +661,15 @@ public class BreakerAuraTests implements FabricClientGameTest {
      * say nothing.
      */
     private void blinkBreakerHypixel(ClientGameTestContext ctx, String name, boolean leap, boolean blink) {
+        blinkBreakerHypixel(ctx, name, leap, blink, false);
+    }
+
+    private void blinkBreakerHypixel(ClientGameTestContext ctx, String name, boolean leap, boolean blink, boolean gap) {
         if (Scenario.skip(name)) {
             return;
         }
         ModUnderTest.require(MOD_ID);
-        int cx = !blink ? -6520 : leap ? -6400 : -6460;
+        int cx = (!blink ? -6520 : leap ? -6400 : -6460) + (gap ? 320 : 0);
         int cz = -1300;
         int fy = SURFACE_Y - 1;
         java.util.List<BlockPos> wall = new java.util.ArrayList<>();
@@ -674,6 +682,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
         }
         String fill = (cx + 6) + " " + SURFACE_Y + " " + (cz - 1) + " " + (cx + 8) + " " + (SURFACE_Y + 1) + " " + (cz + 1);
         String air = (cx + 6) + " " + (SURFACE_Y + 40) + " " + (cz - 1);
+        String path = (cx + 6) + " " + SURFACE_Y + " " + cz + " " + (cx + 8) + " " + (SURFACE_Y + 1) + " " + cz;
         Scenario.run(ctx, name,
                 (server, scenario) -> TestMap.on(server)
                         .platform(cx + 4, fy, cz, 26)
@@ -682,6 +691,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         .clearInventory()
                         .command("item replace entity @p hotbar.0 with minecraft:diamond_pickaxe[minecraft:custom_data={id:\"DUNGEONBREAKER\"}] 1")
                         .command("fill " + fill + " minecraft:stone_bricks")
+                        .command(gap ? "fill " + (cx + 5) + " " + (fy - 8) + " " + (cz - 3) + " " + (cx + 5) + " " + fy + " "
+                                + (cz + 3) + " minecraft:air" : "say no trench")
                         .spawn(cx + 0.5, cz + 0.5, -90f)
                         .build(),
                 (server, scenario) -> {
@@ -737,6 +748,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             }
                             boolean wallBefore = !isAir(ctx, wall.get(0)) && !isAir(ctx, wall.get(wall.size() - 1));
                             long shots0 = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "shots")).longValue());
+                            long pauses0 = gapCount(ctx, "shotPauses");
+                            long held0 = gapCount(ctx, "pauseHeldTicks");
                             ctx.getInput().holdKey(o -> o.keySprint);
                             ctx.getInput().holdKey(o -> o.keyUp);
                             if (blink) {
@@ -745,11 +758,18 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             ctx.waitTicks(2);
                             ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
                             ctx.waitTicks(40);
+                            // A paused shot waits ~1 s for the server per wall and holds him still meanwhile: let it finish (at
+                            // most 4 s more), then he walks on 20 live ticks, as the 40 ticks above did before the pause froze him.
+                            for (int i = 0; blink && i < 80 && ctx.computeOnClient(mc -> (Boolean) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "shotPending")); i++) {
+                                ctx.waitTicks(1);
+                            }
+                            ctx.waitTicks(blink ? 20 : 0);
                             ctx.getInput().releaseKey(o -> o.keyUp);
                             ctx.getInput().releaseKey(o -> o.keySprint);
                             ctx.waitTicks(20);
                             long shots = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "shots")).longValue()) - shots0;
-                            server.command("execute if blocks " + fill + " " + air + " all run say WALL_GONE");
+                            // Judge his own lane (z = cz): Breaker Aura may leave the side columns, which he never touches (the no-Blink walk does too).
+                            server.command("execute if blocks " + path + " " + air + " all run say WALL_GONE");
                             ctx.waitTicks(5);
                             boolean wallGone = server.tail(40).contains("WALL_GONE");
                             double clientX = ctx.computeOnClient(mc -> mc.player.getX());
@@ -759,6 +779,17 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             if (bank < 20 || !wallBefore) {
                                 throw new AssertionError("nothing was tested on rep " + r + ": bank " + bank + ", wall before "
                                         + wallBefore);
+                            }
+                            if (gap) {
+                                double clientY = ctx.computeOnClient(mc -> mc.player.getY());
+                                long pauses = gapCount(ctx, "shotPauses") - pauses0;
+                                long held = gapCount(ctx, "pauseHeldTicks") - held0;
+                                scenario.log(String.format(Locale.ROOT, "rep %d gap: client y %.2f (floor %d), shot pauses %d, "
+                                        + "paused ticks held %d", r, clientY, SURFACE_Y, pauses, held));
+                                if (clientY < SURFACE_Y - 0.1) {
+                                    throw new AssertionError("rep " + r + ": he fell into the trench before the wall (y " + clientY
+                                            + ", x " + clientX + ")");
+                                }
                             }
                             if (!wallGone || clientX < cx + 9.5) {
                                 throw new AssertionError("rep " + r + ": he did not get through the wall (gone " + wallGone
@@ -784,6 +815,17 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         unconfigure(ctx);
                     }
                 });
+    }
+
+    /** A BlinkCharge counter, or -1 on a jar without it (the before-the-fix run). */
+    private static long gapCount(ClientGameTestContext ctx, String method) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                return ((Number) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", method)).longValue();
+            } catch (RuntimeException | AssertionError e) {
+                return -1L;
+            }
+        });
     }
 
     /** Turn the module on exactly the way his own menu does, and nothing else. */
