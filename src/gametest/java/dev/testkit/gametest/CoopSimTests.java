@@ -74,6 +74,7 @@ public class CoopSimTests implements FabricClientGameTest {
         }
         List<String> failed = new ArrayList<>();
         for (String name : new String[]{FAKE, RULES, P3, PORTAL, TWO}) {
+            CoopSync.scope(name);
             if (Scenario.skip(name)) {
                 continue;
             }
@@ -584,6 +585,10 @@ public class CoopSimTests implements FabricClientGameTest {
 
         // Far teleport: the host's server holds the guest until its client has the chunks and answers.
         MinecraftServer s = ctx.computeOnClient(Minecraft::getSingleplayerServer);
+        // The joiner lands on the host's spot (coopsim-ui-1110), not on the world spawn's bedrock roof.
+        boolean inSim = until(ctx, mc -> nearHost(mc.getSingleplayerServer(), hostName, guestName, new Vec3(0, 0, 0), 8), 200);
+        facts.add("guest vs host at join: " + offsetOf(s, hostName, guestName));
+        expect(f, facts, "the joiner landed inside the sim beside the host", inSim, true);
         int[] h0 = holds();
         GuestPlayer.onServer(ctx, s, () -> {
             ServerPlayer gp = s.getPlayerList().getPlayerByName(guestName);
@@ -623,6 +628,17 @@ public class CoopSimTests implements FabricClientGameTest {
         boolean fired = until(ctx, mc -> salvations() > sal0, 600);
         expect(f, facts, "the guest's left click fired its Salvation", fired, true);
         expect(f, facts, "the guest's charge used", armed(gu), false);
+        // The host moves the running room to P2 (the same control as the co-op screen's Move): the fight restarts there
+        // and BOTH players are moved.
+        Object p2 = ModUnderTest.enumValue(FIGHT + "$Start", "P2");
+        ctx.runOnClient(mc -> mc.execute(() -> ModUnderTest.staticCall(R + "SimHost", "moveTo",
+                new Class<?>[]{Minecraft.class, p2.getClass()}, new Object[]{mc, p2})));
+        boolean atP2 = until(ctx, mc -> "P2".equals(String.valueOf(ModUnderTest.staticCall(FIGHT, "phase")))
+                && !(Boolean) ModUnderTest.staticCall("com.killer560.hub.bosssim.BossSim", "isBuilding")
+                && nearHost(mc.getSingleplayerServer(), hostName, guestName, new Vec3(114.5, 170, 94.5), 12), 2400);
+        facts.add("after Move to P2: guest vs host " + offsetOf(s, hostName, guestName));
+        expect(f, facts, "Move to P2 put the fight at P2 with the host and the guest on its spawn", atP2, true);
+        CoopSync.put("host-switched", "1");
         String guestVerdict = CoopSync.await(ctx, "guest-done", 120).trim();
         facts.add("guest verdict: " + guestVerdict);
         expect(f, facts, "guest's own checks", guestVerdict, "PASS");
@@ -689,6 +705,10 @@ public class CoopSimTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> mc.options.keyAttack.setDown(false));
         ctx.waitTicks(2);
         expect(f, facts, "Terminator clicks sent", guestCounts()[1] - g0[1], 1);
+        // The host moved the room to P2: this client is carried there too.
+        CoopSync.await(ctx, "host-switched", 2400);
+        boolean moved = until(ctx, mc -> mc.player != null && mc.player.position().distanceTo(new Vec3(114.5, 170, 94.5)) < 12, 600);
+        expect(f, facts, "this client was moved to P2's spawn", moved, true);
         CoopSync.put("guest-done", f.isEmpty() ? "PASS" : "FAIL: " + String.join("; ", f));
         CoopSync.pace(ctx, 1000);
     }
@@ -770,6 +790,22 @@ public class CoopSimTests implements FabricClientGameTest {
             }
         }
         return false;
+    }
+
+    /** The guest stands within {@code r} blocks of the host (or of {@code at} when it is not the zero vector). */
+    private static boolean nearHost(MinecraftServer s, String host, String guest, Vec3 at, double r) {
+        if (s == null) return false;
+        ServerPlayer h = s.getPlayerList().getPlayerByName(host);
+        ServerPlayer g = s.getPlayerList().getPlayerByName(guest);
+        if (h == null || g == null) return false;
+        Vec3 mid = at.lengthSqr() == 0 ? h.position() : at;
+        return h.position().distanceTo(mid) < r && g.position().distanceTo(mid) < r;
+    }
+
+    private static String offsetOf(MinecraftServer s, String host, String guest) {
+        ServerPlayer h = s.getPlayerList().getPlayerByName(host);
+        ServerPlayer g = s.getPlayerList().getPlayerByName(guest);
+        return h == null || g == null ? "?" : "host " + h.position() + " guest " + g.position();
     }
 
     private static Vec3 hostNow(ClientGameTestContext ctx) {

@@ -237,6 +237,51 @@ final class ThemeAssetsCases {
         }
     }
 
+    /**
+     * coopnet-1110 (killer560: "the one i have is the right one any other one is wrong ... pushed to everyone with no way
+     * to overwrite it"): the F7 arena is his capture bundled in the jar, always; a capture file in the shared store or the
+     * config folder is ignored.
+     */
+    static void arenaBundled(LogicCase c) throws Exception {
+        String arena = "bosssim.BossArena";
+        String[][] want = {{"P1", "sim-bossarena.bin", "5a41f8a2ef3d96c12dabb695bf9654583fc2c52d06153c4dd524c4b0dfb66078"},
+                {"P3", "sim-bossarena-p3.bin", "11eb0978eeba0087398bee85b00903d83eb38a1e68db3ff2c6b61f4d026b5bfa"}};
+        Path store = ((Path) Mod.staticCall("shared.SharedRecords", "root")).resolve("sim-boss");
+        Path legacy = (Path) Mod.staticCall("util.ModPaths", "config", "killer560smod-sim-bossarena.bin");
+        Path[] strays = {store.resolve("killer560smod-sim-bossarena.bin"), store.resolve("killer560smod-sim-bossarena-p3.bin"), legacy};
+        for (Path p : strays) {
+            Files.createDirectories(p.getParent());
+            Files.write(p, "not a capture".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        }
+        try {
+            for (String[] w : want) {
+                byte[] bytes;
+                try (var in = ThemeAssetsCases.class.getResourceAsStream("/assets/killer560smod/sim-boss/" + w[1])) {
+                    c.check(w[1] + " is in the jar", in != null);
+                    if (in == null) {
+                        continue;
+                    }
+                    bytes = in.readAllBytes();
+                }
+                c.eq(w[1] + " is his capture (sha256)", w[2], HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)));
+                Object cap = Mod.staticCall(arena, "readCapture", w[0]);
+                c.check(w[0] + " read from the bundled capture with stray files on disk", cap != null);
+                if (cap != null) {
+                    c.eq(w[0] + " capture's own phase", w[0], String.valueOf(Mod.call(cap, "phase")));
+                    c.check(w[0] + " capture has the whole box", ((short[]) Mod.call(cap, "cells")).length > 1_000_000,
+                            String.valueOf(((short[]) Mod.call(cap, "cells")).length));
+                }
+            }
+            for (Path p : strays) {
+                c.eq("the stray file is left as it was: " + p.getFileName(), "not a capture", Files.readString(p));
+            }
+        } finally {
+            for (Path p : strays) {
+                Files.deleteIfExists(p);
+            }
+        }
+    }
+
     /** Downloaded from the feed, cached under its hash, found cached next time, and the texture swaps to the full one. */
     static void download(LogicCase c) throws Exception {
         if (!needFeed(c)) {
