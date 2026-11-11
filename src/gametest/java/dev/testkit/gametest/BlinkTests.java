@@ -1627,12 +1627,12 @@ public class BlinkTests implements FabricClientGameTest {
                         for (; waited < 10 && cnum(ctx, "shots") == shots0; waited++) {
                             ctx.waitTicks(1);
                         }
-                        if (cnum(ctx, "shots") == shots0) {
-                            // Under server lag the mod holds a shot until GrimAC covers the bank again (BlinkCharge.shoot,
-                            // up to SHOT_WAIT_MAX_MS = 10 s; fhA2-1111: 3.1 s at 150 ms, measured before it fired): he stops
-                            // running and the case waits for the shot itself.
-                            ctx.getInput().releaseKey(o -> o.keyUp);
-                            ctx.getInput().releaseKey(o -> o.keySprint);
+                        boolean held = cnum(ctx, "shots") == shots0;
+                        if (held) {
+                            // Under server lag the mod holds a shot until GrimAC covers the bank again (BlinkCharge.shoot, up
+                            // to SHOT_WAIT_MAX_MS = 10 s; fhA2-1111: 1.6-3.1 s at 150 ms, measured before it fired by the old
+                            // 10-tick wait). The shot runs the keys held when it fires, so he keeps running; the case waits
+                            // for the shot itself and takes the distance as not comparable (he may reach the wall first).
                             for (int i = 0; i < 260 && cnum(ctx, "shots") == shots0; i++) {
                                 ctx.waitTicks(1);
                             }
@@ -1642,7 +1642,7 @@ public class BlinkTests implements FabricClientGameTest {
                         ctx.getInput().releaseKey(o -> o.keyUp);
                         ctx.getInput().releaseKey(o -> o.keySprint);
                         check(waited >= 1, "the shot did not wait for his queued attack click (fired the tick he pressed)");
-                        shot = new double[]{flat(before, after), cnum(ctx, "shots") - shots0, cnum(ctx, "lastShotTicks")};
+                        shot = new double[]{flat(before, after), cnum(ctx, "shots") - shots0, cnum(ctx, "lastShotTicks"), held ? 1 : 0};
                     } else {
                         shot = shootByPress(ctx, true);
                     }
@@ -1658,7 +1658,11 @@ public class BlinkTests implements FabricClientGameTest {
                     double[] srv = serverPos(server, ctx, who);
                     rounds.append(String.format(Locale.ROOT, " [round %d: bank %d, shot %d tick(s) %.2f blocks; client %s server %s]",
                             round + 1, bank, (long) shot[2], shot[0], fmt(client), fmt(srv)));
-                    if (bank == 20 && shot[1] == 1 && shot[2] == 20 && shot[0] > (oneTick ? 9.6 : 4.5) && flat(client, srv) < 0.5) {
+                    boolean held = shot.length > 3 && shot[3] == 1;
+                    if (held) {
+                        rounds.append(" [the mod held this shot past 10 ticks (lag guard)]");
+                    }
+                    if (bank == 20 && shot[1] == 1 && shot[2] == 20 && (held || shot[0] > (oneTick ? 9.6 : 4.5)) && flat(client, srv) < 0.5) {
                         good++;
                     }
                 }
