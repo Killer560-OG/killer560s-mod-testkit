@@ -1682,9 +1682,12 @@ public class SimBloodRushTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> brSet("setEnabled", false));
         // Settled is not enough: a section whose rebuild has not started yet gives two equal shots without the wall
         // (2026-11-04, 26.3 legit under load: 122201 px "through the wall" was the wall itself, drawn only in the next
-        // shot). Wait until the shot differs plainly from the wall-less scene, then until it is still.
+        // shot). Wait until the shot differs plainly from the wall-less scene, then until it is still. A half-built wall
+        // passed a 1000 px bar (2026-11-11, 26.3 legit under load: 1133 px drawn, the whole box "through" it), so the
+        // wall must change at least half as many pixels as the box itself covers.
+        int wallBar = Math.max(1000, boxPx / 2);
         wallOff = settledShot(ctx, "wall-off", r);
-        for (int i = 0; i < 20 && diff(wallOff, preWall, r) < 1000; i++) {
+        for (int i = 0; i < 40 && diff(wallOff, preWall, r) < wallBar; i++) {
             wallOff = settledShot(ctx, "wall-off", r);
         }
         facts.add("wall drawn: " + diff(wallOff, preWall, r) + " px against the scene before it");
