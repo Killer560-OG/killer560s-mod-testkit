@@ -499,28 +499,11 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     private static void fix3(ClientGameTestContext ctx, List<String> f) throws Exception {
-        java.nio.file.Path fixture = java.nio.file.Path.of(System.getProperty("user.home"), "killer560s-mod-logs", "fixtures", "boss-arena-1104.bin");
-        java.nio.file.Path fixture3 = java.nio.file.Path.of(System.getProperty("user.home"), "killer560s-mod-logs", "fixtures", "boss-arena-p3-1104.bin");
-        if (!java.nio.file.Files.isRegularFile(fixture) || !java.nio.file.Files.isRegularFile(fixture3)) {
-            f.add("no capture fixtures at " + fixture.getParent());
-            return;
-        }
-        java.nio.file.Path target = (java.nio.file.Path) call(ARENA, "capturePath");
-        java.nio.file.Path target3 = (java.nio.file.Path) ModUnderTest.staticCall(ARENA, "capturePath",
-                new Class<?>[]{String.class}, new Object[]{"P3"});
-        java.nio.file.Files.createDirectories(target.getParent());
-        java.nio.file.Files.copy(fixture, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-        java.nio.file.Files.copy(fixture3, target3, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-        try {
-            fix3Items(ctx, f);
-            fix3Chooser(ctx, f);
-            fix3Marks(ctx, f);
-            fix3Ss(ctx, f);
-            fix3Gates(ctx, f);
-        } finally {
-            java.nio.file.Files.deleteIfExists(target);
-            java.nio.file.Files.deleteIfExists(target3);
-        }
+        fix3Items(ctx, f);
+        fix3Chooser(ctx, f);
+        fix3Marks(ctx, f);
+        fix3Ss(ctx, f);
+        fix3Gates(ctx, f);
     }
 
     /** killer560: "if you start a phase of the boss you should keep the items you had from any phase". */
@@ -950,34 +933,23 @@ public class SimBossTests implements FabricClientGameTest {
     // ---------------------------------------------------------------------------------------- 1108-boss-fresh
 
     /**
-     * bosssim1108: a fresh instance had only the built-in plan because the capture sat in the instance it was taken in.
-     * (A) an instance's old config copy is moved into the shared store's sim-boss folder; (B) with only the shared copy,
-     * a P1 start builds from the capture.
+     * bosssim1108 / coopnet-1110: every instance (and every co-op host) builds his capture, bundled in the jar; a capture
+     * file left in the shared store or the config folder changes nothing.
      */
     private static void fresh(ClientGameTestContext ctx, List<String> f) throws Exception {
-        java.nio.file.Path fixture = java.nio.file.Path.of(System.getProperty("testkit.bossCapture",
-                System.getProperty("user.home") + "/killer560s-mod-logs/fixtures/boss-arena-1104.bin"));
-        if (!java.nio.file.Files.isRegularFile(fixture)) {
-            f.add("no capture fixture at " + fixture);
-            return;
-        }
         java.nio.file.Path shared = ((java.nio.file.Path) ModUnderTest.staticCall("com.killer560.hub.shared.SharedRecords", "root",
-                new Class<?>[0], new Object[0])).resolve("sim-boss");
+                new Class<?>[0], new Object[0])).resolve("sim-boss").resolve("killer560smod-sim-bossarena.bin");
         java.nio.file.Path legacy = (java.nio.file.Path) ModUnderTest.staticCall("com.killer560.hub.util.ModPaths", "config",
                 new Class<?>[]{String.class}, new Object[]{"killer560smod-sim-bossarena.bin"});
-        java.nio.file.Path inShared = shared.resolve("killer560smod-sim-bossarena.bin");
-        java.nio.file.Files.deleteIfExists(inShared);
-        java.nio.file.Files.createDirectories(legacy.getParent());
-        java.nio.file.Files.copy(fixture, legacy, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        for (java.nio.file.Path p : new java.nio.file.Path[]{shared, legacy}) {
+            java.nio.file.Files.createDirectories(p.getParent());
+            java.nio.file.Files.writeString(p, "not a capture");
+        }
         try {
-            java.nio.file.Path got = (java.nio.file.Path) call(ARENA, "capturePath");
-            expect(f, "the capture path is in the shared store", got.toAbsolutePath().normalize().equals(inShared.toAbsolutePath().normalize()), true);
-            expect(f, "the instance's old copy was moved into the shared store", java.nio.file.Files.isRegularFile(inShared), true);
-            expect(f, "the old copy is gone from the config folder", java.nio.file.Files.exists(legacy), false);
             start(ctx, "P1", false);
-            expect(f, "arena source with only the shared copy", call(ARENA, "source"), "capture");
+            expect(f, "arena source with stray capture files on disk", call(ARENA, "source"), "capture");
         } finally {
-            java.nio.file.Files.deleteIfExists(inShared);
+            java.nio.file.Files.deleteIfExists(shared);
             java.nio.file.Files.deleteIfExists(legacy);
         }
     }
@@ -988,32 +960,9 @@ public class SimBossTests implements FabricClientGameTest {
         withCapture(f, () -> captureCase(ctx, f));
     }
 
-    /** Runs {@code body} over his capture fixtures (P1 and P3 files in the sim folder), removed again after. */
+    /** Runs {@code body} on his capture: since coopnet-1110 it is bundled in the jar and always used, nothing to install. */
     static void withCapture(List<String> f, Runnable body) throws Exception {
-        java.nio.file.Path fixture = java.nio.file.Path.of(System.getProperty("testkit.bossCapture",
-                System.getProperty("user.home") + "/killer560s-mod-logs/fixtures/boss-arena-1104.bin"));
-        if (!java.nio.file.Files.isRegularFile(fixture)) {
-            f.add("no capture fixture at " + fixture + " (a copy of a captured killer560smod-sim-bossarena.bin)");
-            return;
-        }
-        java.nio.file.Path fixture3 = java.nio.file.Path.of(System.getProperty("testkit.bossCaptureP3",
-                System.getProperty("user.home") + "/killer560s-mod-logs/fixtures/boss-arena-p3-1104.bin"));
-        if (!java.nio.file.Files.isRegularFile(fixture3)) {
-            f.add("no P3 capture fixture at " + fixture3);
-            return;
-        }
-        java.nio.file.Path target = (java.nio.file.Path) call(ARENA, "capturePath");
-        java.nio.file.Path target3 = (java.nio.file.Path) ModUnderTest.staticCall(ARENA, "capturePath",
-                new Class<?>[]{String.class}, new Object[]{"P3"});
-        java.nio.file.Files.createDirectories(target.getParent());
-        java.nio.file.Files.copy(fixture, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-        java.nio.file.Files.copy(fixture3, target3, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-        try {
-            body.run();
-        } finally {
-            java.nio.file.Files.deleteIfExists(target);
-            java.nio.file.Files.deleteIfExists(target3);
-        }
+        body.run();
     }
 
     private static void captureCase(ClientGameTestContext ctx, List<String> f) {

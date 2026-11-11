@@ -134,8 +134,8 @@ final class AuraThemeCases {
                         "Secret Aura on should show In Rooms, Chests and In Boss: " + both);
                 // the card stands for both
                 Object ms = c.onClient(mc -> Mod.staticCall("gui.FeatureCards", "masterSwitch", tab, (Runnable) () -> { }));
-                c.check(ms != null && ((List<?>) Mod.call(ms, "parts")).size() == 2,
-                        "the Secret Aura card should stand for two switches (Secret Aura, In Boss)");
+                c.check(ms != null && ((List<?>) Mod.call(ms, "parts")).size() == 3,
+                        "the Secret Aura card should stand for three switches (Secret Aura, In Boss, Secret Triggerbot)");
 
                 // migration: a Lever Aura file as it was before the merge
                 Mod.call(cu, "setAuraBossLevers", false);
@@ -156,7 +156,7 @@ final class AuraThemeCases {
                 c.check(Math.abs((Double) Mod.call(la, "getRange") - 3.0) < 0.01, "range 3.0 did not carry over");
                 String rewritten = Files.readString(laPath, StandardCharsets.UTF_8);
                 c.check(!rewritten.contains("\"enabled\""), "the old enabled key is still in the file: " + rewritten);
-                c.check(rewritten.contains("\"cps\": 9"), "the rewritten file lost cps: " + rewritten);
+                c.check(rewritten.contains("\"cooldownMs\": 111"), "the rewritten file lost the cooldown: " + rewritten);
                 String cuFile = Files.readString(cuPath, StandardCharsets.UTF_8);
                 c.check(cuFile.contains("\"auraBossLevers\": true"), "In Boss was not saved to the Secret Aura file: " + cuFile);
                 // a second load changes nothing

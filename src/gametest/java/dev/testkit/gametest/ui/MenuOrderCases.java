@@ -51,7 +51,7 @@ final class MenuOrderCases {
     // ---- 515 ------------------------------------------------------------------------------------------------------
 
     private static final java.util.Set<String> CATEGORIES =
-            java.util.Set.of("Dungeons", "Mining", "HUD", "Chat", "Items", "Social", "Cosmetics", "Misc");
+            java.util.Set.of("Dungeons", "Mining", "Carnival", "HUD", "Chat", "Items", "Social", "Cosmetics", "Misc");
 
     /** The order rule (mod gui.tab.MenuCategories.cheatLast): alphabetical by name ignoring case. */
     private static int byName(String a, String b) {
