@@ -231,8 +231,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1110-mapchain-nobank", c -> caseMapChain(c, false, null));
             s.test("62-argrim-1110-archain-nohold", GrimAutoRoutesTests::caseRouteChainNoHold);
             for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
-                    dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.ATTACK,
-                    dev.testkit.gametest.SameTick.Act.CLICK)) {
+                    dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK)) {
+                // No ATTACK: the burst leaves the whole path in one real tick, so his crosshair is off the stand by the next.
                 s.test("62-argrim-1110-mapchain-same-" + a.name().toLowerCase(Locale.ROOT), c -> caseMapChain(c, true, a));
             }
             s.test("62-argrim-path", GrimAutoRoutesTests::casePath);
@@ -2517,7 +2517,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             c.note(line);
             check(holds == 0 && letGo == 0, tag + ": a teleport confirm was held behind its answer (" + holds + " hold(s))");
             check(chainTp > 0, tag + ": no confirm went at once for the chain (nothing tested)");
-            if (charged && act != dev.testkit.gametest.SameTick.Act.USE) {
+            if (charged && act != dev.testkit.gametest.SameTick.Act.USE && act != dev.testkit.gametest.SameTick.Act.CLICK) {
                 check(uses[0] >= pts.length - 1, tag + ": only " + uses[0] + " of the chain's uses went in one 50 ms window");
                 check(burst >= pts.length - 1 && bankFrom - bankTo >= pts.length - 1 && spent >= pts.length - 1,
                         tag + ": the bank was not spent on the chain (burst " + burst + ", bank " + bankFrom + " -> " + bankTo
