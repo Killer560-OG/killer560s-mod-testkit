@@ -78,7 +78,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
             first = first == null ? e : first;
         }
         for (dev.testkit.gametest.SameTick.Act act : List.of(dev.testkit.gametest.SameTick.Act.SWAP,
-                dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.CLICK)) {
+                dev.testkit.gametest.SameTick.Act.DIG)) {
             try {
                 wpt20Same(ctx, act);
             } catch (AssertionError e) {
@@ -91,9 +91,9 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
     }
 
     /**
-     * 1111-zpew-wpt20-same-&lt;swap|attack|click&gt; (zpewunify-1111; the SAME-TICK GRIM CASES rule): Warps Per Tick at its top,
+     * 1111-zpew-wpt20-same-&lt;swap|dig&gt; (zpewunify-1111; the SAME-TICK GRIM CASES rule): Warps Per Tick at its top,
      * 20, three times, while HIS action goes into every client tick ({@link dev.testkit.gametest.SameTick}): a scroll between
-     * two AOTVs (slots 0 and 1), a left click, or a click of his. Every burst must send all 20 uses and land 20 warps, a
+     * two AOTVs (slots 0 and 1) or his left click on the floor he aims at (a dig START). Every burst must send all 20 uses and land 20 warps, a
      * GrimAC tick must carry the burst with his packet, and GrimAC says nothing (Scenario.run). Cheat jar only.
      */
     static void wpt20Same(ClientGameTestContext ctx, dev.testkit.gametest.SameTick.Act act) {
