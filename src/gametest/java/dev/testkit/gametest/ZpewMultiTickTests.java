@@ -156,13 +156,18 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                         press.run();
                     };
                     String label = name + " rep " + rep;
-                    problems.addAll(shot(ctx, server, hx, scenario, who, 0, label, 1, 4, fire, 20, 20, 20 - (dbl ? 2 : 1),
-                            1));
+                    timerSetbacksOk = !bank;
+                    try {
+                        problems.addAll(shot(ctx, server, hx, scenario, who, 0, label, 1, 4, fire, 20, 20, 20 - (dbl ? 2 : 1),
+                                1));
+                    } finally {
+                        timerSetbacksOk = false;
+                    }
                     ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
                     long un = unfunded(ctx) - un0;
-                    // double: his second click is a vanilla use in the tick of the first chain's last warp (as vanilla sends
-                    // two clicks), so 18 split ticks and 19 uses closed alone.
-                    int split = bank ? (int) Math.max(0, 19 - banked0) : dbl ? 18 : 19;
+                    // double: his second click first closes the tick the first chain left open (ZeroPingEtherwarp.beforeClick,
+                    // experimental GrimAC PacketOrderN), so 19 split ticks, every use closed alone.
+                    int split = bank ? (int) Math.max(0, 19 - banked0) : 19;
                     String wire = splitWire(dev.testkit.harness.WireCapture.snapshot(), 20, split + 1, problems, label);
                     scenario.log(label + ": " + un + " unbanked tick(s)" + (bank ? " (bank " + banked0 + " before)" : "")
                             + "; " + countLooks(dev.testkit.harness.WireCapture.snapshot()) + " look move(s); wire " + wire);
@@ -433,6 +438,9 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 expectUses > 1 ? 1 : expectUses);
     }
 
+    /** Set by the Tick Split cases (1111-mwtick-wpt-*): GrimAC Timer set-backs are expected there. */
+    static boolean timerSetbacksOk;
+
     static List<String> shot(ClientGameTestContext ctx, TestServer server, Hx hx, Scenario scenario, String who, int lat,
                              String label, int lane, int step, Runnable fire, int expectUses, int expectWarps,
                              int expectExtra, int expectTicks) {
@@ -467,6 +475,18 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
         List<Vec3> tps;
         synchronized (ZpewCampaignTests.TELEPORTS) {
             tps = new ArrayList<>(ZpewCampaignTests.TELEPORTS);
+        }
+        // Tick Split runs his clock ahead: GrimAC Timer answers with set-backs to where he already is (the start, or a
+        // landing again). Those are not warps; drop them and allow a ZPEW miss for each.
+        int setbacks = 0;
+        if (timerSetbacksOk) {
+            for (int k = tps.size() - 1; k >= 0; k--) {
+                double prevX = k == 0 ? X0 + 0.5 : tps.get(k - 1).x;
+                if (Math.abs(tps.get(k).x - prevX) < 0.01) {
+                    tps.remove(k);
+                    setbacks++;
+                }
+            }
         }
         TreeSet<Long> ticks = new TreeSet<>();
         boolean sameLook = true;
@@ -516,7 +536,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
         if (extra != expectExtra) {
             problems.add(label + ": expected " + expectExtra + " extra warp(s), the mod sent " + extra + " | " + line);
         }
-        if (warps != expectWarps || c1.hits() - c0.hits() != expectWarps || c1.misses() != c0.misses()
+        if (warps != expectWarps || c1.hits() - c0.hits() != expectWarps || c1.misses() - c0.misses() > setbacks
                 || c1.timeouts() != c0.timeouts()) {
             problems.add(label + ": expected " + expectWarps + " server warp(s) all predicted | " + line);
         }
