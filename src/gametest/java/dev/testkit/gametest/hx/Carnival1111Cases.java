@@ -234,7 +234,11 @@ final class Carnival1111Cases {
             }
             c.note("labels per frame: " + min + ".." + max);
             c.check(max == 1 && min == 1, "by default exactly one label draws a frame (the recommended tile's), got " + min + ".." + max);
-            // With the setting on there are labels on the other tiles too.
+            // Tile Odds tints the other tiles (still one label); the percentages on every square need it on too.
+            c.onClient(mc -> Mod.call(Mod.staticCall("carnival.FruitDiggingConfig", "getInstance"), "setOdds", true));
+            c.ctx().waitTicks(10);
+            int tinted = c.onClient(mc -> (Integer) Mod.staticCall("carnival.FruitDigging", "labelsLastFrame"));
+            c.check(tinted == 1, "Tile Odds alone draws " + tinted + " labels (want the one best-dig label)");
             c.onClient(mc -> Mod.call(Mod.staticCall("carnival.FruitDiggingConfig", "getInstance"), "setAllPercents", true));
             c.ctx().waitTicks(10);
             int many = c.onClient(mc -> (Integer) Mod.staticCall("carnival.FruitDigging", "labelsLastFrame"));
@@ -242,6 +246,7 @@ final class Carnival1111Cases {
             c.check(many > 5, "Percent On Every Square drew only " + many + " label(s)");
         } finally {
             c.onClient(mc -> Mod.call(Mod.staticCall("carnival.FruitDiggingConfig", "getInstance"), "setAllPercents", false));
+            c.onClient(mc -> Mod.call(Mod.staticCall("carnival.FruitDiggingConfig", "getInstance"), "setOdds", false));
             Carnival1110Cases.finish(c);
         }
     }
@@ -303,7 +308,7 @@ final class Carnival1111Cases {
             double bx = PX + 4;
             double z = PZ + 12;
             c.server().command(CarnivalSuite.zombie(ax, Y + 1, z, "iron_helmet", "za"));
-            c.server().command(CarnivalSuite.zombie(bx, Y + 1, z, "gold_helmet", "zb"));
+            c.server().command(CarnivalSuite.zombie(bx, Y + 1, z, "golden_helmet", "zb"));
             c.hx().stand(ax, Y + 3.4, z, "§a4.2s", "marker", true, "invisible", true, "nameVisible", true);
             c.waitUntil("two zombies are targets", mc -> (Integer) Mod.staticCall("carnival.ZombieShootout", "targetCount") == 2, 100);
             c.ctx().waitTicks(5);
@@ -449,7 +454,14 @@ final class Carnival1111Cases {
                     inputs.add(in.input().forward() + "/" + in.input().shift());
                 }
             };
-            c.waitUntil("it starts walking", mc -> (Integer) Mod.staticCall("carnival.AutoCatchAFish", "walks") >= 1, 120);
+            int w0 = c.onClient(mc -> (Integer) Mod.staticCall("carnival.AutoCatchAFish", "walks"));
+            for (int i = 0; i < 12 && (Integer) c.onClient(mc -> Mod.staticCall("carnival.AutoCatchAFish", "walks")) <= w0; i++) {
+                c.ctx().waitTicks(10);
+            }
+            c.note("walks " + w0 + " -> " + c.onClient(mc -> Mod.staticCall("carnival.AutoCatchAFish", "walks")) + ", pos "
+                    + c.onClient(mc -> mc.player.position()) + ", fish " + c.onClient(mc -> Mod.staticCall("carnival.CatchAFish",
+                    "fishCount")) + ", held " + c.onClient(mc -> mc.player.getMainHandItem()));
+            c.check((Integer) c.onClient(mc -> Mod.staticCall("carnival.AutoCatchAFish", "walks")) > w0, "it never started walking");
             c.ctx().waitTicks(20);
             double z1 = c.onClient(mc -> mc.player.getZ());
             boolean keys = inputs.contains("true/true");
@@ -500,8 +512,21 @@ final class Carnival1111Cases {
                             + a.getPos().getX() + "," + a.getPos().getZ());
                 }
             };
+            int d0 = c.onClient(mc -> (Integer) Mod.staticCall("carnival.AutoFruitDigging", "digTaps"));
             CarnivalSuite.startFruit(c);
-            c.waitUntil("a dig tap", mc -> (Integer) Mod.staticCall("carnival.AutoFruitDigging", "digTaps") >= 1, 200);
+            for (int i = 0; i < 10; i++) {
+                if ((Integer) c.onClient(mc -> Mod.staticCall("carnival.AutoFruitDigging", "digTaps")) > d0) {
+                    break;
+                }
+                c.ctx().waitTicks(20);
+            }
+            c.note("digTaps " + d0 + " -> " + c.onClient(mc -> Mod.staticCall("carnival.AutoFruitDigging", "digTaps"))
+                    + ", pick " + c.onClient(mc -> Mod.staticCall("carnival.FruitDigging", "bestLabel")) + ", pos "
+                    + c.onClient(mc -> mc.player.position()) + ", held " + c.onClient(mc -> mc.player.getMainHandItem())
+                    + ", hit " + c.onClient(mc -> String.valueOf(mc.hitResult)) + ", mode "
+                    + c.onClient(mc -> mc.gameMode.getPlayerMode()));
+            c.check((Integer) c.onClient(mc -> Mod.staticCall("carnival.AutoFruitDigging", "digTaps")) > d0,
+                    "Auto Fruit Digging never started a dig in 10 s");
             String target = c.onClient(mc -> (String) Mod.staticCall("carnival.AutoFruitDigging", "lastTarget"));
             String label = target.split("/")[0];
             String mode = target.split("/")[1];

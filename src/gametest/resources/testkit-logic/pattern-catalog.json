@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-11T05:17:41",
- "modSource": "simblood-1110",
- "modGitSha": "1d618cde61058b75505be4098c7994e2ed3e4556",
- "modSourceDirty": false,
- "count": 951,
+ "generatedAt": "2026-11-11T13:46:26",
+ "modSource": "carnivalfold-1111",
+ "modGitSha": "15519e0c8ff669d286f18a58ef4dfbfc2f86076a",
+ "modSourceDirty": true,
+ "count": 953,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 823,
+  "field": 825,
   "local": 43
  },
  "unresolved": 160,
@@ -1790,6 +1790,18 @@
    "expr": "\"(?i)(?:[A-Z]:[\\\\\\\\/]+Users[\\\\\\\\/]+|/home/|/Users/)[^\\\\\\\\/\\\\s\\\"':]{1,64}\""
   },
   {
+   "id": "carnival.AutoAcceptGame#GAME_NPC",
+   "cls": "carnival.AutoAcceptGame",
+   "field": "GAME_NPC",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/carnival/AutoAcceptGame.java",
+   "line": 28,
+   "regex": "^\\[NPC] Carnival (?:Pirateman|Cowboy|Fisherman): .*",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^\\\\[NPC] Carnival (?:Pirateman|Cowboy|Fisherman): .*\""
+  },
+  {
    "id": "carnival.CarnivalState#START_FRUIT",
    "cls": "carnival.CarnivalState",
    "field": "START_FRUIT",
@@ -2016,6 +2028,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^([A-Za-z ]{3,20}?)(?: \\\\(\\\\+\\\\d{1,5}\\\\))?$\""
+  },
+  {
+   "id": "carnival.ZombieShootout#TAG_SECONDS",
+   "cls": "carnival.ZombieShootout",
+   "field": "TAG_SECONDS",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/carnival/ZombieShootout.java",
+   "line": 222,
+   "regex": "(\\d+(?:\\.\\d+)?)\\s*s\\b",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"(\\\\d+(?:\\\\.\\\\d+)?)\\\\s*s\\\\b\""
   },
   {
    "id": "chattabs.ChatTabsFeature#WHISPER",
