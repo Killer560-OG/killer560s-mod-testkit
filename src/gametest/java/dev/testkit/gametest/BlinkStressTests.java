@@ -70,7 +70,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                 BlinkStressTests::setbackShot, BlinkStressTests::lcew, BlinkStressTests::ui,
                 BlinkStressTests::longHolds, BlinkStressTests::longShots, BlinkStressTests::longCharge,
                 BlinkStressTests::releaseLog, BlinkStressTests::controls, BlinkStressTests::setbackVariants, BlinkStressTests::tab,
-                BlinkStressTests::keepWarp, BlinkStressTests::keepMisc, BlinkStressTests::hudBar)) {
+                BlinkStressTests::keepWarp, BlinkStressTests::keepMisc, BlinkStressTests::hudBar,
+                BlinkStressTests::hypDouble, BlinkStressTests::hypQuiet)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -1749,6 +1750,169 @@ public class BlinkStressTests implements FabricClientGameTest {
                 chargeOff(ctx);
                 tearDown(ctx, gate);
             }
+        });
+    }
+
+    /** Lines logged since {@code mark} that contain {@code needle}, in order (indexes into LogTap.since). */
+    private static int firstIndex(List<String> lines, String needle, int from) {
+        for (int i = Math.max(0, from); i < lines.size(); i++) {
+            if (lines.get(i).contains(needle)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** Two server teleports a tick apart while charging: the second finds only young answers, so its confirm is held. */
+    private static void twoTeleports(TestServer server, ClientGameTestContext ctx, String name) {
+        double[] p = here(ctx);
+        server.command(String.format(Locale.ROOT, "tp %s %.4f %.4f %.4f", name, p[0] + 2, p[1], p[2]));
+        ctx.waitTicks(1);
+        server.command(String.format(Locale.ROOT, "tp %s %.4f %.4f %.4f", name, p[0] + 4, p[1], p[2]));
+    }
+
+    /**
+     * 1111-blink-hyp-double (blinkhyp-1111, his 26.3 Hypixel log 2026-11-11): a shot asked for while a teleport's confirm
+     * is held waits; his SECOND press used to skip that wait and fire inside the hold, so the shot went out in the hold's
+     * burst (84 packets) and Hypixel set it back 24-42 blocks (shots #2, #8, #9, #14). Now the second press joins the
+     * waiting shot: no shot while the hold runs, one shot after it let go, logged with what it fired under.
+     */
+    private static void hypDouble(ClientGameTestContext ctx) {
+        int x = -9650;
+        int z = -6000;
+        Scenario.runExpectingFlags(ctx, "1111-blink-hyp-double", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            Rows rows = new Rows();
+            try {
+                String name = playerName(ctx);
+                for (int round = 0; round < 3; round++) {
+                    tp(server, ctx, x - 15.5, SURFACE_Y, z - 6 + 6 * round + 0.5, -90f);
+                    chargeOn(ctx);
+                    ctx.waitTicks(30);
+                    waitBank(ctx, 20);
+                    long shots0 = cnum(ctx, "shots");
+                    long holds0 = cnum(ctx, "teleportHolds");
+                    long mark = LogTap.mark();
+                    twoTeleports(server, ctx, name);
+                    for (int t = 0; t < 20 && cnum(ctx, "teleportHolds") == holds0; t++) {
+                        ctx.waitTicks(1);
+                    }
+                    boolean held = ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "teleportHeld"));
+                    ctx.getInput().holdKey(o -> o.keyUp);
+                    ctx.getInput().holdKey(o -> o.keySprint);
+                    pressCharge(ctx);
+                    pressCharge(ctx);
+                    boolean stillHeld = ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "teleportHeld"));
+                    long shotsInHold = cnum(ctx, "shots") - shots0;
+                    for (int t = 0; t < 80 && cnum(ctx, "shots") == shots0; t++) {
+                        ctx.waitTicks(1);
+                    }
+                    releaseKeys(ctx);
+                    // the kept bank is backed again only on still ticks (~5.5 s after the hold here), then the shot fires
+                    for (int t = 0; t < 240 && cnum(ctx, "shots") == shots0; t++) {
+                        ctx.waitTicks(1);
+                    }
+                    ctx.waitTicks(45);
+                    List<String> lines = LogTap.since(mark);
+                    int let = firstIndex(lines, "teleport hold let go", 0);
+                    int shot = firstIndex(lines, "charge SHOT", 0);
+                    boolean again = firstIndex(lines, "asked again while one waits", 0) >= 0;
+                    boolean under = firstIndex(lines, "fired under:", 0) >= 0;
+                    boolean verdict = firstIndex(lines, "kept - no setback", 0) >= 0 || firstIndex(lines, "SHOT SET BACK", 0) >= 0;
+                    long shots = cnum(ctx, "shots") - shots0;
+                    double g = gap(server, ctx);
+                    boolean ok = held && stillHeld && shotsInHold == 0 && again && shots == 1 && let >= 0 && shot > let && under
+                            && verdict;
+                    rows.addKept(server, scenario, "round " + round, ok, String.format(Locale.ROOT,
+                            "hold %s (still at 2nd press %s), shots in hold %d, asked-again %s, shots %d, let go @%d shot @%d, "
+                                    + "fired-under %s, kept/setback line %s, gap %.2f", held, stillHeld, shotsInHold, again, shots,
+                            let, shot, under, verdict, g));
+                    chargeOff(ctx);
+                }
+            } finally {
+                releaseKeys(ctx);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            rows.finish(scenario, "1111-blink-hyp-double");
+        });
+    }
+
+    /**
+     * 1111-blink-hyp-quiet (blinkhyp-1111): on Hypixel (forced by BlinkCharge.hypixelForTest) a key shot asked for right
+     * after a teleport waits Hypixel's quiet time but at most HYPIXEL_KEY_WAIT_MS (50; killer560 11-11: "when it is on full
+     * charge it wont let me release it", now 50 ms); two teleports close together hold nothing there (killer560 11-11: "really long
+     * stalls", the 950 ms holds) and a shot after them fires within that time too; a shot with no recent teleport fires at
+     * once, and off Hypixel the teleport-then-shot fires at once.
+     */
+    private static void hypQuiet(ClientGameTestContext ctx) {
+        int x = -9750;
+        int z = -6000;
+        Scenario.runExpectingFlags(ctx, "1111-blink-hyp-quiet", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            Rows rows = new Rows();
+            try {
+                String name = playerName(ctx);
+                for (Boolean hyp : new Boolean[]{Boolean.TRUE, null}) {
+                    ctx.runOnClient(mc -> Mod.setField(CHARGE, "hypixelForTest", hyp));
+                    for (int kind = 0; kind < (hyp == null ? 2 : 3); kind++) {
+                        tp(server, ctx, x - 15.5, SURFACE_Y, z - 6 + 6 * kind + (hyp == null ? 20 : 0) + 0.5, -90f);
+                        chargeOn(ctx);
+                        ctx.waitTicks(30);
+                        waitBank(ctx, 20);
+                        ctx.waitTicks(20); // the arrival tp is over 750 ms back
+                        long shots0 = cnum(ctx, "shots");
+                        long mark = LogTap.mark();
+                        long t0 = System.currentTimeMillis();
+                        long holds0 = cnum(ctx, "teleportHolds");
+                        if (kind == 1) {
+                            double[] p = here(ctx);
+                            server.command(String.format(Locale.ROOT, "tp %s %.4f %.4f %.4f", name, p[0] + 2, p[1], p[2]));
+                            long tp0 = cnum(ctx, "movingTeleports");
+                            for (int t = 0; t < 20 && cnum(ctx, "movingTeleports") == tp0; t++) {
+                                ctx.waitTicks(1);
+                            }
+                            t0 = System.currentTimeMillis();
+                        } else if (kind == 2) {
+                            holds0 = cnum(ctx, "teleportHolds");
+                            long tp0 = cnum(ctx, "movingTeleports");
+                            twoTeleports(server, ctx, name);
+                            for (int t = 0; t < 20 && cnum(ctx, "movingTeleports") < tp0 + 2; t++) {
+                                ctx.waitTicks(1);
+                            }
+                            t0 = System.currentTimeMillis();
+                        }
+                        ctx.getInput().holdKey(o -> o.keyUp);
+                        ctx.getInput().holdKey(o -> o.keySprint);
+                        pressCharge(ctx);
+                        for (int t = 0; t < 60 && cnum(ctx, "shots") == shots0; t++) {
+                            ctx.waitTicks(1);
+                        }
+                        long ms = System.currentTimeMillis() - t0;
+                        releaseKeys(ctx);
+                        ctx.waitTicks(45);
+                        long shots = cnum(ctx, "shots") - shots0;
+                        boolean quietLine = hasLog(mark, "Hypixel's quiet time");
+                        boolean wantWait = hyp != null && kind == 1;
+                        boolean promptLine = hasLog(mark, "on Hypixel - firing now");
+                        long holds = cnum(ctx, "teleportHolds") - holds0;
+                        boolean ok = shots == 1 && (kind == 2 ? ms < 400 && promptLine && holds == 0
+                                && hasLog(mark, "on Hypixel, so no hold")
+                                : wantWait ? ms < 400 && (quietLine || promptLine) : ms < 600 && !quietLine);
+                        String label = (hyp != null ? "hypixel" : "grim") + (kind == 2 ? " two tps, no hold" : kind == 1 ? " after tp" : " plain");
+                        rows.addKept(server, scenario, label, ok, String.format(Locale.ROOT,
+                                "shots %d after %d ms (wait expected %s), quiet line %s, prompt line %s, holds %d", shots, ms,
+                                wantWait, quietLine, promptLine, holds));
+                        chargeOff(ctx);
+                    }
+                }
+            } finally {
+                ctx.runOnClient(mc -> Mod.setField(CHARGE, "hypixelForTest", null));
+                releaseKeys(ctx);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            rows.finish(scenario, "1111-blink-hyp-quiet");
         });
     }
 
