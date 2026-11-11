@@ -77,9 +77,64 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
         } catch (AssertionError e) {
             first = first == null ? e : first;
         }
+        for (dev.testkit.gametest.SameTick.Act act : List.of(dev.testkit.gametest.SameTick.Act.SWAP,
+                dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.CLICK)) {
+            try {
+                wpt20Same(ctx, act);
+            } catch (AssertionError e) {
+                first = first == null ? e : first;
+            }
+        }
         if (first != null) {
             throw first;
         }
+    }
+
+    /**
+     * 1111-zpew-wpt20-same-&lt;swap|attack|click&gt; (zpewunify-1111; the SAME-TICK GRIM CASES rule): Warps Per Tick at its top,
+     * 20, three times, while HIS action goes into every client tick ({@link dev.testkit.gametest.SameTick}): a scroll between
+     * two AOTVs (slots 0 and 1), a left click, or a click of his. Every burst must send all 20 uses and land 20 warps, a
+     * GrimAC tick must carry the burst with his packet, and GrimAC says nothing (Scenario.run). Cheat jar only.
+     */
+    static void wpt20Same(ClientGameTestContext ctx, dev.testkit.gametest.SameTick.Act act) {
+        String name = "1111-zpew-wpt20-same-" + act.name().toLowerCase(Locale.ROOT);
+        Scenario.run(ctx, name, (server, scenario) -> build(server), (server, scenario) -> {
+            Hx hx = null;
+            dev.testkit.gametest.SameTick[] st = {null};
+            List<String> problems = new ArrayList<>();
+            try {
+                hx = ZpewCampaignTests.setUp(ctx, 4);
+                hx.give(1, ZpewCampaignTests.aotv(4));
+                hookTicks(ctx);
+                String who = ZpewCampaignTests.name(ctx);
+                ctx.getInput().holdKey(o -> o.keyShift);
+                setWpt(ctx, 20);
+                st[0] = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
+                        p -> p instanceof ServerboundUseItemPacket, 0, 1));
+                for (int rep = 0; rep < 3; rep++) {
+                    problems.addAll(shot(ctx, server, hx, scenario, who, 0, "wpt-20 same-" + act + " rep " + rep, 1, 4,
+                            () -> ctx.getInput().pressKey(o -> o.keyUse), 20, 20, 19));
+                }
+                dev.testkit.gametest.SameTick done = st[0];
+                ctx.runOnClient(mc -> done.close());
+                st[0] = null;
+                scenario.log(name + ": " + done.report());
+                String why = done.verdict("warps per tick");
+                if (why != null) {
+                    problems.add(why);
+                }
+            } finally {
+                if (st[0] != null) {
+                    dev.testkit.gametest.SameTick open = st[0];
+                    ctx.runOnClient(mc -> open.close());
+                }
+                setWpt(ctx, 1);
+                ZpewCampaignTests.tearDown(ctx, hx);
+            }
+            if (!problems.isEmpty()) {
+                throw new AssertionError(name + ": " + problems);
+            }
+        });
     }
 
     static void build(TestServer server) {
@@ -299,7 +354,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 // Control: Warps Per Tick 1, two vanilla clicks queued in ONE tick - the client's own two-uses-a-tick.
                 setWpt(ctx, 1);
                 problems.addAll(shot(ctx, server, hx, scenario, who, lat, "vanilla-2-clicks", 0, clicks(2), 2, 2, 0));
-                // Probe past the setting's 10: twenty vanilla clicks in one tick, the floor 4 ahead (80 blocks of lane).
+                // Twenty vanilla clicks in one tick, the floor 4 ahead (80 blocks of lane): the control for wpt-20.
                 problems.addAll(shot(ctx, server, hx, scenario, who, lat, "vanilla-20-clicks", 1, 4, clicks(20), 20, 20, 0));
                 for (int rep = 0; rep < 2; rep++) {
                     for (int n : COUNTS) {
@@ -309,6 +364,33 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                         problems.addAll(shot(ctx, server, hx, scenario, who, lat, "wpt-" + n + " rep " + rep, lane,
                                 () -> ctx.getInput().pressKey(o -> o.keyUse), expect, expect, expect - 1));
                     }
+                }
+                // Warps Per Tick at its new top, 20 (zpewunify-1111: "why a limit of 10?"): the floor 4 ahead, 80 blocks.
+                for (int rep = 0; rep < 2; rep++) {
+                    setWpt(ctx, 20);
+                    problems.addAll(shot(ctx, server, hx, scenario, who, lat, "wpt-20 rep " + rep, 1, 4,
+                            () -> ctx.getInput().pressKey(o -> o.keyUse), 20, 20, 19));
+                }
+                // Multi Warps is its own feature (zpewunify-1111: "if i have zero ping off it should still show multiwarp"):
+                // with Zero Ping Etherwarp OFF, and with it on but Works For Manual off, Warps Per Tick 3 still sends 3 and
+                // the camera never leaves him (the shot's cam-vs-eye check).
+                for (String mode : new String[]{"zpew off", "works for manual off"}) {
+                    setWpt(ctx, 3);
+                    ctx.runOnClient(mc -> {
+                        Mod.set(ZP_CFG, "setEnabled", !mode.equals("zpew off"));
+                        Mod.call(Mod.cfg(ZP_CFG), "setWorksForByName", "MANUAL", !mode.startsWith("works"));
+                    });
+                    long cam0 = ZpewCampaignTests.num(ctx, "cameraFrames");
+                    problems.addAll(shot(ctx, server, hx, scenario, who, lat, "wpt-3 " + mode, 0,
+                            () -> ctx.getInput().pressKey(o -> o.keyUse), 3, 3, 2));
+                    long cam = ZpewCampaignTests.num(ctx, "cameraFrames") - cam0;
+                    if (cam != 0) {
+                        problems.add("wpt-3 " + mode + ": the camera was moved for " + cam + " frame(s)");
+                    }
+                    ctx.runOnClient(mc -> {
+                        Mod.set(ZP_CFG, "setEnabled", true);
+                        Mod.call(Mod.cfg(ZP_CFG), "setWorksForByName", "MANUAL", true);
+                    });
                 }
                 // Two bursts on consecutive ticks: the second is cast from the first burst's last PREDICTED landing (the
                 // server has answered none of it yet at 150/300 ms), so 3 + 3 warps walk on to 48.
@@ -356,7 +438,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 hookTicks(ctx);
                 String who = ZpewCampaignTests.name(ctx);
                 // Warps Per Tick survives a save and a reload from disk (ProfileManager.reloadAllConfigs calls the same
-                // load), and clamps to 1..10.
+                // load), and clamps to 1..20.
                 int[] persist = ctx.computeOnClient(mc -> {
                     Mod.call(Mod.cfg(ZP_CFG), "setWarpsPerTick", 99);
                     int high = (Integer) Mod.call(Mod.cfg(ZP_CFG), "getWarpsPerTick");
@@ -373,7 +455,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 });
                 scenario.log(String.format(Locale.ROOT, "persist: set 99 -> %d, set 0 -> %d, saved 4 reloaded %d, saved 1 "
                         + "reloaded %d", persist[0], persist[1], persist[2], persist[3]));
-                if (persist[0] != 10 || persist[1] != 1 || persist[2] != 4 || persist[3] != 1) {
+                if (persist[0] != 20 || persist[1] != 1 || persist[2] != 4 || persist[3] != 1) {
                     problems.add("Warps Per Tick did not clamp or persist: " + java.util.Arrays.toString(persist));
                 }
                 // setUp's settings again (the reload read them from disk)

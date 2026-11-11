@@ -2098,7 +2098,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     /**
      * 62-argrim-1025-zpchain (killer560, 2026-10-25: zero ping etherwarp "for auto routes and such"): the twelve-warp chain
      * at 150 ms of latency, first as it is (the control: each warp waits for the previous landing, a round trip), then with
-     * Zero Ping Chain on (each warp aimed from the previous one's PREDICTED landing, one a tick). Both must reach the end
+     * Zero Ping Etherwarp working for Auto Routes (zpewunify-1111: the old Zero Ping Chain; each warp aimed from the
+     * previous one's PREDICTED landing, one a tick). Both must reach the end
      * with every server etherwarp made; with the chain every prediction must be confirmed by the server, none broken, and
      * the warps must come faster than the control's. GrimAC must say nothing.
      */
@@ -2120,17 +2121,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         try {
             ctx.runOnClient(mc -> dev.testkit.harness.Latency.install(150));
             ctx.waitTicks(40);
-            for (int pass = 0; pass < 3; pass++) {
+            for (int pass = 0; pass < 2; pass++) {
                 boolean zp = pass >= 1;
-                boolean blinkChain = pass == 2;
-                ctx.runOnClient(mc -> {
-                    ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setZeroPingChain", new Class<?>[]{boolean.class},
-                            new Object[]{zp});
-                    ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setBlinkChain", new Class<?>[]{boolean.class},
-                            new Object[]{blinkChain});
-                    ModUnderTest.call(ModUnderTest.config("com.killer560.hub.blink.BlinkConfig"), "setEnabled",
-                            new Class<?>[]{boolean.class}, new Object[]{blinkChain});
-                });
+                boolean blinkChain = false;
+                ctx.runOnClient(mc -> arChain(zp, false));
                 ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
                         new Object[]{"test"}));
                 int chained0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingChained"));
@@ -2206,12 +2200,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         } finally {
             ctx.runOnClient(mc -> {
                 dev.testkit.harness.Latency.remove();
-                ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setZeroPingChain", new Class<?>[]{boolean.class},
-                        new Object[]{false});
-                ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setBlinkChain", new Class<?>[]{boolean.class},
-                        new Object[]{false});
-                ModUnderTest.call(ModUnderTest.config("com.killer560.hub.blink.BlinkConfig"), "setEnabled",
-                        new Class<?>[]{boolean.class}, new Object[]{false});
+                arChain(false, false);
             });
         }
         c.note("zero ping chain: " + notes);
@@ -2239,10 +2228,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         List<Sample> all = new ArrayList<>();
         try {
             ctx.runOnClient(mc -> {
-                ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setZeroPingChain", new Class<?>[]{boolean.class},
-                        new Object[]{true});
-                ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setChargedChain", new Class<?>[]{boolean.class},
-                        new Object[]{true});
+                arChain(true, true);
                 dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", true);
                 dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChargeMode",
                         dev.testkit.gametest.mod.Mod.enumValue("blink.BlinkConfig$Mode", "TOGGLE"));
@@ -2311,10 +2297,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 dev.testkit.gametest.mod.Mod.setField("blink.BlinkFeature", "keyHeldForTest", null);
                 dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", null);
                 dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "reset", "test teardown");
-                ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setZeroPingChain", new Class<?>[]{boolean.class},
-                        new Object[]{false});
-                ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setChargedChain", new Class<?>[]{boolean.class},
-                        new Object[]{false});
+                arChain(false, false);
                 dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", false);
             });
         }
@@ -2337,6 +2320,22 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     }
 
     private static final String CLEAR = "com.killer560.hub.livemap.autoclear.ClearExecutor";
+
+    /**
+     * The old Auto Routes chain switches, now on the Etherwarp tab (zpewunify-1111): {@code zeroPing} is Zero Ping
+     * Etherwarp on with Works For Auto Routes (Dungeons Only off, the arena is no dungeon), {@code charged} is Multi Warps on
+     * for Auto Routes and the Interactive Map (the old Charged Chain). Call on the client thread.
+     */
+    static void arChain(boolean zeroPing, boolean charged) {
+        Object z = ModUnderTest.config("com.killer560.hub.zpew.ZeroPingEtherwarpConfig");
+        Class<?>[] sb = {String.class, boolean.class};
+        ModUnderTest.set(z, "setEnabled", zeroPing);
+        ModUnderTest.set(z, "setDungeonsOnly", false);
+        ModUnderTest.call(z, "setWorksForByName", sb, new Object[]{"AUTO_ROUTES", zeroPing});
+        ModUnderTest.set(z, "setMultiWarps", charged);
+        ModUnderTest.call(z, "setMultiWarpsForByName", sb, new Object[]{"AUTO_ROUTES", charged});
+        ModUnderTest.call(z, "setMultiWarpsForByName", sb, new Object[]{"INTERACTIVE_MAP", charged});
+    }
     private static final String CHARGE = "com.killer560.hub.blink.BlinkCharge";
 
     private static long chargeNum(ClientGameTestContext ctx, String method) {
@@ -2347,10 +2346,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     private static void chainSettings(ClientGameTestContext ctx, Boolean charged) {
         boolean on = charged != null;
         ctx.runOnClient(mc -> {
-            ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setZeroPingChain", new Class<?>[]{boolean.class},
-                    new Object[]{on});
-            ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setChargedChain", new Class<?>[]{boolean.class},
-                    new Object[]{on && charged});
+            arChain(on, on && charged);
             if (on) {
                 dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChargeMode",
                         dev.testkit.gametest.mod.Mod.enumValue("blink.BlinkConfig$Mode", "TOGGLE"));
@@ -4439,13 +4435,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 .append(" seen ").append(t[3]).toString();
     }
 
-    /** ZPEW on/off, and one source's Works For switch (every other source on). */
+    private static final String[] ZP_GROUPS = {"AUTO_ROUTES", "INTERACTIVE_MAP", "AUTO_PUZZLES", "MANUAL"};
+
+    /** ZPEW on/off, and one Works For group's switch (every other group on). */
     private static void zpSet(ClientGameTestContext ctx, boolean on, String source, boolean sourceOn) {
         ctx.runOnClient(mc -> {
             Object cfg = ModUnderTest.config(ZP_CFG);
             ModUnderTest.set(cfg, "setEnabled", on);
             ModUnderTest.call(cfg, "setTimeoutMs", new Class<?>[]{int.class}, new Object[]{1500});
-            for (String s : ZP_SOURCES) {
+            for (String s : ZP_GROUPS) {
                 ModUnderTest.call(cfg, "setWorksForByName", new Class<?>[]{String.class, boolean.class},
                         new Object[]{s, source == null || !s.equals(source) || sourceOn});
             }
@@ -4612,7 +4610,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         StringBuilder notes = new StringBuilder();
         try {
             for (boolean on : new boolean[]{true, false}) {
-                zpSet(ctx, true, "AUTO_SECRET", on);
+                zpSet(ctx, true, "AUTO_ROUTES", on);
                 long[][] z0 = zpCounts(ctx);
                 caseAutoSecret(c, false);
                 ctx.waitTicks(10);
@@ -4630,8 +4628,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 } else {
                     check(d[as][0] == 0, mode + ": " + d[as][0] + " trip warp(s) predicted");
                 }
-                check(d[ar][0] >= 1, mode + ": the route's own etherwarp was not predicted as Auto Routes' ("
-                        + zpDescribe(d) + ")");
+                check(on ? d[ar][0] >= 1 : d[ar][0] == 0, mode + ": the route's own etherwarp was "
+                        + (on ? "not " : "") + "predicted as Auto Routes' (" + zpDescribe(d) + ")");
                 zpOnlyFrom(d, mode, "AUTO_SECRET", "AUTO_ROUTES");
             }
             c.note("zpew secret: " + notes);
