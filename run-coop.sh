@@ -91,7 +91,7 @@ wait $gp; ge=$?
 
 for side in host guest; do
   echo "== $side (exit $([ $side = host ] && echo $he || echo $ge))"
-  grep -aE "^\[(coop|1109-(coop|mp)[^]]*)\] |\] (PASS|FAIL)$" "$dir/$side.log" | grep -av "wrote" | cut -c1-300 | tail -25
+  grep -aE "^\[(coop|11[0-9][0-9]-(coop|mp)[^]]*)\] |\] (PASS|FAIL)$" "$dir/$side.log" | grep -av "wrote" | cut -c1-300 | tail -25
 done
 for c in "$here" "$guest"; do
   sm="$c/build/testkit-report/summary.md"
