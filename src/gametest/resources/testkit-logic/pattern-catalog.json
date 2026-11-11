@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-11T02:04:30",
+ "generatedAt": "2026-11-11T02:45:42",
  "modSource": "simblood-1110",
- "modGitSha": "49506ca9905fd01aa4022887b432120aa03fe3b7",
+ "modGitSha": "6e0a0e5b20a0966730160ecf23958d3c18d61590",
  "modSourceDirty": false,
  "count": 932,
  "byKind": {
