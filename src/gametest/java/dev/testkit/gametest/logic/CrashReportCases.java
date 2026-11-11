@@ -375,6 +375,9 @@ final class CrashReportCases {
         Thread stray = new Thread(new Stray(stop), "Thread-fake-http");
         stray.setDaemon(false);
         stray.start();
+        for (int i = 0; i < 200 && stray.getState() != Thread.State.WAITING; i++) {
+            Thread.sleep(10); // the guard reads the stack, which is empty until the thread is parked in Stray.run
+        }
         try {
             Object msg = Mod.staticCall(guard, "check", main);
             c.check("the guard sees the stray non-daemon thread and names it", msg != null && msg.toString().contains("Thread-fake-http"),
