@@ -38,10 +38,9 @@ import java.util.Map;
  *       keeps going on the same scene, Skip Tour ends it; a skip from the theme scene puts the theme back.</li>
  *   <li>theme: on the theme scene the presets cycle on their own (at least two seen); a real click on Ocean applies it
  *       (MenuConfig theme OCEAN, saved in the file, the bubble's border pixels are Ocean's accent), and cycling stops.</li>
- *   <li>variant: the variant scene says CHEAT on a cheat jar and legit on a legit jar, and the ban-log scene is there only
- *       on a cheat jar.</li>
+ *   <li>variant: the variant scene says CHEAT on a cheat jar and legit on a legit jar, and the ban-log scene is there on both.</li>
  *   <li>banlogs: Auto Report Bans stays OFF through Next without an answer and through No thanks; Yes turns it on (saved);
- *       No after that turns it back off. Legit: the scene is absent and the setting stays OFF after the whole tour.</li>
+ *       No after that turns it back off. Same on a legit jar (banlegit-1110).</li>
  *   <li>once: after finishing, the title screen never opens it again (launcher re-armed, 60 ticks on the title screen),
  *       done survives a re-read of the config, and Home's Replay Intro opens it again over the menu.</li>
  *   <li>sizes: at 854x480 GUI 1-2, 1280x720 GUI 2, 1920x1080 GUI 1-4 and 2560x1440 GUI 3-4 every scene's bubble and
@@ -497,7 +496,7 @@ public class IntroSuite implements FabricClientGameTest {
             c.check(done(c), "Skip Guide did not end the tour");
             c.check(crash(c), "skipping did not turn Auto Crash Reports on");
             c.check(autoUpdate(c), "skipping did not turn Auto Update on");
-            c.check(ban(c) == cheat, "skipping left Auto Report Bans " + ban(c) + " on a " + (cheat ? "cheat" : "legit") + " jar");
+            c.check(ban(c), "skipping did not turn Auto Report Bans on (" + (cheat ? "cheat" : "legit") + " jar)");
             c.check(configFile(c, "killer560smod-crashreport.json").contains("\"enabled\": true"), "crash reports not saved ON");
             c.check(configFile(c, "killer560smod-autoupdate.json").contains("\"enabled\": true"), "auto update not saved ON");
 
@@ -735,8 +734,7 @@ public class IntroSuite implements FabricClientGameTest {
         List<Object> scenes = c.onClient(mc -> (List<Object>) Mod.call(McCompat.screen(mc), "sceneList"));
         List<String> names = scenes.stream().map(String::valueOf).toList();
         c.note((cheat ? "cheat" : "legit") + " jar, scenes " + names);
-        c.check(names.contains("BAN_LOGS") == cheat, "the ban-log scene is " + (cheat ? "missing on" : "present on")
-                + " a " + (cheat ? "cheat" : "legit") + " jar");
+        c.check(names.contains("BAN_LOGS"), "the ban-log scene is missing on a " + (cheat ? "cheat" : "legit") + " jar");
         c.check(names.contains("CRASH_REPORTS"), "the crash-report scene is missing on a " + (cheat ? "cheat" : "legit") + " jar");
         goTo(c, "VARIANT");
         String t = text(c);
@@ -762,19 +760,7 @@ public class IntroSuite implements FabricClientGameTest {
             Mod.call(cfg, "save");
             return null;
         });
-        boolean cheat = Mod.isCheat();
         open(c);
-        if (!cheat) {
-            // The whole tour, every scene with Next: the setting is never touched on a legit jar.
-            int count = c.onClient(mc -> (Integer) Mod.call(McCompat.screen(mc), "sceneCount"));
-            for (int i = 0; i < count; i++) {
-                settle(c);
-                c.check(!buttons(c).containsKey("Yes, share them"), "a legit jar asked about ban logs on " + scene(c));
-                advance(c, i == count - 1);
-            }
-            c.check(!ban(c), "a legit tour turned Auto Report Bans on");
-            return;
-        }
         goTo(c, "BAN_LOGS");
         shot(c, "ban-logs");
         c.check(!ban(c), "Auto Report Bans is on before any answer");
