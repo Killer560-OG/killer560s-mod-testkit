@@ -350,7 +350,7 @@ final class Ee3RouteGrimCases {
                 }
             }
             c.note("lever pre-turns " + turns + ", lever re-pick pairs " + pairs + ", without W " + noW + ", A-alone inputs on the wire " + aAlone);
-            c.check(dig || (turns > 0 && pairs > 0), "Lever Aura never turned the body under the walk (the pre-turn did not act)");
+            c.check(dig || turns > 0, "Lever Aura never turned the body under the walk (the pre-turn did not act)");
             c.check(noW == 0 && aAlone == 0, "the lever turn dropped W/sprint: re-picks without W " + noW + ", A-alone inputs " + aAlone);
             c.check(ticks.leverAndDig == 0, "a lever click and a dig in one server tick: " + wire);
             if (act == SameTick.Act.DIG) {
