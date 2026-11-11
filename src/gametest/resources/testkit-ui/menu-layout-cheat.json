@@ -954,6 +954,7 @@
       "/fl passes straight through to hypixel. use /flcustom for ours.": "",
       "0 friends on your list.": "",
       "open friends list (/flcustom)": "",
+      "party friends on top": "Friends who are in your party are listed first under an In Party header, apart from the rest of your list.",
       "use our /fl": "Makes /fl open this mod's Friends List instead of Hypixel's. /flcustom always opens ours."
     },
     "Full Block": {

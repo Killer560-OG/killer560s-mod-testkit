@@ -747,6 +747,8 @@ final class SocialCases {
 
     static void seedFriends(Session c, int n) {
         c.ctx().runOnClient(mc -> {
+            // Opening the list syncs quietly unless one ran in the last 4 s (11-09); "synced just now" is the case here.
+            Mod.setField(SYNC, "lastSyncAtMs", System.currentTimeMillis());
             List<String> names = new ArrayList<>();
             for (int i = 1; i <= n; i++) {
                 names.add(String.format(Locale.ROOT, "HxPal%02d", i));
@@ -809,6 +811,7 @@ final class SocialCases {
                 }
                 // The detail page: a real press on a row, then the button message above the bar.
                 int[][] r = c.onClient(mc -> layoutRects(s));
+                seedFriends(c, 30); // the detail page rebuilds the screen, which would sync again after 4 s
                 pressAt(c, new int[]{r[0][0] + 30, r[0][1] + 2, 60, 18});
                 Screen d = current(c);
                 c.check(c.onClient(mc -> Mod.field(d, "selected")) != null, tag + ": a press on a row did not open it");
