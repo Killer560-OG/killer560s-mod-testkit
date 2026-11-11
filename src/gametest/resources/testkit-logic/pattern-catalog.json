@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-10T23:43:50",
+ "generatedAt": "2026-11-11T02:04:30",
  "modSource": "simblood-1110",
- "modGitSha": "1899dbcf7d0f137bc7076d70f191045e89481d62",
+ "modGitSha": "49506ca9905fd01aa4022887b432120aa03fe3b7",
  "modSourceDirty": false,
- "count": 930,
+ "count": 932,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 802,
+  "field": 804,
   "local": 43
  },
  "unresolved": 160,
@@ -2592,6 +2592,30 @@
    "flags": null,
    "kind": "field",
    "expr": "\"hs_err_pid\\\\d+\\\\.log\""
+  },
+  {
+   "id": "crashreport.ShutdownGuard#HEADER",
+   "cls": "crashreport.ShutdownGuard",
+   "field": "HEADER",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/crashreport/ShutdownGuard.java",
+   "line": 28,
+   "regex": "^\"(.*)\" (daemon )?prio=",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^\\\"(.*)\\\" (daemon )?prio=\""
+  },
+  {
+   "id": "crashreport.ShutdownGuard#FRAME",
+   "cls": "crashreport.ShutdownGuard",
+   "field": "FRAME",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/crashreport/ShutdownGuard.java",
+   "line": 29,
+   "regex": "^\\tat (?:[\\w.@\\-]*/){0,2}([\\w.$]+)\\.[\\w$<>]+\\(",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^\\\\tat (?:[\\\\w.@\\\\-]*/){0,2}([\\\\w.$]+)\\\\.[\\\\w$<>]+\\\\(\""
   },
   {
    "id": "creationcooldown.CreationCooldownFeature#ENTERED",
@@ -5443,7 +5467,7 @@
    "field": "ROMAN",
    "index": null,
    "file": "src/main/java/com/killer560/hub/miningqol/PigeonDrillSwap.java",
-   "line": 43,
+   "line": 44,
    "regex": "\\bCompact ([IVXLC]{1,6})\\b",
    "flags": null,
    "kind": "field",
@@ -5455,7 +5479,7 @@
    "field": "NUMBER",
    "index": null,
    "file": "src/main/java/com/killer560/hub/miningqol/PigeonDrillSwap.java",
-   "line": 44,
+   "line": 45,
    "regex": "([0-9][0-9,.]{0,9})",
    "flags": null,
    "kind": "field",
