@@ -1808,6 +1808,10 @@ public class BlinkStressTests implements FabricClientGameTest {
                         ctx.waitTicks(1);
                     }
                     releaseKeys(ctx);
+                    // the kept bank is backed again only on still ticks (~5.5 s after the hold here), then the shot fires
+                    for (int t = 0; t < 240 && cnum(ctx, "shots") == shots0; t++) {
+                        ctx.waitTicks(1);
+                    }
                     ctx.waitTicks(45);
                     List<String> lines = LogTap.since(mark);
                     int let = firstIndex(lines, "teleport hold let go", 0);
