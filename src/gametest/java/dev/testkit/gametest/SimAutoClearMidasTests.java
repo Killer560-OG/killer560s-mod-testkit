@@ -56,6 +56,10 @@ public class SimAutoClearMidasTests implements FabricClientGameTest {
             return;
         }
         ModUnderTest.require("killer560smod");
+        if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+            Scenario.skipped(NAME, "legit jar: no Auto Clear");
+            return;
+        }
         LogTap.install();
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
@@ -213,7 +217,10 @@ public class SimAutoClearMidasTests implements FabricClientGameTest {
             if (spawnAt < 0 && l.contains("King Midas spawns")) {
                 spawnAt = i;
             }
-            if (deadAt < 0 && l.contains("[AutoClear]") && l.contains(" in King Midas is dead")) {
+            // The sim's own clear line counts too: once a killed miniboss reads dead at once (simmidasfix-1110), a fast kill clears the
+            // room before Auto Clear's own "is dead" line is written (26.2: the Hyperion boom killed it in 23 ticks).
+            if (deadAt < 0 && ((l.contains("[AutoClear]") && l.contains(" in King Midas is dead"))
+                    || l.contains("room cleared: King Midas (every starred mob in it is dead)"))) {
                 deadAt = i;
             }
         }
