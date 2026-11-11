@@ -266,9 +266,9 @@ final class HxStormM51111Cases {
             int hits0 = c.onClient(mc -> intOf(M5, "hits"));
             int casts0 = c.onClient(mc -> intOf(M5, "casts"));
             // With his own attacks in the case, an attack packet cannot be told apart by type, so the feature's
-            // marker there is the Ragnarock swap and cast; the hits still count on the wire.
+            // marker there is the Ragnarock cast and its swaps; the hits still count on the wire.
             Predicate<Packet<?>> feature = act == SameTick.Act.ATTACK
-                    ? p -> p instanceof ServerboundUseItemPacket || (p instanceof ServerboundSetCarriedItemPacket h && h.getSlot() == 3)
+                    ? p -> p instanceof ServerboundUseItemPacket || p instanceof ServerboundSetCarriedItemPacket
                     : p -> attack(p) || (p instanceof ServerboundSetCarriedItemPacket h && h.getSlot() == 3);
             c.onClient(mc -> {
                 PacketTrace.tap = p -> {
@@ -282,6 +282,12 @@ final class HxStormM51111Cases {
             c.hx().chat("[BOSS] Livid: Welcome, you've arrived right on time. I am Livid, the Master of Shadows.");
             c.waitUntil("Auto M5 started", mc -> intOf(M5, "runs") > runs0, 40);
             run(c, () -> Mod.setField(lividCls, "invulnTicks", 90));
+            if (act == SameTick.Act.ATTACK) {
+                // His sprinting hit on a Livid the server never sent slows him on the client only (Simulation); on
+                // Hypixel the server knows the Livid and slows him too. So his clicks start once the walk is over.
+                c.waitUntil("walk to mid over", mc -> !mc.player.isSprinting()
+                        && mc.player.getDeltaMovement().horizontalDistanceSqr() < 1e-4, 100);
+            }
             if (act != null) {
                 st = c.onClient(mc -> SameTick.start(act, 3, feature, 0, 1));
             }
