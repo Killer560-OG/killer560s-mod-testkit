@@ -75,6 +75,10 @@ public class SimAutoClearTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank() || Scenario.skip(NAME)) {
             return;
         }
+        if (!dev.testkit.gametest.mod.Mod.isCheat()) { // Auto Clear is cheat build only
+            Scenario.skipped(NAME, "Auto Clear is cheat build only");
+            return;
+        }
         ModUnderTest.require("killer560smod");
         LogTap.install();
         ctx.waitTicks(40);
