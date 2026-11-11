@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-10T20:11:16",
- "modSource": "ship23-1110",
- "modGitSha": "140279a5c214085c40e0af5f21e546ba2d0f06b4",
+ "generatedAt": "2026-11-10T20:27:28",
+ "modSource": "leaprow-1110",
+ "modGitSha": "51191de7a619976db6a569ca4943047f1ab43eff",
  "modSourceDirty": false,
  "count": 930,
  "byKind": {
@@ -3799,7 +3799,7 @@
    "field": "SWITCH_TEXT",
    "index": null,
    "file": "src/main/java/com/killer560/hub/gui/SettingsButtonWidget.java",
-   "line": 220,
+   "line": 251,
    "regex": "^(.+?):\\s*(ON|OFF)(?:\\s+(.*))?$",
    "flags": null,
    "kind": "field",

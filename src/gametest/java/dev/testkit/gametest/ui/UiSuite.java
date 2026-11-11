@@ -715,6 +715,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1102-ui-leapmenu-oldconfig", LeapMenuCases::oldConfig);
                     UiCase.run(ctx, "1102-ui-leapmenu-search", LeapMenuCases::search);
                     UiCase.run(ctx, "1102-ui-leapmenu-shots", LeapMenuCases::shots);
+                    UiCase.run(ctx, "1110-ui-leaprow", LeapMenuCases::leapRow);
                     // ---- /class + /leaporder, overrides folded in, editor layout, Party Finder styles (1071-1075) ----
                     UiCase.run(ctx, "1071-ui-class-commands", LeapQueueCases::commands);
                     UiCase.run(ctx, "1072-ui-class-overrides-migrated", LeapQueueCases::overridesGoneAndMigrated);
@@ -866,6 +867,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "961-ui-lockstar-heads", LockStarHeadCases::heads);
                     // ---- Item Protect Show Star switch (mod protectstar-1102, ProtectStarCases) ----
                     UiCase.run(ctx, ProtectStarCases.SHOW_STAR, ProtectStarCases::showStar);
+                    UiCase.run(ctx, ProtectStarCases.TRADE, ProtectStarCases::starredTrade);
                     // ---- profiles carry everything, across jars (980-985) ----
                     UiCase.run(ctx, "980-ui-profile-data-switch", ProfileDataCases::switchAB);
                     UiCase.run(ctx, "981-ui-profile-data-export", ProfileDataCases::exportImport);
