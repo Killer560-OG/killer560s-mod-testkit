@@ -295,7 +295,7 @@ public final class Session {
             server.mark();
             caseEventHead = hx.head();
             if (LAG_MS > 0) {
-                dev.testkit.harness.Latency.install(LAG_MS);
+                ctx.runOnClient(mc -> dev.testkit.harness.Latency.install(LAG_MS));
                 ctx.waitTicks(20);
             }
             body.run(this);
@@ -337,7 +337,7 @@ public final class Session {
                     server.since(), LogTap.since(logMark));
         } finally {
             if (LAG_MS > 0) {
-                dev.testkit.harness.Latency.remove();
+                ctx.runOnClient(mc -> dev.testkit.harness.Latency.remove());
             }
             currentCase = null;
             Coverage.currentCase(name);

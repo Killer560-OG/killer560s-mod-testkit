@@ -175,6 +175,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             session = s;
             s.test("62-argrim-ew-add", GrimAutoRoutesTests::caseEwAdd);
             s.test("62-argrim-walk", GrimAutoRoutesTests::caseWalk);
+            s.test("62-argrim-1110-terrain", GrimAutoRoutesTests::caseTerrain);
             // mod doc-routes-1101 (to-do Doc "AUTO ROUTES TRAP RELATED NODES"): in a trap room a walk node turns the body
             // onto its yaw before it walks, like AP3; any node takes a w<n> l<n> box there and only there.
             s.test("62-argrim-1101-trapwalk", c -> caseTrapWalk(c, true));
@@ -604,6 +605,66 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         check(took < cd - 500, "jump -> etherwarp took " + took + " ms (held by the cooldown?)");
         noteFlags(c, s);
         resetRoutes(ctx);
+    }
+
+    /**
+     * 62-argrim-1110-terrain (flaghunt-1110): /ar add walk sprints him along a lane of the awkward terrain the other walk
+     * cases never touch: a two-deep pool he swims, soul sand then cobweb then a bottom slab then stairs, and a ladder
+     * climbed against its wall. Each lane must really be crossed (progress, climb), and GrimAC says nothing.
+     */
+    private static void caseTerrain(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        Map<int[], String> b = new LinkedHashMap<>();
+        for (int z = 8; z <= 14; z++) {
+            b.put(new int[]{8, F - 2, z}, "minecraft:stone");
+            b.put(new int[]{8, F - 1, z}, "minecraft:water");
+            b.put(new int[]{8, F, z}, "minecraft:water");
+            b.put(new int[]{7, F, z}, "minecraft:stone");
+            b.put(new int[]{9, F, z}, "minecraft:stone");
+            b.put(new int[]{12, F - 1, z}, "minecraft:soul_sand");
+        }
+        b.put(new int[]{8, F, 15}, "minecraft:stone");
+        b.put(new int[]{8, F, 7}, "minecraft:stone");
+        for (int z = 14; z <= 15; z++) {
+            b.put(new int[]{12, F, z}, "minecraft:cobweb");
+            b.put(new int[]{12, F + 1, z}, "minecraft:cobweb");
+        }
+        b.put(new int[]{12, F, 16}, "minecraft:oak_slab[type=bottom]");
+        b.put(new int[]{12, F, 17}, "minecraft:oak_stairs[facing=south,half=bottom]");
+        for (int y = F; y <= F + 2; y++) {
+            b.put(new int[]{12, y, 19}, "minecraft:stone");
+        }
+        for (int y = F; y <= F + 5; y++) {
+            b.put(new int[]{16, y, 11}, "minecraft:stone");
+            b.put(new int[]{16, y, 10}, "minecraft:ladder[facing=north]");
+        }
+        setBlocks(ctx, b);
+        double[][] lanes = {{8.5, 8.5, 4}, {12.5, 6.5, 10}, {16.5, 7.5, -1}};
+        String[] names = {"pool", "soul sand + cobweb + slab + stairs", "ladder"};
+        StringBuilder notes = new StringBuilder();
+        for (int i = 0; i < lanes.length; i++) {
+            resetRoutes(ctx);
+            tpRel(ctx, lanes[i][0], lanes[i][1], 0f, 0f);
+            ctx.waitTicks(5);
+            Vec3 from = relPos(ctx);
+            startSampling(ctx);
+            cmd(ctx, "/ar add walk");
+            ctx.waitTicks(120);
+            List<Sample> s = stopSampling(ctx);
+            Vec3 after = relPos(ctx);
+            notes.append(String.format(Locale.ROOT, "%s: z %+.1f y %+.1f; ", names[i], after.z - from.z, after.y - from.y));
+            check(s.stream().anyMatch(Sample::sprint), names[i] + ": the walk never sprinted");
+            if (i == 2) {
+                check(after.y - from.y > 2.5, "ladder: climbed only " + (after.y - from.y) + " blocks (from " + from + " to " + after + ")");
+            } else {
+                check(after.z - from.z > lanes[i][2], names[i] + ": went only " + (after.z - from.z) + " along +z (from "
+                        + from + " to " + after + ")");
+            }
+        }
+        c.note("terrain: " + notes);
+        noteFlags(c, List.of());
     }
 
     /** /ar add walk sprints along the look until the wall, shift up. */
