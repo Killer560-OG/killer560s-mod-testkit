@@ -271,6 +271,8 @@ final class Ee3RouteGrimCases {
             int arrive = -1;
             int boomAt = -1;
             double minY = 999;
+            double[] fell = null;
+            long arriveNs = Long.MAX_VALUE;
             StringBuilder path = new StringBuilder();
             for (int t = 0; t < 400 && arrive < 0; t++) {
                 c.ctx().waitTick();
@@ -288,11 +290,13 @@ final class Ee3RouteGrimCases {
                 }
                 if (Math.abs(s[0] - 2.5) <= 1 && Math.abs(s[2] - 105.5) <= 1 && Math.abs(s[1] - 109) <= 1.5 && s[3] > 0) {
                     arrive = t;
+                    arriveNs = System.nanoTime();
                 }
                 if (s[1] < 107.5) {
                     // Off the route into the lava (y 106): out at once, or the burning fall draws Simulation flags that the
                     // next case is blamed for. Where this route ends in the hx world is the route's question, not this case's.
                     c.note(String.format(Locale.ROOT, "fell into the lava at t%d (rel %d) at %.2f %.2f %.2f", t, t - t0, s[0], s[1], s[2]));
+                    fell = s;
                     TerminalAuraCases.tp(c, 62.5, 132, 139, 72f);
                     break;
                 }
@@ -319,8 +323,9 @@ final class Ee3RouteGrimCases {
             // ap3holddig-1110: his right click or dig in every tick must never stop AP3. grimreach-1110: the route waits at the
             // low S2 lever while it is out of Grim's 4.5 (or his dig keeps Lever Aura off), so the BOOM and EE3 are only
             // asked once that lever went; then his act is held one tick and goes. A swap every tick takes the TNT away.
-            List<String> stops = LogTap.since(mark).stream().filter(l -> l.contains("[AP3] Stopped:")).toList();
+            List<String> stops = LogTap.since(mark).stream().filter(l -> l.contains("[AP3] Stopped:") && !l.contains("test over")).toList();
             c.check(stops.isEmpty(), "AP3 stopped on the route: " + stops);
+            c.check(fell == null, "fell into the lava (path above)");
             if (!lev[0]) {
                 c.note("route waits at the low S2 lever; BOOM tap at t" + boomAt);
             } else if (act != SameTick.Act.SWAP) {
@@ -336,7 +341,8 @@ final class Ee3RouteGrimCases {
             // On the wire: no player_input of A alone, and the turn itself must have run (lines "turning body" / "keys re-picked").
             int aAlone = 0;
             for (WireCapture.Sent w : WireCapture.snapshot()) {
-                aAlone += w.phase().equals("play") && w.text().startsWith("input A") && !w.text().startsWith("input AS")
+                // Up to the arrival: the align at EE3 afterwards may press A alone, it is not the route's walk.
+                aAlone += w.nanos() < arriveNs && w.phase().equals("play") && w.text().startsWith("input A") && !w.text().startsWith("input AS")
                         && !w.text().startsWith("input AD") ? 1 : 0;
             }
             List<String> logs = LogTap.since(mark);
@@ -348,7 +354,7 @@ final class Ee3RouteGrimCases {
             for (String l : logs) {
                 java.util.regex.Matcher m = rp.matcher(l);
                 if (m.find()) {
-                    reps.add(new String[]{m.group(1), m.group(2), m.group(3)});
+                    reps.add(new String[]{m.group(1), m.group(2), m.group(3), l.contains("(in the air)") ? "air" : ""});
                 }
             }
             long noW = 0;
@@ -356,7 +362,8 @@ final class Ee3RouteGrimCases {
             for (int i = 0; i + 1 < reps.size(); i++) {
                 if (reps.get(i)[0].equals(reps.get(i + 1)[1]) && reps.get(i)[1].equals(reps.get(i + 1)[0])) {
                     pairs++;
-                    noW += reps.get(i)[2].contains("W") ? 0 : 1;
+                    // leverjump-1111: in the air a W-less re-pick is allowed (the S2 high lever goes right after node 23's jump).
+                    noW += reps.get(i)[2].contains("W") || !reps.get(i)[3].isEmpty() ? 0 : 1;
                 }
             }
             c.note("lever pre-turns " + turns + ", lever re-pick pairs " + pairs + ", without W " + noW + ", A-alone inputs on the wire " + aAlone);
