@@ -61,7 +61,7 @@ public class ZpewLooksTests implements FabricClientGameTest {
         }
         for (Runnable r : new Runnable[]{() -> emergencyCancel(ctx), () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.SWAP, 0),
                 () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.USE, 0),
-                () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.SWAP, 150)}) {
+                () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.SWAP, 150), () -> lcewSame(ctx, 0), () -> lcewSame(ctx, 150)}) {
             try {
                 r.run();
             } catch (AssertionError e) {
@@ -489,6 +489,71 @@ public class ZpewLooksTests implements FabricClientGameTest {
         });
     }
 
+
+    /**
+     * 1110-zpew-lcew-same-swap[-lagN] (flaghunt-1110): Left Click Etherwarp (a predicted warp from his left click with the
+     * AOTV) while HIS scroll between two AOTVs goes into every client tick ({@link dev.testkit.gametest.SameTick}); with
+     * and without latency. Each of three clicks must warp once on the server, a GrimAC tick must carry the feature's use
+     * and his slot change, and GrimAC says nothing (default and experimental checkouts). Cheat jar only.
+     */
+    static void lcewSame(ClientGameTestContext ctx, int lat) {
+        String name = "1110-zpew-lcew-same-swap" + (lat > 0 ? "-lag" + lat : "");
+        if (!Mod.isCheat()) {
+            Scenario.skipped(name, "Left Click Etherwarp is cheat-only");
+            return;
+        }
+        List<ZpewCampaignTests.Station> lanes = List.of(new ZpewCampaignTests.Station("lcew", 4, List.of(), null, 0, 0, true, ""));
+        Scenario.run(ctx, name, (server, scenario) -> ZpewCampaignTests.buildStations(server, lanes), (server, scenario) -> {
+            Hx hx = null;
+            dev.testkit.gametest.SameTick[] st = {null};
+            List<String> problems = new ArrayList<>();
+            try {
+                hx = ZpewCampaignTests.setUp(ctx, 4);
+                String who = ZpewCampaignTests.name(ctx);
+                hx.give(1, ZpewCampaignTests.aotv(4));
+                ctx.runOnClient(mc -> Mod.set(ZpewCampaignTests.LC_CFG, "setEnabled", true));
+                ctx.runOnClient(mc -> Mod.call(Mod.cfg(ZP_CFG), "setWorksForByName", "LEFT_CLICK", true));
+                ZpewCampaignTests.latency(ctx, lat);
+                ctx.getInput().holdKey(o -> o.keyShift);
+                st[0] = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(dev.testkit.gametest.SameTick.Act.SWAP, 1,
+                        p -> p instanceof ServerboundUseItemPacket, 0, 1));
+                for (int rep = 0; rep < 3; rep++) {
+                    ZpewCampaignTests.tpTo(ctx, server, who, ZpewCampaignTests.X0 + 0.5, ZpewCampaignTests.Y,
+                            ZpewCampaignTests.Z0 + 0.5, true);
+                    ZpewCampaignTests.Shot sh = ZpewCampaignTests.shot(ctx, hx, "lcew-same rep " + rep, () -> {
+                        float[] a = ZpewCampaignTests.aim(new Vec3(ZpewCampaignTests.X0 + 0.5, ZpewCampaignTests.Y + 1.27,
+                                ZpewCampaignTests.Z0 + 0.5), new Vec3(ZpewCampaignTests.X0 + 16.5, ZpewCampaignTests.Y,
+                                ZpewCampaignTests.Z0 + 0.5));
+                        ZpewCampaignTests.look(ctx, a[0], a[1]);
+                        ctx.getInput().pressKey(o -> o.keyAttack);
+                    }, lat);
+                    scenario.log(sh.line());
+                    if (sh.warps() != 1) {
+                        problems.add("rep " + rep + ": " + sh.warps() + " server warp(s) (want 1): " + sh.line());
+                    }
+                }
+                dev.testkit.gametest.SameTick done = st[0];
+                ctx.runOnClient(mc -> done.close());
+                st[0] = null;
+                scenario.log(name + ": " + done.report());
+                String why = done.verdict("left click etherwarp");
+                if (why != null) {
+                    problems.add(why);
+                }
+            } finally {
+                if (st[0] != null) {
+                    dev.testkit.gametest.SameTick open = st[0];
+                    ctx.runOnClient(mc -> open.close());
+                }
+                ZpewCampaignTests.latency(ctx, 0);
+                ctx.runOnClient(mc -> Mod.set(ZpewCampaignTests.LC_CFG, "setEnabled", false));
+                ZpewCampaignTests.tearDown(ctx, hx);
+            }
+            if (!problems.isEmpty()) {
+                throw new AssertionError(name + ": " + problems);
+            }
+        });
+    }
     static final String MS = "macrostop.MacroStop";
     static final String MS_CFG = "macrostop.MacroStopConfig";
     /** GLFW K, the Emergency Cancel Key for the case (mod settings keep GLFW numbers; pressed through McKeys.nat). */
