@@ -49,14 +49,23 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
             try (Hx hx = Hx.connect()) {
                 iwOn(ctx, true, 0);
                 ctx.runOnClient(mc -> Mod.set(IW_CFG, "setLagBackWalk", true));
-                for (int lat : latencies()) {
-                    latency(ctx, lat);
-                    row(rows, ctx, server, hx, x, z, lat, null);
-                    for (SameTick.Act st : List.of(SameTick.Act.SCREEN_CLICK, SameTick.Act.SWAP, SameTick.Act.TP)) {
-                        row(rows, ctx, server, hx, x, z, lat, st);
+                ctx.runOnClient(mc -> Mod.set(IW_CFG, "setPulseEvery", 4));
+                // Menu Walk's modes (invwalkpulse-1111): Lag Back and Hidden Pulse hide the keys (Simulation accepted),
+                // Pulse sends them honestly on one tick in four and coasts between, so it must draw no flag at all.
+                for (String mode : List.of("LAG_BACK", "PULSE", "HIDDEN_PULSE")) {
+                    ctx.runOnClient(mc -> Mod.set(IW_CFG, "setMenuWalkMode", Mod.enumValue(IW_CFG + "$MenuWalkMode", mode)));
+                    rows.tolerate = mode.equals("PULSE") ? null : "Simulation";
+                    for (int lat : latencies()) {
+                        latency(ctx, lat);
+                        row(rows, ctx, server, hx, x, z, lat, null, mode);
+                        for (SameTick.Act st : mode.equals("HIDDEN_PULSE") ? List.<SameTick.Act>of()
+                                : List.of(SameTick.Act.SCREEN_CLICK, SameTick.Act.SWAP, SameTick.Act.TP)) {
+                            row(rows, ctx, server, hx, x, z, lat, st, mode);
+                        }
                     }
                 }
             } finally {
+                ctx.runOnClient(mc -> Mod.set(IW_CFG, "setMenuWalkMode", Mod.enumValue(IW_CFG + "$MenuWalkMode", "PULSE")));
                 ctx.runOnClient(mc -> Mod.set(IW_CFG, "setLagBackWalk", false));
                 tearDown(ctx, gate);
             }
@@ -75,8 +84,9 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
 
     /** {@code st} null: walk, a forced pullback, walk on. Otherwise his act in the same ticks as the hidden inputs. */
     private static void row(Rows rows, ClientGameTestContext ctx, TestServer server, Hx hx, int x, int z,
-            int lat, SameTick.Act st) {
-        String label = "L" + lat + " lag back walk" + (st == null ? ", pullback" : ", same tick " + st);
+            int lat, SameTick.Act st, String mode) {
+        String label = "L" + lat + " " + mode + (st == null ? ", pullback" : ", same tick " + st);
+        boolean hides = !mode.equals("PULSE");
         String who = name(ctx);
         keys(ctx, Set.of());
         tp(server, ctx, x + 0.5, SURFACE_Y, z + 0.5, -90f);
@@ -179,7 +189,10 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
         }
         // GrimAC sets him back on every Simulation flag, so on a fast connection he gains almost nothing (L0: 0.1 a tick and
         // back); what must hold is that he keeps walking: a new position every tick, keys hidden in every input, menu up.
-        boolean walked = distinct >= 20 && inputs >= 8 && hiddenN >= 5 && moving == 0 && up && masking && unmasked;
+        // Pulse: honest keys on one tick in four (about 20 of 80 ticks, two inputs each: down and up), coasting between, and
+        // nothing to set him back, so he really gets somewhere.
+        boolean walked = distinct >= 20 && inputs >= 8 && up && unmasked && masking == hides
+                && (hides ? hiddenN >= 5 && moving == 0 : hiddenN == 0 && moving >= 10 && moving <= 30 && path >= 2.0);
         // The forced pullback: the client lands where the server put him (2 back) and the mod counted it; "walked" holds after.
         boolean pulled = st != null || (pulls >= 1 && landed != 0 && landed < before - 1);
         boolean ok = walked && pulled && sameVerdict == null && clicksMoving == 0;
