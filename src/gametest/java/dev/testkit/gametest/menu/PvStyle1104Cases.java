@@ -59,14 +59,20 @@ final class PvStyle1104Cases {
 
     static void register(Session s) {
         MenuSuite.test(s, "1104-menu-pvstyle", PvStyle1104Cases::styles);
+        MenuSuite.test(s, "1110-menu-pvtweak", PvStyle1104Cases::tweak);
     }
 
     @SuppressWarnings("unchecked")
     private static void seed(Session c) {
+        seedWith(c, PROFILE);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void seedWith(Session c, String json) {
         c.onClient(mc -> {
             try {
                 List<Object> parsed = (List<Object>) Mod.staticCall("profileviewer.data.SbProfile", "parseAll",
-                        JsonParser.parseString(PROFILE).getAsJsonObject(), ID);
+                        JsonParser.parseString(json).getAsJsonObject(), ID);
                 Class<?> resCls = Mod.cls(API + "$ProfilesResult");
                 Object result = resCls.getDeclaredConstructor(UUID.class, List.class, String.class, long.class)
                         .newInstance(ID, parsed, "PvStyleTest", System.currentTimeMillis());
@@ -86,6 +92,62 @@ final class PvStyle1104Cases {
 
     private static int i(Object o, String f) {
         return (Integer) Mod.field(o, f);
+    }
+
+    /** pvtweak-1110: a class level past 50 shows as it is (hover tooltip says "Healer 51"), Master floors sit under their own
+     *  divider and header inside the panel, and the Recent sidebar highlights the viewed player under the player's own row. */
+    static void tweak(Session c) throws Exception {
+        try (SocialCases.Env env = new SocialCases.Env(c)) {
+            BazaarV3Cases.setWindow(c, 1600, 900, 2);
+            c.ctx().runOnClient(mc -> {
+                Object cfg = Mod.cfg(PVCFG);
+                Mod.call(cfg, "setRememberLastPage", false);
+                Mod.call(cfg, "setStyle", Mod.enumValue(PVCFG + "$Style", "DEFAULT"));
+            });
+            seedXp(c);
+            Screen s = c.onClient(mc -> {
+                try {
+                    Object target = Mod.cls("profileviewer.ProfileViewerFeature$Target")
+                            .getDeclaredConstructor(String.class, UUID.class).newInstance("PvStyleTest", ID);
+                    Screen pv = (Screen) Mod.cls("profileviewer.screen.ProfileViewerScreen")
+                            .getDeclaredConstructor(Screen.class, target.getClass()).newInstance(null, target);
+                    McCompat.setScreen(mc, pv);
+                    return pv;
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError("cannot open the PV: " + e, e);
+                }
+            });
+            c.waitUntil("the PV shows the offline profile", mc -> "READY".equals(String.valueOf(Mod.field(s, "state"))), 100);
+            c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 1));
+            c.ctx().waitTicks(4);
+            int[] g = c.onClient(mc -> new int[]{i(s, "contentX"), i(s, "contentY"), i(s, "contentW"), i(s, "contentH"), i(s, "panelY"), i(s, "panelH"), i(s, "sidebarX"), i(s, "sidebarW"), i(s, "sidebarY")});
+            int classH = Math.max(16, Math.min(20, (g[3] - 68) / 6));
+            BazaarReskinCases.cursorTo(c, new int[]{g[0] + 6, g[1] + 33 + classH, 60, 14});
+            String tip = c.onClient(mc -> {
+                Object t = Mod.field(s, "pendingTooltip");
+                return t == null ? "" : String.valueOf(((List<?>) t).get(0));
+            });
+            c.check(tip.contains("Healer 51"), "the Healer bar of an 800M-XP class says '" + tip + "', expected level 51 (past 50)");
+            c.note("healer tooltip: " + tip);
+            // Master rows: the last row ends inside the panel and the header sits between the two groups.
+            int rowH = Math.max(10, Math.min(12, (g[3] - 38) / 17));
+            int endY = g[1] + 5 + 12 + 8 * rowH + 4 + 1 + 3 + 8 * rowH;
+            c.check(endY <= g[1] + g[3], "the Master rows end at " + endY + ", past the panel bottom " + (g[1] + g[3]));
+            BufferedImage img = BazaarReskinCases.shot(c, "pvtweak");
+            c.note("pvtweak shot taken; panel content " + g[0] + "," + g[1] + " " + g[2] + "x" + g[3] + ", sidebar " + g[6] + "," + g[8] + " w" + g[7]
+                    + ", Master end " + endY);
+            c.check(img.getWidth() > 0, "no screenshot");
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                McCompat.setScreen(mc, null);
+                ((Map<?, ?>) Mod.field(API, "CACHE")).remove(ID);
+            });
+        }
+    }
+
+    private static void seedXp(Session c) {
+        String saved = PROFILE;
+        seedWith(c, saved.replace("\"dungeon_types\"", "\"player_classes\":{\"healer\":{\"experience\":800000000},\"mage\":{\"experience\":30000000}},\"dungeon_types\""));
     }
 
     static void styles(Session c) throws Exception {

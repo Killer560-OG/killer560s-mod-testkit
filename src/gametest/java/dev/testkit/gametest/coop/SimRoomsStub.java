@@ -170,10 +170,15 @@ public final class SimRoomsStub {
                 if (r != null) byOwner.remove(r.ownerUuid);
             }
             case "/simrooms/list" -> {
-                String mc = query == null ? "" : query.replaceFirst("^mc=", "");
+                String mc = "";
+                boolean all = false;
+                for (String kv : query == null ? new String[0] : query.split("&")) {
+                    if (kv.startsWith("mc=")) mc = java.net.URLDecoder.decode(kv.substring(3), StandardCharsets.UTF_8);
+                    if (kv.equals("all=1")) all = true;
+                }
                 JsonArray rooms = new JsonArray();
                 for (Room r : byOwner.values()) {
-                    if (!r.mc.equals(java.net.URLDecoder.decode(mc, StandardCharsets.UTF_8))) continue;
+                    if (!all && !r.mc.equals(mc)) continue;
                     JsonObject o = new JsonObject();
                     o.addProperty("id", r.id);
                     o.addProperty("owner", r.owner);
@@ -185,6 +190,7 @@ public final class SimRoomsStub {
                     o.addProperty("modVersion", r.modVersion);
                     o.addProperty("protocol", r.protocol);
                     o.addProperty("mode", r.mode);
+                    o.addProperty("mc", r.mc);
                     rooms.add(o);
                 }
                 out.add("rooms", rooms);
@@ -214,6 +220,7 @@ public final class SimRoomsStub {
                                 ? com.google.gson.JsonNull.INSTANCE : r.endpoint);
                         out.addProperty("nonce", t.get("nonce").getAsString());
                         out.addProperty("expires", t.get("expires").getAsLong());
+                        out.addProperty("tunnel", false);
                     }
                 }
             }
