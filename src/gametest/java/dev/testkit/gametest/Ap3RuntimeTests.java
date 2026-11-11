@@ -107,6 +107,8 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             s.test("63-ap3-hold-boom-then-stop", Ap3RuntimeTests::caseBoomThenStop);
             s.test("63-ap3-stopwatch-hud", Ap3RuntimeTests::caseStopwatchHud);
             s.test("63-ap3-stopwatch-lock", Ap3RuntimeTests::caseStopwatchLock);
+            s.test("1110-ap3-stopwatch-align", c -> caseStopwatchEnd(c, true));
+            s.test("1110-ap3-stopwatch-touch", c -> caseStopwatchEnd(c, false));
             // mod doc-etable-1101: the Emergency Cancel Key stops AP3 (on top of its own stop rules) and holds it.
             s.test("1101-ap3-ecancel", Ap3RuntimeTests::caseEmergencyCancel);
             // mod blood-ap3-1018 (killer560's doc item 11): the ss modifier, and overlapping walk/run boxes.
@@ -1213,6 +1215,61 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             throw new AssertionError("the second stopwatch node fired within a second of the first (running " + running
                     + ", stopped " + stopped + ") - the lock is missing");
         }
+    }
+
+    /**
+     * 1110-ap3-stopwatch-align / -touch (mod ap3sw-1110, killer560: "stopwatches shouldnt fire while align is working ...
+     * if i am running onto one as the end stopwatch it should fire the tick it hits it"). A start stopwatch, then an end
+     * stopwatch. withAlign: an ALIGN shares the end stopwatch's block, so the stop must come in the tick the align is
+     * no longer working (never while it is), and the align must have worked first. Otherwise the stop comes in the very
+     * tick his position first lies in the end stopwatch's box. Polled once per client tick.
+     */
+    private static void caseStopwatchEnd(Session c, boolean withAlign) {
+        ClientGameTestContext ctx = c.ctx();
+        onClient(ctx, mc -> {
+            ModUnderTest.set(ModUnderTest.config(CONFIG), "setStopwatchHud", false);
+            resetStopwatch();
+            return null;
+        });
+        double z = lane();
+        Object run = runNode(z);
+        Object start = node("STOPWATCH", LANE_X0 + 6.0, z, -90f, 0f, 1.0, 3.0);
+        Object end = node("STOPWATCH", LANE_X0 + 13.0, z, -90f, 0f, 1.0, 3.0);
+        Object stop = node("STOP", LANE_X0 + 22.0, z, -90f, 0f, 2.0, 3.0);
+        Object[] rest = withAlign
+                ? new Object[]{start, node("ALIGN", LANE_X0 + 13.0, z, -90f, 0f, 1.0, 3.0), end, stop}
+                : new Object[]{start, end, stop};
+        walkIntoRun(c, z, run, rest);
+        boolean aligned = false;
+        boolean inEnd = false;
+        for (int i = 0; i < 120; i++) {
+            ctx.waitTick();
+            boolean[] st = onClient(ctx, mc -> new boolean[]{
+                    (Boolean) ModUnderTest.staticCall(EXEC, "isInputOverridden"),
+                    (Long) ModUnderTest.staticCall(EXEC, "lastStopwatchMs") >= 0,
+                    contains(end, mc.player.position())});
+            boolean overridden = st[0];
+            boolean stopped = st[1];
+            inEnd |= st[2];
+            aligned |= overridden;
+            if (!inEnd && stopped) {
+                throw new AssertionError("the end stopwatch fired before he was in its box");
+            }
+            if (withAlign && overridden && stopped) {
+                throw new AssertionError("the end stopwatch fired while the align on its block was still working");
+            }
+            if (!withAlign && inEnd && !stopped) {
+                throw new AssertionError("he is in the end stopwatch's box and it has not fired in that tick");
+            }
+            if (stopped) {
+                if (withAlign && !aligned) {
+                    throw new AssertionError("the align never worked, so the test proves nothing");
+                }
+                c.note("end stopwatch fired, align worked first: " + aligned + ", in its box: " + inEnd + ", after " + (i + 1) + " ticks");
+                return;
+            }
+        }
+        throw new AssertionError("the end stopwatch never fired");
     }
 
     private static void caseStopwatchHud(Session c) {
