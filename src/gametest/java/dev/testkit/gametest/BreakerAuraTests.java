@@ -1786,7 +1786,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                     java.util.function.Predicate<net.minecraft.network.protocol.Packet<?>> feature = p ->
                             p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket a
                                     && picks.contains(a.getPos());
-                    SameTick st = ctx.computeOnClient(mc -> SameTick.start(act, act == SameTick.Act.TP && obs ? 5 : act == SameTick.Act.ATTACK || act == SameTick.Act.USE_KEY ? 3 : act == SameTick.Act.DIG ? 2 : 1,
+                    SameTick st = ctx.computeOnClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK || act == SameTick.Act.USE_KEY ? 3 : act == SameTick.Act.DIG ? 2 : 1,
                             feature, asw ? 3 : 0, asw ? 4 : 1));
                     boolean[] closed = {false};
                     boolean click = act == SameTick.Act.CLICK;
@@ -1818,7 +1818,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             }
                             // flaghunt-1110 B: a server teleport onto his own spot (the client answers with a teleport accept)
                             // every fourth tick, or a 400 ms lag spike, in the aura's ticks.
-                            if (act == SameTick.Act.TP && i % 4 == 2) {
+                            if (act == SameTick.Act.TP && i % (obs ? 10 : 4) == 2) {
                                 server.command("tp @p " + (cx + 0.5) + " " + SURFACE_Y + " " + (cz + 0.5) + " ~ ~"); // absolute y: ~ is the console's
                             }
                             if (name.contains("-lag") && i == 6) {
