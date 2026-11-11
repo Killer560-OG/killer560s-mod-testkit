@@ -223,8 +223,13 @@ final class TrackerCases {
                 .get(10, java.util.concurrent.TimeUnit.SECONDS);
     }
 
+    /** The Croesus claim log's file: the shared record store since shared-stats-1101 (it has no PATH field). */
+    static Path croesusPath() {
+        return (Path) Mod.call(Mod.staticCall(CROESUS, "file"), "path");
+    }
+
     static void croesusScope(Session c) throws Exception {
-        Path path = c.onClient(mc -> (Path) Mod.field(CROESUS, "PATH"));
+        Path path = c.onClient(mc -> TrackerCases.croesusPath());
         drainCroesusWriter();
         byte[] before = Files.exists(path) ? Files.readAllBytes(path) : null;
         try {
