@@ -1145,7 +1145,9 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                                                 + ", uplink stall " + rep + " ms", bank == 20 && shotTicks == 20 && tps == 0 && g < 0.6,
                                         String.format(Locale.ROOT, "bank %d, %d tick(s) in %d part(s), server teleports %d, "
                                                 + "server moved %.2f, gap %.2f", bank, shotTicks, parts, tps,
-                                                flat(srv0, srv1), g));
+                                                flat(srv0, srv1), g),
+                                        !scenario.flags().isEmpty()
+                                                && scenario.flags().stream().allMatch(f -> f.contains("BadPacketsR")));
                                 ctx.waitTicks(10);
                             }
                         }
