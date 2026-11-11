@@ -63,9 +63,20 @@ public final class CoopSync {
         }
     }
 
+    /** The running case: a failure is kept per case, so one failed case no longer fails every later one at its first wait. */
+    private static volatile String scope = "";
+
+    public static void scope(String caseName) {
+        scope = caseName == null ? "" : caseName;
+    }
+
+    private static String failedKey(String who) {
+        return who + "-failed" + (scope.isEmpty() ? "" : "-" + scope);
+    }
+
     /** Tells the other side to stop waiting. */
     public static void fail(String why) {
-        put(role() + "-failed", why);
+        put(failedKey(role()), why);
     }
 
     /**
@@ -79,7 +90,7 @@ public final class CoopSync {
             if (v != null) {
                 return v;
             }
-            String failed = get(other() + "-failed");
+            String failed = get(failedKey(other()));
             if (failed != null) {
                 throw new AssertionError("the " + other() + " failed while " + role() + " waited for " + key + ": " + failed);
             }

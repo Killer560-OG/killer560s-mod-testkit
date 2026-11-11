@@ -74,6 +74,7 @@ public class CoopSimTests implements FabricClientGameTest {
         }
         List<String> failed = new ArrayList<>();
         for (String name : new String[]{FAKE, RULES, P3, PORTAL, TWO}) {
+            CoopSync.scope(name);
             if (Scenario.skip(name)) {
                 continue;
             }

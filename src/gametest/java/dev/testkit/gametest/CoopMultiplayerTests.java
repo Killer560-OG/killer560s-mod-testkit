@@ -84,6 +84,7 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
         }
         List<String> failed = new ArrayList<>();
         for (String name : new String[]{MENU, UPNP, HOST, TWO, INVITE, TUNNEL}) {
+            CoopSync.scope(name);
             if (Scenario.skip(name)) {
                 continue;
             }
