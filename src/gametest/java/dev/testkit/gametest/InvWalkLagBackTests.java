@@ -21,12 +21,13 @@ import java.util.Set;
 import static dev.testkit.gametest.InvWalkCampaignTests.*;
 
 /**
- * 1111-iw-lagback (invwalkmenu-1111): Inventory Walk's cheat "Menu Walk". In a Hypixel menu that closes on movement
- * (SkyBlock Menu here) no player_input and no sprint change goes while the menu is up, so the server keeps the input he
- * walked in with; his own movement copies it, so GrimAC sees both sides agree and no flag at all is allowed. Asserted on
- * the wire (encoder level): no movement key in any player_input, positions moving straight on although his keys alternate,
- * one keyless input when he lets go; a server pullback is honored (the client lands where the server put him) and counted;
- * and his own container click, hotbar swap and teleport accept in the same tick as a movement packet of the walk.
+ * 1111-iw-lagback (invwalkmenu-1111): Inventory Walk's cheat "Menu Walk". In a server menu (SkyBlock Menu here) he
+ * opens it standing still and walks on keys pressed inside it, while no player_input and no sprint change goes at all
+ * (Hypixel closes a menu 1-4 ticks after it hears a movement key). GrimAC then predicts no movement and flags Simulation:
+ * the owner's accepted exception (killer560 2026-11-11), tallied; any OTHER check fails the row. Asserted on the wire
+ * (encoder level): no player_input while he walks, positions moving; a server pullback is honored (the client lands where
+ * the server put him) and counted; and his own container click, hotbar swap and teleport accept in the same tick as a
+ * movement packet of the walk.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class InvWalkLagBackTests implements FabricClientGameTest {
@@ -43,6 +44,7 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
         Scenario.runExpectingFlags(ctx, nm, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = gateOff(ctx);
             Rows rows = new Rows(ctx, server, scenario);
+            rows.tolerate = "Simulation";
             try (Hx hx = Hx.connect()) {
                 iwOn(ctx, true, 0);
                 ctx.runOnClient(mc -> Mod.set(IW_CFG, "setMenuWalk", true));
@@ -58,6 +60,7 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
                 ctx.runOnClient(mc -> Mod.set(IW_CFG, "setMenuWalk", false));
                 tearDown(ctx, gate);
             }
+            scenario.log("Simulation lines tallied (accepted for Menu Walk): " + rows.tolerated);
             rows.finish(nm);
         });
     }
@@ -78,9 +81,6 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
         keys(ctx, Set.of());
         tp(server, ctx, x + 0.5, SURFACE_Y, z + 0.5, -90f);
         ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
-        // He walks into the menu, so the server holds forward when it opens and keeps it.
-        keys(ctx, Set.of("key.forward"));
-        ctx.waitTicks(3);
         rows.begin();
         hx.menu("SkyBlock Menu", 4, Map.of(11, "minecraft:player_head", 13, "minecraft:diamond"), null);
         if (!InvWalkTermTests.openMenu(ctx)) {
@@ -105,7 +105,6 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
                     pk -> pk instanceof ServerboundMovePlayerPacket, 1, 2));
         }
         boolean up = true;
-        double z0 = ctx.computeOnClient(mc -> mc.player.getZ());
         double path = 0;
         Vec3 prev = ctx.computeOnClient(mc -> mc.player.position());
         double before = 0;
@@ -143,7 +142,6 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> s.close());
         }
         boolean masking = ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(IW, "isMasking"));
-        double zDrift = Math.abs(ctx.computeOnClient(mc -> mc.player.getZ()) - z0);
         ctx.waitTicks(3);
         WireCapture.stop();
         WireCapture.describe = null;
@@ -179,16 +177,15 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
                     + clicks.size() + " handled by the server" : null)
                     : s.verdict("menu walk + " + st);
         }
-        // He walked into the menu holding forward: the server keeps that input and he walks straight on it although his keys
-        // alternate forward / forward+left (his local keys copy the server's: no z drift), no player_input goes while he
-        // walks, and letting go sends exactly one, keyless. A click's still tick sends a keyless input and stops him there.
+        // He opened it standing and walks on keys pressed inside it: no player_input at all goes (a click's still tick
+        // sends a keyless one), positions keep changing; GrimAC sets him back often, so the distance is not the measure.
         boolean click = st == SameTick.Act.SCREEN_CLICK;
-        boolean walked = up && unmasked && masking && moving == 0 && zDrift < 0.3
-                && (click ? inputs >= 1 : distinct >= 20 && inputs == 1 && path >= 2.0);
+        boolean walked = up && unmasked && masking && moving == 0 && distinct >= 20 && hiddenN >= 5
+                && (click ? true : inputs == 0);
         // The forced pullback: the client lands where the server put him (2 back) and the mod counted it; "walked" holds after.
         boolean pulled = st != null || (pulls >= 1 && landed != 0 && landed < before - 1);
         boolean ok = walked && pulled && sameVerdict == null && clicksMoving == 0;
-        String detail = String.format(Locale.ROOT, "z drift %.2f, ", zDrift) + String.format(Locale.ROOT, "path %.2f with the menu up all along %s, wire: %d player_input (%d with a "
+        String detail = String.format(Locale.ROOT, "path %.2f with the menu up all along %s, wire: %d player_input (%d with a "
                         + "movement key), %d positions (%d changes), mod hid %d, masking %s then off %s, pullbacks %d%s, clicks "
                         + "handled %d (%d while the server had him moving)%s", path, up, inputs, moving, pos, distinct, hiddenN,
                 masking, unmasked, pulls, st != null ? "" : String.format(Locale.ROOT, " (x %.2f -> %.2f at t%d, walked on %.2f)",
