@@ -125,12 +125,15 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
         tp(server, ctx, x - 19.5, SURFACE_Y, z + 0.5, -90f);
         ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
         rows.begin();
-        // He walks in: the server holds his forward input when the menu opens.
+        // He walks in: the real forward key (no screen yet), so the server holds his forward input when the menu opens.
         keys(ctx, Set.of("key.forward"));
+        ctx.runOnClient(mc -> mc.options.keyUp.setDown(true));
         ctx.waitTicks(8);
         hx.menu("SkyBlock Menu", 4, Map.of(11, "minecraft:player_head", 13, "minecraft:diamond"), null);
-        if (!InvWalkTermTests.openMenu(ctx)) {
+        boolean opened = InvWalkTermTests.openMenu(ctx);
+        if (!opened) {
             keys(ctx, Set.of());
+            ctx.runOnClient(mc -> mc.options.keyUp.setDown(false));
             rows.end(label, false, "the menu never opened", null);
             return;
         }
@@ -210,6 +213,7 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
         int hiddenN = num(ctx, "hiddenInputs") - hidden0;
         int pulls = num(ctx, "pullbacks") - pull0;
         closeScreen(ctx);
+        ctx.runOnClient(mc -> mc.options.keyUp.setDown(false));
         ctx.waitTicks(3);
         boolean unmasked = !ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(IW, "isMasking"));
         String sameVerdict = null;
@@ -231,9 +235,9 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
         // The forced pullback: the client lands where the server put him (2 back) and the mod counted it; "walked" holds after.
         boolean pulled = st != null || (pulls >= 1 && landed != 0 && landed < before - 1);
         boolean ok = walked && pulled && sameVerdict == null && clicksMoving == 0;
-        String detail = String.format(Locale.ROOT, "path %.2f (x +%.2f) with the menu up all along %s, wire: %d player_input (%d with a "
+        String detail = String.format(Locale.ROOT, "walked in %.2f, then path %.2f (x +%.2f) with the menu up all along %s, wire: %d player_input (%d with a "
                         + "movement key), %d positions (%d changes), mod hid %d, masking %s then off %s, pullbacks %d%s, clicks "
-                        + "handled %d (%d while the server had him moving)%s", path, gained, up, inputs, moving, pos, distinct, hiddenN,
+                        + "handled %d (%d while the server had him moving)%s", x0 - (x - 19.5), path, gained, up, inputs, moving, pos, distinct, hiddenN,
                 masking, unmasked, pulls, st != null ? "" : String.format(Locale.ROOT, " (x %.2f -> %.2f at t%d, walked on %.2f)",
                         before, landed, pullAfter, after), clicks.size(), clicksMoving,
                 s == null ? "" : "; " + s.report() + (sameVerdict == null ? "" : " [" + sameVerdict + "]"));
