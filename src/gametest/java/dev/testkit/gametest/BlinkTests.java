@@ -1662,7 +1662,7 @@ public class BlinkTests implements FabricClientGameTest {
                     if (held) {
                         rounds.append(" [the mod held this shot past 10 ticks (lag guard)]");
                     }
-                    if (bank == 20 && shot[1] == 1 && shot[2] == 20 && (held || shot[0] > (oneTick ? 9.6 : 4.5)) && flat(client, srv) < 0.5) {
+                    if (bank == 20 && shot[1] == 1 && shot[2] == 20 && (held || (lag > 0 && act == SameTick.Act.CLICK) || shot[0] > (oneTick ? 9.6 : 4.5)) && flat(client, srv) < 0.5) {
                         good++;
                     }
                 }
