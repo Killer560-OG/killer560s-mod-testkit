@@ -846,8 +846,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // window keeps it running), so here Inventory Walk is his own walking, not the route's.
             check(opened.z - from.z > 1.0, "the route never moved him before the screen - the case proves nothing");
             check(!runningInScreen, "the route kept running under his inventory (it stops on a screen it did not open)");
-            check(cl.size() == 4 && cc.size() == 1, "not every click and the close reached the server: " + cl.size() + " / "
-                    + cc.size());
+            // Inventory Walk closes container 0 after each batch of clicks it flushes (invwalkclean-1109: own-inventory clicks, then
+            // a close, while the screen stays open client-side), so one close per batch plus his own: at least one, never more than
+            // a close per click (argrimiw-1110; the old 1-close expectation was from when clicks waited for his real close).
+            check(cl.size() == 4 && cc.size() >= 1 && cc.size() <= cl.size(), "not every click and the close reached the server: "
+                    + cl.size() + " / " + cc.size());
             check(movingClicks == 0 && movingCloses == 0, "a click or the close reached the server while it had him moving ("
                     + movingClicks + " / " + movingCloses + ")");
             check(inv19.equals("minecraft:stone*32") && inv20.equals("minecraft:dirt*8"), "the items did not move: 19=" + inv19
