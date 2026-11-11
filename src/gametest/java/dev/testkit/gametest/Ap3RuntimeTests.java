@@ -209,6 +209,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
      */
     static void drainRotationPlace(ClientGameTestContext ctx, Session s, double z) {
         s.server().command("item replace entity @p hotbar.5 with minecraft:smooth_stone_slab 64");
+        s.server().command("item replace entity @p hotbar.6 with minecraft:tnt[minecraft:custom_data={id:\"SUPERBOOM_TNT\"}] 64");
         int[] slots = new int[11];
         java.util.Arrays.fill(slots, 5);
         int placed = plainPlaces(ctx, s, z, slots);
@@ -800,7 +801,23 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         });
     }
 
+    /**
+     * ap3grp2-1110: one AP3 place judged post-flying under load (server 15+ ms between the place and the movement packet
+     * written 0.3 ms after it) set GrimAC's RotationPlace buffer, and every BLOCK/BOOM case after it then failed
+     * pre-flying while the cancelled places emptied the slab and Superboom stacks (h1: nine failures from one hiccup).
+     * The case still fails; the drain only keeps the cases after it judged on their own.
+     */
     private static void caseInteract(Session c, String type) {
+        try {
+            caseInteract0(c, type);
+        } finally {
+            if (c.scenario().flags().stream().anyMatch(f -> f.contains("RotationPlace"))) {
+                drainRotationPlace(c.ctx(), c, lane());
+            }
+        }
+    }
+
+    private static void caseInteract0(Session c, String type) {
         ClientGameTestContext ctx = c.ctx();
         ctx.getInput().pressKey(options -> options.keyHotbarSlots[0]);
         ctx.waitTicks(3);
