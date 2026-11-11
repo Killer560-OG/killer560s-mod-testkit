@@ -235,8 +235,10 @@ final class BossAuraTurnCases {
             undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "Range", 4.5)));
             undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "CooldownMs", 50)));
             int flags0 = c.scenario().flags().size();
-            boolean everyTick = act == dev.testkit.gametest.SameTick.Act.OPEN_CLICK;
-            st = c.onClient(mc -> dev.testkit.gametest.SameTick.start(act, everyTick ? 1 : 2,
+            // His click every 2nd tick is phase-locked with the Aura's turn-then-click (two ticks, the click tick is the one his
+            // queued click holds): it never flicks (fhA2-1111, 0 of 12). Every 3rd leaves a free tick behind each turn.
+            int every = act == dev.testkit.gametest.SameTick.Act.OPEN_CLICK ? 1 : act == dev.testkit.gametest.SameTick.Act.ATTACK ? 3 : 2;
+            st = c.onClient(mc -> dev.testkit.gametest.SameTick.start(act, every,
                     p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemOnPacket, 4, 5));
             undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "Enabled", true)));
             int flicks = 0;
