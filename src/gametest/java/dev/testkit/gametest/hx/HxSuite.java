@@ -150,6 +150,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxChestBot1104Cases.register(s);
                     // Swap To Drill On Pigeon and Auto Ult, idle and with his use / attack / swap in their ticks (1105-same-*, grimgapC-1105).
                     HxSameTick1105Cases.register(s);
+                    HxFlaghunt1110Cases.register(s); // flaghunt-1110 group C
+
                     // Auto Superboom, cheat only, with his dig / use / scroll / teleport in the swap tick (1108-same-superboom-*, featD-1108).
                     HxSuperboom1108Cases.register(s);
                     HxCheatBugs1109Cases.register(s);
