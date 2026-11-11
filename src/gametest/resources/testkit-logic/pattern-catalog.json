@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-11T01:12:52",
+ "generatedAt": "2026-11-11T02:04:44",
  "modSource": "carnival",
- "modGitSha": "df9bddac0f6a4f66c8941e506fe10fa474eb5c41",
+ "modGitSha": "5b976088b77c4fd37896ccb3a6e99288f45c9fcb",
  "modSourceDirty": false,
- "count": 949,
+ "count": 951,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 821,
+  "field": 823,
   "local": 43
  },
  "unresolved": 160,
@@ -2820,6 +2820,30 @@
    "flags": null,
    "kind": "field",
    "expr": "\"hs_err_pid\\\\d+\\\\.log\""
+  },
+  {
+   "id": "crashreport.ShutdownGuard#HEADER",
+   "cls": "crashreport.ShutdownGuard",
+   "field": "HEADER",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/crashreport/ShutdownGuard.java",
+   "line": 28,
+   "regex": "^\"(.*)\" (daemon )?prio=",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^\\\"(.*)\\\" (daemon )?prio=\""
+  },
+  {
+   "id": "crashreport.ShutdownGuard#FRAME",
+   "cls": "crashreport.ShutdownGuard",
+   "field": "FRAME",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/crashreport/ShutdownGuard.java",
+   "line": 29,
+   "regex": "^\\tat (?:[\\w.@\\-]*/){0,2}([\\w.$]+)\\.[\\w$<>]+\\(",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^\\\\tat (?:[\\\\w.@\\\\-]*/){0,2}([\\\\w.$]+)\\\\.[\\\\w$<>]+\\\\(\""
   },
   {
    "id": "creationcooldown.CreationCooldownFeature#ENTERED",
