@@ -227,8 +227,7 @@ final class Ee3RouteGrimCases {
             undo.add(c.onClient(mc -> Mod.with(LA, "CooldownMs", Integer.parseInt(System.getenv().getOrDefault("KM_LEVER_CD", "50")))));
             undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Enabled", true)));
             // killer560's own AP3 setting (26.3 killer560smod-ap3-settings.json): 45 Degree Strafe ON (W+A/D, 1.00 speed).
-=======
->>>>>>> ap3strafe-1110
+            undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Strafe45", !"0".equals(System.getenv("KM_EE3_STRAFE45")))));
             c.onClient(mc -> {
                 try {
                     Mod.staticCall("ap3.Ap3Executor", "stop", "test lane");
