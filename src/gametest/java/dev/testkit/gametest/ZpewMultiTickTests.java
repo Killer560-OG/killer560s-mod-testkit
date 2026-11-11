@@ -156,7 +156,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                         press.run();
                     };
                     String label = name + " rep " + rep;
-                    problems.addAll(shot(ctx, server, hx, scenario, who, 0, label, 1, STEP, fire, 20, 20, 20 - (dbl ? 2 : 1),
+                    problems.addAll(shot(ctx, server, hx, scenario, who, 0, label, 1, 4, fire, 20, 20, 20 - (dbl ? 2 : 1),
                             1));
                     ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
                     long un = unfunded(ctx) - un0;
