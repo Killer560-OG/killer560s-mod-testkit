@@ -426,6 +426,7 @@ public class SimBloodCampTests implements FabricClientGameTest {
         Map<Integer, Vec3> predicted = new HashMap<>();
         Set<Integer> tagged = new HashSet<>();
         Set<Integer> seenMobs = new HashSet<>();
+        Map<Integer, Integer> firstSeen = new HashMap<>(); // a mob is hit only once the ESP had a chance to tag it
         boolean earlyHitSurvived = false, earlyHitTried = false;
         int kills = 0;
         for (int t = 0; t < 2400 && st[5] == 0; t++) {
@@ -467,11 +468,16 @@ public class SimBloodCampTests implements FabricClientGameTest {
                     tagged.add(id);
                 }
                 seenMobs.add(id);
+                firstSeen.putIfAbsent(id, t);
             }
             if (!canKill && earlyHitTried) {
                 continue;
             }
-            List<Integer> targets = canKill ? live : List.of(live.get(0));
+            // Under load the ESP tags a landed mob a tick or two after the server has it; killing it in the sample that
+            // first saw it left it untagged (14 of 16, simblood run2). Hit a mob once it is tagged or 10 ticks old.
+            final int now = t;
+            List<Integer> targets = canKill ? live.stream().filter(id -> esp.contains(id) || now - firstSeen.get(id) >= 10).toList()
+                    : List.of(live.get(0));
             int dead = SimBloodRushTests.onServer(ctx, (level, sp) -> {
                 int n = 0;
                 for (int id : targets) {
