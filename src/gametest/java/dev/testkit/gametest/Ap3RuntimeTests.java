@@ -141,6 +141,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             // mod doc-routes-1101: Etherwarp Overlay on carpets and the p3sim crosshair; Advanced Position's y velocity.
             Doc1101EtherPosCases.register(s);
             Ap3Gates1027Cases.register(s);
+            Ap3Crystal1109Cases.register(s);
             Ap3BlinkCombo1027Cases.register(s);
             // mod ap3-stop-1101: a Term Aura stops him like a Stop; a Stop / Term Aura fires once per entry.
             Ap3Stop1101Cases.register(s);
