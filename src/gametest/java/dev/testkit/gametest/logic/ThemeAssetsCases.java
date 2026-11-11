@@ -237,6 +237,37 @@ final class ThemeAssetsCases {
         }
     }
 
+    /**
+     * coopnet-1110: a PC with no F7 arena capture of its own (a friend hosting co-op) fetches his published captures and
+     * the boss sim reads THEM, not the built-in plan; a corrupted copy is refused and replaced by the next fetch.
+     */
+    static void arenaPublished(LogicCase c) throws Exception {
+        if (!needFeed(c)) {
+            return;
+        }
+        String arena = "bosssim.BossArena";
+        Path own = (Path) Mod.staticCall(arena, "capturePath");
+        c.check("the sandbox store has no capture of its own", !Files.exists(own), String.valueOf(own));
+        clean();
+        Mod.staticCall(A, "resetForTest");
+        c.check("before the fetch the P1 capture is missing (plan)", Mod.staticCall(arena, "readCapture", "P1") == null);
+        int hits0 = ThemeAssetFeed.hits("sim-bossarena.bin") + ThemeAssetFeed.hits("sim-bossarena-p3.bin");
+        Object done = ((java.util.concurrent.CompletableFuture<?>) Mod.staticCall(arena, "fetchPublished")).get(60, java.util.concurrent.TimeUnit.SECONDS);
+        c.eq("both captures came from the feed", 2,
+                ThemeAssetFeed.hits("sim-bossarena.bin") + ThemeAssetFeed.hits("sim-bossarena-p3.bin") - hits0);
+        for (String[] p : new String[][] {{"P1", "sim-bossarena.bin"}, {"P3", "sim-bossarena-p3.bin"}}) {
+            c.eq(p[1] + " READY", "READY", state(p[1]));
+            Path f = (Path) Mod.staticCall(A, "fileForTest", p[1]);
+            c.eq(p[1] + " is the release file (sha256)", sha256(ThemeAssetFeed.folder().resolve(p[1])), sha256(f));
+            Object cap = Mod.staticCall(arena, "readCapture", p[0]);
+            c.check(p[0] + " capture read from the published copy", cap != null, String.valueOf(done));
+            if (cap != null) {
+                c.eq(p[0] + " capture's own phase", p[0], String.valueOf(Mod.call(cap, "phase")));
+            }
+        }
+        c.check("the own capture path was not written", !Files.exists(own));
+    }
+
     /** Downloaded from the feed, cached under its hash, found cached next time, and the texture swaps to the full one. */
     static void download(LogicCase c) throws Exception {
         if (!needFeed(c)) {
