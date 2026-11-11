@@ -156,7 +156,7 @@ final class AuraThemeCases {
                 c.check(Math.abs((Double) Mod.call(la, "getRange") - 3.0) < 0.01, "range 3.0 did not carry over");
                 String rewritten = Files.readString(laPath, StandardCharsets.UTF_8);
                 c.check(!rewritten.contains("\"enabled\""), "the old enabled key is still in the file: " + rewritten);
-                c.check(rewritten.contains("\"cps\": 9"), "the rewritten file lost cps: " + rewritten);
+                c.check(rewritten.contains("\"cooldownMs\": 111"), "the rewritten file lost the cooldown: " + rewritten);
                 String cuFile = Files.readString(cuPath, StandardCharsets.UTF_8);
                 c.check(cuFile.contains("\"auraBossLevers\": true"), "In Boss was not saved to the Secret Aura file: " + cuFile);
                 // a second load changes nothing
