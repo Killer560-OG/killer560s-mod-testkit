@@ -78,6 +78,7 @@ public class CarnivalSuite implements FabricClientGameTest {
                     s.test("3787-carnival-auto-dig", CarnivalSuite::autoDig);
                     s.test("3788-carnival-auto-catch", CarnivalSuite::autoCatch);
                     Carnival1110Cases.register(s);
+                    Carnival1111Cases.register(s);
                 });
     }
 

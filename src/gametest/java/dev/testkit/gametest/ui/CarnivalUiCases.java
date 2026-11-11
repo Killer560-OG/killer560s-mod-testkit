@@ -35,13 +35,16 @@ final class CarnivalUiCases {
             "3762-ui-fruit-digging-solver", "3763-ui-zombie-shootout-helper", "3764-ui-catch-a-fish-helper",
             "3765-ui-zombie-shootout-triggerbot", "3766-ui-auto-zombie-shootout", "3767-ui-auto-shovel-swap",
             "3768-ui-auto-fruit-digging", "3769-ui-auto-catch-a-fish", "3770-ui-carnival-automation-note",
-            "3771-ui-carnival-parsers", "3772-ui-fruit-digging-triggerbot"};
+            "3771-ui-carnival-parsers", "3772-ui-fruit-digging-triggerbot", "3773-ui-auto-accept-game",
+            "3774-ui-carnival-fold"};
 
     static final String NOTE = "Automation: can get you banned; keep it off on the main server";
     static final List<String> LEGIT = List.of("Carnival Tracker", "Catch a Fish Helper", "Fruit Digging Solver",
             "Zombie Shootout Helper");
-    static final List<String> CHEAT = List.of("Auto Catch a Fish", "Auto Fruit Digging", "Auto Shovel Swap",
-            "Auto Zombie Shootout", "Fruit Digging Triggerbot", "Zombie Shootout Triggerbot");
+    static final List<String> CHEAT = List.of("Auto Accept Game", "Auto Catch a Fish", "Auto Fruit Digging",
+            "Auto Shovel Swap", "Auto Zombie Shootout", "Fruit Digging Triggerbot", "Zombie Shootout Triggerbot");
+    /** The one card every old Carnival tab became (carnivalfold-1111): in Misc, a legit block and a red Cheat block. */
+    static final String CARD = "Carnival";
 
     /** One tab: its config class and the static accessor giving its instance, its rows, a setting to round-trip. */
     record Spec(String tab, String cfg, String accessor, List<String> rows, String setter, String getter, Object value,
@@ -55,7 +58,8 @@ final class CarnivalUiCases {
             new Spec("Fruit Digging Solver", "carnival.FruitDiggingConfig", "getInstance",
                     List.of("Fruit Digging Solver", "Best Dig", "Clue Labels", "Fruit Labels", "Tile Odds", "Solver HUD",
                             "Fruit Left", "Mines Color", "Anchor Color", "Treasure Color", "Prevent Misclicks",
-                            "Prevent Wrong Shovel", "Sneak To Dig Anyway"),
+                            "Prevent Wrong Shovel", "Sneak To Dig Anyway", "Strategy",
+                            "Percent On Every Square"),
                     "setAnchorColor", "getAnchorColor", 0xFF123456, false),
             new Spec("Zombie Shootout Helper", "carnival.ZombieShootoutConfig", "getInstance",
                     List.of("Zombie Shootout Helper", "Zombie Outlines", "Highest Only", "Zombie Timers", "Best Target",
@@ -78,6 +82,8 @@ final class CarnivalUiCases {
                     List.of("Fruit Digging Triggerbot", "Reaction Delay"), "setDelayMs", "getDelayMs", 450, true),
             new Spec("Auto Fruit Digging", "carnival.AutoFruitConfig", "dig",
                     List.of("Auto Fruit Digging", "Dig Delay", "Free Camera"), "setFreeCamera", "isFreeCamera", true, true),
+            new Spec("Auto Accept Game", "carnival.AutoAcceptGameConfig", "getInstance",
+                    List.of("Auto Accept Game"), "setEnabled", "isEnabledRaw", true, true),
             new Spec("Auto Catch a Fish", "carnival.AutoCatchAFishConfig", "getInstance",
                     List.of("Auto Catch a Fish", "Cast Delay", "Hook Wait", "Free Camera"), "setHookWaitS", "getHookWaitS",
                     6, true));
@@ -98,19 +104,19 @@ final class CarnivalUiCases {
             try {
                 ModScreenDriver d = new ModScreenDriver(mc);
                 List<String> top = new ArrayList<>();
-                List<String> cards = new ArrayList<>();
+                List<String> misc = new ArrayList<>();
                 List<Boolean> flags = new ArrayList<>();
                 for (ModScreenDriver.Node n : d.tree()) {
                     top.add(n.name());
-                    if ("Carnival".equals(n.name())) {
+                    if ("Misc".equals(n.name())) {
                         for (ModScreenDriver.Node leaf : n.children()) {
-                            cards.add(leaf.name());
+                            misc.add(leaf.name());
                             flags.add((Boolean) Mod.call(leaf.tab(), "isCheatOnly"));
                         }
                     }
                 }
                 m.put("top", top);
-                m.put("cards", cards);
+                m.put("misc", misc);
                 m.put("flags", flags);
             } catch (Throwable t) {
                 m.put("error", UiCase.describe(t));
@@ -122,26 +128,109 @@ final class CarnivalUiCases {
         @SuppressWarnings("unchecked")
         List<String> top = (List<String>) out.get("top");
         @SuppressWarnings("unchecked")
-        List<String> cards = (List<String>) out.get("cards");
+        List<String> misc = (List<String>) out.get("misc");
         @SuppressWarnings("unchecked")
         List<Boolean> flags = (List<Boolean>) out.get("flags");
-        c.note("top level " + top + "; Carnival cards " + cards + " cheat-only " + flags);
-        int mining = top.indexOf("Mining");
-        if (mining < 0 || mining + 1 >= top.size() || !"Carnival".equals(top.get(mining + 1))) {
-            c.problem("Carnival is not the category right after Mining: " + top);
+        c.note("top level " + top + "; Misc cards " + misc);
+        c.check(!top.contains("Carnival"), "Carnival is still a category of its own: " + top);
+        int at = misc.indexOf(CARD);
+        c.check(at >= 0, "no '" + CARD + "' card in Misc: " + misc);
+        if (at >= 0) {
+            c.check(!flags.get(at), "the Carnival card is marked cheat-only (it has a legit block)");
         }
-        List<String> want = new ArrayList<>(LEGIT);
+        for (String old : CHEAT) {
+            c.check(!misc.contains(old), "'" + old + "' is still a card of its own");
+        }
+        for (String old : LEGIT) {
+            c.check(!misc.contains(old), "'" + old + "' is still a card of its own");
+        }
+        // The card's rows: every legit switch, then (cheat jar only) the Cheat header and every cheat switch.
+        List<String> rows = labels(c, CARD);
+        c.note("Carnival card rows (all switches off): " + rows);
+        int last = -1;
+        for (String f : LEGIT) {
+            int i = indexOfRow(rows, f);
+            c.check(i >= 0, "the Carnival card has no '" + f + "' switch row: " + rows);
+            c.check(i > last, "'" + f + "' is out of order in the Carnival card: " + rows);
+            last = i;
+        }
+        int header = rows.indexOf("Cheat");
         if (cheat) {
-            want.addAll(CHEAT);
-        }
-        if (!want.equals(cards)) {
-            c.problem("Carnival cards are " + cards + ", want " + want + " (" + (cheat ? "cheat" : "legit") + " jar)");
-        }
-        for (int i = 0; i < cards.size() && i < flags.size(); i++) {
-            boolean shouldBeCheat = CHEAT.contains(cards.get(i));
-            if (flags.get(i) != shouldBeCheat) {
-                c.problem("'" + cards.get(i) + "' isCheatOnly=" + flags.get(i) + ", want " + shouldBeCheat);
+            c.check(header > last, "no red 'Cheat' header under the legit rows: " + rows);
+            for (String f : CHEAT) {
+                int i = indexOfRow(rows, f);
+                c.check(i > header, "cheat switch '" + f + "' is not under the Cheat header: " + rows);
             }
+        } else {
+            c.check(header < 0, "a legit jar shows a Cheat header: " + rows);
+            for (String f : CHEAT) {
+                c.check(indexOfRow(rows, f) < 0, "a legit jar shows the cheat row '" + f + "'");
+            }
+        }
+    }
+
+    private static int indexOfRow(List<String> rows, String name) {
+        for (int i = 0; i < rows.size(); i++) {
+            if (rows.get(i).equals(name) || rows.get(i).startsWith(name + ":")) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    // ---- 3773, 3774 ------------------------------------------------------------------------------------------------
+
+    /** Auto Accept Game: the cheat switch, default OFF, with its note; absent on a legit jar. */
+    static void autoAccept(UiCase c) throws Exception {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: Auto Accept Game is compiled out (3774 checks the card has no such row)");
+            return;
+        }
+        Path file = c.onClient(mc -> (Path) Mod.call(Mod.staticCall("carnival.AutoAcceptGameConfig", "getInstance"), "path"));
+        byte[] saved = Files.exists(file) ? Files.readAllBytes(file) : null;
+        try {
+            Files.deleteIfExists(file);
+            c.onClient(mc -> Mod.staticCall("carnival.AutoAcceptGameConfig", "load"));
+            Object on = c.onClient(mc -> Mod.call(Mod.staticCall("carnival.AutoAcceptGameConfig", "getInstance"), "isEnabledRaw"));
+            c.check(Boolean.FALSE.equals(on), "Auto Accept Game is " + on + " from a fresh config, want OFF");
+        } finally {
+            if (saved == null) {
+                Files.deleteIfExists(file);
+            } else {
+                Files.write(file, saved);
+            }
+            c.onClient(mc -> Mod.staticCall("carnival.AutoAcceptGameConfig", "load"));
+        }
+    }
+
+    /** The fold: each old card id keeps its toggle keybind (ModuleKeybinds EXTRAS), Strategy cycles and survives a reload. */
+    static void fold(UiCase c) throws Exception {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> extras = (Map<String, Object>) Mod.field(Mod.ROOT + "gui.ModuleKeybinds", "EXTRAS");
+        List<String> ids = new ArrayList<>(List.of("CarnivalTrackerTab", "FruitDiggingTab", "ZombieShootoutTab", "CatchAFishTab"));
+        if (Mod.isCheat()) {
+            ids.addAll(List.of("ZombieTriggerbotTab", "AutoZombieShootoutTab", "AutoShovelSwapTab", "AutoFruitDiggingTab",
+                    "FruitDiggingTriggerbotTab", "AutoCatchAFishTab", "AutoAcceptGameTab"));
+        }
+        for (String id : ids) {
+            c.check(extras.containsKey(id), "ModuleKeybinds EXTRAS has no '" + id + "' (its saved toggle key would be lost)");
+        }
+        Object cfg = c.onClient(mc -> Mod.staticCall("carnival.FruitDiggingConfig", "getInstance"));
+        int before = (Integer) c.onClient(mc -> Mod.call(cfg, "getStrategy"));
+        try {
+            for (int v = 0; v < 3; v++) {
+                final int vv = v;
+                c.onClient(mc -> Mod.call(cfg, "setStrategy", vv));
+                c.onClient(mc -> Mod.call(cfg, "save"));
+                c.onClient(mc -> Mod.staticCall("carnival.FruitDiggingConfig", "load"));
+                Object back = c.onClient(mc -> Mod.call(Mod.staticCall("carnival.FruitDiggingConfig", "getInstance"), "getStrategy"));
+                c.check(Integer.valueOf(v).equals(back), "Strategy " + v + " did not survive a reload, read " + back);
+            }
+            c.check((Boolean) c.onClient(mc -> Mod.call(Mod.staticCall("carnival.FruitDiggingConfig", "getInstance"),
+                    "isAllPercents")) == Boolean.FALSE, "Percent On Every Square is not OFF by default");
+        } finally {
+            c.onClient(mc -> Mod.call(Mod.staticCall("carnival.FruitDiggingConfig", "getInstance"), "setStrategy", before));
+            c.onClient(mc -> Mod.call(Mod.staticCall("carnival.FruitDiggingConfig", "getInstance"), "save"));
         }
     }
 
@@ -166,16 +255,19 @@ final class CarnivalUiCases {
             if (!Boolean.FALSE.equals(off)) {
                 c.problem(name + ": isEnabledRaw is " + off + " from a fresh config, want OFF");
             }
-            List<String> offRows = labels(c, s.tab());
+            List<String> offRows = labels(c, CARD);
             c.note(name + " rows with the switch off: " + offRows);
-            if (offRows.isEmpty() || !offRows.get(0).startsWith(s.rows().get(0) + ":")) {
-                c.problem(name + ": the first row is not its '" + s.rows().get(0) + "' switch: " + offRows);
+            if (indexOfRow(offRows, s.rows().get(0)) < 0) {
+                c.problem(name + ": no '" + s.rows().get(0) + "' switch row in the Carnival card: " + offRows);
+            }
+            if (s.rows().size() > 1 && indexOfRow(offRows, s.rows().get(1)) >= 0) {
+                c.problem(name + ": '" + s.rows().get(1) + "' shows while its switch is off: " + offRows);
             }
             c.onClient(mc -> {
                 Mod.call(fresh, "setEnabled", true);
                 return null;
             });
-            List<String> rows = labels(c, s.tab());
+            List<String> rows = labels(c, CARD);
             c.note(name + " rows with the switch on: " + rows);
             for (String row : s.rows()) {
                 if (rows.stream().noneMatch(l -> l.equals(row) || l.startsWith(row + ":"))) {
@@ -228,11 +320,15 @@ final class CarnivalUiCases {
             if (!s.cheat()) {
                 continue;
             }
-            List<String> rows = labels(c, s.tab());
+            Object cfg = cfg(s);
+            c.onClient(mc -> Mod.call(cfg, "setEnabled", true));
+            List<String> rows = labels(c, CARD);
             c.note(s.tab() + " rows: " + rows);
-            if (rows.size() < 2 || !rows.get(1).contains(NOTE)) {
+            int sw = indexOfRow(rows, s.tab());
+            if (sw < 0 || sw + 1 >= rows.size() || !rows.get(sw + 1).contains(NOTE)) {
                 c.problem(s.tab() + ": the row under its switch is not the automation note: " + rows);
             }
+            c.onClient(mc -> Mod.call(cfg, "setEnabled", false));
             for (String row : s.rows()) {
                 String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", s.tab(), row));
                 if (tip == null || !tip.contains(NOTE)) {
