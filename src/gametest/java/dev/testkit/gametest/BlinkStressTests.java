@@ -1841,8 +1841,9 @@ public class BlinkStressTests implements FabricClientGameTest {
     /**
      * 1111-blink-hyp-quiet (blinkhyp-1111): on Hypixel (forced by BlinkCharge.hypixelForTest) a key shot asked for right
      * after a teleport waits Hypixel's quiet time but at most HYPIXEL_KEY_WAIT_MS (200; killer560 11-11: "when it is on full
-     * charge it wont let me release it"), and one asked for inside a teleport hold fires within it too, the held confirm
-     * sent first; a shot with no recent teleport fires at once, and off Hypixel the teleport-then-shot fires at once.
+     * charge it wont let me release it"); two teleports close together hold nothing there (killer560 11-11: "really long
+     * stalls", the 950 ms holds) and a shot after them fires within that time too; a shot with no recent teleport fires at
+     * once, and off Hypixel the teleport-then-shot fires at once.
      */
     private static void hypQuiet(ClientGameTestContext ctx) {
         int x = -9750;
@@ -1863,6 +1864,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                         long shots0 = cnum(ctx, "shots");
                         long mark = LogTap.mark();
                         long t0 = System.currentTimeMillis();
+                        long holds0 = cnum(ctx, "teleportHolds");
                         if (kind == 1) {
                             double[] p = here(ctx);
                             server.command(String.format(Locale.ROOT, "tp %s %.4f %.4f %.4f", name, p[0] + 2, p[1], p[2]));
@@ -1872,9 +1874,10 @@ public class BlinkStressTests implements FabricClientGameTest {
                             }
                             t0 = System.currentTimeMillis();
                         } else if (kind == 2) {
-                            long holds0 = cnum(ctx, "teleportHolds");
+                            holds0 = cnum(ctx, "teleportHolds");
+                            long tp0 = cnum(ctx, "movingTeleports");
                             twoTeleports(server, ctx, name);
-                            for (int t = 0; t < 20 && cnum(ctx, "teleportHolds") == holds0; t++) {
+                            for (int t = 0; t < 20 && cnum(ctx, "movingTeleports") < tp0 + 2; t++) {
                                 ctx.waitTicks(1);
                             }
                             t0 = System.currentTimeMillis();
@@ -1892,12 +1895,14 @@ public class BlinkStressTests implements FabricClientGameTest {
                         boolean quietLine = hasLog(mark, "Hypixel's quiet time");
                         boolean wantWait = hyp != null && kind == 1;
                         boolean promptLine = hasLog(mark, "on Hypixel - firing now");
-                        boolean ok = shots == 1 && (kind == 2 ? ms < 600 && promptLine
+                        long holds = cnum(ctx, "teleportHolds") - holds0;
+                        boolean ok = shots == 1 && (kind == 2 ? ms < 600 && promptLine && holds == 0
+                                && hasLog(mark, "on Hypixel, so no hold")
                                 : wantWait ? ms >= 150 && ms < 600 && quietLine : ms < 600 && !quietLine);
-                        String label = (hyp != null ? "hypixel" : "grim") + (kind == 2 ? " in a teleport hold" : kind == 1 ? " after tp" : " plain");
+                        String label = (hyp != null ? "hypixel" : "grim") + (kind == 2 ? " two tps, no hold" : kind == 1 ? " after tp" : " plain");
                         rows.addKept(server, scenario, label, ok, String.format(Locale.ROOT,
-                                "shots %d after %d ms (wait expected %s), quiet line %s, prompt line %s", shots, ms, wantWait,
-                                quietLine, promptLine));
+                                "shots %d after %d ms (wait expected %s), quiet line %s, prompt line %s, holds %d", shots, ms,
+                                wantWait, quietLine, promptLine, holds));
                         chargeOff(ctx);
                     }
                 }

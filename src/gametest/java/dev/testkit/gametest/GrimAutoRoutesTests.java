@@ -229,7 +229,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // without it no landing's confirm waits a second behind Charge's answers; then his own actions in its ticks.
             s.test("62-argrim-1110-mapchain-charged", c -> caseMapChain(c, true, null));
             s.test("62-argrim-1110-mapchain-nobank", c -> caseMapChain(c, false, null));
-            s.test("62-argrim-1110-archain-nohold", GrimAutoRoutesTests::caseRouteChainNoHold);
+            s.test("62-argrim-1110-archain-nohold", c -> caseRouteChainNoHold(c, true));
+            // mod blinkhyp-1111 (killer560 2026-11-11: with Charge toggled on, his routes crawled behind 950 ms teleport holds):
+            // a plain etherwarp route (no Zero Ping Chain) with Charge full holds nothing while it runs.
+            s.test("62-argrim-1111-archarge-route", c -> caseRouteChainNoHold(c, false));
             for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
                     dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK)) {
                 // No ATTACK: the burst leaves the whole path in one real tick, so his crosshair is off the stand by the next.
@@ -2458,6 +2461,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             long spent0 = chargeNum(ctx, "spentTicks");
             long holds0 = chargeNum(ctx, "teleportHolds");
             long chainTp0 = chargeNum(ctx, "chainConfirms");
+            long route0 = chargeNum(ctx, "routeAnswers");
             long m = LogTap.mark();
             List<Object> nodes = ctx.computeOnClient(mc -> {
                 try {
@@ -2504,7 +2508,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             int serverWarps = delta(before, "etherwarps");
             long spent = chargeNum(ctx, "spentTicks") - spent0;
             long holds = chargeNum(ctx, "teleportHolds") - holds0;
-            long chainTp = chargeNum(ctx, "chainConfirms") - chainTp0;
+            long chainTp = chargeNum(ctx, "chainConfirms") - chainTp0 + chargeNum(ctx, "routeAnswers") - route0;
             int letGo = 0;
             int bankFrom = -1;
             int bankTo = -1;
@@ -2585,7 +2589,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * Chain off, at 150 ms: one warp a tick, and since mapchain-1110 no landing's confirm waits behind its ping's answer (it
      * held the rest of the chain a second, as on the map). Every warp lands, the last confirm within 1.5 s of the first use.
      */
-    private static void caseRouteChainNoHold(Session c) {
+    private static void caseRouteChainNoHold(Session c, boolean zeroPing) {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
         arena(ctx, false);
@@ -2599,6 +2603,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         writeRoute(ctx, n);
         try {
             chainSettings(ctx, false);
+            ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setZeroPingChain",
+                    new Class<?>[]{boolean.class}, new Object[]{zeroPing}));
             ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
                     new Object[]{"test"}));
             ctx.runOnClient(mc -> dev.testkit.harness.Latency.install(150));
@@ -2612,6 +2618,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             JsonObject before = stats();
             long holds0 = chargeNum(ctx, "teleportHolds");
             long chainTp0 = chargeNum(ctx, "chainConfirms");
+            long route0 = chargeNum(ctx, "routeAnswers");
             long spent0 = chargeNum(ctx, "spentTicks");
             ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
             ctx.runOnClient(mc -> McCompat.setScreen(mc, null));
@@ -2627,21 +2634,24 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             long spanMs = (lastTp - firstUse) / 1_000_000L;
             long holds = chargeNum(ctx, "teleportHolds") - holds0;
             long chainTp = chargeNum(ctx, "chainConfirms") - chainTp0;
+            long routeNow = chargeNum(ctx, "routeAnswers") - route0;
             long spent = chargeNum(ctx, "spentTicks") - spent0;
             int serverWarps = delta(before, "etherwarps");
-            String line = String.format(Locale.ROOT, "route chain, Charge on, Charged Chain off: bank %d; wire %d use(s), at most %d "
-                            + "in 50 ms, last confirm %d ms after the first use; holds %d, chain confirms %d, spent %d; server "
-                            + "etherwarps %d; landed %s", bank, uses[1], uses[0], spanMs, holds, chainTp, spent, serverWarps,
-                    landed);
+            String line = String.format(Locale.ROOT, "route %s, Charge on, Charged Chain off: bank %d; wire %d use(s), at most %d "
+                            + "in 50 ms, last confirm %d ms after the first use; holds %d, chain confirms %d, answers sent at once "
+                            + "%d, spent %d; server etherwarps %d; landed %s", zeroPing ? "chain" : "plain", bank, uses[1], uses[0],
+                    spanMs, holds, chainTp, routeNow, spent, serverWarps, landed);
             println(line);
             c.note(line);
             check(bank >= 20, "the bank did not fill: " + bank);
             check(landed != null, "the chain did not reach its end (at " + relPos(ctx) + ")");
             check(serverWarps == pts.length, "the server made " + serverWarps + " etherwarps, expected " + pts.length);
             check(holds == 0, holds + " teleport confirm(s) held behind their answers during the chain");
-            check(chainTp > 0, "no confirm went at once for the chain (nothing tested)");
+            check(chainTp + routeNow > 0, "no answer or confirm went at once for the route (nothing tested)");
             check(spent == 0, "Charged Chain is off but " + spent + " banked tick(s) were spent");
-            check(spanMs < 1500, "the last confirm went " + spanMs + " ms after the first use");
+            // a plain route waits for each landing (~2 ticks at 150 ms); a 950 ms hold per warp would take 11 s and more
+            long limit = zeroPing ? 1500 : 400L * pts.length;
+            check(spanMs < limit, "the last confirm went " + spanMs + " ms after the first use (limit " + limit + ")");
         } finally {
             ctx.runOnClient(mc -> {
                 McCompat.setScreen(mc, null);
