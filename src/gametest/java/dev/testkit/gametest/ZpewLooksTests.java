@@ -592,14 +592,22 @@ public class ZpewLooksTests implements FabricClientGameTest {
                 ctx.getInput().holdKey(o -> o.keyShift);
                 st[0] = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
                         p -> p instanceof ServerboundUseItemPacket, 0, 1));
-                for (int rep = 0; rep < 3; rep++) {
+                // A teleport case runs six presses, the press 0, 1 or 2 ticks behind the /tp, so some accept shares the use's tick.
+                int reps = act == dev.testkit.gametest.SameTick.Act.TP ? 6 : 3;
+                for (int rep = 0; rep < reps; rep++) {
                     ZpewCampaignTests.tpTo(ctx, server, who, x0 + 0.5, feetY, z0 + 0.5, true);
+                    boolean there = ctx.computeOnClient(mc -> water ? mc.player.isInWater() : Math.abs(mc.player.getY() - feetY) < 0.01);
+                    if (!there) {
+                        problems.add("rep " + rep + ": he did not start " + (water ? "in the water" : "on the slab") + " (nothing tested)");
+                    }
+                    int behind = rep % 3;
                     ZpewCampaignTests.Shot sh = ZpewCampaignTests.shot(ctx, hx, terrain + "-same rep " + rep, () -> {
                         float[] a = ZpewCampaignTests.aim(new Vec3(x0 + 0.5, feetY + 1.27, z0 + 0.5),
                                 new Vec3(x0 + 16.5, y, z0 + 0.5));
                         ZpewCampaignTests.look(ctx, a[0], a[1]);
                         if (act == dev.testkit.gametest.SameTick.Act.TP) {
                             server.command("execute as " + who + " at @s run tp @s ~ ~ ~");
+                            ctx.waitTicks(behind);
                         }
                         ctx.getInput().pressKey(o -> o.keyUse);
                     }, 0);
@@ -613,8 +621,8 @@ public class ZpewLooksTests implements FabricClientGameTest {
                 st[0] = null;
                 scenario.log(name + ": " + done.report());
                 String why = act == dev.testkit.gametest.SameTick.Act.TP
-                        ? (done.done() > 0 && done.playerWindows() > 0 && done.featureWindows() > 0 ? null
-                        : "zpew from " + terrain + ": his accept or the use never went out (" + done.report() + ")")
+                        ? (done.done() > 0 && done.both() > 0 ? null
+                        : "zpew from " + terrain + ": no server tick carried his accept and the use (" + done.report() + ")")
                         : done.verdict("zpew from " + terrain);
                 if (why != null) {
                     problems.add(why);
