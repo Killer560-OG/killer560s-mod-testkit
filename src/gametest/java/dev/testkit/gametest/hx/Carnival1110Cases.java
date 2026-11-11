@@ -351,17 +351,35 @@ final class Carnival1110Cases {
                     CarnivalSuite.holdSlot(c, slotA);
                     aimAt(c, p[0], false);
                 }
-                // His DIG is the same player_action as the triggerbot's tap (both the attack key on the same tile), so
-                // under DIG the wire cannot tell them apart: count every dig as his and prove the bot acted by its taps.
+                // His DIG is the same player_action as the auto's tap (the attack key on the same tile), so under DIG a dig
+                // is the feature's only in a client tick where CarnivalInput counted a tap (the auto waits out a tick his
+                // click is queued in, so a tap tick's digs are never his).
                 boolean digs = act == SameTick.Act.DIG || act == SameTick.Act.DIG_HELD;
-                mine = q -> (!digs && q instanceof ServerboundPlayerActionPacket) || q instanceof ServerboundUseItemPacket
-                        || q instanceof ServerboundSetCarriedItemPacket;
+                long[] tap = {c.onClient(mc -> (Integer) Mod.staticCall("carnival.CarnivalInput", "taps")).longValue(), -1};
+                mine = q -> {
+                    if (q instanceof ServerboundUseItemPacket || q instanceof ServerboundSetCarriedItemPacket) {
+                        return true;
+                    }
+                    if (!(q instanceof ServerboundPlayerActionPacket)) {
+                        return false;
+                    }
+                    if (!digs) {
+                        return true;
+                    }
+                    long n = ((Integer) Mod.staticCall("carnival.CarnivalInput", "taps")).longValue();
+                    long t = (Long) Mod.staticCall("util.ActionGate", "currentTick");
+                    if (n != tap[0]) {
+                        tap[0] = n;
+                        tap[1] = t;
+                    }
+                    return t == tap[1];
+                };
             }
             int a = slotA;
             int b = slotB;
             Predicate<Packet<?>> m = mine;
             int taps0 = c.onClient(mc -> (Integer) Mod.staticCall("carnival.CarnivalInput", "taps"));
-            st = c.onClient(mc -> SameTick.start(act, 1, m, a, b));
+            st = c.onClient(mc -> SameTick.start(act, act == SameTick.Act.DIG && !feat.equals("shootout") ? 2 : 1, m, a, b));
             String tp = String.format(Locale.ROOT, "tp @p %.3f %d %.3f", PX, Y + 1, PZ);
             for (int i = 0; i < 12; i++) {
                 if (act == SameTick.Act.TP) {
