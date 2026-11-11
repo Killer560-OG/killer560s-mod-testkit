@@ -1840,8 +1840,8 @@ public class BlinkStressTests implements FabricClientGameTest {
 
     /**
      * 1111-blink-hyp-quiet (blinkhyp-1111): on Hypixel (forced by BlinkCharge.hypixelForTest) a key shot asked for right
-     * after a teleport waits Hypixel's quiet time but at most HYPIXEL_KEY_WAIT_MS (200; killer560 11-11: "when it is on full
-     * charge it wont let me release it"); two teleports close together hold nothing there (killer560 11-11: "really long
+     * after a teleport waits Hypixel's quiet time but at most HYPIXEL_KEY_WAIT_MS (50; killer560 11-11: "when it is on full
+     * charge it wont let me release it", now 50 ms); two teleports close together hold nothing there (killer560 11-11: "really long
      * stalls", the 950 ms holds) and a shot after them fires within that time too; a shot with no recent teleport fires at
      * once, and off Hypixel the teleport-then-shot fires at once.
      */
@@ -1896,9 +1896,9 @@ public class BlinkStressTests implements FabricClientGameTest {
                         boolean wantWait = hyp != null && kind == 1;
                         boolean promptLine = hasLog(mark, "on Hypixel - firing now");
                         long holds = cnum(ctx, "teleportHolds") - holds0;
-                        boolean ok = shots == 1 && (kind == 2 ? ms < 600 && promptLine && holds == 0
+                        boolean ok = shots == 1 && (kind == 2 ? ms < 400 && promptLine && holds == 0
                                 && hasLog(mark, "on Hypixel, so no hold")
-                                : wantWait ? ms >= 150 && ms < 600 && quietLine : ms < 600 && !quietLine);
+                                : wantWait ? ms < 400 && (quietLine || promptLine) : ms < 600 && !quietLine);
                         String label = (hyp != null ? "hypixel" : "grim") + (kind == 2 ? " two tps, no hold" : kind == 1 ? " after tp" : " plain");
                         rows.addKept(server, scenario, label, ok, String.format(Locale.ROOT,
                                 "shots %d after %d ms (wait expected %s), quiet line %s, prompt line %s, holds %d", shots, ms,
