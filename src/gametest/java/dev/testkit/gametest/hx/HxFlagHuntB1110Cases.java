@@ -89,7 +89,7 @@ final class HxFlagHuntB1110Cases {
                 // The aura turns his body to each chest and clicks it; he closes each chest it opens.
                 java.util.Set<Integer> seen = new java.util.HashSet<>();
                 for (int t = 0; t < 400 && seen.size() < n; t++) {
-                    if (act == SameTick.Act.TP && t % 8 == 0) {
+                    if (act == SameTick.Act.TP && t % 20 == 10) {
                         c.server().command(tp);
                     }
                     c.ctx().waitTicks(1);
@@ -105,7 +105,7 @@ final class HxFlagHuntB1110Cases {
                 TriggerTiming.look(c, at2);
                 boolean got = false;
                 for (int t = 0; t < 80 && !got; t++) {
-                    if (act == SameTick.Act.TP && t % 8 == 0) {
+                    if (act == SameTick.Act.TP && t % 20 == 10) {
                         c.server().command(tp);
                     }
                     c.ctx().waitTicks(1);
