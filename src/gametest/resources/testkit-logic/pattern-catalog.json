@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-10T19:23:29",
+ "generatedAt": "2026-11-10T19:57:08",
  "modSource": "hideskillxp-1110",
- "modGitSha": "4dc3914da9b53ad7d4b55bdf492f601a45aae754",
+ "modGitSha": "8b2ec3ca64146ec89a66b7e90a87528259935189",
  "modSourceDirty": false,
  "count": 930,
  "byKind": {
