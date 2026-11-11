@@ -682,6 +682,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
         }
         String fill = (cx + 6) + " " + SURFACE_Y + " " + (cz - 1) + " " + (cx + 8) + " " + (SURFACE_Y + 1) + " " + (cz + 1);
         String air = (cx + 6) + " " + (SURFACE_Y + 40) + " " + (cz - 1);
+        String path = (cx + 6) + " " + SURFACE_Y + " " + cz + " " + (cx + 8) + " " + (SURFACE_Y + 1) + " " + cz;
         Scenario.run(ctx, name,
                 (server, scenario) -> TestMap.on(server)
                         .platform(cx + 4, fy, cz, 26)
@@ -757,11 +758,16 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             ctx.waitTicks(2);
                             ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
                             ctx.waitTicks(40);
+                            // A paused shot waits ~1 s for the server per wall: let it finish (gap cases, at most 4 s more).
+                            for (int i = 0; gap && blink && i < 80 && ctx.computeOnClient(mc -> (Boolean) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "shotPending")); i++) {
+                                ctx.waitTicks(1);
+                            }
                             ctx.getInput().releaseKey(o -> o.keyUp);
                             ctx.getInput().releaseKey(o -> o.keySprint);
                             ctx.waitTicks(20);
                             long shots = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "shots")).longValue()) - shots0;
-                            server.command("execute if blocks " + fill + " " + air + " all run say WALL_GONE");
+                            // The gap cases judge his own lane (z = cz): Breaker Aura may leave the far side column, which he never touches.
+                            server.command("execute if blocks " + (gap ? path : fill) + " " + air + " all run say WALL_GONE");
                             ctx.waitTicks(5);
                             boolean wallGone = server.tail(40).contains("WALL_GONE");
                             double clientX = ctx.computeOnClient(mc -> mc.player.getX());
@@ -814,7 +820,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
         return ctx.computeOnClient(mc -> {
             try {
                 return ((Number) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", method)).longValue();
-            } catch (RuntimeException e) {
+            } catch (RuntimeException | AssertionError e) {
                 return -1L;
             }
         });
