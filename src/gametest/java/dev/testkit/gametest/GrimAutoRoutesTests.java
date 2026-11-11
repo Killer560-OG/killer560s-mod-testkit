@@ -641,7 +641,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             b.put(new int[]{16, y, 10}, "minecraft:ladder[facing=north]");
         }
         setBlocks(ctx, b);
-        double[][] lanes = {{8.5, 8.5, 4}, {12.5, 6.5, 10}, {16.5, 7.5, -1}};
+        double[][] lanes = {{8.5, 8.5, 4}, {12.5, 6.5, 8}, {16.5, 7.5, -1}};
         String[] names = {"pool", "soul sand + cobweb + slab + stairs", "ladder"};
         StringBuilder notes = new StringBuilder();
         for (int i = 0; i < lanes.length; i++) {
