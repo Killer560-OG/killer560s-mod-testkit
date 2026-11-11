@@ -758,10 +758,12 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             ctx.waitTicks(2);
                             ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
                             ctx.waitTicks(40);
-                            // A paused shot waits ~1 s for the server per wall: let it finish (gap cases, at most 4 s more).
-                            for (int i = 0; gap && blink && i < 80 && ctx.computeOnClient(mc -> (Boolean) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "shotPending")); i++) {
+                            // A paused shot waits ~1 s for the server per wall and holds him still meanwhile: let it finish (at
+                            // most 4 s more), then he walks on 20 live ticks, as the 40 ticks above did before the pause froze him.
+                            for (int i = 0; blink && i < 80 && ctx.computeOnClient(mc -> (Boolean) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "shotPending")); i++) {
                                 ctx.waitTicks(1);
                             }
+                            ctx.waitTicks(blink ? 20 : 0);
                             ctx.getInput().releaseKey(o -> o.keyUp);
                             ctx.getInput().releaseKey(o -> o.keySprint);
                             ctx.waitTicks(20);
