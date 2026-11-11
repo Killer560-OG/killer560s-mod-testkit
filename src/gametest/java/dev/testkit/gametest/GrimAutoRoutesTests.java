@@ -2328,7 +2328,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         if (split) {
             c.ctx().waitTicks(30);
             noteFlags(c, all);
-            List<String> other = ZpewMultiTickTests.timerOnly(c.scenario(), "62-argrim-1111-mwtick-route");
+            List<String> other = new ArrayList<>(ZpewMultiTickTests.timerOnly(c.scenario(), "62-argrim-1111-mwtick-route"));
+            // A turning warp in an unbanked tick: GrimAC Timer cancels that tick's move, so the server never hears the
+            // turn and the use's look reads BadPacketsJ - Timer's own side effect (mod docs/LESSONS-AUTOMATION.md).
+            int j = other.size();
+            other.removeIf(l -> l.contains("BadPacketsJ"));
+            println("route split: " + (j - other.size()) + " BadPacketsJ line(s) from Timer-cancelled turns");
             check(other.isEmpty(), other.size() + " GrimAC line(s) other than Timer: " + other);
             return;
         }
