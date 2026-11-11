@@ -60,6 +60,10 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
+        if (!cheatJar(ctx)) {
+            Scenario.skipped("1027-zpewmt", "Zero Ping Etherwarp is cheat-only (mod menufix-1102)");
+            return;
+        }
         AssertionError first = null;
         for (int lat : LATENCIES) {
             try {
