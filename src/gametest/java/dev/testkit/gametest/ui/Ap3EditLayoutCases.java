@@ -128,11 +128,16 @@ final class Ap3EditLayoutCases {
         c.check(pad >= 6 && pad <= 14, what + ": bottom padding " + pad + " (panel " + java.util.Arrays.toString(p) + ")");
         c.check(p[1] >= 0 && (p[1] + p[3] <= sh || p[1] <= 4), what + ": panel " + java.util.Arrays.toString(p) + " off a " + sh + " high screen");
         Map<Integer, Integer> rightByRow = new TreeMap<>();
+        Map<Integer, Boolean> gridRow = new TreeMap<>();
         for (int[] a : r) {
-            rightByRow.merge(a[1], a[0] + a[2], Math::max);
+            // A ThemedEditBox is inset 5 px each side and 9 high inside its cell: its right edge is 5 px further out; rows go by centre.
+            boolean box = a[3] == 9;
+            rightByRow.merge(a[1] + a[3] / 2, a[0] + a[2] + (box ? 5 : 0), Math::max);
+            // The open type list is a 4-column grid of equal buttons: its last row may legitimately stop short.
+            gridRow.merge(a[1] + a[3] / 2, a[2] == 67, Boolean::logicalAnd);
         }
         for (Map.Entry<Integer, Integer> e : rightByRow.entrySet()) {
-            c.check(Math.abs(e.getValue() - (p[0] + p[2] - PAD)) <= 1,
+            c.check(gridRow.get(e.getKey()) || Math.abs(e.getValue() - (p[0] + p[2] - PAD)) <= 1,
                     what + ": the row at y=" + e.getKey() + " stops at x=" + e.getValue() + " (right padding is " + (p[0] + p[2] - PAD) + ")");
         }
         return 1;
