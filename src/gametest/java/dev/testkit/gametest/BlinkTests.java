@@ -1619,6 +1619,16 @@ public class BlinkTests implements FabricClientGameTest {
                         for (; waited < 10 && cnum(ctx, "shots") == shots0; waited++) {
                             ctx.waitTicks(1);
                         }
+                        if (cnum(ctx, "shots") == shots0) {
+                            // Under server lag the mod holds a shot until GrimAC covers the bank again (BlinkCharge.shoot,
+                            // up to SHOT_WAIT_MAX_MS = 10 s; fhA2-1111: 3.1 s at 150 ms, measured before it fired): he stops
+                            // running and the case waits for the shot itself.
+                            ctx.getInput().releaseKey(o -> o.keyUp);
+                            ctx.getInput().releaseKey(o -> o.keySprint);
+                            for (int i = 0; i < 260 && cnum(ctx, "shots") == shots0; i++) {
+                                ctx.waitTicks(1);
+                            }
+                        }
                         ctx.waitTicks(1);
                         double[] after = scenario.playerPosition();
                         ctx.getInput().releaseKey(o -> o.keyUp);
