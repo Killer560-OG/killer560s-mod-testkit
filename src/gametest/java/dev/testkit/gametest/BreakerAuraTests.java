@@ -113,6 +113,23 @@ public class BreakerAuraTests implements FabricClientGameTest {
             sameTickRun(ctx, "1105-same-breaker-" + a.name().toLowerCase(Locale.ROOT).replace('_', '-'), a, sz);
             sz -= 30;
         }
+        // flaghunt-1110 B: a server teleport onto his own spot (teleport accept) and his use + a 400 ms lag spike while the aura digs.
+        sameTickRun(ctx, "1110-fhb-breaker-tp", SameTick.Act.TP, sz);
+        sz -= 30;
+        sameTickRun(ctx, "1110-fhb-breaker-lag-use", SameTick.Act.USE, sz);
+        sz -= 30;
+        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE_KEY, SameTick.Act.SWAP, SameTick.Act.ATTACK, SameTick.Act.TP}) {
+            sameTickRun(ctx, "1110-fhb-breaker-obs-" + a.name().toLowerCase(Locale.ROOT).replace('_', '-'), a, sz);
+            sz -= 30;
+        }
+        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.ATTACK}) {
+            sameTickRun(ctx, "1110-fhb-breaker-autoswap-" + a.name().toLowerCase(Locale.ROOT), a, sz);
+            sz -= 30;
+        }
+        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.ATTACK, SameTick.Act.DIG_HELD}) {
+            sameTickRun(ctx, "1110-fhb-breaker-cd0-" + a.name().toLowerCase(Locale.ROOT).replace('_', '-'), a, sz);
+            sz -= 30;
+        }
         // burstmax-1108: the same five with Burst Multi Break ON (his use, container click, attack, hotbar swap and held
         // dig while the burst digs its picks several a tick); MultiBreak* is the accepted line, nothing else may flag.
         for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.CLICK, SameTick.Act.ATTACK,
@@ -1716,9 +1733,11 @@ public class BreakerAuraTests implements FabricClientGameTest {
                 }
             }
         }
-        List<BlockPos> picks = List.copyOf(line);
+        boolean obs = name.contains("-obs"); // OBSIDIAN picks (dug over time: START, a swing a tick, STOP), three of them
+        boolean asw = name.contains("-autoswap"); // Auto Swap (1-tick delay, swap back) picks the breaker out of his stick slot
+        List<BlockPos> picks = obs ? List.copyOf(line).subList(0, 3) : List.copyOf(line);
         float pitch = dig ? 60f : act == SameTick.Act.ATTACK ? 15f : 0f;
-        String breaker = "give @p minecraft:diamond_shovel[custom_data={id:\"DUNGEONBREAKER\"},"
+        String breaker = "give @p minecraft:" + (obs ? "netherite_pickaxe[enchantments={\"minecraft:efficiency\":5}," : "diamond_shovel[") + "custom_data={id:\"DUNGEONBREAKER\"},"
                 + "unbreakable={},lore=[{text:\"Charges: 5000/5000\",italic:false}]] 1";
         runMaybeFlags(burst, ctx, name,
                 (server, scenario) -> {
@@ -1727,12 +1746,14 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             .catchFloor(120)
                             .survival()
                             .clearInventory()
+                            .command(asw ? "item replace entity @p hotbar.0 with stick" : breaker)
                             .command(breaker)
-                            .command(breaker)
+                            .command(asw ? "item replace entity @p hotbar.3 with stick" : "effect clear @p minecraft:glowing")
+                            .command(asw ? "item replace entity @p hotbar.4 with stick" : "effect clear @p minecraft:glowing")
                             .command("effect give @p minecraft:haste 99999 4 true")
                             .command("effect clear @p minecraft:speed");
                     for (BlockPos b : picks) {
-                        m = m.fill(b.getX(), b.getY(), b.getZ(), b.getX(), b.getY(), b.getZ(), "snow_block");
+                        m = m.fill(b.getX(), b.getY(), b.getZ(), b.getX(), b.getY(), b.getZ(), obs ? "obsidian" : "snow_block");
                     }
                     if (dig) {
                         m = m.command("fill " + snow + " minecraft:glass");
@@ -1760,13 +1781,13 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                 String.valueOf(mc.hitResult == null ? null : mc.hitResult.getType())));
                     }
                     ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CONFIG), "setBreakerAuraCooldownTicks",
-                            MB_COOLDOWN));
+                            name.contains("-cd0") ? 0 : MB_COOLDOWN));
                     ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.start());
                     java.util.function.Predicate<net.minecraft.network.protocol.Packet<?>> feature = p ->
                             p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket a
                                     && picks.contains(a.getPos());
                     SameTick st = ctx.computeOnClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK ? 3 : act == SameTick.Act.DIG ? 2 : 1,
-                            feature, 0, 1));
+                            feature, asw ? 3 : 0, asw ? 4 : 1));
                     boolean[] closed = {false};
                     boolean click = act == SameTick.Act.CLICK;
                     try {
@@ -1778,6 +1799,12 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         }
                         // configure turns Burst off, so with Burst the picks go in after it (as burstRun does).
                         configure(ctx, scenario, true, burst ? List.of() : picks);
+                        if (asw) {
+                            ctx.runOnClient(mc -> {
+                                ModUnderTest.set(ModUnderTest.config(CONFIG), "setBreakerAuraAutoSwap", true);
+                                ModUnderTest.call(ModUnderTest.config(CONFIG), "setBreakerAuraSwapDelayTicks", new Class<?>[]{int.class}, new Object[]{1});
+                            });
+                        }
                         if (burst) {
                             ctx.runOnClient(mc -> {
                                 ModUnderTest.set(ModUnderTest.config(CONFIG), "setBreakerAuraBurstMultiBreak", true);
@@ -1785,9 +1812,17 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             });
                         }
                         boolean gone = false;
-                        for (int i = 0; i < 80 && !gone; i++) {
+                        for (int i = 0; i < (obs ? 500 : 80) && !gone; i++) {
                             if (click && i == 3) {
                                 ctx.runOnClient(mc -> mc.player.closeContainer());
+                            }
+                            // flaghunt-1110 B: a server teleport onto his own spot (the client answers with a teleport accept)
+                            // every fourth tick, or a 400 ms lag spike, in the aura's ticks.
+                            if (act == SameTick.Act.TP && i % 4 == 2) {
+                                server.command("tp @p " + (cx + 0.5) + " " + SURFACE_Y + " " + (cz + 0.5) + " ~ ~"); // absolute y: ~ is the console's
+                            }
+                            if (name.contains("-lag") && i == 6) {
+                                ctx.runOnClient(mc -> dev.testkit.harness.LagSpike.start(400L));
                             }
                             ctx.waitTicks(1);
                             if (dig && i % 3 == 0) {
@@ -1811,7 +1846,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         if (!gone && !(burst && dev.testkit.gametest.boss.AaFastCases.experimentalChecks())) {
                             throw new AssertionError("not every pick broke - the aura did not act");
                         }
-                        if (st.done() == 0 || st.playerWindows() == 0 || st.featureWindows() == 0) {
+                        if (act == SameTick.Act.TP ? st.featureWindows() == 0
+                                : st.done() == 0 || st.playerWindows() == 0 || st.featureWindows() == 0) {
                             throw new AssertionError("his action or the aura's dig never reached the wire - nothing tested ("
                                     + st.report() + ")");
                         }
@@ -1852,7 +1888,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                 throw new AssertionError("his " + act + " and the aura's dig shared a server tick ("
                                         + st.report() + ")");
                             }
-                        } else if (st.both() == 0) {
+                        } else if (act != SameTick.Act.TP && !obs && st.both() == 0) {
                             throw new AssertionError("no server tick carried both his " + act + " and the aura's dig - "
                                     + "nothing tested (" + st.report() + ")");
                         }

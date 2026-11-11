@@ -29,7 +29,7 @@ final class HxTriggerDelayCases {
     }
 
     /** Dungeon gates on: the room sim's "in a dungeon", a Hypixel address, the Skyblock gate off. */
-    private static HxKit.Settings dungeon(Session c) {
+    static HxKit.Settings dungeon(Session c) {
         boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
         String ipWas = c.onClient(mc -> mc.getCurrentServer().ip);
         return new HxKit.Settings(c)
@@ -41,7 +41,7 @@ final class HxTriggerDelayCases {
                         () -> net.minecraft.client.Minecraft.getInstance().getCurrentServer().ip = ipWas);
     }
 
-    private static void closeScreen(Session c) {
+    static void closeScreen(Session c) {
         c.onClient(mc -> {
             if (mc.player.containerMenu != mc.player.inventoryMenu) {
                 mc.player.closeContainer();
