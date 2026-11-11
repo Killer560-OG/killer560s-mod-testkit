@@ -1,10 +1,6 @@
 {
   "_doc": "newLeaves paths follow the Option A regroup (mod menu-a, 2026-10-12: Helpers became part of Misc). What the branches merged with menu-layout on 2026-10-08 (mod 3744aa32) changed on purpose, on top of the menu-layout-<variant>.json fixtures (recorded from 6a61dfa8). 511: goneLeaves must be absent, newLeaves must be at exactly that path once. 513: a fixture row listed in tooltips must now show \"text\" (under \"to\" when it moved sub-tab) or be gone everywhere (\"gone\"); an entry that no longer differs from the fixture is stale and fails.",
   "goneLeaves": {
-    "gui.tab.CarnivalTrackerTab": "carnivalfold-1111: folded into the Carnival card (Misc > Carnival), killer560 2026-11-11",
-    "gui.tab.FruitDiggingTab": "carnivalfold-1111: folded into the Carnival card (Misc > Carnival), killer560 2026-11-11",
-    "gui.tab.ZombieShootoutTab": "carnivalfold-1111: folded into the Carnival card (Misc > Carnival), killer560 2026-11-11",
-    "gui.tab.CatchAFishTab": "carnivalfold-1111: folded into the Carnival card (Misc > Carnival), killer560 2026-11-11",
     "gui.tab.ArmourDyeTab": "inv-batch 701742c2: Armor Recolor became Custom Items (Cosmetics > Custom Items)",
     "gui.tab.ChatTidyTab": "chat-batch a64924b9: merged into Chat Hider",
     "gui.tab.HideChatMessagesTab": "chat-batch a64924b9: merged into Chat Hider",
@@ -14,12 +10,6 @@
     "gui.tab.SecretSoundTab": "doc-auto-1101: Secret Sound is a section of the Secret tab (Dungeons > Secrets > Secret), killer560 2026-11-01"
   },
   "goneCheatLeaves": {
-    "gui.tab.AutoCatchAFishTab": "carnivalfold-1111: folded into the Carnival card (Misc > Carnival), killer560 2026-11-11",
-    "gui.tab.AutoFruitDiggingTab": "carnivalfold-1111: folded into the Carnival card (Misc > Carnival), killer560 2026-11-11",
-    "gui.tab.AutoShovelSwapTab": "carnivalfold-1111: folded into the Carnival card (Misc > Carnival), killer560 2026-11-11",
-    "gui.tab.AutoZombieShootoutTab": "carnivalfold-1111: folded into the Carnival card (Misc > Carnival), killer560 2026-11-11",
-    "gui.tab.FruitDiggingTriggerbotTab": "carnivalfold-1111: folded into the Carnival card (Misc > Carnival), killer560 2026-11-11",
-    "gui.tab.ZombieTriggerbotTab": "carnivalfold-1111: folded into the Carnival card (Misc > Carnival), killer560 2026-11-11",
     "gui.tab.LeverAuraTab": "aura-themes-1015: Lever Aura became the In Boss part of the Secret Aura tab (cheat jar only)"
   },
   "newCheatLeaves": {

@@ -472,8 +472,8 @@ public class CarnivalSuite implements FabricClientGameTest {
                 Object rec = Mod.field(Mod.ROOT + "carnival.FruitDigging", "recommendation");
                 return rec == null ? null : (String) Mod.call(rec, "shovel");
             });
-            for (int i = 0; i < 10 && (Integer) c.onClient(mc -> Mod.staticCall("carnival.AutoFruitDigging", "digTaps")) <= d0; i++) {
-                c.ctx().waitTicks(20);
+            for (int i = 0; i < 200 && (Integer) c.onClient(mc -> Mod.staticCall("carnival.AutoFruitDigging", "digTaps")) <= d0; i++) {
+                c.ctx().waitTicks(1);
             }
             String target0 = c.onClient(mc -> (String) Mod.staticCall("carnival.AutoFruitDigging", "lastTarget"));
             c.ctx().waitTicks(4);

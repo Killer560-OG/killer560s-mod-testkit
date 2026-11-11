@@ -368,9 +368,9 @@ final class Carnival1111Cases {
             c.note("after the lamps went stale: " + shots + " shot(s) at the server; mod shots " + (shots1 - shots0));
             c.check(shots >= 1, "the auto froze on the stale lamp: no shot at the zombie after it was dropped");
         } finally {
-            c.server().command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:sand", (int) Math.floor(PX), Y - 1,
+            c.server().command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:air", (int) Math.floor(PX), Y - 1,
                     (int) Math.floor(PZ)));
-            c.server().command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:sand", (int) Math.floor(PX), Y,
+            c.server().command(String.format(Locale.ROOT, "setblock %d %d %d minecraft:stone", (int) Math.floor(PX), Y,
                     (int) Math.floor(PZ)));
             CarnivalSuite.cleanup(c);
         }
