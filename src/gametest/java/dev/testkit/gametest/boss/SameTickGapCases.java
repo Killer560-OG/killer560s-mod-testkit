@@ -64,7 +64,7 @@ final class SameTickGapCases {
      * Onto a platform just built far from home: the first teleport lands before the client has the chunk (GroundSpoof /
      * Simulation at the landing, setup only), so it goes there once, waits for the blocks, and lands again.
      */
-    private static void onPlatform(Session c, double x, double y, double z, BlockPos floor) {
+    static void onPlatform(Session c, double x, double y, double z, BlockPos floor) {
         c.hx().call("dungeon.tp", "x", x, "y", y, "z", z, "yaw", 0f, "pitch", 0f);
         c.waitUntil("the client to have the platform", mc -> mc.level.getBlockState(floor)
                 .is(net.minecraft.world.level.block.Blocks.STONE), 200);
