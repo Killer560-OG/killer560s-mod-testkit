@@ -145,16 +145,19 @@ final class Melody1111Cases {
                     .set(CONFIG, "AutoStreamSafe", false)
                     .set(CONFIG, "MelodySkipMode", Mod.enumValue(CONFIG + "$MelodySkipMode", "EDGES"))
                     .set(CONFIG, "MelodyLookaheadClicks", 2);
-            c.onClient(mc -> {
-                Latency.install(50);
-                return null;
-            });
-            // Let the ping tracker see the added latency before the first board.
-            c.ctx().waitTicks(80);
             int totalMissed = 0;
             int totalWrong = 0;
             long totalTicks = 0;
+            int staleSlow = 0;
             List<String> rows = new ArrayList<>();
+            // At 50 ms the second lookahead usually drops (the row shows first); at 120 ms it always goes out.
+            for (int lat : new int[] {50, 120}) {
+            c.onClient(mc -> {
+                Latency.install(lat);
+                return null;
+            });
+            // Let the ping tracker see the added latency before the first board.
+            c.ctx().waitTicks(100);
             for (int b = 0; b < BOARDS.length; b++) {
                 int[] targets = BOARDS[b];
                 int firedBefore = c.onClient(mc -> (Integer) Mod.field(FEATURE, "melodyLookaheadFired"));
@@ -199,7 +202,10 @@ final class Melody1111Cases {
                 totalMissed += missed;
                 totalWrong += wrong;
                 totalTicks += ticks;
-                String row = java.util.Arrays.toString(targets) + ": " + ticks + " ticks, " + missed + " missed pass(es), "
+                if (lat == 120) {
+                    staleSlow += stale;
+                }
+                String row = lat + " ms " + java.util.Arrays.toString(targets) + ": " + ticks + " ticks, " + missed + " missed pass(es), "
                         + wrong + " wrong (lookahead " + fired + " sent, " + stale + " freed as stale), row 3 "
                         + (row2At < 0 || row3At < 0 ? "?" : (row3At - row2At)) + " ticks after row 2";
                 rows.add(row);
@@ -215,8 +221,10 @@ final class Melody1111Cases {
                             + ", " + wrong + " wrong");
                 }
             }
+            }
+            c.check(!fixed || staleSlow > 0, "at 120 ms no lookahead click was freed as stale: the fix never acted");
             c.note("TOTAL (" + (fixed ? "fixed" : "old") + " jar): " + totalTicks + " ticks, " + totalMissed
-                    + " missed passes, " + totalWrong + " wrong clicks over " + BOARDS.length + " boards");
+                    + " missed passes, " + totalWrong + " wrong clicks over " + 2 * BOARDS.length + " boards, " + staleSlow + " stale lookaheads freed at 120 ms");
         } finally {
             c.onClient(mc -> {
                 Latency.remove();
