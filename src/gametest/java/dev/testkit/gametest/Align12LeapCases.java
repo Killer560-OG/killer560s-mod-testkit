@@ -27,9 +27,11 @@ import static dev.testkit.gametest.Ap3RuntimeTests.setChain;
  *   <li>1112-align12-leap: a Spirit Leap lands him in the align's 1x1 block: a server position packet the client accepts (tp)
  *       at a random spot of the block with a random yaw and pitch and no velocity, then Hypixel's "You have teleported to"
  *       line. The ticks from the arrival tick to on-the-point-and-stopped are counted (average, worst, histogram).</li>
- *   <li>1112-align12-leap-use / -swap / -click / -attack / -tp: the same, with his own use_item, hotbar swap, container click
- *       (no screen open), attack or the teleport accept landing in the align's ticks; SameTick checks on the wire that the
- *       align's packet and his shared a server tick.</li>
+ *   <li>1112-align12-leap-use / -swap / -attack / -tp: the same, with his own use_item, hotbar swap, attack or a second teleport
+ *       accept landing in the align's ticks; SameTick checks on the wire that the align's packet and his shared a server tick.</li>
+ *   <li>1112-align12-leap-click: his inventory opens in the align's first tick and he clicks in it every tick: AP3 lets go (a
+ *       screen stops it, as always), his clicks go out, and GrimAC stays quiet (a click with a movement key still held is
+ *       MultiActionsC); the align's own stop is not asked for. A click with no screen open is not something the game sends.</li>
  *   <li>1112-align12-ap3angle: an AP3 RUN node carries him into the block from headings swept all the way round (every
  *       30 degrees, with a random offset after the first lap); the ticks to stopped are counted per heading bucket.</li>
  * </ul>
@@ -45,8 +47,8 @@ final class Align12LeapCases {
 
     static void register(Session s) {
         s.test("1112-align12-leap", c -> leap(c, 1, null, Align12Cases.TRIALS + 4));
-        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.INV_CLICK, SameTick.Act.ATTACK, SameTick.Act.TP}) {
-            String name = a == SameTick.Act.INV_CLICK ? "click" : a.name().toLowerCase(Locale.ROOT);
+        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.CLICK, SameTick.Act.ATTACK, SameTick.Act.TP}) {
+            String name = a.name().toLowerCase(Locale.ROOT);
             s.test("1112-align12-leap-" + name, c -> leap(c, 10 + a.ordinal(), a, Math.max(6, Align12Cases.TRIALS - 2)));
         }
         s.test("1112-align12-ap3angle", Align12LeapCases::angle);
@@ -73,6 +75,7 @@ final class Align12LeapCases {
                 return null;
             });
         }
+        boolean screen = act == SameTick.Act.CLICK;
         if (act == SameTick.Act.ATTACK) {
             // a big interaction entity around him, so his left click has a target whatever look the leap gave him
             c.server().command(String.format(Locale.ROOT, "summon minecraft:interaction %.2f %.2f %.2f {width:6f,height:6f,response:true}", tx, y - 2, tz));
@@ -110,9 +113,18 @@ final class Align12LeapCases {
                     if (act == SameTick.Act.TP && i >= 1 && i < 5) {
                         c.server().command("execute as @a at @s run tp @s ~ ~ ~"); // a teleport accept in the align's first ticks
                     }
+                    if (screen && i == 1) {
+                        onClient(ctx, mc -> {
+                            mc.setScreen(new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player));
+                            return null;
+                        });
+                    }
                     ctx.waitTick();
                     double[] r = sample(ctx, null);
                     tr.add(r);
+                    if (screen && i >= 8) {
+                        break; // the screen stopped AP3: nothing more to wait for
+                    }
                     if (entry < 0 && Math.abs(r[0] - tx) <= 0.5 && Math.abs(r[1] - tz) <= 0.5) {
                         entry = i;
                     }
@@ -122,6 +134,18 @@ final class Align12LeapCases {
                     }
                 }
                 release(ctx);
+                if (screen) {
+                    onClient(ctx, mc -> {
+                        mc.setScreen(null);
+                        return null;
+                    });
+                    Object running = onClient(ctx, mc -> dev.testkit.gametest.mod.Mod.staticCall("ap3.Ap3Executor", "isRunning"));
+                    if (Boolean.TRUE.equals(running)) {
+                        fails.add("trial " + t + ": AP3 still ran with his inventory open");
+                    }
+                    planned++;
+                    continue;
+                }
                 double[] an = analyze(tr, tx, tz, 1);
                 int done = (int) an[1], n = done >= 0 && entry >= 0 ? done - entry : -1;
                 double[] last = tr.get(tr.size() - 1);
@@ -135,11 +159,16 @@ final class Align12LeapCases {
                     sum += n;
                     worst = Math.max(worst, n);
                 }
+                StringBuilder path = new StringBuilder();
+                for (int i = 0; i < Math.min(tr.size(), 9); i++) {
+                    path.append(String.format(Locale.ROOT, " [%d: %+.3f,%+.3f v %.3f on %.0f]", i, tr.get(i)[0] - tx, tr.get(i)[1] - tz,
+                            Math.hypot(tr.get(i)[2], tr.get(i)[3]), tr.get(i)[4]));
+                }
                 c.note(String.format(Locale.ROOT, "trial %d: landed (%+.3f, %+.3f) yaw %+.0f pitch %+.0f: entered at sample %d, on the point"
                                 + " and stopped %s; end off (%+.6f, %+.6f); view jump %.2f deg%s%s", t, lx - tx, lz - tz, yaw, pitch, entry,
                         n >= 0 ? n + " tick(s) after landing" : "NEVER", last[0] - tx, last[1] - tz, an[2],
                         plan.isEmpty() ? "; no tick-exact plan" : "; " + tail(plan.get(plan.size() - 1)),
-                        lost.isEmpty() ? "" : "; " + tail(lost.get(0))));
+                        lost.isEmpty() ? "" : "; " + tail(lost.get(0))) + path);
                 if (an[2] > 0.5) {
                     fails.add(String.format(Locale.ROOT, "trial %d: his crosshair jumped %.1f degrees in one tick", t, an[2]));
                 }
@@ -172,7 +201,8 @@ final class Align12LeapCases {
                 java.util.Arrays.toString(hist), planned, fellBack, jumpMax));
         if (st != null) {
             c.note(st.report());
-            String why = st.verdict("align12 leap " + act, false);
+            String why = screen ? st.playerWindows() > 0 ? null : "his clicks never reached the wire (" + st.report() + ")"
+                    : st.verdict("align12 leap " + act, false);
             c.check(why == null, why);
         }
         if (planned == 0) {
