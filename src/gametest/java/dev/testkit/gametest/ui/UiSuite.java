@@ -584,6 +584,7 @@ public class UiSuite implements FabricClientGameTest {
                     // mod zpew2-1101: the Crystal node's Height box in the AP3 node editor.
                     UiCase.run(ctx, "1102-ui-ap3-crystal-height", Ap3CrystalEditCases::run);
                     UiCase.run(ctx, "1110-ui-ap3-edit-layout", Ap3EditLayoutCases::run);
+                    UiCase.run(ctx, "1112-ui-ap3-preset", Ap3PresetCases::run);
                     UiCase.run(ctx, "388-ui-breaker-display", BreakerDisplayCases::run);
                     UiCase.run(ctx, "389-ui-crosshair", CrosshairCases::run);
                     UiCase.run(ctx, "390-ui-wither-doors-fill", WitherDoorFillCases::run);
