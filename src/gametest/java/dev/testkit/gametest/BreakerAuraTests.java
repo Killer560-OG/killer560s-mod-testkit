@@ -900,7 +900,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                     });
                     // Wire: client tick of each dig on a pick, the answers sent, the furthest x his moves told the server.
                     java.util.Map<BlockPos, Integer> digTick = new java.util.concurrent.ConcurrentHashMap<>();
-                    java.util.Map<BlockPos, Integer> firstDig = new java.util.concurrent.ConcurrentHashMap<>();
+                    java.util.Map<BlockPos, Integer> digFirst = new java.util.concurrent.ConcurrentHashMap<>();
                     java.util.List<Integer> pongTicks = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
                     double[] sentX = {Double.NEGATIVE_INFINITY};
                     java.util.function.Consumer<net.minecraft.network.protocol.Packet<?>>[] prevTap = new java.util.function.Consumer[1];
@@ -917,7 +917,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                 if (p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket a
                                         && picks.contains(a.getPos())) {
                                     digTick.put(a.getPos(), t); // the last dig: a dig the server never answered is dug again
-                                    firstDig.putIfAbsent(a.getPos(), t);
+                                    digFirst.putIfAbsent(a.getPos(), t);
                                 } else if (p instanceof net.minecraft.network.protocol.common.ServerboundPongPacket) {
                                     pongTicks.add(t);
                                 } else if (p instanceof net.minecraft.network.protocol.game.ServerboundMovePlayerPacket mp
@@ -1011,7 +1011,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             // Experimental MultiBreak cancels the burst's extra dig, so that pick stays (as in
                             // 1108-same-burst-*): only the one-tick burst and the MultiBreak-only verdict are checked.
                             List<String> other = scenario.flags().stream().filter(f -> !f.contains("MultiBreak")).toList();
-                            if (firstDig.values().stream().distinct().count() != 1 || !other.isEmpty()) {
+                            if (digFirst.values().stream().distinct().count() != 1 || !other.isEmpty()) {
                                 throw new AssertionError("burst not in one tick or other Grim lines: " + per + " " + other);
                             }
                             return;
@@ -1069,7 +1069,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             if (!other.isEmpty()) {
                                 throw new AssertionError("GrimAC flagged something other than MultiBreak: " + other);
                             }
-                            if (firstDig.values().stream().distinct().count() != 1) {
+                            if (digFirst.values().stream().distinct().count() != 1) {
                                 throw new AssertionError("Burst did not dig the pair in one tick: " + per);
                             }
                         }
