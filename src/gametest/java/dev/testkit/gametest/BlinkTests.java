@@ -1731,9 +1731,9 @@ public class BlinkTests implements FabricClientGameTest {
 
     /**
      * blinktp-1111: every teleport confirm on the wire right behind a ping answer (the answers sent back to back with it;
-     * within 10 ms, encoder threads under load) and his next move within 60 ms of it - in the confirm's own tick or the
-     * next (the landing often goes with the next tick's input, blinkkept-1111), never a held confirm. "ok ..." with the
-     * counts, else what was wrong.
+     * within 10 ms, encoder threads under load). On 26.3 no landing move follows the confirm at once: his next move goes
+     * when he next moves (up to 100 ms later standing, blinkkept-1111), so only the confirm's place is judged; the time to
+     * his next move is in the message. "ok ..." with the counts, else what was wrong.
      */
     static String confirmOrder(List<dev.testkit.harness.WireCapture.Sent> w, int atLeast) {
         int n = 0;
@@ -1753,9 +1753,8 @@ public class BlinkTests implements FabricClientGameTest {
             }
             boolean pong = prev != null && prev.type().equals("minecraft:pong")
                     && (w.get(i).nanos() - prev.nanos()) < 10_000_000L;
-            boolean landing = next != null && (next.nanos() - w.get(i).nanos()) < 60_000_000L;
             behindPong += pong ? 1 : 0;
-            if (!pong || !landing) {
+            if (!pong) {
                 bad.append(String.format(Locale.ROOT, " [confirm #%d: before it %s, after it %s]", n,
                         prev == null ? "nothing" : prev.type() + " " + (w.get(i).nanos() - prev.nanos()) / 1000 + " us",
                         next == null ? "nothing" : next.type() + " " + (next.nanos() - w.get(i).nanos()) / 1000 + " us"));
@@ -1908,7 +1907,6 @@ public class BlinkTests implements FabricClientGameTest {
                     ctx.waitTicks(1);
                     kept = num(ctx, "teleportsHeld") > tp0;
                 }
-                ctx.waitTicks(2); // his landing move can go with the next tick
                 String orderAtTp = confirmOrder(ctx.computeOnClient(mc -> dev.testkit.harness.WireCapture.snapshot()), 1);
                 double[] srvDuring = serverPos(server, ctx, who);
                 boolean stillHolding = holding(ctx);
