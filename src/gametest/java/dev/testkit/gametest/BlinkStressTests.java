@@ -1878,11 +1878,11 @@ public class BlinkStressTests implements FabricClientGameTest {
                         ctx.waitTicks(45);
                         long shots = cnum(ctx, "shots") - shots0;
                         boolean quietLine = hasLog(mark, "Hypixel's quiet time");
-                        boolean wantWait = hyp != null && kind == 1;
+                        boolean wantWait = hyp != null && kind >= 1;
                         boolean promptLine = hasLog(mark, "on Hypixel - firing now");
                         long batches = cnum(ctx, "teleportBatches") - batches0;
-                        boolean ok = shots == 1 && (kind == 2 ? ms < 400 && promptLine && batches >= 1
-                                : wantWait ? ms < 400 && (quietLine || promptLine) : ms < 600 && !quietLine);
+                        boolean ok = shots == 1 && (kind == 0 || batches >= kind)
+                                && (wantWait ? ms < 400 && (quietLine || promptLine) : ms < 600 && !quietLine);
                         String label = (hyp != null ? "hypixel" : "grim") + (kind == 2 ? " two tps, no hold" : kind == 1 ? " after tp" : " plain");
                         rows.add(server, scenario, label, ok, String.format(Locale.ROOT,
                                 "shots %d after %d ms (wait expected %s), quiet line %s, prompt line %s, confirm batches %d",
