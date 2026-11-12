@@ -98,16 +98,14 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
 
     /**
      * 1111-mwtick-wpt-* (mod mwtick-1111; killer560 2026-11-11): Multi Warp Mode
-     * Tick Split. Warps Per Tick at its top, 20, with no Blink: every warp must sit in a GrimAC tick of its own on the WIRE
-     * (a {@code client_tick_end} between each two uses), all 20 inside ONE real client tick, 20 server warps landing 8
-     * apart, and 19 unbanked ticks counted by the mod. GrimAC may say only Timer* (the extra tick-ends; his accepted price,
-     * the label says so); any other check fails the case. Variants (the SAME-TICK rule): {@code swap} (his scroll every
-     * tick), {@code tp} (the server teleports him just before each burst, so his accept rides with it), {@code double} (two
-     * clicks of his in one tick, Warps Per Tick 10: his second use and a second chain in the first chain's tick, 20 uses).
-     * A container click cannot share a tick with a manual warp (the use key does nothing under a screen); the map chain's
-     * same-click case covers it. {@code bank}: Blink Charge on and full (20, covered) before each burst, so Tick Split spends
-     * the bank first: the 19 extra ticks are banked time, 0 unbanked, and its GrimAC line count is the one to compare with
-     * {@code plain}'s (the Timer price only for ticks past the bank).
+     * Tick Split, which must never flag (killer560 2026-11-11: "why would you push it if it flags?"). Warps Per Tick at
+     * its top, 20, 20 server warps landing 8 apart, and GrimAC silent on every check. With no Blink bank Tick Split has no
+     * tick to spend, so each burst falls back to Burst (the mod counts it, splitShort). Variants (the SAME-TICK rule): {@code
+     * swap} (his scroll every tick), {@code tp} (the server teleports him just before each burst, so his accept rides with
+     * it), {@code double} (two clicks of his in one tick, Warps Per Tick 10: 20 uses). A container click cannot share a tick
+     * with a manual warp (the use key does nothing under a screen); the map chain's same-click case covers it. {@code bank}:
+     * Blink Charge on and full (20, covered) before each burst: every warp sits in a banked GrimAC tick of its own on the
+     * WIRE (a {@code client_tick_end} between each two uses), all 20 inside ONE real client tick, and nothing falls back.
      */
     static void mwtick(ClientGameTestContext ctx, String variant) {
         String name = "1111-mwtick-wpt-" + variant;
@@ -145,7 +143,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 }
                 for (int rep = 0; rep < 3; rep++) {
                     long banked0 = bank ? fillBank(ctx) : 0;
-                    long un0 = unfunded(ctx);
+                    long short0 = splitShort(ctx);
                     Runnable press = dbl ? clicks(2) : () -> ctx.getInput().pressKey(o -> o.keyUse);
                     Runnable fire = () -> {
                         ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
@@ -156,23 +154,24 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                         press.run();
                     };
                     String label = name + " rep " + rep;
-                    timerSetbacksOk = !bank;
+                    ownTpOk = act == dev.testkit.gametest.SameTick.Act.TP;
                     try {
                         problems.addAll(shot(ctx, server, hx, scenario, who, 0, label, 1, 4, fire, 20, 20, 20 - (dbl ? 2 : 1),
                                 1));
                     } finally {
-                        timerSetbacksOk = false;
+                        ownTpOk = false;
                     }
                     ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
-                    long un = unfunded(ctx) - un0;
-                    // double: his second click first closes the tick the first chain left open (ZeroPingEtherwarp.beforeClick,
-                    // experimental GrimAC PacketOrderN), so 19 split ticks, every use closed alone.
-                    int split = bank ? (int) Math.max(0, 19 - banked0) : 19;
-                    String wire = splitWire(dev.testkit.harness.WireCapture.snapshot(), 20, 20, problems, label); // every use in a tick of its own
-                    scenario.log(label + ": " + un + " unbanked tick(s)" + (bank ? " (bank " + banked0 + " before)" : "")
-                            + "; " + countLooks(dev.testkit.harness.WireCapture.snapshot()) + " look move(s); wire " + wire);
-                    if (un != split) {
-                        problems.add(label + ": expected " + split + " unbanked ticks, the mod ran " + un);
+                    long fellBack = splitShort(ctx) - short0;
+                    // bank: every use in a banked tick of its own; else Burst (only the burst's last use is closed alone).
+                    List<String> wp = new ArrayList<>();
+                    String wire = splitWire(dev.testkit.harness.WireCapture.snapshot(), 20, bank ? 20 : -1, wp, label);
+                    problems.addAll(wp);
+                    scenario.log(label + ": " + fellBack + " burst(s) fell back to Burst" + (bank ? " (bank " + banked0
+                            + " before)" : "") + "; " + countLooks(dev.testkit.harness.WireCapture.snapshot())
+                            + " look move(s); wire " + wire);
+                    if (bank ? banked0 >= 19 && fellBack != 0 : fellBack < 1) {
+                        problems.add(label + ": " + fellBack + " burst(s) fell back to Burst (bank " + banked0 + ")");
                     }
                 }
                 if (st[0] != null) {
@@ -203,7 +202,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 ZpewCampaignTests.tearDown(ctx, hx);
             }
             ctx.waitTicks(30); // a late GrimAC line lands before the flags are read
-            problems.addAll(timerOnly(scenario, name));
+            problems.addAll(noFlags(scenario, name));
             if (!problems.isEmpty()) {
                 throw new AssertionError(name + ": " + problems);
             }
@@ -234,8 +233,9 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
         return n;
     }
 
-    static long unfunded(ClientGameTestContext ctx) {
-        return ctx.computeOnClient(mc -> ((Number) Mod.staticCall("blink.BlinkCharge", "unfundedTicks")).longValue());
+    static long splitShort(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.Ap3RuntimeTests.staticField(
+                "com.killer560.hub.zpew.ZeroPingEtherwarp", "splitShort")).longValue());
     }
 
     /**
@@ -269,7 +269,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 b.append(" S");
             }
         }
-        if (uses != want || alone != wantAlone) {
+        if (uses != want || wantAlone >= 0 && alone != wantAlone) {
             problems.add(label + ": " + uses + " use(s) on the wire, " + alone + " closed by a tick end before the next use, "
                     + "expected " + want + " and " + wantAlone + " | " + b);
         }
@@ -277,20 +277,18 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
         return s.length() > 400 ? s.substring(0, 400) + " ..." : s;
     }
 
-    /** Tick Split's accepted price: GrimAC Timer* lines only. Logs the measured list; returns a problem per other line. */
-    static List<String> timerOnly(Scenario scenario, String name) {
+    /** Tick Split must never flag: logs GrimAC's lines by check and returns a problem per line. */
+    static List<String> noFlags(Scenario scenario, String name) {
         List<String> other = new ArrayList<>();
         java.util.Map<String, Integer> byCheck = new java.util.TreeMap<>();
         for (String f : scenario.flags()) {
             java.util.regex.Matcher m = java.util.regex.Pattern.compile("failed ([A-Za-z]+)").matcher(f);
             String check = m.find() ? m.group(1) : "?";
             byCheck.merge(check, 1, Integer::sum);
-            if (!check.contains("Timer")) {
-                other.add(name + ": GrimAC " + f);
-            }
+            other.add(name + ": GrimAC " + f);
         }
         System.out.println("[mwtick] " + name + ": GrimAC lines by check " + byCheck);
-        scenario.log(name + ": GrimAC lines by check " + byCheck + " (Timer* accepted for Tick Split)");
+        scenario.log(name + ": GrimAC lines by check " + byCheck + " (Tick Split may not flag)");
         return other;
     }
 
@@ -440,8 +438,8 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 expectUses > 1 ? 1 : expectUses);
     }
 
-    /** Set by the Tick Split cases (1111-mwtick-wpt-*): GrimAC Timer set-backs are expected there. */
-    static boolean timerSetbacksOk;
+    /** Set by 1111-mwtick-wpt-tp: the server's own teleport before each burst is not a warp. */
+    static boolean ownTpOk;
 
     static List<String> shot(ClientGameTestContext ctx, TestServer server, Hx hx, Scenario scenario, String who, int lat,
                              String label, int lane, int step, Runnable fire, int expectUses, int expectWarps,
@@ -478,12 +476,9 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
         synchronized (ZpewCampaignTests.TELEPORTS) {
             tps = new ArrayList<>(ZpewCampaignTests.TELEPORTS);
         }
-        // Tick Split runs his clock ahead: GrimAC Timer answers with set-backs to where he already is (the start, or a
-        // landing again), and the tp variant's own teleport is off the lane.
-        // Those are not warps; drop them and allow a ZPEW miss for each (a set-back drops the pending
-        // predictions, so the later landings are not counted as hits either).
+        // The tp variant's own teleport (in place, or off the lane) is not a warp: drop it and allow a ZPEW miss for it.
         int setbacks = 0;
-        if (timerSetbacksOk) {
+        if (ownTpOk) {
             for (int k = tps.size() - 1; k >= 0; k--) {
                 double prevX = k == 0 ? X0 + 0.5 : tps.get(k - 1).x;
                 double dx = tps.get(k).x - X0;

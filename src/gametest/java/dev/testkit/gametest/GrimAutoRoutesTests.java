@@ -230,14 +230,14 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1110-mapchain-charged", c -> caseMapChain(c, true, null));
             s.test("62-argrim-1110-mapchain-nobank", c -> caseMapChain(c, false, null));
             s.test("62-argrim-1110-archain-nohold", GrimAutoRoutesTests::caseRouteChainNoHold);
-            // mod mwtick-1111 (killer560 2026-11-11): Multi Warp Mode Tick Split, no Blink at all - the
-            // route's and the map path's warps each in a tick of their own inside one real tick; GrimAC Timer* accepted.
+            // mod mwtick-1111 (killer560 2026-11-11: nothing that flags ships): Multi Warp Mode Tick Split with Blink
+            // charging - the route's and the map path's warps each in a banked tick of their own inside one real tick, never
+            // a tick past the bank; the route takes the Charged Chain's own flag rule (kept teleports), the map path none.
             s.testExpectingFlags("62-argrim-1111-mwtick-route", c -> caseChargedChain(c, true));
-            s.testExpectingFlags("62-argrim-1111-mwtick-map", c -> caseMapChain(c, false, null, true));
+            s.test("62-argrim-1111-mwtick-map", c -> caseMapChain(c, true, null, true));
             for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
                     dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK)) {
-                s.testExpectingFlags("62-argrim-1111-mwtick-map-same-" + a.name().toLowerCase(Locale.ROOT),
-                        c -> caseMapChain(c, false, a, true));
+                s.test("62-argrim-1111-mwtick-map-same-" + a.name().toLowerCase(Locale.ROOT), c -> caseMapChain(c, true, a, true));
             }
             for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
                     dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK)) {
@@ -2239,7 +2239,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> {
                 arChain(true, true);
                 tickSplit(split);
-                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", !split);
+                dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", true);
                 dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChargeMode",
                         dev.testkit.gametest.mod.Mod.enumValue("blink.BlinkConfig$Mode", "TOGGLE"));
                 dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChargeTicks", 20);
@@ -2255,19 +2255,16 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             tpRel(ctx, pts[0][0] + 0.5, pts[0][1] + 0.5, relYawTo(pts[0][0], pts[0][1], pts[1][0], pts[1][1]), 0f);
             ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
             ctx.waitTicks(10);
-            // Charge on, through the test hook the Blink tick reads (Tick Split: no Blink at all).
-            if (!split) {
-                ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE));
-                ctx.waitTicks(1);
-                ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
-            }
+            // Charge on, through the test hook the Blink tick reads (Tick Split too: it spends only the bank).
+            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE));
+            ctx.waitTicks(1);
+            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
             ctx.waitTicks(35);
             int bank = ctx.computeOnClient(mc -> ((Number) ModUnderTest.staticCall("com.killer560.hub.blink.BlinkCharge", "banked")).intValue());
             int chained0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingChained"));
             int confirmed0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingConfirmed"));
             int broken0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "zeroPingBroken"));
             JsonObject before = stats();
-            long unfunded0 = chargeNum(ctx, "unfundedTicks");
             long m = LogTap.mark();
             startSampling(ctx);
             ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
@@ -2276,7 +2273,6 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(20);
             all.addAll(stopSampling(ctx));
             ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
-            long unfunded = chargeNum(ctx, "unfundedTicks") - unfunded0;
             int acted = 0;
             int corrections = 0;
             int bestBurst = 0;
@@ -2297,14 +2293,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             String wire = split ? ZpewMultiTickTests.splitWire(dev.testkit.harness.WireCapture.snapshot(), pts.length,
                     pts.length, wireProblems, "route chain split") : "";
             String line = String.format(Locale.ROOT, "%s chain: bank %d; largest burst %d warp(s) in one tick; server made %d "
-                            + "etherwarp(s); %d acted; chained %d, confirmed %d, broken %d; %d correction line(s); %d unbanked tick(s)%s",
+                            + "etherwarp(s); %d acted; chained %d, confirmed %d, broken %d; %d correction line(s)%s",
                     split ? "tick split" : "charged", bank, bestBurst, serverWarps, acted, chained, confirmed, broken, corrections,
-                    unfunded, split ? "; wire " + wire : "");
+                    split ? "; wire " + wire : "");
             println(line);
             c.note(line);
-            check(split || bank >= 20, "the bank did not fill on the start node: " + bank);
-            check(!split || unfunded >= pts.length - 2 && wireProblems.isEmpty(), "Tick Split: " + unfunded
-                    + " unbanked tick(s), wire " + wireProblems);
+            check(bank >= 20, "the bank did not fill on the start node: " + bank);
+            check(wireProblems.isEmpty(), "Tick Split wire: " + wireProblems);
             check(landed != null, "the chain did not reach its end at " + end[0] + "," + end[1] + " (at " + relPos(ctx) + ")");
             check(acted == pts.length, "expected " + pts.length + " route etherwarps, the log says " + acted);
             check(serverWarps == pts.length, "the server made " + serverWarps + " etherwarps, expected " + pts.length);
@@ -2324,18 +2319,6 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 dev.testkit.harness.WireCapture.stop();
                 dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", false);
             });
-        }
-        if (split) {
-            c.ctx().waitTicks(30);
-            noteFlags(c, all);
-            List<String> other = new ArrayList<>(ZpewMultiTickTests.timerOnly(c.scenario(), "62-argrim-1111-mwtick-route"));
-            // A turning warp in an unbanked tick: GrimAC Timer cancels that tick's move, so the server never hears the
-            // turn and the use's look reads BadPacketsJ - Timer's own side effect (mod docs/LESSONS-AUTOMATION.md).
-            int j = other.size();
-            other.removeIf(l -> l.contains("BadPacketsJ"));
-            println("route split: " + (j - other.size()) + " BadPacketsJ line(s) from Timer-cancelled turns");
-            check(other.isEmpty(), other.size() + " GrimAC line(s) other than Timer: " + other);
-            return;
         }
         // The kept bank's BadPacketsN arrives about a second after the last teleport (it landed on 62-argrim-path in
         // final-1027): wait for it here, then allow only what a kept teleport is documented to cost.
@@ -2464,7 +2447,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         caseMapChain(c, charged, act, false);
     }
 
-    /** {@code split}: Multi Warp Mode Tick Split with Blink off (mod mwtick-1111); GrimAC Timer* is the accepted price. */
+    /** {@code split}: Multi Warp Mode Tick Split on top of {@code charged} (mod mwtick-1111): each warp in a banked tick. */
     private static void caseMapChain(Session c, boolean charged, dev.testkit.gametest.SameTick.Act act, boolean split) {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
@@ -2474,14 +2457,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         String tag = (split ? "split" : charged ? "charged" : "nobank") + (act == null ? "" : " same-" + act);
         dev.testkit.gametest.SameTick st = null;
         try {
+            chainSettings(ctx, charged);
             if (split) {
-                chainSettings(ctx, null);
-                ctx.runOnClient(mc -> {
-                    arChain(false, true);
-                    tickSplit(true);
-                });
-            } else {
-                chainSettings(ctx, charged);
+                ctx.runOnClient(mc -> tickSplit(true));
             }
             ctx.runOnClient(mc -> dev.testkit.harness.Latency.install(150));
             ctx.waitTicks(40);
@@ -2497,16 +2475,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                         new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player)));
             }
             ctx.waitTicks(10);
-            long bank = split ? 0 : chargeFull(ctx);
-            check(split || bank >= 20, tag + ": the bank did not fill: " + bank);
+            long bank = chargeFull(ctx);
+            check(bank >= 20, tag + ": the bank did not fill: " + bank);
             // The start teleport's kept bank is backed again over 22 still ticks; a path pressed before then waits for it.
-            for (int i = 0; !split && i < 60 && !Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE,
+            for (int i = 0; i < 60 && !Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE,
                     "shotCovered"))); i++) {
                 ctx.waitTicks(1);
             }
-            check(split || Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "shotCovered"))),
+            check(Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(CHARGE, "shotCovered"))),
                     tag + ": the bank was never covered before the path");
-            long unfunded0 = chargeNum(ctx, "unfundedTicks");
             JsonObject before = stats();
             long spent0 = chargeNum(ctx, "spentTicks");
             long holds0 = chargeNum(ctx, "teleportHolds");
@@ -2573,9 +2550,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     bankTo = Integer.parseInt(bm.group(3));
                 }
             }
-            long unfunded = chargeNum(ctx, "unfundedTicks") - unfunded0;
             List<String> wireProblems = new ArrayList<>();
-            String splitLine = split ? "; " + unfunded + " unbanked tick(s); wire " + ZpewMultiTickTests.splitWire(wire,
+            String splitLine = split ? "; wire " + ZpewMultiTickTests.splitWire(wire,
                     pts.length, pts.length, wireProblems, tag) : "";
             String line = String.format(Locale.ROOT, "map chain %s: bank %d; wire: %d use(s), at most %d in 50 ms, %d confirm(s), "
                             + "last confirm %d ms after the first use; charged burst %d (bank %d -> %d), %d banked tick(s) spent; "
@@ -2589,14 +2565,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             check(holds <= ownHolds && letGo <= ownHolds, tag + ": a teleport confirm was held behind its answer (" + holds + " hold(s))");
             // While his inventory is open the path waits and then stops (the MultiActionsC gate), so CLICK has no chain to count.
             boolean clickAct = act == dev.testkit.gametest.SameTick.Act.CLICK;
-            check(clickAct || split || chainTp > 0, tag + ": no confirm went at once for the chain (nothing tested)");
+            check(clickAct || chainTp > 0, tag + ": no confirm went at once for the chain (nothing tested)");
             if (clickAct) {
                 check(uses[1] == 0, tag + ": " + uses[1] + " use(s) went out while his inventory was open");
-            } else if (split) {
-                check(uses[0] >= pts.length - 1, tag + ": only " + uses[0] + " of the chain's uses went in one 50 ms window");
-                check(unfunded >= pts.length - 1, tag + ": " + unfunded + " unbanked tick(s), expected the chain's");
-                // His own uses (Act USE) are use_items too: the strict one-warp-a-tick wire count is for the chain alone.
-                check(act == dev.testkit.gametest.SameTick.Act.USE || wireProblems.isEmpty(), tag + ": " + wireProblems);
             } else if (charged && act != dev.testkit.gametest.SameTick.Act.USE) {
                 check(uses[0] >= pts.length - 1, tag + ": only " + uses[0] + " of the chain's uses went in one 50 ms window");
                 check(burst >= pts.length - 1 && bankFrom - bankTo >= pts.length - 1 && spent >= pts.length - 1,
@@ -2606,6 +2577,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 check(burst == 0 && spent == 0, tag + ": Charged Chain is off but the bank was spent");
                 check(uses[0] <= 2, tag + ": " + uses[0] + " uses in 50 ms with Charged Chain off");
             }
+            // His own uses (Act USE) are use_items too: the strict one-warp-a-tick wire count is for the chain alone.
+            check(!split || clickAct || act == dev.testkit.gametest.SameTick.Act.USE || wireProblems.isEmpty(),
+                    tag + ": " + wireProblems);
             if (act == null || act == dev.testkit.gametest.SameTick.Act.SWAP) {
                 check(landed != null, tag + ": the path did not reach its end (at " + relPos(ctx) + ")");
                 check(serverWarps == pts.length && uses[1] == pts.length, tag + ": " + uses[1] + " use(s) on the wire, the "
@@ -2617,7 +2591,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 check(st.playerWindows() > 0, tag + ": his action never reached the wire (" + st.report() + ")");
                 // A charged chain sends each warp as a whole spent tick of its own (its own tick end), so his action cannot
                 // share a server tick with one; both went out and GrimAC, which fails a flagged case, judges the order.
-                check(charged || split || st.both() > 0, tag + ": no server tick carried both a chain warp and his action (" + st.report() + ")");
+                check(charged || st.both() > 0, tag + ": no server tick carried both a chain warp and his action (" + st.report() + ")");
                 if (act == dev.testkit.gametest.SameTick.Act.SWAP) {
                     check(st.playerAfterFeature() == 0, tag + ": his slot went out after a warp in one tick (" + st.report()
                             + ")");
