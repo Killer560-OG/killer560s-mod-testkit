@@ -217,6 +217,11 @@ final class Align12LeapCases {
         if (planned == 0) {
             throw new AssertionError("no tick-exact plan in any trial - the feature never acted");
         }
+        if (!screen && (worst > 7 || sum > 5.5 * trials)) {
+            // from rest at a random spot four moving ticks are the floor (3 free yaws against 4 constraints), plus the tick
+            // after the teleport, whose ground flag is still off: 4-5 is what it does; 6-7 happen when a search runs out of time
+            fails.add(String.format(Locale.ROOT, "a leap took %.2f ticks on average, worst %d (limit 5.5 / 7)", sum / (double) trials, worst));
+        }
         if (!fails.isEmpty()) {
             throw new AssertionError(String.join("; ", fails));
         }
@@ -341,6 +346,9 @@ final class Align12LeapCases {
                 all == 0 ? 0 : Math.sqrt(Math.max(0, allSq / all - mean * mean)), allWorst, planned, steered, fellBack, jumpMax));
         if (planned == 0) {
             throw new AssertionError("no tick-exact plan in any trial - the feature never acted");
+        }
+        if (mean > 1.5 || allWorst > 3) {
+            fails.add(String.format(Locale.ROOT, "from every heading it took %.2f ticks on average, worst %d (limit 1.5 / 3)", mean, allWorst));
         }
         if (!fails.isEmpty()) {
             throw new AssertionError(String.join("; ", fails));
