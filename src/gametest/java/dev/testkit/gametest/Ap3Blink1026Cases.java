@@ -63,8 +63,9 @@ final class Ap3Blink1026Cases {
 
     /**
      * 1027-ap3-blink-leap-route: the whole AP3 route - Blink Charge 20, a leap (AP3 stops), then a new chain where the
-     * leap landed: Run, Blink Release (all), Run, Stop. AP3 holds on the release node until GrimAC covers the kept bank, then
-     * the shot fires along the run: 20 ticks, the server follows all of it, GrimAC silent.
+     * leap landed: Run, Blink Release (all), Run, Stop. The lane's own teleport lands ~150 ms after the leap, so that
+     * confirm's batch covers only a few ticks and the bank is cut to them (blinktp-1111; keeping more draws Timer); the
+     * release fires what the bank holds along the run, the server follows all of it, GrimAC silent.
      */
     private static void leapRoute(Session c) {
         ClientGameTestContext ctx = c.ctx();
@@ -138,8 +139,8 @@ final class Ap3Blink1026Cases {
             for (String l : logSince(mark, "[Blink]")) {
                 c.note("  " + l);
             }
-            c.check(fired != null && ticks == 20 && shotBlocks > 4.0, "the release did not fire 20 along the run: " + ticks + ", "
-                    + shotBlocks);
+            c.check(fired != null && ticks >= 1 && shotBlocks > 0.2 * ticks, "the release did not fire along the run: " + ticks
+                    + ", " + shotBlocks);
             c.check(gap < 0.5, String.format(Locale.ROOT, "client and server disagree after the route: %.2f", gap));
         } finally {
             onClient(ctx, mc -> {
