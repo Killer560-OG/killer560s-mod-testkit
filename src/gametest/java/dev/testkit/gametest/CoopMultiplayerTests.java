@@ -77,6 +77,11 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
     static final String TWO_CLEAR = "1111-mp-two-clear";
     /** True while a case hosts at Clear: createRoom then expects the room sim, not the boss. */
     private static boolean clearRun;
+    /** coopstart-1111: two real clients at P3 S1: the guest opens and finishes a terminal by hand, then with Auto Terminals. */
+    static final String TWO_TERM = "1111-mp-two-term";
+    private static boolean termRun;
+    private static final String STATIONS = "com.killer560.hub.bosssim.BossStations";
+    private static final String TERMS = "com.killer560.hub.bosssim.BossTerminals";
     private static final String PUNCH_PROP = "killer560.simcoop.punch";
     private static final String R = "com.killer560.hub.roomsim.";
     private static final String HOSTC = R + "SimHost";
@@ -93,14 +98,15 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             return;
         }
         List<String> failed = new ArrayList<>();
-        for (String name : new String[]{MENU, UPNP, HOST, TWO, INVITE, TUNNEL, PUNCH, STARTAT, TWO_CLEAR}) {
+        for (String name : new String[]{MENU, UPNP, HOST, TWO, INVITE, TUNNEL, PUNCH, STARTAT, TWO_CLEAR, TWO_TERM}) {
             CoopSync.scope(name);
             if (Scenario.skip(name)) {
                 continue;
             }
             boolean two = name.equals(TWO) || name.equals(INVITE) || name.equals(TUNNEL)
-                    || name.equals(PUNCH) || name.equals(TWO_CLEAR);
+                    || name.equals(PUNCH) || name.equals(TWO_CLEAR) || name.equals(TWO_TERM);
             clearRun = name.equals(TWO_CLEAR);
+            termRun = name.equals(TWO_TERM);
             if (!two && CoopSync.role().equals("guest")) {
                 Scenario.skipped(name, "the guest side of a two-client run (the host runs it)");
                 continue;
@@ -524,9 +530,10 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             CoopSync.await(ctx, "mp-guest-up", 900);
             String hostUuid = relay(ctx, stub);
             System.clearProperty(SSDP);
-            if (clearRun) {
+            if (clearRun || termRun) {
+                String start = clearRun ? "CLEAR" : "S1";
                 ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.staticCall(CFG, "get"), "setStartName",
-                        new Class<?>[]{String.class}, new Object[]{"CLEAR"}));
+                        new Class<?>[]{String.class}, new Object[]{start}));
             }
             if (!createRoom(ctx, f, facts, ROOM, PW, 3)) {
                 return;
@@ -572,6 +579,26 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             expect(f, facts, "guest still in after the admit window", onServer(ctx, guest), true);
             expect(f, facts, "no kick", counts()[0] - kicks0, 0);
             CoopSync.put("mp-admit-checked", "1");
+            if (termRun) {
+                MinecraftServer ts = ctx.computeOnClient(Minecraft::getSingleplayerServer);
+                System.setProperty("killer560.bosssim.terminal", "PANES");
+                for (String label : new String[]{"T1", "T2"}) {
+                    double[] at = (double[]) ModUnderTest.staticCall(STATIONS, "position", new Class<?>[]{int.class, String.class},
+                            new Object[]{1, label});
+                    GuestPlayer.onServer(ctx, ts, () -> {
+                        ServerPlayer g = ts.getPlayerList().getPlayerByName(guest);
+                        g.teleportTo((net.minecraft.server.level.ServerLevel) g.level(), Math.floor(at[0]) - 2 + 0.5, at[1],
+                                Math.floor(at[2]) + 0.5, java.util.Set.of(), 90f, 0f, false);
+                        return null;
+                    });
+                    int solved0 = (Integer) ModUnderTest.staticCall(TERMS, "solvedCount");
+                    CoopSync.put("tm-ready-" + label, "1");
+                    boolean ok = paceUntil(ctx, () -> (Integer) ModUnderTest.staticCall(TERMS, "solvedCount") > solved0, 90_000);
+                    expect(f, facts, "guest finished S1 " + label + (label.equals("T1") ? " by hand" : " with Auto Terminals"), ok, true);
+                }
+                String verdict2 = CoopSync.await(ctx, "tm-guest-done", 120).trim();
+                expect(f, facts, "guest saw both completions announced", verdict2, "PASS");
+            }
             if (clearRun) {
                 // The guest typed /item superboom_tnt, /speed 250 and /simwhere: the owner's server did each for the sender.
                 MinecraftServer ms = ctx.computeOnClient(Minecraft::getSingleplayerServer);
@@ -595,6 +622,14 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
                 });
                 expect(f, facts, "guest's /item superboom_tnt gave a full stack", tnt, 64);
                 expect(f, facts, "three requests honored", ((int[]) ModUnderTest.staticCall(REQ, "countsForTest"))[0] >= 3, true);
+                // The Infinileap, both ways: the guest leaps to the host, then the host to the guest.
+                CoopSync.await(ctx, "lp-guest-has", 120);
+                expect(f, facts, "guest leapt to the host", leapTest(ctx, ms, guest, hostName, guest, true), true);
+                CoopSync.put("lp-guest-done", "1");
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(R + "SimItems", "give", new Class<?>[]{Minecraft.class, String.class},
+                        new Object[]{mc, "INFINITE_SPIRIT_LEAP"}));
+                expect(f, facts, "host leapt to the guest", leapTest(ctx, ms, hostName, hostName, guest, false), true);
+                CoopSync.put("lp-host-done", "1");
             }
 
             CoopSync.await(ctx, "mp-guest-speed1", 120);
@@ -1050,6 +1085,69 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             CoopSync.put("mp-guest-in", me);
             CoopSync.await(ctx, "mp-admit-checked", 120);
             expect(f, facts, "still connected after the admit window", ctx.computeOnClient(mc -> mc.level != null), true);
+            if (termRun) {
+                String bad = "";
+                for (String label : new String[]{"T1", "T2"}) {
+                    CoopSync.await(ctx, "tm-ready-" + label, 120);
+                    CoopSync.pace(ctx, 1500);
+                    boolean auto = label.equals("T2");
+                    ctx.runOnClient(mc -> {
+                        Object cfg = ModUnderTest.config("com.killer560.hub.terminals.TerminalSolverConfig");
+                        ModUnderTest.set(cfg, "setEnabled", true);
+                        ModUnderTest.set(cfg, "setPanesEnabled", true);
+                        ModUnderTest.set(cfg, "setAutoTerminalsEnabled", auto);
+                        ModUnderTest.set(cfg, "setAutoPanesEnabled", auto);
+                    });
+                    long tmark = LogTap.mark();
+                    double[] at = (double[]) ModUnderTest.staticCall(STATIONS, "position", new Class<?>[]{int.class, String.class},
+                            new Object[]{1, label});
+                    boolean clicked = ctx.computeOnClient(mc -> {
+                        for (net.minecraft.world.entity.decoration.ArmorStand s : mc.level.getEntitiesOfClass(
+                                net.minecraft.world.entity.decoration.ArmorStand.class,
+                                new net.minecraft.world.phys.AABB(at[0] - 1, at[1] - 1, at[2] - 1, at[0] + 1, at[1] + 1, at[2] + 1))) {
+                            if (s.getCustomName() != null && s.getCustomName().getString().contains("Inactive Terminal")) {
+                                mc.gameMode.interact(mc.player, s, new net.minecraft.world.phys.EntityHitResult(s,
+                                        s.position().add(0, 1, 0)), net.minecraft.world.InteractionHand.MAIN_HAND);
+                                return true;
+                            }
+                        }
+                        return false;
+                    });
+                    expect(f, facts, label + ": the guest sees an Inactive Terminal stand", clicked, true);
+                    boolean open = paceUntil(ctx, () -> ctx.computeOnClient(mc -> mc.player.containerMenu != mc.player.inventoryMenu),
+                            8_000);
+                    expect(f, facts, label + ": the terminal window opened on the guest", open, true);
+                    if (!auto && open) {
+                        // By hand: every red pane in the grid, a few a tick (the window's own click limit is 5 per 10 ticks).
+                        for (int round = 0; round < 40; round++) {
+                            Boolean left = ctx.computeOnClient(mc -> {
+                                var menu = mc.player.containerMenu;
+                                if (menu == mc.player.inventoryMenu) {
+                                    return null;
+                                }
+                                for (int i = 0; i < menu.slots.size() - 36; i++) {
+                                    if (menu.getSlot(i).getItem().is(net.minecraft.world.item.Items.RED_STAINED_GLASS_PANE)) {
+                                        mc.gameMode.handleContainerInput(menu.containerId, i, 0,
+                                                net.minecraft.world.inventory.ContainerInput.PICKUP, mc.player);
+                                        return true;
+                                    }
+                                }
+                                return false;
+                            });
+                            if (left == null || !left) {
+                                break;
+                            }
+                            CoopSync.pace(ctx, 400);
+                        }
+                    }
+                    boolean told = paceUntil(ctx, () -> logSeen(tmark, "activated a terminal!"), 90_000);
+                    expect(f, facts, label + ": 'activated a terminal!' announced to the guest", told, true);
+                    if (!told) {
+                        bad += label + " ";
+                    }
+                }
+                CoopSync.put("tm-guest-done", bad.isEmpty() ? "PASS" : "FAIL " + bad);
+            }
             if (clearRun) {
                 for (String cmd : new String[]{"item superboom_tnt", "speed 250", "simwhere"}) {
                     expect(f, facts, "/" + cmd + " taken as a guest command", ctx.computeOnClient(mc -> ModUnderTest.staticCall(
@@ -1057,6 +1155,47 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
                     CoopSync.pace(ctx, 400);
                 }
                 CoopSync.put("mp-cmds-sent", "1");
+                // The Infinileap: asked for as /item infinileap, used with a right click, the host's head picked.
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(R + "SimGuestCommands", "handle", new Class<?>[]{String.class},
+                        new Object[]{"item infinileap"}));
+                boolean has = paceUntil(ctx, () -> ctx.computeOnClient(mc -> {
+                    for (int i = 0; i < 9; i++) {
+                        if (mc.player.getInventory().getItem(i).getHoverName().getString().contains("Infinileap")) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }), 10_000);
+                expect(f, facts, "guest holds an Infinileap from /item infinileap", has, true);
+                CoopSync.put("lp-guest-has", "1");
+                CoopSync.await(ctx, "lp-guest-go", 120);
+                CoopSync.pace(ctx, 800);
+                long lmark = LogTap.mark();
+                ctx.runOnClient(mc -> {
+                    for (int i = 0; i < 9; i++) {
+                        if (mc.player.getInventory().getItem(i).getHoverName().getString().contains("Infinileap")) {
+                            mc.player.getInventory().setSelectedSlot(i);
+                        }
+                    }
+                });
+                ctx.waitTicks(4);
+                ctx.runOnClient(mc -> mc.gameMode.useItem(mc.player, net.minecraft.world.InteractionHand.MAIN_HAND));
+                boolean open = paceUntil(ctx, () -> ctx.computeOnClient(mc -> McCompat.screen(mc) != null
+                        && McCompat.screen(mc).getTitle().getString().equals("Teleport to Player")), 8_000);
+                expect(f, facts, "the leap window opened on the guest", open, true);
+                ctx.runOnClient(mc -> {
+                    var menu = mc.player.containerMenu;
+                    for (int i = 0; i < menu.slots.size() - 36; i++) {
+                        if (menu.getSlot(i).getItem().is(net.minecraft.world.item.Items.PLAYER_HEAD)) {
+                            mc.gameMode.handleContainerInput(menu.containerId, i, 0,
+                                    net.minecraft.world.inventory.ContainerInput.PICKUP, mc.player);
+                            return;
+                        }
+                    }
+                });
+                CoopSync.put("lp-guest-clicked", "1");
+                expect(f, facts, "'You have teleported to' line", paceUntil(ctx, () -> logSeen(lmark, "You have teleported to"), 8_000), true);
+                CoopSync.await(ctx, "lp-host-done", 120);
             }
 
             // Session page through the pause menu's "Sim Session".
@@ -1197,6 +1336,59 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
     private static final List<String> START_LABELS = List.of("Clear", "P1 Maxor", "P2 Storm", "P3 Section 1", "P3 Section 2",
             "P3 Section 3", "P3 Section 4", "P3 Core", "P4 Necron", "P5 Dragons");
 
+    /**
+     * The leaper is moved 10 blocks off by the server, right-clicks its Infinileap (in its own client when {@code onGuestSide}
+     * is false, i.e. the host's; the guest's click is done by its own JVM, which this waits for through CoopSync) and picks the
+     * other player's head. True when the leaper ends within 6 blocks of the other.
+     */
+    private static boolean leapTest(ClientGameTestContext ctx, MinecraftServer ms, String leaper, String host, String guest,
+            boolean guestLeaps) {
+        String other = leaper.equals(host) ? guest : host;
+        GuestPlayer.onServer(ctx, ms, () -> {
+            ServerPlayer l = ms.getPlayerList().getPlayerByName(leaper);
+            ServerPlayer o = ms.getPlayerList().getPlayerByName(other);
+            l.teleportTo((net.minecraft.server.level.ServerLevel) o.level(), o.getX() + 10, o.getY(), o.getZ(), java.util.Set.of(),
+                    0f, 0f, false);
+            return null;
+        });
+        if (guestLeaps) {
+            CoopSync.put("lp-guest-go", "1");
+        } else {
+            ctx.runOnClient(mc -> {
+                for (int i = 0; i < 9; i++) {
+                    if (mc.player.getInventory().getItem(i).getHoverName().getString().contains("Infinileap")) {
+                        mc.player.getInventory().setSelectedSlot(i);
+                    }
+                }
+            });
+            ctx.waitTicks(4);
+            ctx.runOnClient(mc -> mc.gameMode.useItem(mc.player, net.minecraft.world.InteractionHand.MAIN_HAND));
+            boolean open = paceUntil(ctx, () -> ctx.computeOnClient(mc -> mc.player.containerMenu != mc.player.inventoryMenu
+                    && McCompat.screen(mc) != null && McCompat.screen(mc).getTitle().getString().equals("Teleport to Player")), 8_000);
+            if (!open) {
+                return false;
+            }
+            ctx.runOnClient(mc -> {
+                var menu = mc.player.containerMenu;
+                for (int i = 0; i < menu.slots.size() - 36; i++) {
+                    if (menu.getSlot(i).getItem().is(net.minecraft.world.item.Items.PLAYER_HEAD)) {
+                        mc.gameMode.handleContainerInput(menu.containerId, i, 0,
+                                net.minecraft.world.inventory.ContainerInput.PICKUP, mc.player);
+                        return;
+                    }
+                }
+            });
+        }
+        if (guestLeaps) {
+            CoopSync.await(ctx, "lp-guest-clicked", 60);
+        }
+        return paceUntil(ctx, () -> GuestPlayer.onServer(ctx, ms, () -> {
+            ServerPlayer l = ms.getPlayerList().getPlayerByName(leaper);
+            ServerPlayer o = ms.getPlayerList().getPlayerByName(other);
+            return l.position().distanceTo(o.position()) < 6;
+        }), 8_000);
+    }
+
     private static String startName() {
         return (String) ModUnderTest.call(ModUnderTest.staticCall(CFG, "get"), "startName", new Class<?>[]{}, new Object[]{});
     }
@@ -1264,6 +1456,16 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             expect(f, facts, "Move to Clear ends the fight and builds a fresh floor", back, true);
             expect(f, facts, "guest still in the room", g.listed(), true);
             expect(f, facts, "saved start", startName(), "CLEAR");
+            // /start: a bad value gets one usage line, p2 jumps the fight to Storm, clear comes back.
+            long smark = LogTap.mark();
+            ctx.runOnClient(mc -> mc.player.connection.sendCommand("start nonsense"));
+            expect(f, facts, "/start bad input lists the values", paceUntil(ctx, () -> chatSeen(smark, "/start <clear|p1|p2|p3|p4|p5|s1|s2|s3|s4|core>"), 5_000), true);
+            ctx.runOnClient(mc -> mc.player.connection.sendCommand("start p2"));
+            expect(f, facts, "/start p2 starts Storm", paceUntil(ctx, () -> (Boolean) ModUnderTest.staticCall(FIGHT, "running")
+                    && "P2".equals(startName()), 120_000), true);
+            ctx.runOnClient(mc -> mc.player.connection.sendCommand("start clear"));
+            expect(f, facts, "/start clear ends the fight", paceUntil(ctx, () -> !(Boolean) ModUnderTest.staticCall(FIGHT, "running")
+                    && "CLEAR".equals(startName()), 120_000), true);
         } finally {
             clearRun = false;
             stub.stop();
