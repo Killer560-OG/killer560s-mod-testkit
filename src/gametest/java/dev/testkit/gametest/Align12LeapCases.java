@@ -147,7 +147,16 @@ final class Align12LeapCases {
                     continue;
                 }
                 double[] an = analyze(tr, tx, tz, 1);
-                int done = (int) an[1], n = done >= 0 && entry >= 0 ? done - entry : -1;
+                // Sample 0 is taken in the tick the teleport lands, before AP3's end-of-tick hook; AP3's first sample (on) is the landing
+                // tick's END, the tick killer560 does not count (entering tick). Ticks are counted from it.
+                int land = -1;
+                for (int i = 0; i < tr.size() && land < 0; i++) {
+                    land = tr.get(i)[4] == 1 ? i : -1;
+                }
+                int done = (int) an[1], n = done >= 0 && land >= 0 ? done - land : -1;
+                if (land > entry + 1) {
+                    fails.add("trial " + t + ": the align began " + (land - entry) + " samples after he landed");
+                }
                 double[] last = tr.get(tr.size() - 1);
                 List<String> plan = lines(mark, "tick-exact plan");
                 List<String> lost = lines(mark, "tick-exact align handed");
