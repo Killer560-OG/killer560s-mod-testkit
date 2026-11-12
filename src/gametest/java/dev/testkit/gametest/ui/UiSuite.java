@@ -173,7 +173,7 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] PARTY_FINDER_1018_CASES = {"1018-pf-leader-accept", "1018-pf-joiner-accept", "1018-pf-dual-list",
             "1018-pf-requirements", "1018-pf-settings", "1018-pf-nokuudra", "1022-pf-dropdown", "1022-pf-no-label"};
     /** 2026-11-01: the mod never opens or signs into NoammAddons' socket ({@link NoammNever1101Cases}). Own block for merges. */
-    static final String[] NOAMM_NEVER_CASES = {"1101-noamm-never", "1112-mojang-budget"};
+    static final String[] NOAMM_NEVER_CASES = {"1101-noamm-never", "1112-mojang-budget", "1112-mojang-relay"};
     /** killer560's 2026-10-11 "left click forward, right click backward" for every cycling setting ({@link CycleButtonCases}). Own block. */
     static final String[] CYCLE_BACK_CASES = {"806-ui-cycle-buttons-both-ways"};
     /** killer560's 2026-11-01 "press enter should save that value" for every mod text box ({@link TextBoxEnterCases}). Own block. */
@@ -781,6 +781,7 @@ public class UiSuite implements FabricClientGameTest {
                     // ---- noamm-never (1101) ----
                     UiCase.run(ctx, "1101-noamm-never", NoammNever1101Cases::noammNever);
                     UiCase.run(ctx, "1112-mojang-budget", Mojang4291112Cases::budget);
+                    UiCase.run(ctx, "1112-mojang-relay", Mojang4291112Cases::relay);
                     // ---- cycle-back (806) ----
                     UiCase.run(ctx, "806-ui-cycle-buttons-both-ways", c -> CycleButtonCases.cycleButtons(c, deny));
                     // ---- every mod text box: type + Enter saves (1101) ----
