@@ -384,7 +384,9 @@ final class LeverBest1112Cases {
             undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "CooldownMs", 50)));
             int flags0 = c.scenario().flags().size();
             long mark = LogTap.mark();
-            st = c.onClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK ? 2 : 1,
+            // ATTACK every third tick: a turned click goes the tick after its turn and never under his attack (TurnFirst
+            // gives the body back for it), so a left click every other tick would hold the flick for good.
+            st = c.onClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK ? 3 : 1,
                     p -> p instanceof ServerboundUseItemOnPacket, 4, 5));
             undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "Enabled", true)));
             int flicks = 0;
