@@ -146,6 +146,12 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                     long short0 = splitShort(ctx);
                     Runnable press = dbl ? clicks(2) : () -> ctx.getInput().pressKey(o -> o.keyUse);
                     Runnable fire = () -> {
+                        // shot()'s own teleport back to the lane leaves the bank uncovered until it is answered, and an
+                        // uncovered bank goes as Burst by design: fire once it is covered again (max 2 s).
+                        for (int i = 0; bank && i < 40 && !Boolean.TRUE.equals(ctx.computeOnClient(mc ->
+                                Mod.staticCall("blink.BlinkCharge", "shotCovered"))); i++) {
+                            ctx.waitTicks(1);
+                        }
                         ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
                         if (act == dev.testkit.gametest.SameTick.Act.TP) {
                             server.command("execute as " + who + " at @s run tp @s ~ ~ ~");
@@ -157,7 +163,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                     ownTpOk = act == dev.testkit.gametest.SameTick.Act.TP;
                     try {
                         problems.addAll(shot(ctx, server, hx, scenario, who, 0, label, 1, 4, fire, 20, 20, 20 - (dbl ? 2 : 1),
-                                1));
+                                dbl ? 2 : 1)); // his 2nd click waits a tick (PacketOrderN)
                     } finally {
                         ownTpOk = false;
                     }
