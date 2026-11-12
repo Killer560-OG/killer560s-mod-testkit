@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-12T16:39:35",
- "modSource": "lane-fix736",
- "modGitSha": "1f1881fb4f90c19c175cc375865e15601fbd2d3b",
+ "generatedAt": "2026-11-12T17:12:54",
+ "modSource": "lane-shiptrain-1111",
+ "modGitSha": "52352e1fb8cab344b48989477e1c1c7264d008eb",
  "modSourceDirty": false,
  "count": 951,
  "byKind": {
