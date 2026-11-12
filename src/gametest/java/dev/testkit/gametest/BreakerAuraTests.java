@@ -189,7 +189,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
         // simbreakdelay-1112: his own break shows at once while Charge banks (alone, with his use / swap / attack in every
         // tick, and a Burst pair), he walks into the gap the next tick and the kept bank fires after.
         String[] ownBreak = {"walk", "use", "swap", "attack", "burst", "use-nocharge"};
-        // His right click as he makes it (USE_KEY: a press the mod sees queued, as his real clicks), every other tick.
+        // His right click as he makes it (USE_KEY: a press the mod sees queued, as his real clicks), every 4th tick (a held
+        // right click's pace; the aura yields each tick his click goes, and his use_item carries his look).
         SameTick.Act[] ownAct = {null, SameTick.Act.USE_KEY, SameTick.Act.SWAP, SameTick.Act.ATTACK, null, SameTick.Act.USE_KEY};
         for (int k = 0; k < ownBreak.length; k++) {
             try {
@@ -899,6 +900,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                     });
                     // Wire: client tick of each dig on a pick, the answers sent, the furthest x his moves told the server.
                     java.util.Map<BlockPos, Integer> digTick = new java.util.concurrent.ConcurrentHashMap<>();
+                    java.util.Map<BlockPos, Integer> firstDig = new java.util.concurrent.ConcurrentHashMap<>();
                     java.util.List<Integer> pongTicks = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
                     double[] sentX = {Double.NEGATIVE_INFINITY};
                     java.util.function.Consumer<net.minecraft.network.protocol.Packet<?>>[] prevTap = new java.util.function.Consumer[1];
@@ -915,6 +917,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                 if (p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket a
                                         && picks.contains(a.getPos())) {
                                     digTick.put(a.getPos(), t); // the last dig: a dig the server never answered is dug again
+                                    firstDig.putIfAbsent(a.getPos(), t);
                                 } else if (p instanceof net.minecraft.network.protocol.common.ServerboundPongPacket) {
                                     pongTicks.add(t);
                                 } else if (p instanceof net.minecraft.network.protocol.game.ServerboundMovePlayerPacket mp
@@ -944,7 +947,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             // His attack or right click every tick holds the aura every tick (ActionGate, PacketOrderI/J):
                             // every 3rd / 2nd, as 1105-same-breaker-attack.
                             st[0] = ctx.computeOnClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK ? 3
-                                    : act == SameTick.Act.USE_KEY ? 2 : 1, p ->
+                                    : act == SameTick.Act.USE_KEY ? 4 : 1, p ->
                                     p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket a
                                             && picks.contains(a.getPos()), 0, 1));
                         }
@@ -1008,7 +1011,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             // Experimental MultiBreak cancels the burst's extra dig, so that pick stays (as in
                             // 1108-same-burst-*): only the one-tick burst and the MultiBreak-only verdict are checked.
                             List<String> other = scenario.flags().stream().filter(f -> !f.contains("MultiBreak")).toList();
-                            if (digTick.values().stream().distinct().count() != 1 || !other.isEmpty()) {
+                            if (firstDig.values().stream().distinct().count() != 1 || !other.isEmpty()) {
                                 throw new AssertionError("burst not in one tick or other Grim lines: " + per + " " + other);
                             }
                             return;
@@ -1066,7 +1069,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             if (!other.isEmpty()) {
                                 throw new AssertionError("GrimAC flagged something other than MultiBreak: " + other);
                             }
-                            if (digTick.values().stream().distinct().count() != 1) {
+                            if (firstDig.values().stream().distinct().count() != 1) {
                                 throw new AssertionError("Burst did not dig the pair in one tick: " + per);
                             }
                         }
