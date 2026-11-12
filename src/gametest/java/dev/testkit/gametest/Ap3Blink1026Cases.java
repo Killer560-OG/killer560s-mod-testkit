@@ -51,7 +51,7 @@ final class Ap3Blink1026Cases {
         s.test("1026-ap3-blink-off", c -> chargeRelease(c, 3, new int[]{3}, false, true));
         // killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff like that" - he
         // accepts that GrimAC flags the next shot, so this case records the flags instead of failing on them.
-        s.testExpectingFlags("1026-ap3-blink-leap", Ap3Blink1026Cases::chargeLeapRelease);
+        s.test("1026-ap3-blink-leap", Ap3Blink1026Cases::chargeLeapRelease);
         // killer560, 2026-10-27 (field report): "if I teleport to someone up there (a leap) that's when it tends to fail".
         // Charge 20, leap, and the release right away (his S2: the release node is where the leap lands) or a little later:
         // the shot must fire all 20, the server must follow the whole shot, and GrimAC must say nothing.
@@ -597,7 +597,7 @@ final class Ap3Blink1026Cases {
                 c.note("  " + l);
             }
             c.check(fired != null && ticks == 10, "Blink Release 10 did not fire 10 after the leap: " + ticks);
-            // GrimAC sets the kept bank's shot back after the leap (owner 2026-10-27 accepts it): recorded, not demanded.
+            // The kept bank's shot after the leap must land clean (killer560 2026-11-11: kept-teleport flags are bugs).
             c.note(String.format(Locale.ROOT, "server moved %.2f after the release (0 = GrimAC set the shot back)", serverMoved));
         } finally {
             onClient(ctx, mc -> {

@@ -2010,7 +2010,7 @@ public class BlinkTests implements FabricClientGameTest {
         int z = -3800;
         // killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff like that" - the
         // bank is kept through every teleport and he accepts that GrimAC flags the next shot, so the flags are recorded.
-        Scenario.runExpectingFlags(ctx, "1025-blink-charge-warp", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+        Scenario.run(ctx, "1025-blink-charge-warp", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             dev.testkit.gametest.hx.Hx hx = null;
             try {
@@ -2415,7 +2415,7 @@ public class BlinkTests implements FabricClientGameTest {
     private static void chargeInPlace(ClientGameTestContext ctx) {
         int x = -5000;
         int z = -3600;
-        Scenario.runExpectingFlags(ctx, "1025-blink-charge-inplace", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+        Scenario.run(ctx, "1025-blink-charge-inplace", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             try {
                 String name = playerName(ctx);
@@ -2824,7 +2824,7 @@ public class BlinkTests implements FabricClientGameTest {
         int z = -4800;
         // killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff like that" - the
         // bank is kept through every teleport and he accepts that GrimAC flags the next shot, so the flags are recorded.
-        Scenario.runExpectingFlags(ctx, "1025-blink-charge-rapid", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+        Scenario.run(ctx, "1025-blink-charge-rapid", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             dev.testkit.gametest.hx.Hx hx = null;
             try {

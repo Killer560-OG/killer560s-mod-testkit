@@ -223,7 +223,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // mod blink-charge-1025. Expecting flags since mod blink-keep-1027 (owner, 2026-10-27): the 12 ticks the chain
             // does not spend stay banked through its 11 server teleports, and each kept teleport costs the GrimAC lines
             // docs/LESSONS-AUTOMATION.md lists. The case still fails on any other check, and waits for the leak.
-            s.testExpectingFlags("62-argrim-1025-chargechain", GrimAutoRoutesTests::caseChargedChain);
+            s.test("62-argrim-1025-chargechain", GrimAutoRoutesTests::caseChargedChain);
             // mod mapchain-1110 (killer560 2026-11-10: "it waits a really long time sometimes to release all of them"): the
             // Interactive Map's path with Blink charging - Charged Chain sends it in one tick from the bank, and with or
             // without it no landing's confirm waits a second behind Charge's answers; then his own actions in its ticks.
@@ -2321,22 +2321,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", false);
             });
         }
-        // The kept bank's BadPacketsN arrives about a second after the last teleport (it landed on 62-argrim-path in
-        // final-1027): wait for it here, then allow only what a kept teleport is documented to cost.
-        // The BadPacketsN fires on the NEXT teleport, not with time (24 lines, 2 per kept teleport, on 62-argrim-path even
-        // after a 60-tick wait): give it one here, in place.
+        // A kept bank's BadPacketsN used to fire on the NEXT teleport (final-1027): give it one here, in place. No GrimAC
+        // line is accepted (killer560 2026-11-11: kept-teleport flags are bugs to fix).
         c.server().command("execute as @p at @s run tp @s ~ ~ ~");
         c.ctx().waitTicks(60);
         noteFlags(c, all);
-        List<String> other = new ArrayList<>();
-        for (String f : c.scenario().flags()) {
-            java.util.regex.Matcher fm = java.util.regex.Pattern.compile("failed ([A-Za-z]+) \\(x").matcher(f);
-            String check = fm.find() ? fm.group(1) : "?";
-            if (!KEPT_BANK_CHECKS.contains(check)) {
-                other.add(f);
-            }
-        }
-        check(other.isEmpty(), other.size() + " GrimAC line(s) outside what a kept Blink teleport costs: " + other);
+        check(c.scenario().flags().isEmpty(), c.scenario().flags().size() + " GrimAC line(s) after the charged chain: "
+                + c.scenario().flags());
     }
 
     private static final String CLEAR = "com.killer560.hub.livemap.autoclear.ClearExecutor";
@@ -2655,17 +2646,6 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             chainSettings(ctx, null);
         }
     }
-
-    /**
-     * What a teleport kept through a Blink charge costs on GrimAC (mod docs/LESSONS-AUTOMATION.md, blink-keep-1027).
-     * AimDuplicateLook is one of them (campaign-blink-1027): one line per kept teleport (12 for the chain's 12, final-1027;
-     * one per warp in 1026-blink-keep-warp too). The vanilla answer to a teleport is a move carrying the unchanged look, and
-     * GrimAC only takes it as the teleport once the ping it sent with it is answered - Charge holds that answer ~1 s - so
-     * the move is judged as an ordinary one: Simulation (the teleport's distance), GroundSpoof, TickTimer, and an unchanged
-     * look = AimDuplicateLook. Answering that ping first is what used to drop the bank (the owner's rule forbids it).
-     */
-    private static final java.util.Set<String> KEPT_BANK_CHECKS =
-            java.util.Set.of("Simulation", "GroundSpoof", "TickTimer", "BadPacketsN", "Timer", "AimDuplicateLook");
 
     /** Path nodes across a wall: planned once by the floor planner, the saved warps flown twice. */
     private static void casePath(Session c) {

@@ -1569,7 +1569,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                     rows.add(server, scenario, "moving 4, walk after " + d + " tick(s)", bank == 20 && walked > 2,
                             String.format(Locale.ROOT, "at the tp %s; client walked %.2f, server moved %.2f, gap %.2f",
                                     atTp.isEmpty() ? "clean" : atTp.size() + " flag(s): " + firstChecks(atTp), walked,
-                                    flat(srv0, srv1), g), true);
+                                    flat(srv0, srv1), g));
                     ctx.waitTicks(20);
                     server.command("execute as " + player + " at @s run tp @s ~ ~ ~");
                     ctx.waitTicks(30);
@@ -1649,7 +1649,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                                 String.format(Locale.ROOT, "bank %d, kept %d; at the tp %s; shot %d tick(s) %.2f, server moved %.2f "
                                                 + "(%s), %d SHOT SET BACK, gap %.2f", bank, bankAfterTp,
                                         atTp.isEmpty() ? "clean" : atTp.size() + " flag(s): " + firstChecks(atTp), (long) s[2], s[0],
-                                        serverMoved, landed ? "LANDED" : "set back", setBack, g), true);
+                                        serverMoved, landed ? "LANDED" : "set back", setBack, g));
                         ctx.waitTicks(40);
                         // A kept teleport's BadPacketsN lands on the next teleport: take it here (final-1027).
                         server.command("execute as " + player + " at @s run tp @s ~ ~ ~");
