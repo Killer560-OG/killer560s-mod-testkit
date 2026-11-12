@@ -81,12 +81,15 @@ final class SimBossNecron1111 {
         expect(f, "pulled into the shaft square (x 51-58, z 111-118)",
                 at.x >= 51 && at.x <= 58 && at.z >= 111 && at.z <= 118, true);
         double worst = 0;
+        ctx.waitTicks(2); // the tick he arrives overshoots by up to one push (0.6); the hold teleport settles it
         for (int i = 0; i < 15; i++) {
             ctx.waitTicks(1);
-            worst = Math.max(worst, ctx.computeOnClient(mc -> Math.abs(mc.player.getY() - hover)));
+            double cy = ctx.computeOnClient(mc -> mc.player.getY());
+            double sy = ctx.computeOnClient(mc -> mc.getSingleplayerServer().getPlayerList().getPlayers().get(0).getY());
+            worst = Math.max(worst, Math.max(Math.abs(cy - hover), Math.abs(sy - hover)));
         }
-        println(PULL, String.format(Locale.ROOT, "held 15 ticks, worst %.2f off the hover height", worst));
-        expect(f, "held at the hover height through the intro (within 0.6)", worst < 0.6, true);
+        println(PULL, String.format(Locale.ROOT, "held 15 ticks, worst %.3f off the hover height (client and server)", worst));
+        expect(f, "held at the hover height through the intro (within 0.1)", worst < 0.1, true);
         expect(f, "still hovering before \"Goodbye.\"", chatSeen(mark, "[BOSS] Necron: Goodbye."), false);
         if (!waitChat(ctx, mark, "[BOSS] Necron: Goodbye.", 120)) {
             f.add("\"Goodbye.\" never came");
@@ -161,9 +164,11 @@ final class SimBossNecron1111 {
         expect(f, "goes round one way (over 60 degrees in 120 ticks)", Math.abs(swept) > Math.toRadians(60), true);
 
         // Health: Hypixel's 1,000,000,000 at spawn, read by the client and by Wither Dragons.
-        float h0 = ctx.computeOnClient(mc -> e[0].getHealth());
-        println(DRAGON_HP, "health at start " + h0 + ", Wither Dragons reads " + spec(red, "health"));
-        expect(f, "starts at Hypixel's 1,000,000,000 health", Math.abs(h0 - HP) < 1, true);
+        // The client entity clamps to its max a tick after each packet (vanilla EnderDragon.aiStep), so the readout is the
+        // packet's value, which Wither Dragons keeps (and now draws).
+        float h0 = (Float) spec(red, "health");
+        println(DRAGON_HP, "health at start: Wither Dragons reads " + h0 + " (client entity " + ctx.computeOnClient(mc -> e[0].getHealth()) + ")");
+        expect(f, "starts at Hypixel's 1,000,000,000 health", Math.abs(h0 - HP) < 1000, true);
 
         // Three arrows landing in ONE server tick are three hits (onHurt's one-per-tick rule ate two of them).
         int u0 = units();
@@ -175,8 +180,11 @@ final class SimBossNecron1111 {
             Vec3 body = d.getSubEntities()[2].getBoundingBox().getCenter();
             for (int i = -1; i <= 1; i++) {
                 Arrow a = new Arrow(lvl, sp, new ItemStack(Items.ARROW), new ItemStack(Items.BOW));
-                a.setPos(body.x - 2.5, body.y + 0.3 * i, body.z + 0.3 * i);
-                a.shoot(1, 0, 0, 2.0f, 0f);
+                // Just outside the body box (a clip that starts inside a box misses it), aimed at its center: lands next tick.
+                Vec3 from = new Vec3(d.getSubEntities()[2].getBoundingBox().minX - 0.8, body.y + 0.3 * i, body.z + 0.3 * i);
+                Vec3 dir = body.subtract(from);
+                a.setPos(from.x, from.y, from.z);
+                a.shoot(dir.x, dir.y, dir.z, 3.0f, 0f);
                 a.pickup = net.minecraft.world.entity.projectile.arrow.AbstractArrow.Pickup.DISALLOWED;
                 lvl.addFreshEntity(a);
                 arrows.add(a);
@@ -189,17 +197,16 @@ final class SimBossNecron1111 {
         expect(f, "all three arrows landed", landed, 3L);
         expect(f, "every landed arrow is a hit (units up by arrows landed)", (long) (u1 - u0), landed);
         float want = HP * (15 - u1) / 15f;
-        boolean seen = until(ctx, "the client's health readout", mc -> Math.abs(e[0].getHealth() - want) < 1000, 20);
-        println(DRAGON_HP, "client health " + ctx.computeOnClient(mc -> e[0].getHealth()) + ", want " + want
-                + "; Wither Dragons reads " + spec(red, "health"));
-        expect(f, "the client sees the dragon's health drop to " + want, seen, true);
-        expect(f, "Wither Dragons' health readout follows", Math.abs((Float) spec(red, "health") - want) < 1000, true);
+        boolean seen = until(ctx, "Wither Dragons' health readout", mc -> Math.abs((Float) spec(red, "health") - want) < 1000, 20);
+        println(DRAGON_HP, "Wither Dragons reads " + spec(red, "health") + ", want " + want);
+        expect(f, "Wither Dragons' health readout drops to " + want, seen, true);
 
         // A real Terminator volley from close: more than one arrow of each volley counts.
         int u2 = units(), fired0 = (Integer) call("com.killer560.hub.roomsim.SimTerminator", "arrowsFired");
         for (int v = 0; v < 2; v++) {
             Vec3 b = ctx.computeOnClient(mc -> e[0].getSubEntities()[2].getBoundingBox().getCenter());
             tp(ctx, b.x - 5, b.y - 0.5, b.z, 0, 0);
+            ctx.waitTicks(3); // the teleport reaches his client before the shot
             ctx.runOnClient(mc -> {
                 Vec3 to = e[0].getSubEntities()[2].getBoundingBox().getCenter().subtract(mc.player.getEyePosition());
                 mc.player.setYRot((float) Math.toDegrees(Math.atan2(-to.x, to.z)));
