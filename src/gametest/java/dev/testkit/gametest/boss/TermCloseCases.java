@@ -12,26 +12,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * killer560, 2026-11-11 on real Hypixel F7: "something keeps closing my terminals" (mod termclose-1111). His logs: every
- * terminal Hypixel closed unsolved had one of the mod's own party lines (Leap Message, Cringe, Posmsg) sent just before or
- * as it opened; none closed with nothing in flight. util/OutgoingChat now holds its lines while he stands at a P3
- * terminal, from his click on the stand until a menu opens, and until the terminal has been open 250 ms.
+ * killer560, 2026-11-11 on real Hypixel F7: "something keeps closing my terminals" (mod termclose-1111); 2026-11-12: "yes
+ * nothing goes off in a terminal" (mod chatnow-1112). util/OutgoingChat sends every mod line at once, except while a
+ * terminal GUI is open: then it is held and goes out the tick the terminal closes.
  * <ul>
- *   <li>1111-termclose-click: a real interact on the Hx terminal stand and a queued mod line in the same tick. The line
- *       must not reach the server until the terminal has been open about 250 ms, the terminal must still be open when it
- *       does, and it must arrive (held, never dropped).</li>
- *   <li>1111-termclose-free: the same spot with no click: the line goes within a few ticks (the hold acts only on a
- *       terminal).</li>
- *   <li>1111-termclose-near: P3 running, standing 2.5 blocks from the S1 terminal 1 spot (P3 Status' table): the line
- *       waits about 250 ms (NEAR_WAIT_MS) and then goes anyway.</li>
+ *   <li>1111-termclose-free: no terminal: the line reaches the server within a few ticks of being asked for.</li>
+ *   <li>1111-termclose-click: a real interact opens the Hx terminal; a mod line asked for while it is open must NOT reach
+ *       the server while the terminal stays open (and is counted pending), and must arrive exactly once after it closes.</li>
  * </ul>
  */
 final class TermCloseCases {
 
     static final String LINE = "Hx termclose line";
     static final String SOLVER_CFG = "terminals.TerminalSolverConfig";
-    /** OutgoingChat.TERMINAL_SETTLE_MS is 250 ms = 5 ticks; slack for where in a server tick each packet lands. */
-    static final int SETTLE_MIN_TICKS = 4;
 
     private TermCloseCases() {
     }
@@ -39,7 +32,6 @@ final class TermCloseCases {
     static void register(Session s) {
         s.test("1111-termclose-free", c -> free(c));
         s.test("1111-termclose-click", c -> click(c));
-        s.test("1111-termclose-near", c -> near(c));
     }
 
     private static List<AutoCloseable> setUp(Session c) {
@@ -52,7 +44,7 @@ final class TermCloseCases {
         c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
         c.hx().call("boss.term.build", "x", TerminalAuraCases.X, "z", TerminalAuraCases.Z, "groundY", TerminalAuraCases.G);
         TerminalAuraCases.tp(c, TerminalAuraCases.X - 1.5, TerminalAuraCases.G + 3, TerminalAuraCases.Z + 0.5, -90f);
-        c.ctx().waitTicks(30); // past any earlier line's gap and echo wait
+        c.ctx().waitTicks(10);
         return undo;
     }
 
@@ -95,7 +87,6 @@ final class TermCloseCases {
             c.ctx().waitTicks(5);
             long head = c.hx().head();
             int interacts = c.events("term.interact").size();
-            // His click on the stand and a mod line asked for in the same tick (a Posmsg / Cringe line as he clicks).
             c.onClient(mc -> {
                 var stand = mc.level.getEntity(standId);
                 var eye = mc.player.getEyePosition();
@@ -103,47 +94,33 @@ final class TermCloseCases {
                         .orElse(stand.getBoundingBox().getCenter());
                 mc.gameMode.interact(mc.player, stand, new net.minecraft.world.phys.EntityHitResult(stand, hit),
                         net.minecraft.world.InteractionHand.MAIN_HAND);
-                queue();
                 return null;
             });
             c.waitUntil("the click reaching the server", mc -> c.events("term.interact").size() > interacts, 40);
             c.waitUntil("the terminal screen", mc -> terminalOpen(mc), 60);
-            long openTick = c.hx().call("server.tick").getAsLong();
-            c.check(lines(c, head).isEmpty(), "the line went before the terminal opened: " + lines(c, head));
-            c.waitUntil("the held line at the server", mc -> !lines(c, head).isEmpty(), 80);
-            boolean stillOpen = c.onClient(mc -> terminalOpen(mc));
-            List<JsonObject> got = lines(c, head);
-            long gap = got.get(0).get("tick").getAsLong() - openTick;
-            c.note("click + line in one tick: line at the server " + gap + " server tick(s) after the terminal showed, "
-                    + got.size() + " line(s), terminal still open: " + stillOpen);
-            c.check(gap >= SETTLE_MIN_TICKS, "the line went only " + gap + " ticks after the terminal opened");
-            c.check(stillOpen, "the terminal closed while the line was held");
-            c.check(got.size() == 1, "want the line once, got " + got);
-        } finally {
-            tearDown(c, undo);
-        }
-    }
-
-    private static void near(Session c) throws Exception {
-        List<AutoCloseable> undo = setUp(c);
-        try {
-            // P3 Status' S1 terminal 1 is at (110, 113, 73); stand 2.5 blocks from it.
-            DungeonFixBossCases.floor(c, 110, 113, 75);
-            TerminalAuraCases.tp(c, 110.5, 113, 75.5, 0f);
-            c.hx().chat(TerminalAuraCases.GOLDOR);
-            c.waitUntil("P3 running, section 1", mc -> Boolean.TRUE.equals(Mod.staticCall("leveraura.P3SectionTracker", "running"))
-                    && (Integer) Mod.staticCall("leveraura.P3SectionTracker", "section") == 1, 60);
-            c.ctx().waitTicks(30);
-            long head = c.hx().head();
-            long at = c.hx().call("server.tick").getAsLong();
+            // A mod line asked for while the terminal is open: held, nothing goes out.
             c.onClient(mc -> {
                 queue();
                 return null;
             });
-            c.waitUntil("the line at the server after the near wait", mc -> !lines(c, head).isEmpty(), 60);
-            long took = lines(c, head).get(0).get("tick").getAsLong() - at;
-            c.note("at a P3 terminal: the line reached the server " + took + " tick(s) after it was queued");
-            c.check(took >= 4 && took <= 12, "near wait " + took + " ticks, want about 5 (250 ms)");
+            c.ctx().waitTicks(20);
+            boolean stillOpen = c.onClient(mc -> terminalOpen(mc));
+            int pending = c.onClient(mc -> (Integer) Mod.staticCall("util.OutgoingChat", "pending"));
+            c.check(stillOpen, "the terminal closed by itself, the hold was not tested");
+            c.check(lines(c, head).isEmpty(), "the line went while the terminal was open: " + lines(c, head));
+            c.check(pending == 1, "want the line counted as held (1), got " + pending);
+            // Close it: the held line goes out, once.
+            long closeAt = c.hx().call("server.tick").getAsLong();
+            TerminalAuraCases.closeScreen(c);
+            c.waitUntil("the held line at the server after the terminal closed", mc -> !lines(c, head).isEmpty(), 60);
+            c.ctx().waitTicks(10);
+            List<JsonObject> got = lines(c, head);
+            long took = got.get(0).get("tick").getAsLong() - closeAt;
+            c.note("line asked for inside an open terminal: nothing for 20 ticks, " + took
+                    + " server tick(s) after it closed, " + got.size() + " line(s)");
+            c.check(got.size() == 1, "want the line once, got " + got);
+            c.check(took <= 8, "the held line left " + took + " ticks after the terminal closed");
+            c.check((Integer) c.onClient(mc -> Mod.staticCall("util.OutgoingChat", "pending")) == 0, "line still pending");
         } finally {
             tearDown(c, undo);
         }
