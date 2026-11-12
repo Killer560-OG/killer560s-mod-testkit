@@ -29,6 +29,98 @@ final class Melody1111Cases {
 
     static void register(Session s) {
         MenuSuite.test(s, "1111-menu-term-melody-gamble", Melody1111Cases::gamble);
+        MenuSuite.test(s, "1111-same-melody-click", c -> sameTick(c, true));
+        MenuSuite.test(s, "1111-same-melody-click-unblocked", c -> sameTick(c, false));
+    }
+
+    /**
+     * SAME-TICK GRIM CASES for the freed live click: HIS mouse click on the menu's last slot every client tick (a real
+     * press through the screen) while Auto Melody plays boards whose stale lookahead rows are freed, under 50 ms latency.
+     * Block Input ON (default): his clicks are held, the auto clicks all land right. OFF: they share server ticks with the
+     * auto clicks, which must still all be right. GrimAC (default and experimental) must stay silent.
+     */
+    static void sameTick(Session c, boolean block) throws Exception {
+        MenuKit.reset(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto Melody is cheat-only");
+            return;
+        }
+        dev.testkit.gametest.SameTick st = null;
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutoTerminalsEnabled", true).set(CONFIG, "AutoMelodyEnabled", true)
+                    .set(CONFIG, "HoverTerminalsEnabled", false).set(CONFIG, "HoldToClickEnabled", false)
+                    .set(CONFIG, "AutoStreamSafe", false).set(CONFIG, "BlockInputWhileAutoClicking", block)
+                    .set(CONFIG, "MelodySkipMode", Mod.enumValue(CONFIG + "$MelodySkipMode", "EDGES"))
+                    .set(CONFIG, "MelodyLookaheadClicks", 2);
+            c.onClient(mc -> {
+                Latency.install(50);
+                return null;
+            });
+            c.ctx().waitTicks(80);
+            int[][] boards = {{5, 3, 3}, {5, 5, 5}, {1, 4, 4}};
+            int autoWrong = 0;
+            int his = 0;
+            int autoRight = 0;
+            for (int b = 0; b < boards.length; b++) {
+                int clickHead = c.events("terminal.click").size();
+                int solvedHead = c.events("terminal.solved").size();
+                com.google.gson.JsonArray ts = new com.google.gson.JsonArray();
+                for (int t : boards[b]) {
+                    ts.add(t);
+                }
+                JsonObject args = new JsonObject();
+                args.addProperty("type", "MELODY");
+                args.addProperty("seed", 1121 + b);
+                args.addProperty("interval", INTERVAL);
+                args.addProperty("bandRows", 3);
+                args.add("targets", ts);
+                JsonObject t = c.hx().call("menu.terminal", args).getAsJsonObject();
+                MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
+                c.ctx().waitTicks(1);
+                if (st == null) {
+                    st = c.onClient(mc -> dev.testkit.gametest.SameTick.start(dev.testkit.gametest.SameTick.Act.SCREEN_CLICK, 1,
+                            p -> p instanceof net.minecraft.network.protocol.game.ServerboundContainerClickPacket, 4, 5));
+                }
+                int last = c.onClient(mc -> ((net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>)
+                        dev.testkit.compat.McCompat.screen(mc)).getMenu().slots.size() - 1);
+                c.waitUntil("Melody " + java.util.Arrays.toString(boards[b]) + " solved",
+                        mc -> c.events("terminal.solved").size() > solvedHead, 2400);
+                MenuKit.awaitNoScreen(c, 40);
+                List<JsonObject> all = c.events("terminal.click");
+                for (JsonObject e : all.subList(clickHead, all.size())) {
+                    int slot = e.get("slot").getAsInt();
+                    if (slot == last) {
+                        his++;
+                    } else if (slot == 16 || slot == 25 || slot == 34) {
+                        if (e.get("correct").getAsBoolean()) {
+                            autoRight++;
+                        }
+                    } else {
+                        autoWrong++;
+                    }
+                }
+            }
+            c.note("block input " + block + ": auto clicks right " + autoRight + ", auto clicks off the row buttons "
+                    + autoWrong + ", his clicks the server saw " + his);
+            c.check(autoRight == 9, "expected 9 right auto clicks over 3 boards, got " + autoRight);
+            c.check(autoWrong == 0, autoWrong + " auto click(s) off the row buttons");
+            dev.testkit.gametest.SameTick.judge(c, st, "auto melody (block input " + block + ")",
+                    block ? dev.testkit.gametest.SameTick.Expect.HELD : dev.testkit.gametest.SameTick.Expect.SHARE);
+            st = null;
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick s2 = st;
+                c.onClient(mc -> {
+                    s2.close();
+                    return null;
+                });
+            }
+            c.onClient(mc -> {
+                Latency.remove();
+                return null;
+            });
+            MenuKit.reset(c);
+        }
     }
 
     /** {row targets, whether row 3 starts with the pane already on its target (the case the stale bit broke)}. */
