@@ -1309,6 +1309,9 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             DesignerKit.clickAt(ctx, box[0] + 3 + (box[2] - 6) * (max - 2) / 3.0, box[1], 0);
         }
         expect(f, facts, "Max Players", rowLabel(ctx, "Max Players: "), "Max Players: " + max);
+        if (clearRun) {
+            Scenario.ensureRoomDatabase(ctx);   // Clear plans a real floor; offline the database never loads by itself
+        }
         long mark = LogTap.mark();
         DesignerKit.click(ctx, "Create Room");
         String msg = message(ctx);
