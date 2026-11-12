@@ -21,7 +21,7 @@
     "id": "chat.team-secrets-found",
     "kind": "chat",
     "payload": "                               Secrets Found: 8",
-    "source": {"file": "src/main/java/com/killer560/hub/runstats/RunStatsTracker.java", "line": 1},
+    "source": {"file": "src/main/java/com/killer560/hub/runstats/RunStatsTracker.java", "line": 66},
     "matches": ["runstats.RunStatsTracker#TEAM_SECRETS"],
     "verifiedBy": "regex",
     "notes": "The team total in the end-of-run Stats block, a real M7 line from the 2026-11-08 log; the centering spaces are not from the mod and are trimmed before the match."
@@ -47,7 +47,7 @@
     "id": "chat.mort-map",
     "kind": "chat",
     "payload": "[NPC] Mort: Here, I found this map when I first entered the dungeon.",
-    "source": {"file": "src/main/java/com/killer560/hub/splittimers/SplitTimersFeature.java", "line": 66},
+    "source": {"file": "src/main/java/com/killer560/hub/splittimers/SplitTimersFeature.java", "line": 67},
     "verifiedBy": "regex",
     "notes": "First alternative of SplitTimers' BLOOD_OPEN split (matched with matches()); the first split to fire starts the run clock AutoKick reads (SplitTimersFeature.getRunStartedAtMs, :529). The pattern lives in a SplitDef record, not a static Pattern field."
   },
