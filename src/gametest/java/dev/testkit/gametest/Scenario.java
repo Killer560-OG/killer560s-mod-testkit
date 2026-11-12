@@ -251,6 +251,20 @@ public final class Scenario {
         Report.caseFinished(name, "SKIP", "", reason, List.of(), List.of());
     }
 
+    /** Case names (prefixes) of features that exist only in the cheat build: Blink, Zero Ping Etherwarp, Inventory Walk, AP3, Breaker Aura. */
+    private static final List<String> CHEAT_ONLY = List.of("1025-blink-", "1026-blink-", "1027-blink-", "1105-blink-", "1111-blink-",
+            "1026-ap3-blink-", "1027-ap3-blink-", "1110-ap3-stopwatch-", "1025-invwalk-", "1025-zpew-", "1027-zpew", "1105-zpew-",
+            "1111-zpew", "1025-lcew-", "1018-breaker-fairy", "62-argrim-1111-archarge");
+
+    /** On a legit jar a cheat-only case is one SKIP row (the only {@code *-legit-absent} case tests that absence and still runs). */
+    public static boolean legitSkip(String name) {
+        if (name.contains("legit-absent") || CHEAT_ONLY.stream().noneMatch(name::startsWith) || !ModUnderTest.loaded("killer560smod") || dev.testkit.gametest.mod.Mod.isCheat()) {
+            return false;
+        }
+        skipped(name, "cheat-build only");
+        return true;
+    }
+
     public static boolean skip(String name) {
         String filter = System.getProperty("testkit.scenario", "");
         if (ScenarioList.active()) {
@@ -271,6 +285,9 @@ public final class Scenario {
             }
         }
         if (!selected) {
+            return true;
+        }
+        if (legitSkip(name)) {
             return true;
         }
         // A @RequiresMod class whose mod is not loaded: a SKIP row with the reason, and nothing run.
