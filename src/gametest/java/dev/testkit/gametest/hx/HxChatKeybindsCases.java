@@ -216,7 +216,7 @@ final class HxChatKeybindsCases {
      * killer560, 2026-11-11: "each time i press my keybind for stats in ee3 it delays for a long time ... commands always
      * go first." Hypixel handles a player's commands in order, so the mod's party lines already sent sit in front of his.
      * Then (his test, 22:04): "my command should always be n1 prio". /stats must leave in the press's tick, no line of ours
-     * may go until the server answers it (or 1.5 s), a party line waits for its echo (or 5 s), and the gap counts from
+     * may go until the server answers it (or 250 ms), a party line waits for its echo (or 250 ms), and the gap counts from
      * the echo.
      */
     private static void wire(List<String> order, List<Long> at) {
@@ -258,7 +258,7 @@ final class HxChatKeybindsCases {
             long pressNs = System.nanoTime();
             c.ctx().getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(K1), 3);
             c.hx().chat("§9Party §8> §b[MVP§c+§b] Tester§f: cf one");   // "cf one" echoes as he presses
-            c.ctx().waitTicks(20);
+            c.ctx().waitTicks(1);
             boolean twoEarly = c.commands().contains("pc cf two");
             long answerNs = System.nanoTime();
             c.hx().chat("§7Your stats menu answer");                     // the server answers /stats (not party chat)
@@ -275,11 +275,11 @@ final class HxChatKeybindsCases {
             c.check(statsMs <= 120, "/stats left " + statsMs + " ms after the press (want the press's own tick)");
             c.check(!twoEarly, "'cf two' went before the server answered /stats");
             long afterAnswer = (at.get(2) - answerNs) / 1_000_000L;
-            c.check(afterAnswer >= 480, "'cf two' left " + afterAnswer + " ms after the answer (want a full gap after it)");
+            c.check(afterAnswer >= 230 && afterAnswer < 700, "'cf two' left " + afterAnswer + " ms after the answer (want a 250 ms gap after it)");
 
             c.hx().chat("§9Party §8> §b[MVP§c+§b] Tester§f: cf two");   // 'cf two' echoes: nothing in flight
 
-            // (b) No answer: the hold ends after PLAYER_ANSWER_MS (1.5 s).
+            // (b) No answer: the hold ends after PLAYER_ANSWER_MS (250 ms).
             c.ctx().waitTicks(40);
             dev.testkit.harness.WireCapture.start();
             run(c, () -> Mod.staticCall("util.OutgoingChat", "command", "pc cf three"));
@@ -298,11 +298,11 @@ final class HxChatKeybindsCases {
             c.check(order.equals(List.of("pc cf three", "stats", "pc cf four")), "(b) want three, stats, four: " + order);
             long held = (at.get(2) - at.get(1)) / 1_000_000L;
             c.note("(b) unanswered /stats held 'cf four' " + held + " ms");
-            c.check(held >= 1_400 && held < 2_500, "'cf four' left " + held + " ms after an unanswered /stats (want ~1500)");
+            c.check(held >= 230 && held < 700, "'cf four' left " + held + " ms after an unanswered /stats (want ~250)");
 
             c.hx().chat("§9Party §8> §b[MVP§c+§b] Tester§f: cf four");
 
-            // (c) No echo: the next party line waits ECHO_WAIT_MS (5 s); (d) with the echo, a gap after the echo.
+            // (c) No echo: the next party line waits ECHO_WAIT_MS (250 ms); (d) with the echo, a gap after the echo.
             c.ctx().waitTicks(40);
             dev.testkit.harness.WireCapture.start();
             run(c, () -> {
@@ -323,8 +323,8 @@ final class HxChatKeybindsCases {
             long afterEcho = (at.get(2) - echoNs) / 1_000_000L;
             c.note("(c) 'cf six' " + noEcho + " ms after an unechoed 'cf five'; (d) 'cf seven' " + afterEcho
                     + " ms after the echo of 'cf six'");
-            c.check(noEcho >= 4_900 && noEcho < 6_500, "'cf six' left " + noEcho + " ms after 'cf five' with no echo (want ~5000)");
-            c.check(afterEcho >= 480 && afterEcho < 1_500, "'cf seven' left " + afterEcho + " ms after the echo (want ~500)");
+            c.check(noEcho >= 230 && noEcho < 700, "'cf six' left " + noEcho + " ms after 'cf five' with no echo (want ~250)");
+            c.check(afterEcho >= 230 && afterEcho < 700, "'cf seven' left " + afterEcho + " ms after the echo (want ~250)");
         } finally {
             dev.testkit.harness.WireCapture.stop();
             dev.testkit.harness.WireCapture.describe = null;

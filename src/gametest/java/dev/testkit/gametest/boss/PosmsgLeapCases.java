@@ -28,15 +28,15 @@ import java.util.Map;
  *   <li>1102-posmsg-alone: a teleport into the ring with no leap menu and nothing else waiting: the Posmsg line must
  *       reach the server within {@link #ALONE_MAX_TICKS} ticks (never held).</li>
  * </ul>
- * The Hx server does not model Hypixel's chat limiter; the gap assertion stands in for "no rate-limit line": 500 ms
- * (the mod's OutgoingChat.MIN_GAP_MS) is the gap his own log shows Hypixel accepting.
+ * The Hx server does not model Hypixel's chat limiter; the gap assertion stands in for "no rate-limit line": 250 ms
+ * (the mod's OutgoingChat.MIN_GAP_MS, his choice 2026-11-11) is the gap.
  */
 final class PosmsgLeapCases {
 
     static final String FEATURE = "posmsg.PosmsgFeature";
     static final String CONFIG = "posmsg.PosmsgConfig";
-    /** 500 ms is 10 ticks; one tick of slack for where in the server tick each packet lands. */
-    static final int MIN_GAP_TICKS = 9;
+    /** 250 ms is 5 ticks; one tick of slack for where in the server tick each packet lands. */
+    static final int MIN_GAP_TICKS = 4;
     static final int ALONE_MAX_TICKS = 6;
     static final String POS_LINE = "Hx at ee2";
     static final String LEAP_LINE = "Hx leaping to HxMateA";

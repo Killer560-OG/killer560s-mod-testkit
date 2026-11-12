@@ -15,23 +15,23 @@ import java.util.List;
  * killer560, 2026-11-11 on real Hypixel F7: "something keeps closing my terminals" (mod termclose-1111). His logs: every
  * terminal Hypixel closed unsolved had one of the mod's own party lines (Leap Message, Cringe, Posmsg) sent just before or
  * as it opened; none closed with nothing in flight. util/OutgoingChat now holds its lines while he stands at a P3
- * terminal, from his click on the stand until a menu opens, and until the terminal has been open 1.5 s.
+ * terminal, from his click on the stand until a menu opens, and until the terminal has been open 250 ms.
  * <ul>
  *   <li>1111-termclose-click: a real interact on the Hx terminal stand and a queued mod line in the same tick. The line
- *       must not reach the server until the terminal has been open about 1.5 s, the terminal must still be open when it
+ *       must not reach the server until the terminal has been open about 250 ms, the terminal must still be open when it
  *       does, and it must arrive (held, never dropped).</li>
  *   <li>1111-termclose-free: the same spot with no click: the line goes within a few ticks (the hold acts only on a
  *       terminal).</li>
  *   <li>1111-termclose-near: P3 running, standing 2.5 blocks from the S1 terminal 1 spot (P3 Status' table): the line
- *       waits about 3 s (NEAR_WAIT_MS) and then goes anyway.</li>
+ *       waits about 250 ms (NEAR_WAIT_MS) and then goes anyway.</li>
  * </ul>
  */
 final class TermCloseCases {
 
     static final String LINE = "Hx termclose line";
     static final String SOLVER_CFG = "terminals.TerminalSolverConfig";
-    /** OutgoingChat.TERMINAL_SETTLE_MS is 30 ticks; slack for where in a server tick each packet lands. */
-    static final int SETTLE_MIN_TICKS = 26;
+    /** OutgoingChat.TERMINAL_SETTLE_MS is 250 ms = 5 ticks; slack for where in a server tick each packet lands. */
+    static final int SETTLE_MIN_TICKS = 4;
 
     private TermCloseCases() {
     }
@@ -140,12 +140,10 @@ final class TermCloseCases {
                 queue();
                 return null;
             });
-            c.ctx().waitTicks(40);
-            c.check(lines(c, head).isEmpty(), "the line went while he stood at an open-able terminal: " + lines(c, head));
             c.waitUntil("the line at the server after the near wait", mc -> !lines(c, head).isEmpty(), 60);
             long took = lines(c, head).get(0).get("tick").getAsLong() - at;
             c.note("at a P3 terminal: the line reached the server " + took + " tick(s) after it was queued");
-            c.check(took >= 50 && took <= 80, "near wait " + took + " ticks, want about 60 (3 s)");
+            c.check(took >= 4 && took <= 12, "near wait " + took + " ticks, want about 5 (250 ms)");
         } finally {
             tearDown(c, undo);
         }
