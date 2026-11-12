@@ -274,8 +274,8 @@ final class HxChatKeybindsCases {
             long statsMs = (at.get(1) - pressNs) / 1_000_000L;
             c.check(statsMs <= 120, "/stats left " + statsMs + " ms after the press (want the press's own tick)");
             c.check(!twoEarly, "'cf two' went before the server answered /stats");
-            long afterAnswer = (at.get(2) - answerNs) / 1_000_000L;
-            c.check(afterAnswer >= 230 && afterAnswer < 700, "'cf two' left " + afterAnswer + " ms after the answer (want a 250 ms gap after it)");
+            long afterAnswer = (at.get(2) - at.get(1)) / 1_000_000L; // the answer lands inside the 250 ms hold, so it ends at the hold
+            c.check(afterAnswer >= 230 && afterAnswer < 700, "'cf two' left " + afterAnswer + " ms after /stats (want the 250 ms hold, then it goes)");
 
             c.hx().chat("§9Party §8> §b[MVP§c+§b] Tester§f: cf two");   // 'cf two' echoes: nothing in flight
 
