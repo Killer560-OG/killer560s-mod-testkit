@@ -115,7 +115,7 @@ final class Align12LeapCases {
                     }
                     if (screen && i == 1) {
                         onClient(ctx, mc -> {
-                            mc.setScreen(new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player));
+                            dev.testkit.compat.McCompat.setScreen(mc, new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player));
                             return null;
                         });
                     }
@@ -136,7 +136,7 @@ final class Align12LeapCases {
                 release(ctx);
                 if (screen) {
                     onClient(ctx, mc -> {
-                        mc.setScreen(null);
+                        dev.testkit.compat.McCompat.setScreen(mc, null);
                         return null;
                     });
                     Object running = onClient(ctx, mc -> dev.testkit.gametest.mod.Mod.staticCall("ap3.Ap3Executor", "isRunning"));
