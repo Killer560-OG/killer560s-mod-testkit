@@ -200,7 +200,7 @@ final class Align12Cases {
                 // his crosshair never jumps: from the align's first tick on, the shown yaw moves at most his own mouse
                 double viewJump = 0;
                 for (int i = Math.max(1, armed); i < tr.size() && armed >= 0; i++) {
-                    viewJump = Math.max(viewJump, Math.abs(tr.get(i)[5] - tr.get(i - 1)[5]));
+                    viewJump = Math.max(viewJump, Math.abs(net.minecraft.util.Mth.wrapDegrees(tr.get(i)[5] - tr.get(i - 1)[5])));
                 }
                 double[] last = tr.get(tr.size() - 1);
                 boolean stays = done >= 0 && Math.abs(last[0] - tx) < 2e-4 && Math.abs(last[1] - tz) < 2e-4;
