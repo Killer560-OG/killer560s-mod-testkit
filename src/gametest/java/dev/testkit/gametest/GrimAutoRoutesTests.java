@@ -224,17 +224,20 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // mod blink-charge-1025. Expecting flags since mod blink-keep-1027 (owner, 2026-10-27): the 12 ticks the chain
             // does not spend stay banked through its 11 server teleports, and each kept teleport costs the GrimAC lines
             // docs/LESSONS-AUTOMATION.md lists. The case still fails on any other check, and waits for the leak.
-            if (dev.testkit.gametest.mod.Mod.isCheat()) s.testExpectingFlags("62-argrim-1025-chargechain", c -> caseChargedChain(c, false));
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1025-chargechain", c -> caseChargedChain(c, false));
             // mod mapchain-1110 (killer560 2026-11-10: "it waits a really long time sometimes to release all of them"): the
             // Interactive Map's path with Blink charging - Charged Chain sends it in one tick from the bank, and with or
             // without it no landing's confirm waits a second behind Charge's answers; then his own actions in its ticks.
             if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1110-mapchain-charged", c -> caseMapChain(c, true, null));
             if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1110-mapchain-nobank", c -> caseMapChain(c, false, null));
-            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1110-archain-nohold", GrimAutoRoutesTests::caseRouteChainNoHold);
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1110-archain-nohold", c -> caseRouteChainNoHold(c, true));
+            // mod blinkhyp-1111 (killer560 2026-11-11: with Charge toggled on, his routes crawled behind 950 ms teleport holds):
+            // a plain etherwarp route (no Zero Ping Chain) with Charge full holds nothing while it runs.
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1111-archarge-route", c -> caseRouteChainNoHold(c, false));
             // mod mwtick-1111 (killer560 2026-11-11: nothing that flags ships): Multi Warp Mode Tick Split with Blink
             // charging - the route's and the map path's warps each in a banked tick of their own inside one real tick, never
             // a tick past the bank; the route takes the Charged Chain's own flag rule (kept teleports), the map path none.
-            if (dev.testkit.gametest.mod.Mod.isCheat()) s.testExpectingFlags("62-argrim-1111-mwtick-route", c -> caseChargedChain(c, true));
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1111-mwtick-route", c -> caseChargedChain(c, true));
             if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1111-mwtick-map", c -> caseMapChain(c, true, null, true));
             if (dev.testkit.gametest.mod.Mod.isCheat()) for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
                     dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK)) {
@@ -2381,22 +2384,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", false);
             });
         }
-        // The kept bank's BadPacketsN arrives about a second after the last teleport (it landed on 62-argrim-path in
-        // final-1027): wait for it here, then allow only what a kept teleport is documented to cost.
-        // The BadPacketsN fires on the NEXT teleport, not with time (24 lines, 2 per kept teleport, on 62-argrim-path even
-        // after a 60-tick wait): give it one here, in place.
+        // A kept bank's BadPacketsN used to fire on the NEXT teleport (final-1027): give it one here, in place. No GrimAC
+        // line is accepted (killer560 2026-11-11: kept-teleport flags are bugs to fix).
         c.server().command("execute as @p at @s run tp @s ~ ~ ~");
         c.ctx().waitTicks(60);
         noteFlags(c, all);
-        List<String> other = new ArrayList<>();
-        for (String f : c.scenario().flags()) {
-            java.util.regex.Matcher fm = java.util.regex.Pattern.compile("failed ([A-Za-z]+) \\(x").matcher(f);
-            String check = fm.find() ? fm.group(1) : "?";
-            if (!KEPT_BANK_CHECKS.contains(check)) {
-                other.add(f);
-            }
-        }
-        check(other.isEmpty(), other.size() + " GrimAC line(s) outside what a kept Blink teleport costs: " + other);
+        check(c.scenario().flags().isEmpty(), c.scenario().flags().size() + " GrimAC line(s) after the charged chain: "
+                + c.scenario().flags());
     }
 
     private static final String CLEAR = "com.killer560.hub.livemap.autoclear.ClearExecutor";
@@ -2547,8 +2541,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     tag + ": the bank was never covered before the path");
             JsonObject before = stats();
             long spent0 = chargeNum(ctx, "spentTicks");
-            long holds0 = chargeNum(ctx, "teleportHolds");
-            long chainTp0 = chargeNum(ctx, "chainConfirms");
+            long chainTp0 = chargeNum(ctx, "teleportBatches");
+            long route0 = chargeNum(ctx, "routeAnswers");
             long m = LogTap.mark();
             List<Object> nodes = ctx.computeOnClient(mc -> {
                 try {
@@ -2594,8 +2588,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             long spanMs = (lastTp - firstUse) / 1_000_000L;
             int serverWarps = delta(before, "etherwarps");
             long spent = chargeNum(ctx, "spentTicks") - spent0;
-            long holds = chargeNum(ctx, "teleportHolds") - holds0;
-            long chainTp = chargeNum(ctx, "chainConfirms") - chainTp0;
+            long chainTp = chargeNum(ctx, "teleportBatches") - chainTp0 + chargeNum(ctx, "routeAnswers") - route0;
             int letGo = 0;
             int bankFrom = -1;
             int bankTo = -1;
@@ -2616,14 +2609,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     pts.length, pts.length, wireProblems, tag) : "";
             String line = String.format(Locale.ROOT, "map chain %s: bank %d; wire: %d use(s), at most %d in 50 ms, %d confirm(s), "
                             + "last confirm %d ms after the first use; charged burst %d (bank %d -> %d), %d banked tick(s) spent; "
-                            + "server etherwarps %d; teleport holds %d (%d let go), chain confirms %d; landed %s%s", tag, bank,
-                    uses[1], uses[0], tpCount, spanMs, burst, bankFrom, bankTo, spent, serverWarps, holds, letGo, chainTp,
+                            + "server etherwarps %d; old teleport-hold lines %d, confirms sent with their answers %d; landed %s%s", tag, bank,
+                    uses[1], uses[0], tpCount, spanMs, burst, bankFrom, bankTo, spent, serverWarps, letGo, chainTp,
                     landed, st == null ? "" : "; same-tick " + st.report()) + splitLine;
             println(line);
             c.note(line);
-            // His own Instant Transmission uses (four, Act USE) make their own teleports, which Blink may hold; the chain's never.
-            int ownHolds = act == dev.testkit.gametest.SameTick.Act.USE ? 4 : 0;
-            check(holds <= ownHolds && letGo <= ownHolds, tag + ": a teleport confirm was held behind its answer (" + holds + " hold(s))");
+            check(letGo == 0, tag + ": a teleport hold was let go (" + letGo + "); no confirm is held since blinktp-1111");
             // While his inventory is open the path waits and then stops (the MultiActionsC gate), so CLICK has no chain to count.
             boolean clickAct = act == dev.testkit.gametest.SameTick.Act.CLICK;
             check(clickAct || chainTp > 0, tag + ": no confirm went at once for the chain (nothing tested)");
@@ -2685,7 +2676,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * Chain off, at 150 ms: one warp a tick, and since mapchain-1110 no landing's confirm waits behind its ping's answer (it
      * held the rest of the chain a second, as on the map). Every warp lands, the last confirm within 1.5 s of the first use.
      */
-    private static void caseRouteChainNoHold(Session c) {
+    private static void caseRouteChainNoHold(Session c, boolean zeroPing) {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
         arena(ctx, false);
@@ -2699,6 +2690,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         writeRoute(ctx, n);
         try {
             chainSettings(ctx, false);
+            ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setZeroPingChain",
+                    new Class<?>[]{boolean.class}, new Object[]{zeroPing}));
             ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
                     new Object[]{"test"}));
             ctx.runOnClient(mc -> dev.testkit.harness.Latency.install(150));
@@ -2710,8 +2703,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(10);
             long bank = chargeFull(ctx);
             JsonObject before = stats();
-            long holds0 = chargeNum(ctx, "teleportHolds");
-            long chainTp0 = chargeNum(ctx, "chainConfirms");
+            long chainTp0 = chargeNum(ctx, "teleportBatches");
+            long route0 = chargeNum(ctx, "routeAnswers");
             long spent0 = chargeNum(ctx, "spentTicks");
             ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
             ctx.runOnClient(mc -> McCompat.setScreen(mc, null));
@@ -2725,23 +2718,24 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             long lastTp = wire.stream().filter(x -> x.type().equals("minecraft:accept_teleportation")).mapToLong(
                     dev.testkit.harness.WireCapture.Sent::nanos).max().orElse(0L);
             long spanMs = (lastTp - firstUse) / 1_000_000L;
-            long holds = chargeNum(ctx, "teleportHolds") - holds0;
-            long chainTp = chargeNum(ctx, "chainConfirms") - chainTp0;
+            long chainTp = chargeNum(ctx, "teleportBatches") - chainTp0;
+            long routeNow = chargeNum(ctx, "routeAnswers") - route0;
             long spent = chargeNum(ctx, "spentTicks") - spent0;
             int serverWarps = delta(before, "etherwarps");
-            String line = String.format(Locale.ROOT, "route chain, Charge on, Charged Chain off: bank %d; wire %d use(s), at most %d "
-                            + "in 50 ms, last confirm %d ms after the first use; holds %d, chain confirms %d, spent %d; server "
-                            + "etherwarps %d; landed %s", bank, uses[1], uses[0], spanMs, holds, chainTp, spent, serverWarps,
-                    landed);
+            String line = String.format(Locale.ROOT, "route %s, Charge on, Charged Chain off: bank %d; wire %d use(s), at most %d "
+                            + "in 50 ms, last confirm %d ms after the first use; confirms sent with their answers %d, answers sent "
+                            + "at once %d, spent %d; server etherwarps %d; landed %s", zeroPing ? "chain" : "plain", bank, uses[1],
+                    uses[0], spanMs, chainTp, routeNow, spent, serverWarps, landed);
             println(line);
             c.note(line);
             check(bank >= 20, "the bank did not fill: " + bank);
             check(landed != null, "the chain did not reach its end (at " + relPos(ctx) + ")");
             check(serverWarps == pts.length, "the server made " + serverWarps + " etherwarps, expected " + pts.length);
-            check(holds == 0, holds + " teleport confirm(s) held behind their answers during the chain");
-            check(chainTp > 0, "no confirm went at once for the chain (nothing tested)");
+            check(chainTp + routeNow > 0, "no answer or confirm went at once for the route (nothing tested)");
             check(spent == 0, "Charged Chain is off but " + spent + " banked tick(s) were spent");
-            check(spanMs < 1500, "the last confirm went " + spanMs + " ms after the first use");
+            // a plain route waits for each landing (~2 ticks at 150 ms); a 950 ms hold per warp would take 11 s and more
+            long limit = zeroPing ? 1500 : 400L * pts.length;
+            check(spanMs < limit, "the last confirm went " + spanMs + " ms after the first use (limit " + limit + ")");
         } finally {
             ctx.runOnClient(mc -> {
                 McCompat.setScreen(mc, null);
@@ -2752,17 +2746,6 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             chainSettings(ctx, null);
         }
     }
-
-    /**
-     * What a teleport kept through a Blink charge costs on GrimAC (mod docs/LESSONS-AUTOMATION.md, blink-keep-1027).
-     * AimDuplicateLook is one of them (campaign-blink-1027): one line per kept teleport (12 for the chain's 12, final-1027;
-     * one per warp in 1026-blink-keep-warp too). The vanilla answer to a teleport is a move carrying the unchanged look, and
-     * GrimAC only takes it as the teleport once the ping it sent with it is answered - Charge holds that answer ~1 s - so
-     * the move is judged as an ordinary one: Simulation (the teleport's distance), GroundSpoof, TickTimer, and an unchanged
-     * look = AimDuplicateLook. Answering that ping first is what used to drop the bank (the owner's rule forbids it).
-     */
-    private static final java.util.Set<String> KEPT_BANK_CHECKS =
-            java.util.Set.of("Simulation", "GroundSpoof", "TickTimer", "BadPacketsN", "Timer", "AimDuplicateLook");
 
     /** Path nodes across a wall: planned once by the floor planner, the saved warps flown twice. */
     private static void casePath(Session c) {
