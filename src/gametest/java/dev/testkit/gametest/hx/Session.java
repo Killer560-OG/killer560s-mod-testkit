@@ -280,6 +280,9 @@ public final class Session {
         if (!caseSelected(caseName)) {
             return;
         }
+        if (Scenario.legitSkip(caseName)) {
+            return;
+        }
         currentCase = caseName;
         SuiteVerdict.expect(caseName);
         Report.caseStarted(caseName);
