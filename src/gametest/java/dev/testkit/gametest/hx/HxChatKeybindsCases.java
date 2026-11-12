@@ -215,10 +215,19 @@ final class HxChatKeybindsCases {
     /**
      * killer560, 2026-11-11: "each time i press my keybind for stats in ee3 it delays for a long time ... commands always
      * go first." Hypixel handles a player's commands in order, so the mod's party lines already sent sit in front of his.
-     * Three OutgoingChat lines are queued, a /stats bind is pressed: /stats must leave in the press's tick, ahead of the
-     * two still waiting, and our next line must take its gap after it. With no echo the line after a party line waits
-     * OutgoingChat.ECHO_WAIT_MS (one line in flight); with Hypixel's "Party > ..." echo it waits only MIN_GAP_MS.
+     * Then (his test, 22:04): "my command should always be n1 prio". /stats must leave in the press's tick, no line of ours
+     * may go until the server answers it (or 1.5 s), a party line waits for its echo (or 5 s), and the gap counts from
+     * the echo.
      */
+    private static void wire(List<String> order, List<Long> at) {
+        for (dev.testkit.harness.WireCapture.Sent w : dev.testkit.harness.WireCapture.snapshot()) {
+            if (w.text().startsWith("cmd:pc cf") || w.text().equals("cmd:stats")) {
+                order.add(w.text().substring(4));
+                at.add(w.nanos());
+            }
+        }
+    }
+
     private static void cmdFirst(Session c) {
         boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
         boolean masterWas = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(KB), "isEnabledRaw"));
@@ -233,62 +242,93 @@ final class HxChatKeybindsCases {
                 addBind(kb, K1, "/stats", true);
                 McCompat.setScreen(net.minecraft.client.Minecraft.getInstance(), null);
             });
+            // /stats is answered by nothing unless the case says so (a vanilla "Unknown command" would answer it at once).
+            respond(c, "stats", "never-matches");
             c.ctx().waitTicks(40); // the last case's lines are out and their gap is over
+            // (a) A party line in flight, then his command: /stats leaves in the press's tick, and no line of ours goes
+            // until the server answers /stats, even after "cf one" echoed; then a full gap.
             dev.testkit.harness.WireCapture.start();
             run(c, () -> {
-                for (String l : new String[] {"pc cf one", "pc cf two", "pc cf three"}) {
-                    Mod.staticCall("util.OutgoingChat", "command", l);
-                }
+                Mod.staticCall("util.OutgoingChat", "command", "pc cf one");
+                Mod.staticCall("util.OutgoingChat", "command", "pc cf two");
             });
             int waiting = c.onClient(mc -> (Integer) Mod.staticCall("util.OutgoingChat", "pending"));
-            c.check(waiting == 2, "want 2 lines waiting behind 'cf one', got " + waiting);
+            c.check(waiting == 1, "want 1 line waiting behind 'cf one', got " + waiting);
             c.ctx().waitTicks(3);
             long pressNs = System.nanoTime();
             c.ctx().getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(K1), 3);
-            c.waitUntil("'cf three' at the server", mc -> c.commands().contains("pc cf three"), 200);
+            c.hx().chat("§9Party §8> §b[MVP§c+§b] Tester§f: cf one");   // "cf one" echoes as he presses
+            c.ctx().waitTicks(20);
+            boolean twoEarly = c.commands().contains("pc cf two");
+            long answerNs = System.nanoTime();
+            c.hx().chat("§7Your stats menu answer");                     // the server answers /stats (not party chat)
+            c.waitUntil("'cf two' at the server", mc -> c.commands().contains("pc cf two"), 100);
             dev.testkit.harness.WireCapture.stop();
             List<String> order = new ArrayList<>();
             List<Long> at = new ArrayList<>();
-            for (dev.testkit.harness.WireCapture.Sent w : dev.testkit.harness.WireCapture.snapshot()) {
-                if (w.text().startsWith("cmd:")) {
-                    order.add(w.text().substring(4));
-                    at.add(w.nanos());
-                }
-            }
-            c.note("wire order " + order + "; ms after the press "
-                    + at.stream().map(n -> (n - pressNs) / 1_000_000L).toList() + "; server saw " + c.commands());
-            c.check(order.equals(List.of("pc cf one", "stats", "pc cf two", "pc cf three")),
-                    "want one, stats, two, three on the wire: " + order);
+            wire(order, at);
+            c.note("(a) wire order " + order + "; ms after the press "
+                    + at.stream().map(n -> (n - pressNs) / 1_000_000L).toList() + "; answer sent at "
+                    + (answerNs - pressNs) / 1_000_000L + " ms; server saw " + c.commands());
+            c.check(order.equals(List.of("pc cf one", "stats", "pc cf two")), "want one, stats, two on the wire: " + order);
             long statsMs = (at.get(1) - pressNs) / 1_000_000L;
             c.check(statsMs <= 120, "/stats left " + statsMs + " ms after the press (want the press's own tick)");
-            long afterStats = (at.get(2) - at.get(1)) / 1_000_000L;
-            c.check(afterStats >= 480, "'cf two' left only " + afterStats + " ms after /stats (want our gap after his command)");
-            long noEcho = (at.get(3) - at.get(2)) / 1_000_000L;
-            c.check(noEcho >= 1_400, "'cf three' left " + noEcho + " ms after 'cf two' with no echo (want ECHO_WAIT_MS 1500)");
+            c.check(!twoEarly, "'cf two' went before the server answered /stats");
+            long afterAnswer = (at.get(2) - answerNs) / 1_000_000L;
+            c.check(afterAnswer >= 480, "'cf two' left " + afterAnswer + " ms after the answer (want a full gap after it)");
 
-            // With Hypixel's echo the next line goes a plain gap later.
+            c.hx().chat("§9Party §8> §b[MVP§c+§b] Tester§f: cf two");   // 'cf two' echoes: nothing in flight
+
+            // (b) No answer: the hold ends after PLAYER_ANSWER_MS (1.5 s).
+            c.ctx().waitTicks(40);
+            dev.testkit.harness.WireCapture.start();
+            run(c, () -> Mod.staticCall("util.OutgoingChat", "command", "pc cf three"));
+            c.waitUntil("'cf three' at the server", mc -> c.commands().contains("pc cf three"), 40);
+            c.hx().chat("§9Party §8> §b[MVP§c+§b] Tester§f: cf three");
+            c.ctx().waitTicks(12);
+            long press2Ns = System.nanoTime();
+            c.ctx().getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(K1), 3);
+            c.ctx().waitTicks(3);
+            run(c, () -> Mod.staticCall("util.OutgoingChat", "command", "pc cf four"));
+            c.waitUntil("'cf four' at the server", mc -> c.commands().contains("pc cf four"), 100);
+            dev.testkit.harness.WireCapture.stop();
+            order.clear();
+            at.clear();
+            wire(order, at);
+            c.check(order.equals(List.of("pc cf three", "stats", "pc cf four")), "(b) want three, stats, four: " + order);
+            long held = (at.get(2) - at.get(1)) / 1_000_000L;
+            c.note("(b) unanswered /stats held 'cf four' " + held + " ms");
+            c.check(held >= 1_400 && held < 2_500, "'cf four' left " + held + " ms after an unanswered /stats (want ~1500)");
+
+            c.hx().chat("§9Party §8> §b[MVP§c+§b] Tester§f: cf four");
+
+            // (c) No echo: the next party line waits ECHO_WAIT_MS (5 s); (d) with the echo, a gap after the echo.
             c.ctx().waitTicks(40);
             dev.testkit.harness.WireCapture.start();
             run(c, () -> {
-                Mod.staticCall("util.OutgoingChat", "command", "pc cf four");
                 Mod.staticCall("util.OutgoingChat", "command", "pc cf five");
+                Mod.staticCall("util.OutgoingChat", "command", "pc cf six");
             });
-            c.waitUntil("'cf four' at the server", mc -> c.commands().contains("pc cf four"), 40);
-            c.hx().chat("§9Party §8> §b[MVP§c+§b] Tester§f: cf four");
-            c.waitUntil("'cf five' at the server", mc -> c.commands().contains("pc cf five"), 60);
+            c.waitUntil("'cf six' at the server", mc -> c.commands().contains("pc cf six"), 200);
+            long echoNs = System.nanoTime();
+            c.hx().chat("§9Party §8> §b[MVP§c+§b] Tester§f: cf six");
+            run(c, () -> Mod.staticCall("util.OutgoingChat", "command", "pc cf seven"));
+            c.waitUntil("'cf seven' at the server", mc -> c.commands().contains("pc cf seven"), 60);
             dev.testkit.harness.WireCapture.stop();
-            long four = 0, five = 0;
-            for (dev.testkit.harness.WireCapture.Sent w : dev.testkit.harness.WireCapture.snapshot()) {
-                if (w.text().equals("cmd:pc cf four")) four = w.nanos();
-                if (w.text().equals("cmd:pc cf five")) five = w.nanos();
-            }
-            long echoed = (five - four) / 1_000_000L;
-            c.note("with the echo 'cf five' left " + echoed + " ms after 'cf four'");
-            c.check(four != 0 && five != 0 && echoed >= 480 && echoed < 1_300,
-                    "'cf five' left " + echoed + " ms after 'cf four' with its echo (want about MIN_GAP_MS 500)");
+            order.clear();
+            at.clear();
+            wire(order, at);
+            c.check(order.equals(List.of("pc cf five", "pc cf six", "pc cf seven")), "(c) want five, six, seven: " + order);
+            long noEcho = (at.get(1) - at.get(0)) / 1_000_000L;
+            long afterEcho = (at.get(2) - echoNs) / 1_000_000L;
+            c.note("(c) 'cf six' " + noEcho + " ms after an unechoed 'cf five'; (d) 'cf seven' " + afterEcho
+                    + " ms after the echo of 'cf six'");
+            c.check(noEcho >= 4_900 && noEcho < 6_500, "'cf six' left " + noEcho + " ms after 'cf five' with no echo (want ~5000)");
+            c.check(afterEcho >= 480 && afterEcho < 1_500, "'cf seven' left " + afterEcho + " ms after the echo (want ~500)");
         } finally {
             dev.testkit.harness.WireCapture.stop();
             dev.testkit.harness.WireCapture.describe = null;
+            c.hx().call("surface.respond.clear", dev.testkit.gametest.hx.Hx.args("root", "stats"));
             run(c, () -> {
                 Object kb = Mod.cfg(KB);
                 binds(kb).clear();
