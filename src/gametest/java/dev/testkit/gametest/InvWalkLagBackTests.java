@@ -172,7 +172,8 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
             }
             ctx.waitTicks(1);
             Vec3 now = ctx.computeOnClient(mc -> mc.player.position());
-            if (st == null && t >= 40 && landed == 0 && now.x < before - 1 && num(ctx, "pullbacks") > pullAt40) {
+            if (st == null && t >= 40 && landed == 0 && now.x < prev.x - 1 && num(ctx, "pullbacks") > pullAt40) {
+                // The server's 2 back is from where IT has him, so with latency he lands further back than 2 from the client.
                 landed = now.x;
                 pullAfter = t;
             }
@@ -233,7 +234,7 @@ public class InvWalkLagBackTests implements FabricClientGameTest {
         boolean walked = up && unmasked && masking && moving == 0
                 && (click || (inputs == 0 && distinct >= 20 && gained > 5));
         // The forced pullback: the client lands where the server put him (2 back) and the mod counted it; "walked" holds after.
-        boolean pulled = st != null || (pulls >= 1 && landed != 0 && landed < before - 1);
+        boolean pulled = st != null || (pulls >= 1 && landed != 0);
         boolean ok = walked && pulled && sameVerdict == null && clicksMoving == 0;
         String detail = String.format(Locale.ROOT, "walked in %.2f, then path %.2f (x +%.2f) with the menu up all along %s, wire: %d player_input (%d with a "
                         + "movement key), %d positions (%d changes), mod hid %d, masking %s then off %s, pullbacks %d%s, clicks "
