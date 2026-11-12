@@ -172,7 +172,8 @@ final class Align12Cases {
                         Object n = dev.testkit.gametest.mod.Mod.field("ap3.Ap3Executor", "activeNode");
                         // 1: the align (or any node of a hand walk-in) is active; a RUN node carrying him in is not the align
                         boolean on = n != null && (runNodeType == null || !String.valueOf(dev.testkit.gametest.mod.Mod.field(n, "type")).equals("RUN"));
-                        return new double[]{mc.player.getX(), mc.player.getZ(), v.x, v.z, on ? 1 : 0};
+                        // 5: the yaw his camera shows (getViewYRot: the frozen view while AP3 turns the body)
+                        return new double[]{mc.player.getX(), mc.player.getZ(), v.x, v.z, on ? 1 : 0, mc.player.getViewYRot(1f)};
                     });
                     tr.add(r);
                     if (held && r[4] == 1) {
@@ -196,6 +197,11 @@ final class Align12Cases {
                         done = i;
                     }
                 }
+                // his crosshair never jumps: from the align's first tick on, the shown yaw moves at most his own mouse
+                double viewJump = 0;
+                for (int i = Math.max(1, armed); i < tr.size() && armed >= 0; i++) {
+                    viewJump = Math.max(viewJump, Math.abs(tr.get(i)[5] - tr.get(i - 1)[5]));
+                }
                 double[] last = tr.get(tr.size() - 1);
                 boolean stays = done >= 0 && Math.abs(last[0] - tx) < 2e-4 && Math.abs(last[1] - tz) < 2e-4;
                 List<String> plan = lines(mark, "tick-exact plan");
@@ -218,10 +224,13 @@ final class Align12Cases {
                     hist[Math.min(n, hist.length - 1)]++;
                 }
                 c.note(String.format(Locale.ROOT, "trial %d: heading %+.1f %s side %+.2f from %.1f: entered at sample %d, on the"
-                                + " point and stopped %s; end off (%+.6f, %+.6f)%s%s", t, head, diag ? "W+A" : "W", side, dist,
-                        entry, n >= 0 ? n + " tick(s) after entering" : "NEVER", last[0] - tx, last[1] - tz,
+                                + " point and stopped %s; end off (%+.6f, %+.6f); view jump %.2f deg%s%s", t, head, diag ? "W+A" : "W", side,
+                        dist, entry, n >= 0 ? n + " tick(s) after entering" : "NEVER", last[0] - tx, last[1] - tz, viewJump,
                         plan.isEmpty() ? "; no tick-exact plan" : "; " + tail(plan.get(plan.size() - 1)),
                         lost.isEmpty() ? "" : "; " + tail(lost.get(0))));
+                if (mode != Mode.DRIVEN && viewJump > 0.5) {
+                    fails.add(String.format(Locale.ROOT, "trial %d: his crosshair jumped %.1f degrees in one tick", t, viewJump));
+                }
                 if (entry < 0) {
                     fails.add("trial " + t + " never entered the block");
                 } else if (!stays) {
