@@ -16,7 +16,13 @@ final class Flaghunt1110MenuCases {
 
     static void register(Session s) {
         for (String mode : new String[]{"fwd", "sprint", "sneak"}) {
-            MenuSuite.test(s, "1110-c-autosell-moving-" + mode, c -> moving(c, mode, () -> SameTickMenu1105Cases.autoSell(c)));
+            MenuSuite.test(s, "1110-c-autosell-moving-" + mode, c -> {
+                if (!MenuKit.cheat()) {
+                    c.note("legit jar: Auto Sell does not exist");
+                    return;
+                }
+                moving(c, mode, () -> SameTickMenu1105Cases.autoSell(c));
+            });
             MenuSuite.test(s, "1110-c-autoterm-moving-" + mode, c -> moving(c, mode, () -> SameTickMenu1105Cases.autoTerm(c, false)));
             MenuSuite.test(s, "1110-c-invsort-moving-" + mode, c -> moving(c, mode, () -> SameTickMenu1105Cases.invSort(c)));
         }
@@ -38,6 +44,9 @@ final class Flaghunt1110MenuCases {
 
     private static void moving(Session c, String mode, Body body) throws Exception {
         var in = c.ctx().getInput();
+        // He was just put back on the platform (often after a fall from the case before): let the server settle his motion first,
+        // or GrimAC tallies one small Simulation (.15) on the first walking ticks under load.
+        c.ctx().waitTicks(10);
         try {
             switch (mode) {
                 case "sneak" -> in.holdKey(o -> o.keyShift);
