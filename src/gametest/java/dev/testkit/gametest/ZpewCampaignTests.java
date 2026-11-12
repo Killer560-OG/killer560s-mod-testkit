@@ -1061,7 +1061,9 @@ public class ZpewCampaignTests implements FabricClientGameTest {
     }
 
     static final Set<String> REACTIVE = Set.of("pong", "keep_alive", "accept_teleportation", "chunk_batch_received",
-            "client_tick_end", "client_information");
+            "client_tick_end", "client_information",
+            // the mod's own /locraw probe lands in whichever run is first (also with ZPEW off): not a ZPEW action
+            "chat_command");
 
     /** The scripted session, the same every run: 7 uses (a plain warp, a jump warp, a no-sneak Transmission, a chain of
      *  two, a sky shot, a refused one). */

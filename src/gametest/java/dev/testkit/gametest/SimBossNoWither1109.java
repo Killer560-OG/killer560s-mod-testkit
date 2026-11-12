@@ -35,6 +35,22 @@ final class SimBossNoWither1109 {
         });
     }
 
+    /** Boss name or speech stands (named armor stands, invisible or not) in the client world. */
+    private static int stands(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            int n = 0;
+            for (var e : mc.level.entitiesForRendering()) {
+                if (e instanceof net.minecraft.world.entity.decoration.ArmorStand a && a.hasCustomName()) {
+                    String nm = a.getCustomName().getString();
+                    if (nm.contains("Maxor") || nm.contains("Goldor") || nm.contains("Storm") || nm.contains("Necron")) {
+                        n++;
+                    }
+                }
+            }
+            return n;
+        });
+    }
+
     private static boolean reloaded(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> {
             try {
@@ -69,6 +85,11 @@ final class SimBossNoWither1109 {
             if (n != 0) {
                 f.add(ph[0] + ": " + n + " wither(s) with Spawn Withers OFF");
             }
+            int st = stands(ctx);
+            System.out.println("[1109-boss-nowither] " + ph[0] + " OFF: name stands " + st);
+            if (st != 0) {
+                f.add(ph[0] + ": " + st + " boss name stand(s) with Spawn Withers OFF");
+            }
             if (pos == null) {
                 f.add(ph[0] + ": the boss itself is missing (it should exist without its wither)");
             }
@@ -88,6 +109,22 @@ final class SimBossNoWither1109 {
             System.out.println("[1109-boss-nowither] " + ph + " ON: withers " + n);
             if (n < 1) {
                 f.add(ph + ": no wither with Spawn Withers ON");
+            }
+            int st = stands(ctx);
+            System.out.println("[1109-boss-nowither] " + ph + " ON: name stands " + st);
+            if (st < 1) {
+                f.add(ph + ": no boss name stand with Spawn Withers ON (control)");
+            }
+            if (ph.equals("P1")) {
+                set(ctx, false);
+                ctx.waitTicks(10);
+                int w2 = withers(ctx);
+                int s2 = stands(ctx);
+                System.out.println("[1109-boss-nowither] P1 switched OFF mid-phase: withers " + w2 + ", stands " + s2);
+                if (w2 != 0 || s2 != 0) {
+                    f.add("P1: switching OFF mid-phase left " + w2 + " wither(s) and " + s2 + " stand(s)");
+                }
+                set(ctx, true);
             }
         }
     }

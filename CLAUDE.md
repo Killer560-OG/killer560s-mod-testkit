@@ -86,6 +86,36 @@ GrimAC pinned to the `2.3.74` release (was the alpha `2.3.74-8eb5f28` until 2026
 from Modrinth once into the Gradle user home (`caches/testkit-grim/`, shared by every checkout and worktree),
 `cloud_version=2.0.0-beta.17`, sqlite-jdbc for Grim's violation store. Java 25.
 
+### Co-op: a fake guest and two real clients (coopsim-1109)
+
+A FAKE GUEST (one client): `dev.testkit.gametest.coop.GuestPlayer.join(ctx, server, level, name, pos)` (or
+`joinBesideHost(ctx, server, hostUuid, name, pos)`) puts a ServerPlayer with a silent connection into the client's
+integrated server through `PlayerList.placeNewPlayer`, so it is counted, seen and targeted like a real player. It acts only
+through the server's packet handlers: `useItem()`, `useOn(pos, face)`, `attack(entity)`, `interact(entity)`,
+`breakBlock(pos, face, finish)`, plus `moveTo`, `look`, `hold`, `run`/`ask` (anything on the server thread), `remove()` and
+`GuestPlayer.removeAll(ctx, server)` for cleanup. `events()` lists what reached Fabric's server callbacks in a phase ahead of
+every mod's (`use <item>`, `useOn x,y,z`, `attack <type>`, `interact <type>`, `dig x,y,z`, `break x,y,z`): assert the action
+arrived before judging what the mod made of it. `GuestPlayer.onServer(ctx, server, supplier)` is the deadlock-free way to ask
+the server anything from a test. Case 1109-coop-fakeguest (sim boss, 4-5 min): PlayerList 2, the host's client sees the
+guest, every action reaches its handler, Maxor and Storm go for the guest when it is closer.
+
+TWO REAL CLIENTS: `bash run-coop.sh [-s SCENARIO] [-j JAR] [-m 26.3|26.2] [-p PORT] [-t MINUTES] [-g GUEST_NAME]`
+(default `1109-coop-two`, port 25870 or the next free one, guest name TkGuest). The guest runs in the sibling worktree
+`<checkout>-coopguest`, moved to this checkout's HEAD each run, so COMMIT first. One clientslot ticket of 2. Both clients run
+the same scenario filter with `-PcoopRole=host|guest -PcoopDir=<build/coop-<epoch>> -PcoopPort=N` (the guest also
+`-Pusername=TkGuest`) and meet through `coop/CoopSync` (`put(key, value)` / `await(ctx, key, seconds)` on files in that folder,
+`fail(why)` stops the other side). The host starts the sim, publishes it with `publishServer(MultiplayerScope.LAN, port)`
+and the guest joins `127.0.0.1:port` through `ConnectScreen`. Logs: `build/coop-*/host.log` and `guest.log`; each side
+writes its own summary.md, the script prints both and exits 0 only when both passed. A new co-op case: a `CoopSimTests`
+method that skips unless `CoopSync.active()`, branches on `CoopSync.role()`, and paces with `CoopSync.pace` (a published host
+only ticks while its test thread does).
+`-w` (sim invites, 1109-mp-invite) also starts a LOCAL `wrangler dev` relay from RELAY_DIR (default C:/Users/Hunter/relay-coopsim,
+never the live worker) on a free port from 8811 with TOKEN_SECRET simreach-e2e-secret-not-real and MOJANG_STUB, writes
+`relay-port.txt` for `CoopSync.get("relay-port")`, and kills only its own tree at the end. The case mints both tokens itself,
+and the host's FakeGateway answers 127.0.0.1 so the relay's join answer carries an endpoint the guest can reach. The
+relay's room list is the real one here (not SimRoomsStub): an idle wrangler Durable Object is evicted after ~10 s, which
+lost every room until relay 967d76f stored them.
+
 ## Sharding (run-sharded.ps1)
 
 `./run-sharded.ps1 -Scenario "smoke,-ui-,93-solve,96-ar" -Shards 3 [-Minecraft 26.3|26.2|both] [-Max 3] [-PlanOnly]`
@@ -676,3 +706,20 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
   normal gate; run them after it on the ship's jar (killer560s-mod-logs/spotreal/run-real.sh). FakeRelay calls
   `RelayClient.handle` directly and so cannot see a socket-ordering bug: 2870 caught the lost hello the fake hid.
 - iwpre-1106 (2026-11-06): 1027-iw-craftctl at 300 ms and 1027-iw-warp's Simulation rows failed on every base because the TESTS were wrong, not Inventory Walk: the crafting-grid script outruns server answers at 300 ms so the server's final menu differs from the immediate client prediction with IW OFF too (items are compared only below 300 ms), and the Hx etherwarp landing (+0.05 above the block) draws Grim Simulation .068 decaying x0.546 (8 lines) on a client with NO mod (`-NoMod`, same strafe) when a key first goes down the tick after it. Flags carry no tick, so `Rows.tolerate` lets a warp row draw Simulation only up to the control rows' count (min one 8-line chain). From PowerShell call bash by full path (`C:\Program Files\Git\bin\bash.exe`): plain `bash` is not on its PATH, so a clientslot.sh call in a .ps1 silently did nothing.
+- Two-client co-op (coopsim-1109): Loom's `fabricApi.configureTests` passes `--username Player0` to EVERY client gametest
+  and its value wins over a `--username` added to the task's `args`, so two clients were both Player0 and the host refused
+  the guest ("That name is already taken", the guest saw only "Failed to connect to the server"). Set the name through
+  `configureTests { username = ... }` (`-Pusername`). The dev integrated server publishes on a fixed LAN port fine, but its
+  online mode is TRUE by default: `setUsesAuthentication(false)` before publishing, or an offline client cannot join.
+  `enforceSecureProfile` is already false there.
+- A fake ServerPlayer (coop/GuestPlayer) is ignored by the packet handlers until two things are cleared: `hasClientLoaded()`
+  (send it `handleAcceptPlayerLoad(new ServerboundPlayerLoadedPacket())`) and, for `handleUseItemOn`,
+  `awaitingPositionFromClient`, which placeNewPlayer's initial teleport and every `teleportTo` set (the accept packet's
+  constructor differs between 26.2 and 26.3). GuestPlayer moves with `snapTo` and nulls that field. A sim break is refused
+  by the mod's own `SimItems` gates, so a guest dig is asserted at `handleBlockBreakAction` (`dig x,y,z`), not by the block
+  going. Maxor spawns a few ticks into P1: wait for him before placing anyone by his position.
+  When the host's server stops first, the guest client is left on a DisconnectedScreen and its gametest class fails
+  "did not finish on the title screen"; CoopSimTests' cleanup sets the title screen when no world is loaded.
+- Co-op final pass (2026-11-10): a static counter read by a case (`SimPartyChat.sentForTest`, `sendsForTest`) carries over from earlier cases in the same JVM; assert `> value at start`, not `> 0` (1109-coopfloor-fake raced on it). 1109-coopfloor-two also asserts /pc both ways and that "Unknown or incomplete" is absent from the guest's log. Pre-existing on origin 2135aecf1 (same on the base jar): 93-solve-tictactoe-grab and 93-solve-{icepath,icefill,waterboard}-chest-autoclose, 1105-boss-dragons (so 1109-boss-lights, which runs it, reads FAIL with that message). Reruns launched while other agents' runs fill the clientslot gate exited 1 at once with "finished with non-zero exit value -1" and no summary; run them one after another with KM_CLIENT_CAP=1, and never start two scripts that use the same checkout. A `python3 - <<'EOF'` heredoc with nothing in it hangs the Bash tool (python3.exe waits on stdin); use Write for scripts.
+
+- Staging gates never use KM_SHIP (coopsim-m1110, 2026-11-10): only the release ship's gate does; a staging gate that exported KM_SHIP=1 and KM_CLIENT_CAP=1 put every ticket at the head and starved other agents' 4-15 min runs for hours. KM_CLIENT_CAP=1 only on a single-client timing case with honest minutes. Call clientslot.sh from each run's OWN subshell, `( clientslot.sh ...; run )`, never from the lane subshell: its pid stays alive, so every finished run kept a record (5 stale ones filled the cap of 6 and the next ticket waited 30+ min). A solo `/pc text` in the sim now shows the local "Party > Name: text" line (one path, SimPartyChat.handle); 1109-boss-lights asserts that, not "You are not in a party right now.". Never `git checkout --detach` the checkout a branch lives in (it left staging-coopsim behind the work).

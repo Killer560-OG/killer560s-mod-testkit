@@ -270,7 +270,8 @@ final class DocDungeonsMenuCases {
                         + " / " + Mod.call(fresh, "getClassTarget", tP1, archer);
             });
             c.note("after load: as Mage / Healer / Archer = " + loaded);
-            c.check(loaded.equals("ClassPick[clazz=null, name=Alice] / ClassPick[clazz=ARCHER, name=null] / null"),
+            // since 8512a1e9d leaps go by class only: the saved name Alice loads as her class (Mage)
+            c.check(loaded.equals("ClassPick[clazz=MAGE, name=null] / ClassPick[clazz=ARCHER, name=null] / null"),
                     "per-class targets after a reload are " + loaded);
         } finally {
             if (was != null) {
@@ -357,7 +358,7 @@ final class DocDungeonsMenuCases {
         // ---- the menu: Class Targets set to Healer shows "As Healer" under the Crystal leap's Target, and a left click
         //      on it steps Archer -> Berserker (classes in DungeonClass order, then party names) ----
         // mod leapmenu-1102: the Set Class Targets page with When You Play on Healer shows "Crystal: Archer ..."
-        String prefix = pages() ? "Crystal: " : "As Healer: ";
+        String prefix = pages() ? "Crystal Target: " : "As Healer: ";
         String shown = c.onClient(mc -> {
             Mod.setField("fastleap.FastLeapSection", "editingClass", healer);
             List<Object> widgets = new ArrayList<>();
@@ -378,7 +379,7 @@ final class DocDungeonsMenuCases {
             return found;
         });
         c.note("Class Targets on Healer shows: " + shown);
-        c.check(pages() ? shown.startsWith("When You Play: Healer | Crystal: Archer") : shown.startsWith("As Healer: Archer"),
+        c.check(pages() ? shown.startsWith("When You Play: Healer | Crystal Target: Archer") : shown.startsWith("As Healer: Archer"),
                 "the Crystal leap's Healer target reads \"" + shown + "\", want \"" + prefix + "Archer ...\"");
         c.ctx().runOnClient(mc -> Mod.staticCall("fastleap.FastLeapSection", "stepClassTarget", tP1, healer, cfgObj, 1));
         String stepped = c.onClient(mc -> String.valueOf(Mod.call(cfgObj, "getClassTarget", tP1, healer)));

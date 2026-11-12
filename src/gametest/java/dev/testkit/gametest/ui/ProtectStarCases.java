@@ -36,7 +36,8 @@ import java.util.Map;
 final class ProtectStarCases {
 
     static final String SHOW_STAR = "1103-ui-protect-show-star";
-    static final String[] CASES = {SHOW_STAR};
+    static final String TRADE = "1110-ui-protect-starred-trade";
+    static final String[] CASES = {SHOW_STAR, TRADE};
 
     private static final String IPC = "itemprotect.ItemProtectConfig";
     private static final int MAGENTA = 0xFF00FF;
@@ -304,6 +305,60 @@ final class ProtectStarCases {
                 return null;
             });
             HudEditorCases.restoreWindow(c, window, oldGui);
+            InvBatchCases.restoreConfig(c, IPC, cfgPath, old);
+            InvBatchCases.inventory(c, Map.of());
+        }
+    }
+
+    /** Protect Starred ON: a starred item that is not on the list goes into a trade window, a listed starred one does
+     *  not, and a Salvage menu still blocks the unlisted starred item. */
+    static void starredTrade(UiCase c) throws Exception {
+        Path cfgPath = InvBatchCases.configPath(c, IPC);
+        byte[] old = InvBatchCases.read(cfgPath);
+        try {
+            InvBatchCases.survival(c);
+            Map<Integer, ItemStack> items = new LinkedHashMap<>();
+            items.put(0, InvBatchCases.sb(Items.DIAMOND_SWORD, "HYPERION", "st-free", 5));
+            items.put(1, InvBatchCases.sb(Items.GOLDEN_SWORD, "LIVID_DAGGER", "st-locked", 5));
+            InvBatchCases.inventory(c, items);
+            c.onClient(mc -> {
+                Object cfg = Mod.cfg(IPC);
+                Mod.call(cfg, "setEnabled", true);
+                Mod.call(cfg, "setProtectItemEnabled", true);
+                Mod.call(cfg, "setProtectStarredEnabled", true);
+                Mod.call(cfg, "setUseItemIdFallback", false);
+                Mod.call(cfg, "setLockInPlace", false);
+                Mod.call(cfg, "setBlockSound", false);
+                Mod.call(cfg, "addProtectedKey", "st-locked");
+                return null;
+            });
+            boolean[] pre = c.onClient(mc -> new boolean[] {
+                    (Boolean) Mod.staticCall("itemprotect.ItemProtect", "isProtectedItem", mc.player.getInventory().getItem(0)),
+                    (Boolean) Mod.staticCall("itemprotect.ItemProtect", "isExplicitlyProtected", mc.player.getInventory().getItem(0)),
+                    (Boolean) Mod.staticCall("itemprotect.ItemProtect", "isExplicitlyProtected", mc.player.getInventory().getItem(1))});
+            c.check(pre[0] && !pre[1] && pre[2], "setup: free starred protected/explicit " + pre[0] + "/" + pre[1] + ", locked explicit " + pre[2]);
+            String trade = "You            Partner";
+            boolean[] out = c.onClient(mc -> {
+                boolean[] r = new boolean[6];
+                String[] titles = {trade, "Salvage Items"};
+                for (int t = 0; t < 2; t++) {
+                    ChestMenu menu = ChestMenu.sixRows(0, mc.player.getInventory(), new net.minecraft.world.SimpleContainer(54));
+                    ContainerScreen s = new ContainerScreen(menu, mc.player.getInventory(), Component.literal(titles[t]));
+                    for (Slot slot : menu.slots) {
+                        if (slot.container == mc.player.getInventory() && slot.getContainerSlot() <= 1) {
+                            r[t * 3 + slot.getContainerSlot()] = (Boolean) Mod.staticCall("itemprotect.ItemProtect",
+                                    "shouldBlockSlotClick", s, slot, slot.index, 0, ContainerInput.QUICK_MOVE);
+                        }
+                    }
+                }
+                return r;
+            });
+            c.note("trade: free starred blocked " + out[0] + ", locked blocked " + out[1] + "; salvage: free starred blocked " + out[3]);
+            c.check(!out[0], "trade: an unlisted starred item was blocked");
+            c.check(out[1], "trade: the listed (locked) starred item was NOT blocked - the guard never acted");
+            c.check(out[3], "Salvage: the unlisted starred item was not blocked");
+            c.check(c.problemCount() == 0, c.problemCount() + " problem(s), see above");
+        } finally {
             InvBatchCases.restoreConfig(c, IPC, cfgPath, old);
             InvBatchCases.inventory(c, Map.of());
         }

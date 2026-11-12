@@ -35,6 +35,7 @@ final class Friends1104Cases {
     static void register(Session s) {
         MenuSuite.test(s, "1104-menu-friends-area-filter", Friends1104Cases::areaFilter);
         MenuSuite.test(s, "1104-menu-friends-pv", Friends1104Cases::pv);
+        MenuSuite.test(s, "1110-menu-friends-party-top", Friends1104Cases::partyTop);
         MenuSuite.test(s, "1108-menu-friends-scan-rows", Friends1104Cases::scanRows);
     }
 
@@ -218,5 +219,34 @@ final class Friends1104Cases {
 
     private static void feed(Session c, String line) {
         c.ctx().runOnClient(mc -> Mod.staticCall("social.FriendsListSync", "onGameLine", net.minecraft.network.chat.Component.literal(line)));
+    }
+
+    /** friendparty-1110: friends in the party sit first under an "In Party" header and a "Friends" divider; a party
+     *  member who is not a friend is not listed; the setting OFF and an empty party both restore the plain order. */
+    static void partyTop(Session c) throws Exception {
+        try (SocialCases.Env env = new SocialCases.Env(c)) {
+            seed(c);
+            c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(CFG), "setPartyFriendsOnTop", true));
+            SocialCases.open(c, FL_SCREEN);
+            List<String> plain = List.of("HxPalA", "HxPalB", "HxPalC", "HxPalD", "HxPalE", "HxPalF");
+            c.check(shownNames(c).equals(plain), "no party: the list should be the plain order, got " + shownNames(c));
+            SocialCases.join(c, java.util.UUID.nameUUIDFromBytes("HxPalC".getBytes()), "HxPalC");
+            SocialCases.join(c, java.util.UUID.nameUUIDFromBytes("HxPalE".getBytes()), "HxPalE");
+            SocialCases.join(c, java.util.UUID.nameUUIDFromBytes("HxStranger".getBytes()), "HxStranger");
+            c.waitUntil("friends regrouped after the party joins", mc -> shownNames(c).contains("In Party"), 80);
+            List<String> want = List.of("In Party", "HxPalC", "HxPalE", "Friends", "HxPalA", "HxPalB", "HxPalD", "HxPalF");
+            c.check(shownNames(c).equals(want), "party friends first under the header (and no stranger), got " + shownNames(c));
+            List<String> drawn = c.onClient(mc -> SocialCases.texts(mc, SocialCases.current(c)).stream().map(SocialCases.Txt::s).toList());
+            c.check(drawn.contains("In Party") && drawn.contains("Friends"), "both headers should be drawn, texts " + drawn);
+            SocialCases.shot(c, "fl-party-top");
+            c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(CFG), "setPartyFriendsOnTop", false));
+            SocialCases.closeScreen(c);
+            SocialCases.open(c, FL_SCREEN);
+            c.check(shownNames(c).equals(plain), "setting OFF should restore the plain order, got " + shownNames(c));
+            c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(CFG), "setPartyFriendsOnTop", true));
+            SocialCases.leaveParty(c);
+            c.waitUntil("friends ungrouped after the party left", mc -> !shownNames(c).contains("In Party"), 80);
+            c.check(shownNames(c).equals(plain), "party left: plain order again, got " + shownNames(c));
+        }
     }
 }

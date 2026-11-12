@@ -13,6 +13,12 @@
     "gui.tab.LeverAuraTab": "aura-themes-1015: Lever Aura became the In Boss part of the Secret Aura tab (cheat jar only)"
   },
   "newCheatLeaves": {
+    "gui.tab.AutoCatchAFishTab": "Carnival > Auto Catch a Fish",
+    "gui.tab.AutoFruitDiggingTab": "Carnival > Auto Fruit Digging",
+    "gui.tab.AutoShovelSwapTab": "Carnival > Auto Shovel Swap",
+    "gui.tab.AutoZombieShootoutTab": "Carnival > Auto Zombie Shootout",
+    "gui.tab.FruitDiggingTriggerbotTab": "Carnival > Fruit Digging Triggerbot",
+    "gui.tab.ZombieTriggerbotTab": "Carnival > Zombie Shootout Triggerbot",
     "gui.tab.MiningPigeonDrillTab": "Mining > Swap To Drill On Pigeon",
     "gui.tab.PowderChestTriggerbotTab": "Mining > Powder Chest Triggerbot",
     "gui.tab.LeftClickSecretsTab": "Dungeons > Secrets > Left Click Opens Secrets",
@@ -21,9 +27,14 @@
     "gui.tab.NoRotateTab": "Dungeons > No Rotate"
   },
   "newLeaves": {
+    "gui.tab.CarnivalTrackerTab": "Carnival > Carnival Tracker",
+    "gui.tab.FruitDiggingTab": "Carnival > Fruit Digging Solver",
+    "gui.tab.ZombieShootoutTab": "Carnival > Zombie Shootout Helper",
+    "gui.tab.CatchAFishTab": "Carnival > Catch a Fish Helper",
     "gui.tab.RoomNameTab": "Dungeons > Current Room Name",
     "gui.tab.ItemQualityTab": "Dungeons > Item Quality",
     "gui.tab.IcedMobsTab": "Dungeons > Iced Mob Boxes",
+    "gui.tab.BossPearlTab": "Dungeons > Block Ender Pearls In Boss",
     "gui.tab.AutoCloseChestTab": "Dungeons > Auto Close Chest",
     "gui.tab.ChatHiderTab": "Chat > Chat Hider",
     "gui.tab.CommandPrefixesTab": "Chat > Command Prefixes",
@@ -1006,6 +1017,18 @@
       "key": "wither dragons",
       "text": "Tracks the five M7 Phase 5 dragons with spawn timers, health and which one to take (the first to spawn).",
       "why": "dragons1108 (killer560 2026-11-08): priority is the first dragon to spawn, as Odin and NoammAddons do now"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "auto close chest",
+      "text": "Closes a dungeon secret chest: with Close On Any Key, the first key or mouse press you make closes it (read the loot first); the cheat build can also close it before it opens.",
+      "why": "autoclose-1109: the card text follows the rewritten tooltip (found by nobosspearl-1110, failed on origin too)"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "wither dragons",
+      "text": "Tracks the five M7 Phase 5 dragons with spawn timers, health and which one to take (the first to spawn).",
+      "why": "dragons1108: the card text follows the first-to-spawn rule (found by nobosspearl-1110, failed on origin too)"
     }
   ]
 }

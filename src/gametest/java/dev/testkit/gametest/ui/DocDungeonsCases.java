@@ -240,7 +240,7 @@ final class DocDungeonsCases {
             List<AbstractWidget> ws = buildLeapList(c);
             List<String> labels = labels(ws);
             c.note("leap list (" + ws.size() + " widgets): " + labels);
-            long modes = labels.stream().filter(l -> l.startsWith("Mode: ")).count();
+            long modes = labels.stream().filter(l -> l.matches(".+ Mode: .*")).count();
             long fasts = labels.stream().filter(l -> l.startsWith("Fast: ")).count();
             long autos = labels.stream().filter(l -> l.startsWith("Auto: ")).count();
             if (oneSwitch()) {
@@ -252,7 +252,7 @@ final class DocDungeonsCases {
                 autos = 12;
             }
             long targets = labels.stream().filter(l -> pages() ? l.matches(LEAP_TARGET) : l.startsWith("Target: ")).count();
-            long sections = labels.stream().filter(l -> l.matches("S[1-4]: .*")).count();
+            long sections = labels.stream().filter(l -> l.matches("P3 S[1-4] Target: .*")).count();
             c.check(labels.stream().noneMatch(l -> l.equals("Edit") || l.startsWith("Edit")), "an Edit button is still there");
             c.check(labels.stream().noneMatch(l -> l.toLowerCase(Locale.ROOT).contains("test")), "a Test leap row is still there");
             c.check(labels.stream().anyMatch(l -> l.equals("Crystal Leap") || l.startsWith("Crystal Leap: ")),
@@ -440,10 +440,10 @@ final class DocDungeonsCases {
 
     /** Crystal's target row's label up to its value. */
     private static String tp() {
-        return pages() ? "Crystal: " : "Target: ";
+        return pages() ? "Crystal Target: " : "Target: ";
     }
 
-    private static final String LEAP_TARGET = "(Crystal|Predev|Green Pad|Yellow Pad|Purple Pad|PY Healer|Storm Death|Middle|P4|Relic): .*";
+    private static final String LEAP_TARGET = "(Crystal|Predev|Green Pad|Yellow Pad|Purple Pad|PY Healer|Storm Death|Middle|P4|Relic) Target: .*";
 
     static List<String> labels(List<AbstractWidget> ws) {
         List<String> out = new ArrayList<>();

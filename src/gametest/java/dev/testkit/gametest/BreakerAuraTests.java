@@ -99,8 +99,12 @@ public class BreakerAuraTests implements FabricClientGameTest {
             multiBreakRun(ctx, "1102-breaker-aura-multibreak-on" + r, true, -60);
             multiBreakRun(ctx, "1102-breaker-aura-multibreak-off" + r, false, -90);
             // Burst Multi Break (owner exception 2026-11-02): all six on ONE tick; MultiBreak* accepted, nothing else.
-            burstRun(ctx, "1102-breaker-aura-burst" + r, -120);
+            burstRun(ctx, "1102-breaker-aura-burst" + r, -120, false);
+            // breaker3-1110: Burst is the pre-d2da5856 burst exactly - picks round him, none on his look, all in ONE
+            // server tick on the first tick, his look never turned.
+            burstRun(ctx, "1110-breaker-aura-burst-offlook" + r, -135, true);
         }
+        multiBreakMigrate(ctx);
         // SAME-TICK GRIM CASES (grimgapB-1105): his own held dig / click dig / attack / use / hotbar swap while the aura
         // digs its six picks one a tick.
         int sz = -150;
@@ -174,6 +178,10 @@ public class BreakerAuraTests implements FabricClientGameTest {
                 } else {
                     blinkBreakerHypixel(ctx, "1027-blink-breaker-stand", false, true);
                 }
+                // A one-wide trench right before the wall (blinkbreaker-1110, his boss sim AP3 #38: the paused shot's live
+                // ticks walked him off the ledge into the lava). Walk is the no-Blink control: he must land the same.
+                blinkBreakerHypixel(ctx, "1110-blink-breaker-gap-" + (v == 0 ? "walk" : v == 1 ? "leap" : "stand"), v == 1,
+                        v != 0, true);
             } catch (AssertionError e) {
                 firstBreaker = firstBreaker == null ? e : firstBreaker;
             }
@@ -653,11 +661,15 @@ public class BreakerAuraTests implements FabricClientGameTest {
      * say nothing.
      */
     private void blinkBreakerHypixel(ClientGameTestContext ctx, String name, boolean leap, boolean blink) {
+        blinkBreakerHypixel(ctx, name, leap, blink, false);
+    }
+
+    private void blinkBreakerHypixel(ClientGameTestContext ctx, String name, boolean leap, boolean blink, boolean gap) {
         if (Scenario.skip(name)) {
             return;
         }
         ModUnderTest.require(MOD_ID);
-        int cx = !blink ? -6520 : leap ? -6400 : -6460;
+        int cx = (!blink ? -6520 : leap ? -6400 : -6460) + (gap ? 320 : 0);
         int cz = -1300;
         int fy = SURFACE_Y - 1;
         java.util.List<BlockPos> wall = new java.util.ArrayList<>();
@@ -670,6 +682,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
         }
         String fill = (cx + 6) + " " + SURFACE_Y + " " + (cz - 1) + " " + (cx + 8) + " " + (SURFACE_Y + 1) + " " + (cz + 1);
         String air = (cx + 6) + " " + (SURFACE_Y + 40) + " " + (cz - 1);
+        String path = (cx + 6) + " " + SURFACE_Y + " " + cz + " " + (cx + 8) + " " + (SURFACE_Y + 1) + " " + cz;
         Scenario.run(ctx, name,
                 (server, scenario) -> TestMap.on(server)
                         .platform(cx + 4, fy, cz, 26)
@@ -678,6 +691,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         .clearInventory()
                         .command("item replace entity @p hotbar.0 with minecraft:diamond_pickaxe[minecraft:custom_data={id:\"DUNGEONBREAKER\"}] 1")
                         .command("fill " + fill + " minecraft:stone_bricks")
+                        .command(gap ? "fill " + (cx + 5) + " " + (fy - 8) + " " + (cz - 3) + " " + (cx + 5) + " " + fy + " "
+                                + (cz + 3) + " minecraft:air" : "say no trench")
                         .spawn(cx + 0.5, cz + 0.5, -90f)
                         .build(),
                 (server, scenario) -> {
@@ -733,6 +748,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             }
                             boolean wallBefore = !isAir(ctx, wall.get(0)) && !isAir(ctx, wall.get(wall.size() - 1));
                             long shots0 = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "shots")).longValue());
+                            long pauses0 = gapCount(ctx, "shotPauses");
+                            long held0 = gapCount(ctx, "pauseHeldTicks");
                             ctx.getInput().holdKey(o -> o.keySprint);
                             ctx.getInput().holdKey(o -> o.keyUp);
                             if (blink) {
@@ -741,11 +758,18 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             ctx.waitTicks(2);
                             ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
                             ctx.waitTicks(40);
+                            // A paused shot waits ~1 s for the server per wall and holds him still meanwhile: let it finish (at
+                            // most 4 s more), then he walks on 20 live ticks, as the 40 ticks above did before the pause froze him.
+                            for (int i = 0; blink && i < 80 && ctx.computeOnClient(mc -> (Boolean) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "shotPending")); i++) {
+                                ctx.waitTicks(1);
+                            }
+                            ctx.waitTicks(blink ? 20 : 0);
                             ctx.getInput().releaseKey(o -> o.keyUp);
                             ctx.getInput().releaseKey(o -> o.keySprint);
                             ctx.waitTicks(20);
                             long shots = ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "shots")).longValue()) - shots0;
-                            server.command("execute if blocks " + fill + " " + air + " all run say WALL_GONE");
+                            // Judge his own lane (z = cz): Breaker Aura may leave the side columns, which he never touches (the no-Blink walk does too).
+                            server.command("execute if blocks " + path + " " + air + " all run say WALL_GONE");
                             ctx.waitTicks(5);
                             boolean wallGone = server.tail(40).contains("WALL_GONE");
                             double clientX = ctx.computeOnClient(mc -> mc.player.getX());
@@ -755,6 +779,17 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             if (bank < 20 || !wallBefore) {
                                 throw new AssertionError("nothing was tested on rep " + r + ": bank " + bank + ", wall before "
                                         + wallBefore);
+                            }
+                            if (gap) {
+                                double clientY = ctx.computeOnClient(mc -> mc.player.getY());
+                                long pauses = gapCount(ctx, "shotPauses") - pauses0;
+                                long held = gapCount(ctx, "pauseHeldTicks") - held0;
+                                scenario.log(String.format(Locale.ROOT, "rep %d gap: client y %.2f (floor %d), shot pauses %d, "
+                                        + "paused ticks held %d", r, clientY, SURFACE_Y, pauses, held));
+                                if (clientY < SURFACE_Y - 0.1) {
+                                    throw new AssertionError("rep " + r + ": he fell into the trench before the wall (y " + clientY
+                                            + ", x " + clientX + ")");
+                                }
                             }
                             if (!wallGone || clientX < cx + 9.5) {
                                 throw new AssertionError("rep " + r + ": he did not get through the wall (gone " + wallGone
@@ -780,6 +815,17 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         unconfigure(ctx);
                     }
                 });
+    }
+
+    /** A BlinkCharge counter, or -1 on a jar without it (the before-the-fix run). */
+    private static long gapCount(ClientGameTestContext ctx, String method) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                return ((Number) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", method)).longValue();
+            } catch (RuntimeException | AssertionError e) {
+                return -1L;
+            }
+        });
     }
 
     /** Turn the module on exactly the way his own menu does, and nothing else. */
@@ -1478,7 +1524,9 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         scenario.log(name + ": " + st.report() + "; all picks gone " + gone + ", MultiBreak replay "
                                 + (replay.isEmpty() ? "clean" : replay) + ", digs "
                                 + dev.testkit.harness.MultiBreakWatch.digs().size());
-                        if (!gone) {
+                        // Burst flags newest Grim by design (owner exception): experimental MultiBreak cancels the extra digs of
+                        // a burst that shares its tick with his action, so the picks stay; the dig reaching the wire is checked below.
+                        if (!gone && !(burst && dev.testkit.gametest.boss.AaFastCases.experimentalChecks())) {
                             throw new AssertionError("not every pick broke - the aura did not act");
                         }
                         if (st.done() == 0 || st.playerWindows() == 0 || st.featureWindows() == 0) {
@@ -1493,7 +1541,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                 }
                             }
                             int most = perWindow.values().stream().mapToInt(java.util.Set::size).max().orElse(0);
-                            List<String> other = scenario.flags().stream().filter(f -> !f.contains("MultiBreak")).toList();
+                            List<String> other = scenario.flags().stream().filter(f -> !f.contains("MultiBreak") && !(dev.testkit.gametest.boss.AaFastCases.experimentalChecks() && f.contains("RotationBreak"))).toList();
                             scenario.log(name + ": burst most picks in one server tick " + most + " of " + picks.size()
                                     + ", per tick " + perWindow.values().stream().map(java.util.Set::size).toList()
                                     + ", other Grim lines " + other.size() + (other.isEmpty() ? "" : ": " + other));
@@ -1945,9 +1993,11 @@ public class BreakerAuraTests implements FabricClientGameTest {
      * "flags newest Grim"): the same six picks on his look ray as 1102-breaker-aura-multibreak, Multi Break and Burst Multi
      * Break ON. All six must be dug in ONE server tick (MultiBreakWatch) and all gone. GrimAC lines are accepted only from
      * MultiBreak* (the check the setting's label names) - at least one, proving the anticheat saw the burst - and none from
-     * any other check.
+     * any other check. {@code offLook} (breaker3-1110, owner 2026-11-10: "that burst should be the old one that was
+     * perfect"): six picks round him, behind and beside, none on his look - the old burst digs them all on the first tick
+     * without turning him; experimental GrimAC's RotationBreak (an unaimed dig) is accepted there too, nothing else.
      */
-    private void burstRun(ClientGameTestContext ctx, String name, int cz) {
+    private void burstRun(ClientGameTestContext ctx, String name, int cz, boolean offLook) {
         if (Scenario.skip(name)) {
             return;
         }
@@ -1975,7 +2025,9 @@ public class BreakerAuraTests implements FabricClientGameTest {
                 line.add(b);
             }
         }
-        List<BlockPos> picks = List.copyOf(line);
+        List<BlockPos> picks = offLook ? List.of(new BlockPos(cx - 2, SURFACE_Y, cz), new BlockPos(cx - 2, SURFACE_Y + 1, cz + 1),
+                new BlockPos(cx - 1, SURFACE_Y + 1, cz - 2), new BlockPos(cx + 1, SURFACE_Y, cz - 2),
+                new BlockPos(cx, SURFACE_Y + 2, cz - 2), new BlockPos(cx - 1, SURFACE_Y, cz + 2)) : List.copyOf(line);
         Scenario.runExpectingFlags(ctx, name,
                 (server, scenario) -> {
                     TestMap m = TestMap.on(server)
@@ -2005,15 +2057,23 @@ public class BreakerAuraTests implements FabricClientGameTest {
                     ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.start());
                     // Picks go in once the aura runs (configure's own wait would otherwise break them unwatched).
                     configure(ctx, scenario, true, List.of());
+                    float[] look0 = ctx.computeOnClient(mc -> new float[]{mc.player.getYRot(), mc.player.getXRot()});
                     ctx.runOnClient(mc -> {
                         ModUnderTest.set(ModUnderTest.config(CONFIG), "setBreakerAuraBurstMultiBreak", true);
                         setPicks(picks);
                     });
                     try {
+                        if (ctx.computeOnClient(mc -> ModUnderTest.getBoolean(ModUnderTest.config(CONFIG),
+                                "isBreakerAuraMultiBreak"))) {
+                            throw new AssertionError("Burst on left Legit Multi Break on: the two must be one or the other");
+                        }
                         boolean gone = false;
-                        for (int i = 0; i < 60 && !gone; i++) {
+                        float turned = 0f;
+                        for (int i = 0; i < 200 && !gone; i++) {
                             stampBreaker(ctx);
                             ctx.waitTicks(1);
+                            float[] l = ctx.computeOnClient(mc -> new float[]{mc.player.getYRot(), mc.player.getXRot()});
+                            turned = Math.max(turned, Math.max(Math.abs(l[0] - look0[0]), Math.abs(l[1] - look0[1])));
                             gone = picks.stream().allMatch(b -> isAir(ctx, b));
                         }
                         ctx.waitTicks(10);
@@ -2027,20 +2087,25 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         }
                         int most = perWindow.values().stream().mapToInt(java.util.Set::size).max().orElse(0);
                         List<String> flags = scenario.flags();
-                        List<String> other = flags.stream().filter(f -> !f.contains("MultiBreak")).toList();
+                        boolean exp = dev.testkit.gametest.boss.AaFastCases.experimentalChecks();
+                        List<String> other = flags.stream().filter(f -> !f.contains("MultiBreak")
+                                && !(offLook && exp && f.contains("RotationBreak"))).toList();
                         long multi = flags.stream().filter(f -> f.contains("MultiBreak")).count();
                         scenario.log(String.format(Locale.ROOT, "%s: Burst Multi Break ON: %d dig(s), most blocks in one"
                                         + " server tick %d of %d picks, all gone %s; GrimAC MultiBreak lines %d (accepted),"
-                                        + " other lines %d%s", name, digs.size(), most, picks.size(), gone, multi,
-                                other.size(), other.isEmpty() ? "" : ": " + other));
+                                        + " other lines %d%s; body turned at most %.1f deg", name, digs.size(), most, picks.size(), gone,
+                                multi, other.size(), other.isEmpty() ? "" : ": " + other, turned));
                         System.out.println("[multibreak] " + name + " blocks=" + picks.size() + " mostInOneTick=" + most
                                 + " multiBreakLines=" + multi + " otherLines=" + other.size());
-                        if (!gone) {
+                        if (!gone && !(offLook && exp)) { // the unaimed burst: experimental Grim may cancel digs (flags by design)
                             throw new AssertionError("not every pick broke");
                         }
                         if (most != picks.size()) {
                             throw new AssertionError("the burst put " + most + " of " + picks.size()
                                     + " blocks in one server tick, want all");
+                        }
+                        if (offLook && turned > 0.01f) {
+                            throw new AssertionError("the burst turned his body " + turned + " deg; the old burst never aims");
                         }
                         if (!other.isEmpty()) {
                             throw new AssertionError("GrimAC flagged something other than MultiBreak: " + other);
@@ -2052,6 +2117,87 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(CONFIG),
                                 "setBreakerAuraBurstMultiBreak", false));
                         unconfigure(ctx);
+                    }
+                });
+    }
+
+    /**
+     * 1110-breaker-multibreak-migrate (breaker3-1110): Legit Multi Break and Burst are one or the other. A saved file from
+     * before with both on loads as Burst only, Multi Break alone as Legit, and each setter turns the other off; both keys
+     * save and load. His real file is put back afterwards.
+     */
+    private void multiBreakMigrate(ClientGameTestContext ctx) {
+        String name = "1110-breaker-multibreak-migrate";
+        if (Scenario.skip(name)) {
+            return;
+        }
+        if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+            Scenario.skipped(name, "legit jar (Burst Multi Break is cheat-only)");
+            return;
+        }
+        ModUnderTest.require(MOD_ID);
+        Scenario.run(ctx, name,
+                (server, scenario) -> TestMap.on(server).platform(-60, SURFACE_Y - 1, -170, 3).survival()
+                        .spawn(-59.5, -169.5, 0f).build(),
+                (server, scenario) -> {
+                    String r = ctx.computeOnClient(mc -> {
+                        try {
+                            Class<?> type = Class.forName(CONFIG);
+                            java.lang.reflect.Field f = type.getDeclaredField("CONFIG_PATH");
+                            f.setAccessible(true);
+                            java.nio.file.Path path = (java.nio.file.Path) f.get(null);
+                            byte[] keep = java.nio.file.Files.exists(path) ? java.nio.file.Files.readAllBytes(path) : null;
+                            StringBuilder out = new StringBuilder();
+                            try {
+                                String[][] rows = {
+                                        {"{\"breakerAuraMultiBreak\":true,\"breakerAuraMultiBreakDefaulted\":true,\"breakerAuraBurstMultiBreak\":true}", "false", "true"},
+                                        {"{\"breakerAuraMultiBreak\":true,\"breakerAuraMultiBreakDefaulted\":true,\"breakerAuraBurstMultiBreak\":false}", "true", "false"},
+                                        {"{\"breakerAuraMultiBreak\":false,\"breakerAuraMultiBreakDefaulted\":true,\"breakerAuraBurstMultiBreak\":true}", "false", "true"}};
+                                java.nio.file.Files.createDirectories(path.getParent());
+                                for (String[] row : rows) {
+                                    java.nio.file.Files.writeString(path, row[0]);
+                                    type.getMethod("load").invoke(null);
+                                    Object cfg = ModUnderTest.config(CONFIG);
+                                    String got = ModUnderTest.getBoolean(cfg, "isBreakerAuraMultiBreak") + ","
+                                            + ModUnderTest.getBoolean(cfg, "isBreakerAuraBurstMultiBreakRaw");
+                                    if (!got.equals(row[1] + "," + row[2])) {
+                                        out.append("file ").append(row[0]).append(" loaded legit,burst=").append(got)
+                                                .append(" want ").append(row[1]).append(",").append(row[2]).append("; ");
+                                    }
+                                }
+                                Object cfg = ModUnderTest.config(CONFIG);
+                                ModUnderTest.set(cfg, "setBreakerAuraMultiBreak", true);
+                                if (ModUnderTest.getBoolean(cfg, "isBreakerAuraBurstMultiBreakRaw")) {
+                                    out.append("Legit on left Burst on; ");
+                                }
+                                ModUnderTest.set(cfg, "setBreakerAuraBurstMultiBreak", true);
+                                if (ModUnderTest.getBoolean(cfg, "isBreakerAuraMultiBreak")) {
+                                    out.append("Burst on left Legit on; ");
+                                }
+                                cfg.getClass().getMethod("save").invoke(cfg);
+                                type.getMethod("load").invoke(null);
+                                cfg = ModUnderTest.config(CONFIG);
+                                if (ModUnderTest.getBoolean(cfg, "isBreakerAuraMultiBreak")
+                                        || !ModUnderTest.getBoolean(cfg, "isBreakerAuraBurstMultiBreakRaw")) {
+                                    out.append("Burst did not survive save + load; ");
+                                }
+                            } finally {
+                                if (keep != null) {
+                                    java.nio.file.Files.write(path, keep);
+                                } else {
+                                    java.nio.file.Files.deleteIfExists(path);
+                                }
+                                type.getMethod("load").invoke(null);
+                            }
+                            return out.toString();
+                        } catch (ReflectiveOperationException | java.io.IOException e) {
+                            return "reflection/IO failed: " + e;
+                        }
+                    });
+                    scenario.log(name + ": " + (r.isEmpty() ? "3 saved files load as wanted, setters exclusive, Burst saves"
+                            : r));
+                    if (!r.isEmpty()) {
+                        throw new AssertionError(r);
                     }
                 });
     }

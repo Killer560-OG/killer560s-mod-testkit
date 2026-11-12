@@ -84,6 +84,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
     private static final String FLOOR_GEN = "com.killer560.hub.roomsim.SimFloorGen";
     private static final String PREFS = "com.killer560.hub.roomsim.SimMenuPrefs";
     private static final String DB = "com.killer560.hub.roomdatabase.RoomDatabase";
+    static final String LOOKS = "com.killer560.hub.roomsim.SimMobLooks";
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -177,6 +178,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
                     ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{true});
                     try {
                         setStatic(BR, "learnInSimForTest", false);
+                        setStatic(LOOKS, "recordInSimForTest", false);
                     } catch (Throwable ignored) {
                         // an older jar has no such hook
                     }
@@ -215,7 +217,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
     }
 
     /** What the Sim Settings tab's Spawn Starred Mobs switch does: the saved Mobs choice, and the next floor follows it. */
-    private static void setSpawnStarred(boolean on) {
+    static void setSpawnStarred(boolean on) {
         Object prefs = ModUnderTest.staticCall(PREFS, "load");
         try {
             prefs.getClass().getField("mobs").setBoolean(prefs, on);
@@ -881,7 +883,12 @@ public class SimBloodRushTests implements FabricClientGameTest {
 
     /** Client thread: for each mob room with a clay corner and rotation, up to three room-relative spots from its item and
      *  chest secrets; the expected world blocks are RoomDatabase.toRealCoord's, plus the sim's height shift. */
-    private static void seed(Map<String, List<BlockPos>> expected, Map<String, Integer> rotation) {
+    static void seed(Map<String, List<BlockPos>> expected, Map<String, Integer> rotation) {
+        seed(expected, rotation, null);
+    }
+
+    /** {@code relOut} (or null): each seeded room's room-relative spots. */
+    static void seed(Map<String, List<BlockPos>> expected, Map<String, Integer> rotation, Map<String, List<int[]>> relOut) {
         Object layout = ModUnderTest.staticCall(LAYOUT, "current");
         int n = (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[0], new Object[0]);
         int shift = (Integer) ModUnderTest.staticCall(LAYOUT, "simYOffset");
@@ -925,6 +932,9 @@ public class SimBloodRushTests implements FabricClientGameTest {
                 ModUnderTest.staticCall(BR_SPOTS, "putForTest", new Class<?>[]{String.class, List.class},
                         new Object[]{name, rel});
                 expected.put(name, world);
+                if (relOut != null) {
+                    relOut.put(name, rel);
+                }
                 rotation.put(name, cr[2]);
             } catch (ReflectiveOperationException e) {
                 throw new AssertionError("room entry fields", e);
@@ -933,7 +943,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
     }
 
     /** A new F7 sim floor, generated: the floor follows the Spawn Starred Mobs choice already set. */
-    private static void startFloor(ClientGameTestContext ctx) {
+    static void startFloor(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class}, new Object[]{"gametest"}));
         long before = Scenario.simBuildCount(ctx);
         ctx.runOnClient(mc -> mc.execute(() -> {
@@ -1154,7 +1164,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
     private static final String BR_KNOWN_WHY = "bloodrush2-1104 (killer560 2026-11-03: \"the blood rush helper boxes arent really "
             + "loading in properly or at all and it is really hard to see them\")";
 
-    private static void setStatic(String cls, String field, boolean v) {
+    static void setStatic(String cls, String field, boolean v) {
         try {
             Class.forName(cls).getField(field).setBoolean(null, v);
         } catch (ReflectiveOperationException e) {
@@ -1672,9 +1682,12 @@ public class SimBloodRushTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> brSet("setEnabled", false));
         // Settled is not enough: a section whose rebuild has not started yet gives two equal shots without the wall
         // (2026-11-04, 26.3 legit under load: 122201 px "through the wall" was the wall itself, drawn only in the next
-        // shot). Wait until the shot differs plainly from the wall-less scene, then until it is still.
+        // shot). Wait until the shot differs plainly from the wall-less scene, then until it is still. A half-built wall
+        // passed a 1000 px bar (2026-11-11, 26.3 legit under load: 1133 px drawn, the whole box "through" it), so the
+        // wall must change at least half as many pixels as the box itself covers.
+        int wallBar = Math.max(1000, boxPx / 2);
         wallOff = settledShot(ctx, "wall-off", r);
-        for (int i = 0; i < 20 && diff(wallOff, preWall, r) < 1000; i++) {
+        for (int i = 0; i < 40 && diff(wallOff, preWall, r) < wallBar; i++) {
             wallOff = settledShot(ctx, "wall-off", r);
         }
         facts.add("wall drawn: " + diff(wallOff, preWall, r) + " px against the scene before it");
@@ -1745,6 +1758,16 @@ public class SimBloodRushTests implements FabricClientGameTest {
             return;
         }
         say(ctx, "The BLOOD DOOR has been opened!");
+        // simblood-1110: the look recorder rides on the same confirm-still moment (Hypixel only; the hook lets it record here).
+        boolean looksHook = ctx.computeOnClient(mc -> {
+            try {
+                setStatic(LOOKS, "recordInSimForTest", true);
+                ModUnderTest.staticCall(LOOKS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{false});
+                return true;
+            } catch (Throwable t) {
+                return false;
+            }
+        });
         ctx.waitTicks(4);
         String st = status(ctx);
         if (!st.contains("learning spawn spots")) {
@@ -1817,6 +1840,39 @@ public class SimBloodRushTests implements FabricClientGameTest {
         if (learned.getOrDefault(learnRoom, 0) < 1) {
             problems.add("no spot learned in " + learnRoom + " after the blood door opened");
             return;
+        }
+        if (looksHook) {
+            @SuppressWarnings("unchecked")
+            Map<String, Integer> looks = ctx.computeOnClient(mc -> (Map<String, Integer>) ModUnderTest.staticCall(LOOKS, "counts"));
+            facts.add("looks recorded: " + looks);
+            if (looks.getOrDefault(learnRoom, 0) < 1) {
+                problems.add("Blood Rush learned " + learnRoom + " but no mob look was recorded for it (SimMobLooks)");
+            }
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(LOOKS, "saveIfDirty", new Class<?>[]{boolean.class}, new Object[]{true}));
+            java.nio.file.Path store = ctx.computeOnClient(mc -> {
+                Object kind;
+                try {
+                    kind = Class.forName("com.killer560.hub.shared.RecordCatalog").getField("SIM_MOB_LOOKS").get(null);
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError("RecordCatalog.SIM_MOB_LOOKS", e);
+                }
+                Object f = ModUnderTest.staticCall("com.killer560.hub.shared.SharedRecords", "file", new Class<?>[]{kind.getClass()},
+                        new Object[]{kind});
+                return (java.nio.file.Path) ModUnderTest.call(f, "path", new Class<?>[0], new Object[0]);
+            });
+            boolean saved = false;
+            for (int i = 0; i < 100 && !saved; i += 5) {
+                ctx.waitTicks(5);
+                try {
+                    saved = java.nio.file.Files.exists(store) && java.nio.file.Files.readString(store).contains("\"" + learnRoom + "\"");
+                } catch (java.io.IOException ignored) {
+                    // being written
+                }
+            }
+            facts.add("looks saved to the shared store " + store.getFileName() + ": " + saved);
+            if (!saved) {
+                problems.add("the recorded looks never reached the shared store (" + store + ")");
+            }
         }
         // Each learned spot of the room is the block a server starred mob stands on (wanderers may have moved: 1 block).
         List<double[]> nowMobs = serverStarredIn(ctx, learnRoom);
@@ -2097,7 +2153,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
         }
     }
 
-    private static <T> T onServer(ClientGameTestContext ctx,
+    static <T> T onServer(ClientGameTestContext ctx,
                                   java.util.function.BiFunction<ServerLevel, net.minecraft.server.level.ServerPlayer, T> f) {
         AtomicReference<Object[]> box = new AtomicReference<>();
         ctx.runOnClient(mc -> {

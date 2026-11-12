@@ -45,6 +45,7 @@ final class HxSameTick1105Cases {
             s.test("1105-same-pigeondrill-" + a, c -> pigeon(c, act(a)));
             s.test("1105-same-autoult-" + a, c -> autoUlt(c, act(a)));
         }
+        s.test("1110-pigeondrill-block", HxSameTick1105Cases::pigeonBlock);
     }
 
     private static SameTick.Act act(String a) {
@@ -81,6 +82,47 @@ final class HxSameTick1105Cases {
         c.server().command(String.format(java.util.Locale.ROOT, "summon zombie %.2f %.2f %.2f "
                 + "{NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}", at[0], at[1], at[2] + 2.0));
         c.waitUntil("the zombie under his crosshair", mc -> mc.hitResult instanceof net.minecraft.world.phys.EntityHitResult, 100);
+    }
+
+    /** pigeondrill-1110: the pigeon (a head, so the block use consumes it) used while aimed at the ground: the swap must
+     *  still happen and the server must see the drill slot, with no flag. Asserts the use went out as a block use. */
+    private static void pigeonBlock(Session c) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: Swap To Drill On Pigeon is cheat-only");
+            return;
+        }
+        String head = "minecraft:player_head[custom_data={id:\"ROYAL_PIGEON\"},item_name=\"Royal Pigeon\"]";
+        try (Settings set = new Settings(c).with(QOL, "PigeonDrill", true)
+                .with(QOL, "PigeonDrillMode", Mod.enumValue(QOL + "$PigeonDrillMode", "AUTO"))) {
+            c.hx().give(2, DRILL);
+            c.hx().give(4, head);
+            c.onClient(mc -> {
+                mc.player.getInventory().setSelectedSlot(4);
+                mc.player.setXRot(90f);
+                Mod.staticCall("miningqol.PigeonDrillSwap", "resetForTest");
+                return null;
+            });
+            c.ctx().waitTicks(5);
+            long since = c.hx().head();
+            int swaps = c.onClient(mc -> (Integer) Mod.staticCall("miningqol.PigeonDrillSwap", "swaps"));
+            c.onClient(mc -> {
+                net.minecraft.client.KeyMapping.click(mc.options.keyUse.getDefaultKey());
+                return null;
+            });
+            c.waitUntil("the swap after a block-targeted pigeon use", mc -> (Integer) Mod.staticCall("miningqol.PigeonDrillSwap", "swaps") > swaps, 40);
+            c.ctx().waitTicks(4);
+            boolean held = c.hx().events(since, "held").stream().anyMatch(e -> e.get("slot").getAsInt() == 2);
+            c.note("server saw drill slot: " + held);
+            c.check(held, "the server never saw the drill slot after a pigeon use aimed at a block");
+        } finally {
+            c.onClient(mc -> {
+                mc.player.setXRot(0f);
+                return null;
+            });
+            for (int s : new int[]{2, 4}) {
+                c.hx().give(s, "minecraft:air");
+            }
+        }
     }
 
     // ---- Swap To Drill On Pigeon --------------------------------------------------------------------------------

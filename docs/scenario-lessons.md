@@ -1484,10 +1484,10 @@ baseline per Minecraft version first, see docs/scenario-lessons.md).
   list before that message. With the aimed aura every case is silent, the FLAGGED-expected ones included (0 lines).
   51's "never run into the wall" is recorded, not asserted, on a one-a-tick Multi Break jar: at Speed V a two-high wall
   needs ~1.1 digs a tick and GrimAC MultiBreak allows one (13 of 210 packets collided, both versions).
-- 1102-darkmode-* (hx/HxDarkMode1102Cases, mod darkmode-1102): Dark Mode judged by framebuffer luminance looking straight
-  down at the platform. The HUD pixels are found as those a 60 % under-HUD tint left identical (3600 of the hotbar box, 393
-  of the mod's overlay text), then checked for 1.000 (Tint HUD off) and 0.749/0.400 (on). The mod menu check uses the middle
-  70 % of the window: the blurred world around the menu's frame IS tinted (0.93 over the whole frame) and is not the menu.
+- 1102-darkmode-* (hx/HxDarkMode1102Cases, mod darkmode-1102, reworked darkall-1110): Dark Mode judged by framebuffer luminance looking straight
+  down at the platform: world, hotbar and overlay text all 0.749 at 25 % and 0.400 at 60 %, the world the same with the chat open,
+  inventory and mod menu 0.498 at 50 %. `fillsOver(n)` runs n real `Gui.extractRenderState` frames on the client thread and counts
+  `DarkModeFeature.frameFills`: exactly n with the title, pause, inventory and chat screens (one fill per GUI frame).
   Run with `-Scenario "100-hx-session+,1102-darkmode"`.
 
 - 1102-sound-session (`sound/SoundDisablerSuite`, mod sounddisable-1102): Sound Disabler. Server `playsound` and client

@@ -338,7 +338,9 @@ public class InvWalkZpewTests implements FabricClientGameTest {
                         + "on the wire, %d held for a still tick, %d setback(s)", id, open, stillOpen, flat(c0, c1), flat(s0, s1),
                         clicks, held, setbacks));
                 check(open && stillOpen, "the chest menu was not open the whole time: nothing was tested");
-                check(flat(c0, c1) > 8 && flat(s0, s1) > 8, "he did not walk with the chest open");
+                // Stop To Click stands him still (below the still speed, about 8 ticks each) before each of the 5 clicks, so 60 ticks
+                // walk about 6.5 blocks, not the 15+ of a free walk (the 8-block bar predates the real-standstill rule).
+                check(flat(c0, c1) > 4 && flat(s0, s1) > 4, "he did not walk with the chest open");
                 check(clicks >= 4, "fewer than four clicks reached the wire: " + clicks);
                 check(setbacks == 0, "the server set him back " + setbacks + " time(s)");
             } finally {

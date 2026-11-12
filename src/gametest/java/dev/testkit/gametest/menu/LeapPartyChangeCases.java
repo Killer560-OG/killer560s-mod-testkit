@@ -54,6 +54,7 @@ final class LeapPartyChangeCases {
         MenuSuite.test(s, "1102-menu-leaporder-midrun", LeapPartyChangeCases::midRun);
         MenuSuite.test(s, "1102-menu-leaporder-ownpick", LeapPartyChangeCases::ownPick);
         MenuSuite.test(s, "1102-menu-leaporder-ownselected", LeapPartyChangeCases::ownSelected);
+        MenuSuite.test(s, "1110-party-left-in-dungeon", LeapPartyChangeCases::leftInDungeon);
     }
 
     // ---- helpers ------------------------------------------------------------------------------------------------------
@@ -99,6 +100,41 @@ final class LeapPartyChangeCases {
 
     static String selfClass(Session c) {
         return c.onClient(mc -> String.valueOf(Mod.staticCall("leapmenu.PartyTracker", "selfClass")));
+    }
+
+    // ---- 1110-party-left-in-dungeon -------------------------------------------------------------------------------------
+
+    @SuppressWarnings("unchecked")
+    private static List<String> mates() {
+        return (List<String>) Mod.staticCall("leapmenu.PartyTracker", "teammates");
+    }
+
+    /** killer560, 2026-11-10: "[MVP+] leafycofhe has left the party." arrived mid-run, Hypixel's dungeon tab kept the name
+     *  until the run ended, and the tab read put him straight back (Custom Scoreboard "Party (4)"). The tab keeps listing
+     *  him here on purpose; a later tab read (LrA's class changes) proves it ran after the leave line. */
+    static void leftInDungeon(Session c) throws Exception {
+        DungeonMenuCases.inDungeon(c);
+        try {
+            LeapRunMemoryCases.tab(c, LeapRunMemoryCases.P);
+            c.hx().chat("[MVP+] LrD has left the party.");
+            c.waitUntil("LrD to leave the party", mc -> !mates().contains("LrD"), 100);
+            // The tab still lists LrD, and LrA's class changes so a read after the leave is provable.
+            String self = selfName(c);
+            c.hx().tab(List.of("[50] " + self + " (Archer L)", "[50] LrA (Healer L)", "[50] LrB (Healer L)",
+                    "[50] LrC (Healer L)", "[50] LrD (Healer L)"), null, null);
+            c.waitUntil("a tab read after the leave line", mc ->
+                    "HEALER".equals(String.valueOf(Mod.staticCall("leapmenu.PartyTracker", "detectedClassOf", "LrC"))), 100);
+            List<String> now = c.onClient(mc -> mates());
+            c.check(!now.contains("LrD") && now.size() == 3, "LrD is back from the tab list: " + now);
+            DungeonMenuCases.leaveDungeon(c);
+            c.waitUntil("the dungeon to be left", mc -> Mod.staticCall("leapmenu.PartyTracker", "detectedClassOf", "LrC") == null, 100);
+            c.check(!c.onClient(mc -> mates()).contains("LrD"), "LrD is back after the dungeon: " + c.onClient(mc -> mates()));
+            c.hx().chat("[MVP+] LrD joined the party.");
+            c.waitUntil("LrD to rejoin", mc -> mates().contains("LrD"), 100);
+        } finally {
+            c.hx().tabClear();
+            DungeonMenuCases.leaveDungeon(c);
+        }
     }
 
     // ---- 1102-menu-leaporder-classchange --------------------------------------------------------------------------------

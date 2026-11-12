@@ -996,7 +996,7 @@ public class SimAutopilot2Tests implements FabricClientGameTest {
                 int n = 0;
                 for (int cx = (first.getX() - 16) >> 4; cx <= (last.getX() + 16) >> 4; cx++) {
                     for (int cz = (first.getZ() - 16) >> 4; cz <= (last.getZ() + 16) >> 4; cz++) {
-                        if (!mc.level.hasChunk(cx, cz)) {
+                        if (!mc.level.getChunkSource().hasChunk(cx, cz)) {
                             n++;
                         }
                     }

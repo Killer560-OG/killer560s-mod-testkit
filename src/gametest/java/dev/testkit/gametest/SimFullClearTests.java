@@ -120,6 +120,10 @@ public class SimFullClearTests implements FabricClientGameTest {
         int routes = ctx.computeOnClient(mc -> routedRooms().size());
         println("routes file holds " + routes + " room(s)");
         if (routes < 20) {
+            if (mode300) {
+                Scenario.skipped(NAME_300, "needs his routes: run with -PseedConfig=<his config>");
+                return;
+            }
             throw new AssertionError("only " + routes + " routed room(s) - run with -PseedConfig=<his config>");
         }
         if (highBlaze) {

@@ -12,12 +12,15 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
 /**
- * Dark Mode (mod branch darkmode-1102, killer560 2026-11-02: "implement noamm's dark mode"), 1102-darkmode-*:
+ * Dark Mode (mod branch darkmode-1102, reworked darkall-1110, killer560 2026-11-10: "that dark mode should affect literally
+ * everything"), 1102-darkmode-*: ONE black fill at Opacity %, drawn once at the end of every GUI frame.
  * <ul>
- *   <li>world: with Tint HUD off the world's pixels are darkened by the Opacity (25 % and 60 %: framebuffer ratio 0.75 /
- *       0.40), the hotbar's opaque pixels and the mod's own overlay text are unchanged, and nothing changes with it off.</li>
- *   <li>hud: with Tint HUD on the same hotbar pixels and the mod's overlay text are darkened by the Opacity too.</li>
- *   <li>screens: an open inventory's panel and the mod's own settings menu are not tinted in either mode.</li>
+ *   <li>world: the world's pixels, the hotbar's opaque pixels and the mod's overlay text all darken by the same ratio
+ *       (25 % and 60 %: 0.75 / 0.40), nothing changes with it off, and exactly one fill happens per GUI frame.</li>
+ *   <li>hud: opening the chat does not change how dark the world is (same ratio as with no screen), one fill per frame
+ *       with the chat open.</li>
+ *   <li>screens: an open inventory's panel and the mod's own settings menu darken by the same ratio, and a frame of the
+ *       title screen, the pause menu and the inventory each add exactly one fill.</li>
  *   <li>reload: every setting survives a save and a fresh load, and the opacity is clamped to 1..80.</li>
  * </ul>
  * Screenshots are copied to {@code -Dtestkit.darkmodeShots=<dir>} when given.
@@ -40,12 +43,11 @@ final class HxDarkMode1102Cases {
 
     // ---- shared -----------------------------------------------------------------------------------------------------
 
-    static void settings(Session c, boolean enabled, int opacity, boolean tintHud) {
+    static void settings(Session c, boolean enabled, int opacity) {
         c.onClient(mc -> {
             Object cfg = Mod.cfg(CFG);
             Mod.call(cfg, "setEnabled", enabled);
             Mod.call(cfg, "setOpacity", opacity);
-            Mod.call(cfg, "setTintHud", tintHud);
             return null;
         });
     }
@@ -178,8 +180,19 @@ final class HxDarkMode1102Cases {
         return b == 0 ? -1 : (double) a / b;
     }
 
-    private static int fills(String field) {
-        return ((Number) Mod.field(FEATURE, field)).intValue();
+    private static int fills() {
+        return ((Number) Mod.field(FEATURE, "frameFills")).intValue();
+    }
+
+    /** Runs {@code n} full GUI frames (HUD, screen, tooltips) on the client thread and returns the fills they added. */
+    private static int fillsOver(Session c, int n) {
+        return c.onClient(mc -> {
+            int before = fills();
+            for (int i = 0; i < n; i++) {
+                mc.gui.extractRenderState(mc.getDeltaTracker(), false, false);
+            }
+            return fills() - before;
+        });
     }
 
     static String f3(double v) {
@@ -192,17 +205,17 @@ final class HxDarkMode1102Cases {
         hub(c);
         byte[] saved = saveFile(c);
         try {
-            settings(c, false, 25, false);
+            settings(c, false, 25);
             still(c);
             BufferedImage off = shot(c, "off");
             BufferedImage off2 = shot(c, "off-again");
-            int w0 = fills("worldFills"), h0 = fills("hudFills");
-            settings(c, true, 25, false);
-            BufferedImage on25 = shot(c, "on25-tinthud-off");
-            int w1 = fills("worldFills"), h1 = fills("hudFills");
-            settings(c, true, 60, false);
-            BufferedImage on60 = shot(c, "on60-tinthud-off");
-            settings(c, false, 60, false);
+            int offFills = fillsOver(c, 3);
+            settings(c, true, 25);
+            BufferedImage on25 = shot(c, "on25");
+            int onFills = fillsOver(c, 3);
+            settings(c, true, 60);
+            BufferedImage on60 = shot(c, "on60");
+            settings(c, false, 60);
             BufferedImage offAfter = shot(c, "off-after");
 
             int[] world = worldBox(off);
@@ -212,76 +225,55 @@ final class HxDarkMode1102Cases {
             double r25 = ratio(off, on25, world, 40);
             double r60 = ratio(off, on60, world, 40);
             double rBack = ratio(off, offAfter, world, 40);
-            boolean[][] hudMask = opaqueHud(off, on60, hotbar);
-            int[] n = new int[1];
-            double hud25 = maskedRatio(off, on25, hotbar, hudMask, n);
-            int hudPixels = n[0];
-            int hotbarArea = (hotbar[2] - hotbar[0]) * (hotbar[3] - hotbar[1]);
-            boolean[][] msgMask = opaqueHud(off, on60, msg);
-            double msg25 = maskedRatio(off, on25, msg, msgMask, n);
-            int msgPixels = n[0];
-            double hotbarSame25 = unchangedShare(off, on25, hotbar, 60);
-            c.note("world luminance ratio: still " + f3(still) + ", 25% " + f3(r25) + " (want 0.749), 60% " + f3(r60)
-                    + " (want 0.400), off again " + f3(rBack));
-            c.note("hotbar: " + hudPixels + " opaque pixels of " + hotbarArea + ", ratio at 25% " + f3(hud25)
-                    + ", unchanged share " + f3(hotbarSame25) + "; overlay text: " + msgPixels + " pixels, ratio " + f3(msg25));
-            c.note("fills: world +" + (w1 - w0) + ", hud +" + (h1 - h0) + " over the 25% frame");
+            double hud25 = ratio(off, on25, hotbar, 60);
+            double hud60 = ratio(off, on60, hotbar, 60);
+            double msg25 = ratio(off, on25, msg, 60);
+            c.note("luminance ratio at 25%: world " + f3(r25) + ", hotbar " + f3(hud25) + ", overlay text " + f3(msg25)
+                    + " (want 0.749 each); 60%: world " + f3(r60) + ", hotbar " + f3(hud60) + " (want 0.400); still " + f3(still)
+                    + ", off again " + f3(rBack));
+            c.note("fills over 3 frames: off +" + offFills + ", on +" + onFills);
             c.check(Math.abs(still - 1.0) < 0.01, "the scene is not still between two off frames: " + f3(still));
             c.check(Math.abs(r25 - 0.749) < 0.03, "25% darkened the world by " + f3(r25) + ", expected 0.749");
             c.check(Math.abs(r60 - 0.400) < 0.03, "60% darkened the world by " + f3(r60) + ", expected 0.400");
             c.check(Math.abs(rBack - 1.0) < 0.01, "switched off, the world is still darkened: " + f3(rBack));
-            c.check(hudPixels > hotbarArea / 4, "only " + hudPixels + " of the hotbar's " + hotbarArea
-                    + " pixels were left alone by the under-HUD tint");
-            c.check(Math.abs(hud25 - 1.0) < 0.01, "Tint HUD off changed the hotbar: ratio " + f3(hud25));
-            c.check(msgPixels > 50, "the mod's overlay text was tinted with Tint HUD off (" + msgPixels + " untouched pixels)");
-            c.check(Math.abs(msg25 - 1.0) < 0.01, "Tint HUD off changed the mod's overlay text: ratio " + f3(msg25));
-            c.check(w1 > w0, "the under-HUD layer never filled");
-            c.check(h1 == h0, "the over-HUD layer filled with Tint HUD off");
+            c.check(Math.abs(hud25 - 0.749) < 0.03, "the hotbar darkened by " + f3(hud25) + ", expected 0.749 (same as the world)");
+            c.check(Math.abs(hud60 - 0.400) < 0.03, "the hotbar darkened by " + f3(hud60) + " at 60%, expected 0.400");
+            c.check(Math.abs(msg25 - 0.749) < 0.04, "the mod's overlay text darkened by " + f3(msg25) + ", expected 0.749");
+            c.check(onFills == 3, "Dark Mode on: " + onFills + " fills in 3 GUI frames, expected exactly 3");
+            c.check(offFills == 0, "Dark Mode off still filled " + offFills + " times");
         } finally {
             restore(c, saved);
         }
     }
 
-    // ---- hud --------------------------------------------------------------------------------------------------------
+    // ---- hud (chat) -------------------------------------------------------------------------------------------------
 
     private static void hud(Session c) throws Exception {
         hub(c);
         byte[] saved = saveFile(c);
         try {
-            settings(c, false, 25, false);
+            settings(c, false, 25);
             still(c);
             BufferedImage off = shot(c, "off");
-            settings(c, true, 60, false);
-            BufferedImage worldOnly = shot(c, "on60-tinthud-off");
-            int w0 = fills("worldFills"), h0 = fills("hudFills");
-            settings(c, true, 25, true);
-            BufferedImage on25 = shot(c, "on25-tinthud-on");
-            int w1 = fills("worldFills"), h1 = fills("hudFills");
-            settings(c, true, 60, true);
-            BufferedImage on60 = shot(c, "on60-tinthud-on");
+            settings(c, true, 25);
+            BufferedImage noChat = shot(c, "on25-nochat");
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, new net.minecraft.client.gui.screens.ChatScreen("", false));
+                return null;
+            });
+            c.ctx().waitTicks(10);
+            BufferedImage chat = shot(c, "on25-chat");
+            int chatFills = fillsOver(c, 3);
+            settings(c, false, 25);
+            BufferedImage chatOff = shot(c, "off-chat");
 
             int[] world = worldBox(off);
-            int[] hotbar = hotbarBox(c);
-            int[] msg = messageBox(c);
-            boolean[][] hudMask = opaqueHud(off, worldOnly, hotbar);
-            boolean[][] msgMask = opaqueHud(off, worldOnly, msg);
-            int[] n = new int[1];
-            double hud25 = maskedRatio(off, on25, hotbar, hudMask, n);
-            int hudPixels = n[0];
-            double hud60 = maskedRatio(off, on60, hotbar, hudMask, n);
-            double msg25 = maskedRatio(off, on25, msg, msgMask, n);
-            int msgPixels = n[0];
-            double msg60 = maskedRatio(off, on60, msg, msgMask, n);
-            double r25 = ratio(off, on25, world, 40);
-            c.note("Tint HUD on: hotbar (" + hudPixels + " px) " + f3(hud25) + " at 25%, " + f3(hud60) + " at 60%; overlay text ("
-                    + msgPixels + " px) " + f3(msg25) + " / " + f3(msg60) + "; world " + f3(r25));
-            c.note("fills: world +" + (w1 - w0) + ", hud +" + (h1 - h0) + " over the 25% frame");
-            c.check(hudPixels > 100 && msgPixels > 50, "too few opaque HUD pixels to judge: hotbar " + hudPixels + ", text " + msgPixels);
-            c.check(Math.abs(hud25 - 0.749) < 0.03, "Tint HUD on darkened the hotbar by " + f3(hud25) + ", expected 0.749");
-            c.check(Math.abs(hud60 - 0.400) < 0.03, "Tint HUD on at 60% darkened the hotbar by " + f3(hud60) + ", expected 0.400");
-            c.check(Math.abs(msg25 - 0.749) < 0.04, "Tint HUD on darkened the mod's overlay text by " + f3(msg25) + ", expected 0.749");
-            c.check(Math.abs(r25 - 0.749) < 0.03, "Tint HUD on darkened the world by " + f3(r25) + ", expected 0.749 (once, not twice)");
-            c.check(h1 > h0 && w1 == w0, "Tint HUD on: world layer +" + (w1 - w0) + ", hud layer +" + (h1 - h0));
+            double rNo = ratio(off, noChat, world, 40);
+            double rChat = ratio(chatOff, chat, world, 40);
+            c.note("world ratio at 25%: no screen " + f3(rNo) + ", chat open " + f3(rChat) + " (want 0.749 both); fills over 3 chat frames +" + chatFills);
+            c.check(Math.abs(rNo - 0.749) < 0.03, "25% darkened the world by " + f3(rNo) + ", expected 0.749");
+            c.check(Math.abs(rChat - 0.749) < 0.03, "opening the chat changed how dark the world is: " + f3(rChat) + ", expected 0.749");
+            c.check(chatFills == 3, "chat open: " + chatFills + " fills in 3 GUI frames, expected exactly 3");
         } finally {
             restore(c, saved);
         }
@@ -315,54 +307,56 @@ final class HxDarkMode1102Cases {
         byte[] saved = saveFile(c);
         try {
             int[] inv = inventoryBox(c);
-            BufferedImage[] invShots = new BufferedImage[3];
-            BufferedImage[] menuShots = new BufferedImage[3];
-            boolean[][] cases = {{false, false}, {true, false}, {true, true}};
-            String[] tags = {"off", "on50-tinthud-off", "on50-tinthud-on"};
-            for (int i = 0; i < 3; i++) {
-                settings(c, cases[i][0], 50, cases[i][1]);
+            BufferedImage[] invShots = new BufferedImage[2];
+            BufferedImage[] menuShots = new BufferedImage[2];
+            for (int i = 0; i < 2; i++) {
+                settings(c, i == 1, 50);
                 still(c);
                 c.onClient(mc -> {
                     McCompat.setScreen(mc, new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player));
                     return null;
                 });
                 c.ctx().waitTicks(10);
-                invShots[i] = shot(c, "inventory-" + tags[i]);
+                invShots[i] = shot(c, "inventory-" + i);
                 c.onClient(mc -> {
                     McCompat.setScreen(mc, modScreen());
                     return null;
                 });
                 c.ctx().waitTicks(20);
-                menuShots[i] = shot(c, "menu-" + tags[i]);
+                menuShots[i] = shot(c, "menu-" + i);
                 c.onClient(mc -> {
                     McCompat.setScreen(mc, null);
                     return null;
                 });
             }
             int w = menuShots[0].getWidth(), h = menuShots[0].getHeight();
-            // The menu's own panel: the blurred, dimmed world shows around its frame (and is tinted there, which is the
-            // world, not the menu), so judge the middle 70% of the window, all inside the panel.
             int[] full = {w * 15 / 100, h * 15 / 100, w * 85 / 100, h * 85 / 100};
-            double invOff = unchangedShare(invShots[0], invShots[1], inv, 60);
-            double invOn = unchangedShare(invShots[0], invShots[2], inv, 60);
-            double invOffR = ratio(invShots[0], invShots[1], inv, 60);
-            double invOnR = ratio(invShots[0], invShots[2], inv, 60);
-            double menuOff = unchangedShare(menuShots[0], menuShots[1], full, 0);
-            double menuOn = unchangedShare(menuShots[0], menuShots[2], full, 0);
-            double menuOffR = ratio(menuShots[0], menuShots[1], full, 0);
-            double menuOnR = ratio(menuShots[0], menuShots[2], full, 0);
-            c.note("inventory panel unchanged share / ratio: Tint HUD off " + f3(invOff) + " / " + f3(invOffR) + ", on "
-                    + f3(invOn) + " / " + f3(invOnR));
-            c.note("mod menu (middle 70%, every pixel) unchanged share / ratio: Tint HUD off " + f3(menuOff) + " / "
-                    + f3(menuOffR) + ", on " + f3(menuOn) + " / " + f3(menuOnR));
-            c.check(invOff > 0.97 && Math.abs(invOffR - 1) < 0.01, "the inventory panel was tinted (Tint HUD off): "
-                    + f3(invOff) + " / " + f3(invOffR));
-            c.check(invOn > 0.97 && Math.abs(invOnR - 1) < 0.01, "the inventory panel was tinted (Tint HUD on): "
-                    + f3(invOn) + " / " + f3(invOnR));
-            c.check(menuOff > 0.97 && Math.abs(menuOffR - 1) < 0.01, "the mod's menu was tinted (Tint HUD off): "
-                    + f3(menuOff) + " / " + f3(menuOffR));
-            c.check(menuOn > 0.97 && Math.abs(menuOnR - 1) < 0.01, "the mod's menu was tinted (Tint HUD on): "
-                    + f3(menuOn) + " / " + f3(menuOnR));
+            double invR = ratio(invShots[0], invShots[1], inv, 60);
+            double menuR = ratio(menuShots[0], menuShots[1], full, 30);
+            c.note("50% ratio: inventory panel " + f3(invR) + ", mod menu " + f3(menuR) + " (want 0.498 both)");
+            c.check(Math.abs(invR - 0.498) < 0.03, "the inventory panel darkened by " + f3(invR) + ", expected 0.498");
+            c.check(Math.abs(menuR - 0.498) < 0.03, "the mod's menu darkened by " + f3(menuR) + ", expected 0.498");
+            // One fill per GUI frame on the title screen, the pause menu and the inventory (frame-level, not pixels).
+            settings(c, true, 50);
+            String[] names = {"title", "pause", "inventory"};
+            for (String name : names) {
+                c.onClient(mc -> {
+                    McCompat.setScreen(mc, switch (name) {
+                        case "title" -> new net.minecraft.client.gui.screens.TitleScreen();
+                        case "pause" -> new net.minecraft.client.gui.screens.PauseScreen(true);
+                        default -> new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player);
+                    });
+                    return null;
+                });
+                c.ctx().waitTicks(6);
+                int f = fillsOver(c, 3);
+                c.note(name + " screen: " + f + " fills in 3 GUI frames");
+                c.check(f == 3, name + " screen: " + f + " fills in 3 GUI frames, expected exactly 3");
+            }
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                return null;
+            });
         } finally {
             restore(c, saved);
         }
@@ -377,12 +371,11 @@ final class HxDarkMode1102Cases {
                 Object cfg = Mod.cfg(CFG);
                 Mod.call(cfg, "setEnabled", true);
                 Mod.call(cfg, "setOpacity", 37);
-                Mod.call(cfg, "setTintHud", true);
                 Mod.call(cfg, "save");
                 Mod.staticCall(CFG, "load");
                 Object fresh = Mod.cfg(CFG);
                 Object[] out = {fresh != cfg, Mod.call(fresh, "isEnabled"), Mod.call(fresh, "getOpacity"),
-                        Mod.call(fresh, "isTintHud"), null, null, null};
+                        null, null, null, null};
                 Mod.call(fresh, "setOpacity", 0);
                 out[4] = Mod.call(fresh, "getOpacity");
                 Mod.call(fresh, "setOpacity", 200);
@@ -394,12 +387,12 @@ final class HxDarkMode1102Cases {
                 }
                 return out;
             });
-            c.note("after load: new instance " + r[0] + ", enabled " + r[1] + ", opacity " + r[2] + ", tintHud " + r[3]
+            c.note("after load: new instance " + r[0] + ", enabled " + r[1] + ", opacity " + r[2]
                     + "; setOpacity(0) -> " + r[4] + ", setOpacity(200) -> " + r[5]);
             c.note("file: " + String.valueOf(r[6]).replace('\n', ' '));
             c.check(Boolean.TRUE.equals(r[0]), "load did not build a new instance");
-            c.check(Boolean.TRUE.equals(r[1]) && Integer.valueOf(37).equals(r[2]) && Boolean.TRUE.equals(r[3]),
-                    "settings did not survive the reload: " + r[1] + " " + r[2] + " " + r[3]);
+            c.check(Boolean.TRUE.equals(r[1]) && Integer.valueOf(37).equals(r[2]),
+                    "settings did not survive the reload: " + r[1] + " " + r[2]);
             c.check(Integer.valueOf(1).equals(r[4]) && Integer.valueOf(80).equals(r[5]),
                     "opacity not clamped to 1..80: " + r[4] + " / " + r[5]);
             // A profile apply rewrites the files and calls ProfileManager.reloadAllConfigs: Dark Mode must be in it, or
@@ -413,10 +406,10 @@ final class HxDarkMode1102Cases {
                 }
                 Mod.staticCall("profiles.ProfileManager", "reloadAllConfigs");
                 Object cfg = Mod.cfg(CFG);
-                return Mod.call(cfg, "getOpacity") + " " + Mod.call(cfg, "isEnabled") + " " + Mod.call(cfg, "isTintHud");
+                return Mod.call(cfg, "getOpacity") + " " + Mod.call(cfg, "isEnabled");
             });
             c.note("after ProfileManager.reloadAllConfigs on a rewritten file: " + viaProfiles);
-            c.check("42 false false".equals(viaProfiles), "ProfileManager.reloadAllConfigs did not reload Dark Mode: " + viaProfiles);
+            c.check("42 false".equals(viaProfiles), "ProfileManager.reloadAllConfigs did not reload Dark Mode: " + viaProfiles);
         } finally {
             restore(c, saved);
         }

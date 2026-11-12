@@ -38,6 +38,7 @@ final class BossAuraTurnCases {
         if (!Mod.isCheat()) {
             return;
         }
+        s.test("1110-boss-turnfirst-grimreach", BossAuraTurnCases::grimReach);
         s.test("421-boss-leveraura-behind", BossAuraTurnCases::leverBehind);
         s.test("422-boss-ss-autosolve-norotate-behind", c -> simonAuto(c, 90f, 21));
         s.test("423-boss-ss-autosolve-norotate-front", c -> simonAuto(c, -90f, 22));
@@ -48,6 +49,63 @@ final class BossAuraTurnCases {
         for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{dev.testkit.gametest.SameTick.Act.USE,
                 dev.testkit.gametest.SameTick.Act.SWAP}) {
             s.test("1109-boss-lever-50ms-" + a.name().toLowerCase(Locale.ROOT), c -> leverSameTick(c, a));
+        }
+    }
+
+    /**
+     * TurnFirst.readyBlock is the ready check of every block-click aura (Secret Aura, Lights Device, Simon Says, the door
+     * opener, the auto puzzles, Lever Aura): GrimAC's RotationPlace rays the look at the block's whole cube only out to
+     * 4.5, so a look that enters the cube at 4.6 is not ready though the outline is in the aura's own reach, and 4.3 is
+     * (grimreach-1110). A stone cube 4.6 / 4.3 blocks along a level look, a longer reach than the aura's own.
+     */
+    static void grimReach(Session c) throws Exception {
+        BlockPos block = new BlockPos(27, 125, 127);
+        try {
+            c.server().command("forceload add 21 123 30 131");
+            c.server().sync(20);
+            c.server().command("fill 21 123 123 30 123 131 minecraft:stone");
+            c.server().command("fill 21 124 123 30 129 131 minecraft:air");
+            c.server().command("setblock 27 125 127 minecraft:stone");
+            c.ctx().waitTicks(10);
+            boolean[] ready = new boolean[2];
+            List<Object> turns = new ArrayList<>();
+            double[] xs = {22.4, 22.7};
+            for (int i = 0; i < 2; i++) {
+                TerminalAuraCases.tp(c, xs[i], 124, 127.5, -90f);
+                c.waitUntil("the block on the client", mc -> mc.level.getBlockState(block).is(net.minecraft.world.level.block.Blocks.STONE), 100);
+                ready[i] = (Boolean) c.onClient(mc -> {
+                    mc.player.setYRot(-90f);
+                    mc.player.setXRot(0f);
+                    Object turn;
+                    try {
+                        turn = Mod.cls("util.TurnFirst").getConstructor().newInstance();
+                    } catch (ReflectiveOperationException e) {
+                        throw new AssertionError(e);
+                    }
+                    net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition();
+                    turns.add(turn);
+                    return Mod.call(turn, "readyBlock", mc.player, mc.level, block,
+                            new net.minecraft.world.phys.Vec3(27.0, eye.y, 127.5), 6.0);
+                });
+                c.note(String.format(Locale.US, "eye x %.2f (cube %.1f away): ready=%s", xs[i], 27.0 - xs[i], ready[i]));
+            }
+            // The far look turned the body and holds the camera; tick that turn out (hand-back) so no later case inherits it.
+            for (int t = 0; t < 8; t++) {
+                c.ctx().waitTicks(1);
+                c.onClient(mc -> {
+                    turns.forEach(x -> {
+                        Mod.call(x, "drop");
+                        Mod.call(x, "tick", mc.player);
+                    });
+                    return null;
+                });
+            }
+            c.check(!ready[0], "a look entering the cube 4.6 away was ready (Grim ranges a block click to 4.5)");
+            c.check(ready[1], "a look entering the cube 4.3 away was not ready");
+        } finally {
+            c.server().command("fill 21 123 123 30 129 131 minecraft:air");
+            c.server().command("forceload remove 21 123 30 131");
+            c.hx().call("dungeon.tp", "x", -619.5, "y", 151.0, "z", -619.5, "yaw", 0f, "pitch", 0f);
         }
     }
 
@@ -99,7 +157,7 @@ final class BossAuraTurnCases {
             undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "SectionLevers", true)));
             undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "SectionLeversEarly", true)));
             undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "Range", 4.5)));
-            // Lever Aura cooldown (2026-11-09; was the CPS slider): 50 ms is one flick a tick.
+            // Lever Aura's delay is a cooldown in ms now (leverap3-1109): 50 is one flick a tick, the quickest.
             undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "CooldownMs", 50)));
             c.note("anticheat lines before Lever Aura is switched on: " + c.scenario().flags().size()
                     + ", on ground " + c.onClient(mc -> mc.player.onGround()) + " at " + c.onClient(mc -> mc.player.position()));

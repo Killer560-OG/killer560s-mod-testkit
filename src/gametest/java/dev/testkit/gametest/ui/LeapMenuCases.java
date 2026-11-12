@@ -390,7 +390,9 @@ final class LeapMenuCases {
                 List<AbstractWidget> now = rows(c, d);
                 AbstractWidget doorRow = find(now, "Door Opener Leap:");
                 AbstractWidget blood = find(now, "After Blood Off");
-                c.check(blood != null && blood.getY() > doorRow.getY(), "After Blood Off is not under the Door Opener row");
+                // leaprow-1110: After Blood Off sits in the Door Opener row, in the target and mode columns
+                c.check(blood != null && blood.getY() == doorRow.getY() && blood.getX() > doorRow.getX(),
+                        "After Blood Off is not in the Door Opener row");
                 // right click steps back: Off -> Auto
                 c.onClient(mc -> {
                     int[] cb = (int[]) Mod.call(doorRow, "controlBounds");
@@ -417,8 +419,8 @@ final class LeapMenuCases {
             c.check(ls.size() > 2 && ls.get(0).equals("Fast Leap: ON") && ls.get(1).equals("< Back"),
                     "the Universal page starts " + ls.subList(0, Math.min(3, ls.size())));
             c.check(ls.stream().anyMatch(l -> l.startsWith("Universal Targets (in use)")), "the Universal page's title is not 'in use'");
-            c.check(ls.contains("Crystal: Healer") && ls.stream().anyMatch(l -> l.startsWith("Storm Death: "))
-                            && ls.stream().filter(l -> l.matches("S[1-4]: .*")).count() == 4,
+            c.check(ls.contains("Crystal Target: Healer") && ls.stream().anyMatch(l -> l.startsWith("Storm Death Target: "))
+                            && ls.stream().filter(l -> l.matches("P3 S[1-4] Target: .*")).count() == 4,
                     "the Universal page's targets: " + ls);
             cardSwitch(c, d, "Universal");
             press(c, d, find(ws, "< Back"));
@@ -450,21 +452,21 @@ final class LeapMenuCases {
                     "the Set Class page starts " + ls.subList(0, Math.min(3, ls.size())));
             AbstractWidget play = find(ws, "When You Play:");
             c.check(play != null, "no When You Play row on the Set Class page");
-            c.check(ls.stream().filter(l -> l.endsWith(": Same as Universal")).count() == 14,
-                    "want 14 'Same as Universal' targets (10 leaps + S1-S4): " + ls);
+            c.check(ls.stream().filter(l -> l.endsWith(" Target: Universal")).count() == 14,
+                    "want 14 'Universal' targets (10 leaps + P3 S1-S4): " + ls);
             String before = ModScreenDriver.label(play);
             press(c, d, play);
             String after = ModScreenDriver.label(find(rows(c, d), "When You Play:"));
             c.note("When You Play: " + before + " -> " + after);
             c.check(!before.equals(after), "When You Play did not step: " + before);
             // a Crystal pick for this class is saved under that class
-            AbstractWidget crystal = find(rows(c, d), "Crystal:");
+            AbstractWidget crystal = find(rows(c, d), "Crystal Target:");
             press(c, d, crystal);
             String mine = after.substring(after.indexOf(':') + 1).trim().toUpperCase(java.util.Locale.ROOT);
             String pick = c.onClient(mc -> String.valueOf(Mod.call(Mod.staticCall(FLC, "getInstance"), "getClassTarget",
                     Mod.enumValue(FLC + "$LeapTarget", "P1"), Mod.enumValue("dungeonclass.DungeonClass", mine))));
-            c.note("Crystal as " + mine + " after one press: " + pick + " (" + ModScreenDriver.label(find(rows(c, d), "Crystal:")) + ")");
-            c.check(pick.contains("clazz=MAGE"), "a press on Crystal: Same as Universal for " + mine + " gave " + pick + ", want Mage");
+            c.note("Crystal as " + mine + " after one press: " + pick + " (" + ModScreenDriver.label(find(rows(c, d), "Crystal Target:")) + ")");
+            c.check(pick.contains("clazz=MAGE"), "a press on Crystal Target: Universal for " + mine + " gave " + pick + ", want Mage");
             cardSwitch(c, d, "Set Class");
             press(c, d, find(rows(c, d), "< Back"));
             c.check("FRONT".equals(page(c)), "Back from Set Class left " + page(c));
@@ -677,7 +679,7 @@ final class LeapMenuCases {
             if (d == null) {
                 return;
             }
-            String[][] wants = {{"Storm Death", "UNIVERSAL", "Storm Death: "}, {"When You Play", "CLASS", "When You Play: "},
+            String[][] wants = {{"Storm Death", "UNIVERSAL", "Storm Death Target: "}, {"When You Play", "CLASS", "When You Play: "},
                     {"Return To", "FRONT", "Return To: "}};
             for (String[] w : wants) {
                 String got = c.onClient(mc -> {
@@ -723,8 +725,8 @@ final class LeapMenuCases {
                 Object tab = d.leaf(TAB);
                 List<String> out = new ArrayList<>();
                 for (String l : new String[]{"Crystal", "Predev", "Green Pad", "Yellow Pad", "Purple Pad", "PY Healer",
-                        "Storm Death", "Middle", "P4", "Relic", "S1", "S2", "S3", "S4", "When You Play", "S1 Keywords",
-                        "Click Delay", "Fast Mode", "Mode"}) {
+                        "Storm Death", "Middle", "P4", "Relic", "P3 S1", "P3 S2", "P3 S3", "P3 S4", "When You Play", "S1 Keywords",
+                        "Click Delay", "Fast Mode", "Crystal Target", "Crystal Mode", "P3 S4 Mode", "Relic Leap"}) {
                     @SuppressWarnings("unchecked")
                     List<String> hits = (List<String>) Mod.call(tab, "searchHits", l);
                     if (hits.stream().noneMatch(h -> h.equalsIgnoreCase(l))) {
@@ -740,5 +742,236 @@ final class LeapMenuCases {
                 return null;
             });
         }
+    }
+
+    // ---- 1110-ui-leaprow ----------------------------------------------------------------------------------------
+
+    /**
+     * Mod leaprow-1110 (killer560, 2026-11-10: "there should be a line like crystal leap, (toggles for off, fast, auto)
+     * (togle for class) (toggle for mode). all in one line"): on both target pages every leap is ONE row, its name then
+     * three compact cyclers (Off/Fast/Auto, target, mode) on the same y, in columns that line up down the page; nothing
+     * overlaps or leaves the panel at the narrowest drawer, the largest GUI scale (4 on 1920x1080) and a wide screen; a
+     * leap that is Off has its target and mode dimmed but still clickable; one click on each column is saved.
+     */
+    static void leapRow(UiCase c) throws Exception {
+        if (!Mod.isCheat()) {
+            c.skipCase("legit jar: Fast/Auto Leap is cheat-only (1102-ui-leapmenu-pages checks the tab is absent)");
+            return;
+        }
+        int[] oldWindow = c.onClient(mc -> new int[]{mc.getWindow().getWidth(), mc.getWindow().getHeight()});
+        int oldGui = c.onClient(mc -> mc.options.guiScale().get());
+        Object hud = Mod.cfg("hud.HudConfig");
+        boolean oldAuto = (Boolean) Mod.call(hud, "isAutoScale");
+        try (State st = new State(c); AutoCloseable all = MenuLayoutCases.allTested(c)) {
+            ModScreenDriver d = null;
+            // {name, 1920x1080 window, GUI scale}: the test window's narrow drawer, the largest GUI scale, a wide screen
+            for (String[] size : new String[][]{{"narrow", "0", "2"}, {"big", "1", "4"}, {"wide", "1", "2"}}) {
+                if (size[1].equals("1")) {
+                    c.onClient(mc -> {
+                        McCompat.setScreen(mc, null);
+                        Mod.call(hud, "setAutoScale", false);
+                        return null;
+                    });
+                    c.ctx().getInput().resizeWindow(1920, 1080);
+                    c.ticks(3);
+                }
+                int gui = Integer.parseInt(size[2]);
+                c.onClient(mc -> {
+                    mc.options.guiScale().set(gui);
+                    mc.resizeGui();
+                    return null;
+                });
+                c.ticks(3);
+                d = open(c);
+                c.check(d != null, "no Fast/Auto Leap tab in the menu");
+                if (d == null) {
+                    return;
+                }
+                ModScreenDriver dd = d;
+                c.note(size[0] + ": GUI " + c.onClient(mc -> dd.screen.width + "x" + dd.screen.height) + " at scale " + gui
+                        + ", content width " + c.onClient(mc -> Mod.field(dd.screen, "contentW")));
+                for (String[] p : new String[][]{{"Universal Targets", "universal"}, {"Set Class Targets", "setclass"}}) {
+                    AbstractWidget b = find(rows(c, d), p[0]);
+                    c.check(b != null, size[0] + ": no " + p[0] + " button");
+                    if (b == null) {
+                        continue;
+                    }
+                    press(c, d, b);
+                    gridCheck(c, d, size[0] + " " + p[1]);
+                    pageShots(c, d, "leaprow-" + size[0] + "-" + p[1]);
+                    press(c, d, find(rows(c, d), "< Back"));
+                }
+            }
+            // ---- one click on each column saves (wide screen, Universal page), the dimmed ones included ----
+            press(c, d, find(rows(c, d), "Universal Targets"));
+            for (String cell : new String[]{"Crystal Leap:", "Crystal Target:", "Crystal Mode:", "Relic Target:", "Relic Mode:"}) {
+                clickSaves(c, d, st.file, cell);
+            }
+            // Crystal's Mode is Posmsg now: its keyword box sits under the row without overlapping anything
+            c.check(find(rows(c, d), "Keywords") != null, "Crystal in Posmsg shows no Keywords box");
+            gridCheck(c, d, "wide universal + Posmsg box");
+            press(c, d, find(rows(c, d), "< Back"));
+            press(c, d, find(rows(c, d), "Set Class Targets"));
+            clickSaves(c, d, st.file, "Crystal Target:");
+        } finally {
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                Mod.call(hud, "setAutoScale", oldAuto);
+                mc.options.guiScale().set(oldGui);
+                return null;
+            });
+            c.ctx().getInput().resizeWindow(oldWindow[0], oldWindow[1]);
+            c.ticks(3);
+            c.onClient(mc -> {
+                mc.resizeGui();
+                return null;
+            });
+        }
+    }
+
+    /** One row per leap, the three cyclers on the row's y, aligned columns, nothing overlapping or out of the panel, no
+     *  value or name cut; a leap that is Off has its target and mode dimmed. */
+    private static void gridCheck(UiCase c, ModScreenDriver d, String where) {
+        List<AbstractWidget> ws = rows(c, d);
+        List<String> bad = c.onClient(mc -> {
+            List<String> out = new ArrayList<>();
+            int cx = (Integer) Mod.field(d.screen, "contentX");
+            int cw = (Integer) Mod.field(d.screen, "contentW");
+            List<AbstractWidget> vis = new ArrayList<>();
+            for (AbstractWidget w : ws) {
+                if (w.visible) {
+                    vis.add(w);
+                }
+            }
+            for (int i = 0; i < vis.size(); i++) {
+                AbstractWidget a = vis.get(i);
+                if (a.getX() < cx || a.getX() + a.getWidth() > cx + cw) {
+                    out.add("out of the panel [" + cx + ", " + (cx + cw) + "]: '" + ModScreenDriver.label(a) + "' x " + a.getX()
+                            + " w " + a.getWidth());
+                }
+                for (int j = i + 1; j < vis.size(); j++) {
+                    AbstractWidget b = vis.get(j);
+                    if (a.getX() < b.getX() + b.getWidth() && b.getX() < a.getX() + a.getWidth()
+                            && a.getY() < b.getY() + b.getHeight() && b.getY() < a.getY() + a.getHeight()) {
+                        out.add("overlap: '" + ModScreenDriver.label(a) + "' and '" + ModScreenDriver.label(b) + "'");
+                    }
+                }
+            }
+            Map<String, AbstractWidget> byLabel = new java.util.LinkedHashMap<>();
+            List<AbstractWidget> leaps = new ArrayList<>();
+            List<AbstractWidget> targets = new ArrayList<>();
+            List<AbstractWidget> modes = new ArrayList<>();
+            for (AbstractWidget w : vis) {
+                String l = ModScreenDriver.label(w).trim();
+                byLabel.putIfAbsent(l.contains(":") ? l.substring(0, l.indexOf(':')) : l, w);
+                boolean compact = flag(w, "isCompact");
+                if (l.matches(".+ Leap: (Off|Fast|Auto)")) {
+                    leaps.add(w);
+                } else if (l.matches(".+ Target: .+")) {
+                    targets.add(w);
+                } else if (l.matches(".+ Mode: .+")) {
+                    modes.add(w);
+                } else {
+                    continue;
+                }
+                if (!compact) {
+                    out.add("'" + l + "' is not a compact cycler");
+                    continue;
+                }
+                String value = l.substring(l.indexOf(':') + 1).trim();
+                int[] cb = (int[]) Mod.call(w, "controlBounds");
+                if (mc.font.width(value) > cb[2] - 18) {
+                    out.add("'" + l + "' value cut: " + mc.font.width(value) + " px in a " + cb[2] + " px pill");
+                }
+            }
+            if (leaps.size() != 12 || targets.size() != 14 || modes.size() != 14) {
+                out.add(leaps.size() + " Off/Fast/Auto, " + targets.size() + " target and " + modes.size()
+                        + " mode cyclers; want 12, 14 and 14");
+            }
+            for (List<AbstractWidget> col : List.of(leaps, targets, modes)) {
+                for (AbstractWidget w : col) {
+                    if (w.getX() != col.get(0).getX() || w.getWidth() != col.get(0).getWidth()) {
+                        out.add("column not aligned: '" + ModScreenDriver.label(w) + "' x " + w.getX() + " w " + w.getWidth()
+                                + ", first x " + col.get(0).getX() + " w " + col.get(0).getWidth());
+                    }
+                }
+            }
+            if (!leaps.isEmpty() && !targets.isEmpty() && !modes.isEmpty()
+                    && (leaps.get(0).getX() + leaps.get(0).getWidth() > targets.get(0).getX()
+                    || targets.get(0).getX() + targets.get(0).getWidth() > modes.get(0).getX())) {
+                out.add("columns out of order or touching");
+            }
+            java.util.Set<Integer> rowYs = new java.util.HashSet<>();
+            for (AbstractWidget t : targets) {
+                String l = ModScreenDriver.label(t).trim();
+                String name = l.substring(0, l.indexOf(" Target:"));
+                rowYs.add(t.getY());
+                AbstractWidget m = byLabel.get(name + " Mode");
+                if (m == null || m.getY() != t.getY()) {
+                    out.add(name + ": its Mode is not on the target's row");
+                }
+                AbstractWidget n = byLabel.get(name);
+                if (!(n instanceof net.minecraft.client.gui.components.StringWidget) || n.getY() < t.getY()
+                        || n.getY() + 8 > t.getY() + t.getHeight() || mc.font.width(n.getMessage()) > n.getWidth() + 1
+                        || (!leaps.isEmpty() && n.getX() + n.getWidth() > leaps.get(0).getX())) {
+                    out.add(name + ": no name on the row, or it is cut or runs into the cyclers");
+                }
+                String group = name.startsWith("P3 S") ? "P3" : name;
+                if (!name.startsWith("P3 S") || name.equals("P3 S1")) {
+                    AbstractWidget lp = byLabel.get(group + " Leap");
+                    if (lp == null || lp.getY() != t.getY()) {
+                        out.add(name + ": its Off/Fast/Auto is not on the row");
+                    }
+                }
+            }
+            if (rowYs.size() != targets.size()) {
+                out.add(targets.size() + " targets on " + rowYs.size() + " rows: two targets share a row");
+            }
+            AbstractWidget door = byLabel.get("Door Opener Leap");
+            AbstractWidget blood = byLabel.get("After Blood Off");
+            if (door == null || blood == null || door.getY() != blood.getY()) {
+                out.add("After Blood Off is not in the Door Opener row");
+            }
+            AbstractWidget relicT = byLabel.get("Relic Target");
+            AbstractWidget crystalT = byLabel.get("Crystal Target");
+            if (relicT == null || crystalT == null || !flag(relicT, "isDim") || flag(crystalT, "isDim")) {
+                out.add("Relic (Off) target not dimmed or Crystal (Fast) target dimmed");
+            }
+            return out;
+        });
+        c.note(where + ": " + bad.size() + " layout problem(s)");
+        c.check(bad.isEmpty(), where + ": " + bad);
+    }
+
+    /** A boolean getter of the mod's SettingsButtonWidget; false on any other widget. */
+    private static boolean flag(AbstractWidget w, String getter) {
+        try {
+            return Boolean.TRUE.equals(Mod.call(w, getter));
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /** A real left click on the right half of {@code cell}'s pill: its value steps, the file changes. */
+    private static void clickSaves(UiCase c, ModScreenDriver d, Path file, String cell) throws Exception {
+        AbstractWidget w = find(rows(c, d), cell);
+        c.check(w != null, "no " + cell + " cycler");
+        if (w == null) {
+            return;
+        }
+        String before = ModScreenDriver.label(w).trim();
+        String fileBefore = Files.exists(file) ? Files.readString(file) : "";
+        boolean took = c.onClient(mc -> {
+            int[] cb = (int[]) Mod.call(w, "controlBounds");
+            return w.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(cb[0] + cb[2] * 0.75, cb[1] + cb[3] / 2.0,
+                    new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
+        });
+        c.ticks(2);
+        AbstractWidget now = find(rows(c, d), cell);
+        String after = now == null ? "gone" : ModScreenDriver.label(now).trim();
+        String fileAfter = Files.exists(file) ? Files.readString(file) : "";
+        c.note(cell + " click: " + before + " -> " + after + (fileAfter.equals(fileBefore) ? " (file unchanged)" : " (saved)"));
+        c.check(took && !after.equals(before) && !fileAfter.equals(fileBefore),
+                cell + " click did not step and save: took " + took + ", " + before + " -> " + after);
     }
 }

@@ -99,6 +99,7 @@ public class SimBossTests implements FabricClientGameTest {
     private static final String PORTAL = "1101-boss-portal";
     private static final String MAXOR_CRYS = "1102-boss-maxorcrys";
     private static final String MOVES = "1103-boss-moves";
+    private static final String LIGHTS1109 = "1109-boss-lights";
     private static final String RULES = "1103-boss-rules";
     private static final String CAPTURE = "1104-boss-capture";
     private static final String FRESH = "1108-boss-fresh";
@@ -134,7 +135,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossEe3Route1109.NAME, LIGHTS1109};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -151,7 +152,7 @@ public class SimBossTests implements FabricClientGameTest {
         List<String> failures = new ArrayList<>();
         for (String name : chosen) {
             // P3 waits on Auto Terminal and AP3 on AP3; both are compiled out of a legit jar.
-            if ((name.equals(P3) || name.equals(AP3) || name.equals(GATES) || name.equals(BREAKER) || name.equals(BREAKER_CHARGE)) && !dev.testkit.gametest.mod.Mod.isCheat()) {
+            if ((name.equals(P3) || name.equals(AP3) || name.equals(GATES) || name.equals(BREAKER) || name.equals(BREAKER_CHARGE) || name.equals(SimBossEe3Route1109.NAME)) && !dev.testkit.gametest.mod.Mod.isCheat()) {
                 println(name, "SKIPPED: legit jar (Auto Terminal / AP3 are cheat-only)");
                 continue;
             }
@@ -165,6 +166,7 @@ public class SimBossTests implements FabricClientGameTest {
                     case PORTAL -> portal(ctx, f);
                     case MAXOR_CRYS -> maxorCrystals(ctx, f);
                     case MOVES -> moves(ctx, f);
+                    case LIGHTS1109 -> lights1109(ctx, f);
                     case RULES -> rules(ctx, f);
                     case CAPTURE -> capture(ctx, f);
                     case FRESH -> fresh(ctx, f);
@@ -178,6 +180,7 @@ public class SimBossTests implements FabricClientGameTest {
                     case NOWITHER -> SimBossNoWither1109.run(ctx, f);
                     case BREAKER -> SimBossBreaker1108.run(ctx, f, false);
                     case BREAKER_CHARGE -> SimBossBreaker1108.run(ctx, f, true);
+                    case SimBossEe3Route1109.NAME -> SimBossEe3Route1109.run(ctx, f);
                     default -> ap3(ctx, f);
                 }
             } catch (Throwable t) {
@@ -404,7 +407,7 @@ public class SimBossTests implements FabricClientGameTest {
     private static final int[][] DOOR_BOX = {{95, 115, 121, 105, 136, 124}, {16, 115, 127, 19, 136, 137}, {3, 115, 48, 13, 136, 51}};
 
     /** Boundary {@code s}'s cells on the server: {arch (gate), door, portcullis}. */
-    private static int[] gateCells(ClientGameTestContext ctx, int s) {
+    static int[] gateCells(ClientGameTestContext ctx, int s) {
         int[] b = DOOR_BOX[s - 1];
         int[] n = new int[3];
         for (String id : serverBox(ctx, b[0], b[1], b[2], b[3], b[4], b[5])) {
@@ -496,28 +499,11 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     private static void fix3(ClientGameTestContext ctx, List<String> f) throws Exception {
-        java.nio.file.Path fixture = java.nio.file.Path.of(System.getProperty("user.home"), "killer560s-mod-logs", "fixtures", "boss-arena-1104.bin");
-        java.nio.file.Path fixture3 = java.nio.file.Path.of(System.getProperty("user.home"), "killer560s-mod-logs", "fixtures", "boss-arena-p3-1104.bin");
-        if (!java.nio.file.Files.isRegularFile(fixture) || !java.nio.file.Files.isRegularFile(fixture3)) {
-            f.add("no capture fixtures at " + fixture.getParent());
-            return;
-        }
-        java.nio.file.Path target = (java.nio.file.Path) call(ARENA, "capturePath");
-        java.nio.file.Path target3 = (java.nio.file.Path) ModUnderTest.staticCall(ARENA, "capturePath",
-                new Class<?>[]{String.class}, new Object[]{"P3"});
-        java.nio.file.Files.createDirectories(target.getParent());
-        java.nio.file.Files.copy(fixture, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-        java.nio.file.Files.copy(fixture3, target3, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-        try {
-            fix3Items(ctx, f);
-            fix3Chooser(ctx, f);
-            fix3Marks(ctx, f);
-            fix3Ss(ctx, f);
-            fix3Gates(ctx, f);
-        } finally {
-            java.nio.file.Files.deleteIfExists(target);
-            java.nio.file.Files.deleteIfExists(target3);
-        }
+        fix3Items(ctx, f);
+        fix3Chooser(ctx, f);
+        fix3Marks(ctx, f);
+        fix3Ss(ctx, f);
+        fix3Gates(ctx, f);
     }
 
     /** killer560: "if you start a phase of the boss you should keep the items you had from any phase". */
@@ -947,34 +933,23 @@ public class SimBossTests implements FabricClientGameTest {
     // ---------------------------------------------------------------------------------------- 1108-boss-fresh
 
     /**
-     * bosssim1108: a fresh instance had only the built-in plan because the capture sat in the instance it was taken in.
-     * (A) an instance's old config copy is moved into the shared store's sim-boss folder; (B) with only the shared copy,
-     * a P1 start builds from the capture.
+     * bosssim1108 / coopnet-1110: every instance (and every co-op host) builds his capture, bundled in the jar; a capture
+     * file left in the shared store or the config folder changes nothing.
      */
     private static void fresh(ClientGameTestContext ctx, List<String> f) throws Exception {
-        java.nio.file.Path fixture = java.nio.file.Path.of(System.getProperty("testkit.bossCapture",
-                System.getProperty("user.home") + "/killer560s-mod-logs/fixtures/boss-arena-1104.bin"));
-        if (!java.nio.file.Files.isRegularFile(fixture)) {
-            f.add("no capture fixture at " + fixture);
-            return;
-        }
         java.nio.file.Path shared = ((java.nio.file.Path) ModUnderTest.staticCall("com.killer560.hub.shared.SharedRecords", "root",
-                new Class<?>[0], new Object[0])).resolve("sim-boss");
+                new Class<?>[0], new Object[0])).resolve("sim-boss").resolve("killer560smod-sim-bossarena.bin");
         java.nio.file.Path legacy = (java.nio.file.Path) ModUnderTest.staticCall("com.killer560.hub.util.ModPaths", "config",
                 new Class<?>[]{String.class}, new Object[]{"killer560smod-sim-bossarena.bin"});
-        java.nio.file.Path inShared = shared.resolve("killer560smod-sim-bossarena.bin");
-        java.nio.file.Files.deleteIfExists(inShared);
-        java.nio.file.Files.createDirectories(legacy.getParent());
-        java.nio.file.Files.copy(fixture, legacy, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        for (java.nio.file.Path p : new java.nio.file.Path[]{shared, legacy}) {
+            java.nio.file.Files.createDirectories(p.getParent());
+            java.nio.file.Files.writeString(p, "not a capture");
+        }
         try {
-            java.nio.file.Path got = (java.nio.file.Path) call(ARENA, "capturePath");
-            expect(f, "the capture path is in the shared store", got.toAbsolutePath().normalize().equals(inShared.toAbsolutePath().normalize()), true);
-            expect(f, "the instance's old copy was moved into the shared store", java.nio.file.Files.isRegularFile(inShared), true);
-            expect(f, "the old copy is gone from the config folder", java.nio.file.Files.exists(legacy), false);
             start(ctx, "P1", false);
-            expect(f, "arena source with only the shared copy", call(ARENA, "source"), "capture");
+            expect(f, "arena source with stray capture files on disk", call(ARENA, "source"), "capture");
         } finally {
-            java.nio.file.Files.deleteIfExists(inShared);
+            java.nio.file.Files.deleteIfExists(shared);
             java.nio.file.Files.deleteIfExists(legacy);
         }
     }
@@ -985,32 +960,9 @@ public class SimBossTests implements FabricClientGameTest {
         withCapture(f, () -> captureCase(ctx, f));
     }
 
-    /** Runs {@code body} over his capture fixtures (P1 and P3 files in the sim folder), removed again after. */
+    /** Runs {@code body} on his capture: since coopnet-1110 it is bundled in the jar and always used, nothing to install. */
     static void withCapture(List<String> f, Runnable body) throws Exception {
-        java.nio.file.Path fixture = java.nio.file.Path.of(System.getProperty("testkit.bossCapture",
-                System.getProperty("user.home") + "/killer560s-mod-logs/fixtures/boss-arena-1104.bin"));
-        if (!java.nio.file.Files.isRegularFile(fixture)) {
-            f.add("no capture fixture at " + fixture + " (a copy of a captured killer560smod-sim-bossarena.bin)");
-            return;
-        }
-        java.nio.file.Path fixture3 = java.nio.file.Path.of(System.getProperty("testkit.bossCaptureP3",
-                System.getProperty("user.home") + "/killer560s-mod-logs/fixtures/boss-arena-p3-1104.bin"));
-        if (!java.nio.file.Files.isRegularFile(fixture3)) {
-            f.add("no P3 capture fixture at " + fixture3);
-            return;
-        }
-        java.nio.file.Path target = (java.nio.file.Path) call(ARENA, "capturePath");
-        java.nio.file.Path target3 = (java.nio.file.Path) ModUnderTest.staticCall(ARENA, "capturePath",
-                new Class<?>[]{String.class}, new Object[]{"P3"});
-        java.nio.file.Files.createDirectories(target.getParent());
-        java.nio.file.Files.copy(fixture, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-        java.nio.file.Files.copy(fixture3, target3, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-        try {
-            body.run();
-        } finally {
-            java.nio.file.Files.deleteIfExists(target);
-            java.nio.file.Files.deleteIfExists(target3);
-        }
+        body.run();
     }
 
     private static void captureCase(ClientGameTestContext ctx, List<String> f) {
@@ -1717,20 +1669,55 @@ public class SimBossTests implements FabricClientGameTest {
         tp(ctx, 60.5, 131, 140.5, 180, -20);
         ctx.waitTicks(8);
         int[][] levers = {{62, 136, 142}, {58, 136, 142}, {60, 135, 142}, {60, 134, 142}, {62, 133, 142}, {58, 133, 142}};
-        int flicked = 0;
-        for (int[] l : levers) {
-            BlockPos p = new BlockPos(l[0], l[1], l[2]);
-            boolean on = ctx.computeOnClient(mc -> mc.level.getBlockState(p).getValue(
-                    net.minecraft.world.level.block.state.properties.BlockStateProperties.POWERED));
-            if (!on) {
-                useBlock(ctx, p, Direction.NORTH);
-                flicked++;
-                ctx.waitTicks(3);
+        // The device starts with the corners and the middle two on (1109): the first pull of any lever completes it.
+        useBlock(ctx, new BlockPos(levers[0][0], levers[0][1], levers[0][2]), Direction.NORTH);
+        ctx.waitTicks(3);
+        println(P3, "Lights: flicked one lever");
+    }
+
+    private static boolean leverOn(ClientGameTestContext ctx, int x, int y) {
+        return ctx.computeOnClient(mc -> mc.level.getBlockState(new BlockPos(x, y, 142)).getValue(
+                net.minecraft.world.level.block.state.properties.BlockStateProperties.POWERED));
+    }
+
+    /** Lights starts as the corners + the middle two, one pull of any lever (on or off) completes it, /pc answers quietly. */
+    private static void lights1109(ClientGameTestContext ctx, List<String> f) {
+        java.util.Set<String> start = java.util.Set.of("58,133", "62,133", "58,136", "62,136", "60,134", "60,135");
+        java.util.Random rnd = new java.util.Random();
+        for (int run = 0; run < 2; run++) {
+            start(ctx, "S2", false);
+            tp(ctx, 60.5, 132, 140.5, 180, -20);
+            ctx.waitTicks(8);
+            for (int y = 133; y <= 136; y++) {
+                for (int x = 58; x <= 62; x++) {
+                    expect(f, "run " + run + " lever " + x + "," + y + " at the start", leverOn(ctx, x, y), start.contains(x + "," + y));
+                }
             }
-        }
-        println(P3, "Lights: flicked " + flicked + " lever(s) on");
-        if (flicked == 0) {
-            f.add("Lights started with every lever on - nothing was done");
+            expect(f, "run " + run + " lamps by the rule at the start", lightsRuleHolds(ctx), "ok");
+            expect(f, "run " + run + " not done before a pull", String.valueOf(call(DEVICES, "describe")).contains("lights=false"), true);
+            int x, y;
+            if (run == 0) {
+                do {
+                    x = 58 + rnd.nextInt(5);
+                    y = 133 + rnd.nextInt(4);
+                } while (start.contains(x + "," + y));
+            } else {
+                x = 60;
+                y = 135;
+            }
+            long mark = LogTap.mark();
+            useBlock(ctx, new BlockPos(x, y, 142), Direction.NORTH);
+            ctx.waitTicks(10);
+            expect(f, "run " + run + " (" + x + "," + y + ") completed by one flick", String.valueOf(call(DEVICES, "describe")).contains("lights=true"), true);
+            expect(f, "run " + run + " completion line", chatSeen(mark, "completed a device!"), true);
+            if (run == 1) {
+                mark = LogTap.mark();
+                ctx.runOnClient(mc -> mc.player.connection.sendCommand("pc at ee2"));
+                ctx.waitTicks(6);
+                expect(f, "/pc at ee2 is not an unknown command", chatSeen(mark, "Unknown or incomplete"), false);
+                expect(f, "/pc at ee2 shows the local Party > line (simpc-1110)", chatSeen(mark, ": at ee2"), true);
+            }
+            cleanup(ctx);
         }
     }
 
@@ -2210,7 +2197,7 @@ public class SimBossTests implements FabricClientGameTest {
         buildFloorAndEnter(ctx, f, code);
     }
 
-    private static String planF7(ClientGameTestContext ctx) {
+    static String planF7(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> {
             Object floor = ModUnderTest.enumValue("com.killer560.hub.roomsim.SimFloorGen$Floor", "F7");
             Object planned = ModUnderTest.staticCall("com.killer560.hub.roomsim.SimFloorGen", "plan",
@@ -2220,28 +2207,11 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     private static void buildFloorAndEnter(ClientGameTestContext ctx, List<String> f, String code) {
-        long before = Scenario.simBuildCount(ctx);
-        ctx.runOnClient(mc -> mc.execute(() -> {
-            java.util.function.Consumer<Minecraft> build = c -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBuilder",
-                    "build", new Class<?>[]{Minecraft.class, String.class}, new Object[]{c, code});
-            ModUnderTest.staticCall("com.killer560.hub.roomsim.SimWorld", "open", new Class<?>[]{Minecraft.class, String.class,
-                    java.util.function.Consumer.class, String.class}, new Object[]{mc, code, build, "Generating Floor 7"});
-        }));
-        ctx.waitFor(mc -> mc.level != null, 2400);
-        Scenario.awaitSimBuild(ctx, before);
-        ctx.waitTicks(80);
+        int[] p = floorWithPortal(ctx, f, code);
+        if (p == null) {
+            return;
+        }
         String mapBefore = String.valueOf(call("com.killer560.hub.roomsim.SimState", "mapCode"));
-        ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimTeleportCommands", "goTo",
-                new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, "Blood"}));
-        if (!until(ctx, "standing in Blood", mc -> "Blood".equals(call("com.killer560.hub.roomsim.SimState", "currentRoomName")), 100)) {
-            f.add("/goto Blood never put him in the Blood room");
-            return;
-        }
-        if (!until(ctx, "the portal", mc -> call(B + "BossPortal", "portal") != null, 200)) {
-            f.add("no portal opened in Blood");
-            return;
-        }
-        int[] p = (int[]) call(B + "BossPortal", "portal");
         ctx.waitTicks(10);
         expect(f, "standing on the spot as it opened did not take him in", call(FIGHT, "running"), false);
         tp(ctx, p[0] + 4.5, p[1] + 1, p[2] + 0.5, 0, 0);
@@ -2259,6 +2229,31 @@ public class SimBossTests implements FabricClientGameTest {
         expect(f, "the floor's map code after entering the boss",
                 String.valueOf(call("com.killer560.hub.roomsim.SimState", "mapCode")), mapBefore);
         expect(f, "Floor7Tracker phase after the portal", phase(ctx), "P1");
+    }
+
+    /** Builds floor {@code code}, puts him in Blood and waits for its portal: the portal block, or null (failure added). */
+    static int[] floorWithPortal(ClientGameTestContext ctx, List<String> f, String code) {
+        long before = Scenario.simBuildCount(ctx);
+        ctx.runOnClient(mc -> mc.execute(() -> {
+            java.util.function.Consumer<Minecraft> build = c -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBuilder",
+                    "build", new Class<?>[]{Minecraft.class, String.class}, new Object[]{c, code});
+            ModUnderTest.staticCall("com.killer560.hub.roomsim.SimWorld", "open", new Class<?>[]{Minecraft.class, String.class,
+                    java.util.function.Consumer.class, String.class}, new Object[]{mc, code, build, "Generating Floor 7"});
+        }));
+        ctx.waitFor(mc -> mc.level != null, 2400);
+        Scenario.awaitSimBuild(ctx, before);
+        ctx.waitTicks(80);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimTeleportCommands", "goTo",
+                new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, "Blood"}));
+        if (!until(ctx, "standing in Blood", mc -> "Blood".equals(call("com.killer560.hub.roomsim.SimState", "currentRoomName")), 100)) {
+            f.add("/goto Blood never put him in the Blood room");
+            return null;
+        }
+        if (!until(ctx, "the portal", mc -> call(B + "BossPortal", "portal") != null, 200)) {
+            f.add("no portal opened in Blood");
+            return null;
+        }
+        return (int[]) call(B + "BossPortal", "portal");
     }
 
     // ============================================================================================== bossparity-1103
@@ -2441,7 +2436,7 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     /** Teleports beside a terminal's stand and clicks it. False when there is no stand named {@code name}. */
-    private static boolean clickTerminal(ClientGameTestContext ctx, int sec, String label, String name) {
+    static boolean clickTerminal(ClientGameTestContext ctx, int sec, String label, String name) {
         double[] at = (double[]) ModUnderTest.staticCall(STATIONS, "position", new Class<?>[]{int.class, String.class},
                 new Object[]{sec, label});
         int[][] dirs = {{-1, 0}, {0, -1}, {1, 0}, {0, 1}};
