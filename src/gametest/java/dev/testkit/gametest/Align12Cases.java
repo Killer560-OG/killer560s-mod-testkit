@@ -178,19 +178,7 @@ final class Align12Cases {
                         });
                     }
                     ctx.waitTick();
-                    double[] r = onClient(ctx, mc -> {
-                        Vec3 v = mc.player.getDeltaMovement();
-                        Object n = dev.testkit.gametest.mod.Mod.field("ap3.Ap3Executor", "activeNode");
-                        // 1: the align (or any node of a hand walk-in) is active; a RUN node carrying him in is not the align
-                        boolean on = n != null && (runNodeType == null || !String.valueOf(dev.testkit.gametest.mod.Mod.field(n, "type")).equals("RUN"));
-                        // 5: the yaw his camera shows (getViewYRot: the frozen view while AP3 turns the body)
-                        // 6: AP3 still holds a frozen view (the real yaw glides back under it after the align)
-                        Object fv = dev.testkit.gametest.mod.Mod.staticCall("ap3.Ap3Executor", "frozenViewYaw");
-                        boolean frozen = fv instanceof Float f && !f.isNaN();
-                        // 7: the yaw the first frame after this tick draws (partial tick 0: lerped from yRotO)
-                        return new double[]{mc.player.getX(), mc.player.getZ(), v.x, v.z, on ? 1 : 0, mc.player.getViewYRot(1f),
-                                frozen ? 1 : 0, mc.player.getViewYRot(0f)};
-                    });
+                    double[] r = sample(ctx, runNodeType);
                     tr.add(r);
                     if (held && r[4] == 1) {
                         held = false;
@@ -202,32 +190,9 @@ final class Align12Cases {
                     }
                 }
                 release(ctx);
-                int entry = -1, done = -1;
-                for (int i = 0; i < tr.size(); i++) {
-                    double[] r = tr.get(i);
-                    if (entry < 0 && Math.abs(r[0] - tx) <= 0.5 && Math.abs(r[1] - tz) <= 0.5) {
-                        entry = i;
-                    }
-                    if (entry >= 0 && done < 0 && Math.abs(r[0] - tx) < 2e-4 && Math.abs(r[1] - tz) < 2e-4
-                            && r[2] * r[2] + r[3] * r[3] < 9e-6) {
-                        done = i;
-                    }
-                }
-                // his crosshair never jumps: from the align's first tick on, through the turn back under the view after it,
-                // the shown yaw moves at most his own mouse. Wrapped: the view lets go onto the real yaw, which is the same
-                // look 360 degrees on (the running yaw is never wrapped).
-                int from = -1;
-                for (int i = 0; i < tr.size() && from < 0; i++) {
-                    if (tr.get(i)[4] == 1) {
-                        from = i;
-                    }
-                }
-                double viewJump = 0;
-                // tick to tick, and inside a tick: the frames lerp from [7] to [5], so a stale yRotO swings the crosshair
-                for (int i = Math.max(1, from); i < tr.size() && from >= 0; i++) {
-                    double[] a = tr.get(i - 1), b = tr.get(i);
-                    viewJump = Math.max(viewJump, Math.max(wrapped(b[5] - a[5]), Math.max(wrapped(b[7] - a[5]), wrapped(b[5] - b[7]))));
-                }
+                double[] an = analyze(tr, tx, tz, 0);
+                int entry = (int) an[0], done = (int) an[1];
+                double viewJump = an[2];
                 double[] last = tr.get(tr.size() - 1);
                 boolean stays = done >= 0 && Math.abs(last[0] - tx) < 2e-4 && Math.abs(last[1] - tz) < 2e-4;
                 List<String> plan = lines(mark, "tick-exact plan");
@@ -312,7 +277,53 @@ final class Align12Cases {
         }
     }
 
-    private static void release(ClientGameTestContext ctx) {
+    /**
+     * One END-of-tick sample: x, z, vx, vz, 1 while the align (any node but {@code skipType}) is active, the yaw his camera
+     * shows (getViewYRot: the frozen view while AP3 turns the body), 1 while AP3 holds a frozen view (the real yaw glides back
+     * under it after the align), and the yaw the first frame after this tick draws (partial tick 0: lerped from yRotO).
+     */
+    static double[] sample(ClientGameTestContext ctx, Object skipType) {
+        return onClient(ctx, mc -> {
+            Vec3 v = mc.player.getDeltaMovement();
+            Object n = dev.testkit.gametest.mod.Mod.field("ap3.Ap3Executor", "activeNode");
+            boolean on = n != null && (skipType == null || !String.valueOf(dev.testkit.gametest.mod.Mod.field(n, "type")).equals(skipType));
+            Object fv = dev.testkit.gametest.mod.Mod.staticCall("ap3.Ap3Executor", "frozenViewYaw");
+            boolean frozen = fv instanceof Float f && !f.isNaN();
+            return new double[]{mc.player.getX(), mc.player.getZ(), v.x, v.z, on ? 1 : 0, mc.player.getViewYRot(1f),
+                    frozen ? 1 : 0, mc.player.getViewYRot(0f)};
+        });
+    }
+
+    /**
+     * {entry, done, viewJump} of a trace: the first sample inside the 1x1 block, the first on the point (0.0002) with the velocity
+     * the game zeroes next tick, and the largest change of the shown yaw from {@code skip} samples after the align's first
+     * tick on (the frames lerp from [7] to [5], so a stale yRotO swings the crosshair); wrapped, the view lets go onto the real
+     * yaw, which is the same look a whole turn on (the running yaw is never wrapped).
+     */
+    static double[] analyze(List<double[]> tr, double tx, double tz, int skip) {
+        int entry = -1, done = -1, from = -1;
+        for (int i = 0; i < tr.size(); i++) {
+            double[] r = tr.get(i);
+            if (entry < 0 && Math.abs(r[0] - tx) <= 0.5 && Math.abs(r[1] - tz) <= 0.5) {
+                entry = i;
+            }
+            if (entry >= 0 && done < 0 && Math.abs(r[0] - tx) < 2e-4 && Math.abs(r[1] - tz) < 2e-4
+                    && r[2] * r[2] + r[3] * r[3] < 9e-6) {
+                done = i;
+            }
+            if (from < 0 && r[4] == 1) {
+                from = i;
+            }
+        }
+        double viewJump = 0;
+        for (int i = Math.max(1, from + skip); i < tr.size() && from >= 0; i++) {
+            double[] a = tr.get(i - 1), b = tr.get(i);
+            viewJump = Math.max(viewJump, Math.max(wrapped(b[5] - a[5]), Math.max(wrapped(b[7] - a[5]), wrapped(b[5] - b[7]))));
+        }
+        return new double[]{entry, done, viewJump};
+    }
+
+    static void release(ClientGameTestContext ctx) {
         ctx.getInput().releaseKey(o -> o.keyUp);
         ctx.getInput().releaseKey(o -> o.keyLeft);
         ctx.getInput().releaseKey(o -> o.keySprint);
@@ -328,12 +339,12 @@ final class Align12Cases {
         return false;
     }
 
-    private static double wrapped(double d) {
+    static double wrapped(double d) {
         return Math.abs(d - 360 * Math.rint(d / 360));
     }
 
     /** The last k samples all at the same spot. */
-    private static boolean same(List<double[]> tr, int k) {
+    static boolean same(List<double[]> tr, int k) {
         double[] a = tr.get(tr.size() - 1);
         for (int i = tr.size() - k; i < tr.size() - 1; i++) {
             double[] b = tr.get(i);
@@ -344,7 +355,7 @@ final class Align12Cases {
         return true;
     }
 
-    private static List<String> lines(long mark, String needle) {
+    static List<String> lines(long mark, String needle) {
         List<String> out = new ArrayList<>();
         for (String l : LogTap.since(mark)) {
             if (l.contains(needle)) {
@@ -354,7 +365,7 @@ final class Align12Cases {
         return out;
     }
 
-    private static String tail(String l) {
+    static String tail(String l) {
         int i = l.indexOf("Fast Align #");
         return i < 0 ? l : l.substring(i);
     }

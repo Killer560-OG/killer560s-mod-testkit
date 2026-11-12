@@ -142,6 +142,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             Ap3Crystal1101Cases.register(s);
             // mod align12-1110: Fast Align, tick-exact (2-tick / 1-tick stop on a 1x1 block).
             Align12Cases.register(s);
+            Align12LeapCases.register(s);
             // mod doc-routes-1101: Etherwarp Overlay on carpets and the p3sim crosshair; Advanced Position's y velocity.
             Doc1101EtherPosCases.register(s);
             Ap3Gates1027Cases.register(s);

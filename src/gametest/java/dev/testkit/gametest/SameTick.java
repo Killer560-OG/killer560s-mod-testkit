@@ -37,6 +37,7 @@ import java.util.function.Predicate;
  *       {@link #close}.</li>
  *   <li>{@link Act#CLICK}: a container click on an empty player slot of the open menu at END (a mouse click between
  *       ticks), so it lands in the next server tick ahead of the START actors.</li>
+ *   <li>{@link Act#INV_CLICK}: as CLICK on the player's own menu with no screen open (alignleap-1112).</li>
  *   <li>{@link Act#TP}: nothing is put in; the case has the server teleport him, and his teleport accept (with its echo)
  *       is the action (grimgapA-1105: a feature acting in the tick he answers a teleport).</li>
  *   <li>{@link Act#USE_KEY}: a click of the use key at END, so the next tick's {@code handleKeybinds} sends the right
@@ -49,7 +50,7 @@ import java.util.function.Predicate;
  */
 public final class SameTick implements AutoCloseable {
 
-    public enum Act { USE, ATTACK, DIG, SWAP, CLICK, SCREEN_CLICK, TP, DIG_HELD, USE_KEY }
+    public enum Act { USE, ATTACK, DIG, SWAP, CLICK, SCREEN_CLICK, TP, DIG_HELD, USE_KEY, INV_CLICK }
 
     private static final Identifier LATE = Identifier.parse("testkit:sametick_late");
     private static boolean hooked;
@@ -161,6 +162,12 @@ public final class SameTick implements AutoCloseable {
                                 net.minecraft.world.inventory.ContainerInput.PICKUP, mc.player);
                         done++;
                     }
+                }
+                case INV_CLICK -> {
+                    // A container click with no screen open (a click macro, or his own inventory click landing on the tick):
+                    // his own menu, hotbar slot 9 (index 44, left empty), the same packet as CLICK.
+                    mc.gameMode.handleContainerInput(0, 44, 0, net.minecraft.world.inventory.ContainerInput.PICKUP, mc.player);
+                    done++;
                 }
                 case SCREEN_CLICK -> {
                     // His mouse on the open menu's last slot (his hotbar slot 9, left empty), through the screen as a real
