@@ -186,6 +186,13 @@ public class BreakerAuraTests implements FabricClientGameTest {
                 firstBreaker = firstBreaker == null ? e : firstBreaker;
             }
         }
+        // simbreakdelay-1112: his own break shows at once while Charge banks (alone, with his use / swap / attack in every
+        // tick, and a Burst pair), he walks into the gap the next tick and the kept bank fires after.
+        blinkOwnBreak(ctx, "1112-blink-ownbreak-walk", null, false, 0);
+        blinkOwnBreak(ctx, "1112-blink-ownbreak-use", SameTick.Act.USE, false, 1);
+        blinkOwnBreak(ctx, "1112-blink-ownbreak-swap", SameTick.Act.SWAP, false, 2);
+        blinkOwnBreak(ctx, "1112-blink-ownbreak-attack", SameTick.Act.ATTACK, false, 3);
+        blinkOwnBreak(ctx, "1112-blink-ownbreak-burst", null, true, 4);
         if (firstBreaker != null) {
             throw firstBreaker;
         }
@@ -815,6 +822,250 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         unconfigure(ctx);
                     }
                 });
+    }
+
+    /**
+     * 1112-blink-ownbreak-* (simbreakdelay-1112, killer560 2026-11-12: "it needs to instantly break when i break the block or
+     * it is useless having blink held"). Blink Charge banks its full 20 ticks standing still (answers held ~1 s), then
+     * Breaker Aura digs a two-high stone-brick column right beside him with Hypixel's Dungeon Breaker (the server breaks it
+     * on the first dig; GrimAC does not predict that, so the client keeps the block until the server's update). Before the
+     * fix that update waited for its held answer, ~21 ticks. Now his own break sends every held answer back to back and
+     * applies at once (BlinkCharge.catchUpForOwnBreak). Asserted: every pick is air on the client within 2 ticks of its dig
+     * leaving, the catch-up ran and its answers reached the wire, he walks into the gap from the next tick on (client and
+     * the moves he sends), the bank is kept and then fires as a shot, and GrimAC says nothing. {@code act}: his own use,
+     * hotbar swap or attack in every tick (SAME-TICK GRIM CASES); {@code burst}: Burst Multi Break digs the pair in one
+     * tick (MultiBreak* is that switch's accepted line, nothing else).
+     */
+    private void blinkOwnBreak(ClientGameTestContext ctx, String name, SameTick.Act act, boolean burst, int k) {
+        if (Scenario.skip(name)) {
+            return;
+        }
+        if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+            Scenario.skipped(name, "legit jar (Blink and Breaker Aura are cheat-only)");
+            return;
+        }
+        ModUnderTest.require(MOD_ID);
+        int cx = -6800;
+        int cz = -1700 - 60 * k;
+        int fy = SURFACE_Y - 1;
+        List<BlockPos> picks = List.of(new BlockPos(cx + 1, SURFACE_Y, cz), new BlockPos(cx + 1, SURFACE_Y + 1, cz));
+        String breaker = "item replace entity @p hotbar.%d with minecraft:diamond_pickaxe[minecraft:custom_data={id:\"DUNGEONBREAKER\"}] 1";
+        runMaybeFlags(burst, ctx, name,
+                (server, scenario) -> {
+                    TestMap m = TestMap.on(server)
+                            .platform(cx, fy, cz, 26)
+                            .catchFloor(120)
+                            .survival()
+                            .clearInventory()
+                            .command(String.format(Locale.ROOT, breaker, 0))
+                            .command(String.format(Locale.ROOT, breaker, 1))
+                            .command("fill " + (cx + 1) + " " + SURFACE_Y + " " + cz + " " + (cx + 1) + " " + (SURFACE_Y + 1)
+                                    + " " + cz + " minecraft:stone_bricks");
+                    if (act == SameTick.Act.ATTACK) {
+                        m = m.command("summon zombie " + (cx + 0.5) + " " + SURFACE_Y + " " + (cz + 2.3)
+                                + " {NoAI:1b,Invulnerable:1b,Silent:1b}");
+                    }
+                    m.spawn(cx + 0.5, cz + 0.5, 0f, act == SameTick.Act.ATTACK ? 15f : 0f).build();
+                },
+                (server, scenario) -> {
+                    scenario.assertDetectorWorks();
+                    String player = ctx.computeOnClient(mc -> mc.player.getName().getString());
+                    dev.testkit.gametest.hx.Hx hx = dev.testkit.gametest.hx.Hx.connect();
+                    hx.call("dungeon.abilities", "enabled", true);
+                    configure(ctx, scenario, true, List.of());
+                    if (burst) {
+                        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(CONFIG), "setBreakerAuraBurstMultiBreak", true));
+                    }
+                    boolean gate = ctx.computeOnClient(mc -> {
+                        boolean g = (Boolean) dev.testkit.gametest.mod.Mod.staticCall("util.SkyblockGate", "isEnabled");
+                        dev.testkit.gametest.mod.Mod.staticCall("util.SkyblockGate", "setEnabled", false);
+                        dev.testkit.gametest.mod.Mod.setField("blink.BlinkFeature", "keyHeldForTest", Boolean.FALSE);
+                        dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE);
+                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", true);
+                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChargeMode", dev.testkit.gametest.mod.Mod.enumValue("blink.BlinkConfig$Mode", "TOGGLE"));
+                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChargeTicks", 20);
+                        dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setChatMessages", false);
+                        return g;
+                    });
+                    // Wire: client tick of each dig on a pick, the answers sent, the furthest x his moves told the server.
+                    java.util.Map<BlockPos, Integer> digTick = new java.util.concurrent.ConcurrentHashMap<>();
+                    java.util.List<Integer> pongTicks = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+                    double[] sentX = {Double.NEGATIVE_INFINITY};
+                    java.util.function.Consumer<net.minecraft.network.protocol.Packet<?>>[] prevTap = new java.util.function.Consumer[1];
+                    SameTick[] st = {null};
+                    try {
+                        ctx.runOnClient(mc -> {
+                            dev.testkit.harness.Latency.remove();
+                            prevTap[0] = PacketTrace.tap;
+                            PacketTrace.tap = p -> {
+                                java.util.function.Consumer<net.minecraft.network.protocol.Packet<?>> prev = prevTap[0];
+                                if (prev != null) prev.accept(p);
+                                var me = net.minecraft.client.Minecraft.getInstance().player;
+                                int t = me == null ? -1 : me.tickCount;
+                                if (p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket a
+                                        && picks.contains(a.getPos())) {
+                                    digTick.putIfAbsent(a.getPos(), t);
+                                } else if (p instanceof net.minecraft.network.protocol.common.ServerboundPongPacket) {
+                                    pongTicks.add(t);
+                                } else if (p instanceof net.minecraft.network.protocol.game.ServerboundMovePlayerPacket mp
+                                        && mp.hasPosition()) {
+                                    synchronized (sentX) {
+                                        sentX[0] = Math.max(sentX[0], mp.getX(Double.NEGATIVE_INFINITY));
+                                    }
+                                }
+                            };
+                        });
+                        // Charge: toggle on, stand still until the bank is full and the answers are held.
+                        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE));
+                        ctx.waitTicks(1);
+                        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
+                        ctx.waitTicks(45);
+                        long bank0 = blinkLong(ctx, "banked");
+                        long held0 = blinkLong(ctx, "answersHeld");
+                        long ups0 = gapCount(ctx, "ownBreakCatchUps");
+                        scenario.log(String.format(Locale.ROOT, "charged: bank %d, answers held %d", bank0, held0));
+                        if (bank0 < 20 || held0 < 10) {
+                            throw new AssertionError("Charge did not bank and hold - nothing tested (bank " + bank0
+                                    + ", answers held " + held0 + ")");
+                        }
+                        if (act != null) {
+                            st[0] = ctx.computeOnClient(mc -> SameTick.start(act, 1, p ->
+                                    p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket a
+                                            && picks.contains(a.getPos()), 0, 1));
+                        }
+                        int pongs0 = pongTicks.size();
+                        ctx.runOnClient(mc -> setPicks(picks));
+                        int[] airTick = new int[picks.size()];
+                        java.util.Arrays.fill(airTick, -1);
+                        int bothAt = -1;
+                        for (int i = 0; i < 60 && bothAt < 0; i++) {
+                            ctx.waitTicks(1);
+                            int now = ctx.computeOnClient(mc -> mc.player.tickCount);
+                            for (int j = 0; j < picks.size(); j++) {
+                                if (airTick[j] < 0 && isAir(ctx, picks.get(j))) {
+                                    airTick[j] = now;
+                                }
+                            }
+                            if (java.util.Arrays.stream(airTick).allMatch(a -> a >= 0)) {
+                                bothAt = now;
+                                // He walks into the gap from the next tick on.
+                                ctx.getInput().holdKey(o -> o.keyLeft);
+                            }
+                        }
+                        double x0 = ctx.computeOnClient(mc -> mc.player.getX());
+                        ctx.waitTicks(2);
+                        double x2 = ctx.computeOnClient(mc -> mc.player.getX());
+                        ctx.waitTicks(13);
+                        double x15 = ctx.computeOnClient(mc -> mc.player.getX());
+                        long ups = gapCount(ctx, "ownBreakCatchUps") - ups0;
+                        int[] bankEdge = ctx.computeOnClient(mc -> (int[]) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "lastOwnBreakBank"));
+                        long bankAfterWalk = blinkLong(ctx, "banked");
+                        int firstDig = digTick.values().stream().mapToInt(Integer::intValue).min().orElse(-1);
+                        int pongsBurst = 0;
+                        synchronized (pongTicks) {
+                            for (int t : pongTicks.subList(pongs0, pongTicks.size())) {
+                                if (firstDig >= 0 && bothAt >= 0 && t >= firstDig && t <= bothAt) {
+                                    pongsBurst++;
+                                }
+                            }
+                        }
+                        StringBuilder per = new StringBuilder();
+                        int worst = 0;
+                        for (int j = 0; j < picks.size(); j++) {
+                            Integer d = digTick.get(picks.get(j));
+                            int lag = d == null || airTick[j] < 0 ? 999 : airTick[j] - d;
+                            worst = Math.max(worst, lag);
+                            per.append(xyz(picks.get(j))).append(" dug@").append(d).append(" air@").append(airTick[j])
+                                    .append(" (").append(lag).append(" tick(s)) ");
+                        }
+                        double sx;
+                        synchronized (sentX) {
+                            sx = sentX[0];
+                        }
+                        scenario.log(String.format(Locale.ROOT, "%s: %s; catch-ups %d, answers sent dig..air %d, bank at the "
+                                        + "break %d -> %d, bank after walking %d; x when clear %.2f, +2 ticks %.2f, +15 ticks %.2f, "
+                                        + "furthest x sent %.2f (gap column %d..%d)", name, per, ups, pongsBurst, bankEdge[0],
+                                bankEdge[1], bankAfterWalk, x0, x2, x15, sx, cx + 1, cx + 2));
+                        if (digTick.size() < picks.size()) {
+                            throw new AssertionError("the aura did not dig every pick: " + per);
+                        }
+                        if (worst > 2) {
+                            throw new AssertionError("a pick took more than 2 ticks from its dig to air on the client: " + per);
+                        }
+                        if (ups < 1 || pongsBurst < 10) {
+                            throw new AssertionError("the break did not send the held answers (catch-ups " + ups
+                                    + ", answers on the wire " + pongsBurst + ")");
+                        }
+                        if (x2 <= x0 + 0.05 || x15 < cx + 1.6 || sx < cx + 1.6) {
+                            throw new AssertionError(String.format(Locale.ROOT, "he did not walk into the gap (x %.2f -> %.2f -> "
+                                    + "%.2f, sent %.2f)", x0, x2, x15, sx));
+                        }
+                        if (bankEdge[1] < 20) {
+                            throw new AssertionError("the break cut the bank: " + bankEdge[0] + " -> " + bankEdge[1]);
+                        }
+                        // The bank is his to spend: fire it.
+                        long shots0 = blinkLong(ctx, "shots");
+                        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE));
+                        ctx.waitTicks(2);
+                        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
+                        for (int i = 0; i < 80 && ctx.computeOnClient(mc -> (Boolean) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "shotPending")); i++) {
+                            ctx.waitTicks(1);
+                        }
+                        ctx.getInput().releaseKey(o -> o.keyLeft);
+                        ctx.waitTicks(20);
+                        long shots = blinkLong(ctx, "shots") - shots0;
+                        double xEnd = ctx.computeOnClient(mc -> mc.player.getX());
+                        scenario.log(String.format(Locale.ROOT, "%s: shot parts %d, x after the shot %.2f", name, shots, xEnd));
+                        if (shots < 1 || xEnd < x15 + 2) {
+                            throw new AssertionError("the kept bank did not fire (shots " + shots + ", x " + x15 + " -> " + xEnd + ")");
+                        }
+                        if (st[0] != null) {
+                            SameTick s = st[0];
+                            ctx.runOnClient(mc -> s.close());
+                            st[0] = null;
+                            scenario.log(name + ": " + s.report());
+                            if (s.done() == 0 || s.playerWindows() == 0 || s.featureWindows() == 0) {
+                                throw new AssertionError("his " + act + " or the aura's dig never reached the wire ("
+                                        + s.report() + ")");
+                            }
+                            if (act != SameTick.Act.ATTACK && s.both() == 0) {
+                                throw new AssertionError("no server tick carried both his " + act + " and the dig ("
+                                        + s.report() + ")");
+                            }
+                        }
+                        if (burst) {
+                            List<String> other = scenario.flags().stream().filter(f -> !f.contains("MultiBreak")).toList();
+                            if (!other.isEmpty()) {
+                                throw new AssertionError("GrimAC flagged something other than MultiBreak: " + other);
+                            }
+                            if (digTick.values().stream().distinct().count() != 1) {
+                                throw new AssertionError("Burst did not dig the pair in one tick: " + per);
+                            }
+                        }
+                    } finally {
+                        ctx.getInput().releaseKey(o -> o.keyLeft);
+                        if (st[0] != null) {
+                            SameTick s = st[0];
+                            ctx.runOnClient(mc -> s.close());
+                        }
+                        ctx.runOnClient(mc -> {
+                            PacketTrace.tap = prevTap[0];
+                            dev.testkit.gametest.mod.Mod.setField("blink.BlinkFeature", "keyHeldForTest", null);
+                            dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", null);
+                            dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "reset", "test teardown");
+                            dev.testkit.gametest.mod.Mod.set("blink.BlinkConfig", "setEnabled", false);
+                            dev.testkit.gametest.mod.Mod.staticCall("util.SkyblockGate", "setEnabled", gate);
+                            ModUnderTest.setIfPresent(ModUnderTest.config(CONFIG), "setBreakerAuraBurstMultiBreak", false);
+                        });
+                        hx.call("dungeon.abilities", "enabled", false);
+                        hx.close();
+                        unconfigure(ctx);
+                    }
+                });
+    }
+
+    private static long blinkLong(ClientGameTestContext ctx, String method) {
+        return ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", method)).longValue());
     }
 
     /** A BlinkCharge counter, or -1 on a jar without it (the before-the-fix run). */
