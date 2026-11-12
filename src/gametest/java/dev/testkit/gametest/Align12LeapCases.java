@@ -107,6 +107,9 @@ final class Align12LeapCases {
                 int entry = -1;
                 boolean sawOn = false;
                 for (int i = 0; i < 90; i++) {
+                    if (act == SameTick.Act.TP && i >= 1 && i < 5) {
+                        c.server().command("execute as @a at @s run tp @s ~ ~ ~"); // a teleport accept in the align's first ticks
+                    }
                     ctx.waitTick();
                     double[] r = sample(ctx, null);
                     tr.add(r);
