@@ -188,11 +188,11 @@ public class BreakerAuraTests implements FabricClientGameTest {
         }
         // simbreakdelay-1112: his own break shows at once while Charge banks (alone, with his use / swap / attack in every
         // tick, and a Burst pair), he walks into the gap the next tick and the kept bank fires after.
-        String[] ownBreak = {"walk", "use", "swap", "attack", "burst"};
-        SameTick.Act[] ownAct = {null, SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.ATTACK, null};
+        String[] ownBreak = {"walk", "use", "swap", "attack", "burst", "use-nocharge"};
+        SameTick.Act[] ownAct = {null, SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.ATTACK, null, SameTick.Act.USE};
         for (int k = 0; k < ownBreak.length; k++) {
             try {
-                blinkOwnBreak(ctx, "1112-blink-ownbreak-" + ownBreak[k], ownAct[k], k == 4, k);
+                blinkOwnBreak(ctx, "1112-blink-ownbreak-" + ownBreak[k], ownAct[k], k == 4, k, k != 5);
             } catch (AssertionError e) {
                 firstBreaker = firstBreaker == null ? e : firstBreaker;
             }
@@ -841,6 +841,11 @@ public class BreakerAuraTests implements FabricClientGameTest {
      * tick (MultiBreak* is that switch's accepted line, nothing else).
      */
     private void blinkOwnBreak(ClientGameTestContext ctx, String name, SameTick.Act act, boolean burst, int k) {
+        blinkOwnBreak(ctx, name, act, burst, k, true);
+    }
+
+    /** {@code charge} false: the same without Blink Charge (the control: what the aura and his action do on their own). */
+    private void blinkOwnBreak(ClientGameTestContext ctx, String name, SameTick.Act act, boolean burst, int k, boolean charge) {
         if (Scenario.skip(name)) {
             return;
         }
@@ -920,20 +925,23 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             };
                         });
                         // Charge: toggle on, stand still until the bank is full and the answers are held.
-                        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE));
-                        ctx.waitTicks(1);
-                        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
+                        if (charge) {
+                            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE));
+                            ctx.waitTicks(1);
+                            ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
+                        }
                         ctx.waitTicks(45);
                         long bank0 = blinkLong(ctx, "banked");
                         long held0 = blinkLong(ctx, "answersHeld");
                         long ups0 = gapCount(ctx, "ownBreakCatchUps");
                         scenario.log(String.format(Locale.ROOT, "charged: bank %d, answers held %d", bank0, held0));
-                        if (bank0 < 20 || held0 < 10) {
+                        if (charge && (bank0 < 20 || held0 < 10)) {
                             throw new AssertionError("Charge did not bank and hold - nothing tested (bank " + bank0
                                     + ", answers held " + held0 + ")");
                         }
                         if (act != null) {
-                            st[0] = ctx.computeOnClient(mc -> SameTick.start(act, 1, p ->
+                            // His attack every tick holds every world actor (ActionGate) - every 3rd, as 1105-same-breaker-attack.
+                            st[0] = ctx.computeOnClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK ? 3 : 1, p ->
                                     p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket a
                                             && picks.contains(a.getPos()), 0, 1));
                         }
@@ -993,15 +1001,23 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         if (digTick.size() < picks.size()) {
                             throw new AssertionError("the aura did not dig every pick: " + per);
                         }
-                        // The gap is open when its last block goes: that must be within 2 ticks of the last dig. A pick
-                        // whose break came back while the other's dig was on its way waits for it (one batch keeps the
-                        // bank), so it may take one tick more.
-                        int lastDig = digTick.values().stream().mapToInt(Integer::intValue).max().orElse(-1);
-                        if (bothAt - lastDig > 2 || worst > 3) {
-                            throw new AssertionError("the gap took more than 2 ticks after the last dig to open (or a pick 3+): "
-                                    + per);
+                        if (burst && dev.testkit.gametest.boss.AaFastCases.experimentalChecks()) {
+                            // Experimental MultiBreak cancels the burst's extra dig, so that pick stays (as in
+                            // 1108-same-burst-*): only the one-tick burst and the MultiBreak-only verdict are checked.
+                            List<String> other = scenario.flags().stream().filter(f -> !f.contains("MultiBreak")).toList();
+                            if (digTick.values().stream().distinct().count() != 1 || !other.isEmpty()) {
+                                throw new AssertionError("burst not in one tick or other Grim lines: " + per + " " + other);
+                            }
+                            return;
                         }
-                        if (ups < 1 || pongsBurst < 10) {
+                        // The gap is open when its last block goes: that must be within 2 ticks of the last dig. A pick
+                        // whose break came back while the aura still had the other to dig waits for it (one batch keeps
+                        // the bank), so it may show later than its own dig + 2.
+                        int lastDig = digTick.values().stream().mapToInt(Integer::intValue).max().orElse(-1);
+                        if (bothAt - lastDig > 2) {
+                            throw new AssertionError("the gap took more than 2 ticks after the last dig to open: " + per);
+                        }
+                        if (charge && (ups < 1 || pongsBurst < 10)) {
                             throw new AssertionError("the break did not send the held answers (catch-ups " + ups
                                     + ", answers on the wire " + pongsBurst + ")");
                         }
@@ -1009,12 +1025,12 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             throw new AssertionError(String.format(Locale.ROOT, "he did not walk into the gap (x %.2f -> %.2f -> "
                                     + "%.2f, sent %.2f)", x0, x2, x15, sx));
                         }
-                        if (bankEdge[1] < 20) {
+                        if (charge && bankEdge[1] < 20) {
                             throw new AssertionError("the break cut the bank: " + bankEdge[0] + " -> " + bankEdge[1]);
                         }
                         // The bank is his to spend: fire it.
                         long shots0 = blinkLong(ctx, "shots");
-                        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE));
+                        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", charge));
                         ctx.waitTicks(2);
                         ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
                         for (int i = 0; i < 80 && ctx.computeOnClient(mc -> (Boolean) dev.testkit.gametest.mod.Mod.staticCall("blink.BlinkCharge", "shotPending")); i++) {
@@ -1025,7 +1041,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         long shots = blinkLong(ctx, "shots") - shots0;
                         double xEnd = ctx.computeOnClient(mc -> mc.player.getX());
                         scenario.log(String.format(Locale.ROOT, "%s: shot parts %d, x after the shot %.2f", name, shots, xEnd));
-                        if (shots < 1 || xEnd < x15 + 2) {
+                        if (charge && (shots < 1 || xEnd < x15 + 2)) {
                             throw new AssertionError("the kept bank did not fire (shots " + shots + ", x " + x15 + " -> " + xEnd + ")");
                         }
                         if (st[0] != null) {
