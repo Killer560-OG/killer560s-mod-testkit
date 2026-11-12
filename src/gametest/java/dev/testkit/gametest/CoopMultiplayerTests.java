@@ -605,8 +605,7 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
                 CoopSync.await(ctx, "mp-cmds-sent", 120);
                 expect(f, facts, "guest's /speed 250 ran", paceUntil(ctx, () -> Math.abs(speedOf(ctx, ms, guest) - 0.25) < 1e-6,
                         10_000), true);
-                expect(f, facts, "guest's /simwhere ran on the owner's sim", paceUntil(ctx, () -> String.valueOf(
-                        ModUnderTest.staticCall(REQ, "lastForTest")).contains("COMMAND simwhere -> Ran /simwhere"), 10_000), true);
+                expect(f, facts, "guest's /simwhere ran on the owner's sim", paceUntil(ctx, () -> logSeen(0, "request TkGuest COMMAND simwhere -> Ran /simwhere"), 10_000), true);
                 int tnt = GuestPlayer.onServer(ctx, ms, () -> {
                     ServerPlayer g = ms.getPlayerList().getPlayerByName(guest);
                     int n = 0;
