@@ -1620,6 +1620,13 @@ public class BlinkTests implements FabricClientGameTest {
                         double[] before = scenario.playerPosition();
                         ctx.getInput().holdKey(o -> o.keyUp);
                         ctx.getInput().holdKey(o -> o.keySprint);
+                        if (round == 1) {
+                            // blinkhyp-1111: force a round the lag guard holds (a 500 ms link stall sends the held answers
+                            // and leaves the bank uncovered), so the stand's hits land while the shot waits - the round
+                            // that drew experimental Hitboxes x3 once (fhA2-1111).
+                            BlinkCampaign1027Tests.netStall(ctx, 500);
+                            ctx.waitTicks(12);
+                        }
                         ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
                         ctx.waitTicks(1);
                         ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
@@ -1659,6 +1666,9 @@ public class BlinkTests implements FabricClientGameTest {
                     rounds.append(String.format(Locale.ROOT, " [round %d: bank %d, shot %d tick(s) %.2f blocks; client %s server %s]",
                             round + 1, bank, (long) shot[2], shot[0], fmt(client), fmt(srv)));
                     boolean held = shot.length > 3 && shot[3] == 1;
+                    if (act == SameTick.Act.ATTACK && round == 1) {
+                        check(held, "the forced 500 ms stall did not make the lag guard hold the shot:" + rounds);
+                    }
                     if (held) {
                         rounds.append(" [the mod held this shot past 10 ticks (lag guard)]");
                     }

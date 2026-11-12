@@ -263,7 +263,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
         });
     }
 
-    private static void netStall(ClientGameTestContext ctx, int ms) {
+    static void netStall(ClientGameTestContext ctx, int ms) {
         ctx.runOnClient(mc -> {
             try {
                 java.lang.reflect.Field f = net.minecraft.network.Connection.class.getDeclaredField("channel");
