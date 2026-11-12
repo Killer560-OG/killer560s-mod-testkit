@@ -117,46 +117,6 @@ final class SimBossNecron1111 {
         }
     }
 
-    /** A spot 6 from the server's dragon body where he fits and all three lanes reach it with no block first. */
-    private static Vec3 clearSpot(ServerLevel lvl) {
-        Vec3 b = serverBody(lvl);
-        for (double h : new double[]{0, 2, -2, 4}) {
-            for (int k = 0; k < 12; k++) {
-                double a = Math.toRadians(k * 30);
-                Vec3 eye = b.add(Math.cos(a) * 6, h, Math.sin(a) * 6);
-                if (!lvl.noCollision(new AABB(eye.x - 0.3, eye.y - 1.62, eye.z - 0.3, eye.x + 0.3, eye.y + 0.2, eye.z + 0.3))) {
-                    continue;
-                }
-                Vec3 to = b.subtract(eye);
-                if (clearLanes(lvl, eye, (float) Math.toDegrees(Math.atan2(-to.x, to.z)),
-                        (float) -Math.toDegrees(Math.atan2(to.y, Math.hypot(to.x, to.z))))) {
-                    return eye;
-                }
-            }
-        }
-        return null;
-    }
-
-    /** All three lanes (yaw -5, 0, +5) strike the body box shrunk by 0.6, with no block until 3 past where they enter. */
-    private static boolean clearLanes(ServerLevel lvl, Vec3 eye, float yaw, float pitch) {
-        AABB body = dragonOf(lvl).getSubEntities()[2].getBoundingBox().deflate(0.6);
-        Vec3 from = eye.subtract(0, 0.1, 0);
-        for (int lane = -1; lane <= 1; lane++) {
-            Vec3 dir = Vec3.directionFromRotation(pitch, yaw + lane * 5f);
-            var in = body.clip(from, from.add(dir.scale(14)));
-            if (in.isEmpty()) {
-                return false;
-            }
-            var block = lvl.clip(new net.minecraft.world.level.ClipContext(from, from.add(dir.scale(in.get().distanceTo(from) + 3)),
-                    net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE,
-                    net.minecraft.world.phys.shapes.CollisionContext.empty()));
-            if (block.getType() != net.minecraft.world.phys.HitResult.Type.MISS) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     // Server-thread only (serverRun): reading the server's world from the client thread froze the client (02:28 run).
     private static EnderDragon dragonOf(ServerLevel lvl) {
         ServerPlayer sp = lvl.getServer().getPlayerList().getPlayers().get(0);
@@ -192,15 +152,31 @@ final class SimBossNecron1111 {
         println(DRAGON_HP, "rise: " + p0 + " -> " + p1);
         expect(f, "rises out of its spawn point (up, not sideways)",
                 p1.y - p0.y > 1.5 && Math.hypot(p1.x - p0.x, p1.z - p0.z) < 0.5, true);
-        Vec3 c = box.getCenter();
-        double radius = Math.max(3.0, Math.min(box.getXsize(), box.getZsize()) / 2 - 5.0);
+        // The loop it chose at spawn, clear of the arena's blocks (his "never inside blocks"): center and radius.
+        String loopLine = LogTap.since(mark).stream().filter(l -> l.contains("Red dragon loop: center")).findFirst().orElse("");
+        println(DRAGON_HP, loopLine.trim());
+        expect(f, "Red's loop was chosen clear of blocks", loopLine.isEmpty(), false);
+        java.util.regex.Matcher lm = java.util.regex.Pattern.compile("center \\(([-0-9.]+), [-0-9.]+, ([-0-9.]+)\\), radius ([0-9.]+)").matcher(loopLine);
+        boolean found = lm.find();
+        expect(f, "loop line parsed", found, true);
+        Vec3 c = found ? new Vec3(Double.parseDouble(lm.group(1)), 0, Double.parseDouble(lm.group(2))) : box.getCenter();
+        double radius = found ? Double.parseDouble(lm.group(3)) : 0;
         ctx.waitTicks(80);
         double swept = 0, worstR = 0, last = Double.NaN;
-        boolean inside = true;
+        boolean inside = box.inflate(8.5, 64, 8.5).contains(new Vec3(c.x, box.getCenter().y, c.z)); // its own area, or just past it
+        int[] inBlocks = new int[1];
         for (int i = 0; i < 60; i++) {
             ctx.waitTicks(2);
+            serverRun(ctx, srv -> {
+                ServerLevel lvl = (ServerLevel) srv.getPlayerList().getPlayers().get(0).level();
+                for (var part : dragonOf(lvl).getSubEntities()) {
+                    if (!lvl.noCollision(part.getBoundingBox())) {
+                        inBlocks[0]++;
+                        if (inBlocks[0] <= 3) { println(DRAGON_HP, "in blocks: " + part.name + " " + part.getBoundingBox()); }
+                    }
+                }
+            });
             Vec3 p = ctx.computeOnClient(mc -> e[0].position());
-            inside &= box.contains(p);
             worstR = Math.max(worstR, Math.abs(Math.hypot(p.x - c.x, p.z - c.z) - radius));
             double a = Math.atan2(p.z - c.z, p.x - c.x);
             if (!Double.isNaN(last)) {
@@ -210,7 +186,9 @@ final class SimBossNecron1111 {
         }
         println(DRAGON_HP, String.format(Locale.ROOT, "loop: swept %.0f deg, worst %.1f off radius %.1f, inside %s",
                 Math.toDegrees(swept), worstR, radius, inside));
-        expect(f, "stays inside its area", inside, true);
+        expect(f, "its loop is centered in its area or at most 8 past it", inside, true);
+        println(DRAGON_HP, "part samples inside blocks over 120 ticks of loop: " + inBlocks[0]);
+        expect(f, "no part ever inside the arena's blocks", inBlocks[0], 0);
         expect(f, "flies a loop round its area (within 1.5 of the radius)", worstR < 1.5, true);
         expect(f, "goes round one way (over 60 degrees in 120 ticks)", Math.abs(swept) > Math.toRadians(60), true);
 
@@ -252,52 +230,29 @@ final class SimBossNecron1111 {
         println(DRAGON_HP, "Wither Dragons reads " + spec(red, "health") + ", want " + want);
         expect(f, "Wither Dragons' health readout drops to " + want, seen, true);
 
-        // Real Terminator volleys: every arrow that reaches the dragon counts, one unit each. The lost arrows of the
-        // first tries (3 of 6, 4 of 9, 7 of 9) were none of them dropped hits: shots taken from inside the server's body
-        // box (aimed by the client's dragon, drawn 1-1.5 blocks behind it, as on Hypixel) clip nothing, and the rest met
-        // the arena's blocks first (the wall, the statue the body overlapped, the ceiling). So each volley is taken from
-        // a spot whose three lanes all strike the body with no block before it, aimed at the SERVER's body.
+        // Real Terminator volleys aimed the way he aims: at the body his client DRAWS (1-1.5 blocks behind the server's
+        // box), from an ordinary spot 6 toward the area's middle. Every arrow must count (the sim strikes the boxes of the
+        // last ticks too; before that, 3 of 6 and 4 of 9 counted, and shots from inside the server box none).
         int u2 = units(), fired0 = (Integer) call("com.killer560.hub.roomsim.SimTerminator", "arrowsFired");
-        int volleys = 0;
-        for (int tries = 0; volleys < VOLLEYS && tries < 40; tries++) {
-            Vec3[] at = new Vec3[1];
-            serverRun(ctx, srv -> at[0] = clearSpot((ServerLevel) srv.getPlayerList().getPlayers().get(0).level()));
-            Vec3 spot = at[0];
-            if (spot == null) {
-                ctx.waitTicks(5);
-                continue;
-            }
-            tp(ctx, spot.x, spot.y - 1.62, spot.z, 0, 0);
+        for (int v = 0; v < VOLLEYS; v++) {
+            Vec3 b = ctx.computeOnClient(mc -> e[0].getSubEntities()[2].getBoundingBox().getCenter());
+            Vec3 in = new Vec3(c.x - b.x, 0, c.z - b.z);
+            in = in.lengthSqr() < 1e-6 ? new Vec3(6, 0, 0) : in.normalize().scale(6);
+            tp(ctx, b.x + in.x, b.y - 1.0, b.z + in.z, 0, 0);
             ctx.waitTicks(3); // the teleport reaches his client before the shot
-            float[] aim = new float[2];
-            boolean[] clear = new boolean[1];
-            serverRun(ctx, srv -> {
-                ServerPlayer sp = srv.getPlayerList().getPlayers().get(0);
-                ServerLevel lvl = (ServerLevel) sp.level();
-                Vec3 eye = sp.getEyePosition();
-                Vec3 to = serverBody(lvl).subtract(eye);
-                aim[0] = (float) Math.toDegrees(Math.atan2(-to.x, to.z));
-                aim[1] = (float) -Math.toDegrees(Math.atan2(to.y, Math.hypot(to.x, to.z)));
-                clear[0] = clearLanes(lvl, eye, aim[0], aim[1]);
+            ctx.runOnClient(mc -> {
+                Vec3 to = e[0].getSubEntities()[2].getBoundingBox().getCenter().subtract(mc.player.getEyePosition());
+                mc.player.setYRot((float) Math.toDegrees(Math.atan2(-to.x, to.z)));
+                mc.player.setXRot((float) -Math.toDegrees(Math.atan2(to.y, Math.hypot(to.x, to.z))));
+                ModUnderTest.staticCall("com.killer560.hub.roomsim.SimTerminator", "use",
+                        new Class<?>[]{net.minecraft.client.Minecraft.class, boolean.class}, new Object[]{mc, false});
             });
-            boolean shot = clear[0];
-            if (shot) {
-                ctx.runOnClient(mc -> {
-                    mc.player.setYRot(aim[0]);
-                    mc.player.setXRot(aim[1]);
-                    ModUnderTest.staticCall("com.killer560.hub.roomsim.SimTerminator", "use",
-                            new Class<?>[]{net.minecraft.client.Minecraft.class, boolean.class}, new Object[]{mc, false});
-                });
-            }
-            if (shot) {
-                volleys++;
-                ctx.waitTicks(10);
-            }
+            ctx.waitTicks(10);
         }
         int fired = (Integer) call("com.killer560.hub.roomsim.SimTerminator", "arrowsFired") - fired0;
         int hits = units() - u2;
-        println(DRAGON_HP, volleys + " clear Terminator volleys: " + fired + " arrows fired, " + hits + " counted");
-        expect(f, VOLLEYS + " clear volleys fired", volleys, VOLLEYS);
-        expect(f, "every arrow of every clear volley counted (one unit each)", hits, fired);
+        println(DRAGON_HP, VOLLEYS + " Terminator volleys at the drawn body: " + fired + " arrows fired, " + hits + " counted");
+        expect(f, VOLLEYS + " volleys fired", fired, 3 * VOLLEYS);
+        expect(f, "every arrow aimed at the drawn body counted (one unit each)", hits, fired);
     }
 }
