@@ -213,8 +213,7 @@ final class Ap3Blink1026Cases {
             long asked = System.currentTimeMillis();
             boolean coveredNow = onClient(ctx, mc -> {
                 try {
-                    return !(Boolean) Mod.staticCall(CHARGE, "teleportHeld")
-                            && ((Number) Mod.staticCall(CHARGE, "unbacked")).intValue() == 0;
+                    return ((Number) Mod.staticCall(CHARGE, "unbacked")).intValue() == 0;
                 } catch (RuntimeException | AssertionError e) {
                     return true;
                 }
@@ -238,8 +237,7 @@ final class Ap3Blink1026Cases {
             for (int t = 0; t < 100 && hasWait; t++) {
                 ctx.waitTick();
                 boolean waiting = onClient(ctx, mc -> (Boolean) Mod.staticCall(CHARGE, "shotWaiting"));
-                boolean ready = onClient(ctx, mc -> !(Boolean) Mod.staticCall(CHARGE, "teleportHeld")
-                        && ((Number) Mod.staticCall(CHARGE, "unbacked")).intValue() == 0);
+                boolean ready = onClient(ctx, mc -> ((Number) Mod.staticCall(CHARGE, "unbacked")).intValue() == 0);
                 waitedTicks = t + 1;
                 if (!waiting || ready) {
                     break;

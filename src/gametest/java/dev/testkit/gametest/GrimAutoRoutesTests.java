@@ -2456,8 +2456,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     tag + ": the bank was never covered before the path");
             JsonObject before = stats();
             long spent0 = chargeNum(ctx, "spentTicks");
-            long holds0 = chargeNum(ctx, "teleportHolds");
-            long chainTp0 = chargeNum(ctx, "chainConfirms");
+            long chainTp0 = chargeNum(ctx, "teleportBatches");
             long m = LogTap.mark();
             List<Object> nodes = ctx.computeOnClient(mc -> {
                 try {
@@ -2503,8 +2502,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             long spanMs = (lastTp - firstUse) / 1_000_000L;
             int serverWarps = delta(before, "etherwarps");
             long spent = chargeNum(ctx, "spentTicks") - spent0;
-            long holds = chargeNum(ctx, "teleportHolds") - holds0;
-            long chainTp = chargeNum(ctx, "chainConfirms") - chainTp0;
+            long chainTp = chargeNum(ctx, "teleportBatches") - chainTp0;
             int letGo = 0;
             int bankFrom = -1;
             int bankTo = -1;
@@ -2522,14 +2520,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             }
             String line = String.format(Locale.ROOT, "map chain %s: bank %d; wire: %d use(s), at most %d in 50 ms, %d confirm(s), "
                             + "last confirm %d ms after the first use; charged burst %d (bank %d -> %d), %d banked tick(s) spent; "
-                            + "server etherwarps %d; teleport holds %d (%d let go), chain confirms %d; landed %s%s", tag, bank,
-                    uses[1], uses[0], tpCount, spanMs, burst, bankFrom, bankTo, spent, serverWarps, holds, letGo, chainTp,
+                            + "server etherwarps %d; old teleport-hold lines %d, confirms sent with their answers %d; landed %s%s", tag, bank,
+                    uses[1], uses[0], tpCount, spanMs, burst, bankFrom, bankTo, spent, serverWarps, letGo, chainTp,
                     landed, st == null ? "" : "; same-tick " + st.report());
             println(line);
             c.note(line);
-            // His own Instant Transmission uses (four, Act USE) make their own teleports, which Blink may hold; the chain's never.
-            int ownHolds = act == dev.testkit.gametest.SameTick.Act.USE ? 4 : 0;
-            check(holds <= ownHolds && letGo <= ownHolds, tag + ": a teleport confirm was held behind its answer (" + holds + " hold(s))");
+            check(letGo == 0, tag + ": a teleport hold was let go (" + letGo + "); no confirm is held since blinktp-1111");
             // While his inventory is open the path waits and then stops (the MultiActionsC gate), so CLICK has no chain to count.
             boolean clickAct = act == dev.testkit.gametest.SameTick.Act.CLICK;
             check(clickAct || chainTp > 0, tag + ": no confirm went at once for the chain (nothing tested)");
@@ -2610,8 +2606,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(10);
             long bank = chargeFull(ctx);
             JsonObject before = stats();
-            long holds0 = chargeNum(ctx, "teleportHolds");
-            long chainTp0 = chargeNum(ctx, "chainConfirms");
+            long chainTp0 = chargeNum(ctx, "teleportBatches");
             long spent0 = chargeNum(ctx, "spentTicks");
             ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
             ctx.runOnClient(mc -> McCompat.setScreen(mc, null));
@@ -2625,20 +2620,18 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             long lastTp = wire.stream().filter(x -> x.type().equals("minecraft:accept_teleportation")).mapToLong(
                     dev.testkit.harness.WireCapture.Sent::nanos).max().orElse(0L);
             long spanMs = (lastTp - firstUse) / 1_000_000L;
-            long holds = chargeNum(ctx, "teleportHolds") - holds0;
-            long chainTp = chargeNum(ctx, "chainConfirms") - chainTp0;
+            long chainTp = chargeNum(ctx, "teleportBatches") - chainTp0;
             long spent = chargeNum(ctx, "spentTicks") - spent0;
             int serverWarps = delta(before, "etherwarps");
             String line = String.format(Locale.ROOT, "route chain, Charge on, Charged Chain off: bank %d; wire %d use(s), at most %d "
-                            + "in 50 ms, last confirm %d ms after the first use; holds %d, chain confirms %d, spent %d; server "
-                            + "etherwarps %d; landed %s", bank, uses[1], uses[0], spanMs, holds, chainTp, spent, serverWarps,
+                            + "in 50 ms, last confirm %d ms after the first use; confirms sent with their answers %d, spent %d; server "
+                            + "etherwarps %d; landed %s", bank, uses[1], uses[0], spanMs, chainTp, spent, serverWarps,
                     landed);
             println(line);
             c.note(line);
             check(bank >= 20, "the bank did not fill: " + bank);
             check(landed != null, "the chain did not reach its end (at " + relPos(ctx) + ")");
             check(serverWarps == pts.length, "the server made " + serverWarps + " etherwarps, expected " + pts.length);
-            check(holds == 0, holds + " teleport confirm(s) held behind their answers during the chain");
             check(chainTp > 0, "no confirm went at once for the chain (nothing tested)");
             check(spent == 0, "Charged Chain is off but " + spent + " banked tick(s) were spent");
             check(spanMs < 1500, "the last confirm went " + spanMs + " ms after the first use");

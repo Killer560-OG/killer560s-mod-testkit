@@ -293,8 +293,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
     }
 
     private static boolean coveredNow(ClientGameTestContext ctx) {
-        return ctx.computeOnClient(mc -> !(Boolean) Mod.staticCall(CHARGE, "teleportHeld")
-                && ((Number) Mod.staticCall(CHARGE, "unbacked")).intValue() == 0);
+        return ctx.computeOnClient(mc -> ((Number) Mod.staticCall(CHARGE, "unbacked")).intValue() == 0);
     }
 
     /** A sprinting hold with the Hold key down until Hold Ticks releases it. Returns {moved, held ticks, released}. */
@@ -1361,8 +1360,8 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                     rows.add(server, scenario, "(g0) control: no charge, sprint, tp, click", op && cl >= 2 && g < 0.5,
                             String.format(Locale.ROOT, "%d click(s) reached the server, gap %.2f", cl, g), true);
                 }
-                // (g)/(h) a chest clicked while a teleport's confirm is held behind its ping answer (charging): walking
-                // into the teleport (the click waits in order behind his still input), and standing (it goes live).
+                // (g)/(h) a chest clicked right after a teleport while charging (its confirm went at once with the waiting
+                // answers, blinktp-1111): walking into the teleport, and standing.
                 for (boolean walking : new boolean[]{true, false}) {
                     String lbl = walking ? "(g) click in a teleport hold, walking" : "(h) click in a teleport hold, standing";
                     tp(server, ctx, x - 20.5, SURFACE_Y, z + 15.5 + (walking ? 0 : 6), -90f);
@@ -1374,13 +1373,13 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                         ctx.getInput().holdKey(o -> o.keySprint);
                         ctx.waitTicks(6);
                     }
-                    long holds0G = cnum(ctx, "teleportHolds");
+                    long batches0G = cnum(ctx, "teleportBatches");
                     server.command(String.format(Locale.ROOT, "execute as %s at @s run tp @s ~ ~ ~3", player));
-                    for (int t = 0; t < 20 && cnum(ctx, "teleportHolds") == holds0G; t++) {
+                    for (int t = 0; t < 20 && cnum(ctx, "teleportBatches") == batches0G; t++) {
                         ctx.waitTicks(1);
                     }
                     releaseKeys(ctx);
-                    boolean inHold = ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "teleportHeld"));
+                    boolean inHold = cnum(ctx, "teleportBatches") > batches0G; // the confirm went at once (no teleport hold since blinktp-1111)
                     long evG = hx.head();
                     hx.menu("Blink Campaign Chest 2", 3, java.util.Map.of(11, "minecraft:stone", 13, "minecraft:dirt"), null);
                     boolean openedG = false;
@@ -1403,7 +1402,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                     chargeOff(ctx);
                     g = gap(server, ctx);
                     rows.add(server, scenario, lbl, bankG == 20 && openedG && clicksG >= 2 && g < 0.5,
-                            String.format(Locale.ROOT, "bank %d (after %d), teleport held when the menu opened %s, %d click(s) "
+                            String.format(Locale.ROOT, "bank %d (after %d), teleport confirmed at once %s, %d click(s) "
                                     + "reached the server, gap %.2f", bankG, bankAfter, inHold, clicksG, g));
                 }
             } finally {

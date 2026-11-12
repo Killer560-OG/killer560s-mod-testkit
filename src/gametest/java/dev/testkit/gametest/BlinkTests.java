@@ -65,6 +65,8 @@ public class BlinkTests implements FabricClientGameTest {
                 BlinkTests::worldChange, BlinkTests::bow, BlinkTests::chargeSameUse, BlinkTests::chargeSameSwap,
                 BlinkTests::oneShot, BlinkTests::predictStep, BlinkTests::oneShotSameUse, BlinkTests::oneShotSameSwap,
                 BlinkTests::oneShotSameAttack, BlinkTests::oneShotSameClick, BlinkTests::oneShotSameTp,
+                BlinkTests::tpSingle, BlinkTests::tpWalkIn, BlinkTests::tpChain, BlinkTests::tpHold,
+                BlinkTests::tpSameUse, BlinkTests::tpSameSwap, BlinkTests::tpSameAttack, BlinkTests::tpSameClick,
                 BlinkTests::sweepWalk, BlinkTests::sweepStill,
                 BlinkTests::sweepLatency)) {
             try {
@@ -1460,13 +1462,22 @@ public class BlinkTests implements FabricClientGameTest {
      * his packet with one of them, every shot must run its full 20 ticks with the server agreeing, and GrimAC says nothing.
      */
     private static void chargeSame(ClientGameTestContext ctx, SameTick.Act act, int x, int z, boolean oneTick) {
+        chargeSame(ctx, act, x, z, oneTick, false);
+    }
+
+    /** {@code afterTp} (blinktp-1111, 1111-blinktp-same-*): a moving server teleport lands right before every shot. */
+    private static void chargeSame(ClientGameTestContext ctx, SameTick.Act act, int x, int z, boolean oneTick, boolean afterTp) {
         // oneTick (blinkone-1105, 1105-blink-oneshot-same-*): Hypixel's per-packet rule and Speed IV, so each shot is one
         // burst of over 10 blocks.
-        String name = (oneTick ? "1105-blink-oneshot-same-" : "1105-blink-charge-same-") + act.name().toLowerCase(Locale.ROOT);
+        String name = (afterTp ? "1111-blinktp-same-" : oneTick ? "1105-blink-oneshot-same-" : "1105-blink-charge-same-")
+                + act.name().toLowerCase(Locale.ROOT);
         Scenario.run(ctx, name, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             SameTick[] st = {null};
             String who = playerName(ctx);
+            if (afterTp) {
+                ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+            }
             try {
                 if (oneTick) {
                     check(budgetHook(ctx, Boolean.FALSE), "the jar has no BlinkCharge.tickBudgetForTest (before blinkone-1105)");
@@ -1570,6 +1581,20 @@ public class BlinkTests implements FabricClientGameTest {
                                 + ": " + aim);
                         ctx.waitTicks(2);
                     }
+                    if (afterTp) {
+                        // A teleport lands (in place for ATTACK, so the stand stays under his crosshair): its confirm goes
+                        // with every waiting answer and the bank, a second old, is kept whole for the shot right after.
+                        long b0 = cnum(ctx, "teleportBatches");
+                        server.command("execute as " + who + " at @s run tp @s ~ ~ ~"
+                                + (act == SameTick.Act.ATTACK ? "" : "1"));
+                        for (int i = 0; i < 40 && cnum(ctx, "teleportBatches") == b0; i++) {
+                            ctx.waitTicks(1);
+                        }
+                        long kept = cnum(ctx, "lastTeleportBankAfter");
+                        rounds.append(String.format(Locale.ROOT, " [teleport %s, bank kept %d]",
+                                cnum(ctx, "teleportBatches") > b0 ? "confirmed" : "NOT CONFIRMED", kept));
+                        bank = Math.min(bank, kept);
+                    }
                     if (around) {
                         ctx.runOnClient(mc -> hold.allow(3));
                     }
@@ -1649,11 +1674,20 @@ public class BlinkTests implements FabricClientGameTest {
                 st[0] = null;
                 scenario.log(name + ":" + rounds + "; " + done.report());
                 check(good == 3, good + " of 3 charge shots ran 20 ticks with the server agreeing:" + rounds);
-                // A shot after a teleport waits for GrimAC's cover by design (campaign-blink-1027): his accept and the
-                // shot never share a server tick.
-                String why = act == SameTick.Act.TP ? done.verdict("charge shot", true) : done.verdict("charge shot");
+                // Since blinktp-1111 a shot right after a teleport no longer waits: his accept and the shot may share a
+                // server tick or go in the next; either way both must have gone out.
+                String why = act == SameTick.Act.TP ? (done.verdict("charge shot", false) == null ? null
+                        : done.verdict("charge shot", true)) : done.verdict("charge shot");
                 check(why == null, why);
+                if (afterTp) {
+                    String order = confirmOrder(ctx.computeOnClient(mc -> dev.testkit.harness.WireCapture.snapshot()), 3);
+                    scenario.log(name + ": wire " + order);
+                    check(order.startsWith("ok"), "teleport confirms on the wire: " + order);
+                }
             } finally {
+                if (afterTp) {
+                    ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
+                }
                 if (st[0] != null) {
                     SameTick open = st[0];
                     ctx.runOnClient(mc -> open.close());
@@ -1674,6 +1708,223 @@ public class BlinkTests implements FabricClientGameTest {
                         Mod.set("invwalk.InventoryWalkConfig", "setStopToClick", true);
                     });
                 }
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    private static void tpSameUse(ClientGameTestContext ctx) {
+        chargeSame(ctx, SameTick.Act.USE, -7200, -3800, false, true);
+    }
+
+    private static void tpSameSwap(ClientGameTestContext ctx) {
+        chargeSame(ctx, SameTick.Act.SWAP, -7200, -4000, false, true);
+    }
+
+    private static void tpSameAttack(ClientGameTestContext ctx) {
+        chargeSame(ctx, SameTick.Act.ATTACK, -7200, -4200, true, true);
+    }
+
+    private static void tpSameClick(ClientGameTestContext ctx) {
+        chargeSame(ctx, SameTick.Act.CLICK, -7200, -4400, true, true);
+    }
+
+    /**
+     * blinktp-1111: every teleport confirm on the wire right behind a ping answer in the same millisecond (the answers sent
+     * back to back with it) and the landing move right behind the confirm. "ok ..." with the counts, else what was wrong.
+     */
+    static String confirmOrder(List<dev.testkit.harness.WireCapture.Sent> w, int atLeast) {
+        int n = 0;
+        int behindPong = 0;
+        StringBuilder bad = new StringBuilder();
+        for (int i = 0; i < w.size(); i++) {
+            if (!w.get(i).type().equals("minecraft:accept_teleportation")) {
+                continue;
+            }
+            n++;
+            dev.testkit.harness.WireCapture.Sent prev = i > 0 ? w.get(i - 1) : null;
+            dev.testkit.harness.WireCapture.Sent next = i + 1 < w.size() ? w.get(i + 1) : null;
+            boolean pong = prev != null && prev.type().equals("minecraft:pong")
+                    && (w.get(i).nanos() - prev.nanos()) < 2_000_000L;
+            boolean landing = next != null && next.type().startsWith("minecraft:move_player")
+                    && (next.nanos() - w.get(i).nanos()) < 50_000_000L;
+            behindPong += pong ? 1 : 0;
+            if (!pong || !landing) {
+                bad.append(String.format(Locale.ROOT, " [confirm #%d: before it %s, after it %s]", n,
+                        prev == null ? "nothing" : prev.type() + " " + (w.get(i).nanos() - prev.nanos()) / 1000 + " us",
+                        next == null ? "nothing" : next.type() + " " + (next.nanos() - w.get(i).nanos()) / 1000 + " us"));
+            }
+        }
+        String counts = n + " confirm(s), " + behindPong + " right behind an answer";
+        if (n < atLeast) {
+            return "only " + counts + " (expected " + atLeast + ")";
+        }
+        return bad.length() == 0 ? "ok: " + counts : counts + ":" + bad;
+    }
+
+    /**
+     * Shoots the bank the tick after now and returns {blocks moved, shots, ticks shot, client ticks it waited}: sprinting,
+     * the Charge key pressed once.
+     */
+    private static double[] shootNow(ClientGameTestContext ctx) {
+        long shots0 = cnum(ctx, "shots");
+        double[] before = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+        ctx.getInput().holdKey(o -> o.keyUp);
+        ctx.getInput().holdKey(o -> o.keySprint);
+        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.TRUE));
+        int waited = 0;
+        for (; waited < 60 && cnum(ctx, "shots") == shots0; waited++) {
+            ctx.waitTicks(1);
+        }
+        ctx.waitTicks(1);
+        double[] after = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+        ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
+        ctx.getInput().releaseKey(o -> o.keyUp);
+        ctx.getInput().releaseKey(o -> o.keySprint);
+        return new double[]{flat(before, after), cnum(ctx, "shots") - shots0, cnum(ctx, "lastShotTicks"), waited};
+    }
+
+    /**
+     * 1111-blinktp-* (blinktp-1111): Charge at a server teleport sends every waiting answer at once with the confirm and the
+     * landing right behind, and keeps what the oldest answer covers. {@code warps} teleports {@code gapTicks} apart, after a
+     * full charge (standing, or sprinting into the first with {@code walkIn}); then a shot the tick after the last landing.
+     * Single: the whole bank kept and fired at once. Chain (3 warps 100 ms apart): the bank cut to a few ticks, fired.
+     * GrimAC must say nothing; the wire must show each confirm behind an answer and before its landing.
+     */
+    private static void tpCase(ClientGameTestContext ctx, String name, int x, int z, int warps, int gapTicks, boolean walkIn) {
+        Scenario.run(ctx, name, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            String who = playerName(ctx);
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+            try {
+                server.command(String.format(Locale.ROOT, "tp %s %.1f %d %.1f -90 0", who, x - 15.5, SURFACE_Y, z - 10.5));
+                ctx.waitTicks(10);
+                chargeOn(ctx);
+                for (int i = 0; i < 80 && cnum(ctx, "banked") < 20; i++) {
+                    ctx.waitTicks(1);
+                }
+                ctx.waitTicks(25); // the oldest waiting answer a full second old
+                long bank0 = cnum(ctx, "banked");
+                if (walkIn) {
+                    ctx.getInput().holdKey(o -> o.keyUp);
+                    ctx.getInput().holdKey(o -> o.keySprint);
+                    ctx.waitTicks(4);
+                }
+                long b0 = cnum(ctx, "teleportBatches");
+                long c0 = cnum(ctx, "teleportsClipped");
+                for (int k = 0; k < warps; k++) {
+                    server.command("execute as " + who + " at @s run tp @s ~ ~ ~3");
+                    if (k + 1 < warps) {
+                        ctx.waitTicks(gapTicks);
+                    }
+                }
+                for (int i = 0; i < 40 && cnum(ctx, "teleportBatches") < b0 + warps; i++) {
+                    ctx.waitTicks(1);
+                }
+                releaseKeys(ctx);
+                long batches = cnum(ctx, "teleportBatches") - b0;
+                long clipped = cnum(ctx, "teleportsClipped") - c0;
+                long kept = cnum(ctx, "lastTeleportBankAfter");
+                double[] clientLanded = scenario.playerPosition();
+                long bankAtShot = cnum(ctx, "banked");
+                double[] shot = shootNow(ctx);
+                ctx.waitTicks(10);
+                double[] client = scenario.playerPosition();
+                double[] srv = serverPos(server, ctx, who);
+                chargeOff(ctx);
+                String order = confirmOrder(ctx.computeOnClient(mc -> dev.testkit.harness.WireCapture.snapshot()), warps);
+                scenario.log(String.format(Locale.ROOT, "%s: bank %d, %d teleport batch(es), %d cut the bank, kept %d (%d at the "
+                                + "shot); landed server %s client %s; shot %d tick(s) %.2f blocks after %d tick(s) waiting; client "
+                                + "%s server %s; wire %s", name, bank0, batches, clipped, kept, bankAtShot, "(after the shot)",
+                        fmt(clientLanded), (long) shot[2], shot[0], (long) shot[3], fmt(client), fmt(srv), order));
+                check(bank0 == 20, "the bank did not fill: " + bank0);
+                check(batches == warps, batches + " teleport batch(es), expected " + warps + " (the feature did not act)");
+                check(order.startsWith("ok"), "teleport confirms on the wire: " + order);
+                if (warps == 1) {
+                    check(kept == 20 && clipped == 0, "a single teleport after a full charge cut the bank to " + kept);
+                    check(shot[3] <= 2, "the shot waited " + (long) shot[3] + " tick(s) after the teleport");
+                } else {
+                    check(clipped >= 1 && kept >= 1 && kept < 20, "fast teleports kept " + kept + " (cut " + clipped
+                            + " time(s)); expected a few ticks");
+                }
+                check(shot[1] == 1 && shot[2] >= bankAtShot && shot[2] <= bankAtShot + 2 && shot[2] >= 1, "the shot ran " + (long) shot[2] + " tick(s) of "
+                        + bankAtShot + " (" + (long) shot[1] + " shot(s))");
+                check(flat(client, srv) < 0.5, "client and server disagree after the shot: " + fmt(client) + " vs " + fmt(srv));
+            } finally {
+                ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
+                releaseKeys(ctx);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            ctx.waitTicks(40);
+        });
+    }
+
+    private static void tpSingle(ClientGameTestContext ctx) {
+        tpCase(ctx, "1111-blinktp-single", -7600, -3800, 1, 0, false);
+    }
+
+    private static void tpWalkIn(ClientGameTestContext ctx) {
+        tpCase(ctx, "1111-blinktp-walkin", -7600, -4000, 1, 0, true);
+    }
+
+    private static void tpChain(ClientGameTestContext ctx) {
+        tpCase(ctx, "1111-blinktp-chain", -7600, -4200, 3, 2, false);
+    }
+
+    /**
+     * 1111-blinktp-hold (blinktp-1111): a server teleport in the middle of a sprinting Hold. What was held goes out at
+     * once, the confirm and the landing go live (the server has him at the landing while the hold still runs), and the
+     * hold carries on from the landing until the key comes up; then client and server agree and GrimAC says nothing.
+     */
+    private static void tpHold(ClientGameTestContext ctx) {
+        int x = -7600;
+        int z = -4400;
+        Scenario.run(ctx, "1111-blinktp-hold", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            String who = playerName(ctx);
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+            try {
+                server.command(String.format(Locale.ROOT, "tp %s %.1f %d %.1f -90 0", who, x - 15.5, SURFACE_Y, z - 10.5));
+                ctx.waitTicks(10);
+                ctx.getInput().holdKey(o -> o.keyUp);
+                ctx.getInput().holdKey(o -> o.keySprint);
+                ctx.waitTicks(5);
+                long tp0 = num(ctx, "teleportsHeld");
+                long rel0 = num(ctx, "releasedHolds");
+                holdDown(ctx);
+                ctx.waitTicks(6);
+                boolean heldBefore = holding(ctx);
+                double tz = z + 5.5;
+                server.command(String.format(Locale.ROOT, "tp %s %.1f %d %.1f", who, x - 10.5, SURFACE_Y, tz));
+                boolean kept = false;
+                for (int i = 0; i < 20 && !kept; i++) {
+                    ctx.waitTicks(1);
+                    kept = num(ctx, "teleportsHeld") > tp0;
+                }
+                String orderAtTp = confirmOrder(ctx.computeOnClient(mc -> dev.testkit.harness.WireCapture.snapshot()), 1);
+                double[] srvDuring = serverPos(server, ctx, who);
+                boolean stillHolding = holding(ctx);
+                boolean released = num(ctx, "releasedHolds") > rel0;
+                holdUp(ctx);
+                releaseKeys(ctx);
+                ctx.waitTicks(10);
+                double[] client = scenario.playerPosition();
+                double[] srv = serverPos(server, ctx, who);
+                scenario.log(String.format(Locale.ROOT, "1111-blinktp-hold: holding before %s, teleport held through %s, still "
+                                + "holding %s, released by it %s; server during the hold %s (landing z %.1f); after: client %s server "
+                                + "%s; wire %s", heldBefore, kept, stillHolding, released, fmt(srvDuring), tz, fmt(client), fmt(srv),
+                        orderAtTp));
+                check(heldBefore, "no hold was running when the teleport came");
+                check(kept && stillHolding && !released, "Blink did not keep holding through the teleport");
+                check(orderAtTp.startsWith("ok"), "the confirm did not go out during the hold right behind an answer: "
+                        + orderAtTp);
+                check(flat(srvDuring, new double[]{x - 10.5, SURFACE_Y, tz}) < 1.0, "the server did not take the "
+                        + "landing during the hold: " + fmt(srvDuring));
+                check(flat(client, srv) < 0.5, "client and server disagree after the hold: " + fmt(client) + " vs " + fmt(srv));
+            } finally {
+                ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
+                tearDown(ctx, gate);
             }
             ctx.waitTicks(40);
         });
