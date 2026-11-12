@@ -110,8 +110,9 @@ final class Align12LeapCases {
                 int entry = -1;
                 boolean sawOn = false;
                 for (int i = 0; i < 90; i++) {
-                    if (act == SameTick.Act.TP && i >= 1 && i < 5) {
-                        c.server().command("execute as @a at @s run tp @s ~ ~ ~"); // a teleport accept in the align's first ticks
+                    if (act == SameTick.Act.TP && i >= 1 && i < 3) {
+                        c.server().command("execute as @a at @s run tp @s ~ ~ ~"); // a teleport accept in the align's first ticks (a later one lands after the align ended and moves him back: the server
+                        // knows his position a tick or two late)
                     }
                     if (screen && i == 1) {
                         onClient(ctx, mc -> {
