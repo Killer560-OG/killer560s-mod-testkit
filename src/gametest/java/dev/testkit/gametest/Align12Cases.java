@@ -82,7 +82,7 @@ final class Align12Cases {
         double y = FLOOR + 1;
         Random rnd = new Random(1110L * 31 + seed);
         int[] hist = new int[12];
-        int planned = 0, fellBack = 0, steered = 0;
+        int planned = 0, fellBack = 0, steered = 0, late = 0;
         List<String> fails = new ArrayList<>();
         boolean same = act != null || again;
         int trials = same ? Math.max(4, TRIALS / 2) : TRIALS;
@@ -204,6 +204,9 @@ final class Align12Cases {
                 if (!steer.isEmpty()) {
                     steered++;
                 }
+                if (!lines(mark, "enters a tick later").isEmpty()) {
+                    late++; // the would-be entering tick steered too: he enters a tick later, stopped on the same tick as a 2-tick
+                }
                 if (!plan.isEmpty()) {
                     planned++;
                 }
@@ -248,9 +251,9 @@ final class Align12Cases {
                 h.append(String.format(Locale.ROOT, " %d-tick %d of %d;", i, hist[i], trials));
             }
         }
-        c.note(String.format(Locale.ROOT, "align12 speed %.1f %s%s %s: tick-exact plans %d, approach tick steered %d, handed to the"
-                        + " regular align %d;%s", speed, sprint ? "sprint" : "walk", near ? " near" : "", mode, planned, steered,
-                fellBack, h));
+        c.note(String.format(Locale.ROOT, "align12 speed %.1f %s%s %s: tick-exact plans %d, approach tick steered %d (entering a tick"
+                        + " later %d), handed to the regular align %d;%s", speed, sprint ? "sprint" : "walk", near ? " near" : "", mode,
+                planned, steered, late, fellBack, h));
         if (mode == Mode.DRIVEN) {
             c.check(steered > 0, "AP3 carried him in and the approach tick was never steered");
         }
