@@ -188,11 +188,15 @@ public class BreakerAuraTests implements FabricClientGameTest {
         }
         // simbreakdelay-1112: his own break shows at once while Charge banks (alone, with his use / swap / attack in every
         // tick, and a Burst pair), he walks into the gap the next tick and the kept bank fires after.
-        blinkOwnBreak(ctx, "1112-blink-ownbreak-walk", null, false, 0);
-        blinkOwnBreak(ctx, "1112-blink-ownbreak-use", SameTick.Act.USE, false, 1);
-        blinkOwnBreak(ctx, "1112-blink-ownbreak-swap", SameTick.Act.SWAP, false, 2);
-        blinkOwnBreak(ctx, "1112-blink-ownbreak-attack", SameTick.Act.ATTACK, false, 3);
-        blinkOwnBreak(ctx, "1112-blink-ownbreak-burst", null, true, 4);
+        String[] ownBreak = {"walk", "use", "swap", "attack", "burst"};
+        SameTick.Act[] ownAct = {null, SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.ATTACK, null};
+        for (int k = 0; k < ownBreak.length; k++) {
+            try {
+                blinkOwnBreak(ctx, "1112-blink-ownbreak-" + ownBreak[k], ownAct[k], k == 4, k);
+            } catch (AssertionError e) {
+                firstBreaker = firstBreaker == null ? e : firstBreaker;
+            }
+        }
         if (firstBreaker != null) {
             throw firstBreaker;
         }
@@ -830,8 +834,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
      * Breaker Aura digs a two-high stone-brick column right beside him with Hypixel's Dungeon Breaker (the server breaks it
      * on the first dig; GrimAC does not predict that, so the client keeps the block until the server's update). Before the
      * fix that update waited for its held answer, ~21 ticks. Now his own break sends every held answer back to back and
-     * applies at once (BlinkCharge.catchUpForOwnBreak). Asserted: every pick is air on the client within 2 ticks of its dig
-     * leaving, the catch-up ran and its answers reached the wire, he walks into the gap from the next tick on (client and
+     * applies at once (BlinkCharge.catchUpForOwnBreak). Asserted: the gap is open on the client within 2 ticks of its last
+     * dig leaving, the catch-up ran and its answers reached the wire, he walks into the gap from the next tick on (client and
      * the moves he sends), the bank is kept and then fires as a shot, and GrimAC says nothing. {@code act}: his own use,
      * hotbar swap or attack in every tick (SAME-TICK GRIM CASES); {@code burst}: Burst Multi Break digs the pair in one
      * tick (MultiBreak* is that switch's accepted line, nothing else).
@@ -989,8 +993,13 @@ public class BreakerAuraTests implements FabricClientGameTest {
                         if (digTick.size() < picks.size()) {
                             throw new AssertionError("the aura did not dig every pick: " + per);
                         }
-                        if (worst > 2) {
-                            throw new AssertionError("a pick took more than 2 ticks from its dig to air on the client: " + per);
+                        // The gap is open when its last block goes: that must be within 2 ticks of the last dig. A pick
+                        // whose break came back while the other's dig was on its way waits for it (one batch keeps the
+                        // bank), so it may take one tick more.
+                        int lastDig = digTick.values().stream().mapToInt(Integer::intValue).max().orElse(-1);
+                        if (bothAt - lastDig > 2 || worst > 3) {
+                            throw new AssertionError("the gap took more than 2 ticks after the last dig to open (or a pick 3+): "
+                                    + per);
                         }
                         if (ups < 1 || pongsBurst < 10) {
                             throw new AssertionError("the break did not send the held answers (catch-ups " + ups
