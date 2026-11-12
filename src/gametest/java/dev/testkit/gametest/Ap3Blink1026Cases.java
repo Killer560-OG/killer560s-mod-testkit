@@ -49,8 +49,8 @@ final class Ap3Blink1026Cases {
         s.test("1026-ap3-blink-max", c -> chargeRelease(c, 0, new int[]{0}, true, false));
         s.test("1026-ap3-blink-split", c -> chargeRelease(c, 10, new int[]{4, 6}, true, false));
         s.test("1026-ap3-blink-off", c -> chargeRelease(c, 3, new int[]{3}, false, true));
-        // killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff like that" - he
-        // accepts that GrimAC flags the next shot, so this case records the flags instead of failing on them.
+        // killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff like that"; the
+        // next shot must draw no flag (killer560 2026-11-11: a kept-teleport flag is a bug to fix).
         s.test("1026-ap3-blink-leap", Ap3Blink1026Cases::chargeLeapRelease);
         // killer560, 2026-10-27 (field report): "if I teleport to someone up there (a leap) that's when it tends to fail".
         // Charge 20, leap, and the release right away (his S2: the release node is where the leap lands) or a little later:

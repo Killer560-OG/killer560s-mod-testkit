@@ -548,7 +548,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                                 && carried >= 1, String.format(Locale.ROOT, "bank %d, after the turn %d, hold %d tick(s) moved %.2f, "
                                 + "bank right after the hold %d, %d look(s) carried, gap %.2f", bank, bankAfterTurn, (int) h[1], h[0],
                         bankAfterHold, carried, g));
-                // No teleport here: a teleport while charging keeps the bank (owner 2026-10-27) and GrimAC flags the shot.
+                // No teleport here: the teleport cases (keep-warp, items-a) cover a bank kept through one.
                 ctx.runOnClient(mc -> mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(-90f
                         - mc.player.getYRot())));
                 ctx.waitTicks(30);
@@ -556,7 +556,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                 double[] s = shootByPress(ctx, true);
                 ctx.waitTicks(5);
                 g = gap(server, ctx);
-                // The hold kept the bank (sending the waiting answers first): GrimAC flags its shot (owner 2026-10-27).
+                // The hold kept the bank (sending the waiting answers first): its shot must draw no flag.
                 rows.addSettled(ctx, server, scenario, "(a) shot after the hold", bank2 == 20 && s[2] == 20 && s[0] > 4.5,
                         String.format(Locale.ROOT, "bank %d, shot %d tick(s) %.2f blocks, gap %.2f", bank2, (long) s[2], s[0], g));
                 chargeOff(ctx);
@@ -1504,8 +1504,9 @@ public class BlinkStressTests implements FabricClientGameTest {
     private static void dimensionCharge(ClientGameTestContext ctx) {
         int x = -8500;
         int z = -6000;
-        // killer560, 2026-10-27: the bank is kept through every teleport and world change; GrimAC flags the next shot.
-        Scenario.runExpectingFlags(ctx, "1026-blink-dimension-charge", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+        // killer560, 2026-10-27: the bank is kept through every teleport and world change; the next shot must draw no flag
+        // (killer560 2026-11-11: a kept-teleport flag is a bug to fix).
+        Scenario.run(ctx, "1026-blink-dimension-charge", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             String name = playerName(ctx);
             try {
@@ -1564,7 +1565,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                 // not release).
                 check(chargedOnNew, "Charge did not carry over the dimension change");
                 check(bank2 == 20 && moved > 3, "after key up and down Charge did not bank and fire: bank " + bank2);
-                scenario.log(String.format(Locale.ROOT, "gap after the kept bank's shot %.2f (GrimAC sets it back: owner's call)", g));
+                scenario.log(String.format(Locale.ROOT, "gap after the kept bank's shot %.2f", g));
+                ctx.waitTicks(60); // a setback of the shot lands inside the case, which fails on any GrimAC line
             } finally {
                 ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
                 chargeOff(ctx);
@@ -1706,9 +1708,9 @@ public class BlinkStressTests implements FabricClientGameTest {
     private static void setbackShot(ClientGameTestContext ctx) {
         int x = -8800;
         int z = -6000;
-        // killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff like that" (he
-        // accepts that GrimAC flags the next shot): a teleport while charging keeps the bank, so flags after it are recorded.
-        Scenario.runExpectingFlags(ctx, "1026-blink-setback-shot", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+        // killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff like that": a
+        // setback while charging keeps the bank, and the next shot must draw no flag (killer560 2026-11-11: a kept-teleport flag is a bug to fix).
+        Scenario.run(ctx, "1026-blink-setback-shot", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             try {
                 String name = playerName(ctx);
@@ -1737,8 +1739,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                 check(sb == 1 && logged, "the setback after the shot was not noticed");
                 check(still, "Charge stopped on a server correction");
                 check(s2[2] == 20, "the next shot did not fire");
-                scenario.log(String.format(Locale.ROOT, "gap after the next shot %.2f (the bank kept through the setback; GrimAC sets "
-                        + "the shot back: owner's call)", g));
+                scenario.log(String.format(Locale.ROOT, "gap after the next shot %.2f (the bank kept through the setback)", g));
+                ctx.waitTicks(60); // a setback of the shot lands inside the case, which fails on any GrimAC line
             } finally {
                 chargeOff(ctx);
                 tearDown(ctx, gate);
@@ -1963,7 +1965,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                     rows.add(server, scenario, mode == 0 ? "LCEW charging" : "LCEW in holds", warps == 3 && (mode == 0 || g < 0.5)
                                     && (s == null || s[2] >= 19), String.format(Locale.ROOT, "%d server warp(s)%s, gap %.2f", warps,
                                     s == null ? "" : ", shot " + (long) s[2] + " tick(s)", g),
-                            null); // holds after the kept teleports above: see items-a (owner 2026-10-27)
+                            null); // holds after the kept teleports above: see items-a
                 }
             } finally {
                 ctx.runOnClient(mc -> Mod.set("leftclickew.LeftClickEtherwarpConfig", "setEnabled", false));
@@ -2511,7 +2513,7 @@ public class BlinkStressTests implements FabricClientGameTest {
 
     /**
      * 1026-blink-keep-warp (killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff
-     * like that"; he accepts that GrimAC flags the next shot - recorded here, not failed): (1) charge 20, an etherwarp, the
+     * like that"; since 2026-11-11 the shot must draw no flag): (1) charge 20, an etherwarp, the
      * bank is still 20 after it, then a shot runs 20 ticks and the server moves him; (2) charge 20, a pearl thrown and landed
      * mid-charge, the bank is still 20 at the landing, then a 20-tick shot.
      */

@@ -2009,7 +2009,7 @@ public class BlinkTests implements FabricClientGameTest {
         int x = -4600;
         int z = -3800;
         // killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff like that" - the
-        // bank is kept through every teleport and he accepts that GrimAC flags the next shot, so the flags are recorded.
+        // bank is kept through every teleport, and the next shot must draw no flag (killer560 2026-11-11: a kept-teleport flag is a bug to fix).
         Scenario.run(ctx, "1025-blink-charge-warp", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             dev.testkit.gametest.hx.Hx hx = null;
@@ -2067,7 +2067,7 @@ public class BlinkTests implements FabricClientGameTest {
                         + " moving teleport(s): not the warp and the leap");
                 check(shot[1] == 1 && shot[2] >= 19 && shot[0] > 3.0, "no full shot after the warp and leap: " + (long) shot[2]
                         + " tick(s), " + shot[0] + " blocks");
-                // GrimAC sets the kept bank's shot back (owner 2026-10-27): recorded, not demanded.
+                // The kept bank's shot must land clean: Scenario.run fails on any GrimAC line.
                 check(Math.abs(client[2] - (z + 10.5)) < 1.0, "he is not on the leap's row: " + fmt(client));
                 scenario.log("charge-warp: client/server gap after the shot " + String.format(Locale.ROOT, "%.2f", flat(client, srv)));
             } finally {
@@ -2823,7 +2823,7 @@ public class BlinkTests implements FabricClientGameTest {
         int x = -5600;
         int z = -4800;
         // killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff like that" - the
-        // bank is kept through every teleport and he accepts that GrimAC flags the next shot, so the flags are recorded.
+        // bank is kept through every teleport, and the next shot must draw no flag (killer560 2026-11-11: a kept-teleport flag is a bug to fix).
         Scenario.run(ctx, "1025-blink-charge-rapid", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             dev.testkit.gametest.hx.Hx hx = null;
@@ -2915,7 +2915,7 @@ public class BlinkTests implements FabricClientGameTest {
                 check(bankAfterWarps == 20, "the bank was not kept through the warps: " + bankAfterWarps);
                 check(bankRefilled == 20 && shot[1] == 1 && shot[2] == 20 && shot[0] > 4.5, "no full shot afterwards");
                 scenario.log("charge-rapid: client/server gap after the shot " + String.format(Locale.ROOT, "%.2f", flat(client, srv))
-                        + " (GrimAC sets the kept bank's shot back: owner 2026-10-27)");
+                        + " (must draw no flag)");
             } finally {
                 warpTearDown(ctx, hx);
                 chargeOff(ctx);
