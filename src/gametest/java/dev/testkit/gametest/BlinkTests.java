@@ -2822,8 +2822,9 @@ public class BlinkTests implements FabricClientGameTest {
     private static void chargeRapid(ClientGameTestContext ctx) {
         int x = -5600;
         int z = -4800;
-        // killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff like that" - the
-        // bank is kept through every teleport, and the next shot must draw no flag (killer560 2026-11-11: a kept-teleport flag is a bug to fix).
+        // Warps a tick apart: the first keeps the whole bank, each later one finds only a tick-old answer to confirm with,
+        // so the bank is cut to what that answer covers (blinktp-1111) - keeping more draws Timer. No flag allowed
+        // (killer560 2026-11-11: a kept-teleport flag is a bug to fix).
         Scenario.run(ctx, "1025-blink-charge-rapid", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             dev.testkit.gametest.hx.Hx hx = null;
@@ -2838,6 +2839,8 @@ public class BlinkTests implements FabricClientGameTest {
                 ctx.waitTicks(35);
                 long bank0 = cnum(ctx, "banked");
                 long mv0 = cnum(ctx, "movingTeleports");
+                long batches0 = cnum(ctx, "teleportBatches");
+                long clipped0 = cnum(ctx, "teleportsClipped");
                 com.google.gson.JsonObject before = hx.call("dungeon.stats").getAsJsonObject();
                 boolean alwaysOn = true;
                 ctx.getInput().holdKey(o -> o.keyShift);
@@ -2852,8 +2855,7 @@ public class BlinkTests implements FabricClientGameTest {
                     from = new double[]{tx + 0.5, SURFACE_Y + 0.05, z + 0.5};
                     last = new int[]{tx, z};
                 }
-                // Since mod campaign-blink-1027 what he sends after a teleport while charging (here the next warp's use)
-                // waits behind that teleport's ping answer, so the server makes the later warps up to ~1 s later.
+                // Nothing is held at a teleport (blinktp-1111): each confirm goes with its waiting answers at once.
                 for (int t = 0; t < 70 && (t < 15 || cnum(ctx, "movingTeleports") - mv0 < 3); t++) {
                     ctx.waitTicks(1);
                     alwaysOn &= charging(ctx);
@@ -2861,6 +2863,8 @@ public class BlinkTests implements FabricClientGameTest {
                 ctx.getInput().releaseKey(o -> o.keyShift);
                 long moved = cnum(ctx, "movingTeleports") - mv0;
                 long bankAfterWarps = cnum(ctx, "banked");
+                long batches = cnum(ctx, "teleportBatches") - batches0;
+                long clipped = cnum(ctx, "teleportsClipped") - clipped0;
                 double[] cw = scenario.playerPosition();
                 // A menu: three clicks, each must reach the server on time.
                 hx.menu("Blink Charge Menu", 3, java.util.Map.of(11, "minecraft:stone", 13, "minecraft:dirt", 15,
@@ -2901,9 +2905,9 @@ public class BlinkTests implements FabricClientGameTest {
                 double[] client = scenario.playerPosition();
                 double[] srv = serverPos(server, ctx, name);
                 scenario.log(String.format(Locale.ROOT, "charge-rapid: bank %d; 3 warps one tick apart: server made %d, %d moving "
-                                + "teleport(s) counted, bank %d after, at %s (last warp %d,%d); menu opened %s, clicks reached the "
+                                + "teleport(s) counted, bank %d after (%d confirm batches, %d cut), at %s (last warp %d,%d); menu opened %s, clicks reached the "
                                 + "server after [%s] tick(s) (%d on time); charging every tick %s; bank refilled to %d; shot %d "
-                                + "tick(s) %.2f blocks; client %s server %s", bank0, serverWarps, moved, bankAfterWarps, fmt(cw),
+                                + "tick(s) %.2f blocks; client %s server %s", bank0, serverWarps, moved, bankAfterWarps, batches, clipped, fmt(cw),
                         last[0], last[1], opened, lag.toString().trim(), onTime, alwaysOn, bankRefilled, (long) shot[2], shot[0],
                         fmt(client), fmt(srv)));
                 check(bank0 == 20, "the bank did not fill before the warps: " + bank0);
@@ -2912,7 +2916,8 @@ public class BlinkTests implements FabricClientGameTest {
                 check(Math.abs(cw[0] - (last[0] + 0.5)) < 1.0, "he is not where the last warp put him: " + fmt(cw));
                 check(opened && onTime == 3, "the menu clicks did not reach the server on time: " + lag);
                 check(alwaysOn, "Charge went off during the warps or the menu");
-                check(bankAfterWarps == 20, "the bank was not kept through the warps: " + bankAfterWarps);
+                check(batches == 3 && clipped >= 1, "the warps were not confirmed with their answers (" + batches
+                        + " batches, " + clipped + " bank cut(s)); bank " + bankAfterWarps);
                 check(bankRefilled == 20 && shot[1] == 1 && shot[2] == 20 && shot[0] > 4.5, "no full shot afterwards");
                 scenario.log("charge-rapid: client/server gap after the shot " + String.format(Locale.ROOT, "%.2f", flat(client, srv))
                         + " (must draw no flag)");
