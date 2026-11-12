@@ -187,8 +187,9 @@ final class Align12Cases {
                         // 6: AP3 still holds a frozen view (the real yaw glides back under it after the align)
                         Object fv = dev.testkit.gametest.mod.Mod.staticCall("ap3.Ap3Executor", "frozenViewYaw");
                         boolean frozen = fv instanceof Float f && !f.isNaN();
+                        // 7: the yaw the first frame after this tick draws (partial tick 0: lerped from yRotO)
                         return new double[]{mc.player.getX(), mc.player.getZ(), v.x, v.z, on ? 1 : 0, mc.player.getViewYRot(1f),
-                                frozen ? 1 : 0};
+                                frozen ? 1 : 0, mc.player.getViewYRot(0f)};
                     });
                     tr.add(r);
                     if (held && r[4] == 1) {
@@ -222,9 +223,10 @@ final class Align12Cases {
                     }
                 }
                 double viewJump = 0;
+                // tick to tick, and inside a tick: the frames lerp from [7] to [5], so a stale yRotO swings the crosshair
                 for (int i = Math.max(1, from); i < tr.size() && from >= 0; i++) {
-                    double d = tr.get(i)[5] - tr.get(i - 1)[5];
-                    viewJump = Math.max(viewJump, Math.abs(d - 360 * Math.rint(d / 360)));
+                    double[] a = tr.get(i - 1), b = tr.get(i);
+                    viewJump = Math.max(viewJump, Math.max(wrapped(b[5] - a[5]), Math.max(wrapped(b[7] - a[5]), wrapped(b[5] - b[7]))));
                 }
                 double[] last = tr.get(tr.size() - 1);
                 boolean stays = done >= 0 && Math.abs(last[0] - tx) < 2e-4 && Math.abs(last[1] - tz) < 2e-4;
@@ -324,6 +326,10 @@ final class Align12Cases {
             }
         }
         return false;
+    }
+
+    private static double wrapped(double d) {
+        return Math.abs(d - 360 * Math.rint(d / 360));
     }
 
     /** The last k samples all at the same spot. */
