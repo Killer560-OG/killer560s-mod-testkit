@@ -375,7 +375,8 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> {
             if (!tickHooked) {
                 tickHooked = true;
-                ClientTickEvents.START_CLIENT_TICK.register(client -> TICK.incrementAndGet());
+                // counted at the tick END: the mod replays a held-back click at the next tick START, ahead of a START hook
+                ClientTickEvents.END_CLIENT_TICK.register(client -> TICK.incrementAndGet());
             }
             PacketTrace.tap = p -> {
                 if (p instanceof ServerboundUseItemPacket u) {
