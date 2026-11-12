@@ -1008,9 +1008,9 @@ public class BreakerAuraTests implements FabricClientGameTest {
                             throw new AssertionError("the aura did not dig every pick: " + per);
                         }
                         if (burst && dev.testkit.gametest.boss.AaFastCases.experimentalChecks()) {
-                            // Experimental MultiBreak cancels the burst's extra dig, so that pick stays (as in
+                            // Experimental MultiBreak and RotationBreak (the owner's Burst exception) cancel the burst's extra dig, so that pick stays (as in
                             // 1108-same-burst-*): only the one-tick burst and the MultiBreak-only verdict are checked.
-                            List<String> other = scenario.flags().stream().filter(f -> !f.contains("MultiBreak")).toList();
+                            List<String> other = scenario.flags().stream().filter(f -> !f.contains("MultiBreak") && !f.contains("RotationBreak")).toList();
                             if (digFirst.values().stream().distinct().count() != 1 || !other.isEmpty()) {
                                 throw new AssertionError("burst not in one tick or other Grim lines: " + per + " " + other);
                             }
