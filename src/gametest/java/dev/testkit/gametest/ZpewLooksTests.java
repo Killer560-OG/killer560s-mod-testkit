@@ -61,7 +61,11 @@ public class ZpewLooksTests implements FabricClientGameTest {
         }
         for (Runnable r : new Runnable[]{() -> emergencyCancel(ctx), () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.SWAP, 0),
                 () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.USE, 0),
-                () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.SWAP, 150), () -> lcewSame(ctx, 0), () -> lcewSame(ctx, 150)}) {
+                () -> aimedSame(ctx, dev.testkit.gametest.SameTick.Act.SWAP, 150), () -> lcewSame(ctx, 0), () -> lcewSame(ctx, 150),
+                () -> startSame(ctx, "water", dev.testkit.gametest.SameTick.Act.SWAP),
+                () -> startSame(ctx, "water", dev.testkit.gametest.SameTick.Act.TP),
+                () -> startSame(ctx, "slab", dev.testkit.gametest.SameTick.Act.SWAP),
+                () -> startSame(ctx, "slab", dev.testkit.gametest.SameTick.Act.TP)}) {
             try {
                 r.run();
             } catch (AssertionError e) {
@@ -554,6 +558,88 @@ public class ZpewLooksTests implements FabricClientGameTest {
             }
         });
     }
+    /**
+     * 1111-zpew-start-&lt;water|slab&gt;-same-&lt;swap|tp&gt; (fhA2-1111): a Zero Ping Etherwarp started from a pool tile (feet in
+     * water) or from a bottom slab (feet half a block up), three times, while HIS scroll between two AOTVs goes into every
+     * client tick, or a server teleport in place lands with each press (his accept goes out around the use). Each press must
+     * warp once on the server, a GrimAC tick must carry the use with his slot change (swap), and GrimAC says nothing
+     * (default and experimental checkouts). Cheat jar only.
+     */
+    static void startSame(ClientGameTestContext ctx, String terrain, dev.testkit.gametest.SameTick.Act act) {
+        String name = "1111-zpew-start-" + terrain + "-same-" + act.name().toLowerCase(Locale.ROOT);
+        if (!Mod.isCheat()) {
+            Scenario.skipped(name, "Zero Ping Etherwarp is cheat-only");
+            return;
+        }
+        boolean water = terrain.equals("water");
+        int x0 = ZpewCampaignTests.X0;
+        int z0 = ZpewCampaignTests.Z0;
+        int y = ZpewCampaignTests.Y;
+        List<String> setup = water
+                ? List.of(ZpewCampaignTests.fill(x0 - 1, y - 2, z0 - 1, x0 + 1, y - 2, z0 + 1, "stone"),
+                        ZpewCampaignTests.fill(x0 - 1, y - 1, z0 - 1, x0 + 1, y - 1, z0 + 1, "water"))
+                : List.of(ZpewCampaignTests.sb(x0, y - 1, z0, "stone_slab[type=bottom]"));
+        double feetY = water ? y - 1 : y - 0.5;
+        List<ZpewCampaignTests.Station> lanes = List.of(new ZpewCampaignTests.Station("start-" + terrain, 4, setup, null, 0, 0, true, ""));
+        Scenario.run(ctx, name, (server, scenario) -> ZpewCampaignTests.buildStations(server, lanes), (server, scenario) -> {
+            Hx hx = null;
+            dev.testkit.gametest.SameTick[] st = {null};
+            List<String> problems = new ArrayList<>();
+            try {
+                hx = ZpewCampaignTests.setUp(ctx, 4);
+                String who = ZpewCampaignTests.name(ctx);
+                hx.give(1, ZpewCampaignTests.aotv(4));
+                ctx.getInput().holdKey(o -> o.keyShift);
+                st[0] = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
+                        p -> p instanceof ServerboundUseItemPacket, 0, 1));
+                // A teleport case runs six presses, the press 0, 1 or 2 ticks behind the /tp, so some accept shares the use's tick.
+                int reps = act == dev.testkit.gametest.SameTick.Act.TP ? 6 : 3;
+                for (int rep = 0; rep < reps; rep++) {
+                    ZpewCampaignTests.tpTo(ctx, server, who, x0 + 0.5, feetY, z0 + 0.5, true);
+                    boolean there = ctx.computeOnClient(mc -> water ? mc.player.isInWater() : Math.abs(mc.player.getY() - feetY) < 0.01);
+                    if (!there) {
+                        problems.add("rep " + rep + ": he did not start " + (water ? "in the water" : "on the slab") + " (nothing tested)");
+                    }
+                    int behind = rep % 3;
+                    ZpewCampaignTests.Shot sh = ZpewCampaignTests.shot(ctx, hx, terrain + "-same rep " + rep, () -> {
+                        float[] a = ZpewCampaignTests.aim(new Vec3(x0 + 0.5, feetY + 1.27, z0 + 0.5),
+                                new Vec3(x0 + 16.5, y, z0 + 0.5));
+                        ZpewCampaignTests.look(ctx, a[0], a[1]);
+                        if (act == dev.testkit.gametest.SameTick.Act.TP) {
+                            server.command("execute as " + who + " at @s run tp @s ~ ~ ~");
+                            ctx.waitTicks(behind);
+                        }
+                        ctx.getInput().pressKey(o -> o.keyUse);
+                    }, 0);
+                    scenario.log(sh.line());
+                    if (sh.warps() < 1) {
+                        problems.add("rep " + rep + ": no server warp (want 1): " + sh.line());
+                    }
+                }
+                dev.testkit.gametest.SameTick done = st[0];
+                ctx.runOnClient(mc -> done.close());
+                st[0] = null;
+                scenario.log(name + ": " + done.report());
+                String why = act == dev.testkit.gametest.SameTick.Act.TP
+                        ? (done.done() > 0 && done.both() > 0 ? null
+                        : "zpew from " + terrain + ": no server tick carried his accept and the use (" + done.report() + ")")
+                        : done.verdict("zpew from " + terrain);
+                if (why != null) {
+                    problems.add(why);
+                }
+            } finally {
+                if (st[0] != null) {
+                    dev.testkit.gametest.SameTick open = st[0];
+                    ctx.runOnClient(mc -> open.close());
+                }
+                ZpewCampaignTests.tearDown(ctx, hx);
+            }
+            if (!problems.isEmpty()) {
+                throw new AssertionError(name + ": " + problems);
+            }
+        });
+    }
+
     static final String MS = "macrostop.MacroStop";
     static final String MS_CFG = "macrostop.MacroStopConfig";
     /** GLFW K, the Emergency Cancel Key for the case (mod settings keep GLFW numbers; pressed through McKeys.nat). */
