@@ -98,7 +98,7 @@ final class Ap3SameTick1105Cases {
     /** Waits {@code ticks}, the server teleporting him in place every other tick for a TP case. */
     private static void run(Session c, SameTick.Act act, int ticks) {
         for (int i = 0; i < ticks; i++) {
-            if (act == SameTick.Act.TP && i % 2 == 0) {
+            if (act == SameTick.Act.TP && i % (2 + Session.LAG_MS / 25) == 0) { // under lag a teleport is always in flight and vanilla drops a use until its accept
                 c.server().command("execute as @a at @s run tp @s ~ ~ ~");
             }
             c.ctx().waitTick();

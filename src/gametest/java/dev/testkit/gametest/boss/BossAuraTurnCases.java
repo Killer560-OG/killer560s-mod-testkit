@@ -50,6 +50,12 @@ final class BossAuraTurnCases {
                 dev.testkit.gametest.SameTick.Act.SWAP}) {
             s.test("1109-boss-lever-50ms-" + a.name().toLowerCase(Locale.ROOT), c -> leverSameTick(c, a));
         }
+        // fhA2-1111: his attack (a stand in front of him), a teleport accept (a /tp in place every other tick) and a
+        // container click (inventory opened, clicked and closed at the tick's end), over the Aura's repeated runs.
+        for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{dev.testkit.gametest.SameTick.Act.ATTACK,
+                dev.testkit.gametest.SameTick.Act.TP, dev.testkit.gametest.SameTick.Act.OPEN_CLICK}) {
+            s.test("1111-boss-lever-same-" + a.name().toLowerCase(Locale.ROOT), c -> leverSameTick(c, a));
+        }
     }
 
     /**
@@ -205,6 +211,11 @@ final class BossAuraTurnCases {
             c.ctx().waitTicks(20);
             c.server().command("kill @e[type=armor_stand,x=27,y=125,z=127,distance=..3]");
             c.server().command("summon armor_stand 27.5 125 127.5 {NoGravity:1b,Invisible:1b,CustomName:\"Not Activated\",CustomNameVisible:1b}");
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                // His crosshair (west, level) is on this stand; the lever and its own stand are behind him.
+                c.server().command("kill @e[type=armor_stand,x=23.5,y=124,z=127.5,distance=..1]");
+                c.server().command("summon armor_stand 23.5 124 127.5 {NoGravity:1b,Invulnerable:1b}");
+            }
             c.hx().give(4, "minecraft:stick");
             c.hx().give(5, "minecraft:stick");
             c.onClient(mc -> {
@@ -224,7 +235,10 @@ final class BossAuraTurnCases {
             undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "Range", 4.5)));
             undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "CooldownMs", 50)));
             int flags0 = c.scenario().flags().size();
-            st = c.onClient(mc -> dev.testkit.gametest.SameTick.start(act, 2,
+            // His click every 2nd tick is phase-locked with the Aura's turn-then-click (two ticks, the click tick is the one his
+            // queued click holds): it never flicks (fhA2-1111, 0 of 12). Every 3rd leaves a free tick behind each turn.
+            int every = act == dev.testkit.gametest.SameTick.Act.OPEN_CLICK ? 1 : act == dev.testkit.gametest.SameTick.Act.ATTACK ? 3 : 2;
+            st = c.onClient(mc -> dev.testkit.gametest.SameTick.start(act, every,
                     p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemOnPacket, 4, 5));
             undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "Enabled", true)));
             int flicks = 0;
@@ -233,13 +247,20 @@ final class BossAuraTurnCases {
                 c.hx().chat(TerminalAuraCases.GOLDOR); // a new run: the Aura forgets which levers it flicked
                 c.waitUntil("Floor7Tracker phase P3",
                         mc -> "P3".equals(String.valueOf(Mod.staticCall(TerminalAuraCases.TRACKER, "getPhase"))), 100);
-                c.ctx().waitTicks(12);
+                for (int t = 0; t < 12; t++) {
+                    if (act == dev.testkit.gametest.SameTick.Act.TP && t % 2 == 0) {
+                        c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+                    }
+                    c.ctx().waitTicks(1);
+                }
                 if (c.onClient(mc -> mc.level.getBlockState(LEVER).getValue(LeverBlock.POWERED))) flicks++;
             }
             c.note("lever flicked in " + flicks + " of 12 rounds at 50 ms");
             c.check(flicks >= 3, "the Lever Aura flicked the lever in only " + flicks + " of 12 rounds (the feature did not act)");
             dev.testkit.gametest.SameTick.judge(c, st, "lever aura 50 ms, his " + act,
-                    act == dev.testkit.gametest.SameTick.Act.SWAP ? dev.testkit.gametest.SameTick.Expect.ACTED
+                    act == dev.testkit.gametest.SameTick.Act.SWAP || act == dev.testkit.gametest.SameTick.Act.TP
+                            ? dev.testkit.gametest.SameTick.Expect.ACTED
+                            : act == dev.testkit.gametest.SameTick.Act.ATTACK ? dev.testkit.gametest.SameTick.Expect.APART
                             : dev.testkit.gametest.SameTick.Expect.SHARE);
             st = null;
             c.check(c.scenario().flags().size() == flags0, "GrimAC flagged during the levers with his " + act + " in the same ticks");
@@ -256,6 +277,7 @@ final class BossAuraTurnCases {
                 return null;
             });
             c.server().command("kill @e[type=armor_stand,x=27,y=125,z=127,distance=..3]");
+            c.server().command("kill @e[type=armor_stand,x=23.5,y=124,z=127.5,distance=..1]");
             c.server().command("fill 21 123 123 30 129 131 minecraft:air");
             c.server().command("forceload remove 18 123 30 142");
             c.hx().give(4, "minecraft:air");
