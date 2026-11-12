@@ -67,6 +67,9 @@ final class LeverBest1112Cases {
         c.server().command("fill 17 124 123 30 129 132 minecraft:air");
         c.server().command("setblock 27 124 127 " + FLOOR_LEVER);
         c.ctx().waitTicks(10);
+        // Standing in the arena before the lever is read: the chunk reaches the client with him, and P3 needs him in the boss.
+        standAt(c, 25.5, 124, 127.5, 90f, 0f);
+        c.waitUntil("the lever on the client", mc -> mc.level.getBlockState(LEVER).getBlock() instanceof LeverBlock, 100);
     }
 
     private static void p3(Session c) {
