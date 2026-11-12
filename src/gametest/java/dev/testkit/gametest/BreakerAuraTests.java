@@ -189,7 +189,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
         // simbreakdelay-1112: his own break shows at once while Charge banks (alone, with his use / swap / attack in every
         // tick, and a Burst pair), he walks into the gap the next tick and the kept bank fires after.
         String[] ownBreak = {"walk", "use", "swap", "attack", "burst", "use-nocharge"};
-        SameTick.Act[] ownAct = {null, SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.ATTACK, null, SameTick.Act.USE};
+        // His right click as he makes it (USE_KEY: a press the mod sees queued, as his real clicks), every other tick.
+        SameTick.Act[] ownAct = {null, SameTick.Act.USE_KEY, SameTick.Act.SWAP, SameTick.Act.ATTACK, null, SameTick.Act.USE_KEY};
         for (int k = 0; k < ownBreak.length; k++) {
             try {
                 blinkOwnBreak(ctx, "1112-blink-ownbreak-" + ownBreak[k], ownAct[k], k == 4, k, k != 5);
@@ -913,7 +914,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                 int t = me == null ? -1 : me.tickCount;
                                 if (p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket a
                                         && picks.contains(a.getPos())) {
-                                    digTick.putIfAbsent(a.getPos(), t);
+                                    digTick.put(a.getPos(), t); // the last dig: a dig the server never answered is dug again
                                 } else if (p instanceof net.minecraft.network.protocol.common.ServerboundPongPacket) {
                                     pongTicks.add(t);
                                 } else if (p instanceof net.minecraft.network.protocol.game.ServerboundMovePlayerPacket mp
@@ -940,8 +941,10 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                     + ", answers held " + held0 + ")");
                         }
                         if (act != null) {
-                            // His attack every tick holds every world actor (ActionGate) - every 3rd, as 1105-same-breaker-attack.
-                            st[0] = ctx.computeOnClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK ? 3 : 1, p ->
+                            // His attack or right click every tick holds the aura every tick (ActionGate, PacketOrderI/J):
+                            // every 3rd / 2nd, as 1105-same-breaker-attack.
+                            st[0] = ctx.computeOnClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK ? 3
+                                    : act == SameTick.Act.USE_KEY ? 2 : 1, p ->
                                     p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket a
                                             && picks.contains(a.getPos()), 0, 1));
                         }
@@ -1053,7 +1056,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                 throw new AssertionError("his " + act + " or the aura's dig never reached the wire ("
                                         + s.report() + ")");
                             }
-                            if (act != SameTick.Act.ATTACK && s.both() == 0) {
+                            if (act == SameTick.Act.SWAP && s.both() == 0) {
                                 throw new AssertionError("no server tick carried both his " + act + " and the dig ("
                                         + s.report() + ")");
                             }
