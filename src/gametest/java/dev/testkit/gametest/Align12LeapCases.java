@@ -228,7 +228,8 @@ final class Align12LeapCases {
         c.server().command("attribute @p minecraft:movement_speed base set 0.50");
         c.server().sync(20);
         double z = Ap3RuntimeTests.lane();
-        double tx = LANE_X0 + 20.5, tz = Math.floor(z) + 0.5, y = FLOOR + 1;
+        // 12 blocks into the floor: the first lane has none to its -z side, and he comes in from every side
+        double tx = LANE_X0 + 20.5, tz = Math.floor(z) + 12.5, y = FLOOR + 1;
         Random rnd = new Random(1112L * 31 + 40);
         int laps = Math.max(2, Align12Cases.TRIALS / 3);
         int[] cnt = new int[12], sum = new int[12], worst = new int[12];
