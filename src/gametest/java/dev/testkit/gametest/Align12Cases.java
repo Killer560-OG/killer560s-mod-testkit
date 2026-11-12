@@ -55,10 +55,17 @@ final class Align12Cases {
         // carried in by a RUN node (must steer), and walking in himself while his look moves every tick (must not steer).
         s.test("1110-align12-ap3run", c -> run(c, 0.5, true, false, 30, null, false, Mode.DRIVEN));
         s.test("1110-align12-mouse-500", c -> run(c, 0.5, true, false, 31, null, false, Mode.MOUSE));
+        // ssnap-1112: his S1->SS route end (c34g: last RUN at yaw -1, 2.2 blocks before the 2x2 align, 1 block to its side,
+        // sprinting in): his crosshair must not show the align's steering turns nor the turn back after it.
+        s.test("1110-align12-ss", c -> run(c, 0.5, true, false, 32, null, false, Mode.SS));
     }
 
     /** How he comes in: walking himself, carried by AP3's RUN node, or walking himself with the mouse moving every tick. */
-    enum Mode { HAND, DRIVEN, MOUSE }
+    enum Mode {
+        HAND, DRIVEN, MOUSE, SS;
+
+        boolean driven() { return this == DRIVEN || this == SS; }
+    }
 
     private static final int ROD_A = 7;
     private static final int ROD_B = 8;
@@ -106,9 +113,9 @@ final class Align12Cases {
                         ROD_A, ROD_B));
             }
             for (int t = 0; t < trials; t++) {
-                double head = mode == Mode.DRIVEN ? 0 : (rnd.nextDouble() - 0.5) * 70; // degrees off +x
-                boolean diag = mode != Mode.DRIVEN && rnd.nextBoolean();
-                double side = (rnd.nextDouble() - 0.5) * 0.9;
+                double head = mode.driven() ? 0 : (rnd.nextDouble() - 0.5) * 70; // degrees off +x
+                boolean diag = !mode.driven() && rnd.nextBoolean();
+                double side = mode == Mode.SS ? -0.76 + (rnd.nextDouble() - 0.5) * 0.1 : (rnd.nextDouble() - 0.5) * 0.9;
                 double dist = near ? 1.2 + rnd.nextDouble() * 1.8 : 6 + rnd.nextDouble() * 3;
                 double hr = Math.toRadians(head);
                 // start dist back along the heading, side offset across it, so the line crosses the block
@@ -121,13 +128,17 @@ final class Align12Cases {
                     Ap3RuntimeTests.staticCallStop();
                     return null;
                 });
-                Object align = node("FAST_ALIGN", tx, tz, 0f, 0f, 1.0, 1.0);
+                Object align = node("FAST_ALIGN", tx, tz, 0f, 0f, mode == Mode.SS ? 2.0 : 1.0, mode == Mode.SS ? 2.0 : 1.0);
                 set(align, "y", y);
                 if (mode == Mode.DRIVEN) {
                     Ap3RuntimeTests.walkIntoRun(c, tz + side, Ap3RuntimeTests.runNode(tz + side), align);
+                } else if (mode == Mode.SS) {
+                    // his last leg turned into the lane (+z there is +x here): a RUN at yaw -91 drifting away from the point
+                    Object last = node("RUN", tx - 2.2225, tz - 0.995, -91f, 0f, 0.8, 0.8);
+                    Ap3RuntimeTests.walkIntoRun(c, tz + side, Ap3RuntimeTests.runNode(tz + side), last, align);
                 }
                 // DIG: his crosshair on the floor ahead (pitch 60), so his left click digs a block every other tick
-                if (mode != Mode.DRIVEN) {
+                if (!mode.driven()) {
                     c.server().command(String.format(Locale.ROOT, "tp @p %.4f %.2f %.4f %.3f %d", sx, y, sz, yaw,
                             act == SameTick.Act.DIG ? 60 : 0));
                     c.server().sync(20);
@@ -146,8 +157,8 @@ final class Align12Cases {
                     }
                 }
                 List<double[]> tr = new ArrayList<>();
-                boolean held = mode != Mode.DRIVEN;
-                Object runNodeType = mode == Mode.DRIVEN ? "RUN" : null;
+                boolean held = !mode.driven();
+                Object runNodeType = mode.driven() ? "RUN" : null;
                 int armed = -1;
                 for (int i = 0; i < 120; i++) {
                     if (act == SameTick.Act.TP && !held && i % 2 == 0) {
@@ -173,7 +184,11 @@ final class Align12Cases {
                         // 1: the align (or any node of a hand walk-in) is active; a RUN node carrying him in is not the align
                         boolean on = n != null && (runNodeType == null || !String.valueOf(dev.testkit.gametest.mod.Mod.field(n, "type")).equals("RUN"));
                         // 5: the yaw his camera shows (getViewYRot: the frozen view while AP3 turns the body)
-                        return new double[]{mc.player.getX(), mc.player.getZ(), v.x, v.z, on ? 1 : 0, mc.player.getViewYRot(1f)};
+                        // 6: AP3 still holds a frozen view (the real yaw glides back under it after the align)
+                        Object fv = dev.testkit.gametest.mod.Mod.staticCall("ap3.Ap3Executor", "frozenViewYaw");
+                        boolean frozen = fv instanceof Float f && !f.isNaN();
+                        return new double[]{mc.player.getX(), mc.player.getZ(), v.x, v.z, on ? 1 : 0, mc.player.getViewYRot(1f),
+                                frozen ? 1 : 0};
                     });
                     tr.add(r);
                     if (held && r[4] == 1) {
@@ -181,7 +196,7 @@ final class Align12Cases {
                         armed = i;
                         release(ctx);
                     }
-                    if (!held && r[4] == 0 && tr.size() > 8 && same(tr, 5) && (mode != Mode.DRIVEN || entered(tr, tx, tz))) {
+                    if (!held && r[4] == 0 && r[6] == 0 && tr.size() > 8 && same(tr, 5) && (!mode.driven() || entered(tr, tx, tz))) {
                         break;
                     }
                 }
@@ -197,10 +212,19 @@ final class Align12Cases {
                         done = i;
                     }
                 }
-                // his crosshair never jumps: from the align's first tick on, the shown yaw moves at most his own mouse
+                // his crosshair never jumps: from the align's first tick on, through the turn back under the view after it,
+                // the shown yaw moves at most his own mouse. Wrapped: the view lets go onto the real yaw, which is the same
+                // look 360 degrees on (the running yaw is never wrapped).
+                int from = -1;
+                for (int i = 0; i < tr.size() && from < 0; i++) {
+                    if (tr.get(i)[4] == 1) {
+                        from = i;
+                    }
+                }
                 double viewJump = 0;
-                for (int i = Math.max(1, armed); i < tr.size() && armed >= 0; i++) {
-                    viewJump = Math.max(viewJump, Math.abs(tr.get(i)[5] - tr.get(i - 1)[5]));
+                for (int i = Math.max(1, from); i < tr.size() && from >= 0; i++) {
+                    double d = tr.get(i)[5] - tr.get(i - 1)[5];
+                    viewJump = Math.max(viewJump, Math.abs(d - 360 * Math.rint(d / 360)));
                 }
                 double[] last = tr.get(tr.size() - 1);
                 boolean stays = done >= 0 && Math.abs(last[0] - tx) < 2e-4 && Math.abs(last[1] - tz) < 2e-4;
@@ -228,7 +252,7 @@ final class Align12Cases {
                         dist, entry, n >= 0 ? n + " tick(s) after entering" : "NEVER", last[0] - tx, last[1] - tz, viewJump,
                         plan.isEmpty() ? "; no tick-exact plan" : "; " + tail(plan.get(plan.size() - 1)),
                         lost.isEmpty() ? "" : "; " + tail(lost.get(0))));
-                if (mode != Mode.DRIVEN && viewJump > 0.5) {
+                if (viewJump > 0.5) {
                     fails.add(String.format(Locale.ROOT, "trial %d: his crosshair jumped %.1f degrees in one tick", t, viewJump));
                 }
                 if (entry < 0) {
