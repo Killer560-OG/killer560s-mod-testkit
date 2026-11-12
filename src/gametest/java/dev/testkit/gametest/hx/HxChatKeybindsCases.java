@@ -43,6 +43,7 @@ final class HxChatKeybindsCases {
         s.test("623-hx-chat-keybinds-key-sends", HxChatKeybindsCases::keySends);
         s.test("624-hx-chat-keybinds-f7", HxChatKeybindsCases::f7);
         s.test("625-hx-chat-keybinds-custom-live", HxChatKeybindsCases::customLive);
+        s.test("1111-hx-cmdkey-first", HxChatKeybindsCases::cmdFirst);
     }
 
     private static boolean merged(Session c) {
@@ -202,6 +203,95 @@ final class HxChatKeybindsCases {
                 Object cfg = Mod.cfg(CFG);
                 clearCustoms(cfg);
                 Object kb = Mod.cfg(KB);
+                Mod.call(kb, "setEnabled", masterWas);
+                Mod.call(kb, "save");
+                Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas);
+            });
+        }
+    }
+
+    // ---- 1111 -----------------------------------------------------------------------------------------------------
+
+    /**
+     * killer560, 2026-11-11: "each time i press my keybind for stats in ee3 it delays for a long time ... commands always
+     * go first." Hypixel handles a player's commands in order, so the mod's party lines already sent sit in front of his.
+     * Three OutgoingChat lines are queued, a /stats bind is pressed: /stats must leave in the press's tick, ahead of the
+     * two still waiting, and our next line must take its gap after it. With no echo the line after a party line waits
+     * OutgoingChat.ECHO_WAIT_MS (one line in flight); with Hypixel's "Party > ..." echo it waits only MIN_GAP_MS.
+     */
+    private static void cmdFirst(Session c) {
+        boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+        boolean masterWas = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(KB), "isEnabledRaw"));
+        dev.testkit.harness.WireCapture.describe = p -> p instanceof net.minecraft.network.protocol.game.ServerboundChatCommandPacket cp
+                ? "cmd:" + cp.command() : "-";
+        try {
+            run(c, () -> {
+                Mod.staticCall("util.SkyblockGate", "setEnabled", false);
+                Object kb = Mod.cfg(KB);
+                Mod.call(kb, "setEnabled", true);
+                binds(kb).clear();
+                addBind(kb, K1, "/stats", true);
+                McCompat.setScreen(net.minecraft.client.Minecraft.getInstance(), null);
+            });
+            c.ctx().waitTicks(40); // the last case's lines are out and their gap is over
+            dev.testkit.harness.WireCapture.start();
+            run(c, () -> {
+                for (String l : new String[] {"pc cf one", "pc cf two", "pc cf three"}) {
+                    Mod.staticCall("util.OutgoingChat", "command", l);
+                }
+            });
+            int waiting = c.onClient(mc -> (Integer) Mod.staticCall("util.OutgoingChat", "pending"));
+            c.check(waiting == 2, "want 2 lines waiting behind 'cf one', got " + waiting);
+            c.ctx().waitTicks(3);
+            long pressNs = System.nanoTime();
+            c.ctx().getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(K1), 3);
+            c.waitUntil("'cf three' at the server", mc -> c.commands().contains("pc cf three"), 200);
+            dev.testkit.harness.WireCapture.stop();
+            List<String> order = new ArrayList<>();
+            List<Long> at = new ArrayList<>();
+            for (dev.testkit.harness.WireCapture.Sent w : dev.testkit.harness.WireCapture.snapshot()) {
+                if (w.text().startsWith("cmd:")) {
+                    order.add(w.text().substring(4));
+                    at.add(w.nanos());
+                }
+            }
+            c.note("wire order " + order + "; ms after the press "
+                    + at.stream().map(n -> (n - pressNs) / 1_000_000L).toList() + "; server saw " + c.commands());
+            c.check(order.equals(List.of("pc cf one", "stats", "pc cf two", "pc cf three")),
+                    "want one, stats, two, three on the wire: " + order);
+            long statsMs = (at.get(1) - pressNs) / 1_000_000L;
+            c.check(statsMs <= 120, "/stats left " + statsMs + " ms after the press (want the press's own tick)");
+            long afterStats = (at.get(2) - at.get(1)) / 1_000_000L;
+            c.check(afterStats >= 480, "'cf two' left only " + afterStats + " ms after /stats (want our gap after his command)");
+            long noEcho = (at.get(3) - at.get(2)) / 1_000_000L;
+            c.check(noEcho >= 1_400, "'cf three' left " + noEcho + " ms after 'cf two' with no echo (want ECHO_WAIT_MS 1500)");
+
+            // With Hypixel's echo the next line goes a plain gap later.
+            c.ctx().waitTicks(40);
+            dev.testkit.harness.WireCapture.start();
+            run(c, () -> {
+                Mod.staticCall("util.OutgoingChat", "command", "pc cf four");
+                Mod.staticCall("util.OutgoingChat", "command", "pc cf five");
+            });
+            c.waitUntil("'cf four' at the server", mc -> c.commands().contains("pc cf four"), 40);
+            c.hx().chat("§9Party §8> §b[MVP§c+§b] Tester§f: cf four");
+            c.waitUntil("'cf five' at the server", mc -> c.commands().contains("pc cf five"), 60);
+            dev.testkit.harness.WireCapture.stop();
+            long four = 0, five = 0;
+            for (dev.testkit.harness.WireCapture.Sent w : dev.testkit.harness.WireCapture.snapshot()) {
+                if (w.text().equals("cmd:pc cf four")) four = w.nanos();
+                if (w.text().equals("cmd:pc cf five")) five = w.nanos();
+            }
+            long echoed = (five - four) / 1_000_000L;
+            c.note("with the echo 'cf five' left " + echoed + " ms after 'cf four'");
+            c.check(four != 0 && five != 0 && echoed >= 480 && echoed < 1_300,
+                    "'cf five' left " + echoed + " ms after 'cf four' with its echo (want about MIN_GAP_MS 500)");
+        } finally {
+            dev.testkit.harness.WireCapture.stop();
+            dev.testkit.harness.WireCapture.describe = null;
+            run(c, () -> {
+                Object kb = Mod.cfg(KB);
+                binds(kb).clear();
                 Mod.call(kb, "setEnabled", masterWas);
                 Mod.call(kb, "save");
                 Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas);
