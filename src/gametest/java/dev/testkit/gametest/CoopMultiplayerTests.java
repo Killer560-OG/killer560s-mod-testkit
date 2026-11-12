@@ -1126,7 +1126,8 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
                                     return null;
                                 }
                                 for (int i = 0; i < menu.slots.size() - 36; i++) {
-                                    if (menu.getSlot(i).getItem().is(net.minecraft.world.item.Items.RED_STAINED_GLASS_PANE)) {
+                                    if (net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(menu.getSlot(i).getItem().getItem()).getPath()
+                                            .equals("red_stained_glass_pane")) {
                                         mc.gameMode.handleContainerInput(menu.containerId, i, 0,
                                                 net.minecraft.world.inventory.ContainerInput.PICKUP, mc.player);
                                         return true;
