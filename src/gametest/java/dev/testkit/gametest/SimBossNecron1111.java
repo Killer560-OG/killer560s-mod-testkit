@@ -43,6 +43,7 @@ final class SimBossNecron1111 {
     private static final String FIGHT = "com.killer560.hub.bosssim.BossFight";
     private static final String WD = "com.killer560.hub.witherdragons.";
     private static final float HP = 1_000_000_000f;
+    private static final int VOLLEYS = 3; // 3 + 9 units: the dragon stays alive (15)
 
     private SimBossNecron1111() {
     }
@@ -114,6 +115,56 @@ final class SimBossNecron1111 {
         } finally {
             ctx.runOnClient(mc -> ModUnderTest.set(cfg, "setEnabled", false));
         }
+    }
+
+    /** A spot 6 from the server's dragon body where he fits and all three lanes reach it with no block first. */
+    private static Vec3 clearSpot(ServerLevel lvl) {
+        Vec3 b = serverBody(lvl);
+        for (double h : new double[]{0, 2, -2, 4}) {
+            for (int k = 0; k < 12; k++) {
+                double a = Math.toRadians(k * 30);
+                Vec3 eye = b.add(Math.cos(a) * 6, h, Math.sin(a) * 6);
+                if (!lvl.noCollision(new AABB(eye.x - 0.3, eye.y - 1.62, eye.z - 0.3, eye.x + 0.3, eye.y + 0.2, eye.z + 0.3))) {
+                    continue;
+                }
+                Vec3 to = b.subtract(eye);
+                if (clearLanes(lvl, eye, (float) Math.toDegrees(Math.atan2(-to.x, to.z)),
+                        (float) -Math.toDegrees(Math.atan2(to.y, Math.hypot(to.x, to.z))))) {
+                    return eye;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** All three lanes (yaw -5, 0, +5) strike the body box shrunk by 0.6, with no block until 3 past where they enter. */
+    private static boolean clearLanes(ServerLevel lvl, Vec3 eye, float yaw, float pitch) {
+        AABB body = dragonOf(lvl).getSubEntities()[2].getBoundingBox().deflate(0.6);
+        Vec3 from = eye.subtract(0, 0.1, 0);
+        for (int lane = -1; lane <= 1; lane++) {
+            Vec3 dir = Vec3.directionFromRotation(pitch, yaw + lane * 5f);
+            var in = body.clip(from, from.add(dir.scale(14)));
+            if (in.isEmpty()) {
+                return false;
+            }
+            var block = lvl.clip(new net.minecraft.world.level.ClipContext(from, from.add(dir.scale(in.get().distanceTo(from) + 3)),
+                    net.minecraft.world.level.ClipContext.Block.COLLIDER, net.minecraft.world.level.ClipContext.Fluid.NONE,
+                    net.minecraft.world.phys.shapes.CollisionContext.empty()));
+            if (block.getType() != net.minecraft.world.phys.HitResult.Type.MISS) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Server-thread only (serverRun): reading the server's world from the client thread froze the client (02:28 run).
+    private static EnderDragon dragonOf(ServerLevel lvl) {
+        ServerPlayer sp = lvl.getServer().getPlayerList().getPlayers().get(0);
+        return lvl.getEntitiesOfClass(EnderDragon.class, sp.getBoundingBox().inflate(60), x -> x.getHealth() > 0).get(0);
+    }
+
+    private static Vec3 serverBody(ServerLevel lvl) {
+        return dragonOf(lvl).getSubEntities()[2].getBoundingBox().getCenter();
     }
 
     private static int units() {
@@ -201,25 +252,52 @@ final class SimBossNecron1111 {
         println(DRAGON_HP, "Wither Dragons reads " + spec(red, "health") + ", want " + want);
         expect(f, "Wither Dragons' health readout drops to " + want, seen, true);
 
-        // A real Terminator volley from close: more than one arrow of each volley counts.
+        // Real Terminator volleys: every arrow that reaches the dragon counts, one unit each. The lost arrows of the
+        // first tries (3 of 6, 4 of 9, 7 of 9) were none of them dropped hits: shots taken from inside the server's body
+        // box (aimed by the client's dragon, drawn 1-1.5 blocks behind it, as on Hypixel) clip nothing, and the rest met
+        // the arena's blocks first (the wall, the statue the body overlapped, the ceiling). So each volley is taken from
+        // a spot whose three lanes all strike the body with no block before it, aimed at the SERVER's body.
         int u2 = units(), fired0 = (Integer) call("com.killer560.hub.roomsim.SimTerminator", "arrowsFired");
-        for (int v = 0; v < 2; v++) {
-            Vec3 b = ctx.computeOnClient(mc -> e[0].getSubEntities()[2].getBoundingBox().getCenter());
-            tp(ctx, b.x - 5, b.y - 0.5, b.z, 0, 0);
+        int volleys = 0;
+        for (int tries = 0; volleys < VOLLEYS && tries < 40; tries++) {
+            Vec3[] at = new Vec3[1];
+            serverRun(ctx, srv -> at[0] = clearSpot((ServerLevel) srv.getPlayerList().getPlayers().get(0).level()));
+            Vec3 spot = at[0];
+            if (spot == null) {
+                ctx.waitTicks(5);
+                continue;
+            }
+            tp(ctx, spot.x, spot.y - 1.62, spot.z, 0, 0);
             ctx.waitTicks(3); // the teleport reaches his client before the shot
-            ctx.runOnClient(mc -> {
-                Vec3 to = e[0].getSubEntities()[2].getBoundingBox().getCenter().subtract(mc.player.getEyePosition());
-                mc.player.setYRot((float) Math.toDegrees(Math.atan2(-to.x, to.z)));
-                mc.player.setXRot((float) -Math.toDegrees(Math.atan2(to.y, Math.hypot(to.x, to.z))));
-                ModUnderTest.staticCall("com.killer560.hub.roomsim.SimTerminator", "use",
-                        new Class<?>[]{net.minecraft.client.Minecraft.class, boolean.class}, new Object[]{mc, false});
+            float[] aim = new float[2];
+            boolean[] clear = new boolean[1];
+            serverRun(ctx, srv -> {
+                ServerPlayer sp = srv.getPlayerList().getPlayers().get(0);
+                ServerLevel lvl = (ServerLevel) sp.level();
+                Vec3 eye = sp.getEyePosition();
+                Vec3 to = serverBody(lvl).subtract(eye);
+                aim[0] = (float) Math.toDegrees(Math.atan2(-to.x, to.z));
+                aim[1] = (float) -Math.toDegrees(Math.atan2(to.y, Math.hypot(to.x, to.z)));
+                clear[0] = clearLanes(lvl, eye, aim[0], aim[1]);
             });
-            ctx.waitTicks(8);
+            boolean shot = clear[0];
+            if (shot) {
+                ctx.runOnClient(mc -> {
+                    mc.player.setYRot(aim[0]);
+                    mc.player.setXRot(aim[1]);
+                    ModUnderTest.staticCall("com.killer560.hub.roomsim.SimTerminator", "use",
+                            new Class<?>[]{net.minecraft.client.Minecraft.class, boolean.class}, new Object[]{mc, false});
+                });
+            }
+            if (shot) {
+                volleys++;
+                ctx.waitTicks(10);
+            }
         }
         int fired = (Integer) call("com.killer560.hub.roomsim.SimTerminator", "arrowsFired") - fired0;
         int hits = units() - u2;
-        long hitLines = LogTap.since(mark).stream().filter(l -> l.contains("[BossSim] Red dragon hit at P5")).count();
-        println(DRAGON_HP, "2 Terminator volleys: " + fired + " arrows fired, " + hits + " counted; hit lines " + hitLines);
-        expect(f, "2 volleys count more than 2 hits (one per arrow, not one per tick)", hits > 2, true);
+        println(DRAGON_HP, volleys + " clear Terminator volleys: " + fired + " arrows fired, " + hits + " counted");
+        expect(f, VOLLEYS + " clear volleys fired", volleys, VOLLEYS);
+        expect(f, "every arrow of every clear volley counted (one unit each)", hits, fired);
     }
 }
