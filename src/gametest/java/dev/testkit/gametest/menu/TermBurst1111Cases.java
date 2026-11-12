@@ -39,19 +39,19 @@ final class TermBurst1111Cases {
     static void register(Session s) {
         for (TerminalCases.Spec spec : SPECS) {
             String n = spec.type().toLowerCase().replace("_", "");
-            MenuSuite.test(s, "1111-menu-term-burst-" + n, c -> burst(c, spec, true, false));
-            MenuSuite.test(s, "1111-menu-term-burst-off-" + n, c -> burst(c, spec, false, false));
+            MenuSuite.test(s, "1111-menu-term-burst-" + n, c -> burst(c, spec, true, false, 5, false));
+            MenuSuite.test(s, "1111-menu-term-burst-off-" + n, c -> burst(c, spec, false, false, 5, false));
         }
-        MenuSuite.test(s, "1111-menu-term-burst-sametick", c -> burst(c, TerminalCases.SPECS.get(4), true, true));
+        MenuSuite.test(s, "1111-menu-term-burst-sametick", c -> burst(c, TerminalCases.SPECS.get(4), true, true, 5, false));
         MenuSuite.test(s, "1111-menu-term-burst-drop", c -> burst(c, new TerminalCases.Spec("SELECT",
-                new Object[]{"seed", 17, "color", "RED", "count", 6, "dropFinal", true}, "AutoSelectEnabled"), true, false));
+                new Object[]{"seed", 17, "color", "RED", "count", 6, "dropFinal", true}, "AutoSelectEnabled"), true, false, 5, false));
     }
 
     private static int num(Session c, String field) {
         return c.onClient(mc -> ((Number) Mod.field(FEATURE, field)).intValue());
     }
 
-    static void burst(Session c, TerminalCases.Spec spec, boolean on, boolean sameTick) throws Exception {
+    static void burst(Session c, TerminalCases.Spec spec, boolean on, boolean sameTick, int size, boolean useToo) throws Exception {
         MenuKit.reset(c);
         if (!MenuKit.cheat()) {
             c.note("legit jar: Auto Terminals and Burst Finish are cheat-only");
@@ -65,7 +65,7 @@ final class TermBurst1111Cases {
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutoTerminalsEnabled", true).set(CONFIG, spec.auto(), true)
                     .set(CONFIG, "AutoStreamSafe", false).set(CONFIG, "HoverTerminalsEnabled", false)
-                    .set(CONFIG, "QueueTerms", false).set(CONFIG, "BurstFinish", on).set(CONFIG, "BurstSize", 5);
+                    .set(CONFIG, "QueueTerms", false).set(CONFIG, "BurstFinish", on).set(CONFIG, "BurstSize", size);
             int bursts0 = num(c, "burstsSent");
             WireCapture.start();
             JsonObject t = TerminalCases.open(c, spec);
@@ -84,6 +84,11 @@ final class TermBurst1111Cases {
                         mc.player.getInventory().setSelectedSlot((mc.player.getInventory().getSelectedSlot() + 1) % 9);
                         int own = s.getMenu().slots.size() - 1;
                         mc.gameMode.handleContainerInput(s.getMenu().containerId, own, 0, ContainerInput.PICKUP, mc.player);
+                        if (useToo) {
+                            // His own right click (use_item) and swing in the same tick (termplus-1112).
+                            mc.gameMode.useItem(mc.player, net.minecraft.world.InteractionHand.MAIN_HAND);
+                            dev.testkit.compat.McCompat.swingArm(mc.player);
+                        }
                         for (int i = 0; i < 3; i++) {
                             Mod.staticCall(FEATURE, "refreshState");
                         }
@@ -134,7 +139,7 @@ final class TermBurst1111Cases {
             for (JsonObject e : c.events("terminal.click")) {
                 if (e.get("slot").getAsInt() < rows * 9 && e.has("correct") && !e.get("correct").getAsBoolean()) gridWrong++;
             }
-            c.note(spec.type() + (on ? " burst 5" : " no burst") + (sameTick ? " same-tick" : "") + (drop ? " drop" : "")
+            c.note(spec.type() + (on ? " burst " + size : " no burst") + (sameTick ? " same-tick" : "") + (drop ? " drop" : "")
                     + ": solved in " + took + " ticks from open (" + fromFirst + " from first click, " + took * 50
                     + " ms), server " + solved.get("clicks") + " clicks, max " + solved.get("maxClicksPerTick")
                     + " a server tick, " + gridWrong + " wrong in the grid; bursts " + bursts + " (last " + last
@@ -152,7 +157,7 @@ final class TermBurst1111Cases {
             }
             c.check(bursts >= 1 && (drop || last >= 2), "no burst acted (bursts " + bursts + ", last " + last + ")");
             c.check(drop ? bursts >= 2 : true, "the dropped final click was never re-sent by a second burst");
-            int expect = drop ? 5 : last;
+            int expect = drop ? size : last;
             if (!sameTick) {
                 c.check(maxTick == Math.max(expect, last), "wire: the burst of " + last + " was not one client tick (max "
                         + maxTick + ")");
@@ -160,9 +165,9 @@ final class TermBurst1111Cases {
                 // The burst tick also carries his own click and his hotbar swap.
                 c.check(maxTick >= last + 1 && burstTick[2] > 0, "wire: the burst tick did not carry his click and swap: "
                         + java.util.Arrays.toString(burstTick) + ", burst " + last);
-                c.check(maxTick <= 5 + 1, "wire: more than one burst in a client tick (" + maxTick + " clicks)");
+                c.check(maxTick <= size + 1, "wire: more than one burst in a client tick (" + maxTick + " clicks)");
             }
-            c.check(maxTick <= 5 + (sameTick ? 1 : 0), "more than 5 burst clicks in one tick: " + maxTick);
+            c.check(maxTick <= size + (sameTick ? 1 : 0), "more than " + size + " burst clicks in one tick: " + maxTick);
         } finally {
             acting[0] = false;
             WireCapture.stop();

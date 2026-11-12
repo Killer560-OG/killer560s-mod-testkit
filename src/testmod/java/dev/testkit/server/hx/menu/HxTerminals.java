@@ -159,8 +159,23 @@ final class HxTerminals {
             this.melodyInterval = melodyInterval;
         }
 
+        /** termplus-1112 "parts": window slots the server has not sent yet, delivered one part per partGap server ticks after
+         *  the open (each part one ContainerSetSlot per slot, like Hypixel describing a board slot by slot). */
+        final List<Map<Integer, ItemStack>> heldParts = new ArrayList<>();
+        int partGap = 30;
+        int partsSent;
+
         @Override
         public void tick(MinecraftServer server, HxChestMenu menu, ServerPlayer player) {
+            if (partsSent < heldParts.size() && server.getTickCount() - openedTick >= (long) partGap * (partsSent + 1)) {
+                heldParts.get(partsSent++).forEach((slot, stack) -> menu.items().setItem(slot, stack));
+                menu.broadcastChanges();
+                JsonObject d = new JsonObject();
+                d.addProperty("tick", server.getTickCount());
+                d.addProperty("part", partsSent);
+                d.addProperty("last", partsSent == heldParts.size());
+                HxEvents.custom("terminal.part", player, d);
+            }
             if (type != Type.MELODY || solved || melodyFrozen) {
                 return;
             }
@@ -461,6 +476,21 @@ final class HxTerminals {
         t.revertFinal = a.has("revertFinal") && a.get("revertFinal").getAsBoolean();
         t.displayTitle = (a.has("titlePrefix") ? a.get("titlePrefix").getAsString() : "") + t.title
                 + (a.has("titleSuffix") ? a.get("titleSuffix").getAsString() : "");
+        int parts = a.has("parts") ? a.get("parts").getAsInt() : 1;
+        if (parts > 1) {
+            // Slot i of the window goes with part i % parts; every part but the first arrives later, so the open packet
+            // carries only the first.
+            t.partGap = a.has("partGap") ? a.get("partGap").getAsInt() : 30;
+            for (int p = 1; p < parts; p++) {
+                t.heldParts.add(new LinkedHashMap<>());
+            }
+            for (int i = 0; i < t.rows * 9 && i < items.size(); i++) {
+                if (i % parts != 0 && items.get(i) != null && !items.get(i).isEmpty()) {
+                    t.heldParts.get(i % parts - 1).put(i, items.get(i));
+                    items.set(i, ItemStack.EMPTY);
+                }
+            }
+        }
         HxChestMenu menu = HxMenus.open(player, t.rows, Component.literal(t.displayTitle), items, SCRIPT, t);
         t.containerId = menu.containerId;
         last = t;
