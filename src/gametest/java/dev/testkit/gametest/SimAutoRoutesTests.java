@@ -1674,6 +1674,16 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 new Object[]{level}));
     }
 
+    /** The real direction pointing from relative x=3 to x=2 (the arena frame may be rotated). */
+    private static Direction outward(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            Object frame = ModUnderTest.staticCall(FRAME, "current");
+            BlockPos a = real(frame, 3, F, 8);
+            BlockPos b = real(frame, 2, F, 8);
+            return Direction.getApproximateNearest(b.getX() - a.getX(), 0, b.getZ() - a.getZ());
+        });
+    }
+
     /**
      * simbreakrules-1112 (killer560 11-12): the sim's Dungeon Breaker cannot break smooth granite, a piston, a block
      * with a torch or a button on it, or a block with fire on it; a plain block breaks, and only that one spends a
@@ -1695,7 +1705,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         set.put(new int[]{2, F, 8}, Blocks.STONE_BUTTON.defaultBlockState()
                 .setValue(net.minecraft.world.level.block.FaceAttachedHorizontalDirectionalBlock.FACE,
                         net.minecraft.world.level.block.state.properties.AttachFace.WALL)
-                .setValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING, Direction.WEST));
+                .setValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING, outward(ctx)));
         set.put(new int[]{3, F, 9}, Blocks.NETHERRACK.defaultBlockState());
         set.put(new int[]{3, F + 1, 9}, Blocks.FIRE.defaultBlockState());
         setBlocks(ctx, set);
