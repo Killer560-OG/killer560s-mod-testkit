@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-13T16:37:00",
- "modSource": "lane-onlinesim-1113",
- "modGitSha": "2c2f6968f55b5bae25b2ad0c13e0268ee25e57ac",
+ "generatedAt": "2026-11-13T17:04:35",
+ "modSource": "lane-zpbreaker-remove-1113",
+ "modGitSha": "877e41ce27bfedf2137d8188d39d4d118cb920e0",
  "modSourceDirty": false,
  "count": 952,
  "byKind": {
@@ -3259,7 +3259,7 @@
    "field": "CHARGES_PATTERN",
    "index": null,
    "file": "src/main/java/com/killer560/hub/dungeonbreaker/DungeonBreakerFeature.java",
-   "line": 47,
+   "line": 21,
    "regex": "Charges: (\\d+)/(\\d+)",
    "flags": null,
    "kind": "field",
