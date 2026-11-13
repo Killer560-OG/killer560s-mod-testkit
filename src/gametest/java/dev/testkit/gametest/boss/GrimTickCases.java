@@ -60,6 +60,7 @@ final class GrimTickCases {
         // doc-auto-1101: Wither Boss Triggerbot from range (Attack mode swings), All Wither Bosses and the class switches.
         s.test("835-boss-grim-witherbot-range", GrimTickCases::witherBotRange);
         s.test("835-boss-grim-thorn-triggerbot", GrimTickCases::thornTriggerbot);
+        s.test("1113-witherpick", GrimTickCases::witherPick);
         // hotbar-select-rest-1016: the hotbar swaps of Auto i4 (Auto Swap To Bow) and Auto Debuff, through HotbarSelect.
         s.test("836-boss-grim-autoi4-swap", c -> autoI4(c, false, true));
         s.test("837-boss-grim-autodebuff-swap", GrimTickCases::autoDebuff);
@@ -970,7 +971,8 @@ final class GrimTickCases {
              HxKit.Settings on = new HxKit.Settings(c).field(GT_CFG, "clickType", attack)
                      .custom(() -> Mod.call(Mod.cfg(GT_CFG), "setCpsRange", 16, 16),
                              () -> Mod.call(Mod.cfg(GT_CFG), "setCpsRange", cpsWas[0], cpsWas[1]))
-                     .with(GT_CFG, "AimDelayMs", 0).with(GT_CFG, "AllWithers", false).with(GT_CFG, "Enabled", false)) {
+                     .with(GT_CFG, "AimDelayMs", 0).with(GT_CFG, "Enabled", false)
+                     .custom(() -> bosses("GOLDOR"), () -> bosses("GOLDOR"))) {
             c.server().command("item replace entity @a hotbar.0 with stick");
             c.server().command("forceload add 34 42 46 76");
             c.server().sync(20);
@@ -1001,11 +1003,11 @@ final class GrimTickCases {
             c.check(dist > 15, "the wither is not out of melee reach: " + dist);
 
             int[] a = clicksOver(c, 30);
-            c.note("(a) All Wither Bosses off, no P3: attacks " + a[0] + ", swings " + a[1]);
-            c.check(a[0] + a[1] == 0, "Goldor-only clicked outside P3: " + a[0] + " attacks, " + a[1] + " swings");
+            c.note("(a) only Goldor selected, a wither in Storm's arena: attacks " + a[0] + ", swings " + a[1]);
+            c.check(a[0] + a[1] == 0, "Goldor-only clicked another boss: " + a[0] + " attacks, " + a[1] + " swings");
 
             c.onClient(mc -> {
-                Mod.set(GT_CFG, "setAllWithers", true);
+                bosses("MAXOR", "STORM", "GOLDOR", "NECRON");
                 return null;
             });
             c.onClient(mc -> {
@@ -1019,7 +1021,7 @@ final class GrimTickCases {
                 dev.testkit.harness.PacketTrace.stop();
                 return null;
             });
-            c.note("(b) All Wither Bosses on: mod attacks " + b[0] + ", swings " + b[1] + "; sent " + punches + " "
+            c.note("(b) every boss selected: mod attacks " + b[0] + ", swings " + b[1] + "; sent " + punches + " "
                     + dev.testkit.compat.McPackets.swingId() + ", " + attacks + " attack");
             c.check(b[0] == 0 && attacks == 0, "attacked a wither 22 blocks away: " + b[0] + "/" + attacks);
             c.check(b[1] >= 30 && punches >= 30, "only " + b[1] + " ranged swings (" + punches + " sent) in 60 ticks at 16 CPS");
@@ -1037,7 +1039,7 @@ final class GrimTickCases {
         } finally {
             c.onClient(mc -> {
                 Mod.set(GT_CFG, "setEnabled", false);
-                Mod.set(GT_CFG, "setAllWithers", false);
+                bosses("GOLDOR");
                 for (String n : classes) {
                     Mod.call(Mod.cfg(GT_CFG), "setClassEnabled",
                             Mod.enumValue(Mod.ROOT + "dungeonclass.DungeonClass", n), true);
@@ -1045,6 +1047,158 @@ final class GrimTickCases {
                 return null;
             });
             c.server().command("kill @e[tag=pngwbot]");
+            c.server().command("fill 34 167 42 46 169 56 air");
+            c.server().command("forceload remove 34 42 46 76");
+            c.server().command("clear @a");
+            home(c);
+        }
+    }
+
+    // ---- 1113-witherpick ----------------------------------------------------------------------------------------------
+
+    private static final String BOSS = Mod.ROOT + GT_CFG + "$Boss";
+
+    /** Exactly these bosses on (client thread). */
+    private static void bosses(String... on) {
+        for (String n : new String[]{"MAXOR", "STORM", "GOLDOR", "NECRON"}) {
+            Mod.call(Mod.cfg(GT_CFG), "setBossEnabled", Mod.enumValue(BOSS, n), java.util.Arrays.asList(on).contains(n));
+        }
+    }
+
+    /** {mine attacks, mine swings, wire swings, wire attacks} over a window with the triggerbot on. */
+    private static int[] wireClicks(Session c, int ticks) {
+        c.onClient(mc -> {
+            dev.testkit.harness.PacketTrace.start();
+            return null;
+        });
+        int[] m = clicksOver(c, ticks);
+        int punches = c.onClient(mc -> dev.testkit.harness.PacketTrace.sent(dev.testkit.compat.McPackets.swingId()));
+        int attacks = c.onClient(mc -> dev.testkit.harness.PacketTrace.sent("attack"));
+        c.onClient(mc -> {
+            dev.testkit.harness.PacketTrace.stop();
+            return null;
+        });
+        return new int[]{m[0], m[1], punches, attacks};
+    }
+
+    /**
+     * Wither Boss Triggerbot boss selection (witherpick-1113): a real wither at Storm's height, 22 blocks off, Maxor's
+     * line heard (phase P1). (a) Only Goldor selected: the Storm wither is never clicked. (b) Storm selected: ranged swings
+     * go out on the wire (so the feature acted). (c) Storm off again: nothing. (d) Storm on but the chat has moved on to
+     * Goldor's phase (Storm's fight is over): nothing, and clicks come back once a Maxor line restarts the fight (so the
+     * phase was the only thing holding it). (e) Storm on, the wither killed while the bot runs: once it is dying (health 0,
+     * death animation) not one more click goes out while it is still standing there.
+     */
+    private static void witherPick(Session c) throws Exception {
+        Object attack = c.onClient(mc -> Mod.enumValue(Mod.ROOT + GT_CFG + "$ClickType", "ATTACK"));
+        int[] cpsWas = c.onClient(mc -> new int[]{(Integer) Mod.call(Mod.cfg(GT_CFG), "getCpsMin"),
+                (Integer) Mod.call(Mod.cfg(GT_CFG), "getCpsMax")});
+        try (HxKit.Settings off = gateOff(c);
+             HxKit.Settings ip = hypixelIp(c);
+             HxKit.Settings on = new HxKit.Settings(c).field(GT_CFG, "clickType", attack)
+                     .custom(() -> Mod.call(Mod.cfg(GT_CFG), "setCpsRange", 16, 16),
+                             () -> Mod.call(Mod.cfg(GT_CFG), "setCpsRange", cpsWas[0], cpsWas[1]))
+                     .with(GT_CFG, "AimDelayMs", 0).with(GT_CFG, "Enabled", false)
+                     .custom(() -> bosses("GOLDOR"), () -> bosses("GOLDOR"))) {
+            c.server().command("item replace entity @a hotbar.0 with stick");
+            c.server().command("forceload add 34 42 46 76");
+            c.server().sync(20);
+            c.server().command("fill 34 167 42 46 169 56 stone");
+            c.hx().call("dungeon.tp", "x", 40.5, "y", 170.0, "z", 47.7, "yaw", 0f, "pitch", 0f);
+            c.waitUntil("the client to have the platform", mc -> mc.level.getBlockState(new BlockPos(40, 169, 47))
+                    .is(net.minecraft.world.level.block.Blocks.STONE), 200);
+            c.waitUntil("the player on the platform", mc -> mc.player.position().distanceTo(new Vec3(40.5, 170.0, 47.7))
+                    < 0.1 && mc.player.onGround(), 200);
+            c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
+            c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
+            c.hx().chat("[BOSS] Maxor: WELL! WELL! WELL! LOOK WHO'S HERE!");
+            c.waitUntil("the F7 boss (Maxor's line)", mc -> Boolean.TRUE.equals(Mod.staticCall("livemap.LiveMapFeature", "isInBoss")), 100);
+            c.server().command("kill @e[tag=pngwpick]");
+            c.server().command("summon wither 40.5 170 70.5 {Tags:[\"pngwpick\"],NoAI:1b,NoGravity:1b,Silent:1b,Invul:0,"
+                    + "PersistenceRequired:1b,CustomName:\"Storm\"}");
+            AABB box = new AABB(30, 160, 60, 50, 190, 80);
+            c.waitUntil("the client to have the wither", mc -> mc.level.getEntitiesOfClass(
+                    net.minecraft.world.entity.boss.wither.WitherBoss.class, box, e -> e.isAlive()).size() == 1, 200);
+            Vec3 at = c.onClient(mc -> mc.level.getEntitiesOfClass(
+                    net.minecraft.world.entity.boss.wither.WitherBoss.class, box, e -> e.isAlive()).get(0)
+                    .getBoundingBox().getCenter());
+            TriggerTiming.look(c, at);
+            c.ctx().waitTicks(3);
+
+            int[] a = wireClicks(c, 40);
+            c.note("(a) only Goldor selected, Storm's wither aimed: mine " + a[0] + "/" + a[1] + ", wire " + a[2] + " swings " + a[3] + " attacks");
+            c.check(a[0] + a[1] + a[2] + a[3] == 0, "clicked an unselected boss: " + java.util.Arrays.toString(a));
+
+            c.onClient(mc -> {
+                bosses("STORM");
+                return null;
+            });
+            int[] b = wireClicks(c, 60);
+            c.note("(b) Storm selected: mine " + b[0] + "/" + b[1] + ", wire " + b[2] + " swings " + b[3] + " attacks");
+            c.check(b[1] >= 30 && b[2] >= 30 && b[3] == 0, "the selected boss was not swung at: " + java.util.Arrays.toString(b));
+
+            c.onClient(mc -> {
+                bosses("MAXOR", "GOLDOR", "NECRON");
+                return null;
+            });
+            int[] cc = wireClicks(c, 40);
+            c.note("(c) Storm off again: mine " + cc[0] + "/" + cc[1] + ", wire " + cc[2] + "/" + cc[3]);
+            c.check(cc[0] + cc[1] + cc[2] + cc[3] == 0, "clicked Storm after it was switched off: " + java.util.Arrays.toString(cc));
+
+            c.onClient(mc -> {
+                bosses("STORM");
+                return null;
+            });
+            c.hx().chat(TerminalAuraCases.GOLDOR);
+            c.waitUntil("Floor7Tracker phase P3",
+                    mc -> "P3".equals(String.valueOf(Mod.staticCall(TerminalAuraCases.TRACKER, "getPhase"))), 100);
+            int[] d = wireClicks(c, 40);
+            c.note("(d) Storm on, fight moved on to P3: mine " + d[0] + "/" + d[1] + ", wire " + d[2] + "/" + d[3]);
+            c.check(d[0] + d[1] + d[2] + d[3] == 0, "clicked a boss whose phase is over: " + java.util.Arrays.toString(d));
+            c.hx().chat("[BOSS] Maxor: WELL! WELL! WELL! LOOK WHO'S HERE!");
+            c.waitUntil("Floor7Tracker phase P1",
+                    mc -> "P1".equals(String.valueOf(Mod.staticCall(TerminalAuraCases.TRACKER, "getPhase"))), 100);
+            int[] d2 = wireClicks(c, 40);
+            c.check(d2[1] >= 15 && d2[2] >= 15, "no clicks once the phase is back: " + java.util.Arrays.toString(d2));
+
+            // (e) kill it while the bot runs
+            int[] before = c.onClient(mc -> (int[]) Mod.staticCall("goldor.GoldorTriggerbotFeature", "clickCounts"));
+            c.onClient(mc -> {
+                Mod.set(GT_CFG, "setEnabled", true);
+                return null;
+            });
+            c.ctx().waitTicks(15);
+            int[] live = c.onClient(mc -> (int[]) Mod.staticCall("goldor.GoldorTriggerbotFeature", "clickCounts"));
+            c.check(live[1] - before[1] >= 5, "bot not clicking the live boss before the kill: " + (live[1] - before[1]));
+            c.server().command("kill @e[tag=pngwpick]");
+            c.waitUntil("the client to see the wither dying", mc -> mc.level.getEntitiesOfClass(
+                    net.minecraft.world.entity.boss.wither.WitherBoss.class, box).stream().anyMatch(e -> e.isDeadOrDying()), 100);
+            int[] s1 = c.onClient(mc -> (int[]) Mod.staticCall("goldor.GoldorTriggerbotFeature", "clickCounts"));
+            c.onClient(mc -> {
+                dev.testkit.harness.PacketTrace.start();
+                return null;
+            });
+            c.ctx().waitTicks(8);
+            int[] s2 = c.onClient(mc -> (int[]) Mod.staticCall("goldor.GoldorTriggerbotFeature", "clickCounts"));
+            int wire = c.onClient(mc -> dev.testkit.harness.PacketTrace.sent(dev.testkit.compat.McPackets.swingId())
+                    + dev.testkit.harness.PacketTrace.sent("attack"));
+            c.onClient(mc -> {
+                dev.testkit.harness.PacketTrace.stop();
+                return null;
+            });
+            int standing = c.onClient(mc -> mc.level.getEntitiesOfClass(
+                    net.minecraft.world.entity.boss.wither.WitherBoss.class, box).size());
+            c.note("(e) dying boss, " + standing + " still in the world: mine +" + (s2[0] + s2[1] + s2[2] - s1[0] - s1[1] - s1[2])
+                    + ", wire " + wire);
+            c.check(standing > 0, "the dying wither was already gone, so the check proves nothing");
+            c.check(s2[0] + s2[1] + s2[2] == s1[0] + s1[1] + s1[2] && wire == 0,
+                    "clicked a dying boss: mine +" + (s2[1] - s1[1]) + ", wire " + wire);
+        } finally {
+            c.onClient(mc -> {
+                Mod.set(GT_CFG, "setEnabled", false);
+                return null;
+            });
+            c.server().command("kill @e[tag=pngwpick]");
             c.server().command("fill 34 167 42 46 169 56 air");
             c.server().command("forceload remove 34 42 46 76");
             c.server().command("clear @a");

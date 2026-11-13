@@ -163,7 +163,7 @@ final class SameTickGapCases {
              HxKit.Settings on = new HxKit.Settings(c).field(cfg, "clickType", type)
                      .custom(() -> Mod.call(Mod.cfg(cfg), "setCpsRange", 16, 16),
                              () -> Mod.call(Mod.cfg(cfg), "setCpsRange", cpsWas[0], cpsWas[1]))
-                     .with(cfg, "AimDelayMs", 0).with(cfg, "AllWithers", false).with(cfg, "Enabled", false)) {
+                     .with(cfg, "AimDelayMs", 0).with(cfg, "Enabled", false)) {
             c.server().command("forceload add 34 42 46 56");
             c.server().sync(20);
             c.server().command("fill 34 148 42 46 150 56 stone");
