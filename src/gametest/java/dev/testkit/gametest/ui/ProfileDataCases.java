@@ -615,6 +615,131 @@ final class ProfileDataCases {
     }
 
     // =============================================================================================================
+    // 1112 shared routes (mod profshare-1112, killer560 2026-11-12: "make things like auto routes ap3 and all those with
+    // configs shared between profiles on the same instance"): AP3 route files and Auto Routes are one copy for every
+    // profile. Apply A, add a route, apply B: it is still there. Then the one-time merge folds old profile copies in.
+    // =============================================================================================================
+
+    /** Selects an AP3 chains file and saves AP3's settings: the selection is a per-profile setting, so loading a
+     *  profile must bring its own back (the proof that an apply acted; sim files are no longer profile settings). */
+    private static void selectAp3(UiCase c, String name) {
+        c.onClient(mc -> {
+            Mod.set("ap3.Ap3Config", "setChainsFile", name);
+            Mod.call(Mod.cfg("ap3.Ap3Config"), "save");
+            return null;
+        });
+    }
+
+    static void sharedRoutes(UiCase c) throws Exception {
+        String a = "tk-1112-a";
+        String b = "tk-1112-b";
+        Path ap3 = modPath(c, "killer560smod-ap3");
+        Path ar = modPath(c, "killer560smod-autoroutes.json");
+        Path marker = profilesDir().resolve("shared-content-merged-v1.txt");
+        Path backup = Files.createTempDirectory("tk-1112-shared");
+        Files.createDirectories(ap3);
+        copyTree(ap3, backup.resolve("ap3"));
+        boolean hadAr = Files.isRegularFile(ar);
+        if (hadAr) Files.copy(ar, backup.resolve("ar.json"));
+        boolean hadMarker = Files.exists(marker);
+        Restore restore = Restore.begin(c, "tk-1112-orig");
+        try {
+            String arA = "{\"routes\":{},\"tk\":\"A\"}";
+            String arB = "{\"routes\":{},\"tk\":\"B\"}";
+            String arNew = "{\"routes\":{},\"tk\":\"NEW\"}";
+            // ---- A and B saved with different routes (and a different per-profile setting) ----
+            Files.writeString(ap3.resolve("tk-1112-a.json"), "{\"version\":2,\"chains\":{},\"tk\":\"A\"}");
+            Files.writeString(ar, arA);
+            selectAp3(c, "tk-1112-a");
+            String saveA = save(c, a);
+            Files.writeString(ap3.resolve("tk-1112-b.json"), "{\"version\":2,\"chains\":{},\"tk\":\"B\"}");
+            Files.writeString(ar, arB);
+            selectAp3(c, "tk-1112-b");
+            String saveB = save(c, b);
+            c.note("save A: " + saveA + " / save B: " + saveB);
+            c.check(saveA.startsWith("true") && saveB.startsWith("true"), "a save failed");
+            Path dirA = profilesDir().resolve(a);
+            Path dirB = profilesDir().resolve(b);
+            for (Path d : List.of(dirA, dirB)) {
+                c.check(!Files.exists(d.resolve("data/killer560smod-ap3")) && !Files.exists(d.resolve("killer560smod-autoroutes.json")),
+                        "profile " + d.getFileName() + " saved its own copy of the shared routes");
+            }
+            // ---- apply A, add a route, apply B: still there ----
+            c.check(apply(c, a).startsWith("true"), "applying A failed");
+            c.ticks(5);
+            String selA = c.onClient(mc -> (String) Mod.get("ap3.Ap3Config", "getChainsFile"));
+            c.check(selA.startsWith("tk-1112-a"), "the apply did not act: the selected AP3 file is " + selA + " after loading A");
+            Files.writeString(ap3.resolve("tk-1112-new.json"), "{\"version\":2,\"chains\":{},\"tk\":\"NEW\"}");
+            Files.writeString(ar, arNew);
+            String applyB = apply(c, b);
+            c.note("load B: " + applyB);
+            c.check(applyB.startsWith("true"), "applying B failed: " + applyB);
+            c.ticks(5);
+            String selB = c.onClient(mc -> (String) Mod.get("ap3.Ap3Config", "getChainsFile"));
+            c.check(selB.startsWith("tk-1112-b"), "the apply did not act: the selected AP3 file is " + selB + " after loading B");
+            for (String f : List.of("tk-1112-a.json", "tk-1112-b.json", "tk-1112-new.json")) {
+                c.check(Files.isRegularFile(ap3.resolve(f)), "after loading B the AP3 route " + f + " is gone");
+            }
+            c.check(Files.readString(ar).equals(arNew), "after loading B Auto Routes is " + Files.readString(ar));
+            @SuppressWarnings("unchecked")
+            List<String> names = c.onClient(mc -> (List<String>) Mod.staticCall("ap3.Ap3Store", "listConfigNames"));
+            c.note("AP3 route files the store lists: " + names);
+            c.check(names.stream().anyMatch(n -> n.startsWith("tk-1112-new")), "the AP3 store does not list the new route");
+            c.check(apply(c, a).startsWith("true"), "applying A again failed");
+            c.check(Files.isRegularFile(ap3.resolve("tk-1112-new.json")) && Files.readString(ar).equals(arNew),
+                    "after loading A again the added routes are gone");
+            // ---- the one-time merge: copies an older build saved in each profile join the live ones ----
+            Files.createDirectories(dirA.resolve("data/killer560smod-ap3"));
+            Files.createDirectories(dirB.resolve("data/killer560smod-ap3"));
+            Files.writeString(dirA.resolve("data/killer560smod-ap3/tk-1112-old-a.json"), "OLD-A");
+            Files.writeString(dirA.resolve("data/killer560smod-ap3/tk-1112-new.json"), "OLD-NEW");
+            Files.writeString(dirB.resolve("data/killer560smod-ap3/tk-1112-old-b.json"), "OLD-B");
+            Files.writeString(dirB.resolve("data/killer560smod-ap3/tk-1112-a.json"), Files.readString(ap3.resolve("tk-1112-a.json")));
+            Files.writeString(dirA.resolve("killer560smod-autoroutes.json"), arA);
+            Files.writeString(dirB.resolve("killer560smod-autoroutes.json"), arNew);
+            Files.deleteIfExists(marker);
+            int folded = c.onClient(mc -> (Integer) Mod.staticCall("profiles.SharedContent", "mergeOnce", profilesDir()));
+            c.note("merge folded " + folded + " file(s)");
+            c.check(Files.readString(ap3.resolve("tk-1112-old-a.json")).equals("OLD-A")
+                    && Files.readString(ap3.resolve("tk-1112-old-b.json")).equals("OLD-B"),
+                    "the merge did not bring both profiles' routes in");
+            c.check(Files.readString(ap3.resolve("tk-1112-new.json")).contains("NEW\"")
+                    && Files.readString(ap3.resolve("tk-1112-new - " + a + ".json")).equals("OLD-NEW"),
+                    "a same-name route with other bytes was not kept beside the live one");
+            c.check(!Files.exists(ap3.resolve("tk-1112-a - " + b + ".json")), "an identical route was copied twice");
+            Path arKept = ar.resolveSibling("killer560smod-autoroutes - " + a + ".json");
+            c.check(Files.readString(ar).equals(arNew) && Files.isRegularFile(arKept) && Files.readString(arKept).equals(arA),
+                    "Auto Routes: live " + Files.readString(ar) + ", A's copy kept " + Files.isRegularFile(arKept));
+            c.check(!Files.exists(ar.resolveSibling("killer560smod-autoroutes - " + b + ".json")),
+                    "B's identical Auto Routes was copied");
+            c.check(Files.exists(dirA.resolve("data/killer560smod-ap3/tk-1112-old-a.json"))
+                    && Files.exists(dirB.resolve("killer560smod-autoroutes.json")), "the merge deleted a profile's copy");
+            c.check(Files.exists(marker), "the merge left no marker");
+            int again = c.onClient(mc -> (Integer) Mod.staticCall("profiles.SharedContent", "mergeOnce", profilesDir()));
+            c.check(again == 0, "the merge ran a second time (" + again + ")");
+            // The kept copies are shared too: a save and an apply leave them alone.
+            c.check(save(c, b).startsWith("true") && apply(c, b).startsWith("true"), "save/load B after the merge failed");
+            c.check(Files.isRegularFile(arKept) && !Files.exists(dirB.resolve(arKept.getFileName())),
+                    "the kept Auto Routes copy was reset or saved into a profile");
+            c.check(Files.exists(dirB.resolve("data/killer560smod-ap3/tk-1112-old-b.json")),
+                    "a save deleted the profile's old copy of shared routes");
+        } finally {
+            restore.end(c, a, b);
+            clearFolder(ap3);
+            copyTree(backup.resolve("ap3"), ap3);
+            if (hadAr) Files.copy(backup.resolve("ar.json"), ar, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            else Files.deleteIfExists(ar);
+            try (Stream<Path> s = Files.list(ar.getParent())) {
+                for (Path p : s.filter(p -> p.getFileName().toString().startsWith("killer560smod-autoroutes - tk-1112")).toList()) {
+                    Files.deleteIfExists(p);
+                }
+            }
+            if (!hadMarker) Files.deleteIfExists(marker);
+            deleteTree(backup);
+        }
+    }
+
+    // =============================================================================================================
     // shared
     // =============================================================================================================
 
