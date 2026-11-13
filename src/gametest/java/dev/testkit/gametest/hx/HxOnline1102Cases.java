@@ -5,6 +5,7 @@ import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpServer;
 
 import dev.testkit.gametest.mod.Mod;
+import dev.testkit.compat.McCompat;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -54,6 +55,31 @@ final class HxOnline1102Cases {
         s.test("1102-online-down", HxOnline1102Cases::down);
         s.test("1102-online-gate", HxOnline1102Cases::gate);
         s.test("1104-online-menu", HxOnline1102Cases::menu);
+        s.test("1113-online-screen", HxOnline1102Cases::screen);
+    }
+
+    // ---- 1113-online-screen (onlineisland-1113: /online opens the Discord counts in a screen) --------------------------
+
+    /** /online typed in chat opens the Online Now screen; fed a fixture reply it lists every island with its count. */
+    private static void screen(Session c) throws Exception {
+        Mod.Mark mark = Mod.mark();
+        String scr = "onlinecount.OnlineScreen";
+        String fixture = "{\"total\":4,\"byLocation\":[[\"Galatea\",2],[\"Hub\",1],[\"Skyblock (other)\",1]]}";
+        try {
+            hub(c);
+            Mod.staticCall(scr, "setFixtureForTest", fixture);
+            type(c, "/online");
+            c.waitUntil("the Online Now screen is open", mc -> McCompat.screen(mc) != null && McCompat.screen(mc).getClass().getName().endsWith(scr) , 100);
+            Object rows = c.onClient(mc -> Mod.call(McCompat.screen(mc), "rowsForTest"));
+            c.check(rows instanceof List<?> l && l.size() == 3 && l.get(0).toString().equals("Galatea=2") && l.get(2).toString().equals("Skyblock (other)=1"),
+                    "the screen did not list the fixture's three islands in order: " + rows);
+            Object parsed = Mod.staticCall(scr, "parse", "not json");
+            c.check(parsed == null, "an unreadable reply must read as null, got " + parsed);
+        } finally {
+            Mod.staticCall(scr, "setFixtureForTest", (Object) null);
+            c.ctx().runOnClient(mc -> McCompat.setScreen(mc, null));
+        }
+        Mod.assertHealthy(mark);
     }
 
     // ---- 1104-online-menu (presmenu-1104: "/online doesnt work if someone is just on the start screen") -------------------
