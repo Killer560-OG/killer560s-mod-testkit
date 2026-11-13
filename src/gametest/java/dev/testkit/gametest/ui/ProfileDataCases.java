@@ -620,12 +620,21 @@ final class ProfileDataCases {
     // profile. Apply A, add a route, apply B: it is still there. Then the one-time merge folds old profile copies in.
     // =============================================================================================================
 
+    /** Selects an AP3 chains file and saves AP3's settings: the selection is a per-profile setting, so loading a
+     *  profile must bring its own back (the proof that an apply acted; sim files are no longer profile settings). */
+    private static void selectAp3(UiCase c, String name) {
+        c.onClient(mc -> {
+            Mod.set("ap3.Ap3Config", "setChainsFile", name);
+            Mod.call(Mod.cfg("ap3.Ap3Config"), "save");
+            return null;
+        });
+    }
+
     static void sharedRoutes(UiCase c) throws Exception {
         String a = "tk-1112-a";
         String b = "tk-1112-b";
         Path ap3 = modPath(c, "killer560smod-ap3");
         Path ar = modPath(c, "killer560smod-autoroutes.json");
-        Path speed = modPath(c, "killer560smod-sim-speed.txt");
         Path marker = profilesDir().resolve("shared-content-merged-v1.txt");
         Path backup = Files.createTempDirectory("tk-1112-shared");
         Files.createDirectories(ap3);
@@ -641,11 +650,11 @@ final class ProfileDataCases {
             // ---- A and B saved with different routes (and a different per-profile setting) ----
             Files.writeString(ap3.resolve("tk-1112-a.json"), "{\"version\":2,\"chains\":{},\"tk\":\"A\"}");
             Files.writeString(ar, arA);
-            Files.writeString(speed, "432");
+            selectAp3(c, "tk-1112-a");
             String saveA = save(c, a);
             Files.writeString(ap3.resolve("tk-1112-b.json"), "{\"version\":2,\"chains\":{},\"tk\":\"B\"}");
             Files.writeString(ar, arB);
-            Files.writeString(speed, "555");
+            selectAp3(c, "tk-1112-b");
             String saveB = save(c, b);
             c.note("save A: " + saveA + " / save B: " + saveB);
             c.check(saveA.startsWith("true") && saveB.startsWith("true"), "a save failed");
@@ -658,16 +667,16 @@ final class ProfileDataCases {
             // ---- apply A, add a route, apply B: still there ----
             c.check(apply(c, a).startsWith("true"), "applying A failed");
             c.ticks(5);
-            int simA = c.onClient(mc -> (Integer) Mod.staticCall("roomsim.SimSpeed", "saved"));
-            c.check(simA == 432, "the apply did not act: SimSpeed reads " + simA + " after loading A");
+            String selA = c.onClient(mc -> (String) Mod.get("ap3.Ap3Config", "getChainsFile"));
+            c.check(selA.startsWith("tk-1112-a"), "the apply did not act: the selected AP3 file is " + selA + " after loading A");
             Files.writeString(ap3.resolve("tk-1112-new.json"), "{\"version\":2,\"chains\":{},\"tk\":\"NEW\"}");
             Files.writeString(ar, arNew);
             String applyB = apply(c, b);
             c.note("load B: " + applyB);
             c.check(applyB.startsWith("true"), "applying B failed: " + applyB);
             c.ticks(5);
-            int simB = c.onClient(mc -> (Integer) Mod.staticCall("roomsim.SimSpeed", "saved"));
-            c.check(simB == 555, "the apply did not act: SimSpeed reads " + simB + " after loading B");
+            String selB = c.onClient(mc -> (String) Mod.get("ap3.Ap3Config", "getChainsFile"));
+            c.check(selB.startsWith("tk-1112-b"), "the apply did not act: the selected AP3 file is " + selB + " after loading B");
             for (String f : List.of("tk-1112-a.json", "tk-1112-b.json", "tk-1112-new.json")) {
                 c.check(Files.isRegularFile(ap3.resolve(f)), "after loading B the AP3 route " + f + " is gone");
             }
