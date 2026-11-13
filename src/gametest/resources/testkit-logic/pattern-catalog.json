@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-13T07:12:46",
- "modSource": "lane-simunreach-1111",
- "modGitSha": "6b8495dabeb2536cfd843c75e5ec9d70723b5bdf",
+ "generatedAt": "2026-11-13T09:31:45",
+ "modSource": "lane-pcdiscord-1111",
+ "modGitSha": "4ed15f532c20d3e8e68ae578210dce1dac722aa6",
  "modSourceDirty": false,
  "count": 952,
  "byKind": {
