@@ -45,6 +45,18 @@ final class HxSocialCases {
     // ---- 120 chatcommands ---------------------------------------------------------------------------------------
 
     private static void chatCommands(Session s) {
+        // 1111-pc-discord: every Discord trigger answers with the code, never a link Hypixel censors to ****.
+        s.test("1111-pc-discord-triggers", c -> {
+            for (String w : new String[] {"odin", "od", "killer", "killer560", "k560"}) {
+                Object cmd = c.onClient(mc -> Mod.staticCall("partycommands.PartyCommandsFeature", "commandFor", w));
+                c.check(cmd != null && cmd.toString().equals("DISCORD"), "!" + w + " -> " + cmd);
+            }
+            Object discord = c.onClient(mc -> Mod.enumValue("partycommands.PartyCommandsConfig$Command", "DISCORD"));
+            String reply = (String) c.onClient(mc -> Mod.staticCall("partycommands.InfoReplies", "reply", discord));
+            c.check(reply != null && reply.contains("hkQMF5fE84") && !reply.contains("http") && !reply.contains(".gg"),
+                    "Discord reply: " + reply);
+            c.note("5 triggers -> DISCORD; reply: " + reply);
+        });
         // The informational replies are Party Commands' since mod modchat-party (2026-10-08): one config, one list.
         s.test("120-hx-chatcommands-coords", c -> {
             Object coords = c.onClient(mc -> Mod.enumValue("partycommands.PartyCommandsConfig$Command", "COORDS"));
