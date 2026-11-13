@@ -63,6 +63,8 @@ public class InvWalkTermTests implements FabricClientGameTest {
                         flyRow(rows, ctx, server, hx, x, z, lat, mode);
                     }
                     walkRow(rows, ctx, server, hx, x, z, lat, null);
+                    fallRow(rows, ctx, server, hx, x, z, lat, null);
+                    fallRow(rows, ctx, server, hx, x, z, lat, SameTick.Act.SWAP);
                     // No ATTACK row: with a menu open vanilla runs no keybinds, so he cannot attack (SameTick's attack never went in).
                     for (SameTick.Act st : List.of(SameTick.Act.SWAP, SameTick.Act.USE, SameTick.Act.SCREEN_CLICK)) {
                         walkRow(rows, ctx, server, hx, x, z, lat, st);
@@ -325,6 +327,68 @@ public class InvWalkTermTests implements FabricClientGameTest {
                         + "setbacks %d, close line %s%s", cost.path, cost.screenAll, wireInputs[0], wireMoving[0], red.size(), clicks,
                 ev.size(), moving, solved, state.get("clicks"), state.get("wrong"), setbacks, closeLine,
                 same == null ? "" : "; " + same.report() + (held ? ", his on the wire " + hisWire : "")
+                        + (sameVerdict == null ? "" : " [" + sameVerdict + "]"));
+        ctx.waitTicks(20);
+        rows.end(label, ok, detail, null);
+    }
+
+    /**
+     * Falling with no keys (iwfall-1112, his log 2026-11-12: a lava bounce kept Auto Terminals' clicks held until they were
+     * dropped). He drops from 40 blocks up with a terminal open and clicks every red pane without touching a key: no click
+     * may be held, none dropped, the terminal is solved, and he was airborne for every click. {@code st}: his hotbar swap in
+     * the clicks' own tick (GrimAC must stay clean, rows run on both configs).
+     */
+    private static void fallRow(Rows rows, ClientGameTestContext ctx, TestServer server, Hx hx, int x, int z, int lat, SameTick.Act st) {
+        String label = "L" + lat + " fall with no keys, terminal clicks" + (st == null ? "" : ", same tick " + st);
+        keys(ctx, Set.of());
+        tp(server, ctx, x + 0.5, SURFACE_Y + 40, z + 0.5, -90f);
+        rows.begin();
+        long gave0 = ctx.computeOnClient(mc -> ((Number) Mod.staticCall(IW, "gaveUp")).longValue());
+        hx.call("menu.terminal", "type", "PANES", "seed", 47 + lat + (st == null ? 0 : 1), "count", 5, "closeOnSolve", false,
+                "interval", 0);
+        if (!openMenu(ctx)) {
+            rows.end(label, false, "the terminal never opened", null);
+            return;
+        }
+        ctx.waitTicks(3);
+        for (int i = 0; i < 30 && ctx.computeOnClient(mc -> mc.player.containerMenu.getSlot(0).getItem().isEmpty()); i++) {
+            ctx.waitTicks(1);
+        }
+        List<Integer> red = ctx.computeOnClient(mc -> {
+            List<Integer> out = new ArrayList<>();
+            var m = mc.player.containerMenu;
+            for (int i = 0; i < m.slots.size() - 36; i++) {
+                if (stackText(m.slots.get(i).getItem()).startsWith("minecraft:red_stained_glass_pane")) {
+                    out.add(i);
+                }
+            }
+            return out;
+        });
+        long since = hx.head();
+        SameTick same = st == null ? null : ctx.computeOnClient(mc -> SameTick.start(st, 1, pk -> pk instanceof ServerboundContainerClickPacket, 1, 2));
+        int air = 0;
+        int clicks = 0;
+        for (int t = 0; t < 8 * red.size() + 4; t++) {
+            if (t % 8 == 2 && clicks < red.size()) {
+                air += ctx.computeOnClient(mc -> mc.player.onGround()) ? 0 : 1;
+                click(ctx, List.of(Click.left(red.get(clicks++))));
+            }
+            ctx.waitTicks(1);
+        }
+        if (same != null) {
+            ctx.runOnClient(mc -> same.close());
+        }
+        List<JsonObject> ev = InvWalkCampaignTests.awaitClicks(ctx, hx, since, clicks);
+        JsonObject state = hx.call("menu.terminal.state").getAsJsonObject();
+        boolean solved = state.has("solved") && state.get("solved").getAsBoolean();
+        long gave = ctx.computeOnClient(mc -> ((Number) Mod.staticCall(IW, "gaveUp")).longValue()) - gave0;
+        String sameVerdict = same == null ? null : same.verdict("fall + " + st);
+        closeScreen(ctx);
+        ctx.waitTicks(3);
+        boolean ok = !red.isEmpty() && clicks == red.size() && ev.size() >= clicks && solved && gave == 0 && air >= 1
+                && sameVerdict == null;
+        String detail = String.format(Locale.ROOT, "panes %d clicked %d handled %d, airborne at %d click(s), solved %s, dropped batches %d%s",
+                red.size(), clicks, ev.size(), air, solved, gave, same == null ? "" : "; " + same.report()
                         + (sameVerdict == null ? "" : " [" + sameVerdict + "]"));
         ctx.waitTicks(20);
         rows.end(label, ok, detail, null);
