@@ -2709,7 +2709,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> {
             mc.player.getInventory().setSelectedSlot(0);
             ItemStack stack = mc.player.getInventory().getItem(0);
-            if (stack.isEmpty()) {
+            if (stack.isEmpty() || autoSwapNext) { // Auto Swap: slot 0 stays his plain stick; the real breaker (slot 1) carries its own components
                 return;
             }
             CompoundTag tag = new CompoundTag();
