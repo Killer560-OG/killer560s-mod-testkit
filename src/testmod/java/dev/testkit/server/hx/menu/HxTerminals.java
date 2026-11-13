@@ -779,7 +779,7 @@ final class HxTerminals {
     }
 
     private static boolean isSolved(Terminal t, HxChestMenu menu) {
-        return switch (t.type) {
+        return t.partsSent >= t.heldParts.size() && switch (t.type) {
             case MELODY -> t.melodyRow > t.melodyBandRows;
             case RUBIX -> {
                 String first = null;

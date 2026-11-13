@@ -103,13 +103,22 @@ final class TermPlus1112Cases {
             config(cfg, spec, burst);
             cfg.set(CONFIG, "FirstClickDelayMs", 1500);
             int resets0 = c.onClient(mc -> ((Number) Mod.field(FEATURE, "stallResets")).intValue());
-            JsonObject t = TerminalCases.open(c, spec);
-            MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
-            // The pacing is wedged: no click can go out until the stall net drops it.
-            c.onClient(mc -> {
-                Mod.setField(FEATURE, "nextAutoClickAllowedAtMs", System.currentTimeMillis() + 600_000L);
-                return null;
-            });
+            // The pacing is wedged: no click can go out until the stall net drops it. A load-slow wake-up can let a first click
+            // out before the wedge is set; that attempt is closed and tried again (up to 3 times).
+            JsonObject t = null;
+            for (int attempt = 0; attempt < 3; attempt++) {
+                int clicks0 = c.events("terminal.click").size();
+                t = TerminalCases.open(c, spec);
+                MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
+                c.onClient(mc -> {
+                    Mod.setField(FEATURE, "nextAutoClickAllowedAtMs", System.currentTimeMillis() + 600_000L);
+                    return null;
+                });
+                if (c.events("terminal.click").size() == clicks0) break;
+                c.note("stall: a click went out before the wedge (attempt " + (attempt + 1) + "), reopening");
+                MenuKit.reset(c);
+                if (attempt == 2) c.check(false, "the wedge was never set before the first click");
+            }
             JsonObject solved = MenuKit.awaitEvent(c, "terminal.solved", 400);
             int resets = c.onClient(mc -> ((Number) Mod.field(FEATURE, "stallResets")).intValue()) - resets0;
             long wait = solved.get("firstTick").getAsLong() - solved.get("openedTick").getAsLong();
