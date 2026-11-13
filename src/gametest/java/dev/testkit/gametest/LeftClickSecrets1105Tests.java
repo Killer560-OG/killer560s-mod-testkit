@@ -106,9 +106,6 @@ public class LeftClickSecrets1105Tests implements FabricClientGameTest {
                     Mod.set("cheatutils.CheatUtilsConfig", "setSecretAuraEnabled", false);
                     Mod.set(CFG, "setEnabled", on);
                     Mod.set(BREAKER, "setNoBreakSecrets", "breaker".equals(held) || "off".equals(held));
-                    if (item != null && !"sword".equals(held)) {
-                        Mod.set(BREAKER, "setEnabled", true);
-                    }
                 });
                 boolean inDungeon = ctx.computeOnClient(mc -> (Boolean) Mod.staticCall("secrets.DungeonState", "isInDungeon"));
                 check(inDungeon, "DungeonState does not read a dungeon on the F7 sidebar - the feature's gate stays shut");

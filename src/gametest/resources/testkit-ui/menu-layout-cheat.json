@@ -821,9 +821,6 @@
       "room alerts": "Plays a sound when a dungeon room is cleared or all its secrets are found.",
       "shadow assassin alert": "Shows a title and plays a sound when a Shadow Assassin teleports behind you."
     },
-    "Dungeon Breaker": {
-      "zero ping": "Cheat build only. Blocks mined with a Dungeon Breaker disappear instantly instead of after server confirmation."
-    },
     "Dungeon ESP": {
       "bats": "Highlights secret bats during dungeon clear.",
       "blood mobs": "Highlights the Watcher's blood mobs (red by default) for as long as they live, even if they walk out of the Blood Room.",
