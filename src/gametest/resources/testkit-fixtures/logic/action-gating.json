@@ -362,7 +362,8 @@
     "payload": "[NPC] Aldous: The reward is in my chest.",
     "source": {
       "file": "src/main/java/com/killer560/hub/roomsim/puzzles/SimQuizPuzzle.java",
-      "line": 451
+      "line": 485,
+      "anchor": "\"[NPC] \" + WEIRDO_NAMES[index]"
     },
     "matches": [
       "dungeonextras.AutoDialogueFeature#NPC_LINE",

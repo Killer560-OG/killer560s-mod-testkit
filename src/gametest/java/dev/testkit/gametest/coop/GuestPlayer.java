@@ -70,6 +70,14 @@ public final class GuestPlayer {
     public static GuestPlayer join(ClientGameTestContext ctx, MinecraftServer server, ServerLevel level, String name, Vec3 pos) {
         hook();
         EVENTS.removeIf(e -> e.startsWith(name + " "));
+        GuestPlayer g = place(ctx, server, level, name, pos);
+        // The mod lands every joiner beside the host at the end of its join tick (SimHost LANDING); put it back after.
+        ctx.waitTicks(3);
+        g.moveTo(pos, 0f, 0f);
+        return g;
+    }
+
+    private static GuestPlayer place(ClientGameTestContext ctx, MinecraftServer server, ServerLevel level, String name, Vec3 pos) {
         return onServer(ctx, server, () -> {
             UUID id = UUID.nameUUIDFromBytes(("TestKitGuest:" + name).getBytes(StandardCharsets.UTF_8));
             GameProfile profile = new GameProfile(id, name);
