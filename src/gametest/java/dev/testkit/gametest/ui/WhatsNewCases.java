@@ -16,8 +16,8 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * 1111-ui-whatsnew (mod whatsnew-1111, restyled whatsstyle-1113). On the Themed Main Menu, Dungeon Sim and Mod Settings
- * share one row, half width each with the same gap as Options... | Quit Game (screenshot). Its What's New button opens
+ * 1111-ui-whatsnew (mod whatsnew-1111, restyled whatsstyle-1113). The Themed Main Menu holds its three sections with the
+ * logo clear of the panel ({@link MainMenuSections}, screenshot). Its What's New button opens
  * whatsnew.WhatsNewScreen, which lists at least 1 update with its sections' lines; a click on a date chip, Older > and
  * &lt; Newer pick updates (Newer is off on the newest); the wheel scrolls a long update; the content box carries a solid
  * ring in the theme accent that stands apart from both the panel outside it and the well inside it (screenshot pixels);
@@ -71,35 +71,7 @@ final class WhatsNewCases {
             return null;
         });
         c.ticks(40);
-        String row = c.onClient(mc -> {
-            Screen s = McCompat.screen(mc);
-            AbstractWidget sim = named(s, "Dungeon Sim");
-            AbstractWidget set = named(s, "Mod Settings");
-            AbstractWidget opt = null;
-            AbstractWidget quit = null;
-            for (AbstractWidget w : Screens.getWidgets(s)) {
-                String k = w.getMessage() != null && w.getMessage().getContents()
-                        instanceof net.minecraft.network.chat.contents.TranslatableContents tc ? tc.getKey() : "";
-                opt = "menu.options".equals(k) ? w : opt;
-                quit = "menu.quit".equals(k) ? w : quit;
-            }
-            if (sim == null || set == null || opt == null || quit == null) {
-                return "missing a button: sim " + sim + ", settings " + set + ", options " + opt + ", quit " + quit;
-            }
-            c.note("sim " + sim.getX() + "," + sim.getY() + " " + sim.getWidth() + "; settings " + set.getX() + ","
-                    + set.getY() + " " + set.getWidth() + "; options " + opt.getX() + " " + opt.getWidth() + "; quit "
-                    + quit.getX() + " " + quit.getWidth());
-            if (sim.getY() != set.getY() || set.getX() <= sim.getX()) {
-                return "Mod Settings is not beside Dungeon Sim on one row";
-            }
-            if (sim.getWidth() != opt.getWidth() || set.getWidth() != quit.getWidth() || sim.getX() != opt.getX()
-                    || set.getX() + set.getWidth() != quit.getX() + quit.getWidth()) {
-                return "the Dungeon Sim | Mod Settings row does not match Options... | Quit Game's widths and edges";
-            }
-            int gap = set.getX() - sim.getX() - sim.getWidth();
-            int qgap = quit.getX() - opt.getX() - opt.getWidth();
-            return gap == qgap ? null : "gap " + gap + " != Options/Quit gap " + qgap;
-        });
+        String row = c.onClient(mc -> MainMenuSections.check(McCompat.screen(mc)));
         c.check(row == null, row);
         shot(c, "mainmenu");
         String opened = c.onClient(mc -> {
