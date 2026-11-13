@@ -2,6 +2,7 @@ package dev.testkit.gametest.ui;
 
 import dev.testkit.compat.McCompat;
 import dev.testkit.gametest.mod.Mod;
+import dev.testkit.harness.Report;
 
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -10,14 +11,17 @@ import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.input.MouseButtonInfo;
 
+import java.awt.image.BufferedImage;
+import java.nio.file.Path;
 import java.util.List;
-import java.util.Set;
 
 /**
- * 1111-ui-whatsnew (mod whatsnew-1111): the Themed Main Menu's What's New button opens whatsnew.WhatsNewScreen, which lists at
- * least 1 update, shows cards for the first one, opens a card with a real click (and closes it with a second), picks another
- * update with a click, scrolls with the wheel, draws a frame, and Back returns to the title screen. Home's What's New row is
- * checked to exist through the same screen class opening from the menu's button list.
+ * 1111-ui-whatsnew (mod whatsnew-1111, restyled whatsstyle-1113). On the Themed Main Menu, Dungeon Sim and Mod Settings
+ * share one row, half width each with the same gap as Options... | Quit Game (screenshot). Its What's New button opens
+ * whatsnew.WhatsNewScreen, which lists at least 1 update with its sections' lines; a click on a date chip, Older > and
+ * &lt; Newer pick updates (Newer is off on the newest); the wheel scrolls a long update; the content box carries a solid
+ * ring in the theme accent that stands apart from both the panel outside it and the well inside it (screenshot pixels);
+ * Back returns to the title screen.
  */
 final class WhatsNewCases {
 
@@ -44,13 +48,60 @@ final class WhatsNewCases {
         return s.mouseClicked(new MouseButtonEvent(x, y, new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
     }
 
+    private static int i(Screen s, String f) {
+        return (Integer) Mod.field(s, f);
+    }
+
+    private static Path shot(UiCase c, String label) {
+        Path p = c.ctx().takeScreenshot(Report.fileName(c.name() + "-" + label));
+        Path kept = Report.screenshot(c.name() + "-" + label, p);
+        c.note("screenshot " + label + " -> " + (kept != null ? kept : p));
+        return p;
+    }
+
+    private static int dist(int a, int b) {
+        return Math.abs(((a >> 16) & 0xFF) - ((b >> 16) & 0xFF)) + Math.abs(((a >> 8) & 0xFF) - ((b >> 8) & 0xFF))
+                + Math.abs((a & 0xFF) - (b & 0xFF));
+    }
+
     static void run(UiCase c) {
         c.onClient(mc -> {
             Mod.call(Mod.cfg(MM), "setEnabled", true);
             McCompat.setScreen(mc, new TitleScreen());
             return null;
         });
-        c.ticks(20);
+        c.ticks(40);
+        String row = c.onClient(mc -> {
+            Screen s = McCompat.screen(mc);
+            AbstractWidget sim = named(s, "Dungeon Sim");
+            AbstractWidget set = named(s, "Mod Settings");
+            AbstractWidget opt = null;
+            AbstractWidget quit = null;
+            for (AbstractWidget w : Screens.getWidgets(s)) {
+                String k = w.getMessage() != null && w.getMessage().getContents()
+                        instanceof net.minecraft.network.chat.contents.TranslatableContents tc ? tc.getKey() : "";
+                opt = "menu.options".equals(k) ? w : opt;
+                quit = "menu.quit".equals(k) ? w : quit;
+            }
+            if (sim == null || set == null || opt == null || quit == null) {
+                return "missing a button: sim " + sim + ", settings " + set + ", options " + opt + ", quit " + quit;
+            }
+            c.note("sim " + sim.getX() + "," + sim.getY() + " " + sim.getWidth() + "; settings " + set.getX() + ","
+                    + set.getY() + " " + set.getWidth() + "; options " + opt.getX() + " " + opt.getWidth() + "; quit "
+                    + quit.getX() + " " + quit.getWidth());
+            if (sim.getY() != set.getY() || set.getX() <= sim.getX()) {
+                return "Mod Settings is not beside Dungeon Sim on one row";
+            }
+            if (sim.getWidth() != opt.getWidth() || set.getWidth() != quit.getWidth() || sim.getX() != opt.getX()
+                    || set.getX() + set.getWidth() != quit.getX() + quit.getWidth()) {
+                return "the Dungeon Sim | Mod Settings row does not match Options... | Quit Game's widths and edges";
+            }
+            int gap = set.getX() - sim.getX() - sim.getWidth();
+            int qgap = quit.getX() - opt.getX() - opt.getWidth();
+            return gap == qgap ? null : "gap " + gap + " != Options/Quit gap " + qgap;
+        });
+        c.check(row == null, row);
+        shot(c, "mainmenu");
         String opened = c.onClient(mc -> {
             AbstractWidget b = named(McCompat.screen(mc), "What's New");
             if (b == null) {
@@ -64,7 +115,7 @@ final class WhatsNewCases {
             return;
         }
         // The data loads in the background; wait for it, drawing frames as a player would.
-        for (int i = 0; i < 20; i++) {
+        for (int k = 0; k < 20; k++) {
             c.onClient(mc -> {
                 Frames.extract(mc, McCompat.screen(mc), -1, -1);
                 return null;
@@ -74,42 +125,84 @@ final class WhatsNewCases {
         String shown = c.onClient(mc -> {
             Screen s = McCompat.screen(mc);
             List<?> ups = (List<?>) Mod.field(s, "updates");
-            if (ups == null || ups.isEmpty()) {
-                return "no updates listed: " + ups;
+            if (ups == null || ups.size() < 3) {
+                return "fewer than 3 updates listed: " + ups;
             }
             c.note("updates: " + ups.size());
             List<?> lines = (List<?>) Mod.field(s, "lines");
             if (lines.isEmpty()) {
-                return "the first update has no cards";
+                return "the newest update shows no lines";
             }
-            c.note("cards of update 0: " + lines.size());
-            Set<?> open = (Set<?>) Mod.field(s, "open");
-            int cx = (Integer) Mod.field(s, "cardX");
-            int cy = (Integer) Mod.field(s, "cardY");
-            if (!open.isEmpty()) {
-                return "a card is open before any click";
+            if (named(s, "< Newer").active || !named(s, "Older >").active) {
+                return "on the newest update Newer should be off and Older on";
             }
-            if (!click(s, cx + 20, cy + 10) || open.size() != 1) {
-                return "clicking the first card did not open it (open " + open + ")";
+            int cx = i(s, "chipX");
+            int cy = i(s, "chipY");
+            int cw = i(s, "chipW");
+            click(s, cx + cw + 4 + cw / 2, cy + 5);
+            if (i(s, "selected") != 1) {
+                return "clicking the second date chip selected " + i(s, "selected");
             }
-            if (!click(s, cx + 20, cy + 10) || !open.isEmpty()) {
-                return "a second click did not close it (open " + open + ")";
+            ModScreenDriver.press(named(s, "Older >"));
+            if (i(s, "selected") != 2) {
+                return "Older > selected " + i(s, "selected") + ", want 2";
             }
-            click(s, cx + 20, cy + 10);
-            int lx = (Integer) Mod.field(s, "listX");
-            int ly = (Integer) Mod.field(s, "listY");
-            if (ups.size() > 1) {
-                click(s, lx + 10, ly + 28 + 5);
-                if ((Integer) Mod.field(s, "selected") != 1 || !open.isEmpty()) {
-                    return "clicking the second update did not select it and close the cards";
+            ModScreenDriver.press(named(s, "< Newer"));
+            if (i(s, "selected") != 1) {
+                return "< Newer selected " + i(s, "selected") + ", want 1";
+            }
+            // The wheel over the box scrolls the longest update.
+            int best = 0;
+            for (int k = 0; k < ups.size(); k++) {
+                Mod.call(s, "select", k);
+                if ((Integer) Mod.call(s, "maxScroll") > 0) {
+                    best = k;
+                    break;
                 }
             }
-            s.mouseScrolled(cx + 5, cy + 5, 0, -1);
-            s.mouseScrolled(lx + 5, ly + 5, 0, -1);
+            Mod.call(s, "select", best);
+            if ((Integer) Mod.call(s, "maxScroll") > 0) {
+                s.mouseScrolled(i(s, "boxX") + 20, i(s, "boxY") + 40, 0, -1);
+                if (i(s, "scroll") <= 0) {
+                    return "the wheel did not scroll update " + best;
+                }
+            } else {
+                c.note("no update is long enough to scroll at this window size");
+            }
+            Mod.call(s, "select", 1);
             Frames.extract(mc, s, -1, -1);
             return null;
         });
         c.check(shown == null, shown);
+        Path wn = shot(c, "screen");
+        String box = c.onClient(mc -> {
+            Screen s = McCompat.screen(mc);
+            int bx = i(s, "boxX");
+            int by = i(s, "boxY");
+            int bh = i(s, "boxH");
+            int accent = (Integer) Mod.field("gui.MenuStyle", "OR");
+            try {
+                // The shot may be scaled from the window: map GUI units through its own size.
+                BufferedImage img = javax.imageio.ImageIO.read(wn.toFile());
+                double sc = img.getWidth() / (double) s.width;
+                int y = (int) ((by + bh / 2 + 0.5) * sc);
+                int ring = img.getRGB((int) ((bx - 0.5) * sc), y);
+                int outside = img.getRGB((int) ((bx - 5.5) * sc), y);
+                int inside = img.getRGB((int) ((bx + 4.5) * sc), y);
+                c.note(String.format("ring %06X accent %06X outside %06X inside %06X", ring & 0xFFFFFF,
+                        accent & 0xFFFFFF, outside & 0xFFFFFF, inside & 0xFFFFFF));
+                if (dist(ring, accent) > 60) {
+                    return "the box ring is not the theme accent";
+                }
+                if (dist(ring, outside) < 150 || dist(ring, inside) < 150) {
+                    return "the box ring does not stand apart from the panel and the well";
+                }
+                return null;
+            } catch (java.io.IOException e) {
+                return "could not read the screenshot: " + e;
+            }
+        });
+        c.check(box == null, box);
         String back = c.onClient(mc -> {
             Screen s = McCompat.screen(mc);
             AbstractWidget b = named(s, "Back");

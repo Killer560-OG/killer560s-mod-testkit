@@ -55,7 +55,7 @@ final class TitleWidgetCases {
 
         Object cfg = Mod.cfg("mainmenu.MainMenuThemeConfig");
         boolean e0 = (Boolean) Mod.call(cfg, "isEnabled");
-        boolean mods = true; // the Mods button has no switch since 2026-11-09
+        boolean mods = !modMenu; // no switch since 2026-11-09; Mod Menu owns Mods when installed (2026-11-05)
         Object style0 = modMenu ? styleValue() : null;
         int[] win0 = c.onClient(m -> new int[]{m.getWindow().getWidth(), m.getWindow().getHeight(),
                 m.options.guiScale().get()});
@@ -105,9 +105,14 @@ final class TitleWidgetCases {
                     }
                     long columnRows = boxes.stream().filter(b -> b.w == 200).count();
                     c.check(columnRows >= 5, tag + ": only " + columnRows + " full-width column rows: " + boxes);
-                    int rows = mods ? 6 : 5; // Mods (modsbtn-1104) sits under Mod Settings while its switch is ON
+                    // Dungeon Sim | Mod Settings share a half-width row since whatsstyle-1113.
+                    int rows = mods ? 5 : 4;
                     c.check(columnRows == rows, tag + ": " + columnRows + " full-width rows, expected exactly " + rows
-                            + " (Singleplayer, Multiplayer, Dungeon Sim, Mod Settings, " + (mods ? "Mods, " : "") + "Swap Accounts)");
+                            + " (Singleplayer, Multiplayer, " + (mods ? "Mods, " : "") + "What's New, Swap Accounts)");
+                    long halves = boxes.stream().filter(b -> b.w == 98 && (b.what.contains("[Dungeon Sim]")
+                            || b.what.contains("[Mod Settings]"))).map(b -> b.y).distinct().count();
+                    c.check(halves == 1 && boxes.stream().filter(b -> b.w == 98).count() == 4,
+                            tag + ": Dungeon Sim and Mod Settings are not one half-width row beside Options/Quit: " + boxes);
                     if (size[0] == 1920) {
                         Path shot = c.ctx().takeScreenshot(Report.fileName(c.name() + "-" + style.toLowerCase()));
                         Report.screenshot(c.name(), shot);
@@ -166,7 +171,7 @@ final class TitleWidgetCases {
         return what.contains("[menu.singleplayer]") || what.contains("[menu.multiplayer]")
                 || what.contains("[menu.options]") || what.contains("[menu.quit]")
                 || what.startsWith("SwapAccountsButton[") || what.contains("[Dungeon Sim]")
-                || what.contains("[Mod Settings]") || what.startsWith("ModsButton[");
+                || what.contains("[Mod Settings]") || what.startsWith("ModsButton[") || what.startsWith("WhatsNewButton[");
         // Vanilla's copyright link (PlainTextButton) is removed since mod mainmenu-footer-1015 (killer560, 2026-10-15).
     }
 
