@@ -63,6 +63,14 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
     private static final String AUTO_CLEAR_CONFIG = "com.killer560.hub.autoclear.AutoClearConfig";
     private static final int CASE_TICKS = 20 * 240;
 
+    private static boolean cheatBuild() {
+        try {
+            return Class.forName("com.killer560.hub.BuildVariant").getField("CHEAT_FEATURES_ENABLED").getBoolean(null);
+        } catch (ReflectiveOperationException e) {
+            return true;
+        }
+    }
+
     @Override
     public void runTest(ClientGameTestContext ctx) {
         if (!Scenario.skip(LOGIC)) {
@@ -506,23 +514,27 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
                         problems.add("step " + s[0] + " by " + s[1] + " gave " + got + ", want " + s[2]);
                     }
                 }
-                Object tab = Class.forName("com.killer560.hub.gui.tab.AutoClearTab").getConstructor().newInstance();
-                @SuppressWarnings("unchecked")
-                List<AbstractWidget> ws = (List<AbstractWidget>) ModUnderTest.call(tab, "buildWidgets",
-                        new Class<?>[]{int.class, int.class, int.class, Runnable.class},
-                        new Object[]{0, 0, 300, (Runnable) () -> { }});
-                AbstractWidget row = null;
-                for (AbstractWidget w : ws) {
-                    if (w.getMessage().getString().startsWith("Secret Blood First: ")) {
-                        row = w;
+                if (cheatBuild()) { // the Auto Clear tab is cheat-only: a legit jar has no such row
+                    Object tab = Class.forName("com.killer560.hub.gui.tab.AutoClearTab").getConstructor().newInstance();
+                    @SuppressWarnings("unchecked")
+                    List<AbstractWidget> ws = (List<AbstractWidget>) ModUnderTest.call(tab, "buildWidgets",
+                            new Class<?>[]{int.class, int.class, int.class, Runnable.class},
+                            new Object[]{0, 0, 300, (Runnable) () -> { }});
+                    AbstractWidget row = null;
+                    for (AbstractWidget w : ws) {
+                        if (w.getMessage().getString().startsWith("Secret Blood First: ")) {
+                            row = w;
+                        }
                     }
-                }
-                boolean cycling = row != null && (Boolean) ModUnderTest.call(row, "isCycling", new Class<?>[]{},
-                        new Object[]{});
-                System.out.println("[" + LOGIC + "] tab row: " + (row == null ? "none" : row.getMessage().getString())
-                        + ", cycling " + cycling + " (" + ws.size() + " widget(s))");
-                if (!cycling) {
-                    problems.add("the Auto Clear tab has no cycling \"Secret Blood First\" button");
+                    boolean cycling = row != null && (Boolean) ModUnderTest.call(row, "isCycling", new Class<?>[]{},
+                            new Object[]{});
+                    System.out.println("[" + LOGIC + "] tab row: " + (row == null ? "none" : row.getMessage().getString())
+                            + ", cycling " + cycling + " (" + ws.size() + " widget(s))");
+                    if (!cycling) {
+                        problems.add("the Auto Clear tab has no cycling \"Secret Blood First\" button");
+                    }
+                } else {
+                    System.out.println("[" + LOGIC + "] legit jar: tab row skipped (cheat-only tab)");
                 }
             } catch (ReflectiveOperationException e) {
                 problems.add("threw " + e);
