@@ -39,6 +39,7 @@ final class BossAuraTurnCases {
             return;
         }
         s.test("1110-boss-turnfirst-grimreach", BossAuraTurnCases::grimReach);
+        LeverBest1112Cases.register(s);
         s.test("421-boss-leveraura-behind", BossAuraTurnCases::leverBehind);
         s.test("422-boss-ss-autosolve-norotate-behind", c -> simonAuto(c, 90f, 21));
         s.test("423-boss-ss-autosolve-norotate-front", c -> simonAuto(c, -90f, 22));
