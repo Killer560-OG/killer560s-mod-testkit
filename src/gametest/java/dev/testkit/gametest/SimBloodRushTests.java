@@ -55,6 +55,11 @@ import java.util.concurrent.atomic.AtomicReference;
  *       in a key room: boxes drawn, the path is not rebuilt over 200 ticks, bytes allocated per minute are reported; then every
  *       room of the floor becomes visited on the map (new rooms and doors appear) and after each the cached path must equal a
  *       from-scratch one, the path must have changed and been rebuilt, and the boxes must still be drawn.</li>
+ *   <li><b>1113-bloodrush-table</b> - mod brboxes-1113: the shipped spot table (rebuilt by tools/bloodrush/build-spots.py)
+ *       covers 80+ mob rooms, including the eight it newly covers; on mob floors (the sim puts its starred mobs on the
+ *       table's spots) the helper draws boxes in table rooms, at least two of them newly covered, in two rotations, every
+ *       server starred mob inside one, grouped (fewer boxes than spots, none wider than 12 blocks); then the mobs near him
+ *       are killed and each box holding only those mobs goes while the others stay.</li>
  * </ul>
  * Only when named. GrimAC does not apply (the sim's integrated server).
  */
@@ -71,6 +76,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
     static final String HIDE = "1104-bloodrush-hidesecrets";
     private static final String SW = "com.killer560.hub.secretwaypoints.SecretWaypointsFeature";
     static final String PATHCACHE = "1104-bloodrush-pathcache";
+    static final String TABLE = "1113-bloodrush-table";
     private static final String BR = "com.killer560.hub.bloodrush.BloodRushHelperFeature";
     private static final String BR_CFG = "com.killer560.hub.bloodrush.BloodRushConfig";
     private static final String BR_SPOTS = "com.killer560.hub.bloodrush.BloodRushSpots";
@@ -92,7 +98,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
             return;
         }
         List<String> failed = new ArrayList<>();
-        for (String name : List.of(SPLIT, RUSH, SPOTS, OFF, KNOWN, RENUMBER, MAP_RENUMBER, HIDE, PATHCACHE)) {
+        for (String name : List.of(SPLIT, RUSH, SPOTS, OFF, KNOWN, RENUMBER, MAP_RENUMBER, HIDE, PATHCACHE, TABLE)) {
             if (Scenario.skip(name)) {
                 continue;
             }
@@ -160,6 +166,8 @@ public class SimBloodRushTests implements FabricClientGameTest {
                         }
                         facts.add("floor " + attempt + ": first key room has only " + n + " starred mob(s), new floor");
                     }
+                } else if (name.equals(TABLE)) {
+                    tableBoxes(ctx, problems, facts);
                 } else if (name.equals(HIDE)) {
                     if (SimMobFloorTests.buildMobFloor(ctx, problems, facts)) {
                         hideSecrets(ctx, problems, facts);
@@ -953,6 +961,201 @@ public class SimBloodRushTests implements FabricClientGameTest {
         }));
         ctx.waitFor(mc -> mc.level != null, 2400);
         Scenario.awaitSimBuild(ctx, before);
+    }
+
+    // ---- 1113-bloodrush-table -----------------------------------------------------------------------------------------
+
+    /** The rooms brboxes-1113's table covers that the one before it did not. */
+    static final List<String> NEW_1113 = List.of("Cell", "Dome", "Duncan", "Knight", "Perch", "Rare Overgrown", "Silver Sword",
+            "Zodd");
+
+    private static void tableBoxes(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
+        @SuppressWarnings("unchecked")
+        Map<String, Integer> shipped = ctx.computeOnClient(mc -> {
+            ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{false});
+            return new HashMap<>((Map<String, Integer>) ModUnderTest.staticCall(BR_SPOTS, "bundledCounts"));
+        });
+        facts.add("shipped table: " + shipped.size() + " room(s)");
+        if (shipped.size() < 80) {
+            problems.add("the shipped table covers only " + shipped.size() + " rooms (want 80+)");
+        }
+        for (String n : NEW_1113) {
+            if (!shipped.containsKey(n)) {
+                problems.add(n + " is not in the shipped table");
+            }
+        }
+        Set<Integer> rotations = new HashSet<>();
+        Set<Integer> newRotations = new HashSet<>();
+        Set<String> checked = new java.util.LinkedHashSet<>();
+        Set<String> newChecked = new java.util.LinkedHashSet<>();
+        boolean killed = false;
+        for (int floor = 1; floor <= 5; floor++) {
+            if (checked.size() >= 3 && rotations.size() >= 2 && newChecked.size() >= 2 && newRotations.size() >= 2 && killed) {
+                break;
+            }
+            if (!SimMobFloorTests.buildMobFloor(ctx, problems, facts)) {
+                break;
+            }
+            ctx.runOnClient(mc -> {
+                // Teleporting into a key room insta clears it (Hypixel's rule) and the helper rightly hides it.
+                ModUnderTest.staticCall("com.killer560.hub.roomsim.SimKeyRoom", "disarm");
+                ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{false});
+                ModUnderTest.staticCall(BR, "resetForTest");
+                ModUnderTest.staticCall(ROLES_CLS, "resetForTest");
+                Object cfg = ModUnderTest.config(BR_CFG);
+                ModUnderTest.set(cfg, "setEnabled", true);
+                ModUnderTest.set(cfg, "setAllRooms", true);
+                ModUnderTest.set(cfg, "setShowLearned", true);
+                ModUnderTest.set(cfg, "setShowOthers", true);
+                ModUnderTest.set(cfg, "setThroughWalls", false);
+                ModUnderTest.set(cfg, "setWholePath", false);
+                ModUnderTest.call(cfg, "setKillers", new Class<?>[]{int.class}, new Object[]{1});
+            });
+            Map<String, Integer> rot = new HashMap<>();
+            ctx.runOnClient(mc -> {
+                Object layout = layoutNow();
+                for (int r = 0; r < roomCount(layout); r++) {
+                    String n = roomName(layout, r);
+                    int[] cr = (int[]) ModUnderTest.call(layout, "clayRotation", new Class<?>[]{int.class}, new Object[]{r});
+                    if (n != null && cr != null && shipped.containsKey(n) && !n.toLowerCase(Locale.ROOT).contains("trap")) {
+                        rot.put(n, cr[2]);
+                    }
+                }
+            });
+            List<String> rooms = new ArrayList<>(rot.keySet());
+            rooms.sort(java.util.Comparator.comparing((String n) -> !NEW_1113.contains(n)).thenComparing(n -> n));
+            facts.add("floor " + floor + ": table rooms " + rot);
+            int done = 0;
+            for (String room : rooms) {
+                boolean isNew = NEW_1113.contains(room);
+                if (!isNew && (done >= 2 || checked.contains(room) && rotations.contains(rot.get(room)))) {
+                    continue;
+                }
+                List<double[]> mobs = serverStarredIn(ctx, room);
+                if (mobs.isEmpty()) {
+                    facts.add(room + ": no starred mob placed (its spots have no floor in the sim's copy)");
+                    continue;
+                }
+                SimMobFloorTests.teleport(ctx, mobs.get(0)[0], mobs.get(0)[1], mobs.get(0)[2]);
+                List<Spot> boxes = List.of();
+                for (int i = 0; i < 100 && boxes.isEmpty(); i += 5) {
+                    ctx.waitTicks(5);
+                    boxes = parsed(ctx).stream().filter(sp -> sp.room().equals(room)).toList();
+                }
+                done++;
+                if (boxes.isEmpty()) {
+                    problems.add(room + " (rotation " + rot.get(room) + "): no box drawn; " + status(ctx));
+                    continue;
+                }
+                mobs = serverStarredIn(ctx, room);
+                int inside = 0;
+                double widest = 0;
+                for (double[] m : mobs) {
+                    for (Spot sp : boxes) {
+                        if (sp.box().inflate(0.3).contains(m[0], m[1] + 0.1, m[2])) {
+                            inside++;
+                            break;
+                        }
+                    }
+                }
+                for (Spot sp : boxes) {
+                    widest = Math.max(widest, Math.max(sp.box().getXsize(), sp.box().getZsize()));
+                }
+                facts.add(String.format(Locale.ROOT, "%s%s rot %d: %d table spot(s), %d box(es) (widest %.1f), %d/%d starred mobs inside",
+                        room, isNew ? " (new)" : "", rot.get(room), shipped.get(room), boxes.size(), widest, inside, mobs.size()));
+                if (inside != mobs.size()) {
+                    problems.add(room + ": " + (mobs.size() - inside) + " of " + mobs.size() + " starred mobs in no box");
+                }
+                if (boxes.size() > shipped.get(room)) {
+                    problems.add(room + ": " + boxes.size() + " boxes for " + shipped.get(room) + " spots - not grouped");
+                }
+                if (widest > 12.0) {
+                    problems.add(room + ": a box " + widest + " blocks wide");
+                }
+                checked.add(room);
+                rotations.add(rot.get(room));
+                if (isNew) {
+                    newChecked.add(room);
+                    newRotations.add(rot.get(room));
+                }
+                if (!killed && boxes.stream().anyMatch(sp -> sp.mobs() > 0)) {
+                    killed = killNear(ctx, room, boxes, problems, facts);
+                }
+            }
+        }
+        facts.add("checked " + checked + " at rotations " + rotations + "; newly covered " + newChecked + " at " + newRotations);
+        if (checked.size() < 3 || rotations.size() < 2) {
+            problems.add("boxes checked in " + checked.size() + " room(s) at " + rotations.size() + " rotation(s) (want 3+ and 2+)");
+        }
+        if (newChecked.size() < 2 || newRotations.size() < 2) {
+            problems.add("newly covered rooms checked: " + newChecked + " at rotations " + newRotations + " (want 2+ and 2+)");
+        }
+        if (!killed) {
+            problems.add("no box was checked hiding after its mobs died");
+        }
+    }
+
+    /** Kills (discards, with their star tags) the room's starred mobs within 24 blocks of him: each box that held only those
+     *  goes, every other box stays. */
+    private static boolean killNear(ClientGameTestContext ctx, String room, List<Spot> before, List<String> problems,
+                                    List<String> facts) {
+        @SuppressWarnings("unchecked")
+        List<UUID[]> pairs = ctx.computeOnClient(mc -> (List<UUID[]>) ModUnderTest.staticCall(SIM_MOBS, "starredPairs"));
+        List<double[]> inRoom = serverStarredIn(ctx, room);
+        List<double[]> gone = onServer(ctx, (level, sp) -> {
+            List<double[]> out = new ArrayList<>();
+            for (UUID[] p : pairs) {
+                Entity e = level.getEntity(p[0]);
+                if (e == null || !e.isAlive() || e.distanceTo(sp) > 24) {
+                    continue;
+                }
+                boolean mine = inRoom.stream().anyMatch(m -> Math.abs(m[0] - e.getX()) < 0.01 && Math.abs(m[2] - e.getZ()) < 0.01);
+                if (!mine) {
+                    continue;
+                }
+                out.add(new double[]{e.getX(), e.getY(), e.getZ()});
+                e.discard();
+                for (int i = 1; i < p.length; i++) {
+                    Entity tag = p[i] == null ? null : level.getEntity(p[i]);
+                    if (tag != null) {
+                        tag.discard();
+                    }
+                }
+            }
+            return out;
+        });
+        ctx.waitTicks(20);
+        List<double[]> left = serverStarredIn(ctx, room);
+        List<Spot> after = parsed(ctx).stream().filter(sp -> sp.room().equals(room)).toList();
+        int shouldGo = 0;
+        int wentRight = 0;
+        int stayed = 0;
+        for (Spot b : before) {
+            AABB a = b.box().inflate(0.3);
+            boolean hadKilled = gone.stream().anyMatch(m -> a.contains(m[0], m[1] + 0.1, m[2]));
+            boolean hasLiving = left.stream().anyMatch(m -> a.contains(m[0], m[1] + 0.1, m[2]));
+            boolean still = after.stream().anyMatch(x -> x.box().equals(b.box()));
+            if (hadKilled && !hasLiving) {
+                shouldGo++;
+                if (!still) {
+                    wentRight++;
+                } else {
+                    problems.add(room + ": box at " + b.box() + " still shown after its mobs died");
+                }
+            } else if (hasLiving) {
+                stayed += still ? 1 : 0;
+                if (!still) {
+                    problems.add(room + ": box at " + b.box() + " went while a mob in it lives");
+                }
+            }
+        }
+        facts.add(room + ": killed " + gone.size() + " starred mob(s) near him; " + wentRight + "/" + shouldGo
+                + " box(es) of only those went, " + stayed + " with living mobs stayed; boxes " + before.size() + " -> " + after.size());
+        if (shouldGo == 0) {
+            problems.add(room + ": the kill emptied no box (killed " + gone.size() + ")");
+            return false;
+        }
+        return true;
     }
 
     // ---- 1103-sim-starredoff ------------------------------------------------------------------------------------------
