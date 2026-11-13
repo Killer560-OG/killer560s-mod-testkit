@@ -78,6 +78,7 @@ public class CarnivalSuite implements FabricClientGameTest {
                     s.test("3787-carnival-auto-dig", CarnivalSuite::autoDig);
                     s.test("3788-carnival-auto-catch", CarnivalSuite::autoCatch);
                     Carnival1110Cases.register(s);
+                    Carnival1111Cases.register(s);
                 });
     }
 
@@ -461,6 +462,7 @@ public class CarnivalSuite implements FabricClientGameTest {
             holdSlot(c, 0);
             stand(c, PX, PZ, 0f, 0f);
             long t0 = c.hx().head();
+            int d0 = c.onClient(mc -> (Integer) Mod.staticCall("carnival.AutoFruitDigging", "digTaps"));
             startFruit(c);
             String pick = c.onClient(mc -> {
                 Object r = Mod.staticCall("carnival.FruitDigging", "bestLabel");
@@ -470,8 +472,12 @@ public class CarnivalSuite implements FabricClientGameTest {
                 Object rec = Mod.field(Mod.ROOT + "carnival.FruitDigging", "recommendation");
                 return rec == null ? null : (String) Mod.call(rec, "shovel");
             });
-            c.ctx().waitTicks(80);
-            String target = c.onClient(mc -> (String) Mod.staticCall("carnival.AutoFruitDigging", "lastTarget"));
+            for (int i = 0; i < 200 && (Integer) c.onClient(mc -> Mod.staticCall("carnival.AutoFruitDigging", "digTaps")) <= d0; i++) {
+                c.ctx().waitTicks(1);
+            }
+            String target0 = c.onClient(mc -> (String) Mod.staticCall("carnival.AutoFruitDigging", "lastTarget"));
+            c.ctx().waitTicks(4);
+            String target = target0;
             List<JsonObject> digs = c.hx().events(t0, "attack_block");
             List<JsonObject> held = c.hx().events(t0, "held");
             int selected = c.onClient(mc -> mc.player.getInventory().getSelectedSlot());
