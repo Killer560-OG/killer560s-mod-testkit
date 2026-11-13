@@ -132,10 +132,13 @@ final class TermBurst1111Cases {
             }
             long took = solved.get("solvedTick").getAsLong() - solved.get("openedTick").getAsLong();
             long fromFirst = solved.get("solvedTick").getAsLong() - solved.get("firstTick").getAsLong();
-            int after = (int) c.events("container.click").stream()
-                    .filter(e -> e.get("tick").getAsLong() > solved.get("solvedTick").getAsLong()).count();
-            int gridWrong = 0;
             int rows = t.has("rows") ? t.get("rows").getAsInt() : 6;
+            // Only the terminal's own grid: his own click (a same-tick case keeps clicking his inventory until the screen closes)
+            // is not the solver clicking on after the solve.
+            int after = (int) c.events("container.click").stream()
+                    .filter(e -> e.get("tick").getAsLong() > solved.get("solvedTick").getAsLong()
+                            && e.get("slot").getAsInt() < rows * 9).count();
+            int gridWrong = 0;
             for (JsonObject e : c.events("terminal.click")) {
                 if (e.get("slot").getAsInt() < rows * 9 && e.has("correct") && !e.get("correct").getAsBoolean()) gridWrong++;
             }
