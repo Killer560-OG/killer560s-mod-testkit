@@ -70,7 +70,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                 BlinkStressTests::setbackShot, BlinkStressTests::lcew, BlinkStressTests::ui,
                 BlinkStressTests::longHolds, BlinkStressTests::longShots, BlinkStressTests::longCharge,
                 BlinkStressTests::releaseLog, BlinkStressTests::controls, BlinkStressTests::setbackVariants, BlinkStressTests::tab,
-                BlinkStressTests::keepWarp, BlinkStressTests::keepMisc, BlinkStressTests::hudBar)) {
+                BlinkStressTests::keepWarp, BlinkStressTests::keepMisc, BlinkStressTests::hudBar,
+                BlinkStressTests::hypDouble, BlinkStressTests::hypQuiet)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -95,18 +96,13 @@ public class BlinkStressTests implements FabricClientGameTest {
         }
 
         /**
-         * A row whose shot follows a teleport made while charging: the bank is kept through it by the owner's decision
-         * (killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff like that"; he
-         * accepts that GrimAC flags the next shot), so its flags are recorded, not failed.
+         * A row whose shot follows a teleport made while charging, after 60 ticks so a setback of the shot lands in this
+         * row and not the next. The bank is kept through teleports (killer560, 2026-10-27) and must draw no flag
+         * (killer560, 2026-11-11: "if it is flagging i would rather you fix it").
          */
-        void addKept(TestServer server, Scenario scenario, String label, boolean ok, String detail) {
-            add(server, scenario, label, ok, detail, KEPT);
-        }
-
-        /** {@link #addKept} after 60 ticks, so GrimAC's setback of the shot lands in this row and not the next. */
-        void addKept(ClientGameTestContext ctx, TestServer server, Scenario scenario, String label, boolean ok, String detail) {
+        void addSettled(ClientGameTestContext ctx, TestServer server, Scenario scenario, String label, boolean ok, String detail) {
             ctx.waitTicks(60);
-            add(server, scenario, label, ok, detail, KEPT);
+            add(server, scenario, label, ok, detail, null);
         }
 
         /**
@@ -119,8 +115,6 @@ public class BlinkStressTests implements FabricClientGameTest {
             boolean only = flags.size() <= max && flags.stream().allMatch(f -> f.contains("TimerLimit"));
             add(server, scenario, label, ok, detail, only ? "up to " + max + " TimerLimit from the lag spike, owner 2026-11-04" : null);
         }
-
-        static final String KEPT = "bank kept through a teleport, owner 2026-10-27";
 
         /** {@code accepted}: why this row's flags are expected (null: none are). */
         void add(TestServer server, Scenario scenario, String label, boolean ok, String detail, String accepted) {
@@ -554,7 +548,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                                 && carried >= 1, String.format(Locale.ROOT, "bank %d, after the turn %d, hold %d tick(s) moved %.2f, "
                                 + "bank right after the hold %d, %d look(s) carried, gap %.2f", bank, bankAfterTurn, (int) h[1], h[0],
                         bankAfterHold, carried, g));
-                // No teleport here: a teleport while charging keeps the bank (owner 2026-10-27) and GrimAC flags the shot.
+                // No teleport here: the teleport cases (keep-warp, items-a) cover a bank kept through one.
                 ctx.runOnClient(mc -> mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(-90f
                         - mc.player.getYRot())));
                 ctx.waitTicks(30);
@@ -562,8 +556,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                 double[] s = shootByPress(ctx, true);
                 ctx.waitTicks(5);
                 g = gap(server, ctx);
-                // The hold kept the bank (sending the waiting answers first): GrimAC flags its shot (owner 2026-10-27).
-                rows.addKept(ctx, server, scenario, "(a) shot after the hold", bank2 == 20 && s[2] == 20 && s[0] > 4.5,
+                // The hold kept the bank (sending the waiting answers first): its shot must draw no flag.
+                rows.addSettled(ctx, server, scenario, "(a) shot after the hold", bank2 == 20 && s[2] == 20 && s[0] > 4.5,
                         String.format(Locale.ROOT, "bank %d, shot %d tick(s) %.2f blocks, gap %.2f", bank2, (long) s[2], s[0], g));
                 chargeOff(ctx);
                 // (b) both keys in one tick (Toggle Charge on, Hold on), sprinting.
@@ -588,7 +582,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                 ctx.waitTicks(5);
                 chargeOff(ctx);
                 g = gap(server, ctx);
-                rows.addKept(ctx, server, scenario, "(b) both keys one tick", both && num(ctx, "releasedHolds") > holds0
+                rows.addSettled(ctx, server, scenario, "(b) both keys one tick", both && num(ctx, "releasedHolds") > holds0
                         && sb[2] >= 19, String.format(Locale.ROOT, "holding and charging together %s, then bank %d, shot %d tick(s) "
                         + "%.2f blocks, gap %.2f", both, bankB, (long) sb[2], sb[0], g));
                 // (c) Charge Hold mode + Hold key, both down while sprinting, let go together.
@@ -616,7 +610,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                 ctx.waitTicks(3);
                 boolean offC = !charging(ctx) && !holding(ctx);
                 g = gap(server, ctx);
-                rows.addKept(ctx, server, scenario, "(c) Hold-mode Charge + Hold", bankC >= 20 && bothC && offC,
+                rows.addSettled(ctx, server, scenario, "(c) Hold-mode Charge + Hold", bankC >= 20 && bothC && offC,
                         String.format(Locale.ROOT, "bank %d before, both on %s, both off after %s, gap %.2f", bankC, bothC, offC, g));
                 // (d) Charging (Toggle), a hold that walks 10 ticks and then stands 6 before the key comes up: the release
                 // happens standing still. Before mod b95c8146 the burst went through Charge's hook, which banked its
@@ -1096,7 +1090,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                                     && (kk != 2 || (s[2] >= 19 && bankAfter == 20)),
                             String.format(Locale.ROOT, "%d position packet(s), %d held through, moved %.2f, %sgap %.2f", sb, heldTp,
                                     moved, kk == 2 ? "bank after landing " + bankAfter + " (kept), shot " + (long) s[2] + " tick(s), " : "", g),
-                            kk == 2 ? Rows.KEPT : null);
+                            null);
                 }
                 // Hyperion and AOTV transmission, inside a hold and while charging.
                 hx.give(0, AOTV);
@@ -1151,7 +1145,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                                 // In a hold too: after the kept-bank teleports earlier in this session GrimAC's teleport
                                 // tracking stays off (BadPacketsN on the next teleport held through; the same hold is clean in
                                 // a fresh session, 1025-blink-etherwarp/-leap) - part of what the owner accepted 2026-10-27.
-                                Rows.KEPT);
+                                null);
                     }
                 }
                 // Five etherwarps in a row while charging (ZPEW on), then a refill and a shot.
@@ -1180,7 +1174,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                 chargeOff(ctx);
                 ctx.runOnClient(mc -> Latency.remove());
                 double g = gap(server, ctx);
-                rows.addKept(ctx, server, scenario, "5 etherwarps charging", warps == 5 && s[2] >= 19,
+                rows.addSettled(ctx, server, scenario, "5 etherwarps charging", warps == 5 && s[2] >= 19,
                         String.format(Locale.ROOT, "%d server warp(s), then shot %d tick(s) %.2f blocks, gap %.2f", warps,
                                 (long) s[2], s[0], g));
             } finally {
@@ -1424,7 +1418,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                     double g = gap(server, ctx);
                     String label = kk == 0 ? "(a) die mid-hold" : kk == 1 ? "(b) die charging" : "(c) die, Hold-mode key down";
                     boolean kept = kk == 0 || (chargingAfter && bankAfter == 20);
-                    rows.addKept(ctx, server, scenario, label, before && left == 0 && kept && h[1] == 20 && s[1] == 20,
+                    rows.addSettled(ctx, server, scenario, label, before && left == 0 && kept && h[1] == 20 && s[1] == 20,
                             String.format(Locale.ROOT, "on before %s; after respawn holding %s, charging %s, bank %d (kept: %s), %d "
                                     + "left held; then hold %d tick(s), shot %d tick(s), gap %.2f", before, holdingAfter,
                                     chargingAfter, bankAfter, kept, left, (int) h[1], (long) s[1], g));
@@ -1510,8 +1504,9 @@ public class BlinkStressTests implements FabricClientGameTest {
     private static void dimensionCharge(ClientGameTestContext ctx) {
         int x = -8500;
         int z = -6000;
-        // killer560, 2026-10-27: the bank is kept through every teleport and world change; GrimAC flags the next shot.
-        Scenario.runExpectingFlags(ctx, "1026-blink-dimension-charge", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+        // killer560, 2026-10-27: the bank is kept through every teleport and world change; the next shot must draw no flag
+        // (killer560 2026-11-11: a kept-teleport flag is a bug to fix).
+        Scenario.run(ctx, "1026-blink-dimension-charge", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             String name = playerName(ctx);
             try {
@@ -1570,7 +1565,8 @@ public class BlinkStressTests implements FabricClientGameTest {
                 // not release).
                 check(chargedOnNew, "Charge did not carry over the dimension change");
                 check(bank2 == 20 && moved > 3, "after key up and down Charge did not bank and fire: bank " + bank2);
-                scenario.log(String.format(Locale.ROOT, "gap after the kept bank's shot %.2f (GrimAC sets it back: owner's call)", g));
+                scenario.log(String.format(Locale.ROOT, "gap after the kept bank's shot %.2f", g));
+                ctx.waitTicks(60); // a setback of the shot lands inside the case, which fails on any GrimAC line
             } finally {
                 ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
                 chargeOff(ctx);
@@ -1712,9 +1708,9 @@ public class BlinkStressTests implements FabricClientGameTest {
     private static void setbackShot(ClientGameTestContext ctx) {
         int x = -8800;
         int z = -6000;
-        // killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff like that" (he
-        // accepts that GrimAC flags the next shot): a teleport while charging keeps the bank, so flags after it are recorded.
-        Scenario.runExpectingFlags(ctx, "1026-blink-setback-shot", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+        // killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff like that": a
+        // setback while charging keeps the bank, and the next shot must draw no flag (killer560 2026-11-11: a kept-teleport flag is a bug to fix).
+        Scenario.run(ctx, "1026-blink-setback-shot", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             try {
                 String name = playerName(ctx);
@@ -1743,12 +1739,164 @@ public class BlinkStressTests implements FabricClientGameTest {
                 check(sb == 1 && logged, "the setback after the shot was not noticed");
                 check(still, "Charge stopped on a server correction");
                 check(s2[2] == 20, "the next shot did not fire");
-                scenario.log(String.format(Locale.ROOT, "gap after the next shot %.2f (the bank kept through the setback; GrimAC sets "
-                        + "the shot back: owner's call)", g));
+                scenario.log(String.format(Locale.ROOT, "gap after the next shot %.2f (the bank kept through the setback)", g));
+                ctx.waitTicks(60); // a setback of the shot lands inside the case, which fails on any GrimAC line
             } finally {
                 chargeOff(ctx);
                 tearDown(ctx, gate);
             }
+        });
+    }
+
+    /** Lines logged since {@code mark} that contain {@code needle}, in order (indexes into LogTap.since). */
+    private static int firstIndex(List<String> lines, String needle, int from) {
+        for (int i = Math.max(0, from); i < lines.size(); i++) {
+            if (lines.get(i).contains(needle)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** Two server teleports a tick apart while charging: the second finds only young answers, so it cuts the bank. */
+    private static void twoTeleports(TestServer server, ClientGameTestContext ctx, String name) {
+        double[] p = here(ctx);
+        server.command(String.format(Locale.ROOT, "tp %s %.4f %.4f %.4f", name, p[0] + 2, p[1], p[2]));
+        ctx.waitTicks(1);
+        server.command(String.format(Locale.ROOT, "tp %s %.4f %.4f %.4f", name, p[0] + 4, p[1], p[2]));
+    }
+
+    /**
+     * 1111-blink-hyp-double (blinkhyp-1111, his 26.3 Hypixel log 2026-11-11): his SECOND press used to fire a second shot
+     * while the first waited, and Hypixel set it back 24-42 blocks (shots #2, #8, #9, #14). Since blinktp-1111 no teleport
+     * confirm is held; two teleports a tick apart are confirmed at once with their answers (2 batches), and two presses
+     * then make exactly one shot, logged with what it fired under, with no flag (blinkkept-1111).
+     */
+    private static void hypDouble(ClientGameTestContext ctx) {
+        int x = -9650;
+        int z = -6000;
+        Scenario.runExpectingFlags(ctx, "1111-blink-hyp-double", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            Rows rows = new Rows();
+            try {
+                String name = playerName(ctx);
+                for (int round = 0; round < 3; round++) {
+                    tp(server, ctx, x - 15.5, SURFACE_Y, z - 6 + 6 * round + 0.5, -90f);
+                    chargeOn(ctx);
+                    ctx.waitTicks(30);
+                    waitBank(ctx, 20);
+                    long shots0 = cnum(ctx, "shots");
+                    long batches0 = cnum(ctx, "teleportBatches");
+                    long mark = LogTap.mark();
+                    long mt0 = cnum(ctx, "movingTeleports");
+                    twoTeleports(server, ctx, name);
+                    for (int t = 0; t < 20 && cnum(ctx, "movingTeleports") < mt0 + 2; t++) {
+                        ctx.waitTicks(1);
+                    }
+                    long batches = cnum(ctx, "teleportBatches") - batches0;
+                    ctx.getInput().holdKey(o -> o.keyUp);
+                    ctx.getInput().holdKey(o -> o.keySprint);
+                    pressCharge(ctx);
+                    pressCharge(ctx);
+                    for (int t = 0; t < 80 && cnum(ctx, "shots") == shots0; t++) {
+                        ctx.waitTicks(1);
+                    }
+                    releaseKeys(ctx);
+                    ctx.waitTicks(45);
+                    List<String> lines = LogTap.since(mark);
+                    boolean under = firstIndex(lines, "fired under:", 0) >= 0;
+                    boolean verdict = firstIndex(lines, "kept - no setback", 0) >= 0;
+                    long shots = cnum(ctx, "shots") - shots0;
+                    double g = gap(server, ctx);
+                    boolean ok = batches >= 1 && shots == 1 && under && verdict && g < 0.5;
+                    rows.addSettled(ctx, server, scenario, "round " + round, ok, String.format(Locale.ROOT,
+                            "confirm batches %d, shots %d, fired-under %s, kept line %s, gap %.2f", batches, shots, under,
+                            verdict, g));
+                    chargeOff(ctx);
+                }
+            } finally {
+                releaseKeys(ctx);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            rows.finish(scenario, "1111-blink-hyp-double");
+        });
+    }
+
+    /**
+     * 1111-blink-hyp-quiet (blinkhyp-1111): on Hypixel (forced by BlinkCharge.hypixelForTest) a key shot asked for right
+     * after a teleport waits Hypixel's quiet time but at most HYPIXEL_KEY_WAIT_MS (50; killer560 11-11: "when it is on full
+     * charge it wont let me release it", now 50 ms); two teleports close together hold nothing there (killer560 11-11: "really long
+     * stalls", the 950 ms holds) and a shot after them fires within that time too; a shot with no recent teleport fires at
+     * once, and off Hypixel the teleport-then-shot fires at once.
+     */
+    private static void hypQuiet(ClientGameTestContext ctx) {
+        int x = -9750;
+        int z = -6000;
+        Scenario.runExpectingFlags(ctx, "1111-blink-hyp-quiet", (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = setUp(ctx, 20);
+            Rows rows = new Rows();
+            try {
+                String name = playerName(ctx);
+                for (Boolean hyp : new Boolean[]{Boolean.TRUE, null}) {
+                    ctx.runOnClient(mc -> Mod.setField(CHARGE, "hypixelForTest", hyp));
+                    for (int kind = 0; kind < (hyp == null ? 2 : 3); kind++) {
+                        tp(server, ctx, x - 15.5, SURFACE_Y, z - 6 + 6 * kind + (hyp == null ? 20 : 0) + 0.5, -90f);
+                        chargeOn(ctx);
+                        ctx.waitTicks(30);
+                        waitBank(ctx, 20);
+                        ctx.waitTicks(20); // the arrival tp is over 750 ms back
+                        long shots0 = cnum(ctx, "shots");
+                        long mark = LogTap.mark();
+                        long t0 = System.currentTimeMillis();
+                        long batches0 = cnum(ctx, "teleportBatches");
+                        if (kind == 1) {
+                            double[] p = here(ctx);
+                            server.command(String.format(Locale.ROOT, "tp %s %.4f %.4f %.4f", name, p[0] + 2, p[1], p[2]));
+                            long tp0 = cnum(ctx, "movingTeleports");
+                            for (int t = 0; t < 20 && cnum(ctx, "movingTeleports") == tp0; t++) {
+                                ctx.waitTicks(1);
+                            }
+                            t0 = System.currentTimeMillis();
+                        } else if (kind == 2) {
+                            batches0 = cnum(ctx, "teleportBatches");
+                            long tp0 = cnum(ctx, "movingTeleports");
+                            twoTeleports(server, ctx, name);
+                            for (int t = 0; t < 20 && cnum(ctx, "movingTeleports") < tp0 + 2; t++) {
+                                ctx.waitTicks(1);
+                            }
+                            t0 = System.currentTimeMillis();
+                        }
+                        ctx.getInput().holdKey(o -> o.keyUp);
+                        ctx.getInput().holdKey(o -> o.keySprint);
+                        pressCharge(ctx);
+                        for (int t = 0; t < 60 && cnum(ctx, "shots") == shots0; t++) {
+                            ctx.waitTicks(1);
+                        }
+                        long ms = System.currentTimeMillis() - t0;
+                        releaseKeys(ctx);
+                        ctx.waitTicks(45);
+                        long shots = cnum(ctx, "shots") - shots0;
+                        boolean quietLine = hasLog(mark, "Hypixel's quiet time");
+                        boolean wantWait = hyp != null && kind >= 1;
+                        boolean promptLine = hasLog(mark, "on Hypixel - firing now");
+                        long batches = cnum(ctx, "teleportBatches") - batches0;
+                        boolean ok = shots == 1 && (kind == 0 || batches >= kind)
+                                && (wantWait ? ms < 400 && (quietLine || promptLine) : ms < 600 && !quietLine);
+                        String label = (hyp != null ? "hypixel" : "grim") + (kind == 2 ? " two tps, no hold" : kind == 1 ? " after tp" : " plain");
+                        rows.add(server, scenario, label, ok, String.format(Locale.ROOT,
+                                "shots %d after %d ms (wait expected %s), quiet line %s, prompt line %s, confirm batches %d",
+                                shots, ms, wantWait, quietLine, promptLine, batches));
+                        chargeOff(ctx);
+                    }
+                }
+            } finally {
+                ctx.runOnClient(mc -> Mod.setField(CHARGE, "hypixelForTest", null));
+                releaseKeys(ctx);
+                chargeOff(ctx);
+                tearDown(ctx, gate);
+            }
+            rows.finish(scenario, "1111-blink-hyp-quiet");
         });
     }
 
@@ -1817,7 +1965,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                     rows.add(server, scenario, mode == 0 ? "LCEW charging" : "LCEW in holds", warps == 3 && (mode == 0 || g < 0.5)
                                     && (s == null || s[2] >= 19), String.format(Locale.ROOT, "%d server warp(s)%s, gap %.2f", warps,
                                     s == null ? "" : ", shot " + (long) s[2] + " tick(s)", g),
-                            Rows.KEPT); // holds after the kept teleports above: see items-a (owner 2026-10-27)
+                            null); // holds after the kept teleports above: see items-a
                 }
             } finally {
                 ctx.runOnClient(mc -> Mod.set("leftclickew.LeftClickEtherwarpConfig", "setEnabled", false));
@@ -2365,7 +2513,7 @@ public class BlinkStressTests implements FabricClientGameTest {
 
     /**
      * 1026-blink-keep-warp (killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff
-     * like that"; he accepts that GrimAC flags the next shot - recorded here, not failed): (1) charge 20, an etherwarp, the
+     * like that"; since 2026-11-11 the shot must draw no flag): (1) charge 20, an etherwarp, the
      * bank is still 20 after it, then a shot runs 20 ticks and the server moves him; (2) charge 20, a pearl thrown and landed
      * mid-charge, the bank is still 20 at the landing, then a 20-tick shot.
      */
@@ -2431,7 +2579,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                     double[] srvEnd = serverPos(server, ctx, name);
                     chargeOff(ctx);
                     double g = gap(server, ctx);
-                    rows.addKept(ctx, server, scenario, k == 0 ? "charge 20, warp, shoot" : "charge 20, pearl, shoot", bank0 == 20
+                    rows.addSettled(ctx, server, scenario, k == 0 ? "charge 20, warp, shoot" : "charge 20, pearl, shoot", bank0 == 20
                                     && moved >= 1 && bankAfter == 20 && shot[1] == 1 && shot[2] == 20 && flat(srv0, srvLanded) > 3,
                             String.format(Locale.ROOT, "bank %d, %d moving teleport(s), bank after it %d (kept), server landed "
                                             + "%.2f on; shot %d tick(s) %.2f blocks, server then moved %.2f more; gap %.2f", bank0,
@@ -2500,7 +2648,7 @@ public class BlinkStressTests implements FabricClientGameTest {
                 double[] shot = shootByPress(ctx, true);
                 ctx.waitTicks(5);
                 chargeOff(ctx);
-                rows.addKept(ctx, server, scenario, "(4b) shot after it", shot[2] == 20, "shot " + (long) shot[2] + " tick(s)");
+                rows.addSettled(ctx, server, scenario, "(4b) shot after it", shot[2] == 20, "shot " + (long) shot[2] + " tick(s)");
                 holdDown(ctx);
                 ctx.waitTicks(8);
                 ctx.runOnClient(mc -> Mod.set(CFG, "setHoldTicks", 5));
