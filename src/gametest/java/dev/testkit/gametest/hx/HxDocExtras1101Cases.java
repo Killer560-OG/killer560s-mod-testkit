@@ -56,14 +56,14 @@ final class HxDocExtras1101Cases {
             dungeon(c);
             run(c, () -> Mod.staticCall(CC, "testReset"));
             String me = self(c);
-            // Someone else's real line, and a player's chat carrying our line: neither starts it.
-            c.hx().chat("§b[MVP+] HxMateA§f §eentered §aThe Catacombs§e, §eFloor VII§e!");
+            // A player's chat carrying the line never starts it.
             c.hx().chat("§7[VIP] Bob§7: " + me + " entered The Catacombs, Floor VII!");
+            c.hx().chat("§7[VIP] Bob§7: HxMateA entered The Catacombs, Floor VII!");
             c.ctx().waitTicks(10);
-            c.check(remaining(c) == 0, "another player's line or a forged one started the cooldown (" + remaining(c) + " ms)");
-            // Ours, in Hypixel's three-line block.
-            c.hx().chat("§e§l---\n§r§b[MVP+] " + me + "§r§f §r§eentered §r§aThe Catacombs§r§e, §r§eFloor VII§r§e!\n§e§l---");
-            c.waitUntil("the cooldown starts on our own entry line", mc -> (Long) Mod.staticCall(CC, "remainingMs") > 25_000, 40);
+            c.check(remaining(c) == 0, "a forged chat line started the cooldown (" + remaining(c) + " ms)");
+            // A party member creating the run (ccparty-1112): only their line is printed, in Hypixel's dashed block.
+            c.hx().chat("§e§l---\n§r§b[MVP+] HxMateA§r§f §r§eentered §r§aThe Catacombs§r§e, §r§eFloor VII§r§e!\n§e§l---");
+            c.waitUntil("the cooldown starts on a party member's entry line", mc -> (Long) Mod.staticCall(CC, "remainingMs") > 25_000, 40);
             c.waitUntil("the Creation Cooldown HUD draws", mc -> Mod.staticCall(CC, "lastDrawn") != null, 40);
             String drawn = c.onClient(mc -> (String) Mod.staticCall(CC, "lastDrawn"));
             // Block: typed, and the mod's own send path.
