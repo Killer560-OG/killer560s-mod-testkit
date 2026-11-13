@@ -59,7 +59,7 @@ import static dev.testkit.gametest.hx.HxKit.*;
  * <li>574 {@code /killer560 chat} is gone and {@code /kc} parses;</li>
  * <li>575 the Party Commands tab is exactly three sections;</li>
  * <li>576 an old Party Commands + Chat Commands config migrates to the one list;</li>
- * <li>577 a reply leaves at least the reply delay after the line that asked for it;</li>
+ * <li>577 a reply leaves with no delay setting (the next client tick) after the line that asked for it;</li>
  * <li>578 the chats a command may come from (all chat, Mod Chat) and the teammate gate across them;</li>
  * <li>579 an in-game account swap signs the relay login with the NEW account's chat key (the alt-account bug);</li>
  * <li>580 the removed options (destructive switch, confirm invites, the joke command, Chat Commands) are gone.</li>
@@ -293,7 +293,7 @@ final class HxModChatPartyCases {
 
     private static void partyTab(Session s) {
         s.test("575-hx-mcp-party-tab", c -> {
-            try (Settings set = new Settings(c).with(PCC, "Enabled", true).with(PCC, "ReplyDelayMs", 200)) {
+            try (Settings set = new Settings(c).with(PCC, "Enabled", true)) {
                 List<String> problems = new ArrayList<>();
                 List<String> headers = new ArrayList<>();
                 List<String> rows = new ArrayList<>();
@@ -382,7 +382,7 @@ final class HxModChatPartyCases {
             List<String> problems = new ArrayList<>();
             try {
                 // A: destructive switch OFF - the destructive toggles that never ran stay off; everything else carries.
-                write(party, "{\"enabled\":true,\"allowDestructive\":false,\"confirmInvites\":true,\"cmd.warp\":true,"
+                write(party, "{\"enabled\":true,\"replyDelayMs\":600,\"allowDestructive\":false,\"confirmInvites\":true,\"cmd.warp\":true,"
                         + "\"cmd.kick\":true,\"cmd.boop\":true,\"cmd.invite\":true,\"cmd.racism\":true,\"cmd.help\":false}");
                 write(chat, "{\"enabled\":false,\"partyEnabled\":true,\"guildEnabled\":true,\"privateEnabled\":false,"
                         + "\"coopEnabled\":true,\"cmd.coords\":false,\"cmd.tps\":true}");
@@ -391,8 +391,7 @@ final class HxModChatPartyCases {
                         Map.entry("KICK", false), Map.entry("BOOP", true), Map.entry("INVITE", true), Map.entry("HELP", false),
                         Map.entry("COORDS", false), Map.entry("TPS", true), Map.entry("PING", true),
                         Map.entry("ch.PARTY", true), Map.entry("ch.GUILD", true), Map.entry("ch.PRIVATE", false),
-                        Map.entry("ch.COOP", true), Map.entry("ch.ALL", false), Map.entry("ch.MOD_CHAT", true),
-                        Map.entry("delay", 200)));
+                        Map.entry("ch.COOP", true), Map.entry("ch.ALL", false), Map.entry("ch.MOD_CHAT", true)));
                 String rewritten = new String(Files.readAllBytes(party), StandardCharsets.UTF_8);
                 for (String gone : List.of("racism", "confirmInvites", "allowDestructive")) {
                     if (rewritten.contains(gone)) {
@@ -431,7 +430,7 @@ final class HxModChatPartyCases {
                 delete(chat);
                 Map<String, Object> d = loadState(c);
                 expect(problems, "D", d, Map.of("enabled", false, "COORDS", true, "WARP", true, "ch.PARTY", true,
-                        "ch.ALL", false, "ch.MOD_CHAT", true, "delay", 200));
+                        "ch.ALL", false, "ch.MOD_CHAT", true));
                 if (Files.exists(party)) {
                     problems.add("D: a fresh install wrote a config file");
                 }
@@ -451,7 +450,6 @@ final class HxModChatPartyCases {
             Object cfg = Mod.cfg(PCC);
             Map<String, Object> out = new LinkedHashMap<>();
             out.put("enabled", Mod.call(cfg, "isEnabledRaw"));
-            out.put("delay", Mod.call(cfg, "getReplyDelayMs"));
             for (Object cmd : Mod.cls(PCC + "$Command").getEnumConstants()) {
                 out.put(((Enum<?>) cmd).name(), Mod.call(cfg, "isOn", cmd));
             }
@@ -486,7 +484,7 @@ final class HxModChatPartyCases {
             boolean wasOn = c.onClient(mc -> (Boolean) Mod.call(cfg, "isOn", coords));
             boolean wasCh = c.onClient(mc -> (Boolean) Mod.call(cfg, "isChannelOn", partyCh));
             java.util.function.Consumer<net.minecraft.network.protocol.Packet<?>> oldTap = PacketTrace.tap;
-            try (Settings set = new Settings(c).with(PCC, "Enabled", true).with(PCC, "ReplyDelayMs", 200)
+            try (Settings set = new Settings(c).with(PCC, "Enabled", true)
                     .custom(() -> Mod.call(cfg, "setChannelOn", partyCh, true), () -> Mod.call(cfg, "setChannelOn", partyCh, wasCh))
                     .custom(() -> Mod.call(cfg, "setOn", coords, true), () -> Mod.call(cfg, "setOn", coords, wasOn))) {
                 dungeon(c);
@@ -509,16 +507,9 @@ final class HxModChatPartyCases {
                         replySentAt = System.nanoTime();
                     }
                 };
-                long d200 = measure(c);
-                c.check(d200 >= 200, "the reply left " + d200 + " ms after the line, want >= 200 (default delay)");
-                c.check(d200 < 600, "the reply took " + d200 + " ms with a 200 ms delay - something else is holding it");
-                c.onClient(mc -> {
-                    Mod.call(cfg, "setReplyDelayMs", 600);
-                    return null;
-                });
-                long d600 = measure(c);
-                c.check(d600 >= 600, "the reply left " + d600 + " ms after the line, want >= 600 (delay set to 600)");
-                c.note("reply delay 200 ms -> measured " + d200 + " ms; 600 ms -> " + d600 + " ms (line seen -> packet sent)");
+                long d = measure(c);
+                c.check(d < 150, "the reply left " + d + " ms after the line, want the next client tick (no reply delay)");
+                c.note("reply delay removed -> measured " + d + " ms (line seen -> packet sent)");
             } finally {
                 timing = false;
                 PacketTrace.tap = oldTap;
@@ -556,7 +547,7 @@ final class HxModChatPartyCases {
             for (Object cmd : List.of(coords, warp)) {
                 savedCmd.put(cmd, c.onClient(mc -> (Boolean) Mod.call(cfg, "isOn", cmd)));
             }
-            try (Settings set = new Settings(c).with(PCC, "Enabled", true).with(PCC, "ReplyDelayMs", 200)
+            try (Settings set = new Settings(c).with(PCC, "Enabled", true)
                     .with(MC, "Enabled", true).with(MC, "LogToChat", true)) {
                 run(c, () -> {
                     Mod.call(cfg, "setOn", coords, true);

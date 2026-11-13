@@ -43,6 +43,7 @@ final class HxChatKeybindsCases {
         s.test("623-hx-chat-keybinds-key-sends", HxChatKeybindsCases::keySends);
         s.test("624-hx-chat-keybinds-f7", HxChatKeybindsCases::f7);
         s.test("625-hx-chat-keybinds-custom-live", HxChatKeybindsCases::customLive);
+        s.test("1111-hx-cmdkey-first", HxChatKeybindsCases::cmdFirst);
     }
 
     private static boolean merged(Session c) {
@@ -202,6 +203,82 @@ final class HxChatKeybindsCases {
                 Object cfg = Mod.cfg(CFG);
                 clearCustoms(cfg);
                 Object kb = Mod.cfg(KB);
+                Mod.call(kb, "setEnabled", masterWas);
+                Mod.call(kb, "save");
+                Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas);
+            });
+        }
+    }
+
+    // ---- 1111 -----------------------------------------------------------------------------------------------------
+
+    /**
+     * killer560, 2026-11-12: "do away with the timing stuff. just have it all send when i should send it" (mod
+     * chatnow-1112; this case was the 250 ms hold of cmdfirst-1111). A burst of his /stats keybind and two mod /pc lines
+     * all leave at once: nothing waits for an echo, a gap or the server's answer to /stats, and nothing is left queued.
+     */
+    private static void wire(List<String> order, List<Long> at) {
+        for (dev.testkit.harness.WireCapture.Sent w : dev.testkit.harness.WireCapture.snapshot()) {
+            if (w.text().startsWith("cmd:pc cf") || w.text().equals("cmd:stats")) {
+                order.add(w.text().substring(4));
+                at.add(w.nanos());
+            }
+        }
+    }
+
+    private static void cmdFirst(Session c) {
+        boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+        boolean masterWas = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(KB), "isEnabledRaw"));
+        dev.testkit.harness.WireCapture.describe = p -> p instanceof net.minecraft.network.protocol.game.ServerboundChatCommandPacket cp
+                ? "cmd:" + cp.command() : "-";
+        try {
+            run(c, () -> {
+                Mod.staticCall("util.SkyblockGate", "setEnabled", false);
+                Object kb = Mod.cfg(KB);
+                Mod.call(kb, "setEnabled", true);
+                binds(kb).clear();
+                addBind(kb, K1, "/stats", true);
+                McCompat.setScreen(net.minecraft.client.Minecraft.getInstance(), null);
+            });
+            // /stats is answered by nothing: the mod lines must not wait for an answer.
+            respond(c, "stats", "never-matches");
+            c.ctx().waitTicks(40);
+            dev.testkit.harness.WireCapture.start();
+            // Two mod /pc lines asked for in one call (one tick), his keybind pressed in the same moment.
+            long[] askedNs = new long[1];
+            c.ctx().getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(K1), 3);
+            run(c, () -> {
+                askedNs[0] = System.nanoTime();
+                Mod.staticCall("util.OutgoingChat", "command", "pc cf one");
+                Mod.staticCall("util.OutgoingChat", "command", "pc cf two");
+            });
+            int waiting = c.onClient(mc -> (Integer) Mod.staticCall("util.OutgoingChat", "pending"));
+            c.check(waiting == 0, "a line is still queued right after it was asked for: " + waiting);
+            c.waitUntil("both lines and /stats at the server", mc -> c.commands().contains("pc cf one")
+                    && c.commands().contains("pc cf two") && c.commands().contains("stats"), 60);
+            dev.testkit.harness.WireCapture.stop();
+            List<String> order = new ArrayList<>();
+            List<Long> at = new ArrayList<>();
+            wire(order, at);
+            c.note("burst wire order " + order + "; ms after the request "
+                    + at.stream().map(n -> (n - askedNs[0]) / 1_000_000L).toList() + "; server saw " + c.commands());
+            c.check(order.size() == 3 && order.contains("stats") && order.contains("pc cf one") && order.contains("pc cf two"),
+                    "want /stats, 'pc cf one' and 'pc cf two' once each on the wire: " + order);
+            int one = order.indexOf("pc cf one");
+            int two = order.indexOf("pc cf two");
+            long spread = Math.abs(at.get(two) - at.get(one)) / 1_000_000L;
+            long afterAsk = (at.get(one) - askedNs[0]) / 1_000_000L;
+            c.check(afterAsk >= 0 && afterAsk < 60, "'pc cf one' left " + afterAsk + " ms after it was asked for (want its own tick)");
+            c.check(spread < 10, "the two /pc lines left " + spread + " ms apart (want the same tick)");
+            long stats = Math.abs(at.get(order.indexOf("stats")) - at.get(one)) / 1_000_000L;
+            c.check(stats < 150, "/stats and the first /pc left " + stats + " ms apart (want no hold either way)");
+        } finally {
+            dev.testkit.harness.WireCapture.stop();
+            dev.testkit.harness.WireCapture.describe = null;
+            c.hx().call("surface.respond.clear", dev.testkit.gametest.hx.Hx.args("root", "stats"));
+            run(c, () -> {
+                Object kb = Mod.cfg(KB);
+                binds(kb).clear();
                 Mod.call(kb, "setEnabled", masterWas);
                 Mod.call(kb, "save");
                 Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas);

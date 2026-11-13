@@ -28,7 +28,8 @@ public final class FakeGateway {
     private final DatagramSocket udp;
     private final HttpServer http;
     private final List<String> actions = new ArrayList<>();
-    public volatile boolean refuse, silent;
+    /** {@code permanentOnly}: AddPortMapping with a lease other than 0 fails with error 725, as some routers do. */
+    public volatile boolean refuse, silent, permanentOnly;
 
     public FakeGateway() throws IOException {
         udp = new DatagramSocket(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0));
@@ -43,7 +44,10 @@ public final class FakeGateway {
             synchronized (actions) {
                 actions.add(action + " " + tag(body, "NewExternalPort"));
             }
-            if (action.equals("AddPortMapping") && refuse) {
+            if (action.equals("AddPortMapping") && permanentOnly && !tag(body, "NewLeaseDuration").equals("0")) {
+                reply(ex, 500, "<s:Envelope><s:Body><s:Fault><detail><UPnPError><errorCode>725</errorCode>"
+                        + "<errorDescription>OnlyPermanentLeasesSupported</errorDescription></UPnPError></detail></s:Fault></s:Body></s:Envelope>");
+            } else if (action.equals("AddPortMapping") && refuse) {
                 reply(ex, 500, "<s:Envelope><s:Body><s:Fault><detail><UPnPError><errorCode>718</errorCode>"
                         + "<errorDescription>ConflictInMappingEntry</errorDescription></UPnPError></detail></s:Fault></s:Body></s:Envelope>");
             } else if (action.equals("GetExternalIPAddress")) {

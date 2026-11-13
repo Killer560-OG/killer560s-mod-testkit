@@ -220,7 +220,7 @@ public final class SimRoomsStub {
                                 ? com.google.gson.JsonNull.INSTANCE : r.endpoint);
                         out.addProperty("nonce", t.get("nonce").getAsString());
                         out.addProperty("expires", t.get("expires").getAsLong());
-                        out.addProperty("tunnel", false);
+                        out.addProperty("punch", false);
                     }
                 }
             }

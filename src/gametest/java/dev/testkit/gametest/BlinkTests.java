@@ -1457,11 +1457,25 @@ public class BlinkTests implements FabricClientGameTest {
         // oneTick (blinkone-1105, 1105-blink-oneshot-same-*): Hypixel's per-packet rule and Speed IV, so each shot is one
         // burst of over 10 blocks.
         String name = (oneTick ? "1105-blink-oneshot-same-" : "1105-blink-charge-same-") + act.name().toLowerCase(Locale.ROOT);
+        if (!Mod.isCheat()) {
+            if (!Scenario.skip(name)) {
+                Scenario.skipped(name, "Blink is cheat-build only");
+            }
+            return;
+        }
         Scenario.run(ctx, name, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
             boolean gate = setUp(ctx, 20);
             SameTick[] st = {null};
             String who = playerName(ctx);
+            // KM_HX_LAG_MS (flaghunt-1110): these cases are not hx-session cases, so the session's latency never reached
+            // them; fhA2-1111 found the earlier "150 ms" runs of them were unlagged (their ping gaps were PC load).
+            int lag = dev.testkit.gametest.hx.Session.LAG_MS;
             try {
+                if (lag > 0) {
+                    ctx.runOnClient(mc -> Latency.install(lag));
+                    ctx.waitTicks(20);
+                    scenario.log(name + ": +" + lag + " ms latency each way installed");
+                }
                 if (oneTick) {
                     check(budgetHook(ctx, Boolean.FALSE), "the jar has no BlinkCharge.tickBudgetForTest (before blinkone-1105)");
                     server.command("gamerule player_movement_check false");
@@ -1613,12 +1627,22 @@ public class BlinkTests implements FabricClientGameTest {
                         for (; waited < 10 && cnum(ctx, "shots") == shots0; waited++) {
                             ctx.waitTicks(1);
                         }
+                        boolean held = cnum(ctx, "shots") == shots0;
+                        if (held) {
+                            // Under server lag the mod holds a shot until GrimAC covers the bank again (BlinkCharge.shoot, up
+                            // to SHOT_WAIT_MAX_MS = 10 s; fhA2-1111: 1.6-3.1 s at 150 ms, measured before it fired by the old
+                            // 10-tick wait). The shot runs the keys held when it fires, so he keeps running; the case waits
+                            // for the shot itself and takes the distance as not comparable (he may reach the wall first).
+                            for (int i = 0; i < 260 && cnum(ctx, "shots") == shots0; i++) {
+                                ctx.waitTicks(1);
+                            }
+                        }
                         ctx.waitTicks(1);
                         double[] after = scenario.playerPosition();
                         ctx.getInput().releaseKey(o -> o.keyUp);
                         ctx.getInput().releaseKey(o -> o.keySprint);
                         check(waited >= 1, "the shot did not wait for his queued attack click (fired the tick he pressed)");
-                        shot = new double[]{flat(before, after), cnum(ctx, "shots") - shots0, cnum(ctx, "lastShotTicks")};
+                        shot = new double[]{flat(before, after), cnum(ctx, "shots") - shots0, cnum(ctx, "lastShotTicks"), held ? 1 : 0};
                     } else {
                         shot = shootByPress(ctx, true);
                     }
@@ -1634,7 +1658,11 @@ public class BlinkTests implements FabricClientGameTest {
                     double[] srv = serverPos(server, ctx, who);
                     rounds.append(String.format(Locale.ROOT, " [round %d: bank %d, shot %d tick(s) %.2f blocks; client %s server %s]",
                             round + 1, bank, (long) shot[2], shot[0], fmt(client), fmt(srv)));
-                    if (bank == 20 && shot[1] == 1 && shot[2] == 20 && shot[0] > (oneTick ? 9.6 : 4.5) && flat(client, srv) < 0.5) {
+                    boolean held = shot.length > 3 && shot[3] == 1;
+                    if (held) {
+                        rounds.append(" [the mod held this shot past 10 ticks (lag guard)]");
+                    }
+                    if (bank == 20 && shot[1] == 1 && shot[2] == 20 && (held || (lag > 0 && act == SameTick.Act.CLICK) || shot[0] > (oneTick ? 9.6 : 4.5)) && flat(client, srv) < 0.5) {
                         good++;
                     }
                 }
@@ -1661,6 +1689,9 @@ public class BlinkTests implements FabricClientGameTest {
                     server.command("effect clear " + who);
                 }
                 server.command("kill @e[tag=blinkst]");
+                if (lag > 0) {
+                    ctx.runOnClient(mc -> Latency.remove());
+                }
                 if (act == SameTick.Act.CLICK) {
                     ctx.runOnClient(mc -> {
                         Mod.setField("invwalk.InventoryWalkFeature", "heldForTest", null);
