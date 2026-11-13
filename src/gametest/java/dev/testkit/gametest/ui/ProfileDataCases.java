@@ -27,9 +27,9 @@ import java.util.zip.ZipOutputStream;
  * also brings along everything including gifs and whatnot", and "also make sure copying profiles works going between
  * versions as well").
  * <ul>
- *   <li>980 two profiles with different GIFs, crosshair presets and sim speeds; A -> B -> A, each proven on disk (the
+ *   <li>980 two profiles with different GIFs and crosshair presets (sim files are in no profile: 1112-boss-persist); A -> B -> A, each proven on disk (the
  *       live files are the profile's, byte for byte), in the running feature (which GIF the GIF Player holds, which
- *       one the HUD drew, its color counted on a screenshot) and in the sim speed it reads.</li>
+ *       one the HUD drew, its color counted on a screenshot).</li>
  *   <li>981 Export then Import into a fresh profile reproduces every file byte for byte; no secret (login token, proxy
  *       password, Last.fm key, Profile Viewer API key) and no excluded cache is in the zip or the profile. A tampered
  *       copy of the zip cannot change his Auto Update channel or sharing settings (mod a8ea619e).</li>
@@ -69,7 +69,6 @@ final class ProfileDataCases {
         try {
             Path gifs = gifDir(c);
             Path presets = modPath(c, "killer560smod-crosshair-presets");
-            Path speed = modPath(c, "killer560smod-sim-speed.txt");
             gifSetup(c);
 
             // ---- state A ----
@@ -79,18 +78,14 @@ final class ProfileDataCases {
             writeGif(gifs.resolve("tk-b.gif"), GREEN, 48, 48);
             gifOnly(c, "tk-a.gif", "tk-b.gif");
             savePreset(c, "tk-preset-a");
-            Files.writeString(speed, "432");
             String saveA = save(c, a);
             Map<String, String> liveA = hashes(presets);
-            liveA.put("speed", sha(speed));
             // ---- state B ----
             clearFolder(presets);
             gifOnly(c, "tk-b.gif", "tk-a.gif");
             savePreset(c, "tk-preset-b");
-            Files.writeString(speed, "555");
             String saveB = save(c, b);
             Map<String, String> liveB = hashes(presets);
-            liveB.put("speed", sha(speed));
             c.note("save A: " + saveA);
             c.note("save B: " + saveB);
             c.check(saveA.startsWith("true") && saveA.contains("other file"), "Save A carried no data: " + saveA);
@@ -114,7 +109,6 @@ final class ProfileDataCases {
                 c.ticks(20);
                 // ---- on disk: the live files are this profile's, byte for byte ----
                 Map<String, String> live = hashes(presets);
-                live.put("speed", sha(speed));
                 Map<String, String> want = isA ? liveA : liveB;
                 c.note("step " + (i + 1) + " live " + live.keySet());
                 c.check(live.equals(want), "after loading " + p + " the live data is " + live.keySet()
@@ -134,8 +128,6 @@ final class ProfileDataCases {
                 c.note("screenshot: magenta " + px[0] + " px, green " + px[1] + " px");
                 c.check(isA ? px[0] > 200 && px[1] == 0 : px[1] > 200 && px[0] == 0,
                         "the HUD shows the wrong GIF after loading " + p + ": magenta " + px[0] + ", green " + px[1]);
-                int simSpeed = c.onClient(mc -> (Integer) Mod.staticCall("roomsim.SimSpeed", "saved"));
-                c.check(simSpeed == (isA ? 432 : 555), "SimSpeed reads " + simSpeed + " after loading " + p);
                 @SuppressWarnings("unchecked")
                 List<String> presetNames = c.onClient(mc -> (List<String>) Mod.staticCall(
                         "crosshair.CustomCrosshairConfig", "listPresets"));
@@ -171,7 +163,6 @@ final class ProfileDataCases {
             writeGif(gifs.resolve("tk-x.gif"), MAGENTA, 32, 32);
             writeGif(gifs.resolve("tk-y.gif"), GREEN, 16, 16);
             savePreset(c, "tk-preset-981");
-            Files.writeString(modPath(c, "killer560smod-sim-speed.txt"), "500");
             // Secrets, each where its feature keeps it.
             planted.add(plant(modPath(c, "killer560smod-session-login.json"), "{\"token\": \"tk-secret-token\"}"));
             planted.add(plant(modPath(c, "killer560smod-account-proxies.json"), "{\"password\": \"tk-secret-pass\"}"));
