@@ -3,6 +3,7 @@
   "screens": [
     {"class": "gui.ModScreen", "args": ["null"], "source": "gui/ModScreen.java:84"},
     {"class": "modlist.ModsScreen", "args": ["null"], "source": "modlist/ModsScreen.java:106 (mod modsbtn-1104)"},
+    {"class": "whatsnew.WhatsNewScreen", "args": ["null"], "source": "whatsnew/WhatsNewScreen.java (mod whatsnew-1111)"},
     {"class": "gui.profit.BazaarFlipProfitScreen", "args": ["null"], "source": "gui/profit/BazaarFlipProfitScreen.java:16 (cheat only)"},
     {"class": "gui.profit.MiningProfitScreen", "args": ["null"], "source": "gui/profit/MiningProfitScreen.java:13 (mod chport-1104)"},
     {"class": "gui.profit.NucleusProfitScreen", "args": ["null"], "source": "gui/profit/NucleusProfitScreen.java:14 (mod chport-1104)"},
