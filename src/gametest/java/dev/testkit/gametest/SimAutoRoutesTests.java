@@ -1686,7 +1686,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
 
     /**
      * simbreakrules-1112 (killer560 11-12): the sim's Dungeon Breaker cannot break smooth granite, a piston, a block
-     * with a torch or a button on it, or a block with fire on it; a plain block breaks, and only that one spends a
+     * with a torch or a button on it, or a block with fire on it, or a dispenser; a plain block breaks, and only that one spends a
      * charge. Real START_DESTROY_BLOCK digs, answered by the sim server.
      */
     private void caseBreakRules(ClientGameTestContext ctx) {
@@ -1708,13 +1708,14 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 .setValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING, outward(ctx)));
         set.put(new int[]{3, F, 9}, Blocks.NETHERRACK.defaultBlockState());
         set.put(new int[]{3, F + 1, 9}, Blocks.FIRE.defaultBlockState());
+        set.put(new int[]{3, F, 11}, Blocks.DISPENSER.defaultBlockState());
         setBlocks(ctx, set);
         tpRel(ctx, 4.5, 8.5, 90f, 0f);
         ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(2));
         ctx.waitTicks(3);
         check(waitFor(ctx, 400, () -> simCharges(ctx) == 20), "the sim breaker never filled to 20");
-        // granite, piston, torch block, button block, fire block, then the plain block
-        int[] zs = {5, 6, 7, 8, 9, 10};
+        // granite, piston, torch block, button block, fire block, dispenser, then the plain block
+        int[] zs = {5, 6, 7, 8, 9, 11, 10};
         for (int z : zs) {
             ctx.runOnClient(mc -> {
                 BlockPos pos = real(ModUnderTest.staticCall(FRAME, "current"), 3, F, z);
@@ -1724,9 +1725,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(4);
         }
         ctx.waitTicks(4);
-        String[] what = {"smooth granite", "piston", "torch block", "button block", "fire block"};
+        String[] what = {"smooth granite", "piston", "torch block", "button block", "fire block", "dispenser"};
         int stayed = 0;
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 6; i++) {
             boolean gone = blockAir(ctx, 3, F, zs[i]);
             if (!gone) {
                 stayed++;
@@ -1735,8 +1736,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         }
         boolean plain = blockAir(ctx, 3, F, 10);
         int c = simCharges(ctx);
-        println("breakrules: " + stayed + " of 5 refused, plain block broken=" + plain + ", charges 20 -> " + c);
-        check(stayed == 5, "only " + stayed + " of 5 protected blocks stayed");
+        println("breakrules: " + stayed + " of 6 refused, plain block broken=" + plain + ", charges 20 -> " + c);
+        check(stayed == 6, "only " + stayed + " of 6 protected blocks stayed");
         check(plain, "the plain block did not break, so the breaker never acted");
         check(c >= 17, "refused breaks must spend nothing (only the plain one costs a charge), charges are " + c);
     }
