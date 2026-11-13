@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-12T19:13:12",
- "modSource": "lane-chatnow-1112-PRIORITY",
- "modGitSha": "cf44ef1d30bc79d6bc557aefb5ad97cefb1f22d7",
+ "generatedAt": "2026-11-12T19:54:20",
+ "modSource": "lane-ccparty-1112",
+ "modGitSha": "1002e1f304c3d770c3d8e6c169b93518760aa3e3",
  "modSourceDirty": false,
  "count": 952,
  "byKind": {
@@ -2851,7 +2851,7 @@
    "field": "ENTERED",
    "index": null,
    "file": "src/main/java/com/killer560/hub/creationcooldown/CreationCooldownFeature.java",
-   "line": 55,
+   "line": 54,
    "regex": "^(?:\\[[^\\]]{1,20}] ){0,2}([A-Za-z0-9_]{1,16}) entered (?:MM )?The Catacombs, .{1,30}!$",
    "flags": null,
    "kind": "field",
