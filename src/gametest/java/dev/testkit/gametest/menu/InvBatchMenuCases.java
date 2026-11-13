@@ -182,13 +182,13 @@ final class InvBatchMenuCases {
                     sent(c, () -> screenClick(c, hot0 + 1, 0, ContainerInput.PICKUP));
                 }
                 record(table, wrong, m[0] + ": click", prot, ctrl);
-                if (m[0].equals("Anvil")) {
-                    // A dungeon-starred item may go into the anvil (mod ba2de7ac, owner 2026-10-20: "Blocked using in the
+                if (m[0].equals("Anvil") || m[0].startsWith("You  ")) {
+                    // A dungeon-starred item may go into the anvil and a trade (mod e08be014d; anvil ba2de7ac, owner 2026-10-20: "Blocked using in the
                     // anvil Storm's Chestplate - this should not exist"); the hand-protected Hyperion's click above still
                     // must not.
-                    table.put("Anvil: starred shift-click", star + " packet(s) (allowed on purpose)");
+                    table.put(m[0] + ": starred shift-click", star + " packet(s) (allowed on purpose)");
                     if (star != 1) {
-                        wrong.add("Anvil: the starred shift-click sent " + star + " packet(s), want 1 (the anvil allows starred items)");
+                        wrong.add(m[0] + ": the starred shift-click sent " + star + " packet(s), want 1 (the anvil and trades allow starred items)");
                     }
                 } else {
                     record(table, wrong, m[0] + ": starred shift-click", star, ctrl);

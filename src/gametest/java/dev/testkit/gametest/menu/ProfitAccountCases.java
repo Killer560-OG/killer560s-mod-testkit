@@ -201,7 +201,7 @@ final class ProfitAccountCases {
     // ---- 1641 ------------------------------------------------------------------------------------------------------
 
     static void thisVsAll(Session c) throws Exception {
-        Path path = c.onClient(mc -> (Path) Mod.field(CROESUS, "PATH"));
+        Path path = c.onClient(mc -> TrackerCases.croesusPath());
         Saved log = Saved.of(path);
         Saved cfgFile = savedConfig(c);
         try {
@@ -384,7 +384,7 @@ final class ProfitAccountCases {
     // ---- 1643 ------------------------------------------------------------------------------------------------------
 
     static void migration(Session c) throws Exception {
-        Path cpath = c.onClient(mc -> (Path) Mod.field(CROESUS, "PATH"));
+        Path cpath = c.onClient(mc -> TrackerCases.croesusPath());
         Path epath = c.onClient(mc -> (Path) Mod.field(PROFIT, "DATA_PATH"));
         Saved clog = Saved.of(cpath);
         Saved elog = Saved.of(epath);
