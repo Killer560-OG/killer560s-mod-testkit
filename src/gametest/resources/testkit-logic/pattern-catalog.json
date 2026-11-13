@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-12T17:12:54",
- "modSource": "lane-shiptrain-1111",
- "modGitSha": "52352e1fb8cab344b48989477e1c1c7264d008eb",
+ "generatedAt": "2026-11-12T18:10:29",
+ "modSource": "lane-breakpick-1111",
+ "modGitSha": "3c21c1bb1fa26b9ddb47869792ddedd4b94ad1ec",
  "modSourceDirty": false,
- "count": 951,
+ "count": 952,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 823,
+  "field": 824,
   "local": 43
  },
  "unresolved": 160,
@@ -5472,6 +5472,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^\\\\[NPC] Puzzler: ([▲▶◀▼]{10})$\""
+  },
+  {
+   "id": "mining.puzzler.PuzzlerSolver#SOLVED",
+   "cls": "mining.puzzler.PuzzlerSolver",
+   "field": "SOLVED",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/mining/puzzler/PuzzlerSolver.java",
+   "line": 82,
+   "regex": "^Puzzler gave you [\\d,]{1,12} Mithril Powder for solving the puzzle!$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^Puzzler gave you [\\\\d,]{1,12} Mithril Powder for solving the puzzle!$\""
   },
   {
    "id": "mining.skymall.SkyMallDisplay#NEW_BUFF",
