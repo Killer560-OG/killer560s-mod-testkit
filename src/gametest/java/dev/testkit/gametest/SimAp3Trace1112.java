@@ -285,7 +285,7 @@ final class SimAp3Trace1112 {
             try {
                 Object cfg = ModUnderTest.config(Ap3RuntimeTests.CONFIG);
                 ModUnderTest.set(cfg, "setStrafe45", strafe);
-                ModUnderTest.set(cfg, "setEnabled", true);
+                ModUnderTest.set(cfg, "setEnabled", false); // on only after the tp: the boss start sits on the start node
                 ModUnderTest.staticCall(Ap3RuntimeTests.FEATURE, "setForceDungeon", new Class<?>[]{boolean.class}, new Object[]{false});
                 Object cu = ModUnderTest.staticCall("com.killer560.hub.cheatutils.CheatUtilsConfig", "getInstance");
                 ModUnderTest.call(cu, "setAuraBossLevers", new Class<?>[]{boolean.class}, new Object[]{true});
@@ -320,6 +320,7 @@ final class SimAp3Trace1112 {
         long mark = LogTap.mark();
         SimBossTests.command(ctx, String.format(Locale.ROOT, "tp @p %s %s %s %s %s", at[0], at[1], at[2], at[3], at[4]));
         ctx.waitTicks(3);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(Ap3RuntimeTests.CONFIG), "setEnabled", true));
         out.add(ctx.computeOnClient(mc -> row(mc, "S -1")));
         int charges = 20, rc = 0;
         Set<BlockPos> broken = new LinkedHashSet<>();
