@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-13T15:22:33",
- "modSource": "lane-ewsimmatch-1113",
- "modGitSha": "928ae94c2779c7a125e735f18f9611b50f98fe85",
+ "generatedAt": "2026-11-13T16:07:41",
+ "modSource": "lane-basefail-1113",
+ "modGitSha": "d7cd3d20e26e24d24433bfe8baac521588460abd",
  "modSourceDirty": false,
  "count": 952,
  "byKind": {
