@@ -11,10 +11,10 @@ import static dev.testkit.gametest.Ap3RuntimeTests.set;
 
 /**
  * ap3crystals-1112: the {@code crystals:<n>} node modifier waits on Energy Crystal PLACEMENTS (Maxor's Crystals active
- * counter, the "n/2 Energy Crystals are now active!" line), not on entities near him.
+ * phases: each Maxor crystal phase ends on its own "2/2 Energy Crystals are now active!" line.
  * <ul>
- *   <li>1112-ap3-crystals-wait: a Walk with crystals:2 holds through "1/2" and goes within a tick of "2/2".</li>
- *   <li>1112-ap3-crystals-already: both already placed when he steps on the node: it goes at once.</li>
+ *   <li>1112-ap3-crystals-wait: a Walk with crystals:2 holds through phase 1's 2/2 and goes within a tick of phase 2's 2/2.</li>
+ *   <li>1112-ap3-crystals-already: both phases done when he steps on the node: it goes at once.</li>
  *   <li>1112-ap3-crystals-save: the modifier survives the route file write and read; an old node reads 0.</li>
  * </ul>
  */
@@ -37,8 +37,8 @@ final class Ap3Crystals1112Cases {
         c.ctx().waitTicks(3);
     }
 
-    private static int counter(ClientGameTestContext ctx) {
-        return onClient(ctx, mc -> ((int[]) ModUnderTest.staticCall(MAXOR, "activeCounter"))[0]);
+    private static int phases(ClientGameTestContext ctx) {
+        return onClient(ctx, mc -> ((Number) ModUnderTest.staticCall(MAXOR, "phasesDone")).intValue());
     }
 
     private static void clear(ClientGameTestContext ctx) {
@@ -60,18 +60,22 @@ final class Ap3Crystals1112Cases {
             ctx.waitTicks(10);
             double z0 = onClient(ctx, mc -> mc.player.getZ());
             active(c, 1);
+            ctx.waitTicks(12);
+            active(c, 2);
             ctx.waitTicks(15);
             double zMid = onClient(ctx, mc -> mc.player.getZ());
             boolean held = onClient(ctx, mc -> ModUnderTest.staticCall(EXEC, "leapGateNode") == walk);
-            c.note(String.format(Locale.ROOT, "after 1/2: counter %d, gate still on the Walk %s, moved %.3f", counter(ctx), held, zMid - z0));
-            c.check(held && Math.abs(zMid - z0) < 1e-3, "the Walk went after one placement of two");
+            c.note(String.format(Locale.ROOT, "phase 1 done: phases %d, gate still on the Walk %s, moved %.3f", phases(ctx), held, zMid - z0));
+            c.check(held && Math.abs(zMid - z0) < 1e-3, "the Walk went after one phase of two");
+            active(c, 1);
+            ctx.waitTicks(12);
             c.server().command("tellraw @a \"2/2 Energy Crystals are now active!\"");
             int doneAt = -1;
             int releasedAt = -1;
             double zEnd = z0;
             for (int k = 0; k < 60; k++) {
                 ctx.waitTick();
-                Object[] r = onClient(ctx, mc -> new Object[]{((int[]) ModUnderTest.staticCall(MAXOR, "activeCounter"))[0],
+                Object[] r = onClient(ctx, mc -> new Object[]{((Number) ModUnderTest.staticCall(MAXOR, "phasesDone")).intValue(),
                         ModUnderTest.staticCall(EXEC, "leapGateNode") == null, mc.player.getZ()});
                 if ((Integer) r[0] >= 2 && doneAt < 0) {
                     doneAt = k;
@@ -81,9 +85,9 @@ final class Ap3Crystals1112Cases {
                 }
                 zEnd = (Double) r[2];
             }
-            c.note(String.format(Locale.ROOT, "2/2: counter reached 2 at tick %d, gate released at tick %d, walked %+.2f", doneAt, releasedAt, zEnd - z0));
-            c.check(doneAt >= 0, "the second placement never reached the counter");
-            c.check(releasedAt >= doneAt && releasedAt <= doneAt + 1, "the gate released at " + releasedAt + ", the counter hit 2 at " + doneAt);
+            c.note(String.format(Locale.ROOT, "phase 2: phases reached 2 at tick %d, gate released at tick %d, walked %+.2f", doneAt, releasedAt, zEnd - z0));
+            c.check(doneAt >= 0, "the second phase never counted");
+            c.check(releasedAt >= doneAt && releasedAt <= doneAt + 1, "the gate released at " + releasedAt + ", phases hit 2 at " + doneAt);
             c.check(zEnd - z0 > 2.0, String.format(Locale.ROOT, "the Walk did not go (%.2f)", zEnd - z0));
         } finally {
             onClient(ctx, mc -> {
@@ -100,10 +104,13 @@ final class Ap3Crystals1112Cases {
         double ax = LANE_X0 + 10.5;
         clear(ctx);
         try {
-            active(c, 1);
-            ctx.waitTicks(12);
-            active(c, 2);
-            c.check(counter(ctx) == 2, "the counter does not read 2 after both lines (" + counter(ctx) + ")");
+            for (int ph = 0; ph < 2; ph++) {
+                active(c, 1);
+                ctx.waitTicks(12);
+                active(c, 2);
+                ctx.waitTicks(12);
+            }
+            c.check(phases(ctx) == 2, "phases do not read 2 after both phases (" + phases(ctx) + ")");
             Object run = Ap3RuntimeTests.runNode(z);
             Object stop = node("STOP", ax, z, -90f, 0f, 3.0, 3.0);
             Object walk = node("WALK", ax, z, 0f, 0f, 3.0, 3.0);
@@ -114,8 +121,8 @@ final class Ap3Crystals1112Cases {
                 ctx.waitTick();
                 zEnd = onClient(ctx, mc -> mc.player.getZ());
             }
-            c.note(String.format(Locale.ROOT, "both placed already: walked %+.2f", zEnd - z));
-            c.check(zEnd - z > 2.0, "a crystals:2 Walk did not go with both crystals already placed");
+            c.note(String.format(Locale.ROOT, "both phases already done: walked %+.2f", zEnd - z));
+            c.check(zEnd - z > 2.0, "a crystals:2 Walk did not go with both phases already done");
         } finally {
             onClient(ctx, mc -> {
                 Ap3RuntimeTests.staticCallStop();
