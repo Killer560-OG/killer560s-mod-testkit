@@ -807,6 +807,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1104-ui-univfolders", UniversalFolders1104Cases::moved);
                     UiCase.run(ctx, "1108-ui-salvage-highlight", Salvage1108Cases::salvage);
                     UiCase.run(ctx, "1109-ui-ub-salvagebg", Salvage1108Cases::salvageBackgrounds);
+                    UiCase.run(ctx, "1113-ui-accadvisor", AccAdvisor1113Cases::advisor);
                     // ---- doc-small (807) ----
                     UiCase.run(ctx, "807-ui-doc-small-1014", DocSmall1014Cases::docSmall);
                     // ---- doc-small 1101 (1101-ds-*) ----

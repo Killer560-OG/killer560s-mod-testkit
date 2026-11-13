@@ -66,6 +66,7 @@ final class DefaultsOff1104Cases {
                     "witherKingStatueBox", "dimensionalSlashAlert"},
             {"dungeonqol.DungeonQolConfig", "itemQuality", "icedBoxes", "roomHud"},
             {"autoclosechest.AutoCloseChestConfig", "enabled"},
+            {"accadvisor.AccessoryAdvisorConfig", "enabled"},
     };
 
     /**
