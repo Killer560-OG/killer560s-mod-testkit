@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-12T19:13:12",
- "modSource": "lane-chatnow-1112-PRIORITY",
- "modGitSha": "cf44ef1d30bc79d6bc557aefb5ad97cefb1f22d7",
+ "generatedAt": "2026-11-12T20:09:00",
+ "modSource": "lane-leverbest-1112",
+ "modGitSha": "61eca6d60e7b384402e8664f7fd0c6cb33ac97db",
  "modSourceDirty": false,
  "count": 952,
  "byKind": {
