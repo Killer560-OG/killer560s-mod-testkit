@@ -145,6 +145,8 @@ public class CollectionTrackerSuite implements FabricClientGameTest {
 
     /** Only Recent (colrecent-1109): window 10 s; Wheat gains, Mithril gains 5 s later; at 11 s only Mithril is listed; Wheat returns on its next gain. */
     private static void recent(Session c) {
+        setUp(c); // picks Wheat and Mithril itself, so the case also runs alone
+
         Class<?>[] bool = {boolean.class};
         c.onClient(mc -> {
             Object cfg = ModUnderTest.config(CFG);

@@ -229,7 +229,8 @@
     },
     "source": {
       "file": "src/main/java/com/killer560/hub/dungeoninfo/DungeonInfoFeature.java",
-      "line": 61
+      "line": 61,
+      "anchor": "private static final Pattern TAB_SECRETS_COUNT_PATTERN"
     },
     "mustNotMatch": [
       "dungeoninfo.DungeonInfoFeature#TAB_SECRETS_COUNT_PATTERN"
