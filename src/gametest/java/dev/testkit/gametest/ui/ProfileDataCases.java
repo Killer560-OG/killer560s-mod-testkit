@@ -694,24 +694,23 @@ final class ProfileDataCases {
             c.check(Files.readString(ap3.resolve("tk-1112-old-a.json")).equals("OLD-A")
                     && Files.readString(ap3.resolve("tk-1112-old-b.json")).equals("OLD-B"),
                     "the merge did not bring both profiles' routes in");
-            c.check(Files.readString(ap3.resolve("tk-1112-new.json")).contains("NEW\"")
-                    && Files.readString(ap3.resolve("tk-1112-new - " + a + ".json")).equals("OLD-NEW"),
-                    "a same-name route with other bytes was not kept beside the live one");
-            c.check(!Files.exists(ap3.resolve("tk-1112-a - " + b + ".json")), "an identical route was copied twice");
-            Path arKept = ar.resolveSibling("killer560smod-autoroutes - " + a + ".json");
-            c.check(Files.readString(ar).equals(arNew) && Files.isRegularFile(arKept) && Files.readString(arKept).equals(arA),
-                    "Auto Routes: live " + Files.readString(ar) + ", A's copy kept " + Files.isRegularFile(arKept));
-            c.check(!Files.exists(ar.resolveSibling("killer560smod-autoroutes - " + b + ".json")),
-                    "B's identical Auto Routes was copied");
-            c.check(Files.exists(dirA.resolve("data/killer560smod-ap3/tk-1112-old-a.json"))
-                    && Files.exists(dirB.resolve("killer560smod-autoroutes.json")), "the merge deleted a profile's copy");
+            // A live file always wins and nothing is written beside it (killer560 11-13: only his own files there).
+            c.check(Files.readString(ap3.resolve("tk-1112-new.json")).contains("NEW\""),
+                    "the merge overwrote a live route with a profile's older copy");
+            c.check(Files.readString(ar).equals(arNew), "the merge overwrote live Auto Routes: " + Files.readString(ar));
+            try (Stream<Path> s = Stream.concat(Files.list(ap3), Files.list(ar.getParent()))) {
+                List<String> suffixed = s.map(p -> p.getFileName().toString()).filter(n -> n.contains(" - tk-1112")).toList();
+                c.check(suffixed.isEmpty(), "the merge wrote copies beside live files: " + suffixed);
+            }
+            c.check(Files.readString(dirA.resolve("data/killer560smod-ap3/tk-1112-new.json")).equals("OLD-NEW")
+                    && Files.exists(dirA.resolve("data/killer560smod-ap3/tk-1112-old-a.json"))
+                    && Files.exists(dirB.resolve("killer560smod-autoroutes.json")), "the merge deleted or changed a profile's copy");
             c.check(Files.exists(marker), "the merge left no marker");
             int again = c.onClient(mc -> (Integer) Mod.staticCall("profiles.SharedContent", "mergeOnce", profilesDir()));
             c.check(again == 0, "the merge ran a second time (" + again + ")");
-            // The kept copies are shared too: a save and an apply leave them alone.
             c.check(save(c, b).startsWith("true") && apply(c, b).startsWith("true"), "save/load B after the merge failed");
-            c.check(Files.isRegularFile(arKept) && !Files.exists(dirB.resolve(arKept.getFileName())),
-                    "the kept Auto Routes copy was reset or saved into a profile");
+            c.check(Files.isRegularFile(ap3.resolve("tk-1112-old-b.json")) && Files.readString(ar).equals(arNew),
+                    "a save/load after the merge reset the shared routes");
             c.check(Files.exists(dirB.resolve("data/killer560smod-ap3/tk-1112-old-b.json")),
                     "a save deleted the profile's old copy of shared routes");
         } finally {
