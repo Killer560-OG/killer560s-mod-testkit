@@ -193,7 +193,19 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             ModUnderTest.set(cfg, "setChatFeedback", true);
             installProbe();
         });
-        warmPlaces(ctx, s);
+        warmPlaces(ctx, s, new int[]{5, 5, 3}, 10);
+    }
+
+    /**
+     * GrimAC's RotationPlace buffer stays armed after a flag and drains 0.1 per clean place, so a case that flags on purpose
+     * (1027-ap3-lever-noturn-*, expected flags) left every later place of the session flagging pre-flying and dropped
+     * (1105-ap3-same-block-swap / -tp, 63-ap3-block-rep-*, on origin as well; trainfix-ap3preset-1113). Thirty plain places
+     * with the look long sent bring it back to zero.
+     */
+    static void drainPlaceBuffer(ClientGameTestContext ctx, Session s) {
+        int[] slots = new int[30];
+        java.util.Arrays.fill(slots, 5);
+        warmPlaces(ctx, s, slots, 3);
     }
 
     /**
@@ -206,14 +218,14 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
      * every place after it (ten cases, 2026-10-26/27). A place whose look went out ticks before it is clean however slow
      * the server is, and afterwards the cases measure AP3, not a cold server.
      */
-    private static void warmPlaces(ClientGameTestContext ctx, Session s) {
+    private static void warmPlaces(ClientGameTestContext ctx, Session s, int[] slots, int gap) {
         s.server().command(String.format(Locale.ROOT, "tp @p %.1f %d %.1f -90 40", LANE_X0 + 0.5, FLOOR + 1, 0.5));
         s.server().sync(20);
         ctx.waitTicks(10);
         int placed = 0;
-        for (int slot : new int[]{5, 5, 3}) {
+        for (int slot : slots) {
             ctx.getInput().pressKey(options -> options.keyHotbarSlots[slot]);
-            ctx.waitTicks(10);
+            ctx.waitTicks(gap);
             boolean sent = onClient(ctx, mc -> {
                 Vec3 eye = mc.player.getEyePosition();
                 float yr = mc.player.getYRot() * Mth.DEG_TO_RAD;
@@ -233,7 +245,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             if (sent) {
                 placed++;
             }
-            ctx.waitTicks(10);
+            ctx.waitTicks(gap);
         }
         ctx.getInput().pressKey(options -> options.keyHotbarSlots[0]);
         s.server().command(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:air", LANE_X0 + 1, FLOOR + 1, -1,
@@ -241,7 +253,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         s.server().command(String.format(Locale.ROOT, "tp @p %.1f %d %.1f -90 0", LANE_X0 + 0.5, FLOOR + 1, 0.5));
         s.server().sync(20);
         ctx.waitTicks(10);
-        System.out.println("[" + SESSION + "] warm-up: " + placed + " of 3 plain place(s) sent before the cases"
+        System.out.println("[" + SESSION + "] warm-up: " + placed + " of " + slots.length + " plain place(s) sent before the cases"
                 + " (the server log's [testkit-gap] lines time each)");
         if (placed == 0) {
             throw new AssertionError("warm-up placed nothing: the cases would meet a cold server");

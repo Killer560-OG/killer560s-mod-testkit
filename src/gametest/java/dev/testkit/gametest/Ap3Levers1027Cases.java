@@ -76,5 +76,6 @@ final class Ap3Levers1027Cases {
         c.note("look " + off + " degrees off the lever: " + r[1] + "; lever powered after the click: " + powered);
         c.server().command(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:air", lever.getX(), FLOOR + 1, zc,
                 post.getX(), FLOOR + 3, zc));
+        Ap3RuntimeTests.drainPlaceBuffer(ctx, c);
     }
 }
