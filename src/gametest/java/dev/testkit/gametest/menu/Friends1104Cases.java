@@ -37,6 +37,7 @@ final class Friends1104Cases {
         MenuSuite.test(s, "1104-menu-friends-pv", Friends1104Cases::pv);
         MenuSuite.test(s, "1110-menu-friends-party-top", Friends1104Cases::partyTop);
         MenuSuite.test(s, "1108-menu-friends-scan-rows", Friends1104Cases::scanRows);
+        MenuSuite.test(s, "1112-ui-fl-online-first", Friends1104Cases::onlineFirst);
     }
 
     /** name, area (null: no line), online hint. */
@@ -207,7 +208,7 @@ final class Friends1104Cases {
                 c.check(shownNames(c).equals(List.of("ScanAlpha")), "first row should show mid-scan, got " + shownNames(c));
                 feed(c, "ScanBeta is in SkyBlock - Hub");
                 c.ctx().waitTicks(3);
-                c.check(shownNames(c).equals(List.of("ScanAlpha", "ScanBeta")), "second row should show mid-scan, got " + shownNames(c));
+                c.check(shownNames(c).equals(List.of("ScanBeta", "ScanAlpha")), "second row (online first) should show mid-scan, got " + shownNames(c));
                 boolean walking = c.onClient(mc -> (Boolean) Mod.staticCall("social.FriendsListSync", "isSyncing"));
                 c.check(walking, "the scan must still be walking while the rows show (premise)");
                 c.note("rows during scan: " + shownNames(c));
@@ -215,6 +216,51 @@ final class Friends1104Cases {
                 c.ctx().runOnClient(mc -> Mod.staticCall("social.FriendsListSync", "endWalk"));
             }
         }
+    }
+
+    /** flsort-1112: during a sync, online friends sit first (then offline), each group by name, re-sorted as pages land. */
+    static void onlineFirst(Session c) throws Exception {
+        try (SocialCases.Env env = new SocialCases.Env(c)) {
+            c.ctx().runOnClient(mc -> {
+                Mod.call(Mod.cfg(CFG), "applyRealSync", new ArrayList<String>(), false);
+                Mod.setField("social.FriendsListSync", "walking", true);
+                Mod.setField("social.FriendsListSync", "awaitingSinceMs", System.currentTimeMillis());
+                Mod.setField("social.FriendsListScreen", "areaFilter", "All");
+            });
+            SocialCases.open(c, FL_SCREEN);
+            c.ctx().waitTicks(4);
+            try {
+                feed(c, "Friends (Page 1 of 3) >>");
+                feed(c, "AaOnline is in SkyBlock - Hub");
+                feed(c, "BbOffline is currently offline");
+                feed(c, "DdOffline is currently offline");
+                c.ctx().waitTicks(3);
+                c.check(shownNames(c).equals(List.of("AaOnline", "BbOffline", "DdOffline")), "page 1 order, got " + shownNames(c));
+                feed(c, "CcOnline is in Dungeons - Floor VII");
+                c.ctx().waitTicks(3);
+                List<String> got = shownNames(c);
+                c.check(got.equals(List.of("AaOnline", "CcOnline", "BbOffline", "DdOffline")), "online must come first mid-sync, got " + got);
+                List<String> drawn = c.onClient(mc -> SocialCases.texts(mc, SocialCases.current(c)).stream().map(SocialCases.Txt::s).toList());
+                int cc = indexContaining(drawn, "CcOnline"), bb = indexContaining(drawn, "BbOffline");
+                c.check(cc >= 0 && bb >= 0 && cc < bb, "CcOnline must be drawn above BbOffline, texts " + drawn);
+                feed(c, "EeOnline is in SkyBlock - Hub");
+                c.ctx().waitTicks(3);
+                got = shownNames(c);
+                c.check(got.equals(List.of("AaOnline", "CcOnline", "EeOnline", "BbOffline", "DdOffline")), "after another page, got " + got);
+                boolean walking = c.onClient(mc -> (Boolean) Mod.staticCall("social.FriendsListSync", "isSyncing"));
+                c.check(walking, "the scan must still be walking (premise)");
+                c.note("rows mid-sync: " + got);
+            } finally {
+                c.ctx().runOnClient(mc -> Mod.staticCall("social.FriendsListSync", "endWalk"));
+            }
+        }
+    }
+
+    private static int indexContaining(List<String> l, String part) {
+        for (int i = 0; i < l.size(); i++) {
+            if (l.get(i).contains(part)) return i;
+        }
+        return -1;
     }
 
     private static void feed(Session c, String line) {
