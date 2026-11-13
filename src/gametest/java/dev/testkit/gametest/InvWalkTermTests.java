@@ -365,7 +365,7 @@ public class InvWalkTermTests implements FabricClientGameTest {
             return out;
         });
         long since = hx.head();
-        SameTick same = st == null ? null : ctx.computeOnClient(mc -> SameTick.start(st, 2, pk -> pk instanceof ServerboundContainerClickPacket, 1, 2));
+        SameTick same = st == null ? null : ctx.computeOnClient(mc -> SameTick.start(st, 1, pk -> pk instanceof ServerboundContainerClickPacket, 1, 2));
         int air = 0;
         int clicks = 0;
         for (int t = 0; t < 8 * red.size() + 4; t++) {
