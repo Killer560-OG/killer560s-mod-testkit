@@ -11,8 +11,8 @@ import java.util.List;
  * termplus-1112 (mod branch termplus-1112): the Terminal Solver's all-slots-loaded gate, the 2.5 s stall net and the
  * Burst Size sweep up to 21.
  * <ul>
- *   <li>1112-term-parts: the server sends the window in two parts (the open carries half the slots, the rest arrives
- *       a second and a half later as slot packets): the solver clicks nothing until the last part is in, then finishes.</li>
+ *   <li>1112-term-parts: the server opens an empty window and describes it in two parts of slot packets, 1.5 s apart: the
+ *       solver clicks nothing until the last part is in, then finishes.</li>
  *   <li>1112-term-stall-plain / -burst: the pacing is wedged (nothing can click) and the server drops a reply; the stall net
  *       drops the pacing after 2.5 s and the terminal still finishes. -melody: Melody still finishes with the net on.</li>
  *   <li>1112-term-burst-size-&lt;N&gt;[-sametick]: Burst Size N on a Select board with 24 targets (his swap, use, swing and
@@ -78,9 +78,9 @@ final class TermPlus1112Cases {
             JsonObject solved = MenuKit.awaitEvent(c, "terminal.solved", 300);
             List<JsonObject> parts = c.events("terminal.part");
             List<JsonObject> clicks = c.events("terminal.click");
-            c.check(parts.size() == 1, "the second part was never sent (" + parts.size() + " part events)");
+            c.check(parts.size() == 2, "the board was not sent in two parts (" + parts.size() + " part events)");
             c.check(!clicks.isEmpty(), "no click acted");
-            long partTick = parts.get(0).get("tick").getAsLong();
+            long partTick = parts.get(parts.size() - 1).get("tick").getAsLong();
             long firstClick = clicks.stream().mapToLong(e -> e.get("tick").getAsLong()).min().orElse(-1);
             c.note("parts: last part at server tick " + partTick + ", first click at " + firstClick + ", " + clicks.size()
                     + " clicks, solved in " + (solved.get("solvedTick").getAsLong() - solved.get("openedTick").getAsLong()) + " ticks");

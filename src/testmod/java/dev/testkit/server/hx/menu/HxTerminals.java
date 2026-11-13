@@ -159,15 +159,15 @@ final class HxTerminals {
             this.melodyInterval = melodyInterval;
         }
 
-        /** termplus-1112 "parts": window slots the server has not sent yet, delivered one part per partGap server ticks after
-         *  the open (each part one ContainerSetSlot per slot, like Hypixel describing a board slot by slot). */
+        /** termplus-1112 "parts": the open carries an EMPTY window; slot i goes out with part i % parts, part p at 3 + partGap * p
+         *  server ticks after the open (one ContainerSetSlot per slot, like Hypixel describing a board slot by slot). */
         final List<Map<Integer, ItemStack>> heldParts = new ArrayList<>();
         int partGap = 30;
         int partsSent;
 
         @Override
         public void tick(MinecraftServer server, HxChestMenu menu, ServerPlayer player) {
-            if (partsSent < heldParts.size() && server.getTickCount() - openedTick >= (long) partGap * (partsSent + 1)) {
+            if (partsSent < heldParts.size() && server.getTickCount() - openedTick >= 3L + (long) partGap * partsSent) {
                 heldParts.get(partsSent++).forEach((slot, stack) -> menu.items().setItem(slot, stack));
                 menu.broadcastChanges();
                 JsonObject d = new JsonObject();
@@ -478,15 +478,13 @@ final class HxTerminals {
                 + (a.has("titleSuffix") ? a.get("titleSuffix").getAsString() : "");
         int parts = a.has("parts") ? a.get("parts").getAsInt() : 1;
         if (parts > 1) {
-            // Slot i of the window goes with part i % parts; every part but the first arrives later, so the open packet
-            // carries only the first.
             t.partGap = a.has("partGap") ? a.get("partGap").getAsInt() : 30;
-            for (int p = 1; p < parts; p++) {
+            for (int p = 0; p < parts; p++) {
                 t.heldParts.add(new LinkedHashMap<>());
             }
             for (int i = 0; i < t.rows * 9 && i < items.size(); i++) {
-                if (i % parts != 0 && items.get(i) != null && !items.get(i).isEmpty()) {
-                    t.heldParts.get(i % parts - 1).put(i, items.get(i));
+                if (items.get(i) != null && !items.get(i).isEmpty()) {
+                    t.heldParts.get(i % parts).put(i, items.get(i));
                     items.set(i, ItemStack.EMPTY);
                 }
             }
