@@ -248,7 +248,7 @@ final class LeapPartyChangeCases {
 
     // ---- 1102-menu-leaporder-ownpick ----------------------------------------------------------------------------------
 
-    /** A pick of MAGE on your own name while the tab list shows you as Archer. */
+    /** A pick of MAGE on your own name while the tab list shows you as Archer: the pick wins (killer560 11-13). */
     static void ownPick(Session c) throws Exception {
         LeapRunMemoryCases.Saved sv = LeapRunMemoryCases.setUp(c);
         try {
@@ -266,8 +266,8 @@ final class LeapPartyChangeCases {
             String pc = playing(c);
             boolean hasPick = c.onClient(mc -> (Boolean) Mod.staticCall(OVR, "has", self));
             c.check(hasPick, "setup: the pick on " + self + " is not there");
-            c.check(sc.equals("ARCHER"), "selfClass() is " + sc + " with a MAGE pick on you; the tab list says ARCHER");
-            c.check(pc.equals("ARCHER"), "playingClass() is " + pc + "; the tab list says ARCHER");
+            c.check(sc.equals("MAGE"), "selfClass() is " + sc + " with a MAGE pick on you (tab list ARCHER); the pick must win");
+            c.check(pc.equals("MAGE"), "playingClass() is " + pc + " with a MAGE pick on you (tab list ARCHER); the pick must win");
             c.note("own pick MAGE, tab Archer: selfClass " + sc + ", playing " + pc);
         } finally {
             c.onClient(mc -> Mod.staticCall(OVR, "clear", mc.player.getGameProfile().name()));
