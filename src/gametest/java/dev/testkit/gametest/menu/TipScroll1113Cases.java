@@ -134,7 +134,15 @@ final class TipScroll1113Cases {
     }
 
     private static void wheel(Session c, double dy) {
-        c.ctx().runOnClient(mc -> mc.mouseHandler.onScroll(mc.getWindow().handle(), 0, dy));
+        c.ctx().runOnClient(mc -> {
+            try { // private on 26.2, public on 26.3
+                var m = net.minecraft.client.MouseHandler.class.getDeclaredMethod("onScroll", long.class, double.class, double.class);
+                m.setAccessible(true);
+                m.invoke(mc.mouseHandler, mc.getWindow().handle(), 0.0, dy);
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError("onScroll: " + e);
+            }
+        });
         c.ctx().waitTicks(4);
     }
 
