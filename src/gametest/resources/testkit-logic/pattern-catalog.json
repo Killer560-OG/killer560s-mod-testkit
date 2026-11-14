@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-14T15:12:15",
- "modSource": "lane-profshare-1113b",
- "modGitSha": "92122d736e92db09acb2146a205191eeeca5acd6",
+ "generatedAt": "2026-11-14T16:36:24",
+ "modSource": "lane-invsortsacks-1113",
+ "modGitSha": "0825885dae3e18ff7aa484f511363f59c274c17a",
  "modSourceDirty": false,
- "count": 953,
+ "count": 957,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 825,
+  "field": 829,
   "local": 43
  },
  "unresolved": 160,
@@ -4262,6 +4262,54 @@
    "expr": "\"(?i)(large )?chest|barrel|ender chest.*|.*backpack.*\""
   },
   {
+   "id": "invsort.InvSortSacks#MOVED",
+   "cls": "invsort.InvSortSacks",
+   "field": "MOVED",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/invsort/InvSortSacks.java",
+   "line": 28,
+   "regex": "^Moved ([\\d,]+) .+ from your Sacks to your inventory\\.$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^Moved ([\\\\d,]+) .+ from your Sacks to your inventory\\\\.$\""
+  },
+  {
+   "id": "invsort.InvSortSacks#NONE",
+   "cls": "invsort.InvSortSacks",
+   "field": "NONE",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/invsort/InvSortSacks.java",
+   "line": 29,
+   "regex": "^You have no .+ in your Sacks!$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^You have no .+ in your Sacks!$\""
+  },
+  {
+   "id": "invsort.InvSortSacks#FULL",
+   "cls": "invsort.InvSortSacks",
+   "field": "FULL",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/invsort/InvSortSacks.java",
+   "line": 30,
+   "regex": "^Your inventory is full!$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^Your inventory is full!$\""
+  },
+  {
+   "id": "invsort.InvSortSacks#PLAIN_ID",
+   "cls": "invsort.InvSortSacks",
+   "field": "PLAIN_ID",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/invsort/InvSortSacks.java",
+   "line": 32,
+   "regex": "[A-Z0-9_]+",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"[A-Z0-9_]+\""
+  },
+  {
    "id": "invsort.InventoryLayoutStore#SAFE_NAME",
    "cls": "invsort.InventoryLayoutStore",
    "field": "SAFE_NAME",
@@ -4279,7 +4327,7 @@
    "field": "DUMP_PAGE",
    "index": null,
    "file": "src/main/java/com/killer560/hub/invsort/InventoryLayoutStore.java",
-   "line": 304,
+   "line": 310,
    "regex": "^(?:enderchest_[1-9]|backpack_(?:[1-9]|1[0-8]))$",
    "flags": null,
    "kind": "field",
