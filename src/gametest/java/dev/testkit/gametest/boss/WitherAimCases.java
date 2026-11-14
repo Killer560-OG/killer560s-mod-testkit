@@ -186,13 +186,28 @@ final class WitherAimCases {
             }
             // The server may still hold the last packets when the client stops (it lags under load): count only after
             // it has had up to 60 more ticks to catch up, so a short count is a real loss, not a counting window.
+            // An attack the anticheat cancels never reaches the server: count those by reason. Its only expected cancel
+            // is "teleport": every server teleport sent and not yet answered drops an attack the client sent before it
+            // arrived (a race no client can see coming, so a TP case may lose a few), never one the client sent after.
             int server = 0;
+            int tpCancels = 0;
+            int otherCancels = 0;
+            String cancelReasons = "";
             for (int w = 0; w <= 60; w++) {
                 server = 0;
+                tpCancels = 0;
+                otherCancels = 0;
+                cancelReasons = "";
                 for (JsonObject e : c.hx().events(since, "attack_entity")) {
                     if (e.get("entityId").getAsInt() == wither) server++;
                 }
-                if (server >= wireAttacks || w == 60) break;
+                for (JsonObject e : c.hx().events(since, "ac_attack_cancel")) {
+                    if (e.get("entityId").getAsInt() != wither) continue;
+                    String why = e.get("reason").getAsString();
+                    if (why.equals("teleport")) tpCancels++; else otherCancels++;
+                    cancelReasons += " " + why + "@" + e.get("tick").getAsInt();
+                }
+                if (server + tpCancels + otherCancels >= wireAttacks || w == 60) break;
                 c.ctx().waitTick();
             }
             float maxStep = 0f;
@@ -210,8 +225,9 @@ final class WitherAimCases {
                 return mc.level.getEntity(wither).getBoundingBox().clip(eye, end).isPresent();
             });
             c.note(String.format(Locale.ROOT, "%s %s: aim ticks %d, client attacks %d, wire attacks %d, server %d, rot packets %d,"
-                            + " first %s last %s, max yaw step %.2f, max |pitch| %.2f, last look strikes Goldor %s%s", mode, act,
-                    aimed, after[0] - before[0], wireAttacks, server, rots.size(),
+                            + " canceled before the server: teleport %d, other %d%s,"
+                    + " first %s last %s, max yaw step %.2f, max |pitch| %.2f, last look strikes Goldor %s%s", mode, act,
+                    aimed, after[0] - before[0], wireAttacks, server, rots.size(), tpCancels, otherCancels, cancelReasons,
                     rots.isEmpty() ? "-" : rots.get(0)[0] + "/" + rots.get(0)[1], last == null ? "-" : last[0] + "/" + last[1],
                     maxStep, maxPitch, strikes, st == null ? "" : "; " + st.report()));
             if (mode == Mode.BOSS_OFF) {
@@ -225,8 +241,10 @@ final class WitherAimCases {
             c.check(maxPitch <= 90f, "pitch left -90..90: " + maxPitch);
             // A wrapped yaw would jump by ~360 somewhere; the running yaw goes from 150 toward 0 (or 360) as one number.
             c.check(last == null || Math.abs(last[0] - 150f) < 180f, "the yaw was wrapped: last " + (last == null ? "-" : last[0]));
-            c.check(wireAttacks >= 8 && server >= wireAttacks - 1, "Auto Hit: " + wireAttacks + " attacks on the wire, server "
-                    + server + " (80 ticks at " + cps + " CPS)");
+            c.check(otherCancels == 0 && (act == SameTick.Act.TP || tpCancels == 0), "the anticheat canceled attacks:"
+                    + cancelReasons);
+            c.check(wireAttacks >= 8 && server + tpCancels == wireAttacks, "Auto Hit: " + wireAttacks + " attacks on the wire,"
+                    + " server " + server + ", canceled for a pending teleport " + tpCancels + " (80 ticks at " + cps + " CPS)");
             if (st != null) {
                 SameTick done = st;
                 st = null;

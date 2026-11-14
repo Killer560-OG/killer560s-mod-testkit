@@ -7,8 +7,6 @@
 		"AccessorPlayerInfoUpdatePacket",
 		"InvokerArmorStand",
 		"MixinCommands",
-		"MixinAttackProbe",
-		"MixinAttackProbeNetty",
 		"MixinServerGamePacketListener",
 		"MixinServerSignUpdate"
 	],
