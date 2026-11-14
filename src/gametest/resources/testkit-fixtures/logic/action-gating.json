@@ -371,7 +371,7 @@
     ],
     "mode": "matches",
     "verifiedBy": "regex",
-    "notes": "\"[NPC] \" + WEIRDO_NAMES[i] + \": \" + line (SimQuizPuzzle.java:451, names at :98, line from WeirdosSolverFeature.java:66). AutoDialogue then runs the line's click command. WeirdosSolverFeature reads it with matches() since f40ec89 (WeirdosSolverFeature.java:130)."
+    "notes": "\"[NPC] \" + WEIRDO_NAMES[i] + \": \" + line (SimQuizPuzzle.java:485, names at :98, line from WeirdosSolverFeature.java:66). AutoDialogue then runs the line's click command. WeirdosSolverFeature reads it with matches() since f40ec89 (WeirdosSolverFeature.java:130)."
   },
   {
     "id": "logic.simon-says-progress",
