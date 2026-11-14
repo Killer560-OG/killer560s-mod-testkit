@@ -103,6 +103,7 @@ public class SimBossTests implements FabricClientGameTest {
     private static final String RULES = "1103-boss-rules";
     private static final String CAPTURE = "1104-boss-capture";
     private static final String FRESH = "1108-boss-fresh";
+    private static final String HYPE = "1109-boss-hype";
     private static final String DRAGONS = "1105-boss-dragons";
     private static final String WD = "com.killer560.hub.witherdragons.";
     private static final String ONEHIT = "1105-boss-onehit";
@@ -135,7 +136,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossEe3Route1109.NAME, LIGHTS1109};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -170,6 +171,7 @@ public class SimBossTests implements FabricClientGameTest {
                     case RULES -> rules(ctx, f);
                     case CAPTURE -> capture(ctx, f);
                     case FRESH -> fresh(ctx, f);
+                    case HYPE -> hype(ctx, f);
                     case DRAGONS -> dragons(ctx, f);
                     case ONEHIT -> oneHit(ctx, f);
                     case NOSTRAY -> noStray(ctx, f);
@@ -178,6 +180,8 @@ public class SimBossTests implements FabricClientGameTest {
                     case CRYS_WALK -> crystalWalk(ctx, f);
                     case SimBossTpto1109.NAME -> SimBossTpto1109.run(ctx, f);
                     case NOWITHER -> SimBossNoWither1109.run(ctx, f);
+                    case SimBossNecron1111.PULL -> SimBossNecron1111.pull(ctx, f);
+                    case SimBossNecron1111.DRAGON_HP -> SimBossNecron1111.dragonHp(ctx, f);
                     case SimBossStartStay1112.NAME -> SimBossStartStay1112.run(ctx, f);
                     case BREAKER -> SimBossBreaker1108.run(ctx, f, false);
                     case BREAKER_CHARGE -> SimBossBreaker1108.run(ctx, f, true);
@@ -937,6 +941,52 @@ public class SimBossTests implements FabricClientGameTest {
      * bosssim1108 / coopnet-1110: every instance (and every co-op host) builds his capture, bundled in the jar; a capture
      * file left in the shared store or the config folder changes nothing.
      */
+    // ---------------------------------------------------------------------------------------- 1109-boss-hype
+
+    /** simhype-1109: in the boss fight the Hyperion does not teleport, but its blast still kills what is near him. */
+    private static void hype(ClientGameTestContext ctx, List<String> f) {
+        long mark = start(ctx, "P1", true);
+        if (!waitChat(ctx, mark, "[BOSS] Maxor: WELL! WELL! WELL! LOOK WHO'S HERE!", 40)) {
+            f.add("Maxor's first line never came");
+            return;
+        }
+        Vec3[] pos = new Vec3[2];
+        int[] zombie = new int[2];
+        serverRun(ctx, s -> {
+            var sp = s.getPlayerList().getPlayers().get(0);
+            sp.getInventory().setItem(0, (net.minecraft.world.item.ItemStack) ModUnderTest.staticCall(
+                    "com.killer560.hub.roomsim.SimItems", "build", new Class<?>[]{String.class}, new Object[]{"HYPERION"}));
+            pos[0] = sp.position();
+        });
+        ctx.runOnClient(mc -> {
+            mc.player.getInventory().setSelectedSlot(0);
+            mc.player.setXRot(0f);
+        });
+        command(ctx, String.format(Locale.ROOT, "summon minecraft:zombie %.2f %.2f %.2f {NoAI:1b}", pos[0].x + 2, pos[0].y, pos[0].z));
+        ctx.waitTicks(3);
+        serverRun(ctx, s -> {
+            var sp = s.getPlayerList().getPlayers().get(0);
+            zombie[0] = sp.level().getEntitiesOfClass(net.minecraft.world.entity.monster.zombie.Zombie.class,
+                    sp.getBoundingBox().inflate(4)).size();
+        });
+        expect(f, "a zombie stands beside him", zombie[0] >= 1, true);
+        ctx.runOnClient(mc -> mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND));
+        ctx.waitTicks(20);
+        boolean[] dead = new boolean[1];
+        serverRun(ctx, s -> {
+            var sp = s.getPlayerList().getPlayers().get(0);
+            pos[1] = sp.position();
+            dead[0] = sp.level().getEntitiesOfClass(net.minecraft.world.entity.monster.zombie.Zombie.class,
+                    sp.getBoundingBox().inflate(4), e -> e.isAlive()).isEmpty();
+        });
+        println(HYPE, String.format(Locale.US, "hype in the boss: %s -> %s, zombie dead %b", pos[0], pos[1], dead[0]));
+        if (pos[0].distanceTo(pos[1]) > 0.5) {
+            f.add("the Hyperion teleported him in the boss fight: moved " + pos[0].distanceTo(pos[1]));
+        }
+        expect(f, "the blast still killed the zombie 2 blocks away", dead[0], true);
+        cleanup(ctx);
+    }
+
     private static void fresh(ClientGameTestContext ctx, List<String> f) throws Exception {
         java.nio.file.Path shared = ((java.nio.file.Path) ModUnderTest.staticCall("com.killer560.hub.shared.SharedRecords", "root",
                 new Class<?>[0], new Object[0])).resolve("sim-boss").resolve("killer560smod-sim-bossarena.bin");
@@ -2074,17 +2124,17 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     /** A living ender dragon inside this WitherDragon's area on the client, or null. */
-    private static net.minecraft.world.entity.boss.enderdragon.EnderDragon dragonIn(Minecraft mc, Object spec) {
+    static net.minecraft.world.entity.boss.enderdragon.EnderDragon dragonIn(Minecraft mc, Object spec) {
         List<net.minecraft.world.entity.boss.enderdragon.EnderDragon> in = mc.level.getEntitiesOfClass(
                 net.minecraft.world.entity.boss.enderdragon.EnderDragon.class, (AABB) field(spec, "box"), d -> d.getHealth() > 0);
         return in.isEmpty() ? null : in.get(0);
     }
 
-    private static Object spec(Object dragon, String getter) {
+    static Object spec(Object dragon, String getter) {
         return ModUnderTest.call(dragon, getter, new Class<?>[]{}, new Object[]{});
     }
 
-    private static Object field(Object target, String name) {
+    static Object field(Object target, String name) {
         try {
             return target.getClass().getField(name).get(target);
         } catch (ReflectiveOperationException ex) {
