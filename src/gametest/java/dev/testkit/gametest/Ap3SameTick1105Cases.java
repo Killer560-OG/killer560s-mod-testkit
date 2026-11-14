@@ -116,7 +116,7 @@ final class Ap3SameTick1105Cases {
 
     private static void node1(Session c, String type, SameTick.Act act) {
         for (int attempt = 1; !node1Once(c, type, act, act != SameTick.Act.TP || attempt == TP_ATTEMPTS); attempt++) {
-            c.note("attempt " + attempt + ": the server dropped the node's use (a newer teleport was in flight), again");
+            c.note("attempt " + attempt + ": the server dropped the node's use or no tick shared his teleport accept, again");
         }
     }
 
@@ -178,7 +178,9 @@ final class Ap3SameTick1105Cases {
             };
             c.note("server saw the node act " + acted.size() + " time(s)");
             c.note("server events " + c.hx().events(since, "held", "use_block", "use_item").stream().map(e -> e.get("type") + ":" + (e.has("item") ? e.get("item") : e.has("slot") ? e.get("slot") : "") + "@" + e.get("tick")).toList());
-            if (acted.isEmpty() && !last) {
+            // A TP case also runs again when the node fired in a tick without his teleport accept: which tick it fires in is
+            // timing luck (the test's /tp lands every other tick), 1 of 3 runs on the origin jar and on chatnow alike.
+            if ((acted.isEmpty() || (act == SameTick.Act.TP && done.both() == 0)) && !last) {
                 return false;
             }
             // A USE node leaves him on its wand, so his own right clicks after it are wand uses too.

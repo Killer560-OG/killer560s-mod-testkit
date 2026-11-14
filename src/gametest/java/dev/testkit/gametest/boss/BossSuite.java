@@ -71,6 +71,7 @@ public class BossSuite implements FabricClientGameTest {
                     PosmsgLeapCases.register(s);
                     // Keep Rotation On Leap: a leap keeps his look, a setback and OFF do not (1104-leaprot-*, leaprot-1104).
                     LeapRotationCases.register(s);
+                    CrystalLeap1112Cases.register(s); // crystalleap-1112
                     // His own use / attack / hotbar swap in the same tick as each P3 aura's packet (1105-same-*, grimsame-1105).
                     SameTickCases.register(s);
                     SameTickGapCases.register(s); // grimgapB-1105
@@ -78,6 +79,7 @@ public class BossSuite implements FabricClientGameTest {
                     // M7 P5 with Hypixel's floorless P5 sidebar: dragons tracked, box, tracer, title, end splits (1108-boss-dragons-p5, dragons1108).
                     WitherDragonsP5Cases.register(s);
                     Ee3RouteGrimCases.register(s); // ee3route-1109
+                    TermCloseCases.register(s); // mod lines wait out a terminal opening (1111-termclose-*, termclose-1111)
                 });
     }
 }

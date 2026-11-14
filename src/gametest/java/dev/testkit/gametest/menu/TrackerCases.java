@@ -223,8 +223,13 @@ final class TrackerCases {
                 .get(10, java.util.concurrent.TimeUnit.SECONDS);
     }
 
+    /** The Croesus claim log's file: the shared record store since shared-stats-1101 (it has no PATH field). */
+    static Path croesusPath() {
+        return (Path) Mod.call(Mod.staticCall(CROESUS, "file"), "path");
+    }
+
     static void croesusScope(Session c) throws Exception {
-        Path path = c.onClient(mc -> (Path) Mod.field(CROESUS, "PATH"));
+        Path path = c.onClient(mc -> TrackerCases.croesusPath());
         drainCroesusWriter();
         byte[] before = Files.exists(path) ? Files.readAllBytes(path) : null;
         try {
@@ -536,8 +541,10 @@ final class TrackerCases {
     static void rngLate(Session c) throws Exception {
         MenuKit.reset(c);
         boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+        boolean rngWas = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg("rngmeter.RngMeterConfig"), "isEnabled"));
         String group = "Testkit Late RNG Meter";
         try {
+            c.ctx().runOnClient(mc -> Mod.set("rngmeter.RngMeterConfig", "setEnabled", true)); // off by default since defoff-1104
             c.ctx().runOnClient(mc -> Mod.staticCall("util.SkyblockGate", "setEnabled", false));
             JsonObject spec = MenuKit.obj("{\"title\":\"(1/2) " + group + "\",\"rows\":6,\"fill\":true,\"slots\":{}}");
             spec.getAsJsonObject("slots").addProperty("10", reward("Testkit Reward A", "Experimental XP: 1,200/150k"));
@@ -560,6 +567,7 @@ final class TrackerCases {
                     && ((Number) log.get("Testkit Reward B")).longValue() == 5_000_000L, "required scores wrong: " + log);
             c.check(shown >= 2, "the overlay shows " + shown + " rewards, want both");
         } finally {
+            c.ctx().runOnClient(mc -> Mod.set("rngmeter.RngMeterConfig", "setEnabled", rngWas));
             MenuKit.reset(c);
             c.ctx().runOnClient(mc -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas));
         }
