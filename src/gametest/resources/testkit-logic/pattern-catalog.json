@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-14T01:35:19",
- "modSource": "lane-necronpull-1111",
- "modGitSha": "00b27e9e5fc4e03fc863b5d94a051b2de0f71e0d",
+ "generatedAt": "2026-11-14T02:06:16",
+ "modSource": "lane-ap3holddig-1110",
+ "modGitSha": "5552cdb590ef99155c55ead49295074a882a6927",
  "modSourceDirty": false,
  "count": 953,
  "byKind": {
