@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-13T17:04:35",
- "modSource": "lane-zpbreaker-remove-1113",
- "modGitSha": "877e41ce27bfedf2137d8188d39d4d118cb920e0",
+ "generatedAt": "2026-11-13T18:35:28",
+ "modSource": "lane-pigeonchat-1113",
+ "modGitSha": "0499ecaeab67a6e008e1e8f4f83abcd7ec7d9a00",
  "modSourceDirty": false,
  "count": 952,
  "byKind": {
