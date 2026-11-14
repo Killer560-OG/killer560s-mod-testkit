@@ -218,14 +218,7 @@ final class WitherAimCases {
             c.check(maxPitch <= 90f, "pitch left -90..90: " + maxPitch);
             // A wrapped yaw would jump by ~360 somewhere; the running yaw goes from 150 toward 0 (or 360) as one number.
             c.check(last == null || Math.abs(last[0] - 150f) < 180f, "the yaw was wrapped: last " + (last == null ? "-" : last[0]));
-            // Over a server teleport a hit that shares its tick with the accept can be dropped by the server (the teleport is
-            // still pending there), so the allowed loss is the number of ticks the feature shared with a teleport accept.
-            int allowedLoss = 1;
-            if (st != null && act == SameTick.Act.TP) {
-                java.util.regex.Matcher m = java.util.regex.Pattern.compile("SHARED (\d+)").matcher(st.report());
-                allowedLoss = m.find() ? Math.max(1, Integer.parseInt(m.group(1))) : 1;
-            }
-            c.check(wireAttacks >= 8 && server >= wireAttacks - allowedLoss, "Auto Hit: " + wireAttacks + " attacks on the wire, server "
+            c.check(wireAttacks >= 8 && server >= wireAttacks - 1, "Auto Hit: " + wireAttacks + " attacks on the wire, server "
                     + server + " (80 ticks at " + cps + " CPS)");
             if (st != null) {
                 SameTick done = st;
