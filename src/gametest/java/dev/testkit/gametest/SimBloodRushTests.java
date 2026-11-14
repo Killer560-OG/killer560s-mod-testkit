@@ -774,13 +774,18 @@ public class SimBloodRushTests implements FabricClientGameTest {
 
     /** Every starred mob (not a Fel) the sim server has alive in {@code room}: {x, y, z}. */
     private static List<double[]> serverStarredIn(ClientGameTestContext ctx, String room) {
+        return serverStarredIn(ctx, room, false);
+    }
+
+    /** Fels (starred endermen) count for the helper's boxes too, so a kill test takes them with {@code withFels}. */
+    private static List<double[]> serverStarredIn(ClientGameTestContext ctx, String room, boolean withFels) {
         @SuppressWarnings("unchecked")
         List<UUID[]> pairs = ctx.computeOnClient(mc -> (List<UUID[]>) ModUnderTest.staticCall(SIM_MOBS, "starredPairs"));
         List<double[]> all = onServer(ctx, (level, sp) -> {
             List<double[]> out = new ArrayList<>();
             for (UUID[] p : pairs) {
                 Entity e = level.getEntity(p[0]);
-                if (e != null && e.isAlive() && !dev.testkit.compat.McEntities.endermanClass().isInstance(e)) {
+                if (e != null && e.isAlive() && (withFels || !dev.testkit.compat.McEntities.endermanClass().isInstance(e))) {
                     out.add(new double[]{e.getX(), e.getY(), e.getZ()});
                 }
             }
@@ -1044,7 +1049,11 @@ public class SimBloodRushTests implements FabricClientGameTest {
                 }
                 done++;
                 if (boxes.isEmpty()) {
-                    problems.add(room + " (rotation " + rot.get(room) + "): no box drawn; " + status(ctx));
+                    Object lay = ctx.computeOnClient(mc -> layoutNow());
+                    double[] mm = mobs.get(0);
+                    int cur = (Integer) ctx.computeOnClient(mc -> ModUnderTest.call(lay, "currentRoom", new Class<?>[0], new Object[0]));
+                    problems.add(room + " (rotation " + rot.get(room) + "): no box drawn (he stands in " + roomName(lay, cur)
+                            + ", mob at " + java.util.Arrays.toString(mobs.get(0)) + ", client entities near the mob " + ctx.computeOnClient(mc -> { java.util.List<String> l = new java.util.ArrayList<>(); for (net.minecraft.world.entity.Entity en : mc.level.entitiesForRendering()) { if (Math.abs(en.getX() - mm[0]) < 3 && Math.abs(en.getZ() - mm[2]) < 3 && Math.abs(en.getY() - mm[1]) < 4) { l.add(en.getId() + ":" + en.getType().toShortString() + ":" + en.isAlive()); } } return l.toString(); }) + ", tracked " + ctx.computeOnClient(mc -> ModUnderTest.staticCall(BR, "mobsForTest", new Class<?>[]{int.class}, new Object[]{cur})) + "); " + status(ctx));
                     continue;
                 }
                 mobs = serverStarredIn(ctx, room);
@@ -1064,7 +1073,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
                 facts.add(String.format(Locale.ROOT, "%s%s rot %d: %d table spot(s), %d box(es) (widest %.1f), %d/%d starred mobs inside",
                         room, isNew ? " (new)" : "", rot.get(room), shipped.get(room), boxes.size(), widest, inside, mobs.size()));
                 if (inside != mobs.size()) {
-                    problems.add(room + ": " + (mobs.size() - inside) + " of " + mobs.size() + " starred mobs in no box");
+                    problems.add(room + " rot " + rot.get(room) + ": " + (mobs.size() - inside) + " of " + mobs.size() + " starred mobs in no box; mobs " + mobs.stream().map(java.util.Arrays::toString).toList() + " boxes " + boxes.stream().map(sp -> sp.box().toString()).toList());
                 }
                 if (boxes.size() > shipped.get(room)) {
                     problems.add(room + ": " + boxes.size() + " boxes for " + shipped.get(room) + " spots - not grouped");
@@ -1099,9 +1108,13 @@ public class SimBloodRushTests implements FabricClientGameTest {
      *  goes, every other box stays. */
     private static boolean killNear(ClientGameTestContext ctx, String room, List<Spot> before, List<String> problems,
                                     List<String> facts) {
+        // The helper's starred-mob scan runs every 20 ticks: a mob that came into view after its box showed and dies before the
+        // next scan is never counted dead (a client-side race, not a box bug), so let it see every mob first.
+        ctx.waitTicks(25);
+        before = parsed(ctx).stream().filter(sp -> sp.room().equals(room)).toList();
         @SuppressWarnings("unchecked")
-        List<UUID[]> pairs = ctx.computeOnClient(mc -> (List<UUID[]>) ModUnderTest.staticCall(SIM_MOBS, "starredPairs"));
-        List<double[]> inRoom = serverStarredIn(ctx, room);
+        List<UUID[]> pairs =ctx.computeOnClient(mc -> (List<UUID[]>) ModUnderTest.staticCall(SIM_MOBS, "starredPairs"));
+        List<double[]> inRoom = serverStarredIn(ctx, room, true);
         List<double[]> gone = onServer(ctx, (level, sp) -> {
             List<double[]> out = new ArrayList<>();
             for (UUID[] p : pairs) {
@@ -1125,7 +1138,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
             return out;
         });
         ctx.waitTicks(20);
-        List<double[]> left = serverStarredIn(ctx, room);
+        List<double[]> left = serverStarredIn(ctx, room, true);
         List<Spot> after = parsed(ctx).stream().filter(sp -> sp.room().equals(room)).toList();
         int shouldGo = 0;
         int wentRight = 0;
@@ -1140,7 +1153,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
                 if (!still) {
                     wentRight++;
                 } else {
-                    problems.add(room + ": box at " + b.box() + " still shown after its mobs died");
+                    problems.add(room + ": box at " + b.box() + " still shown after its mobs died (mobs " + b.mobs() + ", alive " + b.alive() + " before; after " + after.stream().filter(x -> x.box().equals(b.box())).map(x -> x.mobs() + "/" + x.alive()).toList() + "; killed " + gone.size() + ")");
                 }
             } else if (hasLiving) {
                 stayed += still ? 1 : 0;
