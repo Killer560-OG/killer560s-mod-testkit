@@ -72,6 +72,34 @@ public class SimPartyChatTests implements FabricClientGameTest {
             else if (party != 1) fail = "party line count " + party + " (wanted 1)";
             else if (unknown != 0) fail = "unknown-command line shown " + unknown + "x";
             else if (gc != 0) fail = "gc line was not silent";
+            if (fail == null) {
+                // typed commands: the client dispatcher must parse each sim root cleanly (no red, no error line) and the
+                // typed party chat must still be answered by the sim
+                long typedMark = LogTap.mark();
+                String bad = ctx.computeOnClient(mc -> {
+                    @SuppressWarnings({"rawtypes", "unchecked"})
+                    com.mojang.brigadier.CommandDispatcher<Object> d = (com.mojang.brigadier.CommandDispatcher)
+                            net.fabricmc.fabric.impl.command.client.ClientCommandInternals.getActiveDispatcher();
+                    StringBuilder sb = new StringBuilder();
+                    for (String c : new String[]{"pc hi", "pc", "pchat hi there", "p chat hi", "party chat hi", "ac hi", "gc hi",
+                            "oc hi", "cc hi", "msg Bob hi there", "w Bob hi", "r hi", "tell Bob hi", "whisper Bob hi", "shout hi"}) {
+                        var r = d.parse(c, null);
+                        if (r.getReader().canRead() || !r.getExceptions().isEmpty()) sb.append(c).append("; ");
+                    }
+                    try {
+                        d.execute("pc typed line", null);
+                    } catch (Exception e) {
+                        sb.append("execute: ").append(e.getMessage());
+                    }
+                    return sb.toString();
+                });
+                ctx.waitTicks(10);
+                List<String> typed = LogTap.since(typedMark);
+                long typedParty = typed.stream().filter(l -> l.contains("[CHAT]") && l.contains("Party > ") && l.contains(": typed line")).count();
+                System.out.println("[" + NAME + "] typed: unparsed='" + bad + "' typedPartyLines=" + typedParty);
+                if (!bad.isEmpty()) fail = "client dispatcher does not parse: " + bad;
+                else if (typedParty != 1) fail = "typed /pc party line count " + typedParty + " (wanted 1)";
+            }
         } catch (Throwable t) {
             fail = "threw: " + t;
         } finally {
@@ -95,7 +123,7 @@ public class SimPartyChatTests implements FabricClientGameTest {
             ctx.waitFor(mc -> McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.TitleScreen, 400);
         }
         if (fail == null) {
-            System.out.println("[" + NAME + "] PASS - /pc at ss in the sim shows the Party > line and no unknown-command error");
+            System.out.println("[" + NAME + "] PASS - /pc at ss in the sim shows the Party > line, and every sim chat command parses on the client dispatcher");
         } else {
             System.out.println("[" + NAME + "] FAIL: " + fail);
             SuiteVerdict.failCase(NAME, new AssertionError(fail));

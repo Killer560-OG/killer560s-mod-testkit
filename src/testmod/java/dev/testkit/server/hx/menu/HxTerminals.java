@@ -146,6 +146,10 @@ final class HxTerminals {
         /** {@code keepTarget}: the target column stays the same for every row (no re-roll after a correct click), so a
          *  lookahead burst - which gambles on exactly that - lands correct (testkit 275-277). */
         boolean melodyKeepTarget;
+        /** Per band row (index row - 1), the target a row gets when it starts ("targets", melody-1111); null = random. */
+        int[] melodyTargets;
+        /** Steps where the pane left the current row's target with no correct click: a pass the player missed. */
+        int melodyMissedPasses;
         final Map<Integer, Integer> melodyDoneCol = new LinkedHashMap<>();
 
         Terminal(Type type, long seed, String title, int rows, int[] grid, boolean closeOnSolve, int melodyInterval) {
@@ -169,6 +173,9 @@ final class HxTerminals {
                 return;
             }
             melodyLastMove = now;
+            if (melodyLime == melodyTarget) {
+                melodyMissedPasses++;
+            }
             long wall = System.nanoTime();
             melodyPrevStepGapMs = melodyLastMoveNanos == 0 ? -1 : (wall - melodyLastMoveNanos) / 1_000_000L;
             melodyLastMoveNanos = wall;
@@ -287,6 +294,7 @@ final class HxTerminals {
             o.addProperty("rows", rows);
             if (type == Type.MELODY) {
                 o.addProperty("bandRows", melodyBandRows);
+                o.addProperty("missedPasses", melodyMissedPasses);
             }
             o.addProperty("solved", solved);
             o.addProperty("clicks", clicks);
@@ -445,6 +453,14 @@ final class HxTerminals {
                 t.melodyKeepDone = a.has("keepDone") && a.get("keepDone").getAsBoolean();
                 t.melodyFrozen = a.has("freeze") && a.get("freeze").getAsBoolean();
                 t.melodyKeepTarget = a.has("keepTarget") && a.get("keepTarget").getAsBoolean();
+                if (a.has("targets")) {
+                    JsonArray ts = a.getAsJsonArray("targets");
+                    t.melodyTargets = new int[ts.size()];
+                    for (int i = 0; i < ts.size(); i++) {
+                        t.melodyTargets[i] = ts.get(i).getAsInt();
+                    }
+                    t.melodyTarget = t.melodyTargets[0];
+                }
                 t.melodyLastMove = server.getTickCount();
                 items = new ArrayList<>();
                 for (int i = 0; i < t.rows * 9; i++) {
@@ -681,7 +697,9 @@ final class HxTerminals {
                     int row = slot / 9;
                     if (col == 7 && row == t.melodyRow && t.melodyLime == t.melodyTarget) {
                         t.melodyDoneCol.put(t.melodyRow, t.melodyLime);
-                        if (!t.melodyKeepTarget) {
+                        if (t.melodyTargets != null && t.melodyRow < t.melodyTargets.length) {
+                            t.melodyTarget = t.melodyTargets[t.melodyRow];
+                        } else if (!t.melodyKeepTarget) {
                             t.melodyTarget = 1 + t.rng.nextInt(5);
                         }
                         t.melodyRow++;
