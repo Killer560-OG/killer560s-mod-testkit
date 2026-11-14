@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-13T21:18:07",
- "modSource": "lane-ownpick-1113",
- "modGitSha": "468b7a3d22be1da0794cdd3eeebcd100e6b6b64d",
+ "generatedAt": "2026-11-13T22:52:40",
+ "modSource": "lane-crystalleap-1113",
+ "modGitSha": "68bf75cf2874e6cc4c9f31aeb04478d60e130b7d",
  "modSourceDirty": false,
- "count": 952,
+ "count": 953,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 824,
+  "field": 825,
   "local": 43
  },
  "unresolved": 160,
@@ -3890,12 +3890,24 @@
    "expr": "\"^(?:\\\\((\\\\d+)/(\\\\d+)\\\\)\\\\s*)?Pets$\""
   },
   {
+   "id": "fastleap.FastLeapFeature#CRYSTAL_PICKUP_REGEX",
+   "cls": "fastleap.FastLeapFeature",
+   "field": "CRYSTAL_PICKUP_REGEX",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/fastleap/FastLeapFeature.java",
+   "line": 59,
+   "regex": "^(?:\\[[^]]{1,32}] )?([A-Za-z0-9_]{1,16}) picked up an Energy Crystal!$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(?:\\\\[[^]]{1,32}] )?([A-Za-z0-9_]{1,16}) picked up an Energy Crystal!$\""
+  },
+  {
    "id": "fastleap.FastLeapFeature#DOOR_OPEN_REGEX",
    "cls": "fastleap.FastLeapFeature",
    "field": "DOOR_OPEN_REGEX",
    "index": null,
    "file": "src/main/java/com/killer560/hub/fastleap/FastLeapFeature.java",
-   "line": 59,
+   "line": 60,
    "regex": "^(?:\\[[^]]{1,32}] )?([A-Za-z0-9_]{1,16}) opened a (?:WITHER|Blood) door!",
    "flags": null,
    "kind": "field",
