@@ -208,7 +208,7 @@ public class UiSuite implements FabricClientGameTest {
     /** Profiles carry everything, across jars (mod profiles-all, {@link ProfileDataCases}). Own block for merges. */
     static final String[] PROFILE_DATA_CASES = {"980-ui-profile-data-switch", "981-ui-profile-data-export",
             "982-ui-profile-import-robust", "983-ui-profile-old-format", "984-ui-profile-xfer-export",
-            "985-ui-profile-xfer-import"};
+            "985-ui-profile-xfer-import", "1112-ui-profile-shared-routes"};
     /** Screen sweep B: standalone screens in the menu theme + Screen Theme (mod sweep-b, {@link ScreenSweepBCases}).
      *  Own block for merges. */
     static final String[] SWEEP_B_CASES = {"1020-ui-sweepb-profit", "1021-ui-sweepb-storage-search",
@@ -896,6 +896,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "983-ui-profile-old-format", ProfileDataCases::oldFormat);
                     UiCase.run(ctx, "984-ui-profile-xfer-export", ProfileDataCases::xferExport);
                     UiCase.run(ctx, "985-ui-profile-xfer-import", ProfileDataCases::xferImport);
+                    UiCase.run(ctx, "1112-ui-profile-shared-routes", ProfileDataCases::sharedRoutes);
                     // ---- screen sweep B (1020-1025) ----
                     UiCase.run(ctx, "1020-ui-sweepb-profit", ScreenSweepBCases::profit);
                     UiCase.run(ctx, "1021-ui-sweepb-storage-search", ScreenSweepBCases::storageSearch);

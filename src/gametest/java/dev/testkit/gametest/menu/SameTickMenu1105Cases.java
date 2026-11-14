@@ -56,7 +56,7 @@ final class SameTickMenu1105Cases {
 
     // ---- Auto Sell ------------------------------------------------------------------------------------------------
 
-    private static void autoSell(Session c) throws Exception {
+    static void autoSell(Session c) throws Exception {
         MenuKit.reset(c);
         InventoryCases.clearInv(c);
         if (!MenuKit.cheat()) {
@@ -91,7 +91,7 @@ final class SameTickMenu1105Cases {
 
     // ---- Auto Terminals ---------------------------------------------------------------------------------------------
 
-    private static void autoTerm(Session c, boolean block) throws Exception {
+    static void autoTerm(Session c, boolean block) throws Exception {
         MenuKit.reset(c);
         if (!MenuKit.cheat()) {
             c.note("legit jar: Auto Terminals does not exist");
@@ -135,7 +135,7 @@ final class SameTickMenu1105Cases {
 
     // ---- Inventory Sorter -------------------------------------------------------------------------------------------
 
-    private static void invSort(Session c) throws Exception {
+    static void invSort(Session c) throws Exception {
         MenuKit.reset(c);
         InventoryCases.clearInv(c);
         if (!MenuKit.cheat()) {

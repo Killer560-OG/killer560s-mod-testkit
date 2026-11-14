@@ -119,6 +119,48 @@ final class DungeonMenuCases {
         }
     }
 
+    /** flaghunt-1110 (1110-c-autoclosechest-moving-*): a secret chest opens while he runs; Auto Close Chest answers with its close, which
+     *  GrimAC MultiActionsD flags (default config too) while the server's last input still moves, sprints or sneaks. The close
+     *  must wait for him to stand still: none at the server while the keys are down, then exactly one, and GrimAC clean. */
+    static void autoCloseChestMoving(Session c, String mode) throws Exception {
+        MenuKit.reset(c);
+        if (!Mod.isCheat()) {
+            c.note("legit jar: Auto Close Chest is cheat-only");
+            return;
+        }
+        var in = c.ctx().getInput();
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set("autoclosechest.AutoCloseChestConfig", "Enabled", true);
+            cfg.set("autoclosechest.AutoCloseChestConfig", "Auto", true);
+            inDungeon(c);
+            if (mode.equals("sneak")) {
+                in.holdKey(o -> o.keyShift);
+            } else {
+                in.holdKey(o -> o.keyUp);
+                if (mode.equals("sprint")) {
+                    in.holdKey(o -> o.keySprint);
+                }
+            }
+            c.ctx().waitTicks(10);
+            int id = MenuKit.show(c, MenuKit.menu("menus.dungeon-secret-chest"));
+            c.ctx().waitTicks(15);
+            c.check(c.events("container.close").stream().noneMatch(e -> e.get("containerId").getAsInt() == id),
+                    "the close reached the server while he was still " + mode + "ing");
+            in.releaseKey(o -> o.keyUp);
+            in.releaseKey(o -> o.keySprint);
+            in.releaseKey(o -> o.keyShift);
+            c.waitUntil("the held close for container " + id + " once he stood still", mc -> c.events("container.close").stream()
+                    .anyMatch(e -> e.get("containerId").getAsInt() == id), 100);
+            c.note("Auto Close Chest (" + mode + "): close held while moving, sent once he stood still");
+        } finally {
+            in.releaseKey(o -> o.keyUp);
+            in.releaseKey(o -> o.keySprint);
+            in.releaseKey(o -> o.keyShift);
+            leaveDungeon(c);
+            MenuKit.reset(c);
+        }
+    }
+
     static void spiritLeap(Session c) throws Exception {
         MenuKit.reset(c);
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
