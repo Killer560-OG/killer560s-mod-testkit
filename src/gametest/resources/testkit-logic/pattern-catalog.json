@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-14T11:31:44",
- "modSource": "carnfix-1114",
- "modGitSha": "8c3aec9a17aa9b071e02e475d5d17edf31a75296",
+ "generatedAt": "2026-11-14T13:53:23",
+ "modSource": "carnrebase-1114",
+ "modGitSha": "c77ea568c413a74e814a52d22ac4d063dc0c41fc",
  "modSourceDirty": false,
  "count": 955,
  "byKind": {
