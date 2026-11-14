@@ -1056,12 +1056,12 @@ final class GrimTickCases {
 
     // ---- 1113-witherpick ----------------------------------------------------------------------------------------------
 
-    private static final String BOSS = Mod.ROOT + GT_CFG + "$Boss";
 
     /** Exactly these bosses on (client thread). */
     private static void bosses(String... on) {
-        for (String n : new String[]{"MAXOR", "STORM", "GOLDOR", "NECRON"}) {
-            Mod.call(Mod.cfg(GT_CFG), "setBossEnabled", Mod.enumValue(BOSS, n), java.util.Arrays.asList(on).contains(n));
+        String[] all = {"MAXOR", "STORM", "GOLDOR", "NECRON"};
+        for (int i = 0; i < all.length; i++) {
+            Mod.call(Mod.cfg(GT_CFG), "setHitAt", i, java.util.Arrays.asList(on).contains(all[i]));
         }
     }
 
