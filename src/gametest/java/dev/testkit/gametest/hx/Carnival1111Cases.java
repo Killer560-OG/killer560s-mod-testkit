@@ -311,7 +311,7 @@ final class Carnival1111Cases {
             c.server().command(CarnivalSuite.zombie(bx, Y + 1, z, "golden_helmet", "zb"));
             c.hx().stand(ax, Y + 3.4, z, "§a4.2s", "marker", true, "invisible", true, "nameVisible", true);
             c.waitUntil("two zombies are targets", mc -> (Integer) Mod.staticCall("carnival.ZombieShootout", "targetCount") == 2, 100);
-            c.ctx().waitTicks(5);
+            c.waitUntil("Hypixel's timer tag reaches the client", mc -> ((int[]) Mod.staticCall("carnival.ZombieShootout", "timerSources"))[0] == 1, 100);
             int[] t = c.onClient(mc -> (int[]) Mod.staticCall("carnival.ZombieShootout", "timerSources"));
             c.note("timers: Hypixel's tag " + t[0] + ", ours " + t[1]);
             c.check(t[0] == 1 && t[1] == 1, "two zombies, one with Hypixel's own timer: want theirs 1 + ours 1 (one timer each), got "
