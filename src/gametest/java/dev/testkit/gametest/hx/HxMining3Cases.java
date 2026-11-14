@@ -233,8 +233,8 @@ final class HxMining3Cases {
             mark = LogTap.mark();
             c.hx().chat("§e[NPC] Fetchur§f: its yellow and see through");
             long m2 = mark;
-            c.waitUntil("Fetchur's answer in chat", mc -> !chatSince(m2, "Fetchur wants: Yellow Stained Glass").isEmpty(), 40);
-            c.check("Yellow Stained Glass".equals(c.onClient(mc -> Mod.staticCall(k, "lastAnswer"))),
+            c.waitUntil("Fetchur's answer in chat", mc -> !chatSince(m2, "Fetchur wants: 20x Yellow Stained Glass").isEmpty(), 40);
+            c.check("20x Yellow Stained Glass".equals(c.onClient(mc -> Mod.staticCall(k, "lastAnswer"))),
                     "lastAnswer is " + c.onClient(mc -> Mod.staticCall(k, "lastAnswer")));
             c.note("answered: " + chatSince(m2, "Fetchur wants:"));
             assertConnected(c, "the Fetchur lines");
@@ -264,6 +264,14 @@ final class HxMining3Cases {
             c.check(t.getX() == 183 && t.getY() == 195 && t.getZ() == 137, "the arrows lead to " + t + ", want 183, 195, 137");
             c.waitUntil("the coordinates in chat", mc -> !chatSince(mark, "Mine the block at 183, 195, 137").isEmpty(), 40);
             c.note("boxed " + t);
+
+            // The reward line ends the puzzle: the box goes at once (a player's copy of it moves nothing).
+            String solved = "Puzzler gave you 5,375 Mithril Powder for solving the puzzle!";
+            c.hx().chat("§7[VIP] HxEvil§f: " + solved);
+            c.ctx().waitTicks(10);
+            c.check(c.onClient(mc -> Mod.staticCall(k, "target")) != null, "a player's copy of the reward line cleared the box");
+            c.hx().chat("§a" + solved);
+            c.waitUntil("PuzzlerSolver.target cleared by the reward line", mc -> Mod.staticCall(k, "target") == null, 40);
         }
     }
 

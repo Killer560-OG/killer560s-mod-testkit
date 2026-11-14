@@ -261,6 +261,10 @@ public final class Session {
         proveDetector = false;
     }
 
+    /** KM_HX_LAG_MS / -Dtestkit.hxLagMs (flaghunt-1110): every case of the session runs with this much latency both ways. */
+    public static final int LAG_MS = Integer.getInteger("testkit.hxLagMs",
+            System.getenv("KM_HX_LAG_MS") == null ? 0 : Integer.parseInt(System.getenv("KM_HX_LAG_MS").trim()));
+
     private void runCase(String caseName, Case body, boolean expectFlags) {
         if (gated) {
             if (caseSelected(caseName)) {
@@ -274,6 +278,9 @@ public final class Session {
             return;
         }
         if (!caseSelected(caseName)) {
+            return;
+        }
+        if (Scenario.legitSkip(caseName)) {
             return;
         }
         currentCase = caseName;
@@ -290,6 +297,10 @@ public final class Session {
             Mod.Mark health = modLoaded ? Mod.mark() : null;
             server.mark();
             caseEventHead = hx.head();
+            if (LAG_MS > 0) {
+                ctx.runOnClient(mc -> dev.testkit.harness.Latency.install(LAG_MS));
+                ctx.waitTicks(20);
+            }
             body.run(this);
             ctx.waitTicks(10);
             String verdict;
@@ -328,6 +339,9 @@ public final class Session {
             Report.caseFinished(caseName, "FAIL", "", t.getClass().getSimpleName() + ": " + t.getMessage(),
                     server.since(), LogTap.since(logMark));
         } finally {
+            if (LAG_MS > 0) {
+                ctx.runOnClient(mc -> dev.testkit.harness.Latency.remove());
+            }
             currentCase = null;
             Coverage.currentCase(name);
         }

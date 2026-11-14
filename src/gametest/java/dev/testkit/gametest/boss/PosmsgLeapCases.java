@@ -20,23 +20,17 @@ import java.util.Map;
  * doing that too fast!"; the Cringe line 10 ticks later went through.
  * <ul>
  *   <li>1102-posmsg-leap-tp-first: a Spirit Leap menu, then the teleport into the ring, THEN "You have teleported to
- *       HxMateA!" a few ticks later. The server must get "Leaping to", the Cringe line and the Posmsg line in that
- *       order, each at least {@link #MIN_GAP_TICKS} server ticks after the one before. On main's jar the Posmsg line
- *       goes the tick he lands, first.</li>
- *   <li>1102-posmsg-leap-line-first: the leap line, then the teleport. Same order and gaps. On main's jar the Posmsg
- *       line goes one to three ticks after "Leaping to", before Cringe.</li>
+ *       HxMateA!" a few ticks later. The server gets "Leaping to", the Cringe line and the Posmsg line, once each, with
+ *       no queue gap (chatnow-1112): the Posmsg line goes the tick the leap line shows.</li>
+ *   <li>1102-posmsg-leap-line-first: the leap line, then the teleport. Same three lines, once each.</li>
  *   <li>1102-posmsg-alone: a teleport into the ring with no leap menu and nothing else waiting: the Posmsg line must
  *       reach the server within {@link #ALONE_MAX_TICKS} ticks (never held).</li>
  * </ul>
- * The Hx server does not model Hypixel's chat limiter; the gap assertion stands in for "no rate-limit line": 500 ms
- * (the mod's OutgoingChat.MIN_GAP_MS) is the gap his own log shows Hypixel accepting.
  */
 final class PosmsgLeapCases {
 
     static final String FEATURE = "posmsg.PosmsgFeature";
     static final String CONFIG = "posmsg.PosmsgConfig";
-    /** 500 ms is 10 ticks; one tick of slack for where in the server tick each packet lands. */
-    static final int MIN_GAP_TICKS = 9;
     static final int ALONE_MAX_TICKS = 6;
     static final String POS_LINE = "Hx at ee2";
     static final String LEAP_LINE = "Hx leaping to HxMateA";
@@ -97,7 +91,6 @@ final class PosmsgLeapCases {
             Mod.setField(FEATURE, "lastSendMs", 0L);
             return null;
         });
-        // Let any earlier case's line clear the queue's gap.
         c.ctx().waitTicks(20);
         return undo;
     }
@@ -152,15 +145,10 @@ final class PosmsgLeapCases {
             c.note((tpFirst ? "teleport, then leap line" : "leap line, then teleport") + ": " + lines + " at server ticks "
                     + ticks);
             c.check(pcs.size() == 3, "want exactly 3 party lines, got " + lines);
-            c.check(lines.get(0).equals("pc " + LEAP_LINE), "first line is not the leap announce: " + lines);
-            c.check(!lines.get(1).contains(LEAP_LINE) && !lines.get(1).contains(POS_LINE),
-                    "second line is not the Cringe line: " + lines);
-            c.check(lines.get(2).equals("pc " + POS_LINE), "the Posmsg line is not last: " + lines);
-            for (int i = 1; i < ticks.size(); i++) {
-                long gap = ticks.get(i) - ticks.get(i - 1);
-                c.check(gap >= MIN_GAP_TICKS, "lines " + (i - 1) + " and " + i + " only " + gap + " ticks apart: " + lines
-                        + " " + ticks);
-            }
+            c.check(lines.contains("pc " + LEAP_LINE), "no leap announce: " + lines);
+            c.check(lines.contains("pc " + POS_LINE), "no Posmsg line: " + lines);
+            c.check(lines.stream().anyMatch(l -> !l.contains(LEAP_LINE) && !l.contains(POS_LINE)), "no Cringe line: " + lines);
+            c.check(ticks.get(ticks.size() - 1) - ticks.get(0) <= 16, "the lines spread over " + ticks + " (no gap is added)");
         } finally {
             tearDown(c, undo);
         }

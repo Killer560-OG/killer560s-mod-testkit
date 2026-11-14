@@ -127,26 +127,20 @@ final class DomainCases {
         c.eq("parseRoman rejects D/M", 0, Mod.staticCall("blessings.Blessing", "parseRoman", "MD"));
         c.eq("toRoman 1994", "MCMXCIV", Mod.staticCall("blessings.Blessing", "toRoman", 1994));
         c.eq("toRoman 0 falls back", "0", Mod.staticCall("blessings.Blessing", "toRoman", 0));
-        // BlessingsFeature (Blessing.POWER pattern) vs P5State.POWER (dragon priority) on the same footer.
+        // Blessing.POWER's pattern reads every level (P5State no longer parses blessings: spawn-order priority).
         java.util.regex.Pattern blessingPower =
                 (java.util.regex.Pattern) Mod.call(Mod.enumValue("blessings.Blessing", "POWER"), "pattern");
-        java.util.regex.Pattern p5Power = Mod.pattern("witherdragons.P5State", "POWER");
         List<Integer> divergent = new ArrayList<>();
         for (int n = 1; n <= 60; n++) {
-            String footer = "Blessing of Power " + Mod.staticCall("blessings.Blessing", "toRoman", n);
-            java.util.regex.Matcher a = blessingPower.matcher(footer);
-            java.util.regex.Matcher p = p5Power.matcher(footer);
+            java.util.regex.Matcher a = blessingPower.matcher("Blessing of Power "
+                    + Mod.staticCall("blessings.Blessing", "toRoman", n));
             int va = a.find() ? (Integer) Mod.staticCall("blessings.Blessing", "parseRoman", a.group(1)) : -1;
-            int vp = p.find() ? (Integer) Mod.staticCall("witherdragons.P5State", "romanToInt", p.group(1)) : -1;
-            if (va != n || vp != n) {
+            if (va != n) {
                 divergent.add(n);
             }
         }
-        c.check("Power blessing I..XXXIX read the same by BlessingsFeature and P5State",
+        c.check("Power blessing I..XXXIX read back by Blessing's own pattern",
                 divergent.stream().noneMatch(n -> n < 40), "divergent at " + divergent);
-        c.note("Power blessing levels where BlessingsFeature and P5State (dragon priority) read different values: "
-                + divergent + " (P5State's regex, copied from Odin, stops at XXXIX; whether Hypixel goes past 39 is "
-                + "not established here)");
     }
 
     private static Object inputs(String floor, double pct, int found, int crypts, int rooms, int cleared, int deaths,
