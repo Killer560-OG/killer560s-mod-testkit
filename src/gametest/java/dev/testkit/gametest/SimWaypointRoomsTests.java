@@ -58,7 +58,7 @@ public class SimWaypointRoomsTests implements FabricClientGameTest {
     private static final String NAME = "1101-wp";
     private static final String[] CASES = {"1101-wp-pressure-levers", "1101-wp-mines-levers", "1101-wp-waterboard",
             "1101-wp-prison-crypt", "1101-wp-teleport-nocrypt", "1101-wp-item-walkaway", "1101-wp-flags",
-            "1102-diag-wp-roomchange", "1102-diag-wp-gold"};
+            "1102-diag-wp-roomchange", "1102-diag-wp-gold", "1113-wp-community", "1113-wp-community-fetch"};
 
     private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
@@ -121,6 +121,8 @@ public class SimWaypointRoomsTests implements FabricClientGameTest {
                         case "1101-wp-flags" -> flags(ctx, cfg);
                         case "1102-diag-wp-roomchange" -> roomChange(ctx);
                         case "1102-diag-wp-gold" -> goldPrince(ctx);
+                        case "1113-wp-community" -> communityRoute(ctx);
+                        case "1113-wp-community-fetch" -> communityFetch();
                         default -> throw new AssertionError("no such case " + c);
                     }
                     RESULTS.add(c + " PASS");
@@ -250,6 +252,96 @@ public class SimWaypointRoomsTests implements FabricClientGameTest {
                 "the box is not the slabs and the blocks right under them: " + fmt(box));
         check(box[0] == want[0] && box[3] == want[3] && box[2] == want[2] && box[5] == want[5],
                 "the box reaches to the side: " + fmt(box) + " vs the row " + fmt(want));
+    }
+
+    /** A small fixture route (no download) for Andesite, in two room rotations, drawn from the room's own frame. */
+    private static final String COMMUNITY = "com.killer560.hub.secretwaypoints.CommunityRoutes";
+    private static final String COMMUNITY_FIXTURE = "{\"Version\":\"x\",\"Andesite-2\":[{\"locations\":[[1,70,28],[5,70,24]],"
+            + "\"etherwarps\":[[2,69,28]],\"mines\":[],\"interacts\":[[6,69,22]],\"tnts\":[],\"enderpearls\":[],"
+            + "\"secret\":{\"type\":\"interact\",\"location\":[6,69,22]}}]}";
+
+    /** The download path end to end against a fake local server: parsed, cached on disk, and offline reads the cache. */
+    private void communityFetch() {
+        com.sun.net.httpserver.HttpServer server = null;
+        String prop = "killer560.net.community-routes";
+        String old = System.getProperty(prop);
+        try {
+            server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+            final int[] hits = {0};
+            server.createContext("/", ex -> {
+                hits[0]++;
+                byte[] body = COMMUNITY_FIXTURE.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                ex.sendResponseHeaders(200, body.length);
+                try (java.io.OutputStream o = ex.getResponseBody()) { o.write(body); }
+            });
+            server.start();
+            System.setProperty(prop, "http://127.0.0.1:" + server.getAddress().getPort());
+            int rooms = (Integer) ModUnderTest.staticCall(COMMUNITY, "reloadForTest");
+            check(hits[0] == 1, "the fake server was asked " + hits[0] + " times, want 1");
+            check(rooms == 1, "download loaded " + rooms + " rooms, want 1");
+            System.setProperty("killer560.net.offline", "true");
+            int again = (Integer) ModUnderTest.staticCall(COMMUNITY, "roomCountForTest");
+            check(again == 1, "rooms gone after the download: " + again);
+            say("fetch: " + hits[0] + " request, " + rooms + " room, kept " + again);
+        } catch (java.io.IOException e) {
+            throw new AssertionError("fake server: " + e);
+        } finally {
+            System.clearProperty("killer560.net.offline");
+            if (old == null) System.clearProperty(prop); else System.setProperty(prop, old);
+            if (server != null) server.stop(0);
+        }
+    }
+
+    private void communityRoute(ClientGameTestContext ctx) {
+        Object cfg = ModUnderTest.config(CFG);
+        check(ctx.computeOnClient(mc -> ModUnderTest.getBoolean(cfg, "isCommunityRoutes")), "Community Routes is not ON by default");
+        double[] endToStart = new double[2];
+        double[] endToEther = new double[2];
+        try {
+            for (int i = 0; i < 2; i++) {
+                int rot = i * 90;
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(BUILDER, "setSingleRoomRotationForTest",
+                        new Class<?>[]{int.class}, new Object[]{rot}));
+                build(ctx, "Andesite");
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(COMMUNITY, "loadForTest",
+                        new Class<?>[]{String.class}, new Object[]{COMMUNITY_FIXTURE}));
+                List<BlockPos> wither = waitFor(ctx, "WITHER", l -> !l.isEmpty(), 600);
+                check(wither.size() == 1, "Andesite has no wither waypoint at rotation " + rot);
+                standNear(ctx, wither.get(0));
+                for (int t = 0; t < 200 && (Integer) ctx.computeOnClient(mc -> ModUnderTest.staticCall(FEATURE,
+                        "routePointsForTest")) == 0; t++) {
+                    ctx.runOnClient(mc -> ModUnderTest.staticCall(FEATURE, "invalidateCache"));
+                    ctx.waitTicks(2);
+                }
+                int pts = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(FEATURE, "routePointsForTest"));
+                check(pts == 3, "rotation " + rot + ": route line has " + pts + " points, want 3");
+                net.minecraft.world.phys.Vec3 end = ctx.computeOnClient(mc -> (net.minecraft.world.phys.Vec3)
+                        ModUnderTest.staticCall(FEATURE, "routePointForTest", new Class<?>[]{boolean.class}, new Object[]{true}));
+                net.minecraft.world.phys.Vec3 start = ctx.computeOnClient(mc -> (net.minecraft.world.phys.Vec3)
+                        ModUnderTest.staticCall(FEATURE, "routePointForTest", new Class<?>[]{boolean.class}, new Object[]{false}));
+                BlockPos w = wither.get(0);
+                check(Math.abs(end.x - (w.getX() + 0.5)) < 1e-6 && end.y == w.getY() + 0.5 && Math.abs(end.z - (w.getZ() + 0.5)) < 1e-6,
+                        "rotation " + rot + ": the route ends at " + end + " but the room's own secret is at " + w.toShortString());
+                List<double[]> ether = boxes(ctx, "ROUTE");
+                check(ether.size() == 2, "rotation " + rot + ": want an etherwarp and a click box, have " + fmtAll(ether));
+                endToStart[i] = end.distanceTo(start);
+                double[] b = ether.get(0);
+                endToEther[i] = Math.hypot(b[0] + 0.5 - end.x, b[2] + 0.5 - end.z);
+                say("rotation " + rot + ": line " + start + " -> " + end + ", boxes " + fmtAll(ether));
+            }
+            check(Math.abs(endToStart[0] - endToStart[1]) < 1e-6 && Math.abs(endToEther[0] - endToEther[1]) < 1e-6,
+                    "the route changed shape between rotations: " + endToStart[0] + "/" + endToStart[1] + " " + endToEther[0] + "/" + endToEther[1]);
+            ctx.runOnClient(mc -> ModUnderTest.set(cfg, "setCommunityRoutes", false));
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(FEATURE, "invalidateCache"));
+            ctx.waitTicks(30);
+            check((Integer) ctx.computeOnClient(mc -> ModUnderTest.staticCall(FEATURE, "routePointsForTest")) == 0
+                    && boxes(ctx, "ROUTE").isEmpty(), "the route still draws with Community Routes OFF");
+        } finally {
+            ctx.runOnClient(mc -> {
+                ModUnderTest.set(cfg, "setCommunityRoutes", true);
+                ModUnderTest.staticCall(BUILDER, "setSingleRoomRotationForTest", new Class<?>[]{int.class}, new Object[]{0});
+            });
+        }
     }
 
     private void teleportMaze(ClientGameTestContext ctx, long mark) {
