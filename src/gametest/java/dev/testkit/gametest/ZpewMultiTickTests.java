@@ -77,9 +77,273 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
         } catch (AssertionError e) {
             first = first == null ? e : first;
         }
+        for (dev.testkit.gametest.SameTick.Act act : List.of(dev.testkit.gametest.SameTick.Act.SWAP)) {
+            try {
+                wpt20Same(ctx, act);
+            } catch (AssertionError e) {
+                first = first == null ? e : first;
+            }
+        }
+        for (String v : List.of("plain", "swap", "tp", "double", "bank")) {
+            try {
+                mwtick(ctx, v);
+            } catch (AssertionError e) {
+                first = first == null ? e : first;
+            }
+        }
         if (first != null) {
             throw first;
         }
+    }
+
+    /**
+     * 1111-mwtick-wpt-* (mod mwtick-1111; killer560 2026-11-11): Multi Warp Mode
+     * Tick Split, which must never flag (killer560 2026-11-11: "why would you push it if it flags?"). Warps Per Tick at
+     * its top, 20, 20 server warps landing 8 apart, and GrimAC silent on every check. With no Blink bank Tick Split has no
+     * tick to spend, so each burst falls back to Burst (the mod counts it, splitShort). Variants (the SAME-TICK rule): {@code
+     * swap} (his scroll every tick), {@code tp} (the server teleports him just before each burst, so his accept rides with
+     * it), {@code double} (two clicks of his in one tick, Warps Per Tick 10: 20 uses). A container click cannot share a tick
+     * with a manual warp (the use key does nothing under a screen); the map chain's same-click case covers it. {@code bank}:
+     * Blink Charge on and full (20, covered) before each burst: every warp sits in a banked GrimAC tick of its own on the
+     * WIRE (a {@code client_tick_end} between each two uses), all 20 inside ONE real client tick, and nothing falls back.
+     */
+    static void mwtick(ClientGameTestContext ctx, String variant) {
+        String name = "1111-mwtick-wpt-" + variant;
+        boolean dbl = variant.equals("double");
+        boolean bank = variant.equals("bank");
+        int n = dbl ? 10 : 20;
+        dev.testkit.gametest.SameTick.Act act = variant.equals("swap") ? dev.testkit.gametest.SameTick.Act.SWAP
+                : variant.equals("tp") ? dev.testkit.gametest.SameTick.Act.TP : null;
+        Scenario.runExpectingFlags(ctx, name, (server, scenario) -> build(server), (server, scenario) -> {
+            Hx hx = null;
+            dev.testkit.gametest.SameTick[] st = {null};
+            List<String> problems = new ArrayList<>();
+            try {
+                hx = ZpewCampaignTests.setUp(ctx, 4);
+                hx.give(1, ZpewCampaignTests.aotv(4));
+                hookTicks(ctx);
+                String who = ZpewCampaignTests.name(ctx);
+                ctx.getInput().holdKey(o -> o.keyShift);
+                setWpt(ctx, n);
+                ctx.runOnClient(mc -> Mod.set(ZP_CFG, "setTickSplit", true));
+                if (bank) {
+                    ctx.runOnClient(mc -> {
+                        Mod.set("blink.BlinkConfig", "setChargeMode", Mod.enumValue("blink.BlinkConfig$Mode", "TOGGLE"));
+                        Mod.set("blink.BlinkConfig", "setChargeTicks", 20);
+                        Mod.set("blink.BlinkConfig", "setChatMessages", false);
+                        Mod.set("blink.BlinkConfig", "setEnabled", true);
+                        Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.TRUE);
+                    });
+                    ctx.waitTicks(1);
+                    ctx.runOnClient(mc -> Mod.setField("blink.BlinkCharge", "keyHeldForTest", Boolean.FALSE));
+                }
+                if (act != null) {
+                    st[0] = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
+                            p -> p instanceof ServerboundUseItemPacket, 0, 1));
+                }
+                for (int rep = 0; rep < 3; rep++) {
+                    long banked0 = bank ? fillBank(ctx) : 0;
+                    long short0 = splitShort(ctx);
+                    Runnable press = dbl ? clicks(2) : () -> ctx.getInput().pressKey(o -> o.keyUse);
+                    Runnable fire = () -> {
+                        // shot()'s own teleport back to the lane leaves the bank uncovered until it is answered, and an
+                        // uncovered bank goes as Burst by design: fire once it is covered again (max 2 s).
+                        for (int i = 0; bank && i < 40 && !Boolean.TRUE.equals(ctx.computeOnClient(mc ->
+                                Mod.staticCall("blink.BlinkCharge", "shotCovered"))); i++) {
+                            ctx.waitTicks(1);
+                        }
+                        ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+                        if (act == dev.testkit.gametest.SameTick.Act.TP) {
+                            server.command("execute as " + who + " at @s run tp @s ~ ~ ~");
+                            ctx.waitTicks(1);
+                        }
+                        press.run();
+                    };
+                    String label = name + " rep " + rep;
+                    ownTpOk = act == dev.testkit.gametest.SameTick.Act.TP;
+                    try {
+                        problems.addAll(shot(ctx, server, hx, scenario, who, 0, label, 1, 4, fire, 20, 20, 20 - (dbl ? 2 : 1),
+                                dbl ? 2 : 1)); // his 2nd click waits a tick (PacketOrderN)
+                    } finally {
+                        ownTpOk = false;
+                    }
+                    ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
+                    long fellBack = splitShort(ctx) - short0;
+                    // bank: every use in a banked tick of its own; else Burst (only the burst's last use is closed alone).
+                    List<String> wp = new ArrayList<>();
+                    String wire = splitWire(dev.testkit.harness.WireCapture.snapshot(), 20, bank ? 20 : -1, wp, label);
+                    problems.addAll(wp);
+                    scenario.log(label + ": " + fellBack + " burst(s) fell back to Burst" + (bank ? " (bank " + banked0
+                            + " before)" : "") + "; " + countLooks(dev.testkit.harness.WireCapture.snapshot())
+                            + " look move(s); wire " + wire);
+                    if (bank ? banked0 >= 19 && fellBack != 0 : fellBack < 1) {
+                        problems.add(label + ": " + fellBack + " burst(s) fell back to Burst (bank " + banked0 + ")");
+                    }
+                }
+                if (st[0] != null) {
+                    dev.testkit.gametest.SameTick done = st[0];
+                    ctx.runOnClient(mc -> done.close());
+                    st[0] = null;
+                    scenario.log(name + ": " + done.report());
+                    if (done.done() == 0 && act != dev.testkit.gametest.SameTick.Act.TP || done.playerWindows() == 0
+                            || done.featureWindows() == 0) {
+                        problems.add(name + ": his action or the warps never reached the wire (" + done.report() + ")");
+                    }
+                }
+            } finally {
+                if (st[0] != null) {
+                    dev.testkit.gametest.SameTick open = st[0];
+                    ctx.runOnClient(mc -> open.close());
+                }
+                ctx.runOnClient(mc -> {
+                    dev.testkit.harness.WireCapture.stop();
+                    Mod.set(ZP_CFG, "setTickSplit", false);
+                    if (bank) {
+                        Mod.setField("blink.BlinkCharge", "keyHeldForTest", null);
+                        Mod.staticCall("blink.BlinkCharge", "reset", "test teardown");
+                        Mod.set("blink.BlinkConfig", "setEnabled", false);
+                    }
+                });
+                setWpt(ctx, 1);
+                ZpewCampaignTests.tearDown(ctx, hx);
+            }
+            ctx.waitTicks(30); // a late GrimAC line lands before the flags are read
+            problems.addAll(noFlags(scenario, name));
+            if (!problems.isEmpty()) {
+                throw new AssertionError(name + ": " + problems);
+            }
+        });
+    }
+
+    /** Waits (max 6 s) for Blink Charge's bank to refill to 20 and be covered; returns the bank. */
+    static long fillBank(ClientGameTestContext ctx) {
+        for (int i = 0; i < 240; i++) {
+            boolean ok = ctx.computeOnClient(mc -> ((Number) Mod.staticCall("blink.BlinkCharge", "banked")).longValue() >= 20
+                    && Boolean.TRUE.equals(Mod.staticCall("blink.BlinkCharge", "shotCovered")));
+            if (ok) {
+                break;
+            }
+            ctx.waitTicks(1);
+        }
+        // A bank GrimAC has not covered yet is not spent (BlinkCharge.splitTick): count it as none.
+        return ctx.computeOnClient(mc -> Boolean.TRUE.equals(Mod.staticCall("blink.BlinkCharge", "shotCovered"))
+                ? ((Number) Mod.staticCall("blink.BlinkCharge", "banked")).longValue() : 0L);
+    }
+
+    /** Moves on the wire that carry a look (rot / pos_rot). */
+    static int countLooks(List<dev.testkit.harness.WireCapture.Sent> wire) {
+        int n = 0;
+        for (dev.testkit.harness.WireCapture.Sent x : wire) {
+            n += x.type().startsWith("minecraft:move_player") && x.type().contains("rot") ? 1 : 0;
+        }
+        return n;
+    }
+
+    static long splitShort(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.Ap3RuntimeTests.staticField(
+                "com.killer560.hub.zpew.ZeroPingEtherwarp", "splitShort")).longValue());
+    }
+
+    /**
+     * Tick Split on the wire: each use must be closed by a {@code client_tick_end} before the next use (its own GrimAC
+     * tick). Adds a problem when {@code want} uses were not each in a tick of their own.
+     * @return a short form, "U r T | U r T | ..." (U use, r move with a look, p move without, T tick end, A accept)
+     */
+    static String splitWire(List<dev.testkit.harness.WireCapture.Sent> wire, int want, int wantAlone, List<String> problems,
+                            String label) {
+        StringBuilder b = new StringBuilder();
+        int uses = 0;
+        int alone = 0;
+        boolean open = false;
+        for (dev.testkit.harness.WireCapture.Sent x : wire) {
+            String t = x.type();
+            if (t.equals("minecraft:use_item")) {
+                uses++;
+                open = true;
+                b.append(uses == 1 ? "U" : " | U");
+            } else if (t.equals("minecraft:client_tick_end")) {
+                if (open) {
+                    alone++;
+                }
+                open = false;
+                b.append(" T");
+            } else if (t.startsWith("minecraft:move_player")) {
+                b.append(t.contains("rot") ? " r" : " p");
+            } else if (t.equals("minecraft:accept_teleportation")) {
+                b.append(" A");
+            } else if (t.equals("minecraft:set_carried_item")) {
+                b.append(" S");
+            }
+        }
+        if (uses != want || wantAlone >= 0 && alone != wantAlone) {
+            problems.add(label + ": " + uses + " use(s) on the wire, " + alone + " closed by a tick end before the next use, "
+                    + "expected " + want + " and " + wantAlone + " | " + b);
+        }
+        String s = b.toString();
+        return s.length() > 400 ? s.substring(0, 400) + " ..." : s;
+    }
+
+    /** Tick Split must never flag: logs GrimAC's lines by check and returns a problem per line. */
+    static List<String> noFlags(Scenario scenario, String name) {
+        List<String> other = new ArrayList<>();
+        java.util.Map<String, Integer> byCheck = new java.util.TreeMap<>();
+        for (String f : scenario.flags()) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("failed ([A-Za-z]+)").matcher(f);
+            String check = m.find() ? m.group(1) : "?";
+            byCheck.merge(check, 1, Integer::sum);
+            other.add(name + ": GrimAC " + f);
+        }
+        System.out.println("[mwtick] " + name + ": GrimAC lines by check " + byCheck);
+        scenario.log(name + ": GrimAC lines by check " + byCheck + " (Tick Split may not flag)");
+        return other;
+    }
+
+    /**
+     * 1111-zpew-wpt20-same-swap (zpewunify-1111; the SAME-TICK GRIM CASES rule): Warps Per Tick at its top,
+     * 20, three times, while HIS action goes into every client tick ({@link dev.testkit.gametest.SameTick}): a scroll between
+     * two AOTVs (slots 0 and 1); a dig cannot share a tick with a use (vanilla's startUseItem returns while destroying, so
+     * DIG sent 0 uses), and his own use is 1105-zpew-aimed-same-use. Every burst must send all 20 uses and land 20 warps, a
+     * GrimAC tick must carry the burst with his packet, and GrimAC says nothing (Scenario.run). Cheat jar only.
+     */
+    static void wpt20Same(ClientGameTestContext ctx, dev.testkit.gametest.SameTick.Act act) {
+        String name = "1111-zpew-wpt20-same-" + act.name().toLowerCase(Locale.ROOT);
+        Scenario.run(ctx, name, (server, scenario) -> build(server), (server, scenario) -> {
+            Hx hx = null;
+            dev.testkit.gametest.SameTick[] st = {null};
+            List<String> problems = new ArrayList<>();
+            try {
+                hx = ZpewCampaignTests.setUp(ctx, 4);
+                hx.give(1, ZpewCampaignTests.aotv(4));
+                hookTicks(ctx);
+                String who = ZpewCampaignTests.name(ctx);
+                ctx.getInput().holdKey(o -> o.keyShift);
+                setWpt(ctx, 20);
+                st[0] = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
+                        p -> p instanceof ServerboundUseItemPacket, 0, 1));
+                for (int rep = 0; rep < 3; rep++) {
+                    problems.addAll(shot(ctx, server, hx, scenario, who, 0, "wpt-20 same-" + act + " rep " + rep, 1, 4,
+                            () -> ctx.getInput().pressKey(o -> o.keyUse), 20, 20, 19));
+                }
+                dev.testkit.gametest.SameTick done = st[0];
+                ctx.runOnClient(mc -> done.close());
+                st[0] = null;
+                scenario.log(name + ": " + done.report());
+                String why = done.verdict("warps per tick");
+                if (why != null) {
+                    problems.add(why);
+                }
+            } finally {
+                if (st[0] != null) {
+                    dev.testkit.gametest.SameTick open = st[0];
+                    ctx.runOnClient(mc -> open.close());
+                }
+                setWpt(ctx, 1);
+                ZpewCampaignTests.tearDown(ctx, hx);
+            }
+            if (!problems.isEmpty()) {
+                throw new AssertionError(name + ": " + problems);
+            }
+        });
     }
 
     static void build(TestServer server) {
@@ -111,7 +375,8 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> {
             if (!tickHooked) {
                 tickHooked = true;
-                ClientTickEvents.START_CLIENT_TICK.register(client -> TICK.incrementAndGet());
+                // counted at the tick END: the mod replays a held-back click at the next tick START, ahead of a START hook
+                ClientTickEvents.END_CLIENT_TICK.register(client -> TICK.incrementAndGet());
             }
             PacketTrace.tap = p -> {
                 if (p instanceof ServerboundUseItemPacket u) {
@@ -180,6 +445,9 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 expectUses > 1 ? 1 : expectUses);
     }
 
+    /** Set by 1111-mwtick-wpt-tp: the server's own teleport before each burst is not a warp. */
+    static boolean ownTpOk;
+
     static List<String> shot(ClientGameTestContext ctx, TestServer server, Hx hx, Scenario scenario, String who, int lat,
                              String label, int lane, int step, Runnable fire, int expectUses, int expectWarps,
                              int expectExtra, int expectTicks) {
@@ -214,6 +482,18 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
         List<Vec3> tps;
         synchronized (ZpewCampaignTests.TELEPORTS) {
             tps = new ArrayList<>(ZpewCampaignTests.TELEPORTS);
+        }
+        // The tp variant's own teleport (in place, or off the lane) is not a warp: drop it and allow a ZPEW miss for it.
+        int setbacks = 0;
+        if (ownTpOk) {
+            for (int k = tps.size() - 1; k >= 0; k--) {
+                double prevX = k == 0 ? X0 + 0.5 : tps.get(k - 1).x;
+                double dx = tps.get(k).x - X0;
+                if (Math.abs(tps.get(k).x - prevX) < 0.01 || dx < 0 || dx > step * expectWarps + 0.51) {
+                    tps.remove(k);
+                    setbacks++;
+                }
+            }
         }
         TreeSet<Long> ticks = new TreeSet<>();
         boolean sameLook = true;
@@ -263,7 +543,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
         if (extra != expectExtra) {
             problems.add(label + ": expected " + expectExtra + " extra warp(s), the mod sent " + extra + " | " + line);
         }
-        if (warps != expectWarps || c1.hits() - c0.hits() != expectWarps || c1.misses() != c0.misses()
+        if (warps != expectWarps || (setbacks == 0 && c1.hits() - c0.hits() != expectWarps) || c1.misses() - c0.misses() > setbacks
                 || c1.timeouts() != c0.timeouts()) {
             problems.add(label + ": expected " + expectWarps + " server warp(s) all predicted | " + line);
         }
@@ -299,7 +579,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 // Control: Warps Per Tick 1, two vanilla clicks queued in ONE tick - the client's own two-uses-a-tick.
                 setWpt(ctx, 1);
                 problems.addAll(shot(ctx, server, hx, scenario, who, lat, "vanilla-2-clicks", 0, clicks(2), 2, 2, 0));
-                // Probe past the setting's 10: twenty vanilla clicks in one tick, the floor 4 ahead (80 blocks of lane).
+                // Twenty vanilla clicks in one tick, the floor 4 ahead (80 blocks of lane): the control for wpt-20.
                 problems.addAll(shot(ctx, server, hx, scenario, who, lat, "vanilla-20-clicks", 1, 4, clicks(20), 20, 20, 0));
                 for (int rep = 0; rep < 2; rep++) {
                     for (int n : COUNTS) {
@@ -309,6 +589,33 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                         problems.addAll(shot(ctx, server, hx, scenario, who, lat, "wpt-" + n + " rep " + rep, lane,
                                 () -> ctx.getInput().pressKey(o -> o.keyUse), expect, expect, expect - 1));
                     }
+                }
+                // Warps Per Tick at its new top, 20 (zpewunify-1111: "why a limit of 10?"): the floor 4 ahead, 80 blocks.
+                for (int rep = 0; rep < 2; rep++) {
+                    setWpt(ctx, 20);
+                    problems.addAll(shot(ctx, server, hx, scenario, who, lat, "wpt-20 rep " + rep, 1, 4,
+                            () -> ctx.getInput().pressKey(o -> o.keyUse), 20, 20, 19));
+                }
+                // Multi Warps is its own feature (zpewunify-1111: "if i have zero ping off it should still show multiwarp"):
+                // with Zero Ping Etherwarp OFF, and with it on but Works For Manual off, Warps Per Tick 3 still sends 3 and
+                // the camera never leaves him (the shot's cam-vs-eye check).
+                for (String mode : new String[]{"zpew off", "works for manual off"}) {
+                    setWpt(ctx, 3);
+                    ctx.runOnClient(mc -> {
+                        Mod.set(ZP_CFG, "setEnabled", !mode.equals("zpew off"));
+                        Mod.call(Mod.cfg(ZP_CFG), "setWorksForByName", "MANUAL", !mode.startsWith("works"));
+                    });
+                    long cam0 = ZpewCampaignTests.num(ctx, "cameraFrames");
+                    problems.addAll(shot(ctx, server, hx, scenario, who, lat, "wpt-3 " + mode, 0,
+                            () -> ctx.getInput().pressKey(o -> o.keyUse), 3, 3, 2));
+                    long cam = ZpewCampaignTests.num(ctx, "cameraFrames") - cam0;
+                    if (cam != 0) {
+                        problems.add("wpt-3 " + mode + ": the camera was moved for " + cam + " frame(s)");
+                    }
+                    ctx.runOnClient(mc -> {
+                        Mod.set(ZP_CFG, "setEnabled", true);
+                        Mod.call(Mod.cfg(ZP_CFG), "setWorksForByName", "MANUAL", true);
+                    });
                 }
                 // Two bursts on consecutive ticks: the second is cast from the first burst's last PREDICTED landing (the
                 // server has answered none of it yet at 150/300 ms), so 3 + 3 warps walk on to 48.
@@ -356,7 +663,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 hookTicks(ctx);
                 String who = ZpewCampaignTests.name(ctx);
                 // Warps Per Tick survives a save and a reload from disk (ProfileManager.reloadAllConfigs calls the same
-                // load), and clamps to 1..10.
+                // load), and clamps to 1..20.
                 int[] persist = ctx.computeOnClient(mc -> {
                     Mod.call(Mod.cfg(ZP_CFG), "setWarpsPerTick", 99);
                     int high = (Integer) Mod.call(Mod.cfg(ZP_CFG), "getWarpsPerTick");
@@ -373,7 +680,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 });
                 scenario.log(String.format(Locale.ROOT, "persist: set 99 -> %d, set 0 -> %d, saved 4 reloaded %d, saved 1 "
                         + "reloaded %d", persist[0], persist[1], persist[2], persist[3]));
-                if (persist[0] != 10 || persist[1] != 1 || persist[2] != 4 || persist[3] != 1) {
+                if (persist[0] != 20 || persist[1] != 1 || persist[2] != 4 || persist[3] != 1) {
                     problems.add("Warps Per Tick did not clamp or persist: " + java.util.Arrays.toString(persist));
                 }
                 // setUp's settings again (the reload read them from disk)
