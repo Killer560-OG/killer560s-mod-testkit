@@ -135,7 +135,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossEe3Route1109.NAME, LIGHTS1109};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -178,6 +178,8 @@ public class SimBossTests implements FabricClientGameTest {
                     case CRYS_WALK -> crystalWalk(ctx, f);
                     case SimBossTpto1109.NAME -> SimBossTpto1109.run(ctx, f);
                     case NOWITHER -> SimBossNoWither1109.run(ctx, f);
+                    case SimBossNecron1111.PULL -> SimBossNecron1111.pull(ctx, f);
+                    case SimBossNecron1111.DRAGON_HP -> SimBossNecron1111.dragonHp(ctx, f);
                     case SimBossStartStay1112.NAME -> SimBossStartStay1112.run(ctx, f);
                     case BREAKER -> SimBossBreaker1108.run(ctx, f, false);
                     case BREAKER_CHARGE -> SimBossBreaker1108.run(ctx, f, true);
@@ -2074,17 +2076,17 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     /** A living ender dragon inside this WitherDragon's area on the client, or null. */
-    private static net.minecraft.world.entity.boss.enderdragon.EnderDragon dragonIn(Minecraft mc, Object spec) {
+    static net.minecraft.world.entity.boss.enderdragon.EnderDragon dragonIn(Minecraft mc, Object spec) {
         List<net.minecraft.world.entity.boss.enderdragon.EnderDragon> in = mc.level.getEntitiesOfClass(
                 net.minecraft.world.entity.boss.enderdragon.EnderDragon.class, (AABB) field(spec, "box"), d -> d.getHealth() > 0);
         return in.isEmpty() ? null : in.get(0);
     }
 
-    private static Object spec(Object dragon, String getter) {
+    static Object spec(Object dragon, String getter) {
         return ModUnderTest.call(dragon, getter, new Class<?>[]{}, new Object[]{});
     }
 
-    private static Object field(Object target, String name) {
+    static Object field(Object target, String name) {
         try {
             return target.getClass().getField(name).get(target);
         } catch (ReflectiveOperationException ex) {
