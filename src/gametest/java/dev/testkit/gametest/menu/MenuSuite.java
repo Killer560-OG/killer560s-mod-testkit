@@ -230,6 +230,7 @@ public class MenuSuite implements FabricClientGameTest {
                     CroesusPriceCases.register(s);
                     // ---- 875-878 croesus-ui (2026-10-12): run highlight under the tooltip, Hide Opened Runs, totals ----
                     CroesusUiCases.register(s);
+                    TipScroll1113Cases.register(s);
                     // ---- 879-882 croesus-key (2026-10-12): run states by chest key, Hide keeps "needs a key" ----
                     CroesusKeyCases.register(s);
                     // ---- 883 croesus-flash (2026-10-12): no stale run state on open ----
