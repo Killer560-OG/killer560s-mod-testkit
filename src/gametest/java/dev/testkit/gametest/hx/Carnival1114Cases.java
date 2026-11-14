@@ -26,6 +26,8 @@ import static dev.testkit.gametest.hx.CarnivalSuite.Y;
  *   <li>3812 a diamond shovel named "Aspect of the Void" is never a Carnival Shovel and Auto Shovel Swap never selects it.</li>
  *   <li>3813 Fruit Digging: the Best Dig tile has one box (its own color) and no Tile Odds tint, other tiles keep theirs.</li>
  *   <li>3814 Auto Fruit Digging is not stopped by a small or a large look change and still digs the pick; Escape stops it.</li>
+ *   <li>3815 the lead point: a target walking 0.2 blocks a tick is led by speed times flight time, scaled by Lead Adjust.</li>
+ *   <li>3816 a fish name tag reads as a bar; a flagged stand is a target again after 10 still ticks at pond height.</li>
  * </ul>
  */
 final class Carnival1114Cases {
@@ -39,6 +41,8 @@ final class Carnival1114Cases {
         s.test("3812-carnival-shovel-aotv", Carnival1114Cases::shovelAotv);
         s.test("3813-carnival-fruit-one-box", Carnival1114Cases::oneBox);
         s.test("3814-carnival-dig-no-camera-stop", Carnival1114Cases::noCameraStop);
+        s.test("3815-carnival-lead-math", Carnival1114Cases::leadMath);
+        s.test("3816-carnival-fish-bar-flung", Carnival1114Cases::fishBarFlung);
     }
 
     private static String inline(String who, String text, String... cmds) {
@@ -270,5 +274,52 @@ final class Carnival1114Cases {
             });
             CarnivalSuite.cleanup(c);
         }
+    }
+
+    // ---- 3815 -----------------------------------------------------------------------------------------------------
+
+    static void leadMath(Session c) {
+        double full = (Double) c.onClient(mc -> Mod.staticCall("carnival.Lead", "testAheadX", 0.2, 15.0, 100));
+        double half = (Double) c.onClient(mc -> Mod.staticCall("carnival.Lead", "testAheadX", 0.2, 15.0, 50));
+        double none = (Double) c.onClient(mc -> Mod.staticCall("carnival.Lead", "testAheadX", 0.2, 15.0, 0));
+        double still = (Double) c.onClient(mc -> Mod.staticCall("carnival.Lead", "testAheadX", 0.0, 15.0, 100));
+        double far = (Double) c.onClient(mc -> Mod.staticCall("carnival.Lead", "testAheadX", 0.2, 30.0, 100));
+        c.note("lead x: full " + full + ", half " + half + ", none " + none + ", still " + still + ", far " + far);
+        // 15 blocks at 3 blocks a tick is 5 ticks of flight plus 1 tick of latency: 6 ticks * 0.2 = 1.2 blocks.
+        c.check(Math.abs(full - 1.2) < 0.05, "lead at 100% was " + full + ", want 1.2");
+        c.check(Math.abs(half - 0.6) < 0.05, "lead at 50% was " + half + ", want 0.6");
+        c.check(Math.abs(none) < 1e-9 && Math.abs(still) < 1e-9, "lead at 0% or for a still target was not 0");
+        c.check(far > full + 0.5, "a farther target was not led further: " + far + " vs " + full);
+    }
+
+    // ---- 3816 -----------------------------------------------------------------------------------------------------
+
+    static void fishBarFlung(Session c) {
+        c.onClient(mc -> Mod.staticCall("carnival.CatchAFish", "forgetFlung"));
+        double[] pct = (double[]) c.onClient(mc -> Mod.staticCall("carnival.CatchAFish", "barForTest", "Hooking 45%"));
+        double[] glyph = (double[]) c.onClient(mc -> Mod.staticCall("carnival.CatchAFish", "barForTest", "███░░░"));
+        double[] secs = (double[]) c.onClient(mc -> Mod.staticCall("carnival.CatchAFish", "barForTest", "Hooked in 2.5s"));
+        Object none = c.onClient(mc -> Mod.staticCall("carnival.CatchAFish", "barForTest", "Yellow Fish"));
+        c.check(pct != null && Math.abs(pct[0] - 0.45) < 1e-9, "'Hooking 45%' did not read as 0.45");
+        c.check(glyph != null && Math.abs(glyph[0] - 0.5) < 1e-9, "three filled of six glyphs did not read as 0.5");
+        c.check(secs != null && Math.abs(secs[1] - 2.5) < 1e-9 && secs[0] < 0, "'Hooked in 2.5s' did not read as 2.5 s left");
+        c.check(none == null, "a plain name read as a bar");
+        // A stand that jumps is flagged; seen still at its pond height for 10 ticks it is a target again.
+        boolean[] seq = new boolean[14];
+        seq[0] = (Boolean) c.onClient(mc -> Mod.staticCall("carnival.CatchAFish", "flungForTest", 9001, 0.0, 70.0, 0.0, false));
+        seq[1] = (Boolean) c.onClient(mc -> Mod.staticCall("carnival.CatchAFish", "flungForTest", 9001, 0.0, 70.0, 3.0, false));
+        for (int i = 2; i < 14; i++) {
+            seq[i] = (Boolean) c.onClient(mc -> Mod.staticCall("carnival.CatchAFish", "flungForTest", 9001, 0.0, 70.0, 3.0, false));
+        }
+        c.note("flung sequence " + java.util.Arrays.toString(seq));
+        c.check(!seq[0] && seq[1] && seq[2], "the jump did not flag the stand");
+        c.check(!seq[13], "the stand stayed flagged after 12 still ticks at pond height");
+        int[] flags = (int[]) c.onClient(mc -> Mod.staticCall("carnival.CatchAFish", "flaggedForTest"));
+        c.check(flags[1] == 1 && flags[3] == 1, "flag counts were " + java.util.Arrays.toString(flags) + ", want jumped 1 and cleared 1");
+        // A hooked fish stays flagged while it is on the hook.
+        boolean hookedFlag = (Boolean) c.onClient(mc -> Mod.staticCall("carnival.CatchAFish", "flungForTest", 9002, 0.0, 70.0, 0.0, true));
+        boolean hookedStill = (Boolean) c.onClient(mc -> Mod.staticCall("carnival.CatchAFish", "flungForTest", 9002, 0.0, 70.0, 0.0, true));
+        c.check(hookedFlag && hookedStill, "a hooked stand was not flagged");
+        c.onClient(mc -> Mod.staticCall("carnival.CatchAFish", "forgetFlung"));
     }
 }
