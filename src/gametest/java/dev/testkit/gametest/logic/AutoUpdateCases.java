@@ -549,11 +549,12 @@ final class AutoUpdateCases {
             c.eq("Beta survives save + load", "BETA",
                     ModUnderTest.call(reloaded, "getChannel", new Class<?>[0], new Object[0]).toString());
             cfg = reloaded;
-            ModUnderTest.call(cfg, "setChannel", new Class<?>[]{channelType},
-                    new Object[]{ModUnderTest.enumValue(CFG + "$Channel", "OFF")});
+            // Off is the switch since realswitch-1102 (setChannel never takes Off).
+            ModUnderTest.call(cfg, "setEnabled", new Class<?>[]{boolean.class}, new Object[]{false});
             String gate = (String) ModUnderTest.staticCall(FEAT, "launchGate");
             c.check("launchGate says Off", gate != null && gate.contains("Off"), String.valueOf(gate));
         } finally {
+            ModUnderTest.call(cfg, "setEnabled", new Class<?>[]{boolean.class}, new Object[]{true});
             ModUnderTest.call(cfg, "setChannel", new Class<?>[]{channelType}, new Object[]{before});
             ModUnderTest.call(cfg, "save", new Class<?>[0], new Object[0]);
         }
