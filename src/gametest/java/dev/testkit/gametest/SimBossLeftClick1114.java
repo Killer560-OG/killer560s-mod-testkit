@@ -1,5 +1,6 @@
 package dev.testkit.gametest;
 
+import dev.testkit.compat.McCompat;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.minecraft.world.entity.Entity;
 
