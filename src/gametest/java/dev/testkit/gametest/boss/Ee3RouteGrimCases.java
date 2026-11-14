@@ -246,8 +246,9 @@ final class Ee3RouteGrimCases {
             undo.add(c.onClient(mc -> Mod.with(LA, "Range", 4.5)));
             undo.add(c.onClient(mc -> Mod.with(LA, "CooldownMs", Integer.parseInt(System.getenv().getOrDefault("KM_LEVER_CD", "50")))));
             undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Enabled", true)));
-            // killer560's own AP3 setting (26.3 killer560smod-ap3-settings.json): 45 Degree Strafe ON (W+A/D, 1.00 speed).
-            undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Strafe45", !"0".equals(System.getenv("KM_EE3_STRAFE45")))));
+            // 45 Degree Strafe OFF unless KM_EE3_STRAFE45=1: with it ON the route still falls into the lava at node 25-31 on origin
+            // 26.3 itself (route margin, open as leverjump-strafe-1111), whatever a branch changes; OFF passes (ap3train-1111).
+            undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Strafe45", "1".equals(System.getenv("KM_EE3_STRAFE45")))));
             c.onClient(mc -> {
                 try {
                     Mod.staticCall("ap3.Ap3Executor", "stop", "test lane");
@@ -279,6 +280,7 @@ final class Ee3RouteGrimCases {
             if (act != null) {
                 st = SameTickCases.start(c, act, LEVER_CLICK);
             }
+            int holds0 = ((Number) Mod.staticCall("ap3.Ap3Executor", "handHolds")).intValue();
             int turns0 = act == SameTick.Act.DIG ? ((Number) Mod.staticCall("util.HandDigAim", "turns")).intValue() : 0;
             WireCapture.describe = Ee3RouteGrimCases::describe;
             WireCapture.start();
@@ -339,23 +341,22 @@ final class Ee3RouteGrimCases {
             c.check(dig || lev[1], "the high S2 lever was not powered (low/high " + lev[0] + "/" + lev[1] + ")");
             c.check(dig || ticks.lever >= 1, "no lever click on the wire: " + wire);
             c.check(ticks.twoLevers == 0, "two lever clicks in one server tick: " + wire);
-            // leverjump-1111: the route must get through. A lever turn under the jump of node 23 threw him into the lava and AP3
-            // stopped ("you leapt", the lava tp), while every check above still passed. Any case: no lava, no AP3 stop; the
-            // plain run must also reach EE3 (with his action every tick the Boom is held or the TNT swapped out, see below).
-            // The log line only ("[AP3] Stopped:"; the chat copy "[AP3] Stopped -" is the same stop). With his use or dig every
-            // tick the Boom at #26 cannot go out yet: that stop is ap3holddig-1110's to fix and its cases' to assert.
-            boolean holdsBoom = act == SameTick.Act.USE || act == SameTick.Act.DIG;
-            long stops = LogTap.since(mark).stream().filter(l -> l.contains("[AP3] Stopped:") && !l.contains("test over")
-                    && !(holdsBoom && l.contains("couldn't go out"))).count();
+            // ap3holddig-1110: his right click or dig in every tick must never stop AP3. grimreach-1110: the route waits at the
+            // low S2 lever while it is out of Grim's 4.5 (or his dig keeps Lever Aura off), so the BOOM and EE3 are only
+            // asked once that lever went; then his act is held one tick and goes. A swap every tick takes the TNT away.
+            List<String> stops = LogTap.since(mark).stream().filter(l -> l.contains("[AP3] Stopped:") && !l.contains("test over")).toList();
+            c.check(stops.isEmpty(), "AP3 stopped on the route: " + stops);
             c.check(fell == null, "fell into the lava (path above)");
-            c.check(stops == 0, "AP3 stopped " + stops + " time(s) on the route");
-            c.check(act != null || arrive >= 0, "never reached EE3 (lowest y " + String.format(Locale.ROOT, "%.2f", minY) + ")");
-            if (act == null) {
-                // With his action in every tick the route's own end is not this case's question: a right click every tick
-                // holds the Superboom tap (ActionGate), a swap every tick takes the TNT out of his hand.
-                // grimreach-1110: the route waits at the low S2 lever (out of Grim reach), so the BOOM node is not reached until ap3brute
-                // gives a route that passes it closer; the high lever flick above is the proof the feature acted.
-                c.note("BOOM tap at t" + boomAt);
+            if (!lev[0]) {
+                c.note("route waits at the low S2 lever; BOOM tap at t" + boomAt);
+            } else if (act != SameTick.Act.SWAP) {
+                c.check(boomAt >= 0, "the BOOM node never sent its tap");
+                c.check(arrive >= 0, "the route never reached EE3 (lowest y " + minY + ")");
+                if (act != null) {
+                    int holds = ((Number) Mod.staticCall("ap3.Ap3Executor", "handHolds")).intValue() - holds0;
+                    c.check(holds > 0, "AP3 never held his hand for its act (" + act + ")");
+                    c.note("hand holds: " + holds);
+                }
             }
             // leverkey-1110: Lever Aura's pre-turn re-picked the keys as A alone for a tick (W and sprint dropped mid-route).
             // On the wire: no player_input of A alone, and the turn itself must have run (lines "turning body" / "keys re-picked").

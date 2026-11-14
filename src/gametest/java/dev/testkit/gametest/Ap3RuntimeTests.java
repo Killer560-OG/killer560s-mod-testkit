@@ -110,7 +110,11 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             s.test("1110-ap3-stopwatch-align", c -> caseStopwatchEnd(c, true));
             s.test("1110-ap3-stopwatch-touch", c -> caseStopwatchEnd(c, false));
             // mod doc-etable-1101: the Emergency Cancel Key stops AP3 (on top of its own stop rules) and holds it.
-            s.test("1101-ap3-ecancel", Ap3RuntimeTests::caseEmergencyCancel);
+            if (Ap3Crystal1109Cases.cheatBuild()) {
+                s.test("1101-ap3-ecancel", Ap3RuntimeTests::caseEmergencyCancel);
+            } else {
+                Scenario.skipped("1101-ap3-ecancel", "AP3 is cheat-only (legit jar)");
+            }
             // mod blood-ap3-1018 (killer560's doc item 11): the ss modifier, and overlapping walk/run boxes.
             s.test("1018-ap3-ss-wait", Ap3RuntimeTests::caseSsWait);
             s.test("1018-ap3-run-centre", Ap3RuntimeTests::caseRunCentre);
