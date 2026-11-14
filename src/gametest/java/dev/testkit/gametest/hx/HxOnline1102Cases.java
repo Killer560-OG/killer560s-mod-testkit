@@ -54,6 +54,7 @@ final class HxOnline1102Cases {
         s.test("1102-online-down", HxOnline1102Cases::down);
         s.test("1102-online-gate", HxOnline1102Cases::gate);
         s.test("1104-online-menu", HxOnline1102Cases::menu);
+        s.test("1112-online-sim", HxOnline1102Cases::otherServer);
     }
 
     // ---- 1104-online-menu (presmenu-1104: "/online doesnt work if someone is just on the start screen") -------------------
@@ -92,6 +93,38 @@ final class HxOnline1102Cases {
             c.scenario().join();
         } finally {
             off();
+            hub(c);
+        }
+        Mod.assertHealthy(mark);
+    }
+
+    // ---- 1112-online-sim (onlinesim-1112: he was in the sim and /online said nobody) ---------------------------------------
+
+    /** A world that is not Hypixel (singleplayer sim, any other server) still counts: "Other Server" here (a dedicated server), then Hub again on Hypixel. */
+    private static void otherServer(Session c) throws Exception {
+        Mod.Mark mark = Mod.mark();
+        try (Stub stub = new Stub()) {
+            hub(c);
+            on(stub);
+            awaitLocation(c, stub, 0, "Hub", 300);
+            int from = stub.beats.size();
+            c.scenario().toTitle();
+            dev.testkit.gametest.Scenario.labelServerAs("example.org");
+            c.scenario().join();
+            Beat other = awaitLocation(c, stub, from, "Other Server", 800);
+            c.check(json(other).keySet().equals(Set.of("session", "location")), "other-server body keys: " + other.body());
+            c.check(stub.since(from).stream().noneMatch(b -> "Hub".equals(location(b)) && b.at() > other.at()), "an island beat followed off Hypixel");
+            c.note("other-server beat: " + other.body());
+            from = stub.beats.size();
+            c.scenario().toTitle();
+            dev.testkit.gametest.Scenario.labelServerAs(Session.DEFAULT_LABEL);
+            c.scenario().join();
+            hub(c);
+            awaitLocation(c, stub, from, "Hub", 800);
+            c.check(stub.wrong.isEmpty(), "the stub saw other requests: " + stub.wrong);
+        } finally {
+            off();
+            dev.testkit.gametest.Scenario.labelServerAs(Session.DEFAULT_LABEL);
             hub(c);
         }
         Mod.assertHealthy(mark);
