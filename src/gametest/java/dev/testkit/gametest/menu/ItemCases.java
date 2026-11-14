@@ -177,14 +177,33 @@ final class ItemCases {
         }
     }
 
+    /** The player's swing duration: getCurrentSwingDuration() before 26.3, private getModifiedSwingDuration(SwingAnimation.DEFAULT) on it. */
+    private static int swingDuration(Object player) {
+        try {
+            for (Class<?> k = player.getClass(); k != null; k = k.getSuperclass()) {
+                for (java.lang.reflect.Method m : k.getDeclaredMethods()) {
+                    boolean old = m.getName().equals("getCurrentSwingDuration") && m.getParameterCount() == 0;
+                    boolean now = m.getName().equals("getModifiedSwingDuration") && m.getParameterCount() == 1;
+                    if (old || now) {
+                        m.setAccessible(true);
+                        return (Integer) (old ? m.invoke(player) : m.invoke(player, Class.forName("net.minecraft.world.item.component.SwingAnimation").getField("DEFAULT").get(null)));
+                    }
+                }
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("cannot read swing duration", e);
+        }
+        throw new AssertionError("no swing duration method on " + player.getClass());
+    }
+
     static void heldItem(Session c) throws Exception {
         Object cfgObj = c.onClient(mc -> Mod.cfg("helditem.HeldItemConfig"));
         float oldSpeed = c.onClient(mc -> (Float) Mod.call(cfgObj, "getSwingSpeed"));
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
-            int vanilla = c.onClient(mc -> (Integer) Mod.call(mc.player, "getCurrentSwingDuration"));
+            int vanilla = c.onClient(mc -> swingDuration(mc.player));
             cfg.set("helditem.HeldItemConfig", "Enabled", true);
             c.ctx().runOnClient(mc -> Mod.call(cfgObj, "setSwingSpeed", 2.0f));
-            int fast = c.onClient(mc -> (Integer) Mod.call(mc.player, "getCurrentSwingDuration"));
+            int fast = c.onClient(mc -> swingDuration(mc.player));
             c.check(fast == Math.max(1, Math.round(vanilla / 2.0f)), "swing duration " + fast + " at speed 2, vanilla " + vanilla);
             c.note("held item swing speed 2: getCurrentSwingDuration " + vanilla + " -> " + fast);
         } finally {
