@@ -41,6 +41,11 @@ final class Ap3Stop1101Cases {
     }
 
     static void register(Session s) {
+        if (!Ap3Crystal1109Cases.cheatBuild()) { // AP3 does not run on a legit jar
+            Scenario.skipped("1101-ap3-stop-once-reenter", "AP3 is cheat-only (legit jar)");
+            Scenario.skipped("1101-ap3-termaura-once-reenter", "AP3 is cheat-only (legit jar)");
+            return;
+        }
         s.test("1101-ap3-stop-once-reenter", c -> once(c, "STOP"));
         s.test("1101-ap3-termaura-once-reenter", c -> once(c, "TERM_AURA"));
     }
