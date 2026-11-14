@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-14T13:55:27",
- "modSource": "lane-stillhold-1113",
- "modGitSha": "641f5e8bf049360bcd61174303d323cc41449ec5",
+ "generatedAt": "2026-11-14T15:12:15",
+ "modSource": "lane-profshare-1113b",
+ "modGitSha": "92122d736e92db09acb2146a205191eeeca5acd6",
  "modSourceDirty": false,
  "count": 953,
  "byKind": {
