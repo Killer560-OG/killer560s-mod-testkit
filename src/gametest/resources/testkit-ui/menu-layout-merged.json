@@ -990,7 +990,7 @@
       "owner": "(unscoped)",
       "key": "goldor triggerbot",
       "renamed": "wither boss triggerbot",
-      "text": "Cheat build: in the F7/M7 boss, clicks Goldor (or every wither boss) while your crosshair is on him, from any range.",
+      "text": "Cheat build: in the F7/M7 boss, clicks the wither bosses you picked (Goldor by default) while your crosshair is on them, from any range. Never a boss that is dead or dying.",
       "why": "c4860d3c (doc-auto-1101, 2026-11-01): Goldor Triggerbot became Wither Boss Triggerbot (any range, All Wither Bosses, classes)"
     },
     {
@@ -998,7 +998,7 @@
       "key": "goldor triggerbot",
       "to": "Wither Boss Triggerbot",
       "renamed": "wither boss triggerbot",
-      "text": "Cheat build: in the F7/M7 boss, clicks Goldor (or every wither boss) while your crosshair is on him, from any range.",
+      "text": "Cheat build: in the F7/M7 boss, clicks the wither bosses you picked (Goldor by default) while your crosshair is on them, from any range. Never a boss that is dead or dying.",
       "why": "c4860d3c (doc-auto-1101, 2026-11-01): Goldor Triggerbot became Wither Boss Triggerbot (any range, All Wither Bosses, classes)"
     },
     {
