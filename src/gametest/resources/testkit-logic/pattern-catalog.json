@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-13T18:35:28",
- "modSource": "lane-pigeonchat-1113",
- "modGitSha": "0499ecaeab67a6e008e1e8f4f83abcd7ec7d9a00",
+ "generatedAt": "2026-11-13T19:15:34",
+ "modSource": "lane-ap3grp-1113",
+ "modGitSha": "c710e43613b3fc739c6f66f7a14ee14cdf87f5a4",
  "modSourceDirty": false,
  "count": 952,
  "byKind": {
