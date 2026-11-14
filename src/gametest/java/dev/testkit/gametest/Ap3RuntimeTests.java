@@ -176,6 +176,13 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             // a normal-world seed with terrain at y 125 over a lane turned 63-ap3-use-walk/-swap into a block click
             // (final-1027, 26.2: "useon 7, 125, 19", "expected exactly one use packet, saw 0").
             map.fill(LANE_X0 - 8, FLOOR + 1, z, LANE_X0 + LANE_LEN + 8, FLOOR + 12, Math.min(z + 15, zMax + 4), "air");
+            // The test server runs every queued console command in ONE tick: all 86 slices at once held it ~30 s on 26.2
+            // (c262 only, 11-12..14), the client's keep-alive timed out ("Client disconnected") and the warm-up place below
+            // read mc.player null. A few slices per batch, built (and synced) before the next, keep each tick short.
+            if (((z + 4) / 16 + 1) % 6 == 0) {
+                map.build();
+                map = TestMap.on(s.server());
+            }
         }
         map.surface(FLOOR + 1)
                 .catchFloor(FLOOR - 20)
