@@ -889,6 +889,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "3771-ui-carnival-parsers", CarnivalUiCases::parsers);
                     UiCase.run(ctx, "3773-ui-auto-accept-game", CarnivalUiCases::autoAccept);
                     UiCase.run(ctx, "3774-ui-carnival-fold", CarnivalUiCases::fold);
+                    UiCase.run(ctx, "3775-ui-carnival-solver-drops", CarnivalUiCases::solverDrops);
+                    UiCase.run(ctx, "3776-ui-carnival-accept-shapes", CarnivalUiCases::acceptShapes);
                     UiCase.run(ctx, "3772-ui-fruit-digging-triggerbot",
                             c -> CarnivalUiCases.tab(c, "Fruit Digging Triggerbot"));
                     // ---- profiles carry everything, across jars (980-985) ----

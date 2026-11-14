@@ -36,15 +36,15 @@ final class CarnivalUiCases {
             "3765-ui-zombie-shootout-triggerbot", "3766-ui-auto-zombie-shootout", "3767-ui-auto-shovel-swap",
             "3768-ui-auto-fruit-digging", "3769-ui-auto-catch-a-fish", "3770-ui-carnival-automation-note",
             "3771-ui-carnival-parsers", "3772-ui-fruit-digging-triggerbot", "3773-ui-auto-accept-game",
-            "3774-ui-carnival-fold"};
+            "3774-ui-carnival-fold", "3775-ui-carnival-solver-drops", "3776-ui-carnival-accept-shapes"};
 
     static final String NOTE = "Automation: can get you banned; keep it off on the main server";
     static final List<String> LEGIT = List.of("Carnival Tracker", "Catch a Fish Helper", "Fruit Digging Solver",
             "Zombie Shootout Helper");
-    static final List<String> CHEAT = List.of("Auto Accept Game", "Auto Catch a Fish", "Auto Fruit Digging",
+    static final List<String> CHEAT = List.of("Auto Catch a Fish", "Auto Fruit Digging",
             "Auto Shovel Swap", "Auto Zombie Shootout", "Fruit Digging Triggerbot", "Zombie Shootout Triggerbot");
-    /** The one card every old Carnival tab became (carnivalfold-1111): in Misc, a legit block and a red Cheat block. */
-    static final String CARD = "Carnival";
+    /** The Carnival section of Misc (carnival-sections-1114): the legit cards as a titled run, the cheat cards in Misc's Cheat block. */
+    static final String GROUP = "Carnival";
 
     /** One tab: its config class and the static accessor giving its instance, its rows, a setting to round-trip. */
     record Spec(String tab, String cfg, String accessor, List<String> rows, String setter, String getter, Object value,
@@ -82,8 +82,6 @@ final class CarnivalUiCases {
                     List.of("Fruit Digging Triggerbot", "Reaction Delay"), "setDelayMs", "getDelayMs", 450, true),
             new Spec("Auto Fruit Digging", "carnival.AutoFruitConfig", "dig",
                     List.of("Auto Fruit Digging", "Dig Delay", "Free Camera"), "setFreeCamera", "isFreeCamera", true, true),
-            new Spec("Auto Accept Game", "carnival.AutoAcceptGameConfig", "getInstance",
-                    List.of("Auto Accept Game"), "setEnabled", "isEnabledRaw", true, true),
             new Spec("Auto Catch a Fish", "carnival.AutoCatchAFishConfig", "getInstance",
                     List.of("Auto Catch a Fish", "Cast Delay", "Hook Wait", "Free Camera"), "setHookWaitS", "getHookWaitS",
                     6, true));
@@ -105,19 +103,27 @@ final class CarnivalUiCases {
                 ModScreenDriver d = new ModScreenDriver(mc);
                 List<String> top = new ArrayList<>();
                 List<String> misc = new ArrayList<>();
-                List<Boolean> flags = new ArrayList<>();
+                List<String> inGroup = new ArrayList<>();
+                List<String> cheatLeaves = new ArrayList<>();
                 for (ModScreenDriver.Node n : d.tree()) {
                     top.add(n.name());
                     if ("Misc".equals(n.name())) {
                         for (ModScreenDriver.Node leaf : n.children()) {
                             misc.add(leaf.name());
-                            flags.add((Boolean) Mod.call(leaf.tab(), "isCheatOnly"));
+                            if (leaf.folder() && GROUP.equals(leaf.name())) {
+                                for (ModScreenDriver.Node k : leaf.children()) {
+                                    inGroup.add(k.name());
+                                }
+                            } else if (!leaf.folder() && Boolean.TRUE.equals(Mod.call(leaf.tab(), "isCheatOnly"))) {
+                                cheatLeaves.add(leaf.name());
+                            }
                         }
                     }
                 }
                 m.put("top", top);
                 m.put("misc", misc);
-                m.put("flags", flags);
+                m.put("group", inGroup);
+                m.put("cheat", cheatLeaves);
             } catch (Throwable t) {
                 m.put("error", UiCase.describe(t));
             }
@@ -130,42 +136,35 @@ final class CarnivalUiCases {
         @SuppressWarnings("unchecked")
         List<String> misc = (List<String>) out.get("misc");
         @SuppressWarnings("unchecked")
-        List<Boolean> flags = (List<Boolean>) out.get("flags");
-        c.note("top level " + top + "; Misc cards " + misc);
-        c.check(!top.contains("Carnival"), "Carnival is still a category of its own: " + top);
-        int at = misc.indexOf(CARD);
-        c.check(at >= 0, "no '" + CARD + "' card in Misc: " + misc);
-        if (at >= 0) {
-            c.check(!flags.get(at), "the Carnival card is marked cheat-only (it has a legit block)");
-        }
-        for (String old : CHEAT) {
-            c.check(!misc.contains(old), "'" + old + "' is still a card of its own");
-        }
-        for (String old : LEGIT) {
-            c.check(!misc.contains(old), "'" + old + "' is still a card of its own");
-        }
-        // The card's rows: every legit switch, then (cheat jar only) the Cheat header and every cheat switch.
-        List<String> rows = labels(c, CARD);
-        c.note("Carnival card rows (all switches off): " + rows);
-        int last = -1;
+        List<String> inGroup = (List<String>) out.get("group");
+        @SuppressWarnings("unchecked")
+        List<String> cheatLeaves = (List<String>) out.get("cheat");
+        c.note("top level " + top + "; Misc " + misc + "; Carnival section " + inGroup + "; Misc cheat cards " + cheatLeaves);
+        c.check(!top.contains("Carnival"), "Carnival is a category of its own: " + top);
+        c.check(misc.contains(GROUP), "no '" + GROUP + "' section in Misc: " + misc);
+        c.check(inGroup.equals(LEGIT), "the Carnival section holds " + inGroup + ", want " + LEGIT);
         for (String f : LEGIT) {
-            int i = indexOfRow(rows, f);
-            c.check(i >= 0, "the Carnival card has no '" + f + "' switch row: " + rows);
-            c.check(i > last, "'" + f + "' is out of order in the Carnival card: " + rows);
-            last = i;
+            c.check(!misc.contains(f), "'" + f + "' sits loose in Misc instead of the Carnival section");
         }
-        int header = rows.indexOf("Cheat");
         if (cheat) {
-            c.check(header > last, "no red 'Cheat' header under the legit rows: " + rows);
             for (String f : CHEAT) {
-                int i = indexOfRow(rows, f);
-                c.check(i > header, "cheat switch '" + f + "' is not under the Cheat header: " + rows);
+                c.check(cheatLeaves.contains(f), "cheat card '" + f + "' is not a cheat-only card of Misc: " + cheatLeaves);
+                c.check(!inGroup.contains(f), "cheat card '" + f + "' is inside the legit Carnival section");
             }
+            List<String> mine = new ArrayList<>(cheatLeaves);
+            mine.retainAll(CHEAT);
+            c.check(mine.equals(CHEAT), "the Carnival cheat cards are out of order or missing in Misc's cheat block: " + mine);
+            c.check(!cheatLeaves.contains("Auto Accept Game") && !misc.contains("Auto Accept Game"),
+                    "Auto Accept Game is still a card (it is the Carnival Games row of Auto Dialogue)");
         } else {
-            c.check(header < 0, "a legit jar shows a Cheat header: " + rows);
             for (String f : CHEAT) {
-                c.check(indexOfRow(rows, f) < 0, "a legit jar shows the cheat row '" + f + "'");
+                c.check(!misc.contains(f), "a legit jar shows the cheat card '" + f + "'");
             }
+        }
+        // each legit card's first row is its own switch
+        for (String f : LEGIT) {
+            List<String> rows = labels(c, f);
+            c.check(!rows.isEmpty() && indexOfRow(rows, f) == 0, f + ": first row is not its own switch: " + rows);
         }
     }
 
@@ -180,10 +179,11 @@ final class CarnivalUiCases {
 
     // ---- 3773, 3774 ------------------------------------------------------------------------------------------------
 
-    /** Auto Accept Game: the cheat switch, default OFF, with its note; absent on a legit jar. */
+    /** Auto Dialogue's Carnival Games row (the old Auto Accept Game): cheat switch, default OFF, own tooltip, Auto Dialogue
+     *  has no Outside Dungeons row; absent on a legit jar. */
     static void autoAccept(UiCase c) throws Exception {
         if (!Mod.isCheat()) {
-            c.note("legit jar: Auto Accept Game is compiled out (3774 checks the card has no such row)");
+            c.note("legit jar: Auto Dialogue is compiled out");
             return;
         }
         Path file = c.onClient(mc -> (Path) Mod.call(Mod.staticCall("carnival.AutoAcceptGameConfig", "getInstance"), "path"));
@@ -192,7 +192,18 @@ final class CarnivalUiCases {
             Files.deleteIfExists(file);
             c.onClient(mc -> Mod.staticCall("carnival.AutoAcceptGameConfig", "load"));
             Object on = c.onClient(mc -> Mod.call(Mod.staticCall("carnival.AutoAcceptGameConfig", "getInstance"), "isEnabledRaw"));
-            c.check(Boolean.FALSE.equals(on), "Auto Accept Game is " + on + " from a fresh config, want OFF");
+            c.check(Boolean.FALSE.equals(on), "Carnival Games is " + on + " from a fresh config, want OFF");
+            List<String> rows = labels(c, "Auto Dialogue");
+            c.note("Auto Dialogue rows (off): " + rows);
+            c.check(indexOfRow(rows, "Carnival Games") >= 0, "Auto Dialogue has no 'Carnival Games' row: " + rows);
+            c.check(indexOfRow(rows, "Outside Dungeons") < 0, "Auto Dialogue still has an 'Outside Dungeons' row: " + rows);
+            tooltip(c, "Auto Dialogue", "Carnival Games");
+            Object cfg = c.onClient(mc -> Mod.staticCall("carnival.AutoAcceptGameConfig", "getInstance"));
+            c.onClient(mc -> Mod.call(cfg, "setEnabled", true));
+            c.onClient(mc -> Mod.call(cfg, "save"));
+            c.onClient(mc -> Mod.staticCall("carnival.AutoAcceptGameConfig", "load"));
+            Object back = c.onClient(mc -> Mod.call(Mod.staticCall("carnival.AutoAcceptGameConfig", "getInstance"), "isEnabledRaw"));
+            c.check(Boolean.TRUE.equals(back), "Carnival Games did not survive a reload: " + back);
         } finally {
             if (saved == null) {
                 Files.deleteIfExists(file);
@@ -203,17 +214,16 @@ final class CarnivalUiCases {
         }
     }
 
-    /** The fold: each old card id keeps its toggle keybind (ModuleKeybinds EXTRAS), Strategy cycles and survives a reload. */
+    /** Keybinds: only Carnival Games (a row, no card) needs a ModuleKeybinds EXTRAS id; every Carnival card has its own. Strategy cycles and survives a reload. */
     static void fold(UiCase c) throws Exception {
         @SuppressWarnings("unchecked")
         Map<String, Object> extras = (Map<String, Object>) Mod.field(Mod.ROOT + "gui.ModuleKeybinds", "EXTRAS");
-        List<String> ids = new ArrayList<>(List.of("CarnivalTrackerTab", "FruitDiggingTab", "ZombieShootoutTab", "CatchAFishTab"));
         if (Mod.isCheat()) {
-            ids.addAll(List.of("ZombieTriggerbotTab", "AutoZombieShootoutTab", "AutoShovelSwapTab", "AutoFruitDiggingTab",
-                    "FruitDiggingTriggerbotTab", "AutoCatchAFishTab", "AutoAcceptGameTab"));
+            c.check(extras.containsKey("AutoAcceptGameTab"), "ModuleKeybinds EXTRAS has no 'AutoAcceptGameTab' (its saved toggle key would be lost)");
         }
-        for (String id : ids) {
-            c.check(extras.containsKey(id), "ModuleKeybinds EXTRAS has no '" + id + "' (its saved toggle key would be lost)");
+        for (String id : List.of("CarnivalTrackerTab", "FruitDiggingTab", "ZombieShootoutTab", "CatchAFishTab", "ZombieTriggerbotTab",
+                "AutoZombieShootoutTab", "AutoShovelSwapTab", "AutoFruitDiggingTab", "FruitDiggingTriggerbotTab", "AutoCatchAFishTab")) {
+            c.check(!extras.containsKey(id), "'" + id + "' is still a ModuleKeybinds EXTRAS entry although it has its own card again");
         }
         Object cfg = c.onClient(mc -> Mod.staticCall("carnival.FruitDiggingConfig", "getInstance"));
         int before = (Integer) c.onClient(mc -> Mod.call(cfg, "getStrategy"));
@@ -255,10 +265,10 @@ final class CarnivalUiCases {
             if (!Boolean.FALSE.equals(off)) {
                 c.problem(name + ": isEnabledRaw is " + off + " from a fresh config, want OFF");
             }
-            List<String> offRows = labels(c, CARD);
+            List<String> offRows = labels(c, s.tab());
             c.note(name + " rows with the switch off: " + offRows);
             if (indexOfRow(offRows, s.rows().get(0)) < 0) {
-                c.problem(name + ": no '" + s.rows().get(0) + "' switch row in the Carnival card: " + offRows);
+                c.problem(name + ": no '" + s.rows().get(0) + "' switch row in its card: " + offRows);
             }
             if (s.rows().size() > 1 && indexOfRow(offRows, s.rows().get(1)) >= 0) {
                 c.problem(name + ": '" + s.rows().get(1) + "' shows while its switch is off: " + offRows);
@@ -267,7 +277,7 @@ final class CarnivalUiCases {
                 Mod.call(fresh, "setEnabled", true);
                 return null;
             });
-            List<String> rows = labels(c, CARD);
+            List<String> rows = labels(c, s.tab());
             c.note(name + " rows with the switch on: " + rows);
             for (String row : s.rows()) {
                 if (rows.stream().noneMatch(l -> l.equals(row) || l.startsWith(row + ":"))) {
@@ -322,7 +332,7 @@ final class CarnivalUiCases {
             }
             Object cfg = cfg(s);
             c.onClient(mc -> Mod.call(cfg, "setEnabled", true));
-            List<String> rows = labels(c, CARD);
+            List<String> rows = labels(c, s.tab());
             c.note(s.tab() + " rows: " + rows);
             int sw = indexOfRow(rows, s.tab());
             if (sw < 0 || sw + 1 >= rows.size() || !rows.get(sw + 1).contains(NOTE)) {
@@ -439,6 +449,122 @@ final class CarnivalUiCases {
         c.check(Math.abs(Double.parseDouble(res[3]) - 1.0) < 1e-9, "Treasure Dragonfruit at G7 did not put the Dragonfruit beside it: " + res[3]);
         c.check(Integer.parseInt(res[4]) > 1000, "the solver drew only " + res[4] + " samples");
         c.check(!"null".equals(res[0]), "the solver gave no recommendation");
+    }
+
+    // ---- 3775 ------------------------------------------------------------------------------------------------------
+
+    private static int idx(String label) {
+        return (label.charAt(0) - 'A') * 7 + (label.charAt(1) - '1');
+    }
+
+    /** One board fed to the solver: {@code setup} fills the cells; returns {samples, dropped-or-null}. */
+    private static String[] solveBoard(java.util.function.BiConsumer<Integer, Object[]> unused, String name,
+                                       java.util.function.Consumer<java.util.function.BiConsumer<String, Object[]>> setup) {
+        try {
+            Class<?> solverCls = Mod.cls("carnival.FruitDiggingSolver");
+            Class<?> cellCls = Mod.cls("carnival.FruitDiggingSolver$Cell");
+            Object solver = solverCls.getConstructor(java.util.Random.class).newInstance(new java.util.Random(11));
+            Object cells = java.lang.reflect.Array.newInstance(cellCls, 49);
+            for (int i = 0; i < 49; i++) {
+                java.lang.reflect.Array.set(cells, i, cellCls.getConstructor().newInstance());
+            }
+            setup.accept((label, kv) -> {
+                try {
+                    Object cell = java.lang.reflect.Array.get(cells, idx(label));
+                    for (int k = 0; k < kv.length; k += 2) {
+                        cellCls.getField((String) kv[k]).set(cell, kv[k + 1]);
+                    }
+                } catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            Object rec = solverCls.getMethod("solve", cells.getClass(), int.class, double.class, boolean.class)
+                    .invoke(solver, cells, 2, 1.0, false);
+            return new String[]{String.valueOf(solverCls.getMethod("samples").invoke(solver)),
+                    String.valueOf(solverCls.getMethod("dropped").invoke(solver)), String.valueOf(rec)};
+        } catch (Throwable t) {
+            return new String[]{"THREW " + UiCase.describe(t)};
+        }
+    }
+
+    /** His 11-14 log: two bomb digs left contradicting clues and the solver played plain odds ("0 samples") to the end. */
+    static void solverDrops(UiCase c) {
+        Object bomb = Mod.enumValue("carnival.Fruit", "BOMB");
+        Object rum = Mod.enumValue("carnival.Fruit", "RUM");
+        Object mango = Mod.enumValue("carnival.Fruit", "MANGO");
+        Object durian = Mod.enumValue("carnival.Fruit", "DURIAN");
+        // Game 2: F1 dug and held a Bomb; the Anchor marked G1 (a fruit) and the blast then said G1 holds none.
+        String[] g2 = c.onClient(mc -> solveBoard(null, "game2", set -> {
+            set.accept("F1", new Object[]{"diggable", false, "content", bomb});
+            set.accept("G1", new Object[]{"mustFruit", true, "notFruit", true});
+        }));
+        c.note("game 2 replay: samples " + g2[0] + ", dropped " + (g2.length > 1 ? g2[1] : "-"));
+        c.check(g2.length >= 3, "game 2 replay threw: " + g2[0]);
+        if (g2.length >= 3) {
+            c.check(Integer.parseInt(g2[0]) > 0, "game 2: the solver kept " + g2[0] + " samples (plain odds)");
+            c.check(!"null".equals(g2[1]), "game 2: contradicting clues were not reported as dropped");
+            c.check(!"null".equals(g2[2]), "game 2: no recommendation");
+        }
+        // Game 1: G2 dug with a Durian Treasure clue (from F1,F3,G1,G3; F3 Rum, G3 Mango), then F1 dug a Bomb with NoFruit
+        // over E1,E2,G1: G1 cannot be both the Durian and empty.
+        String[] g1 = c.onClient(mc -> solveBoard(null, "game1", set -> {
+            set.accept("G2", new Object[]{"diggable", false, "treasure", durian, "dugAt", 1,
+                    "from", new int[]{idx("F1"), idx("F3"), idx("G1"), idx("G3")}});
+            set.accept("F3", new Object[]{"diggable", false, "content", rum});
+            set.accept("G3", new Object[]{"diggable", false, "content", mango});
+            set.accept("F1", new Object[]{"diggable", false, "content", bomb, "noFruitNearby", true, "dugAt", 2,
+                    "from", new int[]{idx("E1"), idx("E2"), idx("G1")}});
+        }));
+        c.note("game 1 replay: samples " + g1[0] + ", dropped " + (g1.length > 1 ? g1[1] : "-"));
+        c.check(g1.length >= 3, "game 1 replay threw: " + g1[0]);
+        if (g1.length >= 3) {
+            c.check(Integer.parseInt(g1[0]) > 0, "game 1: the solver kept " + g1[0] + " samples (plain odds)");
+            c.check(!"null".equals(g1[1]) && g1[1].contains("NoFruit"), "game 1: dropped list is " + g1[1]
+                    + ", want the bomb dig's NoFruit clue named");
+        }
+        // A consistent board drops nothing.
+        String[] ok = c.onClient(mc -> solveBoard(null, "ok", set -> set.accept("D4", new Object[]{"diggable", false, "content", mango, "mines", 0})));
+        c.check(ok.length >= 3 && "null".equals(ok[1]) && Integer.parseInt(ok[0]) > 0, "a consistent board reported drops: " + String.join("|", ok));
+    }
+
+    // ---- 3776 ------------------------------------------------------------------------------------------------------
+
+    /** The real prompt shape: one component, a plain prefix, an arrow, then the clickable option, nested one level too. */
+    static void acceptShapes(UiCase c) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: Carnival Games is compiled out");
+            return;
+        }
+        String[] r = c.onClient(mc -> {
+            try {
+                net.minecraft.network.chat.Style click = net.minecraft.network.chat.Style.EMPTY.withClickEvent(
+                        new net.minecraft.network.chat.ClickEvent.RunCommand("/selectnpcoption pirate aye"));
+                net.minecraft.network.chat.Style click2 = net.minecraft.network.chat.Style.EMPTY.withClickEvent(
+                        new net.minecraft.network.chat.ClickEvent.RunCommand("/selectnpcoption pirate rules"));
+                net.minecraft.network.chat.MutableComponent flat = net.minecraft.network.chat.Component.literal("Select an option: \n")
+                        .append(net.minecraft.network.chat.Component.literal("  ➜ "))
+                        .append(net.minecraft.network.chat.Component.literal("[Aye sure do!]").withStyle(click))
+                        .append(net.minecraft.network.chat.Component.literal(" \n  ➜ "))
+                        .append(net.minecraft.network.chat.Component.literal("[Could ye tell me the rules again, Captain?]").withStyle(click2));
+                net.minecraft.network.chat.MutableComponent nested = net.minecraft.network.chat.Component.literal("")
+                        .append(net.minecraft.network.chat.Component.literal("Select an option: \n")
+                                .append(net.minecraft.network.chat.Component.literal("  ➜ ")
+                                        .append(net.minecraft.network.chat.Component.literal("[Aye sure do!]").withStyle(click))));
+                net.minecraft.network.chat.MutableComponent none = net.minecraft.network.chat.Component.literal("Select an option: ");
+                return new String[]{String.valueOf(Mod.staticCall("carnival.AutoAcceptGame", "firstRunCommand", flat)),
+                        String.valueOf(Mod.staticCall("carnival.AutoAcceptGame", "firstRunCommand", nested)),
+                        String.valueOf(Mod.staticCall("carnival.AutoAcceptGame", "firstRunCommand", none))};
+            } catch (Throwable t) {
+                return new String[]{"THREW " + UiCase.describe(t)};
+            }
+        });
+        c.note("firstRunCommand: " + String.join(" | ", r));
+        c.check(r.length == 3, "could not run: " + r[0]);
+        if (r.length == 3) {
+            c.check("/selectnpcoption pirate aye".equals(r[0]), "flat prompt gave " + r[0] + ", want the FIRST option");
+            c.check("/selectnpcoption pirate aye".equals(r[1]), "nested prompt gave " + r[1] + ", want the option");
+            c.check("null".equals(r[2]), "a prompt with no option gave " + r[2]);
+        }
     }
 
     // ---- helpers ---------------------------------------------------------------------------------------------------

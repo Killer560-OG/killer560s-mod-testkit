@@ -1,9 +1,9 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-14T13:53:23",
- "modSource": "carnrebase-1114",
+ "generatedAt": "2026-11-14T17:28:10",
+ "modSource": "dialoguefold-1114",
  "modGitSha": "c77ea568c413a74e814a52d22ac4d063dc0c41fc",
- "modSourceDirty": false,
+ "modSourceDirty": true,
  "count": 955,
  "byKind": {
   "dynamic": 10,

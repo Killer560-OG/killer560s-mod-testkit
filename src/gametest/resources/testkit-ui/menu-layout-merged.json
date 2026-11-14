@@ -13,6 +13,12 @@
     "gui.tab.LeverAuraTab": "aura-themes-1015: Lever Aura became the In Boss part of the Secret Aura tab (cheat jar only)"
   },
   "newCheatLeaves": {
+    "gui.tab.ZombieTriggerbotTab": "Misc > Zombie Shootout Triggerbot",
+    "gui.tab.AutoZombieShootoutTab": "Misc > Auto Zombie Shootout",
+    "gui.tab.AutoShovelSwapTab": "Misc > Auto Shovel Swap",
+    "gui.tab.AutoFruitDiggingTab": "Misc > Auto Fruit Digging",
+    "gui.tab.FruitDiggingTriggerbotTab": "Misc > Fruit Digging Triggerbot",
+    "gui.tab.AutoCatchAFishTab": "Misc > Auto Catch a Fish",
     "gui.tab.MiningPigeonDrillTab": "Mining > Swap To Drill On Pigeon",
     "gui.tab.PowderChestTriggerbotTab": "Mining > Powder Chest Triggerbot",
     "gui.tab.LeftClickSecretsTab": "Dungeons > Secrets > Left Click Opens Secrets",
@@ -21,7 +27,10 @@
     "gui.tab.NoRotateTab": "Dungeons > No Rotate"
   },
   "newLeaves": {
-    "gui.tab.CarnivalTab": "Misc > Carnival",
+    "gui.tab.CarnivalTrackerTab": "Misc > Carnival > Carnival Tracker",
+    "gui.tab.FruitDiggingTab": "Misc > Carnival > Fruit Digging Solver",
+    "gui.tab.ZombieShootoutTab": "Misc > Carnival > Zombie Shootout Helper",
+    "gui.tab.CatchAFishTab": "Misc > Carnival > Catch a Fish Helper",
     "gui.tab.RoomNameTab": "Dungeons > Current Room Name",
     "gui.tab.ItemQualityTab": "Dungeons > Item Quality",
     "gui.tab.IcedMobsTab": "Dungeons > Iced Mob Boxes",

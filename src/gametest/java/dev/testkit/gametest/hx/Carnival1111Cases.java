@@ -73,21 +73,21 @@ final class Carnival1111Cases {
         c.hx().give(2, shovel("diamond"));
     }
 
-    private static void line(Session c, String json) {
+    static void line(Session c, String json) {
         c.hx().call("chat", "textJson", com.google.gson.JsonParser.parseString(json), "overlay", false);
         c.ctx().waitTicks(2);
     }
 
-    private static String option(String text, String cmd, String color) {
+    static String option(String text, String cmd, String color) {
         return "{\"text\":\"" + text + "\",\"color\":\"" + color + "\",\"click_event\":{\"action\":\"run_command\","
                 + "\"command\":\"" + cmd + "\"}}";
     }
 
-    private static List<String> npcCommands(Session c) {
+    static List<String> npcCommands(Session c) {
         return HxKit.commandsStarting(c, "selectnpcoption");
     }
 
-    private static void npc(Session c, String who, String text) {
+    static void npc(Session c, String who, String text) {
         c.hx().chat("§e[NPC] " + who + "§f: " + text);
         c.ctx().waitTicks(2);
     }
