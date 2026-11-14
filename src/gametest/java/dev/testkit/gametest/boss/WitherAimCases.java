@@ -174,10 +174,6 @@ final class WitherAimCases {
             });
             int aimed = c.onClient(mc -> ((Number) Mod.staticCall(FEATURE, "aimTicks")).intValue()) - aim0;
             int[] after = c.onClient(mc -> (int[]) Mod.staticCall(FEATURE, "clickCounts"));
-            int server = 0;
-            for (JsonObject e : c.hx().events(since, "attack_entity")) {
-                if (e.get("entityId").getAsInt() == wither) server++;
-            }
             List<float[]> rots = new ArrayList<>();
             int wireAttacks = 0;
             for (WireCapture.Sent s : wire) {
@@ -187,6 +183,17 @@ final class WitherAimCases {
                 } else if (s.text().equals("attack " + wither)) {
                     wireAttacks++;
                 }
+            }
+            // The server may still hold the last packets when the client stops (it lags under load): count only after
+            // it has had up to 60 more ticks to catch up, so a short count is a real loss, not a counting window.
+            int server = 0;
+            for (int w = 0; w <= 60; w++) {
+                server = 0;
+                for (JsonObject e : c.hx().events(since, "attack_entity")) {
+                    if (e.get("entityId").getAsInt() == wither) server++;
+                }
+                if (server >= wireAttacks || w == 60) break;
+                c.ctx().waitTick();
             }
             float maxStep = 0f;
             float maxPitch = 0f;
