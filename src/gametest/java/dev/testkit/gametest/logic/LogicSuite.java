@@ -128,7 +128,7 @@ public class LogicSuite implements FabricClientGameTest {
                 || !Scenario.skip("362-logic-boss-timers") || !Scenario.skip("363-logic-roof-cover")
                 || !Scenario.skip("1102-logic-goldor-tick") || !Scenario.skip("1102-logic-storm-line")
                 || !Scenario.skip("1102-logic-f7hud-config") || !Scenario.skip("1102-logic-f7hud-slots")
-                || !Scenario.skip("1103-logic-timer-lag")
+                || !Scenario.skip("1103-logic-timer-lag") || !Scenario.skip("1111-logic-term-rate")
                 || !Scenario.skip("1104-logic-goldor-trusted") || !Scenario.skip("1104-logic-split-lag")
                 || !Scenario.skip("1104-logic-stall-burst") || !Scenario.skip("1104-logic-serverlag-grim")
                 || !Scenario.skip("1104-logic-hypixel-pings") || !Scenario.skip("1104-logic-hypixel-goldor-drift")
@@ -158,6 +158,7 @@ public class LogicSuite implements FabricClientGameTest {
                 LogicCase.run(ctx, "1102-logic-storm-line", BossTimerCases::stormLineCase);
                 LogicCase.run(ctx, "1102-logic-f7hud-config", BossTimerCases::oldConfigs);
                 LogicCase.run(ctx, "1102-logic-f7hud-slots", BossTimerCases::f7Slots);
+                LogicCase.run(ctx, "1111-logic-term-rate", TermSpeedCases::termRate);
                 LogicCase.run(ctx, "1103-logic-timer-lag", TimerLagCases::timerLag);
                 LogicCase.run(ctx, "1103-logic-timer-monotonic", TimerLagCases::timerMonotonic);
                 LogicCase.run(ctx, "1104-logic-goldor-trusted", TickFixCases::goldorTrusted);

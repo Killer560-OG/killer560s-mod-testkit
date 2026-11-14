@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-14T04:10:48",
- "modSource": "lane-chestmiss-1113-PRIORITY2",
- "modGitSha": "fdc66eb326a14fa0f1c2951065826caf1c072a00",
+ "generatedAt": "2026-11-14T07:27:39",
+ "modSource": "lane-stormm5-1113",
+ "modGitSha": "e0a0a555292f03f5991fefd6decbef05dde99ebe",
  "modSourceDirty": false,
  "count": 953,
  "byKind": {
