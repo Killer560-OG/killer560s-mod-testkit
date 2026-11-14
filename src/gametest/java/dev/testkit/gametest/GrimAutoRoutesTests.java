@@ -2423,6 +2423,17 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         return ctx.computeOnClient(mc -> ((Number) ModUnderTest.staticCall(CHARGE, method)).longValue());
     }
 
+    /** A counter only some builds carry (routeAnswers): 0 where the getter is missing. */
+    private static long chargeNumOr0(ClientGameTestContext ctx, String method) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                return ((Number) ModUnderTest.staticCall(CHARGE, method)).longValue();
+            } catch (RuntimeException | AssertionError e) {
+                return 0L;
+            }
+        });
+    }
+
     /** Blink on, Charge TOGGLE at 20 ticks, Zero Ping Chain on, Charged Chain as asked; null puts every one back off. */
     private static void chainSettings(ClientGameTestContext ctx, Boolean charged) {
         boolean on = charged != null;
@@ -2542,7 +2553,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             JsonObject before = stats();
             long spent0 = chargeNum(ctx, "spentTicks");
             long chainTp0 = chargeNum(ctx, "teleportBatches");
-            long route0 = chargeNum(ctx, "routeAnswers");
+            long route0 = chargeNumOr0(ctx, "routeAnswers");
             long m = LogTap.mark();
             List<Object> nodes = ctx.computeOnClient(mc -> {
                 try {
@@ -2588,7 +2599,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             long spanMs = (lastTp - firstUse) / 1_000_000L;
             int serverWarps = delta(before, "etherwarps");
             long spent = chargeNum(ctx, "spentTicks") - spent0;
-            long chainTp = chargeNum(ctx, "teleportBatches") - chainTp0 + chargeNum(ctx, "routeAnswers") - route0;
+            long chainTp = chargeNum(ctx, "teleportBatches") - chainTp0 + chargeNumOr0(ctx, "routeAnswers") - route0;
             int letGo = 0;
             int bankFrom = -1;
             int bankTo = -1;
@@ -2704,7 +2715,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             long bank = chargeFull(ctx);
             JsonObject before = stats();
             long chainTp0 = chargeNum(ctx, "teleportBatches");
-            long route0 = chargeNum(ctx, "routeAnswers");
+            long route0 = chargeNumOr0(ctx, "routeAnswers");
             long spent0 = chargeNum(ctx, "spentTicks");
             ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
             ctx.runOnClient(mc -> McCompat.setScreen(mc, null));
@@ -2719,7 +2730,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     dev.testkit.harness.WireCapture.Sent::nanos).max().orElse(0L);
             long spanMs = (lastTp - firstUse) / 1_000_000L;
             long chainTp = chargeNum(ctx, "teleportBatches") - chainTp0;
-            long routeNow = chargeNum(ctx, "routeAnswers") - route0;
+            long routeNow = chargeNumOr0(ctx, "routeAnswers") - route0;
             long spent = chargeNum(ctx, "spentTicks") - spent0;
             int serverWarps = delta(before, "etherwarps");
             String line = String.format(Locale.ROOT, "route %s, Charge on, Charged Chain off: bank %d; wire %d use(s), at most %d "
