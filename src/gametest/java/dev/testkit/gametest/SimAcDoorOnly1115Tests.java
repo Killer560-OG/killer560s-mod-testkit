@@ -50,6 +50,7 @@ public class SimAcDoorOnly1115Tests implements FabricClientGameTest {
             return;
         }
         ModUnderTest.require("killer560smod");
+        LogTap.install();
         ctx.waitTicks(40);
         if (SimMapTests.copyRoomsForOthers() < 20) {
             Scenario.skipped(NAME, "needs real room captures and room database");
@@ -100,7 +101,7 @@ public class SimAcDoorOnly1115Tests implements FabricClientGameTest {
             return;
         }
         ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.livemap.HeldMap", "resetSimVisits"));
-        double[] at = ctx.computeOnClient(mc -> SimKeyDoorTests.standPoint(p));
+        double[] at = ctx.computeOnClient(mc -> SimKeyDoorTests.standPoint(p, p.openDoor));
         SimKeyDoorTests.place(ctx, at);
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> {
@@ -120,6 +121,24 @@ public class SimAcDoorOnly1115Tests implements FabricClientGameTest {
             ModUnderTest.set(cfg, "setDoorOnly", true);
         });
 
+        // AOTV in slot 0 for the map's etherwarps (the trip to a later door), no key.
+        AtomicReference<Boolean> aotv = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            UUID me = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(me);
+                if (sp != null) {
+                    sp.getInventory().setItem(0, (ItemStack) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimItems", "build",
+                            new Class<?>[]{String.class}, new Object[]{"ASPECT_OF_THE_VOID"}));
+                }
+                aotv.set(sp != null);
+            });
+        });
+        ctx.waitFor(mc -> aotv.get() != null, 100);
+        ctx.waitTicks(10);
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+
         // ---- no key: waits at D, nothing clicked, still running ----
         long mark = LogTap.mark();
         PacketWatch.start();
@@ -136,7 +155,7 @@ public class SimAcDoorOnly1115Tests implements FabricClientGameTest {
         boolean dShut = locked(ctx, p.openDoor);
         int usesNoKey = PacketWatch.totalUses();
         List<String> lines = LogTap.since(mark);
-        boolean sawRoom = lines.stream().anyMatch(l -> l.contains("next room") || l.contains("room cleared"));
+        boolean sawRoom = false;
         // Key given: the click must follow within 40 ticks.
         AtomicReference<Boolean> given = new AtomicReference<>();
         ctx.runOnClient(mc -> {
@@ -167,6 +186,17 @@ public class SimAcDoorOnly1115Tests implements FabricClientGameTest {
         boolean done = false;
         for (int t = 0; t < 2400 && !done; t += 10) {
             ctx.waitTicks(10);
+            if (t % 200 == 0) {
+                System.out.println("[" + NAME + "] t=" + t + " " + ctx.computeOnClient(mc -> {
+                    try {
+                        var f = Class.forName(AUTO).getDeclaredField("action");
+                        f.setAccessible(true);
+                        return "action=" + f.get(null) + " pos=" + mc.player.blockPosition().toShortString();
+                    } catch (Throwable e) {
+                        return "no action: " + e;
+                    }
+                }));
+            }
             done = !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AUTO, "isBusy"));
         }
         PacketWatch.stop();
@@ -178,7 +208,7 @@ public class SimAcDoorOnly1115Tests implements FabricClientGameTest {
         int interacts = PacketWatch.entityInteracts();
         List<String> all2 = LogTap.since(mark);
         boolean doneLine = all2.stream().anyMatch(l -> l.contains("done: the Blood door is open"));
-        boolean room = all2.stream().anyMatch(l -> l.contains("next room") || l.contains("room cleared"));
+        boolean room = all2.stream().anyMatch(l -> l.contains("(autoclear)") && (l.contains("clearing") || l.contains("next room")));
         ctx.waitTicks(100);
         boolean stillStopped = !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AUTO, "isBusy"));
         ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "start"));

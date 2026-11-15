@@ -386,7 +386,11 @@ public class SimKeyDoorTests implements FabricClientGameTest {
 
     /** Four blocks from the decoy door, inside A, at the door's floor height plus half a block. */
     static double[] standPoint(Plan p) {
-        BlockPos x = doorBlock(p.decoyDoor);
+        return standPoint(p, p.decoyDoor);
+    }
+
+    static double[] standPoint(Plan p, int door) {
+        BlockPos x = doorBlock(door);
         double cx = 0, cz = 0;
         BlockPos best = null;
         double bestD = Double.MAX_VALUE;
