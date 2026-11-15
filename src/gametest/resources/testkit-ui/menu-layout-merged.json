@@ -1030,6 +1030,11 @@
       "key": "wither dragons",
       "text": "Tracks the five M7 Phase 5 dragons with spawn timers, health and which one to take (the first to spawn).",
       "why": "dragons1108: the card text follows the first-to-spawn rule (found by nobosspearl-1110, failed on origin too)"
+    },
+    {
+      "owner": "Dungeon Breaker",
+      "key": "zero ping",
+      "gone": "Zero Ping Dungeon Breaker removed (mod aed527317); its tooltip row is gone (quarfix-1115)"
     }
   ]
 }
