@@ -10758,6 +10758,45 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     mc.player.getInventory().setSelectedSlot(0);
                 });
                 writeRoute(ctx, nodes);
+                // The build left him standing in the room long enough for near secret chests to appear (Criss Cross,
+                // run 3). He arrives from another room, so: up out of reach, then each secret chest the finder lists
+                // goes back to waiting for him (SimSecretItems.registerChest), as before he came.
+                tpRelY(ctx, first.get("x").getAsDouble(), first.get("y").getAsDouble() + 40, first.get("z").getAsDouble(), 0f, 0f);
+                ctx.waitTicks(3);
+                if (in.has("pendingChests")) {
+                    List<double[]> rel = new ArrayList<>();
+                    for (JsonElement e : in.getAsJsonArray("pendingChests")) {
+                        JsonArray a = e.getAsJsonArray();
+                        rel.add(new double[]{a.get(0).getAsInt() + 0.5, a.get(1).getAsInt() + 0.5, a.get(2).getAsInt() + 0.5});
+                    }
+                    AtomicReference<Integer> hiddenRef = new AtomicReference<>();
+                    ctx.runOnClient(mc -> {
+                        Object frame = ModUnderTest.staticCall(FRAME, "current");
+                        List<BlockPos> real = new ArrayList<>();
+                        for (double[] c : rel) {
+                            Vec3 v = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(),
+                                    double.class, double.class, double.class}, new Object[]{frame, c[0], c[1], c[2]});
+                            real.add(BlockPos.containing(v));
+                        }
+                        var server = mc.getSingleplayerServer();
+                        server.execute(() -> {
+                            int n = 0;
+                            var level = server.overworld();
+                            for (BlockPos p : real) {
+                                BlockState st = level.getBlockState(p);
+                                if (!st.is(net.minecraft.world.level.block.Blocks.CHEST)) continue;
+                                level.setBlockAndUpdate(p, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+                                ModUnderTest.staticCall("com.killer560.hub.roomsim.SimSecretItems", "registerChest",
+                                        new Class<?>[]{BlockPos.class, BlockState.class}, new Object[]{p, st});
+                                n++;
+                            }
+                            hiddenRef.set(n);
+                        });
+                    });
+                    for (int w = 0; w < 100 && hiddenRef.get() == null; w++) ctx.waitTicks(1);
+                    println("arfinder " + r + ": " + hiddenRef.get() + " secret chest(s) that appeared during the build hidden again");
+                }
+                ctx.waitTicks(2);
                 int found0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound"));
                 long m = LogTap.mark();
                 // As after an Interactive Map warp: Auto Routes is on before he lands (it starts the tick he stands on
