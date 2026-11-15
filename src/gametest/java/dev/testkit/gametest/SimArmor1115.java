@@ -100,7 +100,8 @@ final class SimArmor1115 {
             expect(f, "None: every arrow does the base damage", java.util.Arrays.stream(dn).allMatch(x -> x == BASE_DAMAGE), true);
             expect(f, "None: Attack Speed", ctx.computeOnClient(mc -> call(AS, "attackSpeed")), 100);
             int gapNone = cadence(ctx);
-            expect(f, "None: shot gap the gate enforces (ticks)", gapNone, 5);
+            expect(f, "None: shot gap (the Terminator is already at its 4 tick floor at 100)", gapNone, 4);
+            expect(f, "None: melee interval", ctx.computeOnClient(mc -> call(AS, "meleeInterval")), 5);
             expect(f, "None: nothing worn", worn(ctx), "null null null null");
 
             select(ctx, "TERROR");
