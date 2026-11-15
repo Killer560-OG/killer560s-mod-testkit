@@ -37,6 +37,7 @@
 			"dev.testkit.gametest.GrimLaunchItemsTests",
 			"dev.testkit.gametest.SimLaunchItemsTests",
 			"dev.testkit.gametest.JoinFingerprintTest",
+			"dev.testkit.gametest.JoinFingerprintPublicTest",
 			"dev.testkit.gametest.ProofTest",
 			"dev.testkit.gametest.SeedWorldTest",
 			"dev.testkit.gametest.FairyHubTests",

@@ -28,7 +28,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 /**
- * 65-join-fingerprint: can a server tell this client has the mod under test loaded? Works for ANY mod: the mod id
+ * 65-smoke-join-fingerprint: can a server tell this client has the mod under test loaded? Works for ANY mod: the mod id
  * (the byte needle) and the probed translation/keybind keys are read from the jar's own fabric.mod.json and en_us.json;
  * for killer560smod (and for a -NoMod baseline) the needle is "killer560" and the probes are its fixed list.
  *
@@ -54,7 +54,19 @@ import java.util.TreeSet;
  */
 public class JoinFingerprintTest implements FabricClientGameTest {
 
-    private static final String NAME = "65-join-fingerprint";
+    /** "smoke" in the name puts it in every ship lane's base set (train.py BASE runs scenario "smoke" on every build). */
+    private final String name;
+    /** The server label: Hypixel's, so the mod behaves as it would there; the -public variant uses a public name. */
+    private final String label;
+
+    public JoinFingerprintTest() {
+        this("65-smoke-join-fingerprint", "mc.hypixel.net");
+    }
+
+    protected JoinFingerprintTest(String name, String label) {
+        this.name = name;
+        this.label = label;
+    }
     /** What the byte scan looks for: the mod under test's id, or "killer560" for killer560smod and a -NoMod run. */
     private static String needle;
     private static final String FALLBACK = "ABSENT";
@@ -74,9 +86,9 @@ public class JoinFingerprintTest implements FabricClientGameTest {
     private record Probe(String label, String snbt, String key, Kind kind) {
     }
 
-    private enum Kind { CONTROL_TRANSLATE, CONTROL_KEYBIND, NEGATIVE, MOD }
+    private enum Kind { CONTROL_TRANSLATE, CONTROL_KEYBIND, CONTROL_LANG, NEGATIVE, MOD }
 
-    private static List<Probe> probes() {
+    private static List<Probe> probes(PresenceProbe.Live live) {
         List<Probe> p = new ArrayList<>();
         p.add(new Probe("translate key.jump (positive control)", translate("key.jump"), "key.jump", Kind.CONTROL_TRANSLATE));
         p.add(new Probe("keybind key.jump (positive control)", keybind("key.jump"), "key.jump", Kind.CONTROL_KEYBIND));
@@ -99,6 +111,24 @@ public class JoinFingerprintTest implements FabricClientGameTest {
             for (String k : List.of("key.killer560smod.open", "key.killer560smod.settings", "key.killer560smod.gui",
                     "key.killer560smod.menu")) {
                 p.add(new Probe("keybind " + k, keybind(k), k, Kind.MOD));
+            }
+            if (live != null) {
+                // Read off the running client (PresenceProbe): every key of the mod's own language resources, every
+                // mapping it registered, and the two guard probes, each with what an unguarded client would leak.
+                if (live.previous() != null) {
+                    p.add(new Probe("translate " + PresenceProbe.CONTROL_KEY + " (reloaded-language control)",
+                            translate(PresenceProbe.CONTROL_KEY), PresenceProbe.CONTROL_KEY, Kind.CONTROL_LANG));
+                    p.add(new Probe("translate " + PresenceProbe.PROBE_KEY + " (in the mod's pack: guard must drop it)",
+                            translate(PresenceProbe.PROBE_KEY), PresenceProbe.PROBE_KEY, Kind.MOD));
+                }
+                for (String k : live.langKeys()) {
+                    p.add(new Probe("translate " + k + " (live lang)", translate(k), k, Kind.MOD));
+                }
+                Set<String> binds = new TreeSet<>(live.mappings());
+                binds.add(PresenceProbe.PROBE_MAPPING);
+                for (String k : binds) {
+                    p.add(new Probe("keybind " + k + " (live mapping)", keybind(k), k, Kind.MOD));
+                }
             }
         } else {
             // Any other mod: its id is the needle, and its own lang keys are what a probing server would ask about.
@@ -140,13 +170,33 @@ public class JoinFingerprintTest implements FabricClientGameTest {
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
-        List<Probe> probes = probes();
+        if (Scenario.skip(name)) {
+            return;
+        }
+        List<String> preLog = new ArrayList<>();
+        List<String> preFailures = ctx.computeOnClient(m -> PresenceProbe.knownPacks(preLog));
+        boolean modJar = !ModUnderTest.jarMods().isEmpty() && ModUnderTest.jarMods().get(0).id().equals(PresenceProbe.MOD_ID);
+        PresenceProbe.Live live = modJar && PresenceProbe.guardPresent() ? ctx.computeOnClient(PresenceProbe::prepare) : null;
+        if (live != null) {
+            preLog.addAll(live.notes());
+            preLog.add("live: " + live.langKeys().size() + " mod lang key(s) " + live.langKeys() + ", " + live.mappings().size()
+                    + " mod key mapping(s) " + live.mappings() + ", probe mapping registered: " + live.probeMappingRegistered());
+            if (!live.probeMappingRegistered()) {
+                preFailures.add("the probe key mapping was not registered - the keybind guard had nothing to hide");
+            }
+            if (live.previous() == null) {
+                preFailures.add("the language guard could not be probed (no mod or vanilla client pack)");
+            }
+        } else if (modJar) {
+            preFailures.add("the mod jar has no privacy guard (com.killer560.hub.privacy.ModPresence)");
+        }
+        List<Probe> probes = probes(live);
         int signs = probes.size() / 4;
         // Armed BEFORE Scenario.run connects, so the handshake, login and configuration phases are on the record.
         WireCapture.start();
-        Scenario.labelServerAs("mc.hypixel.net");
+        Scenario.labelServerAs(label);
         try {
-            Scenario.runExpectingFlags(ctx, NAME,
+            Scenario.runExpectingFlags(ctx, name,
                     (server, scenario) -> {
                         TestMap map = TestMap.on(server).platform(CX, Y, CZ, 6).survival().clearInventory();
                         for (int i = 0; i < signs; i++) {
@@ -160,9 +210,10 @@ public class JoinFingerprintTest implements FabricClientGameTest {
                         }
                         map.spawn(CX + 0.5, CZ + 0.5, 180f, 20f).build();
                     },
-                    (server, scenario) -> body(ctx, server, scenario, probes, signs));
+                    (server, scenario) -> body(ctx, server, scenario, probes, signs, name, preLog, preFailures));
         } finally {
             WireCapture.stop();
+            ctx.runOnClient(m -> PresenceProbe.restore(m, live));
         }
     }
 
@@ -171,7 +222,8 @@ public class JoinFingerprintTest implements FabricClientGameTest {
     }
 
     private static void body(ClientGameTestContext ctx, TestServer server, Scenario scenario, List<Probe> probes,
-                             int signs) {
+                             int signs, String name, List<String> preLog, List<String> preFailures) {
+        preLog.forEach(scenario::log);
         List<ModUnderTest.JarMod> mods = ModUnderTest.jarMods();
         boolean modLoaded = !mods.isEmpty() && mods.stream().allMatch(ModUnderTest.JarMod::loaded);
         String mc = FabricLoader.getInstance().getModContainer("minecraft").orElseThrow().getMetadata().getVersion()
@@ -332,6 +384,13 @@ public class JoinFingerprintTest implements FabricClientGameTest {
                         probeFailures.add("positive control " + probe.label() + " came back \"" + got + "\" (unresolved)");
                     }
                 }
+                case CONTROL_LANG -> {
+                    boolean ok = PresenceProbe.CONTROL_TEXT.equals(got);
+                    verdict = ok ? "RESOLVED (control OK)" : "control FAILED";
+                    if (!ok) {
+                        probeFailures.add("reloaded-language control came back \"" + got + "\" - the injected language was not used");
+                    }
+                }
                 case NEGATIVE -> {
                     String expect = probe.key().isEmpty() ? "" : probe.snbt().startsWith("{translate") ? FALLBACK
                             : probe.key();
@@ -389,6 +448,7 @@ public class JoinFingerprintTest implements FabricClientGameTest {
             failures.add("no mod probe was judged");
         }
         failures.addAll(probeFailures);
+        failures.addAll(preFailures);
         if (!needleHits.isEmpty()) {
             for (String hit : needleHits) {
                 failures.add("\"" + needle + "\" on the wire: " + clip(hit, 300));
@@ -430,7 +490,7 @@ public class JoinFingerprintTest implements FabricClientGameTest {
             }
         }
         if (!failures.isEmpty()) {
-            StringBuilder m = new StringBuilder("[" + NAME + "] " + failures.size() + " problem(s):");
+            StringBuilder m = new StringBuilder("[" + name + "] " + failures.size() + " problem(s):");
             failures.forEach(f -> m.append(System.lineSeparator()).append("    ").append(f));
             System.out.println(m);
             throw new AssertionError(m.toString());
