@@ -3,10 +3,8 @@ package dev.testkit.gametest.ui;
 import dev.testkit.compat.McCompat;
 import dev.testkit.compat.McKeys;
 import dev.testkit.gametest.mod.Mod;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.input.InputConstants;
 
 import java.util.List;
 
@@ -54,7 +52,7 @@ final class AccAdvisor1114Cases {
     }
 
     private static int[] screenSize(UiCase c) {
-        return c.onClient(mc -> new int[]{mc.screen.width, mc.screen.height});
+        return c.onClient(mc -> new int[]{McCompat.screen(mc).width, McCompat.screen(mc).height});
     }
 
     private static void reopen(UiCase c, int fill) {
@@ -95,7 +93,7 @@ final class AccAdvisor1114Cases {
     /** True while no slot of the open bag was clicked: nothing carried and every slot still holds its accessory. */
     private static boolean slotsUntouched(UiCase c) {
         return c.onClient(mc -> {
-            var menu = ((AbstractContainerScreen<?>) mc.screen).getMenu();
+            var menu = ((AbstractContainerScreen<?>) McCompat.screen(mc)).getMenu();
             for (int i = 0; i < 27; i++) {
                 if (!menu.getSlot(i).hasItem()) {
                     return false;
