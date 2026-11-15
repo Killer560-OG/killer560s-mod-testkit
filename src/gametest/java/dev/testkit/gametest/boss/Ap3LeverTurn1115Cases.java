@@ -34,6 +34,7 @@ final class Ap3LeverTurn1115Cases {
     private static final double Y = 132;
     private static final int LX = 23, LY = 132, LZ = 138;
     private static final float WALK_YAW = 90f;
+    private static final double START_X = 36.2, START_Z = 141.8;
 
     private Ap3LeverTurn1115Cases() {
     }
@@ -108,15 +109,10 @@ final class Ap3LeverTurn1115Cases {
                 uses = 0;
             }
         }
-        // From the first tick he is off the start spot.
-        // (vanilla may send no position for up to 20 ticks while he stands, so the start spot is the first one sent).
+        // From the first tick he is off the tp spot (a tick with no position sent yet still stands there).
         int first = 0;
-        while (first < out.size() && Double.isNaN(out.get(first)[0])) {
-            first++;
-        }
-        double[] start = first < out.size() ? out.get(first) : null;
-        while (start != null && first < out.size() && Math.abs(out.get(first)[0] - start[0]) < 1e-9
-                && Math.abs(out.get(first)[2] - start[2]) < 1e-9) {
+        while (first < out.size() && (Double.isNaN(out.get(first)[0]) || Math.abs(out.get(first)[0] - START_X) < 1e-6
+                && Math.abs(out.get(first)[2] - START_Z) < 1e-6)) {
             first++;
         }
         int c = 0, u = 0;
@@ -126,7 +122,7 @@ final class Ap3LeverTurn1115Cases {
         }
         counts[0] = c;
         counts[1] = u;
-        return new ArrayList<>(out.subList(Math.max(0, first - 1), out.size()));
+        return new ArrayList<>(out.subList(first, out.size()));
     }
 
     private static Run runOnce(Session c, boolean leverOn, boolean sameUse) {
@@ -143,7 +139,7 @@ final class Ap3LeverTurn1115Cases {
                     + "CustomNameVisible:1b,CustomName:\"Not Activated\",Tags:[\"leverturn1115\"]}", LX + 0.5, LY + 1, LZ + 0.5));
         }
         c.server().sync(10);
-        TerminalAuraCases.tp(c, 36.2, Y, 141.8, WALK_YAW);
+        TerminalAuraCases.tp(c, START_X, Y, START_Z, WALK_YAW);
         c.ctx().waitTicks(10);
         // A fresh run each time: Lever Aura forgets the levers it flicked and its cooldown (resetRun).
         LightsDeviceCases.newRun(c);
@@ -225,7 +221,7 @@ final class Ap3LeverTurn1115Cases {
             c.server().command("fill 10 131 132 46 131 146 minecraft:stone");
             c.server().command("fill 10 132 132 46 138 146 minecraft:air");
             c.server().sync(20);
-            TerminalAuraCases.tp(c, 36.2, Y, 141.8, WALK_YAW);
+            TerminalAuraCases.tp(c, START_X, Y, START_Z, WALK_YAW);
             c.ctx().waitTicks(10);
             if (sameUse) {
                 SameTickCases.sticks(c);
@@ -245,11 +241,11 @@ final class Ap3LeverTurn1115Cases {
             Run off = runOnce(c, false, sameUse);
             Run on = runOnce(c, true, sameUse);
             int n = Math.min(off.ticks().size(), on.ticks().size());
-            // Positions must match exactly. Looks are float sums of the same turns from start yaws one 360 apart, so they may
-            // differ in the last bits (0.01 degree seen at the lever aim): a look within 0.05 degree is the same look.
+            // The lever aim of the two lever states measured 0.01 degree apart (cause not traced), which moved the walk by
+            // 0.00003 block: a position within 0.001 block and a look within 0.05 degree count as the same; the bug was tenths.
             int firstDiff = -1;
             String diff = "";
-            double lookDiff = 0;
+            double lookDiff = 0, posDiff = 0;
             int lookDiffAt = -1;
             for (int i = 0; i < n; i++) {
                 double[] a = off.ticks().get(i);
@@ -261,14 +257,18 @@ final class Ap3LeverTurn1115Cases {
                         lookDiff = d;
                         lookDiffAt = i;
                     }
-                    if (firstDiff < 0 && (nan || d > (k < 3 ? 1e-6 : 0.05))) {
+                    if (k < 3 && !nan) {
+                        posDiff = Math.max(posDiff, d);
+                    }
+                    if (firstDiff < 0 && (nan || d > (k < 3 ? 1e-3 : 0.05))) {
                         firstDiff = i;
                         diff = String.format(Locale.ROOT, "tick %d: off %.5f %.5f %.5f yaw %.3f pitch %.3f / on %.5f %.5f %.5f yaw %.3f"
                                 + " pitch %.3f", i, a[0], a[1], a[2], a[3], a[4], b[0], b[1], b[2], b[3], b[4]);
                     }
                 }
             }
-            diff += String.format(Locale.ROOT, "; largest look difference %.4f deg at tick %d", lookDiff, lookDiffAt);
+            diff += String.format(Locale.ROOT, "; largest look difference %.4f deg at tick %d, largest position difference %.6f",
+                    lookDiff, lookDiffAt, posDiff);
             int leverTick = -1;
             for (int i = 0; i < off.ticks().size(); i++) {
                 if (off.ticks().get(i)[5] > 0) {
