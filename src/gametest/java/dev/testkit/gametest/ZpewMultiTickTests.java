@@ -226,7 +226,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 ZpewCampaignTests.tearDown(ctx, hx);
             }
             ctx.waitTicks(30); // a late GrimAC line lands before the flags are read
-            problems.addAll(noFlags(scenario, name));
+            problems.addAll(noFlags(scenario, name, bank));
             if (!problems.isEmpty()) {
                 throw new AssertionError(name + ": " + problems);
             }
@@ -302,13 +302,19 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
     }
 
     /** Tick Split must never flag: logs GrimAC's lines by check and returns a problem per line. */
-    static List<String> noFlags(Scenario scenario, String name) {
+    static List<String> noFlags(Scenario scenario, String name, boolean holdTimer) {
+        // holdTimer (the Blink Charge variant): the teleport Hold keeps each answer ~1 s (cap 950 ms) and the owner accepts a
+        // TimerLimit from a 900 ms+ lag spike mid-Hold (killer560 2026-11-04, "Keep holding"); TimerLimit alone is logged as
+        // accepted there, every other check still fails the case.
         List<String> other = new ArrayList<>();
         java.util.Map<String, Integer> byCheck = new java.util.TreeMap<>();
         for (String f : scenario.flags()) {
             java.util.regex.Matcher m = java.util.regex.Pattern.compile("failed ([A-Za-z]+)").matcher(f);
             String check = m.find() ? m.group(1) : "?";
             byCheck.merge(check, 1, Integer::sum);
+            if (holdTimer && check.equals("TimerLimit")) {
+                continue;
+            }
             other.add(name + ": GrimAC " + f);
         }
         System.out.println("[mwtick] " + name + ": GrimAC lines by check " + byCheck);
