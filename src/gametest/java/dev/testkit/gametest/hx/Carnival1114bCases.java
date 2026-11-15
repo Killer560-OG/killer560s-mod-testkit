@@ -72,15 +72,20 @@ final class Carnival1114bCases {
             double[] h = c.onClient(mc -> {
                 var hook = mc.player.fishing;
                 double[] circle = (double[]) Mod.staticCall("carnival.AutoCatchAFish", "targetCircle");
-                return hook == null ? new double[]{0, 0, 0, 1, circle == null ? 0 : 1}
-                        : new double[]{hook.getX(), hook.getY(), hook.getDeltaMovement().lengthSqr(), 0, circle == null ? 0 : 1};
+                return hook == null ? new double[]{0, 0, 0, 1, circle == null ? 0 : 1, 0, 0}
+                        : new double[]{hook.getX(), hook.getY(), hook.getDeltaMovement().lengthSqr(), 0, circle == null ? 0 : 1,
+                        hook.getHookedIn() != null ? 1 : 0, hook.tickCount};
             });
             circled += (int) h[4];
             if (h[3] == 1) {
                 restCounted = false;
-            } else if (!restCounted && h[2] < 1e-4 && !Double.isNaN(bankX) && h[0] < bankX && h[1] >= Y + 0.95) {
+            } else if (!restCounted && h[2] < 1e-4 && h[5] == 0 && !Double.isNaN(bankX) && h[0] < bankX && h[1] >= Y + 0.95) {
+                // A hooked bobber is a catch, not a stop: one that hooked a fish over the bank 3 ticks out (still at the
+                // fish's height, its client velocity 0) was counted as a bank stop twice in a run of 13 catches.
                 restCounted = true;
                 bankRests++;
+                c.note(String.format(Locale.ROOT, "bank rest at tick %d: hook %.2f %.2f (bank edge %.2f), hooked %s, hook age %d",
+                        i, h[0], h[1], bankX, h[5] == 1, (int) h[6]));
             }
             c.ctx().waitTicks(1);
         }
