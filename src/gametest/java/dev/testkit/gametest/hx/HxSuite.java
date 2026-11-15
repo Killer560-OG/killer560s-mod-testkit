@@ -115,6 +115,8 @@ public class HxSuite implements FabricClientGameTest {
                     // Per-block commission areas, event-driven highlights, carpet stability (1103-mining-block-area,
                     // -highlight-latency, -carpet-stable; mod mithrilarea-1103).
                     HxMiningArea1103Cases.register(s);
+                    // Commission Block Colors (1114-commcolors-*, mod glacitecomm-b-1114).
+                    HxCommColors1114Cases.register(s);
                     HxCrystalWalls1104Cases.register(s);
                     HxDarkStone1104Cases.register(s);
                     // Blaze Solver boxes against water behind / in front / around (1103-blaze-water, mod blazewater-1103).
@@ -152,6 +154,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxChestMiss1113Cases.register(s);
                     // Swap To Drill On Pigeon and Auto Ult, idle and with his use / attack / swap in their ticks (1105-same-*, grimgapC-1105).
                     HxSameTick1105Cases.register(s);
+                    // Swap To Drill On Pigeon: Powder Bonus / Compact Level, claim powder detection (1114-drillswap-*, mod drillswap-1114).
+                    HxDrillSwap1114Cases.register(s);
 
                     // Auto Superboom, cheat only, with his dig / use / scroll / teleport in the swap tick (1108-same-superboom-*, featD-1108).
                     HxSuperboom1108Cases.register(s);
@@ -198,6 +202,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxCoop1109Cases.register(s);
                     // mod nobosspearl-1110: Block Ender Pearls In Boss.
                     HxNoBossPearl1110Cases.register(s);
+                    HxGlaciteCommA1114Cases.register(s);
+                    HxNoLocraw1115Cases.register(s);
                 });
     }
 }
