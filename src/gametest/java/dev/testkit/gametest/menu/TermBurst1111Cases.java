@@ -48,10 +48,10 @@ final class TermBurst1111Cases {
     }
 
     /** The same-tick player actions, run at the start of every client tick while set (client thread only). */
-    private static volatile Runnable perTick;
+    static volatile Runnable perTick;
     private static boolean hooked;
 
-    private static void hook() {
+    static void hook() {
         if (hooked) return;
         hooked = true;
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.START_CLIENT_TICK.register(mc -> {

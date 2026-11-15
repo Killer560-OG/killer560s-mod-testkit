@@ -103,31 +103,39 @@ final class TermPlus1112Cases {
             config(cfg, spec, burst);
             cfg.set(CONFIG, "FirstClickDelayMs", 1500);
             int resets0 = c.onClient(mc -> ((Number) Mod.field(FEATURE, "stallResets")).intValue());
-            // The pacing is wedged: no click can go out until the stall net drops it. A load-slow wake-up can let a first click
-            // out before the wedge is set; that attempt is closed and tried again (up to 3 times).
-            JsonObject t = null;
-            for (int attempt = 0; attempt < 3; attempt++) {
-                int clicks0 = c.events("terminal.click").size();
-                t = TerminalCases.open(c, spec);
-                MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
-                c.onClient(mc -> {
-                    Mod.setField(FEATURE, "nextAutoClickAllowedAtMs", System.currentTimeMillis() + 600_000L);
-                    return null;
-                });
-                if (c.events("terminal.click").size() == clicks0) break;
-                c.note("stall: a click went out before the wedge (attempt " + (attempt + 1) + "), reopening");
-                MenuKit.reset(c);
-                if (attempt == 2) c.check(false, "the wedge was never set before the first click");
-            }
+            long click0 = c.onClient(mc -> ((Number) Mod.field(FEATURE, "lastClickProgressMs")).longValue());
+            // The pacing is wedged from a START_CLIENT_TICK hook set BEFORE the open and re-set every tick until the stall net
+            // acts, so neither the solver's own reset at the open nor a load-slow test thread lets a click out early (the
+            // 1.5 s First Click Delay covers the frames between a reset and the next tick). Timed on the client's wall clock:
+            // the server's ticks run slow under load, so a server-tick gap proves nothing about a 2.5 s timer.
+            long[] seen = {0, 0}; // [0] ms a click went out while wedged, [1] ms from the board settling to the stall reset
+            TermBurst1111Cases.hook();
+            TermBurst1111Cases.perTick = () -> {
+                if (((Number) Mod.field(FEATURE, "stallResets")).intValue() != resets0) {
+                    if (seen[1] == 0) seen[1] = ((Number) Mod.field(FEATURE, "lastClickProgressMs")).longValue()
+                            - ((Number) Mod.field(FEATURE, "stabilizedAtMs")).longValue();
+                    return;
+                }
+                if (seen[0] == 0 && ((Number) Mod.field(FEATURE, "lastClickProgressMs")).longValue() != click0) {
+                    seen[0] = System.currentTimeMillis();
+                }
+                Mod.setField(FEATURE, "nextAutoClickAllowedAtMs", System.currentTimeMillis() + 600_000L);
+            };
+            JsonObject t = TerminalCases.open(c, spec);
+            MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
             JsonObject solved = MenuKit.awaitEvent(c, "terminal.solved", 400);
+            TermBurst1111Cases.perTick = null;
             int resets = c.onClient(mc -> ((Number) Mod.field(FEATURE, "stallResets")).intValue()) - resets0;
             long wait = solved.get("firstTick").getAsLong() - solved.get("openedTick").getAsLong();
-            c.note((burst ? "burst" : "plain") + " stall: first click " + wait + " ticks after open, " + resets
-                    + " stall reset(s), solved with " + solved.get("clicks") + " clicks");
+            c.note((burst ? "burst" : "plain") + " stall: first click " + wait + " server ticks after open, stall reset "
+                    + seen[1] + " ms after the board settled, " + resets + " stall reset(s), solved with "
+                    + solved.get("clicks") + " clicks");
             c.check(resets >= 1, "the stall net never acted");
-            c.check(wait >= 48, "a click went out " + wait + " ticks after the open, while the pacing was wedged");
+            c.check(seen[0] == 0, "a click went out while the pacing was wedged, before the stall net acted");
+            c.check(seen[1] >= 2400, "the stall net acted " + seen[1] + " ms after the board settled, before 2.5 s");
             c.check(solved.get("solved").getAsBoolean(), "the terminal was not solved after the stall");
         } finally {
+            TermBurst1111Cases.perTick = null;
             MenuKit.reset(c);
         }
     }
