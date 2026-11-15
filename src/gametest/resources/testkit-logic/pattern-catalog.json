@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-14T22:04:57",
- "modSource": "enchdesc-1114",
- "modGitSha": "172917ae0b771fba368ec2626e2fb6ad690b7a2b",
- "modSourceDirty": true,
- "count": 963,
+ "generatedAt": "2026-11-15T02:51:28",
+ "modSource": "lane-enchdesc-1114",
+ "modGitSha": "d1917b6eb4689de871e7f5764b6067d7399e6bdf",
+ "modSourceDirty": false,
+ "count": 964,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 835,
+  "field": 836,
   "local": 43
  },
  "unresolved": 160,
@@ -48,6 +48,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^This [A-Za-z]+ is on cooldown\""
+  },
+  {
+   "id": "accadvisor.AccessoryAdvisor#TITLE",
+   "cls": "accadvisor.AccessoryAdvisor",
+   "field": "TITLE",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/accadvisor/AccessoryAdvisor.java",
+   "line": 58,
+   "regex": "^Accessory Bag(?: \\((\\d{1,2})/(\\d{1,2})\\))?$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^Accessory Bag(?: \\\\((\\\\d{1,2})/(\\\\d{1,2})\\\\))?$\""
   },
   {
    "id": "ahflip.AhFlipMacro#PURCHASED_LINE",
