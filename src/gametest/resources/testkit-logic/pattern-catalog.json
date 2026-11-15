@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-14T20:33:58",
- "modSource": "lane-dialoguefold-1114-PRIORITY",
- "modGitSha": "eb4ca539362b901561e0dc318aff25a8510c3dcf",
+ "generatedAt": "2026-11-14T20:56:43",
+ "modSource": "lane-simbreakrules-1113",
+ "modGitSha": "9e8cd3d34f9eda5cad42240c99202d4fa176ae4b",
  "modSourceDirty": false,
  "count": 961,
  "byKind": {
