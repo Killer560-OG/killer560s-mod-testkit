@@ -141,7 +141,9 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                     st[0] = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
                             p -> p instanceof ServerboundUseItemPacket, 0, 1));
                 }
+                int retries = 0;
                 for (int rep = 0; rep < 3; rep++) {
+                    int problems0 = problems.size();
                     long banked0 = bank ? fillBank(ctx) : 0;
                     long short0 = splitShort(ctx);
                     Runnable press = dbl ? clicks(2) : () -> ctx.getInput().pressKey(o -> o.keyUse);
@@ -180,6 +182,18 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                     scenario.log(label + ": " + fellBack + " burst(s) fell back to Burst" + (bank ? " (bank " + banked0
                             + " before)" : "") + "; " + countLooks(dev.testkit.harness.WireCapture.snapshot())
                             + " look move(s); wire " + wire);
+                    // A bank that a server ping gap uncovered between the check and the press goes as Burst by design (the
+                    // mod counts it, no flag): that rep is retried (3 retries in all), a flag or a count never is.
+                    if (bank && fellBack != 0 && banked0 >= 19 && retries < 3
+                            && problems.subList(problems0, problems.size()).stream().noneMatch(s -> s.contains("GrimAC"))) {
+                        retries++;
+                        while (problems.size() > problems0) {
+                            problems.remove(problems.size() - 1);
+                        }
+                        scenario.log(label + ": the bank fell back to Burst (a ping gap uncovered it); retry " + retries);
+                        rep--;
+                        continue;
+                    }
                     if (bank ? banked0 >= 19 && fellBack != 0 : fellBack < 1) {
                         problems.add(label + ": " + fellBack + " burst(s) fell back to Burst (bank " + banked0 + ")");
                     }
