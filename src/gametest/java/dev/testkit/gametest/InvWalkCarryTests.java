@@ -181,12 +181,17 @@ public class InvWalkCarryTests implements FabricClientGameTest {
 
     /** Walks {@code ticks} with {@code keys}, reading the server every 2 ticks: its path and whether it had a carried item. */
     static void carryWalk(ClientGameTestContext ctx, Hx hx, Set<String> keys, int ticks, Seen seen) {
+        carryWalk(ctx, hx, keys, ticks, seen, true);
+    }
+
+    /** {@code stretch} false walks exactly {@code ticks}: the chest rows time a click against the walk and a longer walk moved it. */
+    static void carryWalk(ClientGameTestContext ctx, Hx hx, Set<String> keys, int ticks, Seen seen, boolean stretch) {
         keys(ctx, keys);
         double[] prev = spos(state(hx));
         double walked = 0;
         // A loaded PC lets the server fall behind the client's ticks (a row read 0.63 blocks for 8 ticks, 1.7 normally):
         // keep walking, up to twice as long, until the server has covered 0.15 block per tick asked.
-        for (int i = 0; i < ticks || (walked < ticks * 0.15 && i < ticks * 2); i += 2) {
+        for (int i = 0; i < ticks || (stretch && walked < ticks * 0.15 && i < ticks * 2); i += 2) {
             ctx.waitTicks(2);
             JsonObject st = state(hx);
             double[] p = spos(st);
