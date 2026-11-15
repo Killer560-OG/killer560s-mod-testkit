@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T00:03:11",
- "modSource": "lane-simbreakrules-1113",
- "modGitSha": "75981703ae34fd7c8b4f7673e4694d7c27d2a411",
+ "generatedAt": "2026-11-15T00:25:53",
+ "modSource": "lane-simpersist2-1112",
+ "modGitSha": "1c4b821cde3b9965650a76b66504f26b508e8dfd",
  "modSourceDirty": false,
  "count": 962,
  "byKind": {
