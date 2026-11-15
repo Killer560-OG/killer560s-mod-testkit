@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T10:09:15",
- "modSource": "lane-docnames-1115",
- "modGitSha": "e3b875f73901fc758b9caabd505772952be05c72",
+ "generatedAt": "2026-11-15T10:39:29",
+ "modSource": "lane-nolocraw-1115",
+ "modGitSha": "3f1f04ecbe4748f4bccf1a35623c900c07e73ce8",
  "modSourceDirty": false,
- "count": 969,
+ "count": 971,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 841,
+  "field": 843,
   "local": 43
  },
  "unresolved": 160,
@@ -7836,6 +7836,30 @@
    "flags": null,
    "kind": "field",
    "expr": "\"Strength: \\\\+(\\\\d{1,9})\""
+  },
+  {
+   "id": "relay.HypixelLocation#DATE_ID",
+   "cls": "relay.HypixelLocation",
+   "field": "DATE_ID",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/relay/HypixelLocation.java",
+   "line": 26,
+   "regex": "^\\d{1,2}/\\d{1,2}/\\d{2,4} ([A-Za-z]+[0-9][0-9A-Za-z]*)$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^\\\\d{1,2}/\\\\d{1,2}/\\\\d{2,4} ([A-Za-z]+[0-9][0-9A-Za-z]*)$\""
+  },
+  {
+   "id": "relay.HypixelLocation#CODES",
+   "cls": "relay.HypixelLocation",
+   "field": "CODES",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/relay/HypixelLocation.java",
+   "line": 28,
+   "regex": "§.",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"§.\""
   },
   {
    "id": "reparty.RepartyFeature#NAME",
