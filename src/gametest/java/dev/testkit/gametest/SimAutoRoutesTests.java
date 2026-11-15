@@ -172,7 +172,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // sim-secrets-1018: an await beside a Redstone Key spot the key never spawned at starts one secret on
             "1018-ar-keyspot-empty",
             // ar-range-1026: Replan For My Range - a saved path warp longer than his etherwarp reaches is planned again
-            "96-ar-1026-range-off", "96-ar-1026-range-on", "96-ar-1026-range-noitem"};
+            "96-ar-1026-range-off", "96-ar-1026-range-on", "96-ar-1026-range-noitem",
+            // simbreakrules-1112: the sim breaker leaves smooth granite, pistons and blocks with a torch, button or fire
+            "96-ar-1112-breakrules"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -318,6 +320,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-stackorder" -> caseStackOrder(ctx);
                         case "96-ar-crypthold" -> caseCryptHold(ctx);
                         case "96-ar-charges" -> caseCharges(ctx);
+                        case "96-ar-1112-breakrules" -> caseBreakRules(ctx);
                         case "96-ar-museum" -> caseMuseum(ctx);
                         case "96-ar-1020-boomsneak" -> caseBoomSneak(ctx);
                         case "96-ar-1016-eaten" -> caseEatenHop(ctx);
@@ -1669,6 +1672,74 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     private static void setSecretSetting(ClientGameTestContext ctx, int level) {
         ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBreakerState", "setSecretCharges", new Class<?>[]{int.class},
                 new Object[]{level}));
+    }
+
+    /** The real direction pointing from relative x=3 to x=2 (the arena frame may be rotated). */
+    private static Direction outward(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            Object frame = ModUnderTest.staticCall(FRAME, "current");
+            BlockPos a = real(frame, 3, F, 8);
+            BlockPos b = real(frame, 2, F, 8);
+            return Direction.getApproximateNearest(b.getX() - a.getX(), 0, b.getZ() - a.getZ());
+        });
+    }
+
+    /**
+     * simbreakrules-1112 (killer560 11-12): the sim's Dungeon Breaker cannot break smooth granite, a piston, a block
+     * with a torch or a button on it, or a block with fire on it, or a dispenser; a plain block breaks, and only that one spends a
+     * charge. Real START_DESTROY_BLOCK digs, answered by the sim server.
+     */
+    private void caseBreakRules(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        BlockState stone = Blocks.STONE.defaultBlockState();
+        Map<int[], BlockState> set = new LinkedHashMap<>();
+        for (int z = 5; z <= 11; z++) {
+            set.put(new int[]{3, F, z}, stone);
+            set.put(new int[]{3, F + 1, z}, Blocks.AIR.defaultBlockState());
+        }
+        set.put(new int[]{3, F, 5}, Blocks.POLISHED_GRANITE.defaultBlockState());
+        set.put(new int[]{3, F, 6}, Blocks.PISTON.defaultBlockState());
+        set.put(new int[]{3, F + 1, 7}, Blocks.TORCH.defaultBlockState());
+        set.put(new int[]{2, F, 8}, Blocks.STONE_BUTTON.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.FaceAttachedHorizontalDirectionalBlock.FACE,
+                        net.minecraft.world.level.block.state.properties.AttachFace.WALL)
+                .setValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING, outward(ctx)));
+        set.put(new int[]{3, F, 9}, Blocks.NETHERRACK.defaultBlockState());
+        set.put(new int[]{3, F + 1, 9}, Blocks.FIRE.defaultBlockState());
+        set.put(new int[]{3, F, 11}, Blocks.DISPENSER.defaultBlockState());
+        setBlocks(ctx, set);
+        tpRel(ctx, 4.5, 8.5, 90f, 0f);
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(2));
+        ctx.waitTicks(3);
+        check(waitFor(ctx, 400, () -> simCharges(ctx) == 20), "the sim breaker never filled to 20");
+        // granite, piston, torch block, button block, fire block, dispenser, then the plain block
+        int[] zs = {5, 6, 7, 8, 9, 11, 10};
+        for (int z : zs) {
+            ctx.runOnClient(mc -> {
+                BlockPos pos = real(ModUnderTest.staticCall(FRAME, "current"), 3, F, z);
+                mc.gameMode.startDestroyBlock(pos, Direction.EAST);
+                mc.gameMode.stopDestroyBlock();
+            });
+            ctx.waitTicks(4);
+        }
+        ctx.waitTicks(4);
+        String[] what = {"smooth granite", "piston", "torch block", "button block", "fire block", "dispenser"};
+        int stayed = 0;
+        for (int i = 0; i < 6; i++) {
+            boolean gone = blockAir(ctx, 3, F, zs[i]);
+            if (!gone) {
+                stayed++;
+            }
+            check(!gone, what[i] + " was broken by the sim breaker");
+        }
+        boolean plain = blockAir(ctx, 3, F, 10);
+        int c = simCharges(ctx);
+        println("breakrules: " + stayed + " of 6 refused, plain block broken=" + plain + ", charges 20 -> " + c);
+        check(stayed == 6, "only " + stayed + " of 6 protected blocks stayed");
+        check(plain, "the plain block did not break, so the breaker never acted");
+        check(c >= 17, "refused breaks must spend nothing (only the plain one costs a charge), charges are " + c);
     }
 
     private void caseChargesBody(ClientGameTestContext ctx) {

@@ -35,7 +35,7 @@ final class Ap3Crystal1109Cases {
         s.test("1109-ap3-crystal-store", Ap3Crystal1109Cases::store);
     }
 
-    private static boolean cheatBuild() {
+    static boolean cheatBuild() {
         try {
             return Class.forName("com.killer560.hub.BuildVariant").getField("CHEAT_FEATURES_ENABLED").getBoolean(null);
         } catch (ReflectiveOperationException e) {

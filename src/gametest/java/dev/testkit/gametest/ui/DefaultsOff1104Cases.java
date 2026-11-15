@@ -66,6 +66,9 @@ final class DefaultsOff1104Cases {
                     "witherKingStatueBox", "dimensionalSlashAlert"},
             {"dungeonqol.DungeonQolConfig", "itemQuality", "icedBoxes", "roomHud"},
             {"autoclosechest.AutoCloseChestConfig", "enabled"},
+            {"accadvisor.AccessoryAdvisorConfig", "enabled"},
+            {"f7spots.F7SpotsConfig", "stormBow", "stormBowTerminator", "stormBowWalk"},
+            {"boss.LividSolverConfig", "autoM5", "m5ArmorSwap"},
     };
 
     /**
