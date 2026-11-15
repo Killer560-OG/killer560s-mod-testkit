@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-14T18:33:28",
- "modSource": "lane-blinklag-1114",
- "modGitSha": "dd93ff22ad8a452ceb5c2450a444d7cf4f512fa7",
+ "generatedAt": "2026-11-14T20:13:23",
+ "modSource": "lane-termfoil-1113",
+ "modGitSha": "416bdc0d08924602ed8f325015e21e5e0b816909",
  "modSourceDirty": false,
  "count": 957,
  "byKind": {

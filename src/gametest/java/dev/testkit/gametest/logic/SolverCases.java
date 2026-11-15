@@ -97,7 +97,7 @@ final class SolverCases {
         rubixSweep(c);
         Mod.staticCall(TERM, "resetRubixTarget");
 
-        // STARTS_WITH: names by letter, glinting items skipped except a golden apple.
+        // STARTS_WITH: names by letter, picked (glinting) items skipped; an item that glints by itself counts only once enchanted.
         List<ItemStack> sw = board(45);
         sw.set(10, stack(Items.REDSTONE, 1, "Redstone", false));
         sw.set(11, stack(Items.APPLE, 1, "Apple", false));
@@ -105,10 +105,11 @@ final class SolverCases {
         sw.set(13, stack(Items.POPPY, 1, "§aRose Bush", false));
         c.eq("starts with R", Set.of(10, 13), solve("STARTS_WITH", "What starts with: 'R'?", sw).keySet());
         List<ItemStack> sg = board(45);
-        sg.set(10, stack(Items.GOLDEN_APPLE, 1, "Golden Apple", true));
+        sg.set(10, stack(Items.ENCHANTED_GOLDEN_APPLE, 1, "Golden Apple", false));
         sg.set(11, stack(Items.GOLD_INGOT, 1, "Gold Ingot", true));
         sg.set(12, stack(Items.GLASS, 1, "Glass", false));
-        c.eq("starts with G keeps the glinting golden apple", Set.of(10, 12),
+        sg.set(13, stack(Items.GOLDEN_APPLE, 1, "Golden Apple", true));
+        c.eq("starts with G keeps the self-glinting apple, skips a picked one", Set.of(10, 12),
                 solve("STARTS_WITH", "What starts with: 'G'?", sg).keySet());
 
         // SELECT: color from the title (Hypixel writes it upper case), aliases, glint and black panes skipped.
