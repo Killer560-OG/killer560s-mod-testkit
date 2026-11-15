@@ -427,7 +427,7 @@ final class BossAuraTurnCases {
             SimonSaysCases.click(c, SimonSaysCases.START);
             c.waitUntil("the device to start (Hx)", mc -> !"IDLE".equals(SimonSaysCases.state(c).get("phase").getAsString()), 60);
             // Now face the way the case is about (server tp, so no rotation of the harness's own is ever sent).
-            c.hx().call("dungeon.tp", "x", 107.5, "y", 120.0, "z", 93.5, "yaw", yaw, "pitch", 0f);
+            c.hx().call("dungeon.tp", "x", 107.5, "y", 120.4, "z", 93.5, "yaw", yaw, "pitch", 0f);
             c.waitUntil("the client facing " + yaw, mc -> Math.abs(Mth.wrapDegrees(mc.player.getYRot() - yaw)) < 0.01f, 40);
             c.ctx().waitTicks(2);
             float[] cam = start(c);

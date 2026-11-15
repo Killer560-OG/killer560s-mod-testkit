@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T16:36:49",
+ "generatedAt": "2026-11-15T17:39:22",
  "modSource": "termship-1115",
- "modGitSha": "29dce4de635f492453e51ba3cf2ad955ab6cff5e",
+ "modGitSha": "65926fec9fd72983bfe6efbbf4bb85126248b9ae",
  "modSourceDirty": false,
  "count": 974,
  "byKind": {
