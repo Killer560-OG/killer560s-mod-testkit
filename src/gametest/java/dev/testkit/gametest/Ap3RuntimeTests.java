@@ -57,7 +57,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
     static final String STORE = P + "Ap3Store";
     private static final String NODE = P + "Ap3Node";
     private static final String TYPE = P + "Ap3Node$Type";
-    private static final String AREA = P + "Ap3Area";
+    static final String AREA = P + "Ap3Area";
 
     /** Floor block layer; the player stands at FLOOR + 1. Lanes run +x from LANE_X0, one every LANE_DZ in z. */
     static final int FLOOR = 120;
@@ -151,6 +151,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             Ap3BlinkCombo1027Cases.register(s);
             // mod ap3-stop-1101: a Term Aura stops him like a Stop; a Stop / Term Aura fires once per entry.
             Ap3Stop1101Cases.register(s);
+            Ap3DelRedo1112Cases.register(s);
             // grimgapA-1105: his own use / swap / teleport answer / left click in the tick a node acts.
             Ap3SameTick1105Cases.register(s);
             // mod ap3-blink-1026: the Blink Charge and Blink Release nodes. Registered last: 1026-ap3-blink-leap keeps the
