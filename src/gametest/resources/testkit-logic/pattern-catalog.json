@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-14T20:33:58",
- "modSource": "lane-dialoguefold-1114-PRIORITY",
- "modGitSha": "eb4ca539362b901561e0dc318aff25a8510c3dcf",
+ "generatedAt": "2026-11-14T20:53:15",
+ "modSource": "lane-bloodrush-boxes-1113",
+ "modGitSha": "cf7ed54fe237eaeeee377f5596844f84cd42ad8b",
  "modSourceDirty": false,
  "count": 961,
  "byKind": {
