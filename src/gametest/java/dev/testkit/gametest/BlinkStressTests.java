@@ -1678,6 +1678,10 @@ public class BlinkStressTests implements FabricClientGameTest {
                     } else {
                         chargeOn(ctx);
                         ctx.waitTicks(30);
+                        // the bank fills at the server's pace and is paused after a ping gap: wait for the full bank, not 30 ticks
+                        for (int t = 0; t < 100 && cnum(ctx, "banked") < 20; t++) {
+                            ctx.waitTicks(1);
+                        }
                         long bank = cnum(ctx, "banked");
                         freeze.run();
                         ctx.waitTicks(40);
