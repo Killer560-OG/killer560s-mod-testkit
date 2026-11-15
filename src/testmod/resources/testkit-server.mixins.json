@@ -6,6 +6,7 @@
 	"server": [
 		"AccessorPlayerInfoUpdatePacket",
 		"InvokerArmorStand",
+		"MixinFishingHookLegacy",
 		"MixinCommands",
 		"MixinServerGamePacketListener",
 		"MixinServerSignUpdate"

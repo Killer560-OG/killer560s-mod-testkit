@@ -60,6 +60,7 @@ final class Carnival1114Cases {
         s.test("3820-carnival-dig-walk", Carnival1114Cases::digWalk);
         s.test("3821-carnival-fish-settled-recast", Carnival1114Cases::fishRecast);
         s.test("3822-carnival-zombie-one-dart", Carnival1114Cases::zombieOneDart);
+        Carnival1114bCases.register(s);
     }
 
     private static String inline(String who, String text, String... cmds) {
@@ -309,24 +310,25 @@ final class Carnival1114Cases {
     static void leadMath(Session c) {
         try {
             c.onClient(mc -> Mod.staticCall("carnival.Lead", "clearForTest"));
-            // His darts flew about 4 blocks a tick and dropped (gravity ~0.05): 15 blocks is 3.75 ticks of flight, so a zombie
-            // walking 0.12 a tick is led 0.45 and the aim raised 0.5 * 0.05 * 3.75^2 = 0.35.
+            // His darts flew about 4 blocks a tick and dropped (gravity ~0.05): 15 blocks is 3.75 ticks of flight plus the
+            // tick the server takes to fire the use (carnfix3-1114: his misses were behind), so a zombie walking 0.12 a tick
+            // is led (3.75 + 1) * 0.12 = 0.57 and the aim raised 0.5 * 0.05 * 3.75^2 = 0.35.
             double[] walk = lead(c, "testDartAim", 0.12, 15.0);
             double[] still = lead(c, "testDartAim", 0.0, 15.0);
             double[] far = lead(c, "testDartAim", 0.12, 30.0);
             c.note(String.format(Locale.ROOT, "aim at 15: walking x %.3f y %.3f, still x %.3f y %.3f; at 30: x %.3f y %.3f",
                     walk[0], walk[1], still[0], still[1], far[0], far[1]));
-            c.check(Math.abs(walk[0] - 0.45) < 0.01 && Math.abs(walk[1] - 0.352) < 0.01, "the dart aim at 15 blocks was "
-                    + walk[0] + ", " + walk[1] + ", want 0.45 ahead and 0.35 up");
+            c.check(Math.abs(walk[0] - 0.57) < 0.01 && Math.abs(walk[1] - 0.352) < 0.01, "the dart aim at 15 blocks was "
+                    + walk[0] + ", " + walk[1] + ", want 0.57 ahead and 0.35 up");
             c.check(Math.abs(still[0]) < 1e-9 && still[1] > 0.3, "a still target was led, or the drop not allowed for");
-            c.check(far[0] > walk[0] * 1.9 && far[1] > walk[1] * 3.5, "a farther target was not led and raised more");
+            c.check(far[0] > walk[0] * 1.7 && far[1] > walk[1] * 3.5, "a farther target was not led and raised more");
             // A dart that passed 0.24 ahead and 0.2 under teaches half of it: one tick less lead, 0.1 higher.
             double[] learnt = lead(c, "testLearn", 1, 0.24, 0.2);
             double[] after = lead(c, "testDartAim", 0.12, 15.0);
             c.note("after one dart: lead bias " + learnt[0] + ", height bias " + learnt[1] + "; aim " + after[0] + ", " + after[1]);
             c.check(Math.abs(learnt[0] + 1.0) < 1e-6 && Math.abs(learnt[1] - 0.1) < 1e-6 && learnt[2] == 1,
                     "one dart's pass taught lead " + learnt[0] + " height " + learnt[1] + ", want -1 and 0.1");
-            c.check(Math.abs(after[0] - 0.33) < 0.01 && after[1] > walk[1] + 0.09, "the aim did not use what it learned");
+            c.check(Math.abs(after[0] - 0.45) < 0.01 && after[1] > walk[1] + 0.09, "the aim did not use what it learned");
             // Bounded both ways.
             double[] hi = lead(c, "testLearn", 400, 5.0, 5.0);
             double[] lo = lead(c, "testLearn", 800, -5.0, -5.0);
@@ -344,8 +346,17 @@ final class Carnival1114Cases {
             c.onClient(mc -> Mod.staticCall("carnival.Lead", "testLearn", 3, 0.5, 0.5));
             c.onClient(mc -> Mod.staticCall("carnival.Lead", "clearForTest"));
             double[] cal = lead(c, "calibrationForTest");
-            c.check(cal[0] == 4.0 && cal[1] == 0 && cal[2] == 0 && cal[4] == 1 && cal[5] == 0,
+            c.check(cal[0] == 4.0 && cal[1] == 0 && cal[2] == 0 && cal[4] == 0 && cal[5] == 0,
                     "clear left " + java.util.Arrays.toString(cal));
+            // Where a cast comes to rest on the 1.8 hook (splash and glide), from his eye 71.62 onto water at 69.89; the
+            // numbers are the same physics run in Python (killer560s-mod-logs/carnfix3-bobsim.py).
+            double[][] table = {{0, 14.645, 30}, {10, 11.848, 26}, {30, 8.786, 24}, {45, 6.626, 22}};
+            for (double[] row : table) {
+                double[] r = lead(c, "testCastRest", row[0], 71.62, 69.89);
+                c.note(String.format(Locale.ROOT, "cast at pitch %.0f rests %.3f out after %.0f ticks (want %.3f, %.0f)", row[0], r[0], r[1], row[1], row[2]));
+                c.check(Math.abs(r[0] - row[1]) < 0.1 && Math.abs(r[1] - row[2]) <= 1, "pitch " + row[0] + " rests " + r[0] + " after " + r[1]
+                        + " ticks, want " + row[1] + " after " + row[2]);
+            }
         } finally {
             c.onClient(mc -> Mod.staticCall("carnival.Lead", "clearForTest"));
         }
@@ -632,6 +643,13 @@ final class Carnival1114Cases {
             c.check(z0 - z1 > 1, "it did not get closer to the grid (" + (z0 - z1) + " blocks)");
             c.check(forward.contains(Boolean.TRUE), "no input packet with Forward reached the server");
             c.check(!keyUp, "Forward was left held after it reached the pick");
+            String dug = c.onClient(mc -> (String) Mod.staticCall("carnival.AutoFruitDigging", "lastTarget"));
+            String lb = dug.split("/")[0];
+            double tx = GX + (lb.charAt(1) - '1') + 0.5;
+            double tz = GZ + (lb.charAt(0) - 'A') + 0.5;
+            double flat = c.onClient(mc -> Math.hypot(mc.player.getX() - tx, mc.player.getZ() - tz));
+            c.note(String.format(Locale.ROOT, "dug %s from %.2f blocks (flat, feet to tile middle)", lb, flat));
+            c.check(flat <= 1.6, "it stopped " + flat + " blocks from the tile it dug, want next to it (1.6)");
         } finally {
             PacketTrace.tap = null;
             c.server().command("attribute @p minecraft:block_break_speed base set 1");
