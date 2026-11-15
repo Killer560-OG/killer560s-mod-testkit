@@ -67,7 +67,7 @@ final class MenuLayoutCases {
     private static final String CHEAT = "§c§l";
     private static final String LEGIT = "§6§l";
     /** The only folders a category may hold: each was asked for as one tab (killer560, 2026-09-20). */
-    private static final Set<String> NESTED_OK = Set.of("Secrets", "Puzzle Solvers", "Commissions and Mithril", "Powder Mining", "General",
+    private static final Set<String> NESTED_OK = Set.of("Secrets", "Carnival", "Puzzle Solvers", "Commissions and Mithril", "Powder Mining", "General",
             "Dwarven Mines and Glacite", "Crystal Hollows");
     /** Sections added by this change (cheat build): Home's Correction Alarm, out of the middle of Mod & HUD. */
     private static final Set<String> NEW_LEAVES = Set.of("gui.tab.PowderBreakSoundsTab", "gui.tab.CorrectionAlarmTab",
@@ -230,7 +230,7 @@ final class MenuLayoutCases {
 
             // The Option A categories (mod menu-a, 2026-10-12): Favorites is a sidebar entry, not a category. Mining since
             // mod doc-mining-1101 (the pre-2.0 mining features).
-            c.check(top.equals(List.of("Home", "Dungeons", "Mining", "Carnival", "HUD", "Chat", "Items", "Social", "Cosmetics", "Misc", "Profiles")),
+            c.check(top.equals(List.of("Home", "Dungeons", "Mining", "HUD", "Chat", "Items", "Social", "Cosmetics", "Misc", "Profiles")),
                     "the categories are " + top);
             // (a) Crosshair: not top level, a card of HUD (General until the 2026-10-12 regroup), and its rows build there.
             for (String t : top) {

@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-14T20:27:04",
- "modSource": "lane-accadvisor-1114",
- "modGitSha": "c18aaef267abfc0a35d2eeebc4842b64a538e2bd",
+ "generatedAt": "2026-11-14T21:08:52",
+ "modSource": "lane-delredo-1113b",
+ "modGitSha": "5b557218f67fefb3109bcf6574a3471aab6e12b7",
  "modSourceDirty": false,
- "count": 958,
+ "count": 961,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 830,
+  "field": 833,
   "local": 43
  },
  "unresolved": 160,
@@ -48,18 +48,6 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^This [A-Za-z]+ is on cooldown\""
-  },
-  {
-   "id": "accadvisor.AccessoryAdvisor#TITLE",
-   "cls": "accadvisor.AccessoryAdvisor",
-   "field": "TITLE",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/accadvisor/AccessoryAdvisor.java",
-   "line": 58,
-   "regex": "^Accessory Bag(?: \\((\\d{1,2})/(\\d{1,2})\\))?$",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"^Accessory Bag(?: \\\\((\\\\d{1,2})/(\\\\d{1,2})\\\\))?$\""
   },
   {
    "id": "ahflip.AhFlipMacro#PURCHASED_LINE",
@@ -1802,6 +1790,18 @@
    "expr": "\"(?i)(?:[A-Z]:[\\\\\\\\/]+Users[\\\\\\\\/]+|/home/|/Users/)[^\\\\\\\\/\\\\s\\\"':]{1,64}\""
   },
   {
+   "id": "carnival.AutoAcceptGame#GAME_NPC",
+   "cls": "carnival.AutoAcceptGame",
+   "field": "GAME_NPC",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/carnival/AutoAcceptGame.java",
+   "line": 28,
+   "regex": "^\\[NPC] Carnival (?:Pirateman|Cowboy|Fisherman): .*",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^\\\\[NPC] Carnival (?:Pirateman|Cowboy|Fisherman): .*\""
+  },
+  {
    "id": "carnival.CarnivalState#START_FRUIT",
    "cls": "carnival.CarnivalState",
    "field": "START_FRUIT",
@@ -1982,6 +1982,30 @@
    "expr": "\"^\\\\[NPC] Carnival Leader: You've already claimed your Carnival Tickets\" + \" for today, but I'm happy to answer any questions you might have\\\\.?$\""
   },
   {
+   "id": "carnival.CatchAFish#PERCENT",
+   "cls": "carnival.CatchAFish",
+   "field": "PERCENT",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/carnival/CatchAFish.java",
+   "line": 278,
+   "regex": "(\\d{1,3})\\s?%",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"(\\\\d{1,3})\\\\s?%\""
+  },
+  {
+   "id": "carnival.CatchAFish#SECONDS",
+   "cls": "carnival.CatchAFish",
+   "field": "SECONDS",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/carnival/CatchAFish.java",
+   "line": 279,
+   "regex": "(\\d{1,2}(?:\\.\\d)?)\\s?s\\b",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"(\\\\d{1,2}(?:\\\\.\\\\d)?)\\\\s?s\\\\b\""
+  },
+  {
    "id": "carnival.FruitDigging#TREASURE",
    "cls": "carnival.FruitDigging",
    "field": "TREASURE",
@@ -2028,6 +2052,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^([A-Za-z ]{3,20}?)(?: \\\\(\\\\+\\\\d{1,5}\\\\))?$\""
+  },
+  {
+   "id": "carnival.ZombieShootout#TAG_SECONDS",
+   "cls": "carnival.ZombieShootout",
+   "field": "TAG_SECONDS",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/carnival/ZombieShootout.java",
+   "line": 230,
+   "regex": "(\\d+(?:\\.\\d+)?)\\s*s\\b",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"(\\\\d+(?:\\\\.\\\\d+)?)\\\\s*s\\\\b\""
   },
   {
    "id": "chattabs.ChatTabsFeature#WHISPER",
