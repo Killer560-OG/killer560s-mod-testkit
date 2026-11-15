@@ -416,7 +416,7 @@ final class BossAuraTurnCases {
             undo.add(c.onClient(mc -> Mod.with(cfg, "AutoSimonSaysEnabled", true))); // the master switch (1a4e48f60)
             undo.add(c.onClient(mc -> Mod.with(cfg, "AutoSolveEnabled", true)));
             c.hx().call("boss.ss.build", "rounds", 4, "line", true, "seed", seed);
-            c.hx().call("dungeon.tp", "x", 107.5, "y", 120.0, "z", 93.5, "yaw", -90f, "pitch", 0f);
+            SimonSaysCases.tpToDevice(c);
             c.waitUntil("the client to have the device wall and start button", mc ->
                     mc.level.getBlockState(new BlockPos(111, 120, 92)).is(net.minecraft.world.level.block.Blocks.OBSIDIAN)
                             && mc.level.getBlockState(SimonSaysCases.START).is(net.minecraft.world.level.block.Blocks.STONE_BUTTON), 200);
