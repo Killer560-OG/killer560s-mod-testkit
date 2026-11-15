@@ -57,18 +57,16 @@ final class Carnival1110Cases {
     // ---- shared ---------------------------------------------------------------------------------------------------
 
     /** Slots 0/1/2: golden (Treasure), iron (Mines), diamond (Anchor) Carnival Shovels. */
-    private static void shovels(Session c) {
-        c.hx().give(0, "minecraft:golden_shovel[custom_name='Carnival Shovel']");
-        c.hx().give(1, "minecraft:iron_shovel[custom_name='Carnival Shovel']");
-        c.hx().give(2, "minecraft:diamond_shovel[custom_name='Carnival Shovel']");
+    static void shovels(Session c) {
+        Carnival1111Cases.realShovels(c);
     }
 
-    private static int slotFor(String mode) {
+    static int slotFor(String mode) {
         return "Mines".equals(mode) ? 1 : "Anchor".equals(mode) ? 2 : 0;
     }
 
     /** {label, shovel mode} of the solver's pick, or null. */
-    private static String[] pick(Session c) {
+    static String[] pick(Session c) {
         c.waitUntil("the solver picks a tile", mc -> Mod.field(Mod.ROOT + "carnival.FruitDigging", "recommendation") != null, 80);
         return c.onClient(mc -> {
             Object rec = Mod.field(Mod.ROOT + "carnival.FruitDigging", "recommendation");
@@ -88,7 +86,7 @@ final class Carnival1110Cases {
     }
 
     /** Stands at the grid's center and looks at {@code label}'s top face, at its point nearest to him. */
-    private static void aimAt(Session c, String label, boolean sneaking) {
+    static void aimAt(Session c, String label, boolean sneaking) {
         int[] t = tile(label);
         double x = Math.max(t[0] + 0.2, Math.min(t[0] + 0.8, PX));
         double z = Math.max(t[1] + 0.2, Math.min(t[1] + 0.8, PZ));
@@ -104,7 +102,7 @@ final class Carnival1110Cases {
                 && b.getBlockPos().getX() == t[0] && b.getBlockPos().getZ() == t[1] && b.getBlockPos().getY() == Y, 40);
     }
 
-    private static List<JsonObject> digsAt(Session c, long since, String label) {
+    static List<JsonObject> digsAt(Session c, long since, String label) {
         int[] t = tile(label);
         return c.hx().events(since, "attack_block").stream().filter(e -> {
             int[] p = CarnivalSuite.pos(e);
@@ -112,7 +110,7 @@ final class Carnival1110Cases {
         }).toList();
     }
 
-    private static void click(Session c) {
+    static void click(Session c) {
         c.onClient(mc -> {
             net.minecraft.client.KeyMapping.click(mc.options.keyAttack.getDefaultKey());
             return null;
@@ -129,7 +127,7 @@ final class Carnival1110Cases {
                 () -> Mod.call(Mod.staticCall("carnival.FruitDiggingConfig", "getInstance"), setter, restore));
     }
 
-    private static void finish(Session c) {
+    static void finish(Session c) {
         c.onClient(mc -> {
             mc.options.keyShift.setDown(false);
             mc.options.keyUse.setDown(false);

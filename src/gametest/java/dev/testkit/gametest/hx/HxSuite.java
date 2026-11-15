@@ -148,10 +148,15 @@ public class HxSuite implements FabricClientGameTest {
                     HxChestFx1104Cases.register(s);
                     // Powder Chest Triggerbot: swap to the best Gemstone Powder drill, click, rate limit (1104-chestbot-*, mod chestbot-1104).
                     HxChestBot1104Cases.register(s);
+                    // Powder chests he dug with no line, beside another player's, far, island lapse, section update (1113-chestmiss-*, mod chestmiss-1113).
+                    HxChestMiss1113Cases.register(s);
                     // Swap To Drill On Pigeon and Auto Ult, idle and with his use / attack / swap in their ticks (1105-same-*, grimgapC-1105).
                     HxSameTick1105Cases.register(s);
+
                     // Auto Superboom, cheat only, with his dig / use / scroll / teleport in the swap tick (1108-same-superboom-*, featD-1108).
                     HxSuperboom1108Cases.register(s);
+                    // Storm Bow release and Auto M5, idle and with his actions in their ticks (1111-*stormbow*, 1111-*autom5*, mod stormm5-1111).
+                    HxStormM51111Cases.register(s);
                     HxCheatBugs1109Cases.register(s);
                     // Deployables: lantern circles, in-radius and the timer HUD (1104-minedeploy, mod minedeploy-1104).
                     HxMineDeploy1104Cases.register(s);
