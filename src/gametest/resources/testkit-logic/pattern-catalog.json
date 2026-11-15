@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T10:39:29",
- "modSource": "lane-nolocraw-1115",
- "modGitSha": "3f1f04ecbe4748f4bccf1a35623c900c07e73ce8",
+ "generatedAt": "2026-11-15T11:32:34",
+ "modSource": "lane-bugcmd-1115",
+ "modGitSha": "3f6aaba071b1f848f4371f2713b2788da89e59cf",
  "modSourceDirty": false,
  "count": 971,
  "byKind": {
