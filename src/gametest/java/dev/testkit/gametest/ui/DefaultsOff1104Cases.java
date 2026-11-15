@@ -42,6 +42,7 @@ final class DefaultsOff1104Cases {
             {"simonsays.SimonSaysConfig", "autoSimonSaysEnabled"},
             {"mining.nucleus.NucleusRunProfitConfig", "enabled"},
             {"mining.profit.MiningProfitConfig", "enabled"},
+            {"commissioncolors.CommissionColorsConfig", "enabled"},
             {"miningqol.MiningQolConfig", "wrongArmor", "junglePick", "resumeHeldBreak", "powderGhast"},
             {"powdermining.PowderMiningConfig", "doublePowder", "lootCompact", "lockpickHelper", "powderTracker",
                     "chestAlert", "treasureChest"},
