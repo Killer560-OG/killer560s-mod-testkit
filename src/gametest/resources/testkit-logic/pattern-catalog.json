@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T08:23:37",
- "modSource": "lane-argrimlegit-1111",
- "modGitSha": "49e1cd2d581d5388b913fcf4a99fe7ae777e622b",
+ "generatedAt": "2026-11-15T09:07:00",
+ "modSource": "lane-simtermlclick-1114",
+ "modGitSha": "69f02ed327dddf79fa5f39680b3fe288b0caeee4",
  "modSourceDirty": false,
  "count": 964,
  "byKind": {
