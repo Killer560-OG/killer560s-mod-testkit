@@ -122,6 +122,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1015-landpickup", "96-ar-1015-earlyskip", "96-ar-1015-mimicskip",
             // doc-etable-1101: the Emergency Cancel Key stops a route and Mimic Killer, and its hold starts no route
             "96-ar-1101-ecancel",
+            // arfinder-1115: finder routes played in their rooms (model ticks == sim ticks)
+            "96-ar-1115-arfinder",
             // secretfade-1102: a taken secret's waypoint goes within 2 ticks, and Secret Clicked leaves no gold box
             "96-ar-1102-secrettaken",
             // ar-warp-after-click (2026-10-15): Hypixel ignores a use right after a block click with the same item
@@ -349,6 +351,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1015-earlyskip" -> ArMainServerCases.earlySkip(ctx);
                         case "96-ar-1015-mimicskip" -> ArMainServerCases.mimicSkip(ctx);
                         case "96-ar-1101-ecancel" -> caseEmergencyCancel(ctx);
+                        case "96-ar-1115-arfinder" -> { try { caseArFinder(ctx); } catch (Exception e) { throw new RuntimeException(e); } }
                         case "96-ar-1102-secrettaken" -> caseSecretTaken(ctx);
                         case "96-ar-1015-warpclick" -> ArMainServerCases.warpAfterClick(ctx);
                         case "96-ar-1015-puzzleclick" -> ArMainServerCases.puzzleWarpAfterClick(ctx);
@@ -10702,4 +10705,103 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             return String.format(Locale.US, "%.2f", d);
         }
     }
+    // ============================================================================================ arfinder-1115
+
+    /** Where the route finder (killer560s-mod-logs/arfinder-1115) lists the finder outputs to check, one path a line. */
+    private static final Path ARFINDER_INPUT = Path.of(System.getenv().getOrDefault("ARFINDER_INPUT",
+            "C:/Users/Hunter/killer560s-mod-logs/arfinder-1115/simcheck/input.txt"));
+
+    /**
+     * arfinder-1115: each finder route is played in its room as Auto Routes plays it (obvious mode, Secret Aura on at
+     * its defaults, both let go on the tick he stands on the start node, as after an Interactive Map warp). Prints the
+     * client tick of every node action, aura click and sim secret event, and fails unless the route completes, every
+     * secret it plans is credited by the sim (SimScore), and its ticks equal the finder's model.
+     */
+    private static void caseArFinder(ClientGameTestContext ctx) throws Exception {
+        if (!Files.exists(ARFINDER_INPUT)) {
+            println("arfinder: no input file " + ARFINDER_INPUT + " - nothing to check");
+            return;
+        }
+        String saved = room;
+        List<String> fails = new ArrayList<>();
+        try {
+            for (String line : Files.readAllLines(ARFINDER_INPUT, StandardCharsets.UTF_8)) {
+                if (line.isBlank() || line.startsWith("#")) continue;
+                JsonObject in = JsonParser.parseString(Files.readString(Path.of(line.trim()), StandardCharsets.UTF_8))
+                        .getAsJsonObject();
+                String r = in.get("room").getAsString();
+                int modelTicks = in.get("ticks").getAsInt();
+                int expect = in.get("secretsPlanned").getAsInt();
+                List<JsonObject> nodes = new ArrayList<>();
+                for (JsonElement e : in.getAsJsonArray("route")) nodes.add(e.getAsJsonObject());
+                JsonObject first = nodes.get(0);
+                resetRoutes(ctx);
+                room = r;
+                ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+                buildRoom(ctx, in.has("buildRotation") ? in.get("buildRotation").getAsInt() : 0);
+                giveHotbar(ctx);
+                ctx.runOnClient(mc -> {
+                    Object ar = ModUnderTest.config(AR_CONFIG);
+                    ModUnderTest.set(ar, "setEnabled", false);
+                    ModUnderTest.set(ar, "setLegitMode", false);
+                    ModUnderTest.set(ar, "setStartFromStartNodeOnly", true);
+                });
+                writeRoute(ctx, nodes);
+                tpRelY(ctx, first.get("x").getAsDouble(), first.get("y").getAsDouble(), first.get("z").getAsDouble(),
+                        first.get("yaw").getAsFloat(), first.get("pitch").getAsFloat());
+                ctx.waitFor(mc -> mc.player.onGround(), 200);
+                ctx.waitTicks(5);
+                int found0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound"));
+                long m = LogTap.mark();
+                // Both let go on one tick, the aura first (as after a map warp).
+                ctx.runOnClient(mc -> {
+                    ModUnderTest.set(ModUnderTest.config(CHEAT_CFG), "setSecretAuraEnabled", true);
+                    ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", true);
+                });
+                int started = -1, complete = -1, seen = 0;
+                List<String> timeline = new ArrayList<>();
+                for (int tick = 0; tick < 1200 && complete < 0; tick++) {
+                    List<String> lines = LogTap.since(m);
+                    for (int i = seen; i < lines.size(); i++) {
+                        String l = lines.get(i);
+                        if (started < 0 && l.contains("[AutoRoutes] Started")) started = tick;
+                        if (l.contains("Route \"" + r + "\" complete")) complete = tick;
+                        if (l.contains("Stopped") && l.contains("AutoRoutes")) { complete = -2; }
+                        if (l.contains("acted") || l.contains("click sent") || l.contains("Sim secret") || l.contains("appeared")
+                                || l.contains("Started") || l.contains("complete") || l.contains("Stopped")
+                                || l.contains("secret gap") || l.contains("landed") || l.contains("pick")) {
+                            timeline.add("t" + tick + " " + l.substring(Math.max(0, l.indexOf(']') - 40)));
+                        }
+                    }
+                    seen = lines.size();
+                    if (complete == -2) break;
+                    ctx.waitTicks(1);
+                }
+                ctx.waitTicks(10);
+                int found1 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound"));
+                ctx.runOnClient(mc -> {
+                    ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", false);
+                    ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled");
+                });
+                stopRoute(ctx);
+                int simTicks = complete >= 0 && started >= 0 ? complete - started : -1;
+                String verdict = "arfinder " + r + ": model " + modelTicks + " ticks, sim " + simTicks
+                        + " (started t" + started + ", complete t" + complete + "), secrets " + (found1 - found0) + "/" + expect;
+                println(verdict);
+                timeline.forEach(t -> println("arfinder " + r + " | " + t));
+                Path out = ARFINDER_INPUT.resolveSibling("result-" + r.replace(' ', '_') + ".txt");
+                List<String> o = new ArrayList<>();
+                o.add(verdict);
+                o.addAll(timeline);
+                Files.write(out, o, StandardCharsets.UTF_8);
+                if (complete < 0) fails.add(r + ": route did not complete");
+                else if (found1 - found0 < expect) fails.add(r + ": only " + (found1 - found0) + " of " + expect + " secrets");
+                else if (simTicks != modelTicks) fails.add(r + ": model " + modelTicks + " != sim " + simTicks);
+            }
+        } finally {
+            room = saved;
+        }
+        check(fails.isEmpty(), String.join("; ", fails));
+    }
+
 }
