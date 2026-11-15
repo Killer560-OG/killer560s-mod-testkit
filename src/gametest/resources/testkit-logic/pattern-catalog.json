@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-14T23:37:02",
- "modSource": "lane-ap3setup-1114",
- "modGitSha": "702e3f4c61be90e65836c25cf8dcd6bf4f53d2a8",
+ "generatedAt": "2026-11-14T23:49:13",
+ "modSource": "lane-tipscroll3-1114-PRIORITY",
+ "modGitSha": "cf7f2ef2db50e1310ff6046d20f68f7bec3e4122",
  "modSourceDirty": false,
  "count": 962,
  "byKind": {
