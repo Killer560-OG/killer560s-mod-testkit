@@ -184,6 +184,7 @@ public class MenuSuite implements FabricClientGameTest {
                     DungeonMenuCases.register(s);
                     InventoryCases.register(s);
                     ItemCases.register(s);
+                    EnchDesc1114Cases.register(s); // 1114-enchdesc-*: Hide Enchant Descriptions (enchdesc-1114)
                     PriceTooltipCases.register(s); // 1750-1754: Price Tooltip (price-tooltip-1015)
                     Networth1104Cases.register(s); // 1104-networth-*, 1104-menu-storage-pricetip (networth-1104)
                     PvStyle1104Cases.register(s); // 1104-menu-pvstyle: the Profile Viewer's Styles (pvstyle-1104)

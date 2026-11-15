@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-14T21:08:52",
- "modSource": "lane-delredo-1113b",
- "modGitSha": "5b557218f67fefb3109bcf6574a3471aab6e12b7",
- "modSourceDirty": false,
- "count": 961,
+ "generatedAt": "2026-11-14T22:04:57",
+ "modSource": "enchdesc-1114",
+ "modGitSha": "172917ae0b771fba368ec2626e2fb6ad690b7a2b",
+ "modSourceDirty": true,
+ "count": 963,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 833,
+  "field": 835,
   "local": 43
  },
  "unresolved": 160,
@@ -3600,6 +3600,30 @@
    "flags": null,
    "kind": "field",
    "expr": "\"(?<codes>(?:§.)*)(?<enchant>[A-Za-z][A-Za-z '-]+) (?<level>[IVXLCDM]+|[0-9]+)\""
+  },
+  {
+   "id": "enchantcolors.EnchantColorsFeature#BLANK",
+   "cls": "enchantcolors.EnchantColorsFeature",
+   "field": "BLANK",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/enchantcolors/EnchantColorsFeature.java",
+   "line": 285,
+   "regex": "^(?:§.| )*$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(?:§.|\\s)*$\""
+  },
+  {
+   "id": "enchantcolors.EnchantColorsFeature#GRAY_START",
+   "cls": "enchantcolors.EnchantColorsFeature",
+   "field": "GRAY_START",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/enchantcolors/EnchantColorsFeature.java",
+   "line": 287,
+   "regex": "^(?:§[^78])*§[78]",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(?:§[^78])*§[78]\""
   },
   {
    "id": "experiments.ExperimentNavigator#ROUNDS_NEEDED_PATTERN",
