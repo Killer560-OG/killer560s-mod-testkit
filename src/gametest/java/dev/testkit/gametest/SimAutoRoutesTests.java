@@ -10745,6 +10745,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         new Class<?>[]{String.class}, new Object[]{"F4"}));
                 buildRoom(ctx, in.has("buildRotation") ? in.get("buildRotation").getAsInt() : 0);
                 giveHotbar(ctx);
+                // BAT nodes use the Bat Weapon (Hyperion, the default) straight down
+                giveSlot(ctx, 4, "HYPERION");
+                setArEnum(ctx, "setBatWeapon", "CryptWeapon", "HYPERION");
                 ctx.runOnClient(mc -> {
                     Object ar = ModUnderTest.config(AR_CONFIG);
                     ModUnderTest.set(ar, "setEnabled", false);
@@ -10795,6 +10798,41 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     });
                     for (int w = 0; w < 100 && hiddenRef.get() == null; w++) ctx.waitTicks(1);
                     println("arfinder " + r + ": " + hiddenRef.get() + " secret chest(s) that appeared during the build hidden again");
+                }
+                if (in.has("pendingBats") && in.getAsJsonArray("pendingBats").size() > 0) {
+                    // a secret bat the build let appear goes back to waiting for him too (removed, re-registered)
+                    List<double[]> rel = new ArrayList<>();
+                    for (JsonElement e : in.getAsJsonArray("pendingBats")) {
+                        JsonArray a = e.getAsJsonArray();
+                        rel.add(new double[]{a.get(0).getAsInt() + 0.5, a.get(1).getAsInt() + 0.5, a.get(2).getAsInt() + 0.5});
+                    }
+                    AtomicReference<Integer> batRef = new AtomicReference<>();
+                    ctx.runOnClient(mc -> {
+                        Object frame = ModUnderTest.staticCall(FRAME, "current");
+                        List<BlockPos> real = new ArrayList<>();
+                        for (double[] c : rel) {
+                            Vec3 v = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(),
+                                    double.class, double.class, double.class}, new Object[]{frame, c[0], c[1], c[2]});
+                            real.add(BlockPos.containing(v));
+                        }
+                        var server = mc.getSingleplayerServer();
+                        server.execute(() -> {
+                            int n = 0;
+                            var level = server.overworld();
+                            for (BlockPos p : real) {
+                                for (var bat : level.getEntitiesOfClass(net.minecraft.world.entity.ambient.Bat.class,
+                                        new net.minecraft.world.phys.AABB(p).inflate(1.0))) {
+                                    bat.discard();
+                                    n++;
+                                }
+                                ModUnderTest.staticCall("com.killer560.hub.roomsim.SimSecretItems", "registerBat",
+                                        new Class<?>[]{BlockPos.class}, new Object[]{p});
+                            }
+                            batRef.set(n);
+                        });
+                    });
+                    for (int w = 0; w < 100 && batRef.get() == null; w++) ctx.waitTicks(1);
+                    println("arfinder " + r + ": " + batRef.get() + " secret bat(s) that appeared during the build removed, all re-registered");
                 }
                 ctx.waitTicks(2);
                 int found0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound"));
