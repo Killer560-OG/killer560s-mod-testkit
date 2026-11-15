@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T03:47:44",
- "modSource": "lane-simbrkrefill-1113",
- "modGitSha": "710e954513c6c08f276334970cb50712bb03b15d",
+ "generatedAt": "2026-11-15T04:22:53",
+ "modSource": "lane-enchdesc-1114",
+ "modGitSha": "3f6a703189c158594a8db4ca18562bcd56e1122a",
  "modSourceDirty": false,
- "count": 962,
+ "count": 964,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 834,
+  "field": 836,
   "local": 43
  },
  "unresolved": 160,
@@ -55,7 +55,7 @@
    "field": "TITLE",
    "index": null,
    "file": "src/main/java/com/killer560/hub/accadvisor/AccessoryAdvisor.java",
-   "line": 58,
+   "line": 63,
    "regex": "^Accessory Bag(?: \\((\\d{1,2})/(\\d{1,2})\\))?$",
    "flags": null,
    "kind": "field",
@@ -3612,6 +3612,30 @@
    "flags": null,
    "kind": "field",
    "expr": "\"(?<codes>(?:§.)*)(?<enchant>[A-Za-z][A-Za-z '-]+) (?<level>[IVXLCDM]+|[0-9]+)\""
+  },
+  {
+   "id": "enchantcolors.EnchantColorsFeature#BLANK",
+   "cls": "enchantcolors.EnchantColorsFeature",
+   "field": "BLANK",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/enchantcolors/EnchantColorsFeature.java",
+   "line": 285,
+   "regex": "^(?:§.| )*$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(?:§.|\\s)*$\""
+  },
+  {
+   "id": "enchantcolors.EnchantColorsFeature#GRAY_START",
+   "cls": "enchantcolors.EnchantColorsFeature",
+   "field": "GRAY_START",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/enchantcolors/EnchantColorsFeature.java",
+   "line": 287,
+   "regex": "^(?:§[^78])*§[78]",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(?:§[^78])*§[78]\""
   },
   {
    "id": "experiments.ExperimentNavigator#ROUNDS_NEEDED_PATTERN",
@@ -7891,7 +7915,7 @@
    "field": "CHARGES_LINE",
    "index": null,
    "file": "src/main/java/com/killer560/hub/roomsim/SimBreakerState.java",
-   "line": 209,
+   "line": 203,
    "regex": "Charges: \\d+/\\d+",
    "flags": null,
    "kind": "field",
