@@ -73,7 +73,7 @@ final class MenuLayoutCases {
     private static final Set<String> NEW_LEAVES = Set.of("gui.tab.PowderBreakSoundsTab", "gui.tab.CorrectionAlarmTab",
             // The Mining features pulled from staging-mining-3 (mod chport-1104, killer560 2026-11-04); the last two are
             // cheat jar only.
-            "gui.tab.FetchurSolverTab", "gui.tab.PuzzlerSolverTab", "gui.tab.ColdOverlayTab", "gui.tab.FossilSolverTab",
+            "gui.tab.MineshaftTab", "gui.tab.FetchurSolverTab", "gui.tab.PuzzlerSolverTab", "gui.tab.ColdOverlayTab", "gui.tab.FossilSolverTab",
             "gui.tab.CrystalHollowsMapTab", "gui.tab.CrystalTrackerTab", "gui.tab.WishingCompassTab",
             "gui.tab.MetalDetectorTab", "gui.tab.WormAlertTab", "gui.tab.LobbyTrackerTab", "gui.tab.NucleusRunProfitTab",
             "gui.tab.MiningEventsTab", "gui.tab.MiningProfitTab", "gui.tab.SkyMallDisplayTab",
