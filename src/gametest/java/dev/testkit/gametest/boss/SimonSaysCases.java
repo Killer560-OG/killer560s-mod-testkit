@@ -160,6 +160,12 @@ final class SimonSaysCases {
      * ray hits on the block's shape (GrimAutoRoutesTests' form).
      */
     static void click(Session c, BlockPos pos) {
+        // The client having the block is not enough: GrimAC's copy of the world lags it by a transaction, and a use on
+        // what it still holds as air is cancelled and flagged (AirLiquidPlace; 786 flaked on that under load).
+        c.waitUntil("GrimAC's world to hold the block at " + pos, mc -> c.hx().call("boss.grim.block",
+                "x", pos.getX(), "y", pos.getY(), "z", pos.getZ()).getAsInt() != 0, 200);
+        c.note("GrimAC holds block state " + c.hx().call("boss.grim.block", "x", pos.getX(), "y", pos.getY(), "z", pos.getZ()).getAsInt()
+                + " at " + pos.toShortString() + " before the click");
         c.ctx().runOnClient(mc -> {
             Vec3 eye = mc.player.getEyePosition();
             Vec3 target = aimPoint(mc, pos);
