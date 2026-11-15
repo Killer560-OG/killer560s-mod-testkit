@@ -566,6 +566,64 @@ public class SimAutopilotTests implements FabricClientGameTest {
         }
         println("blood first: by rate alone the first pick would have been " + byRate + " - Blood First changed the order: "
                 + wouldDiffer + (wouldDiffer ? "" : " (R was first by rate anyway; the push is still checked above)"));
+        if (!Scenario.skip("1115-acslow2-doorout")) {
+            doorOutCase(ctx, failures, bloodBlocks, bloodLock, bloodCell);
+        }
+    }
+
+    /**
+     * acslow2-1115 (his 11-15 log, Altar 15:28:22-30): Blood First picked the door at cell 61 again ~16 times after its
+     * trip had failed and been left out, ~13 ticks a go (~200 ticks). The blood door shut again and every door trip
+     * failing ({@code failDoorTripsForTest}): the door is picked until its trip is given up (3 tries), then "out of reach"
+     * is logged and it is never picked again in that run. Main: picked until the case's timeout.
+     */
+    private static void doorOutCase(ClientGameTestContext ctx, List<String> failures, Map<BlockPos, BlockState> bloodBlocks,
+                                    BlockPos bloodLock, int bloodCell) {
+        restoreDoor(ctx, bloodBlocks);
+        if (!ctx.computeOnClient(mc -> !mc.level.getBlockState(bloodLock).isAir())) {
+            failures.add("doorout: could not shut the blood door again");
+            return;
+        }
+        setMode(ctx, "SOLO", true);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(AS, "failDoorTripsForTest", new Class<?>[]{boolean.class},
+                new Object[]{true}));
+        Result r;
+        try {
+            r = runCase(ctx, "doorout");
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(AS, "failDoorTripsForTest", new Class<?>[]{boolean.class},
+                    new Object[]{false}));
+        }
+        int picks = 0;
+        int picksAfterOut = 0;
+        boolean out = false;
+        java.util.Set<String> outCells = new java.util.HashSet<>();
+        java.util.regex.Pattern outLine = java.util.regex.Pattern.compile("the door at cell (\\d+) is out of reach");
+        java.util.regex.Pattern pickLine = java.util.regex.Pattern.compile("\\| pick DOOR cell (\\d+) ");
+        for (String l : r.log) {
+            java.util.regex.Matcher o = outLine.matcher(l);
+            java.util.regex.Matcher p = pickLine.matcher(l);
+            if (o.find()) {
+                out = true;
+                outCells.add(o.group(1));
+            } else if (p.find()) {
+                picks++;
+                picksAfterOut += outCells.contains(p.group(1)) ? 1 : 0;
+            }
+        }
+        println("acslow2-doorout: blood door cell " + bloodCell + "; door picks " + picks + ", " + picksAfterOut
+                + " after \"out of reach\"; run " + (r.finished ? "ended after " + r.ticks + " tick(s): " + r.stopReason
+                : "still going at the timeout") + " (his log: ~16 picks, ~200 ticks)");
+        if (picks == 0) {
+            failures.add("doorout: the blood door was never picked - the case proves nothing");
+        }
+        if (!out) {
+            failures.add("doorout: no \"out of reach\" line after its trips failed (" + picks + " picks)");
+        }
+        if (picksAfterOut > 0) {
+            failures.add("doorout: the door whose trip failed was picked again (" + picks + " picks, " + picksAfterOut
+                    + " after out of reach)");
+        }
     }
 
     // ================================================================================================ logic

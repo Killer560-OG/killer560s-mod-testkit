@@ -176,7 +176,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // simbreakrules-1112: the sim breaker leaves smooth granite, pistons and blocks with a torch, button or fire
             "96-ar-1112-breakrules",
             // acslow-1115: a saved path hop that cannot go from here (a block in its line, its landing gone) plans the rest
-            "1115-acslow-blocked", "1115-acslow-gone"};
+            "1115-acslow-blocked", "1115-acslow-gone",
+            // acslow2-1115: an await Auto Secret drives with nothing in reach lets go after 40 ticks (his log: 243)
+            "1115-acslow2-await"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -383,6 +385,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1026-range-noitem" -> ArRangeCases.noItem(ctx);
                         case "1115-acslow-blocked" -> ArRangeCases.acslowBlocked(ctx);
                         case "1115-acslow-gone" -> ArRangeCases.acslowGone(ctx);
+                        case "1115-acslow2-await" -> ArMainServerCases.acslow2AwaitNothing(ctx);
                         case "96-ar-1017-mimicaim" -> caseMimicAim(ctx);
                         case "96-ar-1015-cryptaim" -> caseCryptAim(ctx);
                         case "96-ar-1013-breakerfall" -> caseBreakerFall(ctx);
@@ -8488,6 +8491,60 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 stopRoute(ctx);
                 resetRoutes(ctx);
             }
+        }
+
+        /**
+         * acslow2-1115 (his 11-15 log, Deathmite #3): an await with nothing in reach that could ever count waited 243 ticks
+         * under Auto Secret until he pressed Escape. #1 warps onto #2, which awaits one secret with no chest, item or bat
+         * anywhere and Secret Aura off. On his own (Auto Secret not driving) #2 still waits as before (>= 100 ticks); driven
+         * by Auto Secret it lets go uncounted after 40 ticks and warps on. Main: waits for good in both.
+         */
+        static void acslow2AwaitNothing(ClientGameTestContext ctx) {
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+            resetRoutes(ctx);
+            forgetRunMemory(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            writeChain(ctx);
+            try {
+                driven(ctx, false);
+                check(armChain(ctx), "the route did not start (own run)");
+                check(waitLanded(ctx, 14, 6, 60) != null, "#1 never warped him onto #2 (own run)");
+                long m = LogTap.mark();
+                boolean warpedOwn = waitLanded(ctx, 14, 14, 100) != null;
+                stopRoute(ctx);
+                check(!warpedOwn && !logHas(m, "await let go"),
+                        "#2 let go of its await on his own run: only a route Auto Secret drives may");
+                forgetRunMemory(ctx);
+                ctx.waitTicks(5);
+                driven(ctx, true);
+                check(armChain(ctx), "the route did not start (driven run)");
+                check(waitLanded(ctx, 14, 6, 60) != null, "#1 never warped him onto #2 (driven run)");
+                long t0 = ctx.computeOnClient(mc -> mc.level.getGameTime());
+                long m2 = LogTap.mark();
+                boolean warped = waitLanded(ctx, 14, 14, 120) != null;
+                long waited = ctx.computeOnClient(mc -> mc.level.getGameTime()) - t0;
+                for (String l : LogTap.since(m2)) {
+                    if (l.contains("await") || l.contains("Landed")) {
+                        println("  " + l);
+                    }
+                }
+                println("acslow2-await: own run waited 100+ ticks, driven run went on after " + waited
+                        + " tick(s) (his log: 243)");
+                check(logHas(m2, "await let go"), "#2's await never let go under Auto Secret - the case proves nothing");
+                check(warped && waited <= 80, "#2 did not warp on within 80 ticks of landing under Auto Secret ("
+                        + waited + ")");
+            } finally {
+                driven(ctx, false);
+                stopRoute(ctx);
+                resetRoutes(ctx);
+            }
+        }
+
+        private static void driven(ClientGameTestContext ctx, boolean on) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "autoSecretDrivesForTest",
+                    new Class<?>[]{boolean.class}, new Object[]{on}));
         }
 
         /**
