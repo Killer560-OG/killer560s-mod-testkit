@@ -599,7 +599,9 @@ final class Carnival1114Cases {
         List<Boolean> forward = Collections.synchronizedList(new ArrayList<>());
         String mode0 = c.onClient(mc -> mc.gameMode.getPlayerMode().getName());
         int cx = (int) Math.floor(PX);
-        int far = GZ + 6 + 9; // the grid's last row is GZ+6
+        // The grid's last row is GZ+6; 6 blocks past it is out of reach and still inside the grid search around him
+        // (FruitDigging.findGrid looks 12 blocks back; on Hypixel the grid's known spot is found from anywhere).
+        int far = GZ + 6 + 6;
         try (HxKit.Settings s = CarnivalSuite.base(c)) {
             CarnivalSuite.on(s, "carnival.FruitDiggingConfig", "getInstance");
             CarnivalSuite.on(s, "carnival.AutoFruitConfig", "dig");
