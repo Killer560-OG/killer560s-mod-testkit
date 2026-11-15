@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T16:31:06",
- "modSource": "lane-simarmor-1115",
- "modGitSha": "e4e9d2a36dd10f15a29f7d8181837638ef67c450",
+ "generatedAt": "2026-11-15T16:50:46",
+ "modSource": "lane-ss-tpflags-1115",
+ "modGitSha": "ecc9dc76643ae20659eb242db5eb62bf814298a3",
  "modSourceDirty": false,
  "count": 974,
  "byKind": {
