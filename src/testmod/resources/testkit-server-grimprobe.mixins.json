@@ -7,7 +7,8 @@
 		"GrimPlayerAccess",
 		"MixinGrimQueuedPlaces",
 		"MixinGrimDigGap",
-		"MixinGrimRotationBreak"
+		"MixinGrimRotationBreak",
+		"MixinGrimAttackCancel"
 	],
 	"injectors": {
 		"defaultRequire": 0

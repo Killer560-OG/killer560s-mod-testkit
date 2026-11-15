@@ -42,6 +42,7 @@ final class DefaultsOff1104Cases {
             {"simonsays.SimonSaysConfig", "autoSimonSaysEnabled"},
             {"mining.nucleus.NucleusRunProfitConfig", "enabled"},
             {"mining.profit.MiningProfitConfig", "enabled"},
+            {"commissioncolors.CommissionColorsConfig", "enabled"},
             {"miningqol.MiningQolConfig", "wrongArmor", "junglePick", "resumeHeldBreak", "powderGhast"},
             {"powdermining.PowderMiningConfig", "doublePowder", "lootCompact", "lockpickHelper", "powderTracker",
                     "chestAlert", "treasureChest"},
@@ -66,6 +67,7 @@ final class DefaultsOff1104Cases {
                     "witherKingStatueBox", "dimensionalSlashAlert"},
             {"dungeonqol.DungeonQolConfig", "itemQuality", "icedBoxes", "roomHud"},
             {"autoclosechest.AutoCloseChestConfig", "enabled"},
+            {"accadvisor.AccessoryAdvisorConfig", "enabled"},
             {"f7spots.F7SpotsConfig", "stormBow", "stormBowTerminator", "stormBowWalk"},
             {"boss.LividSolverConfig", "autoM5", "m5ArmorSwap"},
     };
