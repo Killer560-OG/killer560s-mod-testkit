@@ -112,8 +112,15 @@ final class HxCommColors1114Cases {
             c.check(umber.equals("stone"), "umber terracotta should be dimmed to stone, was " + umber);
             c.check(glacite.equals("stone"), "glacite packed ice should be dimmed to stone, was " + glacite);
             c.check(gem.equals("gray_stained_glass"), "aquamarine glass should be dimmed to gray glass, was " + gem);
-            c.check(cobble.equals("as is"), "plain cobblestone is never dimmed, was " + cobble);
+            c.check(cobble.endsWith("_wool"), "plain cobblestone counts for tungsten and is highlighted, was " + cobble);
             c.check((Long) c.onClient(mc -> Mod.staticCall(CC, "swappedCount")) > 0, "the mesher hook never acted");
+            // Another ore wanted: plain cobblestone is never dimmed.
+            feed(c, "Glacite Collector: 12%");
+            mesh(c);
+            String other = drawn(c, ps.get(4));
+            c.check(other.equals("as is"), "plain cobblestone is never dimmed, was " + other);
+            feed(c, "Tungsten Collector: 12%");
+            mesh(c);
             // Highlight off: the wanted block renders as it is.
             try (Settings s2 = new Settings(c).with(CFG, "Highlight", false)) {
                 c.ctx().waitTicks(10);
