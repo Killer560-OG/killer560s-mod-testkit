@@ -183,10 +183,14 @@ public class InvWalkCarryTests implements FabricClientGameTest {
     static void carryWalk(ClientGameTestContext ctx, Hx hx, Set<String> keys, int ticks, Seen seen) {
         keys(ctx, keys);
         double[] prev = spos(state(hx));
-        for (int i = 0; i < ticks; i += 2) {
+        double walked = 0;
+        // A loaded PC lets the server fall behind the client's ticks (a row read 0.63 blocks for 8 ticks, 1.7 normally):
+        // keep walking, up to twice as long, until the server has covered 0.15 block per tick asked.
+        for (int i = 0; i < ticks || (walked < ticks * 0.15 && i < ticks * 2); i += 2) {
             ctx.waitTicks(2);
             JsonObject st = state(hx);
             double[] p = spos(st);
+            walked += flat(prev, p);
             seen.serverPath += flat(prev, p);
             prev = p;
             if (!st.get("carried").getAsString().isEmpty()) {
