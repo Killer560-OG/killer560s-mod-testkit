@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T04:22:53",
- "modSource": "lane-enchdesc-1114",
- "modGitSha": "3f6a703189c158594a8db4ca18562bcd56e1122a",
+ "generatedAt": "2026-11-15T05:02:22",
+ "modSource": "lane-simbrkrefill-1113",
+ "modGitSha": "d039de19080c14851aeb416f6f04ce6040667b6f",
  "modSourceDirty": false,
  "count": 964,
  "byKind": {
@@ -7915,7 +7915,7 @@
    "field": "CHARGES_LINE",
    "index": null,
    "file": "src/main/java/com/killer560/hub/roomsim/SimBreakerState.java",
-   "line": 203,
+   "line": 209,
    "regex": "Charges: \\d+/\\d+",
    "flags": null,
    "kind": "field",
