@@ -281,7 +281,7 @@ public class SimKeyDoorTests implements FabricClientGameTest {
         return sb.append("]").toString();
     }
 
-    private static BlockPos doorBlock(int idx) {
+    static BlockPos doorBlock(int idx) {
         return (BlockPos) ModUnderTest.staticCall(LAYOUT, "doorBlock", new Class<?>[]{int.class}, new Object[]{idx});
     }
 
@@ -301,7 +301,7 @@ public class SimKeyDoorTests implements FabricClientGameTest {
     // ------------------------------------------------------------------------------------------------- the plan
 
     /** The room A, its door to open D, and the decoy X, from this test's own breadth-first search toward the Blood room. */
-    private static Plan plan(Minecraft mc) {
+    static Plan plan(Minecraft mc) {
         Plan p = new Plan();
         Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
         int rooms = (Integer) inv(layout, "roomCount");
@@ -385,7 +385,7 @@ public class SimKeyDoorTests implements FabricClientGameTest {
     }
 
     /** Four blocks from the decoy door, inside A, at the door's floor height plus half a block. */
-    private static double[] standPoint(Plan p) {
+    static double[] standPoint(Plan p) {
         BlockPos x = doorBlock(p.decoyDoor);
         double cx = 0, cz = 0;
         BlockPos best = null;
@@ -423,7 +423,7 @@ public class SimKeyDoorTests implements FabricClientGameTest {
         ctx.waitFor(mc -> mc.player.getAbilities().flying, 200);
     }
 
-    private static void place(ClientGameTestContext ctx, double[] at) {
+    static void place(ClientGameTestContext ctx, double[] at) {
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
             var uuid = mc.player.getUUID();
@@ -441,7 +441,7 @@ public class SimKeyDoorTests implements FabricClientGameTest {
         });
     }
 
-    private static Object inv(Object target, String method, Object... args) {
+    static Object inv(Object target, String method, Object... args) {
         try {
             for (Method m : target.getClass().getDeclaredMethods()) {
                 if (m.getName().equals(method) && m.getParameterCount() == args.length) {
@@ -465,7 +465,7 @@ public class SimKeyDoorTests implements FabricClientGameTest {
         }
     }
 
-    private static void leave(ClientGameTestContext ctx) {
+    static void leave(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> {
             try {
                 ModUnderTest.staticCall(SIM_STATE, "leave", new Class<?>[]{}, new Object[]{});
@@ -490,7 +490,7 @@ public class SimKeyDoorTests implements FabricClientGameTest {
         System.out.println("[" + NAME + "] " + line);
     }
 
-    private static final class Plan {
+    static final class Plan {
         String problem;
         int roomA = -1;
         String nameA;
