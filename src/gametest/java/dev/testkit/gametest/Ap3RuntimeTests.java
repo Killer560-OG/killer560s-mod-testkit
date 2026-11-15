@@ -57,7 +57,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
     static final String STORE = P + "Ap3Store";
     private static final String NODE = P + "Ap3Node";
     private static final String TYPE = P + "Ap3Node$Type";
-    private static final String AREA = P + "Ap3Area";
+    static final String AREA = P + "Ap3Area";
 
     /** Floor block layer; the player stands at FLOOR + 1. Lanes run +x from LANE_X0, one every LANE_DZ in z. */
     static final int FLOOR = 120;
@@ -151,6 +151,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             Ap3BlinkCombo1027Cases.register(s);
             // mod ap3-stop-1101: a Term Aura stops him like a Stop; a Stop / Term Aura fires once per entry.
             Ap3Stop1101Cases.register(s);
+            Ap3DelRedo1112Cases.register(s);
             // grimgapA-1105: his own use / swap / teleport answer / left click in the tick a node acts.
             Ap3SameTick1105Cases.register(s);
             // mod ap3-blink-1026: the Blink Charge and Blink Release nodes. Registered last: 1026-ap3-blink-leap keeps the
@@ -180,6 +181,13 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
             // a normal-world seed with terrain at y 125 over a lane turned 63-ap3-use-walk/-swap into a block click
             // (final-1027, 26.2: "useon 7, 125, 19", "expected exactly one use packet, saw 0").
             map.fill(LANE_X0 - 8, FLOOR + 1, z, LANE_X0 + LANE_LEN + 8, FLOOR + 12, Math.min(z + 15, zMax + 4), "air");
+            // The test server runs every queued console command in ONE tick: all 86 slices at once held it ~30 s on 26.2
+            // (c262 only, 11-12..14), the client's keep-alive timed out ("Client disconnected") and the warm-up place below
+            // read mc.player null. A few slices per batch, built (and synced) before the next, keep each tick short.
+            if (((z + 4) / 16 + 1) % 6 == 0) {
+                map.build();
+                map = TestMap.on(s.server());
+            }
         }
         map.surface(FLOOR + 1)
                 .catchFloor(FLOOR - 20)

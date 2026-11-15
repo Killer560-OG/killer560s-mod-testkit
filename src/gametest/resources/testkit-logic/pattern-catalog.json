@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-14T20:56:43",
- "modSource": "lane-simbreakrules-1113",
- "modGitSha": "9e8cd3d34f9eda5cad42240c99202d4fa176ae4b",
+ "generatedAt": "2026-11-14T23:37:02",
+ "modSource": "lane-ap3setup-1114",
+ "modGitSha": "702e3f4c61be90e65836c25cf8dcd6bf4f53d2a8",
  "modSourceDirty": false,
- "count": 961,
+ "count": 962,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 833,
+  "field": 834,
   "local": 43
  },
  "unresolved": 160,
@@ -48,6 +48,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^This [A-Za-z]+ is on cooldown\""
+  },
+  {
+   "id": "accadvisor.AccessoryAdvisor#TITLE",
+   "cls": "accadvisor.AccessoryAdvisor",
+   "field": "TITLE",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/accadvisor/AccessoryAdvisor.java",
+   "line": 58,
+   "regex": "^Accessory Bag(?: \\((\\d{1,2})/(\\d{1,2})\\))?$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^Accessory Bag(?: \\\\((\\\\d{1,2})/(\\\\d{1,2})\\\\))?$\""
   },
   {
    "id": "ahflip.AhFlipMacro#PURCHASED_LINE",
