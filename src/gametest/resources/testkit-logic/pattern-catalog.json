@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T16:31:06",
- "modSource": "lane-simarmor-1115",
- "modGitSha": "e4e9d2a36dd10f15a29f7d8181837638ef67c450",
+ "generatedAt": "2026-11-15T16:57:34",
+ "modSource": "lane-chestalert-ch-1115",
+ "modGitSha": "c1ab1e4c4dfa07bc0414e5fb3ee2647aefa0f9aa",
  "modSourceDirty": false,
  "count": 974,
  "byKind": {
