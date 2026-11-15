@@ -147,7 +147,7 @@ final class TipScroll1113Cases {
     }
 
     private static int off(Session c) {
-        return ((Number) c.onClient(mc -> Mod.field(F, "offset"))).intValue();
+        return ((Number) c.onClient(mc -> Mod.field(F, "scrollPx"))).intValue();
     }
 
     private static void scrollAndCheck(Session c, String label, Runnable resend) {
@@ -155,9 +155,9 @@ final class TipScroll1113Cases {
         c.check(sawRender, label + ": the tooltip render hook never ran");
         BufferedImage before = CroesusUiCases.shot(c, label + "-before");
         int o0 = off(c);
-        wheel(c, -1);
-        wheel(c, -1);
-        wheel(c, -1);
+        wheel(c, 1); // wheel up moves a tall tooltip up, revealing later lines (tipscroll3-1114)
+        wheel(c, 1);
+        wheel(c, 1);
         int o3 = off(c);
         BufferedImage after = CroesusUiCases.shot(c, label + "-after");
         int diff = 0;
@@ -174,14 +174,14 @@ final class TipScroll1113Cases {
             int kept = off(c);
             c.check(kept == o3, label + ": the server resending the slot reset the scroll (" + o3 + " -> " + kept + ")");
         }
-        wheel(c, 1);
-        wheel(c, 1);
-        wheel(c, 1);
+        wheel(c, -1);
+        wheel(c, -1);
+        wheel(c, -1);
         int back = off(c);
         c.check(o0 == 0, label + ": offset " + o0 + " before any scroll");
-        c.check(o3 > 0, label + ": three wheel notches down left the line offset at " + o3);
+        c.check(o3 > 0, label + ": three wheel notches up left the scroll at " + o3);
         c.check(diff > 200, label + ": the tooltip pixels did not change after scrolling (" + diff + " sampled)");
-        c.check(back < o3, label + ": wheel up did not scroll back (" + o3 + " -> " + back + ")");
+        c.check(back < o3, label + ": wheel down did not scroll back (" + o3 + " -> " + back + ")");
         c.note(label + ": offset 0 -> " + o3 + " -> " + back + ", " + diff + " sampled pixels changed");
     }
 }

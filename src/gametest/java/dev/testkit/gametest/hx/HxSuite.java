@@ -152,6 +152,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxChestMiss1113Cases.register(s);
                     // Swap To Drill On Pigeon and Auto Ult, idle and with his use / attack / swap in their ticks (1105-same-*, grimgapC-1105).
                     HxSameTick1105Cases.register(s);
+
                     // Auto Superboom, cheat only, with his dig / use / scroll / teleport in the swap tick (1108-same-superboom-*, featD-1108).
                     HxSuperboom1108Cases.register(s);
                     // Storm Bow release and Auto M5, idle and with his actions in their ticks (1111-*stormbow*, 1111-*autom5*, mod stormm5-1111).
@@ -197,6 +198,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxCoop1109Cases.register(s);
                     // mod nobosspearl-1110: Block Ender Pearls In Boss.
                     HxNoBossPearl1110Cases.register(s);
+                    HxGlaciteCommA1114Cases.register(s);
                 });
     }
 }

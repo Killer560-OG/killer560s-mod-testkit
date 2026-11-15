@@ -355,6 +355,9 @@ public class CoopSimTests implements FabricClientGameTest {
         g.useItem();
         boolean blasted = until(ctx, mc -> ((Number) ModUnderTest.staticCall(R + "SimSpiritSceptre", "blasts")).intValue() > b0, 80);
         expect(f, facts, "the guest's sceptre blast went off", blasted, true);
+        // The blast counter ticks on the client, the particles go out on the server's next task: read the viewer count
+        // only once that task ran (it read 0 whenever the test got there first; flaked in ten lanes, 11-12..14).
+        until(ctx, mc -> ((Number) ModUnderTest.staticCall(R + "SimSpiritSceptre", "lastBlastViewersForTest")).intValue() > 0, 40);
         expect(f, facts, "players the blast particles were sent to",
                 ModUnderTest.staticCall(R + "SimSpiritSceptre", "lastBlastViewersForTest"), 2);
         expect(f, facts, "the blast hurt its target as the guest", hurtBy(ctx, s, blastTarget), guest);
