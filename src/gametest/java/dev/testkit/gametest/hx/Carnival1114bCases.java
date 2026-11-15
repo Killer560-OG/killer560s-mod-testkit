@@ -393,7 +393,10 @@ final class Carnival1114bCases {
             int spawned = 0;
             int kills = 0;
             int shots0 = c.onClient(mc -> (Integer) Mod.staticCall("carnival.AutoZombieShootout", "shots"));
-            for (int t = 0; t < 600; t++) {
+            // Until 24 zombies came (about 330 ticks on a quick server) or 1800 ticks: a loaded server spawned only 4-6 in
+            // 600 client ticks (carnfix4 lane, 11-15), a sample too small to judge the darts by.
+            int t = 0;
+            for (; t < 1800 && spawned < 24; t++) {
                 for (int i = 0; i < 2; i++) {
                     if (alive[i] == null) {
                         if (t >= respawnAt[i]) {
@@ -434,9 +437,9 @@ final class Carnival1114bCases {
             int shots = c.onClient(mc -> (Integer) Mod.staticCall("carnival.AutoZombieShootout", "shots")) - shots0;
             double[] cal = c.onClient(mc -> (double[]) Mod.staticCall("carnival.Lead", "calibrationForTest"));
             double ratio = shots == 0 ? 0 : kills / (double) shots;
-            c.note(String.format(Locale.ROOT, "%d darts, %d kills (%.0f%% hit) of %d zombies in 600 ticks; learned lead %.2f ticks, height %.2f, dart speed %.2f",
-                    shots, kills, ratio * 100, spawned, cal[1], cal[2], cal[0]));
-            c.check(shots >= 8, "only " + shots + " darts in 600 ticks");
+            c.note(String.format(Locale.ROOT, "%d darts, %d kills (%.0f%% hit) of %d zombies in %d ticks; learned lead %.2f ticks, height %.2f, dart speed %.2f",
+                    shots, kills, ratio * 100, spawned, t, cal[1], cal[2], cal[0]));
+            c.check(shots >= 8, "only " + shots + " darts in " + t + " ticks");
             c.check(kills >= 6, "only " + kills + " zombies killed: the darts miss");
             c.check(ratio >= 0.8, String.format(Locale.ROOT, "hit ratio %.2f (%d kills for %d darts), want 0.8+", ratio, kills, shots));
         } finally {
