@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T16:50:46",
- "modSource": "lane-ss-tpflags-1115",
- "modGitSha": "ecc9dc76643ae20659eb242db5eb62bf814298a3",
+ "generatedAt": "2026-11-15T17:26:11",
+ "modSource": "lane-acslow-1115",
+ "modGitSha": "5ed9101512bd97b5a9e7ec625ee8fede5b91c2cb",
  "modSourceDirty": false,
  "count": 974,
  "byKind": {
