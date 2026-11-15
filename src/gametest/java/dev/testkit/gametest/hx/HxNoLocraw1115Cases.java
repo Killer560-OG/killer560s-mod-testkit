@@ -5,6 +5,7 @@ import dev.testkit.harness.WireCapture;
 
 import java.util.ArrayList;
 import java.util.List;
+import static dev.testkit.gametest.hx.HxKit.*;
 
 /**
  * nolocraw-1115 (owner 11-15: a server must never be able to tell the mod is installed): Mod Chat's Lobby mode reads its
