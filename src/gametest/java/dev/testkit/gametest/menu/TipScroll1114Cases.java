@@ -23,19 +23,21 @@ import java.util.Map;
  * 1114-tipscroll-tall / -slots: Scrollable Tooltips on a tooltip TALLER than the screen (killer560, 2026-11-14: "if the thing
  * already exceeds the top of the screen i cannot move it down at all. it also inverts the scrolling direction in that case").
  * Vanilla's DefaultTooltipPositioner puts a too-tall tooltip with its BOTTOM at the screen bottom, so its first lines start
- * above the screen. The first line is red, the last green; every check reads those pixels off a screenshot:
+ * above the screen. The first line is red, the last light purple; every check reads those pixels off a screenshot:
  * (a) a tall tooltip starts with its first line fully on screen, the wheel brings the last line fully on screen and back;
  * (b) wheel up moves the content UP, as it moves a tooltip that fits (and Invert flips both alike);
  * (c) at each end the content is exactly at the screen edge (no stop while that side is still cut off, no blank past it);
  * (d) a tooltip that fits draws where vanilla puts it (both lines fully on screen).
- * Heights: just under the screen, 1.5x and 3x; hover at the top, middle and bottom; GUI scale 2 and 3; a plain screen
- * (tall), a server menu slot and an inventory slot (slots).
+ * Heights: just under the screen, 1.5x and 3x; hover at the top, middle and bottom; GUI scale 1 and 2 (the test window
+ * is ~480 px tall, so 3 is capped to 2); a plain screen (tall), a server menu slot and an inventory slot (slots). Outside a
+ * container a tooltip that fits keeps the wheel off by design (tipscroll-1113), so the fitting direction reference is a
+ * menu slot.
  */
 final class TipScroll1114Cases {
 
     private static final String CFG = "tooltipscroll.TooltipScrollConfig";
     private static final String FIRST = "§cFIRST LINE TOP";
-    private static final String LAST = "§aLAST LINE END";
+    private static final String LAST = "§dLAST LINE END";
 
     private TipScroll1114Cases() {
     }
@@ -99,7 +101,7 @@ final class TipScroll1114Cases {
             c.ctx().waitTicks(5);
             int winH = c.onClient(mc -> mc.getWindow().getHeight());
             c.note("window height " + winH + " px");
-            for (int scale : new int[]{2, 3}) {
+            for (int scale : new int[]{1, 2}) {
                 guiScale(c, scale);
                 c.ctx().waitTicks(3);
                 int gh = guiHeight(c);
@@ -117,9 +119,9 @@ final class TipScroll1114Cases {
                         c.ctx().waitTicks(4);
                         String label = "s" + scale + "-h" + factor + "-at" + at;
                         if (factor < 1) {
-                            fitting(c, label, false);
+                            fitting(c, label, false, false);
                         } else {
-                            tallChecks(c, label, scale, gh);
+                            tallChecks(c, label, gh);
                         }
                     }
                 }
@@ -129,7 +131,7 @@ final class TipScroll1114Cases {
             c.ctx().waitTicks(3);
             cfg.set(CFG, "Invert", true);
             int gh = guiHeight(c);
-            for (double factor : new double[]{0.85, 1.5}) {
+            for (double factor : new double[]{1.5}) {
                 List<Component> l = new ArrayList<>();
                 lines(gh, factor).forEach(x -> l.add(Component.literal(x)));
                 c.ctx().getInput().setCursorPos(5, 5);
@@ -139,9 +141,7 @@ final class TipScroll1114Cases {
                 c.ctx().getInput().setCursorPos(300, winH * 0.5);
                 c.ctx().waitTicks(4);
                 String label = "invert-h" + factor;
-                if (factor < 1) {
-                    fitting(c, label, true);
-                } else {
+                {
                     Line r0 = find(shot(c, label + "-0"), true);
                     c.check(r0.full(2), label + ": first line not fully on screen at the start (" + r0 + ")");
                     wheel(c, -1, 1);
@@ -156,22 +156,28 @@ final class TipScroll1114Cases {
         }
     }
 
-    /** (d) + the direction reference: a tooltip that fits is drawn whole; wheel up (down with Invert) moves it up. */
-    private static void fitting(Session c, String label, boolean invert) {
+    /** (d) + the direction reference: a tooltip that fits is drawn whole; over a container slot ({@code nudges}) wheel up
+     *  (down with Invert) moves it up, elsewhere the wheel leaves it alone. */
+    private static void fitting(Session c, String label, boolean invert, boolean nudges) {
         BufferedImage s0 = shot(c, label + "-0");
-        int scale = c.onClient(mc -> (int) mc.getWindow().getGuiScale());
+        int scale = scale(c);
         Line r0 = find(s0, true);
         Line g0 = find(s0, false);
         c.check(r0.full(scale) && g0.full(scale), label + ": a tooltip that fits is not whole on screen (first " + r0 + ", last " + g0 + ")");
         wheel(c, invert ? -1 : 1, 1);
         Line r1 = find(shot(c, label + "-1"), true);
-        c.check(movedUp(r0, r1), label + ": wheel " + (invert ? "down (Invert)" : "up") + " did not move a fitting tooltip up (" + r0 + " -> " + r1 + ")");
+        if (nudges) {
+            c.check(movedUp(r0, r1), label + ": wheel " + (invert ? "down (Invert)" : "up") + " did not move a fitting tooltip up (" + r0 + " -> " + r1 + ")");
+        } else {
+            c.check(r1.minY == r0.minY, label + ": the wheel moved a fitting tooltip outside a container (" + r0 + " -> " + r1 + ")");
+        }
         wheel(c, invert ? 1 : -1, 1);
         c.note(label + ": fits, first line y " + r0.minY + " -> " + r1.minY);
     }
 
     /** (a)-(c) on a tooltip taller than the screen. */
-    private static void tallChecks(Session c, String label, int scale, int guiH) {
+    private static void tallChecks(Session c, String label, int guiH) {
+        int scale = scale(c);
         BufferedImage s0 = shot(c, label + "-0");
         int imgH = s0.getHeight();
         Line r0 = find(s0, true);
@@ -204,7 +210,7 @@ final class TipScroll1114Cases {
         int oldScale = guiScale(c, 2);
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set(CFG, "Enabled", true).set(CFG, "LinesPerScroll", 3).set(CFG, "Invert", false);
-            for (int scale : new int[]{2, 3}) {
+            for (int scale : new int[]{1, 2}) {
                 guiScale(c, scale);
                 c.ctx().waitTicks(3);
                 int gh = guiHeight(c);
@@ -215,10 +221,30 @@ final class TipScroll1114Cases {
                     MenuKit.reset(c);
                     Map<Integer, JsonObject> items = new LinkedHashMap<>();
                     items.put(4, FlipCroesusCases.item("minecraft:diamond", FIRST, lore));
-                    items.put(49, FlipCroesusCases.item("minecraft:emerald", FIRST, lore));
+                    items.put(49, FlipCroesusCases.item("minecraft:diamond", FIRST, lore));
+                    items.put(22, FlipCroesusCases.item("minecraft:diamond", FIRST, "§7short", LAST));
                     MenuKit.show(c, FlipCroesusCases.menu("Tall Tips 1114", 6, items, new LinkedHashMap<>()));
                     MenuKit.awaitScreen(c, "Tall Tips 1114", 100);
                     c.ctx().waitTicks(6);
+                    if (factor == 1.5 && gh >= 225) { // a tooltip that fits over a slot: the direction reference, Invert both ways
+                        for (boolean inv : new boolean[]{false, true}) {
+                            cfg.set(CFG, "Invert", inv);
+                            c.ctx().getInput().setCursorPos(2, 2);
+                            c.ctx().waitTicks(8);
+                            CroesusUiCases.hover(c, 22);
+                            fitting(c, "menu-s" + scale + "-fit-invert" + inv, inv, true);
+                            if (inv) { // and a tall one with Invert: wheel down moves it up
+                                c.ctx().getInput().setCursorPos(2, 2);
+                                c.ctx().waitTicks(8);
+                                CroesusUiCases.hover(c, 4);
+                                Line r0 = find(shot(c, "menu-s" + scale + "-tall-invert-0"), true);
+                                wheel(c, -1, 1);
+                                Line r1 = find(shot(c, "menu-s" + scale + "-tall-invert-1"), true);
+                                c.check(movedUp(r0, r1), "menu tall Invert: wheel down did not move the content up (" + r0 + " -> " + r1 + ")");
+                            }
+                        }
+                        cfg.set(CFG, "Invert", false);
+                    }
                     for (int slot : new int[]{4, 49}) {
                         if (gh < 225) { // a 6-row menu does not fit this GUI scale's screen
                             c.note("menu s" + scale + ": GUI height " + gh + " < 225, menu slots skipped");
@@ -227,7 +253,7 @@ final class TipScroll1114Cases {
                         c.ctx().getInput().setCursorPos(2, 2);
                         c.ctx().waitTicks(8);
                         CroesusUiCases.hover(c, slot);
-                        tallChecks(c, "menu-s" + scale + "-h" + factor + "-slot" + slot, scale, gh);
+                        tallChecks(c, "menu-s" + scale + "-h" + factor + "-slot" + slot, gh);
                     }
                     MenuKit.reset(c);
                     // inventory: slot 9 (upper inventory) and hotbar slot 0
@@ -262,7 +288,7 @@ final class TipScroll1114Cases {
                         });
                         c.ctx().getInput().setCursorPos(p[0], p[1]);
                         c.ctx().waitTicks(6);
-                        tallChecks(c, "inv-s" + scale + "-h" + factor + "-idx" + idx, scale, gh);
+                        tallChecks(c, "inv-s" + scale + "-h" + factor + "-idx" + idx, gh);
                     }
                     c.ctx().runOnClient(mc -> {
                         mc.player.getInventory().setItem(9, ItemStack.EMPTY);
@@ -302,6 +328,10 @@ final class TipScroll1114Cases {
         c.ctx().waitTicks(3);
     }
 
+    private static int scale(Session c) {
+        return c.onClient(mc -> (int) Math.round(mc.getWindow().getGuiScale()));
+    }
+
     private static BufferedImage shot(Session c, String label) {
         c.ctx().runOnClient(McCompat::clearChatAndToasts);
         c.ctx().waitTicks(2);
@@ -332,13 +362,14 @@ final class TipScroll1114Cases {
         }
     }
 
+    /** {@code red} = the first line (§c), else the last (§d light purple: no item or GUI texture in these screens has it). */
     static Line find(BufferedImage img, boolean red) {
         int min = -1, max = -1;
         for (int y = 0; y < img.getHeight(); y++) {
             for (int x = 0; x < img.getWidth(); x++) {
                 int p = img.getRGB(x, y);
                 int r = (p >> 16) & 255, g = (p >> 8) & 255, b = p & 255;
-                boolean hit = red ? r > 200 && g < 120 && b < 120 : g > 200 && r < 120 && b < 120;
+                boolean hit = red ? r > 200 && g < 120 && b < 120 : r > 200 && b > 200 && g < 120;
                 if (hit) {
                     if (min < 0) {
                         min = y;
