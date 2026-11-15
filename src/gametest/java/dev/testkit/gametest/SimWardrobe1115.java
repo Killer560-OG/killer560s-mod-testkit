@@ -1,5 +1,6 @@
 package dev.testkit.gametest;
 
+import dev.testkit.compat.McCompat;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.component.DataComponents;
@@ -39,7 +40,7 @@ final class SimWardrobe1115 {
     }
 
     private static String title(ClientGameTestContext ctx) {
-        return ctx.computeOnClient(mc -> mc.screen == null ? "none" : mc.screen.getTitle().getString());
+        return ctx.computeOnClient(mc -> McCompat.screen(mc) == null ? "none" : McCompat.screen(mc).getTitle().getString());
     }
 
     private static void click(ClientGameTestContext ctx, int slot) {
