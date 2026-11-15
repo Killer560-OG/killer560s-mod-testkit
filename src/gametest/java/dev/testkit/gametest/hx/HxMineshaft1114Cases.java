@@ -232,12 +232,22 @@ final class HxMineshaft1114Cases {
             c.waitUntil("the scrap button drew", mc -> Mod.staticCall(SCRAP, "bounds") != null, 100);
             int[] b = c.onClient(mc -> (int[]) Mod.staticCall(SCRAP, "bounds"));
             long before = commandsStarting(c, "gfs ").size();
-            c.onClient(mc -> {
-                var screen = McCompat.screen(mc);
-                screen.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(b[0] + 5, b[1] + 5,
-                        new net.minecraft.client.input.MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
-                return null;
+            // A real mouse press (the screen's click event only runs through MouseHandler), through the mod's Auto Scale.
+            double[] at = c.onClient(mc -> {
+                float f = 1f;
+                try {
+                    f = ((Number) Mod.staticCall("hud.AutoScale", "appliedFactor", McCompat.screen(mc))).floatValue();
+                } catch (RuntimeException | AssertionError ignored) {
+                    // no Auto Scale: plain GUI units
+                }
+                com.mojang.blaze3d.platform.Window w = mc.getWindow();
+                return new double[] {(b[0] + 5) * f * w.getScreenWidth() / (double) w.getGuiScaledWidth(),
+                        (b[1] + 5) * f * w.getScreenHeight() / (double) w.getGuiScaledHeight()};
             });
+            c.ctx().getInput().setCursorPos(at[0], at[1]);
+            c.ctx().waitTicks(2);
+            c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
+            c.ctx().waitTicks(4);
             String gfs = awaitCommand(c, "gfs suspicious_scrap", 60);
             c.check(gfs.endsWith(" 1"), "the button asked for '/" + gfs + "', not one scrap");
             c.check(commandsStarting(c, "gfs ").size() == before + 1, "one click sent more than one request");
