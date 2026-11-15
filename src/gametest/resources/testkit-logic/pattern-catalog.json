@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T09:05:09",
- "modSource": "lane-drillswap-1114",
- "modGitSha": "e7f5031993ed61bc58f07b441b45a372ef093019",
+ "generatedAt": "2026-11-15T09:52:05",
+ "modSource": "lane-simtermlclick-1114",
+ "modGitSha": "4b7bc36210843307e7e46caf0478b0452f31b1c9",
  "modSourceDirty": false,
  "count": 969,
  "byKind": {
