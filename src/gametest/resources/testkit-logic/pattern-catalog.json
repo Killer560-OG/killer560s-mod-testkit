@@ -1,9 +1,9 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-14T16:36:24",
- "modSource": "lane-invsortsacks-1113",
- "modGitSha": "0825885dae3e18ff7aa484f511363f59c274c17a",
- "modSourceDirty": false,
+ "generatedAt": "2026-11-14T17:41:09",
+ "modSource": "dialoguefold-1114",
+ "modGitSha": "6ba5414a97b672d880d74ceda30509bd2c1b81b3",
+ "modSourceDirty": true,
  "count": 957,
  "byKind": {
   "dynamic": 10,
@@ -1790,6 +1790,18 @@
    "expr": "\"(?i)(?:[A-Z]:[\\\\\\\\/]+Users[\\\\\\\\/]+|/home/|/Users/)[^\\\\\\\\/\\\\s\\\"':]{1,64}\""
   },
   {
+   "id": "carnival.AutoAcceptGame#GAME_NPC",
+   "cls": "carnival.AutoAcceptGame",
+   "field": "GAME_NPC",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/carnival/AutoAcceptGame.java",
+   "line": 28,
+   "regex": "^\\[NPC] Carnival (?:Pirateman|Cowboy|Fisherman): .*",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^\\\\[NPC] Carnival (?:Pirateman|Cowboy|Fisherman): .*\""
+  },
+  {
    "id": "carnival.CarnivalState#START_FRUIT",
    "cls": "carnival.CarnivalState",
    "field": "START_FRUIT",
@@ -1970,6 +1982,30 @@
    "expr": "\"^\\\\[NPC] Carnival Leader: You've already claimed your Carnival Tickets\" + \" for today, but I'm happy to answer any questions you might have\\\\.?$\""
   },
   {
+   "id": "carnival.CatchAFish#PERCENT",
+   "cls": "carnival.CatchAFish",
+   "field": "PERCENT",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/carnival/CatchAFish.java",
+   "line": 278,
+   "regex": "(\\d{1,3})\\s?%",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"(\\\\d{1,3})\\\\s?%\""
+  },
+  {
+   "id": "carnival.CatchAFish#SECONDS",
+   "cls": "carnival.CatchAFish",
+   "field": "SECONDS",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/carnival/CatchAFish.java",
+   "line": 279,
+   "regex": "(\\d{1,2}(?:\\.\\d)?)\\s?s\\b",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"(\\\\d{1,2}(?:\\\\.\\\\d)?)\\\\s?s\\\\b\""
+  },
+  {
    "id": "carnival.FruitDigging#TREASURE",
    "cls": "carnival.FruitDigging",
    "field": "TREASURE",
@@ -2016,6 +2052,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^([A-Za-z ]{3,20}?)(?: \\\\(\\\\+\\\\d{1,5}\\\\))?$\""
+  },
+  {
+   "id": "carnival.ZombieShootout#TAG_SECONDS",
+   "cls": "carnival.ZombieShootout",
+   "field": "TAG_SECONDS",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/carnival/ZombieShootout.java",
+   "line": 230,
+   "regex": "(\\d+(?:\\.\\d+)?)\\s*s\\b",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"(\\\\d+(?:\\\\.\\\\d+)?)\\\\s*s\\\\b\""
   },
   {
    "id": "chattabs.ChatTabsFeature#WHISPER",
@@ -4262,54 +4310,6 @@
    "expr": "\"(?i)(large )?chest|barrel|ender chest.*|.*backpack.*\""
   },
   {
-   "id": "invsort.InvSortSacks#MOVED",
-   "cls": "invsort.InvSortSacks",
-   "field": "MOVED",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/invsort/InvSortSacks.java",
-   "line": 28,
-   "regex": "^Moved ([\\d,]+) .+ from your Sacks to your inventory\\.$",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"^Moved ([\\\\d,]+) .+ from your Sacks to your inventory\\\\.$\""
-  },
-  {
-   "id": "invsort.InvSortSacks#NONE",
-   "cls": "invsort.InvSortSacks",
-   "field": "NONE",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/invsort/InvSortSacks.java",
-   "line": 29,
-   "regex": "^You have no .+ in your Sacks!$",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"^You have no .+ in your Sacks!$\""
-  },
-  {
-   "id": "invsort.InvSortSacks#FULL",
-   "cls": "invsort.InvSortSacks",
-   "field": "FULL",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/invsort/InvSortSacks.java",
-   "line": 30,
-   "regex": "^Your inventory is full!$",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"^Your inventory is full!$\""
-  },
-  {
-   "id": "invsort.InvSortSacks#PLAIN_ID",
-   "cls": "invsort.InvSortSacks",
-   "field": "PLAIN_ID",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/invsort/InvSortSacks.java",
-   "line": 32,
-   "regex": "[A-Z0-9_]+",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"[A-Z0-9_]+\""
-  },
-  {
    "id": "invsort.InventoryLayoutStore#SAFE_NAME",
    "cls": "invsort.InventoryLayoutStore",
    "field": "SAFE_NAME",
@@ -4327,7 +4327,7 @@
    "field": "DUMP_PAGE",
    "index": null,
    "file": "src/main/java/com/killer560/hub/invsort/InventoryLayoutStore.java",
-   "line": 310,
+   "line": 304,
    "regex": "^(?:enderchest_[1-9]|backpack_(?:[1-9]|1[0-8]))$",
    "flags": null,
    "kind": "field",
