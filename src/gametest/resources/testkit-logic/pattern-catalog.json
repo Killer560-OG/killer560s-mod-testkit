@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T06:05:43",
- "modSource": "lane-glacitecomm-a-1114",
- "modGitSha": "ceb986b629786fe7a64faafae641999452c3c2b3",
+ "generatedAt": "2026-11-15T07:29:09",
+ "modSource": "lane-glacitecomm-b-1114",
+ "modGitSha": "c6cc0c020022429125e9cdb9b5a6ac331d0cec77",
  "modSourceDirty": false,
  "count": 964,
  "byKind": {
