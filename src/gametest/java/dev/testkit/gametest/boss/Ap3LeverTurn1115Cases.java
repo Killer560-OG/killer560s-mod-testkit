@@ -109,9 +109,14 @@ final class Ap3LeverTurn1115Cases {
             }
         }
         // From the first tick he is off the start spot.
+        // (vanilla may send no position for up to 20 ticks while he stands, so the start spot is the first one sent).
         int first = 0;
-        while (first < out.size() && (Double.isNaN(out.get(first)[0]) || Math.abs(out.get(first)[0] - out.get(0)[0]) < 1e-9
-                && Math.abs(out.get(first)[2] - out.get(0)[2]) < 1e-9)) {
+        while (first < out.size() && Double.isNaN(out.get(first)[0])) {
+            first++;
+        }
+        double[] start = first < out.size() ? out.get(first) : null;
+        while (start != null && first < out.size() && Math.abs(out.get(first)[0] - start[0]) < 1e-9
+                && Math.abs(out.get(first)[2] - start[2]) < 1e-9) {
             first++;
         }
         int c = 0, u = 0;
