@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T11:32:30",
- "modSource": "lane-armaster-1115",
- "modGitSha": "207ed56c6057dba64f1692a0a4264691bcbf5e0e",
+ "generatedAt": "2026-11-15T13:06:37",
+ "modSource": "lane-glacitecomm-c-1114",
+ "modGitSha": "968cbe0cb87f26d61e13086693f1fc97fe201fc7",
  "modSourceDirty": false,
- "count": 971,
+ "count": 974,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 843,
+  "field": 846,
   "local": 43
  },
  "unresolved": 160,
@@ -5424,6 +5424,42 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^[^:\\\\[]{0,6}Milestone .: You have (?:tanked and )?(?:dealt|healed) .*so far! .*$\""
+  },
+  {
+   "id": "mineshaft.Mineshaft#CODE",
+   "cls": "mineshaft.Mineshaft",
+   "field": "CODE",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/mineshaft/Mineshaft.java",
+   "line": 56,
+   "regex": "\\b([A-Z]{4})_([A-Z0-9])\\b",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"\\\\b([A-Z]{4})_([A-Z0-9])\\\\b\""
+  },
+  {
+   "id": "mineshaft.Mineshaft#LOOT_HEAD",
+   "cls": "mineshaft.Mineshaft",
+   "field": "LOOT_HEAD",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/mineshaft/Mineshaft.java",
+   "line": 57,
+   "regex": "(LAPIS|UMBER|TUNGSTEN|VANGUARD) CORPSE LOOT!",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"(LAPIS|UMBER|TUNGSTEN|VANGUARD) CORPSE LOOT!\""
+  },
+  {
+   "id": "mineshaft.Mineshaft#AMOUNT",
+   "cls": "mineshaft.Mineshaft",
+   "field": "AMOUNT",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/mineshaft/Mineshaft.java",
+   "line": 58,
+   "regex": "\\s+x(\\d+)$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"\\\\s+x(\\\\d+)$\""
   },
   {
    "id": "mining.cold.ColdOverlay#COLD",
