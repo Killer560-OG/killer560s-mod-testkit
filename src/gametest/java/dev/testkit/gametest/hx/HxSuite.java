@@ -115,6 +115,8 @@ public class HxSuite implements FabricClientGameTest {
                     // Per-block commission areas, event-driven highlights, carpet stability (1103-mining-block-area,
                     // -highlight-latency, -carpet-stable; mod mithrilarea-1103).
                     HxMiningArea1103Cases.register(s);
+                    // Commission Block Colors (1114-commcolors-*, mod glacitecomm-b-1114).
+                    HxCommColors1114Cases.register(s);
                     HxCrystalWalls1104Cases.register(s);
                     HxDarkStone1104Cases.register(s);
                     // Blaze Solver boxes against water behind / in front / around (1103-blaze-water, mod blazewater-1103).
@@ -198,6 +200,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxCoop1109Cases.register(s);
                     // mod nobosspearl-1110: Block Ender Pearls In Boss.
                     HxNoBossPearl1110Cases.register(s);
+                    HxGlaciteCommA1114Cases.register(s);
                 });
     }
 }
