@@ -4016,7 +4016,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             long mw = LogTap.mark();
             startSampling(ctx);
             tpRel(ctx, 6.5, 20.5, 0f, 0f);
-            ctx.waitTicks(50);
+            // Held for a second (acslow-1115: after that the rest of the pair is planned again, 1115-acslow-gone).
+            ctx.waitTicks(14);
             check(useTicks(stopSampling(ctx)).isEmpty(), "a path warp went out at a missing landing block");
             check(logHas(mw, "Waiting for the block"), "no wait message for the missing hop block");
             setBlocks(ctx, Map.of(new int[]{bx, by, bz}, was));
@@ -10503,7 +10504,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     }
                 }
                 setBlocks(ctx, wall);
-            }, "no look from here lands on");
+            }, "no look from here lands on", REPLAN_BOUND);
         }
 
         /** acslow-1115: hop 1's landing block gone (his Withermancer #4 hop 1, 90 ticks waiting for it): planned again. */
@@ -10512,13 +10513,14 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 Map<int[], BlockState> hole = new HashMap<>();
                 hole.put(new int[]{OX, F - 1, MZ}, Blocks.AIR.defaultBlockState());
                 setBlocks(ctx, hole);
-            }, "landing block");
+            }, "landing block", REPLAN_BOUND + 20);
         }
 
-        /** Ticks from arming #1 to standing on #2: two hops plus one replan (one planner answer, a few ms here). */
+        /** Ticks from arming #1 to standing on #2: two hops plus one replan (one planner answer, a few ms here); a missing
+         *  landing block is first waited for 20 ticks more (the server may still be sending it). */
         private static final int REPLAN_BOUND = 40;
 
-        private static void acslowCase(ClientGameTestContext ctx, String tag, Runnable block, String why) {
+        private static void acslowCase(ClientGameTestContext ctx, String tag, Runnable block, String why, int bound) {
             if (!dev.testkit.gametest.mod.Mod.isCheat()) {
                 caseSkip = "Auto Routes fires nodes only in a cheat build";
                 return;
@@ -10556,7 +10558,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 check(logHas(m1, "planning the rest of node #1's pair again"), "the pair was not planned again from here");
                 check(replans(ctx) == r1 + 1, "replans counted " + (replans(ctx) - r1) + ", expected 1");
                 check(f.landed != null, "after the replan he did not reach #2 (at " + relPos(ctx) + ")");
-                check(took <= REPLAN_BOUND, "reaching #2 took ~" + took + " tick(s), bound " + REPLAN_BOUND
+                check(took <= bound, "reaching #2 took ~" + took + " tick(s), bound " + bound
                         + " (before: held until a left click)");
                 check(!logHas(m1, "off its spot after"), "it stepped toward a spot it already stood on");
                 check(hopCount(ctx) == 2 && valid(ctx), "the replan changed the saved pair (" + hopCount(ctx) + " warps)");
