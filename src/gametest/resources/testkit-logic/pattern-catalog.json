@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-14T16:55:57",
- "modSource": "lane-termfoil-1113",
- "modGitSha": "c5c46a0993d3d81dcf724d04a1bb4444f379ba2b",
+ "generatedAt": "2026-11-14T20:01:05",
+ "modSource": "lane-secretroutes-1113",
+ "modGitSha": "6998ff1b1aac26aede695cb1d20ec015c6481eef",
  "modSourceDirty": false,
  "count": 957,
  "byKind": {
