@@ -48,7 +48,7 @@ final class HxDrillSwap1114Cases {
     private static String lore(String... lines) {
         StringBuilder b = new StringBuilder();
         for (String l : lines) {
-            b.append(b.length() == 0 ? "" : ",").append("'{\"text\":\"").append(l).append("\",\"italic\":false}'");
+            b.append(b.length() == 0 ? "" : ",").append("{text:\"").append(l).append("\",italic:false}");
         }
         return b.toString();
     }
