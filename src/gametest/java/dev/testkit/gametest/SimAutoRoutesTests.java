@@ -174,7 +174,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // ar-range-1026: Replan For My Range - a saved path warp longer than his etherwarp reaches is planned again
             "96-ar-1026-range-off", "96-ar-1026-range-on", "96-ar-1026-range-noitem",
             // simbreakrules-1112: the sim breaker leaves smooth granite, pistons and blocks with a torch, button or fire
-            "96-ar-1112-breakrules"};
+            "96-ar-1112-breakrules",
+            // acslow-1115: a saved path hop that cannot go from here (a block in its line, its landing gone) plans the rest
+            "1115-acslow-blocked", "1115-acslow-gone"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -379,6 +381,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1026-range-off" -> ArRangeCases.off(ctx);
                         case "96-ar-1026-range-on" -> ArRangeCases.on(ctx);
                         case "96-ar-1026-range-noitem" -> ArRangeCases.noItem(ctx);
+                        case "1115-acslow-blocked" -> ArRangeCases.acslowBlocked(ctx);
+                        case "1115-acslow-gone" -> ArRangeCases.acslowGone(ctx);
                         case "96-ar-1017-mimicaim" -> caseMimicAim(ctx);
                         case "96-ar-1015-cryptaim" -> caseCryptAim(ctx);
                         case "96-ar-1013-breakerfall" -> caseBreakerFall(ctx);
@@ -10476,6 +10480,128 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 resetRoutes(ctx);
                 giveHotbar(ctx);
             }
+        }
+
+        // ------------------------------------------------------------------------------------------- acslow-1115
+
+        /** The two-hop pair's middle landing block and its end (relative z; x is OX, y the floor F-1). */
+        private static final int MZ = 20;
+        private static final int EZ = 40;
+
+        /**
+         * acslow-1115: a saved path hop with a block now standing in its line (his Slime #9 hop 2, 2026-11-15) was held
+         * until a left click - 41 ticks stepping onto the spot he stood on, then with no limit. Now the rest of the pair is
+         * planned again from where he stands and flown. A 3-high wall across the strip at z 30 blocks hop 2; he must reach
+         * #2 inside {@link #REPLAN_BOUND} ticks, the replan counted once, the saved hops untouched.
+         */
+        static void acslowBlocked(ClientGameTestContext ctx) {
+            acslowCase(ctx, "blocked", () -> {
+                Map<int[], BlockState> wall = new HashMap<>();
+                for (int x = 4; x <= 8; x++) {
+                    for (int y = 0; y <= 2; y++) {
+                        wall.put(new int[]{x, F + y, 30}, Blocks.STONE.defaultBlockState());
+                    }
+                }
+                setBlocks(ctx, wall);
+            }, "no look from here lands on");
+        }
+
+        /** acslow-1115: hop 1's landing block gone (his Withermancer #4 hop 1, 90 ticks waiting for it): planned again. */
+        static void acslowGone(ClientGameTestContext ctx) {
+            acslowCase(ctx, "gone", () -> {
+                Map<int[], BlockState> hole = new HashMap<>();
+                hole.put(new int[]{OX, F - 1, MZ}, Blocks.AIR.defaultBlockState());
+                setBlocks(ctx, hole);
+            }, "landing block");
+        }
+
+        /** Ticks from arming #1 to standing on #2: two hops plus one replan (one planner answer, a few ms here). */
+        private static final int REPLAN_BOUND = 40;
+
+        private static void acslowCase(ClientGameTestContext ctx, String tag, Runnable block, String why) {
+            if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+                caseSkip = "Auto Routes fires nodes only in a cheat build";
+                return;
+            }
+            inMuseum(ctx, () -> {
+                setReplan(ctx, false);
+                writeTwoHopPair(ctx);
+                giveAotv(ctx, 0);
+                check(valid(ctx) && hopCount(ctx) == 2, "premise: the written pair is not 2 valid saved warps");
+                // ---- control: the clear strip flies the 2 saved warps, no replan ----
+                int r0 = replans(ctx);
+                long m0 = LogTap.mark();
+                Flight c = replayTo(ctx, EZ, 120);
+                println("acslow-" + tag + " control: landed " + (c.landed != null) + ", uses " + c.uses + ", replans "
+                        + (replans(ctx) - r0));
+                check(c.landed != null, "control: the clear pair did not land him on #2 (at " + relPos(ctx) + ")");
+                check(replans(ctx) == r0 && !logHas(m0, "planning the rest"), "control: a clear pair was planned again");
+                stopRoute(ctx);
+                // ---- the hop cannot go: the rest is planned again from here and flown ----
+                block.run();
+                ctx.waitTicks(20);
+                int r1 = replans(ctx);
+                long m1 = LogTap.mark();
+                long t0 = serverTime(ctx);
+                Flight f = replayTo(ctx, EZ, 200);
+                long took = serverTime(ctx) - t0;
+                println("acslow-" + tag + ": landed " + (f.landed != null) + " in ~" + took + " tick(s), uses " + f.uses
+                        + ", replans " + (replans(ctx) - r1) + ", saved hops " + hopCount(ctx));
+                for (String l : LogTap.since(m1)) {
+                    if (l.contains("PATH") || l.contains("Etherwarp (") || l.contains("Stopped") || l.contains("landing block")) {
+                        println("acslow-" + tag + " log: " + l);
+                    }
+                }
+                check(logHas(m1, why), "the hop was not held for its cause (\"" + why + "\") - the premise did not happen");
+                check(logHas(m1, "planning the rest of node #1's pair again"), "the pair was not planned again from here");
+                check(replans(ctx) == r1 + 1, "replans counted " + (replans(ctx) - r1) + ", expected 1");
+                check(f.landed != null, "after the replan he did not reach #2 (at " + relPos(ctx) + ")");
+                check(took <= REPLAN_BOUND, "reaching #2 took ~" + took + " tick(s), bound " + REPLAN_BOUND
+                        + " (before: held until a left click)");
+                check(!logHas(m1, "off its spot after"), "it stepped toward a spot it already stood on");
+                check(hopCount(ctx) == 2 && valid(ctx), "the replan changed the saved pair (" + hopCount(ctx) + " warps)");
+            });
+        }
+
+        private static int replans(ClientGameTestContext ctx) {
+            return ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "hopReplans"));
+        }
+
+        /** {@link #replay}, waiting for him on relative block (OX, z). */
+        private static Flight replayTo(ClientGameTestContext ctx, int z, int ticks) {
+            forgetRunMemory(ctx);
+            tpRel(ctx, OX + 0.5, OZ + 3.5, 0f, 0f);
+            ctx.waitTicks(10);
+            startSampling(ctx);
+            tpRel(ctx, OX + 0.5, OZ + 0.5, 0f, 0f);
+            Vec3 l = waitLanded(ctx, OX, z, ticks);
+            ctx.waitTicks(l == null ? 0 : 5);
+            List<Sample> s = stopSampling(ctx);
+            return new Flight(l, useTicks(s).size());
+        }
+
+        /** #1 (start) at (OX, OZ), #2 at (OX, EZ); saved warps #1 -> block (OX, F-1, MZ) -> block (OX, F-1, EZ). */
+        private static void writeTwoHopPair(ClientGameTestContext ctx) {
+            JsonArray hops = new JsonArray();
+            hops.add(hop(OX + 0.5, F, OZ + 0.5, MZ));
+            hops.add(hop(OX + 0.5, F + 0.05, MZ + 0.5, EZ));
+            JsonObject start = node("PATH", OX, OZ, 0f, 0f);
+            start.addProperty("start", true);
+            start.add("hops", hops);
+            start.addProperty("planFrom", String.format(Locale.US, "%.6f %.6f %.6f", OX + 0.5, (double) F, OZ + 0.5));
+            start.addProperty("planTo", String.format(Locale.US, "%.6f %.6f %.6f", OX + 0.5, (double) F, EZ + 0.5));
+            start.addProperty("planBreakers", 0);
+            writeRoute(ctx, List.of(start, node("PATH", OX, EZ, 0f, 0f)));
+        }
+
+        /** One saved warp from (ox, oy, oz) onto the top of floor block (OX, F-1, tz), aimed at its top center. */
+        private static String hop(double ox, double oy, double oz, int tz) {
+            double cx = OX + 0.5;
+            double cz = tz + 0.5;
+            float yaw = (float) Math.toDegrees(Math.atan2(-(cx - ox), cz - oz));
+            float pitch = (float) Math.toDegrees(Math.atan2(oy + 1.27 - F, Math.hypot(cx - ox, cz - oz)));
+            return String.format(Locale.US, "%.6f %.6f %.6f %.6f %.6f %d %d %d %.6f %.6f %.6f", ox, oy, oz, yaw, pitch,
+                    OX, F - 1, tz, cx, F + 0.05, cz);
         }
 
         // ------------------------------------------------------------------------------------------- setup
