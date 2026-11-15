@@ -45,25 +45,30 @@ final class AccAdvisor1113Cases {
         return s;
     }
 
-    static void advisor(UiCase c) throws Exception {
+    /** The fixture catalog, families and prices described above. */
+    static void fixture(UiCase c) throws Exception {
         Class<?> price = Mod.cls("pricetooltip.PriceData");
+        Mod.staticCall("pricetooltip.PriceData", "markStartedForTest");
+        Mod.staticCall("pricetooltip.PriceData", "clearForTest");
+        R.setStatic(price, "lowestBin", Map.of("A_R2", 100_000.0, "A_A3", 300_000.0, "B_T", 1_200_000.0,
+                "C_R", 50_000.0, "IGN", 1_000.0));
+        c.onClient(mc -> {
+            Mod.staticCall(ADV, "clearForTest");
+            Mod.staticCall(ADV, "catalogForTest", Map.of(
+                    "A_T1", "Alpha Talisman|COMMON", "A_R2", "Alpha Ring|UNCOMMON", "A_A3", "Alpha Artifact|RARE",
+                    "B_T", "Beta Talisman|EPIC", "C_R", "Gamma Ring|UNCOMMON", "D_T", "Delta Talisman|COMMON",
+                    "IGN", "Ignored Relic|LEGENDARY", "NOPRICE", "Unpriced Ring|RARE"));
+            Mod.staticCall(ADV, "setFamilies", Map.of("A_T1", List.of("A_R2", "A_A3"), "A_R2", List.of("A_A3")),
+                    Set.of("IGN"));
+            return null;
+        });
+    }
+
+    static void advisor(UiCase c) throws Exception {
         boolean was = (Boolean) Mod.call(Mod.cfg(CFG), "isEnabled");
         Object modeWas = Mod.call(Mod.cfg(CFG), "getMode");
         try {
-            Mod.staticCall("pricetooltip.PriceData", "markStartedForTest");
-            Mod.staticCall("pricetooltip.PriceData", "clearForTest");
-            R.setStatic(price, "lowestBin", Map.of("A_R2", 100_000.0, "A_A3", 300_000.0, "B_T", 1_200_000.0,
-                    "C_R", 50_000.0, "IGN", 1_000.0));
-            c.onClient(mc -> {
-                Mod.staticCall(ADV, "clearForTest");
-                Mod.staticCall(ADV, "catalogForTest", Map.of(
-                        "A_T1", "Alpha Talisman|COMMON", "A_R2", "Alpha Ring|UNCOMMON", "A_A3", "Alpha Artifact|RARE",
-                        "B_T", "Beta Talisman|EPIC", "C_R", "Gamma Ring|UNCOMMON", "D_T", "Delta Talisman|COMMON",
-                        "IGN", "Ignored Relic|LEGENDARY", "NOPRICE", "Unpriced Ring|RARE"));
-                Mod.staticCall(ADV, "setFamilies", Map.of("A_T1", List.of("A_R2", "A_A3"), "A_R2", List.of("A_A3")),
-                        Set.of("IGN"));
-                return null;
-            });
+            fixture(c);
             Mod.set(CFG, "setMode", Mod.enumValue(CFG + "$Mode", "BEST_OVERALL"));
 
             // Switch off: the bag opens and nothing is built.
@@ -135,12 +140,20 @@ final class AccAdvisor1113Cases {
         return out;
     }
 
-    private static void open(UiCase c, String title, boolean filled) {
+    static void open(UiCase c, String title, boolean filled) {
+        open(c, title, filled ? 1 : 0);
+    }
+
+    /** {@code fill}: 0 empty, 1 two accessories, 2 every slot holds one (a click that leaks picks one up). */
+    static void open(UiCase c, String title, int fill) {
         c.onClient(mc -> {
             SimpleContainer box = new SimpleContainer(27);
-            if (filled) {
+            if (fill == 1) {
                 box.setItem(0, acc("A_T1", "COMMON ACCESSORY"));
                 box.setItem(1, acc("D_T", "COMMON ACCESSORY"));
+            }
+            for (int i = 0; fill == 2 && i < 27; i++) {
+                box.setItem(i, acc(i == 0 ? "A_T1" : "D_T", "COMMON ACCESSORY"));
             }
             ChestMenu menu = ChestMenu.threeRows(0, mc.player.getInventory(), box);
             McCompat.setScreen(mc, new ContainerScreen(menu, mc.player.getInventory(), Component.literal(title)));
@@ -148,7 +161,7 @@ final class AccAdvisor1113Cases {
         });
     }
 
-    private static void close(UiCase c) {
+    static void close(UiCase c) {
         c.onClient(mc -> {
             McCompat.setScreen(mc, null);
             return null;
