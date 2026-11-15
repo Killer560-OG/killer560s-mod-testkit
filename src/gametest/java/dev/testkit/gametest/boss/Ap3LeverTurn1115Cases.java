@@ -212,6 +212,17 @@ final class Ap3LeverTurn1115Cases {
         return new double[]{at, best};
     }
 
+    /** The first tick past the align (x under 32, the lever is at x 23) whose look is over 10 degrees off the walk's yaw. */
+    private static int leverTurn(List<double[]> ticks) {
+        for (int i = 0; i < ticks.size(); i++) {
+            double[] t = ticks.get(i);
+            if (t[0] < 32 && Math.abs(net.minecraft.util.Mth.wrapDegrees(t[3] - WALK_YAW)) > 10) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     static void run(Session c, boolean sameUse) throws Exception {
         List<AutoCloseable> undo = new ArrayList<>();
         try {
@@ -243,7 +254,16 @@ final class Ap3LeverTurn1115Cases {
             runOnce(c, true, false);
             Run off = runOnce(c, false, sameUse);
             Run on = runOnce(c, true, sameUse);
-            int n = Math.min(off.ticks().size(), on.ticks().size());
+            // Compared from 3 ticks before each walk's lever turn: the align at the start does not always begin at the same
+            // look between two walks (yaw 150 vs 165 at its first tick, 11-15, both lever states alike), which is not the lever.
+            int aOff = leverTurn(off.ticks()), aOn = leverTurn(on.ticks());
+            c.check(aOff >= 3 && aOn >= 3, "no lever turn found (off tick " + aOff + ", on tick " + aOn + ")");
+            if (aOff < 3 || aOn < 3) {
+                return;
+            }
+            List<double[]> offT = off.ticks().subList(aOff - 3, off.ticks().size());
+            List<double[]> onT = on.ticks().subList(aOn - 3, on.ticks().size());
+            int n = Math.min(offT.size(), onT.size());
             // The lever aim of the two lever states measured 0.01 degree apart (cause not traced), which moved the walk by
             // 0.00003 block: a position within 0.001 block and a look within 0.05 degree count as the same; the bug was tenths.
             int firstDiff = -1;
@@ -251,8 +271,8 @@ final class Ap3LeverTurn1115Cases {
             double lookDiff = 0, posDiff = 0;
             int lookDiffAt = -1;
             for (int i = 0; i < n; i++) {
-                double[] a = off.ticks().get(i);
-                double[] b = on.ticks().get(i);
+                double[] a = offT.get(i);
+                double[] b = onT.get(i);
                 for (int k = 0; k < 5; k++) {
                     boolean nan = Double.isNaN(a[k]) != Double.isNaN(b[k]);
                     double d = Math.abs(a[k] - b[k]);
@@ -285,14 +305,15 @@ final class Ap3LeverTurn1115Cases {
             double[] wOn = widestTurn(on.ticks().subList(Math.min(from, on.ticks().size()), Math.min(to, on.ticks().size())));
             wOff[0] += from;
             wOn[0] += from;
-            double endX = n == 0 ? Double.NaN : off.ticks().get(n - 1)[0];
-            c.note(String.format(Locale.ROOT, "ticks off/on %d/%d, compared %d (walk ended at x %.2f); lever clicks off/on %d/%d"
+            double endX = n == 0 ? Double.NaN : offT.get(n - 1)[0];
+            c.note(String.format(Locale.ROOT, "lever turn at tick off/on %d/%d; ", aOff, aOn)
+                    + String.format(Locale.ROOT, "ticks off/on %d/%d, compared %d (walk ended at x %.2f); lever clicks off/on %d/%d"
                             + " (click at tick %d); turn-only flicks off/on %d/%d; widest look off the walk off %.1f deg at tick %d, on"
                             + " %.1f deg at tick %d; Lever Aura turn lines off/on %d/%d, AP3 re-picks off/on %d/%d; uses off/on %d/%d;"
                             + " first difference: %s", off.ticks().size(), on.ticks().size(), n, endX, off.leverClicks(), on.leverClicks(),
                     leverTick, off.turnOnly(), on.turnOnly(), wOff[1], (int) wOff[0], wOn[1], (int) wOn[0], off.turnLines(),
                     on.turnLines(), off.repickLines(), on.repickLines(), off.uses(), on.uses(), (firstDiff < 0 ? "none" : "") + diff));
-            c.check(n >= 40 && endX < 20, "the walk did not run past the lever (" + n + " ticks, ended at x " + endX + ")");
+            c.check(n >= 10 && endX < 20, "the walk did not run past the lever (" + n + " ticks, ended at x " + endX + ")");
             c.check(off.leverClicks() == 1, "lever off: " + off.leverClicks() + " lever clicks on the wire, want 1");
             c.check(on.leverClicks() == 0, "lever on: " + on.leverClicks() + " lever clicks on the wire, want 0");
             c.check(on.turnOnly() == 1 && off.turnOnly() == 0, "turn-only flicks off/on " + off.turnOnly() + "/" + on.turnOnly()
