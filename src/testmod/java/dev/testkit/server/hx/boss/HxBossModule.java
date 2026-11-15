@@ -50,7 +50,7 @@ public final class HxBossModule implements HxModule {
     }
 
     /**
-     * The block state id GrimAC's own copy of the world holds at x/y/z (0 = air, -1 = no anticheat or no player). A client
+     * The block state id GrimAC's own copy of the world holds at x/y/z (0 = air, -1 above or below the world, -2 no chunk, -3 no player yet, -9 no anticheat on this server). A client
      * that has a block is no proof the anticheat does: it applies a chunk or block change only when the client's answer to
      * the next transaction arrives, and a use sent before that is judged against air (AirLiquidPlace, 786 on a loaded PC).
      */
