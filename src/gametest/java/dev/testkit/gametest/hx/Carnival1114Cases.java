@@ -195,9 +195,16 @@ final class Carnival1114Cases {
             CarnivalSuite.startFruit(c);
             String[] p = Carnival1110Cases.pick(c);
             c.check(p != null, "no pick");
-            c.ctx().waitTicks(10);
-            int cell = (p[0].charAt(0) - 'A') * 7 + (p[0].charAt(1) - '1');
-            int bestLast = c.onClient(mc -> (Integer) Mod.staticCall("carnival.FruitDigging", "bestLastFrame"));
+            // The solver may re-solve and move its pick (random samples, close tiles): compare a frame to the pick read just
+            // after it, until they agree (a frame always draws the pick current at that frame).
+            int cell = -1;
+            int bestLast = -2;
+            for (int i = 0; i < 8 && cell != bestLast; i++) {
+                c.ctx().waitTicks(i == 0 ? 10 : 3);
+                p = Carnival1110Cases.pick(c);
+                cell = (p[0].charAt(0) - 'A') * 7 + (p[0].charAt(1) - '1');
+                bestLast = c.onClient(mc -> (Integer) Mod.staticCall("carnival.FruitDigging", "bestLastFrame"));
+            }
             long tinted = c.onClient(mc -> (Long) Mod.staticCall("carnival.FruitDigging", "tintedLastFrame"));
             c.note("pick " + p[0] + " cell " + cell + "; last frame best " + bestLast + ", tinted mask " + Long.toBinaryString(tinted));
             c.check(bestLast == cell, "the last frame's Best Dig tile was " + bestLast + ", want " + cell);

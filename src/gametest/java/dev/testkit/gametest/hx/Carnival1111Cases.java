@@ -401,21 +401,22 @@ final class Carnival1111Cases {
             c.waitUntil("the flung fish is dropped", mc -> (Integer) Mod.staticCall("carnival.CatchAFish", "fishCount") == 0, 40);
             c.check(c.onClient(mc -> Mod.staticCall("carnival.CatchAFish", "bestYellow")) == null,
                     "a flung fish is still the best target");
-            // Back in the water it stays dropped.
-            c.server().command("tp @e[type=armor_stand,limit=1] " + (PX + 2) + " " + (Y + 1) + " " + (PZ + 6));
-            c.ctx().waitTicks(15);
-            c.check((Integer) c.onClient(mc -> Mod.staticCall("carnival.CatchAFish", "fishCount")) == 0,
-                    "a fish seen flung came back as a target");
             if (cheat) {
                 long t0 = c.hx().head();
                 int casts0 = c.onClient(mc -> (Integer) Mod.staticCall("carnival.AutoCatchAFish", "casts"));
-                c.ctx().waitTicks(60);
+                c.ctx().waitTicks(30);
                 int casts1 = c.onClient(mc -> (Integer) Mod.staticCall("carnival.AutoCatchAFish", "casts"));
                 long uses = CarnivalSuite.uses(c, t0, "fishing_rod");
-                c.note("auto casts " + (casts1 - casts0) + ", rod uses " + uses + " after the fling");
+                c.note("auto casts " + (casts1 - casts0) + ", rod uses " + uses + " while the fish is up in the air");
                 c.check(casts1 == casts0 && uses == 0, "the auto aimed or cast at a flung fish (casts +" + (casts1 - casts0)
                         + ", rod uses " + uses + ")");
             }
+            // Back in the water it stays dropped for a few ticks, then (still at pond height for 10 ticks) swims again.
+            c.server().command("tp @e[type=armor_stand,limit=1] " + (PX + 2) + " " + (Y + 1) + " " + (PZ + 6));
+            c.ctx().waitTicks(4);
+            c.check((Integer) c.onClient(mc -> Mod.staticCall("carnival.CatchAFish", "fishCount")) == 0,
+                    "a fish seen flung came back as a target at once");
+            c.waitUntil("the fish is a target again after 10 still ticks", mc -> (Integer) Mod.staticCall("carnival.CatchAFish", "fishCount") == 1, 60);
         } finally {
             c.onClient(mc -> {
                 mc.options.keyUse.setDown(false);
