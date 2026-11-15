@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-14T20:53:15",
- "modSource": "lane-bloodrush-boxes-1113",
- "modGitSha": "cf7ed54fe237eaeeee377f5596844f84cd42ad8b",
+ "generatedAt": "2026-11-14T21:11:33",
+ "modSource": "lane-simpersist2-1112",
+ "modGitSha": "69d1d2b10b047fabc038b155adf82b5977e3433d",
  "modSourceDirty": false,
  "count": 961,
  "byKind": {
