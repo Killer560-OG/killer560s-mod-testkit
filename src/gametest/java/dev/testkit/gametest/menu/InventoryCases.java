@@ -51,6 +51,7 @@ final class InventoryCases {
         ContainerCoverCases.register(s);
         InvSortDocCases.register(s);
         InvSort1103Cases.register(s);
+        InvSortSacks1113Cases.register(s);
         InvSortDump1104Cases.register(s);
         InvLoadout1104Cases.register(s);
         SameTickMenu1105Cases.register(s); // 1105-same-autosell/autoterm/invsort-click (grimgapC-1105)
