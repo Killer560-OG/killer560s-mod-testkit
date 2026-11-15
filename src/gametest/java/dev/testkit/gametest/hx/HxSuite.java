@@ -203,6 +203,7 @@ public class HxSuite implements FabricClientGameTest {
                     // mod nobosspearl-1110: Block Ender Pearls In Boss.
                     HxNoBossPearl1110Cases.register(s);
                     HxGlaciteCommA1114Cases.register(s);
+                    HxNoLocraw1115Cases.register(s);
                 });
     }
 }
