@@ -677,15 +677,17 @@ final class Carnival1114Cases {
         try (HxKit.Settings s = CarnivalSuite.base(c)) {
             CarnivalSuite.on(s, "carnival.CatchAFishConfig", "getInstance");
             CarnivalSuite.on(s, "carnival.AutoCatchAFishConfig", "getInstance");
+            // On water with the 1.8 hook, as on Hypixel (carnfix3-1114: the cast aim now counts the glide on the water).
+            Carnival1114bCases.pond(c);
             c.hx().give(0, "minecraft:fishing_rod[custom_name='Carnival Rod']");
             CarnivalSuite.holdSlot(c, 0);
-            CarnivalSuite.stand(c, PX, PZ, 0f, 0f);
+            CarnivalSuite.stand(c, Carnival1114bCases.SHORE_X, PZ, -90f, 0f);
             CarnivalSuite.sidebar(c);
             c.hx().chat("§e[NPC] Carnival Fisherman§f: Good luck, friend!");
             c.waitUntil("Catch a Fish starts on the Fisherman's line", mc -> "CATCH_A_FISH".equals(String.valueOf(
                     Mod.staticCall("carnival.CarnivalState", "game"))), 60);
-            c.hx().stand(PX - 2, Y + 1, PZ + 6, null, "helmet", CarnivalSuite.head(CarnivalSuite.YELLOW), "marker", false, "invisible", false);
-            c.hx().stand(PX + 2, Y + 1, PZ + 6, null, "helmet", CarnivalSuite.head(CarnivalSuite.OTHER), "marker", false, "invisible", false);
+            c.hx().stand(Carnival1114bCases.FISH_A_X, Y, PZ - 2, null, "helmet", CarnivalSuite.head(CarnivalSuite.YELLOW), "marker", false, "invisible", false);
+            c.hx().stand(Carnival1114bCases.FISH_B_X, Y, PZ + 2, null, "helmet", CarnivalSuite.head(CarnivalSuite.OTHER), "marker", false, "invisible", false);
             c.waitUntil("two fish seen", mc -> (Integer) Mod.staticCall("carnival.CatchAFish", "fishCount") == 2, 60);
             List<long[]> rows = new ArrayList<>();
             long reelEnd = -1;
@@ -734,6 +736,7 @@ final class Carnival1114Cases {
                 mc.options.keyUse.setDown(false);
                 return null;
             });
+            Carnival1114bCases.unpond(c);
             CarnivalSuite.cleanup(c);
         }
     }

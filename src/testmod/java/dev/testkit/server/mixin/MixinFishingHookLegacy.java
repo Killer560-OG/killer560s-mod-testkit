@@ -29,8 +29,9 @@ import java.util.Optional;
  * eye 0.1 lower and 0.16 to the side at 1.5 blocks a tick along the look, keeps 92% of its speed a tick, floats by the
  * part of its 0.25 box under the water surface (0.04 x (2 x part - 1) up, then 90% and 80% in water), so it splashes and
  * glides on 3.5-4 blocks, and it hooks ANY entity its path crosses (box grown 0.3) in the air or on the water, as the 1.8
- * hook does every tick it is not stuck. The modern hook hooks nothing once it floats, so a cast aimed to glide into a fish
- * could never be tested on it. Every other player keeps the vanilla hook.
+ * hook does every tick it is not stuck, and a fish that swims onto the floating hook (his games catch that way too). The
+ * modern hook hooks nothing once it floats, so a cast aimed to glide into a fish could never be tested on it. Every other
+ * player keeps the vanilla hook.
  */
 @Mixin(FishingHook.class)
 public abstract class MixinFishingHookLegacy extends Projectile {
@@ -99,7 +100,12 @@ public abstract class MixinFishingHookLegacy extends Projectile {
         double bestD = Double.MAX_VALUE;
         AABB sweep = getBoundingBox().expandTowards(v).inflate(1.0);
         for (Entity e : level.getEntities(this, sweep, e -> e != owner && !e.isSpectator() && e.isPickable())) {
-            Optional<Vec3> at = e.getBoundingBox().inflate(0.3).clip(from, to);
+            AABB box = e.getBoundingBox().inflate(0.3);
+            // A fish over the hook takes it even while the hook is still sunk under its box after a steep entry (how
+            // Hypixel judges a catch is not known; his games catch a fish that swims over the bobber).
+            boolean over = from.x > box.minX && from.x < box.maxX && from.z > box.minZ && from.z < box.maxZ
+                    && from.y < box.maxY && from.y > box.minY - 2;
+            Optional<Vec3> at = over ? Optional.of(from) : box.clip(from, to);
             if (at.isPresent() && from.distanceToSqr(at.get()) < bestD) {
                 bestD = from.distanceToSqr(at.get());
                 best = e;
