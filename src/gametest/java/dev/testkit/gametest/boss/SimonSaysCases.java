@@ -169,7 +169,9 @@ final class SimonSaysCases {
     static void tpToDevice(Session c) {
         c.hx().call("dungeon.tp", "x", 107.5, "y", 135.0, "z", 93.5, "yaw", -90f, "pitch", 0f);
         c.waitUntil("GrimAC's world to hold the device floor", mc -> grimHolds(c, new BlockPos(107, 119, 93)), 200);
-        c.hx().call("dungeon.tp", "x", 107.5, "y", 120.0, "z", 93.5, "yaw", -90f, "pitch", 0f);
+        // 0.4 above the floor: the client lands within 3 ticks as the anticheat predicts. Standing at 120.0, the teleport
+        // reply claims airborne (the vanilla client always sends it so) while the next packet is predicted on the ground.
+        c.hx().call("dungeon.tp", "x", 107.5, "y", 120.4, "z", 93.5, "yaw", -90f, "pitch", 0f);
     }
 
     /**
