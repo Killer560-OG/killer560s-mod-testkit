@@ -80,28 +80,21 @@ final class TermBurst1111Cases {
                     .set(CONFIG, "AutoStreamSafe", false).set(CONFIG, "HoverTerminalsEnabled", false)
                     .set(CONFIG, "QueueTerms", false).set(CONFIG, "BurstFinish", on).set(CONFIG, "BurstSize", size);
             int bursts0 = num(c, "burstsSent");
-            WireCapture.start();
-            JsonObject t = TerminalCases.open(c, spec);
-            MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
+            boolean[] open = {true};
+            boolean[] seenOpen = {false};
             if (sameTick) {
-                acting[0] = true;
-                int[] n = {0};
-                // Every client tick while the terminal is open: his hotbar swap, his own click on an empty slot of his
-                // inventory (below the terminal grid), and three extra solver frames. No movement key: with a screen open he moves
-                // only through Inventory Walk, whose Stop To Click holds every click while he moves (1108-iw-termwalk).
-                // The actions run from a START_CLIENT_TICK hook, so no client tick can pass without them: a test-thread
-                // loop (onClient + waitTicks) skipped a tick under load and the burst landed in it (termship-1115,
-                // 1112-term-burst-size-10-sametick read [10, 0, 0] with every click clean on experimental Grim).
+                // Installed BEFORE the open: at a size above the board the whole board bursts on the first click, which can
+                // come before a test thread back from awaitScreen (1112-term-burst-size-21-sametick read [21, 0, 0]).
                 c.ctx().runOnClient(mc -> mc.player.getInventory().clearContent());
-                boolean[] open = {true};
                 c.onClient(mc -> {
                     hook();
                     perTick = () -> {
                         if (!(dev.testkit.compat.McCompat.screen(mc)
                                 instanceof net.minecraft.client.gui.screens.inventory.ContainerScreen s)) {
-                            open[0] = false;
+                            if (seenOpen[0]) open[0] = false;
                             return;
                         }
+                        seenOpen[0] = true;
                         mc.player.getInventory().setSelectedSlot((mc.player.getInventory().getSelectedSlot() + 1) % 9);
                         int own = s.getMenu().slots.size() - 1;
                         mc.gameMode.handleContainerInput(s.getMenu().containerId, own, 0, ContainerInput.PICKUP, mc.player);
@@ -116,6 +109,19 @@ final class TermBurst1111Cases {
                     };
                     return null;
                 });
+            }
+            WireCapture.start();
+            JsonObject t = TerminalCases.open(c, spec);
+            MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
+            if (sameTick) {
+                acting[0] = true;
+                int[] n = {0};
+                // Every client tick while the terminal is open: his hotbar swap, his own click on an empty slot of his
+                // inventory (below the terminal grid), and three extra solver frames. No movement key: with a screen open he moves
+                // only through Inventory Walk, whose Stop To Click holds every click while he moves (1108-iw-termwalk).
+                // The actions run from a START_CLIENT_TICK hook, so no client tick can pass without them: a test-thread
+                // loop (onClient + waitTicks) skipped a tick under load and the burst landed in it (termship-1115,
+                // 1112-term-burst-size-10-sametick read [10, 0, 0] with every click clean on experimental Grim).
                 while (acting[0] && open[0] && n[0]++ < 200) {
                     c.ctx().waitTicks(1);
                 }
