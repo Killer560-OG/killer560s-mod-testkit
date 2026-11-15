@@ -101,7 +101,7 @@ final class SameTickGapCases {
             undo.add(c.onClient(mc -> Mod.with(cfg, "AutoSolveEnabled", true)));
             undo.add(c.onClient(mc -> Mod.with(cfg, "DiagnosticLoggingEnabled", true)));
             c.hx().call("boss.ss.build", "rounds", 4, "line", true, "seed", 31 + act.ordinal());
-            c.hx().call("dungeon.tp", "x", 107.5, "y", 120.0, "z", 93.5, "yaw", -90f, "pitch", 0f);
+            SimonSaysCases.tpToDevice(c);
             c.waitUntil("the client to have the device wall and start button", mc ->
                     mc.level.getBlockState(new BlockPos(111, 120, 92)).is(net.minecraft.world.level.block.Blocks.OBSIDIAN)
                             && mc.level.getBlockState(SimonSaysCases.START).is(net.minecraft.world.level.block.Blocks.STONE_BUTTON), 200);

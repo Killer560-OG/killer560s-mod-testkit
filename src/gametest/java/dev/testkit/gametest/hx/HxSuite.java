@@ -154,6 +154,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxChestMiss1113Cases.register(s);
                     // Swap To Drill On Pigeon and Auto Ult, idle and with his use / attack / swap in their ticks (1105-same-*, grimgapC-1105).
                     HxSameTick1105Cases.register(s);
+                    // Swap To Drill On Pigeon: Powder Bonus / Compact Level, claim powder detection (1114-drillswap-*, mod drillswap-1114).
+                    HxDrillSwap1114Cases.register(s);
 
                     // Auto Superboom, cheat only, with his dig / use / scroll / teleport in the swap tick (1108-same-superboom-*, featD-1108).
                     HxSuperboom1108Cases.register(s);
@@ -190,6 +192,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxKickRejoin1103Cases.register(s);
                     // mod chport-1104: the Mining features pulled from staging-mining-3 (2026-11-04).
                     HxMining3Cases.register(s);
+                    // mod glacitecomm-c-1114: the Glacite Mineshafts card (1114-mineshaft-*).
+                    HxMineshaft1114Cases.register(s);
                     // Hide Ghost Mobs: a mob the server stopped sending is hidden, a still real one never (1109-ghostmob-hide, mod ghostmob-1109).
                     HxGhostMob1109Cases.register(s);
                     // mod featC-1108: Puzzle HUD, Reparty, Watcher Helper.
@@ -201,6 +205,7 @@ public class HxSuite implements FabricClientGameTest {
                     // mod nobosspearl-1110: Block Ender Pearls In Boss.
                     HxNoBossPearl1110Cases.register(s);
                     HxGlaciteCommA1114Cases.register(s);
+                    HxNoLocraw1115Cases.register(s);
                 });
     }
 }
