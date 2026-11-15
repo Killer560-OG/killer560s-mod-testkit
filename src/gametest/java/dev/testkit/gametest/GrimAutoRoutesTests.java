@@ -254,6 +254,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-crypt", GrimAutoRoutesTests::caseCrypt);
             s.test("62-argrim-1015-cryptaim", GrimAutoRoutesTests::caseCryptAim); // crypt-aim-1015
             s.test("62-argrim-mimic", GrimAutoRoutesTests::caseMimic);
+            s.test("62-argrim-1115-armaster-onetry", GrimAutoRoutesTests::caseArmasterOneTry); // armaster-1115
+            s.test("62-argrim-1115-armaster-skip", GrimAutoRoutesTests::caseArmasterSkip); // armaster-1115
+            s.test("62-argrim-1115-armaster-normal", GrimAutoRoutesTests::caseArmasterNormal); // armaster-1115
+            s.test("62-argrim-1115-armaster-mimic-skip", GrimAutoRoutesTests::caseArmasterMimicSkip); // armaster-1115
+            s.test("62-argrim-1115-armaster-save", GrimAutoRoutesTests::caseArmasterSave); // armaster-1115
             s.test("62-argrim-1017-mimicaim", GrimAutoRoutesTests::caseMimicAim); // ar-bridges-bat-1017
             s.test("62-argrim-autoclear", GrimAutoRoutesTests::caseAutoClear);
             s.test("62-argrim-1020-autoclearaura", GrimAutoRoutesTests::caseAutoClearAura); // mod ac-aura-memory-1020
@@ -5031,6 +5036,178 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 + " blocks off by " + (walk ? "a walk after a setback" : "an etherwarp trip") + ", zombie killed; walks "
                 + walks + ", etherwarps " + delta(before, "etherwarps"));
         noteFlags(c, s);
+    }
+
+    // ---- armaster-1115: Master Mode: One Try / Skip Kills for the crypt node and Kill Mimic ----
+
+    private static void armasterFlags(ClientGameTestContext ctx, boolean oneTry, boolean skip) {
+        ctx.runOnClient(mc -> {
+            Object ar = ModUnderTest.config(AR_CONFIG);
+            ModUnderTest.set(ar, "setMasterOneTry", oneTry);
+            ModUnderTest.set(ar, "setMasterSkipKills", skip);
+        });
+    }
+
+    /** The floor the mod reads off the sidebar, e.g. "M7" or "F7". */
+    private static void armasterFloor(Session c, String floor) {
+        ClientGameTestContext ctx = c.ctx();
+        c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(" + floor + ")");
+        check(waitFor(ctx, 400, () -> floor.equals(ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(
+                "com.killer560.hub.secrets.DungeonState", "getFloor")))), "the mod never read floor " + floor);
+    }
+
+    /** A Hyperion crypt node then a jump node; returns the sampled packets. The log mark is kept in {@code mark[0]}. */
+    private static List<Sample> armasterCrypt(Session c, String floor, boolean oneTry, boolean skip, long[] mark) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        armasterFloor(c, floor);
+        armasterFlags(ctx, oneTry, skip);
+        ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setCryptWeapon",
+                new Class<?>[]{enumClass("CryptWeapon")}, new Object[]{ModUnderTest.enumValue(AR_CONFIG + "$CryptWeapon",
+                        "HYPERION")}));
+        JsonObject crypt = node("CRYPT", 14, 14, 0f, 10f);
+        crypt.addProperty("start", true);
+        writeRoute(ctx, List.of(crypt, node("JUMP", 14, 14, 0f, 0f)));
+        mark[0] = LogTap.mark();
+        startSampling(ctx);
+        walkOnto(ctx, 14.5, 11.5, 14, 14);
+        waitFor(ctx, 60, () -> logHas(mark[0], "Node #2"));
+        ctx.waitTicks(30);
+        return stopSampling(ctx);
+    }
+
+    private static void armasterReset(ClientGameTestContext ctx) {
+        armasterFlags(ctx, false, false);
+    }
+
+    /** Master Mode + One Try: exactly one use_item for the crypt step, no wait for a kill, node #2 fires at once. */
+    private static void caseArmasterOneTry(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        long[] m = new long[1];
+        try {
+            List<Sample> s = armasterCrypt(c, "M7", true, false, m);
+            printTrace("armaster-onetry", s);
+            check(logHas(m[0], "CRYPT acted"), "the crypt node never acted (nothing ran)");
+            check(logHas(m[0], "Master Mode, One Try"), "One Try never ended the crypt step");
+            check(useTicks(s).size() == 1, "One Try sent " + useTicks(s).size() + " use_item packet(s), expected exactly 1");
+            check(!logHas(m[0], "up, moving on"), "the crypt step ran out its attack time instead of moving on at once");
+            check(logHas(m[0], "Node #2"), "the next node never fired");
+            c.note("armaster one try: 1 use_item, route went on with the target alive");
+            noteFlags(c, s);
+        } finally {
+            armasterReset(ctx);
+        }
+    }
+
+    /** Master Mode + One Try + Skip Kills: no use at all and the route goes on. */
+    private static void caseArmasterSkip(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        long[] m = new long[1];
+        try {
+            List<Sample> s = armasterCrypt(c, "M7", true, true, m);
+            printTrace("armaster-skip", s);
+            check(logHas(m[0], "Master Mode, Skip Kills on"), "Skip Kills never skipped the crypt step (nothing ran)");
+            check(useTicks(s).isEmpty(), "Skip Kills sent " + useTicks(s).size() + " use_item packet(s), expected 0");
+            check(logHas(m[0], "Node #2"), "the next node never fired");
+            c.note("armaster skip: 0 use_item, route went on");
+            noteFlags(c, s);
+        } finally {
+            armasterReset(ctx);
+        }
+    }
+
+    /** A normal floor with both on and with Skip alone in master (One Try off): the old behavior, held use until the kill. */
+    private static void caseArmasterNormal(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        long[] m = new long[1];
+        try {
+            for (Object[] v : new Object[][]{{"F7", true, true}, {"M7", false, true}}) {
+                resetRoutes(ctx);
+                arena(ctx, false);
+                armasterFloor(c, (String) v[0]);
+                armasterFlags(ctx, (Boolean) v[1], (Boolean) v[2]);
+                ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setCryptWeapon",
+                        new Class<?>[]{enumClass("CryptWeapon")}, new Object[]{ModUnderTest.enumValue(
+                                AR_CONFIG + "$CryptWeapon", "HYPERION")}));
+                JsonObject crypt = node("CRYPT", 14, 14, 0f, 10f);
+                crypt.addProperty("start", true);
+                tpRel(ctx, 14.5, 8.5, 0f, 0f);
+                ctx.waitTicks(10);
+                m[0] = LogTap.mark();
+                writeRoute(ctx, List.of(crypt, node("JUMP", 14, 14, 0f, 0f)));
+                startSampling(ctx);
+                walkOnto(ctx, 14.5, 11.5, 14, 14);
+                check(waitFor(ctx, 40, () -> logHas(m[0], "CRYPT acted")), v[0] + ": the crypt node never acted");
+                ctx.waitTicks(24);
+                check(!logHas(m[0], "Master Mode"), v[0] + " " + v[1] + "/" + v[2] + ": a Master Mode rule applied");
+                c.hx().chat("A Prince falls. +1 Bonus Score");
+                check(waitFor(ctx, 40, () -> logHas(m[0], "CRYPT: 1 kill(s)")), v[0] + ": the kill never ended the node");
+                List<Sample> s = stopSampling(ctx);
+                check(useTicks(s).size() >= 4, v[0] + ": old behavior held use for only " + useTicks(s).size() + " use(s)");
+                c.note("armaster " + v[0] + " one try " + v[1] + " skip " + v[2] + ": old behavior, " + useTicks(s).size() + " uses");
+            }
+        } finally {
+            armasterReset(ctx);
+        }
+    }
+
+    /** Kill Mimic (Hyperion) after a trapped chest: Skip Kills in Master Mode never uses it. */
+    private static void caseArmasterMimicSkip(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        armasterFloor(c, "M7");
+        armasterFlags(ctx, true, true);
+        ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setKillMimic",
+                new Class<?>[]{enumClass("KillMimic")}, new Object[]{ModUnderTest.enumValue(AR_CONFIG + "$KillMimic",
+                        "HYPERION")}));
+        try {
+            setBlocks(ctx, Map.of(new int[]{13, F, 22}, "minecraft:trapped_chest"));
+            JsonObject chest = node("USE_ITEM", 10, 22, -90f, 20f);
+            chest.addProperty("start", true);
+            writeRoute(ctx, List.of(chest));
+            long m = LogTap.mark();
+            walkOnto(ctx, 7.5, 22.5, 10, 22);
+            check(waitFor(ctx, 40, () -> ctx.computeOnClient(mc -> McCompat.screen(mc) != null)), "the trapped chest never opened");
+            check(waitFor(ctx, 60, () -> logHas(m, "Master Mode, Skip Kills on")), "Kill Mimic was not skipped (nothing ran)");
+            ctx.runOnClient(mc -> {
+                if (mc.player.containerMenu != mc.player.inventoryMenu) {
+                    mc.player.closeContainer();
+                }
+            });
+            ctx.waitTicks(10);
+            check(!logHas(m, "used straight down"), "Kill Mimic used the Hyperion despite Skip Kills");
+            c.note("armaster mimic skip: Kill Mimic left alone in Master Mode");
+        } finally {
+            armasterReset(ctx);
+            ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setKillMimic",
+                    new Class<?>[]{enumClass("KillMimic")}, new Object[]{ModUnderTest.enumValue(AR_CONFIG + "$KillMimic",
+                            "OFF")}));
+        }
+    }
+
+    /** Both settings survive save + load, and default OFF. */
+    private static void caseArmasterSave(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        try {
+            armasterFlags(ctx, true, true);
+            boolean[] back = ctx.computeOnClient(mc -> {
+                Object ar = ModUnderTest.config(AR_CONFIG);
+                ModUnderTest.call(ar, "save", new Class<?>[]{}, new Object[]{});
+                ModUnderTest.set(ar, "setMasterOneTry", false);
+                ModUnderTest.set(ar, "setMasterSkipKills", false);
+                ModUnderTest.staticCall(AR_CONFIG, "load");
+                Object ar2 = ModUnderTest.config(AR_CONFIG);
+                return new boolean[]{ModUnderTest.getBoolean(ar2, "isMasterOneTry"),
+                        ModUnderTest.getBoolean(ar2, "isMasterSkipKills")};
+            });
+            check(back[0] && back[1], "Master Mode settings did not survive save + load: " + back[0] + "/" + back[1]);
+            c.note("armaster settings saved and loaded: one try " + back[0] + ", skip kills " + back[1]);
+        } finally {
+            armasterReset(ctx);
+            ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "save", new Class<?>[]{}, new Object[]{}));
+        }
     }
 
     private static void arena(ClientGameTestContext ctx, boolean wall) {
