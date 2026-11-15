@@ -66,7 +66,7 @@
     "Dungeon ESP",
     "Dungeon Map",
     "Dungeon Queue",
-    "Enchant Colors",
+    "Enchants",
     "Etherwarp Overlay",
     "Etherwarp Waypoints",
     "Experiments",
@@ -236,7 +236,7 @@
     "gui.tab.DungeonInfoTab": "Dungeon > Secrets HUD",
     "gui.tab.DungeonQueueTab": "Dungeon > Map, Leap & Party > Dungeon Queue",
     "gui.tab.DvdTab": "Hud Elements > DVD",
-    "gui.tab.EnchantColorsTab": "Items > Enchant Colors",
+    "gui.tab.EnchantColorsTab": "Items > Enchants",
     "gui.tab.EtherwarpOverlayTab": "General > Etherwarp Overlay",
     "gui.tab.EtherwarpTab": "Dungeon > Secrets > Etherwarp Waypoints",
     "gui.tab.ExperimentsTab": "Helpers > Experiments",
@@ -873,7 +873,7 @@
       "pv link on join": "When someone joins your party in a dungeon queue or run, adds a clickable [PV] line under the join message that opens their profile viewer.",
       "party finder overlay": "Adds join highlights, member counts and player stats to the Party Finder."
     },
-    "Enchant Colors": {
+    "Enchants": {
       "enchant colors": "Recolors enchantment names in Hypixel item lore by tier."
     },
     "Etherwarp Overlay": {
