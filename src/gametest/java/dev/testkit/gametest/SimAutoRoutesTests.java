@@ -10745,38 +10745,61 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     ModUnderTest.set(ar, "setEnabled", false);
                     ModUnderTest.set(ar, "setLegitMode", false);
                     ModUnderTest.set(ar, "setStartFromStartNodeOnly", true);
+                    // A secret chest's window is closed as he plays (the route waits under any screen otherwise).
+                    Object acc = ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig");
+                    ModUnderTest.set(acc, "setEnabled", true);
+                    ModUnderTest.set(acc, "setAuto", true);
+                    // He arrives by an Interactive Map etherwarp: the Aspect of the Void (slot 1) is in hand.
+                    mc.player.getInventory().setSelectedSlot(0);
                 });
                 writeRoute(ctx, nodes);
-                tpRelY(ctx, first.get("x").getAsDouble(), first.get("y").getAsDouble(), first.get("z").getAsDouble(),
-                        first.get("yaw").getAsFloat(), first.get("pitch").getAsFloat());
-                ctx.waitFor(mc -> mc.player.onGround(), 200);
-                ctx.waitTicks(5);
                 int found0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound"));
                 long m = LogTap.mark();
-                // Both let go on one tick, the aura first (as after a map warp).
-                ctx.runOnClient(mc -> {
-                    ModUnderTest.set(ModUnderTest.config(CHEAT_CFG), "setSecretAuraEnabled", true);
-                    ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", true);
-                });
-                int started = -1, complete = -1, seen = 0;
+                // As after an Interactive Map warp: Auto Routes is on before he lands (it starts the tick he stands on
+                // the start node), and Secret Aura is let go on the client tick he first sees himself there, so the
+                // room's server ticks do not run ahead of the route's first tick.
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", true));
+                tpRelY(ctx, first.get("x").getAsDouble(), first.get("y").getAsDouble(), first.get("z").getAsDouble(),
+                        first.get("yaw").getAsFloat(), first.get("pitch").getAsFloat());
+                Vec3 startReal = ctx.computeOnClient(mc -> (Vec3) ModUnderTest.staticCall(COORDS, "toReal",
+                        new Class<?>[]{ModUnderTest.staticCall(FRAME, "current").getClass(), double.class, double.class, double.class},
+                        new Object[]{ModUnderTest.staticCall(FRAME, "current"), first.get("x").getAsDouble(),
+                                first.get("y").getAsDouble(), first.get("z").getAsDouble()}));
+                boolean auraOn = false;
+                // complete = tick of "Route ... complete"; stopped = a stop with no completion; otherwise the window
+                // (WINDOW ticks, 3x the model and at least 400) ran out and the last held line says where it stalled.
+                int window = Math.max(400, modelTicks * 3);
+                int started = -1, complete = -1, stopped = -1, seen = 0;
+                String lastHeld = "-";
                 List<String> timeline = new ArrayList<>();
-                for (int tick = 0; tick < 1200 && complete < 0; tick++) {
+                for (int tick = 0; tick < window && complete < 0 && stopped < 0; tick++) {
+                    if (!auraOn) {
+                        auraOn = ctx.computeOnClient(mc -> {
+                            if (mc.player.position().distanceTo(startReal) > 0.6) return false;
+                            ModUnderTest.set(ModUnderTest.config(CHEAT_CFG), "setSecretAuraEnabled", true);
+                            return true;
+                        });
+                        if (auraOn) timeline.add("t" + tick + " test: on the start node, Secret Aura on");
+                    }
                     List<String> lines = LogTap.since(m);
                     for (int i = seen; i < lines.size(); i++) {
                         String l = lines.get(i);
                         if (started < 0 && l.contains("[AutoRoutes] Started")) started = tick;
                         if (l.contains("Route \"" + r + "\" complete")) complete = tick;
-                        if (l.contains("Stopped") && l.contains("AutoRoutes")) { complete = -2; }
+                        else if (complete < 0 && l.contains("[AutoRoutes] Stopped")) stopped = tick;
+                        if (l.contains("[AutoRoutes] held:")) lastHeld = "t" + tick + " " + l.substring(l.indexOf("held:"));
                         if (l.contains("acted") || l.contains("click sent") || l.contains("Sim secret") || l.contains("appeared")
                                 || l.contains("Started") || l.contains("complete") || l.contains("Stopped")
-                                || l.contains("secret gap") || l.contains("landed") || l.contains("pick")) {
+                                || l.contains("secret gap") || l.contains("landed") || l.contains("pick")
+                                || l.contains("await met") || l.contains("[AutoCloseChest]")) {
                             timeline.add("t" + tick + " " + l.substring(Math.max(0, l.indexOf(']') - 40)));
                         }
                     }
                     seen = lines.size();
-                    if (complete == -2) break;
-                    ctx.waitTicks(1);
+                    if (complete < 0 && stopped < 0) ctx.waitTicks(1);
                 }
+                String outcome = complete >= 0 ? "complete t" + complete : stopped >= 0 ? "STOPPED t" + stopped
+                        : "STALLED (window " + window + " ticks ended; last hold " + lastHeld + ")";
                 ctx.waitTicks(10);
                 int found1 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound"));
                 ctx.runOnClient(mc -> {
@@ -10786,7 +10809,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 stopRoute(ctx);
                 int simTicks = complete >= 0 && started >= 0 ? complete - started : -1;
                 String verdict = "arfinder " + r + ": model " + modelTicks + " ticks, sim " + simTicks
-                        + " (started t" + started + ", complete t" + complete + "), secrets " + (found1 - found0) + "/" + expect;
+                        + " (started t" + started + ", " + outcome + "), secrets " + (found1 - found0) + "/" + expect;
                 println(verdict);
                 timeline.forEach(t -> println("arfinder " + r + " | " + t));
                 Path out = ARFINDER_INPUT.resolveSibling("result-" + r.replace(' ', '_') + ".txt");
@@ -10794,7 +10817,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 o.add(verdict);
                 o.addAll(timeline);
                 Files.write(out, o, StandardCharsets.UTF_8);
-                if (complete < 0) fails.add(r + ": route did not complete");
+                if (complete < 0) fails.add(r + ": route did not complete - " + outcome);
                 else if (found1 - found0 < expect) fails.add(r + ": only " + (found1 - found0) + " of " + expect + " secrets");
                 else if (simTicks != modelTicks) fails.add(r + ": model " + modelTicks + " != sim " + simTicks);
             }
