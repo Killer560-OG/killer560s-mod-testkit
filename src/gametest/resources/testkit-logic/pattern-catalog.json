@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T01:39:04",
- "modSource": "lane-clmark-1114",
- "modGitSha": "044eb202b9df7b721783d6465ae3c93089d345e0",
+ "generatedAt": "2026-11-15T02:14:22",
+ "modSource": "lane-accadv2-1114",
+ "modGitSha": "9004aef2ef0ebdd9d4e7a53c8efb08e17e6b2da9",
  "modSourceDirty": false,
  "count": 962,
  "byKind": {
@@ -55,7 +55,7 @@
    "field": "TITLE",
    "index": null,
    "file": "src/main/java/com/killer560/hub/accadvisor/AccessoryAdvisor.java",
-   "line": 58,
+   "line": 63,
    "regex": "^Accessory Bag(?: \\((\\d{1,2})/(\\d{1,2})\\))?$",
    "flags": null,
    "kind": "field",
