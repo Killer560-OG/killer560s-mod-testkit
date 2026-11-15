@@ -238,6 +238,9 @@ final class Ap3LeverTurn1115Cases {
                 Mod.staticCall("ap3.Ap3Feature", "setForceDungeon", true);
                 return null;
             });
+            // A warm-up walk first, not compared: the session's first AP3 walk once started from a different look (the server
+            // had heard no rotation yet), one tick out of step with every later walk (experimental run, 11-15).
+            runOnce(c, true, false);
             Run off = runOnce(c, false, sameUse);
             Run on = runOnce(c, true, sameUse);
             int n = Math.min(off.ticks().size(), on.ticks().size());
