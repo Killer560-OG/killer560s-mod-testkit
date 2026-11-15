@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-14T18:03:11",
- "modSource": "lane-leverjump-strafe-1113",
- "modGitSha": "33a7c9123ce434c46cba91174981cec3dbbc4f28",
+ "generatedAt": "2026-11-14T20:01:05",
+ "modSource": "lane-secretroutes-1113",
+ "modGitSha": "6998ff1b1aac26aede695cb1d20ec015c6481eef",
  "modSourceDirty": false,
  "count": 957,
  "byKind": {
