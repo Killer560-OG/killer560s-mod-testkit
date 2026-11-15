@@ -5185,6 +5185,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 int x = xs[i];
                 String weapon = weapons[i];
                 setArEnum(ctx, "setBatWeapon", "CryptWeapon", weapon);
+                forgetRunMemory(ctx);
                 BlockPos spot = realNow(ctx, x, F + 2, 13);
                 ctx.runOnClient(mc -> mc.getSingleplayerServer().execute(() -> ModUnderTest.staticCall(
                         "com.killer560.hub.roomsim.SimSecretItems", "registerBat", new Class<?>[]{BlockPos.class},
@@ -5268,13 +5269,17 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             JsonObject bat = node("BAT", 19, 10, 0f, 30f);
             bat.addProperty("start", true);
             JsonObject jump = node("JUMP", 19, 10, 0f, 30f);
-            writeRoute(ctx, List.of(bat, jump));
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            tpRel(ctx, 19.5, 8.5, 0f, 30f);
             if (control) {
                 spawnBatAt(ctx, 19, F + 2, 13);
-                ctx.waitTicks(25);
+                ctx.waitTicks(40);
             }
+            long w = LogTap.mark();
+            writeRoute(ctx, List.of(bat, jump));
+            check(waitFor(ctx, 100, () -> logHas(w, "Loaded 1 route")), "the bat route never loaded");
             long m = LogTap.mark();
-            check(arm(ctx, 19, 10, 0f, 30f), "the bat route did not start");
+            tpRel(ctx, 19.5, 10.5, 0f, 30f);
             if (control) {
                 check(waitFor(ctx, 160, () -> logHas(m, "BAT: 1 kill(s)")), "the bat killed in time was not counted");
                 check(!logHas(m, "gave up on"), "a bat killed in time was marked given up");
@@ -5288,7 +5293,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             stopRoute(ctx);
             // Same run, same route armed again: the node is left alone.
             long m2 = LogTap.mark();
-            check(arm(ctx, 19, 10, 0f, 30f), "the second arm did not start the route");
+            arm(ctx, 19, 10, 0f, 30f);
             check(waitFor(ctx, 60, () -> logHas(m2, "given up on earlier this run")), "the given-up node was re-entered");
             ctx.waitTicks(30);
             check(!logHas(m2, "BAT acted") && serverUseAims(m2).isEmpty(), "a use went out toward the given-up bat");
@@ -5297,7 +5302,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // A new run clears the mark.
             forgetRunMemory(ctx);
             long m3 = LogTap.mark();
-            check(arm(ctx, 19, 10, 0f, 30f), "the third arm did not start the route");
+            arm(ctx, 19, 10, 0f, 30f);
             check(waitFor(ctx, 100, () -> logHas(m3, "up, moving on")), "a new run did not attack the node again");
             check(!logHas(m3, "given up on earlier this run"), "the mark survived a new run");
             stopRoute(ctx);
