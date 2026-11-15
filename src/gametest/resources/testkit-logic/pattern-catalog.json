@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-14T21:45:54",
- "modSource": "lane-accadvisor-1114",
- "modGitSha": "b80ebfcdd5f40ed68bef1c9729bfadc7afdd79f5",
+ "generatedAt": "2026-11-15T02:32:07",
+ "modSource": "trainfix-ap3crystals-1114b",
+ "modGitSha": "2fdf98ca7c23428bca897531ae8cc46bde4ab2f6",
  "modSourceDirty": false,
  "count": 962,
  "byKind": {
