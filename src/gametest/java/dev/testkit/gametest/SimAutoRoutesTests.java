@@ -10723,6 +10723,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             return;
         }
         String saved = room;
+        String savedFloor = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimState", "floorLabel"));
         List<String> fails = new ArrayList<>();
         try {
             for (String line : Files.readAllLines(ARFINDER_INPUT, StandardCharsets.UTF_8)) {
@@ -10738,6 +10739,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 resetRoutes(ctx);
                 room = r;
                 ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+                // A floor with no mimic: a solo room's only chest would be the map's one mimic (counted on its death,
+                // AwaitEvents), where in a real run nearly every secret chest is a plain one.
+                ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimState", "setFloorLabel",
+                        new Class<?>[]{String.class}, new Object[]{"F4"}));
                 buildRoom(ctx, in.has("buildRotation") ? in.get("buildRotation").getAsInt() : 0);
                 giveHotbar(ctx);
                 ctx.runOnClient(mc -> {
@@ -10823,6 +10828,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             }
         } finally {
             room = saved;
+            ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimState", "setFloorLabel",
+                    new Class<?>[]{String.class}, new Object[]{savedFloor}));
         }
         check(fails.isEmpty(), String.join("; ", fails));
     }
