@@ -226,6 +226,8 @@ final class HxMineshaft1114Cases {
             return;
         }
         try (Settings set = flags(c, "scrap")) {
+            sidebar(c, "template", "dwarven_mines");
+            c.hx().stub(null, "gfs");
             c.hx().menu("Fossil Excavator", 6, Map.of(53, "minecraft:paper"), null);
             c.waitUntil("the Fossil Excavator is open", mc -> McCompat.screen(mc) instanceof AbstractContainerScreen<?> s
                     && s.getTitle().getString().equals("Fossil Excavator"), 200);
