@@ -75,6 +75,7 @@ public class BossSuite implements FabricClientGameTest {
                     // His own use / attack / hotbar swap in the same tick as each P3 aura's packet (1105-same-*, grimsame-1105).
                     SameTickCases.register(s);
                     SameTickGapCases.register(s); // grimgapB-1105
+                    WitherAimCases.register(s); // Wither Aimbot in the Wither Boss Triggerbot (1111-witheraim-*, witheraim-1111)
                     FeatHCases.register(s); // Terminator Auto Clicker on both Grim configs (1109-termclick-*, 1109-ghost-*, featH-1109)
                     // M7 P5 with Hypixel's floorless P5 sidebar: dragons tracked, box, tracer, title, end splits (1108-boss-dragons-p5, dragons1108).
                     WitherDragonsP5Cases.register(s);
