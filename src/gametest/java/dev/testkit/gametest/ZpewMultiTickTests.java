@@ -495,6 +495,19 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 }
             }
         }
+        // 26.2 only: after a burst the client settles 0.05 onto the floor (y 151.05 -> 151.00) and the server answers with
+        // ONE in-place teleport (same x/z, |dy| <= 0.1) AFTER the last landing. It is the server's re-sync, not a warp (the
+        // mod sent every use, every warp hit, GrimAC silent): dropped only when it is exactly the one extra last packet.
+        int np = tps.size();
+        if (np == expectWarps + 1 && np > 1) {
+            Vec3 a1 = tps.get(np - 2);
+            Vec3 b1 = tps.get(np - 1);
+            if (Math.abs(a1.x - b1.x) < 0.01 && Math.abs(a1.z - b1.z) < 0.01 && Math.abs(a1.y - b1.y) <= 0.1) {
+                tps.remove(np - 1);
+                scenario.log(label + ": dropped one in-place re-sync teleport after the last landing (dy "
+                        + String.format(Locale.ROOT, "%.2f", b1.y - a1.y) + ")");
+            }
+        }
         TreeSet<Long> ticks = new TreeSet<>();
         boolean sameLook = true;
         boolean seqRising = true;
