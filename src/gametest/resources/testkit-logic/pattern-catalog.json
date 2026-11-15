@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T04:07:37",
- "modSource": "lane-accadv2-1114",
- "modGitSha": "d55f14a0bba517119d8ee700c4967c679784aafc",
+ "generatedAt": "2026-11-15T04:22:53",
+ "modSource": "lane-enchdesc-1114",
+ "modGitSha": "3f6a703189c158594a8db4ca18562bcd56e1122a",
  "modSourceDirty": false,
- "count": 962,
+ "count": 964,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 834,
+  "field": 836,
   "local": 43
  },
  "unresolved": 160,
@@ -3612,6 +3612,30 @@
    "flags": null,
    "kind": "field",
    "expr": "\"(?<codes>(?:§.)*)(?<enchant>[A-Za-z][A-Za-z '-]+) (?<level>[IVXLCDM]+|[0-9]+)\""
+  },
+  {
+   "id": "enchantcolors.EnchantColorsFeature#BLANK",
+   "cls": "enchantcolors.EnchantColorsFeature",
+   "field": "BLANK",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/enchantcolors/EnchantColorsFeature.java",
+   "line": 285,
+   "regex": "^(?:§.| )*$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(?:§.|\\s)*$\""
+  },
+  {
+   "id": "enchantcolors.EnchantColorsFeature#GRAY_START",
+   "cls": "enchantcolors.EnchantColorsFeature",
+   "field": "GRAY_START",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/enchantcolors/EnchantColorsFeature.java",
+   "line": 287,
+   "regex": "^(?:§[^78])*§[78]",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(?:§[^78])*§[78]\""
   },
   {
    "id": "experiments.ExperimentNavigator#ROUNDS_NEEDED_PATTERN",
