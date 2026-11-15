@@ -245,20 +245,30 @@ final class Ap3LeverTurn1115Cases {
             Run off = runOnce(c, false, sameUse);
             Run on = runOnce(c, true, sameUse);
             int n = Math.min(off.ticks().size(), on.ticks().size());
+            // Positions must match exactly. Looks are float sums of the same turns from start yaws one 360 apart, so they may
+            // differ in the last bits (0.01 degree seen at the lever aim): a look within 0.05 degree is the same look.
             int firstDiff = -1;
             String diff = "";
-            for (int i = 0; i < n && firstDiff < 0; i++) {
+            double lookDiff = 0;
+            int lookDiffAt = -1;
+            for (int i = 0; i < n; i++) {
                 double[] a = off.ticks().get(i);
                 double[] b = on.ticks().get(i);
                 for (int k = 0; k < 5; k++) {
-                    if (Math.abs(a[k] - b[k]) > 1e-6 || Double.isNaN(a[k]) != Double.isNaN(b[k])) {
+                    boolean nan = Double.isNaN(a[k]) != Double.isNaN(b[k]);
+                    double d = Math.abs(a[k] - b[k]);
+                    if (k >= 3 && !nan && d > lookDiff) {
+                        lookDiff = d;
+                        lookDiffAt = i;
+                    }
+                    if (firstDiff < 0 && (nan || d > (k < 3 ? 1e-6 : 0.05))) {
                         firstDiff = i;
                         diff = String.format(Locale.ROOT, "tick %d: off %.5f %.5f %.5f yaw %.3f pitch %.3f / on %.5f %.5f %.5f yaw %.3f"
                                 + " pitch %.3f", i, a[0], a[1], a[2], a[3], a[4], b[0], b[1], b[2], b[3], b[4]);
-                        break;
                     }
                 }
             }
+            diff += String.format(Locale.ROOT, "; largest look difference %.4f deg at tick %d", lookDiff, lookDiffAt);
             int leverTick = -1;
             for (int i = 0; i < off.ticks().size(); i++) {
                 if (off.ticks().get(i)[5] > 0) {
@@ -266,15 +276,19 @@ final class Ap3LeverTurn1115Cases {
                     break;
                 }
             }
-            double[] wOff = widestTurn(off.ticks());
-            double[] wOn = widestTurn(on.ticks());
+            // The lever turn: the look off the walk's yaw in the ticks around the click (the align's own turn is earlier).
+            int from = Math.max(0, leverTick - 3), to = Math.max(from, leverTick + 2);
+            double[] wOff = widestTurn(off.ticks().subList(Math.min(from, off.ticks().size()), Math.min(to, off.ticks().size())));
+            double[] wOn = widestTurn(on.ticks().subList(Math.min(from, on.ticks().size()), Math.min(to, on.ticks().size())));
+            wOff[0] += from;
+            wOn[0] += from;
             double endX = n == 0 ? Double.NaN : off.ticks().get(n - 1)[0];
             c.note(String.format(Locale.ROOT, "ticks off/on %d/%d, compared %d (walk ended at x %.2f); lever clicks off/on %d/%d"
                             + " (click at tick %d); turn-only flicks off/on %d/%d; widest look off the walk off %.1f deg at tick %d, on"
                             + " %.1f deg at tick %d; Lever Aura turn lines off/on %d/%d, AP3 re-picks off/on %d/%d; uses off/on %d/%d;"
                             + " first difference: %s", off.ticks().size(), on.ticks().size(), n, endX, off.leverClicks(), on.leverClicks(),
                     leverTick, off.turnOnly(), on.turnOnly(), wOff[1], (int) wOff[0], wOn[1], (int) wOn[0], off.turnLines(),
-                    on.turnLines(), off.repickLines(), on.repickLines(), off.uses(), on.uses(), firstDiff < 0 ? "none" : diff));
+                    on.turnLines(), off.repickLines(), on.repickLines(), off.uses(), on.uses(), (firstDiff < 0 ? "none" : "") + diff));
             c.check(n >= 40 && endX < 20, "the walk did not run past the lever (" + n + " ticks, ended at x " + endX + ")");
             c.check(off.leverClicks() == 1, "lever off: " + off.leverClicks() + " lever clicks on the wire, want 1");
             c.check(on.leverClicks() == 0, "lever on: " + on.leverClicks() + " lever clicks on the wire, want 0");
