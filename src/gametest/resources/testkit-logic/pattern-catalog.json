@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T09:52:05",
- "modSource": "lane-simtermlclick-1114",
- "modGitSha": "4b7bc36210843307e7e46caf0478b0452f31b1c9",
+ "generatedAt": "2026-11-15T10:09:15",
+ "modSource": "lane-docnames-1115",
+ "modGitSha": "e3b875f73901fc758b9caabd505772952be05c72",
  "modSourceDirty": false,
  "count": 969,
  "byKind": {
