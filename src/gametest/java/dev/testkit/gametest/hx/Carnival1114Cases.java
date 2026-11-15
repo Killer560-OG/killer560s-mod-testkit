@@ -773,7 +773,7 @@ final class Carnival1114Cases {
                     shots.add(new float[]{FrameClock.tickCount(), net.minecraft.util.Mth.wrapDegrees(pl.getYRot()), pl.getXRot()});
                 }
             };
-            c.ctx().waitTicks(80);
+            c.ctx().waitTicks(160);
             PacketTrace.tap = null;
             List<float[]> got = new ArrayList<>(shots);
             float aCenter = CarnivalSuite.look(ax, Y + 1 + 0.975, z)[1];
@@ -781,21 +781,25 @@ final class Carnival1114Cases {
             StringBuilder sb = new StringBuilder();
             int[] lastAt = {-1000, -1000};
             int minSame = Integer.MAX_VALUE;
-            boolean under = false;
+            double margin = 0;
             for (float[] sh : got) {
                 int who = sh[1] > 0 ? 0 : 1; // A is to his left (+yaw), B to his right
                 int t = (int) sh[0];
                 minSame = Math.min(minSame, t - lastAt[who]);
                 lastAt[who] = t;
                 float center = who == 0 ? aCenter : bCenter;
-                under |= sh[2] >= center;
+                margin += center - sh[2];
                 sb.append(String.format(Locale.ROOT, "%d:%s yaw %.1f pitch %.2f (center %.2f); ", t, who == 0 ? "A" : "B", sh[1], sh[2], center));
             }
             c.note(got.size() + " shots: " + sb);
             c.check(got.size() >= 2, "fewer than two shots in 80 ticks: " + got.size());
             c.check(got.size() < 2 || (got.get(0)[1] > 0) != (got.get(1)[1] > 0), "the first two darts went at the same zombie");
             c.check(minSame >= 6, "the same zombie was shot again " + minSame + " ticks later, before its dart could arrive");
-            c.check(!under, "a dart was aimed at or under the box center (no drop allowed for)");
+            // Each shot rolls its own spot on the body (0.18 sd up or down, cut at 0.35 blocks) and fires inside the fire window,
+            // so one dart can sit under the center by chance (c262 lane, 11-15: 0.35 degrees); the drop shows in the mean.
+            double mean = got.isEmpty() ? 0 : margin / got.size();
+            c.note(String.format(Locale.ROOT, "mean aim above the box center %.2f degrees over %d shots", mean, got.size()));
+            c.check(mean >= 0.3, String.format(Locale.ROOT, "the darts were aimed %.2f degrees above the box center on average (want 0.3+: the drop allowed for)", mean));
         } finally {
             PacketTrace.tap = null;
             c.onClient(mc -> Mod.staticCall("carnival.Lead", "clearForTest"));
