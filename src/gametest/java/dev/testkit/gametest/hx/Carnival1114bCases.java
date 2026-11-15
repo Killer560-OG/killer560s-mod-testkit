@@ -29,6 +29,9 @@ import static dev.testkit.gametest.hx.CarnivalSuite.Y;
  *       goes out only with the shovel in the pick's mode.</li>
  *   <li>3826 Auto Zombie Shootout against real darts (the test server's {@code legacydart} model: an arrow at 4 b/t from
  *       the eye, as his log shows): one-hit zombies walking across his look at 12 and 16 blocks; kills per dart.</li>
+ *   <li>carnfix4-1114 (his pincarn6 games): 3827 two fish swimming circles (the circle fit must act, 4+ catches), 3828 a
+ *       raised bank in front of the shore (at most one bobber stops on it), 3829 the server's lever click confirms each
+ *       shovel step before the model follows 30 ticks later (exactly the needed uses, right mode at the first dig).</li>
  * </ul>
  */
 final class Carnival1114bCases {
@@ -41,6 +44,214 @@ final class Carnival1114bCases {
         s.test("3824-carnival-dig-walk-in-reach", Carnival1114bCases::digWalkInReach);
         s.test("3825-carnival-shovel-lost-tap", Carnival1114bCases::shovelLostTap);
         s.test("3826-carnival-zombie-hit-ratio", Carnival1114bCases::zombieHits);
+        s.test("3827-carnival-fish-circles", Carnival1114bCases::fishCircles);
+        s.test("3828-carnival-fish-bank", Carnival1114bCases::fishBank);
+        s.test("3829-carnival-shovel-lever-click", Carnival1114bCases::shovelLeverClick);
+    }
+
+    // ---- 3827 / 3828 (carnfix4-1114) ------------------------------------------------------------------------------
+
+    /** One Catch a Fish game on the pond: two fish moved by {@code path(tick)} = {ax, az, bx, bz} every 2 ticks for
+     *  {@code ticks}; returns {casts, catches, bank rests (a bobber that stopped on solid ground west of {@code bankX}),
+     *  ticks a circle was fitted to the target}. {@code bankX} NaN: no bank. */
+    private static int[] fishGame(Session c, int ticks, java.util.function.IntFunction<double[]> path, double bankX) {
+        String a = c.hx().stand(path.apply(0)[0], Y, path.apply(0)[1], null, "helmet", CarnivalSuite.head(CarnivalSuite.YELLOW), "marker", false, "invisible", false);
+        String b = c.hx().stand(path.apply(0)[2], Y, path.apply(0)[3], null, "helmet", CarnivalSuite.head(CarnivalSuite.OTHER), "marker", false, "invisible", false);
+        c.waitUntil("two fish seen", mc -> (Integer) Mod.staticCall("carnival.CatchAFish", "fishCount") == 2, 60);
+        int casts0 = c.onClient(mc -> (Integer) Mod.staticCall("carnival.AutoCatchAFish", "casts"));
+        int reels0 = c.onClient(mc -> (Integer) Mod.staticCall("carnival.AutoCatchAFish", "reels"));
+        int bankRests = 0;
+        int circled = 0;
+        boolean restCounted = false;
+        for (int i = 0; i < ticks; i++) {
+            if (i % 2 == 0) {
+                double[] p = path.apply(i);
+                c.server().command(String.format(Locale.ROOT, "tp %s %.3f %d %.3f", a, p[0], Y, p[1]));
+                c.server().command(String.format(Locale.ROOT, "tp %s %.3f %d %.3f", b, p[2], Y, p[3]));
+            }
+            double[] h = c.onClient(mc -> {
+                var hook = mc.player.fishing;
+                double[] circle = (double[]) Mod.staticCall("carnival.AutoCatchAFish", "targetCircle");
+                return hook == null ? new double[]{0, 0, 0, 1, circle == null ? 0 : 1}
+                        : new double[]{hook.getX(), hook.getY(), hook.getDeltaMovement().lengthSqr(), 0, circle == null ? 0 : 1};
+            });
+            circled += (int) h[4];
+            if (h[3] == 1) {
+                restCounted = false;
+            } else if (!restCounted && h[2] < 1e-4 && !Double.isNaN(bankX) && h[0] < bankX && h[1] >= Y + 0.95) {
+                restCounted = true;
+                bankRests++;
+            }
+            c.ctx().waitTicks(1);
+        }
+        int casts = c.onClient(mc -> (Integer) Mod.staticCall("carnival.AutoCatchAFish", "casts")) - casts0;
+        int reels = c.onClient(mc -> (Integer) Mod.staticCall("carnival.AutoCatchAFish", "reels")) - reels0;
+        return new int[]{casts, reels, bankRests, circled};
+    }
+
+    private static void fishSetup(Session c, HxKit.Settings s) {
+        CarnivalSuite.on(s, "carnival.CatchAFishConfig", "getInstance");
+        CarnivalSuite.on(s, "carnival.AutoCatchAFishConfig", "getInstance");
+        c.onClient(mc -> Mod.staticCall("carnival.Lead", "clearForTest"));
+        pond(c);
+        c.hx().give(0, "minecraft:fishing_rod[custom_name='Carnival Rod']");
+        CarnivalSuite.holdSlot(c, 0);
+        CarnivalSuite.stand(c, SHORE_X, PZ, -90f, 0f);
+        CarnivalSuite.sidebar(c);
+        c.hx().chat("§e[NPC] Carnival Fisherman§f: Good luck, friend!");
+        c.waitUntil("Catch a Fish starts", mc -> "CATCH_A_FISH".equals(String.valueOf(
+                Mod.staticCall("carnival.CarnivalState", "game"))), 60);
+    }
+
+    private static void fishTeardown(Session c) {
+        c.onClient(mc -> {
+            mc.options.keyUse.setDown(false);
+            return null;
+        });
+        unpond(c);
+        c.onClient(mc -> Mod.staticCall("carnival.Lead", "clearForTest"));
+        CarnivalSuite.cleanup(c);
+    }
+
+    /** 3827: his pincarn6 fish swam circles (radius 2-5, 0.012-0.039 rad a tick, either way): two fish circle, opposite
+     *  ways; the auto must fit the circle (asserted) and catch at least four in 700 ticks at 0.5+ catches a cast. */
+    static void fishCircles(Session c) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: Auto Catch a Fish is cheat-only");
+            return;
+        }
+        try (HxKit.Settings s = CarnivalSuite.base(c)) {
+            fishSetup(c, s);
+            int[] r = fishGame(c, 700, i -> new double[]{
+                    CX + 8.5 + 2.5 * Math.cos(0.03 * i), PZ + 2.5 * Math.sin(0.03 * i),
+                    CX + 10.5 + 3.5 * Math.cos(-0.02 * i + 2), PZ + 3.5 * Math.sin(-0.02 * i + 2)}, Double.NaN);
+            c.note(String.format(Locale.ROOT, "%d casts, %d catches (%.2f a cast); a circle fitted to the target on %d of 700 ticks",
+                    r[0], r[1], r[0] == 0 ? 0 : r[1] / (double) r[0], r[3]));
+            c.check(r[3] > 50, "a circle was fitted to the target on only " + r[3] + " ticks: the circle tracking never acted");
+            c.check(r[1] >= 4, "only " + r[1] + " fish caught in 700 ticks (want 4+)");
+            c.check(r[1] >= 0.5 * r[0], r[1] + " catches for " + r[0] + " casts, want 0.5+ a cast");
+        } finally {
+            fishTeardown(c);
+        }
+    }
+
+    /** 3828: a raised bank (stone level with the ground, a hair above the water) two blocks wide in front of him, and a
+     *  fish circling close behind it, where a steep cast meets the bank (about 25 of his 38 pincarn6 casts struck the
+     *  slab at the real pond's edge). No more than one bobber may stop on the bank, and it must still catch. */
+    static void fishBank(Session c) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: Auto Catch a Fish is cheat-only");
+            return;
+        }
+        try (HxKit.Settings s = CarnivalSuite.base(c)) {
+            fishSetup(c, s);
+            c.server().command(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:stone", CX + 4, Y, CZ - 7, CX + 5, Y, CZ + 7));
+            int[] r = fishGame(c, 700, i -> new double[]{
+                    CX + 8.0 + 1.5 * Math.cos(0.03 * i), PZ + 1.5 * Math.sin(0.03 * i),
+                    CX + 11.0 + 2.0 * Math.cos(-0.025 * i), PZ + 3 + 2.0 * Math.sin(-0.025 * i)}, CX + 6.0);
+            c.note(String.format(Locale.ROOT, "%d casts, %d catches; %d bobber(s) stopped on the bank", r[0], r[1], r[2]));
+            c.check(r[0] >= 1, "it never cast");
+            c.check(r[2] <= 1, r[2] + " casts stopped on the bank: the plan casts through it");
+            c.check(r[1] >= 3, "only " + r[1] + " fish caught in 700 ticks (want 3+)");
+        } finally {
+            fishTeardown(c);
+        }
+    }
+
+    // ---- 3829 (carnfix4-1114) -------------------------------------------------------------------------------------
+
+    private static String pitchOf(String mode) {
+        return "Mines".equals(mode) ? "1" : "Anchor".equals(mode) ? "1.142857" : "1.285714";
+    }
+
+    /** 3829: as Hypixel does, the server clicks a lever at the player (pitch = the new mode) 2 ticks after each shovel use
+     *  and changes the model only 30 ticks later (his pincarn6 log: the model 1-2 s behind the click, and every retap came
+     *  from waiting on the model). Two steps are needed: exactly two shovel uses may reach the server, the first dig must
+     *  hold the pick's mode, and the click must have been heard. */
+    static void shovelLeverClick(Session c) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: Auto Shovel Swap is cheat-only");
+            return;
+        }
+        String mode0 = c.onClient(mc -> mc.gameMode.getPlayerMode().getName());
+        try (HxKit.Settings s = CarnivalSuite.base(c)) {
+            CarnivalSuite.on(s, "carnival.FruitDiggingConfig", "getInstance");
+            Object fd = c.onClient(mc -> Mod.staticCall("carnival.FruitDiggingConfig", "getInstance"));
+            boolean guard = c.onClient(mc -> (Boolean) Mod.call(fd, "isPreventWrongShovel"));
+            s.custom(() -> Mod.call(fd, "setPreventWrongShovel", false), () -> Mod.call(fd, "setPreventWrongShovel", guard));
+            Object dig = c.onClient(mc -> Mod.staticCall("carnival.AutoFruitConfig", "dig"));
+            Object swap = c.onClient(mc -> Mod.staticCall("carnival.AutoFruitConfig", "swap"));
+            s.custom(() -> { }, () -> {
+                Mod.call(dig, "setEnabled", false);
+                Mod.call(swap, "setEnabled", false);
+            });
+            c.server().command("clear @p");
+            c.server().command("gamemode survival @p");
+            c.server().command("attribute @p minecraft:block_break_speed base set 0.02");
+            CarnivalSuite.stand(c, PX, PZ, 0f, 0f);
+            CarnivalSuite.startFruit(c);
+            String want = Carnival1110Cases.pick(c)[1];
+            String held = next(want);
+            String serverMode = held;
+            c.hx().give(0, Carnival1111Cases.shovel(model(held)));
+            CarnivalSuite.holdSlot(c, 0);
+            int heard0 = c.onClient(mc -> (Integer) Mod.staticCall("carnival.AutoShovelSwap", "heard"));
+            int d0 = c.onClient(mc -> (Integer) Mod.staticCall("carnival.AutoFruitDigging", "digTaps"));
+            long b0 = c.hx().head();
+            c.onClient(mc -> {
+                Mod.call(swap, "setEnabled", true);
+                Mod.call(dig, "setEnabled", true);
+                return null;
+            });
+            int seen = 0;
+            List<int[]> due = new ArrayList<>(); // {tick, 0 = click / 1 = model}
+            List<String> dueMode = new ArrayList<>();
+            String modeAtDig = null;
+            String wantAtDig = null;
+            for (int t = 0; t < 300 && modeAtDig == null; t++) {
+                List<com.google.gson.JsonObject> ev = c.hx().events(b0, "use_item").stream()
+                        .filter(e -> e.get("item").getAsString().contains("shovel")).toList();
+                for (; seen < ev.size(); seen++) {
+                    serverMode = next(serverMode);
+                    due.add(new int[]{t + 2, 0});
+                    dueMode.add(serverMode);
+                    due.add(new int[]{t + 30, 1});
+                    dueMode.add(serverMode);
+                }
+                for (int k = 0; k < due.size(); k++) {
+                    if (due.get(k)[0] == t) {
+                        if (due.get(k)[1] == 0) {
+                            c.server().command("execute at @p run playsound minecraft:block.lever.click block @p ~ ~ ~ 1 " + pitchOf(dueMode.get(k)));
+                        } else {
+                            held = dueMode.get(k);
+                            c.hx().give(0, Carnival1111Cases.shovel(model(held)));
+                        }
+                    }
+                }
+                String got = c.onClient(mc -> (Integer) Mod.staticCall("carnival.AutoFruitDigging", "digTaps") > d0
+                        ? (String) Mod.staticCall("carnival.AutoShovelSwap", "modeOf", mc.player.getMainHandItem()) : null);
+                if (got != null) {
+                    modeAtDig = got;
+                    wantAtDig = Carnival1110Cases.pick(c)[1];
+                }
+                c.ctx().waitTicks(1);
+            }
+            int heard = c.onClient(mc -> (Integer) Mod.staticCall("carnival.AutoShovelSwap", "heard")) - heard0;
+            c.note("shovel uses that reached the server " + seen + " (2 needed); clicks heard " + heard
+                    + "; at the first dig held " + modeAtDig + ", pick wants " + wantAtDig);
+            c.check(heard >= 1, "the lever click was never heard: the sound confirm never acted");
+            c.check(seen == 2, seen + " shovel uses reached the server for a 2-step swap (a retap while the model lagged)");
+            c.check(modeAtDig != null, "it never dug");
+            c.check(modeAtDig == null || modeAtDig.equals(wantAtDig), "it dug holding " + modeAtDig + " for a " + wantAtDig + " pick");
+        } finally {
+            c.server().command("attribute @p minecraft:block_break_speed base set 1");
+            c.server().command("gamemode " + mode0 + " @p");
+            c.onClient(mc -> {
+                mc.options.keyAttack.setDown(false);
+                return null;
+            });
+            Carnival1110Cases.finish(c);
+        }
     }
 
     // ---- pond (3821, 3823) ----------------------------------------------------------------------------------------

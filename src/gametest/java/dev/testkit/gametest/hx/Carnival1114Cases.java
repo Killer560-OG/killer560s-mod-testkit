@@ -322,13 +322,14 @@ final class Carnival1114Cases {
                     + walk[0] + ", " + walk[1] + ", want 0.57 ahead and 0.35 up");
             c.check(Math.abs(still[0]) < 1e-9 && still[1] > 0.3, "a still target was led, or the drop not allowed for");
             c.check(far[0] > walk[0] * 1.7 && far[1] > walk[1] * 3.5, "a farther target was not led and raised more");
-            // A dart that passed 0.24 ahead and 0.2 under teaches half of it: one tick less lead, 0.1 higher.
+            // A dart that passed 0.24 ahead and 0.2 under teaches 0.35 of it (carnfix4-1114: half swung the lead +-1.9 in his
+            // pincarn6 game): 0.7 tick less lead, 0.07 higher.
             double[] learnt = lead(c, "testLearn", 1, 0.24, 0.2);
             double[] after = lead(c, "testDartAim", 0.12, 15.0);
             c.note("after one dart: lead bias " + learnt[0] + ", height bias " + learnt[1] + "; aim " + after[0] + ", " + after[1]);
-            c.check(Math.abs(learnt[0] + 1.0) < 1e-6 && Math.abs(learnt[1] - 0.1) < 1e-6 && learnt[2] == 1,
-                    "one dart's pass taught lead " + learnt[0] + " height " + learnt[1] + ", want -1 and 0.1");
-            c.check(Math.abs(after[0] - 0.45) < 0.01 && after[1] > walk[1] + 0.09, "the aim did not use what it learned");
+            c.check(Math.abs(learnt[0] + 0.7) < 1e-6 && Math.abs(learnt[1] - 0.07) < 1e-6 && learnt[2] == 1,
+                    "one dart's pass taught lead " + learnt[0] + " height " + learnt[1] + ", want -0.7 and 0.07");
+            c.check(Math.abs(after[0] - 0.486) < 0.01 && after[1] > walk[1] + 0.06, "the aim did not use what it learned");
             // Bounded both ways.
             double[] hi = lead(c, "testLearn", 400, 5.0, 5.0);
             double[] lo = lead(c, "testLearn", 800, -5.0, -5.0);
