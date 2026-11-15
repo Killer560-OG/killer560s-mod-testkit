@@ -281,7 +281,9 @@ final class Carnival1114bCases {
             boolean keyUp = c.onClient(mc -> mc.options.keyUp.isDown());
             c.note(String.format(Locale.ROOT, "pick %s (first pick %s); started %.2f from it, dug from %.2f after walking %.2f blocks in %d ticks; Forward down %s",
                     label, first, startFlat, flat, moved, w1 - w0, keyUp));
-            c.check(startFlat > 2.5, "the start was already next to the pick (" + startFlat + "); the case proved nothing");
+            // The auto may take another tile than the predicted first pick (ties on an empty board); any start past the
+            // 2-block walk threshold still proves the walk inside reach.
+            c.check(startFlat > 2.0, "the start was already next to the pick (" + startFlat + "); the case proved nothing");
             c.check(w1 > w0 && moved > 1.0, "it did not walk to a pick inside reach (" + (w1 - w0) + " ticks, " + moved + " blocks)");
             c.check(flat <= 1.6, "it dug from " + flat + " blocks away, want next to the tile (1.6)");
         } finally {
