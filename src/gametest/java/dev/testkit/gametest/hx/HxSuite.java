@@ -152,6 +152,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxChestMiss1113Cases.register(s);
                     // Swap To Drill On Pigeon and Auto Ult, idle and with his use / attack / swap in their ticks (1105-same-*, grimgapC-1105).
                     HxSameTick1105Cases.register(s);
+                    // Swap To Drill On Pigeon: Powder Bonus / Compact Level, claim powder detection (1114-drillswap-*, mod drillswap-1114).
+                    HxDrillSwap1114Cases.register(s);
 
                     // Auto Superboom, cheat only, with his dig / use / scroll / teleport in the swap tick (1108-same-superboom-*, featD-1108).
                     HxSuperboom1108Cases.register(s);
