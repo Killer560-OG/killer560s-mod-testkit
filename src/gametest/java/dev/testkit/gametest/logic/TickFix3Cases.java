@@ -291,7 +291,28 @@ final class TickFix3Cases {
             long serverLag = (Long) Mod.staticCall("util.ServerLag", "lagMs") - sl0;
             c.check("ServerLag measured the 500 ms stall (random-id pings inside it do not split it)",
                     serverLag >= 350L && serverLag <= 800L, serverLag + " ms");
-            c.check("Split Timers show the 500 ms stall as lag", shown >= 350L && shown <= 800L, "lag " + lag + " ms, shown " + shown);
+            // splitlag-1116: the burst that follows a stall pays it back on Split Timers (the server ran those ticks on time and
+            // only their delivery waited); the wall-pace cap lets this ping-only burst count about half, so ~200 ms stays.
+            long paid = (Long) Mod.staticCall("util.StallLag", "paidBackMs");
+            c.check("Split Timers take the burst-after-stall back off the lag (the 500 ms read 350-800 until 2026-11-16)",
+                    paid >= 200L && shown < 350L, "lag " + lag + " ms, shown " + shown + ", paid back " + paid + " ms, stalls "
+                    + Mod.staticCall("util.StallLag", "stallsSeen"));
+            // The same 500 ms stall with no catch-up (Hypixel's way: the ticks just resume late) is the server's: all counted.
+            long l1 = (Long) Mod.staticCall(LAG, "accumulatedLagMs");
+            for (int i = 0; i < 10; i++) {
+                t += 50L;
+                LogicCase.waitUntil(t);
+                s.tick(false);
+            }
+            for (int i = 0; i < 10; i++) {
+                t += 50L;
+                LogicCase.waitUntil(t);
+                s.tick(true);
+            }
+            long lag2 = (Long) Mod.staticCall(LAG, "accumulatedLagMs") - l1;
+            long shown2 = (Long) Mod.staticCall(LAG, "shownLag", lag2);
+            c.check("Split Timers still show a 500 ms stall the server never catches up as lag", shown2 >= 350L && shown2 <= 800L,
+                    "lag " + lag2 + " ms, shown " + shown2);
         } finally {
             Mod.staticCall(CLOCK, "hypixelForTest", (Object) null);
             Mod.staticCall(CLOCK, "untrustForTest");
