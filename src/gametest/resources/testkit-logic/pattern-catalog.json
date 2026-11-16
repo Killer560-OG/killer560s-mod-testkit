@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T23:48:33",
- "modSource": "remerge-1116",
- "modGitSha": "3122386e3e7467ffc9a4dd41c5fbc7ff862e7fe9",
+ "generatedAt": "2026-11-16T07:13:45",
+ "modSource": "lane-ap3crystals-1116",
+ "modGitSha": "58e93422e8d950bffff01e47659bdad6c06154ee",
  "modSourceDirty": false,
  "count": 976,
  "byKind": {
