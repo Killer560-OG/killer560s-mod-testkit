@@ -212,6 +212,9 @@ final class Ap3LeverTurn1115Cases {
         return new double[]{at, best};
     }
 
+    /** Block. Four green runs (11-15) measured up to 0.000999 apart from the align's leftover; the bug drifted tenths. */
+    private static final double POS_TOLERANCE = 0.005;
+
     /** The first tick past the align (x under 32, the lever is at x 23) whose look is over 10 degrees off the walk's yaw. */
     private static int leverTurn(List<double[]> ticks) {
         for (int i = 0; i < ticks.size(); i++) {
@@ -265,7 +268,7 @@ final class Ap3LeverTurn1115Cases {
             List<double[]> onT = on.ticks().subList(aOn - 3, on.ticks().size());
             int n = Math.min(offT.size(), onT.size());
             // The lever aim of the two lever states measured 0.01 degree apart (cause not traced), which moved the walk by
-            // 0.00003 block: a position within 0.001 block and a look within 0.05 degree count as the same; the bug was tenths.
+            // 0.00003 block: a position within POS_TOLERANCE and a look within 0.05 degree count as the same; the bug was tenths.
             int firstDiff = -1;
             String diff = "";
             double lookDiff = 0, posDiff = 0;
@@ -287,7 +290,7 @@ final class Ap3LeverTurn1115Cases {
                     if (k < 3 && !nan) {
                         posDiff = Math.max(posDiff, d);
                     }
-                    if (firstDiff < 0 && (nan || d > (k < 3 ? 1e-3 : 0.05))) {
+                    if (firstDiff < 0 && (nan || d > (k < 3 ? POS_TOLERANCE : 0.05))) {
                         firstDiff = i;
                         diff = String.format(Locale.ROOT, "tick %d: off %.5f %.5f %.5f yaw %.3f pitch %.3f / on %.5f %.5f %.5f yaw %.3f"
                                 + " pitch %.3f", i, a[0], a[1], a[2], a[3], a[4], b[0], b[1], b[2], b[3], b[4]);
