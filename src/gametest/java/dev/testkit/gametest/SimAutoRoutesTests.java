@@ -5493,9 +5493,12 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
 
     /** killer560's Bridges route, exact (his Mod Only Test config, 2026-10-17 22:36): node #2's breaker and #15's path
      *  warp down the hole it opens share a tile; #1 waits on the room's lever. */
+    // The warp down the hole (PATH pair #3, #4) sits right after the breaker that opens it: a stack is only consecutive nodes (arstack-1115).
     private static final String BRIDGES_ROUTE = "[\n" + """
             {"type":"ETHERWARP","x":55.5,"y":59.0,"z":28.5,"yaw":172.139282,"pitch":15.579375,"at":0,"start":true,"awaitEnabled":true,"await":"SECRET","amount":1,"landing":"54.500000 58.050000 20.500000"},
             {"type":"DUNGEON_BREAKER","x":54.5,"y":58.0,"z":20.5,"yaw":168.061768,"pitch":58.937447,"at":0,"blocks":["54 57 19","53 56 19","53 57 19","54 56 19","53 56 18","53 55 19","53 55 18","54 55 19"]},
+            {"type":"PATH","x":54.5,"y":58.0,"z":20.5,"yaw":161.977875,"pitch":82.97905,"at":0,"planFrom":"54.500000 58.000000 20.500000","planTo":"52.500000 52.000000 16.500000","planBreakers":-1128850443,"hops":["54.500000 58.000000 20.500000 155.308441 56.740917 52 51 16 52.500000 52.050000 16.500000"]},
+            {"type":"PATH","x":52.5,"y":52.0,"z":16.5,"yaw":147.935181,"pitch":75.92527,"at":0},
             {"type":"ETHERWARP","x":52.5,"y":52.0,"z":16.5,"yaw":-20.968414,"pitch":-50.136463,"at":0,"awaitEnabled":true,"await":"SECRET","amount":2,"landing":"53.500000 58.050000 20.500000"},
             {"type":"PATH","x":53.5,"y":58.0,"z":20.5,"yaw":36.497559,"pitch":11.794393,"at":0,"planFrom":"53.500000 58.000000 20.500000","planTo":"5.500000 81.000000 16.500000","planBreakers":105664870,"hops":["53.500000 58.000000 20.500000 -90.000000 23.428692 56 57 20 56.500000 58.050000 20.500000","56.500000 58.050000 20.500000 66.710320 -20.970448 34 68 29 34.500000 69.050000 29.500000","34.500000 69.050000 29.500000 137.763855 -29.573301 20 81 14 20.500000 82.050000 14.500000","20.500000 82.050000 14.500000 83.246429 8.728604 5 80 16 5.500000 81.050000 16.500000"]},
             {"type":"PATH","x":5.5,"y":81.0,"z":16.5,"yaw":-98.815849,"pitch":22.277227,"at":0},
@@ -5507,9 +5510,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             {"type":"PATH","x":51.5,"y":81.0,"z":16.5,"yaw":-93.127716,"pitch":83.464195,"at":0},
             {"type":"DUNGEON_BREAKER","x":51.5,"y":81.0,"z":16.5,"yaw":-88.856384,"pitch":19.591917,"at":0,"blocks":["52 82 16","52 81 16","53 82 16","53 81 16","54 82 16","55 81 16","55 82 16","54 81 16"]},
             {"type":"ETHERWARP","x":51.5,"y":81.0,"z":16.5,"yaw":-89.31015,"pitch":19.332996,"at":0,"landing":"55.500000 81.050000 16.500000"},
-            {"type":"ETHERWARP","x":55.5,"y":81.0,"z":16.5,"yaw":89.881683,"pitch":12.214493,"at":0,"awaitEnabled":true,"await":"SECRET","amount":1,"landing":"49.500000 81.050000 16.500000"},
-            {"type":"PATH","x":54.5,"y":58.0,"z":20.5,"yaw":161.977875,"pitch":82.97905,"at":0,"planFrom":"54.500000 58.000000 20.500000","planTo":"52.500000 52.000000 16.500000","planBreakers":-1128850443,"hops":["54.500000 58.000000 20.500000 155.308441 56.740917 52 51 16 52.500000 52.050000 16.500000"]},
-            {"type":"PATH","x":52.5,"y":52.0,"z":16.5,"yaw":147.935181,"pitch":75.92527,"at":0}
+            {"type":"ETHERWARP","x":55.5,"y":81.0,"z":16.5,"yaw":89.881683,"pitch":12.214493,"at":0,"awaitEnabled":true,"await":"SECRET","amount":1,"landing":"49.500000 81.050000 16.500000"}
             """ + "]";
 
     /**
@@ -5582,23 +5583,23 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             boolean resent = logHas(m, "sending the warp again");
             boolean timedOut = logHas(m, "no landing after");
             boolean complete = logHas(m, "Route \"Bridges\" complete");
-            int i15 = logIndex(m, "Node #15 PATH: all 1 warp(s) landed");
+            int i15 = logIndex(m, "Node #3 PATH: all 1 warp(s) landed");
             println(String.format(Locale.US, "bridges: ended %s, complete %s, lever click paired first %s (sim paired %d breaker use(s)), "
                             + "warp uses dropped %d, "
                             + "resent %s, timed out %s, #15 landed %s, essences %d, bat %s, mimic/chest %s, item %s", ended,
                     complete, paired, breakerPaired, dropped, resent, timedOut, i15 >= 0, essences,
-                    logHas(m, "secret bat killed"), logHas(m, "Node #6 PATH: await 1/1"), logHas(m, "item picked up by you")));
+                    logHas(m, "secret bat killed"), logHas(m, "Node #8 PATH: await 1/1"), logHas(m, "item picked up by you")));
             check(paired || dropped > 0, "the lever click was neither paired nor a warp dropped - the case never happened");
             check(!paired || breakerPaired == 1, "the Dungeon Breaker use was logged as sent but the sim's server paired "
                     + breakerPaired + " breaker use(s) with the lever click");
             check(dropped == 0, dropped + " use(s) dropped as the lever click's second half (the warp down the hole)");
             check(!resent && !timedOut, "a warp had to be sent again or timed out (resent " + resent + ", timed out "
                     + timedOut + ")");
-            check(i15 >= 0, "#15's path warp down the hole never landed");
+            check(i15 >= 0, "#3's path warp down the hole never landed");
             check(complete, "the route did not run to its end");
             check(essences >= 2, "only " + essences + " wither essence(s) collected");
             check(logHas(m, "secret bat killed"), "#9's secret bat was not killed");
-            check(logHas(m, "Node #6 PATH: await 1/1"), "#6's await (the chest / mimic) was not met");
+            check(logHas(m, "Node #8 PATH: await 1/1"), "#8's await (the chest / mimic) was not met");
             check(logHas(m, "item picked up by you"), "#14's item was not picked up");
         } finally {
             try {
