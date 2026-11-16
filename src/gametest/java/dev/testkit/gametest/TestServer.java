@@ -193,6 +193,9 @@ public final class TestServer implements AutoCloseable {
         }
         enableVerboseToConsole(dir);
         port = readPortAndStayOffline(dir);
+        // A port moved by an earlier start of this run lives on in server.properties; the launch spec still holds the
+        // old bridge port, so the bridge follows server.properties on every start.
+        pointHx(command, port);
         // lanedoctor-1115: on 11-15, 31 lane runs lost whole sessions to "exited with code 0 before it was ready", every
         // one a FAILED TO BIND: another checkout's server held this checkout's port (two checkouts picked the same port
         // within a minute; the port is chosen when Gradle configures, a minute or more before the server binds). A taken
@@ -363,16 +366,20 @@ public final class TestServer implements AutoCloseable {
                     }
                 }
             }
-            int start = Math.floorMod(old - 26000 + 10, 900);
-            for (int i = 0; i < 90 && chosen < 0; i++) {
-                int p = 26000 + Math.floorMod(start + 10 * i, 900);
-                String owner = owners.get(p);
-                if (p != old && (owner == null || owner.equals(myKey)) && portsFree(p)) {
-                    chosen = p;
+            // build.gradle's slots plus its overflow (26000-29990, step 10). An unowned free port first; with every slot
+            // registered (lane checkouts pile up), any port free right now, since the bind follows within seconds.
+            int start = Math.floorMod(old - 26000 + 10, 4000);
+            for (int pass = 0; pass < 2 && chosen < 0; pass++) {
+                for (int i = 0; i < 400 && chosen < 0; i++) {
+                    int p = 26000 + Math.floorMod(start + 10 * i, 4000);
+                    String owner = owners.get(p);
+                    if (p != old && (pass == 1 || owner == null || owner.equals(myKey)) && portsFree(p)) {
+                        chosen = p;
+                    }
                 }
             }
             if (chosen < 0) {
-                throw new AssertionError("Port " + old + " " + why + " and no free test server port is left in 26000-26899");
+                throw new AssertionError("Port " + old + " " + why + " and no free test server port is left in 26000-29999");
             }
             owners.values().removeIf(myKey::equals);
             owners.put(chosen, myKey);
@@ -391,15 +398,20 @@ public final class TestServer implements AutoCloseable {
         } catch (IOException e) {
             throw new AssertionError("Could not move the server port in " + file, e);
         }
-        String hx = "-Dtestkit.hx.port=" + (chosen + 5);
+        pointHx(command, chosen);
+        port = chosen;
+        System.out.println("[anticheat] port " + old + " " + why + "; moved this checkout's server to " + chosen
+                + " (Hx bridge " + (chosen + 5) + ")");
+    }
+
+    /** The server's -Dtestkit.hx.port and this client's testkit.hx.port follow the server port (+5). */
+    private static void pointHx(List<String> command, int serverPort) {
+        String hx = "-Dtestkit.hx.port=" + (serverPort + 5);
         command.replaceAll(a -> a.startsWith("-Dtestkit.hx.port=") ? hx : a);
         if (!command.contains(hx)) {
             command.add(1, hx);
         }
-        System.setProperty("testkit.hx.port", Integer.toString(chosen + 5));
-        port = chosen;
-        System.out.println("[anticheat] port " + old + " " + why + "; moved this checkout's server to " + chosen
-                + " (Hx bridge " + (chosen + 5) + ")");
+        System.setProperty("testkit.hx.port", Integer.toString(serverPort + 5));
     }
 
     private static int readPortAndStayOffline(File dir) {
