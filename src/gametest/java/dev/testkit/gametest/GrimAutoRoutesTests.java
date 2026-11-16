@@ -3027,6 +3027,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 landed = waitLanded(ctx, 14, 6, 1);
             }
             ctx.waitTicks(5);
+            dev.testkit.gametest.SameTick his = st;
+            if (his != null) {
+                ctx.runOnClient(mc -> his.close()); // before stopSampling: taps unwind in the order they went on
+            }
             List<Sample> s = stopSampling(ctx);
             printTrace(label, s);
             int click = -1;

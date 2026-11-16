@@ -324,6 +324,7 @@ public final class SameTick implements AutoCloseable {
     }
 
     private volatile boolean heldOnly;
+    private boolean closed;
 
     /** His action goes in only while slotA or slotB is held (a stick's use or swap that stops once a feature takes the hand). */
     public SameTick heldOnly() {
@@ -373,6 +374,9 @@ public final class SameTick implements AutoCloseable {
 
     @Override
     public void close() {
+        // Once only: a second close after an outer tap was stopped would put back a dead tap that chains to itself.
+        if (closed) return;
+        closed = true;
         active = null;
         if (act == Act.DIG_HELD) Minecraft.getInstance().options.keyAttack.setDown(false);
         PacketTrace.tap = prevTap;
