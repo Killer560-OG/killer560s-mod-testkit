@@ -17,8 +17,8 @@ import java.util.Locale;
  * SAME-TICK GRIM CASES for Auto i4's Terror Aim (i4terror-1116, killer560 2026-11-16: with Terror and full Hydra Strike
  * stacks Auto i4 aims so the spread covers more targets, "same with machine gun shortbow"). He wears four Terror pieces
  * (Skyblock ids TERROR_*), the action bar shows 10 stacks ({@code 10⁑}), and the server fires the bow as Hypixel does with
- * two extra arrows ({@code dungeon.shortbow} extraArrows 2). Each lit target must get a shot, Terror Aim must choose its own
- * aim ({@code TerrorAim.aimsChosenForTest} moves), and his own action goes into the same ticks ({@link SameTick}): a use
+ * two extra arrows ({@code dungeon.shortbow} extraArrows 2). Each lit target must get a shot, Terror Aim must weigh every
+ * shot ({@code aimsWeighedForTest}) and, with the Machine Gun Shortbow, choose its own aim ({@code aimsChosenForTest}), and his own action goes into the same ticks ({@link SameTick}): a use
  * (with the bow, a shot of his own), an attack on a mob his crosshair is on, a hotbar swap between two bows, a container
  * click (inventory opened, clicked and closed between ticks), a teleport accept, and (act {@code again}) the feature run
  * again right behind itself (targets lit back to back, a target lit again while its shot flies). The wire
@@ -79,6 +79,7 @@ final class I4Terror1116Cases {
             c.ctx().waitTicks(10);
             int flags0 = c.scenario().flags().size();
             int aims0 = c.onClient(mc -> (Integer) Mod.staticCall("i4sensors.TerrorAim", "aimsChosenForTest"));
+            int weighed0 = c.onClient(mc -> (Integer) Mod.staticCall("i4sensors.TerrorAim", "aimsWeighedForTest"));
             WireCapture.start();
             if (act != null) {
                 SameTick.Act a = act;
@@ -126,11 +127,17 @@ final class I4Terror1116Cases {
             c.ctx().waitTicks(5);
             WireCapture.stop();
             int aims = c.onClient(mc -> (Integer) Mod.staticCall("i4sensors.TerrorAim", "aimsChosenForTest")) - aims0;
+            int weighed = c.onClient(mc -> (Integer) Mod.staticCall("i4sensors.TerrorAim", "aimsWeighedForTest")) - weighed0;
             int[] wire = sharedOnWire(act);
-            c.note(String.format(Locale.ROOT, "%s %s: shots per lit target %s, Terror Aim points %d, wire: %d server ticks with a use_item, %d with his %s in the same tick",
-                    bow[2], act == null ? "again" : act, perTarget, aims, wire[0], wire[1], act == null ? "second use" : act));
+            c.note(String.format(Locale.ROOT, "%s %s: shots per lit target %s, Terror Aim points %d of %d weighed, wire: %d server ticks with a use_item, %d with his %s in the same tick",
+                    bow[2], act == null ? "again" : act, perTarget, aims, weighed, wire[0], wire[1], act == null ? "second use" : act));
             c.check(allShot, "a lit target got no shot: " + perTarget);
-            c.check(aims > 0, "Terror Aim chose no aim point (with Terror and 10 stacks): the feature did not act");
+            c.check(weighed > 0, "Terror Aim never weighed a shot (with Terror and 10 stacks): the feature did not act");
+            // The Terminator's usual between-column aim already reaches the whole row with 5 arrows, so it keeps it; the
+            // Machine Gun Shortbow's 3 arrows gain from an aim of their own.
+            if (!"TERMINATOR".equals(bow[2])) {
+                c.check(aims > 0, "Terror Aim chose no aim point (with Terror and 10 stacks): the feature did not act");
+            }
             if (act != null) {
                 SameTick s2 = st;
                 st = null;
@@ -176,7 +183,8 @@ final class I4Terror1116Cases {
             } else if (n.contains(his) || (act == SameTick.Act.ATTACK && n.endsWith("ServerboundInteractPacket"))) {
                 hisSeen = true;
             }
-            if (n.contains("MovePlayerPacket") || n.endsWith("ClientTickEndPacket")) {
+            // A tick ends at client_tick_end only: a teleport accept is followed by its own move in the same tick.
+            if (n.endsWith("ClientTickEndPacket")) {
                 if (useN > 0) {
                     uses++;
                     boolean both = "UseItemPacket".equals(his) ? useN >= 2 : hisSeen;
