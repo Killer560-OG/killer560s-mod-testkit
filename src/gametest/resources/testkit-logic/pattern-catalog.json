@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-16T14:02:28",
- "modSource": "lane-arsneak-1116",
- "modGitSha": "ceecbffb8acd160b47571cd2f07d2f61e06e7f20",
+ "generatedAt": "2026-11-16T14:54:51",
+ "modSource": "lane-clickorder-1116",
+ "modGitSha": "3fcb424648ff390ea70b2ea0772432e26756688d",
  "modSourceDirty": false,
  "count": 977,
  "byKind": {
