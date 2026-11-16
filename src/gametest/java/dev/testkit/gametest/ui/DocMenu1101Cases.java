@@ -394,7 +394,8 @@ final class DocMenu1101Cases {
                     String lab = ModScreenDriver.label(w);
                     l.add(lab);
                     if (w instanceof StringWidget) {
-                        boolean header = lab.equals("Works For") || lab.equals("Multi Warps") || lab.startsWith("Cheat Build")
+                        boolean header = lab.equals("Works For") || lab.equals("Multi Warps") || lab.equals("Multi Warps For")
+                                || lab.equals("Zero Ping Etherwarp") || lab.startsWith("Cheat Build")
                                 || lab.equals("Left Click Etherwarp");
                         c.check(header, "an explanation line is still in the tab: '" + lab + "'");
                         continue;
@@ -420,16 +421,23 @@ final class DocMenu1101Cases {
                 c.check(cuts.contains("Multi Warps") == cheat, "Multi Warps shown=" + cuts.contains("Multi Warps")
                         + " on a " + (cheat ? "cheat" : "legit") + " jar");
                 if (cheat) {
-                    // Cheat rows at the bottom (testkit 512): Multi Warps after the legit Works For rows.
-                    c.check(cuts.indexOf("Multi Warps") > cuts.indexOf("Manual Etherwarps"),
-                            "Multi Warps is not under the legit Works For rows: " + cuts);
+                    // zpewunify-1111: Works For is Auto Routes, Interactive Map, Auto Puzzles and Manual; Multi Warps is its
+                    // own switch under them, then Left Click Etherwarp.
+                    for (String g : new String[]{"Auto Routes", "Interactive Map", "Auto Puzzles", "Manual"}) {
+                        c.check(cuts.indexOf(g) > works, "Works For has no '" + g + "' row: " + cuts);
+                    }
+                    for (String gone : new String[]{"Manual Etherwarps", "Left Click Etherwarps", "AP3", "Pathfinding Hopper",
+                            "Auto Clear", "Auto Secret / Autopilot"}) {
+                        c.check(!cuts.contains(gone), "the old Works For row '" + gone + "' is still there: " + cuts);
+                    }
+                    c.check(cuts.indexOf("Multi Warps") > cuts.indexOf("Manual"),
+                            "Multi Warps is not under the Works For rows: " + cuts);
                     int lce = cuts.lastIndexOf("Left Click Etherwarp");
-                    c.check(lce > cuts.indexOf("Pathfinding Hopper"), "Left Click Etherwarp is not at the bottom: " + cuts);
-                    c.check(cuts.contains("Left Click Etherwarps"), "the Works For row is not 'Left Click Etherwarps': " + cuts);
-                    // The card's switch stands for both.
+                    c.check(lce > cuts.lastIndexOf("Multi Warps"), "Left Click Etherwarp is not at the bottom: " + cuts);
+                    // The card's switch stands for all three.
                     Object master = Mod.field(s, "drawerMaster");
                     int parts = ((List<?>) Mod.call(master, "parts")).size();
-                    c.check(parts == 2, "the Etherwarp switch stands for " + parts + " rows, want 2 (ZPEW and Left Click)");
+                    c.check(parts == 3, "the Etherwarp switch stands for " + parts + " rows, want 3 (ZPEW, Multi Warps, Left Click)");
                     c.check((Integer) Mod.call(cfg, "effectiveWarpsPerTick") == 1, "Warps Per Tick 3 applies with Multi Warps off");
                     // Multi Warps on: the two rows come, and Warps Per Tick applies.
                     for (AbstractWidget w : MenuACases.paneRows(s)) {
@@ -444,8 +452,8 @@ final class DocMenu1101Cases {
                     }
                     c.note("with Multi Warps pressed on: " + on);
                     c.check((Boolean) Mod.call(cfg, "isMultiWarps"), "pressing Multi Warps did not turn it on");
-                    c.check(on.contains("Warps Per Tick") && on.contains("Aimed Warps"), "Multi Warps on, but no Warps "
-                            + "Per Tick / Aimed Warps rows: " + on);
+                    c.check(on.contains("Warps Per Tick") && on.contains("Aimed Warps") && on.contains("Multi Warps For"),
+                            "Multi Warps on, but no Warps Per Tick / Aimed Warps / Multi Warps For rows: " + on);
                     c.check((Integer) Mod.call(cfg, "effectiveWarpsPerTick") == 3, "Warps Per Tick 3 does not apply with "
                             + "Multi Warps on");
                     Mod.staticCall(ZP, "load");
