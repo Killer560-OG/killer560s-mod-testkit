@@ -988,6 +988,8 @@ public class SimBossTests implements FabricClientGameTest {
                     sp.getBoundingBox().inflate(4)).size();
         });
         expect(f, "a zombie stands beside him", zombie[0] >= 1, true);
+        // the server's inventory write reaches the client a few ticks later under load: a use before that is an empty hand
+        expect(f, "the Hyperion reached his hand", until(ctx, "the Hyperion in hand", mc -> !mc.player.getMainHandItem().isEmpty(), 100), true);
         ctx.runOnClient(mc -> mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND));
         ctx.waitTicks(20);
         boolean[] dead = new boolean[1];
