@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-16T09:18:10",
- "modSource": "lane-arfinder6-tk-1116",
- "modGitSha": "43155a9a6f3b771a8d19080d9ddecd02458f5e38",
+ "generatedAt": "2026-11-16T10:00:37",
+ "modSource": "lane-simbreakdelay-1114",
+ "modGitSha": "563d60ef7cf7262bed29523aeed3609344723298",
  "modSourceDirty": false,
  "count": 976,
  "byKind": {
