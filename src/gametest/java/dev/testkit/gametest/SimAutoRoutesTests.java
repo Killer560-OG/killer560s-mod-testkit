@@ -171,6 +171,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1016-auranoawait", "96-ar-1016-auraawait",
             // ar-bridges-bat-1017: his Bridges route runs to the end (no warp eaten after the breaker); Kill Mimic aims
             "96-ar-1017-bridges", "96-ar-1017-mimicaim",
+            // arstack-1115: a stack is only a run of CONSECUTIVE same-tile nodes; a later return to the tile is a new stack
+            "96-ar-1115-stack-return",
             // sim-secrets-1018: an await beside a Redstone Key spot the key never spawned at starts one secret on
             "1018-ar-keyspot-empty",
             // ar-range-1026: Replan For My Range - a saved path warp longer than his etherwarp reaches is planned again
@@ -322,6 +324,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-pingpong" -> casePingPong(ctx);
                         case "96-ar-chain" -> caseChain(ctx);
                         case "96-ar-stackorder" -> caseStackOrder(ctx);
+                        case "96-ar-1115-stack-return" -> caseStackReturn(ctx);
                         case "96-ar-crypthold" -> caseCryptHold(ctx);
                         case "96-ar-charges" -> caseCharges(ctx);
                         case "96-ar-1112-breakrules" -> caseBreakRules(ctx);
@@ -1625,6 +1628,64 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setCryptAttackTicks",
                     new Class<?>[]{int.class}, new Object[]{100}));
         }
+    }
+
+    /**
+     * arstack-1115 (route finder, Altar room: #14 was taken as stacked with #12): a route that comes back to a tile it
+     * used earlier fires its nodes in path order, the later node is a NEW stack. A(X->Y) B(Y->X) C(X->Z) D(Z->W): all
+     * four warps act in order #1..#4 and he ends on W (the old rule stacked C with A and fired C before A). Control: a
+     * boom and a warp that are consecutive on one tile still fire together as one stack, boom first.
+     */
+    private void caseStackReturn(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        writeRoute(ctx, List.of(ew(6, 6, 12, 6, true), ew(12, 6, 6, 6, false), ew(6, 6, 12, 12, false),
+                ew(12, 12, 18, 6, false)));
+        tpRel(ctx, 4.5, 6.5, 0f, 0f);
+        ctx.waitTicks(10);
+        long m = LogTap.mark();
+        tpRel(ctx, 6.5, 6.5, -90f, 0f);
+        Vec3 landed = waitLanded(ctx, 18, 6, 400);
+        ctx.waitTicks(5);
+        int acted = 0;
+        for (String l : LogTap.since(m)) {
+            acted += l.contains("ETHERWARP acted") ? 1 : 0;
+        }
+        int[] at = new int[5];
+        for (int k = 1; k <= 4; k++) {
+            at[k] = logIndex(m, "Node #" + k + " ETHERWARP acted");
+        }
+        println("stack return: acted " + acted + ", log lines #1 " + at[1] + " #2 " + at[2] + " #3 " + at[3] + " #4 " + at[4]
+                + ", at " + relPos(ctx));
+        check(acted == 4, "expected 4 etherwarps acted, the log says " + acted);
+        check(at[1] >= 0 && at[2] > at[1] && at[3] > at[2] && at[4] > at[3], "nodes did not fire in path order: #1@" + at[1]
+                + " #2@" + at[2] + " #3@" + at[3] + " #4@" + at[4]);
+        check(landed != null, "the route did not end on its last landing (at " + relPos(ctx) + ")");
+        stopRoute(ctx);
+
+        // control: consecutive same-tile nodes are still one stack
+        forgetRunMemory(ctx);
+        BlockState cracked = Blocks.CRACKED_STONE_BRICKS.defaultBlockState();
+        setBlocks(ctx, Map.of(new int[]{12, F, 14}, cracked, new int[]{12, F + 1, 14}, cracked));
+        JsonObject boom = node("BOOM", 14, 14, 90f, 0f);
+        boom.addProperty("start", true);
+        writeRoute(ctx, List.of(boom, ew(14, 14, 20, 14, false)));
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+        tpRel(ctx, 14.5, 10.5, 0f, 0f);
+        ctx.waitTicks(10);
+        long m2 = LogTap.mark();
+        tpRel(ctx, 14.5, 14.5, 0f, 0f);
+        Vec3 landed2 = waitLanded(ctx, 20, 14, 300);
+        int b = logIndex(m2, "Node #1 BOOM acted");
+        int e = logIndex(m2, "Node #2 ETHERWARP acted");
+        println("stack control: boom@" + b + " warp@" + e + " at " + relPos(ctx));
+        check(b >= 0 && e > b, "stack control: boom@" + b + " warp@" + e + " - expected the boom, then the warp");
+        check(blockAir(ctx, 12, F + 1, 14), "stack control: the boom broke nothing");
+        check(landed2 != null, "stack control: the warp did not land (at " + relPos(ctx) + ")");
+        stopRoute(ctx);
+        tpRel(ctx, 14.5, 10.5, 0f, 0f);
+        ctx.waitTicks(5);
     }
 
     // ============================================================================================ breaker charges
