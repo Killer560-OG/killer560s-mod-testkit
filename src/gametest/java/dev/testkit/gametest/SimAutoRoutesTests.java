@@ -10836,9 +10836,11 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 }
                 // He arrives during the run, never in its countdown: the route arms only at GO, so Secret Aura let go
                 // on a countdown tick took a start-spot secret ~40 ticks before the route's lookback (Well, run 13e).
-                for (int w = 0; w < 200 && ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
-                        "com.killer560.hub.roomsim.SimRun", "isArmed")
-                        && !(Boolean) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRun", "isRunning")); w++) {
+                // The room's build arms its own countdown (SimRun.autoStart) a few ticks later, so wait for that run's
+                // GO (hasStarted resets on each build), not merely "not counting down now" (run 18b slipped in before it).
+                for (int w = 0; w < 300 && !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                        "com.killer560.hub.roomsim.SimRun", "hasStarted")
+                        && (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRun", "isRunning")); w++) {
                     ctx.waitTicks(1);
                 }
                 ctx.waitTicks(2);
