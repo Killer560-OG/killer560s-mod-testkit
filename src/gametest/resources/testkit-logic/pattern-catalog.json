@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-16T07:17:29",
- "modSource": "lane-arstack2-1115",
- "modGitSha": "ff8d277221b476f5daab69f23405a3b0a7ae96da",
+ "generatedAt": "2026-11-16T08:03:15",
+ "modSource": "lane-ap3crystals-1116",
+ "modGitSha": "76d5df177814f24e202e04866e7b4b58b4b5e953",
  "modSourceDirty": false,
  "count": 976,
  "byKind": {
