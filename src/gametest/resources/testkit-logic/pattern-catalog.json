@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T20:35:39",
- "modSource": "lane-ap3leverturn-tf1115",
- "modGitSha": "a6e86e2a996cbafa4929bb451e9b49f92be13236",
+ "generatedAt": "2026-11-15T20:59:03",
+ "modSource": "lane-arnoback-tf1115",
+ "modGitSha": "6a0975fd3d1f462f187a347662fb1f72e96d4857",
  "modSourceDirty": false,
  "count": 974,
  "byKind": {
