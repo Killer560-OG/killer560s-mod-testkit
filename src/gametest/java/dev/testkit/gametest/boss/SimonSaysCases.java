@@ -70,7 +70,7 @@ final class SimonSaysCases {
             boolean restartOn = c.onClient(mc -> (Boolean) Mod.get(CONFIG, "isAutoRestartEnabled"));
 
             c.hx().call("boss.ss.build", "rounds", rounds, "line", line, "seed", seed);
-            c.hx().call("dungeon.tp", "x", 107.5, "y", 120.0, "z", 93.5, "yaw", -90f, "pitch", 0f);
+            tpToDevice(c);
             // Switch Simon Says on only once the client HAS the device: before its chunk arrives the lantern wall
             // reads as air, which the mod's break check takes for a lit lantern, and 30 ticks later it "restarts"
             // a device nobody started (seen on the first run of this case).
@@ -154,12 +154,37 @@ final class SimonSaysCases {
         }
     }
 
+    /** GrimAC's own world holds a real block at {@code pos} (-9 = no anticheat on this server; air, no chunk and no player are not). */
+    static boolean grimHolds(Session c, BlockPos pos) {
+        int id = c.hx().call("boss.grim.block", "x", pos.getX(), "y", pos.getY(), "z", pos.getZ()).getAsInt();
+        return id > 0 || id == -9;
+    }
+
+    /**
+     * Arrive at the device without the anticheat missing the chunk under the player: it takes a chunk in only when the
+     * client answers the transaction after it, and a body that lands on a floor it does not have yet reads as falling
+     * (GroundSpoof + Simulation, and a use judged against air: AirLiquidPlace; 786 flaked on both). Land high over the
+     * device (client and anticheat both see air there), wait until the anticheat holds the floor, then step down.
+     */
+    static void tpToDevice(Session c) {
+        c.hx().call("dungeon.tp", "x", 107.5, "y", 135.0, "z", 93.5, "yaw", -90f, "pitch", 0f);
+        c.waitUntil("GrimAC's world to hold the device floor", mc -> grimHolds(c, new BlockPos(107, 119, 93)), 200);
+        // 0.4 above the floor: the client lands within 3 ticks as the anticheat predicts. Standing at 120.0, the teleport
+        // reply claims airborne (the vanilla client always sends it so) while the next packet is predicted on the ground.
+        c.hx().call("dungeon.tp", "x", 107.5, "y", 120.4, "z", 93.5, "yaw", -90f, "pitch", 0f);
+    }
+
     /**
      * A hand right click on {@code pos}: turn to the button first (GrimAC cancels a use the look does not reach -
      * RotationPlace - which the first run of this case hit), let the rotation go out, then click the point the eye
      * ray hits on the block's shape (GrimAutoRoutesTests' form).
      */
     static void click(Session c, BlockPos pos) {
+        // The client having the block is not enough: GrimAC's copy of the world lags it by a transaction, and a use on
+        // what it still holds as air is cancelled and flagged (AirLiquidPlace; 786 flaked on that under load).
+        c.waitUntil("GrimAC's world to hold the block at " + pos, mc -> grimHolds(c, pos), 200);
+        c.note("GrimAC holds block state " + c.hx().call("boss.grim.block", "x", pos.getX(), "y", pos.getY(), "z", pos.getZ()).getAsInt()
+                + " at " + pos.toShortString() + " before the click");
         c.ctx().runOnClient(mc -> {
             Vec3 eye = mc.player.getEyePosition();
             Vec3 target = aimPoint(mc, pos);
