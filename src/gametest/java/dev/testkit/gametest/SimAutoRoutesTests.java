@@ -122,6 +122,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1015-landpickup", "96-ar-1015-earlyskip", "96-ar-1015-mimicskip",
             // doc-etable-1101: the Emergency Cancel Key stops a route and Mimic Killer, and its hold starts no route
             "96-ar-1101-ecancel",
+            // arfinder-1115: finder routes played in their rooms (model ticks == sim ticks)
+            "96-ar-1115-arfinder",
             // secretfade-1102: a taken secret's waypoint goes within 2 ticks, and Secret Clicked leaves no gold box
             "96-ar-1102-secrettaken",
             // ar-warp-after-click (2026-10-15): Hypixel ignores a use right after a block click with the same item
@@ -358,6 +360,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1015-earlyskip" -> ArMainServerCases.earlySkip(ctx);
                         case "96-ar-1015-mimicskip" -> ArMainServerCases.mimicSkip(ctx);
                         case "96-ar-1101-ecancel" -> caseEmergencyCancel(ctx);
+                        case "96-ar-1115-arfinder" -> { try { caseArFinder(ctx); } catch (Exception e) { throw new RuntimeException(e); } }
                         case "96-ar-1102-secrettaken" -> caseSecretTaken(ctx);
                         case "96-ar-1015-warpclick" -> ArMainServerCases.warpAfterClick(ctx);
                         case "96-ar-1015-puzzleclick" -> ArMainServerCases.puzzleWarpAfterClick(ctx);
@@ -5493,9 +5496,12 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
 
     /** killer560's Bridges route, exact (his Mod Only Test config, 2026-10-17 22:36): node #2's breaker and #15's path
      *  warp down the hole it opens share a tile; #1 waits on the room's lever. */
+    // The warp down the hole (PATH pair #3, #4) sits right after the breaker that opens it: a stack is only consecutive nodes (arstack-1115).
     private static final String BRIDGES_ROUTE = "[\n" + """
             {"type":"ETHERWARP","x":55.5,"y":59.0,"z":28.5,"yaw":172.139282,"pitch":15.579375,"at":0,"start":true,"awaitEnabled":true,"await":"SECRET","amount":1,"landing":"54.500000 58.050000 20.500000"},
             {"type":"DUNGEON_BREAKER","x":54.5,"y":58.0,"z":20.5,"yaw":168.061768,"pitch":58.937447,"at":0,"blocks":["54 57 19","53 56 19","53 57 19","54 56 19","53 56 18","53 55 19","53 55 18","54 55 19"]},
+            {"type":"PATH","x":54.5,"y":58.0,"z":20.5,"yaw":161.977875,"pitch":82.97905,"at":0,"planFrom":"54.500000 58.000000 20.500000","planTo":"52.500000 52.000000 16.500000","planBreakers":-1128850443,"hops":["54.500000 58.000000 20.500000 155.308441 56.740917 52 51 16 52.500000 52.050000 16.500000"]},
+            {"type":"PATH","x":52.5,"y":52.0,"z":16.5,"yaw":147.935181,"pitch":75.92527,"at":0},
             {"type":"ETHERWARP","x":52.5,"y":52.0,"z":16.5,"yaw":-20.968414,"pitch":-50.136463,"at":0,"awaitEnabled":true,"await":"SECRET","amount":2,"landing":"53.500000 58.050000 20.500000"},
             {"type":"PATH","x":53.5,"y":58.0,"z":20.5,"yaw":36.497559,"pitch":11.794393,"at":0,"planFrom":"53.500000 58.000000 20.500000","planTo":"5.500000 81.000000 16.500000","planBreakers":105664870,"hops":["53.500000 58.000000 20.500000 -90.000000 23.428692 56 57 20 56.500000 58.050000 20.500000","56.500000 58.050000 20.500000 66.710320 -20.970448 34 68 29 34.500000 69.050000 29.500000","34.500000 69.050000 29.500000 137.763855 -29.573301 20 81 14 20.500000 82.050000 14.500000","20.500000 82.050000 14.500000 83.246429 8.728604 5 80 16 5.500000 81.050000 16.500000"]},
             {"type":"PATH","x":5.5,"y":81.0,"z":16.5,"yaw":-98.815849,"pitch":22.277227,"at":0},
@@ -5507,9 +5513,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             {"type":"PATH","x":51.5,"y":81.0,"z":16.5,"yaw":-93.127716,"pitch":83.464195,"at":0},
             {"type":"DUNGEON_BREAKER","x":51.5,"y":81.0,"z":16.5,"yaw":-88.856384,"pitch":19.591917,"at":0,"blocks":["52 82 16","52 81 16","53 82 16","53 81 16","54 82 16","55 81 16","55 82 16","54 81 16"]},
             {"type":"ETHERWARP","x":51.5,"y":81.0,"z":16.5,"yaw":-89.31015,"pitch":19.332996,"at":0,"landing":"55.500000 81.050000 16.500000"},
-            {"type":"ETHERWARP","x":55.5,"y":81.0,"z":16.5,"yaw":89.881683,"pitch":12.214493,"at":0,"awaitEnabled":true,"await":"SECRET","amount":1,"landing":"49.500000 81.050000 16.500000"},
-            {"type":"PATH","x":54.5,"y":58.0,"z":20.5,"yaw":161.977875,"pitch":82.97905,"at":0,"planFrom":"54.500000 58.000000 20.500000","planTo":"52.500000 52.000000 16.500000","planBreakers":-1128850443,"hops":["54.500000 58.000000 20.500000 155.308441 56.740917 52 51 16 52.500000 52.050000 16.500000"]},
-            {"type":"PATH","x":52.5,"y":52.0,"z":16.5,"yaw":147.935181,"pitch":75.92527,"at":0}
+            {"type":"ETHERWARP","x":55.5,"y":81.0,"z":16.5,"yaw":89.881683,"pitch":12.214493,"at":0,"awaitEnabled":true,"await":"SECRET","amount":1,"landing":"49.500000 81.050000 16.500000"}
             """ + "]";
 
     /**
@@ -5582,23 +5586,23 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             boolean resent = logHas(m, "sending the warp again");
             boolean timedOut = logHas(m, "no landing after");
             boolean complete = logHas(m, "Route \"Bridges\" complete");
-            int i15 = logIndex(m, "Node #15 PATH: all 1 warp(s) landed");
+            int i15 = logIndex(m, "Node #3 PATH: all 1 warp(s) landed");
             println(String.format(Locale.US, "bridges: ended %s, complete %s, lever click paired first %s (sim paired %d breaker use(s)), "
                             + "warp uses dropped %d, "
                             + "resent %s, timed out %s, #15 landed %s, essences %d, bat %s, mimic/chest %s, item %s", ended,
                     complete, paired, breakerPaired, dropped, resent, timedOut, i15 >= 0, essences,
-                    logHas(m, "secret bat killed"), logHas(m, "Node #6 PATH: await 1/1"), logHas(m, "item picked up by you")));
+                    logHas(m, "secret bat killed"), logHas(m, "Node #8 PATH: await 1/1"), logHas(m, "item picked up by you")));
             check(paired || dropped > 0, "the lever click was neither paired nor a warp dropped - the case never happened");
             check(!paired || breakerPaired == 1, "the Dungeon Breaker use was logged as sent but the sim's server paired "
                     + breakerPaired + " breaker use(s) with the lever click");
             check(dropped == 0, dropped + " use(s) dropped as the lever click's second half (the warp down the hole)");
             check(!resent && !timedOut, "a warp had to be sent again or timed out (resent " + resent + ", timed out "
                     + timedOut + ")");
-            check(i15 >= 0, "#15's path warp down the hole never landed");
+            check(i15 >= 0, "#3's path warp down the hole never landed");
             check(complete, "the route did not run to its end");
             check(essences >= 2, "only " + essences + " wither essence(s) collected");
             check(logHas(m, "secret bat killed"), "#9's secret bat was not killed");
-            check(logHas(m, "Node #6 PATH: await 1/1"), "#6's await (the chest / mimic) was not met");
+            check(logHas(m, "Node #8 PATH: await 1/1"), "#8's await (the chest / mimic) was not met");
             check(logHas(m, "item picked up by you"), "#14's item was not picked up");
         } finally {
             try {
@@ -11032,4 +11036,257 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             return String.format(Locale.US, "%.2f", d);
         }
     }
+    // ============================================================================================ arfinder-1115
+
+    /** Where the route finder (killer560s-mod-logs/arfinder-1115) lists the finder outputs to check, one path a line. */
+    private static final Path ARFINDER_INPUT = Path.of(System.getenv().getOrDefault("ARFINDER_INPUT",
+            "C:/Users/Hunter/killer560s-mod-logs/arfinder-1115/simcheck/input.txt"));
+
+    /**
+     * arfinder-1115: each finder route is played in its room as Auto Routes plays it (obvious mode, Secret Aura on at
+     * its defaults, both let go on the tick he stands on the start node, as after an Interactive Map warp). Prints the
+     * client tick of every node action, aura click and sim secret event, and fails unless the route completes, every
+     * secret it plans is credited by the sim (SimScore), and its ticks equal the finder's model.
+     */
+    private static void caseArFinder(ClientGameTestContext ctx) throws Exception {
+        if (!Files.exists(ARFINDER_INPUT)) {
+            println("arfinder: no input file " + ARFINDER_INPUT + " - nothing to check");
+            return;
+        }
+        String saved = room;
+        String savedFloor = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimState", "floorLabel"));
+        List<String> fails = new ArrayList<>();
+        try {
+            for (String line : Files.readAllLines(ARFINDER_INPUT, StandardCharsets.UTF_8)) {
+                if (line.isBlank() || line.startsWith("#")) continue;
+                JsonObject in = JsonParser.parseString(Files.readString(Path.of(line.trim()), StandardCharsets.UTF_8))
+                        .getAsJsonObject();
+                String r = in.get("room").getAsString();
+                int modelTicks = in.get("ticks").getAsInt();
+                int expect = in.get("secretsPlanned").getAsInt();
+                List<JsonObject> nodes = new ArrayList<>();
+                for (JsonElement e : in.getAsJsonArray("route")) nodes.add(e.getAsJsonObject());
+                JsonObject first = nodes.get(0);
+                resetRoutes(ctx);
+                room = r;
+                ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+                // A floor with no mimic: a solo room's only chest would be the map's one mimic (counted on its death,
+                // AwaitEvents), where in a real run nearly every secret chest is a plain one.
+                ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimState", "setFloorLabel",
+                        new Class<?>[]{String.class}, new Object[]{"F4"}));
+                long buildMark = LogTap.mark();
+                buildRoom(ctx, in.has("buildRotation") ? in.get("buildRotation").getAsInt() : 0);
+                giveHotbar(ctx);
+                // BAT nodes use the Bat Weapon (Hyperion, the default) straight down
+                giveSlot(ctx, 4, "HYPERION");
+                setArEnum(ctx, "setBatWeapon", "CryptWeapon", "HYPERION");
+                ctx.runOnClient(mc -> {
+                    Object ar = ModUnderTest.config(AR_CONFIG);
+                    ModUnderTest.set(ar, "setEnabled", false);
+                    ModUnderTest.set(ar, "setLegitMode", false);
+                    ModUnderTest.set(ar, "setStartFromStartNodeOnly", true);
+                    // A secret chest's window is closed as he plays (the route waits under any screen otherwise).
+                    Object acc = ModUnderTest.config("com.killer560.hub.autoclosechest.AutoCloseChestConfig");
+                    ModUnderTest.set(acc, "setEnabled", true);
+                    ModUnderTest.set(acc, "setAuto", true);
+                    // He arrives by an Interactive Map etherwarp: the Aspect of the Void (slot 1) is in hand.
+                    mc.player.getInventory().setSelectedSlot(0);
+                });
+                writeRoute(ctx, nodes);
+                // The build left him standing in the room long enough for near secret chests to appear (Criss Cross,
+                // run 3). He arrives from another room, so: up out of reach, then each secret chest the finder lists
+                // goes back to waiting for him (SimSecretItems.registerChest), as before he came.
+                tpRelY(ctx, first.get("x").getAsDouble(), first.get("y").getAsDouble() + 40, first.get("z").getAsDouble(), 0f, 0f);
+                ctx.waitTicks(3);
+                if (in.has("pendingChests")) {
+                    List<double[]> rel = new ArrayList<>();
+                    for (JsonElement e : in.getAsJsonArray("pendingChests")) {
+                        JsonArray a = e.getAsJsonArray();
+                        rel.add(new double[]{a.get(0).getAsInt() + 0.5, a.get(1).getAsInt() + 0.5, a.get(2).getAsInt() + 0.5});
+                    }
+                    AtomicReference<Integer> hiddenRef = new AtomicReference<>();
+                    ctx.runOnClient(mc -> {
+                        Object frame = ModUnderTest.staticCall(FRAME, "current");
+                        List<BlockPos> real = new ArrayList<>();
+                        for (double[] c : rel) {
+                            Vec3 v = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(),
+                                    double.class, double.class, double.class}, new Object[]{frame, c[0], c[1], c[2]});
+                            real.add(BlockPos.containing(v));
+                        }
+                        var server = mc.getSingleplayerServer();
+                        server.execute(() -> {
+                            int n = 0;
+                            var level = server.overworld();
+                            for (BlockPos p : real) {
+                                BlockState st = level.getBlockState(p);
+                                if (!st.is(net.minecraft.world.level.block.Blocks.CHEST)) continue;
+                                level.setBlockAndUpdate(p, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+                                ModUnderTest.staticCall("com.killer560.hub.roomsim.SimSecretItems", "registerChest",
+                                        new Class<?>[]{BlockPos.class, BlockState.class}, new Object[]{p, st});
+                                n++;
+                            }
+                            hiddenRef.set(n);
+                        });
+                    });
+                    for (int w = 0; w < 100 && hiddenRef.get() == null; w++) ctx.waitTicks(1);
+                    println("arfinder " + r + ": " + hiddenRef.get() + " secret chest(s) that appeared during the build hidden again");
+                }
+                if (in.has("pendingBats") && in.getAsJsonArray("pendingBats").size() > 0) {
+                    // a secret bat the build let appear goes back to waiting for him too (removed, re-registered)
+                    List<double[]> rel = new ArrayList<>();
+                    for (JsonElement e : in.getAsJsonArray("pendingBats")) {
+                        JsonArray a = e.getAsJsonArray();
+                        rel.add(new double[]{a.get(0).getAsInt() + 0.5, a.get(1).getAsInt() + 0.5, a.get(2).getAsInt() + 0.5});
+                    }
+                    AtomicReference<Integer> batRef = new AtomicReference<>();
+                    ctx.runOnClient(mc -> {
+                        Object frame = ModUnderTest.staticCall(FRAME, "current");
+                        List<BlockPos> real = new ArrayList<>();
+                        for (double[] c : rel) {
+                            Vec3 v = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(),
+                                    double.class, double.class, double.class}, new Object[]{frame, c[0], c[1], c[2]});
+                            real.add(BlockPos.containing(v));
+                        }
+                        var server = mc.getSingleplayerServer();
+                        server.execute(() -> {
+                            int n = 0;
+                            var level = server.overworld();
+                            for (BlockPos p : real) {
+                                for (var bat : level.getEntitiesOfClass(net.minecraft.world.entity.ambient.Bat.class,
+                                        new net.minecraft.world.phys.AABB(p).inflate(1.0))) {
+                                    bat.discard();
+                                    n++;
+                                }
+                                ModUnderTest.staticCall("com.killer560.hub.roomsim.SimSecretItems", "registerBat",
+                                        new Class<?>[]{BlockPos.class}, new Object[]{p});
+                            }
+                            batRef.set(n);
+                        });
+                    });
+                    for (int w = 0; w < 100 && batRef.get() == null; w++) ctx.waitTicks(1);
+                    println("arfinder " + r + ": " + batRef.get() + " secret bat(s) that appeared during the build removed, all re-registered");
+                }
+                {
+                    // The build leaves him where the previous room put him, and a secret item of this room can lie there
+                    // (Well, run 19: picked up during the build, 33 ticks before the route). He arrives from another room,
+                    // so such an item goes back to waiting for him and the run memory forgets it.
+                    java.util.Set<String> items = new java.util.HashSet<>();
+                    List<BlockPos> back = new ArrayList<>();
+                    java.util.regex.Pattern placed = java.util.regex.Pattern.compile("Sim secret placed: item at (-?\\d+), (-?\\d+), (-?\\d+)");
+                    java.util.regex.Pattern counted = java.util.regex.Pattern.compile("Sim secret counted: (-?\\d+), (-?\\d+), (-?\\d+)");
+                    for (String l : LogTap.since(buildMark)) {
+                        var pm = placed.matcher(l);
+                        if (pm.find()) items.add(pm.group(1) + "," + pm.group(2) + "," + pm.group(3));
+                        var cm = counted.matcher(l);
+                        if (cm.find() && items.contains(cm.group(1) + "," + cm.group(2) + "," + cm.group(3))) {
+                            back.add(new BlockPos(Integer.parseInt(cm.group(1)), Integer.parseInt(cm.group(2)), Integer.parseInt(cm.group(3))));
+                        }
+                    }
+                    if (!back.isEmpty()) {
+                        ctx.runOnClient(mc -> {
+                            var server = mc.getSingleplayerServer();
+                            if (server != null) {
+                                server.execute(() -> {
+                                    var level = server.overworld();
+                                    for (BlockPos p : back) {
+                                        for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                                                new net.minecraft.world.phys.AABB(p).inflate(2.0))) it.discard();
+                                        ModUnderTest.staticCall("com.killer560.hub.roomsim.SimSecretItems", "register",
+                                                new Class<?>[]{BlockPos.class}, new Object[]{p});
+                                    }
+                                });
+                            }
+                            ModUnderTest.staticCall("com.killer560.hub.autoroutes.RouteRunMemory", "reset");
+                        });
+                        ctx.waitTicks(2);
+                    }
+                    println("arfinder " + r + ": " + back.size() + " secret item(s) picked up during the build put back " + back);
+                }
+                // He arrives during the run, never in its countdown: the route arms only at GO, so Secret Aura let go
+                // on a countdown tick took a start-spot secret ~40 ticks before the route's lookback (Well, run 13e).
+                // The room's build arms its own countdown (SimRun.autoStart) a few ticks later, so wait for that run's
+                // GO (hasStarted resets on each build), not merely "not counting down now" (run 18b slipped in before it).
+                for (int w = 0; w < 300 && !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                        "com.killer560.hub.roomsim.SimRun", "hasStarted")
+                        && (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRun", "isRunning")); w++) {
+                    ctx.waitTicks(1);
+                }
+                ctx.waitTicks(2);
+                int found0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound"));
+                long m = LogTap.mark();
+                // As after an Interactive Map warp: Auto Routes is on before he lands (it starts the tick he stands on
+                // the start node), and Secret Aura is let go on the client tick he first sees himself there, so the
+                // room's server ticks do not run ahead of the route's first tick.
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", true));
+                tpRelY(ctx, first.get("x").getAsDouble(), first.get("y").getAsDouble(), first.get("z").getAsDouble(),
+                        // a DUNGEON_BREAKER start node carries no look (it aims at its own blocks)
+                        first.has("yaw") ? first.get("yaw").getAsFloat() : 0f, first.has("pitch") ? first.get("pitch").getAsFloat() : 0f);
+                Vec3 startReal = ctx.computeOnClient(mc -> (Vec3) ModUnderTest.staticCall(COORDS, "toReal",
+                        new Class<?>[]{ModUnderTest.staticCall(FRAME, "current").getClass(), double.class, double.class, double.class},
+                        new Object[]{ModUnderTest.staticCall(FRAME, "current"), first.get("x").getAsDouble(),
+                                first.get("y").getAsDouble(), first.get("z").getAsDouble()}));
+                boolean auraOn = false;
+                // complete = tick of "Route ... complete"; stopped = a stop with no completion; otherwise the window
+                // (WINDOW ticks, 3x the model and at least 400) ran out and the last held line says where it stalled.
+                int window = Math.max(400, modelTicks * 3);
+                int started = -1, complete = -1, stopped = -1, seen = 0;
+                String lastHeld = "-";
+                List<String> timeline = new ArrayList<>();
+                for (int tick = 0; tick < window && complete < 0 && stopped < 0; tick++) {
+                    if (!auraOn) {
+                        auraOn = ctx.computeOnClient(mc -> {
+                            if (mc.player.position().distanceTo(startReal) > 0.6) return false;
+                            ModUnderTest.set(ModUnderTest.config(CHEAT_CFG), "setSecretAuraEnabled", true);
+                            return true;
+                        });
+                        if (auraOn) timeline.add("t" + tick + " test: on the start node, Secret Aura on");
+                    }
+                    List<String> lines = LogTap.since(m);
+                    for (int i = seen; i < lines.size(); i++) {
+                        String l = lines.get(i);
+                        if (started < 0 && l.contains("[AutoRoutes] Started")) started = tick;
+                        if (l.contains("Route \"" + r + "\" complete")) complete = tick;
+                        else if (complete < 0 && l.contains("[AutoRoutes] Stopped")) stopped = tick;
+                        if (l.contains("[AutoRoutes] held:")) lastHeld = "t" + tick + " " + l.substring(l.indexOf("held:"));
+                        if (l.contains("acted") || l.contains("click sent") || l.contains("Sim secret") || l.contains("appeared")
+                                || l.contains("Started") || l.contains("complete") || l.contains("Stopped")
+                                || l.contains("secret gap") || l.contains("landed") || l.contains("pick")
+                                || l.contains("await met") || l.contains("[AutoCloseChest]")) {
+                            timeline.add("t" + tick + " " + l.substring(Math.max(0, l.indexOf(']') - 40)));
+                        }
+                    }
+                    seen = lines.size();
+                    if (complete < 0 && stopped < 0) ctx.waitTicks(1);
+                }
+                String outcome = complete >= 0 ? "complete t" + complete : stopped >= 0 ? "STOPPED t" + stopped
+                        : "STALLED (window " + window + " ticks ended; last hold " + lastHeld + ")";
+                ctx.waitTicks(10);
+                int found1 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound"));
+                ctx.runOnClient(mc -> {
+                    ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", false);
+                    ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled");
+                });
+                stopRoute(ctx);
+                int simTicks = complete >= 0 && started >= 0 ? complete - started : -1;
+                String verdict = "arfinder " + r + ": model " + modelTicks + " ticks, sim " + simTicks
+                        + " (started t" + started + ", " + outcome + "), secrets " + (found1 - found0) + "/" + expect;
+                println(verdict);
+                timeline.forEach(t -> println("arfinder " + r + " | " + t));
+                Path out = ARFINDER_INPUT.resolveSibling("result-" + r.replace(' ', '_') + ".txt");
+                List<String> o = new ArrayList<>();
+                o.add(verdict);
+                o.addAll(timeline);
+                Files.write(out, o, StandardCharsets.UTF_8);
+                if (complete < 0) fails.add(r + ": route did not complete - " + outcome);
+                else if (found1 - found0 < expect) fails.add(r + ": only " + (found1 - found0) + " of " + expect + " secrets");
+                else if (simTicks != modelTicks) fails.add(r + ": model " + modelTicks + " != sim " + simTicks);
+            }
+        } finally {
+            room = saved;
+            ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimState", "setFloorLabel",
+                    new Class<?>[]{String.class}, new Object[]{savedFloor}));
+        }
+        check(fails.isEmpty(), String.join("; ", fails));
+    }
+
 }

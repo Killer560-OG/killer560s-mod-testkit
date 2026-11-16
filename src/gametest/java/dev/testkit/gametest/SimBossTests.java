@@ -988,11 +988,8 @@ public class SimBossTests implements FabricClientGameTest {
                     sp.getBoundingBox().inflate(4)).size();
         });
         expect(f, "a zombie stands beside him", zombie[0] >= 1, true);
-        String[] held = new String[2];
-        serverRun(ctx, s -> held[0] = s.getPlayerList().getPlayers().get(0).getInventory().getSelectedSlot() + ":"
-                + s.getPlayerList().getPlayers().get(0).getMainHandItem().getItem());
-        ctx.runOnClient(mc -> held[1] = mc.player.getInventory().getSelectedSlot() + ":" + mc.player.getMainHandItem().getItem());
-        println(HYPE, "before the use: server holds " + held[0] + ", client holds " + held[1]);
+        // the server's inventory write reaches the client a few ticks later under load: a use before that is an empty hand
+        expect(f, "the Hyperion reached his hand", until(ctx, "the Hyperion in hand", mc -> !mc.player.getMainHandItem().isEmpty(), 100), true);
         ctx.runOnClient(mc -> mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND));
         // The use packet reaches the server over its own thread and, in a loaded session, after a fixed 20 ticks the server
         // could still be holding it (hype failed 27% of long runs with zombie alive and no impact line): wait for the blast.
