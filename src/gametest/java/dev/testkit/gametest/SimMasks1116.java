@@ -44,16 +44,15 @@ final class SimMasks1116 {
                 new Class<?>[]{int.class}, new Object[]{40})).contains(line));
     }
 
-    /** One lethal hit on the server thread; returns whether the player is dead afterwards. */
+    /** One lethal hit on the server thread; true when it killed (the sim sent the player home), false when it was saved or absorbed. */
     private static boolean lethal(ClientGameTestContext ctx) {
-        boolean[] dead = new boolean[1];
+        int before = (Integer) call("com.killer560.hub.roomsim.SimSurvival", "deaths");
         serverRun(ctx, sv -> {
             ServerPlayer p = sv.getPlayerList().getPlayers().get(0);
             p.hurtServer(p.level(), p.damageSources().generic(), 100000f);
-            dead[0] = p.isDeadOrDying();
         });
         ctx.waitTicks(4);
-        return dead[0];
+        return (Integer) call("com.killer560.hub.roomsim.SimSurvival", "deaths") > before;
     }
 
     private static void wear(ClientGameTestContext ctx, String skyblockId) {
@@ -92,8 +91,7 @@ final class SimMasks1116 {
         expect(f, skyblockId + " invulnerable inside its window", lethal(ctx), false);
         ctx.waitTicks(70);
         expect(f, skyblockId + " second lethal hit inside its cooldown kills", lethal(ctx), true);
-        ctx.runOnClient(mc -> mc.player.respawn());
-        ctx.waitTicks(30);
+        ctx.waitTicks(10);
     }
 
     static void run(ClientGameTestContext ctx, List<String> f) {
@@ -120,8 +118,7 @@ final class SimMasks1116 {
         expect(f, "the mod's Phoenix timer started", onCooldown(ctx, "PHOENIX"), true);
         ctx.waitTicks(100);
         expect(f, "a second lethal hit inside Phoenix's cooldown kills", lethal(ctx), true);
-        ctx.runOnClient(mc -> mc.player.respawn());
-        ctx.waitTicks(20);
+        ctx.waitTicks(10);
         reset(ctx);
         ctx.runOnClient(mc -> mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND));
         ctx.waitTicks(8);
