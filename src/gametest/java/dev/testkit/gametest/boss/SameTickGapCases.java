@@ -112,7 +112,7 @@ final class SameTickGapCases {
             SimonSaysCases.click(c, SimonSaysCases.START);
             c.waitUntil("the device to start (Hx)", mc -> !"IDLE".equals(SimonSaysCases.state(c).get("phase").getAsString()), 60);
             // Back to the device: his right click goes into the air, his attack onto a zombie in front of him.
-            c.hx().call("dungeon.tp", "x", 107.5, "y", 120.0, "z", 93.5, "yaw", 90f, "pitch", 0f);
+            c.hx().call("dungeon.tp", "x", 107.5, "y", 120.4, "z", 93.5, "yaw", 90f, "pitch", 0f);
             c.waitUntil("the client facing away", mc -> Math.abs(net.minecraft.util.Mth.wrapDegrees(mc.player.getYRot() - 90f)) < 0.01f, 40);
             SameTickCases.sticks(c);
             if (act == SameTick.Act.ATTACK) {
