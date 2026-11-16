@@ -263,7 +263,7 @@ final class Ap3LeverTurn1115Cases {
             });
             // A warm-up walk first, not compared: the session's first AP3 walk once started from a different look (the server
             // had heard no rotation yet), one tick out of step with every later walk (experimental run, 11-15).
-            runOnce(c, true, false, true);
+            runOnce(c, true, null, true);
             Run off = runOnce(c, false, sameAct, true);
             // retry: no new run, so Lever Aura still holds the lever AP3 flicked in the walk above.
             Run on = runOnce(c, true, sameAct, !retry);
