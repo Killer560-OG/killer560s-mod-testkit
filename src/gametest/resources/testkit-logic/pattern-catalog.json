@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-16T16:52:32",
- "modSource": "lane-wpusekey-1116b",
- "modGitSha": "932cf61c2c67f1be0ec22636d0501b1148334577",
+ "generatedAt": "2026-11-16T17:05:38",
+ "modSource": "lane-blinkkept-1111-rb2",
+ "modGitSha": "c9fa4e6faae245c92f7663edeba0b4dcc53d3aa5",
  "modSourceDirty": false,
  "count": 977,
  "byKind": {
