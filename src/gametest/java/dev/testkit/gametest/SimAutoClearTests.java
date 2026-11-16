@@ -43,6 +43,9 @@ public class SimAutoClearTests implements FabricClientGameTest {
     private static final String ETA_SUFFIX = "(  ~\\d+:\\d\\d left)?";
 
     private static final String NAME = "131-sim-auto-clear";
+    /** Runs in 131's room after repositions, so naming it alone runs 131's setup too (train lanes run it alone). */
+    private static final String NO_LAND = "1115-acslow2-noland";
+    private static boolean noLand;
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String SIM_MOBS = "com.killer560.hub.roomsim.SimMobs";
     private static final String SIM_ITEMS = "com.killer560.hub.roomsim.SimItems";
@@ -72,7 +75,9 @@ public class SimAutoClearTests implements FabricClientGameTest {
     @Override
     public void runTest(ClientGameTestContext ctx) {
         // Only when named (a whole sim floor and three clears, several minutes).
-        if (System.getProperty("testkit.scenario", "").isBlank() || Scenario.skip(NAME)) {
+        noLand = Scenario.named(NO_LAND) && !Scenario.legitSkip(NO_LAND);
+        boolean main = !Scenario.skip(NAME);
+        if (System.getProperty("testkit.scenario", "").isBlank() || !main && !noLand) {
             return;
         }
         if (!dev.testkit.gametest.mod.Mod.isCheat()) { // Auto Clear is cheat build only
@@ -832,6 +837,94 @@ public class SimAutoClearTests implements FabricClientGameTest {
         }
         if (plan == null || !plan.contains("2 block(s) reach all 3") || !plan.contains("nearest mob first would take 3")) {
             failures.add("repositions: no plan of two blocks against nearest-first's three was logged (" + plan + ")");
+        }
+        if (noLand && !Scenario.skip(NO_LAND) && !noLandCase(ctx, failures, roomName, found[2], startAt)) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * acslow2-1115 (his 11-15 log, Steps 15:30:10-20): a Skeleton whose stand block no trip landed on was skipped, freed
+     * by the next roam and etherwarped at again, six times over 8 s (~20 ticks a go, ~200 ticks in all). Every stand reads
+     * as one no trip lands on here ({@code noLandForTest}); one zombie 10+ blocks off on open floor of the same room. It
+     * must be skipped for that once ("no trip lands" logged once, no further "etherwarp toward" at it) and then walked to
+     * and killed. Main: skipped, freed and re-targeted until the case times out.
+     */
+    private static boolean noLandCase(ClientGameTestContext ctx, List<String> failures, String roomName, BlockPos at,
+                                   BlockPos startAt) {
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            UUID me = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(me);
+                if (sp != null) {
+                    sp.teleportTo(startAt.getX() + 0.5, startAt.getY(), startAt.getZ() + 0.5);
+                }
+            });
+        });
+        for (int i = 0; i < 100 && !ctx.computeOnClient(mc -> mc.player.onGround()
+                && mc.player.blockPosition().equals(startAt)); i++) {
+            ctx.waitTicks(1);
+        }
+        int before = starredPairCount(ctx);
+        ctx.runOnClient(mc -> {
+            Object kind = ModUnderTest.enumValue(SIM_MOBS + "$Kind", "ZOMBIE");
+            ModUnderTest.staticCall(SIM_MOBS, "spawnStarred", new Class<?>[]{Minecraft.class, BlockPos.class,
+                    kind.getClass()}, new Object[]{mc, at, kind});
+        });
+        ctx.waitTicks(3);
+        UUID id = newestStarred(ctx, before);
+        if (id == null) {
+            failures.add("noland: the zombie at " + at.toShortString() + " could not be placed");
+            return true;
+        }
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_ROOM_STATE, "clearRoom", new Class<?>[]{String.class},
+                new Object[]{roomName}));
+        ctx.waitTicks(30);
+        setMode(ctx, "ANY_MOB_ROOM", "HYPERION");
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setHyperionHops", false));
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "noLandForTest", new Class<?>[]{boolean.class},
+                new Object[]{true}));
+        long mark = LogTap.mark();
+        Result r;
+        try {
+            r = runCase(ctx, "noland", () -> ModUnderTest.staticCall(AUTO, "clearRoom",
+                    new Class<?>[]{String.class, Runnable.class, Consumer.class},
+                    new Object[]{roomName, (Runnable) () -> { }, (Consumer<String>) s -> { }}));
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "noLandForTest", new Class<?>[]{boolean.class},
+                    new Object[]{false}));
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setHyperionHops", true));
+        }
+        String alive = aliveReport(ctx, List.of(new Placed(roomName, false, id, at))).get(id);
+        int skips = 0;
+        int warpsAfterSkip = 0;
+        for (String l : LogTap.since(mark)) {
+            if (l.contains("[AutoClear] skipped") && l.contains("no trip lands")) {
+                skips++;
+            } else if (skips > 0 && l.contains("[AutoClear] etherwarp toward")) {
+                warpsAfterSkip++;
+            }
+        }
+        println("acslow2-noland: zombie " + alive + " after " + r.ticks + " tick(s) (his log: ~200 ticks of re-trips);"
+                + " \"no trip lands\" skips " + skips + ", etherwarps toward it after the skip " + warpsAfterSkip);
+        if (skips == 0 && LogTap.since(mark).stream().anyMatch(l -> l.contains("[AutoClear] cost for") && l.contains("bat from here")
+                && l.contains("- the Spirit Sceptre"))) {
+            // A sceptre bat from the start spot took the zombie with no trip to refuse (Cell, 26.2): not this case's question.
+            println("noland: a Spirit Sceptre bat reached the zombie from " + startAt.toShortString() + " in " + roomName
+                    + " - no trip to refuse; trying the next room");
+            return false;
+        }
+        if (skips == 0) {
+            failures.add("noland: no \"no trip lands\" skip was logged - the case proves nothing");
+        }
+        if (skips > 1 || warpsAfterSkip > 0) {
+            failures.add("noland: the stand no trip lands on was tried again (" + skips + " skips, " + warpsAfterSkip
+                    + " etherwarps after the first)");
+        }
+        if (!"dead".equals(alive) || r.ticks > 400) {
+            failures.add("noland: the zombie is " + alive + " after " + r.ticks + " tick(s); want dead within 400 by a walk");
         }
         return true;
     }
