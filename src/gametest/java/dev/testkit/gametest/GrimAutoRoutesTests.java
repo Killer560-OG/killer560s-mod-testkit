@@ -2419,18 +2419,6 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         });
     }
 
-    /** The Etherwarp tab's settings that replaced Auto Routes' Zero Ping Chain (on = Zero Ping Etherwarp working for Auto
-     *  Routes) and Charged Chain (Multi Warps for Auto Routes), zpewunify-1111. */
-    private static void arChain(boolean zp, boolean charged) {
-        Object z = ModUnderTest.config(ZP_CFG);
-        Class<?>[] b = {boolean.class};
-        Class<?>[] sb = {String.class, boolean.class};
-        ModUnderTest.call(z, "setEnabled", b, new Object[]{zp});
-        ModUnderTest.call(z, "setWorksForByName", sb, new Object[]{"AUTO_ROUTES", zp});
-        ModUnderTest.call(z, "setMultiWarps", b, new Object[]{charged});
-        ModUnderTest.call(z, "setMultiWarpsForByName", sb, new Object[]{"AUTO_ROUTES", charged});
-    }
-
     /** Blink on, Charge TOGGLE at 20 ticks, Zero Ping Chain on, Charged Chain as asked; null puts every one back off. */
     private static void chainSettings(ClientGameTestContext ctx, Boolean charged) {
         boolean on = charged != null;
