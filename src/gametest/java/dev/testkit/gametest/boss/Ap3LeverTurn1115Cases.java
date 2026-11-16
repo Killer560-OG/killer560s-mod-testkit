@@ -43,8 +43,11 @@ final class Ap3LeverTurn1115Cases {
         if (!Mod.isCheat()) {
             return;
         }
-        s.test("1115-ap3-leverturn-states", c -> run(c, false));
-        s.test("1115-ap3-leverturn-same-use", c -> run(c, true));
+        s.test("1115-ap3-leverturn-states", c -> run(c, false, false));
+        s.test("1115-ap3-leverturn-same-use", c -> run(c, true, false));
+        // ap3leveralways-1115: the lever already on is the one AP3 flicked itself earlier in the same run (a retry).
+        s.test("1115-ap3-leveralways-retry", c -> run(c, false, true));
+        s.test("1115-ap3-leveralways-retry-same-use", c -> run(c, true, true));
     }
 
     private static Object node(String type, double x, double z, float yaw, double size) {
@@ -125,7 +128,7 @@ final class Ap3LeverTurn1115Cases {
         return new ArrayList<>(out.subList(first, out.size()));
     }
 
-    private static Run runOnce(Session c, boolean leverOn, boolean sameUse) {
+    private static Run runOnce(Session c, boolean leverOn, boolean sameUse, boolean fresh) {
         c.onClient(mc -> {
             Mod.staticCall(EXEC, "stop", "test lane");
             Ap3TermAuraCases.setChain();
@@ -141,9 +144,11 @@ final class Ap3LeverTurn1115Cases {
         c.server().sync(10);
         TerminalAuraCases.tp(c, START_X, Y, START_Z, WALK_YAW);
         c.ctx().waitTicks(10);
-        // A fresh run each time: Lever Aura forgets the levers it flicked and its cooldown (resetRun).
-        LightsDeviceCases.newRun(c);
-        LightsDeviceCases.openS2(c);
+        // A fresh run each time: Lever Aura forgets the levers it flicked and its cooldown (resetRun). A retry keeps it.
+        if (fresh) {
+            LightsDeviceCases.newRun(c);
+            LightsDeviceCases.openS2(c);
+        }
         c.ctx().waitTicks(20);
         boolean powered = c.onClient(mc -> {
             var st = mc.level.getBlockState(new net.minecraft.core.BlockPos(LX, LY, LZ));
@@ -226,7 +231,7 @@ final class Ap3LeverTurn1115Cases {
         return -1;
     }
 
-    static void run(Session c, boolean sameUse) throws Exception {
+    static void run(Session c, boolean sameUse, boolean retry) throws Exception {
         List<AutoCloseable> undo = new ArrayList<>();
         try {
             LightsDeviceCases.baseline(c, undo);
@@ -254,9 +259,10 @@ final class Ap3LeverTurn1115Cases {
             });
             // A warm-up walk first, not compared: the session's first AP3 walk once started from a different look (the server
             // had heard no rotation yet), one tick out of step with every later walk (experimental run, 11-15).
-            runOnce(c, true, false);
-            Run off = runOnce(c, false, sameUse);
-            Run on = runOnce(c, true, sameUse);
+            runOnce(c, true, false, true);
+            Run off = runOnce(c, false, sameUse, true);
+            // retry: no new run, so Lever Aura still holds the lever AP3 flicked in the walk above.
+            Run on = runOnce(c, true, sameUse, !retry);
             // Compared from 3 ticks before each walk's lever turn: the align at the start does not always begin at the same
             // look between two walks (yaw 150 vs 165 at its first tick, 11-15, both lever states alike), which is not the lever.
             int aOff = leverTurn(off.ticks()), aOn = leverTurn(on.ticks());
@@ -323,6 +329,8 @@ final class Ap3LeverTurn1115Cases {
             c.check(n >= 10 && endX < 20, "the walk did not run past the lever (" + n + " ticks, ended at x " + endX + ")");
             c.check(off.leverClicks() == 1, "lever off: " + off.leverClicks() + " lever clicks on the wire, want 1");
             c.check(on.leverClicks() == 0, "lever on: " + on.leverClicks() + " lever clicks on the wire, want 0");
+            c.check(!retry || off.leverClicks() == 1 && on.turnOnly() == 1, "retry: Lever Aura did not turn again for the lever it"
+                    + " flicked itself (turn-only " + on.turnOnly() + ")");
             c.check(on.turnOnly() == 1 && off.turnOnly() == 0, "turn-only flicks off/on " + off.turnOnly() + "/" + on.turnOnly()
                     + ", want 0/1 (the turn for the activated lever did not act)");
             c.check(wOff[1] > 10 && wOn[1] > 10, String.format(Locale.ROOT, "the body never turned toward the lever on the wire"
