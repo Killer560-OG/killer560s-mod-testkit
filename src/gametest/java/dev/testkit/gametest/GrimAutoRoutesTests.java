@@ -2703,8 +2703,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         writeRoute(ctx, n);
         try {
             chainSettings(ctx, false);
-            ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setZeroPingChain",
-                    new Class<?>[]{boolean.class}, new Object[]{zeroPing}));
+            // Zero Ping Chain is the Etherwarp tab's Works For: Auto Routes since zpewunify-1111 (no AutoRoutesConfig setter).
+            ctx.runOnClient(mc -> arChain(zeroPing, false));
             ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
                     new Object[]{"test"}));
             ctx.runOnClient(mc -> dev.testkit.harness.Latency.install(150));
