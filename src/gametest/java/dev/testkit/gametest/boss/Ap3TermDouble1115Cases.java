@@ -32,8 +32,8 @@ final class Ap3TermDouble1115Cases {
         }
         s.test("1115-ap3-termdouble", c -> run(c, null, false));
         s.test("1115-ap3-termdouble-again", c -> run(c, null, true));
-        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.ATTACK, SameTick.Act.SWAP, SameTick.Act.TP, SameTick.Act.CLICK}) {
-            s.test("1115-ap3-termdouble-" + a.name().toLowerCase(java.util.Locale.ROOT), c -> run(c, a, false));
+        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.ATTACK, SameTick.Act.SWAP, SameTick.Act.TP, SameTick.Act.OPEN_CLICK}) {
+            s.test("1115-ap3-termdouble-" + (a == SameTick.Act.OPEN_CLICK ? "click" : a.name().toLowerCase(java.util.Locale.ROOT)), c -> run(c, a, false));
         }
     }
 
@@ -85,13 +85,30 @@ final class Ap3TermDouble1115Cases {
                 Ap3TermAuraCases.setChain(termAura, terminal);
                 return null;
             });
-            c.waitUntil("the node's click reaching the server", mc -> c.events("term.interact").size() > before, 60);
-            if (again) { // a second approach: the chain runs again while the first window is still on its way
+            for (int i = 0; i < 80 && c.events("term.interact").size() <= before; i++) {
+                if (act == SameTick.Act.TP && i % 2 == 0) { // his teleport accepts share ticks with the node's click
+                    c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+                }
+                c.ctx().waitTick();
+            }
+            c.check(c.events("term.interact").size() > before, "the node's click never reached the server");
+            if (act == SameTick.Act.OPEN_CLICK) { // his open-click-close would shut the terminal window: judge it before the window arrives
+                SameTickCases.judge(c, st, "ap3 term click");
+                st = null;
+            }
+            if (again) { // a second approach inside the first click's wait: out of the box and in again (a new run)
                 c.onClient(mc -> {
                     Mod.staticCall(ex, "stop", "test lane");
+                    Ap3TermAuraCases.setChain();
+                    return null;
+                });
+                TerminalAuraCases.tp(c, px - 8, g + 3, pz, 90f);
+                c.ctx().waitTick();
+                c.onClient(mc -> {
                     Ap3TermAuraCases.setChain(termAura, terminal);
                     return null;
                 });
+                TerminalAuraCases.tp(c, px, g + 3, pz, 90f);
             }
             c.waitUntil("the terminal screen", mc -> dev.testkit.compat.McCompat.screen(mc) != null, 60);
             c.ctx().waitTicks(2 * OPEN_DELAY + 10); // a second click would land inside this window
