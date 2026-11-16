@@ -384,10 +384,12 @@ public class InvWalkZpewTests implements FabricClientGameTest {
         });
     }
 
+    /** The sources that sit in a Works For group (AP3 has none since zpewunify-1111; Auto Secret, Auto Clear and Pathfinding
+     *  ride on Auto Routes, Left Click Etherwarp on Manual). */
     private static final String[] CHEAT_SOURCES = {"LEFT_CLICK", "AUTO_ROUTES", "INTERACTIVE_MAP", "AUTO_SECRET",
-            "AUTO_CLEAR", "AUTO_PUZZLES", "AP3", "PATHFINDING"};
-    private static final String[] CHEAT_LABELS = {"Left Click Etherwarp", "Auto Routes", "Interactive Map",
-            "Auto Secret / Autopilot", "Auto Clear", "Auto Puzzles", "AP3", "Pathfinding Hopper"};
+            "AUTO_CLEAR", "AUTO_PUZZLES", "PATHFINDING"};
+    /** Works For lists four groups (labels from ZpewSource.Group), plus the Left Click Etherwarp switch. */
+    private static final String[] CHEAT_LABELS = {"Left Click Etherwarp", "Auto Routes", "Interactive Map", "Auto Puzzles"};
 
     /** The Zero Ping Etherwarp tab's rows (labels, formatting stripped) with ZPEW on. */
     @SuppressWarnings("unchecked")
@@ -461,18 +463,15 @@ public class InvWalkZpewTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> Mod.set(ZP_CFG, "setEnabled", true));
             List<String> labels = zpTabLabels(ctx);
             scenario.log((cheat ? "cheat" : "legit") + " tab rows: " + labels);
-            check(labels.contains("Works For") && labels.contains("Manual Etherwarps"),
-                    "the tab has no Works For section with Manual Etherwarps: " + labels);
+            check(labels.contains("Works For") && labels.contains("Manual"),
+                    "the tab has no Works For section with Manual: " + labels);
             for (String l : CHEAT_LABELS) {
                 check(labels.contains(l) == cheat, (cheat ? "the cheat tab is missing " : "the legit tab shows ") + l);
             }
-            check(labels.contains("Cheat Build - Works For") == cheat, "cheat header shown=" + !cheat + " in a "
-                    + (cheat ? "cheat" : "legit") + " jar");
             if (cheat) {
-                int manualAt = labels.indexOf("Manual Etherwarps");
-                int headerAt = labels.indexOf("Cheat Build - Works For");
-                check(headerAt > manualAt && labels.indexOf("AP3") > headerAt, "the cheat sources are not under the red "
-                        + "header at the bottom: " + labels);
+                int headerAt = labels.indexOf("Works For");
+                check(headerAt >= 0 && labels.indexOf("Auto Routes") > headerAt && labels.indexOf("Manual") > headerAt,
+                        "the Works For groups are not under their header: " + labels);
             }
             String legitGate = ctx.computeOnClient(mc -> {
                 Object c = Mod.cfg(ZP_CFG);

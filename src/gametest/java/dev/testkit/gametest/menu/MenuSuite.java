@@ -177,6 +177,8 @@ public class MenuSuite implements FabricClientGameTest {
                     TermHoldCases.register(s); // 271-279: terms-1026 (Hover Melody, Hold To Click, lookahead, Fake Cursor)
                     Melody1111Cases.register(s); // 1111-menu-term-melody-gamble: lookahead gamble vs. live clicks under 50 ms ping
                     TermFeatACases.register(s); // 1108: terminal sounds, click path, click order, queue terms
+                    TermBurst1111Cases.register(s); // 1111-menu-term-burst-*: Auto Terminals Burst Finish (termburst-1111)
+                    TermPlus1112Cases.register(s); // 1112-term-*: loaded gate, stall net, Burst Size sweep (termplus-1112)
                     Doc1101TermCases.register(s); // 1101-menu-term-*: doc-terms-1101
                     TermHumanCases.register(s); // 1027-menu-term-*: Stream Safe human cursor, Rubix repeats (autoterms-human-1027)
                     TermismStreamSafeCases.register(s); // 1102-menu-termism-ss-*: Stream Safe in Termism (termismss-1102)
@@ -184,6 +186,7 @@ public class MenuSuite implements FabricClientGameTest {
                     DungeonMenuCases.register(s);
                     InventoryCases.register(s);
                     ItemCases.register(s);
+                    EnchDesc1114Cases.register(s); // 1114-enchdesc-*: Hide Enchant Descriptions (enchdesc-1114)
                     PriceTooltipCases.register(s); // 1750-1754: Price Tooltip (price-tooltip-1015)
                     Networth1104Cases.register(s); // 1104-networth-*, 1104-menu-storage-pricetip (networth-1104)
                     PvStyle1104Cases.register(s); // 1104-menu-pvstyle: the Profile Viewer's Styles (pvstyle-1104)
@@ -232,6 +235,7 @@ public class MenuSuite implements FabricClientGameTest {
                     // ---- 875-878 croesus-ui (2026-10-12): run highlight under the tooltip, Hide Opened Runs, totals ----
                     CroesusUiCases.register(s);
                     TipScroll1113Cases.register(s);
+                    TipScroll1114Cases.register(s);
                     // ---- 879-882 croesus-key (2026-10-12): run states by chest key, Hide keeps "needs a key" ----
                     CroesusKeyCases.register(s);
                     // ---- 883 croesus-flash (2026-10-12): no stale run state on open ----
@@ -265,6 +269,7 @@ public class MenuSuite implements FabricClientGameTest {
                     CroesusRerollCases.register(s);
                     // ---- 1103-menu-* commissions-1103: Completed Commissions and Highlight Selected Loadout slots ----
                     Commissions1103MenuCases.register(s);
+                    GlaciteCommMenuA1114Cases.register(s);
                     // ---- 1103-menu-armorhud-*, 1103-menu-wrongarmor armorhud-1103: Armor HUD, Wrong Armor Alert ----
                     ArmorHud1103Cases.register(s);
                     // ---- 1103-menu-tooltip-over-bar tooltipbar-1103: tooltips draw above the search bar ----

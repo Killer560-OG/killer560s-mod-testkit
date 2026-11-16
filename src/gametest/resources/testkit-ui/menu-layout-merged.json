@@ -55,6 +55,7 @@
     "gui.tab.MiningDarkStoneTab": "Mining > General > Dark Stone",
     "gui.tab.MiningCommissionHudTab": "Mining > Commissions and Mithril > Commission HUD",
     "gui.tab.MiningCommissionRouteTab": "Mining > Commissions and Mithril > Commission Route",
+    "gui.tab.MiningCommissionColorsTab": "Mining > Commissions and Mithril > Commission Block Colors",
     "gui.tab.MiningMithrilStoneTab": "Mining > Commissions and Mithril > Mithril As Stone",
     "gui.tab.MiningPickobulusTab": "Mining > General > Pickobulus Estimate",
     "gui.tab.MiningRaffleTab": "Mining > Commissions and Mithril > Raffle Ticket Highlight",
@@ -1029,6 +1030,11 @@
       "key": "wither dragons",
       "text": "Tracks the five M7 Phase 5 dragons with spawn timers, health and which one to take (the first to spawn).",
       "why": "dragons1108: the card text follows the first-to-spawn rule (found by nobosspearl-1110, failed on origin too)"
+    },
+    {
+      "owner": "Dungeon Breaker",
+      "key": "zero ping",
+      "gone": "Zero Ping Dungeon Breaker removed (mod aed527317); its tooltip row is gone (quarfix-1115)"
     }
   ]
 }
