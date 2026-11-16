@@ -251,11 +251,11 @@ public final class Scenario {
         Report.caseFinished(name, "SKIP", "", reason, List.of(), List.of());
     }
 
-    /** Case names (prefixes) of features that exist only in the cheat build: Blink, Zero Ping Etherwarp, Inventory Walk, AP3, Breaker Aura. */
+    /** Case names (prefixes) of features that exist only in the cheat build: Blink, Zero Ping Etherwarp, Inventory Walk, AP3, Breaker Aura. 1115-termclose-stillhold: StillHold only holds with the Blink send hook (noteLeft), so no close is ever held on legit. */
     private static final List<String> CHEAT_ONLY = List.of("1025-blink-", "1026-blink-", "1027-blink-", "1105-blink-", "1111-blink-",
             "1026-ap3-blink-", "1027-ap3-blink-", "1110-ap3-stopwatch-", "1025-invwalk-", "1025-zpew-", "1027-zpew", "1105-zpew-",
             "1111-zpew", "1025-lcew-", "63-ap3-", "1018-ap3-", "1022-ap3-", "1026-ap3-", "1027-ap3-", "1018-breaker-fairy", "62-argrim-1111-archarge",
-            "1111-blinktp-", "1112-ap3-", "1112-blink-", "1112-viewhold", "1110-align12-", "1112-align12-", "62-argrim-", "1105-same-breaker", "1105-ap3-", "1101-ap3-", "1109-ap3-", "1027-iw-", "1105-iw-", "1108-iw-", "1114-drillswap-", "1115-acslow-", "1115-acslow2-", "93-solve-waterboard-chest-locked", "1115-same-waterchest-", "1115-ap3-", "96-ar-");
+            "1111-blinktp-", "1112-ap3-", "1112-blink-", "1112-viewhold", "1110-align12-", "1112-align12-", "62-argrim-", "1105-same-breaker", "1105-ap3-", "1101-ap3-", "1109-ap3-", "1027-iw-", "1105-iw-", "1108-iw-", "1114-drillswap-", "1115-acslow-", "1115-acslow2-", "93-solve-waterboard-chest-locked", "1115-same-waterchest-", "1115-ap3-", "1115-termclose-stillhold", "96-ar-");
 
     /** On a legit jar a cheat-only case is one SKIP row (the only {@code *-legit-absent} case tests that absence and still runs). */
     public static boolean legitSkip(String name) {
