@@ -41,6 +41,12 @@ final class LagLag1105Cases {
     /** {@code secs} of a server at {@code tps}; a stall of {@code stallMs} after server tick {@code stallTick} (0 = none),
      *  caught up at once (the next ticks are sent the moment it ends, as vanilla's catch-up does). */
     private static List<Packet> stream(double tps, int secs, long seed, int stallTick, long stallMs) {
+        return stream(tps, secs, seed, stallTick, stallMs, true);
+    }
+
+    /** As above; {@code catchUp} false is Hypixel's way: the server just carries on after the stall, its game time
+     *  staying behind the wall clock by the stall. */
+    private static List<Packet> stream(double tps, int secs, long seed, int stallTick, long stallMs, boolean catchUp) {
         Random rnd = new Random(seed);
         double period = 1000.0 / tps;
         int n = (int) (secs * tps);
@@ -48,7 +54,8 @@ final class LagLag1105Cases {
         for (int k = 1; k <= n; k++) {
             double s = k * period;
             if (stallTick > 0 && k > stallTick) {
-                s = Math.max(s, stallTick * period + stallMs); // the ticks due during the stall go out in one burst
+                // caught up: the ticks due during the stall go out in one burst; not: every later tick is late by the stall
+                s = catchUp ? Math.max(s, stallTick * period + stallMs) : s + stallMs;
             }
             sends.add(new double[]{s, 1, k});
             if (rnd.nextDouble() < 0.10) {
@@ -146,10 +153,11 @@ final class LagLag1105Cases {
                 c.check("seed " + seed + ": the lag never went down and never climbed faster than the wall clock",
                         !f.wentDown && !f.tooFast, f.detail.isEmpty() ? "ok" : f.detail);
                 Fed st = feed(s, BASE + 122_000L, BASE + 152_000L + 1000L);
-                c.check("seed " + seed + ": a 1 s stall caught up at once still reads 900-1200 ms 20 s after its burst",
-                        st.lag >= 900L && st.lag <= 1200L, st.lag + " ms");
-                c.check("seed " + seed + ": the stall span never went down or climbed faster than the wall clock",
-                        !st.wentDown && !st.tooFast, st.detail.isEmpty() ? "ok" : st.detail);
+                // splitlag-1116: the burst pays it back (the server ran those ticks); 1105 to 1116 read 900-1200 ms here
+                c.check("seed " + seed + ": a 1 s stall caught up at once reads under 150 ms 20 s after its burst",
+                        st.lag < 150L, st.lag + " ms");
+                c.check("seed " + seed + ": the stall span never climbed faster than the wall clock",
+                        !st.tooFast, st.detail.isEmpty() ? "ok" : st.detail);
                 end();
             }
         } finally {
@@ -244,15 +252,18 @@ final class LagLag1105Cases {
         }
     }
 
-    /** A real 1 s stall the server catches up at once, with the same late pings around it: about 14 stall ticks 0.7 s in
-     *  (live), and 18-23 for the whole 70 s span, so it is not paid back by its burst and the jitter adds nothing (the old
-     *  ratchet added its jitter count, ~5 ticks a minute, on top). */
+    /** A real 1 s stall with the same late pings around it: about 14 stall ticks 0.7 s in (live); over the whole 70 s
+     *  span 18-23 when the server never catches up (Hypixel's way) and at most 3 when it does at once (the burst pays it
+     *  back, splitlag-1116; 1105 to 1116 read 18-23 for both), so the jitter adds nothing (the old ratchet added its jitter
+     *  count, ~5 ticks a minute, on top). */
     static void bcStall(LogicCase c) {
         try {
-            for (long seed = 0; seed < 3; seed++) {
+            for (long run = 0; run < 6; run++) {
+                long seed = run % 3;
+                boolean catchUp = run >= 3;
                 start();
                 Random rnd = new Random(200 + seed);
-                List<Packet> s = stream(20.0, 95, seed, 600, 1000L); // the stall starts 30 s in
+                List<Packet> s = stream(20.0, 95, seed, 600, 1000L, catchUp); // the stall starts 30 s in
                 feedWithTicks(s, BASE, BASE + 20_000L, rnd);
                 long[] mark = (long[]) Mod.staticCall(CLOCK, "mark");
                 feedWithTicks(s, BASE + 20_000L, BASE + 30_000L + 800L, rnd); // 0.7 s into the stall
@@ -264,9 +275,128 @@ final class LagLag1105Cases {
                 c.check("seed " + seed + ": the clock ran again after the stall (its burst and 59 s: ~1180 ticks)",
                         ticks >= 1170L, ticks + " ticks");
                 long after = stallTicks(mark);
-                System.out.println("[bcstall-stall] seed " + seed + ": " + after + " stall ticks over 70 s, " + ticks + " clock ticks after");
-                c.check("seed " + seed + ": the 1 s stall reads 18-23 stall ticks over 70 s with jitter, its catch-up burst 59 s back",
-                        after >= 18L && after <= 23L, after + " ticks");
+                System.out.println("[bcstall-stall] seed " + seed + (catchUp ? " caught up" : " not caught up") + ": " + after
+                        + " stall ticks over 70 s, " + ticks + " clock ticks after");
+                if (catchUp) {
+                    c.check("seed " + seed + ": a 1 s stall caught up at once reads at most 3 stall ticks over 70 s with jitter",
+                            after <= 3L, after + " ticks");
+                } else {
+                    c.check("seed " + seed + ": a 1 s stall never caught up reads 18-23 stall ticks over 70 s with jitter",
+                            after >= 18L && after <= 23L, after + " ticks");
+                }
+                end();
+            }
+        } finally {
+            end();
+        }
+    }
+
+    // ---- 1116-logic-splitlag-* (mod branch splitlag-1116; killer560, 2026-11-16: "it also counts lag going up if I
+    // myself am lagging; it should only count lag as the server lag, not my client-side lag") ---------------------------
+
+    /** The stream as a client handles it when nothing is handled in [fromMs, toMs) (a frozen client, or a connection
+     *  holding its inbound packets): every packet that arrived meanwhile is handled at {@code toMs}, in order. */
+    private static List<Packet> heldUntil(List<Packet> s, long fromMs, long toMs) {
+        List<Packet> out = new ArrayList<>(s.size());
+        for (Packet p : s) {
+            out.add(p.atMs >= fromMs && p.atMs < toMs ? new Packet(toMs, p.ping, p.gameTime) : p);
+        }
+        return out;
+    }
+
+    private static int stallsSeen() {
+        return (Integer) Mod.staticCall("util.StallLag", "stallsSeen");
+    }
+
+    private static long paidBack() {
+        return (Long) Mod.staticCall("util.StallLag", "paidBackMs");
+    }
+
+    /** 1116-logic-splitlag-server-stall: a real 1.5 s server stall (Hypixel's way, never caught up) still reads ~1.5 s. */
+    static void splitServerStall(LogicCase c) {
+        try {
+            for (long seed = 0; seed < 3; seed++) {
+                start();
+                List<Packet> s = stream(20.0, 62, seed, 600, 1500L, false);
+                feed(s, BASE, BASE + 20_000L);
+                Fed f = feed(s, BASE + 20_000L, BASE + 61_500L);
+                c.check("seed " + seed + ": a 1.5 s server stall reads 1350-1700 ms of lag", f.lag >= 1350L && f.lag <= 1700L,
+                        f.lag + " ms");
+                c.check("seed " + seed + ": the feature saw the stall", stallsSeen() >= 1, stallsSeen() + " stalls");
+                c.check("seed " + seed + ": the clock ran on after it (~800 ticks)", f.ticks >= 780L, f.ticks + " ticks");
+                end();
+            }
+        } finally {
+            end();
+        }
+    }
+
+    /** 1116-logic-splitlag-client-freeze: the client freezes 1.5 s (no client ticks, nothing handled) while the server ticks
+     *  on: the queued pings and time packets are handled at once when it wakes, which pays the gap back: ~0 lag. */
+    static void splitClientFreeze(LogicCase c) {
+        try {
+            for (long seed = 0; seed < 3; seed++) {
+                start();
+                List<Packet> s = heldUntil(stream(20.0, 62, seed, 0, 0L), BASE + 30_000L, BASE + 31_500L);
+                feed(s, BASE, BASE + 20_000L);
+                Fed f = feed(s, BASE + 20_000L, BASE + 60_000L);
+                c.check("seed " + seed + ": a 1.5 s client freeze on a 20 TPS server reads under 150 ms of lag", f.lag < 150L,
+                        f.lag + " ms");
+                c.check("seed " + seed + ": the feature saw the gap as a stall", stallsSeen() >= 1, stallsSeen() + " stalls");
+                c.check("seed " + seed + ": and the queued ticks paid it back (1200+ ms)", paidBack() >= 1200L,
+                        paidBack() + " ms");
+                c.check("seed " + seed + ": the clock counted every server tick (800, within 5)", Math.abs(f.ticks - 800L) <= 5L,
+                        f.ticks + " ticks");
+                end();
+            }
+        } finally {
+            end();
+        }
+    }
+
+    /** 1116-logic-splitlag-conn-stall: the connection holds inbound packets 1.5 s and then releases them in one burst while
+     *  the client keeps ticking: ~0 lag on Split Timers and on the stall ticks (Blood Camp, clean round trips). */
+    static void splitConnStall(LogicCase c) {
+        try {
+            for (long seed = 0; seed < 3; seed++) {
+                start();
+                Random rnd = new Random(300 + seed);
+                List<Packet> s = heldUntil(stream(20.0, 62, seed, 0, 0L), BASE + 30_000L, BASE + 31_500L);
+                feedWithTicks(s, BASE, BASE + 20_000L, rnd);
+                long l0 = lag();
+                long[] mark = (long[]) Mod.staticCall(CLOCK, "mark");
+                long ticks = feedWithTicks(s, BASE + 20_000L, BASE + 60_000L, rnd);
+                long l = lag() - l0;
+                long st = stallTicks(mark);
+                c.check("seed " + seed + ": a 1.5 s connection stall on a 20 TPS server reads under 150 ms of lag", l < 150L,
+                        l + " ms");
+                c.check("seed " + seed + ": and under 3 stall ticks", st < 3L, st + " ticks");
+                c.check("seed " + seed + ": the feature saw the gap as a stall", stallsSeen() >= 1, stallsSeen() + " stalls");
+                c.check("seed " + seed + ": and the released ticks paid it back (1200+ ms)", paidBack() >= 1200L,
+                        paidBack() + " ms");
+                c.check("seed " + seed + ": the clock counted every server tick (800, within 5)", Math.abs(ticks - 800L) <= 5L,
+                        ticks + " ticks");
+                end();
+            }
+        } finally {
+            end();
+        }
+    }
+
+    /** 1116-logic-splitlag-freeze-in-stall: a 1 s server stall (never caught up) inside a 1.5 s client freeze reads only
+     *  the server's 1 s: the ticks the server did run in the frozen time pay back the rest. */
+    static void splitFreezeInStall(LogicCase c) {
+        try {
+            for (long seed = 0; seed < 3; seed++) {
+                start();
+                List<Packet> s = heldUntil(stream(20.0, 62, seed, 600, 1000L, false), BASE + 29_800L, BASE + 31_300L);
+                feed(s, BASE, BASE + 20_000L);
+                Fed f = feed(s, BASE + 20_000L, BASE + 61_000L);
+                c.check("seed " + seed + ": a 1 s server stall inside a 1.5 s client freeze reads 850-1200 ms of lag",
+                        f.lag >= 850L && f.lag <= 1200L, f.lag + " ms");
+                c.check("seed " + seed + ": the feature saw the gap as a stall", stallsSeen() >= 1, stallsSeen() + " stalls");
+                c.check("seed " + seed + ": the server's ticks in the frozen time paid back some (300+ ms)", paidBack() >= 300L,
+                        paidBack() + " ms");
                 end();
             }
         } finally {
