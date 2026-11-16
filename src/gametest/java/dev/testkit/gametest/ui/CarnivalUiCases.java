@@ -74,7 +74,7 @@ final class CarnivalUiCases {
                     "setShotDelayMs", "getShotDelayMs", 400, true),
             new Spec("Auto Zombie Shootout", "carnival.ShootoutShotConfig", "auto",
                     List.of("Auto Zombie Shootout", "Shoot With", "Dart Tube Only", "Shot Delay", "Aim Delay", "Lamps First",
-                            "Lead Adjust", "Aim Mode"),
+                            "Aim Mode"),
                     "setShootWith", "getShootWith", 1, true),
             new Spec("Auto Shovel Swap", "carnival.AutoFruitConfig", "swap",
                     List.of("Auto Shovel Swap", "Swap Delay"), "setDelayMs", "getDelayMs", 650, true),
@@ -83,8 +83,8 @@ final class CarnivalUiCases {
             new Spec("Auto Fruit Digging", "carnival.AutoFruitConfig", "dig",
                     List.of("Auto Fruit Digging", "Dig Delay", "Free Camera"), "setFreeCamera", "isFreeCamera", true, true),
             new Spec("Auto Catch a Fish", "carnival.AutoCatchAFishConfig", "getInstance",
-                    List.of("Auto Catch a Fish", "Cast Delay", "Lead Adjust", "Free Camera"), "setLeadPct", "getLeadPct",
-                    150, true));
+                    List.of("Auto Catch a Fish", "Cast Delay", "Free Camera"), "setFreeCamera", "isFreeCamera",
+                    true, true));
 
     private CarnivalUiCases() {
     }

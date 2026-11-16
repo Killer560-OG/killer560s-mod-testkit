@@ -274,6 +274,14 @@ def effectivePort = {
 				chosen = p
 			}
 		}
+		// lanedoctor-1115: with ~110 lane checkouts registered the 90 slots above were all owned, and falling back to `base`
+		// took another living checkout's port (and overwrote its registry line): two servers on one port, FAILED TO BIND.
+		// Overflow slots 26900-29990 come first; `base` stays the last resort (TestServer re-checks right before the bind).
+		for (int p = 26900; worktree && p < 30000 && chosen < 0; p += 10) {
+			if (usable(p, owners) && portFree(p)) {
+				chosen = p
+			}
+		}
 		if (chosen < 0) {
 			chosen = base
 		}
@@ -829,6 +837,10 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	}
 	if (project.hasProperty("perfJfrTicks")) {
 		systemProperty "testkit.perf.jfrTicks", project.property("perfJfrTicks")
+	}
+	// -PhiddenWindow=true: the client window is created hidden / never shown (MixinHiddenWindow, both versions).
+	if (project.hasProperty("hiddenWindow")) {
+		systemProperty "testkit.hiddenWindow", "true"
 	}
 	if (project.hasProperty("perfNoCeiling")) {
 		systemProperty "testkit.perf.noCeiling", "true"

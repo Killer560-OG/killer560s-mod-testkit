@@ -148,6 +148,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-639-legit-warp-exact",
             // hype-down (2026-10-11)
             "96-ar-653-crypt-straight-down", "96-ar-1013-bat", "96-ar-1013-breakerfall",
+            // arnoback-1115: a bat node the route gave up on is never fired again; a bat killed in time is not given up
+            "96-ar-1115-arnoback-giveup", "96-ar-1115-arnoback-control",
             // ar-obvious-only (2026-10-11): legit mode exists only in -PtestingBuild jars
             "96-ar-786-obvious-only",
             // ar-startguard (2026-10-12): a map arrival's start-only hold on a route with no start node
@@ -169,6 +171,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1016-auranoawait", "96-ar-1016-auraawait",
             // ar-bridges-bat-1017: his Bridges route runs to the end (no warp eaten after the breaker); Kill Mimic aims
             "96-ar-1017-bridges", "96-ar-1017-mimicaim",
+            // arstack-1115: a stack is only a run of CONSECUTIVE same-tile nodes; a later return to the tile is a new stack
+            "96-ar-1115-stack-return",
             // sim-secrets-1018: an await beside a Redstone Key spot the key never spawned at starts one secret on
             "1018-ar-keyspot-empty",
             // ar-range-1026: Replan For My Range - a saved path warp longer than his etherwarp reaches is planned again
@@ -320,6 +324,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-pingpong" -> casePingPong(ctx);
                         case "96-ar-chain" -> caseChain(ctx);
                         case "96-ar-stackorder" -> caseStackOrder(ctx);
+                        case "96-ar-1115-stack-return" -> caseStackReturn(ctx);
                         case "96-ar-crypthold" -> caseCryptHold(ctx);
                         case "96-ar-charges" -> caseCharges(ctx);
                         case "96-ar-1112-breakrules" -> caseBreakRules(ctx);
@@ -374,6 +379,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-639-legit-warp-exact" -> caseLegitWarpExact(ctx);
                         case "96-ar-653-crypt-straight-down" -> caseCryptStraightDown(ctx);
                         case "96-ar-1013-bat" -> caseBatNode(ctx);
+                        case "96-ar-1115-arnoback-giveup" -> caseArNoBack(ctx, false);
+                        case "96-ar-1115-arnoback-control" -> caseArNoBack(ctx, true);
                         case "96-ar-1015-batpresent" -> caseBatPresent(ctx);
                         case "96-ar-1015-batseek" -> caseBatSeek(ctx);
                         case "96-ar-1017-bridges" -> caseBridges(ctx);
@@ -1613,6 +1620,64 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.config(AR_CONFIG), "setCryptAttackTicks",
                     new Class<?>[]{int.class}, new Object[]{100}));
         }
+    }
+
+    /**
+     * arstack-1115 (route finder, Altar room: #14 was taken as stacked with #12): a route that comes back to a tile it
+     * used earlier fires its nodes in path order, the later node is a NEW stack. A(X->Y) B(Y->X) C(X->Z) D(Z->W): all
+     * four warps act in order #1..#4 and he ends on W (the old rule stacked C with A and fired C before A). Control: a
+     * boom and a warp that are consecutive on one tile still fire together as one stack, boom first.
+     */
+    private void caseStackReturn(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        writeRoute(ctx, List.of(ew(6, 6, 12, 6, true), ew(12, 6, 6, 6, false), ew(6, 6, 12, 12, false),
+                ew(12, 12, 18, 6, false)));
+        tpRel(ctx, 4.5, 6.5, 0f, 0f);
+        ctx.waitTicks(10);
+        long m = LogTap.mark();
+        tpRel(ctx, 6.5, 6.5, -90f, 0f);
+        Vec3 landed = waitLanded(ctx, 18, 6, 400);
+        ctx.waitTicks(5);
+        int acted = 0;
+        for (String l : LogTap.since(m)) {
+            acted += l.contains("ETHERWARP acted") ? 1 : 0;
+        }
+        int[] at = new int[5];
+        for (int k = 1; k <= 4; k++) {
+            at[k] = logIndex(m, "Node #" + k + " ETHERWARP acted");
+        }
+        println("stack return: acted " + acted + ", log lines #1 " + at[1] + " #2 " + at[2] + " #3 " + at[3] + " #4 " + at[4]
+                + ", at " + relPos(ctx));
+        check(acted == 4, "expected 4 etherwarps acted, the log says " + acted);
+        check(at[1] >= 0 && at[2] > at[1] && at[3] > at[2] && at[4] > at[3], "nodes did not fire in path order: #1@" + at[1]
+                + " #2@" + at[2] + " #3@" + at[3] + " #4@" + at[4]);
+        check(landed != null, "the route did not end on its last landing (at " + relPos(ctx) + ")");
+        stopRoute(ctx);
+
+        // control: consecutive same-tile nodes are still one stack
+        forgetRunMemory(ctx);
+        BlockState cracked = Blocks.CRACKED_STONE_BRICKS.defaultBlockState();
+        setBlocks(ctx, Map.of(new int[]{12, F, 14}, cracked, new int[]{12, F + 1, 14}, cracked));
+        JsonObject boom = node("BOOM", 14, 14, 90f, 0f);
+        boom.addProperty("start", true);
+        writeRoute(ctx, List.of(boom, ew(14, 14, 20, 14, false)));
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+        tpRel(ctx, 14.5, 10.5, 0f, 0f);
+        ctx.waitTicks(10);
+        long m2 = LogTap.mark();
+        tpRel(ctx, 14.5, 14.5, 0f, 0f);
+        Vec3 landed2 = waitLanded(ctx, 20, 14, 300);
+        int b = logIndex(m2, "Node #1 BOOM acted");
+        int e = logIndex(m2, "Node #2 ETHERWARP acted");
+        println("stack control: boom@" + b + " warp@" + e + " at " + relPos(ctx));
+        check(b >= 0 && e > b, "stack control: boom@" + b + " warp@" + e + " - expected the boom, then the warp");
+        check(blockAir(ctx, 12, F + 1, 14), "stack control: the boom broke nothing");
+        check(landed2 != null, "stack control: the warp did not land (at " + relPos(ctx) + ")");
+        stopRoute(ctx);
+        tpRel(ctx, 14.5, 10.5, 0f, 0f);
+        ctx.waitTicks(5);
     }
 
     // ============================================================================================ breaker charges
@@ -5186,6 +5251,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 int x = xs[i];
                 String weapon = weapons[i];
                 setArEnum(ctx, "setBatWeapon", "CryptWeapon", weapon);
+                forgetRunMemory(ctx);
                 BlockPos spot = realNow(ctx, x, F + 2, 13);
                 ctx.runOnClient(mc -> mc.getSingleplayerServer().execute(() -> ModUnderTest.staticCall(
                         "com.killer560.hub.roomsim.SimSecretItems", "registerBat", new Class<?>[]{BlockPos.class},
@@ -5246,6 +5312,71 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             stopRoute(ctx);
         } finally {
             ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", 100));
+        }
+    }
+
+    /**
+     * arnoback-1115 (killer560: "dont have it go back if it skips a bat it shouldnt go back"). A bat node with no bat times
+     * out and the route moves on (the JUMP stacked on it still fires: the route acted); the run then remembers the node as
+     * given up, and arming the same route again in the same run never attacks (no use packet, "given up on earlier" line).
+     * A new run forgets it (the node acts again). Control: a bat killed in time is never marked given up.
+     */
+    private void caseArNoBack(ClientGameTestContext ctx, boolean control) {
+        resetRoutes(ctx);
+        clearSecretBats(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        giveSlot(ctx, 4, "HYPERION");
+        setArEnum(ctx, "setBatWeapon", "CryptWeapon", "HYPERION");
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", control ? 100 : 20));
+        keepRunMemory = true;
+        try {
+            forgetRunMemory(ctx);
+            JsonObject bat = node("BAT", 19, 10, 0f, 30f);
+            bat.addProperty("start", true);
+            JsonObject jump = node("JUMP", 19, 10, 0f, 30f);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            tpRel(ctx, 19.5, 8.5, 0f, 30f);
+            if (control) {
+                spawnBatAt(ctx, 19, F + 2, 13);
+                ctx.waitTicks(40);
+            }
+            long w = LogTap.mark();
+            writeRoute(ctx, List.of(bat, jump));
+            check(waitFor(ctx, 100, () -> logHas(w, "Loaded 1 route")), "the bat route never loaded");
+            long m = LogTap.mark();
+            tpRel(ctx, 19.5, 10.5, 0f, 30f);
+            if (control) {
+                check(waitFor(ctx, 160, () -> logHas(m, "BAT: 1 kill(s)")), "the bat killed in time was not counted");
+                check(!logHas(m, "gave up on"), "a bat killed in time was marked given up");
+                check(!logHas(m, "up, moving on"), "a bat killed in time was timed out");
+                return;
+            }
+            check(waitFor(ctx, 100, () -> logHas(m, "up, moving on")), "the bat node with no bat never gave up");
+            check(logHas(m, "gave up on"), "the give-up was not remembered");
+            check(waitFor(ctx, 100, () -> logHas(m, "Node #2 JUMP")), "the route did not go on to its later node");
+            waitFor(ctx, 80, () -> !running(ctx));
+            stopRoute(ctx);
+            // Same run, same route armed again: the node is left alone.
+            long m2 = LogTap.mark();
+            arm(ctx, 19, 10, 0f, 30f);
+            check(waitFor(ctx, 60, () -> logHas(m2, "given up on earlier this run")), "the given-up node was re-entered");
+            ctx.waitTicks(30);
+            check(!logHas(m2, "BAT acted") && serverUseAims(m2).isEmpty(), "a use went out toward the given-up bat");
+            check(logHas(m2, "Node #2 JUMP"), "the later node did not fire on the second pass");
+            stopRoute(ctx);
+            // A new run clears the mark.
+            forgetRunMemory(ctx);
+            long m3 = LogTap.mark();
+            arm(ctx, 19, 10, 0f, 30f);
+            check(waitFor(ctx, 100, () -> logHas(m3, "up, moving on")), "a new run did not attack the node again");
+            check(!logHas(m3, "given up on earlier this run"), "the mark survived a new run");
+            stopRoute(ctx);
+        } finally {
+            keepRunMemory = false;
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", 100));
+            stopRoute(ctx);
+            clearSecretBats(ctx);
         }
     }
 
