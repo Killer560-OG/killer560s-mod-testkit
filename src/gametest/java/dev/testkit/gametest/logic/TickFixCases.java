@@ -16,8 +16,8 @@ import java.util.List;
  *       read 16 ticks off), two stray health drops a period apart do not re-lock it, hits read late out of bunched pings
  *       move nothing, and a wrong first lock is put right by two mask procs a period apart.</li>
  *   <li>1104-logic-split-lag: Split Timers' lag, driven at real wall-clock pace through the clock's own pings: a steady
- *       20 TPS reads 0, arrival jitter reads 0, and a one-second stall still reads about a second after the server's
- *       catch-up burst (until 2026-11-04 the burst paid it back and the Lag row read 0.00s).</li>
+ *       20 TPS reads 0, arrival jitter reads 0, and a one-second stall the server never catches up reads about a
+ *       second, and one its catch-up burst follows reads 0 (a client stall; splitlag-1116).</li>
  * </ul>
  */
 final class TickFixCases {
@@ -223,12 +223,20 @@ final class TickFixCases {
             tick(21);
             t = paced(t, 40, new int[]{1});
             long after = lag() - l2;
-            c.check("the stall still reads about a second after the catch-up burst (it read ~0 before 2026-11-04)",
-                    after >= 850L && after <= 1300L, after + " ms");
+            // splitlag-1116: a burst of ticks right after the gap means the server ran them on time (a client stall): paid back
+            c.check("the stall is paid back by the catch-up burst (it read ~1000 ms from 2026-11-04 to 2026-11-16)",
+                    after < 150L, after + " ms");
             long l3 = lag();
-            paced(t, 40, new int[]{1});
+            t = paced(t, 40, new int[]{1});
             long tail = lag() - l3;
             c.check("steady again after it: no more lag", tail < 150L, tail + " ms");
+            // A server that never catches up (Hypixel's way): the ticks just resume late, so the second still counts in full.
+            long l4 = lag();
+            t += 1000L;
+            LogicCase.waitUntil(t);
+            t = paced(t, 40, new int[]{1});
+            long late = lag() - l4;
+            c.check("a stall the server never catches up still reads about a second", late >= 850L && late <= 1300L, late + " ms, stalls " + Mod.staticCall("util.StallLag", "stallsSeen") + ", paid back " + Mod.staticCall("util.StallLag", "paidBackMs") + " ms");
         } finally {
             Mod.staticCall(CLOCK, "hypixelForTest", (Object) null);
             Mod.staticCall(CLOCK, "untrustForTest");

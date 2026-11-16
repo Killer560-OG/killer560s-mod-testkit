@@ -135,7 +135,9 @@ public class LogicSuite implements FabricClientGameTest {
                 || !Scenario.skip("1105-logic-hypixel-servertime") || !Scenario.skip("1105-logic-ticklog")
                 || !Scenario.skip("1105-logic-ticklog-off")
                 || !Scenario.skip("1105-logic-split-jitter") || !Scenario.skip("1105-logic-split-slow")
-                || !Scenario.skip("1105-logic-bcstall-jitter") || !Scenario.skip("1105-logic-bcstall-stall")) {
+                || !Scenario.skip("1105-logic-bcstall-jitter") || !Scenario.skip("1105-logic-bcstall-stall")
+                || !Scenario.skip("1116-logic-splitlag-server-stall") || !Scenario.skip("1116-logic-splitlag-client-freeze")
+                || !Scenario.skip("1116-logic-splitlag-conn-stall") || !Scenario.skip("1116-logic-splitlag-freeze-in-stall")) {
             try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
                 LogicCase.run(ctx, "354-logic-terminals", SolverCases::terminals);
                 LogicCase.run(ctx, "357-logic-items-ap3-routes", DomainCases::itemsAp3Routes);
@@ -173,6 +175,10 @@ public class LogicSuite implements FabricClientGameTest {
                 LogicCase.run(ctx, "1105-logic-split-slow", LagLag1105Cases::slow);
                 LogicCase.run(ctx, "1105-logic-bcstall-jitter", LagLag1105Cases::bcJitter);
                 LogicCase.run(ctx, "1105-logic-bcstall-stall", LagLag1105Cases::bcStall);
+                LogicCase.run(ctx, "1116-logic-splitlag-server-stall", LagLag1105Cases::splitServerStall);
+                LogicCase.run(ctx, "1116-logic-splitlag-client-freeze", LagLag1105Cases::splitClientFreeze);
+                LogicCase.run(ctx, "1116-logic-splitlag-conn-stall", LagLag1105Cases::splitConnStall);
+                LogicCase.run(ctx, "1116-logic-splitlag-freeze-in-stall", LagLag1105Cases::splitFreezeInStall);
                 LogicCase.run(ctx, "1104-logic-serverlag-grim", TickFix2Cases::serverLagGrim);
                 LogicCase.run(ctx, "363-logic-roof-cover", RoofCoverCases::roofCover);
             }
