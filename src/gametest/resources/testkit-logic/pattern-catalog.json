@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-16T11:09:03",
- "modSource": "lane-onlineisland-tf1116",
- "modGitSha": "7af65630706c7308239497bf10fa9f2ad7f04e46",
+ "generatedAt": "2026-11-16T11:30:33",
+ "modSource": "lane-arhandback3-1116",
+ "modGitSha": "b83b1959409c244495e92aa42fba083b6a6e8073",
  "modSourceDirty": false,
  "count": 976,
  "byKind": {
