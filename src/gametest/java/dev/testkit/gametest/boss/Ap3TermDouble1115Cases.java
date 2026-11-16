@@ -86,7 +86,7 @@ final class Ap3TermDouble1115Cases {
                 return null;
             });
             for (int i = 0; i < 80 && c.events("term.interact").size() <= before; i++) {
-                if (act == SameTick.Act.TP && true) { // his teleport accepts share ticks with the node's click
+                if (act == SameTick.Act.TP) { // his teleport accepts share ticks with the node's click
                     c.server().command("execute as @a at @s run tp @s ~ ~ ~");
                 }
                 c.ctx().waitTick();
