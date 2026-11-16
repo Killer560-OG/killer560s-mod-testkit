@@ -10842,7 +10842,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 // room's server ticks do not run ahead of the route's first tick.
                 ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setEnabled", true));
                 tpRelY(ctx, first.get("x").getAsDouble(), first.get("y").getAsDouble(), first.get("z").getAsDouble(),
-                        first.get("yaw").getAsFloat(), first.get("pitch").getAsFloat());
+                        // a DUNGEON_BREAKER start node carries no look (it aims at its own blocks)
+                        first.has("yaw") ? first.get("yaw").getAsFloat() : 0f, first.has("pitch") ? first.get("pitch").getAsFloat() : 0f);
                 Vec3 startReal = ctx.computeOnClient(mc -> (Vec3) ModUnderTest.staticCall(COORDS, "toReal",
                         new Class<?>[]{ModUnderTest.staticCall(FRAME, "current").getClass(), double.class, double.class, double.class},
                         new Object[]{ModUnderTest.staticCall(FRAME, "current"), first.get("x").getAsDouble(),
