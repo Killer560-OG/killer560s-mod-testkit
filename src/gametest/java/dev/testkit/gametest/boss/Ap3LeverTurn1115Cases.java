@@ -45,7 +45,14 @@ final class Ap3LeverTurn1115Cases {
         }
         s.test("1115-ap3-leverturn-states", c -> run(c, false));
         s.test("1115-ap3-leverturn-same-use", c -> run(c, true));
+        // leverfreeze-1116: the same walks, and the camera must hold the walk's yaw while the body turns to the lever.
+        s.test("1116-leverfreeze-ap3-states", c -> { camCheck = true; try { run(c, false); } finally { camCheck = false; } });
+        s.test("1116-leverfreeze-ap3-same-use", c -> { camCheck = true; try { run(c, true); } finally { camCheck = false; } });
     }
+
+    private static boolean camCheck;
+    /** {widest camera yaw off the walk, widest body yaw off the walk} of the last runOnce, after the align settled. */
+    private static double[] lastCam = {0, 0};
 
     private static Object node(String type, double x, double z, float yaw, double size) {
         try {
@@ -163,14 +170,24 @@ final class Ap3LeverTurn1115Cases {
             Ap3TermAuraCases.setChain(align, run, stop);
             return null;
         });
+        double[] cam = {0, 0};
+        boolean[] settled = {false};
         for (int t = 0; t < 220; t++) {
             c.ctx().waitTick();
-            double x = c.onClient(mc -> mc.player.getX());
+            double[] now = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getYRot(), mc.player.getViewYRot(1f)});
+            double x = now[0];
+            double bodyOff = Math.abs(net.minecraft.util.Mth.wrapDegrees(now[1] - WALK_YAW));
+            if (bodyOff < 0.5) settled[0] = true;
+            if (settled[0]) {
+                cam[0] = Math.max(cam[0], Math.abs(net.minecraft.util.Mth.wrapDegrees(now[2] - WALK_YAW)));
+                cam[1] = Math.max(cam[1], bodyOff);
+            }
             if (t > 20 && x < 16 && !(Boolean) c.onClient(mc -> Mod.staticCall(EXEC, "isRunning"))) {
                 break;
             }
         }
         c.ctx().waitTicks(5);
+        lastCam = cam;
         WireCapture.stop();
         WireCapture.describe = null;
         if (st != null) {
@@ -256,7 +273,15 @@ final class Ap3LeverTurn1115Cases {
             // had heard no rotation yet), one tick out of step with every later walk (experimental run, 11-15).
             runOnce(c, true, false);
             Run off = runOnce(c, false, sameUse);
+            double[] camOff = lastCam;
             Run on = runOnce(c, true, sameUse);
+            double[] camOn = lastCam;
+            if (camCheck) {
+                c.note(String.format(Locale.ROOT, "camera off the walk yaw at most %.3f / %.3f deg (lever off / on) while the body went %.1f / %.1f",
+                        camOff[0], camOn[0], camOff[1], camOn[1]));
+                c.check(camOff[1] > 10 && camOn[1] > 10, "the body never turned to the lever (nothing to hold the camera against)");
+                c.check(camOff[0] < 0.5 && camOn[0] < 0.5, "the camera moved with the lever turn: " + camOff[0] + " / " + camOn[0] + " degrees");
+            }
             // Compared from 3 ticks before each walk's lever turn: the align at the start does not always begin at the same
             // look between two walks (yaw 150 vs 165 at its first tick, 11-15, both lever states alike), which is not the lever.
             int aOff = leverTurn(off.ticks()), aOn = leverTurn(on.ticks());
