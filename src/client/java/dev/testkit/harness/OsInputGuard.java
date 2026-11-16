@@ -65,6 +65,11 @@ public final class OsInputGuard {
     private OsInputGuard() {
     }
 
+    /** -Dtestkit.hiddenWindow=true: the client's window is created hidden and never shown (HiddenWindow mixins). */
+    public static boolean hiddenWindow() {
+        return Boolean.getBoolean("testkit.hiddenWindow");
+    }
+
     /** Whether the guard is on (default). */
     public static boolean active() {
         return ACTIVE;
