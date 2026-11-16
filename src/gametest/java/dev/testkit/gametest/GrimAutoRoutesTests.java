@@ -254,9 +254,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                         dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.OPEN_CLICK,
                         dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.TP)) {
                     String n = a.name().toLowerCase(Locale.ROOT).replace("_", "");
-                    s.test("62-argrim-1116-ar-handback-same-" + n, c -> caseAuraHandBack(c, true, a));
+                    // "same-" first, so the scenario 62-argrim-1116-ar-handback selects the plain case alone
+                    s.test("62-argrim-1116-ar-same-handback-" + n, c -> caseAuraHandBack(c, true, a));
                     if (a != dev.testkit.gametest.SameTick.Act.USE) { // his use with the AOTV in hand is his own warp
-                        s.test("62-argrim-1116-ar-ordere-same-" + n, c -> caseAuraHandBack(c, false, a));
+                        s.test("62-argrim-1116-ar-same-ordere-" + n, c -> caseAuraHandBack(c, false, a));
                     }
                 }
             }
@@ -2938,10 +2939,6 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * land, the aura and his action must reach the wire (in one server tick but for ATTACK, which ActionGate keeps apart), and
      * GrimAC stays silent.
      */
-    private static final int[][] HANDBACK_LEVERS = {{8, 8}, {4, 8}, {7, 9}, {5, 9}, {8, 9}, {4, 9}, {7, 8}, {5, 8},
-            {8, 7}, {4, 7}, {7, 7}, {5, 7}};
-    private static int handBackCase;
-
     private static void caseAuraHandBack(Session c, boolean stick, dev.testkit.gametest.SameTick.Act act) {
         ClientGameTestContext ctx = c.ctx();
         String label = (stick ? "handback" : "ordere") + (act == null ? "" : " same " + act);
@@ -2959,9 +2956,16 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         });
         c.server().command("item replace entity @a hotbar.7 with stick");
         c.server().command("item replace entity @a hotbar.8 with stick");
-        // Secret Aura remembers a flipped lever for the whole run, so every case gets its own (behind him, off the warp rays).
-        int[] lp = HANDBACK_LEVERS[handBackCase++ % HANDBACK_LEVERS.length];
-        setBlocks(ctx, Map.of(new int[]{lp[0], F, lp[1]}, "minecraft:lever[face=floor,facing=north,powered=false]"));
+        // The lever stands on a stone at (10, F, 9), as on Hypixel's Altar: its full cube is 4.30 from his eye at the node
+        // (inside the aura's 4.5), but the aim point on its outline is 4.7-4.8 away, so the server's 4.5-block ray along
+        // the CLICK look meets nothing and only the hand-back look (the floor ahead) meets a block. A lever 2 blocks off
+        // let the click look meet it, and the old jar then turned early too. Secret Aura remembers a flipped lever for the
+        // whole run, so its memory is cleared and the one lever placed unpowered again for every case.
+        int[] lp = {10, 9};
+        ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.cheatutils.SecretAuraFeature", "reset",
+                new Class<?>[]{String.class}, new Object[]{"testkit handback"}));
+        setBlocks(ctx, Map.of(new int[]{lp[0], F, lp[1]}, "minecraft:stone",
+                new int[]{lp[0], F + 1, lp[1]}, "minecraft:lever[face=floor,facing=north,powered=false]"));
         tpRel(ctx, 6.5, 10.5, 180f, 0f); // off the node, or an earlier case's spot fires it before the mark
         JsonObject w = ew(6, 6, 14, 6, true);
         w.addProperty("awaitEnabled", true);
@@ -3043,7 +3047,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     use = x.tick();
                 }
             }
-            boolean lever = String.valueOf(blockState(ctx, lp[0], F, lp[1])).contains("powered=true");
+            boolean lever = String.valueOf(blockState(ctx, lp[0], F + 1, lp[1])).contains("powered=true");
             boolean held = logHas(m, "GrimAC PacketOrderE");
             for (String l : LogTap.since(m)) {
                 if (l.contains("Node #1 ETHERWARP") || l.contains("PacketOrderE") || l.contains("[RightClick]")) {
