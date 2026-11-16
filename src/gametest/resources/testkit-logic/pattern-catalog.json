@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-16T07:14:03",
- "modSource": "srcscrub2-r1113-tf1116",
- "modGitSha": "86d9f6c08a75e9d2922e8cda6a9534185b3deaa5",
+ "generatedAt": "2026-11-16T09:15:59",
+ "modSource": "lane-srcscrub2-r1113",
+ "modGitSha": "c206f7774452c3ff20f372772b9c9a9768edafc9",
  "modSourceDirty": false,
  "count": 976,
  "byKind": {
