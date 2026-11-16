@@ -991,7 +991,17 @@ public class SimBossTests implements FabricClientGameTest {
         // the server's inventory write reaches the client a few ticks later under load: a use before that is an empty hand
         expect(f, "the Hyperion reached his hand", until(ctx, "the Hyperion in hand", mc -> !mc.player.getMainHandItem().isEmpty(), 100), true);
         ctx.runOnClient(mc -> mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND));
-        ctx.waitTicks(20);
+        // The use packet reaches the server over its own thread and, in a loaded session, after a fixed 20 ticks the server
+        // could still be holding it (hype failed 27% of long runs with zombie alive and no impact line): wait for the blast.
+        int waited = 0;
+        while (waited < 200 && LogTap.since(mark).stream().noneMatch(l -> l.contains("Wither Impact at"))) {
+            ctx.waitTicks(2);
+            waited += 2;
+        }
+        ctx.waitTicks(2);
+        println(HYPE, "the blast went off " + waited + " tick(s) after the use; sim lines: "
+                + LogTap.since(mark).stream().filter(l -> l.contains("Wither Impact at") || l.contains("taken as")).toList());
+        expect(f, "the Hyperion's blast went off (the feature acted)", LogTap.since(mark).stream().anyMatch(l -> l.contains("Wither Impact at")), true);
         boolean[] dead = new boolean[1];
         serverRun(ctx, s -> {
             var sp = s.getPlayerList().getPlayers().get(0);
