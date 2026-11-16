@@ -10743,6 +10743,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 // AwaitEvents), where in a real run nearly every secret chest is a plain one.
                 ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimState", "setFloorLabel",
                         new Class<?>[]{String.class}, new Object[]{"F4"}));
+                long buildMark = LogTap.mark();
                 buildRoom(ctx, in.has("buildRotation") ? in.get("buildRotation").getAsInt() : 0);
                 giveHotbar(ctx);
                 // BAT nodes use the Bat Weapon (Hyperion, the default) straight down
@@ -10833,6 +10834,42 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     });
                     for (int w = 0; w < 100 && batRef.get() == null; w++) ctx.waitTicks(1);
                     println("arfinder " + r + ": " + batRef.get() + " secret bat(s) that appeared during the build removed, all re-registered");
+                }
+                {
+                    // The build leaves him where the previous room put him, and a secret item of this room can lie there
+                    // (Well, run 19: picked up during the build, 33 ticks before the route). He arrives from another room,
+                    // so such an item goes back to waiting for him and the run memory forgets it.
+                    java.util.Set<String> items = new java.util.HashSet<>();
+                    List<BlockPos> back = new ArrayList<>();
+                    java.util.regex.Pattern placed = java.util.regex.Pattern.compile("Sim secret placed: item at (-?\\d+), (-?\\d+), (-?\\d+)");
+                    java.util.regex.Pattern counted = java.util.regex.Pattern.compile("Sim secret counted: (-?\\d+), (-?\\d+), (-?\\d+)");
+                    for (String l : LogTap.since(buildMark)) {
+                        var pm = placed.matcher(l);
+                        if (pm.find()) items.add(pm.group(1) + "," + pm.group(2) + "," + pm.group(3));
+                        var cm = counted.matcher(l);
+                        if (cm.find() && items.contains(cm.group(1) + "," + cm.group(2) + "," + cm.group(3))) {
+                            back.add(new BlockPos(Integer.parseInt(cm.group(1)), Integer.parseInt(cm.group(2)), Integer.parseInt(cm.group(3))));
+                        }
+                    }
+                    if (!back.isEmpty()) {
+                        ctx.runOnClient(mc -> {
+                            var server = mc.getSingleplayerServer();
+                            if (server != null) {
+                                server.execute(() -> {
+                                    var level = server.overworld();
+                                    for (BlockPos p : back) {
+                                        for (var it : level.getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class,
+                                                new net.minecraft.world.phys.AABB(p).inflate(2.0))) it.discard();
+                                        ModUnderTest.staticCall("com.killer560.hub.roomsim.SimSecretItems", "register",
+                                                new Class<?>[]{BlockPos.class}, new Object[]{p});
+                                    }
+                                });
+                            }
+                            ModUnderTest.staticCall("com.killer560.hub.autoroutes.RouteRunMemory", "reset");
+                        });
+                        ctx.waitTicks(2);
+                    }
+                    println("arfinder " + r + ": " + back.size() + " secret item(s) picked up during the build put back " + back);
                 }
                 // He arrives during the run, never in its countdown: the route arms only at GO, so Secret Aura let go
                 // on a countdown tick took a start-spot secret ~40 ticks before the route's lookback (Well, run 13e).
