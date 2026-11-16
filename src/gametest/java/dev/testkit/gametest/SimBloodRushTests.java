@@ -618,6 +618,9 @@ public class SimBloodRushTests implements FabricClientGameTest {
             ModUnderTest.set(cfg, "setEnabled", true);
             ModUnderTest.call(cfg, "setKillers", new Class<?>[]{int.class}, new Object[]{3});
             ModUnderTest.call(cfg, "setRole", new Class<?>[]{int.class}, new Object[]{2});
+            // the fixture row is a normal-mode plan; the sim floor may be a master one
+            ModUnderTest.staticCall(ROLES_CLS, "testClassAndFloor", new Class<?>[]{String.class, Boolean.class},
+                    new Object[]{null, Boolean.FALSE});
         });
         say(ctx, "Party > [MVP+] Bob: !3br 1");
         String state = roles(ctx);
