@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-16T13:47:50",
- "modSource": "lane-clickorder-1116",
- "modGitSha": "efae4001bb33fdb756d8e5e0179012b21c8954ed",
+ "generatedAt": "2026-11-16T14:02:28",
+ "modSource": "lane-arsneak-1116",
+ "modGitSha": "ceecbffb8acd160b47571cd2f07d2f61e06e7f20",
  "modSourceDirty": false,
- "count": 976,
+ "count": 977,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 848,
+  "field": 849,
   "local": 43
  },
  "unresolved": 160,
@@ -559,11 +559,23 @@
    "field": "WORD",
    "index": null,
    "file": "src/main/java/com/killer560/hub/autocorrect/AutoCorrectFeature.java",
-   "line": 33,
+   "line": 38,
    "regex": "[A-Za-z']+",
    "flags": null,
    "kind": "field",
    "expr": "\"[A-Za-z']+\""
+  },
+  {
+   "id": "autocorrect.AutoCorrectFeature#UNKNOWN",
+   "cls": "autocorrect.AutoCorrectFeature",
+   "field": "UNKNOWN",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/autocorrect/AutoCorrectFeature.java",
+   "line": 111,
+   "regex": "^Unknown command\\. Type \"/help\" for help\\. \\('(.{1,256})'\\)$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^Unknown command\\\\. Type \\\"/help\\\" for help\\\\. \\\\('(.{1,256})'\\\\)$\""
   },
   {
    "id": "autokick.AutoKickFeature#PF_JOINED",
