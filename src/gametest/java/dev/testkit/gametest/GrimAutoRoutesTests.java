@@ -2998,7 +2998,19 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         try {
             startSampling(ctx);
             long m = LogTap.mark();
+            ctx.runOnClient(mc -> {
+                Object cfg = ModUnderTest.config(cheat);
+                ModUnderTest.set(cfg, "setAuraLevers", true);
+                ModUnderTest.set(cfg, "setAuraPauseWhileSneaking", false);
+                ModUnderTest.call(cfg, "setAuraPauseHolding", new Class<?>[]{String.class}, new Object[]{""});
+                ModUnderTest.set(cfg, "setSecretAuraEnabled", true);
+            });
             if (act != null) {
+                // His actions start once the aura's click is on the wire, so they land in the hand-back tick and the warp's
+                // ticks (where the fix acts). Earlier, his left click is the deliberate await skip (no aura click at all) and
+                // his swaps are spent before the aura's 150 ms click delay is over.
+                check(waitFor(ctx, 60, () -> dev.testkit.harness.WireCapture.snapshot().stream()
+                        .anyMatch(x -> x.type().equals("minecraft:use_item_on"))), label + ": the aura's click never went out");
                 int slotA = stick ? 7 : 0;
                 int every = act == dev.testkit.gametest.SameTick.Act.ATTACK ? 3 : 1;
                 dev.testkit.gametest.SameTick s1 = ctx.computeOnClient(mc -> {
@@ -3016,13 +3028,6 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 });
                 st = s1;
             }
-            ctx.runOnClient(mc -> {
-                Object cfg = ModUnderTest.config(cheat);
-                ModUnderTest.set(cfg, "setAuraLevers", true);
-                ModUnderTest.set(cfg, "setAuraPauseWhileSneaking", false);
-                ModUnderTest.call(cfg, "setAuraPauseHolding", new Class<?>[]{String.class}, new Object[]{""});
-                ModUnderTest.set(cfg, "setSecretAuraEnabled", true);
-            });
             Vec3 landed = null;
             for (int i = 0; i < 80 && landed == null; i++) {
                 if (act == dev.testkit.gametest.SameTick.Act.TP && i < 12 && i % 3 == 0) {
