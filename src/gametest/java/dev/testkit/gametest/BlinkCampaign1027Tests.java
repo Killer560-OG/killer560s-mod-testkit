@@ -1614,6 +1614,10 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                         server.mark();
                         chargeOn(ctx);
                         long bank = waitBank(ctx, 20, 50);
+                        // A teleport keeps what the oldest held answer covers (blinktp-1111): the bank reads 20 after
+                        // 20 ticks, but the first answer is made at the first ping after the charge starts, so it is
+                        // only 895-950 ms old then and the confirm keeps 19 (exp Grim, tf1116). A full ~1 s charge first.
+                        ctx.waitTicks(4);
                         double tx = inPlace ? x - 20.5 : x - 16.5;
                         long tps0 = cnum(ctx, inPlace ? "inPlaceTeleports" : "movingTeleports");
                         server.command(String.format(Locale.ROOT, "tp %s %.2f %.2f %.2f", player, tx, (double) SURFACE_Y, lz));
