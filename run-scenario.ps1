@@ -25,7 +25,7 @@
 #   -Minecraft <ver>     26.3 (default) or 26.2. Passes -Pminecraft_version and picks that version's jar. When it is
 #                        not given and -ModUnderTest is, it is read from the jar's fabric.mod.json (depends.minecraft);
 #                        a jar whose range excludes the run's version is refused, because loader would only refuse it later.
-#   -NoMod               run WITHOUT any mod (no -PmodUnderTest): a baseline, e.g. for 65-join-fingerprint.
+#   -NoMod               run WITHOUT any mod (no -PmodUnderTest): a baseline, e.g. for 65-smoke-join-fingerprint.
 #   -ProgressMinutes <n> no-progress watchdog (default 20, env TESTKIT_PROGRESS_MINUTES, 0 = off): once a client exists, a
 #                        run whose client log gets no test-thread line for n minutes is killed (whole process tree) and
 #                        ends as a FAIL "hung" (exit 5, a FAIL row in summary.md). The deadline kills the whole tree too.
@@ -35,6 +35,7 @@ param(
     [string]$Suite = "",
     [int]$Port = 0,
     [string]$Window = "",
+    [switch]$ShowWindow,   # watch the run: by default the client window is hidden (-Dtestkit.hiddenWindow); env TESTKIT_SHOW_WINDOW=1 does the same
     [string[]]$Extra = @(),
     [string]$ModUnderTest = "",
     [string]$Minecraft = "26.3",
@@ -402,6 +403,8 @@ if ($Scenario -ne "") { $gradleArgs += "-Pscenario=$Scenario" }
 if ($Suite -ne "") { $gradleArgs += "-Psuite=$Suite" }
 if ($Port -gt 0) { $gradleArgs += "-Pport=$Port" }
 if ($Window -ne "") { $gradleArgs += "-PtestWindow=$Window" }
+# Hidden window (hiddenwin-1115): the default. clientslot.sh counts tasklist /V titles, which a hidden window still has.
+if (-not $ShowWindow -and $env:TESTKIT_SHOW_WINDOW -ne "1") { $gradleArgs += "-PhiddenWindow=true" }
 $gradleArgs += $Extra
 
 # No ternary: this is Windows PowerShell 5.1, where ?: is a parser error.
@@ -518,6 +521,17 @@ if ($killedHung) {
     Write-Host "FROZEN - the client was closed automatically"
     Stop-Backstop
     Release-Slot
+    # lanedoctor-1115: 37 of 44 NOTRUN lane runs on 11-15 froze at STARTUP: the gametest test thread had used 0 ms of CPU
+    # (parked in ThreadingImpl.enterPhase) while the render thread waited in postRunTasks, so no test ever began. A run whose
+    # client log has no test-thread line yet is launched once more here, inside the same client slot, instead of the lane
+    # rerunning it 20-40 minutes later.
+    $started = (Test-Path $clientLog) -and (Select-String -Path $clientLog -Pattern '\[Test thread/' -Quiet)
+    if (-not $started -and -not $env:TESTKIT_STARTUP_RETRY) {
+        $env:TESTKIT_STARTUP_RETRY = "1"
+        Write-Host "FROZEN before any test started: launching the run once more"
+        & $PSCommandPath @PSBoundParameters
+        exit $LASTEXITCODE
+    }
     exit 3
 }
 
