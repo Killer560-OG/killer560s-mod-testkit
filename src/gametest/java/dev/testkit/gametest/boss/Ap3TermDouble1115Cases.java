@@ -86,7 +86,7 @@ final class Ap3TermDouble1115Cases {
                 return null;
             });
             for (int i = 0; i < 80 && c.events("term.interact").size() <= before; i++) {
-                if (act == SameTick.Act.TP && i % 2 == 0) { // his teleport accepts share ticks with the node's click
+                if (act == SameTick.Act.TP && true) { // his teleport accepts share ticks with the node's click
                     c.server().command("execute as @a at @s run tp @s ~ ~ ~");
                 }
                 c.ctx().waitTick();
@@ -102,7 +102,7 @@ final class Ap3TermDouble1115Cases {
                     Ap3TermAuraCases.setChain();
                     return null;
                 });
-                TerminalAuraCases.tp(c, px - 8, g + 3, pz, 90f);
+                TerminalAuraCases.tp(c, px - 5, g + 3, pz, 90f);
                 c.ctx().waitTick();
                 c.onClient(mc -> {
                     Ap3TermAuraCases.setChain(termAura, terminal);
