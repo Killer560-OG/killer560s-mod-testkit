@@ -349,12 +349,16 @@ public final class SimChestStallTests {
             int stepAt = -1;
             String stepWhy;
             boolean signalLine;
+            /** Set by the verdict: the suite calls configure() again after it, and the locks must not leak on. */
+            boolean released;
 
             @Override
             void configure(Object auto, Object cheat) {
                 ModUnderTest.set(cheat, "setSecretAuraEnabled", false);
-                forceUnlock(Boolean.FALSE);
-                simLock(true);
+                if (!released) {
+                    forceUnlock(Boolean.FALSE);
+                    simLock(true);
+                }
             }
 
             @Override
@@ -410,6 +414,7 @@ public final class SimChestStallTests {
 
             @Override
             String verdict(ClientGameTestContext ctx, int solvedAt) {
+                released = true;
                 ctx.runOnClient(mc -> {
                     simLock(false);
                     forceUnlock(null);
