@@ -1505,6 +1505,14 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      */
     private void caseChain(ClientGameTestContext ctx) {
         resetRoutes(ctx);
+        // archain-1115: 96-ar-play opens a chest holding the Aspect of the Void and leaves RightClick's unpaired block click
+        // set, so every chain warp then waits a tick for the server to hear its look; and the sim's server keeps that chest
+        // click's verdict for 100 ticks, dropping the first warp at the first turn (a second use, 13 for 12 nodes). The
+        // chain measures a fresh state on both sides.
+        ctx.runOnClient(mc -> {
+            ModUnderTest.staticCall("com.killer560.hub.util.RightClick", "reset");
+            ModUnderTest.staticCall("com.killer560.hub.roomsim.SimAbilities", "forgetStoredClicks");
+        });
         arena(ctx, false);
         giveHotbar(ctx);
         int[][] pts = ArChainMeasure.CHAIN;
@@ -9576,7 +9584,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         }
 
         private record Run(boolean met, boolean landed, int acted, int dropped, boolean reaimed, boolean noLanding,
-                           List<String> off, boolean window, int clickGap) {
+                           List<String> off, boolean window, int clickGap, boolean tickHold) {
         }
 
         /** Runs per side before giving up on one the chest's window did not land in. */
@@ -9619,8 +9627,13 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // waits until 2 ticks after a block click with the same item), which also costs the control a tick when the
             // chest click was that recent: control 2 (click-gap 1), mismatch 2 (re-aim over it), preexisting-1026 under
             // load. Without the hold the re-aim is the control's tick count plus one, as before.
-            int base = control.acted() - control.clickGap();
-            int want = base + Math.max(1, control.clickGap());
+            // The same-tick hold (mod: a use_item_on already went out this server tick, so the warp acts next tick, GrimAC
+            // PacketOrderE) costs a side one tick whenever the chest's click lands in the warp's own server tick, which
+            // is the load-dependent phase (arreaim-1115: control 1 or 2, mismatch 2 or 3), and ADDS to the re-aim's tick
+            // (control 2 / mismatch 3 with both held). Judge each side's ticks minus its own hold; the re-aim still costs
+            // exactly one more, overlapping only the click-gap hold.
+            int base = control.acted() - control.clickGap() - (control.tickHold() ? 1 : 0);
+            int want = base + Math.max(1, control.clickGap()) + (mismatch.tickHold() ? 1 : 0);
             check(mismatch.acted() == want, "mismatch: the warp went " + mismatch.acted() + " tick(s) after firing, the "
                     + "control " + control.acted() + " (click-gap hold " + control.clickGap() + ") - the re-aim must cost "
                     + "exactly one tick, overlapping any click-gap hold (want " + want + ")");
@@ -9741,7 +9754,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 }
             }
             return new Run(met, landed, acted, dropped, logHas(m, "re-aimed"), logHas(m, "no landing after"), off,
-                    logHas(m, "window arrived after the await was met"), clickGap);
+                    logHas(m, "window arrived after the await was met"), clickGap,
+                    logHas(m, "a use_item_on already went out this server tick"));
         }
     }
 
