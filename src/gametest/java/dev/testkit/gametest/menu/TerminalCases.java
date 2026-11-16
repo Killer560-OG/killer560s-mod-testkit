@@ -3,6 +3,7 @@ package dev.testkit.gametest.menu;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import dev.testkit.gametest.LogTap;
 import dev.testkit.gametest.hx.Session;
 import dev.testkit.gametest.mod.Mod;
 
@@ -58,6 +59,7 @@ final class TerminalCases {
             MenuSuite.test(s, name, c -> autoCase(c, spec, false));
         }
         MenuSuite.test(s, "217-menu-term-auto-zero-delay", c -> autoCase(c, SPECS.get(2), true));
+        MenuSuite.test(s, "1112-menu-term-empty-dump", TerminalCases::emptyDump);
         MenuSuite.test(s, "218-menu-term-melody-jump", c -> melodyJump(c, 4));
         // The 2026-10-06 layouts, beside the old ones above.
         MenuSuite.test(s, "207-menu-term-solver-numbers10", c -> layoutCase(c, NUMBERS_10, () -> solverCase(c, NUMBERS_10)));
@@ -197,6 +199,48 @@ final class TerminalCases {
                     + " wrong click(s) following the solver: " + solved);
             MenuKit.awaitNoScreen(c, 40);
             c.note(first + "; following them solved it in " + clicks + " click(s), 0 wrong (server)");
+        } finally {
+            MenuKit.reset(c);
+        }
+    }
+
+    /** termdone-1112: a stabilized terminal whose board the solver reads as nothing-to-click for 2.5 s while open logs one
+     *  "[AutoTerms] ... nothing to click" board dump (the evidence for a terminal wrongly read as done). Red panes are
+     *  turned lime on the client every tick, so the solver sees an empty solve on a real board; asserts the highlights were
+     *  there first, then went empty, and the dump line printed. */
+    static boolean pane(net.minecraft.world.item.ItemStack st, String color) {
+        return net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(st.getItem()).getPath().equals(color + "_stained_glass_pane");
+    }
+
+    static void emptyDump(Session c) throws Exception {
+        MenuKit.reset(c);
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutoTerminalsEnabled", false);
+            Spec spec = SPECS.get(0);
+            JsonObject t = open(c, spec);
+            MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
+            c.waitUntil("the solver to highlight something", mc -> !highlights().isEmpty(), 100);
+            long mark = LogTap.mark();
+            for (int i = 0; i < 90; i++) {
+                c.onClient(mc -> {
+                    // Red -> a copy of any lime pane already on the board (item ids by path: no per-version constants).
+                    net.minecraft.world.item.ItemStack lime = null;
+                    for (net.minecraft.world.inventory.Slot sl : mc.player.containerMenu.slots) {
+                        if (pane(sl.getItem(), "lime")) lime = sl.getItem().copy();
+                    }
+                    for (net.minecraft.world.inventory.Slot sl : mc.player.containerMenu.slots) {
+                        if (lime != null && pane(sl.getItem(), "red")) sl.set(lime.copy());
+                    }
+                    return null;
+                });
+                c.ctx().waitTicks(1);
+            }
+            boolean empty = c.onClient(mc -> highlights().isEmpty());
+            long dumps = LogTap.since(mark).stream().filter(l -> l.contains("nothing to click")).count();
+            c.check(empty, "the solver still highlights slots after every red pane was turned lime");
+            c.check(dumps >= 1, "no 'nothing to click' board dump after 4.5 s of an empty board (log lines since mark: "
+                    + LogTap.since(mark).size() + ")");
+            c.note("empty board for 4.5 s: highlights empty=" + empty + ", dump lines=" + dumps);
         } finally {
             MenuKit.reset(c);
         }
