@@ -249,7 +249,9 @@ final class HxSocialCases {
                 String[][] cases = {{"/zb", "bz"}, {"/ha", "ah"}, {"/ZB", "bz"}, {"/wrap hub", "warp hub"},
                         {"/pc hi", "pc hi"}, {"/xq", "xq"}, {"/bz", "bz"},
                         {"/warp bsae", "warp base"}, {"/warp base", "warp base"}, {"/warp hbu", "warp hub"},
-                        {"/warp xqzv", "warp xqzv"}, {"/msg bsae hi", "msg bsae hi"}, {"/warp hub now", "warp hub now"}};
+                        {"/warp xqzv", "warp xqzv"}, {"/msg bsae hi", "msg bsae hi"}, {"/warp hub now", "warp hub now"},
+                        {"/warpo base", "warp base"}, {"/warpbase", "warp base"}, {"//bz", "bz"}, {"/BZ", "bz"},
+                        {"/wrap bsae", "warp base"}, {"/bzz", "bz"}};
                 for (String[] t : cases) {
                     int before = c.commands().size();
                     type(c, t[0]);
