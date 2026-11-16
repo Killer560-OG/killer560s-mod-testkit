@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-16T09:18:10",
- "modSource": "lane-arfinder6-tk-1116",
- "modGitSha": "43155a9a6f3b771a8d19080d9ddecd02458f5e38",
+ "generatedAt": "2026-11-16T08:29:07",
+ "modSource": "oi-tf1116",
+ "modGitSha": "b79823f8abc37b28839fed6bdfa24fb964b9a453",
  "modSourceDirty": false,
  "count": 976,
  "byKind": {
