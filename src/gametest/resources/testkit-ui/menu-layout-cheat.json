@@ -397,7 +397,7 @@
       "dungeon breaker": "",
       "dvd": "",
       "dynamic": "",
-      "enchant colors": "Recolors enchantment names in Hypixel item lore by tier, like SkyHanni.",
+      "enchant colors": "Recolors enchantment names in Hypixel item lore by tier.",
       "etherwarp overlay": "Highlights the block you would land on while holding an etherwarp item.",
       "experiments": "",
       "fairy souls": "Tracks which Fairy Souls you have found and guides you to the missing ones.",
@@ -874,7 +874,7 @@
       "party finder overlay": "Adds join highlights, member counts and player stats to the Party Finder."
     },
     "Enchants": {
-      "enchant colors": "Recolors enchantment names in Hypixel item lore by tier, like SkyHanni."
+      "enchant colors": "Recolors enchantment names in Hypixel item lore by tier."
     },
     "Etherwarp Overlay": {
       "etherwarp overlay": "Highlights the block you would land on while holding an etherwarp item."
@@ -905,9 +905,9 @@
       "aim spot labels": "Shows each aim spot's name next to its marker.",
       "aim spot size": "Size of the aim-spot crosshair marker, 0.1-2.0 blocks.",
       "aim spots": "Draws crosshair markers at your saved Last Breath aim spots; press Add Aim Spot Here to save one.",
-      "arrow stack spots": "Adds NoammAddons' arrow-stack aim points for the five P5 dragons (needs Aim Spots on).",
+      "arrow stack spots": "Adds the arrow-stack aim points for the five P5 dragons (needs Aim Spots on).",
       "current phase only": "Only shows waypoints for the boss phase you're in.",
-      "devonian lb spots": "Adds Devonian's five Last Breath spots for the P5 dragons (needs Aim Spots on).",
+      "devonian lb spots": "Adds five Last Breath spots for the P5 dragons (needs Aim Spots on).",
       "last breath aim spots": "Shows saved aim points for Last Breath, based on your class.",
       "new aim class": "Which class the next added aim spot is tagged for; Auto uses your class.",
       "new aim situation": "Which dragon or phase the next added aim spot is tagged with; Auto uses where you are.",
