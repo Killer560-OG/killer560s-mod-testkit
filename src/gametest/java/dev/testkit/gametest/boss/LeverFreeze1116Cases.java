@@ -21,7 +21,7 @@ import java.util.Locale;
  * lever at its longest reach, runs the Aura for 12 rounds (a lever reset each round, the Aura flicks it again), and checks
  * on the wire that a look packet pointed at the lever went out before the use_item_on, every tick that the camera read
  * the same, and that the lever really flipped. The act variants add his own action in the same ticks (GrimAC judges those
- * runs: the harness fails a case that drew a flag); the reflick case resets the lever every 3 ticks.
+ * runs: the harness fails a case that drew a flag); the reflick case resets the lever and starts a new run twice a round.
  */
 final class LeverFreeze1116Cases {
 
@@ -98,8 +98,9 @@ final class LeverFreeze1116Cases {
                     if (act == SameTick.Act.TP && t % 2 == 0) {
                         c.server().command("execute as @a at @s run tp @s ~ ~ ~");
                     }
-                    if (reflick && t % 3 == 2 && t < 9) {
+                    if (reflick && (t == 3 || t == 7)) {
                         c.server().command("setblock 27 124 127 " + FLOOR_LEVER);
+                        LeverBest1112Cases.newRun(c); // a new run: the Aura flicks the reset lever again
                     }
                     c.ctx().waitTick();
                     c.onClient(mc -> {
@@ -135,7 +136,7 @@ final class LeverFreeze1116Cases {
             c.check(flicks >= (act == SameTick.Act.TP || act == SameTick.Act.ATTACK ? 2 : 6),
                     "the Lever Aura flicked in only " + flicks + " of 12 rounds (the feature did not act)");
             long onWire = wire.stream().filter(w -> w.startsWith("use_item_on") && w.contains(LEVER.toShortString())).count();
-            c.check(!reflick || onWire > 12, "the lever was reset 3 times a round but only " + onWire + " flicks went out in 12 rounds");
+            c.check(!reflick || onWire > 12, "the lever was reset twice a round but only " + onWire + " flicks went out in 12 rounds");
             c.check(turnedAt >= 0, "no look packet turned away from his yaw " + cam[0] + ": the real body never turned");
             c.check(flickAt >= 0 && turnedAt <= flickAt, "the first flick (#" + flickAt + ") did not follow a turned look (#" + turnedAt + ")");
             if (act != null) {
