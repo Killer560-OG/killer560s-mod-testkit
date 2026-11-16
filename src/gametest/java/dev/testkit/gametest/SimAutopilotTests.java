@@ -136,6 +136,11 @@ public class SimAutopilotTests implements FabricClientGameTest {
             return;
         }
         ModUnderTest.require("killer560smod");
+        if (!dev.testkit.gametest.mod.Mod.isCheat()) { // Dungeon Autopilot drives Auto Clear: cheat build only
+            Scenario.skipped(NAME, "Autopilot is cheat build only");
+            Scenario.skipped(HUD_CASE, "Autopilot is cheat build only");
+            return;
+        }
         LogTap.install();
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
