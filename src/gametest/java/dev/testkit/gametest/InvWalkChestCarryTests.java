@@ -191,7 +191,7 @@ public class InvWalkChestCarryTests implements FabricClientGameTest {
     }
 
     static void walk(ClientGameTestContext ctx, Hx hx, Set<String> keys, int ticks, Seen seen) {
-        carryWalk(ctx, hx, keys, ticks, seen);
+        carryWalk(ctx, hx, keys, ticks, seen, false);
         noteCarry(ctx);
     }
 
