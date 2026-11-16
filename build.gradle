@@ -830,6 +830,10 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	if (project.hasProperty("perfJfrTicks")) {
 		systemProperty "testkit.perf.jfrTicks", project.property("perfJfrTicks")
 	}
+	// -PhiddenWindow=true: the client window is created hidden / never shown (MixinHiddenWindow, both versions).
+	if (project.hasProperty("hiddenWindow")) {
+		systemProperty "testkit.hiddenWindow", "true"
+	}
 	if (project.hasProperty("perfNoCeiling")) {
 		systemProperty "testkit.perf.noCeiling", "true"
 	}
