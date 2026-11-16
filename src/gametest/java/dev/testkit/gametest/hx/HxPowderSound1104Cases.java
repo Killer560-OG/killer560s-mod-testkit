@@ -40,6 +40,7 @@ final class HxPowderSound1104Cases {
         s.test("1104-powdersound-normal", c -> run(c, false, true));
         s.test("1104-powdersound-mute", c -> run(c, true, true));
         s.test("1104-powdersound-custom", c -> run(c, true, false));
+        s.test("1115-chestalert-ch", HxPowderSound1104Cases::chestAlertOnlyHollows);
     }
 
     private static void hollows(Session c) {
@@ -120,6 +121,38 @@ final class HxPowderSound1104Cases {
                 c.check(pling == 1, "Custom: the chosen sound did not play once for a break (" + pling + ")");
                 c.check(heard(c, PLING, () -> playsound(c, HIT, 2)) == 0, "Custom: a hit played the chosen sound");
                 c.check(count(c, BREAK) == stone, "Custom: the stone break sound played");
+            }
+        } finally {
+            hub(c);
+        }
+    }
+
+    /** chestalert-ch-1115: the Treasure Chest Alert acts in the Crystal Hollows and nowhere else (hub, Glacite). */
+    private static void chestAlertOnlyHollows(Session c) {
+        String line = "§6You uncovered a treasure chest!";
+        try (Settings set = new Settings(c).field(CFG, "chestAlert", true).field(CFG, "chestAlertSound", true)
+                .field(CFG, "chestAlertTitle", false)) {
+            hollows(c);
+            int p0 = count(c, PLING);
+            int a0 = c.onClient(mc -> ((Number) Mod.staticCall("powdermining.TreasureChests", "alerts")).intValue());
+            c.hx().chat(line);
+            c.ctx().waitTicks(10);
+            int a1 = c.onClient(mc -> ((Number) Mod.staticCall("powdermining.TreasureChests", "alerts")).intValue());
+            c.check(a1 == a0 + 1 && count(c, PLING) - p0 == 1, "Hollows: the alert did not fire once (alerts " + a0 + " -> " + a1
+                    + ", pling " + (count(c, PLING) - p0) + ")");
+            hub(c);
+            c.ctx().waitTicks(10);
+            c.hx().sidebar("SKYBLOCK", "Late Winter 3rd", "⏣ Glacite Mineshafts", "Purse: 0");
+            c.hx().tab(List.of("Area: Mineshaft", "Profile: Test", ""), null, null);
+            c.ctx().waitTicks(20);
+            for (String where : new String[]{"hub", "Mineshaft"}) {
+                if (where.equals("hub")) hub(c);
+                int p1 = count(c, PLING);
+                int b0 = c.onClient(mc -> ((Number) Mod.staticCall("powdermining.TreasureChests", "alerts")).intValue());
+                c.hx().chat(line);
+                c.ctx().waitTicks(10);
+                int b1 = c.onClient(mc -> ((Number) Mod.staticCall("powdermining.TreasureChests", "alerts")).intValue());
+                c.check(b1 == b0 && count(c, PLING) == p1, where + ": the alert fired outside the Hollows (alerts " + b0 + " -> " + b1 + ")");
             }
         } finally {
             hub(c);
