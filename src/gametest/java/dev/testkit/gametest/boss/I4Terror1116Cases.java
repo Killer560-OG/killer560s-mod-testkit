@@ -67,8 +67,10 @@ final class I4Terror1116Cases {
             c.hx().call("dungeon.shortbow", "enabled", true, "cooldownTicks", 3, "extraArrows", 2);
             c.hx().actionBarPacket("§c4000/4000❤     §b10⁑     §a600❈ Defense");
             if (act == SameTick.Act.ATTACK) {
-                // A big still mob filling his view toward the wall, within reach: his click hits it whatever row he aims at.
-                c.server().command("summon slime 66 125 40.6 {NoAI:1b,Invulnerable:1b,Silent:1b,NoGravity:1b,Size:11,Tags:[\"i4terror\"]}");
+                // A box filling his view toward the wall, within reach: his click hits it whatever row he aims at. An
+                // interaction entity, because arrows pass through it (canBeHitByProjectile false); an invulnerable slime
+                // bounced every arrow back, knocked him off the plate and Auto i4 stopped after the first target.
+                c.server().command("summon interaction 63.5 125.5 40.5 {width:6f,height:6f,response:1b,Tags:[\"i4terror\"]}");
             }
             c.onClient(mc -> {
                 mc.player.getInventory().setSelectedSlot(0);
