@@ -148,6 +148,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-639-legit-warp-exact",
             // hype-down (2026-10-11)
             "96-ar-653-crypt-straight-down", "96-ar-1013-bat", "96-ar-1013-breakerfall",
+            // arnoback-1115: a bat node the route gave up on is never fired again; a bat killed in time is not given up
+            "96-ar-1115-arnoback-giveup", "96-ar-1115-arnoback-control",
             // ar-obvious-only (2026-10-11): legit mode exists only in -PtestingBuild jars
             "96-ar-786-obvious-only",
             // ar-startguard (2026-10-12): a map arrival's start-only hold on a route with no start node
@@ -377,6 +379,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-639-legit-warp-exact" -> caseLegitWarpExact(ctx);
                         case "96-ar-653-crypt-straight-down" -> caseCryptStraightDown(ctx);
                         case "96-ar-1013-bat" -> caseBatNode(ctx);
+                        case "96-ar-1115-arnoback-giveup" -> caseArNoBack(ctx, false);
+                        case "96-ar-1115-arnoback-control" -> caseArNoBack(ctx, true);
                         case "96-ar-1015-batpresent" -> caseBatPresent(ctx);
                         case "96-ar-1015-batseek" -> caseBatSeek(ctx);
                         case "96-ar-1017-bridges" -> caseBridges(ctx);
@@ -5247,6 +5251,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 int x = xs[i];
                 String weapon = weapons[i];
                 setArEnum(ctx, "setBatWeapon", "CryptWeapon", weapon);
+                forgetRunMemory(ctx);
                 BlockPos spot = realNow(ctx, x, F + 2, 13);
                 ctx.runOnClient(mc -> mc.getSingleplayerServer().execute(() -> ModUnderTest.staticCall(
                         "com.killer560.hub.roomsim.SimSecretItems", "registerBat", new Class<?>[]{BlockPos.class},
@@ -5307,6 +5312,71 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             stopRoute(ctx);
         } finally {
             ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", 100));
+        }
+    }
+
+    /**
+     * arnoback-1115 (killer560: "dont have it go back if it skips a bat it shouldnt go back"). A bat node with no bat times
+     * out and the route moves on (the JUMP stacked on it still fires: the route acted); the run then remembers the node as
+     * given up, and arming the same route again in the same run never attacks (no use packet, "given up on earlier" line).
+     * A new run forgets it (the node acts again). Control: a bat killed in time is never marked given up.
+     */
+    private void caseArNoBack(ClientGameTestContext ctx, boolean control) {
+        resetRoutes(ctx);
+        clearSecretBats(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        giveSlot(ctx, 4, "HYPERION");
+        setArEnum(ctx, "setBatWeapon", "CryptWeapon", "HYPERION");
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", control ? 100 : 20));
+        keepRunMemory = true;
+        try {
+            forgetRunMemory(ctx);
+            JsonObject bat = node("BAT", 19, 10, 0f, 30f);
+            bat.addProperty("start", true);
+            JsonObject jump = node("JUMP", 19, 10, 0f, 30f);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            tpRel(ctx, 19.5, 8.5, 0f, 30f);
+            if (control) {
+                spawnBatAt(ctx, 19, F + 2, 13);
+                ctx.waitTicks(40);
+            }
+            long w = LogTap.mark();
+            writeRoute(ctx, List.of(bat, jump));
+            check(waitFor(ctx, 100, () -> logHas(w, "Loaded 1 route")), "the bat route never loaded");
+            long m = LogTap.mark();
+            tpRel(ctx, 19.5, 10.5, 0f, 30f);
+            if (control) {
+                check(waitFor(ctx, 160, () -> logHas(m, "BAT: 1 kill(s)")), "the bat killed in time was not counted");
+                check(!logHas(m, "gave up on"), "a bat killed in time was marked given up");
+                check(!logHas(m, "up, moving on"), "a bat killed in time was timed out");
+                return;
+            }
+            check(waitFor(ctx, 100, () -> logHas(m, "up, moving on")), "the bat node with no bat never gave up");
+            check(logHas(m, "gave up on"), "the give-up was not remembered");
+            check(waitFor(ctx, 100, () -> logHas(m, "Node #2 JUMP")), "the route did not go on to its later node");
+            waitFor(ctx, 80, () -> !running(ctx));
+            stopRoute(ctx);
+            // Same run, same route armed again: the node is left alone.
+            long m2 = LogTap.mark();
+            arm(ctx, 19, 10, 0f, 30f);
+            check(waitFor(ctx, 60, () -> logHas(m2, "given up on earlier this run")), "the given-up node was re-entered");
+            ctx.waitTicks(30);
+            check(!logHas(m2, "BAT acted") && serverUseAims(m2).isEmpty(), "a use went out toward the given-up bat");
+            check(logHas(m2, "Node #2 JUMP"), "the later node did not fire on the second pass");
+            stopRoute(ctx);
+            // A new run clears the mark.
+            forgetRunMemory(ctx);
+            long m3 = LogTap.mark();
+            arm(ctx, 19, 10, 0f, 30f);
+            check(waitFor(ctx, 100, () -> logHas(m3, "up, moving on")), "a new run did not attack the node again");
+            check(!logHas(m3, "given up on earlier this run"), "the mark survived a new run");
+            stopRoute(ctx);
+        } finally {
+            keepRunMemory = false;
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", 100));
+            stopRoute(ctx);
+            clearSecretBats(ctx);
         }
     }
 

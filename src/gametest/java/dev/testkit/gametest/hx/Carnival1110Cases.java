@@ -378,7 +378,11 @@ final class Carnival1110Cases {
             Predicate<Packet<?>> m = mine;
             int taps0 = c.onClient(mc -> (Integer) Mod.staticCall("carnival.CarnivalInput", "taps"));
             st = c.onClient(mc -> SameTick.start(act, act == SameTick.Act.DIG && !feat.equals("shootout") ? 2 : 1, m, a, b));
-            String tp = String.format(Locale.ROOT, "tp @p %.3f %d %.3f", PX, Y + 1, PZ);
+            // Auto Fruit Digging walks to its pick: a teleport back to the start every 10 ticks would undo every walk (a
+            // Hypixel push-back comes once, not twice a second), so its teleports keep him where he is; each is still a
+            // server teleport he accepts in the feature's ticks.
+            String tp = feat.equals("autodig") ? "execute as @p at @s run tp @s ~ ~ ~"
+                    : String.format(Locale.ROOT, "tp @p %.3f %d %.3f", PX, Y + 1, PZ);
             for (int i = 0; i < 12; i++) {
                 if (act == SameTick.Act.TP) {
                     c.server().command(tp);

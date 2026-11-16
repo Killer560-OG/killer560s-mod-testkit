@@ -12,6 +12,7 @@
 		"MixinOutboundFlushProbe",
 		"MixinFrameClockGameRenderer",
 		"MixinFrameClockMinecraft",
+		"MixinHiddenWindow",
 		"MixinNoGrabConfineMouse",
 		"MixinNoGrabModWindow",
 		"MixinNoGrabTick",
