@@ -112,7 +112,12 @@ public final class SameTick implements AutoCloseable {
     }
 
     private void inject(Minecraft mc) {
-        if (act == Act.TP || mc.player == null || mc.gameMode == null || tick++ % every != 0) return;
+        if (act == Act.TP || mc.player == null || mc.gameMode == null) return;
+        if (!armed && armedBy != null) {
+            if (!armedBy.getAsBoolean()) return;
+            armed = true;
+        }
+        if (tick++ % every != 0) return;
         if (left == 0 || (heldOnly && heldSlot() != slotA && heldSlot() != slotB)) return;
         if (left > 0) left--;
         injecting = true;
@@ -324,7 +329,18 @@ public final class SameTick implements AutoCloseable {
     }
 
     private volatile boolean heldOnly;
+    private volatile java.util.function.BooleanSupplier armedBy;
+    private boolean armed;
     private boolean closed;
+
+    /**
+     * His action starts on the first client tick (at its usual phase) where {@code c} holds, read on the client thread, so a
+     * case can put it in the exact tick a feature acts (the tick Secret Aura turns the body, its click goes the next).
+     */
+    public SameTick armedBy(java.util.function.BooleanSupplier c) {
+        armedBy = c;
+        return this;
+    }
 
     /** His action goes in only while slotA or slotB is held (a stick's use or swap that stops once a feature takes the hand). */
     public SameTick heldOnly() {
