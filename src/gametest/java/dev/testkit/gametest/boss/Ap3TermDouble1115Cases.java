@@ -37,7 +37,33 @@ final class Ap3TermDouble1115Cases {
         }
     }
 
+    /** A TP or open-click case runs again (up to this many times) when no server tick carried both his action and the
+     *  node's click: which tick the click fires in is timing luck against the test's every-tick action. The last
+     *  attempt still fails a case that tested nothing (Ap3SameTick1105Cases' TP pattern). */
+    private static final int SHARE_ATTEMPTS = 6;
+
     private static void run(Session c, SameTick.Act act, boolean again) throws Exception {
+        boolean retry = act == SameTick.Act.TP || act == SameTick.Act.OPEN_CLICK;
+        for (int attempt = 1; !runOnce(c, act, again, !retry || attempt == SHARE_ATTEMPTS); attempt++) {
+            c.note("attempt " + attempt + ": no server tick shared his " + act + " with the node's click, again");
+        }
+    }
+
+    /** Closes his action and judges it; false (and nothing judged) when it shared no tick and this is not the last try. */
+    private static boolean judge(Session c, SameTick st, SameTick.Act act, boolean last) {
+        c.onClient(mc -> {
+            st.close();
+            return null;
+        });
+        if (!last && st.both() == 0) {
+            c.note("ap3 term click (not shared) " + st.report());
+            return false;
+        }
+        SameTickCases.judge(c, st, "ap3 term click");
+        return true;
+    }
+
+    private static boolean runOnce(Session c, SameTick.Act act, boolean again, boolean last) throws Exception {
         String ex = Ap3TermAuraCases.EXEC;
         String cfg = TerminalAuraCases.CONFIG;
         double px = Ap3TermAuraCases.X - 1.5;
@@ -93,22 +119,25 @@ final class Ap3TermDouble1115Cases {
             }
             c.check(c.events("term.interact").size() > before, "the node's click never reached the server");
             if (act == SameTick.Act.OPEN_CLICK) { // his open-click-close would shut the terminal window: judge it before the window arrives
-                SameTickCases.judge(c, st, "ap3 term click");
+                SameTick s1 = st;
                 st = null;
+                if (!judge(c, s1, act, last)) {
+                    return false;
+                }
             }
-            if (again) { // a second approach inside the first click's wait: out of the box and in again (a new run)
+            if (again) {
+                // A second run inside the first click's wait: the route is stopped and loaded again (new node objects, as a
+                // route reload makes) while he still stands on the node, so it starts at once. A teleport out and back in
+                // was the earlier form: the client reads that jump as a leap and AP3 stops "you leapt", which is the
+                // leap rule acting, not this bug.
+                Object termAura2 = Ap3TermAuraCases.node("TERM_AURA", px, g + 3, pz);
+                Object terminal2 = Ap3TermAuraCases.node("TERMINAL", px, g + 3, pz);
                 c.onClient(mc -> {
                     Mod.staticCall(ex, "stop", "test lane");
                     Ap3TermAuraCases.setChain();
+                    Ap3TermAuraCases.setChain(termAura2, terminal2);
                     return null;
                 });
-                TerminalAuraCases.tp(c, px - 5, g + 3, pz, 90f);
-                c.ctx().waitTick();
-                c.onClient(mc -> {
-                    Ap3TermAuraCases.setChain(termAura, terminal);
-                    return null;
-                });
-                TerminalAuraCases.tp(c, px, g + 3, pz, 90f);
             }
             c.waitUntil("the terminal screen", mc -> dev.testkit.compat.McCompat.screen(mc) != null, 60);
             c.ctx().waitTicks(2 * OPEN_DELAY + 10); // a second click would land inside this window
@@ -125,9 +154,13 @@ final class Ap3TermDouble1115Cases {
             String after = c.onClient(mc -> String.valueOf(Mod.staticCall(ex, "stopReason")));
             c.check("test lane".equals(after), "the chain ended by a stop, not by finishing: " + after);
             if (st != null) {
-                SameTickCases.judge(c, st, "ap3 term click");
+                SameTick s1 = st;
                 st = null;
+                if (!judge(c, s1, act, last)) {
+                    return false;
+                }
             }
+            return true;
         } finally {
             if (st != null) {
                 SameTick s2 = st;
