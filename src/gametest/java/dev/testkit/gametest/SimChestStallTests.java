@@ -16,8 +16,12 @@ import java.util.Set;
  * cancels the open-screen packet - so the reward-chest step read a claimed chest as unopened, clicked twice more, gave
  * up on it and then waited for a chest to "appear" while Autopilot sat under "Waiting for Auto Ice Path chest".
  *
+ * Water Board case names, built at runtime from "93-solve-" + slug and listed here so a ready line's preflight finds them:
+ * 93-solve-waterboard, 93-solve-waterboard-claim, 93-solve-waterboard-timing, 93-solve-waterboard-resume,
+ * 93-solve-waterboard-chest-timing, 93-solve-waterboard-chest-autoclose.
+ *
  * <ul>
- *   <li>{@code 93-solve-icepath-chest-autoclose}, {@code -icefill-chest-autoclose}, {@code -waterboard-chest-autoclose}:
+ *   <li>{@code 93-solve-icepath-chest-autoclose},{@code -icefill-chest-autoclose}, {@code -waterboard-chest-autoclose}:
  *   Secret Aura off, Auto Close Chest ON. The SERVER's own record of chest clicks (a server-side UseBlockCallback in this
  *   harness, not the mod's word) is the truth: every chest it took a click on is claimed. The case fails unless each
  *   claimed chest was clicked exactly once, the step ended ("reward chest step over - done") within
