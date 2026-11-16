@@ -38,7 +38,8 @@ final class Ap3TermDouble1115Cases {
     }
 
     /** A TP or open-click case runs again (up to this many times) when no server tick carried both his action and the
-     *  node's click: which tick the click fires in is timing luck against the test's every-tick action. The last
+     *  node's click (which tick the click fires in is timing luck against the test's every-tick action), or, for TP,
+     *  when the server dropped every click behind a teleport still in flight. The last
      *  attempt still fails a case that tested nothing (Ap3SameTick1105Cases' TP pattern). */
     private static final int SHARE_ATTEMPTS = 6;
 
@@ -116,6 +117,12 @@ final class Ap3TermDouble1115Cases {
                     c.server().command("execute as @a at @s run tp @s ~ ~ ~");
                 }
                 c.ctx().waitTick();
+            }
+            if (act == SameTick.Act.TP && !last && c.events("term.interact").size() <= before) {
+                // vanilla ignores an interact that reaches the server after a newer /tp it has not had the accept for
+                // (the test teleports every tick); the client cannot know of a teleport in flight (Ap3SameTick1105Cases)
+                c.note("the server dropped every click behind an in-flight teleport");
+                return false;
             }
             c.check(c.events("term.interact").size() > before, "the node's click never reached the server");
             if (act == SameTick.Act.OPEN_CLICK) { // his open-click-close would shut the terminal window: judge it before the window arrives
