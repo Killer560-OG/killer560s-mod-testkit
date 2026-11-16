@@ -136,7 +136,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -184,6 +184,9 @@ public class SimBossTests implements FabricClientGameTest {
                     case SimBossNecron1111.PULL -> SimBossNecron1111.pull(ctx, f);
                     case SimBossNecron1111.DRAGON_HP -> SimBossNecron1111.dragonHp(ctx, f);
                     case SimBossStartStay1112.NAME -> SimBossStartStay1112.run(ctx, f);
+                    case SimBossLeftClick1114.NAME -> SimBossLeftClick1114.run(ctx, f);
+                    case SimArmor1115.NAME -> SimArmor1115.run(ctx, f);
+                    case SimWardrobe1115.NAME -> SimWardrobe1115.run(ctx, f);
                     case SimBossBreakerRefill1113.NAME -> SimBossBreakerRefill1113.run(ctx, f);
                     case BREAKER -> SimBossBreaker1108.run(ctx, f, false);
                     case BREAKER_CHARGE -> SimBossBreaker1108.run(ctx, f, true);
@@ -880,10 +883,23 @@ public class SimBossTests implements FabricClientGameTest {
         // He dies 8-15 ticks after the second hit and his floor goes 59 after that. "I'M TOO YOUNG TO DIE AGAIN!" comes
         // 82 after the second stun line only while he is still there (before kill + 80): with a kill 8 ticks after the
         // hit it never comes (ADM), so the floor is the verdict and the line is logged.
-        boolean hole = until(ctx, "Maxor's floor opening", mc -> mc.level.getBlockState(new BlockPos(73, 220, 63)).isAir(), 120);
+        // His capture opens the hole where his P1 and P3 rooms differ (x 46-100, z 32-49 at y 215-224), not the plan's
+        // (66-80, 56-70): find an open cell of P1's floor (y 220) in that box and fall through it.
+        BlockPos[] holeAt = new BlockPos[1];
+        boolean hole = until(ctx, "Maxor's floor opening", mc -> {
+            for (int x = 46; x <= 100 && holeAt[0] == null; x++) {
+                for (int z = 32; z <= 49; z++) {
+                    if (mc.level.getBlockState(new BlockPos(x, 220, z)).isAir()) {
+                        holeAt[0] = new BlockPos(x, 220, z);
+                        break;
+                    }
+                }
+            }
+            return holeAt[0] != null;
+        }, 120);
         println(P1P2, "too young line: " + waitChat(ctx, LogTap.mark() - 200, "[BOSS] Maxor: I'M TOO YOUNG TO DIE AGAIN!", 40));
         expect(f, "Maxor's floor open over Storm", hole, true);
-        tp(ctx, 73.5, 221, 63.5, 0, 0);
+        tp(ctx, holeAt[0] == null ? 73.5 : holeAt[0].getX() + 0.5, 190, holeAt[0] == null ? 63.5 : holeAt[0].getZ() + 0.5, 0, 0);
         if (!waitChat(ctx, dead, "[BOSS] Storm: Pathetic Maxor, just like expected.", 200)) {
             f.add("Storm's first line never came after the fall");
             return;
@@ -2160,7 +2176,8 @@ public class SimBossTests implements FabricClientGameTest {
             return;
         }
         int before = (Integer) call(LAVA_CLASS, "bounces");
-        tp(ctx, 30.5, 109, 90.5, 0, 0);
+        // the capture's lava pit (lava at y106, air above it)
+        tp(ctx, 100.5, 109, 50.5, 0, 0);
         double[] top = {0};
         int[] hurt = {0};
         boolean bounced = until(ctx, "a lava bounce", mc -> {
@@ -2196,15 +2213,15 @@ public class SimBossTests implements FabricClientGameTest {
             ModUnderTest.set(cfg, "setEnabled", true);
             ModUnderTest.staticCall(Ap3RuntimeTests.FEATURE, "setForceDungeon", new Class<?>[]{boolean.class}, new Object[]{false});
         });
-        // A RUN node on S1's floor, pointing south (+z), box 2x2; he walks into it from the north with a real W.
+        // A RUN node on the capture's P3 ground (y116), pointing south (+z), box 2x2; he walks into it from the north with a real W.
         Object run = ctx.computeOnClient(mc -> {
-            Object n = ap3Node("RUN", 100.5, 107, 50.5, 0f, 0f);
+            Object n = ap3Node("RUN", 100.5, 116, 50.5, 0f, 0f);
             Ap3RuntimeTests.set(n, "length", 2.0);
             Ap3RuntimeTests.set(n, "width", 2.0);
             Ap3RuntimeTests.setChain(n);
             return n;
         });
-        tp(ctx, 100.5, 107, 46.5, 0, 0);
+        tp(ctx, 100.5, 116, 46.5, 0, 0);
         ctx.waitTicks(10);
         double z0 = ctx.computeOnClient(mc -> mc.player.getZ());
         ctx.getInput().holdKey(options -> options.keyUp);
@@ -2478,9 +2495,15 @@ public class SimBossTests implements FabricClientGameTest {
             }
         }
         int[] cc = c;
-        boolean lava = cc != null && ctx.computeOnClient(mc -> mc.level.getBlockState(new BlockPos(cc[0], 62, cc[1]))
-                .is(net.minecraft.world.level.block.Blocks.LAVA));
-        println(MOVES, "Necron broke the " + pl + " platform; lava at its centre: " + lava);
+        // Over his capture (simdragons-1105) the platform's blocks at y 59-64 go to air so the real lava sea (y 58) shows
+        // under it; only the plan's flat floor turns to lava at y 62.
+        boolean capture = "capture".equals(call(ARENA, "source"));
+        boolean lava = cc != null && ctx.computeOnClient(mc -> capture
+                ? mc.level.getBlockState(new BlockPos(cc[0], 62, cc[1])).isAir()
+                        && mc.level.getBlockState(new BlockPos(cc[0], 58, cc[1])).is(net.minecraft.world.level.block.Blocks.LAVA)
+                : mc.level.getBlockState(new BlockPos(cc[0], 62, cc[1])).is(net.minecraft.world.level.block.Blocks.LAVA));
+        println(MOVES, "Necron broke the " + pl + " platform (" + (capture ? "capture: air over the lava sea" : "plan: lava floor")
+                + ") at its centre: " + lava);
         expect(f, "Necron's platform to lava at 275", lava, true);
     }
 
@@ -2858,7 +2881,7 @@ public class SimBossTests implements FabricClientGameTest {
         });
     }
 
-    private static Entity standAt(Minecraft mc, double[] at, String name) {
+    static Entity standAt(Minecraft mc, double[] at, String name) {
         for (ArmorStand s : mc.level.getEntitiesOfClass(ArmorStand.class, new AABB(at[0] - 1, at[1] - 1, at[2] - 1,
                 at[0] + 1, at[1] + 1, at[2] + 1))) {
             if (s.getCustomName() != null && s.getCustomName().getString().contains(name)) {

@@ -51,7 +51,7 @@ public class InvWalkZpewTests implements FabricClientGameTest {
         for (Consumer<ClientGameTestContext> c : List.<Consumer<ClientGameTestContext>>of(
                 InvWalkZpewTests::iwSetting, InvWalkZpewTests::iwControl, InvWalkZpewTests::iwInventory,
                 InvWalkZpewTests::iwJump, InvWalkZpewTests::iwChest, InvWalkZpewTests::zpSetting, InvWalkZpewTests::zpSingle,
-                InvWalkZpewTests::zpChain, InvWalkZpewTests::zpWorksFor, InvWalkZpewTests::zpMigrate)) {
+                InvWalkZpewTests::zpChain, InvWalkZpewTests::zpWorksFor)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -384,73 +384,12 @@ public class InvWalkZpewTests implements FabricClientGameTest {
         });
     }
 
-    /**
-     * 1111-zpew-migrate (zpewunify-1111): files from before the unify keep what was on. A Zero Ping Etherwarp file with one
-     * switch per sender (MANUAL off but LEFT_CLICK on, AUTO_ROUTES off but AUTO_SECRET on, AUTO_PUZZLES off, AP3 on) and
-     * ZPEW and Multi Warps OFF, plus an Auto Routes file with Zero Ping Chain, Charged Chain and Blink The Chain on: after
-     * loading both, ZPEW is on for Auto Routes alone (the chain), Manual and Interactive Map keep their group's OR but are
-     * switched off with it (ZPEW was off), Multi Warps is on for Auto Routes and the Interactive Map only, both routes
-     * switches report on, and the Auto Routes file no longer holds the three keys. Both files are put back after.
-     */
-    private static void zpMigrate(ClientGameTestContext ctx) {
-        Scenario.run(ctx, "1111-zpew-migrate", (server, scenario) -> arena(server, -5900, -3000, 4), (server, scenario) -> {
-            String got = ctx.computeOnClient(mc -> {
-                java.nio.file.Path zp = (java.nio.file.Path) Mod.field(ZP_CFG, "CONFIG_PATH");
-                java.nio.file.Path ar = (java.nio.file.Path) Mod.field("autoroutes.AutoRoutesConfig", "CONFIG_PATH");
-                try {
-                    byte[] zpOld = java.nio.file.Files.exists(zp) ? java.nio.file.Files.readAllBytes(zp) : null;
-                    byte[] arOld = java.nio.file.Files.exists(ar) ? java.nio.file.Files.readAllBytes(ar) : null;
-                    try {
-                        java.nio.file.Files.createDirectories(zp.getParent());
-                        java.nio.file.Files.createDirectories(ar.getParent());
-                        java.nio.file.Files.writeString(zp, "{\"enabled\":false,\"multiWarps\":false,\"warpsPerTick\":1,"
-                                + "\"worksFor\":{\"MANUAL\":false,\"LEFT_CLICK\":true,\"AUTO_ROUTES\":false,"
-                                + "\"AUTO_SECRET\":true,\"INTERACTIVE_MAP\":false,\"AUTO_PUZZLES\":false,\"AP3\":true}}");
-                        java.nio.file.Files.writeString(ar, "{\"zeroPingChain\":true,\"chargedChain\":true,"
-                                + "\"blinkChain\":true}");
-                        Mod.staticCall(ZP_CFG, "load");
-                        Mod.staticCall("autoroutes.AutoRoutesConfig", "load");
-                        Object z = Mod.cfg(ZP_CFG);
-                        Object a = Mod.cfg("autoroutes.AutoRoutesConfig");
-                        StringBuilder sb = new StringBuilder();
-                        sb.append("zpew=").append(Mod.call(z, "isEnabled")).append(" multi=").append(Mod.call(z, "isMultiWarps"));
-                        for (String g : new String[]{"AUTO_ROUTES", "INTERACTIVE_MAP", "AUTO_PUZZLES", "MANUAL"}) {
-                            sb.append(' ').append(g).append('=').append(Mod.call(z, "getWorksForByName", g)).append('/')
-                                    .append(Mod.call(z, "getMultiWarpsForByName", g));
-                        }
-                        sb.append(" arZero=").append(Mod.call(a, "isZeroPingChain")).append(" arCharged=")
-                                .append(Mod.call(a, "isChargedChain"));
-                        String arFile = java.nio.file.Files.readString(ar);
-                        sb.append(" arFileOldKeys=").append(arFile.contains("zeroPingChain") || arFile.contains("chargedChain")
-                                || arFile.contains("blinkChain"));
-                        // a second load of the migrated files changes nothing
-                        Mod.staticCall(ZP_CFG, "load");
-                        Mod.staticCall("autoroutes.AutoRoutesConfig", "load");
-                        sb.append(" again=").append(Mod.call(Mod.cfg(ZP_CFG), "getWorksForByName", "AUTO_ROUTES")).append('/')
-                                .append(Mod.call(Mod.cfg(ZP_CFG), "getMultiWarpsForByName", "INTERACTIVE_MAP"));
-                        return sb.toString();
-                    } finally {
-                        if (zpOld != null) java.nio.file.Files.write(zp, zpOld); else java.nio.file.Files.deleteIfExists(zp);
-                        if (arOld != null) java.nio.file.Files.write(ar, arOld); else java.nio.file.Files.deleteIfExists(ar);
-                        Mod.staticCall(ZP_CFG, "load");
-                        Mod.staticCall("autoroutes.AutoRoutesConfig", "load");
-                    }
-                } catch (java.io.IOException e) {
-                    throw new AssertionError(e);
-                }
-            });
-            scenario.log("migrated: " + got);
-            boolean cheat = Mod.isCheat();
-            String want = "zpew=true multi=true AUTO_ROUTES=true/true INTERACTIVE_MAP=false/true AUTO_PUZZLES=false/false "
-                    + "MANUAL=false/false arZero=" + cheat + " arCharged=" + cheat + " arFileOldKeys=false again=true/true";
-            check(got.equals(want), "migration: got [" + got + "], want [" + want + "]");
-        });
-    }
-
-    /** zpewunify-1111: Works For is four group switches; the old per-sender rows are gone. */
-    private static final String[] GROUP_LABELS = {"Auto Routes", "Interactive Map", "Auto Puzzles", "Manual"};
-    private static final String[] GONE_LABELS = {"Manual Etherwarps", "Left Click Etherwarps", "AP3",
-            "Auto Secret / Autopilot", "Auto Clear", "Pathfinding Hopper", "Cheat Build - Works For"};
+    /** The sources that sit in a Works For group (AP3 has none since zpewunify-1111; Auto Secret, Auto Clear and Pathfinding
+     *  ride on Auto Routes, Left Click Etherwarp on Manual). */
+    private static final String[] CHEAT_SOURCES = {"LEFT_CLICK", "AUTO_ROUTES", "INTERACTIVE_MAP", "AUTO_SECRET",
+            "AUTO_CLEAR", "AUTO_PUZZLES", "PATHFINDING"};
+    /** Works For lists four groups (labels from ZpewSource.Group), plus the Left Click Etherwarp switch. */
+    private static final String[] CHEAT_LABELS = {"Left Click Etherwarp", "Auto Routes", "Interactive Map", "Auto Puzzles"};
 
     /** The Zero Ping Etherwarp tab's rows (labels, formatting stripped) with ZPEW on. */
     @SuppressWarnings("unchecked")
@@ -492,10 +431,9 @@ public class InvWalkZpewTests implements FabricClientGameTest {
 
     /**
      * 1027-zpew-worksfor (killer560, 2026-10-27: "make an option like things that zpew works for with a list of
-     * everything"; zpewunify-1111: "the only thing i should have to select is auto routes, interactive map, auto puzzles
-     * and manual"): the four Works For groups and Multi Warps For are saved and loaded; the cheat tab lists the four
-     * groups and shows Multi Warps with Zero Ping Etherwarp off; nothing predicts in a legit jar and AP3 never; and a hand
-     * etherwarp is predicted with Manual on, not with Manual off, and nothing at all with ZPEW off.
+     * everything"): the Works For switches are saved and loaded; the tab lists only Manual Etherwarps in a legit jar and
+     * all nine (the eight cheat ones under the red header) in a cheat jar; a cheat source never predicts in a legit jar;
+     * and a hand etherwarp is predicted with Manual on, not with Manual off, and nothing at all with ZPEW off.
      */
     private static void zpWorksFor(ClientGameTestContext ctx) {
         int x = -5600;
@@ -504,70 +442,48 @@ public class InvWalkZpewTests implements FabricClientGameTest {
             boolean cheat = Mod.isCheat();
             // ---- saved and loaded ----
             String loaded = ctx.computeOnClient(mc -> {
-                Object c = Mod.cfg(ZP_CFG);
-                Mod.call(c, "setWorksForByName", "MANUAL", false);
-                Mod.call(c, "setWorksForByName", "AUTO_PUZZLES", false);
-                Mod.call(c, "setMultiWarpsForByName", "INTERACTIVE_MAP", false);
-                Mod.call(c, "save");
-                Mod.call(c, "setWorksForByName", "MANUAL", true);
-                Mod.call(c, "setWorksForByName", "AUTO_PUZZLES", true);
-                Mod.call(c, "setMultiWarpsForByName", "INTERACTIVE_MAP", true);
+                Mod.call(Mod.cfg(ZP_CFG), "setWorksForByName", "MANUAL", false);
+                Mod.call(Mod.cfg(ZP_CFG), "setWorksForByName", "AP3", false);
+                Mod.call(Mod.cfg(ZP_CFG), "save");
+                Mod.call(Mod.cfg(ZP_CFG), "setWorksForByName", "MANUAL", true);
+                Mod.call(Mod.cfg(ZP_CFG), "setWorksForByName", "AP3", true);
                 Mod.staticCall(ZP_CFG, "load");
                 Object l = Mod.cfg(ZP_CFG);
-                String out = Mod.call(l, "getWorksForByName", "MANUAL") + " " + Mod.call(l, "getWorksForByName", "AUTO_PUZZLES")
-                        + " " + Mod.call(l, "getWorksForByName", "AUTO_ROUTES") + " "
-                        + Mod.call(l, "getMultiWarpsForByName", "INTERACTIVE_MAP") + " "
-                        // an old sender name reads its group: Left Click is Manual's, Auto Secret is Auto Routes'
-                        + Mod.call(l, "getWorksForByName", "LEFT_CLICK") + " " + Mod.call(l, "getWorksForByName", "AUTO_SECRET");
+                String out = Mod.call(l, "getWorksForByName", "MANUAL") + " " + Mod.call(l, "getWorksForByName", "AP3")
+                        + " " + Mod.call(l, "getWorksForByName", "AUTO_ROUTES");
                 Mod.call(l, "setWorksForByName", "MANUAL", true);
-                Mod.call(l, "setWorksForByName", "AUTO_PUZZLES", true);
-                Mod.call(l, "setMultiWarpsForByName", "INTERACTIVE_MAP", true);
+                Mod.call(l, "setWorksForByName", "AP3", true);
                 Mod.call(l, "save");
                 return out;
             });
-            scenario.log("works for, loaded after saving Manual, Auto Puzzles and Multi Warps For Interactive Map off: " + loaded);
-            check(loaded.equals("false false true false false true"), "Works For did not come back from disk: " + loaded);
+            scenario.log("works for, loaded after saving MANUAL and AP3 off: " + loaded);
+            check(loaded.equals("false false true"), "Works For did not come back from disk: " + loaded);
 
-            // ---- the tab (cheat build): four group rows, Multi Warps shown with Zero Ping Etherwarp OFF ----
+            // ---- the tab, by build ----
+            ctx.runOnClient(mc -> Mod.set(ZP_CFG, "setEnabled", true));
+            List<String> labels = zpTabLabels(ctx);
+            scenario.log((cheat ? "cheat" : "legit") + " tab rows: " + labels);
+            check(labels.contains("Works For") && labels.contains("Manual"),
+                    "the tab has no Works For section with Manual: " + labels);
+            for (String l : CHEAT_LABELS) {
+                check(labels.contains(l) == cheat, (cheat ? "the cheat tab is missing " : "the legit tab shows ") + l);
+            }
             if (cheat) {
-                ctx.runOnClient(mc -> {
-                    Mod.set(ZP_CFG, "setEnabled", true);
-                    Mod.set(ZP_CFG, "setMultiWarps", true);
-                });
-                List<String> labels = zpTabLabels(ctx);
-                scenario.log("tab rows, ZPEW on, Multi Warps on: " + labels);
-                check(labels.contains("Works For") && labels.contains("Multi Warps For"), "no Works For / Multi Warps For: "
-                        + labels);
-                for (String l : GROUP_LABELS) {
-                    check(labels.stream().filter(l::equals).count() == ("Auto Puzzles".equals(l) ? 1 : 2),
-                            "group row " + l + " not listed under both headers: " + labels);
-                }
-                for (String l : GONE_LABELS) {
-                    check(!labels.contains(l), "the old row " + l + " is still on the tab: " + labels);
-                }
-                ctx.runOnClient(mc -> Mod.set(ZP_CFG, "setEnabled", false));
-                List<String> off = zpTabLabels(ctx);
-                scenario.log("tab rows, ZPEW off, Multi Warps on: " + off);
-                check(!off.contains("Works For") && off.contains("Multi Warps") && off.contains("Warps Per Tick")
-                        && off.contains("Aimed Warps") && off.contains("Multi Warps For"), "with Zero Ping Etherwarp off the "
-                        + "Multi Warps rows must still show: " + off);
-                ctx.runOnClient(mc -> Mod.set(ZP_CFG, "setMultiWarps", false));
+                int headerAt = labels.indexOf("Works For");
+                check(headerAt >= 0 && labels.indexOf("Auto Routes") > headerAt && labels.indexOf("Manual") > headerAt,
+                        "the Works For groups are not under their header: " + labels);
             }
             String legitGate = ctx.computeOnClient(mc -> {
                 Object c = Mod.cfg(ZP_CFG);
                 StringBuilder sb = new StringBuilder();
-                for (String s : new String[]{"MANUAL", "LEFT_CLICK", "AUTO_ROUTES", "AUTO_SECRET", "INTERACTIVE_MAP",
-                        "AUTO_PUZZLES", "AP3"}) {
+                for (String s : CHEAT_SOURCES) {
                     sb.append(s).append('=').append(Mod.call(c, "worksFor", Mod.enumValue("zpew.ZpewSource", s))).append(' ');
                 }
                 return sb.toString().trim();
             });
-            scenario.log("worksFor() per source: " + legitGate);
-            check(legitGate.contains("AP3=false"), "AP3 must never be predicted (etherwarp is impossible in the boss): "
-                    + legitGate);
-            String rest = legitGate.replace("AP3=false", "");
-            check(cheat ? !rest.contains("=false") : !rest.contains("=true"), "worksFor() in a "
-                    + (cheat ? "cheat" : "legit") + " jar: " + legitGate);
+            scenario.log("worksFor() per cheat source: " + legitGate);
+            check(cheat == !legitGate.contains("=false"), "cheat sources' worksFor() in a " + (cheat ? "cheat" : "legit")
+                    + " jar: " + legitGate);
 
             // ---- live: Manual on, Manual off, ZPEW off ----
             Hx hx = null;

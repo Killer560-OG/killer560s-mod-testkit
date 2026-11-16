@@ -193,49 +193,72 @@ public final class TestServer implements AutoCloseable {
         }
         enableVerboseToConsole(dir);
         port = readPortAndStayOffline(dir);
-        Process process;
-        try {
-            process = new ProcessBuilder(command)
-                    .directory(dir)
-                    .redirectErrorStream(true)
-                    .start();
-        } catch (IOException e) {
-            throw new AssertionError("Could not start the anticheat test server", e);
-        }
-
-        TestServer server = new TestServer(process);
-        CountDownLatch ready = new CountDownLatch(1);
-        Thread pump = new Thread(() -> server.pump(ready), "anticheat-server-log");
-        pump.setDaemon(true);
-        pump.start();
-
-        // Polled rather than one long await, because a server that dies during startup never signals
-        // readiness and the useful information is its own output. Counting down when the stream closes
-        // would be worse than useless: it makes a dead server report itself ready, and the client then
-        // fails with a bare "connection refused" that says nothing about the real cause.
-        try {
-            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(START_TIMEOUT_SECONDS);
-            while (!ready.await(500, TimeUnit.MILLISECONDS)) {
-                if (!process.isAlive()) {
-                    String tail = server.tail(25);
-                    String hint = tail.contains("FAILED TO BIND")
-                            ? "Port " + port + " is taken — another server, or another checkout running its "
-                                    + "suite. Stop it, or change server-port in "
-                                    + new File(dir, "server.properties") + ".\n"
-                            : "";
-                    throw new AssertionError("Anticheat test server exited with code "
-                            + process.exitValue() + " before it was ready:\n" + hint + tail);
-                }
-                if (System.nanoTime() > deadline) {
-                    server.close();
-                    throw new AssertionError("Anticheat test server did not start within "
-                            + START_TIMEOUT_SECONDS + "s:\n" + server.tail(25));
-                }
+        // A port moved by an earlier start of this run lives on in server.properties; the launch spec still holds the
+        // old bridge port, so the bridge follows server.properties on every start.
+        pointHx(command, port);
+        // lanedoctor-1115: on 11-15, 31 lane runs lost whole sessions to "exited with code 0 before it was ready", every
+        // one a FAILED TO BIND: another checkout's server held this checkout's port (two checkouts picked the same port
+        // within a minute; the port is chosen when Gradle configures, a minute or more before the server binds). A taken
+        // port is now moved here, right before the bind, and a bind failure retries on a new port.
+        TestServer server = null;
+        for (int attempt = 1; ; attempt++) {
+            if (!portsFree(port)) {
+                movePort(dir, command, "is taken before the start");
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            server.close();
-            throw new AssertionError("Interrupted waiting for the anticheat test server", e);
+            Process process;
+            try {
+                process = new ProcessBuilder(command)
+                        .directory(dir)
+                        .redirectErrorStream(true)
+                        .start();
+            } catch (IOException e) {
+                throw new AssertionError("Could not start the anticheat test server", e);
+            }
+
+            server = new TestServer(process);
+            CountDownLatch ready = new CountDownLatch(1);
+            TestServer s = server;
+            Thread pump = new Thread(() -> s.pump(ready), "anticheat-server-log");
+            pump.setDaemon(true);
+            pump.start();
+
+            // Polled rather than one long await, because a server that dies during startup never signals
+            // readiness and the useful information is its own output. Counting down when the stream closes
+            // would be worse than useless: it makes a dead server report itself ready, and the client then
+            // fails with a bare "connection refused" that says nothing about the real cause.
+            try {
+                long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(START_TIMEOUT_SECONDS);
+                boolean bindFailed = false;
+                while (!ready.await(500, TimeUnit.MILLISECONDS)) {
+                    if (!process.isAlive()) {
+                        pump.join(2000);
+                        bindFailed = server.logContains("FAILED TO BIND");
+                        if (bindFailed && attempt < 3) {
+                            break;
+                        }
+                        String hint = bindFailed
+                                ? "Port " + port + " is taken — another server, or another checkout running its "
+                                        + "suite. Stop it, or change server-port in "
+                                        + new File(dir, "server.properties") + ".\n"
+                                : "";
+                        throw new AssertionError("Anticheat test server exited with code "
+                                + process.exitValue() + " before it was ready:\n" + hint + server.tail(25));
+                    }
+                    if (System.nanoTime() > deadline) {
+                        server.close();
+                        throw new AssertionError("Anticheat test server did not start within "
+                                + START_TIMEOUT_SECONDS + "s:\n" + server.tail(25));
+                    }
+                }
+                if (!bindFailed) {
+                    break;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                server.close();
+                throw new AssertionError("Interrupted waiting for the anticheat test server", e);
+            }
+            movePort(dir, command, "failed to bind (attempt " + attempt + ")");
         }
         System.out.println("[anticheat] test server ready on " + address());
         if (seed != null) {
@@ -299,6 +322,98 @@ public final class TestServer implements AutoCloseable {
      * one hand edit, or one manual {@code runTestServer} with the setting changed, breaks every run after it.
      * Put back here, where it is cheap, rather than diagnosed later.
      */
+    private boolean logContains(String text) {
+        synchronized (log) {
+            return log.stream().anyMatch(l -> l.contains(text));
+        }
+    }
+
+    /** The server port and its Hx bridge (+5) can both be bound right now (the client's own fake HTTP holds +6). */
+    private static boolean portsFree(int p) {
+        for (int q : new int[]{p, p + 5}) {
+            try (java.net.ServerSocket s = new java.net.ServerSocket()) {
+                s.setReuseAddress(false);
+                s.bind(new java.net.InetSocketAddress(q));
+            } catch (IOException e) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Moves this checkout's server to a free port in build.gradle's range (26000-26899, step 10), claimed in the same
+     * locked registry build.gradle uses, and points server.properties, the server's -Dtestkit.hx.port and this
+     * client's testkit.hx.port at it.
+     */
+    private static void movePort(File dir, List<String> command, String why) {
+        File root = dir.getAbsoluteFile().getParentFile().getParentFile();
+        String myKey = root.getAbsolutePath().replace('\\', '/');
+        File registry = new File(System.getProperty("user.home"), "killer560s-mod-logs/testkit-ports.txt");
+        int old = port;
+        int chosen = -1;
+        try (java.nio.channels.FileChannel ch = java.nio.channels.FileChannel.open(
+                new File(registry.getParentFile(), "testkit-ports.lock").toPath(),
+                StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+             java.nio.channels.FileLock ignored = ch.lock()) {
+            java.util.Map<Integer, String> owners = new java.util.LinkedHashMap<>();
+            if (registry.isFile()) {
+                for (String l : Files.readAllLines(registry.toPath(), StandardCharsets.UTF_8)) {
+                    String[] parts = l.split("\t", 2);
+                    if (parts.length == 2 && parts[0].matches("\\d+")
+                            && (parts[1].equals(myKey) || new File(parts[1]).isDirectory())) {
+                        owners.put(Integer.parseInt(parts[0]), parts[1]);
+                    }
+                }
+            }
+            // build.gradle's slots plus its overflow (26000-29990, step 10). An unowned free port first; with every slot
+            // registered (lane checkouts pile up), any port free right now, since the bind follows within seconds.
+            int start = Math.floorMod(old - 26000 + 10, 4000);
+            for (int pass = 0; pass < 2 && chosen < 0; pass++) {
+                for (int i = 0; i < 400 && chosen < 0; i++) {
+                    int p = 26000 + Math.floorMod(start + 10 * i, 4000);
+                    String owner = owners.get(p);
+                    if (p != old && (pass == 1 || owner == null || owner.equals(myKey)) && portsFree(p)) {
+                        chosen = p;
+                    }
+                }
+            }
+            if (chosen < 0) {
+                throw new AssertionError("Port " + old + " " + why + " and no free test server port is left in 26000-29999");
+            }
+            owners.values().removeIf(myKey::equals);
+            owners.put(chosen, myKey);
+            StringBuilder sb = new StringBuilder();
+            owners.forEach((k, v) -> sb.append(k).append('\t').append(v).append('\n'));
+            Files.writeString(registry.toPath(), sb.toString(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new AssertionError("Port " + old + " " + why + "; could not claim another", e);
+        }
+        Path file = dir.toPath().resolve("server.properties");
+        try {
+            String text = Files.readString(file, StandardCharsets.ISO_8859_1);
+            text = text.replaceAll("(?m)^server-port=.*$", "server-port=" + chosen)
+                    .replaceAll("(?m)^query\\.port=.*$", "query.port=" + chosen);
+            Files.writeString(file, text, StandardCharsets.ISO_8859_1);
+        } catch (IOException e) {
+            throw new AssertionError("Could not move the server port in " + file, e);
+        }
+        pointHx(command, chosen);
+        port = chosen;
+        System.out.println("[anticheat] port " + old + " " + why + "; moved this checkout's server to " + chosen
+                + " (Hx bridge " + (chosen + 5) + ")");
+    }
+
+    /** The server's -Dtestkit.hx.port and this client's testkit.hx.port follow the server port (+5). */
+    private static void pointHx(List<String> command, int serverPort) {
+        String hx = "-Dtestkit.hx.port=" + (serverPort + 5);
+        command.replaceAll(a -> a.startsWith("-Dtestkit.hx.port=") ? hx : a);
+        if (!command.contains(hx)) {
+            command.add(1, hx);
+        }
+        System.setProperty("testkit.hx.port", Integer.toString(serverPort + 5));
+    }
+
     private static int readPortAndStayOffline(File dir) {
         Path file = dir.toPath().resolve("server.properties");
         if (!Files.isRegularFile(file)) {
