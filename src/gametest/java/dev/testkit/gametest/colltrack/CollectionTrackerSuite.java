@@ -57,6 +57,7 @@ public class CollectionTrackerSuite implements FabricClientGameTest {
                     s.test("1104-colltrack-pickup", CollectionTrackerSuite::pickup);
                     s.test("1109-colltrack-recent", CollectionTrackerSuite::recent);
                     s.test("1104-colltrack-persist", CollectionTrackerSuite::persist);
+                    s.test("1116-colltrack-firstload", CollectionTrackerSuite::firstLoad);
                 });
     }
 
@@ -220,6 +221,38 @@ public class CollectionTrackerSuite implements FabricClientGameTest {
             ModUnderTest.staticCall(GATE, "setEnabled", new Class<?>[]{boolean.class}, new Object[]{true});
             return null;
         });
+    }
+
+    /**
+     * The first read of a saved file, with no instance stored yet (a fresh game). On 2026-11-16 that read recursed
+     * (load, setRecentSeconds, selectionChanged, getInstance, load ...) and crashed his game with a StackOverflowError;
+     * every other case here calls load() while an instance exists, which hid it.
+     */
+    private static void firstLoad(Session c) {
+        String got = c.onClient(mc -> {
+            Object cfg = ModUnderTest.config(CFG);
+            ModUnderTest.call(cfg, "setRecentSeconds", new Class<?>[]{int.class}, new Object[]{120});
+            ModUnderTest.call(cfg, "save", new Class<?>[0], new Object[0]);
+            try {
+                java.lang.reflect.Field f = Class.forName(CFG).getDeclaredField("instance");
+                f.setAccessible(true);
+                f.set(null, null);
+                Object fresh;
+                try {
+                    fresh = ModUnderTest.config(CFG);
+                } catch (StackOverflowError e) {
+                    return "StackOverflowError";
+                }
+                String out = String.valueOf(ModUnderTest.call(fresh, "getRecentSeconds", new Class<?>[0], new Object[0]));
+                ModUnderTest.call(fresh, "setRecentSeconds", new Class<?>[]{int.class}, new Object[]{60});
+                ModUnderTest.call(fresh, "save", new Class<?>[0], new Object[0]);
+                return out;
+            } catch (ReflectiveOperationException e) {
+                return "reflection failed: " + e;
+            }
+        });
+        c.note("first read of a saved file with no instance: recentSeconds " + got);
+        c.check(got.equals("120"), "the first read of the saved settings did not return them: " + got);
     }
 
     // ------------------------------------------------------------------ helpers
