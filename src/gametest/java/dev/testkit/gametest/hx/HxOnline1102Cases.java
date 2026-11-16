@@ -5,6 +5,7 @@ import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpServer;
 
 import dev.testkit.gametest.mod.Mod;
+import dev.testkit.compat.McCompat;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -54,7 +55,38 @@ final class HxOnline1102Cases {
         s.test("1102-online-down", HxOnline1102Cases::down);
         s.test("1102-online-gate", HxOnline1102Cases::gate);
         s.test("1104-online-menu", HxOnline1102Cases::menu);
+        s.test("1113-online-screen", HxOnline1102Cases::screen);
         s.test("1112-online-sim", HxOnline1102Cases::otherServer);
+    }
+
+    // ---- 1113-online-screen (onlineisland-1113: /online opens the Discord counts in a screen) --------------------------
+
+    /** /online typed in chat opens the Online Now screen; fed a fixture reply it lists every island with its count. */
+    private static void screen(Session c) throws Exception {
+        Mod.Mark mark = Mod.mark();
+        String scr = "onlinecount.OnlineScreen";
+        String fixture = "{\"total\":4,\"byLocation\":[[\"Galatea\",2],[\"Hub\",1],[\"Skyblock (other)\",1]]}";
+        try {
+            hub(c);
+            Mod.staticCall(scr, "setFixtureForTest", fixture);
+            // The mod opens the screen with client.execute because a real chat Enter runs as a task and ChatScreen closes itself after;
+            // HxKit.type() closes the chat inside the same call, which would undo an inline open, so leave the chat screen for the mod to replace.
+            c.ctx().runOnClient(mc -> {
+                net.minecraft.client.gui.screens.ChatScreen chat = new net.minecraft.client.gui.screens.ChatScreen("", false);
+                McCompat.setScreen(mc, chat);
+                chat.handleChatInput("/online", true);
+            });
+            c.waitUntil("the Online Now screen is open", mc -> McCompat.screen(mc) != null && McCompat.screen(mc).getClass().getName().endsWith(scr) , 100);
+            Object rows = c.onClient(mc -> Mod.call(McCompat.screen(mc), "rowsForTest"));
+            c.check(rows instanceof List<?> l && l.size() == 3 && l.get(0).toString().equals("Galatea=2") && l.get(2).toString().equals("Skyblock (other)=1"),
+                    "the screen did not list the fixture's three islands in order: " + rows);
+            Object parsed = Mod.staticCall(scr, "parse", "not json");
+            c.check(parsed == null, "an unreadable reply must read as null, got " + parsed);
+        } finally {
+            Mod.staticCall(scr, "setFixtureForTest", (Object) null);
+            c.ctx().runOnClient(mc -> McCompat.setScreen(mc, null));
+        }
+        Mod.assertHealthy(mark);
     }
 
     // ---- 1104-online-menu (presmenu-1104: "/online doesnt work if someone is just on the start screen") -------------------
