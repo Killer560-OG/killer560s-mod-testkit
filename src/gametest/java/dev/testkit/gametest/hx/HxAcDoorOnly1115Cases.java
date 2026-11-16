@@ -32,9 +32,11 @@ final class HxAcDoorOnly1115Cases {
     }
 
     static void register(Session s) {
-        for (String a : new String[]{"idle", "use", "attack", "swap", "tp"}) {
-            s.test("1115-ac-dooronly-same-" + a, c -> same(c, a));
-        }
+        s.test("1115-ac-dooronly-same-idle", c -> same(c, "idle"));
+        s.test("1115-ac-dooronly-same-use", c -> same(c, "use"));
+        s.test("1115-ac-dooronly-same-attack", c -> same(c, "attack"));
+        s.test("1115-ac-dooronly-same-swap", c -> same(c, "swap"));
+        s.test("1115-ac-dooronly-same-tp", c -> same(c, "tp"));
         s.test("1115-ac-dooronly-same-rerun", HxAcDoorOnly1115Cases::rerun);
     }
 
