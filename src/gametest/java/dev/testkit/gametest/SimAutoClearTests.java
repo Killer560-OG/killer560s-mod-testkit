@@ -838,8 +838,8 @@ public class SimAutoClearTests implements FabricClientGameTest {
         if (plan == null || !plan.contains("2 block(s) reach all 3") || !plan.contains("nearest mob first would take 3")) {
             failures.add("repositions: no plan of two blocks against nearest-first's three was logged (" + plan + ")");
         }
-        if (noLand && !Scenario.skip(NO_LAND)) {
-            noLandCase(ctx, failures, roomName, found[2], startAt);
+        if (noLand && !Scenario.skip(NO_LAND) && !noLandCase(ctx, failures, roomName, found[2], startAt)) {
+            return false;
         }
         return true;
     }
@@ -851,7 +851,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
      * must be skipped for that once ("no trip lands" logged once, no further "etherwarp toward" at it) and then walked to
      * and killed. Main: skipped, freed and re-targeted until the case times out.
      */
-    private static void noLandCase(ClientGameTestContext ctx, List<String> failures, String roomName, BlockPos at,
+    private static boolean noLandCase(ClientGameTestContext ctx, List<String> failures, String roomName, BlockPos at,
                                    BlockPos startAt) {
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
@@ -877,7 +877,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
         UUID id = newestStarred(ctx, before);
         if (id == null) {
             failures.add("noland: the zombie at " + at.toShortString() + " could not be placed");
-            return;
+            return true;
         }
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_ROOM_STATE, "clearRoom", new Class<?>[]{String.class},
                 new Object[]{roomName}));
@@ -909,6 +909,13 @@ public class SimAutoClearTests implements FabricClientGameTest {
         }
         println("acslow2-noland: zombie " + alive + " after " + r.ticks + " tick(s) (his log: ~200 ticks of re-trips);"
                 + " \"no trip lands\" skips " + skips + ", etherwarps toward it after the skip " + warpsAfterSkip);
+        if (skips == 0 && LogTap.since(mark).stream().anyMatch(l -> l.contains("[AutoClear] cost for") && l.contains("bat from here")
+                && l.contains("- the Spirit Sceptre"))) {
+            // A sceptre bat from the start spot took the zombie with no trip to refuse (Cell, 26.2): not this case's question.
+            println("noland: a Spirit Sceptre bat reached the zombie from " + startAt.toShortString() + " in " + roomName
+                    + " - no trip to refuse; trying the next room");
+            return false;
+        }
         if (skips == 0) {
             failures.add("noland: no \"no trip lands\" skip was logged - the case proves nothing");
         }
@@ -919,6 +926,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
         if (!"dead".equals(alive) || r.ticks > 400) {
             failures.add("noland: the zombie is " + alive + " after " + r.ticks + " tick(s); want dead within 400 by a walk");
         }
+        return true;
     }
 
     /**
