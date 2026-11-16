@@ -669,6 +669,7 @@ final class HxTerminals {
         t.clicks++;
         if (t.invSync) {
             player.inventoryMenu.broadcastFullState();
+            menu.slotAnswerNext = true;
         }
         if (t.firstTick < 0) {
             t.firstTick = tick;
