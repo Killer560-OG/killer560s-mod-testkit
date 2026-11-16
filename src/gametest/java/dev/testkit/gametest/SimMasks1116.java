@@ -40,6 +40,7 @@ final class SimMasks1116 {
 
     @SuppressWarnings("unchecked")
     private static boolean said(ClientGameTestContext ctx, String line) {
+        ctx.waitTicks(4);
         return ctx.computeOnClient(mc -> ((List<String>) ModUnderTest.staticCall(TIDY, "testChatLines",
                 new Class<?>[]{int.class}, new Object[]{40})).contains(line));
     }
@@ -95,6 +96,15 @@ final class SimMasks1116 {
     }
 
     static void run(ClientGameTestContext ctx, List<String> f) {
+        // The mod's mask timers are default OFF; they read the chat lines only while the feature is on.
+        try (AutoCloseable on = dev.testkit.gametest.mod.Mod.with("maskinvincibility.MaskInvincibilityConfig", "Enabled", true)) {
+            body(ctx, f);
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static void body(ClientGameTestContext ctx, List<String> f) {
         start(ctx, "S1", true);
         mask(ctx, f, "BONZO_MASK", "BONZO", "Your Bonzo's Mask saved your life!");
         mask(ctx, f, "SPIRIT_MASK", "SPIRIT", "Second Wind Activated! Your Spirit Mask saved your life!");
