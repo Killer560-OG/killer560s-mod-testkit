@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T19:44:11",
- "modSource": "arnotf-1115",
- "modGitSha": "28c15f676189d92e489d464fe5680f6a20add155",
+ "generatedAt": "2026-11-15T20:09:07",
+ "modSource": "lane-arnoback-tf1115",
+ "modGitSha": "407066077eb1100f54be93fd71af4e5de1bf38d9",
  "modSourceDirty": false,
  "count": 974,
  "byKind": {
