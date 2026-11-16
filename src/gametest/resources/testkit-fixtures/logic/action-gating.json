@@ -231,7 +231,7 @@
     "id": "logic.goldor-start",
     "kind": "chat",
     "payload": "[BOSS] Goldor: Who dares trespass into my domain?",
-    "source": {"file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java", "line": 85, "anchor": "private static final Pattern AUTO_START_TRIGGER_PATTERN"},
+    "source": {"file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java", "line": 86, "anchor": "private static final Pattern AUTO_START_TRIGGER_PATTERN"},
     "matches": [
       "simonsays.SimonSaysFeature#AUTO_START_TRIGGER_PATTERN"
     ],
@@ -335,7 +335,7 @@
     "id": "logic.extra-stats-matches",
     "kind": "chat",
     "payload": "> EXTRA STATS <",
-    "source": {"file": "src/main/java/com/killer560/hub/partycommands/PartyCommandsFeature.java", "line": 75, "anchor": "private static final Pattern END_OF_RUN"},
+    "source": {"file": "src/main/java/com/killer560/hub/partycommands/PartyCommandsFeature.java", "line": 68, "anchor": "private static final Pattern END_OF_RUN"},
     "matches": [
       "partycommands.PartyCommandsFeature#END_OF_RUN"
     ],
@@ -360,23 +360,20 @@
     "id": "logic.npc-line",
     "kind": "chat",
     "payload": "[NPC] Aldous: The reward is in my chest.",
-    "source": {
-      "file": "src/main/java/com/killer560/hub/roomsim/puzzles/SimQuizPuzzle.java",
-      "line": 451
-    },
+    "source": {"file": "src/main/java/com/killer560/hub/roomsim/puzzles/SimQuizPuzzle.java", "line": 453, "anchor": "/** {npc stand, click stand} per weirdo, in index order, for moving and removing them. */"},
     "matches": [
       "dungeonextras.AutoDialogueFeature#NPC_LINE",
       "puzzlesolvers.WeirdosSolverFeature#NPC_LINE"
     ],
     "mode": "matches",
     "verifiedBy": "regex",
-    "notes": "\"[NPC] \" + WEIRDO_NAMES[i] + \": \" + line (SimQuizPuzzle.java:451, names at :98, line from WeirdosSolverFeature.java:66). AutoDialogue then runs the line's click command. WeirdosSolverFeature reads it with matches() since f40ec89 (WeirdosSolverFeature.java:130)."
+    "notes": "\"[NPC] \" + WEIRDO_NAMES[i] + \": \" + line (SimQuizPuzzle.java:485, names at :98, line from WeirdosSolverFeature.java:66). AutoDialogue then runs the line's click command. WeirdosSolverFeature reads it with matches() since f40ec89 (WeirdosSolverFeature.java:130)."
   },
   {
     "id": "logic.simon-says-progress",
     "kind": "chat",
     "payload": "Party > [MVP+] Killer560: SS 3/5",
-    "source": {"file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java", "line": 79, "anchor": "private static final Pattern PROGRESS_PATTERN_SIMPLE"},
+    "source": {"file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java", "line": 80, "anchor": "private static final Pattern PROGRESS_PATTERN_SIMPLE"},
     "matches": [
       "simonsays.SimonSaysFeature#PROGRESS_PATTERN_SIMPLE",
       "simonsays.SimonSaysFeature#PROGRESS_PATTERN"

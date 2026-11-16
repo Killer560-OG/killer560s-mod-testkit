@@ -43,7 +43,9 @@ final class RealSwitchCases {
     private static final Map<String, List<String>> SETTINGS_PAGES = Map.of(
             // The menu's look: Animations Off is the lowest of Smooth / Reduced / Off; Music Off is one theme's track
             // choice inside Theme Extras (Theme Track, Off or a loop), per theme.
-            "MenuThemeTab", List.of("Animations: Off", "Music: Off"));
+            "MenuThemeTab", List.of("Animations: Off", "Music: Off"),
+            // The sim's loadout page: Sim Armor None = no armor set worn in the sim (ecc9dc766), a choice, not a feature.
+            "SimSettingsTab", List.of("Sim Armor: None"));
 
     // ---- 530 --------------------------------------------------------------------------------------------------------
 

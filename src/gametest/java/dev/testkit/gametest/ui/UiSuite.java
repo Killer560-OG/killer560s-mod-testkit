@@ -98,13 +98,13 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] WORLD_CASES = {"301-ui-smoke-tabs", "302-ui-smoke-search", "303-ui-smoke-toggles",
             "304-ui-smoke-hud-editor", "305-ui-smoke-screens", "306-ui-smoke-commands", "350-ui-termism",
             "360-ui-visuals", "365-ui-overlay-draws", "307-ui-profit", "385-ui-interactive-map", "386-ui-sliders",
-            "387-ui-ap3-edit", "1026-ui-ap3-angle-leapcounter", "1026-ui-ap3-blink-nodes", "1102-ui-ap3-crystal-height", "1110-ui-ap3-edit-layout", "388-ui-breaker-display", "389-ui-crosshair",
+            "387-ui-ap3-edit", "1026-ui-ap3-angle-leapcounter", "1026-ui-ap3-blink-nodes", "1102-ui-ap3-crystal-height", "1110-ui-ap3-edit-layout", "1112-ui-ap3-preset", "388-ui-breaker-display", "389-ui-crosshair",
             "390-ui-wither-doors-fill", "391-ui-cheat-tabs", "392-ui-blood-camp", "393-ui-stat-bars",
             "394-ui-hud-boxes", "395-ui-map-heads",
             "399-ui-hud-editor-resize", "399-ui-hud-editor-snap",
             "399-ui-stat-bars-vitality-xp", "407-ui-stat-bars-layout", "401-ui-scoreboard-editor",
             "1104-ui-mining-pulled-jar", "1104-ui-mining-pulled-menu", "1104-ui-mining-pulled-tabs",
-            "1104-ui-mining-pulled-profit", "1104-ui-mining-chmap", "1105-ui-chmap-tab", "1104-ui-themematch-pixels", "1104-ui-themematch-audit", "1108-ui-lightcontrast", "1108-ui-salvage-highlight", "412-ui-no-new-tab", "413-ui-testing-variant",
+            "1104-ui-mining-pulled-profit", "1104-ui-mining-chmap", "1105-ui-chmap-tab", "1104-ui-themematch-pixels", "1104-ui-themematch-audit", "1108-ui-lightcontrast", "1108-ui-salvage-highlight", "1113-ui-accadvisor", "1114-ui-accadv-drag", "1114-ui-accadv-mode", "1114-ui-accadv-copy", "1115-ui-bugcmd", "412-ui-no-new-tab", "413-ui-testing-variant",
             "425-ui-bazaar-icons", "427-ui-pack-disabler-models",
             "428-ui-pack-disabler-pack-push", "430-ui-pack-disabler-screens",
             "431-ui-pack-disabler-user-pack", "432-ui-pack-disabler-bazaar", "1105-ui-goblin-egg-look", "1105-ui-boss-chooser",
@@ -208,7 +208,7 @@ public class UiSuite implements FabricClientGameTest {
     /** Profiles carry everything, across jars (mod profiles-all, {@link ProfileDataCases}). Own block for merges. */
     static final String[] PROFILE_DATA_CASES = {"980-ui-profile-data-switch", "981-ui-profile-data-export",
             "982-ui-profile-import-robust", "983-ui-profile-old-format", "984-ui-profile-xfer-export",
-            "985-ui-profile-xfer-import"};
+            "985-ui-profile-xfer-import", "1112-ui-profile-shared-routes"};
     /** Screen sweep B: standalone screens in the menu theme + Screen Theme (mod sweep-b, {@link ScreenSweepBCases}).
      *  Own block for merges. */
     static final String[] SWEEP_B_CASES = {"1020-ui-sweepb-profit", "1021-ui-sweepb-storage-search",
@@ -584,6 +584,7 @@ public class UiSuite implements FabricClientGameTest {
                     // mod zpew2-1101: the Crystal node's Height box in the AP3 node editor.
                     UiCase.run(ctx, "1102-ui-ap3-crystal-height", Ap3CrystalEditCases::run);
                     UiCase.run(ctx, "1110-ui-ap3-edit-layout", Ap3EditLayoutCases::run);
+                    UiCase.run(ctx, "1112-ui-ap3-preset", Ap3PresetCases::run);
                     UiCase.run(ctx, "388-ui-breaker-display", BreakerDisplayCases::run);
                     UiCase.run(ctx, "389-ui-crosshair", CrosshairCases::run);
                     UiCase.run(ctx, "390-ui-wither-doors-fill", WitherDoorFillCases::run);
@@ -809,6 +810,11 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1104-ui-univfolders", UniversalFolders1104Cases::moved);
                     UiCase.run(ctx, "1108-ui-salvage-highlight", Salvage1108Cases::salvage);
                     UiCase.run(ctx, "1109-ui-ub-salvagebg", Salvage1108Cases::salvageBackgrounds);
+                    UiCase.run(ctx, "1113-ui-accadvisor", AccAdvisor1113Cases::advisor);
+                    UiCase.run(ctx, "1114-ui-accadv-drag", AccAdvisor1114Cases::drag);
+                    UiCase.run(ctx, "1114-ui-accadv-mode", AccAdvisor1114Cases::mode);
+                    UiCase.run(ctx, "1114-ui-accadv-copy", AccAdvisor1114Cases::copy);
+                    UiCase.run(ctx, "1115-ui-bugcmd", BugCmd1115Cases::bugCmd);
                     // ---- doc-small (807) ----
                     UiCase.run(ctx, "807-ui-doc-small-1014", DocSmall1014Cases::docSmall);
                     // ---- doc-small 1101 (1101-ds-*) ----
@@ -889,6 +895,10 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "3769-ui-auto-catch-a-fish", c -> CarnivalUiCases.tab(c, "Auto Catch a Fish"));
                     UiCase.run(ctx, "3770-ui-carnival-automation-note", CarnivalUiCases::automationNote);
                     UiCase.run(ctx, "3771-ui-carnival-parsers", CarnivalUiCases::parsers);
+                    UiCase.run(ctx, "3773-ui-auto-accept-game", CarnivalUiCases::autoAccept);
+                    UiCase.run(ctx, "3774-ui-carnival-fold", CarnivalUiCases::fold);
+                    UiCase.run(ctx, "3775-ui-carnival-solver-drops", CarnivalUiCases::solverDrops);
+                    UiCase.run(ctx, "3776-ui-carnival-accept-shapes", CarnivalUiCases::acceptShapes);
                     UiCase.run(ctx, "3772-ui-fruit-digging-triggerbot",
                             c -> CarnivalUiCases.tab(c, "Fruit Digging Triggerbot"));
                     // ---- profiles carry everything, across jars (980-985) ----
@@ -898,6 +908,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "983-ui-profile-old-format", ProfileDataCases::oldFormat);
                     UiCase.run(ctx, "984-ui-profile-xfer-export", ProfileDataCases::xferExport);
                     UiCase.run(ctx, "985-ui-profile-xfer-import", ProfileDataCases::xferImport);
+                    UiCase.run(ctx, "1112-ui-profile-shared-routes", ProfileDataCases::sharedRoutes);
                     // ---- screen sweep B (1020-1025) ----
                     UiCase.run(ctx, "1020-ui-sweepb-profit", ScreenSweepBCases::profit);
                     UiCase.run(ctx, "1021-ui-sweepb-storage-search", ScreenSweepBCases::storageSearch);

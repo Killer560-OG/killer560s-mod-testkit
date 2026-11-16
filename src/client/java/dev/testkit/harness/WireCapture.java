@@ -14,7 +14,7 @@ import java.util.List;
  * after it decompresses. That is one hook for all four phases (each phase installs its own {@code PacketEncoder}),
  * which a listener-level hook is not: login packets never pass {@code ClientCommonPacketListenerImpl#send}.
  *
- * <p>Runs on the netty thread. Armed only by a scenario that asks (65-join-fingerprint); unarmed it costs one
+ * <p>Runs on the netty thread. Armed only by a scenario that asks (65-smoke-join-fingerprint); unarmed it costs one
  * volatile read per packet.
  */
 public final class WireCapture {

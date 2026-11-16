@@ -146,6 +146,10 @@ final class HxTerminals {
         /** {@code keepTarget}: the target column stays the same for every row (no re-roll after a correct click), so a
          *  lookahead burst - which gambles on exactly that - lands correct (testkit 275-277). */
         boolean melodyKeepTarget;
+        /** Per band row (index row - 1), the target a row gets when it starts ("targets", melody-1111); null = random. */
+        int[] melodyTargets;
+        /** Steps where the pane left the current row's target with no correct click: a pass the player missed. */
+        int melodyMissedPasses;
         final Map<Integer, Integer> melodyDoneCol = new LinkedHashMap<>();
 
         Terminal(Type type, long seed, String title, int rows, int[] grid, boolean closeOnSolve, int melodyInterval) {
@@ -159,8 +163,23 @@ final class HxTerminals {
             this.melodyInterval = melodyInterval;
         }
 
+        /** termplus-1112 "parts": the open carries an EMPTY window; slot i goes out with part i % parts, part p at 3 + partGap * p
+         *  server ticks after the open (one ContainerSetSlot per slot, like Hypixel describing a board slot by slot). */
+        final List<Map<Integer, ItemStack>> heldParts = new ArrayList<>();
+        int partGap = 30;
+        int partsSent;
+
         @Override
         public void tick(MinecraftServer server, HxChestMenu menu, ServerPlayer player) {
+            if (partsSent < heldParts.size() && server.getTickCount() - openedTick >= 3L + (long) partGap * partsSent) {
+                heldParts.get(partsSent++).forEach((slot, stack) -> menu.items().setItem(slot, stack));
+                menu.broadcastChanges();
+                JsonObject d = new JsonObject();
+                d.addProperty("tick", server.getTickCount());
+                d.addProperty("part", partsSent);
+                d.addProperty("last", partsSent == heldParts.size());
+                HxEvents.custom("terminal.part", player, d);
+            }
             if (type != Type.MELODY || solved || melodyFrozen) {
                 return;
             }
@@ -169,6 +188,9 @@ final class HxTerminals {
                 return;
             }
             melodyLastMove = now;
+            if (melodyLime == melodyTarget) {
+                melodyMissedPasses++;
+            }
             long wall = System.nanoTime();
             melodyPrevStepGapMs = melodyLastMoveNanos == 0 ? -1 : (wall - melodyLastMoveNanos) / 1_000_000L;
             melodyLastMoveNanos = wall;
@@ -287,6 +309,7 @@ final class HxTerminals {
             o.addProperty("rows", rows);
             if (type == Type.MELODY) {
                 o.addProperty("bandRows", melodyBandRows);
+                o.addProperty("missedPasses", melodyMissedPasses);
             }
             o.addProperty("solved", solved);
             o.addProperty("clicks", clicks);
@@ -445,6 +468,14 @@ final class HxTerminals {
                 t.melodyKeepDone = a.has("keepDone") && a.get("keepDone").getAsBoolean();
                 t.melodyFrozen = a.has("freeze") && a.get("freeze").getAsBoolean();
                 t.melodyKeepTarget = a.has("keepTarget") && a.get("keepTarget").getAsBoolean();
+                if (a.has("targets")) {
+                    JsonArray ts = a.getAsJsonArray("targets");
+                    t.melodyTargets = new int[ts.size()];
+                    for (int i = 0; i < ts.size(); i++) {
+                        t.melodyTargets[i] = ts.get(i).getAsInt();
+                    }
+                    t.melodyTarget = t.melodyTargets[0];
+                }
                 t.melodyLastMove = server.getTickCount();
                 items = new ArrayList<>();
                 for (int i = 0; i < t.rows * 9; i++) {
@@ -461,6 +492,19 @@ final class HxTerminals {
         t.revertFinal = a.has("revertFinal") && a.get("revertFinal").getAsBoolean();
         t.displayTitle = (a.has("titlePrefix") ? a.get("titlePrefix").getAsString() : "") + t.title
                 + (a.has("titleSuffix") ? a.get("titleSuffix").getAsString() : "");
+        int parts = a.has("parts") ? a.get("parts").getAsInt() : 1;
+        if (parts > 1) {
+            t.partGap = a.has("partGap") ? a.get("partGap").getAsInt() : 30;
+            for (int p = 0; p < parts; p++) {
+                t.heldParts.add(new LinkedHashMap<>());
+            }
+            for (int i = 0; i < t.rows * 9 && i < items.size(); i++) {
+                if (items.get(i) != null && !items.get(i).isEmpty()) {
+                    t.heldParts.get(i % parts).put(i, items.get(i));
+                    items.set(i, ItemStack.EMPTY);
+                }
+            }
+        }
         HxChestMenu menu = HxMenus.open(player, t.rows, Component.literal(t.displayTitle), items, SCRIPT, t);
         t.containerId = menu.containerId;
         last = t;
@@ -681,7 +725,9 @@ final class HxTerminals {
                     int row = slot / 9;
                     if (col == 7 && row == t.melodyRow && t.melodyLime == t.melodyTarget) {
                         t.melodyDoneCol.put(t.melodyRow, t.melodyLime);
-                        if (!t.melodyKeepTarget) {
+                        if (t.melodyTargets != null && t.melodyRow < t.melodyTargets.length) {
+                            t.melodyTarget = t.melodyTargets[t.melodyRow];
+                        } else if (!t.melodyKeepTarget) {
                             t.melodyTarget = 1 + t.rng.nextInt(5);
                         }
                         t.melodyRow++;
@@ -749,7 +795,7 @@ final class HxTerminals {
     }
 
     private static boolean isSolved(Terminal t, HxChestMenu menu) {
-        return switch (t.type) {
+        return t.partsSent >= t.heldParts.size() && switch (t.type) {
             case MELODY -> t.melodyRow > t.melodyBandRows;
             case RUBIX -> {
                 String first = null;
