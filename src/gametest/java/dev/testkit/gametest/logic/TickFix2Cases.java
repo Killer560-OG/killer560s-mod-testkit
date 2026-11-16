@@ -7,9 +7,9 @@ import dev.testkit.gametest.mod.Mod;
  *
  * <ul>
  *   <li>1104-logic-stall-burst: {@code PerTickServerClock.stallTicksSince} on a trusted clock reads 0 through a steady
- *       server and through arrival jitter, about 20 through a 20-tick stall, and still about 20 after the server's
- *       catch-up burst (before tickfix2-1104 the burst paid it back to 0); {@code deficitTicksSince} is the net that the
- *       burst does pay back.</li>
+ *       server and through arrival jitter, about 20 through a 20-tick stall; since splitlag-1116 a catch-up burst
+ *       pays the stall back to 0 (the server ran those ticks; tickfix2-1104 to splitlag-1116 kept it at 20), while a stall
+ *       with no burst stays at 20; {@code deficitTicksSince} is the net that the burst pays back.</li>
  *   <li>1104-logic-serverlag-grim: {@code util.ServerLag} measures nothing from GrimAC-shaped transaction pings (15+ a
  *       second, gaps of 100-150 ms, never one on 19 of 20 ticks) even while {@code ServerTickClock} calls the server
  *       ping-driven; it measures a one-second stall on a per-tick server; and off Hypixel it still measures a 2.5 s stall
@@ -77,10 +77,21 @@ final class TickFix2Cases {
                 tick(1);
             }
             long after = stall(before);
-            c.check("the stall still reads 20 ticks after the catch-up burst (read 0 before tickfix2-1104)", after == 20L,
+            c.check("the stall is paid back by the catch-up burst: the server ran those ticks (splitlag-1116)", after == 0L,
                     after + " ticks");
             c.eq("the net deficit is paid back by the burst", 0L, deficit(before));
-            c.eq("and the whole span since the first mark holds just that stall", 20L, stall(mark));
+            c.eq("and the whole span since the first mark holds no lag", 0L, stall(mark));
+
+            // A stall the server never catches up (Hypixel's way): no burst, so it stays counted.
+            long[] real = (long[]) Mod.staticCall(CLOCK, "mark");
+            for (int i = 0; i < 20; i++) {
+                tick(0);
+            }
+            for (int i = 0; i < 41; i++) {
+                tick(1);
+            }
+            long kept = stall(real);
+            c.check("a 20-tick stall with no catch-up burst still reads 20 ticks 40 ticks later", kept == 20L, kept + " ticks");
         } finally {
             Mod.staticCall(CLOCK, "hypixelForTest", (Object) null);
             Mod.staticCall(CLOCK, "untrustForTest");
