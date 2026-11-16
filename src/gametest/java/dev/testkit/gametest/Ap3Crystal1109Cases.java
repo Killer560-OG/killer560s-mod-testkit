@@ -1,23 +1,17 @@
 package dev.testkit.gametest;
 
 import dev.testkit.gametest.hx.Session;
-import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
 import java.lang.reflect.Method;
-import java.util.Locale;
 
-import static dev.testkit.gametest.Ap3RuntimeTests.EXEC;
-import static dev.testkit.gametest.Ap3RuntimeTests.LANE_X0;
 import static dev.testkit.gametest.Ap3RuntimeTests.node;
-import static dev.testkit.gametest.Ap3RuntimeTests.onClient;
 import static dev.testkit.gametest.Ap3RuntimeTests.set;
 
 /**
- * mod ap3crystal-1109: the {@code crystals:<1|2>} suffix (killer560, 2026-11-09: "add a crystal tracker as a suffix for ap3
- * ... if a crystal is placed within 5 blocks of the user ... 1 or 2 for how many it waits for").
+ * mod ap3crystal-1109: the {@code crystals:<n>} suffix. 1109-ap3-crystal-1 / -2 (a crystal entity within 5 blocks releases
+ * the Walk) were removed 11-14: ap3crystals-1112 made the wait count finished crystal phases (each "2/2 Energy Crystals
+ * are now active!" line), so they failed on every build; 1112-ap3-crystals-wait / -already cover the new behavior.
  * <ul>
- *   <li>1109-ap3-crystal-1 / -2: a Walk with the suffix holds; a crystal standing before the wait and one 6 blocks away do
- *       not count; with 2, the first near crystal still holds; the last near one releases it that tick and the Walk goes.</li>
  *   <li>1109-ap3-crystal-store: the setting saves, loads, and an old node (no key) loads as Off; the command text
  *       carries it.</li>
  * </ul>
@@ -28,10 +22,6 @@ final class Ap3Crystal1109Cases {
     }
 
     static void register(Session s) {
-        if (cheatBuild()) { // AP3 does not run on a legit jar
-            s.test("1109-ap3-crystal-1", c -> crystalCase(c, 1));
-            s.test("1109-ap3-crystal-2", c -> crystalCase(c, 2));
-        }
         s.test("1109-ap3-crystal-store", Ap3Crystal1109Cases::store);
     }
 
@@ -40,72 +30,6 @@ final class Ap3Crystal1109Cases {
             return Class.forName("com.killer560.hub.BuildVariant").getField("CHEAT_FEATURES_ENABLED").getBoolean(null);
         } catch (ReflectiveOperationException e) {
             return true;
-        }
-    }
-
-    private static void summon(Session c, double x, double y, double z) {
-        c.server().command(String.format(Locale.ROOT, "summon minecraft:end_crystal %.2f %.2f %.2f {ShowBottom:0b}", x, y, z));
-        c.server().sync(20);
-        c.ctx().waitTicks(3);
-    }
-
-    private static Object gated(ClientGameTestContext ctx) {
-        return onClient(ctx, mc -> ModUnderTest.staticCall(EXEC, "leapGateNode"));
-    }
-
-    private static void crystalCase(Session c, int n) {
-        ClientGameTestContext ctx = c.ctx();
-        double z = Ap3RuntimeTests.lane();
-        double ax = LANE_X0 + 10.5;
-        c.server().command("kill @e[type=minecraft:end_crystal]");
-        try {
-            Object run = Ap3RuntimeTests.runNode(z);
-            Object stop = node("STOP", ax, z, -90f, 0f, 3.0, 3.0);
-            Object walk = node("WALK", ax, z, 0f, 0f, 3.0, 3.0);
-            set(walk, "crystalWait", n);
-            // A crystal standing before the wait began, 2 blocks from the box: it must never count.
-            double fy = onClient(ctx, mc -> mc.player.getY());
-            summon(c, ax + 2, fy, z + 2);
-            Ap3RuntimeTests.walkIntoRun(c, z, run, stop, walk);
-            double[] p = {0, 0, 0};
-            for (int k = 0; k < 100 && gated(ctx) != walk; k++) {
-                ctx.waitTick();
-            }
-            c.check(gated(ctx) == walk, "the crystals:" + n + " Walk was not held by the gate");
-            double[] at = onClient(ctx, mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
-            ctx.waitTicks(20);
-            double z0 = onClient(ctx, mc -> mc.player.getZ());
-            c.check(gated(ctx) == walk && Math.abs(z0 - at[2]) < 1e-3,
-                    "the Walk went with only a crystal that was already standing");
-            summon(c, at[0] + 6, at[1], at[2]);
-            ctx.waitTicks(5);
-            c.check(gated(ctx) == walk, "a crystal 6 blocks away released the Walk");
-            summon(c, at[0] + 3, at[1], at[2]);
-            if (n == 2) {
-                ctx.waitTicks(5);
-                c.check(gated(ctx) == walk, "1 of 2 crystals released the Walk");
-                summon(c, at[0] - 3, at[1], at[2]);
-            }
-            int released = -1;
-            for (int k = 0; k < 6 && released < 0; k++) {
-                if (gated(ctx) != walk) {
-                    released = k;
-                }
-                ctx.waitTick();
-            }
-            for (int k = 0; k < 40; k++) {
-                ctx.waitTick();
-            }
-            double zEnd = onClient(ctx, mc -> mc.player.getZ());
-            c.note(String.format(Locale.ROOT, "crystals:%d released after %d ticks, walked %+.2f", n, released, zEnd - at[2]));
-            c.check(released >= 0 && zEnd - at[2] > 2.0, "crystals:" + n + " never released the Walk (walked "
-                    + String.format(Locale.ROOT, "%.2f", zEnd - at[2]) + ")");
-        } finally {
-            c.server().command("kill @e[type=minecraft:end_crystal]");
-            onClient(ctx, mc -> {
-                Ap3RuntimeTests.staticCallStop();
-                return null;
-            });
         }
     }
 
