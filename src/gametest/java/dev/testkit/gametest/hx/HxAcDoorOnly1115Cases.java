@@ -128,7 +128,9 @@ final class HxAcDoorOnly1115Cases {
             c.check(uses > 0, "the server saw no door click (nothing tested)");
             c.check(busy, "Door Only stopped by itself while the door stood shut");
             if (st != null) {
-                SameTick.judge(c, st, "Door Only click", SameTick.Expect.ACTED);
+                // His attack: the feature yields that tick (vanilla never sends an attack after a use in one tick), so
+                // both must go out and never share one; any other act may share.
+                SameTick.judge(c, st, "Door Only click", act == SameTick.Act.ATTACK ? SameTick.Expect.APART : SameTick.Expect.ACTED);
                 st = null;
             }
         } finally {
