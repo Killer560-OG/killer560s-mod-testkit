@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T21:55:54",
- "modSource": "lane-carnfix4-1114-PRIORITY",
- "modGitSha": "3b8958d227b9abbdb5c9d289be34b13667df4f60",
+ "generatedAt": "2026-11-15T22:09:53",
+ "modSource": "lane-arstack-1115",
+ "modGitSha": "98d5a0415913455a9ab41e63d25409bd5a466969",
  "modSourceDirty": false,
  "count": 975,
  "byKind": {
