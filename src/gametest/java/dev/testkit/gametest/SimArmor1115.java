@@ -34,6 +34,10 @@ final class SimArmor1115 {
     private SimArmor1115() {
     }
 
+    static void selectNone(ClientGameTestContext ctx) {
+        select(ctx, "NONE");
+    }
+
     private static void select(ClientGameTestContext ctx, String set) {
         Object v = ModUnderTest.enumValue(ARMOR, set);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(LOADOUT, "setArmor", new Class<?>[]{v.getClass()}, new Object[]{v}));

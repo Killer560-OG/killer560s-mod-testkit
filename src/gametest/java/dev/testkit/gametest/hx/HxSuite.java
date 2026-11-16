@@ -151,6 +151,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxChestFx1104Cases.register(s);
                     // Powder Chest Triggerbot: swap to the best Gemstone Powder drill, click, rate limit (1104-chestbot-*, mod chestbot-1104).
                     HxChestBot1104Cases.register(s);
+                    // Water Board reward chest click with his use / scroll / dig / teleport in its ticks (1115-same-waterchest-*, mod acslow3-1115).
+                    HxWaterChest1115Cases.register(s);
                     // Powder chests he dug with no line, beside another player's, far, island lapse, section update (1113-chestmiss-*, mod chestmiss-1113).
                     HxChestMiss1113Cases.register(s);
                     // Swap To Drill On Pigeon and Auto Ult, idle and with his use / attack / swap in their ticks (1105-same-*, grimgapC-1105).

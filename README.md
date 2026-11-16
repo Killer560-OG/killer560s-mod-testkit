@@ -107,7 +107,7 @@ Its other dependencies must be satisfiable: Fabric API and loader are present; a
 config library) goes in the same comma list, `-ModUnderTest a.jar,b.jar`. To make your jar the default, put it in
 `<jarsDir>\<any folder>\` and set `modJarPattern=yourmod-*.jar` in `testkit.local.properties`.
 
-**Which suites apply**: `harness` and `generic`. `65-join-fingerprint` searches every serverbound byte for your mod
+**Which suites apply**: `harness` and `generic`. `65-smoke-join-fingerprint` searches every serverbound byte for your mod
 id and probes your own `en_us.json` keys through a sign the way a probing server would; it compares the join against
 the committed no-mod baseline, so a mod that registers a network channel or ships resolvable lang keys is reported as
 detectable - that is a finding about your mod, not a harness fault. Every `k560` scenario SKIPs.
