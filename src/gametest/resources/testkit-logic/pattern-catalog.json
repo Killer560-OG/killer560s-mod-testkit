@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-16T11:30:33",
- "modSource": "lane-arhandback3-1116",
- "modGitSha": "b83b1959409c244495e92aa42fba083b6a6e8073",
+ "generatedAt": "2026-11-16T07:23:06",
+ "modSource": "acdooronly-1115",
+ "modGitSha": "a082950655e123e41c9c3952b36fd790b5f9c8bd",
  "modSourceDirty": false,
  "count": 976,
  "byKind": {
