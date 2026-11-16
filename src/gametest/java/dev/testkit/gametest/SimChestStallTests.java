@@ -159,7 +159,7 @@ public final class SimChestStallTests {
                 if (stepAt < 0) {
                     bad.add("the reward chest step never ended");
                 } else {
-                    if (!"done".equals(stepWhy)) {
+                    if (!stepWhy.startsWith("done (")) {
                         bad.add("the step ended \"" + stepWhy + "\", not \"done\"");
                     }
                     if (stepAt - lastServerClickT > STEP_TICKS) {
@@ -359,8 +359,17 @@ public final class SimChestStallTests {
 
             @Override
             void tick(ClientGameTestContext ctx, int t, int solvedAt, boolean container) {
-                int[] cu = ctx.computeOnClient(mc -> new int[]{(Integer) ModUnderTest.staticCall(WATER, "chestClicksForTest"),
-                        (Integer) ModUnderTest.staticCall(SIM_WATER, "rewardUsesForTest")});
+                int[] cu;
+                try {
+                    cu = ctx.computeOnClient(mc -> new int[]{(Integer) dev.testkit.gametest.mod.Mod.staticCall(WATER, "chestClicksForTest"),
+                            (Integer) dev.testkit.gametest.mod.Mod.staticCall(SIM_WATER, "rewardUsesForTest")});
+                } catch (RuntimeException | Error e) {
+                    ctx.runOnClient(mc -> {
+                        simLock(false);
+                        forceUnlock(null);
+                    });
+                    throw e;
+                }
                 if (uses0 < 0) {
                     uses0 = cu[1];
                 }
@@ -431,7 +440,7 @@ public final class SimChestStallTests {
                 if (after < 1 || after > 2) {
                     bad.add(after + " click(s) after the unlock (want 1-2)");
                 }
-                if (stepAt >= 0 && !"done".equals(stepWhy)) {
+                if (stepAt >= 0 && !stepWhy.startsWith("done (")) {
                     bad.add("the step ended \"" + stepWhy + "\", not \"done\"");
                 }
                 return bad.isEmpty() ? null : String.join("; ", bad);

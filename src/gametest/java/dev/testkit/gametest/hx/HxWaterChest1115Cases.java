@@ -16,9 +16,9 @@ import java.util.Locale;
  * opens it and the clicks keep coming. Cheat jar only.
  * <ul>
  *   <li>1115-same-waterchest-use / -swap / -dig / -tp: unlock signal forced TRUE (the 4-tick clicks), his right click
- *       every tick / scroll 4-5 every other tick / left click on the chest every other tick (survival) / a server teleport
+ *       every tick / scroll 4-5 every tick / left click on the chest every other tick (survival) / a server teleport
  *       every 5 ticks. The server must take at least 8 use_block, both his action and the chest click must reach the wire
- *       ({@link SameTick.Expect#ACTED}) and GrimAC stay silent (default and experimental checks).</li>
+ *       (his use and scroll in the same server tick as a click, his dig and teleport apart from it: ActionGate holds the click there) and GrimAC stay silent (default and experimental checks).</li>
  *   <li>1115-same-waterchest-locked: signal forced FALSE for 140 ticks with his right click every tick: 1 to 5 probes in
  *       all (the old rate sent 35), each taken by the server, GrimAC silent.</li>
  * </ul>
@@ -88,7 +88,7 @@ final class HxWaterChest1115Cases {
                 forceUnlock(unlocked);
                 Mod.staticCall(WATER, "chestStartAtForTest", new BlockPos(x, y, z));
                 driving = true;
-                return SameTick.start(act, act == SameTick.Act.USE ? 1 : 2,
+                return SameTick.start(act, act == SameTick.Act.USE || act == SameTick.Act.SWAP ? 1 : 2,
                         p -> p instanceof ServerboundUseItemOnPacket, // his own act never sends one (use_item, swap, dig, accept)
                         4, 5);
             });
@@ -109,7 +109,14 @@ final class HxWaterChest1115Cases {
                         + " ticks (want 1-5; the old 4-tick rate sent " + ticks / 4 + ")");
                 c.check(served >= clicks, "the server saw " + served + " of " + clicks + " probe(s)");
             }
-            SameTick.judge(c, st, "water board chest", SameTick.Expect.ACTED);
+            // His use and scroll share the chest click's server tick (his use_item after the click, his slot inside the
+            // click's useItemOn ahead of it). ActionGate holds the click in a tick his left click is queued (a use after a
+            // dig in one tick is PacketOrderI) and through the 6-tick settle after a teleport: those two are apart by design.
+            SameTick.judge(c, st, "water board chest", act == SameTick.Act.DIG || act == SameTick.Act.TP
+                    ? SameTick.Expect.APART : SameTick.Expect.SHARE);
+            if (act == SameTick.Act.SWAP) {
+                c.check(st.playerAfterFeature() == 0, "his slot went out after the chest click in a server tick: " + st.report());
+            }
             st = null;
         } finally {
             driving = false;
