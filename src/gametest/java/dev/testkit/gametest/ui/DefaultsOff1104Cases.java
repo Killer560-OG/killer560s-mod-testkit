@@ -43,7 +43,7 @@ final class DefaultsOff1104Cases {
             {"mining.nucleus.NucleusRunProfitConfig", "enabled"},
             {"mining.profit.MiningProfitConfig", "enabled"},
             {"commissioncolors.CommissionColorsConfig", "enabled"},
-            {"miningqol.MiningQolConfig", "wrongArmor", "junglePick", "resumeHeldBreak", "powderGhast"},
+            {"miningqol.MiningQolConfig", "wrongArmor", "junglePick", "resumeHeldBreak", "powderGhast", "fiestaFlask"},
             {"powdermining.PowderMiningConfig", "doublePowder", "lootCompact", "lockpickHelper", "powderTracker",
                     "chestAlert", "treasureChest"},
             {"gifplayer.GifPlayerConfig", "enabled", "audioEnabled"},
