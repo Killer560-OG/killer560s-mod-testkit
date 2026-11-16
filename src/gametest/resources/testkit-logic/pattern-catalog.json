@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-16T12:57:38",
- "modSource": "lane-bossflakes-1116",
- "modGitSha": "d54622f8c1cdcdd7325e39033c06863066a5edd1",
+ "generatedAt": "2026-11-16T13:32:17",
+ "modSource": "lane-splitlag-1116",
+ "modGitSha": "d75fee077d7e98928e752faf12cf865e623bb653",
  "modSourceDirty": false,
  "count": 976,
  "byKind": {
