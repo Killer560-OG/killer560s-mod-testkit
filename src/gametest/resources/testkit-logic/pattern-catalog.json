@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-15T22:51:00",
- "modSource": "lane-simwardrobe-1115",
- "modGitSha": "d460447c71154e40d444baa16512686e27479f23",
+ "generatedAt": "2026-11-15T23:48:33",
+ "modSource": "remerge-1116",
+ "modGitSha": "3122386e3e7467ffc9a4dd41c5fbc7ff862e7fe9",
  "modSourceDirty": false,
  "count": 976,
  "byKind": {
