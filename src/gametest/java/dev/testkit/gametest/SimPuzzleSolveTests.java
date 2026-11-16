@@ -590,6 +590,10 @@ public final class SimPuzzleSolveTests {
             if (Scenario.skip(base)) {
                 return;
             }
+            if (spec.autoGetter() != null && !dev.testkit.gametest.mod.Mod.isCheat()) { // auto puzzle owners are cheat build only
+                Scenario.skipped(base, "auto puzzles are cheat build only");
+                return;
+            }
             int reps = Math.max(1, Integer.getInteger("testkit.solveRepeat", 1));
             if (reps == 1) {
                 runNo = 1;
