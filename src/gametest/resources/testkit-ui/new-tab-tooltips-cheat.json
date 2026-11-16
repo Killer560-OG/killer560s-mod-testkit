@@ -42,7 +42,7 @@
     "gui.tab.DungeonBreakerTab": "New > Dungeon Breaker",
     "gui.tab.DungeonInfoTab": "New > Secrets HUD",
     "gui.tab.DungeonQueueTab": "New > Dungeon Queue",
-    "gui.tab.EnchantColorsTab": "New > Enchant Colors",
+    "gui.tab.EnchantColorsTab": "New > Enchants",
     "gui.tab.F7SpotsTab": "New > F7 Spots",
     "gui.tab.FastLeapTab": "New > Fast/Auto Leap",
     "gui.tab.FreezeStateTab": "New > Freeze State",
@@ -487,7 +487,7 @@
       "pv link on join": "When someone joins your party in a dungeon queue or run, adds a clickable [PV] line under the join message that opens their profile viewer.",
       "party finder overlay": "Adds join highlights, member counts and player stats to the Party Finder."
     },
-    "Enchant Colors": {
+    "Enchants": {
       "enchant colors": "Recolors enchantment names in Hypixel item lore by tier, like SkyHanni."
     },
     "F7 Spots": {

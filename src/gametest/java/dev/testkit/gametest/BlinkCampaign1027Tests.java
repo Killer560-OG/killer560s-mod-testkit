@@ -241,7 +241,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
         });
     }
 
-    private static void netStall(ClientGameTestContext ctx, int ms) {
+    static void netStall(ClientGameTestContext ctx, int ms) {
         ctx.runOnClient(mc -> {
             try {
                 java.lang.reflect.Field f = net.minecraft.network.Connection.class.getDeclaredField("channel");
@@ -271,8 +271,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
     }
 
     private static boolean coveredNow(ClientGameTestContext ctx) {
-        return ctx.computeOnClient(mc -> !(Boolean) Mod.staticCall(CHARGE, "teleportHeld")
-                && ((Number) Mod.staticCall(CHARGE, "unbacked")).intValue() == 0);
+        return ctx.computeOnClient(mc -> ((Number) Mod.staticCall(CHARGE, "unbacked")).intValue() == 0);
     }
 
     /** A sprinting hold with the Hold key down until Hold Ticks releases it. Returns {moved, held ticks, released}. */
@@ -983,6 +982,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
             Rows rows = new Rows();
             String player = playerName(ctx);
             java.util.Random rnd = new java.util.Random(1101);
+            int firedRows = 0;
             try {
                 int lane = 0;
                 server.command("effect give " + player + " minecraft:speed 600 1 true");
@@ -1002,6 +1002,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                         double[] c0 = here(ctx);
                         long ticks0 = cnum(ctx, "shotTicks");
                         long left0 = cnumOr(ctx, "coverLeftTicks");
+                        long lm = LogTap.mark();
                         ctx.getInput().holdKey(o -> o.keyUp);
                         ctx.getInput().holdKey(o -> o.keySprint);
                         // The swings start a second before the shot, so the measure sees them.
@@ -1039,14 +1040,19 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                         double moved = flat(c0, here(ctx));
                         chargeOff(ctx);
                         double g = gap(server, ctx);
+                        // Since blinklag-1104 a ping gap over 150 ms holds the shot until its ticks are backed again, and a
+                        // player who keeps moving never is: the shot then waits with its bank kept (no flag) and is the same row.
+                        boolean held = LogTap.since(lm).stream().anyMatch(l -> l.contains("waits for the bank to be covered"));
+                        firedRows += fired == 20 ? 1 : 0;
                         rows.add(server, scenario, "base " + base + " ms, shot " + rep + (stall ? " + stall" : ""),
-                                bank == 20 && fired == 20 && g < 0.6,
+                                bank == 20 && (fired == 20 || fired == 0 && held) && g < 0.6,
                                 String.format(Locale.ROOT, "bank %d, fired %d, %d held for cover (last part %d ms after the "
                                         + "first), client moved %.2f, server moved %.2f, gap %.2f", bank, fired, kept,
                                         lastChangeMs, moved, flat(srv0, srv1), g));
                         ctx.waitTicks(10);
                     }
                 }
+                check(firedRows > 0, name + ": no shot fired in any row (all were held for cover)");
             } finally {
                 server.command("effect clear " + player);
                 removeLatency(ctx);
@@ -1074,6 +1080,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
             boolean gate = setUp(ctx, 20);
             Rows rows = new Rows();
             String player = playerName(ctx);
+            int firedRows = 0;
             try {
                 int lane = 0;
                 for (int rate : new int[]{20, 9}) {
@@ -1119,11 +1126,16 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                                 chargeOff(ctx);
                                 double g = gap(server, ctx);
                                 long parts = LogTap.since(lm).stream().filter(l -> l.contains("charge SHOT (")).count();
+                                boolean held = LogTap.since(lm).stream().anyMatch(l -> l.contains("waits for the bank to be covered"));
+                                firedRows += shotTicks == 20 ? 1 : 0;
                                 rows.add(server, scenario, "tick rate " + rate + ", speed " + (amp + 1) + (jump ? " jump" : "")
-                                                + ", uplink stall " + rep + " ms", bank == 20 && shotTicks == 20 && tps == 0 && g < 0.6,
+                                                + ", uplink stall " + rep + " ms",
+                                        bank == 20 && (shotTicks == 20 || shotTicks == 0 && held) && tps == 0 && g < 0.6,
                                         String.format(Locale.ROOT, "bank %d, %d tick(s) in %d part(s), server teleports %d, "
                                                 + "server moved %.2f, gap %.2f", bank, shotTicks, parts, tps,
-                                                flat(srv0, srv1), g));
+                                                flat(srv0, srv1), g),
+                                        !scenario.flags().isEmpty()
+                                                && scenario.flags().stream().allMatch(f -> f.contains("BadPacketsR")));
                                 ctx.waitTicks(10);
                             }
                         }
@@ -1131,6 +1143,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                         ctx.waitTicks(5);
                     }
                 }
+                check(firedRows > 0, name + ": no shot fired in any row (all were held for cover)");
             } finally {
                 server.command("tick rate 20");
                 server.command("effect clear " + player);
@@ -1339,8 +1352,8 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                     rows.add(server, scenario, "(g0) control: no charge, sprint, tp, click", op && cl >= 2 && g < 0.5,
                             String.format(Locale.ROOT, "%d click(s) reached the server, gap %.2f", cl, g), true);
                 }
-                // (g)/(h) a chest clicked while a teleport's confirm is held behind its ping answer (charging): walking
-                // into the teleport (the click waits in order behind his still input), and standing (it goes live).
+                // (g)/(h) a chest clicked right after a teleport while charging (its confirm went at once with the waiting
+                // answers, blinktp-1111): walking into the teleport, and standing.
                 for (boolean walking : new boolean[]{true, false}) {
                     String lbl = walking ? "(g) click in a teleport hold, walking" : "(h) click in a teleport hold, standing";
                     tp(server, ctx, x - 20.5, SURFACE_Y, z + 15.5 + (walking ? 0 : 6), -90f);
@@ -1352,13 +1365,13 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                         ctx.getInput().holdKey(o -> o.keySprint);
                         ctx.waitTicks(6);
                     }
-                    long holds0G = cnum(ctx, "teleportHolds");
+                    long batches0G = cnum(ctx, "teleportBatches");
                     server.command(String.format(Locale.ROOT, "execute as %s at @s run tp @s ~ ~ ~3", player));
-                    for (int t = 0; t < 20 && cnum(ctx, "teleportHolds") == holds0G; t++) {
+                    for (int t = 0; t < 20 && cnum(ctx, "teleportBatches") == batches0G; t++) {
                         ctx.waitTicks(1);
                     }
                     releaseKeys(ctx);
-                    boolean inHold = ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(CHARGE, "teleportHeld"));
+                    boolean inHold = cnum(ctx, "teleportBatches") > batches0G; // the confirm went at once (no teleport hold since blinktp-1111)
                     long evG = hx.head();
                     hx.menu("Blink Campaign Chest 2", 3, java.util.Map.of(11, "minecraft:stone", 13, "minecraft:dirt"), null);
                     boolean openedG = false;
@@ -1381,7 +1394,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                     chargeOff(ctx);
                     g = gap(server, ctx);
                     rows.add(server, scenario, lbl, bankG == 20 && openedG && clicksG >= 2 && g < 0.5,
-                            String.format(Locale.ROOT, "bank %d (after %d), teleport held when the menu opened %s, %d click(s) "
+                            String.format(Locale.ROOT, "bank %d (after %d), teleport confirmed at once %s, %d click(s) "
                                     + "reached the server, gap %.2f", bankG, bankAfter, inHold, clicksG, g));
                 }
             } finally {
@@ -1546,7 +1559,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                     rows.add(server, scenario, "moving 4, walk after " + d + " tick(s)", bank == 20 && walked > 2,
                             String.format(Locale.ROOT, "at the tp %s; client walked %.2f, server moved %.2f, gap %.2f",
                                     atTp.isEmpty() ? "clean" : atTp.size() + " flag(s): " + firstChecks(atTp), walked,
-                                    flat(srv0, srv1), g), true);
+                                    flat(srv0, srv1), g));
                     ctx.waitTicks(20);
                     server.command("execute as " + player + " at @s run tp @s ~ ~ ~");
                     ctx.waitTicks(30);
@@ -1626,7 +1639,7 @@ public class BlinkCampaign1027Tests implements FabricClientGameTest {
                                 String.format(Locale.ROOT, "bank %d, kept %d; at the tp %s; shot %d tick(s) %.2f, server moved %.2f "
                                                 + "(%s), %d SHOT SET BACK, gap %.2f", bank, bankAfterTp,
                                         atTp.isEmpty() ? "clean" : atTp.size() + " flag(s): " + firstChecks(atTp), (long) s[2], s[0],
-                                        serverMoved, landed ? "LANDED" : "set back", setBack, g), true);
+                                        serverMoved, landed ? "LANDED" : "set back", setBack, g));
                         ctx.waitTicks(40);
                         // A kept teleport's BadPacketsN lands on the next teleport: take it here (final-1027).
                         server.command("execute as " + player + " at @s run tp @s ~ ~ ~");

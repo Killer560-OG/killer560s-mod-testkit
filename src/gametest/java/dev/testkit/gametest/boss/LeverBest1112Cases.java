@@ -52,6 +52,7 @@ final class LeverBest1112Cases {
         s.testExpectingFlags("1112-boss-lever-reach-probe", LeverBest1112Cases::probe);
         s.test("1112-boss-lever-best-spot", LeverBest1112Cases::bestSpot);
         s.test("1112-boss-lever-his-spot", LeverBest1112Cases::hisSpot);
+        LeverFreeze1116Cases.register(s);
         for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.CLICK, SameTick.Act.ATTACK,
                 SameTick.Act.TP}) {
             s.test("1112-boss-lever-max-" + a.name().toLowerCase(Locale.ROOT), c -> maxSameTick(c, a));
@@ -60,7 +61,7 @@ final class LeverBest1112Cases {
 
     // ------------------------------------------------------------------------------------------------------------ arena
 
-    private static void arena(Session c) {
+    static void arena(Session c) {
         c.server().command("forceload add 16 123 30 142");
         c.server().sync(20);
         c.server().command("fill 17 123 123 30 123 132 minecraft:stone");
@@ -72,7 +73,7 @@ final class LeverBest1112Cases {
         c.waitUntil("the lever on the client", mc -> mc.level.getBlockState(LEVER).getBlock() instanceof LeverBlock, 100);
     }
 
-    private static void p3(Session c) {
+    static void p3(Session c) {
         c.server().command("kill @e[type=armor_stand,x=27,y=125,z=127,distance=..3]");
         c.server().command("summon armor_stand 27.5 125 127.5 {NoGravity:1b,Invisible:1b,CustomName:\"Not Activated\",CustomNameVisible:1b}");
         c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
@@ -82,13 +83,13 @@ final class LeverBest1112Cases {
     }
 
     /** Goldor's line: P3 again, and the Aura forgets which levers it flicked. */
-    private static void newRun(Session c) {
+    static void newRun(Session c) {
         c.hx().chat(TerminalAuraCases.GOLDOR);
         c.waitUntil("Floor7Tracker phase P3",
                 mc -> "P3".equals(String.valueOf(Mod.staticCall(TerminalAuraCases.TRACKER, "getPhase"))), 100);
     }
 
-    private static void cleanup(Session c, List<AutoCloseable> undo) {
+    static void cleanup(Session c, List<AutoCloseable> undo) {
         c.onClient(mc -> {
             BossAuraTurnCases.restore(undo);
             if (mc.player != null && dev.testkit.compat.McCompat.screen(mc) != null) dev.testkit.compat.McCompat.setScreen(mc, null);
@@ -104,7 +105,7 @@ final class LeverBest1112Cases {
         c.hx().call("dungeon.tp", "x", -619.5, "y", 151.0, "z", -619.5, "yaw", 0f, "pitch", 0f);
     }
 
-    private static void quiet(Session c, List<AutoCloseable> undo) {
+    static void quiet(Session c, List<AutoCloseable> undo) {
         undo.add(c.onClient(mc -> LightsDeviceCases.raw(LightsDeviceCases.CFG, "AuraEnabled", false)));
         undo.add(c.onClient(mc -> LightsDeviceCases.raw(LightsDeviceCases.CFG, "TriggerEnabled", false)));
         undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "Enabled", false)));
@@ -119,7 +120,7 @@ final class LeverBest1112Cases {
         undo.add(c.onClient(mc -> Mod.with(SECRETS, "LeverShape", Mod.enumValue(SECRETS + "$Shape", "FULL"))));
     }
 
-    private static void auraOn(Session c, List<AutoCloseable> undo) {
+    static void auraOn(Session c, List<AutoCloseable> undo) {
         undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "SectionLevers", true)));
         undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "SectionLeversEarly", true)));
         undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "Range", 4.5)));
@@ -152,7 +153,7 @@ final class LeverBest1112Cases {
     }
 
     /** The feet x (z 127.5, y 124) whose best ray enters the cube at {@code want}: entries fall as x grows toward the lever. */
-    private static double xFor(Session c, double want) {
+    static double xFor(Session c, double want) {
         return c.onClient(mc -> {
             double lo = 22.0, hi = 23.2;
             for (int i = 0; i < 40; i++) {
@@ -163,7 +164,7 @@ final class LeverBest1112Cases {
         });
     }
 
-    private static void standAt(Session c, double x, double y, double z, float yaw, float pitch) {
+    static void standAt(Session c, double x, double y, double z, float yaw, float pitch) {
         c.hx().call("dungeon.tp", "x", x, "y", y, "z", z, "yaw", yaw, "pitch", pitch);
         c.waitUntil("the client at " + x + "," + y + "," + z, mc -> mc.player != null
                 && mc.player.position().distanceTo(new Vec3(x, y, z)) < 0.02, 200);
@@ -439,7 +440,7 @@ final class LeverBest1112Cases {
     }
 
     /** use_item_on on the wire: its block, and where the ray from the eye at that moment enters the cube. */
-    private static String describe(Object p) {
+    static String describe(Object p) {
         if (!(p instanceof ServerboundUseItemOnPacket)) return p.getClass().getSimpleName();
         BlockHitResult h = null;
         for (java.lang.reflect.Method m : p.getClass().getMethods()) {

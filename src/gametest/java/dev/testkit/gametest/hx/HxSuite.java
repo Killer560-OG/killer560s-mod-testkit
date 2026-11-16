@@ -115,6 +115,8 @@ public class HxSuite implements FabricClientGameTest {
                     // Per-block commission areas, event-driven highlights, carpet stability (1103-mining-block-area,
                     // -highlight-latency, -carpet-stable; mod mithrilarea-1103).
                     HxMiningArea1103Cases.register(s);
+                    // Commission Block Colors (1114-commcolors-*, mod glacitecomm-b-1114).
+                    HxCommColors1114Cases.register(s);
                     HxCrystalWalls1104Cases.register(s);
                     HxDarkStone1104Cases.register(s);
                     // Blaze Solver boxes against water behind / in front / around (1103-blaze-water, mod blazewater-1103).
@@ -148,10 +150,19 @@ public class HxSuite implements FabricClientGameTest {
                     HxChestFx1104Cases.register(s);
                     // Powder Chest Triggerbot: swap to the best Gemstone Powder drill, click, rate limit (1104-chestbot-*, mod chestbot-1104).
                     HxChestBot1104Cases.register(s);
+                    // Water Board reward chest click with his use / scroll / dig / teleport in its ticks (1115-same-waterchest-*, mod acslow3-1115).
+                    HxWaterChest1115Cases.register(s);
+                    // Powder chests he dug with no line, beside another player's, far, island lapse, section update (1113-chestmiss-*, mod chestmiss-1113).
+                    HxChestMiss1113Cases.register(s);
                     // Swap To Drill On Pigeon and Auto Ult, idle and with his use / attack / swap in their ticks (1105-same-*, grimgapC-1105).
                     HxSameTick1105Cases.register(s);
+                    // Swap To Drill On Pigeon: Powder Bonus / Compact Level, claim powder detection (1114-drillswap-*, mod drillswap-1114).
+                    HxDrillSwap1114Cases.register(s);
+
                     // Auto Superboom, cheat only, with his dig / use / scroll / teleport in the swap tick (1108-same-superboom-*, featD-1108).
                     HxSuperboom1108Cases.register(s);
+                    // Storm Bow release and Auto M5, idle and with his actions in their ticks (1111-*stormbow*, 1111-*autom5*, mod stormm5-1111).
+                    HxStormM51111Cases.register(s);
                     HxCheatBugs1109Cases.register(s);
                     // Deployables: lantern circles, in-radius and the timer HUD (1104-minedeploy, mod minedeploy-1104).
                     HxMineDeploy1104Cases.register(s);
@@ -183,6 +194,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxKickRejoin1103Cases.register(s);
                     // mod chport-1104: the Mining features pulled from staging-mining-3 (2026-11-04).
                     HxMining3Cases.register(s);
+                    // mod glacitecomm-c-1114: the Glacite Mineshafts card (1114-mineshaft-*).
+                    HxMineshaft1114Cases.register(s);
                     // Hide Ghost Mobs: a mob the server stopped sending is hidden, a still real one never (1109-ghostmob-hide, mod ghostmob-1109).
                     HxGhostMob1109Cases.register(s);
                     // mod featC-1108: Puzzle HUD, Reparty, Watcher Helper.
@@ -193,6 +206,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxCoop1109Cases.register(s);
                     // mod nobosspearl-1110: Block Ender Pearls In Boss.
                     HxNoBossPearl1110Cases.register(s);
+                    HxGlaciteCommA1114Cases.register(s);
+                    HxNoLocraw1115Cases.register(s);
                 });
     }
 }
