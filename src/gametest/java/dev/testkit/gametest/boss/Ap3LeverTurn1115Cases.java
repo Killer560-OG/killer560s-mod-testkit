@@ -43,11 +43,14 @@ final class Ap3LeverTurn1115Cases {
         if (!Mod.isCheat()) {
             return;
         }
-        s.test("1115-ap3-leverturn-states", c -> run(c, false, false));
-        s.test("1115-ap3-leverturn-same-use", c -> run(c, true, false));
+        s.test("1115-ap3-leverturn-states", c -> run(c, null, false));
+        s.test("1115-ap3-leverturn-same-use", c -> run(c, SameTick.Act.USE, false));
         // ap3leveralways-1115: the lever already on is the one AP3 flicked itself earlier in the same run (a retry).
-        s.test("1115-ap3-leveralways-retry", c -> run(c, false, true));
-        s.test("1115-ap3-leveralways-retry-same-use", c -> run(c, true, true));
+        s.test("1115-ap3-leveralways-retry", c -> run(c, null, true));
+        s.test("1115-ap3-leveralways-retry-same-use", c -> run(c, SameTick.Act.USE, true));
+        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.ATTACK, SameTick.Act.SWAP, SameTick.Act.SCREEN_CLICK}) {
+            s.test("1115-ap3-leveralways-same-" + a.name().toLowerCase(Locale.ROOT).replace('_', '-'), c -> run(c, a, true));
+        }
     }
 
     private static Object node(String type, double x, double z, float yaw, double size) {
@@ -128,7 +131,7 @@ final class Ap3LeverTurn1115Cases {
         return new ArrayList<>(out.subList(first, out.size()));
     }
 
-    private static Run runOnce(Session c, boolean leverOn, boolean sameUse, boolean fresh) {
+    private static Run runOnce(Session c, boolean leverOn, SameTick.Act sameAct, boolean fresh) {
         c.onClient(mc -> {
             Mod.staticCall(EXEC, "stop", "test lane");
             Ap3TermAuraCases.setChain();
@@ -161,7 +164,7 @@ final class Ap3LeverTurn1115Cases {
         Object stop = node("STOP", 14.0, 141.5, WALK_YAW, 4.0);
         int turnOnly0 = ((Number) Mod.staticCall("leveraura.LeverAuraFeature", "turnOnlyCountForTest")).intValue();
         long mark = LogTap.mark();
-        SameTick st = sameUse ? SameTickCases.start(c, SameTick.Act.USE, p -> p instanceof ServerboundUseItemOnPacket) : null;
+        SameTick st = sameAct != null ? SameTickCases.start(c, sameAct, p -> p instanceof ServerboundUseItemOnPacket) : null;
         WireCapture.describe = Ap3LeverTurn1115Cases::describe;
         WireCapture.start();
         c.onClient(mc -> {
@@ -186,7 +189,7 @@ final class Ap3LeverTurn1115Cases {
                     return null;
                 });
             } else {
-                SameTickCases.judge(c, st, "lever click with his use");
+                SameTickCases.judge(c, st, "lever click with his " + sameAct);
             }
         }
         int[] counts = new int[2];
@@ -231,7 +234,8 @@ final class Ap3LeverTurn1115Cases {
         return -1;
     }
 
-    static void run(Session c, boolean sameUse, boolean retry) throws Exception {
+    static void run(Session c, SameTick.Act sameAct, boolean retry) throws Exception {
+        boolean sameUse = sameAct != null;
         List<AutoCloseable> undo = new ArrayList<>();
         try {
             LightsDeviceCases.baseline(c, undo);
@@ -260,9 +264,9 @@ final class Ap3LeverTurn1115Cases {
             // A warm-up walk first, not compared: the session's first AP3 walk once started from a different look (the server
             // had heard no rotation yet), one tick out of step with every later walk (experimental run, 11-15).
             runOnce(c, true, false, true);
-            Run off = runOnce(c, false, sameUse, true);
+            Run off = runOnce(c, false, sameAct, true);
             // retry: no new run, so Lever Aura still holds the lever AP3 flicked in the walk above.
-            Run on = runOnce(c, true, sameUse, !retry);
+            Run on = runOnce(c, true, sameAct, !retry);
             // Compared from 3 ticks before each walk's lever turn: the align at the start does not always begin at the same
             // look between two walks (yaw 150 vs 165 at its first tick, 11-15, both lever states alike), which is not the lever.
             int aOff = leverTurn(off.ticks()), aOn = leverTurn(on.ticks());
@@ -338,7 +342,7 @@ final class Ap3LeverTurn1115Cases {
             c.check(off.repickLines() > 0 && on.repickLines() > 0, "AP3 never re-picked its keys for the lever turn (off/on "
                     + off.repickLines() + "/" + on.repickLines() + ")");
             c.check(firstDiff < 0, "the two lever states walked differently: " + diff);
-            if (sameUse) {
+            if (sameAct == SameTick.Act.USE) {
                 c.check(off.uses() > 20 && on.uses() > 20, "his use did not go every tick (uses off/on " + off.uses() + "/" + on.uses() + ")");
                 c.check(off.ticks().get(leverTick < 0 ? 0 : leverTick)[6] > 0, "his use did not go in the lever click's tick");
             }
