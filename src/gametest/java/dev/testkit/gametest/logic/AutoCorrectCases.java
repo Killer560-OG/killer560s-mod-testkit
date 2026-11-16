@@ -24,6 +24,8 @@ final class AutoCorrectCases {
         Class<?> fixer = Mod.cls("autocorrect.CommandFixer");
         Method classify = fixer.getMethod("classify", String.class, Set.class);
         Method fix = fixer.getMethod("fix", String.class, Set.class);
+        Method dist = fixer.getDeclaredMethod("distance", String.class, String.class);
+        dist.setAccessible(true);
         Set<String> commands = new LinkedHashSet<>((Set<String>) fixer.getMethod("baseCommands").invoke(null));
         Field by = Mod.cls("gui.SearchCommands").getDeclaredField("BY_COMMAND");
         by.setAccessible(true);
@@ -35,9 +37,10 @@ final class AutoCorrectCases {
         for (Object[] group : new Object[][] {{"command", commands}, {"warp destination", warps}}) {
             String kind = (String) group[0];
             Set<String> valid = (Set<String>) group[1];
-            int generated = 0, corrected = 0, isValid = 0, ambiguous = 0, shortLeft = 0, wrong = 0, missed = 0;
+            int generated = 0, corrected = 0, isValid = 0, ambiguous = 0, shortLeft = 0, wrong = 0, missed = 0, claimed = 0;
             TreeSet<String> ambiguousList = new TreeSet<>();
             List<String> wrongList = new ArrayList<>();
+            List<String> claimedList = new ArrayList<>();
             List<String> missedList = new ArrayList<>();
             for (String target : valid) {
                 if (target.length() < 2) {
@@ -68,8 +71,14 @@ final class AutoCorrectCases {
                     if (r.equals("VALID")) {
                         isValid++;
                     } else if (r.startsWith("FIXED:")) {
-                        if (r.substring(6).equals(target)) {
+                        String got = r.substring(6);
+                        if (got.equals(target)) {
                             corrected++;
+                        } else if (!classify.invoke(null, t, Set.of(target)).toString().startsWith("FIXED:")
+                                || (int) dist.invoke(null, t, got) <= (int) dist.invoke(null, t, target)) {
+                            // the typo is just as much (or only) a typo of another command: not a wrong guess
+                            claimed++;
+                            claimedList.add(t + " (typo of " + target + ") -> " + got);
                         } else {
                             wrong++;
                             wrongList.add(t + " (typo of " + target + ") -> " + r);
@@ -88,8 +97,9 @@ final class AutoCorrectCases {
             total[0] += generated;
             c.note(kind + " typos: generated " + generated + ", corrected " + corrected + ", left alone as already valid "
                     + isValid + ", left alone as ambiguous " + ambiguous + ", left alone as 3 letters or fewer (only swaps and"
-                    + " doubled letters are fixed) " + shortLeft + ", wrong target " + wrong + ", missed " + missed);
+                    + " doubled letters are fixed) " + shortLeft + ", also a typo of another command, fixed to that one " + claimed + ", wrong target " + wrong + ", missed " + missed);
             c.note(kind + " ambiguous: " + ambiguousList);
+            c.note(kind + " fixed to another command (first 40): " + claimedList.subList(0, Math.min(40, claimedList.size())));
             c.check(kind + ": no typo is corrected to the wrong target", wrong == 0, wrongList.toString());
             c.check(kind + ": no typo of 4+ letters is missed", missed == 0, missedList.toString());
             c.check(kind + ": the generator acted (typos made, many corrected)", generated > 500 && corrected > generated / 4,

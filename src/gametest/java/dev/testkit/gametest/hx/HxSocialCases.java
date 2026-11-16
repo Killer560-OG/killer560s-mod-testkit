@@ -258,6 +258,7 @@ final class HxSocialCases {
                     c.waitUntil("the command for " + t[0], mc -> c.commands().size() > before, 40);
                     String sent = c.commands().get(before);
                     c.check(sent.equals(t[1]), t[0] + " went out as /" + sent + " (want /" + t[1] + ")");
+                    c.ctx().waitTicks(22); // vanilla kicks "for spamming" at about 10 messages in a burst
                 }
                 c.note("swap fixes /zb->/bz, /ha->/ah, /wrap->/warp, /warp bsae->/warp base; /pc, /xq, /bz, valid warps, names and extra words untouched");
             }
