@@ -1959,7 +1959,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
                     java.util.function.Predicate<net.minecraft.network.protocol.Packet<?>> feature = p ->
                             p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket a
                                     && picks.contains(a.getPos());
-                    SameTick st = act == null ? null : ctx.computeOnClient(mc -> SameTick.start(act, 2, feature, 0, 1));
+                    SameTick st = act == null ? null : ctx.computeOnClient(mc -> SameTick.start(act,
+                            act == SameTick.Act.USE_KEY ? 4 : 2, feature, 0, 1)); // right click at the held pace (4), as 1112-blink-ownbreak
                     double[] s0 = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getZ()});
                     java.util.Map<BlockPos, Integer> reach = new java.util.HashMap<>();
                     float maxCamYaw = 0f;
