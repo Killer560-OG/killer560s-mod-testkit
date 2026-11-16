@@ -52,6 +52,9 @@ import java.util.regex.Pattern;
 public class SimAutopilotTests implements FabricClientGameTest {
 
     private static final String NAME = "141-sim-autopilot";
+    /** Runs in 141's world after blood first, so naming it alone runs 141's setup too (train lanes run it alone). */
+    private static final String DOOR_OUT = "1115-acslow2-doorout";
+    private static boolean doorOut;
     /** The shared Status HUD on an Autopilot run ({@link StatusHudCase}); same world setup as 141. */
     static final String HUD_CASE = "147-sim-autostatus-hud";
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
@@ -130,7 +133,8 @@ public class SimAutopilotTests implements FabricClientGameTest {
             ModUnderTest.require("killer560smod");
             etaLogicCase(ctx);
         }
-        boolean mainCase = !Scenario.skip(NAME);
+        doorOut = Scenario.named(DOOR_OUT) && !Scenario.legitSkip(DOOR_OUT);
+        boolean mainCase = !Scenario.skip(NAME) || doorOut;
         boolean hudCase = !Scenario.skip(HUD_CASE);
         if (System.getProperty("testkit.scenario", "").isBlank() || !mainCase && !hudCase) {
             return;
@@ -566,7 +570,7 @@ public class SimAutopilotTests implements FabricClientGameTest {
         }
         println("blood first: by rate alone the first pick would have been " + byRate + " - Blood First changed the order: "
                 + wouldDiffer + (wouldDiffer ? "" : " (R was first by rate anyway; the push is still checked above)"));
-        if (!Scenario.skip("1115-acslow2-doorout")) {
+        if (doorOut && !Scenario.skip(DOOR_OUT)) {
             doorOutCase(ctx, failures, bloodBlocks, bloodLock, bloodCell);
         }
     }

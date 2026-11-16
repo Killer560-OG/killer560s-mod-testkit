@@ -43,6 +43,9 @@ public class SimAutoClearTests implements FabricClientGameTest {
     private static final String ETA_SUFFIX = "(  ~\\d+:\\d\\d left)?";
 
     private static final String NAME = "131-sim-auto-clear";
+    /** Runs in 131's room after repositions, so naming it alone runs 131's setup too (train lanes run it alone). */
+    private static final String NO_LAND = "1115-acslow2-noland";
+    private static boolean noLand;
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String SIM_MOBS = "com.killer560.hub.roomsim.SimMobs";
     private static final String SIM_ITEMS = "com.killer560.hub.roomsim.SimItems";
@@ -72,7 +75,9 @@ public class SimAutoClearTests implements FabricClientGameTest {
     @Override
     public void runTest(ClientGameTestContext ctx) {
         // Only when named (a whole sim floor and three clears, several minutes).
-        if (System.getProperty("testkit.scenario", "").isBlank() || Scenario.skip(NAME)) {
+        noLand = Scenario.named(NO_LAND) && !Scenario.legitSkip(NO_LAND);
+        boolean main = !Scenario.skip(NAME);
+        if (System.getProperty("testkit.scenario", "").isBlank() || !main && !noLand) {
             return;
         }
         if (!dev.testkit.gametest.mod.Mod.isCheat()) { // Auto Clear is cheat build only
@@ -833,7 +838,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
         if (plan == null || !plan.contains("2 block(s) reach all 3") || !plan.contains("nearest mob first would take 3")) {
             failures.add("repositions: no plan of two blocks against nearest-first's three was logged (" + plan + ")");
         }
-        if (!Scenario.skip("1115-acslow2-noland")) {
+        if (noLand && !Scenario.skip(NO_LAND)) {
             noLandCase(ctx, failures, roomName, found[2], startAt);
         }
         return true;
