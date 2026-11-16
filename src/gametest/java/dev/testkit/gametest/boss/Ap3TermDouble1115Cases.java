@@ -30,13 +30,14 @@ final class Ap3TermDouble1115Cases {
         if (!Mod.isCheat()) {
             return;
         }
-        s.test("1115-ap3-termdouble", c -> run(c, null));
-        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.ATTACK, SameTick.Act.SWAP, SameTick.Act.TP}) {
-            s.test("1115-ap3-termdouble-" + a.name().toLowerCase(java.util.Locale.ROOT), c -> run(c, a));
+        s.test("1115-ap3-termdouble", c -> run(c, null, false));
+        s.test("1115-ap3-termdouble-again", c -> run(c, null, true));
+        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.ATTACK, SameTick.Act.SWAP, SameTick.Act.TP, SameTick.Act.CLICK}) {
+            s.test("1115-ap3-termdouble-" + a.name().toLowerCase(java.util.Locale.ROOT), c -> run(c, a, false));
         }
     }
 
-    private static void run(Session c, SameTick.Act act) throws Exception {
+    private static void run(Session c, SameTick.Act act, boolean again) throws Exception {
         String ex = Ap3TermAuraCases.EXEC;
         String cfg = TerminalAuraCases.CONFIG;
         double px = Ap3TermAuraCases.X - 1.5;
@@ -85,6 +86,13 @@ final class Ap3TermDouble1115Cases {
                 return null;
             });
             c.waitUntil("the node's click reaching the server", mc -> c.events("term.interact").size() > before, 60);
+            if (again) { // a second approach: the chain runs again while the first window is still on its way
+                c.onClient(mc -> {
+                    Mod.staticCall(ex, "stop", "test lane");
+                    Ap3TermAuraCases.setChain(termAura, terminal);
+                    return null;
+                });
+            }
             c.waitUntil("the terminal screen", mc -> dev.testkit.compat.McCompat.screen(mc) != null, 60);
             c.ctx().waitTicks(2 * OPEN_DELAY + 10); // a second click would land inside this window
             List<JsonObject> ev = c.events("term.interact");
