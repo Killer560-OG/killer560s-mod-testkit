@@ -270,12 +270,16 @@ final class Ap3LeverTurn1115Cases {
             String diff = "";
             double lookDiff = 0, posDiff = 0;
             int lookDiffAt = -1;
+            // Positions as moved since the first compared tick (the align leaves the walks up to 0.001 block apart before the
+            // lever), looks modulo a full turn (the yaw is never wrapped, and the align can leave one walk a turn ahead).
+            double[] a0 = offT.get(0), b0 = onT.get(0);
             for (int i = 0; i < n; i++) {
                 double[] a = offT.get(i);
                 double[] b = onT.get(i);
                 for (int k = 0; k < 5; k++) {
                     boolean nan = Double.isNaN(a[k]) != Double.isNaN(b[k]);
-                    double d = Math.abs(a[k] - b[k]);
+                    double d = k < 3 ? Math.abs((a[k] - a0[k]) - (b[k] - b0[k]))
+                            : Math.abs(net.minecraft.util.Mth.wrapDegrees(a[k] - b[k]));
                     if (k >= 3 && !nan && d > lookDiff) {
                         lookDiff = d;
                         lookDiffAt = i;
