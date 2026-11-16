@@ -9507,10 +9507,6 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                            List<String> off, boolean window, int clickGap, boolean tickHold) {
         }
 
-        private static int holdTicks(Run r) {
-            return Math.max(r.clickGap(), r.tickHold() ? 1 : 0);
-        }
-
         /** Runs per side before giving up on one the chest's window did not land in. */
         private static final int WINDOW_ATTEMPTS = 5;
 
@@ -9553,10 +9549,11 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // load. Without the hold the re-aim is the control's tick count plus one, as before.
             // The same-tick hold (mod: a use_item_on already went out this server tick, so the warp acts next tick, GrimAC
             // PacketOrderE) costs a side one tick whenever the chest's click lands in the warp's own server tick, which
-            // is the load-dependent phase (arreaim-1115: control 1 or 2, mismatch 2 or 3), and overlaps the re-aim and the
-            // click-gap hold alike. Judge each side's ticks minus its own hold; the re-aim still costs exactly one more.
-            int base = control.acted() - holdTicks(control);
-            int want = base + Math.max(1, holdTicks(mismatch));
+            // is the load-dependent phase (arreaim-1115: control 1 or 2, mismatch 2 or 3), and ADDS to the re-aim's tick
+            // (control 2 / mismatch 3 with both held). Judge each side's ticks minus its own hold; the re-aim still costs
+            // exactly one more, overlapping only the click-gap hold.
+            int base = control.acted() - control.clickGap() - (control.tickHold() ? 1 : 0);
+            int want = base + Math.max(1, control.clickGap()) + (mismatch.tickHold() ? 1 : 0);
             check(mismatch.acted() == want, "mismatch: the warp went " + mismatch.acted() + " tick(s) after firing, the "
                     + "control " + control.acted() + " (click-gap hold " + control.clickGap() + ") - the re-aim must cost "
                     + "exactly one tick, overlapping any click-gap hold (want " + want + ")");
