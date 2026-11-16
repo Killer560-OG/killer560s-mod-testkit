@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-16T15:35:27",
- "modSource": "lane-crashfix-colltrack-1116",
- "modGitSha": "b1dd5267b0bc1a2d291828156ab52e2c3023f519",
+ "generatedAt": "2026-11-16T16:10:43",
+ "modSource": "lane-blinkkept-1111-rb2",
+ "modGitSha": "018d98ed66f10dcaf1e41a290ea0b2e485203c29",
  "modSourceDirty": false,
  "count": 977,
  "byKind": {
