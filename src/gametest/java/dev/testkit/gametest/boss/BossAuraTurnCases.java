@@ -416,7 +416,7 @@ final class BossAuraTurnCases {
             undo.add(c.onClient(mc -> Mod.with(cfg, "AutoSimonSaysEnabled", true))); // the master switch (1a4e48f60)
             undo.add(c.onClient(mc -> Mod.with(cfg, "AutoSolveEnabled", true)));
             c.hx().call("boss.ss.build", "rounds", 4, "line", true, "seed", seed);
-            c.hx().call("dungeon.tp", "x", 107.5, "y", 120.0, "z", 93.5, "yaw", -90f, "pitch", 0f);
+            SimonSaysCases.tpToDevice(c);
             c.waitUntil("the client to have the device wall and start button", mc ->
                     mc.level.getBlockState(new BlockPos(111, 120, 92)).is(net.minecraft.world.level.block.Blocks.OBSIDIAN)
                             && mc.level.getBlockState(SimonSaysCases.START).is(net.minecraft.world.level.block.Blocks.STONE_BUTTON), 200);
@@ -427,7 +427,7 @@ final class BossAuraTurnCases {
             SimonSaysCases.click(c, SimonSaysCases.START);
             c.waitUntil("the device to start (Hx)", mc -> !"IDLE".equals(SimonSaysCases.state(c).get("phase").getAsString()), 60);
             // Now face the way the case is about (server tp, so no rotation of the harness's own is ever sent).
-            c.hx().call("dungeon.tp", "x", 107.5, "y", 120.0, "z", 93.5, "yaw", yaw, "pitch", 0f);
+            c.hx().call("dungeon.tp", "x", 107.5, "y", 120.4, "z", 93.5, "yaw", yaw, "pitch", 0f);
             c.waitUntil("the client facing " + yaw, mc -> Math.abs(Mth.wrapDegrees(mc.player.getYRot() - yaw)) < 0.01f, 40);
             c.ctx().waitTicks(2);
             float[] cam = start(c);

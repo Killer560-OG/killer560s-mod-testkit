@@ -1062,7 +1062,7 @@ public class ZpewCampaignTests implements FabricClientGameTest {
 
     static final Set<String> REACTIVE = Set.of("pong", "keep_alive", "accept_teleportation", "chunk_batch_received",
             "client_tick_end", "client_information",
-            // the mod's own /locraw probe lands in whichever run is first (also with ZPEW off): not a ZPEW action
+            // a command the player or another mod sends lands in whichever run is first: not a ZPEW action
             "chat_command");
 
     /** The scripted session, the same every run: 7 uses (a plain warp, a jump warp, a no-sneak Transmission, a chain of
@@ -1200,14 +1200,14 @@ public class ZpewCampaignTests implements FabricClientGameTest {
                 Object[] all = Mod.cls("zpew.ZpewSource").getEnumConstants();
                 for (Object srcObj : all) {
                     String src = ((Enum<?>) srcObj).name();
-                    boolean cheatOnly = (Boolean) Mod.call(srcObj, "cheatOnly");
+                    boolean grouped = Mod.call(srcObj, "group") != null;
                     for (boolean on : new boolean[]{false, true}) {
                         tpTo(ctx, server, who, X0 + 0.5, Y, Z0 + 0.5, true);
                         ctx.runOnClient(mc -> {
                             for (Object s : all) {
-                                Mod.call(Mod.cfg(ZP_CFG), "setWorksForByName", ((Enum<?>) s).name(),
-                                        s != srcObj || on);
+                                Mod.call(Mod.cfg(ZP_CFG), "setWorksForByName", ((Enum<?>) s).name(), true);
                             }
+                            Mod.call(Mod.cfg(ZP_CFG), "setWorksForByName", src, on);
                         });
                         float[] a = aim(new Vec3(X0 + 0.5, Y + 1.27, Z0 + 0.5), new Vec3(X0 + 10.5, Y, Z0 + 0.5));
                         look(ctx, a[0], a[1]);
@@ -1240,10 +1240,10 @@ public class ZpewCampaignTests implements FabricClientGameTest {
                         long seen = numBy(ctx, "seenBy", src) - seen0;
                         long allP = num(ctx, "predictions") - allP0;
                         int w = stats(hx).get("etherwarps").getAsInt() - w0;
-                        boolean expectPredicted = on && (cheat || !cheatOnly);
+                        boolean expectPredicted = on && cheat && grouped;
                         String line = String.format(Locale.ROOT, "%s switch %s (%s jar%s): seen %d predicted %d hit %d "
                                         + "skipped %d, all predictions %d, server warps %d -> %s", src, on ? "ON" : "off",
-                                cheat ? "cheat" : "legit", cheatOnly ? ", cheat source" : "", seen, p, h, sk, allP, w,
+                                cheat ? "cheat" : "legit", grouped ? "" : ", no Works For switch", seen, p, h, sk, allP, w,
                                 expectPredicted ? "expected predicted" : "expected skipped");
                         scenario.log(line);
                         boolean ok = w == 1 && seen == 1 && (expectPredicted ? (p == 1 && h == 1 && sk == 0 && allP == 1)
@@ -1277,8 +1277,7 @@ public class ZpewCampaignTests implements FabricClientGameTest {
                 String who = name(ctx);
                 ctx.runOnClient(mc -> Mod.set(LC_CFG, "setEnabled", true));
                 latency(ctx, 150);
-                String[][] modes = {{"LEFT_CLICK on", "true", "true"}, {"LEFT_CLICK off", "false", "true"},
-                        {"MANUAL off, LEFT_CLICK on", "true", "false"}};
+                String[][] modes = {{"Manual on", "true", "true"}, {"Manual off", "false", "false"}};
                 for (String[] m : modes) {
                     for (int rep = 0; rep < 3; rep++) {
                         boolean sneakHeld = rep != 1;

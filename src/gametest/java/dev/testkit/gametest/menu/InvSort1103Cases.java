@@ -176,7 +176,7 @@ final class InvSort1103Cases {
                 && mc.player.getInventory().getItem(slotB).is(Items.ENCHANTED_BOOK), 80);
     }
 
-    private static ItemStack book(String enchant, int level) {
+    static ItemStack book(String enchant, int level) {
         ItemStack s = new ItemStack(Items.ENCHANTED_BOOK);
         CompoundTag t = new CompoundTag();
         t.putString("id", "RUNEBOOK");
