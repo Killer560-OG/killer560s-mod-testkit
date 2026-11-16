@@ -1498,8 +1498,13 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     private void caseChain(ClientGameTestContext ctx) {
         resetRoutes(ctx);
         // archain-1115: 96-ar-play opens a chest holding the Aspect of the Void and leaves RightClick's unpaired block click
-        // set, so every chain warp then waits a tick for the server to hear its look; the chain measures a fresh state.
-        ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.util.RightClick", "reset"));
+        // set, so every chain warp then waits a tick for the server to hear its look; and the sim's server keeps that chest
+        // click's verdict for 100 ticks, dropping the first warp at the first turn (a second use, 13 for 12 nodes). The
+        // chain measures a fresh state on both sides.
+        ctx.runOnClient(mc -> {
+            ModUnderTest.staticCall("com.killer560.hub.util.RightClick", "reset");
+            ModUnderTest.staticCall("com.killer560.hub.roomsim.SimAbilities", "forgetStoredClicks");
+        });
         arena(ctx, false);
         giveHotbar(ctx);
         int[][] pts = ArChainMeasure.CHAIN;
