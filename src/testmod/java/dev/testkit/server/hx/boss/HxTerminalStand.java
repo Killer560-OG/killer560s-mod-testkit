@@ -40,6 +40,9 @@ final class HxTerminalStand {
     private static double minDy = 0;
     private static boolean line = true;
     private static int interacts;
+    /** Server ticks between an opening interact and the terminal window (a slow round trip); 0 = at once. */
+    private static int openDelay;
+    private static final java.util.ArrayList<Object[]> PENDING = new java.util.ArrayList<>();
     private static int opens;
     private static int x;
     private static int z;
@@ -49,6 +52,15 @@ final class HxTerminalStand {
     }
 
     static void register() {
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(server -> {
+            for (java.util.Iterator<Object[]> it = PENDING.iterator(); it.hasNext();) {
+                Object[] p = it.next();
+                if (--(((int[]) p[1])[0]) <= 0) {
+                    it.remove();
+                    HxTerminalApi.open(server, (JsonObject) p[0]);
+                }
+            }
+        });
         UseEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
             if (level.isClientSide() || !(player instanceof ServerPlayer sp) || stand == null || entity != stand) {
                 return InteractionResult.PASS;
@@ -65,7 +77,11 @@ final class HxTerminalStand {
                 a.addProperty("type", "numbers");
                 a.addProperty("seed", 7);
                 a.addProperty("player", sp.getGameProfile().name());
-                HxTerminalApi.open(sp.level().getServer(), a);
+                if (openDelay > 0) {
+                    PENDING.add(new Object[]{a, new int[]{openDelay}});
+                } else {
+                    HxTerminalApi.open(sp.level().getServer(), a);
+                }
             } else if (line) {
                 sp.connection.send(new ClientboundSystemChatPacket(Component.literal(BELOW_LINE), false));
             }
@@ -88,6 +104,8 @@ final class HxTerminalStand {
         line = !a.has("line") || a.get("line").getAsBoolean();
         interacts = 0;
         opens = 0;
+        openDelay = 0;
+        PENDING.clear();
         BlockState air = Blocks.AIR.defaultBlockState();
         BlockState stone = Blocks.STONE.defaultBlockState();
         for (int bx = x - 4; bx <= x + 4; bx++) {
@@ -142,6 +160,9 @@ final class HxTerminalStand {
         }
         if (a.has("minDy")) {
             minDy = a.get("minDy").getAsDouble();
+        }
+        if (a.has("openDelay")) {
+            openDelay = a.get("openDelay").getAsInt();
         }
         return describe();
     }
