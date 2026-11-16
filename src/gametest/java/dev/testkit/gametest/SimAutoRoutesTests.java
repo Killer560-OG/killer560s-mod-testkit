@@ -10834,6 +10834,13 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     for (int w = 0; w < 100 && batRef.get() == null; w++) ctx.waitTicks(1);
                     println("arfinder " + r + ": " + batRef.get() + " secret bat(s) that appeared during the build removed, all re-registered");
                 }
+                // He arrives during the run, never in its countdown: the route arms only at GO, so Secret Aura let go
+                // on a countdown tick took a start-spot secret ~40 ticks before the route's lookback (Well, run 13e).
+                for (int w = 0; w < 200 && ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                        "com.killer560.hub.roomsim.SimRun", "isArmed")
+                        && !(Boolean) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRun", "isRunning")); w++) {
+                    ctx.waitTicks(1);
+                }
                 ctx.waitTicks(2);
                 int found0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(SIM_SCORE, "secretsFound"));
                 long m = LogTap.mark();
