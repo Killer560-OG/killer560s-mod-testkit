@@ -1608,11 +1608,21 @@ public class BlinkTests implements FabricClientGameTest {
                         ctx.getInput().holdKey(o -> o.keySprint);
                         ctx.runOnClient(mc -> dev.testkit.compat.McCompat.setScreen(mc, null));
                         ctx.waitTicks(2);
+                        // lanedoctor-1115: a server-lag blip makes the mod hold the shot until GrimAC covers the bank again
+                        // (2.5 s in a low-load origin run). The shot runs the keys held WHEN it fires, so he keeps running
+                        // until it has gone; releasing them after 2 ticks fired a 20-tick shot standing still (0.00 blocks).
+                        boolean held = cnum(ctx, "shots") == shots0;
+                        for (int i = 0; held && i < 260 && cnum(ctx, "shots") == shots0; i++) {
+                            ctx.waitTicks(1);
+                        }
+                        if (held) {
+                            ctx.waitTicks(1);
+                        }
                         double[] after = scenario.playerPosition();
                         ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
                         ctx.getInput().releaseKey(o -> o.keyUp);
                         ctx.getInput().releaseKey(o -> o.keySprint);
-                        shot = new double[]{flat(before, after), cnum(ctx, "shots") - shots0, cnum(ctx, "lastShotTicks")};
+                        shot = new double[]{flat(before, after), cnum(ctx, "shots") - shots0, cnum(ctx, "lastShotTicks"), held ? 1 : 0};
                     } else if (act == SameTick.Act.ATTACK) {
                         // blinkone-1106: a key shot waits while his left click is queued (it goes first, the shot the tick
                         // after, at most 250 ms), so he keeps running and the shot comes once his clicks are out.

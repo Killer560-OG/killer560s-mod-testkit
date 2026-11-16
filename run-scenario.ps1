@@ -521,6 +521,17 @@ if ($killedHung) {
     Write-Host "FROZEN - the client was closed automatically"
     Stop-Backstop
     Release-Slot
+    # lanedoctor-1115: 37 of 44 NOTRUN lane runs on 11-15 froze at STARTUP: the gametest test thread had used 0 ms of CPU
+    # (parked in ThreadingImpl.enterPhase) while the render thread waited in postRunTasks, so no test ever began. A run whose
+    # client log has no test-thread line yet is launched once more here, inside the same client slot, instead of the lane
+    # rerunning it 20-40 minutes later.
+    $started = (Test-Path $clientLog) -and (Select-String -Path $clientLog -Pattern '\[Test thread/' -Quiet)
+    if (-not $started -and -not $env:TESTKIT_STARTUP_RETRY) {
+        $env:TESTKIT_STARTUP_RETRY = "1"
+        Write-Host "FROZEN before any test started: launching the run once more"
+        & $PSCommandPath @PSBoundParameters
+        exit $LASTEXITCODE
+    }
     exit 3
 }
 
