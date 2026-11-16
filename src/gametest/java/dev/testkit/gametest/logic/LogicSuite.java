@@ -173,6 +173,10 @@ public class LogicSuite implements FabricClientGameTest {
                 LogicCase.run(ctx, "1105-logic-split-slow", LagLag1105Cases::slow);
                 LogicCase.run(ctx, "1105-logic-bcstall-jitter", LagLag1105Cases::bcJitter);
                 LogicCase.run(ctx, "1105-logic-bcstall-stall", LagLag1105Cases::bcStall);
+                LogicCase.run(ctx, "1116-logic-splitlag-server-stall", LagLag1105Cases::splitServerStall);
+                LogicCase.run(ctx, "1116-logic-splitlag-client-freeze", LagLag1105Cases::splitClientFreeze);
+                LogicCase.run(ctx, "1116-logic-splitlag-conn-stall", LagLag1105Cases::splitConnStall);
+                LogicCase.run(ctx, "1116-logic-splitlag-freeze-in-stall", LagLag1105Cases::splitFreezeInStall);
                 LogicCase.run(ctx, "1104-logic-serverlag-grim", TickFix2Cases::serverLagGrim);
                 LogicCase.run(ctx, "363-logic-roof-cover", RoofCoverCases::roofCover);
             }
