@@ -165,7 +165,14 @@ final class LeverBest1112Cases {
     }
 
     static void standAt(Session c, double x, double y, double z, float yaw, float pitch) {
-        c.hx().call("dungeon.tp", "x", x, "y", y, "z", z, "yaw", yaw, "pitch", pitch);
+        // Arrive the way SimonSaysCases.tpToDevice does (ss-tpflags-1115): GrimAC takes a chunk in only after the client answers
+        // the transaction behind it, so a tp onto a floor just filled drew GroundSpoof; land high, wait for Grim's own copy
+        // of the floor, then arrive 0.4 above it (a reply at floor level claims airborne while the next packet is predicted
+        // on the ground).
+        BlockPos floor = BlockPos.containing(x, y - 1, z);
+        c.hx().call("dungeon.tp", "x", x, "y", y + 6, "z", z, "yaw", yaw, "pitch", pitch);
+        c.waitUntil("GrimAC's world to hold the floor at " + floor.toShortString(), mc -> SimonSaysCases.grimHolds(c, floor), 200);
+        c.hx().call("dungeon.tp", "x", x, "y", y == Math.rint(y) ? y + 0.4 : y, "z", z, "yaw", yaw, "pitch", pitch);
         c.waitUntil("the client at " + x + "," + y + "," + z, mc -> mc.player != null
                 && mc.player.position().distanceTo(new Vec3(x, y, z)) < 0.02, 200);
         c.ctx().waitTicks(5);

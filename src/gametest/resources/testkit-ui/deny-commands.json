@@ -24,6 +24,7 @@
     {"root": "k", "why": "Command Prefixes (mod cmdprefix-1109): a second name for /killer560, OFF by default (requires), so a sweep cannot run it; testkit 1109-ui-cmdprefix-names runs each"},
     {"root": "k5", "why": "Command Prefixes (mod cmdprefix-1109): same as k"},
     {"root": "k560", "why": "Command Prefixes (mod cmdprefix-1109): same as k"},
+    {"root": "online", "why": "opens the Online Now screen (counts per island from the relay, no chat output); mod onlineisland-1113, testkit 1113-online-screen covers it"},
     {"root": "carry", "why": "Carry Tracker (mod carryhud-1109): /carry add, remove and list edit the client list; testkit 1109-carry-* drive it"},
     {"root": "rp", "why": "Reparty (mod featC-1108): as party leader it sends /party disband and /party invite lines to the server; testkit 1108-reparty-* drive it"},
     {"root": "bugreport", "why": "builds the bug report zip and opens its folder (mod bugcmd-1115); testkit 1115-ui-bugcmd runs it and checks the new zip"},
