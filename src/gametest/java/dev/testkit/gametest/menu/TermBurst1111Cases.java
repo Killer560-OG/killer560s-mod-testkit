@@ -49,6 +49,8 @@ final class TermBurst1111Cases {
 
     /** The same-tick player actions, run at the start of every client tick while set (client thread only). */
     static volatile Runnable perTick;
+    /** Run at END_CLIENT_TICK, just after the tick-end packet: the first packets of the next wire tick. */
+    static volatile Runnable perTickEnd;
     private static boolean hooked;
 
     static void hook() {
@@ -56,6 +58,10 @@ final class TermBurst1111Cases {
         hooked = true;
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.START_CLIENT_TICK.register(mc -> {
             Runnable r = perTick;
+            if (r != null) r.run();
+        });
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+            Runnable r = perTickEnd;
             if (r != null) r.run();
         });
     }
@@ -85,10 +91,14 @@ final class TermBurst1111Cases {
             if (sameTick) {
                 // Installed BEFORE the open: at a size above the board the whole board bursts on the first click, which can
                 // come before a test thread back from awaitScreen (1112-term-burst-size-21-sametick read [21, 0, 0]).
+                // Run at END_CLIENT_TICK, right after the tick-end packet, so his actions open every wire tick: the solver
+                // sends from render frames after a tick end (and in the next client tick), always after them. From
+                // START_CLIENT_TICK a frame burst came first, the server closed the solved terminal before the next tick
+                // started and the burst tick carried neither (full session, [8, 0, 0] / [5, 0, 0]).
                 c.ctx().runOnClient(mc -> mc.player.getInventory().clearContent());
                 c.onClient(mc -> {
                     hook();
-                    perTick = () -> {
+                    perTickEnd = () -> {
                         if (!(dev.testkit.compat.McCompat.screen(mc)
                                 instanceof net.minecraft.client.gui.screens.inventory.ContainerScreen s)) {
                             if (seenOpen[0]) open[0] = false;
@@ -119,13 +129,13 @@ final class TermBurst1111Cases {
                 // Every client tick while the terminal is open: his hotbar swap, his own click on an empty slot of his
                 // inventory (below the terminal grid), and three extra solver frames. No movement key: with a screen open he moves
                 // only through Inventory Walk, whose Stop To Click holds every click while he moves (1108-iw-termwalk).
-                // The actions run from a START_CLIENT_TICK hook, so no client tick can pass without them: a test-thread
+                // The actions run from a client tick hook, so no client tick can pass without them: a test-thread
                 // loop (onClient + waitTicks) skipped a tick under load and the burst landed in it (termship-1115,
                 // 1112-term-burst-size-10-sametick read [10, 0, 0] with every click clean on experimental Grim).
                 while (acting[0] && open[0] && n[0]++ < 200) {
                     c.ctx().waitTicks(1);
                 }
-                perTick = null;
+                perTickEnd = null;
                 c.ctx().runOnClient(mc -> mc.options.keyUp.setDown(false));
             }
             JsonObject solved = MenuKit.awaitEvent(c, "terminal.solved", drop ? 300 : 200);
@@ -202,7 +212,7 @@ final class TermBurst1111Cases {
             c.check(maxTick <= size + (sameTick ? 1 : 0), "more than " + size + " burst clicks in one tick: " + maxTick);
         } finally {
             acting[0] = false;
-            perTick = null;
+            perTickEnd = null;
             WireCapture.stop();
             WireCapture.describe = null;
             c.ctx().runOnClient(mc -> mc.options.keyUp.setDown(false));
