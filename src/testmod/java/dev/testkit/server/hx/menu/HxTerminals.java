@@ -114,6 +114,10 @@ final class HxTerminals {
         /** Drops the click that would solve the board (the last wrong slot), once (1108 last-pane case). */
         boolean dropFinal;
         boolean dropReopen;
+        /** clickorder-1116 "invSync": every taken click is first answered with a full update of the player's OWN inventory
+         *  (window 0), then the board's slot change (window N), the way a server keeps the hotbar items current while a
+         *  terminal is open: two windows' packets interleave. */
+        boolean invSync;
         /** How many times the final click is dropped (dropFinal; 1 unless "dropFinalTimes"). */
         int dropFinalTimes = 1;
         /** Answers the click that solves the board, then puts that slot back as it was two ticks later, once (1108). */
@@ -488,6 +492,7 @@ final class HxTerminals {
         t.dropClicks = a.has("dropClicks") ? a.get("dropClicks").getAsInt() : 0;
         t.dropFinal = a.has("dropFinal") && a.get("dropFinal").getAsBoolean();
         t.dropReopen = a.has("dropReopen") && a.get("dropReopen").getAsBoolean();
+        t.invSync = a.has("invSync") && a.get("invSync").getAsBoolean();
         t.dropFinalTimes = a.has("dropFinalTimes") ? a.get("dropFinalTimes").getAsInt() : 1;
         t.revertFinal = a.has("revertFinal") && a.get("revertFinal").getAsBoolean();
         t.displayTitle = (a.has("titlePrefix") ? a.get("titlePrefix").getAsString() : "") + t.title
@@ -662,6 +667,9 @@ final class HxTerminals {
             return;
         }
         t.clicks++;
+        if (t.invSync) {
+            player.inventoryMenu.broadcastFullState();
+        }
         if (t.firstTick < 0) {
             t.firstTick = tick;
         }
