@@ -61,6 +61,7 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "2797-logic-flip-1101", Flip1101LogicCases::run);
         LogicCase.run(ctx, "402-logic-autokick-units", AutoKickCases::units);
         LogicCase.run(ctx, "1104-logic-scanaudit", ScanAuditCases::scanAudit);
+        LogicCase.run(ctx, "1116-logic-bloodrush-table", BloodRushTableCases::table);
         // ---- Auto Report Bans (mod doc-ban-1101) - own block
         LogicCase.run(ctx, "4101-logic-banreport-fake-ban", BanReportCases::fakeBan);
         LogicCase.run(ctx, "4102-logic-banreport-off", BanReportCases::off);
