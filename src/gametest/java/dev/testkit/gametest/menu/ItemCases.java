@@ -217,6 +217,7 @@ final class ItemCases {
             ItemStack stack = give(c, 0, "items.hyperion-legendary-lore");
             boolean consumed = c.onClient(mc -> {
                 Mod.staticCall("tooltipscroll.TooltipScrollFeature", "setHovered", stack);
+                Mod.setField("tooltipscroll.TooltipScrollFeature", "lastDrawn", System.nanoTime()); // a tooltip was just drawn
                 return (Boolean) Mod.staticCall("tooltipscroll.TooltipScrollFeature", "onMouseScrolled", 1.0);
             });
             Object nudge = c.onClient(mc -> Mod.field("tooltipscroll.TooltipScrollFeature", "nudgeOffset"));

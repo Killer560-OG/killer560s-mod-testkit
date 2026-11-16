@@ -225,35 +225,29 @@ public class BlinkTests implements FabricClientGameTest {
         return ctx.computeOnClient(mc -> mc.player.getName().getString());
     }
 
-    /** The server's own idea of where the player is, from {@code data get entity}. */
+    /**
+     * The server's own idea of where the player is, from {@code data get entity}. The request is tagged with a {@code say}
+     * line and the answer read after it in the last 1500 console lines: counting answers in a fixed 400-line tail missed
+     * one whenever an old answer scrolled out as the new one came in (1027-ap3-blink-combo-rcn/-rnc/-ncr "never answered"
+     * in the 63-ap3 group, ap3grp-1109), and a flagged shot puts 30-60 GrimAC lines after it (1027-blink-c-interleave).
+     */
     public static double[] serverPos(TestServer server, ClientGameTestContext ctx, String name) {
-        int before = countPosLines(server);
+        String tag = "cbpos" + System.nanoTime();
+        server.command("say " + tag);
         server.command("data get entity " + name + " Pos");
-        for (int i = 0; i < 40; i++) {
+        for (int i = 0; i < 60; i++) {
             ctx.waitTicks(1);
-            String tail = server.tail(60);
-            if (countPosLines(server) > before) {
-                Matcher m = POS.matcher(tail);
-                double[] out = null;
-                while (m.find()) {
-                    out = new double[]{Double.parseDouble(m.group(1)), Double.parseDouble(m.group(2)),
+            String tail = server.tail(1500);
+            int at = tail.lastIndexOf(tag);
+            if (at >= 0) {
+                Matcher m = POS.matcher(tail.substring(at));
+                if (m.find()) {
+                    return new double[]{Double.parseDouble(m.group(1)), Double.parseDouble(m.group(2)),
                             Double.parseDouble(m.group(3))};
-                }
-                if (out != null) {
-                    return out;
                 }
             }
         }
         throw new AssertionError("the server never answered data get entity " + name + " Pos");
-    }
-
-    private static int countPosLines(TestServer server) {
-        Matcher m = POS.matcher(server.tail(400));
-        int n = 0;
-        while (m.find()) {
-            n++;
-        }
-        return n;
     }
 
     static double flat(double[] a, double[] b) {
@@ -1639,11 +1633,21 @@ public class BlinkTests implements FabricClientGameTest {
                         ctx.getInput().holdKey(o -> o.keySprint);
                         ctx.runOnClient(mc -> dev.testkit.compat.McCompat.setScreen(mc, null));
                         ctx.waitTicks(2);
+                        // lanedoctor-1115: a server-lag blip makes the mod hold the shot until GrimAC covers the bank again
+                        // (2.5 s in a low-load origin run). The shot runs the keys held WHEN it fires, so he keeps running
+                        // until it has gone; releasing them after 2 ticks fired a 20-tick shot standing still (0.00 blocks).
+                        boolean held = cnum(ctx, "shots") == shots0;
+                        for (int i = 0; held && i < 260 && cnum(ctx, "shots") == shots0; i++) {
+                            ctx.waitTicks(1);
+                        }
+                        if (held) {
+                            ctx.waitTicks(1);
+                        }
                         double[] after = scenario.playerPosition();
                         ctx.runOnClient(mc -> Mod.setField(CHARGE, "keyHeldForTest", Boolean.FALSE));
                         ctx.getInput().releaseKey(o -> o.keyUp);
                         ctx.getInput().releaseKey(o -> o.keySprint);
-                        shot = new double[]{flat(before, after), cnum(ctx, "shots") - shots0, cnum(ctx, "lastShotTicks")};
+                        shot = new double[]{flat(before, after), cnum(ctx, "shots") - shots0, cnum(ctx, "lastShotTicks"), held ? 1 : 0};
                     } else if (act == SameTick.Act.ATTACK) {
                         // blinkone-1106: a key shot waits while his left click is queued (it goes first, the shot the tick
                         // after, at most 250 ms), so he keeps running and the shot comes once his clicks are out.

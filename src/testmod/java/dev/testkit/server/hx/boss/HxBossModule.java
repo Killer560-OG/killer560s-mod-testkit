@@ -27,6 +27,7 @@ public final class HxBossModule implements HxModule {
         HxBridge.register("boss.ss.build", HxSimonSays::build);
         HxBridge.register("boss.ss.state", (server, args) -> HxSimonSays.describe());
         HxBridge.register("boss.ss.clear", HxSimonSays::clear);
+        HxBridge.register("boss.grim.block", HxBossModule::grimBlock);
         ServerTickEvents.END_SERVER_TICK.register(HxSimonSays::tick);
         HxBridge.register("boss.term.build", HxTerminalStand::build);
         HxBridge.register("boss.term.spawn", HxTerminalStand::spawn);
@@ -46,5 +47,28 @@ public final class HxBossModule implements HxModule {
         // Boss bars (2026-10-25, the mod's Boss Health): HxBossBar.
         HxBridge.register("boss.bar.set", HxBossBar::set);
         HxBridge.register("boss.bar.clear", HxBossBar::clear);
+    }
+
+    /**
+     * The block state id GrimAC's own copy of the world holds at x/y/z (0 = air, -1 above or below the world, -2 no chunk, -3 no player yet, -9 no anticheat on this server). A client
+     * that has a block is no proof the anticheat does: it applies a chunk or block change only when the client's answer to
+     * the next transaction arrives, and a use sent before that is judged against air (AirLiquidPlace, 786 on a loaded PC).
+     */
+    private static com.google.gson.JsonElement grimBlock(net.minecraft.server.MinecraftServer server,
+                                                         com.google.gson.JsonObject a) {
+        try {
+            Object api = Class.forName("ac.grim.grimac.GrimAPI").getField("INSTANCE").get(null);
+            Object mgr = api.getClass().getMethod("getPlayerDataManager").invoke(api);
+            Object gp = mgr.getClass().getMethod("getPlayer", java.util.UUID.class)
+                    .invoke(mgr, dev.testkit.server.hx.HxPrimitives.player(server, a).getUUID());
+            if (gp == null) {
+                return new JsonPrimitive(-1);
+            }
+            Object world = gp.getClass().getField("compensatedWorld").get(gp);
+            return new JsonPrimitive((Integer) world.getClass().getMethod("getBlockStateId", int.class, int.class, int.class)
+                    .invoke(world, a.get("x").getAsInt(), a.get("y").getAsInt(), a.get("z").getAsInt()));
+        } catch (ReflectiveOperationException | LinkageError e) {
+            return new JsonPrimitive(-1);
+        }
     }
 }

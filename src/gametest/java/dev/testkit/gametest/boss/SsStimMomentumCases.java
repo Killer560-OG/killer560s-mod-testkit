@@ -75,7 +75,7 @@ final class SsStimMomentumCases {
                 return null;
             });
             c.hx().call("boss.ss.build", "rounds", 4, "line", true, "seed", seed);
-            c.hx().call("dungeon.tp", "x", 107.5, "y", 120.0, "z", 93.5, "yaw", -90f, "pitch", 0f);
+            SimonSaysCases.tpToDevice(c);
             c.waitUntil("the client to have the device", mc ->
                     mc.level.getBlockState(new BlockPos(111, 120, 92)).is(net.minecraft.world.level.block.Blocks.OBSIDIAN)
                             && mc.level.getBlockState(SimonSaysCases.START).is(

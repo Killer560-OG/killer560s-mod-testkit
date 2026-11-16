@@ -148,6 +148,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-639-legit-warp-exact",
             // hype-down (2026-10-11)
             "96-ar-653-crypt-straight-down", "96-ar-1013-bat", "96-ar-1013-breakerfall",
+            // arnoback-1115: a bat node the route gave up on is never fired again; a bat killed in time is not given up
+            "96-ar-1115-arnoback-giveup", "96-ar-1115-arnoback-control",
             // ar-obvious-only (2026-10-11): legit mode exists only in -PtestingBuild jars
             "96-ar-786-obvious-only",
             // ar-startguard (2026-10-12): a map arrival's start-only hold on a route with no start node
@@ -169,10 +171,18 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1016-auranoawait", "96-ar-1016-auraawait",
             // ar-bridges-bat-1017: his Bridges route runs to the end (no warp eaten after the breaker); Kill Mimic aims
             "96-ar-1017-bridges", "96-ar-1017-mimicaim",
+            // arstack-1115: a stack is only a run of CONSECUTIVE same-tile nodes; a later return to the tile is a new stack
+            "96-ar-1115-stack-return",
             // sim-secrets-1018: an await beside a Redstone Key spot the key never spawned at starts one secret on
             "1018-ar-keyspot-empty",
             // ar-range-1026: Replan For My Range - a saved path warp longer than his etherwarp reaches is planned again
-            "96-ar-1026-range-off", "96-ar-1026-range-on", "96-ar-1026-range-noitem"};
+            "96-ar-1026-range-off", "96-ar-1026-range-on", "96-ar-1026-range-noitem",
+            // simbreakrules-1112: the sim breaker leaves smooth granite, pistons and blocks with a torch, button or fire
+            "96-ar-1112-breakrules",
+            // acslow-1115: a saved path hop that cannot go from here (a block in its line, its landing gone) plans the rest
+            "1115-acslow-blocked", "1115-acslow-gone",
+            // acslow2-1115: an await Auto Secret drives with nothing in reach lets go after 40 ticks (his log: 243)
+            "1115-acslow2-await"};
 
     /** Relative feet height of the arena floor's top (the room's own spawn height). */
     private static int F;
@@ -316,8 +326,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-pingpong" -> casePingPong(ctx);
                         case "96-ar-chain" -> caseChain(ctx);
                         case "96-ar-stackorder" -> caseStackOrder(ctx);
+                        case "96-ar-1115-stack-return" -> caseStackReturn(ctx);
                         case "96-ar-crypthold" -> caseCryptHold(ctx);
                         case "96-ar-charges" -> caseCharges(ctx);
+                        case "96-ar-1112-breakrules" -> caseBreakRules(ctx);
                         case "96-ar-museum" -> caseMuseum(ctx);
                         case "96-ar-1020-boomsneak" -> caseBoomSneak(ctx);
                         case "96-ar-1016-eaten" -> caseEatenHop(ctx);
@@ -369,6 +381,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-639-legit-warp-exact" -> caseLegitWarpExact(ctx);
                         case "96-ar-653-crypt-straight-down" -> caseCryptStraightDown(ctx);
                         case "96-ar-1013-bat" -> caseBatNode(ctx);
+                        case "96-ar-1115-arnoback-giveup" -> caseArNoBack(ctx, false);
+                        case "96-ar-1115-arnoback-control" -> caseArNoBack(ctx, true);
                         case "96-ar-1015-batpresent" -> caseBatPresent(ctx);
                         case "96-ar-1015-batseek" -> caseBatSeek(ctx);
                         case "96-ar-1017-bridges" -> caseBridges(ctx);
@@ -376,6 +390,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1026-range-off" -> ArRangeCases.off(ctx);
                         case "96-ar-1026-range-on" -> ArRangeCases.on(ctx);
                         case "96-ar-1026-range-noitem" -> ArRangeCases.noItem(ctx);
+                        case "1115-acslow-blocked" -> ArRangeCases.acslowBlocked(ctx);
+                        case "1115-acslow-gone" -> ArRangeCases.acslowGone(ctx);
+                        case "1115-acslow2-await" -> ArMainServerCases.acslow2AwaitNothing(ctx);
                         case "96-ar-1017-mimicaim" -> caseMimicAim(ctx);
                         case "96-ar-1015-cryptaim" -> caseCryptAim(ctx);
                         case "96-ar-1013-breakerfall" -> caseBreakerFall(ctx);
@@ -1494,6 +1511,14 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      */
     private void caseChain(ClientGameTestContext ctx) {
         resetRoutes(ctx);
+        // archain-1115: 96-ar-play opens a chest holding the Aspect of the Void and leaves RightClick's unpaired block click
+        // set, so every chain warp then waits a tick for the server to hear its look; and the sim's server keeps that chest
+        // click's verdict for 100 ticks, dropping the first warp at the first turn (a second use, 13 for 12 nodes). The
+        // chain measures a fresh state on both sides.
+        ctx.runOnClient(mc -> {
+            ModUnderTest.staticCall("com.killer560.hub.util.RightClick", "reset");
+            ModUnderTest.staticCall("com.killer560.hub.roomsim.SimAbilities", "forgetStoredClicks");
+        });
         arena(ctx, false);
         giveHotbar(ctx);
         int[][] pts = ArChainMeasure.CHAIN;
@@ -1608,6 +1633,64 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         }
     }
 
+    /**
+     * arstack-1115 (route finder, Altar room: #14 was taken as stacked with #12): a route that comes back to a tile it
+     * used earlier fires its nodes in path order, the later node is a NEW stack. A(X->Y) B(Y->X) C(X->Z) D(Z->W): all
+     * four warps act in order #1..#4 and he ends on W (the old rule stacked C with A and fired C before A). Control: a
+     * boom and a warp that are consecutive on one tile still fire together as one stack, boom first.
+     */
+    private void caseStackReturn(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        writeRoute(ctx, List.of(ew(6, 6, 12, 6, true), ew(12, 6, 6, 6, false), ew(6, 6, 12, 12, false),
+                ew(12, 12, 18, 6, false)));
+        tpRel(ctx, 4.5, 6.5, 0f, 0f);
+        ctx.waitTicks(10);
+        long m = LogTap.mark();
+        tpRel(ctx, 6.5, 6.5, -90f, 0f);
+        Vec3 landed = waitLanded(ctx, 18, 6, 400);
+        ctx.waitTicks(5);
+        int acted = 0;
+        for (String l : LogTap.since(m)) {
+            acted += l.contains("ETHERWARP acted") ? 1 : 0;
+        }
+        int[] at = new int[5];
+        for (int k = 1; k <= 4; k++) {
+            at[k] = logIndex(m, "Node #" + k + " ETHERWARP acted");
+        }
+        println("stack return: acted " + acted + ", log lines #1 " + at[1] + " #2 " + at[2] + " #3 " + at[3] + " #4 " + at[4]
+                + ", at " + relPos(ctx));
+        check(acted == 4, "expected 4 etherwarps acted, the log says " + acted);
+        check(at[1] >= 0 && at[2] > at[1] && at[3] > at[2] && at[4] > at[3], "nodes did not fire in path order: #1@" + at[1]
+                + " #2@" + at[2] + " #3@" + at[3] + " #4@" + at[4]);
+        check(landed != null, "the route did not end on its last landing (at " + relPos(ctx) + ")");
+        stopRoute(ctx);
+
+        // control: consecutive same-tile nodes are still one stack
+        forgetRunMemory(ctx);
+        BlockState cracked = Blocks.CRACKED_STONE_BRICKS.defaultBlockState();
+        setBlocks(ctx, Map.of(new int[]{12, F, 14}, cracked, new int[]{12, F + 1, 14}, cracked));
+        JsonObject boom = node("BOOM", 14, 14, 90f, 0f);
+        boom.addProperty("start", true);
+        writeRoute(ctx, List.of(boom, ew(14, 14, 20, 14, false)));
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+        tpRel(ctx, 14.5, 10.5, 0f, 0f);
+        ctx.waitTicks(10);
+        long m2 = LogTap.mark();
+        tpRel(ctx, 14.5, 14.5, 0f, 0f);
+        Vec3 landed2 = waitLanded(ctx, 20, 14, 300);
+        int b = logIndex(m2, "Node #1 BOOM acted");
+        int e = logIndex(m2, "Node #2 ETHERWARP acted");
+        println("stack control: boom@" + b + " warp@" + e + " at " + relPos(ctx));
+        check(b >= 0 && e > b, "stack control: boom@" + b + " warp@" + e + " - expected the boom, then the warp");
+        check(blockAir(ctx, 12, F + 1, 14), "stack control: the boom broke nothing");
+        check(landed2 != null, "stack control: the warp did not land (at " + relPos(ctx) + ")");
+        stopRoute(ctx);
+        tpRel(ctx, 14.5, 10.5, 0f, 0f);
+        ctx.waitTicks(5);
+    }
+
     // ============================================================================================ breaker charges
 
     private static int simCharges(ClientGameTestContext ctx) {
@@ -1669,6 +1752,74 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     private static void setSecretSetting(ClientGameTestContext ctx, int level) {
         ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimBreakerState", "setSecretCharges", new Class<?>[]{int.class},
                 new Object[]{level}));
+    }
+
+    /** The real direction pointing from relative x=3 to x=2 (the arena frame may be rotated). */
+    private static Direction outward(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            Object frame = ModUnderTest.staticCall(FRAME, "current");
+            BlockPos a = real(frame, 3, F, 8);
+            BlockPos b = real(frame, 2, F, 8);
+            return Direction.getApproximateNearest(b.getX() - a.getX(), 0, b.getZ() - a.getZ());
+        });
+    }
+
+    /**
+     * simbreakrules-1112 (killer560 11-12): the sim's Dungeon Breaker cannot break smooth granite, a piston, a block
+     * with a torch or a button on it, or a block with fire on it, or a dispenser; a plain block breaks, and only that one spends a
+     * charge. Real START_DESTROY_BLOCK digs, answered by the sim server.
+     */
+    private void caseBreakRules(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        BlockState stone = Blocks.STONE.defaultBlockState();
+        Map<int[], BlockState> set = new LinkedHashMap<>();
+        for (int z = 5; z <= 11; z++) {
+            set.put(new int[]{3, F, z}, stone);
+            set.put(new int[]{3, F + 1, z}, Blocks.AIR.defaultBlockState());
+        }
+        set.put(new int[]{3, F, 5}, Blocks.POLISHED_GRANITE.defaultBlockState());
+        set.put(new int[]{3, F, 6}, Blocks.PISTON.defaultBlockState());
+        set.put(new int[]{3, F + 1, 7}, Blocks.TORCH.defaultBlockState());
+        set.put(new int[]{2, F, 8}, Blocks.STONE_BUTTON.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.FaceAttachedHorizontalDirectionalBlock.FACE,
+                        net.minecraft.world.level.block.state.properties.AttachFace.WALL)
+                .setValue(net.minecraft.world.level.block.HorizontalDirectionalBlock.FACING, outward(ctx)));
+        set.put(new int[]{3, F, 9}, Blocks.NETHERRACK.defaultBlockState());
+        set.put(new int[]{3, F + 1, 9}, Blocks.FIRE.defaultBlockState());
+        set.put(new int[]{3, F, 11}, Blocks.DISPENSER.defaultBlockState());
+        setBlocks(ctx, set);
+        tpRel(ctx, 4.5, 8.5, 90f, 0f);
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(2));
+        ctx.waitTicks(3);
+        check(waitFor(ctx, 400, () -> simCharges(ctx) == 20), "the sim breaker never filled to 20");
+        // granite, piston, torch block, button block, fire block, dispenser, then the plain block
+        int[] zs = {5, 6, 7, 8, 9, 11, 10};
+        for (int z : zs) {
+            ctx.runOnClient(mc -> {
+                BlockPos pos = real(ModUnderTest.staticCall(FRAME, "current"), 3, F, z);
+                mc.gameMode.startDestroyBlock(pos, Direction.EAST);
+                mc.gameMode.stopDestroyBlock();
+            });
+            ctx.waitTicks(4);
+        }
+        ctx.waitTicks(4);
+        String[] what = {"smooth granite", "piston", "torch block", "button block", "fire block", "dispenser"};
+        int stayed = 0;
+        for (int i = 0; i < 6; i++) {
+            boolean gone = blockAir(ctx, 3, F, zs[i]);
+            if (!gone) {
+                stayed++;
+            }
+            check(!gone, what[i] + " was broken by the sim breaker");
+        }
+        boolean plain = blockAir(ctx, 3, F, 10);
+        int c = simCharges(ctx);
+        println("breakrules: " + stayed + " of 6 refused, plain block broken=" + plain + ", charges 20 -> " + c);
+        check(stayed == 6, "only " + stayed + " of 6 protected blocks stayed");
+        check(plain, "the plain block did not break, so the breaker never acted");
+        check(c >= 17, "refused breaks must spend nothing (only the plain one costs a charge), charges are " + c);
     }
 
     private void caseChargesBody(ClientGameTestContext ctx) {
@@ -3941,7 +4092,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             long mw = LogTap.mark();
             startSampling(ctx);
             tpRel(ctx, 6.5, 20.5, 0f, 0f);
-            ctx.waitTicks(50);
+            // Held for a second (acslow-1115: after that the rest of the pair is planned again, 1115-acslow-gone).
+            ctx.waitTicks(14);
             check(useTicks(stopSampling(ctx)).isEmpty(), "a path warp went out at a missing landing block");
             check(logHas(mw, "Waiting for the block"), "no wait message for the missing hop block");
             setBlocks(ctx, Map.of(new int[]{bx, by, bz}, was));
@@ -5110,6 +5262,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 int x = xs[i];
                 String weapon = weapons[i];
                 setArEnum(ctx, "setBatWeapon", "CryptWeapon", weapon);
+                forgetRunMemory(ctx);
                 BlockPos spot = realNow(ctx, x, F + 2, 13);
                 ctx.runOnClient(mc -> mc.getSingleplayerServer().execute(() -> ModUnderTest.staticCall(
                         "com.killer560.hub.roomsim.SimSecretItems", "registerBat", new Class<?>[]{BlockPos.class},
@@ -5170,6 +5323,71 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             stopRoute(ctx);
         } finally {
             ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", 100));
+        }
+    }
+
+    /**
+     * arnoback-1115 (killer560: "dont have it go back if it skips a bat it shouldnt go back"). A bat node with no bat times
+     * out and the route moves on (the JUMP stacked on it still fires: the route acted); the run then remembers the node as
+     * given up, and arming the same route again in the same run never attacks (no use packet, "given up on earlier" line).
+     * A new run forgets it (the node acts again). Control: a bat killed in time is never marked given up.
+     */
+    private void caseArNoBack(ClientGameTestContext ctx, boolean control) {
+        resetRoutes(ctx);
+        clearSecretBats(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        giveSlot(ctx, 4, "HYPERION");
+        setArEnum(ctx, "setBatWeapon", "CryptWeapon", "HYPERION");
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", control ? 100 : 20));
+        keepRunMemory = true;
+        try {
+            forgetRunMemory(ctx);
+            JsonObject bat = node("BAT", 19, 10, 0f, 30f);
+            bat.addProperty("start", true);
+            JsonObject jump = node("JUMP", 19, 10, 0f, 30f);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            tpRel(ctx, 19.5, 8.5, 0f, 30f);
+            if (control) {
+                spawnBatAt(ctx, 19, F + 2, 13);
+                ctx.waitTicks(40);
+            }
+            long w = LogTap.mark();
+            writeRoute(ctx, List.of(bat, jump));
+            check(waitFor(ctx, 100, () -> logHas(w, "Loaded 1 route")), "the bat route never loaded");
+            long m = LogTap.mark();
+            tpRel(ctx, 19.5, 10.5, 0f, 30f);
+            if (control) {
+                check(waitFor(ctx, 160, () -> logHas(m, "BAT: 1 kill(s)")), "the bat killed in time was not counted");
+                check(!logHas(m, "gave up on"), "a bat killed in time was marked given up");
+                check(!logHas(m, "up, moving on"), "a bat killed in time was timed out");
+                return;
+            }
+            check(waitFor(ctx, 100, () -> logHas(m, "up, moving on")), "the bat node with no bat never gave up");
+            check(logHas(m, "gave up on"), "the give-up was not remembered");
+            check(waitFor(ctx, 100, () -> logHas(m, "Node #2 JUMP")), "the route did not go on to its later node");
+            waitFor(ctx, 80, () -> !running(ctx));
+            stopRoute(ctx);
+            // Same run, same route armed again: the node is left alone.
+            long m2 = LogTap.mark();
+            arm(ctx, 19, 10, 0f, 30f);
+            check(waitFor(ctx, 60, () -> logHas(m2, "given up on earlier this run")), "the given-up node was re-entered");
+            ctx.waitTicks(30);
+            check(!logHas(m2, "BAT acted") && serverUseAims(m2).isEmpty(), "a use went out toward the given-up bat");
+            check(logHas(m2, "Node #2 JUMP"), "the later node did not fire on the second pass");
+            stopRoute(ctx);
+            // A new run clears the mark.
+            forgetRunMemory(ctx);
+            long m3 = LogTap.mark();
+            arm(ctx, 19, 10, 0f, 30f);
+            check(waitFor(ctx, 100, () -> logHas(m3, "up, moving on")), "a new run did not attack the node again");
+            check(!logHas(m3, "given up on earlier this run"), "the mark survived a new run");
+            stopRoute(ctx);
+        } finally {
+            keepRunMemory = false;
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", 100));
+            stopRoute(ctx);
+            clearSecretBats(ctx);
         }
     }
 
@@ -5275,9 +5493,12 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
 
     /** killer560's Bridges route, exact (his Mod Only Test config, 2026-10-17 22:36): node #2's breaker and #15's path
      *  warp down the hole it opens share a tile; #1 waits on the room's lever. */
+    // The warp down the hole (PATH pair #3, #4) sits right after the breaker that opens it: a stack is only consecutive nodes (arstack-1115).
     private static final String BRIDGES_ROUTE = "[\n" + """
             {"type":"ETHERWARP","x":55.5,"y":59.0,"z":28.5,"yaw":172.139282,"pitch":15.579375,"at":0,"start":true,"awaitEnabled":true,"await":"SECRET","amount":1,"landing":"54.500000 58.050000 20.500000"},
             {"type":"DUNGEON_BREAKER","x":54.5,"y":58.0,"z":20.5,"yaw":168.061768,"pitch":58.937447,"at":0,"blocks":["54 57 19","53 56 19","53 57 19","54 56 19","53 56 18","53 55 19","53 55 18","54 55 19"]},
+            {"type":"PATH","x":54.5,"y":58.0,"z":20.5,"yaw":161.977875,"pitch":82.97905,"at":0,"planFrom":"54.500000 58.000000 20.500000","planTo":"52.500000 52.000000 16.500000","planBreakers":-1128850443,"hops":["54.500000 58.000000 20.500000 155.308441 56.740917 52 51 16 52.500000 52.050000 16.500000"]},
+            {"type":"PATH","x":52.5,"y":52.0,"z":16.5,"yaw":147.935181,"pitch":75.92527,"at":0},
             {"type":"ETHERWARP","x":52.5,"y":52.0,"z":16.5,"yaw":-20.968414,"pitch":-50.136463,"at":0,"awaitEnabled":true,"await":"SECRET","amount":2,"landing":"53.500000 58.050000 20.500000"},
             {"type":"PATH","x":53.5,"y":58.0,"z":20.5,"yaw":36.497559,"pitch":11.794393,"at":0,"planFrom":"53.500000 58.000000 20.500000","planTo":"5.500000 81.000000 16.500000","planBreakers":105664870,"hops":["53.500000 58.000000 20.500000 -90.000000 23.428692 56 57 20 56.500000 58.050000 20.500000","56.500000 58.050000 20.500000 66.710320 -20.970448 34 68 29 34.500000 69.050000 29.500000","34.500000 69.050000 29.500000 137.763855 -29.573301 20 81 14 20.500000 82.050000 14.500000","20.500000 82.050000 14.500000 83.246429 8.728604 5 80 16 5.500000 81.050000 16.500000"]},
             {"type":"PATH","x":5.5,"y":81.0,"z":16.5,"yaw":-98.815849,"pitch":22.277227,"at":0},
@@ -5289,9 +5510,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             {"type":"PATH","x":51.5,"y":81.0,"z":16.5,"yaw":-93.127716,"pitch":83.464195,"at":0},
             {"type":"DUNGEON_BREAKER","x":51.5,"y":81.0,"z":16.5,"yaw":-88.856384,"pitch":19.591917,"at":0,"blocks":["52 82 16","52 81 16","53 82 16","53 81 16","54 82 16","55 81 16","55 82 16","54 81 16"]},
             {"type":"ETHERWARP","x":51.5,"y":81.0,"z":16.5,"yaw":-89.31015,"pitch":19.332996,"at":0,"landing":"55.500000 81.050000 16.500000"},
-            {"type":"ETHERWARP","x":55.5,"y":81.0,"z":16.5,"yaw":89.881683,"pitch":12.214493,"at":0,"awaitEnabled":true,"await":"SECRET","amount":1,"landing":"49.500000 81.050000 16.500000"},
-            {"type":"PATH","x":54.5,"y":58.0,"z":20.5,"yaw":161.977875,"pitch":82.97905,"at":0,"planFrom":"54.500000 58.000000 20.500000","planTo":"52.500000 52.000000 16.500000","planBreakers":-1128850443,"hops":["54.500000 58.000000 20.500000 155.308441 56.740917 52 51 16 52.500000 52.050000 16.500000"]},
-            {"type":"PATH","x":52.5,"y":52.0,"z":16.5,"yaw":147.935181,"pitch":75.92527,"at":0}
+            {"type":"ETHERWARP","x":55.5,"y":81.0,"z":16.5,"yaw":89.881683,"pitch":12.214493,"at":0,"awaitEnabled":true,"await":"SECRET","amount":1,"landing":"49.500000 81.050000 16.500000"}
             """ + "]";
 
     /**
@@ -5364,23 +5583,23 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             boolean resent = logHas(m, "sending the warp again");
             boolean timedOut = logHas(m, "no landing after");
             boolean complete = logHas(m, "Route \"Bridges\" complete");
-            int i15 = logIndex(m, "Node #15 PATH: all 1 warp(s) landed");
+            int i15 = logIndex(m, "Node #3 PATH: all 1 warp(s) landed");
             println(String.format(Locale.US, "bridges: ended %s, complete %s, lever click paired first %s (sim paired %d breaker use(s)), "
                             + "warp uses dropped %d, "
                             + "resent %s, timed out %s, #15 landed %s, essences %d, bat %s, mimic/chest %s, item %s", ended,
                     complete, paired, breakerPaired, dropped, resent, timedOut, i15 >= 0, essences,
-                    logHas(m, "secret bat killed"), logHas(m, "Node #6 PATH: await 1/1"), logHas(m, "item picked up by you")));
+                    logHas(m, "secret bat killed"), logHas(m, "Node #8 PATH: await 1/1"), logHas(m, "item picked up by you")));
             check(paired || dropped > 0, "the lever click was neither paired nor a warp dropped - the case never happened");
             check(!paired || breakerPaired == 1, "the Dungeon Breaker use was logged as sent but the sim's server paired "
                     + breakerPaired + " breaker use(s) with the lever click");
             check(dropped == 0, dropped + " use(s) dropped as the lever click's second half (the warp down the hole)");
             check(!resent && !timedOut, "a warp had to be sent again or timed out (resent " + resent + ", timed out "
                     + timedOut + ")");
-            check(i15 >= 0, "#15's path warp down the hole never landed");
+            check(i15 >= 0, "#3's path warp down the hole never landed");
             check(complete, "the route did not run to its end");
             check(essences >= 2, "only " + essences + " wither essence(s) collected");
             check(logHas(m, "secret bat killed"), "#9's secret bat was not killed");
-            check(logHas(m, "Node #6 PATH: await 1/1"), "#6's await (the chest / mimic) was not met");
+            check(logHas(m, "Node #8 PATH: await 1/1"), "#8's await (the chest / mimic) was not met");
             check(logHas(m, "item picked up by you"), "#14's item was not picked up");
         } finally {
             try {
@@ -8415,6 +8634,60 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         }
 
         /**
+         * acslow2-1115 (his 11-15 log, Deathmite #3): an await with nothing in reach that could ever count waited 243 ticks
+         * under Auto Secret until he pressed Escape. #1 warps onto #2, which awaits one secret with no chest, item or bat
+         * anywhere and Secret Aura off. On his own (Auto Secret not driving) #2 still waits as before (>= 100 ticks); driven
+         * by Auto Secret it lets go uncounted after 40 ticks and warps on. Main: waits for good in both.
+         */
+        static void acslow2AwaitNothing(ClientGameTestContext ctx) {
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(CHEAT_CFG, "setSecretAuraEnabled"));
+            resetRoutes(ctx);
+            forgetRunMemory(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+            writeChain(ctx);
+            try {
+                driven(ctx, false);
+                check(armChain(ctx), "the route did not start (own run)");
+                check(waitLanded(ctx, 14, 6, 60) != null, "#1 never warped him onto #2 (own run)");
+                long m = LogTap.mark();
+                boolean warpedOwn = waitLanded(ctx, 14, 14, 100) != null;
+                stopRoute(ctx);
+                check(!warpedOwn && !logHas(m, "await let go"),
+                        "#2 let go of its await on his own run: only a route Auto Secret drives may");
+                forgetRunMemory(ctx);
+                ctx.waitTicks(5);
+                driven(ctx, true);
+                check(armChain(ctx), "the route did not start (driven run)");
+                check(waitLanded(ctx, 14, 6, 60) != null, "#1 never warped him onto #2 (driven run)");
+                long t0 = ctx.computeOnClient(mc -> mc.level.getGameTime());
+                long m2 = LogTap.mark();
+                boolean warped = waitLanded(ctx, 14, 14, 120) != null;
+                long waited = ctx.computeOnClient(mc -> mc.level.getGameTime()) - t0;
+                for (String l : LogTap.since(m2)) {
+                    if (l.contains("await") || l.contains("Landed")) {
+                        println("  " + l);
+                    }
+                }
+                println("acslow2-await: own run waited 100+ ticks, driven run went on after " + waited
+                        + " tick(s) (his log: 243)");
+                check(logHas(m2, "await let go"), "#2's await never let go under Auto Secret - the case proves nothing");
+                check(warped && waited <= 80, "#2 did not warp on within 80 ticks of landing under Auto Secret ("
+                        + waited + ")");
+            } finally {
+                driven(ctx, false);
+                stopRoute(ctx);
+                resetRoutes(ctx);
+            }
+        }
+
+        private static void driven(ClientGameTestContext ctx, boolean on) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "autoSecretDrivesForTest",
+                    new Class<?>[]{boolean.class}, new Object[]{on}));
+        }
+
+        /**
          * fullclear-1016 run 010 (Museum): Secret Aura took the last room's skull as the map's warp left it, 9 ticks before
          * the start node armed, and START_LOOKBACK counted it for #1's await - 50 blocks away - so the route left the chest
          * beside #1 behind. A chest clicked 16 blocks from the start node a few ticks before it arms must not meet its
@@ -9430,7 +9703,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         }
 
         private record Run(boolean met, boolean landed, int acted, int dropped, boolean reaimed, boolean noLanding,
-                           List<String> off, boolean window, int clickGap) {
+                           List<String> off, boolean window, int clickGap, boolean tickHold) {
         }
 
         /** Runs per side before giving up on one the chest's window did not land in. */
@@ -9473,8 +9746,13 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // waits until 2 ticks after a block click with the same item), which also costs the control a tick when the
             // chest click was that recent: control 2 (click-gap 1), mismatch 2 (re-aim over it), preexisting-1026 under
             // load. Without the hold the re-aim is the control's tick count plus one, as before.
-            int base = control.acted() - control.clickGap();
-            int want = base + Math.max(1, control.clickGap());
+            // The same-tick hold (mod: a use_item_on already went out this server tick, so the warp acts next tick, GrimAC
+            // PacketOrderE) costs a side one tick whenever the chest's click lands in the warp's own server tick, which
+            // is the load-dependent phase (arreaim-1115: control 1 or 2, mismatch 2 or 3), and ADDS to the re-aim's tick
+            // (control 2 / mismatch 3 with both held). Judge each side's ticks minus its own hold; the re-aim still costs
+            // exactly one more, overlapping only the click-gap hold.
+            int base = control.acted() - control.clickGap() - (control.tickHold() ? 1 : 0);
+            int want = base + Math.max(1, control.clickGap()) + (mismatch.tickHold() ? 1 : 0);
             check(mismatch.acted() == want, "mismatch: the warp went " + mismatch.acted() + " tick(s) after firing, the "
                     + "control " + control.acted() + " (click-gap hold " + control.clickGap() + ") - the re-aim must cost "
                     + "exactly one tick, overlapping any click-gap hold (want " + want + ")");
@@ -9595,7 +9873,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 }
             }
             return new Run(met, landed, acted, dropped, logHas(m, "re-aimed"), logHas(m, "no landing after"), off,
-                    logHas(m, "window arrived after the await was met"), clickGap);
+                    logHas(m, "window arrived after the await was met"), clickGap,
+                    logHas(m, "a use_item_on already went out this server tick"));
         }
     }
 
@@ -10405,6 +10684,129 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 resetRoutes(ctx);
                 giveHotbar(ctx);
             }
+        }
+
+        // ------------------------------------------------------------------------------------------- acslow-1115
+
+        /** The two-hop pair's middle landing block and its end (relative z; x is OX, y the floor F-1). */
+        private static final int MZ = 20;
+        private static final int EZ = 40;
+
+        /**
+         * acslow-1115: a saved path hop with a block now standing in its line (his Slime #9 hop 2, 2026-11-15) was held
+         * until a left click - 41 ticks stepping onto the spot he stood on, then with no limit. Now the rest of the pair is
+         * planned again from where he stands and flown. A 3-high wall across the strip at z 30 blocks hop 2; he must reach
+         * #2 inside {@link #REPLAN_BOUND} ticks, the replan counted once, the saved hops untouched.
+         */
+        static void acslowBlocked(ClientGameTestContext ctx) {
+            acslowCase(ctx, "blocked", () -> {
+                Map<int[], BlockState> wall = new HashMap<>();
+                for (int x = 4; x <= 8; x++) {
+                    for (int y = 0; y <= 2; y++) {
+                        wall.put(new int[]{x, F + y, 30}, Blocks.STONE.defaultBlockState());
+                    }
+                }
+                setBlocks(ctx, wall);
+            }, "no look from here lands on", REPLAN_BOUND);
+        }
+
+        /** acslow-1115: hop 1's landing block gone (his Withermancer #4 hop 1, 90 ticks waiting for it): planned again. */
+        static void acslowGone(ClientGameTestContext ctx) {
+            acslowCase(ctx, "gone", () -> {
+                Map<int[], BlockState> hole = new HashMap<>();
+                hole.put(new int[]{OX, F - 1, MZ}, Blocks.AIR.defaultBlockState());
+                setBlocks(ctx, hole);
+            }, "landing block", REPLAN_BOUND + 20);
+        }
+
+        /** Ticks from arming #1 to standing on #2: two hops plus one replan (one planner answer, a few ms here); a missing
+         *  landing block is first waited for 20 ticks more (the server may still be sending it). */
+        private static final int REPLAN_BOUND = 40;
+
+        private static void acslowCase(ClientGameTestContext ctx, String tag, Runnable block, String why, int bound) {
+            if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+                caseSkip = "Auto Routes fires nodes only in a cheat build";
+                return;
+            }
+            inMuseum(ctx, () -> {
+                setReplan(ctx, false);
+                writeTwoHopPair(ctx);
+                giveAotv(ctx, 0);
+                check(valid(ctx) && hopCount(ctx) == 2, "premise: the written pair is not 2 valid saved warps");
+                // ---- control: the clear strip flies the 2 saved warps, no replan ----
+                int r0 = replans(ctx);
+                long m0 = LogTap.mark();
+                Flight c = replayTo(ctx, EZ, 120);
+                println("acslow-" + tag + " control: landed " + (c.landed != null) + ", uses " + c.uses + ", replans "
+                        + (replans(ctx) - r0));
+                check(c.landed != null, "control: the clear pair did not land him on #2 (at " + relPos(ctx) + ")");
+                check(replans(ctx) == r0 && !logHas(m0, "planning the rest"), "control: a clear pair was planned again");
+                stopRoute(ctx);
+                // ---- the hop cannot go: the rest is planned again from here and flown ----
+                block.run();
+                ctx.waitTicks(20);
+                int r1 = replans(ctx);
+                long m1 = LogTap.mark();
+                long t0 = serverTime(ctx);
+                Flight f = replayTo(ctx, EZ, 200);
+                long took = serverTime(ctx) - t0;
+                println("acslow-" + tag + ": landed " + (f.landed != null) + " in ~" + took + " tick(s), uses " + f.uses
+                        + ", replans " + (replans(ctx) - r1) + ", saved hops " + hopCount(ctx));
+                for (String l : LogTap.since(m1)) {
+                    if (l.contains("PATH") || l.contains("Etherwarp (") || l.contains("Stopped") || l.contains("landing block")) {
+                        println("acslow-" + tag + " log: " + l);
+                    }
+                }
+                check(logHas(m1, why), "the hop was not held for its cause (\"" + why + "\") - the premise did not happen");
+                check(logHas(m1, "planning the rest of node #1's pair again"), "the pair was not planned again from here");
+                check(replans(ctx) == r1 + 1, "replans counted " + (replans(ctx) - r1) + ", expected 1");
+                check(f.landed != null, "after the replan he did not reach #2 (at " + relPos(ctx) + ")");
+                check(took <= bound, "reaching #2 took ~" + took + " tick(s), bound " + bound
+                        + " (before: held until a left click)");
+                check(!logHas(m1, "off its spot after"), "it stepped toward a spot it already stood on");
+                check(hopCount(ctx) == 2 && valid(ctx), "the replan changed the saved pair (" + hopCount(ctx) + " warps)");
+            });
+        }
+
+        private static int replans(ClientGameTestContext ctx) {
+            return ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "hopReplans"));
+        }
+
+        /** {@link #replay}, waiting for him on relative block (OX, z). */
+        private static Flight replayTo(ClientGameTestContext ctx, int z, int ticks) {
+            forgetRunMemory(ctx);
+            tpRel(ctx, OX + 0.5, OZ + 3.5, 0f, 0f);
+            ctx.waitTicks(10);
+            startSampling(ctx);
+            tpRel(ctx, OX + 0.5, OZ + 0.5, 0f, 0f);
+            Vec3 l = waitLanded(ctx, OX, z, ticks);
+            ctx.waitTicks(l == null ? 0 : 5);
+            List<Sample> s = stopSampling(ctx);
+            return new Flight(l, useTicks(s).size());
+        }
+
+        /** #1 (start) at (OX, OZ), #2 at (OX, EZ); saved warps #1 -> block (OX, F-1, MZ) -> block (OX, F-1, EZ). */
+        private static void writeTwoHopPair(ClientGameTestContext ctx) {
+            JsonArray hops = new JsonArray();
+            hops.add(hop(OX + 0.5, F, OZ + 0.5, MZ));
+            hops.add(hop(OX + 0.5, F + 0.05, MZ + 0.5, EZ));
+            JsonObject start = node("PATH", OX, OZ, 0f, 0f);
+            start.addProperty("start", true);
+            start.add("hops", hops);
+            start.addProperty("planFrom", String.format(Locale.US, "%.6f %.6f %.6f", OX + 0.5, (double) F, OZ + 0.5));
+            start.addProperty("planTo", String.format(Locale.US, "%.6f %.6f %.6f", OX + 0.5, (double) F, EZ + 0.5));
+            start.addProperty("planBreakers", 0);
+            writeRoute(ctx, List.of(start, node("PATH", OX, EZ, 0f, 0f)));
+        }
+
+        /** One saved warp from (ox, oy, oz) onto the top of floor block (OX, F-1, tz), aimed at its top center. */
+        private static String hop(double ox, double oy, double oz, int tz) {
+            double cx = OX + 0.5;
+            double cz = tz + 0.5;
+            float yaw = (float) Math.toDegrees(Math.atan2(-(cx - ox), cz - oz));
+            float pitch = (float) Math.toDegrees(Math.atan2(oy + 1.27 - F, Math.hypot(cx - ox, cz - oz)));
+            return String.format(Locale.US, "%.6f %.6f %.6f %.6f %.6f %d %d %d %.6f %.6f %.6f", ox, oy, oz, yaw, pitch,
+                    OX, F - 1, tz, cx, F + 0.05, cz);
         }
 
         // ------------------------------------------------------------------------------------------- setup

@@ -52,6 +52,8 @@ final class MasterSweepCases {
                 "!All Mobs Through Walls", "!Bats Through Walls", "!Thorn Triggerbot"});
         // Mod bloodrush2-1104: Learn Spawn Spots learns while the helper is off, so the card stands for both.
         PINNED.put("BloodRushHelperTab", new String[]{"Blood Rush Helper", "Learn Spawn Spots"});
+        // Mod witheraim-1111: the Wither Aimbot has its own switch beside the triggerbot's in the same (cheat) tab.
+        PINNED.put("GoldorTriggerbotTab", new String[]{"!Wither Boss Triggerbot", "!Wither Aimbot"});
     }
 
     /** Rows that do nothing on their own, so they must not make a card read ON. */

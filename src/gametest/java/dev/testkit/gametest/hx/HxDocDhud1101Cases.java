@@ -41,6 +41,9 @@ final class HxDocDhud1101Cases {
         s.test("1101-dhud-triggerlines", HxDocDhud1101Cases::triggerLines);
         s.test("1101-dhud-lockedchest", HxDocDhud1101Cases::lockedChest);
         s.test("1101-dhud-chestdrop", HxDocDhud1101Cases::chestDrop);
+        s.test("1116-ar-await-late-secret", c -> awaitWindow(c, 0));
+        s.test("1116-ar-await-loot", c -> awaitWindow(c, 1));
+        s.test("1116-ar-await-reset", c -> awaitWindow(c, 2));
         s.test("1101-dhud-doorkeys", HxDocDhud1101Cases::doorKeys);
     }
 
@@ -583,6 +586,51 @@ final class HxDocDhud1101Cases {
         net.minecraft.world.entity.item.ItemEntity e = new net.minecraft.world.entity.item.ItemEntity(mc.level, x, y, z, stack);
         e.setId(id);
         return e;
+    }
+
+    /** mode 0: an item secret near a chest clicked long ago counts; 1: loot right after a click does not; 2: a world change empties the list. */
+    private static void awaitWindow(Session c, int mode) {
+        c.server().command("setblock -417 151 -422 minecraft:chest");
+        try {
+            dungeon(c);
+            c.waitUntil("the client sees the chest", mc -> mc.level.getBlockState(CHEST).getBlock() == net.minecraft.world.level.block.Blocks.CHEST, 60);
+            run(c, () -> ((java.util.Collection<?>) Mod.field(AWAIT, "chestClicks")).clear());
+            int maxId = c.onClient(mc -> {
+                int m = 0;
+                for (net.minecraft.world.entity.Entity e : mc.level.entitiesForRendering()) {
+                    m = Math.max(m, e.getId());
+                }
+                return m;
+            });
+            clickChest(c);
+            int kept = c.onClient(mc -> (Integer) Mod.staticCall(AWAIT, "chestClickCount"));
+            c.check(kept == 1, "the click was kept: " + kept);
+            if (mode == 1) {
+                String loot = c.onClient(mc -> (String) Mod.staticCall(AWAIT, "notASecretItem",
+                        item(mc, "Decoy", -416.5, 151, -420.5, maxId + 2000)));
+                c.check(loot != null && loot.contains("came out of the chest"), "loot just after the click is no secret: " + loot);
+                return;
+            }
+            if (mode == 0) {
+                long until = System.currentTimeMillis() + 2300;
+                c.waitUntil("2.3 s pass", mc -> System.currentTimeMillis() > until, 80);
+                String late = c.onClient(mc -> (String) Mod.staticCall(AWAIT, "notASecretItem",
+                        item(mc, "Decoy", -416.5, 151, -420.5, maxId + 2001)));
+                c.check(late == null, "a Decoy beside a chest clicked 2.3 s ago is a secret: " + late);
+                clickChest(c);
+                int after = c.onClient(mc -> (Integer) Mod.staticCall(AWAIT, "chestClickCount"));
+                c.check(after == 1, "the aged click was dropped by the next one: " + after);
+                return;
+            }
+            run(c, () -> Mod.setField(AWAIT, "chestClicksLevel", new Object()));
+            int gone = c.onClient(mc -> (Integer) Mod.staticCall(AWAIT, "chestClickCount"));
+            String stale = c.onClient(mc -> (String) Mod.staticCall(AWAIT, "notASecretItem",
+                    item(mc, "Decoy", -416.5, 151, -420.5, maxId + 2002)));
+            c.check(gone == 0 && stale == null, "after a world change the list is empty: " + gone + " / " + stale);
+        } finally {
+            c.server().command("setblock -417 151 -422 minecraft:air");
+            run(c, () -> Mod.staticCall(MEMORY, "reset"));
+        }
     }
 
     private static void chestDrop(Session c) {
