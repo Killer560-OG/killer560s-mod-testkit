@@ -3007,11 +3007,18 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 ModUnderTest.set(cfg, "setSecretAuraEnabled", true);
             });
             if (act != null) {
-                // His actions start once the aura's click is on the wire, so they land in the hand-back tick and the warp's
-                // ticks (where the fix acts). Earlier, his left click is the deliberate await skip (no aura click at all) and
-                // his swaps are spent before the aura's 150 ms click delay is over.
-                check(waitFor(ctx, 60, () -> dev.testkit.harness.WireCapture.snapshot().stream()
-                        .anyMatch(x -> x.type().equals("minecraft:use_item_on"))), label + ": the aura's click never went out");
+                // His actions start once the aura has turned the body to the lever (the tick before its click), so they land in
+                // the click tick, the hand-back tick and the warp's ticks (where the fix acts); before that his swaps were spent
+                // during the aura's 150 ms click delay. ATTACK waits for the click itself: a left click while the node still
+                // waits is the deliberate await skip, and the aura then never clicks.
+                if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                    check(waitFor(ctx, 60, () -> dev.testkit.harness.WireCapture.snapshot().stream()
+                            .anyMatch(x -> x.type().equals("minecraft:use_item_on"))), label + ": the aura's click never went out");
+                } else {
+                    check(waitFor(ctx, 60, () -> ctx.computeOnClient(mc ->
+                            Math.abs(net.minecraft.util.Mth.wrapDegrees(mc.player.getYRot() - 180f)) > 1f
+                                    || Math.abs(mc.player.getXRot() - 55f) > 1f)), label + ": the aura never turned the body");
+                }
                 int slotA = stick ? 7 : 0;
                 int every = act == dev.testkit.gametest.SameTick.Act.ATTACK ? 3 : 1;
                 dev.testkit.gametest.SameTick s1 = ctx.computeOnClient(mc -> {
@@ -3031,7 +3038,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             }
             Vec3 landed = null;
             for (int i = 0; i < 80 && landed == null; i++) {
-                if (act == dev.testkit.gametest.SameTick.Act.TP && i < 12 && i % 3 == 0) {
+                if (act == dev.testkit.gametest.SameTick.Act.TP && i < 6) {
                     c.server().command("execute as @a at @s run tp @s ~ ~ ~");
                 }
                 landed = waitLanded(ctx, 14, 6, 1);
