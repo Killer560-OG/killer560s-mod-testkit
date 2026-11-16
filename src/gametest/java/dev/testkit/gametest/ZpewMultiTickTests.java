@@ -124,7 +124,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 hx.give(1, ZpewCampaignTests.aotv(4));
                 hookTicks(ctx);
                 if (bank) {
-                    meter = new GapMeter(server);
+                    meter = new GapMeter();
                 }
                 String who = ZpewCampaignTests.name(ctx);
                 ctx.getInput().holdKey(o -> o.keyShift);
@@ -334,46 +334,31 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
         return other;
     }
 
-    /** Longest time the server tick or the client tick stood still while a bank case ran: the proof of a lag spike. */
+    /**
+     * Longest gap between two server ping packets reaching the client while a bank case ran: the proof of a lag spike (a
+     * GrimAC server pings every tick, so a gap of 900 ms or more is a stall the Blink Hold sat through).
+     */
     static final class GapMeter {
-        private volatile boolean run = true;
+        private volatile long last = System.currentTimeMillis();
         private volatile long max;
-        private final Thread t;
+        private final java.util.function.Consumer<net.minecraft.network.protocol.Packet<?>> prev = PacketTrace.inTap;
 
-        GapMeter(net.minecraft.server.MinecraftServer server) {
-            t = new Thread(() -> {
-                int sTick = -1;
-                int cTick = -1;
-                long sAt = System.currentTimeMillis();
-                long cAt = sAt;
-                while (run) {
+        GapMeter() {
+            PacketTrace.inTap = p -> {
+                if (p instanceof net.minecraft.network.protocol.common.ClientboundPingPacket) {
                     long now = System.currentTimeMillis();
-                    int s = server.getTickCount();
-                    var pl = net.minecraft.client.Minecraft.getInstance().player;
-                    int c = pl == null ? -1 : pl.tickCount;
-                    if (s != sTick) {
-                        sTick = s;
-                        sAt = now;
-                    }
-                    if (c != cTick) {
-                        cTick = c;
-                        cAt = now;
-                    }
-                    max = Math.max(max, Math.max(now - sAt, now - cAt));
-                    try {
-                        Thread.sleep(10);
-                    } catch (InterruptedException e) {
-                        return;
-                    }
+                    max = Math.max(max, now - last);
+                    last = now;
                 }
-            }, "mwtick-gap-meter");
-            t.setDaemon(true);
-            t.start();
+                if (prev != null) {
+                    prev.accept(p);
+                }
+            };
         }
 
         long stop() {
-            run = false;
-            return max;
+            PacketTrace.inTap = prev;
+            return Math.max(max, System.currentTimeMillis() - last);
         }
     }
 
