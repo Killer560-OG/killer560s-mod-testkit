@@ -44,6 +44,8 @@
     {"root": "map", "why": "sim only: builds a floor (roomsim/SimBuilder.java:49)"},
     {"root": "simbuild", "why": "sim only: builds a floor (roomsim/SimBuilder.java:57)"},
     {"root": "summon", "why": "sim only: spawns sim mobs (roomsim/SimMobs.java:692)"},
+    {"root": "wardrobe", "why": "sim only: wardrobe and stats menus (roomsim/SimWardrobe.java); gated by requires"},
+    {"root": "equipment", "why": "sim only: wardrobe and stats menus (roomsim/SimWardrobe.java); gated by requires"},
     {"root": "pc", "why": "sim only: chat command the sim answers or swallows (roomsim/SimPartyChat.java); gated by requires"},
     {"root": "pchat", "why": "sim only: chat command the sim answers or swallows (roomsim/SimPartyChat.java); gated by requires"},
     {"root": "ac", "why": "sim only: chat command the sim answers or swallows (roomsim/SimPartyChat.java); gated by requires"},

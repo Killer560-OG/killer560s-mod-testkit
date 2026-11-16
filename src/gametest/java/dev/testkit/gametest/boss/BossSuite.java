@@ -80,6 +80,7 @@ public class BossSuite implements FabricClientGameTest {
                     // M7 P5 with Hypixel's floorless P5 sidebar: dragons tracked, box, tracer, title, end splits (1108-boss-dragons-p5, dragons1108).
                     WitherDragonsP5Cases.register(s);
                     Ee3RouteGrimCases.register(s); // ee3route-1109
+                    Ap3LeverTurn1115Cases.register(s); // ap3leverturn-1115
                     TermCloseCases.register(s); // mod lines wait out a terminal opening (1111-termclose-*, termclose-1111)
                 });
     }
