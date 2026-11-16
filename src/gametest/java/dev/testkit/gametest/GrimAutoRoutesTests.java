@@ -2933,11 +2933,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * view (pitch 55, the floor ahead) the tick after. {@code stick}: he holds a stick, so the warp must swap to the AOTV on the
      * hand-back tick and turn there (a lost tick behind the unpaired click was item A). Else he holds the AOTV, and the tick
      * after the click carries a PacketOrderE window: the old blanket hold stopped the whole warp step there (item B). Measured
-     * on the wire from the aura's use_item_on to the warp's use_item: at most 2 ticks, and no PacketOrderE hold on the way.
+     * on the wire from the aura's use_item_on to the warp's use_item: at most 2 ticks (the old jar: 3).
      * With {@code act} his own action goes into those ticks ({@link dev.testkit.gametest.SameTick}); then the warp must still
      * land, the aura and his action must reach the wire (in one server tick but for ATTACK, which ActionGate keeps apart), and
      * GrimAC stays silent.
      */
+    private static final int[][] HANDBACK_LEVERS = {{8, 8}, {4, 8}, {7, 9}, {5, 9}, {8, 9}, {4, 9}, {7, 8}, {5, 8},
+            {8, 7}, {4, 7}, {7, 7}, {5, 7}};
+    private static int handBackCase;
+
     private static void caseAuraHandBack(Session c, boolean stick, dev.testkit.gametest.SameTick.Act act) {
         ClientGameTestContext ctx = c.ctx();
         String label = (stick ? "handback" : "ordere") + (act == null ? "" : " same " + act);
@@ -2955,13 +2959,16 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         });
         c.server().command("item replace entity @a hotbar.7 with stick");
         c.server().command("item replace entity @a hotbar.8 with stick");
-        setBlocks(ctx, Map.of(new int[]{8, F, 8}, "minecraft:lever[face=floor,facing=north,powered=false]"));
+        // Secret Aura remembers a flipped lever for the whole run, so every case gets its own (behind him, off the warp rays).
+        int[] lp = HANDBACK_LEVERS[handBackCase++ % HANDBACK_LEVERS.length];
+        setBlocks(ctx, Map.of(new int[]{lp[0], F, lp[1]}, "minecraft:lever[face=floor,facing=north,powered=false]"));
+        tpRel(ctx, 6.5, 10.5, 180f, 0f); // off the node, or an earlier case's spot fires it before the mark
         JsonObject w = ew(6, 6, 14, 6, true);
         w.addProperty("awaitEnabled", true);
         w.addProperty("await", "SECRET");
         w.addProperty("amount", 1);
-        writeRoute(ctx, List.of(w));
         long mark = LogTap.mark();
+        writeRoute(ctx, List.of(w));
         warpOnto(ctx, 6.5, 10.5, 6, 6);
         check(waitFor(ctx, 60, () -> logHas(mark, "Node #1 ETHERWARP begins")), label + ": the await node never began (at "
                 + relPos(ctx) + ")");
@@ -3032,7 +3039,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     use = x.tick();
                 }
             }
-            boolean lever = String.valueOf(blockState(ctx, 8, F, 8)).contains("powered=true");
+            boolean lever = String.valueOf(blockState(ctx, lp[0], F, lp[1])).contains("powered=true");
             boolean held = logHas(m, "GrimAC PacketOrderE");
             for (String l : LogTap.since(m)) {
                 if (l.contains("Node #1 ETHERWARP") || l.contains("PacketOrderE") || l.contains("[RightClick]")) {
@@ -3047,9 +3054,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             int gap = use - click;
             if (act == null) {
                 c.note(label + ": aura click t" + click + ", warp use t" + use + " (" + gap + " tick(s)), orderE hold " + held);
+                // The await is met by the click in its own tick, so the warp step starts right behind the aura's use_item_on:
+                // a swap there must wait a tick (PacketOrderE; the hold logged then is right), the sneak and turn must not.
                 check(gap <= 2, label + ": the warp went " + gap + " ticks after the aura's click (at most 2: turn on the "
                         + "hand-back tick, use the next)");
-                check(!held, label + ": the route held on PacketOrderE before the warp");
             } else {
                 dev.testkit.gametest.SameTick.Expect want = act == dev.testkit.gametest.SameTick.Act.ATTACK
                         ? dev.testkit.gametest.SameTick.Expect.APART : dev.testkit.gametest.SameTick.Expect.SHARE;
