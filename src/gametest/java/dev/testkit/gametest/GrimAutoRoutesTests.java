@@ -2999,6 +2999,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             startSampling(ctx);
             long m = LogTap.mark();
             ctx.runOnClient(mc -> {
+                dev.testkit.harness.WireCapture.start();
                 Object cfg = ModUnderTest.config(cheat);
                 ModUnderTest.set(cfg, "setAuraLevers", true);
                 ModUnderTest.set(cfg, "setAuraPauseWhileSneaking", false);
@@ -3084,7 +3085,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             if (open != null) {
                 ctx.runOnClient(mc -> open.close());
             }
-            ctx.runOnClient(mc -> ModUnderTest.turnOff(cheat, "setSecretAuraEnabled"));
+            ctx.runOnClient(mc -> {
+                dev.testkit.harness.WireCapture.stop();
+                ModUnderTest.turnOff(cheat, "setSecretAuraEnabled");
+            });
             if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
                 c.server().command("kill @e[tag=sametick]");
             }
