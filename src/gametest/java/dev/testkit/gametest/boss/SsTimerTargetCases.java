@@ -94,7 +94,7 @@ final class SsTimerTargetCases {
             // left a start button at the same spot, so the client view can pass the wait on stale blocks, and a start
             // press sent then hit air in Grim's world (AirLiquidPlace, the 2026-10-27 final run of this block).
             c.ctx().waitTicks(10);
-            c.hx().call("dungeon.tp", "x", 107.5, "y", 120.0, "z", 93.5, "yaw", -90f, "pitch", 0f);
+            SimonSaysCases.tpToDevice(c);
             c.waitUntil("the client to have the device", mc ->
                     mc.level.getBlockState(new BlockPos(111, 120, 92)).is(net.minecraft.world.level.block.Blocks.OBSIDIAN)
                             && mc.level.getBlockState(SimonSaysCases.START).is(

@@ -25,7 +25,7 @@
 #   -Minecraft <ver>     26.3 (default) or 26.2. Passes -Pminecraft_version and picks that version's jar. When it is
 #                        not given and -ModUnderTest is, it is read from the jar's fabric.mod.json (depends.minecraft);
 #                        a jar whose range excludes the run's version is refused, because loader would only refuse it later.
-#   -NoMod               run WITHOUT any mod (no -PmodUnderTest): a baseline, e.g. for 65-join-fingerprint.
+#   -NoMod               run WITHOUT any mod (no -PmodUnderTest): a baseline, e.g. for 65-smoke-join-fingerprint.
 #   -ProgressMinutes <n> no-progress watchdog (default 20, env TESTKIT_PROGRESS_MINUTES, 0 = off): once a client exists, a
 #                        run whose client log gets no test-thread line for n minutes is killed (whole process tree) and
 #                        ends as a FAIL "hung" (exit 5, a FAIL row in summary.md). The deadline kills the whole tree too.

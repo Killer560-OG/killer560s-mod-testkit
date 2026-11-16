@@ -192,6 +192,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxKickRejoin1103Cases.register(s);
                     // mod chport-1104: the Mining features pulled from staging-mining-3 (2026-11-04).
                     HxMining3Cases.register(s);
+                    // mod glacitecomm-c-1114: the Glacite Mineshafts card (1114-mineshaft-*).
+                    HxMineshaft1114Cases.register(s);
                     // Hide Ghost Mobs: a mob the server stopped sending is hidden, a still real one never (1109-ghostmob-hide, mod ghostmob-1109).
                     HxGhostMob1109Cases.register(s);
                     // mod featC-1108: Puzzle HUD, Reparty, Watcher Helper.
@@ -203,6 +205,7 @@ public class HxSuite implements FabricClientGameTest {
                     // mod nobosspearl-1110: Block Ender Pearls In Boss.
                     HxNoBossPearl1110Cases.register(s);
                     HxGlaciteCommA1114Cases.register(s);
+                    HxNoLocraw1115Cases.register(s);
                 });
     }
 }
