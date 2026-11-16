@@ -18,7 +18,7 @@ import java.util.Locale;
  *   <li>1115-same-waterchest-use / -swap / -dig / -tp: unlock signal forced TRUE (the 4-tick clicks), his right click
  *       every tick / scroll 4-5 every tick / left click on the chest every other tick (survival) / a server teleport
  *       every 5 ticks. The server must take at least 8 use_block, both his action and the chest click must reach the wire
- *       (his use and scroll in the same server tick as a click, his dig and teleport apart from it: ActionGate holds the click there) and GrimAC stay silent (default and experimental checks).</li>
+ *       (his use and scroll in the same server tick as a click, his dig apart from it: ActionGate holds the click there; his teleport accept on either side of it) and GrimAC stay silent (default and experimental checks).</li>
  *   <li>1115-same-waterchest-locked: signal forced FALSE for 140 ticks with his right click every tick: 1 to 5 probes in
  *       all (the old rate sent 35), each taken by the server, GrimAC silent.</li>
  * </ul>
@@ -137,6 +137,9 @@ final class HxWaterChest1115Cases {
                     c.server().command(tp);
                 }
                 c.ctx().waitTicks(8);
+                // No new click from here; the last one is still on its way to the server, so give it its tick first.
+                driving = false;
+                c.ctx().waitTicks(3);
             }
             int clicks = c.onClient(mc -> (Integer) Mod.staticCall(WATER, "chestClicksForTest"));
             int served = c.hx().events(since, "use_block").size();
@@ -172,8 +175,12 @@ final class HxWaterChest1115Cases {
                         + " sent between the server's teleport and his accept; server use_block " + served);
                 int served2 = c.hx().events(halfSince, "use_block").size();
                 c.note("second half (tp right behind a click): " + clear2 + " clear + " + exposed2 + " exposed clicks, server took " + served2);
+                StringBuilder tl = new StringBuilder();
+                for (long[] e : ev) {
+                    tl.append(" ").append("TCAM".charAt((int) e[0])).append(e[1] % 100000);
+                }
                 c.check(clear2 >= 3 && served2 >= clear2, "second half: server took " + served2 + " use_block, "
-                        + clear2 + " clicks went out with no teleport pending");
+                        + clear2 + " clicks went out with no teleport pending; tp(T)/click(C)/accept(A)/half(M) ms:" + tl);
                 c.check(clear >= 5, "only " + clear + " click(s) went out with no teleport pending: nothing to judge");
                 c.check(served >= clear, "the server took " + served + " use_block of " + clicks + " clicks, "
                         + clear + " of them sent with no teleport pending");
@@ -186,9 +193,12 @@ final class HxWaterChest1115Cases {
             }
             // His use and scroll share the chest click's server tick (his use_item after the click, his slot inside the
             // click's useItemOn ahead of it). ActionGate holds the click in a tick his left click is queued (a use after a
-            // dig in one tick is PacketOrderI) and through the 6-tick settle after a teleport: those two are apart by design.
-            SameTick.judge(c, st, "water board chest", act == SameTick.Act.DIG || act == SameTick.Act.TP
-                    ? SameTick.Expect.APART : SameTick.Expect.SHARE);
+            // dig in one tick is PacketOrderI), so a dig is apart by design. A teleport is not: ActionGate's settle starts only when a
+            // teleport moves him more than 4 blocks and this one lands on the spot he stands on, so nothing holds the click;
+            // it met his accept in one server tick whenever a server stall delayed the accept (26.2, pong pong pong accept
+            // use_item_on). Both must reach the wire, and GrimAC (default and experimental) judges the tick they share.
+            SameTick.judge(c, st, "water board chest", act == SameTick.Act.DIG ? SameTick.Expect.APART
+                    : act == SameTick.Act.TP ? SameTick.Expect.ACTED : SameTick.Expect.SHARE);
             if (act == SameTick.Act.SWAP) {
                 c.check(st.playerAfterFeature() == 0, "his slot went out after the chest click in a server tick: " + st.report());
             }
