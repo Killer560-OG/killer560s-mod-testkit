@@ -98,7 +98,7 @@ final class LeverFreeze1116Cases {
                     if (act == SameTick.Act.TP && t % 2 == 0) {
                         c.server().command("execute as @a at @s run tp @s ~ ~ ~");
                     }
-                    if (reflick && t % 3 == 2) {
+                    if (reflick && t % 3 == 2 && t < 9) {
                         c.server().command("setblock 27 124 127 " + FLOOR_LEVER);
                     }
                     c.ctx().waitTick();
@@ -134,6 +134,8 @@ final class LeverFreeze1116Cases {
                     + ", first flick at #" + flickAt + ", camera moved at most " + cam[4]);
             c.check(flicks >= (act == SameTick.Act.TP || act == SameTick.Act.ATTACK ? 2 : 6),
                     "the Lever Aura flicked in only " + flicks + " of 12 rounds (the feature did not act)");
+            long onWire = wire.stream().filter(w -> w.startsWith("use_item_on") && w.contains(LEVER.toShortString())).count();
+            c.check(!reflick || onWire > 12, "the lever was reset 3 times a round but only " + onWire + " flicks went out in 12 rounds");
             c.check(turnedAt >= 0, "no look packet turned away from his yaw " + cam[0] + ": the real body never turned");
             c.check(flickAt >= 0 && turnedAt <= flickAt, "the first flick (#" + flickAt + ") did not follow a turned look (#" + turnedAt + ")");
             if (act != null) {
