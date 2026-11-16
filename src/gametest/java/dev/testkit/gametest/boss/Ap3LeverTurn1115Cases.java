@@ -48,9 +48,9 @@ final class Ap3LeverTurn1115Cases {
         // ap3leveralways-1115: the lever already on is the one AP3 flicked itself earlier in the same run (a retry).
         s.test("1115-ap3-leveralways-retry", c -> run(c, null, true));
         s.test("1115-ap3-leveralways-retry-same-use", c -> run(c, SameTick.Act.USE, true));
-        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.ATTACK, SameTick.Act.SWAP, SameTick.Act.SCREEN_CLICK}) {
-            s.test("1115-ap3-leveralways-same-" + a.name().toLowerCase(Locale.ROOT).replace('_', '-'), c -> run(c, a, true));
-        }
+        // His attack, teleport accept and container click over Lever Aura's turn are 1111-boss-lever-same-* (BossAuraTurnCases);
+        // the turn-only path shares that turn. A swap in the retry walk's own tick:
+        s.test("1115-ap3-leveralways-same-swap", c -> run(c, SameTick.Act.SWAP, true));
     }
 
     private static Object node(String type, double x, double z, float yaw, double size) {
