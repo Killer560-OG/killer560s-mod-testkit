@@ -113,7 +113,7 @@ public final class SameTick implements AutoCloseable {
 
     private void inject(Minecraft mc) {
         if (act == Act.TP || mc.player == null || mc.gameMode == null || tick++ % every != 0) return;
-        if (left == 0) return;
+        if (left == 0 || (heldOnly && heldSlot() != slotA && heldSlot() != slotB)) return;
         if (left > 0) left--;
         injecting = true;
         try {
@@ -321,6 +321,14 @@ public final class SameTick implements AutoCloseable {
     /** Only the next {@code n} injections go in (0: none until the next allow): his action around one moment. */
     public void allow(int n) {
         left = n;
+    }
+
+    private volatile boolean heldOnly;
+
+    /** His action goes in only while slotA or slotB is held (a stick's use or swap that stops once a feature takes the hand). */
+    public SameTick heldOnly() {
+        heldOnly = true;
+        return this;
     }
 
     /** One line for the case's note: counts and the first few shared ticks. */

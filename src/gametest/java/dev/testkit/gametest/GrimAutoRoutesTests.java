@@ -245,6 +245,21 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             }
             s.test("62-argrim-hand", GrimAutoRoutesTests::caseHand);
             s.test("62-argrim-1016-auraawait", GrimAutoRoutesTests::caseAuraAwait); // aura-await-only-1016
+            // arhandback2-1116: the real Secret Aura hands the body back on the await warp's firing tick (stick held: the warp
+            // swaps then) and its click leaves a PacketOrderE window (AOTV held); plus his own actions in those ticks.
+            if (dev.testkit.gametest.mod.Mod.isCheat()) {
+                s.test("62-argrim-1116-ar-handback", c -> caseAuraHandBack(c, true, null));
+                s.test("62-argrim-1116-ar-ordere", c -> caseAuraHandBack(c, false, null));
+                for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                        dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.OPEN_CLICK,
+                        dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.TP)) {
+                    String n = a.name().toLowerCase(Locale.ROOT).replace("_", "");
+                    s.test("62-argrim-1116-ar-handback-same-" + n, c -> caseAuraHandBack(c, true, a));
+                    if (a != dev.testkit.gametest.SameTick.Act.USE) { // his use with the AOTV in hand is his own warp
+                        s.test("62-argrim-1116-ar-ordere-same-" + n, c -> caseAuraHandBack(c, false, a));
+                    }
+                }
+            }
             // grimgapB-1105: his use / attack / hotbar swap in the same server tick as Secret Aura's lever clicks.
             for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{
                     dev.testkit.gametest.SameTick.Act.USE, dev.testkit.gametest.SameTick.Act.ATTACK,
@@ -2908,6 +2923,150 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             noteFlags(c, s2);
         } finally {
             ctx.runOnClient(mc -> ModUnderTest.turnOff(cheat, "setSecretAuraEnabled"));
+            resetRoutes(ctx);
+        }
+    }
+
+    /**
+     * arhandback2-1116, with the real Secret Aura: an await etherwarp start node (look +x) waits on a floor lever behind him
+     * (8, F, 8). The aura turns the body to it, clicks it (that meets the await in its own tick) and gives the body back to his
+     * view (pitch 55, the floor ahead) the tick after. {@code stick}: he holds a stick, so the warp must swap to the AOTV on the
+     * hand-back tick and turn there (a lost tick behind the unpaired click was item A). Else he holds the AOTV, and the tick
+     * after the click carries a PacketOrderE window: the old blanket hold stopped the whole warp step there (item B). Measured
+     * on the wire from the aura's use_item_on to the warp's use_item: at most 2 ticks, and no PacketOrderE hold on the way.
+     * With {@code act} his own action goes into those ticks ({@link dev.testkit.gametest.SameTick}); then the warp must still
+     * land, the aura and his action must reach the wire (in one server tick but for ATTACK, which ActionGate keeps apart), and
+     * GrimAC stays silent.
+     */
+    private static void caseAuraHandBack(Session c, boolean stick, dev.testkit.gametest.SameTick.Act act) {
+        ClientGameTestContext ctx = c.ctx();
+        String label = (stick ? "handback" : "ordere") + (act == null ? "" : " same " + act);
+        String cheat = "com.killer560.hub.cheatutils.CheatUtilsConfig";
+        resetRoutes(ctx);
+        arena(ctx, false);
+        ctx.runOnClient(mc -> {
+            ModUnderTest.turnOff(cheat, "setSecretAuraEnabled");
+            try {
+                ModUnderTest.staticCall("com.killer560.hub.autoroutes.RouteRunMemory", "reset", new Class<?>[]{},
+                        new Object[]{});
+            } catch (AssertionError ignored) {
+                // an older jar: no run memory
+            }
+        });
+        c.server().command("item replace entity @a hotbar.7 with stick");
+        c.server().command("item replace entity @a hotbar.8 with stick");
+        setBlocks(ctx, Map.of(new int[]{8, F, 8}, "minecraft:lever[face=floor,facing=north,powered=false]"));
+        JsonObject w = ew(6, 6, 14, 6, true);
+        w.addProperty("awaitEnabled", true);
+        w.addProperty("await", "SECRET");
+        w.addProperty("amount", 1);
+        writeRoute(ctx, List.of(w));
+        long mark = LogTap.mark();
+        warpOnto(ctx, 6.5, 10.5, 6, 6);
+        check(waitFor(ctx, 60, () -> logHas(mark, "Node #1 ETHERWARP begins")), label + ": the await node never began (at "
+                + relPos(ctx) + ")");
+        ctx.waitTicks(10);
+        ctx.runOnClient(mc -> {
+            mc.player.getInventory().setSelectedSlot(stick ? 7 : 0);
+            mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(180f - mc.player.getYRot()));
+            mc.player.setXRot(55f);
+        });
+        if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+            double[] z = ctx.computeOnClient(mc -> {
+                Vec3 v = mc.player.position();
+                return new double[]{v.x, v.y, v.z - 1.0};
+            });
+            c.server().command("summon zombie " + z[0] + " " + z[1] + " " + z[2]
+                    + " {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}");
+            check(waitFor(ctx, 100, () -> ctx.computeOnClient(mc ->
+                    mc.hitResult instanceof net.minecraft.world.phys.EntityHitResult)), label + ": the zombie is not under his crosshair");
+        }
+        ctx.waitTicks(3);
+        check(!logHas(mark, "secrets met") && waitLanded(ctx, 14, 6, 0) == null, label + ": the await was met before the aura");
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            startSampling(ctx);
+            long m = LogTap.mark();
+            if (act != null) {
+                int slotA = stick ? 7 : 0;
+                int every = act == dev.testkit.gametest.SameTick.Act.ATTACK ? 3 : 1;
+                dev.testkit.gametest.SameTick s1 = ctx.computeOnClient(mc -> {
+                    dev.testkit.gametest.SameTick t = dev.testkit.gametest.SameTick.start(act, every,
+                            p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemOnPacket
+                                    || p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
+                                    || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, slotA, 8);
+                    // His stick use / swap stops once the warp has the AOTV in hand; with the AOTV held his swaps go in twice.
+                    if (stick && (act == dev.testkit.gametest.SameTick.Act.USE || act == dev.testkit.gametest.SameTick.Act.SWAP)) {
+                        t.heldOnly();
+                    } else if (act == dev.testkit.gametest.SameTick.Act.SWAP) {
+                        t.allow(2);
+                    }
+                    return t;
+                });
+                st = s1;
+            }
+            ctx.runOnClient(mc -> {
+                Object cfg = ModUnderTest.config(cheat);
+                ModUnderTest.set(cfg, "setAuraLevers", true);
+                ModUnderTest.set(cfg, "setAuraPauseWhileSneaking", false);
+                ModUnderTest.call(cfg, "setAuraPauseHolding", new Class<?>[]{String.class}, new Object[]{""});
+                ModUnderTest.set(cfg, "setSecretAuraEnabled", true);
+            });
+            Vec3 landed = null;
+            for (int i = 0; i < 80 && landed == null; i++) {
+                if (act == dev.testkit.gametest.SameTick.Act.TP && i < 12 && i % 3 == 0) {
+                    c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+                }
+                landed = waitLanded(ctx, 14, 6, 1);
+            }
+            ctx.waitTicks(5);
+            List<Sample> s = stopSampling(ctx);
+            printTrace(label, s);
+            int click = -1;
+            int use = -1;
+            for (Sample x : s) {
+                if (click < 0 && x.out().contains("use_item_on")) {
+                    click = x.tick();
+                }
+                if (click >= 0 && use < 0 && x.tick() >= click && x.out().contains("use_item")) {
+                    use = x.tick();
+                }
+            }
+            boolean lever = String.valueOf(blockState(ctx, 8, F, 8)).contains("powered=true");
+            boolean held = logHas(m, "GrimAC PacketOrderE");
+            for (String l : LogTap.since(m)) {
+                if (l.contains("Node #1 ETHERWARP") || l.contains("PacketOrderE") || l.contains("[RightClick]")) {
+                    println("  " + l);
+                }
+            }
+            check(lever, label + ": Secret Aura did not flip the lever");
+            check(logHas(m, "secrets met"), label + ": the lever click did not meet the await");
+            check(landed != null, label + ": the warp did not land (at " + relPos(ctx) + ")");
+            check(click >= 0 && use >= 0, label + ": no aura use_item_on or no warp use_item on the wire (click t" + click
+                    + ", use t" + use + ")");
+            int gap = use - click;
+            if (act == null) {
+                c.note(label + ": aura click t" + click + ", warp use t" + use + " (" + gap + " tick(s)), orderE hold " + held);
+                check(gap <= 2, label + ": the warp went " + gap + " ticks after the aura's click (at most 2: turn on the "
+                        + "hand-back tick, use the next)");
+                check(!held, label + ": the route held on PacketOrderE before the warp");
+            } else {
+                dev.testkit.gametest.SameTick.Expect want = act == dev.testkit.gametest.SameTick.Act.ATTACK
+                        ? dev.testkit.gametest.SameTick.Expect.APART : dev.testkit.gametest.SameTick.Expect.SHARE;
+                c.note(label + ": warp " + gap + " tick(s) after the click");
+                dev.testkit.gametest.SameTick.judge(c, st, label, want);
+                st = null;
+            }
+            noteFlags(c, s);
+        } finally {
+            dev.testkit.gametest.SameTick open = st;
+            if (open != null) {
+                ctx.runOnClient(mc -> open.close());
+            }
+            ctx.runOnClient(mc -> ModUnderTest.turnOff(cheat, "setSecretAuraEnabled"));
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                c.server().command("kill @e[tag=sametick]");
+            }
             resetRoutes(ctx);
         }
     }
