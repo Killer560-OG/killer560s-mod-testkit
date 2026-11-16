@@ -32,6 +32,7 @@ final class HxSocialCases {
         commandKeybinds(s);
         autoJoinSkyblock(s);
         autoCorrect(s);
+        autoCorrectSwap(s);
         emotes(s);
         cringe(s);
         autoMeow(s);
@@ -236,6 +237,25 @@ final class HxSocialCases {
                 c.check(msg.equals("msg Teh the"), "/" + msg + " (want /msg Teh the)");
                 c.check(c.commands().stream().noneMatch(x -> x.startsWith("wardorbe")), "the typo reached the server");
                 c.note("/wardorbe -> /" + cmd + "; /msg Teh teh -> /" + msg);
+            }
+        });
+    }
+
+    private static void autoCorrectSwap(Session s) {
+        s.test("1116-hx-autocorrect-swap", c -> {
+            try (Settings set = new Settings(c).with("autocorrect.AutoCorrectConfig", "CorrectCommands", true)
+                    .with("autocorrect.AutoCorrectConfig", "Enabled", false)
+                    .with("emotes.ChatEmoteConfig", "Enabled", false)) {
+                String[][] cases = {{"/zb", "bz"}, {"/ha", "ah"}, {"/ZB", "bz"}, {"/wrap hub", "warp hub"},
+                        {"/pc hi", "pc hi"}, {"/xq", "xq"}, {"/bz", "bz"}};
+                for (String[] t : cases) {
+                    int before = c.commands().size();
+                    type(c, t[0]);
+                    c.waitUntil("the command for " + t[0], mc -> c.commands().size() > before, 40);
+                    String sent = c.commands().get(before);
+                    c.check(sent.equals(t[1]), t[0] + " went out as /" + sent + " (want /" + t[1] + ")");
+                }
+                c.note("swap fixes /zb->/bz, /ha->/ah, /wrap->/warp; /pc, /xq, /bz untouched");
             }
         });
     }
