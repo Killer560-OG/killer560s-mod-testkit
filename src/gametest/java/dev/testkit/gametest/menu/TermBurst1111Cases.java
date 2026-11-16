@@ -91,10 +91,13 @@ final class TermBurst1111Cases {
             if (sameTick) {
                 // Installed BEFORE the open: at a size above the board the whole board bursts on the first click, which can
                 // come before a test thread back from awaitScreen (1112-term-burst-size-21-sametick read [21, 0, 0]).
-                // Run at END_CLIENT_TICK, right after the tick-end packet, so his actions open every wire tick: the solver
-                // sends from render frames after a tick end (and in the next client tick), always after them. From
-                // START_CLIENT_TICK a frame burst came first, the server closed the solved terminal before the next tick
-                // started and the burst tick carried neither (full session, [8, 0, 0] / [5, 0, 0]).
+                // Where a player's own actions go: his container click is a mouse event, handled between ticks like the
+                // solver's frame sends, so it runs at END_CLIENT_TICK (just after the tick-end packet) and opens every wire
+                // tick before the solver's frames. His hotbar swap, right click and swing are keybinds, handled inside the
+                // tick before its position packet (at END Grim flags the swap: Post), so they run at START_CLIENT_TICK, still
+                // in the burst's wire tick, and the swap runs even once the server has closed the solved terminal. With
+                // everything at START a frame burst came first, the server closed the screen before the next tick and the
+                // burst tick carried neither (full session, [8, 0, 0] / [5, 0, 0]).
                 c.ctx().runOnClient(mc -> mc.player.getInventory().clearContent());
                 c.onClient(mc -> {
                     hook();
@@ -105,16 +108,20 @@ final class TermBurst1111Cases {
                             return;
                         }
                         seenOpen[0] = true;
-                        mc.player.getInventory().setSelectedSlot((mc.player.getInventory().getSelectedSlot() + 1) % 9);
                         int own = s.getMenu().slots.size() - 1;
                         mc.gameMode.handleContainerInput(s.getMenu().containerId, own, 0, ContainerInput.PICKUP, mc.player);
-                        if (useToo) {
+                        for (int i = 0; i < 3; i++) {
+                            Mod.staticCall(FEATURE, "refreshState");
+                        }
+                    };
+                    perTick = () -> {
+                        if (!seenOpen[0]) return;
+                        mc.player.getInventory().setSelectedSlot((mc.player.getInventory().getSelectedSlot() + 1) % 9);
+                        if (useToo && dev.testkit.compat.McCompat.screen(mc)
+                                instanceof net.minecraft.client.gui.screens.inventory.ContainerScreen) {
                             // His own right click (use_item) and swing in the same tick (termplus-1112).
                             mc.gameMode.useItem(mc.player, net.minecraft.world.InteractionHand.MAIN_HAND);
                             dev.testkit.compat.McCompat.swingArm(mc.player);
-                        }
-                        for (int i = 0; i < 3; i++) {
-                            Mod.staticCall(FEATURE, "refreshState");
                         }
                     };
                     return null;
@@ -136,6 +143,7 @@ final class TermBurst1111Cases {
                     c.ctx().waitTicks(1);
                 }
                 perTickEnd = null;
+                perTick = null;
                 c.ctx().runOnClient(mc -> mc.options.keyUp.setDown(false));
             }
             JsonObject solved = MenuKit.awaitEvent(c, "terminal.solved", drop ? 300 : 200);
@@ -213,6 +221,7 @@ final class TermBurst1111Cases {
         } finally {
             acting[0] = false;
             perTickEnd = null;
+            perTick = null;
             WireCapture.stop();
             WireCapture.describe = null;
             c.ctx().runOnClient(mc -> mc.options.keyUp.setDown(false));
