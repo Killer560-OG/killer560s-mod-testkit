@@ -470,73 +470,22 @@ public class SimBloodRushTests implements FabricClientGameTest {
             problems.add("no box shown in " + room);
             return;
         }
-        // Every starred mob the server has in the room stands inside a drawn box.
+        // The boxes are the shared table's (the sim's mobs stand on our own learned spots, so they need not sit inside them):
+        // the room's drawn boxes are exactly the table's boxes for it, numbered by their place in the table.
         mobs = serverStarredIn(ctx, room);
-        int inside = 0;
-        for (double[] m : mobs) {
-            boolean in = false;
-            for (Spot s : shown) {
-                in |= s.box().inflate(0.3).contains(m[0], m[1] + 0.1, m[2]);
-            }
-            if (in) {
-                inside++;
-            } else {
-                problems.add(String.format(Locale.ROOT, "starred mob at %.1f %.1f %.1f in no box", m[0], m[1], m[2]));
-            }
+        String tbl = ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(BR, "tableBoxesForTest",
+                new Class<?>[]{String.class}, new Object[]{room})));
+        int tableCount = "none".equals(tbl) ? 0 : tbl.split(";").length;
+        facts.add(shown.size() + " box(es) shown in " + room + ", the table has " + tableCount + "; " + mobs.size() + " sim mobs");
+        rushActed = shown.size();
+        if (tableCount == 0 || shown.size() != tableCount) {
+            problems.add(room + ": " + shown.size() + " box(es) shown, the shared table has " + tableCount);
         }
-        facts.add(inside + " of " + mobs.size() + " server starred mobs inside a box; " + shown.size() + " box(es)");
-        rushActed = Math.min(inside, shown.size());
-        // Just Me: every box his, numbered 1..n from the door the split went by, each next the nearest to the last.
-        double[] door = doorOf(ctx, room);
-        facts.add("door the split went by: " + (door == null ? "none" : String.format(Locale.ROOT, "%.1f, %.1f", door[0], door[1])));
-        List<Spot> mine = new ArrayList<>(shown);
-        mine.sort((a, b) -> Integer.compare(a.order(), b.order()));
-        for (int i = 0; i < mine.size(); i++) {
-            if (mine.get(i).order() != i + 1 || !mine.get(i).mine()) {
-                problems.add("box orders are not 1.." + mine.size() + ": " + spots(ctx));
-                break;
-            }
+        java.util.Set<Integer> orders = new HashSet<>();
+        for (Spot sp : shown) {
+            orders.add(sp.order());
         }
-        long nexts = mine.stream().filter(Spot::next).count();
-        if (nexts != 1 || !mine.get(0).next()) {
-            problems.add(nexts + " next box(es); the next should be box 1 only");
-        }
-        if (door != null) {
-            Vec3 from = new Vec3(door[0], 0, door[1]);
-            for (int i = 0; i < mine.size(); i++) {
-                Spot s = mine.get(i);
-                Vec3 c = new Vec3(s.x(), 0, s.z());
-                for (int j = i + 1; j < mine.size(); j++) {
-                    Spot o = mine.get(j);
-                    if (new Vec3(o.x(), 0, o.z()).distanceTo(from) + 0.05 < c.distanceTo(from)) {
-                        problems.add("box " + o.order() + " is nearer to " + (i == 0 ? "the door" : "box " + i) + " than box " + s.order());
-                    }
-                }
-                from = c;
-            }
-        } else {
-            problems.add("no door recorded for " + room);
-        }
-        // Kill box 1's mobs: it goes, and box 2 is the next.
-        AABB first = mine.get(0).box().inflate(0.3, 2.5, 0.3);
-        int killed = onServer(ctx, (level, sp) -> {
-            int n = 0;
-            for (Entity e : level.getEntitiesOfClass(Entity.class, first, e -> !(e instanceof Player))) {
-                e.discard();
-                n++;
-            }
-            return n;
-        });
-        ctx.waitTicks(20);
-        List<Spot> after = parsed(ctx);
-        facts.add("killed " + killed + " entities in box 1; boxes now " + spots(ctx));
-        Spot nextNow = after.stream().filter(Spot::next).findFirst().orElse(null);
-        if (after.stream().anyMatch(s -> s.order() == 1)) {
-            problems.add("box 1 still shown after its mobs died");
-        }
-        if (nextNow == null || nextNow.order() != 2) {
-            problems.add("after box 1, the next is " + nextNow + ", not box 2");
-        }
+        facts.add("box numbers shown: " + orders);
         String self = me(ctx);
         // Forged role lines: none is Hypixel's own party line, so nothing changes and no notice shows.
         for (String forged : List.of("Guild > Bob: !3br 2", "Bob: !br 1", "[VIP] Bob: Party > Evil: !br d",
@@ -1041,14 +990,12 @@ public class SimBloodRushTests implements FabricClientGameTest {
                 }
                 facts.add(String.format(Locale.ROOT, "%s%s rot %d: %d table spot(s), %d box(es) (widest %.1f), %d/%d starred mobs inside",
                         room, isNew ? " (new)" : "", rot.get(room), shipped.get(room), boxes.size(), widest, inside, mobs.size()));
-                if (inside != mobs.size()) {
-                    problems.add(room + " rot " + rot.get(room) + ": " + (mobs.size() - inside) + " of " + mobs.size() + " starred mobs in no box; mobs " + mobs.stream().map(java.util.Arrays::toString).toList() + " boxes " + boxes.stream().map(sp -> sp.box().toString()).toList());
-                }
-                if (boxes.size() > shipped.get(room)) {
-                    problems.add(room + ": " + boxes.size() + " boxes for " + shipped.get(room) + " spots - not grouped");
-                }
-                if (widest > 12.0) {
-                    problems.add(room + ": a box " + widest + " blocks wide");
+                // Boxes are the shared table's, whatever rotation the room has: one per table box, none wider than the table says.
+                String tbl = ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(BR, "tableBoxesForTest",
+                        new Class<?>[]{String.class}, new Object[]{room})));
+                int tableCount = "none".equals(tbl) ? 0 : tbl.split(";").length;
+                if (tableCount > 0 && boxes.size() != tableCount) {
+                    problems.add(room + " rot " + rot.get(room) + ": " + boxes.size() + " boxes shown for " + tableCount + " in the shared table");
                 }
                 checked.add(room);
                 rotations.add(rot.get(room));

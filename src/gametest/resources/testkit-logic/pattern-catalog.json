@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-16T13:24:09",
- "modSource": "lane-mojang429b-tf1116",
- "modGitSha": "e2c978ea85dcc86bb0acf41f6009cfd661572a69",
+ "generatedAt": "2026-11-16T15:43:37",
+ "modSource": "brboxes-dev-1116",
+ "modGitSha": "57ff1bcafda55e7db187819b7ce494eb5ad696a5",
  "modSourceDirty": false,
  "count": 976,
  "byKind": {
@@ -1459,7 +1459,7 @@
    "field": "MORT_START",
    "index": null,
    "file": "src/main/java/com/killer560/hub/bloodrush/BloodRushHelperFeature.java",
-   "line": 95,
+   "line": 93,
    "regex": "^\\[NPC\\] Mort: Here, I found this map when I first entered the dungeon\\.$",
    "flags": null,
    "kind": "field",
@@ -1471,7 +1471,7 @@
    "field": "BLOOD_DOOR_OPENED",
    "index": null,
    "file": "src/main/java/com/killer560/hub/bloodrush/BloodRushHelperFeature.java",
-   "line": 96,
+   "line": 94,
    "regex": "^The BLOOD DOOR has been opened!?$",
    "flags": null,
    "kind": "field",
@@ -1483,7 +1483,7 @@
    "field": "WITHER_DOOR_OPENED",
    "index": null,
    "file": "src/main/java/com/killer560/hub/bloodrush/BloodRushHelperFeature.java",
-   "line": 97,
+   "line": 95,
    "regex": "^[A-Za-z0-9_]{1,16} opened a WITHER door!?$",
    "flags": null,
    "kind": "field",
@@ -1495,11 +1495,11 @@
    "field": "CLAIM",
    "index": null,
    "file": "src/main/java/com/killer560/hub/bloodrush/BloodRushRoles.java",
-   "line": 45,
-   "regex": "^Party > (?:\\[[A-Z+]{1,10}\\] )?([A-Za-z0-9_]{1,16}): !([2-4])?br ([1-4]|d)$",
+   "line": 46,
+   "regex": "^Party > (?:\\[[^\\]]*\\] )?([A-Za-z0-9_]{1,16}): !([2-4])?br ([1-4]|d)$",
    "flags": null,
    "kind": "field",
-   "expr": "\"^Party > (?:\\\\[[A-Z+]{1,10}\\\\] )?([A-Za-z0-9_]{1,16}): !([2-4])?br ([1-4]|d)$\""
+   "expr": "\"^Party > (?:\\\\[[^\\\\]]*\\\\] )?([A-Za-z0-9_]{1,16}): !([2-4])?br ([1-4]|d)$\""
   },
   {
    "id": "bosshealth.BossHealthText#TAG",
