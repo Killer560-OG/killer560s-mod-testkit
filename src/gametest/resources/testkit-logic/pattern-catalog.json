@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-16T08:03:15",
- "modSource": "lane-ap3crystals-1116",
- "modGitSha": "76d5df177814f24e202e04866e7b4b58b4b5e953",
+ "generatedAt": "2026-11-16T08:29:09",
+ "modSource": "lane-simbreakdelay-1114",
+ "modGitSha": "094d7fc06b1dbb86c3f6d59466551965f2446b0a",
  "modSourceDirty": false,
  "count": 976,
  "byKind": {
