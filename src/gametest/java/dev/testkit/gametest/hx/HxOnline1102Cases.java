@@ -69,7 +69,13 @@ final class HxOnline1102Cases {
         try {
             hub(c);
             Mod.staticCall(scr, "setFixtureForTest", fixture);
-            type(c, "/online");
+            // The mod opens the screen with client.execute because a real chat Enter runs as a task and ChatScreen closes itself after;
+            // HxKit.type() closes the chat inside the same call, which would undo an inline open, so leave the chat screen for the mod to replace.
+            c.ctx().runOnClient(mc -> {
+                net.minecraft.client.gui.screens.ChatScreen chat = new net.minecraft.client.gui.screens.ChatScreen("", false);
+                McCompat.setScreen(mc, chat);
+                chat.handleChatInput("/online", true);
+            });
             c.waitUntil("the Online Now screen is open", mc -> McCompat.screen(mc) != null && McCompat.screen(mc).getClass().getName().endsWith(scr) , 100);
             Object rows = c.onClient(mc -> Mod.call(McCompat.screen(mc), "rowsForTest"));
             c.check(rows instanceof List<?> l && l.size() == 3 && l.get(0).toString().equals("Galatea=2") && l.get(2).toString().equals("Skyblock (other)=1"),
