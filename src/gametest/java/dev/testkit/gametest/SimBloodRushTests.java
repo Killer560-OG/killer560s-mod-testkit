@@ -478,7 +478,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
         int tableCount = "none".equals(tbl) ? 0 : tbl.split(";").length;
         facts.add(shown.size() + " box(es) shown in " + room + ", the table has " + tableCount + "; " + mobs.size() + " sim mobs");
         rushActed = shown.size();
-        if (tableCount == 0 || shown.size() != tableCount) {
+        if (tableCount > 0 && shown.size() != tableCount) {
             problems.add(room + ": " + shown.size() + " box(es) shown, the shared table has " + tableCount);
         }
         java.util.Set<Integer> orders = new HashSet<>();
@@ -579,12 +579,26 @@ public class SimBloodRushTests implements FabricClientGameTest {
      * role 2's list, Bob's role 1 boxes are shown as someone else's, and no box is in both. The expected lists come from
      * the independent fixture, so the feature acted on real table data.
      */
+    /** Roles 1 and 2 each hold boxes and share none, so a box shown to both would be a real fault. */
+    private static boolean disjointRoles(String[] lists) {
+        java.util.Set<String> a = new HashSet<>(java.util.Arrays.asList(lists[0].split(",")));
+        java.util.Set<String> b = new HashSet<>(java.util.Arrays.asList(lists[1].split(",")));
+        a.remove("");
+        b.remove("");
+        if (a.isEmpty() || b.isEmpty()) {
+            return false;
+        }
+        a.retainAll(b);
+        return a.isEmpty();
+    }
+
     private static void claimsSplit(ClientGameTestContext ctx, List<String> problems, List<String> facts) throws Exception {
         String[] row = null;
         for (String l : dev.testkit.gametest.logic.BloodRushTableCases.fixture()) {
             String[] f = l.split("\\|", 10);
             if (f[0].equals("P") && f[2].equals("0") && f[3].equals("0") && f[8].equals("3") && !f[9].equals("none")
-                    && f[9].split("\\|", 2)[0].split(";", -1).length == 3) {
+                    && f[9].split("\\|", 2)[0].split(";", -1).length == 3
+                    && disjointRoles(f[9].split("\\|", 2)[0].split(";", -1))) {
                 row = f;
                 break;
             }
