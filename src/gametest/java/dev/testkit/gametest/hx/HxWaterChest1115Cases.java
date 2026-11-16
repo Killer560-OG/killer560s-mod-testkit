@@ -28,6 +28,8 @@ final class HxWaterChest1115Cases {
     private static final String WATER = "autopuzzles.AutoWater";
     private static volatile boolean driving;
     private static boolean hooked;
+    /** TP case: wall-clock stamps {kind, ms} of his tp commands (0), the chest clicks (1) and his teleport accepts (2). */
+    private static final java.util.List<long[]> STAMPS = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
 
     private HxWaterChest1115Cases() {
     }
@@ -84,6 +86,7 @@ final class HxWaterChest1115Cases {
             });
             c.ctx().waitTicks(3);
             long since = c.hx().head();
+            STAMPS.clear();
             st = c.onClient(mc -> {
                 forceUnlock(unlocked);
                 Mod.staticCall(WATER, "chestStartAtForTest", new BlockPos(x, y, z));
@@ -92,17 +95,89 @@ final class HxWaterChest1115Cases {
                         p -> p instanceof ServerboundUseItemOnPacket, // his own act never sends one (use_item, swap, dig, accept)
                         4, 5);
             });
+            if (act == SameTick.Act.TP) {
+                c.onClient(mc -> {
+                    java.util.function.Consumer<net.minecraft.network.protocol.Packet<?>> prev = dev.testkit.harness.PacketTrace.tap;
+                    dev.testkit.harness.PacketTrace.tap = p -> {
+                        if (prev != null) prev.accept(p);
+                        int kind = p instanceof ServerboundUseItemOnPacket ? 1
+                                : p instanceof net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket ? 2 : 0;
+                        if (kind != 0) STAMPS.add(new long[]{kind, System.currentTimeMillis()});
+                    };
+                    return null;
+                });
+            }
             int ticks = unlocked ? 60 : 140;
             for (int t = 0; t < ticks; t += 5) {
                 if (act == SameTick.Act.TP) {
+                    STAMPS.add(new long[]{0, System.currentTimeMillis()});
                     c.server().command(tp);
                 }
                 c.ctx().waitTicks(5);
             }
+            long halfSince = c.hx().head();
+            if (act == SameTick.Act.TP) {
+                // Second half: his tp goes the moment after a chest click has left, so the next click (held back through the
+                // settle after his accept) goes out with no teleport pending (see the check below).
+                STAMPS.add(new long[]{3, System.currentTimeMillis()});
+                for (int cycle = 0; cycle < 6; cycle++) {
+                    int seen;
+                    synchronized (STAMPS) {
+                        seen = (int) STAMPS.stream().filter(a -> a[0] == 1).count();
+                    }
+                    for (int w = 0; w < 30; w++) {
+                        c.ctx().waitTicks(1);
+                        synchronized (STAMPS) {
+                            if (STAMPS.stream().filter(a -> a[0] == 1).count() > seen) {
+                                break;
+                            }
+                        }
+                    }
+                    STAMPS.add(new long[]{0, System.currentTimeMillis()});
+                    c.server().command(tp);
+                }
+                c.ctx().waitTicks(8);
+            }
             int clicks = c.onClient(mc -> (Integer) Mod.staticCall(WATER, "chestClicksForTest"));
             int served = c.hx().events(since, "use_block").size();
             c.note("chest clicks " + clicks + ", server use_block " + served + " (unlock signal " + unlocked + ")");
-            if (unlocked) {
+            if (act == SameTick.Act.TP) {
+                // A click sent after the server's teleport and before his client has answered it reaches a server that is
+                // waiting for his position and is discarded; nothing on the client can know a teleport is in flight (no
+                // packet for it has arrived yet), so those clicks are not asked to be served. Every click sent with no
+                // teleport pending is: it must be served, and enough of them must exist for that to mean something.
+                java.util.List<long[]> ev;
+                synchronized (STAMPS) {
+                    ev = new java.util.ArrayList<>(STAMPS);
+                }
+                ev.sort(java.util.Comparator.<long[]>comparingLong(a -> a[1]).thenComparingLong(a -> a[0]));
+                boolean pending = false, second = false;
+                int exposed = 0, clear = 0, exposed2 = 0, clear2 = 0;
+                for (long[] e : ev) {
+                    if (e[0] == 3) {
+                        second = true;
+                    } else if (e[0] == 0) {
+                        pending = true;
+                    } else if (e[0] == 2) {
+                        pending = false;
+                    } else if (pending) {
+                        exposed++;
+                        exposed2 += second ? 1 : 0;
+                    } else {
+                        clear++;
+                        clear2 += second ? 1 : 0;
+                    }
+                }
+                c.note("chest clicks " + clicks + ": " + clear + " with no teleport pending, " + exposed
+                        + " sent between the server's teleport and his accept; server use_block " + served);
+                int served2 = c.hx().events(halfSince, "use_block").size();
+                c.note("second half (tp right behind a click): " + clear2 + " clear + " + exposed2 + " exposed clicks, server took " + served2);
+                c.check(clear2 >= 3 && served2 >= clear2, "second half: server took " + served2 + " use_block, "
+                        + clear2 + " clicks went out with no teleport pending");
+                c.check(clear >= 5, "only " + clear + " click(s) went out with no teleport pending: nothing to judge");
+                c.check(served >= clear, "the server took " + served + " use_block of " + clicks + " clicks, "
+                        + clear + " of them sent with no teleport pending");
+            } else if (unlocked) {
                 c.check(clicks >= 8 && served >= 8, "the chest step clicked " + clicks + " time(s), the server saw " + served);
             } else {
                 c.check(clicks >= 1 && clicks <= 5, clicks + " click(s) on the locked chest in " + ticks
