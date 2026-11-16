@@ -247,7 +247,9 @@ final class HxSocialCases {
                     .with("autocorrect.AutoCorrectConfig", "Enabled", false)
                     .with("emotes.ChatEmoteConfig", "Enabled", false)) {
                 String[][] cases = {{"/zb", "bz"}, {"/ha", "ah"}, {"/ZB", "bz"}, {"/wrap hub", "warp hub"},
-                        {"/pc hi", "pc hi"}, {"/xq", "xq"}, {"/bz", "bz"}};
+                        {"/pc hi", "pc hi"}, {"/xq", "xq"}, {"/bz", "bz"},
+                        {"/warp bsae", "warp base"}, {"/warp base", "warp base"}, {"/warp hbu", "warp hub"},
+                        {"/warp xqzv", "warp xqzv"}, {"/msg bsae hi", "msg bsae hi"}, {"/warp hub now", "warp hub now"}};
                 for (String[] t : cases) {
                     int before = c.commands().size();
                     type(c, t[0]);
@@ -255,7 +257,7 @@ final class HxSocialCases {
                     String sent = c.commands().get(before);
                     c.check(sent.equals(t[1]), t[0] + " went out as /" + sent + " (want /" + t[1] + ")");
                 }
-                c.note("swap fixes /zb->/bz, /ha->/ah, /wrap->/warp; /pc, /xq, /bz untouched");
+                c.note("swap fixes /zb->/bz, /ha->/ah, /wrap->/warp, /warp bsae->/warp base; /pc, /xq, /bz, valid warps, names and extra words untouched");
             }
         });
     }
