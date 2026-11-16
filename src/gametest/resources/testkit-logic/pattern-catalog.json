@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-16T13:40:32",
- "modSource": "lane-cmdfix-zb-1116",
- "modGitSha": "0cc43fdf4a14c88d621b70240d16775bab5a880d",
+ "generatedAt": "2026-11-16T14:02:28",
+ "modSource": "lane-arsneak-1116",
+ "modGitSha": "ceecbffb8acd160b47571cd2f07d2f61e06e7f20",
  "modSourceDirty": false,
  "count": 977,
  "byKind": {
