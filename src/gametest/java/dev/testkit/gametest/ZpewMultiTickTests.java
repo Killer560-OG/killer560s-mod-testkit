@@ -118,10 +118,14 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
             Hx hx = null;
             dev.testkit.gametest.SameTick[] st = {null};
             List<String> problems = new ArrayList<>();
+            GapMeter meter = null;
             try {
                 hx = ZpewCampaignTests.setUp(ctx, 4);
                 hx.give(1, ZpewCampaignTests.aotv(4));
                 hookTicks(ctx);
+                if (bank) {
+                    meter = new GapMeter(server);
+                }
                 String who = ZpewCampaignTests.name(ctx);
                 ctx.getInput().holdKey(o -> o.keyShift);
                 setWpt(ctx, n);
@@ -209,6 +213,9 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                     }
                 }
             } finally {
+                if (meter != null) {
+                    meter.stop();
+                }
                 if (st[0] != null) {
                     dev.testkit.gametest.SameTick open = st[0];
                     ctx.runOnClient(mc -> open.close());
@@ -226,7 +233,8 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 ZpewCampaignTests.tearDown(ctx, hx);
             }
             ctx.waitTicks(30); // a late GrimAC line lands before the flags are read
-            problems.addAll(noFlags(scenario, name, bank));
+            long gap = meter == null ? -1 : meter.stop();
+            problems.addAll(noFlags(scenario, name, gap));
             if (!problems.isEmpty()) {
                 throw new AssertionError(name + ": " + problems);
             }
@@ -302,24 +310,71 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
     }
 
     /** Tick Split must never flag: logs GrimAC's lines by check and returns a problem per line. */
-    static List<String> noFlags(Scenario scenario, String name, boolean holdTimer) {
-        // holdTimer (the Blink Charge variant): the teleport Hold keeps each answer ~1 s (cap 950 ms) and the owner accepts a
-        // TimerLimit from a 900 ms+ lag spike mid-Hold (killer560 2026-11-04, "Keep holding"); TimerLimit alone is logged as
-        // accepted there, every other check still fails the case.
+    static List<String> noFlags(Scenario scenario, String name, long gapMs) {
+        // gapMs >= 0 (the Blink Charge variant): the owner accepts a TimerLimit ONLY from a lag spike of 900 ms or more in the
+        // middle of a Blink Hold (killer560 2026-11-04, "Keep holding"). The case measured the longest stretch the server or
+        // the client stood still (GapMeter); a TimerLimit counts as that exception only if that gap was >= 900 ms, and the
+        // measured gap is logged. Every other line, and a TimerLimit without the proof, fails the case.
+        boolean proven = gapMs >= 900;
         List<String> other = new ArrayList<>();
         java.util.Map<String, Integer> byCheck = new java.util.TreeMap<>();
         for (String f : scenario.flags()) {
             java.util.regex.Matcher m = java.util.regex.Pattern.compile("failed ([A-Za-z]+)").matcher(f);
             String check = m.find() ? m.group(1) : "?";
             byCheck.merge(check, 1, Integer::sum);
-            if (holdTimer && check.equals("TimerLimit")) {
+            if (proven && check.equals("TimerLimit")) {
+                scenario.log(name + ": TimerLimit accepted, measured stall " + gapMs + " ms (>= 900, the owner's lag-spike exception)");
                 continue;
             }
             other.add(name + ": GrimAC " + f);
         }
         System.out.println("[mwtick] " + name + ": GrimAC lines by check " + byCheck);
-        scenario.log(name + ": GrimAC lines by check " + byCheck + " (Tick Split may not flag)");
+        scenario.log(name + ": GrimAC lines by check " + byCheck + " (Tick Split may not flag)"
+                + (gapMs >= 0 ? "; longest server/client stall " + gapMs + " ms" : ""));
         return other;
+    }
+
+    /** Longest time the server tick or the client tick stood still while a bank case ran: the proof of a lag spike. */
+    static final class GapMeter {
+        private volatile boolean run = true;
+        private volatile long max;
+        private final Thread t;
+
+        GapMeter(net.minecraft.server.MinecraftServer server) {
+            t = new Thread(() -> {
+                int sTick = -1;
+                int cTick = -1;
+                long sAt = System.currentTimeMillis();
+                long cAt = sAt;
+                while (run) {
+                    long now = System.currentTimeMillis();
+                    int s = server.getTickCount();
+                    var pl = net.minecraft.client.Minecraft.getInstance().player;
+                    int c = pl == null ? -1 : pl.tickCount;
+                    if (s != sTick) {
+                        sTick = s;
+                        sAt = now;
+                    }
+                    if (c != cTick) {
+                        cTick = c;
+                        cAt = now;
+                    }
+                    max = Math.max(max, Math.max(now - sAt, now - cAt));
+                    try {
+                        Thread.sleep(10);
+                    } catch (InterruptedException e) {
+                        return;
+                    }
+                }
+            }, "mwtick-gap-meter");
+            t.setDaemon(true);
+            t.start();
+        }
+
+        long stop() {
+            run = false;
+            return max;
+        }
     }
 
     /**
