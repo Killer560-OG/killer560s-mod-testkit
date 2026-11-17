@@ -586,7 +586,11 @@ final class Ap3AuraLook1116Cases {
      */
     enum Way { NONE, PKT, PITCH, ROT, POSROT, BEFORE }
 
-    enum Kind { FRAME, LEVER, STAND, LEVER_AHEAD }
+    enum Kind { FRAME, LEVER, STAND, LEVER_AHEAD, STAND_AHEAD }
+
+    private static boolean isStand(Kind k) {
+        return k == Kind.STAND || k == Kind.STAND_AHEAD;
+    }
 
     private static volatile java.util.function.Consumer<net.minecraft.client.Minecraft> each;
     private static float[] restore;
@@ -637,6 +641,11 @@ final class Ap3AuraLook1116Cases {
         return mc.level.getEntitiesOfClass(ArmorStand.class, new AABB(-3, 119, 80, 3, 124, 85)).get(0);
     }
 
+    private static ArmorStand stand(net.minecraft.client.Minecraft mc, Kind k) {
+        return k == Kind.STAND_AHEAD
+                ? mc.level.getEntitiesOfClass(ArmorStand.class, new AABB(2, 119, 87, 3, 124, 90)).get(0) : stand(mc);
+    }
+
     private static BlockPos leverPos(Kind k) {
         return k == Kind.LEVER ? new BlockPos(-1, 121, 72) : new BlockPos(0, 121, 90);
     }
@@ -645,8 +654,8 @@ final class Ap3AuraLook1116Cases {
         if (k == Kind.FRAME) {
             return frame(mc).getBoundingBox();
         }
-        if (k == Kind.STAND) {
-            return stand(mc).getBoundingBox();
+        if (isStand(k)) {
+            return stand(mc, k).getBoundingBox();
         }
         BlockPos p = leverPos(k);
         return mc.level.getBlockState(p).getShape(mc.level, p).bounds().move(p);
@@ -664,8 +673,8 @@ final class Ap3AuraLook1116Cases {
 
     private static void click(net.minecraft.client.Minecraft mc, Kind k) {
         Vec3 eye = mc.player.getEyePosition();
-        if (k == Kind.FRAME || k == Kind.STAND) {
-            net.minecraft.world.entity.Entity e = k == Kind.FRAME ? frame(mc) : stand(mc);
+        if (k == Kind.FRAME || isStand(k)) {
+            net.minecraft.world.entity.Entity e = k == Kind.FRAME ? frame(mc) : stand(mc, k);
             AABB b = e.getBoundingBox();
             Vec3 hit = b.clip(eye, b.getCenter()).orElse(b.getCenter());
             mc.gameMode.interact(mc.player, e, new EntityHitResult(e, hit), InteractionHand.MAIN_HAND);
@@ -718,7 +727,7 @@ final class Ap3AuraLook1116Cases {
     private static String outcome(Session c, Kind k, String frameUuid, long hxFrom) {
         return switch (k) {
             case FRAME -> "rot " + AaFastCases.serverRotation(c, frameUuid);
-            case STAND -> "use_entity " + c.hx().events(hxFrom, "use_entity").size();
+            case STAND, STAND_AHEAD -> "use_entity " + c.hx().events(hxFrom, "use_entity").size();
             default -> "powered " + c.onClient(mc -> mc.level.getBlockState(leverPos(k))
                     .getValue(net.minecraft.world.level.block.LeverBlock.POWERED));
         };
@@ -734,7 +743,7 @@ final class Ap3AuraLook1116Cases {
         double trigger = switch (k) {
             case LEVER -> 72.2;
             case FRAME -> 77.2;
-            case STAND -> 82.2;
+            case STAND, STAND_AHEAD -> 82.2;
             case LEVER_AHEAD -> 88.3;
         };
         float pitch = k == Kind.LEVER_AHEAD ? 30f : 0f;
@@ -744,14 +753,14 @@ final class Ap3AuraLook1116Cases {
             double sz = switch (k) {
                 case LEVER -> 72.5;
                 case FRAME -> 77.5;
-                case STAND -> 82.5;
+                case STAND, STAND_AHEAD -> 82.5;
                 case LEVER_AHEAD -> 88.5;
             };
             c.hx().call("dungeon.tp", "x", k == Kind.STAND ? 0.8 : k == Kind.LEVER_AHEAD ? WALK_X : 0.2, "y", Y, "z", sz,
                     "yaw", k == Kind.LEVER_AHEAD ? 0f : -90f, "pitch", pitch);
         }
         c.ctx().waitTicks(25);
-        String before = k == Kind.STAND ? "" : outcome(c, k, frameUuid, 0);
+        String before = isStand(k) ? "" : outcome(c, k, frameUuid, 0);
         int f0 = c.scenario().flags().size();
         long h0 = c.hx().head();
         boolean[] fired = {false};
@@ -880,7 +889,9 @@ final class Ap3AuraLook1116Cases {
      * click goes at the head of that tick's packet. POSROT_G: an extra same-position PosRot with the aim and the right
      * ground flag, keys held. NONE_STRIKE: no look change, the walk's own look (pitch 30) strikes the lever ahead.
      */
-    enum MWay { COAST_PKT, COAST_BEFORE, AIR_PKT, AIR_BEFORE, KEYS_AIM, POSROT_G, NONE_STRIKE }
+    // PITCH_G / PITCH_AIR (keys held, ground / airborne): that tick's packet keeps the walk's yaw exactly and only the
+    // pitch changes, the click goes at the next tick's start. NOLOOK: keys held, a plain click with the walk's look.
+    enum MWay { COAST_PKT, COAST_BEFORE, AIR_PKT, AIR_BEFORE, KEYS_AIM, POSROT_G, NONE_STRIKE, PITCH_G, PITCH_AIR, NOLOOK }
 
     private static void keys(net.minecraft.client.Minecraft m, boolean w, boolean a, boolean s, boolean d, boolean sprint,
                              boolean jump) {
@@ -939,7 +950,18 @@ final class Ap3AuraLook1116Cases {
                     click(m, k);
                 }
             }
-            case NONE_STRIKE -> {
+            case PITCH_G, PITCH_AIR -> {
+                keys(m, true, false, false, false, true, false);
+                beforeMove(() -> {
+                    restore = new float[]{p.getYRot(), p.getXRot()};
+                    p.setXRot(a[1]);
+                    if (doClick) {
+                        afterRestore = () -> click(m, k);
+                    }
+                });
+            }
+            case NONE_STRIKE, NOLOOK -> {
+                keys(m, true, false, false, false, true, false);
                 if (doClick) {
                     click(m, k);
                 }
@@ -953,12 +975,18 @@ final class Ap3AuraLook1116Cases {
             case FRAME -> 77.2;
             case STAND -> 82.2;
             case LEVER_AHEAD -> 88.3;
+            case STAND_AHEAD -> 85.8;
         };
-        boolean air = w == MWay.AIR_PKT || w == MWay.AIR_BEFORE;
-        c.hx().call("dungeon.tp", "x", WALK_X, "y", Y, "z", trigger - 7.5, "yaw", 0f,
-                "pitch", k == Kind.LEVER_AHEAD ? 30f : 0f);
+        boolean air = w == MWay.AIR_PKT || w == MWay.AIR_BEFORE || w == MWay.PITCH_AIR;
+        boolean ahead = k == Kind.LEVER_AHEAD || k == Kind.STAND_AHEAD;
+        // Ahead targets: the walk looks UP (-30) so only a pitch change meets them; NONE_STRIKE walks with a pitch that
+        // meets them (lever at eye height: 3; stand center 0.6 under the eye, 2.7 ahead: 12).
+        float walkPitch = !ahead ? 0f : w != MWay.NONE_STRIKE ? -30f : k == Kind.LEVER_AHEAD ? 3f : 12f;
+        c.hx().call("dungeon.tp", "x", k == Kind.STAND_AHEAD ? 2.5 : WALK_X, "y", Y, "z", trigger - 7.5, "yaw", 0f,
+                "pitch", walkPitch);
         c.ctx().waitTicks(25);
-        String before = k == Kind.STAND ? "" : outcome(c, k, frameUuid, 0);
+        String before = isStand(k) ? "" : outcome(c, k, frameUuid, 0);
+        int corr0 = c.onClient(mc -> (Integer) Mod.staticCall("util.ServerCorrections", "reports"));
         int f0 = c.scenario().flags().size();
         long h0 = c.hx().head();
         int[] st = {0, 0, 0}; // fired, ticks after, jumped
@@ -999,8 +1027,10 @@ final class Ap3AuraLook1116Cases {
         c.ctx().waitTicks(25);
         String after = outcome(c, k, frameUuid, h0);
         String flags = flagsSince(c, f0);
-        return String.format(Locale.ROOT, "moving | %s%s | %s | at %.2f,%.2f v=%.3f ground=%s | %s -> %s | flags [%s]",
-                w, doClick ? "" : " (no click)", k, at[0], at[1], at[2], at[3] > 0, before, after, flags);
+        int corr = c.onClient(mc -> (Integer) Mod.staticCall("util.ServerCorrections", "reports")) - corr0;
+        return String.format(Locale.ROOT,
+                "moving | %s%s | %s | at %.2f,%.2f v=%.3f ground=%s | %s -> %s | setbacks %d | flags [%s]",
+                w, doClick ? "" : " (no click)", k, at[0], at[1], at[2], at[3] > 0, before, after, corr, flags);
     }
 
     /** Every way left for a click on a MOVING tick (step 2 of ap3auralook-1116): what the server did and what flagged. */
@@ -1019,26 +1049,30 @@ final class Ap3AuraLook1116Cases {
             c.server().command("setblock 0 121 90 minecraft:lever[face=wall,facing=north,powered=false]");
             c.server().command("summon armor_stand -1.0 120 82.5 {NoGravity:1b,CustomName:\"Inactive Terminal\",CustomNameVisible:1b,"
                     + "Tags:[\"aalook1116\"]}");
+            c.server().command("summon armor_stand 2.5 120 88.5 {NoGravity:1b,CustomName:\"Inactive Terminal\",CustomNameVisible:1b,"
+                    + "Tags:[\"aalook1116\"]}");
             TerminalAuraCases.tp(c, WALK_X, Y, 64.5, 0f);
-            c.waitUntil("the client to have the stand and both levers", mc ->
+            c.waitUntil("the client to have the stands and both levers", mc ->
                     !mc.level.getEntitiesOfClass(ArmorStand.class, new AABB(-3, 119, 80, 3, 124, 85)).isEmpty()
+                            && !mc.level.getEntitiesOfClass(ArmorStand.class, new AABB(2, 119, 87, 3, 124, 90)).isEmpty()
                             && mc.level.getBlockState(new BlockPos(-1, 121, 72)).getBlock()
                             instanceof net.minecraft.world.level.block.LeverBlock
                             && mc.level.getBlockState(new BlockPos(0, 121, 90)).getBlock()
                             instanceof net.minecraft.world.level.block.LeverBlock, 200);
             c.ctx().waitTicks(20);
             List<String> rows = new ArrayList<>();
-            for (MWay w : new MWay[]{MWay.COAST_PKT, MWay.AIR_PKT, MWay.KEYS_AIM}) {
-                rows.add(mstep(c, w, Kind.LEVER, false, null)); // the movement change alone
+            // Round 2 (owner 11-16: auras never change his movement): pitch-only and the walk's own look, keys held.
+            for (Kind k : new Kind[]{Kind.LEVER_AHEAD, Kind.STAND_AHEAD}) {
+                rows.add(mstep(c, MWay.PITCH_G, k, false, null)); // the pitch change alone
+                rows.add(mstep(c, MWay.PITCH_G, k, true, null));
+                rows.add(mstep(c, MWay.PITCH_AIR, k, true, null));
+                rows.add(mstep(c, MWay.NONE_STRIKE, k, true, null));
             }
+            // Side targets a pitch cannot meet: the hidden-look PosRot form against a plain no-look click.
             for (Kind k : new Kind[]{Kind.LEVER, Kind.STAND}) {
-                for (MWay w : new MWay[]{MWay.COAST_PKT, MWay.COAST_BEFORE, MWay.AIR_PKT, MWay.AIR_BEFORE, MWay.KEYS_AIM,
-                        MWay.POSROT_G}) {
-                    rows.add(mstep(c, w, k, true, null));
-                }
+                rows.add(mstep(c, MWay.POSROT_G, k, true, null));
+                rows.add(mstep(c, MWay.NOLOOK, k, true, null));
             }
-            rows.add(mstep(c, MWay.NONE_STRIKE, Kind.LEVER_AHEAD, true, null));
-            rows.add(mstep(c, MWay.NONE_STRIKE, Kind.LEVER, true, null)); // control: the look does not strike
             rows.forEach(r -> c.note("mprobe " + r));
             c.check(rows.stream().noneMatch(r -> r.contains("(no click)") && r.contains("-> powered true")),
                     "a no-click row flipped the lever");
