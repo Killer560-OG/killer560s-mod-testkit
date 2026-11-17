@@ -3912,7 +3912,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             int featureUses = 0;
             for (String l : LogTap.since(m)) {
                 chained += l.contains("[AutoClear] Wither Impact chain") ? 1 : 0;
-                java.util.regex.Matcher mm = java.util.regex.Pattern.compile("room time:.*weapon uses (\d+)").matcher(l);
+                java.util.regex.Matcher mm = java.util.regex.Pattern.compile("room time:.*weapon uses (\\d+)").matcher(l);
                 if (mm.find()) {
                     featureUses = Integer.parseInt(mm.group(1));
                 }
