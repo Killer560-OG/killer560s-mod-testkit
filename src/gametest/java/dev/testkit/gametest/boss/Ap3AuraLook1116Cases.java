@@ -38,9 +38,10 @@ import java.util.Locale;
  *       walk's ticks.</li>
  *   <li>1116-ap3aura-term-beside: an AP3 walk past a terminal beside the line with Terminal Aura and Turn To Terminal on:
  *       no turn (the look never meets the stand), so no click and the same walk as with the aura off.</li>
- *   <li>1116-nolook-probe (expecting flags): the three click kinds sent raw with NO look change, the target behind him:
- *       an item frame interact, a lever use_item_on and a terminal stand interact. Recorded per kind: did the server act,
- *       which GrimAC checks flagged. The frame must act and draw nothing.</li>
+ *   <li>1116-nolook-probe (expecting flags): every way of giving a click its look (none, the click tick's own movement
+ *       packet, pitch only, an extra Rot, an extra same-position PosRot, the tick before) x the three click kinds (item
+ *       frame interact, lever use_item_on, terminal stand interact), standing and moving: what the server did and which
+ *       GrimAC checks flagged, as a table (build/testkit-report/nolook-probe-1116.txt).</li>
  * </ul>
  */
 final class Ap3AuraLook1116Cases {
@@ -443,94 +444,294 @@ final class Ap3AuraLook1116Cases {
     }
 
     /**
-     * Each click kind sent raw at START with no look change, its target BEHIND him (he faces +x, the targets are west of
-     * him), within reach: what the server did and what GrimAC flagged, one kind at a time with a quiet second between.
+     * How the click gets its look. NONE: no look at all. PKT: the click goes at the head of this tick's movement packet
+     * and that packet alone carries the aim (the live look is put back at the next tick's start, so the movement of every
+     * tick is computed on the live look). PITCH: the same with the live yaw kept, only the pitch aimed. ROT: an extra
+     * Rot packet with the aim at the tick's start, then the click. POSROT: an extra PosRot at the same position
+     * (ground false) with the aim, then the click (the reference capture's form). BEFORE: the previous tick's movement
+     * packet carries the aim, the click goes at this tick's start and this tick's packet carries the live look again.
+     */
+    enum Way { NONE, PKT, PITCH, ROT, POSROT, BEFORE }
+
+    enum Kind { FRAME, LEVER, STAND, LEVER_AHEAD }
+
+    private static volatile java.util.function.Consumer<net.minecraft.client.Minecraft> each;
+    private static float[] restore;
+    private static Runnable afterRestore;
+    private static boolean hooked;
+
+    private static void hook(Session c) {
+        c.onClient(mc -> {
+            if (!hooked) {
+                net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.START_CLIENT_TICK.register(client -> {
+                    if (client.player == null) {
+                        return;
+                    }
+                    if (restore != null) {
+                        client.player.setYRot(restore[0]);
+                        client.player.setXRot(restore[1]);
+                        restore = null;
+                    }
+                    Runnable a = afterRestore;
+                    afterRestore = null;
+                    if (a != null) {
+                        a.run();
+                    }
+                    var e = each;
+                    if (e != null) {
+                        e.accept(client);
+                    }
+                });
+                hooked = true;
+            }
+            return null;
+        });
+    }
+
+    private static void beforeMove(Runnable r) {
+        try {
+            Mod.cls("util.BeforeMove").getMethod("queue", Runnable.class).invoke(null, r);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private static ItemFrame frame(net.minecraft.client.Minecraft mc) {
+        return mc.level.getEntitiesOfClass(ItemFrame.class, new AABB(-3, 119, 75, 0, 126, 80)).get(0);
+    }
+
+    private static ArmorStand stand(net.minecraft.client.Minecraft mc) {
+        return mc.level.getEntitiesOfClass(ArmorStand.class, new AABB(-3, 119, 80, 3, 124, 85)).get(0);
+    }
+
+    private static BlockPos leverPos(Kind k) {
+        return k == Kind.LEVER ? new BlockPos(-1, 121, 72) : new BlockPos(0, 121, 90);
+    }
+
+    private static AABB box(net.minecraft.client.Minecraft mc, Kind k) {
+        if (k == Kind.FRAME) {
+            return frame(mc).getBoundingBox();
+        }
+        if (k == Kind.STAND) {
+            return stand(mc).getBoundingBox();
+        }
+        BlockPos p = leverPos(k);
+        return mc.level.getBlockState(p).getShape(mc.level, p).bounds().move(p);
+    }
+
+    /** Yaw and pitch from his eye to {@code to}; the yaw is the live yaw's nearest equivalent (a running value). */
+    private static float[] aimAt(net.minecraft.client.Minecraft mc, Vec3 to) {
+        Vec3 eye = mc.player.getEyePosition();
+        double dx = to.x - eye.x, dy = to.y - eye.y, dz = to.z - eye.z;
+        float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+        float live = mc.player.getYRot();
+        return new float[]{live + Mth.wrapDegrees(yaw - live), Mth.clamp(pitch, -90f, 90f)};
+    }
+
+    private static void click(net.minecraft.client.Minecraft mc, Kind k) {
+        Vec3 eye = mc.player.getEyePosition();
+        if (k == Kind.FRAME || k == Kind.STAND) {
+            net.minecraft.world.entity.Entity e = k == Kind.FRAME ? frame(mc) : stand(mc);
+            AABB b = e.getBoundingBox();
+            Vec3 hit = b.clip(eye, b.getCenter()).orElse(b.getCenter());
+            mc.gameMode.interact(mc.player, e, new EntityHitResult(e, hit), InteractionHand.MAIN_HAND);
+            return;
+        }
+        BlockPos lp = leverPos(k);
+        Vec3 center = box(mc, k).getCenter();
+        BlockHitResult hr = mc.level.getBlockState(lp).getShape(mc.level, lp)
+                .clip(eye, center.add(center.subtract(eye).normalize()), lp);
+        if (hr == null) {
+            hr = new BlockHitResult(center, k == Kind.LEVER ? Direction.EAST : Direction.NORTH, lp, false);
+        }
+        mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, hr);
+    }
+
+    /** One click of {@code k} with look {@code w}, from the START of a client tick. */
+    private static void fire(net.minecraft.client.Minecraft mc, Way w, Kind k) {
+        net.minecraft.client.player.LocalPlayer p = mc.player;
+        switch (w) {
+            case NONE -> click(mc, k);
+            case ROT -> {
+                float[] a = aimAt(mc, box(mc, k).getCenter());
+                p.connection.send(new ServerboundMovePlayerPacket.Rot(a[0], a[1], p.onGround(), p.horizontalCollision));
+                click(mc, k);
+            }
+            case POSROT -> {
+                float[] a = aimAt(mc, box(mc, k).getCenter());
+                p.connection.send(new ServerboundMovePlayerPacket.PosRot(p.getX(), p.getY(), p.getZ(), a[0], a[1], false,
+                        p.horizontalCollision));
+                click(mc, k);
+            }
+            case PKT, PITCH -> beforeMove(() -> {
+                float[] a = aimAt(mc, box(mc, k).getCenter());
+                restore = new float[]{p.getYRot(), p.getXRot()};
+                p.setYRot(w == Way.PITCH ? p.getYRot() : a[0]);
+                p.setXRot(a[1]);
+                click(mc, k);
+            });
+            case BEFORE -> beforeMove(() -> {
+                float[] a = aimAt(mc, box(mc, k).getCenter());
+                restore = new float[]{p.getYRot(), p.getXRot()};
+                p.setYRot(a[0]);
+                p.setXRot(a[1]);
+                afterRestore = () -> click(mc, k);
+            });
+        }
+    }
+
+    /** What the server did with the click so far: frame rotation, lever state (client, after the server's answer), stand interacts. */
+    private static String outcome(Session c, Kind k, String frameUuid, long hxFrom) {
+        return switch (k) {
+            case FRAME -> "rot " + AaFastCases.serverRotation(c, frameUuid);
+            case STAND -> "use_entity " + c.hx().events(hxFrom, "use_entity").size();
+            default -> "powered " + c.onClient(mc -> mc.level.getBlockState(leverPos(k))
+                    .getValue(net.minecraft.world.level.block.LeverBlock.POWERED));
+        };
+    }
+
+    private static final double WALK_X = 0.5;
+
+    /**
+     * One step: standing (he faces +x, the target behind him at a spot within 3.0 of it) or moving (W + sprint along +z
+     * at x 0.5, the click when he passes the target). Returns its table row.
+     */
+    private static String step(Session c, Way w, Kind k, boolean moving, String frameUuid) {
+        double trigger = switch (k) {
+            case LEVER -> 72.2;
+            case FRAME -> 77.2;
+            case STAND -> 82.2;
+            case LEVER_AHEAD -> 88.3;
+        };
+        float pitch = k == Kind.LEVER_AHEAD ? 30f : 0f;
+        if (moving) {
+            c.hx().call("dungeon.tp", "x", WALK_X, "y", Y, "z", trigger - 6.5, "yaw", 0f, "pitch", pitch);
+        } else {
+            double sz = switch (k) {
+                case LEVER -> 72.5;
+                case FRAME -> 77.5;
+                case STAND -> 82.5;
+                case LEVER_AHEAD -> 88.5;
+            };
+            c.hx().call("dungeon.tp", "x", k == Kind.STAND ? 0.8 : k == Kind.LEVER_AHEAD ? WALK_X : 0.2, "y", Y, "z", sz,
+                    "yaw", k == Kind.LEVER_AHEAD ? 0f : -90f, "pitch", pitch);
+        }
+        c.ctx().waitTicks(25);
+        String before = k == Kind.STAND ? "" : outcome(c, k, frameUuid, 0);
+        int f0 = c.scenario().flags().size();
+        long h0 = c.hx().head();
+        boolean[] fired = {false};
+        double[] firedAt = new double[3];
+        hook(c);
+        c.onClient(mc -> {
+            each = m -> {
+                if (!fired[0] && (!moving || m.player.getZ() >= trigger)) {
+                    fired[0] = true;
+                    firedAt[0] = m.player.getX();
+                    firedAt[1] = m.player.getZ();
+                    firedAt[2] = m.player.getDeltaMovement().horizontalDistance();
+                    if (w != null) {
+                        fire(m, w, k);
+                    }
+                }
+            };
+            return null;
+        });
+        if (moving) {
+            c.ctx().getInput().holdKey(o -> o.keyUp);
+            c.ctx().getInput().holdKey(o -> o.keySprint);
+        }
+        c.waitUntil("the step to fire", mc -> fired[0], 120);
+        c.ctx().waitTicks(8);
+        if (moving) {
+            c.ctx().getInput().releaseKey(o -> o.keySprint);
+            c.ctx().getInput().releaseKey(o -> o.keyUp);
+        }
+        c.onClient(mc -> {
+            each = null;
+            return null;
+        });
+        c.ctx().waitTicks(25);
+        String after = outcome(c, k, frameUuid, h0);
+        String flags = flagsSince(c, f0);
+        return String.format(Locale.ROOT, "%s | %s | %s | at %.2f,%.2f v=%.3f | %s -> %s | flags [%s]",
+                moving ? "moving" : "standing", w == null ? "no click" : w, k, firedAt[0], firedAt[1], firedAt[2],
+                before, after, flags);
+    }
+
+    /**
+     * Every look way x click kind, standing and moving, raw (no mod feature acts): what the server did and which GrimAC
+     * checks flagged. Rows go to the notes and to a file; the hard checks are only that each step fired and that a
+     * no-look frame click turns the frame with no flag.
      */
     static void probe(Session c) throws Exception {
         if (!Mod.isCheat()) {
             return;
         }
         try {
-            c.server().command("forceload add -4 64 6 92");
+            c.server().command("forceload add -4 62 6 94");
             c.server().sync(20);
-            c.server().command("fill -2 119 70 4 119 84 stone");
-            c.server().command("fill -2 120 70 4 126 84 air");
+            c.server().command("fill -2 119 64 4 119 92 stone");
+            c.server().command("fill -2 120 64 4 126 90 air");
             c.server().command("fill -3 119 74 -3 125 80 stone");
             c.server().command("setblock -2 121 72 stone");
             c.server().command("setblock -1 121 72 minecraft:lever[face=wall,facing=east,powered=false]");
+            c.server().command("setblock 0 121 91 stone");
+            c.server().command("setblock 0 121 90 minecraft:lever[face=wall,facing=north,powered=false]");
             JsonObject f = c.hx().call("frame", "x", -2, "y", 121, "z", 77, "facing", "east", "item", "arrow", "rotation", 0)
                     .getAsJsonObject();
             String frameUuid = f.get("uuid").getAsString();
             c.server().command("summon armor_stand -1.0 120 82.5 {NoGravity:1b,CustomName:\"Inactive Terminal\",CustomNameVisible:1b,"
                     + "Tags:[\"aalook1116\"]}");
-            // Facing +x (yaw -90), level: every target is behind him; each within 3.0 of the eye from its own spot.
-            List<String> rows = new ArrayList<>();
-            // 1. Item frame.
             TerminalAuraCases.tp(c, 0.2, Y, 77.5, -90f);
-            c.waitUntil("the client to have the frame, the stand and the lever", mc ->
+            c.waitUntil("the client to have the frame, the stand and both levers", mc ->
                     !mc.level.getEntitiesOfClass(ItemFrame.class, new AABB(-3, 119, 75, 0, 126, 80)).isEmpty()
                             && !mc.level.getEntitiesOfClass(ArmorStand.class, new AABB(-3, 119, 80, 3, 124, 85)).isEmpty()
                             && mc.level.getBlockState(new BlockPos(-1, 121, 72)).getBlock()
+                            instanceof net.minecraft.world.level.block.LeverBlock
+                            && mc.level.getBlockState(new BlockPos(0, 121, 90)).getBlock()
                             instanceof net.minecraft.world.level.block.LeverBlock, 200);
             c.ctx().waitTicks(20);
-            int f0 = c.scenario().flags().size();
-            long s0 = c.hx().head();
-            c.onClient(mc -> {
-                ItemFrame fr = mc.level.getEntitiesOfClass(ItemFrame.class, new AABB(-3, 119, 75, 0, 126, 80)).get(0);
-                Vec3 eye = mc.player.getEyePosition();
-                Vec3 hit = fr.getBoundingBox().clip(eye, fr.getBoundingBox().getCenter()).orElse(fr.getBoundingBox().getCenter());
-                mc.gameMode.interact(mc.player, fr, new EntityHitResult(fr, hit), InteractionHand.MAIN_HAND);
-                return null;
-            });
-            c.ctx().waitTicks(30);
-            int rot = AaFastCases.serverRotation(c, frameUuid);
-            String fFlags = flagsSince(c, f0);
-            rows.add("frame: server use_entity " + c.hx().events(s0, "use_entity").size() + ", rotation now " + rot
-                    + ", flags [" + fFlags + "]");
-            c.check(rot == 1, "the no-look frame click did not turn the frame on the server (rotation " + rot + ")");
-            c.check(fFlags.isEmpty(), "GrimAC flagged a no-look item frame click: " + fFlags);
-            // 2. Lever (use_item_on).
-            TerminalAuraCases.tp(c, 0.2, Y, 72.5, -90f);
-            c.ctx().waitTicks(20);
-            int l0 = c.scenario().flags().size();
-            c.onClient(mc -> {
-                BlockPos lp = new BlockPos(-1, 121, 72);
-                Vec3 eye = mc.player.getEyePosition();
-                Vec3 center = Vec3.atCenterOf(lp);
-                var shape = mc.level.getBlockState(lp).getShape(mc.level, lp);
-                BlockHitResult hr = shape.clip(eye, center.add(center.subtract(eye).normalize()), lp);
-                if (hr == null) {
-                    hr = new BlockHitResult(center, Direction.EAST, lp, false);
+            List<String> rows = new ArrayList<>();
+            String first = step(c, Way.NONE, Kind.FRAME, false, frameUuid);
+            rows.add(first);
+            c.check(first.contains("rot 0 -> rot 1") && first.endsWith("flags []"),
+                    "a no-look frame click standing did not turn the frame cleanly: " + first);
+            Way[] ways = {Way.NONE, Way.PKT, Way.ROT, Way.POSROT, Way.BEFORE};
+            for (boolean moving : new boolean[]{false, true}) {
+                if (moving) {
+                    rows.add(step(c, null, Kind.STAND, true, frameUuid)); // the walk alone
                 }
-                mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, hr);
-                return null;
-            });
-            c.ctx().waitTicks(30);
-            boolean powered = c.onClient(mc -> mc.level.getBlockState(new BlockPos(-1, 121, 72))
-                    .getValue(net.minecraft.world.level.block.LeverBlock.POWERED));
-            String lFlags = flagsSince(c, l0);
-            rows.add("lever: powered after " + powered + ", flags [" + lFlags + "]");
-            // 3. Terminal stand (interact on a living entity).
-            TerminalAuraCases.tp(c, 0.8, Y, 82.5, -90f);
-            c.ctx().waitTicks(20);
-            int t0 = c.scenario().flags().size();
-            long ts = c.hx().head();
-            c.onClient(mc -> {
-                ArmorStand as = mc.level.getEntitiesOfClass(ArmorStand.class, new AABB(-3, 119, 80, 3, 124, 85)).get(0);
-                Vec3 eye = mc.player.getEyePosition();
-                Vec3 hit = as.getBoundingBox().clip(eye, as.getBoundingBox().getCenter()).orElse(as.getBoundingBox().getCenter());
-                mc.gameMode.interact(mc.player, as, new EntityHitResult(as, hit), InteractionHand.MAIN_HAND);
-                return null;
-            });
-            c.ctx().waitTicks(30);
-            String sFlags = flagsSince(c, t0);
-            rows.add("terminal stand: server use_entity " + c.hx().events(ts, "use_entity").size() + ", flags [" + sFlags + "]");
-            rows.forEach(r -> c.note("no-look " + r));
+                for (Kind k : new Kind[]{Kind.FRAME, Kind.LEVER, Kind.STAND}) {
+                    for (Way w : ways) {
+                        if (!moving && w == Way.NONE && k == Kind.FRAME) {
+                            continue; // done first
+                        }
+                        rows.add(step(c, w, k, moving, frameUuid));
+                    }
+                }
+            }
+            rows.add(step(c, Way.NONE, Kind.LEVER_AHEAD, true, frameUuid));
+            rows.add(step(c, Way.PITCH, Kind.LEVER_AHEAD, true, frameUuid));
+            rows.add(step(c, Way.PITCH, Kind.LEVER_AHEAD, false, frameUuid));
+            rows.forEach(r -> c.note("probe " + r));
+            try {
+                java.nio.file.Path out = java.nio.file.Path.of("build", "testkit-report", "nolook-probe-1116.txt");
+                java.nio.file.Files.createDirectories(out.getParent());
+                java.nio.file.Files.write(out, rows);
+            } catch (java.io.IOException e) {
+                c.note("could not write the probe table: " + e);
+            }
         } finally {
+            c.onClient(mc -> {
+                each = null;
+                return null;
+            });
             c.server().command("kill @e[tag=aalook1116]");
             c.server().command("kill @e[type=item_frame,x=-2,y=122,z=77,distance=..6]");
-            c.server().command("fill -3 119 70 4 126 84 air");
-            c.server().command("forceload remove -4 64 6 92");
+            c.server().command("fill -3 119 64 4 126 92 air");
+            c.server().command("forceload remove -4 62 6 94");
             c.hx().call("dungeon.tp", "x", -619.5, "y", 151.0, "z", -619.5, "yaw", 0f, "pitch", 0f);
         }
     }
