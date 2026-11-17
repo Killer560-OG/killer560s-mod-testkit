@@ -79,7 +79,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
     static final String TABLE = "1113-bloodrush-table";
     private static final String BR = "com.killer560.hub.bloodrush.BloodRushHelperFeature";
     private static final String BR_CFG = "com.killer560.hub.bloodrush.BloodRushConfig";
-    private static final String BR_SPOTS = "com.killer560.hub.bloodrush.BloodRushSpots";
+    static final String BR_DATA = "com.killer560.hub.bloodrush.BloodRushData";
     private static final String ROLES_CLS = "com.killer560.hub.bloodrush.BloodRushRoles";
     private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
     private static final String SIM_FLOOR = "com.killer560.hub.roomsim.SimMobFloor";
@@ -131,8 +131,15 @@ public class SimBloodRushTests implements FabricClientGameTest {
                     }
                     fallbackRoom(ctx, problems, facts);
                 } else if (name.equals(PATHCACHE)) {
-                    if (SimMobFloorTests.buildMobFloor(ctx, problems, facts)) {
-                        pathCache(ctx, problems, facts);
+                    for (int attempt = 1; attempt <= 8; attempt++) {
+                        if (!SimMobFloorTests.buildMobFloor(ctx, problems, facts)) {
+                            break;
+                        }
+                        if (firstKeyRoomStarred(ctx) >= 3 || attempt == 8) {
+                            pathCache(ctx, problems, facts);
+                            break;
+                        }
+                        facts.add("floor " + attempt + ": no key room with spawn boxes a mob stands in, new floor");
                     }
                 } else if (name.equals(RUSH)) {
                     // The floor is random; the helper shows the FIRST key room on the rush path, which can hold only 2
@@ -186,13 +193,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
                     Object cfg = ModUnderTest.config(BR_CFG);
                     ModUnderTest.set(cfg, "setEnabled", false);
                     ModUnderTest.call(cfg, "setKillers", new Class<?>[]{int.class}, new Object[]{1});
-                    ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{true});
-                    try {
-                        setStatic(BR, "learnInSimForTest", false);
-                        setStatic(LOOKS, "recordInSimForTest", false);
-                    } catch (Throwable ignored) {
-                        // an older jar has no such hook
-                    }
+                    ModUnderTest.staticCall(BR_DATA, "resetForTest");
                     dev.testkit.compat.McCompat.setHudHidden(mc, false);
                 });
                 SimMobFloorTests.leave(ctx);
@@ -336,7 +337,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
         });
         @SuppressWarnings("unchecked")
         List<String> keyRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(SIM_FLOOR, "keyRoomsForTest"));
-        String room = keyRooms.isEmpty() ? null : keyRooms.get(0).split("[|]")[0];
+        String room = anyRoom(ctx, keyRooms);
         List<double[]> mobs = room == null ? List.of() : serverStarredIn(ctx, room);
         if (mobs.isEmpty()) {
             problems.add("no key room with a starred mob to stand in");
@@ -405,7 +406,8 @@ public class SimBloodRushTests implements FabricClientGameTest {
     private static int firstKeyRoomStarred(ClientGameTestContext ctx) {
         @SuppressWarnings("unchecked")
         List<String> keyRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(SIM_FLOOR, "keyRoomsForTest"));
-        return keyRooms.isEmpty() ? -1 : serverStarredIn(ctx, keyRooms.get(0).split("\\|")[0]).size();
+        String room = boxRoom(ctx, keyRooms);
+        return room == null ? -1 : serverStarredIn(ctx, room).size();
     }
 
     /** How many server starred mobs the helper's boxes covered in the last rush case (0 = the helper never acted). */
@@ -420,7 +422,6 @@ public class SimBloodRushTests implements FabricClientGameTest {
             ModUnderTest.set(cfg, "setEnabled", true);
             ModUnderTest.set(cfg, "setAllRooms", false);
             ModUnderTest.set(cfg, "setShowOthers", true);
-            ModUnderTest.set(cfg, "setShowLearned", false);
             ModUnderTest.call(cfg, "setKillers", new Class<?>[]{int.class}, new Object[]{1});
             ModUnderTest.set(cfg, "setThroughWalls", false);
             ModUnderTest.set(cfg, "setWholePath", false);
@@ -440,7 +441,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
         }
         @SuppressWarnings("unchecked")
         List<String> keyRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(SIM_FLOOR, "keyRoomsForTest"));
-        String room = keyRooms.isEmpty() ? null : keyRooms.get(0).split("\\|")[0];
+        String room = boxRoom(ctx, keyRooms);
         facts.add("key rooms " + keyRooms + "; into " + room);
         if (room == null) {
             problems.add("no key room on this floor");
@@ -467,7 +468,15 @@ public class SimBloodRushTests implements FabricClientGameTest {
             problems.add(room + " is not on the rush path by the hotbar map (" + rushRooms + ")");
         }
         if (shown.isEmpty()) {
-            problems.add("no box shown in " + room);
+            String mobAt = java.util.Arrays.toString(mobs.get(0));
+            problems.add("no box shown in " + room + " (" + ctx.computeOnClient(mc -> {
+                Object lay = layoutNow();
+                int cur = (Integer) ModUnderTest.call(lay, "currentRoom", new Class<?>[0], new Object[0]);
+                return "he stands in " + roomName(lay, cur) + ", type " + ModUnderTest.staticCall(BR, "type",
+                        new Class<?>[]{lay.getClass(), int.class}, new Object[]{lay, cur}) + ", mob at "
+                        + mobAt + ", boxes " + ModUnderTest.staticCall(BR, "tableBoxesForTest",
+                        new Class<?>[]{String.class}, new Object[]{room});
+            }) + ")");
             return;
         }
         // The boxes are the shared table's (the sim's mobs stand on our own learned spots, so they need not sit inside them):
@@ -559,7 +568,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
         }
         Map<String, Integer> learnedAfter = learnedCounts(ctx);
         if (!learnedAfter.equals(learnedBefore)) {
-            problems.add("spawn spots were learned in the sim: " + learnedBefore + " -> " + learnedAfter);
+            problems.add("a learned spots file appeared in the sim: " + learnedBefore + " -> " + learnedAfter);
         }
         ctx.runOnClient(mc -> ModUnderTest.staticCall(ROLES_CLS, "resetForTest"));
     }
@@ -673,33 +682,88 @@ public class SimBloodRushTests implements FabricClientGameTest {
     // ---- 1116 fallback rooms ------------------------------------------------------------------------------------------
 
     /**
-     * A room the shared table does not cover keeps our own learned spots as the fallback: the table has no boxes for
-     * Rare Overgrown, our shipped spots do, and the feature's boxes for such a room come from them.
+     * Per room the shared table wins; our static fallback boxes serve only a room it has none for (never mixed); a room in
+     * neither has none (brboxes-only-1117): Rare Overgrown is ours alone, a table room that also gets a fallback entry still
+     * answers with the table's boxes, and a made-up room has none.
      */
     private static void fallbackRoom(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
         String room = "Rare Overgrown";
-        String table = ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(BR, "tableBoxesForTest",
-                new Class<?>[]{String.class}, new Object[]{room})));
-        Map<String, Integer> shipped = ctx.computeOnClient(mc -> {
-            ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{false});
-            return new HashMap<>((Map<String, Integer>) ModUnderTest.staticCall(BR_SPOTS, "bundledCounts"));
-        });
-        facts.add(room + ": table " + table + ", our learned spots " + shipped.get(room));
-        if (!"none".equals(table)) {
-            problems.add(room + " is in the shared table (" + table + "), so it is no fallback room");
+        String shared = ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(BR, "tableRoomsForTest"))).split(",")[0];
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(BR_DATA, "resetForTest"));
+        String ours = src(ctx, room), both = src(ctx, shared), none = src(ctx, "No Such Room");
+        String tableBefore = boxesOf(ctx, shared);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(BR_DATA, "putFallbackForTest", new Class<?>[]{String.class, int[][].class},
+                new Object[]{shared, new int[][]{{0, 0, 0, 1, 1, 1}}}));
+        String bothAfter = src(ctx, shared), tableAfter = boxesOf(ctx, shared);
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(BR_DATA, "resetForTest"));
+        String rare = boxesOf(ctx, room);
+        facts.add(room + ": " + ours + " " + rare + "; " + shared + " (in both): " + bothAfter + "; made-up room: " + none);
+        if (!"fallback".equals(ours) || "none".equals(rare)) {
+            problems.add(room + " is not served by our fallback boxes: " + ours + " " + rare);
         }
-        if (shipped.get(room) == null || shipped.get(room) < 1) {
-            problems.add("our own table has no spots for " + room);
+        if (!"shared".equals(both) || !"shared".equals(bothAfter) || !tableBefore.equals(tableAfter) || tableBefore.contains("0,0,0,1,1,1")) {
+            problems.add(shared + " is in both sources but does not answer with the shared boxes only: " + bothAfter);
         }
+        if (!"none".equals(none) || !"none".equals(boxesOf(ctx, "No Such Room"))) {
+            problems.add("a room in neither source has boxes: " + none);
+        }
+    }
+
+    /** The first key room (the only one on the rush path until its wither door opens) when the sim stood 3+ of its starred mobs in its
+     *  spawn boxes (boxSpotsPlaced: a room with no boxes, or none a mob can stand in, keeps the seeded spots and draws no box;
+     *  brboxes-only-1117), else null: the caller builds a new floor. */
+    private static String boxRoom(ClientGameTestContext ctx, List<String> keyRooms) {
+        String name = keyRooms.isEmpty() ? null : keyRooms.get(0).split("[|]")[0];
+        @SuppressWarnings("unchecked")
+        Map<String, List<BlockPos>> placed = ctx.computeOnClient(mc ->
+                (Map<String, List<BlockPos>>) ModUnderTest.staticCall(SIM_LIVE, "boxSpotsPlaced"));
+        return name != null && placed.containsKey(name) && serverStarredIn(ctx, name).size() >= 3 ? name : null;
+    }
+
+    /** The first key room (a case that needs no boxes), or null. */
+    private static String anyRoom(ClientGameTestContext ctx, List<String> keyRooms) {
+        return keyRooms.isEmpty() ? null : keyRooms.get(0).split("[|]")[0];
+    }
+
+    private static String src(ClientGameTestContext ctx, String room) {
+        return ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(BR_DATA, "sourceForTest", new Class<?>[]{String.class},
+                new Object[]{room})));
+    }
+
+    private static String boxesOf(ClientGameTestContext ctx, String room) {
+        return ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(BR, "tableBoxesForTest", new Class<?>[]{String.class},
+                new Object[]{room})));
     }
 
     private static String status(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(BR, "statusForTest")));
     }
 
-    @SuppressWarnings("unchecked")
+    /** 1 when the retired learned-spots file exists (nothing writes it any more), under the key "spotsFile". */
     private static Map<String, Integer> learnedCounts(ClientGameTestContext ctx) {
-        return ctx.computeOnClient(mc -> new HashMap<>((Map<String, Integer>) ModUnderTest.staticCall(BR_SPOTS, "counts")));
+        return ctx.computeOnClient(mc -> Map.of("spotsFile", java.nio.file.Files.exists((java.nio.file.Path) ModUnderTest.staticCall(
+                "com.killer560.hub.util.ModPaths", "config", new Class<?>[]{String.class},
+                new Object[]{"killer560smod-bloodrush-spots.json"})) ? 1 : 0));
+    }
+
+    /** Gives a room these room-relative spots as boxes (3 wide, 1 tall), our fallback source (the shared table's entry goes). */
+    static void putSpots(String room, List<int[]> spots) {
+        int[][] boxes = new int[spots.size()][];
+        for (int i = 0; i < boxes.length; i++) {
+            int[] s = spots.get(i);
+            boxes[i] = new int[]{s[0] - 1, s[1], s[2] - 1, s[0] + 1, s[1] + 1, s[2] + 1};
+        }
+        ModUnderTest.staticCall(BR_DATA, "putForTest", new Class<?>[]{String.class, int[][].class}, new Object[]{room, boxes});
+    }
+
+    /** The middle block of each of a room's boxes (the spot a sim mob stands on), room-relative. */
+    static List<int[]> boxCenters(String room) {
+        int[][] boxes = (int[][]) ModUnderTest.staticCall(BR_DATA, "boxes", new Class<?>[]{String.class}, new Object[]{room});
+        List<int[]> out = new ArrayList<>();
+        for (int[] b : boxes == null ? new int[0][] : boxes) {
+            out.add(new int[]{(b[0] + b[3]) / 2, b[1], (b[2] + b[5]) / 2});
+        }
+        return out;
     }
 
     /** A spot's box exactly as the feature draws it. */
@@ -744,16 +808,15 @@ public class SimBloodRushTests implements FabricClientGameTest {
 
     private static void starredSpots(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
         ctx.runOnClient(mc -> {
-            ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{false});
+            ModUnderTest.staticCall(BR_DATA, "resetForTest");
             setSpawnStarred(true);
             // This case checks placement on the spots it seeds, so the jar's shipped table (bloodrush2-1104) is emptied;
             // an older jar has no table and no hook.
             try {
                 @SuppressWarnings("unchecked")
-                Map<String, Integer> shipped = (Map<String, Integer>) ModUnderTest.staticCall(BR_SPOTS, "bundledCounts");
+                Map<String, Integer> shipped = (Map<String, Integer>) ModUnderTest.staticCall(BR_DATA, "countsForTest");
                 for (String room : new ArrayList<>(shipped.keySet())) {
-                    ModUnderTest.staticCall(BR_SPOTS, "putBundledForTest", new Class<?>[]{String.class, List.class},
-                            new Object[]{room, new ArrayList<int[]>()});
+                    putSpots(room, new ArrayList<int[]>());
                 }
             } catch (Throwable t) {
                 // no shipped table in this jar
@@ -785,7 +848,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
         }
         @SuppressWarnings("unchecked")
         Map<String, List<BlockPos>> placed = ctx.computeOnClient(mc ->
-                (Map<String, List<BlockPos>>) ModUnderTest.staticCall(SIM_LIVE, "learnedSpotsPlaced"));
+                (Map<String, List<BlockPos>>) ModUnderTest.staticCall(SIM_LIVE, "boxSpotsPlaced"));
         Set<Integer> rotations = new HashSet<>();
         int checkedRooms = 0;
         for (Map.Entry<String, List<BlockPos>> e : placed.entrySet()) {
@@ -795,8 +858,8 @@ public class SimBloodRushTests implements FabricClientGameTest {
                 continue;
             }
             for (BlockPos p : e.getValue()) {
-                boolean match = want.stream().anyMatch(w -> w.getX() == p.getX() && w.getZ() == p.getZ()
-                        && Math.abs(w.getY() - p.getY()) <= 2);
+                boolean match = want.stream().anyMatch(w -> Math.abs(w.getX() - p.getX()) <= 1 && Math.abs(w.getZ() - p.getZ()) <= 1
+                        && Math.abs(w.getY() - p.getY()) <= 3);
                 if (!match) {
                     problems.add(e.getKey() + " (rotation " + rotation.get(e.getKey()) + "): placed " + p.toShortString()
                             + " is none of its spots " + want);
@@ -829,7 +892,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
         }
     }
 
-    /** Client thread: for each mob room with a clay corner and rotation, up to three room-relative spots from its item and
+    /** Client thread: for each mob room with a clay corner and rotation, up to six room-relative spots from its item and
      *  chest secrets; the expected world blocks are RoomDatabase.toRealCoord's, plus the sim's height shift. */
     static void seed(Map<String, List<BlockPos>> expected, Map<String, Integer> rotation) {
         seed(expected, rotation, null);
@@ -868,7 +931,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
                 }
                 List<int[]> rel = new ArrayList<>();
                 List<BlockPos> world = new ArrayList<>();
-                for (Object p : pos.subList(0, Math.min(3, pos.size()))) {
+                for (Object p : pos.subList(0, Math.min(6, pos.size()))) {
                     int x = p.getClass().getField("x").getInt(p);
                     int y = p.getClass().getField("y").getInt(p);
                     int z = p.getClass().getField("z").getInt(p);
@@ -877,8 +940,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
                             int.class, int.class}, new Object[]{p, cr[0], cr[1], cr[2]});
                     world.add(w.offset(0, shift, 0));
                 }
-                ModUnderTest.staticCall(BR_SPOTS, "putForTest", new Class<?>[]{String.class, List.class},
-                        new Object[]{name, rel});
+                putSpots(name, rel);
                 expected.put(name, world);
                 if (relOut != null) {
                     relOut.put(name, rel);
@@ -912,8 +974,8 @@ public class SimBloodRushTests implements FabricClientGameTest {
     private static void tableBoxes(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
         @SuppressWarnings("unchecked")
         Map<String, Integer> shipped = ctx.computeOnClient(mc -> {
-            ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{false});
-            return new HashMap<>((Map<String, Integer>) ModUnderTest.staticCall(BR_SPOTS, "bundledCounts"));
+            ModUnderTest.staticCall(BR_DATA, "resetForTest");
+            return new HashMap<>((Map<String, Integer>) ModUnderTest.staticCall(BR_DATA, "countsForTest"));
         });
         facts.add("shipped table: " + shipped.size() + " room(s)");
         if (shipped.size() < 80) {
@@ -929,7 +991,8 @@ public class SimBloodRushTests implements FabricClientGameTest {
         Set<String> checked = new java.util.LinkedHashSet<>();
         Set<String> newChecked = new java.util.LinkedHashSet<>();
         boolean killed = false;
-        for (int floor = 1; floor <= 5; floor++) {
+        // Floors are random: the 8 newly covered rooms must turn up at two rotations, which five floors gave only by luck.
+        for (int floor = 1; floor <= 10; floor++) {
             if (checked.size() >= 3 && rotations.size() >= 2 && newChecked.size() >= 2 && newRotations.size() >= 2 && killed) {
                 break;
             }
@@ -939,13 +1002,12 @@ public class SimBloodRushTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> {
                 // Teleporting into a key room insta clears it (Hypixel's rule) and the helper rightly hides it.
                 ModUnderTest.staticCall("com.killer560.hub.roomsim.SimKeyRoom", "disarm");
-                ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{false});
+                ModUnderTest.staticCall(BR_DATA, "resetForTest");
                 ModUnderTest.staticCall(BR, "resetForTest");
                 ModUnderTest.staticCall(ROLES_CLS, "resetForTest");
                 Object cfg = ModUnderTest.config(BR_CFG);
                 ModUnderTest.set(cfg, "setEnabled", true);
                 ModUnderTest.set(cfg, "setAllRooms", true);
-                ModUnderTest.set(cfg, "setShowLearned", true);
                 ModUnderTest.set(cfg, "setShowOthers", true);
                 ModUnderTest.set(cfg, "setThroughWalls", false);
                 ModUnderTest.set(cfg, "setWholePath", false);
@@ -1175,13 +1237,12 @@ public class SimBloodRushTests implements FabricClientGameTest {
             ModUnderTest.set(cfg, "setEnabled", true);
             ModUnderTest.set(cfg, "setAllRooms", false);
             ModUnderTest.set(cfg, "setShowOthers", true);
-            ModUnderTest.set(cfg, "setShowLearned", false);
             ModUnderTest.set(cfg, "setWholePath", false);
         });
         ctx.waitTicks(20);
         @SuppressWarnings("unchecked")
         List<String> keyRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(SIM_FLOOR, "keyRoomsForTest"));
-        String room = keyRooms.isEmpty() ? null : keyRooms.get(0).split("\\|")[0];
+        String room = boxRoom(ctx, keyRooms);
         List<double[]> mobs = room == null ? List.of() : serverStarredIn(ctx, room);
         if (mobs.isEmpty()) {
             problems.add("no key room with a starred mob (" + keyRooms + ")");
@@ -1236,17 +1297,15 @@ public class SimBloodRushTests implements FabricClientGameTest {
             // rushalloc-1105: the helper's own tick + render, metered inside the mod (the on/off difference above swings by
             // tens of MB a minute with the sim's own load).
             double own = helperOwn * 2 / 1048576.0;
-            // The same with Show Learned Spots on (its default): the room's shipped and learned spots become boxes too.
-            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(BR_CFG), "setShowLearned", true));
+            // The same again after a short wait (boxes from the shared table).
             ctx.waitTicks(20);
             int learnedBoxes = parsed(ctx).size();
             meter(ctx, true);
             ctx.waitTicks(200);
             double withLearned = meter(ctx, false) * 6 / 1048576.0;
-            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(BR_CFG), "setShowLearned", false));
             ctx.waitTicks(20);
             facts.add(String.format(Locale.ROOT, "helper's own tick + render allocate %.2f MB/min (metered, 600 ticks); "
-                    + "%.2f MB/min with Show Learned Spots on (%d box(es), 200 ticks)", own, withLearned, learnedBoxes));
+                    + "%.2f MB/min again (%d box(es), 200 ticks)", own, withLearned, learnedBoxes));
             // Before rushalloc-1105 it was 36 MB/min standing in an 8-box room (arrays, labels and the starred scan every
             // other tick); after, 4-14 (it moves with the frame rate).
             if (Math.max(own, withLearned) > 20) {
@@ -1511,20 +1570,20 @@ public class SimBloodRushTests implements FabricClientGameTest {
     private static void knownPixels(ClientGameTestContext ctx, List<String> problems, List<String> facts, String[] floorRoom) {
         facts.add(BR_KNOWN_WHY);
         ctx.runOnClient(mc -> {
-            ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{false});
+            ModUnderTest.staticCall(BR_DATA, "resetForTest");
         });
         Map<String, Integer> shipped = null;
         try {
             @SuppressWarnings("unchecked")
-            Map<String, Integer> got = ctx.computeOnClient(mc -> new HashMap<>((Map<String, Integer>) ModUnderTest.staticCall(BR_SPOTS,
-                    "bundledCounts")));
+            Map<String, Integer> got = ctx.computeOnClient(mc -> new HashMap<>((Map<String, Integer>) ModUnderTest.staticCall(BR_DATA,
+                    "countsForTest")));
             shipped = got;
         } catch (Throwable t) {
-            problems.add("no shipped spawn spot table (BloodRushSpots.bundledCounts: " + t + ")");
+            problems.add("no spawn box table (BloodRushData.countsForTest: " + t + ")");
         }
         facts.add("shipped table: " + shipped);
         if (shipped != null && shipped.isEmpty()) {
-            problems.add("the shipped spawn spot table is empty");
+            problems.add("the spawn box table is empty");
         }
         // A floor WITH mobs: on a mobless floor every mob room clears as he walks in, and the helper rightly hides it.
         List<String> floorProblems = new ArrayList<>();
@@ -1576,8 +1635,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
             facts.add("every mob room holds a key; key rooms disarmed so the teleport does not insta clear " + room);
         }
         // seed() put secret spots in as LEARNED; forget those and hand the chosen room's to the shipped table instead.
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class},
-                new Object[]{false}));
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(BR_DATA, "resetForTest"));
         if (room == null) {
             problems.add("no mob room on the floor");
             return;
@@ -1590,14 +1648,12 @@ public class SimBloodRushTests implements FabricClientGameTest {
                     Map<String, List<BlockPos>> e2 = new HashMap<>();
                     seed(e2, new HashMap<>());
                     @SuppressWarnings("unchecked")
-                    List<int[]> sp = (List<int[]>) ModUnderTest.staticCall(BR_SPOTS, "spots", new Class<?>[]{String.class},
-                            new Object[]{room});
+                    List<int[]> sp = boxCenters(room);
                     for (int[] s : sp) {
                         rel.add(new int[]{s[0], s[1], s[2]});
                     }
-                    ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{false});
-                    ModUnderTest.staticCall(BR_SPOTS, "putBundledForTest", new Class<?>[]{String.class, List.class},
-                            new Object[]{room, rel});
+                    ModUnderTest.staticCall(BR_DATA, "resetForTest");
+                    putSpots(room, rel);
                 });
             } catch (Throwable t) {
                 problems.add("could not give " + room + " shipped spots (old jar?): " + t);
@@ -1611,7 +1667,6 @@ public class SimBloodRushTests implements FabricClientGameTest {
             Object cfg = ModUnderTest.config(BR_CFG);
             ModUnderTest.set(cfg, "setEnabled", true);
             ModUnderTest.set(cfg, "setAllRooms", true);
-            ModUnderTest.set(cfg, "setShowLearned", true);
             ModUnderTest.set(cfg, "setThroughWalls", false);
             ModUnderTest.set(cfg, "setWholePath", false);
             ModUnderTest.call(cfg, "setKillers", new Class<?>[]{int.class}, new Object[]{1});
@@ -1889,38 +1944,21 @@ public class SimBloodRushTests implements FabricClientGameTest {
         }
     }
 
-    /** Part (5): the same mob floor, the blood door opened, learning switched on for the sim; spots learned on mob blocks
-     *  in a key room other than {@code skip} (whose mobs part 1 hid). */
+    /** Part (5): the same mob floor, the blood door opened, with the helper off and then on: standing 12+ blocks from a key room's
+     *  starred mobs for five seconds (the old learn rule's condition) writes no learned-spots file and records no mob look, the
+     *  status never says it learns, and an old config with the learning keys loads cleanly (brboxes-only-1117). */
     private static void learnAfterBlood(ClientGameTestContext ctx, List<String> problems, List<String> facts, String skip) {
+        Map<String, Integer> before = learnedCounts(ctx);
         ctx.runOnClient(mc -> {
-            ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{false});
+            ModUnderTest.staticCall(BR_DATA, "resetForTest");
             ModUnderTest.staticCall(BR, "resetForTest");
-            Object cfg = ModUnderTest.config(BR_CFG);
-            // The helper itself OFF: Learn Spawn Spots learns passively (bloodrush2-1104), here after the blood door too.
-            ModUnderTest.set(cfg, "setEnabled", false);
-            ModUnderTest.set(cfg, "setLearnSpots", true);
+            ModUnderTest.set(ModUnderTest.config(BR_CFG), "setEnabled", false);
         });
-        try {
-            ctx.runOnClient(mc -> setStatic(BR, "learnInSimForTest", true));
-        } catch (Throwable t) {
-            problems.add("no learnInSimForTest hook (old jar?): " + t);
-            return;
-        }
         say(ctx, "The BLOOD DOOR has been opened!");
-        // simblood-1110: the look recorder rides on the same confirm-still moment (Hypixel only; the hook lets it record here).
-        boolean looksHook = ctx.computeOnClient(mc -> {
-            try {
-                setStatic(LOOKS, "recordInSimForTest", true);
-                ModUnderTest.staticCall(LOOKS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{false});
-                return true;
-            } catch (Throwable t) {
-                return false;
-            }
-        });
         ctx.waitTicks(4);
         String st = status(ctx);
-        if (!st.contains("learning spawn spots")) {
-            problems.add("with the helper off, its status is not 'off (learning spawn spots)': " + st);
+        if (st.contains("learn")) {
+            problems.add("the helper's status still talks about learning: " + st);
         }
         // A mob room whose starred mobs all stand 11+ blocks from some clear standing block of the same room.
         @SuppressWarnings("unchecked")
@@ -1969,96 +2007,47 @@ public class SimBloodRushTests implements FabricClientGameTest {
                 break;
             }
         }
-        facts.add("after the blood door line: " + st + "; learning room " + room + " with " + mobs.size() + " starred mob(s)");
+        facts.add("after the blood door line: " + st + "; no-learning room " + room + " with " + mobs.size() + " starred mob(s)");
         if (room == null) {
             problems.add("no key room with a standing spot 11+ blocks from all its mobs (" + keyRooms + ")");
             return;
         }
-        final String learnRoom = room;
         SimMobFloorTests.teleport(ctx, stand[0], stand[1], stand[2]);
-        Map<String, Integer> learned = Map.of();
-        for (int i = 0; i < 100; i += 5) {
-            ctx.waitTicks(5);
-            learned = learnedCounts(ctx);
-            if (learned.getOrDefault(learnRoom, 0) >= 2) {
-                break;
-            }
-        }
-        int pending = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(BR, "learningForTest"));
-        facts.add("learned after the blood door: " + learned + " (waiting " + pending + ")");
-        if (learned.getOrDefault(learnRoom, 0) < 1) {
-            problems.add("no spot learned in " + learnRoom + " after the blood door opened");
-            return;
-        }
-        if (looksHook) {
-            @SuppressWarnings("unchecked")
-            Map<String, Integer> looks = ctx.computeOnClient(mc -> (Map<String, Integer>) ModUnderTest.staticCall(LOOKS, "counts"));
-            facts.add("looks recorded: " + looks);
-            if (looks.getOrDefault(learnRoom, 0) < 1) {
-                problems.add("Blood Rush learned " + learnRoom + " but no mob look was recorded for it (SimMobLooks)");
-            }
-            ctx.runOnClient(mc -> ModUnderTest.staticCall(LOOKS, "saveIfDirty", new Class<?>[]{boolean.class}, new Object[]{true}));
-            java.nio.file.Path store = ctx.computeOnClient(mc -> {
-                Object kind;
-                try {
-                    kind = Class.forName("com.killer560.hub.shared.RecordCatalog").getField("SIM_MOB_LOOKS").get(null);
-                } catch (ReflectiveOperationException e) {
-                    throw new AssertionError("RecordCatalog.SIM_MOB_LOOKS", e);
-                }
-                Object f = ModUnderTest.staticCall("com.killer560.hub.shared.SharedRecords", "file", new Class<?>[]{kind.getClass()},
-                        new Object[]{kind});
-                return (java.nio.file.Path) ModUnderTest.call(f, "path", new Class<?>[0], new Object[0]);
-            });
-            boolean saved = false;
-            for (int i = 0; i < 100 && !saved; i += 5) {
-                ctx.waitTicks(5);
-                try {
-                    saved = java.nio.file.Files.exists(store) && java.nio.file.Files.readString(store).contains("\"" + learnRoom + "\"");
-                } catch (java.io.IOException ignored) {
-                    // being written
-                }
-            }
-            facts.add("looks saved to the shared store " + store.getFileName() + ": " + saved);
-            if (!saved) {
-                problems.add("the recorded looks never reached the shared store (" + store + ")");
-            }
-        }
-        // Each learned spot of the room is the block a server starred mob stands on (wanderers may have moved: 1 block).
-        List<double[]> nowMobs = serverStarredIn(ctx, learnRoom);
+        ctx.waitTicks(100);
+        Map<String, Integer> after = learnedCounts(ctx);
         @SuppressWarnings("unchecked")
-        List<BlockPos> world = ctx.computeOnClient(mc -> {
-            Object layout = ModUnderTest.staticCall(LAYOUT, "current");
-            int n = (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[0], new Object[0]);
-            for (int r = 0; r < n; r++) {
-                if (learnRoom.equals(ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{r}))) {
-                    int[] cr = (int[]) ModUnderTest.call(layout, "clayRotation", new Class<?>[]{int.class}, new Object[]{r});
-                    try {
-                        Class<?> fc = Class.forName("com.killer560.hub.autoroutes.RouteCoords$Frame");
-                        Object frame = fc.getConstructor(String.class, int.class, int.class, int.class)
-                                .newInstance(learnRoom, cr[0], cr[1], cr[2]);
-                        return (List<BlockPos>) ModUnderTest.staticCall(BR_SPOTS, "worldSpots", new Class<?>[]{String.class, fc},
-                                new Object[]{learnRoom, frame});
-                    } catch (ReflectiveOperationException e) {
-                        throw new AssertionError("RouteCoords.Frame", e);
-                    }
-                }
-            }
-            return List.of();
-        });
-        int on = 0;
-        for (BlockPos p : world) {
-            boolean hit = false;
-            for (double[] m : nowMobs) {
-                hit |= Math.abs(p.getX() + 0.5 - m[0]) <= 1.5 && Math.abs(p.getZ() + 0.5 - m[2]) <= 1.5
-                        && Math.abs(p.getY() - m[1]) <= 1.5;
-            }
-            if (hit) {
-                on++;
-            }
+        Map<String, Integer> looks = ctx.computeOnClient(mc -> (Map<String, Integer>) ModUnderTest.staticCall(LOOKS, "counts"));
+        facts.add("after 5 s alone near " + mobs.size() + " starred mob(s): spots file " + after + " (before " + before + "), looks " + looks);
+        if (!after.equals(before)) {
+            problems.add("a learned-spots file appeared after the blood door: " + before + " -> " + after);
         }
-        facts.add(on + " of " + world.size() + " learned spot(s) in " + learnRoom + " on a server starred mob: " + world);
-        if (on < Math.max(1, world.size() - 1)) {
-            problems.add("learned spots in " + learnRoom + " are not on its mobs: " + on + " of " + world.size());
+        if (looks.getOrDefault(room, 0) > 0) {
+            problems.add("a mob look was recorded in " + room + " (nothing records looks any more): " + looks);
+        }
+        // An old config with the learning keys loads cleanly: the color survives under its key, nothing else breaks, and the
+        // next save leaves the removed keys out.
+        String saved = ctx.computeOnClient(mc -> {
+            java.nio.file.Path p = (java.nio.file.Path) ModUnderTest.staticCall("com.killer560.hub.util.ModPaths", "config",
+                    new Class<?>[]{String.class}, new Object[]{"killer560smod-bloodrush.json"});
+            try {
+                java.nio.file.Files.createDirectories(p.getParent());
+                java.nio.file.Files.writeString(p, "{\"enabled\":false,\"learnSpots\":true,\"showLearned\":false,\"learnedColor\":-5570561,\"killers\":2}");
+                ModUnderTest.staticCall(BR_CFG, "load");
+                Object cfg = ModUnderTest.config(BR_CFG);
+                int color = ModUnderTest.getInt(cfg, "getUnseenColor");
+                int killers = ModUnderTest.getInt(cfg, "getKillers");
+                ModUnderTest.call(cfg, "save", new Class<?>[0], new Object[0]);
+                String json = java.nio.file.Files.readString(p);
+                ModUnderTest.call(cfg, "setKillers", new Class<?>[]{int.class}, new Object[]{1});
+                ModUnderTest.call(cfg, "save", new Class<?>[0], new Object[0]);
+                return color + "|" + killers + "|" + json;
+            } catch (java.io.IOException e) {
+                return "io " + e;
+            }
+        });
+        facts.add("old config with learning keys: " + saved);
+        if (!saved.startsWith("-5570561|2|") || saved.contains("learnSpots") || saved.contains("showLearned")) {
+            problems.add("an old config with the learning keys did not load cleanly: " + saved);
         }
     }
 
@@ -2147,7 +2136,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
     private static String intoFirstKeyRoom(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
         @SuppressWarnings("unchecked")
         List<String> keyRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(SIM_FLOOR, "keyRoomsForTest"));
-        String room = keyRooms.isEmpty() ? null : keyRooms.get(0).split("\\|")[0];
+        String room = anyRoom(ctx, keyRooms);
         List<double[]> mobs = room == null ? List.of() : serverStarredIn(ctx, room);
         facts.add("key rooms " + keyRooms + "; into " + room + " (" + mobs.size() + " starred mob(s) on the server)");
         if (mobs.isEmpty()) {

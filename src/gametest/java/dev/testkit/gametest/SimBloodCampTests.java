@@ -51,7 +51,7 @@ public class SimBloodCampTests implements FabricClientGameTest {
     private static final String PREFS = "com.killer560.hub.roomsim.SimMenuPrefs";
     private static final String CAMP_CLS = "com.killer560.hub.roomsim.SimBloodCamp";
     private static final String LOOKS = SimBloodRushTests.LOOKS;
-    private static final String BR_SPOTS = "com.killer560.hub.bloodrush.BloodRushSpots";
+    static final String BR_DATA = "com.killer560.hub.bloodrush.BloodRushData";
     private static final String BC = "com.killer560.hub.bloodcamp.BloodCampFeature";
     private static final String BC_CFG = "com.killer560.hub.bloodcamp.BloodCampConfig";
     private static final String PORTAL = "com.killer560.hub.bosssim.BossPortal";
@@ -105,7 +105,7 @@ public class SimBloodCampTests implements FabricClientGameTest {
                 ctx.runOnClient(mc -> {
                     prefs(false, false, false);
                     ModUnderTest.staticCall(LOOKS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{true});
-                    ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{true});
+                    ModUnderTest.staticCall(BR_DATA, "resetForTest");
                     ModUnderTest.set(ModUnderTest.config(BC_CFG), "setEnabled", false);
                 });
                 if (!name.equals(SWITCHES)) {
@@ -288,14 +288,13 @@ public class SimBloodCampTests implements FabricClientGameTest {
             Map<String, Integer> rotation, Map<String, List<int[]>> rel, Set<String> lookRooms, List<String> facts,
             List<String> problems) {
         ctx.runOnClient(mc -> {
-            ModUnderTest.staticCall(BR_SPOTS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{false});
+            ModUnderTest.staticCall(BR_DATA, "resetForTest");
             ModUnderTest.staticCall(LOOKS, "resetForTest", new Class<?>[]{boolean.class}, new Object[]{false});
             prefs(true, realMobs, false);
             @SuppressWarnings("unchecked")
-            Map<String, Integer> shipped = (Map<String, Integer>) ModUnderTest.staticCall(BR_SPOTS, "bundledCounts");
+            Map<String, Integer> shipped = (Map<String, Integer>) ModUnderTest.staticCall(BR_DATA, "countsForTest");
             for (String room : new ArrayList<>(shipped.keySet())) {
-                ModUnderTest.staticCall(BR_SPOTS, "putBundledForTest", new Class<?>[]{String.class, List.class},
-                        new Object[]{room, new ArrayList<int[]>()});
+                SimBloodRushTests.putSpots(room, new ArrayList<int[]>());
             }
         });
         long mark = LogTap.mark();
@@ -308,7 +307,12 @@ public class SimBloodCampTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> {
             List<String> rooms = new ArrayList<>(rel.keySet());
             java.util.Collections.sort(rooms);
-            for (int i = 0; i < rooms.size(); i += 2) {
+            // The first two rooms of each rotation get a recorded look, so every rotation is judged however few of them stand.
+            Map<Integer, Integer> perRotation = new HashMap<>();
+            for (int i = 0; i < rooms.size(); i++) {
+                if (perRotation.merge(rotation.get(rooms.get(i)), 1, Integer::sum) > 2) {
+                    continue;
+                }
                 lookRooms.add(rooms.get(i));
                 for (int[] p : rel.get(rooms.get(i))) {
                     ModUnderTest.staticCall(LOOKS, "putForTest", new Class<?>[]{String.class, int.class, int.class, int.class,
@@ -339,7 +343,7 @@ public class SimBloodCampTests implements FabricClientGameTest {
         }
         @SuppressWarnings("unchecked")
         Map<String, List<BlockPos>> placed = ctx.computeOnClient(mc ->
-                (Map<String, List<BlockPos>>) ModUnderTest.staticCall(SIM_LIVE, "learnedSpotsPlaced"));
+                (Map<String, List<BlockPos>>) ModUnderTest.staticCall(SIM_LIVE, "boxSpotsPlaced"));
         @SuppressWarnings("unchecked")
         List<UUID[]> pairs = ctx.computeOnClient(mc -> (List<UUID[]>) ModUnderTest.staticCall(SIM_MOBS, "starredPairs"));
         List<Object[]> all = SimBloodRushTests.onServer(ctx, (level, sp) -> {
