@@ -54,6 +54,8 @@ final class HxLuckCases {
         s.test("1101-luck-calc", HxLuckCases::calc);
         s.test("1101-luck-share", HxLuckCases::share);
         s.test("1101-luck-settings", HxLuckCases::settings);
+        s.test("1117-luck-mf-all", HxLuckCases::mfAll);
+        s.test("1117-acc-special-power", HxLuckCases::specialPower);
     }
 
     // ---- helpers -------------------------------------------------------------------------------------------------
@@ -331,6 +333,51 @@ final class HxLuckCases {
         c.ctx().runOnClient(mc -> McCompat.setScreen(mc, null));
         Object card = c.onClient(mc -> Mod.staticCall("gui.profit.ProfitTracker", "byWord", "luck"));
         c.check(card != null, "/profit luck names no tracker");
+    }
+
+    // ---- 1117-luck-mf-all / 1117-acc-special-power (patch 0.27.3) ------------------------------------------------------
+
+    /**
+     * Patch 0.27.3: "Magic Find now affects all drops instead of only drops with a below 5% drop-rate" and "Reduced Magic
+     * Find stat cap from 900 -> 500". A 7% mob drop at 100 Magic Find was left alone before (over 5%): now 14%; and a saved
+     * 900 Magic Find loads as 500.
+     */
+    private static void mfAll(Session c) {
+        Object bruiser = c.onClient(mc -> Mod.call(table(c), "byKey", "mob:Zealot Bruiser|Enchanted Ender Pearl"));
+        c.check(bruiser != null, "no Zealot Bruiser Enchanted Ender Pearl in the table");
+        double over = c.onClient(mc -> (Double) Mod.staticCall(MATH, "withMagicFind", bruiser, 0.07, 100.0));
+        double at500 = c.onClient(mc -> (Double) Mod.staticCall(MATH, "withMagicFind", bruiser, 0.04, 500.0));
+        c.note("0.07 at 100 MF -> " + over + "; 0.04 at 500 MF -> " + at500);
+        c.check(Math.abs(over - 0.14) < 1e-9, "a 7% mob drop at 100 Magic Find gave " + over + ", want 0.14 (all drops since 0.27.3)");
+        c.check(Math.abs(at500 - 0.24) < 1e-9, "a 4% mob drop at 500 Magic Find gave " + at500 + ", want 0.24");
+        String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "How Lucky Are You", "Magic Find"));
+        c.check(tip != null && tip.contains("every tracked drop") && !tip.contains("slayer kills"), "Magic Find tooltip: " + tip);
+        Object cfg = c.onClient(mc -> cfg());
+        try {
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfg, "setManualMagicFind", 900);
+                Mod.call(cfg, "save");
+                Mod.staticCall(CFG, "load");
+            });
+            int mf = c.onClient(mc -> (Integer) Mod.call(cfg(), "getManualMagicFind"));
+            c.check(mf == 500, "a saved 900 Magic Find loaded as " + mf + ", want the 500 cap");
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfg(), "setManualMagicFind", 0);
+                Mod.call(cfg(), "save");
+            });
+        }
+    }
+
+    /** Patch 0.27.3: "Removed Accessory Power from SPECIAL tier accessories"; Very Special keeps 5. */
+    private static void specialPower(Session c) {
+        int special = c.onClient(mc -> (Integer) Mod.staticCall("accadvisor.AccessoryRanker", "mp", "SOME_SPECIAL", "SPECIAL"));
+        int very = c.onClient(mc -> (Integer) Mod.staticCall("accadvisor.AccessoryRanker", "mp", "SOME_VS", "VERY_SPECIAL"));
+        int epic = c.onClient(mc -> (Integer) Mod.staticCall("accadvisor.AccessoryRanker", "mp", "SOME_EPIC", "EPIC"));
+        c.note("Special " + special + ", Very Special " + very + ", Epic " + epic);
+        int prism = c.onClient(mc -> (Integer) Mod.staticCall("accadvisor.AccessoryRanker", "mp", "RIFT_PRISM", "EPIC"));
+        c.check(prism == 12, "Rift Prism power " + prism + ", want its rarity (EPIC 12), no flat 11 (patch 0.27.3)");
+        c.check(special == 0 && very == 5 && epic == 12, "Magical Power Special/Very Special/Epic = " + special + "/" + very + "/" + epic + ", want 0/5/12");
     }
 
     // ---- 1101-luck-share ---------------------------------------------------------------------------------------------
