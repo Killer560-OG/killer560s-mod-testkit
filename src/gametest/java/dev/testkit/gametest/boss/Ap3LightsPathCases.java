@@ -11,12 +11,13 @@ import java.util.Locale;
 /**
  * 1027-boss-ap3-lights-path (mod ap3-levers-1027, cheat jar). killer560, 2026-10-27: "when it looks at stuff like levers
  * and things it can mess with where my ap3 is going. is there a way to make it get levers without actually looking at
- * them?" His align #13 and RUN 14-17 beside the Lights levers (the 1026-boss-ap3-lights-run layout), run TWICE from the
- * same start: once with the Lights Aura off (the path), once with it on and two levers unlit along the run. Judged:
+ * them?" His align #13 and RUN 14-15 beside the Lights levers (the 1026-boss-ap3-lights-run layout), then a STOP beside
+ * the two unlit levers, run TWICE from the same start: once with the Lights Aura off (the path), once with it on.
+ * ap3auralook-1116: no aura turns the body while AP3 runs; a lever is flicked only after a STILL tick (no movement input)
+ * whose movement packet carried the aim (util/PacketLook), here the STOP's slide. Judged:
  * <ul>
- *   <li>the levers get flicked during the second run (otherwise nothing was tested);</li>
- *   <li>every tick of the aura run stays within 0.05 blocks of the no-aura path's line (a turn that used W instead of
- *       W+A is 2% slower, so the runs are compared in space; the tick-aligned direction differences are noted);</li>
+ *   <li>the levers get flicked while AP3 still runs (otherwise nothing was tested), and never after a tick with input;</li>
+ *   <li>every tick of the aura run stays within 0.005 blocks of the no-aura path's line;</li>
  *   <li>GrimAC silent (Session.test).</li>
  * </ul>
  */
@@ -50,6 +51,7 @@ final class Ap3LightsPathCases {
 
     /** One run of the route from the same start; returns the per-tick positions from the tick the align ended. */
     private static List<double[]> runOnce(Session c, boolean aura, int[] flicksOut) {
+        // flicksOut: {flicks while AP3 ran, flicks right after a tick with movement input}
         c.onClient(mc -> {
             Mod.staticCall(EXEC, "stop", "test lane");
             Ap3TermAuraCases.setChain();
@@ -66,22 +68,37 @@ final class Ap3LightsPathCases {
         Object align = Ap3LightsRunCases.node("FAST_ALIGN", 60.5, 139.0, 0f, 2.0);
         Object r14 = Ap3LightsRunCases.node("RUN", 60.5, 139.0, 72f, 1.0);
         Object r15 = Ap3LightsRunCases.node("RUN", 58.5, 139.5, 50f, 1.0);
-        Object r16 = Ap3LightsRunCases.node("RUN", 56.0, 141.0, 110f, 1.0);
-        Object r17 = Ap3LightsRunCases.node("RUN", 55.5, 141.5, 96.780396f, 1.0);
-        Object stop = Ap3LightsRunCases.node("STOP", 42.0, 140.5, 90f, 4.0);
+        // The STOP's slide ends beside the unlit levers 1 (58,136,142) and 5 (58,133,142), inside the 3.0 range.
+        Object stop = Ap3LightsRunCases.node("STOP", 57.5, 140.3, 50f, 1.5);
         int f0 = LightsDeviceCases.flickCount();
         c.onClient(mc -> {
             Mod.set(LightsDeviceCases.CFG, "setAuraEnabled", aura);
-            Ap3TermAuraCases.setChain(align, r14, r15, r16, r17, stop);
+            Ap3TermAuraCases.setChain(align, r14, r15, stop);
             return null;
         });
         List<double[]> path = new ArrayList<>();
         boolean alignSeen = false;
         boolean alignDone = false;
+        int last = f0;
+        boolean keysBefore = false;
+        flicksOut[0] = 0;
+        flicksOut[1] = 0;
         for (int t = 0; t < 160; t++) {
             c.ctx().waitTick();
-            Object[] r = c.onClient(mc -> new Object[]{mc.player.getX(), mc.player.getZ(), activeType(),
-                    Mod.staticCall(EXEC, "isRunning")});
+            Object[] r = c.onClient(mc -> {
+                var k = mc.player.input.keyPresses;
+                return new Object[]{mc.player.getX(), mc.player.getZ(), activeType(), Mod.staticCall(EXEC, "isRunning"),
+                        LightsDeviceCases.flickCount(), k.forward() || k.backward() || k.left() || k.right() || k.jump()};
+            });
+            int fl = (Integer) r[4];
+            if (fl > last && (Boolean) r[3]) {
+                flicksOut[0] += fl - last;
+                if (keysBefore) {
+                    flicksOut[1] += fl - last;
+                }
+            }
+            last = fl;
+            keysBefore = (Boolean) r[5];
             boolean inAlign = "FAST_ALIGN".equals(r[2]);
             alignSeen |= inAlign;
             if (alignSeen && !inAlign) {
@@ -94,7 +111,6 @@ final class Ap3LightsPathCases {
                 }
             }
         }
-        flicksOut[0] = LightsDeviceCases.flickCount() - f0;
         c.onClient(mc -> {
             Mod.set(LightsDeviceCases.CFG, "setAuraEnabled", false);
             return null;
@@ -121,10 +137,11 @@ final class Ap3LightsPathCases {
             });
             LightsDeviceCases.setLevers(c, 0, 1, 2, 3, 4, 5); // all lit: nothing for the aura in the first run
             LightsDeviceCases.waitLevers(c, "all lit", 0, 1, 2, 3, 4, 5);
-            int[] f = new int[1];
+            int[] f = new int[2];
             List<double[]> base = runOnce(c, false, f);
             List<double[]> withAura = runOnce(c, true, f);
             int flicks = f[0];
+            int flicksAfterInput = f[1];
             int n = Math.min(base.size(), withAura.size());
             int differ = 0;
             double worstDeg = 0;
@@ -172,13 +189,14 @@ final class Ap3LightsPathCases {
             }
             double endGap = n == 0 ? Double.NaN : Math.hypot(base.get(n - 1)[0] - withAura.get(n - 1)[0],
                     base.get(n - 1)[1] - withAura.get(n - 1)[1]);
-            c.note(String.format(Locale.ROOT, "path ticks %d / %d; flicks in the aura run %d; farthest the aura run got from the"
+            c.note(String.format(Locale.ROOT, "path ticks %d / %d; flicks while AP3 ran %d (after a tick with input %d); farthest the aura run got from the"
                     + " no-aura path: %.4f blocks (tick %d); tick-aligned: %d tick(s) whose direction differs by more than 2"
                     + " degrees (worst %.2f deg), worst per-tick speed difference %.4f, gap at tick %d %.3f%s",
-                    base.size(), withAura.size(), flicks, worstOff, worstOffTick, differ, worstDeg, worstSpeed, n - 1, endGap, where));
+                    base.size(), withAura.size(), flicks, flicksAfterInput, worstOff, worstOffTick, differ, worstDeg, worstSpeed, n - 1, endGap, where));
             c.check(base.size() >= 10, "the no-aura run lasted only " + base.size() + " ticks after the align");
-            c.check(flicks >= 1, "the Lights Aura flicked nothing during the AP3 run - nothing was tested");
-            c.check(worstOff <= 0.05, String.format(Locale.ROOT, "the aura run left the no-aura path by %.3f blocks at tick %d",
+            c.check(flicks >= 1, "the Lights Aura flicked nothing while AP3 ran - nothing was tested");
+            c.check(flicksAfterInput == 0, flicksAfterInput + " flick(s) right after a tick with movement input (the aim needs a still tick)");
+            c.check(worstOff <= 0.005, String.format(Locale.ROOT, "the aura run left the no-aura path by %.3f blocks at tick %d",
                     worstOff, worstOffTick));
         } finally {
             c.onClient(mc -> {

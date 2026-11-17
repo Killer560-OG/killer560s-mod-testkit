@@ -61,8 +61,10 @@ final class Ap3AuraLook1116Cases {
             return;
         }
         // No OPEN_CLICK: an inventory click while AP3 sprints is GrimAC MultiActionsC from his own click with the Aura
-        // off too (r2: x31, sprinting=true input=true in both walks), so it cannot judge the Aura.
-        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.ATTACK, SameTick.Act.TP}) {
+        // off too (r2: x31, sprinting=true input=true in both walks), so it cannot judge the Aura. No ATTACK either: his own
+        // attack on the stands drew Hitboxes in the Aura-off walk as much as in the Aura-on one (r3, AP3's packet yaw is not
+        // the camera's crosshair; WORKQUEUE ap3attack-hitboxes); his attack over an aura's click is in the term and lever cases.
+        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.TP}) {
             s.test("1116-ap3aura-arrows-same-" + a.name().toLowerCase(Locale.ROOT), c -> arrows(c, a));
         }
         s.test("1116-ap3aura-term-beside", Ap3AuraLook1116Cases::termBeside);
@@ -296,6 +298,9 @@ final class Ap3AuraLook1116Cases {
             if (act != null) {
                 SameTickCases.sticks(c);
             }
+            // Settle after the build and tp: r3 drew Simulation in the warm-up walk's sprint start with the Aura off.
+            c.server().sync(20);
+            c.ctx().waitTicks(20);
             List<String> notes = new ArrayList<>();
             walk(c, false, null, notes); // warm-up, not compared (the session's first walk can start a tick out of step)
             Walk off = walk(c, false, act, notes);
