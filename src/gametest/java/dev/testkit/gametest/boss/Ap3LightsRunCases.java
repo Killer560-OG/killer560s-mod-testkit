@@ -43,7 +43,8 @@ final class Ap3LightsRunCases {
         if (!Mod.isCheat()) {
             return;
         }
-        s.test("1026-boss-ap3-lights-run", Ap3LightsRunCases::run);
+        // Judged by stepFour: the one no-look lever click with keys held may draw RotationPlace (owner 11-16), nothing else.
+        s.testExpectingFlags("1026-boss-ap3-lights-run", Ap3LightsRunCases::run);
     }
 
     static Object node(String type, double x, double z, float yaw, double size) {
@@ -95,6 +96,7 @@ final class Ap3LightsRunCases {
             Ap3AuraLook1116Cases.clearRotationPlace(c);
             long mark = dev.testkit.gametest.LogTap.mark();
             long since = c.hx().head();
+            int flagFrom = c.scenario().flags().size();
             Object align = node("FAST_ALIGN", 60.5, 139.0, 0f, 2.0);
             Object r14 = node("RUN", 60.5, 139.0, 72f, 1.0);
             Object r15 = node("RUN", 58.5, 139.5, 50f, 1.0);
@@ -194,6 +196,7 @@ final class Ap3LightsRunCases {
             c.ctx().waitTicks(20);
             List<String> lines = dev.testkit.gametest.LogTap.since(mark);
             Ap3AuraLook1116Cases.noLookTaken(c, since, lines, "Lights Aura during the held run");
+            Ap3AuraLook1116Cases.stepFour(c, flagFrom, lines, "Lights Aura during the held run");
             boolean[] lit = LightsDeviceCases.litOnClient(c);
             int litNow = 0;
             StringBuilder unheld = new StringBuilder();
