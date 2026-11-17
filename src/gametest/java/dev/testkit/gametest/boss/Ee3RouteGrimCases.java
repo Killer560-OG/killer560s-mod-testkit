@@ -32,7 +32,7 @@ import java.util.function.Predicate;
  * the BOOM node sends its Superboom tap and the server then clears gate 2's arch cells (SimBossTests DOOR_BOX 2), as Hypixel would; GrimAC must stay
  * silent (Session.test) on the default and experimental configs.
  * <ul>
- *   <li>1109-boss-ee3route-grim: the route's Breaker picks cleared before the run.</li>
+ *   <li>1109-boss-ee3route-grim: the route's Breaker picks stay in the world and are dug on the way (ee3route-align-1117).</li>
  *   <li>1109-boss-ee3route-same-&lt;use|swap|dig&gt; (SAME-TICK GRIM CASES): his own right click, hotbar swap or dig goes
  *       into the route's ticks ({@link SameTick}); use and swap must share a server tick with a lever click, a queued dig
  *       must hold the lever click to another tick.</li>
@@ -193,6 +193,13 @@ final class Ee3RouteGrimCases {
         return out;
     }
 
+    private static double boxDistSq(double ex, double ey, double ez, BlockPos p) {
+        double dx = ex - Math.max(p.getX(), Math.min(ex, p.getX() + 1));
+        double dy = ey - Math.max(p.getY(), Math.min(ey, p.getY() + 1));
+        double dz = ez - Math.max(p.getZ(), Math.min(ez, p.getZ() + 1));
+        return dx * dx + dy * dy + dz * dz;
+    }
+
     private static Path routeDir() {
         return KM_DIR == null ? VERIFIED : DIR.resolve(KM_DIR);
     }
@@ -217,10 +224,13 @@ final class Ee3RouteGrimCases {
                 }
             }
             c.server().sync(120);
+            // ee3route-align-1117: the picks stay in the world, as in a real run; the run digs them on the way (below).
+            List<BlockPos> live = new ArrayList<>();
             for (String l : Files.readAllLines(routeDir().resolve(ROUTE + ".picks"))) {
                 l = l.strip();
                 if (!l.isEmpty() && !l.startsWith("#")) {
-                    c.server().command("setblock " + l.replace(',', ' ') + " minecraft:air");
+                    String[] x = l.split(",");
+                    live.add(new BlockPos(Integer.parseInt(x[0].strip()), Integer.parseInt(x[1].strip()), Integer.parseInt(x[2].strip())));
                 }
             }
             for (BlockPos p : new BlockPos[]{LOW, HIGH}) {
@@ -244,11 +254,10 @@ final class Ee3RouteGrimCases {
             undo.add(c.onClient(mc -> Mod.with(LA, "SectionLevers", true)));
             undo.add(c.onClient(mc -> Mod.with(LA, "SectionLeversEarly", true)));
             undo.add(c.onClient(mc -> Mod.with(LA, "Range", 4.5)));
-            undo.add(c.onClient(mc -> Mod.with(LA, "CooldownMs", Integer.parseInt(System.getenv().getOrDefault("KM_LEVER_CD", "50")))));
+            undo.add(c.onClient(mc -> Mod.with(LA, "CooldownMs", Integer.parseInt(System.getenv().getOrDefault("KM_LEVER_CD", "250")))));
             undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Enabled", true)));
-            // 45 Degree Strafe OFF unless KM_EE3_STRAFE45=1: with it ON the route still falls into the lava at node 25-31 on origin
-            // 26.3 itself (route margin, open as leverjump-strafe-1111), whatever a branch changes; OFF passes (ap3train-1111).
-            undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Strafe45", "1".equals(System.getenv("KM_EE3_STRAFE45")))));
+            // ee3route-align-1117: 45 Degree Strafe ON as in his 26.3 (routes are planned with it); KM_EE3_STRAFE45=0 turns it off.
+            undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Strafe45", !"0".equals(System.getenv("KM_EE3_STRAFE45")))));
             c.onClient(mc -> {
                 try {
                     Mod.staticCall("ap3.Ap3Executor", "stop", "test lane");
@@ -287,8 +296,12 @@ final class Ee3RouteGrimCases {
             // Leave and re-enter HEE2's box: a tp lands him in it, as a leap would.
             TerminalAuraCases.tp(c, 62.5, 132, 139, 72f);
             c.ctx().waitTicks(5);
-            TerminalAuraCases.tp(c, 60.5, 132, 139, 72f);
+            // The start of a boss run: standing at the HEE2 node, yaw 117 pitch 46.3 (the route finder's sim start).
+            c.hx().call("dungeon.tp", "x", 60.5, "y", 132.0, "z", 139.0, "yaw", 117f, "pitch", 46.3f);
             int t0 = -1;
+            int charges = 20;
+            int recharge = 0;
+            java.util.Set<BlockPos> broken = new java.util.HashSet<>();
             int arrive = -1;
             int boomAt = -1;
             double minY = 999;
@@ -300,6 +313,20 @@ final class Ee3RouteGrimCases {
                 double[] s = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ(),
                         mc.player.onGround() ? 1 : 0, mc.player.input.keyPresses.jump() ? 1 : 0});
                 minY = Math.min(minY, s[1]);
+                // The Breaker's rule as the route finder models it: a pick whose box is within 4.5 of the eye goes (one per
+                // charge, 20 charges, one back every 10 ticks), set to air on the client and the server.
+                if (charges < 20 && ++recharge >= 10) {
+                    recharge = 0;
+                    charges++;
+                }
+                for (BlockPos q : live) {
+                    if (charges > 0 && !broken.contains(q) && boxDistSq(s[0], s[1] + 1.62, s[2], q) <= 4.5 * 4.5) {
+                        charges--;
+                        broken.add(q);
+                        c.onClient(mc -> mc.level.setBlock(q, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 11));
+                        c.server().command("setblock " + q.getX() + " " + q.getY() + " " + q.getZ() + " minecraft:air");
+                    }
+                }
                 path.append(String.format(Locale.ROOT, " %d:%.2f,%.2f,%.2f%s%s", t, s[0], s[1], s[2], s[3] > 0 ? "g" : "", s[4] > 0 ? "J" : ""));
                 if (t0 < 0 && Math.hypot(s[0] - 60.5, s[2] - 139) > 0.2) {
                     t0 = t;
