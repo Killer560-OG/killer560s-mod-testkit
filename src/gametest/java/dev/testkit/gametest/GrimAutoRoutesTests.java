@@ -3887,8 +3887,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         }
         ctx.waitTicks(5);
         if (st != null) {
-            // Chain layout: his action is armed by the chain line, so the ticks that carry both ARE the chained cast's.
+            // His USE never shares a tick (Auto Clear yields to a use of his), so USE and ATTACK are ACTED. Chain layout: his action is armed by the chain line, so the ticks that carry both ARE the chained cast's.
             dev.testkit.gametest.SameTick.judge(c, st, "achype " + act, chain && act != dev.testkit.gametest.SameTick.Act.ATTACK
+                    && act != dev.testkit.gametest.SameTick.Act.USE
                     ? dev.testkit.gametest.SameTick.Expect.SHARE : dev.testkit.gametest.SameTick.Expect.ACTED);
         }
         List<Sample> s = stopSampling(ctx);
