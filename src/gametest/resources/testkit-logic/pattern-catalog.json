@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-16T20:46:13",
- "modSource": "lane-simwd-1116",
- "modGitSha": "b1d5bf0cf2b5a45280270d2ff84b6f40318b80b1",
+ "generatedAt": "2026-11-16T20:58:59",
+ "modSource": "lane-colltrack-hide-1116",
+ "modGitSha": "42d470bc645e2f89afe6155d20f4edb9143c0df5",
  "modSourceDirty": false,
  "count": 983,
  "byKind": {
