@@ -67,8 +67,9 @@ final class Ap3AuraLook1116Cases {
         for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.TP}) {
             s.test("1116-ap3aura-arrows-same-" + a.name().toLowerCase(Locale.ROOT), c -> arrows(c, a));
         }
-        s.test("1116-ap3aura-term-beside", Ap3AuraLook1116Cases::termBeside);
-        s.test("1116-ap3aura-term-still", Ap3AuraLook1116Cases::termStill);
+        // Judged by stepFour: RotationPlace / Hitboxes only, and only behind a no-look click with keys held (owner 11-16).
+        s.testExpectingFlags("1116-ap3aura-term-beside", Ap3AuraLook1116Cases::termBeside);
+        s.testExpectingFlags("1116-ap3aura-term-still", Ap3AuraLook1116Cases::termStill);
         s.testExpectingFlags("1116-nolook-probe", Ap3AuraLook1116Cases::probe);
         s.testExpectingFlags("1116-movingclick-probe", Ap3AuraLook1116Cases::movingProbe);
     }
@@ -99,14 +100,36 @@ final class Ap3AuraLook1116Cases {
         if (p instanceof ServerboundClientTickEndPacket) {
             return "end";
         }
+        return describeMovement(p);
+    }
+
+    /** "input <bits>" (forward 1, backward 2, left 4, right 8, jump 16, shift 32, sprint 64), "cmd <action+1>", else the class. */
+    static String describeMovement(Object p) {
+        if (p instanceof net.minecraft.network.protocol.game.ServerboundPlayerInputPacket in) {
+            net.minecraft.world.entity.player.Input i = in.input();
+            return "input " + ((i.forward() ? 1 : 0) | (i.backward() ? 2 : 0) | (i.left() ? 4 : 0) | (i.right() ? 8 : 0)
+                    | (i.jump() ? 16 : 0) | (i.shift() ? 32 : 0) | (i.sprint() ? 64 : 0));
+        }
+        if (p instanceof net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket cmd) {
+            return "cmd " + (cmd.getAction().ordinal() + 1);
+        }
         return p.getClass().getSimpleName();
     }
 
-    /** Per client tick {x, y, z, yaw, pitch, interacts, apRunning}, from the first tick he left (sx, sz). */
+    /** Movement keys and jump in an "input" bit set (forward, backward, left, right, jump). */
+    private static boolean keys(double bits) {
+        return ((int) bits & 31) != 0;
+    }
+
+    /**
+     * Per client tick {x, y, z, yaw, pitch, interacts, apRunning, input bits held, commands this tick}, from the first tick
+     * he left (sx, sz).
+     */
     private static List<double[]> ticksFromWire(double sx, double sz) {
         List<double[]> out = new ArrayList<>();
         double[] cur = {Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN};
         int interacts = 0;
+        double input = 0, cmds = 0;
         for (WireCapture.Sent w : WireCapture.snapshot()) {
             if (!w.phase().equals("play")) {
                 continue;
@@ -122,9 +145,14 @@ final class Ap3AuraLook1116Cases {
                 }
             } else if (t.equals("interact")) {
                 interacts++;
+            } else if (t.startsWith("input ")) {
+                input = Double.parseDouble(t.substring(6));
+            } else if (t.startsWith("cmd ")) {
+                cmds = cmds * 16 + Double.parseDouble(t.substring(4));
             } else if (t.equals("end")) {
-                out.add(new double[]{cur[0], cur[1], cur[2], cur[3], cur[4], interacts, 0});
+                out.add(new double[]{cur[0], cur[1], cur[2], cur[3], cur[4], interacts, 0, input, cmds});
                 interacts = 0;
+                cmds = 0;
             }
         }
         int first = 0;
@@ -164,6 +192,65 @@ final class Ap3AuraLook1116Cases {
             }
         }
         return "";
+    }
+
+    /**
+     * The owner's rule (2026-11-16: "My auras can never affect my movement"): the first tick where the aura-on walk moved
+     * differently from the aura-off one, or "". Positions (moved since the first tick, 0.005), the input bits held, the
+     * sprint/sneak commands, and the packet yaw on every tick either walk holds a movement key or jump (0.05 deg). Pitch is
+     * free, and so is the yaw of a tick with no keys (a full aim may ride there).
+     */
+    static String movementDiff(List<double[]> a, List<double[]> b, int n) {
+        int s0 = 0;
+        while (s0 < n && (Double.isNaN(a.get(s0)[0]) || Double.isNaN(b.get(s0)[0]))) {
+            s0++;
+        }
+        if (s0 >= n) {
+            return "no position on the wire";
+        }
+        double[] a0 = a.get(s0), b0 = b.get(s0);
+        for (int i = s0; i < n; i++) {
+            double[] p = a.get(i), q = b.get(i);
+            String why = null;
+            for (int k = 0; k < 3 && why == null; k++) {
+                double d = Math.abs((p[k] - a0[k]) - (q[k] - b0[k]));
+                if (Double.isNaN(d) || d > 0.005) {
+                    why = "position";
+                }
+            }
+            if (why == null && p[7] != q[7]) {
+                why = "keys";
+            } else if (why == null && p[8] != q[8]) {
+                why = "sprint/sneak command";
+            } else if (why == null && (keys(p[7]) || keys(q[7])) && !(Double.isNaN(p[3]) && Double.isNaN(q[3]))
+                    && !(Math.abs(Mth.wrapDegrees(p[3] - q[3])) <= 0.05)) {
+                why = "yaw with keys held";
+            }
+            if (why != null) {
+                return String.format(Locale.ROOT, "tick %d %s: off %.4f %.4f %.4f yaw %.3f pitch %.3f keys %d cmd %d / on %.4f %.4f"
+                                + " %.4f yaw %.3f pitch %.3f keys %d cmd %d", i, why, p[0], p[1], p[2], p[3], p[4], (int) p[7], (long) p[8],
+                        q[0], q[1], q[2], q[3], q[4], (int) q[7], (long) q[8]);
+            }
+        }
+        return "";
+    }
+
+    /**
+     * The owner's step-4 exception (2026-11-16, "No switch."): an aura's no-look click while movement keys are held may draw
+     * GrimAC RotationPlace (a lever) or Hitboxes (a terminal stand), nothing else, and only when such a click went. Checks
+     * every flag line since {@code from} against the aura's log lines of that run; returns how many flag lines there were.
+     */
+    static int stepFour(Session c, int from, List<String> lines, String what) {
+        List<String> f = c.scenario().flags();
+        List<String> got = f.size() <= from ? List.of() : f.subList(from, f.size());
+        long noLook = lines.stream().filter(l -> l.contains("no look (keys held")).count();
+        List<String> other = got.stream().filter(l -> !l.contains("RotationPlace") && !l.contains("Hitboxes")).toList();
+        c.note(what + ": " + got.size() + " flag line(s), " + noLook + " no-look click(s) with keys held"
+                + (got.isEmpty() ? "" : "; " + String.join(" | ", got.subList(0, Math.min(4, got.size())))));
+        c.check(other.isEmpty(), what + " drew flags outside the owner's step-4 exception: " + other);
+        c.check(got.isEmpty() || noLook > 0, what + " drew " + got.size() + " RotationPlace/Hitboxes line(s) with no no-look click"
+                + " behind them (the exception covers only step 4)");
+        return got.size();
     }
 
     private static void stopAp3(Session c) {
@@ -309,7 +396,7 @@ final class Ap3AuraLook1116Cases {
             Walk off = walk(c, false, act, notes);
             Walk onW = walk(c, true, act, notes);
             int n = Math.min(off.ticks().size(), onW.ticks().size());
-            String diff = n == 0 ? "no ticks" : firstDiff(off.ticks(), onW.ticks(), Math.min(n, Math.min(off.apTicks(), onW.apTicks())));
+            String diff = n == 0 ? "no ticks" : movementDiff(off.ticks(), onW.ticks(), Math.min(n, Math.min(off.apTicks(), onW.apTicks())));
             c.note(String.format(Locale.ROOT, "ticks off/on %d/%d (AP3 %d/%d); interacts while AP3 ran off/on %d/%d; first"
                     + " difference while AP3 ran: %s", off.ticks().size(), onW.ticks().size(), off.apTicks(), onW.apTicks(),
                     off.interactsWhileRunning(), onW.interactsWhileRunning(), diff.isEmpty() ? "none" : diff));
@@ -319,10 +406,7 @@ final class Ap3AuraLook1116Cases {
                 c.check(onW.interacts() == 0, "a legit jar clicked frames on the walk: " + onW.interacts());
                 return;
             }
-            boolean moves = act == null || act == SameTick.Act.USE || act == SameTick.Act.SWAP;
-            if (moves) {
-                c.check(diff.isEmpty(), "the Aura changed the AP3 walk: " + diff);
-            }
+            c.check(diff.isEmpty(), "the Aura changed the AP3 walk's movement: " + diff);
             c.check(onW.interactsWhileRunning() > 0, "the Aura sent no click while AP3 ran (nothing tested)");
             if (act == null) {
                 c.check(java.util.Arrays.stream(onW.rot()).allMatch(r -> r == 1), "the device was not solved: "
@@ -382,8 +466,14 @@ final class Ap3AuraLook1116Cases {
             List<double[]>[] runs = new List[2];
             long held = 0;
             int[] clicks = new int[2];
+            int flags0 = c.scenario().flags().size(), flagsOn = flags0;
+            List<String> onLines = List.of();
             for (int r = -1; r < 2; r++) { // r = -1: warm-up
                 boolean aura = r == 1;
+                if (aura) {
+                    c.ctx().waitTicks(10);
+                    flagsOn = c.scenario().flags().size();
+                }
                 stopAp3(c);
                 TerminalAuraCases.closeScreen(c);
                 TerminalAuraCases.tp(c, px, py, pz, -90f);
@@ -417,8 +507,9 @@ final class Ap3AuraLook1116Cases {
                     return null;
                 });
                 if (aura) {
-                    held = dev.testkit.gametest.LogTap.since(mark).stream()
-                            .filter(l -> l.contains("[TerminalAura] held: AP3 route runs: no turn")).count();
+                    onLines = dev.testkit.gametest.LogTap.since(mark);
+                    held = onLines.stream().filter(l -> l.contains("[TerminalAura] held: AP3 route runs: no turn")
+                            || l.contains("[TerminalAura] held: keys held") || l.contains("[TerminalAura] click sent")).count();
                 }
                 if (r >= 0) {
                     runs[r] = ticksFromWire(px, pz);
@@ -426,15 +517,19 @@ final class Ap3AuraLook1116Cases {
                 }
             }
             int n = Math.min(runs[0].size(), runs[1].size());
-            String diff = firstDiff(runs[0], runs[1], n, 3);
+            String diff = movementDiff(runs[0], runs[1], n);
             String lookDiff = firstDiff(runs[0], runs[1], n, 5);
-            c.note("first look difference (a one-packet aim on a still tick is allowed): " + (lookDiff.isEmpty() ? "none" : lookDiff));
-            c.note(String.format(Locale.ROOT, "ticks off/on %d/%d; terminal clicks off/on %d/%d; Terminal Aura held for the route"
-                    + " %d time(s); first difference: %s", runs[0].size(), runs[1].size(), clicks[0], clicks[1], held,
-                    diff.isEmpty() ? "none" : diff));
+            c.note("first look difference (pitch, or yaw on a keyless tick, is allowed): " + (lookDiff.isEmpty() ? "none" : lookDiff));
+            c.note(String.format(Locale.ROOT, "ticks off/on %d/%d; terminal clicks off/on %d/%d; Terminal Aura lines for the route"
+                    + " %d; movement difference: %s; click lines: %s", runs[0].size(), runs[1].size(), clicks[0], clicks[1], held,
+                    diff.isEmpty() ? "none" : diff, onLines.stream().filter(l -> l.contains("[TerminalAura] click sent")).toList()));
             c.check(held > 0, "Terminal Aura never had the stand as a target during the walk (nothing tested)");
             c.check(n >= 20, "the walk lasted only " + n + " ticks");
-            c.check(diff.isEmpty(), "Terminal Aura changed the AP3 walk: " + diff);
+            c.check(diff.isEmpty(), "Terminal Aura changed the AP3 walk's movement: " + diff);
+            c.ctx().waitTicks(20);
+            List<String> fl = c.scenario().flags();
+            c.check(flagsOn == flags0, "the aura-off walks drew flags: " + fl.subList(flags0, Math.min(flagsOn, fl.size())));
+            stepFour(c, flagsOn, onLines, "Terminal Aura beside the walk");
         } finally {
             stopAp3(c);
             WireCapture.stop();
@@ -498,40 +593,67 @@ final class Ap3AuraLook1116Cases {
                 Mod.staticCall(Ap3TermAuraCases.FEATURE, "setForceDungeon", true);
                 return null;
             });
-            stopAp3(c);
-            TerminalAuraCases.closeScreen(c);
-            TerminalAuraCases.tp(c, px, py, pz, -90f);
-            c.ctx().waitTicks(10);
             double sx = x - 1.0;
             Object align = node("FAST_ALIGN", px, py, pz, -90f, 2.0);
             Object run = node("RUN", px, py, pz, -90f, 1.0);
             Object stop = node("STOP", sx, py, pz, -90f, 1.0);
             Object terminal = node("TERMINAL", sx, py, pz, -90f, 4.0);
-            int before = c.events("term.interact").size();
-            long mark = dev.testkit.gametest.LogTap.mark();
-            WireCapture.describe = Ap3AuraLook1116Cases::describe;
-            WireCapture.start();
-            c.onClient(mc -> {
-                Mod.set(ta, "setEnabled", true);
-                Ap3TermAuraCases.setChain(align, run, stop, terminal);
-                return null;
-            });
+            // r -1: warm-up, 0: Terminal Aura off (the A/B reference), 1: on. The on run ends at its click.
+            List<double[]> offTicks = List.of();
             double worstYaw = 0;
             int runningTicks = 0;
-            boolean opened = false;
-            for (int t = 0; t < 140 && !opened; t++) {
-                c.ctx().waitTick();
-                Object[] s = c.onClient(mc -> new Object[]{Mod.staticCall(EXEC, "isRunning"), mc.player.getViewYRot(1f)});
-                if (Boolean.TRUE.equals(s[0])) {
-                    runningTicks++;
-                    worstYaw = Math.max(worstYaw, Math.abs(Mth.wrapDegrees((Float) s[1] + 90f)));
+            boolean opened = false, runningAtClick = false;
+            int before = 0;
+            long mark = 0;
+            int flags0 = c.scenario().flags().size(), flagsOn = flags0;
+            for (int r = -1; r < 2; r++) {
+                boolean aura = r == 1;
+                if (aura) {
+                    c.ctx().waitTicks(10);
+                    flagsOn = c.scenario().flags().size();
                 }
-                opened = c.events("term.interact").size() > before;
+                stopAp3(c);
+                TerminalAuraCases.closeScreen(c);
+                TerminalAuraCases.tp(c, px, py, pz, -90f);
+                c.ctx().waitTicks(10);
+                before = c.events("term.interact").size();
+                mark = dev.testkit.gametest.LogTap.mark();
+                WireCapture.describe = Ap3AuraLook1116Cases::describe;
+                WireCapture.start();
+                c.onClient(mc -> {
+                    Mod.set(ta, "setEnabled", aura);
+                    Ap3TermAuraCases.setChain(align, run, stop, terminal);
+                    return null;
+                });
+                for (int t = 0; t < (aura ? 140 : 70) && !opened; t++) {
+                    c.ctx().waitTick();
+                    Object[] s = c.onClient(mc -> new Object[]{Mod.staticCall(EXEC, "isRunning"), mc.player.getViewYRot(1f)});
+                    if (aura && Boolean.TRUE.equals(s[0])) {
+                        runningTicks++;
+                        worstYaw = Math.max(worstYaw, Math.abs(Mth.wrapDegrees((Float) s[1] + 90f)));
+                    }
+                    opened = aura && c.events("term.interact").size() > before;
+                }
+                runningAtClick = c.onClient(mc -> (Boolean) Mod.staticCall(EXEC, "isRunning"));
+                c.ctx().waitTicks(aura ? 3 : 0);
+                WireCapture.stop();
+                WireCapture.describe = null;
+                if (r == 0) {
+                    offTicks = ticksFromWire(px, pz);
+                    c.check(c.events("term.interact").size() == before, "the aura-off route opened the terminal");
+                }
             }
-            boolean runningAtClick = c.onClient(mc -> (Boolean) Mod.staticCall(EXEC, "isRunning"));
-            c.ctx().waitTicks(3);
-            WireCapture.stop();
-            WireCapture.describe = null;
+            List<double[]> onTicks = ticksFromWire(px, pz);
+            int n = Math.min(offTicks.size(), onTicks.size());
+            String moveDiff = movementDiff(offTicks, onTicks, n);
+            c.note("movement aura off/on (" + n + " ticks): " + (moveDiff.isEmpty() ? "identical" : moveDiff));
+            c.check(n >= 10, "the route lasted only " + n + " compared ticks");
+            c.check(moveDiff.isEmpty(), "Terminal Aura changed the AP3 route's movement: " + moveDiff);
+            c.check(flagsOn == flags0, "the aura-off routes drew flags: " + c.scenario().flags().subList(flags0, flagsOn));
+            List<String> onLines = dev.testkit.gametest.LogTap.since(mark);
+            c.note("click lines: " + onLines.stream().filter(l -> l.contains("[TerminalAura] click sent")).toList());
+            c.ctx().waitTicks(20);
+            stepFour(c, flagsOn, onLines, "Terminal Aura at the stopped route");
             int aimed = 0;
             for (WireCapture.Sent w : WireCapture.snapshot()) {
                 String[] f = w.text().split(" ");
@@ -586,7 +708,11 @@ final class Ap3AuraLook1116Cases {
      */
     enum Way { NONE, PKT, PITCH, ROT, POSROT, BEFORE }
 
-    enum Kind { FRAME, LEVER, STAND, LEVER_AHEAD }
+    enum Kind { FRAME, LEVER, STAND, LEVER_AHEAD, STAND_AHEAD }
+
+    private static boolean isStand(Kind k) {
+        return k == Kind.STAND || k == Kind.STAND_AHEAD;
+    }
 
     private static volatile java.util.function.Consumer<net.minecraft.client.Minecraft> each;
     private static float[] restore;
@@ -637,6 +763,11 @@ final class Ap3AuraLook1116Cases {
         return mc.level.getEntitiesOfClass(ArmorStand.class, new AABB(-3, 119, 80, 3, 124, 85)).get(0);
     }
 
+    private static ArmorStand stand(net.minecraft.client.Minecraft mc, Kind k) {
+        return k == Kind.STAND_AHEAD
+                ? mc.level.getEntitiesOfClass(ArmorStand.class, new AABB(2, 119, 87, 3, 124, 90)).get(0) : stand(mc);
+    }
+
     private static BlockPos leverPos(Kind k) {
         return k == Kind.LEVER ? new BlockPos(-1, 121, 72) : new BlockPos(0, 121, 90);
     }
@@ -645,8 +776,8 @@ final class Ap3AuraLook1116Cases {
         if (k == Kind.FRAME) {
             return frame(mc).getBoundingBox();
         }
-        if (k == Kind.STAND) {
-            return stand(mc).getBoundingBox();
+        if (isStand(k)) {
+            return stand(mc, k).getBoundingBox();
         }
         BlockPos p = leverPos(k);
         return mc.level.getBlockState(p).getShape(mc.level, p).bounds().move(p);
@@ -664,8 +795,8 @@ final class Ap3AuraLook1116Cases {
 
     private static void click(net.minecraft.client.Minecraft mc, Kind k) {
         Vec3 eye = mc.player.getEyePosition();
-        if (k == Kind.FRAME || k == Kind.STAND) {
-            net.minecraft.world.entity.Entity e = k == Kind.FRAME ? frame(mc) : stand(mc);
+        if (k == Kind.FRAME || isStand(k)) {
+            net.minecraft.world.entity.Entity e = k == Kind.FRAME ? frame(mc) : stand(mc, k);
             AABB b = e.getBoundingBox();
             Vec3 hit = b.clip(eye, b.getCenter()).orElse(b.getCenter());
             mc.gameMode.interact(mc.player, e, new EntityHitResult(e, hit), InteractionHand.MAIN_HAND);
@@ -718,7 +849,7 @@ final class Ap3AuraLook1116Cases {
     private static String outcome(Session c, Kind k, String frameUuid, long hxFrom) {
         return switch (k) {
             case FRAME -> "rot " + AaFastCases.serverRotation(c, frameUuid);
-            case STAND -> "use_entity " + c.hx().events(hxFrom, "use_entity").size();
+            case STAND, STAND_AHEAD -> "use_entity " + c.hx().events(hxFrom, "use_entity").size();
             default -> "powered " + c.onClient(mc -> mc.level.getBlockState(leverPos(k))
                     .getValue(net.minecraft.world.level.block.LeverBlock.POWERED));
         };
@@ -734,7 +865,7 @@ final class Ap3AuraLook1116Cases {
         double trigger = switch (k) {
             case LEVER -> 72.2;
             case FRAME -> 77.2;
-            case STAND -> 82.2;
+            case STAND, STAND_AHEAD -> 82.2;
             case LEVER_AHEAD -> 88.3;
         };
         float pitch = k == Kind.LEVER_AHEAD ? 30f : 0f;
@@ -744,14 +875,14 @@ final class Ap3AuraLook1116Cases {
             double sz = switch (k) {
                 case LEVER -> 72.5;
                 case FRAME -> 77.5;
-                case STAND -> 82.5;
+                case STAND, STAND_AHEAD -> 82.5;
                 case LEVER_AHEAD -> 88.5;
             };
             c.hx().call("dungeon.tp", "x", k == Kind.STAND ? 0.8 : k == Kind.LEVER_AHEAD ? WALK_X : 0.2, "y", Y, "z", sz,
                     "yaw", k == Kind.LEVER_AHEAD ? 0f : -90f, "pitch", pitch);
         }
         c.ctx().waitTicks(25);
-        String before = k == Kind.STAND ? "" : outcome(c, k, frameUuid, 0);
+        String before = isStand(k) ? "" : outcome(c, k, frameUuid, 0);
         int f0 = c.scenario().flags().size();
         long h0 = c.hx().head();
         boolean[] fired = {false};
@@ -880,7 +1011,9 @@ final class Ap3AuraLook1116Cases {
      * click goes at the head of that tick's packet. POSROT_G: an extra same-position PosRot with the aim and the right
      * ground flag, keys held. NONE_STRIKE: no look change, the walk's own look (pitch 30) strikes the lever ahead.
      */
-    enum MWay { COAST_PKT, COAST_BEFORE, AIR_PKT, AIR_BEFORE, KEYS_AIM, POSROT_G, NONE_STRIKE }
+    // PITCH_G / PITCH_AIR (keys held, ground / airborne): that tick's packet keeps the walk's yaw exactly and only the
+    // pitch changes, the click goes at the next tick's start. NOLOOK: keys held, a plain click with the walk's look.
+    enum MWay { COAST_PKT, COAST_BEFORE, AIR_PKT, AIR_BEFORE, KEYS_AIM, POSROT_G, NONE_STRIKE, PITCH_G, PITCH_AIR, NOLOOK }
 
     private static void keys(net.minecraft.client.Minecraft m, boolean w, boolean a, boolean s, boolean d, boolean sprint,
                              boolean jump) {
@@ -939,7 +1072,18 @@ final class Ap3AuraLook1116Cases {
                     click(m, k);
                 }
             }
-            case NONE_STRIKE -> {
+            case PITCH_G, PITCH_AIR -> {
+                keys(m, true, false, false, false, true, false);
+                beforeMove(() -> {
+                    restore = new float[]{p.getYRot(), p.getXRot()};
+                    p.setXRot(a[1]);
+                    if (doClick) {
+                        afterRestore = () -> click(m, k);
+                    }
+                });
+            }
+            case NONE_STRIKE, NOLOOK -> {
+                keys(m, true, false, false, false, true, false);
                 if (doClick) {
                     click(m, k);
                 }
@@ -953,12 +1097,18 @@ final class Ap3AuraLook1116Cases {
             case FRAME -> 77.2;
             case STAND -> 82.2;
             case LEVER_AHEAD -> 88.3;
+            case STAND_AHEAD -> 85.8;
         };
-        boolean air = w == MWay.AIR_PKT || w == MWay.AIR_BEFORE;
-        c.hx().call("dungeon.tp", "x", WALK_X, "y", Y, "z", trigger - 7.5, "yaw", 0f,
-                "pitch", k == Kind.LEVER_AHEAD ? 30f : 0f);
+        boolean air = w == MWay.AIR_PKT || w == MWay.AIR_BEFORE || w == MWay.PITCH_AIR;
+        boolean ahead = k == Kind.LEVER_AHEAD || k == Kind.STAND_AHEAD;
+        // Ahead targets: the walk looks UP (-30) so only a pitch change meets them; NONE_STRIKE walks with a pitch that
+        // meets them (lever at eye height: 3; stand center 0.6 under the eye, 2.7 ahead: 12).
+        float walkPitch = !ahead ? 0f : w != MWay.NONE_STRIKE ? -30f : k == Kind.LEVER_AHEAD ? 3f : 12f;
+        c.hx().call("dungeon.tp", "x", k == Kind.STAND_AHEAD ? 2.5 : WALK_X, "y", Y, "z", trigger - 7.5, "yaw", 0f,
+                "pitch", walkPitch);
         c.ctx().waitTicks(25);
-        String before = k == Kind.STAND ? "" : outcome(c, k, frameUuid, 0);
+        String before = isStand(k) ? "" : outcome(c, k, frameUuid, 0);
+        int corr0 = c.onClient(mc -> (Integer) Mod.staticCall("util.ServerCorrections", "reports"));
         int f0 = c.scenario().flags().size();
         long h0 = c.hx().head();
         int[] st = {0, 0, 0}; // fired, ticks after, jumped
@@ -999,8 +1149,10 @@ final class Ap3AuraLook1116Cases {
         c.ctx().waitTicks(25);
         String after = outcome(c, k, frameUuid, h0);
         String flags = flagsSince(c, f0);
-        return String.format(Locale.ROOT, "moving | %s%s | %s | at %.2f,%.2f v=%.3f ground=%s | %s -> %s | flags [%s]",
-                w, doClick ? "" : " (no click)", k, at[0], at[1], at[2], at[3] > 0, before, after, flags);
+        int corr = c.onClient(mc -> (Integer) Mod.staticCall("util.ServerCorrections", "reports")) - corr0;
+        return String.format(Locale.ROOT,
+                "moving | %s%s | %s | at %.2f,%.2f v=%.3f ground=%s | %s -> %s | setbacks %d | flags [%s]",
+                w, doClick ? "" : " (no click)", k, at[0], at[1], at[2], at[3] > 0, before, after, corr, flags);
     }
 
     /** Every way left for a click on a MOVING tick (step 2 of ap3auralook-1116): what the server did and what flagged. */
@@ -1019,26 +1171,30 @@ final class Ap3AuraLook1116Cases {
             c.server().command("setblock 0 121 90 minecraft:lever[face=wall,facing=north,powered=false]");
             c.server().command("summon armor_stand -1.0 120 82.5 {NoGravity:1b,CustomName:\"Inactive Terminal\",CustomNameVisible:1b,"
                     + "Tags:[\"aalook1116\"]}");
+            c.server().command("summon armor_stand 2.5 120 88.5 {NoGravity:1b,CustomName:\"Inactive Terminal\",CustomNameVisible:1b,"
+                    + "Tags:[\"aalook1116\"]}");
             TerminalAuraCases.tp(c, WALK_X, Y, 64.5, 0f);
-            c.waitUntil("the client to have the stand and both levers", mc ->
+            c.waitUntil("the client to have the stands and both levers", mc ->
                     !mc.level.getEntitiesOfClass(ArmorStand.class, new AABB(-3, 119, 80, 3, 124, 85)).isEmpty()
+                            && !mc.level.getEntitiesOfClass(ArmorStand.class, new AABB(2, 119, 87, 3, 124, 90)).isEmpty()
                             && mc.level.getBlockState(new BlockPos(-1, 121, 72)).getBlock()
                             instanceof net.minecraft.world.level.block.LeverBlock
                             && mc.level.getBlockState(new BlockPos(0, 121, 90)).getBlock()
                             instanceof net.minecraft.world.level.block.LeverBlock, 200);
             c.ctx().waitTicks(20);
             List<String> rows = new ArrayList<>();
-            for (MWay w : new MWay[]{MWay.COAST_PKT, MWay.AIR_PKT, MWay.KEYS_AIM}) {
-                rows.add(mstep(c, w, Kind.LEVER, false, null)); // the movement change alone
+            // Round 2 (owner 11-16: auras never change his movement): pitch-only and the walk's own look, keys held.
+            for (Kind k : new Kind[]{Kind.LEVER_AHEAD, Kind.STAND_AHEAD}) {
+                rows.add(mstep(c, MWay.PITCH_G, k, false, null)); // the pitch change alone
+                rows.add(mstep(c, MWay.PITCH_G, k, true, null));
+                rows.add(mstep(c, MWay.PITCH_AIR, k, true, null));
+                rows.add(mstep(c, MWay.NONE_STRIKE, k, true, null));
             }
+            // Side targets a pitch cannot meet: the hidden-look PosRot form against a plain no-look click.
             for (Kind k : new Kind[]{Kind.LEVER, Kind.STAND}) {
-                for (MWay w : new MWay[]{MWay.COAST_PKT, MWay.COAST_BEFORE, MWay.AIR_PKT, MWay.AIR_BEFORE, MWay.KEYS_AIM,
-                        MWay.POSROT_G}) {
-                    rows.add(mstep(c, w, k, true, null));
-                }
+                rows.add(mstep(c, MWay.POSROT_G, k, true, null));
+                rows.add(mstep(c, MWay.NOLOOK, k, true, null));
             }
-            rows.add(mstep(c, MWay.NONE_STRIKE, Kind.LEVER_AHEAD, true, null));
-            rows.add(mstep(c, MWay.NONE_STRIKE, Kind.LEVER, true, null)); // control: the look does not strike
             rows.forEach(r -> c.note("mprobe " + r));
             c.check(rows.stream().noneMatch(r -> r.contains("(no click)") && r.contains("-> powered true")),
                     "a no-click row flipped the lever");
