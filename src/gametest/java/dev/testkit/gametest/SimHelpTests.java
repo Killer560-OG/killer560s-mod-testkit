@@ -3,6 +3,8 @@ package dev.testkit.gametest;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import dev.testkit.compat.McCompat;
+import dev.testkit.harness.Report;
+import dev.testkit.harness.SuiteVerdict;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
