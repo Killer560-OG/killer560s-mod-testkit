@@ -156,19 +156,22 @@ public class SimHelpTests implements FabricClientGameTest {
                 String at = s[0] + "x" + s[1] + " GUI " + s[2] + " (" + sw + "x" + sh + ") page " + (p + 1);
                 int[] m = ctx.computeOnClient(mc -> {
                     var sc = McCompat.screen(mc);
+                    // Auto Scale lays a mod screen out on a canvas F times the size it is given (AutoScaleScreenMixin): find F, undo it
                     sc.resize(sw, sh);
+                    double k = sc.width / (double) sw;
+                    sc.resize((int) Math.round(sw / k), (int) Math.round(sh / k));
                     ModUnderTest.call(sc, "showPage", new Class<?>[]{int.class}, new Object[]{page});
                     int[] te = (int[]) ModUnderTest.call(sc, "textExtent", new Class<?>[0], new Object[0]);
                     int[] ce = (int[]) ModUnderTest.call(sc, "contentExtent", new Class<?>[0], new Object[0]);
                     int[] pb = (int[]) ModUnderTest.call(sc, "themedPanelBounds", new Class<?>[0], new Object[0]);
                     int ms = (Integer) ModUnderTest.call(sc, "maxScroll", new Class<?>[0], new Object[0]);
-                    return new int[]{te[0], te[1], ce[0], ce[1], pb[0], pb[1], pb[2], pb[3], ms, (Integer) ModUnderTest.call(sc, "page", new Class<?>[0], new Object[0])};
+                    return new int[]{te[0], te[1], ce[0], ce[1], pb[0], pb[1], pb[2], pb[3], ms, (Integer) ModUnderTest.call(sc, "page", new Class<?>[0], new Object[0]), sc.width, sc.height};
                 });
                 check(problems, m[9] == page, at + ": showPage did not switch");
                 check(problems, m[0] > 0 && m[0] <= m[1], at + ": page list text reaches " + m[0] + " past " + m[1]);
                 check(problems, m[2] > 0 && m[2] <= m[3], at + ": content text reaches " + m[2] + " past " + m[3] + " (or none laid out)");
-                check(problems, m[4] >= 0 && m[5] >= 0 && m[4] + m[6] <= sw && m[5] + m[7] <= sh,
-                        at + ": panel " + m[4] + "," + m[5] + " " + m[6] + "x" + m[7] + " leaves the screen");
+                check(problems, m[4] >= 0 && m[5] >= 0 && m[4] + m[6] <= m[10] && m[5] + m[7] <= m[11] && Math.abs(m[10] - sw) <= 2,
+                        at + ": panel " + m[4] + "," + m[5] + " " + m[6] + "x" + m[7] + " leaves the " + m[10] + "x" + m[11] + " canvas (asked " + sw + ")");
                 check(problems, 36 + pages * 14 <= m[7] - 26, at + ": page list runs into the buttons");
                 if (m[8] > 0) {
                     scrolling++;
