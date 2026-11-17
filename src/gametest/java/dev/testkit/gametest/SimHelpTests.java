@@ -145,7 +145,7 @@ public class SimHelpTests implements FabricClientGameTest {
         facts.add("/help opened the guide, " + pages + " pages");
 
         // The harness window resize does not change a Screen's own size (it stays 854x480), so each size is given to the
-        // screen the way vanilla does (Screen.init(w, h)) and measured from its layout, with no render involved.
+        // screen the way vanilla does (Screen.resize(w, h)) and measured from its layout, with no render involved.
         int[][] sizes = {{1920, 1080, 1}, {1920, 1080, 2}, {1920, 1080, 3}, {1920, 1080, 4}, {854, 480, 2}};
         int scrolling = 0;
         int[] orig = ctx.computeOnClient(mc -> new int[]{McCompat.screen(mc).width, McCompat.screen(mc).height});
@@ -156,7 +156,7 @@ public class SimHelpTests implements FabricClientGameTest {
                 String at = s[0] + "x" + s[1] + " GUI " + s[2] + " (" + sw + "x" + sh + ") page " + (p + 1);
                 int[] m = ctx.computeOnClient(mc -> {
                     var sc = McCompat.screen(mc);
-                    sc.init(sw, sh);
+                    sc.resize(sw, sh);
                     ModUnderTest.call(sc, "showPage", new Class<?>[]{int.class}, new Object[]{page});
                     int[] te = (int[]) ModUnderTest.call(sc, "textExtent", new Class<?>[0], new Object[0]);
                     int[] ce = (int[]) ModUnderTest.call(sc, "contentExtent", new Class<?>[0], new Object[0]);
@@ -174,7 +174,7 @@ public class SimHelpTests implements FabricClientGameTest {
                     scrolling++;
                 }
                 if (s[0] == 1920 && s[2] == 2 && (p == 0 || p == 3)) {
-                    ctx.runOnClient(mc -> McCompat.screen(mc).init(orig[0], orig[1])); // the real window's size, for the picture
+                    ctx.runOnClient(mc -> McCompat.screen(mc).resize(orig[0], orig[1])); // the real window's size, for the picture
                     ctx.waitTicks(3);
                     Path shot = ctx.takeScreenshot(dev.testkit.harness.Report.fileName(NAME + "-page" + (p + 1)));
                     Report.screenshot(NAME, shot);
