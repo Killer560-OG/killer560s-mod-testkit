@@ -24,7 +24,8 @@ import static dev.testkit.gametest.Ap3RuntimeTests.setChain;
  * W+A, sprinting or walking, from far (steady speed) or near (still accelerating). The client's own END-of-tick states
  * decide: the entering tick is the first he is inside the block, done is the first tick on the point within 0.0002 with the
  * velocity the game zeroes next tick, and he must still be there 5 ticks later. Every approach must end on the point; the
- * mod's "tick-exact plan" line must be there (the feature acted), and the case notes how many ticks each took.
+ * mod's "tick-exact plan" line must be there (the feature acted), and the case notes how many ticks each took. From far, with
+ * no action of his and the mouse still (by hand or carried by AP3), every trial must stop within 1 tick of entering.
  * <ul>
  *   <li>1110-align12-sprint-400 / -500 / -600: sprinting from 6-9 blocks.</li>
  *   <li>1110-align12-walk-400 / -600: walking (no sprint key).</li>
@@ -92,6 +93,8 @@ final class Align12Cases {
         int planned = 0, fellBack = 0, steered = 0, late = 0;
         List<String> fails = new ArrayList<>();
         boolean same = act != null || again;
+        // near starts are still speeding up and the mouse case may not steer by rule: both may take 2-3 ticks
+        boolean oneTick = !same && !near && mode != Mode.MOUSE;
         int trials = same ? Math.max(4, TRIALS / 2) : TRIALS;
         SameTick st = null;
         int rearmed = 0;
@@ -226,6 +229,10 @@ final class Align12Cases {
                     fails.add("trial " + t + " never entered the block");
                 } else if (!stays) {
                     fails.add(String.format(Locale.ROOT, "trial %d ended (%+.6f, %+.6f) off the point", t, last[0] - tx, last[1] - tz));
+                } else if (oneTick && n > 1) {
+                    // the feature's claim (align12-remerge-1117): from far, by hand or carried by AP3, with no action of his
+                    // in the way, the align ends on the point within one tick of the entering tick
+                    fails.add(String.format(Locale.ROOT, "trial %d stopped %d ticks after entering (the 1-tick align claims 1)", t, n));
                 }
             }
         } finally {
