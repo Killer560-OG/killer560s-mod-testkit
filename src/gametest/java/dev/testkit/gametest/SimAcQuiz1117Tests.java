@@ -173,6 +173,8 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         int minutes = Integer.getInteger("testkit.mobfloorMinutes", 12);
         int ticks = 0;
         int quizDoneAt = -1;
+        long quizMark = -1;
+        List<String> quizLog = null;   // the lines from Oruo's start to the Quiz done (LogTap keeps only the newest lines)
         boolean started = false;
         for (; ticks < minutes * 1200; ticks += 5) {
             ctx.waitTicks(5);
@@ -182,8 +184,12 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             }
             boolean busy = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AUTO, "isBusy"));
             started |= busy;
+            if (quizMark < 0 && ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(QUIZ_STATE, "started"))) {
+                quizMark = LogTap.mark();
+            }
             if (quizDoneAt < 0 && ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(QUIZ_STATE, "done"))) {
                 quizDoneAt = ticks;
+                quizLog = LogTap.since(quizMark);
                 if (!withMobs) {
                     break;   // the wait case is over once the Quiz is
                 }
@@ -200,18 +206,14 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         int gaps = baseline ? -1 : ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(AUTO, "quizGapCount"));
         int idle = baseline ? -1 : ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(AUTO, "quizIdleTicks"));
         ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "cancel"));
-        List<String> log = LogTap.since(mark);
-        int oruo = -1;
+        List<String> log = quizLog != null ? quizLog : LogTap.since(mark);
         int lastAnswer = -1;
         List<Integer> clears = new ArrayList<>();
         List<String> late = new ArrayList<>();
         List<Long> lateTicks = new ArrayList<>();
         for (int i = 0; i < log.size(); i++) {
             String l = log.get(i);
-            if (oruo < 0 && (l.contains("Oruo began") || l.contains("I am Oruo the Omniscient"))) {
-                oruo = i;
-            }
-            if (l.contains("[Sim] room cleared:") || l.contains("[AutoClear] room cleared:")) {
+            if (l.contains("[Sim] room cleared:")) {
                 clears.add(i);
             }
             if (l.contains("[AutoClear] Quiz countdown")) {
@@ -227,7 +229,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         }
         int between = 0;
         for (int c : clears) {
-            between += oruo >= 0 && c > oruo && (lastAnswer < 0 || c < lastAnswer) ? 1 : 0;
+            between += quizLog != null && (lastAnswer < 0 || c < lastAnswer) ? 1 : 0;
         }
         String code = ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall("com.killer560.hub.roomsim.SimState",
                 "mapCode")));
