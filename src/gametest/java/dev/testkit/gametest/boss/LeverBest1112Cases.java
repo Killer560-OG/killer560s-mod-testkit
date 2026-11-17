@@ -53,6 +53,7 @@ final class LeverBest1112Cases {
         s.test("1112-boss-lever-best-spot", LeverBest1112Cases::bestSpot);
         s.test("1112-boss-lever-his-spot", LeverBest1112Cases::hisSpot);
         LeverFreeze1116Cases.register(s);
+        LeverPlace1117Cases.register(s); // leverplace0-1117
         for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.CLICK, SameTick.Act.ATTACK,
                 SameTick.Act.TP}) {
             s.test("1112-boss-lever-max-" + a.name().toLowerCase(Locale.ROOT), c -> maxSameTick(c, a));
