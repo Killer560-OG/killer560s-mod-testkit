@@ -42,6 +42,7 @@ final class HxCommissionMobs1103Cases {
     static void register(Session s) {
         s.test("1103-mining-mob-style", HxCommissionMobs1103Cases::style);
         s.test("1103-mining-mob-range", HxCommissionMobs1103Cases::range);
+        s.test("1112-mining-mob-deadbox", HxCommissionMobs1103Cases::deadBox);
     }
 
     private static void mines(Session c, String... coms) {
@@ -230,6 +231,67 @@ final class HxCommissionMobs1103Cases {
         } finally {
             c.ctx().runOnClient(mc -> dev.testkit.compat.McCompat.setHudHidden(mc, hideGui));
             c.server().command("kill @e[tag=k1103s]");
+            c.ctx().runOnClient(mc -> Mod.staticCall(CFG, "load"));
+            hub(c);
+        }
+    }
+
+    // ---- 1112-mining-mob-deadbox ------------------------------------------------------------------------------------
+
+    /** Owner 2026-11-12: a killed highlighted mob left a box for a moment. No box frame may be drawn once it is dying. */
+    private static void deadBox(Session c) {
+        double[] at = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+        Object outline = c.onClient(mc -> Mod.enumValue(STYLE, "OUTLINE"));
+        try (Settings set = new Settings(c).with(CFG, "CommissionHud", true).with(CFG, "CommissionMobs", true)
+                .with(CFG, "CommissionMobsEsp", false).with(CFG, "CommissionMobStyle", outline)) {
+            mines(c, "Goblin Slayer: 40%");
+            int seenAll = 0;
+            int drawnWhileDying = 0;
+            // Four rounds, the kill 0..3 ticks later each: the mod refreshes its target list every 4 ticks, so one of them lands
+            // between refreshes and a dying mob is still listed when a frame draws.
+            for (int round = 0; round < 4; round++) {
+                c.server().command(String.format(java.util.Locale.ROOT, "summon husk %.3f %.3f %.3f", at[0], at[1], at[2] - 4)
+                        + " {Tags:[\"k1112d\"],Rotation:[0f,0f],CustomName:\"[Lv25] Goblin 100/100\",CustomNameVisible:0b" + TAIL);
+                c.waitUntil("the goblin on the client", mc -> idNamed(mc, "Goblin", false) >= 0, 80);
+                int goblin = c.onClient(mc -> idNamed(mc, "Goblin", false));
+                c.ctx().runOnClient(mc -> {
+                    mc.player.setYRot(180f);
+                    mc.player.setXRot(0f);
+                });
+                c.waitUntil("the goblin highlighted", mc -> targetsNow().contains(goblin), 60);
+                int f0 = intCall(c, MOBS, "frames");
+                c.ctx().waitTicks(10 + round);
+                int alive = intCall(c, MOBS, "frames") - f0;
+                c.note("round " + round + " alive: " + alive + " box frames in " + (10 + round) + " ticks");
+                c.check(alive > 0, "no box was drawn while the goblin was alive (the test did not act)");
+                c.server().command("kill @e[tag=k1112d]");
+                int seenDying = -1;
+                for (int i = 0; i < 40; i++) {
+                    c.ctx().waitTicks(1);
+                    int[] st = c.onClient(mc -> {
+                        Entity e = mc.level.getEntity(goblin);
+                        boolean dying = e instanceof net.minecraft.world.entity.LivingEntity l && l.isDeadOrDying();
+                        return new int[]{e == null ? 0 : 1, dying ? 1 : 0, intCall(c, MOBS, "frames")};
+                    });
+                    if (st[0] == 0) {
+                        break;
+                    }
+                    if (st[1] == 1) {
+                        if (seenDying < 0) {
+                            seenDying = st[2];
+                        }
+                        drawnWhileDying += st[2] - seenDying;
+                        seenDying = st[2];
+                    }
+                }
+                c.note("round " + round + " dying: seen=" + (seenDying >= 0) + ", running total of box frames while dying " + drawnWhileDying);
+                c.check(seenDying >= 0, "never saw the goblin dying on the client (the test did not act)");
+                seenAll++;
+            }
+            c.check(seenAll == 4, "rounds that acted: " + seenAll);
+            c.check(drawnWhileDying == 0, "a box was drawn for a dying goblin: " + drawnWhileDying + " frames");
+        } finally {
+            c.server().command("kill @e[tag=k1112d]");
             c.ctx().runOnClient(mc -> Mod.staticCall(CFG, "load"));
             hub(c);
         }
