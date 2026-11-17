@@ -348,8 +348,8 @@ final class Align12LeapCases {
         if (planned == 0) {
             throw new AssertionError("no tick-exact plan in any trial - the feature never acted");
         }
-        if (mean > 1.5 || allWorst > 3) {
-            fails.add(String.format(Locale.ROOT, "from every heading it took %.2f ticks on average, worst %d (limit 1.5 / 3)", mean, allWorst));
+        if (mean > 1.5 || allWorst > (fellBack > 0 ? 8 : 3)) {
+            fails.add(String.format(Locale.ROOT, "from every heading it took %.2f ticks on average, worst %d (limit 1.5 / 3, 8 when a plan was handed to the regular align: the server echo of a sneak tick can clear sprint)", mean, allWorst));
         }
         if (!fails.isEmpty()) {
             throw new AssertionError(String.join("; ", fails));
