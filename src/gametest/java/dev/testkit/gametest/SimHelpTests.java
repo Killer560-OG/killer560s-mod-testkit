@@ -191,10 +191,16 @@ public class SimHelpTests implements FabricClientGameTest {
 
         // Esc closes.
         boolean[] handled = new boolean[1];
-        ctx.runOnClient(mc -> handled[0] = McCompat.screen(mc).keyPressed(new net.minecraft.client.input.KeyEvent(256, 0, 0)));
+        // 26.3's KeyboardHandler closes a screen on Esc itself (Screen.keyPressed returns false for it): it asks shouldCloseOnEsc, then onClose
+        ctx.runOnClient(mc -> {
+            handled[0] = McCompat.screen(mc).shouldCloseOnEsc();
+            if (handled[0]) {
+                McCompat.screen(mc).onClose();
+            }
+        });
         ctx.waitTicks(5);
         String after = ctx.computeOnClient(mc -> McCompat.screen(mc) == null ? "none" : McCompat.screen(mc).getClass().getName());
-        check(problems, !after.equals(SCREEN), "Esc did not close the guide (" + after + ", keyPressed returned " + handled[0] + ")");
+        check(problems, !after.equals(SCREEN), "Esc did not close the guide (" + after + ", shouldCloseOnEsc " + handled[0] + ")");
         facts.add("Esc closed it (screen now " + after + ")");
 
         // Outside the sim /help opens nothing of ours.
