@@ -142,6 +142,7 @@ final class Ap3LightsPathCases {
             List<double[]> base = runOnce(c, false, f);
             int flags0 = c.scenario().flags().size();
             c.check(flags0 == start, "the aura-off run drew flags: " + c.scenario().flags().subList(start, flags0));
+            Ap3AuraLook1116Cases.clearRotationPlace(c);
             long mark = dev.testkit.gametest.LogTap.mark();
             long since = c.hx().head();
             List<double[]> withAura = runOnce(c, true, f);

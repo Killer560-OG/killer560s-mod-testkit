@@ -310,6 +310,9 @@ final class Ap3LeverTurn1115Cases {
             long since = c.hx().head();
             Run off = runOnce(c, false, sameAct, true);
             double[] camOff = lastCam;
+            // The first no-look click is taken only while GrimAC's RotationPlace buffer is empty: earlier cases of the session
+            // leave it at 1 (every later miss is then canceled), so empty it first (lane 11-17: taken alone, canceled in the group).
+            Ap3AuraLook1116Cases.clearRotationPlace(c);
             // retry: no new run, so Lever Aura still holds the lever AP3 flicked in the walk above.
             Run on = runOnce(c, true, sameAct, !retry);
             double[] camOn = lastCam;

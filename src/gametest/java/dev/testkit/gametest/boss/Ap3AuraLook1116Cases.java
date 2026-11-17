@@ -279,6 +279,35 @@ final class Ap3AuraLook1116Cases {
         return lost;
     }
 
+    /**
+     * Empties GrimAC 2.3.74 RotationPlace's {@code flagBuffer} (javap: a block click whose look misses sets it to 1 after
+     * the flying packet, each one that strikes takes 0.1 off, and while it is above 0 a missing click is CANCELED before
+     * the flying packet). Twelve aimed clicks on the block under his feet, one a tick, so the case's first no-look block
+     * click meets a clear buffer whatever ran before it in the session.
+     */
+    static void clearRotationPlace(Session c) {
+        float pitch = c.onClient(mc -> mc.player.getXRot());
+        c.onClient(mc -> {
+            mc.player.setXRot(90f);
+            return null;
+        });
+        c.ctx().waitTicks(2);
+        for (int i = 0; i < 12; i++) {
+            c.onClient(mc -> {
+                BlockPos below = mc.player.getOnPos();
+                Vec3 hit = new Vec3(mc.player.getX(), below.getY() + 1.0, mc.player.getZ());
+                mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(hit, Direction.UP, below, false));
+                return null;
+            });
+            c.ctx().waitTick();
+        }
+        c.onClient(mc -> {
+            mc.player.setXRot(pitch);
+            return null;
+        });
+        c.ctx().waitTicks(2);
+    }
+
     private static void stopAp3(Session c) {
         c.onClient(mc -> {
             Mod.staticCall(EXEC, "stop", "test lane");
