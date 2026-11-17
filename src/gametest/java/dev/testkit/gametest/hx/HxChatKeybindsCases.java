@@ -302,11 +302,11 @@ final class HxChatKeybindsCases {
                 addBind(kb, K1, "/stats", true);
                 addBind(kb, K2, "/wd", true);
                 addBind(kb, K3, "/items", true);
-                addBind(kb, K4, "/warp coffee3", true);
+                addBind(kb, K5, "/warp coffee3", true);
                 McCompat.setScreen(net.minecraft.client.Minecraft.getInstance(), null);
             });
             c.ctx().waitTicks(3);
-            int[] keys = {K1, K2, K3, K4};
+            int[] keys = {K1, K2, K3, K5};
             String[] want = {"stats", "wd", "items", "warp coffee3"};
             for (int i = 0; i < 4; i++) {
                 c.ctx().getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(keys[i]), 3);

@@ -29,7 +29,7 @@ final class SimCmdKeys1117 {
     private static final String GATE = "com.killer560.hub.util.SkyblockGate";
     private static final String LOADOUT = "com.killer560.hub.roomsim.SimLoadout";
     private static final String UTIL = "com.killer560.hub.cheatutils.CheatUtils";
-    private static final int[] KEYS = {327, 328, 329, 330, 334};
+    private static final int[] KEYS = {327, 328, 329, 334, 330};
     private static final int[] ARMOR = {20, 21, 22, 23};
     private static final String[] SET_IDS = {"THERMODYNAMIC_HELMET", "THERMODYNAMIC_CHESTPLATE", "THERMODYNAMIC_LEGGINGS", "THERMODYNAMIC_BOOTS"};
 
