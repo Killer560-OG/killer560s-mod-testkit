@@ -46,6 +46,7 @@ final class HxArrowParticles1117Cases {
 
     /** {crit particles seen over the flight, blocks the arrow moved}. */
     private static int[] fly(Session c, String tag) {
+        c.waitUntil("no arrow on the client", mc -> arrow(mc) == null, 60);
         BlockPos f = c.onClient(mc -> mc.player.blockPosition());
         c.onClient(mc -> {
             mc.particleEngine.clearParticles();
@@ -62,6 +63,7 @@ final class HxArrowParticles1117Cases {
         }
         double moved = c.onClient(mc -> arrow(mc).getX()) - x0;
         c.server().command("kill @e[tag=" + tag + "]");
+        c.waitUntil("the arrow left the client", mc -> arrow(mc) == null, 60);
         return new int[]{seen, (int) Math.round(moved)};
     }
 
