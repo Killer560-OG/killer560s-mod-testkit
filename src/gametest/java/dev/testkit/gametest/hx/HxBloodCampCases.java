@@ -2148,6 +2148,10 @@ final class HxBloodCampCases {
             c.check(hud.stream().anyMatch(l -> l.startsWith("Mob Ticks: " + after[0])), "the HUD does not show the count: "
                     + hud);
             c.check(camped, "he stood in the Blood Room after the kill timer and was not counted as camping");
+            // bloodlost-1109: an in-room camp (mobs in view all along) is an exact figure, never "N+" / "at least N".
+            c.check(hud.stream().noneMatch(l -> l.contains("+") || l.contains("unknown")) && msg != null
+                    && !msg.contains("+") && !msg.contains("at least") && !msg.contains("unknown"),
+                    "an in-room camp read as a lower bound or unknown: HUD " + hud + ", message \"" + msg + "\"");
             c.check(msg != null && msg.startsWith("Blood Camp: " + after[0] + " ticks lost") && msg.contains("server lag"),
                     "the party message is \"" + msg + "\"");
             c.check(sent == 1, "the party message went " + sent + " times, want once");
