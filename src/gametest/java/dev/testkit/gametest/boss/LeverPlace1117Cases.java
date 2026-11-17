@@ -37,11 +37,13 @@ final class LeverPlace1117Cases {
 
     static void register(Session s) {
         s.testExpectingFlags("1117-leverplace-pitch", c -> pitchOnly(c, null));
-        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.ATTACK, SameTick.Act.SWAP, SameTick.Act.OPEN_CLICK,
-                SameTick.Act.TP}) {
+        // No OPEN_CLICK while walking: his own inventory click with W held draws MultiActionsC with the aura off too
+        // (Ap3AuraLook1116Cases leaves it out for the same reason); the held case below covers it standing still.
+        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.ATTACK, SameTick.Act.SWAP, SameTick.Act.TP}) {
             s.testExpectingFlags("1117-leverplace-pitch-" + a.name().toLowerCase(Locale.ROOT), c -> pitchOnly(c, a));
         }
-        s.testExpectingFlags("1117-leverplace-held", LeverPlace1117Cases::heldThenStill);
+        s.testExpectingFlags("1117-leverplace-held", c -> heldThenStill(c, null));
+        s.testExpectingFlags("1117-leverplace-held-open_click", c -> heldThenStill(c, SameTick.Act.OPEN_CLICK));
         s.test("1117-leverplace-retry", LeverPlace1117Cases::retry);
     }
 
@@ -132,7 +134,10 @@ final class LeverPlace1117Cases {
             WireCapture.describe = LeverPlace1117Cases::describe;
             WireCapture.start();
             if (act != null) {
-                st = c.onClient(mc -> SameTick.start(act, 1, p -> p instanceof ServerboundUseItemOnPacket, 4, 5));
+                // Every 2nd tick (3rd for an attack), as Ap3AuraLook1116Cases: an act on every tick leaves the aura no tick
+                // its pitch-only look may ride (a use carries a look, an attack takes no turn under it).
+                st = c.onClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK ? 3 : 2,
+                        p -> p instanceof ServerboundUseItemOnPacket, 4, 5));
             }
             undo.add(c.onClient(mc -> Mod.with(BossAuraTurnCases.LEVER_CONFIG, "Enabled", true)));
             boolean flicked = false;
@@ -184,8 +189,10 @@ final class LeverPlace1117Cases {
                     s2.close();
                     return null;
                 });
-                c.check(s2.done() > 0, "his " + act + " never went in (nothing tested)");
-                c.check(s2.featureWindows() > 0, "the Aura sent nothing while his " + act + " ran");
+                c.note(s2.report());
+                // A use, swap or teleport accept shares a server tick with the flick; an attack holds the actor, so apart.
+                String v = s2.verdict("Lever Aura with his " + act);
+                c.check(v == null, v);
             }
         } finally {
             keys(c, false, false);
@@ -207,8 +214,9 @@ final class LeverPlace1117Cases {
      * buffer primed a no-look click would be canceled, so the click is held (never sent, never dropped) while he walks and
      * goes with a full aim on the first tick he lets go.
      */
-    private static void heldThenStill(Session c) throws Exception {
+    private static void heldThenStill(Session c, SameTick.Act act) throws Exception {
         List<AutoCloseable> undo = new ArrayList<>();
+        SameTick st = null;
         try {
             setup(c, undo);
             LeverBest1112Cases.standAt(c, 21.6, 124, 127.5, 90f, 0f);
@@ -238,6 +246,10 @@ final class LeverPlace1117Cases {
             long whileWalking = leverUses(WireCapture.snapshot().stream().map(WireCapture.Sent::text).toList());
             boolean poweredWalking = c.onClient(mc -> mc.level.getBlockState(LEVER).getValue(LeverBlock.POWERED));
             keys(c, false, false);
+            if (act != null) {
+                // His own action from the tick he lets go, every tick: the held flick goes in one of them.
+                st = c.onClient(mc -> SameTick.start(act, 1, p -> p instanceof ServerboundUseItemOnPacket, 4, 5));
+            }
             boolean flicked = false;
             int after = 0;
             for (; after < 20 && !flicked; after++) {
@@ -262,8 +274,26 @@ final class LeverPlace1117Cases {
             c.check(flicked, "the held lever click was dropped: no flick within 20 ticks of letting go");
             c.check(c.scenario().flags().size() == flags0, "Lever Aura drew a flag: "
                     + c.scenario().flags().subList(flags0, c.scenario().flags().size()));
+            if (act != null) {
+                SameTick s2 = st;
+                st = null;
+                c.onClient(mc -> {
+                    s2.close();
+                    return null;
+                });
+                c.note(s2.report());
+                String v = s2.verdict("held lever flick with his " + act, false);
+                c.check(v == null, v);
+            }
         } finally {
             keys(c, false, false);
+            if (st != null) {
+                SameTick s2 = st;
+                c.onClient(mc -> {
+                    s2.close();
+                    return null;
+                });
+            }
             WireCapture.describe = null;
             WireCapture.stop();
             LeverBest1112Cases.cleanup(c, undo);
@@ -280,6 +310,11 @@ final class LeverPlace1117Cases {
             setup(c, undo);
             LeverBest1112Cases.standAt(c, 24.0, 124, 127.5, -90f, 25f);
             c.server().command("testkit refuseuse 27 124 127 1");
+            // The console command runs on a later server tick: an aura switched on at once flicked before it (fix50 run).
+            for (int t = 0; t < 60 && c.server().since().stream().noneMatch(l -> l.contains("refuseuse 27, 124, 127 1")); t++) {
+                c.ctx().waitTick();
+            }
+            c.ctx().waitTicks(2);
             long mark = LogTap.mark();
             List<String> srv0 = c.server().since();
             int srvFrom = srv0.size();
