@@ -282,6 +282,9 @@ final class HxLuck1102Cases {
     // ---- 1102-luck-meter ----------------------------------------------------------------------------------------
 
     private static void meter(Session c) {
+        boolean rngWas = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg("rngmeter.RngMeterConfig"), "isEnabled"));
+        c.ctx().runOnClient(mc -> Mod.set("rngmeter.RngMeterConfig", "setEnabled", true)); // off by default since defoff-1104
+        try {
         withMf(c, 0, () -> {
             String act = "slayer:revenant:5";
             String warden = act + "|Warden Heart";
@@ -327,6 +330,9 @@ final class HxLuck1102Cases {
                 });
             }
         });
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.set("rngmeter.RngMeterConfig", "setEnabled", rngWas));
+        }
     }
 
     // ---- 1102-luck-kuudra ---------------------------------------------------------------------------------------
@@ -429,6 +435,8 @@ final class HxLuck1102Cases {
     // ---- 1102-luck-experiment -----------------------------------------------------------------------------------
 
     private static void experiment(Session c) {
+        boolean trackWas = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg("experiments.ExperimentsConfig"), "isProfitTrackerEnabled"));
+        c.ctx().runOnClient(mc -> Mod.set("experiments.ExperimentsConfig", "setProfitTrackerEnabled", true)); // off by default since defoff-1104
         skyblock(c);
         c.ctx().runOnClient(mc -> Mod.staticCall(LD, "resetForTest"));
         String act = "experiment:Metaphysical";
@@ -451,7 +459,10 @@ final class HxLuck1102Cases {
             double de = base(c, book) - e0;
             c.check(Math.abs(de - 0.01 / 37) < 1e-9, "one Metaphysical experiment added " + de + ", want 1/3,700");
         } finally {
-            c.ctx().runOnClient(mc -> McCompat.setScreen(mc, null));
+            c.ctx().runOnClient(mc -> {
+                McCompat.setScreen(mc, null);
+                Mod.set("experiments.ExperimentsConfig", "setProfitTrackerEnabled", trackWas);
+            });
         }
     }
 
