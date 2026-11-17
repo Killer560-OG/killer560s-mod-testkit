@@ -170,7 +170,7 @@ public class SimMobFloorTests implements FabricClientGameTest {
 
         // ---- Auto Clear over the whole floor ----
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setEnabled", true));
-        SimAutoClearTests.setMode(ctx, "ANY_MOB_ROOM", "SPIRIT_SCEPTRE");
+        SimAutoClearTests.setMode(ctx, "ANY_MOB_ROOM", System.getProperty("testkit.mobfloorWeapon", "SPIRIT_SCEPTRE"));
         long runMark = LogTap.mark();
         ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "start"));
         int ticks = 0;

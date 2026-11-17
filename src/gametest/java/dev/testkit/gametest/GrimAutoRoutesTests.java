@@ -292,6 +292,18 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-autoclear", GrimAutoRoutesTests::caseAutoClear);
             s.test("62-argrim-1020-autoclearaura", GrimAutoRoutesTests::caseAutoClearAura); // mod ac-aura-memory-1020
             s.test("62-argrim-1020-acbat", GrimAutoRoutesTests::caseAutoClearBat); // ac-1020
+            // achype-1117: Wither Impact across (one cast for two mobs) and the cast chain, alone and with his own action
+            // in the same server ticks; "second" starts clearRoom again mid-run. Cheat only (Auto Clear).
+            if (dev.testkit.gametest.mod.Mod.isCheat()) {
+                s.test("62-argrim-1117-achype", c -> caseAutoClearHype(c, null, false));
+                for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                        dev.testkit.gametest.SameTick.Act.OPEN_CLICK, dev.testkit.gametest.SameTick.Act.ATTACK,
+                        dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.TP)) {
+                    s.test("62-argrim-1117-same-achype-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""),
+                            c -> caseAutoClearHype(c, a, false));
+                }
+                s.test("62-argrim-1117-same-achype-second", c -> caseAutoClearHype(c, null, true));
+            }
             // simmobs2-1101 (mod doc-adm-sim-1101): a sleeping Fel woken by an etherwarp, and by the forced walk after a setback;
             // a dropped Wither Key fetched by an etherwarp trip, and by the forced walk after a setback.
             s.test("62-argrim-1102-acfel", c -> caseAutoClearFel(c, false));
@@ -3745,6 +3757,109 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 + " onGiveUp=" + gaveUp.get());
         c.note("autoclear: 3 starred mobs (open, in a wall, behind a wall) killed by " + delta(before, "witherImpacts")
                 + " Wither Impact(s) and " + delta(before, "etherwarps") + " etherwarp(s), no entity packet");
+        noteFlags(c, s);
+    }
+
+    /**
+     * achype-1117 (killer560: "it only hyped straight down never across to other boxes"): three starred zombies in the open
+     * arena, A 4 blocks ahead (in reach of a cast where he stands), B 8 past A (not), C off to the side of B. One Wither
+     * Impact along a look that lands between A and B reaches both (Auto Clear logs "Wither Impact across"), and C is the
+     * next link of the cast chain: no etherwarp at all. With {@code act} his own action goes into every tick from the first
+     * cast on ({@link dev.testkit.gametest.SameTick}, Expect ACTED: both on the wire, GrimAC decides); {@code second} calls
+     * clearRoom again after the first cast. GrimAC is read for the whole stretch (both configs: the experimental checkout).
+     */
+    private static void caseAutoClearHype(Session c, dev.testkit.gametest.SameTick.Act act, boolean second) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        String auto = "com.killer560.hub.autoclear.AutoClearFeature";
+        String autoCfg = "com.killer560.hub.autoclear.AutoClearConfig";
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(autoCfg);
+            ModUnderTest.set(cfg, "setEnabled", true);
+            ModUnderTest.set(cfg, "setHyperionHops", true);
+            ModUnderTest.call(cfg, "setWeapon", new Class<?>[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")
+                    .getClass()}, new Object[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")});
+            mc.player.getInventory().setSelectedSlot(4);
+        });
+        tpRel(ctx, 6.5, 15.5, -90f, 0f);
+        ctx.waitTicks(10);
+        double[][] spots = {{10.5, 15.5}, {18.5, 15.5}, {21.5, 23.5}};
+        List<JsonObject> mobs = new ArrayList<>();
+        for (double[] sp : spots) {
+            Vec3 at = ctx.computeOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                        double.class, double.class}, new Object[]{frame, sp[0], (double) F, sp[1]});
+            });
+            mobs.add(c.hx().call("dungeon.starred", "x", at.x, "y", at.y, "z", at.z).getAsJsonObject());
+        }
+        ctx.waitTicks(20);
+        JsonObject before = stats();
+        java.util.concurrent.atomic.AtomicReference<String> done = new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<String> gaveUp = new java.util.concurrent.atomic.AtomicReference<>();
+        long m = LogTap.mark();
+        startSampling(ctx);
+        Runnable start = () -> ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class,
+                Runnable.class, java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> done.set("done"),
+                (java.util.function.Consumer<String>) gaveUp::set}));
+        start.run();
+        dev.testkit.gametest.SameTick st = null;
+        boolean firstCast = waitFor(ctx, 100, () -> logHas(m, "[AutoClear] Wither Impact"));
+        if (act != null) {
+            st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
+                    p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
+                            || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8));
+            if (act == dev.testkit.gametest.SameTick.Act.TP) {
+                for (int i = 0; i < 5; i++) {
+                    c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+                    ctx.waitTicks(1);
+                }
+            }
+        }
+        if (second) {
+            start.run();
+        }
+        boolean finished = waitFor(ctx, 600, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto,
+                "isBusy")));
+        if (!finished) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "cancel"));
+        }
+        ctx.waitTicks(5);
+        if (st != null) {
+            dev.testkit.gametest.SameTick.judge(c, st, "achype " + act, dev.testkit.gametest.SameTick.Expect.ACTED);
+        }
+        List<Sample> s = stopSampling(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(autoCfg), "setEnabled", false));
+        List<String> states = new ArrayList<>();
+        for (JsonObject mob : mobs) {
+            states.add(c.hx().call("dungeon.alive", "id", mob.get("mob").getAsString(), "stand",
+                    mob.get("stand").getAsString()).getAsString());
+        }
+        for (String l : LogTap.since(m)) {
+            if (l.contains("[AutoClear]")) {
+                println("  " + l.replaceAll("^.*?\\[AutoClear\\]", "[AutoClear]"));
+            }
+        }
+        printTrace("achype", s);
+        int impacts = delta(before, "witherImpacts");
+        int warps = delta(before, "etherwarps");
+        boolean across = logHas(m, "[AutoClear] Wither Impact across");
+        c.note("achype " + (act == null ? second ? "second" : "plain" : act) + ": mobs " + states + ", Wither Impacts "
+                + impacts + ", etherwarps " + warps + ", across " + across + ", use_item " + count(s, "use_item"));
+        check(firstCast, "no Wither Impact cast within 100 ticks");
+        check(impacts > 0, "the server saw no Wither Impact (nothing tested)");
+        if (act == null) {
+            // His own actions (a use with the Hyperion is a cast of his, a server teleport) may move him or kill a mob
+            // first; only the plain runs judge the plan.
+            for (int i = 0; i < mobs.size(); i++) {
+                check(!"alive".equals(states.get(i)), "starred mob " + i + " is still alive");
+            }
+            check(across, "no Wither Impact across: A and B were not taken by one cast");
+            check(warps == 0, warps + " etherwarp(s): the cast chain should have reached every mob");
+            check(finished && done.get() != null && gaveUp.get() == null, "clearRoom ended onDone=" + done.get()
+                    + " onGiveUp=" + gaveUp.get());
+        }
         noteFlags(c, s);
     }
 

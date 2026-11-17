@@ -708,7 +708,7 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	// 1104-sim-spawnload: -PspawnloadReps=N rounds (default 3).
 	["fullclearRuns", "fullclearCode", "fullclearOut", "fullclearMobs", "fullclearCodes", "fullclearPlan", "fullclearNoTraps", "acCode",
 	 "acsCodes", "acsRuns", "acsMobs", "acsHp", "acsWalk", "acsHype", "acsHypeWeapon", "acsMinutes", "fullclearLive",
-	 "fullclearLiveHp", "mobfloorCode", "mobfloorMinutes", "fullclearMobFloor", "spawnloadReps"].each { k ->
+	 "fullclearLiveHp", "mobfloorCode", "mobfloorWeapon", "mobfloorMinutes", "fullclearMobFloor", "spawnloadReps"].each { k ->
 		if (project.hasProperty(k)) {
 			systemProperty "testkit.${k}", project.property(k)
 		}
