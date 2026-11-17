@@ -136,7 +136,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossStart1116.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossStart1116.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME, SimI4Terror1116.NAME, SimBossEtherwarp1116.NAME};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -153,7 +153,7 @@ public class SimBossTests implements FabricClientGameTest {
         List<String> failures = new ArrayList<>();
         for (String name : chosen) {
             // P3 waits on Auto Terminal and AP3 on AP3; both are compiled out of a legit jar.
-            if ((name.equals(P3) || name.equals(AP3) || name.equals(GATES) || name.equals(BREAKER) || name.equals(BREAKER_CHARGE) || name.equals(SimBossEe3Route1109.NAME)) && !dev.testkit.gametest.mod.Mod.isCheat()) {
+            if ((name.equals(P3) || name.equals(AP3) || name.equals(GATES) || name.equals(BREAKER) || name.equals(BREAKER_CHARGE) || name.equals(SimBossEe3Route1109.NAME) || name.equals(SimI4Terror1116.NAME)) && !dev.testkit.gametest.mod.Mod.isCheat()) {
                 println(name, "SKIPPED: legit jar (Auto Terminal / AP3 are cheat-only)");
                 continue;
             }
@@ -187,6 +187,8 @@ public class SimBossTests implements FabricClientGameTest {
                     case SimBossStart1116.NAME -> SimBossStart1116.run(ctx, f);
                     case SimBossLeftClick1114.NAME -> SimBossLeftClick1114.run(ctx, f);
                     case SimArmor1115.NAME -> SimArmor1115.run(ctx, f);
+                    case SimI4Terror1116.NAME -> SimI4Terror1116.run(ctx, f);
+                    case SimBossEtherwarp1116.NAME -> SimBossEtherwarp1116.run(ctx, f);
                     case SimWardrobe1115.NAME -> SimWardrobe1115.run(ctx, f);
                     case SimBossBreakerRefill1113.NAME -> SimBossBreakerRefill1113.run(ctx, f);
                     case BREAKER -> SimBossBreaker1108.run(ctx, f, false);
@@ -1566,6 +1568,10 @@ public class SimBossTests implements FabricClientGameTest {
                 }
             }
             // ---- the section's device ----
+            if (sec < 4) {
+                // the gate's arch stands before its section ends (so "gone" below means the sim removed it)
+                expect(f, "S" + sec + " gate arch blocks stand before the gate is destroyed", archLeft(ctx, sec) > 0, true);
+            }
             long dm = LogTap.mark();
             switch (sec) {
                 case 1 -> simonSays(ctx, f);
@@ -1587,12 +1593,9 @@ public class SimBossTests implements FabricClientGameTest {
                     return;
                 }
                 ctx.waitTicks(4);
-                int s2 = sec;
-                boolean gateGone = ctx.computeOnClient(mc -> {
-                    int[] g = s2 == 1 ? new int[]{100, 115, 123} : s2 == 2 ? new int[]{18, 115, 133} : new int[]{6, 115, 50};
-                    return mc.level.getBlockState(new BlockPos(g[0], g[1], g[2])).isAir();
-                });
-                expect(f, "S" + sec + " gate blocks gone", gateGone, true);
+                // The gate is the arch (cracked stone bricks and stairs), gone 1 tick after the line. The door's barriers and the
+                // portcullis (cobblestone) behind it go later (1 and 6 ticks), so a single cell of the opening is no gate check.
+                expect(f, "S" + sec + " gate arch blocks gone", archLeft(ctx, sec), 0);
             } else if (!waitChat(ctx, end, "The Core entrance is opening!", 40)) {
                 f.add("S4: the core never opened");
                 return;
@@ -1807,6 +1810,9 @@ public class SimBossTests implements FabricClientGameTest {
         tp(ctx, -0.5, 119, 77.5, 90, 0);
         ctx.waitTicks(10);
         int clicks = 0;
+        // a frame the server turned later than the client saw is checked again: passes repeat until one needs no click
+        for (int pass = 0, before = -1; pass < 4 && before != clicks; pass++) {
+        before = clicks;
         for (int i = 0; i < 25; i++) {
             int want = (Integer) ModUnderTest.staticCall(DEVICES, "arrowSolution", new Class<?>[]{int.class}, new Object[]{i});
             if (want < 0) {
@@ -1832,6 +1838,8 @@ public class SimBossTests implements FabricClientGameTest {
                 clicks++;
                 ctx.waitTicks(3);
             }
+        }
+        ctx.waitTicks(6);
         }
         println(P3, "Arrows: " + clicks + " real click(s) on frames");
         if (clicks == 0) {
@@ -2343,6 +2351,27 @@ public class SimBossTests implements FabricClientGameTest {
 
     private static double[] boss(String name) {
         return (double[]) ModUnderTest.staticCall(FIGHT, "bossPos", new Class<?>[]{String.class}, new Object[]{name});
+    }
+
+    /** The gate arch blocks (cracked stone bricks, stone brick stairs) the client still sees in section {@code sec}'s gate box. */
+    private static int archLeft(ClientGameTestContext ctx, int sec) {
+        int[] b = sec == 1 ? new int[]{95, 115, 121, 105, 136, 124} : sec == 2 ? new int[]{16, 115, 127, 19, 136, 137}
+                : new int[]{3, 115, 48, 13, 136, 51};
+        return ctx.computeOnClient(mc -> {
+            int n = 0;
+            for (int y = b[1]; y <= b[4]; y++) {
+                for (int x = b[0]; x <= b[3]; x++) {
+                    for (int z = b[2]; z <= b[5]; z++) {
+                        var st = mc.level.getBlockState(new BlockPos(x, y, z));
+                        if (st.is(net.minecraft.world.level.block.Blocks.CRACKED_STONE_BRICKS)
+                                || st.is(net.minecraft.world.level.block.Blocks.STONE_BRICK_STAIRS)) {
+                            n++;
+                        }
+                    }
+                }
+            }
+            return n;
+        });
     }
 
     private static int phaseTick() {

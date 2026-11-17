@@ -59,10 +59,10 @@
     },
     "source": {
       "file": "src/main/java/com/killer560/hub/enchantcolors/EnchantColorsFeature.java",
-      "line": 262
+      "line": 232
     },
     "verifiedBy": "regex",
-    "notes": "custom_data.enchantments levels (:262, :274) decide each lore enchant's tier; lore lines matched by ENCHANT_LINE/ENCHANT (:88-96)."
+    "notes": "custom_data.enchantments levels (:232, :244) decide each lore enchant's tier; lore lines matched by ENCHANT_LINE/ENCHANT (:84-96)."
   },
   {
     "id": "items.hyperion-master-3",

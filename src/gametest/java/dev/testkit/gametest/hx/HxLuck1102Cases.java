@@ -1,6 +1,7 @@
 package dev.testkit.gametest.hx;
 
 import dev.testkit.compat.McCompat;
+import dev.testkit.gametest.LogTap;
 import dev.testkit.gametest.mod.Mod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
@@ -52,6 +53,7 @@ final class HxLuck1102Cases {
         s.test("1102-luck-nucleus", HxLuck1102Cases::nucleus);
         s.test("1102-luck-experiment", HxLuck1102Cases::experiment);
         s.test("1102-luck-unknownfloor", HxLuck1102Cases::unknownFloor);
+        s.test("1116-luck-bigstack", HxLuck1102Cases::bigStack);
     }
 
     // ---- helpers -------------------------------------------------------------------------------------------------
@@ -282,6 +284,9 @@ final class HxLuck1102Cases {
     // ---- 1102-luck-meter ----------------------------------------------------------------------------------------
 
     private static void meter(Session c) {
+        boolean rngWas = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg("rngmeter.RngMeterConfig"), "isEnabled"));
+        c.ctx().runOnClient(mc -> Mod.set("rngmeter.RngMeterConfig", "setEnabled", true)); // off by default since defoff-1104
+        try {
         withMf(c, 0, () -> {
             String act = "slayer:revenant:5";
             String warden = act + "|Warden Heart";
@@ -327,6 +332,9 @@ final class HxLuck1102Cases {
                 });
             }
         });
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.set("rngmeter.RngMeterConfig", "setEnabled", rngWas));
+        }
     }
 
     // ---- 1102-luck-kuudra ---------------------------------------------------------------------------------------
@@ -429,6 +437,8 @@ final class HxLuck1102Cases {
     // ---- 1102-luck-experiment -----------------------------------------------------------------------------------
 
     private static void experiment(Session c) {
+        boolean trackWas = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg("experiments.ExperimentsConfig"), "isProfitTrackerEnabled"));
+        c.ctx().runOnClient(mc -> Mod.set("experiments.ExperimentsConfig", "setProfitTrackerEnabled", true)); // off by default since defoff-1104
         skyblock(c);
         c.ctx().runOnClient(mc -> Mod.staticCall(LD, "resetForTest"));
         String act = "experiment:Metaphysical";
@@ -451,8 +461,67 @@ final class HxLuck1102Cases {
             double de = base(c, book) - e0;
             c.check(Math.abs(de - 0.01 / 37) < 1e-9, "one Metaphysical experiment added " + de + ", want 1/3,700");
         } finally {
-            c.ctx().runOnClient(mc -> McCompat.setScreen(mc, null));
+            c.ctx().runOnClient(mc -> {
+                McCompat.setScreen(mc, null);
+                Mod.set("experiments.ExperimentsConfig", "setProfitTrackerEnabled", trackWas);
+            });
         }
+    }
+
+    // ---- 1116-luck-bigstack -------------------------------------------------------------------------------------
+
+    private static final String PELT = "minecraft:red_dye[custom_name={text:\"Pelt Dye\",italic:false}]";
+
+    private static void fill(Session c, int from, int to, String stack) {
+        for (int i = from; i < to; i++) {
+            c.hx().call("give", "slot", i, "count", stack.equals("minecraft:air") ? 1 : 64, "stack", stack);
+        }
+    }
+
+    /** 1,920 units lost and regained across ticks: same not-a-drop outcome, a bounded log, a tight time budget. */
+    private static void bigStack(Session c) {
+        String key = "untracked|Pelt Dye";
+        skyblock(c);
+        c.ctx().runOnClient(mc -> {
+            McCompat.setScreen(mc, null);
+            Mod.staticCall(LD, "resetForTest");
+        });
+        fill(c, 0, 36, "minecraft:air");
+        c.ctx().waitTicks(20); // baseline
+        long g0 = got(c, key);
+        fill(c, 0, 30, PELT); // 1,920 new dyes: real drops
+        c.ctx().waitTicks(20);
+        long g1 = got(c, key);
+        c.note("1,920 new dyes counted " + (g1 - g0));
+        c.check(g1 - g0 == 1920, "1,920 new dyes counted " + (g1 - g0));
+        int ex0 = c.onClient(mc -> (Integer) Mod.field(LD, "excludedPickups"));
+        fill(c, 0, 30, "minecraft:air"); // all lost
+        c.ctx().waitTicks(20);
+        long mark = LogTap.mark();
+        long t0 = System.nanoTime();
+        fill(c, 0, 30, PELT); // all back, a few ticks apart
+        c.ctx().waitTicks(20);
+        long ms = (System.nanoTime() - t0) / 1_000_000;
+        long lines = LogTap.since(mark).stream().filter(l -> l.contains("[Luck]")).count();
+        int ex1 = c.onClient(mc -> (Integer) Mod.field(LD, "excludedPickups"));
+        c.note("regained: drops " + (got(c, key) - g1) + ", excluded " + (ex1 - ex0) + ", luck lines " + lines + ", " + ms + " ms");
+        c.check(got(c, key) == g1, "a regained stack counted as a drop: " + (got(c, key) - g1));
+        c.check(ex1 - ex0 == 1920, "excluded pickups " + (ex1 - ex0) + " (wanted 1920)");
+        c.check(lines >= 1 && lines <= 8, "[Luck] lines for one regained stack set: " + lines);
+        // Mixed: 960 lost, 1,344 back: 960 are the loss's, 384 are new.
+        fill(c, 0, 15, "minecraft:air");
+        c.ctx().waitTicks(20);
+        long g2 = got(c, key);
+        mark = LogTap.mark();
+        fill(c, 0, 15, PELT);
+        fill(c, 30, 36, PELT);
+        c.ctx().waitTicks(20);
+        lines = LogTap.since(mark).stream().filter(l -> l.contains("[Luck]")).count();
+        c.note("mixed: new drops " + (got(c, key) - g2) + ", luck lines " + lines);
+        c.check(got(c, key) - g2 == 384, "mixed gain counted " + (got(c, key) - g2) + " new drops (wanted 384)");
+        c.check(lines <= 8 + 2 * 384, "mixed gain logged " + lines + " lines");
+        c.check(ms < 20_000, "regain took " + ms + " ms");
+        fill(c, 0, 36, "minecraft:air");
     }
 
     // ---- 1102-luck-unknownfloor ---------------------------------------------------------------------------------

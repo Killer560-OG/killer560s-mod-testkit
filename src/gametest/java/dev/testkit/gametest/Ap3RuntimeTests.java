@@ -132,6 +132,8 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
                     c -> caseBreakerTeleport(c, "1022-ap3-breaker-leap-menu", Arrival.AFTER_MENU, false));
             // mod ap3-backwards-1026: the ledge guard, the boom that runs to its use, the leapcounter: gate.
             Ap3Fix1026Cases.register(s);
+            // mod ap3setback-1116: a WALK/RUN queued during an align that he has left yields to the one he stands in.
+            Ap3QueuedMover1116Cases.register(s);
             // mod ap3-stairs-1026: stairs, half-step spirals, lava beside and under the align.
             Ap3Stairs1026Cases.register(s);
             // mod ap3-shotsteer-1027: AP3 steers every shot tick; a momentum-keeping charge.

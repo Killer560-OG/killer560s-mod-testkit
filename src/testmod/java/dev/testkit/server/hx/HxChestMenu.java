@@ -42,6 +42,10 @@ public class HxChestMenu extends ChestMenu {
      *  drops a click leaves the client's own prediction standing. Cleared after the click. */
     public boolean silentNext;
 
+    /** Set by a script during a click: this click is answered slot by slot (one set_slot per changed slot, from the
+     *  handler's broadcastChanges after the click) instead of with the whole window. Cleared after the click. */
+    public boolean slotAnswerNext;
+
     private final SimpleContainer items;
     private final String scriptName;
     private final String title;
@@ -80,6 +84,9 @@ public class HxChestMenu extends ChestMenu {
         broadcastChanges();
     }
 
+    /** Set by a script that lets the cursor carry an item between clicks (the storage page); else a click ends empty-handed. */
+    public boolean keepCarried;
+
     @Override
     public void clicked(int slot, int button, ContainerInput input, Player player) {
         // Never call super: a Hypixel menu does not let you pick anything up.
@@ -97,9 +104,11 @@ public class HxChestMenu extends ChestMenu {
                 script.onClick(this, sp, slot, button, input);
             }
         }
-        setCarried(ItemStack.EMPTY);
-        if (silentNext) {
-            return;   // cleared by resumeRemoteUpdates, after the click packet's predicted slots were (not) recorded
+        if (!keepCarried) {
+            setCarried(ItemStack.EMPTY);
+        }
+        if (silentNext || slotAnswerNext) {
+            return;   // cleared by resumeRemoteUpdates; slotAnswerNext leaves the answer to vanilla's broadcastChanges
         }
         broadcastFullState();
     }
@@ -124,6 +133,7 @@ public class HxChestMenu extends ChestMenu {
     public void resumeRemoteUpdates() {
         super.resumeRemoteUpdates();
         silentNext = false;
+        slotAnswerNext = false;
     }
 
     @Override

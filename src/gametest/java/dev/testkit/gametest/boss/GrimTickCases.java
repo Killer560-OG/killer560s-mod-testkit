@@ -39,7 +39,7 @@ final class GrimTickCases {
 
     private static final String SS_CFG = SimonSaysCases.CONFIG;
     private static final String AA_CFG = "arrowalign.ArrowAlignConfig";
-    private static final String I4_CFG = "i4sensors.I4SensorsConfig";
+    static final String I4_CFG = "i4sensors.I4SensorsConfig";
     static final String GT_CFG = "goldor.GoldorTriggerbotConfig";
     /** Layout 7 of the mod's Arrow Align solutions (grid index dy + dz * 5), every frame wanting rotation 1. */
     private static final int[] LAYOUT = {5, 7, 9, 10, 12, 14, 15, 17, 19};
@@ -375,7 +375,7 @@ final class GrimTickCases {
 
     // ---- 833 / 834 --------------------------------------------------------------------------------------------------
 
-    private static final BlockPos[] I4_TARGETS = {new BlockPos(66, 128, 50), new BlockPos(64, 126, 50),
+    static final BlockPos[] I4_TARGETS = {new BlockPos(66, 128, 50), new BlockPos(64, 126, 50),
             new BlockPos(68, 130, 50)};
 
     /**
@@ -447,7 +447,7 @@ final class GrimTickCases {
     }
 
     /** The i4 platform, wall and targets, {@code bowId}'s bow in slot 0 (a stick in 4, 64 arrows), him on the device. */
-    private static void i4Platform(Session c, String bowId) {
+    static void i4Platform(Session c, String bowId) {
         // Built before he is put there (forceloaded, as 421 does): a tp above it and a 20-tick wait had him falling
         // while the floor appeared, and GrimAC said AntiKB + Simulation (this case's second run).
         c.server().command("forceload add 60 32 70 51");
@@ -468,7 +468,7 @@ final class GrimTickCases {
                 && mc.player.getInventory().getItem(0).is(net.minecraft.world.item.Items.BOW), 200);
     }
 
-    private static void i4Cleanup(Session c) {
+    static void i4Cleanup(Session c) {
         c.onClient(mc -> {
             PacketTrace.stop();
             PacketTrace.tap = null;
@@ -877,7 +877,7 @@ final class GrimTickCases {
         }
     }
 
-    private static Runnable restoreCps(Session c) {
+    static Runnable restoreCps(Session c) {
         int[] was = c.onClient(mc -> new int[]{(Integer) Mod.call(Mod.cfg(I4_CFG), "getCpsMin"),
                 (Integer) Mod.call(Mod.cfg(I4_CFG), "getCpsMax")});
         return () -> Mod.call(Mod.cfg(I4_CFG), "setCpsRange", was[0], was[1]);
