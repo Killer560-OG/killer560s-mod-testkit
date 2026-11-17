@@ -709,24 +709,20 @@ public class SimBloodRushTests implements FabricClientGameTest {
         }
     }
 
-    /** The first key room whose mobs the sim stood in its spawn boxes (boxSpotsPlaced: a room with no boxes, or none a mob can stand in, keeps the seeded spots and draws no box; brboxes-only-1117) and 3+ starred mobs, else the first key room, else null. */
+    /** The first key room (the only one on the rush path until its wither door opens) when the sim stood 3+ of its starred mobs in its
+     *  spawn boxes (boxSpotsPlaced: a room with no boxes, or none a mob can stand in, keeps the seeded spots and draws no box;
+     *  brboxes-only-1117), else null: the caller builds a new floor. */
     private static String boxRoom(ClientGameTestContext ctx, List<String> keyRooms) {
+        String name = keyRooms.isEmpty() ? null : keyRooms.get(0).split("[|]")[0];
         @SuppressWarnings("unchecked")
         Map<String, List<BlockPos>> placed = ctx.computeOnClient(mc ->
                 (Map<String, List<BlockPos>>) ModUnderTest.staticCall(SIM_LIVE, "boxSpotsPlaced"));
-        for (String kr : keyRooms) {
-            String name = kr.split("[|]")[0];
-            if (placed.containsKey(name) && serverStarredIn(ctx, name).size() >= 3) {
-                return name;
-            }
-        }
-        return null;
+        return name != null && placed.containsKey(name) && serverStarredIn(ctx, name).size() >= 3 ? name : null;
     }
 
-    /** {@link #boxRoom}, else the first key room (a case that needs no boxes), else null. */
+    /** The first key room (a case that needs no boxes), or null. */
     private static String anyRoom(ClientGameTestContext ctx, List<String> keyRooms) {
-        String room = boxRoom(ctx, keyRooms);
-        return room != null || keyRooms.isEmpty() ? room : keyRooms.get(0).split("[|]")[0];
+        return keyRooms.isEmpty() ? null : keyRooms.get(0).split("[|]")[0];
     }
 
     private static String src(ClientGameTestContext ctx, String room) {
@@ -896,7 +892,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
         }
     }
 
-    /** Client thread: for each mob room with a clay corner and rotation, up to three room-relative spots from its item and
+    /** Client thread: for each mob room with a clay corner and rotation, up to six room-relative spots from its item and
      *  chest secrets; the expected world blocks are RoomDatabase.toRealCoord's, plus the sim's height shift. */
     static void seed(Map<String, List<BlockPos>> expected, Map<String, Integer> rotation) {
         seed(expected, rotation, null);
@@ -935,7 +931,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
                 }
                 List<int[]> rel = new ArrayList<>();
                 List<BlockPos> world = new ArrayList<>();
-                for (Object p : pos.subList(0, Math.min(3, pos.size()))) {
+                for (Object p : pos.subList(0, Math.min(6, pos.size()))) {
                     int x = p.getClass().getField("x").getInt(p);
                     int y = p.getClass().getField("y").getInt(p);
                     int z = p.getClass().getField("z").getInt(p);
