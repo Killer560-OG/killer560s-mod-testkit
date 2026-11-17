@@ -30,7 +30,7 @@ final class SimBossTpto1109 {
     private static final Object[][] SPOTS = {
             {"ss", 107.878, 120.0, 93.917}, {"s1", 100.5, Double.NaN, 40.5}, {"hee2", 60.5, 132.0, 139.0},
             {"ee3", 2.5, 109.0, 105.5}, {"outcore", 54.5, 115.0, 50.5}, {"storm", 73.5, Double.NaN, 53.5},
-            {"maxor", 73.5, 221.0, 14.5}, {"p5", 54.5, 5.0, 76.5}, {"necron", 54.5, 65.0, 76.5}};
+            {"i4", 63.5, 127.0, 35.5}, {"sharpshooter", 63.5, 127.0, 35.5}, {"maxor", 73.5, 221.0, 14.5}, {"p5", 54.5, 5.0, 76.5}, {"necron", 54.5, 65.0, 76.5}};
 
     private SimBossTpto1109() {
     }
@@ -138,12 +138,9 @@ final class SimBossTpto1109 {
         expect(f, "sim Attack Speed", as.getField("ATTACK_SPEED").getInt(null), 100);
         expect(f, "sim melee interval", as.getField("BASE_ATTACK_INTERVAL_TICKS").getInt(null), 5);
         expect(f, "sim shortbow interval", as.getField("SHORTBOW_INTERVAL_TICKS").getInt(null), 5);
-        for (String[] c : new String[][]{{"com.killer560.hub.roomsim.SimTerminator", "SHOT_COOLDOWN_TICKS"},
-                {"com.killer560.hub.roomsim.SimClass", "BEAM_COOLDOWN_TICKS"}}) {
-            var fld = Class.forName(c[0]).getDeclaredField(c[1]);
-            fld.setAccessible(true);
-            expect(f, c[1] + " (fastest shot or beam interval)", fld.getInt(null), 5);
-        }
+        // The fastest shot / beam interval is SimAttackSpeed's own (the two private mirrors were dead code and went).
+        expect(f, "fastest beam interval", ModUnderTest.staticCall("com.killer560.hub.roomsim.SimAttackSpeed", "meleeInterval",
+                new Class<?>[]{}, new Object[]{}), 5);
         String ac = "com.killer560.hub.util.AttackCooldown";
         expect(f, "AttackCooldown at 100: melee", ModUnderTest.staticCall(ac, "hypixelTicks",
                 new Class<?>[]{int.class, boolean.class}, new Object[]{100, false}), 5);
