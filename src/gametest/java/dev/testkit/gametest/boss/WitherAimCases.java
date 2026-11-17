@@ -80,7 +80,7 @@ final class WitherAimCases {
                              () -> Mod.call(Mod.cfg(CFG), "setCpsRange", cpsWas[0], cpsWas[1]))
                      .custom(() -> Mod.call(Mod.cfg(CFG), "setAimAt", 2, mode != Mode.BOSS_OFF),
                              () -> Mod.call(Mod.cfg(CFG), "setAimAt", 2, true))
-                     .with(CFG, "AimDelayMs", 0).with(CFG, "AllWithers", false).with(CFG, "Enabled", false)
+                     .with(CFG, "AimDelayMs", 0).with(CFG, "Enabled", false)
                      .with(CFG, "AimAutoHit", true).with(CFG, "AimHoldLeftClick", mode == Mode.HOLD)
                      .with(CFG, "Aimbot", false)) {
             c.server().command("forceload add 34 42 46 56");
