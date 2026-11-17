@@ -941,8 +941,10 @@ public class SimAutoClearTests implements FabricClientGameTest {
     /**
      * On the repositions line a (index 0) .. cc (index 18): across - he stands on a, zombies at 4 (a cast straight down
      * reaches it) and 11 (it does not): one cast along the line lands between them and takes both ("Wither Impact across",
-     * no hop, no etherwarp; main casts in place, then hops). Chain - he starts 10+ off the line, zombies at 0, 9, 18 with
-     * hops on: casts only, no etherwarp, no hotbar change between casts (main: hop, then swap, etherwarp, swap). Fallback -
+     * no hop, no etherwarp; main casts in place, then hops). Chain (the owner's case, 2026-11-17) - he stands on 1, a
+     * zombie at 0 and a pair 3 either side of the line at 11 (its own plan group): one cast kills the first, a chain cast
+     * across lands on the line at ~11 and takes the pair, with no etherwarp, trip or hotbar change between (main: cast,
+     * swap, etherwarp, swap, cast, since its hop straight at one of the pair misses the other). Fallback -
      * a stone wall 3 high across the line at 2-3, he on a, one zombie at 18: no cast lands in reach past the wall, so it
      * etherwarps as before and casts no across or chain cast (the new counters stay 0).
      */
@@ -969,21 +971,27 @@ public class SimAutoClearTests implements FabricClientGameTest {
             }
         }
         if (!Scenario.skip(HYPE_CHAIN)) {
-            standOn(ctx, found[3], yaw);
-            List<Placed> z = zombies(ctx, roomName, List.of(on.apply(0), on.apply(9), on.apply(18)));
+            // Two boxes one cast apart: a zombie beside him, and a pair 3 either side of the line at 11 (its own plan
+            // group: only a landing near 11 on the line reaches both, a dash straight at one of them misses the other).
+            standOn(ctx, on.apply(1), yaw);
+            List<Placed> z = zombies(ctx, roomName, List.of(on.apply(0), on.apply(11).offset(sz * 3, 0, sx * 3),
+                    on.apply(11).offset(-sz * 3, 0, -sx * 3)));
             int[] swaps = {0};
             long mark = LogTap.mark();
             Result r = hypeRun(ctx, HYPE_CHAIN, roomName, swaps);
             Map<UUID, String> after = aliveReport(ctx, z);
             int trips = logCount(mark, "[Path] running");
+            int casts = logCount(mark, "[Sim] Wither Impact at");
+            int chain = logCount(mark, "[AutoClear] Wither Impact chain");
             println(HYPE_CHAIN + ": " + r + "; trips " + trips + ", hotbar changes after the first cast " + swaps[0]
-                    + ", chain casts " + logCount(mark, "[AutoClear] Wither Impact chain") + ", zombies " + after);
+                    + ", casts " + casts + ", chain casts " + chain + ", zombies " + after);
             if (z.size() < 3 || after.values().stream().anyMatch(v -> !"dead".equals(v))) {
                 failures.add(HYPE_CHAIN + ": zombies " + after + " (placed " + z.size() + " of 3)");
             }
-            if (r.etherwarps > 0 || trips > 0 || swaps[0] > 0) {
-                failures.add(HYPE_CHAIN + ": want casts only, got " + r.etherwarps + " etherwarp(s), " + trips
-                        + " trip(s) and " + swaps[0] + " hotbar change(s) between casts");
+            if (r.etherwarps > 0 || trips > 0 || swaps[0] > 0 || casts < 2 || chain < 1) {
+                failures.add(HYPE_CHAIN + ": want consecutive casts only, got " + casts + " cast(s), " + chain
+                        + " chain cast(s), " + r.etherwarps + " etherwarp(s), " + trips + " trip(s) and " + swaps[0]
+                        + " hotbar change(s) between casts");
             }
         }
         if (!Scenario.skip(HYPE_FALLBACK)) {
