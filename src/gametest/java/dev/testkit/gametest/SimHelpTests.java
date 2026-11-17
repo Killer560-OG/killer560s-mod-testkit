@@ -165,7 +165,7 @@ public class SimHelpTests implements FabricClientGameTest {
                 check(problems, m[11] == page, at + ": showPage did not switch");
                 check(problems, m[0] > 0 && m[0] <= m[1], at + ": page list text reaches " + m[0] + " past " + m[1]);
                 check(problems, m[2] > 0 && m[2] <= m[3], at + ": content text reaches " + m[2] + " past " + m[3] + " (or none drawn)");
-                check(problems, m[4] >= 0 && m[5] >= 0 && m[4] + m[6] <= m[9] && m[5] + m[7] <= m[10], at + ": panel leaves the screen");
+                check(problems, m[4] >= 0 && m[5] >= 0 && m[4] + m[6] <= m[9] && m[5] + m[7] <= m[10], at + ": panel " + m[4] + "," + m[5] + " " + m[6] + "x" + m[7] + " leaves the " + m[9] + "x" + m[10] + " screen");
                 check(problems, m[5] + 36 + pages * 14 <= m[5] + m[7] - 26, at + ": page list runs into the buttons");
                 if (m[8] > 0) {
                     scrolling++;
@@ -260,6 +260,10 @@ public class SimHelpTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> {
             mc.options.guiScale().set(gui);
             mc.resizeGui();
+            var sc = McCompat.screen(mc);
+            if (sc != null) {
+                sc.resize(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
+            }
         });
         ctx.waitTicks(6);
     }
