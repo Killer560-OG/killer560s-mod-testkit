@@ -178,6 +178,15 @@ final class TermBurstMode1116Cases {
                     }
                 };
             }
+            if (act == SameTick.Act.TP) {
+                // His teleports are already flowing when the terminal opens: a teleport's accept comes back ~3 ticks after the
+                // command, and a 21-wide burst solves a 24-slot terminal in 2 ticks right after it opens, so a stream started
+                // only after the open delivered its first accept after the last burst (his 8 ticks, the feature's 2, none shared).
+                for (int i = 0; i < 4; i++) {
+                    c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+                    c.ctx().waitTick();
+                }
+            }
             JsonObject t = TerminalCases.open(c, spec);
             MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
             if (act == SameTick.Act.TP) {
