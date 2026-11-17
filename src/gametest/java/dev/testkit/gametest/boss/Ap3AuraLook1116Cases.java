@@ -130,10 +130,20 @@ final class Ap3AuraLook1116Cases {
 
     /** The first tick where two walks differ (moved distance since tick 0 over 0.005, look over 0.05 deg), or "". */
     private static String firstDiff(List<double[]> a, List<double[]> b, int n) {
-        double[] a0 = a.get(0), b0 = b.get(0);
-        for (int i = 0; i < n; i++) {
+        int s0 = 0;
+        while (s0 < n && (Double.isNaN(a.get(s0)[0]) || Double.isNaN(b.get(s0)[0]))) {
+            s0++;
+        }
+        if (s0 >= n) {
+            return "no position on the wire";
+        }
+        double[] a0 = a.get(s0), b0 = b.get(s0);
+        for (int i = s0; i < n; i++) {
             double[] p = a.get(i), q = b.get(i);
             for (int k = 0; k < 5; k++) {
+                if (Double.isNaN(p[k]) && Double.isNaN(q[k])) {
+                    continue; // nothing sent yet in either walk
+                }
                 double d = k < 3 ? Math.abs((p[k] - a0[k]) - (q[k] - b0[k])) : Math.abs(Mth.wrapDegrees(p[k] - q[k]));
                 if (Double.isNaN(d) || d > (k < 3 ? 0.005 : 0.05)) {
                     return String.format(Locale.ROOT, "tick %d: off %.4f %.4f %.4f yaw %.3f pitch %.3f / on %.4f %.4f %.4f yaw %.3f"
@@ -158,7 +168,8 @@ final class Ap3AuraLook1116Cases {
     }
 
     /**
-     * South along x -0.5 past the frames (x -2, z 75-79), a bend toward +x at z 76.5 and back at z 79, then a STOP at z 86.
+     * South along x -0.5 toward the frames (x -2, z 75-79), a bend toward +x at z 73.5 and back at z 75.6, then a STOP
+     * beside the device (z 77.8), where the Aura can finish.
      * The frames need clicks in both walks; only the second has the Aura on.
      */
     private static Walk walk(Session c, boolean aura, SameTick.Act act, List<String> sameNotes) {
@@ -178,9 +189,9 @@ final class Ap3AuraLook1116Cases {
         c.ctx().waitTicks(10);
         Object align = node("FAST_ALIGN", START_X, Y, START_Z, 0f, 2.0);
         Object r1 = node("RUN", START_X, Y, START_Z, 0f, 1.0);
-        Object r2 = node("RUN", -0.5, Y, 76.5, -20f, 1.0);
-        Object r3 = node("RUN", 0.6, Y, 79.5, 15f, 1.0);
-        Object stop = node("STOP", 0.0, Y, 86.0, 0f, 3.0);
+        Object r2 = node("RUN", -0.5, Y, 73.5, -25f, 1.0);
+        Object r3 = node("RUN", 0.5, Y, 75.6, 25f, 1.0);
+        Object stop = node("STOP", -0.4, Y, 77.8, 25f, 1.2);
         long since = c.hx().head();
         SameTick st = act == null ? null : c.onClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK ? 3 : 2,
                 p -> p instanceof ServerboundInteractPacket, 4, 5));
@@ -218,7 +229,12 @@ final class Ap3AuraLook1116Cases {
         c.ctx().waitTicks(aura ? 60 : 10);
         WireCapture.stop();
         WireCapture.describe = null;
-        if (st != null) {
+        if (st != null && !aura) {
+            c.onClient(mc -> {
+                st.close();
+                return null;
+            });
+        } else if (st != null) {
             SameTick.judge(c, st, "arrows on the AP3 walk with his " + act,
                     act == SameTick.Act.SWAP || act == SameTick.Act.TP || act == SameTick.Act.OPEN_CLICK || act == SameTick.Act.ATTACK
                             ? SameTick.Expect.ACTED : SameTick.Expect.SHARE);
@@ -342,6 +358,7 @@ final class Ap3AuraLook1116Cases {
                 return null;
             });
             List<double[]>[] runs = new List[2];
+            long held = 0;
             int[] clicks = new int[2];
             for (int r = -1; r < 2; r++) { // r = -1: warm-up
                 boolean aura = r == 1;
@@ -353,6 +370,7 @@ final class Ap3AuraLook1116Cases {
                 Object run = node("RUN", px, py, pz, -90f, 1.0);
                 Object stop = node("STOP", x + 5.0, py, pz, -90f, 2.0);
                 int before = c.events("term.interact").size();
+                long mark = dev.testkit.gametest.LogTap.mark();
                 WireCapture.describe = Ap3AuraLook1116Cases::describe;
                 WireCapture.start();
                 c.onClient(mc -> {
@@ -376,6 +394,10 @@ final class Ap3AuraLook1116Cases {
                     Mod.set(ta, "setEnabled", false);
                     return null;
                 });
+                if (aura) {
+                    held = dev.testkit.gametest.LogTap.since(mark).stream()
+                            .filter(l -> l.contains("[TerminalAura] held: AP3 route runs: no turn")).count();
+                }
                 if (r >= 0) {
                     runs[r] = ticksFromWire(px, pz);
                     clicks[r] = c.events("term.interact").size() - before;
@@ -383,8 +405,10 @@ final class Ap3AuraLook1116Cases {
             }
             int n = Math.min(runs[0].size(), runs[1].size());
             String diff = firstDiff(runs[0], runs[1], n);
-            c.note(String.format(Locale.ROOT, "ticks off/on %d/%d; terminal clicks off/on %d/%d; first difference: %s",
-                    runs[0].size(), runs[1].size(), clicks[0], clicks[1], diff.isEmpty() ? "none" : diff));
+            c.note(String.format(Locale.ROOT, "ticks off/on %d/%d; terminal clicks off/on %d/%d; Terminal Aura held for the route"
+                    + " %d time(s); first difference: %s", runs[0].size(), runs[1].size(), clicks[0], clicks[1], held,
+                    diff.isEmpty() ? "none" : diff));
+            c.check(held > 0, "Terminal Aura never had the stand as a target during the walk (nothing tested)");
             c.check(n >= 20, "the walk lasted only " + n + " ticks");
             c.check(diff.isEmpty(), "Terminal Aura changed the AP3 walk: " + diff);
             c.check(clicks[1] == 0, "Terminal Aura clicked a stand the walk's look never met (" + clicks[1] + ")");
@@ -443,6 +467,11 @@ final class Ap3AuraLook1116Cases {
             List<String> rows = new ArrayList<>();
             // 1. Item frame.
             TerminalAuraCases.tp(c, 0.2, Y, 77.5, -90f);
+            c.waitUntil("the client to have the frame, the stand and the lever", mc ->
+                    !mc.level.getEntitiesOfClass(ItemFrame.class, new AABB(-3, 119, 75, 0, 126, 80)).isEmpty()
+                            && !mc.level.getEntitiesOfClass(ArmorStand.class, new AABB(-3, 119, 80, 3, 124, 85)).isEmpty()
+                            && mc.level.getBlockState(new BlockPos(-1, 121, 72)).getBlock()
+                            instanceof net.minecraft.world.level.block.LeverBlock, 200);
             c.ctx().waitTicks(20);
             int f0 = c.scenario().flags().size();
             long s0 = c.hx().head();
