@@ -99,6 +99,7 @@ final class Ap3TermAuraCases {
             TerminalAuraCases.closeScreen(c);
             TerminalAuraCases.tp(c, px, py, pz, -90f);
             c.ctx().waitTicks(5);
+            syncStand(c);
             int before = c.events("term.interact").size();
             Object run = node("RUN", px, py, pz);
             Mod.cls(NODE).getField("yaw").set(run, -90f); // east, along z = Z - 1.5, past the pillar's south side
@@ -183,6 +184,34 @@ final class Ap3TermAuraCases {
         }
     }
 
+    /** The server counts a click only on ITS stand (entity == stand). 417 (11-17) and h-q1-4 had the client clicking
+     *  #id+1 while the server held #id and counted 0, so before a walk wait until the client's only terminal stand at the
+     *  pillar is the server's live one; a server stand that is gone is spawned again (at most twice, noted). */
+    static int syncStand(Session c) throws Exception {
+        for (int tries = 0; ; tries++) {
+            JsonObject st = c.hx().call("boss.term.state").getAsJsonObject();
+            int id = st.get("standId").getAsInt();
+            if (id >= 0 && !(st.has("removed") && st.get("removed").getAsBoolean())) {
+                try {
+                    c.waitUntil("the client's terminal stand to be the server's #" + id, mc -> standsAt(mc).equals(List.of(id)), 100);
+                    return id;
+                } catch (AssertionError e) {
+                    if (tries >= 2) {
+                        throw new AssertionError("the client's terminal stands " + c.onClient(mc -> standsAt(mc)) + " never matched the server's " + st, e);
+                    }
+                }
+            }
+            c.note("terminal stand re-sync " + tries + ": server " + st + ", client " + c.onClient(mc -> standsAt(mc)));
+            c.hx().call("boss.term.spawn");
+        }
+    }
+
+    static List<Integer> standsAt(net.minecraft.client.Minecraft mc) {
+        return mc.level.getEntitiesOfClass(net.minecraft.world.entity.decoration.ArmorStand.class,
+                new net.minecraft.world.phys.AABB(X - 0.5, G + 2, Z - 0.5, X + 1.5, G + 6, Z + 1.5),
+                en -> !en.isRemoved() && "Inactive Terminal".equals(en.getName().getString())).stream().map(en -> en.getId()).toList();
+    }
+
     enum Mode { BEHIND_TURN, FRONT, BEHIND_NOTURN }
 
     static void run(Session c, Mode mode) throws Exception {
@@ -218,6 +247,7 @@ final class Ap3TermAuraCases {
             TerminalAuraCases.closeScreen(c);
             TerminalAuraCases.tp(c, px, G + 3, pz, yaw);
             c.ctx().waitTicks(5);
+            syncStand(c);
             int before = c.events("term.interact").size();
             Object termAura = node("TERM_AURA", px, G + 3, pz);
             Object terminal = node("TERMINAL", px, G + 3, pz);

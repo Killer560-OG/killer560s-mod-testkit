@@ -388,7 +388,9 @@ final class Ee3RouteGrimCases {
                 }
             }
             c.note("lever pre-turns " + turns + ", lever re-pick pairs " + pairs + ", without W " + noW + ", A-alone inputs on the wire " + aAlone);
-            c.check(dig || turns > 0, "Lever Aura never turned the body under the walk (the pre-turn did not act)");
+            // ap3auralook-1116 (killer560 2026-11-16, "My auras can never affect my movement"): Lever Aura never turns the
+            // body while AP3 runs (the pre-turn is gone; it clicks pitch-only or with no look). This used to require a turn.
+            c.check(turns == 0, "Lever Aura turned the body under the AP3 walk " + turns + " time(s) - an aura must never move him");
             c.check(noW == 0 && aAlone == 0, "the lever turn dropped W/sprint: re-picks without W " + noW + ", A-alone inputs " + aAlone);
             c.check(ticks.leverAndDig == 0, "a lever click and a dig in one server tick: " + wire);
             if (act == SameTick.Act.DIG) {
