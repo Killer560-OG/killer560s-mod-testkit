@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-16T22:44:37",
- "modSource": "lane-trainfix-spiral-1116",
- "modGitSha": "56eb95027018b06f17728eb018bd4c1734f70b48",
+ "generatedAt": "2026-11-16T23:21:03",
+ "modSource": "lane-p3gate-1116",
+ "modGitSha": "276e12218e581160927a12352ab89730675825ca",
  "modSourceDirty": false,
  "count": 983,
  "byKind": {
