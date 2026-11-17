@@ -70,6 +70,7 @@ final class Ap3AuraLook1116Cases {
         s.test("1116-ap3aura-term-beside", Ap3AuraLook1116Cases::termBeside);
         s.test("1116-ap3aura-term-still", Ap3AuraLook1116Cases::termStill);
         s.testExpectingFlags("1116-nolook-probe", Ap3AuraLook1116Cases::probe);
+        s.testExpectingFlags("1116-movingclick-probe", Ap3AuraLook1116Cases::movingProbe);
     }
 
     // ---- shared -----------------------------------------------------------------------------------------------------
@@ -861,6 +862,199 @@ final class Ap3AuraLook1116Cases {
             c.server().command("kill @e[tag=aalook1116]");
             c.server().command("kill @e[type=item_frame,x=-2,y=122,z=77,distance=..6]");
             c.server().command("fill -3 119 64 4 126 92 air");
+            c.server().command("forceload remove -4 62 6 94");
+            c.hx().call("dungeon.tp", "x", -619.5, "y", 151.0, "z", -619.5, "yaw", 0f, "pitch", 0f);
+        }
+    }
+
+    // ---- 1116-movingclick-probe -------------------------------------------------------------------------------------
+
+    /**
+     * Ways to click a block or stand on a tick he MOVES (W + sprint along +z), raw, no mod feature acting. COAST_*: the
+     * click tick has no movement key (momentum only, on the ground), the aim rides that tick's packet (PKT, click at the
+     * head of its sendPosition) or that packet with the click at the next tick's start (BEFORE). AIR_*: the same on an
+     * airborne tick after a sprint jump. KEYS_AIM: the body really takes the aim yaw for the tick and the key set whose
+     * direction at that yaw is nearest the walk (+z) is pressed, so the motion is what that yaw and those keys give; the
+     * click goes at the head of that tick's packet. POSROT_G: an extra same-position PosRot with the aim and the right
+     * ground flag, keys held. NONE_STRIKE: no look change, the walk's own look (pitch 30) strikes the lever ahead.
+     */
+    enum MWay { COAST_PKT, COAST_BEFORE, AIR_PKT, AIR_BEFORE, KEYS_AIM, POSROT_G, NONE_STRIKE }
+
+    private static void keys(net.minecraft.client.Minecraft m, boolean w, boolean a, boolean s, boolean d, boolean sprint,
+                             boolean jump) {
+        m.options.keyUp.setDown(w);
+        m.options.keyLeft.setDown(a);
+        m.options.keyDown.setDown(s);
+        m.options.keyRight.setDown(d);
+        m.options.keySprint.setDown(sprint);
+        m.options.keyJump.setDown(jump);
+    }
+
+    private static void mfire(net.minecraft.client.Minecraft m, MWay w, Kind k, boolean doClick) {
+        net.minecraft.client.player.LocalPlayer p = m.player;
+        float[] a = aimAt(m, box(m, k).getCenter());
+        switch (w) {
+            case COAST_PKT, AIR_PKT -> {
+                keys(m, false, false, false, false, false, false);
+                beforeMove(() -> {
+                    restore = new float[]{p.getYRot(), p.getXRot()};
+                    p.setYRot(a[0]);
+                    p.setXRot(a[1]);
+                    if (doClick) {
+                        click(m, k);
+                    }
+                });
+            }
+            case COAST_BEFORE, AIR_BEFORE -> {
+                keys(m, false, false, false, false, false, false);
+                beforeMove(() -> {
+                    restore = new float[]{p.getYRot(), p.getXRot()};
+                    p.setYRot(a[0]);
+                    p.setXRot(a[1]);
+                    if (doClick) {
+                        afterRestore = () -> click(m, k);
+                    }
+                });
+            }
+            case KEYS_AIM -> {
+                restore = null;
+                float live = p.getYRot(), livePitch = p.getXRot();
+                p.setYRot(a[0]);
+                p.setXRot(a[1]);
+                int k8 = Math.round(Mth.wrapDegrees(live - a[0]) / 45f); // walk yaw = aim + k8 * 45
+                keys(m, Math.abs(k8) <= 1, k8 <= -1 && k8 >= -3, Math.abs(k8) >= 3, k8 >= 1 && k8 <= 3, true, false);
+                beforeMove(() -> {
+                    restore = new float[]{live, livePitch};
+                    if (doClick) {
+                        click(m, k);
+                    }
+                });
+            }
+            case POSROT_G -> {
+                p.connection.send(new ServerboundMovePlayerPacket.PosRot(p.getX(), p.getY(), p.getZ(), a[0], a[1],
+                        p.onGround(), p.horizontalCollision));
+                if (doClick) {
+                    click(m, k);
+                }
+            }
+            case NONE_STRIKE -> {
+                if (doClick) {
+                    click(m, k);
+                }
+            }
+        }
+    }
+
+    private static String mstep(Session c, MWay w, Kind k, boolean doClick, String frameUuid) {
+        double trigger = switch (k) {
+            case LEVER -> 72.2;
+            case FRAME -> 77.2;
+            case STAND -> 82.2;
+            case LEVER_AHEAD -> 88.3;
+        };
+        boolean air = w == MWay.AIR_PKT || w == MWay.AIR_BEFORE;
+        c.hx().call("dungeon.tp", "x", WALK_X, "y", Y, "z", trigger - 7.5, "yaw", 0f,
+                "pitch", k == Kind.LEVER_AHEAD ? 30f : 0f);
+        c.ctx().waitTicks(25);
+        String before = k == Kind.STAND ? "" : outcome(c, k, frameUuid, 0);
+        int f0 = c.scenario().flags().size();
+        long h0 = c.hx().head();
+        int[] st = {0, 0, 0}; // fired, ticks after, jumped
+        double[] at = new double[4];
+        hook(c);
+        c.onClient(mc -> {
+            each = m -> {
+                net.minecraft.client.player.LocalPlayer p = m.player;
+                if (st[0] == 0) {
+                    boolean jump = air && st[2] == 0 && p.onGround() && p.getZ() >= trigger - 2.4;
+                    if (jump) {
+                        st[2] = 1;
+                    }
+                    if (p.getZ() >= trigger && (!air || !p.onGround())) {
+                        st[0] = 1;
+                        at[0] = p.getX();
+                        at[1] = p.getZ();
+                        at[2] = p.getDeltaMovement().horizontalDistance();
+                        at[3] = p.onGround() ? 1 : 0;
+                        mfire(m, w, k, doClick);
+                        return;
+                    }
+                    keys(m, true, false, false, false, true, jump);
+                } else if (st[1]++ < 10) {
+                    keys(m, true, false, false, false, true, false);
+                } else {
+                    keys(m, false, false, false, false, false, false);
+                }
+            };
+            return null;
+        });
+        c.waitUntil("the moving step to fire", mc -> st[0] == 1 && st[1] > 10, 200);
+        c.onClient(mc -> {
+            each = null;
+            keys(mc, false, false, false, false, false, false);
+            return null;
+        });
+        c.ctx().waitTicks(25);
+        String after = outcome(c, k, frameUuid, h0);
+        String flags = flagsSince(c, f0);
+        return String.format(Locale.ROOT, "moving | %s%s | %s | at %.2f,%.2f v=%.3f ground=%s | %s -> %s | flags [%s]",
+                w, doClick ? "" : " (no click)", k, at[0], at[1], at[2], at[3] > 0, before, after, flags);
+    }
+
+    /** Every way left for a click on a MOVING tick (step 2 of ap3auralook-1116): what the server did and what flagged. */
+    static void movingProbe(Session c) throws Exception {
+        if (!Mod.isCheat()) {
+            return;
+        }
+        try {
+            c.server().command("forceload add -4 62 6 94");
+            c.server().sync(20);
+            c.server().command("fill -2 119 60 4 119 96 stone");
+            c.server().command("fill -2 120 60 4 126 94 air");
+            c.server().command("setblock -2 121 72 stone");
+            c.server().command("setblock -1 121 72 minecraft:lever[face=wall,facing=east,powered=false]");
+            c.server().command("setblock 0 121 91 stone");
+            c.server().command("setblock 0 121 90 minecraft:lever[face=wall,facing=north,powered=false]");
+            c.server().command("summon armor_stand -1.0 120 82.5 {NoGravity:1b,CustomName:\"Inactive Terminal\",CustomNameVisible:1b,"
+                    + "Tags:[\"aalook1116\"]}");
+            TerminalAuraCases.tp(c, WALK_X, Y, 64.5, 0f);
+            c.waitUntil("the client to have the stand and both levers", mc ->
+                    !mc.level.getEntitiesOfClass(ArmorStand.class, new AABB(-3, 119, 80, 3, 124, 85)).isEmpty()
+                            && mc.level.getBlockState(new BlockPos(-1, 121, 72)).getBlock()
+                            instanceof net.minecraft.world.level.block.LeverBlock
+                            && mc.level.getBlockState(new BlockPos(0, 121, 90)).getBlock()
+                            instanceof net.minecraft.world.level.block.LeverBlock, 200);
+            c.ctx().waitTicks(20);
+            List<String> rows = new ArrayList<>();
+            for (MWay w : new MWay[]{MWay.COAST_PKT, MWay.AIR_PKT, MWay.KEYS_AIM}) {
+                rows.add(mstep(c, w, Kind.LEVER, false, null)); // the movement change alone
+            }
+            for (Kind k : new Kind[]{Kind.LEVER, Kind.STAND}) {
+                for (MWay w : new MWay[]{MWay.COAST_PKT, MWay.COAST_BEFORE, MWay.AIR_PKT, MWay.AIR_BEFORE, MWay.KEYS_AIM,
+                        MWay.POSROT_G}) {
+                    rows.add(mstep(c, w, k, true, null));
+                }
+            }
+            rows.add(mstep(c, MWay.NONE_STRIKE, Kind.LEVER_AHEAD, true, null));
+            rows.add(mstep(c, MWay.NONE_STRIKE, Kind.LEVER, true, null)); // control: the look does not strike
+            rows.forEach(r -> c.note("mprobe " + r));
+            c.check(rows.stream().noneMatch(r -> r.contains("(no click)") && r.contains("-> powered true")),
+                    "a no-click row flipped the lever");
+            try {
+                java.nio.file.Path out = java.nio.file.Path.of("build", "testkit-report", "movingclick-probe-1116.txt");
+                java.nio.file.Files.createDirectories(out.getParent());
+                java.nio.file.Files.write(out, rows);
+            } catch (java.io.IOException e) {
+                c.note("could not write the probe table: " + e);
+            }
+        } finally {
+            c.onClient(mc -> {
+                each = null;
+                keys(mc, false, false, false, false, false, false);
+                return null;
+            });
+            c.server().command("kill @e[tag=aalook1116]");
+            c.server().command("fill -3 119 60 4 126 96 air");
             c.server().command("forceload remove -4 62 6 94");
             c.hx().call("dungeon.tp", "x", -619.5, "y", 151.0, "z", -619.5, "yaw", 0f, "pitch", 0f);
         }
