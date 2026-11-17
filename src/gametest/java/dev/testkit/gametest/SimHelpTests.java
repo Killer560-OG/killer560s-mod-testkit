@@ -144,42 +144,41 @@ public class SimHelpTests implements FabricClientGameTest {
         check(problems, pages >= 8, "guide has only " + pages + " pages");
         facts.add("/help opened the guide, " + pages + " pages");
 
+        // The harness window resize does not change a Screen's own size (it stays 854x480), so each size is given to the
+        // screen the way vanilla does (Screen.init(w, h)) and measured from its layout, with no render involved.
         int[][] sizes = {{1920, 1080, 1}, {1920, 1080, 2}, {1920, 1080, 3}, {1920, 1080, 4}, {854, 480, 2}};
         int scrolling = 0;
+        int[] orig = ctx.computeOnClient(mc -> new int[]{McCompat.screen(mc).width, McCompat.screen(mc).height});
         for (int[] s : sizes) {
-            setWindow(ctx, s[0], s[1], s[2]);
-            // open it fresh at this size, as a player would (a harness resize does not re-run init)
-            ctx.runOnClient(mc -> mc.execute(() -> {
-                McCompat.setScreen(mc, null);
-                ModUnderTest.staticCall(HELP, "open", new Class<?>[]{net.minecraft.client.Minecraft.class}, new Object[]{mc});
-            }));
-            ctx.waitTicks(4);
+            final int sw = s[0] / s[2], sh = s[1] / s[2];
             for (int p = 0; p < pages; p++) {
                 final int page = p;
-                ctx.runOnClient(mc -> ModUnderTest.call(McCompat.screen(mc), "showPage", new Class<?>[]{int.class}, new Object[]{page}));
-                ctx.waitTicks(2);
-                String at = s[0] + "x" + s[1] + " GUI " + s[2] + " page " + (p + 1);
+                String at = s[0] + "x" + s[1] + " GUI " + s[2] + " (" + sw + "x" + sh + ") page " + (p + 1);
                 int[] m = ctx.computeOnClient(mc -> {
-                    Object sc = McCompat.screen(mc);
+                    var sc = McCompat.screen(mc);
+                    sc.init(sw, sh);
+                    ModUnderTest.call(sc, "showPage", new Class<?>[]{int.class}, new Object[]{page});
                     int[] te = (int[]) ModUnderTest.call(sc, "textExtent", new Class<?>[0], new Object[0]);
                     int[] ce = (int[]) ModUnderTest.call(sc, "contentExtent", new Class<?>[0], new Object[0]);
                     int[] pb = (int[]) ModUnderTest.call(sc, "themedPanelBounds", new Class<?>[0], new Object[0]);
                     int ms = (Integer) ModUnderTest.call(sc, "maxScroll", new Class<?>[0], new Object[0]);
-                    int sw = mc.getWindow().getGuiScaledWidth(), sh = mc.getWindow().getGuiScaledHeight();
-                    return new int[]{te[0], te[1], ce[0], ce[1], pb[0], pb[1], pb[2], pb[3], ms, sw, sh, (Integer) ModUnderTest.call(sc, "page", new Class<?>[0], new Object[0])};
+                    return new int[]{te[0], te[1], ce[0], ce[1], pb[0], pb[1], pb[2], pb[3], ms, (Integer) ModUnderTest.call(sc, "page", new Class<?>[0], new Object[0])};
                 });
-                check(problems, m[11] == page, at + ": showPage did not switch");
+                check(problems, m[9] == page, at + ": showPage did not switch");
                 check(problems, m[0] > 0 && m[0] <= m[1], at + ": page list text reaches " + m[0] + " past " + m[1]);
-                check(problems, m[2] > 0 && m[2] <= m[3], at + ": content text reaches " + m[2] + " past " + m[3] + " (or none drawn)");
-                check(problems, m[4] >= 0 && m[5] >= 0 && m[4] + m[6] <= m[9] && m[5] + m[7] <= m[10], at + ": panel " + m[4] + "," + m[5] + " " + m[6] + "x" + m[7] + " leaves the " + m[9] + "x" + m[10] + " screen");
-                check(problems, m[5] + 36 + pages * 14 <= m[5] + m[7] - 26, at + ": page list runs into the buttons");
+                check(problems, m[2] > 0 && m[2] <= m[3], at + ": content text reaches " + m[2] + " past " + m[3] + " (or none laid out)");
+                check(problems, m[4] >= 0 && m[5] >= 0 && m[4] + m[6] <= sw && m[5] + m[7] <= sh,
+                        at + ": panel " + m[4] + "," + m[5] + " " + m[6] + "x" + m[7] + " leaves the screen");
+                check(problems, 36 + pages * 14 <= m[7] - 26, at + ": page list runs into the buttons");
                 if (m[8] > 0) {
                     scrolling++;
                 }
                 if (s[0] == 1920 && s[2] == 2 && (p == 0 || p == 3)) {
+                    ctx.runOnClient(mc -> McCompat.screen(mc).init(orig[0], orig[1])); // the real window's size, for the picture
+                    ctx.waitTicks(3);
                     Path shot = ctx.takeScreenshot(dev.testkit.harness.Report.fileName(NAME + "-page" + (p + 1)));
                     Report.screenshot(NAME, shot);
-                    if (dev.testkit.gametest.mod.Mod.isCheat() && System.getProperty("testkit.mc", "").isEmpty()) {
+                    if (dev.testkit.gametest.mod.Mod.isCheat()) {
                         Files.createDirectories(SHOTS);
                         Files.copy(shot, SHOTS.resolve("page" + (p + 1) + ".png"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                     }
@@ -189,7 +188,6 @@ public class SimHelpTests implements FabricClientGameTest {
         facts.add("every page fits at 1920x1080 GUI 1-4 and 854x480 GUI 2 (" + scrolling + " page views scroll)");
 
         // Esc closes.
-        setWindow(ctx, oldW(ctx), oldH(ctx), 2);
         ctx.runOnClient(mc -> mc.execute(() -> McCompat.screen(mc).keyPressed(new net.minecraft.client.input.KeyEvent(256, 0, 0))));
         ctx.waitTicks(5);
         String after = ctx.computeOnClient(mc -> McCompat.screen(mc) == null ? "none" : McCompat.screen(mc).getClass().getName());
