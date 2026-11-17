@@ -182,7 +182,9 @@ final class TermBurstMode1116Cases {
             MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
             if (act == SameTick.Act.TP) {
                 for (int i = 0; i < 200 && c.onClient(mc -> dev.testkit.compat.McCompat.screen(mc) != null); i++) {
-                    if (i % 2 == 0) c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+                    // Every tick: bursts keep 75+ ms apart now (every second client tick), so a teleport every other tick could
+                    // fall on the ticks between them and never share a server tick with one.
+                    c.server().command("execute as @a at @s run tp @s ~ ~ ~");
                     c.ctx().waitTick();
                 }
             }
