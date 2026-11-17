@@ -96,6 +96,8 @@ public class HxSuite implements FabricClientGameTest {
                     // To-do Doc items of 2026-11-01: Creation Cooldown, Insta Clear Warning, Gyrokinetic Wand Overlay,
                     // Chat Tabs (1101-extras-*, mod branch doc-extras-1101), own block.
                     HxDocExtras1101Cases.register(s);
+                    // Chat Channel Indicator (1116-chatchannel-*, mod branch chatchannel-1116).
+                    HxChatChannel1116Cases.register(s);
                     // To-do Doc items of 2026-11-01: Score Warning, split Counting, Core Entry, Livid, Blessings Boss
                     // Only, Trigger lines, locked chests and chest drops, Door Keys (1101-dhud-*, mod doc-dhud-1101).
                     HxDocDhud1101Cases.register(s);
@@ -112,6 +114,7 @@ public class HxSuite implements FabricClientGameTest {
                     // The pre-2.0 mining features (1101-mining-*, mod doc-mining-1101), own block, before Boss Health.
                     HxMining1101Cases.register(s);
                     HxFiestaFlask1116Cases.register(s);
+                    HxMineHud1117Cases.register(s);
                     // Commission Mobs and the Emissary label's gray distance (1103-mining-*, mod commissions-1103).
                     HxCommissions1103Cases.register(s);
                     // Per-block commission areas, event-driven highlights, carpet stability (1103-mining-block-area,
@@ -168,6 +171,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxCheatBugs1109Cases.register(s);
                     // Deployables: lantern circles, in-radius and the timer HUD (1104-minedeploy, mod minedeploy-1104).
                     HxMineDeploy1104Cases.register(s);
+                    HxDeploySphere1116Cases.register(s);
                     // Owner requests 2026-11-03 late (1103-mask-proc-title, 1103-partycmd-self).
                     HxOwner1103Cases.register(s);
                     // Party Commands floor requests: Creation Cooldown wait, retry, your own !f (1104-partycmd-floor-*, mod partycmd-1104).
