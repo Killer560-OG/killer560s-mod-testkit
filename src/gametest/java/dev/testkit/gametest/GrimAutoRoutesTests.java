@@ -3691,6 +3691,16 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     }
 
     /**
+     * Starred mobs an earlier case left alive (achype4-1117: run after 62-argrim-1020-acbat, 62-argrim-1117-achype's plan saw 6
+     * mobs, not its 3, and etherwarped): their zombies and their invisible marker name stands go before a case places its own.
+     */
+    private static void clearStarred(Session c) {
+        c.server().command("kill @e[type=minecraft:zombie]");
+        c.server().command("kill @e[type=minecraft:armor_stand,nbt={Marker:1b,Invisible:1b}]");
+        c.ctx().waitTicks(3);
+    }
+
+    /**
      * achype4-1117: with {@code act} (or {@code second}) his action goes into every tick from Auto Clear's first landing
      * pre-aim on (the Hyperion swap and the straight-down turn while the last etherwarp is in flight), so it shares the
      * pre-aim's and the landing cast's ticks; {@code second} calls clearRoom again on that line. Requires the pre-aim acted.
@@ -3699,6 +3709,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
         arena(ctx, true);
+        clearStarred(c);
         String auto = "com.killer560.hub.autoclear.AutoClearFeature";
         String autoCfg = "com.killer560.hub.autoclear.AutoClearConfig";
         ctx.runOnClient(mc -> {
@@ -3839,6 +3850,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
         arena(ctx, false);
+        clearStarred(c);
         String auto = "com.killer560.hub.autoclear.AutoClearFeature";
         String autoCfg = "com.killer560.hub.autoclear.AutoClearConfig";
         ctx.runOnClient(mc -> {
