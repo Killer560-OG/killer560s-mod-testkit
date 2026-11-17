@@ -350,6 +350,9 @@ final class Ap3Blink1026Cases {
             lastX += 6;
         }
         chain.add(node("STOP", lastX, z, 0f, 0f, 2.0, 2.0));
+        // A shot the previous case fired is judged 40 ticks later, and this case's own start teleport lands inside that window
+        // (quarsweep-1116: blink-split read "1 shot set back" after blink-max's shot): let the old verdict in before the baseline.
+        ctx.waitTicks(45);
         long mark = LogTap.mark();
         long shots0 = onClient(ctx, mc -> ((Number) Mod.staticCall(CHARGE, "shots")).longValue());
         long setback0 = onClient(ctx, mc -> ((Number) Mod.staticCall(CHARGE, "shotsSetBack")).longValue());
