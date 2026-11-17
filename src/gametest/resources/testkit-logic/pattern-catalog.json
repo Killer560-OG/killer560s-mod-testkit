@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T15:45:59",
- "modSource": "lane-coopstart-reship-1117",
- "modGitSha": "60edd5f7d74247e064073e9b335f1e813f85147c",
+ "generatedAt": "2026-11-17T16:12:25",
+ "modSource": "lane-pf412fix-1117",
+ "modGitSha": "7c4be1c9305671601c3a773f6f15c68b8686bf48",
  "modSourceDirty": false,
  "count": 990,
  "byKind": {
