@@ -84,6 +84,9 @@ public class HxChestMenu extends ChestMenu {
         broadcastChanges();
     }
 
+    /** Set by a script that lets the cursor carry an item between clicks (the storage page); else a click ends empty-handed. */
+    public boolean keepCarried;
+
     @Override
     public void clicked(int slot, int button, ContainerInput input, Player player) {
         // Never call super: a Hypixel menu does not let you pick anything up.
@@ -101,7 +104,9 @@ public class HxChestMenu extends ChestMenu {
                 script.onClick(this, sp, slot, button, input);
             }
         }
-        setCarried(ItemStack.EMPTY);
+        if (!keepCarried) {
+            setCarried(ItemStack.EMPTY);
+        }
         if (silentNext || slotAnswerNext) {
             return;   // cleared by resumeRemoteUpdates; slotAnswerNext leaves the answer to vanilla's broadcastChanges
         }

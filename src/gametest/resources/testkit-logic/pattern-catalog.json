@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T00:25:42",
- "modSource": "lane-simbosswarpkick-1116",
- "modGitSha": "5dd582956bfd3bdb3a3c50842dc83fc8614696cf",
+ "generatedAt": "2026-11-17T00:44:42",
+ "modSource": "lane-vanillamenu-1116",
+ "modGitSha": "23fb4645de51fbf5744e7a0374a3bd043355e7b8",
  "modSourceDirty": false,
- "count": 983,
+ "count": 984,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 855,
+  "field": 856,
   "local": 43
  },
  "unresolved": 160,
@@ -11700,6 +11700,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^Unknown or incomplete command\\\\. See below for error(?:\\\\n[^\\\\n]{0,256})?$\""
+  },
+  {
+   "id": "util.SackCommands#COOLDOWN",
+   "cls": "util.SackCommands",
+   "field": "COOLDOWN",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/util/SackCommands.java",
+   "line": 83,
+   "regex": "^Command Failed: This command is on cooldown!.*$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^Command Failed: This command is on cooldown!.*$\""
   },
   {
    "id": "witherdoors.WitherDoorsFeature#KEY_OBTAINED_WITHER",
