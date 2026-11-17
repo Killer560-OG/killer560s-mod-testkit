@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T16:27:21",
- "modSource": "lane-pf412fix-1117",
- "modGitSha": "3961e238a4fabcd31e473077fc658b5849b7d064",
+ "generatedAt": "2026-11-17T16:49:06",
+ "modSource": "lane-pv0273-1117",
+ "modGitSha": "724dda1f785210a4a56066fd2f928d781812103a",
  "modSourceDirty": false,
  "count": 990,
  "byKind": {
@@ -2875,11 +2875,11 @@
    "field": "ITEM_ID",
    "index": null,
    "file": "src/main/java/com/killer560/hub/compactorpreview/CompactorPreviewFeature.java",
-   "line": 44,
-   "regex": "^PERSONAL_(COMPACTOR|DELETOR)_(\\d{1,5})$",
+   "line": 45,
+   "regex": "^PERSONAL_(COMPACTOR|DELETOR)_(?:([A-Z]{1,16})_)?(\\d{1,5})$",
    "flags": null,
    "kind": "field",
-   "expr": "\"^PERSONAL_(COMPACTOR|DELETOR)_(\\\\d{1,5})$\""
+   "expr": "\"^PERSONAL_(COMPACTOR|DELETOR)_(?:([A-Z]{1,16})_)?(\\\\d{1,5})$\""
   },
   {
    "id": "crashreport.CrashReportFeature#SERVER_ARG",
