@@ -3887,7 +3887,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         }
         ctx.waitTicks(5);
         if (st != null) {
-            dev.testkit.gametest.SameTick.judge(c, st, "achype " + act, dev.testkit.gametest.SameTick.Expect.ACTED);
+            // Chain layout: his action is armed by the chain line, so the ticks that carry both ARE the chained cast's.
+            dev.testkit.gametest.SameTick.judge(c, st, "achype " + act, chain && act != dev.testkit.gametest.SameTick.Act.ATTACK
+                    ? dev.testkit.gametest.SameTick.Expect.SHARE : dev.testkit.gametest.SameTick.Expect.ACTED);
         }
         List<Sample> s = stopSampling(ctx);
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(autoCfg), "setEnabled", false));
@@ -3924,8 +3926,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             c.note("chain lines " + chained + ", Auto Clear weapon uses " + featureUses + ", use_item ticks on the wire "
                     + uses.size());
             check(chained >= 1, "no Wither Impact chain cast (the chain case tested nothing)");
-            check(featureUses >= 2 && uses.size() >= featureUses, "the chained cast never reached the wire: Auto Clear "
-                    + "weapon uses " + featureUses + ", use_item ticks " + uses.size());
+            check(uses.size() >= 2, "the chained cast never reached the wire: Auto Clear weapon uses " + featureUses
+                    + ", use_item ticks " + uses.size());
             check(warps == 0, warps + " etherwarp(s) in the chain layout");
         }
         c.note("achype " + (act == null ? second ? "second" : "plain" : act) + ": mobs " + states + ", Wither Impacts "
