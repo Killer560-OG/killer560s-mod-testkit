@@ -48,7 +48,7 @@ final class HxMineHud1117Cases {
     }
 
     private static void interp(Session c) {
-        try (Settings set = new Settings(c).with(CFG, "FiestaFlask", true).with(CFG, "FiestaFlaskPause", true)) {
+        try (Settings set = new Settings(c).with(CFG, "FiestaFlask", true)) {
             c.onClient(mc -> Mod.staticCall(FF, "resetForTest"));
             area(c, "Event: Mining Fiesta", "Active Effects:", " Fiesta Flask I 20m");
             c.waitUntil("the 20m reading", mc -> {
@@ -89,8 +89,7 @@ final class HxMineHud1117Cases {
     }
 
     private static void ends(Session c) {
-        try (Settings set = new Settings(c).with(CFG, "FiestaFlask", true).with(CFG, "FiestaFlaskAlert", true)
-                .with(CFG, "FiestaFlaskPause", true)) {
+        try (Settings set = new Settings(c).with(CFG, "FiestaFlask", true).with(CFG, "FiestaFlaskAlert", true)) {
             c.onClient(mc -> Mod.staticCall(FF, "resetForTest"));
             // Paused outside a fiesta (the countdown holds, so it never ran out by itself), then the tab drops the flask.
             area(c, "Active Effects:", " Fiesta Flask I 20m");
