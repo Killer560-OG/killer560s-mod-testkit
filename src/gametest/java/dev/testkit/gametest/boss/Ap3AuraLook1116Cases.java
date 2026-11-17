@@ -593,6 +593,28 @@ final class Ap3AuraLook1116Cases {
                 Mod.staticCall(Ap3TermAuraCases.FEATURE, "setForceDungeon", true);
                 return null;
             });
+            // GrimAC's Reach cancelBuffer decides which click this case tests: clear, the first no-look click with keys
+            // held is taken (step 4, term-beside's case); at 1 the gate must hold it and the one-packet look of the
+            // key-free tick opens. It ran only after term-beside left it at 1 (trainfix 11-17: alone it read 0, the
+            // no-look click opened and "aimed" failed), so set it here with one real missed click on a spare stand.
+            c.server().command(String.format(Locale.ROOT,
+                    "summon minecraft:armor_stand %.2f %.2f %.2f {NoGravity:1b,Tags:[\"aal1116prime\"]}", px, py, pz + 1.5));
+            AABB primeBox = new AABB(px - 0.5, py - 0.5, pz + 1.0, px + 0.5, py + 0.5, pz + 2.0);
+            c.waitUntil("the client to have the spare stand", mc -> !mc.level.getEntitiesOfClass(ArmorStand.class, primeBox,
+                    e -> e.getId() != standId).isEmpty(), 200);
+            int fPrime = c.scenario().flags().size();
+            c.onClient(mc -> {
+                ArmorStand e = mc.level.getEntitiesOfClass(ArmorStand.class, primeBox, s -> s.getId() != standId).get(0);
+                mc.gameMode.interact(mc.player, e, new EntityHitResult(e, e.getBoundingBox().getCenter()), InteractionHand.MAIN_HAND);
+                return null;
+            });
+            c.waitUntil("GrimAC's Hitboxes line for the missed spare-stand click", mc -> c.scenario().flags().size() > fPrime, 200);
+            c.server().command("kill @e[tag=aal1116prime]");
+            double buf = c.onClient(mc -> ((Number) Mod.staticCall("util.GrimHitBuffer", "value")).doubleValue());
+            c.note("primed: " + c.scenario().flags().subList(fPrime, c.scenario().flags().size()) + "; mod buffer " + buf);
+            c.check(c.scenario().flags().subList(fPrime, c.scenario().flags().size()).stream().allMatch(l -> l.contains("Hitboxes")),
+                    "the missed spare-stand click drew something other than Hitboxes");
+            c.check(buf >= 1.0, "the mod's GrimHitBuffer did not see the missed click (" + buf + ")");
             double sx = x - 1.0;
             Object align = node("FAST_ALIGN", px, py, pz, -90f, 2.0);
             Object run = node("RUN", px, py, pz, -90f, 1.0);
@@ -679,6 +701,8 @@ final class Ap3AuraLook1116Cases {
             c.check(opened, "Terminal Aura never opened the terminal beside the stopped route (the one-packet look did not act)");
             c.check(runningAtClick, "AP3 was no longer running when the terminal opened (nothing tested)");
             c.check(aimed > 0, "no movement packet carried an aim other than the walk's -90 (the click had no look)");
+            c.check(onLines.stream().noneMatch(l -> l.contains("click sent with no look")),
+                    "a no-look click went while GrimAC's buffer was 1 (Grim cancels it)");
             c.check(worstYaw < 0.01, "his camera turned while AP3 ran: " + worstYaw + " degrees off -90");
         } finally {
             stopAp3(c);
