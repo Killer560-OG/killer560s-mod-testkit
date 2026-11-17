@@ -22,7 +22,10 @@ import java.util.Locale;
  *   <li>the Fast Align lands within 0.001 and no flick goes out while it runs (the aura waits for AP3's align);</li>
  *   <li>every tick of the held run he moves ALONG the run's direction, never against it (the bug's signature: a tick
  *       end whose step points backwards along the held direction);</li>
- *   <li>the aura did turn him during the run at least once (otherwise nothing was tested), and its flicks went out;</li>
+ *   <li>the aura never turns his body during the held run (ap3auralook-1116: auras never change his movement), a flick
+ *       went out while the run held keys (otherwise nothing was tested), the server used every no-look click, at least
+ *       one unlit lever ends lit and any other was held by GrimAC RotationPlace's buffer (one no-look block click per
+ *       buffer reset; a route that needs more must bring a lever dead ahead or into a key-free tick);</li>
  *   <li>GrimAC silent (Session.test).</li>
  * </ul>
  */
@@ -40,7 +43,8 @@ final class Ap3LightsRunCases {
         if (!Mod.isCheat()) {
             return;
         }
-        s.test("1026-boss-ap3-lights-run", Ap3LightsRunCases::run);
+        // Judged by stepFour: the one no-look lever click with keys held may draw RotationPlace (owner 11-16), nothing else.
+        s.testExpectingFlags("1026-boss-ap3-lights-run", Ap3LightsRunCases::run);
     }
 
     static Object node(String type, double x, double z, float yaw, double size) {
@@ -88,6 +92,11 @@ final class Ap3LightsRunCases {
             });
             TerminalAuraCases.tp(c, 61.2, Y, 139.6, 117f);
             c.ctx().waitTicks(10);
+            // Earlier cases' no-look clicks leave GrimAC RotationPlace's buffer up, and then the server cancels this case's.
+            Ap3AuraLook1116Cases.clearRotationPlace(c);
+            long mark = dev.testkit.gametest.LogTap.mark();
+            long since = c.hx().head();
+            int flagFrom = c.scenario().flags().size();
             Object align = node("FAST_ALIGN", 60.5, 139.0, 0f, 2.0);
             Object r14 = node("RUN", 60.5, 139.0, 72f, 1.0);
             Object r15 = node("RUN", 58.5, 139.5, 50f, 1.0);
@@ -136,6 +145,7 @@ final class Ap3LightsRunCases {
                     flicksInAlign));
             int backwards = 0;
             int turnsInRun = 0;
+            int heldFlicks = 0;
             int holdTicks = 0;
             StringBuilder worst = new StringBuilder();
             for (int i = 1; i < ticks.size(); i++) {
@@ -150,6 +160,7 @@ final class Ap3LightsRunCases {
                 if (q[5] > 0 || p[5] > 0) {
                     turnsInRun++;
                 }
+                heldFlicks += (int) (q[6] - p[6]);
                 double dx = q[0] - p[0];
                 double dz = q[1] - p[1];
                 double len = Math.hypot(hx, hz);
@@ -163,15 +174,44 @@ final class Ap3LightsRunCases {
                 }
             }
             int flicks = LightsDeviceCases.flickCount() - flicks0;
-            c.note(String.format(Locale.ROOT, "held-run ticks %d, ticks with an aura's turn out %d, backwards ticks %d, flicks %d%s",
-                    holdTicks, turnsInRun, backwards, flicks, worst));
+            c.note(String.format(Locale.ROOT, "held-run ticks %d, ticks with an aura's turn out %d, backwards ticks %d, flicks %d (%d with keys held)%s",
+                    holdTicks, turnsInRun, backwards, flicks, heldFlicks, worst));
             c.check(Math.abs(alignEnd[0] - 60.5) <= 1e-3 && Math.abs(alignEnd[1] - 139.0) <= 1e-3,
                     String.format(Locale.ROOT, "the Fast Align ended %.4f / %.4f off its point", alignEnd[0] - 60.5, alignEnd[1] - 139.0));
             c.check(flicksInAlign == 0, "the Lights Aura flicked " + flicksInAlign + " time(s) during the align (it turns him)");
             c.check(holdTicks >= 10, "the held run lasted only " + holdTicks + " ticks - nothing was tested");
-            c.check(turnsInRun > 0, "the Lights Aura never turned him during the run - the case did not exercise the bug");
+            // ap3auralook-1116 (killer560, 2026-11-16: "My auras can never affect my movement. If I am running and something
+            // is in range it auras without changing anything."): the aura no longer turns his body while AP3 holds keys. This
+            // case used to REQUIRE such a turn (to prove the 10-26 bug was exercised); that turn is now the bug itself. What
+            // proves the case exercised the aura is a flick while the run held keys, and both unlit levers lit by the end.
+            c.check(turnsInRun == 0, "the Lights Aura turned him on " + turnsInRun + " held-run tick(s) - an aura must never move him");
             c.check(backwards == 0, backwards + " tick(s) moved him backwards along the held run:" + worst);
             c.check(flicks >= 1, "the Lights Aura never got a flick out during the route");
+            c.check(heldFlicks >= 1, "no Lights Aura flick went out while the run held keys - nothing was tested");
+            // With keys held and the levers off the walk line (south of a westward run) the aura's only click is a no-look one.
+            // GrimAC takes the first (RotationPlace, his accepted flag) and cancels every later one until ten clean aimed block
+            // clicks empty its buffer, so the mod holds those (GrimHitBuffer.placeClear) instead of sending them to be thrown
+            // away. So: each no-look click sent must be used by the server, at least one unlit lever must end lit, and a lever
+            // still unlit must have been held by that buffer gate (never simply missed).
+            c.ctx().waitTicks(20);
+            List<String> lines = dev.testkit.gametest.LogTap.since(mark);
+            Ap3AuraLook1116Cases.noLookTaken(c, since, lines, "Lights Aura during the held run");
+            Ap3AuraLook1116Cases.stepFour(c, flagFrom, lines, "Lights Aura during the held run");
+            boolean[] lit = LightsDeviceCases.litOnClient(c);
+            int litNow = 0;
+            StringBuilder unheld = new StringBuilder();
+            for (int i : new int[]{1, 5}) {
+                net.minecraft.core.BlockPos p = LightsDeviceCases.lever(LightsDeviceCases.LIGHTS[i]);
+                String at = p.getX() + ", " + p.getY() + ", " + p.getZ();
+                if (lit[i]) {
+                    litNow++;
+                } else if (lines.stream().noneMatch(l -> l.contains("no-look click on " + at + " held: it would be canceled"))) {
+                    unheld.append(' ').append(at);
+                }
+            }
+            c.note("unlit levers lit by the route " + litNow + " of 2");
+            c.check(litNow >= 1, "the Lights Aura lit none of the two unlit levers during the route");
+            c.check(unheld.length() == 0, "lever(s) left unlit without the RotationPlace buffer holding them:" + unheld);
         } finally {
             c.onClient(mc -> {
                 try {
