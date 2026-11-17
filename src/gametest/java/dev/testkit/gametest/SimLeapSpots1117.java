@@ -34,12 +34,19 @@ import static dev.testkit.gametest.SimLeap1116.chatSince;
  * Leaps changes nothing alone; Sim Class and Co-op Leaps survive a reload.</li>
  * <li>{@code 1117-sim-dragonorder}: the P5 dragon order is drawn per fight: seeds 11 and 12 give different orders of the
  * five, seed 11 again gives its first order, and the first flame and dragon are the order's first.</li>
+ * <li>{@code 1117-sim-f7end} (simleapspots2-1117, killer560 "in f7 there should be no stage after necron it should just
+ * end"): an F7 fight started at Necron ends (phase DONE, "boss cleared (Floor 7)") without ever entering P5 or drawing a
+ * dragon order.</li>
+ * <li>simleapspots2-1117 in {@code 1117-sim-leapspots}: F7 Necron sends a leap to ANY class to {@code /tpto necron}'s spot
+ * ("In necron have any leap be to the /tpto necron in f7"), and P1 leaps go from the crystal pads themselves (a right
+ * click there is no longer the pad's).</li>
  * </ul>
  */
 final class SimLeapSpots1117 {
 
     static final String NAME = "1117-sim-leapspots";
     static final String ORDER_NAME = "1117-sim-dragonorder";
+    static final String F7_END = "1117-sim-f7end";
     private static final String LEAP = "com.killer560.hub.roomsim.SimLeap";
     private static final String PREFS = "com.killer560.hub.roomsim.SimMenuPrefs";
     private static final String CLASSES = "com.killer560.hub.roomsim.SimClasses";
@@ -88,11 +95,13 @@ final class SimLeapSpots1117 {
         put("S4", "MAGE", 54.367, 115.0, 58.454, 179.9, -0.6);
         put("P4", "HEALER", 54.5, 5.0, 76.5, 179.9, -2.3);
         put("P4MAGE", "HEALER", 88.472, 6.0, 95.780, -110.2, 1.7);
+        // F7 Necron: every class goes to BossSpots "necron" (/tpto necron), its yaw 180 and a level look.
+        for (String c : new String[]{"MAGE", "TANK", "HEALER", "ARCHER", "BERSERKER"}) put("P4F7", c, 54.5, 65.0, 76.5, 180.0, 0.0);
     }
 
     /** Stage key -> the sim start and whether Master Mode. */
     private static final String[][] STAGES = {{"P1", "P1", "f"}, {"P2F7", "P2", "f"}, {"P2M7", "P2", "m"},
-            {"S1", "S1", "m"}, {"S2", "S2", "m"}, {"S3", "S3", "m"}, {"S4", "S4", "m"}, {"P4", "P4", "m"}};
+            {"S1", "S1", "m"}, {"S2", "S2", "m"}, {"S3", "S3", "m"}, {"S4", "S4", "m"}, {"P4", "P4", "m"}, {"P4F7", "P4", "f"}};
 
     private SimLeapSpots1117() {
     }
@@ -271,8 +280,9 @@ final class SimLeapSpots1117 {
                     }
                     for (String cls : ALL) {
                         if (cls.equals(self)) continue;
-                        // On a crystal pad a right click is the pad's (it asks for an Energy Crystal), so P1 leaps from the spawn.
-                        if (st[0].equals("P1")) SimBossTests.tp(ctx, 73.5, 221, 14.5, 0f, 0f);
+                        // P1: after the first leap he stands on a crystal pad, so the next leap's right click goes from the pad
+                        // (a pad is never clicked, simleapspots2-1117). F7 Necron: back to the P4 spawn, every leap lands on one spot.
+                        if (st[0].equals("P4F7")) SimBossTests.tp(ctx, 54.5, 64, 108.5, 0f, 0f);
                         leapTo(ctx, f, tag, cls, SPOTS.get(stage).get(cls));
                     }
                 }
@@ -338,6 +348,27 @@ final class SimLeapSpots1117 {
         if (seed != null) ModUnderTest.staticCall(FIGHT, "seedForTest", new Class<?>[]{long.class}, new Object[]{seed});
         start(ctx, "P5", true);
         return String.valueOf(call(FIGHT, "dragonOrder"));
+    }
+
+    /** F7 started at Necron: the fight ends after him, never P5, no dragon order drawn. */
+    static void f7End(ClientGameTestContext ctx, List<String> f) {
+        long mark = start(ctx, "P4", false);
+        expect(f, "F7 (not Master Mode)", call(FIGHT, "master"), false);
+        java.util.concurrent.atomic.AtomicBoolean p5 = new java.util.concurrent.atomic.AtomicBoolean();
+        boolean done = SimBossTests.until(ctx, "the F7 fight ends after Necron", mc -> {
+            String ph = String.valueOf(call(FIGHT, "phase"));
+            if (ph.equals("P5")) p5.set(true);
+            return ph.equals("DONE");
+        }, 700);
+        List<String> log = LogTap.since(mark);
+        println(F7_END, "done " + done + ", P5 seen " + p5.get() + ", " + call(FIGHT, "describe"));
+        expect(f, "Necron died", log.stream().anyMatch(l -> l.contains("[BossSim] Necron down at P4")), true);
+        expect(f, "the fight ended (DONE)", done, true);
+        expect(f, "never P5 on F7", p5.get(), false);
+        expect(f, "cleared as Floor 7", log.stream().anyMatch(l -> l.contains("[BossSim] boss cleared (Floor 7)")), true);
+        expect(f, "no dragon order drawn on F7", log.stream().anyMatch(l -> l.contains("P5 dragon order")), false);
+        ctx.waitTicks(40);
+        expect(f, "still DONE 2 s later", String.valueOf(call(FIGHT, "phase")), "DONE");
     }
 
     static void order(ClientGameTestContext ctx, List<String> f) {
