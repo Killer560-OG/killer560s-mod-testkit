@@ -68,7 +68,7 @@ public final class AaFastCases {
     /** Layout 7 (grid index dy + dz * 5); every frame's target rotation is 1. */
     private static final int[] LAYOUT = {5, 7, 9, 10, 12, 14, 15, 17, 19};
     /** Clicks each LAYOUT frame needs: 40 in all, every count 1-7 present. */
-    private static final int[] NEEDS = {7, 3, 5, 1, 6, 2, 4, 7, 5};
+    static final int[] NEEDS = {7, 3, 5, 1, 6, 2, 4, 7, 5};
     private static final AABB WALL = new AABB(-4, 118, 73, 0, 126, 81);
     private static final int[] LATENCIES = {0, 50, 150, 300};
     private static final Pattern ROT = Pattern.compile("has the following entity data: (\\d+)b");
@@ -142,7 +142,7 @@ public final class AaFastCases {
 
     // ---- setup ------------------------------------------------------------------------------------------------------
 
-    private static HxKit.Settings gateOff(Session c) {
+    static HxKit.Settings gateOff(Session c) {
         boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
         return new HxKit.Settings(c).custom(() -> Mod.staticCall("util.SkyblockGate", "setEnabled", false),
                 () -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas));
@@ -171,7 +171,7 @@ public final class AaFastCases {
     }
 
     /** Layout 7 afresh, frame i at rotation (1 - needs[i]) & 7. Returns {ids, uuids} in LAYOUT order. */
-    private static Object[] grid(Session c, int[] needs) {
+    static Object[] grid(Session c, int[] needs) {
         return grid(c, needs, true);
     }
 
@@ -198,7 +198,7 @@ public final class AaFastCases {
     }
 
     /** The server's own rotation of a frame, from {@code data get entity}. */
-    private static int serverRotation(Session c, String uuid) {
+    static int serverRotation(Session c, String uuid) {
         int before = c.server().countSince("has the following entity data");
         c.server().command("data get entity " + uuid + " ItemRotation");
         for (int i = 0; i < 300; i++) {
