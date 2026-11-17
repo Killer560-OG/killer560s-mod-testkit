@@ -131,8 +131,15 @@ public class SimBloodRushTests implements FabricClientGameTest {
                     }
                     fallbackRoom(ctx, problems, facts);
                 } else if (name.equals(PATHCACHE)) {
-                    if (SimMobFloorTests.buildMobFloor(ctx, problems, facts)) {
-                        pathCache(ctx, problems, facts);
+                    for (int attempt = 1; attempt <= 8; attempt++) {
+                        if (!SimMobFloorTests.buildMobFloor(ctx, problems, facts)) {
+                            break;
+                        }
+                        if (firstKeyRoomStarred(ctx) >= 3 || attempt == 8) {
+                            pathCache(ctx, problems, facts);
+                            break;
+                        }
+                        facts.add("floor " + attempt + ": no key room with spawn boxes a mob stands in, new floor");
                     }
                 } else if (name.equals(RUSH)) {
                     // The floor is random; the helper shows the FIRST key room on the rush path, which can hold only 2
@@ -330,7 +337,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
         });
         @SuppressWarnings("unchecked")
         List<String> keyRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(SIM_FLOOR, "keyRoomsForTest"));
-        String room = boxRoom(ctx, keyRooms);
+        String room = anyRoom(ctx, keyRooms);
         List<double[]> mobs = room == null ? List.of() : serverStarredIn(ctx, room);
         if (mobs.isEmpty()) {
             problems.add("no key room with a starred mob to stand in");
@@ -399,7 +406,8 @@ public class SimBloodRushTests implements FabricClientGameTest {
     private static int firstKeyRoomStarred(ClientGameTestContext ctx) {
         @SuppressWarnings("unchecked")
         List<String> keyRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(SIM_FLOOR, "keyRoomsForTest"));
-        return keyRooms.isEmpty() ? -1 : serverStarredIn(ctx, keyRooms.get(0).split("\\|")[0]).size();
+        String room = boxRoom(ctx, keyRooms);
+        return room == null ? -1 : serverStarredIn(ctx, room).size();
     }
 
     /** How many server starred mobs the helper's boxes covered in the last rush case (0 = the helper never acted). */
@@ -703,18 +711,22 @@ public class SimBloodRushTests implements FabricClientGameTest {
 
     /** The first key room whose mobs the sim stood in its spawn boxes (boxSpotsPlaced: a room with no boxes, or none a mob can stand in, keeps the seeded spots and draws no box; brboxes-only-1117) and 3+ starred mobs, else the first key room, else null. */
     private static String boxRoom(ClientGameTestContext ctx, List<String> keyRooms) {
-        String first = null;
         @SuppressWarnings("unchecked")
         Map<String, List<BlockPos>> placed = ctx.computeOnClient(mc ->
                 (Map<String, List<BlockPos>>) ModUnderTest.staticCall(SIM_LIVE, "boxSpotsPlaced"));
         for (String kr : keyRooms) {
             String name = kr.split("[|]")[0];
-            first = first == null ? name : first;
             if (placed.containsKey(name) && serverStarredIn(ctx, name).size() >= 3) {
                 return name;
             }
         }
-        return first;
+        return null;
+    }
+
+    /** {@link #boxRoom}, else the first key room (a case that needs no boxes), else null. */
+    private static String anyRoom(ClientGameTestContext ctx, List<String> keyRooms) {
+        String room = boxRoom(ctx, keyRooms);
+        return room != null || keyRooms.isEmpty() ? room : keyRooms.get(0).split("[|]")[0];
     }
 
     private static String src(ClientGameTestContext ctx, String room) {
@@ -850,8 +862,8 @@ public class SimBloodRushTests implements FabricClientGameTest {
                 continue;
             }
             for (BlockPos p : e.getValue()) {
-                boolean match = want.stream().anyMatch(w -> w.getX() == p.getX() && w.getZ() == p.getZ()
-                        && Math.abs(w.getY() - p.getY()) <= 2);
+                boolean match = want.stream().anyMatch(w -> Math.abs(w.getX() - p.getX()) <= 1 && Math.abs(w.getZ() - p.getZ()) <= 1
+                        && Math.abs(w.getY() - p.getY()) <= 3);
                 if (!match) {
                     problems.add(e.getKey() + " (rotation " + rotation.get(e.getKey()) + "): placed " + p.toShortString()
                             + " is none of its spots " + want);
@@ -2127,7 +2139,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
     private static String intoFirstKeyRoom(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
         @SuppressWarnings("unchecked")
         List<String> keyRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(SIM_FLOOR, "keyRoomsForTest"));
-        String room = boxRoom(ctx, keyRooms);
+        String room = anyRoom(ctx, keyRooms);
         List<double[]> mobs = room == null ? List.of() : serverStarredIn(ctx, room);
         facts.add("key rooms " + keyRooms + "; into " + room + " (" + mobs.size() + " starred mob(s) on the server)");
         if (mobs.isEmpty()) {

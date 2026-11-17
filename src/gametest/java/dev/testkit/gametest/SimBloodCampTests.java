@@ -307,7 +307,12 @@ public class SimBloodCampTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> {
             List<String> rooms = new ArrayList<>(rel.keySet());
             java.util.Collections.sort(rooms);
-            for (int i = 0; i < rooms.size(); i += 2) {
+            // The first two rooms of each rotation get a recorded look, so every rotation is judged however few of them stand.
+            Map<Integer, Integer> perRotation = new HashMap<>();
+            for (int i = 0; i < rooms.size(); i++) {
+                if (perRotation.merge(rotation.get(rooms.get(i)), 1, Integer::sum) > 2) {
+                    continue;
+                }
                 lookRooms.add(rooms.get(i));
                 for (int[] p : rel.get(rooms.get(i))) {
                     ModUnderTest.staticCall(LOOKS, "putForTest", new Class<?>[]{String.class, int.class, int.class, int.class,
