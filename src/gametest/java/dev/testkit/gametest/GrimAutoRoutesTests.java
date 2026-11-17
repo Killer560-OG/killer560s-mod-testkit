@@ -306,13 +306,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 // The chain layout: a zombie beside him and a pair 4 either side of the line 11 on (its own plan group): the
                 // casts chain with no etherwarp. His action goes in the same ticks as those chain casts.
                 s.test("62-argrim-1117-chain", c -> caseAutoClearHype(c, null, false, true));
+                // Right after the plain chain row: the chain is taken only where it is the cheaper link, and the prices Auto Clear
+                // has learned by the later rows (his swaps and teleports in the same ticks) can tip a close choice to the trip.
+                s.test("62-argrim-1117-same-chain-second", c -> caseAutoClearHype(c, null, true, true));
                 for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
                         dev.testkit.gametest.SameTick.Act.OPEN_CLICK, dev.testkit.gametest.SameTick.Act.ATTACK,
                         dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.TP)) {
                     s.test("62-argrim-1117-same-chain-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""),
                             c -> caseAutoClearHype(c, a, false, true));
                 }
-                s.test("62-argrim-1117-same-chain-second", c -> caseAutoClearHype(c, null, true, true));
             }
             // simmobs2-1101 (mod doc-adm-sim-1101): a sleeping Fel woken by an etherwarp, and by the forced walk after a setback;
             // a dropped Wither Key fetched by an etherwarp trip, and by the forced walk after a setback.
