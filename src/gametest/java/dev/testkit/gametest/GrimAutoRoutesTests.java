@@ -303,6 +303,16 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                             c -> caseAutoClearHype(c, a, false));
                 }
                 s.test("62-argrim-1117-same-achype-second", c -> caseAutoClearHype(c, null, true));
+                // The chain layout: a zombie beside him and a pair 4 either side of the line 11 on (its own plan group): the
+                // casts chain with no etherwarp. His action goes in the same ticks as those chain casts.
+                s.test("62-argrim-1117-chain", c -> caseAutoClearHype(c, null, false, true));
+                for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                        dev.testkit.gametest.SameTick.Act.OPEN_CLICK, dev.testkit.gametest.SameTick.Act.ATTACK,
+                        dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.TP)) {
+                    s.test("62-argrim-1117-same-chain-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""),
+                            c -> caseAutoClearHype(c, a, false, true));
+                }
+                s.test("62-argrim-1117-same-chain-second", c -> caseAutoClearHype(c, null, true, true));
             }
             // simmobs2-1101 (mod doc-adm-sim-1101): a sleeping Fel woken by an etherwarp, and by the forced walk after a setback;
             // a dropped Wither Key fetched by an etherwarp trip, and by the forced walk after a setback.
@@ -3769,6 +3779,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * clearRoom again after the first cast. GrimAC is read for the whole stretch (both configs: the experimental checkout).
      */
     private static void caseAutoClearHype(Session c, dev.testkit.gametest.SameTick.Act act, boolean second) {
+        caseAutoClearHype(c, act, second, false);
+    }
+
+    private static void caseAutoClearHype(Session c, dev.testkit.gametest.SameTick.Act act, boolean second, boolean chain) {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
         arena(ctx, false);
@@ -3784,7 +3798,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         });
         tpRel(ctx, 6.5, 15.5, -90f, 0f);
         ctx.waitTicks(10);
-        double[][] spots = {{10.5, 15.5}, {18.5, 15.5}, {21.5, 23.5}};
+        double[][] spots = chain ? new double[][]{{5.5, 15.5}, {17.5, 11.5}, {17.5, 19.5}}
+                : new double[][]{{10.5, 15.5}, {18.5, 15.5}, {21.5, 23.5}};
         List<JsonObject> mobs = new ArrayList<>();
         for (double[] sp : spots) {
             Vec3 at = ctx.computeOnClient(mc -> {
@@ -3839,9 +3854,17 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         if (second) {
             start.run();
         }
+        List<Integer> chainTicks = new ArrayList<>();
         boolean finished = waitFor(ctx, 600, () -> {
             if (hits) {
                 c.server().command("execute as @e[tag=achypehit] at @a[limit=1] run tp @s ~ ~-1.5 ~");
+            }
+            int seen = 0;
+            for (String l : LogTap.since(m)) {
+                seen += l.contains("[AutoClear] Wither Impact chain") ? 1 : 0;
+            }
+            if (seen > chainTicks.size()) {
+                chainTicks.add(PacketTrace.tickCount());
             }
             return !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto, "isBusy"));
         });
@@ -3871,6 +3894,25 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         int impacts = delta(before, "witherImpacts");
         int warps = delta(before, "etherwarps");
         boolean across = logHas(m, "[AutoClear] Wither Impact across");
+        if (chain) {
+            // The wire: a chained cast is a use_item with no etherwarp trip before it. Each chain line's tick is followed by
+            // the cast within a few ticks; that tick's packets (his action's too, in a same-tick case) are quoted.
+            int chained = chainTicks.size();
+            int onWire = 0;
+            for (int t : chainTicks) {
+                for (Sample x : s) {
+                    if (x.tick() >= t - 1 && x.tick() <= t + 8 && x.out().contains("use_item")) {
+                        onWire++;
+                        println("  chain cast on the wire, tick " + x.tick() + ": " + x.out());
+                        break;
+                    }
+                }
+            }
+            c.note("chain casts logged " + chained + ", on the wire " + onWire);
+            check(chained >= 1, "no Wither Impact chain cast (the chain case tested nothing)");
+            check(onWire == chained, "a chain cast never reached the wire: logged " + chained + ", sent " + onWire);
+            check(warps == 0, warps + " etherwarp(s) in the chain layout");
+        }
         c.note("achype " + (act == null ? second ? "second" : "plain" : act) + ": mobs " + states + ", Wither Impacts "
                 + impacts + ", etherwarps " + warps + ", across " + across + ", use_item " + count(s, "use_item"));
         check(firstCast, "no Wither Impact cast within 100 ticks");
@@ -3881,7 +3923,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             for (int i = 0; i < mobs.size(); i++) {
                 check(!"alive".equals(states.get(i)), "starred mob " + i + " is still alive");
             }
-            check(across, "no Wither Impact across: A and B were not taken by one cast");
+            check(chain || across, "no Wither Impact across: A and B were not taken by one cast");
             check(warps == 0, warps + " etherwarp(s): the cast chain should have reached every mob");
             check(finished && done.get() != null && gaveUp.get() == null, "clearRoom ended onDone=" + done.get()
                     + " onGiveUp=" + gaveUp.get());
