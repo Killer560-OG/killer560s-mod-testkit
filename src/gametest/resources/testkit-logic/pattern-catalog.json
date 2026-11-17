@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T07:46:57",
- "modSource": "lane-ap3auralook-1116",
- "modGitSha": "0644712e0b0c69de4edcc26c7f5b10792956100c",
+ "generatedAt": "2026-11-17T09:01:44",
+ "modSource": "lane-termburstgap-1117",
+ "modGitSha": "e2df6edc09cb946761ba56e8cbac48c79d7a2efc",
  "modSourceDirty": false,
  "count": 990,
  "byKind": {
