@@ -263,7 +263,7 @@ final class LeverPlace1117Cases {
             });
             List<String> wire = WireCapture.snapshot().stream().map(WireCapture.Sent::text).toList();
             List<String> lines = LogTap.since(mark);
-            long held = lines.stream().filter(l -> l.contains("held: it would be canceled")).count();
+            long held = lines.stream().filter(l -> l.contains("held: it would be canceled") || l.contains("flick held:")).count();
             c.note("walked " + walkTicks + " ticks (in range " + inRange + "), lever uses while walking " + whileWalking
                     + ", held lines " + held + ", flicked " + after + " tick(s) after letting go: " + flicked + ", uses in all "
                     + leverUses(wire));
