@@ -94,7 +94,7 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] TITLE_CASES = {"340-ui-mainmenu", "330-ui-migrate", "310-ui-config-file-roundtrip",
             "311-ui-config-setters", "320-ui-profiles", "1102-ui-profile-streamer", "380-ui-autoscale",
             // title-262 (2026-10-13)
-            "341-ui-title-widgets"};
+            "341-ui-title-widgets", "1116-ui-vanilla-menu"};
     static final String[] WORLD_CASES = {"301-ui-smoke-tabs", "302-ui-smoke-search", "303-ui-smoke-toggles",
             "304-ui-smoke-hud-editor", "305-ui-smoke-screens", "306-ui-smoke-commands", "350-ui-termism",
             "360-ui-visuals", "365-ui-overlay-draws", "307-ui-profit", "385-ui-interactive-map", "386-ui-sliders",
@@ -551,6 +551,7 @@ public class UiSuite implements FabricClientGameTest {
             UiCase.run(ctx, "380-ui-autoscale", AutoScaleCases::autoScale);
             // title-262 (2026-10-13): no stray widget on the themed title screen, none overlapping
             UiCase.run(ctx, "341-ui-title-widgets", TitleWidgetCases::titleWidgets);
+            UiCase.run(ctx, "1116-ui-vanilla-menu", VanillaMenuCases::vanillaMenu);
 
             if (anyWorld) {
                 long worldStart = System.nanoTime();

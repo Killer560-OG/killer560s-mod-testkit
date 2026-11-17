@@ -36,6 +36,7 @@
     "gui.tab.IcedMobsTab": "Dungeons > Iced Mob Boxes",
     "gui.tab.BossPearlTab": "Dungeons > Block Ender Pearls In Boss",
     "gui.tab.AutoCloseChestTab": "Dungeons > Auto Close Chest",
+    "gui.tab.ChatChannelTab": "Chat > Chat Channel",
     "gui.tab.ChatHiderTab": "Chat > Chat Hider",
     "gui.tab.CommandPrefixesTab": "Chat > Command Prefixes",
     "gui.tab.ModsScreenTab": "Misc > Mods Screen",
