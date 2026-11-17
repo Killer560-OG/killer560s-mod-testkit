@@ -26,7 +26,7 @@ final class DefaultsOff1104Cases {
             {"leftclicksecrets.LeftClickSecretsConfig", "enabled"},
             {"milestone.MilestoneConfig", "enabled"},
             {"itemhighlight.DungeonItemHighlightConfig", "enabled"},
-            {"bloodrush.BloodRushConfig", "enabled", "learnSpots"},
+            {"bloodrush.BloodRushConfig", "enabled"},
             {"lfg.LfgConfig", "enabled"},
             {"terminals.TerminalQolConfig", "terminalSounds", "clickPath"},
             {"terminals.TerminalSolverConfig", "queueTerms"},
