@@ -148,7 +148,6 @@ public class SimHelpTests implements FabricClientGameTest {
         // screen the way vanilla does (Screen.resize(w, h)) and measured from its layout, with no render involved.
         int[][] sizes = {{1920, 1080, 1}, {1920, 1080, 2}, {1920, 1080, 3}, {1920, 1080, 4}, {854, 480, 2}};
         int scrolling = 0;
-        int[] orig = ctx.computeOnClient(mc -> new int[]{McCompat.screen(mc).width, McCompat.screen(mc).height});
         for (int[] s : sizes) {
             final int sw = s[0] / s[2], sh = s[1] / s[2];
             for (int p = 0; p < pages; p++) {
@@ -177,7 +176,7 @@ public class SimHelpTests implements FabricClientGameTest {
                     scrolling++;
                 }
                 if (s[0] == 1920 && s[2] == 2 && (p == 0 || p == 3)) {
-                    ctx.runOnClient(mc -> McCompat.screen(mc).resize(orig[0], orig[1])); // the real window's size, for the picture
+                    ctx.runOnClient(mc -> McCompat.screen(mc).resize(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight())); // the real window, for the picture
                     ctx.waitTicks(3);
                     Path shot = ctx.takeScreenshot(dev.testkit.harness.Report.fileName(NAME + "-page" + (p + 1)));
                     Report.screenshot(NAME, shot);
@@ -191,10 +190,11 @@ public class SimHelpTests implements FabricClientGameTest {
         facts.add("every page fits at 1920x1080 GUI 1-4 and 854x480 GUI 2 (" + scrolling + " page views scroll)");
 
         // Esc closes.
-        ctx.runOnClient(mc -> mc.execute(() -> McCompat.screen(mc).keyPressed(new net.minecraft.client.input.KeyEvent(256, 0, 0))));
+        boolean[] handled = new boolean[1];
+        ctx.runOnClient(mc -> handled[0] = McCompat.screen(mc).keyPressed(new net.minecraft.client.input.KeyEvent(256, 0, 0)));
         ctx.waitTicks(5);
         String after = ctx.computeOnClient(mc -> McCompat.screen(mc) == null ? "none" : McCompat.screen(mc).getClass().getName());
-        check(problems, !after.equals(SCREEN), "Esc did not close the guide (" + after + ")");
+        check(problems, !after.equals(SCREEN), "Esc did not close the guide (" + after + ", keyPressed returned " + handled[0] + ")");
         facts.add("Esc closed it (screen now " + after + ")");
 
         // Outside the sim /help opens nothing of ours.
