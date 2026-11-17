@@ -28,6 +28,7 @@ final class HxSocialCases {
         chatCommands(s);
         partyCommands(s);
         partyList(s);
+        autoAcceptInvites(s);
         commandShortcuts(s);
         commandKeybinds(s);
         autoJoinSkyblock(s);
@@ -147,6 +148,59 @@ final class HxSocialCases {
               c.check(left == null, "PartyLeaderTracker still names " + left + " after 'You left the party.'");
             }
         });
+    }
+
+    // ---- 1117 Auto Accept Invites (audit-acceptinv-1117) --------------------------------------------------------
+
+    @SuppressWarnings("unchecked")
+    private static void autoAcceptInvites(Session s) {
+        s.test("1117-hx-autoacceptinvites", c -> {
+            String invite = framed("HxInviter");
+            boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+            try (Settings set = new Settings(c)) {
+                run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", false));
+                c.hx().chat("§eYou left the party.");
+                c.ctx().waitTicks(4);
+                run(c, () -> {
+                    Mod.staticCall("lfg.LfgCommandGate", "resetForTest");
+                    Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "resetForTest");
+                });
+                // Off by default: an invite is answered with nothing.
+                c.hx().chat(invite);
+                c.ctx().waitTicks(6);
+                List<String> sentOff = c.onClient(mc -> (List<String>) Mod.staticCall("lfg.LfgCommandGate", "sent"));
+                c.check(sentOff.isEmpty(), "Auto Accept Invites OFF still sent " + sentOff);
+                List<String> evOff = c.onClient(mc -> (List<String>) Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "events"));
+                c.check(evOff.stream().anyMatch(e -> e.contains("HxInviter") && e.endsWith("OFF")), "the OFF invite never reached the feature: " + evOff);
+                set.with("partyinvites.AutoAcceptInvitesConfig", "Enabled", true);
+                c.hx().chat(framed("HxInviterB"));
+                c.ctx().waitTicks(10);
+                List<String> events = c.onClient(mc -> (List<String>) Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "events"));
+                List<String> sentOn = c.onClient(mc -> (List<String>) Mod.staticCall("lfg.LfgCommandGate", "sent"));
+                c.check(sentOn.contains("/party accept HxInviterB"), "no accept sent; sent " + sentOn + ", events " + events
+                        + ", teammates " + c.onClient(mc -> Mod.staticCall("leapmenu.PartyTracker", "teammates")));
+                // In a party: never accepted.
+                c.hx().chat("§eYou have joined HxLeader's party!");
+                c.ctx().waitTicks(4);
+                run(c, () -> Mod.staticCall("lfg.LfgCommandGate", "resetForTest"));
+                c.hx().chat(framed("HxOther"));
+                c.ctx().waitTicks(6);
+                List<String> sentIn = c.onClient(mc -> (List<String>) Mod.staticCall("lfg.LfgCommandGate", "sent"));
+                c.check(sentIn.isEmpty(), "accepted an invite while in a party: " + sentIn);
+                List<String> evIn = c.onClient(mc -> (List<String>) Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "events"));
+                c.check(evIn.stream().anyMatch(e -> e.contains("HxOther") && e.endsWith("IN_PARTY")), "the in-party invite was not seen and refused: " + evIn);
+                c.note("off ->" + sentOff + "; on -> accepted HxInviter; later invite sent " + sentIn + "; events " + events);
+            } finally {
+                c.hx().chat("§eYou left the party.");
+                run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas));
+            }
+        });
+    }
+
+    /** Hypixel's framed party invite: bar, the invite line, the accept line, bar (the mod needs all four). */
+    private static String framed(String name) {
+        String bar = "§9§m-----------------------------------------------------";
+        return bar + "\n§7[MVP§c+§7] " + name + "§e has invited you to join their party!\n§eYou have §c60 §eseconds to accept. §6Click here to join!\n" + bar;
     }
 
     private static String text(dev.testkit.gametest.Fixtures.Fixture f) {
