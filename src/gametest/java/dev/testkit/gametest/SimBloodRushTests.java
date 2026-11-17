@@ -991,7 +991,8 @@ public class SimBloodRushTests implements FabricClientGameTest {
         Set<String> checked = new java.util.LinkedHashSet<>();
         Set<String> newChecked = new java.util.LinkedHashSet<>();
         boolean killed = false;
-        for (int floor = 1; floor <= 5; floor++) {
+        // Floors are random: the 8 newly covered rooms must turn up at two rotations, which five floors gave only by luck.
+        for (int floor = 1; floor <= 10; floor++) {
             if (checked.size() >= 3 && rotations.size() >= 2 && newChecked.size() >= 2 && newRotations.size() >= 2 && killed) {
                 break;
             }
