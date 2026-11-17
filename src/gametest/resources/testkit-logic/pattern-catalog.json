@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T01:03:30",
- "modSource": "minehud-1117",
- "modGitSha": "d7b88b5c48203e83d8b966d8b207d2d6af96aa48",
+ "generatedAt": "2026-11-17T03:44:38",
+ "modSource": "lane-minehud-1117",
+ "modGitSha": "3ae768e92612065c27fc2069234520b0c26e0a16",
  "modSourceDirty": false,
- "count": 986,
+ "count": 990,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 858,
+  "field": 862,
   "local": 43
  },
  "unresolved": 160,
@@ -2100,6 +2100,54 @@
    "flags": null,
    "kind": "field",
    "expr": "\"(\\\\d+(?:\\\\.\\\\d+)?)\\\\s*s\\\\b\""
+  },
+  {
+   "id": "chatchannel.ChatChannelFeature#NOW_IN",
+   "cls": "chatchannel.ChatChannelFeature",
+   "field": "NOW_IN",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/chatchannel/ChatChannelFeature.java",
+   "line": 42,
+   "regex": "^You are now in the ([A-Za-z -]{3,20}) channel\\.?$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^You are now in the ([A-Za-z -]{3,20}) channel\\\\.?$\""
+  },
+  {
+   "id": "chatchannel.ChatChannelFeature#MOVED_ALL",
+   "cls": "chatchannel.ChatChannelFeature",
+   "field": "MOVED_ALL",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/chatchannel/ChatChannelFeature.java",
+   "line": 43,
+   "regex": "^(?:You are not in a party and were moved to the ALL channel\\.|The conversation you were in expired and you have been moved back to the ALL channel\\.)$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(?:You are not in a party and were moved to the ALL channel\\\\.|\" + \"The conversation you were in expired and you have been moved back to the ALL channel\\\\.)$\""
+  },
+  {
+   "id": "chatchannel.ChatChannelFeature#OPENED",
+   "cls": "chatchannel.ChatChannelFeature",
+   "field": "OPENED",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/chatchannel/ChatChannelFeature.java",
+   "line": 45,
+   "regex": "^Opened a chat conversation with (?:\\[[^\\]]{1,20}] )?([A-Za-z0-9_]{1,16}) for the next 5 minutes\\.",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^Opened a chat conversation with (?:\\\\[[^\\\\]]{1,20}] )?([A-Za-z0-9_]{1,16}) for the next 5 minutes\\\\.\""
+  },
+  {
+   "id": "chatchannel.ChatChannelFeature#CHAT_COMMAND",
+   "cls": "chatchannel.ChatChannelFeature",
+   "field": "CHAT_COMMAND",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/chatchannel/ChatChannelFeature.java",
+   "line": 46,
+   "regex": "^(?:chat|channel)\\s+(\\S{1,32})\\s*$",
+   "flags": "Pattern.CASE_INSENSITIVE",
+   "kind": "field",
+   "expr": "\"^(?:chat|channel)\\\\s+(\\\\S{1,32})\\\\s*$\""
   },
   {
    "id": "chattabs.ChatTabsFeature#WHISPER",
