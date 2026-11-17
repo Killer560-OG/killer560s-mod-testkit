@@ -253,6 +253,32 @@ final class Ap3AuraLook1116Cases {
         return got.size();
     }
 
+    private static final java.util.regex.Pattern NO_LOOK_AT =
+            java.util.regex.Pattern.compile("click on (-?\\d+), (-?\\d+), (-?\\d+) with no look");
+
+    /**
+     * Taken, not just sent (aurarefgrim-1116 measured plain no-look block clicks canceled by GrimAC): every no-look block
+     * click in {@code lines} must have a server use_block at that block since {@code since} (HxEvents' UseBlockCallback
+     * runs only for a use_item_on GrimAC let through). Returns the clicks the server never used.
+     */
+    static int noLookTaken(Session c, long since, List<String> lines, String what) {
+        java.util.Map<String, Integer> sent = new java.util.TreeMap<>();
+        for (String l : lines) {
+            java.util.regex.Matcher m = NO_LOOK_AT.matcher(l);
+            if (l.contains("[TurnFirst]") && m.find()) sent.merge(m.group(1) + "," + m.group(2) + "," + m.group(3), 1, Integer::sum);
+        }
+        java.util.Map<String, Integer> used = new java.util.TreeMap<>();
+        for (JsonObject e : c.hx().events(since, "use_block")) {
+            com.google.gson.JsonArray p = e.getAsJsonArray("pos");
+            used.merge(p.get(0).getAsInt() + "," + p.get(1).getAsInt() + "," + p.get(2).getAsInt(), 1, Integer::sum);
+        }
+        int lost = 0;
+        for (var s : sent.entrySet()) lost += Math.max(0, s.getValue() - used.getOrDefault(s.getKey(), 0));
+        c.note(what + ": no-look block clicks sent " + sent + ", server use_block " + used + ", never used " + lost);
+        c.check(lost == 0, what + ": GrimAC canceled " + lost + " no-look block click(s); the server never used the block");
+        return lost;
+    }
+
     private static void stopAp3(Session c) {
         c.onClient(mc -> {
             Mod.staticCall(EXEC, "stop", "test lane");

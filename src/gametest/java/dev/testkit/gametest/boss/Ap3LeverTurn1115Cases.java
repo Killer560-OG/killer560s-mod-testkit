@@ -307,6 +307,7 @@ final class Ap3LeverTurn1115Cases {
             // had heard no rotation yet), one tick out of step with every later walk (experimental run, 11-15).
             runOnce(c, true, null, true);
             int flags0 = c.scenario().flags().size();
+            long since = c.hx().head();
             Run off = runOnce(c, false, sameAct, true);
             double[] camOff = lastCam;
             // retry: no new run, so Lever Aura still holds the lever AP3 flicked in the walk above.
@@ -364,6 +365,7 @@ final class Ap3LeverTurn1115Cases {
             List<String> all = new ArrayList<>(off.lines());
             all.addAll(on.lines());
             Ap3AuraLook1116Cases.stepFour(c, flags0, all, secret ? "Secret Aura on the boss lever" : "Lever Aura on the walk");
+            Ap3AuraLook1116Cases.noLookTaken(c, since, all, secret ? "Secret Aura on the boss lever" : "Lever Aura on the walk");
             if (secret) {
                 c.note("Secret Aura one-packet-look clicks (lever off): " + secretPacketClicks + "; in boss "
                         + c.onClient(mc -> Mod.staticCall("livemap.LiveMapFeature", "isInBoss")));

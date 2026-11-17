@@ -143,10 +143,12 @@ final class Ap3LightsPathCases {
             int flags0 = c.scenario().flags().size();
             c.check(flags0 == start, "the aura-off run drew flags: " + c.scenario().flags().subList(start, flags0));
             long mark = dev.testkit.gametest.LogTap.mark();
+            long since = c.hx().head();
             List<double[]> withAura = runOnce(c, true, f);
             c.ctx().waitTicks(20);
             List<String> lines = dev.testkit.gametest.LogTap.since(mark);
             c.note("click lines: " + lines.stream().filter(l -> l.contains("[TurnFirst] click on")).toList());
+            Ap3AuraLook1116Cases.noLookTaken(c, since, lines, "Lights Aura beside the walk");
             int flicks = f[0];
             int flicksAfterInput = f[1];
             int n = Math.min(base.size(), withAura.size());
