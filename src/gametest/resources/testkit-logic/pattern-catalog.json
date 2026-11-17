@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-16T21:46:56",
- "modSource": "lane-luckflood-1116",
- "modGitSha": "7bfe74f7fd01660d9e968d8653827d59a2373160",
+ "generatedAt": "2026-11-16T22:44:37",
+ "modSource": "lane-trainfix-spiral-1116",
+ "modGitSha": "56eb95027018b06f17728eb018bd4c1734f70b48",
  "modSourceDirty": false,
  "count": 983,
  "byKind": {
