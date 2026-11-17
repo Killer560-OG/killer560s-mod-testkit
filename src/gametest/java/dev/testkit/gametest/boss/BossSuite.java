@@ -82,6 +82,7 @@ public class BossSuite implements FabricClientGameTest {
                     WitherDragonsP5Cases.register(s);
                     Ee3RouteGrimCases.register(s); // ee3route-1109
                     Ap3LeverTurn1115Cases.register(s); // ap3leverturn-1115
+                    Ap3AuraLook1116Cases.register(s); // ap3auralook-1116
                     TermCloseCases.register(s); // mod lines wait out a terminal opening (1111-termclose-*, termclose-1111)
                 });
     }
