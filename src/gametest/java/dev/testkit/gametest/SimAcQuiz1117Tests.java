@@ -153,7 +153,10 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         });
         SimAutoClearTests.setMode(ctx, "ANY_MOB_ROOM", "SPIRIT_SCEPTRE");
         if (!withMobs) {
-            int gone = ctx.computeOnClient(SimAcQuiz1117Tests::removeMobs);
+            java.util.concurrent.atomic.AtomicInteger removed = new java.util.concurrent.atomic.AtomicInteger(-1);
+            ctx.runOnClient(mc -> removeMobs(mc, removed));
+            ctx.waitFor(mc -> removed.get() >= 0, 400);
+            int gone = removed.get();
             ctx.waitTicks(20);
             println(name, "removed " + gone + " mob(s) on the server: nothing else to clear");
         }
@@ -208,7 +211,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             if (oruo < 0 && (l.contains("Oruo began") || l.contains("I am Oruo the Omniscient"))) {
                 oruo = i;
             }
-            if (l.contains("[Sim] room cleared:")) {
+            if (l.contains("[Sim] room cleared:") || l.contains("[AutoClear] room cleared:")) {
                 clears.add(i);
             }
             if (l.contains("[AutoClear] Quiz countdown")) {
@@ -262,12 +265,11 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         }
     }
 
-    /** Server: every mob (not armor stands, not players) discarded. */
-    private static int removeMobs(Minecraft mc) {
+    /** Server: every mob (not armor stands, not players) discarded; {@code out} gets the count when done. */
+    private static void removeMobs(Minecraft mc, java.util.concurrent.atomic.AtomicInteger out) {
         var server = mc.getSingleplayerServer();
-        int[] n = {0};
-        java.util.concurrent.CompletableFuture<Void> f = new java.util.concurrent.CompletableFuture<>();
         server.execute(() -> {
+            int n = 0;
             for (var level : server.getAllLevels()) {
                 List<net.minecraft.world.entity.Entity> list = new ArrayList<>();
                 for (net.minecraft.world.entity.Entity e : level.getAllEntities()) {
@@ -277,17 +279,11 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                 }
                 for (net.minecraft.world.entity.Entity e : list) {
                     e.discard();
-                    n[0]++;
+                    n++;
                 }
             }
-            f.complete(null);
+            out.set(n);
         });
-        try {
-            f.get(10, java.util.concurrent.TimeUnit.SECONDS);
-        } catch (Exception e) {
-            throw new AssertionError("server did not remove the mobs: " + e);
-        }
-        return n[0];
     }
 
     /** An F7 with the Quiz pinned; its code, or null when the pin was dropped. Client thread. */
