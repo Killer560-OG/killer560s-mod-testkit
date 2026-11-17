@@ -497,9 +497,8 @@ final class Ap3S2ee3Cases {
                 Ap3RuntimeTests.staticCallStop();
                 return null;
             });
-            cmd(c, "tp @p %.3f %.3f %.3f 140 0", x + DX, y, z);
-            c.server().sync(20);
-            ctx.waitTicks(25);
+            Ap3RuntimeTests.jumpTo(c, x + DX, y, z, "140 0", (int) (x + DX), (int) (x + DX));
+            ctx.waitTicks(10);
             Object n34 = node("FAST_ALIGN", 2.5, 109, 105.5, 0f, box);
             onClient(ctx, mc -> {
                 setChain(n34);

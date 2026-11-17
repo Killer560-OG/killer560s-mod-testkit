@@ -455,6 +455,46 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
     }
 
     /**
+     * Server tp to (x, y, z) with the given look ("yaw pitch"), then wait until the client has the chunks of z from x0 to x1.
+     * After a long teleport (the 1027 S2EE3 and boss-floor cases sit far from the lanes) the client does not have the
+     * chunks yet, and standing in them while they arrive drew GrimAC Simulation .150944 before AP3 ran
+     * (1027-ap3-close-terminal after 1027-ap3-s2ee3-leapin-low, every full 63-ap3 group, ap3grp-1109; 1027-ap3-s2ee3-lowstep
+     * .629553 on 26.2, quarsweep-1116). Such a jump goes in spectator, which Grim does not simulate, and he is put back in his
+     * mode once every chunk is in. Ask the chunk source: ClientLevel.hasChunk (and so level.hasChunkAt) is hard-wired true
+     * on 26.x, which made this gate and the wait below no-ops until ap3grp2-1110.
+     */
+    static void jumpTo(Session c, double x, double y, double z, String look, int x0, int x1) {
+        ClientGameTestContext ctx = c.ctx();
+        String[] seen = new String[1];
+        String mode = onClient(ctx, mc -> {
+            boolean loaded = mc.level.getChunkSource().hasChunk((int) Math.floor(x) >> 4, (int) Math.floor(z) >> 4);
+            seen[0] = String.format(Locale.ROOT, "jump from (%.1f, %.1f, %.1f) to (%.1f, %.1f, %.1f): chunk loaded %b, mode %s",
+                    mc.player.getX(), mc.player.getY(), mc.player.getZ(), x, y, z, loaded, mc.gameMode.getPlayerMode());
+            return loaded ? null : mc.gameMode.getPlayerMode().name().toLowerCase(Locale.ROOT);
+        });
+        c.note(seen[0]);
+        if (mode != null) {
+            c.server().command("gamemode spectator @p");
+        }
+        c.server().command(String.format(Locale.ROOT, "tp @p %.3f %.3f %.3f %s", x, y, z, look));
+        c.server().sync(20);
+        ctx.waitTicks(15);
+        c.waitUntil("the chunks on the client", mc -> {
+            for (int cx = x0; cx <= x1; cx += 8) {
+                if (!mc.level.getChunkSource().hasChunk(cx >> 4, (int) Math.floor(z) >> 4)) {
+                    return false;
+                }
+            }
+            return true;
+        }, 200);
+        if (mode != null) {
+            c.server().command("gamemode " + mode + " @p");
+            c.server().sync(20);
+            ctx.waitTicks(10);
+        }
+    }
+
+    /**
      * Put him at the lane's start (server tp, facing +x), arm the given nodes, then walk him into the RUN box with a
      * real W press and let go inside it - the hand-over AP3 is built for. Returns once the run is carrying him.
      */
@@ -470,39 +510,7 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         // place that instead of the slab, with no slot change to judge.
         c.server().command("kill @e[type=item]");
         c.server().command("item replace entity @p hotbar.0 with minecraft:air");
-        // After a long teleport (the 1027 S2EE3 and boss-floor cases sit far from the lanes) the client does not have the
-        // lane's chunks yet, and standing in them while they arrive drew GrimAC Simulation .150944 before AP3 ran
-        // (1027-ap3-close-terminal after 1027-ap3-s2ee3-leapin-low, every full 63-ap3 group, ap3grp-1109). Such a jump
-        // goes in spectator, which Grim does not simulate, and he is put back in his mode once every chunk is in.
-        // Ask the chunk source: ClientLevel.hasChunk (and so level.hasChunkAt) is hard-wired true on 26.x, which made this
-        // gate and the wait below no-ops until ap3grp2-1110.
-        String[] seen = new String[1];
-        String mode = onClient(ctx, mc -> {
-            boolean loaded = mc.level.getChunkSource().hasChunk(LANE_X0 >> 4, (int) Math.floor(z) >> 4);
-            seen[0] = String.format(Locale.ROOT, "lane jump from (%.1f, %.1f, %.1f) to z %.1f: lane chunk loaded %b, mode %s",
-                    mc.player.getX(), mc.player.getY(), mc.player.getZ(), z, loaded, mc.gameMode.getPlayerMode());
-            return loaded ? null : mc.gameMode.getPlayerMode().name().toLowerCase(Locale.ROOT);
-        });
-        c.note(seen[0]);
-        if (mode != null) {
-            c.server().command("gamemode spectator @p");
-        }
-        c.server().command(String.format(Locale.ROOT, "tp @p %.2f %d %.2f -90 0", LANE_X0 + 0.5, FLOOR + 1, z));
-        c.server().sync(20);
-        ctx.waitTicks(15);
-        c.waitUntil("the lane's chunks on the client", mc -> {
-            for (int x = LANE_X0 - 8; x <= LANE_X0 + LANE_LEN + 8; x += 8) {
-                if (!mc.level.getChunkSource().hasChunk(x >> 4, (int) Math.floor(z) >> 4)) {
-                    return false;
-                }
-            }
-            return true;
-        }, 200);
-        if (mode != null) {
-            c.server().command("gamemode " + mode + " @p");
-            c.server().sync(20);
-            ctx.waitTicks(10);
-        }
+        jumpTo(c, LANE_X0 + 0.5, FLOOR + 1, z, "-90 0", LANE_X0 - 8, LANE_X0 + LANE_LEN + 8);
         ctx.waitTicks(5);
         Object[] all = new Object[rest.length + 1];
         all[0] = run;
