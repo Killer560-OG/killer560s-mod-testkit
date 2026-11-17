@@ -911,22 +911,26 @@ public class SimAutoClearTests implements FabricClientGameTest {
         setMode(ctx, "ANY_MOB_ROOM", "HYPERION");
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setHyperionHops", true));
         int[] slot = {-1};
-        boolean[] cast = {false};
+        int[] casts = {0};
+        int[] pending = {0};
         long mark = LogTap.mark();
         return runCase(ctx, label, () -> ModUnderTest.staticCall(AUTO, "clearRoom",
                 new Class<?>[]{String.class, Runnable.class, Consumer.class},
                 new Object[]{roomName, (Runnable) () -> { }, (Consumer<String>) s -> { }}), t -> {
             int now = ctx.computeOnClient(mc -> mc.player.getInventory().getSelectedSlot());
-            if (!cast[0]) {
-                for (String l : LogTap.since(mark)) {
-                    // The sim's own line: the first cast really landed (the swap TO the Hyperion comes after the
-                    // decision line, so counting from that line read the swap before the first cast as "between").
-                    cast[0] |= l.contains("[Sim] Wither Impact at");
-                }
-            } else if (slot[0] >= 0 && now != slot[0]) {
-                swaps[0]++;
+            // The sim's own line marks a cast that really landed (the swap TO the Hyperion comes before the first).
+            // A change after one cast counts only once a later cast lands, so the swap back after the last cast,
+            // when the room is done, is not "between casts".
+            if (casts[0] > 0 && slot[0] >= 0 && now != slot[0]) {
+                pending[0]++;
             }
             slot[0] = now;
+            int seen = logCount(mark, "[Sim] Wither Impact at");
+            if (seen > casts[0]) {
+                swaps[0] += pending[0];
+                pending[0] = 0;
+                casts[0] = seen;
+            }
         });
     }
 
