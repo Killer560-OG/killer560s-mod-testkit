@@ -56,6 +56,8 @@ public class SimAutoClearSpeedTests implements FabricClientGameTest {
     static final Pattern ROOM_TIME = Pattern.compile("\\[AutoClear\\] room time: (.+?) (\\d+) ticks \\((.+?)\\): trips (\\d+)"
             + " \\((\\d+) ticks, (\\d+) warp use\\(s\\)\\), weapon uses (\\d+), kills (\\d+)(.*)$");
     private static final Pattern BUCKET = Pattern.compile(", ([a-z ]+?) (\\d+)");
+    private static int quietTotal;
+    private static int planWaitTotal;
 
     /** One room's line. */
     record RoomTime(String room, int ticks, String how, int trips, int tripTicks, int warps, int uses, int kills,
@@ -78,6 +80,7 @@ public class SimAutoClearSpeedTests implements FabricClientGameTest {
         }
         ModUnderTest.require("killer560smod");
         LogTap.install();
+        ctx.runOnClient(mc -> AcTickProbe.install());
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
@@ -143,6 +146,7 @@ public class SimAutoClearSpeedTests implements FabricClientGameTest {
         }
         println("SUMMARY all floors: " + stats(all));
         println("SUMMARY all floors buckets: " + buckets(all));
+        println("SUMMARY all floors QUIET " + quietTotal + " ticks (room ticks less " + planWaitTotal + " ticks of plan wait)");
         long cleared = all.stream().filter(RoomTime::cleared).count();
         int kills = all.stream().mapToInt(RoomTime::kills).sum();
         if (cleared == 0 || kills == 0) {
@@ -214,6 +218,7 @@ public class SimAutoClearSpeedTests implements FabricClientGameTest {
         SimAutoClearTests.setMode(ctx, "ANY_MOB_ROOM", hype && Boolean.getBoolean("testkit.acsHypeWeapon")
                 ? "HYPERION" : "SPIRIT_SCEPTRE");
         long runMark = LogTap.mark();
+        ctx.runOnClient(mc -> AcTickProbe.drain());
         ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "start"));
         List<String> log = new ArrayList<>();
         long read = runMark;
@@ -271,6 +276,31 @@ public class SimAutoClearSpeedTests implements FabricClientGameTest {
                 simCleared++;
             }
         }
+        // achype4-1117: each room's ticks without the planner-thread wait (AcTickProbe), the run-to-run quiet number.
+        List<AcTickProbe.Visit> visits = ctx.computeOnClient(mc -> AcTickProbe.drain());
+        int vi = 0;
+        int quiet = 0;
+        int waited = 0;
+        for (RoomTime r : rooms) {
+            int at = vi;
+            while (at < visits.size() && !visits.get(at).room().equals(r.room())) {
+                at++;
+            }
+            if (at == visits.size()) {
+                println("floor " + run + " probe: " + r.room() + " no probe visit");
+                continue;
+            }
+            AcTickProbe.Visit v = visits.get(at);
+            vi = at + 1;
+            quiet += r.ticks() - v.planWait();
+            waited += v.planWait();
+            println(String.format(Locale.US, "floor %d probe: %s %d ticks, quiet %d: plan wait %d, use ticks %d, turn ticks %d,"
+                            + " idle %d, server ticks %d, probe ticks %d", run, r.room(), r.ticks(), r.ticks() - v.planWait(),
+                    v.planWait(), v.useTicks(), v.turnTicks(), v.idle(), v.serverTicks(), v.ticks()));
+        }
+        quietTotal += quiet;
+        planWaitTotal += waited;
+        println("floor " + run + " QUIET " + quiet + " ticks (plan wait " + waited + ")");
         List<String> errors = new ArrayList<>();
         for (String l : log) {
             String[] parts = l.split(" ", 4);
