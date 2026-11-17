@@ -303,7 +303,10 @@ final class Doc1101TermCases {
                     .set(CONFIG, "CustomGuiEnabled", true).set(CONFIG, "HoverTerminalsEnabled", false)
                     .set(CONFIG, "HoldToClickEnabled", false).set(CONFIG, "CursorMissChance", 0).set(CONFIG, "CursorOvershootChance", 0)
                     .set(CONFIG, "CursorReactionMs", 60).set(CONFIG, "FakeCursorSpeed", 300).set(CONFIG, "AutoStreamSafe", fake);
-            for (int i = 0; i < delays.length; i++) {
+            // The first terminal of a session opens slower (cold board load: 6 ticks at 0 ms against 4-5 at 150 ms, 3 of 3 runs),
+            // and the mod times the delay from the board settling, so a pass at 0 ms runs first and is not measured.
+            for (int w = -1; w < delays.length; w++) {
+                int i = Math.max(w, 0);
                 int d = delays[i];
                 cfg.set(CONFIG, "FirstClickDelayMs", d);
                 int back = c.onClient(mc -> (Integer) Mod.get(CONFIG, "getFirstClickDelayMs"));
