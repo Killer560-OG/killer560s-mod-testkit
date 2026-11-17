@@ -138,7 +138,7 @@ final class HxMineHud1117Cases {
             c.check(plain(a).equals("[A]Mining Speed Boost: Active") && a.size() == 1, "active hides the cooldown: " + a);
             chat(c, "Your Mining Speed Boost has expired!", t0 + 20_000);
             a = lines(c, List.of(), t0 + 20_000, t0 + 21_000);
-            c.check(a.size() == 1 && plain(a).startsWith("Mining Speed Boost: 1m "), "cooldown after expiry: " + a);
+            c.check(a.size() == 1 && plain(a).equals("Mining Speed Boost: 45s"), "cooldown after expiry: " + a);
             a = lines(c, List.of(), t0 + 20_000, t0 + 70_000);
             c.check(a.isEmpty(), "line left when ready: " + a);
             // The measured 20 s now gives a countdown.
