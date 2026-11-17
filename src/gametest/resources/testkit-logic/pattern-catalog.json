@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T14:01:42",
- "modSource": "lane-brboxes-only-1117",
- "modGitSha": "ff76a93913cf338fa556b7052227be568fc18aa7",
+ "generatedAt": "2026-11-17T14:20:15",
+ "modSource": "lane-patchfix-0273",
+ "modGitSha": "802d179aee8af680eb64b953f510840ebc11ace3",
  "modSourceDirty": false,
  "count": 990,
  "byKind": {
