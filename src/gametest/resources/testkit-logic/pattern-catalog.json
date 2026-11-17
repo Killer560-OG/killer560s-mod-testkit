@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T16:20:39",
- "modSource": "lane-ap3blinkoff-1117",
- "modGitSha": "011d29d59be306bb8ec45e9cdb528d30737b8134",
+ "generatedAt": "2026-11-17T16:51:40",
+ "modSource": "lane-deadbox-1117",
+ "modGitSha": "f9282fa0b00d70509c15c7ae08f9e6fe61a454d8",
  "modSourceDirty": false,
- "count": 990,
+ "count": 995,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 862,
+  "field": 867,
   "local": 43
  },
  "unresolved": 160,
@@ -7128,6 +7128,66 @@
    "flags": null,
    "kind": "field",
    "expr": "\"[A-Za-z0-9_]{1,16}\""
+  },
+  {
+   "id": "partyinvites.AutoAcceptInvitesFeature#YOU_JOINED",
+   "cls": "partyinvites.AutoAcceptInvitesFeature",
+   "field": "YOU_JOINED",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/partyinvites/AutoAcceptInvitesFeature.java",
+   "line": 37,
+   "regex": "^You have joined (?:\\[[A-Z+]{1,12}\\] )?[A-Za-z0-9_]{1,16}'s? party!$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^You have joined (?:\\\\[[A-Z+]{1,12}\\\\] )?[A-Za-z0-9_]{1,16}'s? party!$\""
+  },
+  {
+   "id": "partyinvites.AutoAcceptRule#INVITE",
+   "cls": "partyinvites.AutoAcceptRule",
+   "field": "INVITE",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/partyinvites/AutoAcceptRule.java",
+   "line": 61,
+   "regex": "^(?:\\[[A-Z+]{1,12}\\] )?([A-Za-z0-9_]{1,16}) has invited you to join (?:their|(?:\\[[A-Z+]{1,12}\\] )?([A-Za-z0-9_]{1,16})'s?) party!$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^\" + RANK + NAME + \" has invited you to join (?:their|\" + RANK + NAME + \"'s?) party!$\""
+  },
+  {
+   "id": "partyinvites.AutoAcceptRule#ACCEPT_LINE",
+   "cls": "partyinvites.AutoAcceptRule",
+   "field": "ACCEPT_LINE",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/partyinvites/AutoAcceptRule.java",
+   "line": 63,
+   "regex": "^You have \\d{1,3} seconds to accept\\. Click here to join!$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^You have \\\\d{1,3} seconds to accept\\\\. Click here to join!$\""
+  },
+  {
+   "id": "partyinvites.AutoAcceptRule#FRAME",
+   "cls": "partyinvites.AutoAcceptRule",
+   "field": "FRAME",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/partyinvites/AutoAcceptRule.java",
+   "line": 64,
+   "regex": "^-{10,80}$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^-{10,80}$\""
+  },
+  {
+   "id": "partyinvites.AutoAcceptRule#CLICK_COMMAND",
+   "cls": "partyinvites.AutoAcceptRule",
+   "field": "CLICK_COMMAND",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/partyinvites/AutoAcceptRule.java",
+   "line": 66,
+   "regex": "^/(?:party|p) accept ([A-Za-z0-9_]{1,16})$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^/(?:party|p) accept \" + NAME + \"$\""
   },
   {
    "id": "pathfinding.AutoWalker#HYPIXEL_DEATH",
