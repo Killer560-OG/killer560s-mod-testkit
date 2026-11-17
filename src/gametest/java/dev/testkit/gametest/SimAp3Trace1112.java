@@ -293,7 +293,7 @@ final class SimAp3Trace1112 {
                 ModUnderTest.call(la, "setSectionLevers", new Class<?>[]{boolean.class}, new Object[]{true});
                 ModUnderTest.call(la, "setSectionLeversEarly", new Class<?>[]{boolean.class}, new Object[]{true});
                 ModUnderTest.call(la, "setRange", new Class<?>[]{double.class}, new Object[]{REACH});
-                ModUnderTest.call(la, "setCooldownMs", new Class<?>[]{int.class}, new Object[]{250});
+                ModUnderTest.call(la, "setCooldownMs", new Class<?>[]{int.class}, new Object[]{Integer.parseInt(System.getenv().getOrDefault("KM_LEVER_CD", "50"))}); // owner 11-17: 50 ms, the lowest
                 Path dir = (Path) ModUnderTest.staticCall(Ap3RuntimeTests.STORE, "directory");
                 Files.createDirectories(dir);
                 Files.copy(route, dir.resolve(file), StandardCopyOption.REPLACE_EXISTING);
