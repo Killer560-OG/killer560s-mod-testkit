@@ -1565,6 +1565,10 @@ public class SimBossTests implements FabricClientGameTest {
                 }
             }
             // ---- the section's device ----
+            if (sec < 4) {
+                // the gate's arch stands before its section ends (so "gone" below means the sim removed it)
+                expect(f, "S" + sec + " gate arch blocks stand before the gate is destroyed", archLeft(ctx, sec) > 0, true);
+            }
             long dm = LogTap.mark();
             switch (sec) {
                 case 1 -> simonSays(ctx, f);
@@ -1586,12 +1590,9 @@ public class SimBossTests implements FabricClientGameTest {
                     return;
                 }
                 ctx.waitTicks(4);
-                int s2 = sec;
-                boolean gateGone = ctx.computeOnClient(mc -> {
-                    int[] g = s2 == 1 ? new int[]{100, 115, 123} : s2 == 2 ? new int[]{18, 115, 133} : new int[]{6, 115, 50};
-                    return mc.level.getBlockState(new BlockPos(g[0], g[1], g[2])).isAir();
-                });
-                expect(f, "S" + sec + " gate blocks gone", gateGone, true);
+                // The gate is the arch (cracked stone bricks and stairs), gone 1 tick after the line. The door's barriers and the
+                // portcullis (cobblestone) behind it go later (1 and 6 ticks), so a single cell of the opening is no gate check.
+                expect(f, "S" + sec + " gate arch blocks gone", archLeft(ctx, sec), 0);
             } else if (!waitChat(ctx, end, "The Core entrance is opening!", 40)) {
                 f.add("S4: the core never opened");
                 return;
@@ -2342,6 +2343,27 @@ public class SimBossTests implements FabricClientGameTest {
 
     private static double[] boss(String name) {
         return (double[]) ModUnderTest.staticCall(FIGHT, "bossPos", new Class<?>[]{String.class}, new Object[]{name});
+    }
+
+    /** The gate arch blocks (cracked stone bricks, stone brick stairs) the client still sees in section {@code sec}'s gate box. */
+    private static int archLeft(ClientGameTestContext ctx, int sec) {
+        int[] b = sec == 1 ? new int[]{95, 115, 121, 105, 136, 124} : sec == 2 ? new int[]{16, 115, 127, 19, 136, 137}
+                : new int[]{3, 115, 48, 13, 136, 51};
+        return ctx.computeOnClient(mc -> {
+            int n = 0;
+            for (int y = b[1]; y <= b[4]; y++) {
+                for (int x = b[0]; x <= b[3]; x++) {
+                    for (int z = b[2]; z <= b[5]; z++) {
+                        var st = mc.level.getBlockState(new BlockPos(x, y, z));
+                        if (st.is(net.minecraft.world.level.block.Blocks.CRACKED_STONE_BRICKS)
+                                || st.is(net.minecraft.world.level.block.Blocks.STONE_BRICK_STAIRS)) {
+                            n++;
+                        }
+                    }
+                }
+            }
+            return n;
+        });
     }
 
     private static int phaseTick() {
