@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T00:44:42",
- "modSource": "lane-vanillamenu-1116",
- "modGitSha": "23fb4645de51fbf5744e7a0374a3bd043355e7b8",
+ "generatedAt": "2026-11-17T01:41:14",
+ "modSource": "lane-simbosswarpkick-1116",
+ "modGitSha": "0fd2ff4e872b78e9a81ef8ec5912c2ea165f41a1",
  "modSourceDirty": false,
  "count": 984,
  "byKind": {
