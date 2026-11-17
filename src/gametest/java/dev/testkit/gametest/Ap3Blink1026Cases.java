@@ -44,9 +44,9 @@ final class Ap3Blink1026Cases {
     }
 
     static void register(Session s) {
-        s.test("1026-ap3-blink-3", c -> chargeRelease(c, 3, new int[]{3}, false, false));
-        s.test("1026-ap3-blink-max", c -> chargeRelease(c, 0, new int[]{0}, true, false));
-        s.test("1026-ap3-blink-split", c -> chargeRelease(c, 10, new int[]{4, 6}, true, false));
+        s.test("1026-ap3-blink-3", c -> chargeRelease(c, 3, new int[]{3}, false));
+        s.test("1026-ap3-blink-max", c -> chargeRelease(c, 0, new int[]{0}, true));
+        s.test("1026-ap3-blink-split", c -> chargeRelease(c, 10, new int[]{4, 6}, true));
         // 1026-ap3-blink-off: Blink off now makes the node invisible (killer560 2026-11-09), see Ap3BlinkOff1109Cases.
         s.test("1026-ap3-blink-off", c -> Ap3BlinkOff1109Cases.run(c));
         // killer560, 2026-10-27: "the blink should always be saved through leaps and teleports and stuff like that"; the
