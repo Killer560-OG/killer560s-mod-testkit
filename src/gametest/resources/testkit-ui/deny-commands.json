@@ -42,6 +42,8 @@
     {"root": "simitem", "why": "sim only: gives sim items (roomsim/SimItems)"},
     {"root": "start", "why": "sim only: jumps the sim to a boss phase or the clear (roomsim/SimStartCommand); testkit 1111-mp-* drive it"},
     {"root": "item", "why": "sim only: alias of simitem (roomsim/SimItems)"},
+    {"root": "items", "why": "sim only: alias of simitem (roomsim/SimItems)"},
+    {"root": "warp", "why": "sim only: alias of tpto (roomsim/SimTeleportCommands); outside the sim it is Hypixel's own and goes to the server"},
     {"root": "siminvite", "why": "sim invites (roomsim/SimReach): join leaves the current world for an invited room; testkit 1109-mp-invite drives it"},
     {"root": "map", "why": "sim only: builds a floor (roomsim/SimBuilder.java:49)"},
     {"root": "simbuild", "why": "sim only: builds a floor (roomsim/SimBuilder.java:57)"},
