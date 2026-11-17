@@ -946,7 +946,7 @@ public class SimAutoClearTests implements FabricClientGameTest {
      * On the repositions line a (index 0) .. cc (index 18): across - he stands on a, zombies at 4 (a cast straight down
      * reaches it) and 11 (it does not): one cast along the line lands between them and takes both ("Wither Impact across",
      * no hop, no etherwarp; main casts in place, then hops). Chain (the owner's case, 2026-11-17) - he stands on 1, a
-     * zombie at 0 and a pair 3 either side of the line at 11 (its own plan group): one cast kills the first, a chain cast
+     * zombie at 0 and a pair 4 either side of the line at 11 (its own plan group): one cast kills the first, a chain cast
      * across lands on the line at ~11 and takes the pair, with no etherwarp, trip or hotbar change between (main: cast,
      * swap, etherwarp, swap, cast, since its hop straight at one of the pair misses the other). Fallback -
      * a stone wall 3 high across the line at 2-3, he on a, one zombie at 18: no cast lands in reach past the wall, so it
@@ -978,8 +978,8 @@ public class SimAutoClearTests implements FabricClientGameTest {
             // Two boxes one cast apart: a zombie beside him, and a pair 3 either side of the line at 11 (its own plan
             // group: only a landing near 11 on the line reaches both, a dash straight at one of them misses the other).
             standOn(ctx, on.apply(1), yaw);
-            List<Placed> z = zombies(ctx, roomName, List.of(on.apply(0), on.apply(11).offset(sz * 3, 0, sx * 3),
-                    on.apply(11).offset(-sz * 3, 0, -sx * 3)));
+            List<Placed> z = zombies(ctx, roomName, List.of(on.apply(0), on.apply(11).offset(sz * 4, 0, sx * 4),
+                    on.apply(11).offset(-sz * 4, 0, -sx * 4)));
             int[] swaps = {0};
             long mark = LogTap.mark();
             Result r = hypeRun(ctx, HYPE_CHAIN, roomName, swaps);
