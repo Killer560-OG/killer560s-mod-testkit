@@ -3840,6 +3840,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     .armedBy(() -> logHas(m, armLine)));
         }
         start.run();
+        int[] tpSpam = {6};
         boolean firstCast = waitFor(ctx, 100, () -> {
             if (chain && act == dev.testkit.gametest.SameTick.Act.TP) {
                 c.server().command("execute as @a at @s run tp @s ~ ~ ~");
@@ -3874,6 +3875,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             start.run();
         }
         boolean finished = waitFor(ctx, 600, () -> {
+            if (chain && act == dev.testkit.gametest.SameTick.Act.TP && logHas(m, "[AutoClear] Wither Impact chain")
+                    && tpSpam[0]-- > 0) {
+                // The teleports keep coming through the chained cast's ticks, so one of his answers shares its tick.
+                c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+            }
             if (hits) {
                 c.server().command("execute as @e[tag=achypehit] at @a[limit=1] run tp @s ~ ~-1.5 ~");
             }
