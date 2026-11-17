@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-16T17:57:05",
- "modSource": "lane-brboxes-dev-1116",
- "modGitSha": "223e390fd197aa1c4b9bada052c33ca87fea0ded",
+ "generatedAt": "2026-11-16T18:46:11",
+ "modSource": "lane-fiestaflask-1116",
+ "modGitSha": "9858eafcef362610c4a25f43738252485e351d9c",
  "modSourceDirty": false,
- "count": 977,
+ "count": 979,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 849,
+  "field": 851,
   "local": 43
  },
  "unresolved": 160,
@@ -5808,6 +5808,30 @@
    "flags": null,
    "kind": "dynamic",
    "expr": "sb.append(\")(?=$|[\\\\s\\\\d])\").toString()"
+  },
+  {
+   "id": "miningqol.FiestaFlask#UNIT",
+   "cls": "miningqol.FiestaFlask",
+   "field": "UNIT",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/miningqol/FiestaFlask.java",
+   "line": 54,
+   "regex": "(\\d{1,3})\\s*([hms])\\b",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"(\\\\d{1,3})\\\\s*([hms])\\\\b\""
+  },
+  {
+   "id": "miningqol.FiestaFlask#CLOCK",
+   "cls": "miningqol.FiestaFlask",
+   "field": "CLOCK",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/miningqol/FiestaFlask.java",
+   "line": 55,
+   "regex": "(\\d{1,2}):(\\d{2})(?::(\\d{2}))?",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"(\\\\d{1,2}):(\\\\d{2})(?::(\\\\d{2}))?\""
   },
   {
    "id": "miningqol.GoldenGoblin#NAME_TAG",
