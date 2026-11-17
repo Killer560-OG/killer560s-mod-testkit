@@ -22,7 +22,8 @@ import java.util.Locale;
  *   <li>the Fast Align lands within 0.001 and no flick goes out while it runs (the aura waits for AP3's align);</li>
  *   <li>every tick of the held run he moves ALONG the run's direction, never against it (the bug's signature: a tick
  *       end whose step points backwards along the held direction);</li>
- *   <li>the aura did turn him during the run at least once (otherwise nothing was tested), and its flicks went out;</li>
+ *   <li>the aura never turns his body during the held run (ap3auralook-1116: auras never change his movement), a flick
+ *       went out while the run held keys (otherwise nothing was tested), and every lever is lit by the end;</li>
  *   <li>GrimAC silent (Session.test).</li>
  * </ul>
  */
@@ -136,6 +137,7 @@ final class Ap3LightsRunCases {
                     flicksInAlign));
             int backwards = 0;
             int turnsInRun = 0;
+            int heldFlicks = 0;
             int holdTicks = 0;
             StringBuilder worst = new StringBuilder();
             for (int i = 1; i < ticks.size(); i++) {
@@ -150,6 +152,7 @@ final class Ap3LightsRunCases {
                 if (q[5] > 0 || p[5] > 0) {
                     turnsInRun++;
                 }
+                heldFlicks += (int) (q[6] - p[6]);
                 double dx = q[0] - p[0];
                 double dz = q[1] - p[1];
                 double len = Math.hypot(hx, hz);
@@ -163,15 +166,21 @@ final class Ap3LightsRunCases {
                 }
             }
             int flicks = LightsDeviceCases.flickCount() - flicks0;
-            c.note(String.format(Locale.ROOT, "held-run ticks %d, ticks with an aura's turn out %d, backwards ticks %d, flicks %d%s",
-                    holdTicks, turnsInRun, backwards, flicks, worst));
+            c.note(String.format(Locale.ROOT, "held-run ticks %d, ticks with an aura's turn out %d, backwards ticks %d, flicks %d (%d with keys held)%s",
+                    holdTicks, turnsInRun, backwards, flicks, heldFlicks, worst));
             c.check(Math.abs(alignEnd[0] - 60.5) <= 1e-3 && Math.abs(alignEnd[1] - 139.0) <= 1e-3,
                     String.format(Locale.ROOT, "the Fast Align ended %.4f / %.4f off its point", alignEnd[0] - 60.5, alignEnd[1] - 139.0));
             c.check(flicksInAlign == 0, "the Lights Aura flicked " + flicksInAlign + " time(s) during the align (it turns him)");
             c.check(holdTicks >= 10, "the held run lasted only " + holdTicks + " ticks - nothing was tested");
-            c.check(turnsInRun > 0, "the Lights Aura never turned him during the run - the case did not exercise the bug");
+            // ap3auralook-1116 (killer560, 2026-11-16: "My auras can never affect my movement. If I am running and something
+            // is in range it auras without changing anything."): the aura no longer turns his body while AP3 holds keys. This
+            // case used to REQUIRE such a turn (to prove the 10-26 bug was exercised); that turn is now the bug itself. What
+            // proves the case exercised the aura is a flick while the run held keys, and both unlit levers lit by the end.
+            c.check(turnsInRun == 0, "the Lights Aura turned him on " + turnsInRun + " held-run tick(s) - an aura must never move him");
             c.check(backwards == 0, backwards + " tick(s) moved him backwards along the held run:" + worst);
             c.check(flicks >= 1, "the Lights Aura never got a flick out during the route");
+            c.check(heldFlicks >= 1, "no Lights Aura flick went out while the run held keys - nothing was tested");
+            LightsDeviceCases.waitLevers(c, "all six levers lit after the route", 0, 1, 2, 3, 4, 5);
         } finally {
             c.onClient(mc -> {
                 try {
