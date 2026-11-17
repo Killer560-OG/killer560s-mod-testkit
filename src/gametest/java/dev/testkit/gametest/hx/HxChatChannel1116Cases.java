@@ -132,7 +132,7 @@ final class HxChatChannel1116Cases {
             long f0 = c.onClient(mc -> (Long) Mod.staticCall(F, "framesDrawn"));
             c.check(f0 > 0, "the indicator never drew in an open chat");
             int y0 = c.onClient(mc -> (Integer) Mod.staticCall(F, "lastY"));
-            int h = c.onClient(mc -> mc.screen == null ? -1 : mc.screen.height);
+            int h = c.onClient(mc -> McCompat.screen(mc) == null ? -1 : McCompat.screen(mc).height);
             // Above the input bar (vanilla draws it from height - 14).
             c.check(y0 > 0 && y0 + 9 <= h - 14, "line at y " + y0 + " is not above the input bar (height " + h + ")");
             // With Chat Tabs on it sits above their row too (row top = height - 27).
@@ -143,7 +143,7 @@ final class HxChatChannel1116Cases {
             });
             texts(c);
             int y1 = c.onClient(mc -> (Integer) Mod.staticCall(F, "lastY"));
-            int h1 = c.onClient(mc -> mc.screen == null ? -1 : mc.screen.height);
+            int h1 = c.onClient(mc -> McCompat.screen(mc) == null ? -1 : McCompat.screen(mc).height);
             c.check(y1 + 9 <= h1 - 27, "with Chat Tabs on, the line (y " + y1 + ") overlaps the tab row (top " + (h1 - 27) + ")");
             c.check(y1 < y0, "the line did not move up for the tab row: " + y0 + " -> " + y1);
             // OFF draws nothing: one fewer text group than with it on (control).
