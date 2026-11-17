@@ -1,9 +1,9 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-16T14:59:41",
- "modSource": "fiestaflask-1116",
- "modGitSha": "7bd5999187943b69e7447b997413a88d9e0f9f6c",
- "modSourceDirty": true,
+ "generatedAt": "2026-11-16T18:12:07",
+ "modSource": "lane-fiestaflask-1116",
+ "modGitSha": "b1a1da23be7887fe3f9250beeaa922d4883b16fc",
+ "modSourceDirty": false,
  "count": 979,
  "byKind": {
   "dynamic": 10,
