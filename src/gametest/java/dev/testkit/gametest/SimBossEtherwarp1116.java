@@ -128,7 +128,11 @@ final class SimBossEtherwarp1116 {
         ctx.waitTicks(2);
     }
 
-    /** Every move between two tick ends: finite values, at most one position. Returns the faults found. */
+    /** 26.2's vanilla client answers a teleport with accept + its own PosRot beside the tick's move, and its server allows it. */
+    private static final boolean ONE_POSITION_RULE =
+            !net.minecraft.SharedConstants.getCurrentVersion().name().startsWith("26.2");
+
+    /** Every move between two tick ends: finite values, and on 26.3 at most one position. Returns the faults found. */
     static List<String> wireFaults(List<WireCapture.Sent> sent) {
         List<String> out = new ArrayList<>();
         int positions = 0;
@@ -147,7 +151,7 @@ final class SimBossEtherwarp1116 {
             if (t.contains("NaN") || t.contains("Infinity")) {
                 out.add("non-finite move: " + t);
             }
-            if (t.startsWith("move pos=true") && ++positions > 1) {
+            if (ONE_POSITION_RULE && t.startsWith("move pos=true") && ++positions > 1) {
                 out.add("two positions in one client tick: " + tick);
             }
         }
@@ -245,7 +249,7 @@ final class SimBossEtherwarp1116 {
                 + (after - before));
         expect(f, "second position: the warp landed", landed, true);
         expect(f, "second position in one client tick: still connected", ok, true);
-        expect(f, "second position: the sim server let it through (acted)", after > before, true);
+        expect(f, "second position: the sim server let it through (acted, 26.3 only)", after > before, ONE_POSITION_RULE);
     }
 
     private static int extraPositions(ClientGameTestContext ctx) {
