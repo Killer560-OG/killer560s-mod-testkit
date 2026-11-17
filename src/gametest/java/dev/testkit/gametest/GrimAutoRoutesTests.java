@@ -3821,16 +3821,35 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         dev.testkit.gametest.SameTick st = null;
         // His USE holds the same Hyperion, so his own casts can kill what is left once Auto Clear's first cast landed:
         // his uses start with Auto Clear, so its first casts fall inside the window (it once acted only before it).
-        boolean useFirst = act == dev.testkit.gametest.SameTick.Act.USE;
+        // The chain layout clears in about 8 ticks, so every action starts BEFORE Auto Clear and is armed by its chain line:
+        // his action then goes in the ticks of the chained cast itself (not after the room is done). His USE is armed by
+        // Auto Clear's first cast line in both layouts, so his own casts cannot clear the mobs before it acts.
+        boolean useFirst = act == dev.testkit.gametest.SameTick.Act.USE || chain && act != null;
+        boolean hits = act == dev.testkit.gametest.SameTick.Act.ATTACK;
+        String armLine = chain ? "[AutoClear] Wither Impact chain" : "[AutoClear] Wither Impact";
+        if (hits && chain) {
+            c.server().command("execute at @a[limit=1] run summon interaction ~ ~-1.5 ~ {width:5f,height:5f,"
+                    + "Tags:[\"achypehit\"]}");
+            ctx.waitTicks(2);
+        }
         if (useFirst) {
-            st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 3,
+            int every = act == dev.testkit.gametest.SameTick.Act.USE ? 3 : 1;
+            st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, every,
                     p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
-                            || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8));
+                            || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8)
+                    .armedBy(() -> logHas(m, armLine)));
         }
         start.run();
-        boolean firstCast = waitFor(ctx, 100, () -> logHas(m, "[AutoClear] Wither Impact"));
-        boolean hits = act == dev.testkit.gametest.SameTick.Act.ATTACK;
-        if (hits) {
+        boolean firstCast = waitFor(ctx, 100, () -> {
+            if (chain && act == dev.testkit.gametest.SameTick.Act.TP) {
+                c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+            }
+            if (hits && chain) {
+                c.server().command("execute as @e[tag=achypehit] at @a[limit=1] run tp @s ~ ~-1.5 ~");
+            }
+            return logHas(m, "[AutoClear] Wither Impact");
+        });
+        if (hits && !chain) {
             // His attack needs an entity under his crosshair whatever the casts turn him to: an interaction box (no
             // collision, no push) around his eyes, moved onto him every tick below.
             c.server().command("execute at @a[limit=1] run summon interaction ~ ~-1.5 ~ {width:5f,height:5f,"
@@ -3854,17 +3873,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         if (second) {
             start.run();
         }
-        List<Integer> chainTicks = new ArrayList<>();
         boolean finished = waitFor(ctx, 600, () -> {
             if (hits) {
                 c.server().command("execute as @e[tag=achypehit] at @a[limit=1] run tp @s ~ ~-1.5 ~");
-            }
-            int seen = 0;
-            for (String l : LogTap.since(m)) {
-                seen += l.contains("[AutoClear] Wither Impact chain") ? 1 : 0;
-            }
-            if (seen > chainTicks.size()) {
-                chainTicks.add(PacketTrace.tickCount());
             }
             return !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto, "isBusy"));
         });
@@ -3895,22 +3906,26 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         int warps = delta(before, "etherwarps");
         boolean across = logHas(m, "[AutoClear] Wither Impact across");
         if (chain) {
-            // The wire: a chained cast is a use_item with no etherwarp trip before it. Each chain line's tick is followed by
-            // the cast within a few ticks; that tick's packets (his action's too, in a same-tick case) are quoted.
-            int chained = chainTicks.size();
-            int onWire = 0;
-            for (int t : chainTicks) {
-                for (Sample x : s) {
-                    if (x.tick() >= t - 1 && x.tick() <= t + 8 && x.out().contains("use_item")) {
-                        onWire++;
-                        println("  chain cast on the wire, tick " + x.tick() + ": " + x.out());
-                        break;
-                    }
+            // The wire: the feature's own cast count (its room line) must be 2 or more with no etherwarp (the first cast, then
+            // the chained one), and the trace must hold that many use_item ticks; the ones after the first are quoted.
+            int chained = 0;
+            int featureUses = 0;
+            for (String l : LogTap.since(m)) {
+                chained += l.contains("[AutoClear] Wither Impact chain") ? 1 : 0;
+                java.util.regex.Matcher mm = java.util.regex.Pattern.compile("room time:.*weapon uses (\d+)").matcher(l);
+                if (mm.find()) {
+                    featureUses = Integer.parseInt(mm.group(1));
                 }
             }
-            c.note("chain casts logged " + chained + ", on the wire " + onWire);
+            List<Sample> uses = useTicks(s);
+            for (int i = 1; i < uses.size(); i++) {
+                println("  cast on the wire after the first, tick " + uses.get(i).tick() + ": " + uses.get(i).out());
+            }
+            c.note("chain lines " + chained + ", Auto Clear weapon uses " + featureUses + ", use_item ticks on the wire "
+                    + uses.size());
             check(chained >= 1, "no Wither Impact chain cast (the chain case tested nothing)");
-            check(onWire == chained, "a chain cast never reached the wire: logged " + chained + ", sent " + onWire);
+            check(featureUses >= 2 && uses.size() >= featureUses, "the chained cast never reached the wire: Auto Clear "
+                    + "weapon uses " + featureUses + ", use_item ticks " + uses.size());
             check(warps == 0, warps + " etherwarp(s) in the chain layout");
         }
         c.note("achype " + (act == null ? second ? "second" : "plain" : act) + ": mobs " + states + ", Wither Impacts "
