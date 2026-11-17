@@ -56,7 +56,8 @@ public final class HxDungeonModule implements HxModule {
         HxShortbow.register();
         HxBridge.register("dungeon.shortbow", (server, args) -> HxShortbow.set(
                 !args.has("enabled") || args.get("enabled").getAsBoolean(),
-                args.has("cooldownTicks") ? args.get("cooldownTicks").getAsInt() : 5));
+                args.has("cooldownTicks") ? args.get("cooldownTicks").getAsInt() : 5,
+                args.has("extraArrows") ? args.get("extraArrows").getAsInt() : 0));
         HxBridge.register("dungeon.shortbowStats", (server, args) -> HxShortbow.stats());
         HxBridge.register("dungeon.stats", (server, args) -> HxAbilities.stats());
         HxBridge.register("dungeon.reset", (server, args) -> {
