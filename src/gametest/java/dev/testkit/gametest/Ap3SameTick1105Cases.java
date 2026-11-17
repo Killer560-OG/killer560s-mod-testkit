@@ -129,9 +129,7 @@ final class Ap3SameTick1105Cases {
             mc.player.getInventory().setSelectedSlot(0);
             return null;
         });
-        c.server().command("item replace entity @p hotbar.3 with minecraft:stick[minecraft:custom_data={id:\"AP3_TEST_WAND\"}]");
-        c.server().command("item replace entity @p hotbar.5 with minecraft:smooth_stone_slab 64");
-        c.server().command("item replace entity @p hotbar.6 with minecraft:tnt[minecraft:custom_data={id:\"SUPERBOOM_TNT\"}] 64");
+        restock(c);
         Object run = Ap3RuntimeTests.runNode(z);
         Object n = switch (type) {
             case "USE" -> node("USE", LANE_X0 + 10.0, z, 20f, -35f, 1.0, 3.0);
@@ -199,6 +197,68 @@ final class Ap3SameTick1105Cases {
             });
             c.server().command("clear @p minecraft:blaze_rod");
         }
+    }
+
+    /** The node items: hotbar slot, the item to give, its id path and its count, as the client must show them. */
+    private static final String[][] STOCK = {
+            {"3", "minecraft:stick[minecraft:custom_data={id:\"AP3_TEST_WAND\"}]", "stick", "1"},
+            {"5", "minecraft:smooth_stone_slab 64", "smooth_stone_slab", "64"},
+            {"6", "minecraft:tnt[minecraft:custom_data={id:\"SUPERBOOM_TNT\"}] 64", "tnt", "64"}};
+
+    /**
+     * Puts the wand, 64 slabs and 64 Superbooms in slots 4, 6 and 7 and waits until the CLIENT shows them. A bare
+     * {@code item replace} with the stack the server already holds changes nothing server-side, so no slot packet goes out:
+     * when his client had lost a stack the server still held (m1105-r3, 26.2 cheat: after a slab click the server dropped
+     * behind a teleport, the client's slab and later its Superboom were gone while every replace "succeeded"), it stayed lost
+     * and block-tp plus every boom case after it failed "no block or slab" / "no Superboom". Emptying the slots first makes
+     * the refill a real change, and a client that disagrees with the server before it is written down.
+     */
+    private static void restock(Session c) {
+        String before = hotbar(c.ctx());
+        boolean lost = !clientStocked(c.ctx(), false);
+        for (String[] s : STOCK) {
+            c.server().command("item replace entity @p hotbar." + s[0] + " with minecraft:air");
+        }
+        c.server().sync(20);
+        for (String[] s : STOCK) {
+            c.server().command("item replace entity @p hotbar." + s[0] + " with " + s[1]);
+        }
+        c.server().sync(20);
+        if (lost) {
+            c.note("restock: the client lacked a node item before the refill (lost, or not given yet): " + before);
+        }
+        c.waitUntil("the wand, 64 slabs and 64 Superbooms on the client", mc -> clientStocked(mc, true), 200);
+    }
+
+    private static boolean clientStocked(ClientGameTestContext ctx, boolean full) {
+        return onClient(ctx, mc -> clientStocked(mc, full));
+    }
+
+    /** Every node item in its slot (with {@code full}, at its full count). */
+    private static boolean clientStocked(net.minecraft.client.Minecraft mc, boolean full) {
+        for (String[] s : STOCK) {
+            net.minecraft.world.item.ItemStack st = mc.player.getInventory().getItem(Integer.parseInt(s[0]));
+            if (st.isEmpty() || !net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(st.getItem()).getPath().equals(s[2])
+                    || (full && st.getCount() != Integer.parseInt(s[3]))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** The client's hotbar as "slot:item xcount" plus the selected slot. */
+    private static String hotbar(ClientGameTestContext ctx) {
+        return onClient(ctx, mc -> {
+            StringBuilder b = new StringBuilder("sel " + mc.player.getInventory().getSelectedSlot() + " [");
+            for (int i = 0; i < 9; i++) {
+                net.minecraft.world.item.ItemStack s = mc.player.getInventory().getItem(i);
+                if (!s.isEmpty()) {
+                    b.append(i).append(':').append(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(s.getItem()).getPath())
+                            .append(" x").append(s.getCount()).append(' ');
+                }
+            }
+            return b.append(']').toString();
+        });
     }
 
     /** attack_block events that follow a held change to slot 7 (the Superboom), the boom's tap as the server saw it. */
