@@ -112,6 +112,7 @@ public class HxSuite implements FabricClientGameTest {
                     // The pre-2.0 mining features (1101-mining-*, mod doc-mining-1101), own block, before Boss Health.
                     HxMining1101Cases.register(s);
                     HxFiestaFlask1116Cases.register(s);
+                    HxMineHud1117Cases.register(s);
                     // Commission Mobs and the Emissary label's gray distance (1103-mining-*, mod commissions-1103).
                     HxCommissions1103Cases.register(s);
                     // Per-block commission areas, event-driven highlights, carpet stability (1103-mining-block-area,
