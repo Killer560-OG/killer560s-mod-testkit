@@ -3803,11 +3803,30 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         Runnable start = () -> ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class,
                 Runnable.class, java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> done.set("done"),
                 (java.util.function.Consumer<String>) gaveUp::set}));
-        start.run();
         dev.testkit.gametest.SameTick st = null;
+        // His USE holds the same Hyperion, so his own casts can kill what is left once Auto Clear's first cast landed:
+        // his uses start with Auto Clear, so its first casts fall inside the window (it once acted only before it).
+        boolean useFirst = act == dev.testkit.gametest.SameTick.Act.USE;
+        if (useFirst) {
+            st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 3,
+                    p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
+                            || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8));
+        }
+        start.run();
         boolean firstCast = waitFor(ctx, 100, () -> logHas(m, "[AutoClear] Wither Impact"));
-        if (act != null) {
-            st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
+        boolean hits = act == dev.testkit.gametest.SameTick.Act.ATTACK;
+        if (hits) {
+            // His attack needs an entity under his crosshair whatever the casts turn him to: an interaction box (no
+            // collision, no push) around his eyes, moved onto him every tick below.
+            c.server().command("execute at @a[limit=1] run summon interaction ~ ~-1.5 ~ {width:5f,height:5f,"
+                    + "Tags:[\"achypehit\"]}");
+            ctx.waitTicks(2);
+        }
+        if (act != null && !useFirst) {
+            // His use every tick would leave Auto Clear no tick of its own (it yields to his use); every third tick it
+            // still meets his casts. ATTACK every tick, counted only while the box is under his crosshair.
+            int every = act == dev.testkit.gametest.SameTick.Act.USE ? 3 : 1;
+            st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, every,
                     p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
                             || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8));
             if (act == dev.testkit.gametest.SameTick.Act.TP) {
@@ -3820,8 +3839,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         if (second) {
             start.run();
         }
-        boolean finished = waitFor(ctx, 600, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto,
-                "isBusy")));
+        boolean finished = waitFor(ctx, 600, () -> {
+            if (hits) {
+                c.server().command("execute as @e[tag=achypehit] at @a[limit=1] run tp @s ~ ~-1.5 ~");
+            }
+            return !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto, "isBusy"));
+        });
+        if (hits) {
+            c.server().command("kill @e[tag=achypehit]");
+        }
         if (!finished) {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "cancel"));
         }
