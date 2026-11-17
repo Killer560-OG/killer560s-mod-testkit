@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T03:06:31",
- "modSource": "lane-chatchannel-1116",
- "modGitSha": "0c25e275d9489eac48ca1056f6008fc8f000b79f",
+ "generatedAt": "2026-11-17T03:41:13",
+ "modSource": "lane-simclasses-1116",
+ "modGitSha": "28b22af962db3499c65f5a7fbd264a5db42cf2ee",
  "modSourceDirty": false,
  "count": 988,
  "byKind": {
