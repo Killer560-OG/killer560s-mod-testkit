@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T04:51:32",
- "modSource": "lane-termburstonly-1116",
- "modGitSha": "dbc0e829c446ff887fedd084af48c57dc1703756",
+ "generatedAt": "2026-11-17T05:16:42",
+ "modSource": "lane-simclasses-1116",
+ "modGitSha": "990fcedd68ddbca6507b505b3590e6b44f05f95c",
  "modSourceDirty": false,
  "count": 990,
  "byKind": {
