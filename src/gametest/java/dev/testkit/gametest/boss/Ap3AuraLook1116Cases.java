@@ -491,6 +491,9 @@ final class Ap3AuraLook1116Cases {
         int x = Ap3TermAuraCases.X, z = Ap3TermAuraCases.Z, g = Ap3TermAuraCases.G;
         List<AutoCloseable> undo = new ArrayList<>();
         try {
+            // Under load the build once ran before the chunk was loaded ("That position is not loaded", exp rep 4 11-17).
+            c.server().command(String.format(Locale.ROOT, "forceload add %d %d %d %d", x - 8, z - 8, x + 8, z + 8));
+            c.server().sync(20);
             c.hx().call("boss.term.build", "x", x, "z", z, "groundY", g);
             c.server().command(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:stone", x - 6, g + 2, z - 2, x + 6, g + 2, z - 2));
             c.server().sync(20);
@@ -621,6 +624,9 @@ final class Ap3AuraLook1116Cases {
         int x = Ap3TermAuraCases.X, z = Ap3TermAuraCases.Z, g = Ap3TermAuraCases.G;
         List<AutoCloseable> undo = new ArrayList<>();
         try {
+            // Under load the build once ran before the chunk was loaded ("That position is not loaded", exp rep 4 11-17).
+            c.server().command(String.format(Locale.ROOT, "forceload add %d %d %d %d", x - 8, z - 8, x + 8, z + 8));
+            c.server().sync(20);
             c.hx().call("boss.term.build", "x", x, "z", z, "groundY", g);
             c.server().command(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:stone", x - 6, g + 2, z - 2, x + 6, g + 2, z - 2));
             c.server().sync(20);
