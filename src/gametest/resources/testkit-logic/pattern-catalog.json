@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T10:24:55",
- "modSource": "lane-quarfix-termbmode-1117",
- "modGitSha": "bd96162b71f7f6a9038b6f23164b09d3997dfeeb",
+ "generatedAt": "2026-11-17T10:47:26",
+ "modSource": "lane-simstart-1116",
+ "modGitSha": "231c2828406fc29de794b512725426472f83f784",
  "modSourceDirty": false,
  "count": 990,
  "byKind": {
