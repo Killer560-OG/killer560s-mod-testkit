@@ -71,6 +71,99 @@ final class SimWardrobe1115 {
         return (Integer) call("com.killer560.hub.roomsim.SimTerminator", "arrowsFired");
     }
 
+    /** The sim's own weapon rates (shortbow, melee/beam, Terminator left click) in ticks: Attack Speed 150 with Thermodynamic, 100 without. */
+    private static void rates(ClientGameTestContext ctx, List<String> f, String set, int bow, int melee, int click) {
+        String a = "com.killer560.hub.roomsim.SimAttackSpeed";
+        expect(f, set + " shortbow interval", ctx.computeOnClient(mc -> String.valueOf(call(a, "shortbowInterval"))), String.valueOf(bow));
+        expect(f, set + " melee interval", ctx.computeOnClient(mc -> String.valueOf(call(a, "meleeInterval"))), String.valueOf(melee));
+        expect(f, set + " terminator left click interval", ctx.computeOnClient(mc -> String.valueOf(call(a, "terminatorClickInterval"))), String.valueOf(click));
+    }
+
+    private static void cmd(ClientGameTestContext ctx, String line) {
+        ctx.runOnClient(mc -> mc.player.connection.sendCommand(line));
+        ctx.waitTicks(10);
+    }
+
+    private static String head(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall("com.killer560.hub.cheatutils.CheatUtils", "skyblockId",
+                new Class<?>[]{ItemStack.class}, new Object[]{mc.player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD)})));
+    }
+
+    private static String invId(ClientGameTestContext ctx, int invSlot) {
+        return ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall("com.killer560.hub.cheatutils.CheatUtils", "skyblockId",
+                new Class<?>[]{ItemStack.class}, new Object[]{mc.player.getInventory().getItem(invSlot)})));
+    }
+
+    private static void giveMask(ClientGameTestContext ctx, int invSlot, String id) {
+        SimBossTests.serverRun(ctx, sv -> {
+            ItemStack m = new ItemStack(net.minecraft.world.item.Items.LEATHER_HELMET);
+            net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+            tag.putString("id", id);
+            m.set(DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(tag));
+            sv.getPlayerList().getPlayers().get(0).getInventory().setItem(invSlot, m);
+        });
+        ctx.waitTicks(6);
+    }
+
+    /** /wd, /stats, /equipment, /eq open the right menus, and a mask clicked in the inventory swaps with the worn helmet. */
+    private static void commandsAndMasks(ClientGameTestContext ctx, List<String> f) {
+        cmd(ctx, "wd");
+        expect(f, "/wd opens the wardrobe", title(ctx), "Wardrobe");
+        Map<String, String> wd = sheet(ctx);
+        expect(f, "the wardrobe has no Stats item", wd.containsKey("Stats") || wd.containsKey("Attack Speed (effective)"), false);
+        expect(f, "the wardrobe still lists the sets", wd.containsKey("Terror Armor"), true);
+        close(ctx);
+        for (String c : new String[]{"stats", "equipment", "eq"}) {
+            cmd(ctx, c);
+            expect(f, "/" + c + " opens the equipment menu", title(ctx), "Your Equipment and Stats");
+            expect(f, "/" + c + " lists the live stats", sheet(ctx).containsKey("Attack Speed (effective)"), true);
+            close(ctx);
+        }
+        // Real pieces: Terror is worn here. Head is a player head, the others leather with Hypixel's dye.
+        String[] slots = {"HEAD", "CHEST", "LEGS", "FEET"};
+        String[] mat = {"minecraft:player_head", "minecraft:leather_chestplate", "minecraft:leather_leggings", "minecraft:leather_boots"};
+        int[] dye = {-1, 0x3E05AF, 0x5D23D1, 0x7C44EC};
+        for (int i = 0; i < 4; i++) {
+            final int k = i;
+            String got = ctx.computeOnClient(mc -> {
+                ItemStack st = mc.player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.valueOf(slots[k]));
+                var dc = st.get(DataComponents.DYED_COLOR);
+                var pr = st.get(DataComponents.PROFILE);
+                return net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(st.getItem()) + "|"
+                        + (dc == null ? -1 : dc.rgb() & 0xFFFFFF) + "|" + (pr != null);
+            });
+            expect(f, "Terror " + slots[i] + " is the real piece (item, dye, head profile)", got, mat[i] + "|" + dye[i] + "|" + (i == 0));
+        }
+        rates(ctx, f, "Terror worn", 5, 5, 4);
+        // Quick swap by hand: /stats, click the mask in the inventory.
+        giveMask(ctx, 10, "BONZO_MASK");
+        cmd(ctx, "stats");
+        click(ctx, 54 + 1);
+        expect(f, "hand click swaps the mask onto the head", head(ctx), "BONZO_MASK");
+        expect(f, "the old helmet lands in the clicked slot", invId(ctx, 10), "INFERNAL_TERROR_HELMET");
+        close(ctx);
+        expect(f, "a mask on the head breaks the 4-piece bonus (3 arrows)", ctx.computeOnClient(mc ->
+                String.valueOf(call("com.killer560.hub.roomsim.SimArmor", "extraArrows"))), "0");
+        // MaskSwapper's own swap, back from the inventory (Spirit Mask this time).
+        giveMask(ctx, 11, "SPIRIT_MASK");
+        Object target = ModUnderTest.enumValue("com.killer560.hub.maskinvincibility.MaskSwapper$Target", "SPIRIT");
+        boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.maskinvincibility.MaskSwapper", "request",
+                new Class<?>[]{target.getClass(), String.class}, new Object[]{target, "simwd"}));
+        expect(f, "MaskSwapper starts a swap in the sim", started, true);
+        for (int t = 0; t < 120 && !"SPIRIT_MASK".equals(head(ctx)); t += 5) ctx.waitTicks(5);
+        expect(f, "MaskSwapper put the Spirit Mask on", head(ctx), "SPIRIT_MASK");
+        expect(f, "the Bonzo's Mask went back to the inventory", invId(ctx, 11), "BONZO_MASK");
+        for (int t = 0; t < 120 && "none".equals(title(ctx)) == false; t += 5) ctx.waitTicks(5);
+        close(ctx);
+        // Leave the sim loadout as the other cases expect.
+        SimBossTests.serverRun(ctx, sv -> {
+            var inv = sv.getPlayerList().getPlayers().get(0).getInventory();
+            inv.setItem(10, ItemStack.EMPTY);
+            inv.setItem(11, ItemStack.EMPTY);
+            sv.getPlayerList().getPlayers().get(0).setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, ItemStack.EMPTY);
+        });
+    }
+
     static void run(ClientGameTestContext ctx, List<String> f) throws Exception {
         start(ctx, "S1", true);
         try {
@@ -90,6 +183,7 @@ final class SimWardrobe1115 {
             String worn = ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall("com.killer560.hub.cheatutils.CheatUtils", "skyblockId",
                     new Class<?>[]{ItemStack.class}, new Object[]{mc.player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST)})));
             expect(f, "the chestplate is on", worn, "THERMODYNAMIC_CHESTPLATE");
+            rates(ctx, f, "Thermodynamic", 4, 4, 4);
 
             // Stats of Thermodynamic, then swap to Terror from the wardrobe and read them again.
             expect(f, "stats menu opens", open(ctx, true), true);
@@ -105,6 +199,7 @@ final class SimWardrobe1115 {
             click(ctx, SET_SLOTS[1]);
             Map<String, String> w2 = sheet(ctx);
             expect(f, "Terror equipped from the menu", w2.get("Terror Armor"), "Equipped");
+            rates(ctx, f, "Terror", 5, 5, 4);
             close(ctx);
             expect(f, "the chestplate swapped", ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall("com.killer560.hub.cheatutils.CheatUtils", "skyblockId",
                     new Class<?>[]{ItemStack.class}, new Object[]{mc.player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST)}))), "INFERNAL_TERROR_CHESTPLATE");
@@ -133,6 +228,7 @@ final class SimWardrobe1115 {
             open(ctx, false);
             click(ctx, 53);
             expect(f, "Close button closes the menu", title(ctx), "none");
+            commandsAndMasks(ctx, f);
         } finally {
             ctx.runOnClient(mc -> mc.player.closeContainer());
             SimArmor1115.selectNone(ctx);
