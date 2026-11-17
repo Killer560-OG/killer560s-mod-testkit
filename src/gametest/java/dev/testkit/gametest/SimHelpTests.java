@@ -148,6 +148,12 @@ public class SimHelpTests implements FabricClientGameTest {
         int scrolling = 0;
         for (int[] s : sizes) {
             setWindow(ctx, s[0], s[1], s[2]);
+            // open it fresh at this size, as a player would (a harness resize does not re-run init)
+            ctx.runOnClient(mc -> mc.execute(() -> {
+                McCompat.setScreen(mc, null);
+                ModUnderTest.staticCall(HELP, "open", new Class<?>[]{net.minecraft.client.Minecraft.class}, new Object[]{mc});
+            }));
+            ctx.waitTicks(4);
             for (int p = 0; p < pages; p++) {
                 final int page = p;
                 ctx.runOnClient(mc -> ModUnderTest.call(McCompat.screen(mc), "showPage", new Class<?>[]{int.class}, new Object[]{page}));
