@@ -350,6 +350,8 @@ final class HxLuckCases {
         c.note("0.07 at 100 MF -> " + over + "; 0.04 at 500 MF -> " + at500);
         c.check(Math.abs(over - 0.14) < 1e-9, "a 7% mob drop at 100 Magic Find gave " + over + ", want 0.14 (all drops since 0.27.3)");
         c.check(Math.abs(at500 - 0.24) < 1e-9, "a 4% mob drop at 500 Magic Find gave " + at500 + ", want 0.24");
+        String tip = c.onClient(mc -> (String) Mod.staticCall("gui.SettingTooltips", "describe", "How Lucky Are You", "Magic Find"));
+        c.check(tip != null && tip.contains("every tracked drop") && !tip.contains("slayer kills"), "Magic Find tooltip: " + tip);
         Object cfg = c.onClient(mc -> cfg());
         try {
             c.ctx().runOnClient(mc -> {
@@ -373,6 +375,8 @@ final class HxLuckCases {
         int very = c.onClient(mc -> (Integer) Mod.staticCall("accadvisor.AccessoryRanker", "mp", "SOME_VS", "VERY_SPECIAL"));
         int epic = c.onClient(mc -> (Integer) Mod.staticCall("accadvisor.AccessoryRanker", "mp", "SOME_EPIC", "EPIC"));
         c.note("Special " + special + ", Very Special " + very + ", Epic " + epic);
+        int prism = c.onClient(mc -> (Integer) Mod.staticCall("accadvisor.AccessoryRanker", "mp", "RIFT_PRISM", "EPIC"));
+        c.check(prism == 12, "Rift Prism power " + prism + ", want its rarity (EPIC 12), no flat 11 (patch 0.27.3)");
         c.check(special == 0 && very == 5 && epic == 12, "Magical Power Special/Very Special/Epic = " + special + "/" + very + "/" + epic + ", want 0/5/12");
     }
 
