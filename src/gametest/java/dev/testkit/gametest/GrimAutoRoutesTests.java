@@ -3841,12 +3841,17 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         }
         start.run();
         int[] tpSpam = {6};
+        boolean[] restarted = {false};
         boolean firstCast = waitFor(ctx, 100, () -> {
             if (chain && act == dev.testkit.gametest.SameTick.Act.TP) {
                 c.server().command("execute as @a at @s run tp @s ~ ~ ~");
             }
             if (hits && chain) {
                 c.server().command("execute as @e[tag=achypehit] at @a[limit=1] run tp @s ~ ~-1.5 ~");
+            }
+            if (second && chain && !restarted[0] && logHas(m, "[AutoClear] Wither Impact chain")) {
+                restarted[0] = true;   // the second clearRoom starts in the chain's own tick
+                start.run();
             }
             return logHas(m, "[AutoClear] Wither Impact");
         });
@@ -3871,7 +3876,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 }
             }
         }
-        if (second) {
+        if (second && !chain) {
             start.run();
         }
         boolean finished = waitFor(ctx, 600, () -> {
