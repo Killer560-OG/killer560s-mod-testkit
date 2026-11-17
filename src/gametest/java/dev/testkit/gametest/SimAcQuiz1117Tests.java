@@ -168,7 +168,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                 return;
             }
             // The Quiz's chunks are far from the spawn and not loaded yet (getBlockState reads air): go there first.
-            SimMobFloorTests.teleport(ctx, (area[0] + area[2]) / 2 + 0.5, 100, (area[1] + area[3]) / 2 + 0.5);
+            SimMobFloorTests.teleport(ctx, (area[0] + area[2]) / 2 + 0.5, -37, (area[1] + area[3]) / 2 + 0.5);
             ctx.waitTicks(30);
             java.util.concurrent.atomic.AtomicReference<double[]> found = new java.util.concurrent.atomic.AtomicReference<>();
             java.util.concurrent.atomic.AtomicBoolean searched = new java.util.concurrent.atomic.AtomicBoolean();
@@ -311,7 +311,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         });
     }
 
-    /** Server: the lowest standable block (solid, two air above) from y 55 up in the column nearest (x, z), within 3. */
+    /** Server: the lowest standable block (solid, two air above) from y -60 up in the column nearest (x, z), within 3. */
     private static void standIn(Minecraft mc, int x, int z, java.util.concurrent.atomic.AtomicReference<double[]> out,
                                 java.util.concurrent.atomic.AtomicBoolean done) {
         var server = mc.getSingleplayerServer();
@@ -321,7 +321,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                 for (int r = 0; r <= 3 && out.get() == null; r++) {
                     for (int dx = -r; dx <= r && out.get() == null; dx++) {
                         for (int dz = -r; dz <= r && out.get() == null; dz++) {
-                            for (int y = 55; y < 120; y++) {
+                            for (int y = -60; y < 120; y++) {
                                 net.minecraft.core.BlockPos b = new net.minecraft.core.BlockPos(x + dx, y, z + dz);
                                 if (!level.getBlockState(b).getCollisionShape(level, b).isEmpty() && level.getBlockState(b.above()).isAir()
                                         && level.getBlockState(b.above(2)).isAir()) {
@@ -333,6 +333,18 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                     }
                 }
             } finally {
+                if (out.get() == null) {
+                    var level = server.overworld();
+                    StringBuilder sb = new StringBuilder();
+                    for (int y = 0; y < 130; y++) {
+                        var st = level.getBlockState(new net.minecraft.core.BlockPos(x, y, z));
+                        if (!st.isAir()) {
+                            sb.append(y).append('=').append(st.getBlock().getDescriptionId()).append(' ');
+                        }
+                    }
+                    System.out.println("[1117-sim-acquiz-wait] DIAG column " + x + "," + z + " loaded="
+                            + level.hasChunkAt(new net.minecraft.core.BlockPos(x, 70, z)) + ": " + sb);
+                }
                 done.set(true);
             }
         });

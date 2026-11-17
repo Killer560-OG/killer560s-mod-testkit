@@ -146,6 +146,10 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
     // ================================================================================================ timing
 
     private static void timing(ClientGameTestContext ctx, List<String> failures) {
+        if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+            Scenario.skipped(TIMING, "Auto Quiz is cheat-only: nothing answers on a legit jar");
+            return;
+        }
         if (!SimPuzzleSolveTests.seedRooms(ctx)) {
             Scenario.skipped(TIMING, "needs real room captures and room database");
             return;
