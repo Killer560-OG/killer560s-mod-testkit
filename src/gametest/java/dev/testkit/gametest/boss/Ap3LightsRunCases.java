@@ -23,7 +23,9 @@ import java.util.Locale;
  *   <li>every tick of the held run he moves ALONG the run's direction, never against it (the bug's signature: a tick
  *       end whose step points backwards along the held direction);</li>
  *   <li>the aura never turns his body during the held run (ap3auralook-1116: auras never change his movement), a flick
- *       went out while the run held keys (otherwise nothing was tested), and every lever is lit by the end;</li>
+ *       went out while the run held keys (otherwise nothing was tested), the server used every no-look click, at least
+ *       one unlit lever ends lit and any other was held by GrimAC RotationPlace's buffer (one no-look block click per
+ *       buffer reset; a route that needs more must bring a lever dead ahead or into a key-free tick);</li>
  *   <li>GrimAC silent (Session.test).</li>
  * </ul>
  */
@@ -89,6 +91,10 @@ final class Ap3LightsRunCases {
             });
             TerminalAuraCases.tp(c, 61.2, Y, 139.6, 117f);
             c.ctx().waitTicks(10);
+            // Earlier cases' no-look clicks leave GrimAC RotationPlace's buffer up, and then the server cancels this case's.
+            Ap3AuraLook1116Cases.clearRotationPlace(c);
+            long mark = dev.testkit.gametest.LogTap.mark();
+            long since = c.hx().head();
             Object align = node("FAST_ALIGN", 60.5, 139.0, 0f, 2.0);
             Object r14 = node("RUN", 60.5, 139.0, 72f, 1.0);
             Object r15 = node("RUN", 58.5, 139.5, 50f, 1.0);
@@ -180,7 +186,29 @@ final class Ap3LightsRunCases {
             c.check(backwards == 0, backwards + " tick(s) moved him backwards along the held run:" + worst);
             c.check(flicks >= 1, "the Lights Aura never got a flick out during the route");
             c.check(heldFlicks >= 1, "no Lights Aura flick went out while the run held keys - nothing was tested");
-            LightsDeviceCases.waitLevers(c, "all six levers lit after the route", 0, 1, 2, 3, 4, 5);
+            // With keys held and the levers off the walk line (south of a westward run) the aura's only click is a no-look one.
+            // GrimAC takes the first (RotationPlace, his accepted flag) and cancels every later one until ten clean aimed block
+            // clicks empty its buffer, so the mod holds those (GrimHitBuffer.placeClear) instead of sending them to be thrown
+            // away. So: each no-look click sent must be used by the server, at least one unlit lever must end lit, and a lever
+            // still unlit must have been held by that buffer gate (never simply missed).
+            c.ctx().waitTicks(20);
+            List<String> lines = dev.testkit.gametest.LogTap.since(mark);
+            Ap3AuraLook1116Cases.noLookTaken(c, since, lines, "Lights Aura during the held run");
+            boolean[] lit = LightsDeviceCases.litOnClient(c);
+            int litNow = 0;
+            StringBuilder unheld = new StringBuilder();
+            for (int i : new int[]{1, 5}) {
+                net.minecraft.core.BlockPos p = LightsDeviceCases.lever(LightsDeviceCases.LIGHTS[i]);
+                String at = p.getX() + ", " + p.getY() + ", " + p.getZ();
+                if (lit[i]) {
+                    litNow++;
+                } else if (lines.stream().noneMatch(l -> l.contains("no-look click on " + at + " held: it would be canceled"))) {
+                    unheld.append(' ').append(at);
+                }
+            }
+            c.note("unlit levers lit by the route " + litNow + " of 2");
+            c.check(litNow >= 1, "the Lights Aura lit none of the two unlit levers during the route");
+            c.check(unheld.length() == 0, "lever(s) left unlit without the RotationPlace buffer holding them:" + unheld);
         } finally {
             c.onClient(mc -> {
                 try {
