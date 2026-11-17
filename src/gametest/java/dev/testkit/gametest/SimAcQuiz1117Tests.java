@@ -159,6 +159,26 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             int gone = removed.get();
             ctx.waitTicks(20);
             println(name, "removed " + gone + " mob(s) on the server: nothing else to clear");
+            // With no mobs no Wither Key drops, so a Quiz behind a wither door is never reached: start inside it (walking in
+            // starts Oruo, as on Hypixel) and let Auto Clear take it from there.
+            int[] area = ctx.computeOnClient(mc -> (int[]) ModUnderTest.staticCall("com.killer560.hub.roomsim.puzzles.SimQuizPuzzle",
+                    "oruoArea"));
+            if (area == null) {
+                failures.add("the sim has no Quiz area on this floor");
+                return;
+            }
+            java.util.concurrent.atomic.AtomicReference<double[]> found = new java.util.concurrent.atomic.AtomicReference<>();
+            java.util.concurrent.atomic.AtomicBoolean searched = new java.util.concurrent.atomic.AtomicBoolean();
+            ctx.runOnClient(mc -> standIn(mc, (area[0] + area[2]) / 2, (area[1] + area[3]) / 2, found, searched));
+            ctx.waitFor(mc -> searched.get(), 400);
+            double[] spot = found.get();
+            if (spot == null) {
+                failures.add("no standable block in the Quiz around " + (area[0] + area[2]) / 2 + "," + (area[1] + area[3]) / 2);
+                return;
+            }
+            SimMobFloorTests.teleport(ctx, spot[0], spot[1], spot[2]);
+            ctx.waitTicks(20);
+            println(name, String.format(Locale.US, "placed in the Quiz at %.1f %.1f %.1f", spot[0], spot[1], spot[2]));
         }
         boolean baseline;
         try {
@@ -285,6 +305,33 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                 }
             }
             out.set(n);
+        });
+    }
+
+    /** Server: the lowest standable block (solid, two air above) from y 55 up in the column nearest (x, z), within 3. */
+    private static void standIn(Minecraft mc, int x, int z, java.util.concurrent.atomic.AtomicReference<double[]> out,
+                                java.util.concurrent.atomic.AtomicBoolean done) {
+        var server = mc.getSingleplayerServer();
+        server.execute(() -> {
+            try {
+                var level = server.overworld();
+                for (int r = 0; r <= 3 && out.get() == null; r++) {
+                    for (int dx = -r; dx <= r && out.get() == null; dx++) {
+                        for (int dz = -r; dz <= r && out.get() == null; dz++) {
+                            for (int y = 55; y < 120; y++) {
+                                net.minecraft.core.BlockPos b = new net.minecraft.core.BlockPos(x + dx, y, z + dz);
+                                if (!level.getBlockState(b).getCollisionShape(level, b).isEmpty() && level.getBlockState(b.above()).isAir()
+                                        && level.getBlockState(b.above(2)).isAir()) {
+                                    out.set(new double[]{b.getX() + 0.5, y + 1, b.getZ() + 0.5});
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            } finally {
+                done.set(true);
+            }
         });
     }
 
