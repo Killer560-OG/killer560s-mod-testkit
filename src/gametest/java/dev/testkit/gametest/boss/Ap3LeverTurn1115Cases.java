@@ -211,20 +211,24 @@ final class Ap3LeverTurn1115Cases {
         });
         double[] cam = {0, 0};
         boolean settled = false;
+        boolean aligned = false;
         for (int t = 0; t < 220; t++) {
             c.ctx().waitTick();
             Object[] now = c.onClient(mc -> new Object[]{mc.player.getYRot(), mc.player.getViewYRot(1f), Mod.staticCall(EXEC, "isRunning")});
-            boolean running = (Boolean) now[2];
-            if (t > 5 && !running) {
+            if (t > 5 && !(Boolean) now[2]) {
                 break;
             }
             double bodyOff = Math.abs(net.minecraft.util.Mth.wrapDegrees((Float) now[0] - WALK_YAW));
-            settled |= bodyOff < 0.5;
+            // Measure from the RUN on: the Fast Align's Camera Planner turns the body itself, and when its first presses
+            // keep the walk yaw the body read "settled" at t1 and the align's own turn counted as 126 degrees (11-17).
+            aligned = aligned || LogTap.since(mark).stream().anyMatch(l -> l.contains("Fast Align #") && l.contains(" took "));
+            settled |= aligned && bodyOff < 0.5;
             if (settled) {
                 cam[0] = Math.max(cam[0], Math.abs(net.minecraft.util.Mth.wrapDegrees((Float) now[1] - WALK_YAW)));
                 cam[1] = Math.max(cam[1], bodyOff);
             }
         }
+        c.check(settled, "the body never held the walk's yaw after the Fast Align (nothing was measured)");
         // Lever Aura's turn lines are counted while AP3 ran only: once it stops the aura may turn as it always did.
         List<String> lines = LogTap.since(mark);
         long turns = lines.stream().filter(Ap3LeverTurn1115Cases::turnLine).count();
