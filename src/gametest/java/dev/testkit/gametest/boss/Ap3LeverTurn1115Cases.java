@@ -199,7 +199,9 @@ final class Ap3LeverTurn1115Cases {
         long mark = LogTap.mark();
         // His use every other tick (every tick would leave no tick the aim may ride: a use_item carries the live look).
         SameTick st = sameAct == null ? null : sameAct == SameTick.Act.USE
-                ? c.onClient(mc -> SameTick.start(sameAct, 2, p -> p instanceof ServerboundUseItemOnPacket, 4, 5))
+                // Secret Aura sends ONE lever click a walk, so his use goes every tick there: with every other tick the click
+                // fell on a tick without his use about one run in two (26.2 round 6: SHARED 0, nothing tested).
+                ? c.onClient(mc -> SameTick.start(sameAct, secret ? 1 : 2, p -> p instanceof ServerboundUseItemOnPacket, 4, 5))
                 : SameTickCases.start(c, sameAct, p -> p instanceof ServerboundUseItemOnPacket);
         WireCapture.describe = Ap3LeverTurn1115Cases::describe;
         WireCapture.start();
