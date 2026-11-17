@@ -45,17 +45,17 @@ final class Ap3LeverTurn1115Cases {
         if (!Mod.isCheat()) {
             return;
         }
-        s.test("1115-ap3-leverturn-states", c -> run(c, null, false));
-        s.test("1115-ap3-leverturn-same-use", c -> run(c, SameTick.Act.USE, false));
-        s.test("1116-leverfreeze-ap3-states", c -> run(c, null, false));
-        s.test("1116-leverfreeze-ap3-same-use", c -> run(c, SameTick.Act.USE, false));
+        s.testExpectingFlags("1115-ap3-leverturn-states", c -> run(c, null, false));
+        s.testExpectingFlags("1115-ap3-leverturn-same-use", c -> run(c, SameTick.Act.USE, false));
+        s.testExpectingFlags("1116-leverfreeze-ap3-states", c -> run(c, null, false));
+        s.testExpectingFlags("1116-leverfreeze-ap3-same-use", c -> run(c, SameTick.Act.USE, false));
         // ap3leveralways-1115: the lever already on is the one AP3 flicked itself earlier in the same run (a retry).
-        s.test("1115-ap3-leveralways-retry", c -> run(c, null, true));
-        s.test("1115-ap3-leveralways-retry-same-use", c -> run(c, SameTick.Act.USE, true));
-        s.test("1115-ap3-leveralways-same-swap", c -> run(c, SameTick.Act.SWAP, true));
+        s.testExpectingFlags("1115-ap3-leveralways-retry", c -> run(c, null, true));
+        s.testExpectingFlags("1115-ap3-leveralways-retry-same-use", c -> run(c, SameTick.Act.USE, true));
+        s.testExpectingFlags("1115-ap3-leveralways-same-swap", c -> run(c, SameTick.Act.SWAP, true));
         // ap3auralook-1116: the same boss lever clicked by Secret Aura (its In Boss half) instead of Lever Aura.
-        s.test("1116-ap3aura-secret-bosslever", c -> runSecret(c, null));
-        s.test("1116-ap3aura-secret-bosslever-same-use", c -> runSecret(c, SameTick.Act.USE));
+        s.testExpectingFlags("1116-ap3aura-secret-bosslever", c -> runSecret(c, null));
+        s.testExpectingFlags("1116-ap3aura-secret-bosslever-same-use", c -> runSecret(c, SameTick.Act.USE));
     }
 
     /** True while a case runs the lever through Secret Aura (Lever Aura's Section Levers off, so it does not own it). */
@@ -74,7 +74,7 @@ final class Ap3LeverTurn1115Cases {
     /** A body turn while AP3 ran: Lever Aura's, or TurnFirst's (Secret Aura) unless it clicked by the one-packet look. */
     private static boolean turnLine(String l) {
         return l.contains("[LeverAura] turning body") || l.contains("[TurnFirst] hand-back")
-                || l.contains("[TurnFirst] click on") && !l.contains("one-packet look");
+                || l.contains("[TurnFirst] click on") && !l.contains("one-packet look") && !l.contains("body untouched");
     }
 
     /** {widest camera yaw off the walk, widest body yaw off the walk} at the tick ends of the last runOnce, after the align. */
@@ -107,11 +107,11 @@ final class Ap3LeverTurn1115Cases {
         if (p instanceof ServerboundClientTickEndPacket) {
             return "end";
         }
-        return p.getClass().getSimpleName();
+        return Ap3AuraLook1116Cases.describeMovement(p);
     }
 
     /** One run's wire: per client tick {x, y, z, yaw, pitch, lever clicks, uses}, from the tick he first moved. */
-    private record Run(List<double[]> ticks, int leverClicks, int uses, long turnLines) {
+    private record Run(List<double[]> ticks, int leverClicks, int uses, long turnLines, List<String> lines) {
     }
 
     private static List<double[]> ticksFromWire(int[] counts) {
@@ -119,6 +119,7 @@ final class Ap3LeverTurn1115Cases {
         double[] cur = {Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN};
         int clicks = 0;
         int uses = 0;
+        double input = 0, cmds = 0;
         for (WireCapture.Sent w : WireCapture.snapshot()) {
             if (!w.phase().equals("play")) {
                 continue;
@@ -136,10 +137,15 @@ final class Ap3LeverTurn1115Cases {
                 clicks++;
             } else if (t.equals("useitem")) {
                 uses++;
+            } else if (t.startsWith("input ")) {
+                input = Double.parseDouble(t.substring(6));
+            } else if (t.startsWith("cmd ")) {
+                cmds = cmds * 16 + Double.parseDouble(t.substring(4));
             } else if (t.equals("end")) {
-                out.add(new double[]{cur[0], cur[1], cur[2], cur[3], cur[4], clicks, uses});
+                out.add(new double[]{cur[0], cur[1], cur[2], cur[3], cur[4], clicks, uses, input, cmds});
                 clicks = 0;
                 uses = 0;
+                cmds = 0;
             }
         }
         // From the first tick he is off the tp spot (a tick with no position sent yet still stands there).
@@ -221,7 +227,8 @@ final class Ap3LeverTurn1115Cases {
         List<String> lines = LogTap.since(mark);
         long turns = lines.stream().filter(Ap3LeverTurn1115Cases::turnLine).count();
         if (secret && !leverOn) {
-            secretPacketClicks = lines.stream().filter(l -> l.contains("[TurnFirst] click on") && l.contains("one-packet look")).count();
+            secretPacketClicks = lines.stream().filter(l -> l.contains("[TurnFirst] click on")
+                    && (l.contains("one-packet look") || l.contains("body untouched"))).count();
         }
         WireCapture.stop(); // clicks are counted while AP3 ran (a click after it may turn the body as it always did)
         WireCapture.describe = null;
@@ -245,15 +252,12 @@ final class Ap3LeverTurn1115Cases {
             Ap3TermAuraCases.setChain();
             return null;
         });
-        return new Run(ticks, counts[0], counts[1], turns);
+        return new Run(ticks, counts[0], counts[1], turns, lines);
     }
 
     private static boolean aimed(double[] t) {
         return Math.abs(net.minecraft.util.Mth.wrapDegrees(t[3] - WALK_YAW)) > 10;
     }
-
-    /** Block. Four green runs (11-15) measured up to 0.000999 apart from the align's leftover; the bug drifted tenths. */
-    private static final double POS_TOLERANCE = 0.005;
 
     /** The first tick of the RUN (past x 34.5, the align is done by then). */
     private static int runStart(List<double[]> ticks) {
@@ -300,6 +304,7 @@ final class Ap3LeverTurn1115Cases {
             // A warm-up walk first, not compared: the session's first AP3 walk once started from a different look (the server
             // had heard no rotation yet), one tick out of step with every later walk (experimental run, 11-15).
             runOnce(c, true, null, true);
+            int flags0 = c.scenario().flags().size();
             Run off = runOnce(c, false, sameAct, true);
             double[] camOff = lastCam;
             // retry: no new run, so Lever Aura still holds the lever AP3 flicked in the walk above.
@@ -313,38 +318,10 @@ final class Ap3LeverTurn1115Cases {
             List<double[]> offT = off.ticks().subList(aOff, off.ticks().size());
             List<double[]> onT = on.ticks().subList(aOn, on.ticks().size());
             int n = Math.min(offT.size(), onT.size());
-            // Positions as moved since the first compared tick (the align leaves the walks up to 0.001 block apart), looks
-            // modulo a full turn and only where neither tick is the aim packet.
-            int firstDiff = -1;
-            String diff = "";
-            double lookDiff = 0, posDiff = 0;
-            double[] a0 = offT.get(0), b0 = onT.get(0);
-            for (int i = 0; i < n; i++) {
-                double[] a = offT.get(i);
-                double[] b = onT.get(i);
-                boolean look = !aimed(a) && !aimed(b);
-                for (int k = 0; k < 5; k++) {
-                    if (k >= 3 && !look) {
-                        continue;
-                    }
-                    boolean nan = Double.isNaN(a[k]) != Double.isNaN(b[k]);
-                    double d = k < 3 ? Math.abs((a[k] - a0[k]) - (b[k] - b0[k]))
-                            : Math.abs(net.minecraft.util.Mth.wrapDegrees(a[k] - b[k]));
-                    if (!nan) {
-                        if (k < 3) {
-                            posDiff = Math.max(posDiff, d);
-                        } else {
-                            lookDiff = Math.max(lookDiff, d);
-                        }
-                    }
-                    if (firstDiff < 0 && (nan || d > (k < 3 ? POS_TOLERANCE : 0.05))) {
-                        firstDiff = i;
-                        diff = String.format(Locale.ROOT, "tick %d: off %.5f %.5f %.5f yaw %.3f pitch %.3f / on %.5f %.5f %.5f yaw %.3f"
-                                + " pitch %.3f", i, a[0], a[1], a[2], a[3], a[4], b[0], b[1], b[2], b[3], b[4]);
-                    }
-                }
-            }
-            diff += String.format(Locale.ROOT, "; largest look difference %.4f deg, largest position difference %.6f", lookDiff, posDiff);
+            // The owner's rule (11-16): positions, keys, sprint commands and the packet yaw on every keys tick match tick for
+            // tick; a pitch-only look, or a full aim on a keyless tick, is allowed.
+            String diff = Ap3AuraLook1116Cases.movementDiff(offT, onT, n);
+            int firstDiff = diff.isEmpty() ? -1 : 0;
             int leverTick = -1;
             for (int i = 0; i < off.ticks().size(); i++) {
                 if (off.ticks().get(i)[5] > 0) {
@@ -366,17 +343,25 @@ final class Ap3LeverTurn1115Cases {
                             + " the walk at most %.3f / %.3f deg (lever off), %.3f / %.3f (on); Lever Aura turn lines off/on %d/%d;"
                             + " uses off/on %d/%d; first difference: %s", off.ticks().size(), on.ticks().size(), n, endX,
                     off.leverClicks(), on.leverClicks(), leverTick, aimBefore, aimOff, aimOn, camOff[0], camOff[1], camOn[0],
-                    camOn[1], off.turnLines(), on.turnLines(), off.uses(), on.uses(), (firstDiff < 0 ? "none" : "") + diff));
+                    camOn[1], off.turnLines(), on.turnLines(), off.uses(), on.uses(), firstDiff < 0 ? "none" : diff));
             c.check(n >= 10 && endX < 28, "the walk did not reach the lever (" + n + " ticks, ended at x " + endX + ")");
             c.check(off.leverClicks() == 1, "lever off: " + off.leverClicks() + " lever clicks while AP3 ran, want 1");
             c.check(on.leverClicks() == 0, "lever on: " + on.leverClicks() + " lever clicks while AP3 ran, want 0");
-            c.check(aimBefore, "the lever click did not follow a move packet aimed off the walk (PacketLook did not act)");
+            // The click's look: a full aim the tick before (no keys), a pitch-only look, or none with keys held (step 4).
+            long how = off.lines().stream().filter(l -> l.contains("one-packet look") || l.contains("body untouched")).count();
+            c.note("lever click lines: " + off.lines().stream().filter(l -> l.contains("[TurnFirst] click on")
+                    || l.contains("[LeverAura] click")).toList());
+            c.check(aimBefore || how > 0, "the lever click came with no aim and no keys-held click line (nothing tested)");
             c.check(aimOn == 0, "lever on: " + aimOn + " move packet(s) aimed off the walk for an activated lever");
             c.check(camOff[0] < 0.5 && camOn[0] < 0.5, "the camera left the walk's yaw: " + camOff[0] + " / " + camOn[0] + " degrees");
             c.check(camOff[1] < 0.5 && camOn[1] < 0.5, "the body left the walk's yaw at a tick end: " + camOff[1] + " / " + camOn[1] + " degrees");
             c.check(off.turnLines() == 0 && on.turnLines() == 0, "Lever Aura turned the body while AP3 ran (lines off/on "
                     + off.turnLines() + "/" + on.turnLines() + ")");
-            c.check(firstDiff < 0, "the two lever states walked differently: " + diff);
+            c.check(firstDiff < 0, "the lever aura changed the AP3 walk's movement: " + diff);
+            c.ctx().waitTicks(20);
+            List<String> all = new ArrayList<>(off.lines());
+            all.addAll(on.lines());
+            Ap3AuraLook1116Cases.stepFour(c, flags0, all, secret ? "Secret Aura on the boss lever" : "Lever Aura on the walk");
             if (secret) {
                 c.note("Secret Aura one-packet-look clicks (lever off): " + secretPacketClicks + "; in boss "
                         + c.onClient(mc -> Mod.staticCall("livemap.LiveMapFeature", "isInBoss")));

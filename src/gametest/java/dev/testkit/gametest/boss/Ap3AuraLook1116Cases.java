@@ -67,8 +67,9 @@ final class Ap3AuraLook1116Cases {
         for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.TP}) {
             s.test("1116-ap3aura-arrows-same-" + a.name().toLowerCase(Locale.ROOT), c -> arrows(c, a));
         }
-        s.test("1116-ap3aura-term-beside", Ap3AuraLook1116Cases::termBeside);
-        s.test("1116-ap3aura-term-still", Ap3AuraLook1116Cases::termStill);
+        // Judged by stepFour: RotationPlace / Hitboxes only, and only behind a no-look click with keys held (owner 11-16).
+        s.testExpectingFlags("1116-ap3aura-term-beside", Ap3AuraLook1116Cases::termBeside);
+        s.testExpectingFlags("1116-ap3aura-term-still", Ap3AuraLook1116Cases::termStill);
         s.testExpectingFlags("1116-nolook-probe", Ap3AuraLook1116Cases::probe);
         s.testExpectingFlags("1116-movingclick-probe", Ap3AuraLook1116Cases::movingProbe);
     }
@@ -99,14 +100,36 @@ final class Ap3AuraLook1116Cases {
         if (p instanceof ServerboundClientTickEndPacket) {
             return "end";
         }
+        return describeMovement(p);
+    }
+
+    /** "input <bits>" (forward 1, backward 2, left 4, right 8, jump 16, shift 32, sprint 64), "cmd <action+1>", else the class. */
+    static String describeMovement(Object p) {
+        if (p instanceof net.minecraft.network.protocol.game.ServerboundPlayerInputPacket in) {
+            net.minecraft.world.entity.player.Input i = in.input();
+            return "input " + ((i.forward() ? 1 : 0) | (i.backward() ? 2 : 0) | (i.left() ? 4 : 0) | (i.right() ? 8 : 0)
+                    | (i.jump() ? 16 : 0) | (i.shift() ? 32 : 0) | (i.sprint() ? 64 : 0));
+        }
+        if (p instanceof net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket cmd) {
+            return "cmd " + (cmd.getAction().ordinal() + 1);
+        }
         return p.getClass().getSimpleName();
     }
 
-    /** Per client tick {x, y, z, yaw, pitch, interacts, apRunning}, from the first tick he left (sx, sz). */
+    /** Movement keys and jump in an "input" bit set (forward, backward, left, right, jump). */
+    private static boolean keys(double bits) {
+        return ((int) bits & 31) != 0;
+    }
+
+    /**
+     * Per client tick {x, y, z, yaw, pitch, interacts, apRunning, input bits held, commands this tick}, from the first tick
+     * he left (sx, sz).
+     */
     private static List<double[]> ticksFromWire(double sx, double sz) {
         List<double[]> out = new ArrayList<>();
         double[] cur = {Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN};
         int interacts = 0;
+        double input = 0, cmds = 0;
         for (WireCapture.Sent w : WireCapture.snapshot()) {
             if (!w.phase().equals("play")) {
                 continue;
@@ -122,9 +145,14 @@ final class Ap3AuraLook1116Cases {
                 }
             } else if (t.equals("interact")) {
                 interacts++;
+            } else if (t.startsWith("input ")) {
+                input = Double.parseDouble(t.substring(6));
+            } else if (t.startsWith("cmd ")) {
+                cmds = cmds * 16 + Double.parseDouble(t.substring(4));
             } else if (t.equals("end")) {
-                out.add(new double[]{cur[0], cur[1], cur[2], cur[3], cur[4], interacts, 0});
+                out.add(new double[]{cur[0], cur[1], cur[2], cur[3], cur[4], interacts, 0, input, cmds});
                 interacts = 0;
+                cmds = 0;
             }
         }
         int first = 0;
@@ -164,6 +192,65 @@ final class Ap3AuraLook1116Cases {
             }
         }
         return "";
+    }
+
+    /**
+     * The owner's rule (2026-11-16: "My auras can never affect my movement"): the first tick where the aura-on walk moved
+     * differently from the aura-off one, or "". Positions (moved since the first tick, 0.005), the input bits held, the
+     * sprint/sneak commands, and the packet yaw on every tick either walk holds a movement key or jump (0.05 deg). Pitch is
+     * free, and so is the yaw of a tick with no keys (a full aim may ride there).
+     */
+    static String movementDiff(List<double[]> a, List<double[]> b, int n) {
+        int s0 = 0;
+        while (s0 < n && (Double.isNaN(a.get(s0)[0]) || Double.isNaN(b.get(s0)[0]))) {
+            s0++;
+        }
+        if (s0 >= n) {
+            return "no position on the wire";
+        }
+        double[] a0 = a.get(s0), b0 = b.get(s0);
+        for (int i = s0; i < n; i++) {
+            double[] p = a.get(i), q = b.get(i);
+            String why = null;
+            for (int k = 0; k < 3 && why == null; k++) {
+                double d = Math.abs((p[k] - a0[k]) - (q[k] - b0[k]));
+                if (Double.isNaN(d) || d > 0.005) {
+                    why = "position";
+                }
+            }
+            if (why == null && p[7] != q[7]) {
+                why = "keys";
+            } else if (why == null && p[8] != q[8]) {
+                why = "sprint/sneak command";
+            } else if (why == null && (keys(p[7]) || keys(q[7])) && !(Double.isNaN(p[3]) && Double.isNaN(q[3]))
+                    && !(Math.abs(Mth.wrapDegrees(p[3] - q[3])) <= 0.05)) {
+                why = "yaw with keys held";
+            }
+            if (why != null) {
+                return String.format(Locale.ROOT, "tick %d %s: off %.4f %.4f %.4f yaw %.3f pitch %.3f keys %d cmd %d / on %.4f %.4f"
+                                + " %.4f yaw %.3f pitch %.3f keys %d cmd %d", i, why, p[0], p[1], p[2], p[3], p[4], (int) p[7], (long) p[8],
+                        q[0], q[1], q[2], q[3], q[4], (int) q[7], (long) q[8]);
+            }
+        }
+        return "";
+    }
+
+    /**
+     * The owner's step-4 exception (2026-11-16, "No switch."): an aura's no-look click while movement keys are held may draw
+     * GrimAC RotationPlace (a lever) or Hitboxes (a terminal stand), nothing else, and only when such a click went. Checks
+     * every flag line since {@code from} against the aura's log lines of that run; returns how many flag lines there were.
+     */
+    static int stepFour(Session c, int from, List<String> lines, String what) {
+        List<String> f = c.scenario().flags();
+        List<String> got = f.size() <= from ? List.of() : f.subList(from, f.size());
+        long noLook = lines.stream().filter(l -> l.contains("no look (keys held")).count();
+        List<String> other = got.stream().filter(l -> !l.contains("RotationPlace") && !l.contains("Hitboxes")).toList();
+        c.note(what + ": " + got.size() + " flag line(s), " + noLook + " no-look click(s) with keys held"
+                + (got.isEmpty() ? "" : "; " + String.join(" | ", got.subList(0, Math.min(4, got.size())))));
+        c.check(other.isEmpty(), what + " drew flags outside the owner's step-4 exception: " + other);
+        c.check(got.isEmpty() || noLook > 0, what + " drew " + got.size() + " RotationPlace/Hitboxes line(s) with no no-look click"
+                + " behind them (the exception covers only step 4)");
+        return got.size();
     }
 
     private static void stopAp3(Session c) {
@@ -309,7 +396,7 @@ final class Ap3AuraLook1116Cases {
             Walk off = walk(c, false, act, notes);
             Walk onW = walk(c, true, act, notes);
             int n = Math.min(off.ticks().size(), onW.ticks().size());
-            String diff = n == 0 ? "no ticks" : firstDiff(off.ticks(), onW.ticks(), Math.min(n, Math.min(off.apTicks(), onW.apTicks())));
+            String diff = n == 0 ? "no ticks" : movementDiff(off.ticks(), onW.ticks(), Math.min(n, Math.min(off.apTicks(), onW.apTicks())));
             c.note(String.format(Locale.ROOT, "ticks off/on %d/%d (AP3 %d/%d); interacts while AP3 ran off/on %d/%d; first"
                     + " difference while AP3 ran: %s", off.ticks().size(), onW.ticks().size(), off.apTicks(), onW.apTicks(),
                     off.interactsWhileRunning(), onW.interactsWhileRunning(), diff.isEmpty() ? "none" : diff));
@@ -319,10 +406,7 @@ final class Ap3AuraLook1116Cases {
                 c.check(onW.interacts() == 0, "a legit jar clicked frames on the walk: " + onW.interacts());
                 return;
             }
-            boolean moves = act == null || act == SameTick.Act.USE || act == SameTick.Act.SWAP;
-            if (moves) {
-                c.check(diff.isEmpty(), "the Aura changed the AP3 walk: " + diff);
-            }
+            c.check(diff.isEmpty(), "the Aura changed the AP3 walk's movement: " + diff);
             c.check(onW.interactsWhileRunning() > 0, "the Aura sent no click while AP3 ran (nothing tested)");
             if (act == null) {
                 c.check(java.util.Arrays.stream(onW.rot()).allMatch(r -> r == 1), "the device was not solved: "
@@ -382,8 +466,14 @@ final class Ap3AuraLook1116Cases {
             List<double[]>[] runs = new List[2];
             long held = 0;
             int[] clicks = new int[2];
+            int flags0 = c.scenario().flags().size(), flagsOn = flags0;
+            List<String> onLines = List.of();
             for (int r = -1; r < 2; r++) { // r = -1: warm-up
                 boolean aura = r == 1;
+                if (aura) {
+                    c.ctx().waitTicks(10);
+                    flagsOn = c.scenario().flags().size();
+                }
                 stopAp3(c);
                 TerminalAuraCases.closeScreen(c);
                 TerminalAuraCases.tp(c, px, py, pz, -90f);
@@ -417,8 +507,9 @@ final class Ap3AuraLook1116Cases {
                     return null;
                 });
                 if (aura) {
-                    held = dev.testkit.gametest.LogTap.since(mark).stream()
-                            .filter(l -> l.contains("[TerminalAura] held: AP3 route runs: no turn")).count();
+                    onLines = dev.testkit.gametest.LogTap.since(mark);
+                    held = onLines.stream().filter(l -> l.contains("[TerminalAura] held: AP3 route runs: no turn")
+                            || l.contains("[TerminalAura] held: keys held") || l.contains("[TerminalAura] click sent")).count();
                 }
                 if (r >= 0) {
                     runs[r] = ticksFromWire(px, pz);
@@ -426,15 +517,19 @@ final class Ap3AuraLook1116Cases {
                 }
             }
             int n = Math.min(runs[0].size(), runs[1].size());
-            String diff = firstDiff(runs[0], runs[1], n, 3);
+            String diff = movementDiff(runs[0], runs[1], n);
             String lookDiff = firstDiff(runs[0], runs[1], n, 5);
-            c.note("first look difference (a one-packet aim on a still tick is allowed): " + (lookDiff.isEmpty() ? "none" : lookDiff));
-            c.note(String.format(Locale.ROOT, "ticks off/on %d/%d; terminal clicks off/on %d/%d; Terminal Aura held for the route"
-                    + " %d time(s); first difference: %s", runs[0].size(), runs[1].size(), clicks[0], clicks[1], held,
-                    diff.isEmpty() ? "none" : diff));
+            c.note("first look difference (pitch, or yaw on a keyless tick, is allowed): " + (lookDiff.isEmpty() ? "none" : lookDiff));
+            c.note(String.format(Locale.ROOT, "ticks off/on %d/%d; terminal clicks off/on %d/%d; Terminal Aura lines for the route"
+                    + " %d; movement difference: %s; click lines: %s", runs[0].size(), runs[1].size(), clicks[0], clicks[1], held,
+                    diff.isEmpty() ? "none" : diff, onLines.stream().filter(l -> l.contains("[TerminalAura] click sent")).toList()));
             c.check(held > 0, "Terminal Aura never had the stand as a target during the walk (nothing tested)");
             c.check(n >= 20, "the walk lasted only " + n + " ticks");
-            c.check(diff.isEmpty(), "Terminal Aura changed the AP3 walk: " + diff);
+            c.check(diff.isEmpty(), "Terminal Aura changed the AP3 walk's movement: " + diff);
+            c.ctx().waitTicks(20);
+            List<String> fl = c.scenario().flags();
+            c.check(flagsOn == flags0, "the aura-off walks drew flags: " + fl.subList(flags0, Math.min(flagsOn, fl.size())));
+            stepFour(c, flagsOn, onLines, "Terminal Aura beside the walk");
         } finally {
             stopAp3(c);
             WireCapture.stop();
@@ -498,40 +593,67 @@ final class Ap3AuraLook1116Cases {
                 Mod.staticCall(Ap3TermAuraCases.FEATURE, "setForceDungeon", true);
                 return null;
             });
-            stopAp3(c);
-            TerminalAuraCases.closeScreen(c);
-            TerminalAuraCases.tp(c, px, py, pz, -90f);
-            c.ctx().waitTicks(10);
             double sx = x - 1.0;
             Object align = node("FAST_ALIGN", px, py, pz, -90f, 2.0);
             Object run = node("RUN", px, py, pz, -90f, 1.0);
             Object stop = node("STOP", sx, py, pz, -90f, 1.0);
             Object terminal = node("TERMINAL", sx, py, pz, -90f, 4.0);
-            int before = c.events("term.interact").size();
-            long mark = dev.testkit.gametest.LogTap.mark();
-            WireCapture.describe = Ap3AuraLook1116Cases::describe;
-            WireCapture.start();
-            c.onClient(mc -> {
-                Mod.set(ta, "setEnabled", true);
-                Ap3TermAuraCases.setChain(align, run, stop, terminal);
-                return null;
-            });
+            // r -1: warm-up, 0: Terminal Aura off (the A/B reference), 1: on. The on run ends at its click.
+            List<double[]> offTicks = List.of();
             double worstYaw = 0;
             int runningTicks = 0;
-            boolean opened = false;
-            for (int t = 0; t < 140 && !opened; t++) {
-                c.ctx().waitTick();
-                Object[] s = c.onClient(mc -> new Object[]{Mod.staticCall(EXEC, "isRunning"), mc.player.getViewYRot(1f)});
-                if (Boolean.TRUE.equals(s[0])) {
-                    runningTicks++;
-                    worstYaw = Math.max(worstYaw, Math.abs(Mth.wrapDegrees((Float) s[1] + 90f)));
+            boolean opened = false, runningAtClick = false;
+            int before = 0;
+            long mark = 0;
+            int flags0 = c.scenario().flags().size(), flagsOn = flags0;
+            for (int r = -1; r < 2; r++) {
+                boolean aura = r == 1;
+                if (aura) {
+                    c.ctx().waitTicks(10);
+                    flagsOn = c.scenario().flags().size();
                 }
-                opened = c.events("term.interact").size() > before;
+                stopAp3(c);
+                TerminalAuraCases.closeScreen(c);
+                TerminalAuraCases.tp(c, px, py, pz, -90f);
+                c.ctx().waitTicks(10);
+                before = c.events("term.interact").size();
+                mark = dev.testkit.gametest.LogTap.mark();
+                WireCapture.describe = Ap3AuraLook1116Cases::describe;
+                WireCapture.start();
+                c.onClient(mc -> {
+                    Mod.set(ta, "setEnabled", aura);
+                    Ap3TermAuraCases.setChain(align, run, stop, terminal);
+                    return null;
+                });
+                for (int t = 0; t < (aura ? 140 : 70) && !opened; t++) {
+                    c.ctx().waitTick();
+                    Object[] s = c.onClient(mc -> new Object[]{Mod.staticCall(EXEC, "isRunning"), mc.player.getViewYRot(1f)});
+                    if (aura && Boolean.TRUE.equals(s[0])) {
+                        runningTicks++;
+                        worstYaw = Math.max(worstYaw, Math.abs(Mth.wrapDegrees((Float) s[1] + 90f)));
+                    }
+                    opened = aura && c.events("term.interact").size() > before;
+                }
+                runningAtClick = c.onClient(mc -> (Boolean) Mod.staticCall(EXEC, "isRunning"));
+                c.ctx().waitTicks(aura ? 3 : 0);
+                WireCapture.stop();
+                WireCapture.describe = null;
+                if (r == 0) {
+                    offTicks = ticksFromWire(px, pz);
+                    c.check(c.events("term.interact").size() == before, "the aura-off route opened the terminal");
+                }
             }
-            boolean runningAtClick = c.onClient(mc -> (Boolean) Mod.staticCall(EXEC, "isRunning"));
-            c.ctx().waitTicks(3);
-            WireCapture.stop();
-            WireCapture.describe = null;
+            List<double[]> onTicks = ticksFromWire(px, pz);
+            int n = Math.min(offTicks.size(), onTicks.size());
+            String moveDiff = movementDiff(offTicks, onTicks, n);
+            c.note("movement aura off/on (" + n + " ticks): " + (moveDiff.isEmpty() ? "identical" : moveDiff));
+            c.check(n >= 10, "the route lasted only " + n + " compared ticks");
+            c.check(moveDiff.isEmpty(), "Terminal Aura changed the AP3 route's movement: " + moveDiff);
+            c.check(flagsOn == flags0, "the aura-off routes drew flags: " + c.scenario().flags().subList(flags0, flagsOn));
+            List<String> onLines = dev.testkit.gametest.LogTap.since(mark);
+            c.note("click lines: " + onLines.stream().filter(l -> l.contains("[TerminalAura] click sent")).toList());
+            c.ctx().waitTicks(20);
+            stepFour(c, flagsOn, onLines, "Terminal Aura at the stopped route");
             int aimed = 0;
             for (WireCapture.Sent w : WireCapture.snapshot()) {
                 String[] f = w.text().split(" ");
