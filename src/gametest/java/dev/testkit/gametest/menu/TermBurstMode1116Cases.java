@@ -52,6 +52,12 @@ final class TermBurstMode1116Cases {
                 MenuSuite.test(s, "1116-term-bmode-" + n + "-" + size, c -> run(c, spec, size, 0, null));
             }
         }
+        for (int size : new int[]{1, 5, 21}) {
+            for (TerminalCases.Spec spec : List.of(PANES15, TermPlus1112Cases.SELECT24)) {
+                MenuSuite.test(s, "1117-term-bmode-catchup-" + spec.type().toLowerCase(Locale.ROOT).replace("_", "") + "-" + size,
+                        c -> run(c, spec, size, 0, null, true));
+            }
+        }
         for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.CLICK, SameTick.Act.SCREEN_CLICK, SameTick.Act.USE,
                 SameTick.Act.ATTACK, SameTick.Act.SWAP, SameTick.Act.TP}) {
             for (int size : new int[]{5, 21}) {
@@ -124,6 +130,11 @@ final class TermBurstMode1116Cases {
     }
 
     static void run(Session c, TerminalCases.Spec spec, int size, int delay, SameTick.Act act) throws Exception {
+        run(c, spec, size, delay, act, false);
+    }
+
+    /** {@code stall}: every 4th client tick the client thread sleeps 130 ms, so the game runs 2-3 catch-up ticks back to back. */
+    static void run(Session c, TerminalCases.Spec spec, int size, int delay, SameTick.Act act, boolean stall) throws Exception {
         MenuKit.reset(c);
         if (legit(c)) return;
         boolean drop = List.of(spec.args()).contains("dropClicks");
@@ -154,11 +165,26 @@ final class TermBurstMode1116Cases {
                     };
                 }
             }
+            if (stall) {
+                TermBurst1111Cases.hook();
+                int[] n = {0};
+                TermBurst1111Cases.perTick = () -> {
+                    if (++n[0] % 4 == 0) {
+                        try {
+                            Thread.sleep(130);
+                        } catch (InterruptedException ignored) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                };
+            }
             JsonObject t = TerminalCases.open(c, spec);
             MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
             if (act == SameTick.Act.TP) {
                 for (int i = 0; i < 200 && c.onClient(mc -> dev.testkit.compat.McCompat.screen(mc) != null); i++) {
-                    if (i % 2 == 0) c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+                    // Every tick: bursts keep 75+ ms apart now (every second client tick), so a teleport every other tick could
+                    // fall on the ticks between them and never share a server tick with one.
+                    c.server().command("execute as @a at @s run tp @s ~ ~ ~");
                     c.ctx().waitTick();
                 }
             }
@@ -167,7 +193,7 @@ final class TermBurstMode1116Cases {
             TermBurst1111Cases.perTick = null;
             c.ctx().waitTicks(10);
             String name = spec.type() + " burst mode " + size + (delay > 0 ? " delay " + delay : "")
-                    + (act != null ? " same-tick " + act : "") + (drop ? " drop" : "");
+                    + (act != null ? " same-tick " + act : "") + (drop ? " drop" : "") + (stall ? " catch-up" : "");
             if (st[0] != null) {
                 SameTick.judge(c, st[0], name, SameTick.Expect.SHARE);
                 st[0] = null;
@@ -214,7 +240,31 @@ final class TermBurstMode1116Cases {
             // (catch-up ticks under load came 6-25 ms apart and put two bursts in one server tick). The floor is kept at the
             // decision; the wire time is taken at encode on the IO thread, which can shorten a 40 ms gap to ~22 ms under load.
             if (act == null) {
-                if (minGapMs != Long.MAX_VALUE) c.check(minGapMs >= 15, "two bursts went " + minGapMs + " ms apart, far under the 40 ms floor");
+                // The real invariant: no SERVER tick carries clicks of two different bursts. Server clicks (in arrival order,
+                // each stamped with the server tick) are dealt to the wire bursts by their sizes.
+                List<Long> srvTicks = new ArrayList<>();
+                for (JsonObject e : c.events("container.click")) srvTicks.add(e.get("tick").getAsLong());
+                int wireClicks = 0;
+                for (long[] k : ticks) wireClicks += (int) k[0];
+                if (srvTicks.size() != wireClicks) {
+                    c.check(drop, "server saw " + srvTicks.size() + " clicks, the wire sent " + wireClicks);
+                } else {
+                    int at = 0;
+                    long lastBurstLastTick = Long.MIN_VALUE;
+                    int shared = 0;
+                    int bursts2 = 0;
+                    for (long[] k : ticks) {
+                        if (k[0] == 0) continue;
+                        long lo = srvTicks.get(at);
+                        long hi = lo;
+                        for (int i = 0; i < k[0]; i++) hi = Math.max(hi, srvTicks.get(at++));
+                        if (bursts2++ > 0 && lo <= lastBurstLastTick) shared++;
+                        lastBurstLastTick = hi;
+                    }
+                    c.note(name + ": " + bursts2 + " bursts on " + new java.util.TreeSet<>(srvTicks).size()
+                            + " server ticks, " + shared + " burst(s) shared a server tick with the one before");
+                    c.check(shared == 0, shared + " burst(s) landed in the same SERVER tick as the previous burst");
+                }
                 // Every tick with a click is a burst: no paced single click went out beside them.
                 c.check(clickTicks == bursts, "wire: " + clickTicks + " ticks carried clicks but " + bursts + " bursts were sent");
                 if (!drop && !List.of(spec.args()).contains("parts")) {
