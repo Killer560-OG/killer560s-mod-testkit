@@ -136,7 +136,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossStart1116.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME, SimI4Terror1116.NAME, SimLeap1116.NAME, SimClasses1116.NAME, SimMasks1116.NAME, SimBossEtherwarp1116.NAME};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossStart1116.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME, SimI4Terror1116.NAME, SimLeap1116.NAME, SimClasses1116.NAME, SimMasks1116.NAME, SimBossEtherwarp1116.NAME, SimLeapSpots1117.NAME, SimLeapSpots1117.ORDER_NAME};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -192,6 +192,8 @@ public class SimBossTests implements FabricClientGameTest {
                     case SimWardrobe1115.NAME -> SimWardrobe1115.run(ctx, f);
                     case SimLeap1116.NAME -> SimLeap1116.run(ctx, f);
                     case SimClasses1116.NAME -> SimClasses1116.run(ctx, f);
+                    case SimLeapSpots1117.NAME -> SimLeapSpots1117.run(ctx, f);
+                    case SimLeapSpots1117.ORDER_NAME -> SimLeapSpots1117.order(ctx, f);
                     case SimMasks1116.NAME -> SimMasks1116.run(ctx, f);
                     case SimBossBreakerRefill1113.NAME -> SimBossBreakerRefill1113.run(ctx, f);
                     case BREAKER -> SimBossBreaker1108.run(ctx, f, false);
@@ -1969,6 +1971,7 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     private static void dragonsRun(ClientGameTestContext ctx, List<String> f) {
+        fixDragonOrder();   // the P5 order is random since simleapspots-1117; this case reads Red and Orange first
         long mark = start(ctx, "P5", true);
         if (!waitChat(ctx, mark, "[BOSS] The Wither King: You... again?", 160)) {
             f.add("the Wither King's line never came");
@@ -2995,6 +2998,15 @@ public class SimBossTests implements FabricClientGameTest {
         println("boss", what + ": " + got + (ok ? "" : " (want " + want + ")"));
         if (!ok) {
             f.add(what + ": " + got + ", want " + want);
+        }
+    }
+
+    /** The next P5s spawn Red, Orange, Green, Blue, Purple (the order before simleapspots-1117 made it random). */
+    static void fixDragonOrder() {
+        try {
+            ModUnderTest.staticCall(FIGHT, "dragonOrderForTest", new Class<?>[]{int[].class}, new Object[]{new int[]{0, 1, 2, 3, 4}});
+        } catch (RuntimeException | AssertionError e) {
+            println("boss", "no dragonOrderForTest in this jar (order fixed there): " + e);
         }
     }
 
