@@ -53,6 +53,28 @@ final class Ap3LeverTurn1115Cases {
         s.test("1115-ap3-leveralways-retry", c -> run(c, null, true));
         s.test("1115-ap3-leveralways-retry-same-use", c -> run(c, SameTick.Act.USE, true));
         s.test("1115-ap3-leveralways-same-swap", c -> run(c, SameTick.Act.SWAP, true));
+        // ap3auralook-1116: the same boss lever clicked by Secret Aura (its In Boss half) instead of Lever Aura.
+        s.test("1116-ap3aura-secret-bosslever", c -> runSecret(c, null));
+        s.test("1116-ap3aura-secret-bosslever-same-use", c -> runSecret(c, SameTick.Act.USE));
+    }
+
+    /** True while a case runs the lever through Secret Aura (Lever Aura's Section Levers off, so it does not own it). */
+    private static boolean secret;
+    private static long secretPacketClicks;
+
+    private static void runSecret(Session c, SameTick.Act sameAct) throws Exception {
+        secret = true;
+        try {
+            run(c, sameAct, false);
+        } finally {
+            secret = false;
+        }
+    }
+
+    /** A body turn while AP3 ran: Lever Aura's, or TurnFirst's (Secret Aura) unless it clicked by the one-packet look. */
+    private static boolean turnLine(String l) {
+        return l.contains("[LeverAura] turning body") || l.contains("[TurnFirst] hand-back")
+                || l.contains("[TurnFirst] click on") && !l.contains("one-packet look");
     }
 
     /** {widest camera yaw off the walk, widest body yaw off the walk} at the tick ends of the last runOnce, after the align. */
@@ -196,7 +218,11 @@ final class Ap3LeverTurn1115Cases {
             }
         }
         // Lever Aura's turn lines are counted while AP3 ran only: once it stops the aura may turn as it always did.
-        long turns = LogTap.since(mark).stream().filter(l -> l.contains("[LeverAura] turning body")).count();
+        List<String> lines = LogTap.since(mark);
+        long turns = lines.stream().filter(Ap3LeverTurn1115Cases::turnLine).count();
+        if (secret && !leverOn) {
+            secretPacketClicks = lines.stream().filter(l -> l.contains("[TurnFirst] click on") && l.contains("one-packet look")).count();
+        }
         WireCapture.stop(); // clicks are counted while AP3 ran (a click after it may turn the body as it always did)
         WireCapture.describe = null;
         c.ctx().waitTicks(5);
@@ -256,8 +282,14 @@ final class Ap3LeverTurn1115Cases {
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
             c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
             undo.add(c.onClient(mc -> Mod.with(CU, "AuraBossLevers", true)));
-            undo.add(c.onClient(mc -> Mod.with(LA, "SectionLevers", true)));
-            undo.add(c.onClient(mc -> Mod.with(LA, "SectionLeversEarly", true)));
+            undo.add(c.onClient(mc -> Mod.with(LA, "SectionLevers", !secret)));
+            undo.add(c.onClient(mc -> Mod.with(LA, "SectionLeversEarly", !secret)));
+            if (secret) {
+                undo.add(c.onClient(mc -> Mod.with(CU, "SecretAuraEnabled", true)));
+                undo.add(c.onClient(mc -> Mod.with(CU, "AuraRange", 4.5)));
+                undo.add(c.onClient(mc -> Mod.with(CU, "AuraCooldownMs", 100)));
+                secretPacketClicks = 0;
+            }
             undo.add(c.onClient(mc -> Mod.with(LA, "Range", 4.5)));
             undo.add(c.onClient(mc -> Mod.with(LA, "CooldownMs", 50)));
             undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Enabled", true)));
@@ -345,6 +377,12 @@ final class Ap3LeverTurn1115Cases {
             c.check(off.turnLines() == 0 && on.turnLines() == 0, "Lever Aura turned the body while AP3 ran (lines off/on "
                     + off.turnLines() + "/" + on.turnLines() + ")");
             c.check(firstDiff < 0, "the two lever states walked differently: " + diff);
+            if (secret) {
+                c.note("Secret Aura one-packet-look clicks (lever off): " + secretPacketClicks + "; in boss "
+                        + c.onClient(mc -> Mod.staticCall("livemap.LiveMapFeature", "isInBoss")));
+                c.check(secretPacketClicks == 1, "Secret Aura did not click the boss lever by its one-packet look ("
+                        + secretPacketClicks + " lines): the lever click was not Secret Aura's");
+            }
             if (sameAct == SameTick.Act.USE) {
                 c.check(off.uses() > 10 && on.uses() > 10, "his use did not go (uses off/on " + off.uses() + "/" + on.uses() + ")");
             }

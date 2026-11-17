@@ -56,10 +56,10 @@ final class Ap3AuraLook1116Cases {
     }
 
     static void register(Session s) {
-        s.test("1116-ap3aura-arrows", c -> arrows(c, null));
         if (!Mod.isCheat()) {
-            return;
+            return; // AP3 is cheat-only
         }
+        s.test("1116-ap3aura-arrows", c -> arrows(c, null));
         // No OPEN_CLICK: an inventory click while AP3 sprints is GrimAC MultiActionsC from his own click with the Aura
         // off too (r2: x31, sprinting=true input=true in both walks), so it cannot judge the Aura. No ATTACK either: his own
         // attack on the stands drew Hitboxes in the Aura-off walk as much as in the Aura-on one (r3, AP3's packet yaw is not
@@ -299,9 +299,11 @@ final class Ap3AuraLook1116Cases {
             if (act != null) {
                 SameTickCases.sticks(c);
             }
-            // Settle after the build and tp: r3 drew Simulation in the warm-up walk's sprint start with the Aura off.
+            // Settle AT the walk's start: the first walk came straight from the 600-block dungeon.tp with only 10 ticks for
+            // the chunks and drew Simulation .200416 with the Aura off (r3, r4 on 26.3 and 26.2); a settle at -619 did not help.
+            TerminalAuraCases.tp(c, START_X, Y, START_Z, 0f);
             c.server().sync(20);
-            c.ctx().waitTicks(20);
+            c.ctx().waitTicks(40);
             List<String> notes = new ArrayList<>();
             walk(c, false, null, notes); // warm-up, not compared (the session's first walk can start a tick out of step)
             Walk off = walk(c, false, act, notes);
