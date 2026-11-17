@@ -565,21 +565,23 @@ final class PackDisablerCases {
                 String lookSkin = look == null ? null : (String) Mod.call(look, "skinHash");
                 String entrySkin = (String) Mod.call(entry, "skinHash");
                 String entryOwn = (String) Mod.call(entry, "ownTexture");
+                String lookKey = look == null ? null : (String) Mod.call(look, "skinKey");
                 return new String[]{src, String.valueOf(lookSkin), String.valueOf(entrySkin), String.valueOf(lookOwn),
-                        String.valueOf(entryOwn)};
+                        String.valueOf(entryOwn), String.valueOf(lookKey)};
             });
             if (!r[1].equals(r[2]) || !r[3].equals(r[4])) {
                 disagree++;
                 bad.add(id);
             }
-            if ("OWN_TEXTURE".equals(r[0])) {
+            // Our own look: a drawn texture, or a head with a skin bundled in the mod (texredo3-1117).
+            if ("OWN_TEXTURE".equals(r[0]) || ("SKULL".equals(r[0]) && !"null".equals(r[5]))) {
                 own++;
             }
             if ("FALLBACK".equals(r[0])) {
                 bad.add(id + " (paper)");
             }
         }
-        c.note(ids.size() + " products; " + own + " use our own texture; disagreeing/paper: " + bad);
+        c.note(ids.size() + " products; " + own + " use our own texture or bundled head; disagreeing/paper: " + bad);
         c.check(disagree == 0, disagree + " products where the Bazaar row and the shared table disagree");
         c.check(own >= 30, "only " + own + " products use our textures (expected the ~38 bazaar items with no old look)");
         c.check(bad.isEmpty(), "products without a look: " + bad);

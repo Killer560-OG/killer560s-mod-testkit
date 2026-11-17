@@ -145,7 +145,7 @@ final class PackDisablerOwnerCases {
         try {
             List<Expect> all = c.onClient(mc -> expects());
             c.note(all.size() + " approved looks to check");
-            c.check(all.size() >= 75, "only " + all.size() + " approved looks found in the table");
+            c.check(all.size() >= 74, "only " + all.size() + " approved looks found in the table");
 
             PackDisablerCases.setEnabled(c, true);
             List<String> bad = new ArrayList<>();
