@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-16T20:58:59",
- "modSource": "lane-colltrack-hide-1116",
- "modGitSha": "42d470bc645e2f89afe6155d20f4edb9143c0df5",
+ "generatedAt": "2026-11-16T21:48:43",
+ "modSource": "lane-trainfix-spiral-1116",
+ "modGitSha": "6f15c864db7625e908a685dfe63fe16169187a65",
  "modSourceDirty": false,
  "count": 983,
  "byKind": {
