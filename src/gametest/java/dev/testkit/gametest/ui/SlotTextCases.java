@@ -290,6 +290,17 @@ final class SlotTextCases {
             abbrTable.put("ultimate_one_for_all", "OFA");
             abbrTable.put("ultimate_legion", "LEG");
             abbrTable.put("bane_of_arthropods", "BOA");
+            abbrTable.put("syphon", "DR");
+            abbrTable.put("drain", "DR");
+            abbrTable.put("magmarizer", "PYR");
+            abbrTable.put("arcane", "WS");
+            abbrTable.put("aiming", "DT");
+            abbrTable.put("dragon_hunter", "GV");
+            abbrTable.put("pristine", "PRI");
+            abbrTable.put("turbo_cactus", "TCC");
+            abbrTable.put("turbo_coco", "TCO");
+            abbrTable.put("counter_strike", "CS");
+            abbrTable.put("triple_strike", "TS");
             abbrTable.put("some_new_enchant", "SNE");
             abbrTable.put("zzyzxium", "ZZY");
             List<String> badAbbr = new ArrayList<>();
