@@ -24,7 +24,40 @@ final class HxStorage {
         HxChestMenu.registerScript(SCRIPT, HxStorage::onClick);
     }
 
+    /** A plain click like a real chest: pick up (all, or half on button 1), set down (all, or one), merge, swap. */
+    private static void pickup(HxChestMenu menu, int slot, int button) {
+        if (slot < 9 || slot >= menu.slots.size()) {
+            return;
+        }
+        Slot s = menu.slots.get(slot);
+        ItemStack cur = s.getItem().copy();
+        ItemStack held = menu.getCarried().copy();
+        if (held.isEmpty()) {
+            if (!cur.isEmpty()) {
+                menu.setCarried(cur.split(button == 1 ? (cur.getCount() + 1) / 2 : cur.getCount()));
+                s.set(cur);
+            }
+        } else if (cur.isEmpty()) {
+            s.set(held.split(button == 1 ? 1 : held.getCount()));
+            menu.setCarried(held);
+        } else if (ItemStack.isSameItemSameComponents(cur, held)) {
+            int put = Math.min(button == 1 ? 1 : held.getCount(), cur.getMaxStackSize() - cur.getCount());
+            cur.grow(put);
+            held.shrink(put);
+            s.set(cur);
+            menu.setCarried(held);
+        } else if (button == 0) {
+            s.set(held);
+            menu.setCarried(cur);
+        }
+    }
+
     private static void onClick(HxChestMenu menu, ServerPlayer player, int slot, int button, ContainerInput input) {
+        menu.keepCarried = true;
+        if (input == ContainerInput.PICKUP) {
+            pickup(menu, slot, button);
+            return;
+        }
         if (input != ContainerInput.QUICK_MOVE || slot < 0 || slot >= menu.slots.size()) {
             return;
         }

@@ -58,6 +58,10 @@ public class CollectionTrackerSuite implements FabricClientGameTest {
                     s.test("1109-colltrack-recent", CollectionTrackerSuite::recent);
                     s.test("1104-colltrack-persist", CollectionTrackerSuite::persist);
                     s.test("1116-colltrack-firstload", CollectionTrackerSuite::firstLoad);
+                    s.test("1116-colltrack-rate", CollectionTrackerSuite::rate);
+                    s.test("1116-colltrack-screen", CollectionTrackerSuite::screen);
+                    s.test("1116-colltrack-enchanted", CollectionTrackerSuite::enchanted);
+                    s.test("1116-colltrack-once", CollectionTrackerSuite::once);
                     s.test("1116-colltrack-hide-empty", CollectionTrackerSuite::hideEmpty);
                 });
     }
@@ -122,9 +126,10 @@ public class CollectionTrackerSuite implements FabricClientGameTest {
         c.ctx().waitTicks(10);
         long after = amount(c, "WHEAT");
         c.note("Wheat " + before + " -> " + after + "; HUD " + lines(c));
-        c.check(after == 12100, "a [Sacks] +100 Wheat line should raise Wheat to 12,100 (once, Enchanted Wheat not counted), is " + after);
+        // colltrack-rate-1116: an enchanted form counts as the base it is made of (5 Enchanted Wheat = 800 Wheat); before, it was ignored.
+        c.check(after == 12900, "a [Sacks] hover of +100 Wheat and +5 Enchanted Wheat should raise Wheat to 12,900 (Carrot not picked, ignored), is " + after);
         c.check(amount(c, "MITHRIL_ORE") == 3000, "Mithril moved on a Wheat sack line");
-        c.check(lines(c).contains("Wheat VII: 12,100 (80.6% to VIII) +0/h"), "the HUD did not follow the sack line: " + lines(c));
+        c.check(lines(c).stream().anyMatch(l -> l.startsWith("Wheat VII: 12,900 (86.0% to VIII) +")), "the HUD did not follow the sack line: " + lines(c));
     }
 
     private static void pickup(Session c) {
@@ -318,6 +323,209 @@ public class CollectionTrackerSuite implements FabricClientGameTest {
         });
         c.note("first read of a saved file with no instance: recentSeconds " + got);
         c.check(got.equals("120"), "the first read of the saved settings did not return them: " + got);
+    }
+
+    // ------------------------------------------------------------------ colltrack-rate-1116
+
+    private static final String GOLD = "GOLD_INGOT";
+    private static final String GIVE_GOLD = "give @a minecraft:gold_ingot[custom_data={id:\"GOLD_INGOT\"}] ";
+
+    /** Gold alone picked, no scan history, the sack/inventory state clean, a 10 s Only Recent window. */
+    private static void goldUp(Session c) {
+        c.server().command("clear @a");
+        c.onClient(mc -> {
+            ModUnderTest.staticCall(GATE, "setEnabled", new Class<?>[]{boolean.class}, new Object[]{false});
+            Object cfg = ModUnderTest.config(CFG);
+            for (Object id : List.copyOf((List<?>) ModUnderTest.call(cfg, "getSelected", new Class<?>[0], new Object[0]))) {
+                ModUnderTest.call(cfg, "setSelected", new Class<?>[]{String.class, boolean.class}, new Object[]{id, false});
+            }
+            ModUnderTest.call(cfg, "setSelected", new Class<?>[]{String.class, boolean.class}, new Object[]{GOLD, true});
+            ModUnderTest.call(cfg, "setRecentSeconds", new Class<?>[]{int.class}, new Object[]{10});
+            ModUnderTest.call(cfg, "setOnlyRecent", new Class<?>[]{boolean.class}, new Object[]{true});
+            ModUnderTest.set(cfg, "setEnabled", true);
+            ModUnderTest.set(cfg, "setShowRate", true);
+            ModUnderTest.staticCall(CT, "resetForTest");
+            return null;
+        });
+        c.ctx().waitTicks(30); // one scan with the clean inventory as the baseline
+    }
+
+    private static void goldDown(Session c) {
+        c.onClient(mc -> {
+            Object cfg = ModUnderTest.config(CFG);
+            ModUnderTest.call(cfg, "setOnlyRecent", new Class<?>[]{boolean.class}, new Object[]{false});
+            ModUnderTest.call(cfg, "setRecentSeconds", new Class<?>[]{int.class}, new Object[]{60});
+            ModUnderTest.call(cfg, "save", new Class<?>[0], new Object[0]);
+            ModUnderTest.set(cfg, "setEnabled", false);
+            ModUnderTest.staticCall(GATE, "setEnabled", new Class<?>[]{boolean.class}, new Object[]{true});
+            return null;
+        });
+    }
+
+    private static long gained(Session c) {
+        return c.onClient(mc -> (Long) ModUnderTest.staticCall(CT, "gainedForTest", new Class<?>[]{String.class}, new Object[]{GOLD}));
+    }
+
+    private static long rateOf(Session c, int window) {
+        return c.onClient(mc -> (Long) ModUnderTest.staticCall(CT, "rateForTest", new Class<?>[]{String.class, int.class},
+                new Object[]{GOLD, window}));
+    }
+
+    /** Waits on the real clock (ticks stretch under load). */
+    private static void waitMs(Session c, long ms) {
+        long end = System.currentTimeMillis() + ms;
+        while (System.currentTimeMillis() < end) {
+            c.ctx().waitTicks(5);
+        }
+    }
+
+    private static void waitGained(Session c, long want) {
+        c.waitUntil("gained reaches " + want, mc -> gainedNow() == want, 200);
+    }
+
+    private static long gainedNow() {
+        return (Long) ModUnderTest.staticCall(CT, "gainedForTest", new Class<?>[]{String.class}, new Object[]{GOLD});
+    }
+
+    /**
+     * The rate is the gain over the recent window, not the session average: 100 gold, then 300 six seconds later (a faster
+     * stretch) reads 400 over the window; after the first 100 has left the window only the 300 is counted; after a whole idle
+     * window it reads 0; the next gain reads from that gain alone. The 10 s window is Only Recent's seconds.
+     */
+    private static void rate(Session c) {
+        goldUp(c);
+        sack(c, "+100 Gold Ingot (Mining Sack)");
+        waitGained(c, 100);
+        long t0 = System.currentTimeMillis();
+        long r1 = rateOf(c, 10);
+        c.note("100 gold: rate " + r1);
+        c.check(r1 == 100 * 360L, "100 gold in a 10 s window should read 36,000/h, read " + r1);
+        waitMs(c, 6000);
+        sack(c, "+300 Gold Ingot (Mining Sack)");
+        waitGained(c, 400);
+        long r2 = rateOf(c, 10);
+        c.note("400 gold: rate " + r2);
+        c.check(r2 == 400 * 360L, "400 gold inside the window should read 144,000/h, read " + r2);
+        waitMs(c, t0 + 11500 - System.currentTimeMillis());
+        long r3 = rateOf(c, 10);
+        c.note("first 100 left the window: rate " + r3);
+        c.check(r3 == 300 * 360L, "after the first 100 left the window only the 300 counts (108,000/h), read " + r3);
+        waitMs(c, 11000);
+        long r4 = rateOf(c, 10);
+        c.check(r4 == 0, "an idle window should read 0/h, not a decaying average: " + r4);
+        sack(c, "+50 Gold Ingot (Mining Sack)");
+        waitGained(c, 450);
+        long r5 = rateOf(c, 10);
+        c.check(r5 == 50 * 360L, "the next gain reads from that gain alone (18,000/h), read " + r5);
+        goldDown(c);
+    }
+
+    /** Gains while a container screen is open count; moving items between the menu and the inventory does not. */
+    private static net.minecraft.world.SimpleContainer BOX;
+
+    private static void screen(Session c) {
+        goldUp(c);
+        // A menu holding 64 gold: its filling up is no gain.
+        c.onClient(mc -> {
+            net.minecraft.world.SimpleContainer box = BOX = new net.minecraft.world.SimpleContainer(27);
+            box.setItem(0, gold("GOLD_INGOT", 64));
+            net.minecraft.world.inventory.ChestMenu menu = net.minecraft.world.inventory.ChestMenu.threeRows(7, mc.player.getInventory(), box);
+            dev.testkit.compat.McCompat.setScreen(mc, new net.minecraft.client.gui.screens.inventory.ContainerScreen(menu,
+                    mc.player.getInventory(), net.minecraft.network.chat.Component.literal("Chest")));
+            return null;
+        });
+        c.ctx().waitTicks(30);
+        c.check(gained(c) == 0, "a menu filling with gold counted as a gain: " + gained(c));
+        // Take it out by hand (menu slot -> inventory slot 20): a move, not a gain.
+        c.onClient(mc -> {
+            net.minecraft.world.inventory.AbstractContainerMenu menu = mc.player.containerMenu;
+            BOX.setItem(0, net.minecraft.world.item.ItemStack.EMPTY);
+            mc.player.getInventory().setItem(20, gold("GOLD_INGOT", 64));
+            return null;
+        });
+        c.ctx().waitTicks(30);
+        c.check(gained(c) == 0, "taking gold out of the open menu counted as a gain: " + gained(c));
+        // A real pickup with the screen still open is counted.
+        c.server().command(GIVE_GOLD + "10");
+        c.waitUntil("a pickup with the screen open counts", mc -> gainedNow() > 0, 200);
+        c.check(gained(c) == 10, "10 gold picked up with a screen open should add exactly 10, is " + gained(c));
+        // Put the 64 back into the menu: not a loss that later cancels a sack line either way, and no gain.
+        c.onClient(mc -> {
+            mc.player.getInventory().setItem(20, net.minecraft.world.item.ItemStack.EMPTY);
+            BOX.setItem(0, gold("GOLD_INGOT", 64));
+            return null;
+        });
+        c.ctx().waitTicks(30);
+        c.check(gained(c) == 10, "putting gold into the open menu changed the gain: " + gained(c));
+        c.onClient(mc -> {
+            dev.testkit.compat.McCompat.setScreen(mc, null);
+            return null;
+        });
+        c.ctx().waitTicks(30);
+        c.check(gained(c) == 10, "closing the menu changed the gain: " + gained(c));
+        goldDown(c);
+    }
+
+    /** Enchanted Gold is 160 Gold Ingot, its block 25,600; compacting 160 ingots into one changes nothing. */
+    private static void enchanted(Session c) {
+        goldUp(c);
+        c.server().command("give @a minecraft:gold_ingot[custom_data={id:\"ENCHANTED_GOLD\"}] 1");
+        waitGained(c, 160);
+        c.server().command("give @a minecraft:gold_block[custom_data={id:\"ENCHANTED_GOLD_BLOCK\"}] 1");
+        waitGained(c, 160 + 25600);
+        // 160 ingots picked up, then compacted into one Enchanted Gold in place (the compactor): counted once.
+        c.server().command(GIVE_GOLD + "160");
+        waitGained(c, 160 + 25600 + 160);
+        c.onClient(mc -> {
+            var inv = mc.player.getInventory();
+            int first = -1;
+            for (int i = 0; i < 36; i++) {
+                var st = inv.getItem(i);
+                if (!st.isEmpty() && st.is(net.minecraft.world.item.Items.GOLD_INGOT)
+                        && st.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA) != null
+                        && "GOLD_INGOT".equals(st.get(net.minecraft.core.component.DataComponents.CUSTOM_DATA).copyTag().getStringOr("id", ""))) {
+                    first = first < 0 ? i : first;
+                    inv.setItem(i, net.minecraft.world.item.ItemStack.EMPTY);
+                }
+            }
+            if (first < 0) throw new IllegalStateException("no gold ingots to compact");
+            inv.setItem(first, gold("ENCHANTED_GOLD", 1));
+            return null;
+        });
+        c.ctx().waitTicks(30);
+        c.check(gained(c) == 160 + 25600 + 160, "compacting 160 ingots into Enchanted Gold changed the gain: " + gained(c));
+        sack(c, "+2 Enchanted Gold (Mining Sack)");
+        c.ctx().waitTicks(40);
+        c.check(gained(c) == 160 + 25600 + 160 + 320, "a sack line of 2 Enchanted Gold should add 320: " + gained(c));
+        goldDown(c);
+    }
+
+    /** A sack line that explains an inventory loss is not a second gain, for plain and enchanted gold. */
+    private static void once(Session c) {
+        goldUp(c);
+        c.server().command(GIVE_GOLD + "10");
+        waitGained(c, 10);
+        c.server().command("clear @a minecraft:gold_ingot");
+        c.ctx().waitTicks(30);
+        sack(c, "+10 Gold Ingot (Mining Sack)");
+        c.ctx().waitTicks(30);
+        c.check(gained(c) == 10, "gold put into the sack was counted twice: " + gained(c));
+        c.server().command("give @a minecraft:gold_ingot[custom_data={id:\"ENCHANTED_GOLD\"}] 1");
+        waitGained(c, 170);
+        c.server().command("clear @a minecraft:gold_ingot");
+        c.ctx().waitTicks(30);
+        sack(c, "+1 Enchanted Gold (Mining Sack)");
+        c.ctx().waitTicks(30);
+        c.check(gained(c) == 170, "Enchanted Gold put into the sack was counted twice: " + gained(c));
+        goldDown(c);
+    }
+
+    private static net.minecraft.world.item.ItemStack gold(String id, int n) {
+        net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+        tag.putString("id", id);
+        net.minecraft.world.item.ItemStack st = new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.GOLD_INGOT, n);
+        st.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(tag));
+        return st;
     }
 
     // ------------------------------------------------------------------ helpers
