@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T12:19:46",
- "modSource": "lane-ap3blockturn-1117",
- "modGitSha": "3d1a8210ba6c92d08e51dd4d47a04e41c2168535",
+ "generatedAt": "2026-11-17T13:48:33",
+ "modSource": "lane-leverfreeze-tp-1117",
+ "modGitSha": "19f777c4718e5a51f6ebfbc915dbd5c5c3c0c654",
  "modSourceDirty": false,
  "count": 990,
  "byKind": {
