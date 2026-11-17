@@ -44,6 +44,7 @@ final class HxChatKeybindsCases {
         s.test("624-hx-chat-keybinds-f7", HxChatKeybindsCases::f7);
         s.test("625-hx-chat-keybinds-custom-live", HxChatKeybindsCases::customLive);
         s.test("1111-hx-cmdkey-first", HxChatKeybindsCases::cmdFirst);
+        s.test("1117-sim-cmdkeys-outside", HxChatKeybindsCases::simCmdKeysOutside);
     }
 
     private static boolean merged(Session c) {
@@ -281,6 +282,44 @@ final class HxChatKeybindsCases {
                 binds(kb).clear();
                 Mod.call(kb, "setEnabled", masterWas);
                 Mod.call(kb, "save");
+                Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas);
+            });
+        }
+    }
+
+    // ---- 1117 -----------------------------------------------------------------------------------------------------
+
+    /** Outside the dungeon sim a key bound to /stats, /wd, /items or /warp sends the command to the SERVER and opens no sim screen. */
+    private static void simCmdKeysOutside(Session c) {
+        boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+        boolean masterWas = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(KB), "isEnabledRaw"));
+        try {
+            run(c, () -> {
+                Mod.staticCall("util.SkyblockGate", "setEnabled", false);
+                Object kb = Mod.cfg(KB);
+                Mod.call(kb, "setEnabled", true);
+                binds(kb).clear();
+                addBind(kb, K1, "/stats", true);
+                addBind(kb, K2, "/wd", true);
+                addBind(kb, K3, "/items", true);
+                addBind(kb, K4, "/warp coffee3", true);
+                McCompat.setScreen(net.minecraft.client.Minecraft.getInstance(), null);
+            });
+            c.ctx().waitTicks(3);
+            int[] keys = {K1, K2, K3, K4};
+            String[] want = {"stats", "wd", "items", "warp coffee3"};
+            for (int i = 0; i < 4; i++) {
+                c.ctx().getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(keys[i]), 3);
+                String sent = awaitCommand(c, want[i].split(" ")[0], 40);
+                c.check(sent.equals(want[i]), "the key for /" + want[i] + " sent /" + sent + " to the server");
+                c.check(c.onClient(mc -> McCompat.screen(mc) == null), "a sim screen opened outside the sim for /" + want[i]);
+            }
+            c.note("outside the sim the keys sent " + c.commands() + " to the server and opened no screen");
+        } finally {
+            run(c, () -> {
+                Object kb = Mod.cfg(KB);
+                binds(kb).clear();
+                Mod.call(kb, "setEnabled", masterWas);
                 Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas);
             });
         }
