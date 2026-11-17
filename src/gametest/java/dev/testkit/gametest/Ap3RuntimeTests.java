@@ -256,16 +256,13 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         for (int slot : slots) {
             ctx.getInput().pressKey(options -> options.keyHotbarSlots[slot]);
             ctx.waitTicks(10);
+            // ap3c262: under load (26.2, server "43 ticks behind" after the floor build) the floor had not reached the
+            // client 10 ticks after the tp, every look met air, nothing was placed and the warm-up failed; and once the
+            // client was not in a world yet (mc.player null). Wait for the floor under the look, bounded.
+            s.waitUntil("the floor under his look on the client", mc -> mc.player != null && floorHit(mc) != null, 200);
             boolean sent = onClient(ctx, mc -> {
-                Vec3 eye = mc.player.getEyePosition();
-                float yr = mc.player.getYRot() * Mth.DEG_TO_RAD;
-                float pr = mc.player.getXRot() * Mth.DEG_TO_RAD;
-                Vec3 dir = new Vec3(-Mth.sin(yr) * Mth.cos(pr), -Mth.sin(pr), Mth.cos(yr) * Mth.cos(pr));
-                net.minecraft.world.phys.HitResult h = mc.level.clip(new net.minecraft.world.level.ClipContext(eye,
-                        eye.add(dir.scale(4.5)), net.minecraft.world.level.ClipContext.Block.OUTLINE,
-                        net.minecraft.world.level.ClipContext.Fluid.NONE, mc.player));
-                if (!(h instanceof net.minecraft.world.phys.BlockHitResult b)
-                        || h.getType() != net.minecraft.world.phys.HitResult.Type.BLOCK) {
+                net.minecraft.world.phys.BlockHitResult b = floorHit(mc);
+                if (b == null) {
                     return false;
                 }
                 mc.gameMode.useItemOn(mc.player, net.minecraft.world.InteractionHand.MAIN_HAND, b);
@@ -286,6 +283,19 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         System.out.println("[" + SESSION + "] plain places: " + placed + " of " + slots.length + " sent"
                 + " (the server log's [testkit-gap] lines time each)");
         return placed;
+    }
+
+    /** The block his look meets within 4.5, or null. */
+    private static net.minecraft.world.phys.BlockHitResult floorHit(Minecraft mc) {
+        Vec3 eye = mc.player.getEyePosition();
+        float yr = mc.player.getYRot() * Mth.DEG_TO_RAD;
+        float pr = mc.player.getXRot() * Mth.DEG_TO_RAD;
+        Vec3 dir = new Vec3(-Mth.sin(yr) * Mth.cos(pr), -Mth.sin(pr), Mth.cos(yr) * Mth.cos(pr));
+        net.minecraft.world.phys.HitResult h = mc.level.clip(new net.minecraft.world.level.ClipContext(eye,
+                eye.add(dir.scale(4.5)), net.minecraft.world.level.ClipContext.Block.OUTLINE,
+                net.minecraft.world.level.ClipContext.Fluid.NONE, mc.player));
+        return h instanceof net.minecraft.world.phys.BlockHitResult b && h.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK
+                ? b : null;
     }
 
     // ------------------------------------------------------------------------------------------------- probe
@@ -522,12 +532,28 @@ public class Ap3RuntimeTests implements FabricClientGameTest {
         ctx.waitTicks(2);
         ctx.getInput().holdKey(options -> options.keyUp);
         boolean inside = false;
+        List<String> trace = new ArrayList<>();
         for (int i = 0; i < 60 && !inside; i++) {
             ctx.waitTick();
-            inside = onClient(ctx, mc -> contains(run, mc.player.position()));
+            int tick = i;
+            inside = onClient(ctx, mc -> {
+                if (tick % 10 == 0) {
+                    // Why a walk stalls (ap3c262): a screen up, W not down, no tick of his, or his chunk missing.
+                    LocalPlayer p = mc.player;
+                    trace.add(String.format(Locale.ROOT, "walk t%d: pos (%.3f, %.3f, %.3f) d (%.4f, %.4f, %.4f) W %b"
+                                    + " input %s ground %b screen %s chunk %b tickCount %d AP3 running %s",
+                            tick, p.getX(), p.getY(), p.getZ(), p.getDeltaMovement().x, p.getDeltaMovement().y,
+                            p.getDeltaMovement().z, mc.options.keyUp.isDown(), p.input.keyPresses,
+                            p.onGround(), McCompat.screen(mc) == null ? "none" : McCompat.screen(mc).getClass().getSimpleName(),
+                            mc.level.getChunkSource().hasChunk(p.getBlockX() >> 4, p.getBlockZ() >> 4), p.tickCount,
+                            ModUnderTest.staticCall(EXEC, "isRunning")));
+                }
+                return contains(run, mc.player.position());
+            });
         }
         ctx.getInput().releaseKey(options -> options.keyUp);
         if (!inside) {
+            trace.forEach(c::note);
             throw new AssertionError("walking with W never reached the RUN node's box - nothing below would mean anything");
         }
         c.waitUntil("AP3 running the RUN node's held walk",
