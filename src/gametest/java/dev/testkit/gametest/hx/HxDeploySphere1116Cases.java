@@ -51,7 +51,7 @@ final class HxDeploySphere1116Cases {
             c.waitUntil("Dwarven Mines", mc -> "DWARVEN_MINES".equals(Mod.staticCall(STATE, "island")), 100);
             for (int i = 0; i < 3; i++) {
                 c.server().command(String.format(Locale.ROOT, "summon armor_stand %.2f %.2f %.2f {Tags:[\"%s\",\"k1116\"],"
-                                + "CustomName:'\"%s 300s\"',CustomNameVisible:1b,NoGravity:1b,Invisible:1b}",
+                                + "CustomName:\"%s 300s\",CustomNameVisible:1b,NoGravity:1b,Invisible:1b}",
                         base[i][0], base[i][1], base[i][2], TAGS[i], NAMES[i]));
             }
             c.waitUntil("three tracked", mc -> ((List<?>) Mod.staticCall(MD, "tracked")).size() == 3, 80);
@@ -69,7 +69,7 @@ final class HxDeploySphere1116Cases {
                     double x = base[i][0] + 0.1 * Math.cos(t * 0.3 + i);
                     c.server().command(String.format(Locale.ROOT, "tp @e[tag=%s] %.3f %.3f %.3f", TAGS[i], x, y, base[i][2]));
                     if (t % 20 == 0) {
-                        c.server().command(String.format(Locale.ROOT, "data merge entity @e[tag=%s,limit=1] {CustomName:'\"%s %ds\"'}",
+                        c.server().command(String.format(Locale.ROOT, "data merge entity @e[tag=%s,limit=1] {CustomName:\"%s %ds\"}",
                                 TAGS[i], NAMES[i], 290 - t / 2));
                     }
                 }
