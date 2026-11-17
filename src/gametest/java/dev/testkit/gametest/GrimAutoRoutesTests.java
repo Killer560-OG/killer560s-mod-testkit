@@ -295,6 +295,14 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // achype-1117: Wither Impact across (one cast for two mobs) and the cast chain, alone and with his own action
             // in the same server ticks; "second" starts clearRoom again mid-run. Cheat only (Auto Clear).
             if (dev.testkit.gametest.mod.Mod.isCheat()) {
+                // achype4-1117: his action in the ticks of the landing pre-aim (swap + straight-down turn in flight).
+                for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                        dev.testkit.gametest.SameTick.Act.OPEN_CLICK, dev.testkit.gametest.SameTick.Act.ATTACK,
+                        dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.TP)) {
+                    s.test("62-argrim-1117-same-acland-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""),
+                            c -> caseAutoClear(c, a, false));
+                }
+                s.test("62-argrim-1117-same-acland-second", c -> caseAutoClear(c, null, true));
                 s.test("62-argrim-1117-achype", c -> caseAutoClearHype(c, null, false));
                 for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
                         dev.testkit.gametest.SameTick.Act.OPEN_CLICK, dev.testkit.gametest.SameTick.Act.ATTACK,
@@ -3679,6 +3687,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * starred mob is left in sight), and GrimAC is read for the whole stretch.
      */
     private static void caseAutoClear(Session c) {
+        caseAutoClear(c, null, false);
+    }
+
+    /**
+     * achype4-1117: with {@code act} (or {@code second}) his action goes into every tick from Auto Clear's first landing
+     * pre-aim on (the Hyperion swap and the straight-down turn while the last etherwarp is in flight), so it shares the
+     * pre-aim's and the landing cast's ticks; {@code second} calls clearRoom again on that line. Requires the pre-aim acted.
+     */
+    private static void caseAutoClear(Session c, dev.testkit.gametest.SameTick.Act act, boolean second) {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
         arena(ctx, true);
@@ -3716,15 +3733,49 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         long m = LogTap.mark();
         Vec3 start = ctx.computeOnClient(mc -> mc.player.position());
         startSampling(ctx);
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class, Runnable.class,
-                java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> done.set("done"),
+        String landLine = "[AutoClear] Hyperion ready for the landing";
+        dev.testkit.gametest.SameTick st = act == null ? null : ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(
+                act, act == dev.testkit.gametest.SameTick.Act.USE ? 3 : 1,
+                p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
+                        || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8)
+                .armedBy(() -> logHas(m, landLine)));
+        Runnable go = () -> ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class,
+                Runnable.class, java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> done.set("done"),
                 (java.util.function.Consumer<String>) gaveUp::set}));
-        boolean finished = waitFor(ctx, 900, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto,
-                "isBusy")));
+        boolean hits = act == dev.testkit.gametest.SameTick.Act.ATTACK;
+        if (hits) {   // an entity under his crosshair whatever Auto Clear turns him to (no collision, moved onto him each tick)
+            c.server().command("execute at @a[limit=1] run summon interaction ~ ~-1.5 ~ {width:5f,height:5f,"
+                    + "Tags:[\"aclandhit\"]}");
+            ctx.waitTicks(2);
+        }
+        go.run();
+        boolean[] restarted = {false};
+        boolean finished = waitFor(ctx, 900, () -> {
+            if (hits) {
+                c.server().command("execute as @e[tag=aclandhit] at @a[limit=1] run tp @s ~ ~-1.5 ~");
+            }
+            if (act == dev.testkit.gametest.SameTick.Act.TP && logHas(m, landLine)) {
+                c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+            }
+            if (second && !restarted[0] && logHas(m, landLine)) {
+                restarted[0] = true;
+                go.run();
+            }
+            return !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto, "isBusy"));
+        });
+        if (hits) {
+            c.server().command("kill @e[tag=aclandhit]");
+        }
         if (!finished) {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "cancel"));
         }
         ctx.waitTicks(5);
+        if (st != null) {
+            dev.testkit.gametest.SameTick.judge(c, st, "achype4 landing " + act, dev.testkit.gametest.SameTick.Expect.ACTED);
+        }
+        if (act != null || second) {
+            check(logHas(m, landLine), "the landing pre-aim never acted (no '" + landLine + "')");
+        }
         List<Sample> s = stopSampling(ctx);
         Vec3 end = ctx.computeOnClient(mc -> mc.player.position());
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(autoCfg), "setEnabled", false));
