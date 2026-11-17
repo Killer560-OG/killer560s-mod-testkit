@@ -45,7 +45,7 @@ final class RealSwitchCases {
             // choice inside Theme Extras (Theme Track, Off or a loop), per theme.
             "MenuThemeTab", List.of("Animations: Off", "Music: Off"),
             // The sim's loadout page: Sim Armor None = no armor set worn in the sim (ecc9dc766), a choice, not a feature.
-            "SimSettingsTab", List.of("Sim Armor: None"));
+            "SimSettingsTab", List.of("Sim Armor: None", "Sim Teammates: None"));
 
     // ---- 530 --------------------------------------------------------------------------------------------------------
 
