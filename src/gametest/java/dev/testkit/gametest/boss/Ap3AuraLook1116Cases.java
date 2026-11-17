@@ -513,8 +513,7 @@ final class Ap3AuraLook1116Cases {
             boolean opened = false;
             for (int t = 0; t < 140 && !opened; t++) {
                 c.ctx().waitTick();
-                Object[] s = c.onClient(mc -> new Object[]{Mod.staticCall(EXEC, "isRunning"), mc.player.getViewYRot(1f),
-                        mc.screen != null});
+                Object[] s = c.onClient(mc -> new Object[]{Mod.staticCall(EXEC, "isRunning"), mc.player.getViewYRot(1f)});
                 if (Boolean.TRUE.equals(s[0])) {
                     runningTicks++;
                     worstYaw = Math.max(worstYaw, Math.abs(Mth.wrapDegrees((Float) s[1] + 90f)));
