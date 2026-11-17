@@ -58,6 +58,7 @@ public class CollectionTrackerSuite implements FabricClientGameTest {
                     s.test("1109-colltrack-recent", CollectionTrackerSuite::recent);
                     s.test("1104-colltrack-persist", CollectionTrackerSuite::persist);
                     s.test("1116-colltrack-firstload", CollectionTrackerSuite::firstLoad);
+                    s.test("1116-colltrack-hide-empty", CollectionTrackerSuite::hideEmpty);
                 });
     }
 
@@ -186,6 +187,70 @@ public class CollectionTrackerSuite implements FabricClientGameTest {
             ModUnderTest.call(cfg, "save", new Class<?>[0], new Object[0]);
             return null;
         });
+    }
+
+    /** colltrack-hide-1116: Only Recent with nothing gained draws nothing in game (no title, no line), shows on a gain, hides again after the window; the HUD editor still previews it. */
+    private static void hideEmpty(Session c) throws Exception {
+        setUp(c);
+        c.onClient(mc -> {
+            Object cfg = ModUnderTest.config(CFG);
+            ModUnderTest.call(cfg, "setRecentSeconds", new Class<?>[]{int.class}, new Object[]{10});
+            ModUnderTest.call(cfg, "setOnlyRecent", new Class<?>[]{boolean.class}, new Object[]{true});
+            return null;
+        });
+        long until = System.currentTimeMillis() + 12_000; // earlier cases gained Wheat: let any 10 s window pass on the real clock
+        while (System.currentTimeMillis() < until) {
+            c.ctx().waitTicks(20);
+        }
+        List<String> idle = lines(c);
+        c.check(idle.isEmpty(), "Only Recent with nothing gained should draw nothing in game, but the HUD lists: " + idle);
+        c.check(hudHeight(c) == 0 && hudWidth(c) == 0, "the empty HUD should have no size: " + hudWidth(c) + "x" + hudHeight(c));
+        sack(c, "+100 Wheat (Farming Sack)");
+        c.waitUntil("the HUD returns on a gain", mc -> linesIn().toString().contains("Wheat"), 100);
+        c.check(lines(c).get(0).equals("Collections") && hudHeight(c) > 0, "after a gain the HUD should list its title and Wheat: " + lines(c));
+        long gainedAt = System.currentTimeMillis();
+        while (System.currentTimeMillis() < gainedAt + 11_000) {
+            c.ctx().waitTicks(20);
+        }
+        c.waitUntil("the HUD hides again after the window", mc -> linesIn().isEmpty(), 100);
+        c.onClient(mc -> {
+            try {
+                net.minecraft.client.gui.screens.Screen editor = (net.minecraft.client.gui.screens.Screen) Class.forName("com.killer560.hub.hud.HudEditorScreen")
+                        .getConstructor(net.minecraft.client.gui.screens.Screen.class).newInstance((Object) null);
+                dev.testkit.compat.McCompat.setScreen(mc, editor);
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+            return null;
+        });
+        c.ctx().waitTicks(5);
+        List<String> edit = lines(c);
+        c.check(edit.size() == 3 && edit.get(0).equals("Collections"), "the HUD editor should still preview the title and both picks while nothing was gained: " + edit);
+        c.onClient(mc -> {
+            dev.testkit.compat.McCompat.setScreen(mc, null);
+            Object cfg = ModUnderTest.config(CFG);
+            ModUnderTest.call(cfg, "setOnlyRecent", new Class<?>[]{boolean.class}, new Object[]{false});
+            ModUnderTest.call(cfg, "setRecentSeconds", new Class<?>[]{int.class}, new Object[]{60});
+            return null;
+        });
+    }
+
+    private static int hudHeight(Session c) {
+        return c.onClient(mc -> hudInt("height"));
+    }
+
+    private static int hudWidth(Session c) {
+        return c.onClient(mc -> hudInt("width"));
+    }
+
+    private static int hudInt(String method) {
+        try {
+            var f = Class.forName(CT + "$Hud").getDeclaredField("INSTANCE");
+            f.setAccessible(true);
+            return (Integer) Class.forName(CT + "$Hud").getMethod(method).invoke(f.get(null));
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
     }
 
     private static void sack(Session c, String item) {
