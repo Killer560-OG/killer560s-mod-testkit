@@ -37,7 +37,8 @@ import java.util.Locale;
  *       silent. The -same-* cases put his own action (use, hotbar swap, attack, inventory click, teleport accept) into the
  *       walk's ticks.</li>
  *   <li>1116-ap3aura-term-beside: an AP3 walk past a terminal beside the line with Terminal Aura and Turn To Terminal on:
- *       no turn (the look never meets the stand), so no click and the same walk as with the aura off.</li>
+ *       no turn; the aim may ride only the movement packet of a still tick (PacketLook), so the positions are the same
+ *       tick for tick as with the aura off.</li>
  *   <li>1116-nolook-probe (expecting flags): every way of giving a click its look (none, the click tick's own movement
  *       packet, pitch only, an extra Rot, an extra same-position PosRot, the tick before) x the three click kinds (item
  *       frame interact, lever use_item_on, terminal stand interact), standing and moving: what the server did and which
@@ -65,6 +66,7 @@ final class Ap3AuraLook1116Cases {
             s.test("1116-ap3aura-arrows-same-" + a.name().toLowerCase(Locale.ROOT), c -> arrows(c, a));
         }
         s.test("1116-ap3aura-term-beside", Ap3AuraLook1116Cases::termBeside);
+        s.test("1116-ap3aura-term-still", Ap3AuraLook1116Cases::termStill);
         s.testExpectingFlags("1116-nolook-probe", Ap3AuraLook1116Cases::probe);
     }
 
@@ -450,6 +452,118 @@ final class Ap3AuraLook1116Cases {
     // ---- 1116-nolook-probe ------------------------------------------------------------------------------------------
 
     /** Flag lines added since {@code from}, joined. */
+    // ---- 1116-ap3aura-term-still ------------------------------------------------------------------------------------
+
+    /**
+     * The route stops beside a terminal (STOP, then a TERMINAL node that waits) with the stand 53 degrees off his look:
+     * Terminal Aura must open it with the aim in ONE movement packet of a still tick (PacketLook) while his camera stays
+     * at -90 every tick and AP3 still runs. Proves the one-packet look acts; GrimAC silent (session verdict).
+     */
+    static void termStill(Session c) throws Exception {
+        int x = Ap3TermAuraCases.X, z = Ap3TermAuraCases.Z, g = Ap3TermAuraCases.G;
+        List<AutoCloseable> undo = new ArrayList<>();
+        try {
+            c.hx().call("boss.term.build", "x", x, "z", z, "groundY", g);
+            c.server().command(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:stone", x - 6, g + 2, z - 2, x + 6, g + 2, z - 2));
+            c.server().sync(20);
+            double px = x - 5.5, py = g + 3, pz = z - 1.5;
+            TerminalAuraCases.tp(c, px, py, pz, -90f);
+            JsonObject st = c.hx().call("boss.term.spawn").getAsJsonObject();
+            int standId = st.get("standId").getAsInt();
+            c.waitUntil("the client to have the terminal stand", mc -> mc.level.getEntity(standId) != null, 200);
+            c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
+            c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
+            c.hx().chat(TerminalAuraCases.GOLDOR);
+            c.waitUntil("Floor7Tracker phase P3",
+                    mc -> "P3".equals(String.valueOf(Mod.staticCall(TerminalAuraCases.TRACKER, "getPhase"))), 100);
+            String ta = TerminalAuraCases.CONFIG;
+            undo.add(c.onClient(mc -> Mod.with(ta, "Enabled", false)));
+            undo.add(c.onClient(mc -> Mod.with(ta, "Range", 3.0)));
+            undo.add(c.onClient(mc -> Mod.with(ta, "DelayMs", 50)));
+            undo.add(c.onClient(mc -> Mod.with(ta, "GroundOnly", false)));
+            undo.add(c.onClient(mc -> Mod.with(ta, "LeapDelayEnabled", false)));
+            undo.add(c.onClient(mc -> Mod.with(ta, "PauseOnMovementKeys", false)));
+            undo.add(c.onClient(mc -> Mod.with(ta, "FovDegrees", 360)));
+            undo.add(c.onClient(mc -> Mod.with(ta, "TurnToTerminal", true)));
+            undo.add(c.onClient(mc -> Mod.with(Ap3TermAuraCases.AP3_CONFIG, "Enabled", true)));
+            c.onClient(mc -> {
+                Mod.staticCall(Ap3TermAuraCases.FEATURE, "setForceDungeon", true);
+                return null;
+            });
+            stopAp3(c);
+            TerminalAuraCases.closeScreen(c);
+            TerminalAuraCases.tp(c, px, py, pz, -90f);
+            c.ctx().waitTicks(10);
+            double sx = x - 1.0;
+            Object align = node("FAST_ALIGN", px, py, pz, -90f, 2.0);
+            Object run = node("RUN", px, py, pz, -90f, 1.0);
+            Object stop = node("STOP", sx, py, pz, -90f, 1.0);
+            Object terminal = node("TERMINAL", sx, py, pz, -90f, 4.0);
+            int before = c.events("term.interact").size();
+            long mark = dev.testkit.gametest.LogTap.mark();
+            WireCapture.describe = Ap3AuraLook1116Cases::describe;
+            WireCapture.start();
+            c.onClient(mc -> {
+                Mod.set(ta, "setEnabled", true);
+                Ap3TermAuraCases.setChain(align, run, stop, terminal);
+                return null;
+            });
+            double worstYaw = 0;
+            int runningTicks = 0;
+            boolean opened = false;
+            for (int t = 0; t < 140 && !opened; t++) {
+                c.ctx().waitTick();
+                Object[] s = c.onClient(mc -> new Object[]{Mod.staticCall(EXEC, "isRunning"), mc.player.getViewYRot(1f),
+                        mc.screen != null});
+                if (Boolean.TRUE.equals(s[0])) {
+                    runningTicks++;
+                    worstYaw = Math.max(worstYaw, Math.abs(Mth.wrapDegrees((Float) s[1] + 90f)));
+                }
+                opened = c.events("term.interact").size() > before;
+            }
+            boolean runningAtClick = c.onClient(mc -> (Boolean) Mod.staticCall(EXEC, "isRunning"));
+            c.ctx().waitTicks(3);
+            WireCapture.stop();
+            WireCapture.describe = null;
+            int aimed = 0;
+            for (WireCapture.Sent w : WireCapture.snapshot()) {
+                String[] f = w.text().split(" ");
+                if (w.phase().equals("play") && f[0].equals("move") && !f[4].equals("NaN")
+                        && Math.abs(Mth.wrapDegrees(Float.parseFloat(f[4]) + 90f)) > 5f) {
+                    aimed++;
+                }
+            }
+            long oneLook = dev.testkit.gametest.LogTap.since(mark).stream()
+                    .filter(l -> l.contains("[TerminalAura]") || l.contains("one-packet")).count();
+            c.note(String.format(Locale.ROOT, "opened %b with AP3 running %b; AP3 ran %d ticks; camera off -90 by at most %.3f;"
+                    + " movement packets aimed off the walk: %d; Terminal Aura log lines %d", opened, runningAtClick,
+                    runningTicks, worstYaw, aimed, oneLook));
+            c.check(opened, "Terminal Aura never opened the terminal beside the stopped route (the one-packet look did not act)");
+            c.check(runningAtClick, "AP3 was no longer running when the terminal opened (nothing tested)");
+            c.check(aimed > 0, "no movement packet carried an aim other than the walk's -90 (the click had no look)");
+            c.check(worstYaw < 0.01, "his camera turned while AP3 ran: " + worstYaw + " degrees off -90");
+        } finally {
+            stopAp3(c);
+            WireCapture.stop();
+            WireCapture.describe = null;
+            TerminalAuraCases.closeScreen(c);
+            c.onClient(mc -> {
+                for (int i = undo.size() - 1; i >= 0; i--) {
+                    try {
+                        undo.get(i).close();
+                    } catch (Exception e) {
+                        System.out.println("[aalook1116] restore failed: " + e);
+                    }
+                }
+                Mod.staticCall(Ap3TermAuraCases.FEATURE, "setForceDungeon", false);
+                return null;
+            });
+            c.hx().call("boss.term.clear");
+            c.hx().sidebarClear();
+            c.hx().call("dungeon.tp", "x", -619.5, "y", 151.0, "z", -619.5, "yaw", 0f, "pitch", 0f);
+        }
+    }
+
     private static String flagsSince(Session c, int from) {
         List<String> f = c.scenario().flags();
         return f.size() <= from ? "" : String.join(" | ", f.subList(from, f.size()));
