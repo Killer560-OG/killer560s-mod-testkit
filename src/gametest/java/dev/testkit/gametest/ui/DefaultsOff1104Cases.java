@@ -22,6 +22,7 @@ final class DefaultsOff1104Cases {
     /** class (under com.killer560.hub.) -> fields that must be false with no saved file. */
     private static final String[][] TABLE = {
             {"croesus.CroesusConfig", "chestProfitEnabled", "loggerEnabled"},
+            {"chatchannel.ChatChannelConfig", "enabled"},
             {"leftclicksecrets.LeftClickSecretsConfig", "enabled"},
             {"milestone.MilestoneConfig", "enabled"},
             {"itemhighlight.DungeonItemHighlightConfig", "enabled"},
@@ -43,7 +44,7 @@ final class DefaultsOff1104Cases {
             {"mining.nucleus.NucleusRunProfitConfig", "enabled"},
             {"mining.profit.MiningProfitConfig", "enabled"},
             {"commissioncolors.CommissionColorsConfig", "enabled"},
-            {"miningqol.MiningQolConfig", "wrongArmor", "junglePick", "resumeHeldBreak", "powderGhast"},
+            {"miningqol.MiningQolConfig", "wrongArmor", "junglePick", "resumeHeldBreak", "powderGhast", "fiestaFlask"},
             {"powdermining.PowderMiningConfig", "doublePowder", "lootCompact", "lockpickHelper", "powderTracker",
                     "chestAlert", "treasureChest"},
             {"gifplayer.GifPlayerConfig", "enabled", "audioEnabled"},
