@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T16:39:08",
- "modSource": "lane-auditacceptinv-1117",
- "modGitSha": "f7c705428c95802461f3189a1fe07c37a2e66a3a",
+ "generatedAt": "2026-11-17T16:51:40",
+ "modSource": "lane-deadbox-1117",
+ "modGitSha": "f9282fa0b00d70509c15c7ae08f9e6fe61a454d8",
  "modSourceDirty": false,
  "count": 995,
  "byKind": {
