@@ -1160,7 +1160,7 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
                         new Object[]{"item infinileap"}));
                 boolean has = paceUntil(ctx, () -> ctx.computeOnClient(mc -> {
                     for (int i = 0; i < 9; i++) {
-                        if (mc.player.getInventory().getItem(i).getHoverName().getString().contains("Infinileap")) {
+                        if (mc.player.getInventory().getItem(i).getHoverName().getString().contains("InfiniLeap")) {
                             return true;
                         }
                     }
@@ -1173,7 +1173,7 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
                 long lmark = LogTap.mark();
                 ctx.runOnClient(mc -> {
                     for (int i = 0; i < 9; i++) {
-                        if (mc.player.getInventory().getItem(i).getHoverName().getString().contains("Infinileap")) {
+                        if (mc.player.getInventory().getItem(i).getHoverName().getString().contains("InfiniLeap")) {
                             mc.player.getInventory().setSelectedSlot(i);
                         }
                     }
@@ -1181,7 +1181,7 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
                 ctx.waitTicks(4);
                 ctx.runOnClient(mc -> mc.gameMode.useItem(mc.player, net.minecraft.world.InteractionHand.MAIN_HAND));
                 boolean open = paceUntil(ctx, () -> ctx.computeOnClient(mc -> McCompat.screen(mc) != null
-                        && McCompat.screen(mc).getTitle().getString().equals("Teleport to Player")), 8_000);
+                        && McCompat.screen(mc).getTitle().getString().equals("Spirit Leap")), 8_000);
                 expect(f, facts, "the leap window opened on the guest", open, true);
                 ctx.runOnClient(mc -> {
                     var menu = mc.player.containerMenu;
@@ -1359,7 +1359,7 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
         } else {
             ctx.runOnClient(mc -> {
                 for (int i = 0; i < 9; i++) {
-                    if (mc.player.getInventory().getItem(i).getHoverName().getString().contains("Infinileap")) {
+                    if (mc.player.getInventory().getItem(i).getHoverName().getString().contains("InfiniLeap")) {
                         mc.player.getInventory().setSelectedSlot(i);
                     }
                 }
@@ -1367,7 +1367,7 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             ctx.waitTicks(4);
             ctx.runOnClient(mc -> mc.gameMode.useItem(mc.player, net.minecraft.world.InteractionHand.MAIN_HAND));
             boolean open = paceUntil(ctx, () -> ctx.computeOnClient(mc -> mc.player.containerMenu != mc.player.inventoryMenu
-                    && McCompat.screen(mc) != null && McCompat.screen(mc).getTitle().getString().equals("Teleport to Player")), 8_000);
+                    && McCompat.screen(mc) != null && McCompat.screen(mc).getTitle().getString().equals("Spirit Leap")), 8_000);
             if (!open) {
                 return false;
             }
@@ -1459,16 +1459,14 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             expect(f, facts, "Move to Clear ends the fight and builds a fresh floor", back, true);
             expect(f, facts, "guest still in the room", g.listed(), true);
             expect(f, facts, "saved start", startName(), "CLEAR");
-            // /start: a bad value gets one usage line, p2 jumps the fight to Storm, clear comes back.
+            // /start (the short name of /simboss): a bad value gets the usage line, p2 jumps the fight to Storm, stop ends it.
             long smark = LogTap.mark();
             ctx.runOnClient(mc -> mc.player.connection.sendCommand("start nonsense"));
-            expect(f, facts, "/start bad input lists the values", paceUntil(ctx, () -> chatSeen(smark, "/start <clear|p1|p2|p3|p4|p5|s1|s2|s3|s4|core>"), 5_000), true);
+            expect(f, facts, "/start bad input lists the values", paceUntil(ctx, () -> chatSeen(smark, "Use /start p1|p2|s1|s2|s3|s4|core|p4|p5|stop"), 5_000), true);
             ctx.runOnClient(mc -> mc.player.connection.sendCommand("start p2"));
-            expect(f, facts, "/start p2 starts Storm", paceUntil(ctx, () -> (Boolean) ModUnderTest.staticCall(FIGHT, "running")
-                    && "P2".equals(startName()), 120_000), true);
-            ctx.runOnClient(mc -> mc.player.connection.sendCommand("start clear"));
-            expect(f, facts, "/start clear ends the fight", paceUntil(ctx, () -> !(Boolean) ModUnderTest.staticCall(FIGHT, "running")
-                    && "CLEAR".equals(startName()), 120_000), true);
+            expect(f, facts, "/start p2 starts Storm", paceUntil(ctx, () -> (Boolean) ModUnderTest.staticCall(FIGHT, "running"), 120_000), true);
+            ctx.runOnClient(mc -> mc.player.connection.sendCommand("start stop"));
+            expect(f, facts, "/start stop ends the fight", paceUntil(ctx, () -> !(Boolean) ModUnderTest.staticCall(FIGHT, "running"), 120_000), true);
         } finally {
             clearRun = false;
             stub.stop();
