@@ -13,12 +13,12 @@ import java.util.Locale;
  * and things it can mess with where my ap3 is going. is there a way to make it get levers without actually looking at
  * them?" His align #13 and RUN 14-15 beside the Lights levers (the 1026-boss-ap3-lights-run layout), then a STOP beside
  * the two unlit levers, run TWICE from the same start: once with the Lights Aura off (the path), once with it on.
- * ap3auralook-1116: no aura turns the body while AP3 runs; a lever is flicked only after a STILL tick (no movement input)
- * whose movement packet carried the aim (util/PacketLook), here the STOP's slide. Judged:
+ * ap3auralook-1116 (owner 11-16: "My auras can never affect my movement"): the aura clicks with the heard look, a
+ * pitch-only look, a full aim on a keyless tick, or (keys held) no look at all. Judged:
  * <ul>
- *   <li>the levers get flicked while AP3 still runs (otherwise nothing was tested), and never after a tick with input;</li>
+ *   <li>the levers get flicked while AP3 still runs (otherwise nothing was tested);</li>
  *   <li>every tick of the aura run stays within 0.005 blocks of the no-aura path's line;</li>
- *   <li>GrimAC silent (Session.test).</li>
+ *   <li>GrimAC: only RotationPlace, and only behind a logged no-look click (the owner's step-4 exception).</li>
  * </ul>
  */
 final class Ap3LightsPathCases {
@@ -32,7 +32,7 @@ final class Ap3LightsPathCases {
         if (!Mod.isCheat()) {
             return;
         }
-        s.test("1027-boss-ap3-lights-path", Ap3LightsPathCases::run);
+        s.testExpectingFlags("1027-boss-ap3-lights-path", Ap3LightsPathCases::run);
     }
 
     /** Distance from p to the segment a-b, in x/z. */
@@ -138,8 +138,15 @@ final class Ap3LightsPathCases {
             LightsDeviceCases.setLevers(c, 0, 1, 2, 3, 4, 5); // all lit: nothing for the aura in the first run
             LightsDeviceCases.waitLevers(c, "all lit", 0, 1, 2, 3, 4, 5);
             int[] f = new int[2];
+            int start = c.scenario().flags().size();
             List<double[]> base = runOnce(c, false, f);
+            int flags0 = c.scenario().flags().size();
+            c.check(flags0 == start, "the aura-off run drew flags: " + c.scenario().flags().subList(start, flags0));
+            long mark = dev.testkit.gametest.LogTap.mark();
             List<double[]> withAura = runOnce(c, true, f);
+            c.ctx().waitTicks(20);
+            List<String> lines = dev.testkit.gametest.LogTap.since(mark);
+            c.note("click lines: " + lines.stream().filter(l -> l.contains("[TurnFirst] click on")).toList());
             int flicks = f[0];
             int flicksAfterInput = f[1];
             int n = Math.min(base.size(), withAura.size());
@@ -195,7 +202,7 @@ final class Ap3LightsPathCases {
                     base.size(), withAura.size(), flicks, flicksAfterInput, worstOff, worstOffTick, differ, worstDeg, worstSpeed, n - 1, endGap, where));
             c.check(base.size() >= 10, "the no-aura run lasted only " + base.size() + " ticks after the align");
             c.check(flicks >= 1, "the Lights Aura flicked nothing while AP3 ran - nothing was tested");
-            c.check(flicksAfterInput == 0, flicksAfterInput + " flick(s) right after a tick with movement input (the aim needs a still tick)");
+            Ap3AuraLook1116Cases.stepFour(c, flags0, lines, "Lights Aura beside the walk");
             c.check(worstOff <= 0.005, String.format(Locale.ROOT, "the aura run left the no-aura path by %.3f blocks at tick %d",
                     worstOff, worstOffTick));
         } finally {

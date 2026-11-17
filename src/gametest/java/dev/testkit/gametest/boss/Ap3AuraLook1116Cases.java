@@ -662,6 +662,15 @@ final class Ap3AuraLook1116Cases {
                     aimed++;
                 }
             }
+            if (!opened) {
+                List<String> wire = WireCapture.snapshot().stream().filter(w -> w.phase().equals("play"))
+                        .map(WireCapture.Sent::text).filter(s -> !s.startsWith("pong") && !s.startsWith("keep")).toList();
+                int first = 0;
+                while (first < wire.size() && !wire.get(first).toLowerCase(Locale.ROOT).contains("interact")) first++;
+                c.note("wire from the first interact: " + wire.subList(Math.max(0, first - 3), Math.min(wire.size(), first + 40)));
+                c.note("server: use_entity " + c.events("use_entity").size() + ", ac_attack_cancel "
+                        + c.events("ac_attack_cancel").size());
+            }
             long oneLook = dev.testkit.gametest.LogTap.since(mark).stream()
                     .filter(l -> l.contains("[TerminalAura]") || l.contains("one-packet")).count();
             c.note(String.format(Locale.ROOT, "opened %b with AP3 running %b; AP3 ran %d ticks; camera off -90 by at most %.3f;"
