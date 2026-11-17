@@ -1,7 +1,7 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T03:38:02",
- "modSource": "lane-quarsweep-1116",
+ "generatedAt": "2026-11-17T03:26:29",
+ "modSource": "lane-termfirstdelay-1116",
  "modGitSha": "5f4f01c74e0673cd16b49df58df83ef4747b5eb8",
  "modSourceDirty": false,
  "count": 988,
