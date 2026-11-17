@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T17:30:13",
- "modSource": "lane-pv0273-1117",
- "modGitSha": "832c098dcbf6cfd6e8709e79b1f5d94bdf876ed3",
+ "generatedAt": "2026-11-17T17:44:20",
+ "modSource": "lane-simcmdkeys-1117",
+ "modGitSha": "8044f66b71cd0a0b6e32e41283761324fa14633b",
  "modSourceDirty": false,
- "count": 995,
+ "count": 994,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 867,
+  "field": 866,
   "local": 43
  },
  "unresolved": 160,
@@ -8256,18 +8256,6 @@
    "flags": null,
    "kind": "dynamic",
    "expr": "\"<(?:\\\\w+:)?\" + tag + \">([^<]*)</\""
-  },
-  {
-   "id": "roomsim.SimWardrobe#STAT",
-   "cls": "roomsim.SimWardrobe",
-   "field": "STAT",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/roomsim/SimWardrobe.java",
-   "line": 40,
-   "regex": "^([A-Za-z ]+): [+]?(-?\\d+)%?$",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"^([A-Za-z ]+): [+]?(-?\\\\d+)%?$\""
   },
   {
    "id": "routes.SkyblockArea#AREA_PATTERN",
