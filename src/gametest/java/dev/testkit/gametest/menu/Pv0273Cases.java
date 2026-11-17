@@ -161,7 +161,7 @@ final class Pv0273Cases {
             + "\"members\":{\"0000000000000000000000000000" + "01a7\":{\"currencies\":{\"coin_purse\":1000},"
             + "\"accessory_bag_storage\":{\"sort\":\"rarity\",\"highest_magical_power\":321,"
             + "\"tuning\":{\"slot_0\":{\"health\":10,\"strength\":7,\"purchase_ts\":1700000000},\"slot_1\":{\"health\":40}},"
-            + "\"bag_upgrades_purchased\":4},\"rift\":{\"inventory\":{\"inv_contents\":{\"type\":0,\"data\":\"\"}}}}}}]}";
+            + "\"bag_upgrades_purchased\":4},\"inventory\":{\"inv_contents\":{\"type\":0,\"data\":\"\"}},\"rift\":{\"inventory\":{\"inv_contents\":{\"type\":0,\"data\":\"\"}}}}}}]}";
 
     static void tuning(Session c) throws Exception {
         Object[] got = c.onClient(mc -> {
