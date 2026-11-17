@@ -184,6 +184,10 @@ final class HxTerminalStand {
             o.addProperty("standY", stand.getY());
             o.addProperty("standZ", stand.getZ());
             o.addProperty("marker", stand.isMarker());
+            // 417 (11-17): the client clicked #135 while this held #134; which stands does the server itself have there?
+            o.addProperty("removed", stand.isRemoved());
+            o.addProperty("serverStands", stand.level().getEntitiesOfClass(ArmorStand.class, stand.getBoundingBox().inflate(2))
+                    .stream().map(e -> "#" + e.getId() + (e.isRemoved() ? " removed" : "")).toList().toString());
         }
         o.addProperty("minDy", minDy);
         o.addProperty("line", line);
