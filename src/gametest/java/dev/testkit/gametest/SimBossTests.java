@@ -136,7 +136,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossStart1116.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME, SimI4Terror1116.NAME, SimBossEtherwarp1116.NAME};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossStart1116.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME, SimI4Terror1116.NAME, SimLeap1116.NAME, SimClasses1116.NAME, SimMasks1116.NAME, SimBossEtherwarp1116.NAME};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -190,6 +190,9 @@ public class SimBossTests implements FabricClientGameTest {
                     case SimI4Terror1116.NAME -> SimI4Terror1116.run(ctx, f);
                     case SimBossEtherwarp1116.NAME -> SimBossEtherwarp1116.run(ctx, f);
                     case SimWardrobe1115.NAME -> SimWardrobe1115.run(ctx, f);
+                    case SimLeap1116.NAME -> SimLeap1116.run(ctx, f);
+                    case SimClasses1116.NAME -> SimClasses1116.run(ctx, f);
+                    case SimMasks1116.NAME -> SimMasks1116.run(ctx, f);
                     case SimBossBreakerRefill1113.NAME -> SimBossBreakerRefill1113.run(ctx, f);
                     case BREAKER -> SimBossBreaker1108.run(ctx, f, false);
                     case BREAKER_CHARGE -> SimBossBreaker1108.run(ctx, f, true);
