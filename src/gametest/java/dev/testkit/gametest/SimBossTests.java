@@ -1807,6 +1807,9 @@ public class SimBossTests implements FabricClientGameTest {
         tp(ctx, -0.5, 119, 77.5, 90, 0);
         ctx.waitTicks(10);
         int clicks = 0;
+        // a frame the server turned later than the client saw is checked again: passes repeat until one needs no click
+        for (int pass = 0, before = -1; pass < 4 && before != clicks; pass++) {
+        before = clicks;
         for (int i = 0; i < 25; i++) {
             int want = (Integer) ModUnderTest.staticCall(DEVICES, "arrowSolution", new Class<?>[]{int.class}, new Object[]{i});
             if (want < 0) {
@@ -1832,6 +1835,8 @@ public class SimBossTests implements FabricClientGameTest {
                 clicks++;
                 ctx.waitTicks(3);
             }
+        }
+        ctx.waitTicks(6);
         }
         println(P3, "Arrows: " + clicks + " real click(s) on frames");
         if (clicks == 0) {
