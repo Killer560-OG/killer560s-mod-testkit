@@ -375,6 +375,10 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
     // ================================================================================================ the plan
 
     private static void plan(ClientGameTestContext ctx, List<String> failures) {
+        if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+            Scenario.skipped(PLAN, "Auto Secret is cheat-only: it refuses to start on a legit jar");
+            return;
+        }
         if (SimMapTests.copyRoomsForOthers() < 20) {
             Scenario.skipped(PLAN, "needs real room captures and room database");
             return;

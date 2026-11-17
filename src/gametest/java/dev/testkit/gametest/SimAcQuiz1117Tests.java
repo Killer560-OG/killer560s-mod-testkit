@@ -167,6 +167,9 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                 failures.add("the sim has no Quiz area on this floor");
                 return;
             }
+            // The Quiz's chunks are far from the spawn and not loaded yet (getBlockState reads air): go there first.
+            SimMobFloorTests.teleport(ctx, (area[0] + area[2]) / 2 + 0.5, 100, (area[1] + area[3]) / 2 + 0.5);
+            ctx.waitTicks(30);
             java.util.concurrent.atomic.AtomicReference<double[]> found = new java.util.concurrent.atomic.AtomicReference<>();
             java.util.concurrent.atomic.AtomicBoolean searched = new java.util.concurrent.atomic.AtomicBoolean();
             ctx.runOnClient(mc -> standIn(mc, (area[0] + area[2]) / 2, (area[1] + area[3]) / 2, found, searched));
