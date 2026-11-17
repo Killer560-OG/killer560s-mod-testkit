@@ -32,6 +32,8 @@ public final class HxShortbow {
 
     private static volatile boolean enabled;
     private static volatile int cooldownTicks = 5;
+    /** Terror armor's Hydra Strike at 10 stacks: two more arrows per shot (mod branch i4terror-1116). */
+    private static volatile int extraArrows;
     private static boolean registered;
     private static int lastShotTick = Integer.MIN_VALUE / 2;
     private static int shots;
@@ -53,7 +55,8 @@ public final class HxShortbow {
         });
     }
 
-    static JsonObject set(boolean on, int cooldown) {
+    static JsonObject set(boolean on, int cooldown, int extra) {
+        extraArrows = Math.max(0, extra);
         enabled = on;
         cooldownTicks = Math.max(0, cooldown);
         lastShotTick = Integer.MIN_VALUE / 2;
@@ -76,7 +79,10 @@ public final class HxShortbow {
         CustomData data = held.get(DataComponents.CUSTOM_DATA);
         String id = data == null ? null : data.copyTag().getStringOr("id", null);
         int arrows = "TERMINATOR".equals(id) ? 3 : "MACHINE_GUN_BOW".equals(id) ? 1 : 0;
-        if (arrows == 0 || !(sp.level() instanceof ServerLevel level)) {
+        if (arrows > 0) {
+            arrows += extraArrows;
+        }
+        if (arrows == 0 ||!(sp.level() instanceof ServerLevel level)) {
             return;
         }
         int now = level.getServer().getTickCount();

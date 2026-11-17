@@ -61,6 +61,7 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "2797-logic-flip-1101", Flip1101LogicCases::run);
         LogicCase.run(ctx, "402-logic-autokick-units", AutoKickCases::units);
         LogicCase.run(ctx, "1104-logic-scanaudit", ScanAuditCases::scanAudit);
+        LogicCase.run(ctx, "1116-logic-bloodrush-table", BloodRushTableCases::table);
         // ---- Auto Report Bans (mod doc-ban-1101) - own block
         LogicCase.run(ctx, "4101-logic-banreport-fake-ban", BanReportCases::fakeBan);
         LogicCase.run(ctx, "4102-logic-banreport-off", BanReportCases::off);
@@ -72,6 +73,7 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "1104-logic-crashreport-off", CrashReportCases::off);
         LogicCase.run(ctx, "1105-discordlink-payload", CrashReportCases::discordPayload);
         LogicCase.run(ctx, "1110-logic-crashguard-shutdown", CrashReportCases::crashguardShutdown);
+        LogicCase.run(ctx, "1116-logic-autocorrect-exhaustive", AutoCorrectCases::exhaustive);
         // Discord Link (mod discordlink-1105): off the client thread, the cases wait seconds on the stub relay.
         DiscordLinkCases.ctx = ctx;
         LogicCase.runOffClient(ctx, "1105-discordlink-card", DiscordLinkCases::card);
@@ -135,7 +137,9 @@ public class LogicSuite implements FabricClientGameTest {
                 || !Scenario.skip("1105-logic-hypixel-servertime") || !Scenario.skip("1105-logic-ticklog")
                 || !Scenario.skip("1105-logic-ticklog-off")
                 || !Scenario.skip("1105-logic-split-jitter") || !Scenario.skip("1105-logic-split-slow")
-                || !Scenario.skip("1105-logic-bcstall-jitter") || !Scenario.skip("1105-logic-bcstall-stall")) {
+                || !Scenario.skip("1105-logic-bcstall-jitter") || !Scenario.skip("1105-logic-bcstall-stall")
+                || !Scenario.skip("1116-logic-splitlag-server-stall") || !Scenario.skip("1116-logic-splitlag-client-freeze")
+                || !Scenario.skip("1116-logic-splitlag-conn-stall") || !Scenario.skip("1116-logic-splitlag-freeze-in-stall")) {
             try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
                 LogicCase.run(ctx, "354-logic-terminals", SolverCases::terminals);
                 LogicCase.run(ctx, "357-logic-items-ap3-routes", DomainCases::itemsAp3Routes);
@@ -173,6 +177,10 @@ public class LogicSuite implements FabricClientGameTest {
                 LogicCase.run(ctx, "1105-logic-split-slow", LagLag1105Cases::slow);
                 LogicCase.run(ctx, "1105-logic-bcstall-jitter", LagLag1105Cases::bcJitter);
                 LogicCase.run(ctx, "1105-logic-bcstall-stall", LagLag1105Cases::bcStall);
+                LogicCase.run(ctx, "1116-logic-splitlag-server-stall", LagLag1105Cases::splitServerStall);
+                LogicCase.run(ctx, "1116-logic-splitlag-client-freeze", LagLag1105Cases::splitClientFreeze);
+                LogicCase.run(ctx, "1116-logic-splitlag-conn-stall", LagLag1105Cases::splitConnStall);
+                LogicCase.run(ctx, "1116-logic-splitlag-freeze-in-stall", LagLag1105Cases::splitFreezeInStall);
                 LogicCase.run(ctx, "1104-logic-serverlag-grim", TickFix2Cases::serverLagGrim);
                 LogicCase.run(ctx, "363-logic-roof-cover", RoofCoverCases::roofCover);
             }

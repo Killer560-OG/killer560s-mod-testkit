@@ -36,6 +36,7 @@ public class HxSuite implements FabricClientGameTest {
                 s -> {
                     ModUnderTest.require("killer560smod");
                     HxDungeonCases.register(s);
+                    HxAcDoorOnly1115Cases.register(s);
                     HxSocialCases.register(s);
                     HxHudCases.register(s);
                     HxBatCases.register(s); // 521-523, the Murkbat bat bonus (own block)
@@ -110,6 +111,7 @@ public class HxSuite implements FabricClientGameTest {
                     // Before Boss Health, which latches the boss room until its cleanup case.
                     // The pre-2.0 mining features (1101-mining-*, mod doc-mining-1101), own block, before Boss Health.
                     HxMining1101Cases.register(s);
+                    HxFiestaFlask1116Cases.register(s);
                     // Commission Mobs and the Emissary label's gray distance (1103-mining-*, mod commissions-1103).
                     HxCommissions1103Cases.register(s);
                     // Per-block commission areas, event-driven highlights, carpet stability (1103-mining-block-area,
@@ -192,6 +194,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxBossHealthCases.register(s);
                     // 1103-kickrejoin-*: Kick Rejoin Timer (mod kickhub-1103).
                     HxKickRejoin1103Cases.register(s);
+                    HxRejoin1111Cases.register(s);
                     // mod chport-1104: the Mining features pulled from staging-mining-3 (2026-11-04).
                     HxMining3Cases.register(s);
                     // mod glacitecomm-c-1114: the Glacite Mineshafts card (1114-mineshaft-*).

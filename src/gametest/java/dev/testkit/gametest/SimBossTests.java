@@ -136,7 +136,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME, SimMasks1116.NAME};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME, SimI4Terror1116.NAME, SimLeap1116.NAME, SimClasses1116.NAME, SimMasks1116.NAME};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -153,7 +153,7 @@ public class SimBossTests implements FabricClientGameTest {
         List<String> failures = new ArrayList<>();
         for (String name : chosen) {
             // P3 waits on Auto Terminal and AP3 on AP3; both are compiled out of a legit jar.
-            if ((name.equals(P3) || name.equals(AP3) || name.equals(GATES) || name.equals(BREAKER) || name.equals(BREAKER_CHARGE) || name.equals(SimBossEe3Route1109.NAME)) && !dev.testkit.gametest.mod.Mod.isCheat()) {
+            if ((name.equals(P3) || name.equals(AP3) || name.equals(GATES) || name.equals(BREAKER) || name.equals(BREAKER_CHARGE) || name.equals(SimBossEe3Route1109.NAME) || name.equals(SimI4Terror1116.NAME)) && !dev.testkit.gametest.mod.Mod.isCheat()) {
                 println(name, "SKIPPED: legit jar (Auto Terminal / AP3 are cheat-only)");
                 continue;
             }
@@ -186,7 +186,10 @@ public class SimBossTests implements FabricClientGameTest {
                     case SimBossStartStay1112.NAME -> SimBossStartStay1112.run(ctx, f);
                     case SimBossLeftClick1114.NAME -> SimBossLeftClick1114.run(ctx, f);
                     case SimArmor1115.NAME -> SimArmor1115.run(ctx, f);
+                    case SimI4Terror1116.NAME -> SimI4Terror1116.run(ctx, f);
                     case SimWardrobe1115.NAME -> SimWardrobe1115.run(ctx, f);
+                    case SimLeap1116.NAME -> SimLeap1116.run(ctx, f);
+                    case SimClasses1116.NAME -> SimClasses1116.run(ctx, f);
                     case SimMasks1116.NAME -> SimMasks1116.run(ctx, f);
                     case SimBossBreakerRefill1113.NAME -> SimBossBreakerRefill1113.run(ctx, f);
                     case BREAKER -> SimBossBreaker1108.run(ctx, f, false);
@@ -992,7 +995,17 @@ public class SimBossTests implements FabricClientGameTest {
         // the server's inventory write reaches the client a few ticks later under load: a use before that is an empty hand
         expect(f, "the Hyperion reached his hand", until(ctx, "the Hyperion in hand", mc -> !mc.player.getMainHandItem().isEmpty(), 100), true);
         ctx.runOnClient(mc -> mc.gameMode.useItem(mc.player, InteractionHand.MAIN_HAND));
-        ctx.waitTicks(20);
+        // The use packet reaches the server over its own thread and, in a loaded session, after a fixed 20 ticks the server
+        // could still be holding it (hype failed 27% of long runs with zombie alive and no impact line): wait for the blast.
+        int waited = 0;
+        while (waited < 200 && LogTap.since(mark).stream().noneMatch(l -> l.contains("Wither Impact at"))) {
+            ctx.waitTicks(2);
+            waited += 2;
+        }
+        ctx.waitTicks(2);
+        println(HYPE, "the blast went off " + waited + " tick(s) after the use; sim lines: "
+                + LogTap.since(mark).stream().filter(l -> l.contains("Wither Impact at") || l.contains("taken as")).toList());
+        expect(f, "the Hyperion's blast went off (the feature acted)", LogTap.since(mark).stream().anyMatch(l -> l.contains("Wither Impact at")), true);
         boolean[] dead = new boolean[1];
         serverRun(ctx, s -> {
             var sp = s.getPlayerList().getPlayers().get(0);

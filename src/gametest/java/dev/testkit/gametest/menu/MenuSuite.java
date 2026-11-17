@@ -179,6 +179,7 @@ public class MenuSuite implements FabricClientGameTest {
                     TermFeatACases.register(s); // 1108: terminal sounds, click path, click order, queue terms
                     TermBurst1111Cases.register(s); // 1111-menu-term-burst-*: Auto Terminals Burst Finish (termburst-1111)
                     TermPlus1112Cases.register(s); // 1112-term-*: loaded gate, stall net, Burst Size sweep (termplus-1112)
+                    ClickOrder1116Cases.register(s); // 1116-term-invsync-*: window-0 packets between board updates (clickorder-1116)
                     Doc1101TermCases.register(s); // 1101-menu-term-*: doc-terms-1101
                     TermHumanCases.register(s); // 1027-menu-term-*: Stream Safe human cursor, Rubix repeats (autoterms-human-1027)
                     TermismStreamSafeCases.register(s); // 1102-menu-termism-ss-*: Stream Safe in Termism (termismss-1102)

@@ -112,8 +112,13 @@ public final class SameTick implements AutoCloseable {
     }
 
     private void inject(Minecraft mc) {
-        if (act == Act.TP || mc.player == null || mc.gameMode == null || tick++ % every != 0) return;
-        if (left == 0) return;
+        if (act == Act.TP || mc.player == null || mc.gameMode == null) return;
+        if (!armed && armedBy != null) {
+            if (!armedBy.getAsBoolean()) return;
+            armed = true;
+        }
+        if (tick++ % every != 0) return;
+        if (left == 0 || (heldOnly && heldSlot() != slotA && heldSlot() != slotB)) return;
         if (left > 0) left--;
         injecting = true;
         try {
@@ -323,6 +328,26 @@ public final class SameTick implements AutoCloseable {
         left = n;
     }
 
+    private volatile boolean heldOnly;
+    private volatile java.util.function.BooleanSupplier armedBy;
+    private boolean armed;
+    private boolean closed;
+
+    /**
+     * His action starts on the first client tick (at its usual phase) where {@code c} holds, read on the client thread, so a
+     * case can put it in the exact tick a feature acts (the tick Secret Aura turns the body, its click goes the next).
+     */
+    public SameTick armedBy(java.util.function.BooleanSupplier c) {
+        armedBy = c;
+        return this;
+    }
+
+    /** His action goes in only while slotA or slotB is held (a stick's use or swap that stops once a feature takes the hand). */
+    public SameTick heldOnly() {
+        heldOnly = true;
+        return this;
+    }
+
     /** One line for the case's note: counts and the first few shared ticks. */
     public String report() {
         synchronized (window) {
@@ -365,6 +390,9 @@ public final class SameTick implements AutoCloseable {
 
     @Override
     public void close() {
+        // Once only: a second close after an outer tap was stopped would put back a dead tap that chains to itself.
+        if (closed) return;
+        closed = true;
         active = null;
         if (act == Act.DIG_HELD) Minecraft.getInstance().options.keyAttack.setDown(false);
         PacketTrace.tap = prevTap;
