@@ -601,7 +601,10 @@ public final class HxPrimitives implements HxModule {
         SimpleContainer items = new SimpleContainer(rows * 9);
         if (a.has("slots")) {
             for (var entry : a.getAsJsonObject("slots").entrySet()) {
-                items.setItem(Integer.parseInt(entry.getKey()), stack(s, entry.getValue().getAsString(), 1));
+                String spec = entry.getValue().getAsString();
+                int star = spec.lastIndexOf('*'); // "item*count": a stack of that size
+                boolean counted = star > 0 && spec.substring(star + 1).matches("\\d+");
+                items.setItem(Integer.parseInt(entry.getKey()), stack(s, counted ? spec.substring(0, star) : spec, counted ? Integer.parseInt(spec.substring(star + 1)) : 1));
             }
         }
         Component title = text(s, a, "title");
