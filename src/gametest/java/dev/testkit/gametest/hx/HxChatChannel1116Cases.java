@@ -141,7 +141,7 @@ final class HxChatChannel1116Cases {
                 McCompat.setScreen(mc, null);
                 return null;
             });
-            texts(c);
+            int withLine2 = texts(c);
             int y1 = c.onClient(mc -> (Integer) Mod.staticCall(F, "lastY"));
             int h1 = c.onClient(mc -> McCompat.screen(mc) == null ? -1 : McCompat.screen(mc).height);
             c.check(y1 + 9 <= h1 - 27, "with Chat Tabs on, the line (y " + y1 + ") overlaps the tab row (top " + (h1 - 27) + ")");
@@ -149,7 +149,7 @@ final class HxChatChannel1116Cases {
             // OFF draws nothing: one fewer text group than with it on (control).
             run(c, () -> Mod.set(CFG, "setEnabled", false));
             int without = texts(c);
-            c.check(without < withLine, "switching it off did not remove its text: " + withLine + " -> " + without);
+            c.check(without < withLine2, "switching it off did not remove its text: " + withLine2 + " -> " + without);
             c.note("drawn above the input (y " + y0 + ", height " + h + "), above the tab row with Chat Tabs on (y " + y1
                     + "), texts " + withLine + " on / " + without + " off");
         } finally {
