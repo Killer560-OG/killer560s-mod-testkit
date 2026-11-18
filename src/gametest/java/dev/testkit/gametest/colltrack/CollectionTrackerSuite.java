@@ -456,7 +456,7 @@ public class CollectionTrackerSuite implements FabricClientGameTest {
             StringBuilder hover = new StringBuilder("Added items:");
             long net = 0;
             for (String line : GOLD_SESSION[i]) {
-                hover.append("\n  ").append(line);
+                hover.append("\\n  ").append(line);
                 long n = Long.parseLong(line.substring(0, line.indexOf(' ')));
                 String item = line.substring(line.indexOf(' ') + 1, line.lastIndexOf(" ("));
                 net += n * (item.equals("Enchanted Gold Block") ? mult[2] : item.equals("Enchanted Gold Ingot") ? mult[1] : mult[0]);
