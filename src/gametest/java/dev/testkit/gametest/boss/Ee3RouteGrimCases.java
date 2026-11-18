@@ -2,6 +2,7 @@ package dev.testkit.gametest.boss;
 
 import dev.testkit.gametest.LogTap;
 import dev.testkit.gametest.SameTick;
+import dev.testkit.gametest.Scenario;
 import dev.testkit.gametest.hx.Session;
 import dev.testkit.gametest.mod.Mod;
 import dev.testkit.harness.PacketTrace;
@@ -280,6 +281,10 @@ final class Ee3RouteGrimCases {
             if (!setupFlags.isEmpty()) {
                 System.out.println("[ee3route] setup flags before the run (not judged): " + setupFlags);
             }
+            // Owner exception (killer560, 2026-11-17, "Accept the flag"): the no-look click on the high lever (23,132,138) draws
+            // RotationPlace. Accepted only as its first (x1) line; the high lever must still end powered (checked below for
+            // every act but DIG). A second RotationPlace (x2) or any other check still fails the case.
+            Scenario.acceptedFlag = l -> l.contains("failed RotationPlace (x1)");
             c.server().mark();
             long mark = LogTap.mark();
             c.onClient(mc -> {

@@ -93,6 +93,9 @@ public final class Scenario {
             "joined the game", "left the game", "made the advancement", "[testkit]", "packetevents", "[hx] ",
             "failed to check latest version"};
 
+    /** A flag line the owner accepted for the running case (set inside that case's body, reset by Session.runCase). */
+    public static volatile java.util.function.Predicate<String> acceptedFlag;
+
     private final ClientGameTestContext ctx;
     private final String name;
     private TestServer server;
@@ -555,6 +558,9 @@ public final class Scenario {
     public List<String> flags() {
         List<String> out = new ArrayList<>();
         for (String line : server.since()) {
+            if (acceptedFlag != null && acceptedFlag.test(line)) {
+                continue;
+            }
             String lower = line.toLowerCase(Locale.ROOT);
             boolean marked = false;
             for (String marker : FLAG_MARKERS) {
