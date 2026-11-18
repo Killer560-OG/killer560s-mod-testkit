@@ -136,6 +136,11 @@ final class SimBossEe3Route1109 {
         String tag = name + (seg ? "@" + (int) at[0] + "," + (int) at[2] : "") + " #" + rep;
         boolean his = name.startsWith("his");
         Path route = DIR.resolve(name + ".json");
+        if (his && !Files.isRegularFile(route)) {
+            // His private route (not in the repo) lives only in the default candidates folder; a KM_EE3_DIR run of another route has none.
+            say(tag + ": SKIPPED, no his route file " + route);
+            return;
+        }
         if (!Files.isRegularFile(route)) {
             f.add(tag + ": no route file " + route);
             return;

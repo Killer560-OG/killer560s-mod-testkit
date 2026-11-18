@@ -205,6 +205,25 @@ final class Ee3RouteGrimCases {
         return KM_DIR == null ? VERIFIED : DIR.resolve(KM_DIR);
     }
 
+    /** Lifts GrimAC's RotationPlace cancelvl for one case (punishments.yml + /grim reload); the returned closer puts it back. */
+    private static AutoCloseable raiseCancelVl(Session c) throws Exception {
+        java.util.Properties props = new java.util.Properties();
+        try (var in = Files.newInputStream(Path.of(System.getProperty("testkit.testserver.launch")))) {
+            props.load(in);
+        }
+        Path f = Path.of(props.getProperty("dir"), "config", "GrimAC", "punishments.yml");
+        String old = Files.readString(f);
+        String lifted = old.replaceAll("(RotationPlace:\\s+cancelvl: )\\d+", "$1100000");
+        c.check(!lifted.equals(old), "punishments.yml has no RotationPlace cancelvl to lift: " + f);
+        Files.writeString(f, lifted);
+        c.server().command("grim reload");
+        c.ctx().waitTicks(10);
+        return () -> {
+            Files.writeString(f, old);
+            c.server().command("grim reload");
+        };
+    }
+
     static void run(Session c, SameTick.Act act) throws Exception {
         List<AutoCloseable> undo = new ArrayList<>();
         Path route = routeDir().resolve(ROUTE + ".json");
@@ -281,10 +300,14 @@ final class Ee3RouteGrimCases {
             if (!setupFlags.isEmpty()) {
                 System.out.println("[ee3route] setup flags before the run (not judged): " + setupFlags);
             }
-            // Owner exception (killer560, 2026-11-17, "Accept the flag"): the no-look click on the high lever (23,132,138) draws
-            // RotationPlace. Accepted only as its first (x1) line; the high lever must still end powered (checked below for
-            // every act but DIG). A second RotationPlace (x2) or any other check still fails the case.
-            Scenario.acceptedFlag = l -> l.contains("failed RotationPlace (x1)");
+            // Owner exception (killer560, 2026-11-18, "whatever you think is best"): the same for the low lever (27,124,127).
+            // One RotationPlace per no-look lever click (counted below against the log), nothing else.
+            java.util.Set<String> acceptedPlace = new java.util.LinkedHashSet<>();
+            Scenario.acceptedFlag = l -> l.contains("failed RotationPlace") && acceptedPlace.add(l) | acceptedPlace.contains(l);
+            // GrimAC cancels a placement once RotationPlace violations reach punishments.yml cancelvl 5, and they add up over a
+            // session (11-18: cases 3 and 4 ran at x5+ and every lever click was canceled, levers false/false). The accepted
+            // flags must not decide whether the lever goes, so the cancel level is lifted for this case and restored after.
+            undo.add(raiseCancelVl(c));
             c.server().mark();
             long mark = LogTap.mark();
             c.onClient(mc -> {
@@ -370,6 +393,8 @@ final class Ee3RouteGrimCases {
                 st = null;
                 SameTickCases.judge(c, s2, "ee3 route levers");
             }
+            long noLook = LogTap.since(mark).stream().filter(l -> l.contains("no packet can carry a look to lever")).count();
+            c.check(acceptedPlace.size() <= noLook, "RotationPlace flags " + acceptedPlace.size() + " exceed the no-look lever clicks " + noLook + ": " + acceptedPlace);
             c.check(dig || lev[1], "the high S2 lever was not powered (low/high " + lev[0] + "/" + lev[1] + ")");
             c.check(dig || ticks.lever >= 1, "no lever click on the wire: " + wire);
             c.check(ticks.twoLevers == 0, "two lever clicks in one server tick: " + wire);
