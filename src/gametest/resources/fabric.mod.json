@@ -152,6 +152,7 @@
 			"dev.testkit.gametest.SimBloodRushTests",
 			"dev.testkit.gametest.SimBloodCampTests",
 			"dev.testkit.gametest.SimHelpTests",
+			"dev.testkit.gametest.SimHelpShotsTests",
 			"dev.testkit.gametest.BloodRushSplitsTests",
 			"dev.testkit.gametest.SimChestClearTests",
 			"dev.testkit.gametest.SimKeyRoomTests",

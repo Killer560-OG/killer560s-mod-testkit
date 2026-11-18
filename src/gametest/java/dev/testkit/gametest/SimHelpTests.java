@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -30,7 +31,6 @@ public class SimHelpTests implements FabricClientGameTest {
     private static final String SCREEN = "com.killer560.hub.roomsim.SimHelpScreen";
     private static final String STATE = "com.killer560.hub.roomsim.SimState";
     private static final String PREFS = "com.killer560.hub.roomsim.SimMenuPrefs";
-    private static final Path SHOTS = Path.of("C:/Users/Hunter/killer560s-mod-logs/simhelp-1117");
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -146,48 +146,139 @@ public class SimHelpTests implements FabricClientGameTest {
 
         // The harness window resize does not change a Screen's own size (it stays 854x480), so each size is given to the
         // screen the way vanilla does (Screen.resize(w, h)) and measured from its layout, with no render involved.
-        int[][] sizes = {{1920, 1080, 1}, {1920, 1080, 2}, {1920, 1080, 3}, {1920, 1080, 4}, {854, 480, 2}};
+        // simhelp-polish-1118: Close bottom left, Back then Next bottom right, the page count on the panel's center, nothing overlapping.
+        int[][] sizes = {{1920, 1080, 1}, {1920, 1080, 2}, {1920, 1080, 3}, {1920, 1080, 4}, {854, 480, 2}, {854, 480, 4}};
         int scrolling = 0;
+        int checked = 0;
         for (int[] s : sizes) {
             final int sw = s[0] / s[2], sh = s[1] / s[2];
             for (int p = 0; p < pages; p++) {
                 final int page = p;
                 String at = s[0] + "x" + s[1] + " GUI " + s[2] + " (" + sw + "x" + sh + ") page " + (p + 1);
-                int[] m = ctx.computeOnClient(mc -> {
+                Object[] got = ctx.computeOnClient(mc -> {
                     var sc = McCompat.screen(mc);
                     // Auto Scale lays a mod screen out on a canvas F times the size it is given (AutoScaleScreenMixin): find F, undo it
                     sc.resize(sw, sh);
                     double k = sc.width / (double) sw;
                     sc.resize((int) Math.round(sw / k), (int) Math.round(sh / k));
                     ModUnderTest.call(sc, "showPage", new Class<?>[]{int.class}, new Object[]{page});
-                    int[] te = (int[]) ModUnderTest.call(sc, "textExtent", new Class<?>[0], new Object[0]);
                     int[] ce = (int[]) ModUnderTest.call(sc, "contentExtent", new Class<?>[0], new Object[0]);
-                    int[] pb = (int[]) ModUnderTest.call(sc, "themedPanelBounds", new Class<?>[0], new Object[0]);
                     int ms = (Integer) ModUnderTest.call(sc, "maxScroll", new Class<?>[0], new Object[0]);
-                    return new int[]{te[0], te[1], ce[0], ce[1], pb[0], pb[1], pb[2], pb[3], ms, (Integer) ModUnderTest.call(sc, "page", new Class<?>[0], new Object[0]), sc.width, sc.height};
+                    int pg = (Integer) ModUnderTest.call(sc, "page", new Class<?>[0], new Object[0]);
+                    @SuppressWarnings("unchecked")
+                    Map<String, int[]> boxes = new java.util.LinkedHashMap<>((Map<String, int[]>) ModUnderTest.call(sc, "layoutBoxes", new Class<?>[0], new Object[0]));
+                    return new Object[]{boxes, new int[]{ce[0], ce[1], ms, pg, sc.width, sc.height}};
                 });
-                check(problems, m[9] == page, at + ": showPage did not switch");
-                check(problems, m[0] > 0 && m[0] <= m[1], at + ": page list text reaches " + m[0] + " past " + m[1]);
-                check(problems, m[2] > 0 && m[2] <= m[3], at + ": content text reaches " + m[2] + " past " + m[3] + " (or none laid out)");
-                check(problems, m[4] >= 0 && m[5] >= 0 && m[4] + m[6] <= m[10] && m[5] + m[7] <= m[11] && Math.abs(m[10] - sw) <= 2,
-                        at + ": panel " + m[4] + "," + m[5] + " " + m[6] + "x" + m[7] + " leaves the " + m[10] + "x" + m[11] + " canvas (asked " + sw + ")");
-                check(problems, 36 + pages * 14 <= m[7] - 26, at + ": page list runs into the buttons");
-                if (m[8] > 0) {
-                    scrolling++;
+                @SuppressWarnings("unchecked")
+                Map<String, int[]> b = (Map<String, int[]>) got[0];
+                int[] m = (int[]) got[1];
+                check(problems, m[3] == page, at + ": showPage did not switch");
+                check(problems, m[0] > 0 && m[0] <= m[1], at + ": content text reaches " + m[0] + " past " + m[1] + " (or none laid out)");
+                int[] panel = b.get("panel"), close = b.get("close"), back = b.get("back"), next = b.get("next"), label = b.get("label"), well = b.get("well"), text = b.get("text");
+                if (panel == null || close == null || back == null || next == null || label == null || well == null || text == null) {
+                    check(problems, false, at + ": layoutBoxes is missing a box: " + b.keySet());
+                    continue;
                 }
-                if (s[0] == 1920 && s[2] == 2 && (p == 0 || p == 3)) {
-                    ctx.runOnClient(mc -> McCompat.screen(mc).resize(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight())); // the real window, for the picture
-                    ctx.waitTicks(3);
-                    Path shot = ctx.takeScreenshot(dev.testkit.harness.Report.fileName(NAME + "-page" + (p + 1)));
-                    Report.screenshot(NAME, shot);
-                    if (dev.testkit.gametest.mod.Mod.isCheat()) {
-                        Files.createDirectories(SHOTS);
-                        Files.copy(shot, SHOTS.resolve("page" + (p + 1) + ".png"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                checked++;
+                check(problems, panel[0] >= 0 && panel[1] >= 0 && panel[0] + panel[2] <= m[4] && panel[1] + panel[3] <= m[5] && Math.abs(m[4] - sw) <= 2,
+                        at + ": panel " + str(panel) + " leaves the " + m[4] + "x" + m[5] + " canvas (asked " + sw + ")");
+                check(problems, close[0] + close[2] <= back[0], at + ": Close " + str(close) + " is not left of Back " + str(back));
+                check(problems, back[0] + back[2] <= next[0], at + ": Back " + str(back) + " is not left of Next " + str(next));
+                check(problems, close[0] < panel[0] + panel[2] / 2 && next[0] > panel[0] + panel[2] / 2, at + ": Close not on the left half or Next not on the right half");
+                int rightmost = 0;
+                for (var e : b.entrySet()) {
+                    if (!e.getKey().equals("panel") && !e.getKey().equals("well") && !e.getKey().equals("text") && !e.getKey().startsWith("pic")) {
+                        rightmost = Math.max(rightmost, e.getValue()[0] + e.getValue()[2]);
                     }
+                }
+                check(problems, next[0] + next[2] == rightmost && next[0] + next[2] <= panel[0] + panel[2], at + ": Next is not the rightmost control (" + str(next) + ", rightmost " + rightmost + ")");
+                int labelCx2 = 2 * label[0] + label[2], panelCx2 = 2 * panel[0] + panel[2];
+                check(problems, Math.abs(labelCx2 - panelCx2) <= 2, at + ": page label center " + labelCx2 / 2.0 + " is not the panel center " + panelCx2 / 2.0);
+                check(problems, Math.abs((2 * label[1] + label[3]) - (2 * next[1] + next[3])) <= 2, at + ": page label is not centered on the button row");
+                check(problems, close[1] == back[1] && back[1] == next[1], at + ": Close, Back and Next are not on one row");
+                for (String k : List.of("close", "back", "next")) {
+                    check(problems, !overlap(label, b.get(k)), at + ": page label " + str(label) + " overlaps " + k + " " + str(b.get(k)));
+                    check(problems, well[1] + well[3] <= b.get(k)[1], at + ": the well runs into " + k);
+                }
+                int pics = 0;
+                List<int[]> items = new ArrayList<>();
+                for (var e : b.entrySet()) {
+                    if (e.getKey().startsWith("page")) items.add(e.getValue());
+                    if (e.getKey().startsWith("pic")) {
+                        int[] pic = e.getValue();
+                        pics++;
+                        check(problems, pic[2] > 20 && pic[3] > 20 && pic[0] >= text[0] && pic[0] + pic[2] <= text[0] + text[2] + 1,
+                                at + ": " + e.getKey() + " " + str(pic) + " is outside the text area " + str(text));
+                    }
+                }
+                check(problems, pics >= 1, at + ": no picture on the page");
+                check(problems, items.size() == pages, at + ": " + items.size() + " page entries, not " + pages);
+                for (int i = 0; i < items.size(); i++) {
+                    check(problems, !overlap(items.get(i), close), at + ": page entry " + (i + 1) + " " + str(items.get(i)) + " overlaps Close " + str(close));
+                    if (i > 0) check(problems, !overlap(items.get(i), items.get(i - 1)), at + ": page entries " + i + " and " + (i + 1) + " overlap");
+                }
+                for (int i = 0; i < pics; i++) {
+                    for (int j = i + 1; j < pics; j++) {
+                        check(problems, !overlap(b.get("pic" + i), b.get("pic" + j)), at + ": pictures " + i + " and " + j + " overlap");
+                    }
+                }
+                if (m[2] > 0) {
+                    scrolling++;
                 }
             }
         }
-        facts.add("every page fits at 1920x1080 GUI 1-4 and 854x480 GUI 2 (" + scrolling + " page views scroll)");
+        check(problems, checked == sizes.length * pages, "only " + checked + " of " + sizes.length * pages + " layouts were checked");
+        facts.add("buttons, label center and no overlaps on " + checked + " layouts at 1920x1080 GUI 1-4 and 854x480 GUI 2/4 (" + scrolling + " page views scroll)");
+
+        // The real window: every page draws its pictures (ready within 10 s, real pixels in each box), and the accent follows the theme.
+        setWindow(ctx, 1280, 720, 2);
+        int pictures = 0;
+        for (int p = 0; p < pages; p++) {
+            final int page = p;
+            ctx.runOnClient(mc -> {
+                var sc = McCompat.screen(mc);
+                ModUnderTest.call(sc, "showPage", new Class<?>[]{int.class}, new Object[]{page});
+                for (int i = 0; i < 80; i++) {
+                    sc.mouseScrolled(1, 1, 0, -1); // to the bottom, where the pictures are
+                }
+            });
+            int want = ctx.computeOnClient(mc -> (int) ((Map<?, ?>) ModUnderTest.call(McCompat.screen(mc), "layoutBoxes", new Class<?>[0], new Object[0]))
+                    .keySet().stream().filter(k -> k.toString().startsWith("pic")).count());
+            long t0 = System.currentTimeMillis();
+            boolean ready = false;
+            while (System.currentTimeMillis() - t0 < 10_000) {
+                ctx.waitTicks(2);
+                int shown = ctx.computeOnClient(mc -> (Integer) ModUnderTest.call(McCompat.screen(mc), "picturesShown", new Class<?>[0], new Object[0]));
+                if (shown == want) {
+                    ready = true;
+                    break;
+                }
+            }
+            long took = System.currentTimeMillis() - t0;
+            check(problems, ready && want > 0, "page " + (p + 1) + ": " + want + " picture(s) not all drawn within 10 s");
+            ctx.waitTicks(2);
+            Path shot = ctx.takeScreenshot(dev.testkit.harness.Report.fileName(NAME + "-page" + (p + 1)));
+            Report.screenshot(NAME, shot);
+            java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(shot.toFile());
+            Object[] lay = picBoxes(ctx);
+            double f = img.getWidth() / (double) (Integer) lay[1];
+            for (int[] pic : castBoxes(lay[0])) {
+                int colors = distinctColors(img, pic, f);
+                check(problems, colors >= 24, "page " + (p + 1) + ": picture " + str(pic) + " has only " + colors + " colors on screen (not drawn)");
+                pictures++;
+            }
+            facts.add("page " + (p + 1) + ": " + want + " picture(s) drawn after " + took + " ms");
+        }
+        check(problems, pictures >= pages, "only " + pictures + " pictures measured on " + pages + " pages");
+
+        // Theme: the selected page entry's accent strip changes color from Amber to Ocean; Dark Mode darkens the panel.
+        int[] amber = accentAndPanel(ctx, "AMBER", false);
+        int[] ocean = accentAndPanel(ctx, "OCEAN", false);
+        int[] dark = accentAndPanel(ctx, "AMBER", true);
+        accentAndPanel(ctx, "AMBER", false);
+        check(problems, colorDistance(amber[0], ocean[0]) > 60, "the accent strip did not follow the theme: Amber " + Integer.toHexString(amber[0]) + ", Ocean " + Integer.toHexString(ocean[0]));
+        check(problems, brightness(dark[1]) < brightness(amber[1]), "Dark Mode did not darken the panel: " + Integer.toHexString(amber[1]) + " -> " + Integer.toHexString(dark[1]));
+        facts.add("accent strip Amber " + Integer.toHexString(amber[0]) + " / Ocean " + Integer.toHexString(ocean[0]) + "; panel " + Integer.toHexString(amber[1]) + " / Dark Mode " + Integer.toHexString(dark[1]));
 
         // Esc closes.
         boolean[] handled = new boolean[1];
@@ -279,6 +370,81 @@ public class SimHelpTests implements FabricClientGameTest {
             }
         });
         ctx.waitTicks(6);
+    }
+
+    private static String str(int[] r) {
+        return r == null ? "none" : r[0] + "," + r[1] + " " + r[2] + "x" + r[3];
+    }
+
+    private static boolean overlap(int[] a, int[] b) {
+        return a != null && b != null && a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3];
+    }
+
+    /** {the open screen's picture boxes (List of int[]), its width}. */
+    private static Object[] picBoxes(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            var sc = McCompat.screen(mc);
+            List<int[]> out = new ArrayList<>();
+            for (var e : ((Map<?, ?>) ModUnderTest.call(sc, "layoutBoxes", new Class<?>[0], new Object[0])).entrySet()) {
+                if (e.getKey().toString().startsWith("pic")) out.add((int[]) e.getValue());
+            }
+            return new Object[]{out, sc.width};
+        });
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<int[]> castBoxes(Object o) {
+        return (List<int[]>) o;
+    }
+
+    /** Distinct colors (low 4 bits per channel dropped) on a 24x24 grid inside a box given in screen units, {@code f} pixels per unit. */
+    private static int distinctColors(java.awt.image.BufferedImage img, int[] box, double f) {
+        Set<Integer> seen = new java.util.HashSet<>();
+        for (int i = 1; i < 24; i++) {
+            for (int j = 1; j < 24; j++) {
+                int x = (int) ((box[0] + box[2] * i / 24.0) * f), y = (int) ((box[1] + box[3] * j / 24.0) * f);
+                if (x >= 0 && y >= 0 && x < img.getWidth() && y < img.getHeight()) seen.add(img.getRGB(x, y) & 0xF0F0F0);
+            }
+        }
+        return seen.size();
+    }
+
+    /** With {@code theme} and Dark Mode {@code dark}: {page 1's accent strip pixel, a panel pixel}, read off a screenshot. */
+    private static int[] accentAndPanel(ClientGameTestContext ctx, String theme, boolean dark) throws Exception {
+        Object[] lay = ctx.computeOnClient(mc -> {
+            try {
+                Object cfg = ModUnderTest.config("com.killer560.hub.gui.MenuConfig");
+                ModUnderTest.call(cfg, "setTheme", new Class<?>[]{Class.forName("com.killer560.hub.gui.MenuTheme")},
+                        new Object[]{ModUnderTest.enumValue("com.killer560.hub.gui.MenuTheme", theme)});
+            } catch (ClassNotFoundException e) {
+                throw new AssertionError(e);
+            }
+            Object dm = dev.testkit.gametest.mod.Mod.cfg("darkmode.DarkModeConfig");
+            dev.testkit.gametest.mod.Mod.call(dm, "setEnabled", dark);
+            if (dark) dev.testkit.gametest.mod.Mod.call(dm, "setOpacity", 50);
+            var sc = McCompat.screen(mc);
+            sc.resize(sc.width, sc.height);
+            ModUnderTest.call(sc, "showPage", new Class<?>[]{int.class}, new Object[]{0});
+            Map<?, ?> b = (Map<?, ?>) ModUnderTest.call(sc, "layoutBoxes", new Class<?>[0], new Object[0]);
+            return new Object[]{b.get("page0"), b.get("panel"), sc.width};
+        });
+        ctx.waitTicks(4);
+        Path shot = ctx.takeScreenshot(dev.testkit.harness.Report.fileName(NAME + "-theme-" + theme + (dark ? "-dark" : "")));
+        Report.screenshot(NAME, shot);
+        java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(shot.toFile());
+        double f = img.getWidth() / (double) (Integer) lay[2];
+        int[] item = (int[]) lay[0], panel = (int[]) lay[1];
+        int strip = img.getRGB((int) ((item[0] + 2) * f), (int) ((item[1] + item[3] / 2.0) * f));
+        int bg = img.getRGB((int) ((panel[0] + panel[2] - 5) * f), (int) ((panel[1] + panel[3] / 2.0) * f));
+        return new int[]{strip, bg};
+    }
+
+    private static int colorDistance(int a, int b) {
+        return Math.abs((a >> 16 & 255) - (b >> 16 & 255)) + Math.abs((a >> 8 & 255) - (b >> 8 & 255)) + Math.abs((a & 255) - (b & 255));
+    }
+
+    private static int brightness(int c) {
+        return (c >> 16 & 255) + (c >> 8 & 255) + (c & 255);
     }
 
     private static void check(List<String> problems, boolean ok, String problem) {
