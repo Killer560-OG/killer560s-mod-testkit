@@ -44,9 +44,11 @@
     "gui.tab.ChocolateFactoryTab": "Misc > Chocolate Factory",
     "gui.tab.KickRejoinTab": "Misc > Kick Rejoin Timer",
     "gui.tab.PuzzleHudTab": "Dungeons > Puzzle HUD",
+    "gui.tab.AutoAcceptInvitesTab": "Social > Auto Accept Invites",
     "gui.tab.RepartyTab": "Dungeons > Reparty",
     "gui.tab.WatcherHelperTab": "Dungeons > Watcher Helper",
     "gui.tab.CarryTrackerTab": "Dungeons > Carry Tracker",
+    "gui.tab.MissingEnchantsTab": "Items > Missing Enchants",
     "gui.tab.BazaarOrderHelperTab": "Items > Order Helper",
     "gui.tab.ReforgeHelperTab": "Items > Reforge Helper",
     "gui.tab.PeekChatTab": "Chat > Peek Chat",
@@ -530,6 +532,13 @@
       "key": "funny map",
       "gone": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list): Funny Map is a cheat-build setting now",
       "variant": "legit"
+    },
+    {
+      "owner": "Dungeon Map",
+      "key": "stream safe",
+      "text": "Cheat build, Funny Map, Windows: anything that records or shares the game (OBS, Discord, the Windows recorder, F2) sees the normal Dungeon Map, while you see the Funny Map in a window over it that capture skips. Stream Safe hides the Funny Map and the mimic room from viewers on the HUD map only: the Interactive Map and other Funny Map extras stay visible. In exclusive fullscreen you see the normal map too. Needs Windows 10 2004 or newer.",
+      "why": "streamsafemap-1118 (killer560 2026-11-18): viewers of a stream or recording see the normal map, he still sees the Funny Map",
+      "variant": "cheat"
     },
     {
       "owner": "(unscoped)",
@@ -1037,6 +1046,24 @@
       "owner": "Dungeon Breaker",
       "key": "zero ping",
       "gone": "Zero Ping Dungeon Breaker removed (mod aed527317); its tooltip row is gone (quarfix-1115)"
+    },
+    {
+      "owner": "Compactor Preview",
+      "key": "compactor preview",
+      "text": "Hover a Personal Compactor and its tooltip lists the Sack items it compacts; hover a Personal Deletor and it shows a grid of the items it deletes. No need to open either.",
+      "why": "pv0273-1117: SkyBlock 0.27.3 compactors have no slots, they compact a list of Sack items"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "compactor preview",
+      "text": "Hover a Personal Compactor and its tooltip lists the Sack items it compacts; hover a Personal Deletor and it shows a grid of the items it deletes. No need to open either.",
+      "why": "pv0273-1117: SkyBlock 0.27.3 compactors have no slots, they compact a list of Sack items"
+    },
+    {
+      "owner": "Compactor Preview",
+      "key": "show",
+      "text": "On Hover adds the preview to the tooltip whenever you hover the item. While Holding Key adds it only while the key is held. Left click goes forward, right click back.",
+      "why": "pv0273-1117: the preview is a list for compactors, a grid for deletors"
     }
   ]
 }

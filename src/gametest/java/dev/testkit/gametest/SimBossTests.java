@@ -136,7 +136,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossStart1116.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME, SimI4Terror1116.NAME, SimLeap1116.NAME, SimClasses1116.NAME, SimMasks1116.NAME, SimBossEtherwarp1116.NAME};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossStart1116.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME, SimI4Terror1116.NAME, SimLeap1116.NAME, SimClasses1116.NAME, SimMasks1116.NAME, SimBossEtherwarp1116.NAME, SimCmdKeys1117.NAME, SimLeapSpots1117.NAME, SimLeapSpots1117.ORDER_NAME, SimLeapSpots1117.F7_END};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -190,8 +190,12 @@ public class SimBossTests implements FabricClientGameTest {
                     case SimI4Terror1116.NAME -> SimI4Terror1116.run(ctx, f);
                     case SimBossEtherwarp1116.NAME -> SimBossEtherwarp1116.run(ctx, f);
                     case SimWardrobe1115.NAME -> SimWardrobe1115.run(ctx, f);
+                    case SimCmdKeys1117.NAME -> SimCmdKeys1117.run(ctx, f);
                     case SimLeap1116.NAME -> SimLeap1116.run(ctx, f);
                     case SimClasses1116.NAME -> SimClasses1116.run(ctx, f);
+                    case SimLeapSpots1117.NAME -> SimLeapSpots1117.run(ctx, f);
+                    case SimLeapSpots1117.ORDER_NAME -> SimLeapSpots1117.order(ctx, f);
+                    case SimLeapSpots1117.F7_END -> SimLeapSpots1117.f7End(ctx, f);
                     case SimMasks1116.NAME -> SimMasks1116.run(ctx, f);
                     case SimBossBreakerRefill1113.NAME -> SimBossBreakerRefill1113.run(ctx, f);
                     case BREAKER -> SimBossBreaker1108.run(ctx, f, false);
@@ -1370,6 +1374,14 @@ public class SimBossTests implements FabricClientGameTest {
         tp(ctx, 52.5, 224, 43.5, 180, 0);
         ctx.waitTicks(5);
         expect(f, "2 blocks from a pad: nothing placed", count(m, "Energy Crystals are now active!"), 0);
+        // A click is never the pad's (simleapspots2-1117): a right click on the pylon from here places nothing.
+        tp(ctx, 52.5, 221, 44.5, 180, 30);
+        ctx.waitTicks(3);
+        useBlock(ctx, new BlockPos(52, 223, 42), Direction.SOUTH);
+        ctx.waitTicks(5);
+        expect(f, "right click at a pad: nothing placed", count(m, "Energy Crystals are now active!"), 0);
+        expect(f, "right click at a pad: still carried", ctx.computeOnClient(mc -> mc.player.getInventory().getItem(8).getHoverName().getString().contains("Energy Crystal")), true);
+        expect(f, "the pad's block is a pressure plate", serverBlockId(ctx, new BlockPos(52, 224, 41)).contains("pressure_plate"), true);
         tp(ctx, 52.5, 224, 42.5, 180, 0);
         ctx.waitTicks(3);
         expect(f, "walk-in: placed at the pad", count(m, "1/2 Energy Crystals are now active!"), 1);
@@ -1455,9 +1467,7 @@ public class SimBossTests implements FabricClientGameTest {
         ctx.waitTicks(3);
         clickCrystal(ctx, 64.5, 238.375, 50.5);
         ctx.waitTicks(3);
-        tp(ctx, 52.5, 221, 44.5, 180, 30);
-        ctx.waitTicks(5);
-        useBlock(ctx, new BlockPos(52, 223, 42), Direction.SOUTH);
+        tp(ctx, 52.5, 224, 42.5, 180, 30);   // on the pylon, touching its plate: placed with no click
         if (!waitChat(ctx, m2, "1/2 Energy Crystals are now active!", 20)) {
             f.add("placing one crystal of the next set never said 1/2");
             return;
@@ -1969,6 +1979,7 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     private static void dragonsRun(ClientGameTestContext ctx, List<String> f) {
+        fixDragonOrder();   // the P5 order is random since simleapspots-1117; this case reads Red and Orange first
         long mark = start(ctx, "P5", true);
         if (!waitChat(ctx, mark, "[BOSS] The Wither King: You... again?", 160)) {
             f.add("the Wither King's line never came");
@@ -2814,17 +2825,13 @@ public class SimBossTests implements FabricClientGameTest {
     private static boolean placeCrystals(ClientGameTestContext ctx, List<String> f, long m, String what) {
         until(ctx, "the pylons open (P1 t 80)", mc -> "P1".equals(String.valueOf(call(FIGHT, "phase")))
                 && (Integer) call(FIGHT, "phaseTick") > 81, 200);
-        tp(ctx, 52.5, 221, 44.5, 180, 30);
-        ctx.waitTicks(3);
-        useBlock(ctx, new BlockPos(52, 223, 42), Direction.SOUTH);
+        tp(ctx, 52.5, 224, 42.5, 180, 30);   // on the pylon, touching its plate: placed with no click
         if (!waitChat(ctx, m, "1/2 Energy Crystals are now active!", 20)) {
             f.add(what + ": the first crystal at a pylon never said 1/2");
             return false;
         }
         ctx.waitTicks(30);
-        tp(ctx, 94.5, 221, 44.5, 180, 30);
-        ctx.waitTicks(3);
-        useBlock(ctx, new BlockPos(94, 223, 42), Direction.SOUTH);
+        tp(ctx, 95.5, 224, 40.5, 180, 30);   // a corner of the other pylon, diagonal to its plate
         if (!waitChat(ctx, m, "2/2 Energy Crystals are now active!", 20)) {
             f.add(what + ": the second crystal, 30 ticks after the first, never said 2/2");
             return false;
@@ -2995,6 +3002,15 @@ public class SimBossTests implements FabricClientGameTest {
         println("boss", what + ": " + got + (ok ? "" : " (want " + want + ")"));
         if (!ok) {
             f.add(what + ": " + got + ", want " + want);
+        }
+    }
+
+    /** The next P5s spawn Red, Orange, Green, Blue, Purple (the order before simleapspots-1117 made it random). */
+    static void fixDragonOrder() {
+        try {
+            ModUnderTest.staticCall(FIGHT, "dragonOrderForTest", new Class<?>[]{int[].class}, new Object[]{new int[]{0, 1, 2, 3, 4}});
+        } catch (RuntimeException | AssertionError e) {
+            println("boss", "no dragonOrderForTest in this jar (order fixed there): " + e);
         }
     }
 

@@ -201,9 +201,9 @@ final class HxLuck1102Cases {
             c.check((Integer) c.onClient(mc -> Mod.field(LK, "killsCounted")) == k0 + 1, "killsCounted did not move once");
             double pe = expected(c, pearl) - pe0;
             double pb = base(c, pearl) - pb0;
-            c.note("Enchanted Ender Pearl added " + pe + " (base " + pb + "), want 0.02 x 1.6 x 2 = 0.064");
+            c.note("Enchanted Ender Pearl added " + pe + " (base " + pb + "), want 0.02 x 2 = 0.04 (patch 0.27.3: Looting no longer raises rare drops, it is Magic Find)");
             c.check(Math.abs(pb - 0.02) < 1e-9, "base expectation added " + pb + ", want 0.02");
-            c.check(Math.abs(pe - 0.064) < 1e-9, "Looting IV + 100% MF added " + pe + ", want 0.064");
+            c.check(Math.abs(pe - 0.04) < 1e-9, "Looting IV + 100% MF added " + pe + ", want 0.04 (Looting ignored)");
 
             // 2. Water Hydra (a sea creature), no Looting: Magic Find only.
             c.hx().give(0, "minecraft:iron_sword");

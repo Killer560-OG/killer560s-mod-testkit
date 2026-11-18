@@ -105,7 +105,7 @@ public final class BloodRushTableCases {
         TreeSet<String> jarRooms = new TreeSet<>(List.of(((String) Mod.staticCall(FEATURE, "tableRoomsForTest")).split(",")));
         c.check("the jar's room list equals the table's", fixtureRooms.equals(jarRooms), "fixture " + fixtureRooms.size()
                 + ", jar " + jarRooms.size());
-        c.check("a room the table lacks has no boxes (fallback)", Mod.staticCall(FEATURE, "tableBoxesForTest", "Rare Overgrown")
-                .equals("none"));
+        c.check("a room the table lacks has no boxes (fallback)", Mod.staticCall(FEATURE, "tableBoxesForTest", "No Such Room")
+                .equals("none") && !Mod.staticCall(FEATURE, "tableBoxesForTest", "Rare Overgrown").equals("none"));
     }
 }

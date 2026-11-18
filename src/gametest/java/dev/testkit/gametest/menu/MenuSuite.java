@@ -189,8 +189,10 @@ public class MenuSuite implements FabricClientGameTest {
                     InventoryCases.register(s);
                     ItemCases.register(s);
                     EnchDesc1114Cases.register(s); // 1114-enchdesc-*: Hide Enchant Descriptions (enchdesc-1114)
+                    MissingEnch1118Cases.register(s); // 1118-missingench-*: Missing Enchants (missingench-1118)
                     PriceTooltipCases.register(s); // 1750-1754: Price Tooltip (price-tooltip-1015)
                     Networth1104Cases.register(s); // 1104-networth-*, 1104-menu-storage-pricetip (networth-1104)
+                    Pv0273Cases.register(s); // 1117-menu-pv0273-* (pv0273-1117)
                     PvStyle1104Cases.register(s); // 1104-menu-pvstyle: the Profile Viewer's Styles (pvstyle-1104)
                     AnvilCases.register(s);
                     BazaarReskinCases.register(s);
@@ -271,6 +273,7 @@ public class MenuSuite implements FabricClientGameTest {
                     CroesusRerollCases.register(s);
                     // ---- 1103-menu-* commissions-1103: Completed Commissions and Highlight Selected Loadout slots ----
                     Commissions1103MenuCases.register(s);
+                    CompactorHl1117MenuCases.register(s);
                     GlaciteCommMenuA1114Cases.register(s);
                     // ---- 1103-menu-armorhud-*, 1103-menu-wrongarmor armorhud-1103: Armor HUD, Wrong Armor Alert ----
                     ArmorHud1103Cases.register(s);

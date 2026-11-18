@@ -11,8 +11,8 @@ import static dev.testkit.gametest.hx.HxKit.*;
 /**
  * Fiesta Flask Timer (mod fiestaflask-1116, miningqol.FiestaFlask):
  * <ul>
- *   <li>1116-fiestaflask-timer: a confirmed start shows "Fiesta Flask: ..." on the HUD (drawn), it counts down while a
- *       Mining Fiesta shows in the tab, holds and reads "(paused)" without one, survives a reload from the state file,
+ *   <li>1116-fiestaflask-timer: a confirmed start shows "Fiesta Flask: ..." on the HUD (drawn), it counts down with or
+ *       without a Mining Fiesta in the tab (never "paused"), survives a reload from the state file,
  *       takes a server-shown time from a tab line, and expires with exactly one alert.</li>
  *   <li>1116-fiestaflask-click: a drink whose stack never shrinks starts nothing; the same drink with the stack
  *       shrinking inside two seconds starts the timer at the set duration.</li>
@@ -52,8 +52,7 @@ final class HxFiestaFlask1116Cases {
     }
 
     private static void timer(Session c) {
-        try (Settings set = new Settings(c).with(CFG, "FiestaFlask", true).with(CFG, "FiestaFlaskAlert", true)
-                .with(CFG, "FiestaFlaskPause", true)) {
+        try (Settings set = new Settings(c).with(CFG, "FiestaFlask", true).with(CFG, "FiestaFlaskAlert", true)) {
             c.onClient(mc -> Mod.staticCall(FF, "resetForTest"));
             area(c, "Event: Mining Fiesta");
             c.ctx().waitTicks(30);
@@ -75,14 +74,13 @@ final class HxFiestaFlask1116Cases {
             c.onClient(mc -> Mod.staticCall(FF, "reloadForTest"));
             long after = remaining(c);
             c.check(after > 0 && Math.abs(after - before) < 35_000L && after <= 12_000L, "reload read " + after + " (was " + before + ")");
-            // No fiesta in the tab: the countdown holds.
+            // No fiesta in the tab: the countdown keeps running and never says paused.
             area(c);
-            c.ctx().waitTicks(60);
             long p0 = remaining(c);
-            c.waitUntil("(paused)", mc -> String.valueOf(Mod.staticCall(FF, "text")).contains("(paused)"), 60);
             c.ctx().waitTicks(60);
             long p1 = remaining(c);
-            c.check(p0 == p1, "the countdown ran outside a Mining Fiesta: " + p0 + " -> " + p1);
+            c.check(p1 < p0 - 2000 && p1 > 0, "the countdown stopped outside a Mining Fiesta: " + p0 + " -> " + p1);
+            c.check(text(c) != null && !text(c).contains("paused"), "text outside a fiesta: " + text(c));
             // A server-shown time wins.
             area(c, "Active Effects:", " Fiesta Flask I 59:30");
             c.waitUntil("the tab time is taken", mc -> {
@@ -96,7 +94,7 @@ final class HxFiestaFlask1116Cases {
             c.waitUntil("expiry", mc -> (Long) Mod.staticCall(FF, "remainingMs") < 0, 120);
             c.check(text(c) == null, "text after expiry: " + text(c));
             c.check(count(c, "alerts") == alerts + 1, "expiry alerts " + (count(c, "alerts") - alerts));
-            c.note("counted down, paused outside a fiesta, reloaded, took the tab time, expired with one alert");
+            c.note("counted down, ran outside a fiesta, reloaded, took the tab time, expired with one alert");
         } finally {
             c.onClient(mc -> Mod.staticCall(FF, "resetForTest"));
             hub(c);

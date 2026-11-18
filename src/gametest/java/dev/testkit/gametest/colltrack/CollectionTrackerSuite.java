@@ -59,6 +59,7 @@ public class CollectionTrackerSuite implements FabricClientGameTest {
                     s.test("1104-colltrack-persist", CollectionTrackerSuite::persist);
                     s.test("1116-colltrack-firstload", CollectionTrackerSuite::firstLoad);
                     s.test("1116-colltrack-rate", CollectionTrackerSuite::rate);
+                    s.test("1117-colltrack-compact-replay", CollectionTrackerSuite::compactReplay);
                     s.test("1116-colltrack-screen", CollectionTrackerSuite::screen);
                     s.test("1116-colltrack-enchanted", CollectionTrackerSuite::enchanted);
                     s.test("1116-colltrack-once", CollectionTrackerSuite::once);
@@ -417,6 +418,67 @@ public class CollectionTrackerSuite implements FabricClientGameTest {
         waitGained(c, 450);
         long r5 = rateOf(c, 10);
         c.check(r5 == 50 * 360L, "the next gain reads from that gain alone (18,000/h), read " + r5);
+        goldDown(c);
+    }
+
+    /** One gold mining session's [Sacks] messages in order (recorded 2026-11-17, counts only): each hover line is "+/-n Item (Sack)". */
+    private static final String[][] GOLD_SESSION = {
+        {"+1 Enchanted Gold Ingot (Enchanted Mining Sack)", "+20122 Gold Ingot (Enchanted Mining Sack)"},
+        {"+94 Enchanted Gold Block (Enchanted Mining Sack)", "+106 Enchanted Gold Ingot (Enchanted Mining Sack)", "+1696 Gold Ingot (Enchanted Mining Sack)", "-15040 Enchanted Gold Ingot (Enchanted Mining Sack)", "-16800 Gold Ingot (Enchanted Mining Sack)"},
+        {"+40 Enchanted Gold Block (Enchanted Mining Sack)", "+6401 Enchanted Gold Ingot (Enchanted Mining Sack)", "+1038944 Gold Ingot (Enchanted Mining Sack)", "-6400 Enchanted Gold Ingot (Enchanted Mining Sack)", "-1023840 Gold Ingot (Enchanted Mining Sack)"},
+        {"+68 Enchanted Gold Block (Enchanted Mining Sack)", "+10810 Enchanted Gold Ingot (Enchanted Mining Sack)", "+1729600 Gold Ingot (Enchanted Mining Sack)", "-10880 Enchanted Gold Ingot (Enchanted Mining Sack)", "-1729600 Gold Ingot (Enchanted Mining Sack)"},
+        {"+29 Enchanted Gold Block (Enchanted Mining Sack)", "+4700 Enchanted Gold Ingot (Enchanted Mining Sack)", "+736960 Gold Ingot (Enchanted Mining Sack)", "-4640 Enchanted Gold Ingot (Enchanted Mining Sack)", "-752000 Gold Ingot (Enchanted Mining Sack)"},
+        {"+61 Enchanted Gold Block (Enchanted Mining Sack)", "+9776 Enchanted Gold Ingot (Enchanted Mining Sack)", "+1579200 Gold Ingot (Enchanted Mining Sack)", "-9760 Enchanted Gold Ingot (Enchanted Mining Sack)", "-1564160 Gold Ingot (Enchanted Mining Sack)"},
+        {"+45 Enchanted Gold Block (Enchanted Mining Sack)", "+7114 Enchanted Gold Ingot (Enchanted Mining Sack)", "+1123233 Gold Ingot (Enchanted Mining Sack)", "-7200 Enchanted Gold Ingot (Enchanted Mining Sack)", "-1138240 Gold Ingot (Enchanted Mining Sack)"},
+        {"+1 Enchanted Gold Block (Enchanted Mining Sack)", "+157 Enchanted Gold Ingot (Enchanted Mining Sack)", "+25140 Gold Ingot (Enchanted Mining Sack)", "-160 Enchanted Gold Ingot (Enchanted Mining Sack)", "-25120 Gold Ingot (Enchanted Mining Sack)"},
+        {"+5 Enchanted Gold Block (Enchanted Mining Sack)", "+833 Enchanted Gold Ingot (Enchanted Mining Sack)", "+133610 Gold Ingot (Enchanted Mining Sack)", "-800 Enchanted Gold Ingot (Enchanted Mining Sack)", "-132480 Gold Ingot (Enchanted Mining Sack)"},
+        {"+35 Enchanted Gold Ingot (Enchanted Mining Sack)", "+4425 Gold Ingot (Enchanted Mining Sack)", "-5600 Gold Ingot (Enchanted Mining Sack)"},
+        {"+1 Enchanted Gold Block (Enchanted Mining Sack)", "+185 Enchanted Gold Ingot (Enchanted Mining Sack)", "+29440 Gold Ingot (Enchanted Mining Sack)", "-160 Enchanted Gold Ingot (Enchanted Mining Sack)", "-29440 Gold Ingot (Enchanted Mining Sack)"},
+        {"+5 Enchanted Gold Block (Enchanted Mining Sack)", "+717 Enchanted Gold Ingot (Enchanted Mining Sack)", "+115790 Gold Ingot (Enchanted Mining Sack)", "-800 Enchanted Gold Ingot (Enchanted Mining Sack)", "-114400 Gold Ingot (Enchanted Mining Sack)"},
+        {"+71 Enchanted Gold Ingot (Enchanted Mining Sack)", "+9890 Gold Ingot (Enchanted Mining Sack)", "-11360 Gold Ingot (Enchanted Mining Sack)"},
+        {"+4 Enchanted Gold Block (Enchanted Mining Sack)", "+572 Enchanted Gold Ingot (Enchanted Mining Sack)", "+91005 Gold Ingot (Enchanted Mining Sack)", "-640 Enchanted Gold Ingot (Enchanted Mining Sack)", "-90880 Gold Ingot (Enchanted Mining Sack)"},
+        {"+3 Enchanted Gold Block (Enchanted Mining Sack)", "+580 Enchanted Gold Ingot (Enchanted Mining Sack)", "+92290 Gold Ingot (Enchanted Mining Sack)", "-480 Enchanted Gold Ingot (Enchanted Mining Sack)", "-92320 Gold Ingot (Enchanted Mining Sack)"},
+        {"+2 Enchanted Gold Block (Enchanted Mining Sack)", "+243 Enchanted Gold Ingot (Enchanted Mining Sack)", "+38800 Gold Ingot (Enchanted Mining Sack)", "-320 Enchanted Gold Ingot (Enchanted Mining Sack)", "-38880 Gold Ingot (Enchanted Mining Sack)"},
+    };
+
+    /**
+     * colltrack-accuracy-1116: a sack that compacts prints the new form as a gain and the old one as a take-out in the same
+     * message ("+94 Enchanted Gold Block ... -15,040 Enchanted Gold Ingot"). Only the block was counted, so 1,856 real gold
+     * read as a 2.4M gain and the HUD rate ran at 300M/h while the real net gain was 6.77M for the whole session. Replays the
+     * recorded messages: the tracker's gain must match the net (enchanted forms at base value, take-outs subtracted) within 2%.
+     */
+    private static void compactReplay(Session c) {
+        goldUp(c);
+        long t0 = System.currentTimeMillis();
+        long truth = 0;
+        long[] mult = {1, 160, 25600};
+        for (int i = 0; i < GOLD_SESSION.length; i++) {
+            StringBuilder hover = new StringBuilder("Added items:");
+            long net = 0;
+            for (String line : GOLD_SESSION[i]) {
+                hover.append("\\n  ").append(line);
+                long n = Long.parseLong(line.substring(0, line.indexOf(' ')));
+                String item = line.substring(line.indexOf(' ') + 1, line.lastIndexOf(" ("));
+                net += n * (item.equals("Enchanted Gold Block") ? mult[2] : item.equals("Enchanted Gold Ingot") ? mult[1] : mult[0]);
+            }
+            truth += net;
+            c.server().command("tellraw @a {\"text\":\"[Sacks] +1 items. (Last 5s.)\",\"hover_event\":{\"action\":\"show_text\",\"value\":\""
+                    + hover + "\"}}");
+            long want = truth;
+            c.ctx().waitTicks(16);
+            long got = gained(c);
+            c.check(Math.abs(got - want) <= want * 2 / 100,
+                    "after sack message " + (i + 1) + " the tracker gained " + got + ", the net of the messages is " + want);
+            if (i == 1) {
+                c.check(got == 20282 + 1856, "the compacting message (+94 blocks, -15,040 ingots, -16,800 gold) must add its net 1,856, total " + got);
+            }
+        }
+        long rate = rateOf(c, 300);
+        c.note("session net " + truth + ", tracker gained " + gained(c) + ", rate " + rate);
+        c.check(truth == 6773185, "the replay table changed: net " + truth);
+        long secs = (System.currentTimeMillis() - t0) / 1000;
+        c.check(gained(c) > 0 && (secs >= 25 ? rate > 0 : Math.abs(rate - gained(c) * 120) <= gained(c) * 120 / 50),
+                "the rate should be the gain over the 30 s minimum window (" + gained(c) * 120 + "/h), read " + rate + " after " + secs + " s");
         goldDown(c);
     }
 
