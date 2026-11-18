@@ -63,8 +63,8 @@ final class HotmTree1118Cases {
             int cell = Math.max(8, Math.min(w / 7, h / 10)), x0 = tx0 + (w - cell * 7) / 2;
             c.note("tree cell " + cell + " px at " + x0 + ", " + top);
             String maxed = hover(c, s, x0, top, cell, 3, 9);
-            String part = hover(c, s, x0, top, cell, 3, 7);
-            String ability = hover(c, s, x0, top, cell, 5, 7);
+            String part = hover(c, s, x0, top, cell, 3, 8);
+            String ability = hover(c, s, x0, top, cell, 5, 8);
             String locked = hover(c, s, x0, top, cell, 3, 0);
             String empty = hover(c, s, x0, top, cell, 0, 9);
             c.note("maxed: " + maxed + " | partial: " + part + " | ability: " + ability + " | locked: " + locked);
