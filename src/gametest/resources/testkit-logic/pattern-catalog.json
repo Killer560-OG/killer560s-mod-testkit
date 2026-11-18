@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T18:00:16",
- "modSource": "lane-tkonly-lagback-1117",
- "modGitSha": "f917ac9136f28d1002f54cc1a2aef38a0f176c5e",
+ "generatedAt": "2026-11-17T18:14:10",
+ "modSource": "lane-tkonly-leveredge-1117",
+ "modGitSha": "909ad8fb72d81c861af1dae59d50d5f9f100153d",
  "modSourceDirty": false,
  "count": 994,
  "byKind": {
