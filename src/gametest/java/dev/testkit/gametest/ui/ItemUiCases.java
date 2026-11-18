@@ -688,7 +688,6 @@ final class ItemUiCases {
                 Mod.call(cfg, "setProtectedColor", 0xFF000000 | MAGENTA);
                 Mod.call(cfg, "addProtectedKey", "iu-prot-1");
                 Mod.call(cfg, "setPreventHotbarDropEnabled", true);
-                Mod.call(cfg, "setConfirmToForce", true);
                 return null;
             });
             String[] star = (String[]) Mod.field("itemprotect.ItemProtectFeature", "STAR");
@@ -722,36 +721,18 @@ final class ItemUiCases {
             c.check(hit >= cells - 1, "the star disappears on the hovered slot: " + hit + " of " + cells + " cells");
             closeScreen(c);
 
-            // Drops To Force: 2, 3, 4 presses; clamped at both ends.
+            // Never forced: any number of presses stays blocked, and the old Confirm / Drops To Force rows are gone.
             c.onClient(mc -> {
                 mc.player.getInventory().setSelectedSlot(0);
                 return null;
             });
             c.ticks(2);
-            List<String> runs = new ArrayList<>();
-            boolean ok = true;
-            for (int n = 2; n <= 4; n++) {
-                int need = n;
-                List<Boolean> blocks = c.onClient(mc -> {
-                    Mod.call(Mod.cfg(IPC), "setForceDrops", need);
-                    List<Boolean> out = new ArrayList<>();
-                    for (int i = 0; i < need; i++) {
-                        out.add((Boolean) Mod.staticCall("itemprotect.ItemProtect", "shouldBlockHotbarDrop"));
-                    }
-                    return out;
-                });
-                runs.add(n + ": " + blocks);
-                for (int i = 0; i < need; i++) {
-                    ok &= blocks.get(i) == (i < need - 1);
+            List<Boolean> blocks = c.onClient(mc -> {
+                List<Boolean> out = new ArrayList<>();
+                for (int i = 0; i < 6; i++) {
+                    out.add((Boolean) Mod.staticCall("itemprotect.ItemProtect", "shouldBlockHotbarDrop"));
                 }
-            }
-            int lo = c.onClient(mc -> {
-                Mod.call(Mod.cfg(IPC), "setForceDrops", 1);
-                return (Integer) Mod.call(Mod.cfg(IPC), "getForceDrops");
-            });
-            int hi = c.onClient(mc -> {
-                Mod.call(Mod.cfg(IPC), "setForceDrops", 9);
-                return (Integer) Mod.call(Mod.cfg(IPC), "getForceDrops");
+                return out;
             });
             List<String> rows = c.onClient(mc -> {
                 List<String> out = new ArrayList<>();
@@ -765,11 +746,10 @@ final class ItemUiCases {
                 }
                 return out;
             });
-            c.note("drop presses (true = blocked) " + runs + "; clamp 1->" + lo + ", 9->" + hi + "; slider row "
-                    + rows.stream().filter(r -> r.startsWith("Drops To Force")).toList());
-            c.check(ok, "Drops To Force did not take exactly N presses: " + runs);
-            c.check(lo == 2 && hi == 4, "Drops To Force not clamped to 2-4: " + lo + "/" + hi);
-            c.check(rows.stream().anyMatch(r -> r.startsWith("Drops To Force")), "no Drops To Force slider: " + rows);
+            c.note("six drop presses (true = blocked) " + blocks);
+            c.check(!blocks.contains(false), "a repeated drop press got through: " + blocks);
+            c.check(rows.stream().noneMatch(r -> r.startsWith("Drops To Force") || r.startsWith("Confirm To Force")),
+                    "the force rows are still there: " + rows);
         } finally {
             closeScreen(c);
             HudEditorCases.restoreWindow(c, window, oldGui);
