@@ -18,11 +18,11 @@
     "verifiedBy": "regex"
   },
   {
-    "id": "chat.team-secrets-found",
+    "id": "chat.own-secrets-found",
     "kind": "chat",
     "payload": "                               Secrets Found: 8",
     "source": {"file": "src/main/java/com/killer560/hub/runstats/RunStatsTracker.java", "line": 66},
-    "matches": ["runstats.RunStatsTracker#TEAM_SECRETS"],
+    "matches": ["runstats.RunStatsTracker#OWN_SECRETS"],
     "verifiedBy": "regex",
     "notes": "The team total in the end-of-run Stats block, a real M7 line from the 2026-11-08 log; the centering spaces are not from the mod and are trimmed before the match."
   },
