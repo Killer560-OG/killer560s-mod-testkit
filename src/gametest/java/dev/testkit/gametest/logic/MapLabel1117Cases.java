@@ -74,8 +74,47 @@ final class MapLabel1117Cases {
         for (int i = 0; i < 11; i++) {
             text[i] = new String(rows[i]);
         }
-        Mod.staticCall("livemap.LiveMapFeature", "testLoadFloor", text, new String[]{"Shape|" + (whole.length == 3 ? "L" : "1x1") + "|NORMAL"});
+        Mod.staticCall("livemap.LiveMapFeature", "testLoadFloor", text, new String[]{"Shape|" + shapeName(whole) + "|NORMAL"});
         return (float[]) Mod.staticCall("livemap.LiveMapFeature", "testLabel", "Shape");
+    }
+
+    /** Whether the seen tiles form one group: touching each other, or all four of a 2x2 (its center connector joins them). */
+    private static boolean joined(int[][] whole, int mask) {
+        if (whole.length == 4) {
+            return true;
+        }
+        int n = Integer.bitCount(mask);
+        int start = Integer.numberOfTrailingZeros(mask);
+        int reached = 1 << start;
+        boolean grew = true;
+        while (grew) {
+            grew = false;
+            for (int i = 0; i < whole.length; i++) {
+                for (int j = 0; j < whole.length; j++) {
+                    if ((mask >> i & 1) != 0 && (mask >> j & 1) != 0 && (reached >> i & 1) != 0 && (reached >> j & 1) == 0
+                            && Math.abs(whole[i][0] - whole[j][0]) + Math.abs(whole[i][1] - whole[j][1]) == 1) {
+                        reached |= 1 << j;
+                        grew = true;
+                    }
+                }
+            }
+        }
+        return Integer.bitCount(reached) == n;
+    }
+
+    private static boolean isL(int[][] whole) {
+        return whole.length == 3 && !(whole[0][0] == whole[1][0] && whole[1][0] == whole[2][0])
+                && !(whole[0][1] == whole[1][1] && whole[1][1] == whole[2][1]);
+    }
+
+    /** The database shape string whose tile cap fits the room (a 3-tile line is 1x3, a bent 3 is L). */
+    private static String shapeName(int[][] whole) {
+        return switch (whole.length) {
+            case 1 -> "1x1";
+            case 2 -> "1x2";
+            case 3 -> isL(whole) ? "L" : "1x3";
+            default -> "2x2";
+        };
     }
 
     static void shape(LogicCase c) {
@@ -86,6 +125,9 @@ final class MapLabel1117Cases {
             for (int[][] whole : SHAPES) {
                 for (int ox = 0; ox <= 2; ox++) {
                     for (int mask = 1; mask < 1 << whole.length; mask++) {
+                        if (!joined(whole, mask)) {
+                            continue; // seen tiles with no connector or tile between them are separate groups, not one room
+                        }
                         List<int[]> drawn = new ArrayList<>();
                         boolean[] implied = new boolean[whole.length];
                         float[] l = label(whole, mask, ox, 1, drawn, implied);
@@ -116,7 +158,7 @@ final class MapLabel1117Cases {
                         if (!inside) {
                             bad.add(id + ": label " + l[0] + "," + l[1] + " not on a drawn cell");
                         }
-                        boolean lWhole = whole.length == 3;
+                        boolean lWhole = isL(whole);
                         if (all && !lWhole) {
                             exact++;
                             if (Math.abs(l[0] - (mnX + mxX) / 2f) > 0.01 || Math.abs(l[1] - (mnZ + mxZ) / 2f) > 0.01) {
@@ -131,7 +173,7 @@ final class MapLabel1117Cases {
         }
         c.check(states + " states walked, " + exact + " with a known whole non-L room (acted)", states > 100 && exact > 20);
         c.check("every label sits on the drawn shape and centered where the whole room is known: " + bad.size() + " bad "
-                + (bad.isEmpty() ? "" : bad.get(0)), bad.isEmpty());
+                + (bad.isEmpty() ? "" : String.join(" | ", bad.subList(0, Math.min(3, bad.size())))), bad.isEmpty());
     }
 
     static void museum(LogicCase c) {
