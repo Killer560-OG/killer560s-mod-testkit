@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T17:41:46",
- "modSource": "lane-tkonly-leveredge-1117",
- "modGitSha": "4a6a5e496ff08a98cf690a48a378f0a005ccce1b",
+ "generatedAt": "2026-11-17T18:00:16",
+ "modSource": "lane-tkonly-lagback-1117",
+ "modGitSha": "f917ac9136f28d1002f54cc1a2aef38a0f176c5e",
  "modSourceDirty": false,
- "count": 995,
+ "count": 994,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 867,
+  "field": 866,
   "local": 43
  },
  "unresolved": 160,
@@ -2875,11 +2875,11 @@
    "field": "ITEM_ID",
    "index": null,
    "file": "src/main/java/com/killer560/hub/compactorpreview/CompactorPreviewFeature.java",
-   "line": 44,
-   "regex": "^PERSONAL_(COMPACTOR|DELETOR)_(\\d{1,5})$",
+   "line": 45,
+   "regex": "^PERSONAL_(COMPACTOR|DELETOR)_(?:([A-Z]{1,16})_)?(\\d{1,5})$",
    "flags": null,
    "kind": "field",
-   "expr": "\"^PERSONAL_(COMPACTOR|DELETOR)_(\\\\d{1,5})$\""
+   "expr": "\"^PERSONAL_(COMPACTOR|DELETOR)_(?:([A-Z]{1,16})_)?(\\\\d{1,5})$\""
   },
   {
    "id": "crashreport.CrashReportFeature#SERVER_ARG",
@@ -8256,18 +8256,6 @@
    "flags": null,
    "kind": "dynamic",
    "expr": "\"<(?:\\\\w+:)?\" + tag + \">([^<]*)</\""
-  },
-  {
-   "id": "roomsim.SimWardrobe#STAT",
-   "cls": "roomsim.SimWardrobe",
-   "field": "STAT",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/roomsim/SimWardrobe.java",
-   "line": 40,
-   "regex": "^([A-Za-z ]+): [+]?(-?\\d+)%?$",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"^([A-Za-z ]+): [+]?(-?\\\\d+)%?$\""
   },
   {
    "id": "routes.SkyblockArea#AREA_PATTERN",
