@@ -533,6 +533,13 @@
       "variant": "legit"
     },
     {
+      "owner": "Dungeon Map",
+      "key": "stream safe",
+      "text": "Cheat build, Funny Map, Windows: anything that records or shares the game (OBS, Discord, the Windows recorder, F2) sees the normal Dungeon Map, while you see the Funny Map in a window over it that capture skips. Stream Safe hides the Funny Map and the mimic room from viewers on the HUD map only: the Interactive Map and other Funny Map extras stay visible. In exclusive fullscreen you see the normal map too. Needs Windows 10 2004 or newer.",
+      "why": "streamsafemap-1118 (killer560 2026-11-18): viewers of a stream or recording see the normal map, he still sees the Funny Map",
+      "variant": "cheat"
+    },
+    {
       "owner": "(unscoped)",
       "key": "auto clear",
       "text": "Cheat build: kills the starred mobs of the dungeon's mob rooms with your Hyperion or Spirit Sceptre; start and stop it with the Clear Toggle Key.",
