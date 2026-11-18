@@ -117,7 +117,7 @@ final class LightsDeviceUiCases {
                 Mod.call(ld, "setAuraEnabled", true);
                 List<String> aura = c.onClient(mc -> labels(build(tab)));
                 c.note("Aura on: " + aura);
-                String[] auraRows = {"Pre-Flick Before S2", "Finish When S2 Opens", "Aura Range", "Aura CPS", "Aura Swing Hand",
+                String[] auraRows = {"Pre-Flick Before S2", "Finish When S2 Opens", "Aura Range", "Aura Cooldown", "Aura Swing Hand",
                         "Chat Feedback"};
                 for (String r : auraRows) {
                     c.check(hasRow(aura, r), "Aura on but no '" + r + "' row: " + aura);
@@ -131,12 +131,12 @@ final class LightsDeviceUiCases {
                 for (String r : trigRows) {
                     c.check(hasRow(trig, r), "Triggerbot on but no '" + r + "' row: " + trig);
                 }
-                c.check(!hasRow(trig, "Aura CPS"), "Aura rows show with only the Triggerbot on: " + trig);
+                c.check(!hasRow(trig, "Aura Cooldown"), "Aura rows show with only the Triggerbot on: " + trig);
                 Object ms = c.onClient(mc -> Mod.staticCall("gui.FeatureCards", "masterSwitch", tab, (Runnable) () -> { }));
                 c.check(ms != null && ((List<?>) Mod.call(ms, "parts")).size() == 2,
                         "the Lights Device card should stand for two switches (Lights Aura, Lights Triggerbot)");
                 for (String r : new String[]{"Lights Aura", "Lights Triggerbot", "Pre-Flick Before S2", "Finish When S2 Opens",
-                        "Aura Range", "Aura CPS", "Aura Swing Hand", "Chat Feedback", "Triggerbot Delay", "Triggerbot Cooldown",
+                        "Aura Range", "Aura Cooldown", "Aura Swing Hand", "Chat Feedback", "Triggerbot Delay", "Triggerbot Cooldown",
                         "Triggerbot Swing Hand"}) {
                     Object tip = Mod.staticCall("gui.SettingTooltips", "describeScoped", "Lights Device", null, r);
                     c.check(tip != null && String.valueOf(tip).length() > 20, "no tooltip for Lights Device > " + r);
