@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T21:15:53",
- "modSource": "lane-bloodlost-1117",
- "modGitSha": "26c6308ee782c5be322da3187bcadfdab6adc702",
+ "generatedAt": "2026-11-17T21:56:51",
+ "modSource": "lane-chesthl-ch-1117",
+ "modGitSha": "09c53389701339072a84628b8efd634756469540",
  "modSourceDirty": false,
  "count": 994,
  "byKind": {
