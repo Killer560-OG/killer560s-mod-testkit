@@ -70,7 +70,7 @@ public class BossSuite implements FabricClientGameTest {
                     TeamMelodyRelayCases.register(s);
                     // A leap into a Posmsg ring: leap lines first, then the callout, spaced (1102-posmsg-*, posmsgleap-1102).
                     PosmsgLeapCases.register(s);
-                    // Keep Rotation On Leap: a leap keeps his look, a setback and OFF do not (1104-leaprot-*, leaprot-1104).
+                    // A leap teleport with a relative 0/0 look leaves his look alone, no mod code involved (1118-leap-relative-keeps-look).
                     LeapRotationCases.register(s);
                     CrystalLeap1112Cases.register(s); // crystalleap-1112
                     // His own use / attack / hotbar swap in the same tick as each P3 aura's packet (1105-same-*, grimsame-1105).

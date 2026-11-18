@@ -498,10 +498,8 @@ final class LeapMenuCases {
             }
             return sb.toString();
         });
-        // Leap Takes Target's Look (leaprot-1104, cheat) is its own feature on the front page, so the card stands for it too.
         String rest = m.startsWith("Fast Leap: ") ? m.substring(m.indexOf(';') + 1) : "?";
-        c.check(rest.isEmpty() || rest.startsWith("Leap Takes Target's Look: ") && rest.indexOf(';') == rest.length() - 1,
-                where + " page: the card switch stands for " + m + ", want the Fast Leap switch (and Leap Takes Target's Look)");
+        c.check(rest.isEmpty(), where + " page: the card switch stands for " + m + ", want the Fast Leap switch alone");
     }
 
     // ---- 1102-ui-leapmenu-oldconfig -----------------------------------------------------------------------------

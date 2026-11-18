@@ -194,13 +194,41 @@ final class UntestBugs1109Cases {
         return -1;
     }
 
-    /** No Rotate card, Auto Ult's Ult When order, Auto Croesus reroll defaults, and the status lines that were removed. */
+    /** An old Fast Leap file that still has the removed leapTakesTargetLook key loads cleanly (norotate-rm-1118): the other
+     *  saved value is read (so the load acted), and a save writes no leapTakesTargetLook. The live file is put back. */
+    private static void oldLeapKeyLoads(UiCase c) throws Exception {
+        java.nio.file.Path file = (java.nio.file.Path) Mod.staticCall("util.ModPaths", "config", "killer560smod-fastleap.json");
+        java.nio.file.Files.createDirectories(file.getParent());
+        byte[] live = java.nio.file.Files.exists(file) ? java.nio.file.Files.readAllBytes(file) : null;
+        try {
+            java.nio.file.Files.writeString(file, "{\"fastMode\":true,\"leapTakesTargetLook\":true}");
+            boolean fast = c.onClient(mc -> {
+                Mod.staticCall("fastleap.FastLeapConfig", "load");
+                return (Boolean) Mod.call(Mod.cfg("fastleap.FastLeapConfig"), "isFastMode");
+            });
+            c.onClient(mc -> Mod.call(Mod.cfg("fastleap.FastLeapConfig"), "save"));
+            String saved = java.nio.file.Files.readString(file);
+            c.note("old Fast Leap file with leapTakesTargetLook:true: fastMode " + fast + ", saved has the key " + saved.contains("leapTakesTargetLook"));
+            c.check(fast, "the old file's fastMode was not read (the load did not run)");
+            c.check(!saved.contains("leapTakesTargetLook"), "a save still writes leapTakesTargetLook: " + saved);
+        } finally {
+            if (live == null) {
+                java.nio.file.Files.deleteIfExists(file);
+            } else {
+                java.nio.file.Files.write(file, live);
+            }
+            c.onClient(mc -> Mod.staticCall("fastleap.FastLeapConfig", "load"));
+        }
+    }
+
+    /** Auto Ult's Ult When order, Auto Croesus reroll defaults, and the status lines that were removed. */
     static void cards(UiCase c) throws Exception {
         // Reroll on floors: a fresh config has only F7 and M7 on.
         Object cro = Mod.cfg("croesus.CroesusConfig");
         for (String f : new String[]{"F1", "F4", "F6", "M1", "M6"}) {
             c.check(!(Boolean) Mod.call(cro, "isRerollFloor", f), "a fresh config rerolls on " + f);
         }
+        oldLeapKeyLoads(c);
         if (!Mod.isCheat()) {
             return;
         }
@@ -211,22 +239,12 @@ final class UntestBugs1109Cases {
         c.check((Boolean) Mod.call(fresh, "isRerollFloor", "F7") && (Boolean) Mod.call(fresh, "isRerollFloor", "M7"),
                 "F7 and M7 are not on by default");
         c.check(!(Boolean) Mod.call(fresh, "isRerollFloor", "F1"), "F1 is on by default");
-        // No Rotate: one switch, same saved value as before.
-        Object leap = Mod.cfg("fastleap.FastLeapConfig");
-        boolean was = (Boolean) Mod.call(leap, "isLeapTakesTargetLook");
-        try {
-            Object tab = Mod.cls("gui.tab.NoRotateTab").getConstructor().newInstance();
-            List<String> rows = c.onClient(mc -> labels(tab));
-            c.check(has(rows, "No Rotate"), "the No Rotate card has no switch row: " + rows);
-            Mod.call(leap, "setLeapTakesTargetLook", true);
-            c.check((Boolean) Mod.call(leap, "isLeapTakesTargetLook"), "No Rotate's switch did not take");
-            Object fl = Mod.cls("gui.tab.FastLeapTab").getConstructor().newInstance();
-            List<String> flRows = c.onClient(mc -> labels(fl));
-            c.check(indexOf(flRows, "Leap Takes Target's Look") < 0 && indexOf(flRows, "No Rotate") < 0,
-                    "the Fast Leap card still carries the old row: " + flRows);
-        } finally {
-            Mod.call(leap, "setLeapTakesTargetLook", was);
-        }
+        // No Rotate was removed (norotate-rm-1118): no card, no row on the Fast Leap card, no setter.
+        c.check(!Mod.has("gui.tab.NoRotateTab"), "the No Rotate card class is still in the jar");
+        Object fl = Mod.cls("gui.tab.FastLeapTab").getConstructor().newInstance();
+        List<String> flRows = c.onClient(mc -> labels(fl));
+        c.check(indexOf(flRows, "Leap Takes Target's Look") < 0 && indexOf(flRows, "No Rotate") < 0,
+                "the Fast Leap card still carries the old row: " + flRows);
         // Auto Ult: Wish On Clear comes before the class toggles, under its own header.
         Object ult = Mod.cfg("cheatutils.CheatUtilsConfig");
         boolean ultWas = (Boolean) Mod.call(ult, "isAutoUltEnabled");
