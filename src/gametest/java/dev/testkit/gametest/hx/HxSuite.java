@@ -178,6 +178,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxOwner1103Cases.register(s);
                     // Party Commands floor requests: Creation Cooldown wait, retry, your own !f (1104-partycmd-floor-*, mod partycmd-1104).
                     HxPartyFloor1104Cases.register(s);
+                    HxOfficerCmd1118Cases.register(s);
                     // Resume Held Break After Menus and the AttackHold dump (1103-mining-hold-*, mod mithril-hold-1103).
                     HxAttackHold1103Cases.register(s);
                     // Powder Break Sounds (1104-powdersound-*, mod powdersound-1104).
