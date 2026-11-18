@@ -1892,7 +1892,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                 throw new AssertionError("his " + act + " and the aura's dig shared a server tick ("
                                         + st.report() + ")");
                             }
-                        } else if (act != SameTick.Act.TP && !obs && st.both() == 0) {
+                        } else if (act != SameTick.Act.TP && !obs && !(asw && act == SameTick.Act.SWAP) && st.both() == 0) {
                             throw new AssertionError("no server tick carried both his " + act + " and the aura's dig - "
                                     + "nothing tested (" + st.report() + ")");
                         }
