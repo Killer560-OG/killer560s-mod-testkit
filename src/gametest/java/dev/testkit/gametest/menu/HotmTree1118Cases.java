@@ -74,7 +74,7 @@ final class HotmTree1118Cases {
                     && part.contains("Next level: +42 Mining Fortune"), "the partial perk's hover is wrong: " + part);
             c.check(ability.contains("Pickobulus") && ability.contains("Selected ability") && ability.contains("Cooldown 60s"),
                     "the selected ability's hover is wrong: " + ability);
-            c.check(locked.contains("Mining Master") && locked.contains("Locked") && locked.contains("Requires HOTM level 10"),
+            c.check(locked.contains("Mining Master") && locked.contains("Level 0/10") && locked.contains("Requires HOTM level 10"),
                     "the locked perk's hover is wrong: " + locked);
             c.check(empty.isEmpty(), "a cell with no perk showed a hover: " + empty);
         }
