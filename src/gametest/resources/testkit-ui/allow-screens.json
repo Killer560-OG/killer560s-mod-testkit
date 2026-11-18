@@ -36,6 +36,7 @@
     {"class": "runsummary.RunLogScreen", "args": ["null"], "source": "runsummary/RunLogScreen.java"},
     {"class": "roomsim.RoomLibraryScreen", "args": ["null"], "source": "roomsim/RoomLibraryScreen.java"},
     {"class": "roomsim.SimItemsScreen", "args": ["null"], "source": "roomsim/SimItemsScreen.java"},
+    {"class": "roomsim.SimHelpScreen", "args": ["null"], "source": "roomsim/SimHelpScreen.java"},
     {"class": "roomsim.SimLoadingScreen", "args": ["str:testkit"], "source": "roomsim/SimLoadingScreen.java"},
     {"class": "roomsim.SimMapEditorScreen", "args": ["null"], "source": "roomsim/SimMapEditorScreen.java"},
     {"class": "roomsim.SimRoomFilterScreen", "args": ["null"], "source": "roomsim/SimRoomFilterScreen.java - the shared room Filters panel; this constructor opens it on the designer's filter (Load a Room and All Rooms open it on theirs, see ui/FilterPanelCases)"},

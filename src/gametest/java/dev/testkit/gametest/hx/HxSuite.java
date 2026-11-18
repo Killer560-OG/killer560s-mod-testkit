@@ -153,6 +153,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxChScan1104Cases.register(s);
                     // Treasure chest Hide Opened re-send and the chain tracer (1104-chestfx-*, mod chestfx-1104).
                     HxChestFx1104Cases.register(s);
+                    // Treasure chests only in the Crystal Hollows, never carried to another world (1117-chesthl-*, mod chesthl-ch-1117).
+                    HxChestHollows1117Cases.register(s);
                     // Powder Chest Triggerbot: swap to the best Gemstone Powder drill, click, rate limit (1104-chestbot-*, mod chestbot-1104).
                     HxChestBot1104Cases.register(s);
                     // Water Board reward chest click with his use / scroll / dig / teleport in its ticks (1115-same-waterchest-*, mod acslow3-1115).

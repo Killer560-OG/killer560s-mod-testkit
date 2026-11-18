@@ -34,7 +34,7 @@ import java.util.Map;
  *   <li>962 Slot Text modes: Always / Hold Key to Show / Hold Key to Hide against a held and a released key (the key is
  *       the {@code keyHeldForTest} hook), one type's switch in the picture, and the settings surviving a reload.</li>
  *   <li>963 Compactor Preview reads a compactor / deletor: rows, columns, slots, Active, hostile keys, other items.</li>
- *   <li>964 Compactor Preview drawn on hover: the grid's slot gray appears in the tooltip, and scales with the size.</li>
+ *   <li>964 Compactor Preview drawn on hover: a deletor grid (7 or 28 slots) adds slot gray; a compactor adds a text list, no grid.</li>
  *   <li>965 Compactor Preview modes: On Hover against While Holding Key with the key held and released, and off.</li>
  *   <li>966 Compactor Preview settings survive a reload.</li>
  * </ul>
@@ -590,6 +590,12 @@ final class SlotTextCases {
         return mk(Items.PLAYER_HEAD, "Personal Compactor", t, "", "Lore", "");
     }
 
+    private static CompoundTag deletorTag(String id, String first) {
+        CompoundTag t = tag(id);
+        t.putString("personal_deletor_0", first);
+        return t;
+    }
+
     private static String contents(UiCase c, ItemStack s) {
         return c.onClient(mc -> {
             Object o = Mod.staticCall(CPF, "contentsOf", s);
@@ -606,26 +612,54 @@ final class SlotTextCases {
                 "personal_compact_5", "ENCHANTED_DIAMOND", "personal_compact_11", "WHEAT");
         String r7 = contents(c, c7);
         c.note("7000: " + r7);
-        c.check(r7.equals("false 7000 2x6 {0=ENCHANTED_COBBLESTONE, 5=ENCHANTED_DIAMOND, 11=WHEAT} active=null"), "7000 read as: " + r7);
+        // 0.27.3: compactors have no slots any more (a list of Sack items, 0x0); deletors are 7, 14, 21 or 28 slots.
+        c.check(r7.equals("false 7000 0x0 {0=ENCHANTED_COBBLESTONE, 5=ENCHANTED_DIAMOND, 11=WHEAT} active=null"), "7000 read as: " + r7);
 
         CompoundTag del = tag("PERSONAL_DELETOR_4000");
         del.putString("personal_deletor_0", "COBBLESTONE");
         del.putBoolean("PERSONAL_DELETOR_ACTIVE", true);
         String r4 = contents(c, mk(Items.PLAYER_HEAD, "Personal Deletor", del));
-        c.note("deletor 4000: " + r4);
-        c.check(r4.equals("true 4000 1x1 {0=COBBLESTONE} active=true"), "deletor 4000 read as: " + r4);
+        String d7 = contents(c, mk(Items.PLAYER_HEAD, "Personal Deletor", tag("PERSONAL_DELETOR_7000")));
+        c.note("deletor 4000: " + r4 + "; deletor 7000: " + d7);
+        c.check(r4.equals("true 4000 1x7 {0=COBBLESTONE} active=true"), "deletor 4000 read as: " + r4);
+        c.check(d7.equals("true 7000 4x7 {} active=null"), "deletor 7000 read as: " + d7);
 
         String r5 = contents(c, compactor("PERSONAL_COMPACTOR_5000", "personal_compact_2", "ENCHANTED_IRON"));
         String r6 = contents(c, compactor("PERSONAL_COMPACTOR_6000", "personal_compact_6", "ENCHANTED_IRON"));
         c.note("5000: " + r5 + "; 6000: " + r6);
-        c.check(r5.equals("false 5000 1x3 {2=ENCHANTED_IRON} active=null"), "5000 read as: " + r5);
-        c.check(r6.equals("false 6000 1x7 {6=ENCHANTED_IRON} active=null"), "6000 read as: " + r6);
+        c.check(r5.equals("false 5000 0x0 {2=ENCHANTED_IRON} active=null"), "5000 read as: " + r5);
+        c.check(r6.equals("false 6000 0x0 {6=ENCHANTED_IRON} active=null"), "6000 read as: " + r6);
+
+        // the new skill compactors (PERSONAL_COMPACTOR_<SKILL>_4000) read, and their hover names the skill and the list
+        ItemStack skill = compactor("PERSONAL_COMPACTOR_MINING_4000", "personal_compact_0", "ENCHANTED_COBBLESTONE");
+        String rs = contents(c, skill);
+        List<String> lines = c.onClient(mc -> {
+            Object cont = Mod.staticCall(CPF, "contentsOf", skill);
+            List<String> out = new ArrayList<>();
+            out.add(String.valueOf(Mod.call(cont, "skill")));
+            for (Object l : (List<?>) Mod.staticCall(CPF, "compactorLines", cont)) {
+                out.add(((net.minecraft.network.chat.Component) l).getString());
+            }
+            return out;
+        });
+        c.note("skill compactor: " + rs + " lines " + lines);
+        c.check(rs.equals("false 4000 0x0 {0=ENCHANTED_COBBLESTONE} active=null"), "skill compactor read as: " + rs);
+        c.check(lines.get(0).equals("MINING") && lines.contains("Mining Compactor") && lines.contains("Compacts:")
+                && lines.stream().anyMatch(l -> l.contains("ON") && l.contains("Cobblestone")), "skill compactor lines: " + lines);
+        List<String> emptyLines = c.onClient(mc -> {
+            List<String> out = new ArrayList<>();
+            for (Object l : (List<?>) Mod.staticCall(CPF, "compactorLines", Mod.staticCall(CPF, "contentsOf", compactor("PERSONAL_COMPACTOR_7000")))) {
+                out.add(((net.minecraft.network.chat.Component) l).getString());
+            }
+            return out;
+        });
+        c.check(emptyLines.equals(List.of("Choose the Sack items it compacts in /compactor")), "empty compactor lines: " + emptyLines);
 
         // a deletor key on a compactor is not its slot; hostile and malformed keys are dropped
         String mixed = contents(c, compactor("PERSONAL_COMPACTOR_7000", "personal_deletor_0", "COBBLESTONE",
                 "personal_compact_99999999999", "X", "personal_compact_-1", "Y", "personal_compact_abc", "Z", "personal_compact_3", ""));
         c.note("foreign / hostile keys: " + mixed);
-        c.check(mixed.equals("false 7000 2x6 {} active=null"), "foreign and hostile keys were read: " + mixed);
+        c.check(mixed.equals("false 7000 0x0 {} active=null"), "foreign and hostile keys were read: " + mixed);
 
         // not a compactor
         String aotv = contents(c, mk(Items.DIAMOND_SWORD, "Aspect of the Void", tag("ASPECT_OF_THE_VOID")));
@@ -682,8 +716,10 @@ final class SlotTextCases {
             compactorEnabled(c, false, "ON_HOVER");
             openInventory(c);
             int[] pos = invSlotPos(c, 17);
-            ItemStack big = compactor("PERSONAL_COMPACTOR_7000", "personal_compact_0", "ENCHANTED_COBBLESTONE", "personal_compact_5", "ENCHANTED_DIAMOND");
-            ItemStack mid = compactor("PERSONAL_COMPACTOR_5000", "personal_compact_1", "ENCHANTED_IRON");
+            // 0.27.3: the grid is the deletor's only (7 slots at 4000, 28 at 7000); a compactor shows a text list.
+            ItemStack big = mk(Items.PLAYER_HEAD, "Personal Deletor", deletorTag("PERSONAL_DELETOR_7000", "COBBLESTONE"));
+            ItemStack mid = mk(Items.PLAYER_HEAD, "Personal Deletor", deletorTag("PERSONAL_DELETOR_4000", "DIRT"));
+            ItemStack comp = compactor("PERSONAL_COMPACTOR_7000", "personal_compact_0", "ENCHANTED_COBBLESTONE", "personal_compact_5", "ENCHANTED_DIAMOND");
             ItemStack empty = compactor("PERSONAL_COMPACTOR_7000");
 
             BufferedImage offBig = hoverShot(c, big, pos, "big-off");
@@ -691,26 +727,28 @@ final class SlotTextCases {
             compactorEnabled(c, true, "ON_HOVER");
             BufferedImage onBig = hoverShot(c, big, pos, "big-on");
             BufferedImage onMid = hoverShot(c, mid, pos, "mid-on");
-            BufferedImage offMid;
-            compactorEnabled(c, false, "ON_HOVER");
-            offMid = hoverShot(c, mid, pos, "mid-off");
-            compactorEnabled(c, true, "ON_HOVER");
+            BufferedImage onComp = hoverShot(c, comp, pos, "comp-on");
             BufferedImage onEmpty = hoverShot(c, empty, pos, "empty-on");
             compactorEnabled(c, false, "ON_HOVER");
+            BufferedImage offMid = hoverShot(c, mid, pos, "mid-off");
+            BufferedImage offComp = hoverShot(c, comp, pos, "comp-off");
             BufferedImage offEmpty = hoverShot(c, empty, pos, "empty-off");
 
             int extraBig = greys(onBig) - greyOffBig;
             int extraMid = greys(onMid) - greys(offMid);
+            int extraComp = greys(onComp) - greys(offComp);
             int extraEmpty = greys(onEmpty) - greys(offEmpty);
+            int changedComp = changedIn(onComp, offComp, 0, 0, onComp.getWidth(), onComp.getHeight());
             int changedEmpty = changedIn(onEmpty, offEmpty, 0, 0, onEmpty.getWidth(), onEmpty.getHeight());
-            c.note("slot-gray px added by the grid: compactor 7000 (2 items of 12) " + extraBig + ", 5000 (1 item of 3) " + extraMid
-                    + ", empty 7000 " + extraEmpty + " (frame changed " + changedEmpty + " px: the '12 slots' line)");
+            c.note("slot-gray px added by the grid: deletor 7000 (28 slots) " + extraBig + ", deletor 4000 (7) " + extraMid
+                    + ", compactor " + extraComp + " (frame changed " + changedComp + " px: the list), empty compactor " + extraEmpty
+                    + " (changed " + changedEmpty + " px: the /compactor line)");
             c.check(greyOffBig > 0, "the instrument saw no slot gray at all in the baseline frame");
-            c.check(extraBig >= 8000, "7000 grid missing: only " + extraBig + " extra gray px");
-            c.check(extraMid >= 1500, "5000 grid missing: only " + extraMid + " extra gray px");
-            c.check(extraBig > 3 * extraMid, "the 7000 grid (" + extraBig + ") is not far bigger than the 5000's (" + extraMid + ")");
-            c.check(extraEmpty <= 200, "an empty compactor drew a grid: " + extraEmpty + " extra gray px");
-            c.check(changedEmpty > 0, "an empty compactor added nothing (no '12 slots' line): the feature did not act");
+            c.check(extraBig >= 12000, "deletor 7000 grid missing: only " + extraBig + " extra gray px");
+            c.check(extraMid >= 3000, "deletor 4000 grid missing: only " + extraMid + " extra gray px");
+            c.check(extraBig > 5 * extraMid / 2, "the 28-slot grid (" + extraBig + ") is not far bigger than the 7-slot one (" + extraMid + ")");
+            c.check(extraComp <= 200 && extraEmpty <= 200, "a compactor drew a grid: +" + extraComp + " / +" + extraEmpty + " gray px");
+            c.check(changedComp > 0 && changedEmpty > 0, "a compactor hover added nothing: the feature did not act");
         } finally {
             closeScreen(c);
             HudEditorCases.restoreWindow(c, window, oldGui);
@@ -738,7 +776,7 @@ final class SlotTextCases {
             compactorEnabled(c, false, "ON_HOVER");
             openInventory(c);
             int[] pos = invSlotPos(c, 17);
-            ItemStack big = compactor("PERSONAL_COMPACTOR_7000", "personal_compact_0", "ENCHANTED_COBBLESTONE", "personal_compact_5", "ENCHANTED_DIAMOND");
+            ItemStack big = mk(Items.PLAYER_HEAD, "Personal Deletor", deletorTag("PERSONAL_DELETOR_7000", "COBBLESTONE"));
             int base = greys(hoverShot(c, big, pos, "off"));
             String[][] cases = {{"true", "ON_HOVER", "null", "grid"}, {"true", "WHILE_HOLDING_KEY", "false", "none"},
                     {"true", "WHILE_HOLDING_KEY", "true", "grid"}, {"true", "ON_HOVER", "false", "grid"}, {"false", "ON_HOVER", "null", "none"},
