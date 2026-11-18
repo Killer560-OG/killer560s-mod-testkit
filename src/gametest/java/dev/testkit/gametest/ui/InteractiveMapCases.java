@@ -84,6 +84,80 @@ final class InteractiveMapCases {
         }
     }
 
+    /** 1118: the "Open From HUD Click" option is gone (killer560, 2026-11-18). */
+    static void hudClickGone(UiCase c) throws Exception {
+        Object cfg = Mod.cfg(CFG);
+        Path path = (Path) Mod.field(CFG, "CONFIG_PATH");
+        byte[] before = java.nio.file.Files.exists(path) ? java.nio.file.Files.readAllBytes(path) : null;
+        boolean wasOn = (Boolean) Mod.call(cfg, "isInteractiveMapEnabledRaw");
+        try {
+            Mod.call(cfg, "setInteractiveMapEnabled", true);
+            Object tab = Mod.cls("gui.tab.InteractiveMapTab").getConstructor().newInstance();
+            @SuppressWarnings("unchecked")
+            List<net.minecraft.client.gui.components.AbstractWidget> ws = c.onClient(mc ->
+                    (List<net.minecraft.client.gui.components.AbstractWidget>) Mod.call(tab, "buildWidgets", 0, 0, 300, (Runnable) () -> { }));
+            StringBuilder all = new StringBuilder();
+            for (var w : ws) {
+                all.append(net.minecraft.ChatFormatting.stripFormatting(w.getMessage().getString())).append('|');
+            }
+            String labels = all.toString().toLowerCase(Locale.ROOT);
+            c.note("tab rows: " + labels);
+            c.check(!labels.contains("hud click"), "the Interactive Map tab still has an Open From HUD Click row: " + labels);
+            c.check(labels.contains("open key") && labels.contains("room labels"), "the other rows (Open Key, Room Labels) are missing: " + labels);
+            for (var m : cfg.getClass().getDeclaredMethods()) {
+                c.check(!m.getName().toLowerCase(Locale.ROOT).contains("hudclick"), "LiveMapConfig still has " + m.getName());
+            }
+            // an old file carrying the key loads cleanly and is not written back
+            java.nio.file.Files.createDirectories(path.getParent());
+            java.nio.file.Files.writeString(path, "{\"interactiveMapEnabled\":true,\"openFromHudClick\":true}");
+            Mod.staticCall(CFG, "load");
+            Object loaded = Mod.cfg(CFG);
+            c.check((Boolean) Mod.call(loaded, "isInteractiveMapEnabledRaw"), "old file did not load (interactiveMapEnabled lost)");
+            Mod.call(loaded, "save");
+            String written = java.nio.file.Files.readString(path);
+            c.check(!written.contains("openFromHudClick"), "the old key is still written: " + written);
+            // a click on the HUD map in chat opens nothing
+            Object map = null;
+            for (var e : (List<?>) Mod.staticCall("hud.HudElementRegistry", "all")) {
+                if ("live_map".equals(Mod.call(e, "id"))) {
+                    map = e;
+                }
+            }
+            c.check(map != null, "no live_map HUD element found");
+            if (map != null) {
+                Object el = map;
+                int[] pos = (int[]) Mod.staticCall("hud.HudElementRegistry", "resolvePosition", el);
+                c.onClient(mc -> {
+                    McCompat.setScreen(mc, new net.minecraft.client.gui.screens.ChatScreen("", false));
+                    return null;
+                });
+                c.ticks(5);
+                c.ctx().getInput().setCursorPos(pos[0] + 5, pos[1] + 5);
+                c.ticks(2);
+                c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
+                c.ticks(5);
+                String now = c.onClient(mc -> mc.screen == null ? "null" : mc.screen.getClass().getName());
+                c.note("screen after the click: " + now);
+                c.check(!now.contains("InteractiveMapScreen"), "clicking the map HUD opened the Interactive Map: " + now);
+            }
+            // the other way in still works: the screen opens
+            Screen s = open(c);
+            c.check(s != null && s.getClass().getName().contains("InteractiveMapScreen"), "the Interactive Map screen did not open");
+        } finally {
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                return null;
+            });
+            if (before == null) {
+                java.nio.file.Files.deleteIfExists(path);
+            } else {
+                java.nio.file.Files.write(path, before);
+            }
+            Mod.staticCall(CFG, "load");
+            Mod.call(Mod.cfg(CFG), "setInteractiveMapEnabled", wasOn);
+        }
+    }
+
     // ---- one Room Labels setting ------------------------------------------------------------------------------
 
     private static void singleSetting(UiCase c, Object cfg) {
