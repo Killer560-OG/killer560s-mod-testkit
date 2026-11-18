@@ -48,6 +48,7 @@
     "gui.tab.RepartyTab": "Dungeons > Reparty",
     "gui.tab.WatcherHelperTab": "Dungeons > Watcher Helper",
     "gui.tab.CarryTrackerTab": "Dungeons > Carry Tracker",
+    "gui.tab.MissingEnchantsTab": "Items > Missing Enchants",
     "gui.tab.BazaarOrderHelperTab": "Items > Order Helper",
     "gui.tab.ReforgeHelperTab": "Items > Reforge Helper",
     "gui.tab.PeekChatTab": "Chat > Peek Chat",
