@@ -96,7 +96,10 @@ final class SimLeapSpots1117 {
         put("P4", "HEALER", 54.5, 5.0, 76.5, 179.9, -2.3);
         put("P4MAGE", "HEALER", 88.472, 6.0, 95.780, -110.2, 1.7);
         // F7 Necron: every class goes to BossSpots "necron" (/tpto necron), its yaw 180 and a level look.
-        for (String c : new String[]{"MAGE", "TANK", "HEALER", "ARCHER", "BERSERKER"}) put("P4F7", c, 54.5, 65.0, 76.5, 180.0, 0.0);
+        // The 6th value: his client may drift up to 0.5 after landing there, Necron's body (54, 66, 76) pushes him off the spot.
+        for (String c : new String[]{"MAGE", "TANK", "HEALER", "ARCHER", "BERSERKER"}) {
+            SPOTS.computeIfAbsent("P4F7", k -> new HashMap<>()).put(c, new double[]{54.5, 65.0, 76.5, 180.0, 0.0, 0.5});
+        }
     }
 
     /** Stage key -> the sim start and whether Master Mode. */
@@ -238,7 +241,7 @@ final class SimLeapSpots1117 {
         expect(f, tag + cls + " landed at x/z " + String.format(Locale.ROOT, "%.3f,%.3f want %.3f,%.3f", land[0], land[2], want[0], want[2]),
                 off < 0.002, true);
         double client = ctx.computeOnClient(mc -> Math.hypot(mc.player.getX() - want[0], mc.player.getZ() - want[2]));
-        expect(f, tag + cls + " his client is there (" + String.format(Locale.ROOT, "%.3f", client) + ")", client < 0.05, true);
+        expect(f, tag + cls + " his client is there (" + String.format(Locale.ROOT, "%.3f", client) + ")", client < (want.length > 5 ? want[5] : 0.05), true);
         if (Double.isNaN(want[3])) {
             expect(f, tag + cls + " kept his look", Math.abs(Mth.wrapDegrees(land[3] - before[3])) < 0.05
                     && Math.abs(land[4] - before[4]) < 0.05, true);
