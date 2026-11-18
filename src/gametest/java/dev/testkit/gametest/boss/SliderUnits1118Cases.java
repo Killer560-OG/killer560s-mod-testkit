@@ -1,6 +1,6 @@
 package dev.testkit.gametest.boss;
 
-import dev.testkit.gametest.Session;
+import dev.testkit.gametest.hx.Session;
 import dev.testkit.gametest.mod.Mod;
 import java.nio.file.Files;
 import java.nio.file.Path;
