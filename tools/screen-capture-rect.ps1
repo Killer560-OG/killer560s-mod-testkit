@@ -7,7 +7,11 @@ param(
   [Parameter(Mandatory = $true)][int]$Width,
   [Parameter(Mandatory = $true)][int]$Height,
   [Parameter(Mandatory = $true)][string]$Out,
-  [long]$Game = 0   # the test client's window: points of the rectangle under any other window are counted ("covered N")
+  [long]$Game = 0,   # the test client's window: points of the rectangle under any other window are counted ("covered N")
+  # Raise the test client to the top of the normal z-order first, without focus. The testkit keeps clients at the
+  # BOTTOM, under the desktop's own wallpaper window, so a screen capture never sees them. Only for a PC nobody is
+  # using (the second PC, env STREAMSAFE_RAISE=1); never on the owner's desktop.
+  [switch]$Raise
 )
 Add-Type -AssemblyName System.Drawing
 Add-Type -TypeDefinition @'
@@ -17,6 +21,7 @@ public class DpiAware {
   [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr value);
   [DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(long point);
   [DllImport("user32.dll")] public static extern IntPtr GetDC(IntPtr h);
+  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int w, int hh, uint f);
   [DllImport("user32.dll")] public static extern int ReleaseDC(IntPtr h, IntPtr dc);
   [DllImport("gdi32.dll")] public static extern bool BitBlt(IntPtr dst, int x, int y, int w, int h, IntPtr src, int sx, int sy, int rop);
   // BitBlt from the screen DC with SRCCOPY | CAPTUREBLT (0x40CC0020), which includes layered windows: what GDI
@@ -37,6 +42,11 @@ public class DpiAware {
 '@
 # Per-monitor aware v2 (-4), so the rectangle is in the same physical pixels the game's window reports.
 [void][DpiAware]::SetProcessDpiAwarenessContext([IntPtr]::new(-4))
+if ($Raise -and $Game -ne 0) {
+  # HWND_TOP, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
+  [void][DpiAware]::SetWindowPos([IntPtr]::new($Game), [IntPtr]::Zero, 0, 0, 0, 0, 0x13)
+  Start-Sleep -Milliseconds 400
+}
 $covered = 0
 if ($Game -ne 0) {
   foreach ($fx in 0.1, 0.5, 0.9) { foreach ($fy in 0.1, 0.5, 0.9) {

@@ -388,10 +388,14 @@ public class StreamSafeMapTests implements FabricClientGameTest {
         }
         Path png = out.resolve(name + ".png");
         Path txt = out.resolve(name + ".txt");
-        Process p = new ProcessBuilder("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script.toString(),
-                "-X", Long.toString(info[1]), "-Y", Long.toString(info[2]), "-Width", Long.toString(info[3]),
-                "-Height", Long.toString(info[4]), "-Game", Long.toString(info[11]), "-Out", png.toString())
-                .redirectErrorStream(true).redirectOutput(txt.toFile()).start();
+        List<String> cmd = new java.util.ArrayList<>(List.of("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-File", script.toString(), "-X", Long.toString(info[1]), "-Y", Long.toString(info[2]),
+                "-Width", Long.toString(info[3]), "-Height", Long.toString(info[4]), "-Game", Long.toString(info[11]),
+                "-Out", png.toString()));
+        if ("1".equals(System.getenv("STREAMSAFE_RAISE"))) {
+            cmd.add("-Raise");   // the second PC only: nobody uses its desktop
+        }
+        Process p = new ProcessBuilder(cmd).redirectErrorStream(true).redirectOutput(txt.toFile()).start();
         long deadline = System.currentTimeMillis() + 60_000;
         while (p.isAlive() && System.currentTimeMillis() < deadline) {
             ctx.waitTicks(1);
