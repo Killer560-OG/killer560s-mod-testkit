@@ -64,8 +64,9 @@ final class RngBestCases {
         });
     }
 
-    /** Per top slot: did more than a few pixels of its 16x16 box change between the two shots? */
-    private static boolean[] changed(Session c, BufferedImage base, BufferedImage now) {
+    /** Per top slot: is the highlight's 1 px border (the theme accent, opaque) along the top edge of its 16x16 box? */
+    private static boolean[] marked(Session c, BufferedImage now) {
+        int accent = (Integer) c.onClient(mc -> Mod.staticCall("gui.ThemeAccent", "light", 0xFFFFAA00)) & 0xFFFFFF;
         double[] g = c.onClient(mc -> new double[]{mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight()});
         List<int[]> slots = c.onClient(mc -> {
             AbstractContainerScreen<?> s = (AbstractContainerScreen<?>) McCompat.screen(mc);
@@ -84,15 +85,13 @@ final class RngBestCases {
         for (int i = 0; i < out.length; i++) {
             int n = 0;
             int x0 = (int) (slots.get(i)[0] * rx);
-            int y0 = (int) (slots.get(i)[1] * ry);
-            for (int y = y0; y < y0 + (int) (16 * ry); y++) {
-                for (int x = x0; x < x0 + (int) (16 * rx); x++) {
-                    if ((base.getRGB(x, y) & 0xFFFFFF) != (now.getRGB(x, y) & 0xFFFFFF)) {
-                        n++;
-                    }
+            int y = (int) (slots.get(i)[1] * ry);
+            for (int x = x0; x < x0 + (int) (16 * rx); x++) {
+                if ((now.getRGB(x, y) & 0xFFFFFF) == accent) {
+                    n++;
                 }
             }
-            out[i] = n > 40 * rx * ry;
+            out[i] = n >= (int) (12 * rx);
         }
         return out;
     }
@@ -150,29 +149,30 @@ final class RngBestCases {
             prices(c, 3_000_000L, true);
             int clicks0 = c.events("container.click").size();
             open(c, TITLE);
-            BufferedImage off = BazaarReskinCases.shot(c, "switch-off");
+            boolean[] off = marked(c, BazaarReskinCases.shot(c, "switch-off"));
+            c.check(count(off) == 0, "Highlight Best off, " + which(off));
 
             // 10 is 500/pt, 11 is 300/pt, 12 has no price, 13 ties 10 (500/pt) and loses to the first slot.
             set(c, "setHighlightBest", true);
             c.ctx().waitTicks(30);
-            boolean[] on = changed(c, off, BazaarReskinCases.shot(c, "best-10"));
+            boolean[] on = marked(c, BazaarReskinCases.shot(c, "best-10"));
             c.check(on[10] && count(on) == 1, "default prices: only slot 10 should change, " + which(on));
 
             prices(c, 9_000_000L, true); // Critical VII is now 900/pt
             c.ctx().waitTicks(30);
-            boolean[] moved = changed(c, off, BazaarReskinCases.shot(c, "best-11"));
+            boolean[] moved = marked(c, BazaarReskinCases.shot(c, "best-11"));
             c.check(moved[11] && count(moved) == 1, "after a price rise only slot 11 should change, " + which(moved));
 
             prices(c, 0L, false); // nothing priced
             c.ctx().waitTicks(30);
-            boolean[] none = changed(c, off, BazaarReskinCases.shot(c, "unpriced"));
+            boolean[] none = marked(c, BazaarReskinCases.shot(c, "unpriced"));
             c.check(count(none) == 0, "no price known, " + which(none));
 
             prices(c, 9_000_000L, true);
             c.ctx().waitTicks(30);
             set(c, "setEnabled", false); // the overlay's own switch off: nothing, with Highlight Best on
             c.ctx().waitTicks(30);
-            boolean[] ovOff = changed(c, off, BazaarReskinCases.shot(c, "overlay-off"));
+            boolean[] ovOff = marked(c, BazaarReskinCases.shot(c, "overlay-off"));
             c.check(count(ovOff) == 0, "overlay off, " + which(ovOff));
             c.check(c.events("container.click").size() == clicks0, "the highlight sent a click");
 
@@ -180,10 +180,9 @@ final class RngBestCases {
             set(c, "setEnabled", true);
             set(c, "setHighlightBest", false);
             open(c, "Plain Chest");
-            BufferedImage plainOff = BazaarReskinCases.shot(c, "plain-off");
             set(c, "setHighlightBest", true);
             c.ctx().waitTicks(30);
-            boolean[] plain = changed(c, plainOff, BazaarReskinCases.shot(c, "plain-on"));
+            boolean[] plain = marked(c, BazaarReskinCases.shot(c, "plain-on"));
             c.check(count(plain) == 0, "a non-RNG title: " + which(plain));
         } finally {
             prices(c, 0L, false);
