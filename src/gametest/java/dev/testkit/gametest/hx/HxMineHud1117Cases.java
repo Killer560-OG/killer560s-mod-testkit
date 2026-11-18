@@ -29,6 +29,7 @@ final class HxMineHud1117Cases {
     static void register(Session s) {
         s.test("1117-flask-interp", HxMineHud1117Cases::interp);
         s.test("1117-flask-ends", HxMineHud1117Cases::ends);
+        s.test("1117-flask-ticks", HxMineHud1117Cases::ticks);
         s.test("1117-ability-active", HxMineHud1117Cases::ability);
     }
 
