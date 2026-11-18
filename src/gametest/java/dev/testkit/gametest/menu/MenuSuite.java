@@ -269,6 +269,7 @@ public class MenuSuite implements FabricClientGameTest {
                     // ---- 1880-1886 auto-mask-1016 (2026-10-16): Auto Mask's Keybind / Full Auto, Swap Order, gates, ticks ----
                     AutoMaskCases.register(s);
                     AutoReclaim1117Cases.register(s);
+                    AutoReclaimBtn1118Cases.register(s);
                     // ---- 1092-1094 clickguards-1025: Reroll Protection, Kismet Count, Croesus Chests HUD ----
                     CroesusRerollCases.register(s);
                     // ---- 1103-menu-* commissions-1103: Completed Commissions and Highlight Selected Loadout slots ----
