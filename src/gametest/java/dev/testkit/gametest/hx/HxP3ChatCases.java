@@ -470,15 +470,17 @@ final class HxP3ChatCases {
             try (Settings st = new Settings(c)) {
                 st.custom(() -> Mod.set(cfg, "setEnabled", true), () -> Mod.set(cfg, "setEnabled", false));
                 c.onClient(mc -> Mod.staticCall(ms, "resetForTest"));
+                c.onClient(mc -> Mod.staticCall("hud.HudSeen", "forget", "milestone"));
+                c.waitUntil("the Milestone HUD drawn at 0 before any milestone", mc -> (Boolean) Mod.staticCall("hud.HudSeen", "drawnRecently", "milestone") && (Integer) Mod.staticCall(ms, "count") == 0, 100);
                 c.hx().chat("Party > [MVP+] Eve: Milestone ❖: You have dealt 5 damage so far! (3s)");
                 c.hx().chat("[MVP+] Eve: Milestone ❖: You have dealt 5 damage so far! (3s)");
                 c.ctx().waitTicks(3);
                 c.check(milestones(c) == 0, "player chat counted as a milestone: " + milestones(c));
-                String[] lines = {"Milestone ❖: You have dealt 1.2M damage so far! (3s)",
-                        "Milestone ☠: You have tanked and healed 3.1M so far! (5s)",
-                        "Milestone ❤: You have healed 900k so far! (8s)", "Milestone ❖: You have dealt 9M damage so far! (12s)",
-                        "Milestone ❖: You have dealt 12M damage so far! (15s)", "Milestone ❖: You have dealt 15M damage so far! (18s)",
-                        "Milestone ❖: You have dealt 18M damage so far! (21s)", "Milestone ❖: You have dealt 21M damage so far! (24s)",
+                String[] lines = {"Archer Milestone ❶: You have dealt 750,000 Ranged Damage so far! 07s",
+                        "Archer Milestone ❷: You have dealt 3,750,000 Ranged Damage so far! 08s",
+                        "Archer Milestone ❸: You have dealt 15,000,000 Ranged Damage so far! 34s", "Mage Milestone ❖: You have dealt 9M damage so far! 12s",
+                        "Berserk Milestone ❖: You have dealt 12M damage so far! 15s", "Healer Milestone ❤: You have healed 900k so far! 18s",
+                        "Tank Milestone ☠: You have tanked and healed 3.1M so far! 21s", "Milestone ❖: You have dealt 21M damage so far! (24s)",
                         "Milestone ❖: You have dealt 24M damage so far! (27s)", "Milestone ❖: You have dealt 27M damage so far! (30s)"};
                 int[] want = {1, 2, 3, 4, 5, 6, 7, 8, 9, 9};
                 for (int i = 0; i < lines.length; i++) {
@@ -488,11 +490,19 @@ final class HxP3ChatCases {
                 }
                 c.waitUntil("the Milestone HUD drawn", mc -> (Boolean) Mod.staticCall("hud.HudSeen", "drawnRecently", "milestone"), 100);
                 c.note("player chat ignored; 10 lines counted 1..9,9 (capped at 9); HUD drawn in game");
+                HxKit.hub(c);
+                c.onClient(mc -> Mod.staticCall("hud.HudSeen", "forget", "milestone"));
+                c.ctx().waitTicks(40);
+                c.check(!(Boolean) c.onClient(mc -> (Boolean) Mod.staticCall("hud.HudSeen", "drawnRecently", "milestone")), "Milestone HUD drew outside a dungeon");
+                dungeon(c);
                 Mod.set(cfg, "setEnabled", false);
                 c.onClient(mc -> Mod.staticCall(ms, "resetForTest"));
                 c.hx().chat(lines[0]);
                 c.ctx().waitTicks(3);
                 c.check(milestones(c) == 0, "counted a milestone with the switch off: " + milestones(c));
+                c.onClient(mc -> Mod.staticCall("hud.HudSeen", "forget", "milestone"));
+                c.ctx().waitTicks(40);
+                c.check(!(Boolean) c.onClient(mc -> (Boolean) Mod.staticCall("hud.HudSeen", "drawnRecently", "milestone")), "Milestone HUD drew with the switch off");
             } finally {
                 dungeon(c);
             }
