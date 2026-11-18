@@ -458,7 +458,8 @@ public class CollectionTrackerSuite implements FabricClientGameTest {
             for (String line : GOLD_SESSION[i]) {
                 hover.append("\n  ").append(line);
                 long n = Long.parseLong(line.substring(0, line.indexOf(' ')));
-                net += n * (line.contains("Block") ? mult[2] : line.contains("Ingot (") && line.contains("Enchanted") ? mult[1] : mult[0]);
+                String item = line.substring(line.indexOf(' ') + 1, line.lastIndexOf(" ("));
+                net += n * (item.equals("Enchanted Gold Block") ? mult[2] : item.equals("Enchanted Gold Ingot") ? mult[1] : mult[0]);
             }
             truth += net;
             c.server().command("tellraw @a {\"text\":\"[Sacks] +1 items. (Last 5s.)\",\"hover_event\":{\"action\":\"show_text\",\"value\":\""
