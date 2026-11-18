@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T13:40:59",
- "modSource": "lane-flaskfix-1117-rm",
- "modGitSha": "4b85c0654291691d97da125bacb38e902124e7c9",
+ "generatedAt": "2026-11-18T13:49:41",
+ "modSource": "lane-streamsafemap-1118",
+ "modGitSha": "fce4e3e7aeb348e3ab584762ea3d01b2fcbabd44",
  "modSourceDirty": false,
  "count": 994,
  "byKind": {
