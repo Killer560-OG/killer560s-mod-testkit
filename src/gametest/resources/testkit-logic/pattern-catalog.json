@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T12:59:19",
- "modSource": "lane-patchprep-6172091",
- "modGitSha": "196a135e51553bfed71feec51bb8583c5cd2611c",
+ "generatedAt": "2026-11-18T13:12:37",
+ "modSource": "lane-compactorhl-1118-skill",
+ "modGitSha": "f093ac5ba67f1c5f47ae9f4b01fe97b962c6076a",
  "modSourceDirty": false,
- "count": 994,
+ "count": 995,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 866,
+  "field": 867,
   "local": 43
  },
  "unresolved": 160,
@@ -2868,6 +2868,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"[A-Za-z0-9_]{1,32}\""
+  },
+  {
+   "id": "compactorpreview.CompactorMenuHighlight#TITLE",
+   "cls": "compactorpreview.CompactorMenuHighlight",
+   "field": "TITLE",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/compactorpreview/CompactorMenuHighlight.java",
+   "line": 27,
+   "regex": "^(?:\\(\\d+/\\d+\\) )?Personal [A-Za-z]+ Compactor$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(?:\\\\(\\\\d+/\\\\d+\\\\) )?Personal [A-Za-z]+ Compactor$\""
   },
   {
    "id": "compactorpreview.CompactorPreviewFeature#ITEM_ID",
