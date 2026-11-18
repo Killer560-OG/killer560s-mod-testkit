@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T14:13:56",
- "modSource": "lane-ghostmob-redo-1118",
- "modGitSha": "62e18a30317b250aa86c054007154d7afb309b62",
+ "generatedAt": "2026-11-18T14:32:11",
+ "modSource": "lane-simleapspots2-1117",
+ "modGitSha": "5c6646b3c9396cfefc73703926cdb09629e9e91a",
  "modSourceDirty": false,
  "count": 995,
  "byKind": {
