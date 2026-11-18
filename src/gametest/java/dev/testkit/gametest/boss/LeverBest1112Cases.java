@@ -53,6 +53,7 @@ final class LeverBest1112Cases {
         s.test("1112-boss-lever-best-spot", LeverBest1112Cases::bestSpot);
         s.test("1112-boss-lever-his-spot", LeverBest1112Cases::hisSpot);
         LeverFreeze1116Cases.register(s);
+        s.test("1114-boss-lever-fullblock-edge", LeverBest1112Cases::fullBlockEdge);
         for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.CLICK, SameTick.Act.ATTACK,
                 SameTick.Act.TP}) {
             s.test("1112-boss-lever-max-" + a.name().toLowerCase(Locale.ROOT), c -> maxSameTick(c, a));
@@ -361,6 +362,98 @@ final class LeverBest1112Cases {
             BossAuraTurnCases.finish(c, cam, "lever aura his spot, Full Block");
             c.note("log: " + LogTap.since(mark).stream().filter(l -> l.contains("[LeverAura] flick sent")).toList());
         } finally {
+            cleanup(c, undo);
+        }
+    }
+
+    /** Full Block on, Range at its slider maximum: a flick at cube entry 4.499 goes out clean, 4.52 is held (no turn, no flick). */
+    static void fullBlockEdge(Session c) throws Exception {
+        List<AutoCloseable> undo = new ArrayList<>();
+        try {
+            arena(c);
+            quiet(c, undo);
+            p3(c);
+            fullBlock(c, undo, true);
+            final double max = 99.0; // the setter clamps to the slider maximum (4.5)
+            c.note("Lever Aura Range set to " + max + " (clamped to the slider maximum)");
+            double xa = xFor(c, 4.499);
+            standAt(c, xa, 124, 127.5, 90f, 0f);
+            double[] e = c.onClient(mc -> entries(mc, mc.player.getX(), mc.player.getY(), mc.player.getZ()));
+            c.note(String.format(Locale.ROOT, "A: feet x %.4f, Full Block cube: best ray enters %.4f, middle aim %.4f", xa, e[0], e[1]));
+            int f0 = c.scenario().flags().size();
+            long mark = LogTap.mark();
+            WireCapture.describe = LeverBest1112Cases::describe;
+            WireCapture.start();
+            float[] cam = BossAuraTurnCases.start(c);
+            undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "SectionLevers", true)));
+            undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "SectionLeversEarly", true)));
+            undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "Range", max)));
+            undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "CooldownMs", 50)));
+            undo.add(c.onClient(mc -> Mod.with(LEVER_CONFIG, "Enabled", true)));
+            boolean flipped = true;
+            try {
+                c.waitUntil("A: the lever flipped on the server's say-so", mc -> {
+                    BossAuraTurnCases.track(mc, cam);
+                    return mc.level.getBlockState(LEVER).getValue(LeverBlock.POWERED);
+                }, 60);
+            } catch (AssertionError ex) {
+                flipped = false;
+            }
+            c.onClient(mc -> {
+                Mod.set(LEVER_CONFIG, "setEnabled", false);
+                return null;
+            });
+            c.ctx().waitTicks(6);
+            WireCapture.stop();
+            List<String> wire = WireCapture.snapshot().stream().map(WireCapture.Sent::text).filter(t -> t.startsWith("use_item_on")).toList();
+            int flagsA = c.scenario().flags().size() - f0;
+            c.note("A at 4.499: lever flicked " + (flipped ? "YES" : "NO") + ", wire " + wire + ", flags " + flagsA
+                    + (flagsA > 0 ? " " + c.scenario().flags().subList(f0, c.scenario().flags().size()) : "")
+                    + ", log " + LogTap.since(mark).stream().filter(l -> l.contains("[LeverAura]")).toList());
+            c.check(flipped, "A: the lever did not flip at entry 4.499");
+            c.check(wire.size() == 1, "A: want one use_item_on on the wire, got " + wire.size());
+            double we = Double.parseDouble(wire.get(0).replaceAll(".*entry=([0-9.]+).*", "$1"));
+            c.check(we > 4.49 && we <= 4.5, "A: the wire entry " + we + " is not in (4.49, 4.5]");
+            c.check(flagsA == 0, "A: GrimAC flagged " + flagsA + " time(s)");
+
+            // Part B: lever reset, new run, 4.52 away: held, no turn, no flick.
+            c.server().command("setblock 27 124 127 " + FLOOR_LEVER);
+            c.waitUntil("B: the lever reset", mc -> !mc.level.getBlockState(LEVER).getValue(LeverBlock.POWERED), 60);
+            newRun(c);
+            double xb = xFor(c, 4.52);
+            standAt(c, xb, 124, 127.5, 90f, 0f);
+            double[] eb = c.onClient(mc -> entries(mc, mc.player.getX(), mc.player.getY(), mc.player.getZ()));
+            int fb = c.scenario().flags().size();
+            WireCapture.start();
+            float[] camB = BossAuraTurnCases.start(c);
+            float[] body = {camB[0], camB[1], 0f};
+            c.onClient(mc -> {
+                Mod.set(LEVER_CONFIG, "setEnabled", true);
+                return null;
+            });
+            for (int t = 0; t < 30; t++) {
+                c.ctx().waitTick();
+                c.onClient(mc -> {
+                    BossAuraTurnCases.track(mc, camB);
+                    body[2] = Math.max(body[2], Math.abs(Mth.wrapDegrees(mc.player.getYRot() - body[0])));
+                    return null;
+                });
+            }
+            boolean onB = c.onClient(mc -> mc.level.getBlockState(LEVER).getValue(LeverBlock.POWERED));
+            c.onClient(mc -> {
+                Mod.set(LEVER_CONFIG, "setEnabled", false);
+                return null;
+            });
+            WireCapture.stop();
+            List<String> wireB = WireCapture.snapshot().stream().map(WireCapture.Sent::text).filter(t -> t.startsWith("use_item_on")).toList();
+            c.note(String.format(Locale.ROOT, "B: feet x %.4f, best ray enters %.4f: lever %s, body turned at most %.3f deg, wire %s, flags %d",
+                    xb, eb[0], onB ? "ON" : "off", body[2], wireB, c.scenario().flags().size() - fb));
+            c.check(!onB, "B: the lever flipped at entry 4.52");
+            c.check(body[2] < 0.01f, "B: the body turned for a flick that cannot go");
+            c.check(wireB.isEmpty(), "B: use_item_on went out at entry 4.52: " + wireB);
+        } finally {
+            WireCapture.describe = null;
+            WireCapture.stop();
             cleanup(c, undo);
         }
     }

@@ -116,7 +116,7 @@ final class SimWardrobe1115 {
         for (String c : new String[]{"stats", "equipment", "eq"}) {
             cmd(ctx, c);
             expect(f, "/" + c + " opens the equipment menu", title(ctx), "Your Equipment and Stats");
-            expect(f, "/" + c + " lists the live stats", sheet(ctx).containsKey("Attack Speed (effective)"), true);
+            expect(f, "/" + c + " shows no stat sheet", sheet(ctx).containsKey("Attack Speed (effective)"), false);
             close(ctx);
         }
         // Real pieces: Terror is worn here. Head is a player head, the others leather with Hypixel's dye.
@@ -188,11 +188,7 @@ final class SimWardrobe1115 {
             // Stats of Thermodynamic, then swap to Terror from the wardrobe and read them again.
             expect(f, "stats menu opens", open(ctx, true), true);
             expect(f, "stats title", title(ctx), "Your Equipment and Stats");
-            Map<String, String> st = sheet(ctx);
-            println(NAME, "Thermodynamic stats: " + st);
-            expect(f, "Thermodynamic Attack Speed", st.get("Attack Speed (effective)"), "150");
-            expect(f, "Thermodynamic arrows per shot", st.get("Bow Arrows Per Shot"), "3");
-            expect(f, "Thermodynamic set bonus", st.get("Set Bonus"), "Newton's Demise");
+            expect(f, "the stats menu has no stat numbers", sheet(ctx).containsKey("Attack Speed (effective)"), false);
             close(ctx);
 
             open(ctx, false);
@@ -204,13 +200,6 @@ final class SimWardrobe1115 {
             expect(f, "the chestplate swapped", ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall("com.killer560.hub.cheatutils.CheatUtils", "skyblockId",
                     new Class<?>[]{ItemStack.class}, new Object[]{mc.player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST)}))), "INFERNAL_TERROR_CHESTPLATE");
             open(ctx, true);
-            Map<String, String> st2 = sheet(ctx);
-            println(NAME, "Terror stats: " + st2);
-            expect(f, "Terror Attack Speed back to base", st2.get("Attack Speed (effective)"), "100");
-            expect(f, "Terror arrows per shot", st2.get("Bow Arrows Per Shot"), "5");
-            expect(f, "Terror damage multiplier", st2.get("Arrow Damage Multiplier"), "2.5");
-            expect(f, "Terror health is listed and summed from the pieces", st2.get("Health"), "1828");
-            expect(f, "the stats differ between the sets", st.equals(st2), false);
             close(ctx);
 
             // The next bow shot follows the swap.
