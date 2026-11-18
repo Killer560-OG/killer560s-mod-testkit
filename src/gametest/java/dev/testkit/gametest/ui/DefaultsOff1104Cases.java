@@ -35,6 +35,7 @@ final class DefaultsOff1104Cases {
             {"partyinvites.AutoAcceptInvitesConfig", "enabled"},
             {"splittimers.WatcherHelperConfig", "enabled"},
             {"carrytracker.CarryTrackerConfig", "enabled"},
+            {"missingenchants.MissingEnchantsConfig", "enabled", "belowMax"},
             {"dungeonqueue.DungeonQueueConfig", "enabled", "pvLinkOnJoin"},
             {"partyfinder.PartyFinderOverlayConfig", "enabled"},
             {"posmsg.PosmsgConfig", "enabled"},
