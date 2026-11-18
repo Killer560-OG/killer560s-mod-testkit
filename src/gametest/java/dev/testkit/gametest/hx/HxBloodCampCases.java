@@ -153,6 +153,8 @@ final class HxBloodCampCases {
         s.test("1118-bloodaura-walk", c -> auraWalk(c, 0));
         s.test("1118-bloodaura-walk-off", c -> auraWalk(c, 1));
         s.test("1118-bloodaura-walk-hiskeys", c -> auraWalk(c, 2));
+        s.test("1118-bloodaura-walk-outside", c -> auraWalk(c, 3));
+        s.test("1118-bloodaura-walk-leave", c -> auraWalk(c, 4));
         s.test("1118-bloodaura-walk-tnt", HxBloodCampCases::auraWalkTnt);
         for (int who = 1; who <= 2; who++) {
             for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{dev.testkit.gametest.SameTick.Act.USE,
@@ -4292,7 +4294,16 @@ final class HxBloodCampCases {
             s.with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "MoveAround", kind != 1);
             c.server().command(WALK_PLATFORM + "minecraft:stone replace minecraft:air");
             watcher(c, WATCHER_IN);
-            standAt(c, WALK_X, -417.5, 90f, 0f);
+            standAt(c, kind == 3 ? -429.5 : WALK_X, -417.5, 90f, 0f); // 3: just outside the room's west wall
+            int[] atLeave = {-1, -1};
+            boolean[] keyHeldAfter = {false};
+            if (kind == 4) {
+                nextServerStep = i -> {
+                    if (i == 30) {
+                        c.server().command("tp @p -429.5 151 -417.5"); // out of the room mid-walk
+                    }
+                };
+            }
             c.onClient(mc -> {
                 Mod.staticCall(WALK, "resetStats");
                 if (kind == 2) {
@@ -4309,6 +4320,15 @@ final class HxBloodCampCases {
                     lo[0] = Math.min(lo[0], Math.hypot(mc.player.getX() - e.x, mc.player.getZ() - e.z));
                 }
                 far[0] = Math.max(far[0], Math.max(Math.abs(mc.player.getX() + 409), Math.abs(mc.player.getZ() + 409)));
+                if (kind == 4 && mc.player.getX() < -426.0) { // outside now: from the second tick on nothing may be held or pressed
+                    if (atLeave[0] < 0) {
+                        atLeave[0] = (Integer) Mod.staticCall(WALK, "keyTicks");
+                        atLeave[1] = 0;
+                    } else if (++atLeave[1] > 2) {
+                        keyHeldAfter[0] |= mc.options.keyUp.isDown() || mc.options.keyDown.isDown() || mc.options.keyLeft.isDown()
+                                || mc.options.keyRight.isDown() || mc.options.keyJump.isDown();
+                    }
+                }
             });
             Vec3 end = c.onClient(mc -> mc.player.position());
             double moved = Math.hypot(end.x - start.x, end.z - start.z);
@@ -4321,8 +4341,13 @@ final class HxBloodCampCases {
                 c.check(kt > 0 && moved > 3.0, "Move Around did not walk him (" + moved + " blocks, " + kt + " key ticks)");
                 c.check(lo[0] <= 9.0, "he never came inside the ring (closest " + lo[0] + " of 8.5)");
                 c.check(far[0] <= 14.0, "he left the safe part of the room (" + far[0] + " from the middle, 13 allowed)");
+            } else if (kind == 4) {
+                c.check(atLeave[0] >= 0, "he never left the room - nothing tested");
+                c.check(kt > 0, "it never walked him before he left - nothing tested");
+                c.check(!keyHeldAfter[0], "a movement key stayed down after he left the Blood room");
+                c.check(kt <= atLeave[0] + 3, "it kept pressing keys outside the room (" + kt + " key ticks, " + atLeave[0] + " when he left)");
             } else {
-                c.check(kt == 0 && moved < 0.3, "Move Around " + (kind == 1 ? "was off" : "was overridden by his key") + " but pressed " + kt + " key ticks / moved " + moved);
+                c.check(kt == 0 && moved < 0.3, "Move Around " + (kind == 3 ? "pressed keys outside the room" : kind == 1 ? "was off" : "was overridden by his key") + " but pressed " + kt + " key ticks / moved " + moved);
                 c.check(kind != 1 || !(Boolean) c.onClient(mc -> mc.options.keyUp.isDown() || mc.options.keyDown.isDown()
                         || mc.options.keyLeft.isDown() || mc.options.keyRight.isDown()), "a movement key is held with Move Around off");
             }
