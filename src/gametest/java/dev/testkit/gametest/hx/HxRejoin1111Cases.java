@@ -67,7 +67,7 @@ final class HxRejoin1111Cases {
     }
 
     /** Leaves the world for the Nether with the sidebar gone, waits, then comes back to the overworld at x, y, z. */
-    private static void awayAndBack(Session c, double x, double y, double z) {
+    static void awayAndBack(Session c, double x, double y, double z) {
         String me = self(c);
         String home = dim(c);
         // A loaded stone floor with air above in the Nether: without it the client fell (or sat in netherrack) where the
