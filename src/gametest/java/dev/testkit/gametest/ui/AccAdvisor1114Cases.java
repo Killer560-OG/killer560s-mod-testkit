@@ -19,7 +19,7 @@ final class AccAdvisor1114Cases {
 
     private static final String CFG = "accadvisor.AccessoryAdvisorConfig";
     private static final String ADV = "accadvisor.AccessoryAdvisor";
-    private static final String BAG = "Accessory Bag (1/2)";
+    private static final String BAG = "(1/2) Accessory Bag";
 
     private AccAdvisor1114Cases() {
     }
