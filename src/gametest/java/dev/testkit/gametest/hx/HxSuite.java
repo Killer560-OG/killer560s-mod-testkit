@@ -168,6 +168,7 @@ public class HxSuite implements FabricClientGameTest {
 
                     // Auto Superboom, cheat only, with his dig / use / scroll / teleport in the swap tick (1108-same-superboom-*, featD-1108).
                     HxSuperboom1108Cases.register(s);
+                    HxSuperboomRange1118Cases.register(s);
                     // Storm Bow release and Auto M5, idle and with his actions in their ticks (1111-*stormbow*, 1111-*autom5*, mod stormm5-1111).
                     HxStormM51111Cases.register(s);
                     HxCheatBugs1109Cases.register(s);
