@@ -88,7 +88,6 @@ final class ProtectStarCases {
                 Mod.call(cfg, "setUseItemIdFallback", false);
                 Mod.call(cfg, "setLockInPlace", false);
                 Mod.call(cfg, "setPreventHotbarDropEnabled", true);
-                Mod.call(cfg, "setConfirmToForce", false);
                 Mod.call(cfg, "setBlockEveryHotbarDrop", false);
                 Mod.call(cfg, "setBlockSound", false);
                 Mod.call(cfg, "addProtectedKey", "ps-hot-1");
