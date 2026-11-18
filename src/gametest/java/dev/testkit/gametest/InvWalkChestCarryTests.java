@@ -162,10 +162,10 @@ public class InvWalkChestCarryTests implements FabricClientGameTest {
                             (c, h, seen, n) -> {
                                 click(c, List.of(Click.left(9)));
                                 walk(c, h, Set.of("key.back"), 8, seen);
+                                // A third leg before the split: one leg lost to a load hiccup (0.88 seen once in lane runs) still passes 1.5.
+                                walk(c, h, FWD, 8, seen);
                                 click(c, List.of(Click.right(1)));
                                 walk(c, h, Set.of("key.left"), 8, seen);
-                                // A third leg: one leg lost to a teleport/load hiccup (0.88 seen once in lane runs) still passes 1.5.
-                                walk(c, h, Set.of("key.right"), 8, seen);
                                 click(c, List.of(Click.left(19)));
                                 return Map.of(9, "", 1, "minecraft:stone*1", 19, "minecraft:stone*31");
                             });
