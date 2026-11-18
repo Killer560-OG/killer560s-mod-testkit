@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T16:38:23",
- "modSource": "lane-simleapspots2-1117",
- "modGitSha": "ce90bfb0e3769a286a5638daf62867bfc3556962",
+ "generatedAt": "2026-11-18T16:56:51",
+ "modSource": "lane-lockdrop-1118",
+ "modGitSha": "33d742ffbcaaebd8bd4c6bb60f7b99a08f583128",
  "modSourceDirty": false,
  "count": 995,
  "byKind": {
