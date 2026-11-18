@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T14:49:59",
- "modSource": "lane-missingench-1118",
- "modGitSha": "2a5f7cc5aa84a25057d34aee82b3e972f774b8bd",
+ "generatedAt": "2026-11-18T15:35:59",
+ "modSource": "lane-sliderunits-1118",
+ "modGitSha": "61e9ed2b248f9db59f65f08d6be7e614625670cd",
  "modSourceDirty": false,
  "count": 995,
  "byKind": {
