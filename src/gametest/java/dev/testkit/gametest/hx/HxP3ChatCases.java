@@ -244,6 +244,7 @@ final class HxP3ChatCases {
         waitRow(c, "Device", "Device 1/1");
         waitRow(c, "Levers", "Levers 2/2");
         if (gate) {
+            c.ctx().waitTicks(8); // ChatObserver drops an identical line inside 250 ms (the previous section's gate line)
             c.hx().chat("The gate has been destroyed!");
         }
     }
