@@ -78,6 +78,7 @@ final class MissingEnch1118Cases {
     }
 
     static void logic(Session c) throws Exception {
+        c.onClient(mc -> Mod.staticCall(FEATURE, "loadNow")); // the tooltip path loads the data on a worker thread
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set(CFG, "Enabled", true).set(CFG, "BelowMax", false).set(CFG, "Hint", true);
             ItemStack sword = give(c, stack("HYPERION", "sharpness:5,critical:5,ultimate_wise:5,first_strike:4,life_steal:3", "LEGENDARY DUNGEON SWORD"));
@@ -111,6 +112,7 @@ final class MissingEnch1118Cases {
     }
 
     static void tooltip(Session c) throws Exception {
+        c.onClient(mc -> Mod.staticCall(FEATURE, "loadNow")); // the tooltip path loads the data on a worker thread
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set(CFG, "Enabled", false).set(CFG, "BelowMax", false).set(CFG, "Hint", true);
             ItemStack sword = give(c, stack("HYPERION", "sharpness:5", "LEGENDARY DUNGEON SWORD"));
