@@ -465,8 +465,7 @@ public class CollectionTrackerSuite implements FabricClientGameTest {
             c.server().command("tellraw @a {\"text\":\"[Sacks] +1 items. (Last 5s.)\",\"hover_event\":{\"action\":\"show_text\",\"value\":\""
                     + hover + "\"}}");
             long want = truth;
-            c.waitUntil("message " + (i + 1) + " reaches " + want, mc -> gainedNow() >= want * 98 / 100, 200);
-            c.ctx().waitTicks(4);
+            c.ctx().waitTicks(16);
             long got = gained(c);
             c.check(Math.abs(got - want) <= want * 2 / 100,
                     "after sack message " + (i + 1) + " the tracker gained " + got + ", the net of the messages is " + want);
