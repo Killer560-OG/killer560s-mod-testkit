@@ -47,8 +47,17 @@ public class GrimBeamsMeleeTests implements FabricClientGameTest {
     private enum Kind { HIT, TURN, FAR }
 
     /** One round: where he lands (feet), the lantern, what is expected. */
-    private record Round(String what, double x, double z, BlockPos lantern, Kind kind) {
+    private record Round(String what, double x, double z, BlockPos lantern, Kind kind, String his) {
+        Round(String what, double x, double z, BlockPos lantern, Kind kind) {
+            this(what, x, z, lantern, kind, null);
+        }
     }
+
+    /** His own input pressed in the hit tick (creeperbeams-1118, the same-tick rule): released the tick after. */
+    private static boolean releaseHis;
+    /** nanoTime at the start of the hit tick and of the tick after, for the same-tick rounds' wire check. */
+    private static volatile long hisTick0;
+    private static volatile long hisTick1;
 
     private enum Stage { IDLE, AWAIT_LAND, ACT1, ACT2, DONE }
 
@@ -71,7 +80,16 @@ public class GrimBeamsMeleeTests implements FabricClientGameTest {
                 new Round("in the floor", BX + 9.5, BZ + 0.5, new BlockPos(BX + 9, Y - 1, BZ - 2), Kind.HIT),
                 new Round("4.0 eye to box", BX + 12.5, BZ + 0.0, new BlockPos(BX + 12, Y + 1, BZ + 4), Kind.HIT),
                 new Round("body a quarter turn off", BX + 15.5, BZ + 1.5, new BlockPos(BX + 15, Y + 2, BZ + 4), Kind.TURN),
-                new Round("9.5 blocks away", BX + 0.5, BZ - 5.5, new BlockPos(BX + 1, Y + 2, BZ + 4), Kind.FAR));
+                new Round("9.5 blocks away", BX + 0.5, BZ - 5.5, new BlockPos(BX + 1, Y + 2, BZ + 4), Kind.FAR),
+                // creeperbeams-1118: his own right click, attack, hotbar swap and forward key in the hit's own tick.
+                new Round("his right click in the hit tick", BX + 3.5, BZ + 1.5, new BlockPos(BX + 3, Y + 1, BZ + 4), Kind.HIT,
+                        "use"),
+                new Round("his attack in the hit tick", BX + 6.5, BZ + 1.5, new BlockPos(BX + 6, Y + 3, BZ + 4), Kind.HIT,
+                        "attack"),
+                new Round("his hotbar swap in the hit tick", BX + 3.5, BZ + 1.5, new BlockPos(BX + 3, Y + 1, BZ + 4),
+                        Kind.HIT, "swap"),
+                new Round("his forward key in the hit tick", BX + 6.5, BZ + 1.5, new BlockPos(BX + 6, Y + 3, BZ + 4),
+                        Kind.HIT, "move"));
     }
 
     private static void onStart(Minecraft mc) {
@@ -79,6 +97,13 @@ public class GrimBeamsMeleeTests implements FabricClientGameTest {
         LocalPlayer p = mc.player;
         if (p == null) {
             return;
+        }
+        if (releaseHis) {
+            releaseHis = false;
+            hisTick1 = System.nanoTime();
+            mc.options.keyUse.setDown(false);
+            mc.options.keyAttack.setDown(false);
+            mc.options.keyUp.setDown(false);
         }
         Vec3 pos = p.position();
         boolean landed = lastPos != null && pos.distanceToSqr(lastPos) > 0.81;
@@ -117,7 +142,19 @@ public class GrimBeamsMeleeTests implements FabricClientGameTest {
                     step("still sneaking - the hit waits a tick, as meleeTick does");
                     return;
                 }
+                hisTick0 = System.nanoTime();
                 boolean sent = click(mc, p, r.lantern());
+                if (r.his() != null) {
+                    // After the auto's hit in START_CLIENT_TICK: vanilla handles his keys later in this same tick.
+                    switch (r.his()) {
+                        case "use" -> mc.options.keyUse.setDown(true);
+                        case "attack" -> mc.options.keyAttack.setDown(true);
+                        case "swap" -> p.getInventory().setSelectedSlot(1);
+                        default -> mc.options.keyUp.setDown(true);
+                    }
+                    releaseHis = true;
+                    step("his " + r.his() + " pressed in the hit tick");
+                }
                 double d = Math.sqrt(boxSq(p.getEyePosition(), r.lantern()));
                 switch (r.kind()) {
                     case HIT -> expect(sent, String.format(Locale.ROOT, "the hit on %s at %.2f eye to box",
@@ -142,6 +179,37 @@ public class GrimBeamsMeleeTests implements FabricClientGameTest {
             default -> {
             }
         }
+    }
+
+    /** Whether the auto's dig and his own packet both went out in the hit tick (encoded within that tick, plus 30 ms for
+     *  the netty thread). */
+    private static String sameTickWire(String his) {
+        long from = hisTick0;
+        long to = hisTick1 + 30_000_000L;
+        String want = switch (his) {
+            case "use" -> "useitem";
+            case "swap" -> "setcarrieditem";
+            case "move" -> "playerinput";
+            default -> "playeraction";
+        };
+        int digs = 0;
+        int mine = 0;
+        StringBuilder seen = new StringBuilder();
+        for (var x : dev.testkit.harness.WireCapture.snapshot()) {
+            if (x.nanos() < from || x.nanos() > to || !"play".equalsIgnoreCase(x.phase())) {
+                continue;
+            }
+            String n = (x.type() + " " + x.className()).toLowerCase(Locale.ROOT).replace("_", "");
+            seen.append(x.className().replaceAll(".*[.$]", "")).append(' ');
+            if (n.contains("playeraction")) {
+                digs++;
+            }
+            if (n.contains(want)) {
+                mine++;
+            }
+        }
+        boolean ok = digs >= 1 && ("attack".equals(his) ? digs >= 1 : mine >= 1);
+        return (ok ? "both" : "NOT both") + " (auto digs/actions " + digs + ", his " + want + " " + mine + "): " + seen;
     }
 
     private static boolean click(Minecraft mc, LocalPlayer p, BlockPos lantern) {
@@ -220,6 +288,7 @@ public class GrimBeamsMeleeTests implements FabricClientGameTest {
                     ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
                     ctx.waitTicks(5);
                     PacketWatch.start();
+                    dev.testkit.harness.WireCapture.start();
                     int expectedHits = 0;
                     for (int i = 0; i < rounds.size(); i++) {
                         Round r = rounds.get(i);
@@ -243,8 +312,23 @@ public class GrimBeamsMeleeTests implements FabricClientGameTest {
                         }
                         stage = Stage.IDLE;
                         ctx.waitTicks(6);
+                        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+                        if (r.his() != null) {
+                            String wire = sameTickWire(r.his());
+                            synchronized (STEPS) {
+                                STEPS.add("round " + (i + 1) + " wire in the hit tick: " + wire);
+                            }
+                            if (!wire.startsWith("both")) {
+                                synchronized (BAD) {
+                                    BAD.add("round " + (i + 1) + " (" + r.what() + "): " + wire);
+                                }
+                            }
+                        }
                         int sentNow = PacketWatch.totalBreaks() - before;
                         int want = r.kind() == Kind.FAR ? 0 : 1;
+                        if ("attack".equals(r.his()) && sentNow >= 1) {
+                            want = sentNow; // his own attack on the lantern he looks at may dig it too: his, not the auto's
+                        }
                         expectedHits += want;
                         synchronized (STEPS) {
                             STEPS.add("round " + (i + 1) + ": " + sentNow + " START_DESTROY_BLOCK(s) sent, " + want
@@ -260,6 +344,7 @@ public class GrimBeamsMeleeTests implements FabricClientGameTest {
                     ctx.runOnClient(mc -> mc.options.keyShift.setDown(false));
                     ctx.waitTicks(10);
                     PacketWatch.stop();
+                    dev.testkit.harness.WireCapture.stop();
                     int standing = 0;
                     for (Round r : rounds) {
                         BlockPos l = r.lantern();
