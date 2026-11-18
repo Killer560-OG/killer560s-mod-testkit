@@ -149,6 +149,23 @@ final class HxBloodCampCases {
         s.test("1118-bloodaura-exclusive", HxBloodCampCases::auraExclusive);
         s.test("1118-bloodaura-norotate", HxBloodCampCases::auraNoRotate);
         s.test("1118-bloodaura-preaim", HxBloodCampCases::auraPreAim);
+        // Move Around (cheat, Aura): it walks him, yields to his keys, flees TNT, and off it never touches a key.
+        s.test("1118-bloodaura-walk", c -> auraWalk(c, 0));
+        s.test("1118-bloodaura-walk-off", c -> auraWalk(c, 1));
+        s.test("1118-bloodaura-walk-hiskeys", c -> auraWalk(c, 2));
+        s.test("1118-bloodaura-walk-tnt", HxBloodCampCases::auraWalkTnt);
+        for (int who = 1; who <= 2; who++) {
+            for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{dev.testkit.gametest.SameTick.Act.USE,
+                    dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK,
+                    dev.testkit.gametest.SameTick.Act.TP, dev.testkit.gametest.SameTick.Act.USE_KEY}) {
+                final int w = who;
+                s.test("1118-same-bloodwalk-" + (who == 1 ? "rotate-" : "norotate-") + a.name().toLowerCase(Locale.ROOT),
+                        c -> sameTickOutside(c, a, w, 1));
+            }
+            final int w2 = who;
+            s.test("1118-same-bloodwalk-" + (who == 1 ? "rotate" : "norotate") + "-hiskeys",
+                    c -> sameTickOutside(c, dev.testkit.gametest.SameTick.Act.USE, w2, 2));
+        }
     }
 
     // ---- 1022 -------------------------------------------------------------------------------------------------------
@@ -4095,6 +4112,14 @@ final class HxBloodCampCases {
     }
 
     private static void sameTickOutside(Session c, dev.testkit.gametest.SameTick.Act act, int who) {
+        sameTickOutside(c, act, who, 0);
+    }
+
+    private static final double WALK_X = -405.5;
+    private static final String WALK_PLATFORM = "fill -432 150 -425 -394 150 -395 ";
+
+    /** {@code mode}: 0 = the Aura / Trigger Bot just outside the room, 1 = the Aura with Move Around inside it, 2 = 1 plus his own keys and a jump. */
+    private static void sameTickOutside(Session c, dev.testkit.gametest.SameTick.Act act, int who, int mode) {
         if (!Mod.isCheat()) {
             return;
         }
@@ -4106,16 +4131,22 @@ final class HxBloodCampCases {
                 s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "WorkOutside", true);
             } else {
                 s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "AuraRotate", who == 1).with(BC_CFG, "AuraLookSpeed", 10)
-                        .with(BC_CFG, "NeverMiss", true).with(BC_CFG, "WorkOutside", true)
+                        .with(BC_CFG, "NeverMiss", true).with(BC_CFG, "WorkOutside", mode == 0).with(BC_CFG, "MoveAround", mode != 0)
                         .custom(() -> Mod.staticCall(BC, "setHumanClicks", true), () -> Mod.staticCall(BC, "setHumanClicks", false));
                 rememberAs(100);
             }
-            outsidePlatform(c, "minecraft:stone");
+            if (mode != 0) {
+                c.server().command(WALK_PLATFORM + "minecraft:stone replace minecraft:air");
+                c.onClient(mc -> Mod.staticCall(WALK, "resetStats"));
+            } else {
+                outsidePlatform(c, "minecraft:stone");
+            }
             c.server().command("item replace entity @a hotbar.5 with stick");
             watcher(c, WATCHER_IN);
             holding(c, SHORTBOW); // slot 0 selected; the swap goes between it and the stick in slot 5
-            standAt(c, NEAR_OUT_X, PZ, who == 0 ? 0f : 90f, 0f); // the aura turns him; the Trigger Bot is aimed by the case
+            standAt(c, mode != 0 ? WALK_X : NEAR_OUT_X, mode != 0 ? -417.5 : PZ, who == 0 ? 0f : 90f, 0f); // the aura turns him; the Trigger Bot is aimed by the case
             int aura0 = who == 0 ? 0 : intStat(c, "auraAttacks");
+            int[] keyAt = {-1, -1};
             if (act == dev.testkit.gametest.SameTick.Act.TP) {
                 nextServerStep = i -> {
                     if (i >= 10 && i % 3 == 0) {
@@ -4143,12 +4174,18 @@ final class HxBloodCampCases {
                     p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 5));
             int clicks = 0;
             for (int run = 0; run < 2; run++) { // the second run of the feature right after the first
-                Trip t = trip(c, Mob.HURTABLE, who == 0, 20, act != dev.testkit.gametest.SameTick.Act.CLICK ? null : (tick, mc) -> {
-                    // A container open holds the Trigger Bot and the Aura (ActionGate): his clicks go, then it closes and they act.
-                    if (tick == 0) {
-                        dev.testkit.compat.McCompat.setScreen(mc, new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player));
-                    } else if (tick == closeAt) {
-                        mc.player.closeContainer();
+                final int runNo = run;
+                Trip t = trip(c, Mob.HURTABLE, who == 0, mode != 0 ? 40 : 20, act != dev.testkit.gametest.SameTick.Act.CLICK && mode != 2 ? null : (tick, mc) -> {
+                    if (act == dev.testkit.gametest.SameTick.Act.CLICK) {
+                        // A container open holds the Trigger Bot and the Aura (ActionGate): his clicks go, then it closes and they act.
+                        if (tick == 0) {
+                            dev.testkit.compat.McCompat.setScreen(mc, new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player));
+                        } else if (tick == closeAt) {
+                            mc.player.closeContainer();
+                        }
+                    }
+                    if (mode == 2) {
+                        herKeys(mc, tick, keyAt, runNo);
                     }
                 });
                 c.note(act + " run " + (run + 1) + ": " + fmt(t));
@@ -4159,6 +4196,9 @@ final class HxBloodCampCases {
                 if (who == 2) {
                     c.check(!t.everTurning, "No Rotate: the humanized turn ran");
                 }
+                if (mode == 2 && run == 0) {
+                    c.check(keyAt[0] >= 0 && keyAt[1] == keyAt[0], "his keys were held but Move Around still pressed keys (" + keyAt[0] + " -> " + keyAt[1] + ")");
+                }
                 clicks += acted;
             }
             dev.testkit.gametest.SameTick done = st;
@@ -4168,6 +4208,12 @@ final class HxBloodCampCases {
                 return null;
             });
             c.note("Blood Camp " + act + ": " + done.report());
+            if (mode != 0) {
+                int kt = (Integer) c.onClient(mc -> Mod.staticCall(WALK, "keyTicks"));
+                double tr = (Double) c.onClient(mc -> Mod.staticCall(WALK, "travelled"));
+                c.note("Move Around: " + kt + " key ticks, " + String.format(Locale.ROOT, "%.1f", tr) + " blocks");
+                c.check(kt > 0 && tr > 1.0, "Move Around never moved him (key ticks " + kt + ", blocks " + tr + ") - nothing tested");
+            }
             c.check(done.done() > 0, act + ": his action never went in (nothing tested)");
             c.check(done.featureWindows() >= 2, act + ": only " + done.featureWindows() + " server ticks carried the feature's"
                     + " attack on the wire for " + clicks + " clicks (want one per run)");
@@ -4193,8 +4239,133 @@ final class HxBloodCampCases {
                 return null;
             });
             c.server().command("kill @e[tag=bc1015]");
-            outsidePlatform(c, "minecraft:air");
+            if (mode != 0) {
+                c.server().command(WALK_PLATFORM + "minecraft:air replace minecraft:stone");
+                c.onClient(mc -> {
+                    Mod.setField(WALK, "heldForTest", null);
+                    mc.options.keyUp.setDown(false);
+                    mc.options.keyJump.setDown(false);
+                    return null;
+                });
+            } else {
+                outsidePlatform(c, "minecraft:air");
+            }
             c.server().command("clear @a");
+            c.hx().removeStands();
+        }
+    }
+
+    private static final String WALK = "bloodcamp.BloodCampWalk";
+
+    /**
+     * His own keys in the Aura's walk: a jump at tick 15 and forward held on ticks 20-30 (reported to Move Around as his
+     * physical keys). While they are down it must press nothing of its own: its key-tick counter must not move.
+     */
+    private static void herKeys(Minecraft mc, int tick, int[] keyAt, int run) {
+        if (tick == 15) {
+            mc.options.keyJump.setDown(true);
+        } else if (tick == 16) {
+            mc.options.keyJump.setDown(false);
+        } else if (tick == 20) {
+            Mod.setField(WALK, "heldForTest", java.util.Set.of("key.forward"));
+            mc.options.keyUp.setDown(true);
+        } else if (tick == 22 && run == 0) {
+            keyAt[0] = (Integer) Mod.staticCall(WALK, "keyTicks");
+        } else if (tick == 30) {
+            if (run == 0) {
+                keyAt[1] = (Integer) Mod.staticCall(WALK, "keyTicks");
+            }
+            mc.options.keyUp.setDown(false);
+            Mod.setField(WALK, "heldForTest", null);
+        }
+    }
+
+    /**
+     * Move Around: {@code kind} 0 = on (he walks from 15 blocks out to inside the ring, stays in the room, never leaves a
+     * floor), 1 = off (no key pressed, he does not move), 2 = on while his own forward key is "held" (nothing pressed by it).
+     */
+    private static void auraWalk(Session c, int kind) {
+        if (!Mod.isCheat()) {
+            return;
+        }
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "MoveAround", kind != 1);
+            c.server().command(WALK_PLATFORM + "minecraft:stone replace minecraft:air");
+            watcher(c, WATCHER_IN);
+            standAt(c, WALK_X, -417.5, 90f, 0f);
+            c.onClient(mc -> {
+                Mod.staticCall(WALK, "resetStats");
+                if (kind == 2) {
+                    Mod.setField(WALK, "heldForTest", java.util.Set.of("key.forward"));
+                }
+                return null;
+            });
+            Vec3 start = c.onClient(mc -> mc.player.position());
+            double[] lo = {1e9};
+            double[] far = {0};
+            Trip t = trip(c, Mob.NONE, false, 60, (tick, mc) -> {
+                Vec3 e = endVector();
+                if (e != null) {
+                    lo[0] = Math.min(lo[0], Math.hypot(mc.player.getX() - e.x, mc.player.getZ() - e.z));
+                }
+                far[0] = Math.max(far[0], Math.max(Math.abs(mc.player.getX() + 409), Math.abs(mc.player.getZ() + 409)));
+            });
+            Vec3 end = c.onClient(mc -> mc.player.position());
+            double moved = Math.hypot(end.x - start.x, end.z - start.z);
+            int kt = (Integer) c.onClient(mc -> Mod.staticCall(WALK, "keyTicks"));
+            double tr = (Double) c.onClient(mc -> Mod.staticCall(WALK, "travelled"));
+            c.note("walk kind " + kind + ": moved " + String.format(Locale.ROOT, "%.1f", moved) + " blocks, closest to the landing " + String.format(Locale.ROOT, "%.1f", lo[0])
+                    + ", farthest from the room middle " + String.format(Locale.ROOT, "%.1f", far[0]) + ", key ticks " + kt + ", pressed distance " + String.format(Locale.ROOT, "%.1f", tr));
+            c.check(t.tracked, "the trip was never tracked - nothing tested");
+            if (kind == 0) {
+                c.check(kt > 0 && moved > 3.0, "Move Around did not walk him (" + moved + " blocks, " + kt + " key ticks)");
+                c.check(lo[0] <= 9.0, "he never came inside the ring (closest " + lo[0] + " of 8.5)");
+                c.check(far[0] <= 14.0, "he left the safe part of the room (" + far[0] + " from the middle, 13 allowed)");
+            } else {
+                c.check(kt == 0 && moved < 0.3, "Move Around " + (kind == 1 ? "was off" : "was overridden by his key") + " but pressed " + kt + " key ticks / moved " + moved);
+                c.check(kind != 1 || !(Boolean) c.onClient(mc -> mc.options.keyUp.isDown() || mc.options.keyDown.isDown()
+                        || mc.options.keyLeft.isDown() || mc.options.keyRight.isDown()), "a movement key is held with Move Around off");
+            }
+        } finally {
+            c.onClient(mc -> {
+                Mod.setField(WALK, "heldForTest", null);
+                return null;
+            });
+            c.server().command(WALK_PLATFORM + "minecraft:air replace minecraft:stone");
+            c.hx().removeStands();
+        }
+    }
+
+    /** A primed TNT beside him: Move Around walks him away from it (and counts a flee); the TNT is removed before it goes off. */
+    private static void auraWalkTnt(Session c) {
+        if (!Mod.isCheat()) {
+            return;
+        }
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "MoveAround", true);
+            c.server().command(WALK_PLATFORM + "minecraft:stone replace minecraft:air");
+            watcher(c, WATCHER_IN);
+            standAt(c, -409.5, -409.5, 90f, 0f);
+            c.onClient(mc -> Mod.staticCall(WALK, "resetStats"));
+            Vec3 at = c.onClient(mc -> mc.player.position());
+            c.server().command(String.format(Locale.ROOT, "summon tnt %.2f %.2f %.2f {fuse:80,Tags:[\"bc1015\"]}", at.x + 2.0, at.y, at.z));
+            double d0 = 2.0;
+            double best = d0;
+            for (int i = 0; i < 40; i++) {
+                c.ctx().waitTicks(1);
+                best = Math.max(best, c.onClient(mc -> {
+                    var tnts = mc.level.getEntitiesOfClass(net.minecraft.world.entity.item.PrimedTnt.class, mc.player.getBoundingBox().inflate(30));
+                    return tnts.isEmpty() ? 0.0 : Math.hypot(tnts.get(0).getX() - mc.player.getX(), tnts.get(0).getZ() - mc.player.getZ());
+                }));
+            }
+            c.server().command("kill @e[type=tnt]");
+            int flees = (Integer) c.onClient(mc -> Mod.staticCall(WALK, "tntFlees"));
+            c.note("TNT dodge: flee ticks " + flees + ", farthest from the TNT " + String.format(Locale.ROOT, "%.1f", best));
+            c.check(flees > 0, "Move Around never saw the primed TNT - nothing tested");
+            c.check(best > 4.5, "he did not walk away from the TNT (farthest " + best + " from 2.0)");
+        } finally {
+            c.server().command("kill @e[type=tnt]");
+            c.server().command(WALK_PLATFORM + "minecraft:air replace minecraft:stone");
             c.hx().removeStands();
         }
     }
