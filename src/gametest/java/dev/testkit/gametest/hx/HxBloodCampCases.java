@@ -134,8 +134,20 @@ final class HxBloodCampCases {
         s.test("1109-bloodcamp-outside", HxBloodCampCases::outsideRoom);
         for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{dev.testkit.gametest.SameTick.Act.USE,
                 dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK}) {
-            s.test("1109-same-bloodcamp-" + a.name().toLowerCase(Locale.ROOT), c -> sameTickOutside(c, a));
+            s.test("1109-same-bloodcamp-" + a.name().toLowerCase(Locale.ROOT), c -> sameTickOutside(c, a, 0));
         }
+        // bloodaura-rotate-1118: the Aura's two modes at their fastest, with his own action (or a teleport accept) in the tick of its hit.
+        for (int who = 1; who <= 2; who++) {
+            for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{dev.testkit.gametest.SameTick.Act.USE,
+                    dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK,
+                    dev.testkit.gametest.SameTick.Act.TP, dev.testkit.gametest.SameTick.Act.USE_KEY}) {
+                final int w = who;
+                s.test("1118-same-bloodaura-" + (who == 1 ? "rotate-" : "norotate-") + a.name().toLowerCase(Locale.ROOT),
+                        c -> sameTickOutside(c, a, w));
+            }
+        }
+        s.test("1118-bloodaura-exclusive", HxBloodCampCases::auraExclusive);
+        s.test("1118-bloodaura-norotate", HxBloodCampCases::auraNoRotate);
     }
 
     // ---- 1022 -------------------------------------------------------------------------------------------------------
@@ -584,7 +596,7 @@ final class HxBloodCampCases {
         boolean cheat = Mod.isCheat();
         try (HxKit.Settings s = base(c)) {
             if (cheat) {
-                s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "AuraEnabled", true);
+                s.with(BC_CFG, "AuraEnabled", true); // Trigger Bot and Aura are exclusive: the Aura outside first, the Trigger Bot below
             }
             // Outside: the Watcher one room tile over. He aims at the mob himself (so only the room gate can stop the
             // Trigger Bot), and the Aura must not even pick a target.
@@ -598,6 +610,13 @@ final class HxBloodCampCases {
             c.check(out.clicks == 0 && out.serverAttacks.isEmpty(), "outside the Blood Room the Trigger Bot clicked "
                     + out.clicks + " time(s)");
             c.check(!out.everTurning && out.auraPoint == null, "outside the Blood Room the Aura aimed at " + out.auraPoint);
+            if (cheat) {
+                s.with(BC_CFG, "TriggerBotEnabled", true); // turns the Aura off
+                stand(c, 0f, 0f);
+                Trip out2 = trip(c, Mob.HURTABLE, true, 20, null);
+                c.check(out2.clicks == 0 && out2.serverAttacks.isEmpty(), "outside the Blood Room the Trigger Bot clicked "
+                        + out2.clicks + " time(s)");
+            }
             // Back in his tile: the same trip is clicked (control - the case CAN see a click).
             watcher(c, WATCHER_IN);
             stand(c, 0f, 0f);
@@ -832,7 +851,7 @@ final class HxBloodCampCases {
             return;
         }
         try (HxKit.Settings s = base(c)) {
-            s.with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "AuraFreecam", true).with(BC_CFG, "TriggerBotEnabled", true);
+            s.with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "AuraFreecam", true);
             watcher(c, WATCHER_IN);
             stand(c, AWAY_YAW, 10f);
             List<float[]> views = new ArrayList<>();
@@ -862,8 +881,7 @@ final class HxBloodCampCases {
             c.check(heldTicks >= 5, "Freecam Mode never held the camera");
             c.check(maxViewMove < 0.01, "the camera moved " + maxViewMove + " degrees while the Aura turned him");
             // The Aura attacks too since bloodcamp-2-1015, so a second hit is allowed; the body's look did the hitting.
-            c.check(t.attacks >= 1 && !t.serverAttacks.isEmpty(), "the Trigger Bot's attack (body on the husk, camera"
-                    + " away) never landed");
+            c.check(!t.serverAttacks.isEmpty(), "the Aura's attack (body on the husk, camera away) never landed");
             c.check(!heldAtEnd && backOff < 0.6, "after the mob was hit the body did not come back under the camera"
                     + " and release it (held " + heldAtEnd + ", " + backOff + " deg off)");
         } finally {
@@ -4045,7 +4063,7 @@ final class HxBloodCampCases {
             return;
         }
         try (HxKit.Settings s = base(c)) {
-            s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "AuraEnabled", true);
+            s.with(BC_CFG, "TriggerBotEnabled", true);
             outsidePlatform(c, "minecraft:stone");
             watcher(c, WATCHER_IN);
             // A shortbow: 9 blocks from the mob is out of melee reach; the Trigger Bot uses it (a use_item per shot).
@@ -4075,18 +4093,35 @@ final class HxBloodCampCases {
         }
     }
 
-    private static void sameTickOutside(Session c, dev.testkit.gametest.SameTick.Act act) {
+    private static void sameTickOutside(Session c, dev.testkit.gametest.SameTick.Act act, int who) {
         if (!Mod.isCheat()) {
             return;
         }
         dev.testkit.gametest.SameTick st = null;
         try (HxKit.Settings s = base(c)) {
-            s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "WorkOutside", true);
+            // who: 0 = Trigger Bot, 1 = Aura / Rotate, 2 = Aura / No Rotate (killer560, 2026-11-18: the two are exclusive, the
+            // aura ones at their fastest: Never Miss, 100 Attack Speed, the between-hits clicks on).
+            if (who == 0) {
+                s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "WorkOutside", true);
+            } else {
+                s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "AuraRotate", who == 1)
+                        .with(BC_CFG, "NeverMiss", true).with(BC_CFG, "WorkOutside", true)
+                        .custom(() -> Mod.staticCall(BC, "setHumanClicks", true), () -> Mod.staticCall(BC, "setHumanClicks", false));
+                rememberAs(100);
+            }
             outsidePlatform(c, "minecraft:stone");
             c.server().command("item replace entity @a hotbar.5 with stick");
             watcher(c, WATCHER_IN);
             holding(c, SHORTBOW); // slot 0 selected; the swap goes between it and the stick in slot 5
-            standAt(c, NEAR_OUT_X, PZ, 0f, 0f);
+            standAt(c, NEAR_OUT_X, PZ, who == 0 ? 0f : 90f, 0f); // the aura turns him; the Trigger Bot is aimed by the case
+            int aura0 = who == 0 ? 0 : intStat(c, "auraAttacks");
+            if (act == dev.testkit.gametest.SameTick.Act.TP) {
+                nextServerStep = i -> {
+                    if (i >= 10 && i % 3 == 0) {
+                        c.server().command("tp @p ~ ~ ~"); // a teleport packet, his accept goes out beside the feature's click
+                    }
+                };
+            }
             // ATTACK needs his crosshair on an entity within his reach (3 blocks; the husk is 9 away): an INVISIBLE NoAI zombie 1.6
             // blocks ahead on his look (an invisible thing never holds the Trigger Bot's line of fire; a visible one would).
             if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
@@ -4107,7 +4142,7 @@ final class HxBloodCampCases {
                     p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 5));
             int clicks = 0;
             for (int run = 0; run < 2; run++) { // the second run of the feature right after the first
-                Trip t = trip(c, Mob.HURTABLE, true, 20, act != dev.testkit.gametest.SameTick.Act.CLICK ? null : (tick, mc) -> {
+                Trip t = trip(c, Mob.HURTABLE, who == 0, 20, act != dev.testkit.gametest.SameTick.Act.CLICK ? null : (tick, mc) -> {
                     // A container open holds the Trigger Bot and the Aura (ActionGate): his clicks go, then it closes and they act.
                     if (tick == 0) {
                         dev.testkit.compat.McCompat.setScreen(mc, new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player));
@@ -4116,9 +4151,14 @@ final class HxBloodCampCases {
                     }
                 });
                 c.note(act + " run " + (run + 1) + ": " + fmt(t));
-                c.check(t.inRoom && t.clicks >= 1, act + " run " + (run + 1) + ": the Trigger Bot did not act (inRoom " + t.inRoom
-                        + ", clicks " + t.clicks + ") - nothing tested");
-                clicks += t.clicks;
+                int acted = who == 0 ? t.clicks : intStat(c, "auraAttacks") - aura0 - clicks;
+                c.check(t.inRoom && acted >= 1, act + " run " + (run + 1) + ": the " + (who == 0 ? "Trigger Bot" : "Aura") + " did not act (inRoom "
+                        + t.inRoom + ", clicks " + acted + ") - nothing tested");
+                c.check(who == 0 || t.clicks == 0, "the Trigger Bot clicked " + t.clicks + " time(s) with the Aura on (they are exclusive)");
+                if (who == 2) {
+                    c.check(!t.everTurning, "No Rotate: the humanized turn ran");
+                }
+                clicks += acted;
             }
             dev.testkit.gametest.SameTick done = st;
             st = null;
@@ -4154,6 +4194,128 @@ final class HxBloodCampCases {
             c.server().command("kill @e[tag=bc1015]");
             outsidePlatform(c, "minecraft:air");
             c.server().command("clear @a");
+            c.hx().removeStands();
+        }
+    }
+
+    // ---- bloodaura-rotate-1118 --------------------------------------------------------------------------------------
+
+    /** Trigger Bot and Aura are exclusive (setters, saved file), the Rotation default and its save, and the Aura really
+     *  acts while the Trigger Bot does not. */
+    private static void auraExclusive(Session c) throws Exception {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: no Aura");
+            return;
+        }
+        java.nio.file.Path file = c.onClient(mc -> (java.nio.file.Path) Mod.field(BC_CFG, "CONFIG_PATH"));
+        byte[] before = java.nio.file.Files.exists(file) ? java.nio.file.Files.readAllBytes(file) : null;
+        try (HxKit.Settings s = base(c)) {
+            boolean[] r = c.onClient(mc -> {
+                Object cfg = Mod.cfg(BC_CFG);
+                Mod.call(cfg, "setTriggerBotEnabled", true);
+                Mod.call(cfg, "setAuraEnabled", true);
+                boolean a1 = (Boolean) Mod.call(cfg, "getTriggerBotRaw");
+                boolean a2 = (Boolean) Mod.call(cfg, "getAuraRaw");
+                Mod.call(cfg, "setTriggerBotEnabled", true);
+                boolean b1 = (Boolean) Mod.call(cfg, "getTriggerBotRaw");
+                boolean b2 = (Boolean) Mod.call(cfg, "getAuraRaw");
+                return new boolean[]{a1, a2, b1, b2};
+            });
+            c.check(!r[0] && r[1], "Aura ON did not turn the Trigger Bot off (trigger " + r[0] + ", aura " + r[1] + ")");
+            c.check(r[2] && !r[3], "Trigger Bot ON did not turn the Aura off (trigger " + r[2] + ", aura " + r[3] + ")");
+            // A saved file with both ON loads as Aura ON, Trigger Bot OFF; no auraRotate key = Rotate (the old behavior).
+            java.nio.file.Files.writeString(file, "{\"enabled\":true,\"triggerBotEnabled\":true,\"auraEnabled\":true}");
+            boolean[] l = c.onClient(mc -> {
+                Mod.staticCall(BC_CFG, "load");
+                Object cfg = Mod.cfg(BC_CFG);
+                return new boolean[]{(Boolean) Mod.call(cfg, "getTriggerBotRaw"), (Boolean) Mod.call(cfg, "getAuraRaw"),
+                        (Boolean) Mod.call(cfg, "isAuraRotate")};
+            });
+            c.check(!l[0] && l[1], "a file with both ON loaded trigger " + l[0] + ", aura " + l[1] + " (want off, on)");
+            c.check(l[2], "an old file without auraRotate did not load as Rotate");
+            java.nio.file.Files.writeString(file, "{\"enabled\":true,\"auraEnabled\":true,\"auraRotate\":false}");
+            boolean noRot = c.onClient(mc -> {
+                Mod.staticCall(BC_CFG, "load");
+                return !(Boolean) Mod.call(Mod.cfg(BC_CFG), "isAuraRotate");
+            });
+            c.check(noRot, "auraRotate false in the file did not load as No Rotate");
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(BC_CFG), "setAuraRotate", true);
+                Mod.call(Mod.cfg(BC_CFG), "save");
+                return null;
+            });
+            String json = java.nio.file.Files.readString(file);
+            c.check(json.contains("\"auraRotate\": true"), "the saved file lacks auraRotate true: " + json);
+        } finally {
+            if (before != null) {
+                java.nio.file.Files.write(file, before);
+            } else {
+                java.nio.file.Files.deleteIfExists(file);
+            }
+            c.onClient(mc -> {
+                Mod.staticCall(BC_CFG, "load");
+                return null;
+            });
+        }
+        // The Trigger Bot is asked for first and the Aura second: the Aura acts, the Trigger Bot does not click.
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "AuraEnabled", true);
+            c.check(!c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(BC_CFG), "getTriggerBotRaw")), "Trigger Bot still ON with the Aura on");
+            watcher(c, WATCHER_IN);
+            stand(c, AWAY_YAW, 10f);
+            int aura0 = intStat(c, "auraAttacks");
+            Trip t = trip(c, Mob.FRAGILE, false, 40, null);
+            int aura = intStat(c, "auraAttacks") - aura0;
+            c.note("aura on, trigger bot asked for first: " + fmt(t) + ", aura attacks " + aura);
+            c.check(aura >= 1, "the Aura never clicked - nothing tested");
+            c.check(t.clicks == 0, "the Trigger Bot clicked " + t.clicks + " time(s) while the Aura was on");
+        } finally {
+            c.hx().removeStands();
+        }
+    }
+
+    /** No Rotate: no humanized turn, the camera never moves, the body snaps to the mob in one tick (a big step) and is given
+     *  back, and the click lands on the mob. */
+    private static void auraNoRotate(Session c) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: no Aura");
+            return;
+        }
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "AuraRotate", false);
+            watcher(c, WATCHER_IN);
+            stand(c, AWAY_YAW, 10f);
+            List<float[]> views = new ArrayList<>();
+            List<Boolean> held = new ArrayList<>();
+            int aura0 = intStat(c, "auraAttacks");
+            Trip t = trip(c, Mob.FRAGILE, false, 40, (i, mc) -> {
+                views.add(new float[]{(Float) Mod.staticCall(VF, "viewYaw"), (Float) Mod.staticCall(VF, "viewPitch")});
+                held.add((Boolean) Mod.staticCall(VF, "isHeld"));
+            });
+            int aura = intStat(c, "auraAttacks") - aura0;
+            double maxStep = 0;
+            for (float[] d : steps(t.looks)) {
+                maxStep = Math.max(maxStep, Math.abs(d[0]));
+            }
+            int heldTicks = 0;
+            double viewMove = 0;
+            for (int i = 0; i < held.size(); i++) {
+                if (held.get(i)) {
+                    heldTicks++;
+                    viewMove = Math.max(viewMove, Math.abs(net.minecraft.util.Mth.wrapDegrees(views.get(i)[0] - AWAY_YAW))
+                            + Math.abs(views.get(i)[1] - 10f));
+                }
+            }
+            float[] last = t.looks.get(t.looks.size() - 1);
+            double backOff = Math.abs(net.minecraft.util.Mth.wrapDegrees(last[0] - AWAY_YAW)) + Math.abs(last[1] - 10f);
+            c.note(String.format(Locale.ROOT, "No Rotate: biggest one-tick yaw step %.1f, camera held %d ticks and moved %.3f deg, "
+                    + "body %.2f deg off at the end; aura attacks %d; %s", maxStep, heldTicks, viewMove, backOff, aura, fmt(t)));
+            c.check(aura >= 1 && !t.serverAttacks.isEmpty(), "the Aura never hit the mob (attacks " + aura + ", server " + t.serverAttacks + ")");
+            c.check(!t.everTurning, "No Rotate ran the humanized turn");
+            c.check(maxStep > 30, "the body did not snap (biggest one-tick step " + maxStep + "); a humanized turn is capped at 26");
+            c.check(heldTicks >= 1 && viewMove < 0.01, "the camera was not held still (held " + heldTicks + " ticks, moved " + viewMove + ")");
+            c.check(backOff < 0.6, "the body was not given back under the camera (" + backOff + " deg off)");
+        } finally {
             c.hx().removeStands();
         }
     }

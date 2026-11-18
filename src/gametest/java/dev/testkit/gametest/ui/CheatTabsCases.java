@@ -47,7 +47,7 @@ final class CheatTabsCases {
     private static final String ACC_CFG = "autoclosechest.AutoCloseChestConfig";
     private static final String TIPS = "gui.SettingTooltips";
     private static final List<String> AUTO_ROWS = List.of("Trigger Bot", "Aura", "Mage Only", "Auto Detect Lag",
-            "Trigger Offset", "Never Miss", "Freecam Mode");
+            "Trigger Offset", "Never Miss", "Rotation", "Freecam Mode");
     // Countdown Start Sound and Start Sound Type were removed on purpose in mod b357f6de (2026-10-18: the start sound no
     // longer plays and "its rows are gone; its saved value still loads"); 392 checks the sound stays silent.
     private static final List<String> LEGIT_ROWS = List.of("Show Overlay", "Kill Popup", "Spawn Line",
