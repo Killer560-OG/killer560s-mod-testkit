@@ -136,7 +136,7 @@ final class InteractiveMapCases {
                 c.ticks(2);
                 c.ctx().getInput().pressMouse(dev.testkit.compat.McKeys.mouse(0));
                 c.ticks(5);
-                String now = c.onClient(mc -> mc.screen == null ? "null" : mc.screen.getClass().getName());
+                String now = c.onClient(mc -> McCompat.screen(mc) == null ? "null" : McCompat.screen(mc).getClass().getName());
                 c.note("screen after the click: " + now);
                 c.check(!now.contains("InteractiveMapScreen"), "clicking the map HUD opened the Interactive Map: " + now);
             }
