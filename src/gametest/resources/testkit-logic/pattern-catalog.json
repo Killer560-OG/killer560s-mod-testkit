@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T14:17:14",
+ "generatedAt": "2026-11-18T15:46:56",
  "modSource": "km-playersecrets",
- "modGitSha": "fe9f5f095d9d0eca4d0885e307ef516926e2b4f3",
+ "modGitSha": "073c116a9822b30d7d06683709dcfca004509e25",
  "modSourceDirty": false,
  "count": 995,
  "byKind": {
@@ -3703,7 +3703,7 @@
    "field": "BLANK",
    "index": null,
    "file": "src/main/java/com/killer560/hub/enchantcolors/EnchantColorsFeature.java",
-   "line": 291,
+   "line": 297,
    "regex": "^(?:§.| )*$",
    "flags": null,
    "kind": "field",
@@ -3715,7 +3715,7 @@
    "field": "GRAY_START",
    "index": null,
    "file": "src/main/java/com/killer560/hub/enchantcolors/EnchantColorsFeature.java",
-   "line": 293,
+   "line": 299,
    "regex": "^(?:§[^78])*§[78]",
    "flags": null,
    "kind": "field",
