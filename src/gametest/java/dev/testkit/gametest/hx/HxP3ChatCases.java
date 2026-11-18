@@ -43,6 +43,7 @@ final class HxP3ChatCases {
 
     static void register(Session s) {
         statusHud(s);
+        sectionTotals(s);
         titles(s);
         chatHider(s);
         s.test("1108-hx-terminal-breakdown", HxP3ChatCases::breakdown);
@@ -223,6 +224,78 @@ final class HxP3ChatCases {
                 endP3(c);
                 c.server().command("tp " + self + " -419.5 151 -419.5");
                 c.server().command("forceload remove 108 77 112 81");
+            }
+        });
+    }
+
+    // ---- 1117 ---------------------------------------------------------------------------------------------------
+
+    /** Finishes one section by chat: its terminals, two levers and the device, then (sections 1-3) the gate line. */
+    private static void finishSection(Session c, int sec, int terms, boolean gate) {
+        int tot = terms + 3;
+        c.check(("Terminals 0/" + terms).equals(row(hud(c), "Terminals")), "S" + sec + " starts at Terminals 0/" + terms + ": " + hud(c));
+        for (int i = 1; i <= terms; i++) {
+            c.hx().chat("HxMateA activated a terminal! (" + i + "/" + tot + ")");
+        }
+        waitRow(c, "Terminals", "Terminals " + terms + "/" + terms);
+        c.hx().chat("HxMateB activated a lever! (" + (terms + 1) + "/" + tot + ")");
+        c.hx().chat("HxMateB activated a lever! (" + (terms + 2) + "/" + tot + ")");
+        c.hx().chat("HxMateA completed a device! (" + tot + "/" + tot + ")");
+        waitRow(c, "Device", "Device 1/1");
+        waitRow(c, "Levers", "Levers 2/2");
+        if (gate) {
+            c.ctx().waitTicks(8); // ChatObserver drops an identical line inside 250 ms (the previous section's gate line)
+            c.hx().chat("The gate has been destroyed!");
+        }
+    }
+
+    private static void sectionTotals(Session s) {
+        s.test("1117-hx-p3-section-totals", c -> {
+            dungeon(c);
+            c.ctx().waitTicks(30);
+            try (Settings st = new Settings(c)) {
+                st.custom(() -> Mod.set(CFG, "setEnabled", true), () -> Mod.set(CFG, "setEnabled", false));
+                c.hx().chat(GOLDOR);
+                waitRow(c, "Terminals", "Terminals 0/4");
+                finishSection(c, 1, 4, true);
+                waitRow(c, "Terminals", "Terminals 0/5");
+                finishSection(c, 2, 5, true);
+                waitRow(c, "Terminals", "Terminals 0/4");
+                finishSection(c, 3, 4, true);
+                waitRow(c, "Terminals", "Terminals 0/4");
+                c.check(hud(c).equals(List.of("Terminals 0/4", "Device 0/1", "Levers 0/2")), "S4 rows (no gate): " + hud(c));
+                finishSection(c, 4, 4, false);
+            } finally {
+                endP3(c);
+            }
+        });
+        // S3 worked while S2 is unfinished: its (n/7) lines are S3's, and must not fill S2's rows (the sim's 'Terminals 4/5').
+        s.test("1117-hx-p3-early-section", c -> {
+            dungeon(c);
+            String self = self(c);
+            try (Settings st = new Settings(c)) {
+                st.custom(() -> Mod.set(CFG, "setEnabled", true), () -> Mod.set(CFG, "setEnabled", false));
+                c.hx().chat(GOLDOR);
+                waitRow(c, "Terminals", "Terminals 0/4");
+                finishSection(c, 1, 4, true);
+                waitRow(c, "Terminals", "Terminals 0/5");
+                c.hx().chat("HxMateA activated a terminal! (1/8)");
+                waitRow(c, "Terminals", "Terminals 1/5");
+                c.server().command("forceload add -3 91 1 95");
+                c.server().sync(20);
+                c.server().command("fill -3 117 91 1 117 95 minecraft:stone");
+                c.server().command("tp " + self + " -1.5 118 93.5");
+                c.waitUntil("standing in S3", mc -> mc.player.position().distanceToSqr(-1.5, 118, 93.5) < 0.01 && mc.player.onGround(), 100);
+                c.hx().chat("HxMateA activated a terminal! (1/7)");
+                c.hx().chat("HxMateA activated a terminal! (2/7)");
+                c.ctx().waitTicks(10);
+                c.check("Terminals 1/5".equals(row(hud(c), "Terminals")), "S3's lines filled S2's rows: " + hud(c));
+                c.hx().chat("HxMateB activated a terminal! (2/8)");
+                waitRow(c, "Terminals", "Terminals 2/5");
+            } finally {
+                endP3(c);
+                c.server().command("tp " + self + " -419.5 151 -419.5");
+                c.server().command("forceload remove -3 91 1 95");
             }
         });
     }

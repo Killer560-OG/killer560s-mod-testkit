@@ -44,6 +44,7 @@ final class SwapAccountsCases {
         MenuSuite.test(s, "1851-menu-swap-accounts-buttons", SwapAccountsCases::buttons);
         MenuSuite.test(s, "1852-menu-swap-accounts-active", SwapAccountsCases::active);
         MenuSuite.test(s, "1853-menu-swap-accounts-modrinth", SwapAccountsCases::modrinth);
+        AcctSwap1117Cases.register(s);
     }
 
     static final String[] NAMES = {"HxSwapAlpha", "HxSwapBravo", "HxSwapActive", "HxSwapProxied", "HxSwapEcho",
