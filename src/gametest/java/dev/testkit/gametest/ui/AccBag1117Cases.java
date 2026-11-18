@@ -8,6 +8,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.inventory.ChestMenu;
+import dev.testkit.compat.McItems;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.CustomData;
@@ -94,9 +95,9 @@ final class AccBag1117Cases {
                 return null;
             });
             Mod.set(CFG, "setEnabled", true);
-            open(c, "(1/6) Accessory Bag", List.of(owned("A_T1"), owned("D_T"), named(Items.GRAY_DYE, "Alpha Ring"),
-                    named(Items.GRAY_DYE, "Gamma Ring"), named(Items.GRAY_DYE, "Beta Talisman"),
-                    named(Items.GRAY_DYE, "Beta Ring"), named(Items.GRAY_DYE, "Mystery Charm"),
+            open(c, "(1/6) Accessory Bag", List.of(owned("A_T1"), owned("D_T"), named(McItems.GRAY_DYE, "Alpha Ring"),
+                    named(McItems.GRAY_DYE, "Gamma Ring"), named(McItems.GRAY_DYE, "Beta Talisman"),
+                    named(McItems.GRAY_DYE, "Beta Ring"), named(McItems.GRAY_DYE, "Mystery Charm"),
                     named(Items.OAK_SIGN, "Search"), named(Items.HOPPER, "Sort"), named(Items.BARRIER, "Close")));
             String p = panel(c);
             c.note("panel: " + p);
@@ -109,7 +110,7 @@ final class AccBag1117Cases {
             close(c);
 
             // The Rift's own bag (plain title, other accessories) is not the main bag: nothing of it is read.
-            open(c, "Accessory Bag", List.of(owned("A_R2"), owned("C_R"), named(Items.GRAY_DYE, "Crux Talisman")));
+            open(c, "Accessory Bag", List.of(owned("A_R2"), owned("C_R"), named(McItems.GRAY_DYE, "Crux Talisman")));
             c.check(rankIds(c).contains("A_R2") && rankIds(c).contains("C_R"), "the Rift bag was read as the main bag: " + rankIds(c));
             c.check(panel(c).equals(p), "the Rift bag changed the panel: " + panel(c));
             close(c);
