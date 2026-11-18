@@ -320,6 +320,112 @@ final class BarsEditPanelCases {
      * held take 20 each off the Mana Bar (400, the bar drawn shorter); a change with attack released costs nothing; the
      * frozen figure printed again keeps 400; a new figure (450) wins; the expiry line stops the drain.
      */
+    /** Places stone (or air) one block up and {@code dx} east, {@code dz} south of the player, as the server. */
+    private static void setBlockNear(UiCase c, int dx, int dz, boolean stone) {
+        HudEditorCases.serverPlayer(c, sp -> sp.level().setBlockAndUpdate(sp.blockPosition().offset(dx, 2, dz),
+                stone ? net.minecraft.world.level.block.Blocks.STONE.defaultBlockState()
+                        : net.minecraft.world.level.block.Blocks.AIR.defaultBlockState()));
+    }
+
+    /** Stone then air at {@code n} spots around the player in one server tick each: a section update, as Hypixel sends. */
+    private static void breakBurst(UiCase c, int n) {
+        HudEditorCases.serverPlayer(c, sp -> {
+            for (int k = 0; k < n; k++) {
+                sp.level().setBlockAndUpdate(sp.blockPosition().offset(k % 9 - 4, 3 + k / 81, k / 9 % 9 - 4),
+                        net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+            }
+        });
+        HudEditorCases.serverPlayer(c, sp -> {
+            for (int k = 0; k < n; k++) {
+                sp.level().setBlockAndUpdate(sp.blockPosition().offset(k % 9 - 4, 3 + k / 81, k / 9 % 9 - 4),
+                        net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+            }
+        });
+    }
+
+    /**
+     * 1117-ui-maniac-replay (maniaccap-1117): the signals one recorded Maniac Miner run gave, in order (a Titanium Drill on
+     * Hypixel, 2026-11-17): mana 2,300 on the bar, the use line, then 7 seconds of block bursts (36, 56, 40, 29, 45, 37, 32
+     * blocks a second) while the action bar shows only the drill's fuel and no mana, then the bar prints 63 and 122 again
+     * (mana had run out: 275+ blocks at 20 each), then the expiry line. The mod's mana must read 1,580, 460, then 0 for
+     * the rest of the bursts (never below 0), 63 and 122 once the bar prints them, the drain must stop with the expiry
+     * line, and a second run whose expiry line never comes must stop draining when its time is up.
+     */
+    static void maniacReplay(UiCase c) throws Exception {
+        Map<Path, byte[]> saved = HudFixCases.snapshot(c, PS, HUD);
+        int[] window = HudEditorCases.windowSize(c);
+        int gui = c.onClient(mc -> mc.options.guiScale().get());
+        boolean gate = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+        Object mode = c.onClient(mc -> mc.gameMode == null ? null : mc.gameMode.getPlayerMode());
+        try {
+            HudEditorCases.setWindow(c, 854, 480, 2);
+            setup(c);
+            c.onClient(mc -> {
+                Mod.staticCall("util.SkyblockGate", "setEnabled", false);
+                return null;
+            });
+            HudEditorCases.serverPlayer(c, sp -> sp.setGameMode(net.minecraft.world.level.GameType.ADVENTURE));
+            HudEditorCases.actionBar(c, "§c1,000/1,000❤     §b2,300/2,314✎ Mana");
+            c.ticks(5);
+            c.check(mana(c) == 2300, "the action bar mana did not read 2,300: " + mana(c));
+            HudEditorCases.serverPlayer(c, sp -> sp.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                    "§aYou used your §6Maniac Miner §aPickaxe Ability!"), false));
+            c.ticks(3);
+            c.check(c.onClient(mc -> (Long) R.getStatic(R.cls(FEATURE), "maniacUntil")) > System.currentTimeMillis(),
+                    "the use line did not start the drain");
+            int[] bursts = {36, 56, 40, 29, 45, 37, 32};
+            long[] want = {1580, 460, 0, 0, 0, 0, 0};
+            for (int i = 0; i < bursts.length; i++) {
+                HudEditorCases.actionBar(c, "§62,793/2,418     §232,5" + (50 - i) + "/100k Drill Fuel     §3+41.2 Mining (87.4%)");
+                breakBurst(c, bursts[i]);
+                c.ticks(3);
+                c.check(mana(c) == want[i], "after burst " + (i + 1) + " (" + bursts[i] + " blocks) mana read " + mana(c) + ", want " + want[i]);
+            }
+            HudEditorCases.actionBar(c, "§c1,000/1,000❤     §b63/2,314✎ Mana");
+            c.ticks(5);
+            c.check(mana(c) == 63, "the printed 63 did not win over the drained 0: " + mana(c));
+            breakBurst(c, 3);
+            c.ticks(3);
+            c.check(mana(c) == 3, "3 more blocks at 63 mana should read 3: " + mana(c));
+            HudEditorCases.actionBar(c, "§c1,000/1,000❤     §b122/2,314✎ Mana");
+            c.ticks(5);
+            c.check(mana(c) == 122, "the printed 122 did not win: " + mana(c));
+            HudEditorCases.serverPlayer(c, sp -> sp.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                    "§cYour Maniac Miner has expired!"), false));
+            c.ticks(3);
+            c.check(c.onClient(mc -> (Long) R.getStatic(R.cls(FEATURE), "maniacUntil")) == 0, "the expiry line did not stop the drain");
+            breakBurst(c, 5);
+            c.ticks(3);
+            c.check(mana(c) == 122, "blocks after the expiry line cost mana: " + mana(c));
+
+            // A run whose expiry line never comes (the world changed, the line was missed): the 35 s time is its end.
+            HudEditorCases.serverPlayer(c, sp -> sp.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                    "§aYou used your §6Maniac Miner §aPickaxe Ability!"), false));
+            c.ticks(3);
+            breakBurst(c, 2);
+            c.ticks(3);
+            c.check(mana(c) == 82, "a second run's 2 blocks should take 40 off 122: " + mana(c));
+            c.onClient(mc -> {
+                R.setStatic(R.cls(FEATURE), "maniacUntil", System.currentTimeMillis() - 1);
+                return null;
+            });
+            breakBurst(c, 4);
+            c.ticks(3);
+            c.check(mana(c) == 82, "blocks after the 35 s time ran out (no expiry line) cost mana: " + mana(c));
+        } finally {
+            c.onClient(mc -> {
+                R.setStatic(R.cls(FEATURE), "maniacUntil", 0L);
+                Mod.staticCall("util.SkyblockGate", "setEnabled", gate);
+                return null;
+            });
+            if (mode instanceof net.minecraft.world.level.GameType g) {
+                HudEditorCases.serverPlayer(c, sp -> sp.setGameMode(g));
+            }
+            HudEditorCases.setWindow(c, window[0], window[1], gui);
+            HudFixCases.restore(c, saved);
+        }
+    }
+
     static void maniacMana(UiCase c) throws Exception {
         Map<Path, byte[]> saved = HudFixCases.snapshot(c, PS, HUD);
         int[] window = HudEditorCases.windowSize(c);
@@ -347,32 +453,17 @@ final class BarsEditPanelCases {
             c.ticks(3);
             long until = c.onClient(mc -> (Long) R.getStatic(R.cls(FEATURE), "maniacUntil"));
             c.check(until > System.currentTimeMillis(), "the Maniac Miner use line did not start the drain");
-            net.minecraft.core.BlockPos pos = c.onClient(mc -> mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult h
-                    && mc.hitResult.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK ? h.getBlockPos() : null);
-            c.note("aimed at " + pos);
-            if (pos == null) {
-                c.problem("the crosshair is on no block (looking down)");
-                return;
-            }
-            c.onClient(mc -> {
-                mc.options.keyAttack.setDown(true);
-                return null;
-            });
+            // maniaccap-1117: any block the server turns to air near him costs 20, aimed or not, attack held or not.
             for (int i = 0; i < 5; i++) {
-                net.minecraft.world.level.block.Block b = i % 2 == 0 ? net.minecraft.world.level.block.Blocks.COBBLESTONE
-                        : net.minecraft.world.level.block.Blocks.STONE;
-                HudEditorCases.serverPlayer(c, sp -> sp.level().setBlockAndUpdate(pos, b.defaultBlockState()));
-                c.ticks(3);
+                setBlockNear(c, 2 + i, 2, true);
+                setBlockNear(c, 2 + i, 2, false);
             }
-            c.onClient(mc -> {
-                mc.options.keyAttack.setDown(false);
-                return null;
-            });
-            c.check(mana(c) == 400, "five blocks under Maniac Miner left mana at " + mana(c) + ", want 400 (5 x 20)");
-            HudEditorCases.serverPlayer(c, sp -> sp.level().setBlockAndUpdate(pos,
-                    net.minecraft.world.level.block.Blocks.COBBLESTONE.defaultBlockState()));
-            c.ticks(3);
-            c.check(mana(c) == 400, "a block change with attack released cost mana: " + mana(c));
+            c.check(mana(c) == 400, "five blocks broken near him under Maniac Miner left mana at " + mana(c) + ", want 400 (5 x 20)");
+            setBlockNear(c, 2, 2, true);
+            c.check(mana(c) == 400, "a block PLACED cost mana: " + mana(c));
+            setBlockNear(c, 40, 2, true);
+            setBlockNear(c, 40, 2, false);
+            c.check(mana(c) == 400, "a block broken 40 blocks away cost mana: " + mana(c));
             HudEditorCases.actionBar(c, MANA_LINE);
             c.ticks(5);
             c.check(mana(c) == 400, "the frozen 500 printed again undid the drain: " + mana(c));

@@ -355,6 +355,8 @@ final class PartyFinderSpeedCases {
         System.out.println(tag + "fake port " + portProp + ", mod pf-relay -> " + relayUrl);
         c.check(portProp != null && relayUrl != null && relayUrl.contains("127.0.0.1:" + portProp),
                 "build.gradle must point pf-relay at the fake (testkit.fakeHttp.port " + portProp + ", pf-relay " + relayUrl + ")");
+        // MojangBudget keeps the SkyBlockPV sign-in quiet for 30 s after a server join (the mod is right); the case measures 60 s
+        Mod.staticCall("util.MojangBudget", "resetForTest");
         forgetAll(c);
         PartyFinderRelayCases.dropAllWants(c);
         Path dir = Fixtures.root().getParent().resolve("testkit-http").resolve("partyfinder-stats");
