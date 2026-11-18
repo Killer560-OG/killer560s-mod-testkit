@@ -205,7 +205,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxMining3Cases.register(s);
                     // mod glacitecomm-c-1114: the Glacite Mineshafts card (1114-mineshaft-*).
                     HxMineshaft1114Cases.register(s);
-                    // Hide Ghost Mobs: a mob the server stopped sending is hidden, a still real one never (1109-ghostmob-hide, mod ghostmob-1109).
+                    // Hide Ghost Mobs: a silent starred mob in a map-cleared room is hidden, idle, unstarred or later-heard ones never (1109-ghostmob-hide, 1118-ghostmob-*, mod ghostmob-redo-1118).
                     HxGhostMob1109Cases.register(s);
                     // mod featC-1108: Puzzle HUD, Reparty, Watcher Helper.
                     HxFeatC1108Cases.register(s);

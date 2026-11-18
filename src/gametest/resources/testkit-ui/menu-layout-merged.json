@@ -49,6 +49,7 @@
     "gui.tab.RepartyTab": "Dungeons > Reparty",
     "gui.tab.WatcherHelperTab": "Dungeons > Watcher Helper",
     "gui.tab.CarryTrackerTab": "Dungeons > Carry Tracker",
+    "gui.tab.MissingEnchantsTab": "Items > Missing Enchants",
     "gui.tab.BazaarOrderHelperTab": "Items > Order Helper",
     "gui.tab.ReforgeHelperTab": "Items > Reforge Helper",
     "gui.tab.PeekChatTab": "Chat > Peek Chat",
@@ -532,6 +533,13 @@
       "key": "funny map",
       "gone": "map-overhaul-1015 (killer560 2026-10-15 Dungeon Map list): Funny Map is a cheat-build setting now",
       "variant": "legit"
+    },
+    {
+      "owner": "Dungeon Map",
+      "key": "stream safe",
+      "text": "Cheat build, Funny Map, Windows: anything that records or shares the game (OBS, Discord, the Windows recorder, F2) sees the normal Dungeon Map, while you see the Funny Map in a window over it that capture skips. Stream Safe hides the Funny Map and the mimic room from viewers on the HUD map only: the Interactive Map and other Funny Map extras stay visible. In exclusive fullscreen you see the normal map too. Needs Windows 10 2004 or newer.",
+      "why": "streamsafemap-1118 (killer560 2026-11-18): viewers of a stream or recording see the normal map, he still sees the Funny Map",
+      "variant": "cheat"
     },
     {
       "owner": "(unscoped)",
