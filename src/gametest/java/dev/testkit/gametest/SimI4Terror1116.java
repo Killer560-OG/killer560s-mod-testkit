@@ -98,7 +98,7 @@ final class SimI4Terror1116 {
         ctx.runOnClient(mc -> {
             mc.player.getInventory().setSelectedSlot(0);
             ModUnderTest.call(cfg, "setAutoI4Weapon", new Class<?>[]{weapon.getClass()}, new Object[]{weapon});
-            ModUnderTest.call(cfg, "setCpsRange", new Class<?>[]{int.class, int.class}, new Object[]{8, 8});
+            ModUnderTest.call(cfg, "setDelayRange", new Class<?>[]{int.class, int.class}, new Object[]{125, 125});
             ModUnderTest.call(cfg, "setShotAccuracyPercent", new Class<?>[]{int.class}, new Object[]{100});
             ModUnderTest.set(cfg, "setAutoI4Rotate", true);
             ModUnderTest.set(cfg, "setAutoI4Predictions", false);
