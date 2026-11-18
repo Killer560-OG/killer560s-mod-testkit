@@ -366,6 +366,8 @@ final class InvBatchMenuCases {
             check(c, wrong, "E after the dungeon: key blocked again", wire(c, () -> drop(c, false)), 0);
             c.hx().give(1, "minecraft:diamond");
             c.waitUntil("the diamond back", mc -> mc.player.getInventory().getItem(1).is(Items.DIAMOND), 60);
+            c.ctx().runOnClient(mc -> mc.player.getInventory().setSelectedSlot(1));
+            c.ctx().waitTicks(3);
 
             // C: Block Every Drop OFF with Lock Hotbar on: an unlocked hotbar item drops as in vanilla.
             c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(IPC), "setBlockEveryHotbarDrop", false));
