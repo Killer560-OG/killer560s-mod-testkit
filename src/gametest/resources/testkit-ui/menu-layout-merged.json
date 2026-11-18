@@ -44,6 +44,7 @@
     "gui.tab.ChocolateFactoryTab": "Misc > Chocolate Factory",
     "gui.tab.KickRejoinTab": "Misc > Kick Rejoin Timer",
     "gui.tab.PuzzleHudTab": "Dungeons > Puzzle HUD",
+    "gui.tab.AutoAcceptInvitesTab": "Social > Auto Accept Invites",
     "gui.tab.RepartyTab": "Dungeons > Reparty",
     "gui.tab.WatcherHelperTab": "Dungeons > Watcher Helper",
     "gui.tab.CarryTrackerTab": "Dungeons > Carry Tracker",
@@ -1037,6 +1038,24 @@
       "owner": "Dungeon Breaker",
       "key": "zero ping",
       "gone": "Zero Ping Dungeon Breaker removed (mod aed527317); its tooltip row is gone (quarfix-1115)"
+    },
+    {
+      "owner": "Compactor Preview",
+      "key": "compactor preview",
+      "text": "Hover a Personal Compactor and its tooltip lists the Sack items it compacts; hover a Personal Deletor and it shows a grid of the items it deletes. No need to open either.",
+      "why": "pv0273-1117: SkyBlock 0.27.3 compactors have no slots, they compact a list of Sack items"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "compactor preview",
+      "text": "Hover a Personal Compactor and its tooltip lists the Sack items it compacts; hover a Personal Deletor and it shows a grid of the items it deletes. No need to open either.",
+      "why": "pv0273-1117: SkyBlock 0.27.3 compactors have no slots, they compact a list of Sack items"
+    },
+    {
+      "owner": "Compactor Preview",
+      "key": "show",
+      "text": "On Hover adds the preview to the tooltip whenever you hover the item. While Holding Key adds it only while the key is held. Left click goes forward, right click back.",
+      "why": "pv0273-1117: the preview is a list for compactors, a grid for deletors"
     }
   ]
 }

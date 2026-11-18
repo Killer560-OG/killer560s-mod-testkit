@@ -52,8 +52,7 @@ final class HxFiestaFlask1116Cases {
     }
 
     private static void timer(Session c) {
-        try (Settings set = new Settings(c).with(CFG, "FiestaFlask", true).with(CFG, "FiestaFlaskAlert", true)
-                .with(CFG, "FiestaFlaskPause", true)) {
+        try (Settings set = new Settings(c).with(CFG, "FiestaFlask", true).with(CFG, "FiestaFlaskAlert", true)) {
             c.onClient(mc -> Mod.staticCall(FF, "resetForTest"));
             area(c, "Event: Mining Fiesta");
             c.ctx().waitTicks(30);

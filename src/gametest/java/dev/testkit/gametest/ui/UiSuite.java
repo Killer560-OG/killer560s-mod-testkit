@@ -111,7 +111,7 @@ public class UiSuite implements FabricClientGameTest {
             "433-ui-pack-disabler-refresh", "434-ui-pack-disabler-menu-maps",
             "451-ui-hotbar-theme", "452-ui-inventory-theme-settings", "453-ui-storage-overlay-centre",
             "454-ui-storage-overlay-themes",
-            "441-ui-bars-under-screens", "1104-ui-barsedit-panel", "1104-ui-drill-fuel", "1110-ui-skillxp-text", "1104-ui-maniac-mana", "442-ui-bars-absorption", "443-ui-bars-predefined-scale", "444-ui-bars-padding",
+            "441-ui-bars-under-screens", "1104-ui-barsedit-panel", "1104-ui-drill-fuel", "1110-ui-skillxp-text", "1104-ui-maniac-mana", "1117-ui-maniac-replay", "442-ui-bars-absorption", "443-ui-bars-predefined-scale", "444-ui-bars-padding",
             "445-ui-map-info", "446-ui-split-format", "447-ui-scoreboard-solo"};
     /** killer560's 2026-10-07 22:08 polish report ({@link PolishCases}); 472 is in the menu suite. Own block for merges. */
     static final String[] POLISH_CASES = {"471-ui-held-item-name", "473-ui-inventory-line-pixels",
@@ -638,6 +638,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1104-ui-drill-fuel", BarsEditPanelCases::drillFuel);
                     UiCase.run(ctx, "1110-ui-skillxp-text", BarsEditPanelCases::skillXpText);
                     UiCase.run(ctx, "1104-ui-maniac-mana", BarsEditPanelCases::maniacMana);
+                    UiCase.run(ctx, "1117-ui-maniac-replay", BarsEditPanelCases::maniacReplay);
                     // ---- polish (471-476) ----
                     UiCase.run(ctx, "471-ui-held-item-name", PolishCases::heldItemName);
                     UiCase.run(ctx, "473-ui-inventory-line-pixels", PolishCases::linePixels);
@@ -815,6 +816,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1114-ui-accadv-drag", AccAdvisor1114Cases::drag);
                     UiCase.run(ctx, "1114-ui-accadv-mode", AccAdvisor1114Cases::mode);
                     UiCase.run(ctx, "1114-ui-accadv-copy", AccAdvisor1114Cases::copy);
+                    UiCase.run(ctx, "1117-accbag-owned-missing", AccBag1117Cases::ownedMissing);
                     UiCase.run(ctx, "1115-ui-bugcmd", BugCmd1115Cases::bugCmd);
                     // ---- doc-small (807) ----
                     UiCase.run(ctx, "807-ui-doc-small-1014", DocSmall1014Cases::docSmall);
