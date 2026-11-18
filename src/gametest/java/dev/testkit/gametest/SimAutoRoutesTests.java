@@ -124,6 +124,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1101-ecancel",
             // arfinder-1115: finder routes played in their rooms (model ticks == sim ticks)
             "96-ar-1115-arfinder",
+            // arwrong-1118: a node chain turns in the landing's teleport answer; a same-tick sneak casts from the standing eye
+            "96-ar-1118-nodechain", "96-ar-1118-freshsneak",
             // secretfade-1102: a taken secret's waypoint goes within 2 ticks, and Secret Clicked leaves no gold box
             "96-ar-1102-secrettaken",
             // ar-warp-after-click (2026-10-15): Hypixel ignores a use right after a block click with the same item
@@ -360,6 +362,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1015-earlyskip" -> ArMainServerCases.earlySkip(ctx);
                         case "96-ar-1015-mimicskip" -> ArMainServerCases.mimicSkip(ctx);
                         case "96-ar-1101-ecancel" -> caseEmergencyCancel(ctx);
+                        case "96-ar-1118-nodechain" -> Ar1118Cases.nodeChain(ctx);
+                        case "96-ar-1118-freshsneak" -> Ar1118Cases.freshSneak(ctx);
                         case "96-ar-1115-arfinder" -> { try { caseArFinder(ctx); } catch (Exception e) { throw new RuntimeException(e); } }
                         case "96-ar-1102-secrettaken" -> caseSecretTaken(ctx);
                         case "96-ar-1015-warpclick" -> ArMainServerCases.warpAfterClick(ctx);
@@ -9115,12 +9119,12 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         "the warp after a lever click made with the AOTV held was ignored or did not land (landed "
                                 + same.landTick() + ", traveled " + String.format(Locale.US, "%.2f", same.travelled())
                                 + ", uses ignored " + same.dropped() + ")");
-                // Since mod c81e0cf0 (2026-10-19) a warp goes no sooner than RouteExecutor.CLICK_TO_WARP_TICKS (2) after a
-                // block click made with the same item: on Hypixel 45 of 69 warps one tick after such a click got no
-                // teleport, 1 of 7 at two ticks, 0 of ~250 at three or more (his Mod Only Test / Untested Cheat logs).
-                // So the second tick is the first one Hypixel reliably takes; any later is a wasted tick.
-                check(same.actedAfterFiring() <= 2, "the warp after the lever click went " + same.actedAfterFiring()
-                        + " tick(s) after firing - it must go on the click-gap's tick (2), not later");
+                // A warp goes no sooner than RouteExecutor.CLICK_TO_WARP_TICKS after a block click made with the same item
+                // (mod c81e0cf0, 2026-10-19: 2; arwrong-1118: 3). On Hypixel 45 of 69 warps one tick after such a click got
+                // no teleport, and his 2026-11-18 routes had 15 of 74 refused two ticks after, 30 of 30 landing at three.
+                // So the third tick is the first one Hypixel reliably takes: sooner is the refusal, later a wasted tick.
+                check(same.actedAfterFiring() == 3, "the warp after the lever click went " + same.actedAfterFiring()
+                        + " tick(s) after firing - it must go on the click-gap's tick (3)");
                 check(item.acted() && item.dropped() == 0 && item.landTick() >= 0 && !item.turnedFirst(),
                         "the warp after an item pickup did not go and land at once (landed " + item.landTick()
                                 + ", ignored " + item.dropped() + ", turned first " + item.turnedFirst() + ")");
@@ -9442,6 +9446,141 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 }
             }
             return null;
+        }
+    }
+
+    /**
+     * arwrong-1118 (killer560, 2026-11-18: "look at my auto route testing ... every time it warped wrong ... find fixes").
+     * <ul>
+     *   <li>{@code 96-ar-1118-nodechain}: two bare etherwarp nodes after a chest clicked with the AOTV held (Secret Aura's
+     *   click). 11 of 32 such chains in his routes (Altar #2-#5, Layers #10-#14) sat a tick on the second node "waiting for
+     *   the server to hear the look first": the look the server heard (the first warp's, carrying on into the arena wall
+     *   2.5 blocks past the landing) meets a block, so the use would pair with the stored click. The second node's look
+     *   must go in the landing's teleport answer, and its warp on the landing tick (acted 0 ticks after firing).</li>
+     *   <li>{@code 96-ar-1118-freshsneak}: the start node is fired standing, so its sneak goes out in the use's own tick, and
+     *   Hypixel casts that use from the standing eye ({@link dev.testkit.harness.FreshSneakEye}). All 7 wrong landings in
+     *   his routes were such uses. A stone floats at (8, F+1, 20): the crouched ray passes under it onto (12, 20), the
+     *   standing ray meets it. The warp must land on (12, 20), never on the floating stone.</li>
+     * </ul>
+     */
+    static final class Ar1118Cases {
+
+        private Ar1118Cases() {
+        }
+
+        static void nodeChain(ClientGameTestContext ctx) {
+            resetRoutes(ctx);
+            arena(ctx, true);
+            giveHotbar(ctx);
+            forgetRunMemory(ctx);
+            setBlocks(ctx, Map.of(new int[]{8, F, 23}, Blocks.CHEST.defaultBlockState()));
+            JsonObject a = ew(6, 20, 12, 20, true);
+            a.addProperty("awaitEnabled", true);
+            a.addProperty("await", "SECRET");
+            a.addProperty("amount", 1);
+            writeRoute(ctx, List.of(a, ew(12, 20, 12, 12, false)));
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+            tpRel(ctx, 4.5, 20.5, 90f, 80f);
+            ctx.waitTicks(10);
+            int turns0 = answerTurns(ctx);
+            long m = LogTap.mark();
+            tpRel(ctx, 6.5, 20.5, 90f, 80f);
+            ctx.waitTicks(10);
+            boolean landed;
+            try {
+                rightClick(ctx, 8, F, 23, Direction.UP);
+                boolean met = waitFor(ctx, 40, () -> awaitMet(m));
+                ctx.runOnClient(mc -> mc.player.closeContainer());
+                check(met, "nodechain: the chest click never met node #1's await - nothing flew");
+                landed = waitLanded(ctx, 12, 12, 100) != null;
+                ctx.waitTicks(5);
+            } finally {
+                stopRoute(ctx);
+                forgetRunMemory(ctx);
+            }
+            String acted = null;
+            for (String l : LogTap.since(m)) {
+                if (l.contains("[AutoRoutes]") && (l.contains("Node #2 ETHERWARP") || l.contains("node #2")
+                        || l.contains("Etherwarp: landed"))) {
+                    println("  " + l);
+                }
+                if (acted == null && l.contains("Node #2 ETHERWARP acted")) {
+                    acted = l;
+                }
+            }
+            int turns = answerTurns(ctx) - turns0;
+            println("nodechain: answer turns " + turns + ", node #2 " + acted);
+            check(landed, "nodechain: node #2's warp did not land on (12, 12), at " + relPos(ctx));
+            check(logHas(m, "hear the look first") || logHas(m, "server hears that look"),
+                    "nodechain: no block click was unpaired at node #2 - the case tests nothing");
+            check(acted != null && acted.contains("acted 0 tick(s)"), "nodechain: node #2's warp did not go on its landing "
+                    + "tick: " + acted);
+            check(turns >= 1 && logHas(m, "body turned to node #2"), "nodechain: node #1's landing did not turn the body "
+                    + "to node #2's look in the teleport answer (answer turns " + turns + ")");
+        }
+
+        static void freshSneak(ClientGameTestContext ctx) {
+            resetRoutes(ctx);
+            arena(ctx, false);
+            giveHotbar(ctx);
+            forgetRunMemory(ctx);
+            setBlocks(ctx, Map.of(new int[]{8, F + 1, 20}, Blocks.STONE.defaultBlockState()));
+            writeRoute(ctx, List.of(ew(6, 20, 12, 20, true)));
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+            tpRel(ctx, 4.5, 20.5, 0f, 0f);
+            ctx.waitTicks(10);
+            int holds0 = freshHolds(ctx);
+            long m = LogTap.mark();
+            ctx.runOnClient(mc -> {
+                dev.testkit.harness.FreshSneakEye.reset();
+                dev.testkit.harness.FreshSneakEye.enabled = true;
+            });
+            startSampling(ctx);
+            List<Sample> s;
+            boolean landed;
+            try {
+                tpRel(ctx, 6.5, 20.5, 0f, 0f);
+                landed = waitLanded(ctx, 12, 20, 60) != null;
+                ctx.waitTicks(5);
+            } finally {
+                s = stopSampling(ctx);
+                stopRoute(ctx);
+                ctx.runOnClient(mc -> dev.testkit.harness.FreshSneakEye.reset());
+            }
+            List<Sample> uses = useTicks(s);
+            int useTick = uses.isEmpty() ? -1 : uses.get(0).tick();
+            boolean fresh = false;
+            for (int i = 1; i < s.size(); i++) {
+                if (s.get(i).tick() == useTick) {
+                    fresh = s.get(i).shift() && !s.get(i - 1).shift();
+                }
+            }
+            double maxY = s.stream().mapToDouble(x -> x.pos().y).max().orElse(Double.NaN);
+            int holds = freshHolds(ctx) - holds0;
+            println(String.format(Locale.US, "freshsneak: landed on (12,20) %s, fresh-sneak holds %d, use at sample tick %d"
+                    + " (its sneak new that tick %s), highest feet %.2f, now at %s", landed, holds, useTick, fresh,
+                    maxY, relPos(ctx)));
+            check(useTick >= 0, "freshsneak: no warp was sent");
+            check(landed, "freshsneak: the warp did not land on (12, 20) - at " + relPos(ctx) + " (the standing eye's ray "
+                    + "met the floating stone at (8, F+1, 20))");
+            check(holds >= 1 && !fresh, "freshsneak: the use went with its sneak in its own tick (" + fresh + ") or no "
+                    + "fresh-sneak hold ran (holds " + holds + ")");
+            check(logHas(m, "Etherwarp PREP") && logHas(m, "sneak not yet at the server"), "freshsneak: the node did not "
+                    + "fire standing - the case tests nothing");
+        }
+
+        private static int answerTurns(ClientGameTestContext ctx) {
+            return ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "answerTurns"));
+        }
+
+        private static int freshHolds(ClientGameTestContext ctx) {
+            return ctx.computeOnClient(mc -> {
+                try {
+                    return (Integer) ModUnderTest.staticCall(EXECUTOR, "freshSneakHolds");
+                } catch (AssertionError | RuntimeException e) {
+                    return 0; // an older jar: no such check
+                }
+            });
         }
     }
 
