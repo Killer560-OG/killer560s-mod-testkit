@@ -29,8 +29,9 @@ final class Melody1111Cases {
 
     static void register(Session s) {
         MenuSuite.test(s, "1111-menu-term-melody-gamble", Melody1111Cases::gamble);
-        MenuSuite.test(s, "1111-same-melody-click", c -> sameTick(c, true));
-        MenuSuite.test(s, "1111-same-melody-click-unblocked", c -> sameTick(c, false));
+        MenuSuite.test(s, "1111-same-melody-click", c -> sameTick(c, true, false));
+        MenuSuite.test(s, "1111-same-melody-click-unblocked", c -> sameTick(c, false, false));
+        MenuSuite.test(s, "1118-same-melody-nodelay", c -> sameTick(c, true, true)); // No First Click Delay In Melody ON, 1000 ms delay
     }
 
     /**
@@ -39,7 +40,7 @@ final class Melody1111Cases {
      * Block Input ON (default): his clicks are held, the auto clicks all land right. OFF: they share server ticks with the
      * auto clicks, which must still all be right. GrimAC (default and experimental) must stay silent.
      */
-    static void sameTick(Session c, boolean block) throws Exception {
+    static void sameTick(Session c, boolean block, boolean noDelay) throws Exception {
         MenuKit.reset(c);
         if (!MenuKit.cheat()) {
             c.note("legit jar: Auto Melody is cheat-only");
@@ -51,7 +52,8 @@ final class Melody1111Cases {
                     .set(CONFIG, "HoverTerminalsEnabled", false).set(CONFIG, "HoldToClickEnabled", false)
                     .set(CONFIG, "AutoStreamSafe", false).set(CONFIG, "BlockInputWhileAutoClicking", block)
                     .set(CONFIG, "MelodySkipMode", Mod.enumValue(CONFIG + "$MelodySkipMode", "EDGES"))
-                    .set(CONFIG, "MelodyLookaheadClicks", 2);
+                    .set(CONFIG, "MelodyLookaheadClicks", 2)
+                    .set(CONFIG, "NoFirstClickDelayMelody", noDelay).set(CONFIG, "FirstClickDelayMs", noDelay ? 1000 : 300);
             c.onClient(mc -> {
                 Latency.install(50);
                 return null;
