@@ -145,10 +145,16 @@ final class CompactorHl1117MenuCases {
             c.check(marks(c).get(11) != null && marks(c).get(11) == 1, "slot 11 after an enabled item arrived: " + marks(c).get(11));
 
             // Other titles of the family are covered, another menu is not.
-            for (String t : List.of("Personal Compactor", "Personal Deletor 7000", "(1/2) Personal Husbandry Compactor")) {
+            for (String t : List.of("Personal Husbandry Compactor", "(1/2) Personal Husbandry Compactor")) {
                 MenuKit.reset(c);
                 open(c, t, slots());
-                c.check(marks(c).size() == 4, "title \"" + t + "\" marks " + marks(c));
+                c.check(marks(c).size() == 4, "skill title \"" + t + "\" marks " + marks(c));
+            }
+            // killer560 11-18: only the skill-specific menus; the plain compactor and the Deletor stay plain.
+            for (String t : List.of("Personal Compactor", "(1/2) Personal Compactor", "Personal Deletor 7000", "Personal Deletor")) {
+                MenuKit.reset(c);
+                open(c, t, slots());
+                c.check(marks(c).isEmpty(), "title \"" + t + "\" must not highlight but marks " + marks(c));
             }
             // Sack / skill sack compactor menus (owner scope 11-17): no overlay, even with ENABLED / DISABLED lore.
             for (String t : List.of("Sacks", "Mining Sack", "(1/2) Mining Sack Compactor", "Sack of Sacks", "Mining Compactor")) {
