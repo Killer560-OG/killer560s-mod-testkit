@@ -147,7 +147,7 @@ final class LightsDeviceUiCases {
                 Object sa = Mod.cls("gui.tab.SecretAuraTab").getConstructor().newInstance();
                 List<String> inBoss = c.onClient(mc -> labels(build(sa)));
                 c.note("Secret Aura with In Boss on: " + inBoss);
-                c.check(hasRow(inBoss, "S2 Section Levers") && hasRow(inBoss, "Boss Lever CPS"),
+                c.check(hasRow(inBoss, "S2 Section Levers") && hasRow(inBoss, "Boss Lever Cooldown"),
                         "In Boss lost its section-lever rows: " + inBoss);
                 for (String l : inBoss) {
                     c.check(l == null || !l.toLowerCase(java.util.Locale.ROOT).contains("light"),
