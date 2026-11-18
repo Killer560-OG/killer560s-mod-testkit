@@ -65,6 +65,10 @@ import java.util.function.BiFunction;
 public class SimMapLeaveSecretsTests implements FabricClientGameTest {
 
     static final String NAME = "1790-sim-map-leave-secrets";
+    /** mapgreen-1118: his Chat Hider "Hide actionbar" starved the map's "x/y Secrets" reader, and a lever click counted. */
+    static final String NAME_HIDDEN = "1118-sim-map-hidden-bar";
+    private static final String CHAT_TIDY = "com.killer560.hub.chattidy.ChatTidyConfig";
+    private static final String RUN_MEMORY = "com.killer560.hub.autoroutes.RouteRunMemory";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
     private static final String ROOM_DOORS = "com.killer560.hub.roomsim.RoomDoors";
     private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
@@ -109,7 +113,12 @@ public class SimMapLeaveSecretsTests implements FabricClientGameTest {
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
-        if (System.getProperty("testkit.scenario", "").isBlank() || Scenario.skip(NAME)) {
+        if (System.getProperty("testkit.scenario", "").isBlank()) {
+            return;
+        }
+        boolean main = !Scenario.skip(NAME);
+        boolean hiddenBar = !Scenario.skip(NAME_HIDDEN);
+        if (!main && !hiddenBar) {
             return;
         }
         ModUnderTest.require("killer560smod");
@@ -126,6 +135,17 @@ public class SimMapLeaveSecretsTests implements FabricClientGameTest {
                 "isEnabledRaw"));
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(LIVE_MAP_CONFIG), "setEnabled", true));
         hook();
+        if (hiddenBar) {
+            try {
+                hiddenBarCase(ctx);
+            } finally {
+                ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(LIVE_MAP_CONFIG), "setEnabled", mapWasOn));
+                leave(ctx);
+            }
+            if (!main) {
+                return;
+            }
+        }
         String only = System.getProperty("testkit.leaveSecrets.kinds", "");
         List<String> verdicts = new ArrayList<>();
         // Finds a room's chest secrets as blocks from anywhere: they go in at the build here (mod sim-secrets-1018).
@@ -172,6 +192,84 @@ public class SimMapLeaveSecretsTests implements FabricClientGameTest {
                     verdicts.stream().filter(v -> v.contains(": FAIL")).toList()));
         }
         println("PASS - every secret registered on the tick he left, or one tick before, counts on the map");
+    }
+
+    /**
+     * mapgreen-1118 (killer560, 2026-11-18: "deathmite 6/6 yet it doesnt go green" while testing Auto Routes). His log: the
+     * room's server count never passed 5/6, the map said 6/6. Two causes, both here: Chat Hider's "Hide actionbar" made
+     * Fabric's GAME event skip the line, so the map's own reader of "x/y Secrets" never ran; and a LEVER click was
+     * counted as a secret. With Hide actionbar ON the map must read the server's count, and a lever click must leave it.
+     */
+    private static void hiddenBarCase(ClientGameTestContext ctx) {
+        Object tidy = ModUnderTest.config(CHAT_TIDY);
+        boolean was = ModUnderTest.getBoolean(tidy, "getHideActionbarRaw");
+        ctx.runOnClient(mc -> ModUnderTest.set(tidy, "setHideActionbar", true));
+        try {
+            String[] pick = ctx.computeOnClient(mc -> pickRooms(Kind.CHEST));
+            if (pick == null) {
+                throw new AssertionError("no usable room with a chest secret and a door to pair");
+            }
+            String r = pick[0];
+            int side = Integer.parseInt(pick[1]);
+            int w = Integer.parseInt(pick[3]);
+            int h = Integer.parseInt(pick[4]);
+            int doorIdx = build(ctx, r, side, pick[2], w, h);
+            int[] dir = side == EAST ? new int[]{1, 0} : new int[]{0, 1};
+            Vec3 door = ctx.computeOnClient(mc -> (Vec3) ModUnderTest.staticCall(LAYOUT, "doorCentre",
+                    new Class<?>[]{int.class}, new Object[]{doorIdx}));
+            BlockPos rMin = cellCenter(ctx, 0, 0).offset(-15, 0, -15);
+            BlockPos rMax = cellCenter(ctx, 2 * w - 2, 2 * h - 2).offset(15, 0, 15);
+            Plan plan = onServer(ctx, (level, sp) -> plan(level, Kind.CHEST, r, pick[2], door, dir, rMin, rMax));
+            if (plan.why != null) {
+                throw new AssertionError("premise - " + plan.why);
+            }
+            teleport(ctx, plan.launch);
+            waitInRoom(ctx, r, 200);
+            ctx.waitTicks(25);
+            int n = onServer(ctx, (level, sp) -> {
+                int total = intField(entry(r), "secrets");
+                for (int i = foundIn(r); i < total - 1; i++) {
+                    ModUnderTest.staticCall(SIM_SCORE, "secretFound", new Class<?>[]{BlockPos.class},
+                            new Object[]{plan.secret});
+                }
+                return total;
+            });
+            ctx.waitTicks(30);
+            int[] map = ctx.computeOnClient(mc -> mapRoom(r));
+            println("hidden bar: " + r + " has " + n + " secret(s), the server counted " + (n - 1) + ", map reads "
+                    + (map == null ? "nothing" : map[0] + "/" + map[1]) + " with Hide actionbar ON");
+            if (map == null || map[0] != n - 1) {
+                throw new AssertionError("with Hide actionbar on the map reads " + (map == null ? "nothing" : map[0] + "/"
+                        + map[1]) + " for " + r + ", the server counted " + (n - 1) + "/" + n);
+            }
+            // A lever click is remembered by the run memory but is no secret: read in the same client tick, before any
+            // action bar could correct it.
+            int[] afterLever = ctx.computeOnClient(mc -> {
+                ModUnderTest.staticCall(RUN_MEMORY, "gotSecret", new Class<?>[]{String.class, Vec3.class, String.class},
+                        new Object[]{"block 118118", new Vec3(plan.secret.getX() + 0.5, plan.secret.getY() + 0.5,
+                                plan.secret.getZ() + 0.5), "lever at " + plan.secret.toShortString()});
+                return mapRoom(r);
+            });
+            println("hidden bar: after a lever click the map reads " + afterLever[0] + "/" + afterLever[1]);
+            if (afterLever[0] != n - 1) {
+                throw new AssertionError("a lever click moved the map's count of " + r + " to " + afterLever[0] + "/" + n
+                        + " (the server counted " + (n - 1) + ")");
+            }
+            // ... and a real secret taken the same way still counts at once.
+            int[] afterChest = ctx.computeOnClient(mc -> {
+                ModUnderTest.staticCall(RUN_MEMORY, "gotSecret", new Class<?>[]{String.class, Vec3.class, String.class},
+                        new Object[]{"block 118119", new Vec3(plan.secret.getX() + 0.5, plan.secret.getY() + 0.5,
+                                plan.secret.getZ() + 0.5), "chest at " + plan.secret.toShortString()});
+                return mapRoom(r);
+            });
+            if (afterChest[0] != n) {
+                throw new AssertionError("a chest click did not count: the map reads " + afterChest[0] + "/" + n);
+            }
+            println("PASS - with Hide actionbar on the map reads the server's " + (n - 1) + "/" + n + ", a lever adds"
+                    + " nothing, a chest adds one");
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.set(tidy, "setHideActionbar", was));
+        }
     }
 
     // ------------------------------------------------------------------------------------------------ rooms
