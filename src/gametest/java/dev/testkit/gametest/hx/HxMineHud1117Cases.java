@@ -30,6 +30,8 @@ final class HxMineHud1117Cases {
         s.test("1117-flask-interp", HxMineHud1117Cases::interp);
         s.test("1117-flask-ends", HxMineHud1117Cases::ends);
         s.test("1117-ability-active", HxMineHud1117Cases::ability);
+        s.test("1117-ability-color", HxMineHud1117Cases::abilityColor);
+        s.test("1117-ability-shots", HxMineHud1117Cases::abilityShots);
     }
 
     private static void area(Session c, String... extraTab) {
@@ -150,6 +152,84 @@ final class HxMineHud1117Cases {
             a = lines(c, List.of(), t0 + 200_000, t0 + 201_000);
             c.check(a.stream().noneMatch(s -> s.contains("Active")), "Pickobulus showed Active: " + a);
             c.note("active, hidden cooldown, expiry, cooldown, ready, learned 15s, instant ability");
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.staticCall(ARA, "resetForTest"));
+            hub(c);
+        }
+    }
+
+    private static int[] colors(Session c, int i) {
+        return c.onClient(mc -> (int[]) Mod.staticCall(ARA, "activeColorsForTest", i));
+    }
+
+    private static void abilityColor(Session c) {
+        final int green = 0xFF55FF55, yellow = 0xFFFFFF55, red = 0xFFFF5555;
+        try (Settings set = new Settings(c).with(CFG, "AbilityAlert", true).with(CFG, "AbilityTimer", true)
+                .with(CFG, "AbilitySound", false)) {
+            c.ctx().runOnClient(mc -> Mod.staticCall(ARA, "resetForTest"));
+            long t0 = c.onClient(mc -> System.currentTimeMillis()) + 3_600_000L;
+            // Unknown duration: green "Active", no number.
+            chat(c, "You used your Mining Speed Boost Pickaxe Ability!", t0);
+            List<String> a = lines(c, List.of(), t0 + 100, t0 + 5000);
+            c.check(plain(a).equals("[A]Mining Speed Boost: Active"), "unknown line: " + a);
+            int[] k = colors(c, 0);
+            c.check(k != null && k[1] == green, "unknown: Active green " + java.util.Arrays.toString(k));
+            // Learn 20 s for both abilities, then watch the fade.
+            chat(c, "Your Mining Speed Boost has expired!", t0 + 20_000);
+            for (String ab : List.of("Maniac Miner", "Mining Speed Boost")) {
+                long t1 = t0 + 100_000;
+                chat(c, "You used your " + ab + " Pickaxe Ability!", t1 - 20_000);
+                chat(c, "Your " + ab + " has expired!", t1);
+                chat(c, "You used your " + ab + " Pickaxe Ability!", t1 + 100);
+                long[] at = {t1 + 100, t1 + 10_100, t1 + 19_900};
+                int[] want = {green, yellow, red};
+                for (int i = 0; i < 3; i++) {
+                    List<String> l = lines(c, List.of(), at[i], at[i]);
+                    int idx = 0;
+                    c.check(l.size() >= 1 && l.get(idx).contains(ab + ": Active "), ab + " line " + i + ": " + l);
+                    int[] col = colors(c, idx);
+                    c.check(col != null && col[0] != green && col[0] != yellow && col[0] != red,
+                            ab + " name keeps element color " + java.util.Arrays.toString(col));
+                    c.check(col != null && col[1] == green, ab + " Active green " + java.util.Arrays.toString(col));
+                    int num = col == null ? 0 : col[2];
+                    int tol = i == 2 ? 0x30 : 0x08;
+                    boolean ok = Math.abs(((num >> 16) & 255) - ((want[i] >> 16) & 255)) <= (i == 2 ? 0x30 : 8)
+                            && Math.abs(((num >> 8) & 255) - ((want[i] >> 8) & 255)) <= (i == 2 ? 0x60 : 8)
+                            && Math.abs((num & 255) - (want[i] & 255)) <= (i == 2 ? 0x30 : 8);
+                    c.check(ok, ab + " number color at step " + i + ": " + Integer.toHexString(num));
+                }
+                chat(c, "Your " + ab + " has expired!", t1 + 30_000);
+            }
+            c.note("Active green, number green/yellow/red at 100/50/near 0 percent for two abilities, unknown duration");
+        } finally {
+            c.ctx().runOnClient(mc -> Mod.staticCall(ARA, "resetForTest"));
+            hub(c);
+        }
+    }
+
+    /** Real-time pass: a learned 20 s Maniac Miner on the live HUD, a screenshot at full, half and nearly out. */
+    @SuppressWarnings("unchecked")
+    private static void abilityShots(Session c) {
+        try (Settings set = new Settings(c).with(CFG, "AbilityAlert", true).with(CFG, "AbilityTimer", true)
+                .with(CFG, "AbilitySound", false)) {
+            c.ctx().runOnClient(mc -> Mod.staticCall(ARA, "resetForTest"));
+            area(c);
+            long now = c.onClient(mc -> System.currentTimeMillis());
+            chat(c, "You used your Maniac Miner Pickaxe Ability!", now - 20_000);
+            chat(c, "Your Maniac Miner has expired!", now);
+            long t = c.onClient(mc -> System.currentTimeMillis());
+            chat(c, "You used your Maniac Miner Pickaxe Ability!", t);
+            String[] names = {"full", "half", "low"};
+            long[] waitMs = {600, 9_500, 8_500};
+            for (int i = 0; i < 3; i++) {
+                try { Thread.sleep(waitMs[i]); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                c.ctx().waitTicks(2);
+                List<String> l = c.onClient(mc -> new ArrayList<>((List<String>) Mod.staticCall(ARA, "timer")));
+                c.check(l.size() == 1 && l.get(0).contains("Maniac Miner: Active "), "live HUD line " + names[i] + ": " + l);
+                java.nio.file.Path shot = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName("1117-ability-" + names[i]));
+                dev.testkit.harness.Report.screenshot("1117-ability-shots", shot);
+            }
+            c.note("live screenshots full/half/low");
         } finally {
             c.ctx().runOnClient(mc -> Mod.staticCall(ARA, "resetForTest"));
             hub(c);
