@@ -33,6 +33,7 @@ final class DefaultsOff1104Cases {
             {"terminals.TerminalSolverConfig", "queueTerms"},
             {"puzzlehud.PuzzleHudConfig", "enabled"},
             {"reparty.RepartyConfig", "enabled", "autoRejoin"},
+            {"partyinvites.AutoAcceptInvitesConfig", "enabled"},
             {"splittimers.WatcherHelperConfig", "enabled"},
             {"carrytracker.CarryTrackerConfig", "enabled"},
             {"dungeonqueue.DungeonQueueConfig", "enabled", "pvLinkOnJoin"},

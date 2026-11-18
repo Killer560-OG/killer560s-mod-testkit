@@ -182,6 +182,38 @@ public class SimSingleRoomTests implements FabricClientGameTest {
                         + "they are supposed to run out of range and go off");
             }
 
+            // ---- simsceptre-1117: the bat follows where he looks while it flies -----------------------
+            // Aim 30 degrees up (open air in a tall room), check the heading is the look (control: no turn, still
+            // straight), then turn the yaw 90 degrees mid-flight and check the heading bends to the new look.
+            // The bat must really be in the air at each reading.
+            ctx.runOnClient(mc -> { mc.player.setYRot(0f); mc.player.setXRot(-30f); });
+            ctx.waitTicks(2);
+            ModUnderTest.staticCall(SCEPTRE, "fire", new Class<?>[]{Minecraft.class},
+                    new Object[]{ctx.computeOnClient(mc -> mc)});
+            ctx.waitTicks(2);
+            net.minecraft.world.phys.Vec3 look0 = ctx.computeOnClient(mc -> mc.player.getLookAngle());
+            net.minecraft.world.phys.Vec3 h0 = (net.minecraft.world.phys.Vec3) ModUnderTest.staticCall(SCEPTRE, "headingForTest");
+            if (h0 == null) {
+                throw new AssertionError("simsceptre: no bat in the air two ticks after the cast");
+            }
+            double d0 = h0.normalize().dot(look0);
+            ctx.runOnClient(mc -> mc.player.setYRot(90f));
+            ctx.waitTicks(2);
+            net.minecraft.world.phys.Vec3 look1 = ctx.computeOnClient(mc -> mc.player.getLookAngle());
+            net.minecraft.world.phys.Vec3 h1 = (net.minecraft.world.phys.Vec3) ModUnderTest.staticCall(SCEPTRE, "headingForTest");
+            if (h1 == null) {
+                throw new AssertionError("simsceptre: the bat was gone before the turn could be read");
+            }
+            double d1 = h1.normalize().dot(look1);
+            double cross = look0.dot(look1);
+            System.out.println("[91-sim-single] simsceptre: straight dot " + d0 + ", after a 90 degree turn dot " + d1
+                    + " (old look vs new look " + cross + ")");
+            if (d0 < 0.99 || d1 < 0.99 || cross > 0.5 || h1.normalize().dot(look0) > 0.5) {
+                throw new AssertionError("simsceptre: the bat's heading did not follow the look (straight " + d0
+                        + ", turned " + d1 + ", still along the old look " + h1.normalize().dot(look0) + ")");
+            }
+            ctx.waitTicks(60);
+
             System.out.println("[91-sim-single] PASS - one room in the world, one room on the map, and the "
                     + "sceptre's bats fly and detonate");
         } finally {
