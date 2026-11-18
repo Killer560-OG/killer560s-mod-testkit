@@ -257,6 +257,7 @@
 			"dev.testkit.gametest.SimPuzzleDoneTests$HigherBlazeLeave",
 			"dev.testkit.gametest.SimBeamsMeleeTests$Solve",
 			"dev.testkit.gametest.SimBeamsMeleeTests$Rotations",
+			"dev.testkit.gametest.SimBeamsMeleeTests$Replay",
 			"dev.testkit.gametest.GrimBeamsMeleeTests",
 			"dev.testkit.gametest.SimPuzzleSolveTests$Summary",
 			"dev.testkit.gametest.SessionDemoTest",

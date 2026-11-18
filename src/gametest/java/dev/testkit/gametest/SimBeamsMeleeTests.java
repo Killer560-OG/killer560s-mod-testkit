@@ -56,7 +56,7 @@ public final class SimBeamsMeleeTests {
     }
 
     /** The log read every tick: the auto's hits, the sim's strikes and refusals, shots and warps. */
-    static final class MeleeWatch extends SolveExtra {
+    static class MeleeWatch extends SolveExtra {
         boolean noMode;
         String noModeWhy = "";
         long seen;
@@ -269,6 +269,147 @@ public final class SimBeamsMeleeTests {
     public static final class Solve extends MeleeBase {
         public Solve() {
             super("solve");
+        }
+    }
+
+    /**
+     * {@code 1118-beams-melee-replay} (creeperbeams-1118): his Hypixel run of 2026-11-18 5:24:53 PM in Melee mode, in the sim.
+     * Rotation 180 as his room, only his six lit pairs (the other five joined before the auto starts), his start spot
+     * (standing on room-relative 15, 68, 5), Chat Hider's Hide Useless Messages on as in his config, every Instant
+     * Transmission cut 2 blocks short of the model with "There are blocks in the way!" (Hypixel cut his two short by 1 and
+     * 3 blocks) and the first sneaking warp used in the air dropped (his 5:25:05 PM warp). Prints the ticks from the auto
+     * switched on to solved, to compare a jar against the baseline jar on the same machine. Needs the sim knob
+     * {@code SimAbilities.setTestDashShort}; not vacuous: at least one AOTV teleport must have gone and been cut short.
+     */
+    public static final class Replay extends MeleeBase {
+        public Replay() {
+            super("replay");
+        }
+
+        @Override
+        String scenarioName() {
+            return "1118-beams-melee-replay";
+        }
+
+        @Override
+        int rotation() {
+            return 180;
+        }
+
+        @Override
+        SolveExtra extra() {
+            return new ReplayWatch();
+        }
+    }
+
+    /** Pair indices (bundled list, deduped) NOT lit in his room: joined before the auto starts. */
+    private static final int[] HIS_UNLIT = {1, 3, 4, 5, 8};
+
+    static final class ReplayWatch extends MeleeWatch {
+        int dashes;
+        int inTheWay;
+        boolean knob = true;
+
+        @Override
+        void configure(Object auto, Object cheat) {
+            super.configure(auto, cheat);
+            Object tidy = ModUnderTest.config("com.killer560.hub.chattidy.ChatTidyConfig");
+            ModUnderTest.call(tidy, "setHideUselessMessages", new Class<?>[]{boolean.class}, new Object[]{true});
+        }
+
+        @Override
+        void beforeAutoOn(ClientGameTestContext ctx) {
+            try {
+                ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimAbilities", "setTestDashShort",
+                        new Class<?>[]{double.class, int.class}, new Object[]{2.0, 1}));
+            } catch (AssertionError | RuntimeException e) {
+                knob = false;
+            }
+            java.util.concurrent.atomic.AtomicReference<String> done = new java.util.concurrent.atomic.AtomicReference<>();
+            ctx.runOnClient(mc -> {
+                var server = mc.getSingleplayerServer();
+                BlockPos start = SimPuzzleSolveTests.rel(mc, 15, 69, 5);
+                var uuid = mc.player.getUUID();
+                server.execute(() -> {
+                    try {
+                        Class<?> c = Class.forName(PUZZLE);
+                        var wf = c.getDeclaredField("worldPairs");
+                        var cf = c.getDeclaredField("connected");
+                        wf.setAccessible(true);
+                        cf.setAccessible(true);
+                        List<?> world = (List<?>) wf.get(null);
+                        boolean[] connected = (boolean[]) cf.get(null);
+                        var level = server.overworld();
+                        for (int i : HIS_UNLIT) {
+                            Object pair = world.get(i);
+                            var a = pair.getClass().getDeclaredMethod("a");
+                            var b = pair.getClass().getDeclaredMethod("b");
+                            a.setAccessible(true);
+                            b.setAccessible(true);
+                            level.setBlockAndUpdate((BlockPos) a.invoke(pair),
+                                    net.minecraft.world.level.block.Blocks.PRISMARINE.defaultBlockState());
+                            level.setBlockAndUpdate((BlockPos) b.invoke(pair),
+                                    net.minecraft.world.level.block.Blocks.PRISMARINE.defaultBlockState());
+                            connected[i] = true;
+                        }
+                        var sp = server.getPlayerList().getPlayer(uuid);
+                        if (sp != null) {
+                            sp.teleportTo(start.getX() + 0.5, start.getY(), start.getZ() + 0.5);
+                        }
+                        done.set("ok: " + HIS_UNLIT.length + " pairs joined, start " + start.toShortString());
+                    } catch (ReflectiveOperationException | RuntimeException e) {
+                        done.set("FAILED " + e);
+                    }
+                });
+            });
+            ctx.waitFor(mc -> done.get() != null, 200);
+            ctx.waitTicks(20);
+            say(name, "replay setup " + done.get() + "; sim knob " + (knob ? "set (2 blocks short, 1 air warp dropped)"
+                    : "MISSING") + "; now " + ctx.computeOnClient(mc -> mc.player.blockPosition().toShortString()));
+            if (!done.get().startsWith("ok")) {
+                throw new AssertionError("replay setup: " + done.get());
+            }
+            super.beforeAutoOn(ctx);
+        }
+
+        @Override
+        void tick(ClientGameTestContext ctx, int t, int solvedAt, boolean container) {
+            long before = seen;
+            super.tick(ctx, t, solvedAt, container);
+            if (seen > before) {
+                for (String l : LogTap.since(before)) {
+                    if (l.contains("Beams (melee): AOTV teleport toward")) {
+                        dashes++;
+                    } else if (l.contains("There are blocks in the way!")) {
+                        inTheWay++;
+                    }
+                }
+            }
+        }
+
+        @Override
+        String verdict(ClientGameTestContext ctx, int solvedAt) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimAbilities", "setTestDashShort",
+                    new Class<?>[]{double.class, int.class}, new Object[]{0.0, 0}));
+            String v = super.verdict(ctx, solvedAt);
+            if (v != null) {
+                return v;
+            }
+            if (!knob) {
+                return "this jar has no SimAbilities.setTestDashShort: the replay cannot cut teleports short";
+            }
+            if (dashes == 0) {
+                return "no AOTV teleport went: the replay never reached the cut-short path";
+            }
+            return null;
+        }
+
+        @Override
+        String summary() {
+            String line = super.summary() + String.format(Locale.ROOT, "; REPLAY auto on -> solved %d ticks, AOTV teleports"
+                    + " %d, blocks-in-the-way lines %d", solved, dashes, inTheWay);
+            say(name, line);
+            return line;
         }
     }
 
