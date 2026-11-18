@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T19:22:46",
- "modSource": "lane-flaskpause-1117",
- "modGitSha": "860c91bee0b1a729b505b8e9de7fe03d54d23f98",
+ "generatedAt": "2026-11-17T20:06:27",
+ "modSource": "lane-levercd50-1117",
+ "modGitSha": "3c44979ecca10ff167377b5edfa5d7dcf1ff16d5",
  "modSourceDirty": false,
  "count": 994,
  "byKind": {
