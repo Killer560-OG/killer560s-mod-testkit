@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T23:21:58",
- "modSource": "lane-pvcap-1117-rm",
- "modGitSha": "9fca5d88a40e2c713a2a3f53106c7f4636e81354",
+ "generatedAt": "2026-11-17T23:33:27",
+ "modSource": "lane-align12-remerge-1117",
+ "modGitSha": "b7f4abc4fa13436145d904ddb2dc87528e079a1e",
  "modSourceDirty": false,
  "count": 994,
  "byKind": {
