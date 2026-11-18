@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T18:14:10",
- "modSource": "lane-tkonly-leveredge-1117",
- "modGitSha": "909ad8fb72d81c861af1dae59d50d5f9f100153d",
+ "generatedAt": "2026-11-17T19:04:13",
+ "modSource": "lane-quizlegit-1117",
+ "modGitSha": "9e1e10e0b64f7d9f36b6ad8e90e7282e97b66ea1",
  "modSourceDirty": false,
  "count": 994,
  "byKind": {
