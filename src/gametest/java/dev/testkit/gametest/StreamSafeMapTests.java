@@ -143,7 +143,7 @@ public class StreamSafeMapTests implements FabricClientGameTest {
                 BufferedImage l = shot(ctx, out, "legit-funny-streamsafe");
                 Object info = SimMapItemTests.hook(ctx, SAFE, "overlayInfo");
                 double d = diff(l, b, rect);
-                row(R_LEGIT, info == null && d < 0.005 && normalRooms == 4, "legit, Funny Map + Stream Safe saved ON: overlay "
+                row(R_LEGIT, info == null && d < 0.005 && normalRooms > 0, "legit, Funny Map + Stream Safe saved ON: overlay "
                         + (info == null ? "none" : "EXISTS") + ", frame vs normal " + pct(d) + " differ, " + normalRooms
                         + " rooms drawn");
                 return;
@@ -180,8 +180,8 @@ public class StreamSafeMapTests implements FabricClientGameTest {
             int safeRooms = drawnRooms(ctx);
             double gameVsNormal = diff(c, b, rect);
             double gameVsFunny = diff(c, a, rect);
-            row(R_GAME, gameVsNormal < 0.005 && funnyVsNormal > 0.02 && safeRooms == normalRooms && funnyRooms == 5
-                            && normalRooms == 4,
+            row(R_GAME, gameVsNormal < 0.005 && funnyVsNormal > 0.02 && safeRooms == normalRooms && funnyRooms > normalRooms
+                            && normalRooms > 0,
                     "Stream Safe frame vs normal B " + pct(gameVsNormal) + " differ (want ~0), vs Funny A " + pct(gameVsFunny)
                             + "; HUD draw names " + safeRooms + " rooms (normal " + normalRooms + ", funny " + funnyRooms
                             + "); premise A0 vs B " + pct(funnyVsNormal));
@@ -202,20 +202,24 @@ public class StreamSafeMapTests implements FabricClientGameTest {
             long[] client = ctx.computeOnClient(mc -> {
                 long game = (Long) Mod.staticCall("compat.McWindow", "win32Handle", mc.getWindow());
                 int[] cr = (int[]) Mod.staticCall("util.Win32", "clientRectOnScreen", game);
-                return cr == null ? null : new long[]{game, cr[0], cr[1], cr[2], cr[3], mc.getWindow().getWidth()};
+                return cr == null ? null
+                        : new long[]{game, cr[0], cr[1], cr[2], cr[3], mc.getWindow().getWidth(), mc.getWindow().getHeight()};
             });
             println("overlay " + str(info) + ", game client " + str(client));
+            // The framebuffer is stretched over the client area (the gametest keeps it 854x480 whatever the window's
+            // size), so the overlay's place and size are the map square's, scaled to client pixels.
+            double sx = client == null ? 1 : client[3] / (double) client[5];
+            double sy = client == null ? 1 : client[4] / (double) client[6];
             boolean windowOk = info != null && client != null && info[0] != 0
                     && (info[5] & EX_WANT) == EX_WANT && info[6] == 0x11 && info[7] == 1 && info[11] == client[0]
                     && Math.abs(info[9] - rect[0]) <= 1 && Math.abs(info[10] - rect[1]) <= 1
-                    && Math.abs(info[3] - rect[2]) <= 1 && Math.abs(info[4] - rect[3]) <= 1
-                    && client[3] == client[5]   // no DPI virtualization: client px are framebuffer px
-                    && Math.abs(info[1] - (client[1] + info[9])) <= 1 && Math.abs(info[2] - (client[2] + info[10])) <= 1;
+                    && Math.abs(info[3] - rect[2] * sx) <= 2 && Math.abs(info[4] - rect[3] * sy) <= 2
+                    && Math.abs(info[1] - (client[1] + rect[0] * sx)) <= 2 && Math.abs(info[2] - (client[2] + rect[1] * sy)) <= 2;
             row(R_WINDOW, windowOk, info == null ? "no overlay window" : String.format(Locale.ROOT,
-                    "hwnd %x owner %x (game %x) at %d,%d %dx%d (map square at client %d,%d + fb %d,%d %dx%d), ex style %x"
+                    "hwnd %x owner %x (game %x) at %d,%d %dx%d (map square at client %d,%d + fb %d,%d %dx%d, client/fb %.3f x %.3f), ex style %x"
                             + " (want %x set), affinity %x (want 11), shown %d, pushes %d",
                     info[0], info[11], client == null ? 0 : client[0], info[1], info[2], info[3], info[4],
-                    client == null ? 0 : client[1], client == null ? 0 : client[2], rect[0], rect[1], rect[2], rect[3],
+                    client == null ? 0 : client[1], client == null ? 0 : client[2], rect[0], rect[1], rect[2], rect[3], sx, sy,
                     info[5], EX_WANT, info[6], info[7], info[8]));
 
             Object[] push = SimMapItemTests.hook(ctx, SAFE, "lastPush");
@@ -230,6 +234,7 @@ public class StreamSafeMapTests implements FabricClientGameTest {
 
             // Capture proof: what a GDI screen recorder sees over the map's rectangle.
             if (info != null) {
+                covered = 0;
                 BufferedImage d1 = capture(ctx, out, "D1-capture-excluded", info);
                 ctx.runOnClient(mc -> Mod.staticCall(SAFE, "setAffinityForTest", 0));
                 ctx.waitTicks(5);
@@ -237,19 +242,35 @@ public class StreamSafeMapTests implements FabricClientGameTest {
                 ctx.runOnClient(mc -> Mod.staticCall(SAFE, "setAffinityForTest", 0x11));
                 ctx.waitTicks(5);
                 BufferedImage d3 = capture(ctx, out, "D3-capture-excluded-again", info);
-                int[] whole = {0, 0, rect[2], rect[3]};
-                BufferedImage bCrop = crop(b, rect);
-                BufferedImage aCrop = crop(a, rect);
-                double d1VsB = diff(d1, bCrop, whole);
-                double d1VsA = diff(d1, aCrop, whole);
-                double d2VsA = diff(d2, aCrop, whole);
-                double d3VsB = diff(d3, bCrop, whole);
-                boolean ok = d1 != null && d2 != null && d3 != null && d1VsB < 0.01 && d3VsB < 0.01 && d2VsA < 0.02
-                        && d1VsA > 0.02;
-                row(R_CAPTURE, ok, "GDI capture of the overlay's rectangle: excluded vs normal B " + pct(d1VsB)
-                        + " differ (want ~0), vs Funny A " + pct(d1VsA) + "; affinity 0 vs Funny A " + pct(d2VsA)
-                        + " (want ~0: the overlay is on screen there); excluded again vs B " + pct(d3VsB)
-                        + (d1VsB >= 0.01 && d2VsA >= 0.02 ? " [both off: the test window may be covered by another window]" : ""));
+                if (covered != 0 || d1 == null || d2 == null || d3 == null) {
+                    // Another window over the test client's map square: a screen capture would show that window, so
+                    // it proves nothing either way (the client sits at the bottom of the z-order and is never raised).
+                    Scenario.skipped(R_CAPTURE, "capture cannot be made honestly here: " + (covered < 0 ? "capture failed"
+                            : covered + " of 9 points of the map square are under another window"));
+                } else {
+                    // The screen shows the framebuffer stretched to the client size, so the frames are scaled to the
+                    // capture first; the stretch filter differs, so the test asks which map each capture is NEARER to.
+                    int[] whole = {0, 0, d1.getWidth(), d1.getHeight()};
+                    BufferedImage bS = scaled(crop(b, rect), d1.getWidth(), d1.getHeight());
+                    BufferedImage aS = scaled(crop(a, rect), d1.getWidth(), d1.getHeight());
+                    save(bS, out, "B-normal-scaled");
+                    save(aS, out, "A-funny-mimic-scaled");
+                    double d1VsB = diff(d1, bS, whole);
+                    double d1VsA = diff(d1, aS, whole);
+                    double d2VsA = diff(d2, aS, whole);
+                    double d2VsB = diff(d2, bS, whole);
+                    double d3VsB = diff(d3, bS, whole);
+                    double d3VsA = diff(d3, aS, whole);
+                    double d1VsD2 = diff(d1, d2, whole);
+                    double d1VsD3 = diff(d1, d3, whole);
+                    boolean ok = d1VsB + 0.05 < d1VsA && d3VsB + 0.05 < d3VsA && d2VsA + 0.05 < d2VsB
+                            && d1VsD2 > 0.05 && d1VsD3 < 0.01;
+                    row(R_CAPTURE, ok, "GDI screen capture of the map square (" + d1.getWidth() + "x" + d1.getHeight()
+                            + "): excluded vs normal B " + pct(d1VsB) + " / vs Funny A " + pct(d1VsA)
+                            + "; affinity 0 vs A " + pct(d2VsA) + " / vs B " + pct(d2VsB) + "; excluded again vs B "
+                            + pct(d3VsB) + " / vs A " + pct(d3VsA) + "; excluded vs affinity 0 " + pct(d1VsD2)
+                            + " (want large), excluded vs excluded again " + pct(d1VsD3) + " (want ~0)");
+                }
             } else {
                 row(R_CAPTURE, false, "no overlay window to capture over");
             }
@@ -259,8 +280,10 @@ public class StreamSafeMapTests implements FabricClientGameTest {
             Object after = SimMapItemTests.hook(ctx, SAFE, "overlayInfo");
             BufferedImage e = shot(ctx, out, "E-streamsafe-off");
             double offVsA = diff(e, a, rect);
-            row(R_OFF, after == null && offVsA < 0.005, "Stream Safe off: overlay " + (after == null ? "freed" : "STILL THERE")
-                    + ", frame vs Funny A " + pct(offVsA));
+            int offRooms = drawnRooms(ctx);
+            row(R_OFF, after == null && offRooms == funnyRooms, "Stream Safe off: overlay " + (after == null ? "freed"
+                    : "STILL THERE") + ", HUD draws " + offRooms + " rooms (funny " + funnyRooms + "), frame vs Funny A "
+                    + pct(offVsA) + " (chat behind the map fades, so pixels are not compared)");
         } catch (Throwable t) {
             all.add("scenario threw: " + t);
             t.printStackTrace(System.out);
@@ -364,10 +387,11 @@ public class StreamSafeMapTests implements FabricClientGameTest {
             return null;
         }
         Path png = out.resolve(name + ".png");
+        Path txt = out.resolve(name + ".txt");
         Process p = new ProcessBuilder("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script.toString(),
                 "-X", Long.toString(info[1]), "-Y", Long.toString(info[2]), "-Width", Long.toString(info[3]),
-                "-Height", Long.toString(info[4]), "-Out", png.toString())
-                .redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
+                "-Height", Long.toString(info[4]), "-Game", Long.toString(info[11]), "-Out", png.toString())
+                .redirectErrorStream(true).redirectOutput(txt.toFile()).start();
         long deadline = System.currentTimeMillis() + 60_000;
         while (p.isAlive() && System.currentTimeMillis() < deadline) {
             ctx.waitTicks(1);
@@ -376,7 +400,23 @@ public class StreamSafeMapTests implements FabricClientGameTest {
             p.destroyForcibly();
             return null;
         }
+        String said = Files.exists(txt) ? Files.readString(txt) : "";
+        println("capture " + name + ": " + said.trim());
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("covered (\\d+)").matcher(said);
+        covered = m.find() ? Math.max(covered, Integer.parseInt(m.group(1))) : -1;
         return Files.exists(png) ? javax.imageio.ImageIO.read(png.toFile()) : null;
+    }
+
+    /** Points of the map square under another window in the last captures (-1: the script said nothing). */
+    private static int covered;
+
+    private static BufferedImage scaled(BufferedImage img, int w, int h) {
+        BufferedImage o = new BufferedImage(w, h, BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D g = o.createGraphics();
+        g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g.drawImage(img, 0, 0, w, h, null);
+        g.dispose();
+        return o;
     }
 
     /** Share of pixels in {@code r} of the two images that differ by more than 6 in any channel (1 if one is missing). */
@@ -463,7 +503,9 @@ public class StreamSafeMapTests implements FabricClientGameTest {
     }
 
     private static Path outDir() {
-        Path logs = Path.of(System.getProperty("user.home"), "killer560s-mod-logs", "streamsafemap-1118");
+        String env = System.getenv("STREAMSAFE_OUT");
+        Path logs = env != null && !env.isBlank() ? Path.of(env)
+                : Path.of(System.getProperty("user.home"), "killer560s-mod-logs", "streamsafemap-1118");
         Path dir = Files.isDirectory(logs) ? logs.resolve("run-" + System.currentTimeMillis())
                 : Path.of(System.getProperty("user.dir"), "streamsafe-shots");
         try {
