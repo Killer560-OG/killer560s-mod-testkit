@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T17:44:20",
- "modSource": "lane-simcmdkeys-1117",
- "modGitSha": "8044f66b71cd0a0b6e32e41283761324fa14633b",
+ "generatedAt": "2026-11-17T18:00:16",
+ "modSource": "lane-tkonly-lagback-1117",
+ "modGitSha": "f917ac9136f28d1002f54cc1a2aef38a0f176c5e",
  "modSourceDirty": false,
  "count": 994,
  "byKind": {
