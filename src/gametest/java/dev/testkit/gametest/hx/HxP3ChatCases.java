@@ -478,7 +478,7 @@ final class HxP3ChatCases {
                 c.check(milestones(c) == 0, "player chat counted as a milestone: " + milestones(c));
                 String[] lines = {"Archer Milestone ❶: You have dealt 750,000 Ranged Damage so far! 07s",
                         "Archer Milestone ❷: You have dealt 3,750,000 Ranged Damage so far! 08s",
-                        "Archer Milestone ❸: You have dealt 15,000,000 Ranged Damage so far! 34s", "Mage Milestone ❖: You have dealt 9M damage so far! 12s",
+                        "Archer Milestone ❸: You have dealt 15,000,000 Ranged Damage so far! 34s", "Mage Milestone ❹: You have dealt 9,000,000 Total Damage so far! 02m 25s",
                         "Berserk Milestone ❖: You have dealt 12M damage so far! 15s", "Healer Milestone ❤: You have healed 900k so far! 18s",
                         "Tank Milestone ☠: You have tanked and healed 3.1M so far! 21s", "Milestone ❖: You have dealt 21M damage so far! (24s)",
                         "Milestone ❖: You have dealt 24M damage so far! (27s)", "Milestone ❖: You have dealt 27M damage so far! (30s)"};
