@@ -1,0 +1,248 @@
+package dev.testkit.gametest;
+
+import com.google.gson.JsonObject;
+import dev.testkit.compat.McCompat;
+import dev.testkit.gametest.hx.Hx;
+import dev.testkit.gametest.mod.Mod;
+import dev.testkit.harness.WireCapture;
+import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
+import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.network.protocol.game.ServerboundPlayerInputPacket;
+import net.minecraft.world.phys.Vec3;
+
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+
+import static dev.testkit.gametest.InvWalkCampaignTests.*;
+
+/**
+ * 1111-iw-lagback (invwalkmenu-1111): Inventory Walk's cheat "Menu Walk". Hypixel moves a player in its menus only by
+ * the input it held when the menu opened and closes the menu on any input change, so Menu Walk sends no player_input and
+ * no sprint change while a server menu is up and plays the held input on his keys. Rows: opened standing (keys pressed
+ * inside move nothing, nothing is sent), walked in (the walk goes on whatever his keys do, x advances), a forced server
+ * pullback (honored, counted, the walk goes on) and his own container click, hotbar swap and teleport accept in the
+ * same tick as a movement packet of the walk. Asserted on the wire (encoder level). GrimAC Simulation is the owner's
+ * accepted exception (killer560 2026-11-11), tallied; any OTHER check fails the row.
+ */
+@dev.testkit.harness.RequiresMod("killer560smod")
+public class InvWalkLagBackTests implements FabricClientGameTest {
+
+    @Override
+    public void runTest(ClientGameTestContext ctx) {
+        String nm = "1111-iw-lagback";
+        if (!Mod.isCheat()) {
+            Scenario.skipped(nm, "legit jar");
+            return;
+        }
+        int x = -11600;
+        int z = -9000;
+        Scenario.runExpectingFlags(ctx, nm, (server, scenario) -> arena(server, x, z), (server, scenario) -> {
+            boolean gate = gateOff(ctx);
+            Rows rows = new Rows(ctx, server, scenario);
+            rows.tolerate = "Simulation";
+            try (Hx hx = Hx.connect()) {
+                iwOn(ctx, true, 0);
+                ctx.runOnClient(mc -> Mod.set(IW_CFG, "setMenuWalk", true));
+                // Menu Walk holds the server's input and copies it locally, so Grim sees both sides agree: no flag is allowed.
+                for (int lat : latencies()) {
+                    latency(ctx, lat);
+                    standing(rows, ctx, server, hx, x, z, lat);
+                    row(rows, ctx, server, hx, x, z, lat, null);
+                    for (SameTick.Act st : List.of(SameTick.Act.SCREEN_CLICK, SameTick.Act.SWAP, SameTick.Act.TP)) {
+                        row(rows, ctx, server, hx, x, z, lat, st);
+                    }
+                }
+            } finally {
+                ctx.runOnClient(mc -> Mod.set(IW_CFG, "setMenuWalk", false));
+                tearDown(ctx, gate);
+            }
+            scenario.log("Simulation lines tallied (accepted for Menu Walk): " + rows.tolerated);
+            rows.finish(nm);
+        });
+    }
+
+    private static int num(ClientGameTestContext ctx, String getter) {
+        return ctx.computeOnClient(mc -> ((Number) Mod.staticCall(IW, getter)).intValue());
+    }
+
+    private static boolean menuUp(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> McCompat.screen(mc) instanceof AbstractContainerScreen<?> s && s.getMenu().containerId != 0);
+    }
+
+    private static void describeWire() {
+        // Wire record: player_input as its movement keys, positions as x,z (encoder level: what the server reads).
+        WireCapture.describe = o -> o instanceof ServerboundPlayerInputPacket in
+                ? "IN " + (in.input().forward() || in.input().backward() || in.input().left() || in.input().right() ? "MOVING" : "still")
+                : o instanceof ServerboundMovePlayerPacket m && m.hasPosition()
+                ? String.format(Locale.ROOT, "POS %.3f %.3f", m.getX(0), m.getZ(0)) : o.getClass().getSimpleName();
+    }
+
+    /** Opened standing, keys pressed inside: Hypixel cannot walk him then, so nothing moves and nothing is sent. */
+    private static void standing(Rows rows, ClientGameTestContext ctx, TestServer server, Hx hx, int x, int z, int lat) {
+        String label = "L" + lat + " menu walk, opened standing";
+        keys(ctx, Set.of());
+        tp(server, ctx, x - 19.5, SURFACE_Y, z + 0.5, -90f);
+        rows.begin();
+        hx.menu("SkyBlock Menu", 4, Map.of(11, "minecraft:player_head", 13, "minecraft:diamond"), null);
+        if (!InvWalkTermTests.openMenu(ctx)) {
+            rows.end(label, false, "the menu never opened", null);
+            return;
+        }
+        ctx.waitTicks(5);
+        Vec3 start = ctx.computeOnClient(mc -> mc.player.position());
+        describeWire();
+        WireCapture.start();
+        boolean up = true;
+        for (int t = 0; t < 30; t++) {
+            keys(ctx, t % 2 == 0 ? Set.of("key.forward") : Set.of("key.forward", "key.left"));
+            ctx.waitTicks(1);
+            up &= menuUp(ctx);
+        }
+        keys(ctx, Set.of());
+        ctx.waitTicks(2);
+        WireCapture.stop();
+        WireCapture.describe = null;
+        long inputs = WireCapture.snapshot().stream().filter(w -> w.text().startsWith("IN ")).count();
+        double moved = ctx.computeOnClient(mc -> mc.player.position().distanceTo(start));
+        closeScreen(ctx);
+        ctx.waitTicks(3);
+        boolean ok = up && inputs == 0 && moved < 0.05;
+        rows.end(label, ok, String.format(Locale.ROOT, "menu up %s, %d player_input, moved %.3f (keys pressed inside play "
+                + "the server's still input)", up, inputs, moved), null);
+    }
+
+    /** {@code st} null: walk, a forced pullback, walk on. Otherwise his act in the same ticks as the walk. */
+    private static void row(Rows rows, ClientGameTestContext ctx, TestServer server, Hx hx, int x, int z,
+            int lat, SameTick.Act st) {
+        String label = "L" + lat + " menu walk, walked in" + (st == null ? ", pullback" : ", same tick " + st);
+        String who = name(ctx);
+        keys(ctx, Set.of());
+        tp(server, ctx, x - 19.5, SURFACE_Y, z + 0.5, -90f);
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+        rows.begin();
+        // He walks in: the real forward key (no screen yet), so the server holds his forward input when the menu opens.
+        keys(ctx, Set.of("key.forward"));
+        ctx.runOnClient(mc -> mc.options.keyUp.setDown(true));
+        ctx.waitTicks(8);
+        hx.menu("SkyBlock Menu", 4, Map.of(11, "minecraft:player_head", 13, "minecraft:diamond"), null);
+        boolean opened = InvWalkTermTests.openMenu(ctx);
+        if (!opened) {
+            keys(ctx, Set.of());
+            ctx.runOnClient(mc -> mc.options.keyUp.setDown(false));
+            rows.end(label, false, "the menu never opened", null);
+            return;
+        }
+        ctx.waitTicks(2);
+        int hidden0 = num(ctx, "hiddenInputs");
+        int pull0 = num(ctx, "pullbacks");
+        long since = hx.head();
+        describeWire();
+        WireCapture.start();
+        // His keys change every tick (let go, strafe): ignored, the walk he came in with goes on.
+        List<Set<String>> alt = List.of(Set.of(), Set.of("key.forward", "key.left"));
+        SameTick[] same = {null};
+        if (st != null) {
+            same[0] = ctx.computeOnClient(mc -> SameTick.start(st, st == SameTick.Act.SWAP ? 2 : 5,
+                    pk -> pk instanceof ServerboundMovePlayerPacket, 1, 2));
+        }
+        boolean up = true;
+        double path = 0;
+        Vec3 prev = ctx.computeOnClient(mc -> mc.player.position());
+        double before = 0;
+        double landed = 0;
+        int pullAfter = 0;
+        int pullAt40 = Integer.MAX_VALUE;
+        double after = 0;
+        double x0 = prev.x;
+        for (int t = 0; t < 80; t++) {
+            keys(ctx, alt.get(t % 2));
+            if (st == SameTick.Act.TP && t % 8 == 4) {
+                // A teleport onto his own spot: his accept (and echo) is the act, the hidden input shares the tick.
+                server.command(String.format(Locale.ROOT, "execute as %s at @s run tp @s ~ ~ ~", who));
+            }
+            if (st == null && t == 40) {
+                before = ctx.computeOnClient(mc -> mc.player.getX());
+                pullAt40 = num(ctx, "pullbacks");
+                server.command(String.format(Locale.ROOT, "execute as %s at @s run tp @s ~-2 ~ ~", who));
+            }
+            ctx.waitTicks(1);
+            Vec3 now = ctx.computeOnClient(mc -> mc.player.position());
+            if (st == null && t >= 40 && landed == 0 && now.x < prev.x - 1 && num(ctx, "pullbacks") > pullAt40) {
+                // The server's 2 back is from where IT has him, so with latency he lands further back than 2 from the client.
+                landed = now.x;
+                pullAfter = t;
+            }
+            if (st == null && landed != 0 && t > pullAfter) {
+                after += Math.hypot(now.x - prev.x, now.z - prev.z);
+            }
+            path += Math.hypot(now.x - prev.x, now.z - prev.z);
+            prev = now;
+            up &= menuUp(ctx);
+        }
+        keys(ctx, Set.of());
+        SameTick s = same[0];
+        if (s != null) {
+            ctx.runOnClient(mc -> s.close());
+        }
+        boolean masking = ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(IW, "isMasking"));
+        ctx.waitTicks(3);
+        WireCapture.stop();
+        WireCapture.describe = null;
+        List<WireCapture.Sent> wire = WireCapture.snapshot();
+        int inputs = 0;
+        int moving = 0;
+        int pos = 0;
+        String lastPos = null;
+        int distinct = 0;
+        for (WireCapture.Sent w : wire) {
+            if (w.text().startsWith("IN ")) {
+                inputs++;
+                moving += w.text().endsWith("MOVING") ? 1 : 0;
+            } else if (w.text().startsWith("POS ")) {
+                pos++;
+                distinct += w.text().equals(lastPos) ? 0 : 1;
+                lastPos = w.text();
+            }
+        }
+        List<JsonObject> clicks = hx.events(since, "container.click");
+        int clicksMoving = movingClicks(clicks);
+        int hiddenN = num(ctx, "hiddenInputs") - hidden0;
+        int pulls = num(ctx, "pullbacks") - pull0;
+        closeScreen(ctx);
+        ctx.runOnClient(mc -> mc.options.keyUp.setDown(false));
+        ctx.waitTicks(3);
+        boolean unmasked = !ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(IW, "isMasking"));
+        String sameVerdict = null;
+        if (s != null) {
+            sameVerdict = st == SameTick.Act.SCREEN_CLICK
+                    // Stop To Click holds his click for a still tick (keys really let go), so it never shares a tick with a
+                    // rewritten input; what counts is that every click reached the server and none while it had him moving.
+                    ? (s.done() == 0 ? "his click never went in" : clicks.size() < s.done() ? s.done() + " click(s) put in, "
+                    + clicks.size() + " handled by the server" : null)
+                    : s.verdict("menu walk + " + st);
+        }
+        // He walked in: no player_input at all goes (a click's still tick sends a keyless one) whatever his keys do, and the
+        // walk he came in with carries him on.
+        boolean click = st == SameTick.Act.SCREEN_CLICK;
+        // A click's still tick lets the keys go, so the server holds no walk after it: that row only proves the clicks.
+        double gained = prev.x - x0;
+        boolean walked = up && unmasked && masking && moving == 0
+                && (click || (inputs == 0 && distinct >= 20 && gained > 5));
+        // The forced pullback: the client lands where the server put him (2 back) and the mod counted it; "walked" holds after.
+        boolean pulled = st != null || (pulls >= 1 && landed != 0);
+        boolean ok = walked && pulled && sameVerdict == null && clicksMoving == 0;
+        String detail = String.format(Locale.ROOT, "walked in %.2f, then path %.2f (x +%.2f) with the menu up all along %s, wire: %d player_input (%d with a "
+                        + "movement key), %d positions (%d changes), mod hid %d, masking %s then off %s, pullbacks %d%s, clicks "
+                        + "handled %d (%d while the server had him moving)%s", x0 - (x - 19.5), path, gained, up, inputs, moving, pos, distinct, hiddenN,
+                masking, unmasked, pulls, st != null ? "" : String.format(Locale.ROOT, " (x %.2f -> %.2f at t%d, walked on %.2f)",
+                        before, landed, pullAfter, after), clicks.size(), clicksMoving,
+                s == null ? "" : "; " + s.report() + (sameVerdict == null ? "" : " [" + sameVerdict + "]"));
+        ctx.waitTicks(20);
+        rows.end(label, ok, detail, null);
+    }
+}
