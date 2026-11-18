@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T13:17:13",
- "modSource": "lane-flaskfix-1117-rm",
- "modGitSha": "73a2e6f325522f5bb040ac220478f449961681bc",
+ "generatedAt": "2026-11-18T13:10:00",
+ "modSource": "lane-quar131e-1118",
+ "modGitSha": "a30d104ef891c0b4a47d6de5c59821f5787cb684",
  "modSourceDirty": false,
  "count": 994,
  "byKind": {
@@ -5899,7 +5899,7 @@
    "field": "OVER",
    "index": null,
    "file": "src/main/java/com/killer560/hub/miningqol/FiestaFlask.java",
-   "line": 82,
+   "line": 84,
    "regex": "(?i)expired|inactive|none|\\b0\\s*[hms]\\b",
    "flags": null,
    "kind": "field",
