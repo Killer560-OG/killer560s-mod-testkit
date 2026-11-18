@@ -66,6 +66,7 @@ public class BossSuite implements FabricClientGameTest {
                     // To-do Doc puzzle items: Quiz, Tic Tac Toe, Creeper Beams, Ice Fill, Teleport Maze, Simon Says
                     // (1101-pz-*, 1101-ss-*, mod doc-puzzles-1101), own block.
                     DocPuzzleCases.register(s);
+                    IceFillGrim1118Cases.register(s); // Auto Ice Fill hops with his own action in the same tick (icefillbugs-1118)
                     // Team Melody over a fake relay room: the round trip and the HUD boards (1102-boss-melody-*, tkdebt-1101).
                     TeamMelodyRelayCases.register(s);
                     // A leap into a Posmsg ring: leap lines first, then the callout, spaced (1102-posmsg-*, posmsgleap-1102).
