@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T13:12:37",
- "modSource": "lane-compactorhl-1118-skill",
- "modGitSha": "f093ac5ba67f1c5f47ae9f4b01fe97b962c6076a",
+ "generatedAt": "2026-11-18T13:49:41",
+ "modSource": "lane-streamsafemap-1118",
+ "modGitSha": "fce4e3e7aeb348e3ab584762ea3d01b2fcbabd44",
  "modSourceDirty": false,
- "count": 995,
+ "count": 994,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 867,
+  "field": 866,
   "local": 43
  },
  "unresolved": 160,
@@ -2868,18 +2868,6 @@
    "flags": null,
    "kind": "field",
    "expr": "\"[A-Za-z0-9_]{1,32}\""
-  },
-  {
-   "id": "compactorpreview.CompactorMenuHighlight#TITLE",
-   "cls": "compactorpreview.CompactorMenuHighlight",
-   "field": "TITLE",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/compactorpreview/CompactorMenuHighlight.java",
-   "line": 27,
-   "regex": "^(?:\\(\\d+/\\d+\\) )?Personal [A-Za-z]+ Compactor$",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"^(?:\\\\(\\\\d+/\\\\d+\\\\) )?Personal [A-Za-z]+ Compactor$\""
   },
   {
    "id": "compactorpreview.CompactorPreviewFeature#ITEM_ID",
@@ -5911,7 +5899,7 @@
    "field": "OVER",
    "index": null,
    "file": "src/main/java/com/killer560/hub/miningqol/FiestaFlask.java",
-   "line": 84,
+   "line": 82,
    "regex": "(?i)expired|inactive|none|\\b0\\s*[hms]\\b",
    "flags": null,
    "kind": "field",
