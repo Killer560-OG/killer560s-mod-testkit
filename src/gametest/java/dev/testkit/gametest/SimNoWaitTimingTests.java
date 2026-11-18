@@ -219,7 +219,6 @@ public final class SimNoWaitTimingTests {
             return new PuzzleTimingExtra(List.of(Pair.CLICK_USE, Pair.SNEAK_USE, Pair.LAND_ACT, Pair.READY_CLICK),
                     SimNoWaitTimingTests::ticTacToeProbe, null, (auto, cheat) -> {
                         ModUnderTest.set(auto, "setTicTacToeAuraChestEnabled", true);
-                        ModUnderTest.set(auto, "setTicTacToeWalkOutEnabled", true);
                         ModUnderTest.set(cheat, "setSecretAuraEnabled", true);
                         ModUnderTest.set(cheat, "setAuraChests", true);
                         ModUnderTest.call(cheat, "setAuraRange", new Class<?>[]{double.class}, new Object[]{4.5});

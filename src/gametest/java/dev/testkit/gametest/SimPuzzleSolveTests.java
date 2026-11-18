@@ -1422,7 +1422,6 @@ public final class SimPuzzleSolveTests {
             ModUnderTest.set(auto, "setShootCooldownMs", 500);
             ModUnderTest.set(auto, "setAutoBlazeSecretEnabled", blaze());
             ModUnderTest.set(auto, "setTicTacToeAuraChestEnabled", false);
-            ModUnderTest.set(auto, "setTicTacToeWalkOutEnabled", false);
             ModUnderTest.set(auto, "setIceFillAdaptive", false);
             ModUnderTest.set(auto, "setIceFillDelayTicks", 2);
             // Three Weirdos' NPCs only speak when talked to - on Hypixel as in here - and the auto only picks a

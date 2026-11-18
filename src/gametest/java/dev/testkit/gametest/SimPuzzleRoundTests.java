@@ -55,17 +55,18 @@ public final class SimPuzzleRoundTests {
                 int forwardTicks = 0;
                 String walkLine = null;
                 String walkOutLine = null;
+                int lastT = -1;
+                net.minecraft.world.phys.Vec3 posAfter = null;
+                double movedAfter = 0;
+                int forwardAfter = 0;
                 /** The auto clicked the chest itself - it must be Secret Aura's click (killer560: "it should aura the
                  *  secret"). */
                 String ownClick = null;
-                /** Board clicks made when the walk-out was decided: early when another click came after it. */
-                int walkOutAt = -1;
                 int scanned = 0;
 
                 @Override
                 void configure(Object auto, Object cheat) {
                     ModUnderTest.set(auto, "setTicTacToeAuraChestEnabled", true);
-                    ModUnderTest.set(auto, "setTicTacToeWalkOutEnabled", true);
                     ModUnderTest.set(cheat, "setSecretAuraEnabled", true);
                     ModUnderTest.set(cheat, "setAuraChests", true);
                     ModUnderTest.call(cheat, "setAuraRange", new Class<?>[]{double.class}, new Object[]{4.5});
@@ -86,8 +87,19 @@ public final class SimPuzzleRoundTests {
                                 secrets0, n));
                     }
                     secretsNow = n;
-                    if (ctx.computeOnClient(mc -> mc.options.keyUp.isDown())) {
+                    lastT = t;
+                    boolean fwd = ctx.computeOnClient(mc -> mc.options.keyUp.isDown());
+                    if (fwd) {
                         forwardTicks++;
+                    }
+                    if (secretAt >= 0 && t >= secretAt + 20) {
+                        // After the solve and the secret trip nothing may move him (Walk Out When Done was removed).
+                        net.minecraft.world.phys.Vec3 p = ctx.computeOnClient(mc -> mc.player.position());
+                        if (posAfter == null) {
+                            posAfter = p;
+                        }
+                        movedAfter = Math.max(movedAfter, p.distanceTo(posAfter));
+                        forwardAfter += fwd ? 1 : 0;
                     }
                     List<String> lines = LogTap.since(mark);
                     for (int i = scanned; i < lines.size(); i++) {
@@ -106,9 +118,8 @@ public final class SimPuzzleRoundTests {
                         if (ownClick == null && l.contains("TicTacToe: clicked the secret chest")) {
                             ownClick = l;
                         }
-                        if (walkOutAt < 0 && (l.contains("board done but the map has no door")
-                                || l.contains("walk out"))) {
-                            walkOutAt = boardClicks;
+                        if (walkOutLine == null && (l.contains("board done but the map has no door")
+                                || l.contains("walking out through door"))) {
                             walkOutLine = l;
                         }
                     }
@@ -117,7 +128,7 @@ public final class SimPuzzleRoundTests {
 
                 @Override
                 boolean satisfied() {
-                    return secretAt > 0;
+                    return secretAt > 0 && lastT >= secretAt + 60;
                 }
 
                 @Override
@@ -141,9 +152,14 @@ public final class SimPuzzleRoundTests {
                     if (walkLine != null) {
                         bad.add("walked to the board instead of etherwarping in front of it: " + walkLine.trim());
                     }
-                    if (walkOutAt >= 0 && walkOutAt < boardClicks) {
-                        bad.add("walk-out decided after " + walkOutAt + " of " + boardClicks + " board click(s), before "
-                                + "the game was over: " + walkOutLine.trim());
+                    if (walkOutLine != null) {
+                        bad.add("a walk out ran, the setting is gone: " + walkOutLine.trim());
+                    }
+                    if (posAfter == null) {
+                        bad.add("never measured the position after the solve");
+                    } else if (movedAfter > 0.5 || forwardAfter > 0) {
+                        bad.add(String.format("he moved after the solve: %.2f blocks, forward key %d tick(s)", movedAfter,
+                                forwardAfter));
                     }
                     return bad.isEmpty() ? null : String.join("; ", bad);
                 }
@@ -151,9 +167,9 @@ public final class SimPuzzleRoundTests {
                 @Override
                 String summary() {
                     return String.format("%d board click(s) (first %.1fs, second %.1fs), secret taken %s, forward key "
-                                    + "%d tick(s), walk-out %s", boardClicks, firstClickAt / 20.0,
+                                    + "%d tick(s), moved after solve %.2f", boardClicks, firstClickAt / 20.0,
                             secondClickAt / 20.0, secretAt < 0 ? "never" : String.format("at %.1fs", secretAt / 20.0),
-                            forwardTicks, walkOutAt < 0 ? "none" : walkOutAt < boardClicks ? "YES" : "after the last click");
+                            forwardTicks, movedAfter);
                 }
             };
         }
