@@ -20,6 +20,14 @@ final class TttWalkOut1118Cases {
     private TttWalkOut1118Cases() {
     }
 
+    private static Object newTab() {
+        try {
+            return Mod.cls("gui.tab.AutoPuzzlesTab").getConstructor().newInstance();
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
+
     static void gone(UiCase c) throws Exception {
         if (!Mod.isCheat()) {
             c.note("Auto Puzzles is cheat-only: nothing to check on a legit jar");
@@ -36,7 +44,7 @@ final class TttWalkOut1118Cases {
                 Mod.staticCall(cls, "load");
                 Mod.call(Mod.cfg(cls), "save");
                 List<String> out = new ArrayList<>();
-                Object tab = Mod.cls("gui.tab.AutoPuzzlesTab").getConstructor().newInstance();
+                Object tab = newTab();
                 for (AbstractWidget w : (List<AbstractWidget>) Mod.call(tab, "searchScanWidgets")) {
                     out.add(ModScreenDriver.label(w));
                 }
