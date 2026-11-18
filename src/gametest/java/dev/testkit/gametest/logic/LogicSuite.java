@@ -125,6 +125,7 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "1105-logic-mapinfer-live", MapInfer1105Cases::live);
         LogicCase.run(ctx, "1105-logic-mapq-infer-noquestion", MapInfer1105Cases::noQuestion);
         LogicCase.run(ctx, "1105-logic-mapq-predict-unsure", MapInfer1105Cases::predictUnsure);
+        LogicCase.run(ctx, "1118-logic-mapclick-predicted", MapClick1118Cases::predicted);
         LogicCase.run(ctx, "1106-maplabel-recenter", MapLabel1106Cases::recenter);
         LogicCase.run(ctx, "1117-logic-maplabel-shape", MapLabel1117Cases::shape);
         LogicCase.run(ctx, "1117-logic-maplabel-museum", MapLabel1117Cases::museum);
