@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T16:56:51",
- "modSource": "lane-lockdrop-1118",
- "modGitSha": "33d742ffbcaaebd8bd4c6bb60f7b99a08f583128",
+ "generatedAt": "2026-11-18T17:46:56",
+ "modSource": "lane-texredo3-1117-rm",
+ "modGitSha": "0810a829410b053eedb7a0ce91c0b3b3a55485a3",
  "modSourceDirty": false,
  "count": 995,
  "byKind": {
