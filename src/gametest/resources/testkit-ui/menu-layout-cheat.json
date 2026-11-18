@@ -63,8 +63,8 @@
     "Dungeon",
     "Dungeon Alerts",
     "Dungeon Breaker",
-    "Dungeon ESP",
     "Dungeon Map",
+    "Dungeon Mob Highlight",
     "Dungeon Queue",
     "Enchants",
     "Etherwarp Overlay",
@@ -273,7 +273,7 @@
     "gui.tab.LoadoutKeybindsTab": "Items > Loadout Keybinds",
     "gui.tab.MaskInvincibilityTab": "Dungeon > Mask Invincibility",
     "gui.tab.MaxorTab": "Dungeon > Timers, Score & Boss > Maxor's Crystals",
-    "gui.tab.MobEspTab": "Dungeon > Timers, Score & Boss > Dungeon ESP",
+    "gui.tab.MobEspTab": "Dungeon > Timers, Score & Boss > Dungeon Mob Highlight",
     "gui.tab.ModChatTab": "Chat > Mod Chat",
     "gui.tab.MotionBlurTab": "Display > Motion Blur",
     "gui.tab.NickhiderTab": "Social > Nickhider",
@@ -821,7 +821,7 @@
       "room alerts": "Plays a sound when a dungeon room is cleared or all its secrets are found.",
       "shadow assassin alert": "Shows a title and plays a sound when a Shadow Assassin teleports behind you."
     },
-    "Dungeon ESP": {
+    "Dungeon Mob Highlight": {
       "bats": "Highlights secret bats during dungeon clear.",
       "blood mobs": "Highlights the Watcher's blood mobs (red by default) for as long as they live, even if they walk out of the Blood Room.",
       "color": "Color of the boxes or glow for this row's target.",
@@ -1462,7 +1462,7 @@
       "croesus / chest profit": "Shows what each dungeon reward chest is worth, logs your claims, and (cheat build) claims the best chest.",
       "custom mage beam": "In dungeons, redraws every Mage beam as one clean colored line.",
       "dungeon alerts": "",
-      "dungeon esp": "Boxes starred mobs, secret bats and the F7/M7 wither bosses.",
+      "dungeon mob highlight": "Boxes starred mobs, secret bats and the F7/M7 wither bosses.",
       "f7 spots": "",
       "goldor triggerbot": "Cheat build: in F7/M7 P3, clicks Goldor while your crosshair is on him.",
       "maxor's crystals": "Phase 1 crystal helpers: timers, an unplaced-crystal warning, a counter and crystal boxes.",
