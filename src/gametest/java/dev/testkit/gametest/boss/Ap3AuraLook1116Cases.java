@@ -421,7 +421,7 @@ final class Ap3AuraLook1116Cases {
         try (HxKit.Settings gate = AaFastCases.gateOff(c);
              HxKit.Settings on = new HxKit.Settings(c).with(AA, "SolverEnabled", true)
                      .with(AA, "PreventMisclicksEnabled", false).with(AA, "TriggerBotEnabled", false)
-                     .with(AA, "AuraEnabled", false).with(AA, "AuraRange", 3.0).with(AA, "AuraCps", 20)
+                     .with(AA, "AuraEnabled", false).with(AA, "AuraRange", 3.0).with(AA, "AuraCooldownMs", 50)
                      .with(AA, "AuraClicksPerTick", 7).with(AA, "AuraSameTickTurn", true)
                      .with(AA, "AuraLeaveLastArrow", false).with(AA, "AuraDisableWhileCrouching", true)
                      .with("ap3.Ap3Config", "Enabled", true).with("ap3.Ap3Config", "Strafe45", true)) {

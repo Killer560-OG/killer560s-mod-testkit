@@ -160,7 +160,7 @@ final class LightsDeviceUiCases {
                 Mod.call(ld, "setPreFlick", false);
                 Mod.call(ld, "setFinish", false);
                 Mod.call(ld, "setRange", 3.3);
-                Mod.call(ld, "setCps", 13);
+                Mod.call(ld, "setCooldownMs", 77);
                 Mod.call(ld, "setAuraSwingHand", false);
                 Mod.call(ld, "setChatFeedback", false);
                 Mod.call(ld, "setTriggerDelayMs", 125);
@@ -174,7 +174,7 @@ final class LightsDeviceUiCases {
                         "the switches did not survive a reload");
                 c.check(!(Boolean) Mod.call(re, "isPreFlick") && !(Boolean) Mod.call(re, "isFinish"), "Pre-Flick/Finish did not survive");
                 c.check(Math.abs((Double) Mod.call(re, "getRange") - 3.3) < 0.01, "range: " + Mod.call(re, "getRange"));
-                c.check((Integer) Mod.call(re, "getCps") == 13, "cps: " + Mod.call(re, "getCps"));
+                c.check((Integer) Mod.call(re, "getCooldownMs") == 77, "cooldown: " + Mod.call(re, "getCooldownMs"));
                 c.check(!(Boolean) Mod.call(re, "isAuraSwingHand") && !(Boolean) Mod.call(re, "isChatFeedback")
                         && !(Boolean) Mod.call(re, "isTriggerSwingHand"), "a swing/chat setting did not survive");
                 c.check((Integer) Mod.call(re, "getTriggerDelayMs") == 125 && (Integer) Mod.call(re, "getTriggerCooldownMs") == 650,
@@ -195,8 +195,8 @@ final class LightsDeviceUiCases {
                 c.check((Boolean) Mod.call(m, "isAuraEnabledRaw"), "In Boss on with Pre-Flick on: the Aura should be ON");
                 c.check(!(Boolean) Mod.call(m, "isTriggerEnabledRaw"), "a migration turned the Triggerbot on");
                 c.check((Boolean) Mod.call(m, "isPreFlick") && !(Boolean) Mod.call(m, "isFinish"), "Pre-Flick/Finish not carried");
-                c.check(Math.abs((Double) Mod.call(m, "getRange") - 3.0) < 0.01 && (Integer) Mod.call(m, "getCps") == 7,
-                        "range/cps not carried: " + Mod.call(m, "getRange") + "/" + Mod.call(m, "getCps"));
+                c.check(Math.abs((Double) Mod.call(m, "getRange") - 3.0) < 0.01 && (Integer) Mod.call(m, "getCooldownMs") == 143, // old cps 7
+                        "range/cooldown not carried: " + Mod.call(m, "getRange") + "/" + Mod.call(m, "getCooldownMs"));
                 c.check(!(Boolean) Mod.call(m, "isAuraSwingHand") && !(Boolean) Mod.call(m, "isChatFeedback"),
                         "swing/chat not carried");
                 String la = Files.readString(laPath, StandardCharsets.UTF_8);
@@ -220,7 +220,7 @@ final class LightsDeviceUiCases {
                 Mod.staticCall(LA, "load");
                 m = Mod.cfg(LD);
                 c.check(!(Boolean) Mod.call(m, "isAuraEnabledRaw"), "In Boss off: the Aura should stay OFF");
-                c.check(!(Boolean) Mod.call(m, "isPreFlick") && (Boolean) Mod.call(m, "isFinish") && (Integer) Mod.call(m, "getCps") == 5,
+                c.check(!(Boolean) Mod.call(m, "isPreFlick") && (Boolean) Mod.call(m, "isFinish") && (Integer) Mod.call(m, "getCooldownMs") == 200, // old cps 5
                         "In Boss off: the options should still carry");
 
                 // (c) a pre-merge Lever Aura file, "enabled": true with its Lights options: In Boss and the Aura both on.
