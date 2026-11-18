@@ -339,6 +339,34 @@ final class InvBatchMenuCases {
             check(c, wrong, "B non-hotbar outside click", wire(c, () -> screenClick(c, -999, 0, ContainerInput.PICKUP)), 1);
             MenuKit.reset(c);
 
+            // E: in a dungeon the in-world drop key is the class ability: its packet goes out even for a locked item and
+            // with Block Every Drop; a menu drop is still blocked there.
+            DungeonMenuCases.inDungeon(c);
+            c.ctx().runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+            c.ctx().waitTicks(3);
+            check(c, wrong, "E dungeon key on locked item", wire(c, () -> drop(c, false)) > 0 ? 1 : 0, 1);
+            c.hx().give(0, MenuKit.item("items.hyperion-protected-uuid"));
+            c.waitUntil("the sword back", mc -> mc.player.getInventory().getItem(0).is(Items.DIAMOND_SWORD), 60);
+            check(c, wrong, "E dungeon Ctrl+Q on locked item", wire(c, () -> drop(c, true)) > 0 ? 1 : 0, 1);
+            c.hx().give(0, MenuKit.item("items.hyperion-protected-uuid"));
+            c.waitUntil("the sword back", mc -> mc.player.getInventory().getItem(0).is(Items.DIAMOND_SWORD), 60);
+            c.ctx().runOnClient(mc -> McCompat.setScreen(mc, new InventoryScreen(mc.player)));
+            c.waitUntil("the inventory screen", mc -> McCompat.screen(mc) instanceof InventoryScreen, 40);
+            c.ctx().waitTicks(3);
+            check(c, wrong, "E dungeon Q over slot", wire(c, () -> screenClick(c, 37, 0, ContainerInput.THROW)), 0);
+            check(c, wrong, "E dungeon click outside", wire(c, () -> {
+                screenClick(c, 37, 0, ContainerInput.PICKUP);
+                screenClick(c, -999, 0, ContainerInput.PICKUP);
+            }), 1);
+            screenClick(c, 37, 0, ContainerInput.PICKUP);
+            MenuKit.reset(c);
+            DungeonMenuCases.leaveDungeon(c);
+            c.ctx().runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+            c.ctx().waitTicks(3);
+            check(c, wrong, "E after the dungeon: key blocked again", wire(c, () -> drop(c, false)), 0);
+            c.hx().give(1, "minecraft:diamond");
+            c.waitUntil("the diamond back", mc -> mc.player.getInventory().getItem(1).is(Items.DIAMOND), 60);
+
             // C: Block Every Drop OFF with Lock Hotbar on: an unlocked hotbar item drops as in vanilla.
             c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(IPC), "setBlockEveryHotbarDrop", false));
             check(c, wrong, "C unlocked key drop goes out", wire(c, () -> drop(c, false)) > 0 ? 1 : 0, 1);
