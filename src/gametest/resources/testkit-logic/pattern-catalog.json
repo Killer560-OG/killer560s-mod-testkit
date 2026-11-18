@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T19:04:13",
- "modSource": "lane-quizlegit-1117",
- "modGitSha": "9e1e10e0b64f7d9f36b6ad8e90e7282e97b66ea1",
+ "generatedAt": "2026-11-17T19:36:32",
+ "modSource": "lane-secretcd50-1117",
+ "modGitSha": "9030d7552232fca794d95b44b2599cab1f15da11",
  "modSourceDirty": false,
  "count": 994,
  "byKind": {
