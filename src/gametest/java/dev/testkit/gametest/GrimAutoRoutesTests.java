@@ -209,6 +209,21 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 s.test("62-argrim-1102-multibreak" + r, c -> caseMultiBreak(c, true));
                 s.test("62-argrim-1102-multibreak-off" + r, c -> caseMultiBreak(c, false));
             }
+            // arbreakstyle-1118: the Auto Routes "Breaker Style" row. LEGIT_MULTI with the card on Burst, BURST with the card on
+            // Legit Multi Break, BREAKER_AURA (follow) with the card on Burst; each alone and with his own use / left click /
+            // hotbar swap in the break ticks (default AND experimental Grim by the jar's server config).
+            for (String[] st : new String[][]{{"legit", "LEGIT_MULTI", "burst"}, {"burst", "BURST", "legit"}, {"follow", "BREAKER_AURA", "burst"}}) {
+                for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{null, dev.testkit.gametest.SameTick.Act.USE,
+                        dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP}) {
+                    String nm = "62-argrim-1118-breakstyle-" + st[0] + (a == null ? "" : "-same-" + a.name().toLowerCase(Locale.ROOT));
+                    boolean burst = !st[1].equals("LEGIT_MULTI") && (st[1].equals("BURST") || st[2].equals("burst"));
+                    if (burst) {
+                        s.testExpectingFlags(nm, c -> caseBreakStyle(c, st[1], st[2].equals("burst"), true, a));
+                    } else {
+                        s.test(nm, c -> caseBreakStyle(c, st[1], st[2].equals("burst"), false, a));
+                    }
+                }
+            }
             s.test("62-argrim-1020-breakerstand", GrimAutoRoutesTests::caseBreakerStand); // stall-1020 (his Wizard #1)
             s.test("62-argrim-use", GrimAutoRoutesTests::caseUse);
             s.test("62-argrim-play", GrimAutoRoutesTests::casePlay);
@@ -1310,6 +1325,134 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             noteFlags(c, s);
         } finally {
             ctx.runOnClient(mc -> ModUnderTest.setIfPresent(ModUnderTest.config(DX_CONFIG), "setBreakerAuraMultiBreak", true));
+            tpRel(ctx, 13.5, 6.5, 0f, 0f);
+            ctx.waitTicks(5);
+        }
+    }
+
+    /**
+     * 62-argrim-1118-breakstyle-* (arbreakstyle-1118): a breaker node of ten snow blocks with the route's Breaker Style set to
+     * {@code style} while the Breaker Aura card is set the other way ({@code cardBurst}: Burst Multi Break, else Legit Multi
+     * Break). The wire (MultiBreakWatch) shows how the digs went: Burst = several blocks in one server tick, otherwise one a
+     * server tick; all ten gone, the route finished, the card's saved settings untouched. With {@code act} his own use / left
+     * click / hotbar swap goes into every client tick as well (SameTick). Burst may draw MultiBreak* and RotationBreak on
+     * experimental GrimAC only; every other case, and Burst on default GrimAC, must leave GrimAC silent.
+     */
+    private static void caseBreakStyle(Session c, String style, boolean cardBurst, boolean burst, dev.testkit.gametest.SameTick.Act act) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        Object ar = ModUnderTest.config(AR_CONFIG);
+        Object dx = ModUnderTest.config(DX_CONFIG);
+        boolean cardBurstBefore = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraBurstMultiBreakRaw"));
+        boolean cardLegitBefore = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraMultiBreak"));
+        String styleClass = AR_CONFIG + "$BreakStyle";
+        ctx.runOnClient(mc -> {
+            ModUnderTest.set(dx, cardBurst ? "setBreakerAuraBurstMultiBreak" : "setBreakerAuraMultiBreak", true);
+            ModUnderTest.call(ar, "setBreakStyle", new Class<?>[]{ModUnderTest.enumValue(styleClass, "BURST").getClass()},
+                    new Object[]{ModUnderTest.enumValue(styleClass, style)});
+        });
+        boolean cardBurstSet = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraBurstMultiBreakRaw"));
+        boolean cardLegitSet = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraMultiBreak"));
+        List<int[]> ten = new ArrayList<>();
+        Map<int[], String> put = new LinkedHashMap<>();
+        JsonArray blocks = new JsonArray();
+        for (int y = 0; y <= 1; y++) {
+            for (int x = 11; x <= 15; x++) {
+                ten.add(new int[]{x, F + y, 11});
+                put.put(new int[]{x, F + y, 11}, "minecraft:snow_block");
+                blocks.add(x + " " + (F + y) + " 11");
+            }
+        }
+        java.util.Set<net.minecraft.core.BlockPos> tenPos = new java.util.HashSet<>();
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            warmDig(ctx);
+            setBlocks(ctx, put);
+            JsonObject br = node("DUNGEON_BREAKER", 13, 10, 0f, 0f);
+            br.add("blocks", blocks);
+            br.addProperty("start", true);
+            writeRoute(ctx, List.of(br));
+            ctx.runOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                for (int[] b : ten) {
+                    tenPos.add(real(frame, b[0], b[1], b[2]));
+                }
+            });
+            startSampling(ctx);
+            ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.start());
+            walkOnto(ctx, 13.5, 7.5, 13, 10);
+            if (act != null) {
+                final dev.testkit.gametest.SameTick.Act a = act;
+                st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(a, 1,
+                        p -> p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket pa
+                                && tenPos.contains(pa.getPos()), 2, 3));
+            }
+            boolean gone = waitFor(ctx, 120, () -> {
+                for (int[] b : ten) {
+                    if (!blockAir(ctx, b[0], b[1], b[2])) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+            boolean finished = waitFor(ctx, 60, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning")));
+            ctx.waitTicks(5);
+            if (st != null) {
+                dev.testkit.gametest.SameTick s2 = st;
+                ctx.runOnClient(mc -> s2.close());
+            }
+            ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.stop());
+            stopSampling(ctx);
+            java.util.Map<Integer, java.util.Set<String>> perWindow = new java.util.TreeMap<>();
+            java.util.Set<String> dug = new java.util.HashSet<>();
+            for (var d : dev.testkit.harness.MultiBreakWatch.digs()) {
+                if (d.action() == net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK
+                        && tenPos.contains(d.pos())) {
+                    dug.add(d.pos().toShortString());
+                    perWindow.computeIfAbsent(d.window(), w -> new java.util.HashSet<>()).add(d.pos().toShortString());
+                }
+            }
+            int most = perWindow.values().stream().mapToInt(java.util.Set::size).max().orElse(0);
+            boolean cardBurstAfter = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraBurstMultiBreakRaw"));
+            boolean cardLegitAfter = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraMultiBreak"));
+            ctx.waitTicks(10);
+            List<String> flags = c.scenario().flags();
+            boolean exp = dev.testkit.gametest.boss.AaFastCases.experimentalChecks();
+            println(c.name() + ": style " + style + " card " + (cardBurst ? "burst" : "legit") + " act " + act + ": " + dug.size()
+                    + " block(s) dug, most in one server tick " + most + ", windows " + perWindow.keySet() + ", gone " + gone
+                    + ", finished " + finished + ", experimental " + exp + (st == null ? "" : ", same-tick " + st.report())
+                    + ", GrimAC " + (flags.isEmpty() ? "silent" : flags.size() + " line(s)"));
+            for (String f : flags) {
+                println("    " + f);
+            }
+            check(gone, "not all ten snow blocks broke");
+            check(finished, "the route did not finish");
+            check(dug.size() == 10, dug.size() + " distinct blocks dug, want 10");
+            check(burst ? most >= 2 : most <= 1, (burst ? "Burst dug at most " : "a non-burst style dug ") + most + " block(s) in one server tick");
+            check(cardBurstSet == cardBurst && cardLegitSet == !cardBurst && cardBurstAfter == cardBurstSet && cardLegitAfter == cardLegitSet,
+                    "the Breaker Aura card's saved style changed (burst " + cardBurstSet + " -> " + cardBurstAfter + ", legit "
+                            + cardLegitSet + " -> " + cardLegitAfter + ")");
+            if (st != null) {
+                check(st.done() > 0, act + ": his action never went in (nothing tested)");
+            }
+            if (burst && exp) {
+                check(flags.stream().allMatch(f -> f.contains("MultiBreak") || f.contains("RotationBreak")),
+                        "Burst drew a flag other than MultiBreak*/RotationBreak: " + flags);
+            } else {
+                check(flags.isEmpty(), (burst ? "Burst on default GrimAC" : "a clean style") + " drew GrimAC: " + flags);
+            }
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick s3 = st;
+                ctx.runOnClient(mc -> s3.close());
+            }
+            ctx.runOnClient(mc -> {
+                ModUnderTest.call(ar, "setBreakStyle", new Class<?>[]{ModUnderTest.enumValue(styleClass, "BURST").getClass()},
+                        new Object[]{ModUnderTest.enumValue(styleClass, "BREAKER_AURA")});
+                ModUnderTest.set(dx, "setBreakerAuraBurstMultiBreak", cardBurstBefore);
+                ModUnderTest.set(dx, "setBreakerAuraMultiBreak", cardLegitBefore);
+            });
             tpRel(ctx, 13.5, 6.5, 0f, 0f);
             ctx.waitTicks(5);
         }
