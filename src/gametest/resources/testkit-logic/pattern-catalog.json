@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T21:56:51",
- "modSource": "lane-chesthl-ch-1117",
- "modGitSha": "09c53389701339072a84628b8efd634756469540",
+ "generatedAt": "2026-11-17T22:53:57",
+ "modSource": "lane-rngcap-1117-rm",
+ "modGitSha": "d2e2fd8afdba651bb4fad57948f895fe3d7b1ffe",
  "modSourceDirty": false,
  "count": 994,
  "byKind": {
