@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T14:49:59",
- "modSource": "lane-missingench-1118",
- "modGitSha": "2a5f7cc5aa84a25057d34aee82b3e972f774b8bd",
+ "generatedAt": "2026-11-18T15:30:50",
+ "modSource": "lane-arrowpart-1117-rm",
+ "modGitSha": "16eaaffab87e69d946e972149e2c1ee631625b95",
  "modSourceDirty": false,
  "count": 995,
  "byKind": {
