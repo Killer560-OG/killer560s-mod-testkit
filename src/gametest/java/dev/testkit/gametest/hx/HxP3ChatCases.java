@@ -251,6 +251,7 @@ final class HxP3ChatCases {
     private static void sectionTotals(Session s) {
         s.test("1117-hx-p3-section-totals", c -> {
             dungeon(c);
+            c.ctx().waitTicks(30);
             try (Settings st = new Settings(c)) {
                 st.custom(() -> Mod.set(CFG, "setEnabled", true), () -> Mod.set(CFG, "setEnabled", false));
                 c.hx().chat(GOLDOR);
