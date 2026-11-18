@@ -158,7 +158,7 @@ final class InvSortLook1117Cases {
             return;
         }
         String name = "hx-1117-old";
-        String json = "{\"version\":1,\"name\":\"" + name + "\",\"slots\":{\"0\":\"SPIRIT_SCEPTRE\",\"1\":\"HX_NOT_A_REAL_ITEM\","
+        String json = "{\"version\":1,\"name\":\"" + name + "\",\"slots\":{\"0\":\"BAT_WAND\",\"1\":\"HX_NOT_A_REAL_ITEM\","
                 + "\"2\":\"HYPERION\"},\"icons\":{\"0\":\"minecraft:paper\",\"1\":\"minecraft:bogus_item\",\"2\":\"minecraft:iron_sword\"},"
                 + "\"counts\":{\"0\":1,\"1\":1,\"2\":1},\"fetchFromStorage\":false}";
         Path dir = c.onClient(mc -> (Path) Mod.staticCall(STORE, "directory"));
@@ -181,6 +181,12 @@ final class InvSortLook1117Cases {
             } else {
                 c.note("the look table knows no HYPERION in this run; only 'nothing throws' was checked for it");
             }
+            // BAT_WAND is the Spirit Sceptre: Hypixel paper, drawn through its look, never as plain paper.
+            Identifier sceptreModel = c.onClient(mc -> (Identifier) Mod.staticCall("packdisabler.ItemLooks", "modelFor", "BAT_WAND"));
+            c.check(sceptreModel != null, "the look table has no BAT_WAND look (test data gone?)");
+            c.check(sceptreModel.equals(scepter.get(DataComponents.ITEM_MODEL)) || scepter.get(DataComponents.ITEM_MODEL) != null
+                    && scepter.get(DataComponents.ITEM_MODEL).getPath().contains("spirit_sceptre"),
+                    "the Spirit Sceptre placeholder model is " + scepter.get(DataComponents.ITEM_MODEL) + ", wanted " + sceptreModel);
             c.note("scepter placeholder: " + scepter.getItem() + " model " + scepter.get(DataComponents.ITEM_MODEL)
                     + ", hyperion: " + iron.getItem() + " model " + got);
         } finally {
