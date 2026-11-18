@@ -12,8 +12,8 @@ import static dev.testkit.gametest.hx.HxKit.*;
  * <ul>
  *   <li>1117-flask-interp: a tab that shows whole minutes does not pull the Fiesta Flask countdown back, the shown time
  *       keeps counting between reads, a reading that really disagrees re-syncs.</li>
- *   <li>1117-flask-ends: the line leaves when the tab stops listing the flask (also outside a Mining Fiesta, where the
- *       countdown is paused) and when the tab reads zero; one expiry alert for the first.</li>
+ *   <li>1117-flask-ends: the line leaves when the tab stops listing the flask (also outside a Mining Fiesta) and when the tab reads zero; one expiry alert for the first.</li>
+ *   <li>1117-flask-ticks: no Mining Fiesta line, never "paused", counts down every second, snaps to a far reading.</li>
  *   <li>1117-ability-active: "X: Active" from the used line to the expired line, then the cooldown, then nothing.</li>
  * </ul>
  */
@@ -88,13 +88,48 @@ final class HxMineHud1117Cases {
         }
     }
 
+    /** 1117-flask-ticks (flaskfix-1117): no Fiesta line, never "paused", counts down second by second, snaps to a far reading. */
+    private static void ticks(Session c) {
+        try (Settings set = new Settings(c).with(CFG, "FiestaFlask", true)) {
+            c.onClient(mc -> Mod.staticCall(FF, "resetForTest"));
+            area(c);
+            c.onClient(mc -> Mod.staticCall(FF, "startForTest", System.currentTimeMillis(), 90_000L));
+            c.waitUntil("the HUD text", mc -> Mod.staticCall(FF, "text") != null, 40);
+            c.waitUntil("the HUD element is drawn",
+                    mc -> (Boolean) Mod.staticCall("hud.HudSeen", "drawnRecently", "mining_fiesta_flask"), 60);
+            long t0 = System.currentTimeMillis();
+            long r0 = remaining(c);
+            java.util.Set<String> texts = new java.util.LinkedHashSet<>();
+            while (System.currentTimeMillis() - t0 < 6_000) {
+                String t = text(c);
+                c.check(t != null && !t.contains("paused"), "text: " + t);
+                texts.add(t);
+                c.ctx().waitTicks(4);
+            }
+            long elapsed = System.currentTimeMillis() - t0;
+            long r1 = remaining(c);
+            c.note("no fiesta: " + r0 + " -> " + r1 + " after " + elapsed + " ms, " + texts.size() + " texts");
+            c.check(texts.size() >= 5, "the text did not go down second by second: " + texts);
+            c.check(Math.abs((r0 - r1) - elapsed) < 1500, "countdown off the clock: " + (r0 - r1) + " vs " + elapsed);
+            // A tab reading a minute or more away wins.
+            area(c, "Active Effects:", " Fiesta Flask I 30m");
+            c.waitUntil("the 30m reading", mc -> {
+                long ms = (Long) Mod.staticCall(FF, "remainingMs");
+                return ms > 1_790_000L && ms <= 1_800_000L;
+            }, 80);
+        } finally {
+            c.onClient(mc -> Mod.staticCall(FF, "resetForTest"));
+            hub(c);
+        }
+    }
+
     private static void ends(Session c) {
         try (Settings set = new Settings(c).with(CFG, "FiestaFlask", true).with(CFG, "FiestaFlaskAlert", true)) {
             c.onClient(mc -> Mod.staticCall(FF, "resetForTest"));
-            // Paused outside a fiesta (the countdown holds, so it never ran out by itself), then the tab drops the flask.
+            // Outside a fiesta the countdown runs too; then the tab drops the flask.
             area(c, "Active Effects:", " Fiesta Flask I 20m");
             c.waitUntil("the reading", mc -> Mod.staticCall(FF, "text") != null, 80);
-            c.waitUntil("(paused)", mc -> String.valueOf(Mod.staticCall(FF, "text")).contains("(paused)"), 80);
+            c.check(!text(c).contains("paused"), "paused text: " + text(c));
             int alerts = ((Number) c.onClient(mc -> Mod.staticCall(FF, "alerts"))).intValue();
             area(c);
             c.waitUntil("the line ends", mc -> Mod.staticCall(FF, "text") == null, 140);

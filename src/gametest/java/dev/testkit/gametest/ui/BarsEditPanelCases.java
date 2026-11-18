@@ -398,7 +398,7 @@ final class BarsEditPanelCases {
             c.ticks(3);
             c.check(mana(c) == 122, "blocks after the expiry line cost mana: " + mana(c));
 
-            // A run whose expiry line never comes (the world changed, the line was missed): the 35 s time is its end.
+            // A run whose expiry line never comes (the world changed, the line was missed): the 50 s time is its end.
             HudEditorCases.serverPlayer(c, sp -> sp.sendSystemMessage(net.minecraft.network.chat.Component.literal(
                     "§aYou used your §6Maniac Miner §aPickaxe Ability!"), false));
             c.ticks(3);
@@ -411,7 +411,26 @@ final class BarsEditPanelCases {
             });
             breakBurst(c, 4);
             c.ticks(3);
-            c.check(mana(c) == 82, "blocks after the 35 s time ran out (no expiry line) cost mana: " + mana(c));
+            c.check(mana(c) == 82, "blocks after the 50 s time ran out (no expiry line) cost mana: " + mana(c));
+            // A 40 s activation (real ones ran 35-45 s) is still draining at 38 s: the time limit is 50 s, not 35.
+            HudEditorCases.serverPlayer(c, sp -> sp.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                    "§aYou used your §6Maniac Miner §aPickaxe Ability!"), false));
+            c.ticks(3);
+            long window50 = c.onClient(mc -> (Long) R.getStatic(R.cls(FEATURE), "maniacUntil")) - System.currentTimeMillis();
+            c.check(window50 > 45_000, "the drain window after the use line is under 45 s: " + window50);
+            c.onClient(mc -> {
+                R.setStatic(R.cls(FEATURE), "maniacUntil", System.currentTimeMillis() + 12_000);
+                return null;
+            });
+            breakBurst(c, 2);
+            c.ticks(3);
+            c.check(mana(c) == 42, "2 blocks at 38 s into a 40 s activation should take 40 off 82: " + mana(c));
+            HudEditorCases.serverPlayer(c, sp -> sp.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                    "§cYour Maniac Miner has expired!"), false));
+            c.ticks(3);
+            breakBurst(c, 3);
+            c.ticks(3);
+            c.check(mana(c) == 42, "the end line did not stop the drain at 40 s: " + mana(c));
         } finally {
             c.onClient(mc -> {
                 R.setStatic(R.cls(FEATURE), "maniacUntil", 0L);
