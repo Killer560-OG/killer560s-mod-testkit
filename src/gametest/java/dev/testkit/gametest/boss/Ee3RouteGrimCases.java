@@ -214,7 +214,9 @@ final class Ee3RouteGrimCases {
         Path f = Path.of(props.getProperty("dir"), "config", "GrimAC", "punishments.yml");
         String old = Files.readString(f);
         String lifted = old.replaceAll("(RotationPlace:\\s+cancelvl: )\\d+", "$1100000");
-        c.check(!lifted.equals(old), "punishments.yml has no RotationPlace cancelvl to lift: " + f);
+        if (lifted.equals(old)) {
+            lifted = old + (old.endsWith("\n") ? "" : "\n") + "RotationPlace:\n    cancelvl: 100000\n"; // no entry: Grim's own default cancels
+        }
         Files.writeString(f, lifted);
         c.server().command("grim reload");
         c.ctx().waitTicks(10);
