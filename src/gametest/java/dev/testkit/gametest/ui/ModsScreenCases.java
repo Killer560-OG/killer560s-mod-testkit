@@ -42,6 +42,68 @@ final class ModsScreenCases {
     private static final String CFG = "modlist.ModListConfig";
     private static final String MM = "mainmenu.MainMenuThemeConfig";
 
+    static final String TOGGLE = "1118-ui-mods-toggle";
+
+    /** modsscreen-toggle-1118: the card's ON/OFF switch (default ON, file without the key loads ON, survives a reload);
+     *  OFF removes the Mods button from the title screen and the pause menu, ON brings it back and it opens ModsScreen. */
+    static void toggle(UiCase c) {
+        boolean mm0 = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(MM), "isEnabled"));
+        java.nio.file.Path file = c.onClient(mc -> (java.nio.file.Path) Mod.staticCall("util.ModPaths", "config", "killer560smod-modlist.json"));
+        try {
+            c.onClient(mc -> {
+                try {
+                    java.nio.file.Files.createDirectories(file.getParent());
+                    java.nio.file.Files.writeString(file, "{\"showLibraries\":true}");
+                } catch (java.io.IOException e) {
+                    throw new RuntimeException(e);
+                }
+                Mod.staticCall(CFG, "load");
+                Mod.call(Mod.cfg(MM), "setEnabled", true);
+                return null;
+            });
+            c.check(c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(CFG), "isEnabled")), "a file saved before the switch must load ON");
+            int[] counts = new int[2];
+            for (boolean on : new boolean[]{false, true}) {
+                String why = c.onClient(mc -> {
+                    Mod.call(Mod.cfg(CFG), "setEnabled", on);
+                    Mod.call(Mod.cfg(CFG), "save");
+                    Mod.staticCall(CFG, "load");
+                    if ((Boolean) Mod.call(Mod.cfg(CFG), "isEnabled") != on) {
+                        return "switch " + on + " did not survive a reload";
+                    }
+                    McCompat.setScreen(mc, new TitleScreen());
+                    return null;
+                });
+                c.check(why == null, why);
+                c.ticks(20);
+                String res = c.onClient(mc -> {
+                    List<AbstractWidget> mods = named(McCompat.screen(mc), "Mods");
+                    if (on != (mods.size() == 1) || mods.size() > 1) {
+                        return "switch " + on + ": the title screen has " + mods.size() + " Mods buttons";
+                    }
+                    if (on) {
+                        ModScreenDriver.press(mods.get(0));
+                        return isMods(McCompat.screen(mc)) ? null : "pressing Mods opened " + McCompat.screen(mc);
+                    }
+                    return null;
+                });
+                c.check(res == null, res);
+                c.note("switch " + on + " checked");
+            }
+        } finally {
+            c.onClient(mc -> {
+                try {
+                    java.nio.file.Files.deleteIfExists(file);
+                } catch (java.io.IOException ignored) {
+                }
+                Mod.staticCall(CFG, "load");
+                Mod.call(Mod.cfg(MM), "setEnabled", mm0);
+                McCompat.setScreen(mc, new TitleScreen());
+                return null;
+            });
+        }
+    }
+
     private ModsScreenCases() {
     }
 
