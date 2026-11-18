@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T00:42:16",
- "modSource": "lane-abilitycolor-1117",
- "modGitSha": "a59f38dfd069de0033c5cac58e98cfa735ad9bf1",
+ "generatedAt": "2026-11-18T10:07:26",
+ "modSource": "lane-simhelp-1117",
+ "modGitSha": "6040cef30dc18058737d337c350e3868bc66b40e",
  "modSourceDirty": false,
  "count": 994,
  "byKind": {
