@@ -146,6 +146,7 @@
 			"dev.testkit.gametest.SimAutoClearTests",
 			"dev.testkit.gametest.SimAutoClearSpeedTests",
 			"dev.testkit.gametest.SimMobFloorTests",
+			"dev.testkit.gametest.SimAcQuiz1117Tests",
 			"dev.testkit.gametest.SimMobP4Tests",
 			"dev.testkit.gametest.SimBloodRushTests",
 			"dev.testkit.gametest.SimBloodCampTests",
