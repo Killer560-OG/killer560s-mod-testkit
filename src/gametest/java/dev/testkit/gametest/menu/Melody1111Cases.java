@@ -31,7 +31,7 @@ final class Melody1111Cases {
         MenuSuite.test(s, "1111-menu-term-melody-gamble", Melody1111Cases::gamble);
         MenuSuite.test(s, "1111-same-melody-click", c -> sameTick(c, true, false));
         MenuSuite.test(s, "1111-same-melody-click-unblocked", c -> sameTick(c, false, false));
-        MenuSuite.test(s, "1118-same-melody-nodelay", c -> sameTick(c, true, true)); // No First Click Delay In Melody ON, 1000 ms delay
+        MenuSuite.test(s, "1118-same-melody-nodelay", c -> sameTick(c, true, true)); // No First Click Delay In Melody ON, 300 ms delay
     }
 
     /**
@@ -53,7 +53,7 @@ final class Melody1111Cases {
                     .set(CONFIG, "AutoStreamSafe", false).set(CONFIG, "BlockInputWhileAutoClicking", block)
                     .set(CONFIG, "MelodySkipMode", Mod.enumValue(CONFIG + "$MelodySkipMode", "EDGES"))
                     .set(CONFIG, "MelodyLookaheadClicks", 2)
-                    .set(CONFIG, "NoFirstClickDelayMelody", noDelay).set(CONFIG, "FirstClickDelayMs", noDelay ? 1000 : 300);
+                    .set(CONFIG, "NoFirstClickDelayMelody", noDelay).set(CONFIG, "FirstClickDelayMs", 300);
             c.onClient(mc -> {
                 Latency.install(50);
                 return null;

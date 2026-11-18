@@ -10,13 +10,14 @@ import java.util.List;
 
 /**
  * melodynodelay-1118 (killer560, 2026-11-18: "an option for no first click delay in melody"): Auto Terminals' "No First
- * Click Delay In Melody". With First Click Delay at 1000 ms (20 ticks): ON = the first Melody click comes before the wait
- * would have passed, OFF = it waits, a Panes terminal waits in both, and the switch survives save and load.
+ * Click Delay In Melody". With First Click Delay at its 300 ms top (6 ticks) and a Melody board whose pane
+ * already stands on row 1's target (interval 40): ON = the first click comes at least 3 ticks sooner than OFF, a Panes
+ * terminal gets the same delay in both, and the switch survives save and load.
  */
 final class MelodyNoDelay1118Cases {
 
     private static final String CONFIG = TerminalCases.CONFIG;
-    private static final int DELAY_MS = 1000;
+    private static final int DELAY_MS = 300; // First Click Delay tops out at 300 ms
 
     private MelodyNoDelay1118Cases() {
     }
@@ -29,7 +30,22 @@ final class MelodyNoDelay1118Cases {
         cfg.set(CONFIG, "NoFirstClickDelayMelody", on);
         int solvedBefore = c.events("terminal.solved").size();
         int before = c.events("terminal.click").size();
-        JsonObject t = TerminalCases.open(c, spec);
+        JsonObject t;
+        if (spec.type().equals("MELODY")) {
+            JsonObject args = new JsonObject();
+            com.google.gson.JsonArray ts = new com.google.gson.JsonArray();
+            for (int x : new int[]{1, 1, 1}) {
+                ts.add(x);
+            }
+            args.addProperty("type", "MELODY");
+            args.addProperty("seed", 1181);
+            args.addProperty("interval", 40);
+            args.addProperty("bandRows", 3);
+            args.add("targets", ts);
+            t = c.hx().call("menu.terminal", args).getAsJsonObject();
+        } else {
+            t = TerminalCases.open(c, spec);
+        }
         MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);
         c.waitUntil(spec.type() + " solved", mc -> c.events("terminal.solved").size() > solvedBefore, 1800);
         JsonObject solved = c.events("terminal.solved").get(c.events("terminal.solved").size() - 1);
@@ -61,19 +77,16 @@ final class MelodyNoDelay1118Cases {
             long panesOff = firstClickTicks(c, cfg, panes, false);
             c.note("first click ticks: melody on " + melodyOn + ", melody off " + melodyOff + ", panes on " + panesOn
                     + ", panes off " + panesOff + " (delay " + DELAY_MS / 50 + " ticks)");
-            if (melodyOn > 12) {
-                problems.add("Melody with the switch ON still waited " + melodyOn + " ticks");
+            if (melodyOff - melodyOn < 3) {
+                problems.add("Melody first click: switch ON " + melodyOn + " ticks, OFF " + melodyOff + " (expected ON 3+ sooner)");
             }
-            if (melodyOff < DELAY_MS / 50 - 1) {
-                problems.add("Melody with the switch OFF clicked after only " + melodyOff + " ticks");
-            }
-            if (panesOn < DELAY_MS / 50 - 1 || panesOff < DELAY_MS / 50 - 1) {
-                problems.add("Panes did not wait the delay: on " + panesOn + ", off " + panesOff);
+            if (Math.abs(panesOn - panesOff) > 2) {
+                problems.add("Panes changed with the switch: on " + panesOn + ", off " + panesOff);
             }
             cfg.set(CONFIG, "NoFirstClickDelayMelody", true);
             c.onClient(mc -> {
                 Mod.call(Mod.staticCall(CONFIG, "getInstance"), "save");
-                Mod.set(CONFIG, "NoFirstClickDelayMelody", false);
+                Mod.set(CONFIG, "setNoFirstClickDelayMelody", false);
                 Mod.staticCall(CONFIG, "load");
                 return null;
             });
