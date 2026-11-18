@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T13:57:21",
- "modSource": "lane-compactorhl-1118-skill",
- "modGitSha": "48a9eec45c712b47b82de4e159a2619d72c22c28",
+ "generatedAt": "2026-11-18T14:13:56",
+ "modSource": "lane-ghostmob-redo-1118",
+ "modGitSha": "62e18a30317b250aa86c054007154d7afb309b62",
  "modSourceDirty": false,
  "count": 995,
  "byKind": {
