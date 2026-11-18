@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T12:43:00",
- "modSource": "lane-leverplace0-1117",
- "modGitSha": "cbd04036a1e0cac01f1d17ce75e03668f0de7de2",
+ "generatedAt": "2026-11-18T12:52:43",
+ "modSource": "lane-collcap-1117",
+ "modGitSha": "9995bcd578e6b3176b58292868a6e432199f8afe",
  "modSourceDirty": false,
  "count": 994,
  "byKind": {
