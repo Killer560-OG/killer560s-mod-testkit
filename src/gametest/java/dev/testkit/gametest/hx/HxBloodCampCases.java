@@ -148,6 +148,7 @@ final class HxBloodCampCases {
         }
         s.test("1118-bloodaura-exclusive", HxBloodCampCases::auraExclusive);
         s.test("1118-bloodaura-norotate", HxBloodCampCases::auraNoRotate);
+        s.test("1118-bloodaura-preaim", HxBloodCampCases::auraPreAim);
     }
 
     // ---- 1022 -------------------------------------------------------------------------------------------------------
@@ -4104,7 +4105,7 @@ final class HxBloodCampCases {
             if (who == 0) {
                 s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "WorkOutside", true);
             } else {
-                s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "AuraRotate", who == 1)
+                s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "AuraRotate", who == 1).with(BC_CFG, "AuraLookSpeed", 10)
                         .with(BC_CFG, "NeverMiss", true).with(BC_CFG, "WorkOutside", true)
                         .custom(() -> Mod.staticCall(BC, "setHumanClicks", true), () -> Mod.staticCall(BC, "setHumanClicks", false));
                 rememberAs(100);
@@ -4315,6 +4316,80 @@ final class HxBloodCampCases {
             c.check(maxStep > 30, "the body did not snap (biggest one-tick step " + maxStep + "); a humanized turn is capped at 26");
             c.check(heldTicks >= 1 && viewMove < 0.01, "the camera was not held still (held " + heldTicks + " ticks, moved " + viewMove + ")");
             c.check(backOff < 0.6, "the body was not given back under the camera (" + backOff + " deg off)");
+        } finally {
+            c.hx().removeStands();
+        }
+    }
+
+    /** Pre-aim: the Rotate Aura starts turning as soon as a spot is known (long before the kill timer), and a kill in progress
+     *  is finished before it turns to a spot posted meanwhile. */
+    private static void auraPreAim(Session c) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: no Aura");
+            return;
+        }
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "AuraRotate", true);
+            watcher(c, WATCHER_IN);
+            // 1. Idle: the spot is posted, the look must be moving within a reaction time (3-6 ticks) while the mob is ~40 ticks away.
+            stand(c, AWAY_YAW, 10f);
+            Trip t = trip(c, Mob.FRAGILE, false, 10, null);
+            int firstMove = -1;
+            List<float[]> st = steps(t.looks);
+            for (int i = 0; i < st.size() && firstMove < 0; i++) {
+                if (Math.hypot(st.get(i)[0], st.get(i)[1]) > 1e-3) {
+                    firstMove = i;
+                }
+            }
+            c.note("idle: first look movement " + firstMove + " ticks after the spot was tracked; " + fmt(t));
+            c.check(firstMove >= 0 && firstMove <= 12, "the Aura did not start turning when the spot was posted (first move at " + firstMove + ")");
+            // 2. Mid-kill: a second spot is posted while the first mob (3 HP, three hits) is being killed.
+            boolean firstWave = c.onClient(mc -> (Boolean) Mod.staticCall("bloodcamp.BloodCampMoveTimer", "isFirstSpawns"));
+            int dueTick = (int) Math.ceil((firstWave ? 40 : 0) + 38 + 0.8);
+            stand(c, AWAY_YAW, 10f);
+            String mobTex = c.onClient(mc -> anyOf(Mod.field(Mod.ROOT + BC, "MOB_SKULL_TEXTURES")));
+            String[] second = {null};
+            double x0 = -420.5 - (firstWave ? 16.1 : 11.9) - 1.0;
+            nextServerStep = i -> {
+                if (i == dueTick + 2) {
+                    second[0] = c.hx().stand(x0, 151.0, -427.5, null, "marker", false, "invisible", false, "helmet", head(mobTex));
+                }
+                if (second[0] != null && i > dueTick + 2 && i <= dueTick + 5) {
+                    c.hx().call("entity.nudge", "uuid", second[0], "dx", 1.2);
+                }
+            };
+            List<Boolean> alive = new ArrayList<>();
+            List<Boolean> onMob = new ArrayList<>();
+            Trip k = trip(c, Mob.WEAK, false, 80, (i, mc) -> {
+                Vec3 e = endVector();
+                if (e == null) {
+                    alive.add(false);
+                    onMob.add(false);
+                    return;
+                }
+                AABB box = new AABB(e.x - 0.3, e.y, e.z - 0.3, e.x + 0.3, e.y + 1.95, e.z + 0.3);
+                alive.add(!mc.level.getEntities((net.minecraft.world.entity.Entity) null, box.inflate(0.5),
+                        en -> en instanceof net.minecraft.world.entity.LivingEntity && en.isAlive()
+                                && !(en instanceof net.minecraft.world.entity.decoration.ArmorStand)).isEmpty());
+                onMob.add(bodyHits(mc, box.inflate(0.4)));
+            });
+            if (second[0] != null) {
+                c.hx().call("entity.remove", "uuid", second[0]);
+            }
+            int aliveTicks = 0;
+            int aliveOn = 0;
+            for (int i = dueTick + 3; i < alive.size(); i++) {
+                if (alive.get(i)) {
+                    aliveTicks++;
+                    if (onMob.get(i)) {
+                        aliveOn++;
+                    }
+                }
+            }
+            c.note("mid-kill: while mob one lived after the second spot was posted, the body was on it " + aliveOn + " of " + aliveTicks
+                    + " ticks; " + fmt(k));
+            c.check(second[0] != null && aliveTicks >= 5, "nothing tested: the first mob was dead " + aliveTicks + " ticks after the second spot");
+            c.check(aliveOn >= aliveTicks * 0.9, "the Aura turned away from the mob it was killing (on it " + aliveOn + " of " + aliveTicks + ")");
         } finally {
             c.hx().removeStands();
         }
