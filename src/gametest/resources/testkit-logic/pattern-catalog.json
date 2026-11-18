@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T11:13:19",
- "modSource": "lane-simhelp-1117",
- "modGitSha": "b7e34a88da963b51a3e2a5bf388af009e37deef8",
+ "generatedAt": "2026-11-18T12:43:00",
+ "modSource": "lane-leverplace0-1117",
+ "modGitSha": "cbd04036a1e0cac01f1d17ce75e03668f0de7de2",
  "modSourceDirty": false,
  "count": 994,
  "byKind": {
@@ -55,11 +55,11 @@
    "field": "TITLE",
    "index": null,
    "file": "src/main/java/com/killer560/hub/accadvisor/AccessoryAdvisor.java",
-   "line": 63,
-   "regex": "^Accessory Bag(?: \\((\\d{1,2})/(\\d{1,2})\\))?$",
+   "line": 64,
+   "regex": "^\\((\\d{1,2})/(\\d{1,2})\\) Accessory Bag$",
    "flags": null,
    "kind": "field",
-   "expr": "\"^Accessory Bag(?: \\\\((\\\\d{1,2})/(\\\\d{1,2})\\\\))?$\""
+   "expr": "\"^\\\\((\\\\d{1,2})/(\\\\d{1,2})\\\\) Accessory Bag$\""
   },
   {
    "id": "ahflip.AhFlipMacro#PURCHASED_LINE",
