@@ -229,6 +229,27 @@ final class Align12LeapCases {
     }
 
     /** A RUN node carries him into the block along headings every 30 degrees; per bucket the ticks to stopped. */
+    /** Air over the block the align ends on: a ceiling left by an earlier case forces a crouch the replica does not model. */
+    private static void clearAbove(Session c, ClientGameTestContext ctx, double tx, double tz, double y) {
+        int x0 = (int) Math.floor(tx) - 3, z0 = (int) Math.floor(tz) - 3, y0 = (int) y;
+        Integer n = onClient(ctx, mc -> {
+            int k = 0;
+            for (int dx = 0; dx <= 6; dx++) {
+                for (int dz = 0; dz <= 6; dz++) {
+                    for (int dy = 0; dy <= 3; dy++) {
+                        k += mc.level.getBlockState(new net.minecraft.core.BlockPos(x0 + dx, y0 + dy, z0 + dz)).isAir() ? 0 : 1;
+                    }
+                }
+            }
+            return k;
+        });
+        if (n > 0) {
+            c.note("blocks over the align point: " + n + ", cleared");
+            c.server().command(String.format(Locale.ROOT, "fill %d %d %d %d %d %d minecraft:air", x0, y0, z0, x0 + 6, y0 + 3, z0 + 6));
+            c.server().sync(20);
+        }
+    }
+
     private static void angle(Session c) {
         ClientGameTestContext ctx = c.ctx();
         c.server().command("attribute @p minecraft:movement_speed base set 0.50");
@@ -265,6 +286,7 @@ final class Align12LeapCases {
                     c.waitUntil("the chunks round the align", mc -> mc.level.hasChunkAt(new net.minecraft.core.BlockPos((int) Math.floor(sx - dx * 2.5), FLOOR,
                             (int) Math.floor(sz - dz * 2.5))) && mc.level.hasChunkAt(new net.minecraft.core.BlockPos((int) Math.floor(tx), FLOOR,
                             (int) Math.floor(tz))), 200);
+                    clearAbove(c, ctx, tx, tz, y);
                     onClient(ctx, mc -> {
                         setChain(run, align);
                         return null;
