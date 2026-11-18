@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T10:07:26",
- "modSource": "lane-leverplace0-1117",
- "modGitSha": "4397b921981f8b525f2e5c34aac7aa500b144088",
+ "generatedAt": "2026-11-18T12:15:50",
+ "modSource": "lane-maplabel-1117",
+ "modGitSha": "f510737a39bef4f8afb7d044cfb46918b9a70997",
  "modSourceDirty": false,
  "count": 994,
  "byKind": {
@@ -55,11 +55,11 @@
    "field": "TITLE",
    "index": null,
    "file": "src/main/java/com/killer560/hub/accadvisor/AccessoryAdvisor.java",
-   "line": 63,
-   "regex": "^Accessory Bag(?: \\((\\d{1,2})/(\\d{1,2})\\))?$",
+   "line": 64,
+   "regex": "^\\((\\d{1,2})/(\\d{1,2})\\) Accessory Bag$",
    "flags": null,
    "kind": "field",
-   "expr": "\"^Accessory Bag(?: \\\\((\\\\d{1,2})/(\\\\d{1,2})\\\\))?$\""
+   "expr": "\"^\\\\((\\\\d{1,2})/(\\\\d{1,2})\\\\) Accessory Bag$\""
   },
   {
    "id": "ahflip.AhFlipMacro#PURCHASED_LINE",
@@ -4483,7 +4483,7 @@
    "field": "DUMP_PAGE",
    "index": null,
    "file": "src/main/java/com/killer560/hub/invsort/InventoryLayoutStore.java",
-   "line": 310,
+   "line": 316,
    "regex": "^(?:enderchest_[1-9]|backpack_(?:[1-9]|1[0-8]))$",
    "flags": null,
    "kind": "field",
