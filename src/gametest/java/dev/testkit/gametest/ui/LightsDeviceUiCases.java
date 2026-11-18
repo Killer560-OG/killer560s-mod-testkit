@@ -201,7 +201,7 @@ final class LightsDeviceUiCases {
                         "swing/chat not carried");
                 String la = Files.readString(laPath, StandardCharsets.UTF_8);
                 c.check(!la.contains("lightsPreFlick") && !la.contains("lightsFinish"), "the In Boss file kept its Lights keys: " + la);
-                c.check(la.contains("\"sectionLevers\": true") && la.contains("\"cps\": 7"), "the In Boss file lost its own keys: " + la);
+                c.check(la.contains("\"sectionLevers\": true") && la.contains("\"cooldownMs\": 143"), "the In Boss file lost its own keys: " + la);
                 c.check(Files.exists(ldPath) && Files.readString(ldPath, StandardCharsets.UTF_8).contains("\"auraEnabled\": true"),
                         "the migrated Lights Device file was not saved");
                 Mod.staticCall(LD, "load");
