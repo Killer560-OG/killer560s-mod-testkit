@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-17T23:47:11",
- "modSource": "lane-acctswap-1117",
- "modGitSha": "1fa363d24432ea11ffd2aa8f68261f71535ddf8e",
+ "generatedAt": "2026-11-18T00:25:22",
+ "modSource": "lane-termcount-1117",
+ "modGitSha": "b177fa2bab93ed9dea2e873f0675b3e47b0acf68",
  "modSourceDirty": false,
  "count": 994,
  "byKind": {
