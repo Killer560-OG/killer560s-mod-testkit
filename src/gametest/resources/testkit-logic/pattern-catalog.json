@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T18:05:24",
- "modSource": "lane-autoaccept-who-1118",
- "modGitSha": "ca2084398e1b0aa03300336e78a30a8a30eaa3f2",
+ "generatedAt": "2026-11-18T19:06:07",
+ "modSource": "lane-sliderunits-1118",
+ "modGitSha": "0e8a5caa563cbd64800d13fd223013975edbf306",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
