@@ -112,14 +112,14 @@ final class IceFillGrim1118Cases {
                 at = 0;
                 sentTo = -1;
                 landed = true;
-                if ("move".equals(act)) {
-                    c.onClient(mc -> {
-                        mc.options.keyUp.setDown(true);
-                        mc.options.keyJump.setDown(true);
-                        return null;
-                    });
-                }
-                driving = true;
+                // Keys and the drive go on together: a tick between them walks him off the tile before the first hop.
+                boolean move = "move".equals(act);
+                c.onClient(mc -> {
+                    mc.options.keyUp.setDown(move);
+                    mc.options.keyJump.setDown(move);
+                    driving = true;
+                    return null;
+                });
                 for (int k = 0; k < 120 && at < TILES - 1; k++) {
                     if (a == SameTick.Act.TP && k % 2 == 0) {
                         c.server().command("execute as @a at @s run tp @s ~ ~ ~");
@@ -130,7 +130,8 @@ final class IceFillGrim1118Cases {
                         // Hypixel's answer to the hop: a teleport one block on (relative look, the camera untouched).
                         c.server().command(String.format(Locale.ROOT, "tp @a %.2f %.2f %.2f", p.x, (double) Y + 1, p.z));
                         int want = to;
-                        c.waitUntil("hop " + want + " landed", mc -> Math.abs(mc.player.getX() - point(want).x) < 0.01, 40);
+                        double tol = move ? 0.6 : 0.01; // walking, he is a step past the landing by the next look
+                        c.waitUntil("hop " + want + " landed", mc -> Math.abs(mc.player.getX() - point(want).x) < tol, 40);
                         at = want;
                         sentTo = -1;
                         landed = true;
