@@ -235,7 +235,7 @@ public class SimHelpTests implements FabricClientGameTest {
 
         // The real window: every page draws its pictures (ready within 10 s, real pixels in each box), and the accent follows the theme.
         // A fresh screen opened by /help: the size loop's hand resizes leave the old one's layout off the drawn frame.
-        ctx.runOnClient(mc -> mc.setScreen(null));
+        ctx.runOnClient(mc -> McCompat.setScreen(mc, null));
         setWindow(ctx, 1280, 720, 2);
         ctx.runOnClient(mc -> mc.player.connection.sendCommand("help"));
         ctx.waitFor(mc -> McCompat.screen(mc) != null && McCompat.screen(mc).getClass().getName().equals(SCREEN), 200);
