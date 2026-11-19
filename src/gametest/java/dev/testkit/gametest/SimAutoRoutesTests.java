@@ -9122,9 +9122,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 // A warp goes no sooner than RouteExecutor.CLICK_TO_WARP_TICKS after a block click made with the same item
                 // (mod c81e0cf0, 2026-10-19: 2; arwrong-1118: 3). On Hypixel 45 of 69 warps one tick after such a click got
                 // no teleport, and his 2026-11-18 routes had 15 of 74 refused two ticks after, 30 of 30 landing at three.
-                // So the third tick is the first one Hypixel reliably takes: sooner is the refusal, later a wasted tick.
-                check(same.actedAfterFiring() == 3, "the warp after the lever click went " + same.actedAfterFiring()
-                        + " tick(s) after firing - it must go on the click-gap's tick (3)");
+                // So the third tick end after the click is the first one Hypixel reliably takes: sooner is the refusal, later a wasted
+                // tick. The click leaves a tick before the node fires, so that is 2 ticks after firing (origin's gap of 2: 1).
+                check(same.actedAfterFiring() == 2, "the warp after the lever click went " + same.actedAfterFiring()
+                        + " tick(s) after firing - it must go on the click-gap's tick (2 after firing, 3 after the click)");
                 check(item.acted() && item.dropped() == 0 && item.landTick() >= 0 && !item.turnedFirst(),
                         "the warp after an item pickup did not go and land at once (landed " + item.landTick()
                                 + ", ignored " + item.dropped() + ", turned first " + item.turnedFirst() + ")");
@@ -9459,7 +9460,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      *   must go in the landing's teleport answer, and its warp on the landing tick (acted 0 ticks after firing).</li>
      *   <li>{@code 96-ar-1118-freshsneak}: the start node is fired standing, so its sneak goes out in the use's own tick, and
      *   Hypixel casts that use from the standing eye ({@link dev.testkit.harness.FreshSneakEye}). All 7 wrong landings in
-     *   his routes were such uses. A stone floats at (8, F+1, 20): the crouched ray passes under it onto (12, 20), the
+     *   his routes were such uses. A stone floats at (9, F+1, 20): the crouched ray passes under it onto (12, 20), the
      *   standing ray meets it. The warp must land on (12, 20), never on the floating stone.</li>
      * </ul>
      */
@@ -9524,7 +9525,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             arena(ctx, false);
             giveHotbar(ctx);
             forgetRunMemory(ctx);
-            setBlocks(ctx, Map.of(new int[]{8, F + 1, 20}, Blocks.STONE.defaultBlockState()));
+            setBlocks(ctx, Map.of(new int[]{9, F + 1, 20}, Blocks.STONE.defaultBlockState()));
             writeRoute(ctx, List.of(ew(6, 20, 12, 20, true)));
             ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
             tpRel(ctx, 4.5, 20.5, 0f, 0f);
@@ -9545,6 +9546,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             } finally {
                 s = stopSampling(ctx);
                 stopRoute(ctx);
+                liftedCasts = dev.testkit.harness.FreshSneakEye.lifted;
                 ctx.runOnClient(mc -> dev.testkit.harness.FreshSneakEye.reset());
             }
             List<Sample> uses = useTicks(s);
@@ -9557,17 +9559,19 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             }
             double maxY = s.stream().mapToDouble(x -> x.pos().y).max().orElse(Double.NaN);
             int holds = freshHolds(ctx) - holds0;
-            println(String.format(Locale.US, "freshsneak: landed on (12,20) %s, fresh-sneak holds %d, use at sample tick %d"
-                    + " (its sneak new that tick %s), highest feet %.2f, now at %s", landed, holds, useTick, fresh,
-                    maxY, relPos(ctx)));
+            println(String.format(Locale.US, "freshsneak: landed on (12,20) %s, fresh-sneak holds %d, standing-eye casts %d,"
+                    + " use at sample tick %d (its sneak new that tick %s), highest feet %.2f, now at %s", landed, holds,
+                    liftedCasts, useTick, fresh, maxY, relPos(ctx)));
             check(useTick >= 0, "freshsneak: no warp was sent");
             check(landed, "freshsneak: the warp did not land on (12, 20) - at " + relPos(ctx) + " (the standing eye's ray "
-                    + "met the floating stone at (8, F+1, 20))");
+                    + "met the floating stone at (9, F+1, 20))");
             check(holds >= 1 && !fresh, "freshsneak: the use went with its sneak in its own tick (" + fresh + ") or no "
                     + "fresh-sneak hold ran (holds " + holds + ")");
             check(logHas(m, "Etherwarp PREP") && logHas(m, "sneak not yet at the server"), "freshsneak: the node did not "
                     + "fire standing - the case tests nothing");
         }
+
+        private static volatile int liftedCasts;
 
         private static int answerTurns(ClientGameTestContext ctx) {
             return ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "answerTurns"));
