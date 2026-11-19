@@ -23,6 +23,7 @@ final class DefaultsOff1104Cases {
     private static final String[][] TABLE = {
             {"croesus.CroesusConfig", "chestProfitEnabled", "loggerEnabled"},
             {"chatchannel.ChatChannelConfig", "enabled"},
+            {"autoreclaim.AutoReclaimConfig", "enabled", "pullAndReclaim"},
             {"leftclicksecrets.LeftClickSecretsConfig", "enabled"},
             {"milestone.MilestoneConfig", "enabled"},
             {"itemhighlight.DungeonItemHighlightConfig", "enabled"},

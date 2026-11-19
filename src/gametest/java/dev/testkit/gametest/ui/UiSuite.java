@@ -741,6 +741,9 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "705-ui-itemprotect-hover-star-drops", ItemUiCases::protectHoverAndDrops);
                     UiCase.run(ctx, "706-ui-gif-dvd-hidden-in-containers", ItemUiCases::overlaysHidden);
                     UiCase.run(ctx, "707-ui-storagesearch-equipment-wardrobe", ItemUiCases::equipmentWardrobeIndex);
+                    UiCase.run(ctx, "1117-ui-reclaim-highlight", AutoReclaim1117UiCases::highlight);
+                    UiCase.run(ctx, "1117-ui-reclaim-report", AutoReclaim1117UiCases::report);
+                    UiCase.run(ctx, "1117-ui-reclaim-legit-no-cheat", AutoReclaim1117UiCases::legitNoCheat);
                     UiCase.run(ctx, "709-ui-itembrowser-tooltip", ItemUiCases::browserTooltip);
                     UiCase.run(ctx, "710-ui-itembrowser-minion-tiers", ItemUiCases::browserMinions);
                     UiCase.run(ctx, "711-ui-itembrowser-neu-recipe", ItemUiCases::browserRecipe);

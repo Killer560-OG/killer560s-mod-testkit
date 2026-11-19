@@ -18,6 +18,7 @@
     {"input": "invsort", "expect": "screen:invsort.InventorySorterScreen", "source": "invsort/InventorySorterCommands.java (opens the layouts menu; cheat jar only)"},
     {"input": "customitems", "expect": "screen:armourdye.CustomItemsScreen", "source": "armourdye/ArmourDyeFeature.java (opens the Custom Items menu)"},
     {"input": "search", "expect": "ok", "source": "storagesearch/StorageSearchFeature.java (opens Storage Search only when its setting is on; otherwise a chat line)"},
+    {"input": "autoreclaim", "expect": "ok", "source": "autoreclaim/AutoReclaimFeature.java (with its switch off: one chat line; on: the report, and in a cheat jar with Pull And Reclaim on the run)"},
     {"input": "breakeraura config list", "expect": "ok", "source": "dungeonextras/BreakerAuraCommands.java:82 (prints to chat; list is under config)"}
   ],
   "parseOnly": [
