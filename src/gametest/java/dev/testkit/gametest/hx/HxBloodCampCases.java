@@ -2009,10 +2009,11 @@ final class HxBloodCampCases {
                     + " moment; biggest resting frame turn %.2f deg, biggest tick turn %.2f; %s", firstTurnTick[0], t.due,
                     pickedAt, rest, tickYaw, fmt(t)));
             c.check(firstTurnTick[0] >= 0, "the Aura never picked the mob - nothing was tested");
-            c.check(!Double.isNaN(pickedAt) && pickedAt <= 24.0 && pickedAt > 0.0, "the Aura picked the mob " + pickedAt
-                    + " ticks before its click moment, want within a reaction plus its turn (at most 24)");
-            c.check(firstTurnTick[0] >= Math.floor(t.due) - 26, "the Aura was turning " + (t.due - firstTurnTick[0])
-                    + " ticks before the mob was due (the old 35-tick start)");
+            // bloodaura-rotate-1118 (killer560, 2026-11-18: "the second that a new mob spawn spot is posted ... it should start aiming
+            // there"): Rotate mode pre-aims, so the pick is now early (the old late-pick rule is retired); the click moment, the
+            // attack and the no-jump rules below still hold, and 1118-bloodaura-preaim tests the early turn itself.
+            c.check(!Double.isNaN(pickedAt) && pickedAt > 24.0, "the Aura picked the mob only " + pickedAt
+                    + " ticks before its click moment; Rotate pre-aims from the moment the spot is posted");
             c.check(!t.serverAttacks.isEmpty(), "the Aura never attacked the mob");
             c.check(rest <= 4.0f, "while resting on the mob the Aura jumped " + rest + " degrees in one frame");
             c.check(tickYaw <= 26.0f + 1e-3f, "a tick's turn was " + tickYaw + " degrees, over the 26 cap");
