@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T23:25:19",
- "modSource": "lane-prefixopen-1118",
- "modGitSha": "7e2fc4f415992df2997d779865b0ab63de6fbd6e",
+ "generatedAt": "2026-11-19T01:26:09",
+ "modSource": "lane-lockdrop-ability-1118-rm",
+ "modGitSha": "f8f68fcc63443ec5f75431b8232a5039cf07e4c4",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
