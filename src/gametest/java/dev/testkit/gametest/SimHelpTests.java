@@ -396,16 +396,15 @@ public class SimHelpTests implements FabricClientGameTest {
             for (var e : ((Map<?, ?>) ModUnderTest.call(sc, "layoutBoxes", new Class<?>[0], new Object[0])).entrySet()) {
                 if (e.getKey().toString().startsWith("pic")) out.add((int[]) e.getValue());
             }
-            return new Object[]{out, drawnWidth(mc, sc)};
+            return new Object[]{out, drawnWidth(sc)};
         });
     }
 
-    /** The layout width the window really shows: GUI-scaled width over the Auto Scale factor the screen was laid out with
-     *  (sc.width can still hold a size the harness gave it, which put the pixel reads off the pictures). */
-    private static double drawnWidth(net.minecraft.client.Minecraft mc, net.minecraft.client.gui.screens.Screen sc) {
-        float k = (Float) ModUnderTest.staticCall("com.killer560.hub.hud.AutoScale", "appliedFactor",
-                new Class<?>[]{net.minecraft.client.gui.screens.Screen.class}, new Object[]{sc});
-        return mc.getWindow().getGuiScaledWidth() / (double) k;
+    /** The width of the canvas the screen is drawn on, from its own centered panel (2 x left margin + panel width), so a
+     *  pixel read maps through whatever Auto Scale factor the screen was laid out with (sc.width did not, 2026-11-19). */
+    private static double drawnWidth(net.minecraft.client.gui.screens.Screen sc) {
+        int[] panel = (int[]) ((Map<?, ?>) ModUnderTest.call(sc, "layoutBoxes", new Class<?>[0], new Object[0])).get("panel");
+        return 2.0 * panel[0] + panel[2];
     }
 
     @SuppressWarnings("unchecked")
@@ -439,10 +438,10 @@ public class SimHelpTests implements FabricClientGameTest {
             dev.testkit.gametest.mod.Mod.call(dm, "setEnabled", dark);
             if (dark) dev.testkit.gametest.mod.Mod.call(dm, "setOpacity", 50);
             var sc = McCompat.screen(mc);
-            sc.resize(sc.width, sc.height);
+            sc.resize(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight()); // sc.width is the scaled canvas: resizing to it scales twice
             ModUnderTest.call(sc, "showPage", new Class<?>[]{int.class}, new Object[]{0});
             Map<?, ?> b = (Map<?, ?>) ModUnderTest.call(sc, "layoutBoxes", new Class<?>[0], new Object[0]);
-            return new Object[]{b.get("page0"), b.get("panel"), drawnWidth(mc, sc)};
+            return new Object[]{b.get("page0"), b.get("panel"), drawnWidth(sc)};
         });
         ctx.waitTicks(4);
         Path shot = ctx.takeScreenshot(dev.testkit.harness.Report.fileName(NAME + "-theme-" + theme + (dark ? "-dark" : "")));
