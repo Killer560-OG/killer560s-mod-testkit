@@ -69,7 +69,132 @@ public class SoundDisablerSuite implements FabricClientGameTest {
                     s.test("1102-sound-persist", SoundDisablerSuite::persist);
                     s.test("1104-sound-weather", SoundDisablerSuite::weather);
                     s.test("1108-sound-lastbreath-cooldown", SoundDisablerSuite::lastBreathCooldown);
+                    s.test("1118-sound-volume", SoundDisablerSuite::volume);
+                    s.test("1118-sound-migrate", SoundDisablerSuite::migrate);
                 });
+    }
+
+    // ------------------------------------------------------------------ 1118 volume
+
+    private static double volumeOf(String id) {
+        return SoundProbe.volume("minecraft:" + id);
+    }
+
+    /** Plays {@code id} locally (and the control after it) and checks how many copies reached the engine and their summed volume. */
+    private static void volumeLocal(Session c, String id, int copies, double sum, String what) {
+        int r0 = reached(c, id);
+        double v0 = c.onClient(mc -> volumeOf(id));
+        int ctl0 = reached(c, CONTROL);
+        c.onClient(mc -> {
+            local(mc, id, 0, false);
+            local(mc, CONTROL, 0, false);
+            return null;
+        });
+        c.waitUntil("the control sound to reach the engine", mc -> SoundProbe.count("minecraft:" + CONTROL) > ctl0, 100);
+        c.server().sync(3);
+        int r = reached(c, id) - r0;
+        double v = c.onClient(mc -> volumeOf(id)) - v0;
+        c.note(String.format(Locale.ROOT, "%s (%s): %d copies reached the engine, summed volume %.2f", what, id, r, v));
+        c.check(r == copies, what + ": " + id + " reached the engine " + r + " time(s), wanted " + copies);
+        c.check(Math.abs(v - sum) < 0.01, what + ": summed volume " + v + ", wanted " + sum);
+    }
+
+    private static void volume(Session c) {
+        String id = "entity.cat.purr";
+        Identifier sid = Identifier.withDefaultNamespace(id);
+        try {
+            configure(c, true);
+            volumeLocal(c, id, 1, 1.0, "untouched sound (100%)");
+            int scaled0 = c.onClient(mc -> (Integer) ModUnderTest.staticCall(SD, "scaled"));
+            c.onClient(mc -> {
+                setSound(cfg(), sid, false, 50);
+                return null;
+            });
+            volumeLocal(c, id, 1, 0.5, "50%");
+            int scaled1 = c.onClient(mc -> (Integer) ModUnderTest.staticCall(SD, "scaled"));
+            c.check(scaled1 == scaled0 + 1, "the mod's scaled counter moved " + (scaled1 - scaled0) + ", wanted 1 (the hook acted)");
+            c.onClient(mc -> {
+                setSound(cfg(), sid, false, 0);
+                return null;
+            });
+            volumeLocal(c, id, 0, 0.0, "0%");
+            c.onClient(mc -> {
+                setSound(cfg(), sid, true, 120);
+                return null;
+            });
+            volumeLocal(c, id, 0, 0.0, "muted (a volume kept)");
+            int layers0 = c.onClient(mc -> (Integer) ModUnderTest.staticCall(SD, "layers"));
+            c.onClient(mc -> {
+                setSound(cfg(), sid, false, 150);
+                return null;
+            });
+            volumeLocal(c, id, 2, 1.5, "150% (a full copy and a half copy)");
+            c.onClient(mc -> {
+                setSound(cfg(), sid, false, 200);
+                return null;
+            });
+            volumeLocal(c, id, 2, 2.0, "200% (two full copies)");
+            int layers1 = c.onClient(mc -> (Integer) ModUnderTest.staticCall(SD, "layers"));
+            c.check(layers1 == layers0 + 2, "the extra-copy counter moved " + (layers1 - layers0) + ", wanted 2");
+            c.check(Integer.valueOf(200).equals(c.onClient(mc -> ModUnderTest.staticCall(SD, "lastScaledPercent"))),
+                    "the hook's last scaled percent is not 200");
+
+            // The server path (a playsound packet) is judged the same.
+            c.onClient(mc -> {
+                setSound(cfg(), sid, false, 50);
+                return null;
+            });
+            double v0 = c.onClient(mc -> volumeOf(id));
+            sendWithControl(c, id, "~ ~ ~");
+            double v = c.onClient(mc -> volumeOf(id)) - v0;
+            c.check(Math.abs(v - 0.5) < 0.01, "a server " + id + " at 50% reached the engine with summed volume " + v + ", wanted 0.5");
+
+            // A preset row: its slider applies only while Volume Sliders is on and the row itself is off.
+            c.onClient(mc -> {
+                ModUnderTest.call(cfg(), "clearSounds", new Class<?>[0], new Object[0]);
+                ModUnderTest.call(cfg(), "setPresetPercent", new Class<?>[]{rowClass(), int.class},
+                        new Object[]{ModUnderTest.enumValue(ROW, "EXPLOSIONS"), 50});
+                return null;
+            });
+            volumeLocal(c, "entity.generic.explode", 1, 1.0, "a preset slider at 50% with Volume Sliders OFF (kept, not applied)");
+            c.onClient(mc -> ModUnderTest.call(cfg(), "setVolumeSliders", new Class<?>[]{boolean.class}, new Object[]{true}));
+            volumeLocal(c, "entity.generic.explode", 1, 0.5, "a preset slider at 50% with Volume Sliders ON");
+            c.onClient(mc -> {
+                setRow(cfg(), "EXPLOSIONS", true);
+                return null;
+            });
+            volumeLocal(c, "entity.generic.explode", 0, 0.0, "the Explosions row switched on (muted) over its slider");
+        } finally {
+            reset(c);
+        }
+    }
+
+    private static void migrate(Session c) throws Exception {
+        java.nio.file.Path file = ModUnderTest.modConfig("killer560smod-sound-disabler.json");
+        try {
+            java.nio.file.Files.writeString(file, "{\"enabled\": true, \"custom\": \"entity.bee.*, block.bell.use, minecraft:entity.cat.ambient, *\"}");
+            int count = c.onClient(mc -> {
+                ModUnderTest.staticCall(CFG, "load");
+                return ModUnderTest.getInt(cfg(), "soundCount");
+            });
+            long bees = c.onClient(mc -> net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.keySet().stream()
+                    .filter(i -> i.toString().startsWith("minecraft:entity.bee.")).count());
+            c.note("legacy custom list loaded as " + count + " muted entries (" + bees + " entity.bee.* sounds + 2)");
+            c.check(bees > 0, "no registered entity.bee.* sound to expand");
+            c.check(count == bees + 2, "the legacy list became " + count + " entries, wanted " + (bees + 2) + " ('*' alone is ignored)");
+            c.check(c.onClient(mc -> soundIs(cfg(), "block.bell.use", true, 100) && soundIs(cfg(), "entity.cat.ambient", true, 100)),
+                    "an exact legacy id is not a muted entry at 100%");
+            // And it acts: the migrated id is not played.
+            c.onClient(mc -> {
+                ModUnderTest.call(cfg(), "setEnabled", new Class<?>[]{boolean.class}, new Object[]{true});
+                return null;
+            });
+            int m0 = mutedBy(c, "custom");
+            mutedFromServer(c, "block.bell.use", "~ ~ ~", "custom", "a migrated legacy id");
+            c.check(mutedBy(c, "custom") == m0 + 1, "the custom row did not count the migrated id");
+        } finally {
+            reset(c);
+        }
     }
 
     // ------------------------------------------------------------------ cases
@@ -157,7 +282,7 @@ public class SoundDisablerSuite implements FabricClientGameTest {
                 ModUnderTest.staticCall(CFG, "load");
                 Object cfg = cfg();
                 boolean off = !ModUnderTest.getBoolean(cfg, "isEnabled") && !ModUnderTest.getBoolean(cfg, "isShowIds")
-                        && ModUnderTest.getInt(cfg, "customCount") == 0;
+                        && ModUnderTest.getInt(cfg, "soundCount") == 0 && !ModUnderTest.getBoolean(cfg, "isVolumeSliders");
                 defaults.append("enabled=").append(ModUnderTest.getBoolean(cfg, "isEnabled")).append(' ');
                 for (String r : ROWS) {
                     boolean on = isRow(cfg, r);
@@ -174,7 +299,10 @@ public class SoundDisablerSuite implements FabricClientGameTest {
                 for (int i = 0; i < ROWS.length; i++) {
                     setRow(cfg, ROWS[i], i % 2 == 1);
                 }
-                ModUnderTest.call(cfg, "setCustom", new Class<?>[]{String.class}, new Object[]{"entity.bee.*, block.bell.use"});
+                setSounds(cfg, "entity.bee.sting:m", "block.bell.use:150");
+                ModUnderTest.call(cfg, "setVolumeSliders", new Class<?>[]{boolean.class}, new Object[]{true});
+                ModUnderTest.call(cfg, "setPresetPercent", new Class<?>[]{rowClass(), int.class},
+                        new Object[]{ModUnderTest.enumValue(ROW, "EXPLOSIONS"), 35});
                 ModUnderTest.call(cfg, "setShowIds", new Class<?>[]{boolean.class}, new Object[]{true});
                 ModUnderTest.call(cfg, "save", new Class<?>[0], new Object[0]);
                 ModUnderTest.staticCall(CFG, "load");
@@ -184,8 +312,11 @@ public class SoundDisablerSuite implements FabricClientGameTest {
             boolean ok = c.onClient(mc -> {
                 Object cfg = cfg();
                 boolean all = ModUnderTest.getBoolean(cfg, "isEnabled") && ModUnderTest.getBoolean(cfg, "isShowIds")
-                        && "entity.bee.*, block.bell.use".equals(ModUnderTest.call(cfg, "getCustom", new Class<?>[0], new Object[0]))
-                        && ModUnderTest.getInt(cfg, "customCount") == 2;
+                        && ModUnderTest.getBoolean(cfg, "isVolumeSliders")
+                        && soundIs(cfg, "entity.bee.sting", true, 100) && soundIs(cfg, "block.bell.use", false, 150)
+                        && ModUnderTest.getInt(cfg, "soundCount") == 2
+                        && (Integer) ModUnderTest.call(cfg, "getPresetPercent", new Class<?>[]{rowClass()},
+                                new Object[]{ModUnderTest.enumValue(ROW, "EXPLOSIONS")}) == 35;
                 for (int i = 0; i < ROWS.length; i++) {
                     boolean on = isRow(cfg, ROWS[i]);
                     got.append(ROWS[i]).append('=').append(on).append(' ');
@@ -316,15 +447,56 @@ public class SoundDisablerSuite implements FabricClientGameTest {
             for (String r : ROWS) {
                 setRow(cfg, r, java.util.Arrays.asList(on).contains(r));
             }
-            ModUnderTest.call(cfg, "setCustom", new Class<?>[]{String.class}, new Object[]{""});
+            ModUnderTest.call(cfg, "clearSounds", new Class<?>[0], new Object[0]);
             ModUnderTest.call(cfg, "setShowIds", new Class<?>[]{boolean.class}, new Object[]{false});
+            ModUnderTest.call(cfg, "setVolumeSliders", new Class<?>[]{boolean.class}, new Object[]{false});
             ModUnderTest.staticCall(SD, "forgetShot");
             return null;
         });
     }
 
+    /** The old list syntax (ids by comma, {@code *} suffix = prefix) turned into muted entries, as the mod's migration does. */
     private static void setCustom(Session c, String list) {
-        c.onClient(mc -> ModUnderTest.call(cfg(), "setCustom", new Class<?>[]{String.class}, new Object[]{list}));
+        c.onClient(mc -> {
+            Object cfg = cfg();
+            ModUnderTest.call(cfg, "clearSounds", new Class<?>[0], new Object[0]);
+            for (String e : list.split("[,\\s]+")) {
+                if (e.isBlank()) {
+                    continue;
+                }
+                String full = e.contains(":") ? e : "minecraft:" + e;
+                if (full.endsWith("*")) {
+                    String prefix = full.substring(0, full.length() - 1);
+                    for (Identifier id : net.minecraft.core.registries.BuiltInRegistries.SOUND_EVENT.keySet()) {
+                        if (id.toString().startsWith(prefix)) {
+                            setSound(cfg, id, true, 100);
+                        }
+                    }
+                } else {
+                    setSound(cfg, Identifier.parse(full), true, 100);
+                }
+            }
+            return null;
+        });
+    }
+
+    private static void setSound(Object cfg, Identifier id, boolean muted, int percent) {
+        ModUnderTest.call(cfg, "setSound", new Class<?>[]{Identifier.class, boolean.class, int.class},
+                new Object[]{id, muted, percent});
+    }
+
+    /** {@code "id:m"} = muted at 100%, {@code "id:150"} = a volume. */
+    private static void setSounds(Object cfg, String... specs) {
+        for (String sp : specs) {
+            int at = sp.lastIndexOf(':');
+            String v = sp.substring(at + 1);
+            setSound(cfg, Identifier.withDefaultNamespace(sp.substring(0, at)), v.equals("m"), v.equals("m") ? 100 : Integer.parseInt(v));
+        }
+    }
+
+    private static boolean soundIs(Object cfg, String id, boolean muted, int percent) {
+        Object st = ModUnderTest.call(cfg, "sound", new Class<?>[]{Identifier.class}, new Object[]{Identifier.withDefaultNamespace(id)});
+        return st != null && ModUnderTest.getBoolean(st, "muted") == muted && ModUnderTest.getInt(st, "percent") == percent;
     }
 
     /** Back to a fresh config (switch off, every row off), saved. */
@@ -335,7 +507,7 @@ public class SoundDisablerSuite implements FabricClientGameTest {
             for (String r : ROWS) {
                 setRow(cfg, r, false);
             }
-            ModUnderTest.call(cfg, "setCustom", new Class<?>[]{String.class}, new Object[]{""});
+            ModUnderTest.call(cfg, "clearSounds", new Class<?>[0], new Object[0]);
             ModUnderTest.call(cfg, "setShowIds", new Class<?>[]{boolean.class}, new Object[]{false});
             ModUnderTest.call(cfg, "save", new Class<?>[0], new Object[0]);
             return null;
