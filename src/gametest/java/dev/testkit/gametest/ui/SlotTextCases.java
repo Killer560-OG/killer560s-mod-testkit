@@ -491,6 +491,54 @@ final class SlotTextCases {
         }
     }
 
+    /** essencelevel-1118: an Essence Shop perk shows its level (numeral at the end of the name) bottom-right; a stack count
+     *  already showing it, a non-perk, another menu and the Heart Perk Level switch OFF draw nothing. */
+    static void essenceLevel(UiCase c) throws Exception {
+        Path path = InvBatchCases.configPath(c, STC);
+        byte[] old = InvBatchCases.read(path);
+        try {
+            slotText(c, true, "ALWAYS");
+            setType(c, "PERK_LEVEL", true);
+            ItemStack blessing = mk(Items.NETHER_STAR, "Forbidden Blessing X", null, "Blessings are 10% more effective on you.", "UNLOCKED");
+            ItemStack counted = mk(Items.NETHER_STAR, "Catacombs Boost V", null, "Level 5/10");
+            counted.setCount(5);
+            ItemStack single = mk(Items.NETHER_STAR, "Catacombs Boost IV", null);
+            ItemStack back = mk(Items.ARROW, "Go Back", null, "To Essence Shops");
+            ItemStack mix = mk(Items.NETHER_STAR, "Mix", null);
+            String wither = "Wither Essence Shop";
+            String got = text(c, blessing, wither, 20, false).toString();
+            c.check(got.equals("[BOTTOM_RIGHT:10:" + CREAM + "]"), "Forbidden Blessing X should show 10, got " + got);
+            got = text(c, single, "Undead Essence Shop", 21, false).toString();
+            c.check(got.equals("[BOTTOM_RIGHT:4:" + CREAM + "]"), "perk IV in the Undead shop should show 4, got " + got);
+            got = text(c, counted, wither, 22, false).toString();
+            c.check(got.equals("[]"), "a stack count of 5 already shows the level, got " + got);
+            got = text(c, back, wither, 49, false).toString();
+            c.check(got.equals("[]"), "Go Back is not a perk, got " + got);
+            got = text(c, mix, wither, 23, false).toString();
+            c.check(got.equals("[]"), "Mix is not a numeral, got " + got);
+            got = text(c, blessing, "Chest", 20, false).toString();
+            c.check(got.equals("[]"), "another menu draws nothing, got " + got);
+            // essencedouble-1119: the owner saw "5 5" on Forbidden Intel (enchanted book, count 5): vanilla count plus the Bazaar book level.
+            setType(c, "ENCHANT_LEVEL", true);
+            ItemStack intel = mk(Items.ENCHANTED_BOOK, "Forbidden Intel V", null, "Level 5/5");
+            intel.setCount(5);
+            got = text(c, intel, wither, 22, false).toString();
+            c.check(got.equals("[]"), "Forbidden Intel V count 5 must draw no second number, got " + got);
+            ItemStack intel1 = mk(Items.ENCHANTED_BOOK, "Forbidden Intel V", null);
+            got = text(c, intel1, wither, 22, false).toString();
+            c.check(got.equals("[BOTTOM_RIGHT:5:" + CREAM + "]"), "count 1 book should draw the level once, got " + got);
+            intel.setCount(3);
+            got = text(c, intel, wither, 22, false).toString();
+            c.check(got.equals("[BOTTOM_RIGHT:5:" + CREAM + "]"), "count 3 book should draw the level once (clearOfCount moves it), got " + got);
+            setType(c, "PERK_LEVEL", false);
+            got = text(c, blessing, wither, 20, false).toString();
+            c.check(got.equals("[]"), "switch OFF draws nothing, got " + got);
+            c.note("essence perk levels read: 10, 4, none for count/non-perk/other menu/OFF");
+        } finally {
+            InvBatchCases.restoreConfig(c, STC, path, old);
+        }
+    }
+
     // ==== 962 modes ====================================================================================================
 
     static void modes(UiCase c) throws Exception {
