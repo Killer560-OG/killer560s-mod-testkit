@@ -153,11 +153,11 @@ final class HxBloodCampCases {
         String ceiling = "-417 159 -428 -410 159 -421";
         try (HxKit.Settings s = base(c)) {
             boolean[] was = c.onClient(mc -> new boolean[]{(Boolean) Mod.call(Mod.cfg(ESP_CFG), "getBloodMobsRaw"),
-                    (Boolean) Mod.call(Mod.cfg(ESP_CFG), "isEspRaw")});
+                    (Boolean) Mod.call(Mod.cfg(ESP_CFG), "isMobEspRaw")});
             s.custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setBloodMobs", true),
                             () -> Mod.call(Mod.cfg(ESP_CFG), "setBloodMobs", was[0]))
-                    .custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setEsp", false),
-                            () -> Mod.call(Mod.cfg(ESP_CFG), "setEsp", was[1]));
+                    .custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setMobEsp", false),
+                            () -> Mod.call(Mod.cfg(ESP_CFG), "setMobEsp", was[1]));
             watcher(c, WATCHER_IN);
             stand(c, AWAY_YAW, 10f);
             int red = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(ESP_CFG), "getBloodColor"));
