@@ -795,6 +795,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1109-ui-cmdprefix-names", CmdPrefix1109Cases::names);
                     UiCase.run(ctx, "1109-ui-cmdprefix-alt", CmdPrefix1109Cases::alt);
                     UiCase.run(ctx, "1109-ui-cmdprefix-persist", CmdPrefix1109Cases::persist);
+                    UiCase.run(ctx, "1118-ui-prefixopen", CmdPrefix1109Cases::prefixOpen);
                     UiCase.run(ctx, "1108-ui-itemquality", FeatE1108Cases::itemQuality);
                     UiCase.run(ctx, "1108-ui-chestclick", FeatE1108Cases::chestClick);
                     UiCase.run(ctx, "1109-ui-autoclose-migrate", FeatE1108Cases::chestMigrate);
