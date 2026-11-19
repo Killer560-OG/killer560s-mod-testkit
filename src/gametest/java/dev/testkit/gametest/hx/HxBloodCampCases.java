@@ -4151,8 +4151,9 @@ final class HxBloodCampCases {
             int[] keyAt = {-1, -1};
             if (act == dev.testkit.gametest.SameTick.Act.TP) {
                 nextServerStep = i -> {
-                    if (i >= 10 && i % 3 == 0) {
-                        c.server().command("tp @p ~ ~ ~"); // a teleport packet, his accept goes out beside the feature's click
+                    // a teleport packet every other tick round both runs' click moments (78.8 / 38.8): his accept goes out beside the feature's click
+                    if (who == 0 ? i >= 10 && i % 3 == 0 : i >= 30 && i <= 90 && i % 2 == 0) {
+                        c.server().command("execute at @p run tp @p ~ ~ ~");
                     }
                 };
             }
@@ -4240,6 +4241,7 @@ final class HxBloodCampCases {
                 dev.testkit.compat.McCompat.setScreen(mc, null);
                 return null;
             });
+            nextServerStep = null;
             c.server().command("kill @e[tag=bc1015]");
             if (mode != 0) {
                 c.server().command(WALK_PLATFORM + "minecraft:air replace minecraft:stone");
@@ -4352,6 +4354,7 @@ final class HxBloodCampCases {
                         || mc.options.keyLeft.isDown() || mc.options.keyRight.isDown()), "a movement key is held with Move Around off");
             }
         } finally {
+            nextServerStep = null;
             c.onClient(mc -> {
                 Mod.setField(WALK, "heldForTest", null);
                 return null;
