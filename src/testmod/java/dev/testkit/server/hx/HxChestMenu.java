@@ -136,6 +136,18 @@ public class HxChestMenu extends ChestMenu {
         slotAnswerNext = false;
     }
 
+    /** Set by a script: runs when the player closes this menu (the Reclaim Menu gives its item back). */
+    public java.util.function.Consumer<Player> closeHook;
+
+    @Override
+    public void removed(Player player) {
+        super.removed(player);
+        if (closeHook != null) {
+            closeHook.accept(player);
+            closeHook = null;
+        }
+    }
+
     @Override
     public ItemStack quickMoveStack(Player player, int slot) {
         return ItemStack.EMPTY;
