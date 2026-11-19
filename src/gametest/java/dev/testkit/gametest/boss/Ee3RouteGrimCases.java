@@ -321,7 +321,9 @@ final class Ee3RouteGrimCases {
             // Owner exception (killer560, 2026-11-18, "whatever you think is best"): the same for the low lever (27,124,127).
             // One RotationPlace per no-look lever click (counted below against the log), nothing else.
             java.util.Set<String> acceptedPlace = new java.util.LinkedHashSet<>();
-            Scenario.acceptedFlag = l -> l.contains("failed RotationPlace") && acceptedPlace.add(l) | acceptedPlace.contains(l);
+            // the "grim reload" lines raiseCancelVl causes are Grim's own chat, not a flag
+            Scenario.acceptedFlag = l -> l.contains("Reloading config") || l.contains("Config has been reloaded") || l.contains("grim-datastore")
+                    || l.contains("v2-bootstrap") || noLook && l.contains("failed RotationPlace") && (acceptedPlace.add(l) | acceptedPlace.contains(l));
             // GrimAC cancels a placement once RotationPlace violations reach punishments.yml cancelvl 5, and they add up over a
             // session (11-18: cases 3 and 4 ran at x5+ and every lever click was canceled, levers false/false). The accepted
             // flags must not decide whether the lever goes, so the cancel level is lifted for this case and restored after.
