@@ -182,7 +182,9 @@ final class PvFit1118Cases {
             c.check(left == 0, "clearing the search left " + left + " marks");
             // Ctrl+F (GLFW F = 70, ctrl = 2) focuses the box.
             boolean before = c.onClient(mc -> (Boolean) Mod.call(s, "findFocused"));
-            c.ctx().runOnClient(mc -> s.keyPressed(McKeys.keyEvent(McKeys.nat(70), 2)));
+            boolean[] handled = new boolean[1];
+            c.ctx().runOnClient(mc -> handled[0] = s.keyPressed(McKeys.keyEvent(McKeys.nat(70), 2)));
+            c.note("Ctrl+F handled=" + handled[0] + " screen=" + (mc0(c) == s));
             c.ctx().waitTicks(2);
             boolean after = c.onClient(mc -> (Boolean) Mod.call(s, "findFocused"));
             c.check(!before && after, "Ctrl+F did not focus the search box (before " + before + ", after " + after + ")");
@@ -252,16 +254,32 @@ final class PvFit1118Cases {
         try (SocialCases.Env env = new SocialCases.Env(c)) {
             BazaarV3Cases.setWindow(c, 1600, 900, 2);
             Screen s = open(c, close);
-            c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 4)); // PAGE_COLLECTIONS
-            c.ctx().waitTicks(40);
-            List<?> rows = c.onClient(mc -> (List<?>) Mod.field(Mod.field(s, "extraPages"), "collRowTexts"));
+            // the tier list is a download (refused offline): inject a small one for the run, as PvStyle1104Cases does
+            Object remote = c.onClient(mc -> Mod.field("profileviewer.data.ExtraTables", "COLLECTIONS"));
+            java.lang.reflect.Field future = remote.getClass().getDeclaredField("future");
+            future.setAccessible(true);
+            Object old = future.get(remote);
+            Object cats = c.onClient(mc -> Mod.staticCall("profileviewer.data.ExtraTables", "parseCollections", com.google.gson.JsonParser.parseString(
+                    "{\"collections\":{\"MINING\":{\"name\":\"Mining\",\"items\":{\"COBBLESTONE\":{\"name\":\"Cobblestone\",\"maxTiers\":2,\"tiers\":[{\"tier\":1,\"amountRequired\":50},{\"tier\":2,\"amountRequired\":1000}]}}}}}").getAsJsonObject()));
+            synchronized (remote) { future.set(remote, java.util.concurrent.CompletableFuture.completedFuture(cats)); }
+            try {
+                c.ctx().runOnClient(mc -> Mod.call(s, "setPage", 4)); // PAGE_COLLECTIONS
+                c.ctx().waitTicks(40);
+                List<?> rows = c.onClient(mc -> (List<?>) Mod.field(Mod.field(s, "extraPages"), "collRowTexts"));
             c.note("collection rows: " + rows);
             boolean cobble = rows.stream().anyMatch(r -> String.valueOf(r).contains("1.2M"));
             c.check(cobble, "no collection row carried the short total 1.2M for 1,234,567 cobblestone: " + rows);
             BazaarReskinCases.shot(c, "collections");
+            } finally {
+                synchronized (remote) { future.set(remote, old); }
+            }
         } finally {
             closeAll(close);
         }
+    }
+
+    private static Object mc0(Session c) {
+        return c.onClient(mc -> dev.testkit.compat.McCompat.screen(mc));
     }
 
     private static void setField(Object target, String name, Object value) throws ReflectiveOperationException {
