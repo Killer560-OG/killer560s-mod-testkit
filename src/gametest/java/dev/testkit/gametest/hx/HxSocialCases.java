@@ -30,6 +30,7 @@ final class HxSocialCases {
         partyList(s);
         autoAcceptInvites(s);
         autoAcceptWho(s);
+        guildList(s);
         commandShortcuts(s);
         commandKeybinds(s);
         autoJoinSkyblock(s);
@@ -245,6 +246,129 @@ final class HxSocialCases {
                 c.note("who groups: all-off accepts everyone; each switch alone accepts only its own group");
             } finally {
                 c.hx().chat("§eYou left the party.");
+                run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas));
+            }
+        });
+    }
+
+    // ---- 1118 Auto Accept Invites: /guild list (guildtag-1118) ------------------------------------------------------------
+
+    private static final String BAR = "-----------------------------------------------------";
+    /** Hypixel's /guild list reply, one chat line each (the form the parser reads: headers, "[RANK] Name ●" lines). */
+    private static final String[] GUILD_REPLY = {BAR, "Guild Name: Hx Guild", "", "-- Guild Master --", "[MVP+] HxGuildMaster ● ",
+            "", "-- Officer --", "[VIP] HxOfficer ●  HxOff2 ● ", "", "-- Member --", "HxMem ● ", "",
+            "Total Members: 4", "Online Members: 1", BAR};
+
+    private static void reply(Session c, String... lines) {
+        for (String l : lines) {
+            c.hx().chat(l);
+        }
+        c.ctx().waitTicks(6);
+    }
+
+    private static int shown(Session c, String needle) {
+        return c.onClient(mc -> {
+            @SuppressWarnings("unchecked")
+            List<net.minecraft.client.multiplayer.chat.GuiMessage> all = (List<net.minecraft.client.multiplayer.chat.GuiMessage>) Mod.field(dev.testkit.compat.McCompat.chat(mc), "allMessages");
+            int n = 0;
+            for (net.minecraft.client.multiplayer.chat.GuiMessage m : all) {
+                n += m.content().getString().contains(needle) ? 1 : 0;
+            }
+            return n;
+        });
+    }
+
+    private static int guildSent(Session c) {
+        return c.onClient(mc -> ((Number) Mod.staticCall("partyinvites.GuildListRequest", "sentForTest")).intValue());
+    }
+
+    private static boolean member(Session c, String name) {
+        return c.onClient(mc -> (Boolean) Mod.staticCall("partyinvites.GuildMembers", "contains", name));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static boolean accepted(Session c, String name) {
+        run(c, () -> Mod.staticCall("lfg.LfgCommandGate", "resetForTest"));
+        c.hx().chat(framed(name));
+        c.ctx().waitTicks(8);
+        return c.onClient(mc -> (List<String>) Mod.staticCall("lfg.LfgCommandGate", "sent")).contains("/party accept " + name);
+    }
+
+    private static void guildList(Session s) {
+        s.test("1118-hx-guildlist-request", c -> {
+            boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+            String cfgCls = "partyinvites.AutoAcceptInvitesConfig";
+            try (Settings set = new Settings(c)) {
+                run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", true));
+                sidebar(c, "template", "hub");
+                c.waitUntil("on Skyblock", mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isOnSkyblock"), 40);
+                c.hx().chat("§eYou left the party.");
+                set.with(cfgCls, "Enabled", true);
+                set.with(cfgCls, "FromGuild", false);
+                run(c, () -> Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "resetForTest"));
+                c.ctx().waitTicks(60);
+                c.check(guildSent(c) == 0 && c.commands().stream().noneMatch(x -> x.startsWith("guild")),
+                        "/guild list went out with Only From Guild Members OFF: " + c.commands());
+                // ON: sent once, and the reply the mod asked for is read but not shown.
+                set.with(cfgCls, "FromGuild", true);
+                c.waitUntil("/guild list sent", mc -> ((Number) Mod.staticCall("partyinvites.GuildListRequest", "sentForTest")).intValue() == 1, 100);
+                c.check(c.commands().stream().anyMatch(x -> x.equals("guild list")), "no guild list on the wire: " + c.commands());
+                reply(c, GUILD_REPLY);
+                c.check(member(c, "HxOfficer") && member(c, "HxOff2") && member(c, "HxMem") && member(c, "HxGuildMaster"), "the reply was not read into the list");
+                c.check(!member(c, "HxStranger"), "a stranger is in the list");
+                String rank = c.onClient(mc -> (String) Mod.staticCall("partyinvites.GuildMembers", "rankOf", "HxOff2"));
+                c.check("Officer".equals(rank), "HxOff2's rank read as '" + rank + "'");
+                c.check(shown(c, "Guild Name:") == 0 && shown(c, "HxMem") == 0 && shown(c, "Online Members") == 0,
+                        "the mod-requested reply is still in chat");
+                c.ctx().waitTicks(200);
+                c.check(guildSent(c) == 1, "sent more than once after a reply: " + guildSent(c));
+                // A member invite from another lobby is accepted, a stranger is not (the switch is the only group on).
+                set.with(cfgCls, "FromFriends", false);
+                set.with(cfgCls, "FromBestFriends", false);
+                c.check(accepted(c, "HxOfficer"), "member HxOfficer's invite was not accepted");
+                c.check(!accepted(c, "HxStranger"), "stranger's invite was accepted");
+                // Saved and read back.
+                run(c, () -> Mod.staticCall("shared.SharedWriter", "drain", Long.valueOf(3000L)));
+                run(c, () -> Mod.staticCall("partyinvites.GuildMembers", "reload"));
+                c.check(member(c, "HxMem") && !member(c, "HxStranger"), "the saved list did not come back after a reload");
+                // A list he types himself is shown (no request waiting) and still read.
+                set.with(cfgCls, "FromGuild", false); // else the reset session asks for the list again and hides this reply
+                run(c, () -> Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "resetForTest"));
+                reply(c, GUILD_REPLY);
+                c.check(shown(c, "Guild Name: Hx Guild") >= 1, "a typed /guild list reply was hidden");
+                c.check(member(c, "HxOfficer"), "a typed reply was not read");
+                // Not in a guild: the list empties.
+                reply(c, "You are not in a guild!");
+                c.check(!member(c, "HxOfficer"), "list kept its members after 'not in a guild'");
+                // Join / kick lines keep it current.
+                reply(c, "[MVP+] HxNewbie joined the guild!");
+                c.check(member(c, "HxNewbie"), "a guild join line did not add the member");
+                reply(c, "HxNewbie was kicked from the guild by HxOfficer!");
+                c.check(!member(c, "HxNewbie"), "a kick line did not remove the member");
+                c.note("guild list: sent once with the switch on and never off, hidden when requested and shown when typed, parsed with ranks, saved, member accepted and stranger refused, not-in-guild empties, join/kick lines applied");
+            } finally {
+                c.hx().chat("§eYou left the party.");
+                run(c, () -> Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "resetForTest"));
+                run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas));
+            }
+        });
+        s.test("1118-hx-guildlist-retry", c -> {
+            boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+            String cfgCls = "partyinvites.AutoAcceptInvitesConfig";
+            try (Settings set = new Settings(c)) {
+                run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", true));
+                sidebar(c, "template", "hub");
+                c.waitUntil("on Skyblock", mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isOnSkyblock"), 40);
+                set.with(cfgCls, "Enabled", true);
+                run(c, () -> Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "resetForTest"));
+                set.with(cfgCls, "FromGuild", true);
+                // No reply: one retry after 8 s, then never again.
+                c.waitUntil("retry sent", mc -> ((Number) Mod.staticCall("partyinvites.GuildListRequest", "sentForTest")).intValue() == 2, 400);
+                c.ctx().waitTicks(260);
+                c.check(guildSent(c) == 2, "guild list sent " + guildSent(c) + " times with no reply (want exactly 2)");
+                c.note("no reply: retried once, then stopped");
+            } finally {
+                run(c, () -> Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "resetForTest"));
                 run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas));
             }
         });
