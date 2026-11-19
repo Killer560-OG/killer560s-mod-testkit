@@ -58,7 +58,7 @@ public class SimWaypointRoomsTests implements FabricClientGameTest {
     private static final String NAME = "1101-wp";
     private static final String[] CASES = {"1101-wp-pressure-levers", "1101-wp-mines-levers", "1101-wp-waterboard",
             "1101-wp-prison-crypt", "1101-wp-teleport-nocrypt", "1101-wp-item-walkaway", "1101-wp-flags",
-            "1102-diag-wp-roomchange", "1102-diag-wp-gold", "1113-wp-community", "1113-wp-community-fetch"};
+            "1102-diag-wp-roomchange", "1102-diag-wp-gold", "1113-wp-community", "1113-wp-community-fetch", "1118-wp-gold-essence"};
 
     private static final String BUILDER = "com.killer560.hub.roomsim.SimBuilder";
     private static final String ROOM_LIBRARY = "com.killer560.hub.roomsim.RoomLibrary";
@@ -123,6 +123,7 @@ public class SimWaypointRoomsTests implements FabricClientGameTest {
                         case "1102-diag-wp-gold" -> goldPrince(ctx);
                         case "1113-wp-community" -> communityRoute(ctx);
                         case "1113-wp-community-fetch" -> communityFetch();
+                        case "1118-wp-gold-essence" -> goldEssence(ctx);
                         default -> throw new AssertionError("no such case " + c);
                     }
                     RESULTS.add(c + " PASS");
@@ -433,6 +434,105 @@ public class SimWaypointRoomsTests implements FabricClientGameTest {
         say("back in the room: item waypoints " + after);
         check(other == null || after.contains(other), "the other item waypoint is missing (snapshot not rebuilt)");
         check(!after.contains(it), "the item taken while he was outside the room kept its waypoint");
+    }
+
+    /** goldessence-1118: Gold's tile center carries a gold block one above the roof row of blue terracotta, so the
+     *  live corner search (roof height read at a tile center) found no marker, Gold never got a rotation and its
+     *  wither essence had no waypoint. At each of the 4 rotations: the corner search at the high roof height finds
+     *  the room's own corner, the database essence resolves to a real skull block, and the waypoint is drawn, is gone
+     *  once collected and still shows with the counted secret already credited. */
+    private void goldEssence(ClientGameTestContext ctx) {
+        String rdb = "com.killer560.hub.roomdatabase.RoomDatabase";
+        Object entry = ctx.computeOnClient(mc -> ModUnderTest.staticCall(rdb, "lookupByName",
+                new Class<?>[]{String.class}, new Object[]{"Gold"}));
+        check(entry != null, "room database has no Gold");
+        for (int rot = 0; rot < 360; rot += 90) {
+            int r = rot;
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(BUILDER, "setSingleRoomRotationForTest",
+                    new Class<?>[]{int.class}, new Object[]{r}));
+            build(ctx, "Gold");
+            List<BlockPos> wither = waitFor(ctx, "WITHER", l -> !l.isEmpty(), 600);
+            check(wither.size() == 1, "rotation " + r + ": Gold shows " + wither.size() + " essence waypoints");
+            check(ctx.computeOnClient(mc -> mc.level.getBlockState(wither.get(0)).is(Blocks.PLAYER_HEAD)
+                    || mc.level.getBlockState(wither.get(0)).is(Blocks.PLAYER_WALL_HEAD)),
+                    "rotation " + r + ": no skull at the waypoint " + wither.get(0).toShortString());
+            standNear(ctx, wither.get(0));
+            ctx.waitTicks(20);
+            int[] b = ctx.computeOnClient(mc -> (int[]) ModUnderTest.staticCall(LIVE_MAP, "roomWorldBounds",
+                    new Class<?>[]{int.class}, new Object[]{(Integer) ModUnderTest.staticCall(LIVE_MAP, "currentRoomIndex")}));
+            // roomWorldBounds is the tiles' 32x32 footprints: the first tile center is 16 in, the last 16 from the far edge.
+            int[] c0 = {b[0] + 16, b[1] + 16};
+            int[] c1 = {b[2] - 16, b[3] - 16};
+            int top = ctx.computeOnClient(mc -> {
+                int best = Integer.MIN_VALUE;
+                for (int[] c : new int[][]{c0, c1}) {
+                    for (int y = mc.level.getMaxY(); y >= mc.level.getMinY(); y--) {
+                        if (!mc.level.getBlockState(new BlockPos(c[0], y, c[1])).isAir()) {
+                            best = Math.max(best, y);
+                            break;
+                        }
+                    }
+                }
+                return best;
+            });
+            // The sim frames its rooms with diamond blocks where a real dungeon has the 1-block air gap between rooms;
+            // the corner search needs that gap (isOuterRoofCorner), so open it beside each corner like the live game.
+            onServer(ctx, (level, sp) -> {
+                int[] xs = {Math.min(c0[0], c1[0]) - 15, Math.max(c0[0], c1[0]) + 15};
+                int[] zs = {Math.min(c0[1], c1[1]) - 15, Math.max(c0[1], c1[1]) + 15};
+                for (int x : xs) for (int z : zs) for (int y = top - 1; y <= top; y++) {
+                    level.setBlockAndUpdate(new BlockPos(x + (x == xs[0] ? -1 : 1), y, z), Blocks.AIR.defaultBlockState());
+                    level.setBlockAndUpdate(new BlockPos(x, y, z + (z == zs[0] ? -1 : 1)), Blocks.AIR.defaultBlockState());
+                }
+                return null;
+            });
+            ctx.waitTicks(5);
+            int[] found = ctx.computeOnClient(mc -> (int[]) ModUnderTest.staticCall(rdb, "findRotationAndCorner",
+                    new Class<?>[]{net.minecraft.world.level.Level.class, int.class, int.class, int.class, int.class, int.class},
+                    new Object[]{mc.level, Math.min(c0[0], c1[0]), Math.min(c0[1], c1[1]),
+                            Math.max(c0[0], c1[0]), Math.max(c0[1], c1[1]), top}));
+            check(found != null, "rotation " + r + ": no corner marker found at roof height " + top + " (bounds "
+                    + java.util.Arrays.toString(b) + ", centers " + java.util.Arrays.toString(c0) + java.util.Arrays.toString(c1)
+                    + ", player " + ctx.computeOnClient(mc -> mc.player.blockPosition().toShortString())
+                    + ", corners " + ctx.computeOnClient(mc -> {
+                        StringBuilder sb = new StringBuilder();
+                        int[] xs = {Math.min(c0[0], c1[0]) - 15, Math.max(c0[0], c1[0]) + 15};
+                        int[] zs = {Math.min(c0[1], c1[1]) - 15, Math.max(c0[1], c1[1]) + 15};
+                        for (int x : new int[]{xs[0] - 1, xs[0], xs[1], xs[1] + 1}) for (int z : new int[]{zs[0] - 1, zs[0], zs[1], zs[1] + 1}) for (int y = top; y >= top - 1; y--)
+                            sb.append(x).append(",").append(y).append(",").append(z).append("=")
+                              .append(mc.level.getBlockState(new BlockPos(x, y, z)).getBlock().getDescriptionId()).append(" ");
+                        return sb.toString();
+                    }) + ")");
+            BlockPos real = ctx.computeOnClient(mc -> {
+                try {
+                    Object sc = entry.getClass().getField("secretCoords").get(entry);
+                    Object pos = ((List<?>) sc.getClass().getField("wither").get(sc)).get(0);
+                    return (BlockPos) ModUnderTest.staticCall(rdb, "toRealCoord",
+                            new Class<?>[]{pos.getClass(), int.class, int.class, int.class},
+                            new Object[]{pos, found[0], found[1], found[2]});
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+            });
+            say("rotation " + r + ": roof " + top + ", corner " + found[0] + "," + found[1] + " rot " + found[2]
+                    + " -> essence " + real.toShortString() + ", waypoint " + wither.get(0).toShortString());
+            check(real.getX() == wither.get(0).getX() && real.getZ() == wither.get(0).getZ(), "rotation " + r + ": the live corner puts the essence at "
+                    + real.toShortString() + " but the waypoint stands at " + wither.get(0).toShortString());
+            check(ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(FEATURE, "drawnForTest")) > 0,
+                    "rotation " + r + ": nothing is drawn for the essence");
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_SCORE, "creditRoomSecrets",
+                    new Class<?>[]{String.class, int.class}, new Object[]{"Gold", 1}));
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(FEATURE, "invalidateCache"));
+            ctx.waitTicks(10);
+            check(positions(ctx, "WITHER").size() == 1, "rotation " + r + ": the essence waypoint went with the counted secret");
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(FEATURE, "markSimEssenceCollected",
+                    new Class<?>[]{BlockPos.class}, new Object[]{wither.get(0)}));
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(FEATURE, "invalidateCache"));
+            List<BlockPos> gone = waitFor(ctx, "WITHER", List::isEmpty, 100);
+            check(gone.isEmpty(), "rotation " + r + ": a collected essence kept its waypoint " + gone);
+        }
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(BUILDER, "setSingleRoomRotationForTest",
+                new Class<?>[]{int.class}, new Object[]{0}));
     }
 
     private void flags(ClientGameTestContext ctx, Object cfg) {

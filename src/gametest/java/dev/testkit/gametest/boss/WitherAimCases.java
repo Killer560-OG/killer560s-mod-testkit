@@ -69,15 +69,15 @@ final class WitherAimCases {
 
     private static void run(Session c, SameTick.Act act, Mode mode) throws Exception {
         Object attack = c.onClient(mc -> Mod.enumValue(Mod.ROOT + CFG + "$ClickType", "ATTACK"));
-        int[] cpsWas = c.onClient(mc -> new int[]{(Integer) Mod.call(Mod.cfg(CFG), "getCpsMin"),
-                (Integer) Mod.call(Mod.cfg(CFG), "getCpsMax")});
+        int[] cpsWas = c.onClient(mc -> new int[]{(Integer) Mod.call(Mod.cfg(CFG), "getDelayMin"),
+                (Integer) Mod.call(Mod.cfg(CFG), "getDelayMax")});
         int cps = act == null ? 20 : 16;
         SameTick st = null;
         try (HxKit.Settings off = GrimTickCases.gateOff(c);
              HxKit.Settings ip = GrimTickCases.hypixelIp(c);
              HxKit.Settings on = new HxKit.Settings(c).field(CFG, "clickType", attack)
-                     .custom(() -> Mod.call(Mod.cfg(CFG), "setCpsRange", cps, cps),
-                             () -> Mod.call(Mod.cfg(CFG), "setCpsRange", cpsWas[0], cpsWas[1]))
+                     .custom(() -> Mod.call(Mod.cfg(CFG), "setDelayRange", 1000 / cps, 1000 / cps),
+                             () -> Mod.call(Mod.cfg(CFG), "setDelayRange", cpsWas[0], cpsWas[1]))
                      .custom(() -> Mod.call(Mod.cfg(CFG), "setAimAt", 2, mode != Mode.BOSS_OFF),
                              () -> Mod.call(Mod.cfg(CFG), "setAimAt", 2, true))
                      .with(CFG, "AimDelayMs", 0).with(CFG, "AllWithers", false).with(CFG, "Enabled", false)
