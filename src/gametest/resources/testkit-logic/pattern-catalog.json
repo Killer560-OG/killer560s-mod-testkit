@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T01:12:16",
- "modSource": "lane-lowhp-self-1118",
- "modGitSha": "89253a396b9a60f2d3771a10276e9a9c8b928d2e",
+ "generatedAt": "2026-11-19T01:27:21",
+ "modSource": "lane-essencelevel-1118",
+ "modGitSha": "6dff7ab50c71804558b7e0359ae2e76da8a646c0",
  "modSourceDirty": false,
- "count": 996,
+ "count": 997,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 868,
+  "field": 869,
   "local": 43
  },
  "unresolved": 160,
@@ -11150,12 +11150,24 @@
    "expr": "\"Unassigned Points: (\\\\d{1,5})!*\""
   },
   {
+   "id": "slottext.SlotTextFeature#ESSENCE_PERK",
+   "cls": "slottext.SlotTextFeature",
+   "field": "ESSENCE_PERK",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/slottext/SlotTextFeature.java",
+   "line": 62,
+   "regex": "^.+ (XX?|X?(?:IX|IV|VI{0,3}|I{1,3}))$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^.+ (XX?|X?(?:IX|IV|VI{0,3}|I{1,3}))$\""
+  },
+  {
    "id": "slottext.SlotTextFeature#PERK_LEVEL",
    "cls": "slottext.SlotTextFeature",
    "field": "PERK_LEVEL",
    "index": null,
    "file": "src/main/java/com/killer560/hub/slottext/SlotTextFeature.java",
-   "line": 61,
+   "line": 63,
    "regex": "^Level (\\d{1,4})(?:/\\d{1,4})?$",
    "flags": null,
    "kind": "field",
