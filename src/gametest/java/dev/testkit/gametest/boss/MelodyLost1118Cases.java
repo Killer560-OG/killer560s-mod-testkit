@@ -56,7 +56,8 @@ final class MelodyLost1118Cases {
     }
 
     private static String decision(Session c, int sec) {
-        return String.valueOf(c.onClient(mc -> Mod.staticCall(ML, "decision", sec)));
+        Object d = c.onClient(mc -> Mod.staticCall(ML, "decision", sec));
+        return String.valueOf(d);
     }
 
     @SuppressWarnings("unchecked")
