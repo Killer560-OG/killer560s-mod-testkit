@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T08:07:06",
- "modSource": "lane-icefillbugs-1118",
- "modGitSha": "7c35ee28f0fa9fe9ec62d2fb1a8588c7fc6e89fa",
+ "generatedAt": "2026-11-19T08:15:51",
+ "modSource": "lane-q148-1119",
+ "modGitSha": "c89a18709feead3f04cb7c8172c74fd657a13770",
  "modSourceDirty": false,
  "count": 979,
  "byKind": {
