@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T16:37:18",
- "modSource": "lane-leaporder-class-1118-pf",
- "modGitSha": "76062a02cad3db4745e5b7620b5051dd67b6ec34",
+ "generatedAt": "2026-11-19T16:47:45",
+ "modSource": "lane-warpfix-1119",
+ "modGitSha": "e0879223b34089ffbfefb9ec74a4370426068b93",
  "modSourceDirty": false,
  "count": 986,
  "byKind": {
