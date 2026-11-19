@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T01:41:35",
- "modSource": "lane-luckcount-1118",
- "modGitSha": "faf8a15014cfd9d058d33b3fc1ad0d5da03c73da",
+ "generatedAt": "2026-11-19T02:02:56",
+ "modSource": "lane-acbloodfirst-1118",
+ "modGitSha": "b5fd622031364b3a190d6c45ea598f379928b78a",
  "modSourceDirty": false,
  "count": 999,
  "byKind": {
