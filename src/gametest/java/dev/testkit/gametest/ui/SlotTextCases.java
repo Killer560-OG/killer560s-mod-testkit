@@ -499,12 +499,12 @@ final class SlotTextCases {
         try {
             slotText(c, true, "ALWAYS");
             setType(c, "PERK_LEVEL", true);
-            ItemStack blessing = mk(Items.ENCHANTED_BOOK, "Forbidden Blessing X", null, "Blessings are 10% more effective on you.", "UNLOCKED");
-            ItemStack counted = mk(Items.ENCHANTED_BOOK, "Catacombs Boost V", null, "Level 5/10");
+            ItemStack blessing = mk(Items.NETHER_STAR, "Forbidden Blessing X", null, "Blessings are 10% more effective on you.", "UNLOCKED");
+            ItemStack counted = mk(Items.NETHER_STAR, "Catacombs Boost V", null, "Level 5/10");
             counted.setCount(5);
-            ItemStack single = mk(Items.ENCHANTED_BOOK, "Catacombs Boost IV", null);
+            ItemStack single = mk(Items.NETHER_STAR, "Catacombs Boost IV", null);
             ItemStack back = mk(Items.ARROW, "Go Back", null, "To Essence Shops");
-            ItemStack mix = mk(Items.ENCHANTED_BOOK, "Mix", null);
+            ItemStack mix = mk(Items.NETHER_STAR, "Mix", null);
             String wither = "Wither Essence Shop";
             String got = text(c, blessing, wither, 20, false).toString();
             c.check(got.equals("[BOTTOM_RIGHT:10:" + CREAM + "]"), "Forbidden Blessing X should show 10, got " + got);
