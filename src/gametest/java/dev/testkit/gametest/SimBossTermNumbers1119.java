@@ -38,6 +38,10 @@ final class SimBossTermNumbers1119 {
         start(ctx, "S1", true);
         ctx.runOnClient(mc -> {
             Object cfg = ModUnderTest.config(TERM_CFG);
+            // A seeded config keeps its own values; only the switches this case needs are made sure of.
+            ModUnderTest.set(cfg, "setAutoTerminalsEnabled", true);
+            ModUnderTest.set(cfg, "setAutoNumbersEnabled", true);
+            ModUnderTest.set(cfg, "setNumbersEnabled", true);
             println(NAME, "settings: auto=" + ModUnderTest.getBoolean(cfg, "isAutoTerminalsEnabled")
                     + " autoNumbers=" + ModUnderTest.getBoolean(cfg, "isAutoNumbersEnabled")
                     + " burstFinish=" + ModUnderTest.getBoolean(cfg, "isBurstFinish")
