@@ -623,6 +623,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1105-ui-boss-chooser", BossChooser1105Cases::run);
                     UiCase.run(ctx, "433-ui-pack-disabler-refresh", PackDisablerCases::refresh);
                     UiCase.run(ctx, "434-ui-pack-disabler-menu-maps", PackDisablerCases::menuMaps);
+                    UiCase.run(ctx, "1117-ui-pack-disabler-owner-looks", PackDisablerOwnerCases::ownerLooks);
                     UiCase.run(ctx, "451-ui-hotbar-theme", InvStorageCases::hotbar);
                     UiCase.run(ctx, "452-ui-inventory-theme-settings", InvStorageCases::settings);
                     UiCase.run(ctx, "453-ui-storage-overlay-centre", InvStorageCases::storageCentre);
