@@ -575,6 +575,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "365-ui-overlay-draws", MiscCases::overlayDraws);
                     UiCase.run(ctx, "307-ui-profit", ProfitCases::profit);
                     UiCase.run(ctx, "385-ui-interactive-map", InteractiveMapCases::run);
+                    UiCase.run(ctx, "1118-ui-imap-hudclick-gone", InteractiveMapCases::hudClickGone);
                     UiCase.run(ctx, "386-ui-sliders", c -> SliderCases.run(c, deny));
                     UiCase.run(ctx, "387-ui-ap3-edit", Ap3EditCases::run);
                     // mod ap3-backwards-1026: a typed 167.9 stays 167.9, and the leapcounter: suffix (parse, save, reload,
@@ -799,6 +800,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1109-ui-cmdprefix-names", CmdPrefix1109Cases::names);
                     UiCase.run(ctx, "1109-ui-cmdprefix-alt", CmdPrefix1109Cases::alt);
                     UiCase.run(ctx, "1109-ui-cmdprefix-persist", CmdPrefix1109Cases::persist);
+                    UiCase.run(ctx, "1118-ui-prefixopen", CmdPrefix1109Cases::prefixOpen);
                     UiCase.run(ctx, "1108-ui-itemquality", FeatE1108Cases::itemQuality);
                     UiCase.run(ctx, "1108-ui-chestclick", FeatE1108Cases::chestClick);
                     UiCase.run(ctx, "1109-ui-autoclose-migrate", FeatE1108Cases::chestMigrate);
