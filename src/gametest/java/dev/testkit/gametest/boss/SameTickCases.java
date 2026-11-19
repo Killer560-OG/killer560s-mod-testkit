@@ -106,7 +106,7 @@ final class SameTickCases {
             undo.add(c.onClient(mc -> Mod.with(cfg, "Finish", false)));
             undo.add(c.onClient(mc -> Mod.with(cfg, "Range", 4.5)));
             undo.add(c.onClient(mc -> Mod.with(cfg, "ChatFeedback", false)));
-            undo.add(c.onClient(mc -> Mod.with(cfg, "Cps", 20)));
+            undo.add(c.onClient(mc -> Mod.with(cfg, "CooldownMs", 50)));
             c.waitUntil("six unlit levers", mc -> {
                 for (int[] l : LeverAuraCpsCases.LIGHTS) {
                     var s = mc.level.getBlockState(LeverAuraCpsCases.lever(l));
@@ -235,7 +235,7 @@ final class SameTickCases {
         try (HxKit.Settings off = GrimTickCases.gateOff(c);
              HxKit.Settings on = new HxKit.Settings(c).with(cfg, "SolverEnabled", true)
                      .with(cfg, "PreventMisclicksEnabled", false).with(cfg, "TriggerBotEnabled", false)
-                     .with(cfg, "AuraEnabled", false).with(cfg, "AuraRange", 3.0).with(cfg, "AuraCps", 20)
+                     .with(cfg, "AuraEnabled", false).with(cfg, "AuraRange", 3.0).with(cfg, "AuraCooldownMs", 50)
                      .with(cfg, "AuraLeaveLastArrow", false)) {
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
             c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);

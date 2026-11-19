@@ -54,7 +54,7 @@ final class I4Terror1116Cases {
                      .with(CFG, "AutoI4Predictions", false).with(CFG, "ShotAccuracyPercent", 100)
                      .with(CFG, "AutoI4Rotate", true).with(CFG, "AutoI4RotationTimeMs", 150)
                      .with(CFG, "AutoI4TerrorAim", true)
-                     .custom(() -> Mod.call(Mod.cfg(CFG), "setCpsRange", 7, 7), GrimTickCases.restoreCps(c))
+                     .custom(() -> Mod.call(Mod.cfg(CFG), "setDelayRange", 143, 143), GrimTickCases.restoreCps(c))
                      .with(CFG, "AutoI4Enabled", false)) {
             GrimTickCases.i4Platform(c, bow[1]);
             // A second bow in slot 1: his SWAP moves between two bows, so Auto i4 always holds one.
