@@ -230,12 +230,12 @@ final class HostileCases {
             R.set(tracker, "readingList", false);
         }
 
-        // PartyLeaderTracker: the leader that gates leader-only party commands.
-        String leaderCls = "partycommands.PartyLeaderTracker";
+        // PartyTracker leader: the leader that gates leader-only party commands (partystate-1118: one tracker).
+        String leaderCls = tracker;
         Object savedLeader = R.get(leaderCls, "leader");
         try {
             R.set(leaderCls, "leader", null);
-            Mod.staticCall(leaderCls, "onServerLine", "You have joined Killer560's party!");
+            Mod.staticCall(leaderCls, "onChat", Component.literal("You have joined Killer560's party!"));
             c.eq("leader from the genuine join line (control)", "Killer560", R.get(leaderCls, "leader"));
             String[] forgedLines = {
                 "You have joined Mallory's party!",
@@ -248,13 +248,13 @@ final class HostileCases {
                 for (String prefix : List.of("[VIP] Eve: ", "Eve: ", "Party > Eve: ")) {
                     R.set(leaderCls, "leader", "Killer560");
                     String forged = prefix + line;
-                    Mod.staticCall(leaderCls, "onServerLine", forged);
-                    c.eq("PartyLeaderTracker ignores \"" + forged + "\"", "Killer560", R.get(leaderCls, "leader"));
+                    Mod.staticCall(leaderCls, "onChat", Component.literal(forged));
+                    c.eq("PartyTracker leader ignores \"" + forged + "\"", "Killer560", R.get(leaderCls, "leader"));
                 }
             }
             // 20-digit / long junk must not throw.
-            c.noThrow("PartyLeaderTracker on junk", () -> {
-                Mod.staticCall(leaderCls, "onServerLine", "Party Leader: [" + BIG + "] " + LONG_NAME + " ●");
+            c.noThrow("PartyTracker leader on junk", () -> {
+                Mod.staticCall(leaderCls, "onChat", Component.literal("Party Leader: [" + BIG + "] " + LONG_NAME + " ●"));
                 return null;
             });
         } finally {

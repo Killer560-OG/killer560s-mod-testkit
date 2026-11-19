@@ -53,7 +53,7 @@ final class HxPartyFloor1104Cases {
         c.hx().stub(null, "joininstance");
         dungeon(c);
         run(c, () -> {
-            Mod.staticCall("partycommands.PartyLeaderTracker", "resetIfSet");
+            Mod.setField("leapmenu.PartyTracker", "leader", null);
             Mod.staticCall(CC, "testReset");
         });
     }
@@ -142,7 +142,7 @@ final class HxPartyFloor1104Cases {
         c.hx().stub(null, "p");
         dungeon(c);
         run(c, () -> {
-            Mod.staticCall("partycommands.PartyLeaderTracker", "resetIfSet");
+            Mod.setField("leapmenu.PartyTracker", "leader", null);
         });
     }
 
