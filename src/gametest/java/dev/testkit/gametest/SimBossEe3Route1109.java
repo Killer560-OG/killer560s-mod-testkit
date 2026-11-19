@@ -165,6 +165,7 @@ final class SimBossEe3Route1109 {
                 ModUnderTest.call(la, "setSectionLeversEarly", new Class<?>[]{boolean.class}, new Object[]{System.getenv("KM_LEVER_OFF") == null});
                 ModUnderTest.call(la, "setRange", new Class<?>[]{double.class}, new Object[]{REACH});
                 ModUnderTest.call(la, "setCooldownMs", new Class<?>[]{int.class}, new Object[]{Integer.parseInt(System.getenv().getOrDefault("KM_LEVER_CD", "50"))}); // his instance: default 250
+                ModUnderTest.call(la, "setNoLookClick", new Class<?>[]{boolean.class}, new Object[]{true}); // owner exception: the lever clicks on the heard look when no packet can carry one (flags RotationPlace)
                 Path dir = (Path) ModUnderTest.staticCall(Ap3RuntimeTests.STORE, "directory");
                 Files.createDirectories(dir);
                 Files.copy(route, dir.resolve(file), StandardCopyOption.REPLACE_EXISTING);
