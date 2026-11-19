@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T03:56:04",
- "modSource": "lane-acbloodfirst-1118",
- "modGitSha": "a5e8314da521798941e4155f06e2a72691f1695b",
+ "generatedAt": "2026-11-19T04:09:12",
+ "modSource": "lane-hotmtree-1118",
+ "modGitSha": "0a30c011691ce41215a1bdbb93b83096cb442e9f",
  "modSourceDirty": false,
  "count": 999,
  "byKind": {
