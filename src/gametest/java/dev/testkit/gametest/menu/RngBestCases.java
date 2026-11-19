@@ -116,6 +116,28 @@ final class RngBestCases {
         return n;
     }
 
+    private static final String OVERLAY = "rngmeter.RngMeterOverlay";
+
+    private static void clock(Session c, long ms) {
+        c.ctx().runOnClient(mc -> Mod.setField(OVERLAY, "pulseClockForTest", ms));
+    }
+
+    /** RGB of the top edge pixel of slot {@code idx} (the highlight's border row), inside the box. */
+    private static int edge(Session c, int idx, String label) {
+        BufferedImage now = BazaarReskinCases.shot(c, label);
+        double[] g = c.onClient(mc -> new double[]{mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight()});
+        int[] xy = c.onClient(mc -> {
+            AbstractContainerScreen<?> s = (AbstractContainerScreen<?>) McCompat.screen(mc);
+            Slot sl = s.getMenu().slots.get(idx);
+            return new int[]{((Number) Mod.field(s, "leftPos")).intValue() + sl.x, ((Number) Mod.field(s, "topPos")).intValue() + sl.y};
+        });
+        return now.getRGB((int) ((xy[0] + 6) * now.getWidth() / g[0]), (int) (xy[1] * now.getHeight() / g[1])) & 0xFFFFFF;
+    }
+
+    private static int sum(int rgb) {
+        return 255 - (rgb & 255); // the accent has no blue, so less blue = stronger highlight over the grey slot
+    }
+
     private static void set(Session c, String setter, boolean v) {
         c.ctx().runOnClient(mc -> Mod.set(CFG, setter, v));
     }
@@ -154,10 +176,24 @@ final class RngBestCases {
 
             // 10 is 500/pt, 11 is 300/pt, 12 has no price, 13 ties 10 (500/pt) and loses to the first slot.
             set(c, "setHighlightBest", true);
+            clock(c, 300L); // pulse at full strength, so the opaque-border check below holds
             c.ctx().waitTicks(30);
             boolean[] on = marked(c, BazaarReskinCases.shot(c, "best-10"));
             c.check(on[10] && count(on) == 1, "default prices: only slot 10 should change, " + which(on));
 
+            // Pulse: the border alpha eases 45%..100% over 1200 ms and never reaches 0 (slot 10 is still best here).
+            int[] t = {300, 0, 600, 900, 1500};
+            int[] px = new int[t.length];
+            for (int i = 0; i < t.length; i++) {
+                clock(c, t[i]);
+                c.ctx().waitTicks(3);
+                px[i] = sum(edge(c, 10, "pulse-" + t[i]));
+            }
+            c.check(px[0] > px[1] && px[1] > px[3] && px[2] > px[3] && px[4] == px[0],
+                    "pulse samples at 300/0/600/900/1500 ms should be peak > mid > trough and wrap: " + java.util.Arrays.toString(px));
+            c.check(px[3] > 0 && px[3] < px[0] * 0.9, "trough must be dimmer than the peak but still drawn: " + java.util.Arrays.toString(px));
+            clock(c, 300L);
+            c.ctx().waitTicks(3);
             prices(c, 9_000_000L, true); // Critical VII is now 900/pt
             c.ctx().waitTicks(30);
             boolean[] moved = marked(c, BazaarReskinCases.shot(c, "best-11"));
@@ -185,6 +221,7 @@ final class RngBestCases {
             boolean[] plain = marked(c, BazaarReskinCases.shot(c, "plain-on"));
             c.check(count(plain) == 0, "a non-RNG title: " + which(plain));
         } finally {
+            clock(c, -1L);
             prices(c, 0L, false);
             MenuKit.reset(c);
             if (was == null) {
