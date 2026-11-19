@@ -78,6 +78,16 @@ final class HxItemAlerts1118Cases {
         c.ctx().waitTicks(3);
     }
 
+    /** The server moves a stack: both slot packets arrive in one tick, as a click or shift-click sends them. */
+    private static void move(Session c, int from, int to, ItemStack stack) {
+        c.onClient(mc -> {
+            mc.getConnection().handleContainerSetSlot(new ClientboundContainerSetSlotPacket(0, 0, InventoryMenu.USE_ROW_SLOT_START + from, ItemStack.EMPTY));
+            mc.getConnection().handleContainerSetSlot(new ClientboundContainerSetSlotPacket(0, 0, InventoryMenu.USE_ROW_SLOT_START + to, stack));
+            return null;
+        });
+        c.ctx().waitTicks(3);
+    }
+
     private static void clear(Session c) {
         for (int i = 0; i < 9; i++) {
             give(c, i, ItemStack.EMPTY);
@@ -191,8 +201,7 @@ final class HxItemAlerts1118Cases {
             give(c, 0, bottle("HURRICANE", "m-1", false, max, max));
             c.check(fired(c) == f0 + 1 && active(c, false) == 1, "no alert for the bottle that filled");
             // Moving it between slots does not fire again and keeps the alert.
-            give(c, 0, ItemStack.EMPTY);
-            give(c, 5, bottle("HURRICANE", "m-1", false, max, max));
+            move(c, 0, 5, bottle("HURRICANE", "m-1", false, max, max));
             c.check(fired(c) == f0 + 1 && active(c, false) == 1, "moving the bottle re-fired or dropped it: fired " + (fired(c) - f0) + ", live " + active(c, false));
             // Opening a screen (an inventory) and closing it.
             run(c, () -> McCompat.setScreen(Minecraft.getInstance(),
@@ -276,8 +285,7 @@ final class HxItemAlerts1118Cases {
             give(c, 3, runebookStack("rb-1", "UNCOMMON"));
             c.check(fired(c) == f0 + 1, "an unchanged UNCOMMON re-fired");
             // Moved to another slot: not an upgrade.
-            give(c, 3, ItemStack.EMPTY);
-            give(c, 6, runebookStack("rb-1", "UNCOMMON"));
+            move(c, 3, 6, runebookStack("rb-1", "UNCOMMON"));
             c.check(fired(c) == f0 + 1, "moving the Runebook fired");
             give(c, 6, runebookStack("rb-1", "RARE"));
             c.check(fired(c) == f0 + 2, "RARE fired " + (fired(c) - f0 - 1) + " alerts, wanted 1");
