@@ -168,7 +168,8 @@ final class MelodyLost1118Cases {
             line(c, "HxMateA activated a terminal! (3/3)");
             line(c, GATE);
             c.ctx().waitTicks(10);
-            c.check("S2".equals(String.valueOf(Mod.staticCall("fastleap.Floor7Tracker", "getStage"))), "stage did not move to S2");
+            Object stg = c.ctx().computeOnClient(mc -> Mod.staticCall("fastleap.Floor7Tracker", "getStage"));
+            c.check("S2".equals(String.valueOf(stg)), "stage did not move to S2");
             line(c, "HxMateA activated a terminal! (1/3)");
             line(c, "HxMateA activated a terminal! (2/3)");
             c.ctx().waitTicks(27);
