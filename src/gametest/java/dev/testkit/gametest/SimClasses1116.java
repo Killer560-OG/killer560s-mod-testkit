@@ -200,7 +200,7 @@ final class SimClasses1116 {
                 List<String> side = sidebar(ctx);
                 println(NAME, tag + "sidebar " + side);
                 for (int i = 0; i < 2; i++) {
-                    String mate = "Teammate" + (i + 1);
+                    String mate = mates.get(i).equals("BERSERKER") ? "Berserk" : mates.get(i).charAt(0) + mates.get(i).substring(1).toLowerCase();
                     String letter = mates.get(i).substring(0, 1);
                     expect(f, tag + "sidebar lists [" + letter + "] " + mate,
                             side.stream().anyMatch(l -> l.startsWith("[" + letter + "] " + mate + " ")), true);

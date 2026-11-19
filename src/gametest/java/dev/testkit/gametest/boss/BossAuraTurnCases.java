@@ -382,6 +382,10 @@ final class BossAuraTurnCases {
             c.onClient(mc -> Mod.staticCall(LEVER_CONFIG, "load"));
             int kept = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(LEVER_CONFIG), "getCooldownMs"));
             c.check(kept == 300, "a file with cooldownMs 300 loaded as " + kept);
+            java.nio.file.Files.writeString(file, "{}");
+            c.onClient(mc -> Mod.staticCall(LEVER_CONFIG, "load"));
+            int def = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(LEVER_CONFIG), "getCooldownMs"));
+            c.check(def == 50, "a file with no cooldown loaded as " + def + " ms, the default is 50");
         } finally {
             if (old != null) {
                 java.nio.file.Files.write(file, old);

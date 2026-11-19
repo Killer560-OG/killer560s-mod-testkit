@@ -38,16 +38,43 @@ final class LeverFreeze1116Cases {
                 SameTick.Act.TP}) {
             s.test("1116-leverfreeze-" + a.name().toLowerCase(Locale.ROOT), c -> run(c, a, false));
         }
+        // leverfreeze-tp-1117: a teleport every tick, so lever flicks often reach the server while its teleport is unanswered.
+        s.test("1117-leverfreeze-tp-dense", c -> run(c, SameTick.Act.TP, false, 1));
     }
 
     private static String describe(Object p) {
         if (p instanceof ServerboundMovePlayerPacket m && m.hasRotation()) {
             return String.format(Locale.ROOT, "rot %.3f %.3f", m.getYRot(0f), m.getXRot(0f));
         }
+        if (p instanceof ServerboundMovePlayerPacket) {
+            return "pos";
+        }
+        if (p.getClass().getSimpleName().contains("AcceptTeleport")) {
+            StringBuilder b = new StringBuilder("accept");
+            for (java.lang.reflect.Field f : p.getClass().getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
+                try {
+                    f.setAccessible(true);
+                    b.append(' ').append(f.getName()).append('=').append(f.get(p));
+                } catch (ReflectiveOperationException | RuntimeException e) {
+                    b.append(" ?");
+                }
+            }
+            return b.toString();
+        }
         return LeverBest1112Cases.describe(p);
     }
 
     private static void run(Session c, SameTick.Act act, boolean reflick) throws Exception {
+        run(c, act, reflick, 2);
+    }
+
+    /** Clicks the anticheat queued for judging so far (the testmod's probe logs one line each). */
+    private static long gapLines(Session c) {
+        return c.server().since().stream().filter(l -> l.contains("[testkit-gap] place ->")).count();
+    }
+
+    private static void run(Session c, SameTick.Act act, boolean reflick, int tpEvery) throws Exception {
         List<AutoCloseable> undo = new ArrayList<>();
         SameTick st = null;
         try {
@@ -72,6 +99,7 @@ final class LeverFreeze1116Cases {
             undo.add(c.onClient(mc -> Mod.with(BossAuraTurnCases.LEVER_CONFIG, "CooldownMs", 50)));
             int flags0 = c.scenario().flags().size();
             float[] cam = BossAuraTurnCases.start(c);
+            long gap0 = gapLines(c);
             WireCapture.describe = LeverFreeze1116Cases::describe;
             WireCapture.start();
             if (act != null) {
@@ -95,7 +123,7 @@ final class LeverFreeze1116Cases {
                     });
                 }
                 for (int t = 0; t < 12; t++) {
-                    if (act == SameTick.Act.TP && t % 2 == 0) {
+                    if (act == SameTick.Act.TP && t % tpEvery == 0) {
                         c.server().command("execute as @a at @s run tp @s ~ ~ ~");
                     }
                     if (reflick && (t == 3 || t == 7)) {
@@ -131,11 +159,16 @@ final class LeverFreeze1116Cases {
                     flickAt = i;
                 }
             }
-            c.note("flicked in " + flicks + " of 12 rounds, " + rots + " look packets, first turned look at wire #" + turnedAt
-                    + ", first flick at #" + flickAt + ", camera moved at most " + cam[4]);
-            c.check(flicks >= (act == SameTick.Act.TP || act == SameTick.Act.ATTACK ? 2 : 6),
-                    "the Lever Aura flicked in only " + flicks + " of 12 rounds (the feature did not act)");
             long onWire = wire.stream().filter(w -> w.startsWith("use_item_on") && w.contains(LEVER.toShortString())).count();
+            // GrimAC never judges a click that reaches it while its teleport is unanswered; the server logs one
+            // [testkit-gap] line per click it did queue (leverfreeze-tp-1117), so the rest were dropped.
+            long dropped = onWire - (gapLines(c) - gap0);
+            c.note("flicked in " + flicks + " of 12 rounds, " + rots + " look packets, first turned look at wire #" + turnedAt
+                    + ", first flick at #" + flickAt + ", camera moved at most " + cam[4] + ", " + onWire + " flicks sent, "
+                    + dropped + " dropped by the server");
+            c.check(tpEvery > 1 || dropped > 0, "no flick met an unanswered teleport: the dropped-click case never ran");
+            c.check(tpEvery == 1 ? onWire >= 6 : flicks >= (act == SameTick.Act.TP || act == SameTick.Act.ATTACK ? 2 : 6),
+                    "the Lever Aura flicked in only " + flicks + " of 12 rounds, " + onWire + " sent (the feature did not act)");
             c.check(!reflick || onWire > 12, "the lever was reset twice a round but only " + onWire + " flicks went out in 12 rounds");
             c.check(turnedAt >= 0, "no look packet turned away from his yaw " + cam[0] + ": the real body never turned");
             c.check(flickAt >= 0 && turnedAt <= flickAt, "the first flick (#" + flickAt + ") did not follow a turned look (#" + turnedAt + ")");

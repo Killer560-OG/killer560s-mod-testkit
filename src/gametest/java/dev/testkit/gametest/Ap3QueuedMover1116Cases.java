@@ -46,10 +46,12 @@ final class Ap3QueuedMover1116Cases {
             Object run = node("RUN", LANE_X0 + 3.0, z, -90f, 0f, 2.0, 2.0);
             Object align = node("FAST_ALIGN", tx, z, 0f, 0f, 3.0, 3.0);
             // WALK (heading +x) covers the align's approach and point, so it is queued first and he ends in it;
-            // run2 (heading +z) sits on the approach (x 9.9..10.4, the planner passes 9.84, 10.15, 10.50), so it is
-            // queued after the WALK and left before the align ends: on the old jar it fires last and wins.
+            // run2 (heading +z) sits on the approach (x 9.2..10.4), so it is queued after the WALK and left before the
+            // align ends: on the old jar it fires last and wins. It is wide enough that he is more centered in it than
+            // in the WALK on both align paths: the regular align passes 9.84, 10.15, 10.50, the 1-tick align (align12)
+            // 9.28, 9.59, 10.01, 10.50; the old 0.5 box at 10.15 caught only the first.
             Object walk = node("WALK", tx, z, -90f, 0f, 2.8, 2.8);
-            Object run2 = node("RUN", tx - 0.35, z, 0f, 0f, 3.0, 0.5); // long in z so he is more centered in it than in the WALK
+            Object run2 = node("RUN", tx - 0.7, z, 0f, 0f, 3.0, 1.2); // long in z so he is more centered in it than in the WALK
             Ap3RuntimeTests.walkIntoRun(c, z, run, align, walk, run2);
             boolean alignSeen = false;
             boolean bothQueued = false;
