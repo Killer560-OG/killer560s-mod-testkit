@@ -151,7 +151,7 @@ final class SimBossTermNumbers1119 {
             if (channel.pipeline().get(NAME) != null) {
                 channel.pipeline().remove(NAME);
             }
-            channel.pipeline().addFirst(NAME, this);
+            channel.pipeline().addBefore("packet_handler", NAME, this); // after the decoder: whole packets both ways
         }
 
         void remove() {
