@@ -132,6 +132,7 @@ final class SimBossNecron1111 {
     }
 
     private static void dragonRun(ClientGameTestContext ctx, List<String> f) {
+        SimBossTests.fixDragonOrder();   // Red first (the order is random since simleapspots-1117)
         long mark = start(ctx, "P5", true);
         if (!waitChat(ctx, mark, "[BOSS] The Wither King: You... again?", 160)) {
             f.add("the Wither King's line never came");
