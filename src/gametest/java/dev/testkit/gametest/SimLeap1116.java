@@ -124,16 +124,16 @@ final class SimLeap1116 {
         try {
             setTeammates(ctx, 2);
             SimBossTests.until(ctx, "two teammates", mc -> ((List<?>) call(MATES, "names")).size() == 2, 200);
-            expect(f, "two Sim Teammates placed", mates(ctx), "[Teammate1, Teammate2]");
+            expect(f, "two Sim Teammates placed", mates(ctx), "[Healer, Tank]");
             ctx.waitTicks(40);
-            expect(f, "Fast Leap knows Teammate1 from the tab", ctx.computeOnClient(mc -> ModUnderTest.staticCall(
-                    "com.killer560.hub.fastleap.Teammates", "byName", new Class<?>[]{String.class}, new Object[]{"Teammate1"}) != null), true);
+            expect(f, "Fast Leap knows Healer from the tab", ctx.computeOnClient(mc -> ModUnderTest.staticCall(
+                    "com.killer560.hub.fastleap.Teammates", "byName", new Class<?>[]{String.class}, new Object[]{"Healer"}) != null), true);
 
             // In the boss a leap goes to the class's spot since simleapspots-1117, wherever the teammate stands: as Mage,
-            // Teammate1 is the Healer (S1: Simon Says) and Teammate2 the Tank.
+            // Healer is the Healer (S1: Simon Says) and Tank the Tank.
             double[] me = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
-            move(ctx, "Teammate1", me[0] + 12, me[1], me[2] + 3, 90f);
-            move(ctx, "Teammate2", me[0] - 9, me[1], me[2] - 6, -45f);
+            move(ctx, "Healer", me[0] + 12, me[1], me[2] + 3, 90f);
+            move(ctx, "Tank", me[0] - 9, me[1], me[2] - 6, -45f);
             double ax = 107.878, az = 93.917, bx = 108.032, bz = 73.075;
 
             // InfiniLeap: the menu, a click, the line, the target's look, the item stays.
@@ -143,15 +143,25 @@ final class SimLeap1116 {
             expect(f, "the leap menu opens", title(ctx), "Spirit Leap");
             List<String> heads = heads(ctx);
             println(NAME, "heads " + heads);
-            expect(f, "a head for each class he does not play (boss, alone: Teammate1-4, placed or not)", heads.size(), 4);
+            expect(f, "a head for each class he does not play (boss, alone: named by class, placed or not)", heads.size(), 4);
+            for (String n : new String[]{"Healer", "Tank", "Archer", "Berserk"}) {
+                expect(f, "a head named " + n + " (its class), no TeammateN", slotOf(heads, n) >= 0, true);
+                String want = n.equals("Berserk") ? "BERSERKER" : n.toUpperCase();
+                expect(f, "the leap overlay colors " + n + " in its class color (placed or not)", String.valueOf(ctx.computeOnClient(mc ->
+                        ModUnderTest.staticCall("com.killer560.hub.leapmenu.PartyTracker", "classOf",
+                                new Class<?>[]{String.class}, new Object[]{n}))), want);
+            }
+            expect(f, "a real player name stays unknown to the class lookup", String.valueOf(ctx.computeOnClient(mc ->
+                    ModUnderTest.staticCall("com.killer560.hub.leapmenu.PartyTracker", "classOf",
+                            new Class<?>[]{String.class}, new Object[]{"SomeRealPlayer"}))), "null");
             long mark = LogTap.mark();
-            int slot = slotOf(heads, "Teammate1");
+            int slot = slotOf(heads, "Healer");
             ctx.runOnClient(mc -> mc.gameMode.handleContainerInput(mc.player.containerMenu.containerId, slot, 0,
                     ContainerInput.PICKUP, mc.player));
             ctx.waitTicks(10);
             expect(f, "the menu closed", title(ctx), "none");
-            expect(f, "landed on Teammate1", distTo(ctx, ax, az) < 0.6, true);
-            expect(f, "Hypixel's leap line", chatSince(mark, "You have teleported to Teammate1!"), true);
+            expect(f, "landed on Healer", distTo(ctx, ax, az) < 0.6, true);
+            expect(f, "Hypixel's leap line", chatSince(mark, "You have teleported to Healer!"), true);
             expect(f, "took the Healer spot's look", ctx.computeOnClient(mc -> Math.round(net.minecraft.util.Mth.wrapDegrees(mc.player.getYRot()))), -90);
             expect(f, "the InfiniLeap is not used up", heldCount(ctx), 1);
 
@@ -165,11 +175,11 @@ final class SimLeap1116 {
             ctx.waitTicks(45);
             int leaps = (Integer) ctx.computeOnClient(mc -> call(LEAP, "leapsForTest"));
             use(ctx);
-            int slot2 = slotOf(heads(ctx), "Teammate2");
+            int slot2 = slotOf(heads(ctx), "Tank");
             ctx.runOnClient(mc -> mc.gameMode.handleContainerInput(mc.player.containerMenu.containerId, slot2, 0,
                     ContainerInput.PICKUP, mc.player));
             ctx.waitTicks(10);
-            expect(f, "second InfiniLeap to Teammate2", distTo(ctx, bx, bz) < 0.6, true);
+            expect(f, "second InfiniLeap to Tank", distTo(ctx, bx, bz) < 0.6, true);
             expect(f, "leap count went up", (Integer) ctx.computeOnClient(mc -> call(LEAP, "leapsForTest")) - leaps, 1);
             expect(f, "still one InfiniLeap", heldCount(ctx), 1);
 
@@ -180,22 +190,22 @@ final class SimLeap1116 {
             mark = LogTap.mark();
             ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.fastleap.LeapManager", "leap",
                     new Class<?>[]{String.class, boolean.class, boolean.class, boolean.class},
-                    new Object[]{"Teammate1", false, true, false}));
+                    new Object[]{"Healer", false, true, false}));
             long m2 = mark;
-            boolean got = SimBossTests.until(ctx, "Fast Leap lands on Teammate1", mc -> Math.hypot(mc.player.getX() - ax, mc.player.getZ() - az) < 0.6, 100);
+            boolean got = SimBossTests.until(ctx, "Fast Leap lands on Healer", mc -> Math.hypot(mc.player.getX() - ax, mc.player.getZ() - az) < 0.6, 100);
             for (String l : LogTap.since(m2)) if (l.contains("FastLeap") || l.contains("SimLeap")) println(NAME, l);
-            expect(f, "Fast Leap (Auto Leap's engine) leapt to Teammate1", got, true);
+            expect(f, "Fast Leap (Auto Leap's engine) leapt to Healer", got, true);
 
             // Spirit Leap: used up per leap, 5 s cooldown.
             ctx.waitTicks(45);
             give(ctx, "SPIRIT_LEAP", 3);
             use(ctx);
             expect(f, "Spirit Leap opens the same menu", title(ctx), "Spirit Leap");
-            int slot3 = slotOf(heads(ctx), "Teammate2");
+            int slot3 = slotOf(heads(ctx), "Tank");
             ctx.runOnClient(mc -> mc.gameMode.handleContainerInput(mc.player.containerMenu.containerId, slot3, 0,
                     ContainerInput.PICKUP, mc.player));
             ctx.waitTicks(10);
-            expect(f, "Spirit Leap to Teammate2", distTo(ctx, bx, bz) < 0.6, true);
+            expect(f, "Spirit Leap to Tank", distTo(ctx, bx, bz) < 0.6, true);
             expect(f, "one Spirit Leap used up", heldCount(ctx), 2);
             ctx.waitTicks(50);
             mark = LogTap.mark();
