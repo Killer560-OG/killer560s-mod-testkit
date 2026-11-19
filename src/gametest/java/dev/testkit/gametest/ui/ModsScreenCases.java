@@ -204,24 +204,18 @@ final class ModsScreenCases {
                 Screen s = McCompat.screen(mc);
                 List<String> ids = ids(s);
                 c.note("rows: " + ids.size() + " of " + FabricLoader.getInstance().getAllMods().size() + " mods: " + ids);
-                for (String id : new String[]{"killer560smod", "fabric-api"}) {
-                    Object e = entry(s, id);
-                    if (e == null) {
-                        return id + " is not listed";
-                    }
-                    String v = (String) Mod.field(e, "version");
-                    if (v == null || v.isEmpty() || !v.equals(version(id))) {
-                        return id + " shows version " + v + ", FabricLoader says " + version(id);
-                    }
-                    c.note(id + " " + v);
+                // modsfix-1105: libraries (Fabric API and its modules) are not listed at all
+                Object e = entry(s, "killer560smod");
+                if (e == null) {
+                    return "killer560smod is not listed";
                 }
-                List<?> kids = (List<?>) Mod.field(entry(s, "fabric-api"), "children");
-                c.note("Fabric API carries " + kids.size() + " modules");
-                if (kids.isEmpty()) {
-                    return "Fabric API has no modules folded under it";
+                String v = (String) Mod.field(e, "version");
+                if (v == null || v.isEmpty() || !v.equals(version("killer560smod"))) {
+                    return "killer560smod shows version " + v + ", FabricLoader says " + version("killer560smod");
                 }
-                if (ids.contains("fabric-api-base")) {
-                    return "a Fabric API module is listed at the top level while its parent is closed";
+                c.note("killer560smod " + v);
+                if (ids.contains("fabric-api") || ids.contains("fabric-api-base")) {
+                    return "a library (Fabric API) is listed: " + ids;
                 }
                 Map<?, ?> icons = (Map<?, ?>) Mod.field(s, "icons");
                 Object own = icons.get("killer560smod");
@@ -236,20 +230,15 @@ final class ModsScreenCases {
                 Screen s = McCompat.screen(mc);
                 search(s, "killer560");
                 List<String> ids = ids(s);
-                if (!ids.contains("killer560smod") || ids.contains("fabric-api")) {
+                if (!ids.contains("killer560smod") || ids.size() != 1) {
                     return "search \"killer560\" listed " + ids;
-                }
-                search(s, "fabric-api-base");
-                ids = ids(s);
-                if (!ids.contains("fabric-api") || !ids.contains("fabric-api-base")) {
-                    return "search \"fabric-api-base\" should show Fabric API with that module under it, got " + ids;
                 }
                 search(s, "zzqx no such mod");
                 if (!ids(s).isEmpty()) {
                     return "a search matching nothing listed " + ids(s);
                 }
                 search(s, "");
-                return ids(s).contains("fabric-api") ? null : "clearing the search did not bring the list back";
+                return ids(s).contains("killer560smod") ? null : "clearing the search did not bring the list back";
             });
             c.check(filtered == null, filtered);
 
@@ -274,7 +263,7 @@ final class ModsScreenCases {
             long mark = LogTap.mark();
             String home = c.onClient(mc -> {
                 Screen s = McCompat.screen(mc);
-                Object api = entry(s, "fabric-api");
+                Object api = entry(s, "killer560smod");
                 String url = (String) Mod.field(api, "homepage");
                 Mod.call(s, "select", api);
                 AbstractWidget w = (AbstractWidget) Mod.field(s, "website");
@@ -282,7 +271,7 @@ final class ModsScreenCases {
                     return w.visible ? "Website shown for a mod with no homepage" : "";
                 }
                 if (!w.visible) {
-                    return "no Website button for Fabric API (" + url + ")";
+                    return "no Website button for this mod (" + url + ")";
                 }
                 ModScreenDriver.press(w);
                 return url;
@@ -290,7 +279,7 @@ final class ModsScreenCases {
             c.ticks(2);
             if (home.isEmpty() || !home.startsWith("http")) {
                 c.check(home.isEmpty(), home);
-                c.note("Fabric API gives no homepage: the link press did not run");
+                c.note("this mod gives no homepage: the link press did not run");
             } else {
                 boolean asked = LogTap.since(mark).stream().anyMatch(l -> l.contains("would open") && l.contains(home));
                 c.check(asked, "Website did not ask to open " + home);
