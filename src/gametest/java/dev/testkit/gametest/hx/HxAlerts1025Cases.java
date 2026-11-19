@@ -33,6 +33,7 @@ final class HxAlerts1025Cases {
         // doc-auto-1101: the chest secret sound waits out "That chest is locked!"
         s.test("1025-alerts-secretsound-locked", HxAlerts1025Cases::secretSoundLocked);
         s.test("1108-alerts-secretsound-every-click", HxAlerts1025Cases::secretSoundEveryClick);
+        s.test("1118-alerts-lockedsound-repeat", HxAlerts1025Cases::lockedSoundRepeat);
         s.test("1109-alerts-secretsound-timing", HxAlerts1025Cases::secretSoundTiming);
         // doc-auto-1101: Auto Ult's Wish On Clear (cheat jar only)
         s.test("1025-alerts-autoult-wish-clear", HxAlerts1025Cases::wishOnClear);
@@ -215,6 +216,60 @@ final class HxAlerts1025Cases {
                     net.minecraft.world.InteractionHand.MAIN_HAND, hit);
             return null;
         });
+    }
+
+    // ---- 1118-alerts-lockedsound-repeat ---------------------------------------------------------------------------
+
+    /** killer560, 2026-11-18: clicking a locked chest again played the secret sound instead of the locked sound. Five clicks
+     *  (gaps 1 tick, 2, 8, 40) each answered with the locked line: 5 locked sounds, 0 secret sounds. A sixth click whose
+     *  line never comes (Hypixel throttled it): still no secret sound. Then the chest really opens: 1 secret sound. */
+    private static void lockedSoundRepeat(Session c) {
+        net.minecraft.core.BlockPos chest = new net.minecraft.core.BlockPos(-417, 151, -422);
+        c.server().command("setblock -417 151 -422 minecraft:chest");
+        Object cfg = c.onClient(mc -> Mod.cfg(ALERTS_CFG));
+        boolean soundWas = c.onClient(mc -> (Boolean) Mod.field(cfg, "secretSoundEnabled"));
+        try (Settings set = new Settings(c).with(ALERTS_CFG, "SecretClickedEnabled", true)
+                .with(ALERTS_CFG, "SecretClickedLockedSound", true)) {
+            c.onClient(mc -> setSound(cfg, true));
+            dungeon(c);
+            c.waitUntil("the client sees the chest", mc -> mc.level.getBlockState(chest).getBlock() == net.minecraft.world.level.block.Blocks.CHEST, 60);
+            run(c, () -> Mod.staticCall(CLICKED, "onWorldChange"));
+            run(c, () -> Mod.staticCall("dungeonalerts.SecretSound", "onWorldChange"));
+            int[] before = c.onClient(mc -> (int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"));
+            int lockedBefore = c.onClient(mc -> (Integer) Mod.staticCall(CLICKED, "lockedSounds"));
+            int[] gaps = {1, 2, 8, 40, 0};
+            for (int gap : gaps) {
+                clickChest(c, chest);
+                c.hx().chat("§cThat chest is locked!");
+                c.ctx().waitTicks(Math.max(gap, 2));
+            }
+            c.ctx().waitTicks(30);
+            int lockedSounds = c.onClient(mc -> (Integer) Mod.staticCall(CLICKED, "lockedSounds")) - lockedBefore;
+            int[] mid = c.onClient(mc -> (int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"));
+            c.check(lockedSounds == 5, "five locked clicks should play 5 locked sounds, played " + lockedSounds);
+            c.check(mid[0] == before[0], "a locked chest played the secret sound " + (mid[0] - before[0]) + " times");
+            clickChest(c, chest); // Hypixel sends no line this time
+            c.ctx().waitTicks(30);
+            int[] six = c.onClient(mc -> (int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"));
+            c.check(six[0] == before[0], "a repeat click on a known locked chest played the secret sound");
+            clickChest(c, chest);
+            c.onClient(mc -> {
+                net.minecraft.world.entity.player.Inventory inv = mc.player.getInventory();
+                dev.testkit.compat.McCompat.setScreen(mc, new net.minecraft.client.gui.screens.inventory.ContainerScreen(
+                        net.minecraft.world.inventory.ChestMenu.threeRows(0, inv, new net.minecraft.world.SimpleContainer(27)),
+                        inv, net.minecraft.network.chat.Component.literal("Chest")));
+                return null;
+            });
+            c.waitUntil("the opened chest plays the secret sound", mc -> ((int[]) Mod.staticCall("dungeonalerts.SecretSound",
+                    "chestSoundCounts"))[0] == six[0] + 1, 40);
+            c.note("locked repeat: 5 locked sounds, 0 secret; real open: 1 secret");
+        } finally {
+            c.onClient(mc -> {
+                dev.testkit.compat.McCompat.setScreen(mc, null);
+                return setSound(cfg, soundWas);
+            });
+            c.server().command("setblock -417 151 -422 minecraft:air");
+        }
     }
 
     // ---- 1025-alerts-autoult-wish-clear (doc-auto-1101) --------------------------------------------------------------
