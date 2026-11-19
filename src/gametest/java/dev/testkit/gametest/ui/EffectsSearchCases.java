@@ -454,6 +454,8 @@ final class EffectsSearchCases {
             {"starred mobs", "", "MobEspTab"},
             {"wither esp", "", "MobEspTab"},
             {"mob esp", "", "MobEspTab"},
+            {"dungeon esp", "", "MobEspTab"},
+            {"dungeon mob highlight", "", "MobEspTab"},
             {"esp", "", "MobEspTab"},
             {"mob highlight", "", "MobEspTab"},
             {"bat esp", "", "MobEspTab"},

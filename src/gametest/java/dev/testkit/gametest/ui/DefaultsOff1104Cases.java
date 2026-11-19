@@ -39,6 +39,8 @@ final class DefaultsOff1104Cases {
             {"missingenchants.MissingEnchantsConfig", "enabled", "belowMax"},
             {"dungeonqueue.DungeonQueueConfig", "enabled", "pvLinkOnJoin"},
             {"partyfinder.PartyFinderOverlayConfig", "enabled"},
+            // espname-1118: a mob type's Color row and the Style rows are built only while its switch is on.
+            {"mobesp.MobEspConfig", "starredMobs", "bats", "bloodMobs", "felSkulls", "mimic", "witherHighlight"},
             {"posmsg.PosmsgConfig", "enabled"},
             {"rngmeter.RngMeterConfig", "enabled"},
             {"melody.MelodyHudConfig", "hudEnabled", "shareProgress"},
