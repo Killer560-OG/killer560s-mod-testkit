@@ -75,6 +75,10 @@ final class SimMelodyLost1118 {
         for (int i = 0; i < 200 && System.currentTimeMillis() < sixth + 4500L - 25L; i++) {
             ctx.waitTicks(1);
         }
+        Object diag = ctx.computeOnClient(mc -> mc.player.containerMenu.getSlot(Math.min(11, mc.player.containerMenu.slots.size() - 1)).getItem().getItem() + " / had "
+                + ModUnderTest.staticCall("com.killer560.hub.bridge.MelodyIntel", "hadSource", new Class<?>[]{String.class, int.class},
+                new Object[]{mc.player.getGameProfile().name(), 1}));
+        println(NAME, type + " before T4: " + diag);
         complete(ctx, 1, "T4");
         long gap = System.currentTimeMillis() - sixth;
         long lost = lostMs(ctx, 1);
