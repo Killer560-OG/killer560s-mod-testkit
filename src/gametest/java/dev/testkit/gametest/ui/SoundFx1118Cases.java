@@ -110,7 +110,7 @@ final class SoundFx1118Cases {
                 }
                 for (int i = 0; i < 40 && !seen.containsAll(List.of(NEW)); i++) {
                     press(sel, 0, 0.75);
-                    seen.add((String) Mod.call(cfg, "getChoice", arrow));
+                    seen.add((String) Mod.call(Mod.cfg(CFG), "getChoice", arrow));
                 }
                 McCompat.setScreen(mc, null);
                 return null;
