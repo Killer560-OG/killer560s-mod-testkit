@@ -31,6 +31,7 @@ final class HxFeatC1108Cases {
     static void register(Session s) {
         s.test("1108-puzzlehud-rows", HxFeatC1108Cases::puzzleRows);
         s.test("1109-puzzlehud-funnymap", HxFeatC1108Cases::puzzleFunnyMap);
+        s.test("1118-puzzlehud-stale", HxFeatC1108Cases::puzzleStale);
         s.test("1108-reparty-run", HxFeatC1108Cases::repartyRun);
         s.test("1108-reparty-notleader", HxFeatC1108Cases::repartyNotLeader);
         s.test("1109-reparty-delay", HxFeatC1108Cases::repartyDelay);
@@ -79,6 +80,32 @@ final class HxFeatC1108Cases {
                     Map.of("name", "Boulder", "state", "\u00a7r" + OPEN), Map.of("name", "Teleport Maze", "state", "\u00a7r" + OPEN)));
             c.waitUntil("the clock of the opened puzzle runs", mc -> !rowOf(c, "Teleport Maze").endsWith("0:00"), 200);
             c.note("seeded row after it was opened: " + rowOf(c, "Teleport Maze"));
+        } finally {
+            hub(c);
+        }
+    }
+
+    /**
+     * puzzlehud-wrong-1118: on his 5:15 PM run the tab list said "Puzzles: (3)" with three "???" rows and the map held three puzzle
+     * rooms, but the HUD listed five: the previous run's Boulder and Lower Blaze (seeded from the old grid on the world-change tick,
+     * before the map reset) were never dropped. The names of the run before are seeded, then the names of this run: only this run's rows stay.
+     */
+    private static void puzzleStale(Session c) {
+        try (Settings set = new Settings(c).with(PUZZLE_CFG, "Enabled", true)) {
+            dungeon(c, "puzzles", List.of(Map.of("name", "Tic Tac Toe", "state", "§r" + OPEN)));
+            c.waitUntil("a row drawn", mc -> !((List<?>) Mod.staticCall(PUZZLE, "rowsForTest")).isEmpty(), 80);
+            run(c, () -> Mod.staticCall(PUZZLE, "seedFromMap", List.of("Boulder", "Tic Tac Toe", "Lower Blaze"), System.currentTimeMillis()));
+            c.check(rows(c).size() == 3, "first run's rows: " + rows(c));
+            run(c, () -> Mod.staticCall(PUZZLE, "seedFromMap", List.of("Water Board", "Ice Fill", "Tic Tac Toe"), System.currentTimeMillis()));
+            List<String> now = rows(c);
+            c.check(now.size() == 3, "second run lists " + now.size() + " rows, expected its own 3: " + now);
+            for (String stale : List.of("Boulder", "Lower Blaze")) {
+                c.check(now.stream().noneMatch(r -> r.contains(stale)), "stale " + stale + " still listed: " + now);
+            }
+            for (String own : List.of("Water Board", "Ice Fill", "Tic Tac Toe")) {
+                c.check(now.stream().anyMatch(r -> r.contains(own)), own + " missing: " + now);
+            }
+            c.check(header(c).equals("Puzzles 0/3"), "header " + header(c));
         } finally {
             hub(c);
         }
@@ -345,12 +372,36 @@ final class HxFeatC1108Cases {
         speak(c, 21_000L, 40_000L);
         c.check(((Number) c.onClient(mc -> Mod.staticCall(WH, "speakMsForTest"))).longValue() == 0L, "Watcher Helper OFF timed the room");
         try (Settings set = new Settings(c).with(WH_CFG, "Enabled", true)) {
-            long[][] cases = {{21_500L, 0}, {22_500L, 1}, {24_000L, 2}, {26_000L, 3}};
+            // Four of his real Watchers (logger, 2026-11-16..18): the chat lines and their offsets from the door, speak time, grade.
+            Object[][] real = {
+                {11_708L, "Vroom", new long[]{0, 7332, 11708, 22562, 25831, 28927, 32058, 34160, 40448, 41999, 45203, 48308, 51458, 51916}},
+                {14_960L, "Watcher", new long[]{0, 14960, 21491, 23623, 25736, 27803, 32844, 34949, 37054, 40191, 43286, 45400, 47563, 50623}},
+                {15_944L, "Yawn", new long[]{0, 7101, 9938, 12646, 15944, 22018, 25005, 28300, 33218, 36384, 39703, 41605, 44728, 47830, 48299}},
+                {18_358L, "Zzz", new long[]{0, 8186, 11732, 14879, 18358, 23212, 25326, 30620, 33737, 36845, 38973, 42111, 45375, 48312, 49378}},
+            };
+            for (Object[] r : real) {
+                long[] at = (long[]) r[2];
+                run(c, () -> Mod.staticCall("dungeonalerts.DungeonAlertsFeature", "showTitle", "", "", 0, 1, 0));
+                long t0 = 1_000_000L;
+                run(c, () -> {
+                    Mod.staticCall(WH, "onLine", "Starting in 1 second.", t0 - 1000L);
+                    Mod.staticCall(WH, "onLine", "[BOSS] The Watcher: Ah, we meet again. As I foresaw...", t0);
+                    for (int i = 1; i < at.length - 1; i++) {
+                        Mod.staticCall(WH, "onLine", "[BOSS] The Watcher: " + (at[i] == (long) r[0] ? "Let's see how you can handle this." : "Go, fight!"), t0 + at[i]);
+                    }
+                    Mod.staticCall(WH, "onLine", "[BOSS] The Watcher: You have proven yourself. You may pass.", t0 + at[at.length - 1]);
+                });
+                String title = c.onClient(mc -> HxAlerts1025Cases.guiTitle(mc));
+                c.check(title != null && title.contains((String) r[1]), "real Watcher speak " + r[0] + " ms showed title '" + title + "', not " + r[1]);
+            }
+            // Cutoffs 14.5 / 15.5 / 16.5 s, both sides of each.
+            long[][] cases = {{14_400L, 0}, {14_600L, 1}, {15_400L, 1}, {15_600L, 2}, {16_400L, 2}, {16_600L, 3}, {26_000L, 3}};
             String[] grades = {"Vroom", "Watcher", "Yawn", "Zzz"};
             for (int i = 0; i < cases.length; i++) {
+                run(c, () -> Mod.staticCall("dungeonalerts.DungeonAlertsFeature", "showTitle", "", "", 0, 1, 0));
                 speak(c, cases[i][0], cases[i][0] + 18_000L);
                 String title = c.onClient(mc -> HxAlerts1025Cases.guiTitle(mc));
-                c.check(title != null && title.contains(grades[i]), "speak " + cases[i][0] + " ms showed title '" + title + "', not " + grades[i]);
+                c.check(title != null && title.contains(grades[(int) cases[i][1]]), "speak " + cases[i][0] + " ms showed title '" + title + "', not " + grades[(int) cases[i][1]]);
             }
             c.check(chat(c).stream().anyMatch(l -> l.contains("Speak 26.00s, Total 44.00s")), "breakdown line missing: " + chat(c));
             // The Title switch off: the speak time is still timed but no title.
