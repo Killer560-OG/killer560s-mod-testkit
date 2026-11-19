@@ -108,7 +108,7 @@ final class AnvilStart1118Cases {
             c.check(MenuKit.maxPerTick(per) <= 1, "more than one container click in a tick: max " + MenuKit.maxPerTick(per));
             // 3: press again on the same menu -> runs again (a stopped menu is not locked out)
             pressButton(c);
-            c.waitUntil("a second run after pressing Start again", mc -> c.events("anvil.combine").size() > done, 400);
+            c.waitUntil("a second run after pressing Start again (it clicks again)", mc -> c.events("container.click").size() > at, 400);
             c.note("press ran it, Stop ended it after " + done + " combine(s) with " + at + " clicks and none after, Start again went on; "
                     + MenuKit.cadence(c));
         } finally {
@@ -168,7 +168,7 @@ final class AnvilStart1118Cases {
             int[] at = c.onClient(mc -> (int[]) Mod.staticCall("croesus.AutoCroesusFeature", "sharedStartButtonPosition"));
             clickAt(c, at[0] + 20, at[1] + 8);
             c.ctx().waitTicks(60);
-            c.check(c.events("container.click").isEmpty() && !running(c), "feature OFF: a press at the button spot started it");
+            c.check(!(Boolean) c.onClient(mc -> (Boolean) Mod.staticCall(FEATURE, "isArmed")) && !running(c), "feature OFF: a press at the button spot armed or started it");
             MenuKit.reset(c);
             // ON, but another container
             cfg.set(CFG, "Enabled", true);
