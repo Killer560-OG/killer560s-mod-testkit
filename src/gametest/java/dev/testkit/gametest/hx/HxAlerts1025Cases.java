@@ -27,6 +27,7 @@ final class HxAlerts1025Cases {
     static void register(Session s) {
         s.test("1025-alerts-lowhealth", HxAlerts1025Cases::lowHealth);
         s.test("1108-alerts-lowhealth-yellow", HxAlerts1025Cases::lowHealthYellow);
+        s.test("1118-alerts-lowhealth-self", HxAlerts1025Cases::lowHealthSelf);
         s.test("1025-alerts-scorewarning", HxAlerts1025Cases::scoreWarning);
         s.test("1025-alerts-livid", HxAlerts1025Cases::livid);
         s.test("1025-alerts-secretclicked", HxAlerts1025Cases::secretClicked);
@@ -702,6 +703,79 @@ final class HxAlerts1025Cases {
             mates(c, "§a25,000§c❤", "§c1,000§c❤");
             c.waitUntil("red still alerts with yellow off", mc -> (Integer) Mod.staticCall(LOW_HEALTH, "alertsFired") == base + 3, 6);
             c.note("yellow -> '" + yel + "' within 4 ticks; red after yellow -> '" + red + "'; red->yellow quiet; yellow off quiet, red alerts");
+        } finally {
+            dungeon(c);
+        }
+    }
+
+    // ---- 1118-alerts-lowhealth-self: your own action bar health ---------------------------------------------------
+
+    private static final String STATS = "playerstats.PlayerStatsFeature";
+
+    private static void bar(Session c, String text) {
+        run(c, () -> Mod.staticCall(STATS, "onActionBar", (Object) Component.literal(text)));
+        c.ctx().waitTicks(3);
+    }
+
+    private static int sounds(Session c) {
+        return c.onClient(mc -> (Integer) Mod.staticCall(LOW_HEALTH, "alertSounds"));
+    }
+
+    private static void lowHealthSelf(Session c) {
+        try (Settings set = new Settings(c).with(ALERTS_CFG, "LowHealthEnabled", true)
+                .with(ALERTS_CFG, "LowHealthOnlyHealer", true)
+                .with(ALERTS_CFG, "LowHealthSound", true)
+                .with(ALERTS_CFG, "LowHealthYellow", false)
+                .with(ALERTS_CFG, "LowHealthSelf", true)) {
+            dungeon(c);
+            mates(c, "§a25,000§c❤", "§a30,100§c❤");
+            run(c, () -> Mod.staticCall(LOW_HEALTH, "onWorldChange"));
+            bar(c, "§c20,000/20,000❤     §a500 Defense     §b800/800✎ Mana");
+            int base = fired(c), snd = sounds(c);
+            // A zero reading right after a join says nothing.
+            run(c, () -> Mod.staticCall(LOW_HEALTH, "onWorldChange"));
+            bar(c, "§c0/20,000❤     §a500 Defense     §b800/800✎ Mana");
+            c.check(fired(c) == base, "an alert fired for a 0 health reading at world join (" + fired(c) + ")");
+            bar(c, "§c20,000/20,000❤     §a500 Defense");
+            // Under 30%: one alert, a sound, the title on screen, while the client plays Archer with Only While Healer on.
+            bar(c, "§c5,000/20,000❤     §a500 Defense");
+            c.waitUntil("the self alert", mc -> (Integer) Mod.staticCall(LOW_HEALTH, "alertsFired") == base + 1, 20);
+            String title = c.onClient(mc -> (String) Mod.staticCall(LOW_HEALTH, "lastAlertTitle"));
+            String shown = c.onClient(HxAlerts1025Cases::guiTitle);
+            c.check(title != null && title.contains("You") && title.contains("low"), "self alert title was '" + title + "'");
+            c.check(shown != null && shown.contains("You"), "the on-screen title is '" + shown + "'");
+            c.check(sounds(c) == snd + 1, "sound count " + sounds(c) + " expected " + (snd + 1));
+            // Staying low (and getting lower) does not repeat.
+            bar(c, "§c4,000/20,000❤     §a500 Defense");
+            bar(c, "§c3,000/20,000❤     §a500 Defense");
+            c.ctx().waitTicks(10);
+            c.check(fired(c) == base + 1, "a second self alert fired while staying low (" + fired(c) + ")");
+            // Yellow tier is off: 40% is quiet and re-arms; dropping again fires again.
+            bar(c, "§c8,000/20,000❤     §a500 Defense");
+            bar(c, "§c4,000/20,000❤     §a500 Defense");
+            c.waitUntil("the second self alert after recovering", mc -> (Integer) Mod.staticCall(LOW_HEALTH, "alertsFired") == base + 2, 20);
+            // Switch OFF silences only the self alert; a teammate going red still alerts (Archer + healer-only off).
+            run(c, () -> Mod.call(Mod.cfg(ALERTS_CFG), "setLowHealthSelf", false));
+            bar(c, "§c20,000/20,000❤     §a500 Defense");
+            bar(c, "§c1,000/20,000❤     §a500 Defense");
+            c.ctx().waitTicks(10);
+            c.check(fired(c) == base + 2, "a self alert fired with Alert For Yourself off (" + fired(c) + ")");
+            run(c, () -> Mod.call(Mod.cfg(ALERTS_CFG), "setLowHealthOnlyHealer", false));
+            mates(c, "§c2,900§c❤", "§a30,100§c❤");
+            c.waitUntil("the teammate alert is unchanged", mc -> (Integer) Mod.staticCall(LOW_HEALTH, "alertsFired") == base + 3, 40);
+            String mate = c.onClient(mc -> (String) Mod.staticCall(LOW_HEALTH, "lastAlertTitle"));
+            c.check(mate != null && mate.contains("HxMateA"), "teammate alert title was '" + mate + "'");
+            // Dead: no alert.
+            run(c, () -> Mod.call(Mod.cfg(ALERTS_CFG), "setLowHealthSelf", true));
+            bar(c, "§c20,000/20,000❤     §a500 Defense");
+            run(c, () -> Minecraft.getInstance().player.setHealth(0f));
+            bar(c, "§c3,000/20,000❤     §a500 Defense");
+            c.ctx().waitTicks(5);
+            int dead = fired(c);
+            run(c, () -> Minecraft.getInstance().player.setHealth(20f));
+            c.check(dead == base + 3, "a self alert fired while dead (" + dead + ")");
+            c.note("self: 0 at join none; 25% -> '" + title + "' (Gui '" + shown + "', sound+1); stay low none; recover+drop again; switch off silent;"
+                    + " teammate '" + mate + "'; dead none");
         } finally {
             dungeon(c);
         }

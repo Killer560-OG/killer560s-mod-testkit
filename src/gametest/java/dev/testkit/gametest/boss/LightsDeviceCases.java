@@ -116,7 +116,7 @@ final class LightsDeviceCases {
         undo.add(c.onClient(mc -> Mod.with(CFG, "PreFlick", true)));
         undo.add(c.onClient(mc -> Mod.with(CFG, "Finish", true)));
         undo.add(c.onClient(mc -> Mod.with(CFG, "Range", 4.5)));
-        undo.add(c.onClient(mc -> Mod.with(CFG, "Cps", 10)));
+        undo.add(c.onClient(mc -> Mod.with(CFG, "CooldownMs", 100)));
         undo.add(c.onClient(mc -> Mod.with(CFG, "ChatFeedback", false)));
         undo.add(c.onClient(mc -> Mod.with(CFG, "TriggerDelayMs", 0)));
         undo.add(c.onClient(mc -> Mod.with(CFG, "TriggerCooldownMs", 0)));
@@ -270,7 +270,7 @@ final class LightsDeviceCases {
             undo.add(c.onClient(mc -> Mod.with(CU, "AuraCooldownMs", 100)));
             undo.add(c.onClient(mc -> Mod.with(LA, "SectionLevers", true)));
             undo.add(c.onClient(mc -> Mod.with(LA, "SectionLeversEarly", true)));
-            undo.add(c.onClient(mc -> Mod.with(CFG, "Cps", 20)));
+            undo.add(c.onClient(mc -> Mod.with(CFG, "CooldownMs", 50)));
             c.note("Secret Aura reads boss: " + c.onClient(mc -> Mod.staticCall("livemap.LiveMapFeature", "isInBoss"))
                     + ", in dungeon " + c.onClient(mc -> Mod.staticCall("secrets.DungeonState", "isInDungeon")));
             c.ctx().waitTicks(5);

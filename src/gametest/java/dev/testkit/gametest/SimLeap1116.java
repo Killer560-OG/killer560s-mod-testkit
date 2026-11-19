@@ -119,6 +119,7 @@ final class SimLeap1116 {
     }
 
     static void run(ClientGameTestContext ctx, List<String> f) throws Exception {
+        SimLeapSpots1117.pick(ctx, "MAGE");
         start(ctx, "S1", true);
         try {
             setTeammates(ctx, 2);
@@ -128,10 +129,12 @@ final class SimLeap1116 {
             expect(f, "Fast Leap knows Teammate1 from the tab", ctx.computeOnClient(mc -> ModUnderTest.staticCall(
                     "com.killer560.hub.fastleap.Teammates", "byName", new Class<?>[]{String.class}, new Object[]{"Teammate1"}) != null), true);
 
+            // In the boss a leap goes to the class's spot since simleapspots-1117, wherever the teammate stands: as Mage,
+            // Teammate1 is the Healer (S1: Simon Says) and Teammate2 the Tank.
             double[] me = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
-            double ax = me[0] + 12, az = me[2] + 3, bx = me[0] - 9, bz = me[2] - 6;
-            move(ctx, "Teammate1", ax, me[1], az, 90f);
-            move(ctx, "Teammate2", bx, me[1], bz, -45f);
+            move(ctx, "Teammate1", me[0] + 12, me[1], me[2] + 3, 90f);
+            move(ctx, "Teammate2", me[0] - 9, me[1], me[2] - 6, -45f);
+            double ax = 107.878, az = 93.917, bx = 108.032, bz = 73.075;
 
             // InfiniLeap: the menu, a click, the line, the target's look, the item stays.
             give(ctx, "INFINITE_SPIRIT_LEAP", 1);
@@ -140,7 +143,7 @@ final class SimLeap1116 {
             expect(f, "the leap menu opens", title(ctx), "Spirit Leap");
             List<String> heads = heads(ctx);
             println(NAME, "heads " + heads);
-            expect(f, "a head for each teammate", heads.size(), 2);
+            expect(f, "a head for each class he does not play (boss, alone: Teammate1-4, placed or not)", heads.size(), 4);
             long mark = LogTap.mark();
             int slot = slotOf(heads, "Teammate1");
             ctx.runOnClient(mc -> mc.gameMode.handleContainerInput(mc.player.containerMenu.containerId, slot, 0,
@@ -149,7 +152,7 @@ final class SimLeap1116 {
             expect(f, "the menu closed", title(ctx), "none");
             expect(f, "landed on Teammate1", distTo(ctx, ax, az) < 0.6, true);
             expect(f, "Hypixel's leap line", chatSince(mark, "You have teleported to Teammate1!"), true);
-            expect(f, "took Teammate1's look", ctx.computeOnClient(mc -> Math.round(net.minecraft.util.Mth.wrapDegrees(mc.player.getYRot()))), 90);
+            expect(f, "took the Healer spot's look", ctx.computeOnClient(mc -> Math.round(net.minecraft.util.Mth.wrapDegrees(mc.player.getYRot()))), -90);
             expect(f, "the InfiniLeap is not used up", heldCount(ctx), 1);
 
             // On cooldown: no menu, the cooldown line.

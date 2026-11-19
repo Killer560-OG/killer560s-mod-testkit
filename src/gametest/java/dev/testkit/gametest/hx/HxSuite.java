@@ -67,6 +67,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxSpotifyControlsCases.register(s); HxSpotifyLyrics1108Cases.register(s);
                     HxSpotifyDocCases.register(s);
                     HxSongTagParty1105Cases.register(s); // spotshare-1105: the party room survives a warp
+                    HxPartyState1118Cases.register(s); // partystate-1118: one party tracker, every line form, the tab widget
                     HxSongFix1106Cases.register(s); // songfix-1106: a non-supporter sees a supporter's song and name
                     HxYtLyrics1108Cases.register(s);
                     // Auto Meow replies in the trigger's channel, and Mod Chat sends (874, branch
@@ -192,6 +193,8 @@ public class HxSuite implements FabricClientGameTest {
                     // Every-drop coverage: mob/sea creature kills, Looting, slayer level, RNG Meter, Kuudra, Nucleus,
                     // Experiments, Unknown-floor claims (1102-luck-*, mod branch luck2-1101).
                     HxLuck1102Cases.register(s);
+                    // Ability, bow and drop-first kill counting, armor pieces, identical drop lines (1118-luck-*, luckcount-1118).
+                    HxLuck1118Cases.register(s);
                     // Dark Mode: world / HUD tint by framebuffer pixels, screens untouched, settings reload (1102-darkmode-*,
                     // mod branch darkmode-1102), own block.
                     HxDarkMode1102Cases.register(s);
@@ -208,6 +211,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxMineshaft1114Cases.register(s);
                     // Hide Ghost Mobs: a silent starred mob in a map-cleared room is hidden, idle, unstarred or later-heard ones never (1109-ghostmob-hide, 1118-ghostmob-*, mod ghostmob-redo-1118).
                     HxGhostMob1109Cases.register(s);
+                    HxArrowParticles1117Cases.register(s);
                     // mod featC-1108: Puzzle HUD, Reparty, Watcher Helper.
                     HxFeatC1108Cases.register(s);
                     // mod featG-1109: Carry Tracker.

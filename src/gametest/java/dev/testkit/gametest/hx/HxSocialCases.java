@@ -29,6 +29,7 @@ final class HxSocialCases {
         partyCommands(s);
         partyList(s);
         autoAcceptInvites(s);
+        autoAcceptWho(s);
         commandShortcuts(s);
         commandKeybinds(s);
         autoJoinSkyblock(s);
@@ -96,7 +97,7 @@ final class HxSocialCases {
                     .custom(() -> Mod.call(cfg, "setChannelOn", partyCh, true), () -> Mod.call(cfg, "setChannelOn", partyCh, wasCh))
                     .custom(() -> Mod.call(cfg, "setOn", warp, true), () -> Mod.call(cfg, "setOn", warp, wasOn))) {
                 dungeon(c);
-                c.check(c.onClient(mc -> Mod.staticCall("partycommands.PartyLeaderTracker", "get")) == null,
+                c.check(c.onClient(mc -> Mod.staticCall("leapmenu.PartyTracker", "leader")) == null,
                         "premise: a party leader is already known");
                 send(c, "hostile.allchat-party-warp");
                 assertNoCommand(c, 30, "p warp");
@@ -107,7 +108,7 @@ final class HxSocialCases {
         });
     }
 
-    // ---- 122 party list responder -> PartyTracker / PartyLeaderTracker -------------------------------------------
+    // ---- 122 party list responder -> PartyTracker -------------------------------------------
 
     @SuppressWarnings("unchecked")
     private static void partyList(Session s) {
@@ -132,8 +133,8 @@ final class HxSocialCases {
                 }, 60);
                 List<String> mates = c.onClient(mc -> List.copyOf((List<String>) Mod.staticCall("leapmenu.PartyTracker", "teammates")));
                 c.check(!mates.contains("HxEvil"), "an all-chat 'Party Members:' quote added HxEvil: " + mates);
-                Object leader = c.onClient(mc -> Mod.staticCall("partycommands.PartyLeaderTracker", "get"));
-                c.check("HxLead".equals(leader), "PartyLeaderTracker leader " + leader);
+                Object leader = c.onClient(mc -> Mod.staticCall("leapmenu.PartyTracker", "leader"));
+                c.check("HxLead".equals(leader), "PartyTracker leader " + leader);
                 c.note("/p list answered by the responder -> teammates " + mates + ", leader " + leader
                         + "; all-chat quote ignored");
               } finally {
@@ -144,8 +145,8 @@ final class HxSocialCases {
                 c.hx().chat("§eYou left the party.");
                 c.ctx().waitTicks(6);
               }
-              Object left = c.onClient(mc -> Mod.staticCall("partycommands.PartyLeaderTracker", "get"));
-              c.check(left == null, "PartyLeaderTracker still names " + left + " after 'You left the party.'");
+              Object left = c.onClient(mc -> Mod.staticCall("leapmenu.PartyTracker", "leader"));
+              c.check(left == null, "PartyTracker still names " + left + " after 'You left the party.'");
             }
         });
     }
@@ -190,6 +191,58 @@ final class HxSocialCases {
                 List<String> evIn = c.onClient(mc -> (List<String>) Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "events"));
                 c.check(evIn.stream().anyMatch(e -> e.contains("HxOther") && e.endsWith("IN_PARTY")), "the in-party invite was not seen and refused: " + evIn);
                 c.note("off ->" + sentOff + "; on -> accepted HxInviter; later invite sent " + sentIn + "; events " + events);
+            } finally {
+                c.hx().chat("§eYou left the party.");
+                run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas));
+            }
+        });
+    }
+
+    // ---- 1118 Auto Accept Invites: who (autoaccept-who-1118) ------------------------------------------------------------
+
+    @SuppressWarnings("unchecked")
+    private static void autoAcceptWho(Session s) {
+        s.test("1118-hx-autoaccept-who", c -> {
+            boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+            String cfgCls = "partyinvites.AutoAcceptInvitesConfig";
+            try (Settings set = new Settings(c)) {
+                run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", false));
+                c.hx().chat("§eYou left the party.");
+                c.ctx().waitTicks(4);
+                set.with(cfgCls, "Enabled", true);
+                // The three groups' data: a friend (Friends List mirror), a guild member (a guild chat line), a best friend (store record).
+                c.ctx().runOnClient(mc -> Mod.call(Mod.cfg("social.FriendsListConfig"), "applyRealSync", List.of("HxWhoFriend"), false));
+                c.hx().chat("§2Guild > §b[MVP§c+§b] HxWhoGuild §e[Officer]§f: hi");
+                run(c, () -> Mod.staticCall("social.BestFriendsStore", "getOrCreate", java.util.UUID.nameUUIDFromBytes("HxWhoBest".getBytes()), "HxWhoBest"));
+                c.ctx().waitTicks(4);
+                String[] who = {"HxWhoFriend", "HxWhoGuild", "HxWhoBest", "HxWhoStranger"};
+                String[] keys = {"FromFriends", "FromGuild", "FromBestFriends"};
+                // Row 0: every switch OFF accepts all four. Rows 1-3: one switch ON accepts only its own group.
+                for (int row = 0; row <= 3; row++) {
+                    for (int k = 0; k < 3; k++) {
+                        set.with(cfgCls, keys[k], row == k + 1);
+                    }
+                    for (int i = 0; i < 4; i++) {
+                        String name = who[i];
+                        run(c, () -> {
+                            Mod.staticCall("lfg.LfgCommandGate", "resetForTest");
+                            Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "resetForTest");
+                        });
+                        // resetForTest clears the guild set too: put the guild member back.
+                        c.hx().chat("§2Guild > §b[MVP§c+§b] HxWhoGuild §e[Officer]§f: hi");
+                        c.hx().chat(framed(name));
+                        c.ctx().waitTicks(8);
+                        List<String> sent = c.onClient(mc -> (List<String>) Mod.staticCall("lfg.LfgCommandGate", "sent"));
+                        List<String> ev = c.onClient(mc -> (List<String>) Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "events"));
+                        boolean want = row == 0 || i == row - 1;
+                        boolean got = sent.contains("/party accept " + name);
+                        c.check(ev.stream().anyMatch(e -> e.contains(name)), "row " + row + ": the invite from " + name + " never reached the feature: " + ev);
+                        c.check(got == want, "row " + row + " (" + (row == 0 ? "all off" : keys[row - 1] + " on") + "): invite from " + name
+                                + (want ? " was not accepted" : " was accepted") + "; sent " + sent + ", events " + ev);
+                        c.check(sent.size() == (want ? 1 : 0), "row " + row + ": " + name + " sent " + sent.size() + " commands: " + sent);
+                    }
+                }
+                c.note("who groups: all-off accepts everyone; each switch alone accepts only its own group");
             } finally {
                 c.hx().chat("§eYou left the party.");
                 run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas));
