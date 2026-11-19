@@ -55,6 +55,8 @@ final class QueueLeap1119Cases {
         }
     }
 
+    private static boolean arenaReady;
+
     private QueueLeap1119Cases() {
     }
 
@@ -156,7 +158,13 @@ final class QueueLeap1119Cases {
         boolean acts = cheat && o.on;
         ClickGuardCases.fill(c, AX - 10, Y - 1, AZ - 10, AX + 10, Y - 1, AZ + 25, "minecraft:stone");
         DungeonFixBossCases.floor(c, BX, Y, BZ);
+        c.server().sync(20);
+        if (!arenaReady) { // the session's first case starts while the world is still loading: let it finish first
+            c.ctx().waitTicks(40);
+        }
         TerminalAuraCases.tp(c, AX + 0.5, Y, AZ + 0.5, 0f);
+        c.waitUntil("the floor at A on the client", mc -> !mc.level.getBlockState(new net.minecraft.core.BlockPos(AX, Y - 1, AZ)).isAir(), 100);
+        arenaReady = true;
         String self = c.onClient(mc -> mc.player.getGameProfile().name());
         c.hx().call("sidebar.set", Fixtures.byId("core.sidebar-catacombs-f7").payload().getAsJsonObject().deepCopy());
         c.hx().tab(List.of("[120] " + self + " (Archer L)", "[110] " + MATE + " (Mage XL)", "[100] " + MATE2 + " (Tank XX)"),
