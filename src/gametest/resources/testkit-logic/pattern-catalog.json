@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T23:25:19",
- "modSource": "lane-prefixopen-1118",
- "modGitSha": "7e2fc4f415992df2997d779865b0ab63de6fbd6e",
+ "generatedAt": "2026-11-18T23:55:01",
+ "modSource": "lane-watcherspeed-1118",
+ "modGitSha": "8af0fddf423006140e767b5cfc3c4a97ec8df199",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
