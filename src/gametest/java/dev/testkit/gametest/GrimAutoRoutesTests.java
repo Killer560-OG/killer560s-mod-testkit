@@ -1384,9 +1384,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             walkOnto(ctx, 13.5, 7.5, 13, 10);
             if (act != null) {
                 if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
-                    // His crosshair on a mob in front of him (the one thing his left click can hit); a swap every 7th tick, never
+                    // A mob behind the snow wall: once the blocks in front break his crosshair lands on it (the one thing his left click can hit); a swap every 7th tick, never
                     // every tick: a swap each tick lines up with the re-dig period and starves it (a test artifact).
-                    session.server().command("execute as @p at @p run summon zombie ^ ^ ^1.3 {NoAI:1b,Invulnerable:1b,Silent:1b}");
+                    session.server().command("execute as @p at @p run summon zombie ^ ^ ^2.4 {NoAI:1b,Invulnerable:1b,Silent:1b}");
                     ctx.waitTicks(2);
                 }
                 final dev.testkit.gametest.SameTick.Act a = act;
@@ -1432,9 +1432,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             for (String f : flags) {
                 println("    " + f);
             }
-            check(gone, "not all ten snow blocks broke");
+            // Burst on experimental GrimAC: the server may cancel digs and picks stay (owner exception); the route must still end.
+            boolean keptOk = burst && exp;
+            check(gone || keptOk, "not all ten snow blocks broke");
             check(finished, "the route did not finish");
-            check(dug.size() == 10, dug.size() + " distinct blocks dug, want 10");
+            check(dug.size() == 10 || (keptOk && dug.size() >= 1), dug.size() + " distinct blocks dug, want 10");
             check(burst ? most >= 2 : most <= 1, (burst ? "Burst dug at most " : "a non-burst style dug ") + most + " block(s) in one server tick");
             check(cardBurstSet == cardBurst && cardLegitSet == !cardBurst && cardBurstAfter == cardBurstSet && cardLegitAfter == cardLegitSet,
                     "the Breaker Aura card's saved style changed (burst " + cardBurstSet + " -> " + cardBurstAfter + ", legit "
