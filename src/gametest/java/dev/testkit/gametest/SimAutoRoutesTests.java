@@ -7810,7 +7810,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     /** Set by a case that cannot run on this jar; the session loop records it as a SKIP row instead of a PASS. */
     private static String caseSkip;
 
-    static final String LEGIT_ONLY_TESTING = "Auto Routes legit mode exists only in -PtestingBuild jars (mod ar-obvious-only)";
+    static final String LEGIT_ONLY_TESTING = "Auto Routes legit mode is parked until after 2.0 (mod armode-off-1118): no build can select it";
 
     /**
      * Whether this jar lets Auto Routes run in legit mode: since mod ar-obvious-only only a {@code -PtestingBuild} jar
@@ -7836,7 +7836,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      * the warp logs "legit mode", lands, and the camera turned to it.
      */
     private void caseObviousOnly(ClientGameTestContext ctx) {
-        boolean testing = legitSelectable();
+        boolean testing = false; // armode-off-1118: legit is never active in any jar, testing included
         resetRoutes(ctx);
         arena(ctx, false);
         giveHotbar(ctx);
@@ -7847,16 +7847,24 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 Object ar = ModUnderTest.config(AR_CONFIG);
                 ModUnderTest.set(ar, "setLegitMode", true);
                 ModUnderTest.call(ar, "save", new Class<?>[0], new Object[0]);
-                ModUnderTest.staticCall(AR_CONFIG, "load", new Class<?>[0], new Object[0]);
             });
-            String json;
             try {
-                json = Files.readString(file, StandardCharsets.UTF_8);
+                String saved = Files.readString(file, StandardCharsets.UTF_8);
+                check(saved.replaceAll("\\s", "").contains("\"legitMode\":false"),
+                        "setLegitMode(true) then save did not write legitMode false: " + saved);
+                // An old file saying legit ON, as one saved before armode-off-1118.
+                Files.writeString(file, saved.replaceAll("\"legitMode\"\\s*:\\s*false", "\"legitMode\": true"),
+                        StandardCharsets.UTF_8);
+                check(Files.readString(file, StandardCharsets.UTF_8).replaceAll("\\s", "").contains("\"legitMode\":true"),
+                        "could not plant legitMode true in " + file);
             } catch (java.io.IOException e) {
-                throw new AssertionError("could not read " + file, e);
+                throw new AssertionError("could not read or write " + file, e);
             }
-            check(json.replaceAll("\\s", "").contains("\"legitMode\":true"),
-                    "the reloaded config file does not say legitMode true: " + json);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(AR_CONFIG, "load", new Class<?>[0], new Object[0]));
+            boolean startLocked = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(ModUnderTest.config(AR_CONFIG),
+                    "isStartFromStartNodeOnly") != ModUnderTest.getBoolean(ModUnderTest.config(AR_CONFIG),
+                    "isStartFromStartNodeOnlyRaw"));
+            check(!startLocked, "Start From Start Node Only is still forced by a saved legit mode");
             boolean legitNow = ctx.computeOnClient(mc ->
                     ModUnderTest.getBoolean(ModUnderTest.config(AR_CONFIG), "isLegitMode"));
             List<String> labels = ctx.computeOnClient(mc -> {
