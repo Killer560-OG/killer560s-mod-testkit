@@ -60,6 +60,7 @@ final class LeapOwnClass1118Cases {
             // A hand-set slot, then a teammate joins and others' classes arrive: auto-fill works, yours and the slot stay.
             c.onClient(mc -> {
                 Mod.call(Mod.cfg(LEAPCFG), "pinAt", Mod.enumValue("dungeonclass.DungeonClass", "ARCHER"), "LrB", 0);
+                Mod.call(Mod.cfg(LEAPCFG), "save");
                 return null;
             });
             c.hx().chat("[MVP+] LrC joined the party.");
@@ -107,6 +108,7 @@ final class LeapOwnClass1118Cases {
             clickArcher(c);
             c.onClient(mc -> {
                 Mod.call(Mod.cfg(LEAPCFG), "pinAt", Mod.enumValue("dungeonclass.DungeonClass", "ARCHER"), "LrB", 0);
+                Mod.call(Mod.cfg(LEAPCFG), "save");
                 return null;
             });
             c.check(LeapPartyChangeCases.playing(c).equals("ARCHER"), "setup: not Archer");
