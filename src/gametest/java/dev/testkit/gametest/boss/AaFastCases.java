@@ -305,7 +305,7 @@ public final class AaFastCases {
         try (HxKit.Settings off = gateOff(c);
              HxKit.Settings on = new HxKit.Settings(c).with(AA_CFG, "SolverEnabled", true)
                      .with(AA_CFG, "PreventMisclicksEnabled", false).with(AA_CFG, "TriggerBotEnabled", false)
-                     .with(AA_CFG, "AuraEnabled", false).with(AA_CFG, "AuraRange", 3.0).with(AA_CFG, "AuraCps", 20)
+                     .with(AA_CFG, "AuraEnabled", false).with(AA_CFG, "AuraRange", 3.0).with(AA_CFG, "AuraCooldownMs", 50)
                      .with(AA_CFG, "AuraClicksPerTick", mode.cpt).with(AA_CFG, "AuraSameTickTurn", mode.same)
                      .with(AA_CFG, "AuraLeaveLastArrow", false).with(AA_CFG, "AuraDisableWhileCrouching", true)) {
             wall(c);
