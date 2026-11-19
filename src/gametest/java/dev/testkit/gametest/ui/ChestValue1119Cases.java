@@ -150,7 +150,7 @@ final class ChestValue1119Cases {
             close(c);
             Mod.set(CFG, "setOther", true);
             List<ItemStack> buttons = new ArrayList<>(chest());
-            buttons.add(new ItemStack(Items.GRAY_STAINED_GLASS_PANE));
+            buttons.add(new ItemStack(Items.ARROW));
             open(c, "Reward Chest", buttons);
             c.check(last(c) == null, "a menu with a button pane showed as an Other container");
             close(c);
