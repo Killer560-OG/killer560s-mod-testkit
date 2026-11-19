@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T06:43:59",
- "modSource": "lane-croesusreload-1119",
- "modGitSha": "edd7aa8f2130524e938cbc9c349904a6e5721987",
+ "generatedAt": "2026-11-19T07:03:18",
+ "modSource": "lane-cmdwindows-1119",
+ "modGitSha": "12b06d4f5b2fdfec02f0ed190c51f1fd6b6b5ce5",
  "modSourceDirty": false,
  "count": 979,
  "byKind": {
