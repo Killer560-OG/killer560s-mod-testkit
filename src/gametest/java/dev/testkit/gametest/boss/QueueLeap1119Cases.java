@@ -198,7 +198,8 @@ final class QueueLeap1119Cases {
         c.hx().call("menu.onUse", use);
         long mark = LogTap.mark();
         WireCapture.describe = QueueLeap1119Cases::describe;
-        try (AutoCloseable cfg = c.onClient(mc -> Mod.with(CFG, "QueueLeap", o.on))) {
+        // a legit jar gets the switch ON: the setting may be saved there, nothing may act on it
+        try (AutoCloseable cfg = c.onClient(mc -> Mod.with(CFG, "QueueLeap", o.on || !cheat))) {
             c.waitUntil("F7, the leap in slot 0 and two teammates", mc -> "F7".equals(Mod.staticCall("secrets.DungeonState", "getFloor"))
                     && "SPIRIT_LEAP".equals(Mod.staticCall("cheatutils.CheatUtils", "skyblockId", mc.player.getInventory().getItem(0)))
                     && ((List<?>) Mod.staticCall("fastleap.Teammates", "noSelf")).size() >= 2, 200);
