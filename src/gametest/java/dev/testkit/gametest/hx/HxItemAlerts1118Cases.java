@@ -212,14 +212,14 @@ final class HxItemAlerts1118Cases {
             c.check(fired(c) == f0 + 1 && active(c, false) == 1, "opening and closing the inventory re-fired or dropped it");
             // The bottle on the cursor (picked up) is still in the inventory for the alert.
             c.onClient(mc -> {
-                mc.getConnection().handleContainerSetSlot(new ClientboundContainerSetSlotPacket(-1, 0, 0, mc.player.getInventory().getItem(5).copy()));
+                mc.player.containerMenu.setCarried(mc.player.getInventory().getItem(5).copy());
                 mc.getConnection().handleContainerSetSlot(new ClientboundContainerSetSlotPacket(0, 0, InventoryMenu.USE_ROW_SLOT_START + 5, ItemStack.EMPTY));
                 return null;
             });
             c.ctx().waitTicks(4);
             c.check(active(c, false) == 1 && fired(c) == f0 + 1, "a bottle held on the cursor dropped its alert or re-fired");
             c.onClient(mc -> {
-                mc.getConnection().handleContainerSetSlot(new ClientboundContainerSetSlotPacket(-1, 0, 0, ItemStack.EMPTY));
+                mc.player.containerMenu.setCarried(ItemStack.EMPTY);
                 mc.getConnection().handleContainerSetSlot(new ClientboundContainerSetSlotPacket(0, 0, InventoryMenu.USE_ROW_SLOT_START + 5,
                         bottle("HURRICANE", "m-1", false, max, max)));
                 return null;
