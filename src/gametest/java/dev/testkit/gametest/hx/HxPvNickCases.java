@@ -481,7 +481,7 @@ final class HxPvNickCases {
                 } finally {
                     dev.testkit.harness.PacketTrace.stop();
                 }
-                String open = c.onClient(mc -> mc.screen == null ? "none" : mc.screen.getClass().getSimpleName());
+                String open = c.onClient(mc -> McCompat.screen(mc) == null ? "none" : McCompat.screen(mc).getClass().getSimpleName());
                 boolean offered = c.onClient(mc -> {
                     var node = net.fabricmc.fabric.impl.command.client.ClientCommandInternals.getActiveDispatcher().getRoot().getChild("pv");
                     return node != null && node.canUse((net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource) mc.player.connection.getSuggestionsProvider());
