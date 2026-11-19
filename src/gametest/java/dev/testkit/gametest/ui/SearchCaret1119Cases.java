@@ -46,6 +46,8 @@ final class SearchCaret1119Cases {
                 return;
             }
             c.check(!caretOn(c), "an unfocused bar reports a caret");
+            shot(c, "warm"); // the first capture can predate the first full frame
+            c.ticks(4);
             BufferedImage idle = shot(c, "idle");
             c.ticks(8);
             c.check(!differs(idle, shot(c, "idle2"), c, box), "the unfocused bar changed between two frames");
