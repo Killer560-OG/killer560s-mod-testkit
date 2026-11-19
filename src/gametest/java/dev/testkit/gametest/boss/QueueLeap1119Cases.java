@@ -31,6 +31,7 @@ final class QueueLeap1119Cases {
 
     private static final String CFG = "spiritleap.SpiritLeapOverlayConfig";
     private static final String LM = "fastleap.LeapManager";
+    private static final String GATE = "util.ActionGate";
     private static final String MATE = "SicoKalebQa";
     private static final String MATE2 = "SicoKalebQb";
     private static final int AX = 30;
@@ -60,7 +61,7 @@ final class QueueLeap1119Cases {
     static void register(Session s) {
         s.test("1119-queueleap-early-d1", c -> run(c, Opt.early(1, 0)));
         s.test("1119-queueleap-early-d3", c -> run(c, Opt.early(3, 0)));
-        s.test("1119-queueleap-early-d10", c -> run(c, Opt.early(10, 0)));
+        s.test("1119-queueleap-early-d9", c -> run(c, Opt.early(9, 0))); // 10 server ticks = the 500 ms give-up at a local ping
         s.test("1119-queueleap-early-lag150", c -> run(c, Opt.early(1, 150)));
         s.test("1119-queueleap-early-lag300", c -> run(c, Opt.early(1, 300)));
         s.test("1119-queueleap-late", c -> run(c, new Opt(3, 0, Pick.LATE, true, true, Act.NONE, false, true)));
@@ -71,7 +72,9 @@ final class QueueLeap1119Cases {
         s.test("1119-queueleap-fastleap", c -> run(c, new Opt(3, 0, Pick.EARLY, true, true, Act.NONE, true, true)));
         for (Act a : new Act[] {Act.USE, Act.ATTACK, Act.SWAP, Act.LEAP2, Act.ACCEPT}) {
             String id = a.name().toLowerCase(Locale.ROOT);
-            s.test("1119-queueleap-same-" + id, c -> run(c, new Opt(3, 0, Pick.LATE, true, true, a, false, true)));
+            if (a != Act.ATTACK) { // a late pick closes his screen in the click's tick: vanilla drops that tick's attack
+                s.test("1119-queueleap-same-" + id, c -> run(c, new Opt(3, 0, Pick.LATE, true, true, a, false, true)));
+            }
             s.test("1119-queueleap-same-" + id + "-early", c -> run(c, new Opt(3, 0, Pick.EARLY, true, true, a, false, true)));
         }
         // OFF (and every legit jar): a right click opens nothing of the mod's; Hypixel's own menu shows as always
@@ -213,25 +216,34 @@ final class QueueLeap1119Cases {
             long pickTick = -1;
             long tpSeenTick = -1;
             boolean picked = false;
+            boolean acted = false;
+            boolean holdW = true;
             boolean realShown = false;
             Vec3 atPick = null;
             List<String> trace = new ArrayList<>();
             for (int i = 0; i < 140; i++) {
                 c.ctx().waitTicks(1);
                 final boolean doPick = !picked;
+                final boolean w = holdW;
                 Object[] st = c.onClient(mc -> {
-                    KeyMapping.set((InputConstants.Key) Mod.field(mc.options.keyUp, "key"), true);
+                    if (w) {
+                        KeyMapping.set((InputConstants.Key) Mod.field(mc.options.keyUp, "key"), true);
+                    }
                     long tick = ((Number) Mod.staticCall("util.ActionGate", "currentTick")).longValue();
                     var screen = dev.testkit.compat.McCompat.screen(mc);
                     boolean real = screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>;
-                    return new Object[] {tick, queueScreen(mc), real, mc.player.position()};
+                    // the gate's holds, as ticks left (a click held past the menu's tick shows why here)
+                    String gate = (((Number) Mod.field(GATE, "screenSettleUntilTick")).longValue() - tick) + "/"
+                            + (((Number) Mod.field(GATE, "teleportSettleUntilTick")).longValue() - tick) + "/"
+                            + (((Number) Mod.field(GATE, "settleUntilTick")).longValue() - tick);
+                    return new Object[] {tick, queueScreen(mc), real, mc.player.position(), gate};
                 });
                 long tick = (Long) st[0];
                 boolean qs = (Boolean) st[1];
                 realShown |= (Boolean) st[2];
                 Vec3 pos = (Vec3) st[3];
-                trace.add(String.format(Locale.ROOT, "%d%s%s %.2f,%.2f", tick - t0, qs ? " Q" : "", (Boolean) st[2] ? " R" : "",
-                        pos.x, pos.z));
+                trace.add(String.format(Locale.ROOT, "%d%s%s %.2f,%.2f g%s", tick - t0, qs ? " Q" : "", (Boolean) st[2] ? " R" : "",
+                        pos.x, pos.z, st[4]));
                 if (qs && screenTick < 0) {
                     screenTick = tick;
                 }
@@ -239,12 +251,14 @@ final class QueueLeap1119Cases {
                 boolean pickNow = doPick && qs && (o.pick == Pick.EARLY || o.pick == Pick.ESCAPE || (o.pick == Pick.LATE && menuIn));
                 if (pickNow) {
                     picked = true;
+                    holdW = o.pick != Pick.ESCAPE;
                     pickTick = tick;
                     atPick = pos;
                     c.ctx().runOnClient(mc -> {
                         Object screen = dev.testkit.compat.McCompat.screen(mc);
-                        if (o.pick == Pick.ESCAPE) {
+                        if (o.pick == Pick.ESCAPE) { // and he stops: a close is held while he still moves (StillHold)
                             Mod.call(screen, "onClose");
+                            KeyMapping.set((InputConstants.Key) Mod.field(mc.options.keyUp, "key"), false);
                             return;
                         }
                         String[] spots = (String[]) Mod.call(screen, "spots");
@@ -253,15 +267,23 @@ final class QueueLeap1119Cases {
                                 Mod.call(screen, "pick", s);
                             }
                         }
-                        switch (o.act) { // his own action, read by this tick's handleKeybinds: the click's tick
+                        if (o.fastLeap) { // what Fast Leap asks of LeapManager on a left click: waits behind, one click only
+                            Mod.staticCall(LM, "leap", MATE, true, false, false);
+                        }
+                    });
+                }
+                if (picked && menuIn && !acted && o.act != Act.NONE && o.act != Act.ACCEPT) {
+                    // his own action in the tick the click goes (the next one): read by that tick's handleKeybinds. A
+                    // late pick closes the screen in this same moment, and vanilla drops an attack in the first tick
+                    // after any screen closes (missTime), so a same-tick attack is tested after an early pick only.
+                    acted = true;
+                    c.ctx().runOnClient(mc -> {
+                        switch (o.act) {
                             case USE, LEAP2 -> KeyMapping.click((InputConstants.Key) Mod.field(mc.options.keyUse, "key"));
                             case ATTACK -> KeyMapping.click((InputConstants.Key) Mod.field(mc.options.keyAttack, "key"));
                             case SWAP -> KeyMapping.click((InputConstants.Key) Mod.field(mc.options.keyHotbarSlots[1], "key"));
                             default -> {
                             }
-                        }
-                        if (o.fastLeap) { // what Fast Leap asks of LeapManager on a left click: waits behind, one click only
-                            Mod.staticCall(LM, "leap", MATE, true, false, false);
                         }
                     });
                 }
@@ -371,9 +393,9 @@ final class QueueLeap1119Cases {
                 String marker = o.act == Act.SWAP ? "ServerboundSetCarriedItemPacket" : "ServerboundSwingPacket";
                 int actW = firstTick(ticks, marker);
                 c.note(o.act + " went in client tick " + actW + ", the click in " + clickTickW);
-                if (o.pick == Pick.LATE) {
-                    c.check(actW == clickTickW, o.act + " did not land in the click's tick (" + actW + " vs " + clickTickW + ")");
-                }
+                // in the click's tick, or the tick after when the mod holds a swap back behind the click (PacketOrderE)
+                c.check(actW == clickTickW || o.act == Act.SWAP && actW == clickTickW + 1,
+                        o.act + " did not land in the click's tick (" + actW + " vs " + clickTickW + ")");
             }
         } finally {
             WireCapture.stop();
