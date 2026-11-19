@@ -35,6 +35,112 @@ final class HxPartyFloor1104Cases {
         s.test("1106-ptself-reinv-disband", HxPartyFloor1104Cases::reinvDisband);
         s.test("1106-ptself-rejoin", HxPartyFloor1104Cases::rejoin);
         s.test("1108-partycmd-no-cooldown", HxPartyFloor1104Cases::noCooldown);
+        s.test("1118-reinv-member", HxPartyFloor1104Cases::reinvMember);
+        s.test("1118-reinv-leader", HxPartyFloor1104Cases::reinvLeader);
+        s.test("1118-reinv-kick-rejoin", HxPartyFloor1104Cases::reinvKickRejoin);
+        s.test("1118-reinv-off", HxPartyFloor1104Cases::reinvOff);
+    }
+
+    // ---- reinv-1118: !reinv leaves (member) / kicks and invites back (leader); rejoin after a kick, not only a disband ----
+
+    private static final String RP = "reparty.RepartyFeature";
+    private static final String RP_CFG = "reparty.RepartyConfig";
+
+    private static Settings reinvSettings(Session c, boolean leave, boolean kick) {
+        return ptSettings(c).with(RP_CFG, "Enabled", true).with(RP_CFG, "AutoRejoin", false).with(RP_CFG, "LeaveOnReinv", leave)
+                .with(RP_CFG, "RejoinOnKick", kick).with(RP_CFG, "ReinvDelay", 2).with(RP_CFG, "RejoinWindow", 60);
+    }
+
+    /** Party list lines (leader {@code leader}) read by the leader tracker; a following plain line refreshes Reparty's snapshot. */
+    private static void reinvParty(Session c, String leader) {
+        ptPrepare(c);
+        run(c, () -> Mod.staticCall(RP, "reset"));
+        c.hx().chat("Party Leader: [MVP+] " + leader + " ●");
+        c.hx().chat("You are in a party.");
+        c.ctx().waitTicks(10);
+    }
+
+    private static int count(Session c, String cmd) {
+        return (int) c.commands().stream().filter(s -> s.equals(cmd)).count();
+    }
+
+    /** I type !reinv, someone else leads: /party leave, then the old leader's invite is accepted; a stranger's and a late one are not. */
+    private static void reinvMember(Session c) {
+        try (Settings set = reinvSettings(c, true, false)) {
+            reinvParty(c, "HxMateA");
+            c.hx().chat(PARTY_LINE + self(c) + "§f: !reinv");
+            awaitCommand(c, "party leave", 80);
+            c.check(commandsStarting(c, "p kick").isEmpty(), "a member's own !reinv sent a kick");
+            c.hx().chat("§bHxStranger §ehas invited you to join their party!");
+            assertNoCommand(c, 30, "party accept HxStranger");
+            c.hx().chat("§b[MVP§c+§b] HxMateA §ehas invited you to join their party!");
+            c.waitUntil("accepted the old leader's invite", mc -> count(c, "party accept HxMateA") == 1, 80);
+            // After the window (real clock, fed through onLine): refused.
+            reinvParty(c, "HxMateA");
+            long t0 = System.currentTimeMillis();
+            run(c, () -> Mod.staticCall(RP, "selfReinv", t0));
+            run(c, () -> Mod.staticCall(RP, "onLine", "HxMateA has invited you to join their party!", t0 + 61_000L));
+            c.ctx().waitTicks(30);
+            c.check(count(c, "party accept HxMateA") == 1, "accepted an invite after the window: " + c.commands());
+            c.note("own !reinv -> /party leave; old leader's invite accepted once; stranger and late invite refused");
+        }
+    }
+
+    /** Someone else's !reinv while I lead: kick, then invite no sooner than the Reinv Delay; a non-member (guild chat) gets nothing. */
+    private static void reinvLeader(Session c) {
+        try (Settings set = reinvSettings(c, false, false)) {
+            ptPrepare(c);
+            c.hx().chat("§2Guild > §7HxStranger§f: !reinv");
+            assertNoCommand(c, 100, "p kick HxStranger", "p invite HxStranger");
+            c.hx().chat(PARTY_LINE + "HxMateA§f: !reinv");
+            awaitCommand(c, "p kick HxMateA", 80);
+            long kicked = System.currentTimeMillis();
+            awaitCommand(c, "p invite HxMateA", 160);
+            long gap = System.currentTimeMillis() - kicked;
+            c.check(gap >= 1_900L, "invite came " + gap + " ms after the kick, delay is 2000");
+            c.note("kick, then invite " + gap + " ms later (delay 2 s); non-member !reinv sent nothing");
+            // A member that left on their own: invite only, no kick.
+            c.hx().chat(PARTY_LINE + "HxMateB§f: !reinv");
+            c.hx().chat("§bHxMateB §ehas left the party.");
+            awaitCommand(c, "p invite HxMateB", 160);
+            c.check(commandsStarting(c, "p kick HxMateB").isEmpty(), "kicked a member who had already left: " + c.commands());
+            c.hx().chat("HxMateB joined the party.");
+            c.waitUntil("HxMateB back in the party list", mc -> ((java.util.List<?>) Mod.staticCall("leapmenu.PartyTracker", "teammates")).contains("HxMateB"), 40);
+        }
+    }
+
+    /** Kicked with no !reinv: an invite from the kicker or a member inside the window is accepted, a stranger's is not. */
+    private static void reinvKickRejoin(Session c) {
+        try (Settings set = reinvSettings(c, false, true)) {
+            reinvParty(c, "HxMateA");
+            c.hx().chat("You have been kicked from the party by [MVP+] HxMateA");
+            c.hx().chat("§bHxStranger §ehas invited you to join their party!");
+            assertNoCommand(c, 30, "party accept HxStranger");
+            // A real invite block: dashes, the invite naming a third party leader, the accept hint, dashes.
+            long now = System.currentTimeMillis();
+            run(c, () -> Mod.staticCall(RP, "onLine", "-----------------------------------------------------\n[MVP+] HxMateB has invited you to join [MVP++] HxMateA's party!\n"
+                    + "You have 60 seconds to accept. Click here to join!\n-----------------------------------------------------", now + 2_000L));
+            c.waitUntil("accepted a former member's invite after a kick", mc -> count(c, "party accept HxMateB") == 1, 80);
+            c.note("kick (no !reinv) then the invite block from a former member -> /party accept; stranger refused");
+        }
+    }
+
+    /** Each switch OFF sends and accepts nothing. */
+    private static void reinvOff(Session c) {
+        try (Settings set = reinvSettings(c, false, false)) {
+            reinvParty(c, "HxMateA");
+            c.hx().chat(PARTY_LINE + self(c) + "§f: !reinv");
+            c.hx().chat("You have been kicked from the party by HxMateA");
+            c.hx().chat("HxMateA has invited you to join their party!");
+            assertNoCommand(c, 60, "party leave", "party accept");
+            c.note("Leave On !reinv and Rejoin After Kick OFF: nothing sent");
+        }
+        try (Settings set = reinvSettings(c, true, true)) {
+            reinvParty(c, self(c));
+            c.hx().chat(PARTY_LINE + self(c) + "§f: !reinv");
+            assertNoCommand(c, 60, "party leave", "p kick");
+            c.note("own !reinv as the leader sends nothing");
+        }
     }
 
     private static Settings settings(Session c) {

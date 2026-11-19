@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T14:49:59",
- "modSource": "lane-missingench-1118",
- "modGitSha": "2a5f7cc5aa84a25057d34aee82b3e972f774b8bd",
+ "generatedAt": "2026-11-18T18:53:01",
+ "modSource": "reinv-1118",
+ "modGitSha": "8b2b437f0d719c60bf195536e50b70633725a2a0",
  "modSourceDirty": false,
- "count": 995,
+ "count": 998,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 867,
+  "field": 870,
   "local": 43
  },
  "unresolved": 160,
@@ -6842,16 +6842,28 @@
    "expr": "\"^ *> EXTRA STATS < *$\""
   },
   {
+   "id": "partycommands.PartyCommandsFeature#LEFT_PARTY",
+   "cls": "partycommands.PartyCommandsFeature",
+   "field": "LEFT_PARTY",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/partycommands/PartyCommandsFeature.java",
+   "line": 76,
+   "regex": "^(?:\\[[^]]+] )?([A-Za-z0-9_]{1,16}) has left the party\\.$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(?:\\\\[[^]]+] )?([A-Za-z0-9_]{1,16}) has left the party\\\\.$\""
+  },
+  {
    "id": "partycommands.PartyCommandsFeature#INVITED_YOU",
    "cls": "partycommands.PartyCommandsFeature",
    "field": "INVITED_YOU",
    "index": null,
    "file": "src/main/java/com/killer560/hub/partycommands/PartyCommandsFeature.java",
-   "line": 591,
-   "regex": "^(?:\\[[^]]{1,20}] )?([A-Za-z0-9_]{1,16}) has invited you to join (?:their|[A-Za-z0-9_]{1,16}'s) party!",
-   "flags": null,
+   "line": 616,
+   "regex": "^(?:\\[[^]]{1,20}] )?([A-Za-z0-9_]{1,16}) has invited you to join (?:their|(?:\\[[^]]{1,20}] )?[A-Za-z0-9_]{1,16}'s) party!",
+   "flags": "Pattern.MULTILINE",
    "kind": "field",
-   "expr": "\"^(?:\\\\[[^]]{1,20}] )?([A-Za-z0-9_]{1,16}) has invited you to join (?:their|[A-Za-z0-9_]{1,16}'s) party!\""
+   "expr": "\"^(?:\\\\[[^]]{1,20}] )?([A-Za-z0-9_]{1,16}) has invited you to join (?:their|(?:\\\\[[^]]{1,20}] )?[A-Za-z0-9_]{1,16}'s) party!\""
   },
   {
    "id": "partycommands.PartyLeaderTracker#YOU_JOINED",
@@ -8100,6 +8112,30 @@
    "flags": null,
    "kind": "field",
    "expr": "\"(?:\\\\[[^\\\\]]+\\\\] ?)?([A-Za-z0-9_]{1,16}) ?●\""
+  },
+  {
+   "id": "reparty.RepartyFeature#KICKED",
+   "cls": "reparty.RepartyFeature",
+   "field": "KICKED",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/reparty/RepartyFeature.java",
+   "line": 37,
+   "regex": "^You have been kicked from the party by (?:\\[[^\\]]+\\] ?)?([A-Za-z0-9_]{1,16})\\W*$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^You have been kicked from the party by (?:\\\\[[^\\\\]]+\\\\] ?)?([A-Za-z0-9_]{1,16})\\\\W*$\""
+  },
+  {
+   "id": "reparty.RepartyFeature#INVITE_ANY",
+   "cls": "reparty.RepartyFeature",
+   "field": "INVITE_ANY",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/reparty/RepartyFeature.java",
+   "line": 39,
+   "regex": "^(?:\\[[A-Z+]{1,12}\\] )?([A-Za-z0-9_]{1,16}) has invited you to join (?:their|(?:\\[[A-Z+]{1,12}\\] )?[A-Za-z0-9_]{1,16}'s) party!$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(?:\\\\[[A-Z+]{1,12}\\\\] )?([A-Za-z0-9_]{1,16}) has invited you to join (?:their|(?:\\\\[[A-Z+]{1,12}\\\\] )?[A-Za-z0-9_]{1,16}'s) party!$\""
   },
   {
    "id": "rngmeter.MagicFindTracker#MAGIC_FIND_PATTERN",
