@@ -47,6 +47,7 @@ final class AnvilCases {
         MenuSuite.test(s, "295-menu-anvil-preview-mismatch", AnvilCases::previewMismatch);
         MenuSuite.test(s, "296-menu-anvil-close-stops", AnvilCases::closeStops);
         MenuSuite.test(s, "297-menu-anvil-off-and-legit", AnvilCases::offAndLegit);
+        AnvilStart1118Cases.register(s);
     }
 
     // ---- stacks --------------------------------------------------------------------------------------------------
@@ -70,7 +71,8 @@ final class AnvilCases {
     static MenuKit.Cfg on(Session c) {
         MenuKit.Cfg cfg = new MenuKit.Cfg(c);
         cfg.set(CFG, "Enabled", true).set(CFG, "MinDelayMs", 60).set(CFG, "MaxDelayMs", 100)
-                .set(CFG, "Cascade", true).set(CFG, "CloseWhenDone", false);
+                .set(CFG, "Cascade", true).set(CFG, "CloseWhenDone", false)
+                .set(CFG, "StartMode", Mod.enumValue("autoanvil.AutoAnvilConfig$StartMode", "AUTO_START"));
         return cfg;
     }
 
