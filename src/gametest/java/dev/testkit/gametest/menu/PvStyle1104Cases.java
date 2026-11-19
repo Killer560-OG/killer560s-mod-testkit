@@ -68,7 +68,7 @@ final class PvStyle1104Cases {
     }
 
     @SuppressWarnings("unchecked")
-    private static void seedWith(Session c, String json) {
+    static void seedWith(Session c, String json) {
         c.onClient(mc -> {
             try {
                 List<Object> parsed = (List<Object>) Mod.staticCall("profileviewer.data.SbProfile", "parseAll",
@@ -90,7 +90,7 @@ final class PvStyle1104Cases {
         return c.onClient(mc -> String.valueOf(Mod.call(Mod.cfg(PVCFG), "getStyle")));
     }
 
-    private static int i(Object o, String f) {
+    static int i(Object o, String f) {
         return (Integer) Mod.field(o, f);
     }
 
