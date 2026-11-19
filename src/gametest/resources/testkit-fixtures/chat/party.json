@@ -51,7 +51,7 @@
     "kind": "chat",
     "payload": "§eParty Leader: §b[MVP§c+§b] HxLead §a●",
     "source": {"file": "src/main/java/com/killer560/hub/leapmenu/PartyTracker.java", "line": 49},
-    "matches": ["leapmenu.PartyTracker#LIST_LINE", "leapmenu.PartyTracker#LIST_ENTRY", "partycommands.PartyLeaderTracker#LEADER_LIST"],
+    "matches": ["leapmenu.PartyTracker#LIST_LINE", "leapmenu.PartyTracker#LIST_ENTRY"],
     "verifiedBy": "regex"
   },
   {
