@@ -86,9 +86,10 @@ final class Ee3RouteGrimCases {
         // candidates/fastest.json falls into the lava, which is the finder's question, not Grim's (train t1112-1409).
         String none = KM_DIR == null && !Files.isRegularFile(VERIFIED.resolve(ROUTE + ".json"))
                 ? "no verified EE3 route yet (" + VERIFIED.resolve(ROUTE + ".json") + " is written by the route finder)" : null;
-        add(s, "1109-boss-ee3route-grim", none, c -> run(c, null));
+        add(s, "1109-boss-ee3route-grim", none, c -> run(c, null, true));
+        add(s, "1109-boss-ee3route-nolook-off", none, Ee3RouteGrimCases::runOff);
         for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.DIG}) {
-            add(s, "1109-boss-ee3route-same-" + a.name().toLowerCase(Locale.ROOT), none, c -> run(c, a));
+            add(s, "1109-boss-ee3route-same-" + a.name().toLowerCase(Locale.ROOT), none, c -> run(c, a, true));
         }
     }
 
@@ -226,7 +227,21 @@ final class Ee3RouteGrimCases {
         };
     }
 
-    static void run(Session c, SameTick.Act act) throws Exception {
+    /** The no-look click switch OFF (its label says it flags Grim): the lever waits for a one-packet look and Grim shows ZERO lines,
+     *  on default and experimental Grim. Whether the levers go is not judged here (they may be missed), only that nothing flags. */
+    private static void runOff(Session c) throws Exception {
+        long m0 = LogTap.mark();
+        try {
+            run(c, null, false);
+        } catch (AssertionError e) {
+            c.note("switch OFF, route result not judged: " + e.getMessage());
+        }
+        c.check(c.scenario().flags().isEmpty() && c.server().since().stream().noneMatch(l -> l.contains("failed RotationPlace")),
+                "Grim lines with No-Look Lever Click OFF: " + c.server().since().stream().filter(l -> l.contains("Grim »")).toList());
+        c.check(LogTap.since(m0).stream().noneMatch(l -> l.contains("no packet can carry a look")), "a no-look click went out with the switch OFF");
+    }
+
+    static void run(Session c, SameTick.Act act, boolean noLook) throws Exception {
         List<AutoCloseable> undo = new ArrayList<>();
         Path route = routeDir().resolve(ROUTE + ".json");
         Path fills = DIR.resolve("fills-env.txt");
@@ -276,6 +291,7 @@ final class Ee3RouteGrimCases {
             undo.add(c.onClient(mc -> Mod.with(LA, "SectionLevers", true)));
             undo.add(c.onClient(mc -> Mod.with(LA, "SectionLeversEarly", true)));
             undo.add(c.onClient(mc -> Mod.with(LA, "Range", 4.5)));
+            undo.add(c.onClient(mc -> Mod.with(LA, "NoLookClick", noLook)));
             undo.add(c.onClient(mc -> Mod.with(LA, "CooldownMs", Integer.parseInt(System.getenv().getOrDefault("KM_LEVER_CD", "50")))));
             undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Enabled", true)));
             // ee3route-align-1117: 45 Degree Strafe ON as in his 26.3 (routes are planned with it); KM_EE3_STRAFE45=0 turns it off.
