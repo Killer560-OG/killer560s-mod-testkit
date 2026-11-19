@@ -239,12 +239,14 @@ final class QueueLeap1119Cases {
                 final boolean doPick = !picked;
                 final boolean w = holdW;
                 Object[] st = c.onClient(mc -> {
-                    if (w) {
-                        KeyMapping.set((InputConstants.Key) Mod.field(mc.options.keyUp, "key"), true);
-                    }
-                    long tick = ((Number) Mod.staticCall("util.ActionGate", "currentTick")).longValue();
                     var screen = dev.testkit.compat.McCompat.screen(mc);
                     boolean real = screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>;
+                    // with Queue Leap not acting, Hypixel's menu opens and vanilla lets go of his keys (releaseAll): a
+                    // held W cannot walk inside it, and walking into its close is GrimAC MultiActionsD on a legit jar
+                    if (w) {
+                        KeyMapping.set((InputConstants.Key) Mod.field(mc.options.keyUp, "key"), acts || !real);
+                    }
+                    long tick = ((Number) Mod.staticCall("util.ActionGate", "currentTick")).longValue();
                     // the gate's holds, as ticks left (a click held past the menu's tick shows why here)
                     String gate = (((Number) Mod.field(GATE, "screenSettleUntilTick")).longValue() - tick) + "/"
                             + (((Number) Mod.field(GATE, "teleportSettleUntilTick")).longValue() - tick) + "/"
@@ -407,8 +409,17 @@ final class QueueLeap1119Cases {
                 }
             }
             if (o.act == Act.ATTACK || o.act == Act.SWAP) {
-                String marker = o.act == Act.SWAP ? "ServerboundSetCarriedItemPacket" : "ServerboundPunchPacket"; // 26.3's swing
-                int actW = firstTick(ticks, marker);
+                // 26.3 sends an attack's swing as ServerboundPunchPacket; 26.2 as ServerboundSwingPacket, which its right
+                // click in the use tick sends too, so look after that tick
+                int actW = firstTick(ticks, "ServerboundSetCarriedItemPacket");
+                if (o.act == Act.ATTACK) {
+                    actW = -1;
+                    for (int i = useTickW + 1; i < ticks.size() && actW < 0; i++) {
+                        if (ticks.get(i).contains("ServerboundPunchPacket") || ticks.get(i).contains("ServerboundSwingPacket")) {
+                            actW = i;
+                        }
+                    }
+                }
                 c.note(o.act + " went in client tick " + actW + ", the click in " + clickTickW);
                 // in the click's tick, or the tick after when the mod holds a swap back behind the click (PacketOrderE)
                 c.check(actW == clickTickW || o.act == Act.SWAP && actW == clickTickW + 1,
