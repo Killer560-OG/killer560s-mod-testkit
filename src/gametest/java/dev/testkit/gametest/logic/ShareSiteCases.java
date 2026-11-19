@@ -102,6 +102,14 @@ public final class ShareSiteCases {
         return (Path) Mod.staticCall("util.ModPaths", "config", "killer560smod-sharesite.json");
     }
 
+    private static String read() {
+        try {
+            return Files.readString(file());
+        } catch (IOException e) {
+            return "";
+        }
+    }
+
     private static boolean waitFor(BooleanSupplier ok, long ms) {
         long end = System.currentTimeMillis() + ms;
         while (System.currentTimeMillis() < end) {
@@ -141,11 +149,13 @@ public final class ShareSiteCases {
             c.eq("ON keeps an own terminal solve for the next run", 1, Mod.staticCall(FEATURE, "termsForTest"));
 
             ctx.runOnClient(mc -> Mod.staticCall(FEATURE, "setEnabled", false));
-            c.check("OFF is saved", !enabled() && Files.readString(file()).contains("\"enabled\": false"), Files.readString(file()));
+            c.check("OFF is off", !enabled());
             c.eq("OFF drops the kept solve", 0, Mod.staticCall(FEATURE, "termsForTest"));
             boolean deleted = waitFor(() -> stub.count("DELETE /site/stats Bearer " + TOKEN) == 1, 10_000);
             c.check("OFF sends DELETE /site/stats with the bearer token", deleted, stub.calls.toString());
             c.check("and the confirmed delete clears pendingDelete", waitFor(() -> !pendingDelete(), 5_000));
+            // Read the file only once the delete's own save is done (a read during that write saw a partial file).
+            c.check("OFF is saved", waitFor(() -> read().contains("\"enabled\": false") && read().contains("\"pendingDelete\": false"), 5_000), read());
             ctx.runOnClient(mc -> Mod.staticCall(FEATURE, "onTerminalSolved", "Panes", 4.25));
             c.eq("while OFF a solve is not kept", 0, Mod.staticCall(FEATURE, "termsForTest"));
             ctx.runOnClient(mc -> Mod.staticCall(FEATURE, "flush"));
@@ -159,7 +169,7 @@ public final class ShareSiteCases {
             ctx.runOnClient(mc -> Mod.staticCall(FEATURE, "setEnabled", false));
             boolean tried = waitFor(() -> !(Boolean) Mod.field(FEATURE, "inFlight"), 15_000);
             c.check("an unreachable relay leaves the delete waiting", tried && pendingDelete(), "pending " + pendingDelete());
-            c.check("and saved for the next start", Files.readString(file()).contains("\"pendingDelete\": true"), Files.readString(file()));
+            c.check("and saved for the next start", waitFor(() -> read().contains("\"pendingDelete\": true"), 5_000), read());
             int before = (int) stub.count("DELETE");
             System.setProperty("killer560.net.sharesite-relay", "http://127.0.0.1:" + stub.server.getAddress().getPort());
             ctx.runOnClient(mc -> Mod.staticCall(FEATURE, "flush"));

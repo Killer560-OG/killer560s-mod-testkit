@@ -271,11 +271,15 @@ final class HxDungeonCases {
 
     /** One run through the real chat path with Run Summary OFF and sharing ON: Defeated, EXTRA STATS, the Stats block's
      *  own "Secrets Found: 8" and the Team Score; the run is moved back 5 minutes so it is long enough to count. */
-    private static void shareRun(Session c) {
+    private static void shareRun(Session c, boolean sharing) {
         run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
         send(c, "chat.run-start");
-        c.waitUntil("a run is tracked with only sharing on",
-                mc -> (Boolean) Mod.staticCall("runsummary.RunSummaryFeature", "isTrackingRun"), 40);
+        if (sharing) {
+            c.waitUntil("a run is tracked with only sharing on",
+                    mc -> (Boolean) Mod.staticCall("runsummary.RunSummaryFeature", "isTrackingRun"), 40);
+        } else {
+            c.ctx().waitTicks(10); // both OFF: nothing should track (checked after the run)
+        }
         run(c, () -> Mod.setField("runsummary.RunSummaryFeature", "runStartMs", System.currentTimeMillis() - 300_000L));
         run(c, () -> Mod.staticCall("splittimers.TerminalTimersFeature", "onTerminalClosed", "Panes", 4.25));
         c.hx().chat(c.onClient(mc -> mc.player.getName().getString()) + " activated a terminal! (1/7)");
@@ -296,7 +300,7 @@ final class HxDungeonCases {
                 c.waitUntil("no delete waiting", mc -> !dev.testkit.gametest.logic.ShareSiteCases.pendingDelete(), 100);
                 stub.calls.clear();
                 stub.bodies.clear();
-                shareRun(c);
+                shareRun(c, true);
                 c.waitUntil("POST /site/stats reached the relay", mc -> stub.count("POST /site/stats Bearer "
                         + dev.testkit.gametest.logic.ShareSiteCases.TOKEN) == 1, 400);
                 JsonObject body = stub.bodies.get(0);
@@ -317,7 +321,7 @@ final class HxDungeonCases {
                 run(c, () -> Mod.staticCall(SHARE, "setEnabled", false));
                 c.waitUntil("DELETE /site/stats after OFF", mc -> stub.count("DELETE /site/stats Bearer "
                         + dev.testkit.gametest.logic.ShareSiteCases.TOKEN) == 1, 200);
-                shareRun(c);
+                shareRun(c, false);
                 c.ctx().waitTicks(60);
                 c.check(stub.count("POST") == 1, "a run while OFF was uploaded: " + stub.calls);
                 c.check(c.onClient(mc -> !(Boolean) Mod.staticCall("runsummary.RunSummaryFeature", "isTrackingRun")),
