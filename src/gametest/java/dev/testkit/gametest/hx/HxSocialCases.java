@@ -97,7 +97,7 @@ final class HxSocialCases {
                     .custom(() -> Mod.call(cfg, "setChannelOn", partyCh, true), () -> Mod.call(cfg, "setChannelOn", partyCh, wasCh))
                     .custom(() -> Mod.call(cfg, "setOn", warp, true), () -> Mod.call(cfg, "setOn", warp, wasOn))) {
                 dungeon(c);
-                c.check(c.onClient(mc -> Mod.staticCall("partycommands.PartyLeaderTracker", "get")) == null,
+                c.check(c.onClient(mc -> Mod.staticCall("leapmenu.PartyTracker", "leader")) == null,
                         "premise: a party leader is already known");
                 send(c, "hostile.allchat-party-warp");
                 assertNoCommand(c, 30, "p warp");
@@ -108,7 +108,7 @@ final class HxSocialCases {
         });
     }
 
-    // ---- 122 party list responder -> PartyTracker / PartyLeaderTracker -------------------------------------------
+    // ---- 122 party list responder -> PartyTracker -------------------------------------------
 
     @SuppressWarnings("unchecked")
     private static void partyList(Session s) {
@@ -133,8 +133,8 @@ final class HxSocialCases {
                 }, 60);
                 List<String> mates = c.onClient(mc -> List.copyOf((List<String>) Mod.staticCall("leapmenu.PartyTracker", "teammates")));
                 c.check(!mates.contains("HxEvil"), "an all-chat 'Party Members:' quote added HxEvil: " + mates);
-                Object leader = c.onClient(mc -> Mod.staticCall("partycommands.PartyLeaderTracker", "get"));
-                c.check("HxLead".equals(leader), "PartyLeaderTracker leader " + leader);
+                Object leader = c.onClient(mc -> Mod.staticCall("leapmenu.PartyTracker", "leader"));
+                c.check("HxLead".equals(leader), "PartyTracker leader " + leader);
                 c.note("/p list answered by the responder -> teammates " + mates + ", leader " + leader
                         + "; all-chat quote ignored");
               } finally {
@@ -145,8 +145,8 @@ final class HxSocialCases {
                 c.hx().chat("§eYou left the party.");
                 c.ctx().waitTicks(6);
               }
-              Object left = c.onClient(mc -> Mod.staticCall("partycommands.PartyLeaderTracker", "get"));
-              c.check(left == null, "PartyLeaderTracker still names " + left + " after 'You left the party.'");
+              Object left = c.onClient(mc -> Mod.staticCall("leapmenu.PartyTracker", "leader"));
+              c.check(left == null, "PartyTracker still names " + left + " after 'You left the party.'");
             }
         });
     }
