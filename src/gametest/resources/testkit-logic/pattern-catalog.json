@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T13:05:54",
- "modSource": "lane-acquiz2-1118-pf",
- "modGitSha": "bc1382c730f7e4380a73be47c97d423457f70f02",
+ "generatedAt": "2026-11-19T14:20:02",
+ "modSource": "lane-chestvalue-1119-pf",
+ "modGitSha": "4bd01af33c6555a45dc536a2a63c830252bc0100",
  "modSourceDirty": false,
  "count": 986,
  "byKind": {
