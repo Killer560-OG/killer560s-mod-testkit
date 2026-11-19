@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T22:05:22",
- "modSource": "lane-autoreclaim-btn-1118-rm",
- "modGitSha": "739688afdfbe335951472b03962f6626939abac1",
+ "generatedAt": "2026-11-18T22:32:47",
+ "modSource": "lane-maphudclick-rm-1118",
+ "modGitSha": "77ba8b4a9f103eae167048b3ad9df6bbff9cd5c6",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
