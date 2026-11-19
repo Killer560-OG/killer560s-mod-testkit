@@ -435,8 +435,10 @@ foreach ($p in @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)) {
 foreach ($i in $ids) { & taskkill.exe /PID $i /T /F 2>&1 | Out-Null }
 '@
 Set-Content -Path $backstopFile -Encoding utf8 -Value $backstopBody
-$backstop = Start-Process -FilePath "powershell.exe" -WindowStyle Hidden -PassThru -ArgumentList @("-NoProfile", "-ExecutionPolicy",
+# CreateNoWindow (not -WindowStyle Hidden, which still flashes a console for a moment; cmdwindows-1119)
+$bsArgs = @("-NoProfile", "-ExecutionPolicy",
     "Bypass", "-File", "`"$backstopFile`"", "-Root", $proc.Id, "-Owner", $PID, "-Seconds", ($TimeoutSeconds + 180), "-Marker", "`"$marker`"")
+$backstop = [System.Diagnostics.Process]::Start((New-Object System.Diagnostics.ProcessStartInfo -Property @{ FileName = 'powershell.exe'; Arguments = ($bsArgs -join ' '); UseShellExecute = $false; CreateNoWindow = $true }))
 function Stop-Backstop {
     if ($backstop -and -not $backstop.HasExited) { Stop-Process -Id $backstop.Id -Force -ErrorAction SilentlyContinue }
     Remove-Item -Path $backstopFile -Force -ErrorAction SilentlyContinue

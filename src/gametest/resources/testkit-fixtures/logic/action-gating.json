@@ -253,24 +253,21 @@
     "mode": "matches",
     "verifiedBy": "regex",
     "gates": [
-      "dungeonqueue.DungeonQueueFeature#PARTY_LEAVE[5]",
-      "partycommands.PartyLeaderTracker#CLEARED[0]",
-      "scoreboard.ScoreboardPartyLeader#DISBAND[0]"
+      "dungeonqueue.DungeonQueueFeature#PARTY_LEAVE[5]"
     ],
     "sender": "Killer560",
-    "notes": "PartyTracker.CLEARED empties the teammate list Party Commands authorizes against; PARTY_LEAVE cancels a queued requeue; PartyLeaderTracker.CLEARED forgets the leader."
+    "notes": "PartyTracker.CLEARED empties the teammate list Party Commands authorizes against; PARTY_LEAVE cancels a queued requeue; the same CLEARED forgets the leader."
   },
   {
     "id": "logic.joined-party",
     "kind": "chat",
     "payload": "You have joined Killer560's party!",
     "source": {
-      "file": "src/main/java/com/killer560/hub/partycommands/PartyLeaderTracker.java",
-      "line": 27
+      "file": "src/main/java/com/killer560/hub/leapmenu/PartyTracker.java",
+      "line": 52
     },
     "matches": [
-      "leapmenu.PartyTracker#YOU_JOINED",
-      "partycommands.PartyLeaderTracker#YOU_JOINED"
+      "leapmenu.PartyTracker#YOU_JOINED"
     ],
     "mode": "matches",
     "verifiedBy": "regex",
@@ -298,13 +295,11 @@
     "kind": "chat",
     "payload": "The party was transferred to Killer560 because Eveleth left",
     "source": {
-      "file": "src/main/java/com/killer560/hub/partycommands/PartyLeaderTracker.java",
-      "line": 28
+      "file": "src/main/java/com/killer560/hub/leapmenu/PartyTracker.java",
+      "line": 59
     },
     "matches": [
-      "partycommands.PartyLeaderTracker#TRANSFER_LEAVE",
-      "leapmenu.PartyTracker#TRANSFER_LEAVE",
-      "scoreboard.ScoreboardPartyLeader#TRANSFER_LEAVE"
+      "leapmenu.PartyTracker#TRANSFER_LEAVE"
     ],
     "mode": "matches",
     "verifiedBy": "regex",
