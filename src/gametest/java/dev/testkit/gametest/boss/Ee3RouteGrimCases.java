@@ -155,7 +155,7 @@ final class Ee3RouteGrimCases {
             return "dig " + a.getAction();
         }
         if (p instanceof ServerboundMovePlayerPacket m) {
-            return m.hasRotation() ? "move rot" : "move";
+            return (m.hasRotation() ? "move rot " : "move ") + String.format(java.util.Locale.ROOT, "%.2f,%.2f,%.2f", m.getX(0), m.getY(0), m.getZ(0));
         }
         if (p instanceof net.minecraft.network.protocol.game.ServerboundPlayerInputPacket in) {
             net.minecraft.world.entity.player.Input i = in.input();
@@ -182,7 +182,7 @@ final class Ee3RouteGrimCases {
                 before |= moved;
             } else if (t.startsWith("move")) {
                 moved = true;
-                after |= dig && t.equals("move rot");
+                after |= dig && t.startsWith("move rot");
             } else if (t.equals("ServerboundClientTickEndPacket")) {
                 if (dig) {
                     out[0]++;
