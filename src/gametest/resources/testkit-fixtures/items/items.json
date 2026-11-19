@@ -163,9 +163,9 @@
     },
     "source": {
       "file": "src/main/java/com/killer560/hub/inventorysearch/InventorySearchFeature.java",
-      "line": 346
+      "line": 596
     },
     "verifiedBy": "regex",
-    "notes": "Inventory search matches the hover name and, with searchLore, each lore line (matches(), :335-353; the lore loop starts at :346)."
+    "notes": "Inventory search matches the hover name and, with searchLore, each lore line (matches(), :585-601; the lore read is at :596)."
   }
 ]
