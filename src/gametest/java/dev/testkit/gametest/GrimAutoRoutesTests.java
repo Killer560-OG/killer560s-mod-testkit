@@ -3717,6 +3717,20 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * pre-aim on (the Hyperion swap and the straight-down turn while the last etherwarp is in flight), so it shares the
      * pre-aim's and the landing cast's ticks; {@code second} calls clearRoom again on that line. Requires the pre-aim acted.
      */
+    /**
+     * achype6: the same start for every row. Auto Clear's learned chain link time ({@code linkMean}) carries over from the
+     * cases before, so a row could chain or not by the order it ran in; it goes back to its start value. With {@code lag},
+     * 100 ms of latency: on the local server the last landing confirms within a tick of the last warp, which leaves the
+     * landing pre-aim (and his action armed by it) no tick to act in. Returns {@code lag}; the case removes it.
+     */
+    private static boolean acDeterministic(ClientGameTestContext ctx, boolean lag) {
+        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("autoclear.AutoClearFeature", "linkMean", 3.0));
+        if (lag) {
+            ZpewCampaignTests.latency(ctx, 100);
+        }
+        return lag;
+    }
+
     private static void caseAutoClear(Session c, dev.testkit.gametest.SameTick.Act act, boolean second) {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
@@ -3731,6 +3745,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ModUnderTest.call(cfg, "setWeapon", new Class<?>[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")
                     .getClass()}, new Object[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")});
         });
+        boolean lag = acDeterministic(ctx, act != null || second);
         tpRel(ctx, 5.5, 15.5, -90f, 0f);
         ctx.waitTicks(10);
         // Every two mobs more than 10.6 blocks apart (mod ac-optimize-1015): no one standing block reaches two of them with
@@ -3793,6 +3808,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "cancel"));
         }
         ctx.waitTicks(5);
+        if (lag) {
+            ZpewCampaignTests.latency(ctx, 0);
+        }
         if (st != null) {
             dev.testkit.gametest.SameTick.judge(c, st, "achype4 landing " + act, dev.testkit.gametest.SameTick.Expect.ACTED);
         }
@@ -3873,6 +3891,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     .getClass()}, new Object[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")});
             mc.player.getInventory().setSelectedSlot(4);
         });
+        boolean lag = acDeterministic(ctx, chain && (act != null || second));
         tpRel(ctx, 6.5, 15.5, -90f, 0f);
         ctx.waitTicks(10);
         double[][] spots = chain ? new double[][]{{5.5, 15.5}, {17.5, 11.5}, {17.5, 19.5}}
@@ -3920,8 +3939,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         int[] tpSpam = {6};
         boolean[] restarted = {false};
         boolean firstCast = waitFor(ctx, 100, () -> {
-            if (chain && act == dev.testkit.gametest.SameTick.Act.TP) {
-                c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+            if (chain && act == dev.testkit.gametest.SameTick.Act.TP && logHas(m, armLine) && tpSpam[0]-- > 0) {
+                c.server().command("execute as @a at @s run tp @s ~ ~ ~");   // only from the chain on: before it, it moved the plan
             }
             if (hits && chain) {
                 c.server().command("execute as @e[tag=achypehit] at @a[limit=1] run tp @s ~ ~-1.5 ~");
@@ -3974,6 +3993,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "cancel"));
         }
         ctx.waitTicks(5);
+        if (lag) {
+            ZpewCampaignTests.latency(ctx, 0);
+        }
         if (st != null) {
             // His USE never shares a tick (Auto Clear yields to a use of his), so USE and ATTACK are ACTED; a TP answer meets the cast's tick in most runs but not all (the note quotes SHARED), so TP is ACTED too. Chain layout: his action is armed by the chain line, so the ticks that carry both ARE the chained cast's.
             dev.testkit.gametest.SameTick.judge(c, st, "achype " + act, chain && act != dev.testkit.gametest.SameTick.Act.ATTACK
