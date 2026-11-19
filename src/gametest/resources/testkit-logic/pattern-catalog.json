@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T05:49:07",
- "modSource": "lane-icedmobs-1118",
- "modGitSha": "de24b5cb6ab088d8f6a60f60c0d41a0bbdf6b2b8",
+ "generatedAt": "2026-11-19T06:06:44",
+ "modSource": "lane-goldessence-1118",
+ "modGitSha": "46f79768e4dc59d9559febb4db1aa7230d3879bf",
  "modSourceDirty": false,
  "count": 979,
  "byKind": {
