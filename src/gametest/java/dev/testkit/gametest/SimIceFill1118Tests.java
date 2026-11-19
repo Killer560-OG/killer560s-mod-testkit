@@ -234,7 +234,7 @@ public final class SimIceFill1118Tests {
             return new SolveExtra() {
                 int breaks0 = -1;
                 int spikes;
-                int waitUntil = 40;
+                int waitUntil = 10;
                 boolean armed;
 
                 @Override
@@ -260,7 +260,7 @@ public final class SimIceFill1118Tests {
                             spikes++;
                             println(name, String.format("t=%.1fs stall %d released, %d packet(s) held", t / 20.0, spikes,
                                     dev.testkit.harness.LagSpike.held()));
-                            waitUntil = t + 30;
+                            waitUntil = t + 12;
                         }
                         return;
                     }
@@ -271,7 +271,9 @@ public final class SimIceFill1118Tests {
                 }
 
                 private boolean hopping(ClientGameTestContext ctx) {
-                    return ctx.computeOnClient(mc -> mc.player != null && mc.player.getY() > 60
+                    // Once the first hop has landed (the sim's floors sit at any height, so no fixed Y).
+                    return ctx.computeOnClient(mc -> mc.player != null
+                            && (Integer) ModUnderTest.staticCall(P, "landings", new Class<?>[]{}, new Object[]{}) > 0
                             && !(Boolean) ModUnderTest.staticCall(P, "isBroken", new Class<?>[]{}, new Object[]{}));
                 }
 
@@ -566,7 +568,7 @@ public final class SimIceFill1118Tests {
 
         @Override
         int rotation() {
-            return (runNo - 1) % 4;
+            return (runNo - 1) % 4 * 90; // degrees (SimBuilder.setSingleRoomRotationForTest)
         }
 
         /** 0: where the room puts him, 1: 0.05 over the start (an etherwarp's landing), 2: on the floor below it. */
