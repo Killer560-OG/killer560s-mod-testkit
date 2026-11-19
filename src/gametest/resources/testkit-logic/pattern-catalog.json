@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T04:21:34",
- "modSource": "lane-friendterms-1119",
- "modGitSha": "312a1b9f0039582a3ae66cac303f506effc624df",
+ "generatedAt": "2026-11-19T04:36:48",
+ "modSource": "lane-leapline-rm-1118",
+ "modGitSha": "ef0499dd33cb203a50872a67b0c13164a091543a",
  "modSourceDirty": false,
  "count": 999,
  "byKind": {
