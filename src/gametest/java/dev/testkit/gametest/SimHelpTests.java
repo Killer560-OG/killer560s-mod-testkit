@@ -144,6 +144,61 @@ public class SimHelpTests implements FabricClientGameTest {
         check(problems, pages >= 8, "guide has only " + pages + " pages");
         facts.add("/help opened the guide, " + pages + " pages");
 
+        // The real window: every page draws its pictures (ready within 10 s, real pixels in each box), and the accent follows the theme.
+        // A fresh screen opened by /help: run before the size loop, whose hand resizes leave the layout off the drawn frame.
+        ctx.runOnClient(mc -> McCompat.setScreen(mc, null));
+        setWindow(ctx, 1280, 720, 2);
+        ctx.runOnClient(mc -> mc.player.connection.sendCommand("help"));
+        ctx.waitFor(mc -> McCompat.screen(mc) != null && McCompat.screen(mc).getClass().getName().equals(SCREEN), 200);
+        ctx.waitTicks(4);
+        int pictures = 0;
+        for (int p = 0; p < pages; p++) {
+            final int page = p;
+            ctx.runOnClient(mc -> {
+                var sc = McCompat.screen(mc);
+                ModUnderTest.call(sc, "showPage", new Class<?>[]{int.class}, new Object[]{page});
+                for (int i = 0; i < 80; i++) {
+                    sc.mouseScrolled(1, 1, 0, -1); // to the bottom, where the pictures are
+                }
+            });
+            int want = ctx.computeOnClient(mc -> (int) ((Map<?, ?>) ModUnderTest.call(McCompat.screen(mc), "layoutBoxes", new Class<?>[0], new Object[0]))
+                    .keySet().stream().filter(k -> k.toString().startsWith("pic")).count());
+            long t0 = System.currentTimeMillis();
+            boolean ready = false;
+            while (System.currentTimeMillis() - t0 < 10_000) {
+                ctx.waitTicks(2);
+                int shown = ctx.computeOnClient(mc -> (Integer) ModUnderTest.call(McCompat.screen(mc), "picturesShown", new Class<?>[0], new Object[0]));
+                if (shown == want) {
+                    ready = true;
+                    break;
+                }
+            }
+            long took = System.currentTimeMillis() - t0;
+            check(problems, ready && want > 0, "page " + (p + 1) + ": " + want + " picture(s) not all drawn within 10 s");
+            ctx.waitTicks(2);
+            Path shot = ctx.takeScreenshot(dev.testkit.harness.Report.fileName(NAME + "-page" + (p + 1)));
+            Report.screenshot(NAME, shot);
+            java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(shot.toFile());
+            Object[] lay = picBoxes(ctx);
+            double f = img.getWidth() / (double) (Integer) lay[1];
+            for (int[] pic : castBoxes(lay[0])) {
+                int colors = distinctColors(img, pic, f);
+                check(problems, colors >= 24, "page " + (p + 1) + ": picture " + str(pic) + " has only " + colors + " colors on screen (not drawn)");
+                pictures++;
+            }
+            facts.add("page " + (p + 1) + ": " + want + " picture(s) drawn after " + took + " ms");
+        }
+        check(problems, pictures >= pages, "only " + pictures + " pictures measured on " + pages + " pages");
+
+        // Theme: the selected page entry's accent strip changes color from Amber to Ocean; Dark Mode darkens the panel.
+        int[] amber = accentAndPanel(ctx, "AMBER", false);
+        int[] ocean = accentAndPanel(ctx, "OCEAN", false);
+        int[] dark = accentAndPanel(ctx, "AMBER", true);
+        accentAndPanel(ctx, "AMBER", false);
+        check(problems, colorDistance(amber[0], ocean[0]) > 60, "the accent strip did not follow the theme: Amber " + Integer.toHexString(amber[0]) + ", Ocean " + Integer.toHexString(ocean[0]));
+        check(problems, brightness(dark[1]) < brightness(amber[1]), "Dark Mode did not darken the panel: " + Integer.toHexString(amber[1]) + " -> " + Integer.toHexString(dark[1]));
+        facts.add("accent strip Amber " + Integer.toHexString(amber[0]) + " / Ocean " + Integer.toHexString(ocean[0]) + "; panel " + Integer.toHexString(amber[1]) + " / Dark Mode " + Integer.toHexString(dark[1]));
+
         // The harness window resize does not change a Screen's own size (it stays 854x480), so each size is given to the
         // screen the way vanilla does (Screen.resize(w, h)) and measured from its layout, with no render involved.
         // simhelp-polish-1118: Close bottom left, Back then Next bottom right, the page count on the panel's center, nothing overlapping.
@@ -232,61 +287,6 @@ public class SimHelpTests implements FabricClientGameTest {
         }
         check(problems, checked == sizes.length * pages, "only " + checked + " of " + sizes.length * pages + " layouts were checked");
         facts.add("buttons, label center and no overlaps on " + checked + " layouts at 1920x1080 GUI 1-4, 854x480 GUI 2 and 640x480 GUI 2 (" + scrolling + " page views scroll)");
-
-        // The real window: every page draws its pictures (ready within 10 s, real pixels in each box), and the accent follows the theme.
-        // A fresh screen opened by /help: the size loop's hand resizes leave the old one's layout off the drawn frame.
-        ctx.runOnClient(mc -> McCompat.setScreen(mc, null));
-        setWindow(ctx, 1280, 720, 2);
-        ctx.runOnClient(mc -> mc.player.connection.sendCommand("help"));
-        ctx.waitFor(mc -> McCompat.screen(mc) != null && McCompat.screen(mc).getClass().getName().equals(SCREEN), 200);
-        ctx.waitTicks(4);
-        int pictures = 0;
-        for (int p = 0; p < pages; p++) {
-            final int page = p;
-            ctx.runOnClient(mc -> {
-                var sc = McCompat.screen(mc);
-                ModUnderTest.call(sc, "showPage", new Class<?>[]{int.class}, new Object[]{page});
-                for (int i = 0; i < 80; i++) {
-                    sc.mouseScrolled(1, 1, 0, -1); // to the bottom, where the pictures are
-                }
-            });
-            int want = ctx.computeOnClient(mc -> (int) ((Map<?, ?>) ModUnderTest.call(McCompat.screen(mc), "layoutBoxes", new Class<?>[0], new Object[0]))
-                    .keySet().stream().filter(k -> k.toString().startsWith("pic")).count());
-            long t0 = System.currentTimeMillis();
-            boolean ready = false;
-            while (System.currentTimeMillis() - t0 < 10_000) {
-                ctx.waitTicks(2);
-                int shown = ctx.computeOnClient(mc -> (Integer) ModUnderTest.call(McCompat.screen(mc), "picturesShown", new Class<?>[0], new Object[0]));
-                if (shown == want) {
-                    ready = true;
-                    break;
-                }
-            }
-            long took = System.currentTimeMillis() - t0;
-            check(problems, ready && want > 0, "page " + (p + 1) + ": " + want + " picture(s) not all drawn within 10 s");
-            ctx.waitTicks(2);
-            Path shot = ctx.takeScreenshot(dev.testkit.harness.Report.fileName(NAME + "-page" + (p + 1)));
-            Report.screenshot(NAME, shot);
-            java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(shot.toFile());
-            Object[] lay = picBoxes(ctx);
-            double f = img.getWidth() / (double) (Integer) lay[1];
-            for (int[] pic : castBoxes(lay[0])) {
-                int colors = distinctColors(img, pic, f);
-                check(problems, colors >= 24, "page " + (p + 1) + ": picture " + str(pic) + " has only " + colors + " colors on screen (not drawn)");
-                pictures++;
-            }
-            facts.add("page " + (p + 1) + ": " + want + " picture(s) drawn after " + took + " ms");
-        }
-        check(problems, pictures >= pages, "only " + pictures + " pictures measured on " + pages + " pages");
-
-        // Theme: the selected page entry's accent strip changes color from Amber to Ocean; Dark Mode darkens the panel.
-        int[] amber = accentAndPanel(ctx, "AMBER", false);
-        int[] ocean = accentAndPanel(ctx, "OCEAN", false);
-        int[] dark = accentAndPanel(ctx, "AMBER", true);
-        accentAndPanel(ctx, "AMBER", false);
-        check(problems, colorDistance(amber[0], ocean[0]) > 60, "the accent strip did not follow the theme: Amber " + Integer.toHexString(amber[0]) + ", Ocean " + Integer.toHexString(ocean[0]));
-        check(problems, brightness(dark[1]) < brightness(amber[1]), "Dark Mode did not darken the panel: " + Integer.toHexString(amber[1]) + " -> " + Integer.toHexString(dark[1]));
-        facts.add("accent strip Amber " + Integer.toHexString(amber[0]) + " / Ocean " + Integer.toHexString(ocean[0]) + "; panel " + Integer.toHexString(amber[1]) + " / Dark Mode " + Integer.toHexString(dark[1]));
 
         // Esc closes.
         boolean[] handled = new boolean[1];
