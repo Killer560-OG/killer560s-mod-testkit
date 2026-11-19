@@ -207,7 +207,7 @@ public class SimMapLeaveSecretsTests implements FabricClientGameTest {
         boolean was = ModUnderTest.getBoolean(tidy, "getHideActionbarRaw");
         ctx.runOnClient(mc -> ModUnderTest.set(tidy, "setHideActionbar", true));
         try {
-            String[] pick = ctx.computeOnClient(mc -> pickRooms(Kind.CHEST));
+            String[] pick = ctx.computeOnClient(mc -> pickRooms(Kind.CHEST, 3));
             if (pick == null) {
                 throw new AssertionError("no usable room with a chest secret and a door to pair");
             }
@@ -282,12 +282,18 @@ public class SimMapLeaveSecretsTests implements FabricClientGameTest {
      */
     @SuppressWarnings("unchecked")
     private static String[] pickRooms(Kind kind) {
+        return pickRooms(kind, 1);
+    }
+
+    /** As above, among rooms with at least {@code minSecrets} secrets in all. */
+    @SuppressWarnings("unchecked")
+    private static String[] pickRooms(Kind kind, int minSecrets) {
         List<String> names = new ArrayList<>((List<String>) ModUnderTest.staticCall(ROOM_LIBRARY, "names"));
         names.sort(Comparator.naturalOrder());
         for (String name : names) {
             Object entry = entry(name);
             if (entry == null || !usable(name) || badType(entry) || secretsOf(entry, kind) < 1
-                    || intField(entry, "secrets") < 1) {
+                    || intField(entry, "secrets") < minSecrets) {
                 continue;
             }
             int[] tiles = tiles(name);
