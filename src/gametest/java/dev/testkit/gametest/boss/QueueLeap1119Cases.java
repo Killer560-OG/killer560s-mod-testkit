@@ -370,8 +370,12 @@ final class QueueLeap1119Cases {
                     "the click is not on slot 11 of a real window: " + click);
             c.check(menuTick >= 0 && clickTick >= 0, "menu or click missing from the step log");
             long want = o.pick == Pick.LATE ? pickTick + 1 : menuTick + 1;
-            c.check(clickTick == want, "the click went at +" + (clickTick - t0) + ", want +" + (want - t0)
-                    + " (the first tick after the " + (o.pick == Pick.LATE ? "pick" : "menu") + ")");
+            // the menu's heads can reach the client a tick after its window (another network read): then the mod logs
+            // "wait heads" in that first tick and clicks the tick they are in; a gate hold logs "wait gate"
+            long waited = Math.max(stepTick(c, "wait heads"), stepTick(c, "wait gate"));
+            c.check(clickTick == want || waited == want && clickTick == want + 1, "the click went at +" + (clickTick - t0)
+                    + ", want +" + (want - t0) + " (the first tick after the " + (o.pick == Pick.LATE ? "pick" : "menu")
+                    + (waited >= 0 ? "; waited at +" + (waited - t0) : "") + ")");
             c.check(tpSeenTick >= 0, "he never reached B");
             // stood still: no W input from the tick after the use until the teleport; W again within 3 ticks of it
             int clickTickW = firstTick(ticks, "click ");
