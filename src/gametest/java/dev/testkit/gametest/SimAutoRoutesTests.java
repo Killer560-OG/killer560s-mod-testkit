@@ -124,8 +124,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1101-ecancel",
             // arfinder-1115: finder routes played in their rooms (model ticks == sim ticks)
             "96-ar-1115-arfinder",
-            // arwrong-1118: a node chain turns in the landing's teleport answer; a same-tick sneak casts from the standing eye
-            "96-ar-1118-nodechain", "96-ar-1118-freshsneak",
+            // arwrong-1118: a node chain turns in the landing's teleport answer (96-ar-1118-freshsneak is on arwrong-1118-tk-sneak)
+            "96-ar-1118-nodechain",
             // secretfade-1102: a taken secret's waypoint goes within 2 ticks, and Secret Clicked leaves no gold box
             "96-ar-1102-secrettaken",
             // ar-warp-after-click (2026-10-15): Hypixel ignores a use right after a block click with the same item
@@ -363,7 +363,6 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1015-mimicskip" -> ArMainServerCases.mimicSkip(ctx);
                         case "96-ar-1101-ecancel" -> caseEmergencyCancel(ctx);
                         case "96-ar-1118-nodechain" -> Ar1118Cases.nodeChain(ctx);
-                        case "96-ar-1118-freshsneak" -> Ar1118Cases.freshSneak(ctx);
                         case "96-ar-1115-arfinder" -> { try { caseArFinder(ctx); } catch (Exception e) { throw new RuntimeException(e); } }
                         case "96-ar-1102-secrettaken" -> caseSecretTaken(ctx);
                         case "96-ar-1015-warpclick" -> ArMainServerCases.warpAfterClick(ctx);
@@ -9520,95 +9519,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     + "to node #2's look in the teleport answer (answer turns " + turns + ")");
         }
 
-        static void freshSneak(ClientGameTestContext ctx) {
-            resetRoutes(ctx);
-            arena(ctx, false);
-            giveHotbar(ctx);
-            forgetRunMemory(ctx);
-            setBlocks(ctx, Map.of(new int[]{9, F + 1, 20}, Blocks.STONE.defaultBlockState()));
-            // A PATH pair (his 7 wrong landings were all first path hops): one saved hop from (6, 20) onto (12, F-1, 20),
-            // aimed from the crouched eye as the planner aims, so it passes under the stone; the standing eye's ray meets it.
-            double horiz = 6.0;
-            float pitch = (float) Math.toDegrees(Math.atan2(1.27, horiz));
-            float yaw = (float) Math.toDegrees(Math.atan2(-6.0, 0.0));
-            JsonArray hops = new JsonArray();
-            hops.add(String.format(Locale.US, "%.6f %.6f %.6f %.6f %.6f %d %d %d %.6f %.6f %.6f", 6.5, (double) F, 20.5, yaw,
-                    pitch, 12, F - 1, 20, 12.5, F + 0.05, 20.5));
-            JsonObject start = node("PATH", 6, 20, 0f, 0f);
-            start.addProperty("start", true);
-            start.add("hops", hops);
-            start.addProperty("planFrom", String.format(Locale.US, "%.6f %.6f %.6f", 6.5, (double) F, 20.5));
-            start.addProperty("planTo", String.format(Locale.US, "%.6f %.6f %.6f", 12.5, (double) F, 20.5));
-            start.addProperty("planBreakers", 0);
-            JsonObject arrival = node("PATH", 12, 20, 0f, 0f);
-            writeRoute(ctx, List.of(start, arrival));
-            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
-            tpRel(ctx, 4.5, 20.5, 0f, 0f);
-            ctx.waitTicks(10);
-            int holds0 = freshHolds(ctx);
-            int aims0 = freshCount(ctx, "freshSneakAims");
-            long m = LogTap.mark();
-            ctx.runOnClient(mc -> {
-                dev.testkit.harness.FreshSneakEye.reset();
-                dev.testkit.harness.FreshSneakEye.enabled = true;
-            });
-            startSampling(ctx);
-            List<Sample> s;
-            boolean landed;
-            try {
-                tpRel(ctx, 6.5, 20.5, 0f, 0f);
-                landed = waitLanded(ctx, 12, 20, 60) != null;
-                ctx.waitTicks(5);
-            } finally {
-                s = stopSampling(ctx);
-                stopRoute(ctx);
-                liftedCasts = dev.testkit.harness.FreshSneakEye.lifted;
-                ctx.runOnClient(mc -> dev.testkit.harness.FreshSneakEye.reset());
-            }
-            List<Sample> uses = useTicks(s);
-            int useTick = uses.isEmpty() ? -1 : uses.get(0).tick();
-            boolean fresh = false;
-            for (int i = 1; i < s.size(); i++) {
-                if (s.get(i).tick() == useTick) {
-                    fresh = s.get(i).shift() && !s.get(i - 1).shift();
-                }
-            }
-            double maxY = s.stream().mapToDouble(x -> x.pos().y).max().orElse(Double.NaN);
-            int holds = freshHolds(ctx) - holds0;
-            int aims = freshCount(ctx, "freshSneakAims") - aims0;
-            println(String.format(Locale.US, "freshsneak: landed on (12,20) %s, fresh-sneak holds %d, standing-eye casts %d,"
-                    + " use at sample tick %d (its sneak new that tick %s), highest feet %.2f, now at %s", landed, holds,
-                    liftedCasts, useTick, fresh, maxY, relPos(ctx)));
-            check(useTick >= 0, "freshsneak: no warp was sent");
-            check(landed, "freshsneak: the warp did not land on (12, 20) - at " + relPos(ctx) + " (the standing eye's ray "
-                    + "met the floating stone at (9, F+1, 20))");
-            // The mod must have met the case: a use whose sneak went out in its own tick, held a tick or re-aimed for both
-            // eyes. Neither and no standing-eye cast on the server means the case tested nothing.
-            check(holds + aims >= 1 || liftedCasts >= 1, "freshsneak: no use went with a fresh sneak - the case tests nothing "
-                    + "(holds " + holds + ", aims " + aims + ", standing-eye casts " + liftedCasts + ")");
-            check(holds + aims >= 1, "freshsneak: a use went with its sneak in its own tick and the mod neither held it nor "
-                    + "aimed it for the standing eye (standing-eye casts " + liftedCasts + ")");
-        }
-
-        private static volatile int liftedCasts;
-
         private static int answerTurns(ClientGameTestContext ctx) {
             return ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "answerTurns"));
         }
 
-        private static int freshHolds(ClientGameTestContext ctx) {
-            return freshCount(ctx, "freshSneakHolds");
-        }
-
-        private static int freshCount(ClientGameTestContext ctx, String getter) {
-            return ctx.computeOnClient(mc -> {
-                try {
-                    return (Integer) ModUnderTest.staticCall(EXECUTOR, getter);
-                } catch (AssertionError | RuntimeException e) {
-                    return 0; // an older jar: no such check
-                }
-            });
-        }
     }
 
     /**
