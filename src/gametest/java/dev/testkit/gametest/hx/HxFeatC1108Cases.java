@@ -31,6 +31,7 @@ final class HxFeatC1108Cases {
     static void register(Session s) {
         s.test("1108-puzzlehud-rows", HxFeatC1108Cases::puzzleRows);
         s.test("1109-puzzlehud-funnymap", HxFeatC1108Cases::puzzleFunnyMap);
+        s.test("1118-puzzlehud-stale", HxFeatC1108Cases::puzzleStale);
         s.test("1108-reparty-run", HxFeatC1108Cases::repartyRun);
         s.test("1108-reparty-notleader", HxFeatC1108Cases::repartyNotLeader);
         s.test("1109-reparty-delay", HxFeatC1108Cases::repartyDelay);
@@ -79,6 +80,32 @@ final class HxFeatC1108Cases {
                     Map.of("name", "Boulder", "state", "\u00a7r" + OPEN), Map.of("name", "Teleport Maze", "state", "\u00a7r" + OPEN)));
             c.waitUntil("the clock of the opened puzzle runs", mc -> !rowOf(c, "Teleport Maze").endsWith("0:00"), 200);
             c.note("seeded row after it was opened: " + rowOf(c, "Teleport Maze"));
+        } finally {
+            hub(c);
+        }
+    }
+
+    /**
+     * puzzlehud-wrong-1118: on his 5:15 PM run the tab list said "Puzzles: (3)" with three "???" rows and the map held three puzzle
+     * rooms, but the HUD listed five: the previous run's Boulder and Lower Blaze (seeded from the old grid on the world-change tick,
+     * before the map reset) were never dropped. The names of the run before are seeded, then the names of this run: only this run's rows stay.
+     */
+    private static void puzzleStale(Session c) {
+        try (Settings set = new Settings(c).with(PUZZLE_CFG, "Enabled", true)) {
+            dungeon(c, "puzzles", List.of(Map.of("name", "Tic Tac Toe", "state", "§r" + OPEN)));
+            c.waitUntil("a row drawn", mc -> !((List<?>) Mod.staticCall(PUZZLE, "rowsForTest")).isEmpty(), 80);
+            run(c, () -> Mod.staticCall(PUZZLE, "seedFromMap", List.of("Boulder", "Tic Tac Toe", "Lower Blaze"), System.currentTimeMillis()));
+            c.check(rows(c).size() == 3, "first run's rows: " + rows(c));
+            run(c, () -> Mod.staticCall(PUZZLE, "seedFromMap", List.of("Water Board", "Ice Fill", "Tic Tac Toe"), System.currentTimeMillis()));
+            List<String> now = rows(c);
+            c.check(now.size() == 3, "second run lists " + now.size() + " rows, expected its own 3: " + now);
+            for (String stale : List.of("Boulder", "Lower Blaze")) {
+                c.check(now.stream().noneMatch(r -> r.contains(stale)), "stale " + stale + " still listed: " + now);
+            }
+            for (String own : List.of("Water Board", "Ice Fill", "Tic Tac Toe")) {
+                c.check(now.stream().anyMatch(r -> r.contains(own)), own + " missing: " + now);
+            }
+            c.check(header(c).equals("Puzzles 0/3"), "header " + header(c));
         } finally {
             hub(c);
         }
