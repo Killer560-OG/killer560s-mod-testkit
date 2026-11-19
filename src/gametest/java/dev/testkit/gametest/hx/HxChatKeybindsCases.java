@@ -45,6 +45,7 @@ final class HxChatKeybindsCases {
         s.test("625-hx-chat-keybinds-custom-live", HxChatKeybindsCases::customLive);
         s.test("1111-hx-cmdkey-first", HxChatKeybindsCases::cmdFirst);
         s.test("1117-sim-cmdkeys-outside", HxChatKeybindsCases::simCmdKeysOutside);
+        s.test("1118-sim-menus-outside", HxChatKeybindsCases::simMenusOutside);
     }
 
     private static boolean merged(Session c) {
@@ -323,6 +324,18 @@ final class HxChatKeybindsCases {
                 Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas);
             });
         }
+    }
+
+    /** Outside the sim /loadouts and /class (and /class healer) go to the SERVER untouched and open no sim menu (simmenus-1118). */
+    private static void simMenusOutside(Session c) {
+        for (String line : new String[]{"loadouts", "class", "class healer"}) {
+            boolean sent = c.onClient(mc -> (Boolean) Mod.staticCall("util.ServerCommands", "toServer", line));
+            c.check(sent, "toServer refused /" + line);
+            String got = awaitCommand(c, line.split(" ")[0], 40);
+            c.check(got.equals(line), "/" + line + " reached the server as /" + got);
+            c.check(c.onClient(mc -> McCompat.screen(mc) == null), "a sim menu opened outside the sim for /" + line);
+        }
+        c.note("outside the sim /loadouts and /class went to the server and opened no menu");
     }
 
     // ---- helpers --------------------------------------------------------------------------------------------------

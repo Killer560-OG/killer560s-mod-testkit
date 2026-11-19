@@ -54,6 +54,8 @@
     {"root": "stats", "why": "sim only: equipment and stats menu (roomsim/SimWardrobe.java); gated by requires"},
     {"root": "eq", "why": "sim only: equipment and stats menu (roomsim/SimWardrobe.java); gated by requires"},
     {"root": "equipment", "why": "sim only: wardrobe and stats menus (roomsim/SimWardrobe.java); gated by requires"},
+    {"root": "loadouts", "why": "sim only: the sim loadouts menu (roomsim/SimWardrobe.java); gated by requires"},
+    {"root": "class", "why": "sim only: class menu and /class <name> (roomsim/SimWardrobe.java); gated by requires"},
     {"root": "pc", "why": "sim only: chat command the sim answers or swallows (roomsim/SimPartyChat.java); gated by requires"},
     {"root": "pchat", "why": "sim only: chat command the sim answers or swallows (roomsim/SimPartyChat.java); gated by requires"},
     {"root": "ac", "why": "sim only: chat command the sim answers or swallows (roomsim/SimPartyChat.java); gated by requires"},
