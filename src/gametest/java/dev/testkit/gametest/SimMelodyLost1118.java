@@ -46,7 +46,8 @@ final class SimMelodyLost1118 {
     }
 
     private static String decision(ClientGameTestContext ctx, int section) {
-        return String.valueOf(ctx.computeOnClient(mc -> ModUnderTest.staticCall(ML, "decision", new Class<?>[]{int.class}, new Object[]{section})));
+        Object d = ctx.computeOnClient(mc -> ModUnderTest.staticCall(ML, "decision", new Class<?>[]{int.class}, new Object[]{section}));
+        return String.valueOf(d);
     }
 
     /** Six objectives of S1 done by the server (the sim's own lines), the last terminal T4 clicked after {@code gapTicks}. */
