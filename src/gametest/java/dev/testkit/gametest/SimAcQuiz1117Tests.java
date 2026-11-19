@@ -28,6 +28,9 @@ import java.util.regex.Pattern;
 public class SimAcQuiz1117Tests implements FabricClientGameTest {
     private static final String GAP = "1117-sim-acquiz-gap";
     private static final String WAIT = "1117-sim-acquiz-wait";
+    /** acquiz2-1118: the same floor under Auto Secret (Auto Clear Rooms on, no routes), his real run's setup. */
+    private static final String SECRET = "1118-sim-acquiz-secret";
+    private static final String AS = "com.killer560.hub.autosecret.AutoSecretFeature";
     private static final String AUTO = "com.killer560.hub.autoclear.AutoClearFeature";
     private static final String AUTO_CONFIG = "com.killer560.hub.autoclear.AutoClearConfig";
     private static final String QUIZ_STATE = "com.killer560.hub.puzzlesolvers.QuizState";
@@ -38,6 +41,8 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
     private static final int LATE_BOUND = 300;
     /** With nothing else to do, Auto Quiz answers on the opening tick (0-1 ticks); allow load. */
     private static final int WAIT_LATE_BOUND = 10;
+    /** Idle ticks at the Quiz over all three countdowns with rooms left (his run, before the fix: 405). */
+    private static final int SECRET_IDLE_BOUND = 120;
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -46,12 +51,14 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         }
         boolean gap = !Scenario.skip(GAP);
         boolean wait = !Scenario.skip(WAIT);
-        if (!gap && !wait) {
+        boolean secret = !Scenario.skip(SECRET);
+        if (!gap && !wait && !secret) {
             return;
         }
         if (!dev.testkit.gametest.mod.Mod.isCheat()) {
             if (gap) Scenario.skipped(GAP, "Auto Clear is cheat build only");
             if (wait) Scenario.skipped(WAIT, "Auto Clear is cheat build only");
+            if (secret) Scenario.skipped(SECRET, "Auto Clear is cheat build only");
             return;
         }
         ModUnderTest.require("killer560smod");
@@ -61,6 +68,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         if (SimMapTests.copyRoomsForOthers() < 20) {
             if (gap) Scenario.skipped(GAP, "needs real room captures and room database");
             if (wait) Scenario.skipped(WAIT, "needs real room captures and room database");
+            if (secret) Scenario.skipped(SECRET, "needs real room captures and room database");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);
@@ -75,6 +83,9 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             }
             if (gap) {
                 one(ctx, GAP, true, failures);
+            }
+            if (secret) {
+                one(ctx, SECRET, true, failures);
             }
         } finally {
             ctx.runOnClient(mc -> mc.options.renderDistance().set(renderBefore));
@@ -150,6 +161,9 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             ModUnderTest.set(ModUnderTest.config("com.killer560.hub.puzzlesolvers.QuizSolverConfig"), "setEnabled", true);
             ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig"), "setQuizFirst", true);
             ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setEnabled", true);
+            if (name.equals(SECRET)) {
+                ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig"), "setAutoClearRooms", true);
+            }
         });
         SimAutoClearTests.setMode(ctx, "ANY_MOB_ROOM", "SPIRIT_SCEPTRE");
         if (!withMobs) {
@@ -192,7 +206,17 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             println(name, "BASELINE jar (no Quiz gap hook): times only");
         }
         long mark = LogTap.mark();
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "start"));
+        boolean secret = name.equals(SECRET);
+        String driver = secret ? AS : AUTO;
+        if (secret) {
+            SimAutoSecretTests.giveAotv(ctx);
+            if (!Boolean.TRUE.equals(ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "startAutopilot")))) {
+                failures.add("Auto Secret refused to start");
+                return;
+            }
+        } else {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "start"));
+        }
         int minutes = Integer.getInteger("testkit.mobfloorMinutes", 12);
         int ticks = 0;
         int quizDoneAt = -1;
@@ -205,7 +229,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                 failures.add("the world went away");
                 return;
             }
-            boolean busy = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AUTO, "isBusy"));
+            boolean busy = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(driver, secret ? "isRunning" : "isBusy"));
             started |= busy;
             if (quizMark < 0 && ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(QUIZ_STATE, "started"))) {
                 quizMark = LogTap.mark();
@@ -213,8 +237,8 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             if (quizDoneAt < 0 && ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(QUIZ_STATE, "done"))) {
                 quizDoneAt = ticks;
                 quizLog = LogTap.since(quizMark);
-                if (!withMobs) {
-                    break;   // the wait case is over once the Quiz is
+                if (!withMobs || secret) {
+                    break;   // the wait case (and Auto Secret's, which then goes on to the whole floor) is over once the Quiz is
                 }
             }
             if (started && !busy) {
@@ -225,10 +249,16 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                         ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(AUTO, "status")))));
             }
         }
-        boolean stillBusy = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AUTO, "isBusy"));
-        int gaps = baseline ? -1 : ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(AUTO, "quizGapCount"));
-        int idle = baseline ? -1 : ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(AUTO, "quizIdleTicks"));
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "cancel"));
+        boolean stillBusy = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(driver, secret ? "isRunning" : "isBusy"));
+        int idle = secret ? ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(AS, "quizIdleTicks"))
+                : baseline ? -1 : ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(AUTO, "quizIdleTicks"));
+        int gaps = secret ? 0 : baseline ? -1 : ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(AUTO, "quizGapCount"));
+        if (secret) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(AS, "stop", new Class<?>[]{String.class, boolean.class},
+                    new Object[]{"test over", true}));
+        } else {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "cancel"));
+        }
         List<String> log = quizLog != null ? quizLog : LogTap.since(mark);
         int lastAnswer = -1;
         List<Integer> clears = new ArrayList<>();
@@ -241,6 +271,10 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             }
             if (l.contains("[AutoClear] Quiz countdown")) {
                 println(name, "  " + l.replaceAll("^.*\\[AutoClear\\] ", ""));
+            }
+            if (secret && l.contains("[AutoSecret] Quiz:") && l.contains("meanwhile (")) {
+                gaps++;
+                println(name, "  " + l.substring(l.indexOf("[AutoSecret]")));
             }
             Matcher m = ANSWERED.matcher(l);
             if (m.find()) {
@@ -272,7 +306,16 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                 failures.add("question " + (q + 1) + " answered " + lateTicks.get(q) + " tick(s) after it opened (bound " + bound + ")");
             }
         }
-        if (withMobs) {
+        if (secret) {
+            // His 11-18 run stood 128, 138 and 139 ticks at the Quiz with mob rooms uncleared; the three countdowns are 217 + 140 + 140.
+            if (gaps < 2 || between < 2) {
+                failures.add("Auto Secret did not fill the countdowns with clears (gap picks " + gaps + ", sim room clears between"
+                        + " Oruo's start and the last answer " + between + ")");
+            }
+            if (idle > SECRET_IDLE_BOUND) {
+                failures.add("it stood " + idle + " tick(s) at the Quiz waiting with rooms left (bound " + SECRET_IDLE_BOUND + ")");
+            }
+        } else if (withMobs) {
             if (gaps < 1 || between < 1) {
                 failures.add("Auto Clear did not leave the Quiz to clear during a countdown (gap picks " + gaps
                         + ", sim room clears between Oruo's start and the last answer " + between + ")");
