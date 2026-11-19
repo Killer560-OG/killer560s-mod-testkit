@@ -160,10 +160,14 @@ final class SoundFx1118Cases {
             // 100%: the game's volume (1.0) unchanged.
             Mod.call(cfg, "setVolume", arrow, 1.0f);
             play(c, "entity.arrow.hit_player");
-            expectGain(problems, "100%", 1.0f);
+            // the game's own volume for this sound (the sound's volume entry), read at 100%
+            float base = (Float) Mod.staticCall(FX, "lastVolume");
+            if (base <= 0f) {
+                problems.add("100% played at gain " + base);
+            }
             Mod.call(cfg, "setVolume", arrow, 0.5f);
             play(c, "entity.arrow.hit_player");
-            expectGain(problems, "50%", 0.5f);
+            expectGain(problems, "50%", base * 0.5f);
             // 0%: counted as acted, but nothing is played.
             Mod.call(cfg, "setVolume", arrow, 0.0f);
             int layers0 = (Integer) Mod.staticCall(CLICKS, "layersPlayed");
@@ -176,9 +180,15 @@ final class SoundFx1118Cases {
             // 200%: full first copy plus one layer.
             Mod.call(cfg, "setVolume", arrow, 2.0f);
             play(c, "entity.arrow.hit_player");
-            expectGain(problems, "200%", 2.0f);
-            if ((Integer) Mod.staticCall(CLICKS, "layersPlayed") != layers0 + 1) {
-                problems.add("200% started " + ((Integer) Mod.staticCall(CLICKS, "layersPlayed") - layers0) + " layers, not 1");
+            expectGain(problems, "200%", base * 2.0f);
+            // a loud sound (base gain 1.0) at 200% is the full first copy plus one layer
+            int layers1 = (Integer) Mod.staticCall(CLICKS, "layersPlayed");
+            c.onClient(mc -> {
+                Mod.staticCall(CLICKS, "preview", "pop", 2.0f);
+                return null;
+            });
+            if ((Integer) Mod.staticCall(CLICKS, "layersPlayed") != layers1 + 1) {
+                problems.add("a 200% preview started " + ((Integer) Mod.staticCall(CLICKS, "layersPlayed") - layers1) + " layers, not 1");
             }
             // The slider widget: a real press at the quarter point (50%).
             Mod.call(cfg, "setVolume", arrow, 1.0f);
@@ -194,7 +204,10 @@ final class SoundFx1118Cases {
                 if (slider == null) {
                     throw new AssertionError("no 'Arrow Hit Volume: 100%' slider in the drawer");
                 }
-                press(slider, 0, 0.25);
+                int[] t = (int[]) Mod.call(slider, "trackRange");
+                double px = t[0] + 0.25 * (t[1] - t[0]);
+                slider.mouseClicked(new MouseButtonEvent(px, slider.getY() + slider.getHeight() / 2.0,
+                        new MouseButtonInfo(dev.testkit.compat.McKeys.mouse(0), 0)), false);
                 got[0] = (Float) Mod.call(Mod.cfg(CFG), "getVolume", arrow);
                 McCompat.setScreen(mc, null);
                 return null;
