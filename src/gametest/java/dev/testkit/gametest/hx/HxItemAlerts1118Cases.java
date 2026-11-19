@@ -318,7 +318,11 @@ final class HxItemAlerts1118Cases {
                 c.check(c.onClient(mc -> Mod.staticCall("hud.HudElementRegistry", "byId", id)) != null, "HUD element " + id + " is not registered");
             }
             c.onClient(mc -> {
-                McCompat.setScreen(mc, (Screen) Mod.cls("hud.HudEditorScreen").getConstructor(Screen.class).newInstance((Object) null));
+                try {
+                    McCompat.setScreen(mc, (Screen) Mod.cls("hud.HudEditorScreen").getConstructor(Screen.class).newInstance((Object) null));
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
                 return null;
             });
             c.ctx().waitTicks(4);
