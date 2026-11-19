@@ -209,7 +209,8 @@ public class SimHelpTests implements FabricClientGameTest {
                     if (e.getKey().startsWith("pic")) {
                         int[] pic = e.getValue();
                         pics++;
-                        check(problems, pic[2] > 20 && pic[3] > 20 && pic[0] >= text[0] && pic[0] + pic[2] <= text[0] + text[2] + 1,
+                        // A picture is readable: over 20 tall, or as wide as the text allows (a wide strip such as the chat line).
+                        check(problems, pic[2] > 20 && (pic[3] > 20 || pic[2] >= text[2] - 2) && pic[0] >= text[0] && pic[0] + pic[2] <= text[0] + text[2] + 1,
                                 at + ": " + e.getKey() + " " + str(pic) + " is outside the text area " + str(text));
                     }
                 }
@@ -233,7 +234,12 @@ public class SimHelpTests implements FabricClientGameTest {
         facts.add("buttons, label center and no overlaps on " + checked + " layouts at 1920x1080 GUI 1-4, 854x480 GUI 2 and 640x480 GUI 2 (" + scrolling + " page views scroll)");
 
         // The real window: every page draws its pictures (ready within 10 s, real pixels in each box), and the accent follows the theme.
+        // A fresh screen opened by /help: the size loop's hand resizes leave the old one's layout off the drawn frame.
+        ctx.runOnClient(mc -> mc.setScreen(null));
         setWindow(ctx, 1280, 720, 2);
+        ctx.runOnClient(mc -> mc.player.connection.sendCommand("help"));
+        ctx.waitFor(mc -> McCompat.screen(mc) != null && McCompat.screen(mc).getClass().getName().equals(SCREEN), 200);
+        ctx.waitTicks(4);
         int pictures = 0;
         for (int p = 0; p < pages; p++) {
             final int page = p;
