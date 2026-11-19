@@ -44,7 +44,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * menu.current                         -&gt; {containerId, title, hx}
  * menu.anvil {preview=true, claim=slot|direct, previewOverride?}  Hypixel's Anvil (HxAnvil)
  * menu.anvil.state                     -&gt; the last anvil: combines [{left,right,result}], inserts, claims
- * menu.onUse {id, menu}                using an item whose custom_data.id is {@code id} opens {@code menu} (a
+ * menu.onUse {id, menu, delay=0}      using an item whose custom_data.id is {@code id} opens {@code menu} (a
  *                                      menu.show spec) - e.g. a Spirit Leap. {id:null} clears it.
  * menu.onEntity {name, menu}           using an entity custom-named {@code name} opens {@code menu} (an NPC)
  * menu.onCommand {name, menu}          /name (with any args) opens {@code menu}; the command is still recorded
@@ -84,7 +84,16 @@ public final class HxMenuModule implements HxModule {
                     JsonObject e = new JsonObject();
                     e.addProperty("id", id);
                     HxEvents.custom("menu.use", sp, e);
-                    HxMenus.later(() -> HxMenuSpec.open(sp.level().getServer(), sp, spec));
+                    // queueleap-1119: menu.onUse {delay: N} opens it N server ticks after the use (Hypixel's reply time)
+                    int delay = spec.has("_delay") ? spec.get("_delay").getAsInt() : 0;
+                    HxMenus.laterBy(Math.max(0, delay), () -> {
+                        if (spec.has("_withTp")) { // a teleport in the same server tick as the menu (same-tick accept)
+                            JsonObject tp = spec.getAsJsonObject("_withTp");
+                            sp.teleportTo(sp.level(), tp.get("x").getAsDouble(), tp.get("y").getAsDouble(), tp.get("z").getAsDouble(),
+                                    java.util.Set.<net.minecraft.world.entity.Relative>of(), sp.getYRot(), sp.getXRot(), false);
+                        }
+                        HxMenuSpec.open(sp.level().getServer(), sp, spec);
+                    });
                 }
                 // A Spirit Leap is an ender pearl to the client, but Hypixel never throws it: the use opens the leap menu
                 // (or nothing) and the item stays. Left to vanilla, every leap use threw a real pearl whose landing
@@ -174,7 +183,14 @@ public final class HxMenuModule implements HxModule {
         HxBridge.register("menu.onUse", (s, a) -> {
             String id = a.get("id").getAsString();
             if (a.has("menu") && !a.get("menu").isJsonNull()) {
-                ON_USE.put(id, a.getAsJsonObject("menu"));
+                JsonObject spec = a.getAsJsonObject("menu").deepCopy();
+                if (a.has("delay")) {
+                    spec.addProperty("_delay", a.get("delay").getAsInt());
+                }
+                if (a.has("withTp")) {
+                    spec.add("_withTp", a.get("withTp"));
+                }
+                ON_USE.put(id, spec);
             } else {
                 ON_USE.remove(id);
             }

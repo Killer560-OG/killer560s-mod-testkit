@@ -371,6 +371,12 @@ final class HxMenuSpec {
             HxMenus.later(() -> HxSigns.open(server, player, sign));
             return;
         }
+        if (action.has("tp")) {
+            // queueleap-1119: a leap head's click teleports, as Hypixel's does (absolute look), then the menu closes
+            JsonObject tp = action.getAsJsonObject("tp");
+            player.teleportTo(player.level(), tp.get("x").getAsDouble(), tp.get("y").getAsDouble(), tp.get("z").getAsDouble(),
+                    java.util.Set.<net.minecraft.world.entity.Relative>of(), 0f, 0f, false);
+        }
         if (action.has("experiment")) {
             JsonObject next = action.getAsJsonObject("experiment");
             HxMenus.later(() -> HxExperiments.start(server, player, next));
