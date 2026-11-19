@@ -35,6 +35,7 @@ final class HxDungeonCases {
         runSummary(s);
         runSummaryPb(s);
         shareSite(s);
+        shareSiteNotice(s);
         rngMeter(s);
         blessings(s);
         classColors(s);
@@ -327,6 +328,34 @@ final class HxDungeonCases {
                 c.check(c.onClient(mc -> !(Boolean) Mod.staticCall("runsummary.RunSummaryFeature", "isTrackingRun")),
                         "with Run Summary and sharing both OFF a run was still tracked");
                 c.note("upload " + body + "; OFF -> " + stub.calls);
+            } finally {
+                run(c, () -> Mod.staticCall(SHARE, "setEnabled", true));
+                run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
+                run(c, () -> Mod.setField("runsummary.RunSummaryFeature", "finishDelayTicks", -1));
+            }
+        });
+    }
+
+    /** The notice not shown yet (a player who finished the tour before Share To Website): a finished run uploads nothing and
+     *  nothing is buffered; after the notice is answered the next run uploads. */
+    private static void shareSiteNotice(Session s) {
+        s.test("1119-hx-sharesite-notice", c -> {
+            try (Settings set = new Settings(c).with("runsummary.RunSummaryConfig", "Enabled", false);
+                 dev.testkit.gametest.logic.ShareSiteCases.Stub stub = new dev.testkit.gametest.logic.ShareSiteCases.Stub()) {
+                run(c, () -> Mod.staticCall(SHARE, "setEnabled", true));
+                dungeon(c);
+                c.waitUntil("no delete waiting", mc -> !dev.testkit.gametest.logic.ShareSiteCases.pendingDelete(), 100);
+                run(c, () -> Mod.staticCall(SHARE, "setNoticeForTest", false));
+                stub.calls.clear();
+                shareRun(c, false);
+                c.ctx().waitTicks(60);
+                c.check(stub.count("POST") == 0, "a run before the notice was answered was uploaded: " + stub.calls);
+                c.check(c.onClient(mc -> ((Number) Mod.staticCall(SHARE, "termsForTest")).intValue()) == 0, "a terminal solve was kept before the notice");
+                run(c, () -> Mod.staticCall(SHARE, "acknowledgeNotice"));
+                shareRun(c, true);
+                c.waitUntil("POST /site/stats after the notice", mc -> stub.count("POST /site/stats Bearer "
+                        + dev.testkit.gametest.logic.ShareSiteCases.TOKEN) == 1, 400);
+                c.note("after the notice: " + stub.bodies.get(0));
             } finally {
                 run(c, () -> Mod.staticCall(SHARE, "setEnabled", true));
                 run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));

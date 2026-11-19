@@ -28,6 +28,10 @@ import java.util.function.BooleanSupplier;
  * 1119-hx-sharesite-run           (HxDungeonCases) a real run through the chat path with Run Summary OFF: one POST with the
  *                                 floor, time, boss beaten, own secrets and the terminal solve; nothing in Run History; OFF
  *                                 then sends DELETE and a second run sends nothing
+ * 1119-hx-sharesite-notice       (HxDungeonCases) notice not shown: a finished run uploads nothing; after the notice is answered
+ *                                 the next run uploads
+ * 1119-ui-intro-sharesite-notice  (IntroSuite) a player past the tour gets ONLY the Share To Website scene (Keep it on / Turn it
+ *                                 off, both save noticeShown; OFF sends the delete); the normal tour answers it too
  * 1119-ui-intro-sharesite         (IntroSuite) the tour's step: ON pre-chosen, never blocks, Turn it off / Keep it on
  * </pre>
  */
@@ -74,6 +78,7 @@ public final class ShareSiteCases {
             System.setProperty("killer560.net.sharesite-relay", "http://127.0.0.1:" + server.getAddress().getPort());
             Mod.staticCall(FEATURE, "resetForTest");
             Mod.staticCall(CALLS, "setTokenForTest", TOKEN);
+            Mod.staticCall(FEATURE, "setNoticeForTest", true); // the notice is answered unless a case says otherwise
         }
 
         public long count(String prefix) {
@@ -92,6 +97,10 @@ public final class ShareSiteCases {
 
     public static boolean enabled() {
         return (Boolean) Mod.call(Mod.staticCall(CONFIG, "getInstance"), "isEnabled");
+    }
+
+    public static boolean noticeShown() {
+        return (Boolean) Mod.call(Mod.staticCall(CONFIG, "getInstance"), "isNoticeShown");
     }
 
     public static boolean pendingDelete() {
@@ -129,6 +138,8 @@ public final class ShareSiteCases {
             Mod.staticCall(CONFIG, "load");
             c.check("a fresh config is ON (killer560: on by default)", enabled());
             c.check("with no delete waiting", !pendingDelete());
+            c.check("a fresh config has not shown the notice (nothing is sent until it has)", !noticeShown());
+            c.check("the notice flag is import-locked", String.valueOf(Mod.field("profiles.ProfileManager", "IMPORT_LOCKED_FIELDS")).contains("noticeShown"));
             c.check("loading defaults wrote no file", !Files.exists(f));
             Object locked = Mod.field("profiles.ProfileManager", "IMPORT_LOCKED_FIELDS");
             c.check("someone else's profile can never change it", String.valueOf(locked).contains("killer560smod-sharesite.json"),
