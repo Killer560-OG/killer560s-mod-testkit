@@ -237,7 +237,8 @@ final class SmallDungeonCases {
                 Object e = Mod.cfg(ESP_CFG);
                 Mod.call(e, "setStarredMobs", false);
                 Mod.call(e, "setBats", false);
-                Mod.call(e, "setEsp", false);
+                Mod.call(e, "setMobEsp", false);
+                Mod.call(e, "setWithers", false);
                 Mod.call(e, "setWitherHighlight", true);
                 Mod.call(e, "setWitherHighlightColor", mine);
                 Mod.call(e, "setWitherTracer", true);
@@ -258,12 +259,15 @@ final class SmallDungeonCases {
             }
 
             // ---- rows ----
-            Screen s = DungeonB2Cases.openTab(c, cheat ? "Dungeon ESP" : "Starred Mob Hitboxes");
+            Screen s = DungeonB2Cases.openTab(c, cheat ? "Dungeon Mob Highlight" : "Starred Mob Hitboxes");
             List<String> rows = DungeonB2Cases.labels(c, s);
             c.note("ESP tab rows: " + rows);
             c.check(rows.stream().noneMatch(l -> l.startsWith("Wither Boss Color") || l.startsWith("Wither Boss Color")),
                     "the 'Wither Boss Color' row is still there");
             c.check(rows.stream().anyMatch(l -> l.startsWith("Tracer:")), "no Tracer row in the Wither Boss Highlight section");
+            for (String boss : new String[]{"Maxor:", "Storm:", "Goldor:", "Necron:"}) {
+                c.check(rows.stream().anyMatch(l -> l.startsWith(boss)), "no " + boss + " boss row while the highlight is on");
+            }
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
                 return null;
@@ -299,12 +303,47 @@ final class SmallDungeonCases {
             Map<String, Object> off = looked(c, id);
             c.check(off.get("tracer") == null, "a tracer is drawn with Tracer off");
 
+            // ---- per-boss switches (espname-1118): boss phase P1 = Maxor; his switch off = no highlight, no tracer ----
+            c.onClient(mc -> {
+                Mod.call(e0, "setWitherTracer", true);
+                Mod.setField(Mod.ROOT + "fastleap.Floor7Tracker", "phase",
+                        Mod.enumValue(Mod.ROOT + "fastleap.Floor7Tracker$Phase", "P1"));
+                Mod.call(e0, "setWitherBoss", 0, false);
+                return null;
+            });
+            c.ticks(12);
+            Map<String, Object> maxorOff = looked(c, id);
+            c.check(maxorOff.get("glow") == null && maxorOff.get("box") == null && maxorOff.get("tracer") == null,
+                    "Maxor switched off, in P1, the wither is still highlighted: " + maxorOff);
+            c.onClient(mc -> {
+                Mod.call(e0, "setWitherBoss", 0, true);
+                Mod.call(e0, "setWitherBoss", 1, false);
+                return null;
+            });
+            c.ticks(12);
+            Map<String, Object> stormOff = looked(c, id);
+            c.check(Integer.valueOf(mine).equals(stormOff.get("glow")) && Integer.valueOf(mine).equals(stormOff.get("tracer")),
+                    "Storm switched off hid the P1 (Maxor) wither: " + stormOff);
+            c.onClient(mc -> Mod.call(e0, "setWitherBoss", 1, true));
+
             // ---- the cheat ESP: same color, through walls, tracer to every wither ----
             if (cheat) {
+                // Mob ESP alone never draws a wither; Wither ESP alone does, through the wall.
                 c.onClient(mc -> {
                     Mod.call(e0, "setWitherHighlight", false);
-                    Mod.call(e0, "setEsp", true);
+                    Mod.call(e0, "setMobEsp", true);
+                    Mod.call(e0, "setWithers", false);
                     Mod.call(e0, "setWitherTracer", true);
+                    return null;
+                });
+                wall(c, true);
+                c.ticks(12);
+                Map<String, Object> mobOnly = looked(c, id);
+                c.check(mobOnly.get("glow") == null && mobOnly.get("box") == null && mobOnly.get("tracer") == null,
+                        "Mob ESP alone drew a wither: " + mobOnly);
+                c.onClient(mc -> {
+                    Mod.call(e0, "setMobEsp", false);
+                    Mod.call(e0, "setWithers", true);
                     return null;
                 });
                 wall(c, true);
@@ -313,6 +352,11 @@ final class SmallDungeonCases {
                 c.note("ESP on, behind a wall: box " + esp.get("box") + ", tracer " + esp.get("tracer"));
                 c.check(Integer.valueOf(mine).equals(esp.get("box")), "the ESP did not draw the wither in the highlight color: " + esp.get("box"));
                 c.check(Integer.valueOf(mine).equals(esp.get("tracer")), "the ESP tracer is missing or not in the highlight color: " + esp.get("tracer"));
+                c.onClient(mc -> Mod.call(e0, "setWitherBoss", 0, false));
+                c.ticks(12);
+                Map<String, Object> espOff = looked(c, id);
+                c.check(espOff.get("box") == null && espOff.get("tracer") == null,
+                        "Maxor off in P1: the Wither ESP still draws him: " + espOff);
             }
         } finally {
             c.onClient(mc -> {
