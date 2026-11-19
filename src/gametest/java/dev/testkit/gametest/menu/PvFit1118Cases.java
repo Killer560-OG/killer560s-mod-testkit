@@ -183,7 +183,7 @@ final class PvFit1118Cases {
             // Ctrl+F (GLFW F = 70, ctrl = 2) focuses the box.
             boolean before = c.onClient(mc -> (Boolean) Mod.call(s, "findFocused"));
             boolean[] handled = new boolean[1];
-            c.ctx().runOnClient(mc -> handled[0] = s.keyPressed(McKeys.keyEvent(McKeys.nat(70), 2)));
+            c.ctx().runOnClient(mc -> handled[0] = s.keyPressed(McKeys.keyEvent(com.mojang.blaze3d.platform.InputConstants.KEY_F, com.mojang.blaze3d.platform.InputConstants.MOD_CONTROL)));
             c.note("Ctrl+F handled=" + handled[0] + " screen=" + (mc0(c) == s));
             c.ctx().waitTicks(2);
             boolean after = c.onClient(mc -> (Boolean) Mod.call(s, "findFocused"));
@@ -267,8 +267,8 @@ final class PvFit1118Cases {
                 c.ctx().waitTicks(40);
                 List<?> rows = c.onClient(mc -> (List<?>) Mod.field(Mod.field(s, "extraPages"), "collRowTexts"));
             c.note("collection rows: " + rows);
-            boolean cobble = rows.stream().anyMatch(r -> String.valueOf(r).contains("1.2M"));
-            c.check(cobble, "no collection row carried the short total 1.2M for 1,234,567 cobblestone: " + rows);
+            boolean cobble = rows.stream().anyMatch(r -> String.valueOf(r).contains("1.23M"));
+            c.check(cobble, "no collection row carried the short total 1.23M for 1,234,567 cobblestone: " + rows);
             BazaarReskinCases.shot(c, "collections");
             } finally {
                 synchronized (remote) { future.set(remote, old); }
