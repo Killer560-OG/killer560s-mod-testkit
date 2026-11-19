@@ -49,6 +49,7 @@ final class HxLuck1102Cases {
         s.test("1102-luck-mobkill", HxLuck1102Cases::mobKill);
         s.test("1102-luck-slayerlevel", HxLuck1102Cases::slayerLevel);
         s.test("1102-luck-meter", HxLuck1102Cases::meter);
+        s.test("1118-rngrank-double", HxLuck1102Cases::rankDouble);
         s.test("1102-luck-kuudra", HxLuck1102Cases::kuudra);
         s.test("1102-luck-nucleus", HxLuck1102Cases::nucleus);
         s.test("1102-luck-experiment", HxLuck1102Cases::experiment);
@@ -333,6 +334,79 @@ final class HxLuck1102Cases {
             }
         });
         } finally {
+            c.ctx().runOnClient(mc -> Mod.set("rngmeter.RngMeterConfig", "setEnabled", rngWas));
+        }
+    }
+
+    // ---- 1118-rngrank-double: the ranking panel is one picture in the HUD editor ------------------------------------
+
+    private static final String RNG = "com.killer560.hub.rngmeter.RngMeterOverlay";
+
+    private static int[] draws() throws ReflectiveOperationException {
+        Class<?> k = Class.forName(RNG);
+        return new int[]{k.getField("liveDraws").getInt(null), k.getField("editorDraws").getInt(null)};
+    }
+
+    private static int[] drawsOver(Session c, int ticks) {
+        int[] a = c.onClient(mc -> { try { return draws(); } catch (ReflectiveOperationException e) { throw new AssertionError(e); } });
+        c.ctx().waitTicks(ticks);
+        int[] b = c.onClient(mc -> { try { return draws(); } catch (ReflectiveOperationException e) { throw new AssertionError(e); } });
+        return new int[]{b[0] - a[0], b[1] - a[1]};
+    }
+
+    private static void rankDouble(Session c) {
+        boolean rngWas = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg("rngmeter.RngMeterConfig"), "isEnabled"));
+        c.ctx().runOnClient(mc -> Mod.set("rngmeter.RngMeterConfig", "setEnabled", true));
+        try {
+            skyblock(c);
+            c.hx().menu("(2/2) Experimentation Table RNG", 6, Map.of(
+                    4, "minecraft:rotten_flesh[custom_name={text:\"Experimentation Table RNG Meter\",italic:false},lore=["
+                            + "\"Selected Drop\",\"Warden Heart\",\"\",\"Progress: 42.0%\",\"4,200/10,000\"]]",
+                    10, "minecraft:diamond[custom_name={text:\"Titanic Experience Bottle\",italic:false},lore=[\"Score: 100/1,000\"]]",
+                    11, "minecraft:emerald[custom_name={text:\"Grand Experience Bottle\",italic:false},lore=[\"Score: 200/2,000\"]]"),
+                    null);
+            c.ctx().waitTicks(30);
+            int[] menuOnly = drawsOver(c, 20);
+            c.note("menu only: live " + menuOnly[0] + ", editor " + menuOnly[1]);
+            c.check(menuOnly[0] > 0 && menuOnly[1] == 0, "menu alone must draw the live panel (" + menuOnly[0] + ") and not the editor's (" + menuOnly[1] + ")");
+            c.ctx().runOnClient(mc -> {
+                try {
+                    net.minecraft.client.gui.screens.Screen editor = (net.minecraft.client.gui.screens.Screen) Class.forName("com.killer560.hub.hud.HudEditorScreen")
+                            .getConstructor(net.minecraft.client.gui.screens.Screen.class).newInstance((Object) McCompat.screen(mc));
+                    McCompat.setScreen(mc, editor);
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+            });
+            c.ctx().waitTicks(10);
+            int[] both = drawsOver(c, 20);
+            c.note("editor over menu: live " + both[0] + ", editor " + both[1]);
+            c.check(both[0] == 0, "the live panel drew " + both[0] + " times under the editor: two panels on top of each other");
+            c.check(both[1] > 0, "the editor drew no ranking panel over the open RNG menu");
+            try {
+                java.nio.file.Path shot = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(c.name() + "-editor-over-menu"));
+                dev.testkit.harness.Report.screenshot(c.name() + "-editor-over-menu", shot);
+            } catch (Exception e) {
+                c.note("screenshot failed: " + e);
+            }
+            c.hx().call("menu.close");
+            c.ctx().runOnClient(mc -> McCompat.setScreen(mc, null));
+            c.ctx().waitTicks(10);
+            // The editor with no menu: sample rows, drawn once, and the live panel not at all.
+            c.ctx().runOnClient(mc -> {
+                try {
+                    McCompat.setScreen(mc, (net.minecraft.client.gui.screens.Screen) Class.forName("com.killer560.hub.hud.HudEditorScreen")
+                            .getConstructor(net.minecraft.client.gui.screens.Screen.class).newInstance((Object) null));
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+            });
+            c.ctx().waitTicks(10);
+            int[] editorOnly = drawsOver(c, 20);
+            c.note("editor, no menu: live " + editorOnly[0] + ", editor " + editorOnly[1]);
+            c.check(editorOnly[0] == 0 && editorOnly[1] > 0, "live panel drew with no menu: " + editorOnly[0] + ", editor drew " + editorOnly[1]);
+        } finally {
+            c.ctx().runOnClient(mc -> McCompat.setScreen(mc, null));
             c.ctx().runOnClient(mc -> Mod.set("rngmeter.RngMeterConfig", "setEnabled", rngWas));
         }
     }

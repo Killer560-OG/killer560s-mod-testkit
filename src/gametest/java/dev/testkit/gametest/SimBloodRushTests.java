@@ -74,6 +74,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
     static final String RENUMBER = "1104-sim-bloodrush-rooms-renumbered";
     static final String MAP_RENUMBER = "1104-sim-map-rooms-renumbered";
     static final String HIDE = "1104-bloodrush-hidesecrets";
+    static final String PATHONLY = "1117-bloodrush-pathonly";
     private static final String SW = "com.killer560.hub.secretwaypoints.SecretWaypointsFeature";
     static final String PATHCACHE = "1104-bloodrush-pathcache";
     static final String TABLE = "1113-bloodrush-table";
@@ -98,7 +99,7 @@ public class SimBloodRushTests implements FabricClientGameTest {
             return;
         }
         List<String> failed = new ArrayList<>();
-        for (String name : List.of(SPLIT, RUSH, SPOTS, OFF, KNOWN, RENUMBER, MAP_RENUMBER, HIDE, PATHCACHE, TABLE)) {
+        for (String name : List.of(SPLIT, RUSH, SPOTS, OFF, KNOWN, RENUMBER, MAP_RENUMBER, HIDE, PATHCACHE, TABLE, PATHONLY)) {
             if (Scenario.skip(name)) {
                 continue;
             }
@@ -178,6 +179,16 @@ public class SimBloodRushTests implements FabricClientGameTest {
                     }
                 } else if (name.equals(TABLE)) {
                     tableBoxes(ctx, problems, facts);
+                } else if (name.equals(PATHONLY)) {
+                    for (int attempt = 1; attempt <= 6; attempt++) {
+                        if (!SimMobFloorTests.buildMobFloor(ctx, problems, facts)) {
+                            break;
+                        }
+                        if (pathOnly(ctx, problems, facts) || !problems.isEmpty() || attempt == 6) {
+                            break;
+                        }
+                        facts.add("floor " + attempt + ": no usable side room or key room, new floor");
+                    }
                 } else if (name.equals(HIDE)) {
                     if (SimMobFloorTests.buildMobFloor(ctx, problems, facts)) {
                         hideSecrets(ctx, problems, facts);
@@ -401,6 +412,89 @@ public class SimBloodRushTests implements FabricClientGameTest {
         if (after == 0) {
             problems.add("rush room still hides its waypoints after the blood door opened");
         }
+    }
+
+    /**
+     * 1117-bloodrush-pathonly (mod bloodrushpath-1117): with All Rooms OFF the helper draws boxes only in rooms on the way to
+     * the Blood door. Standing in the first key room (on the path) it draws boxes (it acted); then every mob room OFF the
+     * path the hotbar map gives is entered (the old rule made each one a rush room once walked into) and none draws a box;
+     * with All Rooms ON at least one of those same rooms draws boxes (control: they had boxes to show). Returns false when
+     * the floor has no usable key room or no side room with boxes, so the caller builds another.
+     */
+    private static boolean pathOnly(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
+        rushSettings(ctx);
+        ctx.waitTicks(20);
+        @SuppressWarnings("unchecked")
+        List<String> keyRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(SIM_FLOOR, "keyRoomsForTest"));
+        String room = boxRoom(ctx, keyRooms);
+        if (room == null) {
+            return false;
+        }
+        double[] land = serverStarredIn(ctx, room).get(0);
+        SimMobFloorTests.teleport(ctx, land[0], land[1], land[2]);
+        List<Spot> shown = List.of();
+        for (int i = 0; i < 100 && shown.isEmpty(); i += 5) {
+            ctx.waitTicks(5);
+            shown = parsed(ctx);
+        }
+        if (shown.isEmpty()) {
+            problems.add("no box drawn in the path room " + room + " (" + status(ctx) + ")");
+            return false;
+        }
+        @SuppressWarnings("unchecked")
+        List<String> rushRooms = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(BR, "mapRushRoomsForTest"));
+        List<double[]> others = ctx.computeOnClient(mc -> {
+            List<double[]> out = new ArrayList<>();
+            Object layout = ModUnderTest.staticCall(LAYOUT, "current");
+            int n = (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[0], new Object[0]);
+            for (int r = 0; r < n; r++) {
+                String nm = String.valueOf(ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{r}));
+                int[] tiles = (int[]) ModUnderTest.call(layout, "tiles", new Class<?>[]{int.class}, new Object[]{r});
+                if (rushRooms.contains(nm) || tiles == null || tiles.length == 0) {
+                    continue;
+                }
+                BlockPos c = (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class}, new Object[]{tiles[0]});
+                out.add(new double[]{c.getX() + 0.5, c.getZ() + 0.5});
+            }
+            return out;
+        });
+        int tried = Math.min(others.size(), 14);
+        // All Rooms ON first: which side rooms have boxes to show (the control), then OFF must show none of them.
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(BR_CFG), "setAllRooms", true));
+        List<Integer> withBoxes = new ArrayList<>();
+        for (int i = 0; i < tried; i++) {
+            SimMobFloorTests.teleport(ctx, others.get(i)[0], land[1], others.get(i)[1]);
+            ctx.waitTicks(10);
+            if (!spots(ctx).isEmpty()) {
+                withBoxes.add(i);
+            }
+        }
+        facts.add("path rooms " + rushRooms + "; " + tried + " side room(s) entered, " + withBoxes.size() + " drew boxes with All Rooms on");
+        if (withBoxes.isEmpty()) {
+            return false;
+        }
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(BR_CFG), "setAllRooms", false));
+        for (int i : withBoxes) {
+            SimMobFloorTests.teleport(ctx, others.get(i)[0], land[1], others.get(i)[1]);
+            ctx.waitTicks(10);
+            List<String> now = spots(ctx);
+            if (!now.isEmpty()) {
+                problems.add("All Rooms off still drew " + now.size() + " box(es) in a side room off the path: " + now.get(0));
+            }
+        }
+        SimMobFloorTests.teleport(ctx, land[0], land[1], land[2]);
+        List<Spot> back = List.of();
+        for (int i = 0; i < 100 && back.isEmpty(); i += 5) {
+            ctx.waitTicks(5);
+            back = parsed(ctx);
+        }
+        if (back.isEmpty()) {
+            @SuppressWarnings("unchecked")
+            List<String> rr = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(BR, "mapRushRoomsForTest"));
+            problems.add("after visiting side rooms the path room " + room + " drew no box with All Rooms off; path now " + rr + "; " + status(ctx));
+        }
+        facts.add("All Rooms off: " + withBoxes.size() + " side room(s) drew none; path room " + room + " drew " + back.size() + " box(es)");
+        return true;
     }
 
     private static int firstKeyRoomStarred(ClientGameTestContext ctx) {

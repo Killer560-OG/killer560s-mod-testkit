@@ -20,7 +20,7 @@ import java.util.Set;
 
 /**
  * 1113-ui-accadvisor (accadvisor-1113, Accessory Advisor): a fixture accessory list, upgrade families and lowest-BIN
- * prices, and a fake "Accessory Bag (1/2)" holding Alpha Talisman (family A, Common) and Delta Talisman. Opening the bag
+ * prices, and a fake "(1/2) Accessory Bag" holding Alpha Talisman (family A, Common) and Delta Talisman. Opening the bag
  * must build the panel (the feature acted: its last result is set and asks for the second page), then each mode must rank
  * exactly as worked out by hand below. The switch off builds nothing.
  * <p>
@@ -73,13 +73,13 @@ final class AccAdvisor1113Cases {
 
             // Switch off: the bag opens and nothing is built.
             Mod.set(CFG, "setEnabled", false);
-            open(c, "Accessory Bag (1/2)", true);
+            open(c, "(1/2) Accessory Bag", true);
             c.ticks(6);
             c.check(c.onClient(mc -> Mod.staticCall(ADV, "lastResultForTest")) == null, "the panel was built with the switch off");
             close(c);
 
             Mod.set(CFG, "setEnabled", true);
-            open(c, "Accessory Bag (1/2)", true);
+            open(c, "(1/2) Accessory Bag", true);
             c.ticks(6);
             Object res = c.onClient(mc -> Mod.staticCall(ADV, "lastResultForTest"));
             c.check(res != null, "the panel never built on the Accessory Bag - the feature never acted");
@@ -92,7 +92,7 @@ final class AccAdvisor1113Cases {
             close(c);
 
             // Page 2 (empty): the bag is complete.
-            open(c, "Accessory Bag (2/2)", false);
+            open(c, "(2/2) Accessory Bag", false);
             c.ticks(6);
             @SuppressWarnings("unchecked")
             List<String> lines2 = c.onClient(mc -> (List<String>) Mod.staticCall(ADV, "linesForTest"));

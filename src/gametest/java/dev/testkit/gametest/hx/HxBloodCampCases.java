@@ -121,6 +121,8 @@ final class HxBloodCampCases {
         s.test("1103-bloodcamp-watcher-line", HxBloodCampCases::watcherLine);
         // bctrig-1104: Mob Ticks start at the first spawn after the kill timer; KILL on game time, never the ping clock.
         s.test("1104-bloodcamp-stats-spawn", HxBloodCampCases::statsSpawn);
+        s.test("1109-bloodcamp-lost-far", c -> statsFar(c, false));
+        s.test("1109-bloodcamp-lost-far-partial", c -> statsFar(c, true));
         s.test("1108-bloodcamp-party-wire", HxBloodCampCases::partyWire);
         s.test("1104-bloodcamp-gametime", HxBloodCampCases::gameTimeKill);
         s.test("1101-esp-fels", HxBloodCampCases::fels);
@@ -132,7 +134,39 @@ final class HxBloodCampCases {
         s.test("1109-bloodcamp-outside", HxBloodCampCases::outsideRoom);
         for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{dev.testkit.gametest.SameTick.Act.USE,
                 dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK}) {
-            s.test("1109-same-bloodcamp-" + a.name().toLowerCase(Locale.ROOT), c -> sameTickOutside(c, a));
+            s.test("1109-same-bloodcamp-" + a.name().toLowerCase(Locale.ROOT), c -> sameTickOutside(c, a, 0));
+        }
+        // bloodaura-rotate-1118: the Aura's two modes at their fastest, with his own action (or a teleport accept) in the tick of its hit.
+        for (int who = 1; who <= 2; who++) {
+            for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{dev.testkit.gametest.SameTick.Act.USE,
+                    dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK,
+                    dev.testkit.gametest.SameTick.Act.TP}) { // USE_KEY is his same right-click packet as USE; its feature/his split cannot tell a bow shot from his click
+                final int w = who;
+                s.test("1118-same-bloodaura-" + (who == 1 ? "rotate-" : "norotate-") + a.name().toLowerCase(Locale.ROOT),
+                        c -> sameTickOutside(c, a, w));
+            }
+        }
+        s.test("1118-bloodaura-exclusive", HxBloodCampCases::auraExclusive);
+        s.test("1118-bloodaura-norotate", HxBloodCampCases::auraNoRotate);
+        s.test("1118-bloodaura-preaim", HxBloodCampCases::auraPreAim);
+        // Move Around (cheat, Aura): it walks him, yields to his keys, flees TNT, and off it never touches a key.
+        s.test("1118-bloodaura-walk", c -> auraWalk(c, 0));
+        s.test("1118-bloodaura-walk-off", c -> auraWalk(c, 1));
+        s.test("1118-bloodaura-walk-hiskeys", c -> auraWalk(c, 2));
+        s.test("1118-bloodaura-walk-outside", c -> auraWalk(c, 3));
+        s.test("1118-bloodaura-walk-leave", c -> auraWalk(c, 4));
+        s.test("1118-bloodaura-walk-tnt", HxBloodCampCases::auraWalkTnt);
+        for (int who = 1; who <= 2; who++) {
+            for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{dev.testkit.gametest.SameTick.Act.USE,
+                    dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK,
+                    dev.testkit.gametest.SameTick.Act.TP}) { // USE_KEY is his same right-click packet as USE; its feature/his split cannot tell a bow shot from his click
+                final int w = who;
+                s.test("1118-same-bloodwalk-" + (who == 1 ? "rotate-" : "norotate-") + a.name().toLowerCase(Locale.ROOT),
+                        c -> sameTickOutside(c, a, w, 1));
+            }
+            final int w2 = who;
+            s.test("1118-same-bloodwalk-" + (who == 1 ? "rotate" : "norotate") + "-hiskeys",
+                    c -> sameTickOutside(c, dev.testkit.gametest.SameTick.Act.USE, w2, 2));
         }
     }
 
@@ -151,11 +185,11 @@ final class HxBloodCampCases {
         String ceiling = "-417 159 -428 -410 159 -421";
         try (HxKit.Settings s = base(c)) {
             boolean[] was = c.onClient(mc -> new boolean[]{(Boolean) Mod.call(Mod.cfg(ESP_CFG), "getBloodMobsRaw"),
-                    (Boolean) Mod.call(Mod.cfg(ESP_CFG), "isEspRaw")});
+                    (Boolean) Mod.call(Mod.cfg(ESP_CFG), "isMobEspRaw")});
             s.custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setBloodMobs", true),
                             () -> Mod.call(Mod.cfg(ESP_CFG), "setBloodMobs", was[0]))
-                    .custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setEsp", false),
-                            () -> Mod.call(Mod.cfg(ESP_CFG), "setEsp", was[1]));
+                    .custom(() -> Mod.call(Mod.cfg(ESP_CFG), "setMobEsp", false),
+                            () -> Mod.call(Mod.cfg(ESP_CFG), "setMobEsp", was[1]));
             watcher(c, WATCHER_IN);
             stand(c, AWAY_YAW, 10f);
             int red = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(ESP_CFG), "getBloodColor"));
@@ -582,7 +616,7 @@ final class HxBloodCampCases {
         boolean cheat = Mod.isCheat();
         try (HxKit.Settings s = base(c)) {
             if (cheat) {
-                s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "AuraEnabled", true);
+                s.with(BC_CFG, "AuraEnabled", true); // Trigger Bot and Aura are exclusive: the Aura outside first, the Trigger Bot below
             }
             // Outside: the Watcher one room tile over. He aims at the mob himself (so only the room gate can stop the
             // Trigger Bot), and the Aura must not even pick a target.
@@ -596,6 +630,13 @@ final class HxBloodCampCases {
             c.check(out.clicks == 0 && out.serverAttacks.isEmpty(), "outside the Blood Room the Trigger Bot clicked "
                     + out.clicks + " time(s)");
             c.check(!out.everTurning && out.auraPoint == null, "outside the Blood Room the Aura aimed at " + out.auraPoint);
+            if (cheat) {
+                s.with(BC_CFG, "TriggerBotEnabled", true); // turns the Aura off
+                stand(c, 0f, 0f);
+                Trip out2 = trip(c, Mob.HURTABLE, true, 20, null);
+                c.check(out2.clicks == 0 && out2.serverAttacks.isEmpty(), "outside the Blood Room the Trigger Bot clicked "
+                        + out2.clicks + " time(s)");
+            }
             // Back in his tile: the same trip is clicked (control - the case CAN see a click).
             watcher(c, WATCHER_IN);
             stand(c, 0f, 0f);
@@ -830,7 +871,7 @@ final class HxBloodCampCases {
             return;
         }
         try (HxKit.Settings s = base(c)) {
-            s.with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "AuraFreecam", true).with(BC_CFG, "TriggerBotEnabled", true);
+            s.with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "AuraFreecam", true);
             watcher(c, WATCHER_IN);
             stand(c, AWAY_YAW, 10f);
             List<float[]> views = new ArrayList<>();
@@ -860,8 +901,7 @@ final class HxBloodCampCases {
             c.check(heldTicks >= 5, "Freecam Mode never held the camera");
             c.check(maxViewMove < 0.01, "the camera moved " + maxViewMove + " degrees while the Aura turned him");
             // The Aura attacks too since bloodcamp-2-1015, so a second hit is allowed; the body's look did the hitting.
-            c.check(t.attacks >= 1 && !t.serverAttacks.isEmpty(), "the Trigger Bot's attack (body on the husk, camera"
-                    + " away) never landed");
+            c.check(!t.serverAttacks.isEmpty(), "the Aura's attack (body on the husk, camera away) never landed");
             c.check(!heldAtEnd && backOff < 0.6, "after the mob was hit the body did not come back under the camera"
                     + " and release it (held " + heldAtEnd + ", " + backOff + " deg off)");
         } finally {
@@ -1969,10 +2009,11 @@ final class HxBloodCampCases {
                     + " moment; biggest resting frame turn %.2f deg, biggest tick turn %.2f; %s", firstTurnTick[0], t.due,
                     pickedAt, rest, tickYaw, fmt(t)));
             c.check(firstTurnTick[0] >= 0, "the Aura never picked the mob - nothing was tested");
-            c.check(!Double.isNaN(pickedAt) && pickedAt <= 24.0 && pickedAt > 0.0, "the Aura picked the mob " + pickedAt
-                    + " ticks before its click moment, want within a reaction plus its turn (at most 24)");
-            c.check(firstTurnTick[0] >= Math.floor(t.due) - 26, "the Aura was turning " + (t.due - firstTurnTick[0])
-                    + " ticks before the mob was due (the old 35-tick start)");
+            // bloodaura-rotate-1118 (killer560, 2026-11-18: "the second that a new mob spawn spot is posted ... it should start aiming
+            // there"): Rotate mode pre-aims, so the pick is now early (the old late-pick rule is retired); the click moment, the
+            // attack and the no-jump rules below still hold, and 1118-bloodaura-preaim tests the early turn itself.
+            c.check(!Double.isNaN(pickedAt) && pickedAt > 24.0, "the Aura picked the mob only " + pickedAt
+                    + " ticks before its click moment; Rotate pre-aims from the moment the spot is posted");
             c.check(!t.serverAttacks.isEmpty(), "the Aura never attacked the mob");
             c.check(rest <= 4.0f, "while resting on the mob the Aura jumped " + rest + " degrees in one frame");
             c.check(tickYaw <= 26.0f + 1e-3f, "a tick's turn was " + tickYaw + " degrees, over the 26 cap");
@@ -2146,6 +2187,10 @@ final class HxBloodCampCases {
             c.check(hud.stream().anyMatch(l -> l.startsWith("Mob Ticks: " + after[0])), "the HUD does not show the count: "
                     + hud);
             c.check(camped, "he stood in the Blood Room after the kill timer and was not counted as camping");
+            // bloodlost-1109: an in-room camp (mobs in view all along) is an exact figure, never "N+" / "at least N".
+            c.check(hud.stream().noneMatch(l -> l.contains("+") || l.contains("unknown")) && msg != null
+                    && !msg.contains("+") && !msg.contains("at least") && !msg.contains("unknown"),
+                    "an in-room camp read as a lower bound or unknown: HUD " + hud + ", message \"" + msg + "\"");
             c.check(msg != null && msg.startsWith("Blood Camp: " + after[0] + " ticks lost") && msg.contains("server lag"),
                     "the party message is \"" + msg + "\"");
             c.check(sent == 1, "the party message went " + sent + " times, want once");
@@ -3645,6 +3690,54 @@ final class HxBloodCampCases {
         }
     }
 
+    /**
+     * bloodlost-1109 (killer560: the time-lost figure "not working if i am far away nor not in blood room or mage myself"):
+     * with the Watcher and every blood mob out of the client world (entity range) the greeting and KILL still arrive, but
+     * nothing can be seen, and the old figure was a flat 0. It must read unknown (no party message), or "at least N" when a
+     * count had started in view and the mobs then left it.
+     */
+    private static void statsFar(Session c, boolean partial) {
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "HudMobTicks", true).with(BC_CFG, "PartyMessage", false);
+            clearDecoys(c);
+            c.hx().removeStands();
+            greet(c);
+            c.onClient(mc -> {
+                long elapsed = (Long) Mod.staticCall(BC_MT, "elapsedSinceGreeting");
+                int lead = (Integer) Mod.call(Mod.cfg(BC_CFG), "getKillPopupLeadTicks");
+                Mod.setField(BC_MT, "moveAtElapsed", elapsed + 10 + lead);
+                return null;
+            });
+            c.waitUntil("the kill timer goes off", mc -> "WAITING_SPAWN".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
+            if (partial) {
+                c.onClient(mc -> Mod.staticCall(BC_STATS, "tripMobLandedForTest", -1));
+            }
+            c.ctx().waitTicks(30);
+            Object[] r = c.onClient(mc -> new Object[]{Mod.staticCall(BC_STATS, "lostUnknown"),
+                    Mod.staticCall(BC_STATS, "blindTicks"), Mod.staticCall(BC_STATS, "ticksLost"),
+                    Mod.staticCall(BC_STATS, "hudLinesForTest")});
+            c.hx().chat("[BOSS] The Watcher: You have proven yourself. You may pass.");
+            c.ctx().waitTicks(3);
+            String msg = c.onClient(mc -> (String) Mod.staticCall(BC_STATS, "lastMessage"));
+            c.note("far, partial=" + partial + ": unknown " + r[0] + ", blind ticks " + r[1] + ", counted " + r[2] + ", HUD "
+                    + r[3] + ", message \"" + msg + "\"");
+            if (partial) {
+                c.check(Boolean.FALSE.equals(r[0]) && (Long) r[1] >= 8, "a count started in view and the mobs left it: unknown "
+                        + r[0] + ", blind ticks " + r[1] + ", want a lower bound");
+                c.check(msg != null && msg.contains("at least"), "the summary did not say \"at least\": " + msg);
+            } else {
+                c.check(Boolean.TRUE.equals(r[0]), "never in view for 30 ticks and the figure is not unknown (" + r[0] + ", "
+                        + r[2] + ")");
+                c.check(msg != null && msg.contains("unknown") && !msg.contains("0 ticks"), "the summary quotes a number: " + msg);
+            }
+        } finally {
+            c.onClient(mc -> {
+                Mod.staticCall(BC_MT, "reset");
+                return null;
+            });
+        }
+    }
+
     /** BloodCampMoveTimer's private {@code moveAtElapsed}. */
     private static long moveAtElapsed() {
         try {
@@ -3991,7 +4084,7 @@ final class HxBloodCampCases {
             return;
         }
         try (HxKit.Settings s = base(c)) {
-            s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "AuraEnabled", true);
+            s.with(BC_CFG, "TriggerBotEnabled", true);
             outsidePlatform(c, "minecraft:stone");
             watcher(c, WATCHER_IN);
             // A shortbow: 9 blocks from the mob is out of melee reach; the Trigger Bot uses it (a use_item per shot).
@@ -4021,18 +4114,50 @@ final class HxBloodCampCases {
         }
     }
 
-    private static void sameTickOutside(Session c, dev.testkit.gametest.SameTick.Act act) {
+    private static void sameTickOutside(Session c, dev.testkit.gametest.SameTick.Act act, int who) {
+        sameTickOutside(c, act, who, 0);
+    }
+
+    private static final double WALK_X = -405.5;
+    private static final String WALK_PLATFORM = "fill -432 150 -425 -394 150 -395 ";
+
+    /** {@code mode}: 0 = the Aura / Trigger Bot just outside the room, 1 = the Aura with Move Around inside it, 2 = 1 plus his own keys and a jump. */
+    private static void sameTickOutside(Session c, dev.testkit.gametest.SameTick.Act act, int who, int mode) {
         if (!Mod.isCheat()) {
             return;
         }
         dev.testkit.gametest.SameTick st = null;
         try (HxKit.Settings s = base(c)) {
-            s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "WorkOutside", true);
-            outsidePlatform(c, "minecraft:stone");
+            // who: 0 = Trigger Bot, 1 = Aura / Rotate, 2 = Aura / No Rotate (killer560, 2026-11-18: the two are exclusive, the
+            // aura ones at their fastest: Never Miss, 100 Attack Speed, the between-hits clicks on).
+            if (who == 0) {
+                s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "WorkOutside", true);
+            } else {
+                s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "AuraRotate", who == 1).with(BC_CFG, "AuraLookSpeed", 10)
+                        .with(BC_CFG, "NeverMiss", true).with(BC_CFG, "WorkOutside", mode == 0).with(BC_CFG, "MoveAround", mode != 0)
+                        .custom(() -> Mod.staticCall(BC, "setHumanClicks", true), () -> Mod.staticCall(BC, "setHumanClicks", false));
+                rememberAs(100);
+            }
+            if (mode != 0) {
+                c.server().command(WALK_PLATFORM + "minecraft:stone replace minecraft:air");
+                c.onClient(mc -> Mod.staticCall(WALK, "resetStats"));
+            } else {
+                outsidePlatform(c, "minecraft:stone");
+            }
             c.server().command("item replace entity @a hotbar.5 with stick");
             watcher(c, WATCHER_IN);
             holding(c, SHORTBOW); // slot 0 selected; the swap goes between it and the stick in slot 5
-            standAt(c, NEAR_OUT_X, PZ, 0f, 0f);
+            standAt(c, mode != 0 ? WALK_X : NEAR_OUT_X, mode != 0 ? -417.5 : PZ, who == 0 ? 0f : 90f, 0f); // the aura turns him; the Trigger Bot is aimed by the case
+            int aura0 = who == 0 ? 0 : intStat(c, "auraAttacks");
+            int[] keyAt = {-1, -1};
+            if (act == dev.testkit.gametest.SameTick.Act.TP) {
+                nextServerStep = i -> {
+                    // a teleport packet every other tick round both runs' click moments (78.8 / 38.8): his accept goes out beside the feature's click
+                    if (who == 0 ? i >= 10 && i % 3 == 0 : i >= 30 && i <= 90 && i % 2 == 0) {
+                        c.server().command("execute at @p run tp @p ~ ~ ~");
+                    }
+                };
+            }
             // ATTACK needs his crosshair on an entity within his reach (3 blocks; the husk is 9 away): an INVISIBLE NoAI zombie 1.6
             // blocks ahead on his look (an invisible thing never holds the Trigger Bot's line of fire; a visible one would).
             if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
@@ -4040,7 +4165,9 @@ final class HxBloodCampCases {
                     if (i == 0) {
                         Vec3 end = c.onClient(mc -> endVector());
                         Vec3 eye = c.onClient(mc -> mc.player.getEyePosition());
-                        Vec3 at = eye.add(end.add(0, 1.4, 0).subtract(eye).normalize().scale(1.6));
+                        // No Rotate never turns the camera: the crosshair target is on his own look, not toward the mob.
+                        Vec3 dir = who == 2 ? c.onClient(mc -> mc.player.getLookAngle()) : end.add(0, 1.4, 0).subtract(eye).normalize();
+                        Vec3 at = eye.add(dir.scale(1.6));
                         c.server().command(String.format(Locale.ROOT, "summon zombie %.3f %.3f %.3f {Tags:[\"bc1015\"],NoAI:1b,"
                                 + "NoGravity:1b,Silent:1b,Invulnerable:1b,PersistenceRequired:1b,active_effects:[{id:\"minecraft:invisibility\",duration:99999,show_particles:0b}]}", at.x, at.y - 1.0, at.z));
                     }
@@ -4049,22 +4176,36 @@ final class HxBloodCampCases {
             boolean firstWave = c.onClient(mc -> (Boolean) Mod.staticCall("bloodcamp.BloodCampMoveTimer", "isFirstSpawns"));
             int closeAt = (firstWave ? 40 : 0) + 30;
             st = c.onClient(mc -> dev.testkit.gametest.SameTick.start(act,
-                    act == dev.testkit.gametest.SameTick.Act.ATTACK ? 2 : 1,
+                    act == dev.testkit.gametest.SameTick.Act.ATTACK ? (who == 2 ? 6 : 2) : 1, // No Rotate yields its turn to his hand while he attacks every other tick
                     p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 5));
             int clicks = 0;
             for (int run = 0; run < 2; run++) { // the second run of the feature right after the first
-                Trip t = trip(c, Mob.HURTABLE, true, 20, act != dev.testkit.gametest.SameTick.Act.CLICK ? null : (tick, mc) -> {
-                    // A container open holds the Trigger Bot and the Aura (ActionGate): his clicks go, then it closes and they act.
-                    if (tick == 0) {
-                        dev.testkit.compat.McCompat.setScreen(mc, new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player));
-                    } else if (tick == closeAt) {
-                        mc.player.closeContainer();
+                final int runNo = run;
+                Trip t = trip(c, Mob.HURTABLE, who == 0, mode != 0 ? 40 : 20, act != dev.testkit.gametest.SameTick.Act.CLICK && mode != 2 ? null : (tick, mc) -> {
+                    if (act == dev.testkit.gametest.SameTick.Act.CLICK) {
+                        // A container open holds the Trigger Bot and the Aura (ActionGate): his clicks go, then it closes and they act.
+                        if (tick == 0) {
+                            dev.testkit.compat.McCompat.setScreen(mc, new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player));
+                        } else if (tick == closeAt) {
+                            mc.player.closeContainer();
+                        }
+                    }
+                    if (mode == 2) {
+                        herKeys(mc, tick, keyAt, runNo);
                     }
                 });
                 c.note(act + " run " + (run + 1) + ": " + fmt(t));
-                c.check(t.inRoom && t.clicks >= 1, act + " run " + (run + 1) + ": the Trigger Bot did not act (inRoom " + t.inRoom
-                        + ", clicks " + t.clicks + ") - nothing tested");
-                clicks += t.clicks;
+                int acted = who == 0 ? t.clicks : intStat(c, "auraAttacks") - aura0 - clicks;
+                c.check(t.inRoom && acted >= 1, act + " run " + (run + 1) + ": the " + (who == 0 ? "Trigger Bot" : "Aura") + " did not act (inRoom "
+                        + t.inRoom + ", clicks " + acted + ") - nothing tested");
+                c.check(who == 0 || t.clicks == 0, "the Trigger Bot clicked " + t.clicks + " time(s) with the Aura on (they are exclusive)");
+                if (who == 2) {
+                    c.check(!t.everTurning, "No Rotate: the humanized turn ran");
+                }
+                if (mode == 2 && run == 0) {
+                    c.check(keyAt[0] >= 0 && keyAt[1] == keyAt[0], "his keys were held but Move Around still pressed keys (" + keyAt[0] + " -> " + keyAt[1] + ")");
+                }
+                clicks += acted;
             }
             dev.testkit.gametest.SameTick done = st;
             st = null;
@@ -4073,6 +4214,12 @@ final class HxBloodCampCases {
                 return null;
             });
             c.note("Blood Camp " + act + ": " + done.report());
+            if (mode != 0) {
+                int kt = (Integer) c.onClient(mc -> Mod.staticCall(WALK, "keyTicks"));
+                double tr = (Double) c.onClient(mc -> Mod.staticCall(WALK, "travelled"));
+                c.note("Move Around: " + kt + " key ticks, " + String.format(Locale.ROOT, "%.1f", tr) + " blocks");
+                c.check(kt > 0 && tr > 1.0, "Move Around never moved him (key ticks " + kt + ", blocks " + tr + ") - nothing tested");
+            }
             c.check(done.done() > 0, act + ": his action never went in (nothing tested)");
             c.check(done.featureWindows() >= 2, act + ": only " + done.featureWindows() + " server ticks carried the feature's"
                     + " attack on the wire for " + clicks + " clicks (want one per run)");
@@ -4097,9 +4244,356 @@ final class HxBloodCampCases {
                 dev.testkit.compat.McCompat.setScreen(mc, null);
                 return null;
             });
+            nextServerStep = null;
             c.server().command("kill @e[tag=bc1015]");
-            outsidePlatform(c, "minecraft:air");
+            if (mode != 0) {
+                c.server().command(WALK_PLATFORM + "minecraft:air replace minecraft:stone");
+                c.onClient(mc -> {
+                    Mod.setField(WALK, "heldForTest", null);
+                    mc.options.keyUp.setDown(false);
+                    mc.options.keyJump.setDown(false);
+                    return null;
+                });
+            } else {
+                outsidePlatform(c, "minecraft:air");
+            }
             c.server().command("clear @a");
+            c.hx().removeStands();
+        }
+    }
+
+    private static final String WALK = "bloodcamp.BloodCampWalk";
+
+    /**
+     * His own keys in the Aura's walk: a jump at tick 15 and forward held on ticks 20-30 (reported to Move Around as his
+     * physical keys). While they are down it must press nothing of its own: its key-tick counter must not move.
+     */
+    private static void herKeys(Minecraft mc, int tick, int[] keyAt, int run) {
+        if (tick == 15) {
+            mc.options.keyJump.setDown(true);
+        } else if (tick == 16) {
+            mc.options.keyJump.setDown(false);
+        } else if (tick == 20) {
+            Mod.setField(WALK, "heldForTest", java.util.Set.of("key.forward"));
+            mc.options.keyUp.setDown(true);
+        } else if (tick == 22 && run == 0) {
+            keyAt[0] = (Integer) Mod.staticCall(WALK, "keyTicks");
+        } else if (tick == 30) {
+            if (run == 0) {
+                keyAt[1] = (Integer) Mod.staticCall(WALK, "keyTicks");
+            }
+            mc.options.keyUp.setDown(false);
+            Mod.setField(WALK, "heldForTest", null);
+        }
+    }
+
+    /**
+     * Move Around: {@code kind} 0 = on (he walks from 15 blocks out to inside the ring, stays in the room, never leaves a
+     * floor), 1 = off (no key pressed, he does not move), 2 = on while his own forward key is "held" (nothing pressed by it).
+     */
+    private static void auraWalk(Session c, int kind) {
+        if (!Mod.isCheat()) {
+            return;
+        }
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "MoveAround", kind != 1);
+            c.server().command(WALK_PLATFORM + "minecraft:stone replace minecraft:air");
+            watcher(c, WATCHER_IN);
+            standAt(c, kind == 3 ? -429.5 : WALK_X, -417.5, 90f, 0f); // 3: just outside the room's west wall
+            int[] atLeave = {-1, -1};
+            boolean[] keyHeldAfter = {false};
+            if (kind == 4) {
+                nextServerStep = i -> {
+                    if (i == 30) {
+                        c.server().command("tp @p -429.5 151 -417.5"); // out of the room mid-walk
+                    }
+                };
+            }
+            c.onClient(mc -> {
+                Mod.staticCall(WALK, "resetStats");
+                if (kind == 2) {
+                    Mod.setField(WALK, "heldForTest", java.util.Set.of("key.forward"));
+                }
+                return null;
+            });
+            Vec3 start = c.onClient(mc -> mc.player.position());
+            double[] lo = {1e9};
+            double[] far = {0};
+            Trip t = trip(c, Mob.NONE, false, 60, (tick, mc) -> {
+                Vec3 e = endVector();
+                if (e != null) {
+                    lo[0] = Math.min(lo[0], Math.hypot(mc.player.getX() - e.x, mc.player.getZ() - e.z));
+                }
+                far[0] = Math.max(far[0], Math.max(Math.abs(mc.player.getX() + 409), Math.abs(mc.player.getZ() + 409)));
+                if (kind == 4 && mc.player.getX() < -426.0) { // outside now: from the second tick on nothing may be held or pressed
+                    if (atLeave[0] < 0) {
+                        atLeave[0] = (Integer) Mod.staticCall(WALK, "keyTicks");
+                        atLeave[1] = 0;
+                    } else if (++atLeave[1] > 2) {
+                        keyHeldAfter[0] |= mc.options.keyUp.isDown() || mc.options.keyDown.isDown() || mc.options.keyLeft.isDown()
+                                || mc.options.keyRight.isDown() || mc.options.keyJump.isDown();
+                    }
+                }
+            });
+            Vec3 end = c.onClient(mc -> mc.player.position());
+            double moved = Math.hypot(end.x - start.x, end.z - start.z);
+            int kt = (Integer) c.onClient(mc -> Mod.staticCall(WALK, "keyTicks"));
+            double tr = (Double) c.onClient(mc -> Mod.staticCall(WALK, "travelled"));
+            c.note("walk kind " + kind + ": moved " + String.format(Locale.ROOT, "%.1f", moved) + " blocks, closest to the landing " + String.format(Locale.ROOT, "%.1f", lo[0])
+                    + ", farthest from the room middle " + String.format(Locale.ROOT, "%.1f", far[0]) + ", key ticks " + kt + ", pressed distance " + String.format(Locale.ROOT, "%.1f", tr));
+            c.check(t.tracked, "the trip was never tracked - nothing tested");
+            if (kind == 0) {
+                c.check(kt > 0 && moved > 3.0, "Move Around did not walk him (" + moved + " blocks, " + kt + " key ticks)");
+                c.check(lo[0] <= 9.0, "he never came inside the ring (closest " + lo[0] + " of 8.5)");
+                c.check(far[0] <= 14.0, "he left the safe part of the room (" + far[0] + " from the middle, 13 allowed)");
+            } else if (kind == 4) {
+                c.check(atLeave[0] >= 0, "he never left the room - nothing tested");
+                c.check(kt > 0, "it never walked him before he left - nothing tested");
+                c.check(!keyHeldAfter[0], "a movement key stayed down after he left the Blood room");
+                c.check(kt <= atLeave[0] + 3, "it kept pressing keys outside the room (" + kt + " key ticks, " + atLeave[0] + " when he left)");
+            } else {
+                c.check(kt == 0 && moved < 0.3, "Move Around " + (kind == 3 ? "pressed keys outside the room" : kind == 1 ? "was off" : "was overridden by his key") + " but pressed " + kt + " key ticks / moved " + moved);
+                c.check(kind != 1 || !(Boolean) c.onClient(mc -> mc.options.keyUp.isDown() || mc.options.keyDown.isDown()
+                        || mc.options.keyLeft.isDown() || mc.options.keyRight.isDown()), "a movement key is held with Move Around off");
+            }
+        } finally {
+            nextServerStep = null;
+            c.onClient(mc -> {
+                Mod.setField(WALK, "heldForTest", null);
+                return null;
+            });
+            c.server().command(WALK_PLATFORM + "minecraft:air replace minecraft:stone");
+            c.hx().removeStands();
+        }
+    }
+
+    /** A primed TNT beside him: Move Around walks him away from it (and counts a flee); the TNT is removed before it goes off. */
+    private static void auraWalkTnt(Session c) {
+        if (!Mod.isCheat()) {
+            return;
+        }
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "MoveAround", true);
+            c.server().command(WALK_PLATFORM + "minecraft:stone replace minecraft:air");
+            watcher(c, WATCHER_IN);
+            standAt(c, -409.5, -409.5, 90f, 0f);
+            c.onClient(mc -> Mod.staticCall(WALK, "resetStats"));
+            Vec3 at = c.onClient(mc -> mc.player.position());
+            c.server().command(String.format(Locale.ROOT, "summon tnt %.2f %.2f %.2f {fuse:80,Tags:[\"bc1015\"]}", at.x + 2.0, at.y, at.z));
+            double d0 = 2.0;
+            double best = d0;
+            for (int i = 0; i < 40; i++) {
+                c.ctx().waitTicks(1);
+                best = Math.max(best, c.onClient(mc -> {
+                    var tnts = mc.level.getEntitiesOfClass(net.minecraft.world.entity.item.PrimedTnt.class, mc.player.getBoundingBox().inflate(30));
+                    return tnts.isEmpty() ? 0.0 : Math.hypot(tnts.get(0).getX() - mc.player.getX(), tnts.get(0).getZ() - mc.player.getZ());
+                }));
+            }
+            c.server().command("kill @e[type=tnt]");
+            int flees = (Integer) c.onClient(mc -> Mod.staticCall(WALK, "tntFlees"));
+            c.note("TNT dodge: flee ticks " + flees + ", farthest from the TNT " + String.format(Locale.ROOT, "%.1f", best));
+            c.check(flees > 0, "Move Around never saw the primed TNT - nothing tested");
+            c.check(best > 4.5, "he did not walk away from the TNT (farthest " + best + " from 2.0)");
+        } finally {
+            c.server().command("kill @e[type=tnt]");
+            c.server().command(WALK_PLATFORM + "minecraft:air replace minecraft:stone");
+            c.hx().removeStands();
+        }
+    }
+
+    // ---- bloodaura-rotate-1118 --------------------------------------------------------------------------------------
+
+    /** Trigger Bot and Aura are exclusive (setters, saved file), the Rotation default and its save, and the Aura really
+     *  acts while the Trigger Bot does not. */
+    private static void auraExclusive(Session c) throws Exception {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: no Aura");
+            return;
+        }
+        java.nio.file.Path file = c.onClient(mc -> (java.nio.file.Path) Mod.field(BC_CFG, "CONFIG_PATH"));
+        byte[] before = java.nio.file.Files.exists(file) ? java.nio.file.Files.readAllBytes(file) : null;
+        java.nio.file.Files.createDirectories(file.getParent());
+        try (HxKit.Settings s = base(c)) {
+            boolean[] r = c.onClient(mc -> {
+                Object cfg = Mod.cfg(BC_CFG);
+                Mod.call(cfg, "setTriggerBotEnabled", true);
+                Mod.call(cfg, "setAuraEnabled", true);
+                boolean a1 = (Boolean) Mod.call(cfg, "getTriggerBotRaw");
+                boolean a2 = (Boolean) Mod.call(cfg, "getAuraRaw");
+                Mod.call(cfg, "setTriggerBotEnabled", true);
+                boolean b1 = (Boolean) Mod.call(cfg, "getTriggerBotRaw");
+                boolean b2 = (Boolean) Mod.call(cfg, "getAuraRaw");
+                return new boolean[]{a1, a2, b1, b2};
+            });
+            c.check(!r[0] && r[1], "Aura ON did not turn the Trigger Bot off (trigger " + r[0] + ", aura " + r[1] + ")");
+            c.check(r[2] && !r[3], "Trigger Bot ON did not turn the Aura off (trigger " + r[2] + ", aura " + r[3] + ")");
+            // A saved file with both ON loads as Aura ON, Trigger Bot OFF; no auraRotate key = Rotate (the old behavior).
+            java.nio.file.Files.writeString(file, "{\"enabled\":true,\"triggerBotEnabled\":true,\"auraEnabled\":true}");
+            boolean[] l = c.onClient(mc -> {
+                Mod.staticCall(BC_CFG, "load");
+                Object cfg = Mod.cfg(BC_CFG);
+                return new boolean[]{(Boolean) Mod.call(cfg, "getTriggerBotRaw"), (Boolean) Mod.call(cfg, "getAuraRaw"),
+                        (Boolean) Mod.call(cfg, "isAuraRotate")};
+            });
+            c.check(!l[0] && l[1], "a file with both ON loaded trigger " + l[0] + ", aura " + l[1] + " (want off, on)");
+            c.check(l[2], "an old file without auraRotate did not load as Rotate");
+            java.nio.file.Files.writeString(file, "{\"enabled\":true,\"auraEnabled\":true,\"auraRotate\":false}");
+            boolean noRot = c.onClient(mc -> {
+                Mod.staticCall(BC_CFG, "load");
+                return !(Boolean) Mod.call(Mod.cfg(BC_CFG), "isAuraRotate");
+            });
+            c.check(noRot, "auraRotate false in the file did not load as No Rotate");
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(BC_CFG), "setAuraRotate", true);
+                Mod.call(Mod.cfg(BC_CFG), "save");
+                return null;
+            });
+            String json = java.nio.file.Files.readString(file);
+            c.check(json.contains("\"auraRotate\": true"), "the saved file lacks auraRotate true: " + json);
+        } finally {
+            if (before != null) {
+                java.nio.file.Files.write(file, before);
+            } else {
+                java.nio.file.Files.deleteIfExists(file);
+            }
+            c.onClient(mc -> {
+                Mod.staticCall(BC_CFG, "load");
+                return null;
+            });
+        }
+        // The Trigger Bot is asked for first and the Aura second: the Aura acts, the Trigger Bot does not click.
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "AuraEnabled", true);
+            c.check(!c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(BC_CFG), "getTriggerBotRaw")), "Trigger Bot still ON with the Aura on");
+            watcher(c, WATCHER_IN);
+            stand(c, AWAY_YAW, 10f);
+            int aura0 = intStat(c, "auraAttacks");
+            Trip t = trip(c, Mob.FRAGILE, false, 40, null);
+            int aura = intStat(c, "auraAttacks") - aura0;
+            c.note("aura on, trigger bot asked for first: " + fmt(t) + ", aura attacks " + aura);
+            c.check(aura >= 1, "the Aura never clicked - nothing tested");
+            c.check(t.clicks == 0, "the Trigger Bot clicked " + t.clicks + " time(s) while the Aura was on");
+        } finally {
+            c.hx().removeStands();
+        }
+    }
+
+    /** No Rotate: no humanized turn, the camera never moves, the body snaps to the mob in one tick (a big step) and is given
+     *  back, and the click lands on the mob. */
+    private static void auraNoRotate(Session c) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: no Aura");
+            return;
+        }
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "AuraRotate", false);
+            watcher(c, WATCHER_IN);
+            stand(c, AWAY_YAW, 10f);
+            List<float[]> views = new ArrayList<>();
+            List<Boolean> held = new ArrayList<>();
+            int aura0 = intStat(c, "auraAttacks");
+            Trip t = trip(c, Mob.FRAGILE, false, 40, (i, mc) -> {
+                views.add(new float[]{(Float) Mod.staticCall(VF, "viewYaw"), (Float) Mod.staticCall(VF, "viewPitch")});
+                held.add((Boolean) Mod.staticCall(VF, "isHeld"));
+            });
+            int aura = intStat(c, "auraAttacks") - aura0;
+            double maxStep = 0;
+            for (float[] d : steps(t.looks)) {
+                maxStep = Math.max(maxStep, Math.abs(d[0]));
+            }
+            int heldTicks = 0;
+            double viewMove = 0;
+            for (int i = 0; i < held.size(); i++) {
+                if (held.get(i)) {
+                    heldTicks++;
+                    viewMove = Math.max(viewMove, Math.abs(net.minecraft.util.Mth.wrapDegrees(views.get(i)[0] - AWAY_YAW))
+                            + Math.abs(views.get(i)[1] - 10f));
+                }
+            }
+            float[] last = t.looks.get(t.looks.size() - 1);
+            double backOff = Math.abs(net.minecraft.util.Mth.wrapDegrees(last[0] - AWAY_YAW)) + Math.abs(last[1] - 10f);
+            c.note(String.format(Locale.ROOT, "No Rotate: biggest one-tick yaw step %.1f, camera held %d ticks and moved %.3f deg, "
+                    + "body %.2f deg off at the end; aura attacks %d; %s", maxStep, heldTicks, viewMove, backOff, aura, fmt(t)));
+            c.check(aura >= 1 && !t.serverAttacks.isEmpty(), "the Aura never hit the mob (attacks " + aura + ", server " + t.serverAttacks + ")");
+            c.check(!t.everTurning, "No Rotate ran the humanized turn");
+            c.check(maxStep > 30, "the body did not snap (biggest one-tick step " + maxStep + "); a humanized turn is capped at 26");
+            c.check(heldTicks >= 1 && viewMove < 0.01, "the camera was not held still (held " + heldTicks + " ticks, moved " + viewMove + ")");
+            c.check(backOff < 0.6, "the body was not given back under the camera (" + backOff + " deg off)");
+        } finally {
+            c.hx().removeStands();
+        }
+    }
+
+    /** Pre-aim: the Rotate Aura starts turning as soon as a spot is known (long before the kill timer), and a kill in progress
+     *  is finished before it turns to a spot posted meanwhile. */
+    private static void auraPreAim(Session c) {
+        if (!Mod.isCheat()) {
+            c.note("legit jar: no Aura");
+            return;
+        }
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "AuraEnabled", true).with(BC_CFG, "AuraRotate", true);
+            watcher(c, WATCHER_IN);
+            // 1. Idle: the spot is posted, the look must be moving within a reaction time (3-6 ticks) while the mob is ~40 ticks away.
+            stand(c, AWAY_YAW, 10f);
+            Trip t = trip(c, Mob.FRAGILE, false, 10, null);
+            int firstMove = -1;
+            List<float[]> st = steps(t.looks);
+            for (int i = 0; i < st.size() && firstMove < 0; i++) {
+                if (Math.hypot(st.get(i)[0], st.get(i)[1]) > 1e-3) {
+                    firstMove = i;
+                }
+            }
+            c.note("idle: first look movement " + firstMove + " ticks after the spot was tracked; " + fmt(t));
+            c.check(firstMove >= 0 && firstMove <= 12, "the Aura did not start turning when the spot was posted (first move at " + firstMove + ")");
+            // 2. Mid-kill: a second spot is posted while the first mob (3 HP, three hits) is being killed.
+            boolean firstWave = c.onClient(mc -> (Boolean) Mod.staticCall("bloodcamp.BloodCampMoveTimer", "isFirstSpawns"));
+            int dueTick = (int) Math.ceil((firstWave ? 40 : 0) + 38 + 0.8);
+            stand(c, AWAY_YAW, 10f);
+            String mobTex = c.onClient(mc -> anyOf(Mod.field(Mod.ROOT + BC, "MOB_SKULL_TEXTURES")));
+            String[] second = {null};
+            double x0 = -420.5 - (firstWave ? 16.1 : 11.9) - 1.0;
+            nextServerStep = i -> {
+                if (i == dueTick + 2) {
+                    second[0] = c.hx().stand(x0, 151.0, -427.5, null, "marker", false, "invisible", false, "helmet", head(mobTex));
+                }
+                if (second[0] != null && i > dueTick + 2 && i <= dueTick + 5) {
+                    c.hx().call("entity.nudge", "uuid", second[0], "dx", 1.2);
+                }
+            };
+            List<Boolean> alive = new ArrayList<>();
+            List<Boolean> onMob = new ArrayList<>();
+            Trip k = trip(c, Mob.WEAK, false, 80, (i, mc) -> {
+                Vec3 e = endVector();
+                if (e == null) {
+                    alive.add(false);
+                    onMob.add(false);
+                    return;
+                }
+                AABB box = new AABB(e.x - 0.3, e.y, e.z - 0.3, e.x + 0.3, e.y + 1.95, e.z + 0.3);
+                alive.add(!mc.level.getEntities((net.minecraft.world.entity.Entity) null, box.inflate(0.5),
+                        en -> en instanceof net.minecraft.world.entity.LivingEntity && en.isAlive()
+                                && !(en instanceof net.minecraft.world.entity.decoration.ArmorStand)).isEmpty());
+                onMob.add(bodyHits(mc, box.inflate(0.4)));
+            });
+            if (second[0] != null) {
+                c.hx().call("entity.remove", "uuid", second[0]);
+            }
+            int aliveTicks = 0;
+            int aliveOn = 0;
+            for (int i = dueTick + 3; i < alive.size(); i++) {
+                if (alive.get(i)) {
+                    aliveTicks++;
+                    if (onMob.get(i)) {
+                        aliveOn++;
+                    }
+                }
+            }
+            c.note("mid-kill: while mob one lived after the second spot was posted, the body was on it " + aliveOn + " of " + aliveTicks
+                    + " ticks; " + fmt(k));
+            c.check(second[0] != null && aliveTicks >= 5, "nothing tested: the first mob was dead " + aliveTicks + " ticks after the second spot");
+            c.check(aliveOn >= aliveTicks * 0.9, "the Aura turned away from the mob it was killing (on it " + aliveOn + " of " + aliveTicks + ")");
+        } finally {
             c.hx().removeStands();
         }
     }

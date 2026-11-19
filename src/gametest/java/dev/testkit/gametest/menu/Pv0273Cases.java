@@ -104,10 +104,10 @@ final class Pv0273Cases {
     }
 
     /** "ID:STATE" per slot, in order. */
-    private static List<String> describe(Session c, List<ItemStack> owned, boolean rift, boolean byName) {
+    private static List<String> describe(Session c, List<ItemStack> owned, boolean rift, int sort) {
         return c.onClient(mc -> {
             List<String> out = new ArrayList<>();
-            for (Object s : (List<?>) Mod.staticCall(VIEW, "slots", owned, rift, byName)) {
+            for (Object s : (List<?>) Mod.staticCall(VIEW, "slots", owned, rift, sort)) {
                 out.add(Mod.call(s, "id") + ":" + Mod.call(s, "state"));
             }
             return out;
@@ -120,28 +120,32 @@ final class Pv0273Cases {
         List<AutoCloseable> close = new ArrayList<>();
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             List<ItemStack> owned = setUp(c, cfg, close);
-            List<String> main = describe(c, owned, false, false);
+            List<String> main = describe(c, owned, false, 0);
             c.note("main bag by rarity: " + main);
-            c.check(main.equals(List.of("PV_CHARM:DISABLED", "PV_RING_A:OWNED", "PV_ARTI:MISSING", "PV_TALI_1:MISSING")),
-                    "main bag slots " + main + ", expected the toggled-off UNCOMMON charm and the owned ring first (by rarity), "
-                            + "then the missing EPIC and the lowest tier of the unowned Tali family; nothing of the owned Ring "
-                            + "family, the ignored id or the Rift accessory");
-            List<String> byName = describe(c, owned, false, true);
-            c.check(byName.equals(List.of("PV_CHARM:DISABLED", "PV_RING_A:OWNED", "PV_ARTI:MISSING", "PV_TALI_1:MISSING")),
+            c.check(main.equals(List.of("PV_ARTI:MISSING", "PV_CHARM:DISABLED", "PV_RING_A:OWNED", "PV_TALI_1:MISSING")),
+                    "main bag slots " + main + ", expected the missing EPIC first, then the toggled-off UNCOMMON charm, then the "
+                            + "COMMON group alphabetical with the owned ring among the missing lowest tier of the unowned Tali family "
+                            + "(the 0.27.3 menu mixes missing into the rarity groups); nothing of the owned Ring family, the ignored id "
+                            + "or the Rift accessory");
+            List<String> byName = describe(c, owned, false, 1);
+            c.check(byName.equals(List.of("PV_ARTI:MISSING", "PV_CHARM:DISABLED", "PV_RING_A:OWNED", "PV_TALI_1:MISSING")),
                     "main bag by name " + byName);
-            int[] counts = c.onClient(mc -> (int[]) Mod.staticCall(VIEW, "counts", Mod.staticCall(VIEW, "slots", owned, false, false)));
+            List<String> missingFirst = describe(c, owned, false, 2);
+            c.check(missingFirst.equals(List.of("PV_ARTI:MISSING", "PV_TALI_1:MISSING", "PV_CHARM:DISABLED", "PV_RING_A:OWNED")),
+                    "main bag, Missing First " + missingFirst);
+            int[] counts = c.onClient(mc -> (int[]) Mod.staticCall(VIEW, "counts", Mod.staticCall(VIEW, "slots", owned, false, 0)));
             c.check(counts[0] == 1 && counts[1] == 1 && counts[2] == 2,
                     "legend counts owned/off/missing " + counts[0] + "/" + counts[1] + "/" + counts[2] + ", expected 1/1/2");
-            List<String> rift = describe(c, List.of(), true, false);
+            List<String> rift = describe(c, List.of(), true, 0);
             c.note("rift bag: " + rift);
             c.check(rift.equals(List.of("PV_RIFT_ACC:MISSING")), "Rift bag slots " + rift + ", expected only the Rift accessory");
             // Owning the Rift ring moves it out of missing on the Rift tab.
             ItemStack rr = PriceTooltipCases.give(c, 2, stack("PV_RIFT_ACC", "")).copy();
-            List<String> rift2 = describe(c, List.of(rr), true, false);
+            List<String> rift2 = describe(c, List.of(rr), true, 0);
             c.check(rift2.equals(List.of("PV_RIFT_ACC:OWNED")), "Rift bag with the ring owned " + rift2);
             // A missing slot carries an icon (the catalog item), never an empty stack.
             boolean icons = c.onClient(mc -> {
-                for (Object s : (List<?>) Mod.staticCall(VIEW, "slots", owned, false, false)) {
+                for (Object s : (List<?>) Mod.staticCall(VIEW, "slots", owned, false, 0)) {
                     if (((ItemStack) Mod.call(s, "stack")).isEmpty()) {
                         return false;
                     }
@@ -307,15 +311,19 @@ final class Pv0273Cases {
             c.check(flat.size() == 2, "the Accessories page flattened " + flat.size() + " owned accessories, expected 2 (did it draw?)");
             BufferedImage img = BazaarReskinCases.shot(c, "accessories");
             c.check(img.getWidth() > 0, "no screenshot");
-            // The Rift tab with no Rift bag in the API: its message, not a grid.
+            // The Rift Accessory Bag is a view of the Rift page now (owner, 11-17): its nav has a 4th entry, and with no
+            // bag in the API the page says so. subView is clamped to the nav's length, so 3 only survives if it has four.
             c.ctx().runOnClient(mc -> {
+                Mod.call(s, "setPage", 9); // PAGE_RIFT
                 try {
-                    setField(s, "accRift", true);
+                    setField(s, "subView", 3);
                 } catch (ReflectiveOperationException e) {
                     throw new AssertionError(e);
                 }
             });
-            c.ctx().waitTicks(4);
+            c.ctx().waitTicks(30);
+            Object sub = c.onClient(mc -> Mod.field(s, "subView"));
+            c.check(Integer.valueOf(3).equals(sub), "the Rift page's view stayed " + sub + ", expected 3 (Accessory Bag nav entry)");
             BazaarReskinCases.shot(c, "accessories-rift");
         } finally {
             closeAll(close);

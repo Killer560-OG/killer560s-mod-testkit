@@ -279,6 +279,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     dev.testkit.gametest.SameTick.Act.USE, dev.testkit.gametest.SameTick.Act.ATTACK,
                     dev.testkit.gametest.SameTick.Act.SWAP}) {
                 s.test("62-argrim-1105-same-secretaura-" + a.name().toLowerCase(Locale.ROOT), c -> caseSecretAuraSame(c, a));
+                s.test("62-argrim-1117-secretcd50-" + a.name().toLowerCase(Locale.ROOT), c -> caseSecretAuraSame(c, a, 50));
             }
             s.test("62-argrim-crypt", GrimAutoRoutesTests::caseCrypt);
             s.test("62-argrim-1015-cryptaim", GrimAutoRoutesTests::caseCryptAim); // crypt-aim-1015
@@ -3303,6 +3304,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * PacketOrderI), for USE / SWAP at least once in one, and GrimAC is silent.
      */
     private static void caseSecretAuraSame(Session c, dev.testkit.gametest.SameTick.Act act) {
+        caseSecretAuraSame(c, act, 0);
+    }
+
+    /** cd > 0: Secret Aura at that Click Cooldown (1117-secretcd50: the 50 ms minimum), and it must be settable. */
+    private static void caseSecretAuraSame(Session c, dev.testkit.gametest.SameTick.Act act, int cd) {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
         arena(ctx, false);
@@ -3340,14 +3346,20 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 Object cfg = ModUnderTest.config(cheat);
                 ModUnderTest.set(cfg, "setAuraLevers", true);
                 ModUnderTest.set(cfg, "setAuraPauseWhileSneaking", false);
+                if (cd > 0) {
+                    ModUnderTest.set(cfg, "setAuraCooldownMs", cd);
+                    check(((Integer) ModUnderTest.call(cfg, "getAuraCooldownMs", new Class<?>[0], new Object[0])) == cd, "Click Cooldown " + cd + " ms was clamped to " + ModUnderTest.call(cfg, "getAuraCooldownMs", new Class<?>[0], new Object[0]));
+                }
                 ModUnderTest.set(cfg, "setSecretAuraEnabled", true);
             });
+            long t0 = System.nanoTime();
             boolean all = waitFor(ctx, 200, () -> powered(ctx, cz) == SAME_LEVERS.length);
+            long tookMs = (System.nanoTime() - t0) / 1_000_000;
             ctx.waitTicks(10);
             ctx.runOnClient(mc -> s1.close());
             st = null;
             int on = powered(ctx, cz);
-            c.note("same-tick secret aura " + act + ": " + s1.report() + "; levers powered " + on + "/" + SAME_LEVERS.length);
+            c.note("same-tick secret aura " + act + " (cooldown " + (cd > 0 ? cd : 150) + " ms): " + s1.report() + "; " + tookMs + " ms to power; levers powered " + on + "/" + SAME_LEVERS.length);
             check(all, act + ": the server powered only " + on + " of " + SAME_LEVERS.length + " levers - the aura did not act");
             check(s1.done() > 0 && s1.playerWindows() > 0 && s1.featureWindows() > 0, act
                     + ": his action or the aura's click never reached the wire - nothing tested (" + s1.report() + ")");
