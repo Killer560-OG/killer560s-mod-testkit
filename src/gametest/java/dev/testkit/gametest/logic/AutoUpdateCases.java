@@ -715,6 +715,10 @@ final class AutoUpdateCases {
                     + " Thread.sleep(Long.parseLong(a[0])); } }\n");
         }
         String java = ProcessHandle.current().info().command().orElse("java");
+        Path javaw = Path.of(java).resolveSibling("javaw.exe");   // no console window (cmdwindows-1119)
+        if (Files.exists(javaw)) {
+            java = javaw.toString();
+        }
         ProcessBuilder pb = new ProcessBuilder(java, src.toString(), Long.toString(seconds * 1000L));
         pb.redirectErrorStream(true);
         pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);

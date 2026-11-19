@@ -625,7 +625,8 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 			def p = where.split(",")
 			def script = file("place-test-window.ps1")
 			if (script.exists() && (p.length == 4 || where == "auto")) {
-				def cmd = ["powershell", "-NoProfile", "-WindowStyle", "Hidden", "-File", script.absolutePath]
+				// conhost --headless: the client has no console of its own, so a bare powershell would flash a window (cmdwindows-1119); no output is read
+				def cmd = ["conhost.exe", "--headless", "powershell", "-NoProfile", "-WindowStyle", "Hidden", "-File", script.absolutePath]
 				if (p.length == 4) {
 					cmd += ["-X", p[0], "-Y", p[1], "-Width", p[2], "-Height", p[3]]
 				}
