@@ -156,6 +156,8 @@ final class QueueLeap1119Cases {
     private static void run(Session c, Opt o) throws Exception {
         boolean cheat = Mod.isCheat();
         boolean acts = cheat && o.on;
+        // the session starts him elsewhere: a fill or setblock in an unloaded chunk does nothing, and he fell (first case)
+        c.server().command(String.format(Locale.ROOT, "forceload add %d %d %d %d", AX - 10, AZ - 10, BX + 2, AZ + 25));
         ClickGuardCases.fill(c, AX - 10, Y - 1, AZ - 10, AX + 10, Y - 1, AZ + 25, "minecraft:stone");
         DungeonFixBossCases.floor(c, BX, Y, BZ);
         c.server().sync(20);
