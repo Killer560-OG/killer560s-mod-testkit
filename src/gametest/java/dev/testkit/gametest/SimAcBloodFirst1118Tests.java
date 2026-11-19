@@ -162,6 +162,7 @@ public class SimAcBloodFirst1118Tests implements FabricClientGameTest {
         int ticks = 0;
         boolean quizDone = false;
         boolean iceDone = false;
+        List<String> all = new ArrayList<>();
         for (; ticks < minutes * 1200; ticks += 5) {
             ctx.waitTicks(5);
             if (ctx.computeOnClient(mc -> mc.level == null || mc.player == null)) {
@@ -173,8 +174,10 @@ public class SimAcBloodFirst1118Tests implements FabricClientGameTest {
                 ctx.runOnClient(mc -> drawKeys(mc.getSingleplayerServer()));
             }
             quizDone = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(QUIZ_STATE, "done"));
-            List<String> log = LogTap.since(mark);
-            iceDone = log.stream().anyMatch(l -> l.contains("[Autopilot] done PUZZLE Ice Fill")
+            long upTo = LogTap.mark();
+            all.addAll(LogTap.between(mark, upTo));
+            mark = upTo;
+            iceDone = all.stream().anyMatch(l -> l.contains("[Autopilot] done PUZZLE Ice Fill")
                     || l.contains("PUZZLE SOLVED!") && l.contains("Ice Fill"));
             if (quizDone && iceDone) {
                 break;
@@ -184,7 +187,8 @@ public class SimAcBloodFirst1118Tests implements FabricClientGameTest {
             }
         }
         ctx.runOnClient(mc -> ModUnderTest.staticCall(AS, "stop", new Class<?>[]{String.class, boolean.class}, new Object[]{"test over", true}));
-        List<String> log = LogTap.since(mark);
+        all.addAll(LogTap.since(mark));
+        List<String> log = all;
         int bloodOpen = -1;
         int pickups = 0;
         int doorPicks = 0;
@@ -210,6 +214,19 @@ public class SimAcBloodFirst1118Tests implements FabricClientGameTest {
                     || l.contains("[AutoSecret] Quiz first") || l.contains("[AutoSecret] Ice Fill first")
                     || l.contains("[AutoSecret] autopilot: puzzle") || l.contains("[AutoSecret] Quiz: question")) {
                 failures.add("before the blood door opened: " + strip(l));
+            }
+            if (l.contains("[CHAT]") && (l.contains("has obtained Wither Key!") || l.contains("has obtained Blood Key!"))) {
+                // The key a clear drops comes a moment after the clear: no other room is planned in between.
+                for (int j = i - 1; j >= 0; j--) {
+                    String m = log.get(j);
+                    if (m.contains("[Autopilot] done ")) {
+                        break;
+                    }
+                    if (m.contains("[Autopilot] decide") && m.matches(".*\\| pick (CLEAR|SECRET|PUZZLE|EXPLORE) .*")) {
+                        failures.add("planned another room before the cleared room's key came: " + strip(m));
+                        break;
+                    }
+                }
             }
             if (!(l.contains("[CHAT]") && l.contains("has obtained Wither Key!"))) {
                 continue;
