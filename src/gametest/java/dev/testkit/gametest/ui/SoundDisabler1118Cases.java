@@ -44,8 +44,10 @@ final class SoundDisabler1118Cases {
     private static List<AbstractWidget> build(boolean searchScan) {
         try {
             Object t = tab();
-            Method m = t.getClass().getMethod(searchScan ? "searchScanWidgets" : "buildWidgets", int.class, int.class, int.class,
-                    Runnable.class);
+            if (searchScan) {
+                return (List<AbstractWidget>) t.getClass().getMethod("searchScanWidgets").invoke(t);
+            }
+            Method m = t.getClass().getMethod("buildWidgets", int.class, int.class, int.class, Runnable.class);
             return (List<AbstractWidget>) m.invoke(t, 10, 10, 330, (Runnable) () -> { });
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("could not build the Sound Disabler tab: " + UiCase.describe(e), e);
