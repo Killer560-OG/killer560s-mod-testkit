@@ -114,13 +114,13 @@ final class HxSuperboomRange1118Cases {
         try (Settings set = new Settings(c).with(CFG, "Enabled", true)) {
             gateOff(c, false);
             prep(c);
-            int[][] cases = crypt ? new int[][]{{0, 0, 3, 1}, {0, 0, 4, 0}, {0, 0, 2, 1}, {0, 0, 5, 0}} : WALL;
+            int[][] cases = crypt ? new int[][]{{0, 0, 2, 1}, {0, 0, 3, 0}, {0, 0, 1, 1}, {0, 0, 4, 0}} : WALL;
             int acted = 0;
             for (int[] k : cases) {
                 BlockPos t = B.offset(k[0], k[1], k[2]);
                 stage(c, () -> {
                     if (crypt) {
-                        // a lid of bottom slabs on a stone base, 3 wide and 2 deep, its near edge k[2] blocks behind B
+                        // a lid of bottom slabs on a stone base, 3 wide and 2 deep, its near edge k[2] blocks behind B; the slabs sit one block up, so +2 is the edge (2.06) and +3 is out (3.04)
                         c.server().command(String.format("fill 16 120 %d 18 120 %d minecraft:stone_bricks", t.getZ(), t.getZ() + 1));
                         c.server().command(String.format("fill 16 121 %d 18 121 %d minecraft:smooth_stone_slab[type=bottom]", t.getZ(), t.getZ() + 1));
                     } else {
