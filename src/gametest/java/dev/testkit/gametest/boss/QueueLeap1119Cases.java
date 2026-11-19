@@ -199,7 +199,9 @@ final class QueueLeap1119Cases {
                 Mod.staticCall(LM, "setCooldownTicksForTest", 0.0);
                 return null;
             });
-            c.waitUntil("he stands at A", mc -> mc.player.onGround(), 100);
+            // at A, on the ground and past the gate's teleport settle (a click is held 6 ticks after any teleport)
+            c.waitUntil("he stands at A", mc -> mc.player.onGround() && mc.player.position().distanceTo(new Vec3(AX + 0.5, Y, AZ + 0.5)) < 1
+                    && ((Number) Mod.field(GATE, "teleportSettleUntilTick")).longValue() < ((Number) Mod.staticCall(GATE, "currentTick")).longValue(), 100);
             c.ctx().waitTicks(20);
             if (o.lagMs > 0) {
                 c.ctx().runOnClient(mc -> Latency.install(o.lagMs));
@@ -382,7 +384,7 @@ final class QueueLeap1119Cases {
             }
             switch (o.act) {
                 case USE, LEAP2 -> c.check(uses == 1, "his second right click went out during the leap (use suppressed)");
-                case ATTACK -> c.check(count(ticks, "ServerboundSwingPacket") + count(ticks, "ServerboundAttackPacket") >= 1,
+                case ATTACK -> c.check(count(ticks, "ServerboundSwingPacket") + count(ticks, "ServerboundPunchPacket") >= 1,
                         "his attack never went (the same-tick action did not act)");
                 case SWAP -> c.check(firstTick(ticks, "ServerboundSetCarriedItemPacket") >= 0, "his hotbar swap never went");
                 case ACCEPT -> c.check(count(ticks, "ServerboundAcceptTeleportationPacket") >= 2, "the same-tick teleport was not accepted");
@@ -390,7 +392,7 @@ final class QueueLeap1119Cases {
                 }
             }
             if (o.act == Act.ATTACK || o.act == Act.SWAP) {
-                String marker = o.act == Act.SWAP ? "ServerboundSetCarriedItemPacket" : "ServerboundSwingPacket";
+                String marker = o.act == Act.SWAP ? "ServerboundSetCarriedItemPacket" : "ServerboundPunchPacket"; // 26.3's swing
                 int actW = firstTick(ticks, marker);
                 c.note(o.act + " went in client tick " + actW + ", the click in " + clickTickW);
                 // in the click's tick, or the tick after when the mod holds a swap back behind the click (PacketOrderE)
