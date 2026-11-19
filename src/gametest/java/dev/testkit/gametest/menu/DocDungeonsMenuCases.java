@@ -375,12 +375,16 @@ final class DocDungeonsMenuCases {
                 if (text != null && (text.startsWith(prefix) || text.startsWith("When You Play: "))) {
                     found += text + " | ";
                 }
+                if (text != null && text.contains("targets set in all")) {
+                    found += "STATUSLINE | ";
+                }
             }
             return found;
         });
         c.note("Class Targets on Healer shows: " + shown);
         c.check(pages() ? shown.startsWith("When You Play: Healer | Crystal Target: Archer") : shown.startsWith("As Healer: Archer"),
                 "the Crystal leap's Healer target reads \"" + shown + "\", want \"" + prefix + "Archer ...\"");
+        c.check(!shown.contains("STATUSLINE"), "the Set Class Targets page still shows the \"targets set in all\" status line");
         c.ctx().runOnClient(mc -> Mod.staticCall("fastleap.FastLeapSection", "stepClassTarget", tP1, healer, cfgObj, 1));
         String stepped = c.onClient(mc -> String.valueOf(Mod.call(cfgObj, "getClassTarget", tP1, healer)));
         c.check(stepped.contains("clazz=BERSERKER"), "a left click on As Healer: Archer gave " + stepped + ", want Berserker");
