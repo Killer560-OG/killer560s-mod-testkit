@@ -72,6 +72,7 @@ final class DefaultsOff1104Cases {
             {"dungeonqol.DungeonQolConfig", "itemQuality", "icedBoxes", "roomHud"},
             {"autoclosechest.AutoCloseChestConfig", "enabled"},
             {"accadvisor.AccessoryAdvisorConfig", "enabled"},
+            {"chestvalue.ChestValueConfig", "enabled"},
             {"f7spots.F7SpotsConfig", "stormBow", "stormBowTerminator", "stormBowWalk"},
             {"boss.LividSolverConfig", "autoM5", "m5ArmorSwap"},
     };

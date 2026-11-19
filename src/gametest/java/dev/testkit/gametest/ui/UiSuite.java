@@ -104,7 +104,7 @@ public class UiSuite implements FabricClientGameTest {
             "399-ui-hud-editor-resize", "399-ui-hud-editor-snap",
             "399-ui-stat-bars-vitality-xp", "407-ui-stat-bars-layout", "401-ui-scoreboard-editor",
             "1104-ui-mining-pulled-jar", "1104-ui-mining-pulled-menu", "1104-ui-mining-pulled-tabs",
-            "1104-ui-mining-pulled-profit", "1104-ui-mining-chmap", "1105-ui-chmap-tab", "1104-ui-themematch-pixels", "1104-ui-themematch-audit", "1108-ui-lightcontrast", "1108-ui-salvage-highlight", "1113-ui-accadvisor", "1114-ui-accadv-drag", "1114-ui-accadv-mode", "1114-ui-accadv-copy", "1115-ui-bugcmd", "412-ui-no-new-tab", "413-ui-testing-variant",
+            "1104-ui-mining-pulled-profit", "1104-ui-mining-chmap", "1105-ui-chmap-tab", "1104-ui-themematch-pixels", "1104-ui-themematch-audit", "1108-ui-lightcontrast", "1108-ui-salvage-highlight", "1113-ui-accadvisor", "1114-ui-accadv-drag", "1114-ui-accadv-mode", "1114-ui-accadv-copy", "1119-ui-chestvalue", "1115-ui-bugcmd", "412-ui-no-new-tab", "413-ui-testing-variant",
             "425-ui-bazaar-icons", "427-ui-pack-disabler-models",
             "428-ui-pack-disabler-pack-push", "430-ui-pack-disabler-screens",
             "431-ui-pack-disabler-user-pack", "432-ui-pack-disabler-bazaar", "1105-ui-goblin-egg-look", "1105-ui-boss-chooser",
@@ -821,6 +821,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1114-ui-accadv-drag", AccAdvisor1114Cases::drag);
                     UiCase.run(ctx, "1114-ui-accadv-mode", AccAdvisor1114Cases::mode);
                     UiCase.run(ctx, "1114-ui-accadv-copy", AccAdvisor1114Cases::copy);
+                    UiCase.run(ctx, "1119-ui-chestvalue", ChestValue1119Cases::chestValue);
                     UiCase.run(ctx, "1117-accbag-owned-missing", AccBag1117Cases::ownedMissing);
                     UiCase.run(ctx, "1115-ui-bugcmd", BugCmd1115Cases::bugCmd);
                     // ---- doc-small (807) ----
