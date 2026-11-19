@@ -44,7 +44,7 @@ final class MapInfer1105Cases {
 
     private static final String MI = "livemap.MapInference";
     private static final String[] SHAPES = {"1x4", "1x1", "1x2", "1x4", "2x2", "2x2", "2x2", "2x2", "1x4", "1x4", "1x1"};
-    private static final String[] ROOMS = {"Pit|1x4|NORMAL", "Old Trap|1x1|TRAP", "Gold|1x2|NORMAL", "Slime|1x4|NORMAL",
+    static final String[] ROOMS = {"Pit|1x4|NORMAL", "Old Trap|1x1|TRAP", "Gold|1x2|NORMAL", "Slime|1x4|NORMAL",
             "Rails|2x2|NORMAL", "Spider|2x2|NORMAL", "Supertall|2x2|NORMAL", "Temple|2x2|NORMAL", "Doors|1x4|NORMAL",
             "Scaffolding|1x4|NORMAL", "Default|1x1|NORMAL"};
 
