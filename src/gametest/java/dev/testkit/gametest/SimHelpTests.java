@@ -183,7 +183,8 @@ public class SimHelpTests implements FabricClientGameTest {
             double f = img.getWidth() / (Double) lay[1];
             for (int[] pic : castBoxes(lay[0])) {
                 int colors = distinctColors(img, pic, f);
-                check(problems, colors >= 24, "page " + (p + 1) + ": picture " + str(pic) + " has only " + colors + " colors on screen (not drawn)");
+                // An undrawn box is the flat well (1-2 colors); the menu-screenshot pictures are mostly flat UI and read 13-23.
+                check(problems, colors >= 8, "page " + (p + 1) + ": picture " + str(pic) + " has only " + colors + " colors on screen (not drawn)");
                 pictures++;
             }
             facts.add("page " + (p + 1) + ": " + want + " picture(s) drawn after " + took + " ms");
