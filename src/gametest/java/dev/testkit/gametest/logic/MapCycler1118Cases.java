@@ -12,7 +12,8 @@ import java.util.Random;
 
 /**
  * 1118-logic-mapcycler-bounds (mod roomcycle-1118, Map Cycler): {@code RushBounds.bounds} against the true number of rooms
- * between the Entrance and Blood (not counting either; the Fairy counts), computed here independently from the room tree.
+ * the player must open to reach Blood (killer560 11-18: the rooms on the door path from the Entrance to Blood, NOT counting
+ * the Entrance, the Fairy or Blood), computed here independently from the room tree.
  * <ul>
  *   <li>Generated floors (pure Java here: rooms of 1-4 slots, a random door tree, so no room library is needed), 600 of
  *       them: with everything known min == max == truth; with slots, gaps, names and room completeness hidden at random
@@ -34,12 +35,12 @@ public final class MapCycler1118Cases {
     }
 
     /** A floor: slot -> room (or EMPTY), gaps (east, south per slot), names, entrance, blood. */
-    private record Floor(int across, int down, int[] slots, byte[] gaps, int rooms, int entrance, int blood) {
+    private record Floor(int across, int down, int[] slots, byte[] gaps, int rooms, int entrance, int blood, int fairy) {
     }
 
     static void bounds(LogicCase c) throws Exception {
         Method m = Mod.cls("mapcycler.RushBounds").getMethod("bounds", int.class, int.class, int[].class, byte[].class,
-                String[].class, boolean[].class, int.class, int.class);
+                String[].class, boolean[].class, int.class, int.class, int.class);
         Random rnd = new Random(1118);
         List<Floor> floors = new ArrayList<>();
         for (int i = 0; i < 600; i++) {
@@ -68,7 +69,7 @@ public final class MapCycler1118Cases {
                 names[r] = "R" + r;
                 complete[r] = true;
             }
-            int[] b = (int[]) m.invoke(null, f.across, f.down, f.slots, f.gaps, names, complete, f.entrance, f.blood);
+            int[] b = (int[]) m.invoke(null, f.across, f.down, f.slots, f.gaps, names, complete, f.entrance, f.blood, f.fairy);
             if (b[0] != truth || b[1] != truth) {
                 fullBad++;
                 if (examples.size() < 4) {
@@ -135,7 +136,8 @@ public final class MapCycler1118Cases {
             complete[r] = seenAll[r] && rnd.nextDouble() < 0.8;
         }
         int blood = names[f.blood] == null ? -1 : f.blood;
-        return new Object[]{f.across, f.down, slots, gaps, names, complete, f.entrance, blood};
+        int fairy = f.fairy < 0 || names[f.fairy] == null ? -1 : f.fairy;
+        return new Object[]{f.across, f.down, slots, gaps, names, complete, f.entrance, blood, fairy};
     }
 
     /** Rooms between the Entrance and Blood on the door tree: BFS over rooms, independent of RushBounds. */
@@ -156,23 +158,27 @@ public final class MapCycler1118Cases {
                 }
             }
         }
-        int[] dist = new int[f.rooms];
-        Arrays.fill(dist, -1);
-        dist[f.entrance] = 0;
+        int[] from = new int[f.rooms];
+        Arrays.fill(from, -2);
+        from[f.entrance] = -1;
         ArrayDeque<Integer> q = new ArrayDeque<>(List.of(f.entrance));
         while (!q.isEmpty()) {
             int r = q.poll();
             for (int o : adj.get(r)) {
-                if (dist[o] < 0) {
-                    dist[o] = dist[r] + 1;
+                if (from[o] == -2) {
+                    from[o] = r;
                     q.add(o);
                 }
             }
         }
-        if (dist[f.blood] < 1) {
+        if (from[f.blood] == -2) {
             throw new AssertionError("Blood not reachable on a test floor");
         }
-        return dist[f.blood] - 1;
+        int between = 0;
+        for (int r = from[f.blood]; r != f.entrance; r = from[r]) {
+            between += r == f.fairy ? 0 : 1;
+        }
+        return between;
     }
 
     /** Rooms of 1-4 slots (lines, squares, L and other shapes), a few empty slots, a random spanning door tree. */
@@ -271,10 +277,14 @@ public final class MapCycler1118Cases {
         while (kept > 1 && blood == entrance) {
             blood = rnd.nextInt(kept);
         }
-        if (kept < 2) {
+        if (kept < 3) {
             return synthetic(rnd);
         }
-        return new Floor(across, down, slots, gaps, kept, entrance, blood);
+        int fairy = -1;
+        while (rnd.nextInt(10) > 0 && (fairy < 0 || fairy == entrance || fairy == blood)) {
+            fairy = rnd.nextInt(kept);
+        }
+        return new Floor(across, down, slots, gaps, kept, entrance, blood, fairy == entrance || fairy == blood ? -1 : fairy);
     }
 
     private static int find(int[] parent, int r) {
@@ -351,7 +361,9 @@ public final class MapCycler1118Cases {
         byte[] gaps = new byte[2 * n];
         int entrance = -1;
         int blood = -1;
+        int fairy = -1;
         for (int i = 0; i < table.length; i++) {
+            if (table[i] != null && table[i].equalsIgnoreCase("Fairy")) fairy = i;
             if (table[i] != null && table[i].equalsIgnoreCase("Entrance")) entrance = i;
             if (table[i] != null && table[i].equalsIgnoreCase("Blood")) blood = i;
         }
@@ -367,7 +379,7 @@ public final class MapCycler1118Cases {
                 gaps[2 * s + 1] = z + 1 < down ? gap(cellRoom, cellDoor, idx + grid) : WALL;
             }
         }
-        return new Floor(across, down, slots, gaps, table.length, entrance, blood);
+        return new Floor(across, down, slots, gaps, table.length, entrance, blood, fairy);
     }
 
     private static byte gap(int[] cellRoom, int[] cellDoor, int idx) {

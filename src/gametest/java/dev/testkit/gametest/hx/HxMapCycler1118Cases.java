@@ -146,7 +146,7 @@ final class HxMapCycler1118Cases {
             run(c, () -> Mod.call(cfg, "setRerollWhenUnsure", false));
             bounds(c, 2, Integer.MAX_VALUE);
             start(c);
-            awaitStop(c, "Kept a map it could not fully see: 2-?", 160);
+            awaitStop(c, "Kept on a guess (part of the map is unseen): at least 2", 160);
             quiet(c, 20, "after a kept map");
             run(c, () -> Mod.call(cfg, "setRerollWhenUnsure", true));
 
