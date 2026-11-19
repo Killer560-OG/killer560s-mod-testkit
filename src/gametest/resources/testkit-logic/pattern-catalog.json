@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T21:34:19",
- "modSource": "lane-rngbest-1118",
- "modGitSha": "a5df9717ae9dac58618a5c795857476adb91872e",
+ "generatedAt": "2026-11-18T22:05:22",
+ "modSource": "lane-autoreclaim-btn-1118-rm",
+ "modGitSha": "739688afdfbe335951472b03962f6626939abac1",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
