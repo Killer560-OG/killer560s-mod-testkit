@@ -70,7 +70,7 @@ final class LeverAuraCpsCases {
             undo.add(c.onClient(mc -> Mod.with(CFG, "Finish", false)));
             undo.add(c.onClient(mc -> Mod.with(CFG, "Range", 4.5)));
             undo.add(c.onClient(mc -> Mod.with(CFG, "ChatFeedback", false)));
-            undo.add(c.onClient(mc -> Mod.with(CFG, "Cps", 5)));
+            undo.add(c.onClient(mc -> Mod.with(CFG, "CooldownMs", 200)));
             c.waitUntil("the six levers on the client", mc -> {
                 for (int[] l : LIGHTS) {
                     if (!(mc.level.getBlockState(lever(l)).getBlock() instanceof LeverBlock)) {
@@ -84,7 +84,7 @@ final class LeverAuraCpsCases {
             for (int k = 0; k < settings.length; k++) {
                 int cps = settings[k];
                 c.onClient(mc -> {
-                    Mod.set(CFG, "setCps", cps);
+                    Mod.set(CFG, "setCooldownMs", 1000 / cps);
                     return null;
                 });
                 int gaps = 0;
