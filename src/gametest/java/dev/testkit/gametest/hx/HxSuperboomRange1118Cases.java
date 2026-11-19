@@ -128,6 +128,7 @@ final class HxSuperboomRange1118Cases {
                     }
                 });
                 if (crypt) {
+                    c.ctx().waitTicks(5);
                     Object found = c.onClient(mc -> Mod.staticCall("secretwaypoints.CryptScanner", "scan", mc.level, new int[]{1, 113, 33, 145}));
                     c.check(String.valueOf(found).contains("CRYPT"), "the scanner does not see the crypt at +" + k[2] + ": " + found);
                 }
