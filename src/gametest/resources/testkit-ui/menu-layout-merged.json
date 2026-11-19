@@ -133,6 +133,7 @@
       "owner": "Spotify Mod",
       "key": "profanity filter",
       "to": "Spotify Lyrics",
+      "renamed": "chat censor",
       "text": "Stars out words in the lyrics you send to chat. All: every swear word. Minimal: slurs only. None: nothing.",
       "why": "mod d05664af (doc-spotify-1101, 2026-11-01): the Profanity Filter takes All / Minimal / None; Minimal is slurs only"
     },
@@ -400,6 +401,7 @@
     {
       "owner": "Auto Meow",
       "key": "auto meow enabled",
+      "renamed": "auto meow",
       "text": "Replies with a random cat line when another player says meow, purr, nya or mew, in the same chat it came from: party, guild, officer, co-op, a private message (back to that player), all chat or Mod Chat.",
       "why": "automeow-channel de1edf77: Auto Meow replies in the source channel; Spotify/Voice To Text gain a Mod Chat destination (killer560 2026-10-13)"
     },
@@ -1056,6 +1058,34 @@
       "key": "show",
       "text": "On Hover adds the preview to the tooltip whenever you hover the item. While Holding Key adds it only while the key is held. Left click goes forward, right click back.",
       "why": "pv0273-1117: the preview is a list for compactors, a grid for deletors"
+    },
+    {
+      "owner": "Nickhider",
+      "key": "randomize others",
+      "renamed": "nickhider",
+      "text": "Gives every other player a fake name for this session; works without the Name Changer toggle.",
+      "why": "auditfix-1118: label renamed (feature audit 2026-11-18)"
+    },
+    {
+      "owner": "Object Hider",
+      "key": "blindness effect",
+      "renamed": "hide blindness effect",
+      "text": "Removes the blindness effect so P3 blind doesn't black out your screen.",
+      "why": "auditfix-1118: label renamed (feature audit 2026-11-18)"
+    },
+    {
+      "owner": "Object Hider",
+      "key": "no fire overlay",
+      "renamed": "hide fire overlay",
+      "text": "Hides the full-screen fire effect while you are burning.",
+      "why": "auditfix-1118: label renamed (feature audit 2026-11-18)"
+    },
+    {
+      "owner": "Object Hider",
+      "key": "soulweaver skulls",
+      "renamed": "hide soulweaver skulls",
+      "text": "Stops the skulls spawned by Soulweaver Gloves from rendering.",
+      "why": "auditfix-1118: label renamed (feature audit 2026-11-18)"
     }
   ]
 }
