@@ -97,8 +97,8 @@ final class FeatHCases {
         try (HxKit.Settings off = GrimTickCases.gateOff(c)) {
             arena(c, false, item);
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
-            c.onClient(mc -> Mod.call(Mod.cfg(TC), "setCpsRange", 15, 15)); // the range slider's top end
-            undo.add(() -> c.onClient(mc -> Mod.call(Mod.cfg(TC), "setCpsRange", 8, 8)));
+            c.onClient(mc -> Mod.call(Mod.cfg(TC), "setDelayRange", 67, 67)); // the range slider's top end
+            undo.add(() -> c.onClient(mc -> Mod.call(Mod.cfg(TC), "setDelayRange", 125, 125)));
             undo.add(c.onClient(mc -> Mod.with(TC, "Enabled", on)));
             if (act == SameTick.Act.ATTACK) {
                 c.server().command("summon zombie 60.5 133 142.5 {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"feathh\"]}");
