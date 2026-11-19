@@ -68,7 +68,7 @@ final class MelodyLost1118Cases {
     private static void evidence(Session c, String how, String who) {
         switch (how) {
             case "share" -> c.onClient(mc -> Mod.staticCall(INTEL, "offer", who, 5, 3));
-            case "own" -> c.onClient(mc -> Mod.staticCall(INTEL, "offer", HxKit.self(c), 1, 2));
+            case "own" -> c.onClient(mc -> Mod.staticCall(INTEL, "noteHad", HxKit.self(c), "own menu"));
             case "chat" -> c.hx().chat("Party > [MVP+] " + who + ": Melody 67%");
             case "chat2" -> c.hx().chat("Party > " + who + ": Melody 1/3 - 33%");
             default -> { }
