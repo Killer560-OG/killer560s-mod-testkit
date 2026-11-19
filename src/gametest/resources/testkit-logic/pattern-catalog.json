@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T07:21:07",
- "modSource": "lane-rngrank-double-1118",
- "modGitSha": "8c966b52ac0e4cd6955a3e88104ab011f2b74014",
+ "generatedAt": "2026-11-19T07:37:16",
+ "modSource": "lane-cmdwindows-1119",
+ "modGitSha": "02db154aa177e0fc074e49711427acad34ec6cf2",
  "modSourceDirty": false,
  "count": 979,
  "byKind": {
