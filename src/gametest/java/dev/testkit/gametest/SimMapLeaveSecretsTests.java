@@ -136,9 +136,11 @@ public class SimMapLeaveSecretsTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(LIVE_MAP_CONFIG), "setEnabled", true));
         hook();
         if (hiddenBar) {
+            SimChestHook.placeAtBuild(ctx);
             try {
                 hiddenBarCase(ctx);
             } finally {
+                SimChestHook.restore(ctx);
                 ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(LIVE_MAP_CONFIG), "setEnabled", mapWasOn));
                 leave(ctx);
             }
