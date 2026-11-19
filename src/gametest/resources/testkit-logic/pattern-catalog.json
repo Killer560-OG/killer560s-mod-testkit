@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T20:32:21",
- "modSource": "lane-playersecrets-1118-rm2",
- "modGitSha": "7ef6c93d3eb4108776d1e337a3da6613c3e07cae",
+ "generatedAt": "2026-11-18T21:32:24",
+ "modSource": "lane-chatchannelhud-1118",
+ "modGitSha": "6d86e49ec3cf0ce9c7fdacebc70ab2d85e960095",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
