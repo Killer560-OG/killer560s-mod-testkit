@@ -33,6 +33,7 @@
     "gui.tab.CatchAFishTab": "Misc > Carnival > Catch a Fish Helper",
     "gui.tab.RoomNameTab": "Dungeons > Current Room Name",
     "gui.tab.ItemQualityTab": "Dungeons > Item Quality",
+    "gui.tab.AutoReclaimTab": "Items > Auto Reclaim",
     "gui.tab.IcedMobsTab": "Dungeons > Iced Mob Boxes",
     "gui.tab.BossPearlTab": "Dungeons > Block Ender Pearls In Boss",
     "gui.tab.AutoCloseChestTab": "Dungeons > Auto Close Chest",
@@ -48,6 +49,7 @@
     "gui.tab.RepartyTab": "Dungeons > Reparty",
     "gui.tab.WatcherHelperTab": "Dungeons > Watcher Helper",
     "gui.tab.CarryTrackerTab": "Dungeons > Carry Tracker",
+    "gui.tab.MissingEnchantsTab": "Items > Missing Enchants",
     "gui.tab.BazaarOrderHelperTab": "Items > Order Helper",
     "gui.tab.ReforgeHelperTab": "Items > Reforge Helper",
     "gui.tab.PeekChatTab": "Chat > Peek Chat",
@@ -535,6 +537,13 @@
       "variant": "legit"
     },
     {
+      "owner": "Dungeon Map",
+      "key": "stream safe",
+      "text": "Cheat build, Funny Map, Windows: anything that records or shares the game (OBS, Discord, the Windows recorder, F2) sees the normal Dungeon Map, while you see the Funny Map in a window over it that capture skips. Stream Safe hides the Funny Map and the mimic room from viewers on the HUD map only: the Interactive Map and other Funny Map extras stay visible. In exclusive fullscreen you see the normal map too. Needs Windows 10 2004 or newer.",
+      "why": "streamsafemap-1118 (killer560 2026-11-18): viewers of a stream or recording see the normal map, he still sees the Funny Map",
+      "variant": "cheat"
+    },
+    {
       "owner": "(unscoped)",
       "key": "auto clear",
       "text": "Cheat build: kills the starred mobs of the dungeon's mob rooms with your Hyperion or Spirit Sceptre; start and stop it with the Clear Toggle Key.",
@@ -636,7 +645,7 @@
     {
       "owner": "Auto Blood Camp",
       "key": "aura",
-      "text": "Cheat build, Blood Room only: turns you to the next blood mob you can see and clicks it at your weapon's attack speed until it dies; moving your mouse takes over.",
+      "text": "Cheat build, Blood Room only: turns you to the next blood mob you can see and clicks it at your weapon's attack speed until it dies; moving your mouse takes over. Turning the Aura on turns the Trigger Bot off (and the other way round).",
       "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, label spelling outside gui/"
     },
     {
