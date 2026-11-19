@@ -302,7 +302,7 @@ public final class SimBeamsMeleeTests {
         }
     }
 
-    /** Pair indices (bundled list, deduped) NOT lit in his room: joined before the auto starts. */
+    /** Pair indices (bundled list, deduped) NOT lit in his room: turned to stone before the auto starts (four beams solve the room, so joining them would solve it at once). */
     private static final int[] HIS_UNLIT = {1, 3, 4, 5, 8};
 
     static final class ReplayWatch extends MeleeWatch {
@@ -347,16 +347,16 @@ public final class SimBeamsMeleeTests {
                             a.setAccessible(true);
                             b.setAccessible(true);
                             level.setBlockAndUpdate((BlockPos) a.invoke(pair),
-                                    net.minecraft.world.level.block.Blocks.PRISMARINE.defaultBlockState());
+                                    net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
                             level.setBlockAndUpdate((BlockPos) b.invoke(pair),
-                                    net.minecraft.world.level.block.Blocks.PRISMARINE.defaultBlockState());
-                            connected[i] = true;
+                                    net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+                            connected[i] = false;
                         }
                         var sp = server.getPlayerList().getPlayer(uuid);
                         if (sp != null) {
                             sp.teleportTo(start.getX() + 0.5, start.getY(), start.getZ() + 0.5);
                         }
-                        done.set("ok: " + HIS_UNLIT.length + " pairs joined, start " + start.toShortString());
+                        done.set("ok: " + HIS_UNLIT.length + " pairs not in his room (stone), start " + start.toShortString());
                     } catch (ReflectiveOperationException | RuntimeException e) {
                         done.set("FAILED " + e);
                     }
