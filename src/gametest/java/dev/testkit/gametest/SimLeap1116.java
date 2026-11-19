@@ -147,11 +147,11 @@ final class SimLeap1116 {
             for (String n : new String[]{"Healer", "Tank", "Archer", "Berserk"}) {
                 expect(f, "a head named " + n + " (its class), no TeammateN", slotOf(heads, n) >= 0, true);
                 String want = n.equals("Berserk") ? "BERSERKER" : n.toUpperCase();
-                expect(f, "the leap overlay colors " + n + " in its class color (placed or not)", String.valueOf(ctx.computeOnClient(mc ->
+                expect(f, "the leap overlay colors " + n + " in its class color (placed or not)", String.valueOf((Object) ctx.computeOnClient(mc ->
                         ModUnderTest.staticCall("com.killer560.hub.leapmenu.PartyTracker", "classOf",
                                 new Class<?>[]{String.class}, new Object[]{n}))), want);
             }
-            expect(f, "a real player name stays unknown to the class lookup", String.valueOf(ctx.computeOnClient(mc ->
+            expect(f, "a real player name stays unknown to the class lookup", String.valueOf((Object) ctx.computeOnClient(mc ->
                     ModUnderTest.staticCall("com.killer560.hub.leapmenu.PartyTracker", "classOf",
                             new Class<?>[]{String.class}, new Object[]{"SomeRealPlayer"}))), "null");
             long mark = LogTap.mark();
