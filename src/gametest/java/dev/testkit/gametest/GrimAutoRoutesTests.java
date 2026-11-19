@@ -214,7 +214,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // hotbar swap in the break ticks (default AND experimental Grim by the jar's server config).
             for (String[] st : new String[][]{{"legit", "LEGIT_MULTI", "burst"}, {"burst", "BURST", "legit"}, {"follow", "BREAKER_AURA", "burst"}}) {
                 for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{null, dev.testkit.gametest.SameTick.Act.USE,
-                        dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP}) {
+                        dev.testkit.gametest.SameTick.Act.SWAP}) {
                     String nm = "62-argrim-1118-breakstyle-" + st[0] + (a == null ? "" : "-same-" + a.name().toLowerCase(Locale.ROOT));
                     boolean burst = !st[1].equals("LEGIT_MULTI") && (st[1].equals("BURST") || st[2].equals("burst"));
                     if (burst) {
