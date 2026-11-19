@@ -411,8 +411,8 @@ final class Ee3RouteGrimCases {
                 st = null;
                 SameTickCases.judge(c, s2, "ee3 route levers");
             }
-            long noLook = LogTap.since(mark).stream().filter(l -> l.contains("no packet can carry a look to lever")).count();
-            c.check(acceptedPlace.size() <= noLook, "RotationPlace flags " + acceptedPlace.size() + " exceed the no-look lever clicks " + noLook + ": " + acceptedPlace);
+            long noLookClicks = LogTap.since(mark).stream().filter(l -> l.contains("no packet can carry a look to lever")).count();
+            c.check(acceptedPlace.size() <= noLookClicks, "RotationPlace flags " + acceptedPlace.size() + " exceed the no-look lever clicks " + noLookClicks + ": " + acceptedPlace);
             c.check(dig || lev[1], "the high S2 lever was not powered (low/high " + lev[0] + "/" + lev[1] + ")");
             c.check(dig || ticks.lever >= 1, "no lever click on the wire: " + wire);
             c.check(ticks.twoLevers == 0, "two lever clicks in one server tick: " + wire);
