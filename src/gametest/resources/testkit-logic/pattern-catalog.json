@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T11:42:19",
- "modSource": "lane-autoanvil-start-1118-rm",
- "modGitSha": "bfc62a39f0e5aad1932f74a373e2bf19d37aeaad",
+ "generatedAt": "2026-11-19T12:24:15",
+ "modSource": "lane-witherpick-1117-pf",
+ "modGitSha": "a8145b5c039b31d9dbb6c39a92bee20a568ecbbc",
  "modSourceDirty": false,
  "count": 985,
  "byKind": {
