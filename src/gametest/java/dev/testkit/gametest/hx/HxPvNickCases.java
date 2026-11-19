@@ -75,6 +75,7 @@ final class HxPvNickCases {
         s.test("696-hx-pv-item-rarity", HxPvNickCases::rarity);
         s.test("697-hx-pv-networth-line", HxPvNickCases::networth);
         s.test("698-hx-pv-bestiary-fits", HxPvNickCases::bestiary);
+        s.test("1118-hx-pv-networth-buttons", HxPvNickCases::networthButtons);
     }
 
     // ---- 691 ------------------------------------------------------------------------------------------------------
@@ -648,6 +649,112 @@ final class HxPvNickCases {
             }
             restore(c);
         }
+    }
+
+    // ---- 1118 -----------------------------------------------------------------------------------------------------
+
+    /** The Networth page's Showing and Priced at buttons: left click steps forward, right click back, the totals recompute
+     *  at once, and the Bazaar Prices / Lowest BIN Prices rows are gone. */
+    @SuppressWarnings("unchecked")
+    private static void networthButtons(Session c) throws Exception {
+        Map<String, Long> bazaar = c.onClient(mc -> (Map<String, Long>) Mod.field(
+                Mod.field("rngmeter.RngMeterEngine", "PRICES"), "bazaarSellPrice"));
+        Long before = bazaar.put("ENCHANTED_DIAMOND", EDIAMOND_PRICE);
+        String pvc = "profileviewer.ProfileViewerConfig";
+        Object oldPricing = c.onClient(mc -> Mod.call(Mod.cfg(pvc), "getNetworthPricing"));
+        Object oldView = c.onClient(mc -> Mod.call(Mod.cfg(pvc), "getNetworthView"));
+        bigWindow(c);
+        try {
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(pvc), "setNetworthPricing", Mod.enumValue("pricetooltip.PriceData$Pricing", "ITEM_VALUE"));
+                Mod.call(Mod.cfg(pvc), "setNetworthView", Mod.enumValue("profileviewer.data.Networth$View", "ALL"));
+                return null;
+            });
+            Screen s = openPv(c, 0);
+            c.waitUntil("the Basic Info networth line has a value", mc -> Mod.field(s, "lastBasicNetworth") != null, 200);
+            c.onClient(mc -> Mod.call(s, "setPage", 11));
+            c.ctx().waitTicks(6);
+            long expected = PURSE + BANK + 6 * 64 * EDIAMOND_PRICE;
+            Object extra = c.onClient(mc -> Mod.field(s, "extraPages"));
+            shot(c, "networth-default");
+
+            // The two rows are gone from the page's code.
+            try (java.io.InputStream in = Mod.cls("profileviewer.screen.ExtraPages").getResourceAsStream("ExtraPages.class")) {
+                String bytes = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.ISO_8859_1);
+                c.check(!bytes.contains("Bazaar Prices") && !bytes.contains("Lowest BIN Prices"), "a price count row is still on the Networth page");
+            }
+
+            // The buttons are the 138 x 14 hotspots of the left panel: Showing first, Priced at second.
+            int[] box = c.onClient(mc -> new int[]{(Integer) Mod.field(s, "contentX")});
+            List<Object[]> left = c.onClient(mc -> {
+                List<Object[]> out = new ArrayList<>();
+                for (Object h : (List<?>) Mod.field(s, "hotspots")) {
+                    if ((Integer) Mod.field(h, "x") == box[0] + 6 && (Integer) Mod.field(h, "w") == 138 && (Integer) Mod.field(h, "h") == 14) {
+                        out.add(new Object[]{Mod.field(h, "y"), Mod.field(h, "action")});
+                    }
+                }
+                for (Object h : (List<?>) Mod.field(s, "rightHotspots")) {
+                    if ((Integer) Mod.field(h, "x") == box[0] + 6 && (Integer) Mod.field(h, "w") == 138) {
+                        out.add(new Object[]{-(Integer) Mod.field(h, "y"), Mod.field(h, "action")});
+                    }
+                }
+                return out;
+            });
+            c.check(left.size() == 4, "expected 2 left and 2 right button hotspots on the Networth page, found " + left.size());
+            Runnable showFwd = (Runnable) left.get(0)[1];
+            Runnable priceFwd = (Runnable) left.get(1)[1];
+            Runnable showBack = (Runnable) left.get(2)[1];
+            Runnable priceBack = (Runnable) left.get(3)[1];
+            java.util.function.Supplier<String> now = () -> c.onClient(mc -> Mod.call(Mod.cfg(pvc), "getNetworthView") + "/"
+                    + Mod.call(Mod.cfg(pvc), "getNetworthPricing"));
+
+            c.onClient(mc -> { showFwd.run(); return null; });
+            c.check(now.get().equals("NON_COSMETIC/ITEM_VALUE"), "Showing click 1: " + now.get());
+            c.onClient(mc -> { showFwd.run(); return null; });
+            c.check(now.get().equals("NON_SOULBOUND/ITEM_VALUE"), "Showing click 2: " + now.get());
+            c.onClient(mc -> { showBack.run(); return null; });
+            c.check(now.get().equals("NON_COSMETIC/ITEM_VALUE"), "Showing right click: " + now.get());
+
+            // Pricing: Instant Sell reads the (empty here) price tables, so the diamonds drop out; right click restores.
+            c.onClient(mc -> { priceFwd.run(); return null; });
+            c.check(now.get().equals("NON_COSMETIC/INSTANT_SELL"), "Priced at click: " + now.get());
+            long sell = priceTotal(c, s, extra);
+            c.note("Instant Sell page total " + sell + " (Est. Item Value would be " + expected + ")");
+            c.check(sell == PURSE + BANK, "Instant Sell total " + sell + ", expected " + (PURSE + BANK));
+            c.onClient(mc -> { showFwd.run(); return null; });
+            c.ctx().waitTicks(4);
+            shot(c, "networth-instant-sell-non-soulbound");
+            c.onClient(mc -> { showBack.run(); return null; });
+            c.onClient(mc -> { priceBack.run(); return null; });
+            long again = priceTotal(c, s, extra);
+            c.check(again == expected, "back on Est. Item Value the total was " + again + ", expected " + expected);
+        } finally {
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(pvc), "setNetworthPricing", oldPricing);
+                Mod.call(Mod.cfg(pvc), "setNetworthView", oldView);
+                Mod.call(Mod.cfg(pvc), "save");
+                return null;
+            });
+            if (before == null) {
+                bazaar.remove("ENCHANTED_DIAMOND");
+            } else {
+                bazaar.put("ENCHANTED_DIAMOND", before);
+            }
+            restore(c);
+        }
+    }
+
+    /** The page's All Value total, once the recalculation after a button click has finished. */
+    private static long priceTotal(Session c, Screen s, Object extra) {
+        long[] out = new long[1];
+        c.waitUntil("the networth was recalculated", mc -> {
+            Object state = Mod.call(extra, "networthState", Mod.call(s, "profile"));
+            Object res = Mod.call(state, "result");
+            if (res == null) return false;
+            out[0] = (Long) Mod.call(res, "total");
+            return true;
+        }, 200);
+        return out[0];
     }
 
     // ---- 698 ------------------------------------------------------------------------------------------------------

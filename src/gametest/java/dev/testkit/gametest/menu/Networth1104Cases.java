@@ -49,6 +49,7 @@ final class Networth1104Cases {
         MenuSuite.test(s, "1104-networth-itemvalue", Networth1104Cases::itemValue);
         MenuSuite.test(s, "1104-networth-cosmetic", Networth1104Cases::cosmetic);
         MenuSuite.test(s, "1104-menu-storage-pricetip", Networth1104Cases::storageTip);
+        MenuSuite.test(s, "1118-networth-pricing-soulbound", Networth1104Cases::pricingSoulbound);
     }
 
     private static double total(Object itemValue) {
@@ -173,6 +174,110 @@ final class Networth1104Cases {
                 return null;
             });
             ItemCases.clear(c, 0, 1);
+        }
+    }
+
+    // ---- 1118-networth-pricing-soulbound ------------------------------------------------------------------------
+
+    static final String PRICING = "pricetooltip.PriceData$Pricing";
+    static final String VIEW = "profileviewer.data.Networth$View";
+    static final String LORE_SB = "minecraft:iron_sword[custom_data={id:\"HYPERION\",timestamp:1777032000000L},"
+            + "lore=['\"* Soulbound *\"']]";
+    static final String COOP_SB = "minecraft:iron_sword[custom_data={id:\"HYPERION\",timestamp:1777032000000L},"
+            + "lore=['\"* Co-op Soulbound *\"']]";
+    static final String DONATED = "minecraft:iron_sword[custom_data={id:\"HYPERION\",timestamp:1777032000000L,donated_museum:1b}]";
+    static final String PURSE_ONLY = "{\"profiles\":[{\"profile_id\":\"p1\",\"cute_name\":\"Test\",\"selected\":true,"
+            + "\"members\":{\"00000000000000000000000000000001\":{\"currencies\":{\"coin_purse\":123456}}}}]}";
+
+    private static Object calc(Session c, List<ItemStack> armor, List<ItemStack> museum, String pricing) {
+        return c.onClient(mc -> {
+            Object profiles = Mod.staticCall("profileviewer.data.SbProfile", "parseAll",
+                    JsonParser.parseString(PURSE_ONLY).getAsJsonObject(), UUID.fromString("00000000-0000-0000-0000-000000000001"));
+            Object p = ((List<?>) profiles).get(0);
+            try {
+                Object inv = Mod.cls("profileviewer.data.SbProfile$Inventories").getDeclaredConstructors()[0].newInstance(
+                        List.of(), armor, List.of(), List.of(), List.of(), List.of(), 0, List.of(), List.of(), List.of(), List.of(), List.of());
+                return Mod.staticCall(NW, "calculate", p, inv, null, Map.of(), museum, Mod.enumValue(PRICING, pricing));
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError(e);
+            }
+        });
+    }
+
+    private static long total(Object result, String view) {
+        return ((Number) Mod.call(result, "total", Mod.enumValue(VIEW, view))).longValue();
+    }
+
+    private static long cat(Object result, String view, String name) {
+        for (Object cat : (List<?>) Mod.call(result, "categories", Mod.enumValue(VIEW, view))) {
+            if (name.equals(Mod.call(cat, "name"))) return ((Number) Mod.call(cat, "total")).longValue();
+        }
+        return -1;
+    }
+
+    /** Each pricing mode prices a fixed set of stacks as expected, the Non-Soulbound view drops exactly the soulbound ones
+     *  (lore Soulbound, lore Co-op Soulbound, donated_museum) and the Museum category, and the choices survive a reload. */
+    static void pricingSoulbound(Session c) throws Exception {
+        Object oldPricing = c.onClient(mc -> Mod.call(Mod.cfg(PVCFG), "getNetworthPricing"));
+        Object oldView = c.onClient(mc -> Mod.call(Mod.cfg(PVCFG), "getNetworthView"));
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c); PriceTooltipCases.Fake fake = PriceTooltipCases.loadPrices(c, cfg)) {
+            ItemStack plain = PriceTooltipCases.give(c, 0, PriceTooltipCases.HYPERION);
+            ItemStack lore = PriceTooltipCases.give(c, 1, LORE_SB);
+            ItemStack coop = PriceTooltipCases.give(c, 2, COOP_SB);
+            ItemStack donated = PriceTooltipCases.give(c, 3, DONATED);
+            ItemStack dia = PriceTooltipCases.give(c, 4, PriceTooltipCases.DIAMONDS, 64);
+            List<ItemStack> armor = List.of(plain.copy(), lore.copy(), coop.copy(), donated.copy(), dia.copy());
+            List<ItemStack> museum = List.of(plain.copy());
+            long purse = 123_456L;
+            // Hyperion: lowest BIN 5,900,000, 3 day average 4,790,000, NPC 56,000, no Bazaar sell. 64 Enchanted Diamonds:
+            // Bazaar buy 1,700.5, sell 1,600.5, NPC 1,280, no BIN or average.
+            long[][] want = {
+                    {purse + 4 * 5_900_000L + 108_832L + 5_900_000L},
+                    {purse + 4 * 5_900_000L + 102_432L + 5_900_000L},
+                    {purse + 4 * 4_790_000L + 108_832L + 4_790_000L},
+                    {purse + 4 * 56_000L + 81_920L + 56_000L}};
+            String[] modes = {"ITEM_VALUE", "INSTANT_SELL", "AVERAGE_BIN", "NPC_SELL"};
+            long[] seen = new long[4];
+            for (int i = 0; i < 4; i++) {
+                Object r = calc(c, armor, museum, modes[i]);
+                seen[i] = total(r, "ALL");
+                c.note(modes[i] + ": all " + seen[i] + ", non-soulbound " + total(r, "NON_SOULBOUND"));
+                c.check(seen[i] == want[i][0], modes[i] + " total " + seen[i] + ", expected " + want[i][0]);
+            }
+            c.check(seen[0] != seen[1] && seen[1] != seen[2] && seen[2] != seen[3], "the pricing modes gave the same totals: " + java.util.Arrays.toString(seen));
+
+            // Non-soulbound: the plain Hyperion, the diamonds and the coins stay; three soulbound swords and the Museum go.
+            Object r = calc(c, armor, museum, "ITEM_VALUE");
+            long keep = purse + 5_900_000L + 108_832L;
+            c.check(total(r, "NON_SOULBOUND") == keep, "non-soulbound total " + total(r, "NON_SOULBOUND") + ", expected " + keep);
+            c.check(cat(r, "NON_SOULBOUND", "Armor") == 5_900_000L + 108_832L, "non-soulbound Armor " + cat(r, "NON_SOULBOUND", "Armor"));
+            c.check(cat(r, "NON_SOULBOUND", "Museum") == 0 && cat(r, "ALL", "Museum") == 5_900_000L,
+                    "Museum " + cat(r, "ALL", "Museum") + " / " + cat(r, "NON_SOULBOUND", "Museum") + ", expected 5,900,000 / 0");
+            c.check(total(r, "NON_COSMETIC") == total(r, "ALL"), "no cosmetics here, yet non-cosmetic differs from all value");
+
+            // Both choices survive a save and load.
+            c.onClient(mc -> {
+                Object pv = Mod.cfg(PVCFG);
+                Mod.call(pv, "setNetworthPricing", Mod.enumValue(PRICING, "NPC_SELL"));
+                Mod.call(pv, "setNetworthView", Mod.enumValue(VIEW, "NON_SOULBOUND"));
+                Mod.call(pv, "save");
+                Mod.call(pv, "setNetworthPricing", Mod.enumValue(PRICING, "ITEM_VALUE"));
+                Mod.call(pv, "setNetworthView", Mod.enumValue(VIEW, "ALL"));
+                Mod.staticCall(PVCFG, "load");
+                return null;
+            });
+            String back = c.onClient(mc -> Mod.call(Mod.cfg(PVCFG), "getNetworthPricing") + "/" + Mod.call(Mod.cfg(PVCFG), "getNetworthView"));
+            c.check(back.equals("NPC_SELL/NON_SOULBOUND"), "pricing and view after a reload: " + back);
+        } finally {
+            c.onClient(mc -> {
+                Object pv = Mod.cfg(PVCFG);
+                Mod.call(pv, "setNetworthPricing", oldPricing);
+                Mod.call(pv, "setNetworthView", oldView);
+                Mod.call(pv, "save");
+                return null;
+            });
+            PriceTooltipCases.shift(null);
+            ItemCases.clear(c, 0, 1, 2, 3, 4);
         }
     }
 
