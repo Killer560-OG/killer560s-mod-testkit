@@ -96,14 +96,16 @@ final class HxSuperboomRange1118Cases {
             mc.player.getInventory().setSelectedSlot(4);
             return null;
         });
-        c.ctx().waitTicks(2);
+        c.ctx().waitTicks(6);
         long since = c.hx().head();
         c.onClient(mc -> {
             net.minecraft.client.KeyMapping.click(mc.options.keyAttack.getDefaultKey());
             return null;
         });
         c.ctx().waitTicks(8);
-        return swaps(c, since) > 0;
+        boolean did = swaps(c, since) > 0;
+        c.ctx().waitTicks(12); // the swap back and the server's tick order settle before the next trial
+        return did;
     }
 
     private static void geometry(Session c, boolean crypt) {
