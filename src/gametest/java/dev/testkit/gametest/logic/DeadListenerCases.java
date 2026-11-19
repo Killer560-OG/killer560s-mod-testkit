@@ -7,7 +7,6 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
 
 /**
  * 1118-logic-deadlisteners-bar (mod deadlisteners-1118): Ability Cooldowns and Metal Detector read the action bar through
@@ -53,9 +52,9 @@ final class DeadListenerCases {
             });
             c.check("control: Ink Wand is not cooling down yet", !cooling("INK_WAND"), "");
             c.check("control: Fire Veil is not cooling down yet", !cooling("FIRE_VEIL"), "");
-            // System-chat overlay: the path Hide actionbar drops (ALLOW_GAME returns false).
-            ctx.runOnClient(mc -> mc.getConnection().handleSystemChat(new ClientboundSystemChatPacket(
-                    Component.literal("§b-30 Mana (§6Ink Bomb§b)"), true)));
+            // System-chat overlay: Fabric's own ALLOW_GAME dispatch, where Hide actionbar drops the line.
+            ctx.runOnClient(mc -> net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents.ALLOW_GAME.invoker()
+                    .allowReceiveGameMessage(Component.literal("§b-30 Mana (§6Ink Bomb§b)"), true));
             c.check("Ink Wand cooldown started from a system-chat action bar with Hide actionbar ON", cooling("INK_WAND"), "");
             // Hypixel's own action bar packet.
             ctx.runOnClient(mc -> Mod.call(McCompat.hud(mc), "setOverlayMessage", 
