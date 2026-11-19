@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T11:26:24",
- "modSource": "lane-melodylost-1118-pf",
- "modGitSha": "3ed09b02aacce127e33f27c923f278e3bec3af02",
+ "generatedAt": "2026-11-19T12:13:34",
+ "modSource": "lane-searchcaret-1119-rm",
+ "modGitSha": "17ca9e6e47a4fd8e3329c6841288863e68bc94cb",
  "modSourceDirty": false,
  "count": 985,
  "byKind": {
@@ -6890,12 +6890,24 @@
    "expr": "\"^Guild > \" + RANK + NAME + \"(?: \\\\[[^]]{1,20}])?: ?(.+)$\""
   },
   {
+   "id": "partycommands.CommandChatListener#OFFICER_REGEX",
+   "cls": "partycommands.CommandChatListener",
+   "field": "OFFICER_REGEX",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/partycommands/CommandChatListener.java",
+   "line": 29,
+   "regex": "^Officer > (?:\\[[^]]{1,20}] )?([A-Za-z0-9_]{1,16})(?: \\[[^]]{1,20}])?: ?(.+)$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^Officer > \" + RANK + NAME + \"(?: \\\\[[^]]{1,20}])?: ?(.+)$\""
+  },
+  {
    "id": "partycommands.CommandChatListener#PRIVATE_REGEX",
    "cls": "partycommands.CommandChatListener",
    "field": "PRIVATE_REGEX",
    "index": null,
    "file": "src/main/java/com/killer560/hub/partycommands/CommandChatListener.java",
-   "line": 29,
+   "line": 30,
    "regex": "^From (?:\\[[^]]{1,20}] )?([A-Za-z0-9_]{1,16}): ?(.+)$",
    "flags": null,
    "kind": "field",
@@ -6907,7 +6919,7 @@
    "field": "COOP_REGEX",
    "index": null,
    "file": "src/main/java/com/killer560/hub/partycommands/CommandChatListener.java",
-   "line": 30,
+   "line": 31,
    "regex": "^Co-op > (?:\\[[^]]{1,20}] )?([A-Za-z0-9_]{1,16})(?: [ቾ⚒])?: ?(.+)$",
    "flags": null,
    "kind": "field",
@@ -6919,7 +6931,7 @@
    "field": "ALL_REGEX",
    "index": null,
    "file": "src/main/java/com/killer560/hub/partycommands/CommandChatListener.java",
-   "line": 36,
+   "line": 37,
    "regex": "^(?:\\[\\d{1,4}] )?(?:[^\\x00-\\x7F]{1,2} )?(?:\\[(?:VIP|VIP\\+|MVP|MVP\\+|MVP\\+\\+|YOUTUBE|ADMIN|GM|MOD|HELPER|OWNER|MOJANG|EVENTS|PIG\\+\\+\\+|INNIT)] )?([A-Za-z0-9_]{1,16}): (.+)$",
    "flags": null,
    "kind": "field",
@@ -11160,18 +11172,6 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^The BLOOD DOOR has been opened!?$\""
-  },
-  {
-   "id": "splittimers.MelodyLost#LINE",
-   "cls": "splittimers.MelodyLost",
-   "field": "LINE",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/splittimers/MelodyLost.java",
-   "line": 35,
-   "regex": "^(\\w{1,16}) (?:activated|completed) a (terminal|lever|device)! \\((\\d)/(\\d)\\)(?:\\s.*)?$",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"^(\\\\w{1,16}) (?:activated|completed) a (terminal|lever|device)! \\\\((\\\\d)/(\\\\d)\\\\)(?:\\\\s.*)?$\""
   },
   {
    "id": "splittimers.SplitTimersFeature#WATCHER_FIGHT",
