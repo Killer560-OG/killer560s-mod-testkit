@@ -56,6 +56,7 @@ final class HxSuperboomRange1118Cases {
         c.server().command("fill 10 120 120 24 127 140 minecraft:air");
         c.server().command("setblock 17 120 129 minecraft:stone");
         target.run();
+        c.server().sync(10);
         float pitch = (float) Math.toDegrees(Math.atan2(121.62 - 120.5, 129 - 126.5));
         c.server().command(String.format(java.util.Locale.ROOT, "tp @p 17.5 120 126.5 0 %.2f", pitch));
         c.onClient(mc -> {
