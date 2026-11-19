@@ -190,16 +190,19 @@ public class MenuSuite implements FabricClientGameTest {
                     InventoryCases.register(s);
                     ItemCases.register(s);
                     EnchDesc1114Cases.register(s); // 1114-enchdesc-*: Hide Enchant Descriptions (enchdesc-1114)
+                    MissingEnch1118Cases.register(s); // 1118-missingench-*: Missing Enchants (missingench-1118)
                     PriceTooltipCases.register(s); // 1750-1754: Price Tooltip (price-tooltip-1015)
                     Networth1104Cases.register(s); // 1104-networth-*, 1104-menu-storage-pricetip (networth-1104)
                     Pv0273Cases.register(s); // 1117-menu-pv0273-* (pv0273-1117)
                     PvStyle1104Cases.register(s); // 1104-menu-pvstyle: the Profile Viewer's Styles (pvstyle-1104)
+                    HotmTree1118Cases.register(s); // 1118-menu-hotmtree: the HOTM perk tree (hotmtree-1118)
                     AnvilCases.register(s);
                     BazaarReskinCases.register(s);
                     PolishMenuCases.register(s); // 472, polish
                     // 491-499: the unified Auction House (API browser + reskinned real AH menus).
                     AuctionHouseCases.register(s);
                     BazaarV3Cases.register(s);
+                    RngBestCases.register(s); // 1118-menu-rng-highlight-best (rngbest-1118)
                     BazaarOrderHelperCases.register(s); // 2810: Bazaar Order Helper colors in Manage Orders (bzorders-1102)
                     ReforgeHelperCases.register(s); // 2851: Reforge Helper panel and Block When Wanted (reforge-1104)
                     // ---- 591-596 social (Best Friends, Friends List), killer560 2026-10-08 ----
@@ -249,6 +252,7 @@ public class MenuSuite implements FabricClientGameTest {
                     // ---- 888-890 croesus-track (2026-10-12): run state follows a run that moves, and restarts;
                     // 906 croesus-page-leak (2026-10-24): page 2 never takes page 1's runs ----
                     CroesusTrackCases.register(s);
+                    CroesusReloadCases.register(s);
                     // ---- 1101 shared-records (2026-11-01): records shared across instances, old files folded in ----
                     SharedRecordsCases.register(s);
                     Solver1018Cases.register(s); // 1018-*: the 2026-10-18 solver-sound batch
@@ -269,6 +273,8 @@ public class MenuSuite implements FabricClientGameTest {
                     SwapAccountsCases.register(s);
                     // ---- 1880-1886 auto-mask-1016 (2026-10-16): Auto Mask's Keybind / Full Auto, Swap Order, gates, ticks ----
                     AutoMaskCases.register(s);
+                    AutoReclaim1117Cases.register(s);
+                    AutoReclaimBtn1118Cases.register(s);
                     // ---- 1092-1094 clickguards-1025: Reroll Protection, Kismet Count, Croesus Chests HUD ----
                     CroesusRerollCases.register(s);
                     // ---- 1103-menu-* commissions-1103: Completed Commissions and Highlight Selected Loadout slots ----

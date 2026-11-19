@@ -556,7 +556,7 @@ final class HxModChatPartyCases {
                     Mod.call(cfg, "setChannelOn", modChat, true);
                     // The teammate !warp below needs "leader unknown or you": a leader another case taught the tracker
                     // (122's /p list names HxLead) would refuse it "you are not the party leader".
-                    Mod.setField("partycommands.PartyLeaderTracker", "leader", null);
+                    Mod.setField("leapmenu.PartyTracker", "leader", null);
                 });
                 dungeon(c);
                 // All chat OFF: even a teammate's all-chat !coords gets nothing (the channel gate, not the sender gate).
