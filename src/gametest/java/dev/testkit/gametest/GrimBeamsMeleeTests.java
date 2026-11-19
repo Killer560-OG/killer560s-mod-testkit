@@ -143,9 +143,9 @@ public class GrimBeamsMeleeTests implements FabricClientGameTest {
                     return;
                 }
                 hisTick0 = System.nanoTime();
-                boolean sent = click(mc, p, r.lantern());
+                boolean hisUse = "use".equals(r.his());
                 if (r.his() != null) {
-                    // After the auto's hit in START_CLIENT_TICK: vanilla handles his keys later in this same tick.
+                    // His keys go down between frames, before START_CLIENT_TICK; vanilla handles them later in this tick.
                     switch (r.his()) {
                         case "use" -> mc.options.keyUse.setDown(true);
                         case "attack" -> mc.options.keyAttack.setDown(true);
@@ -155,15 +155,17 @@ public class GrimBeamsMeleeTests implements FabricClientGameTest {
                     releaseHis = true;
                     step("his " + r.his() + " pressed in the hit tick");
                 }
+                boolean sent = click(mc, p, r.lantern());
                 double d = Math.sqrt(boxSq(p.getEyePosition(), r.lantern()));
                 switch (r.kind()) {
-                    case HIT -> expect(sent, String.format(Locale.ROOT, "the hit on %s at %.2f eye to box",
-                            r.lantern().toShortString(), d), true);
+                    case HIT -> expect(sent, hisUse ? "the hit in the tick his right click goes (must wait a tick, "
+                            + "GrimAC PacketOrderI)" : String.format(Locale.ROOT, "the hit on %s at %.2f eye to box",
+                            r.lantern().toShortString(), d), !hisUse);
                     case TURN -> expect(sent, "the hit with the body 90 degrees off (must turn, not send)", false);
                     case FAR -> expect(sent, String.format(Locale.ROOT, "the hit from %.2f eye to box (must be refused)", d),
                             false);
                 }
-                if (r.kind() == Kind.TURN) {
+                if (r.kind() == Kind.TURN || hisUse) {
                     stage = Stage.ACT2;
                 } else {
                     callCam("release", p);
@@ -172,7 +174,7 @@ public class GrimBeamsMeleeTests implements FabricClientGameTest {
             }
             case ACT2 -> {
                 boolean sent = click(mc, p, r.lantern());
-                expect(sent, "the hit on " + r.lantern().toShortString() + " the tick after the turn", true);
+                expect(sent, "the hit on " + r.lantern().toShortString() + " the tick after the turn / his right click", true);
                 callCam("release", p);
                 stage = Stage.DONE;
             }
@@ -185,7 +187,7 @@ public class GrimBeamsMeleeTests implements FabricClientGameTest {
      *  the netty thread). */
     private static String sameTickWire(String his) {
         long from = hisTick0;
-        long to = hisTick1 + 30_000_000L;
+        long to = "use".equals(his) ? hisTick1 : hisTick1 + 30_000_000L; // his use round: the hit goes at hisTick1
         String want = switch (his) {
             case "use" -> "useitem";
             case "swap" -> "setcarrieditem";
@@ -207,6 +209,10 @@ public class GrimBeamsMeleeTests implements FabricClientGameTest {
             if (n.contains(want)) {
                 mine++;
             }
+        }
+        if ("use".equals(his)) { // the hit waits for the tick after his use_item (GrimAC PacketOrderI)
+            return (mine >= 1 && digs == 0 ? "apart" : "NOT apart") + " (auto digs/actions " + digs + ", his " + want + " "
+                    + mine + "): " + seen;
         }
         boolean ok = digs >= 1 && ("attack".equals(his) ? digs >= 1 : mine >= 1);
         return (ok ? "both" : "NOT both") + " (auto digs/actions " + digs + ", his " + want + " " + mine + "): " + seen;
@@ -318,7 +324,7 @@ public class GrimBeamsMeleeTests implements FabricClientGameTest {
                             synchronized (STEPS) {
                                 STEPS.add("round " + (i + 1) + " wire in the hit tick: " + wire);
                             }
-                            if (!wire.startsWith("both")) {
+                            if (!wire.startsWith("both") && !wire.startsWith("apart")) {
                                 synchronized (BAD) {
                                     BAD.add("round " + (i + 1) + " (" + r.what() + "): " + wire);
                                 }
