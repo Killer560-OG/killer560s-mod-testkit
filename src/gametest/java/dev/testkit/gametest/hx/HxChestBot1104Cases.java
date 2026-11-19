@@ -65,7 +65,7 @@ final class HxChestBot1104Cases {
         boolean old = c.onClient(mc -> (Boolean) Mod.call(cfg, "isChestTriggerbotRaw"));
         try (HxKit.Settings set = new HxKit.Settings(c)
                 .custom(() -> Mod.call(cfg, "setChestTriggerbot", true), () -> Mod.call(cfg, "setChestTriggerbot", old))
-                .with(CFG, "ChestTriggerbotSwap", false).with(CFG, "ChestTriggerbotMaxCps", 10).with(CFG, "ChestTriggerbotMinCps", 10)
+                .with(CFG, "ChestTriggerbotSwap", false).custom(() -> Mod.call(Mod.cfg(CFG), "setChestTriggerbotDelayRange", 100, 100), () -> Mod.call(Mod.cfg(CFG), "setChestTriggerbotDelayRange", 100, 100))
                 .with(CFG, "ChestAlertSound", false).with(CFG, "ChestAlertTitle", false)
                 .with(CFG, "TreasureChestHideOpened", true)) {
             hollows(c);
@@ -170,7 +170,7 @@ final class HxChestBot1104Cases {
         dev.testkit.gametest.SameTick st = null;
         try (HxKit.Settings set = new HxKit.Settings(c)
                 .custom(() -> Mod.call(cfg, "setChestTriggerbot", true), () -> Mod.call(cfg, "setChestTriggerbot", old))
-                .with(CFG, "ChestTriggerbotSwap", act != dev.testkit.gametest.SameTick.Act.SWAP).with(CFG, "ChestTriggerbotNoSwapMining", false).with(CFG, "ChestTriggerbotMaxCps", 20).with(CFG, "ChestTriggerbotMinCps", 20)
+                .with(CFG, "ChestTriggerbotSwap", act != dev.testkit.gametest.SameTick.Act.SWAP).with(CFG, "ChestTriggerbotNoSwapMining", false).custom(() -> Mod.call(Mod.cfg(CFG), "setChestTriggerbotDelayRange", 50, 50), () -> Mod.call(Mod.cfg(CFG), "setChestTriggerbotDelayRange", 100, 100))
                 .with(CFG, "ChestAlertSound", false).with(CFG, "ChestAlertTitle", false)) {
             c.hx().give(2, drill("GEMSTONE_DRILL_4", "Jasper Drill X", 20));
             if (act == dev.testkit.gametest.SameTick.Act.DIG) {
@@ -257,7 +257,7 @@ final class HxChestBot1104Cases {
         boolean old = c.onClient(mc -> (Boolean) Mod.call(cfg, "isChestTriggerbotRaw"));
         try (HxKit.Settings set = new HxKit.Settings(c)
                 .custom(() -> Mod.call(cfg, "setChestTriggerbot", true), () -> Mod.call(cfg, "setChestTriggerbot", old))
-                .with(CFG, "ChestTriggerbotSwap", true).with(CFG, "ChestTriggerbotMaxCps", 20).with(CFG, "ChestTriggerbotMinCps", 20).with(CFG, "ChestAlertSound", false)
+                .with(CFG, "ChestTriggerbotSwap", true).custom(() -> Mod.call(Mod.cfg(CFG), "setChestTriggerbotDelayRange", 50, 50), () -> Mod.call(Mod.cfg(CFG), "setChestTriggerbotDelayRange", 100, 100)).with(CFG, "ChestAlertSound", false)
                 .with(CFG, "ChestAlertTitle", false)) {
             c.hx().give(0, "minecraft:stick");
             c.hx().give(2, drill("GEMSTONE_DRILL_1", "Ruby Drill TX-15", 5));
@@ -291,38 +291,34 @@ final class HxChestBot1104Cases {
             int at20 = clicks(c);
             c.ctx().waitTicks(40);
             int fast = clicks(c) - at20;
-            c.check(fast >= 36 && fast <= 41, fast + " clicks in 40 ticks at 20 CPS (want one a tick)");
+            c.check(fast >= 36 && fast <= 41, fast + " clicks in 40 ticks at a 50 ms delay (want one a tick)");
             c.check(PacketTrace.maxPerTick("use_item_on") == 1, PacketTrace.maxPerTick("use_item_on")
                     + " use_item_on in one tick (the limit is one a tick on a chest)");
             c.ctx().runOnClient(mc -> {
-                Mod.call(cfg, "setChestTriggerbotMinCps", 5);
-                Mod.call(cfg, "setChestTriggerbotMaxCps", 5);
+                Mod.call(cfg, "setChestTriggerbotDelayRange", 200, 200);
             });
             c.ctx().waitTicks(4);
             int at5 = clicks(c);
             c.ctx().waitTicks(60);
             int slow = clicks(c) - at5;
-            c.check(slow >= 14 && slow <= 16, slow + " clicks in 60 ticks at 5 CPS (want 15)");
+            c.check(slow >= 14 && slow <= 16, slow + " clicks in 60 ticks at a 200 ms delay (want 15)");
             // Min 4 / Max 8: every click rolls a rate in [4, 8], so 100 ticks hold 20-40 clicks; the setters keep Min <= Max.
             c.ctx().runOnClient(mc -> {
-                Mod.call(cfg, "setChestTriggerbotMaxCps", 8);
-                Mod.call(cfg, "setChestTriggerbotMinCps", 4);
+                Mod.call(cfg, "setChestTriggerbotDelayRange", 125, 250);
             });
             c.ctx().waitTicks(4);
             int atRange = clicks(c);
             c.ctx().waitTicks(100);
             int ranged = clicks(c) - atRange;
-            c.check(ranged >= 18 && ranged <= 42, ranged + " clicks in 100 ticks at 4-8 CPS (want 20-40)");
+            c.check(ranged >= 18 && ranged <= 42, ranged + " clicks in 100 ticks at a 125-250 ms delay (want 20-40)");
             c.ctx().runOnClient(mc -> {
-                Mod.call(cfg, "setChestTriggerbotMinCps", 15);
-                Mod.call(cfg, "setChestTriggerbotMaxCps", 2);
+                Mod.call(cfg, "setChestTriggerbotDelayRange", 500, 60); // reversed: sorted into 60..500
             });
-            int[] mm = c.onClient(mc -> new int[]{((Number) Mod.call(cfg, "getChestTriggerbotMinCps")).intValue(),
-                    ((Number) Mod.call(cfg, "getChestTriggerbotMaxCps")).intValue()});
-            c.check(mm[0] == 8 && mm[1] == 8, "Min above Max / Max below Min not clamped: min " + mm[0] + " max " + mm[1]);
+            int[] mm = c.onClient(mc -> new int[]{((Number) Mod.call(cfg, "getChestTriggerbotMinDelayMs")).intValue(),
+                    ((Number) Mod.call(cfg, "getChestTriggerbotMaxDelayMs")).intValue()});
+            c.check(mm[0] == 60 && mm[1] == 500, "a reversed range was not sorted: min " + mm[0] + " max " + mm[1]);
             c.ctx().runOnClient(mc -> {
-                Mod.call(cfg, "setChestTriggerbotMinCps", 5);
-                Mod.call(cfg, "setChestTriggerbotMaxCps", 5);
+                Mod.call(cfg, "setChestTriggerbotDelayRange", 200, 200);
             });
             int total = clicks(c);
             int sentUse = PacketTrace.sent("use_item_on");
@@ -387,8 +383,7 @@ final class HxChestBot1104Cases {
         try (HxKit.Settings set = new HxKit.Settings(c)
                 .custom(() -> Mod.call(cfg, "setChestTriggerbot", true), () -> Mod.call(cfg, "setChestTriggerbot", old))
                 .with(CFG, "ChestTriggerbotSwap", true).with(CFG, "ChestTriggerbotSwapBack", true)
-                .with(CFG, "ChestTriggerbotNoSwapMining", false).with(CFG, "ChestTriggerbotMaxCps", 20)
-                .with(CFG, "ChestTriggerbotMinCps", 20).with(CFG, "ChestAlertSound", false).with(CFG, "ChestAlertTitle", false)) {
+                .with(CFG, "ChestTriggerbotNoSwapMining", false).custom(() -> Mod.call(Mod.cfg(CFG), "setChestTriggerbotDelayRange", 50, 50), () -> Mod.call(Mod.cfg(CFG), "setChestTriggerbotDelayRange", 100, 100)).with(CFG, "ChestAlertSound", false).with(CFG, "ChestAlertTitle", false)) {
             c.hx().give(0, "minecraft:stick");
             c.hx().give(4, drill("GEMSTONE_DRILL_4", "Jasper Drill X", 20));
             hollows(c);
@@ -470,7 +465,7 @@ final class HxChestBot1104Cases {
         try (HxKit.Settings set = new HxKit.Settings(c)
                 .custom(() -> Mod.call(cfg, "setChestTriggerbot", true), () -> Mod.call(cfg, "setChestTriggerbot", old))
                 .with(CFG, "ChestTriggerbotSwap", true).with(CFG, "ChestTriggerbotNoSwapMining", true)
-                .with(CFG, "ChestTriggerbotMaxCps", 20).with(CFG, "ChestTriggerbotMinCps", 20)
+                .custom(() -> Mod.call(Mod.cfg(CFG), "setChestTriggerbotDelayRange", 50, 50), () -> Mod.call(Mod.cfg(CFG), "setChestTriggerbotDelayRange", 100, 100))
                 .with(CFG, "ChestAlertSound", false).with(CFG, "ChestAlertTitle", false)) {
             c.server().command("gamemode adventure @p"); // a held attack key must not break the chest
             c.hx().give(0, "minecraft:stick");

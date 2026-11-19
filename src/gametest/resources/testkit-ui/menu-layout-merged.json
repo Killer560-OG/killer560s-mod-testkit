@@ -32,6 +32,7 @@
     "gui.tab.CatchAFishTab": "Misc > Carnival > Catch a Fish Helper",
     "gui.tab.RoomNameTab": "Dungeons > Current Room Name",
     "gui.tab.ItemQualityTab": "Dungeons > Item Quality",
+    "gui.tab.AutoReclaimTab": "Items > Auto Reclaim",
     "gui.tab.IcedMobsTab": "Dungeons > Iced Mob Boxes",
     "gui.tab.BossPearlTab": "Dungeons > Block Ender Pearls In Boss",
     "gui.tab.AutoCloseChestTab": "Dungeons > Auto Close Chest",
@@ -641,7 +642,7 @@
     {
       "owner": "Auto Blood Camp",
       "key": "aura",
-      "text": "Cheat build, Blood Room only: turns you to the next blood mob you can see and clicks it at your weapon's attack speed until it dies; moving your mouse takes over.",
+      "text": "Cheat build, Blood Room only: turns you to the next blood mob you can see and clicks it at your weapon's attack speed until it dies; moving your mouse takes over. Turning the Aura on turns the Trigger Bot off (and the other way round).",
       "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, label spelling outside gui/"
     },
     {
