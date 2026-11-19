@@ -200,6 +200,7 @@ public class MenuSuite implements FabricClientGameTest {
                     // 491-499: the unified Auction House (API browser + reskinned real AH menus).
                     AuctionHouseCases.register(s);
                     BazaarV3Cases.register(s);
+                    RngBestCases.register(s); // 1118-menu-rng-highlight-best (rngbest-1118)
                     BazaarOrderHelperCases.register(s); // 2810: Bazaar Order Helper colors in Manage Orders (bzorders-1102)
                     ReforgeHelperCases.register(s); // 2851: Reforge Helper panel and Block When Wanted (reforge-1104)
                     // ---- 591-596 social (Best Friends, Friends List), killer560 2026-10-08 ----
@@ -269,6 +270,8 @@ public class MenuSuite implements FabricClientGameTest {
                     SwapAccountsCases.register(s);
                     // ---- 1880-1886 auto-mask-1016 (2026-10-16): Auto Mask's Keybind / Full Auto, Swap Order, gates, ticks ----
                     AutoMaskCases.register(s);
+                    AutoReclaim1117Cases.register(s);
+                    AutoReclaimBtn1118Cases.register(s);
                     // ---- 1092-1094 clickguards-1025: Reroll Protection, Kismet Count, Croesus Chests HUD ----
                     CroesusRerollCases.register(s);
                     // ---- 1103-menu-* commissions-1103: Completed Commissions and Highlight Selected Loadout slots ----
