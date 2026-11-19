@@ -215,6 +215,7 @@ public class MenuSuite implements FabricClientGameTest {
                     LeapBatchMenuCases.register(s); // 821-825: leap-menu batch 2026-10-11 (heads, map, delay, carried, freeze)
                     LeapRunMemoryCases.register(s); // 829-834: how long class picks and pins last, 2026-10-12
                     LeapPartyChangeCases.register(s); // 1102-menu-leaporder-*: party change slots + own class, 2026-11-02
+                    LeapOwnClass1118Cases.register(s); // 1118-menu-leaporder-ownclass-*: own class sticks until you leave the party
                     LeapEditorCases.register(s); // 899-902: Leap Order editor resets, auto party refresh, cleanup (2026-10-12)
                     // ---- 754-755 Chocolate Factory on the current layout: the auto and the legit helper (fairy-choc, 2026-10-11) ----
                     ChocolateCases.register(s);
