@@ -218,6 +218,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxNoBossPearl1110Cases.register(s);
                     HxGlaciteCommA1114Cases.register(s);
                     HxNoLocraw1115Cases.register(s);
+                    HxMapCycler1118Cases.register(s);
                 });
     }
 }

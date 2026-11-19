@@ -24,7 +24,8 @@
     "gui.tab.LeftClickSecretsTab": "Dungeons > Secrets > Left Click Opens Secrets",
     "gui.tab.AutoSuperboomTab": "Dungeons > Auto Superboom",
     "gui.tab.TerminatorClickerTab": "Dungeons > Shortbow Auto Clicker",
-    "gui.tab.NoRotateTab": "Dungeons > No Rotate"
+    "gui.tab.NoRotateTab": "Dungeons > No Rotate",
+    "gui.tab.MapCyclerTab": "Dungeons > Map Cycler"
   },
   "newLeaves": {
     "gui.tab.CarnivalTrackerTab": "Misc > Carnival > Carnival Tracker",

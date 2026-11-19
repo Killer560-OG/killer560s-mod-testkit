@@ -27,6 +27,7 @@
     {"root": "help", "why": "sim only: opens the Dungeon Sim guide (roomsim/SimHelp, gated by requires); testkit 1117-sim-help"},
     {"root": "online", "why": "opens the Online Now screen (counts per island from the relay, no chat output); mod onlineisland-1113, testkit 1113-online-screen covers it"},
     {"root": "carry", "why": "Carry Tracker (mod carryhud-1109): /carry add, remove and list edit the client list; testkit 1109-carry-* drive it"},
+    {"root": "roomcycle", "why": "Map Cycler (mod roomcycle-1118, cheat): starts or stops re-rolling the dungeon with /joininstance; testkit 1118-hx-mapcycler drives it"},
     {"root": "rp", "why": "Reparty (mod featC-1108): as party leader it sends /party disband and /party invite lines to the server; testkit 1108-reparty-* drive it"},
     {"root": "bugreport", "why": "builds the bug report zip and opens its folder (mod bugcmd-1115); testkit 1115-ui-bugcmd runs it and checks the new zip"},
     {"root": "logreport", "why": "same command as bugreport"},
