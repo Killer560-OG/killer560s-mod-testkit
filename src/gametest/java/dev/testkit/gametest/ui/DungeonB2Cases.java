@@ -923,13 +923,15 @@ final class DungeonB2Cases {
         try {
             c.onClient(mc -> {
                 Object e = Mod.cfg(ESP_CFG);
-                Mod.call(e, "setEsp", false);
+                Mod.call(e, "setMobEsp", false);
+                Mod.call(e, "setWithers", false);
+                Mod.call(e, "setWitherHighlight", true);
                 Mod.call(e, "setWitherTracer", true);
                 return null;
             });
             // small-dungeon (2026-10-15): the Tracer is the Wither Boss Highlight's, on both builds, and the ESP has no
             // color row of its own.
-            String tab = cheat ? "Dungeon ESP" : "Starred Mob Hitboxes";
+            String tab = cheat ? "Dungeon Mob Highlight" : "Starred Mob Hitboxes";
             Screen s = openTab(c, tab);
             List<String> off = labels(c, s);
             c.note(tab + " rows, ESP off: " + off);
@@ -938,26 +940,33 @@ final class DungeonB2Cases {
             c.check(off.stream().noneMatch(l -> l.startsWith("Through Walls:") || l.startsWith("Wither Bosses:")),
                     "a separate Through Walls / Wither Bosses toggle is still there");
             if (cheat) {
-                c.check(off.stream().anyMatch(l -> l.startsWith("ESP:")), "no ESP switch");
+                c.check(off.stream().anyMatch(l -> l.startsWith("Mob ESP:")) && off.stream().anyMatch(l -> l.startsWith("Wither ESP:")),
+                        "no Mob ESP / Wither ESP switch");
+                c.check(off.stream().noneMatch(l -> l.startsWith("ESP:")), "the old single ESP switch is still there");
                 c.check(off.stream().anyMatch(l -> l.startsWith("Tracer:")), "no Tracer row in the Wither Boss Highlight section");
                 c.check(off.stream().noneMatch(l -> l.startsWith("Wither Boss Color") || l.startsWith("Wither Boss Color")),
                         "the ESP still has a Wither Boss Color row");
                 boolean[] before = espState(c);
                 // Real press on the ESP switch.
-                double[] b = button(c, s, "ESP:");
+                double[] b = button(c, s, "Mob ESP:");
+                realClick(c, s, b[0] + b[2] / 2, b[1] + b[3] / 2, 0);
+                boolean[] mobOnly = espState(c);
+                c.check(mobOnly[0] && !mobOnly[1], "Mob ESP alone: through walls " + mobOnly[0] + ", withers " + mobOnly[1]);
+                b = button(c, s, "Wither ESP:");
                 realClick(c, s, b[0] + b[2] / 2, b[1] + b[3] / 2, 0);
                 boolean[] after = espState(c);
                 List<String> on = labels(c, s);
                 c.note("ESP off: throughWalls/withers/tracer " + java.util.Arrays.toString(before) + "; after one press: "
                         + java.util.Arrays.toString(after) + "; rows " + on);
                 c.check(!before[0] && !before[1], "with ESP off something still draws through walls");
-                c.check(after[0] && after[1], "one ESP press did not turn every ESP item on");
+                c.check(after[0] && after[1], "Mob ESP then Wither ESP did not turn every ESP item on");
                 c.check(on.stream().anyMatch(l -> l.startsWith("Tracer:")) && on.stream().noneMatch(l -> l.startsWith("Wither Boss Color") || l.startsWith("Wither Boss Color")),
                         "the Tracer row is gone or a Wither Boss Color row appeared under the switch");
             } else {
-                c.check(off.stream().noneMatch(l -> l.startsWith("ESP:")), "legit jar shows an ESP switch");
+                c.check(off.stream().noneMatch(l -> l.contains("ESP:")), "legit jar shows an ESP switch");
                 c.onClient(mc -> {
-                    Mod.call(Mod.cfg(ESP_CFG), "setEsp", true);
+                    Mod.call(Mod.cfg(ESP_CFG), "setMobEsp", true);
+                    Mod.call(Mod.cfg(ESP_CFG), "setWithers", true);
                     return null;
                 });
                 boolean[] st = espState(c);
@@ -973,10 +982,123 @@ final class DungeonB2Cases {
             Files.writeString(p, "{\"starredMobs\":true,\"throughWalls\":true,\"withers\":false}");
             boolean migrated = c.onClient(mc -> {
                 Mod.staticCall(ESP_CFG, "load");
-                return (Boolean) Mod.call(Mod.cfg(ESP_CFG), "isEspRaw");
+                Object e = Mod.cfg(ESP_CFG);
+                return (Boolean) Mod.call(e, "isMobEspRaw") && (Boolean) Mod.call(e, "getWithersRaw");
             });
-            c.note("old file (throughWalls on, withers off): ESP " + migrated);
-            c.check(migrated, "an old file with Through Walls on did not turn the ESP switch on");
+            c.note("old file (throughWalls on, withers off): Mob ESP + Wither ESP " + migrated);
+            c.check(migrated, "an old file with Through Walls on did not turn both ESP switches on");
+            // An old single "esp": false loads both OFF, "esp": true both ON; the new keys win when present.
+            for (String[] t : new String[][]{{"false", "false", "false"}, {"true", "true", "true"}}) {
+                Files.writeString(p, "{\"esp\":" + t[0] + "}");
+                boolean[] got = c.onClient(mc -> {
+                    Mod.staticCall(ESP_CFG, "load");
+                    Object e = Mod.cfg(ESP_CFG);
+                    return new boolean[]{(Boolean) Mod.call(e, "isMobEspRaw"), (Boolean) Mod.call(e, "getWithersRaw")};
+                });
+                c.check(got[0] == Boolean.parseBoolean(t[1]) && got[1] == Boolean.parseBoolean(t[2]),
+                        "old esp:" + t[0] + " loaded as " + java.util.Arrays.toString(got));
+            }
+            Files.writeString(p, "{\"mobEsp\":true,\"witherEsp\":false,\"bossStorm\":false}");
+            boolean[] fresh = c.onClient(mc -> {
+                Mod.staticCall(ESP_CFG, "load");
+                Object e = Mod.cfg(ESP_CFG);
+                return new boolean[]{(Boolean) Mod.call(e, "isMobEspRaw"), (Boolean) Mod.call(e, "getWithersRaw"),
+                        (Boolean) Mod.call(e, "isWitherBossOn", 0), (Boolean) Mod.call(e, "isWitherBossOn", 1)};
+            });
+            c.check(fresh[0] && !fresh[1] && fresh[2] && !fresh[3], "new keys loaded as " + java.util.Arrays.toString(fresh));
+        } finally {
+            c.onClient(mc -> {
+                McCompat.setScreen(mc, null);
+                return null;
+            });
+            restoreConfig(c, saved, ESP_CFG);
+        }
+    }
+
+    // =================================================================================================================
+    // 1118 Dungeon Mob Highlight rows: a Color row only while its own switch is ON (killer560, 2026-11-18)
+    // =================================================================================================================
+
+    static void espRows(UiCase c) throws Exception {
+        Map<Path, byte[]> saved = snapshotConfig(c, ESP_CFG);
+        String tab = Mod.isCheat() ? "Dungeon Mob Highlight" : "Starred Mob Hitboxes";
+        String[] sw = {"setStarredMobs", "setBats", "setBloodMobs", "setFelSkulls", "setMimic"};
+        try {
+            c.onClient(mc -> {
+                Object e = Mod.cfg(ESP_CFG);
+                for (String m : sw) {
+                    Mod.call(e, m, false);
+                }
+                Mod.call(e, "setWitherHighlight", false);
+                Mod.call(e, "setWithers", false);
+                Mod.call(e, "setStarredColor", 0xFF112233);
+                return null;
+            });
+            Screen s = openTab(c, tab);
+            List<String> rows = labels(c, s);
+            c.note(tab + " rows, every switch off: " + rows);
+            c.check(rows.stream().noneMatch(l -> l.startsWith("Color")), "a Color row is built with every switch off: " + rows);
+            c.check(rows.stream().noneMatch(l -> l.startsWith("Style:") || l.startsWith("Room Scoped") || l.startsWith("Maxor")),
+                    "Style / Room Scoped / boss rows are built with every switch off: " + rows);
+            // One real click on Starred Mobs: the tab rebuilds with exactly one Color row and the Style row.
+            double[] b = button(c, s, "Starred Mobs:");
+            realClick(c, s, b[0] + b[2] / 2, b[1] + b[3] / 2, 0);
+            rows = labels(c, s);
+            c.check(rows.stream().filter(l -> l.startsWith("Color")).count() == 1 && rows.stream().anyMatch(l -> l.startsWith("Style:")),
+                    "Starred Mobs ON should show one Color row and Style: " + rows);
+            c.check(rows.stream().noneMatch(l -> l.startsWith("Room Scoped")), "Room Scoped shows without Bats: " + rows);
+            // Each type on alone: one more Color row each time; the saved color survives the hidden stretch.
+            for (int i = 0; i < sw.length; i++) {
+                final int k = i;
+                c.onClient(mc -> {
+                    Object e = Mod.cfg(ESP_CFG);
+                    for (int j = 0; j < sw.length; j++) {
+                        Mod.call(e, sw[j], j == k);
+                    }
+                    return null;
+                });
+                c.onClient(mc -> {
+                    McCompat.setScreen(mc, null);
+                    return null;
+                });
+                s = openTab(c, tab);
+                rows = labels(c, s);
+                c.check(rows.stream().filter(l -> l.startsWith("Color")).count() == 1,
+                        sw[i] + " alone: expected exactly one Color row: " + rows);
+                c.check(sw[i].equals("setBats") == rows.stream().anyMatch(l -> l.startsWith("Room Scoped")),
+                        sw[i] + " alone: Room Scoped must show only for Bats: " + rows);
+            }
+            int kept = c.onClient(mc -> (Integer) Mod.call(Mod.cfg(ESP_CFG), "getStarredColor"));
+            c.check(kept == 0xFF112233, "the saved Starred color was lost while its row was hidden: " + Integer.toHexString(kept));
+            // Wither highlight: boss rows and Tracer only while it is on.
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(ESP_CFG), "setBats", false);
+                Mod.call(Mod.cfg(ESP_CFG), "setWitherHighlight", false);
+                return null;
+            });
+            c.onClient(mc -> {
+                    McCompat.setScreen(mc, null);
+                    return null;
+                });
+            s = openTab(c, tab);
+            rows = labels(c, s);
+            c.check(rows.stream().noneMatch(l -> l.startsWith("Maxor") || l.startsWith("Tracer")),
+                    "boss rows / Tracer built with the Wither Boss Highlight off: " + rows);
+            b = button(c, s, "Wither Boss Highlight:");
+            realClick(c, s, b[0] + b[2] / 2, b[1] + b[3] / 2, 0);
+            rows = labels(c, s);
+            for (String boss : new String[]{"Maxor:", "Storm:", "Goldor:", "Necron:"}) {
+                c.check(rows.stream().anyMatch(l -> l.startsWith(boss)), "no " + boss + " row with the highlight on: " + rows);
+            }
+            // Each boss row flips its own config value (default ON, saved).
+            b = button(c, s, "Goldor:");
+            realClick(c, s, b[0] + b[2] / 2, b[1] + b[3] / 2, 0);
+            boolean[] bosses = c.onClient(mc -> {
+                Object e = Mod.cfg(ESP_CFG);
+                return new boolean[]{(Boolean) Mod.call(e, "isWitherBossOn", 0), (Boolean) Mod.call(e, "isWitherBossOn", 1),
+                        (Boolean) Mod.call(e, "isWitherBossOn", 2), (Boolean) Mod.call(e, "isWitherBossOn", 3)};
+            });
+            c.check(bosses[0] && bosses[1] && !bosses[2] && bosses[3], "Goldor click: " + java.util.Arrays.toString(bosses));
         } finally {
             c.onClient(mc -> {
                 McCompat.setScreen(mc, null);
