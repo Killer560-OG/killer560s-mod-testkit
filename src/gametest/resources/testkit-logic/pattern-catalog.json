@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T08:15:51",
- "modSource": "lane-q148-1119",
- "modGitSha": "c89a18709feead3f04cb7c8172c74fd657a13770",
+ "generatedAt": "2026-11-19T08:31:51",
+ "modSource": "lane-bloodaura-rotate-1118",
+ "modGitSha": "813e97642cafca95db1f9b1e26e6aef43205ba7c",
  "modSourceDirty": false,
  "count": 979,
  "byKind": {
