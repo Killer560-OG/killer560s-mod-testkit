@@ -75,6 +75,7 @@ final class HxPvNickCases {
         s.test("696-hx-pv-item-rarity", HxPvNickCases::rarity);
         s.test("697-hx-pv-networth-line", HxPvNickCases::networth);
         s.test("698-hx-pv-bestiary-fits", HxPvNickCases::bestiary);
+        s.test("1118-hx-pv-command-toggle", HxPvNickCases::commandToggle);
     }
 
     // ---- 691 ------------------------------------------------------------------------------------------------------
@@ -450,6 +451,60 @@ final class HxPvNickCases {
     }
 
     // ---- 694 ------------------------------------------------------------------------------------------------------
+
+    /** pvtoggle-1118: the "/pv Command" switch. ON (and with no file) the typed command opens the viewer and sends nothing;
+     *  OFF the exact text goes to the server and no viewer opens, and the dispatcher stops offering it; ON again works. */
+    private static void commandToggle(Session c) throws Exception {
+        String cfg = "profileviewer.ProfileViewerConfig";
+        boolean[] was = {c.onClient(mc -> (Boolean) Mod.get(cfg, "isPvCommand"))};
+        try {
+            c.check(was[0], "a config with no pvCommand key should read ON (default)");
+            for (boolean on : new boolean[]{true, false, true}) {
+                c.onClient(mc -> {
+                    Mod.set(cfg, "setPvCommand", on);
+                    McCompat.setScreen(mc, null);
+                    return null;
+                });
+                c.ctx().waitTicks(2);
+                List<String> sent = new java.util.concurrent.CopyOnWriteArrayList<>();
+                dev.testkit.harness.PacketTrace.tap = p -> {
+                    if (p instanceof net.minecraft.network.protocol.game.ServerboundChatCommandPacket cmd) {
+                        sent.add(cmd.command());
+                    }
+                };
+                try {
+                    c.onClient(mc -> {
+                        mc.player.connection.sendCommand("pv " + PV_NAME);
+                        return null;
+                    });
+                    c.ctx().waitTicks(8);
+                } finally {
+                    dev.testkit.harness.PacketTrace.stop();
+                }
+                String open = c.onClient(mc -> mc.screen == null ? "none" : mc.screen.getClass().getSimpleName());
+                boolean offered = c.onClient(mc -> {
+                    var node = net.fabricmc.fabric.impl.command.client.ClientCommandInternals.getActiveDispatcher().getRoot().getChild("pv");
+                    return node != null && node.canUse((net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource) mc.player.connection.getSuggestionsProvider());
+                });
+                c.note("switch " + (on ? "ON" : "OFF") + ": sent " + sent + ", screen " + open + ", dispatcher offers /pv " + offered);
+                if (on) {
+                    c.check(sent.isEmpty(), "ON: /pv must send nothing to the server, sent " + sent);
+                    c.check(open.equals("ProfileViewerScreen"), "ON: /pv should open the viewer, screen is " + open);
+                    c.check(offered, "ON: the dispatcher should offer /pv");
+                } else {
+                    c.check(sent.equals(List.of("pv " + PV_NAME)), "OFF: the exact text 'pv " + PV_NAME + "' should reach the server, sent " + sent);
+                    c.check(!open.equals("ProfileViewerScreen"), "OFF: no viewer may open, screen is " + open);
+                    c.check(!offered, "OFF: the dispatcher should not offer /pv");
+                }
+            }
+        } finally {
+            c.onClient(mc -> {
+                Mod.set(cfg, "setPvCommand", was[0]);
+                McCompat.setScreen(mc, null);
+                return null;
+            });
+        }
+    }
 
     private static void tabComplete(Session c) throws Exception {
         UUID a = UUID.fromString("6b1f3c2e-8d4a-4f1b-9c3e-2a7d5e9f0b21");
