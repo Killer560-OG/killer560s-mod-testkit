@@ -12,7 +12,7 @@ import net.minecraft.network.chat.Component;
  * 1118-logic-deadlisteners-bar (mod deadlisteners-1118): Ability Cooldowns and Metal Detector read the action bar through
  * a plain Fabric GAME / MODIFY_GAME listener, which Hypixel's action bar packet never reaches and which Chat Hider's
  * "Hide actionbar" starves on the system-chat path. Both now hang off PlayerStatsFeature.onActionBar. Each line goes
- * through a real packet handler with Hide actionbar ON: Ink Wand's "-N Mana (Ink Bomb)" as a system-chat overlay (the
+ * through a real packet handler with Hide actionbar ON: Ender Bow's "-N Mana (Ender Warp)" as a system-chat overlay (the
  * path Hide actionbar drops) and Fire Veil's straight into Gui.setOverlayMessage (what Hypixel's action bar packet calls), then a metal
  * detector "TREASURE: 37.4m" readout in Mines of Divan. Each feature must have acted (cooldown running, distance read).
  * Positive control: the cooldowns are not running before the lines. (SelfDerivation is asserted in 1118-sim-map-hidden-bar.)
@@ -50,12 +50,12 @@ final class DeadListenerCases {
                 Mod.set(ABILITY_CFG, "setActionBarDetection", true);
                 Mod.set(METAL_CFG, "setEnabled", true);
             });
-            c.check("control: Ink Wand is not cooling down yet", !cooling("INK_WAND"), "");
+            c.check("control: Ender Bow is not cooling down yet", !cooling("ENDER_BOW"), "");
             c.check("control: Fire Veil is not cooling down yet", !cooling("FIRE_VEIL"), "");
             // System-chat overlay: Fabric's own ALLOW_GAME dispatch, where Hide actionbar drops the line.
             ctx.runOnClient(mc -> net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents.ALLOW_GAME.invoker()
-                    .allowReceiveGameMessage(Component.literal("§b-30 Mana (§6Ink Bomb§b)"), true));
-            c.check("Ink Wand cooldown started from a system-chat action bar with Hide actionbar ON", cooling("INK_WAND"), "");
+                    .allowReceiveGameMessage(Component.literal("§b-30 Mana (§6Ender Warp§b)"), true));
+            c.check("Ender Bow cooldown started from a system-chat action bar with Hide actionbar ON", cooling("ENDER_BOW"), "");
             // Hypixel's own action bar packet.
             ctx.runOnClient(mc -> Mod.call(McCompat.hud(mc), "setOverlayMessage", 
                     Component.literal("§b-20 Mana (§6Fire Veil§b)"), false));
@@ -73,7 +73,7 @@ final class DeadListenerCases {
                 return d;
             });
             c.eq("Metal Detector read the TREASURE distance from the action bar packet", 37.4, read);
-            c.note("Ink Wand (system chat, Hide ON), Fire Veil (action bar packet) and Metal Detector (TREASURE 37.4m) all acted");
+            c.note("Ender Bow (system chat, Hide ON), Fire Veil (action bar packet) and Metal Detector (TREASURE 37.4m) all acted");
         } finally {
             ctx.runOnClient(mc -> {
                 Mod.set(CHAT_TIDY, "setHideActionbar", wasHide);
