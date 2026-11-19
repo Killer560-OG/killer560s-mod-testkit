@@ -3773,7 +3773,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         startSampling(ctx);
         String landLine = "[AutoClear] Hyperion ready for the landing";
         dev.testkit.gametest.SameTick st = act == null ? null : ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(
-                act, act == dev.testkit.gametest.SameTick.Act.USE ? 3 : 1,
+                // His swap every tick for the whole clear leaves Auto Clear no tick to take the Hyperion back (it never
+                // swaps over his), so it skipped the last mob after 80 ticks (achype6): every third tick, like his USE.
+                act, act == dev.testkit.gametest.SameTick.Act.USE || act == dev.testkit.gametest.SameTick.Act.SWAP ? 3 : 1,
                 p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
                         || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8)
                 .armedBy(() -> logHas(m, landLine)));
