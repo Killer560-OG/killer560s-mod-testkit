@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 
 import dev.testkit.gametest.hx.Session;
 import dev.testkit.gametest.mod.Mod;
+import dev.testkit.compat.McCompat;
 
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.item.ItemStack;
@@ -110,7 +111,7 @@ final class CroesusReloadCases {
             MenuKit.awaitScreen(c, "(1/1) Croesus", 100);
             c.ctx().getInput().setCursorPos(2, 2);
             c.onClient(mc -> {
-                AbstractContainerScreen<?> cs = (AbstractContainerScreen<?>) mc.screen;
+                AbstractContainerScreen<?> cs = (AbstractContainerScreen<?>) McCompat.screen(mc);
                 for (int s : order) {
                     stacks.put(s, cs.getMenu().getSlot(s).getItem().copy());
                 }
@@ -121,7 +122,7 @@ final class CroesusReloadCases {
             CroesusTrackCases.drainRunsWriter();
             Files.writeString(p, file.toString(), StandardCharsets.UTF_8);
             c.onClient(mc -> {
-                AbstractContainerScreen<?> cs = (AbstractContainerScreen<?>) mc.screen;
+                AbstractContainerScreen<?> cs = (AbstractContainerScreen<?>) McCompat.screen(mc);
                 for (int s : order) {
                     cs.getMenu().getSlot(s).set(ItemStack.EMPTY);
                 }
@@ -131,7 +132,7 @@ final class CroesusReloadCases {
             c.ctx().waitTicks(2);
             for (int s : order) {
                 c.onClient(mc -> {
-                    ((AbstractContainerScreen<?>) mc.screen).getMenu().getSlot(s).set(stacks.get(s).copy());
+                    ((AbstractContainerScreen<?>) McCompat.screen(mc)).getMenu().getSlot(s).set(stacks.get(s).copy());
                     return null;
                 });
                 c.ctx().waitTicks(1);
