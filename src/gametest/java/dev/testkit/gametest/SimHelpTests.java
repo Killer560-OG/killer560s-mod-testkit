@@ -147,7 +147,9 @@ public class SimHelpTests implements FabricClientGameTest {
         // The harness window resize does not change a Screen's own size (it stays 854x480), so each size is given to the
         // screen the way vanilla does (Screen.resize(w, h)) and measured from its layout, with no render involved.
         // simhelp-polish-1118: Close bottom left, Back then Next bottom right, the page count on the panel's center, nothing overlapping.
-        int[][] sizes = {{1920, 1080, 1}, {1920, 1080, 2}, {1920, 1080, 3}, {1920, 1080, 4}, {854, 480, 2}, {854, 480, 4}};
+        // Vanilla never scales a window below 320x240 (Window.calculateScale), so 640x480 GUI 2 is the smallest real canvas;
+        // 854x480 GUI 4 (213x120) cannot happen and was dropped.
+        int[][] sizes = {{1920, 1080, 1}, {1920, 1080, 2}, {1920, 1080, 3}, {1920, 1080, 4}, {854, 480, 2}, {640, 480, 2}};
         int scrolling = 0;
         int checked = 0;
         for (int[] s : sizes) {
@@ -228,7 +230,7 @@ public class SimHelpTests implements FabricClientGameTest {
             }
         }
         check(problems, checked == sizes.length * pages, "only " + checked + " of " + sizes.length * pages + " layouts were checked");
-        facts.add("buttons, label center and no overlaps on " + checked + " layouts at 1920x1080 GUI 1-4 and 854x480 GUI 2/4 (" + scrolling + " page views scroll)");
+        facts.add("buttons, label center and no overlaps on " + checked + " layouts at 1920x1080 GUI 1-4, 854x480 GUI 2 and 640x480 GUI 2 (" + scrolling + " page views scroll)");
 
         // The real window: every page draws its pictures (ready within 10 s, real pixels in each box), and the accent follows the theme.
         setWindow(ctx, 1280, 720, 2);
