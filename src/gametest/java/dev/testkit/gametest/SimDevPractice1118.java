@@ -93,6 +93,12 @@ final class SimDevPractice1118 {
         expect(f, what + ": the button is within reach (" + String.format(Locale.ROOT, "%.1f", d) + ")", d < 3.5, true);
     }
 
+    /** A picture for the owner (kept in the report's screenshots folder). */
+    private static void shot(ClientGameTestContext ctx, String name) {
+        java.nio.file.Path taken = ctx.takeScreenshot(dev.testkit.harness.Report.fileName(NAME + "-" + name));
+        println(NAME, "picture " + name + " -> " + dev.testkit.harness.Report.screenshot(NAME + "-" + name, taken));
+    }
+
     private static void pressRestart(ClientGameTestContext ctx) {
         int[] b = buttonAt();
         useBlock(ctx, new BlockPos(b[0], b[1], b[2]), Direction.UP);
@@ -164,6 +170,9 @@ final class SimDevPractice1118 {
         expect(f, "SS practice: he stands at the device (" + String.format(Locale.ROOT, "%.1f %.1f %.1f", at[0], at[1], at[2]) + ")",
                 Math.abs(at[0] - 107.9) < 3 && Math.abs(at[2] - 93.9) < 3, true);
         checkButton(ctx, f, "SS");
+        ctx.runOnClient(mc -> mc.player.setXRot(35f));
+        ctx.waitTicks(4);
+        shot(ctx, "ss-start");
         expect(f, "SS practice: the device is armed (IDLE)", call(DEVICES, "ssState"), "IDLE");
         int best = Integer.MAX_VALUE;
 
@@ -183,6 +192,8 @@ final class SimDevPractice1118 {
         expect(f, "SS result line: 0 misses and 10 clicks", waitChat(ctx, mark, "Misses: 0   Clicks: 10", 20), true);
         expect(f, "SS result line: round times", waitChat(ctx, mark, "Rounds: 1 ", 20), true);
         expect(f, "SS result line: personal best", waitChat(ctx, mark, "Personal best: ", 20), true);
+        ctx.waitTicks(6);
+        shot(ctx, "ss-result");
         SharedFlush.flush();
         expect(f, "SS personal best saved", call2(PRACTICE, 1), ms1);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(PRACTICE, "reloadForTest", new Class<?>[]{}, new Object[]{}));
@@ -247,6 +258,9 @@ final class SimDevPractice1118 {
         expect(f, "i4 practice: he stands on the plate (" + String.format(Locale.ROOT, "%.1f %.1f %.1f", at[0], at[1], at[2]) + ")",
                 Math.abs(at[0] - 63.5) < 1.5 && Math.abs(at[2] - 35.5) < 1.5 && Math.abs(at[1] - 127) < 1.5, true);
         checkButton(ctx, f, "i4");
+        ctx.runOnClient(mc -> mc.player.setXRot(10f));
+        ctx.waitTicks(4);
+        shot(ctx, "i4-start");
 
         // the device runs on its own once he is on the plate: the first target lights, the attempt is timed
         expect(f, "i4: the first target lit", until(ctx, "first target", mc -> call(DEVICES, "litTarget") != null, 200), true);
@@ -271,6 +285,8 @@ final class SimDevPractice1118 {
         expect(f, "i4 result line: time", waitChat(ctx, mark, "Fourth Device: " + String.format(Locale.ROOT, "%.2fs", ms / 1000.0), 40), true);
         expect(f, "i4 result line: 1 miss, 10 arrows", waitChat(ctx, mark, "Misses: 1   Arrows: 10", 20), true);
         expect(f, "i4 result line: targets and accuracy", waitChat(ctx, mark, "Targets: 9/9   Accuracy: 90%", 20), true);
+        ctx.waitTicks(6);
+        shot(ctx, "i4-result");
         SharedFlush.flush();
         expect(f, "i4 personal best saved", call2(PRACTICE, 4), ms);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(PRACTICE, "reloadForTest", new Class<?>[]{}, new Object[]{}));
