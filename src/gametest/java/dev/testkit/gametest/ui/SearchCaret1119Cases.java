@@ -139,12 +139,14 @@ final class SearchCaret1119Cases {
         return img.getWidth() / (double) c.onClient(mc -> mc.getWindow().getGuiScaledWidth());
     }
 
+    /** Pixels inside the bar (past its border) that are not the bar's fill: its text. */
     private static int whiteCount(BufferedImage img, UiCase c, int[] box) {
         double k = k(img, c);
+        int bg = img.getRGB((int) ((box[0] + box[2] - 3) * k), (int) ((box[1] + box[3] / 2.0) * k));
         int n = 0;
-        for (int y = (int) (box[1] * k); y < (int) ((box[1] + box[3]) * k); y++) {
-            for (int x = (int) (box[0] * k); x < (int) ((box[0] + box[2]) * k); x++) {
-                if ((img.getRGB(x, y) & 0xFFFFFF) == 0xFFFFFF) {
+        for (int y = (int) ((box[1] + 2) * k); y < (int) ((box[1] + box[3] - 2) * k); y++) {
+            for (int x = (int) ((box[0] + 2) * k); x < (int) ((box[0] + box[2] - 2) * k); x++) {
+                if (img.getRGB(x, y) != bg) {
                     n++;
                 }
             }
