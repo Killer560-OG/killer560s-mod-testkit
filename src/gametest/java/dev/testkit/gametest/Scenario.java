@@ -144,6 +144,20 @@ public final class Scenario {
      * @return the number of files copied (0: none on this machine, nothing waited for)
      */
     public static int ensureRoomDatabase(ClientGameTestContext ctx) {
+        int copied = copyRoomDatabase();
+        if (copied == 0) {
+            return 0;
+        }
+        ctx.runOnClient(mc -> loadRoomDatabaseNow());
+        ctx.waitFor(mc -> {
+            ModUnderTest.staticCall("com.killer560.hub.roomdatabase.RoomDatabase", "ensureLoading");
+            return (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomdatabase.RoomDatabase", "isReady");
+        }, 1000);
+        return copied;
+    }
+
+    /** Copies the saved room database files into the mod config; the file count (0 = none to copy). */
+    public static int copyRoomDatabase() {
         int copied = 0;
         try {
             java.nio.file.Path source = java.nio.file.Path.of(ModUnderTest.instanceConfig(
@@ -165,14 +179,6 @@ public final class Scenario {
         } catch (Exception e) {
             System.out.println("[room-database] copy failed: " + e);
         }
-        if (copied == 0) {
-            return 0;
-        }
-        ctx.runOnClient(mc -> loadRoomDatabaseNow());
-        ctx.waitFor(mc -> {
-            ModUnderTest.staticCall("com.killer560.hub.roomdatabase.RoomDatabase", "ensureLoading");
-            return (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomdatabase.RoomDatabase", "isReady");
-        }, 1000);
         return copied;
     }
 

@@ -319,6 +319,14 @@ public final class MapCycler1118Cases {
             c.skip("sim floors", "no room library in this client");
             return null;
         }
+        // plan() answers null until the room database is ready, and offline it never loads by itself
+        if (dev.testkit.gametest.Scenario.copyRoomDatabase() > 0) {
+            dev.testkit.gametest.Scenario.loadRoomDatabaseNow();
+            for (int i = 0; i < 300 && !(Boolean) Mod.staticCall("roomdatabase.RoomDatabase", "isReady"); i++) {
+                Mod.staticCall("roomdatabase.RoomDatabase", "ensureLoading");
+                Thread.sleep(100);
+            }
+        }
         Object f7 = Mod.enumValue("roomsim.SimFloorGen$Floor", "F7");
         List<Floor> out = new ArrayList<>();
         long t0 = System.nanoTime();
