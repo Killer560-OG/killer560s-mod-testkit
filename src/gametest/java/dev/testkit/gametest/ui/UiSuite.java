@@ -105,6 +105,7 @@ public class UiSuite implements FabricClientGameTest {
             "399-ui-stat-bars-vitality-xp", "407-ui-stat-bars-layout", "401-ui-scoreboard-editor",
             "1104-ui-mining-pulled-jar", "1104-ui-mining-pulled-menu", "1104-ui-mining-pulled-tabs",
             "1104-ui-mining-pulled-profit", "1104-ui-mining-chmap", "1105-ui-chmap-tab", "1104-ui-themematch-pixels", "1104-ui-themematch-audit", "1108-ui-lightcontrast", "1108-ui-salvage-highlight", "1113-ui-accadvisor", "1114-ui-accadv-drag", "1114-ui-accadv-mode", "1114-ui-accadv-copy", "1115-ui-bugcmd", "412-ui-no-new-tab", "413-ui-testing-variant",
+            "1108-ui-itemquality", "1108-ui-chestclick", "1108-ui-icedmobs", "1108-ui-roomname",
             "425-ui-bazaar-icons", "427-ui-pack-disabler-models",
             "428-ui-pack-disabler-pack-push", "430-ui-pack-disabler-screens",
             "431-ui-pack-disabler-user-pack", "432-ui-pack-disabler-bazaar", "1105-ui-goblin-egg-look", "1105-ui-boss-chooser",
