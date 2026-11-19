@@ -146,7 +146,7 @@ final class HxLuck1118Cases {
     private static final String ZEALOT = "[Lv73] Zealot 13,000/13,000❤";
     private static final String HYDRA = "[Lv100] Water Hydra 500k/500k❤";
     private static final String ENDER = "[Lv45] Enderman 4,500/4,500❤";
-    private static final String IMPLOSION = "§r§7Your §r§6Implosion §r§7hit §r§c%d §r§7enem%s for §r§c36,865,522.3 §r§7damage.";
+    private static final String IMPLOSION = "§r§7Your Implosion hit §r§c%d §r§7enem%s for §r§c36,865,522.3 §r§7damage.";
 
     private static String implosion(int n) {
         return String.format(IMPLOSION, n, n == 1 ? "y" : "ies");
@@ -163,7 +163,6 @@ final class HxLuck1118Cases {
             summon(c, ZEALOT, 2.2);
             summon(c, HYDRA, 4.5);
             summon(c, ENDER, 30);
-            // Control: the server kills a mob he never hit and no line named: nothing counts (Mob Kills: Hit By Me).
             c.hx().chat(implosion(2));
             c.ctx().waitTicks(4);
             c.server().command("kill @e[type=minecraft:husk]");
