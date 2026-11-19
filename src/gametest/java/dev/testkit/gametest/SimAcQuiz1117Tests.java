@@ -209,7 +209,6 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         boolean secret = name.equals(SECRET);
         String driver = secret ? AS : AUTO;
         if (secret) {
-            SimAutoSecretTests.giveAotv(ctx);
             if (!Boolean.TRUE.equals(ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "startAutopilot")))) {
                 failures.add("Auto Secret refused to start");
                 return;
