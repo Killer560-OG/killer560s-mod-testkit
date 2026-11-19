@@ -832,6 +832,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1101-ds-held-item", DocSmall1101Cases::heldItem);
                     UiCase.run(ctx, "1104-ui-helditem-stuck", HeldItemStuckCases::stuck);
                     UiCase.run(ctx, "1105-ui-invsearch-click", InvSearchClick1105Cases::click);
+                    UiCase.run(ctx, "1119-ui-search-caret", SearchCaret1119Cases::caret);
                     UiCase.run(ctx, "1101-ds-dvd", DocSmall1101Cases::dvd);
                     UiCase.run(ctx, "1101-ds-edit-hud-bars", DocSmall1101Cases::editHudBars);
                     UiCase.run(ctx, "1101-ds-ping-colors", DocSmall1101Cases::pingColors);
