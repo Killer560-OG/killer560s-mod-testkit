@@ -68,6 +68,7 @@ public class BossSuite implements FabricClientGameTest {
                     DocPuzzleCases.register(s);
                     // Team Melody over a fake relay room: the round trip and the HUD boards (1102-boss-melody-*, tkdebt-1101).
                     TeamMelodyRelayCases.register(s);
+                    MelodyLost1118Cases.register(s); // melodylost-1118
                     // A leap into a Posmsg ring: leap lines first, then the callout, spaced (1102-posmsg-*, posmsgleap-1102).
                     PosmsgLeapCases.register(s);
                     // Keep Rotation On Leap: a leap keeps his look, a setback and OFF do not (1104-leaprot-*, leaprot-1104).
