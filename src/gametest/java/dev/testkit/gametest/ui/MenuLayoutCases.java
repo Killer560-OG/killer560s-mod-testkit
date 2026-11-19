@@ -149,6 +149,8 @@ final class MenuLayoutCases {
             "gui.tab.CrashReportTab",
             // Discord Link (mod discordlink-1105, 2026-11-05): Home, after Crash Reports, both builds.
             "gui.tab.DiscordLinkTab",
+            // Share To Website (mod sharesite-1119, 2026-11-19): Home, after Discord Link, both builds, ON by default.
+            "gui.tab.ShareToWebsiteTab",
             // To-do Doc items of 2026-11-01 (mod doc-extras-1101), legit in both builds: Creation Cooldown and Insta Clear
             // Warning (Dungeons), Gyrokinetic Wand Overlay (Items), Chat Tabs (Chat).
             "gui.tab.CreationCooldownTab", "gui.tab.InstaClearWarningTab", "gui.tab.GyroOverlayTab", "gui.tab.ChatTabsTab",
