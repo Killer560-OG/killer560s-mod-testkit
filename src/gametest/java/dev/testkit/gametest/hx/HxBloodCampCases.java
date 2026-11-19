@@ -4176,7 +4176,7 @@ final class HxBloodCampCases {
             boolean firstWave = c.onClient(mc -> (Boolean) Mod.staticCall("bloodcamp.BloodCampMoveTimer", "isFirstSpawns"));
             int closeAt = (firstWave ? 40 : 0) + 30;
             st = c.onClient(mc -> dev.testkit.gametest.SameTick.start(act,
-                    act == dev.testkit.gametest.SameTick.Act.ATTACK ? 2 : 1,
+                    act == dev.testkit.gametest.SameTick.Act.ATTACK ? (who == 2 ? 6 : 2) : 1, // No Rotate yields its turn to his hand while he attacks every other tick
                     p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 5));
             int clicks = 0;
             for (int run = 0; run < 2; run++) { // the second run of the feature right after the first
