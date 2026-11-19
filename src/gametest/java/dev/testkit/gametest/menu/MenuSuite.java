@@ -194,6 +194,7 @@ public class MenuSuite implements FabricClientGameTest {
                     Networth1104Cases.register(s); // 1104-networth-*, 1104-menu-storage-pricetip (networth-1104)
                     Pv0273Cases.register(s); // 1117-menu-pv0273-* (pv0273-1117)
                     PvStyle1104Cases.register(s); // 1104-menu-pvstyle: the Profile Viewer's Styles (pvstyle-1104)
+                    HotmTree1118Cases.register(s); // 1118-menu-hotmtree: the HOTM perk tree (hotmtree-1118)
                     AnvilCases.register(s);
                     BazaarReskinCases.register(s);
                     PolishMenuCases.register(s); // 472, polish
@@ -250,6 +251,7 @@ public class MenuSuite implements FabricClientGameTest {
                     // ---- 888-890 croesus-track (2026-10-12): run state follows a run that moves, and restarts;
                     // 906 croesus-page-leak (2026-10-24): page 2 never takes page 1's runs ----
                     CroesusTrackCases.register(s);
+                    CroesusReloadCases.register(s);
                     // ---- 1101 shared-records (2026-11-01): records shared across instances, old files folded in ----
                     SharedRecordsCases.register(s);
                     Solver1018Cases.register(s); // 1018-*: the 2026-10-18 solver-sound batch

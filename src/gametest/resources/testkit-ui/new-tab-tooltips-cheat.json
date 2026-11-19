@@ -62,7 +62,7 @@
     "gui.tab.LiveMapTab": "New > Dungeon Map",
     "gui.tab.LoadoutKeybindsTab": "New > Loadout Keybinds",
     "gui.tab.MaxorTab": "New > Maxor's Crystals",
-    "gui.tab.MobEspTab": "New > Dungeon ESP",
+    "gui.tab.MobEspTab": "New > Dungeon Mob Highlight",
     "gui.tab.ModChatTab": "New > Mod Chat",
     "gui.tab.NickhiderTab": "New > Nickhider",
     "gui.tab.P3NavTab": "New > P3 Nav",
@@ -138,7 +138,7 @@
       "custom scoreboard": "Replaces the sidebar with a custom styled scoreboard.",
       "dungeon alerts": "",
       "dungeon breaker": "",
-      "dungeon esp": "Boxes starred mobs, secret bats and the F7/M7 wither bosses.",
+      "dungeon mob highlight": "Boxes starred mobs, secret bats and the F7/M7 wither bosses.",
       "dungeon map": "Draws the real dungeon map as a HUD overlay, showing only what your hotbar map has revealed.",
       "dungeon queue": "",
       "enchant colors": "Recolors enchantment names in Hypixel item lore by tier.",
@@ -435,7 +435,7 @@
     "Dungeon Breaker": {
       "zero ping": "Cheat build only. Blocks mined with a Dungeon Breaker disappear instantly instead of after server confirmation."
     },
-    "Dungeon ESP": {
+    "Dungeon Mob Highlight": {
       "bats": "Highlights secret bats during dungeon clear.",
       "blood mobs": "Highlights the Watcher's blood mobs (red by default) for as long as they live, even if they walk out of the Blood Room.",
       "color": "Color of the boxes or glow for this row's target.",
