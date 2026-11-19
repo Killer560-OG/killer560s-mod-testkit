@@ -107,7 +107,7 @@ final class HxPartyState1118Cases {
         // 11-16: "Party Finder > Killer560 joined the dungeon group!" named only himself; /pl showed four others.
         step(c, "Party Finder > " + me + " joined the dungeon group! (Mage Level 40)", "[]|null|true");
         c.onClient(mc -> { Mod.setField(PT, "chatChangeMs", 0L); return null; });
-        setWidget(c, "§b§lParty: §r§f(4/5)", " §aAR3dst0n3E2§f: §bCata 46", " §aDichnes§f: §bCata 45", " §a" + me + "§f: §bCata 45",
+        setWidget(c, "§b§lParty: §r§f(5/5)", " §aAR3dst0n3E2§f: §bCata 46", " §aDichnes§f: §bCata 45", " §a" + me + "§f: §bCata 45",
                 " §aK3YLOW§f: §bCata 50", " §aLaru9876§f: §bCata 44", "§b§lPet:", " §7[Lvl 100] Black Cat");
         c.waitUntil("the tab widget's members reach the tracker", mc -> stateNow().startsWith("[AR3dst0n3E2, Dichnes, K3YLOW, Laru9876]"), 200);
         c.check(state(c).endsWith("|true"), "widget members read but not in a party: " + state(c));
