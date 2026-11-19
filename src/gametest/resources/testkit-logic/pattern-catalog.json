@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T20:32:21",
- "modSource": "lane-playersecrets-1118-rm2",
- "modGitSha": "7ef6c93d3eb4108776d1e337a3da6613c3e07cae",
+ "generatedAt": "2026-11-18T20:59:32",
+ "modSource": "lane-maphudclick-rm-1118",
+ "modGitSha": "05edd29823092f343f225294cd39bf10b06bebb8",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
