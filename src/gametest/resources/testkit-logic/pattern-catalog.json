@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T08:25:48",
- "modSource": "lane-guildtag-1118",
- "modGitSha": "879acf7a5e5b932fb44d798a2e0d3a3b507a06f5",
+ "generatedAt": "2026-11-19T08:38:44",
+ "modSource": "lane-simleapnames-1118",
+ "modGitSha": "1c1195050c6b80aecdeedece26495018d68f27e5",
  "modSourceDirty": false,
  "count": 984,
  "byKind": {
