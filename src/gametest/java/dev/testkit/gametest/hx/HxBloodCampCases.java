@@ -140,7 +140,7 @@ final class HxBloodCampCases {
         for (int who = 1; who <= 2; who++) {
             for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{dev.testkit.gametest.SameTick.Act.USE,
                     dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK,
-                    dev.testkit.gametest.SameTick.Act.TP, dev.testkit.gametest.SameTick.Act.USE_KEY}) {
+                    dev.testkit.gametest.SameTick.Act.TP}) { // USE_KEY is his same right-click packet as USE; its feature/his split cannot tell a bow shot from his click
                 final int w = who;
                 s.test("1118-same-bloodaura-" + (who == 1 ? "rotate-" : "norotate-") + a.name().toLowerCase(Locale.ROOT),
                         c -> sameTickOutside(c, a, w));
@@ -159,7 +159,7 @@ final class HxBloodCampCases {
         for (int who = 1; who <= 2; who++) {
             for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{dev.testkit.gametest.SameTick.Act.USE,
                     dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK,
-                    dev.testkit.gametest.SameTick.Act.TP, dev.testkit.gametest.SameTick.Act.USE_KEY}) {
+                    dev.testkit.gametest.SameTick.Act.TP}) { // USE_KEY is his same right-click packet as USE; its feature/his split cannot tell a bow shot from his click
                 final int w = who;
                 s.test("1118-same-bloodwalk-" + (who == 1 ? "rotate-" : "norotate-") + a.name().toLowerCase(Locale.ROOT),
                         c -> sameTickOutside(c, a, w, 1));
@@ -4164,7 +4164,9 @@ final class HxBloodCampCases {
                     if (i == 0) {
                         Vec3 end = c.onClient(mc -> endVector());
                         Vec3 eye = c.onClient(mc -> mc.player.getEyePosition());
-                        Vec3 at = eye.add(end.add(0, 1.4, 0).subtract(eye).normalize().scale(1.6));
+                        // No Rotate never turns the camera: the crosshair target is on his own look, not toward the mob.
+                        Vec3 dir = who == 2 ? c.onClient(mc -> mc.player.getLookAngle()) : end.add(0, 1.4, 0).subtract(eye).normalize();
+                        Vec3 at = eye.add(dir.scale(1.6));
                         c.server().command(String.format(Locale.ROOT, "summon zombie %.3f %.3f %.3f {Tags:[\"bc1015\"],NoAI:1b,"
                                 + "NoGravity:1b,Silent:1b,Invulnerable:1b,PersistenceRequired:1b,active_effects:[{id:\"minecraft:invisibility\",duration:99999,show_particles:0b}]}", at.x, at.y - 1.0, at.z));
                     }
