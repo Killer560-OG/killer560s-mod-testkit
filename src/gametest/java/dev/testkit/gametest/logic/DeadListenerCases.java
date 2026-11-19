@@ -1,12 +1,12 @@
 package dev.testkit.gametest.logic;
 
+import dev.testkit.compat.McCompat;
 import dev.testkit.gametest.mod.Mod;
 
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ClientboundSetActionBarTextPacket;
 import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
 
 /**
@@ -14,7 +14,7 @@ import net.minecraft.network.protocol.game.ClientboundSystemChatPacket;
  * a plain Fabric GAME / MODIFY_GAME listener, which Hypixel's action bar packet never reaches and which Chat Hider's
  * "Hide actionbar" starves on the system-chat path. Both now hang off PlayerStatsFeature.onActionBar. Each line goes
  * through a real packet handler with Hide actionbar ON: Ink Wand's "-N Mana (Ink Bomb)" as a system-chat overlay (the
- * path Hide actionbar drops) and Fire Veil's as ClientboundSetActionBarTextPacket (Hypixel's own path), then a metal
+ * path Hide actionbar drops) and Fire Veil's straight into Gui.setOverlayMessage (what Hypixel's action bar packet calls), then a metal
  * detector "TREASURE: 37.4m" readout in Mines of Divan. Each feature must have acted (cooldown running, distance read).
  * Positive control: the cooldowns are not running before the lines. (SelfDerivation is asserted in 1118-sim-map-hidden-bar.)
  */
@@ -58,16 +58,16 @@ final class DeadListenerCases {
                     Component.literal("§b-30 Mana (§6Ink Bomb§b)"), true)));
             c.check("Ink Wand cooldown started from a system-chat action bar with Hide actionbar ON", cooling("INK_WAND"), "");
             // Hypixel's own action bar packet.
-            ctx.runOnClient(mc -> mc.getConnection().handleSetActionBarText(new ClientboundSetActionBarTextPacket(
-                    Component.literal("§b-20 Mana (§6Fire Veil§b)"))));
+            ctx.runOnClient(mc -> Mod.call(McCompat.hud(mc), "setOverlayMessage", 
+                    Component.literal("§b-20 Mana (§6Fire Veil§b)"), false));
             c.check("Fire Veil cooldown started from the action bar packet", cooling("FIRE_VEIL"), "");
             // Metal Detector: Crystal Hollows, Mines of Divan; set and read in one client tick so no area tick undoes it.
             Object read = ctx.computeOnClient(mc -> {
                 Mod.setField(ISLAND, "graphIsland", "CRYSTAL_HOLLOWS");
                 Mod.setField(ISLAND, "scoreboardArea", "Mines of Divan");
                 Mod.setField(METAL, "prevDistance", -1.0);
-                mc.getConnection().handleSetActionBarText(new ClientboundSetActionBarTextPacket(
-                        Component.literal("§3§lTREASURE: §b37.4m")));
+                Mod.call(McCompat.hud(mc), "setOverlayMessage", 
+                        Component.literal("§3§lTREASURE: §b37.4m"), false);
                 Object d = Mod.field(METAL, "prevDistance");
                 Mod.setField(ISLAND, "graphIsland", null);
                 Mod.setField(ISLAND, "scoreboardArea", "");
