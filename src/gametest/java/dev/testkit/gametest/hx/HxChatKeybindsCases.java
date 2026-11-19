@@ -331,7 +331,7 @@ final class HxChatKeybindsCases {
         for (String line : new String[]{"loadouts", "class", "class healer"}) {
             boolean sent = c.onClient(mc -> (Boolean) Mod.staticCall("util.ServerCommands", "toServer", line));
             c.check(sent, "toServer refused /" + line);
-            String got = awaitCommand(c, line.split(" ")[0], 40);
+            String got = awaitCommand(c, line, 40);
             c.check(got.equals(line), "/" + line + " reached the server as /" + got);
             c.check(c.onClient(mc -> McCompat.screen(mc) == null), "a sim menu opened outside the sim for /" + line);
         }
