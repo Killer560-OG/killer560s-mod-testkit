@@ -191,6 +191,8 @@ public class HxSuite implements FabricClientGameTest {
                     // Every-drop coverage: mob/sea creature kills, Looting, slayer level, RNG Meter, Kuudra, Nucleus,
                     // Experiments, Unknown-floor claims (1102-luck-*, mod branch luck2-1101).
                     HxLuck1102Cases.register(s);
+                    // Ability, bow and drop-first kill counting, armor pieces, identical drop lines (1118-luck-*, luckcount-1118).
+                    HxLuck1118Cases.register(s);
                     // Dark Mode: world / HUD tint by framebuffer pixels, screens untouched, settings reload (1102-darkmode-*,
                     // mod branch darkmode-1102), own block.
                     HxDarkMode1102Cases.register(s);

@@ -154,6 +154,116 @@ final class CmdPrefix1109Cases {
         }
     }
 
+    /** Sends one typed character to the game the way GLFW does (KeyboardHandler.charTyped, private on 26.2). */
+    private static void typeChar(UiCase c, int cp) {
+        c.onClient(mc -> {
+            try {
+                java.lang.reflect.Method m = mc.keyboardHandler.getClass().getDeclaredMethod("charTyped", long.class,
+                        net.minecraft.client.input.CharacterEvent.class);
+                m.setAccessible(true);
+                m.invoke(mc.keyboardHandler, mc.getWindow().handle(), new net.minecraft.client.input.CharacterEvent(cp));
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(e);
+            }
+            return null;
+        });
+        c.ticks(3);
+    }
+
+    /** The open chat screen's input text, or "(" + screen name + ")" when no chat screen is open. */
+    private static String chatInput(UiCase c) {
+        return c.onClient(mc -> {
+            if (!(McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.ChatScreen cs)) {
+                return "(" + (McCompat.screen(mc) == null ? "none" : McCompat.screen(mc).getClass().getSimpleName()) + ")";
+            }
+            try {
+                java.lang.reflect.Field f = net.minecraft.client.gui.screens.ChatScreen.class.getDeclaredField("input");
+                f.setAccessible(true);
+                net.minecraft.client.gui.components.EditBox box = (net.minecraft.client.gui.components.EditBox) f.get(cs);
+                return box.getValue() + "|" + box.getCursorPosition();
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(e);
+            }
+        });
+    }
+
+    /** 1118-ui-prefixopen: Prefix Key Opens Chat. A typed prefix character with no screen open opens the chat with it typed once. */
+    static void prefixOpen(UiCase c) throws Exception {
+        Map<Path, byte[]> saved = DungeonB2Cases.snapshotConfig(c, CFG);
+        try {
+            for (Path p : saved.keySet()) {
+                Files.deleteIfExists(p);
+            }
+            c.onClient(mc -> Mod.staticCall(CFG, "load"));
+            c.check((Boolean) c.onClient(mc -> Mod.call(Mod.cfg(CFG), "isOpensChat")), "Prefix Key Opens Chat is not ON by default");
+            c.onClient(mc -> {
+                Object cfg = Mod.cfg(CFG);
+                Mod.call(cfg, "setAltOn", true);
+                Mod.call(cfg, "setAltChar", ".");
+                return null;
+            });
+            closeScreen(c);
+            typeChar(c, '.');
+            c.check(chatInput(c).equals(".|1"), "'.' with no screen gave " + chatInput(c) + ", wanted '.' once with the cursor after it");
+            // Typed on, the line is the same one the existing path runs: ".leaporder" opens the Leap Order screen.
+            c.onClient(mc -> {
+                ((net.minecraft.client.gui.screens.ChatScreen) McCompat.screen(mc)).handleChatInput(".leaporder", false);
+                return null;
+            });
+            c.ticks(5);
+            String ran = screenName(c);
+            closeScreen(c);
+            c.check(ran.equals("LeapOrderScreen"), "the opened chat ran .leaporder as " + ran);
+            // A shifted symbol: "!" is Shift+1 on a US layout, the game just receives the typed character.
+            c.onClient(mc -> Mod.call(Mod.cfg(CFG), "setAltChar", "!"));
+            typeChar(c, '!');
+            c.check(chatInput(c).equals("!|1"), "'!' gave " + chatInput(c));
+            closeScreen(c);
+            // A screen already open: the hook does nothing (the same chat screen stays, no second one).
+            typeChar(c, '!');
+            Object first = c.onClient(mc -> McCompat.screen(mc));
+            typeChar(c, '!');
+            c.check(c.onClient(mc -> McCompat.screen(mc)) == first, "a '!' with a chat screen open replaced the screen");
+            closeScreen(c);
+            // Other characters, then OFF states, then a letter prefix and a prefix of its own character set.
+            typeChar(c, 'a');
+            c.check(screenName(c).equals("none"), "a character that is not the prefix opened " + screenName(c));
+            c.onClient(mc -> Mod.call(Mod.cfg(CFG), "setOpensChat", false));
+            typeChar(c, '!');
+            c.check(screenName(c).equals("none"), "row OFF still opened " + screenName(c));
+            c.onClient(mc -> {
+                Object cfg = Mod.cfg(CFG);
+                Mod.call(cfg, "setOpensChat", true);
+                Mod.call(cfg, "setAltOn", false);
+                return null;
+            });
+            typeChar(c, '!');
+            c.check(screenName(c).equals("none"), "Alternate Prefix OFF still opened " + screenName(c));
+            for (String ch : new String[]{"f", "7"}) {
+                c.onClient(mc -> {
+                    Object cfg = Mod.cfg(CFG);
+                    Mod.call(cfg, "setAltOn", true);
+                    Mod.call(cfg, "setAltChar", ch);
+                    return null;
+                });
+                typeChar(c, ch.charAt(0));
+                c.check(screenName(c).equals("none"), "letter/digit prefix '" + ch + "' opened " + screenName(c));
+            }
+            // Persisted.
+            c.onClient(mc -> {
+                Object cfg = Mod.cfg(CFG);
+                Mod.call(cfg, "setOpensChat", false);
+                Mod.call(cfg, "save");
+                Mod.staticCall(CFG, "load");
+                return null;
+            });
+            c.check(!(Boolean) c.onClient(mc -> Mod.call(Mod.cfg(CFG), "isOpensChat")), "Prefix Key Opens Chat OFF did not survive save and load");
+            c.note("'.' and '!' typed with no screen opened the chat with the prefix once; screen open, row OFF, feature OFF, letter and digit did nothing");
+        } finally {
+            DungeonB2Cases.restoreConfig(c, saved, CFG);
+        }
+    }
+
     static void persist(UiCase c) throws Exception {
         Map<Path, byte[]> saved = DungeonB2Cases.snapshotConfig(c, CFG);
         try {
