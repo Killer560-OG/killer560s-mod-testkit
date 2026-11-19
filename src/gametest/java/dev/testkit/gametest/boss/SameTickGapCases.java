@@ -154,15 +154,15 @@ final class SameTickGapCases {
     private static void goldor(Session c, SameTick.Act act, boolean attackMode) throws Exception {
         String cfg = GrimTickCases.GT_CFG;
         Object type = c.onClient(mc -> Mod.enumValue(Mod.ROOT + cfg + "$ClickType", attackMode ? "ATTACK" : "USE"));
-        int[] cpsWas = c.onClient(mc -> new int[]{(Integer) Mod.call(Mod.cfg(cfg), "getCpsMin"),
-                (Integer) Mod.call(Mod.cfg(cfg), "getCpsMax")});
+        int[] cpsWas = c.onClient(mc -> new int[]{(Integer) Mod.call(Mod.cfg(cfg), "getDelayMin"),
+                (Integer) Mod.call(Mod.cfg(cfg), "getDelayMax")});
         String what = attackMode ? "wither bot" : "goldor bot";
         SameTick st = null;
         try (HxKit.Settings off = GrimTickCases.gateOff(c);
              HxKit.Settings ip = GrimTickCases.hypixelIp(c);
              HxKit.Settings on = new HxKit.Settings(c).field(cfg, "clickType", type)
-                     .custom(() -> Mod.call(Mod.cfg(cfg), "setCpsRange", 16, 16),
-                             () -> Mod.call(Mod.cfg(cfg), "setCpsRange", cpsWas[0], cpsWas[1]))
+                     .custom(() -> Mod.call(Mod.cfg(cfg), "setDelayRange", 63, 63),
+                             () -> Mod.call(Mod.cfg(cfg), "setDelayRange", cpsWas[0], cpsWas[1]))
                      .with(cfg, "AimDelayMs", 0).with(cfg, "AllWithers", false).with(cfg, "Enabled", false)) {
             c.server().command("forceload add 34 42 46 56");
             c.server().sync(20);
