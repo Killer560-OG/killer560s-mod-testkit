@@ -162,7 +162,7 @@ final class GrimTickCases {
         try (HxKit.Settings off = gateOff(c);
              HxKit.Settings on = new HxKit.Settings(c).with(AA_CFG, "SolverEnabled", true)
                      .with(AA_CFG, "PreventMisclicksEnabled", false).with(AA_CFG, "TriggerBotEnabled", false)
-                     .with(AA_CFG, "AuraEnabled", false).with(AA_CFG, "AuraRange", 3.0).with(AA_CFG, "AuraCps", 16)
+                     .with(AA_CFG, "AuraEnabled", false).with(AA_CFG, "AuraRange", 3.0).with(AA_CFG, "AuraCooldownMs", 62)
                      // Leave Last Arrow (mod b4b6e44f, on by default, killer560 2026-10-18/19) keeps one frame a click
                      // from done until S3 while he is in the F7 boss before S3, which an earlier case in the session
                      // leaves him in (787's Goldor line). This case counts every frame clicked once and times the
@@ -206,7 +206,7 @@ final class GrimTickCases {
                 int want = sweepWant[i];
                 grid(c, -1);
                 c.onClient(mc -> {
-                    Mod.set(AA_CFG, "setAuraCps", want);
+                    Mod.set(AA_CFG, "setAuraCooldownMs", 1000 / want);
                     return null;
                 });
                 long mark = c.hx().head();
@@ -234,7 +234,7 @@ final class GrimTickCases {
                 TriggerTiming.look(c, at);
                 c.ctx().waitTicks(3);
                 c.onClient(mc -> {
-                    Mod.set(AA_CFG, "setAuraCps", want);
+                    Mod.set(AA_CFG, "setAuraCooldownMs", 1000 / want);
                     return null;
                 });
                 long mark = c.hx().head();
@@ -273,7 +273,7 @@ final class GrimTickCases {
         try (HxKit.Settings off = gateOff(c);
              HxKit.Settings on = new HxKit.Settings(c).with(AA_CFG, "SolverEnabled", true)
                      .with(AA_CFG, "PreventMisclicksEnabled", false).with(AA_CFG, "TriggerBotEnabled", false)
-                     .with(AA_CFG, "AuraEnabled", false).with(AA_CFG, "AuraRange", 3.0).with(AA_CFG, "AuraCps", 16)
+                     .with(AA_CFG, "AuraEnabled", false).with(AA_CFG, "AuraRange", 3.0).with(AA_CFG, "AuraCooldownMs", 62)
                      .with(AA_CFG, "AuraLeaveLastArrow", true)) {
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
             c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
@@ -390,7 +390,7 @@ final class GrimTickCases {
                      .with(I4_CFG, "AutoI4Weapon", Mod.enumValue(Mod.ROOT + I4_CFG + "$Weapon", "TERMINATOR"))
                      .with(I4_CFG, "AutoI4Predictions", false).with(I4_CFG, "ShotAccuracyPercent", 100)
                      .with(I4_CFG, "AutoI4Rotate", rotate).with(I4_CFG, "AutoI4RotationTimeMs", 150)
-                     .custom(() -> Mod.call(Mod.cfg(I4_CFG), "setCpsRange", 7, 7),
+                     .custom(() -> Mod.call(Mod.cfg(I4_CFG), "setDelayRange", 143, 143),
                              restoreCps(c))
                      .with(I4_CFG, "AutoI4Enabled", false)) {
             i4Platform(c, "TERMINATOR");
@@ -604,7 +604,7 @@ final class GrimTickCases {
                      .with(I4_CFG, "AutoI4Weapon", Mod.enumValue(Mod.ROOT + I4_CFG + "$Weapon", weapon))
                      .with(I4_CFG, "AutoI4Predictions", true).with(I4_CFG, "ShotAccuracyPercent", 100)
                      .with(I4_CFG, "AutoI4Rotate", rotate).with(I4_CFG, "AutoI4RotationTimeMs", 150)
-                     .custom(() -> Mod.call(Mod.cfg(I4_CFG), "setCpsRange", 7, 7),
+                     .custom(() -> Mod.call(Mod.cfg(I4_CFG), "setDelayRange", 143, 143),
                              restoreCps(c))
                      .with(I4_CFG, "AutoI4Enabled", false)) {
             i4Platform(c, bowId);
@@ -878,22 +878,22 @@ final class GrimTickCases {
     }
 
     static Runnable restoreCps(Session c) {
-        int[] was = c.onClient(mc -> new int[]{(Integer) Mod.call(Mod.cfg(I4_CFG), "getCpsMin"),
-                (Integer) Mod.call(Mod.cfg(I4_CFG), "getCpsMax")});
-        return () -> Mod.call(Mod.cfg(I4_CFG), "setCpsRange", was[0], was[1]);
+        int[] was = c.onClient(mc -> new int[]{(Integer) Mod.call(Mod.cfg(I4_CFG), "getDelayMin"),
+                (Integer) Mod.call(Mod.cfg(I4_CFG), "getDelayMax")});
+        return () -> Mod.call(Mod.cfg(I4_CFG), "setDelayRange", was[0], was[1]);
     }
 
     // ---- 835 --------------------------------------------------------------------------------------------------------
 
     private static void goldorRate(Session c) throws Exception {
         Object shoot = c.onClient(mc -> Mod.enumValue(Mod.ROOT + GT_CFG + "$ClickType", "USE"));
-        int[] cpsWas = c.onClient(mc -> new int[]{(Integer) Mod.call(Mod.cfg(GT_CFG), "getCpsMin"),
-                (Integer) Mod.call(Mod.cfg(GT_CFG), "getCpsMax")});
+        int[] cpsWas = c.onClient(mc -> new int[]{(Integer) Mod.call(Mod.cfg(GT_CFG), "getDelayMin"),
+                (Integer) Mod.call(Mod.cfg(GT_CFG), "getDelayMax")});
         try (HxKit.Settings off = gateOff(c);
              HxKit.Settings ip = hypixelIp(c);
              HxKit.Settings on = new HxKit.Settings(c).field(GT_CFG, "clickType", shoot)
-                     .custom(() -> Mod.call(Mod.cfg(GT_CFG), "setCpsRange", 16, 16),
-                             () -> Mod.call(Mod.cfg(GT_CFG), "setCpsRange", cpsWas[0], cpsWas[1]))
+                     .custom(() -> Mod.call(Mod.cfg(GT_CFG), "setDelayRange", 63, 63),
+                             () -> Mod.call(Mod.cfg(GT_CFG), "setDelayRange", cpsWas[0], cpsWas[1]))
                      .with(GT_CFG, "AimDelayMs", 0).with(GT_CFG, "Enabled", false)) {
             // Something in the hand: Hypixel's Use mode is a Terminator shot, and an empty hand's use is not recorded.
             c.server().command("item replace entity @a hotbar.0 with stick");
@@ -962,14 +962,14 @@ final class GrimTickCases {
      */
     private static void witherBotRange(Session c) throws Exception {
         Object attack = c.onClient(mc -> Mod.enumValue(Mod.ROOT + GT_CFG + "$ClickType", "ATTACK"));
-        int[] cpsWas = c.onClient(mc -> new int[]{(Integer) Mod.call(Mod.cfg(GT_CFG), "getCpsMin"),
-                (Integer) Mod.call(Mod.cfg(GT_CFG), "getCpsMax")});
+        int[] cpsWas = c.onClient(mc -> new int[]{(Integer) Mod.call(Mod.cfg(GT_CFG), "getDelayMin"),
+                (Integer) Mod.call(Mod.cfg(GT_CFG), "getDelayMax")});
         String[] classes = {"MAGE", "TANK", "HEALER", "ARCHER", "BERSERKER"};
         try (HxKit.Settings off = gateOff(c);
              HxKit.Settings ip = hypixelIp(c);
              HxKit.Settings on = new HxKit.Settings(c).field(GT_CFG, "clickType", attack)
-                     .custom(() -> Mod.call(Mod.cfg(GT_CFG), "setCpsRange", 16, 16),
-                             () -> Mod.call(Mod.cfg(GT_CFG), "setCpsRange", cpsWas[0], cpsWas[1]))
+                     .custom(() -> Mod.call(Mod.cfg(GT_CFG), "setDelayRange", 63, 63),
+                             () -> Mod.call(Mod.cfg(GT_CFG), "setDelayRange", cpsWas[0], cpsWas[1]))
                      .with(GT_CFG, "AimDelayMs", 0).with(GT_CFG, "AllWithers", false).with(GT_CFG, "Enabled", false)) {
             c.server().command("item replace entity @a hotbar.0 with stick");
             c.server().command("forceload add 34 42 46 76");
