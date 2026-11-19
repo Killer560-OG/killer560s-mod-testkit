@@ -123,6 +123,7 @@ final class HxAlerts1025Cases {
             c.check(mid[0] == before[0] && mid[1] == before[1] + 1, "locked chest: played/dropped "
                     + (mid[0] - before[0]) + "/" + (mid[1] - before[1]) + ", want 0/1");
             c.ctx().waitTicks(25); // past the 1500 ms Secret Clicked window and the same-click guard
+            run(c, () -> Mod.staticCall("dungeonalerts.SecretSound", "onWorldChange")); // a locked chest never plays without its menu: forget it
             clickChest(c, chest);
             c.waitUntil("the unlocked chest's sound after the wait", mc -> ((int[]) Mod.staticCall("dungeonalerts.SecretSound",
                     "chestSoundCounts"))[0] == mid[0] + 1, 40);
@@ -158,6 +159,7 @@ final class HxAlerts1025Cases {
         try (Settings set = new Settings(c).with(ALERTS_CFG, "SecretClickedEnabled", false)) {
             c.onClient(mc -> setSound(cfg, true));
             dungeon(c);
+            run(c, () -> Mod.staticCall("dungeonalerts.SecretSound", "onWorldChange")); // earlier cases may have locked this chest
             c.waitUntil("the client sees both chests", mc -> mc.level.getBlockState(a).getBlock() == net.minecraft.world.level.block.Blocks.CHEST
                     && mc.level.getBlockState(b).getBlock() == net.minecraft.world.level.block.Blocks.CHEST, 60);
             int[] before = c.onClient(mc -> (int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"));
@@ -237,11 +239,15 @@ final class HxAlerts1025Cases {
             run(c, () -> Mod.staticCall("dungeonalerts.SecretSound", "onWorldChange"));
             int[] before = c.onClient(mc -> (int[]) Mod.staticCall("dungeonalerts.SecretSound", "chestSoundCounts"));
             int lockedBefore = c.onClient(mc -> (Integer) Mod.staticCall(CLICKED, "lockedSounds"));
-            int[] gaps = {1, 2, 8, 40, 0};
-            for (int gap : gaps) {
+            // Real-time gaps: the mod drops a repeat of one click inside 50 ms, and test ticks run faster than the clock.
+            int[] gapsMs = {60, 120, 400, 2000, 60};
+            for (int gap : gapsMs) {
                 clickChest(c, chest);
                 c.hx().chat("§cThat chest is locked!");
-                c.ctx().waitTicks(Math.max(gap, 2));
+                long until = System.currentTimeMillis() + gap;
+                while (System.currentTimeMillis() < until) {
+                    c.ctx().waitTicks(1);
+                }
             }
             c.ctx().waitTicks(30);
             int lockedSounds = c.onClient(mc -> (Integer) Mod.staticCall(CLICKED, "lockedSounds")) - lockedBefore;
@@ -830,6 +836,7 @@ final class HxAlerts1025Cases {
         try (Settings set = new Settings(c).with(ALERTS_CFG, "SecretClickedEnabled", false)) {
             c.onClient(mc -> setSound(cfg, true));
             dungeon(c);
+            run(c, () -> Mod.staticCall("dungeonalerts.SecretSound", "onWorldChange")); // earlier cases may have locked this chest
             c.server().command("tp @p -417.5 151 -419.5");
             c.waitUntil("the client sees the chest", mc -> mc.level.getBlockState(chest).getBlock() == net.minecraft.world.level.block.Blocks.CHEST, 60);
             // (1) callback-only click, no menu, no locked line.
