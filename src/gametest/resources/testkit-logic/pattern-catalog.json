@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T10:35:07",
- "modSource": "lane-basefail-792-1119",
- "modGitSha": "33c70a510bb167f21795bdc1eba638e6fadb0379",
+ "generatedAt": "2026-11-19T11:02:18",
+ "modSource": "lane-melodynodelay-1118-pf",
+ "modGitSha": "ef7715e58ea8131e690223fb0006fec74e8627e6",
  "modSourceDirty": false,
  "count": 984,
  "byKind": {
