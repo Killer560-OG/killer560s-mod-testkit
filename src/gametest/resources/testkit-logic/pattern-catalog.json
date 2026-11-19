@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T03:12:10",
- "modSource": "lane-mapgreen-1118",
- "modGitSha": "1ea3b8d80c63f55a87704835086acded3bec3b66",
+ "generatedAt": "2026-11-19T03:44:09",
+ "modSource": "lane-puzzlehud-wrong-1118",
+ "modGitSha": "17437c0f27a1a62fd21eb0e85f18fe3d732639df",
  "modSourceDirty": false,
  "count": 999,
  "byKind": {
