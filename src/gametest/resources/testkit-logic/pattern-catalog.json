@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T23:01:53",
- "modSource": "lane-chatchannelhud-1118",
- "modGitSha": "4a355f4faf129d7c10af71f4c36f89546ab81bbe",
+ "generatedAt": "2026-11-18T23:25:19",
+ "modSource": "lane-prefixopen-1118",
+ "modGitSha": "7e2fc4f415992df2997d779865b0ab63de6fbd6e",
  "modSourceDirty": false,
  "count": 996,
  "byKind": {
