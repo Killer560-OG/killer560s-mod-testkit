@@ -54,6 +54,12 @@ final class HxMapCycler1118Cases {
         run(c, () -> Mod.setField(FEAT, "boundsForTest", new int[]{min, max}));
     }
 
+    /** Past Delay Between Re-rolls (30 s) but well inside the 45 s "no new run" window: a 0 here made a SENT re-roll
+     *  look 45 s old, so the mod counted a refusal of its own (the 22:21 run of this case). */
+    private static void clearDelay(Session c) {
+        run(c, () -> Mod.setField(FEAT, "lastSendMs", System.currentTimeMillis() - 31_000L));
+    }
+
     private static void start(Session c) {
         run(c, () -> Mod.staticCall(FEAT, "setRunning", true));
         c.check(running(c), "setRunning(true) did not start it");
@@ -107,7 +113,7 @@ final class HxMapCycler1118Cases {
 
             // Least over N: one re-roll at once, then nothing while it waits for the new run.
             bounds(c, 7, 9);
-            run(c, () -> Mod.setField(FEAT, "lastSendMs", 0L));
+            clearDelay(c);
             start(c);
             c.check(CMD.equals(awaitCommand(c, "joininstance", 60)), "re-roll sent " + c.commands());
             quiet(c, 40, "waiting for the new run");
@@ -115,7 +121,7 @@ final class HxMapCycler1118Cases {
 
             // A new run, unsure: nothing before Decide Within (5 s), then a re-roll.
             bounds(c, 0, Integer.MAX_VALUE);
-            run(c, () -> Mod.setField(FEAT, "lastSendMs", 0L));
+            clearDelay(c);
             newRun(c);
             long t0 = System.currentTimeMillis();
             quiet(c, 60, "unsure, before Decide Within");
@@ -127,7 +133,7 @@ final class HxMapCycler1118Cases {
             // A throttle answer: back off (10 s for the first), then retry.
             c.hx().chat("Command Failed: This command is on cooldown! Try again in about a second!");
             c.waitUntil("one refusal counted", mc -> (Integer) Mod.field(FEAT, "fails") == 1, 40);
-            run(c, () -> Mod.setField(FEAT, "lastSendMs", 0L));
+            clearDelay(c);
             quiet(c, 100, "backing off after a throttle line");
             int before2 = sent(c);
             c.waitUntil("the retry after the back-off", mc -> sent(c) > before2, 200);
@@ -179,7 +185,7 @@ final class HxMapCycler1118Cases {
             run(c, () -> Mod.call(cfg, "setDecideWithinS", 5));
             respond(c, "joininstance", null, "Only the instance creator can re-queue!");
             bounds(c, 7, 9);
-            run(c, () -> Mod.setField(FEAT, "lastSendMs", 0L));
+            clearDelay(c);
             int before3 = sent(c);
             start(c);
             awaitStop(c, "Only the player who started the run", 80);
@@ -189,7 +195,7 @@ final class HxMapCycler1118Cases {
             // Someone else made the run ("entered" line): stops without sending.
             c.hx().chat("[MVP+] HxMateA entered The Catacombs, Floor VII!");
             c.waitUntil("Creation Cooldown read the creator", mc -> "HxMateA".equals(Mod.staticCall("creationcooldown.CreationCooldownFeature", "creator")), 40);
-            run(c, () -> Mod.setField(FEAT, "lastSendMs", 0L));
+            clearDelay(c);
             int before4 = sent(c);
             start(c);
             awaitStop(c, "Only HxMateA", 40);
