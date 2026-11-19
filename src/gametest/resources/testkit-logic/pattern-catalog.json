@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T13:21:29",
- "modSource": "km-termfix-pf",
- "modGitSha": "88092b1402ca0a201527550a3376ce2c268066d9",
+ "generatedAt": "2026-11-19T16:09:41",
+ "modSource": "lane-termfix-pf-1119",
+ "modGitSha": "560089bfa24739cb34e9e5443bb3460228136633",
  "modSourceDirty": false,
  "count": 986,
  "byKind": {
