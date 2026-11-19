@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T10:18:54",
- "modSource": "lane-essencedouble-1119",
- "modGitSha": "d186351272ae102748192df2ef9ec80decee2eef",
+ "generatedAt": "2026-11-19T10:37:43",
+ "modSource": "lane-autoanvil-start-1118-rm",
+ "modGitSha": "7686b8e04d7b8af30bfa81cb3e856b6ebed2c479",
  "modSourceDirty": false,
  "count": 984,
  "byKind": {
