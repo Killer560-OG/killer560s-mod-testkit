@@ -221,6 +221,7 @@ public class SimInteractiveMapTests implements FabricClientGameTest {
             ctx.waitTicks(1);
         }
         long mark = LogTap.mark();
+        int drawn0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "nodesDrawn"));
         int templeCell = 2 * 2 * GRID + 2 * 3;
         ctx.runOnClient(mc -> ModUnderTest.staticCall(IM_FEATURE, "onMapPress", new Class<?>[]{int.class},
                 new Object[]{templeCell}));
@@ -235,6 +236,11 @@ public class SimInteractiveMapTests implements FabricClientGameTest {
         }
         ctx.waitTicks(10);
         Vec3 after = ctx.computeOnClient(mc -> mc.player.position());
+        int drawn = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "nodesDrawn")) - drawn0;
+        println("map path: waypoint boxes/lines drawn: " + drawn);
+        if (drawn != 0) {
+            failures.add("the Interactive Map path drew " + drawn + " waypoint boxes/lines in the world (killer560 2026-11-18: none)");
+        }
         boolean trap = false;
         boolean already = false;
         boolean found = false;
