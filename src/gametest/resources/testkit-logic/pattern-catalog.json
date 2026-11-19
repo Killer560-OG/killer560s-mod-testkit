@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T06:26:49",
- "modSource": "lane-goldessence-1118",
- "modGitSha": "35b2802f1a97adc17cc64f086f4552cf44ab62e3",
+ "generatedAt": "2026-11-19T06:49:30",
+ "modSource": "lane-lockedsound-1118",
+ "modGitSha": "5dff174a0b3beac680663f6f5a13b9415b4ddd75",
  "modSourceDirty": false,
  "count": 979,
  "byKind": {
