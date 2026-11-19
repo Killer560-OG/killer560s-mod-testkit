@@ -399,6 +399,17 @@ final class Ee3RouteGrimCases {
             }
             System.out.println("[ee3route] path " + (act == null ? "none" : act) + ":" + path);
             c.ctx().waitTicks(20);
+            // The wire around every lever click (packet order against the swap / dig / move of its tick), to read a refused click.
+            java.util.List<WireCapture.Sent> wireAll = WireCapture.snapshot();
+            for (int i = 0; i < wireAll.size(); i++) {
+                if (wireAll.get(i).text().contains("UseItemOn")) {
+                    StringBuilder sb = new StringBuilder();
+                    for (int k = Math.max(0, i - 6); k < Math.min(wireAll.size(), i + 5); k++) {
+                        sb.append(k == i ? " >>" : " ").append(wireAll.get(k).text(), 0, Math.min(60, wireAll.get(k).text().length()));
+                    }
+                    System.out.println("[ee3route] lever wire" + sb);
+                }
+            }
             boolean[] lev = c.onClient(mc -> new boolean[]{powered(mc, LOW), powered(mc, HIGH)});
             String wire = ticks.report();
             c.note(String.format(Locale.ROOT, "route %s: left HEE2 t%d, at EE3 t%d (%d ticks), levers low/high %s/%s, boom t%d,"
