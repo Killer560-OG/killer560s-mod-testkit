@@ -4406,6 +4406,7 @@ final class HxBloodCampCases {
         }
         java.nio.file.Path file = c.onClient(mc -> (java.nio.file.Path) Mod.field(BC_CFG, "CONFIG_PATH"));
         byte[] before = java.nio.file.Files.exists(file) ? java.nio.file.Files.readAllBytes(file) : null;
+        java.nio.file.Files.createDirectories(file.getParent());
         try (HxKit.Settings s = base(c)) {
             boolean[] r = c.onClient(mc -> {
                 Object cfg = Mod.cfg(BC_CFG);
