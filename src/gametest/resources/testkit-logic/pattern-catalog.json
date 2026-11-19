@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T11:26:52",
- "modSource": "lane-officercmd-1118-rm3",
- "modGitSha": "80fa87862048ad3e06e8bf361c61f87b5bd721c4",
+ "generatedAt": "2026-11-19T11:42:19",
+ "modSource": "lane-autoanvil-start-1118-rm",
+ "modGitSha": "bfc62a39f0e5aad1932f74a373e2bf19d37aeaad",
  "modSourceDirty": false,
  "count": 985,
  "byKind": {
