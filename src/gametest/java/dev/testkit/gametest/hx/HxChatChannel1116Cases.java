@@ -26,6 +26,7 @@ final class HxChatChannel1116Cases {
         s.test("1116-chatchannel-party-count", HxChatChannel1116Cases::partyCount);
         s.test("1116-chatchannel-draw", HxChatChannel1116Cases::draw);
         s.test("1116-chatchannel-settings", HxChatChannel1116Cases::settings);
+        s.test("1118-chatchannel-hud", HxChatChannel1116Cases::hudMode);
     }
 
     private static String shown(Session c) {
@@ -178,6 +179,98 @@ final class HxChatChannel1116Cases {
                 Mod.set(CFG, "setShowMemberCount", true);
                 Mod.set(CFG, "setHypixelColors", true);
                 Mod.call(Mod.cfg(CFG), "save");
+            });
+        }
+    }
+
+    private static boolean hudSeen(Session c) {
+        return c.onClient(mc -> (Boolean) Mod.staticCall("hud.HudSeen", "drawnRecently", "chat_channel"));
+    }
+
+    /** Show: While Chat Is Open draws nothing in game, Always is the movable HUD element (once, also with chat open). */
+    private static void hudMode(Session c) {
+        String hudCfg = "hud.HudConfig";
+        try (Settings set = new Settings(c).with(CFG, "Enabled", true).with(TABS_CFG, "Enabled", false)) {
+            dungeon(c);
+            run(c, () -> {
+                Mod.staticCall(F, "resetForTest");
+                Mod.set(CFG, "setAlwaysShow", false);
+            });
+            line(c, "§aYou are now in the §r§6OFFICER§r§a channel");
+            waitShown(c, "Officer", "Chat: Officer");
+            // While Chat Is Open (default): no in-game HUD, the line draws with chat open.
+            run(c, () -> Mod.staticCall("hud.HudSeen", "forget", "chat_channel"));
+            c.ctx().waitTicks(10);
+            c.check(!hudSeen(c), "While Chat Is Open drew the HUD element in game");
+            long f0 = c.onClient(mc -> (Long) Mod.staticCall(F, "framesDrawn"));
+            texts(c);
+            long f1 = c.onClient(mc -> (Long) Mod.staticCall(F, "framesDrawn"));
+            c.check(f1 > f0, "While Chat Is Open did not draw the line with chat open");
+            run(c, () -> McCompat.setScreen(Minecraft.getInstance(), null));
+            // Always: the HUD element draws in game with the channel, and chat open adds no second line.
+            run(c, () -> Mod.set(CFG, "setAlwaysShow", true));
+            c.waitUntil("Always draws the HUD element in game", mc -> (Boolean) Mod.staticCall("hud.HudSeen", "drawnRecently", "chat_channel"), 40);
+            line(c, "§aYou are now in the §r§6GUILD§r§a channel");
+            waitShown(c, "Guild", "Chat: Guild");
+            long g0 = c.onClient(mc -> (Long) Mod.staticCall(F, "framesDrawn"));
+            c.ctx().waitTicks(4);
+            c.check(c.onClient(mc -> (Long) Mod.staticCall(F, "framesDrawn")) > g0, "the HUD element did not keep drawing");
+            // With chat open the screen mixin must add no line: only the HUD element (not run here) may draw.
+            long h0 = c.onClient(mc -> (Long) Mod.staticCall(F, "framesDrawn"));
+            texts(c);
+            long h1 = c.onClient(mc -> (Long) Mod.staticCall(F, "framesDrawn"));
+            run(c, () -> McCompat.setScreen(Minecraft.getInstance(), null));
+            c.check(h1 == h0, "Always also drew the line above the chat input (" + (h1 - h0) + " draw(s))");
+            // Moved position persists through a save and reload.
+            run(c, () -> {
+                Object hud = Mod.staticCall(hudCfg, "getInstance");
+                Mod.call(hud, "setPosition", "chat_channel", 123, 77);
+                Mod.call(hud, "save");
+                Mod.staticCall(hudCfg, "load");
+            });
+            int[] pos = c.onClient(mc -> (int[]) Mod.call(Mod.staticCall(hudCfg, "getInstance"), "savedPosition", "chat_channel"));
+            c.check(pos != null && pos[0] == 123 && pos[1] == 77, "moved HUD position lost: " + java.util.Arrays.toString(pos));
+            // The HUD editor lists it.
+            c.onClient(mc -> {
+                try {
+                    net.minecraft.client.gui.screens.Screen e = (net.minecraft.client.gui.screens.Screen)
+                            Mod.cls("hud.HudEditorScreen").getConstructor(net.minecraft.client.gui.screens.Screen.class).newInstance((Object) null);
+                    McCompat.setScreen(mc, e);
+                } catch (ReflectiveOperationException ex) {
+                    throw new AssertionError(ex);
+                }
+                return null;
+            });
+            c.ctx().waitTicks(3);
+            java.util.List<String> ids = c.onClient(mc -> {
+                java.util.List<String> out = new java.util.ArrayList<>();
+                Object sc = McCompat.screen(mc);
+                for (Object el : (java.util.List<Object>) Mod.field(sc, "shown")) {
+                    out.add((String) Mod.call(el, "id"));
+                }
+                McCompat.setScreen(mc, null);
+                return out;
+            });
+            c.check(ids.contains("chat_channel"), "the HUD editor does not list chat_channel: " + ids);
+            // Feature OFF: nothing in game or with chat open.
+            run(c, () -> {
+                Mod.set(CFG, "setEnabled", false);
+                Mod.staticCall("hud.HudSeen", "forget", "chat_channel");
+            });
+            c.ctx().waitTicks(10);
+            c.check(!hudSeen(c), "OFF still drew the HUD element");
+            long o0 = c.onClient(mc -> (Long) Mod.staticCall(F, "framesDrawn"));
+            texts(c);
+            c.check(c.onClient(mc -> (Long) Mod.staticCall(F, "framesDrawn")) == o0, "OFF still drew a line with chat open");
+            c.note("While Chat Is Open: HUD silent in game, line with chat open; Always: HUD drawn in game, position 123,77 saved, listed in the editor; OFF: nothing");
+        } finally {
+            run(c, () -> {
+                McCompat.setScreen(Minecraft.getInstance(), null);
+                Mod.set(CFG, "setAlwaysShow", false);
+                Object hud = Mod.staticCall(hudCfg, "getInstance");
+                Mod.call(hud, "setPosition", "chat_channel", 10, 380);
+                Mod.call(hud, "save");
+                Mod.staticCall(F, "resetForTest");
             });
         }
     }

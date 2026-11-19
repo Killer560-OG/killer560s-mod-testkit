@@ -81,6 +81,10 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
             return;
         }
         ModUnderTest.require("killer560smod");
+        if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+            Scenario.skipped(NAME, "legit jar: no Auto Secret");
+            return;
+        }
         LogTap.install();
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
