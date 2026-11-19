@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T15:17:12",
- "modSource": "lane-soundfx-1118-pf",
- "modGitSha": "5958350ed2adb0d2da498e7fd7b696a9b27c2b28",
+ "generatedAt": "2026-11-19T16:13:29",
+ "modSource": "lane-warpfix-1119",
+ "modGitSha": "b9eca54a50af246f674fff0dd4af9bd3a95cb028",
  "modSourceDirty": false,
  "count": 986,
  "byKind": {
