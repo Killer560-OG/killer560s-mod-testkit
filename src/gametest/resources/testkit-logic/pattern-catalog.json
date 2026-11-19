@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T05:32:34",
- "modSource": "lane-rngbest-pulse-1119",
- "modGitSha": "2b15294f5b8f9f1f2a80ed1329251bcf71d521fb",
+ "generatedAt": "2026-11-19T05:52:49",
+ "modSource": "lane-croesusreload-1119",
+ "modGitSha": "d26f4dc498d365784ab8758930f0e20c54807b6f",
  "modSourceDirty": false,
  "count": 979,
  "byKind": {
