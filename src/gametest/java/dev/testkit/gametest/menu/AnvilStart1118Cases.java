@@ -108,7 +108,8 @@ final class AnvilStart1118Cases {
             c.check(MenuKit.maxPerTick(per) <= 1, "more than one container click in a tick: max " + MenuKit.maxPerTick(per));
             // 3: press again on the same menu -> runs again (a stopped menu is not locked out)
             pressButton(c);
-            c.waitUntil("a second run after pressing Start again (it clicks again)", mc -> c.events("container.click").size() > at, 400);
+            c.waitUntil("the third press to arm Auto Anvil", mc -> (Boolean) Mod.staticCall(FEATURE, "isArmed") || runningNow(), 20);
+            c.waitUntil("the armed run to begin (it ends at once at the leftover result book)", mc -> !(Boolean) Mod.staticCall(FEATURE, "isArmed"), 100);
             c.note("press ran it, Stop ended it after " + done + " combine(s) with " + at + " clicks and none after, Start again went on; "
                     + MenuKit.cadence(c));
         } finally {
