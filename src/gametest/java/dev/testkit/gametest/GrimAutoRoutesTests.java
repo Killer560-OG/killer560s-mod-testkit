@@ -1383,8 +1383,14 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.start());
             walkOnto(ctx, 13.5, 7.5, 13, 10);
             if (act != null) {
+                if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                    // His crosshair on a mob in front of him (the one thing his left click can hit); a swap every 7th tick, never
+                    // every tick: a swap each tick lines up with the re-dig period and starves it (a test artifact).
+                    session.server().command("execute as @p at @p run summon zombie ^ ^ ^1.3 {NoAI:1b,Invulnerable:1b,Silent:1b}");
+                    ctx.waitTicks(2);
+                }
                 final dev.testkit.gametest.SameTick.Act a = act;
-                st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(a, 1,
+                st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(a, a == dev.testkit.gametest.SameTick.Act.SWAP ? 7 : a == dev.testkit.gametest.SameTick.Act.ATTACK ? 3 : 1,
                         p -> p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket pa
                                 && tenPos.contains(pa.getPos()), 2, 3));
             }
@@ -1453,6 +1459,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 ModUnderTest.set(dx, "setBreakerAuraBurstMultiBreak", cardBurstBefore);
                 ModUnderTest.set(dx, "setBreakerAuraMultiBreak", cardLegitBefore);
             });
+            session.server().command("kill @e[type=minecraft:zombie]");
             tpRel(ctx, 13.5, 6.5, 0f, 0f);
             ctx.waitTicks(5);
         }
