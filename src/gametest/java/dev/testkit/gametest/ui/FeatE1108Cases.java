@@ -219,6 +219,10 @@ final class FeatE1108Cases {
         return c.onClient(mc -> (Integer) Mod.staticCall("dungeonqol.IcedMobsFeature", "icedCount"));
     }
 
+    private static int drawn(UiCase c) {
+        return c.onClient(mc -> (Integer) Mod.staticCall("dungeonqol.IcedMobsFeature", "drawnCount"));
+    }
+
     private static void use(UiCase c) {
         c.onClient(mc -> {
             UseItemCallback.EVENT.invoker().interact(mc.player, mc.level, InteractionHand.MAIN_HAND);
@@ -226,51 +230,96 @@ final class FeatE1108Cases {
         });
     }
 
+    /** The client copy of the test zombie standing at x, z (tags are not synced, so it is found by place). */
+    private static Zombie zombieAt(net.minecraft.client.Minecraft mc, double x, double z) {
+        for (Zombie e : mc.level.getEntitiesOfClass(Zombie.class, mc.player.getBoundingBox().inflate(30))) {
+            if (Math.abs(e.getX() - x) < 0.3 && Math.abs(e.getZ() - z) < 0.3) {
+                return e;
+            }
+        }
+        return null;
+    }
+
+    private static boolean headIce(net.minecraft.client.Minecraft mc, double x, double z) {
+        Zombie e = zombieAt(mc, x, z);
+        return e != null && e.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).is(Items.PACKED_ICE);
+    }
+
+    /** icedmobs-1118 (killer560 2026-11-18: the outline shows only while the mob has the ice on its head). The client sees
+     *  the server's equipment change and the box in the same packet, so "within a tick" is checked in the same client call
+     *  that first sees the ice (or sees it gone). Nothing here uses a wand: the freeze could be any player's. */
     static void icedMobs(UiCase c) throws Exception {
         Map<Path, byte[]> saved = DungeonB2Cases.snapshotConfig(c, QOL);
+        String helmet = "equipment:{head:{id:\"minecraft:leather_helmet\",count:1}}";
+        String z = ZOMBIE.substring(0, ZOMBIE.length() - 1) + "," + helmet + "}";
         try {
             server(c, "kill @e[tag=feiced]", "tp @a 0.5 -60 0.5 0 0",
-                    "summon zombie 0.5 -60 3.5 " + ZOMBIE, "summon zombie 0.5 -60 -3.5 " + ZOMBIE,
-                    "summon zombie 0.5 -60 12.5 " + ZOMBIE);
-            c.ctx().waitFor(mc -> mc.level.getEntitiesOfClass(Zombie.class, mc.player.getBoundingBox().inflate(20)).size() >= 3, 200);
-            c.onClient(mc -> {
-                mc.player.setYRot(0f);
-                mc.player.setXRot(0f);
-                return null;
-            });
-            set(c, QOL, "setIcedBoxes", true);
-            // Control: a stick without the wand's id does nothing.
-            server(c, "item replace entity @p weapon.mainhand with minecraft:stick");
-            use(c);
-            c.check(count(c) == 0, "a plain stick boxed mobs");
-            server(c, "item replace entity @p weapon.mainhand with minecraft:stick[custom_data={id:\"ICE_SPRAY_WAND\"}]");
-            c.ctx().waitFor(mc -> mc.player.getMainHandItem().has(DataComponents.CUSTOM_DATA), 100);
+                    "summon zombie 0.5 -60 3.5 " + z.replace("[\"feiced\"]", "[\"feiced\",\"feicedA\"]"),
+                    "summon zombie 3.5 -60 3.5 " + z, "summon zombie -3.5 -60 3.5 " + z);
+            c.ctx().waitFor(mc -> zombieAt(mc, 0.5, 3.5) != null && zombieAt(mc, 3.5, 3.5) != null && zombieAt(mc, -3.5, 3.5) != null, 200);
+            String freeze = "item replace entity @e[tag=feicedA] armor.head with minecraft:packed_ice";
+            String thaw = "item replace entity @e[tag=feicedA] armor.head with minecraft:leather_helmet";
+            // OFF: the ice shows, nothing is boxed.
             set(c, QOL, "setIcedBoxes", false);
-            use(c);
-            c.check(count(c) == 0, "the wand boxed mobs with the switch OFF");
+            server(c, freeze);
+            c.ctx().waitFor(mc -> headIce(mc, 0.5, 3.5), 100);
+            c.ticks(2);
+            c.check(count(c) == 0 && drawn(c) == 0, "boxed with the switch OFF: " + count(c) + " / drawn " + drawn(c));
+            server(c, thaw);
+            c.ctx().waitFor(mc -> !headIce(mc, 0.5, 3.5), 100);
             set(c, QOL, "setIcedBoxes", true);
+            // A wand use near the mobs with no ice anywhere boxes nothing (the old estimate boxed the one in front).
+            server(c, "item replace entity @p weapon.mainhand with minecraft:stick[custom_data={id:\"ICE_SPRAY_WAND\"}]");
             use(c);
-            c.ticks(6); // no ice marker on any mob: the estimate takes over after 4 ticks
-            int n = count(c);
-            c.note("mobs boxed by one wand click: " + n + " of 3 (one in front, one behind, one 12 blocks away)");
-            c.check(n == 1, "expected only the zombie in front boxed, got " + n);
+            c.ticks(6);
+            c.check(count(c) == 0, "a wand use with no ice on any mob boxed " + count(c));
+            // Freeze: the box comes with the ice, on that mob only.
+            server(c, freeze);
+            boolean[] same = new boolean[1];
+            c.ctx().waitFor(mc -> {
+                if (!headIce(mc, 0.5, 3.5)) {
+                    return false;
+                }
+                same[0] = (Integer) Mod.staticCall("dungeonqol.IcedMobsFeature", "icedCount") == 1;
+                return true;
+            }, 100);
+            c.check(same[0], "the ice showed but the mob was not boxed in that tick");
             c.ticks(3);
-            c.check(count(c) == 1, "the box did not last");
-            c.ticks(105);
-            c.check(count(c) == 0, "the box outlived the 5 second freeze");
-            // untestbugs-1109: a mob wearing ice on its head is boxed, its neighbor without is not (marker beats the estimate).
-            server(c, "kill @e[tag=feiced]", "summon zombie 0.5 -60 3.5 {Tags:[\"feiced\"],NoAI:1b,NoGravity:1b,Silent:1b,Invulnerable:1b,"
-                    + "PersistenceRequired:1b,equipment:{head:{id:\"minecraft:packed_ice\",count:1}}}",
-                    "summon zombie 3.5 -60 3.5 " + ZOMBIE);
-            c.ctx().waitFor(mc -> mc.level.getEntitiesOfClass(Zombie.class, mc.player.getBoundingBox().inflate(20)).size() >= 2, 200);
-            use(c);
-            c.ticks(8);
-            int marked = c.onClient(mc -> (Integer) Mod.staticCall("dungeonqol.IcedMobsFeature", "markedCount"));
-            c.note("mobs boxed by the ice marker: " + marked + " of 2 (one wears packed ice)");
-            c.check(marked == 1, "expected exactly the mob wearing ice boxed, got " + marked);
-            c.check(count(c) == 1, "the boxed count disagrees with the marker count: " + count(c));
+            c.note("frozen: boxed " + count(c) + ", drawn " + drawn(c) + " (one of three zombies wears the ice)");
+            c.check(count(c) == 1 && drawn(c) == 1, "expected exactly the iced zombie outlined, boxed " + count(c) + " drawn " + drawn(c));
+            // Thaw: the box goes with the ice.
+            server(c, thaw);
+            c.ctx().waitFor(mc -> {
+                if (headIce(mc, 0.5, 3.5)) {
+                    return false;
+                }
+                same[0] = (Integer) Mod.staticCall("dungeonqol.IcedMobsFeature", "icedCount") == 0;
+                return true;
+            }, 100);
+            c.check(same[0], "the ice went but the box stayed that tick");
+            c.ticks(3);
+            c.check(count(c) == 0 && drawn(c) == 0, "outline after the thaw: boxed " + count(c) + " drawn " + drawn(c));
+            // Ice on an armor stand at a mob's head boxes the mob under it; the stand losing the ice ends it.
+            server(c, "summon armor_stand -3.5 -59.0 3.5 {Tags:[\"feiced\",\"feicedS\"],Invisible:1b,NoGravity:1b,Marker:1b,"
+                    + "equipment:{head:{id:\"minecraft:packed_ice\",count:1}}}");
+            c.ctx().waitFor(mc -> (Integer) Mod.staticCall("dungeonqol.IcedMobsFeature", "icedCount") == 1, 100);
+            c.ticks(3);
+            c.note("stand marker: boxed " + count(c) + ", drawn " + drawn(c));
+            c.check(count(c) == 1 && drawn(c) == 1, "the stand's ice did not box the mob under it");
+            server(c, "item replace entity @e[tag=feicedS] armor.head with minecraft:air");
+            c.ctx().waitFor(mc -> (Integer) Mod.staticCall("dungeonqol.IcedMobsFeature", "icedCount") == 0, 100);
+            c.check(count(c) == 0, "the box stayed after the stand lost its ice");
+            // A world change clears every box.
+            server(c, freeze);
+            c.ctx().waitFor(mc -> (Integer) Mod.staticCall("dungeonqol.IcedMobsFeature", "icedCount") == 1, 100);
+            server(c, "execute in minecraft:the_nether run tp @p 0.5 130 0.5");
+            c.ctx().waitFor(mc -> mc.level.dimension() == net.minecraft.world.level.Level.NETHER, 200);
+            c.ticks(2);
+            c.check(count(c) == 0, "boxes survived the world change: " + count(c));
         } finally {
-            server(c, "kill @e[tag=feiced]");
+            server(c, "execute in minecraft:overworld run tp @p 0.5 -60 0.5");
+            c.ctx().waitFor(mc -> mc.level.dimension() == net.minecraft.world.level.Level.OVERWORLD, 200);
+            server(c, "kill @e[tag=feiced]", "item replace entity @p weapon.mainhand with minecraft:air");
             DungeonB2Cases.restoreConfig(c, saved, QOL);
         }
     }
