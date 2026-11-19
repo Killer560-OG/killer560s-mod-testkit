@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-18T16:56:51",
- "modSource": "lane-lockdrop-1118",
- "modGitSha": "33d742ffbcaaebd8bd4c6bb60f7b99a08f583128",
+ "generatedAt": "2026-11-18T19:09:46",
+ "modSource": "km-bottlealert-1118",
+ "modGitSha": "9ec0d85de92098e5d1bbee13273bceb7d649e7e3",
  "modSourceDirty": false,
- "count": 995,
+ "count": 996,
  "byKind": {
   "dynamic": 10,
   "element": 75,
-  "field": 867,
+  "field": 868,
   "local": 43
  },
  "unresolved": 160,
@@ -4500,6 +4500,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^(?:enderchest_[1-9]|backpack_(?:[1-9]|1[0-8]))$\""
+  },
+  {
+   "id": "itemalerts.ItemAlertsFeature#CHARGE",
+   "cls": "itemalerts.ItemAlertsFeature",
+   "field": "CHARGE",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/itemalerts/ItemAlertsFeature.java",
+   "line": 53,
+   "regex": "Charge: ([\\d,]{1,12})/([\\d,]{1,12})",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"Charge: ([\\\\d,]{1,12})/([\\\\d,]{1,12})\""
   },
   {
    "id": "itembrowser.ItemBrowserFeature#MINION_ID",
