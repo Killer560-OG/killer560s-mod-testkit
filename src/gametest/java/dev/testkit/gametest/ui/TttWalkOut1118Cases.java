@@ -35,11 +35,14 @@ final class TttWalkOut1118Cases {
         }
         String cls = "autopuzzles.AutoPuzzlesConfig";
         Map<Path, byte[]> saved = DungeonB2Cases.snapshotConfig(c, cls);
+        boolean[] gateOn = {true};
         try {
             Path p = saved.keySet().iterator().next();
             Files.createDirectories(p.getParent());
-            Files.writeString(p, "{\"autoTicTacToeEnabled\":true,\"ticTacToeAuraChestEnabled\":true,"
+            Files.writeString(p, "{\"autoPuzzlesMasterEnabled\":true,\"autoTicTacToeEnabled\":true,\"ticTacToeAuraChestEnabled\":true,"
                     + "\"ticTacToeWalkOutEnabled\":true}", StandardCharsets.UTF_8);
+            gateOn[0] = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+            c.onClient(mc -> Mod.staticCall("util.SkyblockGate", "setEnabled", false));
             List<String> rows = c.onClient(mc -> {
                 Mod.staticCall(cls, "load");
                 Mod.call(Mod.cfg(cls), "save");
@@ -60,6 +63,7 @@ final class TttWalkOut1118Cases {
             c.check(java.util.Arrays.stream(Mod.cls(cls).getMethods())
                     .noneMatch(m -> m.getName().toLowerCase().contains("walkout")), "a walk out method is still on the config");
         } finally {
+            c.onClient(mc -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateOn[0]));
             DungeonB2Cases.restoreConfig(c, saved, cls);
         }
     }
