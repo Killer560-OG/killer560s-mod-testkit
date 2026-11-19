@@ -180,7 +180,7 @@ public class SimHelpTests implements FabricClientGameTest {
             Report.screenshot(NAME, shot);
             java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(shot.toFile());
             Object[] lay = picBoxes(ctx);
-            double f = img.getWidth() / (double) (Integer) lay[1];
+            double f = img.getWidth() / (Double) lay[1];
             for (int[] pic : castBoxes(lay[0])) {
                 int colors = distinctColors(img, pic, f);
                 check(problems, colors >= 24, "page " + (p + 1) + ": picture " + str(pic) + " has only " + colors + " colors on screen (not drawn)");
@@ -396,8 +396,16 @@ public class SimHelpTests implements FabricClientGameTest {
             for (var e : ((Map<?, ?>) ModUnderTest.call(sc, "layoutBoxes", new Class<?>[0], new Object[0])).entrySet()) {
                 if (e.getKey().toString().startsWith("pic")) out.add((int[]) e.getValue());
             }
-            return new Object[]{out, sc.width};
+            return new Object[]{out, drawnWidth(mc, sc)};
         });
+    }
+
+    /** The layout width the window really shows: GUI-scaled width over the Auto Scale factor the screen was laid out with
+     *  (sc.width can still hold a size the harness gave it, which put the pixel reads off the pictures). */
+    private static double drawnWidth(net.minecraft.client.Minecraft mc, net.minecraft.client.gui.screens.Screen sc) {
+        float k = (Float) ModUnderTest.staticCall("com.killer560.hub.hud.AutoScale", "appliedFactor",
+                new Class<?>[]{net.minecraft.client.gui.screens.Screen.class}, new Object[]{sc});
+        return mc.getWindow().getGuiScaledWidth() / (double) k;
     }
 
     @SuppressWarnings("unchecked")
@@ -434,13 +442,13 @@ public class SimHelpTests implements FabricClientGameTest {
             sc.resize(sc.width, sc.height);
             ModUnderTest.call(sc, "showPage", new Class<?>[]{int.class}, new Object[]{0});
             Map<?, ?> b = (Map<?, ?>) ModUnderTest.call(sc, "layoutBoxes", new Class<?>[0], new Object[0]);
-            return new Object[]{b.get("page0"), b.get("panel"), sc.width};
+            return new Object[]{b.get("page0"), b.get("panel"), drawnWidth(mc, sc)};
         });
         ctx.waitTicks(4);
         Path shot = ctx.takeScreenshot(dev.testkit.harness.Report.fileName(NAME + "-theme-" + theme + (dark ? "-dark" : "")));
         Report.screenshot(NAME, shot);
         java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(shot.toFile());
-        double f = img.getWidth() / (double) (Integer) lay[2];
+        double f = img.getWidth() / (Double) lay[2];
         int[] item = (int[]) lay[0], panel = (int[]) lay[1];
         int strip = img.getRGB((int) ((item[0] + 2) * f), (int) ((item[1] + item[3] / 2.0) * f));
         int bg = img.getRGB((int) ((panel[0] + panel[2] - 5) * f), (int) ((panel[1] + panel[3] / 2.0) * f));
