@@ -35,6 +35,14 @@ import java.util.Map;
  */
 public class SimAcBloodFirst1118Tests implements FabricClientGameTest {
     private static final String NAME = "1118-sim-acbloodfirst";
+    /** Path Mines > Quad Lava > Duncan > Fairy > Flags > Granite > Slabs > Blood; the Quiz and Ice Fill off it. */
+    private static final String FIXED_FLOOR = "MC2:CxUEUXVpeghJY2UgRmlsbAhFbnRyYW5jZQVNaW5lcwlRdWFkIExhdmEGRHVuY2FuBUZhaXJ5BUZsYWdzB0dyYW5pdGUFU2xhYnMFQmxvb2"
+            + "QER29sZAZHcmF2ZWwIT2xkIFRyYXANVGVsZXBvcnQgTWF6ZQdCdXR0b25zCU92ZXJncm93bgdIYWxsd2F5DE11bHRpY29sb3JlZAxUaHJlZSBG"
+            + "bG9vcnMKS2luZyBNaWRhcwAIAAAIAAAIAAEAAAAHAQEAAAAGAAAAAAAMAQAMAQAMAQAIAAAIAAAIAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAEAAA"
+            + "AIAAAIAAAIAAEAAAAPAwAAAAAFAgEAAAAEAwAEAwAEAwEAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAEAwAEAwAEAwAJAwAAAAANAAAAAAABAwAA"
+            + "AAACAAEAAAAEAwAEAwAEAwEAAAAAAAANAAAAAAEAAAAAAAAAAAAAAAEAAAAAAAQAAAAKAwAAAAANAAAAAAAQAAAQAAAQAAAAAAAOAwAAAAADAw"
+            + "MAAAAAAAANAAAAAAAQAAAQAAAQAAAAAAAAAAAAAAAAAAALAQAAAAANAAEAAAAQAAAQAAAQAAEAAAARAwEAAAAUAQAAAAAAAAAAAAAAAAAAAAAA"
+            + "AAAAAAAAAAEAAAAAAAAAAAAVAwEAAAATAQEAAAASAQASAQASAQASAQASAQASAQASAQ";
     private static final String AS = "com.killer560.hub.autosecret.AutoSecretFeature";
     private static final String AS_CONFIG = "com.killer560.hub.autosecret.AutoSecretConfig";
     private static final String PUZ_CONFIG = "com.killer560.hub.autopuzzles.AutoPuzzlesConfig";
@@ -69,7 +77,10 @@ public class SimAcBloodFirst1118Tests implements FabricClientGameTest {
         List<String> failures = new ArrayList<>();
         String before = System.getProperty("testkit.mobfloorCode", "");
         try {
-            if (before.isBlank()) {
+            if (before.isBlank() && !Boolean.getBoolean("testkit.acbf1118Random")) {
+                // One F7 for every jar, so a branch and its base are timed on the same floor.
+                System.setProperty("testkit.mobfloorCode", FIXED_FLOOR);
+            } else if (before.isBlank()) {
                 String code = null;
                 for (int i = 0; i < 12 && code == null; i++) {
                     final int n = i;
@@ -163,6 +174,7 @@ public class SimAcBloodFirst1118Tests implements FabricClientGameTest {
         boolean quizDone = false;
         boolean iceDone = false;
         List<String> all = new ArrayList<>();
+        int bloodTick = -1;
         for (; ticks < minutes * 1200; ticks += 5) {
             ctx.waitTicks(5);
             if (ctx.computeOnClient(mc -> mc.level == null || mc.player == null)) {
@@ -179,7 +191,10 @@ public class SimAcBloodFirst1118Tests implements FabricClientGameTest {
             mark = upTo;
             iceDone = all.stream().anyMatch(l -> l.contains("[Autopilot] done PUZZLE Ice Fill")
                     || l.contains("PUZZLE SOLVED!") && l.contains("Ice Fill"));
-            if (quizDone && iceDone) {
+            if (bloodTick < 0 && all.stream().anyMatch(l -> l.contains("The BLOOD DOOR has been opened!"))) {
+                bloodTick = ticks;
+            }
+            if (quizDone && iceDone && bloodTick >= 0) {
                 break;
             }
             if (!(Boolean) ctx.computeOnClient(mc -> ModUnderTest.staticCall(AS, "isRunning"))) {
@@ -253,6 +268,8 @@ public class SimAcBloodFirst1118Tests implements FabricClientGameTest {
                 failures.add("the decision after a Wither Key was not the door: " + strip(next));
             }
         }
+        println(String.format(Locale.US, "TIMES: blood door open at %.1f s, blood and both puzzles done at %.1f s",
+                bloodTick / 20.0, ticks / 20.0));
         println(String.format(Locale.US, "RESULT: %.1f s, blood open line %d, wither keys picked up before it %d, door picks %d,"
                 + " Quiz done %s, Ice Fill done %s; order %s", ticks / 20.0, bloodOpen, pickups, doorPicks, quizDone, iceDone, order));
         if (bloodOpen < 0) {
