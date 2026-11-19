@@ -45,6 +45,7 @@ final class InvBatchMenuCases {
 
     static void register(Session s) {
         MenuSuite.test(s, "583-menu-itemprotect-blocks", InvBatchMenuCases::protectBlocks);
+        MenuSuite.test(s, "1118-menu-lockdrop", InvBatchMenuCases::lockDrop);
         MenuSuite.test(s, "585-menu-invsort-apply", InvBatchMenuCases::invsortApply);
     }
 
@@ -113,7 +114,6 @@ final class InvBatchMenuCases {
                 Mod.call(cfg, "setProtectStarredEnabled", true);
                 Mod.call(cfg, "setLockInPlace", false);
                 Mod.call(cfg, "setPreventHotbarDropEnabled", true);
-                Mod.call(cfg, "setConfirmToForce", false);
                 Mod.call(cfg, "setBlockEveryHotbarDrop", false);
                 Mod.call(cfg, "setBlockSound", false);
                 Mod.call(cfg, "addProtectedKey", "hx-hyp-1");
@@ -244,6 +244,133 @@ final class InvBatchMenuCases {
         }
         if (controlClicks < 1) {
             wrong.add(what + ": the control sent nothing, so the block proves nothing");
+        }
+    }
+
+    // ==== 1118 lock hotbar: nothing in the hotbar can be dropped ======================================================
+
+    /** Drop-capable packets on the wire since WireCapture.start: player actions (DROP_ITEM) and container clicks. */
+    private static int wireDrops() {
+        int n = 0;
+        for (dev.testkit.harness.WireCapture.Sent p : dev.testkit.harness.WireCapture.snapshot()) {
+            if (p.text().equals("ServerboundPlayerActionPacket") || p.text().equals("ServerboundContainerClickPacket")) {
+                n++;
+            }
+        }
+        return n;
+    }
+
+    /** Runs one action and returns the drop-capable packets it put on the wire (20 ticks to arrive). */
+    private static int wire(Session c, Runnable action) {
+        dev.testkit.harness.WireCapture.start();
+        action.run();
+        c.ctx().waitTicks(20);
+        int n = wireDrops();
+        dev.testkit.harness.WireCapture.stop();
+        return n;
+    }
+
+    private static void drop(Session c, boolean stack) {
+        c.ctx().runOnClient(mc -> McCompat.dropSelected(mc, stack));
+    }
+
+    static void lockDrop(Session c) throws Exception {
+        MenuKit.reset(c);
+        InventoryCases.clearInv(c);
+        Path cfgPath = configPath(c, IPC);
+        byte[] old = read(cfgPath);
+        List<String> wrong = new ArrayList<>();
+        dev.testkit.harness.WireCapture.describe = p -> p.getClass().getSimpleName();
+        try {
+            c.ctx().runOnClient(mc -> {
+                Object cfg = Mod.cfg(IPC);
+                Mod.call(cfg, "setEnabled", true);
+                Mod.call(cfg, "setProtectItemEnabled", true);
+                Mod.call(cfg, "setProtectStarredEnabled", false);
+                Mod.call(cfg, "setLockInPlace", false);
+                Mod.call(cfg, "setPreventHotbarDropEnabled", false);
+                Mod.call(cfg, "setBlockEveryHotbarDrop", false);
+                Mod.call(cfg, "setBlockSound", false);
+                Mod.call(cfg, "addProtectedKey", "hx-hyp-1");
+            });
+            c.hx().give(0, MenuKit.item("items.hyperion-protected-uuid"));
+            c.hx().give(1, "minecraft:diamond");
+            c.waitUntil("the sword and diamond", mc -> mc.player.getInventory().getItem(0).is(Items.DIAMOND_SWORD)
+                    && mc.player.getInventory().getItem(1).is(Items.DIAMOND), 80);
+
+            // A: a locked hotbar item, Lock Hotbar OFF: the drop key, Ctrl+Q and every click still never drop it.
+            c.ctx().runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+            c.ctx().waitTicks(3);
+            check(c, wrong, "A key", wire(c, () -> drop(c, false)), 0);
+            check(c, wrong, "A Ctrl+Q key", wire(c, () -> drop(c, true)), 0);
+            c.ctx().runOnClient(mc -> McCompat.setScreen(mc, new InventoryScreen(mc.player)));
+            c.waitUntil("the inventory screen", mc -> McCompat.screen(mc) instanceof InventoryScreen, 40);
+            c.ctx().waitTicks(3);
+            check(c, wrong, "A Q over slot", wire(c, () -> screenClick(c, 36, 0, ContainerInput.THROW)), 0);
+            check(c, wrong, "A Ctrl+Q over slot", wire(c, () -> screenClick(c, 36, 1, ContainerInput.THROW)), 0);
+            check(c, wrong, "A pick up", wire(c, () -> screenClick(c, 36, 0, ContainerInput.PICKUP)), 1);
+            check(c, wrong, "A click outside", wire(c, () -> screenClick(c, -999, 0, ContainerInput.PICKUP)), 0);
+            check(c, wrong, "A put back", wire(c, () -> screenClick(c, 36, 0, ContainerInput.PICKUP)), 1);
+            MenuKit.reset(c);
+            keptIn(c, wrong, "A", 0, Items.DIAMOND_SWORD);
+
+            // B: Lock Hotbar + Block Every Drop ON: the unlocked diamond (hotbar 1) can not be dropped either.
+            c.ctx().runOnClient(mc -> {
+                Mod.call(Mod.cfg(IPC), "setPreventHotbarDropEnabled", true);
+                Mod.call(Mod.cfg(IPC), "setBlockEveryHotbarDrop", true);
+                mc.player.getInventory().setSelectedSlot(1);
+            });
+            c.ctx().waitTicks(3);
+            check(c, wrong, "B key", wire(c, () -> drop(c, false)), 0);
+            check(c, wrong, "B Ctrl+Q key", wire(c, () -> drop(c, true)), 0);
+            c.hx().give(12, "minecraft:diamond");
+            c.waitUntil("the second diamond", mc -> mc.player.getInventory().getItem(12).is(Items.DIAMOND), 40);
+            c.ctx().runOnClient(mc -> McCompat.setScreen(mc, new InventoryScreen(mc.player)));
+            c.waitUntil("the inventory screen", mc -> McCompat.screen(mc) instanceof InventoryScreen, 40);
+            c.ctx().waitTicks(3);
+            check(c, wrong, "B Q over hotbar slot", wire(c, () -> screenClick(c, 37, 0, ContainerInput.THROW)), 0);
+            check(c, wrong, "B Ctrl+Q over hotbar slot", wire(c, () -> screenClick(c, 37, 1, ContainerInput.THROW)), 0);
+            check(c, wrong, "B pick up hotbar item", wire(c, () -> screenClick(c, 37, 0, ContainerInput.PICKUP)), 1);
+            check(c, wrong, "B click outside with it", wire(c, () -> screenClick(c, -999, 0, ContainerInput.PICKUP)), 0);
+            check(c, wrong, "B put back", wire(c, () -> screenClick(c, 37, 0, ContainerInput.PICKUP)), 1);
+            keptIn(c, wrong, "B", 1, Items.DIAMOND);
+            // A non-hotbar item still drops (unchanged).
+            check(c, wrong, "B non-hotbar pick up", wire(c, () -> screenClick(c, 12, 0, ContainerInput.PICKUP)), 1);
+            check(c, wrong, "B non-hotbar outside click", wire(c, () -> screenClick(c, -999, 0, ContainerInput.PICKUP)), 1);
+            MenuKit.reset(c);
+
+            // C: Block Every Drop OFF with Lock Hotbar on: an unlocked hotbar item drops as in vanilla.
+            c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(IPC), "setBlockEveryHotbarDrop", false));
+            check(c, wrong, "C unlocked key drop goes out", wire(c, () -> drop(c, false)) > 0 ? 1 : 0, 1);
+            c.waitUntil("the diamond dropped", mc -> mc.player.getInventory().getItem(1).isEmpty(), 40);
+
+            // D: the whole feature OFF: vanilla drop of the locked sword.
+            c.ctx().runOnClient(mc -> {
+                Mod.call(Mod.cfg(IPC), "setEnabled", false);
+                mc.player.getInventory().setSelectedSlot(0);
+            });
+            c.ctx().waitTicks(3);
+            check(c, wrong, "D feature off key drop goes out", wire(c, () -> drop(c, false)) > 0 ? 1 : 0, 1);
+            c.check(wrong.isEmpty(), "lock hotbar: " + wrong);
+        } finally {
+            dev.testkit.harness.WireCapture.stop();
+            dev.testkit.harness.WireCapture.describe = null;
+            MenuKit.reset(c);
+            restore(c, IPC, cfgPath, old);
+            InventoryCases.clearInv(c);
+        }
+    }
+
+    private static void check(Session c, List<String> wrong, String what, int got, int want) {
+        c.note(what + ": " + got + " packet(s)");
+        if (got != want) {
+            wrong.add(what + " sent " + got + ", want " + want);
+        }
+    }
+
+    private static void keptIn(Session c, List<String> wrong, String phase, int slot, net.minecraft.world.item.Item item) {
+        if (!c.onClient(mc -> mc.player.getInventory().getItem(slot).is(item))) {
+            wrong.add(phase + ": hotbar slot " + slot + " lost its item");
         }
     }
 

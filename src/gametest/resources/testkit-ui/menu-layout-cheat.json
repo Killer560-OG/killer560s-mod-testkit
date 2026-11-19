@@ -1135,6 +1135,7 @@
     },
     "Object Hider": {
       "archer passive": "Hides the spinning bone meal items the archer passive drops.",
+      "arrow particles": "Hides the particles arrows make: the crit trail, the tipped-arrow swirl and the bubbles in water.",
       "blindness effect": "Removes the blindness effect so P3 blind doesn't black out your screen.",
       "block break particles": "Hides the block-crack particles from breaking or hitting blocks.",
       "boss damage splash": "Hides the floating damage numbers in the boss room.",
