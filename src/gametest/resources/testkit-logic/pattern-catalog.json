@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T06:11:04",
- "modSource": "lane-pvnetworth-1118",
- "modGitSha": "454ac7d41602e8f2384d35456d71d79673023d7b",
+ "generatedAt": "2026-11-19T06:30:21",
+ "modSource": "lane-simleapnames-1118",
+ "modGitSha": "5a7906fae60a5d7e88f19c036d63999230f98cc5",
  "modSourceDirty": false,
  "count": 979,
  "byKind": {
