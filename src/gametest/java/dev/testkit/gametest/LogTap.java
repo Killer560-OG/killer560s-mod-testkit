@@ -94,11 +94,20 @@ public final class LogTap {
 
     /** Every captured line after {@code mark}, oldest first, without the sequence number. */
     public static List<String> since(long mark) {
+        return between(mark, Long.MAX_VALUE);
+    }
+
+    /**
+     * Captured lines after {@code mark} up to and including {@code upTo} (a later {@link #mark}): a long case collects
+     * the stream in pieces, as the ring keeps only the newest {@value #RING} lines.
+     */
+    public static List<String> between(long mark, long upTo) {
         List<String> out = new ArrayList<>();
         synchronized (LINES) {
             for (String s : LINES) {
                 int tab = s.indexOf('\t');
-                if (Long.parseLong(s.substring(0, tab)) > mark) {
+                long n = Long.parseLong(s.substring(0, tab));
+                if (n > mark && n <= upTo) {
                     out.add(s.substring(tab + 1));
                 }
             }
