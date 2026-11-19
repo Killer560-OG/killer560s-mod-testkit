@@ -55,6 +55,7 @@ final class InventoryCases {
         InvSortGfs1116Cases.register(s);
         InvSortDump1104Cases.register(s);
         InvLoadout1104Cases.register(s);
+        InvSortLook1117Cases.register(s);
         SameTickMenu1105Cases.register(s); // 1105-same-autosell/autoterm/invsort-click (grimgapC-1105)
         Flaghunt1110MenuCases.register(s); // 1110-c-*-moving-* (flaghunt-1110 group C)
         ItemUiMenuCases.register(s);

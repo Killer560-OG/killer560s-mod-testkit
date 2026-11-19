@@ -67,6 +67,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxSpotifyControlsCases.register(s); HxSpotifyLyrics1108Cases.register(s);
                     HxSpotifyDocCases.register(s);
                     HxSongTagParty1105Cases.register(s); // spotshare-1105: the party room survives a warp
+                    HxPartyState1118Cases.register(s); // partystate-1118: one party tracker, every line form, the tab widget
                     HxSongFix1106Cases.register(s); // songfix-1106: a non-supporter sees a supporter's song and name
                     HxYtLyrics1108Cases.register(s);
                     // Auto Meow replies in the trigger's channel, and Mod Chat sends (874, branch
@@ -153,6 +154,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxChScan1104Cases.register(s);
                     // Treasure chest Hide Opened re-send and the chain tracer (1104-chestfx-*, mod chestfx-1104).
                     HxChestFx1104Cases.register(s);
+                    // Treasure chests only in the Crystal Hollows, never carried to another world (1117-chesthl-*, mod chesthl-ch-1117).
+                    HxChestHollows1117Cases.register(s);
                     // Powder Chest Triggerbot: swap to the best Gemstone Powder drill, click, rate limit (1104-chestbot-*, mod chestbot-1104).
                     HxChestBot1104Cases.register(s);
                     // Water Board reward chest click with his use / scroll / dig / teleport in its ticks (1115-same-waterchest-*, mod acslow3-1115).
@@ -166,6 +169,7 @@ public class HxSuite implements FabricClientGameTest {
 
                     // Auto Superboom, cheat only, with his dig / use / scroll / teleport in the swap tick (1108-same-superboom-*, featD-1108).
                     HxSuperboom1108Cases.register(s);
+                    HxSuperboomRange1118Cases.register(s);
                     // Storm Bow release and Auto M5, idle and with his actions in their ticks (1111-*stormbow*, 1111-*autom5*, mod stormm5-1111).
                     HxStormM51111Cases.register(s);
                     HxCheatBugs1109Cases.register(s);
@@ -189,6 +193,8 @@ public class HxSuite implements FabricClientGameTest {
                     // Every-drop coverage: mob/sea creature kills, Looting, slayer level, RNG Meter, Kuudra, Nucleus,
                     // Experiments, Unknown-floor claims (1102-luck-*, mod branch luck2-1101).
                     HxLuck1102Cases.register(s);
+                    // Ability, bow and drop-first kill counting, armor pieces, identical drop lines (1118-luck-*, luckcount-1118).
+                    HxLuck1118Cases.register(s);
                     // Dark Mode: world / HUD tint by framebuffer pixels, screens untouched, settings reload (1102-darkmode-*,
                     // mod branch darkmode-1102), own block.
                     HxDarkMode1102Cases.register(s);
@@ -203,8 +209,9 @@ public class HxSuite implements FabricClientGameTest {
                     HxMining3Cases.register(s);
                     // mod glacitecomm-c-1114: the Glacite Mineshafts card (1114-mineshaft-*).
                     HxMineshaft1114Cases.register(s);
-                    // Hide Ghost Mobs: a mob the server stopped sending is hidden, a still real one never (1109-ghostmob-hide, mod ghostmob-1109).
+                    // Hide Ghost Mobs: a silent starred mob in a map-cleared room is hidden, idle, unstarred or later-heard ones never (1109-ghostmob-hide, 1118-ghostmob-*, mod ghostmob-redo-1118).
                     HxGhostMob1109Cases.register(s);
+                    HxArrowParticles1117Cases.register(s);
                     // mod featC-1108: Puzzle HUD, Reparty, Watcher Helper.
                     HxFeatC1108Cases.register(s);
                     // mod featG-1109: Carry Tracker.

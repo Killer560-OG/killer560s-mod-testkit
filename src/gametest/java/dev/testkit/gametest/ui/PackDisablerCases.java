@@ -55,7 +55,7 @@ import java.util.concurrent.CompletableFuture;
  *   <li>429-ui-pack-disabler-missing: removed with /k560textures and the missing-texture list (mod cmdclean-1101).</li>
  *   <li>430-ui-pack-disabler-screens: a chest of affected items at GUI scale 2, ON and OFF, screenshots.</li>
  *   <li>431-ui-pack-disabler-user-pack: a resource pack the player selects that replaces {@code wheat_seeds} and one
- *       of OUR textures wins for both: a Pack-Disabler-resolved Seeds item and Bee Saliva read the pack's pixels.</li>
+ *       of OUR textures wins for both: a Pack-Disabler-resolved Seeds item and Giant Sloth Claw read the pack's pixels.</li>
  *   <li>432-ui-pack-disabler-bazaar: the Bazaar icon for every product comes from the same table (one answer).</li>
  *   <li>433-ui-pack-disabler-refresh (mod packdisabler-1103): 24 items from the 2026-11-03 refresh (Great Spook, Bingo,
  *       0.27.2 Reforge and Power Stones, renamed-model items) plus the 427 set draw their expected old item, head
@@ -93,13 +93,13 @@ final class PackDisablerCases {
                         "hypixel_skyblock:item/collections/gemstone/jade/rough_jade_gem", null,
                         "3b4c2afd544d0a6139e6ae8ef8f0bfc09a9fd837d0cad4f5cd0fe7f607b7d1a0", null),
                 new Fixture("BEE_SALIVA", Items.PAPER, "hypixel_skyblock:item/island_relevant/foraging_3/bee_saliva",
-                        null, null, "bee_saliva"),
+                        Items.HONEY_BOTTLE, null, null),
                 new Fixture("GIANT_SLOTH_CLAW", Items.PAPER,
                         "hypixel_skyblock:item/island_relevant/foraging_3/petupgrades/sloth_claw_giant", null, null,
                         "giant_sloth_claw"),
                 new Fixture("HONEYCOMB_RING", Items.PAPER,
-                        "hypixel_skyblock:item/island_relevant/foraging_3/accessories/honey/honeycomb_ring", null, null,
-                        "honeycomb_ring"));
+                        "hypixel_skyblock:item/island_relevant/foraging_3/accessories/honey/honeycomb_ring", null, "bundled:honeycomb_ring",
+                        null));
     }
 
     private PackDisablerCases() {
@@ -150,7 +150,11 @@ final class PackDisablerCases {
                         int at = json.indexOf("/texture/");
                         return at < 0 ? json : json.substring(at + 9).replaceAll("[^0-9a-f].*$", "");
                     }
-                    return "";
+                    // A skin shipped in the mod jar: no textures property, the skin's body texture is our asset id.
+                    Object body = Mod.call(Mod.call(arg, "playerSkin"), "body");
+                    String id = body == null ? "" : String.valueOf(Mod.call(body, "id"));
+                    String prefix = "killer560smod:entity/packdisabler/";
+                    return id.startsWith(prefix) ? "bundled:" + id.substring(prefix.length()) : "";
                 }
             }
         } catch (Exception e) {
@@ -381,17 +385,17 @@ final class PackDisablerCases {
         try {
             setEnabled(c, true);
             ItemStack seeds = skyblockStack(Items.WHEAT_SEEDS, "SEEDS", "hypixel_skyblock:item/testkit/seeds_431");
-            ItemStack saliva = skyblockStack(Items.PAPER, "BEE_SALIVA",
-                    "hypixel_skyblock:item/island_relevant/foraging_3/bee_saliva");
+            ItemStack saliva = skyblockStack(Items.PAPER, "GIANT_SLOTH_CLAW",
+                    "hypixel_skyblock:item/island_relevant/foraging_3/petupgrades/sloth_claw_giant");
             // Without the pack: the vanilla seeds sprite and our own texture, neither a solid color.
             String seedsBefore = c.onClient(mc -> drawn(mc, seeds));
             String salivaBefore = c.onClient(mc -> drawn(mc, saliva));
             int[] seedsPx = c.onClient(mc -> spritePixels(mc, seeds));
             int[] salivaPx = c.onClient(mc -> spritePixels(mc, saliva));
-            c.note("before: Seeds -> " + seedsBefore + " " + describe(seedsPx) + "; Bee Saliva -> " + salivaBefore + " "
+            c.note("before: Seeds -> " + seedsBefore + " " + describe(seedsPx) + "; Giant Sloth Claw -> " + salivaBefore + " "
                     + describe(salivaPx));
             c.check(seedsBefore.endsWith("item/wheat_seeds"), "SEEDS resolved to " + seedsBefore);
-            c.check(salivaBefore.equals("killer560smod:item/packdisabler/bee_saliva"), "BEE_SALIVA -> " + salivaBefore);
+            c.check(salivaBefore.equals("killer560smod:item/packdisabler/giant_sloth_claw"), "GIANT_SLOTH_CLAW -> " + salivaBefore);
             c.check(!allOf(seedsPx, MAGENTA) && !allOf(salivaPx, GREEN), "control: a sprite was already solid");
 
             writePack(dir);
@@ -410,10 +414,10 @@ final class PackDisablerCases {
             int[] seedsAfter = c.onClient(mc -> spritePixels(mc, seeds));
             int[] salivaAfter = c.onClient(mc -> spritePixels(mc, saliva));
             String seedsName = c.onClient(mc -> drawn(mc, seeds));
-            c.note("with the pack: Seeds -> " + seedsName + " " + describe(seedsAfter) + "; Bee Saliva " + describe(salivaAfter));
+            c.note("with the pack: Seeds -> " + seedsName + " " + describe(seedsAfter) + "; Giant Sloth Claw " + describe(salivaAfter));
             c.check(allOf(seedsAfter, MAGENTA), "the player's pack did not draw the Pack-Disabler Seeds: "
                     + describe(seedsAfter));
-            c.check(allOf(salivaAfter, GREEN), "the player's pack did not replace our Bee Saliva texture: "
+            c.check(allOf(salivaAfter, GREEN), "the player's pack did not replace our Giant Sloth Claw texture: "
                     + describe(salivaAfter));
         } finally {
             c.onClient(mc -> {
@@ -441,7 +445,7 @@ final class PackDisablerCases {
         Files.writeString(dir.resolve("pack.mcmeta"), "{\"pack\":{\"description\":\"testkit 431\",\"pack_format\":"
                 + format + ",\"min_format\":" + format + ",\"max_format\":" + format + "}}", StandardCharsets.UTF_8);
         solidPng(dir.resolve("assets/minecraft/textures/item/wheat_seeds.png"), MAGENTA);
-        solidPng(dir.resolve("assets/killer560smod/textures/item/packdisabler/bee_saliva.png"), GREEN);
+        solidPng(dir.resolve("assets/killer560smod/textures/item/packdisabler/giant_sloth_claw.png"), GREEN);
     }
 
     /** resource_major of the running client, from its own version.json. */
@@ -561,21 +565,23 @@ final class PackDisablerCases {
                 String lookSkin = look == null ? null : (String) Mod.call(look, "skinHash");
                 String entrySkin = (String) Mod.call(entry, "skinHash");
                 String entryOwn = (String) Mod.call(entry, "ownTexture");
+                String lookKey = look == null ? null : (String) Mod.call(look, "skinKey");
                 return new String[]{src, String.valueOf(lookSkin), String.valueOf(entrySkin), String.valueOf(lookOwn),
-                        String.valueOf(entryOwn)};
+                        String.valueOf(entryOwn), String.valueOf(lookKey)};
             });
             if (!r[1].equals(r[2]) || !r[3].equals(r[4])) {
                 disagree++;
                 bad.add(id);
             }
-            if ("OWN_TEXTURE".equals(r[0])) {
+            // Our own look: a drawn texture, or a head with a skin bundled in the mod (texredo3-1117).
+            if ("OWN_TEXTURE".equals(r[0]) || ("SKULL".equals(r[0]) && !"null".equals(r[5]))) {
                 own++;
             }
             if ("FALLBACK".equals(r[0])) {
                 bad.add(id + " (paper)");
             }
         }
-        c.note(ids.size() + " products; " + own + " use our own texture; disagreeing/paper: " + bad);
+        c.note(ids.size() + " products; " + own + " use our own texture or bundled head; disagreeing/paper: " + bad);
         c.check(disagree == 0, disagree + " products where the Bazaar row and the shared table disagree");
         c.check(own >= 30, "only " + own + " products use our textures (expected the ~38 bazaar items with no old look)");
         c.check(bad.isEmpty(), "products without a look: " + bad);

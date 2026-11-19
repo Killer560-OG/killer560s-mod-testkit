@@ -64,6 +64,8 @@ public class TestKitServer implements DedicatedServerModInitializer {
      * refused — a lever or a chest in the box still works.
      */
     private static final List<net.minecraft.world.phys.AABB> PROTECTED = new ArrayList<>();
+    /** Uses still to refuse per block ({@code /testkit refuseuse}). */
+    private static final java.util.Map<BlockPos, Integer> REFUSE = new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
      * Real players' food stays full (killer560, 2026-11-05: "some of the tests are running out of hunger"). Natural
@@ -153,6 +155,21 @@ public class TestKitServer implements DedicatedServerModInitializer {
                             return say(context, "unprotected");
                         }))
                         .then(Commands.literal("sweep").executes(TestKitServer::sweep))
+                        // leverplace0-1117: the next N uses of the block at x y z are refused (UseBlockCallback FAIL, the
+                        // server answers with the unchanged block, as after GrimAC cancels a click), so a case can prove a
+                        // feature notices a click that was not taken and clicks again.
+                        .then(Commands.literal("refuseuse")
+                                .then(Commands.argument("x", IntegerArgumentType.integer())
+                                        .then(Commands.argument("y", IntegerArgumentType.integer())
+                                                .then(Commands.argument("z", IntegerArgumentType.integer())
+                                                        .then(Commands.argument("n", IntegerArgumentType.integer(0, 100))
+                                                                .executes(context -> {
+                                                                    BlockPos p = new BlockPos(IntegerArgumentType.getInteger(context, "x"),
+                                                                            IntegerArgumentType.getInteger(context, "y"),
+                                                                            IntegerArgumentType.getInteger(context, "z"));
+                                                                    REFUSE.put(p, IntegerArgumentType.getInteger(context, "n"));
+                                                                    return say(context, "refuseuse " + p.toShortString() + " " + REFUSE.get(p));
+                                                                }))))))
                         .then(Commands.literal("keepfed")
                                 .then(Commands.argument("value", com.mojang.brigadier.arguments.BoolArgumentType.bool())
                                         .executes(context -> {
@@ -377,6 +394,12 @@ public class TestKitServer implements DedicatedServerModInitializer {
     private static net.minecraft.world.InteractionResult refuseProtected(
             net.minecraft.world.entity.player.Player player, net.minecraft.world.level.Level level,
             net.minecraft.world.InteractionHand hand, net.minecraft.world.phys.BlockHitResult hit) {
+        Integer left = level.isClientSide() ? null : REFUSE.get(hit.getBlockPos());
+        if (left != null && left > 0) {
+            REFUSE.put(hit.getBlockPos(), left - 1);
+            System.out.println("[testkit] refused use of " + hit.getBlockPos().toShortString() + ", " + (left - 1) + " left");
+            return net.minecraft.world.InteractionResult.FAIL;
+        }
         if (level.isClientSide() || PROTECTED.isEmpty()
                 || !(player.getItemInHand(hand).getItem() instanceof net.minecraft.world.item.BlockItem)) {
             return net.minecraft.world.InteractionResult.PASS;

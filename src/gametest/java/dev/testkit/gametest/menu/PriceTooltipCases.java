@@ -118,7 +118,8 @@ final class PriceTooltipCases {
 
         static String route(String path) {
             if (path.startsWith("/hx/v2/resources/skyblock/items")) {
-                return ITEMS;
+                String i = itemsOverride;
+                return i != null ? i : ITEMS;
             }
             if (path.startsWith("/hx/v2/skyblock/bazaar")) {
                 String b = bazaarOverride;
@@ -149,9 +150,12 @@ final class PriceTooltipCases {
         static volatile String bazaarOverride;
         /** A case's own lowest-BIN body (flat id -> coins); null serves the two Hyperion keys. Cleared on close. */
         static volatile String lbinOverride;
+        /** A case's own items-resource body; null serves ITEMS. Cleared on close. */
+        static volatile String itemsOverride;
 
         @Override
         public void close() {
+            itemsOverride = null;
             bazaarOverride = null;
             lbinOverride = null;
             restore("killer560.net.hypixel", oldHypixel);
