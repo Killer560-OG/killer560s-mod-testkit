@@ -345,12 +345,36 @@ final class HxFeatC1108Cases {
         speak(c, 21_000L, 40_000L);
         c.check(((Number) c.onClient(mc -> Mod.staticCall(WH, "speakMsForTest"))).longValue() == 0L, "Watcher Helper OFF timed the room");
         try (Settings set = new Settings(c).with(WH_CFG, "Enabled", true)) {
-            long[][] cases = {{21_500L, 0}, {22_500L, 1}, {24_000L, 2}, {26_000L, 3}};
+            // Four of his real Watchers (logger, 2026-11-16..18): the chat lines and their offsets from the door, speak time, grade.
+            Object[][] real = {
+                {11_708L, "Vroom", new long[]{0, 7332, 11708, 22562, 25831, 28927, 32058, 34160, 40448, 41999, 45203, 48308, 51458, 51916}},
+                {14_960L, "Watcher", new long[]{0, 14960, 21491, 23623, 25736, 27803, 32844, 34949, 37054, 40191, 43286, 45400, 47563, 50623}},
+                {15_944L, "Yawn", new long[]{0, 7101, 9938, 12646, 15944, 22018, 25005, 28300, 33218, 36384, 39703, 41605, 44728, 47830, 48299}},
+                {18_358L, "Zzz", new long[]{0, 8186, 11732, 14879, 18358, 23212, 25326, 30620, 33737, 36845, 38973, 42111, 45375, 48312, 49378}},
+            };
+            for (Object[] r : real) {
+                long[] at = (long[]) r[2];
+                run(c, () -> Mod.staticCall("dungeonalerts.DungeonAlertsFeature", "showTitle", "", "", 0, 1, 0));
+                long t0 = 1_000_000L;
+                run(c, () -> {
+                    Mod.staticCall(WH, "onLine", "Starting in 1 second.", t0 - 1000L);
+                    Mod.staticCall(WH, "onLine", "[BOSS] The Watcher: Ah, we meet again. As I foresaw...", t0);
+                    for (int i = 1; i < at.length - 1; i++) {
+                        Mod.staticCall(WH, "onLine", "[BOSS] The Watcher: " + (at[i] == (long) r[0] ? "Let's see how you can handle this." : "Go, fight!"), t0 + at[i]);
+                    }
+                    Mod.staticCall(WH, "onLine", "[BOSS] The Watcher: You have proven yourself. You may pass.", t0 + at[at.length - 1]);
+                });
+                String title = c.onClient(mc -> HxAlerts1025Cases.guiTitle(mc));
+                c.check(title != null && title.contains((String) r[1]), "real Watcher speak " + r[0] + " ms showed title '" + title + "', not " + r[1]);
+            }
+            // Cutoffs 14.5 / 15.5 / 16.5 s, both sides of each.
+            long[][] cases = {{14_400L, 0}, {14_600L, 1}, {15_400L, 1}, {15_600L, 2}, {16_400L, 2}, {16_600L, 3}, {26_000L, 3}};
             String[] grades = {"Vroom", "Watcher", "Yawn", "Zzz"};
             for (int i = 0; i < cases.length; i++) {
+                run(c, () -> Mod.staticCall("dungeonalerts.DungeonAlertsFeature", "showTitle", "", "", 0, 1, 0));
                 speak(c, cases[i][0], cases[i][0] + 18_000L);
                 String title = c.onClient(mc -> HxAlerts1025Cases.guiTitle(mc));
-                c.check(title != null && title.contains(grades[i]), "speak " + cases[i][0] + " ms showed title '" + title + "', not " + grades[i]);
+                c.check(title != null && title.contains(grades[(int) cases[i][1]]), "speak " + cases[i][0] + " ms showed title '" + title + "', not " + grades[(int) cases[i][1]]);
             }
             c.check(chat(c).stream().anyMatch(l -> l.contains("Speak 26.00s, Total 44.00s")), "breakdown line missing: " + chat(c));
             // The Title switch off: the speak time is still timed but no title.

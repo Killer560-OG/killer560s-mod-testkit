@@ -162,9 +162,9 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] SMALL_DUNGEON_CASES = {"1051-ui-thorn-through-walls", "1052-ui-esp-colour-tracer", "1053-ui-secrets-hud-colour"};
     /** killer560's 2026-10-15 Slot Text + Personal Compactor/Deletor overlay ({@link SlotTextCases}). Own block for merges. */
     static final String[] SLOT_TEXT_CASES = {"960-ui-slottext-types", "961-ui-slottext-drawn", "962-ui-slottext-modes",
-            "963-ui-compactor-contents", "964-ui-compactor-hover-drawn", "965-ui-compactor-modes", "966-ui-compactor-settings", "1104-ui-slottext-count"};
+            "963-ui-compactor-contents", "964-ui-compactor-hover-drawn", "965-ui-compactor-modes", "966-ui-compactor-settings", "1104-ui-slottext-count", "1118-ui-slottext-essence"};
     static final String[] DUNGEON_B2_CASES = {"686-ui-blood-trigger", "687-ui-door-key-circle",
-            "679-ui-ttt-prediction-misclicks", "680-ui-imap-binds-ticks", "681-ui-auto-kick-pf", "682-ui-dungeon-esp-switch"};
+            "679-ui-ttt-prediction-misclicks", "680-ui-imap-binds-ticks", "681-ui-auto-kick-pf", "682-ui-dungeon-esp-switch", "1118-ui-esp-rows"};
     /** killer560's 2026-10-11 Auto Kick Judge By + Detect Queued Floor ({@link AutoKick2Cases}). Own block for merges. */
     static final String[] AUTOKICK2_CASES = {"801-ui-autokick-judge-by", "802-ui-autokick-detect-pf",
             "803-ui-autokick-joininstance-ignored", "804-ui-autokick-forged-queue", "805-ui-autokick-floor-source",
@@ -752,6 +752,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "960-ui-slottext-types", SlotTextCases::types);
                     UiCase.run(ctx, "961-ui-slottext-drawn", SlotTextCases::drawn);
                     UiCase.run(ctx, "1104-ui-slottext-count", SlotTextCases::countCorner);
+                    UiCase.run(ctx, "1118-ui-slottext-essence", SlotTextCases::essenceLevel);
                     UiCase.run(ctx, "962-ui-slottext-modes", SlotTextCases::modes);
                     UiCase.run(ctx, "963-ui-compactor-contents", SlotTextCases::contentsRead);
                     UiCase.run(ctx, "964-ui-compactor-hover-drawn", SlotTextCases::hoverDrawn);
@@ -764,6 +765,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "680-ui-imap-binds-ticks", DungeonB2Cases::interactiveMapBinds);
                     UiCase.run(ctx, "681-ui-auto-kick-pf", DungeonB2Cases::autoKick);
                     UiCase.run(ctx, "682-ui-dungeon-esp-switch", DungeonB2Cases::dungeonEsp);
+                    UiCase.run(ctx, "1118-ui-esp-rows", DungeonB2Cases::espRows);
                     // ---- small-dungeon (1051-1053) ----
                     UiCase.run(ctx, "1051-ui-thorn-through-walls", SmallDungeonCases::thornThroughWalls);
                     UiCase.run(ctx, "1052-ui-esp-colour-tracer", SmallDungeonCases::espColourTracer);
