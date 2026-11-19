@@ -1253,6 +1253,7 @@
     },
     "RNG Meter Overlay": {
       "bazaar pricing": "Chooses whether RNG Meter rewards use Bazaar Instant Buy or Instant Sell prices.",
+      "highlight best": "Marks the slot of the best reward on the open RNG Meter page: the most coins per meter point, the same number the ranking shows. Rewards with no price are never picked.",
       "last refresh error": "",
       "minutes": "Minutes to wait between automatic Bazaar and AH price refreshes (minimum 1).",
       "refresh now": "Fetches fresh Bazaar and AH lowest-BIN prices right away.",

@@ -575,6 +575,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "365-ui-overlay-draws", MiscCases::overlayDraws);
                     UiCase.run(ctx, "307-ui-profit", ProfitCases::profit);
                     UiCase.run(ctx, "385-ui-interactive-map", InteractiveMapCases::run);
+                    UiCase.run(ctx, "1118-ui-imap-hudclick-gone", InteractiveMapCases::hudClickGone);
                     UiCase.run(ctx, "386-ui-sliders", c -> SliderCases.run(c, deny));
                     UiCase.run(ctx, "387-ui-ap3-edit", Ap3EditCases::run);
                     // mod ap3-backwards-1026: a typed 167.9 stays 167.9, and the leapcounter: suffix (parse, save, reload,
@@ -740,6 +741,9 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "705-ui-itemprotect-hover-star-drops", ItemUiCases::protectHoverAndDrops);
                     UiCase.run(ctx, "706-ui-gif-dvd-hidden-in-containers", ItemUiCases::overlaysHidden);
                     UiCase.run(ctx, "707-ui-storagesearch-equipment-wardrobe", ItemUiCases::equipmentWardrobeIndex);
+                    UiCase.run(ctx, "1117-ui-reclaim-highlight", AutoReclaim1117UiCases::highlight);
+                    UiCase.run(ctx, "1117-ui-reclaim-report", AutoReclaim1117UiCases::report);
+                    UiCase.run(ctx, "1117-ui-reclaim-legit-no-cheat", AutoReclaim1117UiCases::legitNoCheat);
                     UiCase.run(ctx, "709-ui-itembrowser-tooltip", ItemUiCases::browserTooltip);
                     UiCase.run(ctx, "710-ui-itembrowser-minion-tiers", ItemUiCases::browserMinions);
                     UiCase.run(ctx, "711-ui-itembrowser-neu-recipe", ItemUiCases::browserRecipe);
