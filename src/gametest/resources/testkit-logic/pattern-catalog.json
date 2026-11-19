@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T02:49:25",
- "modSource": "lane-lockdrop-ability-1118-rm",
- "modGitSha": "151b5798dcf275322c9068a32d540e0eef790da8",
+ "generatedAt": "2026-11-19T03:21:28",
+ "modSource": "lane-armode-off-1118",
+ "modGitSha": "838e3f3d504b5deabac17fec1f6b3f001c56530a",
  "modSourceDirty": false,
  "count": 999,
  "byKind": {
