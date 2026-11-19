@@ -126,6 +126,74 @@ final class HxMenuSpec {
         return s;
     }
 
+    /** Hypixel's Reclaim Menu (captured 2026-11-17): a shift-click of an inventory item moves it to slot 22; when it is
+     *  accepted ("accept": [skyblock ids], none = all) the surrounding panes turn lime and slot 25 is an anvil "Reclaim item";
+     *  a click on that anvil says "Processing your Legacy Enchant Reclaim claim..." and "Your Legacy Enchant Reclaim claim has
+     *  been processed!", the panes turn red and slot 25 a black pane; closing the menu returns the item. Events reclaim.put /
+     *  reclaim.claim. Every other click is ignored. */
+    private static boolean reclaimClick(HxChestMenu menu, ServerPlayer player, int slot, ContainerInput input,
+                                        JsonObject spec, MinecraftServer server) {
+        var items = menu.items();
+        int[] panes = {12, 13, 14, 21, 23, 30, 31, 32};
+        if (slot >= items.getContainerSize() && input == ContainerInput.QUICK_MOVE && items.getItem(22).isEmpty()) {
+            Slot s = menu.slots.get(slot);
+            ItemStack stack = s.getItem();
+            if (stack.isEmpty()) {
+                return true;
+            }
+            var data = stack.get(DataComponents.CUSTOM_DATA);
+            String id = data == null ? "" : data.copyTag().getStringOr("id", "");
+            boolean ok = !spec.has("accept") || spec.getAsJsonArray("accept").contains(new com.google.gson.JsonPrimitive(id));
+            int home = s.getContainerSlot();
+            items.setItem(22, stack.copy());
+            player.getInventory().setItem(home, ItemStack.EMPTY);
+            menu.closeHook = p -> {
+                ItemStack back = items.getItem(22);
+                if (!back.isEmpty()) {
+                    items.setItem(22, ItemStack.EMPTY);
+                    if (player.getInventory().getItem(home).isEmpty()) {
+                        player.getInventory().setItem(home, back);
+                    } else {
+                        player.getInventory().add(back);
+                    }
+                }
+            };
+            if (ok) {
+                for (int i : panes) {
+                    items.setItem(i, pane(server, "lime"));
+                }
+                ItemStack anvil = new ItemStack(net.minecraft.world.item.Items.ANVIL);
+                anvil.set(DataComponents.CUSTOM_NAME, Component.literal("Reclaim item"));
+                items.setItem(25, anvil);
+            }
+            JsonObject e = new JsonObject();
+            e.addProperty("skyblockId", id);
+            e.addProperty("accepted", ok);
+            HxEvents.custom("reclaim.put", player, e);
+            menu.broadcastChanges();
+        } else if (slot == 25 && items.getItem(25).is(net.minecraft.world.item.Items.ANVIL)) {
+            for (int i : panes) {
+                items.setItem(i, pane(server, "red"));
+            }
+            items.setItem(25, pane(server, "black"));
+            JsonObject e = new JsonObject();
+            e.addProperty("item", items.getItem(22).getHoverName().getString());
+            HxEvents.custom("reclaim.claim", player, e);
+            HxMenus.later(() -> {
+                player.connection.send(new ClientboundSystemChatPacket(Component.literal("Processing your Legacy Enchant Reclaim claim..."), false));
+                player.connection.send(new ClientboundSystemChatPacket(Component.literal("Your Legacy Enchant Reclaim claim has been processed!"), false));
+            });
+            menu.broadcastChanges();
+        }
+        return true;
+    }
+
+    private static ItemStack pane(MinecraftServer server, String color) {
+        ItemStack p = HxMenus.stack(server, "minecraft:" + color + "_stained_glass_pane", 1);
+        p.set(DataComponents.CUSTOM_NAME, Component.literal(""));
+        return p;
+    }
+
     private static void onClick(HxChestMenu menu, ServerPlayer player, int slot, int button, ContainerInput input) {
         State st = HxMenus.state(menu.containerId, State.class);
         if (st == null) {
@@ -134,6 +202,9 @@ final class HxMenuSpec {
         MinecraftServer server = player.level().getServer();
         int top = menu.items().getContainerSize();
         JsonObject spec = st.spec();
+        if (spec.has("reclaim") && reclaimClick(menu, player, slot, input, spec, server)) {
+            return;
+        }
         if (slot >= top && slot < menu.slots.size()) {
             if (spec.has("sell") && spec.get("sell").getAsBoolean() && input == ContainerInput.QUICK_MOVE) {
                 Slot s = menu.slots.get(slot);

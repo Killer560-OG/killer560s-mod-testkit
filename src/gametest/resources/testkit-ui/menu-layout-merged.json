@@ -33,6 +33,7 @@
     "gui.tab.CatchAFishTab": "Misc > Carnival > Catch a Fish Helper",
     "gui.tab.RoomNameTab": "Dungeons > Current Room Name",
     "gui.tab.ItemQualityTab": "Dungeons > Item Quality",
+    "gui.tab.AutoReclaimTab": "Items > Auto Reclaim",
     "gui.tab.IcedMobsTab": "Dungeons > Iced Mob Boxes",
     "gui.tab.BossPearlTab": "Dungeons > Block Ender Pearls In Boss",
     "gui.tab.AutoCloseChestTab": "Dungeons > Auto Close Chest",
