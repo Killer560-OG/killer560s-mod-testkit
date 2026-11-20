@@ -81,6 +81,11 @@ public final class HxMenus {
         return player.containerMenu instanceof HxChestMenu m ? m : null;
     }
 
+    /** {@link #later} after {@code ticks} more server ticks (0 = the same as later). */
+    public static void laterBy(int ticks, Runnable r) {
+        later(ticks <= 0 ? r : () -> laterBy(ticks - 1, r));
+    }
+
     public static void later(Runnable r) {
         synchronized (NEXT_TICK) {
             NEXT_TICK.addLast(r);
