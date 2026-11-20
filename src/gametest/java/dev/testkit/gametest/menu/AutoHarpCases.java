@@ -19,9 +19,9 @@ import java.util.List;
  * <ul>
  *   <li>1120-autoharp-normal: no lag, no ping.</li>
  *   <li>1120-autoharp-lag: the rows stall for 3-12 ticks at four steps (irregular server ticks), Auto Detect Lag on.</li>
- *   <li>1120-autoharp-ping: a 400 ms round trip (faked in the server and fed to the ping tracker), Auto Detect Ping
+ *   <li>1120-autoharp-ping: a 300 ms round trip (faked in the server and fed to the ping tracker), Auto Detect Ping
  *       on: notes are clicked early and still land.</li>
- *   <li>1120-autoharp-manual: the same round trip with both auto switches off and Click Offset +300.</li>
+ *   <li>1120-autoharp-manual: a 300 ms round trip with both auto switches off and Click Offset +300.</li>
  *   <li>1120-autoharp-off: the feature OFF clicks nothing; ON, the song list ("Melody's Harp") gets no click.</li>
  *   <li>1120-same-autoharp-click / -key: his own container click lands in every client tick through the screen /
  *       at END (the feature's chords click on consecutive ticks too); run on default and experimental GrimAC.</li>
@@ -39,8 +39,8 @@ final class AutoHarpCases {
     static void register(Session s) {
         MenuSuite.test(s, "1120-autoharp-normal", c -> play(c, 0, "[]", true, true, 0, null));
         MenuSuite.test(s, "1120-autoharp-lag", c -> play(c, 0, "[[2,6],[5,3],[8,12],[11,4]]", true, true, 0, null));
-        MenuSuite.test(s, "1120-autoharp-ping", c -> play(c, 400, "[]", true, true, 0, null));
-        MenuSuite.test(s, "1120-autoharp-manual", c -> play(c, 400, "[]", false, false, 300, null));
+        MenuSuite.test(s, "1120-autoharp-ping", c -> play(c, 300, "[]", true, true, 0, null));
+        MenuSuite.test(s, "1120-autoharp-manual", c -> play(c, 300, "[]", false, false, 300, null));
         MenuSuite.test(s, "1120-autoharp-off", AutoHarpCases::off);
         MenuSuite.test(s, "1120-same-autoharp-click", c -> play(c, 0, "[]", true, true, 0, SameTick.Act.SCREEN_CLICK));
         MenuSuite.test(s, "1120-same-autoharp-key", c -> play(c, 0, "[]", true, true, 0, SameTick.Act.CLICK));
@@ -120,7 +120,7 @@ final class AutoHarpCases {
             c.check(mine == NOTES, "the mod counted " + mine + " clicks, not " + NOTES);
             c.note("most container clicks the client sent in one client tick: " + perClientTick);
             c.check(his != null || perClientTick == 1, "container clicks in one client tick: " + perClientTick);
-            if (pingMs >= 400 && (ping || offset >= 300)) {
+            if (pingMs >= 300 && (ping || offset >= 300)) {
                 c.check(early > 0, "no note was clicked early at a " + pingMs + " ms round trip");
             } else if (pingMs == 0) {
                 c.check(early == 0, early + " early click(s) with no ping");
