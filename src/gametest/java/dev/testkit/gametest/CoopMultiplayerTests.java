@@ -68,9 +68,13 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
     /** Phase 3: invites through a local wrangler dev relay (run-coop.sh -w). */
     static final String INVITE = "1109-mp-invite";
     /** coopfree-1111: no UPnP on the host and the punch dropped: the guest must NOT connect and is told why (run-coop.sh -w). */
-    static final String TUNNEL = "1110-mp-tunnel";
+    static final String PROXY = "1120-mp-proxy";
     /** coopfree-1111: no UPnP, the guest gets in by a TCP hole punch through the local relay (run-coop.sh -w). */
-    static final String PUNCH = "1111-mp-punch";
+    static final String FULL = "1120-mp-proxy-full";
+    /** Share My IP: off = no direct way in (1120-mp-proxy-full); on + relay full = the notice, a join only after Yes. */
+    static final String SHARE = "1120-mp-shareip";
+    /** Share My IP survives a save and reload, defaults OFF, and has its tooltip (single client). */
+    static final String PERSIST = "1120-mp-shareip-persist";
     /** coopstart-1111: the Start At drop-down (Clear plus every section), Create at Clear, Move everyone back to Clear. */
     static final String STARTAT = "1111-mp-startat";
     /** coopstart-1111: two real clients, the room started at Clear: the guest joins the clear beside the host (run-coop.sh -s 1111-mp-two-clear). */
@@ -82,7 +86,6 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
     private static boolean termRun;
     private static final String STATIONS = "com.killer560.hub.bosssim.BossStations";
     private static final String TERMS = "com.killer560.hub.bosssim.BossTerminals";
-    private static final String PUNCH_PROP = "killer560.simcoop.punch";
     private static final String R = "com.killer560.hub.roomsim.";
     private static final String HOSTC = R + "SimHost";
     private static final String REQ = R + "SimRequests";
@@ -98,13 +101,13 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             return;
         }
         List<String> failed = new ArrayList<>();
-        for (String name : new String[]{MENU, UPNP, HOST, TWO, INVITE, TUNNEL, PUNCH, STARTAT, TWO_CLEAR, TWO_TERM}) {
+        for (String name : new String[]{MENU, UPNP, HOST, TWO, INVITE, PROXY, FULL, SHARE, PERSIST, STARTAT, TWO_CLEAR, TWO_TERM}) {
             CoopSync.scope(name);
             if (Scenario.skip(name)) {
                 continue;
             }
-            boolean two = name.equals(TWO) || name.equals(INVITE) || name.equals(TUNNEL)
-                    || name.equals(PUNCH) || name.equals(TWO_CLEAR) || name.equals(TWO_TERM);
+            boolean two = name.equals(TWO) || name.equals(INVITE) || name.equals(PROXY) || name.equals(FULL)
+                    || name.equals(SHARE) || name.equals(TWO_CLEAR) || name.equals(TWO_TERM);
             clearRun = name.equals(TWO_CLEAR);
             termRun = name.equals(TWO_TERM);
             if (!two && CoopSync.role().equals("guest")) {
@@ -134,11 +137,12 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
                             inviteGuest(ctx, problems, facts);
                         }
                     }
-                    case TUNNEL, PUNCH -> {
+                    case PERSIST -> persist(ctx, problems, facts);
+                    case PROXY, FULL, SHARE -> {
                         if (CoopSync.role().equals("host")) {
-                            tunnelHost(ctx, problems, facts, name.equals(PUNCH));
+                            proxyHost(ctx, problems, facts, name);
                         } else {
-                            tunnelGuest(ctx, problems, facts, name.equals(PUNCH));
+                            proxyGuest(ctx, problems, facts, name);
                         }
                     }
                     default -> {
@@ -883,75 +887,108 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
         }
     }
 
-    // ============================================================================================ 1110-mp-tunnel
+    // ============================================================================================ 1120-mp-proxy
 
-    private static final String TROOM = "Tk Tunnel Room", PROOM = "Tk Punch Room";
+    private static final String XROOM = "Tk Proxy Room";
+    private static final String LISTED = "Listed: friends join through the private relay; nobody sees anyone's IP address.";
+    private static final java.util.regex.Pattern IPV4 = java.util.regex.Pattern.compile("\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\b");
+
+    private static boolean shareIpOn() {
+        return (Boolean) ModUnderTest.call(ModUnderTest.staticCall(CFG, "get"), "shareIp", new Class<?>[]{}, new Object[]{});
+    }
+
+    private static void setShareIp(ClientGameTestContext ctx, boolean on) {
+        ctx.runOnClient(mc -> ModUnderTest.call(ModUnderTest.staticCall(CFG, "get"), "setShareIp",
+                new Class<?>[]{boolean.class}, new Object[]{on}));
+    }
+
+    /** The relay's answer to a co-op call made straight from the test (bearer = this client's minted token). */
+    private static String relayCall(String method, String path, String body, String uuid, String name) throws Exception {
+        var b = java.net.http.HttpRequest.newBuilder(java.net.URI.create("http://127.0.0.1:" + CoopSync.get("relay-port").trim() + path))
+                .header("authorization", "Bearer " + mint(uuid, name)).header("content-type", "application/json");
+        b = method.equals("GET") ? b.GET() : b.POST(java.net.http.HttpRequest.BodyPublishers.ofString(body));
+        return java.net.http.HttpClient.newHttpClient().send(b.build(), java.net.http.HttpResponse.BodyHandlers.ofString()).body();
+    }
+
+    /** Mod log lines of the co-op transport that carry anything shaped like an IPv4 address (must be none). */
+    private static List<String> addressLines(long mark) {
+        List<String> out = new ArrayList<>();
+        for (String l : LogTap.since(mark)) {
+            if ((l.contains("[SimCoop]") || l.contains("[SimProxy]") || l.contains("[SimRooms]")) && IPV4.matcher(l).find()) {
+                out.add(l.length() > 160 ? l.substring(0, 160) : l);
+            }
+        }
+        return out;
+    }
 
     /**
-     * No UPnP (no gateway named): the room lists with no endpoint, advertises a hole-punch port and keeps its signal socket
-     * open. {@code punch}: the guest gets in by the hole punch; else the host drops the punch (property "drop") and the guest
-     * must NOT connect: co-op games never go through the relay (coopfree-1111, killer560 2026-11-11).
+     * coopproxy-1120 host: UPnP off (no gateway named), so the room lists its own gateway port and the local relay's probe
+     * reaches it on loopback. PROXY: the guest plays through the relay; FULL (relay run with SIMPROXY_MONTHLY_CPU_MS:1,
+     * Share My IP off): nobody gets in; SHARE (same relay, Share My IP on): the guest joins directly after its Yes.
      */
-    private static void tunnelHost(ClientGameTestContext ctx, List<String> f, List<String> facts, boolean punch) throws Exception {
-        String k = punch ? "pun-" : "tun-", room = punch ? PROOM : TROOM;
-        CoopSync.put(k + "host-up", "1");
-        CoopSync.await(ctx, k + "guest-up", 900);
-        String uuid = ctx.computeOnClient(mc -> mc.getUser().getProfileId().toString());
-        String hostName = ctx.computeOnClient(mc -> mc.getUser().getName());
-        if (!localRelay(ctx, f, uuid, hostName)) {
-            return;
-        }
-        System.clearProperty(SSDP);
-        if (punch) {
-            System.clearProperty(PUNCH_PROP);
-        } else {
-            System.setProperty(PUNCH_PROP, "drop");
-        }
-        long mark = LogTap.mark();
-        if (!createRoom(ctx, f, facts, room, PW, 3)) {
-            return;
-        }
-        expect(f, facts, "listed on the local relay", paceUntil(ctx, () -> ModUnderTest.staticCall(HOSTC, "roomIdForTest") != null,
-                20_000), true);
-        expect(f, facts, "no public address (UPnP off)", ModUnderTest.staticCall(HOSTC, "publicAddress"), null);
-        int port = (Integer) ModUnderTest.staticCall(HOSTC, "port");
-        expect(f, facts, "list line", ModUnderTest.staticCall(HOSTC, "listLine"),
-                "Listed in the room list (guests join by hole punch; if that fails, enable UPnP or forward port " + port + ").");
-        expect(f, facts, "signal socket up", paceUntil(ctx, () -> logSeen(mark, "[SimSignal] host signal socket up"), 20_000), true);
-        ctx.runOnClient(mc -> mc.getSingleplayerServer().setUsesAuthentication(false));
-        CoopSync.put(k + "room", hostName);
-        if (!punch) {
-            expect(f, facts, "host dropped the punch (drop mode)", paceUntil(ctx,
-                    () -> logSeen(mark, "[SimPunch] punch request ignored (drop mode)"), 30_000), true);
+    private static void proxyHost(ClientGameTestContext ctx, List<String> f, List<String> facts, String mode) throws Exception {
+        String k = mode + "-";
+        try {
+            CoopSync.put(k + "host-up", "1");
+            CoopSync.await(ctx, k + "guest-up", 900);
+            String uuid = ctx.computeOnClient(mc -> mc.getUser().getProfileId().toString());
+            String hostName = ctx.computeOnClient(mc -> mc.getUser().getName());
+            if (!localRelay(ctx, f, uuid, hostName)) {
+                return;
+            }
+            System.clearProperty(SSDP);
+            setShareIp(ctx, mode.equals(SHARE));
+            expect(f, facts, "Share My IP as set", shareIpOn(), mode.equals(SHARE));
+            long mark = LogTap.mark();
+            if (!createRoom(ctx, f, facts, XROOM, PW, 3)) {
+                return;
+            }
+            expect(f, facts, "listed on the local relay", paceUntil(ctx, () -> ModUnderTest.staticCall(HOSTC, "roomIdForTest") != null,
+                    20_000), true);
+            expect(f, facts, "the relay's probe reached the gateway", paceUntil(ctx, () -> (Boolean) ModUnderTest.staticCall(HOSTC, "reachable"),
+                    20_000), true);
+            expect(f, facts, "list line", ModUnderTest.staticCall(HOSTC, "listLine"), LISTED);
+            String c = String.valueOf(ModUnderTest.staticCall(R + "SimRooms", "calls"));
+            expect(f, facts, "create carries net 3, proxyPort and shareIp, never an endpoint", c.contains("\"net\":3")
+                    && c.contains("\"proxyPort\":" + ModUnderTest.staticCall(HOSTC, "coopPort"))
+                    && c.contains("\"shareIp\":" + mode.equals(SHARE)) && !c.contains("endpoint"), true);
+            ctx.runOnClient(mc -> mc.getSingleplayerServer().setUsesAuthentication(false));
+            CoopSync.put(k + "room", hostName);
+            if (mode.equals(FULL)) {
+                String verdict = CoopSync.await(ctx, k + "guest-done", 240).trim();
+                facts.add("guest verdict: " + verdict);
+                expect(f, facts, "guest's own checks", verdict, "PASS");
+                expect(f, facts, "nobody joined the host", ctx.computeOnClient(mc -> mc.getSingleplayerServer().getPlayerList()
+                        .getPlayerCount()), 1);
+                expect(f, facts, "no guest session reached the gateway", ModUnderTest.staticCall(R + "SimProxy", "hostSessionsForTest"), 0);
+                expect(f, facts, "no address in the host's co-op log lines", addressLines(mark), List.of());
+                return;
+            }
+            String guest = CoopSync.await(ctx, k + "guest-in", 300).trim();
+            expect(f, facts, "guest admitted with its ticket", paceUntil(ctx, () -> logSeen(mark, "[SimCoop] " + guest + " admitted with a ticket")
+                    || guestsKey().equals(guest + ":true"), 20_000), true);
+            expect(f, facts, "the guest came in through the gateway", paceUntil(ctx, () -> logSeen(mark, "[SimProxy] guest session opened"),
+                    10_000), true);
+            MinecraftServer s = ctx.computeOnClient(Minecraft::getSingleplayerServer);
+            double[] p0 = posOf(ctx, s, guest);
+            CoopSync.put(k + "move", p0 == null ? "none" : "1");
+            CoopSync.await(ctx, k + "moved", 180);
+            double[] p1 = posOf(ctx, s, guest);
+            double moved = p0 == null || p1 == null ? -1 : Math.hypot(p1[0] - p0[0], p1[2] - p0[2]);
+            facts.add(String.format("guest moved %.2f blocks on the host's server", moved));
+            expect(f, facts, "guest moved on the host's server", moved > 1.0, true);
+            expect(f, facts, "no address in the host's co-op log lines", addressLines(mark), List.of());
+            CoopSync.put(k + "host-done", "1");
             String verdict = CoopSync.await(ctx, k + "guest-done", 180).trim();
             facts.add("guest verdict: " + verdict);
             expect(f, facts, "guest's own checks", verdict, "PASS");
-            expect(f, facts, "nobody joined the host", ctx.computeOnClient(mc -> mc.getSingleplayerServer().getPlayerList()
-                    .getPlayerCount()), 1);
-            return;
+        } finally {
+            setShareIp(ctx, false);
         }
-        String guest = CoopSync.await(ctx, k + "guest-in", 300).trim();
-        expect(f, facts, "guest admitted with its ticket", paceUntil(ctx, () -> logSeen(mark, "[SimCoop] " + guest + " admitted with a ticket")
-                || guestsKey().equals(guest + ":true"), 20_000), true);
-        expect(f, facts, punch ? "host joined the punched socket to the game" : "host dropped the punch (drop mode)",
-                paceUntil(ctx, () -> logSeen(mark, punch ? "[SimPunch] host joined a punched guest"
-                        : "[SimPunch] punch request ignored (drop mode)"), 10_000), true);
-        MinecraftServer s = ctx.computeOnClient(Minecraft::getSingleplayerServer);
-        double[] p0 = posOf(ctx, s, guest);
-        CoopSync.put(k + "move", p0 == null ? "none" : "1");
-        CoopSync.await(ctx, k + "moved", 120);
-        double[] p1 = posOf(ctx, s, guest);
-        double moved = p0 == null || p1 == null ? -1 : Math.hypot(p1[0] - p0[0], p1[2] - p0[2]);
-        facts.add(String.format("guest moved %.2f blocks on the host's server", moved));
-        expect(f, facts, "guest moved on the host's server (" + (punch ? "punched" : "through the tunnel") + ")", moved > 1.0, true);
-        CoopSync.put(k + "host-done", "1");
-        String verdict = CoopSync.await(ctx, k + "guest-done", 180).trim();
-        facts.add("guest verdict: " + verdict);
-        expect(f, facts, "guest's own checks", verdict, "PASS");
     }
 
-    private static void tunnelGuest(ClientGameTestContext ctx, List<String> f, List<String> facts, boolean punch) throws Exception {
-        String k = punch ? "pun-" : "tun-", room = punch ? PROOM : TROOM;
+    private static void proxyGuest(ClientGameTestContext ctx, List<String> f, List<String> facts, String mode) throws Exception {
+        String k = mode + "-";
         try {
             CoopSync.put(k + "guest-up", "1");
             CoopSync.await(ctx, k + "host-up", 900);
@@ -960,66 +997,124 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             if (!localRelay(ctx, f, offline.toString(), me)) {
                 return;
             }
+            expect(f, facts, "guest's own Share My IP is OFF by default", shareIpOn(), false);
             String hostName = CoopSync.await(ctx, k + "room", 600).trim();
+            long mark = LogTap.mark();
             ctx.runOnClient(mc -> McCompat.setScreen(mc, multiplayer(new TitleScreen())));
             CoopSync.pace(ctx, 300);
             DesignerKit.click(ctx, "Join");
-            String want = "[" + SimMcv.mc() + "] [Locked] " + room + "  -  " + hostName;
+            String want = "[" + SimMcv.mc() + "] [Locked] " + XROOM + "  -  " + hostName;
             boolean row = paceUntil(ctx, () -> {
-                String l = rowLabel(ctx, "[Locked] " + room);
+                String l = rowLabel(ctx, "[Locked] " + XROOM);
                 if (l == null) {
                     DesignerKit.click(ctx, "Refresh");
                 }
                 return l != null && l.startsWith(want);
             }, 30_000);
-            expect(f, facts, "room row (own version tag)", row ? "found" : rowLabel(ctx, "[Locked] " + room), "found");
-            String label = rowLabel(ctx, "[Locked] " + room);
-            expect(f, facts, "row shows the punch path", label != null && label.endsWith("  [Punch]"), true);
+            expect(f, facts, "room row (own version tag)", row ? "found" : rowLabel(ctx, "[Locked] " + XROOM), "found");
+            String label = rowLabel(ctx, "[Locked] " + XROOM);
+            expect(f, facts, "row shows the relay path", label != null && label.endsWith("  [Relay]"), true);
+            // Privacy on the wire: the room list and a join answer carry no address (the test asks the relay itself).
+            String list = relayCall("GET", "/simrooms/list?mc=" + SimMcv.mc() + "&all=1", null, offline.toString(), me);
+            expect(f, facts, "room list has the room", list.contains(XROOM), true);
+            expect(f, facts, "room list names no address", IPV4.matcher(list).find() || list.contains("endpoint")
+                    || list.contains("\"host\""), false);
+            expect(f, facts, "room list says share=" + mode.equals(SHARE), list.contains("\"share\":" + mode.equals(SHARE)), true);
             ModUnderTest.staticCall(R + "SimRooms", "clearCallsForTest");
-            long mark = LogTap.mark();
-            clickRow(ctx, "[Locked] " + room);
+            clickRow(ctx, "[Locked] " + XROOM);
             setBox(ctx, "Password", PW);
             DesignerKit.click(ctx, "Join");
-            facts.add("after Join: " + message(ctx));
-            if (!punch) {
-                String noWay = "Can't connect to " + room + ": " + "the host's router blocks direct connections; the host can enable UPnP or forward the co-op port shown on their Host page.";
-                expect(f, facts, "plain can't-connect text (no relay fallback)", paceUntil(ctx, () -> message(ctx).equals(noWay),
-                        30_000) ? noWay : message(ctx), noWay);
-                expect(f, facts, "punch tried first", logSeen(mark, "[SimCoop] hole punch failed"), true);
-                expect(f, facts, "join failed logged", logSeen(mark, "[SimCoop] join failed"), true);
+            if (mode.equals(FULL)) {
+                String full = "The co-op relay is full for this month.";
+                expect(f, facts, "full-this-month text", paceUntil(ctx, () -> message(ctx).equals(full), 30_000) ? full : message(ctx), full);
+                expect(f, facts, "relay refused as FULL", logSeen(mark, "[SimCoop] relay join failed: FULL"), true);
+                CoopSync.pace(ctx, 3000);
+                expect(f, facts, "Share My IP off: no direct-connection prompt", "ConfirmScreen".equals(screenName(ctx)), false);
+                expect(f, facts, "Share My IP off: never asked for a direct ticket", String.valueOf(ModUnderTest.staticCall(R + "SimRooms", "calls"))
+                        .contains("\"direct\":true"), false);
                 expect(f, facts, "never connected", ctx.computeOnClient(mc -> mc.level == null && mc.getCurrentServer() == null), true);
                 expect(f, facts, "no join path logged", logSeen(mark, "[SimCoop] join path:"), false);
+                expect(f, facts, "no address in the guest's co-op log lines", addressLines(mark), List.of());
                 return;
+            }
+            if (mode.equals(SHARE)) {
+                expect(f, facts, "direct-connection prompt", paceUntil(ctx, () -> "ConfirmScreen".equals(screenName(ctx)), 30_000), true);
+                String notice = (String) dev.testkit.gametest.mod.Mod.field(R + "SimMultiplayerScreen", "DIRECT_NOTICE");
+                expect(f, facts, "prompt carries the IP notice", confirmText(ctx).contains(notice), true);
+                expect(f, facts, "relay refused as FULL first", logSeen(mark, "[SimCoop] relay join failed: FULL"), true);
+                CoopSync.pace(ctx, 3000);
+                expect(f, facts, "not connected before the click", ctx.computeOnClient(mc -> mc.level == null && mc.getCurrentServer() == null), true);
+                expect(f, facts, "no direct ticket before the click", String.valueOf(ModUnderTest.staticCall(R + "SimRooms", "calls"))
+                        .contains("\"direct\":true"), false);
+                expect(f, facts, "clicked Yes", DesignerKit.click(ctx, CommonComponents.GUI_YES.getString()), true);
             }
             if (!inWorld(ctx)) {
                 f.add("did not join: " + message(ctx) + " / " + screenName(ctx));
                 return;
             }
             String server = ctx.computeOnClient(mc -> mc.getCurrentServer() == null ? null : mc.getCurrentServer().ip);
-            facts.add("connected to " + server);
-            expect(f, facts, "connected through the local punched port", server != null && server.startsWith("127.0.0.1:"), true);
-            expect(f, facts, "no direct address to try (logged nothing direct)", logSeen(mark, "direct address not reachable"), false);
-            expect(f, facts, "join path", logSeen(mark, "[SimCoop] join path: Punched"), true);
-            expect(f, facts, "punched through", logSeen(mark, "[SimPunch] guest punched through"), true);
+            expect(f, facts, "vanilla connected to the local tunnel port", server != null && server.startsWith("127.0.0.1:"), true);
+            String path = mode.equals(SHARE) ? "Direct" : "Relay";
+            expect(f, facts, "join path", logSeen(mark, "[SimCoop] join path: " + path), true);
+            if (mode.equals(SHARE)) {
+                expect(f, facts, "the direct ticket was asked only after Yes", String.valueOf(ModUnderTest.staticCall(R + "SimRooms", "calls"))
+                        .contains("\"direct\":true"), true);
+            }
             expect(f, facts, "isGuest", until(ctx, () -> Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(
                     R + "SimState", "isGuest", new Class<?>[]{Minecraft.class}, new Object[]{mc}))), 200), true);
             CoopSync.put(k + "guest-in", me);
             String go = CoopSync.await(ctx, k + "move", 120).trim();
             expect(f, facts, "host sees me", go, "1");
+            long[] a = (long[]) ModUnderTest.staticCall(R + "SimProxy", "statsForTest");
+            long t0 = System.currentTimeMillis();
             ctx.runOnClient(mc -> {
                 McCompat.setScreen(mc, null);
                 mc.options.keyUp.setDown(true);
             });
             ctx.waitTicks(40);
             ctx.runOnClient(mc -> mc.options.keyUp.setDown(false));
-            ctx.waitTicks(10);
+            CoopSync.pace(ctx, 30_000); // a 30 s window in the sim: the measured messages a second per guest
+            long[] b = (long[]) ModUnderTest.staticCall(R + "SimProxy", "statsForTest");
+            double secs = (System.currentTimeMillis() - t0) / 1000.0;
             expect(f, facts, "still connected after walking", ctx.computeOnClient(mc -> mc.level != null), true);
+            if (a == null || b == null) {
+                f.add("no stream stats");
+            } else {
+                long out = b[0] - a[0], in = b[1] - a[1];
+                facts.add(String.format("MEASURE %s frames over %.1f s: %d out (%.1f / s), %d in (%.1f / s), total %.1f / s, resumes %d",
+                        path, secs, out, out / secs, in, in / secs, (out + in) / secs, b[3]));
+                expect(f, facts, "bytes flowed both ways through the " + path.toLowerCase() + " stream", out > 20 && in > 20, true);
+            }
+            expect(f, facts, "no address in the guest's co-op log lines", addressLines(mark), List.of());
             CoopSync.put(k + "moved", "1");
             CoopSync.await(ctx, k + "host-done", 120);
         } finally {
             ctx.runOnClient(mc -> mc.options.keyUp.setDown(false));
             CoopSync.put(k + "guest-done", f.isEmpty() ? "PASS" : "FAIL: " + String.join("; ", f));
             CoopSync.pace(ctx, 1000);
+        }
+    }
+
+    /** 1120-mp-shareip-persist: default OFF, the switch saves and loads back, the file carries it, and it has its tooltip. */
+    private static void persist(ClientGameTestContext ctx, List<String> f, List<String> facts) throws Exception {
+        java.nio.file.Path file = (java.nio.file.Path) dev.testkit.gametest.mod.Mod.field(CFG, "CONFIG_PATH");
+        try {
+            setShareIp(ctx, true);
+            expect(f, facts, "file says shareIp true", java.nio.file.Files.readString(file).replace(" ", "").contains("\"shareIp\":true"), true);
+            ModUnderTest.staticCall(CFG, "load");
+            expect(f, facts, "ON survives a reload", shareIpOn(), true);
+            setShareIp(ctx, false);
+            ModUnderTest.staticCall(CFG, "load");
+            expect(f, facts, "OFF survives a reload", shareIpOn(), false);
+            java.nio.file.Files.deleteIfExists(file);
+            ModUnderTest.staticCall(CFG, "load");
+            expect(f, facts, "defaults OFF with no file", shareIpOn(), false);
+            String tip = String.valueOf(ModUnderTest.staticCall("com.killer560.hub.gui.SettingTooltips", "describe",
+                    new Class<?>[]{String.class, String.class}, new Object[]{"Sim Settings", "Share My IP (direct connection): OFF"}));
+            facts.add("tooltip: " + tip);
+            expect(f, facts, "tooltip says friends can see the IP", tip.contains("relay is full or down") && tip.contains("see your IP address"), true);
+        } finally {
+            setShareIp(ctx, false);
         }
     }
 
@@ -1684,7 +1779,6 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             // never let cleanup replace the verdict
         }
         System.clearProperty(RELAY);
-        System.clearProperty(PUNCH_PROP);
         System.clearProperty(SSDP);
         try {
             token(null);
