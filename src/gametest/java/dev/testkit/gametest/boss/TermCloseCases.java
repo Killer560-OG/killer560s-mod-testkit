@@ -307,7 +307,7 @@ final class TermCloseCases {
             c.onClient(mc -> Mod.staticCall(SHARE, "resetForTest"));
             c.onClient(mc -> {
                 var inv = mc.player.getInventory();
-                mc.setScreen(new net.minecraft.client.gui.screens.inventory.ContainerScreen(
+                dev.testkit.compat.McCompat.setScreen(mc, new net.minecraft.client.gui.screens.inventory.ContainerScreen(
                         net.minecraft.world.inventory.ChestMenu.threeRows(77, inv), inv, net.minecraft.network.chat.Component.literal("Chest")));
                 return null;
             });

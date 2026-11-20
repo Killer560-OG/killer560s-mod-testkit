@@ -368,7 +368,7 @@ public class IntroSuite implements FabricClientGameTest {
                 c.onClient(mc -> Mod.staticCall(f, "setNoticeForTest", false));
                 stub.calls.clear();
                 c.onClient(mc -> {
-                    mc.setScreen((Screen) Mod.staticCall("intro.IntroScreen", "noticeOnly", new TitleScreen()));
+                    dev.testkit.compat.McCompat.setScreen(mc, (Screen) Mod.staticCall("intro.IntroScreen", "noticeOnly", new TitleScreen()));
                     return null;
                 });
                 c.ticks(5);
