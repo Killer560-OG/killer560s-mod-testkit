@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-20T12:56:29",
- "modSource": "lane-melodylost-party-1119-rd3",
- "modGitSha": "ba2e03d437bf930e36466a16f518c08f9294c110",
+ "generatedAt": "2026-11-20T13:47:18",
+ "modSource": "lane-burstcap-crashinfo-1119-rm-rd3",
+ "modGitSha": "e55d3b1df9a3392e5b55ccb8309a7f5f982b1692",
  "modSourceDirty": false,
  "count": 966,
  "byKind": {
