@@ -202,12 +202,11 @@ final class UntestBugs1109Cases {
         byte[] live = java.nio.file.Files.exists(file) ? java.nio.file.Files.readAllBytes(file) : null;
         try {
             java.nio.file.Files.writeString(file, "{\"fastMode\":true,\"leapTakesTargetLook\":true}");
-            boolean fast = c.onClient(mc -> {
-                Mod.staticCall("fastleap.FastLeapConfig", "load");
-                return (Boolean) Mod.call(Mod.cfg("fastleap.FastLeapConfig"), "isFastMode");
-            });
+            c.onClient(mc -> Mod.staticCall("fastleap.FastLeapConfig", "load"));
             c.onClient(mc -> Mod.call(Mod.cfg("fastleap.FastLeapConfig"), "save"));
             String saved = java.nio.file.Files.readString(file);
+            // isFastMode() is cheat-gated (false on legit), so the loaded value is read off the saved file, which keeps the field on both builds
+            boolean fast = saved.replaceAll("\\s", "").contains("\"fastMode\":true");
             c.note("old Fast Leap file with leapTakesTargetLook:true: fastMode " + fast + ", saved has the key " + saved.contains("leapTakesTargetLook"));
             c.check(fast, "the old file's fastMode was not read (the load did not run)");
             c.check(!saved.contains("leapTakesTargetLook"), "a save still writes leapTakesTargetLook: " + saved);
