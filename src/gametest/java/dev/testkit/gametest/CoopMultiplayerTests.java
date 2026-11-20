@@ -494,9 +494,9 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             expect(f, facts, "guest disconnected", until(ctx, () -> !d.listed(), 100), true);
             expect(f, facts, "world unpublished", ctx.computeOnClient(mc -> mc.getSingleplayerServer() != null
                     && !mc.getSingleplayerServer().isPublished()), true);
-            paceUntil(ctx, () -> stub.rooms() == 0 && gw.actions().contains("DeletePortMapping " + port), 10_000);
+            paceUntil(ctx, () -> stub.rooms() == 0 && gw.actions().contains("DeletePortMapping " + coop), 10_000);
             expect(f, facts, "listing deleted", stub.rooms(), 0);
-            expect(f, facts, "port mapping removed", gw.actions().contains("DeletePortMapping " + port), true);
+            expect(f, facts, "port mapping removed", gw.actions().contains("DeletePortMapping " + coop), true);
             expect(f, facts, "refreshes sent while hosting", !stub.calls("POST /simrooms/refresh").isEmpty(), true);
         } finally {
             setAllowed("SPEED", true);
