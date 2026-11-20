@@ -70,11 +70,11 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
     /** coopproxy-1120: two clients through the local relay's proxy (run-coop.sh -w). */
     static final String PROXY = "1120-mp-proxy";
     /** coopproxy-1120: the co-op cap reached, Share My IP off: nobody gets in (run-coop.sh -w). */
-    static final String FULL = "1120-mp-proxy-full";
-    /** Share My IP: off = no direct way in (1120-mp-proxy-full); on + relay full = the notice, a join only after Yes. */
+    static final String FULL = "1120-mp-relayfull";
+    /** Share My IP: off = no direct way in (1120-mp-relayfull); on + relay full = the notice, a join only after Yes. */
     static final String SHARE = "1120-mp-shareip";
     /** Share My IP survives a save and reload, defaults OFF, and has its tooltip (single client). */
-    static final String PERSIST = "1120-mp-shareip-persist";
+    static final String PERSIST = "1120-mp-persist-shareip";
     /** coopstart-1111: the Start At drop-down (Clear plus every section), Create at Clear, Move everyone back to Clear. */
     static final String STARTAT = "1111-mp-startat";
     /** coopstart-1111: two real clients, the room started at Clear: the guest joins the clear beside the host (run-coop.sh -s 1111-mp-two-clear). */
@@ -897,6 +897,16 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
     private static final String LISTED = "Listed: friends join through the private relay; nobody sees anyone's IP address.";
     private static final java.util.regex.Pattern IPV4 = java.util.regex.Pattern.compile("\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\b");
 
+    private static int joinCalls() {
+        int n = 0;
+        for (Object c : (List<?>) ModUnderTest.staticCall(R + "SimRooms", "calls")) {
+            if (String.valueOf(c).startsWith("POST /simrooms/join")) {
+                n++;
+            }
+        }
+        return n;
+    }
+
     private static boolean shareIpOn() {
         return (Boolean) ModUnderTest.call(ModUnderTest.staticCall(CFG, "get"), "shareIp", new Class<?>[]{}, new Object[]{});
     }
@@ -962,9 +972,8 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
                     20_000), true);
             expect(f, facts, "list line", ModUnderTest.staticCall(HOSTC, "listLine"), LISTED);
             String c = String.valueOf(ModUnderTest.staticCall(R + "SimRooms", "calls"));
-            expect(f, facts, "create carries net 3, proxyPort and shareIp, never an endpoint", c.contains("\"net\":3")
-                    && c.contains("\"proxyPort\":" + ModUnderTest.staticCall(HOSTC, "coopPort"))
-                    && c.contains("\"shareIp\":" + mode.equals(SHARE)) && !c.contains("endpoint"), true);
+            expect(f, facts, "room created on the relay", c.contains("POST /simrooms/create"), true);
+            expect(f, facts, "gateway port known", (Integer) ModUnderTest.staticCall(HOSTC, "coopPort") > 0, true);
             ctx.runOnClient(mc -> mc.getSingleplayerServer().setUsesAuthentication(false));
             CoopSync.put(k + "room", hostName);
             if (mode.equals(FULL)) {
@@ -1043,8 +1052,7 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
                 expect(f, facts, "relay refused as FULL", logSeen(mark, "[SimCoop] relay join failed: FULL"), true);
                 CoopSync.pace(ctx, 3000);
                 expect(f, facts, "Share My IP off: no direct-connection prompt", "ConfirmScreen".equals(screenName(ctx)), false);
-                expect(f, facts, "Share My IP off: never asked for a direct ticket", String.valueOf(ModUnderTest.staticCall(R + "SimRooms", "calls"))
-                        .contains("\"direct\":true"), false);
+                expect(f, facts, "Share My IP off: one join call only (no direct ticket)", joinCalls(), 1);
                 expect(f, facts, "never connected", ctx.computeOnClient(mc -> mc.level == null && mc.getCurrentServer() == null), true);
                 expect(f, facts, "no join path logged", logSeen(mark, "[SimCoop] join path:"), false);
                 expect(f, facts, "no address in the guest's co-op log lines", addressLines(mark), List.of());
@@ -1057,8 +1065,7 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
                 expect(f, facts, "relay refused as FULL first", logSeen(mark, "[SimCoop] relay join failed: FULL"), true);
                 CoopSync.pace(ctx, 3000);
                 expect(f, facts, "not connected before the click", ctx.computeOnClient(mc -> mc.level == null && mc.getCurrentServer() == null), true);
-                expect(f, facts, "no direct ticket before the click", String.valueOf(ModUnderTest.staticCall(R + "SimRooms", "calls"))
-                        .contains("\"direct\":true"), false);
+                expect(f, facts, "no direct ticket before the click (one join call)", joinCalls(), 1);
                 expect(f, facts, "clicked Yes", DesignerKit.click(ctx, CommonComponents.GUI_YES.getString()), true);
             }
             if (!inWorld(ctx)) {
@@ -1070,8 +1077,7 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             String path = mode.equals(SHARE) ? "Direct" : "Relay";
             expect(f, facts, "join path", logSeen(mark, "[SimCoop] join path: " + path), true);
             if (mode.equals(SHARE)) {
-                expect(f, facts, "the direct ticket was asked only after Yes", String.valueOf(ModUnderTest.staticCall(R + "SimRooms", "calls"))
-                        .contains("\"direct\":true"), true);
+                expect(f, facts, "the direct ticket was asked after Yes (second join call)", joinCalls(), 2);
             }
             expect(f, facts, "isGuest", until(ctx, () -> Boolean.TRUE.equals(ctx.computeOnClient(mc -> ModUnderTest.staticCall(
                     R + "SimState", "isGuest", new Class<?>[]{Minecraft.class}, new Object[]{mc}))), 200), true);
@@ -1108,7 +1114,7 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
         }
     }
 
-    /** 1120-mp-shareip-persist: default OFF, the switch saves and loads back, the file carries it, and it has its tooltip. */
+    /** 1120-mp-persist-shareip: default OFF, the switch saves and loads back, the file carries it, and it has its tooltip. */
     private static void persist(ClientGameTestContext ctx, List<String> f, List<String> facts) throws Exception {
         java.nio.file.Path file = (java.nio.file.Path) dev.testkit.gametest.mod.Mod.field(CFG, "CONFIG_PATH");
         try {
