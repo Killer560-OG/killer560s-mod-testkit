@@ -70,6 +70,7 @@ public class BossSuite implements FabricClientGameTest {
                     IceFillGrim1118Cases.register(s); // Auto Ice Fill hops with his own action in the same tick (icefillbugs-1118)
                     // Team Melody over a fake relay room: the round trip and the HUD boards (1102-boss-melody-*, tkdebt-1101).
                     TeamMelodyRelayCases.register(s);
+                    MelodyLost1118Cases.register(s); // melodylost-1118
                     // A leap into a Posmsg ring: leap lines first, then the callout, spaced (1102-posmsg-*, posmsgleap-1102).
                     PosmsgLeapCases.register(s);
                     // A leap teleport with a relative 0/0 look leaves his look alone, no mod code involved (1118-leap-relative-keeps-look).

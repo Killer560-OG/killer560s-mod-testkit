@@ -244,6 +244,14 @@ public class SimMapLeaveSecretsTests implements FabricClientGameTest {
                 throw new AssertionError("with Hide actionbar on the map reads " + (map == null ? "nothing" : map[0] + "/"
                         + map[1]) + " for " + r + ", the server counted " + (n - 1) + "/" + n);
             }
+            // deadlisteners-1118: Self Derivation (interop) reads the same bar line; it was a plain GAME listener.
+            Object derived = ctx.computeOnClient(mc -> dev.testkit.gametest.mod.Mod.field(
+                    "interop.SelfDerivation", "lastFoundReported"));
+            println("hidden bar: Self Derivation last read " + derived + " found in " + r);
+            if (!Integer.valueOf(n - 1).equals(derived)) {
+                throw new AssertionError("with Hide actionbar on Self Derivation read " + derived + " found in " + r
+                        + ", the server counted " + (n - 1) + " (its action bar reader never got the line)");
+            }
             // A lever click is remembered by the run memory but is no secret: read in the same client tick, before any
             // action bar could correct it.
             int[] afterLever = ctx.computeOnClient(mc -> {
