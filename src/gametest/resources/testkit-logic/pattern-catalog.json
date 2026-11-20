@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-20T14:16:28",
- "modSource": "lane-norotate-rm2-1119-rd5",
- "modGitSha": "99757fd457c23b61622339134446527bac64ac3e",
+ "generatedAt": "2026-11-20T14:53:36",
+ "modSource": "lane-starthang-1120",
+ "modGitSha": "c8aee4f22617caceacc452e1fab4d78f1110988d",
  "modSourceDirty": false,
  "count": 966,
  "byKind": {
