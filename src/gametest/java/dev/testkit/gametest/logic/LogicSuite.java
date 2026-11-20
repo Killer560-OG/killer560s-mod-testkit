@@ -105,6 +105,7 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.runOffClient(ctx, "993-logic-reboot-helper-timeout", RebootCases::timeout);
         // ---- end /reboot
         // ---- mana hold reset on world change (mod sweep-fix-1021) - opens and closes its own world, TEST thread
+        LogicCase.runOffClient(ctx, "1119-logic-hidden-process", HiddenProcessCases::headless);
         ManaResetCases.ctx = ctx;
         LogicCase.runOffClient(ctx, "2776-logic-mana-world-reset", ManaResetCases::worldReset);
         // ---- static scan fixes (mod scanbugs-1104): \s escapes, Revert Master Stars null name
