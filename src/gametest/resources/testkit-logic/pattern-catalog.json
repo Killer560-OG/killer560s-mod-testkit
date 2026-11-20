@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-20T08:21:56",
- "modSource": "lane-carnivalshelve-1118-rm-rd6",
- "modGitSha": "ec4bbcd1ce0874e47768f6ad80238d8d4fb4533e",
+ "generatedAt": "2026-11-20T11:30:57",
+ "modSource": "lane-essshop-level-1120",
+ "modGitSha": "c526286e38ab5056a4c1113de84e9cce7043dbd5",
  "modSourceDirty": false,
  "count": 966,
  "byKind": {
