@@ -34,7 +34,7 @@
     "payload": "§7[VIP] HxEvil§f: > EXTRA STATS <",
     "source": {
       "file": "src/main/java/com/killer560/hub/dungeonqueue/DungeonQueueFeature.java",
-      "line": 32
+      "line": 33
     },
     "mustNotMatch": [
       "dungeonqueue.DungeonQueueFeature#EXTRA_STATS",
