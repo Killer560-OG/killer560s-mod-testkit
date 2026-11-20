@@ -102,7 +102,14 @@ final class SimDevPractice1118 {
     private static void pressRestart(ClientGameTestContext ctx) {
         int[] b = buttonAt();
         useBlock(ctx, new BlockPos(b[0], b[1], b[2]), Direction.UP);
-        ctx.waitTicks(6);
+        // Wait for the server to take the press (under load it came after a fixed 6 ticks, and the next step read the old run):
+        // a restart clears the counts and the finish, and Simon Says' timer (i4 starts its next attempt at once).
+        until(ctx, "the restart taken", mc -> {
+            Map<String, String> s = stats();
+            return "0".equals(s.get("clicks")) && "0".equals(s.get("shots")) && "false".equals(s.get("finished"))
+                    && (!"1".equals(s.get("dev")) || "false".equals(s.get("started")));
+        }, 100);
+        ctx.waitTicks(2);
     }
 
     // ---- Simon Says ---------------------------------------------------------------------------------------------------
