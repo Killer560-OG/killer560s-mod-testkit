@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-20T11:50:12",
- "modSource": "lane-lane-missing-leaprow-1120",
- "modGitSha": "63395c650c26a0f6c292a30eec9869d7b74f790e",
+ "generatedAt": "2026-11-20T11:30:57",
+ "modSource": "lane-essshop-level-1120",
+ "modGitSha": "c526286e38ab5056a4c1113de84e9cce7043dbd5",
  "modSourceDirty": false,
  "count": 966,
  "byKind": {
