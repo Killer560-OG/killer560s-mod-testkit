@@ -1791,10 +1791,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     + " etherwarp(s), expected 1");
             // 2026-10-21: the warp is held one tick after a block click with the same item, because Hypixel gave no
             // teleport one tick after such a click in 45 of 69 measured warps (2026-10-19; AutoRoutes' click-gap hold).
-            // So the warp goes 0 to 2 ticks after the click; more than that is the failure.
+            // So the warp goes 0 to 3 ticks after the click (arwrong-1118: the gap is 3, 15 of 74 refused at 2 in his
+            // 2026-11-18 routes); more than that is the failure.
             check(acted != null && (acted.contains("acted 0 tick(s)") || acted.contains("acted 1 tick(s)")
-                    || acted.contains("acted 2 tick(s)")),
-                    label + ": the warp went more than 2 ticks after the click: " + acted);
+                    || acted.contains("acted 2 tick(s)") || acted.contains("acted 3 tick(s)")),
+                    label + ": the warp went more than 3 ticks after the click: " + acted);
             if (near) {
                 check(logHas(m, "sent the block half of the right click first"), label + ": the near warp did not send the "
                         + "click on its block first (vanilla's two-packet right click)");
@@ -3274,10 +3275,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             for (int i = 0; i < 2; i++) {
                 int ci = clicks.get(i);
                 int ui = uses.stream().filter(u -> u >= ci).findFirst().orElse(-1);
-                // At most 2: the click's tick must still report the click's look (RotationPlace post-flying) and its unpaired
-                // click needs the warp's look heard before the use (arsneak-1116), so turn on the next tick, use the one after.
-                check(ui >= 0 && ui - ci <= 2, label + ": warp " + (i + 1) + " went " + (ui - ci) + " tick(s) after its click "
-                        + "(at most 2) - " + line);
+                // At most 3: the click's tick must still report the click's look (RotationPlace post-flying) and its unpaired
+                // click needs the warp's look heard before the use (arsneak-1116); a warp with the clicking AOTV also waits
+                // RouteExecutor.CLICK_TO_WARP_TICKS (3 since arwrong-1118: Hypixel refused 15 of 74 at 2).
+                check(ui >= 0 && ui - ci <= 3, label + ": warp " + (i + 1) + " went " + (ui - ci) + " tick(s) after its click "
+                        + "(at most 3) - " + line);
             }
             noteFlags(c, s);
         } finally {
