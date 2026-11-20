@@ -55,7 +55,7 @@ import java.util.Map;
 public class IntroSuite implements FabricClientGameTest {
 
     static final String[] CASES = {"1101-ui-intro-first-show", "1101-ui-intro-nav", "1101-ui-intro-skip",
-            "1101-ui-intro-theme", "1101-ui-intro-variant", "1101-ui-intro-banlogs", "1104-ui-intro-crashreports", "1105-discordlink-intro", "1104-ui-intro-skipdefaults", "1101-ui-intro-once",
+            "1101-ui-intro-theme", "1101-ui-intro-variant", "1101-ui-intro-banlogs", "1104-ui-intro-crashreports", "1105-discordlink-intro", "1119-ui-intro-sharesite", "1119-ui-intro-sharesite-notice", "1104-ui-intro-skipdefaults", "1101-ui-intro-once",
             "1101-ui-intro-sizes", "1101-ui-intro-anim", "1101-ui-intro-autoupdate", "1101-ui-intro-mouth",
             "1101-ui-intro-facing", "1101-ui-intro-still", "1101-ui-intro-timebox", "1101-ui-intro-grid"};
     static final String INTRO = "intro.IntroScreen";
@@ -85,6 +85,8 @@ public class IntroSuite implements FabricClientGameTest {
         UiCase.run(ctx, "1101-ui-intro-banlogs", IntroSuite::banLogs);
         UiCase.run(ctx, "1104-ui-intro-crashreports", IntroSuite::crashReports);
         UiCase.run(ctx, "1105-discordlink-intro", IntroSuite::discordLink);
+        UiCase.run(ctx, "1119-ui-intro-sharesite", IntroSuite::shareSite);
+        UiCase.run(ctx, "1119-ui-intro-sharesite-notice", IntroSuite::shareSiteNotice);
         UiCase.run(ctx, "1104-ui-intro-skipdefaults", IntroSuite::skipDefaults);
         UiCase.run(ctx, "1101-ui-intro-once", IntroSuite::once);
         UiCase.run(ctx, "1101-ui-intro-sizes", IntroSuite::sizes);
@@ -318,6 +320,85 @@ public class IntroSuite implements FabricClientGameTest {
             click(c, "Skip");
             c.check(scene(c).equals("AUTO_UPDATE"), "Skip did not go on (at " + scene(c) + ")");
             click(c, "Skip Guide");
+        }
+    }
+
+    /** Share To Website (mod sharesite-1119, killer560 2026-11-19: "have it put into the intro thing so on by default"): the
+     *  step after Auto Update says it is on, never holds Next, Turn it off sets it OFF (saved) and sends the delete to the
+     *  (stub) relay, Keep it on turns it back ON, and Next goes on to the menus. */
+    static void shareSite(UiCase c) throws Exception {
+        try (dev.testkit.gametest.logic.ShareSiteCases.Stub stub = new dev.testkit.gametest.logic.ShareSiteCases.Stub()) {
+            c.onClient(mc -> Mod.staticCall(dev.testkit.gametest.logic.ShareSiteCases.FEATURE, "setEnabled", true));
+            open(c);
+            goTo(c, "SHARE_WEBSITE");
+            c.check(flat(c).contains("Share To Website") && flat(c).contains("is on") && flat(c).contains("Home > Share To Website"),
+                    "the step says: " + flat(c));
+            boolean blocked = c.onClient(mc -> (Boolean) Mod.call(McCompat.screen(mc), "nextBlocked"));
+            c.check(!blocked, "the Share To Website step blocks Next");
+            c.check("CHOSEN".equals(kind(c, "Keep it on")), "ON is not the chosen chip (buttons " + buttons(c).keySet() + ")");
+            shot(c, "share-website-on");
+            click(c, "Turn it off");
+            c.check(!dev.testkit.gametest.logic.ShareSiteCases.enabled(), "Turn it off left it on");
+            c.check(configFile(c, "killer560smod-sharesite.json").contains("\"enabled\": false"), "OFF was not saved");
+            c.check("CHOSEN".equals(kind(c, "Turn it off")), "the clicked answer is not marked chosen");
+            c.check(flat(c).contains("is off"), "the words did not change: " + flat(c));
+            for (int i = 0; i < 100 && stub.count("DELETE /site/stats") == 0; i++) {
+                c.ctx().waitTicks(2);
+            }
+            c.check(stub.count("DELETE /site/stats Bearer " + dev.testkit.gametest.logic.ShareSiteCases.TOKEN) == 1,
+                    "Turn it off sent no delete: " + stub.calls);
+            click(c, "Keep it on");
+            c.check(dev.testkit.gametest.logic.ShareSiteCases.enabled(), "Keep it on left it off");
+            c.check(configFile(c, "killer560smod-sharesite.json").contains("\"enabled\": true"), "ON was not saved");
+            click(c, "Next");
+            c.check(scene(c).equals("MENUS"), "Next went to " + scene(c));
+            click(c, "Skip Guide");
+        } finally {
+            c.onClient(mc -> Mod.staticCall(dev.testkit.gametest.logic.ShareSiteCases.FEATURE, "setEnabled", true));
+        }
+    }
+
+    /** A player past the tour who never saw Share To Website: the launcher shows only that scene. Both answers save the flag; a
+     *  player who answers inside the normal tour has it saved too (so he is not shown it again). */
+    static void shareSiteNotice(UiCase c) throws Exception {
+        String f = dev.testkit.gametest.logic.ShareSiteCases.FEATURE;
+        try (dev.testkit.gametest.logic.ShareSiteCases.Stub stub = new dev.testkit.gametest.logic.ShareSiteCases.Stub()) {
+            for (boolean keep : new boolean[]{true, false}) {
+                c.onClient(mc -> Mod.staticCall(f, "setEnabled", true));
+                c.onClient(mc -> Mod.staticCall(f, "setNoticeForTest", false));
+                stub.calls.clear();
+                c.onClient(mc -> {
+                    dev.testkit.compat.McCompat.setScreen(mc, (Screen) Mod.staticCall("intro.IntroScreen", "noticeOnly", new TitleScreen()));
+                    return null;
+                });
+                c.ticks(5);
+                c.check(intro(c) != null && scene(c).equals("SHARE_WEBSITE"), "the notice scene did not open (at " + scene(c) + ")");
+                c.check(flat(c).contains("Share To Website") && !buttons(c).containsKey("Skip Guide"), "not the lone scene: " + buttons(c).keySet());
+                c.check(!dev.testkit.gametest.logic.ShareSiteCases.noticeShown(), "flagged shown before an answer");
+                click(c, keep ? "Keep it on" : "Turn it off");
+                c.check(dev.testkit.gametest.logic.ShareSiteCases.noticeShown(), "the answer did not mark the notice shown");
+                c.check(configFile(c, "killer560smod-sharesite.json").contains("\"noticeShown\": true"), "noticeShown was not saved");
+                c.check(dev.testkit.gametest.logic.ShareSiteCases.enabled() == keep, "the switch does not match the answer");
+                if (!keep) {
+                    for (int i = 0; i < 100 && stub.count("DELETE /site/stats") == 0; i++) {
+                        c.ctx().waitTicks(2);
+                    }
+                    c.check(stub.count("DELETE /site/stats Bearer " + dev.testkit.gametest.logic.ShareSiteCases.TOKEN) == 1,
+                            "Turn it off sent no delete: " + stub.calls);
+                }
+                click(c, "Finish");
+                c.check(intro(c) == null, "Finish left the scene open");
+            }
+            // The normal tour answers it too: nobody sees it twice.
+            c.onClient(mc -> Mod.staticCall(f, "setEnabled", true));
+            c.onClient(mc -> Mod.staticCall(f, "setNoticeForTest", false));
+            open(c);
+            goTo(c, "SHARE_WEBSITE");
+            click(c, "Keep it on");
+            c.check(dev.testkit.gametest.logic.ShareSiteCases.noticeShown(), "the normal tour's answer did not mark it shown");
+            click(c, "Skip Guide");
+        } finally {
+            c.onClient(mc -> Mod.staticCall(f, "setEnabled", true));
         }
     }
 
@@ -830,7 +911,9 @@ public class IntroSuite implements FabricClientGameTest {
             c.check(configFile(c, "killer560smod-autoupdate.json").contains("\"enabled\": true"), "Yes was not saved");
             c.check("CHOSEN".equals(kind(c, "Yes, keep me updated")), "the clicked answer is not marked chosen");
             click(c, "Next");
-            c.check(scene(c).equals("MENUS"), "Next after an answer went to " + scene(c));
+            // Share To Website (mod sharesite-1119) follows Auto Update; an older jar goes straight to the menus.
+            String after = Mod.has("gui.tab.ShareToWebsiteTab") ? "SHARE_WEBSITE" : "MENUS";
+            c.check(scene(c).equals(after), "Next after an answer went to " + scene(c));
             click(c, "Skip Guide");
         } finally {
             setAutoUpdate(c, true);
