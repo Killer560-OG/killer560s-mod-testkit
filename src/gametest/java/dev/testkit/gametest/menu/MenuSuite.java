@@ -194,6 +194,7 @@ public class MenuSuite implements FabricClientGameTest {
                     PriceTooltipCases.register(s); // 1750-1754: Price Tooltip (price-tooltip-1015)
                     Networth1104Cases.register(s); // 1104-networth-*, 1104-menu-storage-pricetip (networth-1104)
                     Pv0273Cases.register(s); // 1117-menu-pv0273-* (pv0273-1117)
+                    PvFit1118Cases.register(s); // 1118-*-pvfit-* (pvfit-1118)
                     PvStyle1104Cases.register(s); // 1104-menu-pvstyle: the Profile Viewer's Styles (pvstyle-1104)
                     HotmTree1118Cases.register(s); // 1118-menu-hotmtree: the HOTM perk tree (hotmtree-1118)
                     AnvilCases.register(s);

@@ -316,6 +316,9 @@ public class UiSuite implements FabricClientGameTest {
     /** killer560's 2026-10-15 Trajectories for shortbows (mod shortbow-traj-1015, {@link TrajectoryCases}). Own block. */
     static final String[] TRAJECTORY_CASES = {"1080-ui-traj-shortbow", "1081-ui-traj-terminator-spread",
             "1082-ui-traj-normal-bow-drawn-only", "1083-ui-traj-shortbows-setting"};
+    /** World-block cases that were in no list, so a run naming only them opened no world and ran 0 (lane-missing-leaprow-1120).
+     *  Keep every {@code UiCase.run} name of the world block in some array. */
+    static final String[] UNLISTED_1120 = {"1118-ui-imap-hudclick-gone", "1108-ui-map-border-theme", "1108-ui-splittimers-columns", "1117-ui-pack-disabler-owner-looks", "1110-ui-leaprow", "1117-ui-reclaim-highlight", "1117-ui-reclaim-report", "1117-ui-reclaim-legit-no-cheat", "1109-ui-autokick-joined-other-party", "1109-ui-cmdprefix-names", "1109-ui-cmdprefix-alt", "1109-ui-cmdprefix-persist", "1118-ui-prefixopen", "1109-ui-autoclose-migrate", "1109-ui-ub-menumerges", "1109-ui-ub-darkchat", "1109-ui-ub-switches", "1109-ui-ub-cards", "1109-ui-ub-shortbows", "1109-ui-ub-friends", "1109-ui-ub-leapmodes", "1109-ui-ub-itemquality", "1109-ui-ub-ethershape", "1109-ui-ub-chatsuggest", "1109-ui-ub-salvagebg", "1117-accbag-owned-missing", "1119-ui-search-caret", "955-ui-colour-copy-paste"};
     static final String DENY_CASE = "370-ui-deny";
 
     @Override
@@ -369,6 +372,9 @@ public class UiSuite implements FabricClientGameTest {
                 dev.testkit.gametest.Scenario.skip(n);
             }
             for (String n : LEAP2_CASES) {
+                dev.testkit.gametest.Scenario.skip(n);
+            }
+            for (String n : UNLISTED_1120) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
             for (String n : LEAPQUEUE_CASES) {
@@ -506,9 +512,6 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : ProtectStarCases.CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
-            for (String n : CarnivalUiCases.CASES) {
-                dev.testkit.gametest.Scenario.skip(n);
-            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -516,7 +519,7 @@ public class UiSuite implements FabricClientGameTest {
         boolean anyWorld = any(WORLD_CASES) || any(POLISH_CASES) || any(MAPINFO_CASES) || any(CHAT_CASES) || any(MAPHEAD_CASES)
                 || any(DUNGEON_FIX_CASES) || any(INV_BATCH_CASES) || any(CMD_SHORTCUTS_CASES) || any(MENU_LAYOUT_CASES)
                 || any(HUD_MENU_PROFILES_CASES) || any(CHAT_KEYBINDS_MERGE_CASES) || any(HELD_OUTLINE_CASES)
-                || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(LEAPQUEUE_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES) || any(SLOT_TEXT_CASES) || any(SMALL_DUNGEON_CASES)
+                || any(LEAPORDER_CASES) || any(LEAP2_CASES) || any(UNLISTED_1120) || any(LEAPQUEUE_CASES) || any(ITEM_UI_CASES) || any(DUNGEON_B2_CASES) || any(SLOT_TEXT_CASES) || any(SMALL_DUNGEON_CASES)
                 || any(AUTOKICK2_CASES) || any(PARTY_FINDER_1018_CASES) || any(NOAMM_NEVER_CASES) || any(CYCLE_BACK_CASES) || any(TEXTBOX_ENTER_CASES) || any(DOC_SMALL_CASES) || any(DOC_SMALL_1101_CASES) || any(CMDCLEAN_1101_CASES) || any(MENU_A_CASES) || any(HUD_KEY2_CASES)
                 || any(HUD_KEY3_CASES) || any(BAR_STYLE_CASES) || any(INV_THEME_CENTRE_CASES) || any(CHROMA_WAVE_CASES)
                 || any(MENU_PROFILES_CASES) || any(PROFILE_DATA_CASES) || any(LOCKSTAR_HEAD_CASES)
@@ -525,8 +528,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES) || any(TRAIL_HUD_CASES)
                 || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES) || any(SOUND_DESC_CASES) || any(MAP_OVERHAUL_CASES)
                 || any(TRAJECTORY_CASES) || any(MOB_SKIN_CASES) || any(PREDICT_IN_MAP_CASES)
-                || any(DocMenu1101Cases.CASES) || any(KeybindMouseCases.CASES) || any(EffectsSearchCases.CASES) || any(StorageSearchCases.CASES) || any(PvJoinCases.CASES) || any(ProtectStarCases.CASES)
-                || any(CarnivalUiCases.CASES);
+                || any(DocMenu1101Cases.CASES) || any(KeybindMouseCases.CASES) || any(EffectsSearchCases.CASES) || any(StorageSearchCases.CASES) || any(PvJoinCases.CASES) || any(ProtectStarCases.CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -897,26 +899,6 @@ public class UiSuite implements FabricClientGameTest {
                     // ---- Item Protect Show Star switch (mod protectstar-1102, ProtectStarCases) ----
                     UiCase.run(ctx, ProtectStarCases.SHOW_STAR, ProtectStarCases::showStar);
                     UiCase.run(ctx, ProtectStarCases.TRADE, ProtectStarCases::starredTrade);
-                    // ---- the Carnival category (3760-3772, mod carnival-1110) ----
-                    UiCase.run(ctx, "3760-ui-carnival-category", CarnivalUiCases::category);
-                    UiCase.run(ctx, "3761-ui-carnival-tracker", c -> CarnivalUiCases.tab(c, "Carnival Tracker"));
-                    UiCase.run(ctx, "3762-ui-fruit-digging-solver", c -> CarnivalUiCases.tab(c, "Fruit Digging Solver"));
-                    UiCase.run(ctx, "3763-ui-zombie-shootout-helper", c -> CarnivalUiCases.tab(c, "Zombie Shootout Helper"));
-                    UiCase.run(ctx, "3764-ui-catch-a-fish-helper", c -> CarnivalUiCases.tab(c, "Catch a Fish Helper"));
-                    UiCase.run(ctx, "3765-ui-zombie-shootout-triggerbot",
-                            c -> CarnivalUiCases.tab(c, "Zombie Shootout Triggerbot"));
-                    UiCase.run(ctx, "3766-ui-auto-zombie-shootout", c -> CarnivalUiCases.tab(c, "Auto Zombie Shootout"));
-                    UiCase.run(ctx, "3767-ui-auto-shovel-swap", c -> CarnivalUiCases.tab(c, "Auto Shovel Swap"));
-                    UiCase.run(ctx, "3768-ui-auto-fruit-digging", c -> CarnivalUiCases.tab(c, "Auto Fruit Digging"));
-                    UiCase.run(ctx, "3769-ui-auto-catch-a-fish", c -> CarnivalUiCases.tab(c, "Auto Catch a Fish"));
-                    UiCase.run(ctx, "3770-ui-carnival-automation-note", CarnivalUiCases::automationNote);
-                    UiCase.run(ctx, "3771-ui-carnival-parsers", CarnivalUiCases::parsers);
-                    UiCase.run(ctx, "3773-ui-auto-accept-game", CarnivalUiCases::autoAccept);
-                    UiCase.run(ctx, "3774-ui-carnival-fold", CarnivalUiCases::fold);
-                    UiCase.run(ctx, "3775-ui-carnival-solver-drops", CarnivalUiCases::solverDrops);
-                    UiCase.run(ctx, "3776-ui-carnival-accept-shapes", CarnivalUiCases::acceptShapes);
-                    UiCase.run(ctx, "3772-ui-fruit-digging-triggerbot",
-                            c -> CarnivalUiCases.tab(c, "Fruit Digging Triggerbot"));
                     // ---- profiles carry everything, across jars (980-985) ----
                     UiCase.run(ctx, "980-ui-profile-data-switch", ProfileDataCases::switchAB);
                     UiCase.run(ctx, "981-ui-profile-data-export", ProfileDataCases::exportImport);

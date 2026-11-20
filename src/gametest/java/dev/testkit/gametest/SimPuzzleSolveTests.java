@@ -283,6 +283,7 @@ public final class SimPuzzleSolveTests {
         }
     }
 
+    /** The case is named at runtime, "93-solve-creeperbeams"; written out so a ready line's preflight finds it. */
     public static final class CreeperBeams extends Base {
         public CreeperBeams() {
             super(new Spec("creeperbeams", "Creeper Beams", "setAutoBeamsEnabled", "isAutoBeamsEnabled",

@@ -510,6 +510,15 @@ final class SlotTextCases {
             c.check(got.equals("[BOTTOM_RIGHT:10:" + CREAM + "]"), "Forbidden Blessing X should show 10, got " + got);
             got = text(c, single, "Undead Essence Shop", 21, false).toString();
             c.check(got.equals("[BOTTOM_RIGHT:4:" + CREAM + "]"), "perk IV in the Undead shop should show 4, got " + got);
+            ItemStack one = mk(Items.NETHER_STAR, "Ender Training I", null, "Gain +3 Combat Wisdom while in The End.");
+            got = text(c, one, "Dragon Essence Shop", 21, false).toString();
+            c.check(got.equals("[BOTTOM_RIGHT:1:" + CREAM + "]"), "level I perk (count 1) should show 1, got " + got);
+            ItemStack oneCounted = mk(Items.NETHER_STAR, "Ender Training I", null);
+            oneCounted.setCount(5);
+            got = text(c, oneCounted, "Dragon Essence Shop", 21, false).toString();
+            c.check(got.equals("[BOTTOM_RIGHT:1:" + CREAM + "]"), "count 5 on a level I perk keeps its level moved clear, got " + got);
+            got = text(c, one, "Chest", 21, false).toString();
+            c.check(got.equals("[]"), "level I outside an essence shop draws nothing, got " + got);
             got = text(c, counted, wither, 22, false).toString();
             c.check(got.equals("[]"), "a stack count of 5 already shows the level, got " + got);
             got = text(c, back, wither, 49, false).toString();
@@ -531,6 +540,8 @@ final class SlotTextCases {
             got = text(c, intel, wither, 22, false).toString();
             c.check(got.equals("[BOTTOM_RIGHT:5:" + CREAM + "]"), "count 3 book should draw the level once (clearOfCount moves it), got " + got);
             setType(c, "PERK_LEVEL", false);
+            got = text(c, one, "Dragon Essence Shop", 21, false).toString();
+            c.check(got.equals("[]"), "switch OFF draws no level I, got " + got);
             got = text(c, blessing, wither, 20, false).toString();
             c.check(got.equals("[]"), "switch OFF draws nothing, got " + got);
             c.note("essence perk levels read: 10, 4, none for count/non-perk/other menu/OFF");
