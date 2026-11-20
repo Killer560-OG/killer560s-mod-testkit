@@ -119,6 +119,12 @@ final class SimBossTermFriend1119 {
                     label, m.group(2), ms, m.group(3), limited));
         }
         System.clearProperty("killer560.bosssim.terminal");
+        // Leave the shared config as the menu cases expect it (Burst Mode left on made every later Burst Finish case burst).
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(TERM_CFG);
+            ModUnderTest.set(cfg, "setBurstMode", false);
+            ModUnderTest.set(cfg, "setBurstFinish", false);
+        });
         expect(f, "boards solved by Auto Terminals", boards >= 4, true);
         if (burstMode) {
             expect(f, "Burst Mode bursts sent (the feature acted)", bursts > 0, true);
