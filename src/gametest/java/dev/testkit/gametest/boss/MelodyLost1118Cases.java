@@ -39,6 +39,8 @@ final class MelodyLost1118Cases {
         s.test("1118-boss-melodylost-no-carry", MelodyLost1118Cases::noCarry);
         s.test("1118-boss-melodylost-four-sections", MelodyLost1118Cases::fourSections);
         s.test("1118-boss-melodylost-off", MelodyLost1118Cases::off);
+        s.test("1119-boss-melodylost-party", c -> party(c, true));
+        s.test("1119-boss-melodylost-party-off", c -> party(c, false));
     }
 
     private static HxKit.Settings settings(Session c, boolean on) {
@@ -233,6 +235,43 @@ final class MelodyLost1118Cases {
             line(c, "HxMateB activated a terminal! (3/3)");
             c.check(lostMs(c, 1) == 0L && list(c, "hudLines").isEmpty() && list(c, "splitLines").isEmpty(), "something tracked while off");
             c.check(chatSince(c, before).stream().noneMatch(t -> t.contains("Melody")), "a line was printed while off");
+        }
+    }
+
+    /** Melody last only in S4: with Melody Lost Party Chat on, exactly one "/pc" line with the total goes out; off, none. */
+    private static void party(Session c, boolean on) throws Exception {
+        try (HxKit.Settings st = settings(c, false).with(TT, "MelodyLostParty", on)) {
+            TeamMelodyRelayCases.inP3(c);
+            long head = c.hx().head();
+            for (int sec = 1; sec <= 4; sec++) {
+                line(c, "HxMateA activated a terminal! (1/3)");
+                line(c, "HxMateA activated a terminal! (2/3)");
+                c.ctx().waitTicks(14);
+                if (sec == 4) {
+                    evidence(c, "share", "HxMateB");
+                }
+                line(c, "HxMateB activated a terminal! (3/3)");
+                if (sec < 4) {
+                    line(c, GATE);
+                    c.ctx().waitTicks(10);
+                }
+            }
+            long lost = lostMs(c, 4);
+            List<String> pcs = new java.util.ArrayList<>();
+            for (var e : c.hx().events(head, "cmd")) {
+                String cmd = e.get("command").getAsString();
+                if (cmd.startsWith("pc ")) {
+                    pcs.add(cmd);
+                }
+            }
+            c.note("S4 lost " + lost + " ms; party lines " + pcs);
+            c.check(lost >= 500 && lost <= 2000, "the feature did not measure S4: " + lost);
+            if (on) {
+                String shown = String.format(java.util.Locale.US, "%.2fs", lost / 1000.0);
+                c.check(pcs.size() == 1 && pcs.get(0).startsWith("pc Time lost to Melody: " + shown), "party lines: " + pcs);
+            } else {
+                c.check(pcs.isEmpty(), "party line sent while off: " + pcs);
+            }
         }
     }
 }
