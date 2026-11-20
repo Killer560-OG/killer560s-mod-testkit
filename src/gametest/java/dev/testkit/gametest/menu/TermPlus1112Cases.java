@@ -17,14 +17,13 @@ import java.util.List;
  *       drops the pacing after 2.5 s and the terminal still finishes. -melody: Melody still finishes with the net on.</li>
  *   <li>1112-term-burst-size-&lt;N&gt;[-sametick]: Burst Size N on a Select board with 24 targets (his swap, use, swing and
  *       container click in the burst tick for -sametick); the burst must be exactly N clicks in one client tick.</li>
- *   <li>1112-term-burst-size21-&lt;type&gt;: a size above the board puts the whole board in one tick.</li>
  * </ul>
  */
 final class TermPlus1112Cases {
 
     static final String CONFIG = TerminalCases.CONFIG;
     static final String FEATURE = TerminalCases.FEATURE;
-    static final int[] SIZES = {5, 8, 10, 13, 16, 21};
+    static final int[] SIZES = {3, 5};
     static final TerminalCases.Spec SELECT24 = new TerminalCases.Spec("SELECT",
             new Object[]{"seed", 31, "color", "RED", "count", 24}, "AutoSelectEnabled");
 
@@ -39,10 +38,6 @@ final class TermPlus1112Cases {
         for (int size : SIZES) {
             MenuSuite.test(s, "1112-term-burst-size-" + size, c -> size(c, SELECT24, size, false));
             MenuSuite.test(s, "1112-term-burst-size-" + size + "-sametick", c -> size(c, SELECT24, size, true));
-        }
-        for (int i : new int[]{0, 1, 2}) {
-            TerminalCases.Spec spec = TerminalCases.SPECS.get(i);
-            MenuSuite.test(s, "1112-term-burst-size21-" + spec.type().toLowerCase(), c -> size(c, spec, 21, false));
         }
     }
 

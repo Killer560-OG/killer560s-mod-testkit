@@ -305,7 +305,8 @@ final class HxSplitChat1102Cases {
                 .with(SPLIT_CFG, "CoreEntryTimes", true)
                 .with(SPLIT_CFG, "CoreEntryWithoutSplits", false)
                 .with(SPLIT_CFG, "CoreEntrySlowestChat", false)
-                .with(SPLIT_CFG, "CoreEntrySlowestParty", true)) {
+                .with(SPLIT_CFG, "CoreEntrySlowestParty", true)
+                .with(SPLIT_CFG, "CoreEntryOnlySlowest", false)) {
             dungeon(c);
             tab(c, "template", "dungeon", "players", List.of(player("HxMateA", "Mage", "[MVP+]"),
                     player("HxMateB", "DEAD", null), player(me, "Archer", null)));
@@ -358,6 +359,13 @@ final class HxSplitChat1102Cases {
             c.check(rl != null && ChatFormatting.stripFormatting(rl).equals("HxMateB: -"), "HxMateB's row while timing: " + rl);
             c.check(slowest != null && ChatFormatting.stripFormatting(slowest).startsWith("HxMateA: "), "slowest: " + slowest);
             c.check(pcs.size() == 1 && pcs.get(0).startsWith("pc Slowest into core: HxMateA ("), "party lines: " + pcs);
+            // Only Slowest ON (core-slowest-0001): the same finished run shows exactly one row, the slowest, in the list.
+            c.onClient(mc -> Mod.call(Mod.staticCall(SPLIT_CFG, "getInstance"), "setCoreEntryOnlySlowest", true));
+            @SuppressWarnings("unchecked")
+            List<String> only = c.onClient(mc -> (List<String>) Mod.staticCall(CORE, "lines"));
+            c.note("only slowest rows " + only);
+            c.check(lines.size() == 3, "full list should have three rows with Only Slowest off: " + lines);
+            c.check(only.size() == 1 && ChatFormatting.stripFormatting(only.get(0)).startsWith("HxMateA: "), "Only Slowest rows: " + only);
         } finally {
             c.onClient(mc -> {
                 for (int i = 0; i < 2; i++) {
