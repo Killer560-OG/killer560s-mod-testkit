@@ -2,6 +2,7 @@ package dev.testkit.gametest.boss;
 
 import dev.testkit.gametest.LogTap;
 import dev.testkit.gametest.SameTick;
+import dev.testkit.gametest.Scenario;
 import dev.testkit.gametest.hx.Session;
 import dev.testkit.gametest.mod.Mod;
 import dev.testkit.harness.PacketTrace;
@@ -85,10 +86,11 @@ final class Ee3RouteGrimCases {
         // candidates/fastest.json falls into the lava, which is the finder's question, not Grim's (train t1112-1409).
         String none = KM_DIR == null && !Files.isRegularFile(VERIFIED.resolve(ROUTE + ".json"))
                 ? "no verified EE3 route yet (" + VERIFIED.resolve(ROUTE + ".json") + " is written by the route finder)" : null;
-        add(s, "1109-boss-ee3route-grim", none, c -> run(c, null));
-        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.DIG}) {
-            add(s, "1109-boss-ee3route-same-" + a.name().toLowerCase(Locale.ROOT), none, c -> run(c, a));
-        }
+        add(s, "1109-boss-ee3route-grim", none, c -> run(c, null, true));
+        add(s, "1109-boss-ee3route-nolook-off", none, Ee3RouteGrimCases::runOff);
+        add(s, "1109-boss-ee3route-same-use", none, c -> run(c, SameTick.Act.USE, true));
+        add(s, "1109-boss-ee3route-same-swap", none, c -> run(c, SameTick.Act.SWAP, true));
+        add(s, "1109-boss-ee3route-same-dig", none, c -> run(c, SameTick.Act.DIG, true));
     }
 
     private static void add(Session s, String name, String skip, Session.Case body) {
@@ -153,7 +155,7 @@ final class Ee3RouteGrimCases {
             return "dig " + a.getAction();
         }
         if (p instanceof ServerboundMovePlayerPacket m) {
-            return m.hasRotation() ? "move rot" : "move";
+            return (m.hasRotation() ? "move rot " : "move ") + String.format(java.util.Locale.ROOT, "%.2f,%.2f,%.2f", m.getX(0), m.getY(0), m.getZ(0));
         }
         if (p instanceof net.minecraft.network.protocol.game.ServerboundPlayerInputPacket in) {
             net.minecraft.world.entity.player.Input i = in.input();
@@ -180,7 +182,7 @@ final class Ee3RouteGrimCases {
                 before |= moved;
             } else if (t.startsWith("move")) {
                 moved = true;
-                after |= dig && t.equals("move rot");
+                after |= dig && t.startsWith("move rot");
             } else if (t.equals("ServerboundClientTickEndPacket")) {
                 if (dig) {
                     out[0]++;
@@ -204,7 +206,42 @@ final class Ee3RouteGrimCases {
         return KM_DIR == null ? VERIFIED : DIR.resolve(KM_DIR);
     }
 
-    static void run(Session c, SameTick.Act act) throws Exception {
+    /** Lifts GrimAC's RotationPlace cancelvl for one case (punishments.yml + /grim reload); the returned closer puts it back. */
+    private static AutoCloseable raiseCancelVl(Session c) throws Exception {
+        java.util.Properties props = new java.util.Properties();
+        try (var in = Files.newInputStream(Path.of(System.getProperty("testkit.testserver.launch")))) {
+            props.load(in);
+        }
+        Path f = Path.of(props.getProperty("dir"), "config", "GrimAC", "punishments.yml");
+        String old = Files.readString(f);
+        String lifted = old.replaceAll("(RotationPlace:\\s+cancelvl: )\\d+", "$1100000");
+        if (lifted.equals(old)) {
+            lifted = old + (old.endsWith("\n") ? "" : "\n") + "RotationPlace:\n    cancelvl: 100000\n"; // no entry: Grim's own default cancels
+        }
+        Files.writeString(f, lifted);
+        c.server().command("grim reload");
+        c.ctx().waitTicks(10);
+        return () -> {
+            Files.writeString(f, old);
+            c.server().command("grim reload");
+        };
+    }
+
+    /** The no-look click switch OFF (its label says it flags Grim): the lever waits for a one-packet look and Grim shows ZERO lines,
+     *  on default and experimental Grim. Whether the levers go is not judged here (they may be missed), only that nothing flags. */
+    private static void runOff(Session c) throws Exception {
+        long m0 = LogTap.mark();
+        try {
+            run(c, null, false);
+        } catch (AssertionError e) {
+            c.note("switch OFF, route result not judged: " + e.getMessage());
+        }
+        c.check(c.scenario().flags().isEmpty() && c.server().since().stream().noneMatch(l -> l.contains("failed RotationPlace")),
+                "Grim lines with No-Look Lever Click OFF: " + c.server().since().stream().filter(l -> l.contains("Grim »")).toList());
+        c.check(LogTap.since(m0).stream().noneMatch(l -> l.contains("no packet can carry a look")), "a no-look click went out with the switch OFF");
+    }
+
+    static void run(Session c, SameTick.Act act, boolean noLook) throws Exception {
         List<AutoCloseable> undo = new ArrayList<>();
         Path route = routeDir().resolve(ROUTE + ".json");
         Path fills = DIR.resolve("fills-env.txt");
@@ -254,6 +291,7 @@ final class Ee3RouteGrimCases {
             undo.add(c.onClient(mc -> Mod.with(LA, "SectionLevers", true)));
             undo.add(c.onClient(mc -> Mod.with(LA, "SectionLeversEarly", true)));
             undo.add(c.onClient(mc -> Mod.with(LA, "Range", 4.5)));
+            undo.add(c.onClient(mc -> Mod.with(LA, "NoLookClick", noLook)));
             undo.add(c.onClient(mc -> Mod.with(LA, "CooldownMs", Integer.parseInt(System.getenv().getOrDefault("KM_LEVER_CD", "50")))));
             undo.add(c.onClient(mc -> Mod.with("ap3.Ap3Config", "Enabled", true)));
             // ee3route-align-1117: 45 Degree Strafe ON as in his 26.3 (routes are planned with it); KM_EE3_STRAFE45=0 turns it off.
@@ -280,6 +318,16 @@ final class Ee3RouteGrimCases {
             if (!setupFlags.isEmpty()) {
                 System.out.println("[ee3route] setup flags before the run (not judged): " + setupFlags);
             }
+            // Owner exception (killer560, 2026-11-18, "whatever you think is best"): the same for the low lever (27,124,127).
+            // One RotationPlace per no-look lever click (counted below against the log), nothing else.
+            java.util.Set<String> acceptedPlace = new java.util.LinkedHashSet<>();
+            // the "grim reload" lines raiseCancelVl causes are Grim's own chat, not a flag
+            Scenario.acceptedFlag = l -> l.contains("Reloading config") || l.contains("Config has been reloaded") || l.contains("grim-datastore")
+                    || l.contains("v2-bootstrap") || noLook && l.contains("failed RotationPlace") && (acceptedPlace.add(l) | acceptedPlace.contains(l));
+            // GrimAC cancels a placement once RotationPlace violations reach punishments.yml cancelvl 5, and they add up over a
+            // session (11-18: cases 3 and 4 ran at x5+ and every lever click was canceled, levers false/false). The accepted
+            // flags must not decide whether the lever goes, so the cancel level is lifted for this case and restored after.
+            undo.add(raiseCancelVl(c));
             c.server().mark();
             long mark = LogTap.mark();
             c.onClient(mc -> {
@@ -351,6 +399,17 @@ final class Ee3RouteGrimCases {
             }
             System.out.println("[ee3route] path " + (act == null ? "none" : act) + ":" + path);
             c.ctx().waitTicks(20);
+            // The wire around every lever click (packet order against the swap / dig / move of its tick), to read a refused click.
+            java.util.List<WireCapture.Sent> wireAll = WireCapture.snapshot();
+            for (int i = 0; i < wireAll.size(); i++) {
+                if (wireAll.get(i).text().contains("UseItemOn")) {
+                    StringBuilder sb = new StringBuilder();
+                    for (int k = Math.max(0, i - 6); k < Math.min(wireAll.size(), i + 5); k++) {
+                        sb.append(k == i ? " >>" : " ").append(wireAll.get(k).text(), 0, Math.min(60, wireAll.get(k).text().length()));
+                    }
+                    System.out.println("[ee3route] lever wire" + sb);
+                }
+            }
             boolean[] lev = c.onClient(mc -> new boolean[]{powered(mc, LOW), powered(mc, HIGH)});
             String wire = ticks.report();
             c.note(String.format(Locale.ROOT, "route %s: left HEE2 t%d, at EE3 t%d (%d ticks), levers low/high %s/%s, boom t%d,"
@@ -365,6 +424,8 @@ final class Ee3RouteGrimCases {
                 st = null;
                 SameTickCases.judge(c, s2, "ee3 route levers");
             }
+            long noLookClicks = LogTap.since(mark).stream().filter(l -> l.contains("no packet can carry a look to lever")).count();
+            c.check(acceptedPlace.size() <= noLookClicks, "RotationPlace flags " + acceptedPlace.size() + " exceed the no-look lever clicks " + noLookClicks + ": " + acceptedPlace);
             c.check(dig || lev[1], "the high S2 lever was not powered (low/high " + lev[0] + "/" + lev[1] + ")");
             c.check(dig || ticks.lever >= 1, "no lever click on the wire: " + wire);
             c.check(ticks.twoLevers == 0, "two lever clicks in one server tick: " + wire);
