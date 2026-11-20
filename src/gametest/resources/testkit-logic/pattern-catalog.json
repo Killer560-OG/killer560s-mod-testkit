@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-20T08:21:56",
- "modSource": "lane-carnivalshelve-1118-rm-rd6",
- "modGitSha": "ec4bbcd1ce0874e47768f6ad80238d8d4fb4533e",
+ "generatedAt": "2026-11-20T12:04:59",
+ "modSource": "lane-lane-missing-leaprow-1120",
+ "modGitSha": "61f99bab84617c7944f39a66892bcb25e6fc85c1",
  "modSourceDirty": false,
  "count": 966,
  "byKind": {
