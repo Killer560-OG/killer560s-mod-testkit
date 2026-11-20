@@ -91,6 +91,7 @@ final class HxBloodCampCases {
         s.test("1101-bloodcamp-primal-fear", HxBloodCampCases::primalFearTrip);
         s.test("1101-bloodcamp-aura-late-pick", HxBloodCampCases::auraLatePick);
         s.test("1101-bloodcamp-mage-only", HxBloodCampCases::mageOnly);
+        s.test("1119-bloodcamp-mage-only-swap", HxBloodCampCases::mageOnlySwap);
         s.test("1101-bloodcamp-teleport-step", HxBloodCampCases::teleportStep);
         s.test("1101-bloodcamp-stats", HxBloodCampCases::stats);
         s.test("1102-bloodcamp-watcher-bar", HxBloodCampCases::watcherBar);
@@ -2020,6 +2021,66 @@ final class HxBloodCampCases {
         } finally {
             nextSummonDelay = null;
             holding(c, "minecraft:air");
+            c.hx().removeStands();
+        }
+    }
+
+    private static final String CLASS_ENUM = "dungeonclass.DungeonClass";
+
+    private static void pick(Session c, String ign, String cls) {
+        c.onClient(mc -> Mod.staticCall("dungeonclass.ClassOverrides", cls == null ? "clear" : "set", cls == null
+                ? new Object[]{ign} : new Object[]{ign, Mod.enumValue(CLASS_ENUM, cls)}));
+    }
+
+    private static String selfClassName(Session c) {
+        return String.valueOf(c.onClient(mc -> Mod.staticCall("leapmenu.PartyTracker", "selfClass")));
+    }
+
+    private static void showClass(Session c, String me, String cls, String want) {
+        tab(c, "template", "dungeon", "players", List.of(player("HxMateA", "Mage", "[MVP+]"), player(me, cls, null)));
+        c.waitUntil("detected class " + want, mc -> want.equals(String.valueOf(Mod.staticCall("leapmenu.PartyTracker",
+                "detectedClassOf", me))), 60);
+    }
+
+    /** 1119: a Leap Order pick on his own name (ARCHER) must not beat the class the game shows (MAGE): selfClass and the
+     *  leap menu follow the game, the stale pick is dropped, Mage Only acts; a pick still counts before any class is
+     *  detected; and the reverse (shown ARCHER, pick MAGE) holds with Mage Only on. */
+    private static void mageOnlySwap(Session c) {
+        if (!Mod.isCheat()) {
+            return;
+        }
+        String me = self(c);
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "MageOnly", true);
+            watcher(c, WATCHER_IN);
+            stand(c, 0f, 0f);
+            // (a) nothing detected yet: the pick is the class.
+            pick(c, me, "MAGE");
+            c.check("MAGE".equals(selfClassName(c)), "no class detected, pick MAGE: selfClass was " + selfClassName(c));
+            Trip early = trip(c, Mob.HURTABLE, true, 20, null);
+            c.note("pick MAGE, nothing detected: " + fmt(early));
+            c.check(early.tracked && early.clicks >= 1 && !early.serverAttacks.isEmpty(), "pick MAGE before detection: no click went out");
+            // (b) game shows MAGE, stale pick ARCHER.
+            pick(c, me, "ARCHER");
+            showClass(c, me, "Mage", "MAGE");
+            c.check("MAGE".equals(selfClassName(c)), "pick ARCHER, game shows MAGE: selfClass was " + selfClassName(c));
+            c.check("MAGE".equals(String.valueOf(c.onClient(mc -> Mod.staticCall("leapmenu.LeapMenuFeature", "playingClass")))),
+                    "the leap menu does not play MAGE");
+            c.check(!(Boolean) c.onClient(mc -> Mod.staticCall("dungeonclass.ClassOverrides", "has", me)),
+                    "the stale ARCHER pick is still saved on his name");
+            stand(c, 0f, 0f);
+            Trip mage = trip(c, Mob.HURTABLE, true, 20, null);
+            c.note("game MAGE, pick ARCHER: " + fmt(mage));
+            c.check(mage.tracked && mage.clicks >= 1 && !mage.serverAttacks.isEmpty(), "game MAGE: Mage Only held the Trigger Bot");
+            // (c) game shows ARCHER: holds.
+            showClass(c, me, "Archer", "ARCHER");
+            pick(c, me, null);
+            stand(c, 0f, 0f);
+            Trip arch = trip(c, Mob.HURTABLE, true, 20, null);
+            c.note("game ARCHER: " + fmt(arch));
+            c.check(arch.tracked && arch.clicks == 0 && arch.serverAttacks.isEmpty(), "game ARCHER: Mage Only clicked");
+        } finally {
+            pick(c, me, null);
             c.hx().removeStands();
         }
     }
