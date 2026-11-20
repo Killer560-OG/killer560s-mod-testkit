@@ -34,6 +34,8 @@ final class HxDungeonCases {
         runStats(s);
         runSummary(s);
         runSummaryPb(s);
+        shareSite(s);
+        shareSiteNotice(s);
         rngMeter(s);
         blessings(s);
         classColors(s);
@@ -258,6 +260,104 @@ final class HxDungeonCases {
                 c.ctx().waitTicks(10);
                 int after = c.onClient(mc -> ((Number) Mod.field("runsummary.RunSummaryFeature", "hypixelScore")).intValue());
                 c.note("forged start ignored; real start tracked; Team Score 300 (S+) read; 20-digit score -> " + after);
+                run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
+                run(c, () -> Mod.setField("runsummary.RunSummaryFeature", "finishDelayTicks", -1));
+            }
+        });
+    }
+
+    // ---- 1119 Share To Website (mod sharesite-1119) --------------------------------------------------------
+
+    private static final String SHARE = dev.testkit.gametest.logic.ShareSiteCases.FEATURE;
+
+    /** One run through the real chat path with Run Summary OFF and sharing ON: Defeated, EXTRA STATS, the Stats block's
+     *  own "Secrets Found: 8" and the Team Score; the run is moved back 5 minutes so it is long enough to count. */
+    private static void shareRun(Session c, boolean sharing) {
+        run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
+        send(c, "chat.run-start");
+        if (sharing) {
+            c.waitUntil("a run is tracked with only sharing on",
+                    mc -> (Boolean) Mod.staticCall("runsummary.RunSummaryFeature", "isTrackingRun"), 40);
+        } else {
+            c.ctx().waitTicks(10); // both OFF: nothing should track (checked after the run)
+        }
+        run(c, () -> Mod.setField("runsummary.RunSummaryFeature", "runStartMs", System.currentTimeMillis() - 300_000L));
+        run(c, () -> Mod.staticCall("splittimers.TerminalTimersFeature", "onTerminalClosed", "Panes", 4.25));
+        c.hx().chat(c.onClient(mc -> mc.player.getName().getString()) + " activated a terminal! (1/7)");
+        c.ctx().waitTicks(5);
+        c.hx().chat("                  ☠ Defeated Necron in 05m 00s");
+        send(c, "chat.extra-stats");
+        send(c, "chat.own-secrets-found");
+        c.hx().chat("             Team Score: 300 (S+)");
+    }
+
+    private static void shareSite(Session s) {
+        s.test("1119-hx-sharesite-run", c -> {
+            int stored = c.onClient(mc -> ((Number) Mod.staticCall(PB_STORE, "size")).intValue());
+            try (Settings set = new Settings(c).with("runsummary.RunSummaryConfig", "Enabled", false);
+                 dev.testkit.gametest.logic.ShareSiteCases.Stub stub = new dev.testkit.gametest.logic.ShareSiteCases.Stub()) {
+                run(c, () -> Mod.staticCall(SHARE, "setEnabled", true));
+                dungeon(c);
+                c.waitUntil("no delete waiting", mc -> !dev.testkit.gametest.logic.ShareSiteCases.pendingDelete(), 100);
+                stub.calls.clear();
+                stub.bodies.clear();
+                shareRun(c, true);
+                c.waitUntil("POST /site/stats reached the relay", mc -> stub.count("POST /site/stats Bearer "
+                        + dev.testkit.gametest.logic.ShareSiteCases.TOKEN) == 1, 400);
+                JsonObject body = stub.bodies.get(0);
+                JsonObject r = body.getAsJsonArray("runs").get(0).getAsJsonObject();
+                long ms = r.get("ms").getAsLong();
+                c.check(body.getAsJsonArray("runs").size() == 1 && "F7".equals(r.get("floor").getAsString()), "runs " + body);
+                c.check(ms >= 299_000L && ms <= 310_000L, "run time " + ms + " ms, expected about 300000: " + body);
+                c.check(r.get("done").getAsBoolean(), "the beaten boss was not sent as done: " + body);
+                c.check(r.get("secrets").getAsInt() == 8, "own secrets " + r.get("secrets") + ", expected the Stats block's 8");
+                JsonArray terms = body.getAsJsonArray("terms");
+                c.check(terms != null && terms.size() == 1 && "Panes".equals(terms.get(0).getAsJsonObject().get("type").getAsString())
+                        && terms.get(0).getAsJsonObject().get("ms").getAsLong() == 4250L, "terminal solves " + terms);
+                c.check(!body.toString().contains(c.onClient(mc -> mc.player.getName().getString())),
+                        "the upload names the player (the relay takes the name from the token): " + body);
+                int after = c.onClient(mc -> ((Number) Mod.staticCall(PB_STORE, "size")).intValue());
+                c.check(after == stored, "Run Summary OFF but the run went into Run History (" + stored + " -> " + after + ")");
+
+                run(c, () -> Mod.staticCall(SHARE, "setEnabled", false));
+                c.waitUntil("DELETE /site/stats after OFF", mc -> stub.count("DELETE /site/stats Bearer "
+                        + dev.testkit.gametest.logic.ShareSiteCases.TOKEN) == 1, 200);
+                shareRun(c, false);
+                c.ctx().waitTicks(60);
+                c.check(stub.count("POST") == 1, "a run while OFF was uploaded: " + stub.calls);
+                c.check(c.onClient(mc -> !(Boolean) Mod.staticCall("runsummary.RunSummaryFeature", "isTrackingRun")),
+                        "with Run Summary and sharing both OFF a run was still tracked");
+                c.note("upload " + body + "; OFF -> " + stub.calls);
+            } finally {
+                run(c, () -> Mod.staticCall(SHARE, "setEnabled", true));
+                run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
+                run(c, () -> Mod.setField("runsummary.RunSummaryFeature", "finishDelayTicks", -1));
+            }
+        });
+    }
+
+    /** The notice not shown yet (a player who finished the tour before Share To Website): a finished run uploads nothing and
+     *  nothing is buffered; after the notice is answered the next run uploads. */
+    private static void shareSiteNotice(Session s) {
+        s.test("1119-hx-sharesite-notice", c -> {
+            try (Settings set = new Settings(c).with("runsummary.RunSummaryConfig", "Enabled", false);
+                 dev.testkit.gametest.logic.ShareSiteCases.Stub stub = new dev.testkit.gametest.logic.ShareSiteCases.Stub()) {
+                run(c, () -> Mod.staticCall(SHARE, "setEnabled", true));
+                dungeon(c);
+                c.waitUntil("no delete waiting", mc -> !dev.testkit.gametest.logic.ShareSiteCases.pendingDelete(), 100);
+                run(c, () -> Mod.staticCall(SHARE, "setNoticeForTest", false));
+                stub.calls.clear();
+                shareRun(c, false);
+                c.ctx().waitTicks(60);
+                c.check(stub.count("POST") == 0, "a run before the notice was answered was uploaded: " + stub.calls);
+                c.check(c.onClient(mc -> ((Number) Mod.staticCall(SHARE, "termsForTest")).intValue()) == 0, "a terminal solve was kept before the notice");
+                run(c, () -> Mod.staticCall(SHARE, "acknowledgeNotice"));
+                shareRun(c, true);
+                c.waitUntil("POST /site/stats after the notice", mc -> stub.count("POST /site/stats Bearer "
+                        + dev.testkit.gametest.logic.ShareSiteCases.TOKEN) == 1, 400);
+                c.note("after the notice: " + stub.bodies.get(0));
+            } finally {
+                run(c, () -> Mod.staticCall(SHARE, "setEnabled", true));
                 run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
                 run(c, () -> Mod.setField("runsummary.RunSummaryFeature", "finishDelayTicks", -1));
             }

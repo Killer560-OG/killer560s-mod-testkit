@@ -84,6 +84,10 @@ public class LogicSuite implements FabricClientGameTest {
         DiscordLinkCases.ctx = ctx;
         LogicCase.runOffClient(ctx, "1105-discordlink-card", DiscordLinkCases::card);
         LogicCase.runOffClient(ctx, "1105-discordlink-offline", DiscordLinkCases::offline);
+        // Share To Website (mod sharesite-1119): off the client thread, the cases wait on the stub relay.
+        ShareSiteCases.ctx = ctx;
+        LogicCase.runOffClient(ctx, "1119-logic-sharesite-default", ShareSiteCases::defaults);
+        LogicCase.runOffClient(ctx, "1119-logic-sharesite-off", ShareSiteCases::off);
         // ---- end Auto Crash Reports
         // ---- Auto Update (nt-auto-update, 2026-10-11) - own block
         AutoUpdateCases.ctx = ctx;
