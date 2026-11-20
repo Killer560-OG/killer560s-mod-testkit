@@ -88,9 +88,9 @@ final class Ee3RouteGrimCases {
                 ? "no verified EE3 route yet (" + VERIFIED.resolve(ROUTE + ".json") + " is written by the route finder)" : null;
         add(s, "1109-boss-ee3route-grim", none, c -> run(c, null, true));
         add(s, "1109-boss-ee3route-nolook-off", none, Ee3RouteGrimCases::runOff);
-        for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.DIG}) {
-            add(s, "1109-boss-ee3route-same-" + a.name().toLowerCase(Locale.ROOT), none, c -> run(c, a, true));
-        }
+        add(s, "1109-boss-ee3route-same-use", none, c -> run(c, SameTick.Act.USE, true));
+        add(s, "1109-boss-ee3route-same-swap", none, c -> run(c, SameTick.Act.SWAP, true));
+        add(s, "1109-boss-ee3route-same-dig", none, c -> run(c, SameTick.Act.DIG, true));
     }
 
     private static void add(Session s, String name, String skip, Session.Case body) {
