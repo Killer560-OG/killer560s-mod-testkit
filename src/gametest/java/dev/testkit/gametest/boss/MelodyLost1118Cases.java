@@ -39,6 +39,7 @@ final class MelodyLost1118Cases {
         s.test("1118-boss-melodylost-no-carry", MelodyLost1118Cases::noCarry);
         s.test("1118-boss-melodylost-four-sections", MelodyLost1118Cases::fourSections);
         s.test("1118-boss-melodylost-off", MelodyLost1118Cases::off);
+        s.test("1119-boss-melodylost-forget", MelodyLost1118Cases::forget);
         s.test("1119-boss-melodylost-party", c -> party(c, true));
         s.test("1119-boss-melodylost-party-off", c -> party(c, false));
     }
@@ -272,6 +273,21 @@ final class MelodyLost1118Cases {
             } else {
                 c.check(pcs.isEmpty(), "party line sent while off: " + pcs);
             }
+        }
+    }
+
+    /** A's Melody is finished at 1/3, a device is 2/3, then A's ordinary terminal is 3/3: that Melody is not blamed (0 lost). */
+    private static void forget(Session c) throws Exception {
+        try (HxKit.Settings st = settings(c, true)) {
+            TeamMelodyRelayCases.inP3(c);
+            evidence(c, "share", "HxMateA");
+            line(c, "HxMateA activated a terminal! (1/3)");
+            line(c, "HxMateB completed a device! (2/3)");
+            c.ctx().waitTicks(27);
+            line(c, "HxMateA activated a terminal! (3/3)");
+            c.note("lost " + lostMs(c, 1) + " ms, " + decision(c, 1));
+            c.check(decision(c, 1).contains("not a Melody"), "the section was not judged: " + decision(c, 1));
+            c.check(lostMs(c, 1) == 0L, "an earlier Melody was blamed: " + lostMs(c, 1));
         }
     }
 }
