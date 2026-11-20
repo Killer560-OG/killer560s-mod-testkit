@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-20T02:01:40",
- "modSource": "lane-bottlealert-1118-pf-rd",
- "modGitSha": "e85614d7eb1a26bdde557baf390f6103840ce3d2",
+ "generatedAt": "2026-11-20T02:57:43",
+ "modSource": "lane-arbreakstyle-rm-1119-fx",
+ "modGitSha": "79346c1e7ee4ef7aed40a35be3b29aae538398b7",
  "modSourceDirty": false,
  "count": 990,
  "byKind": {
