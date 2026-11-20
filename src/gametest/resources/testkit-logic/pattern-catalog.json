@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-20T01:11:58",
- "modSource": "lane-bcmageonly-1119-fx",
- "modGitSha": "23dc5b6b5f0fe5276e0d9c426866ae80ecfd73f0",
+ "generatedAt": "2026-11-20T01:44:40",
+ "modSource": "lane-ee3simflags-1118-pf-rd",
+ "modGitSha": "0cbe6f092c37ee579251533cf750a2764f1c76b9",
  "modSourceDirty": false,
  "count": 989,
  "byKind": {
