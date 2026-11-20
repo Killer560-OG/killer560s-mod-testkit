@@ -170,6 +170,9 @@ final class MiscCases {
                 continue;
             }
             String prop = setter.getName().substring(3);
+            if (prop.equals("BreakerAuraEditMode")) {
+                continue; // never loaded as on (7e7171048), so a profile cannot carry it; getMethods order picked it at random
+            }
             Method getter;
             try {
                 getter = inst.getClass().getMethod("is" + prop);
