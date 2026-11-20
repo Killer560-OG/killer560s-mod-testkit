@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-20T00:14:22",
- "modSource": "lane-invsortgap-1119",
- "modGitSha": "7f1a64b49f99439487c720b7ec433469f3653f4e",
+ "generatedAt": "2026-11-19T23:25:57",
+ "modSource": "lane-arwrong-1118-fx",
+ "modGitSha": "571f0dc2082d06e23a25d84fe3682f7fea8976e7",
  "modSourceDirty": false,
  "count": 989,
  "byKind": {
