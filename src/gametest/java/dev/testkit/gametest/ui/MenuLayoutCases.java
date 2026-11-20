@@ -67,7 +67,7 @@ final class MenuLayoutCases {
     private static final String CHEAT = "§c§l";
     private static final String LEGIT = "§6§l";
     /** The only folders a category may hold: each was asked for as one tab (killer560, 2026-09-20). */
-    private static final Set<String> NESTED_OK = Set.of("Secrets", "Carnival", "Puzzle Solvers", "Commissions and Mithril", "Powder Mining", "General",
+    private static final Set<String> NESTED_OK = Set.of("Secrets", "Puzzle Solvers", "Commissions and Mithril", "Powder Mining", "General",
             "Dwarven Mines and Glacite", "Crystal Hollows");
     /** Sections added by this change (cheat build): Home's Correction Alarm, out of the middle of Mod & HUD. */
     private static final Set<String> NEW_LEAVES = Set.of("gui.tab.PowderBreakSoundsTab", "gui.tab.CorrectionAlarmTab",
@@ -149,6 +149,8 @@ final class MenuLayoutCases {
             "gui.tab.CrashReportTab",
             // Discord Link (mod discordlink-1105, 2026-11-05): Home, after Crash Reports, both builds.
             "gui.tab.DiscordLinkTab",
+            // Share To Website (mod sharesite-1119, 2026-11-19): Home, after Discord Link, both builds, ON by default.
+            "gui.tab.ShareToWebsiteTab",
             // To-do Doc items of 2026-11-01 (mod doc-extras-1101), legit in both builds: Creation Cooldown and Insta Clear
             // Warning (Dungeons), Gyrokinetic Wand Overlay (Items), Chat Tabs (Chat).
             "gui.tab.CreationCooldownTab", "gui.tab.InstaClearWarningTab", "gui.tab.GyroOverlayTab", "gui.tab.ChatTabsTab",
@@ -162,7 +164,9 @@ final class MenuLayoutCases {
             // Milestone Display and Salvage Helper (mod featF-1108): Dungeons cards, legit in both builds, OFF.
             "gui.tab.MilestoneTab", "gui.tab.DungeonItemHighlighterTab",
             // Accessory Advisor (mod accadvisor-1113, killer560 2026-11-13): Items card, legit in both builds, OFF.
-            "gui.tab.AccessoryAdvisorTab");
+            "gui.tab.AccessoryAdvisorTab",
+            // Chest Value (mod chestvalue-1119): Items card, legit in both builds, OFF.
+            "gui.tab.ChestValueTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.

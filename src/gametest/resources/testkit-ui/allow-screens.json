@@ -62,6 +62,7 @@
     {"class": "mobskin.MobPickerScreen", "args": ["null", "null", "consumer"], "source": "mobskin/MobPickerScreen.java:56 (null current = the player; render only)"}
   ],
   "deny": [
+    {"class": "fastleap.QueueLeapScreen", "why": "mod queueleap-1119 (cheat only): package-private constructor taking the party's names; Queue Leap opens it on a Spirit Leap right click (testkit 1119-queueleap-* open and pick in it for real)"},
     {"class": "roomsim.SimSessionEndedScreen", "why": "package-private constructor; a co-op guest sees it only when the owner drops the session (testkit 1109-coop-two opens it for real)"},
     {"class": "imagepreview.ImageViewerScreen", "why": "Image Preview's viewer needs a hovered chat link's resolved pictures (a package-private Entry), and opens only by a middle click on one; testkit 1077-imgprev-imgur opens it for real and steps it"},
     {"class": "accounts.gui.AccountProxyConfigScreen", "why": "needs a real PrismAccount (accounts/gui/AccountProxyConfigScreen.java:24); the accounts store is the empty fixture"},

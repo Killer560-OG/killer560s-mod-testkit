@@ -175,6 +175,7 @@ public class MenuSuite implements FabricClientGameTest {
                     ModUnderTest.require("killer560smod");
                     TerminalCases.register(s);
                     TermHoldCases.register(s); // 271-279: terms-1026 (Hover Melody, Hold To Click, lookahead, Fake Cursor)
+                    MelodyNoDelay1118Cases.register(s); // 1118-menu-term-melody-nodelay
                     Melody1111Cases.register(s); // 1111-menu-term-melody-gamble: lookahead gamble vs. live clicks under 50 ms ping
                     TermFeatACases.register(s); // 1108: terminal sounds, click path, click order, queue terms
                     TermBurst1111Cases.register(s); // 1111-menu-term-burst-*: Auto Terminals Burst Finish (termburst-1111)
@@ -193,6 +194,7 @@ public class MenuSuite implements FabricClientGameTest {
                     PriceTooltipCases.register(s); // 1750-1754: Price Tooltip (price-tooltip-1015)
                     Networth1104Cases.register(s); // 1104-networth-*, 1104-menu-storage-pricetip (networth-1104)
                     Pv0273Cases.register(s); // 1117-menu-pv0273-* (pv0273-1117)
+                    PvFit1118Cases.register(s); // 1118-*-pvfit-* (pvfit-1118)
                     PvStyle1104Cases.register(s); // 1104-menu-pvstyle: the Profile Viewer's Styles (pvstyle-1104)
                     HotmTree1118Cases.register(s); // 1118-menu-hotmtree: the HOTM perk tree (hotmtree-1118)
                     AnvilCases.register(s);
@@ -217,6 +219,7 @@ public class MenuSuite implements FabricClientGameTest {
                     LeapBatchMenuCases.register(s); // 821-825: leap-menu batch 2026-10-11 (heads, map, delay, carried, freeze)
                     LeapRunMemoryCases.register(s); // 829-834: how long class picks and pins last, 2026-10-12
                     LeapPartyChangeCases.register(s); // 1102-menu-leaporder-*: party change slots + own class, 2026-11-02
+                    LeapOwnClass1118Cases.register(s); // 1118-menu-leaporder-ownclass-*: own class sticks until you leave the party
                     LeapEditorCases.register(s); // 899-902: Leap Order editor resets, auto party refresh, cleanup (2026-10-12)
                     // ---- 754-755 Chocolate Factory on the current layout: the auto and the legit helper (fairy-choc, 2026-10-11) ----
                     ChocolateCases.register(s);
