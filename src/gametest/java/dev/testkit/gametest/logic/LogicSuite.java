@@ -60,6 +60,7 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "2775-logic-bazaarflip", BazaarFlipLogicCases::run);
         LogicCase.run(ctx, "2797-logic-flip-1101", Flip1101LogicCases::run);
         LogicCase.run(ctx, "402-logic-autokick-units", AutoKickCases::units);
+        LogicCase.run(ctx, "1120-logic-async-save", AsyncSaveCases::run);
         LogicCase.run(ctx, "1104-logic-scanaudit", ScanAuditCases::scanAudit);
         LogicCase.run(ctx, "1116-logic-bloodrush-table", BloodRushTableCases::table);
         LogicCase.run(ctx, "1117-logic-onejar", OneJarCases::run);
@@ -84,6 +85,12 @@ public class LogicSuite implements FabricClientGameTest {
         DiscordLinkCases.ctx = ctx;
         LogicCase.runOffClient(ctx, "1105-discordlink-card", DiscordLinkCases::card);
         LogicCase.runOffClient(ctx, "1105-discordlink-offline", DiscordLinkCases::offline);
+        // Share To Website (mod sharesite-1119): off the client thread, the cases wait on the stub relay.
+        ShareSiteCases.ctx = ctx;
+        LogicCase.runOffClient(ctx, "1119-logic-sharesite-default", ShareSiteCases::defaults);
+        LogicCase.runOffClient(ctx, "1119-logic-sharesite-off", ShareSiteCases::off);
+        ModBoardsCases.ctx = ctx;
+        LogicCase.runOffClient(ctx, "1120-logic-modboards", ModBoardsCases::boards);
         // ---- end Auto Crash Reports
         // ---- Auto Update (nt-auto-update, 2026-10-11) - own block
         AutoUpdateCases.ctx = ctx;
