@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T17:38:03",
- "modSource": "lane-pvtoggle-1118-pf",
- "modGitSha": "8c6b05ba69e75fa86000d8479b23ac8ddaaff015",
+ "generatedAt": "2026-11-19T18:36:10",
+ "modSource": "lane-translit-1119",
+ "modGitSha": "831eea0a62b13a22c51f618f2e39f6a1ce165736",
  "modSourceDirty": false,
  "count": 986,
  "byKind": {
