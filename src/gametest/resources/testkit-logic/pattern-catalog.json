@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T19:49:33",
- "modSource": "lane-slayertable-mod-1119",
- "modGitSha": "e7a0f20a672fc1affcc2a444678d9b30679461a1",
+ "generatedAt": "2026-11-19T19:53:04",
+ "modSource": "lane-simhelp-polish-1119",
+ "modGitSha": "7bf991592085f747c6cc97675a0f4d09d53d2b57",
  "modSourceDirty": false,
  "count": 989,
  "byKind": {
