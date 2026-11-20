@@ -113,7 +113,10 @@ final class AutoCorrectCases {
                 {"warpbase", "warp base"}, {"wrap bsae", "warp base"}, {"warp hbu", "warp hub"}, {"warp BASE", "warp base"},
                 {"warp hub", "warp hub"}, {"warp hub now", "warp hub now"}, {"warp xqzv", "warp xqzv"}, {"msg bsae hi", "msg bsae hi"},
                 {"pc", "pc"}, {"xq", "xq"}, {"p Steve", "p Steve"}, {"wardorbe", "wardrobe"}, {"wapr", "warp"}, {"warrp", "warp"},
-                {"hubb", "hub"}, {"bzz", "bz"}, {"ahh", "ah"}, {"k5:x", "k5:x"}};
+                {"hubb", "hub"}, {"bzz", "bz"}, {"ahh", "ah"}, {"k5:x", "k5:x"},
+                {"warp d h", "warp dh"}, {"warp dungeon hub", "warp dungeon_hub"}, {"warp ba se", "warp base"},
+                {"warp dh", "warp dh"}, {"msg name d h", "msg name d h"}, {"warp xq zv", "warp xq zv"},
+                {"warp hub now", "warp hub now"}, {"warp d h ", "warp d h "}, {"p d h", "p d h"}};
         for (String[] l : lines) {
             String got = (String) fix.invoke(null, l[0], known);
             c.check("/" + l[0] + " goes out as /" + l[1], got.equals(l[1]), "got /" + got);
