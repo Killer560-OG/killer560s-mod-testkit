@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-20T15:26:20",
- "modSource": "simmenus-rd3",
- "modGitSha": "5571cc927a0ca988afca2cd248ae1729407b6546",
+ "generatedAt": "2026-11-20T15:31:25",
+ "modSource": "lane-simmenus-1118-pf-rd3",
+ "modGitSha": "0643256aabe8223b75145021ca0686f6efc2e519",
  "modSourceDirty": false,
  "count": 966,
  "byKind": {
