@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-20T13:47:18",
- "modSource": "lane-burstcap-crashinfo-1119-rm-rd3",
- "modGitSha": "e55d3b1df9a3392e5b55ccb8309a7f5f982b1692",
+ "generatedAt": "2026-11-20T14:16:28",
+ "modSource": "lane-norotate-rm2-1119-rd5",
+ "modGitSha": "99757fd457c23b61622339134446527bac64ac3e",
  "modSourceDirty": false,
  "count": 966,
  "byKind": {
