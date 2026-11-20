@@ -30,7 +30,7 @@
     "id": "chat.extra-stats",
     "kind": "chat",
     "payload": "                             > EXTRA STATS <",
-    "source": {"file": "src/main/java/com/killer560/hub/dungeonqueue/DungeonQueueFeature.java", "line": 32},
+    "source": {"file": "src/main/java/com/killer560/hub/dungeonqueue/DungeonQueueFeature.java", "line": 33},
     "matches": ["dungeonqueue.DungeonQueueFeature#EXTRA_STATS", "runstats.RunStatsFeature#EXTRA_STATS", "runsummary.RunSummaryFeature#EXTRA_STATS"],
     "verifiedBy": "regex",
     "notes": "Leading centering spaces are allowed by the ^\\s* in all three patterns; the count of spaces is not from the mod."
@@ -73,7 +73,7 @@
     "id": "chat.party-left",
     "kind": "chat",
     "payload": "§9HxMateB §ehas left the party.",
-    "source": {"file": "src/main/java/com/killer560/hub/dungeonqueue/DungeonQueueFeature.java", "line": 37},
+    "source": {"file": "src/main/java/com/killer560/hub/dungeonqueue/DungeonQueueFeature.java", "line": 38},
     "matches": ["leapmenu.PartyTracker#LEFT"],
     "mode": "matches",
     "verifiedBy": "regex",
