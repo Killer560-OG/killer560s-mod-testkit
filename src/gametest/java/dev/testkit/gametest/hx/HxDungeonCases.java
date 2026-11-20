@@ -219,25 +219,15 @@ final class HxDungeonCases {
                 dungeon(c);
                 run(c, () -> Mod.staticCall("runstats.RunStatsTracker", "resetRun"));
                 run(c, () -> Mod.setField("runstats.RunStatsFeature", "summarisedThisRun", true));
-                String me = c.onClient(mc -> mc.player.getGameProfile().name().toLowerCase(java.util.Locale.ROOT));
-                Map<String, Long> before = c.onClient(mc -> (Map<String, Long>) Mod.field("runstats.RunStatsTracker", "SECRETS_BEFORE"));
-                Map<String, Long> afterMap = c.onClient(mc -> (Map<String, Long>) Mod.field("runstats.RunStatsTracker", "SECRETS_AFTER"));
-                before.put(me, 100L);
-                afterMap.put(me, 103L);
-                c.check(((Number) c.onClient(mc -> Mod.staticCall("runstats.RunStatsTracker", "teamSecrets"))).intValue() == -1,
-                        "premise: a team total before the Stats block");
-                send(c, "chat.team-secrets-found");
-                c.waitUntil("RunStatsTracker.teamSecrets() == 8",
-                        mc -> ((Number) Mod.staticCall("runstats.RunStatsTracker", "teamSecrets")).intValue() == 8, 40);
-                c.check(c.onClient(mc -> (Boolean) Mod.staticCall("runstats.RunStatsTracker", "secretsPending")),
-                        "deltas 3 of a team 8 were not pending (the API still lags the run)");
-                afterMap.put(me, 108L);
-                c.check(!c.onClient(mc -> (Boolean) Mod.staticCall("runstats.RunStatsTracker", "secretsPending")),
-                        "deltas 8 of a team 8 were still pending");
+                Object sr = c.onClient(mc -> Mod.staticCall("runstats.RunStatsTracker", "secretRun"));
+                c.check(((Number) c.onClient(mc -> Mod.call(sr, "own"))).intValue() == -1, "premise: an own count before the Stats block");
+                send(c, "chat.own-secrets-found");
+                c.waitUntil("the Stats block's Secrets Found (8) is the player's own count",
+                        mc -> ((Number) Mod.call(sr, "own")).intValue() == 8, 40);
                 List<?> rows = c.onClient(mc -> (List<?>) Mod.staticCall("runstats.RunStatsTracker", "buildRows", mc));
                 int secrets = ((Number) Mod.call(rows.get(0), "secrets")).intValue();
-                c.check(secrets == 8, "the player's row read " + secrets + " secrets, expected 108 - 100");
-                c.note("team total 8 read from the Stats line; 3/8 pending, 8/8 settled, row secrets " + secrets);
+                c.check(secrets == 8, "the player's row read " + secrets + " secrets, expected the exact 8 from the Stats block");
+                c.note("Stats block 'Secrets Found: 8' -> own count 8, row secrets " + secrets + " (no API read)");
             }
         });
     }

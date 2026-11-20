@@ -304,14 +304,14 @@ final class BossTriggerDelayCases {
         int[] cps = {20, 4};
         long[] t = new long[2];
         int[] targets = {7, 12};
-        int[] cpsWas = c.onClient(mc -> new int[]{(Integer) Mod.call(Mod.cfg(AA_CFG), "getTriggerBotCpsMin"),
-                (Integer) Mod.call(Mod.cfg(AA_CFG), "getTriggerBotCpsMax")});
+        int[] cpsWas = c.onClient(mc -> new int[]{(Integer) Mod.call(Mod.cfg(AA_CFG), "getTriggerBotDelayMin"),
+                (Integer) Mod.call(Mod.cfg(AA_CFG), "getTriggerBotDelayMax")});
         try (HxKit.Settings off = gateOff(c);
              HxKit.Settings on = new HxKit.Settings(c).with(AA_CFG, "SolverEnabled", true)
                      .with(AA_CFG, "PreventMisclicksEnabled", false).with(AA_CFG, "AuraEnabled", false)
                      .with(AA_CFG, "TriggerBotEnabled", true)
-                     .custom(() -> Mod.call(Mod.cfg(AA_CFG), "setTriggerBotCpsRange", 20, 20),
-                             () -> Mod.call(Mod.cfg(AA_CFG), "setTriggerBotCpsRange", cpsWas[0], cpsWas[1]))) {
+                     .custom(() -> Mod.call(Mod.cfg(AA_CFG), "setTriggerBotDelayRange", 50, 50),
+                             () -> Mod.call(Mod.cfg(AA_CFG), "setTriggerBotDelayRange", cpsWas[0], cpsWas[1]))) {
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
             c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
             // Loaded first (forceload): the console's fill refuses an unloaded area, and a tp above the floor with a
@@ -336,7 +336,7 @@ final class BossTriggerDelayCases {
             for (int i = 0; i < 2; i++) {
                 int rate = cps[i];
                 c.onClient(mc -> {
-                    Mod.call(Mod.cfg(AA_CFG), "setTriggerBotCpsRange", rate, rate);
+                    Mod.call(Mod.cfg(AA_CFG), "setTriggerBotDelayRange", 1000 / rate, 1000 / rate);
                     return null;
                 });
                 TriggerTiming.lookAway(c);
