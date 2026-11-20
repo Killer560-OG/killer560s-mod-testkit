@@ -107,6 +107,13 @@ final class AutoHarpCases {
             int maxTick = MenuKit.maxPerTick(MenuKit.clicksPerTick(c));
             c.note("done " + done + ", mod clicks " + mine + " (early " + early + "), fake-server clicks " + clicks.size()
                     + ", max container clicks in one server tick " + maxTick);
+            StringBuilder seq = new StringBuilder();
+            for (JsonObject k : clicks) {
+                seq.append(k.get("step").getAsInt()).append(':').append(k.get("col").getAsInt())
+                        .append(k.get("ok").getAsBoolean() ? "" : "!").append(' ');
+            }
+            c.note("clicks step:column (! = wrong): " + seq.toString().trim() + "; mod timeline early rows now "
+                    + Mod.staticCall(FEATURE, "lastEarlyRows"));
             c.check(done.get("ok").getAsInt() == NOTES, "right clicks " + done.get("ok") + " of " + NOTES);
             c.check(done.get("wrong").getAsInt() == 0, done.get("wrong") + " wrong click(s)");
             c.check(done.get("missed").getAsInt() == 0, done.get("missed") + " missed note(s)");
