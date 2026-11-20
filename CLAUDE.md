@@ -643,7 +643,10 @@ AP3 runtime (63-ap3: look/use entry tick, held-walk rule per node type, stopwatc
   at the title screen). It now passes SWP_ASYNCWINDOWPOS. Never make a synchronous window call on a test client's window.
   Since goldfix-1104 the deadline, the freeze kill and the no-progress watchdog (`-ProgressMinutes`, default 20, env
   `TESTKIT_PROGRESS_MINUTES`, 0 = off; progress = a `[Test thread/` or gametest-api line in build/run/clientGameTest/logs/latest.log,
-  never supporters/relay/catalog lines) end the WHOLE tree (by parent pid plus this checkout's clients and servers, taskkill /T /F);
+  never supporters/relay/catalog lines; starthang-1120: a client with NO such line `TESTKIT_START_MINUTES` after it appeared
+  (default 4, 0 = off; healthy boots take 30-104 s, measured on 305 logs) is ended and the run launched once more inside the
+  same slot, logging "start stall after N min ..., relaunching once"; a second start stall ends as the same "run hung" FAIL)
+  end the WHOLE tree (by parent pid plus this checkout's clients and servers, taskkill /T /F);
   a hang exits 5 (timeout 2) and writes a FAIL "hung" row into summary.md; a hidden backstop kills the tree 3 min after the
   deadline if the script itself is stuck, and jcmd gets 20 s. Force a hang to test it with killer560s-mod-logs/goldfix-suspend.ps1
   (NtSuspendProcess on the client) and `TESTKIT_HUNG_POLLS=100000` so the freeze watcher does not take it first.
