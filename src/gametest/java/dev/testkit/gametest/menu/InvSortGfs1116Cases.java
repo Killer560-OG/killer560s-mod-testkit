@@ -24,7 +24,7 @@ import java.util.Set;
  * i have multiple stacks in my storage under the amount it should grab from those first, put excess back in the storage then
  * gfs"):
  * <ul>
- *   <li>1116-invsort-gfs-gap: two items short, the two /gfs sends are at least 3 s apart on the wall clock.</li>
+ *   <li>1116-invsort-gfs-gap: two items short, the two /gfs sends are at least 230 ms and under 2000 ms apart on the wall clock (never one tick).</li>
  *   <li>1116-invsort-gfs-cooldown: the first /gfs is answered with Hypixel's cooldown line; the same /gfs goes out again,
  *   the item arrives and nothing is called missing.</li>
  *   <li>1116-invsort-gfs-combine: 40 wanted, storage holds stacks of 5, 12 and 30: no /gfs, the inventory ends with exactly 40
@@ -204,12 +204,12 @@ final class InvSortGfs1116Cases {
                     c.check(Set.copyOf(gfs).equals(Set.of("gfs ender_pearl 5", "gfs superboom_tnt 6")) && gfs.size() == 2,
                             "want one /gfs per short item: " + gfs);
                     long gap = times.get(1) - times.get(0);
-                    c.check(gap >= 2800, "two /gfs " + gap + " ms apart, want at least 3000 (seen within one tick)");
+                    c.check(gap >= 230 && gap < 2000, "two /gfs " + gap + " ms apart, want 230 to 1999");
                 }
                 case "cooldown" -> {
                     c.check(gfs.equals(List.of("gfs ender_pearl 5", "gfs ender_pearl 5")), "want the refused /gfs sent again: " + gfs);
-                    c.check(times.size() == 2 && times.get(1) - times.get(0) >= 2800,
-                            "the second /gfs came too soon after the first: " + times);
+                    c.check(times.size() == 2 && times.get(1) - times.get(0) >= 950,
+                            "the refused /gfs was not asked again after about 1 s: " + times);
                     c.check(count(c, Items.ENDER_PEARL) == 5, "the pearls never arrived: " + count(c, Items.ENDER_PEARL));
                     List<String> done = LogTap.since(mark).stream().filter(l -> l.contains("Sacks done")).toList();
                     c.check(done.size() == 1 && done.get(0).contains("1 fetched") && done.get(0).contains("[]"),
