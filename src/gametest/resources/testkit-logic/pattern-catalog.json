@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T22:41:35",
- "modSource": "lane-pvfit-1118-pf-rd",
- "modGitSha": "654525f3537e2e2fcffd21a13b17694a906ebb40",
+ "generatedAt": "2026-11-20T00:15:21",
+ "modSource": "lane-ee3simflags-1118-pf-rd",
+ "modGitSha": "6e62ecdd71325abbabe65a48f44c90a76245923c",
  "modSourceDirty": false,
  "count": 989,
  "byKind": {
