@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T22:41:35",
- "modSource": "lane-pvfit-1118-pf-rd",
- "modGitSha": "654525f3537e2e2fcffd21a13b17694a906ebb40",
+ "generatedAt": "2026-11-20T00:14:22",
+ "modSource": "lane-invsortgap-1119",
+ "modGitSha": "7f1a64b49f99439487c720b7ec433469f3653f4e",
  "modSourceDirty": false,
  "count": 989,
  "byKind": {
