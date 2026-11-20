@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-20T12:04:59",
- "modSource": "lane-lane-missing-leaprow-1120",
- "modGitSha": "61f99bab84617c7944f39a66892bcb25e6fc85c1",
+ "generatedAt": "2026-11-20T12:29:59",
+ "modSource": "lane-norotate-rm2-1119-rd5",
+ "modGitSha": "5044c617eca639307d142b369f0a4bc1837d0d13",
  "modSourceDirty": false,
  "count": 966,
  "byKind": {
