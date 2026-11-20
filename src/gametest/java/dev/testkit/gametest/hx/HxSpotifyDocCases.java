@@ -1335,6 +1335,7 @@ final class HxSpotifyDocCases {
         c.onClient(mc -> Mod.staticCall("spotify.SpotifyControls", "tabOpened"));
         c.onClient(mc -> Mod.call(media, "send", "volq"));
         c.waitUntil("the helper answered volq", mc -> (Long) Mod.field(media, "results") > before, 600);
+        c.ctx().waitTicks(100);   // tabOpened's own volume read answers too; count only the burst
         int current = c.onClient(mc -> (Integer) Mod.call(media, "volume"));
         long skipped0 = c.onClient(mc -> (Long) Mod.field(media, "volumesSkipped"));
         long results0 = c.onClient(mc -> (Long) Mod.field(media, "results"));
