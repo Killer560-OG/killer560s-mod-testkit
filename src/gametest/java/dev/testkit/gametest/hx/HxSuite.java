@@ -67,6 +67,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxSpotifyControlsCases.register(s); HxSpotifyLyrics1108Cases.register(s);
                     HxSpotifyDocCases.register(s);
                     HxSongTagParty1105Cases.register(s); // spotshare-1105: the party room survives a warp
+                    HxPartyState1118Cases.register(s); // partystate-1118: one party tracker, every line form, the tab widget
                     HxSongFix1106Cases.register(s); // songfix-1106: a non-supporter sees a supporter's song and name
                     HxYtLyrics1108Cases.register(s);
                     // Auto Meow replies in the trigger's channel, and Mod Chat sends (874, branch
@@ -168,6 +169,7 @@ public class HxSuite implements FabricClientGameTest {
 
                     // Auto Superboom, cheat only, with his dig / use / scroll / teleport in the swap tick (1108-same-superboom-*, featD-1108).
                     HxSuperboom1108Cases.register(s);
+                    HxSuperboomRange1118Cases.register(s);
                     // Storm Bow release and Auto M5, idle and with his actions in their ticks (1111-*stormbow*, 1111-*autom5*, mod stormm5-1111).
                     HxStormM51111Cases.register(s);
                     HxCheatBugs1109Cases.register(s);
@@ -178,6 +180,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxOwner1103Cases.register(s);
                     // Party Commands floor requests: Creation Cooldown wait, retry, your own !f (1104-partycmd-floor-*, mod partycmd-1104).
                     HxPartyFloor1104Cases.register(s);
+                    HxOfficerCmd1118Cases.register(s);
                     // Resume Held Break After Menus and the AttackHold dump (1103-mining-hold-*, mod mithril-hold-1103).
                     HxAttackHold1103Cases.register(s);
                     // Powder Break Sounds (1104-powdersound-*, mod powdersound-1104).
@@ -191,6 +194,8 @@ public class HxSuite implements FabricClientGameTest {
                     // Every-drop coverage: mob/sea creature kills, Looting, slayer level, RNG Meter, Kuudra, Nucleus,
                     // Experiments, Unknown-floor claims (1102-luck-*, mod branch luck2-1101).
                     HxLuck1102Cases.register(s);
+                    // Ability, bow and drop-first kill counting, armor pieces, identical drop lines (1118-luck-*, luckcount-1118).
+                    HxLuck1118Cases.register(s);
                     // Dark Mode: world / HUD tint by framebuffer pixels, screens untouched, settings reload (1102-darkmode-*,
                     // mod branch darkmode-1102), own block.
                     HxDarkMode1102Cases.register(s);

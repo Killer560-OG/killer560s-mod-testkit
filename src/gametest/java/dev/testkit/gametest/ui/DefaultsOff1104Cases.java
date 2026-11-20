@@ -23,6 +23,7 @@ final class DefaultsOff1104Cases {
     private static final String[][] TABLE = {
             {"croesus.CroesusConfig", "chestProfitEnabled", "loggerEnabled"},
             {"chatchannel.ChatChannelConfig", "enabled"},
+            {"autoreclaim.AutoReclaimConfig", "enabled", "pullAndReclaim"},
             {"leftclicksecrets.LeftClickSecretsConfig", "enabled"},
             {"milestone.MilestoneConfig", "enabled"},
             {"itemhighlight.DungeonItemHighlightConfig", "enabled"},
@@ -38,6 +39,8 @@ final class DefaultsOff1104Cases {
             {"missingenchants.MissingEnchantsConfig", "enabled", "belowMax"},
             {"dungeonqueue.DungeonQueueConfig", "enabled", "pvLinkOnJoin"},
             {"partyfinder.PartyFinderOverlayConfig", "enabled"},
+            // espname-1118: a mob type's Color row and the Style rows are built only while its switch is on.
+            {"mobesp.MobEspConfig", "starredMobs", "bats", "bloodMobs", "felSkulls", "mimic", "witherHighlight"},
             {"posmsg.PosmsgConfig", "enabled"},
             {"rngmeter.RngMeterConfig", "enabled"},
             {"melody.MelodyHudConfig", "hudEnabled", "shareProgress"},
@@ -71,6 +74,7 @@ final class DefaultsOff1104Cases {
             {"dungeonqol.DungeonQolConfig", "itemQuality", "icedBoxes", "roomHud"},
             {"autoclosechest.AutoCloseChestConfig", "enabled"},
             {"accadvisor.AccessoryAdvisorConfig", "enabled"},
+            {"chestvalue.ChestValueConfig", "enabled"},
             {"f7spots.F7SpotsConfig", "stormBow", "stormBowTerminator", "stormBowWalk"},
             {"boss.LividSolverConfig", "autoM5", "m5ArmorSwap"},
     };

@@ -25,7 +25,7 @@ import static dev.testkit.gametest.SimLeap1116.chatSince;
  * simleapspots-1117 (killer560 2026-11-17, killer560s-mod-logs/simleapspots-1117/SPEC.md): in the sim's F7/M7 boss a leap
  * goes to the CLASS's spot for the phase, with his yaw and pitch.
  * <ul>
- * <li>{@code 1117-sim-leapspots}: with no Sim Teammates placed the menu still lists Teammate1-4, each labeled (lore) with
+ * <li>{@code 1117-sim-leapspots}: with no Sim Teammates placed the menu still lists four heads named by class, each labeled (lore) with
  * one of the four classes he does not play. Played as Mage and then as Tank, every phase (Maxor, Storm F7, Storm M7, Goldor
  * S1-S4, Necron, M7 dragons) and every listed class: a leap lands exactly on the owner's spot and look (the server's
  * landing and his client both, after he stood somewhere else), a class with no spot says he leaped wrong and moves nothing
@@ -276,7 +276,7 @@ final class SimLeapSpots1117 {
                         openMenu(ctx, classOf, 45);
                         ctx.runOnClient(mc -> mc.player.closeContainer());
                         println(NAME, tag + "menu " + classOf);
-                        expect(f, tag + "four heads, Teammate1-4", classOf.keySet().toString(), "[Teammate1, Teammate2, Teammate3, Teammate4]");
+                        expect(f, tag + "four heads, each named by its class (no TeammateN)", classOf.size() == 4 && classOf.entrySet().stream().allMatch(e -> e.getKey().equals(e.getValue())), true);
                         String me = "BERSERKER".equals(self) ? "Berserk" : self.charAt(0) + self.substring(1).toLowerCase(Locale.ROOT);
                         expect(f, tag + "the heads are the four classes he does not play", classOf.values().contains(me)
                                 || new java.util.HashSet<>(classOf.values()).size() != 4, false);
