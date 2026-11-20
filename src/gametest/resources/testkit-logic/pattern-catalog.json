@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-20T01:44:40",
- "modSource": "lane-ee3simflags-1118-pf-rd",
- "modGitSha": "0cbe6f092c37ee579251533cf750a2764f1c76b9",
+ "generatedAt": "2026-11-20T02:01:40",
+ "modSource": "lane-bottlealert-1118-pf-rd",
+ "modGitSha": "e85614d7eb1a26bdde557baf390f6103840ce3d2",
  "modSourceDirty": false,
- "count": 989,
+ "count": 990,
  "byKind": {
   "dynamic": 10,
   "element": 63,
-  "field": 870,
+  "field": 871,
   "local": 46
  },
  "unresolved": 160,
@@ -4500,6 +4500,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^(?:enderchest_[1-9]|backpack_(?:[1-9]|1[0-8]))$\""
+  },
+  {
+   "id": "itemalerts.ItemAlertsFeature#CHARGE",
+   "cls": "itemalerts.ItemAlertsFeature",
+   "field": "CHARGE",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/itemalerts/ItemAlertsFeature.java",
+   "line": 53,
+   "regex": "Charge: ([\\d,]{1,12})/([\\d,]{1,12})",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"Charge: ([\\\\d,]{1,12})/([\\\\d,]{1,12})\""
   },
   {
    "id": "itembrowser.ItemBrowserFeature#MINION_ID",
