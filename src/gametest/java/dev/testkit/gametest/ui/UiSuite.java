@@ -105,7 +105,7 @@ public class UiSuite implements FabricClientGameTest {
             "399-ui-stat-bars-vitality-xp", "407-ui-stat-bars-layout", "401-ui-scoreboard-editor",
             "1104-ui-mining-pulled-jar", "1104-ui-mining-pulled-menu", "1104-ui-mining-pulled-tabs",
             "1104-ui-mining-pulled-profit", "1104-ui-mining-chmap", "1105-ui-chmap-tab", "1104-ui-themematch-pixels", "1104-ui-themematch-audit", "1108-ui-lightcontrast", "1108-ui-salvage-highlight", "1113-ui-accadvisor", "1114-ui-accadv-drag", "1114-ui-accadv-mode", "1114-ui-accadv-copy", "1115-ui-bugcmd", "412-ui-no-new-tab", "413-ui-testing-variant",
-            "1108-ui-itemquality", "1108-ui-chestclick", "1108-ui-icedmobs", "1108-ui-roomname",
+            "1119-ui-chestvalue", "1108-ui-itemquality", "1108-ui-chestclick", "1108-ui-icedmobs", "1108-ui-roomname",
             "425-ui-bazaar-icons", "427-ui-pack-disabler-models",
             "428-ui-pack-disabler-pack-push", "430-ui-pack-disabler-screens",
             "431-ui-pack-disabler-user-pack", "432-ui-pack-disabler-bazaar", "1105-ui-goblin-egg-look", "1105-ui-boss-chooser",
@@ -311,7 +311,8 @@ public class UiSuite implements FabricClientGameTest {
     static final String[] LIGHTS_DEVICE_CASES = {"1475-ui-lights-device"};
     /** killer560's 2026-10-15 click sounds and short descriptions ({@link SoundDescCases}). Own block for merges. */
     static final String[] SOUND_DESC_CASES = {"1060-ui-card-descriptions", "1061-ui-descriptions-toggle",
-            "1062-ui-editor-hint-narrow", "1063-ui-click-presets", "1064-ui-click-import", "1109-ui-soundfx", "1109-ui-soundfx-layout"};
+            "1062-ui-editor-hint-narrow", "1063-ui-click-presets", "1064-ui-click-import", "1109-ui-soundfx", "1109-ui-soundfx-layout",
+            "1118-ui-soundfx-options", "1118-ui-soundfx-volume"};
     /** killer560's 2026-10-15 Trajectories for shortbows (mod shortbow-traj-1015, {@link TrajectoryCases}). Own block. */
     static final String[] TRAJECTORY_CASES = {"1080-ui-traj-shortbow", "1081-ui-traj-terminator-spread",
             "1082-ui-traj-normal-bow-drawn-only", "1083-ui-traj-shortbows-setting"};
@@ -505,9 +506,6 @@ public class UiSuite implements FabricClientGameTest {
             for (String n : ProtectStarCases.CASES) {
                 dev.testkit.gametest.Scenario.skip(n);
             }
-            for (String n : CarnivalUiCases.CASES) {
-                dev.testkit.gametest.Scenario.skip(n);
-            }
             dev.testkit.gametest.Scenario.skip(DENY_CASE);
             return;
         }
@@ -524,8 +522,7 @@ public class UiSuite implements FabricClientGameTest {
                 || any(TRAIL_SHARE_CASES) || any(MENU_ORDER_CASES) || any(AURA_THEME_CASES) || any(TRAIL_HUD_CASES)
                 || any(LIGHTS_DEVICE_CASES) || any(NAMES_PROFILES_CASES) || any(SOUND_DESC_CASES) || any(MAP_OVERHAUL_CASES)
                 || any(TRAJECTORY_CASES) || any(MOB_SKIN_CASES) || any(PREDICT_IN_MAP_CASES)
-                || any(DocMenu1101Cases.CASES) || any(KeybindMouseCases.CASES) || any(EffectsSearchCases.CASES) || any(StorageSearchCases.CASES) || any(PvJoinCases.CASES) || any(ProtectStarCases.CASES)
-                || any(CarnivalUiCases.CASES);
+                || any(DocMenu1101Cases.CASES) || any(KeybindMouseCases.CASES) || any(EffectsSearchCases.CASES) || any(StorageSearchCases.CASES) || any(PvJoinCases.CASES) || any(ProtectStarCases.CASES);
         if (!anyTitle && !anyWorld && !UiCase.selected(DENY_CASE)) {
             return;
         }
@@ -825,6 +822,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1114-ui-accadv-drag", AccAdvisor1114Cases::drag);
                     UiCase.run(ctx, "1114-ui-accadv-mode", AccAdvisor1114Cases::mode);
                     UiCase.run(ctx, "1114-ui-accadv-copy", AccAdvisor1114Cases::copy);
+                    UiCase.run(ctx, "1119-ui-chestvalue", ChestValue1119Cases::chestValue);
                     UiCase.run(ctx, "1117-accbag-owned-missing", AccBag1117Cases::ownedMissing);
                     UiCase.run(ctx, "1115-ui-bugcmd", BugCmd1115Cases::bugCmd);
                     // ---- doc-small (807) ----
@@ -836,6 +834,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1101-ds-held-item", DocSmall1101Cases::heldItem);
                     UiCase.run(ctx, "1104-ui-helditem-stuck", HeldItemStuckCases::stuck);
                     UiCase.run(ctx, "1105-ui-invsearch-click", InvSearchClick1105Cases::click);
+                    UiCase.run(ctx, "1119-ui-search-caret", SearchCaret1119Cases::caret);
                     UiCase.run(ctx, "1101-ds-dvd", DocSmall1101Cases::dvd);
                     UiCase.run(ctx, "1101-ds-edit-hud-bars", DocSmall1101Cases::editHudBars);
                     UiCase.run(ctx, "1101-ds-ping-colors", DocSmall1101Cases::pingColors);
@@ -893,26 +892,6 @@ public class UiSuite implements FabricClientGameTest {
                     // ---- Item Protect Show Star switch (mod protectstar-1102, ProtectStarCases) ----
                     UiCase.run(ctx, ProtectStarCases.SHOW_STAR, ProtectStarCases::showStar);
                     UiCase.run(ctx, ProtectStarCases.TRADE, ProtectStarCases::starredTrade);
-                    // ---- the Carnival category (3760-3772, mod carnival-1110) ----
-                    UiCase.run(ctx, "3760-ui-carnival-category", CarnivalUiCases::category);
-                    UiCase.run(ctx, "3761-ui-carnival-tracker", c -> CarnivalUiCases.tab(c, "Carnival Tracker"));
-                    UiCase.run(ctx, "3762-ui-fruit-digging-solver", c -> CarnivalUiCases.tab(c, "Fruit Digging Solver"));
-                    UiCase.run(ctx, "3763-ui-zombie-shootout-helper", c -> CarnivalUiCases.tab(c, "Zombie Shootout Helper"));
-                    UiCase.run(ctx, "3764-ui-catch-a-fish-helper", c -> CarnivalUiCases.tab(c, "Catch a Fish Helper"));
-                    UiCase.run(ctx, "3765-ui-zombie-shootout-triggerbot",
-                            c -> CarnivalUiCases.tab(c, "Zombie Shootout Triggerbot"));
-                    UiCase.run(ctx, "3766-ui-auto-zombie-shootout", c -> CarnivalUiCases.tab(c, "Auto Zombie Shootout"));
-                    UiCase.run(ctx, "3767-ui-auto-shovel-swap", c -> CarnivalUiCases.tab(c, "Auto Shovel Swap"));
-                    UiCase.run(ctx, "3768-ui-auto-fruit-digging", c -> CarnivalUiCases.tab(c, "Auto Fruit Digging"));
-                    UiCase.run(ctx, "3769-ui-auto-catch-a-fish", c -> CarnivalUiCases.tab(c, "Auto Catch a Fish"));
-                    UiCase.run(ctx, "3770-ui-carnival-automation-note", CarnivalUiCases::automationNote);
-                    UiCase.run(ctx, "3771-ui-carnival-parsers", CarnivalUiCases::parsers);
-                    UiCase.run(ctx, "3773-ui-auto-accept-game", CarnivalUiCases::autoAccept);
-                    UiCase.run(ctx, "3774-ui-carnival-fold", CarnivalUiCases::fold);
-                    UiCase.run(ctx, "3775-ui-carnival-solver-drops", CarnivalUiCases::solverDrops);
-                    UiCase.run(ctx, "3776-ui-carnival-accept-shapes", CarnivalUiCases::acceptShapes);
-                    UiCase.run(ctx, "3772-ui-fruit-digging-triggerbot",
-                            c -> CarnivalUiCases.tab(c, "Fruit Digging Triggerbot"));
                     // ---- profiles carry everything, across jars (980-985) ----
                     UiCase.run(ctx, "980-ui-profile-data-switch", ProfileDataCases::switchAB);
                     UiCase.run(ctx, "981-ui-profile-data-export", ProfileDataCases::exportImport);
@@ -1065,6 +1044,8 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1064-ui-click-import", SoundDescCases::imported);
                     UiCase.run(ctx, "1109-ui-soundfx", SoundFx1109Cases::effects);
                     UiCase.run(ctx, "1109-ui-soundfx-layout", SoundFx1109Cases::layout);
+                    UiCase.run(ctx, "1118-ui-soundfx-options", SoundFx1118Cases::options);
+                    UiCase.run(ctx, "1118-ui-soundfx-volume", SoundFx1118Cases::volume);
                     // ---- killer560's 2026-11-01 to-do Doc menu items (mod doc-menu-1101, DocMenu1101Cases) ----
                     UiCase.run(ctx, "1101-ui-docmenu-sections", DocMenu1101Cases::sections);
                     UiCase.run(ctx, "1101-ui-docmenu-scrollbar", DocMenu1101Cases::scrollbar);

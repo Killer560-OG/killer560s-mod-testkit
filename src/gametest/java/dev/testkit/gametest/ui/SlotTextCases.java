@@ -518,6 +518,18 @@ final class SlotTextCases {
             c.check(got.equals("[]"), "Mix is not a numeral, got " + got);
             got = text(c, blessing, "Chest", 20, false).toString();
             c.check(got.equals("[]"), "another menu draws nothing, got " + got);
+            // essencedouble-1119: the owner saw "5 5" on Forbidden Intel (enchanted book, count 5): vanilla count plus the Bazaar book level.
+            setType(c, "ENCHANT_LEVEL", true);
+            ItemStack intel = mk(Items.ENCHANTED_BOOK, "Forbidden Intel V", null, "Level 5/5");
+            intel.setCount(5);
+            got = text(c, intel, wither, 22, false).toString();
+            c.check(got.equals("[]"), "Forbidden Intel V count 5 must draw no second number, got " + got);
+            ItemStack intel1 = mk(Items.ENCHANTED_BOOK, "Forbidden Intel V", null);
+            got = text(c, intel1, wither, 22, false).toString();
+            c.check(got.equals("[BOTTOM_RIGHT:5:" + CREAM + "]"), "count 1 book should draw the level once, got " + got);
+            intel.setCount(3);
+            got = text(c, intel, wither, 22, false).toString();
+            c.check(got.equals("[BOTTOM_RIGHT:5:" + CREAM + "]"), "count 3 book should draw the level once (clearOfCount moves it), got " + got);
             setType(c, "PERK_LEVEL", false);
             got = text(c, blessing, wither, 20, false).toString();
             c.check(got.equals("[]"), "switch OFF draws nothing, got " + got);
