@@ -19,9 +19,9 @@ import java.util.List;
  * <ul>
  *   <li>1120-autoharp-normal: no lag, no ping.</li>
  *   <li>1120-autoharp-lag: the rows stall for 3-12 ticks at four steps (irregular server ticks), Auto Detect Lag on.</li>
- *   <li>1120-autoharp-ping: a 300 ms round trip (faked in the server and fed to the ping tracker), Auto Detect Ping
+ *   <li>1120-autoharp-ping: a 375 ms round trip (faked in the server and fed to the ping tracker), Auto Detect Ping
  *       on: notes are clicked early and still land.</li>
- *   <li>1120-autoharp-manual: a 300 ms round trip with both auto switches off and Click Offset +300.</li>
+ *   <li>1120-autoharp-manual: a 375 ms round trip with both auto switches off and Click Offset +300.</li>
  *   <li>1120-autoharp-off: the feature OFF clicks nothing; ON, the song list ("Melody's Harp") gets no click.</li>
  *   <li>1120-same-autoharp-click / -key: his own container click lands in every client tick through the screen /
  *       at END (the feature's chords click on consecutive ticks too); run on default and experimental GrimAC.</li>
@@ -39,8 +39,8 @@ final class AutoHarpCases {
     static void register(Session s) {
         MenuSuite.test(s, "1120-autoharp-normal", c -> play(c, 0, "[]", true, true, 0, null));
         MenuSuite.test(s, "1120-autoharp-lag", c -> play(c, 0, "[[2,6],[5,3],[8,12],[11,4]]", true, true, 0, null));
-        MenuSuite.test(s, "1120-autoharp-ping", c -> play(c, 300, "[]", true, true, 0, null));
-        MenuSuite.test(s, "1120-autoharp-manual", c -> play(c, 300, "[]", false, false, 300, null));
+        MenuSuite.test(s, "1120-autoharp-ping", c -> play(c, 375, "[]", true, true, 0, null));
+        MenuSuite.test(s, "1120-autoharp-manual", c -> play(c, 375, "[]", false, false, 300, null));
         MenuSuite.test(s, "1120-autoharp-off", AutoHarpCases::off);
         MenuSuite.test(s, "1120-same-autoharp-click", c -> play(c, 0, "[]", true, true, 0, SameTick.Act.SCREEN_CLICK));
         MenuSuite.test(s, "1120-same-autoharp-key", c -> play(c, 0, "[]", true, true, 0, SameTick.Act.CLICK));
