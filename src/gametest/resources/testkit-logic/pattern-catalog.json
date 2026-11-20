@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-20T02:01:40",
- "modSource": "lane-bottlealert-1118-pf-rd",
- "modGitSha": "e85614d7eb1a26bdde557baf390f6103840ce3d2",
+ "generatedAt": "2026-11-20T03:56:56",
+ "modSource": "lane-freezefix-1120-b",
+ "modGitSha": "764c0aba3a4f5cce4bf8d96b7f496477c7cc482f",
  "modSourceDirty": false,
  "count": 990,
  "byKind": {
