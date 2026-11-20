@@ -28,7 +28,7 @@ public class SimHelpShotsTests implements FabricClientGameTest {
 
     static final String NAME = "1118-sim-help-shots";
     private static final String SCREEN = "com.killer560.hub.roomsim.SimHelpScreen";
-    private static final Path DIR = Path.of("C:/Users/Hunter/killer560s-mod-logs/simhelp-polish-1118");
+    private static final Path DIR = Path.of(System.getenv().getOrDefault("KM_SHOTS_DIR", "C:/Users/Hunter/killer560s-mod-logs/simhelp-polish-1119"));
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -60,7 +60,8 @@ public class SimHelpShotsTests implements FabricClientGameTest {
 
     private void run(ClientGameTestContext ctx, List<String> problems, List<String> facts) throws Exception {
         ctx.waitFor(mc -> McCompat.screen(mc) != null, 1200);
-        setWindow(ctx, 1280, 720, 2);
+        int[] win = java.util.Arrays.stream(System.getenv().getOrDefault("KM_SHOTS_WIN", "2560x1440x4").split("x")).mapToInt(Integer::parseInt).toArray();
+        setWindow(ctx, win[0], win[1], win[2]);
         // First, from the title screen (the path 1101-sim-mobfloor takes): an F7 floor with mobs and the F7 boss, in world.
         List<String> worldNotes = new ArrayList<>();
         // FloorGen.generate from the title screen opened no world (mc.level null for 2400 ticks, nothing logged), so plan
