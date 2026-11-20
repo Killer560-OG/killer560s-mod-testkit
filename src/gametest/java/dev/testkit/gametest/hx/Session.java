@@ -301,6 +301,7 @@ public final class Session {
                 ctx.runOnClient(mc -> dev.testkit.harness.Latency.install(LAG_MS));
                 ctx.waitTicks(20);
             }
+            Scenario.acceptedFlag = null; // a case sets its own owner exception inside its body
             body.run(this);
             ctx.waitTicks(10);
             String verdict;
