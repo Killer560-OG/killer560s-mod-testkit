@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-20T01:02:21",
- "modSource": "lane-hideplayers-1119",
- "modGitSha": "8633d1ea4ff8c3b3faf3cfa7bd649dd793be4705",
+ "generatedAt": "2026-11-20T01:11:58",
+ "modSource": "lane-bcmageonly-1119-fx",
+ "modGitSha": "23dc5b6b5f0fe5276e0d9c426866ae80ecfd73f0",
  "modSourceDirty": false,
  "count": 989,
  "byKind": {
