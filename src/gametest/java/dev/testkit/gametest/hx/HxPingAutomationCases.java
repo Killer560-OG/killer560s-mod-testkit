@@ -273,6 +273,8 @@ final class HxPingAutomationCases {
         boolean tracked = false;
         long firstTick = -1;
         long since;
+        int clicksAtTrig = -1;
+        int attacksAtTrig = -1;
         try {
             c.ctx().waitTicks(10);
             for (int i = 0; i < 3; i++) {
@@ -303,6 +305,9 @@ final class HxPingAutomationCases {
                     return !Double.isNaN(killAt) && (!Mod.isCheat() || !Double.isNaN(trig));
                 });
                 if (done) {
+                    // The trip's own click, read before the follow-up hits (between-hits and next-mob clicks) land.
+                    clicksAtTrig = c.onClient(mc -> (Integer) Mod.staticCall(BC, "triggerClicks"));
+                    attacksAtTrig = c.onClient(mc -> (Integer) Mod.staticCall(BC, "triggerAttacks"));
                     break;
                 }
                 c.ctx().waitTicks(1);
@@ -326,8 +331,8 @@ final class HxPingAutomationCases {
         double killAt = c.onClient(mc -> (Double) Mod.staticCall(BC, "lastKillableAt"));
         int killPing = c.onClient(mc -> (Integer) Mod.staticCall(BC, "lastKillablePingMs"));
         double trig = c.onClient(mc -> (Double) Mod.staticCall(BC, "lastTriggerAt"));
-        int clicks = c.onClient(mc -> (Integer) Mod.staticCall(BC, "triggerClicks")) - clicks0;
-        int attacks = c.onClient(mc -> (Integer) Mod.staticCall(BC, "triggerAttacks")) - attacks0;
+        int clicks = (clicksAtTrig >= 0 ? clicksAtTrig : c.onClient(mc -> (Integer) Mod.staticCall(BC, "triggerClicks"))) - clicks0;
+        int attacks = (attacksAtTrig >= 0 ? attacksAtTrig : c.onClient(mc -> (Integer) Mod.staticCall(BC, "triggerAttacks"))) - attacks0;
         return new Trip(tracked, killAt, killPing, trig, clicks, attacks, serverLead);
     }
 

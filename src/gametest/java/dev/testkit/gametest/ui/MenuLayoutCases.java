@@ -162,7 +162,9 @@ final class MenuLayoutCases {
             // Milestone Display and Salvage Helper (mod featF-1108): Dungeons cards, legit in both builds, OFF.
             "gui.tab.MilestoneTab", "gui.tab.DungeonItemHighlighterTab",
             // Accessory Advisor (mod accadvisor-1113, killer560 2026-11-13): Items card, legit in both builds, OFF.
-            "gui.tab.AccessoryAdvisorTab");
+            "gui.tab.AccessoryAdvisorTab",
+            // Chest Value (mod chestvalue-1119): Items card, legit in both builds, OFF.
+            "gui.tab.ChestValueTab");
     /** Sub-tabs renamed by this change: old scope -> new scope. */
     static final Map<String, String> RENAMED = Map.of("Crosshair", "Custom Crosshair",
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.
