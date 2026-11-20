@@ -1,0 +1,86 @@
+package dev.testkit.gametest.logic;
+
+import dev.testkit.compat.McCompat;
+import dev.testkit.gametest.mod.Mod;
+
+import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+
+import net.minecraft.network.chat.Component;
+
+/**
+ * 1118-logic-deadlisteners-bar (mod deadlisteners-1118): Ability Cooldowns and Metal Detector read the action bar through
+ * a plain Fabric GAME / MODIFY_GAME listener, which Hypixel's action bar packet never reaches and which Chat Hider's
+ * "Hide actionbar" starves on the system-chat path. Both now hang off PlayerStatsFeature.onActionBar. Each line goes
+ * through a real packet handler with Hide actionbar ON: Ender Bow's "-N Mana (Ender Warp)" as a system-chat overlay (the
+ * path Hide actionbar drops) and Fire Veil's straight into Gui.setOverlayMessage (what Hypixel's action bar packet calls), then a metal
+ * detector "TREASURE: 37.4m" readout in Mines of Divan. Each feature must have acted (cooldown running, distance read).
+ * Positive control: the cooldowns are not running before the lines. (SelfDerivation is asserted in 1118-sim-map-hidden-bar.)
+ */
+final class DeadListenerCases {
+
+    static ClientGameTestContext ctx;
+
+    private static final String CHAT_TIDY = "chattidy.ChatTidyConfig";
+    private static final String ABILITY_CFG = "abilitycooldown.AbilityCooldownConfig";
+    private static final String ABILITY_STATE = "abilitycooldown.AbilityCooldownState";
+    private static final String ITEM_ABILITY = "abilitycooldown.ItemAbility";
+    private static final String METAL_CFG = "mining.metaldetector.MetalDetectorConfig";
+    private static final String METAL = "mining.metaldetector.MetalDetectorFeature";
+    private static final String ISLAND = "pathfinding.IslandDetector";
+
+    private DeadListenerCases() {
+    }
+
+    private static boolean cooling(String ability) {
+        return ctx.computeOnClient(mc -> (Boolean) Mod.staticCall(ABILITY_STATE, "isOnCooldown",
+                Mod.enumValue(ITEM_ABILITY, ability)));
+    }
+
+    static void bar(LogicCase c) {
+        boolean wasHide = (Boolean) Mod.get(CHAT_TIDY, "getHideActionbarRaw");
+        boolean wasAbility = (Boolean) Mod.get(ABILITY_CFG, "isEnabled");
+        boolean wasBarDetect = (Boolean) Mod.get(ABILITY_CFG, "isActionBarDetection");
+        boolean wasMetal = (Boolean) Mod.get(METAL_CFG, "isEnabled");
+        try (TestSingleplayerContext sp = ctx.worldBuilder().create()) {
+            ctx.waitTicks(5);
+            ctx.runOnClient(mc -> {
+                Mod.set(CHAT_TIDY, "setHideActionbar", true);
+                Mod.set(ABILITY_CFG, "setEnabled", true);
+                Mod.set(ABILITY_CFG, "setActionBarDetection", true);
+                Mod.set(METAL_CFG, "setEnabled", true);
+            });
+            c.check("control: Ender Bow is not cooling down yet", !cooling("ENDER_BOW"), "");
+            c.check("control: Fire Veil is not cooling down yet", !cooling("FIRE_VEIL"), "");
+            // System-chat overlay: Fabric's own ALLOW_GAME dispatch, where Hide actionbar drops the line.
+            ctx.runOnClient(mc -> net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents.ALLOW_GAME.invoker()
+                    .allowReceiveGameMessage(Component.literal("§b-30 Mana (§6Ender Warp§b)"), true));
+            c.check("Ender Bow cooldown started from a system-chat action bar with Hide actionbar ON", cooling("ENDER_BOW"), "");
+            // Hypixel's own action bar packet.
+            ctx.runOnClient(mc -> Mod.call(McCompat.hud(mc), "setOverlayMessage", 
+                    Component.literal("§b-20 Mana (§6Fire Veil§b)"), false));
+            c.check("Fire Veil cooldown started from the action bar packet", cooling("FIRE_VEIL"), "");
+            // Metal Detector: Crystal Hollows, Mines of Divan; set and read in one client tick so no area tick undoes it.
+            Object read = ctx.computeOnClient(mc -> {
+                Mod.setField(ISLAND, "graphIsland", "CRYSTAL_HOLLOWS");
+                Mod.setField(ISLAND, "scoreboardArea", "Mines of Divan");
+                Mod.setField(METAL, "prevDistance", -1.0);
+                Mod.call(McCompat.hud(mc), "setOverlayMessage", 
+                        Component.literal("§3§lTREASURE: §b37.4m"), false);
+                Object d = Mod.field(METAL, "prevDistance");
+                Mod.setField(ISLAND, "graphIsland", null);
+                Mod.setField(ISLAND, "scoreboardArea", "");
+                return d;
+            });
+            c.eq("Metal Detector read the TREASURE distance from the action bar packet", 37.4, read);
+            c.note("Ender Bow (system chat, Hide ON), Fire Veil (action bar packet) and Metal Detector (TREASURE 37.4m) all acted");
+        } finally {
+            ctx.runOnClient(mc -> {
+                Mod.set(CHAT_TIDY, "setHideActionbar", wasHide);
+                Mod.set(ABILITY_CFG, "setEnabled", wasAbility);
+                Mod.set(ABILITY_CFG, "setActionBarDetection", wasBarDetect);
+                Mod.set(METAL_CFG, "setEnabled", wasMetal);
+            });
+        }
+    }
+}

@@ -66,6 +66,8 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "1117-logic-rngmeter-superpairs", RngMeterListCases::superpairs);
         LogicCase.run(ctx, "1118-logic-runsecrets", RunSecretsCases::run);
         LogicCase.run(ctx, "1118-logic-patchprep-6172091", PatchPrep6172091Cases::run);
+        DeadListenerCases.ctx = ctx;
+        LogicCase.runOffClient(ctx, "1118-logic-deadlisteners-bar", DeadListenerCases::bar);
         // ---- Auto Report Bans (mod doc-ban-1101) - own block
         LogicCase.run(ctx, "4101-logic-banreport-fake-ban", BanReportCases::fakeBan);
         LogicCase.run(ctx, "4102-logic-banreport-off", BanReportCases::off);
@@ -118,6 +120,7 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.runOffClient(ctx, "1104-logic-themedl-oldconfig", ThemeAssetsCases::oldConfig);
         LogicCase.runOffClient(ctx, "1104-logic-themedl-notheme", ThemeAssetsCases::noTheme);
         LogicCase.runOffClient(ctx, "1104-logic-themedl-delete", ThemeAssetsCases::delete);
+        LogicCase.runOffClient(ctx, "1119-logic-translit", TranslitCases::translit);
         LogicCase.run(ctx, "1104-logic-leapcore", LeapCore1104Cases::leapCore);
         LogicCase.run(ctx, "1104-logic-leapcore-suppress", LeapCore1104Cases::suppress);
         LogicCase.run(ctx, "1105-logic-mapinfer-pit", MapInfer1105Cases::pit);
