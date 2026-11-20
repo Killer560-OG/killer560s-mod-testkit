@@ -1331,8 +1331,11 @@ final class HxSpotifyDocCases {
         c.check(windows, "needs Windows (the helper is PowerShell)");
         Object media = c.onClient(mc -> Mod.staticCall(SLF, "media"));
         long before = c.onClient(mc -> (Long) Mod.field(media, "results"));
+        // The lyrics poll stops a helper nothing reads; a control just used keeps it up for two minutes (as in the game).
+        c.onClient(mc -> Mod.staticCall("spotify.SpotifyControls", "tabOpened"));
         c.onClient(mc -> Mod.call(media, "send", "volq"));
         c.waitUntil("the helper answered volq", mc -> (Long) Mod.field(media, "results") > before, 600);
+        c.ctx().waitTicks(100);   // tabOpened's own volume read answers too; count only the burst
         int current = c.onClient(mc -> (Integer) Mod.call(media, "volume"));
         long skipped0 = c.onClient(mc -> (Long) Mod.field(media, "volumesSkipped"));
         long results0 = c.onClient(mc -> (Long) Mod.field(media, "results"));
@@ -1343,11 +1346,14 @@ final class HxSpotifyDocCases {
                 burst.append("vol ").append(current >= 0 ? current : v).append('\n');
             }
             try {
+                // The helper's control channel: a named pipe under the hidden console host, else its own stdin.
                 java.lang.reflect.Field pf = Mod.cls("spotify.SpotifyMediaSession").getDeclaredField("process");
                 pf.setAccessible(true);
-                Process p = (Process) pf.get(media);
-                p.getOutputStream().write(burst.toString().getBytes(StandardCharsets.UTF_8));
-                p.getOutputStream().flush();
+                java.lang.reflect.Field cf = Mod.cls("spotify.SpotifyMediaSession").getDeclaredField("cmdOut");
+                cf.setAccessible(true);
+                java.io.OutputStream out = cf.get(media) != null ? (java.io.OutputStream) cf.get(media) : ((Process) pf.get(media)).getOutputStream();
+                out.write(burst.toString().getBytes(StandardCharsets.UTF_8));
+                out.flush();
             } catch (Exception e) {
                 throw new AssertionError(e);
             }
