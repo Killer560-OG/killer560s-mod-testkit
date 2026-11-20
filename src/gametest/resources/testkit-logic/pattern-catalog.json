@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-20T04:35:25",
- "modSource": "lane-creeperbeams-1118-pf2-rd",
- "modGitSha": "f0d20bafc43d77c18ff080f63b13a253615faa45",
+ "generatedAt": "2026-11-20T04:57:29",
+ "modSource": "lane-freezefix-1120-b",
+ "modGitSha": "a3718fd98e0b064acf88cf0f6c551ea559b5ab8e",
  "modSourceDirty": false,
  "count": 990,
  "byKind": {
