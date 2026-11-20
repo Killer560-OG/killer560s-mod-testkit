@@ -38,6 +38,7 @@ final class TermCloseCases {
         s.test("1111-termclose-free", c -> free(c));
         s.test("1111-termclose-click", c -> click(c));
         s.test("1115-termclose-stillhold", c -> stillHold(c));
+        s.test("1118-termclose-serverclosed", c -> stillHoldServerClosed(c));
     }
 
     private static List<AutoCloseable> setUp(Session c) {
@@ -180,18 +181,7 @@ final class TermCloseCases {
             sendClose(c, 97);
             c.ctx().waitTicks(10);
             int heldCase = closes(c, head2, 97).size();
-            int interacts = c.events("term.interact").size();
-            c.onClient(mc -> {
-                var stand = mc.level.getEntity(standId);
-                var eye = mc.player.getEyePosition();
-                var hit = stand.getBoundingBox().inflate(0.1).clip(eye, eye.add(mc.player.getViewVector(1f).scale(5)))
-                        .orElse(stand.getBoundingBox().getCenter());
-                mc.gameMode.interact(mc.player, stand, new net.minecraft.world.phys.EntityHitResult(stand, hit),
-                        net.minecraft.world.InteractionHand.MAIN_HAND);
-                return null;
-            });
-            c.waitUntil("the click reaching the server", mc -> c.events("term.interact").size() > interacts, 40);
-            c.waitUntil("the terminal screen", mc -> terminalOpen(mc), 60);
+            openTerminal(c, standId);
             // The screen released his keys (vanilla setScreen), so the server now has him still: the old jar sent it here.
             c.ctx().waitTicks(40);
             boolean stillOpen = c.onClient(mc -> terminalOpen(mc));
@@ -208,6 +198,62 @@ final class TermCloseCases {
             sneak(c, false);
             tearDown(c, undo);
         }
+    }
+
+    /**
+     * killer560's 26.3 runs 2026-11-18 (2:53:38, 3:24:24, 3:43:41 PM): Fast Leap's hidden-menu close for leap window N was
+     * held while he moved, the server then closed N itself, and StillHold sent the stale close 2-5 s later as he stopped at
+     * a terminal; Hypixel echoed a close for N and vanilla shut the open terminal. Replays it: close N held while sneaking,
+     * the server's close of N arrives, he stops, a terminal opens. The held close must never reach the server.
+     */
+    private static void stillHoldServerClosed(Session c) throws Exception {
+        List<AutoCloseable> undo = setUp(c);
+        try {
+            JsonObject st = c.hx().call("boss.term.spawn").getAsJsonObject();
+            int standId = st.get("standId").getAsInt();
+            c.waitUntil("the client to have the terminal stand", mc -> mc.level.getEntity(standId) != null, 200);
+            c.ctx().waitTicks(5);
+            long head = c.hx().head();
+            sneak(c, true);
+            c.ctx().waitTicks(5);
+            sendClose(c, 96);
+            c.ctx().waitTicks(10);
+            int heldBefore = closes(c, head, 96).size();
+            c.onClient(mc -> {
+                mc.getConnection().handleContainerClose(
+                        new net.minecraft.network.protocol.game.ClientboundContainerClosePacket(96));
+                return null;
+            });
+            sneak(c, false);
+            c.ctx().waitTicks(30);
+            openTerminal(c, standId);
+            c.ctx().waitTicks(30);
+            boolean stillOpen = c.onClient(mc -> terminalOpen(mc));
+            List<JsonObject> stale = closes(c, head, 96);
+            c.note("close held before the server closed its window " + (heldBefore == 0) + "; stale closes at the server "
+                    + stale.size() + ", terminal open " + stillOpen);
+            c.check(heldBefore == 0, "the close went while sneaking: the hold was not tested");
+            c.check(stale.isEmpty(), "a held close for a window the server had already closed reached the server: " + stale);
+            c.check(stillOpen, "the terminal closed");
+        } finally {
+            sneak(c, false);
+            tearDown(c, undo);
+        }
+    }
+
+    private static void openTerminal(Session c, int standId) {
+        int interacts = c.events("term.interact").size();
+        c.onClient(mc -> {
+            var stand = mc.level.getEntity(standId);
+            var eye = mc.player.getEyePosition();
+            var hit = stand.getBoundingBox().inflate(0.1).clip(eye, eye.add(mc.player.getViewVector(1f).scale(5)))
+                    .orElse(stand.getBoundingBox().getCenter());
+            mc.gameMode.interact(mc.player, stand, new net.minecraft.world.phys.EntityHitResult(stand, hit),
+                    net.minecraft.world.InteractionHand.MAIN_HAND);
+            return null;
+        });
+        c.waitUntil("the click reaching the server", mc -> c.events("term.interact").size() > interacts, 40);
+        c.waitUntil("the terminal screen", mc -> terminalOpen(mc), 60);
     }
 
     private static boolean terminalOpen(net.minecraft.client.Minecraft mc) {

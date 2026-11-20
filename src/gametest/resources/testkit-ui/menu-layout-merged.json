@@ -23,6 +23,7 @@
   "newLeaves": {
     "gui.tab.RoomNameTab": "Dungeons > Current Room Name",
     "gui.tab.ItemQualityTab": "Dungeons > Item Quality",
+    "gui.tab.AutoReclaimTab": "Items > Auto Reclaim",
     "gui.tab.IcedMobsTab": "Dungeons > Iced Mob Boxes",
     "gui.tab.BossPearlTab": "Dungeons > Block Ender Pearls In Boss",
     "gui.tab.AutoCloseChestTab": "Dungeons > Auto Close Chest",
@@ -632,7 +633,7 @@
     {
       "owner": "Auto Blood Camp",
       "key": "aura",
-      "text": "Cheat build, Blood Room only: turns you to the next blood mob you can see and clicks it at your weapon's attack speed until it dies; moving your mouse takes over.",
+      "text": "Cheat build, Blood Room only: turns you to the next blood mob you can see and clicks it at your weapon's attack speed until it dies; moving your mouse takes over. Turning the Aura on turns the Trigger Bot off (and the other way round).",
       "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, label spelling outside gui/"
     },
     {
@@ -989,7 +990,7 @@
       "owner": "(unscoped)",
       "key": "goldor triggerbot",
       "renamed": "wither boss triggerbot",
-      "text": "Cheat build: in the F7/M7 boss, clicks Goldor (or every wither boss) while your crosshair is on him, from any range.",
+      "text": "Cheat build: in the F7/M7 boss, clicks the wither bosses you picked (Goldor by default) while your crosshair is on them, from any range. Never a boss that is dead or dying.",
       "why": "c4860d3c (doc-auto-1101, 2026-11-01): Goldor Triggerbot became Wither Boss Triggerbot (any range, All Wither Bosses, classes)"
     },
     {
@@ -997,7 +998,7 @@
       "key": "goldor triggerbot",
       "to": "Wither Boss Triggerbot",
       "renamed": "wither boss triggerbot",
-      "text": "Cheat build: in the F7/M7 boss, clicks Goldor (or every wither boss) while your crosshair is on him, from any range.",
+      "text": "Cheat build: in the F7/M7 boss, clicks the wither bosses you picked (Goldor by default) while your crosshair is on them, from any range. Never a boss that is dead or dying.",
       "why": "c4860d3c (doc-auto-1101, 2026-11-01): Goldor Triggerbot became Wither Boss Triggerbot (any range, All Wither Bosses, classes)"
     },
     {
