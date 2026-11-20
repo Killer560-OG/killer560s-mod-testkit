@@ -1335,8 +1335,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * {@code style} while the Breaker Aura card is set the other way ({@code cardBurst}: Burst Multi Break, else Legit Multi
      * Break). The wire (MultiBreakWatch) shows how the digs went: Burst = several blocks in one server tick, otherwise one a
      * server tick; all ten gone, the route finished, the card's saved settings untouched. With {@code act} his own use / left
-     * click / hotbar swap goes into every client tick as well (SameTick). Burst may draw MultiBreak* and RotationBreak on
-     * experimental GrimAC only; every other case, and Burst on default GrimAC, must leave GrimAC silent.
+     * click / hotbar swap goes into every client tick as well (SameTick). Burst may draw MultiBreak* on
+     * experimental GrimAC only (owner exception, nothing else); every other case, and Burst on default GrimAC, must leave GrimAC silent.
      */
     private static void caseBreakStyle(Session c, String style, boolean cardBurst, boolean burst, dev.testkit.gametest.SameTick.Act act) {
         ClientGameTestContext ctx = c.ctx();
@@ -1445,8 +1445,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 check(st.done() > 0, act + ": his action never went in (nothing tested)");
             }
             if (burst && exp) {
-                check(flags.stream().allMatch(f -> f.contains("MultiBreak") || f.contains("RotationBreak")),
-                        "Burst drew a flag other than MultiBreak*/RotationBreak: " + flags);
+                check(flags.stream().allMatch(f -> f.contains("MultiBreak")),
+                        "Burst drew a flag other than MultiBreak*: " + flags);
             } else {
                 check(flags.isEmpty(), (burst ? "Burst on default GrimAC" : "a clean style") + " drew GrimAC: " + flags);
             }
