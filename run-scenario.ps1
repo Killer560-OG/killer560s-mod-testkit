@@ -464,6 +464,15 @@ if ($env:TESTKIT_HUNG_POLLS) { $hungLimit = [int]$env:TESTKIT_HUNG_POLLS }
 $killedHung = $false
 $noProgress = $false
 $lastProgress = $null   # set when the first client appears; before that only the deadline applies (Gradle compiling)
+# starthang-1120: five lane runs sat at the title screen (gametest handoff lost, test thread never started) and each held
+# its slot for the whole 20 min. A client that has not logged its first test line in TESTKIT_START_MINUTES (default 4; the
+# slowest of 305 healthy boots took 104 s, median 31 s; 0 = off) is ended and the run launched once more; a second start
+# stall (or one after the frozen-start retry) ends as hung, as before.
+$startMinutes = 4
+if ($env:TESTKIT_START_MINUTES) { $startMinutes = [double]$env:TESTKIT_START_MINUTES }
+$seenProgress = $false
+$clientSince = $null
+$startStall = $false
 
 # Loop while EITHER the launcher is alive OR a test client exists.
 #
@@ -476,8 +485,18 @@ while ((-not $proc.HasExited -or (Get-TestClients)) -and (Get-Date) -lt $deadlin
     Sync-SlotWindow
     $frozen = $false
     if ($ProgressMinutes -gt 0) {
-        if (Test-NewProgress) { $lastProgress = Get-Date }
+        # The start clock runs from the client's appearance; an old latest.log (a previous run's, until deleteGameTestRunDir
+        # clears it) is not this client's first test line.
+        if ($null -eq $clientSince -and @(Get-TestClients).Count -gt 0) { $clientSince = Get-Date }
+        if (Test-NewProgress) {
+            $lastProgress = Get-Date
+            if ($null -ne $clientSince -and (Get-Item $clientLog).CreationTime -ge $clientSince.AddSeconds(-5)) { $seenProgress = $true }
+        }
         elseif ($null -eq $lastProgress -and @(Get-TestClients).Count -gt 0) { $lastProgress = Get-Date }
+        if ($startMinutes -gt 0 -and -not $seenProgress -and $null -ne $clientSince -and ((Get-Date) - $clientSince).TotalMinutes -ge $startMinutes) {
+            $startStall = $true
+            break
+        }
         if ($null -ne $lastProgress -and ((Get-Date) - $lastProgress).TotalMinutes -ge $ProgressMinutes) {
             $noProgress = $true
             break
@@ -537,8 +556,26 @@ if ($killedHung) {
     exit 3
 }
 
+if ($startStall -and -not $env:TESTKIT_STARTUP_RETRY) {
+    Write-Host "start stall after $startMinutes min (no test line since the client appeared at $($clientSince.ToString('HH:mm:ss'))), relaunching once"
+    Stop-RunTree "start stall"
+    if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+    Stop-TestServers "the stalled run's"
+    Stop-Backstop
+    Release-Slot
+    $env:TESTKIT_STARTUP_RETRY = "1"
+    & $PSCommandPath @PSBoundParameters
+    exit $LASTEXITCODE
+}
+if ($startStall) {
+    Write-Host "start stall after $startMinutes min on the relaunch too: ending the run as hung"
+    $noProgress = $true
+}
+
 if ($noProgress) {
-    $why = "run hung: no test line in the client log for $ProgressMinutes min (since $($lastProgress.ToString('HH:mm:ss')))"
+    $stallMin = $ProgressMinutes
+    if ($startStall) { $stallMin = $startMinutes }
+    $why = "run hung: no test line in the client log for $stallMin min (since $($lastProgress.ToString('HH:mm:ss')))"
     Write-Host "HUNG - $why. Ending the whole run tree."
     foreach ($c in Get-TestClients) {
         try {
