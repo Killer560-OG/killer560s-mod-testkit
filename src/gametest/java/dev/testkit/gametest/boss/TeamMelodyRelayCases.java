@@ -63,7 +63,7 @@ final class TeamMelodyRelayCases {
     static final int PZ = 30;
 
     /** F7 with HxMateA/HxMateB in the tab list, on the P3 platform, then Phase 3; Team Melody's store starts empty. */
-    private static void inP3(Session c) {
+    static void inP3(Session c) {
         // Loaded first, then filled, then he is put on it (787/832: a tp onto a floor as it appears flags Simulation).
         c.server().command("forceload add " + (PX - 4) + " " + (PZ - 4) + " " + (PX + 4) + " " + (PZ + 4));
         c.server().sync(20);

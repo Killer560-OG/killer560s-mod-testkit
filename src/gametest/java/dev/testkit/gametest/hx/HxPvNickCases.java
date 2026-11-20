@@ -75,6 +75,8 @@ final class HxPvNickCases {
         s.test("696-hx-pv-item-rarity", HxPvNickCases::rarity);
         s.test("697-hx-pv-networth-line", HxPvNickCases::networth);
         s.test("698-hx-pv-bestiary-fits", HxPvNickCases::bestiary);
+        s.test("1118-hx-pv-command-toggle", HxPvNickCases::commandToggle);
+        s.test("1118-hx-pv-networth-buttons", HxPvNickCases::networthButtons);
     }
 
     // ---- 691 ------------------------------------------------------------------------------------------------------
@@ -451,6 +453,60 @@ final class HxPvNickCases {
 
     // ---- 694 ------------------------------------------------------------------------------------------------------
 
+    /** pvtoggle-1118: the "/pv Command" switch. ON (and with no file) the typed command opens the viewer and sends nothing;
+     *  OFF the exact text goes to the server and no viewer opens, and the dispatcher stops offering it; ON again works. */
+    private static void commandToggle(Session c) throws Exception {
+        String cfg = "profileviewer.ProfileViewerConfig";
+        boolean[] was = {c.onClient(mc -> (Boolean) Mod.get(cfg, "isPvCommand"))};
+        try {
+            c.check(was[0], "a config with no pvCommand key should read ON (default)");
+            for (boolean on : new boolean[]{true, false, true}) {
+                c.onClient(mc -> {
+                    Mod.set(cfg, "setPvCommand", on);
+                    McCompat.setScreen(mc, null);
+                    return null;
+                });
+                c.ctx().waitTicks(2);
+                List<String> sent = new java.util.concurrent.CopyOnWriteArrayList<>();
+                dev.testkit.harness.PacketTrace.tap = p -> {
+                    if (p instanceof net.minecraft.network.protocol.game.ServerboundChatCommandPacket cmd) {
+                        sent.add(cmd.command());
+                    }
+                };
+                try {
+                    c.onClient(mc -> {
+                        mc.player.connection.sendCommand("pv " + PV_NAME);
+                        return null;
+                    });
+                    c.ctx().waitTicks(8);
+                } finally {
+                    dev.testkit.harness.PacketTrace.stop();
+                }
+                String open = c.onClient(mc -> McCompat.screen(mc) == null ? "none" : McCompat.screen(mc).getClass().getSimpleName());
+                boolean offered = c.onClient(mc -> {
+                    var node = net.fabricmc.fabric.impl.command.client.ClientCommandInternals.getActiveDispatcher().getRoot().getChild("pv");
+                    return node != null && node.canUse((net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource) mc.player.connection.getSuggestionsProvider());
+                });
+                c.note("switch " + (on ? "ON" : "OFF") + ": sent " + sent + ", screen " + open + ", dispatcher offers /pv " + offered);
+                if (on) {
+                    c.check(sent.isEmpty(), "ON: /pv must send nothing to the server, sent " + sent);
+                    c.check(open.equals("ProfileViewerScreen"), "ON: /pv should open the viewer, screen is " + open);
+                    c.check(offered, "ON: the dispatcher should offer /pv");
+                } else {
+                    c.check(sent.equals(List.of("pv " + PV_NAME)), "OFF: the exact text 'pv " + PV_NAME + "' should reach the server, sent " + sent);
+                    c.check(!open.equals("ProfileViewerScreen"), "OFF: no viewer may open, screen is " + open);
+                    c.check(!offered, "OFF: the dispatcher should not offer /pv");
+                }
+            }
+        } finally {
+            c.onClient(mc -> {
+                Mod.set(cfg, "setPvCommand", was[0]);
+                McCompat.setScreen(mc, null);
+                return null;
+            });
+        }
+    }
+
     private static void tabComplete(Session c) throws Exception {
         UUID a = UUID.fromString("6b1f3c2e-8d4a-4f1b-9c3e-2a7d5e9f0b21");
         UUID b = UUID.fromString("6b1f3c2e-8d4a-4f1b-9c3e-2a7d5e9f0b22");
@@ -648,6 +704,112 @@ final class HxPvNickCases {
             }
             restore(c);
         }
+    }
+
+    // ---- 1118 -----------------------------------------------------------------------------------------------------
+
+    /** The Networth page's Showing and Priced at buttons: left click steps forward, right click back, the totals recompute
+     *  at once, and the Bazaar Prices / Lowest BIN Prices rows are gone. */
+    @SuppressWarnings("unchecked")
+    private static void networthButtons(Session c) throws Exception {
+        Map<String, Long> bazaar = c.onClient(mc -> (Map<String, Long>) Mod.field(
+                Mod.field("rngmeter.RngMeterEngine", "PRICES"), "bazaarSellPrice"));
+        Long before = bazaar.put("ENCHANTED_DIAMOND", EDIAMOND_PRICE);
+        String pvc = "profileviewer.ProfileViewerConfig";
+        Object oldPricing = c.onClient(mc -> Mod.call(Mod.cfg(pvc), "getNetworthPricing"));
+        Object oldView = c.onClient(mc -> Mod.call(Mod.cfg(pvc), "getNetworthView"));
+        bigWindow(c);
+        try {
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(pvc), "setNetworthPricing", Mod.enumValue("pricetooltip.PriceData$Pricing", "ITEM_VALUE"));
+                Mod.call(Mod.cfg(pvc), "setNetworthView", Mod.enumValue("profileviewer.data.Networth$View", "ALL"));
+                return null;
+            });
+            Screen s = openPv(c, 0);
+            c.waitUntil("the Basic Info networth line has a value", mc -> Mod.field(s, "lastBasicNetworth") != null, 200);
+            c.onClient(mc -> Mod.call(s, "setPage", 11));
+            c.ctx().waitTicks(6);
+            long expected = PURSE + BANK + 6 * 64 * EDIAMOND_PRICE;
+            Object extra = c.onClient(mc -> Mod.field(s, "extraPages"));
+            shot(c, "networth-default");
+
+            // The two rows are gone from the page's code.
+            try (java.io.InputStream in = Mod.cls("profileviewer.screen.ExtraPages").getResourceAsStream("ExtraPages.class")) {
+                String bytes = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.ISO_8859_1);
+                c.check(!bytes.contains("Bazaar Prices") && !bytes.contains("Lowest BIN Prices"), "a price count row is still on the Networth page");
+            }
+
+            // The buttons are the 138 x 14 hotspots of the left panel: Showing first, Priced at second.
+            int[] box = c.onClient(mc -> new int[]{(Integer) Mod.field(s, "contentX")});
+            List<Object[]> left = c.onClient(mc -> {
+                List<Object[]> out = new ArrayList<>();
+                for (Object h : (List<?>) Mod.field(s, "hotspots")) {
+                    if ((Integer) Mod.field(h, "x") == box[0] + 6 && (Integer) Mod.field(h, "w") == 138 && (Integer) Mod.field(h, "h") == 14) {
+                        out.add(new Object[]{Mod.field(h, "y"), Mod.field(h, "action")});
+                    }
+                }
+                for (Object h : (List<?>) Mod.field(s, "rightHotspots")) {
+                    if ((Integer) Mod.field(h, "x") == box[0] + 6 && (Integer) Mod.field(h, "w") == 138) {
+                        out.add(new Object[]{-(Integer) Mod.field(h, "y"), Mod.field(h, "action")});
+                    }
+                }
+                return out;
+            });
+            c.check(left.size() == 4, "expected 2 left and 2 right button hotspots on the Networth page, found " + left.size());
+            Runnable showFwd = (Runnable) left.get(0)[1];
+            Runnable priceFwd = (Runnable) left.get(1)[1];
+            Runnable showBack = (Runnable) left.get(2)[1];
+            Runnable priceBack = (Runnable) left.get(3)[1];
+            java.util.function.Supplier<String> now = () -> c.onClient(mc -> Mod.call(Mod.cfg(pvc), "getNetworthView") + "/"
+                    + Mod.call(Mod.cfg(pvc), "getNetworthPricing"));
+
+            c.onClient(mc -> { showFwd.run(); return null; });
+            c.check(now.get().equals("NON_COSMETIC/ITEM_VALUE"), "Showing click 1: " + now.get());
+            c.onClient(mc -> { showFwd.run(); return null; });
+            c.check(now.get().equals("NON_SOULBOUND/ITEM_VALUE"), "Showing click 2: " + now.get());
+            c.onClient(mc -> { showBack.run(); return null; });
+            c.check(now.get().equals("NON_COSMETIC/ITEM_VALUE"), "Showing right click: " + now.get());
+
+            // Pricing: Instant Sell reads the (empty here) price tables, so the diamonds drop out; right click restores.
+            c.onClient(mc -> { priceFwd.run(); return null; });
+            c.check(now.get().equals("NON_COSMETIC/INSTANT_SELL"), "Priced at click: " + now.get());
+            long sell = priceTotal(c, s, extra);
+            c.note("Instant Sell page total " + sell + " (Est. Item Value would be " + expected + ")");
+            c.check(sell == PURSE + BANK, "Instant Sell total " + sell + ", expected " + (PURSE + BANK));
+            c.onClient(mc -> { showFwd.run(); return null; });
+            c.ctx().waitTicks(4);
+            shot(c, "networth-instant-sell-non-soulbound");
+            c.onClient(mc -> { showBack.run(); return null; });
+            c.onClient(mc -> { priceBack.run(); return null; });
+            long again = priceTotal(c, s, extra);
+            c.check(again == expected, "back on Est. Item Value the total was " + again + ", expected " + expected);
+        } finally {
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(pvc), "setNetworthPricing", oldPricing);
+                Mod.call(Mod.cfg(pvc), "setNetworthView", oldView);
+                Mod.call(Mod.cfg(pvc), "save");
+                return null;
+            });
+            if (before == null) {
+                bazaar.remove("ENCHANTED_DIAMOND");
+            } else {
+                bazaar.put("ENCHANTED_DIAMOND", before);
+            }
+            restore(c);
+        }
+    }
+
+    /** The page's All Value total, once the recalculation after a button click has finished. */
+    private static long priceTotal(Session c, Screen s, Object extra) {
+        long[] out = new long[1];
+        c.waitUntil("the networth was recalculated", mc -> {
+            Object state = Mod.call(extra, "networthState", Mod.call(s, "profile"));
+            Object res = Mod.call(state, "result");
+            if (res == null) return false;
+            out[0] = (Long) Mod.call(res, "total");
+            return true;
+        }, 200);
+        return out[0];
     }
 
     // ---- 698 ------------------------------------------------------------------------------------------------------

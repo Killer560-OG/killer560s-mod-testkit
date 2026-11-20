@@ -2100,8 +2100,15 @@ public final class SimPuzzleSolveTests {
                         // Judged as a landing, as a sim ability teleport is. Without this the once-a-tick judge only
                         // saw where the auto's next hop (handled later in the same server tick) put him, and the
                         // mistake went unjudged (first run, 2026-10-05: section 1 never broke).
-                        ModUnderTest.staticCall(P, "onTeleport",
-                                new Class<?>[]{net.minecraft.server.level.ServerPlayer.class}, new Object[]{sp});
+                        // Since mod icefillbugs-1118 a sim landing is only counted and the judge runs once per
+                        // server tick (as Hypixel's); judgeNow judges this one at once. Older jars: onTeleport.
+                        try {
+                            ModUnderTest.staticCall(P, "judgeNow",
+                                    new Class<?>[]{net.minecraft.server.level.ServerPlayer.class}, new Object[]{sp});
+                        } catch (AssertionError old) {
+                            ModUnderTest.staticCall(P, "onTeleport",
+                                    new Class<?>[]{net.minecraft.server.level.ServerPlayer.class}, new Object[]{sp});
+                        }
                     }
                 });
             });
