@@ -297,6 +297,7 @@ final class HxDungeonCases {
             try (Settings set = new Settings(c).with("runsummary.RunSummaryConfig", "Enabled", false);
                  dev.testkit.gametest.logic.ShareSiteCases.Stub stub = new dev.testkit.gametest.logic.ShareSiteCases.Stub()) {
                 run(c, () -> Mod.staticCall(SHARE, "setEnabled", true));
+                run(c, () -> Mod.staticCall(SHARE, "boardsAnyHostForTest", true));
                 dungeon(c);
                 c.waitUntil("no delete waiting", mc -> !dev.testkit.gametest.logic.ShareSiteCases.pendingDelete(), 100);
                 stub.calls.clear();
@@ -304,7 +305,13 @@ final class HxDungeonCases {
                 shareRun(c, true);
                 c.waitUntil("POST /site/stats reached the relay", mc -> stub.count("POST /site/stats Bearer "
                         + dev.testkit.gametest.logic.ShareSiteCases.TOKEN) == 1, 400);
-                JsonObject body = stub.bodies.get(0);
+                // modlb5-1120: the same run, with Run Summary OFF, also reaches the website's F7 board (three players on the tab: not solo).
+                c.waitUntil("the F7 board upload reached the relay", mc -> stub.count("POST /site/leaderboards/mod-entry Bearer "
+                        + dev.testkit.gametest.logic.ShareSiteCases.TOKEN) == 1, 400);
+                JsonObject board = stub.bodies.stream().filter(b -> b.has("cat")).findFirst().orElseThrow();
+                c.check("f7".equals(board.get("cat").getAsString()) && board.get("ms").getAsLong() >= 299_000L && board.get("ms").getAsLong() <= 310_000L
+                        && board.get("team").getAsInt() == 3 && "F7".equals(board.get("floor").getAsString()), "board upload " + board);
+                JsonObject body = stub.bodies.stream().filter(b -> b.has("runs")).findFirst().orElseThrow();
                 JsonObject r = body.getAsJsonArray("runs").get(0).getAsJsonObject();
                 long ms = r.get("ms").getAsLong();
                 c.check(body.getAsJsonArray("runs").size() == 1 && "F7".equals(r.get("floor").getAsString()), "runs " + body);
@@ -324,11 +331,12 @@ final class HxDungeonCases {
                         + dev.testkit.gametest.logic.ShareSiteCases.TOKEN) == 1, 200);
                 shareRun(c, false);
                 c.ctx().waitTicks(60);
-                c.check(stub.count("POST") == 1, "a run while OFF was uploaded: " + stub.calls);
+                c.check(stub.count("POST") == 2, "a run while OFF was uploaded: " + stub.calls);
                 c.check(c.onClient(mc -> !(Boolean) Mod.staticCall("runsummary.RunSummaryFeature", "isTrackingRun")),
                         "with Run Summary and sharing both OFF a run was still tracked");
                 c.note("upload " + body + "; OFF -> " + stub.calls);
             } finally {
+                run(c, () -> Mod.staticCall(SHARE, "boardsAnyHostForTest", false));
                 run(c, () -> Mod.staticCall(SHARE, "setEnabled", true));
                 run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
                 run(c, () -> Mod.setField("runsummary.RunSummaryFeature", "finishDelayTicks", -1));
