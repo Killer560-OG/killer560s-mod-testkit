@@ -67,9 +67,9 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
     static final String TWO = "1109-mp-two";
     /** Phase 3: invites through a local wrangler dev relay (run-coop.sh -w). */
     static final String INVITE = "1109-mp-invite";
-    /** coopfree-1111: no UPnP on the host and the punch dropped: the guest must NOT connect and is told why (run-coop.sh -w). */
+    /** coopproxy-1120: two clients through the local relay's proxy (run-coop.sh -w). */
     static final String PROXY = "1120-mp-proxy";
-    /** coopfree-1111: no UPnP, the guest gets in by a TCP hole punch through the local relay (run-coop.sh -w). */
+    /** coopproxy-1120: the co-op cap reached, Share My IP off: nobody gets in (run-coop.sh -w). */
     static final String FULL = "1120-mp-proxy-full";
     /** Share My IP: off = no direct way in (1120-mp-proxy-full); on + relay full = the notice, a join only after Yes. */
     static final String SHARE = "1120-mp-shareip";
@@ -190,12 +190,12 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             relay(ctx, stub);
             String mcv = (String) ModUnderTest.staticCall(R + "SimGuest", "mc", new Class<?>[]{}, new Object[]{});
             int protocol = ((Number) field(R + "SimCoop", "PROTOCOL")).intValue();
-            String locked = stub.addRoom(UUID.randomUUID().toString(), "TkOwnerA", "Tk Locked Room", "sesame", 4, mcv, protocol, null);
-            stub.addRoom(UUID.randomUUID().toString(), "TkOwnerB", "Tk Full Room", null, 2, mcv, protocol, null);
+            String locked = stub.addRoom(UUID.randomUUID().toString(), "TkOwnerA", "Tk Locked Room", "sesame", 4, mcv, protocol);
+            stub.addRoom(UUID.randomUUID().toString(), "TkOwnerB", "Tk Full Room", null, 2, mcv, protocol);
             String fullOwner = stub.calls().isEmpty() ? null : null;
-            stub.addRoom(UUID.randomUUID().toString(), "TkOwnerC", "Tk Old Room", null, 4, mcv, protocol - 1, null);
+            stub.addRoom(UUID.randomUUID().toString(), "TkOwnerC", "Tk Old Room", null, 4, mcv, protocol - 1);
             String otherMc = mcv.equals("26.3") ? "26.2" : "26.3";
-            stub.addRoom(UUID.randomUUID().toString(), "TkOwnerD", "Tk Other Version Room", null, 4, otherMc, protocol, null);
+            stub.addRoom(UUID.randomUUID().toString(), "TkOwnerD", "Tk Other Version Room", null, 4, otherMc, protocol);
 
             // The sim menu: Multiplayer between its own separator and Back, set apart from F7 Boss above it.
             ctx.runOnClient(mc -> McCompat.setScreen(mc, (Screen) ModUnderTest.staticCall(R + "SimMenuNav", "open",
@@ -223,12 +223,12 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             boolean rows = paceUntil(ctx, () -> rowLabel(ctx, "[Locked] Tk Locked Room") != null, 10_000);
             expect(f, facts, "Join fetched the list", stub.calls("GET /simrooms/list").size() - lists0 >= 1, true);
             expect(f, facts, "locked room row", rows ? rowLabel(ctx, "[Locked] Tk Locked Room") : null,
-                    "[" + mcv + "] [Locked] Tk Locked Room  -  TkOwnerA  1/4  F7 Boss  v1.1.0");
+                    "[" + mcv + "] [Locked] Tk Locked Room  -  TkOwnerA  1/4  F7 Boss  v1.1.0  [Relay]");
             // coopnet-1110: every version is listed (all=1), a room on another version says so and Join is refused.
             expect(f, facts, "list asked for every version", stub.calls("GET /simrooms/list").stream()
                     .allMatch(c -> c.contains("all=1")), true);
             expect(f, facts, "other-version row", rowLabel(ctx, "Tk Other Version Room"),
-                    "[" + otherMc + " - other version] Tk Other Version Room  -  TkOwnerD  1/4  F7 Boss  v1.1.0");
+                    "[" + otherMc + " - other version] Tk Other Version Room  -  TkOwnerD  1/4  F7 Boss  v1.1.0  [Relay]");
             int joinsBefore = stub.calls("POST /simrooms/join").size();
             clickRow(ctx, "Tk Other Version Room");
             expect(f, facts, "other version: Join refused", message(ctx), "Host is on " + otherMc + " - open " + otherMc + " to join.");
@@ -247,10 +247,12 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             expect(f, facts, "wrong password", message(ctx), "Wrong password.");
             setBox(ctx, "Password", "sesame");
             DesignerKit.click(ctx, "Join");
-            // coopfree-1111: no endpoint and no punch port: never the relay, the guest is told what the host can do.
-            String noWay = "Can't connect to Tk Locked Room: " + "the host's router blocks direct connections; the host can enable UPnP or forward the co-op port shown on their Host page.";
+            // coopproxy-1120: the ticket is issued, the relay's proxy cannot reach this room's gateway (502): the guest is told what the host can do.
+            String noWay = "Can't reach Tk Locked Room: the host's router blocks connections from outside. The host can turn on UPnP or forward their co-op TCP port, or a friend can host.";
             paceUntil(ctx, () -> message(ctx).equals(noWay), 5_000);
-            expect(f, facts, "right password accepted (ticket), then the plain can't-connect text", message(ctx), noWay);
+            expect(f, facts, "right password accepted (ticket), then the plain can't-reach text", message(ctx), noWay);
+            expect(f, facts, "the proxy was asked once and refused, no game connection", stub.proxied(), 0);
+            expect(f, facts, "no answer of the room list names an address", noAddress(stub), List.of());
             expect(f, facts, "join calls (403 then 200)", stub.calls("POST /simrooms/join").size(), 2);
             facts.add("locked room " + locked + ", fullOwner " + fullOwner);
 
@@ -372,17 +374,19 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             expect(f, facts, "listed on the relay", listed, true);
             expect(f, facts, "world published on the room's port", ctx.computeOnClient(mc -> mc.getSingleplayerServer().isPublished()
                     && mc.getSingleplayerServer().getPort() == port), true);
-            expect(f, facts, "router line", ModUnderTest.staticCall(HOSTC, "upnpLine"), "Port " + port + " is open on "
-                    + FakeGateway.EXTERNAL_IP + ": anyone can join.");
-            expect(f, facts, "public address", ModUnderTest.staticCall(HOSTC, "publicAddress"), FakeGateway.EXTERNAL_IP + ":" + port);
-            expect(f, facts, "list line", ModUnderTest.staticCall(HOSTC, "listLine"), "Listed in the room list.");
+            int coop = (Integer) ModUnderTest.staticCall(HOSTC, "coopPort");
+            expect(f, facts, "router line (the gateway port, never an address)", ModUnderTest.staticCall(HOSTC, "upnpLine"),
+                    "Your router opened co-op port " + coop + ".");
+            expect(f, facts, "the relay's probe reached the gateway", paceUntil(ctx, () -> (Boolean) ModUnderTest.staticCall(HOSTC, "reachable"), 15_000), true);
+            expect(f, facts, "list line", ModUnderTest.staticCall(HOSTC, "listLine"), LISTED);
+            expect(f, facts, "no answer of the relay names an address", noAddress(stub), List.of());
             List<String> creates = stub.calls("POST /simrooms/create");
             expect(f, facts, "one create", creates.size(), 1);
             String c = creates.isEmpty() ? "" : creates.get(0);
-            expect(f, facts, "create carries name, password, max 3 and the public endpoint", c.contains("\"name\":\"Tk Host Room\"")
-                    && c.contains("\"password\":\"pw-host\"") && c.contains("\"max\":3")
-                    && c.contains("\"endpoint\":{\"host\":\"" + FakeGateway.EXTERNAL_IP + "\",\"port\":" + port + "}"), true);
-            expect(f, facts, "gateway mapped the port", gw.actions().contains("AddPortMapping " + port), true);
+            expect(f, facts, "create carries name, password, max 3, net 3 and the gateway port, never an endpoint", c.contains("\"name\":\"Tk Host Room\"")
+                    && c.contains("\"password\":\"pw-host\"") && c.contains("\"max\":3") && c.contains("\"net\":3")
+                    && c.contains("\"proxyPort\":" + coop) && !c.contains("endpoint"), true);
+            expect(f, facts, "gateway mapped the co-op port", gw.actions().contains("AddPortMapping " + coop), true);
 
             MinecraftServer s = ctx.computeOnClient(Minecraft::getSingleplayerServer);
             UUID host = ctx.computeOnClient(mc -> mc.player.getUUID());
@@ -546,8 +550,8 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             expect(f, facts, "router line (no UPnP in a test client)", String.valueOf(ModUnderTest.staticCall(HOSTC, "upnpLine"))
                     .contains("UPnP is off in this test client"), true);
             int port = (Integer) ModUnderTest.staticCall(HOSTC, "port");
-            expect(f, facts, "list line", ModUnderTest.staticCall(HOSTC, "listLine"),
-                    "Listed in the room list (guests join by hole punch; if that fails, enable UPnP or forward port " + port + ").");
+            expect(f, facts, "relay probe reached the gateway", paceUntil(ctx, () -> (Boolean) ModUnderTest.staticCall(HOSTC, "reachable"), 15_000), true);
+            expect(f, facts, "list line", ModUnderTest.staticCall(HOSTC, "listLine"), LISTED);
             // Both test clients are offline accounts: like CoopSimTests.publish, take the published server off online mode
             // (the mod keeps vanilla's authentication; real accounts pass it).
             facts.add("online mode was " + ctx.computeOnClient(mc -> {
@@ -555,10 +559,6 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
                 mc.getSingleplayerServer().setUsesAuthentication(false);
                 return was;
             }));
-            JsonObject ep = new JsonObject();
-            ep.addProperty("host", "127.0.0.1");
-            ep.addProperty("port", port);
-            stub.joinEndpoint = ep;
             String hostName = ctx.computeOnClient(mc -> mc.player.getGameProfile().name());
             facts.add("host " + hostName + " " + hostUuid + " on port " + port);
             long mark = LogTap.mark();
@@ -678,6 +678,10 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             CoopSync.put("mp-host-left", "1");
             paceUntil(ctx, () -> stub.rooms() == 0, 10_000);
             expect(f, facts, "listing deleted on leave", stub.rooms(), 0);
+            expect(f, facts, "co-op traffic flowed through the relay proxy both ways", stub.proxied() >= 1 && stub.bytesToHost() > 0
+                    && stub.bytesToGuest() > 0, true);
+            expect(f, facts, "no answer of the relay names an address", noAddress(stub), List.of());
+            expect(f, facts, "no address in the host's co-op log lines", addressLines(0), List.of());
             String verdict = CoopSync.await(ctx, "mp-guest-done", 180).trim();
             facts.add("guest verdict: " + verdict);
             expect(f, facts, "guest's own checks", verdict, "PASS");
@@ -763,7 +767,7 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
             expect(f, facts, "listed on the local relay", paceUntil(ctx, () -> ModUnderTest.staticCall(HOSTC, "roomIdForTest") != null,
                     20_000), true);
             int port = (Integer) ModUnderTest.staticCall(HOSTC, "port");
-            expect(f, facts, "public address", ModUnderTest.staticCall(HOSTC, "publicAddress"), "127.0.0.1:" + port);
+            expect(f, facts, "the relay's probe reached the gateway", paceUntil(ctx, () -> (Boolean) ModUnderTest.staticCall(HOSTC, "reachable"), 20_000), true);
             ctx.runOnClient(mc -> mc.getSingleplayerServer().setUsesAuthentication(false));
             CoopSync.put("inv-room", hostName);
             String guest = CoopSync.await(ctx, "inv-off", 300).trim();
@@ -908,6 +912,15 @@ public class CoopMultiplayerTests implements FabricClientGameTest {
                 .header("authorization", "Bearer " + mint(uuid, name)).header("content-type", "application/json");
         b = method.equals("GET") ? b.GET() : b.POST(java.net.http.HttpRequest.BodyPublishers.ofString(body));
         return java.net.http.HttpClient.newHttpClient().send(b.build(), java.net.http.HttpResponse.BodyHandlers.ofString()).body();
+    }
+
+    /** Answers of the stub's room list that carry an address (an IPv4 or an endpoint/host field): must be none. */
+    private static List<String> noAddress(SimRoomsStub stub) {
+        List<String> out = new ArrayList<>();
+        for (String a : stub.answers()) {
+            if (IPV4.matcher(a).find() || a.contains("endpoint") || a.contains("\"host\"") || a.contains("direct")) out.add(a);
+        }
+        return out;
     }
 
     /** Mod log lines of the co-op transport that carry anything shaped like an IPv4 address (must be none). */
