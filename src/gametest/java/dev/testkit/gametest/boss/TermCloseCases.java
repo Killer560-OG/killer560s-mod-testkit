@@ -39,6 +39,7 @@ final class TermCloseCases {
         s.test("1111-termclose-click", c -> click(c));
         s.test("1115-termclose-stillhold", c -> stillHold(c));
         s.test("1118-termclose-serverclosed", c -> stillHoldServerClosed(c));
+        s.test("1119-sharesite-termtimes", c -> shareTermTimes(c));
     }
 
     private static List<AutoCloseable> setUp(Session c) {
@@ -237,6 +238,90 @@ final class TermCloseCases {
             c.check(stillOpen, "the terminal closed");
         } finally {
             sneak(c, false);
+            tearDown(c, undo);
+        }
+    }
+
+    private static final String SHARE = dev.testkit.gametest.logic.ShareSiteCases.FEATURE;
+
+    private static String terms(Session c) {
+        return c.onClient(mc -> (String) Mod.staticCall(SHARE, "termsJsonForTest"));
+    }
+
+    /** One real open, solve (the player's own "completed a terminal" line) and close of the Numbers terminal. */
+    private static void solveOnce(Session c, int standId) {
+        openTerminal(c, standId);
+        c.ctx().waitTicks(12);
+        TerminalAuraCases.closeScreen(c);
+        c.hx().chat(c.onClient(mc -> mc.player.getName().getString()) + " completed a terminal! (1/7)");
+        c.ctx().waitTicks(40);
+    }
+
+    /**
+     * Share To Website with every terminal solver off (mod sharesite-termtimes-1119): the F7 boss terminal is timed from its
+     * title, once the own "completed a terminal" line confirms it. Solver on: still exactly one, sharing off: none, a chest
+     * that is not a terminal: none.
+     */
+    private static void shareTermTimes(Session c) throws Exception {
+        List<AutoCloseable> undo = setUp(c);
+        boolean sim = c.onClient(mc -> (Boolean) Mod.staticCall("secrets.DungeonState", "toggleSimOverride"));
+        if (!sim) {
+            c.onClient(mc -> Mod.staticCall("secrets.DungeonState", "toggleSimOverride"));
+        }
+        try (dev.testkit.gametest.logic.ShareSiteCases.Stub stub = new dev.testkit.gametest.logic.ShareSiteCases.Stub()) {
+            c.onClient(mc -> Mod.staticCall(SHARE, "setEnabled", true));
+            c.onClient(mc -> Mod.staticCall(SHARE, "resetForTest"));
+            JsonObject st = c.hx().call("boss.term.spawn").getAsJsonObject();
+            int standId = st.get("standId").getAsInt();
+            c.waitUntil("the client to have the terminal stand", mc -> mc.level.getEntity(standId) != null, 200);
+            c.ctx().waitTicks(5);
+
+            try (AutoCloseable off = c.onClient(mc -> Mod.with(SOLVER_CFG, "Enabled", false))) {
+                solveOnce(c, standId);
+                String a = terms(c);
+                c.note("solver OFF, sharing ON: " + a);
+                c.check(a.contains("\"type\":\"Numbers\"") && c.onClient(mc -> (Integer) Mod.staticCall(SHARE, "termsForTest")) == 1,
+                        "solver off: expected exactly one Numbers solve buffered, got " + a);
+                long ms = com.google.gson.JsonParser.parseString(a).getAsJsonArray().get(0).getAsJsonObject().get("ms").getAsLong();
+                c.check(ms >= 400L && ms <= 15_000L, "implausible solve time " + ms + " ms");
+            }
+
+            c.onClient(mc -> Mod.staticCall(SHARE, "resetForTest"));
+            try (AutoCloseable on = c.onClient(mc -> Mod.with(SOLVER_CFG, "Enabled", true))) {
+                solveOnce(c, standId);
+                String b = terms(c);
+                c.note("solver ON, sharing ON: " + b);
+                c.check(b.contains("\"type\":\"Numbers\"") && c.onClient(mc -> (Integer) Mod.staticCall(SHARE, "termsForTest")) == 1,
+                        "solver on: expected exactly one Numbers solve (never two), got " + b);
+            }
+
+            c.onClient(mc -> Mod.staticCall(SHARE, "resetForTest"));
+            c.onClient(mc -> Mod.staticCall(SHARE, "setEnabled", false));
+            try (AutoCloseable off = c.onClient(mc -> Mod.with(SOLVER_CFG, "Enabled", false))) {
+                solveOnce(c, standId);
+                c.check(c.onClient(mc -> (Integer) Mod.staticCall(SHARE, "termsForTest")) == 0,
+                        "sharing off but a solve was kept: " + terms(c));
+            }
+
+            c.onClient(mc -> Mod.staticCall(SHARE, "setEnabled", true));
+            c.onClient(mc -> Mod.staticCall(SHARE, "resetForTest"));
+            c.onClient(mc -> {
+                var inv = mc.player.getInventory();
+                dev.testkit.compat.McCompat.setScreen(mc, new net.minecraft.client.gui.screens.inventory.ContainerScreen(
+                        net.minecraft.world.inventory.ChestMenu.threeRows(77, inv), inv, net.minecraft.network.chat.Component.literal("Chest")));
+                return null;
+            });
+            c.ctx().waitTicks(12);
+            TerminalAuraCases.closeScreen(c);
+            c.hx().chat(c.onClient(mc -> mc.player.getName().getString()) + " completed a terminal! (2/7)");
+            c.ctx().waitTicks(40);
+            c.check(c.onClient(mc -> (Integer) Mod.staticCall(SHARE, "termsForTest")) == 0,
+                    "a chest that is not a terminal produced a solve: " + terms(c));
+        } finally {
+            if (c.onClient(mc -> (Boolean) Mod.staticCall("secrets.DungeonState", "isSimOverrideActive"))) {
+                c.onClient(mc -> Mod.staticCall("secrets.DungeonState", "toggleSimOverride"));
+            }
+            c.onClient(mc -> Mod.staticCall(SHARE, "resetForTest"));
             tearDown(c, undo);
         }
     }
