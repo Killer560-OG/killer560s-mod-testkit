@@ -136,7 +136,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossStart1116.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME, SimI4Terror1116.NAME, SimLeap1116.NAME, SimClasses1116.NAME, SimMasks1116.NAME, SimBossEtherwarp1116.NAME, SimCmdKeys1117.NAME, SimLeapSpots1117.NAME, SimLeapSpots1117.ORDER_NAME, SimLeapSpots1117.F7_END, SimBossTermFriend1119.NAME, SimBossTermNumbers1119.NAME, SimBossTermForeign1119.ODIN, SimBossTermForeign1119.NF_ORDER, SimBossTermForeign1119.NF_ALL, SimMelodyLost1118.NAME, SimDevPractice1118.NAME};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossStart1116.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME, SimI4Terror1116.NAME, SimLeap1116.NAME, SimClasses1116.NAME, SimMasks1116.NAME, SimBossEtherwarp1116.NAME, SimCmdKeys1117.NAME, SimLeapSpots1117.NAME, SimLeapSpots1117.ORDER_NAME, SimLeapSpots1117.F7_END, SimBossTermFriend1119.NAME, SimBossTermNumbers1119.NAME, SimBossTermForeign1119.ODIN, SimBossTermForeign1119.NF_ORDER, SimBossTermForeign1119.NF_ALL, SimMelodyLost1118.NAME, SimBossTermFriend1119.BURST_NAME, SimDevPractice1118.NAME};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -187,7 +187,8 @@ public class SimBossTests implements FabricClientGameTest {
                     case SimMelodyLost1118.NAME -> SimMelodyLost1118.run(ctx, f);
                     case SimBossStart1116.NAME -> SimBossStart1116.run(ctx, f);
                     case SimBossLeftClick1114.NAME -> SimBossLeftClick1114.run(ctx, f);
-                    case SimBossTermFriend1119.NAME -> SimBossTermFriend1119.run(ctx, f);
+                    case SimBossTermFriend1119.NAME -> SimBossTermFriend1119.run(ctx, f, false);
+                    case SimBossTermFriend1119.BURST_NAME -> SimBossTermFriend1119.run(ctx, f, true);
                     case SimBossTermNumbers1119.NAME -> SimBossTermNumbers1119.run(ctx, f);
                     case SimBossTermForeign1119.ODIN, SimBossTermForeign1119.NF_ORDER, SimBossTermForeign1119.NF_ALL -> SimBossTermForeign1119.run(ctx, f, name);
                     case SimArmor1115.NAME -> SimArmor1115.run(ctx, f);
