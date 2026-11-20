@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-19T21:37:58",
- "modSource": "lane-queueleap-1119-pf2",
- "modGitSha": "17a8ce18055e33e221c6d043de63a09728caa0c6",
+ "generatedAt": "2026-11-19T22:41:35",
+ "modSource": "lane-pvfit-1118-pf-rd",
+ "modGitSha": "654525f3537e2e2fcffd21a13b17694a906ebb40",
  "modSourceDirty": false,
  "count": 989,
  "byKind": {
