@@ -84,7 +84,7 @@ final class TermBurst1111Cases {
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
             cfg.set(CONFIG, "Enabled", true).set(CONFIG, "AutoTerminalsEnabled", true).set(CONFIG, spec.auto(), true)
                     .set(CONFIG, "AutoStreamSafe", false).set(CONFIG, "HoverTerminalsEnabled", false)
-                    .set(CONFIG, "QueueTerms", false).set(CONFIG, "BurstFinish", on).set(CONFIG, "BurstSize", size);
+                    .set(CONFIG, "QueueTerms", false).set(CONFIG, "BurstFinish", on).set(CONFIG, "BurstMode", false).set(CONFIG, "BurstSize", size);
             int bursts0 = num(c, "burstsSent");
             boolean[] open = {true};
             boolean[] seenOpen = {false};
