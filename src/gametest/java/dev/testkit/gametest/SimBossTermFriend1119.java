@@ -26,6 +26,7 @@ import static dev.testkit.gametest.SimBossTests.waitChat;
 final class SimBossTermFriend1119 {
 
     static final String NAME = "1119-boss-term-click-limit";
+    static final String BURST_NAME = "1119-boss-term-burst-limit";
     private static final String TERMS = "com.killer560.hub.bosssim.BossTerminals";
     private static final String STATIONS = "com.killer560.hub.bosssim.BossStations";
     private static final String TERM_CFG = "com.killer560.hub.terminals.TerminalSolverConfig";
@@ -34,7 +35,8 @@ final class SimBossTermFriend1119 {
     private SimBossTermFriend1119() {
     }
 
-    static void run(ClientGameTestContext ctx, List<String> f) {
+    /** burstMode: Burst Mode on with the largest size asked for (21, capped to 5): the same boards, still no click over the limit. */
+    static void run(ClientGameTestContext ctx, List<String> f, boolean burstMode) {
         start(ctx, "S1", true);
         ctx.runOnClient(mc -> {
             Object cfg = ModUnderTest.config(TERM_CFG);
@@ -48,9 +50,10 @@ final class SimBossTermFriend1119 {
             ModUnderTest.set(cfg, "setAutoClickMaxDelayMs", 120);
             ModUnderTest.set(cfg, "setAutoClickMinDelayMs", 90);
             ModUnderTest.set(cfg, "setFirstClickDelayMs", 0);
-            ModUnderTest.set(cfg, "setBurstFinish", true);
-            ModUnderTest.set(cfg, "setBurstSize", 5);
-            ModUnderTest.set(cfg, "setBurstMode", false);
+            ModUnderTest.set(cfg, "setBurstFinish", !burstMode);
+            ModUnderTest.set(cfg, "setBurstSize", burstMode ? 21 : 5);
+            ModUnderTest.set(cfg, "setBurstClicks", burstMode ? 21 : 5);
+            ModUnderTest.set(cfg, "setBurstMode", burstMode);
             ModUnderTest.set(cfg, "setAutoStreamSafe", false);
             ModUnderTest.set(cfg, "setQueueTerms", false);
             ModUnderTest.set(cfg, "setHoverTerminalsEnabled", false);
@@ -62,6 +65,7 @@ final class SimBossTermFriend1119 {
         String[] types = {"NUMBERS", "PANES", "RUBIX", "SELECT", "STARTS_WITH"};
         int over = 0;
         int boards = 0;
+        int bursts = 0;
         int t = 0;
         for (String label : new String[]{"T1", "T2", "T3", "T4", "T5"}) {
             if (ModUnderTest.staticCall(STATIONS, "position", new Class<?>[]{int.class, String.class}, new Object[]{1, label}) == null) {
@@ -95,6 +99,9 @@ final class SimBossTermFriend1119 {
                 f.add("S1 " + label + ": solved but no 'activated a terminal!' line");
             }
             boards++;
+            for (String l : LogTap.since(mark)) {
+                if (l.contains(" burst: ")) bursts++;
+            }
             String line = null;
             for (String l : LogTap.since(mark)) {
                 if (l.contains("terminal S1 " + label + " solved")) {
@@ -112,7 +119,17 @@ final class SimBossTermFriend1119 {
                     label, m.group(2), ms, m.group(3), limited));
         }
         System.clearProperty("killer560.bosssim.terminal");
+        // Leave the shared config as the menu cases expect it (Burst Mode left on made every later Burst Finish case burst).
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(TERM_CFG);
+            ModUnderTest.set(cfg, "setBurstMode", false);
+            ModUnderTest.set(cfg, "setBurstFinish", false);
+        });
         expect(f, "boards solved by Auto Terminals", boards >= 4, true);
+        if (burstMode) {
+            expect(f, "Burst Mode bursts sent (the feature acted)", bursts > 0, true);
+            expect(f, "Max Clicks Per Burst after asking for 21", ModUnderTest.getInt(ModUnderTest.config(TERM_CFG), "getBurstClicks"), 5);
+        }
         expect(f, "clicks over Hypixel's 5-in-10-ticks limit (dropped by the server)", over, 0);
     }
 }

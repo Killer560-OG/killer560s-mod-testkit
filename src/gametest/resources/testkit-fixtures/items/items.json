@@ -137,10 +137,10 @@
     },
     "source": {
       "file": "src/main/java/com/killer560/hub/fastleap/LeapManager.java",
-      "line": 553
+      "line": 948
     },
     "verifiedBy": "regex",
-    "notes": "A leap item: custom_data.id SPIRIT_LEAP or INFINITE_SPIRIT_LEAP (:553)."
+    "notes": "A leap item: custom_data.id SPIRIT_LEAP or INFINITE_SPIRIT_LEAP (:948)."
   },
   {
     "id": "items.enchanted-diamond",

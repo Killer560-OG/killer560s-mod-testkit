@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-20T08:21:56",
- "modSource": "lane-carnivalshelve-1118-rm-rd6",
- "modGitSha": "ec4bbcd1ce0874e47768f6ad80238d8d4fb4533e",
+ "generatedAt": "2026-11-20T14:16:28",
+ "modSource": "lane-norotate-rm2-1119-rd5",
+ "modGitSha": "99757fd457c23b61622339134446527bac64ac3e",
  "modSourceDirty": false,
  "count": 966,
  "byKind": {
@@ -10939,7 +10939,7 @@
    "field": "LINE",
    "index": null,
    "file": "src/main/java/com/killer560/hub/splittimers/MelodyLost.java",
-   "line": 35,
+   "line": 36,
    "regex": "^(\\w{1,16}) (?:activated|completed) a (terminal|lever|device)! \\((\\d)/(\\d)\\)(?:\\s.*)?$",
    "flags": null,
    "kind": "field",
