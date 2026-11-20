@@ -471,6 +471,7 @@ $lastProgress = $null   # set when the first client appears; before that only th
 $startMinutes = 4
 if ($env:TESTKIT_START_MINUTES) { $startMinutes = [double]$env:TESTKIT_START_MINUTES }
 $seenProgress = $false
+$clientSince = $null
 $startStall = $false
 
 # Loop while EITHER the launcher is alive OR a test client exists.
@@ -484,9 +485,15 @@ while ((-not $proc.HasExited -or (Get-TestClients)) -and (Get-Date) -lt $deadlin
     Sync-SlotWindow
     $frozen = $false
     if ($ProgressMinutes -gt 0) {
-        if (Test-NewProgress) { $lastProgress = Get-Date; $seenProgress = $true }
+        # The start clock runs from the client's appearance; an old latest.log (a previous run's, until deleteGameTestRunDir
+        # clears it) is not this client's first test line.
+        if ($null -eq $clientSince -and @(Get-TestClients).Count -gt 0) { $clientSince = Get-Date }
+        if (Test-NewProgress) {
+            $lastProgress = Get-Date
+            if ($null -ne $clientSince -and (Get-Item $clientLog).CreationTime -ge $clientSince.AddSeconds(-5)) { $seenProgress = $true }
+        }
         elseif ($null -eq $lastProgress -and @(Get-TestClients).Count -gt 0) { $lastProgress = Get-Date }
-        if ($startMinutes -gt 0 -and -not $seenProgress -and $null -ne $lastProgress -and ((Get-Date) - $lastProgress).TotalMinutes -ge $startMinutes) {
+        if ($startMinutes -gt 0 -and -not $seenProgress -and $null -ne $clientSince -and ((Get-Date) - $clientSince).TotalMinutes -ge $startMinutes) {
             $startStall = $true
             break
         }
@@ -550,7 +557,7 @@ if ($killedHung) {
 }
 
 if ($startStall -and -not $env:TESTKIT_STARTUP_RETRY) {
-    Write-Host "start stall after $startMinutes min (no test line since the client appeared at $($lastProgress.ToString('HH:mm:ss'))), relaunching once"
+    Write-Host "start stall after $startMinutes min (no test line since the client appeared at $($clientSince.ToString('HH:mm:ss'))), relaunching once"
     Stop-RunTree "start stall"
     if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
     Stop-TestServers "the stalled run's"
