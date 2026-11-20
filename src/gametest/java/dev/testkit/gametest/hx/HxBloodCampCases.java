@@ -2033,11 +2033,11 @@ final class HxBloodCampCases {
     }
 
     private static String selfClassName(Session c) {
-        return String.valueOf(c.onClient(mc -> Mod.staticCall("leapmenu.PartyTracker", "selfClass")));
+        return String.valueOf(c.<Object>onClient(mc -> Mod.staticCall("leapmenu.PartyTracker", "selfClass")));
     }
 
     private static void showClass(Session c, String me, String cls, String want) {
-        tab(c, "template", "dungeon", "players", List.of(player("HxMateA", "Mage", "[MVP+]"), player(me, cls, null)));
+        HxKit.tab(c, "template", "dungeon", "players", List.of(HxKit.player("HxMateA", "Mage", "[MVP+]"), HxKit.player(me, cls, null)));
         c.waitUntil("detected class " + want, mc -> want.equals(String.valueOf(Mod.staticCall("leapmenu.PartyTracker",
                 "detectedClassOf", me))), 60);
     }
@@ -2049,7 +2049,7 @@ final class HxBloodCampCases {
         if (!Mod.isCheat()) {
             return;
         }
-        String me = self(c);
+        String me = HxKit.self(c);
         try (HxKit.Settings s = base(c)) {
             s.with(BC_CFG, "TriggerBotEnabled", true).with(BC_CFG, "MageOnly", true);
             watcher(c, WATCHER_IN);
@@ -2064,7 +2064,7 @@ final class HxBloodCampCases {
             pick(c, me, "ARCHER");
             showClass(c, me, "Mage", "MAGE");
             c.check("MAGE".equals(selfClassName(c)), "pick ARCHER, game shows MAGE: selfClass was " + selfClassName(c));
-            c.check("MAGE".equals(String.valueOf(c.onClient(mc -> Mod.staticCall("leapmenu.LeapMenuFeature", "playingClass")))),
+            c.check("MAGE".equals(String.valueOf(c.<Object>onClient(mc -> Mod.staticCall("leapmenu.LeapMenuFeature", "playingClass")))),
                     "the leap menu does not play MAGE");
             c.check(!(Boolean) c.onClient(mc -> Mod.staticCall("dungeonclass.ClassOverrides", "has", me)),
                     "the stale ARCHER pick is still saved on his name");
