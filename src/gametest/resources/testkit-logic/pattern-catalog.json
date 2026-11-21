@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T11:41:21",
- "modSource": "lane-flake-boss-p1p2-1121",
- "modGitSha": "c839e51853b17b693cf0fd779a373ea6d1574a82",
+ "generatedAt": "2026-11-21T11:53:00",
+ "modSource": "lane-pearlblock-leap-1121",
+ "modGitSha": "62b849a4a26809437dccc0ca34b977d0c6727ce3",
  "modSourceDirty": false,
  "count": 968,
  "byKind": {
