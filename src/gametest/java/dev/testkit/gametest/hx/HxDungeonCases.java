@@ -34,12 +34,14 @@ final class HxDungeonCases {
         runStats(s);
         runSummary(s);
         runSummaryPb(s);
+        runSummaryStart(s);
         shareSite(s);
         shareSiteNotice(s);
         rngMeter(s);
         blessings(s);
         classColors(s);
         dungeonQueue(s);
+        dungeonQueueNotCreator(s);
         autoKick(s);
         doorKeys(s);
         architect(s);
@@ -383,7 +385,7 @@ final class HxDungeonCases {
         run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
         send(c, "chat.run-start");
         c.waitUntil("a run is tracked", mc -> (Boolean) Mod.staticCall("runsummary.RunSummaryFeature", "isTrackingRun"), 40);
-        c.ctx().waitTicks(5);
+        c.ctx().waitTicks(25); // Mort's line (the game clock start) comes 1 s after the arming line
         if (defeated) {
             c.hx().chat("                  ☠ Defeated Necron in 03m 41s");
         }
@@ -395,6 +397,43 @@ final class HxDungeonCases {
 
     private static boolean flag(Object record, String name) {
         return (Boolean) Mod.call(record, name);
+    }
+
+    /**
+     * runfix-1120: Run History's total read 1.1 s over the game's and Split Timers' because the clock started on
+     * "Starting in 1 second." instead of Mort's line. The stored run must start at the moment Split Timers' own clock
+     * does (Mort's line, 25 ticks after the arming line here) and its total must be end minus that.
+     */
+    private static void runSummaryStart(Session s) {
+        s.test("107-hx-runsummary-start-mort", c -> {
+            try (Settings set = new Settings(c).with("runsummary.RunSummaryConfig", "Enabled", true)
+                    .with("splittimers.SplitTimersConfig", "Enabled", true)) {
+                dungeon(c);
+                run(c, () -> Mod.staticCall(PB_STORE, "clear"));
+                run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
+                long armed = System.currentTimeMillis();
+                send(c, "chat.run-start");
+                c.waitUntil("a run is tracked", mc -> (Boolean) Mod.staticCall("runsummary.RunSummaryFeature", "isTrackingRun"), 40);
+                c.ctx().waitTicks(25);
+                send(c, "chat.mort-map");
+                c.ctx().waitTicks(40);
+                c.hx().chat("                  \u2620 Defeated Maxor, Storm, Goldor, and Necron in 03m 24s");
+                c.waitUntil("the run was stored", mc -> ((Number) Mod.staticCall(PB_STORE, "size")).intValue() > 0, 400);
+                Object rec = c.onClient(mc -> Mod.staticCall(PB_STORE, "latest"));
+                long start = ((Number) Mod.call(rec, "startedAtMs")).longValue();
+                long end = ((Number) Mod.call(rec, "endedAtMs")).longValue();
+                long total = ((Number) Mod.call(rec, "totalMs")).longValue();
+                long splitStart = ((Number) c.onClient(mc -> Mod.staticCall("splittimers.SplitTimersFeature", "getRunStartedAtMs"))).longValue();
+                c.check(splitStart > 0L, "premise: Split Timers never started its clock (" + splitStart + ")");
+                c.check(start == splitStart, "Run History starts at " + (start - armed) + " ms after the arming line, Split Timers at "
+                        + (splitStart - armed) + " ms");
+                c.check(start - armed >= 1000L, "the stored run started " + (start - armed) + " ms after 'Starting in 1 second.' (Mort came 1250+ ms after it)");
+                c.check(total == end - splitStart, "total " + total + " ms is not end - Split Timers start (" + (end - splitStart) + ")");
+                c.note("armed -> Mort " + (splitStart - armed) + " ms; stored total " + total + " ms = end - Split Timers start");
+            } finally {
+                run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
+            }
+        });
     }
 
     private static void runSummaryPb(Session s) {
@@ -605,12 +644,57 @@ final class HxDungeonCases {
                 c.note("forged EXTRA STATS/leave ignored; real EXTRA STATS -> /" + cmd + "; after a real leave -> skipped");
             } finally {
                 resetQueue(c);
+                hub(c); // PartyTracker keeps a player who left until the dungeon ends: the next case needs a clean party
+            }
+        });
+    }
+
+    /**
+     * runfix-1120: Hypixel answers "Only the instance creator can re-queue!" to a member who did not start the run, and
+     * Auto Requeue sent /instancerequeue every run anyway. After that answer nothing is sent until the party changes;
+     * the creator's own requeue is unchanged, and another player's line with the same words does nothing.
+     */
+    private static void dungeonQueueNotCreator(Session s) {
+        s.test("112-hx-dungeonqueue-notcreator", c -> {
+            try (Settings set = new Settings(c).with("dungeonqueue.DungeonQueueConfig", "Enabled", true)
+                    .with("dungeonqueue.DungeonQueueConfig", "DelaySeconds", 1)
+                    .with("dungeonqueue.DungeonQueueConfig", "DisableOnLeave", true)) {
+                dungeon(c);
+                c.hx().stub(null, "instancerequeue");
+                resetQueue(c);
+                send(c, "chat.extra-stats");
+                String cmd = awaitCommand(c, "instancerequeue", 80);
+                resetQueue(c);
+                c.hx().chat("[MVP+] HxMateA: Only the instance creator can re-queue!");
+                c.ctx().waitTicks(6);
+                c.check(!(Boolean) c.onClient(mc -> Mod.field("dungeonqueue.DungeonQueueFeature", "notCreator")),
+                        "another player's chat line with the server's words blocked the requeue");
+                c.hx().chat("Only the instance creator can re-queue!");
+                c.waitUntil("notCreator after the server's answer",
+                        mc -> (Boolean) Mod.field("dungeonqueue.DungeonQueueFeature", "notCreator"), 40);
+                long before = c.commands().stream().filter(x -> x.startsWith("instancerequeue")).count();
+                send(c, "chat.extra-stats");
+                c.ctx().waitTicks(60);
+                long after = c.commands().stream().filter(x -> x.startsWith("instancerequeue")).count();
+                c.check(after == before, "/instancerequeue was sent after 'Only the instance creator can re-queue!'");
+                // The party changes: the next run asks again.
+                send(c, "chat.party-left");
+                c.waitUntil("notCreator cleared by a party change",
+                        mc -> !(Boolean) Mod.field("dungeonqueue.DungeonQueueFeature", "notCreator"), 40);
+                resetQueue(c);
+                send(c, "chat.extra-stats");
+                String again = awaitCommand(c, "instancerequeue", 80);
+                c.note("creator -> /" + cmd + "; after the server's answer nothing sent; after a party change -> /" + again);
+            } finally {
+                resetQueue(c);
+                hub(c); // PartyTracker keeps a player who left until the dungeon ends: the next case needs a clean party
             }
         });
     }
 
     private static void resetQueue(Session c) {
         run(c, () -> {
+            Mod.setField("dungeonqueue.DungeonQueueFeature", "notCreator", false);
             Mod.setField("dungeonqueue.DungeonQueueFeature", "requeuedThisRun", false);
             Mod.setField("dungeonqueue.DungeonQueueFeature", "disableRequeue", false);
             Mod.setField("dungeonqueue.DungeonQueueFeature", "pendingTicks", -1);
