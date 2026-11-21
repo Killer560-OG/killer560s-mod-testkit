@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-20T21:57:31",
- "modSource": "lane-flaghunt-b-1117-pf-rd4",
- "modGitSha": "06a49f4cbdfe09a24172c6e9ad5064d20021a259",
+ "generatedAt": "2026-11-20T23:24:08",
+ "modSource": "lane-remerge3b-sdrm-1120d",
+ "modGitSha": "832929549f8ba9c64fb8f889e77802e38cd2ab69",
  "modSourceDirty": false,
  "count": 967,
  "byKind": {
