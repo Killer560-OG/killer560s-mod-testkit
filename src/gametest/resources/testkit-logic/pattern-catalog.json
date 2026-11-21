@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T11:42:30",
- "modSource": "lane-atlasmap-1121",
- "modGitSha": "66e68cda69513f79e5bb199b217520662cebb85b",
+ "generatedAt": "2026-11-21T11:53:00",
+ "modSource": "lane-pearlblock-leap-1121",
+ "modGitSha": "62b849a4a26809437dccc0ca34b977d0c6727ce3",
  "modSourceDirty": false,
  "count": 968,
  "byKind": {

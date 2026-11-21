@@ -1,5 +1,6 @@
 package dev.testkit.gametest.hx;
 
+import dev.testkit.gametest.Fixtures;
 import dev.testkit.gametest.mod.Mod;
 import dev.testkit.harness.WireCapture;
 
@@ -33,9 +34,17 @@ final class HxNoBossPearl1110Cases {
         s.test("1110-bosspearl-outside", c -> run(c, true, false, false));
         s.test("1110-bosspearl-off", c -> run(c, false, true, false));
         s.test("1110-bosspearl-mod", c -> run(c, true, true, true));
+        s.test("1121-hx-bosspearl-leap", c -> {
+            run(c, true, true, false, true);
+            run(c, true, true, false, false); // control: a plain pearl in the same state is blocked
+        });
     }
 
     private static void run(Session c, boolean on, boolean boss, boolean mod) {
+        run(c, on, boss, mod, false);
+    }
+
+    private static void run(Session c, boolean on, boolean boss, boolean mod, boolean leap) {
         WireCapture.describe = p -> p.getClass().getSimpleName();
         boolean toggled = false;
         try (Settings set = new Settings(c).with(CFG, "BlockBossPearls", on)) {
@@ -45,7 +54,17 @@ final class HxNoBossPearl1110Cases {
                 toggled = true;
                 c.check((Boolean) c.onClient(mc -> Mod.staticCall(STATE, "isBossPhaseActive")), "boss phase did not turn on");
             }
-            c.server().command("item replace entity @p weapon.mainhand with minecraft:ender_pearl 16");
+            if (leap) {
+                c.hx().give(0, Fixtures.byId("items.spirit-leap").payload().getAsJsonObject().get("stack").getAsString());
+                c.onClient(mc -> {
+                    mc.player.getInventory().setSelectedSlot(0);
+                    return null;
+                });
+                c.waitUntil("a Spirit Leap in hand", mc -> "SPIRIT_LEAP".equals(
+                        Mod.staticCall("cheatutils.CheatUtils", "skyblockId", mc.player.getMainHandItem())), 60);
+            } else {
+                c.server().command("item replace entity @p weapon.mainhand with minecraft:ender_pearl 16");
+            }
             c.waitUntil("a pearl in hand", mc -> mc.player.getMainHandItem().is(net.minecraft.world.item.Items.ENDER_PEARL), 60);
             c.ctx().waitTicks(25);
             WireCapture.start();
@@ -63,7 +82,7 @@ final class HxNoBossPearl1110Cases {
             }
             boolean used = wire.contains("ServerboundUseItemPacket");
             boolean swung = wire.contains("ServerboundSwingPacket");
-            boolean blocked = on && boss && !mod;
+            boolean blocked = on && boss && !mod && !leap;
             c.check(used != blocked, blocked ? "a pearl use went out in the boss: " + wire : "no use went out: " + wire);
             c.check(!blocked || !swung, "a swing went out with the blocked use: " + wire);
             c.note((blocked ? "blocked, wire " : "went out, wire ") + wire);
