@@ -19,10 +19,13 @@ import java.util.concurrent.ConcurrentHashMap;
  * <ul>
  *   <li>1121-sim-acgaps2-lastdeath: ticks from a handed-over room's last starred death to Auto Secret getting it back. At
  *   least two rooms must come back within 1 tick (the map's checkmark comes several ticks later).</li>
- *   <li>1121-sim-acgaps2-keywait: ticks Blood First stood waiting for "the cleared room's key" when no key came.</li>
+ *   <li>1121-sim-acgaps2-keywait: ticks Blood First stood waiting for "the cleared room's key" when no key came (a key
+ *   reaching the team, or a KEY or DOOR pick, ends a wait as answered). At least one wait must happen. On this floor
+ *   every wait is answered, so the row guards against waits with no key and does not separate origin from the branch.</li>
  *   <li>1121-sim-acgaps2-essence: ticks the end-of-route wait held for a Wither Essence already clicked. The sim takes a
  *   clicked essence 22 ticks later as Hypixel does; on a jar whose sim takes it at once the case adds that delay itself,
- *   so the wait is measured against Hypixel's pace either way.</li>
+ *   so the wait is measured against Hypixel's pace either way. Blood First reaches blood before any route ends, so the run
+ *   goes on after the blood door (up to 60 s) with Secret Aura on for essences, until a clicked essence's wait resolved.</li>
  * </ul>
  * Every row also needs the run to have cleared rooms and opened doors, so a run that did nothing fails.
  */
@@ -35,6 +38,7 @@ public class SimAcGaps21121Tests implements FabricClientGameTest {
     private static final String AS = "com.killer560.hub.autosecret.AutoSecretFeature";
     private static final String SIM_FLOOR = "com.killer560.hub.roomsim.SimMobFloor";
     private static final String SIM_SECRETS = "com.killer560.hub.roomsim.SimSecrets";
+    private static final String CHEAT_CFG = "com.killer560.hub.cheatutils.CheatUtilsConfig";
     /** Hypixel's essence pickup, 1093-1247 ms after the click in his 11-21 log. */
     private static final int ESSENCE_TICKS = 22;
     private static final int KEYWAIT_MAX = Integer.getInteger("testkit.acgaps2KeyWaitMax", 10);
@@ -111,6 +115,7 @@ public class SimAcGaps21121Tests implements FabricClientGameTest {
                     ModUnderTest.staticCall(AS, "stop", new Class<?>[]{String.class, boolean.class}, new Object[]{"test over", true});
                     ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig"), "setBloodFirst", false);
                     ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclear.AutoClearConfig"), "setEnabled", false);
+                    ModUnderTest.set(ModUnderTest.config(CHEAT_CFG), "setSecretAuraEnabled", false);
                 } catch (Throwable ignored) {
                     // cleanup must not replace the verdict
                 }
@@ -207,6 +212,9 @@ public class SimAcGaps21121Tests implements FabricClientGameTest {
             ModUnderTest.set(as, "setBloodFirst", true);
             ModUnderTest.set(as, "setChatFeedback", true);
             ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclear.AutoClearConfig"), "setEnabled", true);
+            Object aura = ModUnderTest.config(CHEAT_CFG);
+            ModUnderTest.set(aura, "setAuraEssence", true);
+            ModUnderTest.set(aura, "setSecretAuraEnabled", true);
         });
         SimAutoClearTests.setMode(ctx, "ANY_MOB_ROOM", "SPIRIT_SCEPTRE");
         ctx.runOnClient(mc -> SimAcBloodFirst1118Tests.drawKeys(mc.getSingleplayerServer()));
@@ -226,6 +234,8 @@ public class SimAcGaps21121Tests implements FabricClientGameTest {
         int essenceClicks = 0;
         int essenceHeld = 0;
         boolean essenceWait = false;
+        boolean essenceHeldSeen = false;
+        int bloodTick = -1;
         boolean bloodOpen = false;
         boolean wasRunning = false;
         for (; tick < minutes * 1200; tick++) {
@@ -256,7 +266,8 @@ public class SimAcGaps21121Tests implements FabricClientGameTest {
                 if (l.contains("Blood First: waiting up to")) {
                     keyWaitStart = tick;
                     keyWaits++;
-                } else if (keyWaitStart >= 0 && (l.contains("Picking up the") || l.contains("Blood First: next door"))) {
+                } else if (keyWaitStart >= 0 && (l.contains("Picking up the") || l.contains("Blood First: next door")
+                        || l.contains("has obtained") && l.contains("Key!") || l.contains("pick KEY") || l.contains("pick DOOR"))) {
                     keyWaitsWithKey++;
                     keyWaitStart = -1;
                 } else if (keyWaitStart >= 0 && l.contains("[Autopilot] decide")) {
@@ -271,13 +282,16 @@ public class SimAcGaps21121Tests implements FabricClientGameTest {
                 } else if (essenceWait && l.contains("of the last-node wait")) {
                     java.util.regex.Matcher m = WAIT_TICKS.matcher(l);
                     essenceHeld += m.find() ? Integer.parseInt(m.group(1)) : 0;
+                    essenceHeldSeen = true;
                     essenceWait = false;
                 }
-                if (l.contains("The BLOOD DOOR has been opened!")) {
+                if (l.contains("The BLOOD DOOR has been opened!") && !bloodOpen) {
                     bloodOpen = true;
+                    bloodTick = tick;
                 }
             }
-            if (bloodOpen || wasRunning && !running) {
+            boolean essenceDone = essenceClicks >= 1 && !essenceWait && essenceHeldSeen;
+            if (bloodOpen && (essenceDone || tick - bloodTick > 1200) || wasRunning && !running) {
                 break;
             }
         }
@@ -293,8 +307,8 @@ public class SimAcGaps21121Tests implements FabricClientGameTest {
         boolean acted = Boolean.TRUE.equals(startedOk) && kills >= 3 && backs.size() >= 2;
         row(LASTDEATH, acted && quick >= 2, String.format(Locale.US, "%d of %d handed-over clears back within 1 tick of the"
                 + " last death (mean %.1f, need 2); %s", quick, backs.size(), backMean, did));
-        row(KEYWAIT, acted && keyWaitWasted <= KEYWAIT_MAX, keyWaitWasted + " tick(s) waited for a key that never came over "
-                + keyWaits + " wait(s), " + keyWaitsWithKey + " got one (max " + KEYWAIT_MAX + "); " + did);
+        row(KEYWAIT, acted && keyWaits >= 1 && keyWaitWasted <= KEYWAIT_MAX, keyWaitWasted + " tick(s) waited for a key that never came over "
+                + keyWaits + " wait(s) (need 1), " + keyWaitsWithKey + " answered by a key (max " + KEYWAIT_MAX + "); " + did);
         row(ESSENCE, acted && essenceClicks >= 1 && essenceHeld <= ESSENCE_MAX, essenceHeld + " tick(s) the end-of-route wait"
                 + " held for a clicked essence (max " + ESSENCE_MAX + "), " + essenceClicks + " essence click(s); " + did);
     }

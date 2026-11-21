@@ -60,6 +60,10 @@ final class HxAcDoorOnly1115Cases {
                     + "{NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}", x + 0.5, z + 1.9));
         }
         c.waitUntil("the door column on the client", mc -> mc.level.getBlockState(door).is(net.minecraft.world.level.block.Blocks.COAL_BLOCK), 200);
+        // The run has started (acslow-1121: Auto Clear started before Mort's first line only arms, and an arm is dropped
+        // on the next world change), as on Hypixel once the map is handed out.
+        c.hx().chat("[NPC] Mort: Here, I found this map when I first entered the dungeon.");
+        c.waitUntil("the run read as started", mc -> (Boolean) Mod.staticCall("witherdoors.WitherDoorsFeature", "runStarted"), 40);
         c.ctx().waitTicks(10);
         return door;
     }
