@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T15:25:18",
- "modSource": "lane-keysphere-patchy-1121",
- "modGitSha": "45bd7ab6af131e8843ce429d603e8c004d80b6cd",
+ "generatedAt": "2026-11-21T15:43:57",
+ "modSource": "lane-harp-extras-1121-c",
+ "modGitSha": "1803d96262db8c18ab7ddd1b62f2f6217fde2b43",
  "modSourceDirty": false,
  "count": 968,
  "byKind": {
@@ -11323,7 +11323,7 @@
    "field": "COMPLETION_REGEX",
    "index": null,
    "file": "src/main/java/com/killer560/hub/terminals/TerminalQolFeature.java",
-   "line": 65,
+   "line": 64,
    "regex": "^(\\w{1,16}) (?:activated a (?:terminal|lever)|completed a device)! \\(\\d+/\\d+\\)(?:\\s.*)?$",
    "flags": null,
    "kind": "field",

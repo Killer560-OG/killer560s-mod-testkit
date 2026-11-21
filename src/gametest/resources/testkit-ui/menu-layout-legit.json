@@ -74,6 +74,7 @@
     "Map, Leap & Party",
     "Mask Invincibility",
     "Maxor's Crystals",
+    "Melody's Harp Helper",
     "Mod & HUD",
     "Mod Chat",
     "Motion Blur",
@@ -188,6 +189,7 @@
     "gui.tab.FriendsListTab": "Social > Friends List",
     "gui.tab.GeneralMainTab": "General > General",
     "gui.tab.GifPlayerTab": "Hud Elements > GIF Player",
+    "gui.tab.HarpHelperTab": "Items > Melody's Harp Helper",
     "gui.tab.HealthAndManaBarsTab": "Hud Elements > Health and Mana Bars",
     "gui.tab.HideChatMessagesTab": "Chat > Hide Chat Messages",
     "gui.tab.HidePlayersTab": "Hud Elements > Hide Players",
@@ -848,6 +850,9 @@
       "reset best place time": "Shows your fastest crystal placement. Click twice to reset it.",
       "respawn timer": "Shows a countdown to the next crystal spawning.",
       "unplaced crystal alert": "Warns you while you are carrying a crystal you have not placed."
+    },
+    "Melody's Harp Helper": {
+      "melody's harp helper": "Helpers for Melody's Harp: keys for the notes, a GUI scale, a progress tracker, key labels, hidden tooltips and Quick Restart. Off by default."
     },
     "Mod & HUD": {
       "auto scale (monitor)": "Keeps every HUD element and menu of this mod the same size relative to your window on any monitor and at any GUI Scale, using a 2560x1440 screen at GUI Scale 3 as the reference (unchanged there). HUD Scale multiplies on top. ON by default; saved with profiles.",
