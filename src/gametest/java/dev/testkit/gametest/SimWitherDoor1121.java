@@ -44,6 +44,8 @@ final class SimWitherDoor1121 {
 
     static void enter(ClientGameTestContext ctx, TestSingleplayerContext sp) {
         ctx.waitTicks(40);
+        // An earlier case in the same JVM may have left a generated floor's altitude offset: doors carve at toWorld(69).
+        ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimAltitude", "reset"));
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class}, new Object[]{"gametest"}));
         sp.getServer().runOnServer(server -> server.getPlayerList().getPlayers().forEach(p -> p.setGameMode(GameType.SURVIVAL)));
         ctx.waitTicks(10);
