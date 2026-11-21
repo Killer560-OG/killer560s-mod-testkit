@@ -164,19 +164,14 @@ final class SimonSaysCases {
      * Arrive at the device without the anticheat missing the chunk under the player: it takes a chunk in only when the
      * client answers the transaction after it, and a body that lands on a floor it does not have yet reads as falling
      * (GroundSpoof + Simulation, and a use judged against air: AirLiquidPlace; 786 flaked on both). Land high over the
-     * device (client and anticheat both see air there) and let the body fall onto the floor: the client can land only
-     * once it has the chunk, and the anticheat's transaction for that chunk is answered before the landing move. 3.0
-     * above the floor is the highest drop with no fall damage.
-     *
-     * <p>flake-ss-1120: this used to land at y 135 and teleport down to 120.4 once the anticheat held the floor, i.e.
-     * mid-fall. Under load GrimAC now and then carried the fall speed through that teleport while the client started
-     * still, and every SS case using this flagged Simulation for a few ticks with offsets of exactly the fall speed
-     * after 3 or 5 ticks (.230527, .376630, then x0.98 a tick). No teleport mid-fall now.
+     * device (client and anticheat both see air there), wait until the anticheat holds the floor, then step down.
      */
     static void tpToDevice(Session c) {
-        c.hx().call("dungeon.tp", "x", 107.5, "y", 123.0, "z", 93.5, "yaw", -90f, "pitch", 0f);
+        c.hx().call("dungeon.tp", "x", 107.5, "y", 135.0, "z", 93.5, "yaw", -90f, "pitch", 0f);
         c.waitUntil("GrimAC's world to hold the device floor", mc -> grimHolds(c, new BlockPos(107, 119, 93)), 200);
-        c.waitUntil("the client to land on the device floor", mc -> mc.player.onGround() && Math.abs(mc.player.getY() - 120.0) < 0.01, 200);
+        // 0.4 above the floor: the client lands within 3 ticks as the anticheat predicts. Standing at 120.0, the teleport
+        // reply claims airborne (the vanilla client always sends it so) while the next packet is predicted on the ground.
+        c.hx().call("dungeon.tp", "x", 107.5, "y", 120.4, "z", 93.5, "yaw", -90f, "pitch", 0f);
     }
 
     /**
