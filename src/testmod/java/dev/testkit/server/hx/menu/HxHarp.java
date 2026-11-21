@@ -43,12 +43,18 @@ final class HxHarp implements HxMenus.Ticking {
     private final int stepTicks;
     private final long halfPingMs;
     private final int[][] stalls;
+    /** [[step, ticks into it, freeze ticks], ...]: the server freezes there, then catches up BURST harp ticks a tick. */
+    private int[][] freezes = new int[0][];
+    private static final int BURST = 4;
+    private int frozen;
+    private int owed;
+    private int harpTicks;
     private final boolean[][] played;
     private final List<long[]> hist = new ArrayList<>();
     private final Deque<long[]> pending = new ArrayDeque<>();
     private int n;
     private int shownN = -1;
-    private long lastAdvance;
+    private int lastAdvance;
     private int ok;
     private int wrong;
     private int missed;
@@ -98,7 +104,15 @@ final class HxHarp implements HxMenus.Ticking {
         HxHarp h = new HxHarp(notes, a.has("stepTicks") ? a.get("stepTicks").getAsInt() : 5,
                 a.has("pingMs") ? a.get("pingMs").getAsInt() : 0, stalls);
         List<ItemStack> items = HxMenus.filled(server, 6);
-        h.lastAdvance = server.getTickCount();
+        if (a.has("freezes")) {
+            JsonArray fz = a.getAsJsonArray("freezes");
+            h.freezes = new int[fz.size()][3];
+            for (int i = 0; i < fz.size(); i++) {
+                for (int k = 0; k < 3; k++) {
+                    h.freezes[i][k] = fz.get(i).getAsJsonArray().get(k).getAsInt();
+                }
+            }
+        }
         h.hist.add(new long[]{now(), 0});
         HxChestMenu menu = HxMenus.open(player, 6, Component.literal("Harp - Test"), items, SCRIPT, h);
         h.render(server, menu, 0);
@@ -150,14 +164,42 @@ final class HxHarp implements HxMenus.Ticking {
     public void tick(MinecraftServer server, HxChestMenu menu, ServerPlayer player) {
         long now = now();
         int last = notes.length + 5;
-        // Clicks whose logical time has come are judged BEFORE the rows move on, or a note is missed that was hit in time.
+        // A server freeze: nothing is read, judged, moved or sent; the ticks it owes then run in a burst, BURST a tick.
+        if (frozen > 0) {
+            frozen--;
+            owed++;
+            return;
+        }
+        int runs = 1 + Math.min(owed, BURST - 1);
+        owed -= runs - 1;
+        for (int i = 0; i < runs && frozen == 0; i++) {
+            harpTick(player, now, last);
+        }
+        int show = logicalAt(now - halfPingMs);
+        if (show != shownN) {
+            render(server, menu, show);
+            JsonObject r = new JsonObject();
+            r.addProperty("step", show);
+            r.addProperty("at", now % 100000);
+            r.addProperty("adv", stepStart(show) % 100000);
+            HxEvents.custom("harp.render", player, r);
+        }
+        if (!done && n >= last && pending.isEmpty() && shownN == n) {
+            done = true;
+            HxEvents.custom("harp.done", player, counts());
+        }
+    }
+
+    /** One tick of the harp's own clock: due clicks are judged BEFORE the rows move on (a note hit in time is not missed). */
+    private void harpTick(ServerPlayer player, long now, int last) {
         while (!pending.isEmpty() && pending.peekFirst()[0] <= now) {
             long[] c = pending.pollFirst();
             judge(player, (int) c[1], logicalAt(c[0]), c[0]);
         }
-        if (n < last && server.getTickCount() - lastAdvance >= stepTicks + extraTicks(n)) {
+        harpTicks++;
+        if (n < last && harpTicks - lastAdvance >= stepTicks + extraTicks(n)) {
             n++;
-            lastAdvance = server.getTickCount();
+            lastAdvance = harpTicks;
             hist.add(new long[]{now, n});
             int gone = n - 5;
             for (int col : gone >= 0 && gone < notes.length ? notes[gone] : new int[0]) {
@@ -170,13 +212,15 @@ final class HxHarp implements HxMenus.Ticking {
                 }
             }
         }
-        int show = logicalAt(now - halfPingMs);
-        if (show != shownN) {
-            render(server, menu, show);
-        }
-        if (!done && n >= last && pending.isEmpty() && shownN == n) {
-            done = true;
-            HxEvents.custom("harp.done", player, counts());
+        for (int[] f : freezes) {
+            if (f[0] == n && harpTicks - lastAdvance == f[1]) {
+                frozen = f[2];
+                JsonObject e = new JsonObject();
+                e.addProperty("step", n);
+                e.addProperty("ticks", f[2]);
+                e.addProperty("at", now % 100000);
+                HxEvents.custom("harp.freeze", player, e);
+            }
         }
     }
 
@@ -196,6 +240,7 @@ final class HxHarp implements HxMenus.Ticking {
         e.addProperty("step", step);
         e.addProperty("ok", right);
         e.addProperty("ms", at - stepStart(step));
+        e.addProperty("rx", (at - halfPingMs) % 100000);
         HxEvents.custom("harp.click", player, e);
     }
 
