@@ -25,6 +25,8 @@ import java.util.List;
  *   <li>1120-autoharp-off: the feature OFF clicks nothing; ON, the song list ("Melody's Harp") gets no click.</li>
  *   <li>1120-same-autoharp-click / -key: his own container click lands in every client tick through the screen /
  *       at END (the feature's chords click on consecutive ticks too); run on default and experimental GrimAC.</li>
+ *   <li>1121-autoharp-burst: four 250-350 ms server freezes, each paid back in a burst that leaves the next note in the
+ *       click row for about one server tick (harpmiss5-1121: the shipped jar got 13 of 17 and a wrong click).</li>
  * </ul>
  */
 final class AutoHarpCases {
@@ -130,7 +132,7 @@ final class AutoHarpCases {
                 dbg.append('C').append(k.get("step").getAsInt()).append(':').append(k.get("col").getAsInt())
                         .append(k.get("ok").getAsBoolean() ? "" : "!").append('@').append(k.has("rx") ? k.get("rx").getAsLong() : -1).append(' ');
             }
-            c.note("HARPDBG " + dbg.toString().trim());
+            c.note("timeline (R step@shown/began, F freeze, C step:col@received, server ms): " + dbg.toString().trim());
             c.note("clicks step:column (! = wrong): " + seq.toString().trim() + "; latest click " + worst
                     + " ms into its step; mod timeline early rows now " + Mod.staticCall(FEATURE, "lastEarlyRows"));
             c.check(done.get("ok").getAsInt() == NOTES, "right clicks " + done.get("ok") + " of " + NOTES);

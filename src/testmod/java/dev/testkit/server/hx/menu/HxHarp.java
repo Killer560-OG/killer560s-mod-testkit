@@ -27,11 +27,14 @@ import java.util.List;
  * a click-row slot is right when it reaches the board while that note shows quartz, once.
  * <ul>
  *   <li>{@code stepTicks}: server ticks per step. {@code stalls}: [[step, extraTicks], ...] holds the rows that long
- *       after that step (server lag).</li>
+ *       after that step (server lag). {@code freezes}: [[step, ticks into it, ticks], ...] freezes the server there
+ *       (nothing read, judged, moved or sent), then the owed harp ticks run {@link #BURST} a server tick, as a real server
+ *       catches up after a stall.</li>
  *   <li>{@code pingMs}: the round trip being faked: the client is shown the board pingMs/2 late and a click is judged
  *       pingMs/2 after it arrives, which is what a real round trip does.</li>
  * </ul>
- * Events: {@code harp.click} {slot, col, step, ok, ms (into its step)}, {@code harp.miss} {j, col}, {@code harp.done} {ok, wrong, missed}.
+ * Events: {@code harp.click} {slot, col, step, ok, ms (into its step), rx (received, ms clock mod 100000)},
+ * {@code harp.render} {step, at, adv}, {@code harp.freeze} {step, ticks, at}, {@code harp.miss} {j, col}, {@code harp.done} {ok, wrong, missed}.
  * {@code menu.harp.state} returns the same counts.
  */
 final class HxHarp implements HxMenus.Ticking {
