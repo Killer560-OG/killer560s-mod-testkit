@@ -31,7 +31,7 @@ import java.util.List;
  *   <li>{@code pingMs}: the round trip being faked: the client is shown the board pingMs/2 late and a click is judged
  *       pingMs/2 after it arrives, which is what a real round trip does.</li>
  * </ul>
- * Events: {@code harp.click} {slot, col, step, ok}, {@code harp.miss} {j, col}, {@code harp.done} {ok, wrong, missed}.
+ * Events: {@code harp.click} {slot, col, step, ok, ms (into its step)}, {@code harp.miss} {j, col}, {@code harp.done} {ok, wrong, missed}.
  * {@code menu.harp.state} returns the same counts.
  */
 final class HxHarp implements HxMenus.Ticking {
@@ -136,6 +136,16 @@ final class HxHarp implements HxMenus.Ticking {
         return at;
     }
 
+    /** When the board reached that step (ms), for the click's margin into its step. */
+    private long stepStart(int step) {
+        for (long[] h : hist) {
+            if (h[1] == step) {
+                return h[0];
+            }
+        }
+        return hist.get(0)[0];
+    }
+
     @Override
     public void tick(MinecraftServer server, HxChestMenu menu, ServerPlayer player) {
         long now = now();
@@ -143,7 +153,7 @@ final class HxHarp implements HxMenus.Ticking {
         // Clicks whose logical time has come are judged BEFORE the rows move on, or a note is missed that was hit in time.
         while (!pending.isEmpty() && pending.peekFirst()[0] <= now) {
             long[] c = pending.pollFirst();
-            judge(player, (int) c[1], logicalAt(c[0]));
+            judge(player, (int) c[1], logicalAt(c[0]), c[0]);
         }
         if (n < last && server.getTickCount() - lastAdvance >= stepTicks + extraTicks(n)) {
             n++;
@@ -170,7 +180,7 @@ final class HxHarp implements HxMenus.Ticking {
         }
     }
 
-    private void judge(ServerPlayer player, int slot, int step) {
+    private void judge(ServerPlayer player, int slot, int step, long at) {
         int col = slot - 37;
         int j = step - 4;
         boolean right = j >= 0 && j < notes.length && !played[j][col] && contains(notes[j], col);
@@ -185,6 +195,7 @@ final class HxHarp implements HxMenus.Ticking {
         e.addProperty("col", col);
         e.addProperty("step", step);
         e.addProperty("ok", right);
+        e.addProperty("ms", at - stepStart(step));
         HxEvents.custom("harp.click", player, e);
     }
 
