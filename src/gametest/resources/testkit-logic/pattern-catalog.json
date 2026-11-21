@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T17:07:33",
- "modSource": "lane-mapcycler-unsure-1121-b",
- "modGitSha": "c0678d3c87123dde8f53a3f71f6b74523f5dceb5",
+ "generatedAt": "2026-11-21T17:18:55",
+ "modSource": "lane-acdoorflake-1121",
+ "modGitSha": "c7173cc4c9c51b560cb01b15c2e3c54e74cf15e7",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
