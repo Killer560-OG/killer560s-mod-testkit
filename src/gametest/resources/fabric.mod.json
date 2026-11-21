@@ -153,6 +153,7 @@
 			"dev.testkit.gametest.SimMobP4Tests",
 			"dev.testkit.gametest.SimBloodRushTests",
 			"dev.testkit.gametest.SimBloodCampTests",
+			"dev.testkit.gametest.SimMiniSpawn1121Tests",
 			"dev.testkit.gametest.SimHelpTests",
 			"dev.testkit.gametest.SimHelpShotsTests",
 			"dev.testkit.gametest.BloodRushSplitsTests",
