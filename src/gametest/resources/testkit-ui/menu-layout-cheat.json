@@ -23,6 +23,7 @@
     "Auto GFS",
     "Auto Kick",
     "Auto Mask",
+    "Auto Melody's Harp",
     "Auto Meow",
     "Auto Puzzles",
     "Auto Routes",
@@ -193,6 +194,7 @@
     "gui.tab.AutoExperimentsTab": "Helpers > Auto Experimentation Table",
     "gui.tab.AutoFairySoulsTab": "Helpers > Auto Fairy Souls",
     "gui.tab.AutoGfsTab": "Items > Auto GFS",
+    "gui.tab.AutoHarpTab": "Items > Auto Melody's Harp",
     "gui.tab.AutoKickTab": "Dungeon > Map, Leap & Party > Auto Kick",
     "gui.tab.AutoMaskTab": "Dungeon > Auto Mask",
     "gui.tab.AutoMeowTab": "Chat > Auto Meow",
@@ -359,6 +361,7 @@
       "auto fairy souls": "Cheat build: walks the island route and clicks each Fairy Soul for you.",
       "auto gfs": "Runs /gfs to refill dungeon items from your sacks when you run low (cheat build only).",
       "auto mask": "Cheat build: puts on your next death item (Phoenix, then the mask in Order) after Storm dies.",
+      "auto melody's harp": "Plays any song you open in Melody's Harp by itself, to the end (cheat build only).",
       "auto meow": "Replies with a random cat line when a chat message says meow, purr, nya or mew.",
       "auto puzzles": "Cheat build only. Solves dungeon puzzle rooms for you; each puzzle's solver must also be on.",
       "auto routes": "Cheat build: records what you do in a dungeon room and replays it when you land on its start node.",
@@ -611,6 +614,9 @@
     "Auto Kick": {
       "auto kick": "While you queue in Party Finder, warns about or kicks a joiner whose S+ time on the floor is slower than its limit.",
       "kicks (or warns) once a floor's target time is missed - off until every per-floor target below is set.": ""
+    },
+    "Auto Melody's Harp": {
+      "auto melody's harp": "Plays any song you open in Melody's Harp by itself, to the end (cheat build only)."
     },
     "Auto Mask": {
       "turn on mask invincibility in its own section to use this.": ""
