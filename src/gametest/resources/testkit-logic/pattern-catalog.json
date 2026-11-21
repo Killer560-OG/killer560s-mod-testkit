@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T10:58:04",
- "modSource": "lane-cmdtypo-ety-1121",
- "modGitSha": "58122281c251e1051588dcb0200ced14655fdacc",
+ "generatedAt": "2026-11-21T11:39:26",
+ "modSource": "lane-pearlblock-leap-1121",
+ "modGitSha": "b8c0b5b780b59e9351a70b914abf83739340ebeb",
  "modSourceDirty": false,
  "count": 968,
  "byKind": {
