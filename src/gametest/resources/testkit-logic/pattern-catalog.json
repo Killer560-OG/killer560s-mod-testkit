@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T07:48:05",
- "modSource": "lane-simdevpractice-1118-rd7",
- "modGitSha": "2c6ea2e289345b8c2560c73bd846a7d7de8dd986",
+ "generatedAt": "2026-11-21T08:26:39",
+ "modSource": "lane-auditfix-1118-pf8",
+ "modGitSha": "5a344691fff8c759df31e390d9599e67cb34743b",
  "modSourceDirty": false,
  "count": 968,
  "byKind": {
