@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T12:47:27",
- "modSource": "lane-sim-watcher-real-1121",
- "modGitSha": "dbee4a1486f0566862fe7ae01e9b6cd7804fc655",
+ "generatedAt": "2026-11-21T15:49:44",
+ "modSource": "lane-mapcycler-unsure-1121-b",
+ "modGitSha": "14540faaa4e210878c39e900a9f2506147bf6700",
  "modSourceDirty": false,
- "count": 968,
+ "count": 970,
  "byKind": {
   "dynamic": 10,
   "element": 63,
-  "field": 849,
+  "field": 851,
   "local": 46
  },
  "unresolved": 160,
@@ -5208,6 +5208,30 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^(.+?) x[\\\\d,]{1,9}$\""
+  },
+  {
+   "id": "mapcycler.MapCyclerFeature#NOT_LEADER",
+   "cls": "mapcycler.MapCyclerFeature",
+   "field": "NOT_LEADER",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/mapcycler/MapCyclerFeature.java",
+   "line": 50,
+   "regex": "^(?:Only the instance creator can re-queue!|You are not the party leader!?|You must be the party leader.*|Only the party leader can .*)$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(?:Only the instance creator can re-queue!|You are not the party leader!?|You must be the party leader.*|Only the party leader can .*)$\""
+  },
+  {
+   "id": "mapcycler.MapCyclerFeature#THROTTLE",
+   "cls": "mapcycler.MapCyclerFeature",
+   "field": "THROTTLE",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/mapcycler/MapCyclerFeature.java",
+   "line": 53,
+   "regex": "^(?:Command Failed: This command is on cooldown!.*|You are already queued.*|Cannot join .* for a moment!.*|There was a problem joining.*|Couldn't find a server.*)$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^(?:Command Failed: This command is on cooldown!.*|You are already queued.*|Cannot join .* for a moment!.*|There was a problem joining.*|Couldn't find a server.*)$\""
   },
   {
    "id": "maskinvincibility.MaskInvincibilityFeature$Type@43",
