@@ -208,7 +208,7 @@ final class HxMapCycler1118Cases {
             clearDelay(c);
             start(c);
             // Set after the new run landed (an end before the run's arrival reads as "no entered line": arrival + 30 s).
-            cooldown(c, -2_000L);
+            cooldown(c, 0L);
             quiet(c, 60, "outside the Entrance room");
             c.check(running(c), "it stopped outside the Entrance room");
             int before6 = sent(c);
