@@ -17,8 +17,8 @@ public final class SimAcPuzzles1121Tests {
     private SimAcPuzzles1121Tests() {
     }
 
-    /** Ticks bounds: origin measured 350 ticks, the fix 306 (11-21); the bound sits between. */
-    static final int ICEFILL_BOUND = Integer.getInteger("testkit.acp.icefill", 100000);
+    /** Ticks bounds: origin measured 462 ticks, the fix 384 (11-21, 150 ms stalls); the bound sits between. */
+    static final int ICEFILL_BOUND = Integer.getInteger("testkit.acp.icefill", 420);
 
     public static final class IceFill extends SimPuzzleSolveTests.Base {
         public IceFill() {
