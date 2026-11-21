@@ -236,13 +236,13 @@ final class HxMapCycler1118Cases {
             awaitStop(c, "You left the dungeon", 300);
 
             // The server says only the creator can re-queue: one try, then stop.
-            dungeon(c);
-            cooldown(c, 0L);
+            newRun(c);
             respond(c, "joininstance", null, "Only the instance creator can re-queue!");
             bounds(c, 7, 9);
             clearDelay(c);
             int before3 = sent(c);
             start(c);
+            cooldown(c, 0L); // after the run's arrival, so it counts as this run's cooldown
             awaitStop(c, "Only the player who started the run", 80);
             c.check(sent(c) == before3 + 1, "want one re-roll before the refusal, got " + (sent(c) - before3));
             quiet(c, 40, "after the creator refusal");
