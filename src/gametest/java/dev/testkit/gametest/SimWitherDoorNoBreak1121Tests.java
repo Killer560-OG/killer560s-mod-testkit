@@ -51,22 +51,22 @@ public class SimWitherDoorNoBreak1121Tests implements FabricClientGameTest {
                         SimWitherDoor1121.setKeys(key ? 1 : 0, key);
                         SimWitherDoor1121.hold(ctx, sp, item);
                         int before = SimWitherDoor1121.solid(ctx, sp, d)[0];
+                        boolean guarded = sp.getServer().computeOnServer(s -> (Boolean) ModUnderTest.staticCall(
+                                "com.killer560.hub.dungeonbreaker.BreakerGuard", "protects",
+                                new Class<?>[]{net.minecraft.world.level.BlockGetter.class, BlockPos.class},
+                                new Object[]{s.overworld(), d.target()}));
+                        if (!guarded) failures.add(label + ": BreakerGuard.protects does not cover the door block");
                         if (left) SimWitherDoor1121.leftClick(ctx, d.target());
                         else SimWitherDoor1121.rightClick(ctx, d.target());
                         ctx.waitTicks(40);
                         // Right click with a key opens the door through its own rule (a click, not a break): only the no-key
                         // right click and every left click must leave it shut.
-                        boolean mayOpen = !left && (key || type == SimWitherDoor1121.BLOOD); // off a mob floor the Blood door needs no key
+                        boolean mayOpen = key || type == SimWitherDoor1121.BLOOD; // off a mob floor the Blood door needs no key
                         int[] after = SimWitherDoor1121.solid(ctx, sp, d);
                         if (!mayOpen && (before == 0 || after[0] != before || after[1] != before)) {
                             failures.add(label + ": door blocks " + before + " -> server " + after[0] + " client " + after[1]);
                         }
                         probes++;
-                        boolean guarded = sp.getServer().computeOnServer(s -> (Boolean) ModUnderTest.staticCall(
-                                "com.killer560.hub.dungeonbreaker.BreakerGuard", "protects",
-                                new Class<?>[]{net.minecraft.world.level.BlockGetter.class, BlockPos.class},
-                                new Object[]{s.overworld(), d.target()}));
-                        if (!mayOpen && !guarded) failures.add(label + ": BreakerGuard.protects does not cover the door block");
                     }
                 }
             }

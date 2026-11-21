@@ -29,8 +29,9 @@ public class SimWitherDoorAnyItem1121Tests implements FabricClientGameTest {
             SimWitherDoor1121.enter(ctx, sp);
             int opened = 0;
             StringBuilder detail = new StringBuilder();
+            for (boolean left : new boolean[]{false, true}) {
             for (String item : HELD) {
-                String label = item == null ? "empty hand" : item;
+                String label = (left ? "left click " : "right click ") + (item == null ? "empty hand" : item);
                 // Wither door WITH a key: opens, key spent.
                 var d = SimWitherDoor1121.fresh(ctx, sp, SimWitherDoor1121.WITHER);
                 if (d.blocks().isEmpty()) {
@@ -40,7 +41,7 @@ public class SimWitherDoorAnyItem1121Tests implements FabricClientGameTest {
                 SimWitherDoor1121.setKeys(1, false);
                 SimWitherDoor1121.hold(ctx, sp, item);
                 int[] before = SimWitherDoor1121.solid(ctx, sp, d);
-                SimWitherDoor1121.rightClick(ctx, d.target());
+                click(ctx, d, left);
                 ctx.waitTicks(SimWitherDoor1121.openDelay(ctx) + 30);
                 int[] after = SimWitherDoor1121.solid(ctx, sp, d);
                 int keysLeft = SimWitherDoor1121.witherKeys();
@@ -52,11 +53,12 @@ public class SimWitherDoorAnyItem1121Tests implements FabricClientGameTest {
                 SimWitherDoor1121.setKeys(0, false);
                 SimWitherDoor1121.hold(ctx, sp, item);
                 int[] nb = SimWitherDoor1121.solid(ctx, sp, n);
-                SimWitherDoor1121.rightClick(ctx, n.target());
+                click(ctx, n, left);
                 ctx.waitTicks(SimWitherDoor1121.openDelay(ctx) + 30);
                 int[] na = SimWitherDoor1121.solid(ctx, sp, n);
                 if (nb[0] == 0 || na[0] != nb[0]) failures.add(label + " without key: door blocks " + nb[0] + " -> " + na[0]);
                 detail.append(label).append(ok ? " ok; " : " FAIL; ");
+            }
             }
             // Blood door with the Blood Key and a non-key item in hand.
             var b = SimWitherDoor1121.fresh(ctx, sp, SimWitherDoor1121.BLOOD);
@@ -69,7 +71,17 @@ public class SimWitherDoorAnyItem1121Tests implements FabricClientGameTest {
             if (bb == 0 || ba[0] != 0 || ba[1] != 0 || SimWitherDoor1121.bloodKey()) {
                 failures.add("blood door with the Blood Key and Hyperion: blocks " + bb + " -> " + ba[0] + "/" + ba[1] + ", key still held " + SimWitherDoor1121.bloodKey());
             }
-            SimWitherDoor1121.row(failures, NAME, failures.isEmpty(), opened + "/" + HELD.length + " held items opened a wither door: " + detail
+            var bl = SimWitherDoor1121.fresh(ctx, sp, SimWitherDoor1121.BLOOD);
+            SimWitherDoor1121.setKeys(0, true);
+            SimWitherDoor1121.hold(ctx, sp, "DUNGEONBREAKER");
+            int bbl = SimWitherDoor1121.solid(ctx, sp, bl)[0];
+            SimWitherDoor1121.leftClick(ctx, bl.target());
+            ctx.waitTicks(SimWitherDoor1121.openDelay(ctx) + 30);
+            int[] bla = SimWitherDoor1121.solid(ctx, sp, bl);
+            if (bbl == 0 || bla[0] != 0 || bla[1] != 0 || SimWitherDoor1121.bloodKey()) {
+                failures.add("blood door left-clicked with the Blood Key and the Dungeonbreaker: blocks " + bbl + " -> " + bla[0] + "/" + bla[1] + ", key still held " + SimWitherDoor1121.bloodKey());
+            }
+            SimWitherDoor1121.row(failures, NAME, failures.isEmpty(), opened + "/" + (2 * HELD.length) + " held items opened a wither door: " + detail
                     + "blood door with Hyperion " + (ba[0] == 0));
         } finally {
             SimWitherDoor1121.leave();
@@ -77,5 +89,10 @@ public class SimWitherDoorAnyItem1121Tests implements FabricClientGameTest {
         if (!failures.isEmpty()) {
             throw new AssertionError(String.join(" | ", failures));
         }
+    }
+
+    private static void click(ClientGameTestContext ctx, SimWitherDoor1121.Door d, boolean left) {
+        if (left) SimWitherDoor1121.leftClick(ctx, d.target());
+        else SimWitherDoor1121.rightClick(ctx, d.target());
     }
 }
