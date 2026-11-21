@@ -136,7 +136,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossStart1116.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME, SimWardrobeKeep1120.NAME, SimMenus1118.NAME, SimI4Terror1116.NAME, SimLeap1116.NAME, SimClasses1116.NAME, SimMasks1116.NAME, SimBossEtherwarp1116.NAME, SimCmdKeys1117.NAME, SimLeapSpots1117.NAME, SimLeapSpots1117.ORDER_NAME, SimLeapSpots1117.F7_END, SimBossTermFriend1119.NAME, SimBossTermNumbers1119.NAME, SimBossTermForeign1119.ODIN, SimBossTermForeign1119.NF_ORDER, SimBossTermForeign1119.NF_ALL, SimMelodyLost1118.NAME, SimBossTermFriend1119.BURST_NAME, SimFastLeap1120.NAME};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossStart1116.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME, SimWardrobeKeep1120.NAME, SimMenus1118.NAME, SimI4Terror1116.NAME, SimLeap1116.NAME, SimClasses1116.NAME, SimMasks1116.NAME, SimBossEtherwarp1116.NAME, SimCmdKeys1117.NAME, SimLeapSpots1117.NAME, SimLeapSpots1117.ORDER_NAME, SimLeapSpots1117.F7_END, SimBossTermFriend1119.NAME, SimBossTermNumbers1119.NAME, SimBossTermForeign1119.ODIN, SimBossTermForeign1119.NF_ORDER, SimBossTermForeign1119.NF_ALL, SimMelodyLost1118.NAME, SimBossTermFriend1119.BURST_NAME, SimFastLeap1120.NAME, SimDevPractice1118.NAME};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -203,6 +203,7 @@ public class SimBossTests implements FabricClientGameTest {
                     case SimLeapSpots1117.NAME -> SimLeapSpots1117.run(ctx, f);
                     case SimLeapSpots1117.ORDER_NAME -> SimLeapSpots1117.order(ctx, f);
                     case SimLeapSpots1117.F7_END -> SimLeapSpots1117.f7End(ctx, f);
+                    case SimDevPractice1118.NAME -> SimDevPractice1118.run(ctx, f);
                     case SimFastLeap1120.NAME -> SimFastLeap1120.run(ctx, f);
                     case SimMasks1116.NAME -> SimMasks1116.run(ctx, f);
                     case SimBossBreakerRefill1113.NAME -> SimBossBreakerRefill1113.run(ctx, f);
@@ -2934,7 +2935,7 @@ public class SimBossTests implements FabricClientGameTest {
         ctx.waitTicks(3);
     }
 
-    private static void useBlock(ClientGameTestContext ctx, BlockPos pos, Direction face) {
+    static void useBlock(ClientGameTestContext ctx, BlockPos pos, Direction face) {
         ctx.runOnClient(mc -> {
             Vec3 hit = Vec3.atCenterOf(pos).add(face.getStepX() * 0.5, face.getStepY() * 0.5, face.getStepZ() * 0.5);
             mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(hit, face, pos, false));
