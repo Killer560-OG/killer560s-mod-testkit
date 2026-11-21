@@ -106,6 +106,7 @@
     "Map, Leap & Party",
     "Mask Invincibility",
     "Maxor's Crystals",
+    "Melody's Harp Helper",
     "Mod & HUD",
     "Mod Chat",
     "Motion Blur",
@@ -250,6 +251,7 @@
     "gui.tab.GeneralMainTab": "General > General",
     "gui.tab.GifPlayerTab": "Hud Elements > GIF Player",
     "gui.tab.GoldorTriggerbotTab": "Dungeon > Timers, Score & Boss > Goldor Triggerbot",
+    "gui.tab.HarpHelperTab": "Items > Melody's Harp Helper",
     "gui.tab.HealthAndManaBarsTab": "Hud Elements > Health and Mana Bars",
     "gui.tab.HideChatMessagesTab": "Chat > Hide Chat Messages",
     "gui.tab.HidePlayersTab": "Hud Elements > Hide Players",
@@ -1528,6 +1530,9 @@
     "Wither Dragons": {
       "king relics": "Helpers for the M7 Phase 5 relics: spawn countdown, cauldron highlight and placement times.",
       "wither dragons": "Tracks the five M7 Phase 5 dragons with spawn timers, health and which one your class should take."
+    },
+    "Melody's Harp Helper": {
+      "melody's harp helper": "Helpers for Melody's Harp: keys for the notes, a GUI scale, a progress tracker, key labels, hidden tooltips and Quick Restart. Off by default."
     }
   }
 }
