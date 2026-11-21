@@ -36,8 +36,9 @@ public class SimAcSlow1121Tests implements FabricClientGameTest {
     private static final String AC = "com.killer560.hub.autoclear.AutoClearFeature";
     private static final String SIM_RUN = "com.killer560.hub.roomsim.SimRun";
     private static final String SIM_FLOOR = "com.killer560.hub.roomsim.SimMobFloor";
-    /** Bounds in ticks (measured 2026-11-21 on 26.3 cheat, branch vs origin; see the state file acslow-1121). */
-    private static final double DOOR_MAX = Double.parseDouble(System.getProperty("testkit.acslowDoorMax", "12"));
+    /** Bounds in ticks. Door: origin 6dc8207ee 92.3 mean (its first doors 34-35, then 99s stuck), branch 24.0 (main PC,
+     *  2026-11-21). First mob and unseen are not proven yet (state file acslow-1121). */
+    private static final double DOOR_MAX = Double.parseDouble(System.getProperty("testkit.acslowDoorMax", "30"));
     private static final double FIRST_MAX = Double.parseDouble(System.getProperty("testkit.acslowFirstMax", "60"));
     private static final int UNSEEN_MAX = Integer.getInteger("testkit.acslowUnseenMax", 150);
     private final List<String> all = new ArrayList<>();

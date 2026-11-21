@@ -81,6 +81,11 @@ final class HxAcDoorOnly1115Cases {
     }
 
     private static void startAc(Session c) {
+        // The hx dungeon stands for a run already under way: give it the run's start line, or Auto Clear only arms
+        // (ArmedStart, acslow-1121: started before the run, it waits for Mort's line or the read map).
+        c.hx().chat("[NPC] Mort: Here, I found this map when I first entered the dungeon.");
+        c.ctx().waitTick();
+        c.ctx().waitTick();
         c.onClient(mc -> {
             Mod.staticCall(AC, "forceDoorForTest", 1);
             Mod.staticCall(AC, "start");
