@@ -66,6 +66,8 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "1117-logic-onejar", OneJarCases::run);
         LogicCase.run(ctx, "1117-logic-rngmeter-superpairs", RngMeterListCases::superpairs);
         LogicCase.run(ctx, "1118-logic-runsecrets", RunSecretsCases::run);
+        LogicCase.run(ctx, "1120-logic-magicfind-plus", MagicFindCases::plus);
+        LogicCase.run(ctx, "1120-logic-maxor-respawn", MagicFindCases::maxorRespawn);
         LogicCase.run(ctx, "1118-logic-patchprep-6172091", PatchPrep6172091Cases::run);
         DeadListenerCases.ctx = ctx;
         LogicCase.runOffClient(ctx, "1118-logic-deadlisteners-bar", DeadListenerCases::bar);

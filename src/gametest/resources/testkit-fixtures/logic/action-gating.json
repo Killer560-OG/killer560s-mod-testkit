@@ -245,7 +245,7 @@
     "payload": "Killer560 has disbanded the party!",
     "source": {
       "file": "src/main/java/com/killer560/hub/dungeonqueue/DungeonQueueFeature.java",
-      "line": 42
+      "line": 43
     },
     "matches": [
       "leapmenu.PartyTracker#CLEARED"
@@ -315,7 +315,7 @@
     "payload": "> EXTRA STATS <",
     "source": {
       "file": "src/main/java/com/killer560/hub/dungeonqueue/DungeonQueueFeature.java",
-      "line": 19
+      "line": 20
     },
     "matches": [
       "dungeonqueue.DungeonQueueFeature#EXTRA_STATS",
