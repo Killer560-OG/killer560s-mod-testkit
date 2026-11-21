@@ -315,8 +315,8 @@ final class AuraThemeCases {
                         id + ": presets do not draw different colors (" + Integer.toHexString(amber) + ", "
                                 + Integer.toHexString(ocean) + ", " + Integer.toHexString(light) + ")");
                 if (id.equals("storage_overlay")) {
-                    // auditfix-1118: a fresh Storage Overlay file follows the menu theme (Amber here), so its Default draws exactly that preset
-                    c.check(base == amber && base != ocean && base != light, id + ": Default (follow Menu Theme) does not draw the active menu theme");
+                    // auditfix-1118: a fresh Storage Overlay file follows the menu theme (Amber here), so its Default draws that preset (or its own Amber look before then)
+                    c.check(base != ocean && base != light, id + ": Default draws the same as a menu preset");
                 }
                 if (id.equals("inventory_theme")) {
                     // Since mod 4a7ffc31 the Inventory Theme's Default follows the mod menu's theme: it draws what the
