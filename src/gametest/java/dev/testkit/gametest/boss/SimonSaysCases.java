@@ -168,10 +168,28 @@ final class SimonSaysCases {
      */
     static void tpToDevice(Session c) {
         c.hx().call("dungeon.tp", "x", 107.5, "y", 135.0, "z", 93.5, "yaw", -90f, "pitch", 0f);
-        c.waitUntil("GrimAC's world to hold the device floor", mc -> grimHolds(c, new BlockPos(107, 119, 93)), 200);
+        int[] t = {0};
+        c.waitUntil("GrimAC's world to hold the device floor", mc -> {
+            trace(c, mc, "A" + t[0]++);
+            return grimHolds(c, new BlockPos(107, 119, 93));
+        }, 200);
         // 0.4 above the floor: the client lands within 3 ticks as the anticheat predicts. Standing at 120.0, the teleport
         // reply claims airborne (the vanilla client always sends it so) while the next packet is predicted on the ground.
         c.hx().call("dungeon.tp", "x", 107.5, "y", 120.4, "z", 93.5, "yaw", -90f, "pitch", 0f);
+        for (int i = 0; i < 12; i++) {
+            int n = i;
+            c.onClient(mc -> { trace(c, mc, "B" + n); return null; });
+            c.ctx().waitTicks(1);
+        }
+    }
+
+    /** One arrival sample: the client's y, vertical speed, ground and chunk, and where GrimAC holds the player. */
+    static void trace(Session c, net.minecraft.client.Minecraft mc, String tag) {
+        var p = mc.player;
+        System.out.println("[" + c.name() + "] arrive " + tag + " client y " + String.format("%.5f", p.getY())
+                + " dy " + String.format("%.6f", p.getDeltaMovement().y) + " ground " + p.onGround()
+                + " chunk " + mc.level.hasChunk(6, 5) + " floor " + !mc.level.getBlockState(new BlockPos(107, 119, 93)).isAir()
+                + " fly " + p.getAbilities().flying + " | grim " + c.hx().call("boss.grim.state"));
     }
 
     /**
