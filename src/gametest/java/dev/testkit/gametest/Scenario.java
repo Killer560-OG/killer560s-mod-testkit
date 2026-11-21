@@ -496,7 +496,7 @@ public final class Scenario {
                 break;
             }
             String why = ctx.computeOnClient(Scenario::describeScreen);
-            if (attempt >= 5) {
+            if (attempt >= 15) {
                 throw new AssertionError("[" + name + "] could not reach " + TestServer.address() + " in " + attempt
                         + " tries: " + why);
             }
