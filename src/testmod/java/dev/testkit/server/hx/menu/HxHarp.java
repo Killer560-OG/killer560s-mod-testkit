@@ -277,7 +277,11 @@ final class HxHarp implements HxMenus.Ticking {
     private static void onClick(HxChestMenu menu, ServerPlayer player, int slot, int button, ContainerInput input) {
         HxHarp h = HxMenus.state(menu.containerId, HxHarp.class);
         if (h != null && slot >= 37 && slot <= 43) {
-            h.pending.addLast(new long[]{now() + h.halfPingMs, slot});
+            // The faked trip starts when the click reached the server (netty thread), not when a possibly stalled server
+            // tick got to it: a real server's own stall does not lengthen the network's one-way delay.
+            long now = now();
+            long at = HxEvents.clickArrivalMs;
+            h.pending.addLast(new long[]{(at > 0 && at <= now && now - at < 2000 ? at : now) + h.halfPingMs, slot});
         }
     }
 }
