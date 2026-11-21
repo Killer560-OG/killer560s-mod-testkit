@@ -89,12 +89,13 @@ public class SimAcDoorOnly1115Tests implements FabricClientGameTest {
     private void body(ClientGameTestContext ctx) {
         // acdoorflake-1121: the Blood door can be 160+ blocks from the first door, and the view distance here is 5 chunks, so its
         // approach was an unloaded chunk (air): "no block to stand on at the wither door" on every floor that put it that far.
-        // The sibling Auto Clear sim cases raise it to 16. -PdoorRd=0 leaves it (the old behavior), -PdoorSeed=N pins the floor.
-        int rd = Integer.getInteger("testkit.doorRd", 16);
+        // The sibling Auto Clear sim cases raise it to 16. -PdoorPin=SEED:RD pins the floor and the distance (RD 0 leaves it: the old behavior).
+        String[] pin = System.getProperty("testkit.doorPin", "").split(":");
+        int rd = pin.length > 1 ? Integer.parseInt(pin[1]) : 16;
         if (rd > 0) {
             ctx.runOnClient(mc -> mc.options.renderDistance().set(rd));
         }
-        long seed = Long.getLong("testkit.doorSeed", System.nanoTime());
+        long seed = pin[0].isBlank() ? System.nanoTime() : Long.parseLong(pin[0]);
         ctx.runOnClient(mc -> {
             try {
                 var f = Class.forName(FLOOR_GEN).getDeclaredField("RNG");
