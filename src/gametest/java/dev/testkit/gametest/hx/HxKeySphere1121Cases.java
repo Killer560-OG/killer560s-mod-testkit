@@ -183,6 +183,9 @@ final class HxKeySphere1121Cases {
                     });
                     int[][] pts = (int[][]) grid[0];
                     int[] ctr = (int[]) grid[3];
+                    c.note(name + ": camera " + c.onClient(mc -> mc.gameRenderer.mainCamera().position() + " yaw " + mc.player.getYRot()
+                            + " pitch " + mc.player.getXRot()) + ", sphere center pixel " + ctr[0] + "," + ctr[1] + ", window "
+                            + grid[1] + "x" + grid[2] + ", " + pts.length + " grid points, disc radius " + grid[4]);
                     for (int shot = 0; shot < 2; shot++) {
                         c.ctx().waitTicks(2);
                         java.nio.file.Path p = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(c.name() + "-" + m + "-" + name + "-" + shot));
@@ -213,7 +216,8 @@ final class HxKeySphere1121Cases {
                                 dev = Math.max(dev, Math.abs(q - med));
                             }
                         }
-                        int cx = (int) (ctr[0] * sx), cy = (int) (ctr[1] * sy);
+                        int cx = Math.max(0, Math.min(img.getWidth() - 1, (int) (ctr[0] * sx)));
+                        int cy = Math.max(0, Math.min(img.getHeight() - 1, (int) (ctr[1] * sy)));
                         int cp = img.getRGB(cx, cy), bp = base.getRGB(cx, cy);
                         int diff = Math.abs(((cp >> 16) & 255) - ((bp >> 16) & 255)) + Math.abs(((cp >> 8) & 255) - ((bp >> 8) & 255))
                                 + Math.abs((cp & 255) - (bp & 255));
