@@ -644,6 +644,7 @@ final class HxDungeonCases {
                 c.note("forged EXTRA STATS/leave ignored; real EXTRA STATS -> /" + cmd + "; after a real leave -> skipped");
             } finally {
                 resetQueue(c);
+                hub(c); // PartyTracker keeps a player who left until the dungeon ends: the next case needs a clean party
             }
         });
     }
@@ -686,6 +687,7 @@ final class HxDungeonCases {
                 c.note("creator -> /" + cmd + "; after the server's answer nothing sent; after a party change -> /" + again);
             } finally {
                 resetQueue(c);
+                hub(c); // PartyTracker keeps a player who left until the dungeon ends: the next case needs a clean party
             }
         });
     }
