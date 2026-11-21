@@ -567,11 +567,11 @@ public class SimBloodCampTests implements FabricClientGameTest {
     /** 1121-sim-watcher-real: the camp's timing and the Watcher's flight against the real camps (see the class doc). */
     @SuppressWarnings("unchecked")
     private static void watcher(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
+        long mark = LogTap.mark(); // before intoBlood: the greeting is said on the teleport in
         double[] c = intoBlood(ctx, true, problems);
         if (c == null) {
             return;
         }
-        long mark = LogTap.mark();
         int[] wid = {-1};
         List<int[]> lineTicks = new ArrayList<>();   // {camp tick, index into lines}
         List<String> lines = new ArrayList<>();
