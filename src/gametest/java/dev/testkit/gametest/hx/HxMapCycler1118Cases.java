@@ -60,7 +60,7 @@ final class HxMapCycler1118Cases {
         run(c, () -> Mod.setField(FEAT, "boundsForTest", new int[]{min, max}));
     }
 
-    /** Past Delay Between Re-rolls (30 s) but well inside the 45 s "no new run" window: a 0 here made a SENT re-roll
+    /** A send 31 s ago: well inside the 45 s "no new run" window: a 0 here made a SENT re-roll
      *  look 45 s old, so the mod counted a refusal of its own (the 22:21 run of this case). */
     private static void clearDelay(Session c) {
         run(c, () -> Mod.setField(FEAT, "lastSendMs", System.currentTimeMillis() - 31_000L));
@@ -110,7 +110,6 @@ final class HxMapCycler1118Cases {
                 Mod.call(cfg, "setMaxRooms", 5);
                 Mod.setField(FEAT, "entranceForTest", true);
                 Mod.call(cfg, "setMaxRerolls", 0);
-                Mod.call(cfg, "setDelayMs", 30_000);
             });
             dungeon(c);
             dev.testkit.harness.WireCapture.start();
@@ -169,36 +168,51 @@ final class HxMapCycler1118Cases {
             quiet(c, 40, "after Max Re-rolls");
             run(c, () -> Mod.call(cfg, "setMaxRerolls", 0));
 
-            // A saved file from before mapcycler-unsure-1121 that still says When Unsure = Keep: it loads, and an unproven
-            // map is re-rolled 1 s after the creation cooldown, never kept on a guess.
-            run(c, () -> {
-                try {
-                    java.nio.file.Files.writeString((java.nio.file.Path) Mod.field(CFG, "CONFIG_PATH"), "{\"enabled\":true,\"maxRooms\":5,"
-                            + "\"rerollWhenUnsure\":false,\"delayMs\":30000,\"maxRerolls\":0}");
-                } catch (java.io.IOException e) {
-                    throw new java.io.UncheckedIOException(e);
+            // Saved files from before mapcycler-unsure-1121 that still say When Unsure = Keep and an old Delay Between
+            // Re-rolls (killer560 11-21: "remove the delay between rerolls it should be a fixed 1s after the cooldown is
+            // off"): each loads, and an unproven map is re-rolled 1 s after the creation cooldown on the wire (one tick of
+            // slack), never kept on a guess.
+            for (int oldDelay : new int[]{0, 32_000, 120_000}) {
+                run(c, () -> {
+                    try {
+                        java.nio.file.Files.writeString((java.nio.file.Path) Mod.field(CFG, "CONFIG_PATH"), "{\"enabled\":true,"
+                                + "\"maxRooms\":5,\"rerollWhenUnsure\":false,\"delayMs\":" + oldDelay + ",\"maxRerolls\":0}");
+                    } catch (java.io.IOException e) {
+                        throw new java.io.UncheckedIOException(e);
+                    }
+                    Mod.staticCall(CFG, "load");
+                });
+                c.check(c.onClient(mc -> Mod.cfg(CFG)) != cfg && (Integer) c.onClient(mc -> Mod.call(Mod.cfg(CFG), "getMaxRooms")) == 5,
+                        "the old file (delay " + oldDelay + ") did not load");
+                bounds(c, 2, Integer.MAX_VALUE);
+                clearDelay(c);
+                long[] endsNanos = new long[1];
+                run(c, () -> {
+                    long nano = System.nanoTime();
+                    Mod.setField(CC, "endsAtMs", System.currentTimeMillis() + 3_000L);
+                    endsNanos[0] = nano + 3_000_000_000L;
+                });
+                int before5 = sent(c);
+                start(c);
+                c.ctx().waitTicks(30);
+                c.check(sent(c) == before5 && running(c), "acted before the creation cooldown ended: '" + said(c) + "'");
+                c.waitUntil("the unproven map re-rolled after the cooldown (old delay " + oldDelay + ")", mc -> sent(c) > before5, 120);
+                long wire = -1;
+                for (dev.testkit.harness.WireCapture.Sent w : dev.testkit.harness.WireCapture.snapshot()) {
+                    if (w.text().startsWith("cmd:joininstance")) {
+                        wire = w.nanos();
+                    }
                 }
-                Mod.staticCall(CFG, "load");
-            });
-            c.check(c.onClient(mc -> Mod.cfg(CFG)) != cfg && (Integer) c.onClient(mc -> Mod.call(Mod.cfg(CFG), "getMaxRooms")) == 5,
-                    "the old file did not load");
-            bounds(c, 2, Integer.MAX_VALUE);
-            clearDelay(c);
-            long keepEnds = System.currentTimeMillis() + 3_000L;
-            run(c, () -> Mod.setField(CC, "endsAtMs", keepEnds));
-            int before5 = sent(c);
-            start(c);
-            c.ctx().waitTicks(30);
-            c.check(sent(c) == before5 && running(c), "acted before the creation cooldown ended: '" + said(c) + "'");
-            c.waitUntil("the unproven map re-rolled after the cooldown", mc -> sent(c) > before5, 120);
-            long late5 = System.currentTimeMillis() - keepEnds;
-            c.check(late5 >= 950 && late5 <= 2_500, "the re-roll went " + late5 + " ms after the cooldown ended (want 1 s)");
-            c.check(!said(c).contains("guess"), "it said '" + said(c) + "'");
-            run(c, () -> {
-                Mod.staticCall(FEAT, "setRunning", false);
-                Mod.setField(CFG, "instance", cfg);
-                Mod.call(cfg, "save");
-            });
+                long lateMs = (wire - endsNanos[0]) / 1_000_000L;
+                c.check(lateMs >= 990 && lateMs <= 1_100, "old delay " + oldDelay + ": the re-roll left " + lateMs
+                        + " ms after the cooldown ended (want 1 s, one tick of slack)");
+                c.check(!said(c).contains("guess"), "it said '" + said(c) + "'");
+                run(c, () -> {
+                    Mod.staticCall(FEAT, "setRunning", false);
+                    Mod.setField(CFG, "instance", cfg);
+                    Mod.call(cfg, "save");
+                });
+            }
 
             // The blood door: stops.
             cooldown(c, 60_000L);

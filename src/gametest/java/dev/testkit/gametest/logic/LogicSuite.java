@@ -146,6 +146,7 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "1117-logic-maplabel-museum", MapLabel1117Cases::museum);
         LogicCase.run(ctx, "1118-logic-mapcycler-bounds", MapCycler1118Cases::bounds);
         LogicCase.run(ctx, "1121-logic-mapcycler-proof", MapCycler1118Cases::proof);
+        LogicCase.run(ctx, "1121-logic-mapcycler-unproven", MapCycler1118Cases::unproven);
         // ItemStacks need item components, which are bound only once a world's registries load ("Components not
         // bound yet" at the title screen). The two cases that build stacks run in a throwaway singleplayer world.
         if (!Scenario.skip("354-logic-terminals") || !Scenario.skip("357-logic-items-ap3-routes")

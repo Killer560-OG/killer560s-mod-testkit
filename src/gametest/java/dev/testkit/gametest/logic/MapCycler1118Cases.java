@@ -190,6 +190,54 @@ public final class MapCycler1118Cases {
                 his[0], his[1], noKey[0], noKey[1], noShape[0], noShape[1], floors, lowered, views, proved));
     }
 
+    /** His 10:41 AM 11-21 map (killer560s-mod-logs/mapcycler-1121-shot2.webp, limit 5): "it should have skipped this one
+     *  since the 3 but then all that bottom left space is rooms leading up to blood". It was kept on a guess; with When
+     *  Unsure gone it is not proven within 5, so it re-rolls. The least stays 3 (Blood may be the unseen cell below the
+     *  Fairy), and no "on a guess" text, When Unsure or delay setting is left in the jar. */
+    static void unproven(LogicCase c) throws Exception {
+        Method m10 = Mod.cls("mapcycler.RushBounds").getMethod("bounds", int.class, int.class, int[].class, byte[].class,
+                String[].class, String[].class, boolean[].class, int.class, int.class, int.class);
+        int across = 6;
+        String[] names = {"Entrance", "Withermancer", "Mural", "Ice Fill", "Ice Path", "Spider", "Skull", "New Trap", "Supertall",
+                "Default", "Basement", "Drop", "Chains", "Small Waterfall", "Granite", "Red Green", "Fairy", "Rails"};
+        String[] shapes = {"1x1", "L", "1x1", "1x1", "1x1", "L", "1x2", "1x1", "2x2", "1x1", "1x1", "1x1", "1x1", "1x1", "1x1",
+                "1x1", "1x1", "2x2"};
+        int[][] cells = {{4, 0}, {0, 0, 1, 0, 0, 1}, {2, 0}, {3, 0}, {5, 0}, {2, 1, 3, 1, 3, 2}, {1, 1, 1, 2}, {2, 2},
+                {4, 1, 5, 1, 4, 2, 5, 2}, {1, 3}, {2, 3}, {3, 3}, {4, 3}, {5, 3}, {1, 4}, {2, 4}, {3, 4}, {4, 4, 5, 4, 4, 5, 5, 5}};
+        int[] slots = new int[36];
+        Arrays.fill(slots, UNSEEN);
+        boolean[] complete = new boolean[names.length];
+        Arrays.fill(complete, true);
+        for (int r = 0; r < cells.length; r++) {
+            for (int i = 0; i < cells[r].length; i += 2) {
+                slots[cells[r][i + 1] * across + cells[r][i]] = r;
+            }
+        }
+        byte[] gaps = new byte[72];
+        for (int s = 0; s < 36; s++) {
+            int t = s + 1;
+            int u = s + across;
+            gaps[2 * s] = s % across == across - 1 ? WALL : slots[s] >= 0 && slots[s] == slots[t] ? JOIN : UNKNOWN;
+            gaps[2 * s + 1] = s / across == 5 ? WALL : slots[s] >= 0 && slots[s] == slots[u] ? JOIN : UNKNOWN;
+        }
+        gaps[2 * (0 * across + 4) + 1] = DOOR; // Entrance - Supertall
+        gaps[2 * (1 * across + 3)] = KEY;      // Spider - Supertall (the marked door)
+        gaps[2 * (2 * across + 3) + 1] = KEY;  // Spider - Drop (the marked door)
+        int[] b = (int[]) m10.invoke(null, across, 6, slots, gaps, names, shapes, complete, 0, -1, 16);
+        c.check("10:41 map: not proven within 5, so it re-rolls (never kept)", b[1] > 5, "got " + b[0] + ".." + b[1]);
+        c.check("10:41 map: at least 3 rooms (Supertall, Spider, Drop; Blood may sit below the Fairy)", b[0] == 3,
+                "got " + b[0] + ".." + b[1]);
+        Class<?> cfg = Mod.cls("mapcycler.MapCyclerConfig");
+        for (String gone : new String[]{"isRerollWhenUnsure", "setRerollWhenUnsure", "getDelayMs", "setDelayMs"}) {
+            c.check("MapCyclerConfig." + gone + " is gone", Arrays.stream(cfg.getMethods()).noneMatch(m -> m.getName().equals(gone)), gone);
+        }
+        try (java.io.InputStream in = Mod.cls("mapcycler.MapCyclerFeature").getResourceAsStream("MapCyclerFeature.class")) {
+            String bytes = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.ISO_8859_1);
+            c.check("no \"on a guess\" text left in Map Cycler", !bytes.contains("on a guess") && !bytes.contains("Kept on"), "found");
+        }
+        c.note("10:41 map " + b[0] + ".." + (b[1] == Integer.MAX_VALUE ? "?" : b[1]));
+    }
+
     /** RushBounds.bounds' 10 arguments for his 11-21 map (killer560s-mod-logs/mapcycler-1121-shot.webp; slots from the
      *  "Map cells" and door cells from the "snapshot retaken" lines of his 2:03:44 log). Gaps the log does not name stay
      *  unknown (less than the live map knew, so the proof rests on less). */
