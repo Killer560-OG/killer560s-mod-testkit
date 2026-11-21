@@ -1859,7 +1859,14 @@ public class SimBossTests implements FabricClientGameTest {
                     mc.gameMode.interact(mc.player, fr, new EntityHitResult(fr, fr.position()), InteractionHand.MAIN_HAND);
                 });
                 clicks++;
-                ctx.waitTicks(3);
+                // The client never turns a frame itself: the turn shows only when the server's entity data comes back. A
+                // fixed 3-tick wait read a late echo as "not turned yet" and clicked again, overshooting round the eight
+                // (lane failures took 53-105 clicks, passes 28-45; flake-boss-p1p2-1121), so wait for this click's echo.
+                int seen = rot;
+                until(ctx, "frame " + pos.toShortString() + " to turn", mc -> {
+                    ItemFrame fr = frameAt(mc, pos);
+                    return fr == null || (fr.getRotation() & 7) != seen;
+                }, 20);
             }
         }
         ctx.waitTicks(6);
@@ -1878,14 +1885,14 @@ public class SimBossTests implements FabricClientGameTest {
                 f.add("Target: nothing lit after " + hit + " hit(s)");
                 return;
             }
-            ctx.waitTicks(2);   // the block change reaches the client a tick or two after the server lights it
             int[] lit = (int[]) call(DEVICES, "litTarget");
             if (lit == null) {
                 f.add("Target: the lit target went out on its own");
                 return;
             }
-            boolean emerald = ctx.computeOnClient(mc -> mc.level.getBlockState(new BlockPos(lit[0], lit[1], lit[2]))
-                    .is(net.minecraft.world.level.block.Blocks.EMERALD_BLOCK));
+            // the block change reaches the client after the server lights it: wait for it, not a fixed 2 ticks
+            boolean emerald = until(ctx, "the lit target emerald on the client", mc -> mc.level.getBlockState(
+                    new BlockPos(lit[0], lit[1], lit[2])).is(net.minecraft.world.level.block.Blocks.EMERALD_BLOCK), 20);
             if (!emerald) {
                 f.add("Target: the lit block is not emerald on the client");
             }
@@ -2816,11 +2823,12 @@ public class SimBossTests implements FabricClientGameTest {
         tp(ctx, 63.5, 238, 49.5, 0, 0);
         ctx.waitTicks(3);
         clickCrystal(ctx, 64.5, 238.375, 50.5);
-        ctx.waitTicks(3);
+        // each pickup line is waited for (server ticks too), never counted after a fixed 3 client ticks
+        until(ctx, "the first crystal picked up", mc -> count(m, "picked up an Energy Crystal!") >= 1, 20);
         tp(ctx, 83.5, 238, 49.5, 0, 0);
         ctx.waitTicks(3);
         clickCrystal(ctx, 82.5, 238.375, 50.5);
-        ctx.waitTicks(3);
+        until(ctx, "the second crystal picked up", mc -> count(m, "picked up an Energy Crystal!") >= 2, 20);
         int n = count(m, "picked up an Energy Crystal!");
         if (n < 2) {
             f.add(what + ": clicking the crystals picked up " + n);
@@ -2972,8 +2980,14 @@ public class SimBossTests implements FabricClientGameTest {
         return null;
     }
 
+    /**
+     * Waits up to {@code ticks} client ticks AND {@code ticks} server ticks (capped at 10x the client ticks). The sim acts on
+     * server ticks; under load the integrated server falls behind the client, and a client-tick-only wait gave up before
+     * the sim had run its ticks (1101-boss-p1p2's 1/2 line came the same second its 20-tick wait ended; flake-boss-p1p2-1121).
+     */
     static boolean until(ClientGameTestContext ctx, String what, Predicate<Minecraft> p, int ticks) {
-        for (int i = 0; i < ticks; i++) {
+        int s0 = serverTick(ctx);
+        for (int i = 0; i < ticks || (s0 >= 0 && i < ticks * 10 && serverTick(ctx) - s0 < ticks && serverTick(ctx) >= s0); i++) {
             if (ctx.computeOnClient(p::test)) {
                 return true;
             }
@@ -2981,6 +2995,11 @@ public class SimBossTests implements FabricClientGameTest {
         }
         println("boss", "timed out waiting for " + what);
         return false;
+    }
+
+    /** The integrated server's tick count, -1 with none. */
+    private static int serverTick(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> mc.getSingleplayerServer() == null ? -1 : mc.getSingleplayerServer().getTickCount());
     }
 
     private static boolean chatSeen(long mark, String text) {
