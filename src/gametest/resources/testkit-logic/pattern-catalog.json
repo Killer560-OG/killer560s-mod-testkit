@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T01:24:59",
- "modSource": "lane-wardrobe-swapback-1120-b",
- "modGitSha": "1fa298a1d3a2bb9001911e4cbe1d10239d967a74",
+ "generatedAt": "2026-11-21T03:33:24",
+ "modSource": "lane-autoharp-1120-c",
+ "modGitSha": "9a585e4817b1629976b117c305acf7727c6025b7",
  "modSourceDirty": false,
  "count": 968,
  "byKind": {

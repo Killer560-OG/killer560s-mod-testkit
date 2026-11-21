@@ -69,6 +69,7 @@ public final class HxMenuModule implements HxModule {
     @Override
     public void register() {
         HxTerminals.register();
+        HxHarp.register();
         HxExperiments.register();
         HxMenuSpec.register();
         HxAnvil.register();
