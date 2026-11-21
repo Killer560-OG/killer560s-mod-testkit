@@ -1863,10 +1863,24 @@ public class SimBossTests implements FabricClientGameTest {
                 // fixed 3-tick wait read a late echo as "not turned yet" and clicked again, overshooting round the eight
                 // (lane failures took 53-105 clicks, passes 28-45; flake-boss-p1p2-1121), so wait for this click's echo.
                 int seen = rot;
-                until(ctx, "frame " + pos.toShortString() + " to turn", mc -> {
+                int idx = i;
+                if (!until(ctx, "frame " + pos.toShortString() + " to turn", mc -> {
                     ItemFrame fr = frameAt(mc, pos);
                     return fr == null || (fr.getRotation() & 7) != seen;
-                }, 20);
+                }, 20) && k == 0) {
+                    println(P3, ctx.computeOnClient(mc -> {
+                        ItemFrame fr = frameAt(mc, pos);
+                        Object sf = ((Object[]) dev.testkit.gametest.mod.Mod.field("bosssim.BossDevices", "frames"))[idx];
+                        int n = mc.level.getEntitiesOfClass(ItemFrame.class, new AABB(pos).inflate(0.2)).size();
+                        return String.format(Locale.ROOT, "Arrows diag %s: client frame #%d rot %d (%d at the cell), server frame %s, "
+                                        + "player %.2f %.2f %.2f eye-box %.2f",
+                                pos.toShortString(), fr.getId(), fr.getRotation(), n,
+                                sf == null ? "none" : "#" + ((ItemFrame) sf).getId() + " rot " + ((ItemFrame) sf).getRotation()
+                                        + (((ItemFrame) sf).isRemoved() ? " REMOVED" : ""),
+                                mc.player.getX(), mc.player.getY(), mc.player.getZ(),
+                                Math.sqrt(fr.getBoundingBox().distanceToSqr(mc.player.getEyePosition())));
+                    }));
+                }
             }
         }
         ctx.waitTicks(6);
