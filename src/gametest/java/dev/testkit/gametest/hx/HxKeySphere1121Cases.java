@@ -91,6 +91,7 @@ final class HxKeySphere1121Cases {
         int fx0 = (int) Math.floor(CX) - 45, fx1 = (int) Math.floor(CX) + 45;
         cmd(c, "forceload add " + fx0 + " " + (int) (CZ - 20) + " " + fx1 + " " + (wallZ + 4));
         cmd(c, "gamemode creative @p");
+        cmd(c, "attribute @p minecraft:gravity base set 0");   // hangs in the air, whatever happens to the flying flag
         cmd(c, "tp @p " + CX + " " + (CY - 1.62) + " " + (CZ - 4) + " 0 0");
         c.ctx().runOnClient(mc -> mc.player.getAbilities().flying = true);
         c.ctx().waitTicks(60);   // the forceloaded chunks load, or the fills below fail
@@ -240,6 +241,7 @@ final class HxKeySphere1121Cases {
         } finally {
             cmd(c, "kill @e[tag=ksphere]");
             cmd(c, "gamemode survival @p");
+            cmd(c, "attribute @p minecraft:gravity base reset");
             cmd(c, "tp @p " + home.x + " " + home.y + " " + home.z);
             cmd(c, "forceload remove " + fx0 + " " + (int) (CZ - 20) + " " + fx1 + " " + (wallZ + 4));
             c.ctx().runOnClient(mc -> {
