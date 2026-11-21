@@ -205,8 +205,10 @@ final class HxMapCycler1118Cases {
             // Outside the Entrance room: nothing, with the re-roll due; back in it, the re-roll goes.
             newRun(c);
             run(c, () -> Mod.setField(FEAT, "entranceForTest", false));
-            cooldown(c, 0L);
+            clearDelay(c);
             start(c);
+            // Set after the new run landed (an end before the run's arrival reads as "no entered line": arrival + 30 s).
+            cooldown(c, -2_000L);
             quiet(c, 60, "outside the Entrance room");
             c.check(running(c), "it stopped outside the Entrance room");
             int before6 = sent(c);
