@@ -385,7 +385,7 @@ final class HxDungeonCases {
         run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
         send(c, "chat.run-start");
         c.waitUntil("a run is tracked", mc -> (Boolean) Mod.staticCall("runsummary.RunSummaryFeature", "isTrackingRun"), 40);
-        c.ctx().waitTicks(5);
+        c.ctx().waitTicks(25); // Mort's line (the game clock start) comes 1 s after the arming line
         if (defeated) {
             c.hx().chat("                  ☠ Defeated Necron in 03m 41s");
         }
