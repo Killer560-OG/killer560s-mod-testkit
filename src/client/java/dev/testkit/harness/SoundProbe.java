@@ -14,8 +14,35 @@ public final class SoundProbe {
 
     private static final Map<String, AtomicInteger> REACHED = new ConcurrentHashMap<>();
     private static final AtomicInteger TOTAL = new AtomicInteger();
+    private static final Map<String, java.util.concurrent.atomic.DoubleAdder> VOLUME = new ConcurrentHashMap<>();
 
     private SoundProbe() {
+    }
+
+    private static java.lang.reflect.Field volumeField;
+
+    /** The instance's own volume field: getVolume() reads the resolved Sound, still null when the engine is first handed it. */
+    public static float rawVolume(Object instance) {
+        try {
+            if (volumeField == null) {
+                volumeField = net.minecraft.client.resources.sounds.AbstractSoundInstance.class.getDeclaredField("volume");
+                volumeField.setAccessible(true);
+            }
+            return volumeField.getFloat(instance);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return Float.NaN;
+        }
+    }
+
+    public static void reached(String id, float volume) {
+        VOLUME.computeIfAbsent(id, k -> new java.util.concurrent.atomic.DoubleAdder()).add(volume);
+        reached(id);
+    }
+
+    /** The sum of the volumes of every sound with this id that reached the engine (two copies at 1.0 read 2.0). */
+    public static double volume(String id) {
+        java.util.concurrent.atomic.DoubleAdder v = VOLUME.get(id);
+        return v == null ? 0 : v.sum();
     }
 
     public static void reached(String id) {

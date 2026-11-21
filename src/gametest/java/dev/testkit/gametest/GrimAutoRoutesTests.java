@@ -308,6 +308,38 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-autoclear", GrimAutoRoutesTests::caseAutoClear);
             s.test("62-argrim-1020-autoclearaura", GrimAutoRoutesTests::caseAutoClearAura); // mod ac-aura-memory-1020
             s.test("62-argrim-1020-acbat", GrimAutoRoutesTests::caseAutoClearBat); // ac-1020
+            // achype-1117: Wither Impact across (one cast for two mobs) and the cast chain, alone and with his own action
+            // in the same server ticks; "second" starts clearRoom again mid-run. Cheat only (Auto Clear).
+            if (dev.testkit.gametest.mod.Mod.isCheat()) {
+                // achype4-1117: his action in the ticks of the landing pre-aim (swap + straight-down turn in flight).
+                for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                        dev.testkit.gametest.SameTick.Act.OPEN_CLICK, dev.testkit.gametest.SameTick.Act.ATTACK,
+                        dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.TP)) {
+                    s.test("62-argrim-1117-same-acland-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""),
+                            c -> caseAutoClear(c, a, false));
+                }
+                s.test("62-argrim-1117-same-acland-second", c -> caseAutoClear(c, null, true));
+                s.test("62-argrim-1117-achype", c -> caseAutoClearHype(c, null, false));
+                for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                        dev.testkit.gametest.SameTick.Act.OPEN_CLICK, dev.testkit.gametest.SameTick.Act.ATTACK,
+                        dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.TP)) {
+                    s.test("62-argrim-1117-same-achype-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""),
+                            c -> caseAutoClearHype(c, a, false));
+                }
+                s.test("62-argrim-1117-same-achype-second", c -> caseAutoClearHype(c, null, true));
+                // The chain layout: a zombie beside him and a pair 4 either side of the line 11 on (its own plan group): the
+                // casts chain with no etherwarp. His action goes in the same ticks as those chain casts.
+                s.test("62-argrim-1117-chain", c -> caseAutoClearHype(c, null, false, true));
+                // Right after the plain chain row: the chain is taken only where it is the cheaper link, and the prices Auto Clear
+                // has learned by the later rows (his swaps and teleports in the same ticks) can tip a close choice to the trip.
+                s.test("62-argrim-1117-same-chain-second", c -> caseAutoClearHype(c, null, true, true));
+                for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                        dev.testkit.gametest.SameTick.Act.OPEN_CLICK, dev.testkit.gametest.SameTick.Act.ATTACK,
+                        dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.TP)) {
+                    s.test("62-argrim-1117-same-chain-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""),
+                            c -> caseAutoClearHype(c, a, false, true));
+                }
+            }
             // simmobs2-1101 (mod doc-adm-sim-1101): a sleeping Fel woken by an etherwarp, and by the forced walk after a setback;
             // a dropped Wither Key fetched by an etherwarp trip, and by the forced walk after a setback.
             s.test("62-argrim-1102-acfel", c -> caseAutoClearFel(c, false));
@@ -3821,9 +3853,43 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * starred mob is left in sight), and GrimAC is read for the whole stretch.
      */
     private static void caseAutoClear(Session c) {
+        caseAutoClear(c, null, false);
+    }
+
+    /**
+     * Starred mobs an earlier case left alive (achype4-1117: run after 62-argrim-1020-acbat, 62-argrim-1117-achype's plan saw 6
+     * mobs, not its 3, and etherwarped): their zombies and their invisible marker name stands go before a case places its own.
+     */
+    private static void clearStarred(Session c) {
+        c.server().command("kill @e[type=minecraft:zombie]");
+        c.server().command("kill @e[type=minecraft:armor_stand,nbt={Marker:1b,Invisible:1b}]");
+        c.ctx().waitTicks(3);
+    }
+
+    /**
+     * achype4-1117: with {@code act} (or {@code second}) his action goes into every tick from Auto Clear's first landing
+     * pre-aim on (the Hyperion swap and the straight-down turn while the last etherwarp is in flight), so it shares the
+     * pre-aim's and the landing cast's ticks; {@code second} calls clearRoom again on that line. Requires the pre-aim acted.
+     */
+    /**
+     * achype6: the same start for every row. Auto Clear's learned chain link time ({@code linkMean}) carries over from the
+     * cases before, so a row could chain or not by the order it ran in; it goes back to its start value. With {@code lag},
+     * 100 ms of latency: on the local server the last landing confirms within a tick of the last warp, which leaves the
+     * landing pre-aim (and his action armed by it) no tick to act in. Returns {@code lag}; the case removes it.
+     */
+    private static boolean acDeterministic(ClientGameTestContext ctx, boolean lag) {
+        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("autoclear.AutoClearFeature", "linkMean", 3.0));
+        if (lag) {
+            ZpewCampaignTests.latency(ctx, 100);
+        }
+        return lag;
+    }
+
+    private static void caseAutoClear(Session c, dev.testkit.gametest.SameTick.Act act, boolean second) {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
         arena(ctx, true);
+        clearStarred(c);
         String auto = "com.killer560.hub.autoclear.AutoClearFeature";
         String autoCfg = "com.killer560.hub.autoclear.AutoClearConfig";
         ctx.runOnClient(mc -> {
@@ -3833,6 +3899,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ModUnderTest.call(cfg, "setWeapon", new Class<?>[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")
                     .getClass()}, new Object[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")});
         });
+        boolean lag = acDeterministic(ctx, act != null || second);
         tpRel(ctx, 5.5, 15.5, -90f, 0f);
         ctx.waitTicks(10);
         // Every two mobs more than 10.6 blocks apart (mod ac-optimize-1015): no one standing block reaches two of them with
@@ -3858,15 +3925,54 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         long m = LogTap.mark();
         Vec3 start = ctx.computeOnClient(mc -> mc.player.position());
         startSampling(ctx);
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class, Runnable.class,
-                java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> done.set("done"),
+        String landLine = "[AutoClear] Hyperion ready for the landing";
+        dev.testkit.gametest.SameTick st = act == null ? null : ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(
+                // His swap every tick for the whole clear leaves Auto Clear no tick to take the Hyperion back (it never
+                // swaps over his), so it skipped the last mob after 80 ticks (achype6): every third tick, like his USE.
+                act, act == dev.testkit.gametest.SameTick.Act.USE || act == dev.testkit.gametest.SameTick.Act.SWAP ? 3 : 1,
+                p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
+                        || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8)
+                .armedBy(() -> logHas(m, landLine)));
+        Runnable go = () -> ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class,
+                Runnable.class, java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> done.set("done"),
                 (java.util.function.Consumer<String>) gaveUp::set}));
-        boolean finished = waitFor(ctx, 900, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto,
-                "isBusy")));
+        boolean hits = act == dev.testkit.gametest.SameTick.Act.ATTACK;
+        if (hits) {   // an entity under his crosshair whatever Auto Clear turns him to (no collision, moved onto him each tick)
+            c.server().command("execute at @a[limit=1] run summon interaction ~ ~-1.5 ~ {width:5f,height:5f,"
+                    + "Tags:[\"aclandhit\"]}");
+            ctx.waitTicks(2);
+        }
+        go.run();
+        boolean[] restarted = {false};
+        boolean finished = waitFor(ctx, 900, () -> {
+            if (hits) {
+                c.server().command("execute as @e[tag=aclandhit] at @a[limit=1] run tp @s ~ ~-1.5 ~");
+            }
+            if (act == dev.testkit.gametest.SameTick.Act.TP && logHas(m, landLine)) {
+                c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+            }
+            if (second && !restarted[0] && logHas(m, landLine)) {
+                restarted[0] = true;
+                go.run();
+            }
+            return !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto, "isBusy"));
+        });
+        if (hits) {
+            c.server().command("kill @e[tag=aclandhit]");
+        }
         if (!finished) {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "cancel"));
         }
         ctx.waitTicks(5);
+        if (lag) {
+            ZpewCampaignTests.latency(ctx, 0);
+        }
+        if (st != null) {
+            dev.testkit.gametest.SameTick.judge(c, st, "achype4 landing " + act, dev.testkit.gametest.SameTick.Expect.ACTED);
+        }
+        if (act != null || second) {
+            check(logHas(m, landLine), "the landing pre-aim never acted (no '" + landLine + "')");
+        }
         List<Sample> s = stopSampling(ctx);
         Vec3 end = ctx.computeOnClient(mc -> mc.player.position());
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(autoCfg), "setEnabled", false));
@@ -3911,6 +4017,202 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 + " onGiveUp=" + gaveUp.get());
         c.note("autoclear: 3 starred mobs (open, in a wall, behind a wall) killed by " + delta(before, "witherImpacts")
                 + " Wither Impact(s) and " + delta(before, "etherwarps") + " etherwarp(s), no entity packet");
+        noteFlags(c, s);
+    }
+
+    /**
+     * achype-1117 (killer560: "it only hyped straight down never across to other boxes"): three starred zombies in the open
+     * arena, A 4 blocks ahead (in reach of a cast where he stands), B 8 past A (not), C off to the side of B. One Wither
+     * Impact along a look that lands between A and B reaches both (Auto Clear logs "Wither Impact across"), and C is the
+     * next link of the cast chain: no etherwarp at all. With {@code act} his own action goes into every tick from the first
+     * cast on ({@link dev.testkit.gametest.SameTick}, Expect ACTED: both on the wire, GrimAC decides); {@code second} calls
+     * clearRoom again after the first cast. GrimAC is read for the whole stretch (both configs: the experimental checkout).
+     */
+    private static void caseAutoClearHype(Session c, dev.testkit.gametest.SameTick.Act act, boolean second) {
+        caseAutoClearHype(c, act, second, false);
+    }
+
+    private static void caseAutoClearHype(Session c, dev.testkit.gametest.SameTick.Act act, boolean second, boolean chain) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        clearStarred(c);
+        String auto = "com.killer560.hub.autoclear.AutoClearFeature";
+        String autoCfg = "com.killer560.hub.autoclear.AutoClearConfig";
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(autoCfg);
+            ModUnderTest.set(cfg, "setEnabled", true);
+            ModUnderTest.set(cfg, "setHyperionHops", true);
+            ModUnderTest.call(cfg, "setWeapon", new Class<?>[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")
+                    .getClass()}, new Object[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")});
+            mc.player.getInventory().setSelectedSlot(4);
+        });
+        boolean lag = acDeterministic(ctx, chain && (act != null || second));
+        tpRel(ctx, 6.5, 15.5, -90f, 0f);
+        ctx.waitTicks(10);
+        double[][] spots = chain ? new double[][]{{5.5, 15.5}, {17.5, 11.5}, {17.5, 19.5}}
+                : new double[][]{{10.5, 15.5}, {18.5, 15.5}, {21.5, 23.5}};
+        List<JsonObject> mobs = new ArrayList<>();
+        for (double[] sp : spots) {
+            Vec3 at = ctx.computeOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                        double.class, double.class}, new Object[]{frame, sp[0], (double) F, sp[1]});
+            });
+            mobs.add(c.hx().call("dungeon.starred", "x", at.x, "y", at.y, "z", at.z).getAsJsonObject());
+        }
+        ctx.waitTicks(20);
+        JsonObject before = stats();
+        java.util.concurrent.atomic.AtomicReference<String> done = new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<String> gaveUp = new java.util.concurrent.atomic.AtomicReference<>();
+        long m = LogTap.mark();
+        startSampling(ctx);
+        Runnable start = () -> ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class,
+                Runnable.class, java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> done.set("done"),
+                (java.util.function.Consumer<String>) gaveUp::set}));
+        dev.testkit.gametest.SameTick st = null;
+        // His USE holds the same Hyperion, so his own casts can kill what is left once Auto Clear's first cast landed:
+        // his uses start with Auto Clear, so its first casts fall inside the window (it once acted only before it).
+        // The chain layout clears in about 8 ticks, so every action starts BEFORE Auto Clear and is armed by its chain line:
+        // his action then goes in the ticks of the chained cast itself (not after the room is done). His USE is armed by
+        // Auto Clear's first cast line in both layouts, so his own casts cannot clear the mobs before it acts.
+        boolean useFirst = act == dev.testkit.gametest.SameTick.Act.USE || chain && act != null;
+        boolean hits = act == dev.testkit.gametest.SameTick.Act.ATTACK;
+        String armLine = chain ? "[AutoClear] Wither Impact chain" : "[AutoClear] Wither Impact";
+        if (hits && chain) {
+            c.server().command("execute at @a[limit=1] run summon interaction ~ ~-1.5 ~ {width:5f,height:5f,"
+                    + "Tags:[\"achypehit\"]}");
+            ctx.waitTicks(2);
+        }
+        if (useFirst) {
+            int every = act == dev.testkit.gametest.SameTick.Act.USE ? 3 : 1;
+            st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, every,
+                    p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
+                            || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8)
+                    .armedBy(() -> logHas(m, armLine)));
+        }
+        start.run();
+        int[] tpSpam = {6};
+        boolean[] restarted = {false};
+        boolean firstCast = waitFor(ctx, 100, () -> {
+            if (chain && act == dev.testkit.gametest.SameTick.Act.TP && logHas(m, armLine) && tpSpam[0]-- > 0) {
+                c.server().command("execute as @a at @s run tp @s ~ ~ ~");   // only from the chain on: before it, it moved the plan
+            }
+            if (hits && chain) {
+                c.server().command("execute as @e[tag=achypehit] at @a[limit=1] run tp @s ~ ~-1.5 ~");
+            }
+            if (second && chain && !restarted[0] && logHas(m, "[AutoClear] Wither Impact chain")) {
+                restarted[0] = true;   // the second clearRoom starts in the chain's own tick
+                start.run();
+            }
+            return logHas(m, "[AutoClear] Wither Impact");
+        });
+        if (hits && !chain) {
+            // His attack needs an entity under his crosshair whatever the casts turn him to: an interaction box (no
+            // collision, no push) around his eyes, moved onto him every tick below.
+            c.server().command("execute at @a[limit=1] run summon interaction ~ ~-1.5 ~ {width:5f,height:5f,"
+                    + "Tags:[\"achypehit\"]}");
+            ctx.waitTicks(2);
+        }
+        if (act != null && !useFirst) {
+            // His use every tick would leave Auto Clear no tick of its own (it yields to his use); every third tick it
+            // still meets his casts. ATTACK every tick, counted only while the box is under his crosshair.
+            int every = act == dev.testkit.gametest.SameTick.Act.USE ? 3 : 1;
+            st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, every,
+                    p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
+                            || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8));
+            if (act == dev.testkit.gametest.SameTick.Act.TP) {
+                for (int i = 0; i < 5; i++) {
+                    c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+                    ctx.waitTicks(1);
+                }
+            }
+        }
+        if (second && !chain) {
+            start.run();
+        }
+        boolean finished = waitFor(ctx, 600, () -> {
+            if (chain && act == dev.testkit.gametest.SameTick.Act.TP && logHas(m, "[AutoClear] Wither Impact chain")
+                    && tpSpam[0]-- > 0) {
+                // The teleports keep coming through the chained cast's ticks, so one of his answers shares its tick.
+                c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+            }
+            if (hits) {
+                c.server().command("execute as @e[tag=achypehit] at @a[limit=1] run tp @s ~ ~-1.5 ~");
+            }
+            return !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto, "isBusy"));
+        });
+        if (hits) {
+            c.server().command("kill @e[tag=achypehit]");
+        }
+        if (!finished) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "cancel"));
+        }
+        ctx.waitTicks(5);
+        if (lag) {
+            ZpewCampaignTests.latency(ctx, 0);
+        }
+        if (st != null) {
+            // His USE never shares a tick (Auto Clear yields to a use of his), so USE and ATTACK are ACTED; a TP answer meets the cast's tick in most runs but not all (the note quotes SHARED), so TP is ACTED too. Chain layout: his action is armed by the chain line, so the ticks that carry both ARE the chained cast's.
+            dev.testkit.gametest.SameTick.judge(c, st, "achype " + act, chain && act != dev.testkit.gametest.SameTick.Act.ATTACK
+                    && act != dev.testkit.gametest.SameTick.Act.USE
+                    && act != dev.testkit.gametest.SameTick.Act.TP
+                    ? dev.testkit.gametest.SameTick.Expect.SHARE : dev.testkit.gametest.SameTick.Expect.ACTED);
+        }
+        List<Sample> s = stopSampling(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(autoCfg), "setEnabled", false));
+        List<String> states = new ArrayList<>();
+        for (JsonObject mob : mobs) {
+            states.add(c.hx().call("dungeon.alive", "id", mob.get("mob").getAsString(), "stand",
+                    mob.get("stand").getAsString()).getAsString());
+        }
+        for (String l : LogTap.since(m)) {
+            if (l.contains("[AutoClear]")) {
+                println("  " + l.replaceAll("^.*?\\[AutoClear\\]", "[AutoClear]"));
+            }
+        }
+        printTrace("achype", s);
+        int impacts = delta(before, "witherImpacts");
+        int warps = delta(before, "etherwarps");
+        boolean across = logHas(m, "[AutoClear] Wither Impact across");
+        if (chain) {
+            // The wire: the feature's own cast count (its room line) must be 2 or more with no etherwarp (the first cast, then
+            // the chained one), and the trace must hold that many use_item ticks; the ones after the first are quoted.
+            int chained = 0;
+            int featureUses = 0;
+            for (String l : LogTap.since(m)) {
+                chained += l.contains("[AutoClear] Wither Impact chain") ? 1 : 0;
+                java.util.regex.Matcher mm = java.util.regex.Pattern.compile("room time:.*weapon uses (\\d+)").matcher(l);
+                if (mm.find()) {
+                    featureUses = Integer.parseInt(mm.group(1));
+                }
+            }
+            List<Sample> uses = useTicks(s);
+            for (int i = 1; i < uses.size(); i++) {
+                println("  cast on the wire after the first, tick " + uses.get(i).tick() + ": " + uses.get(i).out());
+            }
+            c.note("chain lines " + chained + ", Auto Clear weapon uses " + featureUses + ", use_item ticks on the wire "
+                    + uses.size());
+            check(chained >= 1, "no Wither Impact chain cast (the chain case tested nothing)");
+            check(uses.size() >= 2, "the chained cast never reached the wire: Auto Clear weapon uses " + featureUses
+                    + ", use_item ticks " + uses.size());
+            check(warps == 0, warps + " etherwarp(s) in the chain layout");
+        }
+        c.note("achype " + (act == null ? second ? "second" : "plain" : act) + ": mobs " + states + ", Wither Impacts "
+                + impacts + ", etherwarps " + warps + ", across " + across + ", use_item " + count(s, "use_item"));
+        check(firstCast, "no Wither Impact cast within 100 ticks");
+        check(impacts > 0, "the server saw no Wither Impact (nothing tested)");
+        if (act == null) {
+            // His own actions (a use with the Hyperion is a cast of his, a server teleport) may move him or kill a mob
+            // first; only the plain runs judge the plan.
+            for (int i = 0; i < mobs.size(); i++) {
+                check(!"alive".equals(states.get(i)), "starred mob " + i + " is still alive");
+            }
+            check(chain || across, "no Wither Impact across: A and B were not taken by one cast");
+            check(warps == 0, warps + " etherwarp(s): the cast chain should have reached every mob");
+            check(finished && done.get() != null && gaveUp.get() == null, "clearRoom ended onDone=" + done.get()
+                    + " onGiveUp=" + gaveUp.get());
+        }
         noteFlags(c, s);
     }
 
