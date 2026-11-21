@@ -10,6 +10,7 @@ import dev.testkit.gametest.SameTick;
 import dev.testkit.gametest.hx.Session;
 import dev.testkit.gametest.mod.Mod;
 import dev.testkit.harness.PacketTrace;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 
 import net.minecraft.client.KeyboardHandler;
 import net.minecraft.client.Minecraft;
@@ -99,6 +100,9 @@ final class HarpHelperCases {
         MenuKit.awaitScreen(c, "Harp - Test", 100);
     }
 
+    private static volatile Runnable presser;
+    private static boolean tickHooked;
+
     /**
      * Plays the song with keys: each tick, every column whose click-row slot shows a quartz note that was not pressed yet
      * gets its key. {@code skipArrival} (when >= 0) leaves out that arrival (0-based, in order of arrival).
@@ -121,24 +125,38 @@ final class HarpHelperCases {
             boolean[] pressed = new boolean[7];
             int[] arrivals = {0};
             int[] sentKeys = {0};
-            for (int t = 0; t < 1200 && c.events("harp.done").isEmpty(); t++) {
-                c.ctx().runOnClient(mc -> {
-                    for (int col = 0; col < 7; col++) {
-                        boolean q = quartz(mc, 37 + col);
-                        if (q && !pressed[col]) {
-                            pressed[col] = true;
-                            if (arrivals[0]++ != skipArrival) {
-                                key(mc, InputConstants.KEY_1 + col, 1);
-                                key(mc, InputConstants.KEY_1 + col, 0);
-                                sentKeys[0]++;
-                            }
-                        } else if (!q) {
-                            pressed[col] = false;
+            // pressed inside the client's own tick end (a test-thread loop pressed up to a tick late, and a note judged late is a miss)
+            presser = () -> {
+                Minecraft mc = Minecraft.getInstance();
+                for (int col = 0; col < 7; col++) {
+                    boolean q = quartz(mc, 37 + col);
+                    if (q && !pressed[col]) {
+                        pressed[col] = true;
+                        if (arrivals[0]++ != skipArrival) {
+                            key(mc, InputConstants.KEY_1 + col, 1);
+                            key(mc, InputConstants.KEY_1 + col, 0);
+                            sentKeys[0]++;
                         }
+                    } else if (!q) {
+                        pressed[col] = false;
                     }
-                });
+                }
+            };
+            c.ctx().runOnClient(mc -> {
+                if (!tickHooked) {
+                    tickHooked = true;
+                    ClientTickEvents.END_CLIENT_TICK.register(m -> {
+                        Runnable r = presser;
+                        if (r != null) {
+                            r.run();
+                        }
+                    });
+                }
+            });
+            for (int t = 0; t < 1200 && c.events("harp.done").isEmpty(); t++) {
                 c.ctx().waitTicks(1);
             }
+            presser = null;
             c.ctx().waitTicks(8); // the tracker reads the last step one settled tick after it
             int perClientTick = c.onClient(mc -> PacketTrace.maxPerTick("container_click"));
             c.ctx().runOnClient(mc -> PacketTrace.stop());
