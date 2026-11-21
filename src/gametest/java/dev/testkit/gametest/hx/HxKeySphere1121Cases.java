@@ -91,6 +91,10 @@ final class HxKeySphere1121Cases {
         int fx0 = (int) Math.floor(CX) - 45, fx1 = (int) Math.floor(CX) + 45;
         cmd(c, "forceload add " + fx0 + " " + (int) (CZ - 20) + " " + fx1 + " " + (wallZ + 4));
         cmd(c, "gamemode creative @p");
+        cmd(c, "tp @p " + CX + " " + (CY - 1.62) + " " + (CZ - 4) + " 0 0");
+        c.ctx().runOnClient(mc -> mc.player.getAbilities().flying = true);
+        c.ctx().waitTicks(60);   // the forceloaded chunks load, or the fills below fail
+        run(c, () -> Mod.setField("secrets.DungeonState", "bossPhaseActive", false));
         cmd(c, "time set noon");
         cmd(c, "weather clear");
         // Only air between the camera and a wall of one concrete color, which fills the view behind the ball.
@@ -132,6 +136,11 @@ final class HxKeySphere1121Cases {
                     cmd(c, "tp @p " + ex + " " + (CY - 1.62) + " " + ez + " " + yaw + " 0");
                     c.ctx().runOnClient(mc -> mc.player.getAbilities().flying = true);
                     c.ctx().waitTicks(12);
+                    c.note("before " + name + ": inDungeon " + c.onClient(mc -> Mod.staticCall("secrets.DungeonState", "isInDungeon"))
+                            + ", boss phase " + c.onClient(mc -> Mod.staticCall("secrets.DungeonState", "isBossPhaseActive"))
+                            + ", stand " + c.onClient(mc -> mc.level.getEntitiesOfClass(net.minecraft.world.entity.decoration.ArmorStand.class,
+                            new net.minecraft.world.phys.AABB(CX - 2, CY - 2, CZ - 2, CX + 2, CY + 2, CZ + 2)).size())
+                            + ", wall " + c.onClient(mc -> mc.level.getBlockState(new net.minecraft.core.BlockPos((int) Math.floor(CX), (int) CY, wallZ)).getBlock()));
                     c.waitUntil("the sphere is drawn", mc -> {
                         Object sp = Mod.staticCall(FEATURE, "pickupSphere");
                         return sp != null && "sphere".equals(Mod.staticCall(FEATURE, "lastDrawnStyle"));
