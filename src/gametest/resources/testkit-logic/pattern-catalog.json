@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T16:44:50",
- "modSource": "lane-sim-witherdoor-1121-c",
- "modGitSha": "3f1f4afa97ca9527978c650b916ae063cdec4305",
+ "generatedAt": "2026-11-21T17:04:31",
+ "modSource": "lane-acdoorflake-1121",
+ "modGitSha": "468f32d210c48eb6b5451c9b9a05b9ecbe7ce09f",
  "modSourceDirty": false,
  "count": 968,
  "byKind": {
