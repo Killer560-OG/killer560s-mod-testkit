@@ -1,6 +1,7 @@
 {
   "_doc": "Every concrete mod Screen class (found in the jar at run time; a class missing from both lists fails 305). 'args' builds the constructor call: null | int:N | bool:B | str:S | float:F | enum:* (one screen per constant of that parameter's enum) | intconsumer | consumer (a no-op Consumer) | strlist:a|b (a List<String>) | screen:R (mod screen R built with a null parent) | pvtarget (ProfileViewerFeature.Target of a fixed name/UUID). 'factory' names a public static method to call instead (args apply to it). Constructor sources are mod 8c43a6d.",
   "screens": [
+    {"class": "sounddisabler.CustomSoundsScreen", "args": ["null"], "source": "sounddisabler/CustomSoundsScreen.java:64 (mod sounddisabler-menu-1118)"},
     {"class": "gui.ModScreen", "args": ["null"], "source": "gui/ModScreen.java:84"},
     {"class": "modlist.ModsScreen", "args": ["null"], "source": "modlist/ModsScreen.java:106 (mod modsbtn-1104)"},
     {"class": "onlinecount.OnlineScreen", "args": ["null"], "source": "onlinecount/OnlineScreen.java (mod onlineisland-1113)"},
