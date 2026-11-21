@@ -25,6 +25,8 @@ import java.util.List;
  *   <li>1120-autoharp-off: the feature OFF clicks nothing; ON, the song list ("Melody's Harp") gets no click.</li>
  *   <li>1120-same-autoharp-click / -key: his own container click lands in every client tick through the screen /
  *       at END (the feature's chords click on consecutive ticks too); run on default and experimental GrimAC.</li>
+ *   <li>1121-autoharp-burst: four 250-350 ms server freezes, each paid back in a burst that leaves the next note in the
+ *       click row for about one server tick (harpmiss5-1121: the shipped jar got 13 of 17 and a wrong click).</li>
  * </ul>
  */
 final class AutoHarpCases {
@@ -32,6 +34,9 @@ final class AutoHarpCases {
     private static final String FEATURE = "islands.AutoHarpFeature";
     static final String STEPS = "[[0],[1,4],[2],[3],[5],[6,0],[],[3],[1],[2,5],[4],[0,6],[3],[2]]";
     static final int NOTES = 17;
+    /** Server freezes of 250-350 ms ([step, ticks into it, ticks frozen]), each paid back in a burst: before the first note
+     *  reaches the click row, on the last tick before a note does, and twice while a note sits in it. */
+    private static final String BURSTS = "F[[3,3,5],[6,4,6],[9,1,7],[12,2,5]]";
 
     private AutoHarpCases() {
     }
@@ -44,12 +49,14 @@ final class AutoHarpCases {
         MenuSuite.test(s, "1120-autoharp-off", AutoHarpCases::off);
         MenuSuite.test(s, "1120-same-autoharp-click", c -> play(c, 0, "[]", true, true, 0, SameTick.Act.SCREEN_CLICK));
         MenuSuite.test(s, "1120-same-autoharp-key", c -> play(c, 0, "[]", true, true, 0, SameTick.Act.CLICK));
+        MenuSuite.test(s, "1121-autoharp-burst", c -> play(c, 0, BURSTS, true, true, 0, null));
     }
 
     static JsonObject spec(int pingMs, String stalls) {
         JsonObject o = MenuKit.obj("{}");
         o.add("steps", MenuKit.obj("{\"s\":" + STEPS + "}").getAsJsonArray("s"));
-        o.add("stalls", MenuKit.obj("{\"s\":" + stalls + "}").getAsJsonArray("s"));
+        boolean freeze = stalls.startsWith("F");
+        o.add(freeze ? "freezes" : "stalls", MenuKit.obj("{\"s\":" + (freeze ? stalls.substring(1) : stalls) + "}").getAsJsonArray("s"));
         o.addProperty("stepTicks", 5);
         o.addProperty("pingMs", pingMs);
         return o;
@@ -114,6 +121,18 @@ final class AutoHarpCases {
                         .append(k.get("ok").getAsBoolean() ? "" : "!").append(' ');
                 worst = Math.max(worst, k.has("ms") ? k.get("ms").getAsLong() : 0);
             }
+            StringBuilder dbg = new StringBuilder();
+            for (JsonObject r : c.events("harp.render")) {
+                dbg.append('R').append(r.get("step").getAsInt()).append('@').append(r.get("at").getAsLong()).append('/').append(r.get("adv").getAsLong()).append(' ');
+            }
+            for (JsonObject f : c.events("harp.freeze")) {
+                dbg.append('F').append(f.get("step").getAsInt()).append('x').append(f.get("ticks").getAsInt()).append('@').append(f.get("at").getAsLong()).append(' ');
+            }
+            for (JsonObject k : clicks) {
+                dbg.append('C').append(k.get("step").getAsInt()).append(':').append(k.get("col").getAsInt())
+                        .append(k.get("ok").getAsBoolean() ? "" : "!").append('@').append(k.has("rx") ? k.get("rx").getAsLong() : -1).append(' ');
+            }
+            c.note("timeline (R step@shown/began, F freeze, C step:col@received, server ms): " + dbg.toString().trim());
             c.note("clicks step:column (! = wrong): " + seq.toString().trim() + "; latest click " + worst
                     + " ms into its step; mod timeline early rows now " + Mod.staticCall(FEATURE, "lastEarlyRows"));
             c.check(done.get("ok").getAsInt() == NOTES, "right clicks " + done.get("ok") + " of " + NOTES);
