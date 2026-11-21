@@ -103,7 +103,7 @@ final class HxKeySphere1121Cases {
         cmd(c, "fill " + fx0 + " " + (int) (CY - 25) + " " + wallZ + " " + fx1 + " " + (int) (CY + 25) + " " + wallZ + " minecraft:white_concrete");
         cmd(c, "kill @e[tag=ksphere]");
         cmd(c, "summon armor_stand " + CX + " " + CY + " " + CZ
-                + " {Tags:[\"ksphere\"],NoGravity:1b,Invisible:1b,CustomNameVisible:0b,CustomName:'\"Blood Key\"'}");
+                + " {Tags:[\"ksphere\"],NoGravity:1b,Invisible:1b,CustomNameVisible:0b,CustomName:\"Blood Key\"}");
         c.ctx().runOnClient(mc -> {
             dev.testkit.compat.McCompat.setHudHidden(mc, true);
             dev.testkit.compat.McCompat.clearChatAndToasts(mc);
