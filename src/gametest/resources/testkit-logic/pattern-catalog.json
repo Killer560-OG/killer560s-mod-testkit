@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-20T20:05:46",
- "modSource": "lane-quarfix-1120",
- "modGitSha": "9767c3f87a64ddb08a2ef018f6be281a287e3a2e",
+ "generatedAt": "2026-11-20T20:21:43",
+ "modSource": "lane-coopproxy-1120-final2",
+ "modGitSha": "c0acf5583f4d7747da54031cab8842b43904ab0a",
  "modSourceDirty": false,
- "count": 966,
+ "count": 967,
  "byKind": {
   "dynamic": 10,
   "element": 63,
-  "field": 847,
+  "field": 848,
   "local": 46
  },
  "unresolved": 160,
@@ -8064,6 +8064,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"(?i)(?:pc|pchat|(?:party|p) chat)(?:\\\\s+(.*))?\""
+  },
+  {
+   "id": "roomsim.SimProxy#HEX32",
+   "cls": "roomsim.SimProxy",
+   "field": "HEX32",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/roomsim/SimProxy.java",
+   "line": 52,
+   "regex": "[0-9a-f]{32}",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"[0-9a-f]{32}\""
   },
   {
    "id": "roomsim.SimUpnp#LOCATION",
