@@ -76,8 +76,17 @@ public class SimAutoClearTests implements FabricClientGameTest {
     public void runTest(ClientGameTestContext ctx) {
         // Only when named (a whole sim floor and three clears, several minutes).
         noLand = Scenario.named(NO_LAND) && !Scenario.legitSkip(NO_LAND);
+        hype = false;
+        boolean hypeLegit = false;
+        for (String h : List.of(HYPE_ACROSS, HYPE_CHAIN, HYPE_FALLBACK)) {
+            if (Scenario.named(h)) {
+                hype = true;
+                hypeLegit |= Scenario.legitSkip(h);   // cheat only: reported skipped on a legit jar
+            }
+        }
+        hype &= !hypeLegit;
         boolean main = !Scenario.skip(NAME);
-        if (System.getProperty("testkit.scenario", "").isBlank() || !main && !noLand) {
+        if (System.getProperty("testkit.scenario", "").isBlank() || !main && !noLand && !hype) {
             return;
         }
         if (!dev.testkit.gametest.mod.Mod.isCheat()) { // Auto Clear is cheat build only
@@ -841,7 +850,214 @@ public class SimAutoClearTests implements FabricClientGameTest {
         if (noLand && !Scenario.skip(NO_LAND) && !noLandCase(ctx, failures, roomName, found[2], startAt)) {
             return false;
         }
+        if (hype) {
+            hypeCases(ctx, failures, roomName, found);
+        }
         return true;
+    }
+
+    // ---- achype-1117 (killer560 2026-11-17: "it only hyped straight down never across to other boxes to get multiple at
+    // once instead it would hype a box swap to etherwarp etherwarp then hype instead of hyping twice or three times") ----
+
+    private static final String HYPE_ACROSS = "1117-ac-hype-across";
+    private static final String HYPE_CHAIN = "1117-ac-hype-chain";
+    private static final String HYPE_FALLBACK = "1117-ac-hype-fallback";
+    private static boolean hype;
+
+    /** Puts him on {@code at} (server teleport, facing along the line {@code dir}) and waits until he stands there. */
+    private static void standOn(ClientGameTestContext ctx, BlockPos at, float yaw) {
+        AtomicReference<Boolean> moved = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            UUID me = mc.player.getUUID();
+            server.execute(() -> {
+                var sp = server.getPlayerList().getPlayer(me);
+                if (sp != null) {
+                    sp.teleportTo(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+                }
+                moved.set(true);
+            });
+        });
+        ctx.waitFor(mc -> moved.get() != null, 100);
+        for (int i = 0; i < 100 && !ctx.computeOnClient(mc -> mc.player.onGround() && mc.player.blockPosition().equals(at)); i++) {
+            ctx.waitTicks(1);
+        }
+        ctx.waitTicks(5);
+    }
+
+    private static List<Placed> zombies(ClientGameTestContext ctx, String roomName, List<BlockPos> at) {
+        List<Placed> out = new ArrayList<>();
+        for (BlockPos p : at) {
+            int before = starredPairCount(ctx);
+            ctx.runOnClient(mc -> {
+                Object kind = ModUnderTest.enumValue(SIM_MOBS + "$Kind", "ZOMBIE");
+                ModUnderTest.staticCall(SIM_MOBS, "spawnStarred", new Class<?>[]{Minecraft.class, BlockPos.class,
+                        kind.getClass()}, new Object[]{mc, p, kind});
+            });
+            ctx.waitTicks(3);
+            UUID id = newestStarred(ctx, before);
+            if (id != null) {
+                out.add(new Placed(roomName, false, id, p));
+            }
+        }
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_ROOM_STATE, "clearRoom", new Class<?>[]{String.class},
+                new Object[]{roomName}));
+        ctx.waitTicks(20);
+        return out;
+    }
+
+    /** One clearRoom with the Hyperion and hops on; counts hotbar changes after his first cast (perTick). */
+    private static Result hypeRun(ClientGameTestContext ctx, String label, String roomName, int[] swaps) {
+        setMode(ctx, "ANY_MOB_ROOM", "HYPERION");
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setHyperionHops", true));
+        int[] slot = {-1};
+        int[] casts = {0};
+        int[] pending = {0};
+        long mark = LogTap.mark();
+        return runCase(ctx, label, () -> ModUnderTest.staticCall(AUTO, "clearRoom",
+                new Class<?>[]{String.class, Runnable.class, Consumer.class},
+                new Object[]{roomName, (Runnable) () -> { }, (Consumer<String>) s -> { }}), t -> {
+            int now = ctx.computeOnClient(mc -> mc.player.getInventory().getSelectedSlot());
+            // The sim's own line marks a cast that really landed (the swap TO the Hyperion comes before the first).
+            // A change after one cast counts only once a later cast lands, so the swap back after the last cast,
+            // when the room is done, is not "between casts".
+            if (casts[0] > 0 && slot[0] >= 0 && now != slot[0]) {
+                pending[0]++;
+            }
+            slot[0] = now;
+            int seen = logCount(mark, "[Sim] Wither Impact at");
+            if (seen > casts[0]) {
+                swaps[0] += pending[0];
+                pending[0] = 0;
+                casts[0] = seen;
+            }
+        });
+    }
+
+    private static int logCount(long mark, String text) {
+        int n = 0;
+        for (String l : LogTap.since(mark)) {
+            n += l.contains(text) ? 1 : 0;
+        }
+        return n;
+    }
+
+    /**
+     * On the repositions line a (index 0) .. cc (index 18): across - he stands on a, zombies at 4 (a cast straight down
+     * reaches it) and 11 (it does not): one cast along the line lands between them and takes both ("Wither Impact across",
+     * no hop, no etherwarp; main casts in place, then hops). Chain (the owner's case, 2026-11-17) - he stands on 1, a
+     * zombie at 0 and a pair 4 either side of the line at 11 (its own plan group): one cast kills the first, a chain cast
+     * across lands on the line at ~11 and takes the pair, with no etherwarp, trip or hotbar change between (main: cast,
+     * swap, etherwarp, swap, cast, since its hop straight at one of the pair misses the other). Fallback -
+     * a stone wall 3 high across the line at 2-3, he on a, one zombie at 18: no cast lands in reach past the wall, so it
+     * etherwarps as before and casts no across or chain cast (the new counters stay 0).
+     */
+    private static void hypeCases(ClientGameTestContext ctx, List<String> failures, String roomName, BlockPos[] found) {
+        BlockPos a = found[0];
+        int sx = Integer.signum(found[2].getX() - a.getX());
+        int sz = Integer.signum(found[2].getZ() - a.getZ());
+        float yaw = (float) Math.toDegrees(Math.atan2(-sx, sz));
+        java.util.function.IntFunction<BlockPos> on = k -> a.offset(sx * k, 0, sz * k);
+        if (!Scenario.skip(HYPE_ACROSS)) {
+            standOn(ctx, a, yaw);
+            List<Placed> z = zombies(ctx, roomName, List.of(on.apply(4), on.apply(11)));
+            long mark = LogTap.mark();
+            Result r = hypeRun(ctx, HYPE_ACROSS, roomName, new int[1]);
+            Map<UUID, String> after = aliveReport(ctx, z);
+            int across = logCount(mark, "[AutoClear] Wither Impact across");
+            println(HYPE_ACROSS + ": " + r + "; across " + across + ", zombies " + after);
+            if (z.size() < 2 || after.values().stream().anyMatch(v -> !"dead".equals(v))) {
+                failures.add(HYPE_ACROSS + ": zombies " + after + " (placed " + z.size() + " of 2)");
+            }
+            if (across < 1 || r.hops > 0 || r.etherwarps > 0) {
+                failures.add(HYPE_ACROSS + ": want one cast across for both, got across " + across + ", hops " + r.hops
+                        + ", etherwarps " + r.etherwarps);
+            }
+        }
+        if (!Scenario.skip(HYPE_CHAIN)) {
+            // Two boxes one cast apart: a zombie beside him, and a pair 3 either side of the line at 11 (its own plan
+            // group: only a landing near 11 on the line reaches both, a dash straight at one of them misses the other).
+            standOn(ctx, on.apply(1), yaw);
+            List<Placed> z = zombies(ctx, roomName, List.of(on.apply(0), on.apply(11).offset(sz * 4, 0, sx * 4),
+                    on.apply(11).offset(-sz * 4, 0, -sx * 4)));
+            int[] swaps = {0};
+            long mark = LogTap.mark();
+            Result r = hypeRun(ctx, HYPE_CHAIN, roomName, swaps);
+            Map<UUID, String> after = aliveReport(ctx, z);
+            int trips = logCount(mark, "[Path] running");
+            int casts = logCount(mark, "[Sim] Wither Impact at");
+            int chain = logCount(mark, "[AutoClear] Wither Impact chain");
+            println(HYPE_CHAIN + ": " + r + "; trips " + trips + ", hotbar changes after the first cast " + swaps[0]
+                    + ", casts " + casts + ", chain casts " + chain + ", zombies " + after);
+            if (z.size() < 3 || after.values().stream().anyMatch(v -> !"dead".equals(v))) {
+                failures.add(HYPE_CHAIN + ": zombies " + after + " (placed " + z.size() + " of 3)");
+            }
+            if (r.etherwarps > 0 || trips > 0 || swaps[0] > 0 || casts < 2 || chain < 1) {
+                failures.add(HYPE_CHAIN + ": want consecutive casts only, got " + casts + " cast(s), " + chain
+                        + " chain cast(s), " + r.etherwarps + " etherwarp(s), " + trips + " trip(s) and " + swaps[0]
+                        + " hotbar change(s) between casts");
+            }
+        }
+        if (!Scenario.skip(HYPE_FALLBACK)) {
+            List<BlockPos> wall = new ArrayList<>();
+            for (int k = 2; k <= 3; k++) {
+                for (int side = -5; side <= 5; side++) {
+                    for (int dy = 0; dy < 4; dy++) {
+                        wall.add(on.apply(k).offset(sz * side, dy, sx * side));
+                    }
+                }
+            }
+            List<net.minecraft.world.level.block.state.BlockState> was = setServerBlocks(ctx, wall, null);
+            try {
+                standOn(ctx, a, yaw);
+                List<Placed> z = zombies(ctx, roomName, List.of(on.apply(18)));
+                int across0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(AUTO, "acrossCasts"));
+                long mark = LogTap.mark();
+                Result r = hypeRun(ctx, HYPE_FALLBACK, roomName, new int[1]);
+                Map<UUID, String> after = aliveReport(ctx, z);
+                int across = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(AUTO, "acrossCasts")) - across0;
+                int chain = logCount(mark, "[AutoClear] Wither Impact chain");
+                println(HYPE_FALLBACK + ": " + r + "; across casts " + across + ", chain casts " + chain + ", zombies "
+                        + after);
+                if (z.isEmpty() || after.values().stream().anyMatch(v -> !"dead".equals(v))) {
+                    failures.add(HYPE_FALLBACK + ": zombie " + after);
+                }
+                if (across > 0 || chain > 0 || r.etherwarps + r.hops == 0) {
+                    failures.add(HYPE_FALLBACK + ": want the old etherwarp/hop way past the wall, got across " + across
+                            + ", chain " + chain + ", etherwarps " + r.etherwarps + ", hops " + r.hops);
+                }
+            } finally {
+                setServerBlocks(ctx, wall, was);
+            }
+        }
+        for (String h : List.of(HYPE_ACROSS, HYPE_CHAIN, HYPE_FALLBACK)) {
+            if (!Scenario.skip(h)) {
+                println("[" + h + "] " + (failures.stream().anyMatch(f -> f.startsWith(h)) ? "FAIL" : "PASS"));
+            }
+        }
+    }
+
+    /** Sets each block on the server (stone where {@code to} is null) and returns what was there before. */
+    private static List<net.minecraft.world.level.block.state.BlockState> setServerBlocks(ClientGameTestContext ctx,
+            List<BlockPos> at, List<net.minecraft.world.level.block.state.BlockState> to) {
+        AtomicReference<List<net.minecraft.world.level.block.state.BlockState>> did = new AtomicReference<>();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            UUID me = mc.player.getUUID();
+            server.execute(() -> {
+                var level = server.getPlayerList().getPlayer(me).level();
+                List<net.minecraft.world.level.block.state.BlockState> old = new ArrayList<>();
+                for (int i = 0; i < at.size(); i++) {
+                    old.add(level.getBlockState(at.get(i)));
+                    level.setBlockAndUpdate(at.get(i), to == null
+                            ? net.minecraft.world.level.block.Blocks.STONE.defaultBlockState() : to.get(i));
+                }
+                did.set(old);
+            });
+        });
+        ctx.waitFor(mc -> did.get() != null, 100);
+        ctx.waitTicks(5);
+        return did.get();
     }
 
     /**

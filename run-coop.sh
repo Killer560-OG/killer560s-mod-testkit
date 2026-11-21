@@ -8,6 +8,7 @@
 # -w starts a local wrangler dev relay (RELAY_DIR, default /c/Users/Hunter/relay-coopsim; never the live one) with the
 # test TOKEN_SECRET and MOJANG_STUB=1, writes its port to <sync dir>/relay-port.txt for both clients (1109-mp-invite),
 # and stops it (only that process tree) at the end.
+# RELAY_VARS adds wrangler args, e.g. RELAY_VARS="--var SIMPROXY_MONTHLY_CPU_MS:1" (the co-op cap reached, 1120-mp-proxy-full).
 #
 # SCENARIO defaults to 1109-coop-two. The guest runs in a sibling worktree <this checkout>-coopguest (created on first
 # use, moved to this checkout's HEAD every run: the guest runs COMMITTED code, so commit before a run). Both clients
@@ -60,7 +61,7 @@ if [ $relay -eq 1 ]; then
     p=$((rport + i))
     if ! netstat -ano | grep -q "[:.]$p .*LISTENING" && ! curl -fs -m 2 "http://127.0.0.1:$p/health" > /dev/null 2>&1; then rport=$p; break; fi
   done
-  ( cd "$rdir" && exec node node_modules/wrangler/bin/wrangler.js dev --port $rport --inspector-port $((rport + 1000)) --local       --persist-to "$(cygpath -m "$dir/relay-state")" --var TOKEN_SECRET:simreach-e2e-secret-not-real --var MOJANG_STUB:1 )       < /dev/null > "$dir/relay.log" 2>&1 &
+  ( cd "$rdir" && exec node node_modules/wrangler/bin/wrangler.js dev --port $rport --inspector-port $((rport + 1000)) --local       --persist-to "$(cygpath -m "$dir/relay-state")" --var TOKEN_SECRET:simreach-e2e-secret-not-real --var MOJANG_STUB:1 ${RELAY_VARS:-} )       < /dev/null > "$dir/relay.log" 2>&1 &
   rpid=$!
   for i in $(seq 1 90); do
     curl -fs "http://127.0.0.1:$rport/health" > /dev/null 2>&1 && break

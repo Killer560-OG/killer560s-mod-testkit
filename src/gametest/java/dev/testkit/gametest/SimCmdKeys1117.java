@@ -30,7 +30,7 @@ final class SimCmdKeys1117 {
     private static final String LOADOUT = "com.killer560.hub.roomsim.SimLoadout";
     private static final String UTIL = "com.killer560.hub.cheatutils.CheatUtils";
     private static final int[] KEYS = {327, 328, 329, 334, 330};
-    private static final int[] ARMOR = {20, 21, 22, 23};
+    private static final int[] ARMOR = {11, 20, 29, 38};
     private static final String[] SET_IDS = {"THERMODYNAMIC_HELMET", "THERMODYNAMIC_CHESTPLATE", "THERMODYNAMIC_LEGGINGS", "THERMODYNAMIC_BOOTS"};
 
     private SimCmdKeys1117() {
@@ -104,7 +104,7 @@ final class SimCmdKeys1117 {
             McCompat.setScreen(mc, null);
         });
         ctx.waitTicks(3);
-        String[] want = {"|Your Equipment and Stats", "|Wardrobe", "SimItemsScreen|", "|Your Equipment and Stats"};
+        String[] want = {"|Stats & Equipment", "|Wardrobe", "SimItemsScreen|", "|Stats & Equipment"};
         for (int i = 0; i < 4; i++) {
             closeAll(ctx);
             ctx.getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(KEYS[i]), 3);
@@ -118,7 +118,7 @@ final class SimCmdKeys1117 {
 
     private static void toServerPath(ClientGameTestContext ctx, List<String> f) {
         String[] cmds = {"stats", "wd", "items", "item", "eq"};
-        String[] want = {"|Your Equipment and Stats", "|Wardrobe", "SimItemsScreen|", "SimItemsScreen|", "|Your Equipment and Stats"};
+        String[] want = {"|Stats & Equipment", "|Wardrobe", "SimItemsScreen|", "SimItemsScreen|", "|Stats & Equipment"};
         for (int i = 0; i < cmds.length; i++) {
             closeAll(ctx);
             String c = cmds[i];
@@ -183,7 +183,7 @@ final class SimCmdKeys1117 {
         closeAll(ctx);
         ctx.runOnClient(mc -> mc.player.connection.sendCommand("stats"));
         ctx.waitTicks(12);
-        expect(f, "/stats opened", screenName(ctx).contains("Your Equipment and Stats"), true);
+        expect(f, "/stats opened", screenName(ctx).contains("Stats & Equipment"), true);
 
         // No stat numbers: no paper, no lore line or name with a stat word or a digit-led value.
         String bad = ctx.computeOnClient(mc -> {
@@ -192,8 +192,8 @@ final class SimCmdKeys1117 {
                 if (s.is(net.minecraft.world.item.Items.PAPER)) return "paper at " + i;
                 String text = s.getHoverName().getString();
                 ItemLore lore = s.get(DataComponents.LORE);
-                if (lore != null && i < 54 && !(i >= 20 && i <= 23)) for (var l : lore.lines()) text += " " + l.getString();
-                if (text.matches("(?s).*(Attack Speed|Health|Defense|Arrows|Multiplier|Set Bonus).*") && !(i >= 20 && i <= 23)) return text + " at " + i;
+                if (lore != null && i < 54 && !isArmorOrHeld(i)) for (var l : lore.lines()) text += " " + l.getString();
+                if (text.matches("(?s).*(Attack Speed|Health|Defense|Arrows|Multiplier|Set Bonus).*") && !isArmorOrHeld(i)) return text + " at " + i;
             }
             return "";
         });
@@ -249,6 +249,11 @@ final class SimCmdKeys1117 {
             for (int i = 0; i < 36; i++) inv.setItem(i, ItemStack.EMPTY);
         });
         setArmor(ctx, "NONE");
+    }
+
+    private static boolean isArmorOrHeld(int slot) {
+        for (int a : ARMOR) if (a == slot) return true;
+        return slot == 2;
     }
 
     private static void coffee3(ClientGameTestContext ctx, List<String> f) {
