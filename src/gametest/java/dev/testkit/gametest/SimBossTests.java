@@ -1830,8 +1830,22 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     private static void arrows(ClientGameTestContext ctx, List<String> f) {
-        tp(ctx, -0.5, 119, 77.5, 90, 0);
+        // On the device's stand (Arrow Align's DEVICE_STAND, block 0 120 77). From (-0.5, 119), off the stand, he dropped to
+        // y 118 and the top-row corner frames were 6.12 from his eyes, past the server's 6.0 interact range (entity range
+        // 3 + 3): their clicks were dropped and the device never completed whenever the layout needed a corner turned
+        // (flake-boss-p1p2-1121).
+        tp(ctx, 0.5, 120, 77.5, 90, 0);
         ctx.waitTicks(10);
+        double standY = ctx.computeOnClient(mc -> mc.player.getY());
+        if (standY < 119.9) {
+            f.add("Arrows: not on the device stand (y " + standY + ")");
+        }
+        double far = ctx.computeOnClient(mc -> mc.level.getEntitiesOfClass(ItemFrame.class, new AABB(-3, 119, 74, -1, 126, 81)).stream()
+                .mapToDouble(fr -> Math.sqrt(fr.getBoundingBox().distanceToSqr(mc.player.getEyePosition()))).max().orElse(-1));
+        println(P3, String.format(Locale.ROOT, "Arrows: farthest frame %.2f from the eyes (server range 6.0)", far));
+        if (far >= 6.0) {
+            f.add("Arrows: a frame is out of the server's interact range from the stand (" + far + ")");
+        }
         int clicks = 0;
         // a frame the server turned later than the client saw is checked again: passes repeat until one needs no click
         for (int pass = 0, before = -1; pass < 4 && before != clicks; pass++) {
