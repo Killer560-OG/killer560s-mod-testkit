@@ -177,36 +177,55 @@ final class SimonSaysCases {
         BlockPos floor = BlockPos.containing(x, y - 1, z);
         c.hx().call("dungeon.fly", "on", true);
         c.hx().call("dungeon.tp", "x", x, "y", y, "z", z, "yaw", yaw, "pitch", pitch);
-        int[] still = {0};
-        c.waitUntil("the client and GrimAC to hold the floor with him hovering at rest on it", mc -> {
+        int[] still = {0, 0};
+        String[] last = {""};
+        // A client still on the ground from before the teleport drops the flight itself (vanilla's aiStep), so standing
+        // on the floor counts as at rest too; one that lost it in the air gets it back.
+        waitArrival(c, last, "the client and GrimAC to hold the floor with him at rest on it", mc -> {
             var p = mc.player;
             JsonObject g = c.hx().call("boss.grim.state").getAsJsonObject();
-            boolean ok = mc.level.hasChunk(floor.getX() >> 4, floor.getZ() >> 4) && !mc.level.getBlockState(floor).isAir() && grimHolds(c, floor)
-                    && p.getAbilities().flying && Math.abs(p.getY() - y) < 1e-6 && Math.abs(p.getDeltaMovement().y) < 1e-6
-                    && (!g.get("grim").getAsBoolean() || g.get("flying").getAsBoolean() && Math.abs(g.get("y").getAsDouble() - y) < 1e-6);
+            boolean fly = p.getAbilities().flying;
+            if (!fly && !p.onGround() && still[1]++ % 10 == 0) {
+                c.hx().call("dungeon.fly", "on", true);
+            }
+            last[0] = sample(mc, g) + " grimHolds " + grimHolds(c, floor);
+            boolean ok = mc.level.hasChunk(floor.getX() >> 4, floor.getZ() >> 4) && !mc.level.getBlockState(floor).isAir()
+                    && grimHolds(c, floor) && Math.abs(p.getY() - y) < 1e-6
+                    && (fly ? Math.abs(p.getDeltaMovement().y) < 1e-6 : p.onGround())
+                    && (!g.get("grim").getAsBoolean() || Math.abs(g.get("y").getAsDouble() - y) < 1e-6
+                            && (g.get("flying").getAsBoolean() || g.get("onGround").getAsBoolean()));
             return (still[0] = ok ? still[0] + 1 : 0) >= 3;
-        }, 400);
-        c.onClient(mc -> { trace(c, mc, "hover"); return null; });
+        });
+        System.out.println("[" + c.name() + "] arrive hover " + last[0]);
         c.hx().call("dungeon.fly", "on", false);
         still[0] = 0;
-        c.waitUntil("the client and GrimAC to read him standing on the floor", mc -> {
+        waitArrival(c, last, "the client and GrimAC to read him standing on the floor", mc -> {
             var p = mc.player;
             JsonObject g = c.hx().call("boss.grim.state").getAsJsonObject();
+            last[0] = sample(mc, g);
             boolean ok = !p.getAbilities().flying && p.onGround() && Math.abs(p.getY() - y) < 1e-6
                     && (!g.get("grim").getAsBoolean() || !g.get("flying").getAsBoolean() && g.get("onGround").getAsBoolean()
                             && Math.abs(g.get("y").getAsDouble() - y) < 1e-6);
             return (still[0] = ok ? still[0] + 1 : 0) >= 3;
-        }, 400);
-        c.onClient(mc -> { trace(c, mc, "landed"); return null; });
+        });
+        System.out.println("[" + c.name() + "] arrive landed " + last[0]);
     }
 
-    /** One arrival sample: the client's y, vertical speed, ground and chunk, and where GrimAC holds the player. */
-    static void trace(Session c, net.minecraft.client.Minecraft mc, String tag) {
+    /** {@link Session#waitUntil} for 400 ticks that names the last client/GrimAC sample when it times out. */
+    private static void waitArrival(Session c, String[] last, String what, java.util.function.Predicate<net.minecraft.client.Minecraft> ok) {
+        try {
+            c.waitUntil(what, ok, 400);
+        } catch (AssertionError e) {
+            throw new AssertionError(e.getMessage() + " (last: " + last[0] + ")", e);
+        }
+    }
+
+    /** One arrival sample: the client's y, vertical speed, ground, flight and chunk, and where GrimAC holds the player. */
+    static String sample(net.minecraft.client.Minecraft mc, JsonObject grim) {
         var p = mc.player;
-        System.out.println("[" + c.name() + "] arrive " + tag + " client y " + String.format("%.5f", p.getY())
-                + " dy " + String.format("%.6f", p.getDeltaMovement().y) + " ground " + p.onGround()
-                + " chunk " + mc.level.hasChunk(p.getBlockX() >> 4, p.getBlockZ() >> 4)
-                + " fly " + p.getAbilities().flying + " | grim " + c.hx().call("boss.grim.state"));
+        return "client y " + String.format("%.5f", p.getY()) + " dy " + String.format("%.6f", p.getDeltaMovement().y)
+                + " ground " + p.onGround() + " fly " + p.getAbilities().flying
+                + " chunk " + mc.level.hasChunk(p.getBlockX() >> 4, p.getBlockZ() >> 4) + " | grim " + grim;
     }
 
     /**
