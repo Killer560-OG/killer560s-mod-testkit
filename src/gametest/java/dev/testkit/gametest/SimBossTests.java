@@ -1,6 +1,7 @@
 package dev.testkit.gametest;
 
 import dev.testkit.compat.McCompat;
+import dev.testkit.harness.SuiteVerdict;
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
@@ -150,7 +151,6 @@ public class SimBossTests implements FabricClientGameTest {
         LogTap.install();
         ctx.waitTicks(20);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
-        List<String> failures = new ArrayList<>();
         for (String name : chosen) {
             // P3 waits on Auto Terminal and AP3 on AP3; both are compiled out of a legit jar.
             if ((name.equals(P3) || name.equals(AP3) || name.equals(GATES) || name.equals(BREAKER) || name.equals(BREAKER_CHARGE) || name.equals(SimBossEe3Route1109.NAME) || name.equals(SimI4Terror1116.NAME) || name.equals(SimBossTermFriend1119.NAME) || name.equals(SimBossTermNumbers1119.NAME) || name.startsWith("1119-boss-term-")) && !dev.testkit.gametest.mod.Mod.isCheat()) {
@@ -222,12 +222,14 @@ public class SimBossTests implements FabricClientGameTest {
                 println(name, "FAIL: " + s);
             }
             println(name, f.isEmpty() ? "PASS" : "FAIL (" + f.size() + ")");
-            for (String s : f) {
-                failures.add(name + ": " + s);
+            if (!f.isEmpty()) {
+                // Filed under the case's own name. One AssertionError for the whole class went under the LAST chosen name:
+                // 1101-boss-p3 / p1p2 failures were rechecked as "1109-boss-nowither" (which then passed alone), and
+                // 1109-boss-lights' as "1109-boss-hype" (flake-boss-hype-1121).
+                String why = f.size() + " problem(s): " + String.join("; ", f);
+                SuiteVerdict.failCase(name, new AssertionError(why));
+                dev.testkit.harness.Report.caseFinished(name, "FAIL", "", "AssertionError: " + why, List.of(), List.of());
             }
-        }
-        if (!failures.isEmpty()) {
-            throw new AssertionError(failures.size() + " problem(s): " + String.join("; ", failures));
         }
     }
 
@@ -2887,6 +2889,16 @@ public class SimBossTests implements FabricClientGameTest {
             throw new AssertionError("the boss never started at " + phase);
         }
         ctx.waitFor(mc -> McCompat.screen(mc) == null, 600);
+        // Vanilla's server DROPS every use / use-on-block / attack / action packet until the client says it loaded or 60
+        // server ticks pass (ServerGamePacketListenerImpl.hasClientLoaded). A warm session starts the boss 1-2 s after the
+        // join, so a click right after start() vanished: 1109-boss-hype's 38 lane failures all used within 2 s of the join,
+        // and no use 3 s or more after it ever failed (flake-boss-hype-1121). Every boss case clicks after start().
+        if (!until(ctx, "the server to take the client as loaded", mc -> {
+            var players = mc.getSingleplayerServer().getPlayerList().getPlayers();
+            return !players.isEmpty() && players.get(0).connection.hasClientLoaded();
+        }, 200)) {
+            throw new AssertionError("the server never took the client as loaded at " + phase);
+        }
         println("boss", "started at " + phase + " from the " + call(ARENA, "source") + ": " + call(FIGHT, "describe"));
         return mark;
     }
