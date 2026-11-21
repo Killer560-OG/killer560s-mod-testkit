@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T08:26:39",
- "modSource": "lane-auditfix-1118-pf8",
- "modGitSha": "5a344691fff8c759df31e390d9599e67cb34743b",
+ "generatedAt": "2026-11-21T12:38:35",
+ "modSource": "lane-zeeks-simterm-1120-e",
+ "modGitSha": "e52513b5c8477be44b818f2da2841e8e26c47fbd",
  "modSourceDirty": false,
  "count": 968,
  "byKind": {

@@ -129,4 +129,20 @@ final class AutoCorrectCases {
                 parse.invoke(null, "Unknown command. Type \"/help\" for help. ('warpo base')"), known)), "reply -> fix");
         c.note("total typos generated: " + total[0]);
     }
+
+    @SuppressWarnings("unchecked")
+    static void shortExtraLetter(LogicCase c) throws Exception {
+        Method fix = Mod.cls("autocorrect.CommandFixer").getMethod("fix", String.class, Set.class);
+        Set<String> et = Set.of("et", "wardrobe", "warp", "pet");
+        Set<String> both = Set.of("et", "ty", "wardrobe");
+        String[][] lines = {{"ety", "et"}, {"ety arg1", "et arg1"}, {"ETY", "et"}, {"wardorbe", "wardrobe"}, {"pet", "pet"},
+                {"et", "et"}, {"warpp", "warp"}, {"xyz", "xyz"}};
+        for (String[] l : lines) {
+            String got = (String) fix.invoke(null, l[0], et);
+            c.check("/" + l[0] + " goes out as /" + l[1], got.equals(l[1]), "got /" + got);
+        }
+        String amb = (String) fix.invoke(null, "ety", both);
+        c.check("/ety with both et and ty known stays as typed", amb.equals("ety"), "got /" + amb);
+        c.check("ety with no et known stays as typed", fix.invoke(null, "ety", Set.of("wardrobe")).equals("ety"), "none");
+    }
 }
