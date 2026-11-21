@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T00:59:09",
- "modSource": "lane-fastleap-sim-1120-b",
- "modGitSha": "8e41dec7b7640322b4a6dbc84d24532a80652090",
+ "generatedAt": "2026-11-21T03:33:24",
+ "modSource": "lane-autoharp-1120-c",
+ "modGitSha": "9a585e4817b1629976b117c305acf7727c6025b7",
  "modSourceDirty": false,
  "count": 968,
  "byKind": {
