@@ -519,6 +519,7 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
                     }
                 }
                 if (cheatBuild()) { // the Auto Clear tab is cheat-only: a legit jar has no such row
+                    setMode(ModUnderTest.config(AS_CONFIG), ModUnderTest.enumValue(MODE, "DOOR_CAMP")); // the mode row shows only while the switch is on
                     Object tab = Class.forName("com.killer560.hub.gui.tab.AutoClearTab").getConstructor().newInstance();
                     @SuppressWarnings("unchecked")
                     List<AbstractWidget> ws = (List<AbstractWidget>) ModUnderTest.call(tab, "buildWidgets",
@@ -526,7 +527,7 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
                             new Object[]{0, 0, 300, (Runnable) () -> { }});
                     AbstractWidget row = null;
                     for (AbstractWidget w : ws) {
-                        if (w.getMessage().getString().startsWith("Secret Blood First: ")) {
+                        if (w.getMessage().getString().startsWith("Blood First Mode: ")) {
                             row = w;
                         }
                     }
