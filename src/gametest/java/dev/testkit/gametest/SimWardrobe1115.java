@@ -32,24 +32,24 @@ final class SimWardrobe1115 {
     private SimWardrobe1115() {
     }
 
-    private static boolean open(ClientGameTestContext ctx, boolean stats) {
+    static boolean open(ClientGameTestContext ctx, boolean stats) {
         boolean ok = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(WARD, "open",
                 new Class<?>[]{Minecraft.class, boolean.class}, new Object[]{mc, stats}));
         ctx.waitTicks(8);
         return ok;
     }
 
-    private static String title(ClientGameTestContext ctx) {
+    static String title(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> McCompat.screen(mc) == null ? "none" : McCompat.screen(mc).getTitle().getString());
     }
 
-    private static void click(ClientGameTestContext ctx, int slot) {
+    static void click(ClientGameTestContext ctx, int slot) {
         ctx.runOnClient(mc -> mc.gameMode.handleContainerInput(mc.player.containerMenu.containerId, slot, 0,
                 ContainerInput.PICKUP, mc.player));
         ctx.waitTicks(6);
     }
 
-    private static void close(ClientGameTestContext ctx) {
+    static void close(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> mc.player.closeContainer());
         ctx.waitTicks(4);
     }
@@ -68,7 +68,7 @@ final class SimWardrobe1115 {
     }
 
     /** The Skyblock id in a menu slot of the open menu, "null" for none. */
-    private static String menuId(ClientGameTestContext ctx, int slot) {
+    static String menuId(ClientGameTestContext ctx, int slot) {
         return ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall("com.killer560.hub.cheatutils.CheatUtils", "skyblockId",
                 new Class<?>[]{ItemStack.class}, new Object[]{mc.player.containerMenu.getSlot(slot).getItem()})));
     }
@@ -85,22 +85,22 @@ final class SimWardrobe1115 {
         expect(f, set + " terminator left click interval", ctx.computeOnClient(mc -> String.valueOf(call(a, "terminatorClickInterval"))), String.valueOf(click));
     }
 
-    private static void cmd(ClientGameTestContext ctx, String line) {
+    static void cmd(ClientGameTestContext ctx, String line) {
         ctx.runOnClient(mc -> mc.player.connection.sendCommand(line));
         ctx.waitTicks(10);
     }
 
-    private static String head(ClientGameTestContext ctx) {
+    static String head(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall("com.killer560.hub.cheatutils.CheatUtils", "skyblockId",
                 new Class<?>[]{ItemStack.class}, new Object[]{mc.player.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD)})));
     }
 
-    private static String invId(ClientGameTestContext ctx, int invSlot) {
+    static String invId(ClientGameTestContext ctx, int invSlot) {
         return ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall("com.killer560.hub.cheatutils.CheatUtils", "skyblockId",
                 new Class<?>[]{ItemStack.class}, new Object[]{mc.player.getInventory().getItem(invSlot)})));
     }
 
-    private static void giveMask(ClientGameTestContext ctx, int invSlot, String id) {
+    static void giveMask(ClientGameTestContext ctx, int invSlot, String id) {
         SimBossTests.serverRun(ctx, sv -> {
             ItemStack m = new ItemStack(net.minecraft.world.item.Items.LEATHER_HELMET);
             net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
