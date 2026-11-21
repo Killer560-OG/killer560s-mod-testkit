@@ -250,7 +250,7 @@ final class HarpHelperCases {
         MenuKit.reset(c);
         int option = c.onClient(mc -> mc.options.guiScale().get());
         int base = c.onClient(mc -> mc.getWindow().calculateScale(option, mc.isEnforceUnicode()));
-        int want = base == 2 ? 3 : 2;
+        int want = base > 1 ? 1 : 2; // a small test window clamps the big scales, 1 always fits
         int[] expected = c.onClient(mc -> new int[]{mc.getWindow().calculateScale(want, mc.isEnforceUnicode()),
                 mc.getWindow().calculateScale(0, mc.isEnforceUnicode())});
         c.note("option " + option + ", window scale " + base + ", wanted " + want + " -> " + expected[0] + ", auto " + expected[1]);
@@ -263,7 +263,7 @@ final class HarpHelperCases {
             int[] in = c.onClient(mc -> new int[]{(int) mc.getWindow().getGuiScale(), McCompat.screen(mc).width,
                     mc.getWindow().getGuiScaledWidth(), mc.options.guiScale().get()});
             c.note("in the harp: scale " + in[0] + ", screen width " + in[1] + ", scaled window width " + in[2] + ", option " + in[3]);
-            c.check(in[0] != base || expected[0] == base, "the scale did not change from " + base);
+            c.check(expected[0] != base && in[0] == expected[0], "the scale did not change from " + base + " to " + expected[0] + ": " + in[0]);
             c.check(in[1] == in[2], "the screen was not resized to the new scale: " + in[1] + " vs " + in[2]);
             c.check(in[3] == option, "the saved GUI Scale option was changed to " + in[3]);
             MenuKit.reset(c);
@@ -367,7 +367,7 @@ final class HarpHelperCases {
         String qol = "terminals.TerminalQolConfig";
         int option = c.onClient(mc -> mc.options.guiScale().get());
         int base = c.onClient(mc -> mc.getWindow().calculateScale(option, mc.isEnforceUnicode()));
-        int want = base == 2 ? 3 : 2;
+        int want = base > 1 ? 1 : 2; // a small test window clamps the big scales, 1 always fits
         int expected = c.onClient(mc -> mc.getWindow().calculateScale(want, mc.isEnforceUnicode()));
         try {
             c.ctx().runOnClient(mc -> Mod.call(Mod.cfg(qol), "setMelodyGuiScale", want));
