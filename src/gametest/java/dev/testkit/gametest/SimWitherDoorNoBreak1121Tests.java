@@ -56,7 +56,7 @@ public class SimWitherDoorNoBreak1121Tests implements FabricClientGameTest {
                         ctx.waitTicks(40);
                         // Right click with a key opens the door through its own rule (a click, not a break): only the no-key
                         // right click and every left click must leave it shut.
-                        boolean mayOpen = !left && key;
+                        boolean mayOpen = !left && (key || type == SimWitherDoor1121.BLOOD); // off a mob floor the Blood door needs no key
                         int[] after = SimWitherDoor1121.solid(ctx, sp, d);
                         if (!mayOpen && (before == 0 || after[0] != before || after[1] != before)) {
                             failures.add(label + ": door blocks " + before + " -> server " + after[0] + " client " + after[1]);
