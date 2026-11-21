@@ -147,6 +147,20 @@ public final class Scenario {
      * @return the number of files copied (0: none on this machine, nothing waited for)
      */
     public static int ensureRoomDatabase(ClientGameTestContext ctx) {
+        int copied = copyRoomDatabase();
+        if (copied == 0) {
+            return 0;
+        }
+        ctx.runOnClient(mc -> loadRoomDatabaseNow());
+        ctx.waitFor(mc -> {
+            ModUnderTest.staticCall("com.killer560.hub.roomdatabase.RoomDatabase", "ensureLoading");
+            return (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomdatabase.RoomDatabase", "isReady");
+        }, 1000);
+        return copied;
+    }
+
+    /** Copies the saved room database files into the mod config; the file count (0 = none to copy). */
+    public static int copyRoomDatabase() {
         int copied = 0;
         try {
             java.nio.file.Path source = java.nio.file.Path.of(ModUnderTest.instanceConfig(
@@ -168,14 +182,6 @@ public final class Scenario {
         } catch (Exception e) {
             System.out.println("[room-database] copy failed: " + e);
         }
-        if (copied == 0) {
-            return 0;
-        }
-        ctx.runOnClient(mc -> loadRoomDatabaseNow());
-        ctx.waitFor(mc -> {
-            ModUnderTest.staticCall("com.killer560.hub.roomdatabase.RoomDatabase", "ensureLoading");
-            return (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomdatabase.RoomDatabase", "isReady");
-        }, 1000);
         return copied;
     }
 
@@ -258,7 +264,7 @@ public final class Scenario {
     private static final List<String> CHEAT_ONLY = List.of("1118-ui-imap-hudclick", "99-sim-im", "1025-blink-", "1026-blink-", "1027-blink-", "1105-blink-", "1111-blink-",
             "1026-ap3-blink-", "1027-ap3-blink-", "1110-ap3-stopwatch-", "1025-invwalk-", "1025-zpew-", "1027-zpew", "1105-zpew-",
             "1111-zpew", "1025-lcew-", "63-ap3-", "1018-ap3-", "1022-ap3-", "1026-ap3-", "1027-ap3-", "1018-breaker-fairy", "62-argrim-1111-archarge",
-            "1117-ac-hype-", "1111-blinktp-", "1112-ap3-", "1112-blink-", "1112-viewhold", "1110-align12-", "1112-align12-", "62-argrim-", "1105-same-breaker", "1105-ap3-", "1101-ap3-", "1109-ap3-", "1027-iw-", "1105-iw-", "1108-iw-", "1114-drillswap-", "1115-acslow-", "1115-acslow2-", "93-solve-waterboard-chest-locked", "1115-same-waterchest-", "1115-ap3-", "1115-termclose-stillhold", "1118-termclose-serverclosed", "96-ar-", "1110-blink-breaker-gap-", "1115-ac-dooronly-", "1020-sim-ac-keyroom", "1116-ap3-", "1116-same-i4terror-", "1113-witherpick", "1119-queueleap-");
+            "1117-ac-hype-", "1111-blinktp-", "1112-ap3-", "1112-blink-", "1112-viewhold", "1110-align12-", "1112-align12-", "62-argrim-", "1105-same-breaker", "1105-ap3-", "1101-ap3-", "1109-ap3-", "1027-iw-", "1105-iw-", "1108-iw-", "1114-drillswap-", "1115-acslow-", "1115-acslow2-", "93-solve-waterboard-chest-locked", "1115-same-waterchest-", "1115-ap3-", "1115-termclose-stillhold", "1118-termclose-serverclosed", "96-ar-", "1110-blink-breaker-gap-", "1115-ac-dooronly-", "1020-sim-ac-keyroom", "1116-ap3-", "1116-same-i4terror-", "1113-witherpick", "1119-queueleap-", "1118-hx-mapcycler-loop", "1118-sim-mapcycler");
 
     /** On a legit jar a cheat-only case is one SKIP row (the only {@code *-legit-absent} case tests that absence and still runs). */
     public static boolean legitSkip(String name) {

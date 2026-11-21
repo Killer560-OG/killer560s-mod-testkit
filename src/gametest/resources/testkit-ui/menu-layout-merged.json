@@ -18,7 +18,8 @@
     "gui.tab.LeftClickSecretsTab": "Dungeons > Secrets > Left Click Opens Secrets",
     "gui.tab.AutoHarpTab": "Items > Auto Melody's Harp",
     "gui.tab.AutoSuperboomTab": "Dungeons > Auto Superboom",
-    "gui.tab.TerminatorClickerTab": "Dungeons > Shortbow Auto Clicker"
+    "gui.tab.TerminatorClickerTab": "Dungeons > Shortbow Auto Clicker",
+    "gui.tab.MapCyclerTab": "Dungeons > Map Cycler"
   },
   "newLeaves": {
     "gui.tab.RoomNameTab": "Dungeons > Current Room Name",

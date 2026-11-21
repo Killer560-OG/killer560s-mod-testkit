@@ -82,6 +82,7 @@ final class DefaultsOff1104Cases {
             {"chestvalue.ChestValueConfig", "enabled"},
             {"f7spots.F7SpotsConfig", "stormBow", "stormBowTerminator", "stormBowWalk"},
             {"boss.LividSolverConfig", "autoM5", "m5ArmorSwap"},
+            {"mapcycler.MapCyclerConfig", "enabled"},
     };
 
     /**
