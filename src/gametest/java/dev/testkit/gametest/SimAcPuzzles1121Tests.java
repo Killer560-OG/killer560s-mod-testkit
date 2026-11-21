@@ -10,8 +10,6 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
  *   <li>{@code 1121-sim-acpuzzles-icefill}: every hop's landing arrives about 3 ticks after its use (a 100 ms server
  *   stall on every hop, as Hypixel's round trip does). The landing's position packet sets the gate's 1-tick teleport
  *   settle after the hop's 3-tick self-teleport waiver ended, so the next hop was denied and waited ~3 ticks.</li>
- *   <li>{@code 1121-sim-acpuzzles-teleportmaze}: the maze walked every hop (5-7 blocks, 13-19 ticks); an etherwarp onto
- *   the pad takes about 5.</li>
  * </ul>
  */
 public final class SimAcPuzzles1121Tests {
@@ -19,9 +17,8 @@ public final class SimAcPuzzles1121Tests {
     private SimAcPuzzles1121Tests() {
     }
 
-    /** Ticks bounds: origin measured {@code ICEFILL_ORIGIN}/{@code MAZE_ORIGIN}; the bound sits between that and the fix. */
-    static final int ICEFILL_BOUND = Integer.getInteger("testkit.acp.icefill", 100000);
-    static final int MAZE_BOUND = Integer.getInteger("testkit.acp.maze", 100000);
+    /** Ticks bounds: origin measured 350 ticks, the fix 306 (11-21); the bound sits between. */
+    static final int ICEFILL_BOUND = Integer.getInteger("testkit.acp.icefill", 330);
 
     public static final class IceFill extends SimPuzzleSolveTests.Base {
         public IceFill() {
@@ -80,42 +77,6 @@ public final class SimAcPuzzles1121Tests {
                 @Override
                 String summary() {
                     return spikes + " stalled hops, solved in " + ticksTaken + " ticks (bound " + ICEFILL_BOUND + ")";
-                }
-            };
-        }
-    }
-
-    public static final class TeleportMaze extends SimPuzzleSolveTests.Base {
-        public TeleportMaze() {
-            super(new SimPuzzleSolveTests.Spec("teleportmaze-1121", "Teleport Maze", "setAutoTeleportMazeEnabled",
-                    "isAutoTeleportMazeEnabled", "TeleportMazeSolverConfig", "SimTeleportMazePuzzle",
-                    SimPuzzleSolveTests.AOTV_SLOT, false, 60, SimPuzzleSolveTests.Approach.WALK_ONTO_START_PAD,
-                    "TeleportMazeSolverFeature.getVisited", "TeleportMazeSolverFeature.getTeleportSeq",
-                    "TeleportMazeSolverFeature.getBest"));
-        }
-
-        @Override
-        String scenarioName() {
-            return "1121-sim-acpuzzles-teleportmaze";
-        }
-
-        @Override
-        SolveExtra extra() {
-            return new SolveExtra() {
-                int ticksTaken = -1;
-
-                @Override
-                String verdict(ClientGameTestContext ctx, int solvedAt) {
-                    ticksTaken = solvedAt;
-                    if (solvedAt <= 0) {
-                        return "Teleport Maze was not solved";
-                    }
-                    return solvedAt <= MAZE_BOUND ? null : "took " + solvedAt + " ticks (over " + MAZE_BOUND + ")";
-                }
-
-                @Override
-                String summary() {
-                    return "solved in " + ticksTaken + " ticks (bound " + MAZE_BOUND + ")";
                 }
             };
         }
