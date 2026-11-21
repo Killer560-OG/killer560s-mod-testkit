@@ -1,6 +1,7 @@
 package dev.testkit.gametest;
 
 import dev.testkit.compat.McCompat;
+import dev.testkit.harness.SuiteVerdict;
 
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
@@ -136,7 +137,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossStart1116.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME, SimWardrobeKeep1120.NAME, SimMenus1118.NAME, SimI4Terror1116.NAME, SimLeap1116.NAME, SimClasses1116.NAME, SimMasks1116.NAME, SimBossEtherwarp1116.NAME, SimCmdKeys1117.NAME, SimLeapSpots1117.NAME, SimLeapSpots1117.ORDER_NAME, SimLeapSpots1117.F7_END, SimBossTermFriend1119.NAME, SimBossTermNumbers1119.NAME, SimBossTermForeign1119.ODIN, SimBossTermForeign1119.NF_ORDER, SimBossTermForeign1119.NF_ALL, SimMelodyLost1118.NAME, SimBossTermFriend1119.BURST_NAME, SimBossTermZeeks1120.SEQ, SimBossTermZeeks1120.SEQ_NF, SimBossTermZeeks1120.SEQ_ODIN, SimFastLeap1120.NAME};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossStart1116.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME, SimWardrobeKeep1120.NAME, SimMenus1118.NAME, SimI4Terror1116.NAME, SimLeap1116.NAME, SimClasses1116.NAME, SimMasks1116.NAME, SimBossEtherwarp1116.NAME, SimCmdKeys1117.NAME, SimLeapSpots1117.NAME, SimLeapSpots1117.ORDER_NAME, SimLeapSpots1117.F7_END, SimBossTermFriend1119.NAME, SimBossTermNumbers1119.NAME, SimBossTermForeign1119.ODIN, SimBossTermForeign1119.NF_ORDER, SimBossTermForeign1119.NF_ALL, SimMelodyLost1118.NAME, SimBossTermFriend1119.BURST_NAME, SimBossTermZeeks1120.SEQ, SimBossTermZeeks1120.SEQ_NF, SimBossTermZeeks1120.SEQ_ODIN, SimFastLeap1120.NAME, SimDevPractice1118.NAME};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -150,7 +151,6 @@ public class SimBossTests implements FabricClientGameTest {
         LogTap.install();
         ctx.waitTicks(20);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
-        List<String> failures = new ArrayList<>();
         for (String name : chosen) {
             // P3 waits on Auto Terminal and AP3 on AP3; both are compiled out of a legit jar.
             if ((name.equals(P3) || name.equals(AP3) || name.equals(GATES) || name.equals(BREAKER) || name.equals(BREAKER_CHARGE) || name.equals(SimBossEe3Route1109.NAME) || name.equals(SimI4Terror1116.NAME) || name.equals(SimBossTermFriend1119.NAME) || name.equals(SimBossTermNumbers1119.NAME) || name.startsWith("1119-boss-term-") || name.startsWith("1120-boss-term-")) &&!dev.testkit.gametest.mod.Mod.isCheat()) {
@@ -204,6 +204,7 @@ public class SimBossTests implements FabricClientGameTest {
                     case SimLeapSpots1117.NAME -> SimLeapSpots1117.run(ctx, f);
                     case SimLeapSpots1117.ORDER_NAME -> SimLeapSpots1117.order(ctx, f);
                     case SimLeapSpots1117.F7_END -> SimLeapSpots1117.f7End(ctx, f);
+                    case SimDevPractice1118.NAME -> SimDevPractice1118.run(ctx, f);
                     case SimFastLeap1120.NAME -> SimFastLeap1120.run(ctx, f);
                     case SimMasks1116.NAME -> SimMasks1116.run(ctx, f);
                     case SimBossBreakerRefill1113.NAME -> SimBossBreakerRefill1113.run(ctx, f);
@@ -222,12 +223,14 @@ public class SimBossTests implements FabricClientGameTest {
                 println(name, "FAIL: " + s);
             }
             println(name, f.isEmpty() ? "PASS" : "FAIL (" + f.size() + ")");
-            for (String s : f) {
-                failures.add(name + ": " + s);
+            if (!f.isEmpty()) {
+                // Filed under the case's own name. One AssertionError for the whole class went under the LAST chosen name:
+                // 1101-boss-p3 / p1p2 failures were rechecked as "1109-boss-nowither" (which then passed alone), and
+                // 1109-boss-lights' as "1109-boss-hype" (flake-boss-hype-1121).
+                String why = f.size() + " problem(s): " + String.join("; ", f);
+                SuiteVerdict.failCase(name, new AssertionError(why));
+                dev.testkit.harness.Report.caseFinished(name, "FAIL", "", "AssertionError: " + why, List.of(), List.of());
             }
-        }
-        if (!failures.isEmpty()) {
-            throw new AssertionError(failures.size() + " problem(s): " + String.join("; ", failures));
         }
     }
 
@@ -2887,6 +2890,16 @@ public class SimBossTests implements FabricClientGameTest {
             throw new AssertionError("the boss never started at " + phase);
         }
         ctx.waitFor(mc -> McCompat.screen(mc) == null, 600);
+        // Vanilla's server DROPS every use / use-on-block / attack / action packet until the client says it loaded or 60
+        // server ticks pass (ServerGamePacketListenerImpl.hasClientLoaded). A warm session starts the boss 1-2 s after the
+        // join, so a click right after start() vanished: 1109-boss-hype's 38 lane failures all used within 2 s of the join,
+        // and no use 3 s or more after it ever failed (flake-boss-hype-1121). Every boss case clicks after start().
+        if (!until(ctx, "the server to take the client as loaded", mc -> {
+            var players = mc.getSingleplayerServer().getPlayerList().getPlayers();
+            return !players.isEmpty() && players.get(0).connection.hasClientLoaded();
+        }, 200)) {
+            throw new AssertionError("the server never took the client as loaded at " + phase);
+        }
         println("boss", "started at " + phase + " from the " + call(ARENA, "source") + ": " + call(FIGHT, "describe"));
         return mark;
     }
@@ -2935,7 +2948,7 @@ public class SimBossTests implements FabricClientGameTest {
         ctx.waitTicks(3);
     }
 
-    private static void useBlock(ClientGameTestContext ctx, BlockPos pos, Direction face) {
+    static void useBlock(ClientGameTestContext ctx, BlockPos pos, Direction face) {
         ctx.runOnClient(mc -> {
             Vec3 hit = Vec3.atCenterOf(pos).add(face.getStepX() * 0.5, face.getStepY() * 0.5, face.getStepZ() * 0.5);
             mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND, new BlockHitResult(hit, face, pos, false));
