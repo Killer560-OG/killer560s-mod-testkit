@@ -34,6 +34,8 @@ final class SimBossTermZeeks1120 {
     private static final String TERM_CFG = "com.killer560.hub.terminals.TerminalSolverConfig";
     private static final String[] TYPES = {"SELECT", "RUBIX", "MELODY", "RUBIX", "RUBIX", "RUBIX", "RUBIX", "RUBIX",
             "NUMBERS", "PANES", "STARTS_WITH", "NUMBERS"};
+    /** Longest a board other than Melody may take (opened to solved, including the other mod's 10-tick open block). */
+    private static final long SLOW_MS = 2500;
 
     private SimBossTermZeeks1120() {
     }
@@ -102,8 +104,9 @@ final class SimBossTermZeeks1120 {
                         }
                     });
                     ctx.waitTicks(5);
-                } else if (sim[0] == 0 && !type.equals("MELODY")) {
-                    failed.add(label + " solved with no click counted");
+                } else if (!type.equals("MELODY") && ms > SLOW_MS) {
+                    // His Rubix sat 4 s unsolved before he left it: a click another mod canceled cost a whole retry timeout.
+                    failed.add(label + " took " + ms + " ms");
                 }
                 // The next terminal opens soon after the last one closed, as in a run.
                 ctx.waitTicks(10);
