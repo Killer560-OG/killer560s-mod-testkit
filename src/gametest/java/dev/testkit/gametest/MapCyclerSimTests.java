@@ -109,7 +109,6 @@ public class MapCyclerSimTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> {
                 Mod.call(cfg, "setEnabled", true);
                 Mod.call(cfg, "setMaxRooms", truth);
-                Mod.call(cfg, "setRerollWhenUnsure", true);
                 Mod.call(cfg, "setMaxRerolls", 0);
                 Mod.staticCall(FEAT, "setRunning", true);
             });

@@ -18,8 +18,8 @@ import static dev.testkit.gametest.hx.HxKit.*;
  *       most N room(s) away." (mapcycler-keep-1121, never "on a guess"); least over N: one
  *       {@code /joininstance catacombs_floor_seven} 1 s after the creation cooldown, then nothing while it waits for the
  *       new run;</li>
- *   <li>unsure: nothing before the creation cooldown ends, then a re-roll 1 s after it (When Unsure = Re-roll) or a keep
- *       at its end (Keep);</li>
+ *   <li>unsure: nothing before the creation cooldown ends, then always a re-roll 1 s after it, even from a saved file that
+ *       still says the old When Unsure = Keep (mapcycler-unsure-1121);</li>
  *   <li>Mort's run-start line stops it quietly with nothing sent after; outside the Entrance room it does nothing until
  *       he is back in it;</li>
  *   <li>a throttle answer backs off (nothing for 5 s) and retries; Max Re-rolls, the blood door, leaving the dungeon,
@@ -108,7 +108,6 @@ final class HxMapCycler1118Cases {
             run(c, () -> {
                 Mod.call(cfg, "setEnabled", true);
                 Mod.call(cfg, "setMaxRooms", 5);
-                Mod.call(cfg, "setRerollWhenUnsure", true);
                 Mod.setField(FEAT, "entranceForTest", true);
                 Mod.call(cfg, "setMaxRerolls", 0);
                 Mod.call(cfg, "setDelayMs", 30_000);
@@ -170,16 +169,36 @@ final class HxMapCycler1118Cases {
             quiet(c, 40, "after Max Re-rolls");
             run(c, () -> Mod.call(cfg, "setMaxRerolls", 0));
 
-            // When Unsure = Keep: kept at the deadline, nothing sent.
-            run(c, () -> Mod.call(cfg, "setRerollWhenUnsure", false));
+            // A saved file from before mapcycler-unsure-1121 that still says When Unsure = Keep: it loads, and an unproven
+            // map is re-rolled 1 s after the creation cooldown, never kept on a guess.
+            run(c, () -> {
+                try {
+                    java.nio.file.Files.writeString((java.nio.file.Path) Mod.field(CFG, "CONFIG_PATH"), "{\"enabled\":true,\"maxRooms\":5,"
+                            + "\"rerollWhenUnsure\":false,\"delayMs\":30000,\"maxRerolls\":0}");
+                } catch (java.io.IOException e) {
+                    throw new java.io.UncheckedIOException(e);
+                }
+                Mod.staticCall(CFG, "load");
+            });
+            c.check(c.onClient(mc -> Mod.cfg(CFG)) != cfg && (Integer) c.onClient(mc -> Mod.call(Mod.cfg(CFG), "getMaxRooms")) == 5,
+                    "the old file did not load");
             bounds(c, 2, Integer.MAX_VALUE);
-            cooldown(c, 3_000L);
+            clearDelay(c);
+            long keepEnds = System.currentTimeMillis() + 3_000L;
+            run(c, () -> Mod.setField(CC, "endsAtMs", keepEnds));
+            int before5 = sent(c);
             start(c);
             c.ctx().waitTicks(30);
-            c.check(running(c), "kept on a guess before the creation cooldown ended: '" + said(c) + "'");
-            awaitStop(c, "Kept on a guess (part of the map is unseen): at least 2", 100);
-            quiet(c, 20, "after a kept map");
-            run(c, () -> Mod.call(cfg, "setRerollWhenUnsure", true));
+            c.check(sent(c) == before5 && running(c), "acted before the creation cooldown ended: '" + said(c) + "'");
+            c.waitUntil("the unproven map re-rolled after the cooldown", mc -> sent(c) > before5, 120);
+            long late5 = System.currentTimeMillis() - keepEnds;
+            c.check(late5 >= 950 && late5 <= 2_500, "the re-roll went " + late5 + " ms after the cooldown ended (want 1 s)");
+            c.check(!said(c).contains("guess"), "it said '" + said(c) + "'");
+            run(c, () -> {
+                Mod.staticCall(FEAT, "setRunning", false);
+                Mod.setField(CFG, "instance", cfg);
+                Mod.call(cfg, "save");
+            });
 
             // The blood door: stops.
             cooldown(c, 60_000L);
