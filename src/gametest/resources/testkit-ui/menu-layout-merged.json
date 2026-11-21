@@ -76,7 +76,8 @@
     "gui.tab.AutoSprintTab": "Misc > Auto Sprint",
     "gui.tab.DarkModeTab": "Misc > Dark Mode",
     "gui.tab.SoundDisablerTab": "Misc > Sound Disabler",
-    "gui.tab.CollectionTrackerTab": "Misc > Collection Tracker"
+    "gui.tab.CollectionTrackerTab": "Misc > Collection Tracker",
+    "gui.tab.HarpHelperTab": "Items > Melody's Harp Helper"
   },
   "tooltips": [
     {

@@ -30,8 +30,8 @@ import java.util.List;
 final class AutoHarpCases {
 
     private static final String FEATURE = "islands.AutoHarpFeature";
-    private static final String STEPS = "[[0],[1,4],[2],[3],[5],[6,0],[],[3],[1],[2,5],[4],[0,6],[3],[2]]";
-    private static final int NOTES = 17;
+    static final String STEPS = "[[0],[1,4],[2],[3],[5],[6,0],[],[3],[1],[2,5],[4],[0,6],[3],[2]]";
+    static final int NOTES = 17;
 
     private AutoHarpCases() {
     }
@@ -46,7 +46,7 @@ final class AutoHarpCases {
         MenuSuite.test(s, "1120-same-autoharp-key", c -> play(c, 0, "[]", true, true, 0, SameTick.Act.CLICK));
     }
 
-    private static JsonObject spec(int pingMs, String stalls) {
+    static JsonObject spec(int pingMs, String stalls) {
         JsonObject o = MenuKit.obj("{}");
         o.add("steps", MenuKit.obj("{\"s\":" + STEPS + "}").getAsJsonArray("s"));
         o.add("stalls", MenuKit.obj("{\"s\":" + stalls + "}").getAsJsonArray("s"));
