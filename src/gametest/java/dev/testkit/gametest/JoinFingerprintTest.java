@@ -267,12 +267,18 @@ public class JoinFingerprintTest implements FabricClientGameTest {
             if (!isSign) {
                 ctx.waitFor(m -> m.level.getBlockEntity(pos) instanceof net.minecraft.world.level.block.entity.SignBlockEntity, 200);
             }
-            server.command(String.format(Locale.ROOT, "testkit opensign %d %d %d", pos.getX(), pos.getY(), pos.getZ()));
-            try {
-                ctx.waitFor(m -> McCompat.screen(m) instanceof AbstractSignEditScreen, 100);
-            } catch (AssertionError e) {
-                throw new AssertionError("sign " + i + " at " + pos.toShortString() + " never opened its editor: "
-                        + ctx.computeOnClient(m -> String.valueOf(McCompat.screen(m))), e);
+            // A starved test server can take over 5 s to answer a console command (2026-11-20 smoke drops): resend up to 3 times.
+            for (int tryNo = 1; ; tryNo++) {
+                server.command(String.format(Locale.ROOT, "testkit opensign %d %d %d", pos.getX(), pos.getY(), pos.getZ()));
+                try {
+                    ctx.waitFor(m -> McCompat.screen(m) instanceof AbstractSignEditScreen, 200);
+                    break;
+                } catch (AssertionError e) {
+                    if (tryNo >= 3) {
+                        throw new AssertionError("sign " + i + " at " + pos.toShortString() + " never opened its editor: "
+                                + ctx.computeOnClient(m -> String.valueOf(McCompat.screen(m))), e);
+                    }
+                }
             }
             ctx.waitTicks(2);
             ctx.runOnClient(m -> McCompat.setScreen(m, null));

@@ -21,7 +21,7 @@ public abstract class MixinSoundEngineProbe {
             at = @At("HEAD"))
     private void testkit$soundReached(SoundInstance instance, CallbackInfoReturnable<SoundEngine.PlayResult> cir) {
         try {
-            SoundProbe.reached(String.valueOf(instance.getIdentifier()));
+            SoundProbe.reached(String.valueOf(instance.getIdentifier()), SoundProbe.rawVolume(instance));
         } catch (RuntimeException ignored) {
             // a probe never breaks the sound it watches
         }
