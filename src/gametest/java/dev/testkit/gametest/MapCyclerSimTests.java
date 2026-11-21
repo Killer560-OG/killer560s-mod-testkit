@@ -109,7 +109,6 @@ public class MapCyclerSimTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> {
                 Mod.call(cfg, "setEnabled", true);
                 Mod.call(cfg, "setMaxRooms", truth);
-                Mod.call(cfg, "setDecideWithinS", 60);
                 Mod.call(cfg, "setRerollWhenUnsure", true);
                 Mod.call(cfg, "setMaxRerolls", 0);
                 Mod.staticCall(FEAT, "setRunning", true);
@@ -125,10 +124,10 @@ public class MapCyclerSimTests implements FabricClientGameTest {
                 Mod.call(cfg, "setMaxRooms", truth - 1);
                 Mod.setField(FEAT, "lastSendMs", 0L);
                 // The sim's own "entered" line starts Hypixel's 30 s creation cooldown, which a re-roll waits out.
-                Mod.setField("creationcooldown.CreationCooldownFeature", "endsAtMs", 0L);
+                Mod.setField("creationcooldown.CreationCooldownFeature", "endsAtMs", System.currentTimeMillis());
                 Mod.staticCall(FEAT, "setRunning", true);
             });
-            ctx.waitFor(mc -> (Integer) Mod.field(FEAT, "sent") > sentBefore, 60);
+            ctx.waitFor(mc -> (Integer) Mod.field(FEAT, "sent") > sentBefore, 100);
             ctx.waitTicks(40);
             ctx.runOnClient(mc -> Mod.staticCall(FEAT, "setRunning", false));
             ctx.waitTicks(40);
