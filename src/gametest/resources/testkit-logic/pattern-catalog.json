@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T10:58:04",
- "modSource": "lane-cmdtypo-ety-1121",
- "modGitSha": "58122281c251e1051588dcb0200ced14655fdacc",
+ "generatedAt": "2026-11-21T11:42:30",
+ "modSource": "lane-atlasmap-1121",
+ "modGitSha": "66e68cda69513f79e5bb199b217520662cebb85b",
  "modSourceDirty": false,
  "count": 968,
  "byKind": {
