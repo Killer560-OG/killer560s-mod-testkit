@@ -37,6 +37,9 @@ final class IceFillGrim1118Cases {
     private static volatile int sentTo = -1; // point the last hop was sent to, until the test thread answers it
     private static volatile int hops;
     private static volatile boolean landed = true;
+    // Walking, he is off the tile's middle by the tick the drive looks (a gate-held first hop then never retried and
+    // 1118-same-icefill-move flaked at 0 hops in lanes since 11-19): any spot on the tile counts, as for the auto.
+    private static volatile double standTol = 0.01;
 
     private IceFillGrim1118Cases() {
     }
@@ -67,7 +70,7 @@ final class IceFillGrim1118Cases {
                 return; // the auto waits for its Aspect of the Void in hand
             }
             Vec3 here = point(at);
-            if (Math.abs(mc.player.getX() - here.x) > 0.01 || Math.abs(mc.player.getZ() - here.z) > 0.01) {
+            if (Math.abs(mc.player.getX() - here.x) > standTol || Math.abs(mc.player.getZ() - here.z) > standTol) {
                 return;
             }
             if ((Boolean) Mod.staticCall(AUTO, "hopForTest", mc, here, point(at + 1))) {
@@ -117,6 +120,7 @@ final class IceFillGrim1118Cases {
                 c.onClient(mc -> {
                     mc.options.keyUp.setDown(move);
                     mc.options.keyJump.setDown(move);
+                    standTol = move ? 0.45 : 0.01;
                     driving = true;
                     return null;
                 });
