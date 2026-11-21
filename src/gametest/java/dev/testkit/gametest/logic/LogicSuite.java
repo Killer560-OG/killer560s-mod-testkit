@@ -83,6 +83,7 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "1105-discordlink-payload", CrashReportCases::discordPayload);
         LogicCase.run(ctx, "1110-logic-crashguard-shutdown", CrashReportCases::crashguardShutdown);
         LogicCase.run(ctx, "1116-logic-autocorrect-exhaustive", AutoCorrectCases::exhaustive);
+        LogicCase.run(ctx, "1121-logic-cmdtypo-short", AutoCorrectCases::shortExtraLetter);
         // Discord Link (mod discordlink-1105): off the client thread, the cases wait seconds on the stub relay.
         DiscordLinkCases.ctx = ctx;
         LogicCase.runOffClient(ctx, "1105-discordlink-card", DiscordLinkCases::card);
@@ -144,6 +145,7 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "1106-maplabel-recenter", MapLabel1106Cases::recenter);
         LogicCase.run(ctx, "1117-logic-maplabel-shape", MapLabel1117Cases::shape);
         LogicCase.run(ctx, "1117-logic-maplabel-museum", MapLabel1117Cases::museum);
+        LogicCase.run(ctx, "1121-logic-map-atlas-split", MapAtlasSplit1121Cases::atlasSplit);
         // ItemStacks need item components, which are bound only once a world's registries load ("Components not
         // bound yet" at the title screen). The two cases that build stacks run in a throwaway singleplayer world.
         if (!Scenario.skip("354-logic-terminals") || !Scenario.skip("357-logic-items-ap3-routes")

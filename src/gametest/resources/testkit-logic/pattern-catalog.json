@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T08:26:39",
- "modSource": "lane-auditfix-1118-pf8",
- "modGitSha": "5a344691fff8c759df31e390d9599e67cb34743b",
+ "generatedAt": "2026-11-21T12:01:28",
+ "modSource": "lane-atlasmap-1121",
+ "modGitSha": "42a6799421095033124dff2de6220323854a5d91",
  "modSourceDirty": false,
  "count": 968,
  "byKind": {
