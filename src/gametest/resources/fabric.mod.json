@@ -145,6 +145,7 @@
 			"dev.testkit.gametest.SimServerSafetyTests",
 			"dev.testkit.gametest.SimStarredMobTests",
 			"dev.testkit.gametest.InstaClearTests",
+			"dev.testkit.gametest.MapCyclerSimTests",
 			"dev.testkit.gametest.SimAutoClearTests",
 			"dev.testkit.gametest.SimAutoClearSpeedTests",
 			"dev.testkit.gametest.SimMobFloorTests",
