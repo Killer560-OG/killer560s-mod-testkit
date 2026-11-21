@@ -34,8 +34,10 @@ final class SimBossTermZeeks1120 {
     private static final String TERM_CFG = "com.killer560.hub.terminals.TerminalSolverConfig";
     private static final String[] TYPES = {"SELECT", "RUBIX", "MELODY", "RUBIX", "RUBIX", "RUBIX", "RUBIX", "RUBIX",
             "NUMBERS", "PANES", "STARTS_WITH", "NUMBERS"};
-    /** Longest a board other than Melody may take (opened to solved, including the other mod's 10-tick open block). */
-    private static final long SLOW_MS = 2500;
+    /** Longest a board other than Melody may take (opened to solved). Through the NoFrills stand-in a 10-click Rubix needs
+     *  ~2.0-2.5 s by its gates alone (10-tick open block, the tick after each passed click held); the bug waited 600 ms per
+     *  canceled click and took 3.6-6.0 s. */
+    private static final long SLOW_MS = 3000;
 
     private SimBossTermZeeks1120() {
     }
