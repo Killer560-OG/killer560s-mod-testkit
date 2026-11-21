@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-20T18:32:25",
- "modSource": "lane-coopproxy-1120-final2",
- "modGitSha": "5f68b909d4b68fa2575aa5b476bbab7de1d288fe",
+ "generatedAt": "2026-11-20T19:05:55",
+ "modSource": "lane-remerge3b-achype-1120b",
+ "modGitSha": "7219745a121926b05cc86617c41950f7d28b4b40",
  "modSourceDirty": false,
- "count": 967,
+ "count": 966,
  "byKind": {
   "dynamic": 10,
   "element": 63,
-  "field": 848,
+  "field": 847,
   "local": 46
  },
  "unresolved": 160,
@@ -547,7 +547,7 @@
    "field": "TAG_HEALTH",
    "index": null,
    "file": "src/main/java/com/killer560/hub/autoclear/WeaponReach.java",
-   "line": 234,
+   "line": 324,
    "regex": "(\\d{1,4}(?:,\\d{3}){0,3}(?:\\.\\d{1,3})?)([kMB]?)(?:/\\d{1,4}(?:,\\d{3}){0,3}(?:\\.\\d{1,3})?[kMB]?)?❤\\s{0,2}$",
    "flags": null,
    "kind": "field",
@@ -8064,18 +8064,6 @@
    "flags": null,
    "kind": "field",
    "expr": "\"(?i)(?:pc|pchat|(?:party|p) chat)(?:\\\\s+(.*))?\""
-  },
-  {
-   "id": "roomsim.SimProxy#HEX32",
-   "cls": "roomsim.SimProxy",
-   "field": "HEX32",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/roomsim/SimProxy.java",
-   "line": 52,
-   "regex": "[0-9a-f]{32}",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"[0-9a-f]{32}\""
   },
   {
    "id": "roomsim.SimUpnp#LOCATION",
