@@ -153,7 +153,7 @@ public class SimBossTests implements FabricClientGameTest {
         List<String> failures = new ArrayList<>();
         for (String name : chosen) {
             // P3 waits on Auto Terminal and AP3 on AP3; both are compiled out of a legit jar.
-            if ((name.equals(P3) || name.equals(AP3) || name.equals(GATES) || name.equals(BREAKER) || name.equals(BREAKER_CHARGE) || name.equals(SimBossEe3Route1109.NAME) || name.equals(SimI4Terror1116.NAME) || name.equals(SimBossTermFriend1119.NAME) || name.equals(SimBossTermNumbers1119.NAME) || name.startsWith("1119-boss-term-")) && !dev.testkit.gametest.mod.Mod.isCheat()) {
+            if ((name.equals(P3) || name.equals(AP3) || name.equals(GATES) || name.equals(BREAKER) || name.equals(BREAKER_CHARGE) || name.equals(SimBossEe3Route1109.NAME) || name.equals(SimI4Terror1116.NAME) || name.equals(SimBossTermFriend1119.NAME) || name.equals(SimBossTermNumbers1119.NAME) || name.startsWith("1119-boss-term-") || name.startsWith("1120-boss-term-")) &&!dev.testkit.gametest.mod.Mod.isCheat()) {
                 println(name, "SKIPPED: legit jar (Auto Terminal / AP3 are cheat-only)");
                 continue;
             }
