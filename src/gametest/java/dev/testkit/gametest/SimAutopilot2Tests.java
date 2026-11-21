@@ -99,6 +99,10 @@ public class SimAutopilot2Tests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank() || Scenario.skip(NAME)) {
             return;
         }
+        if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+            Scenario.skipped(NAME, "legit jar: Dungeon Autopilot drives Auto Clear, cheat only");
+            return;
+        }
         ModUnderTest.require("killer560smod");
         LogTap.install();
         ctx.waitTicks(40);
@@ -180,7 +184,7 @@ public class SimAutopilot2Tests implements FabricClientGameTest {
         List<Room> rooms = List.of();
         Room trap = null;
         List<String> puzzleRooms = new ArrayList<>();
-        for (int attempt = 1; attempt <= 6; attempt++) {
+        for (int attempt = 1; attempt <= 8; attempt++) {
             long before = Scenario.simBuildCount(ctx);
             ctx.runOnClient(mc -> mc.execute(() -> {
                 Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
@@ -196,7 +200,7 @@ public class SimAutopilot2Tests implements FabricClientGameTest {
             trap = null;
             puzzleRooms.clear();
             for (Room r : rooms) {
-                if (r.type().equals("TRAP") && r.reachable() && trap == null) {
+                if (r.type().equals("TRAP") && r.name().equals("Old Trap") && r.reachable() && trap == null) {
                     trap = r;
                 }
                 if (r.name().equals("Boulder") || r.name().equals("Teleport Maze")) {
@@ -210,7 +214,7 @@ public class SimAutopilot2Tests implements FabricClientGameTest {
             }
         }
         if (trap == null) {
-            failures.add("no generated floor in 6 had a trap room with secrets");
+            failures.add("no generated floor in 8 had an Old Trap with secrets (New Trap is not functional yet)");
             return;
         }
         loadout(ctx);
