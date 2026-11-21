@@ -52,6 +52,7 @@ public class SimAcDoorOnly1115Tests implements FabricClientGameTest {
         ModUnderTest.require("killer560smod");
         LogTap.install();
         ctx.waitTicks(40);
+        renderBefore = ctx.computeOnClient(mc -> mc.options.renderDistance().get());
         if (SimMapTests.copyRoomsForOthers() < 20) {
             Scenario.skipped(NAME, "needs real room captures and room database");
             return;
@@ -65,6 +66,7 @@ public class SimAcDoorOnly1115Tests implements FabricClientGameTest {
             all.add("scenario threw: " + t);
             t.printStackTrace(System.out);
         } finally {
+            ctx.runOnClient(mc -> mc.options.renderDistance().set(renderBefore));
             ctx.runOnClient(mc -> {
                 try {
                     Object c = ModUnderTest.config(AUTO_CONFIG);
@@ -82,7 +84,28 @@ public class SimAcDoorOnly1115Tests implements FabricClientGameTest {
         System.out.println("[" + NAME + "] PASS - Door Only cases passed");
     }
 
+    private int renderBefore;
+
     private void body(ClientGameTestContext ctx) {
+        // acdoorflake-1121: the Blood door can be 160+ blocks from the first door, and the view distance here is 5 chunks, so its
+        // approach was an unloaded chunk (air): "no block to stand on at the wither door" on every floor that put it that far.
+        // The sibling Auto Clear sim cases raise it to 16. -PdoorPin=SEED:RD pins the floor and the distance (RD 0 leaves it: the old behavior).
+        String[] pin = System.getProperty("testkit.doorPin", "").split(":");
+        int rd = pin.length > 1 ? Integer.parseInt(pin[1]) : 16;
+        if (rd > 0) {
+            ctx.runOnClient(mc -> mc.options.renderDistance().set(rd));
+        }
+        long seed = pin[0].isBlank() ? System.nanoTime() : Long.parseLong(pin[0]);
+        ctx.runOnClient(mc -> {
+            try {
+                var f = Class.forName(FLOOR_GEN).getDeclaredField("RNG");
+                f.setAccessible(true);
+                ((java.util.Random) f.get(null)).setSeed(seed);
+            } catch (ReflectiveOperationException e) {
+                throw new IllegalStateException(e);
+            }
+        });
+        System.out.println("[" + NAME + "] floor seed " + seed + ", render distance " + rd);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class}, new Object[]{"gametest"}));
         long before = Scenario.simBuildCount(ctx);
         ctx.runOnClient(mc -> mc.execute(() -> {
