@@ -290,7 +290,7 @@ public class SimAcBloodFirst1118Tests implements FabricClientGameTest {
      * Server thread: the sidebar's Keys line ("Keys: ■ ✗ ■ 0x") from the sim's own team keys, as Hypixel draws it. Its own
      * holder and team, never one of SimSidebar's lines.
      */
-    private static void drawKeys(MinecraftServer server) {
+    static void drawKeys(MinecraftServer server) {
         if (server == null) {
             return;
         }
