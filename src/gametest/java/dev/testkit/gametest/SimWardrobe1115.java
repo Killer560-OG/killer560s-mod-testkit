@@ -27,7 +27,7 @@ final class SimWardrobe1115 {
 
     static final String NAME = "1115-sim-wardrobe";
     private static final String WARD = "com.killer560.hub.roomsim.SimWardrobe";
-    private static final int[] SET_SLOTS = {20, 22, 24};
+    private static final int[] SET_SLOTS = {36, 37};
 
     private SimWardrobe1115() {
     }
@@ -65,6 +65,12 @@ final class SimWardrobe1115 {
             }
             return m;
         });
+    }
+
+    /** The Skyblock id in a menu slot of the open menu, "null" for none. */
+    private static String menuId(ClientGameTestContext ctx, int slot) {
+        return ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall("com.killer560.hub.cheatutils.CheatUtils", "skyblockId",
+                new Class<?>[]{ItemStack.class}, new Object[]{mc.player.containerMenu.getSlot(slot).getItem()})));
     }
 
     private static int arrows(ClientGameTestContext ctx) {
@@ -108,14 +114,14 @@ final class SimWardrobe1115 {
     /** /wd, /stats, /equipment, /eq open the right menus, and a mask clicked in the inventory swaps with the worn helmet. */
     private static void commandsAndMasks(ClientGameTestContext ctx, List<String> f) {
         cmd(ctx, "wd");
-        expect(f, "/wd opens the wardrobe", title(ctx), "Wardrobe");
+        expect(f, "/wd opens the wardrobe", title(ctx), "Wardrobe (1/2)");
         Map<String, String> wd = sheet(ctx);
         expect(f, "the wardrobe has no Stats item", wd.containsKey("Stats") || wd.containsKey("Attack Speed (effective)"), false);
-        expect(f, "the wardrobe still lists the sets", wd.containsKey("Terror Armor"), true);
+        expect(f, "the wardrobe still lists the sets", wd.containsKey("Slot 1"), true);
         close(ctx);
         for (String c : new String[]{"stats", "equipment", "eq"}) {
             cmd(ctx, c);
-            expect(f, "/" + c + " opens the equipment menu", title(ctx), "Your Equipment and Stats");
+            expect(f, "/" + c + " opens the equipment menu", title(ctx), "Stats & Equipment");
             expect(f, "/" + c + " shows no stat sheet", sheet(ctx).containsKey("Attack Speed (effective)"), false);
             close(ctx);
         }
@@ -168,16 +174,21 @@ final class SimWardrobe1115 {
         start(ctx, "S1", true);
         try {
             expect(f, "wardrobe opens in the sim", open(ctx, false), true);
-            expect(f, "wardrobe title", title(ctx), "Wardrobe");
+            expect(f, "wardrobe title", title(ctx), "Wardrobe (1/2)");
             Map<String, String> w0 = sheet(ctx);
             println(NAME, "wardrobe: " + w0.entrySet().stream().filter(e -> e.getKey().contains("Armor") || e.getKey().equals("Stats")).toList());
-            expect(f, "None starts equipped", w0.get("No Armor"), "Equipped");
-            expect(f, "Terror waits to be equipped", w0.get("Terror Armor"), "Click to equip");
+            expect(f, "slot 1 (Terror) waits to be equipped", w0.get("Slot 1"), "Click to equip");
+            expect(f, "slot 2 (Thermodynamic) waits to be equipped", w0.get("Slot 2"), "Click to equip");
+            expect(f, "slot 3 is empty", w0.get("Slot 3"), "Empty");
+            expect(f, "Terror's helmet sits in column 1, row 1", menuId(ctx, 0), "INFERNAL_TERROR_HELMET");
+            expect(f, "Terror's boots sit in column 1, row 4", menuId(ctx, 27), "INFERNAL_TERROR_BOOTS");
+            expect(f, "Thermodynamic's chestplate sits in column 2, row 2", menuId(ctx, 10), "THERMODYNAMIC_CHESTPLATE");
+            expect(f, "no set in column 3", menuId(ctx, 2), "null");
 
-            click(ctx, SET_SLOTS[2]);
+            click(ctx, SET_SLOTS[1]);
             Map<String, String> w1 = sheet(ctx);
-            expect(f, "click on Thermodynamic equips it in the menu", w1.get("Thermodynamic Armor"), "Equipped");
-            expect(f, "the old set is no longer marked", w1.get("No Armor"), "Click to equip");
+            expect(f, "click on slot 2 equips Thermodynamic in the menu", w1.get("Slot 2"), "Equipped");
+            expect(f, "slot 1 is no longer marked", w1.get("Slot 1"), "Click to equip");
             expect(f, "the loadout now holds Thermodynamic", ctx.computeOnClient(mc -> String.valueOf(call("com.killer560.hub.roomsim.SimLoadout", "armor"))), "THERMODYNAMIC");
             close(ctx);
             String worn = ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall("com.killer560.hub.cheatutils.CheatUtils", "skyblockId",
@@ -187,14 +198,14 @@ final class SimWardrobe1115 {
 
             // Stats of Thermodynamic, then swap to Terror from the wardrobe and read them again.
             expect(f, "stats menu opens", open(ctx, true), true);
-            expect(f, "stats title", title(ctx), "Your Equipment and Stats");
+            expect(f, "stats title", title(ctx), "Stats & Equipment");
             expect(f, "the stats menu has no stat numbers", sheet(ctx).containsKey("Attack Speed (effective)"), false);
             close(ctx);
 
             open(ctx, false);
-            click(ctx, SET_SLOTS[1]);
+            click(ctx, SET_SLOTS[0]);
             Map<String, String> w2 = sheet(ctx);
-            expect(f, "Terror equipped from the menu", w2.get("Terror Armor"), "Equipped");
+            expect(f, "Terror equipped from the menu", w2.get("Slot 1"), "Equipped");
             rates(ctx, f, "Terror", 5, 5, 4);
             close(ctx);
             expect(f, "the chestplate swapped", ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall("com.killer560.hub.cheatutils.CheatUtils", "skyblockId",
@@ -215,7 +226,7 @@ final class SimWardrobe1115 {
 
             // Barrier button closes the wardrobe.
             open(ctx, false);
-            click(ctx, 53);
+            click(ctx, 49);
             expect(f, "Close button closes the menu", title(ctx), "none");
             commandsAndMasks(ctx, f);
         } finally {

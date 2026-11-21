@@ -73,7 +73,7 @@ public class BossSuite implements FabricClientGameTest {
                     MelodyLost1118Cases.register(s); // melodylost-1118
                     // A leap into a Posmsg ring: leap lines first, then the callout, spaced (1102-posmsg-*, posmsgleap-1102).
                     PosmsgLeapCases.register(s);
-                    // Keep Rotation On Leap: a leap keeps his look, a setback and OFF do not (1104-leaprot-*, leaprot-1104).
+                    // A leap teleport with a relative 0/0 look leaves his look alone, no mod code involved (1118-leap-relative-keeps-look).
                     LeapRotationCases.register(s);
                     CrystalLeap1112Cases.register(s); // crystalleap-1112
                     QueueLeap1119Cases.register(s); // queueleap-1119

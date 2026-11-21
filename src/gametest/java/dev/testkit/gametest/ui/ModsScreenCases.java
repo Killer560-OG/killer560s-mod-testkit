@@ -217,7 +217,7 @@ final class ModsScreenCases {
                 if (ids.contains("fabric-api") || ids.contains("fabric-api-base")) {
                     return "a library (Fabric API) is listed: " + ids;
                 }
-                Map<?, ?> icons = (Map<?, ?>) Mod.field(s, "icons");
+                Map<?, ?> icons = (Map<?, ?>) Mod.field(Mod.field(s, "icons"), "images");
                 Object own = icons.get("killer560smod");
                 if (own == null || Mod.call(own, "id") == null) {
                     return "this mod's icon was never loaded: " + own;
@@ -288,7 +288,7 @@ final class ModsScreenCases {
             String closed = c.onClient(mc -> {
                 Screen s = McCompat.screen(mc);
                 s.onClose();
-                Map<?, ?> icons = (Map<?, ?>) Mod.field(s, "icons");
+                Map<?, ?> icons = (Map<?, ?>) Mod.field(Mod.field(s, "icons"), "images");
                 if (!(McCompat.screen(mc) instanceof TitleScreen)) {
                     return "Escape went to " + McCompat.screen(mc);
                 }
