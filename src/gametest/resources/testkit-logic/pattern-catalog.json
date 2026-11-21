@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T15:58:05",
- "modSource": "lane-keysphere-patchy-1121",
- "modGitSha": "936d4bdf3998851705980da8d36005a6f422dafd",
+ "generatedAt": "2026-11-21T16:44:50",
+ "modSource": "lane-sim-witherdoor-1121-c",
+ "modGitSha": "3f1f4afa97ca9527978c650b916ae063cdec4305",
  "modSourceDirty": false,
  "count": 968,
  "byKind": {
