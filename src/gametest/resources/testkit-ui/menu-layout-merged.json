@@ -18,7 +18,8 @@
     "gui.tab.LeftClickSecretsTab": "Dungeons > Secrets > Left Click Opens Secrets",
     "gui.tab.AutoHarpTab": "Items > Auto Melody's Harp",
     "gui.tab.AutoSuperboomTab": "Dungeons > Auto Superboom",
-    "gui.tab.TerminatorClickerTab": "Dungeons > Shortbow Auto Clicker"
+    "gui.tab.TerminatorClickerTab": "Dungeons > Shortbow Auto Clicker",
+    "gui.tab.MapCyclerTab": "Dungeons > Map Cycler"
   },
   "newLeaves": {
     "gui.tab.RoomNameTab": "Dungeons > Current Room Name",
@@ -76,7 +77,8 @@
     "gui.tab.AutoSprintTab": "Misc > Auto Sprint",
     "gui.tab.DarkModeTab": "Misc > Dark Mode",
     "gui.tab.SoundDisablerTab": "Misc > Sound Disabler",
-    "gui.tab.CollectionTrackerTab": "Misc > Collection Tracker"
+    "gui.tab.CollectionTrackerTab": "Misc > Collection Tracker",
+    "gui.tab.HarpHelperTab": "Items > Melody's Harp Helper"
   },
   "tooltips": [
     {

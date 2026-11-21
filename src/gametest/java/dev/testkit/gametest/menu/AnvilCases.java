@@ -49,6 +49,7 @@ final class AnvilCases {
         MenuSuite.test(s, "297-menu-anvil-off-and-legit", AnvilCases::offAndLegit);
         AnvilStart1118Cases.register(s);
         AutoHarpCases.register(s);
+        HarpHelperCases.register(s);
     }
 
     // ---- stacks --------------------------------------------------------------------------------------------------
