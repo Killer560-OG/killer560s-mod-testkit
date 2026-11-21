@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-20T16:38:45",
- "modSource": "runfix-1120",
- "modGitSha": "7558c5de4021476b497a5c7b1fc50c30c38c7073",
+ "generatedAt": "2026-11-20T22:00:53",
+ "modSource": "lane-runfix-1120",
+ "modGitSha": "8edde0a5b1274c48cb27a6c4728c3a4236ab0659",
  "modSourceDirty": false,
- "count": 967,
+ "count": 968,
  "byKind": {
   "dynamic": 10,
   "element": 63,
-  "field": 848,
+  "field": 849,
   "local": 46
  },
  "unresolved": 160,
@@ -547,7 +547,7 @@
    "field": "TAG_HEALTH",
    "index": null,
    "file": "src/main/java/com/killer560/hub/autoclear/WeaponReach.java",
-   "line": 234,
+   "line": 324,
    "regex": "(\\d{1,4}(?:,\\d{3}){0,3}(?:\\.\\d{1,3})?)([kMB]?)(?:/\\d{1,4}(?:,\\d{3}){0,3}(?:\\.\\d{1,3})?[kMB]?)?❤\\s{0,2}$",
    "flags": null,
    "kind": "field",
@@ -8078,6 +8078,18 @@
    "expr": "\"(?i)(?:pc|pchat|(?:party|p) chat)(?:\\\\s+(.*))?\""
   },
   {
+   "id": "roomsim.SimProxy#HEX32",
+   "cls": "roomsim.SimProxy",
+   "field": "HEX32",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/roomsim/SimProxy.java",
+   "line": 52,
+   "regex": "[0-9a-f]{32}",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"[0-9a-f]{32}\""
+  },
+  {
    "id": "roomsim.SimUpnp#LOCATION",
    "cls": "roomsim.SimUpnp",
    "field": "LOCATION",
@@ -11276,10 +11288,10 @@
    "index": null,
    "file": "src/main/java/com/killer560/hub/storagesearch/StorageSearchFeature.java",
    "line": 70,
-   "regex": "^(?:Your Equipment and Stats|Equipment)$",
+   "regex": "^(?:Your Equipment and Stats|Stats & Equipment|Equipment)$",
    "flags": null,
    "kind": "field",
-   "expr": "\"^(?:Your Equipment and Stats|Equipment)$\""
+   "expr": "\"^(?:Your Equipment and Stats|Stats & Equipment|Equipment)$\""
   },
   {
    "id": "storagesearch.StorageSearchFeature#EQUIPMENT_SETS_TITLE",
