@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T12:47:27",
- "modSource": "lane-sim-watcher-real-1121",
- "modGitSha": "dbee4a1486f0566862fe7ae01e9b6cd7804fc655",
+ "generatedAt": "2026-11-21T14:25:42",
+ "modSource": "lane-sim-witherdoor-1121-c",
+ "modGitSha": "747a0bc361f215f9b23c3a3b3a3b2570adeeb4ac",
  "modSourceDirty": false,
  "count": 968,
  "byKind": {
