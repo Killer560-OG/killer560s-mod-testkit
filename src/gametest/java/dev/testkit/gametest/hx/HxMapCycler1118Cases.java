@@ -243,6 +243,12 @@ final class HxMapCycler1118Cases {
             int before3 = sent(c);
             start(c);
             cooldown(c, 0L); // after the run's arrival, so it counts as this run's cooldown
+            c.ctx().waitTicks(30);
+            System.out.println("[1118-hx-mapcycler-loop] creator step state: " + c.onClient(mc -> "now=" + System.currentTimeMillis()
+                    + " phase=" + Mod.field(FEAT, "phase") + " lastSendMs=" + Mod.field(FEAT, "lastSendMs")
+                    + " backoffUntilMs=" + Mod.field(FEAT, "backoffUntilMs") + " judgedFromMs=" + Mod.field(FEAT, "judgedFromMs")
+                    + " runStartMs=" + Mod.field(FEAT, "runStartMs") + " ccEnds=" + Mod.field(CC, "endsAtMs")
+                    + " creator=" + Mod.field(CC, "creator") + " running=" + Mod.field(FEAT, "running")));
             awaitStop(c, "Only the player who started the run", 80);
             c.check(sent(c) == before3 + 1, "want one re-roll before the refusal, got " + (sent(c) - before3));
             quiet(c, 40, "after the creator refusal");
