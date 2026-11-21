@@ -112,7 +112,7 @@ final class SimBossTermForeign1119 {
     }
 
     /** The sim's own open path for one type on S1 T1 (what a stand click runs, with the type chosen). */
-    private static void open(MinecraftServer s, String type) {
+    static void open(MinecraftServer s, String type) {
         try {
             ServerPlayer sp = s.getPlayerList().getPlayers().get(0);
             Class<?> stations = Class.forName(STATIONS);
@@ -134,7 +134,7 @@ final class SimBossTermForeign1119 {
         }
     }
 
-    private static int simClicks(MinecraftServer s) {
+    static int simClicks(MinecraftServer s) {
         try {
             Object menu = s.getPlayerList().getPlayers().get(0).containerMenu;
             Object term = SimBossTermNumbers1119.field(menu, "term");
