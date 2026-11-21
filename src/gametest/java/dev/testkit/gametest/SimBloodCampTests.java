@@ -145,7 +145,7 @@ public class SimBloodCampTests implements FabricClientGameTest {
     }
 
     /** Client thread: the three saved sim switches, as the Sim Settings rows set them. */
-    private static void prefs(boolean mobs, boolean realMobs, boolean bloodCamp) {
+    static void prefs(boolean mobs, boolean realMobs, boolean bloodCamp) {
         Object p = ModUnderTest.staticCall(PREFS, "load");
         try {
             p.getClass().getField("realMobs").setBoolean(p, realMobs);
