@@ -136,6 +136,11 @@ final class HxKeySphere1121Cases {
                     cmd(c, "tp @p " + ex + " " + (CY - 1.62) + " " + ez + " " + yaw + " 0");
                     c.ctx().runOnClient(mc -> mc.player.getAbilities().flying = true);
                     c.ctx().waitTicks(12);
+                    final double wx = ex, wz = ez;
+                    c.waitUntil("the camera is at the view's spot", mc -> {
+                        Vec3 cp = mc.gameRenderer.mainCamera().position();
+                        return Math.abs(cp.x - wx) < 0.05 && Math.abs(cp.y - CY) < 0.05 && Math.abs(cp.z - wz) < 0.05;
+                    }, 200);
                     c.note("before " + name + ": inDungeon " + c.onClient(mc -> Mod.staticCall("secrets.DungeonState", "isInDungeon"))
                             + ", boss phase " + c.onClient(mc -> Mod.staticCall("secrets.DungeonState", "isBossPhaseActive"))
                             + ", stand " + c.onClient(mc -> mc.level.getEntitiesOfClass(net.minecraft.world.entity.decoration.ArmorStand.class,
@@ -190,6 +195,7 @@ final class HxKeySphere1121Cases {
                         c.ctx().waitTicks(2);
                         java.nio.file.Path p = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(c.name() + "-" + m + "-" + name + "-" + shot));
                         BufferedImage img = ImageIOHelper.read(p);
+                        keep(p, m + "-" + name + "-" + shot);
                         double sx = img.getWidth() / (double) (int) grid[1], sy = img.getHeight() / (double) (int) grid[2];
                         int[][] ch = new int[3][];
                         int cnt = 0;
@@ -243,6 +249,19 @@ final class HxKeySphere1121Cases {
                     setImprovedTransparency(mc, itBefore);
                 }
             });
+        }
+    }
+
+    /** Copies a shot to the owner's log folder (the report folder drops passing cases' shots), named by run start. */
+    private static final long RUN = System.currentTimeMillis() / 1000;
+
+    private static void keep(java.nio.file.Path p, String tag) {
+        try {
+            java.nio.file.Path dir = java.nio.file.Path.of("C:/Users/Hunter/killer560s-mod-logs/keysphere-1121/shots");
+            java.nio.file.Files.createDirectories(dir);
+            java.nio.file.Files.copy(p, dir.resolve(RUN + "-" + tag + ".png"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } catch (java.io.IOException e) {
+            // diagnostics only
         }
     }
 
