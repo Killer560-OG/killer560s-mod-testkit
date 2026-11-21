@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T15:43:57",
- "modSource": "lane-harp-extras-1121-c",
- "modGitSha": "1803d96262db8c18ab7ddd1b62f2f6217fde2b43",
+ "generatedAt": "2026-11-21T15:58:05",
+ "modSource": "lane-keysphere-patchy-1121",
+ "modGitSha": "936d4bdf3998851705980da8d36005a6f422dafd",
  "modSourceDirty": false,
  "count": 968,
  "byKind": {
