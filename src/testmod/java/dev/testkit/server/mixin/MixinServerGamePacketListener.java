@@ -29,7 +29,13 @@ public class MixinServerGamePacketListener {
 
     @Inject(method = "handleContainerClick", at = @At("HEAD"))
     private void testkit$recordClick(ServerboundContainerClickPacket packet, CallbackInfo ci) {
-        if (HxBridge.onServerThread()) {
+        if (!HxBridge.onServerThread()) {
+            if (HxEvents.CLICK_ARRIVALS.size() < 64) {
+                HxEvents.CLICK_ARRIVALS.add(System.nanoTime() / 1_000_000L);
+            }
+        } else {
+            Long at = HxEvents.CLICK_ARRIVALS.poll();
+            HxEvents.clickArrivalMs = at == null ? -1 : at;
             HxEvents.containerClick(player, packet.containerId(), packet.slotNum(), packet.buttonNum(),
                     packet.containerInput().name());
         }

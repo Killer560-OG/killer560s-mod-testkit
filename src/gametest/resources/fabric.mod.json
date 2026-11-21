@@ -110,6 +110,8 @@
 			"dev.testkit.gametest.StreamSafeMapTests",
 			"dev.testkit.gametest.SimKeyDoorTests",
 			"dev.testkit.gametest.SimAcDoorOnly1115Tests",
+			"dev.testkit.gametest.SimWitherDoorAnyItem1121Tests",
+			"dev.testkit.gametest.SimWitherDoorNoBreak1121Tests",
 			"dev.testkit.gametest.SimDoorsPredictTests",
 			"dev.testkit.gametest.SimPredictHypixelTests",
 			"dev.testkit.gametest.SimPredictDiagTests",
