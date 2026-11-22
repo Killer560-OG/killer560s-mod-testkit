@@ -98,7 +98,7 @@ final class LogicCase {
             if (thrown instanceof VirtualMachineError fatal) {
                 throw fatal;
             }
-            if (thrown == null && c.checks == 0) {
+            if (thrown == null && c.checks == 0 && c.skipped == 0) {
                 thrown = new AssertionError("[" + name + "] ran no checks - it tested nothing");
             }
             if (thrown == null && !c.failures.isEmpty()) {

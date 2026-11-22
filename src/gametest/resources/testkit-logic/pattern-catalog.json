@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T10:28:18",
- "modSource": "lane-p3arrows-1122",
- "modGitSha": "e2642d486cd16bae32f44bb1711ed409a818ffec",
+ "generatedAt": "2026-11-22T13:32:11",
+ "modSource": "lane-ap-witherkey-1122",
+ "modGitSha": "6f1a394528479de38b556ac07905d6c032599e77",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
@@ -11623,7 +11623,7 @@
    "field": "MORT_START",
    "index": null,
    "file": "src/main/java/com/killer560/hub/witherdoors/WitherDoorsFeature.java",
-   "line": 381,
+   "line": 378,
    "regex": "^\\[NPC\\] Mort: (?:Here, I found this map when I first entered the dungeon\\.|Right-click the Orb for spells, and Left-click \\(or Drop\\) to use your Ultimate!)$",
    "flags": null,
    "kind": "field",

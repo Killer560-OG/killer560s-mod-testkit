@@ -272,6 +272,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 // No ATTACK: the burst leaves the whole path in one real tick, so his crosshair is off the stand by the next.
                 s.test("62-argrim-1110-mapchain-same-" + a.name().toLowerCase(Locale.ROOT), c -> caseMapChain(c, true, a));
             }
+            // mod acwaits3-1122 (his 11-21 log: a charged map burst's first use became an Instant Transmission and every landing
+            // after it slid one hop): with Hypixel's sneak lag on the server (a sneak counts only once a whole server tick saw
+            // it), the burst must wait for a tick that already carried the sneak. Fails on a9d22cbef.
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1122-mapchain-sneaklag", c -> caseMapChainSneakLag(c, null));
+            // No ATTACK, as for mapchain-same-*: the burst moves him off the stand in one real tick ("his action never went in").
+            if (dev.testkit.gametest.mod.Mod.isCheat()) for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                    dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK, dev.testkit.gametest.SameTick.Act.TP)) {
+                s.test("62-argrim-1122-mapchain-sneaklag-same-" + a.name().toLowerCase(Locale.ROOT), c -> caseMapChainSneakLag(c, a));
+            }
             s.test("62-argrim-path", GrimAutoRoutesTests::casePath);
             // mod ar-obvious-only (2026-10-11): legit mode exists only in -PtestingBuild jars.
             if (SimAutoRoutesTests.legitSelectable()) {
@@ -1111,19 +1120,21 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         try {
             walkOnto(ctx, 14.5, 5.5, 14, 8);
             for (int t = 0; t < 120; t++) {
-                if (t == 1 && act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                if (t >= 1 && act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                    // His target stands 1.6 along the CLIENT's own view yaw, put there every tick the way the align row
+                    // places its zombie (acrev-trap-1122: moved along the server's body look it trailed his crosshair and
+                    // his click landed in 0-1 walk ticks run to run; an interaction box he attacked every tick drew
+                    // Simulation .05 in the walk, the zombie the align row uses draws none).
                     double[] z = ctx.computeOnClient(mc -> {
                         float vy = (Float) ModUnderTest.staticCall("com.killer560.hub.util.ViewFreeze", "viewYaw");
                         double yr = Math.toRadians(Float.isNaN(vy) ? mc.player.getYRot() : vy);
                         return new double[]{mc.player.getX() - Math.sin(yr) * 1.6, mc.player.getY(),
                                 mc.player.getZ() + Math.cos(yr) * 1.6};
                     });
-                    c.server().command(String.format(Locale.ROOT, "summon zombie %.3f %.3f %.3f"
-                            + " {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}", z[0], z[1], z[2]));
-                }
-                if (t > 1 && act == dev.testkit.gametest.SameTick.Act.ATTACK) {
-                    // keeps the target 1.6 ahead of his look (no ViewFreeze here: camera and body agree) as the walk moves on
-                    c.server().command("execute as @p at @p run tp @e[tag=sametick] ^ ^ ^1.6");
+                    c.server().command(t == 1
+                            ? String.format(Locale.ROOT, "summon zombie %.3f %.3f %.3f"
+                            + " {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}", z[0], z[1], z[2])
+                            : String.format(Locale.ROOT, "tp @e[tag=sametick] %.3f %.3f %.3f", z[0], z[1], z[2]));
                 }
                 if (!(Boolean) ctx.computeOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "isRunning")) && t > 5) {
                     break;
@@ -2991,6 +3002,64 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      */
     private static void caseMapChain(Session c, boolean charged, dev.testkit.gametest.SameTick.Act act) {
         caseMapChain(c, charged, act, false);
+    }
+
+    /**
+     * 62-argrim-1122-mapchain-sneaklag* (mod acwaits3-1122): the charged map chain with the server's sneak lag on. Every one
+     * of the chain's uses must be an etherwarp (none an Instant Transmission, none judged unsneaked); with an act, his action
+     * lands in the chain's ticks as in mapchain-same-*. His own USE is his own transmission, so that row checks the rest only.
+     */
+    private static void caseMapChainSneakLag(Session c, dev.testkit.gametest.SameTick.Act act) {
+        session.hx().call("dungeon.sneakLag", "on", true);
+        try {
+            JsonObject before = stats();
+            try {
+                caseMapChain(c, true, act);
+            } finally {
+                println(String.format(Locale.ROOT, "sneak lag %s: uses judged unsneaked %d, transmissions %d",
+                        act == null ? "alone" : "same-" + act, delta(before, "sneakLagMisses"), delta(before, "transmissions")));
+            }
+            int warps = delta(before, "etherwarps");
+            int tm = delta(before, "transmissions");
+            int missed = delta(before, "sneakLagMisses");
+            String line = String.format(Locale.ROOT, "sneak lag %s: server etherwarps %d, transmissions %d, uses judged unsneaked %d",
+                    act == null ? "alone" : "same-" + act, warps, tm, missed);
+            println(line);
+            c.note(line);
+            if (act != dev.testkit.gametest.SameTick.Act.USE) {
+                check(missed == 0 && tm == 0, line + ": a chain use went out before the server had heard the sneak");
+            }
+            // On the wire: the sneak went out in its own input packet ticks before the first use (his own USE row's first
+            // use may be his, his CLICK row sends none).
+            if (act != dev.testkit.gametest.SameTick.Act.USE && act != dev.testkit.gametest.SameTick.Act.CLICK) {
+                List<dev.testkit.harness.WireCapture.Sent> wire = dev.testkit.harness.WireCapture.snapshot();
+                dev.testkit.harness.WireCapture.Sent input = null;
+                dev.testkit.harness.WireCapture.Sent use = null;
+                for (dev.testkit.harness.WireCapture.Sent s : wire) {
+                    if (s.type().equals("minecraft:use_item")) {
+                        use = s;
+                        break;
+                    }
+                    if (s.type().equals("minecraft:player_input")) {
+                        input = s;
+                    }
+                }
+                long leadMs = input == null || use == null ? -1 : (use.nanos() - input.nanos()) / 1_000_000L;
+                String wl = String.format(Locale.ROOT, "sneak lag %s: wire input before the first use %s, %d ms ahead",
+                        act == null ? "alone" : "same-" + act, input == null ? "none" : input.text(), leadMs);
+                println(wl);
+                check(use != null && input != null && input.text().contains("shift=true") && leadMs >= 90,
+                        wl + ": the sneak did not go out ticks before the first use");
+            }
+            // His CLICK opens his inventory and the path stops there by design; his USE with the AOTV in hand is his own warp
+            // that moves him off the path (as mapchain-same-use, which checks no landing either); every other row lands the
+            // whole chain.
+            if (act != dev.testkit.gametest.SameTick.Act.CLICK && act != dev.testkit.gametest.SameTick.Act.USE) {
+                check(warps == ArChainMeasure.CHAIN.length, line + ": expected " + ArChainMeasure.CHAIN.length + " etherwarps");
+            }
+        } finally {
+            session.hx().call("dungeon.sneakLag", "on", false);
+        }
     }
 
     /** {@code split}: Multi Warp Mode Tick Split on top of {@code charged} (mod mwtick-1111): each warp in a banked tick. */
@@ -5472,8 +5541,25 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      */
     /** Dungeons Autopilot starts only once the run has (Mort's line): the arena has no Mort, so the test sets the flag. */
     private static void runStartedForTest(boolean v) {
+        Class<?> wd;
         try {
-            java.lang.reflect.Field f = Class.forName("com.killer560.hub.witherdoors.WitherDoorsFeature").getDeclaredField("mortSeen");
+            wd = Class.forName("com.killer560.hub.witherdoors.WitherDoorsFeature");
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("no WitherDoorsFeature", e);
+        }
+        try {
+            // acstart-1122: the world Mort's line came in (a new world is a new run), was the boolean mortSeen
+            java.lang.reflect.Field f = wd.getDeclaredField("mortLevel");
+            f.setAccessible(true);
+            f.set(null, v ? net.minecraft.client.Minecraft.getInstance().level : null);
+            return;
+        } catch (NoSuchFieldException e) {
+            // an older jar: the boolean below
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("could not set WitherDoorsFeature.mortLevel", e);
+        }
+        try {
+            java.lang.reflect.Field f = wd.getDeclaredField("mortSeen");
             f.setAccessible(true);
             f.setBoolean(null, v);
         } catch (ReflectiveOperationException e) {
