@@ -229,14 +229,19 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
             }
             int[] cr = (int[]) ModUnderTest.call(layout, "clayRotation", new Class<?>[]{int.class}, new Object[]{room});
             Object route = ModUnderTest.staticCall(AUTO_TRAP, "routeFor", new Class<?>[]{String.class}, new Object[]{trap});
-            if (cr == null || route == null) {
-                return new Object[]{room, cr, route, null, null};
+            if (cr == null) {
+                return new Object[]{room, null, route, null, null};
             }
-            Object start = ModUnderTest.call(route, "startNode", new Class<?>[]{}, new Object[]{});
             Object frame = newFrame(trap, cr);
-            Vec3 rel = (Vec3) ModUnderTest.call(start, "relativePos", new Class<?>[]{}, new Object[]{});
+            // a jar with no bundled route (origin before newtrap-1121) still gets (a) from his route's start spot
+            Vec3 rel = route == null ? (trap.equals("New Trap") ? new Vec3(16.5, 69.0, 28.5) : new Vec3(12.5, 69.0, 4.5))
+                    : (Vec3) ModUnderTest.call(ModUnderTest.call(route, "startNode", new Class<?>[]{}, new Object[]{}),
+                    "relativePos", new Class<?>[]{}, new Object[]{});
             Vec3 real = (Vec3) ModUnderTest.staticCall(ROUTE_COORDS, "toReal", new Class<?>[]{frame.getClass(), Vec3.class},
                     new Object[]{frame, rel});
+            if (route == null) {
+                return new Object[]{room, cr, null, real, null};
+            }
             List<?> nodes = (List<?>) ModUnderTest.call(route, "nodes", new Class<?>[]{}, new Object[]{});
             Object last = nodes.get(nodes.size() - 1);
             Vec3 lastReal = (Vec3) ModUnderTest.staticCall(ROUTE_COORDS, "toReal",
@@ -257,25 +262,33 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
             return;
         }
         int[] cr = (int[]) trapInfo[1];
-        if (cr == null || trapInfo[2] == null || trapInfo[3] == null) {
-            failures.add(tag + ": " + (cr == null ? "no clay/rotation for the trap" : "Auto Trap has no route for it"
-                    + " (no bundled Just Cleared route)"));
+        if (cr == null) {
+            failures.add(tag + ": no clay/rotation for the trap");
             return;
+        }
+        boolean hasRoute = trapInfo[2] != null;
+        if (!hasRoute) {
+            failures.add(tag + ": Auto Trap has no route for it (no bundled Just Cleared route)");
         }
         if (cr[2] != rot) {
             failures.add(tag + ": the map reads the trap at rotation " + cr[2] + ", the case pasted " + rot);
         }
         Vec3 startReal = (Vec3) trapInfo[3];
-        int nodeCount = (Integer) ((Object[]) trapInfo[4])[0];
-        Vec3 lastReal = (Vec3) ((Object[]) trapInfo[4])[1];
+        int nodeCount = hasRoute ? (Integer) ((Object[]) trapInfo[4])[0] : 0;
+        Vec3 lastReal = hasRoute ? (Vec3) ((Object[]) trapInfo[4])[1] : null;
         BlockPos goal = BlockPos.containing(startReal.x, startReal.y - 0.5, startReal.z);
         int trapRoom = (Integer) trapInfo[0];
 
         // ---- (b) Just Cleared only, out of the box -----------------------------------------------------------------------
-        String modes = ctx.computeOnClient(mc -> ModUnderTest.staticCall(AUTO_TRAP, "selectedMode",
-                new Class<?>[]{String.class}, new Object[]{trap}) + " full="
-                + ModUnderTest.staticCall(AUTO_TRAP, "hasRoute", new Class<?>[]{String.class, modeClass()},
-                new Object[]{trap, ModUnderTest.enumValue(AUTO_TRAP + "$Mode", "FULL")}));
+        String modes = ctx.computeOnClient(mc -> {
+            try {
+                return ModUnderTest.staticCall(AUTO_TRAP, "selectedMode", new Class<?>[]{String.class}, new Object[]{trap})
+                        + " full=" + ModUnderTest.staticCall(AUTO_TRAP, "hasRoute", new Class<?>[]{String.class, modeClass()},
+                        new Object[]{trap, ModUnderTest.enumValue(AUTO_TRAP + "$Mode", "FULL")});
+            } catch (Throwable t) {
+                return "unreadable (" + t + ")";
+            }
+        });
         if (!modes.equals("CLEARED full=false")) {
             failures.add(tag + ": Auto Trap out of the box should be Just Cleared with no Full Trap route, is " + modes);
         }
@@ -303,6 +316,9 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         }
 
         // ---- (c) the real start-node warp, then the bundled route plays ---------------------------------------------------
+        if (!hasRoute) {
+            return;
+        }
         standOnTile(ctx, 1, 1, 0, 0);
         int completionsBefore = ctx.computeOnClient(mc -> ((Number) ModUnderTest.staticCall(ROUTE_EXEC, "completions")).intValue());
         long mark = LogTap.mark();
