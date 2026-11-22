@@ -30,6 +30,10 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
     private static final String WAIT = "1117-sim-acquiz-wait";
     /** acquiz2-1118: the same floor under Auto Secret (Auto Clear Rooms on, no routes), his real run's setup. */
     private static final String SECRET = "1118-sim-acquiz-secret";
+    /** acplan-1121 (audit S3): the same with a long secret route in every secret room, so no route fits a countdown: the gap
+     *  must still clear rooms that have routes (it stood at the Quiz instead). */
+    private static final String ROUTES = "1121-sim-acquiz-routes";
+    private static final Pattern GAP_ROOM = Pattern.compile("clearing (.+?) meanwhile \\(");
     private static final String AS = "com.killer560.hub.autosecret.AutoSecretFeature";
     private static final String AUTO = "com.killer560.hub.autoclear.AutoClearFeature";
     private static final String AUTO_CONFIG = "com.killer560.hub.autoclear.AutoClearConfig";
@@ -52,13 +56,15 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         boolean gap = !Scenario.skip(GAP);
         boolean wait = !Scenario.skip(WAIT);
         boolean secret = !Scenario.skip(SECRET);
-        if (!gap && !wait && !secret) {
+        boolean routes = !Scenario.skip(ROUTES);
+        if (!gap && !wait && !secret && !routes) {
             return;
         }
         if (!dev.testkit.gametest.mod.Mod.isCheat()) {
             if (gap) Scenario.skipped(GAP, "Auto Clear is cheat build only");
             if (wait) Scenario.skipped(WAIT, "Auto Clear is cheat build only");
             if (secret) Scenario.skipped(SECRET, "Auto Clear is cheat build only");
+            if (routes) Scenario.skipped(ROUTES, "Auto Clear is cheat build only");
             return;
         }
         ModUnderTest.require("killer560smod");
@@ -69,6 +75,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             if (gap) Scenario.skipped(GAP, "needs real room captures and room database");
             if (wait) Scenario.skipped(WAIT, "needs real room captures and room database");
             if (secret) Scenario.skipped(SECRET, "needs real room captures and room database");
+            if (routes) Scenario.skipped(ROUTES, "needs real room captures and room database");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);
@@ -86,6 +93,9 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             }
             if (secret) {
                 one(ctx, SECRET, true, failures);
+            }
+            if (routes) {
+                one(ctx, ROUTES, true, failures);
             }
         } finally {
             ctx.runOnClient(mc -> mc.options.renderDistance().set(renderBefore));
@@ -161,7 +171,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             ModUnderTest.set(ModUnderTest.config("com.killer560.hub.puzzlesolvers.QuizSolverConfig"), "setEnabled", true);
             ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig"), "setQuizFirst", true);
             ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setEnabled", true);
-            if (name.equals(SECRET)) {
+            if (name.equals(SECRET) || name.equals(ROUTES)) {
                 ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig"), "setAutoClearRooms", true);
             }
         });
@@ -205,8 +215,67 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             baseline = true;
             println(name, "BASELINE jar (no Quiz gap hook): times only");
         }
+        java.util.Set<String> routed = new java.util.HashSet<>();
+        java.nio.file.Path routesFile = null;
+        String routesBefore = null;
+        if (name.equals(ROUTES)) {
+            routesFile = ctx.computeOnClient(mc -> (java.nio.file.Path) ModUnderTest.staticCall(
+                    "com.killer560.hub.autoroutes.RouteStore", "routesFile"));
+            try {
+                routesBefore = java.nio.file.Files.exists(routesFile) ? java.nio.file.Files.readString(routesFile) : null;
+            } catch (java.io.IOException e) {
+                throw new RuntimeException(e);
+            }
+            Map<String, com.google.gson.JsonObject> long30 = new HashMap<>();
+            for (SimAutopilotTests.Status s : ctx.computeOnClient(SimAutopilotTests::readStatus)) {
+                if (s.unfound() <= 0 || SimAutopilotTests.strands(s.name())) {
+                    continue;
+                }
+                com.google.gson.JsonObject route = SimAutopilotTests.routeFor(ctx, s);
+                if (route == null) {
+                    continue;
+                }
+                // 30 nodes: about 15 s of route work, more than any countdown (217 / 140 / 140 ticks).
+                com.google.gson.JsonArray nodes = route.getAsJsonArray("nodes");
+                com.google.gson.JsonObject first = nodes.get(0).getAsJsonObject();
+                for (int i = 1; i < 30; i++) {
+                    com.google.gson.JsonObject copy = first.deepCopy();
+                    copy.addProperty("start", false);
+                    nodes.add(copy);
+                }
+                long30.put(s.name(), route);
+                routed.add(s.name());
+            }
+            SimAutopilotTests.writeRoutes(ctx, long30);
+            println(name, "long routes in " + routed.size() + " room(s): " + routed);
+        }
+        try {
+            body2(ctx, name, withMobs, failures, baseline, routed);
+        } finally {
+            if (routesFile != null) {
+                java.nio.file.Path f = routesFile;
+                String b = routesBefore;
+                ctx.runOnClient(mc -> {
+                    try {
+                        if (b == null) {
+                            java.nio.file.Files.deleteIfExists(f);
+                        } else {
+                            java.nio.file.Files.writeString(f, b);
+                        }
+                    } catch (java.io.IOException ignored) {
+                        // cleanup must not replace the verdict
+                    }
+                    ModUnderTest.staticCall("com.killer560.hub.autoroutes.RouteStore", "reload");
+                });
+            }
+        }
+    }
+
+    private static void body2(ClientGameTestContext ctx, String name, boolean withMobs, List<String> failures, boolean baseline,
+                              java.util.Set<String> routed) {
         long mark = LogTap.mark();
-        boolean secret = name.equals(SECRET);
+        boolean secret = name.equals(SECRET) || name.equals(ROUTES);
+        int routedGaps = 0;
         String driver = secret ? AS : AUTO;
         if (secret) {
             if (!Boolean.TRUE.equals(ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "startAutopilot")))) {
@@ -274,6 +343,10 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             if (secret && l.contains("[AutoSecret] Quiz:") && l.contains("meanwhile (")) {
                 gaps++;
                 println(name, "  " + l.substring(l.indexOf("[AutoSecret]")));
+                Matcher g = GAP_ROOM.matcher(l);
+                if (g.find() && routed.contains(g.group(1))) {
+                    routedGaps++;
+                }
             }
             Matcher m = ANSWERED.matcher(l);
             if (m.find()) {
@@ -310,6 +383,10 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             if (gaps < 2 || between < 2) {
                 failures.add("Auto Secret did not fill the countdowns with clears (gap picks " + gaps + ", sim room clears between"
                         + " Oruo's start and the last answer " + between + ")");
+            }
+            if (name.equals(ROUTES) && routedGaps < 1) {
+                failures.add("no countdown was filled with the clear of a room that has a secret route (gap clears " + gaps
+                        + ", of rooms with routes " + routedGaps + ")");
             }
             if (idle > SECRET_IDLE_BOUND) {
                 failures.add("it stood " + idle + " tick(s) at the Quiz waiting with rooms left (bound " + SECRET_IDLE_BOUND + ")");
