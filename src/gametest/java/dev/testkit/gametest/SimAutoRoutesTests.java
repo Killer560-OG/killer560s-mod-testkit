@@ -4413,10 +4413,11 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     /** One await sub-run: arm the start node at (12,12), fire {@code event}, and say whether its await:1 was met. */
     private static String awaitRun(ClientGameTestContext ctx, String label, boolean expect, Runnable event) {
         ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+        // Marked before arming: a bat already there meets the await on the route's first tick (batnode-1121).
+        long m = LogTap.mark();
         if (!arm(ctx, 12, 12, 0f, 80f)) {
             return label + ": the route did not start";
         }
-        long m = LogTap.mark();
         ctx.waitTicks(10);
         event.run();
         boolean met = waitFor(ctx, 60, () -> logHas(m, "secrets met"));
@@ -4429,7 +4430,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     /**
      * Await events: the sim's bar rising with no click, a lever toggled by the server ("a teammate"), and a button
      * click do NOT satisfy await:1; our lever / chest / skull click, our own item pickup and a secret bat appearing
-     * 5 blocks away each do; a bat 10 blocks away, or one already there, does not.
+     * 5 blocks away each do; a bat 10 blocks away does not; one already there does (batnode-1121).
      */
     private void caseAwait(ClientGameTestContext ctx) {
         resetRoutes(ctx);
@@ -4483,10 +4484,12 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         note.accept(awaitRun(ctx, "our chest click", true, () -> rightClick(ctx, 10, F, 11, Direction.UP)));
         note.accept(awaitRun(ctx, "our skull click", true, () -> rightClick(ctx, 11, F, 14, Direction.UP)));
         note.accept(awaitRun(ctx, "a secret bat 5 blocks away", true, () -> spawnBatAt(ctx, 12, F - 1, 17)));
+        clearSecretBats(ctx);
         note.accept(awaitRun(ctx, "a secret bat 13 blocks away", false, () -> spawnBatAt(ctx, 12, F - 1, 25)));
+        clearSecretBats(ctx);
         spawnBatAt(ctx, 15, F - 1, 12);
         ctx.waitTicks(30);
-        note.accept(awaitRun(ctx, "a bat already there", false, () -> { }));
+        note.accept(awaitRun(ctx, "a bat already there (batnode-1121)", true, () -> { }));
         check(wrong.isEmpty(), String.join("; ", wrong));
     }
 

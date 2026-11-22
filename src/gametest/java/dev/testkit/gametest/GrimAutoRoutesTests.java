@@ -298,6 +298,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             }
             s.test("62-argrim-crypt", GrimAutoRoutesTests::caseCrypt);
             s.test("62-argrim-1015-cryptaim", GrimAutoRoutesTests::caseCryptAim); // crypt-aim-1015
+            s.test("62-argrim-1121-batpresent", c -> caseBatPresent(c, null)); // batnode-spawned-1121
+            s.test("62-argrim-1121-batpresent-same-use", c -> caseBatPresent(c, dev.testkit.gametest.SameTick.Act.USE));
+            s.test("62-argrim-1121-batpresent-same-swap", c -> caseBatPresent(c, dev.testkit.gametest.SameTick.Act.SWAP));
             s.test("62-argrim-mimic", GrimAutoRoutesTests::caseMimic);
             s.test("62-argrim-1115-armaster-onetry", GrimAutoRoutesTests::caseArmasterOneTry); // armaster-1115
             s.test("62-argrim-1115-armaster-skip", GrimAutoRoutesTests::caseArmasterSkip); // armaster-1115
@@ -3714,6 +3717,100 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 ModUnderTest.call(ar, "setCryptWeapon", new Class<?>[]{enumClass("CryptWeapon")},
                         new Object[]{ModUnderTest.enumValue(AR_CONFIG + "$CryptWeapon", "HYPERION")});
                 ModUnderTest.set(ar, "setCryptAttackTicks", 100);
+            });
+        }
+    }
+
+    /**
+     * 62-argrim-1121-batpresent (killer560, 2026-11-21: "the bat is already spawned but it doesnt detect that for a bat
+     * node"). A secret bat (100 max health, NoAI) is standing before a Spirit Sceptre BAT node is reached; the node must
+     * find it and aim at it after its 2 straight-down uses (his 2026-10-15 rule) and draw nothing from GrimAC. With an
+     * act, his own right click / hotbar swap lands in the same tick as the node's use (WireCapture, both() > 0). The
+     * server emulates no sceptre, so the bat never dies: the node ends on its attack ticks.
+     */
+    private static void caseBatPresent(Session c, dev.testkit.gametest.SameTick.Act act) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        c.hx().give(5, "minecraft:iron_sword[custom_data={id:\"BAT_WAND\"},unbreakable={}]");
+        c.server().command("item replace entity @a hotbar.7 with stick");
+        c.server().command("item replace entity @a hotbar.8 with stick");
+        ctx.runOnClient(mc -> {
+            Object ar = ModUnderTest.config(AR_CONFIG);
+            ModUnderTest.call(ar, "setBatWeapon", new Class<?>[]{enumClass("CryptWeapon")},
+                    new Object[]{ModUnderTest.enumValue(AR_CONFIG + "$CryptWeapon", "SPIRIT_SCEPTRE")});
+            ModUnderTest.set(ar, "setBatAttackTicks", 80);
+        });
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            Vec3 at = ctx.computeOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                        double.class, double.class}, new Object[]{frame, 14.5, F + 2.0, 17.5});
+            });
+            c.server().command("summon minecraft:bat " + at.x + " " + at.y + " " + at.z
+                    + " {NoAI:1b,Silent:1b,PersistenceRequired:1b,Tags:[\"batnode1121\"]}");
+            c.server().command("attribute @e[tag=batnode1121,limit=1] minecraft:max_health base set 100");
+            c.server().command("data merge entity @e[tag=batnode1121,limit=1] {Health:100f}");
+            check(waitFor(ctx, 100, () -> ctx.computeOnClient(mc -> {
+                for (var e : mc.level.entitiesForRendering()) {
+                    if (e instanceof net.minecraft.world.entity.ambient.Bat b && b.getMaxHealth() == 100f) {
+                        return true;
+                    }
+                }
+                return false;
+            })), "the 100-health bat never reached the client - nothing measured");
+            ctx.waitTicks(20);
+            JsonObject bat = node("BAT", 14, 14, 0f, 10f);
+            bat.addProperty("start", true);
+            writeRoute(ctx, List.of(bat));
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(7));
+            if (act != null) {
+                dev.testkit.gametest.SameTick s1 = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
+                        p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 7, 8));
+                st = s1;
+            }
+            long m = LogTap.mark();
+            startSampling(ctx);
+            walkOnto(ctx, 14.5, 11.5, 14, 14);
+            boolean aimed = waitFor(ctx, 120, () -> logHas(m, "now aiming the Spirit Sceptre at the secret bat"));
+            ctx.waitTicks(30);
+            List<Sample> sm = stopSampling(ctx);
+            int down = -1;
+            for (String l : LogTap.since(m)) {
+                var mt = java.util.regex.Pattern.compile("BAT: (\\d+) uses went down").matcher(l);
+                if (mt.find()) {
+                    down = Integer.parseInt(mt.group(1));
+                }
+            }
+            String rep = "";
+            if (st != null) {
+                dev.testkit.gametest.SameTick s2 = st;
+                ctx.runOnClient(mc -> s2.close());
+                st = null;
+                rep = s2.report();
+                check(s2.done() > 0 && s2.playerWindows() > 0 && s2.featureWindows() > 0, act
+                        + ": his action or the node's use never reached the wire - nothing tested (" + rep + ")");
+                check(s2.both() > 0, act + ": no server tick carried both his " + act + " and the node's use (" + rep + ")");
+            }
+            println("batpresent-grim " + act + ": aimed " + aimed + ", uses before aiming " + down + ", use_item "
+                    + count(sm, "use_item") + " " + rep);
+            check(aimed, "the sceptre BAT node never aimed at the bat that was already there");
+            check(down == 2, "aimed after " + down + " straight-down uses (his rule: exactly 2 first)");
+            c.note("batpresent " + act + ": aimed after " + down + " use(s), " + rep);
+            noteFlags(c, sm);
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick s3 = st;
+                ctx.runOnClient(mc -> s3.close());
+            }
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                    new Object[]{"test"}));
+            c.server().command("kill @e[tag=batnode1121]");
+            c.server().command("clear @a stick");
+            ctx.runOnClient(mc -> {
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", 100);
+                mc.player.getInventory().setSelectedSlot(3);
             });
         }
     }
