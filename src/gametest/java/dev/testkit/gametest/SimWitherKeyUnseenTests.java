@@ -37,7 +37,10 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
 
     private static final String AC = "1122-sim-ac-witherkey-unseen";
     private static final String AP = "1122-sim-ap-witherkey-unseen";
+    private static final String RACE = "1122-sim-ap-keyrace";
+    private static final String BK = "1122-sim-ap-bloodkey-late";
     private static final String TAG = "1122-witherkey-unseen";
+    private static final String SIM_MOB_FLOOR = "com.killer560.hub.roomsim.SimMobFloor";
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String SIM_MOBS = "com.killer560.hub.roomsim.SimMobs";
     private static final String SIM_ITEMS = "com.killer560.hub.roomsim.SimItems";
@@ -65,6 +68,8 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
         if (!System.getProperty("testkit.scenario", "").isBlank()) {
             if (Scenario.named(AC)) rows.put(AC, false);
             if (Scenario.named(AP)) rows.put(AP, true);
+            if (Scenario.named(RACE)) rows.put(RACE, true);
+            if (Scenario.named(BK)) rows.put(BK, true);
         }
         if (rows.isEmpty()) {
             return;
@@ -283,6 +288,12 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
                 ModUnderTest.set(as, "setChatFeedback", true);
             });
         }
+        boolean race = label.equals(RACE);
+        boolean bloodLate = label.equals(BK);
+        if (bloodLate) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOB_FLOOR, "forceBloodKeyForTest",
+                    new Class<?>[]{boolean.class}, new Object[]{true}));
+        }
         long mark = LogTap.mark();
         ctx.runOnClient(mc -> {
             if (pilot) {
@@ -296,6 +307,8 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
         int openTick = -1;
         int keysAfter = 0;
         int ticks = 0;
+        boolean bloodDropped = false;
+        int bloodDropTick = 0;
         for (int t = 0; t < CASE_TICKS; t++) {
             ctx.waitTicks(1);
             ticks = t + 1;
@@ -306,19 +319,75 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
                 inKAtOpen = inK;
             }
             keysAfter = (int) LogTap.since(mark).stream().filter(l -> l.contains("has obtained Wither Key!")).count();
-            if (keysAfter > 0 && openTick >= 0) {
+            if (keysAfter > 0 && openTick >= 0 && !race && !bloodLate) {
                 ctx.waitTicks(10);
+                break;
+            }
+            if (bloodLate && !bloodDropped
+                    && LogTap.since(mark).stream().anyMatch(l -> l.contains("no blood key"))) {
+                // Standing at the blood door with no Blood Key: one drops 6 blocks off now (its stand reaches the client later).
+                bloodDropped = true;
+                bloodDropTick = t;
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_KEYS, "drop", new Class<?>[]{Minecraft.class, Vec3.class,
+                        boolean.class}, new Object[]{mc, mc.player.position().add(6, 0, 0), true}));
+            }
+            if (bloodLate && bloodDropped && t - bloodDropTick > 300) {
+                break;
+            }
+            if (bloodLate && bloodDropped && LogTap.since(mark).stream().anyMatch(l -> l.contains("has obtained Blood Key!"))) {
                 break;
             }
             boolean busy = ctx.computeOnClient(mc -> pilot ? (Boolean) ModUnderTest.staticCall(PILOT, "isOn")
                     : (Boolean) ModUnderTest.staticCall(AUTO, "isBusy"));
-            if (!busy && t > 40) {
+            if (!busy && t > 40 && !(bloodLate && !bloodDropped && openTick < 0)) {
                 break;
             }
             if (t % 200 == 199) {
                 println(label + " t=" + (t + 1) + ": in " + here + ", " + ctx.computeOnClient(mc ->
                         ModUnderTest.staticCall(AUTO, "status")));
             }
+        }
+        if (bloodLate) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOB_FLOOR, "forceBloodKeyForTest",
+                    new Class<?>[]{boolean.class}, new Object[]{false}));
+        }
+        if (race || bloodLate) {
+            List<String> lines = LogTap.since(mark);
+            for (String l : lines) {
+                if (l.contains("[Autopilot]") || l.contains("[AutoSecret]") || l.contains("has obtained")
+                        || l.contains("Sim key room")) {
+                    println("  log: " + l.replaceAll("^.*?(\[Autopilot\]|\[AutoSecret\]|\[Sim\]|Sim key room|\[CHAT\])",
+                            "$1"));
+                }
+            }
+            int pick = indexOf(lines, "[Autopilot] pick KEY wither");
+            int bloodTrip = indexOf(lines, "going to the blood door");
+            if (race) {
+                println(label + ": pick KEY wither line " + pick + ", going to the blood door line " + bloodTrip);
+                if (pick < 0) {
+                    failures.add(label + ": the Wither Key that dropped in the tick its room cleared was never picked as a target");
+                } else if (bloodTrip >= 0 && bloodTrip < pick) {
+                    failures.add(label + ": it went to the blood door (line " + bloodTrip + ") before picking the key (line "
+                            + pick + ")");
+                }
+                if (indexOf(lines, "has obtained Wither Key!") < 0) {
+                    failures.add(label + ": the Wither Key was never obtained");
+                }
+            } else {
+                boolean waited = indexOf(lines, "no blood key") >= 0;
+                boolean decidedAgain = lines.stream().anyMatch(l -> l.contains("key #") && l.contains("appeared - deciding again")
+                        && l.contains("blood door"));
+                boolean got = indexOf(lines, "has obtained Blood Key!") >= 0;
+                println(label + ": waited at the blood door " + waited + ", dropped " + bloodDropped + ", decided again "
+                        + decidedAgain + ", Blood Key obtained " + got);
+                if (!waited || !bloodDropped) {
+                    failures.add(label + ": the premise failed (it never waited at the blood door with no Blood Key)");
+                } else if (!decidedAgain || !got) {
+                    failures.add(label + ": a Blood Key appeared at the blood door wait but it was not decided on again (decided again "
+                            + decidedAgain + ", obtained " + got + ")");
+                }
+            }
+            return;
         }
         String state = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(SIM_KEY_ROOM, "testState"));
         Map<UUID, String> alive = SimAutoClearTests.aliveReport(ctx, placed);
@@ -396,6 +465,15 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
             }
         }
         return null;
+    }
+
+    private static int indexOf(List<String> lines, String part) {
+        for (int i = 0; i < lines.size(); i++) {
+            if (lines.get(i).contains(part)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private static SimAutoClearTests.Room find(List<SimAutoClearTests.Room> rooms, String name) {
