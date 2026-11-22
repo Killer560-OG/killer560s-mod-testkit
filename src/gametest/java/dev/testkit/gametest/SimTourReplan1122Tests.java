@@ -54,6 +54,10 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
             return;
         }
         ModUnderTest.require("killer560smod");
+        if (!dev.testkit.gametest.mod.Mod.isCheat()) {
+            Scenario.skipped(NAME, "legit jar: Auto Clear and the trip cache are cheat-only, so no press sends a warp");
+            return;
+        }
         LogTap.install();
         ctx.waitTicks(40);
         if (SimMapTests.copyRoomsForOthers() < 20) {
