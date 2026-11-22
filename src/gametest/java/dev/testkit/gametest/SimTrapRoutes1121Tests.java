@@ -217,6 +217,10 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
                              String north) {
         // ---- where the bundled route starts in this pasted trap ----------------------------------------------------------
         String placed = standOnTile(ctx, 1, 1, 0, 0);
+        // the map names a room only once it has scanned it: wait for the trap's name
+        for (int i = 0; i < 300 && ctx.computeOnClient(mc -> roomNamed(ModUnderTest.staticCall(LAYOUT, "capture"), trap)) < 0; i++) {
+            ctx.waitTicks(1);
+        }
         Object[] trapInfo = ctx.computeOnClient(mc -> {
             Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
             int room = roomNamed(layout, trap);
@@ -241,7 +245,15 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
             return new Object[]{room, cr, route, real, new Object[]{nodes.size(), lastReal}};
         });
         if (trapInfo == null) {
-            failures.add(tag + ": the live map does not know " + trap + " (" + placed + ")");
+            failures.add(tag + ": the live map does not know " + trap + " (" + placed + "; rooms " + ctx.computeOnClient(mc -> {
+                Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+                int n = layout == null ? 0 : (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[]{}, new Object[]{});
+                List<Object> names = new java.util.ArrayList<>();
+                for (int r = 0; r < n; r++) {
+                    names.add(ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{r}));
+                }
+                return names.toString();
+            }) + ")");
             return;
         }
         int[] cr = (int[]) trapInfo[1];
@@ -406,13 +418,12 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
     }
 
     private static int roomNamed(Object layout, String name) {
-        for (int r = 0; r < 64; r++) {
-            Object n;
-            try {
-                n = ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{r});
-            } catch (RuntimeException e) {
-                break;
-            }
+        if (layout == null) {
+            return -1;
+        }
+        int count = (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[]{}, new Object[]{});
+        for (int r = 0; r < count; r++) {
+            Object n = ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{r});
             if (name.equals(n)) {
                 return r;
             }
