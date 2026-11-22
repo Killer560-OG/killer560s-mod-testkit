@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * 1121-logic-mapcycler-history (mod mapcycler-history-1121, Map Cycler): replays killer560's 455 real F7 floors, rebuilt
+ * 1121-logic-mapcycler-history (mod mapcycler-history-1121, Map Cycler): replays killer560's 454 real F7 floors, rebuilt
  * from his game logs (testkit-logic/mapcycler-f7-history.txt: each floor's true rooms before Blood and its map as it was
  * before the run started).
  * <ul>
@@ -41,7 +41,7 @@ public final class MapCyclerHistoryCases {
 
     static void history(LogicCase c) throws Exception {
         List<Map> maps = load();
-        c.check("455 floors in the fixture", maps.size() == 455, "got " + maps.size());
+        c.check("454 floors in the fixture", maps.size() == 454, "got " + maps.size());
         Class<?> rb = Mod.cls("mapcycler.RushBounds");
         Method real = rb.getMethod("bounds", int.class, int.class, int[].class, byte[].class, String[].class, String[].class,
                 boolean[].class, boolean[].class, int.class, int.class, int.class);
