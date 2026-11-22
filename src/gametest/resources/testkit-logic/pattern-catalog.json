@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T19:43:12",
- "modSource": "lane-ssarrive-lever-1121",
- "modGitSha": "83ce2876eb530b3f47511f7dbfde21e002c0e07a",
+ "generatedAt": "2026-11-21T21:21:43",
+ "modSource": "lane-oldflakes-1121",
+ "modGitSha": "e89369fd1b605e161f2f779cbb5e255e990a5eed",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
