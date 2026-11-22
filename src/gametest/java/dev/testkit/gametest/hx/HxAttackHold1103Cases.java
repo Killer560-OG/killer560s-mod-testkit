@@ -27,8 +27,6 @@ import static dev.testkit.gametest.hx.HxKit.*;
  *   <li>1103-mining-hold-released: the button is let go during the menu: after the close the key stays up, no resume, no
  *       dig.</li>
  *   <li>1103-mining-hold-off: the setting off: nothing resumes.</li>
- *   <li>1103-mining-hold-dump: a container opened under a held click dumps the last sent packets (a command's NAME only,
- *       never its arguments) and the last chat line before it.</li>
  * </ul>
  */
 final class HxAttackHold1103Cases {
@@ -36,7 +34,6 @@ final class HxAttackHold1103Cases {
     private static final String CFG = "miningqol.MiningQolConfig";
     private static final String STATE = "miningqol.MiningState";
     private static final String RESUME = "miningqol.HeldBreakResume";
-    private static final String PROBE = "miningqol.AttackHoldProbe";
 
     private HxAttackHold1103Cases() {
     }
@@ -45,47 +42,8 @@ final class HxAttackHold1103Cases {
         s.test("1103-mining-hold-resume", c -> run(c, true, false));
         s.test("1103-mining-hold-released", c -> run(c, true, true));
         s.test("1103-mining-hold-off", c -> run(c, false, false));
-        s.test("1103-mining-hold-dump", HxAttackHold1103Cases::dump);
-        s.test("1103-mining-hold-stuck", HxAttackHold1103Cases::stuck);
         s.test("1103-mining-hold-direction", c -> direction(c, true));
         s.test("1103-mining-hold-direction-control", c -> direction(c, false));
-    }
-
-    /** Held left click on a block that never breaks, no screen: the STUCK DIG line fires once; idle time fires nothing. */
-    private static void stuck(Session c) {
-        BlockPos ob = null;
-        WireCapture.describe = p -> p instanceof ServerboundPlayerActionPacket a
-                ? a.getAction() + " " + a.getPos().toShortString() : p.getClass().getSimpleName();
-        try {
-            mines(c);
-            ob = setUp(c);
-            c.server().command("setblock " + ob.getX() + " " + ob.getY() + " " + ob.getZ() + " minecraft:bedrock");
-            c.ctx().waitTicks(5);
-            c.ctx().runOnClient(mc -> Mod.staticCall(PROBE, "resetDumpGapForTest"));
-            int before = intCall(c, PROBE, "stallLines");
-            // Control: nothing held for longer than the stall time logs nothing.
-            c.ctx().waitTicks(120);
-            c.check(intCall(c, PROBE, "stallLines") == before, "a stuck dig was logged with nothing held");
-            WireCapture.start();
-            press(c);
-            String dig = "START_DESTROY_BLOCK " + ob.toShortString();
-            c.waitUntil("the held dig starts", mc -> wire().stream().anyMatch(w -> w.contains(dig)), 20);
-            c.waitUntil("the stuck dig was logged", mc -> ((Number) Mod.staticCall(PROBE, "stallLines")).intValue() == before + 1,
-                    160);
-            c.ctx().waitTicks(120);
-            c.check(intCall(c, PROBE, "stallLines") == before + 1, "the same stuck block was logged twice");
-            c.check(c.onClient(mc -> McCompat.screen(mc) == null), "a screen was open (the case is about no screen)");
-            c.note("stuck dig logged once on bedrock at " + ob.toShortString() + " after a real START_DESTROY");
-        } finally {
-            WireCapture.stop();
-            WireCapture.describe = null;
-            release(c);
-            if (ob != null) {
-                c.server().command("setblock " + ob.getX() + " " + ob.getY() + " " + ob.getZ() + " minecraft:air");
-            }
-            c.hx().give(0, "minecraft:air");
-            hub(c);
-        }
     }
 
     private static void mines(Session c) {
@@ -229,34 +187,6 @@ final class HxAttackHold1103Cases {
             hub(c);
         }
     }
-
-    @SuppressWarnings("unchecked")
-    private static void dump(Session c) {
-        try {
-            mines(c);
-            c.hx().stub(null, "k560probe");
-            c.ctx().runOnClient(mc -> Mod.staticCall(PROBE, "resetDumpGapForTest"));
-            int dumps = intCall(c, PROBE, "dumps");
-            c.hx().chat("§a§lROYAL MINES MITHRIL §r§eCommission Complete! Visit the King to claim your rewards!");
-            c.ctx().runOnClient(mc -> mc.player.connection.sendCommand("k560probe secret-argument"));
-            c.ctx().waitTicks(5);
-            press(c);
-            c.ctx().waitTicks(3);
-            c.hx().menu("Commissions", 6, Map.of(13, "minecraft:writable_book"), null);
-            c.waitUntil("the dump fired", mc -> ((Number) Mod.staticCall(PROBE, "dumps")).intValue() == dumps + 1, 40);
-            List<String> sent = c.onClient(mc -> new ArrayList<>((List<String>) Mod.staticCall(PROBE, "sentForTest")));
-            List<String> heard = c.onClient(mc -> new ArrayList<>((List<String>) Mod.staticCall(PROBE, "heardForTest")));
-            c.check(sent.stream().anyMatch(s -> s.contains("/k560probe")), "the command is not in the sent ring: " + sent);
-            c.check(sent.stream().noneMatch(s -> s.contains("secret-argument")), "a command argument was recorded: " + sent);
-            c.check(heard.stream().anyMatch(s -> s.contains("Commission Complete!")), "the chat line is not in the ring: " + heard);
-            c.note("dump fired; sent ring " + sent.size() + " (command name only), heard ring " + heard.size());
-        } finally {
-            c.hx().call("menu.close");
-            release(c);
-            hub(c);
-        }
-    }
-
     /** A dig that changes face mid-break (crosshair from the top face to the west face of the same block). On Hypixel the mod
      *  must not send CHANGE_DESTROY_DIRECTION (it reset his digs one ping later); the dig must keep going. With the hook off
      *  (control) the packet is sent, which proves the face change happened. */
@@ -273,7 +203,7 @@ final class HxAttackHold1103Cases {
         BlockPos ob = null;
         try {
             c.ctx().runOnClient(mc -> Mod.staticCall(RESUME, "trustTrackedButtonForTest", true));
-            Mod.setField(PROBE, "forceHypixelForTest", hypixel);
+            Mod.setField(RESUME, "forceHypixelForTest", hypixel);
             // other hx cases leave the server address as mc.hypixel.net: the control needs a non-Hypixel one
             savedIp[0] = c.onClient(mc -> mc.getCurrentServer().ip);
             c.ctx().runOnClient(mc -> mc.getCurrentServer().ip = hypixel ? savedIp[0] : "localhost");
@@ -285,7 +215,7 @@ final class HxAttackHold1103Cases {
             c.hx().give(0, "minecraft:diamond_pickaxe");
             aim(c, ob, net.minecraft.core.Direction.UP);
             String dig = "START_DESTROY_BLOCK " + ob.toShortString();
-            int drops = intCall(c, PROBE, "directionDrops");
+            int drops = intCall(c, RESUME, "directionDrops");
             WireCapture.start();
             press(c);
             c.waitUntil("the held dig starts", mc -> wire().stream().anyMatch(w -> w.contains(dig)), 20);
@@ -296,7 +226,7 @@ final class HxAttackHold1103Cases {
             c.ctx().waitTicks(10);
             float t1 = destroyTicks(c);
             boolean sent = wire().stream().anyMatch(w -> w.contains("CHANGE_DESTROY_DIRECTION"));
-            int dropped = intCall(c, PROBE, "directionDrops") - drops;
+            int dropped = intCall(c, RESUME, "directionDrops") - drops;
             if (hypixel) {
                 c.check(!sent, "CHANGE_DESTROY_DIRECTION reached the wire on Hypixel: " + wire());
                 c.check(dropped >= 1, "the mod did not count a dropped CHANGE_DESTROY_DIRECTION (drops +" + dropped + "); wire " + wire());
@@ -318,7 +248,7 @@ final class HxAttackHold1103Cases {
                 String ip = savedIp[0];
                 c.ctx().runOnClient(mc -> mc.getCurrentServer().ip = ip);
             }
-            Mod.setField(PROBE, "forceHypixelForTest", false);
+            Mod.setField(RESUME, "forceHypixelForTest", false);
             c.ctx().runOnClient(mc -> Mod.staticCall(RESUME, "trustTrackedButtonForTest", false));
             if (ob != null) {
                 c.server().command("setblock " + ob.getX() + " " + ob.getY() + " " + ob.getZ() + " minecraft:air");
