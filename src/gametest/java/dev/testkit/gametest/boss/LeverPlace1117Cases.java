@@ -39,6 +39,7 @@ final class LeverPlace1117Cases {
         s.testExpectingFlags("1117-leverplace-pitch", c -> pitchOnly(c, null));
         // No OPEN_CLICK while walking: his own inventory click with W held draws MultiActionsC with the aura off too
         // (Ap3AuraLook1116Cases leaves it out for the same reason); the held case below covers it standing still.
+        // Cases 1117-leverplace-pitch-use, -attack, -swap and 1117-leverplace-pitch-tp (the train gate names each in full).
         for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.ATTACK, SameTick.Act.SWAP, SameTick.Act.TP}) {
             s.testExpectingFlags("1117-leverplace-pitch-" + a.name().toLowerCase(Locale.ROOT), c -> pitchOnly(c, a));
         }
