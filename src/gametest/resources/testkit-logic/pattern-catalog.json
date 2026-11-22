@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T02:55:28",
- "modSource": "lane-leverflake-tk-1121-b",
- "modGitSha": "ea480ca067a35969825c19c5ccfa65c665247b13",
+ "generatedAt": "2026-11-22T03:30:38",
+ "modSource": "lane-acgaps2-1121-c",
+ "modGitSha": "76ed01b2be0661728d446e98b8aaeed644f6c2c6",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
