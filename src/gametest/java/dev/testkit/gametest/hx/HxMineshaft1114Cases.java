@@ -46,6 +46,7 @@ final class HxMineshaft1114Cases {
         s.test("1114-mineshaft-scrap", HxMineshaft1114Cases::scrap);
         s.test("1114-mineshaft-alloff", HxMineshaft1114Cases::allOff);
         s.test("1121-mineshaft-corpse-scan", HxMineshaft1114Cases::corpseScan);
+        s.test("1121-mineshaft-corpse-sight", HxMineshaft1114Cases::corpseSight);
     }
 
     // ---- helpers --------------------------------------------------------------------------------------------------
@@ -274,15 +275,16 @@ final class HxMineshaft1114Cases {
             c.check(false, "the jar has no " + K);
             return;
         }
-        boolean cheat = Mod.isCheat();
         Object cfg = cfg(c);
-        if (cheat) {
-            c.check(!c.onClient(mc -> (Boolean) Mod.call(cfg, "on", "corpseScan")), "Corpse Scan does not start OFF");
-        }
-        try (Settings set = cheat ? flags(c, "corpses", "corpseScan") : flags(c, "corpses")) {
-            if (cheat) {
-                c.check(c.onClient(mc -> (Boolean) Mod.staticCall(K, "scanOn")), "Corpse Scan did not turn on");
+        c.check(!c.onClient(mc -> (Boolean) Mod.call(cfg, "on", "corpseScan")), "Corpse Scan does not start OFF");
+        if (!Mod.isCheat()) {
+            try (Settings set = flags(c, "corpses", "corpseScan")) {
+                c.check(!c.onClient(mc -> (Boolean) Mod.staticCall(K, "scanOn")), "Corpse Scan acts in a legit jar");
             }
+            return;
+        }
+        try (Settings set = flags(c, "corpses", "corpseScan")) {
+            c.check(c.onClient(mc -> (Boolean) Mod.staticCall(K, "scanOn")), "Corpse Scan did not turn on");
             long mark = LogTap.mark();
             enter(c, List.of("TOPA_1"));
             c.server().command("summon armor_stand -418.5 151 -416.5 {Tags:[\"msdecoy\"],NoGravity:1b}");
@@ -305,6 +307,41 @@ final class HxMineshaft1114Cases {
             c.waitUntil("the nearest corpse marked looted", mc -> list(c, "corpses").stream().anyMatch(l -> l.startsWith("Lapis looted=true")), 80);
             c.check(list(c, "corpses").stream().filter(l -> l.contains("looted=true")).count() == 1,
                     "more than the nearest corpse marked looted: " + list(c, "corpses"));
+        } finally {
+            c.server().command("kill @e[type=armor_stand,tag=msdecoy]");
+            c.server().command("fill -426 150 -424 -426 154 -414 minecraft:air");
+            leave(c);
+        }
+    }
+
+    /**
+     * corpsescan2-1121: without Corpse Scan (legit, or cheat with it off) a corpse is listed only once it has been in the
+     * player's line of sight, then stays listed and boxed behind a wall. Ordinary stands stand near too (the 11-21 throw).
+     */
+    private static void corpseSight(Session c) {
+        if (!Mod.has(K)) {
+            c.check(false, "the jar has no " + K);
+            return;
+        }
+        try (Settings set = flags(c, "corpses")) {
+            long mark = LogTap.mark();
+            enter(c, List.of("TOPA_1"));
+            c.server().command("summon armor_stand -418.5 151 -416.5 {Tags:[\"msdecoy\"],NoGravity:1b}");
+            c.server().command("fill -426 150 -424 -426 154 -414 minecraft:stone");
+            c.ctx().waitTicks(20);
+            summonCorpse(c, "LAPIS_ARMOR_HELMET", -417.5, -421.5);
+            summonCorpse(c, "MINERAL_HELMET", -428.5, -419.5);
+            c.waitUntil("the corpse in sight found", mc -> list(c, "corpses").stream().anyMatch(l -> l.startsWith("Lapis")), 200);
+            c.ctx().waitTicks(40);
+            c.check(list(c, "corpses").stream().noneMatch(l -> l.startsWith("Tungsten")),
+                    "a corpse behind a wall was listed before it was seen: " + list(c, "corpses"));
+            c.server().command("fill -426 150 -424 -426 154 -414 minecraft:air");
+            c.waitUntil("the corpse found once the wall is gone", mc -> list(c, "corpses").stream().anyMatch(l -> l.startsWith("Tungsten")), 200);
+            c.server().command("fill -426 150 -424 -426 154 -414 minecraft:stone");
+            c.ctx().waitTicks(40);
+            c.check(list(c, "corpses").size() == 2, "a seen corpse was dropped behind the wall: " + list(c, "corpses"));
+            c.waitUntil("both corpses boxed", mc -> (Integer) Mod.staticCall(K, "drawnBoxes") == 2, 100);
+            c.check(logLines(mark, "[Mineshaft.tick] threw").isEmpty(), "Mineshaft.tick threw");
         } finally {
             c.server().command("kill @e[type=armor_stand,tag=msdecoy]");
             c.server().command("fill -426 150 -424 -426 154 -414 minecraft:air");
