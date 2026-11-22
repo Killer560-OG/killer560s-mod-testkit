@@ -739,6 +739,11 @@
       "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
     },
     {
+      "owner": "Auto Trap",
+      "key": "mode",
+      "gone": "newtrap-1121: Just Cleared is the only mode until you capture your own Full Trap route, so Mode shows only then (killer560 2026-11-21)"
+    },
+    {
       "owner": "Best Friends",
       "key": "party time tracker",
       "renamed": "track party time",
