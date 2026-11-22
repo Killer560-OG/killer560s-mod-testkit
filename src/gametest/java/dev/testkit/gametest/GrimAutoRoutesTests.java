@@ -2757,8 +2757,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 check(use != null && input != null && input.text().contains("shift=true") && leadMs >= 90,
                         wl + ": the sneak did not go out ticks before the first use");
             }
-            // His CLICK opens his inventory and the path stops there by design; every other row lands the whole chain.
-            if (act != dev.testkit.gametest.SameTick.Act.CLICK) {
+            // His CLICK opens his inventory and the path stops there by design; his USE with the AOTV in hand is his own warp
+            // that moves him off the path (as mapchain-same-use, which checks no landing either); every other row lands the
+            // whole chain.
+            if (act != dev.testkit.gametest.SameTick.Act.CLICK && act != dev.testkit.gametest.SameTick.Act.USE) {
                 check(warps == ArChainMeasure.CHAIN.length, line + ": expected " + ArChainMeasure.CHAIN.length + " etherwarps");
             }
         } finally {
