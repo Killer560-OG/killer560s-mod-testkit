@@ -1111,19 +1111,21 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         try {
             walkOnto(ctx, 14.5, 5.5, 14, 8);
             for (int t = 0; t < 120; t++) {
-                if (t == 1 && act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                if (t >= 1 && act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                    // His target is put on his crosshair from the CLIENT's own view every tick (acrev-trap-1122: a zombie
+                    // moved along the server's body look trailed the client's crosshair and his click landed in 0-1 walk
+                    // ticks run to run). An interaction entity 3 x 3 wide never collides with the walk and stays under the
+                    // crosshair through a tick of lag, so his click goes out in a walk tick on every run.
                     double[] z = ctx.computeOnClient(mc -> {
                         float vy = (Float) ModUnderTest.staticCall("com.killer560.hub.util.ViewFreeze", "viewYaw");
                         double yr = Math.toRadians(Float.isNaN(vy) ? mc.player.getYRot() : vy);
-                        return new double[]{mc.player.getX() - Math.sin(yr) * 1.6, mc.player.getY(),
+                        return new double[]{mc.player.getX() - Math.sin(yr) * 1.6, mc.player.getY() - 0.5,
                                 mc.player.getZ() + Math.cos(yr) * 1.6};
                     });
-                    c.server().command(String.format(Locale.ROOT, "summon zombie %.3f %.3f %.3f"
-                            + " {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}", z[0], z[1], z[2]));
-                }
-                if (t > 1 && act == dev.testkit.gametest.SameTick.Act.ATTACK) {
-                    // keeps the target 1.6 ahead of his look (no ViewFreeze here: camera and body agree) as the walk moves on
-                    c.server().command("execute as @p at @p run tp @e[tag=sametick] ^ ^ ^1.6");
+                    c.server().command(t == 1
+                            ? String.format(Locale.ROOT, "summon interaction %.3f %.3f %.3f"
+                            + " {width:3.0f,height:3.0f,Tags:[\"sametick\"]}", z[0], z[1], z[2])
+                            : String.format(Locale.ROOT, "tp @e[tag=sametick] %.3f %.3f %.3f", z[0], z[1], z[2]));
                 }
                 if (!(Boolean) ctx.computeOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "isRunning")) && t > 5) {
                     break;
