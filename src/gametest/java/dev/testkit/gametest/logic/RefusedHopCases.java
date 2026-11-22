@@ -33,7 +33,11 @@ final class RefusedHopCases {
 
     static void refused(LogicCase c) throws Exception {
         graph(c);
-        cache(c);
+        if (Mod.isCheat()) {
+            cache(c);
+        } else {
+            c.skip("trip cache", "legit jar: the trip cache is off (LiveMapConfig cheatGate)");
+        }
     }
 
     /** A flat 81x81 floor: a goal 30 blocks off is one warp; with that landing refused from the start, two. */

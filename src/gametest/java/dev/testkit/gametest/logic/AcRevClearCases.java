@@ -68,7 +68,7 @@ final class AcRevClearCases {
 
     static void offReason(LogicCase c) throws Exception {
         if (!Mod.isCheat()) {
-            c.note("cheat-only feature, nothing to check on legit");
+            c.skip("off reason", "legit jar: no Dungeon Autopilot");
             return;
         }
         Object level = Minecraft.getInstance().level;
