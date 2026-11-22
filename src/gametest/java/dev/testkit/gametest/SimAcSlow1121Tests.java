@@ -37,7 +37,8 @@ public class SimAcSlow1121Tests implements FabricClientGameTest {
     private static final String AWAIT = "1121-sim-acwaits-awaitroute";
     private static final String WALK = "1121-sim-acwaits-walkstall";
     private static final String PUZZLE = "1121-sim-acwaits-pilotpuzzle";
-    private static final String[] ALL = {GREEN, DOOR, FIRST, UNSEEN, DOORCLICK, AWAIT, WALK, PUZZLE};
+    private static final String SETTLE = "1121-sim-acwaits2-settle";
+    private static final String[] ALL = {GREEN, DOOR, FIRST, UNSEEN, DOORCLICK, AWAIT, WALK, PUZZLE, SETTLE};
     private static final String RE = "com.killer560.hub.autoroutes.RouteExecutor";
     private static final String NAME = "1121-sim-acslow";
     private static final String AS = "com.killer560.hub.autosecret.AutoSecretFeature";
@@ -161,6 +162,9 @@ public class SimAcSlow1121Tests implements FabricClientGameTest {
         int leftClicks = 0;
         boolean doorClicked = false;
         int clickAt = -1;
+        double[] lastPos = null;
+        int lastHop = -1;   // tick of the last warp landing (a jump over 2 blocks) in this TRAVEL phase
+        List<Integer> settles = new ArrayList<>();   // ticks from a trip's last landing to the next phase (acwaits2-1121)
         for (; tick < minutes * 1200; tick++) {
             ctx.waitTicks(1);
             if (ctx.computeOnClient(mc -> mc.level == null || mc.player == null)) {
@@ -224,6 +228,18 @@ public class SimAcSlow1121Tests implements FabricClientGameTest {
                 doorClicked = true;
             }
             clickAt = -1;
+            double[] pos = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+            if (lastPos != null && phase.equals("TRAVEL") && Math.abs(pos[0] - lastPos[0]) + Math.abs(pos[1] - lastPos[1])
+                    + Math.abs(pos[2] - lastPos[2]) > 2.0) {
+                lastHop = tick;
+            }
+            if (lastPhase.equals("TRAVEL") && !phase.equals("TRAVEL")) {
+                if (lastHop >= 0 && !phase.equals("IDLE")) {
+                    settles.add(tick - lastHop);
+                }
+                lastHop = -1;
+            }
+            lastPos = pos;
             lastPhase = phase;
             String status = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(AC, "status"));
             if (status.endsWith("looking for starred mobs")) {
@@ -258,6 +274,11 @@ public class SimAcSlow1121Tests implements FabricClientGameTest {
         row(DOORCLICK, acted && clickTicks.length >= 2 && clickMedian >= 0 && clickMedian <= 2 && leftClicks >= 1,
                 "median " + clickMedian + " tick(s) from reaching a door to its click (max 2) over " + doorClicks
                         + ", " + leftClicks + " left click(s); " + did);
+        int[] settleTicks = settles.stream().mapToInt(Integer::intValue).sorted().toArray();
+        int settleMedian = settleTicks.length == 0 ? -1 : settleTicks[settleTicks.length / 2];
+        row(SETTLE, acted && settleTicks.length >= 3 && settleMedian >= 0 && settleMedian <= 2,
+                "median " + settleMedian + " tick(s) from a trip's last warp landing to its next step (max 2, was ~9: the "
+                        + "arrival settle) over " + settles + "; " + did);
         waitCases(ctx);
     }
 
