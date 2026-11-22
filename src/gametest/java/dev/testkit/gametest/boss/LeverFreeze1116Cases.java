@@ -40,6 +40,8 @@ final class LeverFreeze1116Cases {
         }
         // leverfreeze-tp-1117: a teleport every tick, so lever flicks often reach the server while its teleport is unanswered.
         s.test("1117-leverfreeze-tp-dense", c -> run(c, SameTick.Act.TP, false, 1));
+        // leverquar-1122: a client tick that stalls past ViewFreeze's 400 ms lease between the turn and its hand-back.
+        s.test("1122-leverfreeze-stall", c -> run(c, null, false, 2, 450));
     }
 
     private static String describe(Object p) {
@@ -66,7 +68,7 @@ final class LeverFreeze1116Cases {
     }
 
     private static void run(Session c, SameTick.Act act, boolean reflick) throws Exception {
-        run(c, act, reflick, 2);
+        run(c, act, reflick, 2, 0);
     }
 
     /** Clicks the anticheat queued for judging so far (the testmod's probe logs one line each). */
@@ -75,6 +77,12 @@ final class LeverFreeze1116Cases {
     }
 
     private static void run(Session c, SameTick.Act act, boolean reflick, int tpEvery) throws Exception {
+        run(c, act, reflick, tpEvery, 0);
+    }
+
+    /** {@code stallMs} above 0: the client thread sleeps that long before every tick wait (a loaded PC's long frame). */
+    private static void run(Session c, SameTick.Act act, boolean reflick, int tpEvery, int stallMs) throws Exception {
+        final int rounds = stallMs > 0 ? 4 : 12;
         List<AutoCloseable> undo = new ArrayList<>();
         SameTick st = null;
         try {
@@ -117,7 +125,7 @@ final class LeverFreeze1116Cases {
             }
             undo.add(c.onClient(mc -> Mod.with(BossAuraTurnCases.LEVER_CONFIG, "Enabled", true)));
             int flicks = 0;
-            for (int r = 0; r < 12; r++) {
+            for (int r = 0; r < rounds; r++) {
                 c.server().command("setblock 27 124 127 " + FLOOR_LEVER);
                 LeverBest1112Cases.newRun(c);
                 if (act == SameTick.Act.CLICK) {
@@ -138,6 +146,16 @@ final class LeverFreeze1116Cases {
                     if (reflick && (t == 3 || t == 7)) {
                         c.server().command("setblock 27 124 127 " + FLOOR_LEVER);
                         LeverBest1112Cases.newRun(c); // a new run: the Aura flicks the reset lever again
+                    }
+                    if (stallMs > 0) {
+                        c.onClient(mc -> {
+                            try {
+                                Thread.sleep(stallMs);
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                            }
+                            return null;
+                        });
                     }
                     c.ctx().waitTick();
                     c.onClient(mc -> {
@@ -172,12 +190,13 @@ final class LeverFreeze1116Cases {
             // GrimAC never judges a click that reaches it while its teleport is unanswered; the server logs one
             // [testkit-gap] line per click it did queue (leverfreeze-tp-1117), so the rest were dropped.
             long dropped = onWire - (gapLines(c) - gap0);
-            c.note("flicked in " + flicks + " of 12 rounds, " + rots + " look packets, first turned look at wire #" + turnedAt
+            c.note("flicked in " + flicks + " of " + rounds + " rounds, " + rots + " look packets, first turned look at wire #" + turnedAt
                     + ", first flick at #" + flickAt + ", camera moved at most " + cam[4] + ", " + onWire + " flicks sent, "
                     + dropped + " dropped by the server");
             c.check(tpEvery > 1 || dropped > 0, "no flick met an unanswered teleport: the dropped-click case never ran");
-            c.check(tpEvery == 1 ? onWire >= 6 : flicks >= (act == SameTick.Act.TP || act == SameTick.Act.ATTACK ? 2 : 6),
-                    "the Lever Aura flicked in only " + flicks + " of 12 rounds, " + onWire + " sent (the feature did not act)");
+            c.check(tpEvery == 1 ? onWire >= 6
+                    : flicks >= (act == SameTick.Act.TP || act == SameTick.Act.ATTACK ? 2 : rounds / 2),
+                    "the Lever Aura flicked in only " + flicks + " of " + rounds + " rounds, " + onWire + " sent (the feature did not act)");
             c.check(!reflick || onWire > 12, "the lever was reset twice a round but only " + onWire + " flicks went out in 12 rounds");
             c.check(turnedAt >= 0, "no look packet turned away from his yaw " + cam[0] + ": the real body never turned");
             c.check(flickAt >= 0 && turnedAt <= flickAt, "the first flick (#" + flickAt + ") did not follow a turned look (#" + turnedAt + ")");
