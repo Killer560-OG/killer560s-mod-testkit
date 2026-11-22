@@ -161,17 +161,71 @@ final class SimonSaysCases {
     }
 
     /**
-     * Arrive at the device without the anticheat missing the chunk under the player: it takes a chunk in only when the
-     * client answers the transaction after it, and a body that lands on a floor it does not have yet reads as falling
-     * (GroundSpoof + Simulation, and a use judged against air: AirLiquidPlace; 786 flaked on both). Land high over the
-     * device (client and anticheat both see air there), wait until the anticheat holds the floor, then step down.
+     * Arrive at the device standing still on the floor, with the client and the anticheat agreeing on it. The anticheat
+     * takes a chunk in only when the client answers the transaction after it, and a body that falls while either side
+     * lacks the floor (or that is teleported mid-fall) disagrees on its speed: GroundSpoof, NoFall and Simulation offsets
+     * equal to the fall speed (flake-ss-grimsim-1121; 786 also drew AirLiquidPlace). So: server-set flight first (GrimAC
+     * does not simulate a flying player), hover just on the floor until the client has the chunk, both worlds hold the
+     * floor and both read the body at rest there, then flight off: the first fall tick lands on the floor at once.
      */
     static void tpToDevice(Session c) {
-        c.hx().call("dungeon.tp", "x", 107.5, "y", 135.0, "z", 93.5, "yaw", -90f, "pitch", 0f);
-        c.waitUntil("GrimAC's world to hold the device floor", mc -> grimHolds(c, new BlockPos(107, 119, 93)), 200);
-        // 0.4 above the floor: the client lands within 3 ticks as the anticheat predicts. Standing at 120.0, the teleport
-        // reply claims airborne (the vanilla client always sends it so) while the next packet is predicted on the ground.
-        c.hx().call("dungeon.tp", "x", 107.5, "y", 120.4, "z", 93.5, "yaw", -90f, "pitch", 0f);
+        arriveAt(c, 107.5, 120.0, 93.5, -90f, 0f);
+    }
+
+    /** {@link #tpToDevice}'s arrival at any spot where the body rests at y (a full block below, or a lower shape such as 124.375). */
+    static void arriveAt(Session c, double x, double y, double z, float yaw, float pitch) {
+        BlockPos floor = BlockPos.containing(x, y - 0.01, z);
+        c.hx().call("dungeon.fly", "on", true);
+        c.hx().call("dungeon.tp", "x", x, "y", y, "z", z, "yaw", yaw, "pitch", pitch);
+        int[] still = {0, 0};
+        String[] last = {""};
+        // A client still on the ground from before the teleport drops the flight itself (vanilla's aiStep), so standing
+        // on the floor counts as at rest too; one that lost it in the air gets it back.
+        waitArrival(c, last, "the client and GrimAC to hold the floor with him at rest on it", mc -> {
+            var p = mc.player;
+            JsonObject g = c.hx().call("boss.grim.state").getAsJsonObject();
+            boolean fly = p.getAbilities().flying;
+            if (!fly && !p.onGround() && still[1]++ % 10 == 0) {
+                c.hx().call("dungeon.fly", "on", true);
+            }
+            last[0] = sample(mc, g) + " grimHolds " + grimHolds(c, floor);
+            boolean ok = mc.level.hasChunk(floor.getX() >> 4, floor.getZ() >> 4) && !mc.level.getBlockState(floor).isAir()
+                    && grimHolds(c, floor) && Math.abs(p.getY() - y) < 1e-6
+                    && (fly ? Math.abs(p.getDeltaMovement().y) < 1e-6 : p.onGround())
+                    && (!g.get("grim").getAsBoolean() || Math.abs(g.get("y").getAsDouble() - y) < 1e-6
+                            && (g.get("flying").getAsBoolean() || g.get("onGround").getAsBoolean()));
+            return (still[0] = ok ? still[0] + 1 : 0) >= 3;
+        });
+        System.out.println("[" + c.name() + "] arrive hover " + last[0]);
+        c.hx().call("dungeon.fly", "on", false);
+        still[0] = 0;
+        waitArrival(c, last, "the client and GrimAC to read him standing on the floor", mc -> {
+            var p = mc.player;
+            JsonObject g = c.hx().call("boss.grim.state").getAsJsonObject();
+            last[0] = sample(mc, g);
+            boolean ok = !p.getAbilities().flying && p.onGround() && Math.abs(p.getY() - y) < 1e-6
+                    && (!g.get("grim").getAsBoolean() || !g.get("flying").getAsBoolean() && g.get("onGround").getAsBoolean()
+                            && Math.abs(g.get("y").getAsDouble() - y) < 1e-6);
+            return (still[0] = ok ? still[0] + 1 : 0) >= 3;
+        });
+        System.out.println("[" + c.name() + "] arrive landed " + last[0]);
+    }
+
+    /** {@link Session#waitUntil} for 400 ticks that names the last client/GrimAC sample when it times out. */
+    private static void waitArrival(Session c, String[] last, String what, java.util.function.Predicate<net.minecraft.client.Minecraft> ok) {
+        try {
+            c.waitUntil(what, ok, 400);
+        } catch (AssertionError e) {
+            throw new AssertionError(e.getMessage() + " (last: " + last[0] + ")", e);
+        }
+    }
+
+    /** One arrival sample: the client's y, vertical speed, ground, flight and chunk, and where GrimAC holds the player. */
+    static String sample(net.minecraft.client.Minecraft mc, JsonObject grim) {
+        var p = mc.player;
+        return "client y " + String.format("%.5f", p.getY()) + " dy " + String.format("%.6f", p.getDeltaMovement().y)
+                + " ground " + p.onGround() + " fly " + p.getAbilities().flying
+                + " chunk " + mc.level.hasChunk(p.getBlockX() >> 4, p.getBlockZ() >> 4) + " | grim " + grim;
     }
 
     /**
