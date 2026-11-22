@@ -60,6 +60,10 @@ public final class HxDungeonModule implements HxModule {
                 args.has("extraArrows") ? args.get("extraArrows").getAsInt() : 0));
         HxBridge.register("dungeon.shortbowStats", (server, args) -> HxShortbow.stats());
         HxBridge.register("dungeon.stats", (server, args) -> HxAbilities.stats());
+        HxBridge.register("dungeon.sneakLag", (server, args) -> {
+            HxAbilities.setSneakLag(args != null && args.has("on") && args.get("on").getAsBoolean());
+            return null;
+        });
         HxBridge.register("dungeon.reset", (server, args) -> {
             HxAbilities.resetStats();
             return null;

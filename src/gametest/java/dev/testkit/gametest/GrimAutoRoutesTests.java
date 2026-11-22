@@ -263,6 +263,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 // No ATTACK: the burst leaves the whole path in one real tick, so his crosshair is off the stand by the next.
                 s.test("62-argrim-1110-mapchain-same-" + a.name().toLowerCase(Locale.ROOT), c -> caseMapChain(c, true, a));
             }
+            // mod acwaits3-1122 (his 11-21 log: a charged map burst's first use became an Instant Transmission and every landing
+            // after it slid one hop): with Hypixel's sneak lag on the server (a sneak counts only once a whole server tick saw
+            // it), the burst must wait for a tick that already carried the sneak. Fails on a9d22cbef.
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1122-mapchain-sneaklag", c -> caseMapChainSneakLag(c, null));
+            if (dev.testkit.gametest.mod.Mod.isCheat()) for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                    dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP,
+                    dev.testkit.gametest.SameTick.Act.CLICK, dev.testkit.gametest.SameTick.Act.TP)) {
+                s.test("62-argrim-1122-mapchain-sneaklag-same-" + a.name().toLowerCase(Locale.ROOT), c -> caseMapChainSneakLag(c, a));
+            }
             s.test("62-argrim-path", GrimAutoRoutesTests::casePath);
             // mod ar-obvious-only (2026-10-11): legit mode exists only in -PtestingBuild jars.
             if (SimAutoRoutesTests.legitSelectable()) {
@@ -2699,6 +2708,39 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      */
     private static void caseMapChain(Session c, boolean charged, dev.testkit.gametest.SameTick.Act act) {
         caseMapChain(c, charged, act, false);
+    }
+
+    /**
+     * 62-argrim-1122-mapchain-sneaklag* (mod acwaits3-1122): the charged map chain with the server's sneak lag on. Every one
+     * of the chain's uses must be an etherwarp (none an Instant Transmission, none judged unsneaked); with an act, his action
+     * lands in the chain's ticks as in mapchain-same-*. His own USE is his own transmission, so that row checks the rest only.
+     */
+    private static void caseMapChainSneakLag(Session c, dev.testkit.gametest.SameTick.Act act) {
+        session.hx().call("dungeon.sneakLag", "on", true);
+        try {
+            JsonObject before = stats();
+            try {
+                caseMapChain(c, true, act);
+            } finally {
+                println(String.format(Locale.ROOT, "sneak lag %s: uses judged unsneaked %d, transmissions %d",
+                        act == null ? "alone" : "same-" + act, delta(before, "sneakLagMisses"), delta(before, "transmissions")));
+            }
+            int warps = delta(before, "etherwarps");
+            int tm = delta(before, "transmissions");
+            int missed = delta(before, "sneakLagMisses");
+            String line = String.format(Locale.ROOT, "sneak lag %s: server etherwarps %d, transmissions %d, uses judged unsneaked %d",
+                    act == null ? "alone" : "same-" + act, warps, tm, missed);
+            println(line);
+            c.note(line);
+            if (act != dev.testkit.gametest.SameTick.Act.USE) {
+                check(missed == 0 && tm == 0, line + ": a chain use went out before the server had heard the sneak");
+                if (act != dev.testkit.gametest.SameTick.Act.CLICK) {
+                    check(warps == ArChainMeasure.CHAIN.length, line + ": expected " + ArChainMeasure.CHAIN.length + " etherwarps");
+                }
+            }
+        } finally {
+            session.hx().call("dungeon.sneakLag", "on", false);
+        }
     }
 
     /** {@code split}: Multi Warp Mode Tick Split on top of {@code charged} (mod mwtick-1111): each warp in a banked tick. */
