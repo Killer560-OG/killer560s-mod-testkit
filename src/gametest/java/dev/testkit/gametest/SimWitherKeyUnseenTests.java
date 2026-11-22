@@ -34,7 +34,8 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * <p><b>1122-sim-ap-door-go</b> (mod acrev-door-1122): the AP row, timed on D's own blocks. After our one click the sim
  * turns D to barriers and then air, as Hypixel does (his log: barriers 3 ticks after the click, air 14 after that); the
- * next warp's use must go at most {@code MAX_GO_TICKS} client ticks after the blocks go (an origin jar: 4), with no
+ * next trip must be decided in the tick the door is seen open (an origin jar: the tick after) with the next etherwarp's
+ * sneak already heard as the blocks go, its first use within {@code MAX_GO_TICKS}, with no
  * second click and no item use while D still stands, and X must still be reached and cleared as above.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -45,14 +46,12 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
     /** acrev-door-1122: the AP row, timed from the door's blocks going to the next warp. */
     private static final String GO = "1122-sim-ap-door-go";
     /**
-     * Client ticks at most from the door's blocks going (as this loop sees them) to the next trip's first use, measured
-     * (acrev-door-1122 run 2: 2; an origin jar 4). One is this loop's own view: it reads the block packet as it drains,
-     * a tick before any tick handler of the mod can act on it. The other is the planner thread: the trip decided at the
-     * end of the tick that saw the air is searched off the client thread and its first use goes at the next tick's start.
-     * A trip whose first item is not the readied AOTV (Auto Clear's Hyperion hop, run 1: 3) gets one more tick, for the
-     * hotbar change vanilla sends the tick before the use.
+     * Client ticks at most from the door's blocks going to the next trip's first use: only proof that a trip went. The
+     * time is the planner's, not the door's (acrev-door-1122, random floors: 2, 3 and 6 on the branch, 4 on origin; the 6
+     * was Auto Clear's first warp queued behind a 291 ms room-order search), so the door part is judged on the decision
+     * tick and the primed sneak instead.
      */
-    private static final int MAX_GO_TICKS = 2;
+    private static final int MAX_GO_TICKS = 20;
     private static final String TAG = "1122-witherkey-unseen";
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String SIM_MOBS = "com.killer560.hub.roomsim.SimMobs";
@@ -321,6 +320,9 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
         int usesWhileShut = 0;
         int slotAtAir = -1;
         int slotAtGo = -1;
+        int shiftAtAir = -1;
+        int openLogTick = -1;
+        int decideTick = -1;
         StringBuilder trace = new StringBuilder();
         int inK = 0;
         int inKAtOpen = -1;
@@ -367,10 +369,32 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
                     if (airTick < 0 && now[0] == 0) {
                         airTick = t;
                         slotAtAir = now[3];
+                        shiftAtAir = now[4];
                     }
                     if (airTick >= 0 || barrierTick >= 0 && t >= airTickGuess(barrierTick)) {
                         trace.append(" t").append(t).append(":shut").append(now[0]).append("/slot").append(now[3])
                                 .append("/shift").append(now[4]).append("/uses").append(now[2]);
+                    }
+                    if (decideTick < 0) {
+                        // Read on the client thread, so both lines of one tick are seen in the same sample.
+                        int[] at = ctx.computeOnClient(mc -> {
+                            List<String> ls = LogTap.since(mark);
+                            int open = -1;
+                            for (int i = 0; i < ls.size(); i++) {
+                                if (open < 0 && ls.get(i).contains("the wither door at cell " + cell + " is open (")) {
+                                    open = i;
+                                } else if (open >= 0 && ls.get(i).contains("[AutoSecret] autopilot:")) {
+                                    return new int[]{1, 1};
+                                }
+                            }
+                            return new int[]{open >= 0 ? 1 : 0, 0};
+                        });
+                        if (openLogTick < 0 && at[0] == 1) {
+                            openLogTick = t;
+                        }
+                        if (at[1] == 1) {
+                            decideTick = t;
+                        }
                     }
                     if (airTick < 0) {
                         usesWhileShut = now[2] - usesAtClick;
@@ -429,17 +453,25 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
             println(label + ": door " + cell + " clicked at t=" + clickTick + ", barriers at t=" + barrierTick + " ("
                     + (barrierTick - clickTick) + " server), gone at t=" + airTick + " (" + (airTick - barrierTick)
                     + " server), next warp at t=" + goTick + " (" + (goTick - airTick) + " after the blocks went, "
-                    + (goTick - clickTick) + " from the click); " + clicks + " click(s); uses while shut " + usesWhileShut
+                    + (goTick - clickTick) + " from the click); open seen t=" + openLogTick + ", decided t=" + decideTick
+                    + ", sneak heard at the air " + shiftAtAir + "; " + clicks + " click(s); uses while shut " + usesWhileShut
                     + "; per tick from the last barrier ticks:" + trace);
             if (cell < 0 || barrierTick < 0 || airTick < 0) {
                 failures.add(label + ": the door's open was not seen on its blocks (cell " + cell + ", barriers t="
                         + barrierTick + ", air t=" + airTick + ")");
             } else if (goTick < 0) {
                 failures.add(label + ": no warp went after door " + cell + " opened");
-            } else if (goTick - airTick > MAX_GO_TICKS + (slotAtGo != slotAtAir ? 1 : 0)) {
+            } else if (goTick - airTick > MAX_GO_TICKS) {
                 failures.add(label + ": the next warp went " + (goTick - airTick) + " tick(s) after door " + cell
-                        + "'s blocks went (at most " + (MAX_GO_TICKS + (slotAtGo != slotAtAir ? 1 : 0)) + ", slot "
-                        + slotAtAir + " -> " + slotAtGo + ")");
+                        + "'s blocks went (at most " + MAX_GO_TICKS + ", slot " + slotAtAir + " -> " + slotAtGo + ")");
+            }
+            if (openLogTick < 0 || decideTick != openLogTick) {
+                failures.add(label + ": the next trip was decided at t=" + decideTick + ", not in the tick door " + cell
+                        + " was seen open (t=" + openLogTick + ")");
+            }
+            if (shiftAtAir != 1) {
+                failures.add(label + ": the next etherwarp's sneak was not already heard when door " + cell
+                        + "'s blocks went (primed while the barriers stood)");
             }
             if (clicks != 1) {
                 failures.add(label + ": door " + cell + " was clicked " + clicks + " time(s), not once");
