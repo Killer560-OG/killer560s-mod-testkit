@@ -27,9 +27,9 @@ import java.util.regex.Pattern;
  * most {@link #MAX_QUEUED_MS} ms, in each of {@link #TRIALS} trials. Fails on acwaits3-1122 645a32c6a (queued ~50-200 ms
  * behind the sealed site's fine search).
  *
- * <p>acwaits5-1122: the floor is fixed (FLOOR_SEED), the set-back goes only after the first warp has landed (a refused
- * first warp moves on to the next room), and every trial must be measured - a run where none got a correction had
- * passed nothing. A replan behind a floor graph warm-up is measured too (the warm-up now yields to it).
+ * <p>acwaits5-1122: the set-back goes only after the first warp has landed, so it always moves him and is always a
+ * correction (a first warp the sim refused moves on to the next room), and every trial must be measured - a run where
+ * none got a correction had passed nothing. (A fixed floor seed was tried: its high floor left 108 chunks unloaded.) A replan behind a floor graph warm-up is measured too (the warm-up now yields to it).
  */
 public class SimTourReplan1122Tests implements FabricClientGameTest {
 
@@ -42,8 +42,6 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
     private static final String CLEAR_UTILS = "com.killer560.hub.livemap.autoclear.AutoClearUtils";
     private static final String TELEPORT_UTILS = "com.killer560.hub.livemap.autoclear.TeleportUtils";
     private static final int TRIALS = 5;
-    /** The fixed floor (rooms and sim altitude the same every run): a random one could refuse every first warp. */
-    private static final long FLOOR_SEED = 11220L;
     private static final double MAX_QUEUED_MS = 60;
     private static final Pattern QUEUED = Pattern.compile("\\[Path\\] running (\\d+) warp\\(s\\).*?([0-9.]+) ms from the press"
             + " to the first warp's turn \\(queued ([0-9.]+) ms, searched (\\d+) ms\\)");
@@ -69,7 +67,7 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
         List<String> failures = new ArrayList<>();
         Map<BlockPos, BlockState> was = new HashMap<>();
         try {
-            SimMapPrecomputeTests.enterFloor(ctx, FLOOR_SEED);
+            SimMapPrecomputeTests.enterFloor(ctx);
             ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField(CACHE, "testDisabled", true));
             ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRun", "begin",
                     new Class<?>[]{Minecraft.class, BlockPos.class},

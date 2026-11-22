@@ -928,29 +928,10 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
 
     /** A generated sim F7 (as 102), its chunks on the client, an AOTV in hand - the run NOT begun. */
     static void enterFloor(ClientGameTestContext ctx) {
-        enterFloor(ctx, null);
-    }
-
-    /** {@link #enterFloor} on a fixed floor: SimFloorGen.RNG seeded and the recent-room memory cleared first (as
-     *  SimOneDoorTests), so the rooms and the sim altitude are the same every run; null = a random floor. */
-    static void enterFloor(ClientGameTestContext ctx, Long seed) {
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
                 new Object[]{"gametest"}));
         long before = Scenario.simBuildCount(ctx);
         ctx.runOnClient(mc -> mc.execute(() -> {
-            if (seed != null) {
-                try {
-                    java.lang.reflect.Field rng = Class.forName(FLOOR_GEN).getDeclaredField("RNG");
-                    rng.setAccessible(true);
-                    ((java.util.Random) rng.get(null)).setSeed(seed);
-                    java.lang.reflect.Field recent = Class.forName("com.killer560.hub.roomsim.SimFloorLayout")
-                            .getDeclaredField("RECENT");
-                    recent.setAccessible(true);
-                    ((java.util.Map<?, ?>) recent.get(null)).clear();
-                } catch (ReflectiveOperationException e) {
-                    throw new RuntimeException(e);
-                }
-            }
             Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
             ModUnderTest.staticCall(FLOOR_GEN, "generate",
                     new Class<?>[]{Minecraft.class, floor.getClass(), int.class, int.class},
