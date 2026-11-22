@@ -2735,6 +2735,28 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             if (act != dev.testkit.gametest.SameTick.Act.USE) {
                 check(missed == 0 && tm == 0, line + ": a chain use went out before the server had heard the sneak");
             }
+            // On the wire: the sneak went out in its own input packet ticks before the first use (his own USE row's first
+            // use may be his, his CLICK row sends none).
+            if (act != dev.testkit.gametest.SameTick.Act.USE && act != dev.testkit.gametest.SameTick.Act.CLICK) {
+                List<dev.testkit.harness.WireCapture.Sent> wire = dev.testkit.harness.WireCapture.snapshot();
+                dev.testkit.harness.WireCapture.Sent input = null;
+                dev.testkit.harness.WireCapture.Sent use = null;
+                for (dev.testkit.harness.WireCapture.Sent s : wire) {
+                    if (s.type().equals("minecraft:use_item")) {
+                        use = s;
+                        break;
+                    }
+                    if (s.type().equals("minecraft:player_input")) {
+                        input = s;
+                    }
+                }
+                long leadMs = input == null || use == null ? -1 : (use.nanos() - input.nanos()) / 1_000_000L;
+                String wl = String.format(Locale.ROOT, "sneak lag %s: wire input before the first use %s, %d ms ahead",
+                        act == null ? "alone" : "same-" + act, input == null ? "none" : input.text(), leadMs);
+                println(wl);
+                check(use != null && input != null && input.text().contains("shift=true") && leadMs >= 90,
+                        wl + ": the sneak did not go out ticks before the first use");
+            }
             // His CLICK opens his inventory and the path stops there by design; every other row lands the whole chain.
             if (act != dev.testkit.gametest.SameTick.Act.CLICK) {
                 check(warps == ArChainMeasure.CHAIN.length, line + ": expected " + ArChainMeasure.CHAIN.length + " etherwarps");
