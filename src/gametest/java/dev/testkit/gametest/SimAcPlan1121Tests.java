@@ -304,6 +304,12 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
             }
             ModUnderTest.set(as, "setBloodFirst", false);
             ModUnderTest.set(as, "setChatFeedback", true);
+            // The routes written above run only with Auto Routes on (first run: "Auto Routes is off - no secret routes this
+            // run", every case 14 clears and 0 secrets).
+            Object ar = ModUnderTest.config("com.killer560.hub.autoroutes.AutoRoutesConfig");
+            ModUnderTest.set(ar, "setEnabled", true);
+            ModUnderTest.set(ar, "setLegitMode", false);
+            ModUnderTest.set(ar, "setStartFromStartNodeOnly", true);
             if (menu || name.equals(PARTY_ON)) {
                 ModUnderTest.set(as, "setClearBeforeSecret", name.equals(PARTY_ON));
             }
