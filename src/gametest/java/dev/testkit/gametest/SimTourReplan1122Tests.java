@@ -67,6 +67,10 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
         List<String> failures = new ArrayList<>();
         Map<BlockPos, BlockState> was = new HashMap<>();
         try {
+            // acreplan-simseed-1122: the floor perf bench 95 builds (its seed, its three RNGs), at render distance 16 as the
+            // other Auto Clear sim cases use, so every room's chunks load and the presses find their goals.
+            ctx.runOnClient(mc -> mc.options.renderDistance().set(16));
+            ctx.runOnClient(mc -> seedFloor(FLOOR_SEED));
             SimMapPrecomputeTests.enterFloor(ctx);
             ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField(CACHE, "testDisabled", true));
             ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRun", "begin",
@@ -297,6 +301,17 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("RoomTour.Site: " + e, e);
         }
+    }
+
+    private static final long FLOOR_SEED = 95_2026_1005L;
+
+    /** The sim's floor RNGs on one seed, and the recent-layout memory cleared: the same floor every run. */
+    private static void seedFloor(long seed) {
+        for (String cls : new String[]{"com.killer560.hub.roomsim.SimFloorGen", "com.killer560.hub.roomsim.SimGenerator", "com.killer560.hub.roomsim.SimMimic"}) {
+            ((java.util.Random) dev.testkit.gametest.mod.Mod.field(cls, "RNG")).setSeed(seed);
+        }
+        ((Map<?, ?>) dev.testkit.gametest.mod.Mod.field("com.killer560.hub.roomsim.SimFloorLayout", "RECENT")).clear();
+        println("floor seed " + seed);
     }
 
     private static void println(String s) {
