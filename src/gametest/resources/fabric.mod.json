@@ -168,6 +168,7 @@
 			"dev.testkit.gametest.BloodRushSplitsTests",
 			"dev.testkit.gametest.SimChestClearTests",
 			"dev.testkit.gametest.SimKeyRoomTests",
+			"dev.testkit.gametest.SimWitherKeyUnseenTests",
 			"dev.testkit.gametest.SimPlannerGapsTests",
 			"dev.testkit.gametest.SimImapGapTests",
 			"dev.testkit.gametest.SimPathOptimalTests",
