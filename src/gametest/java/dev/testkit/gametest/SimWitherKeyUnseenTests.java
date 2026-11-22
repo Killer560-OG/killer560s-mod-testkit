@@ -369,7 +369,7 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
                             "$1"));
                 }
             }
-            int pick = indexOf(lines, "[Autopilot] pick KEY wither");
+            int pick = indexOf(lines, "pick KEY Wither Key");
             int bloodTrip = indexOf(lines, "going to the blood door");
             if (race) {
                 println(label + ": pick KEY wither line " + pick + ", going to the blood door line " + bloodTrip);
