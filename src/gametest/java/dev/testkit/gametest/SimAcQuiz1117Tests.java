@@ -416,6 +416,14 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         if (idleBy != null) {
             println(name, "idle at the Quiz before answers 1/2/3: " + java.util.Arrays.toString(idleBy) + " tick(s)");
         }
+        if (isReturn(name)) {
+            try {
+                println(name, "Quiz-gap clears cut for the trip back: "
+                        + ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(AS, "quizGapCuts")));
+            } catch (Throwable t) {
+                println(name, "this jar has no quizGapCuts");
+            }
+        }
         if (lateTicks.size() != 3) {
             failures.add(lateTicks.size() + " of 3 Quiz answers (" + late + ")");
         }
