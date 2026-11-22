@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T17:34:58",
- "modSource": "lane-sim-minispawn-1121-b",
- "modGitSha": "b257c4a69a88b42cfbc7d913500b7008eb3ff6be",
+ "generatedAt": "2026-11-21T18:24:48",
+ "modSource": "lane-acpuzzles2-1121-b",
+ "modGitSha": "14ecd60c72d1bbaea1856efda8ff8da8d70a469e",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
