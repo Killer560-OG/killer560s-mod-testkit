@@ -1848,6 +1848,16 @@ public class SimBossTests implements FabricClientGameTest {
         if (far >= 6.0) {
             f.add("Arrows: a frame is out of the server's interact range from the stand (" + far + ")");
         }
+        int minClicks = ctx.computeOnClient(mc -> {
+            int sum = 0;
+            for (int i = 0; i < 25; i++) {
+                int want = (Integer) ModUnderTest.staticCall(DEVICES, "arrowSolution", new Class<?>[]{int.class}, new Object[]{i});
+                ItemFrame fr = want < 0 ? null : frameAt(mc, new BlockPos(-2, 120 + i % 5, 75 + i / 5));
+                sum += fr == null ? 0 : (want - (fr.getRotation() & 7) + 8) & 7;
+            }
+            return sum;
+        });
+        println(P3, "Arrows: minimum clicks needed " + minClicks + " at server tick " + serverTick(ctx));
         int clicks = 0;
         // a frame the server turned later than the client saw is checked again: passes repeat until one needs no click
         for (int pass = 0, before = -1; pass < 4 && before != clicks; pass++) {
@@ -1901,7 +1911,24 @@ public class SimBossTests implements FabricClientGameTest {
         }
         ctx.waitTicks(6);
         }
-        println(P3, "Arrows: " + clicks + " real click(s) on frames");
+        StringBuilder bad = new StringBuilder();
+        for (int i = 0; i < 25; i++) {
+            int want = (Integer) ModUnderTest.staticCall(DEVICES, "arrowSolution", new Class<?>[]{int.class}, new Object[]{i});
+            int idx = i;
+            int[] got = ctx.computeOnClient(mc -> {
+                ItemFrame cf = frameAt(mc, new BlockPos(-2, 120 + idx % 5, 75 + idx / 5));
+                ItemFrame sf = (ItemFrame) ((Object[]) dev.testkit.gametest.mod.Mod.field("bosssim.BossDevices", "frames"))[idx];
+                return new int[]{cf == null ? -1 : cf.getRotation() & 7, sf == null ? -1 : sf.getRotation() & 7};
+            });
+            if (want >= 0 && (got[0] != want || got[1] != want)) {
+                bad.append(" #").append(i).append(" want ").append(want).append(" client ").append(got[0]).append(" server ").append(got[1]);
+            }
+        }
+        println(P3, "Arrows: frames off the solution after the clicks:" + (bad.length() == 0 ? " none" : bad));
+        println(P3, "Arrows: " + clicks + " real click(s) on frames"+ " (minimum " + minClicks + "), server tick " + serverTick(ctx));
+        if (clicks > minClicks) {
+            f.add("Arrows: " + clicks + " clicks where " + minClicks + " turn every frame to its solution");
+        }
         if (clicks == 0) {
             f.add("Arrows needed no click - the layout started solved");
         }
