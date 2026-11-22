@@ -15,9 +15,11 @@ import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
  * case drives that hook as Auto Secret does (once per tick, between ticks) in cycles of 14 primed ticks and 6 with his own
  * item back in hand, while HIS action lands in the same ticks ({@link SameTick}).
  * <ul>
- *   <li>1122-hx-doorprime-same-&lt;idle|use|click|attack|swap|tp&gt;: his right click, a click in his inventory, a left
- *       click on a zombie, a hotbar scroll or the server's teleport accept; GrimAC (default and experimental checkouts)
- *       must stay silent, and the prime's packets and his action must both reach the wire.</li>
+ *   <li>1122-hx-doorprime-same-&lt;idle|use|attack|swap|tp&gt;: his right click, a left click on a zombie, a hotbar
+ *       scroll or the server's teleport accept; GrimAC (default and experimental checkouts) must stay silent, and the
+ *       prime's packets and his action must both reach the wire.</li>
+ *   <li>1122-hx-doorprime-same-click: his inventory opens mid-door and he clicks in it; the prime yields while it is open
+ *       (a sneak heard beside a container click is GrimAC MultiActionsC), so both act but never in one server tick.</li>
  *   <li>1122-hx-doorprime-same-rerun: the hook asked twice in one tick (a second run of the feature), with his right click.</li>
  * </ul>
  */
@@ -53,7 +55,7 @@ final class HxDoorPrime1122Cases {
         }
         SameTick.Act act = switch (a) {
             case "use" -> SameTick.Act.USE;
-            case "click" -> SameTick.Act.OPEN_CLICK;
+            case "click" -> SameTick.Act.CLICK;
             case "attack" -> SameTick.Act.ATTACK;
             case "swap" -> SameTick.Act.SWAP;
             case "tp" -> SameTick.Act.TP;
@@ -87,6 +89,16 @@ final class HxDoorPrime1122Cases {
                 if (act == SameTick.Act.TP && i % 2 == 0) {
                     c.server().command("execute as @a at @s run tp @s ~ ~ ~");
                 }
+                if (act == SameTick.Act.CLICK && (phase == 4 || phase == 10)) {
+                    // His inventory opens mid-door and he clicks in it (every 3rd tick while open): the prime must yield
+                    // (no sneak or swap beside his clicks, GrimAC MultiActionsC) and come back once he closes it.
+                    boolean open = phase == 4;
+                    c.onClient(mc -> {
+                        dev.testkit.compat.McCompat.setScreen(mc, open
+                                ? new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player) : null);
+                        return null;
+                    });
+                }
                 if (phase < 14) {
                     primedTicks++;
                     int[] seen = c.onClient(mc -> {
@@ -111,7 +123,8 @@ final class HxDoorPrime1122Cases {
             c.check(heldAotv > 0 && sneaking > 0, "the prime never put the AOTV in hand and the sneak down (nothing"
                     + " tested: AOTV " + heldAotv + ", sneak " + sneaking + ")");
             if (st != null) {
-                SameTick.judge(c, st, "Door prime", SameTick.Expect.ACTED);
+                SameTick.judge(c, st, "Door prime", act == SameTick.Act.CLICK ? SameTick.Expect.APART
+                        : SameTick.Expect.ACTED);
                 st = null;
             }
         } finally {
