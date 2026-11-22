@@ -139,7 +139,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // rightclick-reaim-1015: a warp whose server ray meets a block the client cannot click is re-aimed, one tick
             "96-ar-1015-reaim",
             // small-dungeon (2026-10-15): a secret bat already alive when the bat node arms is killed and counted
-            "96-ar-1015-batpresent", "96-ar-1015-batseek",
+            "96-ar-1015-batpresent", "96-ar-1121-batpresent-aim", "96-ar-1015-batseek",
             // crypt-aim (2026-10-15): a Spirit Sceptre crypt node aims at each crypt mob, two uses each
             "96-ar-1015-cryptaim",
             "96-ar-edit", "96-ar-dbedit", "96-ar-mapopen", "96-ar-mapopen-aim", "96-ar-398-startawait",
@@ -390,6 +390,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1115-arnoback-giveup" -> caseArNoBack(ctx, false);
                         case "96-ar-1115-arnoback-control" -> caseArNoBack(ctx, true);
                         case "96-ar-1015-batpresent" -> caseBatPresent(ctx);
+                        case "96-ar-1121-batpresent-aim" -> caseBatPresentAim(ctx);
                         case "96-ar-1015-batseek" -> caseBatSeek(ctx);
                         case "96-ar-1017-bridges" -> caseBridges(ctx);
                         case "1018-ar-keyspot-empty" -> caseKeySpotEmpty(ctx);
@@ -4429,7 +4430,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
     /**
      * Await events: the sim's bar rising with no click, a lever toggled by the server ("a teammate"), and a button
      * click do NOT satisfy await:1; our lever / chest / skull click, our own item pickup and a secret bat appearing
-     * 5 blocks away each do; a bat 10 blocks away, or one already there, does not.
+     * 5 blocks away each do; a bat 10 blocks away does not; one already there does (batnode-1121).
      */
     private void caseAwait(ClientGameTestContext ctx) {
         resetRoutes(ctx);
@@ -4483,10 +4484,12 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         note.accept(awaitRun(ctx, "our chest click", true, () -> rightClick(ctx, 10, F, 11, Direction.UP)));
         note.accept(awaitRun(ctx, "our skull click", true, () -> rightClick(ctx, 11, F, 14, Direction.UP)));
         note.accept(awaitRun(ctx, "a secret bat 5 blocks away", true, () -> spawnBatAt(ctx, 12, F - 1, 17)));
+        clearSecretBats(ctx);
         note.accept(awaitRun(ctx, "a secret bat 13 blocks away", false, () -> spawnBatAt(ctx, 12, F - 1, 25)));
+        clearSecretBats(ctx);
         spawnBatAt(ctx, 15, F - 1, 12);
         ctx.waitTicks(30);
-        note.accept(awaitRun(ctx, "a bat already there", false, () -> { }));
+        note.accept(awaitRun(ctx, "a bat already there (batnode-1121)", true, () -> { }));
         check(wrong.isEmpty(), String.join("; ", wrong));
     }
 
@@ -6089,6 +6092,19 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
      * weapon and count its death. Hyperion and Spirit Sceptre.
      */
     private void caseBatPresent(ClientGameTestContext ctx) {
+        batPresent(ctx, false);
+    }
+
+    /**
+     * killer560 (2026-11-21): "the bat is already spawned but it doesnt detect that for a bat node". The Spirit Sceptre
+     * node must aim at a bat that is already there at once: its "uses went down" line reads fewer than the 2 straight-down
+     * uses it wastes first (origin always printed 2), and the bat's death is still counted.
+     */
+    private void caseBatPresentAim(ClientGameTestContext ctx) {
+        batPresent(ctx, true);
+    }
+
+    private void batPresent(ClientGameTestContext ctx, boolean aimOnly) {
         resetRoutes(ctx);
         clearSecretBats(ctx);
         arena(ctx, false);
@@ -6099,7 +6115,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         try {
             String[] weapons = {"HYPERION", "SPIRIT_SCEPTRE"};
             int[] xs = {19, 8};
-            for (int i = 0; i < 2; i++) {
+            for (int i = aimOnly ? 1 : 0; i < 2; i++) {
                 int x = xs[i];
                 String weapon = weapons[i];
                 setArEnum(ctx, "setBatWeapon", "CryptWeapon", weapon);
@@ -6137,6 +6153,19 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 }
                 if (!done) {
                     failures.add(weapon + ": the bat that was already there was never counted as killed");
+                }
+                if (aimOnly) {
+                    int down = -1;
+                    for (String l : LogTap.since(m)) {
+                        var mt = java.util.regex.Pattern.compile("BAT: (\\d+) uses went down").matcher(l);
+                        if (mt.find()) {
+                            down = Integer.parseInt(mt.group(1));
+                        }
+                    }
+                    println("batpresent-aim: uses before aiming " + down);
+                    if (down < 0 || down >= 2) {
+                        failures.add(weapon + ": aimed after " + down + " straight-down uses (want under 2, no aim line = -1)");
+                    }
                 }
                 waitFor(ctx, 40, () -> !running(ctx));
                 stopRoute(ctx);
