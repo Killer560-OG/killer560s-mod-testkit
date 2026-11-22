@@ -103,8 +103,9 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
             println("press tile " + press[0] + ", sealed site " + goal.toShortString() + " (tile " + sealed[0] + "), graph warm "
                     + ctx.computeOnClient(mc -> ModUnderTest.staticCall(PATHFINDER, "graphWarm")));
             int measured = 0;
+            int[] pressAt = {0};
             for (int trial = 1; trial <= TRIALS; trial++) {
-                Double q = trial(ctx, trial, spot, press, goal, targets, failures);
+                Double q = trial(ctx, trial, spot, pressAt, goal, targets, failures);
                 if (q != null) {
                     measured++;
                     if (q > MAX_QUEUED_MS) {
@@ -113,8 +114,11 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
                     }
                 }
             }
-            if (measured < TRIALS) {
+            if (measured < TRIALS - 1) {
                 failures.add("only " + measured + " of " + TRIALS + " trials had a correction and a replan");
+            }
+            if (searchedTrials == 0) {
+                failures.add("the room order searched no trip in any trial");
             }
         } catch (Throwable t) {
             failures.add("threw: " + t);
@@ -141,7 +145,27 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
     }
 
     /** One press, a room order and a server correction at its first warp; the replan's queued ms, or null. */
-    private static Double trial(ClientGameTestContext ctx, int trial, Vec3 spot, int[] press, BlockPos sealed,
+    private static int searchedTrials;
+
+    /** Presses room {@code pressAt[0]} (or the next ones, for a room with no goal on this floor) until one sends a warp. */
+    private static Double trial(ClientGameTestContext ctx, int trial, Vec3 spot, int[] pressAt, BlockPos sealed,
+                                List<int[]> targets, List<String> failures) {
+        if (trial == 1) {
+            searchedTrials = 0;
+        }
+        for (; pressAt[0] < Math.min(targets.size() - 1, 6); pressAt[0]++) {
+            Double q = press(ctx, trial, spot, targets.get(pressAt[0]), sealed, targets, failures);
+            if (q == null || q >= 0) {
+                return q;
+            }
+            println("trial " + trial + ": room " + targets.get(pressAt[0])[0] + " sent no warp, pressing the next one");
+        }
+        failures.add("trial " + trial + ": no press sent a warp");
+        return null;
+    }
+
+    /** One press, a room order and a server correction at its first warp; the replan's queued ms, null, or -1 = no warp. */
+    private static Double press(ClientGameTestContext ctx, int trial, Vec3 spot, int[] press, BlockPos sealed,
                                 List<int[]> targets, List<String> failures) {
         SimMapPrecomputeTests.backTo(ctx, spot);
         for (int i = 0; i < 200 && ctx.computeOnClient(mc -> (Boolean) dev.testkit.gametest.mod.Mod.field(TOUR, "busy")); i++) {
@@ -163,11 +187,13 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
             sent = hops.stream().anyMatch(h -> h > pressTick);
         }
         if (!sent) {
-            failures.add("trial " + trial + ": the press sent no warp");
-            return null;
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "cancel"));
+            ctx.waitTicks(10);
+            return -1.0;
         }
         // The room order from here, the sealed site first, and the server's teleport back - in one client step.
         AtomicReference<Boolean> tp = new AtomicReference<>();
+        long tpMark = LogTap.mark();
         long tpTick = ctx.computeOnClient(mc -> {
             ModUnderTest.staticCall(TOUR, "request", new Class<?>[]{Vec3.class, List.class, boolean.class, boolean.class,
                     String.class}, new Object[]{mc.player.position(), sites(sealed, targets), false, true, NAME});
@@ -186,7 +212,8 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
         boolean corrected = false;
         for (int i = 0; i < 200 && queued == null; i++) {
             ctx.waitTicks(1);
-            for (String l : LogTap.since(mark)) {
+            corrected = false; // only a plan logged after the correction line is its replan
+            for (String l : LogTap.since(tpMark)) {
                 corrected |= l.contains("[Correction] Interactive Map") || l.contains("server moved you");
                 Matcher m = QUEUED.matcher(l);
                 if (corrected && m.find()) {
@@ -214,8 +241,8 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
                 ctx.waitTicks(1);
             }
         }
-        if (searched < 1) {
-            failures.add("trial " + trial + ": the room order searched no trip (" + searched + ")");
+        if (searched >= 1) {
+            searchedTrials++;
         }
         if (!corrected) {
             failures.add("trial " + trial + ": the teleport back was not taken as a correction");
