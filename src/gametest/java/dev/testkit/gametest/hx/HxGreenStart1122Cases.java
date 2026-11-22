@@ -22,6 +22,8 @@ import static dev.testkit.gametest.hx.HxKit.*;
  *       blocks.</li>
  *   <li>1122-hx-greenstart-same-rerun: switched off and on again mid-walk (a second run of it): each run walks on.</li>
  * </ul>
+ * Names: 1122-hx-greenstart-same-idle, 1122-hx-greenstart-same-use, 1122-hx-greenstart-same-attack,
+ * 1122-hx-greenstart-same-swap, 1122-hx-greenstart-same-click, 1122-hx-greenstart-same-tp, 1122-hx-greenstart-same-rerun.
  */
 final class HxGreenStart1122Cases {
 
