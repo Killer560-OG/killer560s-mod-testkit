@@ -52,6 +52,21 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
     private static final String TELEPORT_UTILS = "com.killer560.hub.livemap.autoclear.TeleportUtils";
     private static final String INSTA_TRACKER = "com.killer560.hub.autosecret.InstaClearTracker";
     private static final String KEY_ROOMS = "com.killer560.hub.autoclear.KeyRooms";
+    /** The sim's floor line: its wither key rooms (a Party clear of one opens the door to more routes). */
+    private static final Pattern SIM_KEY_ROOMS = Pattern.compile("\\[Sim\\] floor with mobs: .*?; key rooms (.+?); fairy door");
+    private static void readKeyRooms(List<String> lines, Set<String> out) {
+        for (String l : lines) {
+            Matcher kr = SIM_KEY_ROOMS.matcher(l);
+            if (kr.find()) {
+                for (String k : kr.group(1).split(", ")) {
+                    if (k.endsWith(" (wither)")) {
+                        out.add(k.substring(0, k.length() - " (wither)".length()));
+                    }
+                }
+            }
+        }
+    }
+
     private static final Pattern SKIPPED = Pattern.compile("\\[AutoSecret\\] (.+?) is the room in front of the blood door - its"
             + " secrets are skipped");
     private static final String PLANNER = "com.killer560.hub.autosecret.AutopilotPlanner";
@@ -321,6 +336,8 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ModUnderTest.staticCall(AS, "startAutopilot"));
         List<String[]> picks = new ArrayList<>();   // {kind, room, tick}
         Set<String> skipped = new HashSet<>();
+        Set<String> keyRooms = new HashSet<>();
+        readKeyRooms(LogTap.between(-1, mark), keyRooms);   // the floor line came before the start
         int score = -1;
         int score300 = -1;
         int tick = 0;
@@ -442,12 +459,13 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                 for (int i = 0; i < picks.size(); i++) {
                     if (picks.get(i)[0].equals("SECRET")) {
                         lastSecret = i;
-                    } else if (picks.get(i)[0].equals("CLEAR")) {
+                    } else if (picks.get(i)[0].equals("CLEAR") && !keyRooms.contains(picks.get(i)[1])) {
+                        // A wither key room's clear is the key to more routes (no teammate opens the door in the sim).
                         firstClear = Math.min(firstClear, i);
                     }
                 }
                 row(name, acted && firstClear > lastSecret, (firstClear > lastSecret ? "no clear" : "a clear")
-                        + " before the last route; " + did);
+                        + " before the last route (key room clears allowed: " + keyRooms + "); " + did);
             }
         }
     }
