@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T16:34:24",
- "modSource": "mzero-rm",
- "modGitSha": "56961afd903992280c55b0d97743c1ab24bb08cf",
+ "generatedAt": "2026-11-22T16:40:00",
+ "modSource": "lane-milestonezero-1118-rm",
+ "modGitSha": "c16284fabed6a349cb81fb8617b8da9f1a8b9b2c",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
