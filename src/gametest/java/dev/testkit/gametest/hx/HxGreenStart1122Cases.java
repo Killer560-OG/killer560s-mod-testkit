@@ -17,7 +17,7 @@ import static dev.testkit.gametest.hx.HxKit.*;
  * movement packets sent while it walks.
  * <ul>
  *   <li>1122-hx-greenstart-same-&lt;idle|use|attack|swap|click|tp&gt;: his right click, a hit on an interaction entity round
- *       him, a hotbar scroll, an inventory click (opened and closed inside one tick) or the server's teleport accept in the
+ *       him, a hotbar scroll, an inventory click (his inventory opened for 6 ticks, which pauses the walk) or the server's teleport accept in the
  *       walk's ticks; GrimAC (default and experimental checkouts) silent, both on the wire, and he walked at least 15
  *       blocks.</li>
  *   <li>1122-hx-greenstart-same-rerun: switched off and on again mid-walk (a second run of it): each run walks on.</li>
@@ -47,6 +47,9 @@ final class HxGreenStart1122Cases {
         c.server().command("forceload add " + (x - 14) + " " + (z - 14) + " " + (x + 14) + " " + (z + 14));
         c.server().command(String.format("fill %d 67 %d %d 68 %d stone", x - 12, z - 12, x + 12, z + 12));
         c.server().command(String.format("fill %d 69 %d %d 75 %d air", x - 12, z - 12, x + 12, z + 12));
+        // The floor a few ticks before he arrives, and he stands still on it before anything walks: a teleport onto a
+        // floor the client did not have yet drew one GrimAC Simulation line at the first case's walk start (default run 1).
+        c.ctx().waitTicks(5);
         c.hx().call("dungeon.tp", "x", x + 0.5, "y", 69.0, "z", z - 4.5, "yaw", 90f, "pitch", 0f);
         c.hx().give(4, "minecraft:stick");
         c.hx().give(5, "minecraft:stick");
@@ -60,7 +63,9 @@ final class HxGreenStart1122Cases {
             mc.player.getInventory().setSelectedSlot(4);
             return null;
         });
-        c.ctx().waitTicks(10);
+        c.waitUntil("standing on the floor", mc -> mc.player.onGround() && Math.abs(mc.player.getY() - 69) < 0.01
+                && mc.player.getDeltaMovement().horizontalDistanceSqr() < 1e-6, 200);
+        c.ctx().waitTicks(20);
         return new BlockPos[]{new BlockPos(x, 69, z + 5), new BlockPos(x, 69, z - 5)};
     }
 
@@ -101,7 +106,7 @@ final class HxGreenStart1122Cases {
             case "use" -> SameTick.Act.USE;
             case "attack" -> SameTick.Act.ATTACK;
             case "swap" -> SameTick.Act.SWAP;
-            case "click" -> SameTick.Act.OPEN_CLICK;
+            case "click" -> SameTick.Act.SCREEN_CLICK;
             case "tp" -> SameTick.Act.TP;
             default -> null;
         };
@@ -121,6 +126,20 @@ final class HxGreenStart1122Cases {
                     go(c, ends[legs % 2]);
                     legs++;
                 }
+                if (act == SameTick.Act.SCREEN_CLICK && i % 40 == 20) {
+                    // His inventory open (a real press opens it a tick before any click): the walk lets go of the keys at
+                    // that tick's start, so his clicks go out with no movement input (a click with W down is MultiActionsC
+                    // with nothing of ours running).
+                    c.onClient(mc -> {
+                        dev.testkit.compat.McCompat.setScreen(mc, new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player));
+                        return null;
+                    });
+                } else if (act == SameTick.Act.SCREEN_CLICK && i % 40 == 26) {
+                    c.onClient(mc -> {
+                        dev.testkit.compat.McCompat.setScreen(mc, null);
+                        return null;
+                    });
+                }
                 if (act == SameTick.Act.TP && i % 4 == 1) {
                     c.server().command("execute as @a at @s run tp @s ~ ~ ~");
                 }
@@ -133,7 +152,7 @@ final class HxGreenStart1122Cases {
                     a, legs, walked, result(c)));
             c.check(walked >= 15, String.format(java.util.Locale.US, "walked only %.1f blocks (nothing tested)", walked));
             if (st != null) {
-                SameTick.judge(c, st, "green room walk", act == SameTick.Act.OPEN_CLICK ? SameTick.Expect.ACTED
+                SameTick.judge(c, st, "green room walk", act == SameTick.Act.SCREEN_CLICK ? SameTick.Expect.ACTED
                         : SameTick.Expect.SHARE);
                 st = null;
             }

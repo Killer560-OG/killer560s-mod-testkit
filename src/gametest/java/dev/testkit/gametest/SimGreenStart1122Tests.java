@@ -25,8 +25,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * run out. Cheat jar only.
  * <ul>
  *   <li>1122-sim-ac-greenstart: before GO he has walked (no per-tick jump over 1.2 blocks) at least 6 blocks from the spawn
- *       to within 5.5 blocks of the entrance door; after GO the first trip is out through the door with at most 1 warp
- *       inside 15 ticks, and the autopilot is running. Origin stands at the spawn (fails).</li>
+ *       to within 5.5 blocks of the entrance door; after GO the first trip is out through the door within 40 ticks with
+ *       at most 1 warp and none landing inside the Entrance, and the autopilot is running. The floor is seeded, so an
+ *       origin jar builds the same one; origin stands at the spawn (fails).</li>
  *   <li>1122-sim-ac-greenstart-keys: his W pressed mid-walk takes over within 3 ticks (walk ended, body back on his view),
  *       W moves him along his own facing, and with W released nothing walks him again before GO; the autopilot still
  *       starts at GO.</li>
@@ -50,6 +51,7 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
     private static final String AUTO_CLEAR_CONFIG = "com.killer560.hub.autoclear.AutoClearConfig";
     private static final String AS = "com.killer560.hub.autosecret.AutoSecretFeature";
     private static final int HOLD = 20 * 120;
+    private static final long SEED = 1122_2026_0950L;
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
@@ -152,6 +154,15 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
         for (int attempt = 1; attempt <= 3; attempt++) {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
                     new Object[]{"gametest"}));
+            long seed = SEED + attempt;
+            // Seeded, so the origin jar and the branch's build the same floor and their first trips compare.
+            for (String cls : new String[]{"roomsim.SimFloorGen", "roomsim.SimGenerator", "roomsim.SimMimic"}) {
+                try {
+                    ((java.util.Random) dev.testkit.gametest.mod.Mod.field(cls, "RNG")).setSeed(seed);
+                } catch (Throwable ignored) {
+                    // a class without an RNG leaves that part unseeded
+                }
+            }
             ctx.runOnClient(mc -> mc.execute(() -> {
                 Object fl = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
                 ModUnderTest.staticCall(FLOOR_GEN, "generate",
@@ -276,29 +287,35 @@ public class SimGreenStart1122Tests implements FabricClientGameTest {
             toGo++;
         }
         int warps = 0;
+        int inside = 0;
         int out = -1;
         last = ctx.computeOnClient(mc -> mc.player.position());
         for (int i = 1; i <= 200 && out < 0; i++) {
             ctx.waitTicks(1);
             Vec3 now = ctx.computeOnClient(mc -> mc.player.position());
+            double past = -((now.x - (door.getX() + 0.5)) * in[0] + (now.z - (door.getZ() + 0.5)) * in[1]);
             if (now.distanceTo(last) > 2.5) {
                 warps++;
+                if (past <= 1.0) {
+                    inside++;   // a warp that landed still inside the Entrance: one spent reaching a start spot
+                }
             }
             last = now;
-            double past = -((now.x - (door.getX() + 0.5)) * in[0] + (now.z - (door.getZ() + 0.5)) * in[1]);
             if (past > 1.0) {
                 out = i;
             }
         }
         boolean on = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(PILOT, "isOn"));
         boolean logged = LogTap.since(mark).stream().anyMatch(l -> l.contains("[GreenRoomStart] walking"));
-        String post = String.format(Locale.US, "after GO: out through the door at tick %d with %d warp(s); autopilot on %s;"
-                + " walk logged %s", out, warps, on, logged);
+        String post = String.format(Locale.US, "after GO: out through the door at tick %d with %d warp(s), %d landing inside"
+                + " the Entrance; autopilot on %s; walk logged %s", out, warps, inside, on, logged);
         f.add(shut ? null : "the run started before the case let it");
         f.add(moved >= 6.0 ? null : String.format(Locale.US, "walked only %.1f blocks before GO (want >= 6)", moved));
         f.add(maxStep <= 1.2 ? null : String.format(Locale.US, "a %.2f-block step before GO: it must walk, not warp", maxStep));
         f.add(atDoor <= 5.5 ? null : String.format(Locale.US, "%.1f blocks from the door at GO (want <= 5.5)", atDoor));
-        f.add(out > 0 && out <= 15 ? null : "not out through the door within 15 ticks of GO (tick " + out + ")");
+        // The planner's first search from a cold graph takes ~1 s (970 ms on the first green run): 40 ticks, not 15.
+        f.add(out > 0 && out <= 40 ? null : "not out through the door within 40 ticks of GO (tick " + out + ")");
+        f.add(inside == 0 ? null : inside + " warp(s) landed inside the Entrance before the door (want 0)");
         f.add(warps <= 1 ? null : warps + " warps before leaving the Entrance (want <= 1)");
         f.add(logged ? null : "no \"[GreenRoomStart] walking\" log line");
         f.removeIf(java.util.Objects::isNull);
