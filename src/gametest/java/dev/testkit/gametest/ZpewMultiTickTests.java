@@ -114,7 +114,7 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
         int n = dbl ? 10 : 20;
         dev.testkit.gametest.SameTick.Act act = variant.equals("swap") ? dev.testkit.gametest.SameTick.Act.SWAP
                 : variant.equals("tp") ? dev.testkit.gametest.SameTick.Act.TP : null;
-        Scenario.runExpectingFlags(ctx, name, (server, scenario) -> build(server), (server, scenario) -> {
+        Scenario.runJudgingOwnFlags(ctx, name, (server, scenario) -> build(server), (server, scenario) -> {
             Hx hx = null;
             dev.testkit.gametest.SameTick[] st = {null};
             List<String> problems = new ArrayList<>();
@@ -131,7 +131,9 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 setWpt(ctx, n);
                 ctx.runOnClient(mc -> {
                     Mod.set(ZP_CFG, "setTickSplit", true);
-                    Mod.staticCall("zpew.ZeroPingEtherwarp", "splitRan"); // the "fell back" chat line is news again
+                    if (hasFallbackLine()) { // an origin jar has no line: the case then fails on the count, not here
+                        Mod.staticCall("zpew.ZeroPingEtherwarp", "splitRan"); // the "fell back" chat line is news again
+                    }
                 });
                 long lines0 = fallbackLines(ctx);
                 if (bank) {
@@ -277,8 +279,15 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
     }
 
     /** Chat lines the mod said for a Tick Split that fell back (ZeroPingEtherwarp.fallbackLines). */
+    /** Whether the jar under test says the Tick Split fallback chat line at all (ticksplit-nowork-1121). */
+    static boolean hasFallbackLine() {
+        return java.util.Arrays.stream(Mod.cls("zpew.ZeroPingEtherwarp").getDeclaredFields())
+                .anyMatch(f -> f.getName().equals("fallbackLines"));
+    }
+
+    /** Fallback chat lines said so far; 0 on a jar without the line (it then fails "expected exactly 1"). */
     static long fallbackLines(ClientGameTestContext ctx) {
-        return ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.Ap3RuntimeTests.staticField(
+        return !hasFallbackLine() ? 0 : ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.Ap3RuntimeTests.staticField(
                 "com.killer560.hub.zpew.ZeroPingEtherwarp", "fallbackLines")).longValue());
     }
 
