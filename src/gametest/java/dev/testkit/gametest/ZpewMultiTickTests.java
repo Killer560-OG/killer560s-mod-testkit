@@ -129,7 +129,11 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                 String who = ZpewCampaignTests.name(ctx);
                 ctx.getInput().holdKey(o -> o.keyShift);
                 setWpt(ctx, n);
-                ctx.runOnClient(mc -> Mod.set(ZP_CFG, "setTickSplit", true));
+                ctx.runOnClient(mc -> {
+                    Mod.set(ZP_CFG, "setTickSplit", true);
+                    Mod.staticCall("zpew.ZeroPingEtherwarp", "splitRan"); // the "fell back" chat line is news again
+                });
+                long lines0 = fallbackLines(ctx);
                 if (bank) {
                     ctx.runOnClient(mc -> {
                         Mod.set("blink.BlinkConfig", "setChargeMode", Mod.enumValue("blink.BlinkConfig$Mode", "TOGGLE"));
@@ -202,6 +206,13 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
                         problems.add(label + ": " + fellBack + " burst(s) fell back to Burst (bank " + banked0 + ")");
                     }
                 }
+                // ticksplit-nowork-1121: Tick Split chosen with no covered bank says so in chat ONCE (three bursts fell back);
+                // with the bank it says nothing (a ping-gap fallback retried above may say it once per retry).
+                long said = fallbackLines(ctx) - lines0;
+                scenario.log(name + ": " + said + " Tick Split fallback chat line(s)");
+                if (bank ? said > retries : said != 1) {
+                    problems.add(name + ": " + said + " Tick Split fallback chat line(s), expected " + (bank ? "none" : "exactly 1"));
+                }
                 if (st[0] != null) {
                     dev.testkit.gametest.SameTick done = st[0];
                     ctx.runOnClient(mc -> done.close());
@@ -263,6 +274,12 @@ public class ZpewMultiTickTests implements FabricClientGameTest {
             n += x.type().startsWith("minecraft:move_player") && x.type().contains("rot") ? 1 : 0;
         }
         return n;
+    }
+
+    /** Chat lines the mod said for a Tick Split that fell back (ZeroPingEtherwarp.fallbackLines). */
+    static long fallbackLines(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> ((Number) dev.testkit.gametest.Ap3RuntimeTests.staticField(
+                "com.killer560.hub.zpew.ZeroPingEtherwarp", "fallbackLines")).longValue());
     }
 
     static long splitShort(ClientGameTestContext ctx) {
