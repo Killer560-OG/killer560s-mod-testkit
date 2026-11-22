@@ -537,7 +537,7 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
     }
 
     /** Room tiles across the floor to press, spread out: {tile, room}. Not his room, no trap, maze or Boulder. */
-    private static List<int[]> targets(ClientGameTestContext ctx) {
+    static List<int[]> targets(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> {
             Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
             int here = (Integer) ModUnderTest.call(layout, "currentRoom", new Class<?>[]{}, new Object[]{});
@@ -845,7 +845,7 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
     // ================================================================================================ world
 
     /** Fills a box on the server; returns what was there. Waits until the client has the last block. */
-    private static Map<BlockPos, BlockState> fill(ClientGameTestContext ctx, BlockPos a, BlockPos b, BlockState state) {
+    static Map<BlockPos, BlockState> fill(ClientGameTestContext ctx, BlockPos a, BlockPos b, BlockState state) {
         AtomicReference<Map<BlockPos, BlockState>> out = new AtomicReference<>();
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
@@ -872,7 +872,7 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
         return out.get();
     }
 
-    private static void restore(ClientGameTestContext ctx, Map<BlockPos, BlockState> was) {
+    static void restore(ClientGameTestContext ctx, Map<BlockPos, BlockState> was) {
         AtomicReference<Boolean> done = new AtomicReference<>();
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
@@ -891,7 +891,7 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
     }
 
     /** Server teleport back to {@code to}, on the ground and still. */
-    private static void backTo(ClientGameTestContext ctx, Vec3 to) {
+    static void backTo(ClientGameTestContext ctx, Vec3 to) {
         AtomicReference<Boolean> done = new AtomicReference<>();
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
@@ -912,7 +912,7 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
         ctx.waitTicks(10);
     }
 
-    private static void configure(ClientGameTestContext ctx) {
+    static void configure(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> {
             Object auto = ModUnderTest.config("com.killer560.hub.autopuzzles.AutoPuzzlesConfig");
             ModUnderTest.set(auto, "setAutoPuzzlesMasterEnabled", false);
@@ -927,7 +927,7 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
     }
 
     /** A generated sim F7 (as 102), its chunks on the client, an AOTV in hand - the run NOT begun. */
-    private static void enterFloor(ClientGameTestContext ctx) {
+    static void enterFloor(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
                 new Object[]{"gametest"}));
         long before = Scenario.simBuildCount(ctx);
@@ -947,7 +947,7 @@ public class SimMapPrecomputeTests implements FabricClientGameTest {
         }
     }
 
-    private static void leaveSim(ClientGameTestContext ctx) {
+    static void leaveSim(ClientGameTestContext ctx) {
         // Every trip over first: a disconnect asked for while a map trip's last landing is still coming has hung the
         // integrated server's halt against the gametest's own tick phase (main jar, floor 1, jstack 2026-10-15).
         for (int i = 0; i < 100 && ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isBusy")); i++) {

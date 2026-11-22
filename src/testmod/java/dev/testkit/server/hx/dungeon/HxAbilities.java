@@ -3,6 +3,7 @@ package dev.testkit.server.hx.dungeon;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseItemCallback;
@@ -65,6 +66,13 @@ public final class HxAbilities {
     private static int boomBlocks;
     private static int dungeonBreaks;
     private static Vec3 lastLanding;
+    /**
+     * Hypixel's sneak lag (acwaits3-1122): a sneak counts for an etherwarp only once a whole server tick has seen it, so a
+     * sneak that arrives in the same tick as the use makes that use an Instant Transmission. Off unless a case asks.
+     */
+    private static volatile boolean sneakLag;
+    private static final Set<java.util.UUID> SNEAK_HEARD = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static int sneakLagMisses;
 
     private static final double ETHERWARP_RANGE = 57.0;
     private static final double ETHERWARP_LANDING_OFFSET = 0.05;
@@ -89,6 +97,16 @@ public final class HxAbilities {
         }
         registered = true;
         HxLaunchItems.register();
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            SNEAK_HEARD.clear();
+            if (sneakLag) {
+                for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+                    if (p.isShiftKeyDown()) {
+                        SNEAK_HEARD.add(p.getUUID());
+                    }
+                }
+            }
+        });
         UseItemCallback.EVENT.register((player, level, hand) -> player instanceof ServerPlayer sp && enabled
                 ? onUse(sp, hand) : InteractionResult.PASS);
         UseBlockCallback.EVENT.register((player, level, hand, hit) -> {
@@ -132,6 +150,7 @@ public final class HxAbilities {
         o.addProperty("etherwarps", etherwarps);
         o.addProperty("etherwarpMisses", etherwarpMisses);
         o.addProperty("transmissions", transmissions);
+        o.addProperty("sneakLagMisses", sneakLagMisses);
         o.addProperty("superbooms", superbooms);
         o.addProperty("boomBlocks", boomBlocks);
         o.addProperty("dungeonBreaks", dungeonBreaks);
@@ -152,6 +171,7 @@ public final class HxAbilities {
         etherwarps = 0;
         etherwarpMisses = 0;
         transmissions = 0;
+        sneakLagMisses = 0;
         superbooms = 0;
         boomBlocks = 0;
         dungeonBreaks = 0;
@@ -159,6 +179,12 @@ public final class HxAbilities {
         witherHits = 0;
         lastLanding = null;
         HxLaunchItems.reset();
+    }
+
+    static void setSneakLag(boolean on) {
+        sneakLag = on;
+        SNEAK_HEARD.clear();
+        System.out.println("[testkit] hypixel sneak lag " + (on ? "ON" : "off"));
     }
 
     static String idOf(ItemStack stack) {
@@ -197,7 +223,12 @@ public final class HxAbilities {
         CompoundTag tag = held.get(DataComponents.CUSTOM_DATA).copyTag();
         int tuners = Math.min(MAX_TUNERS, Math.max(0, tag.getIntOr("tuned_transmission", 0)));
         boolean ethermerge = conduit || tag.getIntOr("ethermerge", 0) == 1;
-        if (sp.isShiftKeyDown() && ethermerge) {
+        boolean sneaking = sp.isShiftKeyDown();
+        if (sneakLag && sneaking && !SNEAK_HEARD.contains(sp.getUUID())) {
+            sneaking = false;
+            sneakLagMisses++;
+        }
+        if (sneaking && ethermerge) {
             etherwarp(sp, ETHERWARP_RANGE + tuners);
         } else if (aspect) {
             transmission(sp, TRANSMISSION_BASE + tuners);
