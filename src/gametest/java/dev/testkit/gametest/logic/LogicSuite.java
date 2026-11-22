@@ -152,7 +152,7 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "1121-logic-map-atlas-split", MapAtlasSplit1121Cases::atlasSplit);
         // ItemStacks need item components, which are bound only once a world's registries load ("Components not
         // bound yet" at the title screen). The two cases that build stacks run in a throwaway singleplayer world.
-        if (!Scenario.skip("354-logic-terminals") || !Scenario.skip("357-logic-items-ap3-routes")
+        if (!Scenario.skip("354-logic-terminals") || !Scenario.skip("1121-logic-stall-keeps-trust") || !Scenario.skip("357-logic-items-ap3-routes")
                 || !Scenario.skip("362-logic-boss-timers") || !Scenario.skip("363-logic-roof-cover")
                 || !Scenario.skip("1102-logic-goldor-tick") || !Scenario.skip("1102-logic-storm-line")
                 || !Scenario.skip("1102-logic-f7hud-config") || !Scenario.skip("1102-logic-f7hud-slots")
@@ -184,6 +184,7 @@ public class LogicSuite implements FabricClientGameTest {
                 }
                 LogicCase.run(ctx, "362-logic-boss-timers", BossTimerCases::bossTimers);
                 LogicCase.run(ctx, "1101-logic-bloodcamp-clock", BossTimerCases::bloodCampClock);
+                LogicCase.run(ctx, "1121-logic-stall-keeps-trust", BossTimerCases::stallKeepsTrust);
                 LogicCase.run(ctx, "1102-logic-goldor-tick", BossTimerCases::goldorTick);
                 LogicCase.run(ctx, "1102-logic-storm-line", BossTimerCases::stormLineCase);
                 LogicCase.run(ctx, "1102-logic-f7hud-config", BossTimerCases::oldConfigs);
