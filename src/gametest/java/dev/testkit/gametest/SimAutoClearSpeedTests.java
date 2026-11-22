@@ -158,7 +158,7 @@ public class SimAutoClearSpeedTests implements FabricClientGameTest {
         println("PASS");
     }
 
-    private static String oneFloor(ClientGameTestContext ctx, int run, String code, List<RoomTime> rooms,
+    static String oneFloor(ClientGameTestContext ctx, int run, String code, List<RoomTime> rooms,
                                    List<String> problems) {
         int perTile = Integer.getInteger("testkit.acsMobs", 2);
         double hp = Double.parseDouble(System.getProperty("testkit.acsHp", "1"));
@@ -416,7 +416,7 @@ public class SimAutoClearSpeedTests implements FabricClientGameTest {
         ctx.waitTicks(5);
     }
 
-    private static void leave(ClientGameTestContext ctx) {
+    static void leave(ClientGameTestContext ctx) {
         try {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "cancel"));
             ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setEnabled", false));
