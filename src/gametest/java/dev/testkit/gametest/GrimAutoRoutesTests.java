@@ -891,22 +891,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         trapRoom(ctx, true);
         dev.testkit.gametest.SameTick st = null;
         try {
+            // OPEN_CLICK: his inventory click while the walk holds W and sprint is GrimAC MultiActionsC from his own click
+            // (LeverPlace1117Cases, Ap3AuraLook1116Cases). A control walk with no align (WALK next) shows it here first;
+            // only then is MultiActionsC accepted in the align run, and every other flag still fails the case.
+            boolean ownClickFlags = act == dev.testkit.gametest.SameTick.Act.OPEN_CLICK && trapClickControl(c);
             JsonObject w = node("WALK", 14, 8, 90f, 0f);
             w.addProperty("start", true);
             writeRoute(ctx, again ? List.of(w, node("ROTATE", 9, 7, 90f, 0f), node("WALK", 9, 7, 90f, 0f),
                     node("ROTATE", 8, 7, 90f, 0f)) : List.of(w, node("ROTATE", 9, 7, 90f, 0f)));
             ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(7));
-            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
-                double[] z = ctx.computeOnClient(mc -> {
-                    Object frame = ModUnderTest.staticCall(FRAME, "current");
-                    Vec3 v = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
-                            double.class, double.class}, new Object[]{frame, 7.3, (double) F, 7.5});
-                    return new double[]{v.x, v.y, v.z};
-                });
-                c.server().command("summon zombie " + z[0] + " " + z[1] + " " + z[2]
-                        + " {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}");
-                ctx.waitTicks(5);
-            }
             int aligns0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "walkAligns"));
             if (act != null) {
                 st = ctx.computeOnClient(mc -> {
@@ -954,6 +947,19 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     run2To = (Long) r[2] + 60_000_000L;
                 }
                 if ((Boolean) r[0]) {
+                    if (alignTicks == 0 && act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                        // His target goes on his own look as the align starts: the crosshair follows the camera ViewFreeze
+                        // holds (the walk turns only the body), so the zombie stands 1.6 along the held view yaw, at his
+                        // feet. Ahead of the walk's body yaw it was never under his crosshair (his action x0).
+                        double[] z = ctx.computeOnClient(mc -> {
+                            float vy = (Float) ModUnderTest.staticCall("com.killer560.hub.util.ViewFreeze", "viewYaw");
+                            double yr = Math.toRadians(Float.isNaN(vy) ? mc.player.getYRot() : vy);
+                            return new double[]{mc.player.getX() - Math.sin(yr) * 1.6, mc.player.getY(),
+                                    mc.player.getZ() + Math.cos(yr) * 1.6};
+                        });
+                        c.server().command(String.format(Locale.ROOT, "summon zombie %.3f %.3f %.3f"
+                                + " {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}", z[0], z[1], z[2]));
+                    }
                     alignTicks++;
                     if (alignFrom < 0) {
                         alignFrom = (Long) r[2] - 60_000_000L;
@@ -1042,6 +1048,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 dev.testkit.gametest.SameTick.judge(c, st, label, dev.testkit.gametest.SameTick.Expect.ACTED);
                 st = null;
             }
+            if (ownClickFlags) {
+                Scenario.acceptedFlag = l -> l.contains("MultiActionsC");
+            }
             noteFlags(c, s);
         } finally {
             dev.testkit.gametest.SameTick open = st;
@@ -1055,6 +1064,53 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             trapRoom(ctx, false);
             resetRoutes(ctx);
         }
+    }
+
+    /**
+     * The control for 62-argrim-1122-trapwalkalign-same-click: a trap-room WALK followed by a WALK (no align runs) with his
+     * inventory click in the walk's ticks. Returns whether GrimAC drew MultiActionsC from it; checks the walk ran, no align
+     * ran and his click and a walk packet shared a server tick, so a "yes" is his own click's flag.
+     */
+    private static boolean trapClickControl(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        int flags0 = c.scenario().flags().size();
+        JsonObject w = node("WALK", 14, 8, 90f, 0f);
+        w.addProperty("start", true);
+        writeRoute(ctx, List.of(w, node("WALK", 9, 7, 90f, 0f)));
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(7));
+        int aligns0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "walkAligns"));
+        dev.testkit.gametest.SameTick st = ctx.computeOnClient(mc -> {
+            dev.testkit.gametest.SameTick t = dev.testkit.gametest.SameTick.start(dev.testkit.gametest.SameTick.Act.OPEN_CLICK,
+                    1, p -> p instanceof net.minecraft.network.protocol.game.ServerboundPlayerInputPacket
+                            || p instanceof net.minecraft.network.protocol.game.ServerboundMovePlayerPacket, 7, 8)
+                    .armedBy(() -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+            t.allow(4);
+            return t;
+        });
+        try {
+            walkOnto(ctx, 14.5, 5.5, 14, 8);
+            for (int t = 0; t < 120; t++) {
+                if (!(Boolean) ctx.computeOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "isRunning")) && t > 5) {
+                    break;
+                }
+                ctx.waitTick();
+            }
+            ctx.waitTicks(3);
+        } finally {
+            ctx.runOnClient(mc -> st.close());
+        }
+        ctx.waitTicks(10);
+        int aligns = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "walkAligns")) - aligns0;
+        List<String> f = c.scenario().flags();
+        long multi = f.subList(Math.min(flags0, f.size()), f.size()).stream().filter(l -> l.contains("MultiActionsC")).count();
+        c.note("trapwalkalign control (WALK next, no align): aligns " + aligns + ", " + st.report() + ", MultiActionsC "
+                + multi);
+        check(aligns == 0, "trapwalkalign control: an align ran before a WALK (" + aligns + ")");
+        check(st.done() > 0 && st.both() > 0, "trapwalkalign control: his click never shared a tick with the walk ("
+                + st.report() + ")");
+        resetRoutes(ctx);
+        ctx.waitTicks(10);
+        return multi > 0;
     }
 
     /**
