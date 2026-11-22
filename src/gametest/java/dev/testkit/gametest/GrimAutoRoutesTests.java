@@ -3724,7 +3724,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     /**
      * 62-argrim-1121-batpresent (killer560, 2026-11-21: "the bat is already spawned but it doesnt detect that for a bat
      * node"). A secret bat (100 max health, NoAI) is standing before a Spirit Sceptre BAT node is reached; the node must
-     * aim at it at once (fewer than the 2 straight-down uses it wastes otherwise) and draw nothing from GrimAC. With an
+     * find it and aim at it after its 2 straight-down uses (his 2026-10-15 rule) and draw nothing from GrimAC. With an
      * act, his own right click / hotbar swap lands in the same tick as the node's use (WireCapture, both() > 0). The
      * server emulates no sceptre, so the bat never dies: the node ends on its attack ticks.
      */
@@ -3750,7 +3750,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             });
             c.server().command("summon minecraft:bat " + at.x + " " + at.y + " " + at.z
                     + " {NoAI:1b,Silent:1b,PersistenceRequired:1b,Tags:[\"batnode1121\"]}");
-            c.server().command("attribute @e[tag=batnode1121] minecraft:max_health base set 100");
+            c.server().command("attribute @e[tag=batnode1121,limit=1] minecraft:max_health base set 100");
             c.server().command("data merge entity @e[tag=batnode1121,limit=1] {Health:100f}");
             check(waitFor(ctx, 100, () -> ctx.computeOnClient(mc -> {
                 for (var e : mc.level.entitiesForRendering()) {
@@ -3796,7 +3796,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             println("batpresent-grim " + act + ": aimed " + aimed + ", uses before aiming " + down + ", use_item "
                     + count(sm, "use_item") + " " + rep);
             check(aimed, "the sceptre BAT node never aimed at the bat that was already there");
-            check(down >= 0 && down < 2, "aimed after " + down + " straight-down uses (want under 2)");
+            check(down == 2, "aimed after " + down + " straight-down uses (his rule: exactly 2 first)");
             c.note("batpresent " + act + ": aimed after " + down + " use(s), " + rep);
             noteFlags(c, sm);
         } finally {
