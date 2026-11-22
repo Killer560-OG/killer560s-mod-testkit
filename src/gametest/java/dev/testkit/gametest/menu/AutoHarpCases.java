@@ -28,7 +28,8 @@ import java.util.List;
  *       at END (the feature's chords click on consecutive ticks too); run on default and experimental GrimAC.</li>
  *   <li>1121-autoharp-burst: four 250-350 ms server freezes, each paid back in a burst that leaves the next note in the
  *       click row for about one server tick (harpmiss5-1121: the shipped jar got 13 of 17 and a wrong click).</li>
- *   <li>1122-autoharp-ping150 / -ping300: 150 and 300 ms round trips, Auto Detect Ping on (harpmiss-1122: a click was
+ *   <li>1122-autoharp-ping150 / -ping300 / -ping320: 150, 300 and 320 ms round trips (320: two rows early, the wait
+ *       after the board ends just before the next step), Auto Detect Ping on (harpmiss-1122: a click was
  *       timed by client ticks, not by when the board arrived, so a 150 ms trip clicked at the very end of the note's step).</li>
  * </ul>
  */
@@ -55,6 +56,7 @@ final class AutoHarpCases {
         MenuSuite.test(s, "1121-autoharp-burst", c -> play(c, 0, BURSTS, true, true, 0, null));
         MenuSuite.test(s, "1122-autoharp-ping150", c -> play(c, 150, "[]", true, true, 0, null));
         MenuSuite.test(s, "1122-autoharp-ping300", c -> play(c, 300, "[]", true, true, 0, null));
+        MenuSuite.test(s, "1122-autoharp-ping320", c -> play(c, 320, "[]", true, true, 0, null));
     }
 
     static JsonObject spec(int pingMs, String stalls) {
