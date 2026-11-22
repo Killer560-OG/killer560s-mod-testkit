@@ -328,7 +328,7 @@ public final class Scenario {
     public static void run(ClientGameTestContext ctx, String name,
                            BiConsumer<TestServer, Scenario> build,
                            BiConsumer<TestServer, Scenario> body) {
-        runInternal(ctx, name, build, body, false);
+        runInternal(ctx, name, build, body, false, false);
     }
 
     /**
@@ -342,12 +342,24 @@ public final class Scenario {
     public static void runExpectingFlags(ClientGameTestContext ctx, String name,
                                          BiConsumer<TestServer, Scenario> build,
                                          BiConsumer<TestServer, Scenario> body) {
-        runInternal(ctx, name, build, body, true);
+        runInternal(ctx, name, build, body, true, false);
+    }
+
+    /**
+     * Like {@link #runExpectingFlags}, but the body JUDGES every GrimAC line itself (a reasoned owner exception such as the
+     * measured lag-spike TimerLimit) and throws on any other, so reaching the end is a PASS row, not FLAGGED. A FLAGGED row
+     * reads as a flag to a finish script and as no verdict to the ship lane (ticksplit-nowork-1121: ten clean 1111-mwtick
+     * rows with "0 line(s)" were taken for flags).
+     */
+    public static void runJudgingOwnFlags(ClientGameTestContext ctx, String name,
+                                          BiConsumer<TestServer, Scenario> build,
+                                          BiConsumer<TestServer, Scenario> body) {
+        runInternal(ctx, name, build, body, true, true);
     }
 
     private static void runInternal(ClientGameTestContext ctx, String name,
                                     BiConsumer<TestServer, Scenario> build,
-                                    BiConsumer<TestServer, Scenario> body, boolean expectFlags) {
+                                    BiConsumer<TestServer, Scenario> body, boolean expectFlags, boolean selfJudged) {
         if (skip(name)) {
             return;
         }
@@ -372,7 +384,9 @@ public final class Scenario {
                 ChatWatch.clear();
                 body.accept(server, scenario);
                 String verdict;
-                if (expectFlags) {
+                if (selfJudged) {
+                    verdict = "judged by the case; " + scenario.flags().size() + " GrimAC line(s) since the last mark";
+                } else if (expectFlags) {
                     verdict = "flags expected; " + scenario.flags().size() + " line(s) since the last mark";
                 } else {
                     ctx.waitTicks(20);      // let a late verbose line land before looking
@@ -380,7 +394,7 @@ public final class Scenario {
                     verdict = anticheatMuted() ? "no anticheat (-Pnogrim)" : "clean";
                 }
                 SuiteVerdict.finished(name);
-                scenario.report(expectFlags ? "FLAGGED" : "PASS", verdict, "", logMark);
+                scenario.report(expectFlags && !selfJudged ? "FLAGGED" : "PASS", verdict, "", logMark);
             }
         } catch (RuntimeException | Error t) {
             scenario.report("FAIL", "", t.getClass().getSimpleName() + ": " + t.getMessage(), logMark);
