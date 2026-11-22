@@ -172,9 +172,9 @@ final class SimonSaysCases {
         arriveAt(c, 107.5, 120.0, 93.5, -90f, 0f);
     }
 
-    /** {@link #tpToDevice}'s arrival at any spot standing on a full block (y a whole number). */
+    /** {@link #tpToDevice}'s arrival at any spot where the body rests at y (a full block below, or a lower shape such as 124.375). */
     static void arriveAt(Session c, double x, double y, double z, float yaw, float pitch) {
-        BlockPos floor = BlockPos.containing(x, y - 1, z);
+        BlockPos floor = BlockPos.containing(x, y - 0.01, z);
         c.hx().call("dungeon.fly", "on", true);
         c.hx().call("dungeon.tp", "x", x, "y", y, "z", z, "yaw", yaw, "pitch", pitch);
         int[] still = {0, 0};
