@@ -53,6 +53,7 @@ final class TrackerCases {
         MenuSuite.test(s, "734-menu-exp-tab-profit-row", TrackerCases::tab);
         MenuSuite.test(s, "735-menu-exp-superpairs-escape", TrackerCases::superpairsEscape);
         MenuSuite.test(s, "736-menu-rng-late-rewards", TrackerCases::rngLate);
+        MenuSuite.test(s, "737-menu-rng-pulse-value", TrackerCases::rngPulseValue);
     }
 
     // ---- helpers ---------------------------------------------------------------------------------------------------
@@ -571,5 +572,16 @@ final class TrackerCases {
             MenuKit.reset(c);
             c.ctx().runOnClient(mc -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas));
         }
+    }
+
+    /** rngpulse-1119: the best-slot pulse spans 0..1 once a second, and every reward tooltip carries a Value line. */
+    static void rngPulseValue(Session c) throws Exception {
+        double hi = c.onClient(mc -> ((Number) Mod.staticCall("rngmeter.RngMeterOverlay", "pulse", 250L)).doubleValue());
+        double lo = c.onClient(mc -> ((Number) Mod.staticCall("rngmeter.RngMeterOverlay", "pulse", 750L)).doubleValue());
+        double again = c.onClient(mc -> ((Number) Mod.staticCall("rngmeter.RngMeterOverlay", "pulse", 1250L)).doubleValue());
+        c.check(hi > 0.99 && lo < 0.01 && Math.abs(hi - again) < 1e-6, "pulse: 250ms=" + hi + " 750ms=" + lo + " 1250ms=" + again);
+        String line = c.onClient(mc -> (String) Mod.staticCall("rngmeter.RngMeterOverlay", "buildValueLine", "Testkit Unpriced Thing", 150000L));
+        c.note("value line: " + line);
+        c.check(line != null && line.contains("Value: unknown"), "unpriced item should read Value: unknown: " + line);
     }
 }

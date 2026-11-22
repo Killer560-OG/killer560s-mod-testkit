@@ -49,11 +49,13 @@ final class HxLuck1102Cases {
         s.test("1102-luck-mobkill", HxLuck1102Cases::mobKill);
         s.test("1102-luck-slayerlevel", HxLuck1102Cases::slayerLevel);
         s.test("1102-luck-meter", HxLuck1102Cases::meter);
+        s.test("1118-rngrank-double", HxLuck1102Cases::rankDouble);
         s.test("1102-luck-kuudra", HxLuck1102Cases::kuudra);
         s.test("1102-luck-nucleus", HxLuck1102Cases::nucleus);
         s.test("1102-luck-experiment", HxLuck1102Cases::experiment);
         s.test("1102-luck-unknownfloor", HxLuck1102Cases::unknownFloor);
         s.test("1116-luck-bigstack", HxLuck1102Cases::bigStack);
+        s.test("1121-luck-announce-row", HxLuck1102Cases::announceRow);
     }
 
     // ---- helpers -------------------------------------------------------------------------------------------------
@@ -337,6 +339,79 @@ final class HxLuck1102Cases {
         }
     }
 
+    // ---- 1118-rngrank-double: the ranking panel is one picture in the HUD editor ------------------------------------
+
+    private static final String RNG = "com.killer560.hub.rngmeter.RngMeterOverlay";
+
+    private static int[] draws() throws ReflectiveOperationException {
+        Class<?> k = Class.forName(RNG);
+        return new int[]{k.getField("liveDraws").getInt(null), k.getField("editorDraws").getInt(null)};
+    }
+
+    private static int[] drawsOver(Session c, int ticks) {
+        int[] a = c.onClient(mc -> { try { return draws(); } catch (ReflectiveOperationException e) { throw new AssertionError(e); } });
+        c.ctx().waitTicks(ticks);
+        int[] b = c.onClient(mc -> { try { return draws(); } catch (ReflectiveOperationException e) { throw new AssertionError(e); } });
+        return new int[]{b[0] - a[0], b[1] - a[1]};
+    }
+
+    private static void rankDouble(Session c) {
+        boolean rngWas = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg("rngmeter.RngMeterConfig"), "isEnabled"));
+        c.ctx().runOnClient(mc -> Mod.set("rngmeter.RngMeterConfig", "setEnabled", true));
+        try {
+            skyblock(c);
+            c.hx().menu("(2/2) Experimentation Table RNG", 6, Map.of(
+                    4, "minecraft:rotten_flesh[custom_name={text:\"Experimentation Table RNG Meter\",italic:false},lore=["
+                            + "\"Selected Drop\",\"Warden Heart\",\"\",\"Progress: 42.0%\",\"4,200/10,000\"]]",
+                    10, "minecraft:diamond[custom_name={text:\"Titanic Experience Bottle\",italic:false},lore=[\"Score: 100/1,000\"]]",
+                    11, "minecraft:emerald[custom_name={text:\"Grand Experience Bottle\",italic:false},lore=[\"Score: 200/2,000\"]]"),
+                    null);
+            c.ctx().waitTicks(30);
+            int[] menuOnly = drawsOver(c, 20);
+            c.note("menu only: live " + menuOnly[0] + ", editor " + menuOnly[1]);
+            c.check(menuOnly[0] > 0 && menuOnly[1] == 0, "menu alone must draw the live panel (" + menuOnly[0] + ") and not the editor's (" + menuOnly[1] + ")");
+            c.ctx().runOnClient(mc -> {
+                try {
+                    net.minecraft.client.gui.screens.Screen editor = (net.minecraft.client.gui.screens.Screen) Class.forName("com.killer560.hub.hud.HudEditorScreen")
+                            .getConstructor(net.minecraft.client.gui.screens.Screen.class).newInstance((Object) McCompat.screen(mc));
+                    McCompat.setScreen(mc, editor);
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+            });
+            c.ctx().waitTicks(10);
+            int[] both = drawsOver(c, 20);
+            c.note("editor over menu: live " + both[0] + ", editor " + both[1]);
+            c.check(both[0] == 0, "the live panel drew " + both[0] + " times under the editor: two panels on top of each other");
+            c.check(both[1] > 0, "the editor drew no ranking panel over the open RNG menu");
+            try {
+                java.nio.file.Path shot = c.ctx().takeScreenshot(dev.testkit.harness.Report.fileName(c.name() + "-editor-over-menu"));
+                dev.testkit.harness.Report.screenshot(c.name() + "-editor-over-menu", shot);
+            } catch (Exception e) {
+                c.note("screenshot failed: " + e);
+            }
+            c.hx().call("menu.close");
+            c.ctx().runOnClient(mc -> McCompat.setScreen(mc, null));
+            c.ctx().waitTicks(10);
+            // The editor with no menu: sample rows, drawn once, and the live panel not at all.
+            c.ctx().runOnClient(mc -> {
+                try {
+                    McCompat.setScreen(mc, (net.minecraft.client.gui.screens.Screen) Class.forName("com.killer560.hub.hud.HudEditorScreen")
+                            .getConstructor(net.minecraft.client.gui.screens.Screen.class).newInstance((Object) null));
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError(e);
+                }
+            });
+            c.ctx().waitTicks(10);
+            int[] editorOnly = drawsOver(c, 20);
+            c.note("editor, no menu: live " + editorOnly[0] + ", editor " + editorOnly[1]);
+            c.check(editorOnly[0] == 0 && editorOnly[1] > 0, "live panel drew with no menu: " + editorOnly[0] + ", editor drew " + editorOnly[1]);
+        } finally {
+            c.ctx().runOnClient(mc -> McCompat.setScreen(mc, null));
+            c.ctx().runOnClient(mc -> Mod.set("rngmeter.RngMeterConfig", "setEnabled", rngWas));
+        }
+    }
+
     // ---- 1102-luck-kuudra ---------------------------------------------------------------------------------------
 
     private static String paidChest(String key) {
@@ -556,5 +631,42 @@ final class HxLuck1102Cases {
         c.check(got(c, "chest:Unknown:Bedrock|Enchanted Book (Ultimate Wise II)") >= 1, "its book was not listed");
         c.check(expected(c, "chest:Unknown:Bedrock|Enchanted Book (Ultimate Wise II)") == 0,
                 "an Unknown-floor claim got an expectation");
+    }
+
+    /**
+     * 1121-luck-announce-row (gamefreeze-1121): the drop announce reads ONE row (LuckStore.row) instead of rebuilding every
+     * row, which took 44-96 ms on his client thread after each counted drop. Every row row() gives must equal the one
+     * rows() gives, field by field, and a drop must still move its row's got count.
+     */
+    private static void announceRow(Session c) {
+        skyblock(c);
+        String key = "mob:Zealot|Enchanted Ender Pearl";
+        long got0 = got(c, key);
+        c.onClient(mc -> Mod.staticCall(LS, "drop", key, 1, "chat", 100));
+        Object odds = c.onClient(mc -> Mod.enumValue(CFG + "$ChestOdds", "BASE"));
+        String result = c.onClient(mc -> {
+            @SuppressWarnings("unchecked")
+            List<Object> rows = (List<Object>) Mod.staticCall(LS, "rows", null, odds, false);
+            int compared = 0;
+            for (Object r : rows) {
+                String k = (String) Mod.call(r, "key");
+                Object one = Mod.staticCall(LS, "row", null, k, odds, false);
+                if (one == null) {
+                    return "row() gave null for " + k;
+                }
+                for (String f : new String[] {"name", "activity", "attempts", "expected", "expectedBase", "got"}) {
+                    if (!java.util.Objects.equals(Mod.call(r, f), Mod.call(one, f))) {
+                        return k + " " + f + ": rows " + Mod.call(r, f) + " row " + Mod.call(one, f);
+                    }
+                }
+                compared++;
+            }
+            return compared > 0 ? "ok " + compared : "no rows";
+        });
+        c.note("rows compared: " + result);
+        c.check(result.startsWith("ok"), result);
+        c.check(got(c, key) == got0 + 1, "the drop did not count (got " + got(c, key) + ", was " + got0 + ")");
+        Object one = c.onClient(mc -> Mod.staticCall(LS, "row", null, key, odds, false));
+        c.check(one != null && ((Number) Mod.call(one, "got")).longValue() == got0 + 1, "row() did not see the drop");
     }
 }

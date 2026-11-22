@@ -23,6 +23,7 @@
     "Auto GFS",
     "Auto Kick",
     "Auto Mask",
+    "Auto Melody's Harp",
     "Auto Meow",
     "Auto Puzzles",
     "Auto Routes",
@@ -63,8 +64,8 @@
     "Dungeon",
     "Dungeon Alerts",
     "Dungeon Breaker",
-    "Dungeon ESP",
     "Dungeon Map",
+    "Dungeon Mob Highlight",
     "Dungeon Queue",
     "Enchants",
     "Etherwarp Overlay",
@@ -105,6 +106,7 @@
     "Map, Leap & Party",
     "Mask Invincibility",
     "Maxor's Crystals",
+    "Melody's Harp Helper",
     "Mod & HUD",
     "Mod Chat",
     "Motion Blur",
@@ -193,6 +195,7 @@
     "gui.tab.AutoExperimentsTab": "Helpers > Auto Experimentation Table",
     "gui.tab.AutoFairySoulsTab": "Helpers > Auto Fairy Souls",
     "gui.tab.AutoGfsTab": "Items > Auto GFS",
+    "gui.tab.AutoHarpTab": "Items > Auto Melody's Harp",
     "gui.tab.AutoKickTab": "Dungeon > Map, Leap & Party > Auto Kick",
     "gui.tab.AutoMaskTab": "Dungeon > Auto Mask",
     "gui.tab.AutoMeowTab": "Chat > Auto Meow",
@@ -248,6 +251,7 @@
     "gui.tab.GeneralMainTab": "General > General",
     "gui.tab.GifPlayerTab": "Hud Elements > GIF Player",
     "gui.tab.GoldorTriggerbotTab": "Dungeon > Timers, Score & Boss > Goldor Triggerbot",
+    "gui.tab.HarpHelperTab": "Items > Melody's Harp Helper",
     "gui.tab.HealthAndManaBarsTab": "Hud Elements > Health and Mana Bars",
     "gui.tab.HideChatMessagesTab": "Chat > Hide Chat Messages",
     "gui.tab.HidePlayersTab": "Hud Elements > Hide Players",
@@ -273,7 +277,7 @@
     "gui.tab.LoadoutKeybindsTab": "Items > Loadout Keybinds",
     "gui.tab.MaskInvincibilityTab": "Dungeon > Mask Invincibility",
     "gui.tab.MaxorTab": "Dungeon > Timers, Score & Boss > Maxor's Crystals",
-    "gui.tab.MobEspTab": "Dungeon > Timers, Score & Boss > Dungeon ESP",
+    "gui.tab.MobEspTab": "Dungeon > Timers, Score & Boss > Dungeon Mob Highlight",
     "gui.tab.ModChatTab": "Chat > Mod Chat",
     "gui.tab.MotionBlurTab": "Display > Motion Blur",
     "gui.tab.NickhiderTab": "Social > Nickhider",
@@ -359,6 +363,7 @@
       "auto fairy souls": "Cheat build: walks the island route and clicks each Fairy Soul for you.",
       "auto gfs": "Runs /gfs to refill dungeon items from your sacks when you run low (cheat build only).",
       "auto mask": "Cheat build: puts on your next death item (Phoenix, then the mask in Order) after Storm dies.",
+      "auto melody's harp": "Plays any song you open in Melody's Harp by itself, to the end (cheat build only).",
       "auto meow": "Replies with a random cat line when a chat message says meow, purr, nya or mew.",
       "auto puzzles": "Cheat build only. Solves dungeon puzzle rooms for you; each puzzle's solver must also be on.",
       "auto routes": "Cheat build: records what you do in a dungeon room and replays it when you land on its start node.",
@@ -612,6 +617,9 @@
       "auto kick": "While you queue in Party Finder, warns about or kicks a joiner whose S+ time on the floor is slower than its limit.",
       "kicks (or warns) once a floor's target time is missed - off until every per-floor target below is set.": ""
     },
+    "Auto Melody's Harp": {
+      "auto melody's harp": "Plays any song you open in Melody's Harp by itself, to the end (cheat build only)."
+    },
     "Auto Mask": {
       "turn on mask invincibility in its own section to use this.": ""
     },
@@ -821,7 +829,7 @@
       "room alerts": "Plays a sound when a dungeon room is cleared or all its secrets are found.",
       "shadow assassin alert": "Shows a title and plays a sound when a Shadow Assassin teleports behind you."
     },
-    "Dungeon ESP": {
+    "Dungeon Mob Highlight": {
       "bats": "Highlights secret bats during dungeon clear.",
       "blood mobs": "Highlights the Watcher's blood mobs (red by default) for as long as they live, even if they walk out of the Blood Room.",
       "color": "Color of the boxes or glow for this row's target.",
@@ -1135,6 +1143,7 @@
     },
     "Object Hider": {
       "archer passive": "Hides the spinning bone meal items the archer passive drops.",
+      "arrow particles": "Hides the particles arrows make: the crit trail, the tipped-arrow swirl and the bubbles in water.",
       "blindness effect": "Removes the blindness effect so P3 blind doesn't black out your screen.",
       "block break particles": "Hides the block-crack particles from breaking or hitting blocks.",
       "boss damage splash": "Hides the floating damage numbers in the boss room.",
@@ -1252,6 +1261,7 @@
     },
     "RNG Meter Overlay": {
       "bazaar pricing": "Chooses whether RNG Meter rewards use Bazaar Instant Buy or Instant Sell prices.",
+      "highlight best": "Marks the slot of the best reward on the open RNG Meter page: the most coins per meter point, the same number the ranking shows. Rewards with no price are never picked.",
       "last refresh error": "",
       "minutes": "Minutes to wait between automatic Bazaar and AH price refreshes (minimum 1).",
       "refresh now": "Fetches fresh Bazaar and AH lowest-BIN prices right away.",
@@ -1462,7 +1472,7 @@
       "croesus / chest profit": "Shows what each dungeon reward chest is worth, logs your claims, and (cheat build) claims the best chest.",
       "custom mage beam": "In dungeons, redraws every Mage beam as one clean colored line.",
       "dungeon alerts": "",
-      "dungeon esp": "Boxes starred mobs, secret bats and the F7/M7 wither bosses.",
+      "dungeon mob highlight": "Boxes starred mobs, secret bats and the F7/M7 wither bosses.",
       "f7 spots": "",
       "goldor triggerbot": "Cheat build: in F7/M7 P3, clicks Goldor while your crosshair is on him.",
       "maxor's crystals": "Phase 1 crystal helpers: timers, an unplaced-crystal warning, a counter and crystal boxes.",
@@ -1520,6 +1530,9 @@
     "Wither Dragons": {
       "king relics": "Helpers for the M7 Phase 5 relics: spawn countdown, cauldron highlight and placement times.",
       "wither dragons": "Tracks the five M7 Phase 5 dragons with spawn timers, health and which one your class should take."
+    },
+    "Melody's Harp Helper": {
+      "melody's harp helper": "Helpers for Melody's Harp: keys for the notes, a GUI scale, a progress tracker, key labels, hidden tooltips and Quick Restart. Off by default."
     }
   }
 }

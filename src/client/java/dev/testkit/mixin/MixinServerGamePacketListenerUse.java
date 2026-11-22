@@ -1,5 +1,6 @@
 package dev.testkit.mixin;
 
+import dev.testkit.harness.FreshSneakEye;
 import dev.testkit.harness.HypixelUseAfterClick;
 
 import net.minecraft.network.protocol.game.ServerboundClientTickEndPacket;
@@ -27,6 +28,17 @@ public abstract class MixinServerGamePacketListenerUse {
         if (HypixelUseAfterClick.enabled && self.player != null && self.player.level().getServer().isSameThread()) {
             HypixelUseAfterClick.onUseItemOn(self.player, packet);
         }
+        if (FreshSneakEye.enabled && self.player != null && self.player.level().getServer().isSameThread()) {
+            FreshSneakEye.before(self.player);
+        }
+    }
+
+    @Inject(method = "handleUseItemOn", at = @At("RETURN"))
+    private void testkit$clickDone(ServerboundUseItemOnPacket packet, CallbackInfo ci) {
+        ServerGamePacketListenerImpl self = (ServerGamePacketListenerImpl) (Object) this;
+        if (self.player != null && self.player.level().getServer().isSameThread()) {
+            FreshSneakEye.after(self.player);
+        }
     }
 
     /** {@code public void handleClientTickEnd(ServerboundClientTickEndPacket)} (javap 26.1.2 and 26.2): the end of the
@@ -37,15 +49,36 @@ public abstract class MixinServerGamePacketListenerUse {
         if (HypixelUseAfterClick.enabled && self.player != null && self.player.level().getServer().isSameThread()) {
             HypixelUseAfterClick.onMove();
         }
+        if (FreshSneakEye.enabled && self.player != null && self.player.level().getServer().isSameThread()) {
+            FreshSneakEye.onTickEnd(self.player);
+        }
     }
 
     @Inject(method = "handleUseItem", at = @At("HEAD"), cancellable = true)
     private void testkit$dropUse(ServerboundUseItemPacket packet, CallbackInfo ci) {
         ServerGamePacketListenerImpl self = (ServerGamePacketListenerImpl) (Object) this;
+        if (dev.testkit.harness.WarpDrop.dropAt >= 0 && self.player != null && self.player.level().getServer().isSameThread()
+                && dev.testkit.harness.WarpDrop.drop(self.player)) {
+            self.ackBlockChangesUpTo(dev.testkit.compat.McPackets.useItemSequence(packet));
+            ci.cancel();
+            return;
+        }
         if (HypixelUseAfterClick.enabled && self.player != null && self.player.level().getServer().isSameThread()
                 && HypixelUseAfterClick.dropUse(self.player, packet)) {
             self.ackBlockChangesUpTo(dev.testkit.compat.McPackets.useItemSequence(packet));
             ci.cancel();
+            return;
+        }
+        if (FreshSneakEye.enabled && self.player != null && self.player.level().getServer().isSameThread()) {
+            FreshSneakEye.before(self.player);
+        }
+    }
+
+    @Inject(method = "handleUseItem", at = @At("RETURN"))
+    private void testkit$useDone(ServerboundUseItemPacket packet, CallbackInfo ci) {
+        ServerGamePacketListenerImpl self = (ServerGamePacketListenerImpl) (Object) this;
+        if (self.player != null && self.player.level().getServer().isSameThread()) {
+            FreshSneakEye.after(self.player);
         }
     }
 }

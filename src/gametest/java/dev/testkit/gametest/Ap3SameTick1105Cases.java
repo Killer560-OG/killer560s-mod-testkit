@@ -176,17 +176,18 @@ final class Ap3SameTick1105Cases {
             };
             c.note("server saw the node act " + acted.size() + " time(s)");
             c.note("server events " + c.hx().events(since, "held", "use_block", "use_item").stream().map(e -> e.get("type") + ":" + (e.has("item") ? e.get("item") : e.has("slot") ? e.get("slot") : "") + "@" + e.get("tick")).toList());
-            // A TP case also runs again when the node fired in a tick without his teleport accept: which tick it fires in is
-            // timing luck (the test's /tp lands every other tick), 1 of 3 runs on the origin jar and on chatnow alike.
-            if ((acted.isEmpty() || (act == SameTick.Act.TP && done.both() == 0)) && !last) {
+            // A TP case runs again when the server dropped the node's use (a newer /tp was in flight); a shared tick is the verdict's failure.
+            if (acted.isEmpty() && !last) {
                 return false;
             }
             // A USE node leaves him on its wand, so his own right clicks after it are wand uses too.
             boolean onWand = type.equals("USE") && act == SameTick.Act.USE_KEY;
             c.check(onWand ? !acted.isEmpty() : acted.size() == 1, type + ": the server saw the node act " + acted.size()
                     + " time(s), not once");
-            // His right click comes first in a tick, so the node's hotbar change waits for the next one (PacketOrderE).
-            String why = done.verdict(type, act == SameTick.Act.USE_KEY || act == SameTick.Act.DIG);
+            // His right click comes first in a tick, so the node's hotbar change waits for the next one (PacketOrderE); ActionGate
+            // keeps one quiet tick after any server position packet, so a node click never rides beside the teleport accept
+            // (flaghunt-1110 B: RotationPlace) and a TP case's two go out apart.
+            String why = done.verdict(type, act == SameTick.Act.USE_KEY || act == SameTick.Act.DIG || act == SameTick.Act.TP);
             c.check(why == null, why);
             return true;
         } finally {

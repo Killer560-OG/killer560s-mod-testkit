@@ -39,11 +39,15 @@ final class BossAuraTurnCases {
             return;
         }
         s.test("1110-boss-turnfirst-grimreach", BossAuraTurnCases::grimReach);
+        HidePlayers1119Cases.register(s);
         LeverBest1112Cases.register(s);
         s.test("421-boss-leveraura-behind", BossAuraTurnCases::leverBehind);
         s.test("422-boss-ss-autosolve-norotate-behind", c -> simonAuto(c, 90f, 21));
         s.test("423-boss-ss-autosolve-norotate-front", c -> simonAuto(c, -90f, 22));
         s.test("1109-boss-ss-auto-only", c -> simonAuto(c, -90f, 23, true));
+        // flake-ss-1120: the client frozen through whole reveals (rounds 2 and 3), as a loaded test PC does; the server's
+        // lights then reach the client as one backlog, and a per-tick poll saw none of them (stuck in INPUT).
+        s.test("1120-boss-ss-auto-freeze", c -> simonAuto(c, -90f, 23, true, 2000));
         s.test("1109-boss-lever-cooldown", BossAuraTurnCases::leverCooldown);
         s.test("1109-boss-lever-cps-migrates", BossAuraTurnCases::leverMigrate);
         // (no use-key act: his right click on the lever flicks it himself, the Aura then has nothing to do)
@@ -404,6 +408,11 @@ final class BossAuraTurnCases {
 
     /** {@code only}: Auto Simon Says alone (2026-11-09): the solver, number overlay, party tracker and the Simon Says switch OFF. */
     static void simonAuto(Session c, float yaw, int seed, boolean only) throws Exception {
+        simonAuto(c, yaw, seed, only, 0);
+    }
+
+    /** {@code freezeMs} above 0: the client thread sleeps that long as rounds 2 and 3 begin their reveal. */
+    static void simonAuto(Session c, float yaw, int seed, boolean only, int freezeMs) throws Exception {
         String cfg = SimonSaysCases.CONFIG;
         List<AutoCloseable> undo = new ArrayList<>();
         try {
@@ -437,6 +446,27 @@ final class BossAuraTurnCases {
             float[] cam = start(c);
             boolean[] done = {false};
             try {
+                for (int round = 2; freezeMs > 0 && round <= 3; round++) {
+                    int r = round;
+                    c.waitUntil("round " + r + "'s reveal to begin (Hx)", mc -> {
+                        JsonObject st = SimonSaysCases.state(c);
+                        return st.get("round").getAsInt() == r && "REVEAL".equals(st.get("phase").getAsString());
+                    }, 600);
+                    long t0 = System.nanoTime();
+                    c.ctx().runOnClient(mc -> {
+                        try {
+                            Thread.sleep(freezeMs);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    });
+                    JsonObject after = SimonSaysCases.state(c);
+                    c.note(String.format(Locale.ROOT, "froze the client %d ms at round %d's reveal; the server is now at %s round %d",
+                            (System.nanoTime() - t0) / 1_000_000, r, after.get("phase").getAsString(), after.get("round").getAsInt()));
+                    // The freeze must have covered the whole reveal, or this case proves nothing.
+                    c.check(after.get("round").getAsInt() > r || !"REVEAL".equals(after.get("phase").getAsString()),
+                            "the freeze ended inside round " + r + "'s reveal: " + after);
+                }
                 c.waitUntil("ss.completed (Hx) with Auto Solve playing", mc -> {
                     track(mc, cam);
                     return !c.events("ss.completed").isEmpty();

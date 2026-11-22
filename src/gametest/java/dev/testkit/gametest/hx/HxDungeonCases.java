@@ -34,10 +34,14 @@ final class HxDungeonCases {
         runStats(s);
         runSummary(s);
         runSummaryPb(s);
+        runSummaryStart(s);
+        shareSite(s);
+        shareSiteNotice(s);
         rngMeter(s);
         blessings(s);
         classColors(s);
         dungeonQueue(s);
+        dungeonQueueNotCreator(s);
         autoKick(s);
         doorKeys(s);
         architect(s);
@@ -219,25 +223,15 @@ final class HxDungeonCases {
                 dungeon(c);
                 run(c, () -> Mod.staticCall("runstats.RunStatsTracker", "resetRun"));
                 run(c, () -> Mod.setField("runstats.RunStatsFeature", "summarisedThisRun", true));
-                String me = c.onClient(mc -> mc.player.getGameProfile().name().toLowerCase(java.util.Locale.ROOT));
-                Map<String, Long> before = c.onClient(mc -> (Map<String, Long>) Mod.field("runstats.RunStatsTracker", "SECRETS_BEFORE"));
-                Map<String, Long> afterMap = c.onClient(mc -> (Map<String, Long>) Mod.field("runstats.RunStatsTracker", "SECRETS_AFTER"));
-                before.put(me, 100L);
-                afterMap.put(me, 103L);
-                c.check(((Number) c.onClient(mc -> Mod.staticCall("runstats.RunStatsTracker", "teamSecrets"))).intValue() == -1,
-                        "premise: a team total before the Stats block");
-                send(c, "chat.team-secrets-found");
-                c.waitUntil("RunStatsTracker.teamSecrets() == 8",
-                        mc -> ((Number) Mod.staticCall("runstats.RunStatsTracker", "teamSecrets")).intValue() == 8, 40);
-                c.check(c.onClient(mc -> (Boolean) Mod.staticCall("runstats.RunStatsTracker", "secretsPending")),
-                        "deltas 3 of a team 8 were not pending (the API still lags the run)");
-                afterMap.put(me, 108L);
-                c.check(!c.onClient(mc -> (Boolean) Mod.staticCall("runstats.RunStatsTracker", "secretsPending")),
-                        "deltas 8 of a team 8 were still pending");
+                Object sr = c.onClient(mc -> Mod.staticCall("runstats.RunStatsTracker", "secretRun"));
+                c.check(((Number) c.onClient(mc -> Mod.call(sr, "own"))).intValue() == -1, "premise: an own count before the Stats block");
+                send(c, "chat.own-secrets-found");
+                c.waitUntil("the Stats block's Secrets Found (8) is the player's own count",
+                        mc -> ((Number) Mod.call(sr, "own")).intValue() == 8, 40);
                 List<?> rows = c.onClient(mc -> (List<?>) Mod.staticCall("runstats.RunStatsTracker", "buildRows", mc));
                 int secrets = ((Number) Mod.call(rows.get(0), "secrets")).intValue();
-                c.check(secrets == 8, "the player's row read " + secrets + " secrets, expected 108 - 100");
-                c.note("team total 8 read from the Stats line; 3/8 pending, 8/8 settled, row secrets " + secrets);
+                c.check(secrets == 8, "the player's row read " + secrets + " secrets, expected the exact 8 from the Stats block");
+                c.note("Stats block 'Secrets Found: 8' -> own count 8, row secrets " + secrets + " (no API read)");
             }
         });
     }
@@ -274,6 +268,112 @@ final class HxDungeonCases {
         });
     }
 
+    // ---- 1119 Share To Website (mod sharesite-1119) --------------------------------------------------------
+
+    private static final String SHARE = dev.testkit.gametest.logic.ShareSiteCases.FEATURE;
+
+    /** One run through the real chat path with Run Summary OFF and sharing ON: Defeated, EXTRA STATS, the Stats block's
+     *  own "Secrets Found: 8" and the Team Score; the run is moved back 5 minutes so it is long enough to count. */
+    private static void shareRun(Session c, boolean sharing) {
+        run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
+        send(c, "chat.run-start");
+        if (sharing) {
+            c.waitUntil("a run is tracked with only sharing on",
+                    mc -> (Boolean) Mod.staticCall("runsummary.RunSummaryFeature", "isTrackingRun"), 40);
+        } else {
+            c.ctx().waitTicks(10); // both OFF: nothing should track (checked after the run)
+        }
+        run(c, () -> Mod.setField("runsummary.RunSummaryFeature", "runStartMs", System.currentTimeMillis() - 300_000L));
+        run(c, () -> Mod.staticCall("splittimers.TerminalTimersFeature", "onTerminalClosed", "Panes", 4.25));
+        c.hx().chat(c.onClient(mc -> mc.player.getName().getString()) + " activated a terminal! (1/7)");
+        c.ctx().waitTicks(5);
+        c.hx().chat("                  ☠ Defeated Necron in 05m 00s");
+        send(c, "chat.extra-stats");
+        send(c, "chat.own-secrets-found");
+        c.hx().chat("             Team Score: 300 (S+)");
+    }
+
+    private static void shareSite(Session s) {
+        s.test("1119-hx-sharesite-run", c -> {
+            int stored = c.onClient(mc -> ((Number) Mod.staticCall(PB_STORE, "size")).intValue());
+            try (Settings set = new Settings(c).with("runsummary.RunSummaryConfig", "Enabled", false);
+                 dev.testkit.gametest.logic.ShareSiteCases.Stub stub = new dev.testkit.gametest.logic.ShareSiteCases.Stub()) {
+                run(c, () -> Mod.staticCall(SHARE, "setEnabled", true));
+                run(c, () -> Mod.staticCall(SHARE, "boardsAnyHostForTest", true));
+                dungeon(c);
+                c.waitUntil("no delete waiting", mc -> !dev.testkit.gametest.logic.ShareSiteCases.pendingDelete(), 100);
+                stub.calls.clear();
+                stub.bodies.clear();
+                shareRun(c, true);
+                c.waitUntil("POST /site/stats reached the relay", mc -> stub.count("POST /site/stats Bearer "
+                        + dev.testkit.gametest.logic.ShareSiteCases.TOKEN) == 1, 400);
+                // modlb5-1120: the same run, with Run Summary OFF, also reaches the website's F7 board (three players on the tab: not solo).
+                c.waitUntil("the F7 board upload reached the relay", mc -> stub.count("POST /site/leaderboards/mod-entry Bearer "
+                        + dev.testkit.gametest.logic.ShareSiteCases.TOKEN) == 1, 400);
+                JsonObject board = stub.bodies.stream().filter(b -> b.has("cat")).findFirst().orElseThrow();
+                c.check("f7".equals(board.get("cat").getAsString()) && board.get("ms").getAsLong() >= 299_000L && board.get("ms").getAsLong() <= 310_000L
+                        && board.get("team").getAsInt() == 3 && "F7".equals(board.get("floor").getAsString()), "board upload " + board);
+                JsonObject body = stub.bodies.stream().filter(b -> b.has("runs")).findFirst().orElseThrow();
+                JsonObject r = body.getAsJsonArray("runs").get(0).getAsJsonObject();
+                long ms = r.get("ms").getAsLong();
+                c.check(body.getAsJsonArray("runs").size() == 1 && "F7".equals(r.get("floor").getAsString()), "runs " + body);
+                c.check(ms >= 299_000L && ms <= 310_000L, "run time " + ms + " ms, expected about 300000: " + body);
+                c.check(r.get("done").getAsBoolean(), "the beaten boss was not sent as done: " + body);
+                c.check(r.get("secrets").getAsInt() == 8, "own secrets " + r.get("secrets") + ", expected the Stats block's 8");
+                JsonArray terms = body.getAsJsonArray("terms");
+                c.check(terms != null && terms.size() == 1 && "Panes".equals(terms.get(0).getAsJsonObject().get("type").getAsString())
+                        && terms.get(0).getAsJsonObject().get("ms").getAsLong() == 4250L, "terminal solves " + terms);
+                c.check(!body.toString().contains(c.onClient(mc -> mc.player.getName().getString())),
+                        "the upload names the player (the relay takes the name from the token): " + body);
+                int after = c.onClient(mc -> ((Number) Mod.staticCall(PB_STORE, "size")).intValue());
+                c.check(after == stored, "Run Summary OFF but the run went into Run History (" + stored + " -> " + after + ")");
+
+                run(c, () -> Mod.staticCall(SHARE, "setEnabled", false));
+                c.waitUntil("DELETE /site/stats after OFF", mc -> stub.count("DELETE /site/stats Bearer "
+                        + dev.testkit.gametest.logic.ShareSiteCases.TOKEN) == 1, 200);
+                shareRun(c, false);
+                c.ctx().waitTicks(60);
+                c.check(stub.count("POST") == 2, "a run while OFF was uploaded: " + stub.calls);
+                c.check(c.onClient(mc -> !(Boolean) Mod.staticCall("runsummary.RunSummaryFeature", "isTrackingRun")),
+                        "with Run Summary and sharing both OFF a run was still tracked");
+                c.note("upload " + body + "; OFF -> " + stub.calls);
+            } finally {
+                run(c, () -> Mod.staticCall(SHARE, "boardsAnyHostForTest", false));
+                run(c, () -> Mod.staticCall(SHARE, "setEnabled", true));
+                run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
+                run(c, () -> Mod.setField("runsummary.RunSummaryFeature", "finishDelayTicks", -1));
+            }
+        });
+    }
+
+    /** The notice not shown yet (a player who finished the tour before Share To Website): a finished run uploads nothing and
+     *  nothing is buffered; after the notice is answered the next run uploads. */
+    private static void shareSiteNotice(Session s) {
+        s.test("1119-hx-sharesite-notice", c -> {
+            try (Settings set = new Settings(c).with("runsummary.RunSummaryConfig", "Enabled", false);
+                 dev.testkit.gametest.logic.ShareSiteCases.Stub stub = new dev.testkit.gametest.logic.ShareSiteCases.Stub()) {
+                run(c, () -> Mod.staticCall(SHARE, "setEnabled", true));
+                dungeon(c);
+                c.waitUntil("no delete waiting", mc -> !dev.testkit.gametest.logic.ShareSiteCases.pendingDelete(), 100);
+                run(c, () -> Mod.staticCall(SHARE, "setNoticeForTest", false));
+                stub.calls.clear();
+                shareRun(c, false);
+                c.ctx().waitTicks(60);
+                c.check(stub.count("POST") == 0, "a run before the notice was answered was uploaded: " + stub.calls);
+                c.check(c.onClient(mc -> ((Number) Mod.staticCall(SHARE, "termsForTest")).intValue()) == 0, "a terminal solve was kept before the notice");
+                run(c, () -> Mod.staticCall(SHARE, "acknowledgeNotice"));
+                shareRun(c, true);
+                c.waitUntil("POST /site/stats after the notice", mc -> stub.count("POST /site/stats Bearer "
+                        + dev.testkit.gametest.logic.ShareSiteCases.TOKEN) == 1, 400);
+                c.note("after the notice: " + stub.bodies.get(0));
+            } finally {
+                run(c, () -> Mod.staticCall(SHARE, "setEnabled", true));
+                run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
+                run(c, () -> Mod.setField("runsummary.RunSummaryFeature", "finishDelayTicks", -1));
+            }
+        });
+    }
+
     // ---- 107 runsummary personal bests (killer560, 2026-10-15) ---------------------------------------------
 
     private static final String PB_STORE = "runsummary.RunHistoryStore";
@@ -285,7 +385,7 @@ final class HxDungeonCases {
         run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
         send(c, "chat.run-start");
         c.waitUntil("a run is tracked", mc -> (Boolean) Mod.staticCall("runsummary.RunSummaryFeature", "isTrackingRun"), 40);
-        c.ctx().waitTicks(5);
+        c.ctx().waitTicks(25); // Mort's line (the game clock start) comes 1 s after the arming line
         if (defeated) {
             c.hx().chat("                  ☠ Defeated Necron in 03m 41s");
         }
@@ -297,6 +397,43 @@ final class HxDungeonCases {
 
     private static boolean flag(Object record, String name) {
         return (Boolean) Mod.call(record, name);
+    }
+
+    /**
+     * runfix-1120: Run History's total read 1.1 s over the game's and Split Timers' because the clock started on
+     * "Starting in 1 second." instead of Mort's line. The stored run must start at the moment Split Timers' own clock
+     * does (Mort's line, 25 ticks after the arming line here) and its total must be end minus that.
+     */
+    private static void runSummaryStart(Session s) {
+        s.test("107-hx-runsummary-start-mort", c -> {
+            try (Settings set = new Settings(c).with("runsummary.RunSummaryConfig", "Enabled", true)
+                    .with("splittimers.SplitTimersConfig", "Enabled", true)) {
+                dungeon(c);
+                run(c, () -> Mod.staticCall(PB_STORE, "clear"));
+                run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
+                long armed = System.currentTimeMillis();
+                send(c, "chat.run-start");
+                c.waitUntil("a run is tracked", mc -> (Boolean) Mod.staticCall("runsummary.RunSummaryFeature", "isTrackingRun"), 40);
+                c.ctx().waitTicks(25);
+                send(c, "chat.mort-map");
+                c.ctx().waitTicks(40);
+                c.hx().chat("                  \u2620 Defeated Maxor, Storm, Goldor, and Necron in 03m 24s");
+                c.waitUntil("the run was stored", mc -> ((Number) Mod.staticCall(PB_STORE, "size")).intValue() > 0, 400);
+                Object rec = c.onClient(mc -> Mod.staticCall(PB_STORE, "latest"));
+                long start = ((Number) Mod.call(rec, "startedAtMs")).longValue();
+                long end = ((Number) Mod.call(rec, "endedAtMs")).longValue();
+                long total = ((Number) Mod.call(rec, "totalMs")).longValue();
+                long splitStart = ((Number) c.onClient(mc -> Mod.staticCall("splittimers.SplitTimersFeature", "getRunStartedAtMs"))).longValue();
+                c.check(splitStart > 0L, "premise: Split Timers never started its clock (" + splitStart + ")");
+                c.check(start == splitStart, "Run History starts at " + (start - armed) + " ms after the arming line, Split Timers at "
+                        + (splitStart - armed) + " ms");
+                c.check(start - armed >= 1000L, "the stored run started " + (start - armed) + " ms after 'Starting in 1 second.' (Mort came 1250+ ms after it)");
+                c.check(total == end - splitStart, "total " + total + " ms is not end - Split Timers start (" + (end - splitStart) + ")");
+                c.note("armed -> Mort " + (splitStart - armed) + " ms; stored total " + total + " ms = end - Split Timers start");
+            } finally {
+                run(c, () -> Mod.staticCall("runsummary.RunSummaryFeature", "resetRun"));
+            }
+        });
     }
 
     private static void runSummaryPb(Session s) {
@@ -507,12 +644,57 @@ final class HxDungeonCases {
                 c.note("forged EXTRA STATS/leave ignored; real EXTRA STATS -> /" + cmd + "; after a real leave -> skipped");
             } finally {
                 resetQueue(c);
+                hub(c); // PartyTracker keeps a player who left until the dungeon ends: the next case needs a clean party
+            }
+        });
+    }
+
+    /**
+     * runfix-1120: Hypixel answers "Only the instance creator can re-queue!" to a member who did not start the run, and
+     * Auto Requeue sent /instancerequeue every run anyway. After that answer nothing is sent until the party changes;
+     * the creator's own requeue is unchanged, and another player's line with the same words does nothing.
+     */
+    private static void dungeonQueueNotCreator(Session s) {
+        s.test("112-hx-dungeonqueue-notcreator", c -> {
+            try (Settings set = new Settings(c).with("dungeonqueue.DungeonQueueConfig", "Enabled", true)
+                    .with("dungeonqueue.DungeonQueueConfig", "DelaySeconds", 1)
+                    .with("dungeonqueue.DungeonQueueConfig", "DisableOnLeave", true)) {
+                dungeon(c);
+                c.hx().stub(null, "instancerequeue");
+                resetQueue(c);
+                send(c, "chat.extra-stats");
+                String cmd = awaitCommand(c, "instancerequeue", 80);
+                resetQueue(c);
+                c.hx().chat("[MVP+] HxMateA: Only the instance creator can re-queue!");
+                c.ctx().waitTicks(6);
+                c.check(!(Boolean) c.onClient(mc -> Mod.field("dungeonqueue.DungeonQueueFeature", "notCreator")),
+                        "another player's chat line with the server's words blocked the requeue");
+                c.hx().chat("Only the instance creator can re-queue!");
+                c.waitUntil("notCreator after the server's answer",
+                        mc -> (Boolean) Mod.field("dungeonqueue.DungeonQueueFeature", "notCreator"), 40);
+                long before = c.commands().stream().filter(x -> x.startsWith("instancerequeue")).count();
+                send(c, "chat.extra-stats");
+                c.ctx().waitTicks(60);
+                long after = c.commands().stream().filter(x -> x.startsWith("instancerequeue")).count();
+                c.check(after == before, "/instancerequeue was sent after 'Only the instance creator can re-queue!'");
+                // The party changes: the next run asks again.
+                send(c, "chat.party-left");
+                c.waitUntil("notCreator cleared by a party change",
+                        mc -> !(Boolean) Mod.field("dungeonqueue.DungeonQueueFeature", "notCreator"), 40);
+                resetQueue(c);
+                send(c, "chat.extra-stats");
+                String again = awaitCommand(c, "instancerequeue", 80);
+                c.note("creator -> /" + cmd + "; after the server's answer nothing sent; after a party change -> /" + again);
+            } finally {
+                resetQueue(c);
+                hub(c); // PartyTracker keeps a player who left until the dungeon ends: the next case needs a clean party
             }
         });
     }
 
     private static void resetQueue(Session c) {
         run(c, () -> {
+            Mod.setField("dungeonqueue.DungeonQueueFeature", "notCreator", false);
             Mod.setField("dungeonqueue.DungeonQueueFeature", "requeuedThisRun", false);
             Mod.setField("dungeonqueue.DungeonQueueFeature", "disableRequeue", false);
             Mod.setField("dungeonqueue.DungeonQueueFeature", "pendingTicks", -1);

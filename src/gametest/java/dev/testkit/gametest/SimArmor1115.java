@@ -34,8 +34,15 @@ final class SimArmor1115 {
     private SimArmor1115() {
     }
 
+    /** Takes the set off and puts every wardrobe slot back to its own pieces (wardrobekeep-1120: a slot keeps a hand-swapped
+     *  piece, which must not leak into the next case). */
     static void selectNone(ClientGameTestContext ctx) {
         select(ctx, "NONE");
+        try {
+            ctx.runOnClient(mc -> SimBossTests.call(LOADOUT, "resetKept"));
+        } catch (AssertionError e) {
+            // a jar from before wardrobekeep-1120 keeps no pieces
+        }
     }
 
     private static void select(ClientGameTestContext ctx, String set) {

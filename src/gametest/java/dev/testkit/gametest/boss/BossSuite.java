@@ -44,6 +44,7 @@ public class BossSuite implements FabricClientGameTest {
                     GrimTickCases.register(s);
                     // Lever Aura CPS (846, branch nt-aura-2), own block.
                     LeverAuraCpsCases.register(s);
+                    SliderUnits1118Cases.register(s);
                     // Lights Device, its own Aura and Triggerbot (1476-1478, branch lights-aura-1015), own block.
                     LightsDeviceCases.register(s);
                     // Auto Simon Says Stim and Momentum (1018-ss-*, branch todo-ss-stim-1018), own block.
@@ -66,13 +67,16 @@ public class BossSuite implements FabricClientGameTest {
                     // To-do Doc puzzle items: Quiz, Tic Tac Toe, Creeper Beams, Ice Fill, Teleport Maze, Simon Says
                     // (1101-pz-*, 1101-ss-*, mod doc-puzzles-1101), own block.
                     DocPuzzleCases.register(s);
+                    IceFillGrim1118Cases.register(s); // Auto Ice Fill hops with his own action in the same tick (icefillbugs-1118)
                     // Team Melody over a fake relay room: the round trip and the HUD boards (1102-boss-melody-*, tkdebt-1101).
                     TeamMelodyRelayCases.register(s);
+                    MelodyLost1118Cases.register(s); // melodylost-1118
                     // A leap into a Posmsg ring: leap lines first, then the callout, spaced (1102-posmsg-*, posmsgleap-1102).
                     PosmsgLeapCases.register(s);
-                    // Keep Rotation On Leap: a leap keeps his look, a setback and OFF do not (1104-leaprot-*, leaprot-1104).
+                    // A leap teleport with a relative 0/0 look leaves his look alone, no mod code involved (1118-leap-relative-keeps-look).
                     LeapRotationCases.register(s);
                     CrystalLeap1112Cases.register(s); // crystalleap-1112
+                    QueueLeap1119Cases.register(s); // queueleap-1119
                     // His own use / attack / hotbar swap in the same tick as each P3 aura's packet (1105-same-*, grimsame-1105).
                     SameTickCases.register(s);
                     I4Terror1116Cases.register(s); // Auto i4 Terror Aim same-tick Grim cases (1116-same-i4terror-*, i4terror-1116)

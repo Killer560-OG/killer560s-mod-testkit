@@ -74,6 +74,7 @@
     "Map, Leap & Party",
     "Mask Invincibility",
     "Maxor's Crystals",
+    "Melody's Harp Helper",
     "Mod & HUD",
     "Mod Chat",
     "Motion Blur",
@@ -188,6 +189,7 @@
     "gui.tab.FriendsListTab": "Social > Friends List",
     "gui.tab.GeneralMainTab": "General > General",
     "gui.tab.GifPlayerTab": "Hud Elements > GIF Player",
+    "gui.tab.HarpHelperTab": "Items > Melody's Harp Helper",
     "gui.tab.HealthAndManaBarsTab": "Hud Elements > Health and Mana Bars",
     "gui.tab.HideChatMessagesTab": "Chat > Hide Chat Messages",
     "gui.tab.HidePlayersTab": "Hud Elements > Hide Players",
@@ -849,6 +851,9 @@
       "respawn timer": "Shows a countdown to the next crystal spawning.",
       "unplaced crystal alert": "Warns you while you are carrying a crystal you have not placed."
     },
+    "Melody's Harp Helper": {
+      "melody's harp helper": "Helpers for Melody's Harp: keys for the notes, a GUI scale, a progress tracker, key labels, hidden tooltips and Quick Restart. Off by default."
+    },
     "Mod & HUD": {
       "auto scale (monitor)": "Keeps every HUD element and menu of this mod the same size relative to your window on any monitor and at any GUI Scale, using a 2560x1440 screen at GUI Scale 3 as the reference (unchanged there). HUD Scale multiplies on top. ON by default; saved with profiles.",
       "check for updates": "Checks GitHub for a newer release; click again to open its download page.",
@@ -875,6 +880,7 @@
     },
     "Object Hider": {
       "archer passive": "Hides the spinning bone meal items the archer passive drops.",
+      "arrow particles": "Hides the particles arrows make: the crit trail, the tipped-arrow swirl and the bubbles in water.",
       "blindness effect": "Removes the blindness effect so P3 blind doesn't black out your screen.",
       "block break particles": "Hides the block-crack particles from breaking or hitting blocks.",
       "boss damage splash": "Hides the floating damage numbers in the boss room.",
@@ -991,6 +997,7 @@
     },
     "RNG Meter Overlay": {
       "bazaar pricing": "Chooses whether RNG Meter rewards use Bazaar Instant Buy or Instant Sell prices.",
+      "highlight best": "Marks the slot of the best reward on the open RNG Meter page: the most coins per meter point, the same number the ranking shows. Rewards with no price are never picked.",
       "last refresh error": "",
       "minutes": "Minutes to wait between automatic Bazaar and AH price refreshes (minimum 1).",
       "refresh now": "Fetches fresh Bazaar and AH lowest-BIN prices right away.",

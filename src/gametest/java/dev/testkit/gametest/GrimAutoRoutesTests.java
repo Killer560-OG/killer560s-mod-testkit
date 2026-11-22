@@ -181,6 +181,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1101-trapwalk", c -> caseTrapWalk(c, true));
             s.test("62-argrim-1101-trapwalk-control", c -> caseTrapWalk(c, false));
             s.test("62-argrim-1101-trapbox", GrimAutoRoutesTests::caseTrapBox);
+            // newtrap-route7: a trap-room held walk aligns onto the next node's point before firing it (New Trap's 1x1
+            // drop hole); his own actions land in the align's ticks.
+            s.test("62-argrim-1122-trapwalkalign", c -> caseTrapWalkAlign(c, null));
+            s.test("62-argrim-1122-trapwalkalign-same-use", c -> caseTrapWalkAlign(c, dev.testkit.gametest.SameTick.Act.USE));
+            s.test("62-argrim-1122-trapwalkalign-same-attack", c -> caseTrapWalkAlign(c, dev.testkit.gametest.SameTick.Act.ATTACK));
+            s.test("62-argrim-1122-trapwalkalign-same-swap", c -> caseTrapWalkAlign(c, dev.testkit.gametest.SameTick.Act.SWAP));
+            s.test("62-argrim-1122-trapwalkalign-same-click", c -> caseTrapWalkAlign(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK));
+            // A second run of the feature itself: the next walk aligns onto the node after it a tick or two later.
+            s.test("62-argrim-1122-trapwalkalign-same-again", c -> caseTrapWalkAlign(c, null, true));
             // iw-campaign-1027: Inventory Walk on while a route sprints him and he clicks in his inventory, then closes it.
             s.test("62-argrim-1027-invwalk", GrimAutoRoutesTests::caseInvWalk);
             // ... and 62-argrim-play's whole route (its chest window keeps the route running) with Inventory Walk on.
@@ -208,6 +217,21 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 final String r = k == 1 ? "" : "#" + k;
                 s.test("62-argrim-1102-multibreak" + r, c -> caseMultiBreak(c, true));
                 s.test("62-argrim-1102-multibreak-off" + r, c -> caseMultiBreak(c, false));
+            }
+            // arbreakstyle-1118: the Auto Routes "Breaker Style" row. LEGIT_MULTI with the card on Burst, BURST with the card on
+            // Legit Multi Break, BREAKER_AURA (follow) with the card on Burst; each alone and with his own use / left click /
+            // hotbar swap in the break ticks (default AND experimental Grim by the jar's server config).
+            for (String[] st : new String[][]{{"legit", "LEGIT_MULTI", "burst"}, {"burst", "BURST", "legit"}, {"follow", "BREAKER_AURA", "burst"}}) {
+                for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{null, dev.testkit.gametest.SameTick.Act.USE,
+                        dev.testkit.gametest.SameTick.Act.SWAP}) {
+                    String nm = "62-argrim-1118-breakstyle-" + st[0] + (a == null ? "" : "-same-" + a.name().toLowerCase(Locale.ROOT));
+                    boolean burst = !st[1].equals("LEGIT_MULTI") && (st[1].equals("BURST") || st[2].equals("burst"));
+                    if (burst) {
+                        s.testExpectingFlags(nm, c -> caseBreakStyle(c, st[1], st[2].equals("burst"), true, a));
+                    } else {
+                        s.test(nm, c -> caseBreakStyle(c, st[1], st[2].equals("burst"), false, a));
+                    }
+                }
             }
             s.test("62-argrim-1020-breakerstand", GrimAutoRoutesTests::caseBreakerStand); // stall-1020 (his Wizard #1)
             s.test("62-argrim-use", GrimAutoRoutesTests::caseUse);
@@ -248,6 +272,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 // No ATTACK: the burst leaves the whole path in one real tick, so his crosshair is off the stand by the next.
                 s.test("62-argrim-1110-mapchain-same-" + a.name().toLowerCase(Locale.ROOT), c -> caseMapChain(c, true, a));
             }
+            // mod acwaits3-1122 (his 11-21 log: a charged map burst's first use became an Instant Transmission and every landing
+            // after it slid one hop): with Hypixel's sneak lag on the server (a sneak counts only once a whole server tick saw
+            // it), the burst must wait for a tick that already carried the sneak. Fails on a9d22cbef.
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1122-mapchain-sneaklag", c -> caseMapChainSneakLag(c, null));
+            // No ATTACK, as for mapchain-same-*: the burst moves him off the stand in one real tick ("his action never went in").
+            if (dev.testkit.gametest.mod.Mod.isCheat()) for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                    dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK, dev.testkit.gametest.SameTick.Act.TP)) {
+                s.test("62-argrim-1122-mapchain-sneaklag-same-" + a.name().toLowerCase(Locale.ROOT), c -> caseMapChainSneakLag(c, a));
+            }
             s.test("62-argrim-path", GrimAutoRoutesTests::casePath);
             // mod ar-obvious-only (2026-10-11): legit mode exists only in -PtestingBuild jars.
             if (SimAutoRoutesTests.legitSelectable()) {
@@ -283,6 +316,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             }
             s.test("62-argrim-crypt", GrimAutoRoutesTests::caseCrypt);
             s.test("62-argrim-1015-cryptaim", GrimAutoRoutesTests::caseCryptAim); // crypt-aim-1015
+            s.test("62-argrim-1121-batpresent", c -> caseBatPresent(c, null)); // batnode-spawned-1121
+            s.test("62-argrim-1121-batpresent-same-use", c -> caseBatPresent(c, dev.testkit.gametest.SameTick.Act.USE));
+            s.test("62-argrim-1121-batpresent-same-swap", c -> caseBatPresent(c, dev.testkit.gametest.SameTick.Act.SWAP));
             s.test("62-argrim-mimic", GrimAutoRoutesTests::caseMimic);
             s.test("62-argrim-1115-armaster-onetry", GrimAutoRoutesTests::caseArmasterOneTry); // armaster-1115
             s.test("62-argrim-1115-armaster-skip", GrimAutoRoutesTests::caseArmasterSkip); // armaster-1115
@@ -293,6 +329,38 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-autoclear", GrimAutoRoutesTests::caseAutoClear);
             s.test("62-argrim-1020-autoclearaura", GrimAutoRoutesTests::caseAutoClearAura); // mod ac-aura-memory-1020
             s.test("62-argrim-1020-acbat", GrimAutoRoutesTests::caseAutoClearBat); // ac-1020
+            // achype-1117: Wither Impact across (one cast for two mobs) and the cast chain, alone and with his own action
+            // in the same server ticks; "second" starts clearRoom again mid-run. Cheat only (Auto Clear).
+            if (dev.testkit.gametest.mod.Mod.isCheat()) {
+                // achype4-1117: his action in the ticks of the landing pre-aim (swap + straight-down turn in flight).
+                for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                        dev.testkit.gametest.SameTick.Act.OPEN_CLICK, dev.testkit.gametest.SameTick.Act.ATTACK,
+                        dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.TP)) {
+                    s.test("62-argrim-1117-same-acland-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""),
+                            c -> caseAutoClear(c, a, false));
+                }
+                s.test("62-argrim-1117-same-acland-second", c -> caseAutoClear(c, null, true));
+                s.test("62-argrim-1117-achype", c -> caseAutoClearHype(c, null, false));
+                for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                        dev.testkit.gametest.SameTick.Act.OPEN_CLICK, dev.testkit.gametest.SameTick.Act.ATTACK,
+                        dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.TP)) {
+                    s.test("62-argrim-1117-same-achype-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""),
+                            c -> caseAutoClearHype(c, a, false));
+                }
+                s.test("62-argrim-1117-same-achype-second", c -> caseAutoClearHype(c, null, true));
+                // The chain layout: a zombie beside him and a pair 4 either side of the line 11 on (its own plan group): the
+                // casts chain with no etherwarp. His action goes in the same ticks as those chain casts.
+                s.test("62-argrim-1117-chain", c -> caseAutoClearHype(c, null, false, true));
+                // Right after the plain chain row: the chain is taken only where it is the cheaper link, and the prices Auto Clear
+                // has learned by the later rows (his swaps and teleports in the same ticks) can tip a close choice to the trip.
+                s.test("62-argrim-1117-same-chain-second", c -> caseAutoClearHype(c, null, true, true));
+                for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                        dev.testkit.gametest.SameTick.Act.OPEN_CLICK, dev.testkit.gametest.SameTick.Act.ATTACK,
+                        dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.TP)) {
+                    s.test("62-argrim-1117-same-chain-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""),
+                            c -> caseAutoClearHype(c, a, false, true));
+                }
+            }
             // simmobs2-1101 (mod doc-adm-sim-1101): a sleeping Fel woken by an etherwarp, and by the forced walk after a setback;
             // a dropped Wither Key fetched by an etherwarp trip, and by the forced walk after a setback.
             s.test("62-argrim-1102-acfel", c -> caseAutoClearFel(c, false));
@@ -311,6 +379,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1016-autosecret-key", c -> caseAutoSecret(c, false, true));
             s.test("62-argrim-1016-autopilot-key", c -> caseAutoSecret(c, true, true));
             s.test("62-argrim-1016-oneuse", GrimAutoRoutesTests::caseOneUsePerTick); // grim-autopilot-flag-1016
+            // apmenu-1121: Dungeons Autopilot's one Toggle Keybind starts each Mode (the run acts) and stops it; Disable After
+            // Blood Rush switches it off once the rush is done (Door on the arena: no blood door, so the rush ends at once).
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1121-apmenu-modes", GrimAutoRoutesTests::caseApMenuModes);
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1121-apmenu-disable", GrimAutoRoutesTests::caseApMenuDisable);
             // autosecret-bloodfirst-1017: Auto Secret with Secret Blood First = Door Camp on the arena (no blood door on
             // its map): it says so, secrets meanwhile, and sends exactly what the plain run does.
             s.test("62-argrim-1017-autosecret-bloodfirst", GrimAutoRoutesTests::caseAutoSecretBloodFirst);
@@ -808,6 +880,284 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             trapRoom(ctx, false);
             resetRoutes(ctx);
         }
+    }
+
+    /**
+     * 62-argrim-1122-trapwalkalign (newtrap-route7): in a trap room a held WALK that reaches the next (non-WALK) node's 1x1
+     * ring does not fire it on the ring's edge: it aligns onto the node's point with discrete keys and a body turn, then
+     * fires it (New Trap's breaker over a 1x1 drop hole stalled the route at #7 without it). Passes when the align ran,
+     * the node fired within 0.3 of its point and GrimAC is silent. With {@code act}: his right click, attack, hotbar swap or
+     * inventory click goes into every client tick from the align's first tick, and the wire must show a server tick that
+     * carried both an align packet (input or look) and his packet.
+     */
+    private static void caseTrapWalkAlign(Session c, dev.testkit.gametest.SameTick.Act act) {
+        caseTrapWalkAlign(c, act, false);
+    }
+
+    /**
+     * {@code again}: the route is WALK, ROTATE, WALK, ROTATE with the second ROTATE one block past the first, so the
+     * align runs a second time right after the first fired its node; both must align, fire from the point, and the second
+     * must start within a few ticks of the first's end, GrimAC silent.
+     */
+    private static void caseTrapWalkAlign(Session c, dev.testkit.gametest.SameTick.Act act, boolean again) {
+        ClientGameTestContext ctx = c.ctx();
+        String label = "trapwalkalign" + (act == null ? "" : " " + act) + (again ? " again" : "");
+        resetRoutes(ctx);
+        arena(ctx, false);
+        trapRoom(ctx, true);
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            // OPEN_CLICK: his inventory click while the walk holds W and sprint is GrimAC MultiActionsC from his own click
+            // (LeverPlace1117Cases, Ap3AuraLook1116Cases). A control walk with no align (WALK next) shows it here first;
+            // only then is MultiActionsC accepted in the align run, and every other flag still fails the case.
+            boolean ownClickFlags = act == dev.testkit.gametest.SameTick.Act.OPEN_CLICK && trapControl(c, act, "MultiActionsC");
+            // ATTACK: the same control with his attack on the held view, run for the record (Hitboxes from his attack
+            // while a trap walk turns the body is the walk's, not the align's); the align run below still must be clean.
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                trapControl(c, act, "Hitboxes");
+            }
+            int flagsAfterCtl = c.scenario().flags().size();
+            JsonObject w = node("WALK", 14, 8, 90f, 0f);
+            w.addProperty("start", true);
+            writeRoute(ctx, again ? List.of(w, node("ROTATE", 9, 7, 90f, 0f), node("WALK", 9, 7, 90f, 0f),
+                    node("ROTATE", 8, 7, 90f, 0f)) : List.of(w, node("ROTATE", 9, 7, 90f, 0f)));
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(7));
+            int aligns0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "walkAligns"));
+            if (act != null) {
+                st = ctx.computeOnClient(mc -> {
+                    // his attack every 3rd tick: one per tick holds the align for good (the body goes back to his view each time)
+                    dev.testkit.gametest.SameTick t = dev.testkit.gametest.SameTick.start(act,
+                            act == dev.testkit.gametest.SameTick.Act.ATTACK ? 3 : 1,
+                            p -> p instanceof net.minecraft.network.protocol.game.ServerboundPlayerInputPacket
+                                    || (p instanceof net.minecraft.network.protocol.game.ServerboundMovePlayerPacket mp
+                                    && mp.hasRotation()), 7, 8)
+                            .armedBy(() -> (Integer) ModUnderTest.staticCall(EXECUTOR, "walkAligns") > aligns0);
+                    if (act != dev.testkit.gametest.SameTick.Act.ATTACK) {
+                        t.allow(4);
+                    }
+                    return t;
+                });
+            }
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+            long mark = LogTap.mark();
+            startSampling(ctx);
+            walkOnto(ctx, 14.5, 5.5, 14, 8);
+            long alignFrom = -1;
+            long alignTo = -1;
+            int alignTicks = 0;
+            List<Integer> runStarts = new ArrayList<>(); // tick each align run began (a new walkAlignNode)
+            List<Integer> runEnds = new ArrayList<>();
+            Object lastNode = null;
+            long run2From = -1;
+            long run2To = -1;
+            for (int t = 0; t < 120; t++) {
+                Object[] r = ctx.computeOnClient(mc -> new Object[]{
+                        dev.testkit.gametest.mod.Mod.field(EXECUTOR, "walkAlignNode") != null,
+                        ModUnderTest.staticCall(EXECUTOR, "isRunning"), System.nanoTime(),
+                        dev.testkit.gametest.mod.Mod.field(EXECUTOR, "walkAlignNode")});
+                if (r[3] != lastNode) {
+                    if (lastNode != null) {
+                        runEnds.add(t);
+                    }
+                    if (r[3] != null) {
+                        runStarts.add(t);
+                    }
+                    lastNode = r[3];
+                }
+                if (r[3] != null && runStarts.size() == 2) {
+                    if (run2From < 0) {
+                        run2From = (Long) r[2] - 60_000_000L;
+                    }
+                    run2To = (Long) r[2] + 60_000_000L;
+                }
+                if ((Boolean) r[0]) {
+                    if (alignTicks == 0 && act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                        // His target goes on his own look as the align starts: the crosshair follows the camera ViewFreeze
+                        // holds (the walk turns only the body), so the zombie stands 1.6 along the held view yaw, at his
+                        // feet. Ahead of the walk's body yaw it was never under his crosshair (his action x0).
+                        double[] z = ctx.computeOnClient(mc -> {
+                            float vy = (Float) ModUnderTest.staticCall("com.killer560.hub.util.ViewFreeze", "viewYaw");
+                            double yr = Math.toRadians(Float.isNaN(vy) ? mc.player.getYRot() : vy);
+                            return new double[]{mc.player.getX() - Math.sin(yr) * 1.6, mc.player.getY(),
+                                    mc.player.getZ() + Math.cos(yr) * 1.6};
+                        });
+                        c.server().command(String.format(Locale.ROOT, "summon zombie %.3f %.3f %.3f"
+                                + " {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}", z[0], z[1], z[2]));
+                    }
+                    alignTicks++;
+                    if (alignFrom < 0) {
+                        alignFrom = (Long) r[2] - 60_000_000L;
+                    }
+                    alignTo = (Long) r[2] + 60_000_000L;
+                }
+                if (!(Boolean) r[1] && t > 5) {
+                    break;
+                }
+                ctx.waitTick();
+            }
+            ctx.waitTicks(3);
+            dev.testkit.gametest.SameTick his = st;
+            if (his != null) {
+                ctx.runOnClient(mc -> his.close());
+            }
+            List<Sample> s = stopSampling(ctx);
+            List<dev.testkit.harness.WireCapture.Sent> wire = ctx.computeOnClient(mc -> {
+                List<dev.testkit.harness.WireCapture.Sent> l = dev.testkit.harness.WireCapture.snapshot();
+                dev.testkit.harness.WireCapture.stop();
+                return l;
+            });
+            int aligns = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "walkAligns")) - aligns0;
+            String fired = null;
+            for (String l : LogTap.since(mark)) {
+                if (l.contains("walk onto node #2")) {
+                    fired = l;
+                }
+            }
+            c.note(label + ": aligns " + aligns + ", align ticks " + alignTicks + ", runs began " + runStarts + " ended "
+                    + runEnds + ", " + fired);
+            check(aligns == (again ? 2 : 1), label + ": the walk did not align onto node #2" + (again ? " and #4" : "")
+                    + " (" + aligns + ")");
+            check(fired != null && fired.contains("on the point"), label + ": node #2 was not fired from its point (" + fired
+                    + ")");
+            check(logHas(mark, "Node #2 ROTATE"), label + ": node #2 never fired");
+            if (again) {
+                String fired4 = null;
+                for (String l : LogTap.since(mark)) {
+                    if (l.contains("walk onto node #4")) {
+                        fired4 = l;
+                    }
+                }
+                c.note(label + ": second align " + fired4);
+                check(fired4 != null && fired4.contains("on the point"), label + ": node #4 was not fired from its point ("
+                        + fired4 + ")");
+                check(logHas(mark, "Node #4 ROTATE"), label + ": node #4 never fired");
+                check(runStarts.size() == 2 && runEnds.size() >= 1 && runStarts.get(1) - runEnds.get(0) <= 6, label
+                        + ": the second align did not follow the first within 6 ticks (began " + runStarts + ", ended "
+                        + runEnds + ")");
+                // On the wire: align packets went out in the second run's ticks too (it acted, not only its counter).
+                int moved2 = 0;
+                for (dev.testkit.harness.WireCapture.Sent x : wire) {
+                    String ty = x.type();
+                    if (x.nanos() >= run2From && x.nanos() <= run2To && (ty.contains("player_input")
+                            || ty.contains("move_player_pos_rot") || ty.contains("move_player_rot"))) {
+                        moved2++;
+                    }
+                }
+                c.note(label + ": align packets on the wire in the second run: " + moved2);
+                check(moved2 > 0, label + ": no align packet on the wire in the second align's ticks");
+            }
+            if (act != null) {
+                // Server ticks (packets between two client_tick_end) inside the align that carried an align packet and his.
+                int shared = 0;
+                boolean feat = false;
+                boolean mine = false;
+                for (dev.testkit.harness.WireCapture.Sent x : wire) {
+                    String ty = x.type();
+                    if (ty.contains("client_tick_end")) {
+                        shared += feat && mine ? 1 : 0;
+                        feat = false;
+                        mine = false;
+                        continue;
+                    }
+                    if (x.nanos() < alignFrom || x.nanos() > alignTo) {
+                        continue;
+                    }
+                    feat |= ty.contains("player_input") || ty.contains("move_player_pos_rot") || ty.contains("move_player_rot");
+                    mine |= ty.contains("use_item") || ty.contains("interact") || ty.contains("attack")
+                            || ty.contains("set_carried_item")
+                            || ty.contains("container_click");
+                }
+                c.note(label + ": wire ticks in the align carrying an align packet and his: " + shared);
+                check(shared > 0, label + ": no server tick in the align carried both an align packet and his ("
+                        + st.report() + ")");
+                dev.testkit.gametest.SameTick.judge(c, st, label, dev.testkit.gametest.SameTick.Expect.ACTED);
+                st = null;
+            }
+            List<String> fl = c.scenario().flags();
+            c.note(label + ": flags in the align run itself (after any control): "
+                    + fl.subList(Math.min(flagsAfterCtl, fl.size()), fl.size()).size());
+            if (ownClickFlags) {
+                Scenario.acceptedFlag = l -> l.contains("MultiActionsC");
+            }
+            noteFlags(c, s);
+        } finally {
+            dev.testkit.gametest.SameTick open = st;
+            if (open != null) {
+                ctx.runOnClient(mc -> open.close());
+            }
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                c.server().command("kill @e[tag=sametick]");
+            }
+            trapRoom(ctx, false);
+            resetRoutes(ctx);
+        }
+    }
+
+    /**
+     * The control for 62-argrim-1122-trapwalkalign-same-click: a trap-room WALK followed by a WALK (no align runs) with his
+     * inventory click in the walk's ticks. Returns whether GrimAC drew MultiActionsC from it; checks the walk ran, no align
+     * ran and his click and a walk packet shared a server tick, so a "yes" is his own click's flag.
+     */
+    private static boolean trapControl(Session c, dev.testkit.gametest.SameTick.Act act, String flag) {
+        ClientGameTestContext ctx = c.ctx();
+        int flags0 = c.scenario().flags().size();
+        JsonObject w = node("WALK", 14, 8, 90f, 0f);
+        w.addProperty("start", true);
+        writeRoute(ctx, List.of(w, node("WALK", 9, 7, 90f, 0f)));
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(7));
+        int aligns0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "walkAligns"));
+        dev.testkit.gametest.SameTick st = ctx.computeOnClient(mc -> {
+            dev.testkit.gametest.SameTick t = dev.testkit.gametest.SameTick.start(act,
+                    1, p -> p instanceof net.minecraft.network.protocol.game.ServerboundPlayerInputPacket
+                            || p instanceof net.minecraft.network.protocol.game.ServerboundMovePlayerPacket, 7, 8)
+                    .armedBy(() -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+            if (act != dev.testkit.gametest.SameTick.Act.ATTACK) {
+                t.allow(4);
+            }
+            return t;
+        });
+        try {
+            walkOnto(ctx, 14.5, 5.5, 14, 8);
+            for (int t = 0; t < 120; t++) {
+                if (t >= 1 && act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                    // His target stands 1.6 along the CLIENT's own view yaw, put there every tick the way the align row
+                    // places its zombie (acrev-trap-1122: moved along the server's body look it trailed his crosshair and
+                    // his click landed in 0-1 walk ticks run to run; an interaction box he attacked every tick drew
+                    // Simulation .05 in the walk, the zombie the align row uses draws none).
+                    double[] z = ctx.computeOnClient(mc -> {
+                        float vy = (Float) ModUnderTest.staticCall("com.killer560.hub.util.ViewFreeze", "viewYaw");
+                        double yr = Math.toRadians(Float.isNaN(vy) ? mc.player.getYRot() : vy);
+                        return new double[]{mc.player.getX() - Math.sin(yr) * 1.6, mc.player.getY(),
+                                mc.player.getZ() + Math.cos(yr) * 1.6};
+                    });
+                    c.server().command(t == 1
+                            ? String.format(Locale.ROOT, "summon zombie %.3f %.3f %.3f"
+                            + " {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}", z[0], z[1], z[2])
+                            : String.format(Locale.ROOT, "tp @e[tag=sametick] %.3f %.3f %.3f", z[0], z[1], z[2]));
+                }
+                if (!(Boolean) ctx.computeOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "isRunning")) && t > 5) {
+                    break;
+                }
+                ctx.waitTick();
+            }
+            ctx.waitTicks(3);
+        } finally {
+            ctx.runOnClient(mc -> st.close());
+            c.server().command("kill @e[tag=sametick]");
+        }
+        ctx.waitTicks(10);
+        int aligns = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "walkAligns")) - aligns0;
+        List<String> f = c.scenario().flags();
+        long multi = f.subList(Math.min(flags0, f.size()), f.size()).stream().filter(l -> l.contains(flag)).count();
+        c.note("trapwalkalign control (WALK next, no align): aligns " + aligns + ", " + st.report() + ", " + flag + " "
+                + multi);
+        check(aligns == 0, "trapwalkalign control: an align ran before a WALK (" + aligns + ")");
+        check(st.done() > 0 && st.both() > 0, "trapwalkalign control: his action never shared a tick with the walk ("
+                + st.report() + ")");
+        resetRoutes(ctx);
+        ctx.waitTicks(10);
+        return multi > 0;
     }
 
     /**
@@ -1316,6 +1666,143 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     }
 
     /**
+     * 62-argrim-1118-breakstyle-* (arbreakstyle-1118): a breaker node of ten snow blocks with the route's Breaker Style set to
+     * {@code style} while the Breaker Aura card is set the other way ({@code cardBurst}: Burst Multi Break, else Legit Multi
+     * Break). The wire (MultiBreakWatch) shows how the digs went: Burst = several blocks in one server tick, otherwise one a
+     * server tick; all ten gone, the route finished, the card's saved settings untouched. With {@code act} his own use / left
+     * click / hotbar swap goes into every client tick as well (SameTick). Burst may draw MultiBreak* on
+     * experimental GrimAC only (owner exception, nothing else); every other case, and Burst on default GrimAC, must leave GrimAC silent.
+     */
+    private static void caseBreakStyle(Session c, String style, boolean cardBurst, boolean burst, dev.testkit.gametest.SameTick.Act act) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        Object ar = ModUnderTest.config(AR_CONFIG);
+        Object dx = ModUnderTest.config(DX_CONFIG);
+        boolean cardBurstBefore = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraBurstMultiBreakRaw"));
+        boolean cardLegitBefore = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraMultiBreak"));
+        String styleClass = AR_CONFIG + "$BreakStyle";
+        ctx.runOnClient(mc -> {
+            ModUnderTest.set(dx, cardBurst ? "setBreakerAuraBurstMultiBreak" : "setBreakerAuraMultiBreak", true);
+            ModUnderTest.call(ar, "setBreakStyle", new Class<?>[]{ModUnderTest.enumValue(styleClass, "BURST").getClass()},
+                    new Object[]{ModUnderTest.enumValue(styleClass, style)});
+        });
+        boolean cardBurstSet = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraBurstMultiBreakRaw"));
+        boolean cardLegitSet = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraMultiBreak"));
+        List<int[]> ten = new ArrayList<>();
+        Map<int[], String> put = new LinkedHashMap<>();
+        JsonArray blocks = new JsonArray();
+        for (int y = 0; y <= 1; y++) {
+            for (int x = 11; x <= 15; x++) {
+                ten.add(new int[]{x, F + y, 11});
+                put.put(new int[]{x, F + y, 11}, "minecraft:snow_block");
+                blocks.add(x + " " + (F + y) + " 11");
+            }
+        }
+        java.util.Set<net.minecraft.core.BlockPos> tenPos = new java.util.HashSet<>();
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            warmDig(ctx);
+            setBlocks(ctx, put);
+            JsonObject br = node("DUNGEON_BREAKER", 13, 10, 0f, 0f);
+            br.add("blocks", blocks);
+            br.addProperty("start", true);
+            writeRoute(ctx, List.of(br));
+            ctx.runOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                for (int[] b : ten) {
+                    tenPos.add(real(frame, b[0], b[1], b[2]));
+                }
+            });
+            startSampling(ctx);
+            ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.start());
+            walkOnto(ctx, 13.5, 7.5, 13, 10);
+            if (act != null) {
+                if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                    // A mob behind the snow wall: once the blocks in front break his crosshair lands on it (the one thing his left click can hit); a swap every 7th tick, never
+                    // every tick: a swap each tick lines up with the re-dig period and starves it (a test artifact).
+                    session.server().command("execute as @p at @p run summon zombie ^ ^ ^2.4 {NoAI:1b,Invulnerable:1b,Silent:1b}");
+                    ctx.waitTicks(2);
+                }
+                final dev.testkit.gametest.SameTick.Act a = act;
+                st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(a, a == dev.testkit.gametest.SameTick.Act.SWAP ? 7 : a == dev.testkit.gametest.SameTick.Act.ATTACK ? 3 : 1,
+                        p -> p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket pa
+                                && tenPos.contains(pa.getPos()), 2, 3));
+            }
+            boolean gone = waitFor(ctx, 120, () -> {
+                for (int[] b : ten) {
+                    if (!blockAir(ctx, b[0], b[1], b[2])) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+            boolean finished = waitFor(ctx, 60, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning")));
+            ctx.waitTicks(5);
+            if (st != null) {
+                dev.testkit.gametest.SameTick s2 = st;
+                ctx.runOnClient(mc -> s2.close());
+            }
+            ctx.runOnClient(mc -> dev.testkit.harness.MultiBreakWatch.stop());
+            stopSampling(ctx);
+            java.util.Map<Integer, java.util.Set<String>> perWindow = new java.util.TreeMap<>();
+            java.util.Set<String> dug = new java.util.HashSet<>();
+            for (var d : dev.testkit.harness.MultiBreakWatch.digs()) {
+                if (d.action() == net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK
+                        && tenPos.contains(d.pos())) {
+                    dug.add(d.pos().toShortString());
+                    perWindow.computeIfAbsent(d.window(), w -> new java.util.HashSet<>()).add(d.pos().toShortString());
+                }
+            }
+            int most = perWindow.values().stream().mapToInt(java.util.Set::size).max().orElse(0);
+            boolean cardBurstAfter = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraBurstMultiBreakRaw"));
+            boolean cardLegitAfter = ctx.computeOnClient(mc -> ModUnderTest.getBoolean(dx, "isBreakerAuraMultiBreak"));
+            ctx.waitTicks(10);
+            List<String> flags = c.scenario().flags();
+            boolean exp = dev.testkit.gametest.boss.AaFastCases.experimentalChecks();
+            println(c.name() + ": style " + style + " card " + (cardBurst ? "burst" : "legit") + " act " + act + ": " + dug.size()
+                    + " block(s) dug, most in one server tick " + most + ", windows " + perWindow.keySet() + ", gone " + gone
+                    + ", finished " + finished + ", experimental " + exp + (st == null ? "" : ", same-tick " + st.report())
+                    + ", GrimAC " + (flags.isEmpty() ? "silent" : flags.size() + " line(s)"));
+            for (String f : flags) {
+                println("    " + f);
+            }
+            // Burst on experimental GrimAC: the server may cancel digs and picks stay (owner exception); the route must still end.
+            boolean keptOk = burst && exp;
+            check(gone || keptOk, "not all ten snow blocks broke");
+            check(finished, "the route did not finish");
+            check(dug.size() == 10 || (keptOk && dug.size() >= 1), dug.size() + " distinct blocks dug, want 10");
+            check(burst ? most >= 2 : most <= 1, (burst ? "Burst dug at most " : "a non-burst style dug ") + most + " block(s) in one server tick");
+            check(cardBurstSet == cardBurst && cardLegitSet == !cardBurst && cardBurstAfter == cardBurstSet && cardLegitAfter == cardLegitSet,
+                    "the Breaker Aura card's saved style changed (burst " + cardBurstSet + " -> " + cardBurstAfter + ", legit "
+                            + cardLegitSet + " -> " + cardLegitAfter + ")");
+            if (st != null) {
+                check(st.done() > 0, act + ": his action never went in (nothing tested)");
+            }
+            if (burst && exp) {
+                check(flags.stream().allMatch(f -> f.contains("MultiBreak")),
+                        "Burst drew a flag other than MultiBreak*: " + flags);
+            } else {
+                check(flags.isEmpty(), (burst ? "Burst on default GrimAC" : "a clean style") + " drew GrimAC: " + flags);
+            }
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick s3 = st;
+                ctx.runOnClient(mc -> s3.close());
+            }
+            ctx.runOnClient(mc -> {
+                ModUnderTest.call(ar, "setBreakStyle", new Class<?>[]{ModUnderTest.enumValue(styleClass, "BURST").getClass()},
+                        new Object[]{ModUnderTest.enumValue(styleClass, "BREAKER_AURA")});
+                ModUnderTest.set(dx, "setBreakerAuraBurstMultiBreak", cardBurstBefore);
+                ModUnderTest.set(dx, "setBreakerAuraMultiBreak", cardLegitBefore);
+            });
+            session.server().command("kill @e[type=minecraft:zombie]");
+            tpRel(ctx, 13.5, 6.5, 0f, 0f);
+            ctx.waitTicks(5);
+        }
+    }
+
+    /**
      * One plain dig by hand (the breaker in hand, attack pressed with the look already on a snow block) before a case
      * whose first dig is turned at the movement packet. A fresh server's first dig takes it longer than GrimAC's 15 ms to
      * process, so a turned dig as the session's first draws RotationBreak post-flying, then pre-flying on every later one
@@ -1791,10 +2278,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     + " etherwarp(s), expected 1");
             // 2026-10-21: the warp is held one tick after a block click with the same item, because Hypixel gave no
             // teleport one tick after such a click in 45 of 69 measured warps (2026-10-19; AutoRoutes' click-gap hold).
-            // So the warp goes 0 to 2 ticks after the click; more than that is the failure.
+            // So the warp goes 0 to 3 ticks after the click (arwrong-1118: the gap is 3, 15 of 74 refused at 2 in his
+            // 2026-11-18 routes); more than that is the failure.
             check(acted != null && (acted.contains("acted 0 tick(s)") || acted.contains("acted 1 tick(s)")
-                    || acted.contains("acted 2 tick(s)")),
-                    label + ": the warp went more than 2 ticks after the click: " + acted);
+                    || acted.contains("acted 2 tick(s)") || acted.contains("acted 3 tick(s)")),
+                    label + ": the warp went more than 3 ticks after the click: " + acted);
             if (near) {
                 check(logHas(m, "sent the block half of the right click first"), label + ": the near warp did not send the "
                         + "click on its block first (vanilla's two-packet right click)");
@@ -2514,6 +3002,64 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      */
     private static void caseMapChain(Session c, boolean charged, dev.testkit.gametest.SameTick.Act act) {
         caseMapChain(c, charged, act, false);
+    }
+
+    /**
+     * 62-argrim-1122-mapchain-sneaklag* (mod acwaits3-1122): the charged map chain with the server's sneak lag on. Every one
+     * of the chain's uses must be an etherwarp (none an Instant Transmission, none judged unsneaked); with an act, his action
+     * lands in the chain's ticks as in mapchain-same-*. His own USE is his own transmission, so that row checks the rest only.
+     */
+    private static void caseMapChainSneakLag(Session c, dev.testkit.gametest.SameTick.Act act) {
+        session.hx().call("dungeon.sneakLag", "on", true);
+        try {
+            JsonObject before = stats();
+            try {
+                caseMapChain(c, true, act);
+            } finally {
+                println(String.format(Locale.ROOT, "sneak lag %s: uses judged unsneaked %d, transmissions %d",
+                        act == null ? "alone" : "same-" + act, delta(before, "sneakLagMisses"), delta(before, "transmissions")));
+            }
+            int warps = delta(before, "etherwarps");
+            int tm = delta(before, "transmissions");
+            int missed = delta(before, "sneakLagMisses");
+            String line = String.format(Locale.ROOT, "sneak lag %s: server etherwarps %d, transmissions %d, uses judged unsneaked %d",
+                    act == null ? "alone" : "same-" + act, warps, tm, missed);
+            println(line);
+            c.note(line);
+            if (act != dev.testkit.gametest.SameTick.Act.USE) {
+                check(missed == 0 && tm == 0, line + ": a chain use went out before the server had heard the sneak");
+            }
+            // On the wire: the sneak went out in its own input packet ticks before the first use (his own USE row's first
+            // use may be his, his CLICK row sends none).
+            if (act != dev.testkit.gametest.SameTick.Act.USE && act != dev.testkit.gametest.SameTick.Act.CLICK) {
+                List<dev.testkit.harness.WireCapture.Sent> wire = dev.testkit.harness.WireCapture.snapshot();
+                dev.testkit.harness.WireCapture.Sent input = null;
+                dev.testkit.harness.WireCapture.Sent use = null;
+                for (dev.testkit.harness.WireCapture.Sent s : wire) {
+                    if (s.type().equals("minecraft:use_item")) {
+                        use = s;
+                        break;
+                    }
+                    if (s.type().equals("minecraft:player_input")) {
+                        input = s;
+                    }
+                }
+                long leadMs = input == null || use == null ? -1 : (use.nanos() - input.nanos()) / 1_000_000L;
+                String wl = String.format(Locale.ROOT, "sneak lag %s: wire input before the first use %s, %d ms ahead",
+                        act == null ? "alone" : "same-" + act, input == null ? "none" : input.text(), leadMs);
+                println(wl);
+                check(use != null && input != null && input.text().contains("shift=true") && leadMs >= 90,
+                        wl + ": the sneak did not go out ticks before the first use");
+            }
+            // His CLICK opens his inventory and the path stops there by design; his USE with the AOTV in hand is his own warp
+            // that moves him off the path (as mapchain-same-use, which checks no landing either); every other row lands the
+            // whole chain.
+            if (act != dev.testkit.gametest.SameTick.Act.CLICK && act != dev.testkit.gametest.SameTick.Act.USE) {
+                check(warps == ArChainMeasure.CHAIN.length, line + ": expected " + ArChainMeasure.CHAIN.length + " etherwarps");
+            }
+        } finally {
+            session.hx().call("dungeon.sneakLag", "on", false);
+        }
     }
 
     /** {@code split}: Multi Warp Mode Tick Split on top of {@code charged} (mod mwtick-1111): each warp in a banked tick. */
@@ -3274,10 +3820,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             for (int i = 0; i < 2; i++) {
                 int ci = clicks.get(i);
                 int ui = uses.stream().filter(u -> u >= ci).findFirst().orElse(-1);
-                // At most 2: the click's tick must still report the click's look (RotationPlace post-flying) and its unpaired
-                // click needs the warp's look heard before the use (arsneak-1116), so turn on the next tick, use the one after.
-                check(ui >= 0 && ui - ci <= 2, label + ": warp " + (i + 1) + " went " + (ui - ci) + " tick(s) after its click "
-                        + "(at most 2) - " + line);
+                // At most 3: the click's tick must still report the click's look (RotationPlace post-flying) and its unpaired
+                // click needs the warp's look heard before the use (arsneak-1116); a warp with the clicking AOTV also waits
+                // RouteExecutor.CLICK_TO_WARP_TICKS (3 since arwrong-1118: Hypixel refused 15 of 74 at 2).
+                check(ui >= 0 && ui - ci <= 3, label + ": warp " + (i + 1) + " went " + (ui - ci) + " tick(s) after its click "
+                        + "(at most 3) - " + line);
             }
             noteFlags(c, s);
         } finally {
@@ -3533,6 +4080,100 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     }
 
     /**
+     * 62-argrim-1121-batpresent (killer560, 2026-11-21: "the bat is already spawned but it doesnt detect that for a bat
+     * node"). A secret bat (100 max health, NoAI) is standing before a Spirit Sceptre BAT node is reached; the node must
+     * find it and aim at it after its 2 straight-down uses (his 2026-10-15 rule) and draw nothing from GrimAC. With an
+     * act, his own right click / hotbar swap lands in the same tick as the node's use (WireCapture, both() > 0). The
+     * server emulates no sceptre, so the bat never dies: the node ends on its attack ticks.
+     */
+    private static void caseBatPresent(Session c, dev.testkit.gametest.SameTick.Act act) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        c.hx().give(5, "minecraft:iron_sword[custom_data={id:\"BAT_WAND\"},unbreakable={}]");
+        c.server().command("item replace entity @a hotbar.7 with stick");
+        c.server().command("item replace entity @a hotbar.8 with stick");
+        ctx.runOnClient(mc -> {
+            Object ar = ModUnderTest.config(AR_CONFIG);
+            ModUnderTest.call(ar, "setBatWeapon", new Class<?>[]{enumClass("CryptWeapon")},
+                    new Object[]{ModUnderTest.enumValue(AR_CONFIG + "$CryptWeapon", "SPIRIT_SCEPTRE")});
+            ModUnderTest.set(ar, "setBatAttackTicks", 80);
+        });
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            Vec3 at = ctx.computeOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                        double.class, double.class}, new Object[]{frame, 14.5, F + 2.0, 17.5});
+            });
+            c.server().command("summon minecraft:bat " + at.x + " " + at.y + " " + at.z
+                    + " {NoAI:1b,Silent:1b,PersistenceRequired:1b,Tags:[\"batnode1121\"]}");
+            c.server().command("attribute @e[tag=batnode1121,limit=1] minecraft:max_health base set 100");
+            c.server().command("data merge entity @e[tag=batnode1121,limit=1] {Health:100f}");
+            check(waitFor(ctx, 100, () -> ctx.computeOnClient(mc -> {
+                for (var e : mc.level.entitiesForRendering()) {
+                    if (e instanceof net.minecraft.world.entity.ambient.Bat b && b.getMaxHealth() == 100f) {
+                        return true;
+                    }
+                }
+                return false;
+            })), "the 100-health bat never reached the client - nothing measured");
+            ctx.waitTicks(20);
+            JsonObject bat = node("BAT", 14, 14, 0f, 10f);
+            bat.addProperty("start", true);
+            writeRoute(ctx, List.of(bat));
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(7));
+            if (act != null) {
+                dev.testkit.gametest.SameTick s1 = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
+                        p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 7, 8));
+                st = s1;
+            }
+            long m = LogTap.mark();
+            startSampling(ctx);
+            walkOnto(ctx, 14.5, 11.5, 14, 14);
+            boolean aimed = waitFor(ctx, 120, () -> logHas(m, "now aiming the Spirit Sceptre at the secret bat"));
+            ctx.waitTicks(30);
+            List<Sample> sm = stopSampling(ctx);
+            int down = -1;
+            for (String l : LogTap.since(m)) {
+                var mt = java.util.regex.Pattern.compile("BAT: (\\d+) uses went down").matcher(l);
+                if (mt.find()) {
+                    down = Integer.parseInt(mt.group(1));
+                }
+            }
+            String rep = "";
+            if (st != null) {
+                dev.testkit.gametest.SameTick s2 = st;
+                ctx.runOnClient(mc -> s2.close());
+                st = null;
+                rep = s2.report();
+                check(s2.done() > 0 && s2.playerWindows() > 0 && s2.featureWindows() > 0, act
+                        + ": his action or the node's use never reached the wire - nothing tested (" + rep + ")");
+                check(s2.both() > 0, act + ": no server tick carried both his " + act + " and the node's use (" + rep + ")");
+            }
+            println("batpresent-grim " + act + ": aimed " + aimed + ", uses before aiming " + down + ", use_item "
+                    + count(sm, "use_item") + " " + rep);
+            check(aimed, "the sceptre BAT node never aimed at the bat that was already there");
+            check(down == 2, "aimed after " + down + " straight-down uses (his rule: exactly 2 first)");
+            c.note("batpresent " + act + ": aimed after " + down + " use(s), " + rep);
+            noteFlags(c, sm);
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick s3 = st;
+                ctx.runOnClient(mc -> s3.close());
+            }
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                    new Object[]{"test"}));
+            c.server().command("kill @e[tag=batnode1121]");
+            c.server().command("clear @a stick");
+            ctx.runOnClient(mc -> {
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setBatAttackTicks", 100);
+                mc.player.getInventory().setSelectedSlot(3);
+            });
+        }
+    }
+
+    /**
      * mod ar-bridges-bat-1017 (killer560, 2026-10-17: Kill Mimic's Spirit Sceptre, two uses straight down, then the rest
      * aimed at the mimic, in every room). A trapped chest five blocks up and a block across (within the server's block
      * reach - the first version stood it 2.5 across and the harness's own click drew FarPlace and RotationPlace),
@@ -3667,9 +4308,43 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * starred mob is left in sight), and GrimAC is read for the whole stretch.
      */
     private static void caseAutoClear(Session c) {
+        caseAutoClear(c, null, false);
+    }
+
+    /**
+     * Starred mobs an earlier case left alive (achype4-1117: run after 62-argrim-1020-acbat, 62-argrim-1117-achype's plan saw 6
+     * mobs, not its 3, and etherwarped): their zombies and their invisible marker name stands go before a case places its own.
+     */
+    private static void clearStarred(Session c) {
+        c.server().command("kill @e[type=minecraft:zombie]");
+        c.server().command("kill @e[type=minecraft:armor_stand,nbt={Marker:1b,Invisible:1b}]");
+        c.ctx().waitTicks(3);
+    }
+
+    /**
+     * achype4-1117: with {@code act} (or {@code second}) his action goes into every tick from Auto Clear's first landing
+     * pre-aim on (the Hyperion swap and the straight-down turn while the last etherwarp is in flight), so it shares the
+     * pre-aim's and the landing cast's ticks; {@code second} calls clearRoom again on that line. Requires the pre-aim acted.
+     */
+    /**
+     * achype6: the same start for every row. Auto Clear's learned chain link time ({@code linkMean}) carries over from the
+     * cases before, so a row could chain or not by the order it ran in; it goes back to its start value. With {@code lag},
+     * 100 ms of latency: on the local server the last landing confirms within a tick of the last warp, which leaves the
+     * landing pre-aim (and his action armed by it) no tick to act in. Returns {@code lag}; the case removes it.
+     */
+    private static boolean acDeterministic(ClientGameTestContext ctx, boolean lag) {
+        ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField("autoclear.AutoClearFeature", "linkMean", 3.0));
+        if (lag) {
+            ZpewCampaignTests.latency(ctx, 100);
+        }
+        return lag;
+    }
+
+    private static void caseAutoClear(Session c, dev.testkit.gametest.SameTick.Act act, boolean second) {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
         arena(ctx, true);
+        clearStarred(c);
         String auto = "com.killer560.hub.autoclear.AutoClearFeature";
         String autoCfg = "com.killer560.hub.autoclear.AutoClearConfig";
         ctx.runOnClient(mc -> {
@@ -3679,6 +4354,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ModUnderTest.call(cfg, "setWeapon", new Class<?>[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")
                     .getClass()}, new Object[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")});
         });
+        boolean lag = acDeterministic(ctx, act != null || second);
         tpRel(ctx, 5.5, 15.5, -90f, 0f);
         ctx.waitTicks(10);
         // Every two mobs more than 10.6 blocks apart (mod ac-optimize-1015): no one standing block reaches two of them with
@@ -3704,15 +4380,54 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         long m = LogTap.mark();
         Vec3 start = ctx.computeOnClient(mc -> mc.player.position());
         startSampling(ctx);
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class, Runnable.class,
-                java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> done.set("done"),
+        String landLine = "[AutoClear] Hyperion ready for the landing";
+        dev.testkit.gametest.SameTick st = act == null ? null : ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(
+                // His swap every tick for the whole clear leaves Auto Clear no tick to take the Hyperion back (it never
+                // swaps over his), so it skipped the last mob after 80 ticks (achype6): every third tick, like his USE.
+                act, act == dev.testkit.gametest.SameTick.Act.USE || act == dev.testkit.gametest.SameTick.Act.SWAP ? 3 : 1,
+                p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
+                        || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8)
+                .armedBy(() -> logHas(m, landLine)));
+        Runnable go = () -> ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class,
+                Runnable.class, java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> done.set("done"),
                 (java.util.function.Consumer<String>) gaveUp::set}));
-        boolean finished = waitFor(ctx, 900, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto,
-                "isBusy")));
+        boolean hits = act == dev.testkit.gametest.SameTick.Act.ATTACK;
+        if (hits) {   // an entity under his crosshair whatever Auto Clear turns him to (no collision, moved onto him each tick)
+            c.server().command("execute at @a[limit=1] run summon interaction ~ ~-1.5 ~ {width:5f,height:5f,"
+                    + "Tags:[\"aclandhit\"]}");
+            ctx.waitTicks(2);
+        }
+        go.run();
+        boolean[] restarted = {false};
+        boolean finished = waitFor(ctx, 900, () -> {
+            if (hits) {
+                c.server().command("execute as @e[tag=aclandhit] at @a[limit=1] run tp @s ~ ~-1.5 ~");
+            }
+            if (act == dev.testkit.gametest.SameTick.Act.TP && logHas(m, landLine)) {
+                c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+            }
+            if (second && !restarted[0] && logHas(m, landLine)) {
+                restarted[0] = true;
+                go.run();
+            }
+            return !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto, "isBusy"));
+        });
+        if (hits) {
+            c.server().command("kill @e[tag=aclandhit]");
+        }
         if (!finished) {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "cancel"));
         }
         ctx.waitTicks(5);
+        if (lag) {
+            ZpewCampaignTests.latency(ctx, 0);
+        }
+        if (st != null) {
+            dev.testkit.gametest.SameTick.judge(c, st, "achype4 landing " + act, dev.testkit.gametest.SameTick.Expect.ACTED);
+        }
+        if (act != null || second) {
+            check(logHas(m, landLine), "the landing pre-aim never acted (no '" + landLine + "')");
+        }
         List<Sample> s = stopSampling(ctx);
         Vec3 end = ctx.computeOnClient(mc -> mc.player.position());
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(autoCfg), "setEnabled", false));
@@ -3757,6 +4472,202 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 + " onGiveUp=" + gaveUp.get());
         c.note("autoclear: 3 starred mobs (open, in a wall, behind a wall) killed by " + delta(before, "witherImpacts")
                 + " Wither Impact(s) and " + delta(before, "etherwarps") + " etherwarp(s), no entity packet");
+        noteFlags(c, s);
+    }
+
+    /**
+     * achype-1117 (killer560: "it only hyped straight down never across to other boxes"): three starred zombies in the open
+     * arena, A 4 blocks ahead (in reach of a cast where he stands), B 8 past A (not), C off to the side of B. One Wither
+     * Impact along a look that lands between A and B reaches both (Auto Clear logs "Wither Impact across"), and C is the
+     * next link of the cast chain: no etherwarp at all. With {@code act} his own action goes into every tick from the first
+     * cast on ({@link dev.testkit.gametest.SameTick}, Expect ACTED: both on the wire, GrimAC decides); {@code second} calls
+     * clearRoom again after the first cast. GrimAC is read for the whole stretch (both configs: the experimental checkout).
+     */
+    private static void caseAutoClearHype(Session c, dev.testkit.gametest.SameTick.Act act, boolean second) {
+        caseAutoClearHype(c, act, second, false);
+    }
+
+    private static void caseAutoClearHype(Session c, dev.testkit.gametest.SameTick.Act act, boolean second, boolean chain) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        clearStarred(c);
+        String auto = "com.killer560.hub.autoclear.AutoClearFeature";
+        String autoCfg = "com.killer560.hub.autoclear.AutoClearConfig";
+        ctx.runOnClient(mc -> {
+            Object cfg = ModUnderTest.config(autoCfg);
+            ModUnderTest.set(cfg, "setEnabled", true);
+            ModUnderTest.set(cfg, "setHyperionHops", true);
+            ModUnderTest.call(cfg, "setWeapon", new Class<?>[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")
+                    .getClass()}, new Object[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")});
+            mc.player.getInventory().setSelectedSlot(4);
+        });
+        boolean lag = acDeterministic(ctx, chain && (act != null || second));
+        tpRel(ctx, 6.5, 15.5, -90f, 0f);
+        ctx.waitTicks(10);
+        double[][] spots = chain ? new double[][]{{5.5, 15.5}, {17.5, 11.5}, {17.5, 19.5}}
+                : new double[][]{{10.5, 15.5}, {18.5, 15.5}, {21.5, 23.5}};
+        List<JsonObject> mobs = new ArrayList<>();
+        for (double[] sp : spots) {
+            Vec3 at = ctx.computeOnClient(mc -> {
+                Object frame = ModUnderTest.staticCall(FRAME, "current");
+                return (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                        double.class, double.class}, new Object[]{frame, sp[0], (double) F, sp[1]});
+            });
+            mobs.add(c.hx().call("dungeon.starred", "x", at.x, "y", at.y, "z", at.z).getAsJsonObject());
+        }
+        ctx.waitTicks(20);
+        JsonObject before = stats();
+        java.util.concurrent.atomic.AtomicReference<String> done = new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicReference<String> gaveUp = new java.util.concurrent.atomic.AtomicReference<>();
+        long m = LogTap.mark();
+        startSampling(ctx);
+        Runnable start = () -> ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "clearRoom", new Class<?>[]{String.class,
+                Runnable.class, java.util.function.Consumer.class}, new Object[]{room, (Runnable) () -> done.set("done"),
+                (java.util.function.Consumer<String>) gaveUp::set}));
+        dev.testkit.gametest.SameTick st = null;
+        // His USE holds the same Hyperion, so his own casts can kill what is left once Auto Clear's first cast landed:
+        // his uses start with Auto Clear, so its first casts fall inside the window (it once acted only before it).
+        // The chain layout clears in about 8 ticks, so every action starts BEFORE Auto Clear and is armed by its chain line:
+        // his action then goes in the ticks of the chained cast itself (not after the room is done). His USE is armed by
+        // Auto Clear's first cast line in both layouts, so his own casts cannot clear the mobs before it acts.
+        boolean useFirst = act == dev.testkit.gametest.SameTick.Act.USE || chain && act != null;
+        boolean hits = act == dev.testkit.gametest.SameTick.Act.ATTACK;
+        String armLine = chain ? "[AutoClear] Wither Impact chain" : "[AutoClear] Wither Impact";
+        if (hits && chain) {
+            c.server().command("execute at @a[limit=1] run summon interaction ~ ~-1.5 ~ {width:5f,height:5f,"
+                    + "Tags:[\"achypehit\"]}");
+            ctx.waitTicks(2);
+        }
+        if (useFirst) {
+            int every = act == dev.testkit.gametest.SameTick.Act.USE ? 3 : 1;
+            st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, every,
+                    p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
+                            || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8)
+                    .armedBy(() -> logHas(m, armLine)));
+        }
+        start.run();
+        int[] tpSpam = {6};
+        boolean[] restarted = {false};
+        boolean firstCast = waitFor(ctx, 100, () -> {
+            if (chain && act == dev.testkit.gametest.SameTick.Act.TP && logHas(m, armLine) && tpSpam[0]-- > 0) {
+                c.server().command("execute as @a at @s run tp @s ~ ~ ~");   // only from the chain on: before it, it moved the plan
+            }
+            if (hits && chain) {
+                c.server().command("execute as @e[tag=achypehit] at @a[limit=1] run tp @s ~ ~-1.5 ~");
+            }
+            if (second && chain && !restarted[0] && logHas(m, "[AutoClear] Wither Impact chain")) {
+                restarted[0] = true;   // the second clearRoom starts in the chain's own tick
+                start.run();
+            }
+            return logHas(m, "[AutoClear] Wither Impact");
+        });
+        if (hits && !chain) {
+            // His attack needs an entity under his crosshair whatever the casts turn him to: an interaction box (no
+            // collision, no push) around his eyes, moved onto him every tick below.
+            c.server().command("execute at @a[limit=1] run summon interaction ~ ~-1.5 ~ {width:5f,height:5f,"
+                    + "Tags:[\"achypehit\"]}");
+            ctx.waitTicks(2);
+        }
+        if (act != null && !useFirst) {
+            // His use every tick would leave Auto Clear no tick of its own (it yields to his use); every third tick it
+            // still meets his casts. ATTACK every tick, counted only while the box is under his crosshair.
+            int every = act == dev.testkit.gametest.SameTick.Act.USE ? 3 : 1;
+            st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, every,
+                    p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
+                            || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8));
+            if (act == dev.testkit.gametest.SameTick.Act.TP) {
+                for (int i = 0; i < 5; i++) {
+                    c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+                    ctx.waitTicks(1);
+                }
+            }
+        }
+        if (second && !chain) {
+            start.run();
+        }
+        boolean finished = waitFor(ctx, 600, () -> {
+            if (chain && act == dev.testkit.gametest.SameTick.Act.TP && logHas(m, "[AutoClear] Wither Impact chain")
+                    && tpSpam[0]-- > 0) {
+                // The teleports keep coming through the chained cast's ticks, so one of his answers shares its tick.
+                c.server().command("execute as @a at @s run tp @s ~ ~ ~");
+            }
+            if (hits) {
+                c.server().command("execute as @e[tag=achypehit] at @a[limit=1] run tp @s ~ ~-1.5 ~");
+            }
+            return !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(auto, "isBusy"));
+        });
+        if (hits) {
+            c.server().command("kill @e[tag=achypehit]");
+        }
+        if (!finished) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(auto, "cancel"));
+        }
+        ctx.waitTicks(5);
+        if (lag) {
+            ZpewCampaignTests.latency(ctx, 0);
+        }
+        if (st != null) {
+            // His USE never shares a tick (Auto Clear yields to a use of his), so USE and ATTACK are ACTED; a TP answer meets the cast's tick in most runs but not all (the note quotes SHARED), so TP is ACTED too. Chain layout: his action is armed by the chain line, so the ticks that carry both ARE the chained cast's.
+            dev.testkit.gametest.SameTick.judge(c, st, "achype " + act, chain && act != dev.testkit.gametest.SameTick.Act.ATTACK
+                    && act != dev.testkit.gametest.SameTick.Act.USE
+                    && act != dev.testkit.gametest.SameTick.Act.TP
+                    ? dev.testkit.gametest.SameTick.Expect.SHARE : dev.testkit.gametest.SameTick.Expect.ACTED);
+        }
+        List<Sample> s = stopSampling(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(autoCfg), "setEnabled", false));
+        List<String> states = new ArrayList<>();
+        for (JsonObject mob : mobs) {
+            states.add(c.hx().call("dungeon.alive", "id", mob.get("mob").getAsString(), "stand",
+                    mob.get("stand").getAsString()).getAsString());
+        }
+        for (String l : LogTap.since(m)) {
+            if (l.contains("[AutoClear]")) {
+                println("  " + l.replaceAll("^.*?\\[AutoClear\\]", "[AutoClear]"));
+            }
+        }
+        printTrace("achype", s);
+        int impacts = delta(before, "witherImpacts");
+        int warps = delta(before, "etherwarps");
+        boolean across = logHas(m, "[AutoClear] Wither Impact across");
+        if (chain) {
+            // The wire: the feature's own cast count (its room line) must be 2 or more with no etherwarp (the first cast, then
+            // the chained one), and the trace must hold that many use_item ticks; the ones after the first are quoted.
+            int chained = 0;
+            int featureUses = 0;
+            for (String l : LogTap.since(m)) {
+                chained += l.contains("[AutoClear] Wither Impact chain") ? 1 : 0;
+                java.util.regex.Matcher mm = java.util.regex.Pattern.compile("room time:.*weapon uses (\\d+)").matcher(l);
+                if (mm.find()) {
+                    featureUses = Integer.parseInt(mm.group(1));
+                }
+            }
+            List<Sample> uses = useTicks(s);
+            for (int i = 1; i < uses.size(); i++) {
+                println("  cast on the wire after the first, tick " + uses.get(i).tick() + ": " + uses.get(i).out());
+            }
+            c.note("chain lines " + chained + ", Auto Clear weapon uses " + featureUses + ", use_item ticks on the wire "
+                    + uses.size());
+            check(chained >= 1, "no Wither Impact chain cast (the chain case tested nothing)");
+            check(uses.size() >= 2, "the chained cast never reached the wire: Auto Clear weapon uses " + featureUses
+                    + ", use_item ticks " + uses.size());
+            check(warps == 0, warps + " etherwarp(s) in the chain layout");
+        }
+        c.note("achype " + (act == null ? second ? "second" : "plain" : act) + ": mobs " + states + ", Wither Impacts "
+                + impacts + ", etherwarps " + warps + ", across " + across + ", use_item " + count(s, "use_item"));
+        check(firstCast, "no Wither Impact cast within 100 ticks");
+        check(impacts > 0, "the server saw no Wither Impact (nothing tested)");
+        if (act == null) {
+            // His own actions (a use with the Hyperion is a cast of his, a server teleport) may move him or kill a mob
+            // first; only the plain runs judge the plan.
+            for (int i = 0; i < mobs.size(); i++) {
+                check(!"alive".equals(states.get(i)), "starred mob " + i + " is still alive");
+            }
+            check(chain || across, "no Wither Impact across: A and B were not taken by one cast");
+            check(warps == 0, warps + " etherwarp(s): the cast chain should have reached every mob");
+            check(finished && done.get() != null && gaveUp.get() == null, "clearRoom ended onDone=" + done.get()
+                    + " onGiveUp=" + gaveUp.get());
+        }
         noteFlags(c, s);
     }
 
@@ -4628,17 +5539,52 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * tick's client_tick_end: GrimAC "Post held item change" on the next transaction. Requires the precomputed run, one
      * set_carried_item, and the usual warps; GrimAC must stay silent.
      */
+    /** Dungeons Autopilot starts only once the run has (Mort's line): the arena has no Mort, so the test sets the flag. */
+    private static void runStartedForTest(boolean v) {
+        Class<?> wd;
+        try {
+            wd = Class.forName("com.killer560.hub.witherdoors.WitherDoorsFeature");
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("no WitherDoorsFeature", e);
+        }
+        try {
+            // acstart-1122: the world Mort's line came in (a new world is a new run), was the boolean mortSeen
+            java.lang.reflect.Field f = wd.getDeclaredField("mortLevel");
+            f.setAccessible(true);
+            f.set(null, v ? net.minecraft.client.Minecraft.getInstance().level : null);
+            return;
+        } catch (NoSuchFieldException e) {
+            // an older jar: the boolean below
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("could not set WitherDoorsFeature.mortLevel", e);
+        }
+        try {
+            java.lang.reflect.Field f = wd.getDeclaredField("mortSeen");
+            f.setAccessible(true);
+            f.setBoolean(null, v);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("could not set WitherDoorsFeature.mortSeen", e);
+        }
+    }
+
     private static void caseAutoSecret(Session c, boolean pilot, boolean byKey) {
         ClientGameTestContext ctx = c.ctx();
         String as = "com.killer560.hub.autosecret.AutoSecretFeature";
         if (byKey) {
             ctx.runOnClient(mc -> {
+                // apmenu-1121: one Toggle Keybind (Dungeons Autopilot card) starts the planner in every Mode; Party Secrets
+                // here, because Solo clears a mob room before its secrets and the arena's room has no starred mob to clear.
                 Object cfg = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
-                ModUnderTest.call(cfg, "setToggleKey", new Class<?>[]{int.class}, new Object[]{AS_KEY});
-                ModUnderTest.call(cfg, "setAutopilotKey", new Class<?>[]{int.class}, new Object[]{PILOT_KEY});
+                Object mode = ModUnderTest.enumValue("com.killer560.hub.autosecret.AutoSecretConfig$Mode", "PARTY_SECRETS");
+                ModUnderTest.call(cfg, "setMode", new Class<?>[]{mode.getClass()}, new Object[]{mode});
+                Object none = ModUnderTest.enumValue("com.killer560.hub.autosecret.AutoSecretConfig$BloodRush", "NONE");
+                ModUnderTest.call(cfg, "setBloodRush", new Class<?>[]{none.getClass()}, new Object[]{none});
+                ModUnderTest.staticCall("com.killer560.hub.gui.ModuleKeybinds", "set", new Class<?>[]{String.class, int.class},
+                        new Object[]{"AutoClearTab", pilot ? PILOT_KEY : AS_KEY});
+                runStartedForTest(true);
             });
         }
-        if (pilot) {
+        if (pilot && !byKey) {
             ctx.runOnClient(mc -> {
                 Object cfg = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
                 Object solo = ModUnderTest.enumValue("com.killer560.hub.autosecret.AutoSecretConfig$RunMode", "SOLO");
@@ -4684,7 +5630,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             check(Boolean.TRUE.equals(started), (pilot ? "Dungeon Autopilot" : "Auto Secret") + " refused to start");
             Vec3 atStart = waitLanded(ctx, 24, 10, 300);
             Vec3 atEnd = waitLanded(ctx, 24, 22, 200);
-            boolean stopped = waitFor(ctx, 200, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as,
+            // By the key it is always the planner (apmenu-1121), which also explores the arena's unknown cells.
+            boolean planner = pilot || byKey;
+            boolean stopped = waitFor(ctx, planner ? 600 : 200, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as,
                     "isRunning")));
             ctx.waitTicks(10);
             s = stopSampling(ctx);
@@ -4696,10 +5644,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             }
             // The autopilot plans more trips after the route (it explores the arena's empty cells), so its START-node trip
             // is the FIRST plan, not the last.
-            int planned = pilot ? firstPlannedWarps(m) : plannedWarps(m);
+            int planned = planner ? firstPlannedWarps(m) : plannedWarps(m);
             List<Sample> uses = useTicks(s);
             check(logHas(m, "[AutoSecret] target " + room), "Auto Secret did not target " + room);
-            if (pilot) {
+            if (planner) {
                 check(logHas(m, "| pick SECRET " + room), "the autopilot never picked the route in " + room);
             }
             check(atStart != null, "Auto Secret's map warp did not bring him to the start node (24,10) - at " + relPos(ctx));
@@ -4707,7 +5655,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             check(logHas(m, "[AutoSecret] route " + room + " finished"), "Auto Secret never saw the route finish");
             check(stopped, "Auto Secret was still running with nothing left to do");
             check(planned >= 2, "the map planned " + planned + " warp(s) across the wall, expected 2 or more");
-            if (pilot) {
+            if (planner) {
                 // The arena's map shows its other cells as unidentified rooms, and the autopilot goes to look at them
                 // after the route (EXPLORE), so it warps more than Auto Secret; every use must still be a server warp.
                 check(uses.size() >= planned + 1, "sent " + uses.size() + " use(s) for " + planned
@@ -4750,15 +5698,139 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                             new Object[]{"test over", true});
                 }
                 if (byKey) {
-                    Object cfg = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
-                    ModUnderTest.call(cfg, "setToggleKey", new Class<?>[]{int.class}, new Object[]{-1});
-                    ModUnderTest.call(cfg, "setAutopilotKey", new Class<?>[]{int.class}, new Object[]{-1});
+                    ModUnderTest.staticCall("com.killer560.hub.autosecret.DungeonsAutopilot", "setOn",
+                            new Class<?>[]{boolean.class}, new Object[]{false});
+                    ModUnderTest.staticCall("com.killer560.hub.gui.ModuleKeybinds", "set",
+                            new Class<?>[]{String.class, int.class}, new Object[]{"AutoClearTab", -1});
+                    runStartedForTest(false);
                 }
             });
             writeRoute(ctx, null);
             ctx.waitTicks(3);
         }
         noteFlags(c, s);
+    }
+
+    // ---- apmenu-1121: Dungeons Autopilot (one card, one switch, one Toggle Keybind) ----
+    private static final String PILOT = "com.killer560.hub.autosecret.DungeonsAutopilot";
+    private static final String AS_CFG = "com.killer560.hub.autosecret.AutoSecretConfig";
+
+    private static void apSet(String mode, String rush, boolean disableAfter) {
+        Object cfg = ModUnderTest.config(AS_CFG);
+        Object m = ModUnderTest.enumValue(AS_CFG + "$Mode", mode);
+        ModUnderTest.call(cfg, "setMode", new Class<?>[]{m.getClass()}, new Object[]{m});
+        Object r = ModUnderTest.enumValue(AS_CFG + "$BloodRush", rush);
+        ModUnderTest.call(cfg, "setBloodRush", new Class<?>[]{r.getClass()}, new Object[]{r});
+        ModUnderTest.set(cfg, "setDisableAfterBloodRush", disableAfter);
+        ModUnderTest.set(cfg, "setBloodFirst", false);
+    }
+
+    private static boolean apOn(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(PILOT, "isOn"));
+    }
+
+    private static boolean asRunning(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.autosecret.AutoSecretFeature",
+                "isRunning"));
+    }
+
+    private static void apBind(ClientGameTestContext ctx, int key) {
+        ctx.runOnClient(mc -> {
+            ModUnderTest.staticCall("com.killer560.hub.gui.ModuleKeybinds", "set", new Class<?>[]{String.class, int.class},
+                    new Object[]{"AutoClearTab", key});
+            runStartedForTest(key != -1);
+            if (key == -1) {
+                ModUnderTest.staticCall(PILOT, "setOn", new Class<?>[]{boolean.class}, new Object[]{false});
+                apSet("SOLO_300", "NONE", false);
+            }
+        });
+    }
+
+    /** The arena has no Blood door: mark Door Only's "Blood door open" for this world (null clears it). */
+    private static void doorOnlyDoneForTest(Object level) {
+        try {
+            java.lang.reflect.Field f = Class.forName("com.killer560.hub.autoclear.AutoClearFeature").getDeclaredField("doorOnlyDone");
+            f.setAccessible(true);
+            f.set(null, new java.lang.ref.WeakReference<>(level));
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("could not set AutoClearFeature.doorOnlyDone", e);
+        }
+    }
+
+    /** Each Mode: the Toggle Keybind switches it on, the run targets the room (acted), the key switches everything off. */
+    private static void caseApMenuModes(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, true);
+        writeRoute(ctx, List.of(ew(24, 10, 24, 22, true)));
+        List<Sample> s = List.of();
+        apBind(ctx, PILOT_KEY);
+        try {
+            tpRel(ctx, 6.5, 20.5, 0f, 0f);
+            double[] home = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+            float homeYaw = lookYaw;
+            startSampling(ctx);
+            for (String mode : List.of("SOLO_300", "CLEAR_THEN_SECRET", "SECRET_THEN_CLEAR", "PARTY_SECRETS")) {
+                session.hx().call("dungeon.tp", "x", home[0], "y", home[1], "z", home[2], "yaw", homeYaw, "pitch", 0f);
+                Vec3 back = new Vec3(home[0], home[1], home[2]);
+                check(waitFor(ctx, 60, () -> ctx.computeOnClient(mc -> mc.player.position().distanceTo(back) < 0.05)),
+                        mode + ": could not put him back in the room");
+                ctx.waitTicks(5);
+                ctx.runOnClient(mc -> apSet(mode, "NONE", false));
+                long m = LogTap.mark();
+                ctx.getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(PILOT_KEY), 3);
+                check(waitFor(ctx, 20, () -> apOn(ctx)), mode + ": the Toggle Keybind did not switch Dungeons Autopilot on");
+                check(waitFor(ctx, 40, () -> asRunning(ctx)), mode + ": switched on, but the secrets run never started");
+                check(waitFor(ctx, 300, () -> logHas(m, "[AutoSecret] target ") || logHas(m, "[AutoClear] move to")),
+                        mode + ": the run never targeted a room or moved to clear one - nothing acted");
+                check(logHas(m, "[DungeonsAutopilot] on: mode " + mode), mode + ": the on line did not name the mode");
+                ctx.waitTicks(5);
+                ctx.getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(PILOT_KEY), 3);
+                check(waitFor(ctx, 40, () -> !apOn(ctx) && !asRunning(ctx)), mode + ": the second press did not stop it");
+                check(logHas(m, "[DungeonsAutopilot] off: you switched it off"), mode + ": no off line");
+                c.note(mode + ": key on, targeted a room, key off");
+                ctx.waitTicks(20);
+            }
+            s = stopSampling(ctx);
+        } finally {
+            apBind(ctx, -1);
+            writeRoute(ctx, null);
+            ctx.waitTicks(3);
+        }
+        noteFlags(c, s);
+    }
+
+    /** Blood Rush Door + Disable After Blood Rush: the rush ends (no blood door on the arena) and the card switches off
+     *  instead of going on to the secrets. */
+    private static void caseApMenuDisable(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, true);
+        writeRoute(ctx, List.of(ew(24, 10, 24, 22, true)));
+        apBind(ctx, PILOT_KEY);
+        try {
+            tpRel(ctx, 6.5, 20.5, 0f, 0f);
+            ctx.waitTicks(5);
+            ctx.runOnClient(mc -> {
+                apSet("SOLO_300", "DOOR", true);
+                doorOnlyDoneForTest(mc.level);
+            });
+            long m = LogTap.mark();
+            ctx.getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(PILOT_KEY), 3);
+            check(waitFor(ctx, 60, () -> logHas(m, "[DungeonsAutopilot] on: mode SOLO_300, blood rush DOOR")),
+                    "the Toggle Keybind did not switch it on with Blood Rush Door");
+            check(waitFor(ctx, 100, () -> logHas(m, "[DungeonsAutopilot] off: Disable After Blood Rush")),
+                    "Disable After Blood Rush never switched it off after the rush");
+            ctx.waitTicks(20);
+            check(!apOn(ctx), "still on after the rush");
+            check(!asRunning(ctx) && !logHas(m, "[AutoSecret] target "), "went on to the secrets after the rush");
+            c.note("Blood Rush Door ended, switched off, no secrets");
+        } finally {
+            ctx.runOnClient(mc -> doorOnlyDoneForTest(null));
+            apBind(ctx, -1);
+            writeRoute(ctx, null);
+            ctx.waitTicks(3);
+        }
     }
 
     /** /ar edit 2, Go To: node #2 across the wall, reached by the Interactive Map's warp, then edit mode. */

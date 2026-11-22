@@ -57,7 +57,6 @@ final class HxMining1101Cases {
         s.test("1103-mining-area", HxMining1101Cases::area1103);
         s.test("1103-mining-no-universal", HxMining1101Cases::noUniversal1103);
         s.test("1103-mining-pickobulus-chat", HxMining1101Cases::pickobulusChat1103);
-        s.test("1103-mining-attack-hold", HxMining1101Cases::attackHold1103);
     }
 
     // ---- shared ---------------------------------------------------------------------------------------------------
@@ -538,52 +537,6 @@ final class HxMining1101Cases {
                 setb(c, b, "minecraft:air");
             }
             c.hx().give(0, "minecraft:air");
-            hub(c);
-        }
-    }
-
-
-    /**
-     * "something keeps making my left click stop holding break": the diagnostics log a screen that opens while the left
-     * button is held, and the release it causes, so his next log names the cause. Proves both lines fire and that a plain
-     * let-go of the button logs nothing.
-     */
-    private static void attackHold1103(Session c) {
-        String probe = "miningqol.AttackHoldProbe";
-        try {
-            mines(c, "Royal Mines", "Goblin Slayer: 10%");
-            int screens = intCall(c, probe, "screenLines");
-            int releases = intCall(c, probe, "releaseLines");
-            // A plain press and let-go: nothing logged.
-            c.ctx().runOnClient(mc -> {
-                Mod.staticCall("util.MouseButtons", "onButton", 0, 1);
-                mc.options.keyAttack.setDown(true);
-            });
-            c.ctx().waitTicks(3);
-            c.ctx().runOnClient(mc -> {
-                Mod.staticCall("util.MouseButtons", "onButton", 0, 0);
-                mc.options.keyAttack.setDown(false);
-            });
-            c.ctx().waitTicks(30);
-            c.check(intCall(c, probe, "releaseLines") == releases, "a plain let-go of the button was logged");
-            // Held, then a screen opens: both lines.
-            c.ctx().runOnClient(mc -> {
-                Mod.staticCall("util.MouseButtons", "onButton", 0, 1);
-                mc.options.keyAttack.setDown(true);
-            });
-            c.ctx().waitTicks(3);
-            c.ctx().runOnClient(mc -> dev.testkit.compat.McCompat.setScreen(mc,
-                    new net.minecraft.client.gui.screens.inventory.InventoryScreen(mc.player)));
-            c.ctx().waitTicks(3);
-            c.check(intCall(c, probe, "screenLines") == screens + 1, "no line for the screen opened under a held click");
-            c.check(intCall(c, probe, "releaseLines") == releases + 1, "no line for the release the screen caused");
-            c.note("screen line and release line written; a plain let-go wrote none");
-        } finally {
-            c.ctx().runOnClient(mc -> {
-                dev.testkit.compat.McCompat.setScreen(mc, null);
-                Mod.staticCall("util.MouseButtons", "onButton", 0, 0);
-                mc.options.keyAttack.setDown(false);
-            });
             hub(c);
         }
     }

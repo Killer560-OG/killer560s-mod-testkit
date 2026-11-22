@@ -24,8 +24,8 @@ import static dev.testkit.gametest.hx.HxKit.*;
  */
 final class HxAcDoorOnly1115Cases {
 
-    private static final String CFG = "autoclear.AutoClearConfig";
-    private static final String AC = "autoclear.AutoClearFeature";
+    static final String CFG = "autoclear.AutoClearConfig";
+    static final String AC = "autoclear.AutoClearFeature";
     private static final String KEY = "minecraft:prismarine_shard[custom_data={id:\"WITHER_KEY\"},item_name=\"Wither Key\"]";
 
     private HxAcDoorOnly1115Cases() {
@@ -41,7 +41,7 @@ final class HxAcDoorOnly1115Cases {
     }
 
     /** The door column, the floor, the key and the dungeon sidebar; he stands 3 blocks south of the door. */
-    private static BlockPos stage(Session c, boolean zombie) {
+    static BlockPos stage(Session c, boolean zombie) {
         dungeon(c);
         BlockPos door = (BlockPos) Mod.staticCall("livemap.DungeonLayout", "doorBlock", 1);
         int x = door.getX();
@@ -60,11 +60,15 @@ final class HxAcDoorOnly1115Cases {
                     + "{NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}", x + 0.5, z + 1.9));
         }
         c.waitUntil("the door column on the client", mc -> mc.level.getBlockState(door).is(net.minecraft.world.level.block.Blocks.COAL_BLOCK), 200);
+        // The run has started (acslow-1121: Auto Clear started before Mort's first line only arms, and an arm is dropped
+        // on the next world change), as on Hypixel once the map is handed out.
+        c.hx().chat("[NPC] Mort: Here, I found this map when I first entered the dungeon.");
+        c.waitUntil("the run read as started", mc -> (Boolean) Mod.staticCall("witherdoors.WitherDoorsFeature", "runStarted"), 40);
         c.ctx().waitTicks(10);
         return door;
     }
 
-    private static void clean(Session c, BlockPos door) {
+    static void clean(Session c, BlockPos door) {
         c.onClient(mc -> {
             Mod.staticCall(AC, "forceDoorForTest", -1);
             if ((Boolean) Mod.staticCall(AC, "isBusy")) {
@@ -80,7 +84,7 @@ final class HxAcDoorOnly1115Cases {
         hub(c);
     }
 
-    private static void startAc(Session c) {
+    static void startAc(Session c) {
         c.onClient(mc -> {
             Mod.staticCall(AC, "forceDoorForTest", 1);
             Mod.staticCall(AC, "start");
@@ -88,7 +92,7 @@ final class HxAcDoorOnly1115Cases {
         });
     }
 
-    private static int blockUses(Session c, long since) {
+    static int blockUses(Session c, long since) {
         return c.hx().events(since, "use_block").size();
     }
 

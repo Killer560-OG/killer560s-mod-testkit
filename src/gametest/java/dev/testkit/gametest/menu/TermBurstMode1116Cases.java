@@ -34,7 +34,7 @@ final class TermBurstMode1116Cases {
 
     static final String CONFIG = TerminalCases.CONFIG;
     static final String FEATURE = TermBurst1111Cases.FEATURE;
-    static final int[] SIZES = {1, 5, 10, 21};
+    static final int[] SIZES = {1, 5};
     static final TerminalCases.Spec PANES15 = new TerminalCases.Spec("PANES", new Object[]{"seed", 61, "count", 15}, "AutoPanesEnabled");
     static final TerminalCases.Spec NUMBERS14 = new TerminalCases.Spec("NUMBERS", new Object[]{"seed", 62, "count", 14}, "AutoNumbersEnabled");
     static final TerminalCases.Spec STARTS = new TerminalCases.Spec("STARTS_WITH",
@@ -52,7 +52,7 @@ final class TermBurstMode1116Cases {
                 MenuSuite.test(s, "1116-term-bmode-" + n + "-" + size, c -> run(c, spec, size, 0, null));
             }
         }
-        for (int size : new int[]{1, 5, 21}) {
+        for (int size : new int[]{1, 5}) {
             for (TerminalCases.Spec spec : List.of(PANES15, TermPlus1112Cases.SELECT24)) {
                 MenuSuite.test(s, "1117-term-bmode-catchup-" + spec.type().toLowerCase(Locale.ROOT).replace("_", "") + "-" + size,
                         c -> run(c, spec, size, 0, null, true));
@@ -60,12 +60,12 @@ final class TermBurstMode1116Cases {
         }
         for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.CLICK, SameTick.Act.SCREEN_CLICK, SameTick.Act.USE,
                 SameTick.Act.ATTACK, SameTick.Act.SWAP, SameTick.Act.TP}) {
-            for (int size : new int[]{5, 21}) {
+            for (int size : new int[]{5}) {
                 MenuSuite.test(s, "1116-term-bmode-same-" + a.name().toLowerCase(Locale.ROOT).replace('_', '-') + "-" + size,
                         c -> run(c, TermPlus1112Cases.SELECT24, size, 0, a));
             }
         }
-        for (int size : new int[]{5, 21}) {
+        for (int size : new int[]{5}) {
             MenuSuite.test(s, "1116-term-bmode-open2-" + size, c -> open2(c, size));
         }
         MenuSuite.test(s, "1116-term-bmode-drop", c -> run(c, new TerminalCases.Spec("SELECT",
@@ -74,6 +74,8 @@ final class TermBurstMode1116Cases {
                 new Object[]{"seed", 66, "count", 12, "parts", 3, "partGap", 20}, "AutoPanesEnabled"), 5, 0, null));
         MenuSuite.test(s, "1116-term-bmode-delay", c -> run(c, TermPlus1112Cases.SELECT24, 3, 250, null));
         MenuSuite.test(s, "1116-term-bmode-persist", TermBurstMode1116Cases::persist);
+        MenuSuite.test(s, "1119-term-burst-cap-load", TermBurstMode1116Cases::capLoad);
+        MenuSuite.test(s, "1119-menu-report-build", TermBurstMode1116Cases::reportBuild);
     }
 
     private static void config(MenuKit.Cfg cfg, TerminalCases.Spec spec, int size, int delay) {
@@ -342,6 +344,63 @@ final class TermBurstMode1116Cases {
         }
     }
 
+    /** 1119-menu-report-build (burstcap-crashinfo-1119): the /bugreport report.txt names the build: its commit equals the one in the
+     *  jar's own killer560smod-build.properties, plus variant, channel, testing and the jar file. */
+    private static void reportBuild(Session c) throws Exception {
+        String props = c.onClient(mc -> {
+            try (java.io.InputStream in = mc.getClass().getResourceAsStream("/killer560smod-build.properties")) {
+                return in == null ? "" : new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            } catch (Exception e) {
+                return "";
+            }
+        });
+        String commit = props.lines().filter(l -> l.startsWith("commit=")).map(l -> l.substring(7).trim()).findFirst().orElse("");
+        String testing = props.lines().filter(l -> l.startsWith("testing=")).map(l -> l.substring(8).trim()).findFirst().orElse("");
+        String text = c.onClient(mc -> (String) Mod.staticCall("com.killer560.hub.bugreport.BugReportFeature", "buildReportText"));
+        c.note("properties commit " + commit + ", report lines: " + text.lines().filter(l -> l.startsWith("Build ") || l.startsWith("Mod jar")).toList());
+        c.check(commit.matches("[0-9a-f]{40}"), "the jar's build properties carry no commit: " + props);
+        c.check(text.contains("Build commit: " + commit), "report.txt does not carry the jar's commit " + commit);
+        c.check(text.contains("Build variant: " + (MenuKit.cheat() ? "cheat" : "legit")), "report.txt has no matching Build variant line");
+        c.check(text.contains("Build channel: ") && text.contains("Build testing: " + testing), "report.txt has no Build channel / Build testing line");
+    }
+
+    /** 1119-term-burst-cap-load (burstcap-crashinfo-1119): a file saved with Burst Size and Max Clicks Per Burst 9 loads as 5
+     *  (Hypixel takes 5 terminal clicks in 10 ticks) and is written back as 5; the setters cap at 5 too. */
+    private static void capLoad(Session c) throws Exception {
+        MenuKit.reset(c);
+        Path path = c.onClient(mc -> (Path) Mod.field(CONFIG, "CONFIG_PATH"));
+        byte[] before = Files.exists(path) ? Files.readAllBytes(path) : null;
+        try {
+            c.ctx().runOnClient(mc -> Mod.call(Mod.staticCall(CONFIG, "getInstance"), "save"));
+            JsonObject obj = JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8)).getAsJsonObject();
+            obj.addProperty("burstSize", 9);
+            obj.addProperty("burstClicks", 9);
+            Files.writeString(path, obj.toString(), StandardCharsets.UTF_8);
+            c.ctx().runOnClient(mc -> Mod.staticCall(CONFIG, "load"));
+            int size = c.onClient(mc -> ((Number) Mod.get(CONFIG, "getBurstSize")).intValue());
+            int clicks = c.onClient(mc -> ((Number) Mod.get(CONFIG, "getBurstClicks")).intValue());
+            JsonObject back = JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8)).getAsJsonObject();
+            c.note("saved 9 and 9 load as " + size + " and " + clicks + "; file now " + back.get("burstSize") + " and " + back.get("burstClicks"));
+            c.check(size == 5 && clicks == 5, "a saved Burst Size / Max Clicks Per Burst of 9 did not load as 5");
+            c.check(back.get("burstSize").getAsInt() == 5 && back.get("burstClicks").getAsInt() == 5, "the capped values were not saved back");
+            c.ctx().runOnClient(mc -> {
+                Object cfg = Mod.staticCall(CONFIG, "getInstance");
+                Mod.call(cfg, "setBurstSize", 21);
+                Mod.call(cfg, "setBurstClicks", 21);
+            });
+            c.check(c.onClient(mc -> ((Number) Mod.get(CONFIG, "getBurstSize")).intValue()) == 5
+                    && c.onClient(mc -> ((Number) Mod.get(CONFIG, "getBurstClicks")).intValue()) == 5, "the setters did not cap at 5");
+        } finally {
+            if (before != null) {
+                Files.write(path, before);
+            } else {
+                Files.deleteIfExists(path);
+            }
+            c.ctx().runOnClient(mc -> Mod.staticCall(CONFIG, "load"));
+            MenuKit.reset(c);
+        }
+    }
+
     /** The three settings survive a save and load; a file from before Burst mode loads as Normal, 5 clicks, 0 ms. */
     private static void persist(Session c) throws Exception {
         MenuKit.reset(c);
@@ -351,7 +410,7 @@ final class TermBurstMode1116Cases {
             c.ctx().runOnClient(mc -> {
                 Object cfg = Mod.staticCall(CONFIG, "getInstance");
                 Mod.call(cfg, "setBurstMode", true);
-                Mod.call(cfg, "setBurstClicks", 13);
+                Mod.call(cfg, "setBurstClicks", 9);
                 Mod.call(cfg, "setBurstDelayMs", 120);
                 Mod.call(cfg, "save");
                 Mod.staticCall(CONFIG, "load");
@@ -360,7 +419,7 @@ final class TermBurstMode1116Cases {
             int clicks = c.onClient(mc -> ((Number) Mod.get(CONFIG, "getBurstClicks")).intValue());
             int delay = c.onClient(mc -> ((Number) Mod.get(CONFIG, "getBurstDelayMs")).intValue());
             c.note("after save and load: mode " + (raw ? "Burst" : "Normal") + ", " + clicks + " clicks, " + delay + " ms");
-            c.check(raw && clicks == 13 && delay == 120, "Burst mode settings did not survive a save and load");
+            c.check(raw && clicks == 5 && delay == 120, "Burst mode settings did not survive a save and load");
             JsonObject obj = JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8)).getAsJsonObject();
             obj.remove("burstMode");
             obj.remove("burstClicks");

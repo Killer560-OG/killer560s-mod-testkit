@@ -37,6 +37,10 @@ public class HxSuite implements FabricClientGameTest {
                     ModUnderTest.require("killer560smod");
                     HxDungeonCases.register(s);
                     HxAcDoorOnly1115Cases.register(s);
+                    HxDoorPrime1122Cases.register(s);
+                    HxAcCut1122Cases.register(s);
+                    HxAcDoorLeft1121Cases.register(s);
+                    HxGreenStart1122Cases.register(s);
                     HxSocialCases.register(s);
                     HxHudCases.register(s);
                     HxBatCases.register(s); // 521-523, the Murkbat bat bonus (own block)
@@ -56,6 +60,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxPingAutomationCases.register(s);
                     // Per-trigger-bot delays (797-798, branch nt-trigger-delays), own block.
                     HxTriggerDelayCases.register(s);
+                    HxFlagHuntB1110Cases.register(s);
                     // Player Cosmetics names: fade, tab, nametag height, own name in F5 (811-818, branch
                     // nt-cosmetic-names), own block.
                     HxCosmeticNameCases.register(s);
@@ -67,6 +72,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxSpotifyControlsCases.register(s); HxSpotifyLyrics1108Cases.register(s);
                     HxSpotifyDocCases.register(s);
                     HxSongTagParty1105Cases.register(s); // spotshare-1105: the party room survives a warp
+                    HxPartyState1118Cases.register(s); // partystate-1118: one party tracker, every line form, the tab widget
                     HxSongFix1106Cases.register(s); // songfix-1106: a non-supporter sees a supporter's song and name
                     HxYtLyrics1108Cases.register(s);
                     // Auto Meow replies in the trigger's channel, and Mod Chat sends (874, branch
@@ -98,6 +104,8 @@ public class HxSuite implements FabricClientGameTest {
                     HxDocExtras1101Cases.register(s);
                     // Chat Channel Indicator (1116-chatchannel-*, mod branch chatchannel-1116).
                     HxChatChannel1116Cases.register(s);
+                    // Item Alerts: Bottle Full Alert, Runebook Rarity Alert (1118-itemalerts-*, mod branch bottlealert-1118).
+                    HxItemAlerts1118Cases.register(s);
                     // To-do Doc items of 2026-11-01: Score Warning, split Counting, Core Entry, Livid, Blessings Boss
                     // Only, Trigger lines, locked chests and chest drops, Door Keys (1101-dhud-*, mod doc-dhud-1101).
                     HxDocDhud1101Cases.register(s);
@@ -129,6 +137,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxDioriteGlass1103Cases.register(s);
                     HxEspDepth1103Cases.register(s);
                     HxPortalPixels1103Cases.register(s);
+                    HxKeySphere1121Cases.register(s);
                     HxZFight1104Cases.register(s);
                     // My Lyrics In F5 on screen, real Spotify, as the player and as Play As Mob (1103-f5-lyric-pixels, mod f5lyrics2-1103).
                     HxF5LyricPixels1103Cases.register(s);
@@ -168,6 +177,7 @@ public class HxSuite implements FabricClientGameTest {
 
                     // Auto Superboom, cheat only, with his dig / use / scroll / teleport in the swap tick (1108-same-superboom-*, featD-1108).
                     HxSuperboom1108Cases.register(s);
+                    HxSuperboomRange1118Cases.register(s);
                     // Storm Bow release and Auto M5, idle and with his actions in their ticks (1111-*stormbow*, 1111-*autom5*, mod stormm5-1111).
                     HxStormM51111Cases.register(s);
                     HxCheatBugs1109Cases.register(s);
@@ -178,8 +188,11 @@ public class HxSuite implements FabricClientGameTest {
                     HxOwner1103Cases.register(s);
                     // Party Commands floor requests: Creation Cooldown wait, retry, your own !f (1104-partycmd-floor-*, mod partycmd-1104).
                     HxPartyFloor1104Cases.register(s);
-                    // Resume Held Break After Menus and the AttackHold dump (1103-mining-hold-*, mod mithril-hold-1103).
+                    HxOfficerCmd1118Cases.register(s);
+                    // Resume Held Break After Menus (1103-mining-hold-*, mod mithril-hold-1103).
                     HxAttackHold1103Cases.register(s);
+                    // Team Melody config first read off the render thread (1122-melody-config-load, melodyhud-load-1122).
+                    HxMelodyConfigLoad1122Cases.register(s);
                     // Powder Break Sounds (1104-powdersound-*, mod powdersound-1104).
                     HxPowderSound1104Cases.register(s);
                     // Owner-evidence log lines (1102-diag-*, mod diag-1101): Fast Leap stuck state, Raffle start dump.
@@ -191,6 +204,8 @@ public class HxSuite implements FabricClientGameTest {
                     // Every-drop coverage: mob/sea creature kills, Looting, slayer level, RNG Meter, Kuudra, Nucleus,
                     // Experiments, Unknown-floor claims (1102-luck-*, mod branch luck2-1101).
                     HxLuck1102Cases.register(s);
+                    // Ability, bow and drop-first kill counting, armor pieces, identical drop lines (1118-luck-*, luckcount-1118).
+                    HxLuck1118Cases.register(s);
                     // Dark Mode: world / HUD tint by framebuffer pixels, screens untouched, settings reload (1102-darkmode-*,
                     // mod branch darkmode-1102), own block.
                     HxDarkMode1102Cases.register(s);
@@ -205,8 +220,9 @@ public class HxSuite implements FabricClientGameTest {
                     HxMining3Cases.register(s);
                     // mod glacitecomm-c-1114: the Glacite Mineshafts card (1114-mineshaft-*).
                     HxMineshaft1114Cases.register(s);
-                    // Hide Ghost Mobs: a mob the server stopped sending is hidden, a still real one never (1109-ghostmob-hide, mod ghostmob-1109).
+                    // Hide Ghost Mobs: a silent starred mob in a map-cleared room is hidden, idle, unstarred or later-heard ones never (1109-ghostmob-hide, 1118-ghostmob-*, mod ghostmob-redo-1118).
                     HxGhostMob1109Cases.register(s);
+                    HxArrowParticles1117Cases.register(s);
                     // mod featC-1108: Puzzle HUD, Reparty, Watcher Helper.
                     HxFeatC1108Cases.register(s);
                     // mod featG-1109: Carry Tracker.
@@ -217,6 +233,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxNoBossPearl1110Cases.register(s);
                     HxGlaciteCommA1114Cases.register(s);
                     HxNoLocraw1115Cases.register(s);
+                    HxMapCycler1118Cases.register(s);
                 });
     }
 }

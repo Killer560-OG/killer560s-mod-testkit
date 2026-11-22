@@ -42,6 +42,68 @@ final class ModsScreenCases {
     private static final String CFG = "modlist.ModListConfig";
     private static final String MM = "mainmenu.MainMenuThemeConfig";
 
+    static final String TOGGLE = "1118-ui-mods-toggle";
+
+    /** modsscreen-toggle-1118: the card's ON/OFF switch (default ON, file without the key loads ON, survives a reload);
+     *  OFF removes the Mods button from the title screen and the pause menu, ON brings it back and it opens ModsScreen. */
+    static void toggle(UiCase c) {
+        boolean mm0 = c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(MM), "isEnabled"));
+        java.nio.file.Path file = c.onClient(mc -> (java.nio.file.Path) Mod.staticCall("util.ModPaths", "config", "killer560smod-modlist.json"));
+        try {
+            c.onClient(mc -> {
+                try {
+                    java.nio.file.Files.createDirectories(file.getParent());
+                    java.nio.file.Files.writeString(file, "{\"showLibraries\":true}");
+                } catch (java.io.IOException e) {
+                    throw new RuntimeException(e);
+                }
+                Mod.staticCall(CFG, "load");
+                Mod.call(Mod.cfg(MM), "setEnabled", true);
+                return null;
+            });
+            c.check(c.onClient(mc -> (Boolean) Mod.call(Mod.cfg(CFG), "isEnabled")), "a file saved before the switch must load ON");
+            int[] counts = new int[2];
+            for (boolean on : new boolean[]{false, true}) {
+                String why = c.onClient(mc -> {
+                    Mod.call(Mod.cfg(CFG), "setEnabled", on);
+                    Mod.call(Mod.cfg(CFG), "save");
+                    Mod.staticCall(CFG, "load");
+                    if ((Boolean) Mod.call(Mod.cfg(CFG), "isEnabled") != on) {
+                        return "switch " + on + " did not survive a reload";
+                    }
+                    McCompat.setScreen(mc, new TitleScreen());
+                    return null;
+                });
+                c.check(why == null, why);
+                c.ticks(20);
+                String res = c.onClient(mc -> {
+                    List<AbstractWidget> mods = named(McCompat.screen(mc), "Mods");
+                    if (on != (mods.size() == 1) || mods.size() > 1) {
+                        return "switch " + on + ": the title screen has " + mods.size() + " Mods buttons";
+                    }
+                    if (on) {
+                        ModScreenDriver.press(mods.get(0));
+                        return isMods(McCompat.screen(mc)) ? null : "pressing Mods opened " + McCompat.screen(mc);
+                    }
+                    return null;
+                });
+                c.check(res == null, res);
+                c.note("switch " + on + " checked");
+            }
+        } finally {
+            c.onClient(mc -> {
+                try {
+                    java.nio.file.Files.deleteIfExists(file);
+                } catch (java.io.IOException ignored) {
+                }
+                Mod.staticCall(CFG, "load");
+                Mod.call(Mod.cfg(MM), "setEnabled", mm0);
+                McCompat.setScreen(mc, new TitleScreen());
+                return null;
+            });
+        }
+    }
+
     private ModsScreenCases() {
     }
 
@@ -142,26 +204,20 @@ final class ModsScreenCases {
                 Screen s = McCompat.screen(mc);
                 List<String> ids = ids(s);
                 c.note("rows: " + ids.size() + " of " + FabricLoader.getInstance().getAllMods().size() + " mods: " + ids);
-                for (String id : new String[]{"killer560smod", "fabric-api"}) {
-                    Object e = entry(s, id);
-                    if (e == null) {
-                        return id + " is not listed";
-                    }
-                    String v = (String) Mod.field(e, "version");
-                    if (v == null || v.isEmpty() || !v.equals(version(id))) {
-                        return id + " shows version " + v + ", FabricLoader says " + version(id);
-                    }
-                    c.note(id + " " + v);
+                // modsfix-1105: libraries (Fabric API and its modules) are not listed at all
+                Object e = entry(s, "killer560smod");
+                if (e == null) {
+                    return "killer560smod is not listed";
                 }
-                List<?> kids = (List<?>) Mod.field(entry(s, "fabric-api"), "children");
-                c.note("Fabric API carries " + kids.size() + " modules");
-                if (kids.isEmpty()) {
-                    return "Fabric API has no modules folded under it";
+                String v = (String) Mod.field(e, "version");
+                if (v == null || v.isEmpty() || !v.equals(version("killer560smod"))) {
+                    return "killer560smod shows version " + v + ", FabricLoader says " + version("killer560smod");
                 }
-                if (ids.contains("fabric-api-base")) {
-                    return "a Fabric API module is listed at the top level while its parent is closed";
+                c.note("killer560smod " + v);
+                if (ids.contains("fabric-api") || ids.contains("fabric-api-base")) {
+                    return "a library (Fabric API) is listed: " + ids;
                 }
-                Map<?, ?> icons = (Map<?, ?>) Mod.field(s, "icons");
+                Map<?, ?> icons = (Map<?, ?>) Mod.field(Mod.field(s, "icons"), "images");
                 Object own = icons.get("killer560smod");
                 if (own == null || Mod.call(own, "id") == null) {
                     return "this mod's icon was never loaded: " + own;
@@ -174,20 +230,15 @@ final class ModsScreenCases {
                 Screen s = McCompat.screen(mc);
                 search(s, "killer560");
                 List<String> ids = ids(s);
-                if (!ids.contains("killer560smod") || ids.contains("fabric-api")) {
+                if (!ids.contains("killer560smod") || ids.size() != 1) {
                     return "search \"killer560\" listed " + ids;
-                }
-                search(s, "fabric-api-base");
-                ids = ids(s);
-                if (!ids.contains("fabric-api") || !ids.contains("fabric-api-base")) {
-                    return "search \"fabric-api-base\" should show Fabric API with that module under it, got " + ids;
                 }
                 search(s, "zzqx no such mod");
                 if (!ids(s).isEmpty()) {
                     return "a search matching nothing listed " + ids(s);
                 }
                 search(s, "");
-                return ids(s).contains("fabric-api") ? null : "clearing the search did not bring the list back";
+                return ids(s).contains("killer560smod") ? null : "clearing the search did not bring the list back";
             });
             c.check(filtered == null, filtered);
 
@@ -212,7 +263,7 @@ final class ModsScreenCases {
             long mark = LogTap.mark();
             String home = c.onClient(mc -> {
                 Screen s = McCompat.screen(mc);
-                Object api = entry(s, "fabric-api");
+                Object api = entry(s, "killer560smod");
                 String url = (String) Mod.field(api, "homepage");
                 Mod.call(s, "select", api);
                 AbstractWidget w = (AbstractWidget) Mod.field(s, "website");
@@ -220,7 +271,7 @@ final class ModsScreenCases {
                     return w.visible ? "Website shown for a mod with no homepage" : "";
                 }
                 if (!w.visible) {
-                    return "no Website button for Fabric API (" + url + ")";
+                    return "no Website button for this mod (" + url + ")";
                 }
                 ModScreenDriver.press(w);
                 return url;
@@ -228,7 +279,7 @@ final class ModsScreenCases {
             c.ticks(2);
             if (home.isEmpty() || !home.startsWith("http")) {
                 c.check(home.isEmpty(), home);
-                c.note("Fabric API gives no homepage: the link press did not run");
+                c.note("this mod gives no homepage: the link press did not run");
             } else {
                 boolean asked = LogTap.since(mark).stream().anyMatch(l -> l.contains("would open") && l.contains(home));
                 c.check(asked, "Website did not ask to open " + home);
@@ -237,7 +288,7 @@ final class ModsScreenCases {
             String closed = c.onClient(mc -> {
                 Screen s = McCompat.screen(mc);
                 s.onClose();
-                Map<?, ?> icons = (Map<?, ?>) Mod.field(s, "icons");
+                Map<?, ?> icons = (Map<?, ?>) Mod.field(Mod.field(s, "icons"), "images");
                 if (!(McCompat.screen(mc) instanceof TitleScreen)) {
                     return "Escape went to " + McCompat.screen(mc);
                 }

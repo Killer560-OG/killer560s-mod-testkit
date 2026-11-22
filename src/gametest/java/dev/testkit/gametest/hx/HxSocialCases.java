@@ -9,8 +9,13 @@ import dev.testkit.gametest.mod.Mod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.PlayerInfo;
 
+import com.sun.net.httpserver.HttpServer;
+
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static dev.testkit.gametest.hx.HxKit.*;
 
@@ -29,6 +34,9 @@ final class HxSocialCases {
         partyCommands(s);
         partyList(s);
         autoAcceptInvites(s);
+        autoAcceptWho(s);
+        guildList(s);
+        guildApi(s);
         commandShortcuts(s);
         commandKeybinds(s);
         autoJoinSkyblock(s);
@@ -96,7 +104,7 @@ final class HxSocialCases {
                     .custom(() -> Mod.call(cfg, "setChannelOn", partyCh, true), () -> Mod.call(cfg, "setChannelOn", partyCh, wasCh))
                     .custom(() -> Mod.call(cfg, "setOn", warp, true), () -> Mod.call(cfg, "setOn", warp, wasOn))) {
                 dungeon(c);
-                c.check(c.onClient(mc -> Mod.staticCall("partycommands.PartyLeaderTracker", "get")) == null,
+                c.check(c.onClient(mc -> Mod.staticCall("leapmenu.PartyTracker", "leader")) == null,
                         "premise: a party leader is already known");
                 send(c, "hostile.allchat-party-warp");
                 assertNoCommand(c, 30, "p warp");
@@ -107,7 +115,7 @@ final class HxSocialCases {
         });
     }
 
-    // ---- 122 party list responder -> PartyTracker / PartyLeaderTracker -------------------------------------------
+    // ---- 122 party list responder -> PartyTracker -------------------------------------------
 
     @SuppressWarnings("unchecked")
     private static void partyList(Session s) {
@@ -132,8 +140,8 @@ final class HxSocialCases {
                 }, 60);
                 List<String> mates = c.onClient(mc -> List.copyOf((List<String>) Mod.staticCall("leapmenu.PartyTracker", "teammates")));
                 c.check(!mates.contains("HxEvil"), "an all-chat 'Party Members:' quote added HxEvil: " + mates);
-                Object leader = c.onClient(mc -> Mod.staticCall("partycommands.PartyLeaderTracker", "get"));
-                c.check("HxLead".equals(leader), "PartyLeaderTracker leader " + leader);
+                Object leader = c.onClient(mc -> Mod.staticCall("leapmenu.PartyTracker", "leader"));
+                c.check("HxLead".equals(leader), "PartyTracker leader " + leader);
                 c.note("/p list answered by the responder -> teammates " + mates + ", leader " + leader
                         + "; all-chat quote ignored");
               } finally {
@@ -144,8 +152,8 @@ final class HxSocialCases {
                 c.hx().chat("§eYou left the party.");
                 c.ctx().waitTicks(6);
               }
-              Object left = c.onClient(mc -> Mod.staticCall("partycommands.PartyLeaderTracker", "get"));
-              c.check(left == null, "PartyLeaderTracker still names " + left + " after 'You left the party.'");
+              Object left = c.onClient(mc -> Mod.staticCall("leapmenu.PartyTracker", "leader"));
+              c.check(left == null, "PartyTracker still names " + left + " after 'You left the party.'");
             }
         });
     }
@@ -192,6 +200,316 @@ final class HxSocialCases {
                 c.note("off ->" + sentOff + "; on -> accepted HxInviter; later invite sent " + sentIn + "; events " + events);
             } finally {
                 c.hx().chat("§eYou left the party.");
+                run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas));
+            }
+        });
+    }
+
+    // ---- 1118 Auto Accept Invites: who (autoaccept-who-1118) ------------------------------------------------------------
+
+    @SuppressWarnings("unchecked")
+    private static void autoAcceptWho(Session s) {
+        s.test("1118-hx-autoaccept-who", c -> {
+            boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+            String cfgCls = "partyinvites.AutoAcceptInvitesConfig";
+            try (Settings set = new Settings(c)) {
+                run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", false));
+                c.hx().chat("§eYou left the party.");
+                c.ctx().waitTicks(4);
+                set.with(cfgCls, "Enabled", true);
+                // The three groups' data: a friend (Friends List mirror), a guild member (a guild chat line), a best friend (store record).
+                c.ctx().runOnClient(mc -> Mod.call(Mod.cfg("social.FriendsListConfig"), "applyRealSync", List.of("HxWhoFriend"), false));
+                c.hx().chat("§2Guild > §b[MVP§c+§b] HxWhoGuild §e[Officer]§f: hi");
+                run(c, () -> Mod.staticCall("social.BestFriendsStore", "getOrCreate", java.util.UUID.nameUUIDFromBytes("HxWhoBest".getBytes()), "HxWhoBest"));
+                c.ctx().waitTicks(4);
+                String[] who = {"HxWhoFriend", "HxWhoGuild", "HxWhoBest", "HxWhoStranger"};
+                String[] keys = {"FromFriends", "FromGuild", "FromBestFriends"};
+                // Row 0: every switch OFF accepts all four. Rows 1-3: one switch ON accepts only its own group.
+                for (int row = 0; row <= 3; row++) {
+                    for (int k = 0; k < 3; k++) {
+                        set.with(cfgCls, keys[k], row == k + 1);
+                    }
+                    for (int i = 0; i < 4; i++) {
+                        String name = who[i];
+                        run(c, () -> {
+                            Mod.staticCall("lfg.LfgCommandGate", "resetForTest");
+                            Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "resetForTest");
+                        });
+                        // resetForTest clears the guild set too: put the guild member back.
+                        c.hx().chat("§2Guild > §b[MVP§c+§b] HxWhoGuild §e[Officer]§f: hi");
+                        c.hx().chat(framed(name));
+                        c.ctx().waitTicks(8);
+                        List<String> sent = c.onClient(mc -> (List<String>) Mod.staticCall("lfg.LfgCommandGate", "sent"));
+                        List<String> ev = c.onClient(mc -> (List<String>) Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "events"));
+                        boolean want = row == 0 || i == row - 1;
+                        boolean got = sent.contains("/party accept " + name);
+                        c.check(ev.stream().anyMatch(e -> e.contains(name)), "row " + row + ": the invite from " + name + " never reached the feature: " + ev);
+                        c.check(got == want, "row " + row + " (" + (row == 0 ? "all off" : keys[row - 1] + " on") + "): invite from " + name
+                                + (want ? " was not accepted" : " was accepted") + "; sent " + sent + ", events " + ev);
+                        c.check(sent.size() == (want ? 1 : 0), "row " + row + ": " + name + " sent " + sent.size() + " commands: " + sent);
+                    }
+                }
+                c.note("who groups: all-off accepts everyone; each switch alone accepts only its own group");
+            } finally {
+                c.hx().chat("§eYou left the party.");
+                run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas));
+            }
+        });
+    }
+
+    // ---- 1118 Auto Accept Invites: /guild list (guildtag-1118) ------------------------------------------------------------
+
+    private static final String BAR = "-----------------------------------------------------";
+    /** Hypixel's /guild list reply, one chat line each (the form the parser reads: headers, "[RANK] Name ●" lines). */
+    private static final String[] GUILD_REPLY = {BAR, "Guild Name: Hx Guild", "", "-- Guild Master --", "[MVP+] HxGuildMaster ● ",
+            "", "-- Officer --", "[VIP] HxOfficer ●  HxOff2 ● ", "", "-- Member --", "HxMem ● ", "",
+            "Total Members: 4", "Online Members: 1", BAR};
+
+    private static void reply(Session c, String... lines) {
+        for (String l : lines) {
+            c.hx().chat(l);
+        }
+        c.ctx().waitTicks(6);
+    }
+
+    private static int shown(Session c, String needle) {
+        return c.onClient(mc -> {
+            @SuppressWarnings("unchecked")
+            List<net.minecraft.client.multiplayer.chat.GuiMessage> all = (List<net.minecraft.client.multiplayer.chat.GuiMessage>) Mod.field(dev.testkit.compat.McCompat.chat(mc), "allMessages");
+            int n = 0;
+            for (net.minecraft.client.multiplayer.chat.GuiMessage m : all) {
+                n += m.content().getString().contains(needle) ? 1 : 0;
+            }
+            return n;
+        });
+    }
+
+    private static int guildSent(Session c) {
+        return c.onClient(mc -> ((Number) Mod.staticCall("partyinvites.GuildListRequest", "sentForTest")).intValue());
+    }
+
+    private static boolean member(Session c, String name) {
+        return c.onClient(mc -> (Boolean) Mod.staticCall("partyinvites.GuildMembers", "contains", name));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static boolean accepted(Session c, String name) {
+        run(c, () -> Mod.staticCall("lfg.LfgCommandGate", "resetForTest"));
+        c.hx().chat(framed(name));
+        c.ctx().waitTicks(8);
+        return c.onClient(mc -> (List<String>) Mod.staticCall("lfg.LfgCommandGate", "sent")).contains("/party accept " + name);
+    }
+
+    private static final String CALLS = "relay.RelayCalls";
+    private static final String REQ = "partyinvites.GuildListRequest";
+
+    /** Points the guild relay read at a loopback port nothing listens on (the fallback path) with a test token. */
+    private static void relayDown(Session c) {
+        System.setProperty("killer560.net.guild-relay", "http://127.0.0.1:1");
+        run(c, () -> Mod.staticCall(CALLS, "setTokenForTest", "hx-guildapi-token"));
+    }
+
+    private static void relayClear(Session c) {
+        System.clearProperty("killer560.net.guild-relay");
+        run(c, () -> Mod.staticCall(CALLS, "setTokenForTest", (Object) null));
+    }
+
+    /** A fake relay for GET /hypixel/guild: status and body are set per case; every request is recorded as "path auth". */
+    private static final class GuildStub implements AutoCloseable {
+        final List<String> calls = new CopyOnWriteArrayList<>();
+        volatile int status = 200;
+        volatile String body = "{}";
+        final HttpServer server;
+
+        GuildStub() throws java.io.IOException {
+            server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            server.createContext("/", ex -> {
+                try {
+                    calls.add(ex.getRequestURI().toString() + " " + ex.getRequestHeaders().getFirst("Authorization"));
+                    byte[] b = body.getBytes(StandardCharsets.UTF_8);
+                    ex.getResponseHeaders().add("Content-Type", "application/json");
+                    ex.sendResponseHeaders(status, b.length);
+                    ex.getResponseBody().write(b);
+                } catch (RuntimeException ignored) {
+                    // never throw inside the stub
+                } finally {
+                    ex.close();
+                }
+            });
+            server.start();
+            System.setProperty("killer560.net.guild-relay", "http://127.0.0.1:" + server.getAddress().getPort());
+        }
+
+        @Override
+        public void close() {
+            System.clearProperty("killer560.net.guild-relay");
+            server.stop(0);
+        }
+    }
+
+    private static final String API_M = "aa".repeat(16);
+    private static final String API_O = "bb".repeat(16);
+    private static final String API_BODY = "{\"success\":true,\"guild\":{\"name\":\"Hx Guild\",\"tag\":\"HXG\",\"members\":["
+            + "{\"uuid\":\"" + API_M + "\",\"rank\":\"Guild Master\"},{\"uuid\":\"" + API_O + "\",\"rank\":\"Officer\"}]}}";
+
+    private static void guildList(Session s) {
+        s.test("1118-hx-guildlist-request", c -> {
+            boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+            String cfgCls = "partyinvites.AutoAcceptInvitesConfig";
+            try (Settings set = new Settings(c)) {
+                relayDown(c);
+                run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", true));
+                sidebar(c, "template", "hub");
+                c.waitUntil("on Skyblock", mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isOnSkyblock"), 40);
+                c.hx().chat("§eYou left the party.");
+                set.with(cfgCls, "Enabled", true);
+                set.with(cfgCls, "FromGuild", false);
+                run(c, () -> Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "resetForTest"));
+                c.ctx().waitTicks(60);
+                c.check(guildSent(c) == 0 && c.commands().stream().noneMatch(x -> x.startsWith("guild")),
+                        "/guild list went out with Only From Guild Members OFF: " + c.commands());
+                // ON: sent once, and the reply the mod asked for is read but not shown.
+                set.with(cfgCls, "FromGuild", true);
+                c.waitUntil("/guild list sent", mc -> ((Number) Mod.staticCall("partyinvites.GuildListRequest", "sentForTest")).intValue() == 1, 100);
+                c.check(c.commands().stream().anyMatch(x -> x.equals("guild list")), "no guild list on the wire: " + c.commands());
+                c.check(((Number) c.onClient(mc -> Mod.staticCall(REQ, "apiCallsForTest"))).intValue() == 1,
+                        "the relay was not tried before the /guild list fallback");
+                reply(c, GUILD_REPLY);
+                c.check(member(c, "HxOfficer") && member(c, "HxOff2") && member(c, "HxMem") && member(c, "HxGuildMaster"), "the reply was not read into the list");
+                c.check(!member(c, "HxStranger"), "a stranger is in the list");
+                String rank = c.onClient(mc -> (String) Mod.staticCall("partyinvites.GuildMembers", "rankOf", "HxOff2"));
+                c.check("Officer".equals(rank), "HxOff2's rank read as '" + rank + "'");
+                c.check(shown(c, "Guild Name:") == 0 && shown(c, "HxMem") == 0 && shown(c, "Online Members") == 0,
+                        "the mod-requested reply is still in chat");
+                c.ctx().waitTicks(200);
+                c.check(guildSent(c) == 1, "sent more than once after a reply: " + guildSent(c));
+                // A member invite from another lobby is accepted, a stranger is not (the switch is the only group on).
+                set.with(cfgCls, "FromFriends", false);
+                set.with(cfgCls, "FromBestFriends", false);
+                c.check(accepted(c, "HxOfficer"), "member HxOfficer's invite was not accepted");
+                c.check(!accepted(c, "HxStranger"), "stranger's invite was accepted");
+                // Saved and read back.
+                run(c, () -> Mod.staticCall("shared.SharedWriter", "drain", Long.valueOf(3000L)));
+                run(c, () -> Mod.staticCall("partyinvites.GuildMembers", "reload"));
+                c.check(member(c, "HxMem") && !member(c, "HxStranger"), "the saved list did not come back after a reload");
+                // A list he types himself is shown (no request waiting) and still read.
+                set.with(cfgCls, "FromGuild", false); // else the reset session asks for the list again and hides this reply
+                run(c, () -> Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "resetForTest"));
+                reply(c, GUILD_REPLY);
+                c.check(shown(c, "Guild Name: Hx Guild") >= 1, "a typed /guild list reply was hidden");
+                c.check(member(c, "HxOfficer"), "a typed reply was not read");
+                // Not in a guild: the list empties.
+                reply(c, "You are not in a guild!");
+                c.check(!member(c, "HxOfficer"), "list kept its members after 'not in a guild'");
+                // Join / kick lines keep it current.
+                reply(c, "[MVP+] HxNewbie joined the guild!");
+                c.check(member(c, "HxNewbie"), "a guild join line did not add the member");
+                reply(c, "HxNewbie was kicked from the guild by HxOfficer!");
+                c.check(!member(c, "HxNewbie"), "a kick line did not remove the member");
+                c.note("guild list: sent once with the switch on and never off, hidden when requested and shown when typed, parsed with ranks, saved, member accepted and stranger refused, not-in-guild empties, join/kick lines applied");
+            } finally {
+                relayClear(c);
+                c.hx().chat("§eYou left the party.");
+                run(c, () -> Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "resetForTest"));
+                run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas));
+            }
+        });
+        s.test("1118-hx-guildlist-retry", c -> {
+            boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+            String cfgCls = "partyinvites.AutoAcceptInvitesConfig";
+            try (Settings set = new Settings(c)) {
+                run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", true));
+                sidebar(c, "template", "hub");
+                c.waitUntil("on Skyblock", mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isOnSkyblock"), 40);
+                relayDown(c);
+                set.with(cfgCls, "Enabled", true);
+                run(c, () -> Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "resetForTest"));
+                set.with(cfgCls, "FromGuild", true);
+                // No reply: one retry after 8 s, then never again.
+                c.waitUntil("retry sent", mc -> ((Number) Mod.staticCall("partyinvites.GuildListRequest", "sentForTest")).intValue() == 2, 400);
+                c.ctx().waitTicks(260);
+                c.check(guildSent(c) == 2, "guild list sent " + guildSent(c) + " times with no reply (want exactly 2)");
+                c.note("no reply: retried once, then stopped");
+            } finally {
+                relayClear(c);
+                run(c, () -> Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "resetForTest"));
+                run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas));
+            }
+        });
+    }
+
+    // ---- 1119 guild list from the relay (guildapi-1119) -------------------------------------------------------------------
+
+    private static void guildApi(Session s) {
+        s.test("1119-hx-guildapi-relay", c -> {
+            boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+            String cfgCls = "partyinvites.AutoAcceptInvitesConfig";
+            try (Settings set = new Settings(c); GuildStub stub = new GuildStub()) {
+                stub.body = API_BODY;
+                run(c, () -> Mod.staticCall(CALLS, "setTokenForTest", "hx-guildapi-token"));
+                // The relay names members by uuid only; the mod knows their names from the tab list / its name cache.
+                run(c, () -> Mod.staticCall("players.PlayerNames", "noteKnown", UUID.fromString(API_M.replaceFirst("(.{8})(.{4})(.{4})(.{4})(.{12})", "$1-$2-$3-$4-$5")), "HxApiMaster"));
+                run(c, () -> Mod.staticCall("players.PlayerNames", "noteKnown", UUID.fromString(API_O.replaceFirst("(.{8})(.{4})(.{4})(.{4})(.{12})", "$1-$2-$3-$4-$5")), "HxApiOff"));
+                run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", true));
+                sidebar(c, "template", "hub");
+                c.waitUntil("on Skyblock", mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isOnSkyblock"), 40);
+                c.hx().chat("§eYou left the party.");
+                set.with(cfgCls, "Enabled", true);
+                set.with(cfgCls, "FromGuild", false);
+                set.with(cfgCls, "FromFriends", false);
+                set.with(cfgCls, "FromBestFriends", false);
+                run(c, () -> Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "resetForTest"));
+                c.ctx().waitTicks(60);
+                c.check(stub.calls.isEmpty(), "the relay was read with Only From Guild Members OFF: " + stub.calls);
+                set.with(cfgCls, "FromGuild", true);
+                c.waitUntil("relay read", mc -> !stub.calls.isEmpty(), 200);
+                c.waitUntil("list applied", mc -> (Boolean) Mod.staticCall("partyinvites.GuildMembers", "haveList"), 100);
+                c.check(stub.calls.size() == 1 && stub.calls.get(0).matches("/hypixel/guild\\?id=[0-9a-f]{32} Bearer hx-guildapi-token"),
+                        "the relay call was wrong: " + stub.calls);
+                c.check(member(c, "HxApiMaster") && member(c, "HxApiOff") && !member(c, "HxApiStranger"), "the relay's list was not read");
+                String rank = c.onClient(mc -> (String) Mod.staticCall("partyinvites.GuildMembers", "rankOf", "HxApiOff"));
+                c.check("Officer".equals(rank), "rank read as '" + rank + "'");
+                // No /guild list went out, and no second relay read inside the cache window.
+                c.ctx().waitTicks(260);
+                c.check(guildSent(c) == 0 && c.commands().stream().noneMatch(x -> x.startsWith("guild")), "/guild list went out: " + c.commands());
+                c.check(stub.calls.size() == 1 && ((Number) c.onClient(mc -> Mod.staticCall(REQ, "apiCallsForTest"))).intValue() == 1,
+                        "the relay was read again inside the cache window: " + stub.calls);
+                c.check(accepted(c, "HxApiOff"), "relay-listed member's invite was not accepted");
+                c.check(!accepted(c, "HxApiStranger"), "a stranger's invite was accepted");
+                c.check(stub.calls.size() == 1, "an invite caused another relay read: " + stub.calls);
+                c.note("relay list: one read, tag members by uuid-resolved name, no /guild list, stranger refused, no repeat inside the window");
+            } finally {
+                run(c, () -> Mod.staticCall(CALLS, "setTokenForTest", (Object) null));
+                run(c, () -> Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "resetForTest"));
+                run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas));
+            }
+        });
+        s.test("1119-hx-guildapi-down", c -> {
+            boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
+            String cfgCls = "partyinvites.AutoAcceptInvitesConfig";
+            try (Settings set = new Settings(c); GuildStub stub = new GuildStub()) {
+                stub.status = 503;
+                stub.body = "{\"error\":\"no shared key\"}";
+                run(c, () -> Mod.staticCall(CALLS, "setTokenForTest", "hx-guildapi-token"));
+                run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", true));
+                sidebar(c, "template", "hub");
+                c.waitUntil("on Skyblock", mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isOnSkyblock"), 40);
+                c.hx().chat("§eYou left the party.");
+                set.with(cfgCls, "Enabled", true);
+                set.with(cfgCls, "FromGuild", false);
+                run(c, () -> Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "resetForTest"));
+                set.with(cfgCls, "FromGuild", true);
+                c.waitUntil("fallback sent", mc -> ((Number) Mod.staticCall(REQ, "sentForTest")).intValue() >= 1, 300);
+                c.check(stub.calls.size() == 1, "relay read " + stub.calls.size() + " times before the fallback");
+                c.check(c.commands().stream().anyMatch(x -> x.equals("guild list")), "no /guild list fallback: " + c.commands());
+                reply(c, GUILD_REPLY);
+                c.check(member(c, "HxOfficer") && !member(c, "HxStranger"), "the fallback reply was not read");
+                c.ctx().waitTicks(200);
+                c.check(stub.calls.size() == 1, "relay retried inside the 10 minute window: " + stub.calls);
+                c.note("relay answered 503: /guild list fallback sent and parsed, relay not retried inside the window");
+            } finally {
+                run(c, () -> Mod.staticCall(CALLS, "setTokenForTest", (Object) null));
+                run(c, () -> Mod.staticCall("partyinvites.AutoAcceptInvitesFeature", "resetForTest"));
                 run(c, () -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas));
             }
         });

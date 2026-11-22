@@ -283,6 +283,7 @@ public final class SimPuzzleSolveTests {
         }
     }
 
+    /** The case is named at runtime, "93-solve-creeperbeams"; written out so a ready line's preflight finds it. */
     public static final class CreeperBeams extends Base {
         public CreeperBeams() {
             super(new Spec("creeperbeams", "Creeper Beams", "setAutoBeamsEnabled", "isAutoBeamsEnabled",
@@ -1422,7 +1423,6 @@ public final class SimPuzzleSolveTests {
             ModUnderTest.set(auto, "setShootCooldownMs", 500);
             ModUnderTest.set(auto, "setAutoBlazeSecretEnabled", blaze());
             ModUnderTest.set(auto, "setTicTacToeAuraChestEnabled", false);
-            ModUnderTest.set(auto, "setTicTacToeWalkOutEnabled", false);
             ModUnderTest.set(auto, "setIceFillAdaptive", false);
             ModUnderTest.set(auto, "setIceFillDelayTicks", 2);
             // Three Weirdos' NPCs only speak when talked to - on Hypixel as in here - and the auto only picks a
@@ -2100,8 +2100,15 @@ public final class SimPuzzleSolveTests {
                         // Judged as a landing, as a sim ability teleport is. Without this the once-a-tick judge only
                         // saw where the auto's next hop (handled later in the same server tick) put him, and the
                         // mistake went unjudged (first run, 2026-10-05: section 1 never broke).
-                        ModUnderTest.staticCall(P, "onTeleport",
-                                new Class<?>[]{net.minecraft.server.level.ServerPlayer.class}, new Object[]{sp});
+                        // Since mod icefillbugs-1118 a sim landing is only counted and the judge runs once per
+                        // server tick (as Hypixel's); judgeNow judges this one at once. Older jars: onTeleport.
+                        try {
+                            ModUnderTest.staticCall(P, "judgeNow",
+                                    new Class<?>[]{net.minecraft.server.level.ServerPlayer.class}, new Object[]{sp});
+                        } catch (AssertionError old) {
+                            ModUnderTest.staticCall(P, "onTeleport",
+                                    new Class<?>[]{net.minecraft.server.level.ServerPlayer.class}, new Object[]{sp});
+                        }
                     }
                 });
             });

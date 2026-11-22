@@ -29,6 +29,42 @@ final class HxDarkStone1104Cases {
     static void register(Session s) {
         s.test("1104-mining-dark-stone", HxDarkStone1104Cases::darkStone);
         s.test("1104-mining-dark-perf", HxDarkStone1104Cases::darkPerf);
+        s.test("1121-mining-dark-join", HxDarkStone1104Cases::darkJoin);
+    }
+
+    /**
+     * 1121-mining-dark-join (gamefreeze-1121): a world change reads no island until the new tab list comes. Dark Stone used
+     * to restore and re-apply across that gap, two whole-atlas redraws (his 36-71 ms MiningQolFeatures ticks at every lobby
+     * swap). It must stay dark with no redraw through a short gap and back on the Mines, and restore once a gap passes 10 s.
+     */
+    private static void darkJoin(Session c) {
+        try (Settings set = new Settings(c)) {
+            mines(c);
+            set.with(CFG, "DarkStone", true);
+            c.waitUntil("on", mc -> (Boolean) Mod.staticCall(DS, "isOn"), 60);
+            int r0 = c.onClient(mc -> (Integer) Mod.staticCall(DS, "remeshCount"));
+            long n0 = c.onClient(mc -> (Long) Mod.staticCall(DS, "darkenedCount"));
+            c.check(n0 > 0, "Dark Stone darkened nothing");
+            c.hx().tab(new ArrayList<>(List.of("Profile: Test", "")), null, null);
+            c.waitUntil("no island", mc -> "".equals(Mod.staticCall(STATE, "island")), 100);
+            c.ctx().waitTicks(40);
+            int r1 = c.onClient(mc -> (Integer) Mod.staticCall(DS, "remeshCount"));
+            boolean on1 = c.onClient(mc -> (Boolean) Mod.staticCall(DS, "isOn"));
+            mines(c);
+            c.ctx().waitTicks(20);
+            int r2 = c.onClient(mc -> (Integer) Mod.staticCall(DS, "remeshCount"));
+            boolean on2 = c.onClient(mc -> (Boolean) Mod.staticCall(DS, "isOn"));
+            c.note("redraws: start " + r0 + ", 2 s with no island " + r1 + " (on " + on1 + "), back on the Mines " + r2
+                    + " (on " + on2 + ")");
+            c.check(on1 && r1 == r0, "the island gap restored the textures (redraws " + r0 + " -> " + r1 + ")");
+            c.check(on2 && r2 == r0, "the Mines again redrew the atlas (redraws " + r0 + " -> " + r2 + ")");
+            c.hx().tab(new ArrayList<>(List.of("Profile: Test", "")), null, null);
+            c.waitUntil("restored after a long gap", mc -> !(Boolean) Mod.staticCall(DS, "isOn"), 300);
+            int r3 = c.onClient(mc -> (Integer) Mod.staticCall(DS, "remeshCount"));
+            c.check(r3 == r0 + 1, "a long gap should restore once (redraws " + r0 + " -> " + r3 + ")");
+        } finally {
+            hub(c);
+        }
     }
 
     private static void mines(Session c) {

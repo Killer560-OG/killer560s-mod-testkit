@@ -181,6 +181,7 @@ public class InstaClearTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> add(r, k1, "INSTA", 100));
             check(problems, "unreadable file left untouched after a write",
                     Files.readString(bad).equals("{ this is not json"));
+            ctx.runOnClient(mc -> call("testFlush", new Class<?>[]{}));
             String redirected = ctx.computeOnClient(mc -> (String) call("testFilePath", new Class<?>[]{}));
             check(problems, "writes went to a sibling (" + redirected + ")",
                     redirected.contains("insta-clear.unreadable-") && Files.exists(Path.of(redirected)));

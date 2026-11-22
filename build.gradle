@@ -625,7 +625,8 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 			def p = where.split(",")
 			def script = file("place-test-window.ps1")
 			if (script.exists() && (p.length == 4 || where == "auto")) {
-				def cmd = ["powershell", "-NoProfile", "-WindowStyle", "Hidden", "-File", script.absolutePath]
+				// conhost --headless: the client has no console of its own, so a bare powershell would flash a window (cmdwindows-1119); no output is read
+				def cmd = ["conhost.exe", "--headless", "powershell", "-NoProfile", "-WindowStyle", "Hidden", "-File", script.absolutePath]
 				if (p.length == 4) {
 					cmd += ["-X", p[0], "-Y", p[1], "-Width", p[2], "-Height", p[3]]
 				}
@@ -708,7 +709,7 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	// 1104-sim-spawnload: -PspawnloadReps=N rounds (default 3).
 	["fullclearRuns", "fullclearCode", "fullclearOut", "fullclearMobs", "fullclearCodes", "fullclearPlan", "fullclearNoTraps", "acCode",
 	 "acsCodes", "acsRuns", "acsMobs", "acsHp", "acsWalk", "acsHype", "acsHypeWeapon", "acsMinutes", "fullclearLive",
-	 "fullclearLiveHp", "mobfloorCode", "mobfloorMinutes", "fullclearMobFloor", "spawnloadReps"].each { k ->
+	 "fullclearLiveHp", "mobfloorCode", "mobfloorWeapon", "mobfloorMinutes", "fullclearMobFloor", "spawnloadReps", "doorPin"].each { k ->
 		if (project.hasProperty(k)) {
 			systemProperty "testkit.${k}", project.property(k)
 		}
@@ -855,6 +856,10 @@ tasks.matching { it.name == "runClientGameTest" }.configureEach {
 	// Extra JVM flags for the test client, separated by whitespace or "@@" (run-scenario.ps1 hands gradlew.bat its
 	// arguments through Start-Process, which splits on spaces). 95-perf-sim's startup numbers, fps-sim-1015:
 	//   -PclientJvmArgs=-XX:StartFlightRecording:filename=build/testkit-report/startup.jfr,settings=profile@@-Xlog:class+load=info:file=build/testkit-report/classload.txt
+	// Heap cap (gamefreeze-1121): with no -Xmx a client may grow to a quarter of RAM (~15 GB); sim clients reached
+	// 10-11.6 GB on 2026-11-21, pushed his game into the page file and froze it for up to 9.9 s. A client that needs
+	// more now ends with an OutOfMemoryError (a failed run) instead. -PclientXmx=8G overrides; clientJvmArgs comes later and wins.
+	jvmArgs("-Xmx" + (project.findProperty("clientXmx") ?: "5G"), "-XX:+ExitOnOutOfMemoryError")
 	if (project.hasProperty("clientJvmArgs")) {
 		jvmArgs(project.property("clientJvmArgs").toString().trim().split(/\s+|@@/) as List)
 	}

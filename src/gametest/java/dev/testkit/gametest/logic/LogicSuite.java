@@ -60,10 +60,17 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "2775-logic-bazaarflip", BazaarFlipLogicCases::run);
         LogicCase.run(ctx, "2797-logic-flip-1101", Flip1101LogicCases::run);
         LogicCase.run(ctx, "402-logic-autokick-units", AutoKickCases::units);
+        LogicCase.run(ctx, "1120-logic-async-save", AsyncSaveCases::run);
         LogicCase.run(ctx, "1104-logic-scanaudit", ScanAuditCases::scanAudit);
         LogicCase.run(ctx, "1116-logic-bloodrush-table", BloodRushTableCases::table);
+        LogicCase.run(ctx, "1117-logic-onejar", OneJarCases::run);
         LogicCase.run(ctx, "1117-logic-rngmeter-superpairs", RngMeterListCases::superpairs);
+        LogicCase.run(ctx, "1118-logic-runsecrets", RunSecretsCases::run);
+        LogicCase.run(ctx, "1120-logic-magicfind-plus", MagicFindCases::plus);
+        LogicCase.run(ctx, "1120-logic-maxor-respawn", MagicFindCases::maxorRespawn);
         LogicCase.run(ctx, "1118-logic-patchprep-6172091", PatchPrep6172091Cases::run);
+        DeadListenerCases.ctx = ctx;
+        LogicCase.runOffClient(ctx, "1118-logic-deadlisteners-bar", DeadListenerCases::bar);
         // ---- Auto Report Bans (mod doc-ban-1101) - own block
         LogicCase.run(ctx, "4101-logic-banreport-fake-ban", BanReportCases::fakeBan);
         LogicCase.run(ctx, "4102-logic-banreport-off", BanReportCases::off);
@@ -76,10 +83,18 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "1105-discordlink-payload", CrashReportCases::discordPayload);
         LogicCase.run(ctx, "1110-logic-crashguard-shutdown", CrashReportCases::crashguardShutdown);
         LogicCase.run(ctx, "1116-logic-autocorrect-exhaustive", AutoCorrectCases::exhaustive);
+        LogicCase.run(ctx, "1121-logic-cmdtypo-short", AutoCorrectCases::shortExtraLetter);
+        LogicCase.run(ctx, "1121-logic-warpdest", AutoCorrectCases::warpDestination);
         // Discord Link (mod discordlink-1105): off the client thread, the cases wait seconds on the stub relay.
         DiscordLinkCases.ctx = ctx;
         LogicCase.runOffClient(ctx, "1105-discordlink-card", DiscordLinkCases::card);
         LogicCase.runOffClient(ctx, "1105-discordlink-offline", DiscordLinkCases::offline);
+        // Share To Website (mod sharesite-1119): off the client thread, the cases wait on the stub relay.
+        ShareSiteCases.ctx = ctx;
+        LogicCase.runOffClient(ctx, "1119-logic-sharesite-default", ShareSiteCases::defaults);
+        LogicCase.runOffClient(ctx, "1119-logic-sharesite-off", ShareSiteCases::off);
+        ModBoardsCases.ctx = ctx;
+        LogicCase.runOffClient(ctx, "1120-logic-modboards", ModBoardsCases::boards);
         // ---- end Auto Crash Reports
         // ---- Auto Update (nt-auto-update, 2026-10-11) - own block
         AutoUpdateCases.ctx = ctx;
@@ -101,6 +116,17 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.runOffClient(ctx, "993-logic-reboot-helper-timeout", RebootCases::timeout);
         // ---- end /reboot
         // ---- mana hold reset on world change (mod sweep-fix-1021) - opens and closes its own world, TEST thread
+        LogicCase.runOffClient(ctx, "1119-logic-hidden-process", HiddenProcessCases::headless);
+        // ---- precomputed trips refused from a spot they failed from (mod acwaits3-1122), client thread
+        LogicCase.run(ctx, "1122-logic-tripcache-refused", TripRefuseCases::refused);
+        // ---- a warp that never landed is never a fresh plan's first hop from that spot (mod acwaits4-1122)
+        LogicCase.run(ctx, "1122-logic-refused-hop", RefusedHopCases::refused);
+        // ---- a trip search queued behind the floor graph warm-up starts within one slice (mod acwaits5-1122), TEST thread
+        LogicCase.runOffClient(ctx, "1122-logic-warm-yield", WarmYieldCases::yieldToTrip);
+        // ---- his 11-22 live clears (mod acrev-clear-1122), client thread
+        LogicCase.run(ctx, "1122-logic-acrev-lastdeath", AcRevClearCases::lastDeath);
+        LogicCase.run(ctx, "1122-logic-acrev-refused-direct", AcRevClearCases::refusedDirect);
+        LogicCase.run(ctx, "1122-logic-acrev-offreason", AcRevClearCases::offReason);
         ManaResetCases.ctx = ctx;
         LogicCase.runOffClient(ctx, "2776-logic-mana-world-reset", ManaResetCases::worldReset);
         // ---- static scan fixes (mod scanbugs-1104): \s escapes, Revert Master Stars null name
@@ -116,6 +142,8 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.runOffClient(ctx, "1104-logic-themedl-oldconfig", ThemeAssetsCases::oldConfig);
         LogicCase.runOffClient(ctx, "1104-logic-themedl-notheme", ThemeAssetsCases::noTheme);
         LogicCase.runOffClient(ctx, "1104-logic-themedl-delete", ThemeAssetsCases::delete);
+        LogicCase.runOffClient(ctx, "1119-logic-translit", TranslitCases::translit);
+        LogicCase.runOffClient(ctx, "1121-apmenu-logic-migrate", ApMenu1121Cases::migrate);
         LogicCase.run(ctx, "1104-logic-leapcore", LeapCore1104Cases::leapCore);
         LogicCase.run(ctx, "1104-logic-leapcore-suppress", LeapCore1104Cases::suppress);
         LogicCase.run(ctx, "1105-logic-mapinfer-pit", MapInfer1105Cases::pit);
@@ -125,12 +153,18 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "1105-logic-mapinfer-live", MapInfer1105Cases::live);
         LogicCase.run(ctx, "1105-logic-mapq-infer-noquestion", MapInfer1105Cases::noQuestion);
         LogicCase.run(ctx, "1105-logic-mapq-predict-unsure", MapInfer1105Cases::predictUnsure);
+        LogicCase.run(ctx, "1118-logic-mapclick-predicted", MapClick1118Cases::predicted);
         LogicCase.run(ctx, "1106-maplabel-recenter", MapLabel1106Cases::recenter);
         LogicCase.run(ctx, "1117-logic-maplabel-shape", MapLabel1117Cases::shape);
         LogicCase.run(ctx, "1117-logic-maplabel-museum", MapLabel1117Cases::museum);
+        LogicCase.run(ctx, "1118-logic-mapcycler-bounds", MapCycler1118Cases::bounds);
+        LogicCase.run(ctx, "1121-logic-mapcycler-proof", MapCycler1118Cases::proof);
+        LogicCase.run(ctx, "1121-logic-mapcycler-unproven", MapCycler1118Cases::unproven);
+        LogicCase.run(ctx, "1121-logic-mapcycler-history", MapCyclerHistoryCases::history);
+        LogicCase.run(ctx, "1121-logic-map-atlas-split", MapAtlasSplit1121Cases::atlasSplit);
         // ItemStacks need item components, which are bound only once a world's registries load ("Components not
         // bound yet" at the title screen). The two cases that build stacks run in a throwaway singleplayer world.
-        if (!Scenario.skip("354-logic-terminals") || !Scenario.skip("357-logic-items-ap3-routes")
+        if (!Scenario.skip("354-logic-terminals") || !Scenario.skip("1121-logic-stall-keeps-trust") || !Scenario.skip("357-logic-items-ap3-routes")
                 || !Scenario.skip("362-logic-boss-timers") || !Scenario.skip("363-logic-roof-cover")
                 || !Scenario.skip("1102-logic-goldor-tick") || !Scenario.skip("1102-logic-storm-line")
                 || !Scenario.skip("1102-logic-f7hud-config") || !Scenario.skip("1102-logic-f7hud-slots")
@@ -162,6 +196,7 @@ public class LogicSuite implements FabricClientGameTest {
                 }
                 LogicCase.run(ctx, "362-logic-boss-timers", BossTimerCases::bossTimers);
                 LogicCase.run(ctx, "1101-logic-bloodcamp-clock", BossTimerCases::bloodCampClock);
+                LogicCase.run(ctx, "1121-logic-stall-keeps-trust", BossTimerCases::stallKeepsTrust);
                 LogicCase.run(ctx, "1102-logic-goldor-tick", BossTimerCases::goldorTick);
                 LogicCase.run(ctx, "1102-logic-storm-line", BossTimerCases::stormLineCase);
                 LogicCase.run(ctx, "1102-logic-f7hud-config", BossTimerCases::oldConfigs);
