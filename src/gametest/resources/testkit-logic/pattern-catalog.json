@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T12:53:44",
- "modSource": "lane-acstart-1122",
- "modGitSha": "59002bae871379dc672d822d13ce60348ba05db1",
+ "generatedAt": "2026-11-22T13:02:19",
+ "modSource": "lane-acreplan-legit-1122",
+ "modGitSha": "575061cea3abcf738f5e0664e288a0add9499b0f",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
