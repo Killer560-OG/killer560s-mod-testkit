@@ -358,6 +358,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1016-autosecret-key", c -> caseAutoSecret(c, false, true));
             s.test("62-argrim-1016-autopilot-key", c -> caseAutoSecret(c, true, true));
             s.test("62-argrim-1016-oneuse", GrimAutoRoutesTests::caseOneUsePerTick); // grim-autopilot-flag-1016
+            // apmenu-1121: Dungeons Autopilot's one Toggle Keybind starts each Mode (the run acts) and stops it; Disable After
+            // Blood Rush switches it off once the rush is done (Door on the arena: no blood door, so the rush ends at once).
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1121-apmenu-modes", GrimAutoRoutesTests::caseApMenuModes);
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1121-apmenu-disable", GrimAutoRoutesTests::caseApMenuDisable);
             // autosecret-bloodfirst-1017: Auto Secret with Secret Blood First = Door Camp on the arena (no blood door on
             // its map): it says so, secrets meanwhile, and sends exactly what the plain run does.
             s.test("62-argrim-1017-autosecret-bloodfirst", GrimAutoRoutesTests::caseAutoSecretBloodFirst);
@@ -5084,14 +5088,32 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * tick's client_tick_end: GrimAC "Post held item change" on the next transaction. Requires the precomputed run, one
      * set_carried_item, and the usual warps; GrimAC must stay silent.
      */
+    /** Dungeons Autopilot starts only once the run has (Mort's line): the arena has no Mort, so the test sets the flag. */
+    private static void runStartedForTest(boolean v) {
+        try {
+            java.lang.reflect.Field f = Class.forName("com.killer560.hub.witherdoors.WitherDoorsFeature").getDeclaredField("mortSeen");
+            f.setAccessible(true);
+            f.setBoolean(null, v);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("could not set WitherDoorsFeature.mortSeen", e);
+        }
+    }
+
     private static void caseAutoSecret(Session c, boolean pilot, boolean byKey) {
         ClientGameTestContext ctx = c.ctx();
         String as = "com.killer560.hub.autosecret.AutoSecretFeature";
         if (byKey) {
             ctx.runOnClient(mc -> {
+                // apmenu-1121: one Toggle Keybind (Dungeons Autopilot card) starts every Mode; Auto Secret's run is Party Secrets.
                 Object cfg = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
-                ModUnderTest.call(cfg, "setToggleKey", new Class<?>[]{int.class}, new Object[]{AS_KEY});
-                ModUnderTest.call(cfg, "setAutopilotKey", new Class<?>[]{int.class}, new Object[]{PILOT_KEY});
+                Object mode = ModUnderTest.enumValue("com.killer560.hub.autosecret.AutoSecretConfig$Mode",
+                        pilot ? "SOLO_300" : "PARTY_SECRETS");
+                ModUnderTest.call(cfg, "setMode", new Class<?>[]{mode.getClass()}, new Object[]{mode});
+                Object none = ModUnderTest.enumValue("com.killer560.hub.autosecret.AutoSecretConfig$BloodRush", "NONE");
+                ModUnderTest.call(cfg, "setBloodRush", new Class<?>[]{none.getClass()}, new Object[]{none});
+                ModUnderTest.staticCall("com.killer560.hub.gui.ModuleKeybinds", "set", new Class<?>[]{String.class, int.class},
+                        new Object[]{"AutoClearTab", pilot ? PILOT_KEY : AS_KEY});
+                runStartedForTest(true);
             });
         }
         if (pilot) {
@@ -5206,15 +5228,117 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                             new Object[]{"test over", true});
                 }
                 if (byKey) {
-                    Object cfg = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
-                    ModUnderTest.call(cfg, "setToggleKey", new Class<?>[]{int.class}, new Object[]{-1});
-                    ModUnderTest.call(cfg, "setAutopilotKey", new Class<?>[]{int.class}, new Object[]{-1});
+                    ModUnderTest.staticCall("com.killer560.hub.autosecret.DungeonsAutopilot", "setOn",
+                            new Class<?>[]{boolean.class}, new Object[]{false});
+                    ModUnderTest.staticCall("com.killer560.hub.gui.ModuleKeybinds", "set",
+                            new Class<?>[]{String.class, int.class}, new Object[]{"AutoClearTab", -1});
+                    runStartedForTest(false);
                 }
             });
             writeRoute(ctx, null);
             ctx.waitTicks(3);
         }
         noteFlags(c, s);
+    }
+
+    // ---- apmenu-1121: Dungeons Autopilot (one card, one switch, one Toggle Keybind) ----
+    private static final String PILOT = "com.killer560.hub.autosecret.DungeonsAutopilot";
+    private static final String AS_CFG = "com.killer560.hub.autosecret.AutoSecretConfig";
+
+    private static void apSet(String mode, String rush, boolean disableAfter) {
+        Object cfg = ModUnderTest.config(AS_CFG);
+        Object m = ModUnderTest.enumValue(AS_CFG + "$Mode", mode);
+        ModUnderTest.call(cfg, "setMode", new Class<?>[]{m.getClass()}, new Object[]{m});
+        Object r = ModUnderTest.enumValue(AS_CFG + "$BloodRush", rush);
+        ModUnderTest.call(cfg, "setBloodRush", new Class<?>[]{r.getClass()}, new Object[]{r});
+        ModUnderTest.set(cfg, "setDisableAfterBloodRush", disableAfter);
+        ModUnderTest.set(cfg, "setBloodFirst", false);
+    }
+
+    private static boolean apOn(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(PILOT, "isOn"));
+    }
+
+    private static boolean asRunning(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.autosecret.AutoSecretFeature",
+                "isRunning"));
+    }
+
+    private static void apBind(ClientGameTestContext ctx, int key) {
+        ctx.runOnClient(mc -> {
+            ModUnderTest.staticCall("com.killer560.hub.gui.ModuleKeybinds", "set", new Class<?>[]{String.class, int.class},
+                    new Object[]{"AutoClearTab", key});
+            runStartedForTest(key != -1);
+            if (key == -1) {
+                ModUnderTest.staticCall(PILOT, "setOn", new Class<?>[]{boolean.class}, new Object[]{false});
+                apSet("SOLO_300", "NONE", false);
+            }
+        });
+    }
+
+    /** Each Mode: the Toggle Keybind switches it on, the run targets the room (acted), the key switches everything off. */
+    private static void caseApMenuModes(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, true);
+        writeRoute(ctx, List.of(ew(24, 10, 24, 22, true)));
+        List<Sample> s = List.of();
+        apBind(ctx, PILOT_KEY);
+        try {
+            startSampling(ctx);
+            for (String mode : List.of("SOLO_300", "CLEAR_THEN_SECRET", "SECRET_THEN_CLEAR", "PARTY_SECRETS")) {
+                tpRel(ctx, 6.5, 20.5, 0f, 0f);
+                ctx.waitTicks(5);
+                ctx.runOnClient(mc -> apSet(mode, "NONE", false));
+                long m = LogTap.mark();
+                ctx.getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(PILOT_KEY), 3);
+                check(waitFor(ctx, 20, () -> apOn(ctx)), mode + ": the Toggle Keybind did not switch Dungeons Autopilot on");
+                check(waitFor(ctx, 40, () -> asRunning(ctx)), mode + ": switched on, but the secrets run never started");
+                check(waitFor(ctx, 200, () -> logHas(m, "[AutoSecret] target ")), mode + ": the run never targeted a room - nothing acted");
+                check(logHas(m, "[DungeonsAutopilot] on: mode " + mode), mode + ": the on line did not name the mode");
+                ctx.waitTicks(5);
+                ctx.getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(PILOT_KEY), 3);
+                check(waitFor(ctx, 40, () -> !apOn(ctx) && !asRunning(ctx)), mode + ": the second press did not stop it");
+                check(logHas(m, "[DungeonsAutopilot] off: you switched it off"), mode + ": no off line");
+                c.note(mode + ": key on, targeted a room, key off");
+                ctx.waitTicks(20);
+            }
+            s = stopSampling(ctx);
+        } finally {
+            apBind(ctx, -1);
+            writeRoute(ctx, null);
+            ctx.waitTicks(3);
+        }
+        noteFlags(c, s);
+    }
+
+    /** Blood Rush Door + Disable After Blood Rush: the rush ends (no blood door on the arena) and the card switches off
+     *  instead of going on to the secrets. */
+    private static void caseApMenuDisable(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, true);
+        writeRoute(ctx, List.of(ew(24, 10, 24, 22, true)));
+        apBind(ctx, PILOT_KEY);
+        try {
+            tpRel(ctx, 6.5, 20.5, 0f, 0f);
+            ctx.waitTicks(5);
+            ctx.runOnClient(mc -> apSet("SOLO_300", "DOOR", true));
+            long m = LogTap.mark();
+            ctx.getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(PILOT_KEY), 3);
+            check(waitFor(ctx, 60, () -> logHas(m, "[DungeonsAutopilot] on: mode SOLO_300, blood rush DOOR")),
+                    "the Toggle Keybind did not switch it on with Blood Rush Door");
+            check(waitFor(ctx, 100, () -> logHas(m, "[DungeonsAutopilot] off: Disable After Blood Rush")),
+                    "Disable After Blood Rush never switched it off after the rush");
+            ctx.waitTicks(20);
+            check(!apOn(ctx), "still on after the rush");
+            check(!asRunning(ctx) && !logHas(m, "[AutoSecret] target "), "went on to the secrets after the rush");
+            c.note("Blood Rush Door ended, switched off, no secrets");
+        } finally {
+            apBind(ctx, -1);
+            writeRoute(ctx, null);
+            ctx.waitTicks(3);
+        }
     }
 
     /** /ar edit 2, Go To: node #2 across the wall, reached by the Interactive Map's warp, then edit mode. */

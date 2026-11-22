@@ -58,7 +58,7 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
     private static final String AR_CONFIG = "com.killer560.hub.autoroutes.AutoRoutesConfig";
     private static final String AS = "com.killer560.hub.autosecret.AutoSecretFeature";
     private static final String AS_CONFIG = "com.killer560.hub.autosecret.AutoSecretConfig";
-    private static final String MODE = AS_CONFIG + "$SecretBloodFirst";
+    private static final String MODE = AS_CONFIG + "$BloodRush"; // apmenu-1121: Secret Blood First folded into Blood Rush
     private static final String AUTO_CLEAR = "com.killer560.hub.autoclear.AutoClearFeature";
     private static final String AUTO_CLEAR_CONFIG = "com.killer560.hub.autoclear.AutoClearConfig";
     private static final int CASE_TICKS = 20 * 240;
@@ -83,6 +83,12 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
         ModUnderTest.require("killer560smod");
         if (!dev.testkit.gametest.mod.Mod.isCheat()) {
             Scenario.skipped(NAME, "legit jar: no Auto Secret");
+            return;
+        }
+        if (dev.testkit.gametest.mod.Mod.has("autosecret.DungeonsAutopilot")) {
+            // apmenu-1121: Auto Secret has no Blood First of its own any more; Dungeons Autopilot's Blood Rush runs first
+            // (62-argrim-1121-apmenu-disable). Porting this floor run to the card is WORKQUEUE apmenu-1121-simrush.
+            Scenario.skipped(NAME, "Secret Blood First is Dungeons Autopilot's Blood Rush now");
             return;
         }
         LogTap.install();
@@ -458,7 +464,7 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
         if (mode == null) {
             return;
         }
-        ModUnderTest.call(cfg, "setSecretBloodFirst", new Class<?>[]{mode.getClass()}, new Object[]{mode});
+        ModUnderTest.call(cfg, "setBloodRush", new Class<?>[]{mode.getClass()}, new Object[]{mode});
     }
 
     private static void stopAll(ClientGameTestContext ctx) {
@@ -492,23 +498,23 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
     private static void logicCase(ClientGameTestContext ctx) {
         List<String> problems = new ArrayList<>();
         ctx.runOnClient(mc -> {
-            Object before = ModUnderTest.call(ModUnderTest.config(AS_CONFIG), "getSecretBloodFirst", new Class<?>[]{},
+            Object before = ModUnderTest.call(ModUnderTest.config(AS_CONFIG), "getBloodRush", new Class<?>[]{},
                     new Object[]{});
             try {
-                for (String v : List.of("DOOR_CAMP", "FULL_BLOOD_RUSH", "OFF")) {
+                for (String v : List.of("DOOR", "CLEAR", "NONE")) {
                     Object cfg = ModUnderTest.config(AS_CONFIG);
                     setMode(cfg, ModUnderTest.enumValue(MODE, v));
                     ModUnderTest.call(cfg, "save", new Class<?>[]{}, new Object[]{});
                     ModUnderTest.staticCall(AS_CONFIG, "load");
-                    Object back = ModUnderTest.call(ModUnderTest.config(AS_CONFIG), "getSecretBloodFirst",
+                    Object back = ModUnderTest.call(ModUnderTest.config(AS_CONFIG), "getBloodRush",
                             new Class<?>[]{}, new Object[]{});
                     System.out.println("[" + LOGIC + "] saved " + v + ", loaded " + back);
                     if (!v.equals(String.valueOf(back))) {
                         problems.add("saved " + v + " and loaded " + back);
                     }
                 }
-                String[][] steps = {{"OFF", "1", "DOOR_CAMP"}, {"DOOR_CAMP", "1", "FULL_BLOOD_RUSH"},
-                        {"FULL_BLOOD_RUSH", "1", "OFF"}, {"OFF", "-1", "FULL_BLOOD_RUSH"}, {"DOOR_CAMP", "-1", "OFF"}};
+                String[][] steps = {{"NONE", "1", "CLEAR"}, {"CLEAR", "1", "DOOR"},
+                        {"DOOR", "1", "NONE"}, {"NONE", "-1", "DOOR"}, {"CLEAR", "-1", "NONE"}};
                 for (String[] s : steps) {
                     Object got = ModUnderTest.staticCall("com.killer560.hub.gui.SettingsButtonWidget", "step",
                             new Class<?>[]{Enum.class, int.class},
@@ -519,7 +525,6 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
                     }
                 }
                 if (cheatBuild()) { // the Auto Clear tab is cheat-only: a legit jar has no such row
-                    setMode(ModUnderTest.config(AS_CONFIG), ModUnderTest.enumValue(MODE, "DOOR_CAMP")); // the mode row shows only while the switch is on
                     Object tab = Class.forName("com.killer560.hub.gui.tab.AutoClearTab").getConstructor().newInstance();
                     @SuppressWarnings("unchecked")
                     List<AbstractWidget> ws = (List<AbstractWidget>) ModUnderTest.call(tab, "buildWidgets",
@@ -527,7 +532,7 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
                             new Object[]{0, 0, 300, (Runnable) () -> { }});
                     AbstractWidget row = null;
                     for (AbstractWidget w : ws) {
-                        if (w.getMessage().getString().startsWith("Blood First Mode: ")) {
+                        if (w.getMessage().getString().startsWith("Blood Rush: ")) {
                             row = w;
                         }
                     }
@@ -536,7 +541,7 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
                     System.out.println("[" + LOGIC + "] tab row: " + (row == null ? "none" : row.getMessage().getString())
                             + ", cycling " + cycling + " (" + ws.size() + " widget(s))");
                     if (!cycling) {
-                        problems.add("the Auto Clear tab has no cycling \"Secret Blood First\" button");
+                        problems.add("the Dungeons Autopilot tab has no cycling \"Blood Rush\" button");
                     }
                 } else {
                     System.out.println("[" + LOGIC + "] legit jar: tab row skipped (cheat-only tab)");

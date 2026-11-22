@@ -129,8 +129,12 @@ final class CmdClean1101Cases {
             });
             List<String> rows = c.onClient(mc -> labels(build("gui.tab.AutoClearTab")));
             c.note("Auto Clear tab rows: " + rows);
-            c.check(rows.stream().anyMatch(r -> r.startsWith("Clear Toggle Key:")), "no Clear Toggle Key row (starts Auto Clear)");
-            c.check(rows.stream().anyMatch(r -> r.startsWith("Auto Secret Key:")), "no Auto Secret Key row (starts Auto Secret)");
+            // apmenu-1121: one card, one switch (its Toggle Keybind is the card's own key, not a row)
+            c.check(rows.stream().anyMatch(r -> r.startsWith("Dungeons Autopilot:")), "no Dungeons Autopilot switch row");
+            c.check(rows.stream().anyMatch(r -> r.startsWith("Mode:")), "no Mode row");
+            c.check(rows.stream().anyMatch(r -> r.startsWith("Blood Rush:")), "no Blood Rush row");
+            c.check(rows.stream().noneMatch(r -> r.startsWith("Clear Toggle Key:") || r.startsWith("Auto Secret Key:")),
+                    "an old start key row is still on the card");
             c.check(rows.stream().anyMatch(r -> r.startsWith("Mob Timeout:")), "Auto Clear's section was not built");
             for (String gone : List.of("Bat Test", "Insta Clear Evidence", "Last Insta Clear Entry", "Known After",
                     "Clear Window", "Mark Last")) {

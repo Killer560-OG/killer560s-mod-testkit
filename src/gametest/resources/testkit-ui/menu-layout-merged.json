@@ -18,7 +18,8 @@
     "gui.tab.LeftClickSecretsTab": "Dungeons > Secrets > Left Click Opens Secrets",
     "gui.tab.AutoHarpTab": "Items > Auto Melody's Harp",
     "gui.tab.AutoSuperboomTab": "Dungeons > Auto Superboom",
-    "gui.tab.TerminatorClickerTab": "Dungeons > Shortbow Auto Clicker"
+    "gui.tab.TerminatorClickerTab": "Dungeons > Shortbow Auto Clicker",
+    "gui.tab.AutoClearTab": "Dungeons > Dungeons Autopilot"
   },
   "newLeaves": {
     "gui.tab.RoomNameTab": "Dungeons > Current Room Name",
@@ -490,18 +491,6 @@
       "why": "mapcolor-1102 (killer560 2026-11-02): Funny Map keeps room colors; before: map-overhaul-1015; rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
     },
     {
-      "owner": "Auto Clear",
-      "key": "autopilot key",
-      "text": "Starts or stops Dungeon Autopilot (Backspace clears it). Works only in a dungeon, outside the boss.",
-      "why": "keybindmouse-1102 (killer560 2026-11-02): Escape cancels a key row, Backspace or Delete clears it"
-    },
-    {
-      "owner": "Auto Clear",
-      "key": "auto secret key",
-      "text": "Starts or stops Auto Secret (Backspace clears it). Works only in a dungeon, outside the boss.",
-      "why": "keybindmouse-1102 (killer560 2026-11-02): Escape cancels a key row, Backspace or Delete clears it"
-    },
-    {
       "owner": "Dungeon Map",
       "key": "dungeon map",
       "text": "Draws the real dungeon map as a HUD overlay, showing only what your hotbar map has revealed. Scroll over it in the HUD editor to size it.",
@@ -533,12 +522,6 @@
       "text": "Cheat build, Funny Map, Windows: anything that records or shares the game (OBS, Discord, the Windows recorder, F2) sees the normal Dungeon Map, while you see the Funny Map in a window over it that capture skips. Stream Safe hides the Funny Map and the mimic room from viewers on the HUD map only: the Interactive Map and other Funny Map extras stay visible. In exclusive fullscreen you see the normal map too. Needs Windows 10 2004 or newer.",
       "why": "streamsafemap-1118 (killer560 2026-11-18): viewers of a stream or recording see the normal map, he still sees the Funny Map",
       "variant": "cheat"
-    },
-    {
-      "owner": "(unscoped)",
-      "key": "auto clear",
-      "text": "Cheat build: kills the starred mobs of the dungeon's mob rooms with your Hyperion or Spirit Sceptre; start and stop it with the Clear Toggle Key.",
-      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: one-sentence hovers; cmdclean-1101 c498f3ba dropped /autoclear"
     },
     {
       "owner": "(unscoped)",
@@ -644,47 +627,6 @@
       "key": "trigger bot",
       "text": "Cheat build: clicks a blood mob on its kill timer when you aim at it, never faster than your attack speed. Needs Blood Camp on.",
       "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
-    },
-    {
-      "owner": "Auto Clear",
-      "key": "auto clear",
-      "text": "Cheat build: kills the starred mobs of the dungeon's mob rooms with your Hyperion or Spirit Sceptre; start and stop it with the Clear Toggle Key.",
-      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: one-sentence hovers; cmdclean-1101 c498f3ba dropped /autoclear"
-    },
-    {
-      "owner": "Auto Clear",
-      "key": "auto clear rooms",
-      "gone": "4119ac75 (2026-10-20): the row is gone, Room Plan decides how Auto Secret fits Auto Clear in; its stale tooltip went in 1c10b812"
-    },
-    {
-      "owner": "Auto Clear",
-      "key": "start autopilot",
-      "text": "Cheat build: Dungeon Autopilot runs Auto Secret, Auto Clear and Auto Puzzles under one planner; any movement key takes over.",
-      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, label spelling outside gui/"
-    },
-    {
-      "owner": "Auto Clear",
-      "key": "do puzzles",
-      "text": "Treat puzzles like rooms: go to one and let Auto Puzzles solve it. Only puzzles whose auto is switched on.",
-      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
-    },
-    {
-      "owner": "Auto Clear",
-      "key": "key base range",
-      "text": "Pickup range for dungeon keys, in blocks. The range used (shown after the arrow) adds 5 to this.",
-      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
-    },
-    {
-      "owner": "Auto Clear",
-      "key": "run mode",
-      "text": "Solo plays for the best score per second toward 300 with the blood door last; Party does your routes first and never opens the blood door.",
-      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, label spelling outside gui/"
-    },
-    {
-      "owner": "Auto Clear",
-      "key": "status hud",
-      "text": "One small HUD showing what Auto Clear, Auto Secret and Dungeon Autopilot are doing, hidden while nothing runs; move it in the HUD editor.",
-      "why": "hover rewritten: d49e8398 2026-10-20 Menu text: missing hovers, one-sentence hovers, label spelling outside gui/"
     },
     {
       "owner": "Auto Correct",
@@ -939,13 +881,6 @@
       "why": "412's New-category header row: map-overhaul-1015 0519a85b added the HUD editor sentence"
     },
     {
-      "owner": "Auto Clear",
-      "key": "autopilot hud",
-      "renamed": "status hud",
-      "text": "One small HUD showing what Auto Clear, Auto Secret and Dungeon Autopilot are doing, hidden while nothing runs; move it in the HUD editor.",
-      "why": "412's fixture row: bce20273 (2026-10-15) Autopilot HUD became the one Status HUD; hover rewritten d49e8398"
-    },
-    {
       "owner": "Player Cosmetics",
       "key": "held item",
       "to": "Held Item Transform",
@@ -1086,6 +1021,95 @@
       "renamed": "hide soulweaver skulls",
       "text": "Stops the skulls spawned by Soulweaver Gloves from rendering.",
       "why": "auditfix-1118: label renamed (feature audit 2026-11-18)"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "auto clear",
+      "renamed": "dungeons autopilot",
+      "text": "Cheat build: one switch for the whole dungeon run: the Blood Rush part first (if picked), then rooms, secrets and puzzles by the Mode and the order settings below. Starts when the run does if switched on in the green room; switching off, Escape or the Emergency Cancel Key stops it. Never on after a restart.",
+      "why": "apmenu-1121 (killer560 2026-11-21): Dungeon Autopilot, Auto Secret, Auto Clear and Auto Blood Rush are one cheat card, Dungeons Autopilot"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "auto clear rooms",
+      "gone": "apmenu-1121 (killer560 2026-11-21): Dungeon Autopilot, Auto Secret, Auto Clear and Auto Blood Rush are one cheat card, Dungeons Autopilot: its start key / button is the card's one switch and Toggle Keybind"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "auto secret",
+      "gone": "apmenu-1121 (killer560 2026-11-21): Dungeon Autopilot, Auto Secret, Auto Clear and Auto Blood Rush are one cheat card, Dungeons Autopilot: its start key / button is the card's one switch and Toggle Keybind"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "auto secret key",
+      "gone": "apmenu-1121 (killer560 2026-11-21): Dungeon Autopilot, Auto Secret, Auto Clear and Auto Blood Rush are one cheat card, Dungeons Autopilot: its start key / button is the card's one switch and Toggle Keybind"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "start autopilot",
+      "gone": "apmenu-1121 (killer560 2026-11-21): Dungeon Autopilot, Auto Secret, Auto Clear and Auto Blood Rush are one cheat card, Dungeons Autopilot: its start key / button is the card's one switch and Toggle Keybind"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "autopilot key",
+      "gone": "apmenu-1121 (killer560 2026-11-21): Dungeon Autopilot, Auto Secret, Auto Clear and Auto Blood Rush are one cheat card, Dungeons Autopilot: its start key / button is the card's one switch and Toggle Keybind"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "blood first",
+      "text": "First clear the Blood Rush path and open its doors (wither doors with a key, then the blood door), then the rest of the floor by the Mode. Without the key it does the rest meanwhile.",
+      "why": "apmenu-1121 (killer560 2026-11-21): Dungeon Autopilot, Auto Secret, Auto Clear and Auto Blood Rush are one cheat card, Dungeons Autopilot"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "chat feedback",
+      "text": "Chat lines for each room it goes to or skips. Stops and server corrections are always said.",
+      "why": "apmenu-1121 (killer560 2026-11-21): Dungeon Autopilot, Auto Secret, Auto Clear and Auto Blood Rush are one cheat card, Dungeons Autopilot"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "do puzzles",
+      "text": "Treat puzzles like rooms: go to one and let Auto Puzzles solve it. Only puzzles whose auto is switched on.",
+      "why": "apmenu-1121 (killer560 2026-11-21): Dungeon Autopilot, Auto Secret, Auto Clear and Auto Blood Rush are one cheat card, Dungeons Autopilot"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "key base range",
+      "renamed": "key range",
+      "text": "Pickup range for dungeon keys, in blocks. The range used (shown after the arrow) adds 5 to this. 1 by default.",
+      "why": "apmenu-1121 (killer560 2026-11-21): Dungeon Autopilot, Auto Secret, Auto Clear and Auto Blood Rush are one cheat card, Dungeons Autopilot"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "run mode",
+      "renamed": "mode",
+      "text": "Solo 300: the fastest way for one player to reach score 300 (blood door last). Clear Then Secret: every mob room cleared first, then the secrets. Secret Then Clear: the secrets first, then the rooms left uncleared. Party Secrets: your routes for the party, never opening the blood door.",
+      "why": "apmenu-1121 (killer560 2026-11-21): Dungeon Autopilot, Auto Secret, Auto Clear and Auto Blood Rush are one cheat card, Dungeons Autopilot"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "status hud",
+      "text": "One small HUD showing what Dungeons Autopilot is doing, hidden while nothing runs; move it in the HUD editor.",
+      "why": "apmenu-1121 (killer560 2026-11-21): Dungeon Autopilot, Auto Secret, Auto Clear and Auto Blood Rush are one cheat card, Dungeons Autopilot"
+    },
+    {
+      "owner": "Interactive Map",
+      "key": "auto blood rush",
+      "variant": "cheat",
+      "gone": "apmenu-1121 (killer560 2026-11-21): Dungeon Autopilot, Auto Secret, Auto Clear and Auto Blood Rush are one cheat card, Dungeons Autopilot: Blood Rush is the card's Blood Rush setting"
+    },
+    {
+      "owner": "(unscoped)",
+      "key": "auto clear",
+      "variant": "cheat",
+      "gone": "apmenu-1121 (killer560 2026-11-21): Dungeon Autopilot, Auto Secret, Auto Clear and Auto Blood Rush are one cheat card, Dungeons Autopilot: the Auto Clear card is gone"
+    },
+    {
+      "owner": "Auto Clear",
+      "key": "autopilot hud",
+      "renamed": "status hud",
+      "text": "One small HUD showing what Dungeons Autopilot is doing, hidden while nothing runs; move it in the HUD editor.",
+      "why": "412's fixture row: bce20273 (2026-10-15) Autopilot HUD became the one Status HUD; apmenu-1121 one card"
     }
   ]
 }

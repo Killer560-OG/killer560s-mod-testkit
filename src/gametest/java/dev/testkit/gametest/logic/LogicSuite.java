@@ -132,6 +132,7 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.runOffClient(ctx, "1104-logic-themedl-notheme", ThemeAssetsCases::noTheme);
         LogicCase.runOffClient(ctx, "1104-logic-themedl-delete", ThemeAssetsCases::delete);
         LogicCase.runOffClient(ctx, "1119-logic-translit", TranslitCases::translit);
+        LogicCase.runOffClient(ctx, "1121-apmenu-logic-migrate", ApMenu1121Cases::migrate);
         LogicCase.run(ctx, "1104-logic-leapcore", LeapCore1104Cases::leapCore);
         LogicCase.run(ctx, "1104-logic-leapcore-suppress", LeapCore1104Cases::suppress);
         LogicCase.run(ctx, "1105-logic-mapinfer-pit", MapInfer1105Cases::pit);
