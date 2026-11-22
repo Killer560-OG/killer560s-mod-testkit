@@ -118,6 +118,8 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.runOffClient(ctx, "1119-logic-hidden-process", HiddenProcessCases::headless);
         // ---- precomputed trips refused from a spot they failed from (mod acwaits3-1122), client thread
         LogicCase.run(ctx, "1122-logic-tripcache-refused", TripRefuseCases::refused);
+        // ---- a warp that never landed is never a fresh plan's first hop from that spot (mod acwaits4-1122)
+        LogicCase.run(ctx, "1122-logic-refused-hop", RefusedHopCases::refused);
         ManaResetCases.ctx = ctx;
         LogicCase.runOffClient(ctx, "2776-logic-mana-world-reset", ManaResetCases::worldReset);
         // ---- static scan fixes (mod scanbugs-1104): \s escapes, Revert Master Stars null name
