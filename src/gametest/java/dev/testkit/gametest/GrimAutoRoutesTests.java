@@ -1112,6 +1112,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     c.server().command(String.format(Locale.ROOT, "summon zombie %.3f %.3f %.3f"
                             + " {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}", z[0], z[1], z[2]));
                 }
+                if (t > 1 && act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                    // keeps the target 1.6 ahead of his look (no ViewFreeze here: camera and body agree) as the walk moves on
+                    c.server().command("execute as @p at @p run tp @e[tag=sametick] ^ ^ ^1.6");
+                }
                 if (!(Boolean) ctx.computeOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "isRunning")) && t > 5) {
                     break;
                 }
