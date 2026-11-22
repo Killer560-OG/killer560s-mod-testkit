@@ -40,6 +40,18 @@ final class BugCmd1115Cases {
             c.note("/" + r + ": zips " + before + " -> " + count(dir));
             c.check(count(dir) > before && fresh, "/" + r + " produced no new zip in " + dir);
         }
+        // gardencopper-1121: the newest zip carries sidebar.txt (island, sidebar lines, tab info lines) to trace a missing scoreboard line
+        Path newest;
+        try (Stream<Path> s = Files.list(dir)) {
+            newest = s.filter(p -> p.toString().endsWith(".zip")).max(java.util.Comparator.comparingLong(p -> p.toFile().lastModified())).orElseThrow();
+        }
+        try (java.util.zip.ZipFile z = new java.util.zip.ZipFile(newest.toFile())) {
+            var e = z.getEntry("sidebar.txt");
+            c.check(e != null, "report zip has no sidebar.txt");
+            String t = new String(z.getInputStream(e).readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            c.note("sidebar.txt: " + t.replace("\n", " | "));
+            c.check(t.startsWith("Island:") && t.contains("Tab info lines"), "sidebar.txt lacks its sections: " + t);
+        }
     }
 
     private static long count(Path dir) throws Exception {
