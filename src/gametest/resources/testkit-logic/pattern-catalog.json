@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T18:24:48",
- "modSource": "lane-acpuzzles2-1121-b",
- "modGitSha": "14ecd60c72d1bbaea1856efda8ff8da8d70a469e",
+ "generatedAt": "2026-11-21T19:19:36",
+ "modSource": "lane-ssarrive-lever-1121",
+ "modGitSha": "e53bda51ee96d1c1c5199f248287c2640ae4d1d9",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
