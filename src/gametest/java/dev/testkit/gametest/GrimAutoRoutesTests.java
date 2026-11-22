@@ -188,6 +188,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1122-trapwalkalign-same-attack", c -> caseTrapWalkAlign(c, dev.testkit.gametest.SameTick.Act.ATTACK));
             s.test("62-argrim-1122-trapwalkalign-same-swap", c -> caseTrapWalkAlign(c, dev.testkit.gametest.SameTick.Act.SWAP));
             s.test("62-argrim-1122-trapwalkalign-same-click", c -> caseTrapWalkAlign(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK));
+            // A second run of the feature itself: the next walk aligns onto the node after it a tick or two later.
+            s.test("62-argrim-1122-trapwalkalign-same-again", c -> caseTrapWalkAlign(c, null, true));
             // iw-campaign-1027: Inventory Walk on while a route sprints him and he clicks in his inventory, then closes it.
             s.test("62-argrim-1027-invwalk", GrimAutoRoutesTests::caseInvWalk);
             // ... and 62-argrim-play's whole route (its chest window keeps the route running) with Inventory Walk on.
@@ -873,8 +875,17 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * carried both an align packet (input or look) and his packet.
      */
     private static void caseTrapWalkAlign(Session c, dev.testkit.gametest.SameTick.Act act) {
+        caseTrapWalkAlign(c, act, false);
+    }
+
+    /**
+     * {@code again}: the route is WALK, ROTATE, WALK, ROTATE with the second ROTATE one block past the first, so the
+     * align runs a second time right after the first fired its node; both must align, fire from the point, and the second
+     * must start within a few ticks of the first's end, GrimAC silent.
+     */
+    private static void caseTrapWalkAlign(Session c, dev.testkit.gametest.SameTick.Act act, boolean again) {
         ClientGameTestContext ctx = c.ctx();
-        String label = "trapwalkalign" + (act == null ? "" : " " + act);
+        String label = "trapwalkalign" + (act == null ? "" : " " + act) + (again ? " again" : "");
         resetRoutes(ctx);
         arena(ctx, false);
         trapRoom(ctx, true);
@@ -882,7 +893,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         try {
             JsonObject w = node("WALK", 14, 8, 90f, 0f);
             w.addProperty("start", true);
-            writeRoute(ctx, List.of(w, node("ROTATE", 9, 7, 90f, 0f)));
+            writeRoute(ctx, again ? List.of(w, node("ROTATE", 9, 7, 90f, 0f), node("WALK", 9, 7, 90f, 0f),
+                    node("ROTATE", 8, 7, 90f, 0f)) : List.of(w, node("ROTATE", 9, 7, 90f, 0f)));
             ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(7));
             if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
                 double[] z = ctx.computeOnClient(mc -> {
@@ -916,10 +928,31 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             long alignFrom = -1;
             long alignTo = -1;
             int alignTicks = 0;
+            List<Integer> runStarts = new ArrayList<>(); // tick each align run began (a new walkAlignNode)
+            List<Integer> runEnds = new ArrayList<>();
+            Object lastNode = null;
+            long run2From = -1;
+            long run2To = -1;
             for (int t = 0; t < 120; t++) {
                 Object[] r = ctx.computeOnClient(mc -> new Object[]{
                         dev.testkit.gametest.mod.Mod.field(EXECUTOR, "walkAlignNode") != null,
-                        ModUnderTest.staticCall(EXECUTOR, "isRunning"), System.nanoTime()});
+                        ModUnderTest.staticCall(EXECUTOR, "isRunning"), System.nanoTime(),
+                        dev.testkit.gametest.mod.Mod.field(EXECUTOR, "walkAlignNode")});
+                if (r[3] != lastNode) {
+                    if (lastNode != null) {
+                        runEnds.add(t);
+                    }
+                    if (r[3] != null) {
+                        runStarts.add(t);
+                    }
+                    lastNode = r[3];
+                }
+                if (r[3] != null && runStarts.size() == 2) {
+                    if (run2From < 0) {
+                        run2From = (Long) r[2] - 60_000_000L;
+                    }
+                    run2To = (Long) r[2] + 60_000_000L;
+                }
                 if ((Boolean) r[0]) {
                     alignTicks++;
                     if (alignFrom < 0) {
@@ -950,11 +983,39 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     fired = l;
                 }
             }
-            c.note(label + ": aligns " + aligns + ", align ticks " + alignTicks + ", " + fired);
-            check(aligns == 1, label + ": the walk did not align onto node #2 (" + aligns + ")");
+            c.note(label + ": aligns " + aligns + ", align ticks " + alignTicks + ", runs began " + runStarts + " ended "
+                    + runEnds + ", " + fired);
+            check(aligns == (again ? 2 : 1), label + ": the walk did not align onto node #2" + (again ? " and #4" : "")
+                    + " (" + aligns + ")");
             check(fired != null && fired.contains("on the point"), label + ": node #2 was not fired from its point (" + fired
                     + ")");
             check(logHas(mark, "Node #2 ROTATE"), label + ": node #2 never fired");
+            if (again) {
+                String fired4 = null;
+                for (String l : LogTap.since(mark)) {
+                    if (l.contains("walk onto node #4")) {
+                        fired4 = l;
+                    }
+                }
+                c.note(label + ": second align " + fired4);
+                check(fired4 != null && fired4.contains("on the point"), label + ": node #4 was not fired from its point ("
+                        + fired4 + ")");
+                check(logHas(mark, "Node #4 ROTATE"), label + ": node #4 never fired");
+                check(runStarts.size() == 2 && runEnds.size() >= 1 && runStarts.get(1) - runEnds.get(0) <= 6, label
+                        + ": the second align did not follow the first within 6 ticks (began " + runStarts + ", ended "
+                        + runEnds + ")");
+                // On the wire: align packets went out in the second run's ticks too (it acted, not only its counter).
+                int moved2 = 0;
+                for (dev.testkit.harness.WireCapture.Sent x : wire) {
+                    String ty = x.type();
+                    if (x.nanos() >= run2From && x.nanos() <= run2To && (ty.contains("player_input")
+                            || ty.contains("move_player_pos_rot") || ty.contains("move_player_rot"))) {
+                        moved2++;
+                    }
+                }
+                c.note(label + ": align packets on the wire in the second run: " + moved2);
+                check(moved2 > 0, label + ": no align packet on the wire in the second align's ticks");
+            }
             if (act != null) {
                 // Server ticks (packets between two client_tick_end) inside the align that carried an align packet and his.
                 int shared = 0;
