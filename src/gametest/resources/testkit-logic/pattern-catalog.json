@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T12:18:43",
- "modSource": "lane-acgreenstart-1122",
- "modGitSha": "7b9c47ec738431606598b98f1d38b0ae3099ee26",
+ "generatedAt": "2026-11-22T12:45:31",
+ "modSource": "lane-acreplan-simseed-1122",
+ "modGitSha": "e6017d11476acd861ed3344f9e5111e5b8cd75d6",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
