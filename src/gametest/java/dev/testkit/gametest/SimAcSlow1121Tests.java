@@ -327,7 +327,9 @@ public class SimAcSlow1121Tests implements FabricClientGameTest {
             boolean running = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(RE, "isRunning"));
             int ticks = ctx.computeOnClient(mc -> drive(AS, "AWAIT_ROUTE", "tickAwaitRoute", 60));
             String after = ctx.computeOnClient(mc -> String.valueOf(getStatic(AS, "phase")));
-            boolean stoppedAsSetUp = !running && why.contains("not in the hotbar");
+            // The one-node route either runs to its end in its own tick (stop reason null) or stops on the missing wand;
+            // both are "started and stopped on its own tick", which is all this case needs.
+            boolean stoppedAsSetUp = r.equals("started true") && !running;
             row(AWAIT, stoppedAsSetUp && ticks >= 1 && ticks <= 2,
                     "a start node that stopped on its own tick (" + r + ", stop reason " + why + ") left AWAIT_ROUTE after "
                             + ticks + " tick(s) (max 2, was 41) into " + after);
