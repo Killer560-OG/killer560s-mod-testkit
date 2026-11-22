@@ -365,9 +365,15 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
         if (!xCleared) {
             failures.add(label + ": " + setup.leaf() + " never read cleared");
         }
-        if (!keyDropped || keysAfter < 1) {
-            failures.add(label + ": " + setup.leaf() + "'s Wither Key was not dropped and picked up (dropped " + keyDropped
-                    + ", obtained " + keysAfter + ")");
+        // The room kept its key: it dropped. Auto Clear alone ends at "nothing left" and fetches a key only for a door it
+        // still has to open, so whether it walks over this one depends on where it fell (lane1122-1028/1056: dropped, not
+        // fetched, Auto Clear done). The autopilot goes on to Blood and needs it: there it must be picked up.
+        if (!keyDropped) {
+            failures.add(label + ": " + setup.leaf() + "'s Wither Key never dropped");
+        }
+        if (pilot && keysAfter < 1) {
+            failures.add(label + ": " + setup.leaf() + "'s Wither Key dropped but was not picked up (obtained " + keysAfter
+                    + ")");
         }
     }
 
