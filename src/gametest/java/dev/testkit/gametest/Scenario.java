@@ -264,7 +264,7 @@ public final class Scenario {
     private static final List<String> CHEAT_ONLY = List.of("1118-ui-imap-hudclick", "99-sim-im", "1025-blink-", "1026-blink-", "1027-blink-", "1105-blink-", "1111-blink-",
             "1026-ap3-blink-", "1027-ap3-blink-", "1110-ap3-stopwatch-", "1025-invwalk-", "1025-zpew-", "1027-zpew", "1105-zpew-",
             "1111-zpew", "1025-lcew-", "63-ap3-", "1018-ap3-", "1022-ap3-", "1026-ap3-", "1027-ap3-", "1018-breaker-fairy", "62-argrim-1111-archarge",
-            "1117-ac-hype-", "1111-blinktp-", "1112-ap3-", "1112-blink-", "1112-viewhold", "1110-align12-", "1112-align12-", "62-argrim-", "1105-same-breaker", "1105-ap3-", "1101-ap3-", "1109-ap3-", "1027-iw-", "1105-iw-", "1108-iw-", "1114-drillswap-", "1115-acslow-", "1115-acslow2-", "93-solve-waterboard-chest-locked", "1115-same-waterchest-", "1115-ap3-", "1115-termclose-stillhold", "1118-termclose-serverclosed", "96-ar-", "1110-blink-breaker-gap-", "1115-ac-dooronly-", "1020-sim-ac-keyroom", "1116-ap3-", "1116-same-i4terror-", "1113-witherpick", "1119-queueleap-", "1118-hx-mapcycler-loop", "1118-sim-mapcycler");
+            "1117-ac-hype-", "1111-blinktp-", "1112-ap3-", "1112-blink-", "1112-viewhold", "1110-align12-", "1112-align12-", "62-argrim-", "1105-same-breaker", "1105-ap3-", "1101-ap3-", "1109-ap3-", "1027-iw-", "1105-iw-", "1108-iw-", "1114-drillswap-", "1115-acslow-", "1115-acslow2-", "93-solve-waterboard-chest-locked", "1115-same-waterchest-", "1115-ap3-", "1115-termclose-stillhold", "1118-termclose-serverclosed", "96-ar-", "1110-blink-breaker-gap-", "1115-ac-dooronly-", "1020-sim-ac-keyroom", "1116-ap3-", "1116-same-i4terror-", "1113-witherpick", "1119-queueleap-", "1118-hx-mapcycler-loop", "1118-sim-mapcycler", "1121-sim-trap-routes");
 
     /** On a legit jar a cheat-only case is one SKIP row (the only {@code *-legit-absent} case tests that absence and still runs). */
     public static boolean legitSkip(String name) {
@@ -328,7 +328,7 @@ public final class Scenario {
     public static void run(ClientGameTestContext ctx, String name,
                            BiConsumer<TestServer, Scenario> build,
                            BiConsumer<TestServer, Scenario> body) {
-        runInternal(ctx, name, build, body, false);
+        runInternal(ctx, name, build, body, false, false);
     }
 
     /**
@@ -342,12 +342,24 @@ public final class Scenario {
     public static void runExpectingFlags(ClientGameTestContext ctx, String name,
                                          BiConsumer<TestServer, Scenario> build,
                                          BiConsumer<TestServer, Scenario> body) {
-        runInternal(ctx, name, build, body, true);
+        runInternal(ctx, name, build, body, true, false);
+    }
+
+    /**
+     * Like {@link #runExpectingFlags}, but the body JUDGES every GrimAC line itself (a reasoned owner exception such as the
+     * measured lag-spike TimerLimit) and throws on any other, so reaching the end is a PASS row, not FLAGGED. A FLAGGED row
+     * reads as a flag to a finish script and as no verdict to the ship lane (ticksplit-nowork-1121: ten clean 1111-mwtick
+     * rows with "0 line(s)" were taken for flags).
+     */
+    public static void runJudgingOwnFlags(ClientGameTestContext ctx, String name,
+                                          BiConsumer<TestServer, Scenario> build,
+                                          BiConsumer<TestServer, Scenario> body) {
+        runInternal(ctx, name, build, body, true, true);
     }
 
     private static void runInternal(ClientGameTestContext ctx, String name,
                                     BiConsumer<TestServer, Scenario> build,
-                                    BiConsumer<TestServer, Scenario> body, boolean expectFlags) {
+                                    BiConsumer<TestServer, Scenario> body, boolean expectFlags, boolean selfJudged) {
         if (skip(name)) {
             return;
         }
@@ -372,7 +384,9 @@ public final class Scenario {
                 ChatWatch.clear();
                 body.accept(server, scenario);
                 String verdict;
-                if (expectFlags) {
+                if (selfJudged) {
+                    verdict = "judged by the case; " + scenario.flags().size() + " GrimAC line(s) since the last mark";
+                } else if (expectFlags) {
                     verdict = "flags expected; " + scenario.flags().size() + " line(s) since the last mark";
                 } else {
                     ctx.waitTicks(20);      // let a late verbose line land before looking
@@ -380,7 +394,7 @@ public final class Scenario {
                     verdict = anticheatMuted() ? "no anticheat (-Pnogrim)" : "clean";
                 }
                 SuiteVerdict.finished(name);
-                scenario.report(expectFlags ? "FLAGGED" : "PASS", verdict, "", logMark);
+                scenario.report(expectFlags && !selfJudged ? "FLAGGED" : "PASS", verdict, "", logMark);
             }
         } catch (RuntimeException | Error t) {
             scenario.report("FAIL", "", t.getClass().getSimpleName() + ": " + t.getMessage(), logMark);
