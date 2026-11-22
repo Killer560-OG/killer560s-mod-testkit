@@ -31,12 +31,22 @@ import java.util.concurrent.atomic.AtomicReference;
  * He is given a Wither Key. The run (Auto Clear Any Mob Room, or Dungeons Autopilot Solo 300 / Blood Rush None / Insta Clear
  * on) must open D only once he has stood in K a while (client ticks in K at the open line >= 6; an origin jar clicks about
  * two ticks after landing), and X must not be lost: its mob dies, X reads cleared, its key drops and is picked up.
+ *
+ * <p><b>1122-sim-ap-door-go</b> (mod acrev-door-1122): the AP row, timed on D's own blocks. After our one click the sim
+ * turns D to barriers and then air, as Hypixel does (his log: barriers 3 ticks after the click, air 14 after that); the
+ * next warp's use must go at most {@code MAX_GO_TICKS} client ticks after the blocks go (an origin jar: 3), with no
+ * second click and no item use while D still stands, and X must still be reached and cleared as above.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimWitherKeyUnseenTests implements FabricClientGameTest {
 
     private static final String AC = "1122-sim-ac-witherkey-unseen";
     private static final String AP = "1122-sim-ap-witherkey-unseen";
+    /** acrev-door-1122: the AP row, timed from the door's blocks going to the next warp. */
+    private static final String GO = "1122-sim-ap-door-go";
+    /** Client ticks at most from the door's blocks going to the next warp's use (an origin jar takes 3: a decide tick, a
+     *  sneak-and-swap tick, then the use). */
+    private static final int MAX_GO_TICKS = 2;
     private static final String TAG = "1122-witherkey-unseen";
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String SIM_MOBS = "com.killer560.hub.roomsim.SimMobs";
@@ -54,6 +64,9 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
     private static final String AS = "com.killer560.hub.autosecret.AutoSecretFeature";
     private static final String AS_CONFIG = "com.killer560.hub.autosecret.AutoSecretConfig";
     private static final String PILOT = "com.killer560.hub.autosecret.DungeonsAutopilot";
+    private static final String RIGHT_CLICK = "com.killer560.hub.util.RightClick";
+    private static final java.util.regex.Pattern DOOR_CLICK =
+            java.util.regex.Pattern.compile("\\[AutoSecret\\] opening the wither door at cell (\\d+) \\(click 1 of");
     private static final int CASE_TICKS = 2400;
     private static final int MIN_TICKS_IN_K = 6;
 
@@ -66,6 +79,7 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
         if (!System.getProperty("testkit.scenario", "").isBlank()) {
             if (Scenario.named(AC)) rows.put(AC, false);
             if (Scenario.named(AP)) rows.put(AP, true);
+            if (Scenario.named(GO)) rows.put(GO, true);
         }
         if (rows.isEmpty()) {
             return;
@@ -302,6 +316,14 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
                 ModUnderTest.staticCall(AUTO, "start");
             }
         });
+        boolean timed = GO.equals(label);
+        int doorCell = -1;
+        int clickTick = -1;
+        int barrierTick = -1;
+        int airTick = -1;
+        int goTick = -1;
+        int usesAtClick = -1;
+        int usesWhileShut = 0;
         int inK = 0;
         int inKAtOpen = -1;
         int openTick = -1;
@@ -315,6 +337,43 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
             if (openTick < 0 && LogTap.since(mark).stream().anyMatch(l -> l.contains("opened a WITHER door!"))) {
                 openTick = t;
                 inKAtOpen = inK;
+            }
+            if (timed && goTick < 0) {
+                if (doorCell < 0) {
+                    for (String l : LogTap.since(mark)) {
+                        java.util.regex.Matcher m = DOOR_CLICK.matcher(l);
+                        if (m.find()) {
+                            doorCell = Integer.parseInt(m.group(1));
+                            clickTick = t;
+                            usesAtClick = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(RIGHT_CLICK,
+                                    "itemUsesSent"));
+                            break;
+                        }
+                    }
+                }
+                if (doorCell >= 0) {
+                    final int cell = doorCell;
+                    int[] now = ctx.computeOnClient(mc -> {
+                        BlockPos c = (BlockPos) ModUnderTest.staticCall(LAYOUT, "doorBlock", new Class<?>[]{int.class},
+                                new Object[]{cell});
+                        boolean shut = (Boolean) ModUnderTest.staticCall(LAYOUT, "doorShut",
+                                new Class<?>[]{int.class, boolean.class}, new Object[]{cell, false});
+                        boolean barrier = mc.level.getBlockState(c).is(net.minecraft.world.level.block.Blocks.BARRIER);
+                        return new int[]{shut ? 1 : 0, barrier ? 1 : 0,
+                                (Integer) ModUnderTest.staticCall(RIGHT_CLICK, "itemUsesSent")};
+                    });
+                    if (barrierTick < 0 && now[1] == 1) {
+                        barrierTick = t;
+                    }
+                    if (airTick < 0 && now[0] == 0) {
+                        airTick = t;
+                    }
+                    if (airTick < 0) {
+                        usesWhileShut = now[2] - usesAtClick;
+                    } else if (now[2] > usesAtClick + usesWhileShut) {
+                        goTick = t;
+                    }
+                }
             }
             keysAfter = (int) LogTap.since(mark).stream().filter(l -> l.contains("has obtained Wither Key!")).count();
             if (keysAfter > 0 && openTick >= 0) {
@@ -355,6 +414,30 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
         if (openTick < 0) {
             failures.add(label + ": the wither door into " + setup.leaf() + " never opened");
             return;
+        }
+        if (timed) {
+            final int cell = doorCell;
+            long clicks = LogTap.since(mark).stream().filter(l -> l.contains("opening the wither door at cell " + cell
+                    + " (click")).count();
+            println(label + ": door " + cell + " clicked at t=" + clickTick + ", barriers at t=" + barrierTick + " ("
+                    + (barrierTick - clickTick) + " server), gone at t=" + airTick + " (" + (airTick - barrierTick)
+                    + " server), next warp at t=" + goTick + " (" + (goTick - airTick) + " after the blocks went, "
+                    + (goTick - clickTick) + " from the click); " + clicks + " click(s); uses while shut " + usesWhileShut);
+            if (cell < 0 || barrierTick < 0 || airTick < 0) {
+                failures.add(label + ": the door's open was not seen on its blocks (cell " + cell + ", barriers t="
+                        + barrierTick + ", air t=" + airTick + ")");
+            } else if (goTick < 0) {
+                failures.add(label + ": no warp went after door " + cell + " opened");
+            } else if (goTick - airTick > MAX_GO_TICKS) {
+                failures.add(label + ": the next warp went " + (goTick - airTick) + " tick(s) after door " + cell
+                        + "'s blocks went (at most " + MAX_GO_TICKS + ")");
+            }
+            if (clicks != 1) {
+                failures.add(label + ": door " + cell + " was clicked " + clicks + " time(s), not once");
+            }
+            if (usesWhileShut != 0) {
+                failures.add(label + ": " + usesWhileShut + " item use(s) went while door " + cell + " still stood");
+            }
         }
         if (inKAtOpen < MIN_TICKS_IN_K) {
             failures.add(label + ": the wither door opened after only " + inKAtOpen + " tick(s) in " + setup.key()
