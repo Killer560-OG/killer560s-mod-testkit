@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T19:18:48",
- "modSource": "lane-mapcycler-history-1121",
- "modGitSha": "40eb581538b94a807879b677167c132e3e7c0b60",
+ "generatedAt": "2026-11-21T19:26:46",
+ "modSource": "lane-flake-ss-auto-only-1120",
+ "modGitSha": "837dcb1e5f2aa7ec308eedd6dba424e56dcd3f03",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
@@ -10723,7 +10723,7 @@
    "field": "DEVICE_COMPLETE_PATTERN",
    "index": null,
    "file": "src/main/java/com/killer560/hub/simonsays/SimonSaysFeature.java",
-   "line": 176,
+   "line": 186,
    "regex": "^[A-Za-z0-9_]{1,16} completed a device! \\(\\d{1,2}/\\d{1,2}\\)(?:\\s.*)?$",
    "flags": null,
    "kind": "field",
