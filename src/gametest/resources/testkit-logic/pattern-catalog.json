@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T10:28:18",
- "modSource": "lane-p3arrows-1122",
- "modGitSha": "e2642d486cd16bae32f44bb1711ed409a818ffec",
+ "generatedAt": "2026-11-22T11:24:00",
+ "modSource": "lane-actrip-legit-1122",
+ "modGitSha": "4eceaadd2d2106a79ccdc0853fa68436913ee0a8",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
