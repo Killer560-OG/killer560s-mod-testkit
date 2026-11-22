@@ -185,6 +185,7 @@
 			"dev.testkit.gametest.SimLShapeSoloTests",
 			"dev.testkit.gametest.SimArrowTrapMapTests",
 			"dev.testkit.gametest.SimTrapRoutes1121Tests",
+			"dev.testkit.gametest.SimTrapStart1122Tests",
 			"dev.testkit.gametest.SimLeaveLoopTests",
 			"dev.testkit.gametest.SimThreadTests",
 			"dev.testkit.gametest.SimHeapHopTests",

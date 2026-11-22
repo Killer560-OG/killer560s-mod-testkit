@@ -560,11 +560,59 @@ public class SimPathOptimalTests implements FabricClientGameTest {
         Vec3 off = rel(ctx, 4.5, F, 4.5);
         place(ctx, off);
         ctx.waitTicks(10);
+        // acrev-trap-1122 (Spider, 2026-11-22: 78 t on a breaker block its own breaker skipped, freed only by his click):
+        // a hop waits on a standing breaker block only a short while. (a) the blocks never go: within PICK_REPLAN_AFTER
+        // the rest of the pair is planned round them and flown to the goal, the blocks still standing (FAILS on a jar
+        // that waits with no limit); (b) the blocks go after 5 ticks: the hop waited (sneak held, no use, one chat line)
+        // and warps through the gap the tick they are gone, one use.
+        long roundMark = LogTap.mark();
         int waitedBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "pickWaitTicksTotal"));
+        ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.start());
+        tpNoWait(ctx, s);
+        Vec3 round = null;
+        int roundTicks = -1;
+        for (int i = 0; i < 120; i++) {
+            ctx.waitTicks(1);
+            round = ctx.computeOnClient(mc -> mc.player.position());
+            if (round.distanceTo(g) < 0.3) {
+                roundTicks = i;
+                break;
+            }
+        }
+        ctx.waitTicks(5);
+        int roundWaited = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "pickWaitTicksTotal"))
+                - waitedBefore;
+        int roundUses = ctx.computeOnClient(mc -> dev.testkit.harness.PacketTrace.sent("use_item"));
+        ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.stop());
+        boolean replanned = false;
+        for (String l : LogTap.since(roundMark)) {
+            replanned |= l.contains("in the way for") && l.contains("planning the rest of node #");
+        }
+        List<BlockPos> gap = List.of(relBlock(ctx, 15, F, 15), relBlock(ctx, 15, F + 1, 15), relBlock(ctx, 15, F + 2, 15));
+        int gapStanding = onServer(ctx, (mc, level) -> {
+            int n = 0;
+            for (BlockPos c : gap) {
+                n += level.getBlockState(c).isAir() ? 0 : 1;
+            }
+            return n;
+        });
+        println(BREAKER, String.format(Locale.US, "blocks never broken: ended %s (%.2f from the goal) after %d tick(s), %d"
+                        + " tick(s) waited on them, planned round them %s, %d use packet(s), %d of 3 gap blocks standing",
+                fmt(round), round.distanceTo(g), roundTicks, roundWaited, replanned, roundUses, gapStanding));
+        if (roundTicks < 0 || !replanned || roundWaited > 20 || roundUses < 2 || gapStanding != 3) {
+            f.add("a hop held on breaker blocks that never break did not plan round them and land within its bound (ended "
+                    + fmt(round) + " after " + roundTicks + " tick(s), waited " + roundWaited + ", replanned " + replanned
+                    + ", " + roundUses + " use(s), " + gapStanding + " gap block(s) standing)");
+        }
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                new Object[]{"test reset"}));
+        place(ctx, off);
+        ctx.waitTicks(10);
+        waitedBefore = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "pickWaitTicksTotal"));
         long flyMark = LogTap.mark();
         ctx.runOnClient(mc -> dev.testkit.harness.PacketTrace.start());
         tpNoWait(ctx, s);
-        ctx.waitTicks(60);
+        ctx.waitTicks(6);
         Vec3 held = ctx.computeOnClient(mc -> mc.player.position());
         boolean sneaking = ctx.computeOnClient(mc -> mc.player.getLastSentInput().shift());
         boolean running = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
@@ -575,10 +623,10 @@ public class SimPathOptimalTests implements FabricClientGameTest {
         for (String l : LogTap.since(flyMark)) {
             named += (l.contains("[CHAT]") || l.contains("(chat)")) && l.contains("Waiting for the breaker block at") ? 1 : 0;
         }
-        println(BREAKER, String.format(Locale.US, "blocks standing, 60 ticks on #2: at %s (%.2f from the start), route"
+        println(BREAKER, String.format(Locale.US, "blocks standing, 6 ticks on #2: at %s (%.2f from the start), route"
                         + " running %s, sneak held %s, %d use packet(s), %d tick(s) waited, chat line(s) naming it: %d",
                 fmt(held), held.distanceTo(s), running, sneaking, usesWaiting, waited, named));
-        if (held.distanceTo(s) > 0.5 || !running || !sneaking || usesWaiting != 0 || waited < 40 || named != 1) {
+        if (held.distanceTo(s) > 0.5 || !running || !sneaking || usesWaiting != 0 || waited < 3 || named != 1) {
             f.add("while the breaker blocks stood the hop did not wait as it should (moved " + String.format(Locale.US,
                     "%.2f", held.distanceTo(s)) + ", running " + running + ", sneak " + sneaking + ", " + usesWaiting
                     + " use(s), waited " + waited + " tick(s), " + named + " chat line(s))");

@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T11:24:00",
- "modSource": "lane-actrip-legit-1122",
- "modGitSha": "4eceaadd2d2106a79ccdc0853fa68436913ee0a8",
+ "generatedAt": "2026-11-22T11:20:43",
+ "modSource": "lane-acrev-trap-1122",
+ "modGitSha": "05bfe89a78b85464dae3bf667d2ce98195ae23bd",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
