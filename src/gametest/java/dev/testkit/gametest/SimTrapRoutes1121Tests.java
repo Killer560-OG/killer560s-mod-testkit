@@ -28,11 +28,13 @@ import java.util.function.Consumer;
  * "You cannot use abilities in this room!" and the trip stopped. Per trap and rotation:
  * <ol>
  *   <li>(a) the room-by-room planner itself, from five spots in the room north of the trap to the bundled route's start
- *       block: every landing but the last must lie outside the trap room, and the plan must end on the block (FAILS on
- *       the origin jar);</li>
+ *       block. A node is a FIRING spot (where he stands for the next warp, with its aim), so no node may lie in the trap
+ *       room; the last warp is cast from the last node and must land on the start block, or, when the planner says the
+ *       block itself cannot be reached, outside the trap (FAILS on the origin jar);</li>
  *   <li>(b) Auto Trap: no Full Trap route out of the box, Just Cleared selected and bundled;</li>
- *   <li>(c) the real start-node warp (the Interactive Map's, Auto Trap on) from that room, then the bundled route plays:
- *       he lands on the start node, the sim refuses no ability, and the route runs to its last node.</li>
+ *   <li>(c) the real start-node warp (the Interactive Map's, Auto Trap on) from that room: the warps go out, he lands
+ *       on the start node, the sim refuses no ability, and the bundled route starts from it (node #1 fires). How far the
+ *       route then gets is logged only: trap rooms are not playable in the sim yet (no secrets, no trap capture).</li>
  * </ol>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -49,6 +51,9 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
     private static final String LIVE_MAP_CONFIG = "com.killer560.hub.livemap.LiveMapConfig";
     private static final String EXECUTOR = "com.killer560.hub.livemap.autoclear.ClearExecutor";
     private static final String PATHFINDER = "com.killer560.hub.livemap.autoclear.EtherwarpPathfinder";
+    private static final String TELEPORT = "com.killer560.hub.livemap.autoclear.TeleportUtils";
+    /** The planner's sneaking eye height (EtherSearch.SNEAK_EYE), used to cast the last node's warp. */
+    private static final double SNEAK_EYE = 1.27;
     private static final String AUTO_CONFIG = "com.killer560.hub.autopuzzles.AutoPuzzlesConfig";
     private static final String AR_CONFIG = "com.killer560.hub.autoroutes.AutoRoutesConfig";
     private static final String AR_FEATURE = "com.killer560.hub.autoroutes.AutoRoutesFeature";
@@ -328,13 +333,17 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
             if (!north.equals(here)) {
                 continue;
             }
+            long planMark = LogTap.mark();
             String verdict = ctx.computeOnClient(mc -> legacyVerdict(mc, goal, trapRoom));
+            if (verdict.startsWith("NEAR") && grep(planMark, "itself cannot be reached").isEmpty()) {
+                verdict = "BAD the last warp misses the start block with no word that it cannot be reached: " + verdict;
+            }
             println(tag + " room by room from " + at + ": " + verdict);
             SUMMARY.add(tag + " legacy " + at + ": " + verdict);
             if (verdict.startsWith("BAD")) {
                 failures.add(tag + ": room by room from " + at + " " + verdict);
             }
-            if (verdict.startsWith("OK")) {
+            if (verdict.startsWith("OK") || verdict.startsWith("NEAR")) {
                 planned++;
             }
         }
@@ -359,6 +368,7 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         boolean landed = false;
         boolean done = false;
         String lastNodeTag = "#" + nodeCount + " ";
+        int beganAt = -1;
         for (int t = 0; t < 900 && !done; t++) {
             ctx.waitTicks(1);
             List<String> lines = LogTap.since(mark);
@@ -367,7 +377,11 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
                 if (l.contains(REFUSAL) || l.contains(SIM_REFUSAL)) {
                     done = true;
                 }
+                if (beganAt < 0 && l.contains("Node #1 ") && l.contains(" begins: player (")) {
+                    beganAt = t;
+                }
             }
+            done |= beganAt >= 0 && t > beganAt + 200;   // the route started; 10 s of it is logged, not judged
             int c = ctx.computeOnClient(mc -> ((Number) ModUnderTest.staticCall(ROUTE_EXEC, "completions")).intValue());
             boolean left = lines.stream().anyMatch(l -> l.contains("[AutoTrap] left " + trap));
             done |= c > completionsBefore || (left && lines.stream().anyMatch(l -> l.contains("Node " + lastNodeTag)
@@ -388,16 +402,59 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
                 leftTrap, nodeCount, lastBegan, end.distanceTo(lastReal), plan);
         println(tag + " " + res);
         SUMMARY.add(tag + " run: " + res);
-        if (!landed) {
-            failures.add(tag + ": the start-node warp never landed");
+        boolean sent = lines.stream().anyMatch(l -> l.contains("[Path] running "));
+        // Where the warps put him: the first node's "begins" line gives his feet and the node's spot on the tick it fired.
+        String began = lines.stream().filter(l -> l.contains("Node #1 ") && l.contains(" begins: player ("))
+                .findFirst().orElse(null);
+        double off = began == null ? -1 : beganOffset(began);
+        boolean honestNear = !lines.stream().filter(l -> l.contains("itself cannot be reached")).toList().isEmpty();
+        int endRoom = ctx.computeOnClient(mc -> (Integer) ModUnderTest.call(ModUnderTest.staticCall(LAYOUT, "capture"),
+                "roomAtWorld", new Class<?>[]{double.class, double.class}, new Object[]{mc.player.getX(), mc.player.getZ()}));
+        println(tag + " warps sent " + sent + ", node #1 began " + (began != null) + " " + String.format("%.2f", off)
+                + " from its spot, cannot-be-reached said " + honestNear + ", ends in room " + endRoom + " (trap " + trapRoom + ")");
+        if (!sent) {
+            failures.add(tag + ": the Interactive Map sent no warp toward the start node");
         }
         if (refused) {
             failures.add(tag + ": an ability was refused in the trap room (" + REFUSAL + ")");
         }
-        if (completed == 0 && !(leftTrap && lastBegan)) {
-            failures.add(tag + ": the bundled route did not run to its last node (completed " + completed + ", left "
-                    + leftTrap + ", last node began " + lastBegan + ")");
+        if (landed && began != null && off >= 0 && off <= 0.3) {
+            return;   // on the start block, and the bundled route started from it
         }
+        if (honestNear && !refused && endRoom != trapRoom) {
+            println(tag + " the start block cannot be reached: he was told so and stands outside the trap");
+            return;
+        }
+        failures.add(tag + ": the start-node warp did not put him on the start node (landed " + landed + ", node #1 began "
+                + (began != null) + ", " + String.format("%.2f", off) + " off) and no honest near landing outside the trap");
+    }
+
+    /**
+     * Whether a player standing at {@code x, z} is in the trap to the server: the server's room edge lies half a block past
+     * the map's (the sim refuses a warp from the doorway block the map gives to the next room).
+     */
+    private static boolean serverTrap(Object layout, double x, double z, int trapRoom) {
+        double[][] probes = {{0, 0}, {0.5, 0}, {-0.5, 0}, {0, 0.5}, {0, -0.5}};
+        for (double[] d : probes) {
+            int room = (Integer) ModUnderTest.call(layout, "roomAtWorld", new Class<?>[]{double.class, double.class},
+                    new Object[]{x + d[0], z + d[1]});
+            if (room == trapRoom) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Horizontal distance between "player (x, y, z)" and "node (x, y, z)" in a node's begins line, -1 when unreadable. */
+    private static double beganOffset(String line) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                "player \\((-?[\\d.]+), (-?[\\d.]+), (-?[\\d.]+)\\) node \\((-?[\\d.]+), (-?[\\d.]+), (-?[\\d.]+)\\)").matcher(line);
+        if (!m.find()) {
+            return -1;
+        }
+        double dx = Double.parseDouble(m.group(1)) - Double.parseDouble(m.group(4));
+        double dz = Double.parseDouble(m.group(3)) - Double.parseDouble(m.group(6));
+        return Math.sqrt(dx * dx + dz * dz);
     }
 
     /**
@@ -420,28 +477,50 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
             if (nodes == null) {
                 return "NONE";
             }
+            // Each node is where he stands to fire the next warp (smooth() leaves the final landing out), so a node in
+            // the trap room is a warp Hypixel refuses. The final landing is the last node's warp, cast here.
             StringBuilder sb = new StringBuilder();
             String bad = null;
+            Object last = null;
             for (int i = 0; i < nodes.size(); i++) {
                 Object n = nodes.get(i);
+                last = n;
                 double x = n.getClass().getField("x").getDouble(n);
                 double y = n.getClass().getField("y").getDouble(n);
                 double z = n.getClass().getField("z").getDouble(n);
-                int room = (Integer) ModUnderTest.call(layout, "roomAtWorld", new Class<?>[]{double.class, double.class},
-                        new Object[]{x, z});
-                sb.append(String.format(" (%.1f,%.1f,%.1f)%s", x, y, z, room == trapRoom ? "T" : ""));
-                if (i < nodes.size() - 1 && room == trapRoom && bad == null) {
-                    bad = "landing " + i + " of " + nodes.size() + " is inside the trap";
+                boolean inTrap = serverTrap(layout, x, z, trapRoom);
+                sb.append(String.format(" (%.1f,%.1f,%.1f)%s", x, y, z, inTrap ? "T" : ""));
+                if (inTrap && bad == null) {
+                    bad = "warp " + (i + 1) + " of " + nodes.size() + " fires from inside the trap";
                 }
             }
-            if (bad == null && !nodes.isEmpty()) {
-                Object last = nodes.get(nodes.size() - 1);
-                BlockPos p = (BlockPos) last.getClass().getField("pos").get(last);
-                if (p.distManhattan(goal) > 2) {
-                    bad = "ends on " + p.toShortString() + ", not the start block " + goal.toShortString();
-                }
+            if (last == null) {
+                return "NONE";
             }
-            return (bad == null ? "OK " : "BAD " + bad + ":") + nodes.size() + " node(s)" + sb;
+            double lx = last.getClass().getField("x").getDouble(last);
+            double ly = last.getClass().getField("y").getDouble(last);
+            double lz = last.getClass().getField("z").getDouble(last);
+            float yaw = last.getClass().getField("yaw").getFloat(last);
+            float pitch = last.getClass().getField("pitch").getFloat(last);
+            Object ray = ModUnderTest.staticCall(TELEPORT, "getEtherPos",
+                    new Class<?>[]{Vec3.class, float.class, float.class, double.class},
+                    new Object[]{new Vec3(lx, ly + SNEAK_EYE, lz), yaw, pitch, range});
+            boolean hit = (Boolean) ModUnderTest.call(ray, "succeeded", new Class<?>[0], new Object[0]);
+            BlockPos land = hit ? (BlockPos) ModUnderTest.call(ray, "pos", new Class<?>[0], new Object[0]) : null;
+            sb.append(" -> ").append(land == null ? "no landing" : land.toShortString());
+            if (bad != null) {
+                return "BAD " + bad + ": " + nodes.size() + " warp(s)" + sb;
+            }
+            if (land != null && land.equals(goal)) {
+                return "OK " + nodes.size() + " warp(s)" + sb;
+            }
+            if (land == null || serverTrap(layout, land.getX() + 0.5, land.getZ() + 0.5, trapRoom)
+                    || land.distManhattan(goal) > 12) {
+                return "BAD the last warp lands on " + (land == null ? "nothing" : land.toShortString())
+                        + ", not the start block " + goal.toShortString() + ": " + nodes.size() + " warp(s)" + sb;
+            }
+            return "NEAR outside the trap, " + land.toShortString() + " for " + goal.toShortString() + ": "
+                    + nodes.size() + " warp(s)" + sb;
         } catch (ReflectiveOperationException e) {
             return "BAD reflection " + e;
         }
