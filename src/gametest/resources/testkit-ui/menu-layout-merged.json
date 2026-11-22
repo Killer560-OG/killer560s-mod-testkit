@@ -675,8 +675,8 @@
     {
       "owner": "Auto Trap",
       "key": "auto trap",
-      "text": "Cheat build: plays your New Trap and Old Trap routes through Auto Routes. Dungeon Autopilot uses trap rooms only with this on.",
-      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
+      "text": "Cheat build: plays your New Trap and Old Trap routes through Auto Routes. Dungeons Autopilot uses trap rooms only with this on.",
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code; apmenu-1121 (killer560 2026-11-21): the one card is Dungeons Autopilot"
     },
     {
       "owner": "Best Friends",
@@ -1110,6 +1110,12 @@
       "renamed": "status hud",
       "text": "One small HUD showing what Dungeons Autopilot is doing, hidden while nothing runs; move it in the HUD editor.",
       "why": "412's fixture row: bce20273 (2026-10-15) Autopilot HUD became the one Status HUD; apmenu-1121 one card"
+    },
+    {
+      "owner": "Auto Trap",
+      "key": "mode",
+      "text": "Full Trap: the route that does the whole trap. Just Cleared: the route that only gets the room cleared. Each has its own captured route; this picks which one plays (Dungeons Autopilot's Solo 300 picks per score itself).",
+      "why": "apmenu-1121 (killer560 2026-11-21): the one card is Dungeons Autopilot"
     }
   ]
 }
