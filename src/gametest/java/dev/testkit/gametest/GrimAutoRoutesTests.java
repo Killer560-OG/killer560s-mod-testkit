@@ -181,6 +181,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1101-trapwalk", c -> caseTrapWalk(c, true));
             s.test("62-argrim-1101-trapwalk-control", c -> caseTrapWalk(c, false));
             s.test("62-argrim-1101-trapbox", GrimAutoRoutesTests::caseTrapBox);
+            // newtrap-route7: a trap-room held walk aligns onto the next node's point before firing it (New Trap's 1x1
+            // drop hole); his own actions land in the align's ticks.
+            s.test("62-argrim-1122-trapwalkalign", c -> caseTrapWalkAlign(c, null));
+            s.test("62-argrim-1122-trapwalkalign-same-use", c -> caseTrapWalkAlign(c, dev.testkit.gametest.SameTick.Act.USE));
+            s.test("62-argrim-1122-trapwalkalign-same-attack", c -> caseTrapWalkAlign(c, dev.testkit.gametest.SameTick.Act.ATTACK));
+            s.test("62-argrim-1122-trapwalkalign-same-swap", c -> caseTrapWalkAlign(c, dev.testkit.gametest.SameTick.Act.SWAP));
+            s.test("62-argrim-1122-trapwalkalign-same-click", c -> caseTrapWalkAlign(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK));
+            // A second run of the feature itself: the next walk aligns onto the node after it a tick or two later.
+            s.test("62-argrim-1122-trapwalkalign-same-again", c -> caseTrapWalkAlign(c, null, true));
             // iw-campaign-1027: Inventory Walk on while a route sprints him and he clicks in his inventory, then closes it.
             s.test("62-argrim-1027-invwalk", GrimAutoRoutesTests::caseInvWalk);
             // ... and 62-argrim-play's whole route (its chest window keeps the route running) with Inventory Walk on.
@@ -262,6 +271,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK)) {
                 // No ATTACK: the burst leaves the whole path in one real tick, so his crosshair is off the stand by the next.
                 s.test("62-argrim-1110-mapchain-same-" + a.name().toLowerCase(Locale.ROOT), c -> caseMapChain(c, true, a));
+            }
+            // mod acwaits3-1122 (his 11-21 log: a charged map burst's first use became an Instant Transmission and every landing
+            // after it slid one hop): with Hypixel's sneak lag on the server (a sneak counts only once a whole server tick saw
+            // it), the burst must wait for a tick that already carried the sneak. Fails on a9d22cbef.
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1122-mapchain-sneaklag", c -> caseMapChainSneakLag(c, null));
+            // No ATTACK, as for mapchain-same-*: the burst moves him off the stand in one real tick ("his action never went in").
+            if (dev.testkit.gametest.mod.Mod.isCheat()) for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                    dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK, dev.testkit.gametest.SameTick.Act.TP)) {
+                s.test("62-argrim-1122-mapchain-sneaklag-same-" + a.name().toLowerCase(Locale.ROOT), c -> caseMapChainSneakLag(c, a));
             }
             s.test("62-argrim-path", GrimAutoRoutesTests::casePath);
             // mod ar-obvious-only (2026-10-11): legit mode exists only in -PtestingBuild jars.
@@ -862,6 +880,284 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             trapRoom(ctx, false);
             resetRoutes(ctx);
         }
+    }
+
+    /**
+     * 62-argrim-1122-trapwalkalign (newtrap-route7): in a trap room a held WALK that reaches the next (non-WALK) node's 1x1
+     * ring does not fire it on the ring's edge: it aligns onto the node's point with discrete keys and a body turn, then
+     * fires it (New Trap's breaker over a 1x1 drop hole stalled the route at #7 without it). Passes when the align ran,
+     * the node fired within 0.3 of its point and GrimAC is silent. With {@code act}: his right click, attack, hotbar swap or
+     * inventory click goes into every client tick from the align's first tick, and the wire must show a server tick that
+     * carried both an align packet (input or look) and his packet.
+     */
+    private static void caseTrapWalkAlign(Session c, dev.testkit.gametest.SameTick.Act act) {
+        caseTrapWalkAlign(c, act, false);
+    }
+
+    /**
+     * {@code again}: the route is WALK, ROTATE, WALK, ROTATE with the second ROTATE one block past the first, so the
+     * align runs a second time right after the first fired its node; both must align, fire from the point, and the second
+     * must start within a few ticks of the first's end, GrimAC silent.
+     */
+    private static void caseTrapWalkAlign(Session c, dev.testkit.gametest.SameTick.Act act, boolean again) {
+        ClientGameTestContext ctx = c.ctx();
+        String label = "trapwalkalign" + (act == null ? "" : " " + act) + (again ? " again" : "");
+        resetRoutes(ctx);
+        arena(ctx, false);
+        trapRoom(ctx, true);
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            // OPEN_CLICK: his inventory click while the walk holds W and sprint is GrimAC MultiActionsC from his own click
+            // (LeverPlace1117Cases, Ap3AuraLook1116Cases). A control walk with no align (WALK next) shows it here first;
+            // only then is MultiActionsC accepted in the align run, and every other flag still fails the case.
+            boolean ownClickFlags = act == dev.testkit.gametest.SameTick.Act.OPEN_CLICK && trapControl(c, act, "MultiActionsC");
+            // ATTACK: the same control with his attack on the held view, run for the record (Hitboxes from his attack
+            // while a trap walk turns the body is the walk's, not the align's); the align run below still must be clean.
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                trapControl(c, act, "Hitboxes");
+            }
+            int flagsAfterCtl = c.scenario().flags().size();
+            JsonObject w = node("WALK", 14, 8, 90f, 0f);
+            w.addProperty("start", true);
+            writeRoute(ctx, again ? List.of(w, node("ROTATE", 9, 7, 90f, 0f), node("WALK", 9, 7, 90f, 0f),
+                    node("ROTATE", 8, 7, 90f, 0f)) : List.of(w, node("ROTATE", 9, 7, 90f, 0f)));
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(7));
+            int aligns0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "walkAligns"));
+            if (act != null) {
+                st = ctx.computeOnClient(mc -> {
+                    // his attack every 3rd tick: one per tick holds the align for good (the body goes back to his view each time)
+                    dev.testkit.gametest.SameTick t = dev.testkit.gametest.SameTick.start(act,
+                            act == dev.testkit.gametest.SameTick.Act.ATTACK ? 3 : 1,
+                            p -> p instanceof net.minecraft.network.protocol.game.ServerboundPlayerInputPacket
+                                    || (p instanceof net.minecraft.network.protocol.game.ServerboundMovePlayerPacket mp
+                                    && mp.hasRotation()), 7, 8)
+                            .armedBy(() -> (Integer) ModUnderTest.staticCall(EXECUTOR, "walkAligns") > aligns0);
+                    if (act != dev.testkit.gametest.SameTick.Act.ATTACK) {
+                        t.allow(4);
+                    }
+                    return t;
+                });
+            }
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+            long mark = LogTap.mark();
+            startSampling(ctx);
+            walkOnto(ctx, 14.5, 5.5, 14, 8);
+            long alignFrom = -1;
+            long alignTo = -1;
+            int alignTicks = 0;
+            List<Integer> runStarts = new ArrayList<>(); // tick each align run began (a new walkAlignNode)
+            List<Integer> runEnds = new ArrayList<>();
+            Object lastNode = null;
+            long run2From = -1;
+            long run2To = -1;
+            for (int t = 0; t < 120; t++) {
+                Object[] r = ctx.computeOnClient(mc -> new Object[]{
+                        dev.testkit.gametest.mod.Mod.field(EXECUTOR, "walkAlignNode") != null,
+                        ModUnderTest.staticCall(EXECUTOR, "isRunning"), System.nanoTime(),
+                        dev.testkit.gametest.mod.Mod.field(EXECUTOR, "walkAlignNode")});
+                if (r[3] != lastNode) {
+                    if (lastNode != null) {
+                        runEnds.add(t);
+                    }
+                    if (r[3] != null) {
+                        runStarts.add(t);
+                    }
+                    lastNode = r[3];
+                }
+                if (r[3] != null && runStarts.size() == 2) {
+                    if (run2From < 0) {
+                        run2From = (Long) r[2] - 60_000_000L;
+                    }
+                    run2To = (Long) r[2] + 60_000_000L;
+                }
+                if ((Boolean) r[0]) {
+                    if (alignTicks == 0 && act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                        // His target goes on his own look as the align starts: the crosshair follows the camera ViewFreeze
+                        // holds (the walk turns only the body), so the zombie stands 1.6 along the held view yaw, at his
+                        // feet. Ahead of the walk's body yaw it was never under his crosshair (his action x0).
+                        double[] z = ctx.computeOnClient(mc -> {
+                            float vy = (Float) ModUnderTest.staticCall("com.killer560.hub.util.ViewFreeze", "viewYaw");
+                            double yr = Math.toRadians(Float.isNaN(vy) ? mc.player.getYRot() : vy);
+                            return new double[]{mc.player.getX() - Math.sin(yr) * 1.6, mc.player.getY(),
+                                    mc.player.getZ() + Math.cos(yr) * 1.6};
+                        });
+                        c.server().command(String.format(Locale.ROOT, "summon zombie %.3f %.3f %.3f"
+                                + " {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}", z[0], z[1], z[2]));
+                    }
+                    alignTicks++;
+                    if (alignFrom < 0) {
+                        alignFrom = (Long) r[2] - 60_000_000L;
+                    }
+                    alignTo = (Long) r[2] + 60_000_000L;
+                }
+                if (!(Boolean) r[1] && t > 5) {
+                    break;
+                }
+                ctx.waitTick();
+            }
+            ctx.waitTicks(3);
+            dev.testkit.gametest.SameTick his = st;
+            if (his != null) {
+                ctx.runOnClient(mc -> his.close());
+            }
+            List<Sample> s = stopSampling(ctx);
+            List<dev.testkit.harness.WireCapture.Sent> wire = ctx.computeOnClient(mc -> {
+                List<dev.testkit.harness.WireCapture.Sent> l = dev.testkit.harness.WireCapture.snapshot();
+                dev.testkit.harness.WireCapture.stop();
+                return l;
+            });
+            int aligns = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "walkAligns")) - aligns0;
+            String fired = null;
+            for (String l : LogTap.since(mark)) {
+                if (l.contains("walk onto node #2")) {
+                    fired = l;
+                }
+            }
+            c.note(label + ": aligns " + aligns + ", align ticks " + alignTicks + ", runs began " + runStarts + " ended "
+                    + runEnds + ", " + fired);
+            check(aligns == (again ? 2 : 1), label + ": the walk did not align onto node #2" + (again ? " and #4" : "")
+                    + " (" + aligns + ")");
+            check(fired != null && fired.contains("on the point"), label + ": node #2 was not fired from its point (" + fired
+                    + ")");
+            check(logHas(mark, "Node #2 ROTATE"), label + ": node #2 never fired");
+            if (again) {
+                String fired4 = null;
+                for (String l : LogTap.since(mark)) {
+                    if (l.contains("walk onto node #4")) {
+                        fired4 = l;
+                    }
+                }
+                c.note(label + ": second align " + fired4);
+                check(fired4 != null && fired4.contains("on the point"), label + ": node #4 was not fired from its point ("
+                        + fired4 + ")");
+                check(logHas(mark, "Node #4 ROTATE"), label + ": node #4 never fired");
+                check(runStarts.size() == 2 && runEnds.size() >= 1 && runStarts.get(1) - runEnds.get(0) <= 6, label
+                        + ": the second align did not follow the first within 6 ticks (began " + runStarts + ", ended "
+                        + runEnds + ")");
+                // On the wire: align packets went out in the second run's ticks too (it acted, not only its counter).
+                int moved2 = 0;
+                for (dev.testkit.harness.WireCapture.Sent x : wire) {
+                    String ty = x.type();
+                    if (x.nanos() >= run2From && x.nanos() <= run2To && (ty.contains("player_input")
+                            || ty.contains("move_player_pos_rot") || ty.contains("move_player_rot"))) {
+                        moved2++;
+                    }
+                }
+                c.note(label + ": align packets on the wire in the second run: " + moved2);
+                check(moved2 > 0, label + ": no align packet on the wire in the second align's ticks");
+            }
+            if (act != null) {
+                // Server ticks (packets between two client_tick_end) inside the align that carried an align packet and his.
+                int shared = 0;
+                boolean feat = false;
+                boolean mine = false;
+                for (dev.testkit.harness.WireCapture.Sent x : wire) {
+                    String ty = x.type();
+                    if (ty.contains("client_tick_end")) {
+                        shared += feat && mine ? 1 : 0;
+                        feat = false;
+                        mine = false;
+                        continue;
+                    }
+                    if (x.nanos() < alignFrom || x.nanos() > alignTo) {
+                        continue;
+                    }
+                    feat |= ty.contains("player_input") || ty.contains("move_player_pos_rot") || ty.contains("move_player_rot");
+                    mine |= ty.contains("use_item") || ty.contains("interact") || ty.contains("attack")
+                            || ty.contains("set_carried_item")
+                            || ty.contains("container_click");
+                }
+                c.note(label + ": wire ticks in the align carrying an align packet and his: " + shared);
+                check(shared > 0, label + ": no server tick in the align carried both an align packet and his ("
+                        + st.report() + ")");
+                dev.testkit.gametest.SameTick.judge(c, st, label, dev.testkit.gametest.SameTick.Expect.ACTED);
+                st = null;
+            }
+            List<String> fl = c.scenario().flags();
+            c.note(label + ": flags in the align run itself (after any control): "
+                    + fl.subList(Math.min(flagsAfterCtl, fl.size()), fl.size()).size());
+            if (ownClickFlags) {
+                Scenario.acceptedFlag = l -> l.contains("MultiActionsC");
+            }
+            noteFlags(c, s);
+        } finally {
+            dev.testkit.gametest.SameTick open = st;
+            if (open != null) {
+                ctx.runOnClient(mc -> open.close());
+            }
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                c.server().command("kill @e[tag=sametick]");
+            }
+            trapRoom(ctx, false);
+            resetRoutes(ctx);
+        }
+    }
+
+    /**
+     * The control for 62-argrim-1122-trapwalkalign-same-click: a trap-room WALK followed by a WALK (no align runs) with his
+     * inventory click in the walk's ticks. Returns whether GrimAC drew MultiActionsC from it; checks the walk ran, no align
+     * ran and his click and a walk packet shared a server tick, so a "yes" is his own click's flag.
+     */
+    private static boolean trapControl(Session c, dev.testkit.gametest.SameTick.Act act, String flag) {
+        ClientGameTestContext ctx = c.ctx();
+        int flags0 = c.scenario().flags().size();
+        JsonObject w = node("WALK", 14, 8, 90f, 0f);
+        w.addProperty("start", true);
+        writeRoute(ctx, List.of(w, node("WALK", 9, 7, 90f, 0f)));
+        ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(7));
+        int aligns0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "walkAligns"));
+        dev.testkit.gametest.SameTick st = ctx.computeOnClient(mc -> {
+            dev.testkit.gametest.SameTick t = dev.testkit.gametest.SameTick.start(act,
+                    1, p -> p instanceof net.minecraft.network.protocol.game.ServerboundPlayerInputPacket
+                            || p instanceof net.minecraft.network.protocol.game.ServerboundMovePlayerPacket, 7, 8)
+                    .armedBy(() -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "isRunning"));
+            if (act != dev.testkit.gametest.SameTick.Act.ATTACK) {
+                t.allow(4);
+            }
+            return t;
+        });
+        try {
+            walkOnto(ctx, 14.5, 5.5, 14, 8);
+            for (int t = 0; t < 120; t++) {
+                if (t >= 1 && act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                    // His target stands 1.6 along the CLIENT's own view yaw, put there every tick the way the align row
+                    // places its zombie (acrev-trap-1122: moved along the server's body look it trailed his crosshair and
+                    // his click landed in 0-1 walk ticks run to run; an interaction box he attacked every tick drew
+                    // Simulation .05 in the walk, the zombie the align row uses draws none).
+                    double[] z = ctx.computeOnClient(mc -> {
+                        float vy = (Float) ModUnderTest.staticCall("com.killer560.hub.util.ViewFreeze", "viewYaw");
+                        double yr = Math.toRadians(Float.isNaN(vy) ? mc.player.getYRot() : vy);
+                        return new double[]{mc.player.getX() - Math.sin(yr) * 1.6, mc.player.getY(),
+                                mc.player.getZ() + Math.cos(yr) * 1.6};
+                    });
+                    c.server().command(t == 1
+                            ? String.format(Locale.ROOT, "summon zombie %.3f %.3f %.3f"
+                            + " {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}", z[0], z[1], z[2])
+                            : String.format(Locale.ROOT, "tp @e[tag=sametick] %.3f %.3f %.3f", z[0], z[1], z[2]));
+                }
+                if (!(Boolean) ctx.computeOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "isRunning")) && t > 5) {
+                    break;
+                }
+                ctx.waitTick();
+            }
+            ctx.waitTicks(3);
+        } finally {
+            ctx.runOnClient(mc -> st.close());
+            c.server().command("kill @e[tag=sametick]");
+        }
+        ctx.waitTicks(10);
+        int aligns = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "walkAligns")) - aligns0;
+        List<String> f = c.scenario().flags();
+        long multi = f.subList(Math.min(flags0, f.size()), f.size()).stream().filter(l -> l.contains(flag)).count();
+        c.note("trapwalkalign control (WALK next, no align): aligns " + aligns + ", " + st.report() + ", " + flag + " "
+                + multi);
+        check(aligns == 0, "trapwalkalign control: an align ran before a WALK (" + aligns + ")");
+        check(st.done() > 0 && st.both() > 0, "trapwalkalign control: his action never shared a tick with the walk ("
+                + st.report() + ")");
+        resetRoutes(ctx);
+        ctx.waitTicks(10);
+        return multi > 0;
     }
 
     /**
@@ -2706,6 +3002,64 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      */
     private static void caseMapChain(Session c, boolean charged, dev.testkit.gametest.SameTick.Act act) {
         caseMapChain(c, charged, act, false);
+    }
+
+    /**
+     * 62-argrim-1122-mapchain-sneaklag* (mod acwaits3-1122): the charged map chain with the server's sneak lag on. Every one
+     * of the chain's uses must be an etherwarp (none an Instant Transmission, none judged unsneaked); with an act, his action
+     * lands in the chain's ticks as in mapchain-same-*. His own USE is his own transmission, so that row checks the rest only.
+     */
+    private static void caseMapChainSneakLag(Session c, dev.testkit.gametest.SameTick.Act act) {
+        session.hx().call("dungeon.sneakLag", "on", true);
+        try {
+            JsonObject before = stats();
+            try {
+                caseMapChain(c, true, act);
+            } finally {
+                println(String.format(Locale.ROOT, "sneak lag %s: uses judged unsneaked %d, transmissions %d",
+                        act == null ? "alone" : "same-" + act, delta(before, "sneakLagMisses"), delta(before, "transmissions")));
+            }
+            int warps = delta(before, "etherwarps");
+            int tm = delta(before, "transmissions");
+            int missed = delta(before, "sneakLagMisses");
+            String line = String.format(Locale.ROOT, "sneak lag %s: server etherwarps %d, transmissions %d, uses judged unsneaked %d",
+                    act == null ? "alone" : "same-" + act, warps, tm, missed);
+            println(line);
+            c.note(line);
+            if (act != dev.testkit.gametest.SameTick.Act.USE) {
+                check(missed == 0 && tm == 0, line + ": a chain use went out before the server had heard the sneak");
+            }
+            // On the wire: the sneak went out in its own input packet ticks before the first use (his own USE row's first
+            // use may be his, his CLICK row sends none).
+            if (act != dev.testkit.gametest.SameTick.Act.USE && act != dev.testkit.gametest.SameTick.Act.CLICK) {
+                List<dev.testkit.harness.WireCapture.Sent> wire = dev.testkit.harness.WireCapture.snapshot();
+                dev.testkit.harness.WireCapture.Sent input = null;
+                dev.testkit.harness.WireCapture.Sent use = null;
+                for (dev.testkit.harness.WireCapture.Sent s : wire) {
+                    if (s.type().equals("minecraft:use_item")) {
+                        use = s;
+                        break;
+                    }
+                    if (s.type().equals("minecraft:player_input")) {
+                        input = s;
+                    }
+                }
+                long leadMs = input == null || use == null ? -1 : (use.nanos() - input.nanos()) / 1_000_000L;
+                String wl = String.format(Locale.ROOT, "sneak lag %s: wire input before the first use %s, %d ms ahead",
+                        act == null ? "alone" : "same-" + act, input == null ? "none" : input.text(), leadMs);
+                println(wl);
+                check(use != null && input != null && input.text().contains("shift=true") && leadMs >= 90,
+                        wl + ": the sneak did not go out ticks before the first use");
+            }
+            // His CLICK opens his inventory and the path stops there by design; his USE with the AOTV in hand is his own warp
+            // that moves him off the path (as mapchain-same-use, which checks no landing either); every other row lands the
+            // whole chain.
+            if (act != dev.testkit.gametest.SameTick.Act.CLICK && act != dev.testkit.gametest.SameTick.Act.USE) {
+                check(warps == ArChainMeasure.CHAIN.length, line + ": expected " + ArChainMeasure.CHAIN.length + " etherwarps");
+            }
+        } finally {
+            session.hx().call("dungeon.sneakLag", "on", false);
+        }
     }
 
     /** {@code split}: Multi Warp Mode Tick Split on top of {@code charged} (mod mwtick-1111): each warp in a banked tick. */
@@ -5187,8 +5541,25 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      */
     /** Dungeons Autopilot starts only once the run has (Mort's line): the arena has no Mort, so the test sets the flag. */
     private static void runStartedForTest(boolean v) {
+        Class<?> wd;
         try {
-            java.lang.reflect.Field f = Class.forName("com.killer560.hub.witherdoors.WitherDoorsFeature").getDeclaredField("mortSeen");
+            wd = Class.forName("com.killer560.hub.witherdoors.WitherDoorsFeature");
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("no WitherDoorsFeature", e);
+        }
+        try {
+            // acstart-1122: the world Mort's line came in (a new world is a new run), was the boolean mortSeen
+            java.lang.reflect.Field f = wd.getDeclaredField("mortLevel");
+            f.setAccessible(true);
+            f.set(null, v ? net.minecraft.client.Minecraft.getInstance().level : null);
+            return;
+        } catch (NoSuchFieldException e) {
+            // an older jar: the boolean below
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("could not set WitherDoorsFeature.mortLevel", e);
+        }
+        try {
+            java.lang.reflect.Field f = wd.getDeclaredField("mortSeen");
             f.setAccessible(true);
             f.setBoolean(null, v);
         } catch (ReflectiveOperationException e) {

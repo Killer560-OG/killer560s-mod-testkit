@@ -117,6 +117,16 @@ public class LogicSuite implements FabricClientGameTest {
         // ---- end /reboot
         // ---- mana hold reset on world change (mod sweep-fix-1021) - opens and closes its own world, TEST thread
         LogicCase.runOffClient(ctx, "1119-logic-hidden-process", HiddenProcessCases::headless);
+        // ---- precomputed trips refused from a spot they failed from (mod acwaits3-1122), client thread
+        LogicCase.run(ctx, "1122-logic-tripcache-refused", TripRefuseCases::refused);
+        // ---- a warp that never landed is never a fresh plan's first hop from that spot (mod acwaits4-1122)
+        LogicCase.run(ctx, "1122-logic-refused-hop", RefusedHopCases::refused);
+        // ---- a trip search queued behind the floor graph warm-up starts within one slice (mod acwaits5-1122), TEST thread
+        LogicCase.runOffClient(ctx, "1122-logic-warm-yield", WarmYieldCases::yieldToTrip);
+        // ---- his 11-22 live clears (mod acrev-clear-1122), client thread
+        LogicCase.run(ctx, "1122-logic-acrev-lastdeath", AcRevClearCases::lastDeath);
+        LogicCase.run(ctx, "1122-logic-acrev-refused-direct", AcRevClearCases::refusedDirect);
+        LogicCase.run(ctx, "1122-logic-acrev-offreason", AcRevClearCases::offReason);
         ManaResetCases.ctx = ctx;
         LogicCase.runOffClient(ctx, "2776-logic-mana-world-reset", ManaResetCases::worldReset);
         // ---- static scan fixes (mod scanbugs-1104): \s escapes, Revert Master Stars null name

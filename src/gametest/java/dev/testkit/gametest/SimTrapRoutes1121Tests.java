@@ -69,8 +69,8 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
     private static final String[] NORTH = {"Temple", "Cages", "Arrow Trap"};
     private static int TRAP_X;
     private static int TRAP_Z;
-    private static int NX;
-    private static int NZ;
+    static int NX;
+    static int NZ;
     private static int MAP_ROT;
     private static final int[][] SPOTS ={{0, 0}, {-9, -9}, {9, -9}, {-9, 9}, {9, 9}};
 
@@ -85,12 +85,45 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         if (Scenario.legitSkip(NAME)) {
             return;
         }
+        Integer renderBefore = setUp(ctx, NAME);
+        if (renderBefore == null) {
+            return;
+        }
+        List<String> failures = new ArrayList<>();
+        try {
+            for (String trap : new String[]{"New Trap", "Old Trap"}) {
+                for (int rot = 0; rot < 360; rot += 90) {
+                    oneFloor(ctx, failures, trap, rot, SimTrapRoutes1121Tests::body);
+                }
+            }
+        } catch (Throwable t) {
+            failures.add("scenario threw: " + t);
+            t.printStackTrace(System.out);
+        } finally {
+            tearDown(ctx, renderBefore);
+        }
+        for (String s : SUMMARY) {
+            println("SUMMARY " + s);
+        }
+        if (!failures.isEmpty()) {
+            throw new AssertionError(failures.size() + " problem(s): " + String.join("; ", failures));
+        }
+        System.out.println("[" + NAME + "] PASS");
+    }
+
+    /** One trap case's body, run in the built floor (shared with 1122-sim-trapstart). */
+    interface Body {
+        void run(ClientGameTestContext ctx, List<String> failures, String trap, int rot, String tag, String north);
+    }
+
+    /** Room data, Auto Routes and Auto Trap on, both traps' own captures cleared; the render distance before, or null = skipped. */
+    static Integer setUp(ClientGameTestContext ctx, String name) {
         LogTap.install();
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            Scenario.skipped(NAME, "needs real room captures and room database");
-            return;
+            Scenario.skipped(name, "needs real room captures and room database");
+            return null;
         }
         ctx.runOnClient(mc -> Scenario.loadRoomDatabaseNow());
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(DB, "isReady"), 1000);
@@ -112,35 +145,19 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         });
         int renderBefore = ctx.computeOnClient(mc -> mc.options.renderDistance().get());
         ctx.runOnClient(mc -> mc.options.renderDistance().set(16));
+        return renderBefore;
+    }
 
-        List<String> failures = new ArrayList<>();
-        try {
-            for (String trap : new String[]{"New Trap", "Old Trap"}) {
-                for (int rot = 0; rot < 360; rot += 90) {
-                    oneFloor(ctx, failures, trap, rot);
-                }
-            }
-        } catch (Throwable t) {
-            failures.add("scenario threw: " + t);
-            t.printStackTrace(System.out);
-        } finally {
-            ctx.runOnClient(mc -> {
-                McCompat.setScreen(mc, null);
-                mc.options.renderDistance().set(renderBefore);
-                ModUnderTest.staticCall(AUTO_TRAP, "setEnabled", new Class<?>[]{boolean.class}, new Object[]{false});
-            });
-            leave(ctx);
-            ctx.runOnClient(mc -> mc.execute(() ->
-                    McCompat.setScreen(mc, new net.minecraft.client.gui.screens.TitleScreen())));
-            ctx.waitFor(mc -> McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.TitleScreen);
-        }
-        for (String s : SUMMARY) {
-            println("SUMMARY " + s);
-        }
-        if (!failures.isEmpty()) {
-            throw new AssertionError(failures.size() + " problem(s): " + String.join("; ", failures));
-        }
-        System.out.println("[" + NAME + "] PASS");
+    static void tearDown(ClientGameTestContext ctx, int renderBefore) {
+        ctx.runOnClient(mc -> {
+            McCompat.setScreen(mc, null);
+            mc.options.renderDistance().set(renderBefore);
+            ModUnderTest.staticCall(AUTO_TRAP, "setEnabled", new Class<?>[]{boolean.class}, new Object[]{false});
+        });
+        leave(ctx);
+        ctx.runOnClient(mc -> mc.execute(() ->
+                McCompat.setScreen(mc, new net.minecraft.client.gui.screens.TitleScreen())));
+        ctx.waitFor(mc -> McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.TitleScreen);
     }
 
     private static void leave(ClientGameTestContext ctx) {
@@ -159,7 +176,7 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         return gz * ROOM_GRID + gx;
     }
 
-    private static void oneFloor(ClientGameTestContext ctx, List<String> failures, String trap, int rot) {
+    static void oneFloor(ClientGameTestContext ctx, List<String> failures, String trap, int rot, Body bodyFn) {
         String tag = trap + " r" + rot;
         Map<String, ?> usable = ctx.computeOnClient(mc -> (Map<String, ?>) ModUnderTest.staticCall(FLOOR_GEN, "usableRooms"));
         if (!usable.containsKey(trap)) {
@@ -240,7 +257,7 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         }
         giveItems(ctx);
         try {
-            body(ctx, failures, trap, rot, tag, north);
+            bodyFn.run(ctx, failures, trap, rot, tag, north);
         } finally {
             leave(ctx);
         }
@@ -369,8 +386,12 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         boolean done = false;
         String lastNodeTag = "#" + nodeCount + " ";
         int beganAt = -1;
-        for (int t = 0; t < 900 && !done; t++) {
+        boolean newTrap = trap.equals("New Trap");
+        int alignsBefore = walkAligns(ctx);
+        double minY = Double.MAX_VALUE;
+        for (int t = 0; t < 1200 && !done; t++) {
             ctx.waitTicks(1);
+            minY = Math.min(minY, ctx.computeOnClient(mc -> mc.player.getY()));
             List<String> lines = LogTap.since(mark);
             for (String l : lines) {
                 landed |= l.contains("Start-node warp landed");
@@ -381,7 +402,8 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
                     beganAt = t;
                 }
             }
-            done |= beganAt >= 0 && t > beganAt + 200;   // the route started; 10 s of it is logged, not judged
+            // the route started: New Trap is judged on its whole run (newtrap-route7), Old Trap's 10 s are logged only
+            done |= beganAt >= 0 && t > beganAt + (newTrap ? 600 : 200);
             int c = ctx.computeOnClient(mc -> ((Number) ModUnderTest.staticCall(ROUTE_EXEC, "completions")).intValue());
             boolean left = lines.stream().anyMatch(l -> l.contains("[AutoTrap] left " + trap));
             done |= c > completionsBefore || (left && lines.stream().anyMatch(l -> l.contains("Node " + lastNodeTag)
@@ -402,6 +424,36 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
                 leftTrap, nodeCount, lastBegan, end.distanceTo(lastReal), plan);
         println(tag + " " + res);
         SUMMARY.add(tag + " run: " + res);
+        if (newTrap && lines.stream().anyMatch(l -> l.contains("Node #1 ") && l.contains(" begins: player ("))) {
+            // newtrap-route7 (2026-11-22): WALK #5 ended 0.68 off breaker #6's spot and the route stopped at #7. The whole
+            // route must now act: #6's block under its spot is broken, he drops through it, and the last node fires.
+            Vec3 holeRel = new Vec3(27.5, 89.0, 14.5);
+            Object[] hole = ctx.computeOnClient(mc -> {
+                Object frame = newFrame(trap, cr);
+                Vec3 real = (Vec3) ModUnderTest.staticCall(ROUTE_COORDS, "toReal",
+                        new Class<?>[]{frame.getClass(), Vec3.class}, new Object[]{frame, holeRel});
+                BlockPos p = BlockPos.containing(real.x, real.y, real.z);
+                return new Object[]{p, mc.level.getBlockState(p).isAir(), real.y};
+            });
+            int aligns = walkAligns(ctx) - alignsBefore;
+            double dropTo = (Double) hole[2] - minY;
+            String run = String.format("node #6 block %s broken %s, lowest %.1f (%.1f under #6), last node began %s,"
+                    + " walk aligns %d", hole[0], hole[1], minY, dropTo, lastBegan, aligns);
+            println(tag + " route run: " + run);
+            SUMMARY.add(tag + " route: " + run);
+            if (!(Boolean) hole[1]) {
+                failures.add(tag + ": breaker #6 did not break the block under its spot (" + run + ")");
+            }
+            if (dropTo < 10) {
+                failures.add(tag + ": he never dropped through #6's hole (" + run + ")");
+            }
+            if (!lastBegan) {
+                failures.add(tag + ": the route never reached its last node #" + nodeCount + " (" + run + ")");
+            }
+            if (aligns < 1) {
+                failures.add(tag + ": no trap-room walk aligned onto its next node (" + run + ")");
+            }
+        }
         boolean sent = lines.stream().anyMatch(l -> l.contains("[Path] running "));
         // Where the warps put him: the first node's "begins" line gives his feet and the node's spot on the tick it fired.
         String began = lines.stream().filter(l -> l.contains("Node #1 ") && l.contains(" begins: player ("))
@@ -526,7 +578,7 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         }
     }
 
-    private static List<String> grep(long mark, String... needles) {
+    static List<String> grep(long mark, String... needles) {
         List<String> out = new ArrayList<>();
         for (String l : LogTap.since(mark)) {
             for (String n : needles) {
@@ -539,7 +591,7 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         return out;
     }
 
-    private static int roomNamed(Object layout, String name) {
+    static int roomNamed(Object layout, String name) {
         if (layout == null) {
             return -1;
         }
@@ -553,7 +605,18 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         return -1;
     }
 
-    private static Object newFrame(String name, int[] cr) {
+    /** RouteExecutor.walkAligns (newtrap-route7), -1 on a jar without it. */
+    static int walkAligns(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                return ((Number) ModUnderTest.staticCall(ROUTE_EXEC, "walkAligns")).intValue();
+            } catch (Throwable t) {
+                return -1;
+            }
+        });
+    }
+
+    static Object newFrame(String name, int[] cr) {
         try {
             Class<?> f = Class.forName(ROUTE_COORDS + "$Frame");
             return f.getConstructor(String.class, int.class, int.class, int.class).newInstance(name, cr[0], cr[1], cr[2]);
@@ -591,7 +654,7 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         ctx.waitTicks(10);
     }
 
-    private static String liveRoomName(ClientGameTestContext ctx) {
+    static String liveRoomName(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> {
             Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
             int r = (Integer) ModUnderTest.call(layout, "roomAtWorld", new Class<?>[]{double.class, double.class},
@@ -601,7 +664,7 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
     }
 
     /** As 99-sim-arrowtrap: stands him in column (dx, dz) from tile (gx, gz)'s center, found on the server thread. */
-    private static String standOnTile(ClientGameTestContext ctx, int gx, int gz, int dx, int dz) {
+    static String standOnTile(ClientGameTestContext ctx, int gx, int gz, int dx, int dz) {
         AtomicReference<String> done = new AtomicReference<>();
         ctx.runOnClient(mc -> {
             BlockPos c = (BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class},
@@ -654,7 +717,7 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         }
     }
 
-    private static Class<?> layoutClass() {
+    static Class<?> layoutClass() {
         try {
             return Class.forName(LAYOUT);
         } catch (ClassNotFoundException e) {
