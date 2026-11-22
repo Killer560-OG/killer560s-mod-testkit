@@ -218,13 +218,18 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
         });
         Double queued = null;
         boolean corrected = false;
+        boolean warming = false;
         for (int i = 0; i < 200 && queued == null; i++) {
             ctx.waitTicks(1);
             corrected = false; // only a plan logged after the correction line is its replan
+            warming = false;
             for (String l : LogTap.since(tpMark)) {
                 // the server's move shows as a correction, or (a warp it refused) as "off the plan": both replan
                 corrected |= l.contains("[Correction] Interactive Map") || l.contains("server moved you")
                         || l.contains("[Path] off the plan:");
+                // A floor graph warm-up finishing in between held the planner thread: that wait is not the room
+                // order's (this case measures RoomTour), so such a trial is a note.
+                warming |= corrected && l.contains("floor graph warm:");
                 Matcher m = QUEUED.matcher(l);
                 if (corrected && m.find()) {
                     queued = Double.parseDouble(m.group(3));
@@ -254,7 +259,10 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
         if (searched >= 1) {
             searchedTrials++;
         }
-        if (!corrected) {
+        if (warming && queued != null) {
+            println("trial " + trial + ": the replan waited behind a floor graph warm-up - not measured");
+            queued = null;
+        } else if (!corrected) {
             println("trial " + trial + ": the teleport back was not taken as a correction - not measured");
         } else if (queued == null) {
             failures.add("trial " + trial + ": no replan after the correction");
