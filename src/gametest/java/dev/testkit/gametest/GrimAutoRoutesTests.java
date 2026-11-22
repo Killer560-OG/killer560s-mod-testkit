@@ -267,9 +267,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // after it slid one hop): with Hypixel's sneak lag on the server (a sneak counts only once a whole server tick saw
             // it), the burst must wait for a tick that already carried the sneak. Fails on a9d22cbef.
             if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1122-mapchain-sneaklag", c -> caseMapChainSneakLag(c, null));
+            // No ATTACK, as for mapchain-same-*: the burst moves him off the stand in one real tick ("his action never went in").
             if (dev.testkit.gametest.mod.Mod.isCheat()) for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
-                    dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.SWAP,
-                    dev.testkit.gametest.SameTick.Act.CLICK, dev.testkit.gametest.SameTick.Act.TP)) {
+                    dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.CLICK, dev.testkit.gametest.SameTick.Act.TP)) {
                 s.test("62-argrim-1122-mapchain-sneaklag-same-" + a.name().toLowerCase(Locale.ROOT), c -> caseMapChainSneakLag(c, a));
             }
             s.test("62-argrim-path", GrimAutoRoutesTests::casePath);
@@ -2734,9 +2734,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             c.note(line);
             if (act != dev.testkit.gametest.SameTick.Act.USE) {
                 check(missed == 0 && tm == 0, line + ": a chain use went out before the server had heard the sneak");
-                if (act != dev.testkit.gametest.SameTick.Act.CLICK) {
-                    check(warps == ArChainMeasure.CHAIN.length, line + ": expected " + ArChainMeasure.CHAIN.length + " etherwarps");
-                }
+            }
+            // His CLICK opens his inventory and the path stops there by design; every other row lands the whole chain.
+            if (act != dev.testkit.gametest.SameTick.Act.CLICK) {
+                check(warps == ArChainMeasure.CHAIN.length, line + ": expected " + ArChainMeasure.CHAIN.length + " etherwarps");
             }
         } finally {
             session.hx().call("dungeon.sneakLag", "on", false);
