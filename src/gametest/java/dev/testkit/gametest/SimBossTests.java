@@ -2520,11 +2520,13 @@ public class SimBossTests implements FabricClientGameTest {
             return;
         }
         double[] g0 = boss("Goldor");
+        int gt0 = phaseTick();
         untilTick(ctx, 100, 140);
         double[] g100 = boss("Goldor");
         int gt = phaseTick();
-        println(MOVES, "Goldor t0 " + fmt(g0) + ", t" + gt + " " + fmt(g100));
-        expect(f, "Goldor starts at (80, 119, 40) (a few ticks of 0.048 east by the time it is read)", g0 != null && dist(g0, 80, 119, 40) < 0.5, true);
+        println(MOVES, "Goldor t0 " + fmt(g0) + " (read at tick " + gt0 + "), t" + gt + " " + fmt(g100));
+        // a slow client reads him late: take the ticks already walked (0.048 east a tick, as the check below) back off the read
+        expect(f, "Goldor starts at (80, 119, 40)", g0 != null && dist(new double[]{g0[0] - 0.048 * (gt0 + 1), g0[1], g0[2]}, 80, 119, 40) < 0.25, true);
         expect(f, "Goldor walks the S4 line east at 0.048 a tick", g100 != null && Math.abs(g100[0] - (80 + 0.048 * (gt + 1))) < 0.25
                 && Math.abs(g100[2] - 40) < 0.01, true);
         untilTick(ctx, 365, 320);
