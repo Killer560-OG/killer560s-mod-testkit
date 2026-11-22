@@ -1112,20 +1112,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             walkOnto(ctx, 14.5, 5.5, 14, 8);
             for (int t = 0; t < 120; t++) {
                 if (t >= 1 && act == dev.testkit.gametest.SameTick.Act.ATTACK) {
-                    // His target is put on his crosshair from the CLIENT's own view every tick (acrev-trap-1122: a zombie
-                    // moved along the server's body look trailed the client's crosshair and his click landed in 0-1 walk
-                    // ticks run to run). An interaction entity 3 x 3 wide never collides with the walk and stays under the
-                    // crosshair through a tick of lag, so his click goes out in a walk tick on every run.
-                    double[] z = ctx.computeOnClient(mc -> {
-                        float vy = (Float) ModUnderTest.staticCall("com.killer560.hub.util.ViewFreeze", "viewYaw");
-                        double yr = Math.toRadians(Float.isNaN(vy) ? mc.player.getYRot() : vy);
-                        return new double[]{mc.player.getX() - Math.sin(yr) * 1.6, mc.player.getY() - 0.5,
-                                mc.player.getZ() + Math.cos(yr) * 1.6};
-                    });
+                    // His target is an interaction box 5 x 5 around him, moved onto him every tick (acrev-trap-1122: a
+                    // zombie moved along the server's body look trailed his crosshair and his click landed in 0-1 walk
+                    // ticks run to run; a 3 wide box 1.6 ahead of his view clipped his own box edge and drew Simulation).
+                    // His eyes are inside it whatever the walk turns him to, so his click goes out in every walk tick.
                     c.server().command(t == 1
-                            ? String.format(Locale.ROOT, "summon interaction %.3f %.3f %.3f"
-                            + " {width:3.0f,height:3.0f,Tags:[\"sametick\"]}", z[0], z[1], z[2])
-                            : String.format(Locale.ROOT, "tp @e[tag=sametick] %.3f %.3f %.3f", z[0], z[1], z[2]));
+                            ? "execute at @a[limit=1] run summon interaction ~ ~-1.5 ~ {width:5f,height:5f,Tags:[\"sametick\"]}"
+                            : "execute as @e[tag=sametick] at @a[limit=1] run tp @s ~ ~-1.5 ~");
                 }
                 if (!(Boolean) ctx.computeOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "isRunning")) && t > 5) {
                     break;
