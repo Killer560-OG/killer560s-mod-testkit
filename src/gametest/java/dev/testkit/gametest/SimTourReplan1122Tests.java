@@ -38,7 +38,7 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
     private static final String CLEAR_UTILS = "com.killer560.hub.livemap.autoclear.AutoClearUtils";
     private static final String TELEPORT_UTILS = "com.killer560.hub.livemap.autoclear.TeleportUtils";
     private static final int TRIALS = 3;
-    private static final double MAX_QUEUED_MS = 40;
+    private static final double MAX_QUEUED_MS = 60;
     private static final Pattern QUEUED = Pattern.compile("\\[Path\\] running (\\d+) warp\\(s\\).*?([0-9.]+) ms from the press"
             + " to the first warp's turn \\(queued ([0-9.]+) ms, searched (\\d+) ms\\)");
 

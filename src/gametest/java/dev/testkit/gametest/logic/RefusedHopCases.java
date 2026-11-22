@@ -126,6 +126,7 @@ final class RefusedHopCases {
             long key = (Long) Mod.staticCall(AC + "EtherSearch", "pack", 40, 64, 10);
             c.check("the refused landing is held for the spot", r != null && r.contains(key), "held " + r);
             c.check("another spot has none", Mod.staticCall(TC, "refusedLandings", new Vec3(30.5, 65.0, 30.5)) == null);
+            fallback(c, near, key);
             Object bad = put(spot, 5, land);
             Object good = put(spot, 6, new BlockPos(20, 64, 10));
             c.check("a precomputed trip whose first warp is the refused one is not handed out", find(near, 5) == null,
@@ -150,6 +151,47 @@ final class RefusedHopCases {
             clear.invoke(null);
             Mod.setField(TC, "lastRange", range0);
         }
+    }
+
+    /**
+     * The room-by-room fallback (EtherwarpPathfinder.avoidRefused around its legs): a plan starting with the refused
+     * landing is planned again with that landing read as air, and the plan around it is used.
+     */
+    @SuppressWarnings("unchecked")
+    private static void fallback(LogicCase c, Vec3 near, long key) throws Exception {
+        Class<?> ep = Mod.cls(AC + "EtherwarpPathfinder");
+        Method avoid = null;
+        for (Method m : ep.getDeclaredMethods()) {
+            if (m.getName().equals("avoidRefused")) {
+                avoid = m;
+            }
+        }
+        if (avoid == null) {
+            c.check("the room-by-room fallback skips a refused first hop (EtherwarpPathfinder.avoidRefused)", false,
+                    "no avoidRefused in this jar");
+            return;
+        }
+        avoid.setAccessible(true);
+        Constructor<?> nc = Mod.cls(AC + "EtherwarpPathfinder$Node").getDeclaredConstructor(double.class, double.class,
+                double.class, BlockPos.class, float.class, float.class);
+        nc.setAccessible(true);
+        Object start = nc.newInstance(near.x, near.y, near.z, BlockPos.containing(near), 0f, 0f);
+        Object lost = nc.newInstance(40.5, 65.0, 10.5, new BlockPos(40, 64, 10), 0f, 0f);
+        Object other = nc.newInstance(20.5, 65.0, 10.5, new BlockPos(20, 64, 10), 0f, 0f);
+        int[] calls = {0};
+        java.util.function.Function<Set<Long>, List<Object>> plan = air -> {
+            calls[0]++;
+            return air != null && air.contains(key) ? List.of(start, other) : List.of(start, lost);
+        };
+        List<Object> got = (List<Object>) avoid.invoke(null, near, null, plan);
+        BlockPos first = got == null || got.size() < 2 ? null : (BlockPos) Mod.field(got.get(1), "pos");
+        c.check("the room-by-room fallback plans around a refused first hop", new BlockPos(20, 64, 10).equals(first),
+                "first landing " + first + " after " + calls[0] + " plan(s)");
+        java.util.function.Function<Set<Long>, List<Object>> stubborn = air -> List.of(start, lost);
+        c.check("a fallback plan that still starts with it is not used",
+                avoid.invoke(null, near, null, stubborn) == null);
+        java.util.function.Function<Set<Long>, List<Object>> fine = air -> List.of(start, other);
+        c.check("a fallback plan with another first hop is used as it is", avoid.invoke(null, near, null, fine) != null);
     }
 
     private static Object find(Vec3 at, int tile) {
