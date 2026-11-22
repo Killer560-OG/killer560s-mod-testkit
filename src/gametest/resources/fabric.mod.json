@@ -229,6 +229,8 @@
 			"dev.testkit.gametest.SimPuzzleRoundTests$IceFillDone",
 			"dev.testkit.gametest.SimPuzzleRoundTests$IceFillMapTrip",
 			"dev.testkit.gametest.SimIceFill1118Tests$Bunched",
+			"dev.testkit.gametest.SimAcPuzzles1121Tests$IceFill",
+			"dev.testkit.gametest.SimAcPuzzles1121Tests$TeleportMaze",
 			"dev.testkit.gametest.SimIceFill1118Tests$Recovery",
 			"dev.testkit.gametest.SimIceFill1118Tests$Sweep",
 			"dev.testkit.gametest.SimPuzzleSolveTests$IcePath",
