@@ -1039,7 +1039,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                         continue;
                     }
                     feat |= ty.contains("player_input") || ty.contains("move_player_pos_rot") || ty.contains("move_player_rot");
-                    mine |= ty.contains("use_item") || ty.contains("interact") || ty.contains("set_carried_item")
+                    mine |= ty.contains("use_item") || ty.contains("interact") || ty.contains("attack")
+                            || ty.contains("set_carried_item")
                             || ty.contains("container_click");
                 }
                 c.note(label + ": wire ticks in the align carrying an align packet and his: " + shared);
