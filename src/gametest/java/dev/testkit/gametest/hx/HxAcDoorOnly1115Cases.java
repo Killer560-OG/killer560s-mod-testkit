@@ -24,8 +24,8 @@ import static dev.testkit.gametest.hx.HxKit.*;
  */
 final class HxAcDoorOnly1115Cases {
 
-    private static final String CFG = "autoclear.AutoClearConfig";
-    private static final String AC = "autoclear.AutoClearFeature";
+    static final String CFG = "autoclear.AutoClearConfig";
+    static final String AC = "autoclear.AutoClearFeature";
     private static final String KEY = "minecraft:prismarine_shard[custom_data={id:\"WITHER_KEY\"},item_name=\"Wither Key\"]";
 
     private HxAcDoorOnly1115Cases() {
@@ -41,7 +41,7 @@ final class HxAcDoorOnly1115Cases {
     }
 
     /** The door column, the floor, the key and the dungeon sidebar; he stands 3 blocks south of the door. */
-    private static BlockPos stage(Session c, boolean zombie) {
+    static BlockPos stage(Session c, boolean zombie) {
         dungeon(c);
         BlockPos door = (BlockPos) Mod.staticCall("livemap.DungeonLayout", "doorBlock", 1);
         int x = door.getX();
@@ -68,7 +68,7 @@ final class HxAcDoorOnly1115Cases {
         return door;
     }
 
-    private static void clean(Session c, BlockPos door) {
+    static void clean(Session c, BlockPos door) {
         c.onClient(mc -> {
             Mod.staticCall(AC, "forceDoorForTest", -1);
             if ((Boolean) Mod.staticCall(AC, "isBusy")) {
@@ -84,7 +84,7 @@ final class HxAcDoorOnly1115Cases {
         hub(c);
     }
 
-    private static void startAc(Session c) {
+    static void startAc(Session c) {
         c.onClient(mc -> {
             Mod.staticCall(AC, "forceDoorForTest", 1);
             Mod.staticCall(AC, "start");
@@ -92,7 +92,7 @@ final class HxAcDoorOnly1115Cases {
         });
     }
 
-    private static int blockUses(Session c, long since) {
+    static int blockUses(Session c, long since) {
         return c.hx().events(since, "use_block").size();
     }
 

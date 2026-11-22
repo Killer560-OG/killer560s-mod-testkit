@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T09:36:39",
- "modSource": "lane-bloodlost-1117",
- "modGitSha": "41d38aeaa2547d51a625fbfe940fa7e35509a0c9",
+ "generatedAt": "2026-11-22T09:57:41",
+ "modSource": "lane-newtrap-route7",
+ "modGitSha": "32e44f478c55a1d1cac5455f3e2d159ef52ce8d6",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
