@@ -216,8 +216,11 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
     private static void body(ClientGameTestContext ctx, List<String> failures, String trap, int rot, String tag,
                              String north) {
         // ---- where the bundled route starts in this pasted trap ----------------------------------------------------------
+        // the map names a room only once it has scanned it: stand in the trap a moment (as a player who has seen it), then
+        // go back to the north room and wait for the name
+        standOnTile(ctx, 1, 2, 0, 0);
+        ctx.waitTicks(40);
         String placed = standOnTile(ctx, 1, 1, 0, 0);
-        // the map names a room only once it has scanned it: wait for the trap's name
         for (int i = 0; i < 300 && ctx.computeOnClient(mc -> roomNamed(ModUnderTest.staticCall(LAYOUT, "capture"), trap)) < 0; i++) {
             ctx.waitTicks(1);
         }
