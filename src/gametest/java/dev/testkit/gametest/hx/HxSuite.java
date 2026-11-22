@@ -37,6 +37,7 @@ public class HxSuite implements FabricClientGameTest {
                     ModUnderTest.require("killer560smod");
                     HxDungeonCases.register(s);
                     HxAcDoorOnly1115Cases.register(s);
+                    HxAcCut1122Cases.register(s);
                     HxAcDoorLeft1121Cases.register(s);
                     HxSocialCases.register(s);
                     HxHudCases.register(s);
@@ -186,8 +187,10 @@ public class HxSuite implements FabricClientGameTest {
                     // Party Commands floor requests: Creation Cooldown wait, retry, your own !f (1104-partycmd-floor-*, mod partycmd-1104).
                     HxPartyFloor1104Cases.register(s);
                     HxOfficerCmd1118Cases.register(s);
-                    // Resume Held Break After Menus and the AttackHold dump (1103-mining-hold-*, mod mithril-hold-1103).
+                    // Resume Held Break After Menus (1103-mining-hold-*, mod mithril-hold-1103).
                     HxAttackHold1103Cases.register(s);
+                    // Team Melody config first read off the render thread (1122-melody-config-load, melodyhud-load-1122).
+                    HxMelodyConfigLoad1122Cases.register(s);
                     // Powder Break Sounds (1104-powdersound-*, mod powdersound-1104).
                     HxPowderSound1104Cases.register(s);
                     // Owner-evidence log lines (1102-diag-*, mod diag-1101): Fast Leap stuck state, Raffle start dump.
