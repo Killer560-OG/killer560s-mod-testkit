@@ -145,4 +145,33 @@ final class AutoCorrectCases {
         c.check("/ety with both et and ty known stays as typed", amb.equals("ety"), "got /" + amb);
         c.check("ety with no et known stays as typed", fix.invoke(null, "ety", Set.of("wardrobe")).equals("ety"), "none");
     }
+
+    /** 1121-logic-warpdest: a misspelled /warp destination is completed only when exactly one Fast Travel name fits. */
+    @SuppressWarnings("unchecked")
+    static void warpDestination(LogicCase c) throws Exception {
+        Class<?> fixer = Mod.cls("autocorrect.CommandFixer");
+        Method fix = fixer.getMethod("fix", String.class, Set.class);
+        Set<String> known = Set.of("warp", "visit", "msg", "p", "hub");
+        Set<String> warps = (Set<String>) fixer.getMethod("warpDestinations").invoke(null);
+        c.check("the destination table is loaded", warps.size() > 80 && warps.contains("base") && warps.contains("crypts"), "size " + warps.size());
+        String[][] lines = {
+                {"warp bas", "warp base"}, {"wrap bas", "warp base"}, {"warp crys", "warp crystals"}, {"warp base", "warp base"},
+                {"warp village", "warp village"}, {"warp tunnel", "warp tunnel"}, {"warp tun", "warp tun"}, {"warp ba", "warp ba"},
+                {"warp xqz", "warp xqz"}, {"warp bas now", "warp base now"}, {"warp bas  x", "warp bas  x"},
+                {"visit bas", "visit bas"}, {"msg bas hi", "msg bas hi"}, {"warp hub", "warp hub"}, {"warp BAS", "warp base"}};
+        for (String[] l : lines) {
+            String got = (String) fix.invoke(null, l[0], known);
+            c.check("/" + l[0] + " goes out as /" + l[1], got.equals(l[1]), "got /" + got);
+        }
+        Class<?> cfgClass = Mod.cls("autocorrect.AutoCorrectConfig");
+        Object cfg = cfgClass.getMethod("getInstance").invoke(null);
+        boolean was = (boolean) cfgClass.getMethod("isCorrectCommands").invoke(cfg);
+        try {
+            cfgClass.getMethod("setCorrectCommands", boolean.class).invoke(cfg, false);
+            Object off = Mod.cls("autocorrect.AutoCorrectFeature").getMethod("correctOutgoingCommand", String.class).invoke(null, "warp bas");
+            c.check("Correct Commands off sends /warp bas as typed", "warp bas".equals(off), "got " + off);
+        } finally {
+            cfgClass.getMethod("setCorrectCommands", boolean.class).invoke(cfg, was);
+        }
+    }
 }
