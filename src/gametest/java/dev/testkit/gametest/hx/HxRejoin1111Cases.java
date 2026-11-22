@@ -105,7 +105,14 @@ final class HxRejoin1111Cases {
             if (cheat) {
                 run(c, () -> Mod.staticCall(PILOT, "setOn", false));
             }
-            run(c, () -> Mod.staticCall("livemap.DungeonMapScanner", "reset"));
+            run(c, () -> {
+                Mod.staticCall("livemap.DungeonMapScanner", "reset");
+                try { // Mort's line was said in this world: later cases in it must not read the run as started
+                    Mod.setField("witherdoors.WitherDoorsFeature", "mortLevel", null);
+                } catch (Throwable older) {
+                    Mod.setField("witherdoors.WitherDoorsFeature", "mortSeen", false);
+                }
+            });
             cleanup(c);
         }
     }
