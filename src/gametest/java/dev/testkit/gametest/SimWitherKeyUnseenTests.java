@@ -289,7 +289,9 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
             Object cfg = ModUnderTest.config(AUTO_CONFIG);
             ModUnderTest.set(cfg, "setEnabled", true);
             ModUnderTest.set(cfg, "setHyperionHops", true);
-            ModUnderTest.set(cfg, "setPickUpKeys", true);
+            // The race row leaves the key to the Autopilot: with Auto Clear's own pickup on, a clear that runs on past the
+            // drop (random floor) takes the key itself and the row never reaches the decision it judges (lane 11-22).
+            ModUnderTest.set(cfg, "setPickUpKeys", !label.equals(RACE));
             ModUnderTest.set(cfg, "setWalkWhenFaster", false);
         });
         SimAutoClearTests.setMode(ctx, "ANY_MOB_ROOM", "HYPERION");
@@ -439,8 +441,23 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
                 // Standing at the blood door with no Blood Key: one drops 6 blocks off now (its stand reaches the client later).
                 bloodDropped = true;
                 bloodDropTick = t;
-                ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_KEYS, "drop", new Class<?>[]{Minecraft.class, Vec3.class,
-                        boolean.class}, new Object[]{mc, mc.player.position().add(6, 0, 0), true}));
+                // 6 blocks off in a direction that stays inside the room he stands in: a random floor can put +6 in a wall
+                // or past the room, where the Autopilot has no route to it and decides "nothing left" (lane 11-22).
+                ctx.runOnClient(mc -> {
+                    Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+                    Class<?>[] dd = {double.class, double.class};
+                    Vec3 p = mc.player.position();
+                    int here = (Integer) ModUnderTest.call(layout, "roomAtWorld", dd, new Object[]{p.x, p.z});
+                    Vec3 at = p.add(3, 0, 0);
+                    for (double[] o : new double[][]{{6, 0}, {-6, 0}, {0, 6}, {0, -6}, {4, 4}, {-4, -4}, {4, -4}, {-4, 4}}) {
+                        if ((Integer) ModUnderTest.call(layout, "roomAtWorld", dd, new Object[]{p.x + o[0], p.z + o[1]}) == here) {
+                            at = p.add(o[0], 0, o[1]);
+                            break;
+                        }
+                    }
+                    ModUnderTest.staticCall(SIM_KEYS, "drop", new Class<?>[]{Minecraft.class, Vec3.class, boolean.class},
+                            new Object[]{mc, at, true});
+                });
             }
             if (bloodLate && bloodDropped && t - bloodDropTick > 300) {
                 break;
