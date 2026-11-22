@@ -300,6 +300,12 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
             // for free, so it is the run's target (or left behind) - never a lucky pass.
             ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AS_CONFIG), "setKeyBaseRange", 0.5));
         }
+        if (race) {
+            // The key lands 9 blocks further from him than its mob stood (outside the pickup range even after the perk's bonus),
+            // so only a run that goes for it gets it.
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_KEY_ROOM, "dropFarForTest", new Class<?>[]{double.class},
+                    new Object[]{9.0}));
+        }
         long mark = LogTap.mark();
         ctx.runOnClient(mc -> {
             if (pilot) {
@@ -356,6 +362,10 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
         if (bloodLate) {
             ctx.runOnClient(mc -> ModUnderTest.staticCall(DUNGEON_STATE, "testSidebarBloodKey",
                     new Class<?>[]{int.class}, new Object[]{-2}));
+        }
+        if (race) {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_KEY_ROOM, "dropFarForTest", new Class<?>[]{double.class},
+                    new Object[]{0.0}));
         }
         if (race || bloodLate) {
             ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AS_CONFIG), "setKeyBaseRange", 1.0));
