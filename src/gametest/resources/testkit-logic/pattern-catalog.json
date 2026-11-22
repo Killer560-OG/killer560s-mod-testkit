@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T04:02:20",
- "modSource": "lane-warpfix-1121",
- "modGitSha": "45d4f52bd90394f93127cffd9a71fccaec4c2de8",
+ "generatedAt": "2026-11-22T04:36:41",
+ "modSource": "lane-batnode-1121",
+ "modGitSha": "721d5ff3a77131ef6db70a43b7239ae727d0ef90",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
