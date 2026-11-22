@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T06:37:30",
- "modSource": "lane-gardencopper-1121",
- "modGitSha": "1f83941081fd388fd8ecf1452bd06053e593fe27",
+ "generatedAt": "2026-11-22T07:41:24",
+ "modSource": "lane-apmenu-1121",
+ "modGitSha": "8e08a7105c05f833e2446294b99e01c06a46766f",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
