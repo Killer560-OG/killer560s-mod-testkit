@@ -121,6 +121,8 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "1122-logic-tripcache-refused", TripRefuseCases::refused);
         // ---- a warp that never landed is never a fresh plan's first hop from that spot (mod acwaits4-1122)
         LogicCase.run(ctx, "1122-logic-refused-hop", RefusedHopCases::refused);
+        // ---- a trip search queued behind the floor graph warm-up starts within one slice (mod acwaits5-1122), TEST thread
+        LogicCase.runOffClient(ctx, "1122-logic-warm-yield", WarmYieldCases::yieldToTrip);
         ManaResetCases.ctx = ctx;
         LogicCase.runOffClient(ctx, "2776-logic-mana-world-reset", ManaResetCases::worldReset);
         // ---- static scan fixes (mod scanbugs-1104): \s escapes, Revert Master Stars null name
