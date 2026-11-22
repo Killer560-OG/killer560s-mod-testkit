@@ -29,8 +29,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * X (K included) is marked cleared, one starred zombie stands in X, and the sim arms X as a key room entered through D from
  * K ({@code SimKeyRoom.armForTest(mc, X, K, D)}): opening D before he has stood in K for {@code SEEN_TICKS} insta clears X.
  * He is given a Wither Key. The run (Auto Clear Any Mob Room, or Dungeons Autopilot Solo 300 / Blood Rush None / Insta Clear
- * on) must open D only once he has stood in K a while (client ticks in K at the open line >= 6; an origin jar clicks about
- * two ticks after landing), and X must not be lost: its mob dies, X reads cleared, its key drops and is picked up.
+ * on) must send its first key click on D at or after the server tick the sim shows X on the map (8-15 ticks after he
+ * stands in K, Hypixel's delay), and X must not be lost: its mob dies, X reads cleared, its key drops and is picked up.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimWitherKeyUnseenTests implements FabricClientGameTest {
@@ -55,7 +55,6 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
     private static final String AS_CONFIG = "com.killer560.hub.autosecret.AutoSecretConfig";
     private static final String PILOT = "com.killer560.hub.autosecret.DungeonsAutopilot";
     private static final int CASE_TICKS = 2400;
-    private static final int MIN_TICKS_IN_K = 6;
 
     record Setup(String leaf, String key, int door) {
     }
@@ -234,23 +233,13 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
         SimAutoClearTests.Room roomX = rooms.stream().filter(x -> x.name().equals(setup.leaf())).findFirst().orElseThrow();
         List<SimAutoClearTests.Placed> placed = SimAutoClearTests.spawnIn(ctx, roomX, 1, false);
         ctx.waitTicks(30);
-        // The 4-argument hook (X entered through D from K) is this branch's; an origin jar has only the 1-room one.
-        boolean newHook = ctx.computeOnClient(mc -> {
-            try {
-                Class.forName(SIM_KEY_ROOM).getMethod("armForTest", Minecraft.class, String.class, String.class, int.class);
-                return true;
-            } catch (ReflectiveOperationException e) {
-                return false;
-            }
-        });
-        boolean armed = ctx.computeOnClient(mc -> newHook
-                ? (Boolean) ModUnderTest.staticCall(SIM_KEY_ROOM, "armForTest",
-                        new Class<?>[]{Minecraft.class, String.class, String.class, int.class},
-                        new Object[]{mc, setup.leaf(), setup.key(), setup.door()})
-                : (Boolean) ModUnderTest.staticCall(SIM_KEY_ROOM, "armForTest",
-                        new Class<?>[]{Minecraft.class, String.class}, new Object[]{mc, setup.leaf()}));
+        // X entered through D from K: the sim shows X on the map only 8-15 server ticks after he stands in K (Hypixel's
+        // 392-756 ms), stamps that tick and the first key click on D, and insta clears X when D opens before it shows.
+        boolean armed = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_KEY_ROOM, "armForTest",
+                new Class<?>[]{Minecraft.class, String.class, String.class, int.class},
+                new Object[]{mc, setup.leaf(), setup.key(), setup.door()}));
         println(label + ": " + doors + " wither door(s) round " + setup.leaf() + " (door " + setup.door() + " from "
-                + setup.key() + "); armed " + armed + " (4-arg hook " + newHook + "); placed " + placed);
+                + setup.key() + "); armed " + armed + "; placed " + placed);
         if (doors != 1 || !armed || placed.size() != 1) {
             failures.add(label + ": the premise failed (" + doors + " wither door(s), armed " + armed + ", " + placed.size()
                     + " mob(s) placed)");
@@ -348,17 +337,22 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
         String[] st = state == null ? new String[0] : state.split("\\|");
         boolean lost = st.length > 3 && st[3].equals("true");
         boolean keyDropped = st.length > 4 && st[4].equals("true");
+        long reveal = st.length > 6 ? Long.parseLong(st[6]) : -1;
+        long click = st.length > 7 ? Long.parseLong(st[7]) : -1;
         boolean xCleared = after.stream().anyMatch(r -> r.name().equals(setup.leaf()) && r.cleared());
         println(label + ": " + ticks + " ticks; door opened at t=" + openTick + " after " + inKAtOpen + " tick(s) in "
-                + setup.key() + "; wait line " + waitLine + "; sim state " + state + ", insta " + insta + "; mobs " + alive
+                + setup.key() + "; map reveal tick " + reveal + ", first key click tick " + click + "; wait line " + waitLine + "; sim state " + state + ", insta " + insta + "; mobs " + alive
                 + "; " + setup.leaf() + " cleared " + xCleared + "; keys obtained after the start " + keysAfter);
         if (openTick < 0) {
             failures.add(label + ": the wither door into " + setup.leaf() + " never opened");
             return;
         }
-        if (inKAtOpen < MIN_TICKS_IN_K) {
-            failures.add(label + ": the wither door opened after only " + inKAtOpen + " tick(s) in " + setup.key()
-                    + " - before Hypixel's map shows " + setup.leaf() + ", which insta clears it");
+        // The cause itself: the first key click on the door must come at or after the tick the map showed the room behind.
+        if (click < 0) {
+            failures.add(label + ": no key click on the wither door was stamped (sim state " + state + ")");
+        } else if (reveal < 0 || reveal > click) {
+            failures.add(label + ": the wither door was clicked at server tick " + click + " while " + setup.leaf()
+                    + " was not on the map yet (shown tick " + reveal + ") - a door opened then insta clears it");
         }
         if (lost || insta) {
             failures.add(label + ": " + setup.leaf() + " was insta cleared - its key is lost");
