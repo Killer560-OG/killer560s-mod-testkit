@@ -62,7 +62,12 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
     /** Neighbors around the trap on tile (1,2); the first usable one north of it is where he stands. */
     /** 1x1 rooms only: a 2x2 (Flags, Altar) at the north tile covers the trap's and the Entrance's tiles and drops them. */
     private static final String[] NORTH = {"Temple", "Cages", "Arrow Trap"};
-    private static final int[][] SPOTS = {{0, 0}, {-9, -9}, {9, -9}, {-9, 9}, {9, 9}};
+    private static int TRAP_X;
+    private static int TRAP_Z;
+    private static int NX;
+    private static int NZ;
+    private static int MAP_ROT;
+    private static final int[][] SPOTS ={{0, 0}, {-9, -9}, {9, -9}, {-9, 9}, {9, 9}};
 
     private static final List<String> SUMMARY = new ArrayList<>();
 
@@ -156,23 +161,38 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
             failures.add(tag + ": no capture of " + trap + " to build");
             return;
         }
-        List<String> others = new ArrayList<>();
+        String north = null;
         for (String n : NORTH) {
-            if (usable.containsKey(n)) {
-                others.add(n);
+            if (north == null && usable.containsKey(n)) {
+                north = n;
             }
         }
-        if (others.size() < 3) {
-            failures.add(tag + ": fewer than 3 neighbor rooms captured (" + others + ")");
+        if (north == null) {
+            failures.add(tag + ": no 1x1 neighbor room captured");
             return;
         }
-        String north = others.get(0);
+        // A trap has ONE door, and on Hypixel its rotation follows that door, so his route's start (by the door) tells the
+        // side: the map reads paste + capture rotation; turn his start's offset from the room center by it and put the
+        // neighbor on that side, the Entrance one further out. Trap at (2,2), nothing else touches it.
+        int mapRot = ctx.computeOnClient(mc -> (rot + (Integer) ModUnderTest.staticCall(R + "RoomCaptureRotation", "of",
+                new Class<?>[]{roomClass()}, new Object[]{ModUnderTest.staticCall(R + "RoomLibrary", "get",
+                        new Class<?>[]{String.class}, new Object[]{trap})})) % 360);
+        double ox = (trap.equals("New Trap") ? 16.5 : 12.5) - 15.5;
+        double oz = (trap.equals("New Trap") ? 28.5 : 4.5) - 15.5;
+        double rx = mapRot == 0 ? ox : mapRot == 90 ? -oz : mapRot == 180 ? -ox : oz;
+        double rz = mapRot == 0 ? oz : mapRot == 90 ? ox : mapRot == 180 ? -oz : -ox;
+        int sx = Math.abs(rx) > Math.abs(rz) ? (int) Math.signum(rx) : 0;
+        int sz = sx == 0 ? (int) Math.signum(rz) : 0;
+        TRAP_X = 2;
+        TRAP_Z = 2;
+        NX = 2 + sx;
+        NZ = 2 + sz;
+        MAP_ROT = mapRot;
         Map<Integer, String> floor = new LinkedHashMap<>();
-        floor.put(key(1, 2), trap);
-        floor.put(key(1, 1), north);
-        floor.put(key(0, 2), others.get(1));
-        floor.put(key(2, 2), others.get(2));
-        floor.put(key(2, 1), "Entrance");
+        floor.put(key(TRAP_X, TRAP_Z), trap);
+        floor.put(key(NX, NZ), north);
+        floor.put(key(2 + 2 * sx, 2 + 2 * sz), "Entrance");
+        println(tag + ": map rotation " + mapRot + ", door side " + sx + "," + sz + ", " + north + " at " + NX + "," + NZ);
         // Explicit floors paste every room at rotation 0: turn the trap's cells to this case's rotation.
         String code = ctx.computeOnClient(mc -> {
             Object planned = ModUnderTest.staticCall(FLOOR_GEN, "planExplicit", new Class<?>[]{Map.class, boolean.class},
@@ -224,11 +244,7 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
     private static void body(ClientGameTestContext ctx, List<String> failures, String trap, int rot, String tag,
                              String north) {
         // ---- where the bundled route starts in this pasted trap ----------------------------------------------------------
-        // the map names a room only once it has scanned it: stand in the trap a moment (as a player who has seen it), then
-        // go back to the north room and wait for the name
-        standOnTile(ctx, 1, 2, 0, 0);
-        ctx.waitTicks(40);
-        String placed = standOnTile(ctx, 1, 1, 0, 0);
+        String placed = standOnTile(ctx, NX, NZ, 0, 0);
         for (int i = 0; i < 300 && ctx.computeOnClient(mc -> roomNamed(ModUnderTest.staticCall(LAYOUT, "capture"), trap)) < 0; i++) {
             ctx.waitTicks(1);
         }
@@ -281,8 +297,8 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         if (!hasRoute) {
             failures.add(tag + ": Auto Trap has no route for it (no bundled Just Cleared route)");
         }
-        if (cr[2] != rot) {
-            failures.add(tag + ": the map reads the trap at rotation " + cr[2] + ", the case pasted " + rot);
+        if (cr[2] != MAP_ROT) {
+            failures.add(tag + ": the map reads the trap at rotation " + cr[2] + ", expected " + MAP_ROT);
         }
         Vec3 startReal = (Vec3) trapInfo[3];
         int nodeCount = hasRoute ? (Integer) ((Object[]) trapInfo[4])[0] : 0;
@@ -307,7 +323,7 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         // ---- (a) the room-by-room planner never stops inside the trap before its last landing -----------------------------
         int planned = 0;
         for (int[] s : SPOTS) {
-            String at = standOnTile(ctx, 1, 1, s[0], s[1]);
+            String at = standOnTile(ctx, NX, NZ, s[0], s[1]);
             String here = liveRoomName(ctx);
             if (!north.equals(here)) {
                 continue;
@@ -330,7 +346,7 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         if (!hasRoute) {
             return;
         }
-        standOnTile(ctx, 1, 1, 0, 0);
+        standOnTile(ctx, NX, NZ, 0, 0);
         int completionsBefore = ctx.computeOnClient(mc -> ((Number) ModUnderTest.staticCall(ROUTE_EXEC, "completions")).intValue());
         long mark = LogTap.mark();
         boolean warping = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AR_FEATURE, "warpToStartNode",
@@ -548,6 +564,14 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
             return Class.forName(AUTO_TRAP + "$Mode");
         } catch (ClassNotFoundException e) {
             throw new AssertionError("no " + AUTO_TRAP + "$Mode", e);
+        }
+    }
+
+    private static Class<?> roomClass() {
+        try {
+            return Class.forName(R + "RoomLibrary$Room");
+        } catch (ClassNotFoundException e) {
+            throw new AssertionError("no RoomLibrary.Room", e);
         }
     }
 
