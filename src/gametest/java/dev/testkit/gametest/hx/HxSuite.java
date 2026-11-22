@@ -38,6 +38,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxDungeonCases.register(s);
                     HxAcDoorOnly1115Cases.register(s);
                     HxAcDoorLeft1121Cases.register(s);
+                    HxGreenStart1122Cases.register(s);
                     HxSocialCases.register(s);
                     HxHudCases.register(s);
                     HxBatCases.register(s); // 521-523, the Murkbat bat bonus (own block)
