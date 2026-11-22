@@ -44,6 +44,70 @@ final class HxRejoin1111Cases {
         s.test("1111-hx-rejoin-noserver", HxRejoin1111Cases::noServer);
         s.test("1111-hx-rejoin-camp", HxRejoin1111Cases::camp);
         s.test("1121-hx-rejoin-runstarted", HxRejoin1111Cases::runStarted);
+        s.test("1122-hx-runstart-heldmap", HxRejoin1111Cases::heldMap);
+    }
+
+    private static final String PILOT = "autosecret.DungeonsAutopilot";
+
+    private static String pilotPhase(Session c) {
+        return c.onClient(mc -> String.valueOf(Mod.field(PILOT, "phase")));
+    }
+
+    /**
+     * runstart-stale-1122 (his 26.3 log 09:04:14): the run he left is held for a rejoin with its map item still read, so in
+     * the next dungeon the old map made runStarted() true and Dungeons Autopilot, armed there, started at once - ~7 s before
+     * the gate opened. Here: a live run whose map is read, a world change, the autopilot switched on before the new
+     * dungeon's sidebar, then ANOTHER run's sidebar. runStarted() must stay false and the autopilot ARMED until Mort's
+     * line, then start. Origin e2642d486 read true while the run was held.
+     */
+    private static void heldMap(Session c) {
+        boolean cheat = Mod.isCheat();
+        try (Settings set = settings(c)) {
+            pad(c);
+            armRun(c);
+            run(c, () -> Mod.staticCall("livemap.DungeonMapScanner", "testSetCells", (Object) new String[]{"rr"}));
+            boolean before = started(c);
+            awayAndBack(c, -59.5, 100, -59.5);
+            boolean holding = c.onClient(mc -> (Boolean) Mod.staticCall(RUN, "holding"));
+            boolean kept = c.onClient(mc -> (Boolean) Mod.staticCall("livemap.DungeonMapScanner", "isCalibrated"));
+            boolean whileHeld = started(c);
+            if (cheat) {
+                run(c, () -> Mod.staticCall(PILOT, "setOn", true));
+            }
+            board(c, "§710/04/26 §8m99ZZ", "00m 00s");
+            int startedTicks = 0;
+            int notArmed = 0;
+            for (int t = 0; t < 60; t++) {
+                c.ctx().waitTicks(1);
+                if (started(c)) startedTicks++;
+                if (cheat && !"ARMED".equals(pilotPhase(c))) notArmed++;
+            }
+            String decided = describe(c);
+            c.hx().chat("[NPC] Mort: Here, I found this map when I first entered the dungeon.");
+            c.waitUntil("Mort's line reads as the run's start",
+                    mc -> (Boolean) Mod.staticCall("witherdoors.WitherDoorsFeature", "runStarted"), 40);
+            String after = "n/a";
+            if (cheat) {
+                c.waitUntil("the autopilot leaves ARMED on Mort's line",
+                        mc -> !"ARMED".equals(String.valueOf(Mod.field(PILOT, "phase"))), 40);
+                after = pilotPhase(c);
+            }
+            c.check(before, "the first run's read map did not read as started, so the case proves nothing");
+            c.check(holding && kept, "the left run was not held with its map (holding " + holding + ", map kept " + kept
+                    + "): the case proves nothing");
+            c.check(!whileHeld, "the held run's map read as this world's run start");
+            c.check(decided.contains("m99ZZ"), "DungeonRun never took the new run: " + decided);
+            c.check(startedTicks == 0, "runStarted() was true on " + startedTicks + " of 60 ticks of the new run before Mort");
+            c.check(notArmed == 0, "the autopilot left ARMED on " + notArmed + " of 60 ticks before Mort");
+            c.note("before=" + before + " holding=" + holding + " mapKept=" + kept + " whileHeld=" + whileHeld
+                    + " startedTicks=" + startedTicks + " notArmed=" + notArmed + " phaseAfterMort=" + after + "; " + decided);
+        } finally {
+            if (cheat) {
+                run(c, () -> Mod.staticCall(PILOT, "setOn", false));
+            }
+            run(c, () -> Mod.staticCall("livemap.DungeonMapScanner", "reset"));
+            cleanup(c);
+        }
     }
 
     private static boolean started(Session c) {

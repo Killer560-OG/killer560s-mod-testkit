@@ -5472,8 +5472,25 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      */
     /** Dungeons Autopilot starts only once the run has (Mort's line): the arena has no Mort, so the test sets the flag. */
     private static void runStartedForTest(boolean v) {
+        Class<?> wd;
         try {
-            java.lang.reflect.Field f = Class.forName("com.killer560.hub.witherdoors.WitherDoorsFeature").getDeclaredField("mortSeen");
+            wd = Class.forName("com.killer560.hub.witherdoors.WitherDoorsFeature");
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("no WitherDoorsFeature", e);
+        }
+        try {
+            // acstart-1122: the world Mort's line came in (a new world is a new run), was the boolean mortSeen
+            java.lang.reflect.Field f = wd.getDeclaredField("mortLevel");
+            f.setAccessible(true);
+            f.set(null, v ? net.minecraft.client.Minecraft.getInstance().level : null);
+            return;
+        } catch (NoSuchFieldException e) {
+            // an older jar: the boolean below
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("could not set WitherDoorsFeature.mortLevel", e);
+        }
+        try {
+            java.lang.reflect.Field f = wd.getDeclaredField("mortSeen");
             f.setAccessible(true);
             f.setBoolean(null, v);
         } catch (ReflectiveOperationException e) {
