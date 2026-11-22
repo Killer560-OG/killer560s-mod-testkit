@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T08:21:36",
- "modSource": "lane-apmenu-1121",
- "modGitSha": "37dfa142477a20bf45e48e9c830d35d7f89286f6",
+ "generatedAt": "2026-11-22T08:48:24",
+ "modSource": "lane-newtrap-route7",
+ "modGitSha": "a64b30ff77d9e82f0c86ab5e2a160d371b11f819",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
