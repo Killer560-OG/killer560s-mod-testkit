@@ -55,6 +55,7 @@ final class HxLuck1102Cases {
         s.test("1102-luck-experiment", HxLuck1102Cases::experiment);
         s.test("1102-luck-unknownfloor", HxLuck1102Cases::unknownFloor);
         s.test("1116-luck-bigstack", HxLuck1102Cases::bigStack);
+        s.test("1121-luck-announce-row", HxLuck1102Cases::announceRow);
     }
 
     // ---- helpers -------------------------------------------------------------------------------------------------
@@ -630,5 +631,42 @@ final class HxLuck1102Cases {
         c.check(got(c, "chest:Unknown:Bedrock|Enchanted Book (Ultimate Wise II)") >= 1, "its book was not listed");
         c.check(expected(c, "chest:Unknown:Bedrock|Enchanted Book (Ultimate Wise II)") == 0,
                 "an Unknown-floor claim got an expectation");
+    }
+
+    /**
+     * 1121-luck-announce-row (gamefreeze-1121): the drop announce reads ONE row (LuckStore.row) instead of rebuilding every
+     * row, which took 44-96 ms on his client thread after each counted drop. Every row row() gives must equal the one
+     * rows() gives, field by field, and a drop must still move its row's got count.
+     */
+    private static void announceRow(Session c) {
+        skyblock(c);
+        String key = "mob:Zealot|Enchanted Ender Pearl";
+        long got0 = got(c, key);
+        c.onClient(mc -> Mod.staticCall(LS, "drop", key, 1, "chat", 100));
+        Object odds = c.onClient(mc -> Mod.enumValue(CFG + "$ChestOdds", "BASE"));
+        String result = c.onClient(mc -> {
+            @SuppressWarnings("unchecked")
+            List<Object> rows = (List<Object>) Mod.staticCall(LS, "rows", null, odds, false);
+            int compared = 0;
+            for (Object r : rows) {
+                String k = (String) Mod.call(r, "key");
+                Object one = Mod.staticCall(LS, "row", null, k, odds, false);
+                if (one == null) {
+                    return "row() gave null for " + k;
+                }
+                for (String f : new String[] {"name", "activity", "attempts", "expected", "expectedBase", "got"}) {
+                    if (!java.util.Objects.equals(Mod.call(r, f), Mod.call(one, f))) {
+                        return k + " " + f + ": rows " + Mod.call(r, f) + " row " + Mod.call(one, f);
+                    }
+                }
+                compared++;
+            }
+            return compared > 0 ? "ok " + compared : "no rows";
+        });
+        c.note("rows compared: " + result);
+        c.check(result.startsWith("ok"), result);
+        c.check(got(c, key) == got0 + 1, "the drop did not count (got " + got(c, key) + ", was " + got0 + ")");
+        Object one = c.onClient(mc -> Mod.staticCall(LS, "row", null, key, odds, false));
+        c.check(one != null && ((Number) Mod.call(one, "got")).longValue() == got0 + 1, "row() did not see the drop");
     }
 }
