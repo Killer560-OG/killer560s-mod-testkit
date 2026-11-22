@@ -361,6 +361,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1016-autosecret-key", c -> caseAutoSecret(c, false, true));
             s.test("62-argrim-1016-autopilot-key", c -> caseAutoSecret(c, true, true));
             s.test("62-argrim-1016-oneuse", GrimAutoRoutesTests::caseOneUsePerTick); // grim-autopilot-flag-1016
+            // apmenu-1121: Dungeons Autopilot's one Toggle Keybind starts each Mode (the run acts) and stops it; Disable After
+            // Blood Rush switches it off once the rush is done (Door on the arena: no blood door, so the rush ends at once).
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1121-apmenu-modes", GrimAutoRoutesTests::caseApMenuModes);
+            if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1121-apmenu-disable", GrimAutoRoutesTests::caseApMenuDisable);
             // autosecret-bloodfirst-1017: Auto Secret with Secret Blood First = Door Camp on the arena (no blood door on
             // its map): it says so, secrets meanwhile, and sends exactly what the plain run does.
             s.test("62-argrim-1017-autosecret-bloodfirst", GrimAutoRoutesTests::caseAutoSecretBloodFirst);
@@ -5181,17 +5185,35 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * tick's client_tick_end: GrimAC "Post held item change" on the next transaction. Requires the precomputed run, one
      * set_carried_item, and the usual warps; GrimAC must stay silent.
      */
+    /** Dungeons Autopilot starts only once the run has (Mort's line): the arena has no Mort, so the test sets the flag. */
+    private static void runStartedForTest(boolean v) {
+        try {
+            java.lang.reflect.Field f = Class.forName("com.killer560.hub.witherdoors.WitherDoorsFeature").getDeclaredField("mortSeen");
+            f.setAccessible(true);
+            f.setBoolean(null, v);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("could not set WitherDoorsFeature.mortSeen", e);
+        }
+    }
+
     private static void caseAutoSecret(Session c, boolean pilot, boolean byKey) {
         ClientGameTestContext ctx = c.ctx();
         String as = "com.killer560.hub.autosecret.AutoSecretFeature";
         if (byKey) {
             ctx.runOnClient(mc -> {
+                // apmenu-1121: one Toggle Keybind (Dungeons Autopilot card) starts the planner in every Mode; Party Secrets
+                // here, because Solo clears a mob room before its secrets and the arena's room has no starred mob to clear.
                 Object cfg = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
-                ModUnderTest.call(cfg, "setToggleKey", new Class<?>[]{int.class}, new Object[]{AS_KEY});
-                ModUnderTest.call(cfg, "setAutopilotKey", new Class<?>[]{int.class}, new Object[]{PILOT_KEY});
+                Object mode = ModUnderTest.enumValue("com.killer560.hub.autosecret.AutoSecretConfig$Mode", "PARTY_SECRETS");
+                ModUnderTest.call(cfg, "setMode", new Class<?>[]{mode.getClass()}, new Object[]{mode});
+                Object none = ModUnderTest.enumValue("com.killer560.hub.autosecret.AutoSecretConfig$BloodRush", "NONE");
+                ModUnderTest.call(cfg, "setBloodRush", new Class<?>[]{none.getClass()}, new Object[]{none});
+                ModUnderTest.staticCall("com.killer560.hub.gui.ModuleKeybinds", "set", new Class<?>[]{String.class, int.class},
+                        new Object[]{"AutoClearTab", pilot ? PILOT_KEY : AS_KEY});
+                runStartedForTest(true);
             });
         }
-        if (pilot) {
+        if (pilot && !byKey) {
             ctx.runOnClient(mc -> {
                 Object cfg = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
                 Object solo = ModUnderTest.enumValue("com.killer560.hub.autosecret.AutoSecretConfig$RunMode", "SOLO");
@@ -5237,7 +5259,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             check(Boolean.TRUE.equals(started), (pilot ? "Dungeon Autopilot" : "Auto Secret") + " refused to start");
             Vec3 atStart = waitLanded(ctx, 24, 10, 300);
             Vec3 atEnd = waitLanded(ctx, 24, 22, 200);
-            boolean stopped = waitFor(ctx, 200, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as,
+            // By the key it is always the planner (apmenu-1121), which also explores the arena's unknown cells.
+            boolean planner = pilot || byKey;
+            boolean stopped = waitFor(ctx, planner ? 600 : 200, () -> !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(as,
                     "isRunning")));
             ctx.waitTicks(10);
             s = stopSampling(ctx);
@@ -5249,10 +5273,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             }
             // The autopilot plans more trips after the route (it explores the arena's empty cells), so its START-node trip
             // is the FIRST plan, not the last.
-            int planned = pilot ? firstPlannedWarps(m) : plannedWarps(m);
+            int planned = planner ? firstPlannedWarps(m) : plannedWarps(m);
             List<Sample> uses = useTicks(s);
             check(logHas(m, "[AutoSecret] target " + room), "Auto Secret did not target " + room);
-            if (pilot) {
+            if (planner) {
                 check(logHas(m, "| pick SECRET " + room), "the autopilot never picked the route in " + room);
             }
             check(atStart != null, "Auto Secret's map warp did not bring him to the start node (24,10) - at " + relPos(ctx));
@@ -5260,7 +5284,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             check(logHas(m, "[AutoSecret] route " + room + " finished"), "Auto Secret never saw the route finish");
             check(stopped, "Auto Secret was still running with nothing left to do");
             check(planned >= 2, "the map planned " + planned + " warp(s) across the wall, expected 2 or more");
-            if (pilot) {
+            if (planner) {
                 // The arena's map shows its other cells as unidentified rooms, and the autopilot goes to look at them
                 // after the route (EXPLORE), so it warps more than Auto Secret; every use must still be a server warp.
                 check(uses.size() >= planned + 1, "sent " + uses.size() + " use(s) for " + planned
@@ -5303,15 +5327,139 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                             new Object[]{"test over", true});
                 }
                 if (byKey) {
-                    Object cfg = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
-                    ModUnderTest.call(cfg, "setToggleKey", new Class<?>[]{int.class}, new Object[]{-1});
-                    ModUnderTest.call(cfg, "setAutopilotKey", new Class<?>[]{int.class}, new Object[]{-1});
+                    ModUnderTest.staticCall("com.killer560.hub.autosecret.DungeonsAutopilot", "setOn",
+                            new Class<?>[]{boolean.class}, new Object[]{false});
+                    ModUnderTest.staticCall("com.killer560.hub.gui.ModuleKeybinds", "set",
+                            new Class<?>[]{String.class, int.class}, new Object[]{"AutoClearTab", -1});
+                    runStartedForTest(false);
                 }
             });
             writeRoute(ctx, null);
             ctx.waitTicks(3);
         }
         noteFlags(c, s);
+    }
+
+    // ---- apmenu-1121: Dungeons Autopilot (one card, one switch, one Toggle Keybind) ----
+    private static final String PILOT = "com.killer560.hub.autosecret.DungeonsAutopilot";
+    private static final String AS_CFG = "com.killer560.hub.autosecret.AutoSecretConfig";
+
+    private static void apSet(String mode, String rush, boolean disableAfter) {
+        Object cfg = ModUnderTest.config(AS_CFG);
+        Object m = ModUnderTest.enumValue(AS_CFG + "$Mode", mode);
+        ModUnderTest.call(cfg, "setMode", new Class<?>[]{m.getClass()}, new Object[]{m});
+        Object r = ModUnderTest.enumValue(AS_CFG + "$BloodRush", rush);
+        ModUnderTest.call(cfg, "setBloodRush", new Class<?>[]{r.getClass()}, new Object[]{r});
+        ModUnderTest.set(cfg, "setDisableAfterBloodRush", disableAfter);
+        ModUnderTest.set(cfg, "setBloodFirst", false);
+    }
+
+    private static boolean apOn(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(PILOT, "isOn"));
+    }
+
+    private static boolean asRunning(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.autosecret.AutoSecretFeature",
+                "isRunning"));
+    }
+
+    private static void apBind(ClientGameTestContext ctx, int key) {
+        ctx.runOnClient(mc -> {
+            ModUnderTest.staticCall("com.killer560.hub.gui.ModuleKeybinds", "set", new Class<?>[]{String.class, int.class},
+                    new Object[]{"AutoClearTab", key});
+            runStartedForTest(key != -1);
+            if (key == -1) {
+                ModUnderTest.staticCall(PILOT, "setOn", new Class<?>[]{boolean.class}, new Object[]{false});
+                apSet("SOLO_300", "NONE", false);
+            }
+        });
+    }
+
+    /** The arena has no Blood door: mark Door Only's "Blood door open" for this world (null clears it). */
+    private static void doorOnlyDoneForTest(Object level) {
+        try {
+            java.lang.reflect.Field f = Class.forName("com.killer560.hub.autoclear.AutoClearFeature").getDeclaredField("doorOnlyDone");
+            f.setAccessible(true);
+            f.set(null, new java.lang.ref.WeakReference<>(level));
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("could not set AutoClearFeature.doorOnlyDone", e);
+        }
+    }
+
+    /** Each Mode: the Toggle Keybind switches it on, the run targets the room (acted), the key switches everything off. */
+    private static void caseApMenuModes(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, true);
+        writeRoute(ctx, List.of(ew(24, 10, 24, 22, true)));
+        List<Sample> s = List.of();
+        apBind(ctx, PILOT_KEY);
+        try {
+            tpRel(ctx, 6.5, 20.5, 0f, 0f);
+            double[] home = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+            float homeYaw = lookYaw;
+            startSampling(ctx);
+            for (String mode : List.of("SOLO_300", "CLEAR_THEN_SECRET", "SECRET_THEN_CLEAR", "PARTY_SECRETS")) {
+                session.hx().call("dungeon.tp", "x", home[0], "y", home[1], "z", home[2], "yaw", homeYaw, "pitch", 0f);
+                Vec3 back = new Vec3(home[0], home[1], home[2]);
+                check(waitFor(ctx, 60, () -> ctx.computeOnClient(mc -> mc.player.position().distanceTo(back) < 0.05)),
+                        mode + ": could not put him back in the room");
+                ctx.waitTicks(5);
+                ctx.runOnClient(mc -> apSet(mode, "NONE", false));
+                long m = LogTap.mark();
+                ctx.getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(PILOT_KEY), 3);
+                check(waitFor(ctx, 20, () -> apOn(ctx)), mode + ": the Toggle Keybind did not switch Dungeons Autopilot on");
+                check(waitFor(ctx, 40, () -> asRunning(ctx)), mode + ": switched on, but the secrets run never started");
+                check(waitFor(ctx, 300, () -> logHas(m, "[AutoSecret] target ") || logHas(m, "[AutoClear] move to")),
+                        mode + ": the run never targeted a room or moved to clear one - nothing acted");
+                check(logHas(m, "[DungeonsAutopilot] on: mode " + mode), mode + ": the on line did not name the mode");
+                ctx.waitTicks(5);
+                ctx.getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(PILOT_KEY), 3);
+                check(waitFor(ctx, 40, () -> !apOn(ctx) && !asRunning(ctx)), mode + ": the second press did not stop it");
+                check(logHas(m, "[DungeonsAutopilot] off: you switched it off"), mode + ": no off line");
+                c.note(mode + ": key on, targeted a room, key off");
+                ctx.waitTicks(20);
+            }
+            s = stopSampling(ctx);
+        } finally {
+            apBind(ctx, -1);
+            writeRoute(ctx, null);
+            ctx.waitTicks(3);
+        }
+        noteFlags(c, s);
+    }
+
+    /** Blood Rush Door + Disable After Blood Rush: the rush ends (no blood door on the arena) and the card switches off
+     *  instead of going on to the secrets. */
+    private static void caseApMenuDisable(Session c) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, true);
+        writeRoute(ctx, List.of(ew(24, 10, 24, 22, true)));
+        apBind(ctx, PILOT_KEY);
+        try {
+            tpRel(ctx, 6.5, 20.5, 0f, 0f);
+            ctx.waitTicks(5);
+            ctx.runOnClient(mc -> {
+                apSet("SOLO_300", "DOOR", true);
+                doorOnlyDoneForTest(mc.level);
+            });
+            long m = LogTap.mark();
+            ctx.getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(PILOT_KEY), 3);
+            check(waitFor(ctx, 60, () -> logHas(m, "[DungeonsAutopilot] on: mode SOLO_300, blood rush DOOR")),
+                    "the Toggle Keybind did not switch it on with Blood Rush Door");
+            check(waitFor(ctx, 100, () -> logHas(m, "[DungeonsAutopilot] off: Disable After Blood Rush")),
+                    "Disable After Blood Rush never switched it off after the rush");
+            ctx.waitTicks(20);
+            check(!apOn(ctx), "still on after the rush");
+            check(!asRunning(ctx) && !logHas(m, "[AutoSecret] target "), "went on to the secrets after the rush");
+            c.note("Blood Rush Door ended, switched off, no secrets");
+        } finally {
+            ctx.runOnClient(mc -> doorOnlyDoneForTest(null));
+            apBind(ctx, -1);
+            writeRoute(ctx, null);
+            ctx.waitTicks(3);
+        }
     }
 
     /** /ar edit 2, Go To: node #2 across the wall, reached by the Interactive Map's warp, then edit mode. */

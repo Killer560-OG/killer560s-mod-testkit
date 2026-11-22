@@ -33,6 +33,13 @@ public class SimAcSlow1121Tests implements FabricClientGameTest {
     private static final String DOOR = "1121-sim-acslow-door";
     private static final String FIRST = "1121-sim-acslow-firstmob";
     private static final String UNSEEN = "1121-sim-acslow-unseen";
+    private static final String DOORCLICK = "1121-sim-acwaits-doorclick";
+    private static final String AWAIT = "1121-sim-acwaits-awaitroute";
+    private static final String WALK = "1121-sim-acwaits-walkstall";
+    private static final String PUZZLE = "1121-sim-acwaits-pilotpuzzle";
+    private static final String SETTLE = "1121-sim-acwaits2-settle";
+    private static final String[] ALL = {GREEN, DOOR, FIRST, UNSEEN, DOORCLICK, AWAIT, WALK, PUZZLE, SETTLE};
+    private static final String RE = "com.killer560.hub.autoroutes.RouteExecutor";
     private static final String NAME = "1121-sim-acslow";
     private static final String AS = "com.killer560.hub.autosecret.AutoSecretFeature";
     private static final String AC = "com.killer560.hub.autoclear.AutoClearFeature";
@@ -47,14 +54,14 @@ public class SimAcSlow1121Tests implements FabricClientGameTest {
     @Override
     public void runTest(ClientGameTestContext ctx) {
         boolean any = false;
-        for (String n : new String[]{GREEN, DOOR, FIRST, UNSEEN}) {
+        for (String n : ALL) {
             any |= !System.getProperty("testkit.scenario", "").isBlank() && !Scenario.skip(n);
         }
         if (!any) {
             return;
         }
         if (!dev.testkit.gametest.mod.Mod.isCheat()) {
-            for (String n : new String[]{GREEN, DOOR, FIRST, UNSEEN}) {
+            for (String n : ALL) {
                 Scenario.skipped(n, "Auto Clear is cheat build only");
             }
             return;
@@ -64,7 +71,7 @@ public class SimAcSlow1121Tests implements FabricClientGameTest {
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            for (String n : new String[]{GREEN, DOOR, FIRST, UNSEEN}) {
+            for (String n : ALL) {
                 Scenario.skipped(n, "needs real room captures and room database");
             }
             return;
@@ -83,7 +90,7 @@ public class SimAcSlow1121Tests implements FabricClientGameTest {
             List<String> facts = new ArrayList<>();
             SimMobFloorTests.buildMobFloor(ctx, problems, facts);
             if (ctx.computeOnClient(mc -> mc.level == null)) {
-                for (String n : new String[]{GREEN, DOOR, FIRST, UNSEEN}) {
+                for (String n : ALL) {
                     row(n, false, "the floor did not load: " + problems);
                 }
                 return;
@@ -91,7 +98,7 @@ public class SimAcSlow1121Tests implements FabricClientGameTest {
             body(ctx);
         } catch (Throwable t) {
             t.printStackTrace(System.out);
-            for (String n : new String[]{GREEN, DOOR, FIRST, UNSEEN}) {
+            for (String n : ALL) {
                 row(n, false, "threw: " + t);
             }
         } finally {
@@ -151,6 +158,13 @@ public class SimAcSlow1121Tests implements FabricClientGameTest {
         int kills = 0;
         int preGoGiveUps = 0;
         boolean bloodOpen = false;
+        List<Integer> doorClicks = new ArrayList<>();   // ticks from reaching a door to its click (acwaits-1121)
+        int leftClicks = 0;
+        boolean doorClicked = false;
+        int clickAt = -1;
+        double[] lastPos = null;
+        int lastHop = -1;   // tick of the last warp landing (a jump over 2 blocks) in this TRAVEL phase
+        List<Integer> settles = new ArrayList<>();   // ticks from a trip's last landing to the next phase (acwaits2-1121)
         for (; tick < minutes * 1200; tick++) {
             ctx.waitTicks(1);
             if (ctx.computeOnClient(mc -> mc.level == null || mc.player == null)) {
@@ -190,6 +204,10 @@ public class SimAcSlow1121Tests implements FabricClientGameTest {
                 if (l.contains("The BLOOD DOOR has been opened!")) {
                     bloodOpen = true;
                 }
+                if (l.contains("[AutoSecret] ") && l.contains("-clicked the ") && l.contains(" door at ")) {
+                    leftClicks += l.contains("left-clicked") ? 1 : 0;
+                    clickAt = tick;   // judged after this tick's phase is read: the click can come in the arrival tick
+                }
                 if (l.contains("[AutoSecret] the ") && l.contains(" is open (")) {
                     doorOpened = true;
                 }
@@ -198,12 +216,30 @@ public class SimAcSlow1121Tests implements FabricClientGameTest {
             if (phase.equals("DOOR") && !lastPhase.equals("DOOR")) {
                 doorStart = tick;
                 doorOpened = false;
+                doorClicked = false;
             } else if (doorStart >= 0 && !phase.equals("DOOR") && !phase.equals("SETTLE")) {
                 if (doorOpened) {
                     doors.add(new int[]{doorStart, tick});
                 }
                 doorStart = -1;
             }
+            if (clickAt >= 0 && doorStart >= 0 && !doorClicked) {
+                doorClicks.add(clickAt - doorStart);
+                doorClicked = true;
+            }
+            clickAt = -1;
+            double[] pos = ctx.computeOnClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ()});
+            if (lastPos != null && phase.equals("TRAVEL") && Math.abs(pos[0] - lastPos[0]) + Math.abs(pos[1] - lastPos[1])
+                    + Math.abs(pos[2] - lastPos[2]) > 2.0) {
+                lastHop = tick;
+            }
+            if (lastPhase.equals("TRAVEL") && !phase.equals("TRAVEL")) {
+                if (lastHop >= 0 && !phase.equals("IDLE")) {
+                    settles.add(tick - lastHop);
+                }
+                lastHop = -1;
+            }
+            lastPos = pos;
             lastPhase = phase;
             String status = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(AC, "status"));
             if (status.endsWith("looking for starred mobs")) {
@@ -233,6 +269,194 @@ public class SimAcSlow1121Tests implements FabricClientGameTest {
                         firstMean, firstKills.size(), FIRST_MAX, did));
         row(UNSEEN, acted && spotTrips >= 1 && looking <= UNSEEN_MAX,
                 looking + " tick(s) looking for starred mobs (max " + UNSEEN_MAX + "), " + spotTrips + " spawn-spot trip(s); " + did);
+        int[] clickTicks = doorClicks.stream().mapToInt(Integer::intValue).sorted().toArray();
+        int clickMedian = clickTicks.length == 0 ? -1 : clickTicks[clickTicks.length / 2];
+        row(DOORCLICK, acted && clickTicks.length >= 2 && clickMedian >= 0 && clickMedian <= 2 && leftClicks >= 1,
+                "median " + clickMedian + " tick(s) from reaching a door to its click (max 2) over " + doorClicks
+                        + ", " + leftClicks + " left click(s); " + did);
+        int[] settleTicks = settles.stream().mapToInt(Integer::intValue).sorted().toArray();
+        int settleMedian = settleTicks.length == 0 ? -1 : settleTicks[settleTicks.length / 2];
+        row(SETTLE, acted && settleTicks.length >= 3 && settleMedian >= 0 && settleMedian <= 2,
+                "median " + settleMedian + " tick(s) from a trip's last warp landing to its next step (max 2, was ~9: the "
+                        + "arrival settle) over " + settles + "; " + did);
+        waitCases(ctx);
+    }
+
+    /**
+     * acwaits-1121's three AutoSecretFeature waits, driven straight on its state after the run (Auto Secret stopped):
+     * a route that starts and stops on its own tick, a path-less route waiting for a walk, a puzzle the map shows finished.
+     */
+    private void waitCases(ClientGameTestContext ctx) {
+        if (Scenario.named(AWAIT)) {
+            String r = ctx.computeOnClient(mc -> {
+                try {
+                    Class<?> store = Class.forName("com.killer560.hub.autoroutes.RouteStore");
+                    com.google.gson.JsonObject node = new com.google.gson.JsonObject();
+                    node.addProperty("type", "USE_ITEM");
+                    node.addProperty("x", 0.5);
+                    node.addProperty("y", 70);
+                    node.addProperty("z", 0.5);
+                    node.addProperty("item", "BAT_WAND");
+                    node.addProperty("start", true);
+                    com.google.gson.JsonArray nodes = new com.google.gson.JsonArray();
+                    nodes.add(node);
+                    com.google.gson.JsonObject json = new com.google.gson.JsonObject();
+                    json.add("nodes", nodes);
+                    Object route = store.getMethod("routeFromJson", String.class, com.google.gson.JsonObject.class)
+                            .invoke(null, "AcWaits Test", json);
+                    Class<?> frameC = Class.forName("com.killer560.hub.autoroutes.RouteCoords$Frame");
+                    Object frame = frameC.getConstructor(String.class, int.class, int.class, int.class)
+                            .newInstance("AcWaits Test", 0, 0, 0);
+                    Object first = ((java.util.List<?>) route.getClass().getMethod("nodes").invoke(route)).get(0);
+                    Class<?> nodeC = Class.forName("com.killer560.hub.autoroutes.RouteNode");
+                    Integer starts = (Integer) getStatic(RE, "starts");
+                    setStatic(AS, "target", "AcWaits Test");
+                    setStatic(AS, "routeCompletionsSeen", ModUnderTest.staticCall(RE, "completions"));
+                    if (starts != null) {
+                        setStatic(AS, "routeStartsSeen", starts);
+                    }
+                    java.lang.reflect.Method start = Class.forName(RE).getDeclaredMethod("start", route.getClass(), frameC, nodeC);
+                    start.setAccessible(true);
+                    return "started " + start.invoke(null, route, frame, first);
+                } catch (Throwable t) {
+                    return "setup threw " + t;
+                }
+            });
+            ctx.waitTicks(4);
+            String why = ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(RE, "stopReason")));
+            boolean running = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(RE, "isRunning"));
+            int ticks = ctx.computeOnClient(mc -> drive(AS, "AWAIT_ROUTE", "tickAwaitRoute", 60));
+            String after = ctx.computeOnClient(mc -> String.valueOf(getStatic(AS, "phase")));
+            // The one-node route either runs to its end in its own tick (stop reason null) or stops on the missing wand;
+            // both are "started and stopped on its own tick", which is all this case needs.
+            boolean stoppedAsSetUp = r.equals("started true") && !running;
+            row(AWAIT, stoppedAsSetUp && ticks >= 1 && ticks <= 2,
+                    "a start node that stopped on its own tick (" + r + ", stop reason " + why + ") left AWAIT_ROUTE after "
+                            + ticks + " tick(s) (max 2, was 41) into " + after);
+        }
+        if (Scenario.named(WALK)) {
+            int ticks = ctx.computeOnClient(mc -> {
+                try {
+                    Class<?> store = Class.forName("com.killer560.hub.autoroutes.RouteStore");
+                    com.google.gson.JsonArray nodes = new com.google.gson.JsonArray();
+                    for (int i = 0; i < 2; i++) {
+                        com.google.gson.JsonObject node = new com.google.gson.JsonObject();
+                        node.addProperty("type", "ETHERWARP");
+                        node.addProperty("x", 0.5 + 20 * i);
+                        node.addProperty("y", 70);
+                        node.addProperty("z", 0.5);
+                        nodes.add(node);
+                    }
+                    com.google.gson.JsonObject json = new com.google.gson.JsonObject();
+                    json.add("nodes", nodes);
+                    Object route = store.getMethod("routeFromJson", String.class, com.google.gson.JsonObject.class)
+                            .invoke(null, "AcWaits Walk", json);
+                    Object next = ((java.util.List<?>) route.getClass().getMethod("nodes").invoke(route)).get(1);
+                    // Between nodes of a path-less route, its next node away from him: what Pipes stood in for 112 ticks.
+                    setStatic(RE, "route", route);
+                    setStatic(RE, "step", null);
+                    setStatic(RE, "plannedNext", next);
+                    setStatic(RE, "plannedInPlace", false);
+                    setStatic(RE, "running", true);
+                    setStatic(AS, "target", "AcWaits Walk");
+                    setStatic(AS, "routeActions", ModUnderTest.staticCall(RE, "actionsBegun"));
+                    setStatic(AS, "routeIdleTicks", 0);
+                    return drive(AS, "ROUTE", "tickRoute", 60);
+                } catch (Throwable t) {
+                    t.printStackTrace(System.out);
+                    return -2;
+                } finally {
+                    try {
+                        ModUnderTest.staticCall(RE, "stop", new Class<?>[]{String.class}, new Object[]{"test over"});
+                    } catch (Throwable ignored) {
+                        // cleanup
+                    }
+                }
+            });
+            boolean still = ctx.computeOnClient(mc -> mc.player.onGround()
+                    && mc.player.getDeltaMovement().horizontalDistanceSqr() < 1.0E-4);
+            row(WALK, still && ticks >= 1 && ticks <= 12,
+                    "a path-less route whose next node needs a walk, him still on the ground (" + still + "), left ROUTE after "
+                            + ticks + " tick(s) (max 12, was the 400-tick stall)");
+        }
+        if (Scenario.named(PUZZLE)) {
+            String res = ctx.computeOnClient(mc -> {
+                try {
+                    String room = null;
+                    for (Object r : (Iterable<?>) ModUnderTest.staticCall("com.killer560.hub.livemap.RoomStatus", "rooms")) {
+                        java.lang.reflect.Method cleared = r.getClass().getMethod("cleared");
+                        cleared.setAccessible(true);
+                        if ((Boolean) cleared.invoke(r)) {
+                            java.lang.reflect.Method name = r.getClass().getMethod("name");
+                            name.setAccessible(true);
+                            room = (String) name.invoke(r);
+                            break;
+                        }
+                    }
+                    if (room == null) {
+                        return "no cleared room on the map";
+                    }
+                    setStatic(AS, "target", room);
+                    setStatic(AS, "pilot", true);
+                    setStatic(AS, "puzzleSince", ModUnderTest.staticCall("com.killer560.hub.autopuzzles.AutoPuzzleActivity", "clock"));
+                    int t = drive(AS, "PUZZLE_WAIT", "tickPuzzleWait", 3);
+                    return room + "|" + t + "|" + getStatic(AS, "phase");
+                } catch (Throwable t) {
+                    return "threw " + t;
+                } finally {
+                    try {
+                        setStatic(AS, "pilot", false);
+                        setStatic(AS, "phase", phaseConst(AS, "IDLE"));
+                    } catch (Throwable ignored) {
+                        // cleanup
+                    }
+                }
+            });
+            row(PUZZLE, res.endsWith("|1|DECIDE"), "a puzzle the map shows finished, under the Autopilot (room|ticks|next phase): "
+                    + res + " (want DECIDE on the first tick, was SETTLE)");
+        }
+    }
+
+    /** Puts Auto Secret in {@code phase} and calls its private {@code tick} until the phase changes: the ticks it took, or max + 1. */
+    private static int drive(String cls, String phase, String tick, int max) {
+        try {
+            setStatic(cls, "phase", phaseConst(cls, phase));
+            java.lang.reflect.Method m = Class.forName(cls).getDeclaredMethod(tick);
+            m.setAccessible(true);
+            for (int i = 1; i <= max; i++) {
+                setStatic(cls, "phaseTicks", i);
+                m.invoke(null);
+                if (!phase.equals(String.valueOf(getStatic(cls, "phase")))) {
+                    return i;
+                }
+            }
+            return max + 1;
+        } catch (Throwable t) {
+            t.printStackTrace(System.out);
+            return -1;
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Object phaseConst(String cls, String name) throws ClassNotFoundException {
+        return Enum.valueOf((Class) Class.forName(cls + "$Phase"), name);
+    }
+
+    /** A private static field's value, or null when the field does not exist (an older jar). */
+    private static Object getStatic(String cls, String field) {
+        try {
+            java.lang.reflect.Field f = Class.forName(cls).getDeclaredField(field);
+            f.setAccessible(true);
+            return f.get(null);
+        } catch (ReflectiveOperationException e) {
+            return null;
+        }
+    }
+
+    private static void setStatic(String cls, String field, Object value) throws ReflectiveOperationException {
+        java.lang.reflect.Field f = Class.forName(cls).getDeclaredField(field);
+        f.setAccessible(true);
+        f.set(null, value);
     }
 
     private void row(String name, boolean pass, String detail) {
