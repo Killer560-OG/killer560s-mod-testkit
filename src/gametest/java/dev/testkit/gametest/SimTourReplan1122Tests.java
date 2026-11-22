@@ -85,13 +85,19 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
                 throw new IllegalStateException("fewer than three rooms to use (" + targets.size() + ")");
             }
             int[] press = targets.get(0);
-            int[] sealed = targets.get(targets.size() - 1);
-            BlockPos goal = ctx.computeOnClient(mc -> (BlockPos) ModUnderTest.staticCall(TELEPORT_UTILS,
-                    "etherwarpableInTile", new Class<?>[]{BlockPos.class, Vec3.class}, new Object[]{
-                            ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class},
-                                    new Object[]{sealed[0]}), spot}));
+            // The sealed site: the farthest room (last in the list) that has a floor block to stand on.
+            int[] sealed = null;
+            BlockPos goal = null;
+            for (int k = targets.size() - 1; k >= 2 && goal == null; k--) {
+                int[] t = targets.get(k);
+                sealed = t;
+                goal = ctx.computeOnClient(mc -> (BlockPos) ModUnderTest.staticCall(TELEPORT_UTILS,
+                        "etherwarpableInTile", new Class<?>[]{BlockPos.class, Vec3.class}, new Object[]{
+                                ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class},
+                                        new Object[]{t[0]}), spot}));
+            }
             if (goal == null) {
-                throw new IllegalStateException("no floor block in tile " + sealed[0]);
+                throw new IllegalStateException("no room with a floor block to seal");
             }
             // A stone box around the sealed site's block: its roof 8 up, its walls 6 out, so no landing is within the
             // planner's "near" five blocks of it and none can aim inside.
@@ -216,7 +222,9 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
             ctx.waitTicks(1);
             corrected = false; // only a plan logged after the correction line is its replan
             for (String l : LogTap.since(tpMark)) {
-                corrected |= l.contains("[Correction] Interactive Map") || l.contains("server moved you");
+                // the server's move shows as a correction, or (a warp it refused) as "off the plan": both replan
+                corrected |= l.contains("[Correction] Interactive Map") || l.contains("server moved you")
+                        || l.contains("[Path] off the plan:");
                 Matcher m = QUEUED.matcher(l);
                 if (corrected && m.find()) {
                     queued = Double.parseDouble(m.group(3));
