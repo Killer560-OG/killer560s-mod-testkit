@@ -26,6 +26,10 @@ import java.util.regex.Pattern;
  * search runs the 200 ms fine room search), and the server puts him back (a correction). The replan must be queued at
  * most {@link #MAX_QUEUED_MS} ms, in each of {@link #TRIALS} trials. Fails on acwaits3-1122 645a32c6a (queued ~50-200 ms
  * behind the sealed site's fine search).
+ *
+ * <p>acwaits5-1122: the floor is fixed (FLOOR_SEED), the set-back goes only after the first warp has landed (a refused
+ * first warp moves on to the next room), and every trial must be measured - a run where none got a correction had
+ * passed nothing. A replan behind a floor graph warm-up is measured too (the warm-up now yields to it).
  */
 public class SimTourReplan1122Tests implements FabricClientGameTest {
 
@@ -38,6 +42,8 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
     private static final String CLEAR_UTILS = "com.killer560.hub.livemap.autoclear.AutoClearUtils";
     private static final String TELEPORT_UTILS = "com.killer560.hub.livemap.autoclear.TeleportUtils";
     private static final int TRIALS = 5;
+    /** The fixed floor (rooms and sim altitude the same every run): a random one could refuse every first warp. */
+    private static final long FLOOR_SEED = 11220L;
     private static final double MAX_QUEUED_MS = 60;
     private static final Pattern QUEUED = Pattern.compile("\\[Path\\] running (\\d+) warp\\(s\\).*?([0-9.]+) ms from the press"
             + " to the first warp's turn \\(queued ([0-9.]+) ms, searched (\\d+) ms\\)");
@@ -63,7 +69,7 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
         List<String> failures = new ArrayList<>();
         Map<BlockPos, BlockState> was = new HashMap<>();
         try {
-            SimMapPrecomputeTests.enterFloor(ctx);
+            SimMapPrecomputeTests.enterFloor(ctx, FLOOR_SEED);
             ctx.runOnClient(mc -> dev.testkit.gametest.mod.Mod.setField(CACHE, "testDisabled", true));
             ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRun", "begin",
                     new Class<?>[]{Minecraft.class, BlockPos.class},
@@ -122,7 +128,7 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
                     }
                 }
             }
-            if (measured < 2) { // a trial whose teleport the sim folded into the warp moves nothing: not measured
+            if (measured < TRIALS) { // every trial must have acted: a landed warp, a set-back, a replan
                 failures.add("only " + measured + " of " + TRIALS + " trials had a correction and a replan");
             }
             if (searchedTrials == 0) {
@@ -194,7 +200,17 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
             List<Long> hops = ctx.computeOnClient(mc -> (List<Long>) ModUnderTest.staticCall(EXECUTOR, "hopSendTicks"));
             sent = hops.stream().anyMatch(h -> h > pressTick);
         }
-        if (!sent) {
+        // The set-back must move him: wait until the first warp has landed (the server took it), so the teleport back to
+        // the spot is always a correction. A first warp the sim refused leaves him on the spot: the next room instead.
+        boolean landed = false;
+        for (int i = 0; i < 30 && sent && !landed; i++) {
+            ctx.waitTicks(1);
+            landed = ctx.computeOnClient(mc -> mc.player.position().distanceTo(spot) > 3.0);
+        }
+        if (!landed) {
+            if (sent) {
+                println("trial " + trial + ": room " + press[0] + "'s first warp did not land");
+            }
             ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "cancel"));
             ctx.waitTicks(10);
             return -1.0;
@@ -218,18 +234,13 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
         });
         Double queued = null;
         boolean corrected = false;
-        boolean warming = false;
         for (int i = 0; i < 200 && queued == null; i++) {
             ctx.waitTicks(1);
             corrected = false; // only a plan logged after the correction line is its replan
-            warming = false;
             for (String l : LogTap.since(tpMark)) {
                 // the server's move shows as a correction, or (a warp it refused) as "off the plan": both replan
                 corrected |= l.contains("[Correction] Interactive Map") || l.contains("server moved you")
                         || l.contains("[Path] off the plan:");
-                // A floor graph warm-up finishing in between held the planner thread: that wait is not the room
-                // order's (this case measures RoomTour), so such a trial is a note.
-                warming |= corrected && l.contains("floor graph warm:");
                 Matcher m = QUEUED.matcher(l);
                 if (corrected && m.find()) {
                     queued = Double.parseDouble(m.group(3));
@@ -259,11 +270,9 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
         if (searched >= 1) {
             searchedTrials++;
         }
-        if (warming && queued != null) {
-            println("trial " + trial + ": the replan waited behind a floor graph warm-up - not measured");
-            queued = null;
-        } else if (!corrected) {
-            println("trial " + trial + ": the teleport back was not taken as a correction - not measured");
+        // A floor graph warm-up in between is measured too: it yields to the replan (mod acwaits5-1122).
+        if (!corrected) {
+            failures.add("trial " + trial + ": the teleport back after a landed warp was not taken as a correction");
         } else if (queued == null) {
             failures.add("trial " + trial + ": no replan after the correction");
         }
