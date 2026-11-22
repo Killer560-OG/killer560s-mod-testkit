@@ -181,6 +181,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1101-trapwalk", c -> caseTrapWalk(c, true));
             s.test("62-argrim-1101-trapwalk-control", c -> caseTrapWalk(c, false));
             s.test("62-argrim-1101-trapbox", GrimAutoRoutesTests::caseTrapBox);
+            // newtrap-route7: a trap-room held walk aligns onto the next node's point before firing it (New Trap's 1x1
+            // drop hole); his own actions land in the align's ticks.
+            s.test("62-argrim-1122-trapwalkalign", c -> caseTrapWalkAlign(c, null));
+            s.test("62-argrim-1122-trapwalkalign-same-use", c -> caseTrapWalkAlign(c, dev.testkit.gametest.SameTick.Act.USE));
+            s.test("62-argrim-1122-trapwalkalign-same-attack", c -> caseTrapWalkAlign(c, dev.testkit.gametest.SameTick.Act.ATTACK));
+            s.test("62-argrim-1122-trapwalkalign-same-swap", c -> caseTrapWalkAlign(c, dev.testkit.gametest.SameTick.Act.SWAP));
+            s.test("62-argrim-1122-trapwalkalign-same-click", c -> caseTrapWalkAlign(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK));
             // iw-campaign-1027: Inventory Walk on while a route sprints him and he clicks in his inventory, then closes it.
             s.test("62-argrim-1027-invwalk", GrimAutoRoutesTests::caseInvWalk);
             // ... and 62-argrim-play's whole route (its chest window keeps the route running) with Inventory Walk on.
@@ -852,6 +859,138 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             }
             noteFlags(c, s);
         } finally {
+            trapRoom(ctx, false);
+            resetRoutes(ctx);
+        }
+    }
+
+    /**
+     * 62-argrim-1122-trapwalkalign (newtrap-route7): in a trap room a held WALK that reaches the next (non-WALK) node's 1x1
+     * ring does not fire it on the ring's edge: it aligns onto the node's point with discrete keys and a body turn, then
+     * fires it (New Trap's breaker over a 1x1 drop hole stalled the route at #7 without it). Passes when the align ran,
+     * the node fired within 0.3 of its point and GrimAC is silent. With {@code act}: his right click, attack, hotbar swap or
+     * inventory click goes into every client tick from the align's first tick, and the wire must show a server tick that
+     * carried both an align packet (input or look) and his packet.
+     */
+    private static void caseTrapWalkAlign(Session c, dev.testkit.gametest.SameTick.Act act) {
+        ClientGameTestContext ctx = c.ctx();
+        String label = "trapwalkalign" + (act == null ? "" : " " + act);
+        resetRoutes(ctx);
+        arena(ctx, false);
+        trapRoom(ctx, true);
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            JsonObject w = node("WALK", 14, 8, 90f, 0f);
+            w.addProperty("start", true);
+            writeRoute(ctx, List.of(w, node("ROTATE", 9, 7, 90f, 0f)));
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(7));
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                double[] z = ctx.computeOnClient(mc -> {
+                    Object frame = ModUnderTest.staticCall(FRAME, "current");
+                    Vec3 v = (Vec3) ModUnderTest.staticCall(COORDS, "toReal", new Class<?>[]{frame.getClass(), double.class,
+                            double.class, double.class}, new Object[]{frame, 7.3, (double) F, 7.5});
+                    return new double[]{v.x, v.y, v.z};
+                });
+                c.server().command("summon zombie " + z[0] + " " + z[1] + " " + z[2]
+                        + " {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}");
+                ctx.waitTicks(5);
+            }
+            int aligns0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "walkAligns"));
+            if (act != null) {
+                st = ctx.computeOnClient(mc -> {
+                    dev.testkit.gametest.SameTick t = dev.testkit.gametest.SameTick.start(act, 1,
+                            p -> p instanceof net.minecraft.network.protocol.game.ServerboundPlayerInputPacket
+                                    || (p instanceof net.minecraft.network.protocol.game.ServerboundMovePlayerPacket mp
+                                    && mp.hasRotation()), 7, 8)
+                            .armedBy(() -> (Integer) ModUnderTest.staticCall(EXECUTOR, "walkAligns") > aligns0);
+                    if (act != dev.testkit.gametest.SameTick.Act.ATTACK) {
+                        t.allow(4);
+                    }
+                    return t;
+                });
+            }
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+            long mark = LogTap.mark();
+            startSampling(ctx);
+            walkOnto(ctx, 14.5, 5.5, 14, 8);
+            long alignFrom = -1;
+            long alignTo = -1;
+            int alignTicks = 0;
+            for (int t = 0; t < 120; t++) {
+                Object[] r = ctx.computeOnClient(mc -> new Object[]{
+                        dev.testkit.gametest.mod.Mod.field(EXECUTOR, "walkAlignNode") != null,
+                        ModUnderTest.staticCall(EXECUTOR, "isRunning"), System.nanoTime()});
+                if ((Boolean) r[0]) {
+                    alignTicks++;
+                    if (alignFrom < 0) {
+                        alignFrom = (Long) r[2] - 60_000_000L;
+                    }
+                    alignTo = (Long) r[2] + 60_000_000L;
+                }
+                if (!(Boolean) r[1] && t > 5) {
+                    break;
+                }
+                ctx.waitTick();
+            }
+            ctx.waitTicks(3);
+            dev.testkit.gametest.SameTick his = st;
+            if (his != null) {
+                ctx.runOnClient(mc -> his.close());
+            }
+            List<Sample> s = stopSampling(ctx);
+            List<dev.testkit.harness.WireCapture.Sent> wire = ctx.computeOnClient(mc -> {
+                List<dev.testkit.harness.WireCapture.Sent> l = dev.testkit.harness.WireCapture.snapshot();
+                dev.testkit.harness.WireCapture.stop();
+                return l;
+            });
+            int aligns = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "walkAligns")) - aligns0;
+            String fired = null;
+            for (String l : LogTap.since(mark)) {
+                if (l.contains("walk onto node #2")) {
+                    fired = l;
+                }
+            }
+            c.note(label + ": aligns " + aligns + ", align ticks " + alignTicks + ", " + fired);
+            check(aligns == 1, label + ": the walk did not align onto node #2 (" + aligns + ")");
+            check(fired != null && fired.contains("on the point"), label + ": node #2 was not fired from its point (" + fired
+                    + ")");
+            check(logHas(mark, "Node #2 ROTATE"), label + ": node #2 never fired");
+            if (act != null) {
+                // Server ticks (packets between two client_tick_end) inside the align that carried an align packet and his.
+                int shared = 0;
+                boolean feat = false;
+                boolean mine = false;
+                for (dev.testkit.harness.WireCapture.Sent x : wire) {
+                    String ty = x.type();
+                    if (ty.contains("client_tick_end")) {
+                        shared += feat && mine ? 1 : 0;
+                        feat = false;
+                        mine = false;
+                        continue;
+                    }
+                    if (x.nanos() < alignFrom || x.nanos() > alignTo) {
+                        continue;
+                    }
+                    feat |= ty.contains("player_input") || ty.contains("move_player_pos_rot") || ty.contains("move_player_rot");
+                    mine |= ty.contains("use_item") || ty.contains("interact") || ty.contains("set_carried_item")
+                            || ty.contains("container_click");
+                }
+                c.note(label + ": wire ticks in the align carrying an align packet and his: " + shared);
+                check(shared > 0, label + ": no server tick in the align carried both an align packet and his ("
+                        + st.report() + ")");
+                dev.testkit.gametest.SameTick.judge(c, st, label, dev.testkit.gametest.SameTick.Expect.ACTED);
+                st = null;
+            }
+            noteFlags(c, s);
+        } finally {
+            dev.testkit.gametest.SameTick open = st;
+            if (open != null) {
+                ctx.runOnClient(mc -> open.close());
+            }
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                c.server().command("kill @e[tag=sametick]");
+            }
             trapRoom(ctx, false);
             resetRoutes(ctx);
         }
