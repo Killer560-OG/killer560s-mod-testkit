@@ -66,6 +66,8 @@ public class SimDeucesHypixelViewTests implements FabricClientGameTest {
         int rotation = Integer.getInteger("testkit.deuces.rotation", 90);
         String tag = System.getProperty("testkit.deuces.tag", "built");
         try {
+            // Secret chests appear only when he comes near (sim-secrets-1018): the survey reads the far chest as a block.
+            SimChestHook.placeAtBuild(ctx);
             solo(ctx, rotation);
             int[] map = findMap(ctx);
             if (map == null) {
@@ -345,6 +347,7 @@ public class SimDeucesHypixelViewTests implements FabricClientGameTest {
     }
 
     private static void teardown(ClientGameTestContext ctx) {
+        SimChestHook.restore(ctx);
         ctx.runOnClient(mc -> {
             try {
                 ModUnderTest.staticCall(SIM_STATE, "leave", new Class<?>[]{}, new Object[]{});

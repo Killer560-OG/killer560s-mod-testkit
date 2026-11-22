@@ -38,6 +38,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxDungeonCases.register(s);
                     HxAcDoorOnly1115Cases.register(s);
                     HxAcCut1122Cases.register(s);
+                    HxAcDoorLeft1121Cases.register(s);
                     HxSocialCases.register(s);
                     HxHudCases.register(s);
                     HxBatCases.register(s); // 521-523, the Murkbat bat bonus (own block)
@@ -134,6 +135,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxDioriteGlass1103Cases.register(s);
                     HxEspDepth1103Cases.register(s);
                     HxPortalPixels1103Cases.register(s);
+                    HxKeySphere1121Cases.register(s);
                     HxZFight1104Cases.register(s);
                     // My Lyrics In F5 on screen, real Spotify, as the player and as Play As Mob (1103-f5-lyric-pixels, mod f5lyrics2-1103).
                     HxF5LyricPixels1103Cases.register(s);
@@ -227,6 +229,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxNoBossPearl1110Cases.register(s);
                     HxGlaciteCommA1114Cases.register(s);
                     HxNoLocraw1115Cases.register(s);
+                    HxMapCycler1118Cases.register(s);
                 });
     }
 }

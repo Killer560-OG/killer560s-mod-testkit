@@ -106,6 +106,15 @@ final class LeverFreeze1116Cases {
                 st = c.onClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK ? 3 : 1,
                         p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemOnPacket, 4, 5));
             }
+            if (tpEvery == 1) {
+                // leverflake-1121: a 120 ms round trip with a teleport every tick keeps one teleport unanswered at the server
+                // at all times, so every flick meets one; on the bare local link that hung on timing (0 dropped in some runs).
+                c.onClient(mc -> {
+                    dev.testkit.harness.Latency.install(120);
+                    return null;
+                });
+                undo.add(dev.testkit.harness.Latency::remove);
+            }
             undo.add(c.onClient(mc -> Mod.with(BossAuraTurnCases.LEVER_CONFIG, "Enabled", true)));
             int flicks = 0;
             for (int r = 0; r < 12; r++) {

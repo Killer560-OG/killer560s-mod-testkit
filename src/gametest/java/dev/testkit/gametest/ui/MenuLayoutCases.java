@@ -172,7 +172,9 @@ final class MenuLayoutCases {
             // Merged into Chat Keybinds (mod chat-keybinds-merge, killer560 2026-10-08): its rows are now built there.
             "Command Shortcuts", "Chat Keybinds",
             // Croesus / Chest Profit is "Croesus" since mod hud-key-2 (2026-10-12); its Auto rows are in Auto Croesus.
-            "Croesus / Chest Profit", "Croesus");
+            "Croesus / Chest Profit", "Croesus",
+            // One cheat card since mod apmenu-1121 (killer560 2026-11-21): Auto Clear's rows are on Dungeons Autopilot.
+            "Auto Clear", "Dungeons Autopilot");
     /** Tabs merged into another since the fixture: old leaf class -> the class that now holds its rows. */
     static final Map<String, String> MERGED = Map.of("gui.tab.CommandShortcutsTab", "gui.tab.CommandKeybindsTab",
             // The Secrets HUD is a section of the one Secret tab (mod doc-auto-1101, killer560 2026-11-01); 511 lists it

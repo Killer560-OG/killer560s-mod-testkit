@@ -28,6 +28,7 @@ public final class HxBossModule implements HxModule {
         HxBridge.register("boss.ss.state", (server, args) -> HxSimonSays.describe());
         HxBridge.register("boss.ss.clear", HxSimonSays::clear);
         HxBridge.register("boss.grim.block", HxBossModule::grimBlock);
+        HxBridge.register("boss.grim.state", HxBossModule::grimState);
         ServerTickEvents.END_SERVER_TICK.register(HxSimonSays::tick);
         HxBridge.register("boss.term.build", HxTerminalStand::build);
         HxBridge.register("boss.term.spawn", HxTerminalStand::spawn);
@@ -70,5 +71,32 @@ public final class HxBossModule implements HxModule {
         } catch (ReflectiveOperationException | LinkageError e) {
             return new JsonPrimitive(-1);
         }
+    }
+
+    /**
+     * Where GrimAC holds the player (its last simulated y, vertical velocity, ground and flight state), or
+     * {@code {"grim":false}} with no anticheat or no player yet: an arrival waits on these, not on time.
+     */
+    private static com.google.gson.JsonElement grimState(net.minecraft.server.MinecraftServer server,
+                                                         com.google.gson.JsonObject a) {
+        com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+        try {
+            Object api = Class.forName("ac.grim.grimac.GrimAPI").getField("INSTANCE").get(null);
+            Object mgr = api.getClass().getMethod("getPlayerDataManager").invoke(api);
+            Object gp = mgr.getClass().getMethod("getPlayer", java.util.UUID.class)
+                    .invoke(mgr, dev.testkit.server.hx.HxPrimitives.player(server, a).getUUID());
+            o.addProperty("grim", gp != null);
+            if (gp != null) {
+                Class<?> k = gp.getClass();
+                Object v = k.getField("clientVelocity").get(gp);
+                o.addProperty("y", k.getField("y").getDouble(gp));
+                o.addProperty("vy", (Double) v.getClass().getMethod("getY").invoke(v));
+                o.addProperty("onGround", k.getField("onGround").getBoolean(gp));
+                o.addProperty("flying", k.getField("isFlying").getBoolean(gp));
+            }
+        } catch (ReflectiveOperationException | LinkageError e) {
+            o.addProperty("grim", false);
+        }
+        return o;
     }
 }

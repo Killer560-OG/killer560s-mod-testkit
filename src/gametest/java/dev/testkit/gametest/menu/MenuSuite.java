@@ -285,6 +285,8 @@ public class MenuSuite implements FabricClientGameTest {
                     GlaciteCommMenuA1114Cases.register(s);
                     // ---- 1103-menu-armorhud-*, 1103-menu-wrongarmor armorhud-1103: Armor HUD, Wrong Armor Alert ----
                     ArmorHud1103Cases.register(s);
+                    // ---- 1121-menu-autotrap-cleared newtrap-1121: Auto Trap is Just Cleared only out of the box ----
+                    AutoTrap1121MenuCases.register(s);
                     // ---- 1103-menu-tooltip-over-bar tooltipbar-1103: tooltips draw above the search bar ----
                     TooltipBar1103Cases.register(s);
                     // ---- 1104-menu-friends-* friendsfilter-1104: area drop-down and /pv on the friends list ----

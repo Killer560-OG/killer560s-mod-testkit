@@ -137,7 +137,7 @@ public class SimBossTests implements FabricClientGameTest {
         if (System.getProperty("testkit.scenario", "").isBlank()) {
             return;
         }
-        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossStart1116.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME, SimWardrobeKeep1120.NAME, SimMenus1118.NAME, SimI4Terror1116.NAME, SimLeap1116.NAME, SimClasses1116.NAME, SimMasks1116.NAME, SimBossEtherwarp1116.NAME, SimCmdKeys1117.NAME, SimLeapSpots1117.NAME, SimLeapSpots1117.ORDER_NAME, SimLeapSpots1117.F7_END, SimBossTermFriend1119.NAME, SimBossTermNumbers1119.NAME, SimBossTermForeign1119.ODIN, SimBossTermForeign1119.NF_ORDER, SimBossTermForeign1119.NF_ALL, SimMelodyLost1118.NAME, SimBossTermFriend1119.BURST_NAME, SimFastLeap1120.NAME, SimDevPractice1118.NAME};
+        String[] all = {P1P2, P3, P4P5, LAVA, AP3, PORTAL, MAXOR_CRYS, MOVES, RULES, CAPTURE, DRAGONS, ONEHIT, NOSTRAY, FIX3, GATES, CRYS_WALK, FRESH, BREAKER, BREAKER_CHARGE, SimBossTpto1109.NAME, NOWITHER, SimBossStartStay1112.NAME, SimBossStart1116.NAME, SimBossEe3Route1109.NAME, LIGHTS1109, SimBossNecron1111.PULL, SimBossNecron1111.DRAGON_HP, HYPE, SimBossPersist1112.NAME, SimBossBreakerRefill1113.NAME, SimBossLeftClick1114.NAME, SimArmor1115.NAME, SimWardrobe1115.NAME, SimWardrobeKeep1120.NAME, SimMenus1118.NAME, SimI4Terror1116.NAME, SimLeap1116.NAME, SimClasses1116.NAME, SimMasks1116.NAME, SimBossEtherwarp1116.NAME, SimCmdKeys1117.NAME, SimLeapSpots1117.NAME, SimLeapSpots1117.ORDER_NAME, SimLeapSpots1117.F7_END, SimBossTermFriend1119.NAME, SimBossTermNumbers1119.NAME, SimBossTermForeign1119.ODIN, SimBossTermForeign1119.NF_ORDER, SimBossTermForeign1119.NF_ALL, SimMelodyLost1118.NAME, SimBossTermFriend1119.BURST_NAME, SimBossTermZeeks1120.SEQ, SimBossTermZeeks1120.SEQ_NF, SimBossTermZeeks1120.SEQ_ODIN, SimFastLeap1120.NAME, SimDevPractice1118.NAME};
         List<String> chosen = new ArrayList<>();
         for (String n : all) {
             if (!Scenario.skip(n)) {
@@ -153,7 +153,7 @@ public class SimBossTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         for (String name : chosen) {
             // P3 waits on Auto Terminal and AP3 on AP3; both are compiled out of a legit jar.
-            if ((name.equals(P3) || name.equals(AP3) || name.equals(GATES) || name.equals(BREAKER) || name.equals(BREAKER_CHARGE) || name.equals(SimBossEe3Route1109.NAME) || name.equals(SimI4Terror1116.NAME) || name.equals(SimBossTermFriend1119.NAME) || name.equals(SimBossTermNumbers1119.NAME) || name.startsWith("1119-boss-term-")) && !dev.testkit.gametest.mod.Mod.isCheat()) {
+            if ((name.equals(P3) || name.equals(AP3) || name.equals(GATES) || name.equals(BREAKER) || name.equals(BREAKER_CHARGE) || name.equals(SimBossEe3Route1109.NAME) || name.equals(SimI4Terror1116.NAME) || name.equals(SimBossTermFriend1119.NAME) || name.equals(SimBossTermNumbers1119.NAME) || name.startsWith("1119-boss-term-") || name.startsWith("1120-boss-term-")) &&!dev.testkit.gametest.mod.Mod.isCheat()) {
                 println(name, "SKIPPED: legit jar (Auto Terminal / AP3 are cheat-only)");
                 continue;
             }
@@ -191,6 +191,7 @@ public class SimBossTests implements FabricClientGameTest {
                     case SimBossTermFriend1119.BURST_NAME -> SimBossTermFriend1119.run(ctx, f, true);
                     case SimBossTermNumbers1119.NAME -> SimBossTermNumbers1119.run(ctx, f);
                     case SimBossTermForeign1119.ODIN, SimBossTermForeign1119.NF_ORDER, SimBossTermForeign1119.NF_ALL -> SimBossTermForeign1119.run(ctx, f, name);
+                    case SimBossTermZeeks1120.SEQ, SimBossTermZeeks1120.SEQ_NF, SimBossTermZeeks1120.SEQ_ODIN -> SimBossTermZeeks1120.run(ctx, f, name);
                     case SimArmor1115.NAME -> SimArmor1115.run(ctx, f);
                     case SimI4Terror1116.NAME -> SimI4Terror1116.run(ctx, f);
                     case SimBossEtherwarp1116.NAME -> SimBossEtherwarp1116.run(ctx, f);
@@ -1831,8 +1832,22 @@ public class SimBossTests implements FabricClientGameTest {
     }
 
     private static void arrows(ClientGameTestContext ctx, List<String> f) {
-        tp(ctx, -0.5, 119, 77.5, 90, 0);
+        // On the device's stand (Arrow Align's DEVICE_STAND, block 0 120 77). From (-0.5, 119), off the stand, he dropped to
+        // y 118 and the top-row corner frames were 6.12 from his eyes, past the server's 6.0 interact range (entity range
+        // 3 + 3): their clicks were dropped and the device never completed whenever the layout needed a corner turned
+        // (flake-boss-p1p2-1121).
+        tp(ctx, 0.5, 120, 77.5, 90, 0);
         ctx.waitTicks(10);
+        double standY = ctx.computeOnClient(mc -> mc.player.getY());
+        if (standY < 119.9) {
+            f.add("Arrows: not on the device stand (y " + standY + ")");
+        }
+        double far = ctx.computeOnClient(mc -> mc.level.getEntitiesOfClass(ItemFrame.class, new AABB(-3, 119, 74, -1, 126, 81)).stream()
+                .mapToDouble(fr -> Math.sqrt(fr.getBoundingBox().distanceToSqr(mc.player.getEyePosition()))).max().orElse(-1));
+        println(P3, String.format(Locale.ROOT, "Arrows: farthest frame %.2f from the eyes (server range 6.0)", far));
+        if (far >= 6.0) {
+            f.add("Arrows: a frame is out of the server's interact range from the stand (" + far + ")");
+        }
         int clicks = 0;
         // a frame the server turned later than the client saw is checked again: passes repeat until one needs no click
         for (int pass = 0, before = -1; pass < 4 && before != clicks; pass++) {
@@ -1860,7 +1875,28 @@ public class SimBossTests implements FabricClientGameTest {
                     mc.gameMode.interact(mc.player, fr, new EntityHitResult(fr, fr.position()), InteractionHand.MAIN_HAND);
                 });
                 clicks++;
-                ctx.waitTicks(3);
+                // The client never turns a frame itself: the turn shows only when the server's entity data comes back. A
+                // fixed 3-tick wait read a late echo as "not turned yet" and clicked again, overshooting round the eight
+                // (lane failures took 53-105 clicks, passes 28-45; flake-boss-p1p2-1121), so wait for this click's echo.
+                int seen = rot;
+                int idx = i;
+                if (!until(ctx, "frame " + pos.toShortString() + " to turn", mc -> {
+                    ItemFrame fr = frameAt(mc, pos);
+                    return fr == null || (fr.getRotation() & 7) != seen;
+                }, 20) && k == 0) {
+                    println(P3, ctx.computeOnClient(mc -> {
+                        ItemFrame fr = frameAt(mc, pos);
+                        Object sf = ((Object[]) dev.testkit.gametest.mod.Mod.field("bosssim.BossDevices", "frames"))[idx];
+                        int n = mc.level.getEntitiesOfClass(ItemFrame.class, new AABB(pos).inflate(0.2)).size();
+                        return String.format(Locale.ROOT, "Arrows diag %s: client frame #%d rot %d (%d at the cell), server frame %s, "
+                                        + "player %.2f %.2f %.2f eye-box %.2f",
+                                pos.toShortString(), fr.getId(), fr.getRotation(), n,
+                                sf == null ? "none" : "#" + ((ItemFrame) sf).getId() + " rot " + ((ItemFrame) sf).getRotation()
+                                        + (((ItemFrame) sf).isRemoved() ? " REMOVED" : ""),
+                                mc.player.getX(), mc.player.getY(), mc.player.getZ(),
+                                Math.sqrt(fr.getBoundingBox().distanceToSqr(mc.player.getEyePosition())));
+                    }));
+                }
             }
         }
         ctx.waitTicks(6);
@@ -1879,14 +1915,14 @@ public class SimBossTests implements FabricClientGameTest {
                 f.add("Target: nothing lit after " + hit + " hit(s)");
                 return;
             }
-            ctx.waitTicks(2);   // the block change reaches the client a tick or two after the server lights it
             int[] lit = (int[]) call(DEVICES, "litTarget");
             if (lit == null) {
                 f.add("Target: the lit target went out on its own");
                 return;
             }
-            boolean emerald = ctx.computeOnClient(mc -> mc.level.getBlockState(new BlockPos(lit[0], lit[1], lit[2]))
-                    .is(net.minecraft.world.level.block.Blocks.EMERALD_BLOCK));
+            // the block change reaches the client after the server lights it: wait for it, not a fixed 2 ticks
+            boolean emerald = until(ctx, "the lit target emerald on the client", mc -> mc.level.getBlockState(
+                    new BlockPos(lit[0], lit[1], lit[2])).is(net.minecraft.world.level.block.Blocks.EMERALD_BLOCK), 20);
             if (!emerald) {
                 f.add("Target: the lit block is not emerald on the client");
             }
@@ -2484,11 +2520,13 @@ public class SimBossTests implements FabricClientGameTest {
             return;
         }
         double[] g0 = boss("Goldor");
+        int gt0 = phaseTick();
         untilTick(ctx, 100, 140);
         double[] g100 = boss("Goldor");
         int gt = phaseTick();
-        println(MOVES, "Goldor t0 " + fmt(g0) + ", t" + gt + " " + fmt(g100));
-        expect(f, "Goldor starts at (80, 119, 40) (a few ticks of 0.048 east by the time it is read)", g0 != null && dist(g0, 80, 119, 40) < 0.5, true);
+        println(MOVES, "Goldor t0 " + fmt(g0) + " (read at tick " + gt0 + "), t" + gt + " " + fmt(g100));
+        // a slow client reads him late: take the ticks already walked (0.048 east a tick, as the check below) back off the read
+        expect(f, "Goldor starts at (80, 119, 40)", g0 != null && dist(new double[]{g0[0] - 0.048 * (gt0 + 1), g0[1], g0[2]}, 80, 119, 40) < 0.25, true);
         expect(f, "Goldor walks the S4 line east at 0.048 a tick", g100 != null && Math.abs(g100[0] - (80 + 0.048 * (gt + 1))) < 0.25
                 && Math.abs(g100[2] - 40) < 0.01, true);
         untilTick(ctx, 365, 320);
@@ -2817,11 +2855,12 @@ public class SimBossTests implements FabricClientGameTest {
         tp(ctx, 63.5, 238, 49.5, 0, 0);
         ctx.waitTicks(3);
         clickCrystal(ctx, 64.5, 238.375, 50.5);
-        ctx.waitTicks(3);
+        // each pickup line is waited for (server ticks too), never counted after a fixed 3 client ticks
+        until(ctx, "the first crystal picked up", mc -> count(m, "picked up an Energy Crystal!") >= 1, 20);
         tp(ctx, 83.5, 238, 49.5, 0, 0);
         ctx.waitTicks(3);
         clickCrystal(ctx, 82.5, 238.375, 50.5);
-        ctx.waitTicks(3);
+        until(ctx, "the second crystal picked up", mc -> count(m, "picked up an Energy Crystal!") >= 2, 20);
         int n = count(m, "picked up an Energy Crystal!");
         if (n < 2) {
             f.add(what + ": clicking the crystals picked up " + n);
@@ -2973,8 +3012,14 @@ public class SimBossTests implements FabricClientGameTest {
         return null;
     }
 
+    /**
+     * Waits up to {@code ticks} client ticks AND {@code ticks} server ticks (capped at 10x the client ticks). The sim acts on
+     * server ticks; under load the integrated server falls behind the client, and a client-tick-only wait gave up before
+     * the sim had run its ticks (1101-boss-p1p2's 1/2 line came the same second its 20-tick wait ended; flake-boss-p1p2-1121).
+     */
     static boolean until(ClientGameTestContext ctx, String what, Predicate<Minecraft> p, int ticks) {
-        for (int i = 0; i < ticks; i++) {
+        int s0 = serverTick(ctx);
+        for (int i = 0; i < ticks || (s0 >= 0 && i < ticks * 10 && serverTick(ctx) - s0 < ticks && serverTick(ctx) >= s0); i++) {
             if (ctx.computeOnClient(p::test)) {
                 return true;
             }
@@ -2982,6 +3027,11 @@ public class SimBossTests implements FabricClientGameTest {
         }
         println("boss", "timed out waiting for " + what);
         return false;
+    }
+
+    /** The integrated server's tick count, -1 with none. */
+    private static int serverTick(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> mc.getSingleplayerServer() == null ? -1 : mc.getSingleplayerServer().getTickCount());
     }
 
     private static boolean chatSeen(long mark, String text) {

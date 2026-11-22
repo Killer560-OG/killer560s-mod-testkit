@@ -647,4 +647,34 @@ final class BossTimerCases {
     private static void chat(String cls, String method, String line) {
         Mod.staticCall(cls, method, Component.literal(line));
     }
+
+    /**
+     * oldflakes-1121 (1119-boss-term-click-limit flaked on a 359 ms stall): a trusted per-tick server that stalls a few
+     * ticks, split by a 20-tick window boundary into two short windows, stays trusted (the stall is one gap, not a server
+     * that does not ping every tick); the 15-of-20 anticheat pattern above still loses it.
+     */
+    static void stallKeepsTrust(LogicCase c) throws Exception {
+        try {
+            Mod.staticCall(CLOCK, "untrustForTest");
+            for (int i = 0; i < 40; i++) {
+                simTick(1);
+            }
+            c.check("trusted before the stall", (Boolean) Mod.staticCall(CLOCK, "trusted"), "not trusted");
+            int changes = (Integer) Mod.staticCall(CLOCK, "trustChanges");
+            for (int i = 0; i < 17; i++) {
+                simTick(1);
+            }
+            for (int i = 0; i < 7; i++) {
+                simTick(0); // 350 ms of no pings, 3 ticks in one window and 4 in the next
+            }
+            for (int i = 0; i < 60; i++) {
+                simTick(1);
+            }
+            c.check("a 7-tick stall across a window boundary keeps the trust", (Boolean) Mod.staticCall(CLOCK, "trusted"),
+                    "trusted=" + Mod.staticCall(CLOCK, "trusted"));
+            c.eq("the trust never changed", changes, Mod.staticCall(CLOCK, "trustChanges"));
+        } finally {
+            Mod.staticCall(CLOCK, "untrustForTest");
+        }
+    }
 }
