@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-21T19:26:46",
- "modSource": "lane-flake-ss-auto-only-1120",
- "modGitSha": "837dcb1e5f2aa7ec308eedd6dba424e56dcd3f03",
+ "generatedAt": "2026-11-21T19:43:12",
+ "modSource": "lane-ssarrive-lever-1121",
+ "modGitSha": "83ce2876eb530b3f47511f7dbfde21e002c0e07a",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
