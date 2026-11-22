@@ -24,7 +24,8 @@ import java.util.List;
  */
 final class CmdClean1101Cases {
 
-    private static final List<String> GONE_ROOTS = List.of("class", "log", "k560search", "lag", "k560textures", "autoclear",
+    // "class" left this list: the dungeon sim registers its own Hypixel-style /class (mod 1afd47624, 2026-11-21).
+    private static final List<String> GONE_ROOTS = List.of("log", "k560search", "lag", "k560textures", "autoclear",
             "autosecret", "blink", "freezestate", "rewind", "test", "k560worldexport", "k560path", "hypixelah", "hypixelbz",
             "flhypixel", "ahmenudump", "simbosscapture");
     private static final List<String> GONE_SUBS = List.of("class", "ew", "mapdump", "profile", "sim", "record", "stop");
@@ -129,8 +130,12 @@ final class CmdClean1101Cases {
             });
             List<String> rows = c.onClient(mc -> labels(build("gui.tab.AutoClearTab")));
             c.note("Auto Clear tab rows: " + rows);
-            c.check(rows.stream().anyMatch(r -> r.startsWith("Clear Toggle Key:")), "no Clear Toggle Key row (starts Auto Clear)");
-            c.check(rows.stream().anyMatch(r -> r.startsWith("Auto Secret Key:")), "no Auto Secret Key row (starts Auto Secret)");
+            // apmenu-1121: one card, one switch (its Toggle Keybind is the card's own key, not a row)
+            c.check(rows.stream().anyMatch(r -> r.startsWith("Dungeons Autopilot:")), "no Dungeons Autopilot switch row");
+            c.check(rows.stream().anyMatch(r -> r.startsWith("Mode:")), "no Mode row");
+            c.check(rows.stream().anyMatch(r -> r.startsWith("Blood Rush:")), "no Blood Rush row");
+            c.check(rows.stream().noneMatch(r -> r.startsWith("Clear Toggle Key:") || r.startsWith("Auto Secret Key:")),
+                    "an old start key row is still on the card");
             c.check(rows.stream().anyMatch(r -> r.startsWith("Mob Timeout:")), "Auto Clear's section was not built");
             for (String gone : List.of("Bat Test", "Insta Clear Evidence", "Last Insta Clear Entry", "Known After",
                     "Clear Window", "Mark Last")) {

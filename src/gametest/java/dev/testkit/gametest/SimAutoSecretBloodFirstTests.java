@@ -4,6 +4,9 @@ import dev.testkit.compat.McCompat;
 
 import com.google.gson.JsonObject;
 
+import dev.testkit.harness.Report;
+import dev.testkit.harness.SuiteVerdict;
+
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 
@@ -42,11 +45,35 @@ import java.util.concurrent.atomic.AtomicReference;
  *       Full Blood Rush > Off (and back the other way), and the Auto Clear tab has it as a cycling button.</li>
  * </ul>
  * The sim case only when named (several minutes).
+ * <p>apmenu-1121 (killer560 2026-11-21): Auto Secret's Blood First became Dungeons Autopilot's Blood Rush, so the floor run
+ * is the card's now, one row per part, started through the card (DungeonsAutopilot), Mode Solo 300:
+ * <ul>
+ *   <li><b>1121-sim-apmenu-rush-keystop</b>: Blood Rush Door started by the one Toggle Keybind; pressed again mid-rush
+ *       (Auto Clear's Door Only running, Blood door still shut) it switches everything off and nothing more happens.</li>
+ *   <li><b>1121-sim-apmenu-rush-door</b>: Door + Disable After Blood Rush: the Blood door opens (lock block air), R stays
+ *       uncleared, no mob is killed, then the card switches itself off and the secrets never start.</li>
+ *   <li><b>1121-sim-apmenu-rush-clear</b>: Clear + Disable After Blood Rush: R (on the rush path) is cleared before the
+ *       Blood door opens, then the door part runs, the door opens and the card switches itself off.</li>
+ *   <li><b>1121-sim-apmenu-rush-none</b>: None: no rush at all (Auto Clear never started for one), the secrets start at
+ *       once and both routes run; the Blood door stays shut.</li>
+ * </ul>
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
 
     private static final String NAME = "148-sim-autosecret-bloodfirst";
+    private static final String PILOT = "com.killer560.hub.autosecret.DungeonsAutopilot";
+    private static final String KEYBINDS = "com.killer560.hub.gui.ModuleKeybinds";
+    private static final int RUSH_KEY = 326;   // KP_6, free in the test client
+    /** The rows: mode -> case name. */
+    private static final Map<String, String> ROWS = new LinkedHashMap<>(Map.of());
+    static {
+        ROWS.put("KEYSTOP", "1121-sim-apmenu-rush-keystop");
+        ROWS.put("DOOR", "1121-sim-apmenu-rush-door");
+        ROWS.put("CLEAR", "1121-sim-apmenu-rush-clear");
+        ROWS.put("NONE", "1121-sim-apmenu-rush-none");
+    }
+    private static final List<String> rowFailures = new ArrayList<>();
     private static final String LOGIC = "366-logic-secret-bloodfirst";
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String SIM_ITEMS = "com.killer560.hub.roomsim.SimItems";
@@ -58,7 +85,7 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
     private static final String AR_CONFIG = "com.killer560.hub.autoroutes.AutoRoutesConfig";
     private static final String AS = "com.killer560.hub.autosecret.AutoSecretFeature";
     private static final String AS_CONFIG = "com.killer560.hub.autosecret.AutoSecretConfig";
-    private static final String MODE = AS_CONFIG + "$SecretBloodFirst";
+    private static final String MODE = AS_CONFIG + "$BloodRush"; // apmenu-1121: Secret Blood First folded into Blood Rush
     private static final String AUTO_CLEAR = "com.killer560.hub.autoclear.AutoClearFeature";
     private static final String AUTO_CLEAR_CONFIG = "com.killer560.hub.autoclear.AutoClearConfig";
     private static final int CASE_TICKS = 20 * 240;
@@ -77,19 +104,27 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
             ModUnderTest.require("killer560smod");
             logicCase(ctx);
         }
-        if (System.getProperty("testkit.scenario", "").isBlank() || Scenario.skip(NAME)) {
+        List<String> modes = new ArrayList<>();
+        if (!System.getProperty("testkit.scenario", "").isBlank()) {
+            ROWS.forEach((m, n) -> {
+                if (Scenario.named(n)) {
+                    modes.add(m);
+                }
+            });
+        }
+        if (modes.isEmpty()) {
             return;
         }
         ModUnderTest.require("killer560smod");
         if (!dev.testkit.gametest.mod.Mod.isCheat()) {
-            Scenario.skipped(NAME, "legit jar: no Auto Secret");
+            modes.forEach(m -> Scenario.skipped(ROWS.get(m), "legit jar: no Dungeons Autopilot"));
             return;
         }
         LogTap.install();
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            Scenario.skipped(NAME, "needs real room captures and room database");
+            modes.forEach(m -> Scenario.skipped(ROWS.get(m), "needs real room captures and room database"));
             return;
         }
         Scenario.ensureRoomDatabase(ctx);
@@ -108,7 +143,7 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
             ModUnderTest.set(ar, "setStartFromStartNodeOnly", true);
             ModUnderTest.call(ar, "setHeight", new Class<?>[]{float.class}, new Object[]{1.0f});
             Object as = ModUnderTest.config(AS_CONFIG);
-            modeBefore[0] = ModUnderTest.call(as, "getSecretBloodFirst", new Class<?>[]{}, new Object[]{});
+            modeBefore[0] = ModUnderTest.call(as, "getBloodRush", new Class<?>[]{}, new Object[]{});
             ModUnderTest.set(as, "setChatFeedback", true);
             ModUnderTest.set(as, "setRouteStallSeconds", 10);
             ModUnderTest.set(as, "setPuzzleWaitSeconds", 0);
@@ -123,9 +158,9 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
         // R is cleared by killing its zombie, and which rooms got cleared is judged: no clear on entry (as 141).
         ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimMobs", "setClearRoomsOnEntry",
                 new Class<?>[]{boolean.class}, new Object[]{false}));
-        List<String> failures = new ArrayList<>();
         try {
-            for (String mode : List.of("DOOR_CAMP", "FULL_BLOOD_RUSH", "OFF")) {
+            for (String mode : modes) {
+                List<String> failures = new ArrayList<>();
                 // A trip the map planned across a room it had not identified yet can land in the floor's trap room, where
                 // no etherwarp works and Auto Secret stops by design (preexisting-1026: Museum -> Overgrown landed in New
                 // Trap). Trap rooms are not functional yet (killer560): that floor measured nothing about Blood First, so
@@ -147,6 +182,7 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
                         stopAll(ctx);
                     }
                 }
+                row(ROWS.get(mode), failures);
             }
         } finally {
             ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimMobs", "setClearRoomsOnEntry",
@@ -154,18 +190,28 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
             ctx.runOnClient(mc -> {
                 ModUnderTest.set(ModUnderTest.config(AUTO_CLEAR_CONFIG), "setEnabled", false);
                 setMode(ModUnderTest.config(AS_CONFIG), modeBefore[0]);
+                ModUnderTest.set(ModUnderTest.config(AS_CONFIG), "setDisableAfterBloodRush", false);
+                ModUnderTest.staticCall(KEYBINDS, "set", new Class<?>[]{String.class, int.class}, new Object[]{"AutoClearTab", -1});
             });
             SimAutopilotTests.writeRoutes(ctx, Map.of());
             ctx.runOnClient(mc -> mc.options.renderDistance().set(renderBefore));
             leaveSim(ctx);
         }
-        for (String f : failures) {
-            println("FAIL: " + f);
+        if (!rowFailures.isEmpty()) {
+            throw new AssertionError(rowFailures.size() + " row(s) failed: " + String.join("; ", rowFailures));
         }
-        if (!failures.isEmpty()) {
-            throw new AssertionError(failures.size() + " problem(s): " + String.join("; ", failures));
+    }
+
+    private static void row(String name, List<String> failures) {
+        boolean pass = failures.isEmpty();
+        String detail = pass ? "acted as asserted" : String.join("; ", failures);
+        System.out.println("[" + name + "] " + (pass ? "PASS" : "FAIL") + " - " + detail);
+        Report.caseStarted(name);
+        Report.caseFinished(name, pass ? "PASS" : "FAIL", "n/a (singleplayer)", detail, List.of(), List.of());
+        SuiteVerdict.finished(name);
+        if (!pass) {
+            rowFailures.add(name + ": " + detail);
         }
-        println("PASS");
     }
 
     // ================================================================================================ one mode
@@ -296,7 +342,13 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
             ModUnderTest.set(cfg, "setHyperionHops", true);
             Object w = ModUnderTest.enumValue(AUTO_CLEAR_CONFIG + "$Weapon", "HYPERION");
             ModUnderTest.call(cfg, "setWeapon", new Class<?>[]{w.getClass()}, new Object[]{w});
-            setMode(ModUnderTest.config(AS_CONFIG), ModUnderTest.enumValue(MODE, mode));
+            Object as = ModUnderTest.config(AS_CONFIG);
+            setMode(as, ModUnderTest.enumValue(MODE, "KEYSTOP".equals(mode) ? "DOOR" : mode));
+            Object solo = ModUnderTest.enumValue(AS_CONFIG + "$Mode", "SOLO_300");
+            ModUnderTest.call(as, "setMode", new Class<?>[]{solo.getClass()}, new Object[]{solo});
+            ModUnderTest.set(as, "setDisableAfterBloodRush", "DOOR".equals(mode) || "CLEAR".equals(mode));
+            ModUnderTest.set(as, "setBloodFirst", false);
+            ModUnderTest.staticCall(KEYBINDS, "set", new Class<?>[]{String.class, int.class}, new Object[]{"AutoClearTab", RUSH_KEY});
         });
         int bloodCell = ctx.computeOnClient(mc -> (Integer) ModUnderTest.call(ModUnderTest.staticCall(LAYOUT, "capture"),
                 "bloodDoor", new Class<?>[]{}, new Object[]{}));
@@ -315,127 +367,172 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
         }
         SimAutopilotTests.ground(ctx);
 
-        // ---- the run ---------------------------------------------------------------------------------------------
+        // ---- the run: started through the card ------------------------------------------------------------------
         long mark = LogTap.mark();
-        Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "start"));
-        if (!Boolean.TRUE.equals(started)) {
-            failures.add(tag + ": Auto Secret refused to start");
-            return;
+        boolean keystop = "KEYSTOP".equals(mode);
+        if (keystop) {
+            ctx.getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(RUSH_KEY), 3);
+        } else {
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(PILOT, "setOn", new Class<?>[]{boolean.class}, new Object[]{true}));
         }
         Vec3 last = ctx.computeOnClient(mc -> mc.player.position());
         double travelled = 0;
         int ticks = 0;
         boolean ended = false;
+        boolean pressedOff = false;
+        boolean openWhenPressed = false;
+        int doorSeen = -1;
         for (; ticks < CASE_TICKS; ticks += 5) {
             ctx.waitTicks(5);
             Vec3 now = ctx.computeOnClient(mc -> mc.player.position());
             travelled += now.distanceTo(last);
             last = now;
             List<String> log = LogTap.since(mark);
-            boolean allRouted = routes.keySet().stream().allMatch(n -> log.stream().anyMatch(
-                    l -> l.contains("[AutoSecret] route " + n + " finished")));
-            if (allRouted || !(Boolean) ctx.computeOnClient(mc -> ModUnderTest.staticCall(AS, "isRunning"))) {
+            boolean on = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(PILOT, "isOn"));
+            if (keystop) {
+                // mid-rush: within 5 ticks of Door Only starting (its warps take ~11 ticks, the door opens ~30 in), the Blood door still shut
+                if (doorSeen < 0 && indexOf(log, "[AutoClear] started: Door Only") >= 0) {
+                    doorSeen = ticks;
+                }
+                if (!pressedOff && doorSeen >= 0 && ticks >= doorSeen) {
+                    openWhenPressed = ctx.computeOnClient(mc -> mc.level.getBlockState(bloodLock).isAir());
+                    ctx.getInput().holdKeyFor(dev.testkit.compat.McKeys.nat(RUSH_KEY), 3);
+                    pressedOff = true;
+                    ctx.waitTicks(20);
+                    ended = true;
+                    break;
+                }
+                if (!on && ticks > 40) {
+                    break;
+                }
+                continue;
+            }
+            if ("NONE".equals(mode)) {
+                boolean allRouted = routes.keySet().stream().allMatch(n -> log.stream().anyMatch(
+                        l -> l.contains("[AutoSecret] route " + n + " finished")));
+                if (allRouted || !on) {
+                    ended = true;
+                    break;
+                }
+            } else if (!on) {
                 ended = true;
                 break;
             }
         }
-        String state = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(AS, "bloodFirstState"));
+        boolean onAfter = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(PILOT, "isOn"));
+        boolean clearBusy = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AUTO_CLEAR, "isBusy"));
+        boolean asRunning = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "isRunning"));
+        if (keystop) {
+            ctx.waitTicks(60);   // nothing more may happen after the key
+        }
+        boolean shutLater = ctx.computeOnClient(mc -> !mc.level.getBlockState(bloodLock).isAir());
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(PILOT, "setOn", new Class<?>[]{boolean.class}, new Object[]{false}));
         stopAll(ctx);
         ctx.waitTicks(5);
         List<String> log = LogTap.since(mark);
         for (String l : log) {
-            if (l.contains("[AutoSecret]") || l.contains("[AutoClear] done") || l.contains("[AutoClear] stopped")
-                    || l.contains("[Autopilot]")) {
-                String s = l.replaceAll("^.*?(\\[Autopilot\\]|\\[AutoSecret\\]|\\[AutoClear\\])", "$1");
-                println("  " + (s.length() > 400 ? s.substring(0, 400) + "..." : s));
+            if (l.contains("[AutoSecret]") || l.contains("[AutoClear]") || l.contains("[Autopilot]")
+                    || l.contains("[DungeonsAutopilot]") || l.contains("BLOOD DOOR")) {
+                String s = l.replaceAll("^.*?(\\[Autopilot\\]|\\[AutoSecret\\]|\\[AutoClear\\]|\\[DungeonsAutopilot\\])", "$1");
+                println("  " + (s.length() > 300 ? s.substring(0, 300) + "..." : s));
             }
         }
-        boolean bloodOpen = ctx.computeOnClient(mc -> mc.level.getBlockState(bloodLock).isAir());
-        boolean rCleared = Boolean.TRUE.equals(SimAutopilotTests.cleared(ctx).get(roomR.name()));
-        int firstTarget = indexOf(log, "[AutoSecret] target ");
-        int bloodTrip = indexOf(log, "[AutoSecret] going to the blood door");
-        int bloodOpened = indexOf(log, "blood door at cell " + bloodCell + " is open");
-        int clearR = indexOf(log, "Blood First (Full Blood Rush): clearing " + roomR.name());
-        int handed = indexOf(log, "[AutoSecret] handing ");
         for (String l : log) {
             if (l.contains("[AutoSecret] stopped: in New Trap") || l.contains("[AutoSecret] stopped: in Old Trap")) {
                 throw new TrapStop(tag + ": the trip landed in a trap room and Auto Secret stopped there");
             }
         }
-        int rFinished = 0;
-        for (String n : routes.keySet()) {
-            int f = indexOf(log, "[AutoSecret] route " + n + " finished");
-            if (f < 0) {
-                failures.add(tag + ": the route in " + n + " never finished");
-            } else if (bloodOpened >= 0 && f < bloodOpened) {
-                failures.add(tag + ": the route in " + n + " ran before the blood door opened");
-            } else {
-                rFinished++;
-            }
-        }
-        println(String.format(Locale.US, "%s: %.1f s, traveled %.1f blocks, ended %s; first target line %d, blood trip %d,"
-                        + " blood open line %d (lock air %s), clear R line %d, first hand-over %d, R cleared %s, routes done %d,"
-                        + " Blood First state %s", tag, ticks / 20.0, travelled, ended, firstTarget, bloodTrip, bloodOpened,
-                bloodOpen, clearR, handed, rCleared, rFinished, state));
-        if (travelled < 10) {
-            failures.add(tag + ": he moved only " + String.format(Locale.US, "%.1f", travelled) + " blocks - nothing ran");
+        boolean bloodOpen = ctx.computeOnClient(mc -> mc.level.getBlockState(bloodLock).isAir());
+        boolean rCleared = Boolean.TRUE.equals(SimAutopilotTests.cleared(ctx).get(roomR.name()));
+        int onLine = indexOf(log, "[DungeonsAutopilot] on: mode SOLO_300, blood rush " + ("KEYSTOP".equals(mode) ? "DOOR" : mode));
+        int doorRun = indexOf(log, "[AutoClear] started: Door Only");
+        int clearRun = indexOf(log, "[AutoClear] started: Blood Rush");
+        int anyClearRun = indexOf(log, "[AutoClear] started: ");
+        int rClearedLine = indexOf(log, "room cleared: " + roomR.name());
+        int kills = (int) log.stream().filter(l -> l.contains("starred kill(s) this run")).count();
+        int secretsStart = indexOf(log, "[AutoSecret] started");
+        int firstTarget = indexOf(log, "[AutoSecret] target ");
+        int disabledLine = indexOf(log, "[DungeonsAutopilot] off: Disable After Blood Rush");
+        int keyOffLine = indexOf(log, "[DungeonsAutopilot] off: you switched it off");
+        println(String.format(Locale.US, "%s: %.1f s, traveled %.1f blocks, ended %s; on line %d, door run %d, clear run %d, R cleared"
+                        + " %s (line %d), kills %d, secrets started %d, first target %d, Disable off %d, key off %d, blood open %s,"
+                        + " on after %s, Auto Clear busy %s, Auto Secret running %s", tag, ticks / 20.0, travelled, ended, onLine,
+                doorRun, clearRun, rCleared, rClearedLine, kills, secretsStart, firstTarget, disabledLine, keyOffLine, bloodOpen,
+                onAfter, clearBusy, asRunning));
+        if (onLine < 0) {
+            failures.add(tag + ": the card never switched on with this Blood Rush");
         }
         switch (mode) {
-            case "DOOR_CAMP" -> {
-                if (bloodTrip < 0 || bloodOpened < 0 || !bloodOpen) {
-                    failures.add(tag + ": the blood door was not opened (trip " + bloodTrip + ", open line " + bloodOpened
-                            + ", lock air " + bloodOpen + ")");
+            case "KEYSTOP" -> {
+                if (!pressedOff || doorRun < 0) {
+                    failures.add(tag + ": the Door rush never got going (door run line " + doorRun + "), nothing to stop");
                 }
-                if (firstTarget >= 0 && (bloodOpened < 0 || firstTarget < bloodOpened)) {
-                    failures.add(tag + ": a secret room was targeted before the blood door opened");
+                if (openWhenPressed) {
+                    failures.add(tag + ": the Blood door was already open when the key was pressed - not mid-rush");
                 }
-                // Door Camp's own part only opens doors: nothing goes to Auto Clear before the blood door is open. After
-                // it, the secrets part runs under the Room Plan, and its default Fastest Total (mod 4119ac75, killer560
-                // 2026-10-19: "it can do either") clears a mob room as a stop on the tour while Auto Clear is on - R
-                // included - so a hand-over after the door is the plan's, not Door Camp's.
-                if (clearR >= 0 || handed >= 0 && (bloodOpened < 0 || handed < bloodOpened)) {
-                    failures.add(tag + ": it cleared a room before the blood door opened (Blood First clear line " + clearR
-                            + ", hand-over line " + handed + ", blood open line " + bloodOpened
-                            + ") - Door Camp only opens doors");
+                if (keyOffLine < 0 || onAfter || clearBusy || asRunning) {
+                    failures.add(tag + ": the key did not stop it (off line " + keyOffLine + ", on " + onAfter + ", Auto Clear busy "
+                            + clearBusy + ", Auto Secret running " + asRunning + ")");
                 }
-                if (!"DOOR_CAMP done".equals(state)) {
-                    failures.add(tag + ": Blood First state " + state + ", want DOOR_CAMP done");
+                if (!shutLater || secretsStart >= 0) {
+                    failures.add(tag + ": something ran after the key (Blood door shut " + shutLater + ", secrets line " + secretsStart + ")");
                 }
             }
-            case "FULL_BLOOD_RUSH" -> {
-                if (clearR < 0 || !rCleared) {
-                    failures.add(tag + ": R (" + roomR.name() + ") was not cleared first (line " + clearR + ", cleared "
-                            + rCleared + ")");
+            case "DOOR" -> {
+                if (doorRun < 0 || !bloodOpen) {
+                    failures.add(tag + ": the Door rush did not open the Blood door (door run " + doorRun + ", lock air " + bloodOpen + ")");
                 }
-                if (bloodTrip < 0 || bloodOpened < 0 || !bloodOpen) {
-                    failures.add(tag + ": the blood door was not opened (trip " + bloodTrip + ", open line " + bloodOpened
-                            + ", lock air " + bloodOpen + ")");
+                if (clearRun >= 0 || rCleared || kills > 0) {
+                    failures.add(tag + ": Door cleared a room (Blood Rush clear run " + clearRun + ", R cleared " + rCleared
+                            + ", starred kills " + kills + ")");
                 }
-                if (clearR >= 0 && bloodTrip >= 0 && clearR > bloodTrip) {
-                    failures.add(tag + ": it went to the blood door before clearing R");
+                if (disabledLine < 0 || onAfter) {
+                    failures.add(tag + ": Disable After Blood Rush did not switch it off (line " + disabledLine + ", on " + onAfter + ")");
                 }
-                if (firstTarget >= 0 && (bloodOpened < 0 || firstTarget < bloodOpened)) {
-                    failures.add(tag + ": a secret room was targeted before the blood rush was done");
+                if (secretsStart >= 0 || firstTarget >= 0) {
+                    failures.add(tag + ": the secrets started after the rush with Disable After Blood Rush on");
                 }
-                if (!"FULL_BLOOD_RUSH done".equals(state)) {
-                    failures.add(tag + ": Blood First state " + state + ", want FULL_BLOOD_RUSH done");
+                if (travelled < 10) {
+                    failures.add(tag + ": he moved only " + String.format(Locale.US, "%.1f", travelled) + " blocks - nothing ran");
+                }
+            }
+            case "CLEAR" -> {
+                if (clearRun < 0 || !rCleared || rClearedLine < 0) {
+                    failures.add(tag + ": R (" + roomR.name() + ", on the rush path) was not cleared by the rush (clear run "
+                            + clearRun + ", cleared " + rCleared + ", line " + rClearedLine + ", kills " + kills + ")");
+                }
+                if (doorRun < 0 || doorRun < clearRun || !bloodOpen) {
+                    failures.add(tag + ": the door part did not follow the clear and open the Blood door (door run " + doorRun
+                            + ", clear run " + clearRun + ", lock air " + bloodOpen + ")");
+                }
+                if (disabledLine < 0 || onAfter) {
+                    failures.add(tag + ": Disable After Blood Rush did not switch it off (line " + disabledLine + ", on " + onAfter + ")");
+                }
+                if (secretsStart >= 0) {
+                    failures.add(tag + ": the secrets started after the rush with Disable After Blood Rush on");
                 }
             }
             default -> {
-                if (firstTarget < 0) {
-                    failures.add(tag + ": no secret target at all");
+                if (anyClearRun >= 0 && (secretsStart < 0 || anyClearRun < secretsStart)) {
+                    failures.add(tag + ": an Auto Clear rush ran before the secrets with Blood Rush None: " + strip(log.get(anyClearRun)));
                 }
-                if (bloodTrip >= 0 || bloodOpen) {
-                    failures.add(tag + ": it went to / opened the blood door with Blood First off");
+                if (secretsStart < 0 || firstTarget < 0) {
+                    failures.add(tag + ": the secrets never started (line " + secretsStart + ", first target " + firstTarget + ")");
                 }
-                if (log.stream().anyMatch(l -> l.contains("[AutoSecret] Blood First"))) {
-                    failures.add(tag + ": a Blood First line with it off");
+                for (String n : routes.keySet()) {
+                    if (indexOf(log, "[AutoSecret] route " + n + " finished") < 0) {
+                        failures.add(tag + ": the route in " + n + " never finished");
+                    }
                 }
-                if (!"OFF".equals(state)) {
-                    failures.add(tag + ": Blood First state " + state + ", want OFF");
+                if (bloodOpen) {
+                    failures.add(tag + ": the Blood door opened with Blood Rush None");
                 }
             }
         }
+    }
+
+    private static String strip(String l) {
+        return l.replaceAll("^.*?\\] ", "");
     }
 
     /** The run stopped inside the floor's trap room: nothing about Blood First was measured. */
@@ -458,7 +555,7 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
         if (mode == null) {
             return;
         }
-        ModUnderTest.call(cfg, "setSecretBloodFirst", new Class<?>[]{mode.getClass()}, new Object[]{mode});
+        ModUnderTest.call(cfg, "setBloodRush", new Class<?>[]{mode.getClass()}, new Object[]{mode});
     }
 
     private static void stopAll(ClientGameTestContext ctx) {
@@ -492,23 +589,23 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
     private static void logicCase(ClientGameTestContext ctx) {
         List<String> problems = new ArrayList<>();
         ctx.runOnClient(mc -> {
-            Object before = ModUnderTest.call(ModUnderTest.config(AS_CONFIG), "getSecretBloodFirst", new Class<?>[]{},
+            Object before = ModUnderTest.call(ModUnderTest.config(AS_CONFIG), "getBloodRush", new Class<?>[]{},
                     new Object[]{});
             try {
-                for (String v : List.of("DOOR_CAMP", "FULL_BLOOD_RUSH", "OFF")) {
+                for (String v : List.of("DOOR", "CLEAR", "NONE")) {
                     Object cfg = ModUnderTest.config(AS_CONFIG);
                     setMode(cfg, ModUnderTest.enumValue(MODE, v));
                     ModUnderTest.call(cfg, "save", new Class<?>[]{}, new Object[]{});
                     ModUnderTest.staticCall(AS_CONFIG, "load");
-                    Object back = ModUnderTest.call(ModUnderTest.config(AS_CONFIG), "getSecretBloodFirst",
+                    Object back = ModUnderTest.call(ModUnderTest.config(AS_CONFIG), "getBloodRush",
                             new Class<?>[]{}, new Object[]{});
                     System.out.println("[" + LOGIC + "] saved " + v + ", loaded " + back);
                     if (!v.equals(String.valueOf(back))) {
                         problems.add("saved " + v + " and loaded " + back);
                     }
                 }
-                String[][] steps = {{"OFF", "1", "DOOR_CAMP"}, {"DOOR_CAMP", "1", "FULL_BLOOD_RUSH"},
-                        {"FULL_BLOOD_RUSH", "1", "OFF"}, {"OFF", "-1", "FULL_BLOOD_RUSH"}, {"DOOR_CAMP", "-1", "OFF"}};
+                String[][] steps = {{"NONE", "1", "CLEAR"}, {"CLEAR", "1", "DOOR"},
+                        {"DOOR", "1", "NONE"}, {"NONE", "-1", "DOOR"}, {"CLEAR", "-1", "NONE"}};
                 for (String[] s : steps) {
                     Object got = ModUnderTest.staticCall("com.killer560.hub.gui.SettingsButtonWidget", "step",
                             new Class<?>[]{Enum.class, int.class},
@@ -519,7 +616,6 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
                     }
                 }
                 if (cheatBuild()) { // the Auto Clear tab is cheat-only: a legit jar has no such row
-                    setMode(ModUnderTest.config(AS_CONFIG), ModUnderTest.enumValue(MODE, "DOOR_CAMP")); // the mode row shows only while the switch is on
                     Object tab = Class.forName("com.killer560.hub.gui.tab.AutoClearTab").getConstructor().newInstance();
                     @SuppressWarnings("unchecked")
                     List<AbstractWidget> ws = (List<AbstractWidget>) ModUnderTest.call(tab, "buildWidgets",
@@ -527,7 +623,7 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
                             new Object[]{0, 0, 300, (Runnable) () -> { }});
                     AbstractWidget row = null;
                     for (AbstractWidget w : ws) {
-                        if (w.getMessage().getString().startsWith("Blood First Mode: ")) {
+                        if (w.getMessage().getString().startsWith("Blood Rush: ")) {
                             row = w;
                         }
                     }
@@ -536,7 +632,7 @@ public class SimAutoSecretBloodFirstTests implements FabricClientGameTest {
                     System.out.println("[" + LOGIC + "] tab row: " + (row == null ? "none" : row.getMessage().getString())
                             + ", cycling " + cycling + " (" + ws.size() + " widget(s))");
                     if (!cycling) {
-                        problems.add("the Auto Clear tab has no cycling \"Secret Blood First\" button");
+                        problems.add("the Dungeons Autopilot tab has no cycling \"Blood Rush\" button");
                     }
                 } else {
                     System.out.println("[" + LOGIC + "] legit jar: tab row skipped (cheat-only tab)");
