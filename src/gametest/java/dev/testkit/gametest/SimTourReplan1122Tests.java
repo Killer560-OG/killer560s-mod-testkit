@@ -42,6 +42,8 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
     private static final Pattern QUEUED = Pattern.compile("\\[Path\\] running (\\d+) warp\\(s\\).*?([0-9.]+) ms from the press"
             + " to the first warp's turn \\(queued ([0-9.]+) ms, searched (\\d+) ms\\)");
 
+    private static final Pattern TOUR_DONE = Pattern.compile("room order: searched (\\d+) trip\\(s\\).*\\(" + NAME + "\\)");
+
     @Override
     public void runTest(ClientGameTestContext ctx) {
         if (System.getProperty("testkit.scenario", "").isBlank() || Scenario.skip(NAME)) {
@@ -197,10 +199,23 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
                 }
             }
         }
-        for (String l : LogTap.since(mark)) {
-            if (l.contains("room order: searched")) {
-                println("trial " + trial + ": " + l.replaceAll("^.*?\\[AutoSecret\\]", "[AutoSecret]"));
+        // The room order must have searched (the planner work the replan competes with), not only estimated.
+        int searched = -1;
+        for (int i = 0; i < 100 && searched < 0; i++) {
+            for (String l : LogTap.since(mark)) {
+                Matcher m = TOUR_DONE.matcher(l);
+                if (m.find()) {
+                    searched = Integer.parseInt(m.group(1));
+                    println("trial " + trial + ": " + l.replaceAll("^.*?\\[AutoSecret\\]", "[AutoSecret]"));
+                    break;
+                }
             }
+            if (searched < 0) {
+                ctx.waitTicks(1);
+            }
+        }
+        if (searched < 1) {
+            failures.add("trial " + trial + ": the room order searched no trip (" + searched + ")");
         }
         if (!corrected) {
             failures.add("trial " + trial + ": the teleport back was not taken as a correction");
