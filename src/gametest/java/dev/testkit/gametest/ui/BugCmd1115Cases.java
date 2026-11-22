@@ -88,8 +88,7 @@ final class BugCmd1115Cases {
             String side = read(z, "sidebar.txt");
             String readers = read(z, "readers.txt");
             String state = read(z, "state.txt");
-            c.note("sidebar.txt: " + side.replace("
-", " | "));
+            c.note("sidebar.txt: " + side.replace("\n", " | "));
             c.note("readers.txt Copper: " + readers.lines().filter(l -> l.startsWith("Copper")).findFirst().orElse("-"));
             c.check(note.contains("the copper line is missing"), "note.txt lacks the typed note: " + note);
             c.check(side.contains("Island: Garden"), "sidebar.txt lacks Island: Garden: " + side);
