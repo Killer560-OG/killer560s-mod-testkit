@@ -36,7 +36,7 @@ import java.util.Map;
 public class SimAcBloodFirst1118Tests implements FabricClientGameTest {
     private static final String NAME = "1118-sim-acbloodfirst";
     /** Path Mines > Quad Lava > Duncan > Fairy > Flags > Granite > Slabs > Blood; the Quiz and Ice Fill off it. */
-    private static final String FIXED_FLOOR = "MC2:CxUEUXVpeghJY2UgRmlsbAhFbnRyYW5jZQVNaW5lcwlRdWFkIExhdmEGRHVuY2FuBUZhaXJ5BUZsYWdzB0dyYW5pdGUFU2xhYnMFQmxvb2"
+    static final String FIXED_FLOOR = "MC2:CxUEUXVpeghJY2UgRmlsbAhFbnRyYW5jZQVNaW5lcwlRdWFkIExhdmEGRHVuY2FuBUZhaXJ5BUZsYWdzB0dyYW5pdGUFU2xhYnMFQmxvb2"
             + "QER29sZAZHcmF2ZWwIT2xkIFRyYXANVGVsZXBvcnQgTWF6ZQdCdXR0b25zCU92ZXJncm93bgdIYWxsd2F5DE11bHRpY29sb3JlZAxUaHJlZSBG"
             + "bG9vcnMKS2luZyBNaWRhcwAIAAAIAAAIAAEAAAAHAQEAAAAGAAAAAAAMAQAMAQAMAQAIAAAIAAAIAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAEAAA"
             + "AIAAAIAAAIAAEAAAAPAwAAAAAFAgEAAAAEAwAEAwAEAwEAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAEAwAEAwAEAwAJAwAAAAANAAAAAAABAwAA"
@@ -290,7 +290,7 @@ public class SimAcBloodFirst1118Tests implements FabricClientGameTest {
      * Server thread: the sidebar's Keys line ("Keys: ■ ✗ ■ 0x") from the sim's own team keys, as Hypixel draws it. Its own
      * holder and team, never one of SimSidebar's lines.
      */
-    private static void drawKeys(MinecraftServer server) {
+    static void drawKeys(MinecraftServer server) {
         if (server == null) {
             return;
         }
