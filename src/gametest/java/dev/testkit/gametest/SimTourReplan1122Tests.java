@@ -37,7 +37,7 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
     private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
     private static final String CLEAR_UTILS = "com.killer560.hub.livemap.autoclear.AutoClearUtils";
     private static final String TELEPORT_UTILS = "com.killer560.hub.livemap.autoclear.TeleportUtils";
-    private static final int TRIALS = 3;
+    private static final int TRIALS = 5;
     private static final double MAX_QUEUED_MS = 60;
     private static final Pattern QUEUED = Pattern.compile("\\[Path\\] running (\\d+) warp\\(s\\).*?([0-9.]+) ms from the press"
             + " to the first warp's turn \\(queued ([0-9.]+) ms, searched (\\d+) ms\\)");
@@ -122,7 +122,7 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
                     }
                 }
             }
-            if (measured < TRIALS - 1) {
+            if (measured < 2) { // a trial whose teleport the sim folded into the warp moves nothing: not measured
                 failures.add("only " + measured + " of " + TRIALS + " trials had a correction and a replan");
             }
             if (searchedTrials == 0) {
