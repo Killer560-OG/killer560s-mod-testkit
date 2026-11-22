@@ -909,7 +909,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             int aligns0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(EXECUTOR, "walkAligns"));
             if (act != null) {
                 st = ctx.computeOnClient(mc -> {
-                    dev.testkit.gametest.SameTick t = dev.testkit.gametest.SameTick.start(act, 1,
+                    // his attack every 3rd tick: one per tick holds the align for good (the body goes back to his view each time)
+                    dev.testkit.gametest.SameTick t = dev.testkit.gametest.SameTick.start(act,
+                            act == dev.testkit.gametest.SameTick.Act.ATTACK ? 3 : 1,
                             p -> p instanceof net.minecraft.network.protocol.game.ServerboundPlayerInputPacket
                                     || (p instanceof net.minecraft.network.protocol.game.ServerboundMovePlayerPacket mp
                                     && mp.hasRotation()), 7, 8)
