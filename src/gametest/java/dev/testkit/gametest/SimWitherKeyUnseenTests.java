@@ -447,10 +447,10 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
                     Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
                     Class<?>[] dd = {double.class, double.class};
                     Vec3 p = mc.player.position();
-                    int here = (Integer) ModUnderTest.call(layout, "roomAtWorld", dd, new Object[]{p.x, p.z});
+                    int mine = (Integer) ModUnderTest.call(layout, "roomAtWorld", dd, new Object[]{p.x, p.z});
                     Vec3 at = p.add(3, 0, 0);
                     for (double[] o : new double[][]{{6, 0}, {-6, 0}, {0, 6}, {0, -6}, {4, 4}, {-4, -4}, {4, -4}, {-4, 4}}) {
-                        if ((Integer) ModUnderTest.call(layout, "roomAtWorld", dd, new Object[]{p.x + o[0], p.z + o[1]}) == here) {
+                        if ((Integer) ModUnderTest.call(layout, "roomAtWorld", dd, new Object[]{p.x + o[0], p.z + o[1]}) == mine) {
                             at = p.add(o[0], 0, o[1]);
                             break;
                         }
