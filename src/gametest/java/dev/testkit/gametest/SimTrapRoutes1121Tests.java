@@ -60,7 +60,8 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
     private static final String REFUSAL = "You cannot use abilities in this room!";
     private static final String SIM_REFUSAL = "No abilities in a trap room";
     /** Neighbors around the trap on tile (1,2); the first usable one north of it is where he stands. */
-    private static final String[] NORTH = {"Flags", "Temple", "Arrow Trap", "Cages", "Altar"};
+    /** 1x1 rooms only: a 2x2 (Flags, Altar) at the north tile covers the trap's and the Entrance's tiles and drops them. */
+    private static final String[] NORTH = {"Temple", "Cages", "Arrow Trap"};
     private static final int[][] SPOTS = {{0, 0}, {-9, -9}, {9, -9}, {-9, 9}, {9, 9}};
 
     private static final List<String> SUMMARY = new ArrayList<>();
@@ -178,6 +179,9 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
                     new Object[]{floor, true});
             Object d = ModUnderTest.call(planned, "decoded", new Class<?>[]{}, new Object[]{});
             String[] names = (String[]) ModUnderTest.call(d, "nameTable", new Class<?>[]{}, new Object[]{});
+            if (names.length != floor.size()) {
+                return "PLANNED " + String.join(", ", names);
+            }
             int[] cellRoom = (int[]) ModUnderTest.call(d, "cellRoom", new Class<?>[]{}, new Object[]{});
             int[] cellRot = (int[]) ModUnderTest.call(d, "cellRotation", new Class<?>[]{}, new Object[]{});
             for (int i = 0; i < cellRoom.length; i++) {
@@ -188,6 +192,10 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
             return (String) ModUnderTest.staticCall(R + "MapCode", "encodeDecoded", new Class<?>[]{d.getClass()},
                     new Object[]{d});
         });
+        if (code.startsWith("PLANNED ")) {
+            failures.add(tag + ": the floor dropped rooms, placed only " + code.substring(8) + " of " + floor.values());
+            return;
+        }
         long before = Scenario.simBuildCount(ctx);
         ctx.runOnClient(mc -> mc.execute(() -> {
             Consumer<Minecraft> build = c -> ModUnderTest.staticCall(R + "SimBuilder", "build",
