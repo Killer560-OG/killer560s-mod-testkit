@@ -42,7 +42,7 @@ final class AcRevClearCases {
 
     private static Vec3 center(int gx, int gz) {
         BlockPos p = (BlockPos) Mod.staticCall("livemap.DungeonLayout", "cellCenter", gx, gz);
-        return new Vec3(p.getX() + 0.5, p.getY(), p.getZ() + 0.5);
+        return new Vec3(p.getX(), p.getY(), p.getZ());
     }
 
     static void refusedDirect(LogicCase c) throws Exception {
