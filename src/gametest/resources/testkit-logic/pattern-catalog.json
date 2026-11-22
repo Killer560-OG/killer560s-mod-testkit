@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T12:45:31",
- "modSource": "lane-acreplan-simseed-1122",
- "modGitSha": "e6017d11476acd861ed3344f9e5111e5b8cd75d6",
+ "generatedAt": "2026-11-22T12:53:44",
+ "modSource": "lane-acstart-1122",
+ "modGitSha": "59002bae871379dc672d822d13ce60348ba05db1",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
@@ -11623,7 +11623,7 @@
    "field": "MORT_START",
    "index": null,
    "file": "src/main/java/com/killer560/hub/witherdoors/WitherDoorsFeature.java",
-   "line": 381,
+   "line": 378,
    "regex": "^\\[NPC\\] Mort: (?:Here, I found this map when I first entered the dungeon\\.|Right-click the Orb for spells, and Left-click \\(or Drop\\) to use your Ultimate!)$",
    "flags": null,
    "kind": "field",
