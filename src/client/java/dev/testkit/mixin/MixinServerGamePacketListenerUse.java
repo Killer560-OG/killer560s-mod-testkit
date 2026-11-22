@@ -57,6 +57,12 @@ public abstract class MixinServerGamePacketListenerUse {
     @Inject(method = "handleUseItem", at = @At("HEAD"), cancellable = true)
     private void testkit$dropUse(ServerboundUseItemPacket packet, CallbackInfo ci) {
         ServerGamePacketListenerImpl self = (ServerGamePacketListenerImpl) (Object) this;
+        if (dev.testkit.harness.WarpDrop.dropAt >= 0 && self.player != null && self.player.level().getServer().isSameThread()
+                && dev.testkit.harness.WarpDrop.drop(self.player)) {
+            self.ackBlockChangesUpTo(dev.testkit.compat.McPackets.useItemSequence(packet));
+            ci.cancel();
+            return;
+        }
         if (HypixelUseAfterClick.enabled && self.player != null && self.player.level().getServer().isSameThread()
                 && HypixelUseAfterClick.dropUse(self.player, packet)) {
             self.ackBlockChangesUpTo(dev.testkit.compat.McPackets.useItemSequence(packet));

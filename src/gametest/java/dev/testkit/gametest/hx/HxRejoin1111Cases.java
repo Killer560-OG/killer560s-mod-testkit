@@ -43,6 +43,30 @@ final class HxRejoin1111Cases {
         s.test("1111-hx-rejoin-other", HxRejoin1111Cases::other);
         s.test("1111-hx-rejoin-noserver", HxRejoin1111Cases::noServer);
         s.test("1111-hx-rejoin-camp", HxRejoin1111Cases::camp);
+        s.test("1121-hx-rejoin-runstarted", HxRejoin1111Cases::runStarted);
+    }
+
+    private static boolean started(Session c) {
+        return c.onClient(mc -> (Boolean) Mod.staticCall("witherdoors.WitherDoorsFeature", "runStarted"));
+    }
+
+    /** acgaps2-1121: a rejoin of a live run reads as started (Mort does not speak again), so Auto Clear or Auto Secret
+     *  started there starts instead of arming (ArmedStart) until the map is read. Origin 6dc8207ee read false. */
+    private static void runStarted(Session c) {
+        try (Settings set = settings(c)) {
+            pad(c);
+            armRun(c);
+            boolean before = started(c);
+            awayAndBack(c, -59.5, 100, -59.5);
+            board(c, SERVER_LINE, "01m 35s");
+            c.waitUntil("DungeonRun resumed the run", mc -> (Boolean) Mod.staticCall(RUN, "resumed"), 100);
+            boolean after = started(c);
+            c.check(!before, "the run read as started before any Mort line or map, so the case proves nothing");
+            c.check(after, "a resumed run did not read as started: " + describe(c));
+            c.note("before rejoin started=" + before + ", after resume started=" + after + "; " + describe(c));
+        } finally {
+            cleanup(c);
+        }
     }
 
     /** The F7 dungeon sidebar with {@code serverLine} as its top line ({@code null}: no server line) at {@code time}. */
