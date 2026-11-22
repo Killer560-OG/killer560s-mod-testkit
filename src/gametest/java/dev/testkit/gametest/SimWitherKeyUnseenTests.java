@@ -40,7 +40,7 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
     private static final String RACE = "1122-sim-ap-keyrace";
     private static final String BK = "1122-sim-ap-bloodkey-late";
     private static final String TAG = "1122-witherkey-unseen";
-    private static final String SIM_MOB_FLOOR = "com.killer560.hub.roomsim.SimMobFloor";
+    private static final String DUNGEON_STATE = "com.killer560.hub.secrets.DungeonState";
     private static final String SIM_STATE = "com.killer560.hub.roomsim.SimState";
     private static final String SIM_MOBS = "com.killer560.hub.roomsim.SimMobs";
     private static final String SIM_ITEMS = "com.killer560.hub.roomsim.SimItems";
@@ -291,8 +291,14 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
         boolean race = label.equals(RACE);
         boolean bloodLate = label.equals(BK);
         if (bloodLate) {
-            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOB_FLOOR, "forceBloodKeyForTest",
-                    new Class<?>[]{boolean.class}, new Object[]{true}));
+            // The sim has no Keys line: the sidebar reads "no Blood Key" (0), as Hypixel's does, so the door wait is a real one.
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(DUNGEON_STATE, "testSidebarBloodKey",
+                    new Class<?>[]{int.class}, new Object[]{0}));
+        }
+        if (race || bloodLate) {
+            // A key is picked up by being near it: with the smallest range one lying where its mob died is not picked up
+            // for free, so it is the run's target (or left behind) - never a lucky pass.
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AS_CONFIG), "setKeyBaseRange", 0.5));
         }
         long mark = LogTap.mark();
         ctx.runOnClient(mc -> {
@@ -348,8 +354,11 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
             }
         }
         if (bloodLate) {
-            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_MOB_FLOOR, "forceBloodKeyForTest",
-                    new Class<?>[]{boolean.class}, new Object[]{false}));
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(DUNGEON_STATE, "testSidebarBloodKey",
+                    new Class<?>[]{int.class}, new Object[]{-2}));
+        }
+        if (race || bloodLate) {
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AS_CONFIG), "setKeyBaseRange", 1.0));
         }
         if (race || bloodLate) {
             List<String> lines = LogTap.since(mark);
