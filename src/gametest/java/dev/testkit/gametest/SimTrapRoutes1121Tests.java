@@ -369,8 +369,12 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         boolean done = false;
         String lastNodeTag = "#" + nodeCount + " ";
         int beganAt = -1;
-        for (int t = 0; t < 900 && !done; t++) {
+        boolean newTrap = trap.equals("New Trap");
+        int alignsBefore = walkAligns(ctx);
+        double minY = Double.MAX_VALUE;
+        for (int t = 0; t < 1200 && !done; t++) {
             ctx.waitTicks(1);
+            minY = Math.min(minY, ctx.computeOnClient(mc -> mc.player.getY()));
             List<String> lines = LogTap.since(mark);
             for (String l : lines) {
                 landed |= l.contains("Start-node warp landed");
@@ -381,7 +385,8 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
                     beganAt = t;
                 }
             }
-            done |= beganAt >= 0 && t > beganAt + 200;   // the route started; 10 s of it is logged, not judged
+            // the route started: New Trap is judged on its whole run (newtrap-route7), Old Trap's 10 s are logged only
+            done |= beganAt >= 0 && t > beganAt + (newTrap ? 600 : 200);
             int c = ctx.computeOnClient(mc -> ((Number) ModUnderTest.staticCall(ROUTE_EXEC, "completions")).intValue());
             boolean left = lines.stream().anyMatch(l -> l.contains("[AutoTrap] left " + trap));
             done |= c > completionsBefore || (left && lines.stream().anyMatch(l -> l.contains("Node " + lastNodeTag)
@@ -402,6 +407,36 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
                 leftTrap, nodeCount, lastBegan, end.distanceTo(lastReal), plan);
         println(tag + " " + res);
         SUMMARY.add(tag + " run: " + res);
+        if (newTrap && lines.stream().anyMatch(l -> l.contains("Node #1 ") && l.contains(" begins: player ("))) {
+            // newtrap-route7 (2026-11-22): WALK #5 ended 0.68 off breaker #6's spot and the route stopped at #7. The whole
+            // route must now act: #6's block under its spot is broken, he drops through it, and the last node fires.
+            Vec3 holeRel = new Vec3(27.5, 89.0, 14.5);
+            Object[] hole = ctx.computeOnClient(mc -> {
+                Object frame = newFrame(trap, cr);
+                Vec3 real = (Vec3) ModUnderTest.staticCall(ROUTE_COORDS, "toReal",
+                        new Class<?>[]{frame.getClass(), Vec3.class}, new Object[]{frame, holeRel});
+                BlockPos p = BlockPos.containing(real.x, real.y, real.z);
+                return new Object[]{p, mc.level.getBlockState(p).isAir(), real.y};
+            });
+            int aligns = walkAligns(ctx) - alignsBefore;
+            double dropTo = (Double) hole[2] - minY;
+            String run = String.format("node #6 block %s broken %s, lowest %.1f (%.1f under #6), last node began %s,"
+                    + " walk aligns %d", hole[0], hole[1], minY, dropTo, lastBegan, aligns);
+            println(tag + " route run: " + run);
+            SUMMARY.add(tag + " route: " + run);
+            if (!(Boolean) hole[1]) {
+                failures.add(tag + ": breaker #6 did not break the block under its spot (" + run + ")");
+            }
+            if (dropTo < 10) {
+                failures.add(tag + ": he never dropped through #6's hole (" + run + ")");
+            }
+            if (!lastBegan) {
+                failures.add(tag + ": the route never reached its last node #" + nodeCount + " (" + run + ")");
+            }
+            if (aligns < 1) {
+                failures.add(tag + ": no trap-room walk aligned onto its next node (" + run + ")");
+            }
+        }
         boolean sent = lines.stream().anyMatch(l -> l.contains("[Path] running "));
         // Where the warps put him: the first node's "begins" line gives his feet and the node's spot on the tick it fired.
         String began = lines.stream().filter(l -> l.contains("Node #1 ") && l.contains(" begins: player ("))
@@ -551,6 +586,17 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
             }
         }
         return -1;
+    }
+
+    /** RouteExecutor.walkAligns (newtrap-route7), -1 on a jar without it. */
+    private static int walkAligns(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                return ((Number) ModUnderTest.staticCall(ROUTE_EXEC, "walkAligns")).intValue();
+            } catch (Throwable t) {
+                return -1;
+            }
+        });
     }
 
     private static Object newFrame(String name, int[] cr) {
