@@ -356,7 +356,7 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
             for (String l : lines) {
                 if (l.contains("[Autopilot]") || l.contains("[AutoSecret]") || l.contains("has obtained")
                         || l.contains("Sim key room")) {
-                    println("  log: " + l.replaceAll("^.*?(\[Autopilot\]|\[AutoSecret\]|\[Sim\]|Sim key room|\[CHAT\])",
+                    println("  log: " + l.replaceAll("^.*?(\]Autopilot\]|\]AutoSecret\]|\]Sim\]|Sim key room|\]CHAT\])",
                             "$1"));
                 }
             }
