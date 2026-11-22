@@ -38,6 +38,11 @@ import java.util.ArrayDeque;
  */
 public final class HxEvents {
 
+    /** When each container click reached the server (netty thread, ms of System.nanoTime), oldest first; the server-thread
+     *  pass of the same packet moves its time to {@link #clickArrivalMs} (a frozen server tick must not delay it). */
+    public static final java.util.concurrent.ConcurrentLinkedQueue<Long> CLICK_ARRIVALS = new java.util.concurrent.ConcurrentLinkedQueue<>();
+    public static long clickArrivalMs = -1;
+
     public static final int CAPACITY = 4096;
 
     private static final ArrayDeque<JsonObject> RING = new ArrayDeque<>();

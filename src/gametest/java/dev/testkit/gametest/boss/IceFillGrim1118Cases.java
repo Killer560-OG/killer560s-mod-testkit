@@ -109,6 +109,12 @@ final class IceFillGrim1118Cases {
                 c.hx().call("dungeon.tp", "x", X0 + 0.5, "y", (double) Y + 1, "z", Z + 0.5, "yaw", -90f, "pitch", 30f);
                 c.waitUntil("on the first tile", mc -> Math.abs(mc.player.getX() - (X0 + 0.5)) < 0.01
                         && Math.abs(mc.player.getZ() - (Z + 0.5)) < 0.01, 60);
+                // Standing still, outlast ActionGate's teleport settle (6 ticks) after this tp and wait for the shovel's
+                // slot update: a first hop held by either is retried only from the tile's middle, which the move act
+                // has already walked off, so 1118-same-icefill-move sent 0 hops whenever the tp landed fast (in the batch,
+                // on origin jars too; alone the far tp outlasted the settle).
+                c.ctx().waitTicks(8);
+                c.waitUntil("shovel in hand", mc -> mc.player.getMainHandItem().getItem() == net.minecraft.world.item.Items.DIAMOND_SHOVEL, 40);
                 at = 0;
                 sentTo = -1;
                 landed = true;

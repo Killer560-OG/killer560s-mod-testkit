@@ -84,6 +84,7 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "1110-logic-crashguard-shutdown", CrashReportCases::crashguardShutdown);
         LogicCase.run(ctx, "1116-logic-autocorrect-exhaustive", AutoCorrectCases::exhaustive);
         LogicCase.run(ctx, "1121-logic-cmdtypo-short", AutoCorrectCases::shortExtraLetter);
+        LogicCase.run(ctx, "1121-logic-warpdest", AutoCorrectCases::warpDestination);
         // Discord Link (mod discordlink-1105): off the client thread, the cases wait seconds on the stub relay.
         DiscordLinkCases.ctx = ctx;
         LogicCase.runOffClient(ctx, "1105-discordlink-card", DiscordLinkCases::card);
@@ -149,9 +150,14 @@ public class LogicSuite implements FabricClientGameTest {
         LogicCase.run(ctx, "1106-maplabel-recenter", MapLabel1106Cases::recenter);
         LogicCase.run(ctx, "1117-logic-maplabel-shape", MapLabel1117Cases::shape);
         LogicCase.run(ctx, "1117-logic-maplabel-museum", MapLabel1117Cases::museum);
+        LogicCase.run(ctx, "1118-logic-mapcycler-bounds", MapCycler1118Cases::bounds);
+        LogicCase.run(ctx, "1121-logic-mapcycler-proof", MapCycler1118Cases::proof);
+        LogicCase.run(ctx, "1121-logic-mapcycler-unproven", MapCycler1118Cases::unproven);
+        LogicCase.run(ctx, "1121-logic-mapcycler-history", MapCyclerHistoryCases::history);
+        LogicCase.run(ctx, "1121-logic-map-atlas-split", MapAtlasSplit1121Cases::atlasSplit);
         // ItemStacks need item components, which are bound only once a world's registries load ("Components not
         // bound yet" at the title screen). The two cases that build stacks run in a throwaway singleplayer world.
-        if (!Scenario.skip("354-logic-terminals") || !Scenario.skip("357-logic-items-ap3-routes")
+        if (!Scenario.skip("354-logic-terminals") || !Scenario.skip("1121-logic-stall-keeps-trust") || !Scenario.skip("357-logic-items-ap3-routes")
                 || !Scenario.skip("362-logic-boss-timers") || !Scenario.skip("363-logic-roof-cover")
                 || !Scenario.skip("1102-logic-goldor-tick") || !Scenario.skip("1102-logic-storm-line")
                 || !Scenario.skip("1102-logic-f7hud-config") || !Scenario.skip("1102-logic-f7hud-slots")
@@ -183,6 +189,7 @@ public class LogicSuite implements FabricClientGameTest {
                 }
                 LogicCase.run(ctx, "362-logic-boss-timers", BossTimerCases::bossTimers);
                 LogicCase.run(ctx, "1101-logic-bloodcamp-clock", BossTimerCases::bloodCampClock);
+                LogicCase.run(ctx, "1121-logic-stall-keeps-trust", BossTimerCases::stallKeepsTrust);
                 LogicCase.run(ctx, "1102-logic-goldor-tick", BossTimerCases::goldorTick);
                 LogicCase.run(ctx, "1102-logic-storm-line", BossTimerCases::stormLineCase);
                 LogicCase.run(ctx, "1102-logic-f7hud-config", BossTimerCases::oldConfigs);

@@ -39,6 +39,15 @@ import java.util.UUID;
  *   <li><b>1110-sim-switches</b> - the two switches save, a profile reload re-reads them, and the Sim Settings tab shows
  *       Watcher Blood Camp always and Real Mob Looks only while Spawn Starred Mobs is on.</li>
  * </ul>
+ *   <li><b>1121-sim-watcher-real</b> - sim-watcher-real-1121 (killer560, 2026-11-21: "look at how the sim watcher works as well
+ *       it is nothing like the real watcher"). The camp with every mob killed as soon as it can die, checked on the server
+ *       against the median of 136 real camps (ranges are their spread): the greeting "Ah, we meet again. As I foresaw...", the
+ *       first wave's four trips leave inside the real ranges, "Let's see how you can handle this." at 300-315, the first
+ *       later trip 134-200 after it, every later trip has its summon line on its own tick (the last "That will be enough for
+ *       now."), a kill line comes 4-30 ticks after a kill, the pass line 5-30 after the last kill and is the last line. The
+ *       Watcher greets from the room's center 4-5 up, is within 3 blocks of each case (1.5-3 above the skull) when its skull
+ *       leaves, waits at the center 5-6 up after the move line, never moves more than a block a tick and flies at least 60
+ *       blocks in all.</li>
  * Only when named. GrimAC does not apply (the sim's integrated server).
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
@@ -48,6 +57,7 @@ public class SimBloodCampTests implements FabricClientGameTest {
     static final String CAMP = "1110-sim-bloodcamp";
     static final String OFF = "1110-sim-bloodcamp-off";
     static final String SWITCHES = "1110-sim-switches";
+    static final String WATCHER = "1121-sim-watcher-real";
     private static final String PREFS = "com.killer560.hub.roomsim.SimMenuPrefs";
     private static final String CAMP_CLS = "com.killer560.hub.roomsim.SimBloodCamp";
     private static final String LOOKS = SimBloodRushTests.LOOKS;
@@ -66,7 +76,7 @@ public class SimBloodCampTests implements FabricClientGameTest {
             return;
         }
         List<String> failed = new ArrayList<>();
-        for (String name : List.of(SWITCHES, LOOKS_CASE, CAMP, OFF)) {
+        for (String name : List.of(SWITCHES, LOOKS_CASE, CAMP, OFF, WATCHER)) {
             if (Scenario.skip(name)) {
                 continue;
             }
@@ -96,6 +106,7 @@ public class SimBloodCampTests implements FabricClientGameTest {
                     case SWITCHES -> switches(ctx, problems, facts);
                     case LOOKS_CASE -> realLooks(ctx, problems, facts);
                     case CAMP -> camp(ctx, problems, facts);
+                    case WATCHER -> watcher(ctx, problems, facts);
                     default -> campOff(ctx, problems, facts);
                 }
             } catch (Throwable t) {
@@ -134,7 +145,7 @@ public class SimBloodCampTests implements FabricClientGameTest {
     }
 
     /** Client thread: the three saved sim switches, as the Sim Settings rows set them. */
-    private static void prefs(boolean mobs, boolean realMobs, boolean bloodCamp) {
+    static void prefs(boolean mobs, boolean realMobs, boolean bloodCamp) {
         Object p = ModUnderTest.staticCall(PREFS, "load");
         try {
             p.getClass().getField("realMobs").setBoolean(p, realMobs);
@@ -502,7 +513,7 @@ public class SimBloodCampTests implements FabricClientGameTest {
         }
         List<double[]> paths = ctx.computeOnClient(mc -> (List<double[]>) ModUnderTest.staticCall(CAMP_CLS, "paths"));
         List<String> log = LogTap.since(mark);
-        boolean greeted = log.stream().anyMatch(l -> l.contains("[CHAT]") && l.contains("[BOSS] The Watcher: Things feel a little more roomy now, eh?"));
+        boolean greeted = log.stream().anyMatch(l -> l.contains("[CHAT]") && l.contains("[BOSS] The Watcher: Ah, we meet again. As I foresaw..."));
         boolean moveLine = log.stream().anyMatch(l -> l.contains("[CHAT]") && l.contains("[BOSS] The Watcher: Let's see how you can handle this."));
         boolean pass = log.stream().anyMatch(l -> l.contains("[CHAT]") && l.contains("[BOSS] The Watcher: You have proven yourself. You may pass."));
         String census = log.stream().filter(l -> l.contains("camp census:")).findFirst().orElse("(none)");
@@ -546,6 +557,168 @@ public class SimBloodCampTests implements FabricClientGameTest {
         if (tagged.size() < seenMobs.size() - 1 || tagged.isEmpty()) problems.add("Blood Mobs ESP tagged only " + tagged.size() + " of " + seenMobs.size());
         if (!census.contains(total + " skull trips (4 first wave)")) problems.add("no matching camp census line: " + census);
         if (portal == null || !portalByLine) problems.add("the portal did not open on the Watcher's line");
+    }
+
+    private static final List<String> KILL_LINES = List.of("I'm impressed.", "That one was weak anyway.",
+            "Aw, I liked that one.", "Very nice.", "Not bad.");
+    private static final List<String> SUMMON_LINES = List.of("This guy looks like a fighter.", "Go and live again!", "Not bad.",
+            "You'll do.", "Go, fight!", "Hmmm... this one!");
+
+    /** 1121-sim-watcher-real: the camp's timing and the Watcher's flight against the real camps (see the class doc). */
+    @SuppressWarnings("unchecked")
+    private static void watcher(ClientGameTestContext ctx, List<String> problems, List<String> facts) {
+        long mark = LogTap.mark(); // before intoBlood: the greeting is said on the teleport in
+        double[] c = intoBlood(ctx, true, problems);
+        if (c == null) {
+            return;
+        }
+        int[] wid = {-1};
+        List<int[]> lineTicks = new ArrayList<>();   // {camp tick, index into lines}
+        List<String> lines = new ArrayList<>();
+        List<Integer> tripStarts = new ArrayList<>(), killTicks = new ArrayList<>();
+        List<double[]> tripWatcher = new ArrayList<>();   // Watcher {x, y, z} on each trip's start tick
+        double maxStep = 0, path = 0;
+        double[] prev = null;
+        int prevTick = -1, lastTick = -1, sent = 0, killed = 0;
+        String greetAt = "none", midAt = "none";
+        boolean done = false;
+        for (int t = 0; t < 3000 && !done; t++) {
+            ctx.waitTicks(1);
+            // One server-thread read: camp state and the Watcher's position at the same tick.
+            Object[] snap = SimBloodRushTests.onServer(ctx, (level, sp) -> {
+                int[] st = (int[]) ModUnderTest.staticCall(CAMP_CLS, "state");
+                Entity w = wid[0] >= 0 ? level.getEntity(wid[0]) : null;
+                if (w == null) {
+                    for (Entity e : level.getAllEntities()) {
+                        if (e.hasCustomName() && "The Watcher".equals(e.getCustomName().getString())) {
+                            w = e;
+                            wid[0] = e.getId();
+                            break;
+                        }
+                    }
+                }
+                return new Object[]{st, w == null ? null : new double[]{w.getX(), w.getY(), w.getZ()}};
+            });
+            int[] st = (int[]) snap[0];
+            double[] w = (double[]) snap[1];
+            for (String l : LogTap.since(mark)) {
+                int i = l.indexOf("[BOSS] The Watcher: ");
+                if (l.contains("[CHAT]") && i >= 0) {
+                    lineTicks.add(new int[]{lastTick, lines.size()});
+                    lines.add(l.substring(i + 20).trim());
+                }
+            }
+            mark = LogTap.mark();
+            done = st[5] == 1;
+            if (st[0] < 0) {
+                continue;
+            }
+            lastTick = st[0];
+            if (w != null) {
+                double dx = w[0] - c[0], dz = w[2] - c[2], dy = w[1] - c[1];
+                if (st[0] <= 5 && greetAt.equals("none")) greetAt = String.format(Locale.ROOT, "%.1f/%.1f", Math.hypot(dx, dz), dy);
+                if (st[0] >= 330 && midAt.equals("none")) midAt = String.format(Locale.ROOT, "%.1f/%.1f", Math.hypot(dx, dz), dy);
+                if (st[0] <= 5 && (Math.hypot(dx, dz) > 1 || dy < 4 || dy > 5)) problems.add("greeting: Watcher " + greetAt + " (horizontal/up) from the center, want <=1 and 4-5 up");
+                if (prev != null && st[0] > prevTick) {
+                    double d = Math.sqrt(Math.pow(w[0] - prev[0], 2) + Math.pow(w[1] - prev[1], 2) + Math.pow(w[2] - prev[2], 2));
+                    maxStep = Math.max(maxStep, d / (st[0] - prevTick));
+                    path += d;
+                }
+                prev = w;
+                prevTick = st[0];
+            }
+            while (sent < st[1]) {
+                tripStarts.add(st[0]);
+                tripWatcher.add(w);
+                sent++;
+            }
+            while (killed < st[3]) {
+                killTicks.add(st[0]);
+                killed++;
+            }
+            int killableAt = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(
+                    "com.killer560.hub.bloodcamp.BloodCampMoveTimer", "fastWatcherMoveTicksForTest",
+                    new Class<?>[]{String.class}, new Object[]{"F7"}));
+            if (st[0] >= killableAt + 2) {
+                SimBloodRushTests.onServer(ctx, (level, sp) -> {
+                    for (int id : (List<Integer>) ModUnderTest.staticCall(CAMP_CLS, "liveMobIds")) {
+                        if (level.getEntity(id) instanceof LivingEntity l) l.hurtServer(level, level.damageSources().playerAttack(sp), 5f);
+                    }
+                    return null;
+                });
+            }
+        }
+        ctx.waitTicks(5);
+        for (String l : LogTap.since(mark)) {
+            int i = l.indexOf("[BOSS] The Watcher: ");
+            if (l.contains("[CHAT]") && i >= 0) {
+                lineTicks.add(new int[]{lastTick, lines.size()});
+                lines.add(l.substring(i + 20).trim());
+            }
+        }
+        List<double[]> paths = ctx.computeOnClient(mc -> (List<double[]>) ModUnderTest.staticCall(CAMP_CLS, "paths"));
+        int[] st = state(ctx);
+        StringBuilder timeline = new StringBuilder();
+        for (int[] lt : lineTicks) timeline.append(lt[0]).append(' ').append(lines.get(lt[1])).append(" | ");
+        facts.add(String.format(Locale.ROOT, "watcher: done %s, %d mobs, trips at %s, kills at %s; lines %s; Watcher greet %s,"
+                        + " after the move line %s, fastest %.2f b/t, flew %.0f blocks",
+                done, st[4], tripStarts, killTicks, timeline, greetAt, midAt, maxStep, path));
+        if (!done || st[4] != 16 || st[3] != 16) {
+            problems.add("the camp did not finish with 16 kills: " + java.util.Arrays.toString(st));
+            return;
+        }
+        if (lines.isEmpty() || !lines.get(0).equals("Ah, we meet again. As I foresaw...")) {
+            problems.add("first Watcher line is '" + (lines.isEmpty() ? "none" : lines.get(0)) + "', want 'Ah, we meet again. As I foresaw...'");
+        }
+        int[][] first = {{114, 228}, {132, 281}, {142, 292}, {173, 301}};
+        for (int i = 0; i < 4 && i < tripStarts.size(); i++) {
+            int k = tripStarts.get(i);
+            if (k < first[i][0] || k > first[i][1]) problems.add("first-wave trip " + (i + 1) + " left at " + k + ", real " + first[i][0] + "-" + first[i][1]);
+        }
+        int move = -1;
+        for (int[] lt : lineTicks) if (lines.get(lt[1]).equals("Let's see how you can handle this.")) move = lt[0];
+        if (move < 300 || move > 316) problems.add("'Let's see how you can handle this.' at " + move + ", want 300-316");
+        if (tripStarts.size() == 16 && move > 0) {
+            int gap = tripStarts.get(4) - move;
+            if (gap < 134 || gap > 200) problems.add("first later trip " + gap + " after the move line, real 134-200");
+            for (int i = 4; i < 16; i++) {
+                int k = tripStarts.get(i);
+                String want = i == 15 ? "That will be enough for now." : null;
+                boolean said = false;
+                for (int[] lt : lineTicks) {
+                    String l = lines.get(lt[1]);
+                    if (Math.abs(lt[0] - k) <= 3 && (want == null ? SUMMON_LINES.contains(l) : l.equals(want))) said = true;
+                }
+                if (!said) problems.add("later trip " + (i + 1) + " at " + k + " has no summon line on its tick" + (want == null ? "" : " ('" + want + "')"));
+            }
+        }
+        for (int[] lt : lineTicks) {
+            if (!KILL_LINES.contains(lines.get(lt[1])) || lt[1] == 0) continue;
+            boolean near = false;
+            for (int k : killTicks) if (lt[0] - k >= 4 && lt[0] - k <= 30) near = true;
+            if (!near && !lines.get(lt[1]).equals("Not bad.")) problems.add("kill line '" + lines.get(lt[1]) + "' at " + lt[0] + " is not 4-30 after a kill");
+        }
+        int pass = -1;
+        for (int[] lt : lineTicks) if (lines.get(lt[1]).equals("You have proven yourself. You may pass.")) pass = lt[0];
+        int lastKill = killTicks.isEmpty() ? -1 : killTicks.get(killTicks.size() - 1);
+        if (pass < 0 || pass - lastKill < 5 || pass - lastKill > 30) problems.add("pass line at " + pass + ", last kill " + lastKill + ", want 5-30 after it");
+        if (!lines.isEmpty() && !lines.get(lines.size() - 1).equals("You have proven yourself. You may pass.")) problems.add("last line is '" + lines.get(lines.size() - 1) + "', want the pass line");
+        for (int i = 0; i < tripWatcher.size() && i < paths.size(); i++) {
+            double[] w = tripWatcher.get(i), p = paths.get(i);
+            if (w == null) {
+                problems.add("no Watcher found on the server at trip " + (i + 1));
+                break;
+            }
+            double h = Math.hypot(w[0] - p[0], w[2] - p[2]), up = w[1] - p[1];
+            if (h > 3 || up < 1.5 || up > 3) problems.add(String.format(Locale.ROOT, "trip %d: Watcher %.1f blocks from its case, %.1f above the skull (want <=3, 1.5-3)", i + 1, h, up));
+        }
+        if (!midAt.equals("none")) {
+            String[] hv = midAt.split("/");
+            double h = Double.parseDouble(hv[0]), up = Double.parseDouble(hv[1]);
+            if (h > 1 || up < 5 || up > 6) problems.add("after the move line the Watcher is " + midAt + " (horizontal/up) from the center, want <=1 and 5-6 up");
+        }
+        if (maxStep > 1.0) problems.add(String.format(Locale.ROOT, "the Watcher moved %.2f blocks in one tick", maxStep));
+        if (path < 60) problems.add(String.format(Locale.ROOT, "the Watcher flew only %.0f blocks (he flies to the cases)", path));
     }
 
     private static void campOff(ClientGameTestContext ctx, List<String> problems, List<String> facts) {

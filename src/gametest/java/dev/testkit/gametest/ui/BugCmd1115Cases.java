@@ -40,6 +40,75 @@ final class BugCmd1115Cases {
             c.note("/" + r + ": zips " + before + " -> " + count(dir));
             c.check(count(dir) > before && fresh, "/" + r + " produced no new zip in " + dir);
         }
+        contents(c, dir);
+    }
+
+    /** gardencopper-1121: with a known sidebar and tab line, "/bugreport <note>" writes note.txt, the escaped sidebar, the tab
+     *  info line, the island, and what the Copper reader parsed. */
+    private static void contents(UiCase c, Path dir) throws Exception {
+        c.onClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            server.execute(() -> {
+                var sb = server.getScoreboard();
+                var obj = sb.addObjective("k560bugrep", net.minecraft.world.scores.criteria.ObjectiveCriteria.DUMMY,
+                        net.minecraft.network.chat.Component.literal("SKYBLOCK"),
+                        net.minecraft.world.scores.criteria.ObjectiveCriteria.RenderType.INTEGER, false, null);
+                String[] lines = {"§fCopper: §c1,234", "§fPurse: §699,000"};
+                for (int i = 0; i < lines.length; i++) {
+                    String owner = "§" + Integer.toHexString(i) + "§r";
+                    var team = sb.addPlayerTeam("k560bugrep" + i);
+                    team.setPlayerPrefix(net.minecraft.network.chat.Component.literal(lines[i]));
+                    sb.addPlayerToTeam(owner, team);
+                    sb.getOrCreatePlayerScore(net.minecraft.world.scores.ScoreHolder.forNameOnly(owner), obj).set(lines.length - i);
+                }
+                sb.setDisplayObjective(net.minecraft.world.scores.DisplaySlot.SIDEBAR, obj);
+            });
+            mc.getConnection().getListedOnlinePlayers().iterator().next()
+                    .setTabListDisplayName(net.minecraft.network.chat.Component.literal("Area: Garden"));
+            return null;
+        });
+        c.ticks(6);
+        long start = System.currentTimeMillis();
+        Thread.sleep(1100);
+        c.onClient(mc -> {
+            mc.player.connection.sendCommand("bugreport the copper line is missing");
+            return null;
+        });
+        Path zip = null;
+        long deadline = System.currentTimeMillis() + 15000;
+        while (zip == null && System.currentTimeMillis() < deadline) {
+            c.ticks(5);
+            try (Stream<Path> s = Files.list(dir)) {
+                zip = s.filter(p -> p.toString().endsWith(".zip") && p.toFile().lastModified() >= start).findFirst().orElse(null);
+            }
+        }
+        c.check(zip != null, "/bugreport <note> produced no new zip");
+        try (java.util.zip.ZipFile z = new java.util.zip.ZipFile(zip.toFile())) {
+            String note = read(z, "note.txt");
+            String side = read(z, "sidebar.txt");
+            String readers = read(z, "readers.txt");
+            String state = read(z, "state.txt");
+            c.note("sidebar.txt: " + side.replace("\n", " | "));
+            c.note("readers.txt Copper: " + readers.lines().filter(l -> l.startsWith("Copper")).findFirst().orElse("-"));
+            c.check(note.contains("the copper line is missing"), "note.txt lacks the typed note: " + note);
+            c.check(side.contains("Island: Garden"), "sidebar.txt lacks Island: Garden: " + side);
+            c.check(side.contains("Area: Garden"), "sidebar.txt lacks the tab info line: " + side);
+            c.check(side.contains("\\u00a7fCopper: \\u00a7c1,234") && side.contains("Purse: \\u00a7699,000"),
+                    "sidebar.txt lacks the escaped sidebar lines: " + side);
+            c.check(readers.contains("Copper: '1,234' -> 1,234") && readers.contains("Purse: '99,000' -> 99,000"),
+                    "readers.txt lacks the parsed Copper/Purse: " + readers);
+            c.check(state.contains("Language:") && state.contains("Skyblock Only gate:") && state.contains("Held item Skyblock id:"),
+                    "state.txt lacks its fields: " + state);
+            c.check(read(z, "hud.txt").contains("enabled in settings"), "hud.txt lacks its table");
+        }
+    }
+
+    private static String read(java.util.zip.ZipFile z, String name) throws Exception {
+        var e = z.getEntry(name);
+        if (e == null) {
+            return "<missing " + name + ">";
+        }
+        return new String(z.getInputStream(e).readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private static long count(Path dir) throws Exception {

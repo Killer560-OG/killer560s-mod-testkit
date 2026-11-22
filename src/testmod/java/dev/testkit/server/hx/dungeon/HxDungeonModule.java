@@ -71,6 +71,16 @@ public final class HxDungeonModule implements HxModule {
         HxBridge.register("dungeon.paste", HxDungeonModule::paste);
         HxBridge.register("dungeon.blocks", HxDungeonModule::blocks);
         HxBridge.register("dungeon.tp", HxDungeonModule::tp);
+        // Server-set flight (mayfly + flying together), so a harness arrival can hover at rest until the client and the
+        // anticheat both hold the floor (flake-ss-grimsim-1121); off puts survival's no-flight back.
+        HxBridge.register("dungeon.fly", (server, args) -> {
+            net.minecraft.server.level.ServerPlayer sp = dev.testkit.server.hx.HxPrimitives.player(server, args);
+            boolean on = args.get("on").getAsBoolean();
+            sp.getAbilities().mayfly = on;
+            sp.getAbilities().flying = on;
+            sp.onUpdateAbilities();
+            return new JsonPrimitive(on);
+        });
         HxBridge.register("dungeon.starred", HxDungeonModule::starred);
         HxBridge.register("dungeon.alive", HxDungeonModule::alive);
         HxBridge.register("dungeon.move", HxDungeonModule::move);

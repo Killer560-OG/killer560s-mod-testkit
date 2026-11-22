@@ -18,7 +18,8 @@
     "gui.tab.LeftClickSecretsTab": "Dungeons > Secrets > Left Click Opens Secrets",
     "gui.tab.AutoHarpTab": "Items > Auto Melody's Harp",
     "gui.tab.AutoSuperboomTab": "Dungeons > Auto Superboom",
-    "gui.tab.TerminatorClickerTab": "Dungeons > Shortbow Auto Clicker"
+    "gui.tab.TerminatorClickerTab": "Dungeons > Shortbow Auto Clicker",
+    "gui.tab.MapCyclerTab": "Dungeons > Map Cycler"
   },
   "newLeaves": {
     "gui.tab.RoomNameTab": "Dungeons > Current Room Name",
@@ -76,7 +77,8 @@
     "gui.tab.AutoSprintTab": "Misc > Auto Sprint",
     "gui.tab.DarkModeTab": "Misc > Dark Mode",
     "gui.tab.SoundDisablerTab": "Misc > Sound Disabler",
-    "gui.tab.CollectionTrackerTab": "Misc > Collection Tracker"
+    "gui.tab.CollectionTrackerTab": "Misc > Collection Tracker",
+    "gui.tab.HarpHelperTab": "Items > Melody's Harp Helper"
   },
   "tooltips": [
     {
@@ -689,8 +691,8 @@
     {
       "owner": "Auto Correct",
       "key": "correct commands",
-      "text": "Also fixes typos in command names you type, like /wardorbe to /wardrobe. The corrected command is what is sent.",
-      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
+      "text": "Also fixes typos in command names you type, like /wardorbe to /wardrobe, and the destination of /warp, like /warp bas to /warp base. The corrected command is what is sent.",
+      "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code; warpfix-1121 adds the /warp destination"
     },
     {
       "owner": "Auto Fairy Souls",
@@ -735,6 +737,11 @@
       "key": "auto trap",
       "text": "Cheat build: plays your New Trap and Old Trap routes through Auto Routes. Dungeon Autopilot uses trap rooms only with this on.",
       "why": "hover rewritten: 1c10b812 2026-10-20 Settings sweep: hover text, missing tooltips, spelling, dead code"
+    },
+    {
+      "owner": "Auto Trap",
+      "key": "mode",
+      "gone": "newtrap-1121: Just Cleared is the only mode until you capture your own Full Trap route, so Mode shows only then (killer560 2026-11-21)"
     },
     {
       "owner": "Best Friends",
