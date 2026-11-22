@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T14:51:51",
- "modSource": "lane-acrev-door-1122-rm",
- "modGitSha": "eed2735d843f80970aa499487c4ff58f9f8fa44f",
+ "generatedAt": "2026-11-22T14:48:23",
+ "modSource": "lane-leverquar-1122",
+ "modGitSha": "bb3636e50ca0f0cf7bd07d21e8718b8789c9c4f5",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
