@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T15:08:54",
- "modSource": "lane-acrev-door-1122-rm",
- "modGitSha": "5d0a5bda90700c48d99a9da1e134ff52f43a61ca",
+ "generatedAt": "2026-11-22T16:34:24",
+ "modSource": "mzero-rm",
+ "modGitSha": "56961afd903992280c55b0d97743c1ab24bb08cf",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
@@ -5408,10 +5408,10 @@
    "index": null,
    "file": "src/main/java/com/killer560/hub/milestone/MilestoneFeature.java",
    "line": 25,
-   "regex": "^[^:\\[]{0,6}Milestone .: You have (?:tanked and )?(?:dealt|healed) .*so far! .*$",
+   "regex": "^(?:(?:Mage|Archer|Berserk|Healer|Tank) )?Milestone .: You have (?:tanked and )?(?:dealt|healed) .*so far! .*$",
    "flags": null,
    "kind": "field",
-   "expr": "\"^[^:\\\\[]{0,6}Milestone .: You have (?:tanked and )?(?:dealt|healed) .*so far! .*$\""
+   "expr": "\"^(?:(?:Mage|Archer|Berserk|Healer|Tank) )?Milestone .: You have (?:tanked and )?(?:dealt|healed) .*so far! .*$\""
   },
   {
    "id": "mineshaft.Mineshaft#CODE",
