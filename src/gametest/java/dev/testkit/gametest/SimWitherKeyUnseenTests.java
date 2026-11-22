@@ -499,7 +499,10 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
             int bloodTrip = indexOf(lines, "going to the blood door");
             if (race) {
                 println(label + ": pick KEY wither line " + pick + ", going to the blood door line " + bloodTrip);
-                if (pick < 0) {
+                if (pick < 0 && indexOf(lines, "has obtained Wither Key!") >= 0
+                        && indexOf(lines, "has obtained Wither Key!") < bloodTrip) {
+                    failures.add(label + ": the premise failed (the key was picked up by standing near it before any decision)");
+                } else if (pick < 0) {
                     failures.add(label + ": the Wither Key that dropped in the tick its room cleared was never picked as a target");
                 } else if (bloodTrip >= 0 && bloodTrip < pick) {
                     failures.add(label + ": it went to the blood door (line " + bloodTrip + ") before picking the key (line "
