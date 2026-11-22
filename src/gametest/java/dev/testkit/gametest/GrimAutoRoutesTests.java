@@ -371,6 +371,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     s.test("62-argrim-1122-same-plan-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""),
                             c -> caseAutoClearHype(c, a, false, false, true));
                 }
+                // The same corner layout with his container click armed by Auto Clear's first etherwarp line instead of the
+                // plan's: runs on a jar without the plan too (an origin jar shows whether a flag there is the plan's).
+                s.test("62-argrim-1122-trip-openclick", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK,
+                        false, false, true, "[AutoClear] etherwarp toward"));
                 s.test("62-argrim-1122-planprobe", GrimAutoRoutesTests::casePlanProbe);
             }
             // simmobs2-1101 (mod doc-adm-sim-1101): a sleeping Fel woken by an etherwarp, and by the forced walk after a setback;
@@ -4592,6 +4596,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
     /** {@code plan}: PLAN_LAYOUTS[4], where the room kill plan acts (ackilllogic-1122); handled like the chain layout. */
     private static void caseAutoClearHype(Session c, dev.testkit.gametest.SameTick.Act act, boolean second, boolean chain,
             boolean plan) {
+        caseAutoClearHype(c, act, second, chain, plan, null);
+    }
+
+    /** {@code tripArm}: with {@code plan}, his action is armed by this line instead and the plan is not required to act. */
+    private static void caseAutoClearHype(Session c, dev.testkit.gametest.SameTick.Act act, boolean second, boolean chain,
+            boolean plan, String tripArm) {
         ClientGameTestContext ctx = c.ctx();
         resetRoutes(ctx);
         arena(ctx, false);
@@ -4608,7 +4618,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         });
         boolean armed = chain || plan;
         String chainLine = plan ? "[AutoClear] Wither Impact (room plan)" : "[AutoClear] Wither Impact chain";
-        boolean lag = acDeterministic(ctx, armed && (act != null || second));
+        boolean lag = acDeterministic(ctx, chain && (act != null || second));
         int planMoves0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(auto, "killPlanMoves"));
         tpRel(ctx, 6.5, 15.5, -90f, 0f);
         ctx.waitTicks(10);
@@ -4641,7 +4651,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         boolean useFirst = act == dev.testkit.gametest.SameTick.Act.USE || armed && act != null;
         boolean hits = act == dev.testkit.gametest.SameTick.Act.ATTACK;
         // The plan's line ("kill plan for <room>: N step(s) ~T ticks ...") comes the tick the plan is taken, before its first step.
-        String armLine = plan ? " step(s) ~" : chain ? "[AutoClear] Wither Impact chain" : "[AutoClear] Wither Impact";
+        String armLine = tripArm != null ? tripArm : plan ? " step(s) ~" : chain ? "[AutoClear] Wither Impact chain"
+                : "[AutoClear] Wither Impact";
         if (hits && armed) {
             c.server().command("execute at @a[limit=1] run summon interaction ~ ~-1.5 ~ {width:5f,height:5f,"
                     + "Tags:[\"achypehit\"]}");
@@ -4718,6 +4729,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         if (st != null) {
             // His USE never shares a tick (Auto Clear yields to a use of his), so USE and ATTACK are ACTED; a TP answer meets the cast's tick in most runs but not all (the note quotes SHARED), so TP is ACTED too. Chain layout: his action is armed by the chain line, so the ticks that carry both ARE the chained cast's.
             dev.testkit.gametest.SameTick.judge(c, st, (plan ? "plan " : "achype ") + act, armed
+                    && !(plan && act == dev.testkit.gametest.SameTick.Act.SWAP)
                     && act != dev.testkit.gametest.SameTick.Act.ATTACK
                     && act != dev.testkit.gametest.SameTick.Act.USE
                     && act != dev.testkit.gametest.SameTick.Act.TP
@@ -4762,7 +4774,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     + ", use_item ticks " + uses.size());
             check(warps == 0, warps + " etherwarp(s) in the chain layout");
         }
-        if (plan) {
+        if (plan && tripArm == null) {
             // The plan acted: its casts across and etherwarps are counted by AutoClearFeature.killPlanMoves, and each plan cast
             // must reach the wire (a use_item tick per Auto Clear weapon use at least).
             int planMoves = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(auto, "killPlanMoves")) - planMoves0;
