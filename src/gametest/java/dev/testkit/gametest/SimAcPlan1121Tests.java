@@ -43,6 +43,15 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
     private static final String CLEAR_THEN = "1121-sim-acplan-clearthensecret";
     private static final String CLEAR_FIRST = "1121-sim-acplan-clearfirst";
     private static final String SKIP_BLOOD = "1121-sim-acplan-skipblood";
+    /** Insta Clear First (killer560 2026-11-21): a known insta entry whose warp tile is a room next to the target with
+     *  no door between them (his 11-21 log: every known entry read "none matched", the from-room filter wanted a door
+     *  path of 1-2 rooms). Plain Auto Secret with Insta Clear on must take that entry before anything else. */
+    private static final String INSTA = "1121-sim-acplan-insta-warptile";
+    private static final String LAYOUT = "com.killer560.hub.livemap.DungeonLayout";
+    private static final String PATHFINDER = "com.killer560.hub.livemap.autoclear.DungeonMapPathfinder";
+    private static final String TELEPORT_UTILS = "com.killer560.hub.livemap.autoclear.TeleportUtils";
+    private static final String INSTA_TRACKER = "com.killer560.hub.autosecret.InstaClearTracker";
+    private static final String KEY_ROOMS = "com.killer560.hub.autoclear.KeyRooms";
     private static final Pattern SKIPPED = Pattern.compile("\\[AutoSecret\\] (.+?) is the room in front of the blood door - its"
             + " secrets are skipped");
     private static final String PLANNER = "com.killer560.hub.autosecret.AutopilotPlanner";
@@ -64,7 +73,7 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
             logic(ctx);
         }
         List<String> sims = new ArrayList<>();
-        for (String n : new String[]{SOLO, PARTY_ON, PARTY_OFF, CLEAR_THEN, CLEAR_FIRST, SKIP_BLOOD}) {
+        for (String n : new String[]{SOLO, PARTY_ON, PARTY_OFF, CLEAR_THEN, CLEAR_FIRST, SKIP_BLOOD, INSTA}) {
             if (!System.getProperty("testkit.scenario", "").isBlank() && !Scenario.skip(n)) {
                 sims.add(n);
             }
@@ -209,7 +218,11 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
             }
             for (String c : cases) {
                 try {
-                    one(ctx, c);
+                    if (c.equals(INSTA)) {
+                        insta(ctx);
+                    } else {
+                        one(ctx, c);
+                    }
                 } catch (Throwable t) {
                     t.printStackTrace(System.out);
                     row(c, false, "threw: " + t);
@@ -431,6 +444,133 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                         + " before the last route; " + did);
             }
         }
+    }
+
+    private void insta(ClientGameTestContext ctx) {
+        List<String> problems = new ArrayList<>();
+        SimMobFloorTests.buildMobFloor(ctx, problems, new ArrayList<>());
+        if (ctx.computeOnClient(mc -> mc.level == null)) {
+            row(INSTA, false, "the floor did not load: " + problems);
+            return;
+        }
+        ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRun", "hasStarted"), 400);
+        String[] seeded = ctx.computeOnClient(mc -> seedWarpTile());
+        if (seeded == null) {
+            row(INSTA, false, "no target room with a non-door neighbor on this floor (the case could not act)");
+            return;
+        }
+        System.out.println("[" + INSTA + "] seeded " + seeded[0] + " key " + seeded[1] + " from " + seeded[2]);
+        boolean[] was = new boolean[1];
+        ctx.runOnClient(mc -> {
+            Object as = ModUnderTest.config(AS_CONFIG);
+            was[0] = ModUnderTest.getBoolean(as, "isInstaClear");
+            ModUnderTest.set(as, "setInstaClear", true);
+            ModUnderTest.set(as, "setBloodFirst", false);
+            ModUnderTest.set(as, "setChatFeedback", true);
+            ModUnderTest.set(ModUnderTest.config(AC_CONFIG), "setEnabled", false);
+        });
+        long mark = LogTap.mark();
+        String took = null;
+        String miss = null;
+        try {
+            Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "start"));
+            for (int t = 0; t < 400 && took == null && Boolean.TRUE.equals(started); t++) {
+                ctx.waitTicks(1);
+                for (String l : LogTap.since(mark)) {
+                    if (l.contains("[AutoSecret] insta clear " + seeded[0] + ": entry " + seeded[1])) {
+                        took = l;
+                    } else if (l.contains("[AutoSecret] insta clear " + seeded[0] + ":")) {
+                        miss = l;
+                    }
+                }
+            }
+        } finally {
+            stop(ctx);
+            ctx.runOnClient(mc -> {
+                ModUnderTest.set(ModUnderTest.config(AS_CONFIG), "setInstaClear", was[0]);
+                ModUnderTest.staticCall(INSTA_TRACKER, "testUseFile", new Class<?>[]{String.class}, new Object[]{null});
+            });
+        }
+        // Acted: the run chose the seeded entry, warping in from the neighbor across the wall.
+        row(INSTA, took != null, took != null ? "took " + seeded[0] + " from " + seeded[2]
+                : "never took the entry" + (miss != null ? "; said: " + miss.substring(miss.indexOf("[AutoSecret]")) : ""));
+    }
+
+    /** Client thread: a reachable target room with a reachable neighbor (tiles side by side) that the door map does not
+     *  join within two rooms, seeded as a known insta entry from that neighbor. @return {room, key, from} or null. */
+    private static String[] seedWarpTile() {
+        Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
+        int here = (Integer) ModUnderTest.call(layout, "currentRoom", new Class<?>[]{}, new Object[]{});
+        List<SimAutopilotTests.Status> rooms = SimAutopilotTests.readStatus(net.minecraft.client.Minecraft.getInstance());
+        for (SimAutopilotTests.Status r : rooms) {
+            if (r.id() == here || r.name() == null || r.name().equals("Unknown") || SimAutopilotTests.strands(r.name())
+                    || java.util.Set.of("PUZZLE", "TRAP", "BLOOD", "ENTRANCE", "FAIRY").contains(String.valueOf(r.type()).toUpperCase(Locale.ROOT))
+                    || path(layout, here, r.id()) < 0
+                    || ModUnderTest.staticCall(KEY_ROOMS, "guardOf", new Class<?>[]{layout.getClass(), int.class},
+                    new Object[]{layout, r.id()}) != null) {
+                continue;
+            }
+            int[] rt = (int[]) ModUnderTest.call(layout, "tiles", new Class<?>[]{int.class}, new Object[]{r.id()});
+            for (SimAutopilotTests.Status f : rooms) {
+                if (f.id() == r.id() || f.name() == null || f.name().equals("Unknown") || path(layout, here, f.id()) < 0) {
+                    continue;
+                }
+                int steps = path(layout, f.id(), r.id());
+                if (steps >= 1 && steps <= 2) {
+                    continue;
+                }
+                int[] ft = (int[]) ModUnderTest.call(layout, "tiles", new Class<?>[]{int.class}, new Object[]{f.id()});
+                boolean side = false;
+                for (int a : ft) {
+                    for (int b : rt) {
+                        int dx = a % 11 - b % 11;
+                        int dz = a / 11 - b / 11;
+                        side |= dx * dx + dz * dz <= 4 && dx * dx + dz * dz > 0;
+                    }
+                }
+                if (!side) {
+                    continue;
+                }
+                net.minecraft.core.BlockPos centre = (net.minecraft.core.BlockPos) ModUnderTest.staticCall(LAYOUT, "cellCenter",
+                        new Class<?>[]{int.class}, new Object[]{r.mainTile()});
+                net.minecraft.core.BlockPos land = (net.minecraft.core.BlockPos) ModUnderTest.staticCall(TELEPORT_UTILS, "etherwarpableInTile",
+                        new Class<?>[]{net.minecraft.core.BlockPos.class, net.minecraft.world.phys.Vec3.class},
+                        new Object[]{centre, net.minecraft.world.phys.Vec3.atCenterOf(centre)});
+                if (land == null) {
+                    continue;
+                }
+                String key = (String) ModUnderTest.staticCall(INSTA_TRACKER, "entryKeyFor",
+                        new Class<?>[]{String.class, net.minecraft.core.BlockPos.class, String.class},
+                        new Object[]{r.name(), land, f.name()});
+                if (key == null || key.contains("from=?")) {
+                    continue;
+                }
+                try {
+                    Path scratch = Files.createTempFile("acplan-insta", ".json");
+                    Files.deleteIfExists(scratch);
+                    ModUnderTest.staticCall(INSTA_TRACKER, "testUseFile", new Class<?>[]{String.class},
+                            new Object[]{scratch.toString()});
+                } catch (java.io.IOException e) {
+                    throw new RuntimeException(e);
+                }
+                ModUnderTest.staticCall(INSTA_TRACKER, "testClearAll");
+                for (int i = 0; i < 2; i++) {
+                    ModUnderTest.staticCall(INSTA_TRACKER, "testAdd", new Class<?>[]{String.class, String.class, String.class,
+                            long.class}, new Object[]{r.name(), key, "INSTA", 500L});
+                }
+                boolean known = (Boolean) ModUnderTest.staticCall(INSTA_TRACKER, "knownToInstaClear",
+                        new Class<?>[]{String.class, String.class}, new Object[]{r.name(), key});
+                return known ? new String[]{r.name(), key, f.name() + " (door steps " + steps + ")"} : null;
+            }
+        }
+        return null;
+    }
+
+    /** Door-map room steps from a to b (locked doors count as open), or -1 with no path. */
+    private static int path(Object layout, int a, int b) {
+        List<?> p = (List<?>) ModUnderTest.staticCall(PATHFINDER, "findPath",
+                new Class<?>[]{layout.getClass(), int.class, int.class, boolean.class}, new Object[]{layout, a, b, true});
+        return p == null ? -1 : p.size() - 1;
     }
 
     private static void setEnum(Object cfg, String setter, String type, String value) {
