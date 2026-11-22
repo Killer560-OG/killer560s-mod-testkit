@@ -1111,19 +1111,21 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         try {
             walkOnto(ctx, 14.5, 5.5, 14, 8);
             for (int t = 0; t < 120; t++) {
-                if (t == 1 && act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                if (t >= 1 && act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                    // His target stands 1.6 along the CLIENT's own view yaw, put there every tick the way the align row
+                    // places its zombie (acrev-trap-1122: moved along the server's body look it trailed his crosshair and
+                    // his click landed in 0-1 walk ticks run to run; an interaction box he attacked every tick drew
+                    // Simulation .05 in the walk, the zombie the align row uses draws none).
                     double[] z = ctx.computeOnClient(mc -> {
                         float vy = (Float) ModUnderTest.staticCall("com.killer560.hub.util.ViewFreeze", "viewYaw");
                         double yr = Math.toRadians(Float.isNaN(vy) ? mc.player.getYRot() : vy);
                         return new double[]{mc.player.getX() - Math.sin(yr) * 1.6, mc.player.getY(),
                                 mc.player.getZ() + Math.cos(yr) * 1.6};
                     });
-                    c.server().command(String.format(Locale.ROOT, "summon zombie %.3f %.3f %.3f"
-                            + " {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}", z[0], z[1], z[2]));
-                }
-                if (t > 1 && act == dev.testkit.gametest.SameTick.Act.ATTACK) {
-                    // keeps the target 1.6 ahead of his look (no ViewFreeze here: camera and body agree) as the walk moves on
-                    c.server().command("execute as @p at @p run tp @e[tag=sametick] ^ ^ ^1.6");
+                    c.server().command(t == 1
+                            ? String.format(Locale.ROOT, "summon zombie %.3f %.3f %.3f"
+                            + " {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}", z[0], z[1], z[2])
+                            : String.format(Locale.ROOT, "tp @e[tag=sametick] %.3f %.3f %.3f", z[0], z[1], z[2]));
                 }
                 if (!(Boolean) ctx.computeOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "isRunning")) && t > 5) {
                     break;
