@@ -337,6 +337,8 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
         List<String[]> picks = new ArrayList<>();   // {kind, room, tick}
         Set<String> skipped = new HashSet<>();
         Set<String> keyRooms = new HashSet<>();
+        Set<Integer> keyClears = new HashSet<>();   // CLEAR picks it said go first for want of a Wither Key
+        boolean keyNote = false;
         readKeyRooms(LogTap.between(-1, mark), keyRooms);   // the floor line came before the start
         int score = -1;
         int score300 = -1;
@@ -361,10 +363,17 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                 if (sk.find()) {
                     skipped.add(sk.group(1));
                 }
+                if (l.contains("[AutoSecret] autopilot: no Wither Key for the door")) {
+                    keyNote = true;
+                }
                 Matcher m = PICK.matcher(l);
                 if (m.find()) {
                     String kind = m.group(1);
                     String room = m.group(2);
+                    if (keyNote && kind.equals("CLEAR")) {
+                        keyClears.add(picks.size());
+                    }
+                    keyNote = false;
                     picks.add(new String[]{kind, room, String.valueOf(tick)});
                     Integer n = kind.equals("SECRET") ? unfound.remove(room) : null;
                     if (n != null) {
@@ -459,13 +468,14 @@ public class SimAcPlan1121Tests implements FabricClientGameTest {
                 for (int i = 0; i < picks.size(); i++) {
                     if (picks.get(i)[0].equals("SECRET")) {
                         lastSecret = i;
-                    } else if (picks.get(i)[0].equals("CLEAR") && !keyRooms.contains(picks.get(i)[1])) {
+                    } else if (picks.get(i)[0].equals("CLEAR") && !keyRooms.contains(picks.get(i)[1])
+                            && !keyClears.contains(i)) {
                         // A wither key room's clear is the key to more routes (no teammate opens the door in the sim).
                         firstClear = Math.min(firstClear, i);
                     }
                 }
                 row(name, acted && firstClear > lastSecret, (firstClear > lastSecret ? "no clear" : "a clear")
-                        + " before the last route (key room clears allowed: " + keyRooms + "); " + did);
+                        + " before the last route (key room clears allowed: " + keyRooms + ", key-wanted clears " + keyClears.size() + "); " + did);
             }
         }
     }
