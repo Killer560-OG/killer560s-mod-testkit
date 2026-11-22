@@ -27,6 +27,10 @@ final class TripRefuseCases {
 
     @SuppressWarnings("unchecked")
     static void refused(LogicCase c) throws Exception {
+        if (!Mod.isCheat()) {
+            c.note("cheat-only: the trip cache is off in a legit jar (LiveMapConfig cheatGate)");
+            return;
+        }
         Class<?> tc = Mod.cls(TC);
         Method clear = tc.getDeclaredMethod("clear");
         clear.setAccessible(true);
