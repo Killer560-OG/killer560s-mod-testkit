@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T06:12:43",
- "modSource": "lane-ticksplit-nowork-1121",
- "modGitSha": "698744b26b12ffb92222899b37e476f2f60ad7f9",
+ "generatedAt": "2026-11-22T06:24:29",
+ "modSource": "lane-gardencopper-1121",
+ "modGitSha": "b85743ee1496d395724269b84af4ae11ac637e50",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
