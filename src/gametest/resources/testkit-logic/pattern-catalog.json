@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T13:32:11",
- "modSource": "lane-ap-witherkey-1122",
- "modGitSha": "6f1a394528479de38b556ac07905d6c032599e77",
+ "generatedAt": "2026-11-22T15:08:54",
+ "modSource": "lane-acrev-door-1122-rm",
+ "modGitSha": "5d0a5bda90700c48d99a9da1e134ff52f43a61ca",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {

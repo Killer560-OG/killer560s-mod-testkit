@@ -21,12 +21,16 @@ import java.util.List;
  *   <li>1120-autoharp-lag: the rows stall for 3-12 ticks at four steps (irregular server ticks), Auto Detect Lag on.</li>
  *   <li>1120-autoharp-ping: a 200 ms round trip (faked in the server and fed to the ping tracker), Auto Detect Ping
  *       on: notes are clicked early and still land.</li>
- *   <li>1120-autoharp-manual: a 200 ms round trip with both auto switches off and Click Offset +300.</li>
+ *   <li>1120-autoharp-manual: a 200 ms round trip with both auto switches off and Click Offset +200 (the offset is the
+ *       whole lead in ms with both off, so the honest value is the round trip; harpmiss-1122).</li>
  *   <li>1120-autoharp-off: the feature OFF clicks nothing; ON, the song list ("Melody's Harp") gets no click.</li>
  *   <li>1120-same-autoharp-click / -key: his own container click lands in every client tick through the screen /
  *       at END (the feature's chords click on consecutive ticks too); run on default and experimental GrimAC.</li>
  *   <li>1121-autoharp-burst: four 250-350 ms server freezes, each paid back in a burst that leaves the next note in the
  *       click row for about one server tick (harpmiss5-1121: the shipped jar got 13 of 17 and a wrong click).</li>
+ *   <li>1122-autoharp-ping150 / -ping300 / -ping320: 150, 300 and 320 ms round trips (320: two rows early, the wait
+ *       after the board ends just before the next step), Auto Detect Ping on (harpmiss-1122: a click was
+ *       timed by client ticks, not by when the board arrived, so a 150 ms trip clicked at the very end of the note's step).</li>
  * </ul>
  */
 final class AutoHarpCases {
@@ -45,11 +49,14 @@ final class AutoHarpCases {
         MenuSuite.test(s, "1120-autoharp-normal", c -> play(c, 0, "[]", true, true, 0, null));
         MenuSuite.test(s, "1120-autoharp-lag", c -> play(c, 0, "[[2,6],[5,3],[8,12],[11,4]]", true, true, 0, null));
         MenuSuite.test(s, "1120-autoharp-ping", c -> play(c, 200, "[]", true, true, 0, null));
-        MenuSuite.test(s, "1120-autoharp-manual", c -> play(c, 200, "[]", false, false, 300, null));
+        MenuSuite.test(s, "1120-autoharp-manual", c -> play(c, 200, "[]", false, false, 200, null));
         MenuSuite.test(s, "1120-autoharp-off", AutoHarpCases::off);
         MenuSuite.test(s, "1120-same-autoharp-click", c -> play(c, 0, "[]", true, true, 0, SameTick.Act.SCREEN_CLICK));
         MenuSuite.test(s, "1120-same-autoharp-key", c -> play(c, 0, "[]", true, true, 0, SameTick.Act.CLICK));
         MenuSuite.test(s, "1121-autoharp-burst", c -> play(c, 0, BURSTS, true, true, 0, null));
+        MenuSuite.test(s, "1122-autoharp-ping150", c -> play(c, 150, "[]", true, true, 0, null));
+        MenuSuite.test(s, "1122-autoharp-ping300", c -> play(c, 300, "[]", true, true, 0, null));
+        MenuSuite.test(s, "1122-autoharp-ping320", c -> play(c, 320, "[]", true, true, 0, null));
     }
 
     static JsonObject spec(int pingMs, String stalls) {
@@ -116,10 +123,12 @@ final class AutoHarpCases {
                     + ", max container clicks in one server tick " + maxTick);
             StringBuilder seq = new StringBuilder();
             long worst = 0;
+            long first = Long.MAX_VALUE;
             for (JsonObject k : clicks) {
                 seq.append(k.get("step").getAsInt()).append(':').append(k.get("col").getAsInt())
                         .append(k.get("ok").getAsBoolean() ? "" : "!").append(' ');
                 worst = Math.max(worst, k.has("ms") ? k.get("ms").getAsLong() : 0);
+                first = Math.min(first, k.has("ms") ? k.get("ms").getAsLong() : 0);
             }
             StringBuilder dbg = new StringBuilder();
             for (JsonObject r : c.events("harp.render")) {
@@ -134,14 +143,14 @@ final class AutoHarpCases {
             }
             c.note("timeline (R step@shown/began, F freeze, C step:col@received, server ms): " + dbg.toString().trim());
             c.note("clicks step:column (! = wrong): " + seq.toString().trim() + "; latest click " + worst
-                    + " ms into its step; mod timeline early rows now " + Mod.staticCall(FEATURE, "lastEarlyRows"));
+                    + " ms into its step, earliest " + first + " ms; mod timeline early rows now " + Mod.staticCall(FEATURE, "lastEarlyRows"));
             c.check(done.get("ok").getAsInt() == NOTES, "right clicks " + done.get("ok") + " of " + NOTES);
             c.check(done.get("wrong").getAsInt() == 0, done.get("wrong") + " wrong click(s)");
             c.check(done.get("missed").getAsInt() == 0, done.get("missed") + " missed note(s)");
             c.check(mine == NOTES, "the mod counted " + mine + " clicks, not " + NOTES);
             c.note("most container clicks the client sent in one client tick: " + perClientTick);
             c.check(his != null || perClientTick == 1, "container clicks in one client tick: " + perClientTick);
-            if (pingMs >= 200 && (ping || offset >= 300)) {
+            if (pingMs >= 150 && (ping || offset >= 200)) {
                 c.check(early > 0, "no note was clicked early at a " + pingMs + " ms round trip");
             } else if (pingMs == 0) {
                 c.check(early == 0, early + " early click(s) with no ping");
