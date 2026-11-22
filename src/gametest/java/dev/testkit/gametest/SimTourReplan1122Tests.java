@@ -77,9 +77,12 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
             }
             Vec3 spot = ctx.computeOnClient(mc -> mc.player.position());
             List<int[]> targets = SimMapPrecomputeTests.targets(ctx);
-            if (targets.size() < 3) {
-                failures.add("fewer than three rooms to use (" + targets.size() + ")");
-                return;
+            for (int i = 0; i < 10 && targets.size() < 3; i++) { // the floor's chunks may still be coming in
+                ctx.waitTicks(20);
+                targets = SimMapPrecomputeTests.targets(ctx);
+            }
+            if (targets.size() < 3) { // a return here would skip the verdict below the finally
+                throw new IllegalStateException("fewer than three rooms to use (" + targets.size() + ")");
             }
             int[] press = targets.get(0);
             int[] sealed = targets.get(targets.size() - 1);
@@ -88,8 +91,7 @@ public class SimTourReplan1122Tests implements FabricClientGameTest {
                             ModUnderTest.staticCall(LAYOUT, "cellCenter", new Class<?>[]{int.class},
                                     new Object[]{sealed[0]}), spot}));
             if (goal == null) {
-                failures.add("no floor block in tile " + sealed[0]);
-                return;
+                throw new IllegalStateException("no floor block in tile " + sealed[0]);
             }
             // A stone box around the sealed site's block: its roof 8 up, its walls 6 out, so no landing is within the
             // planner's "near" five blocks of it and none can aim inside.
