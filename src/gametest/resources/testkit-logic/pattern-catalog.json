@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T00:21:12",
- "modSource": "lane-corpsescan-1121",
- "modGitSha": "09bc55bf6b3243fe9296df637d5544540b8fe9b6",
+ "generatedAt": "2026-11-22T02:00:08",
+ "modSource": "lane-gamefreeze-1121",
+ "modGitSha": "59c16fb2e71a6cfb4dcc5c098f8a8a7c3b32f9ed",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
