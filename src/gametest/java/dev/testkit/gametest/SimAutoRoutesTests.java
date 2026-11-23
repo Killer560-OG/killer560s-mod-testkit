@@ -5663,6 +5663,10 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     check(!useTicks(s).isEmpty(), "pass " + pass + ": #" + k + " acted but sent no etherwarp use");
                     check(waitLanded(ctx, x, 14, 40) != null, "pass " + pass + ": #" + k + " did not land at " + x
                             + ",14 (at " + relPos(ctx) + ")");
+                    // He walks on by hand: a fresh movement key press is "taking over" and ends the run that waits for the next node.
+                    ctx.getInput().holdKey(o -> o.keyUp);
+                    ctx.waitTicks(2);
+                    ctx.getInput().releaseKey(o -> o.keyUp);
                     println("1122-ar-steporder pass " + pass + ": #" + k + " fired and landed, order so far ok");
                     tpRel(ctx, x + 0.5, 2.5, 0f, 0f);
                     ctx.waitTicks(6);
