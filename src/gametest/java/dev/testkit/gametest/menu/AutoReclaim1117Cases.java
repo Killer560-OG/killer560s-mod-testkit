@@ -41,6 +41,8 @@ final class AutoReclaim1117Cases {
     static void register(Session s) {
         MenuSuite.test(s, "1117-menu-reclaim-rules", AutoReclaim1117Cases::rules);
         MenuSuite.test(s, "1117-menu-reclaim-flow", c -> flow(c, null));
+        MenuSuite.test(s, "1122-menu-reclaim-boosters", AutoReclaim1117Cases::boosters);
+        MenuSuite.test(s, "1122-menu-reclaim-boosters-rules", AutoReclaim1117Cases::boostersRules);
         MenuSuite.test(s, "1117-menu-reclaim-same-click", c -> flow(c, SameTick.Act.SCREEN_CLICK));
         MenuSuite.test(s, "1117-menu-reclaim-same-swap", c -> flow(c, SameTick.Act.SWAP));
         MenuSuite.test(s, "1117-menu-reclaim-same-use", c -> flow(c, SameTick.Act.USE));
@@ -48,6 +50,73 @@ final class AutoReclaim1117Cases {
 
     private static ItemStack st(Item item, String id, int upgrades, String rarityLine, String... enchants) {
         return AutoReclaim1117UiCases.stack(item, id, upgrades, rarityLine, enchants);
+    }
+
+    private static ItemStack boosted(Item item, String id, boolean withBooster) {
+        net.minecraft.nbt.CompoundTag t = new net.minecraft.nbt.CompoundTag();
+        t.putString("id", id);
+        net.minecraft.nbt.ListTag l = new net.minecraft.nbt.ListTag();
+        if (withBooster) {
+            l.add(net.minecraft.nbt.StringTag.valueOf("sinew"));
+        }
+        t.put("boosters", l);
+        ItemStack s = new ItemStack(item);
+        s.set(net.minecraft.core.component.DataComponents.CUSTOM_DATA, net.minecraft.world.item.component.CustomData.of(t));
+        return s;
+    }
+
+    /** Boosters: armor pieces with a non-empty boosters list match; the same list on a tool, or an empty one, does not. */
+    static void boostersRules(Session c) throws Exception {
+        Object[][] rows = {
+                {boosted(Items.LEATHER_CHESTPLATE, "FIG_CHESTPLATE", true), "Boosters"},
+                {boosted(Items.PLAYER_HEAD, "FIG_HELMET", true), "Boosters"},
+                {boosted(Items.LEATHER_BOOTS, "FIG_BOOTS", false), null},
+                {boosted(Items.IRON_AXE, "FIG_AXE", true), null}};
+        List<String> wrong = new ArrayList<>();
+        for (Object[] row : rows) {
+            String got = reason(c, (ItemStack) row[0]);
+            if (!java.util.Objects.equals(got, row[1])) {
+                wrong.add(((ItemStack) row[0]).getItem() + " want " + row[1] + " got " + got);
+            }
+        }
+        c.check(wrong.isEmpty(), "wrong answers: " + wrong);
+    }
+
+    /** His 2026-11-22 capture: Reclaim Inventory with Fig armor (boosters) and the server accepting it. */
+    static void boosters(Session c) throws Exception {
+        MenuKit.reset(c);
+        InventoryCases.clearInv(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Pull And Reclaim does not exist");
+            return;
+        }
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set(CFG, "Enabled", true).set(CFG, "PullAndReclaim", true);
+            c.hx().give(0, "minecraft:leather_chestplate[custom_data={id:\"FIG_CHESTPLATE\",boosters:[\"sinew\"]}]");
+            c.waitUntil("the armor piece", mc -> mc.player.getInventory().getItem(0).is(Items.LEATHER_CHESTPLATE), 60);
+            JsonObject menu = MenuKit.obj("{\"title\":\"Reclaim Menu\",\"rows\":6,\"reclaim\":true,"
+                    + "\"accept\":[\"FIG_CHESTPLATE\"],\"slots\":{\"49\":{\"item\":\"minecraft:barrier\",\"name\":\"Close\"}}}");
+            c.hx().call("menu.onCommand", "name", "reclaim", "menu", menu);
+            long since = c.hx().head();
+            c.ctx().runOnClient(mc -> mc.player.connection.sendCommand("autoreclaim"));
+            boolean ended = false;
+            for (int i = 0; i < 600 && !ended; i++) {
+                c.ctx().waitTicks(1);
+                ended = i > 5 && !(Boolean) c.onClient(mc -> Mod.staticCall(MENU, "isRunning"));
+            }
+            c.ctx().waitTicks(5);
+            int[] counts = c.onClient(mc -> (int[]) Mod.staticCall(MENU, "counts"));
+            c.note("counts [pulled, reclaimed, refused] " + java.util.Arrays.toString(counts) + "; commands " + c.hx().commands(since)
+                    + "; puts " + count(c, "reclaim.put", null, null) + ", claims " + count(c, "reclaim.claim", null, null));
+            c.check(ended, "the run never ended");
+            c.check(counts[1] == 1, "want reclaimed 1 (nothing to reclaim = the Boosters rule is missing), got " + java.util.Arrays.toString(counts));
+            c.check(count(c, "reclaim.put", "skyblockId", "FIG_CHESTPLATE") >= 1 && count(c, "reclaim.claim", null, null) == 1,
+                    "the server saw no put/claim of the armor piece");
+        } finally {
+            c.hx().call("menu.onCommand", "name", "reclaim", "menu", null);
+            MenuKit.reset(c);
+            InventoryCases.clearInv(c);
+        }
     }
 
     private static String reason(Session c, ItemStack s) {
