@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T01:24:02",
- "modSource": "lane-simkeyroom-judge-1122",
- "modGitSha": "38c2ebe9a952effff88200959c8136236f5e0530",
+ "generatedAt": "2026-11-23T01:38:22",
+ "modSource": "lane-reclaiminv-1122",
+ "modGitSha": "4800c3cce46631ab4d5d4f552335c3ed0765d944",
  "modSourceDirty": false,
- "count": 970,
+ "count": 971,
  "byKind": {
   "dynamic": 10,
   "element": 63,
-  "field": 851,
+  "field": 852,
   "local": 46
  },
  "unresolved": 160,
@@ -756,6 +756,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^PUZZLE SOLVED! (?:\\\\[[^\\\\]]{1,20}\\\\] )?([A-Za-z0-9_]{1,16}) [^!]{1,80}! Good job!$\""
+  },
+  {
+   "id": "autoreclaim.AutoReclaimFeature#CLAIM_DONE",
+   "cls": "autoreclaim.AutoReclaimFeature",
+   "field": "CLAIM_DONE",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/autoreclaim/AutoReclaimFeature.java",
+   "line": 37,
+   "regex": "^Your (.+) claim has been processed!",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^Your (.+) claim has been processed!\""
   },
   {
    "id": "autoroutes.AutoRoutesCommands#AWAIT_ARG",
