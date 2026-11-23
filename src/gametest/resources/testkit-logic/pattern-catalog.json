@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T01:54:26",
- "modSource": "lane-autosell-smcp50-1122",
- "modGitSha": "c5177255d29dec992c3b2f363cf45c8b6eeb9551",
+ "generatedAt": "2026-11-23T02:17:58",
+ "modSource": "lane-foragebeacon-1122",
+ "modGitSha": "f1224bc9965bb1a52dc2d1766a91f94be1b3c197",
  "modSourceDirty": false,
- "count": 970,
+ "count": 972,
  "byKind": {
   "dynamic": 10,
   "element": 63,
-  "field": 851,
+  "field": 853,
   "local": 46
  },
  "unresolved": 160,
@@ -3912,6 +3912,30 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^\\\\[\\\\d+] (?:\\\\[[^]]+] )*([A-Za-z0-9_]{1,16}) .*\\\\((\\\\w+)(?: (\\\\w+))?\\\\)$\""
+  },
+  {
+   "id": "foraging.BeaconReadyAlert#HEADER",
+   "cls": "foraging.BeaconReadyAlert",
+   "field": "HEADER",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/foraging/BeaconReadyAlert.java",
+   "line": 29,
+   "regex": "^[A-Za-z]{2,20} Beacon: \\d{1,4} Stacks?$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^[A-Za-z]{2,20} Beacon: \\\\d{1,4} Stacks?$\""
+  },
+  {
+   "id": "foraging.BeaconReadyAlert#AVAILABLE",
+   "cls": "foraging.BeaconReadyAlert",
+   "field": "AVAILABLE",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/foraging/BeaconReadyAlert.java",
+   "line": 30,
+   "regex": "^Cooldown: AVAILABLE$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^Cooldown: AVAILABLE$\""
   },
   {
    "id": "gui.FeatureCards#SENTENCE_END",
