@@ -174,6 +174,14 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         Session.run(ctx, SESSION, (server, s) -> setup(ctx, s), s -> {
             session = s;
             s.test("62-argrim-ew-add", GrimAutoRoutesTests::caseEwAdd);
+            if (dev.testkit.gametest.mod.Mod.isCheat()) {
+                for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{null, dev.testkit.gametest.SameTick.Act.USE,
+                        dev.testkit.gametest.SameTick.Act.DIG, dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.TP}) {
+                    s.test("62-argrim-1123-standeye" + (a == null ? "" : "-same-" + a.name().toLowerCase(java.util.Locale.ROOT)),
+                            c -> caseStandEye(c, a));
+                }
+            }
+
             s.test("62-argrim-walk", GrimAutoRoutesTests::caseWalk);
             if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1110-terrain", GrimAutoRoutesTests::caseTerrain);
             // mod doc-routes-1101 (to-do Doc "AUTO ROUTES TRAP RELATED NODES"): in a trap room a walk node turns the body
@@ -2642,6 +2650,76 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         }
         c.note("chain: " + notes);
         noteFlags(c, all);
+    }
+
+    /**
+     * standeye-ar-1123: Hypixel casts an etherwarp whose sneak reached the server in the same server tick from the STANDING
+     * eye (hx dungeon.standingEye fresh). A route whose start node fires from an unsneaked stand sends the sneak and the
+     * use within a tick of each other, so its look must land on the node's block from both eyes: three runs of the 8-block
+     * warp must each land on (14,6) with a server warp (the standing eye alone lands past it), with his own action in the
+     * same ticks when {@code act} is set (GrimAC silent, his packet and the warp both on the wire).
+     */
+    private static void caseStandEye(Session c, dev.testkit.gametest.SameTick.Act act) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        writeRoute(ctx, List.of(ew(6, 6, 14, 6, true)));
+        session.hx().call("dungeon.standingEye", "fresh", true);
+        dev.testkit.gametest.SameTick st = null;
+        StringBuilder notes = new StringBuilder();
+        try {
+            for (int i = 0; i < 3; i++) {
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"}));
+                ctx.getInput().releaseKey(o -> o.keyShift);
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+                tpRel(ctx, 6.5, 3.6, 0f, 0f);
+                ctx.waitTicks(6); // the unsneaked input is on the wire: the route's sneak will be fresh
+                JsonObject before = stats();
+                int castBefore = before.get("standingEyeCast").getAsInt();
+                if (act != null && st == null) {
+                    st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
+                            p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 4));
+                }
+                long m = LogTap.mark();
+                walkOnto(ctx, 6.5, 3.6, 6, 6);
+                if (act == dev.testkit.gametest.SameTick.Act.TP) {
+                    session.hx().call("dungeon.tp", "x", (double) ctx.computeOnClient(mc -> mc.player.getX()), "y",
+                            (double) ctx.computeOnClient(mc -> mc.player.getY()), "z", (double) ctx.computeOnClient(mc -> mc.player.getZ()),
+                            "yaw", lookYaw, "pitch", lookPitch);
+                }
+                Vec3 landed = waitLanded(ctx, 14, 6, 60);
+                ctx.waitTicks(6);
+                int cast = stats().get("standingEyeCast").getAsInt() - castBefore;
+                int warps = delta(before, "etherwarps");
+                boolean acted = false;
+                for (String l : LogTap.since(m)) {
+                    acted |= l.contains("ETHERWARP acted");
+                }
+                notes.append(String.format(Locale.ROOT, "run %d: landed %s, %d server warp(s), %d standing cast(s), acted %s; ",
+                        i, landed == null ? "NOT on (14,6), at " + relPos(ctx) : "on (14,6)", warps, cast, acted));
+                check(acted && warps >= 1, "run " + i + ": the route warp never went out (" + notes + ")");
+                check(cast >= 1, "run " + i + ": the server never cast from the standing eye - nothing tested (" + notes + ")");
+                check(landed != null, "run " + i + ": the warp landed off (14,6): " + notes);
+            }
+            if (st != null) {
+                dev.testkit.gametest.SameTick s2 = st;
+                ctx.runOnClient(mc -> s2.close());
+                c.note("same-tick " + act + ": " + st.report());
+                check(st.done() > 0, act + ": his action never went in (nothing tested)");
+                st = null;
+            }
+            c.note("standeye route warp: " + notes);
+            noteFlags(c, List.of());
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick s3 = st;
+                ctx.runOnClient(mc -> s3.close());
+            }
+            session.hx().call("dungeon.standingEye", "fresh", false);
+            ctx.getInput().releaseKey(o -> o.keyShift);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"}));
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+        }
     }
 
     /**
