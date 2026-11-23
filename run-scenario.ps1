@@ -405,6 +405,8 @@ if ($Port -gt 0) { $gradleArgs += "-Pport=$Port" }
 if ($Window -ne "") { $gradleArgs += "-PtestWindow=$Window" }
 # Hidden window (hiddenwin-1115): the default. clientslot.sh counts tasklist /V titles, which a hidden window still has.
 if (-not $ShowWindow -and $env:TESTKIT_SHOW_WINDOW -ne "1") { $gradleArgs += "-PhiddenWindow=true" }
+# Idle Gradle daemons exit after 10 min (memgate-1123: 10 idle daemons held 9.7 GB).
+$gradleArgs += "-Dorg.gradle.daemon.idletimeout=600000"
 $gradleArgs += $Extra
 
 # No ternary: this is Windows PowerShell 5.1, where ?: is a parser error.
