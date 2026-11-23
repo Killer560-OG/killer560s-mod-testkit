@@ -227,7 +227,10 @@ final class Ee3RouteGrimCases {
                     n++;
                     try {
                         run(c, null, true);
-                        c.note("repeat " + kv[0] + " #" + i + ": arrived");
+                        // Each run() moves the server mark, so the case's own Grim judgment sees only the LAST run: judge each.
+                        List<String> flags = c.scenario().flags().stream().filter(l -> l.contains("failed")).toList();
+                        c.check(flags.isEmpty(), "Grim flagged the run " + flags.size() + " time(s): " + flags);
+                        c.note("repeat " + kv[0] + " #" + i + ": arrived, no Grim flag");
                     } catch (AssertionError e) {
                         c.note("repeat " + kv[0] + " #" + i + ": FAILED " + e.getMessage());
                         bad.add(kv[0] + " #" + i);
@@ -314,9 +317,15 @@ final class Ee3RouteGrimCases {
             } catch (AssertionError e) {
                 c.note((act == null ? "plain" : "swap") + " run, route result not judged here: " + e.getMessage());
             } finally {
+                // ee3race-1123: the second run() moves the server mark, so the case's Grim judgment saw only the swap run;
+                // the plain run's flags (11-23: a Simulation streak hid here twice) are judged here.
                 walkRec = false;
                 runs.add(new ArrayList<>(walkTrace));
                 walkTrace = null;
+            }
+            if (act == null) {
+                List<String> flags = c.scenario().flags().stream().filter(l -> l.contains("failed")).toList();
+                c.check(flags.isEmpty(), "Grim flagged the plain run " + flags.size() + " time(s): " + flags);
             }
         }
         List<List<String>> moving = new ArrayList<>();
