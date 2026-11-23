@@ -71,10 +71,11 @@ final class ThemeMatchCases {
                 "gui.profit.ExperimentsProfitScreen", 1, "gui.profit.MiningProfitScreen", 2, "gui.profit.NucleusProfitScreen", 1,
                 "croesus.CroesusTrackerScreen", 3, "luck.LuckScreen", 2, "croesus.ChestProfitFeature", 15);
         // A default the player changes with a color picker (the config default and the picker's reset value).
+        // HeldOutlineConfig: 2 field defaults + 2 compares in getOutlineColor/getFillColor, which map an unchanged default onto the theme (d66751221).
         allow("player-picked defaults", "ap3.Ap3Config", 4, "arrowalign.ArrowAlignConfig", 2, "autoroutes.AutoRoutesConfig", 2,
                 "croesus.CroesusConfig", 1, "dungeonalerts.DungeonAlertsConfig", 2, "dungeonalerts.RoomAlerts", 1,
                 "dungeonextras.DungeonExtrasConfig", 1, "enchantcolors.EnchantColorsConfig", 2, "f7spots.F7SpotsConfig", 2,
-                "heldoutline.HeldOutlineConfig", 2, "itemprotect.ItemProtectConfig", 2, "lagdisplay.LagDisplayConfig", 1,
+                "heldoutline.HeldOutlineConfig", 4, "itemprotect.ItemProtectConfig", 2, "lagdisplay.LagDisplayConfig", 1,
                 "livemap.LiveMapConfig", 4, "miningqol.MiningQolConfig", 2, "mobesp.MobEspConfig", 4, "p3nav.P3NavConfig", 4,
                 "pathfinding.PathfindingConfig", 5, "playerstats.PlayerStatsConfig", 1, "posmsg.PosmsgEntry", 1,
                 "powdermining.PowderMiningConfig", 1, "realtime.RealTimeConfig", 1, "routes.Route", 1, "routes.RouteStore", 1,
