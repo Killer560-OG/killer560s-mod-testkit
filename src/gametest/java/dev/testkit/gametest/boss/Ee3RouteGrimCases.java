@@ -335,7 +335,17 @@ final class Ee3RouteGrimCases {
                 return null;
             });
             if (act != null) {
-                st = SameTickCases.start(c, act, LEVER_CLICK);
+                // ee3swap-1123 (killer560 11-23: Breaker Aura Auto Swap waits for a free tick): his scroll goes in two ticks of
+                // three, a free tick after each pair, as a real player's scrolling leaves ticks, and still lands in a lever
+                // click's tick on some ticks. Every tick would leave the aura no tick to dig in (decided behavior, covered by
+                // 1123-fhb-breaker-autoswap-swap-every).
+                // The scroll is never freed within 7 blocks of a lever (the aura's lever click goes in its tick, which is the
+                // point of the case); the Breaker's walk stretches keep their free ticks.
+                st = SameTickCases.start(c, act, LEVER_CLICK, act == SameTick.Act.SWAP ? 3 : 0, () -> {
+                    var p = net.minecraft.client.Minecraft.getInstance().player; // on the client thread
+                    return p != null && (p.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(LOW)) < 49
+                            || p.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(HIGH)) < 49);
+                });
             }
             int holds0 = ((Number) Mod.staticCall("ap3.Ap3Executor", "handHolds")).intValue();
             int turns0 = act == SameTick.Act.DIG ? ((Number) Mod.staticCall("util.HandDigAim", "turns")).intValue() : 0;
@@ -375,7 +385,7 @@ final class Ee3RouteGrimCases {
                         c.server().command("setblock " + q.getX() + " " + q.getY() + " " + q.getZ() + " minecraft:air");
                     }
                 }
-                path.append(String.format(Locale.ROOT, " %d:%.2f,%.2f,%.2f%s%s", t, s[0], s[1], s[2], s[3] > 0 ? "g" : "", s[4] > 0 ? "J" : ""));
+                path.append(String.format(Locale.ROOT, " %d:%.2f,%.2f,%.2f%s%s/c%d", t, s[0], s[1], s[2], s[3] > 0 ? "g" : "", s[4] > 0 ? "J" : "", charges));
                 if (t0 < 0 && Math.hypot(s[0] - 60.5, s[2] - 139) > 0.2) {
                     t0 = t;
                 }
@@ -437,10 +447,10 @@ final class Ee3RouteGrimCases {
             c.check(fell == null, "fell into the lava (path above)");
             if (!lev[0]) {
                 c.note("route waits at the low S2 lever; BOOM tap at t" + boomAt);
-            } else if (act != SameTick.Act.SWAP) {
+            } else {
                 c.check(boomAt >= 0, "the BOOM node never sent its tap");
                 c.check(arrive >= 0, "the route never reached EE3 (lowest y " + minY + ")");
-                if (act != null) {
+                if (act != null && act != SameTick.Act.SWAP) {
                     int holds = ((Number) Mod.staticCall("ap3.Ap3Executor", "handHolds")).intValue() - holds0;
                     c.check(holds > 0, "AP3 never held his hand for its act (" + act + ")");
                     c.note("hand holds: " + holds);
@@ -479,7 +489,12 @@ final class Ee3RouteGrimCases {
             // ap3auralook-1116 (killer560 2026-11-16, "My auras can never affect my movement"): Lever Aura never turns the
             // body while AP3 runs (the pre-turn is gone; it clicks pitch-only or with no look). This used to require a turn.
             c.check(turns == 0, "Lever Aura turned the body under the AP3 walk " + turns + " time(s) - an aura must never move him");
-            c.check(noW == 0 && aAlone == 0, "the lever turn dropped W/sprint: re-picks without W " + noW + ", A-alone inputs " + aAlone);
+            // A route's own plan may press A alone (r23a does, 4 stretches: the finder's xbeam-plan keys "A"); the route folder's
+            // fastest.aalone then holds how many such inputs its plain walk puts on the wire, and only more than that is a drop.
+            Path aa = routeDir().resolve(ROUTE + ".aalone");
+            int plannedA = Files.isRegularFile(aa) ? Integer.parseInt(Files.readString(aa).strip()) : 0;
+            c.check(noW == 0 && aAlone <= plannedA, "the lever turn dropped W/sprint: re-picks without W " + noW + ", A-alone inputs " + aAlone
+                    + " (the route's own: " + plannedA + ")");
             c.check(ticks.leverAndDig == 0, "a lever click and a dig in one server tick: " + wire);
             if (act == SameTick.Act.DIG) {
                 // ap3digrot-1109: his dig under AP3's held camera turns the body onto his block, and the movement packet

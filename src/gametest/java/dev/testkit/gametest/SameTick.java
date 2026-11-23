@@ -117,7 +117,8 @@ public final class SameTick implements AutoCloseable {
             if (!armedBy.getAsBoolean()) return;
             armed = true;
         }
-        if (tick++ % every != 0) return;
+        int k = tick++;
+        if (k % every != 0 || freeEvery > 0 && (k / every) % freeEvery == freeEvery - 1 && !(keepWhen != null && keepWhen.getAsBoolean())) return;
         if (left == 0 || (heldOnly && heldSlot() != slotA && heldSlot() != slotB)) return;
         if (left > 0) left--;
         injecting = true;
@@ -326,6 +327,21 @@ public final class SameTick implements AutoCloseable {
     /** Only the next {@code n} injections go in (0: none until the next allow): his action around one moment. */
     public void allow(int n) {
         left = n;
+    }
+
+    private volatile int freeEvery;
+    private volatile java.util.function.BooleanSupplier keepWhen;
+
+    /** With {@link #freeEvery}: no free tick while {@code c} holds (client thread), so his action still lands in the feature's tick. */
+    public SameTick keepWhen(java.util.function.BooleanSupplier c) {
+        keepWhen = c;
+        return this;
+    }
+
+    /** Every {@code n}-th of his injections is skipped, leaving a free tick as a real player's scrolling does (0: none). */
+    public SameTick freeEvery(int n) {
+        freeEvery = n;
+        return this;
     }
 
     private volatile boolean heldOnly;

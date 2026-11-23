@@ -126,6 +126,9 @@ public class BreakerAuraTests implements FabricClientGameTest {
             sameTickRun(ctx, "1110-fhb-breaker-autoswap-" + a.name().toLowerCase(Locale.ROOT), a, sz);
             sz -= 30;
         }
+        // ee3swap-1123 (killer560 11-23): Auto Swap WAITS for a free tick, so under a scroll in every tick it never digs.
+        sameTickRun(ctx, "1123-fhb-breaker-autoswap-swap-every", SameTick.Act.SWAP, sz);
+        sz -= 30;
         for (SameTick.Act a : new SameTick.Act[]{SameTick.Act.USE, SameTick.Act.SWAP, SameTick.Act.ATTACK, SameTick.Act.DIG_HELD}) {
             sameTickRun(ctx, "1110-fhb-breaker-cd0-" + a.name().toLowerCase(Locale.ROOT).replace('_', '-'), a, sz);
             sz -= 30;
@@ -1736,7 +1739,8 @@ public class BreakerAuraTests implements FabricClientGameTest {
             }
         }
         boolean obs = name.contains("-obs"); // OBSIDIAN picks (dug over time: START, a swing a tick, STOP), three of them
-        boolean asw = name.contains("-autoswap"); // Auto Swap (1-tick delay, swap back) picks the breaker out of his stick slot
+        boolean every = name.endsWith("-every"); // his scroll in EVERY tick: the aura finds no free tick and must not dig
+        boolean asw = name.contains("-autoswap");// Auto Swap (1-tick delay, swap back) picks the breaker out of his stick slot
         List<BlockPos> picks = obs ? List.copyOf(line).subList(0, 3) : List.copyOf(line);
         float pitch = dig ? 60f : act == SameTick.Act.ATTACK ? 15f : 0f;
         String breaker = "give @p minecraft:" + (obs ? "netherite_pickaxe[enchantments={\"minecraft:efficiency\":5}," : "diamond_shovel[") + "custom_data={id:\"DUNGEONBREAKER\"},"
@@ -1788,7 +1792,7 @@ public class BreakerAuraTests implements FabricClientGameTest {
                     java.util.function.Predicate<net.minecraft.network.protocol.Packet<?>> feature = p ->
                             p instanceof net.minecraft.network.protocol.game.ServerboundPlayerActionPacket a
                                     && picks.contains(a.getPos());
-                    SameTick st = ctx.computeOnClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK || act == SameTick.Act.USE_KEY ? 3 : asw && act == SameTick.Act.USE ? 4 : asw && act == SameTick.Act.SWAP ? 2 : act == SameTick.Act.DIG ? 2 : 1,
+                    SameTick st = ctx.computeOnClient(mc -> SameTick.start(act, act == SameTick.Act.ATTACK || act == SameTick.Act.USE_KEY ? 3 : asw && act == SameTick.Act.USE ? 4 : asw && act == SameTick.Act.SWAP && !every ? 2 : act == SameTick.Act.DIG ? 2 : 1,
                             feature, asw ? 3 : 0, asw ? 4 : 1));
                     boolean[] closed = {false};
                     boolean click = act == SameTick.Act.CLICK;
@@ -1847,6 +1851,15 @@ public class BreakerAuraTests implements FabricClientGameTest {
                                 + dev.testkit.harness.MultiBreakWatch.digs().size());
                         // Burst flags newest Grim by design (owner exception): experimental MultiBreak cancels the extra digs of
                         // a burst that shares its tick with his action, so the picks stay; the dig reaching the wire is checked below.
+                        if (every) {
+                            // The decided behavior: no free tick, so no dig and no swap+dig tick; the harness fails any Grim flag.
+                            if (st.done() == 0 || st.both() != 0) {
+                                throw new AssertionError("scroll every tick: his swap never went in, or shared a server tick with a dig ("
+                                        + st.report() + ")");
+                            }
+                            scenario.log(name + ": " + st.report() + "; the aura dug " + st.featureWindows() + " tick(s), picks gone " + gone);
+                            return;
+                        }
                         if (!gone && !(burst && dev.testkit.gametest.boss.AaFastCases.experimentalChecks())) {
                             throw new AssertionError("not every pick broke - the aura did not act");
                         }
