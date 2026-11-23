@@ -338,7 +338,7 @@ public class SimAutoClear1020Tests implements FabricClientGameTest {
     }
 
     /** A standable floor spot nearest (x, z) within 3 blocks, y within 6 of the hint, no further from the edge than (ex, ez). */
-    private static BlockPos floorNear(ServerLevel level, double x, double z, int yHint, double ex, double ez) {
+    static BlockPos floorNear(ServerLevel level, double x, double z, int yHint, double ex, double ez) {
         BlockPos best = null;
         double bestD = Double.MAX_VALUE;
         for (int dx = -3; dx <= 3; dx++) {
@@ -611,7 +611,7 @@ public class SimAutoClear1020Tests implements FabricClientGameTest {
     // ------------------------------------------------------------------------------------------------ helpers
 
     /** {@link SimAutoClearTests#runCase} with a per-tick hook (its own overload with one is private). */
-    private static SimAutoClearTests.Result runCaseWith(ClientGameTestContext ctx, String label, Runnable start,
+    static SimAutoClearTests.Result runCaseWith(ClientGameTestContext ctx, String label, Runnable start,
                                                        java.util.function.IntConsumer perTick) {
         SimAutoClearTests.Result r = new SimAutoClearTests.Result();
         long mark = LogTap.mark();
@@ -651,7 +651,7 @@ public class SimAutoClear1020Tests implements FabricClientGameTest {
     }
 
     /** Moves a sim mob and its star tag on the server (the harness, not the mod: a walking mob). */
-    private static void moveMob(ClientGameTestContext ctx, UUID[] pair, Vec3 to) {
+    static void moveMob(ClientGameTestContext ctx, UUID[] pair, Vec3 to) {
         ctx.runOnClient(mc -> {
             var server = mc.getSingleplayerServer();
             server.execute(() -> {
@@ -732,18 +732,18 @@ public class SimAutoClear1020Tests implements FabricClientGameTest {
         });
     }
 
-    private static String standingIn(ClientGameTestContext ctx) {
+    static String standingIn(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> roomNameAt(mc.player.getX(), mc.player.getZ()));
     }
 
-    private static String roomNameAt(double x, double z) {
+    static String roomNameAt(double x, double z) {
         Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
         int r = (Integer) ModUnderTest.call(layout, "roomAtWorld", new Class<?>[]{double.class, double.class},
                 new Object[]{x, z});
         return r < 0 ? null : (String) ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{r});
     }
 
-    private static int roomIndex(Object layout, String name) {
+    static int roomIndex(Object layout, String name) {
         int count = (Integer) ModUnderTest.call(layout, "roomCount", new Class<?>[]{}, new Object[]{});
         for (int i = 0; i < count; i++) {
             if (name.equals(ModUnderTest.call(layout, "name", new Class<?>[]{int.class}, new Object[]{i}))) {
@@ -794,12 +794,12 @@ public class SimAutoClear1020Tests implements FabricClientGameTest {
     }
 
     @SuppressWarnings("unchecked")
-    private static int starredPairCount(ClientGameTestContext ctx) {
+    static int starredPairCount(ClientGameTestContext ctx) {
         return ctx.computeOnClient(mc -> ((List<UUID[]>) ModUnderTest.staticCall(SIM_MOBS, "starredPairs")).size());
     }
 
     @SuppressWarnings("unchecked")
-    private static UUID[] newestPair(ClientGameTestContext ctx, int before) {
+    static UUID[] newestPair(ClientGameTestContext ctx, int before) {
         for (int i = 0; i < 40; i++) {
             List<UUID[]> pairs = ctx.computeOnClient(mc -> (List<UUID[]>) ModUnderTest.staticCall(SIM_MOBS, "starredPairs"));
             if (pairs.size() > before) {
