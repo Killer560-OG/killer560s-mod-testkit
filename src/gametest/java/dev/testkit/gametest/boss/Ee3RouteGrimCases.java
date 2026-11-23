@@ -483,7 +483,12 @@ final class Ee3RouteGrimCases {
             // ap3auralook-1116 (killer560 2026-11-16, "My auras can never affect my movement"): Lever Aura never turns the
             // body while AP3 runs (the pre-turn is gone; it clicks pitch-only or with no look). This used to require a turn.
             c.check(turns == 0, "Lever Aura turned the body under the AP3 walk " + turns + " time(s) - an aura must never move him");
-            c.check(noW == 0 && aAlone == 0, "the lever turn dropped W/sprint: re-picks without W " + noW + ", A-alone inputs " + aAlone);
+            // A route's own plan may press A alone (r23a does, 4 stretches: the finder's xbeam-plan keys "A"); the route folder's
+            // fastest.aalone then holds how many such inputs its plain walk puts on the wire, and only more than that is a drop.
+            Path aa = routeDir().resolve(ROUTE + ".aalone");
+            int plannedA = Files.isRegularFile(aa) ? Integer.parseInt(Files.readString(aa).strip()) : 0;
+            c.check(noW == 0 && aAlone <= plannedA, "the lever turn dropped W/sprint: re-picks without W " + noW + ", A-alone inputs " + aAlone
+                    + " (the route's own: " + plannedA + ")");
             c.check(ticks.leverAndDig == 0, "a lever click and a dig in one server tick: " + wire);
             if (act == SameTick.Act.DIG) {
                 // ap3digrot-1109: his dig under AP3's held camera turns the body onto his block, and the movement packet
