@@ -90,16 +90,27 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
             return;
         }
         List<String> failures = new ArrayList<>();
+        // New Trap's node #3 ender pearl: vanilla's random throw spread (the server's, same look and spot every run) lands
+        // it ~0.6 off about 1 rotation in 9 and drops him into the pit beside #4 (y -25), so ~1 run in 3 failed there.
+        // He accepted that in game (killer560 2026-11-23: "It has been fine for me if it breaks then I will change it"),
+        // so the test throws without spread; a stall with the pearl on target still fails below.
+        dev.testkit.harness.PearlSpread.set(true);
         try {
             for (String trap : new String[]{"New Trap", "Old Trap"}) {
                 for (int rot = 0; rot < 360; rot += 90) {
                     oneFloor(ctx, failures, trap, rot, SimTrapRoutes1121Tests::body);
                 }
             }
+            println("pearls thrown without spread: " + dev.testkit.harness.PearlSpread.removed);
+            if (dev.testkit.harness.PearlSpread.removed < 4) {
+                failures.add("the no-spread pearl hook acted on " + dev.testkit.harness.PearlSpread.removed
+                        + " pearl(s), fewer than New Trap's 4 rotations");
+            }
         } catch (Throwable t) {
             failures.add("scenario threw: " + t);
             t.printStackTrace(System.out);
         } finally {
+            dev.testkit.harness.PearlSpread.set(false);
             tearDown(ctx, renderBefore);
         }
         for (String s : SUMMARY) {
