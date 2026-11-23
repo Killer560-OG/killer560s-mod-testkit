@@ -165,7 +165,7 @@ public final class ModBoardsCases {
             // 10. Back ON: the same record run now beats the stored best and goes.
             ctx.runOnClient(mc -> Mod.staticCall(FEATURE, "setEnabled", true));
             waitFor(() -> !ShareSiteCases.pendingDelete(), 5_000);
-            run("F7", 200_000L, 1, true, "Terminals", 10_000L, "Goldor", 5_000L);
+            run("F7", 200_000L, 1, true, "Terminals", 20_000L, "Goldor", 6_000L);
             c.check("back ON the record run uploads (f7, f7solo, p3)", waitFor(() -> count(stub) == 10, 10_000), stub.calls.toString());
         } finally {
             ctx.runOnClient(mc -> {
@@ -173,6 +173,57 @@ public final class ModBoardsCases {
                 Mod.staticCall("secrets.DungeonState", "setRoomSim", false);
                 Mod.staticCall(FEATURE, "setEnabled", true);
             });
+            Mod.staticCall("shared.SharedWriter", "drain", 5_000L);
+            if (saved != null) Files.write(f, saved);
+            else Files.deleteIfExists(f);
+        }
+    }
+
+    /** 1123-logic-p3board: the P3 board is F7 only and refuses a P3 under 25 s (never sent, never stored); a saved impossible best is dropped. */
+    static void p3Board(LogicCase c) throws Exception {
+        Path f = bestsFile();
+        byte[] saved = Files.exists(f) ? Files.readAllBytes(f) : null;
+        try (ShareSiteCases.Stub stub = new ShareSiteCases.Stub()) {
+            Files.deleteIfExists(f);
+            ctx.runOnClient(mc -> {
+                Mod.staticCall(FEATURE, "setEnabled", true);
+                Mod.staticCall(FEATURE, "boardsAnyHostForTest", true);
+            });
+            waitFor(() -> !ShareSiteCases.pendingDelete(), 5_000);
+            stub.calls.clear();
+            stub.bodies.clear();
+
+            // 1. An impossible P3 (15 s) on an F7: f7 goes, p3 does not.
+            run("F7", 300_000L, 5, true, "Terminals", 10_000L, "Goldor", 5_000L);
+            c.check("an impossible P3 run still uploads f7", waitFor(() -> count(stub) == 1, 10_000), stub.calls.toString());
+            settle();
+            c.eq("exactly one upload (f7)", 1, count(stub));
+            c.check("no p3 was sent", boardMs(stub, "p3") < 0);
+            c.check("no p3 was stored", !Files.readString(f).contains("\"p3\""), Files.readString(f));
+
+            // 2. M7 never makes a P3.
+            run("M7", 280_000L, 5, true, "Terminals", 30_000L, "Goldor", 10_000L);
+            c.check("an M7 uploads m7 only", waitFor(() -> count(stub) == 2, 10_000), stub.calls.toString());
+            settle();
+            c.check("no p3 from an M7", boardMs(stub, "p3") < 0);
+
+            // 3. A saved impossible p3 (and a real f7) in the file: the impossible one is dropped, a real P3 replaces it.
+            JsonObject bad = new JsonObject();
+            JsonObject p3 = new JsonObject();
+            p3.addProperty("ms", 10_000L);
+            p3.addProperty("at", 1L);
+            bad.add("p3", p3);
+            Files.writeString(f, bad.toString());
+            run("F7", 310_000L, 5, true, "Terminals", 30_000L, "Goldor", 10_000L);
+            c.check("a real P3 replaces the saved impossible one", waitFor(() -> boardMs(stub, "p3") == 40_000L, 10_000), stub.calls.toString());
+            settle();
+            c.check("the stored p3 is now the real time", com.google.gson.JsonParser.parseString(Files.readString(f)).getAsJsonObject().getAsJsonObject("p3").get("ms").getAsLong() == 40_000L, Files.readString(f));
+
+            // 4. A real fast P3 (26 s) on a faster run is accepted.
+            run("F7", 290_000L, 5, true, "Terminals", 20_000L, "Goldor", 6_000L);
+            c.check("a 26 s P3 is accepted", waitFor(() -> boards(stub).stream().anyMatch(b -> "p3".equals(b.get("cat").getAsString()) && b.get("ms").getAsLong() == 26_000L), 10_000), stub.calls.toString());
+        } finally {
+            ctx.runOnClient(mc -> Mod.staticCall(FEATURE, "boardsAnyHostForTest", false));
             Mod.staticCall("shared.SharedWriter", "drain", 5_000L);
             if (saved != null) Files.write(f, saved);
             else Files.deleteIfExists(f);
