@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T12:51:40",
- "modSource": "lane-memgate-1123",
- "modGitSha": "c6b5ac76d02b856b4ebfd94cd8f320ffe822f480",
+ "generatedAt": "2026-11-23T13:13:25",
+ "modSource": "lane-p3board-1123",
+ "modGitSha": "514e513c1a79ccaba0240e08ba37279ebaac5717",
  "modSourceDirty": false,
  "count": 975,
  "byKind": {
