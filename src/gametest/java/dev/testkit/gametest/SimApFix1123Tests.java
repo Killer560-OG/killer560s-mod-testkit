@@ -88,6 +88,36 @@ public class SimApFix1123Tests implements FabricClientGameTest {
             ModUnderTest.set(as, "setPuzzleWaitSeconds", 0);
             ModUnderTest.set(as, "setRouteStallSeconds", 10);
         });
+        int renderBefore = ctx.computeOnClient(mc -> mc.options.renderDistance().get());
+        try {
+            floor(ctx);
+        } finally {
+            // The sim world goes before the class ends: a client gametest that ends with its server still running fails
+            // the whole run (lane1123-0517, the cases after this class were NOTRUN).
+            ctx.runOnClient(mc -> {
+                if ((Boolean) ModUnderTest.staticCall(AS, "isRunning")) {
+                    ModUnderTest.staticCall(AS, "stop", new Class<?>[]{String.class, boolean.class},
+                            new Object[]{"test over", true});
+                }
+            });
+            SimAutoSecretTests.writeRoutes(ctx, Map.of());
+            ctx.runOnClient(mc -> mc.options.renderDistance().set(renderBefore));
+            ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimState", "leave"));
+            ctx.runOnClient(mc -> mc.execute(() -> {
+                if (mc.level != null) {
+                    mc.level.disconnect(net.minecraft.network.chat.Component.literal("scenario over"));
+                    mc.disconnectWithSavingScreen();
+                }
+            }));
+            ctx.waitFor(mc -> mc.level == null && mc.getSingleplayerServer() == null);
+            ctx.waitTicks(40);
+            ctx.runOnClient(mc -> mc.execute(() ->
+                    dev.testkit.compat.McCompat.setScreen(mc, new net.minecraft.client.gui.screens.TitleScreen())));
+            ctx.waitFor(mc -> dev.testkit.compat.McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.TitleScreen);
+        }
+    }
+
+    private static void floor(ClientGameTestContext ctx) {
         ctx.runOnClient(mc -> mc.options.renderDistance().set(16));
         ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimState", "enter",
                 new Class<?>[]{String.class}, new Object[]{"gametest"}));
