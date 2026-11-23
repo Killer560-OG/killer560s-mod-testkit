@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T13:37:44",
- "modSource": "lane-p3floor-remove-1123",
- "modGitSha": "cdf4bd8efb399dd255d0aa23ad013f48993ce38f",
+ "generatedAt": "2026-11-23T14:21:22",
+ "modSource": "lane-newtrap-pathnodes-1123",
+ "modGitSha": "ddde1cf49749be64082ae7322690f8396b80fb4d",
  "modSourceDirty": false,
  "count": 975,
  "byKind": {
