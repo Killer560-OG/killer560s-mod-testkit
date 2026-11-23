@@ -535,12 +535,23 @@ final class Ee3RouteGrimCases {
             // asked once that lever went; then his act is held one tick and goes. A swap every tick takes the TNT away.
             List<String> stops = LogTap.since(mark).stream().filter(l -> l.contains("[AP3] Stopped:") && !l.contains("test over")).toList();
             c.check(stops.isEmpty(), "AP3 stopped on the route: " + stops);
-            c.check(fell == null, "fell into the lava (path above)");
+            // nodelay-1123 (killer560 2026-11-23: "I will never be holding a click or scrolling my hotbar or anything while auto
+            // routes is working."): the route need not FINISH under his own use / swap / dig, so in the same-* cases the
+            // BOOM, the arrival and the lava are notes; GrimAC must still stay silent (Session.test) and every wire check stands.
+            // The plain grim and nolook-off cases (act == null) still require the route to arrive.
+            java.util.function.BiConsumer<Boolean, String> route = (ok, msg) -> {
+                if (act == null) {
+                    c.check(ok, msg);
+                } else if (!ok) {
+                    c.note("route outcome under his " + act + " (not required since 11-23): " + msg);
+                }
+            };
+            route.accept(fell == null, "fell into the lava (path above)");
             if (!lev[0]) {
                 c.note("route waits at the low S2 lever; BOOM tap at t" + boomAt);
             } else {
-                c.check(boomAt >= 0, "the BOOM node never sent its tap");
-                c.check(arrive >= 0, "the route never reached EE3 (lowest y " + minY + ")");
+                route.accept(boomAt >= 0, "the BOOM node never sent its tap");
+                route.accept(arrive >= 0, "the route never reached EE3 (lowest y " + minY + ")");
                 if (act != null && act != SameTick.Act.SWAP) {
                     int holds = ((Number) Mod.staticCall("ap3.Ap3Executor", "handHolds")).intValue() - holds0;
                     c.check(holds > 0, "AP3 never held his hand for its act (" + act + ")");
