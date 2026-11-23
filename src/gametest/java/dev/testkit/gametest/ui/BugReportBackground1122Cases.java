@@ -57,7 +57,9 @@ final class BugReportBackground1122Cases {
             // The zip's game log: chat text gone, addresses and e-mails replaced.
             String red = redactedLog(c);
             c.check(red != null && !red.contains("secret chat words") && !red.contains("203.0.113.9")
-                            && !red.contains("someone@example.com") && red.contains("[CHAT] <chat removed>") && red.contains("<ip>"),
+                            && !red.contains("someone@example.com") && red.contains("[CHAT] <chat removed>") && red.contains("<ip>")
+                            && !red.contains("privateserver-example") && !red.contains("123e4567")
+                            && !red.toLowerCase().contains(System.getProperty("user.name").toLowerCase()),
                     "the log in the zip still carries chat text, an address or an e-mail: " + red);
         } finally {
             BugReportMenu1122Cases.close(c);
@@ -73,7 +75,11 @@ final class BugReportBackground1122Cases {
         Files.createDirectories(logs);
         Files.writeString(latest, "[12:00:00] [Render thread/INFO]: [CHAT] Other: secret chat words\n"
                 + "[12:00:01] [Render thread/INFO]: Connecting to 203.0.113.9, 25565\n"
-                + "[12:00:02] [main/INFO]: mail someone@example.com\n");
+                + "[12:00:02] [main/INFO]: mail someone@example.com\n"
+                + "[12:00:03] [main/INFO]: Connecting to play.privateserver-example.net, 25565\n"
+                + "[12:00:04] [main/INFO]: other 123e4567-e89b-12d3-a456-426614174000 here\n"
+                + "[12:00:05] [main/INFO]: path C:\\Users\\" + System.getProperty("user.name") + "\\AppData\\x and "
+                + System.getProperty("user.name") + "\n");
         try {
             return (String) Mod.staticCall("bugreport.BugReportFeature", "readRedactedLog", "TestKitSelf", null);
         } finally {
