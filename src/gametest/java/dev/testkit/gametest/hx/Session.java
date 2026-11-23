@@ -170,7 +170,9 @@ public final class Session {
                 setup.build(server, session);
                 ctx.waitTicks(40);
                 body.run(session);
-                server.mark();
+                if (session.passed + session.failed == 0) {
+                    server.mark(); // with cases, each one's end re-marks (below): a flag after the last case reaches the control's check
+                }
                 if (session.proveDetector) {
                     session.scenario.assertDetectorWorks();
                 }
@@ -344,6 +346,7 @@ public final class Session {
                 ctx.runOnClient(mc -> dev.testkit.harness.Latency.remove());
             }
             currentCase = null;
+            server.mark(); // sessionend-simflag-1123: nothing a case already judged is judged again; later flags are the session's
             Coverage.currentCase(name);
         }
     }
