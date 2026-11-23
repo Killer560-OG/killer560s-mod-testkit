@@ -365,12 +365,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 // it goes in the ticks of the plan's steps; second = clearRoom again in a plan cast's own tick.
                 s.test("62-argrim-1122-plan", c -> caseAutoClearHype(c, null, false, false, true));
                 s.test("62-argrim-1122-same-plan-second", c -> caseAutoClearHype(c, null, true, false, true));
-                for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
-                        dev.testkit.gametest.SameTick.Act.OPEN_CLICK, dev.testkit.gametest.SameTick.Act.ATTACK,
-                        dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.TP)) {
-                    s.test("62-argrim-1122-same-plan-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""),
-                            c -> caseAutoClearHype(c, a, false, false, true));
-                }
+                // Names written out whole: the train's preflight looks each listed case up by its literal name.
+                s.test("62-argrim-1122-same-plan-use", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.USE, false, false, true));
+                s.test("62-argrim-1122-same-plan-openclick", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK, false, false, true));
+                s.test("62-argrim-1122-same-plan-attack", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.ATTACK, false, false, true));
+                s.test("62-argrim-1122-same-plan-swap", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.SWAP, false, false, true));
+                s.test("62-argrim-1122-same-plan-tp", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.TP, false, false, true));
                 // The same corner layout with his container click armed by Auto Clear's first etherwarp line instead of the
                 // plan's: runs on a jar without the plan too (an origin jar shows whether a flag there is the plan's).
                 s.test("62-argrim-1122-trip-openclick", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK,
