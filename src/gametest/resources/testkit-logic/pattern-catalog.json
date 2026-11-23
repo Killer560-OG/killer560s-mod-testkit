@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T13:13:25",
- "modSource": "lane-p3board-1123",
- "modGitSha": "514e513c1a79ccaba0240e08ba37279ebaac5717",
+ "generatedAt": "2026-11-23T13:37:44",
+ "modSource": "lane-p3floor-remove-1123",
+ "modGitSha": "cdf4bd8efb399dd255d0aa23ad013f48993ce38f",
  "modSourceDirty": false,
  "count": 975,
  "byKind": {
