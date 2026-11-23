@@ -23,7 +23,7 @@ import java.util.Locale;
  *   <li>1123-hx-standeye-senders-aim: a far block (no look holds for both eyes: the hop waits one tick) and a near one (a
  *       look holds for both: re-aimed, goes on the first tick); the server's landing must be the planned block, from the
  *       standing eye in the near case (it did cast from it), and a use must have gone out.</li>
- *   <li>1123-hx-standeye-senders-same-&lt;idle|use|attack|swap|tp&gt;: the same hops with his own action in the same ticks
+ *   <li>1123-hx-standeye-senders-same-&lt;idle|use|dig|swap|tp&gt;: the same hops with his own action in the same ticks
  *       ({@link SameTick}); GrimAC (default and experimental) must stay silent, hops and his action both reach the wire.</li>
  * </ul>
  */
@@ -43,7 +43,7 @@ final class HxStandEye1123Cases {
         s.test("1123-hx-standeye-senders-aim", c -> run(c, null));
         s.test("1123-hx-standeye-senders-same-idle", c -> run(c, "idle"));
         s.test("1123-hx-standeye-senders-same-use", c -> run(c, "use"));
-        s.test("1123-hx-standeye-senders-same-attack", c -> run(c, "attack"));
+        s.test("1123-hx-standeye-senders-same-dig", c -> run(c, "dig"));
         s.test("1123-hx-standeye-senders-same-swap", c -> run(c, "swap"));
         s.test("1123-hx-standeye-senders-same-tp", c -> run(c, "tp"));
     }
@@ -108,7 +108,7 @@ final class HxStandEye1123Cases {
         }
         SameTick.Act a = act == null ? null : switch (act) {
             case "use" -> SameTick.Act.USE;
-            case "attack" -> SameTick.Act.ATTACK;
+            case "dig" -> SameTick.Act.DIG;
             case "swap" -> SameTick.Act.SWAP;
             case "tp" -> SameTick.Act.TP;
             default -> null;
@@ -124,10 +124,6 @@ final class HxStandEye1123Cases {
             c.hx().call("dungeon.abilities", "enabled", true);
             c.hx().call("dungeon.standingEye", "fresh", true);
             c.server().command("kill @e[tag=sametick]");
-            if (a == SameTick.Act.ATTACK) {
-                c.server().command("execute as @a at @s run summon zombie ^ ^ ^1.8 "
-                        + "{NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}");
-            }
             if (a != null) {
                 st = c.onClient(mc -> SameTick.start(a, 2, HxStandEye1123Cases::feature, 4, 5));
             }
