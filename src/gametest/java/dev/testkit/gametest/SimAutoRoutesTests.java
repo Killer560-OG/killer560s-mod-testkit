@@ -185,6 +185,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1112-breakrules",
             // acslow-1115: a saved path hop that cannot go from here (a block in its line, its landing gone) plans the rest
             "1115-acslow-blocked", "1115-acslow-gone",
+            // arholds-1123: a held hop's replan flies the floor graph's plan with no exact proof first
+            "1123-arholds-graphfirst",
             // acslow2-1115: an await Auto Secret drives with nothing in reach lets go after 40 ticks (his log: 243)
             "1115-acslow2-await"};
 
@@ -398,6 +400,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1026-range-noitem" -> ArRangeCases.noItem(ctx);
                         case "1115-acslow-blocked" -> ArRangeCases.acslowBlocked(ctx);
                         case "1115-acslow-gone" -> ArRangeCases.acslowGone(ctx);
+                        case "1123-arholds-graphfirst" -> ArRangeCases.graphFirst(ctx);
                         case "1115-acslow2-await" -> ArMainServerCases.acslow2AwaitNothing(ctx);
                         case "96-ar-1017-mimicaim" -> caseMimicAim(ctx);
                         case "96-ar-1015-cryptaim" -> caseCryptAim(ctx);
@@ -10801,7 +10804,31 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     }
                 }
                 setBlocks(ctx, wall);
-            }, "no look from here lands on", REPLAN_BOUND);
+            }, "no look from here lands on", REPLAN_BOUND, null);
+        }
+
+        /**
+         * arholds-1123: a held hop's replan flies the floor graph's plan at once, never after an exact proof. His
+         * 2026-11-22 Slime #7 stood 17 ticks while the proof (842 ms) showed the graph's 5 warps, found in 1.6 ms, were
+         * the fewest. The acslow wall: from the middle landing no single warp clears it, so the graph's plan is 2 warps
+         * and the old jar ran its proof (logged "[Path] exact: ...") before flying them.
+         */
+        static void graphFirst(ClientGameTestContext ctx) {
+            acslowCase(ctx, "graphfirst", () -> {
+                Map<int[], BlockState> wall = new HashMap<>();
+                for (int x = 4; x <= 8; x++) {
+                    for (int y = 0; y <= 2; y++) {
+                        wall.put(new int[]{x, F + y, 30}, Blocks.STONE.defaultBlockState());
+                    }
+                }
+                setBlocks(ctx, wall);
+            }, "no look from here lands on", REPLAN_BOUND, m1 -> {
+                List<String> log = LogTap.since(m1);
+                boolean twoPlus = log.stream().anyMatch(l -> l.contains("new warp(s) from here") && !l.contains("flying 1 new"));
+                check(twoPlus, "premise: the replan did not fly 2+ new warps (a 1-warp plan has no proof to skip)");
+                String proof = log.stream().filter(l -> l.contains("[Path] exact:")).findFirst().orElse(null);
+                check(proof == null, "the replan waited for an exact proof before flying the graph's plan: " + proof);
+            });
         }
 
         /** acslow-1115: hop 1's landing block gone (his Withermancer #4 hop 1, 90 ticks waiting for it): planned again. */
@@ -10810,14 +10837,15 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 Map<int[], BlockState> hole = new HashMap<>();
                 hole.put(new int[]{OX, F - 1, MZ}, Blocks.AIR.defaultBlockState());
                 setBlocks(ctx, hole);
-            }, "landing block", REPLAN_BOUND + 20);
+            }, "landing block", REPLAN_BOUND + 20, null);
         }
 
         /** Ticks from arming #1 to standing on #2: two hops plus one replan (one planner answer, a few ms here); a missing
          *  landing block is first waited for 20 ticks more (the server may still be sending it). */
         private static final int REPLAN_BOUND = 40;
 
-        private static void acslowCase(ClientGameTestContext ctx, String tag, Runnable block, String why, int bound) {
+        private static void acslowCase(ClientGameTestContext ctx, String tag, Runnable block, String why, int bound,
+                                       java.util.function.LongConsumer extra) {
             if (!dev.testkit.gametest.mod.Mod.isCheat()) {
                 caseSkip = "Auto Routes fires nodes only in a cheat build";
                 return;
@@ -10859,6 +10887,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         + " (before: held until a left click)");
                 check(!logHas(m1, "off its spot after"), "it stepped toward a spot it already stood on");
                 check(hopCount(ctx) == 2 && valid(ctx), "the replan changed the saved pair (" + hopCount(ctx) + " warps)");
+                if (extra != null) {
+                    extra.accept(m1);
+                }
             });
         }
 
