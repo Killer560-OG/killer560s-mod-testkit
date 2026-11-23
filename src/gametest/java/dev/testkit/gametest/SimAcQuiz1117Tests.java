@@ -35,7 +35,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
     private static final String ROUTES = "1121-sim-acquiz-routes";
     /** acplan2-1121 (killer560 11-21: "come back essentially the second that it's ready for me to come back"): the same floor
      *  with short secret routes; before each answer it may stand at the Quiz at most {@link #RETURN_IDLE_BOUND} ticks, and
-     *  it is never back more than {@link #RETURN_LATE_BOUND} after a question opens. */
+     *  a started gap task is finished before it goes back (no late bound, no cut; acquizlate-1123). */
     private static final String RETURN = "1121-sim-acquiz-return";
     /** The same under the Party Secrets goal. */
     private static final String RETURN_PARTY = "1121-sim-acquiz-return-party";
@@ -44,7 +44,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
     private static boolean isReturn(String name) {
         return name.equals(RETURN) || name.equals(RETURN_PARTY);
     }
-    private static final int RETURN_LATE_BOUND = 20;
+    private static final Pattern GAP_START = Pattern.compile("\\[AutoSecret\\] Quiz: (-?\\d+) tick\\(s\\) until question \\d opens; clearing");
     private static final Pattern GAP_ROOM = Pattern.compile("clearing (.+?) meanwhile \\(");
     private static final String AS = "com.killer560.hub.autosecret.AutoSecretFeature";
     private static final String AUTO = "com.killer560.hub.autoclear.AutoClearFeature";
@@ -428,11 +428,16 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             failures.add(lateTicks.size() + " of 3 Quiz answers (" + late + ")");
         }
         if (isReturn(name)) {
-            // Judged on every jar (the base jar too: this case must fail there).
-            for (int q = 0; q < lateTicks.size(); q++) {
-                if (lateTicks.get(q) > RETURN_LATE_BOUND) {
-                    failures.add("question " + (q + 1) + " answered " + lateTicks.get(q) + " tick(s) after it opened (bound "
-                            + RETURN_LATE_BOUND + ")");
+            // acquizlate-1123 (killer560: "a second late rather than a second early ... no time limit"): a Quiz-gap task
+            // that was started is finished: no cut (a), no gap task started once the countdown is over (b), and an answer
+            // is never early, so the return follows the task's end (c). Judged on every jar (the origin jar cuts).
+            for (String l : log) {
+                if (l.contains("cutting the clear of")) {
+                    failures.add("a Quiz-gap clear was cut for the trip back: " + l.substring(l.indexOf("[AutoSecret]")));
+                }
+                Matcher g = GAP_START.matcher(l);
+                if (g.find() && Long.parseLong(g.group(1)) <= 0) {
+                    failures.add("a gap task was started with the question already due: " + l);
                 }
             }
             if (idleBy != null) {
