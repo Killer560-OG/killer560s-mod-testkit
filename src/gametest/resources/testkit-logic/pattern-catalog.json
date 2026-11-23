@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T02:28:49",
- "modSource": "lane-reclaiminv-1122",
- "modGitSha": "29f612a6c28c47eb63e88a5f8fac58a29a3fbe08",
+ "generatedAt": "2026-11-23T02:50:04",
+ "modSource": "lane-simcross-1123",
+ "modGitSha": "2733720e36ce5d8144c9f4c14052cf1066e446ae",
  "modSourceDirty": false,
  "count": 973,
  "byKind": {
