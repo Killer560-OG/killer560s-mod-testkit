@@ -4619,7 +4619,16 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         boolean armed = chain || plan;
         String chainLine = plan ? "[AutoClear] Wither Impact (room plan)" : "[AutoClear] Wither Impact chain";
         boolean lag = acDeterministic(ctx, chain && (act != null || second));
-        int planMoves0 = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(auto, "killPlanMoves"));
+        if (plan) {
+            // The trip prices Auto Clear learned in the rows before (a 3-tick 2-warp trip after the plain row) price the old
+            // choice under the plan's margin, so no later row took the plan (2026-11-22 run 2): every plan row starts fresh.
+            ctx.runOnClient(mc -> {
+                java.util.Arrays.fill((double[]) dev.testkit.gametest.mod.Mod.field("autoclear.AutoClearFeature", "tripMean"), 0.0);
+                java.util.Arrays.fill((int[]) dev.testkit.gametest.mod.Mod.field("autoclear.AutoClearFeature", "tripSeen"), 0);
+            });
+        }
+        int planMoves0 = plan && tripArm == null   // an origin jar has no killPlanMoves (trip row)
+                ? ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(auto, "killPlanMoves")) : 0;
         tpRel(ctx, 6.5, 15.5, -90f, 0f);
         ctx.waitTicks(10);
         double[][] spots = plan ? PLAN_LAYOUTS[4] : chain ? new double[][]{{5.5, 15.5}, {17.5, 11.5}, {17.5, 19.5}}
