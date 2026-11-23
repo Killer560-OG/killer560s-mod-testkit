@@ -4693,7 +4693,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 restarted[0] = true;   // the second clearRoom starts in the chain's own tick
                 start.run();
             }
-            return logHas(m, "[AutoClear] Wither Impact");
+            // The trip row casts only in place after each trip (no "Wither Impact" line): its first etherwarp line starts it.
+            return logHas(m, tripArm != null ? tripArm : "[AutoClear] Wither Impact");
         });
         if (hits && !armed) {
             // His attack needs an entity under his crosshair whatever the casts turn him to: an interaction box (no
