@@ -73,6 +73,13 @@ public final class HxAbilities {
     private static volatile boolean sneakLag;
     private static final Set<java.util.UUID> SNEAK_HEARD = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private static int sneakLagMisses;
+    /**
+     * Hypixel's pose lag (zpew-ideas-1122): a use in the same server tick as the sneak press is armed (an etherwarp) but
+     * cast from the STANDING eye, 1.62, because the pose crouches only on the player's next tick. The next N etherwarps
+     * are cast so; a case sets it.
+     */
+    private static volatile int standingEyeWarps;
+    private static int standingEyeCast;
 
     private static final double ETHERWARP_RANGE = 57.0;
     private static final double ETHERWARP_LANDING_OFFSET = 0.05;
@@ -151,6 +158,7 @@ public final class HxAbilities {
         o.addProperty("etherwarpMisses", etherwarpMisses);
         o.addProperty("transmissions", transmissions);
         o.addProperty("sneakLagMisses", sneakLagMisses);
+        o.addProperty("standingEyeCast", standingEyeCast);
         o.addProperty("superbooms", superbooms);
         o.addProperty("boomBlocks", boomBlocks);
         o.addProperty("dungeonBreaks", dungeonBreaks);
@@ -172,6 +180,8 @@ public final class HxAbilities {
         etherwarpMisses = 0;
         transmissions = 0;
         sneakLagMisses = 0;
+        standingEyeCast = 0;
+        standingEyeWarps = 0;
         superbooms = 0;
         boomBlocks = 0;
         dungeonBreaks = 0;
@@ -185,6 +195,10 @@ public final class HxAbilities {
         sneakLag = on;
         SNEAK_HEARD.clear();
         System.out.println("[testkit] hypixel sneak lag " + (on ? "ON" : "off"));
+    }
+
+    static void setStandingEyeWarps(int n) {
+        standingEyeWarps = Math.max(0, n);
     }
 
     static String idOf(ItemStack stack) {
@@ -253,6 +267,11 @@ public final class HxAbilities {
         Vec3 dir = look(sp.getYRot(), sp.getXRot());
         double x0 = sp.getX();
         double y0 = sp.getY() + 1.27;
+        if (standingEyeWarps > 0) {
+            standingEyeWarps--;
+            standingEyeCast++;
+            y0 = sp.getY() + 1.62;
+        }
         double z0 = sp.getZ();
         double x1 = x0 + dir.x * range;
         double y1 = y0 + dir.y * range;
