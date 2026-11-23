@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T14:32:52",
- "modSource": "lane-simstreak-1123",
- "modGitSha": "9a61f98a04b1482979db0e48e2d4e4ea01b1b80b",
+ "generatedAt": "2026-11-23T15:21:15",
+ "modSource": "lane-roompredictor-1123",
+ "modGitSha": "8a9ac7c3f2e7a3e50c70ec1747e13eec2cb5724a",
  "modSourceDirty": false,
  "count": 975,
  "byKind": {
