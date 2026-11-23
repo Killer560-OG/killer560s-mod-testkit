@@ -55,16 +55,21 @@ final class BeaconCases {
         return String.join(" | ", r);
     }
 
+    private static net.minecraft.world.item.Item pane(String color) {
+        return net.minecraft.core.registries.BuiltInRegistries.ITEM
+                .getValue(net.minecraft.resources.Identifier.withDefaultNamespace(color + "_stained_glass_pane"));
+    }
+
     private static List<ItemStack> dials(net.minecraft.world.item.Item color, int speed, int pitch) {
         return List.of(new ItemStack(color), new ItemStack(Items.REDSTONE_BLOCK, speed), new ItemStack(Items.NOTE_BLOCK, pitch));
     }
 
     /** The tuner's presses for the dial items of four menu states: off by some, wrapping color, off everywhere, matched. */
     private static void tuner(Session c) throws Exception {
-        String a = solve(c, dials(Items.RED_STAINED_GLASS_PANE, 3, 4), dials(Items.BLUE_STAINED_GLASS_PANE, 5, 4));
-        String b = solve(c, dials(Items.WHITE_STAINED_GLASS_PANE, 5, 1), dials(Items.BLACK_STAINED_GLASS_PANE, 2, 7));
-        String m = solve(c, dials(Items.LIME_STAINED_GLASS_PANE, 3, 3), dials(Items.LIME_STAINED_GLASS_PANE, 3, 3));
-        String u = solve(c, dials(Items.STONE, 3, 3), dials(Items.LIME_STAINED_GLASS_PANE, 3, 3));
+        String a = solve(c, dials(pane("red"), 3, 4), dials(pane("blue"), 5, 4));
+        String b = solve(c, dials(pane("white"), 5, 1), dials(pane("black"), 2, 7));
+        String m = solve(c, dials(pane("lime"), 3, 3), dials(pane("lime"), 3, 3));
+        String u = solve(c, dials(Items.STONE, 3, 3), dials(pane("lime"), 3, 3));
         c.note("tuner states: " + a + " // " + b + " // " + m + " // " + u);
         c.check("Color: down x3 | Speed: up x2 | Pitch: matched".equals(a), "state 1 read " + a);
         c.check("Color: down x1 | Speed: down x3 | Pitch: up x6".equals(b), "state 2 (white to black wraps one way) read " + b);
