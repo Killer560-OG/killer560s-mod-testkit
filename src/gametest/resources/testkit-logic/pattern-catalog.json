@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T18:26:59",
+ "generatedAt": "2026-11-22T19:49:12",
  "modSource": "lane-ap-keyrace-1122-rm3",
- "modGitSha": "1b0278e4b5d6d37ab854efa93fa517f9d753666e",
+ "modGitSha": "19d0317e892b743bb1689bb98ce5673a9ff3a1e1",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
