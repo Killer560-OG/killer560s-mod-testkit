@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T19:59:28",
- "modSource": "lane-bugreportmenu-1122",
- "modGitSha": "741c4f8fe7a008f73c9f33e2f093aa5ab942edb0",
+ "generatedAt": "2026-11-22T20:16:01",
+ "modSource": "lane-mapname-1122",
+ "modGitSha": "e581871f931445d778e2c4a5774e4eeb8295815c",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
