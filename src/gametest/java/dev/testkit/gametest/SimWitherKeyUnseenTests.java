@@ -640,7 +640,7 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
     private static void judgeAtClick(ClientGameTestContext ctx, List<String> failures, String label, Setup setup) {
         final int cell = setup.door();
         String pre = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(SIM_KEY_ROOM, "testState"));
-        if (pre == null || !pre.split("\|")[3].equals("false")) {
+        if (pre == null || !pre.split("\\|")[3].equals("false")) {
             failures.add(label + ": the premise failed (the room was already lost before the click: " + pre + ")");
             return;
         }
@@ -657,7 +657,7 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
             ctx.waitTicks(1);
             int tt = t;
             String st = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(SIM_KEY_ROOM, "testState"));
-            if (lostTick < 0 && st != null && st.split("\|")[3].equals("true")) {
+            if (lostTick < 0 && st != null && st.split("\\|")[3].equals("true")) {
                 lostTick = tt;
             }
             boolean[] now = ctx.computeOnClient(mc -> {
