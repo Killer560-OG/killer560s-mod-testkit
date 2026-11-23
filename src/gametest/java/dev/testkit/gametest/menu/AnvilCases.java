@@ -50,6 +50,7 @@ final class AnvilCases {
         AnvilStart1118Cases.register(s);
         AutoHarpCases.register(s);
         HarpHelperCases.register(s);
+        BeaconCases.register(s);
     }
 
     // ---- stacks --------------------------------------------------------------------------------------------------
