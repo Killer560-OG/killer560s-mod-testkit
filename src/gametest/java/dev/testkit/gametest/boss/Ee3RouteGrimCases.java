@@ -533,7 +533,11 @@ final class Ee3RouteGrimCases {
             // ap3holddig-1110: his right click or dig in every tick must never stop AP3. grimreach-1110: the route waits at the
             // low S2 lever while it is out of Grim's 4.5 (or his dig keeps Lever Aura off), so the BOOM and EE3 are only
             // asked once that lever went; then his act is held one tick and goes. A swap every tick takes the TNT away.
-            List<String> stops = LogTap.since(mark).stream().filter(l -> l.contains("[AP3] Stopped:") && !l.contains("test over")).toList();
+            // nodelay-1123: after a fall this case's own rescue tp reads to AP3 as a leap ("Stopped: you leapt"); that stop is
+            // the harness's, not the route's (the fall itself is judged above/below).
+            boolean rescued = fell != null;
+            List<String> stops = LogTap.since(mark).stream().filter(l -> l.contains("[AP3] Stopped:") && !l.contains("test over")
+                    && !(rescued && l.contains("you leapt"))).toList();
             c.check(stops.isEmpty(), "AP3 stopped on the route: " + stops);
             // nodelay-1123 (killer560 2026-11-23: "I will never be holding a click or scrolling my hotbar or anything while auto
             // routes is working."): the route need not FINISH under his own use / swap / dig, so in the same-* cases the
