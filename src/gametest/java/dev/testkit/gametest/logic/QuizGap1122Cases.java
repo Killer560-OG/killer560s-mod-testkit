@@ -7,7 +7,7 @@ import dev.testkit.gametest.mod.Mod;
  * trips (there + route + back) his 11-22 F7 logged. At 20:03:21 (94 ticks to question 2) Steps' 79 was "too long" for the
  * 20-tick spare, at 20:03:29 (86 to question 3) Duncan's 95 was over by 9, and both times it went back and stood 83 and 73
  * ticks at the Quiz. Now: a room that fits with the spare is still chosen as before (most unfound, then quickest); with none,
- * the one closest to the countdown within 20 ticks over it is taken instead of standing there; past that, none.
+ * the longest that still keeps 10 ticks in hand is taken instead of standing there; past that, none.
  */
 public final class QuizGap1122Cases {
 
@@ -34,10 +34,10 @@ public final class QuizGap1122Cases {
         double[] q3 = {196, 181, 320, 95, 142, 146};
         int[] u3 = {6, 6, 10, 1, 3, 3};
         c.eq("86 left: nothing fits with the spare", -1, pick(q3, u3, 86, false));
-        c.eq("86 left: Duncan (95, 9 over) is taken rather than standing 73 ticks", 3, pick(q3, u3, 86, true));
-        // Never more than 20 ticks late: the 30-tick-over room is left and he waits at the Quiz.
-        c.eq("60 left, shortest 90: none, even without the spare", -1, pick(new double[]{90, 120}, new int[]{1, 4}, 60, true));
-        c.eq("closest to the countdown wins, early before late on a tie", 2,
-                pick(new double[]{115, 102, 98}, new int[]{9, 1, 1}, 100, true));
+        c.eq("86 left: Duncan (95) is over the countdown and never taken: a route is not run late", -1, pick(q3, u3, 86, true));
+        // The loose pick still keeps half the spare (10 ticks): 1017 sim 11-22, an exact 95-of-95 fit came back 22 late.
+        c.eq("95 left, shortest 95: none, an exact fit is too tight", -1, pick(new double[]{95, 120}, new int[]{1, 4}, 95, true));
+        c.eq("the longest that keeps 10 ticks wins", 1,
+                pick(new double[]{115, 102, 98}, new int[]{9, 1, 1}, 120, true));
     }
 }
