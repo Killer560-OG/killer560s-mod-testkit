@@ -21,7 +21,8 @@ import java.util.function.Consumer;
  * teleport around trying to find them but will be standing right next to them"). His F7 run: two starred mobs of Drop had
  * chased him into Sarcophagus, already cleared; Auto Clear first saw them there, pinned them to Sarcophagus as their home
  * room, and roamed Drop 3 times with both a block and a half from him. Here a starred zombie of mob room B stands 3.5
- * blocks into a CLEARED neighbor A when {@code clearRoom(B)} starts (Auto Clear first sees it in A) and walks back into B
+ * blocks into a neighbor A that is a cleared mob room or no mob room at all (his Sloth tank was first seen from the
+ * Quiz) when {@code clearRoom(B)} starts (Auto Clear first sees it in A) and walks back into B
  * six ticks later. Asserted: Auto Clear acted (use packets) and the zombie died, B's clear finishing (onDone). The origin
  * jar pins it to A and gives B up with the zombie alive.
  */
@@ -217,8 +218,9 @@ public class SimAcChaser1123Tests implements FabricClientGameTest {
             ctx.waitTicks(10);
             boolean aCleared = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_ROOM_STATE, "isCleared",
                     new Class<?>[]{String.class}, new Object[]{a}));
-            println(String.format(Locale.US, "chaser: zombie of %s at %s moved to %s in %s (cleared %s); back at tick 6",
-                    room.name(), in.toShortString(), out.toShortString(), a, aCleared));
+            boolean aMob = mobRooms.stream().anyMatch(m -> m.name().equals(a));
+            println(String.format(Locale.US, "chaser: zombie of %s at %s moved to %s in %s (mob room %s, cleared %s); back at"
+                    + " tick 6", room.name(), in.toShortString(), out.toShortString(), a, aMob, aCleared));
             AtomicReference<String> done = new AtomicReference<>();
             AtomicReference<String> gaveUp = new AtomicReference<>();
             SimAutoClearTests.Result r = SimAutoClear1020Tests.runCaseWith(ctx, "chaser", () -> ModUnderTest.staticCall(
@@ -233,8 +235,8 @@ public class SimAcChaser1123Tests implements FabricClientGameTest {
             String line = String.format(Locale.US, "chaser (%s, first seen in %s): mob %s, onDone=%s onGiveUp=%s, %d tick(s),"
                     + " uses %d", room.name(), a, alive.get(pair[0]), done.get(), gaveUp.get(), r.ticks, r.uses);
             println(line);
-            if (!aCleared) {
-                failures.add("setup: " + a + " is not cleared, so the case proves nothing");
+            if (aMob && !aCleared) { // his runs had both: a cleared mob room (Sarcophagus) and a puzzle (the Quiz)
+                failures.add("setup: " + a + " is an uncleared mob room, so the case proves nothing");
             }
             if (!"dead".equals(alive.get(pair[0])) || done.get() == null) {
                 failures.add("the zombie that came back into " + room.name() + " was not killed: " + line);
