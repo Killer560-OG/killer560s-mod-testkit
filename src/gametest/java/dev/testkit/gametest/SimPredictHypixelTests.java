@@ -165,7 +165,9 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
             }
             boolean open = ctx.computeOnClient(mc -> mc.level.getBlockState(f.doorBlock(t[0])).isAir()
                     && mc.level.getBlockState(f.doorBlock(t[0]).above()).isAir());
-            if (!clash && open) {
+            // The corridor glance (third pick) needs an unobstructed line from where he stands to the doorway: a room's own
+            // scenery (Mushroom's) in the way leaves nothing to see, which no predictor can name (roompredictor-1123).
+            if (!clash && open && (picks.size() < 2 || clearLine(ctx, f, t, CORRIDOR_BACK))) {
                 picks.add(t);
             }
             if (picks.size() == 3) {
@@ -257,6 +259,21 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
                     + obsAtStart + " -> " + obsAtEnd + " seen in all, status '" + lastStatus + "'"
                     + (wrong == null ? "" : ", WRONG: " + wrong);
         }
+    }
+
+    /** True when nothing solid lies between his eyes {@code back} blocks short of door {@code t[0]} and the doorway. */
+    private boolean clearLine(ClientGameTestContext ctx, Floor f, int[] t, double back) {
+        double[] dc = f.doorCentre(t[0]);
+        double[] u = f.toward(t[1], t[0]);
+        return ctx.computeOnClient(mc -> {
+            for (double s = 0; s < back; s += 0.25) {
+                BlockPos p = BlockPos.containing(dc[0] - u[0] * (back - s), dc[1] + 0.2 + 1.62 - 0.6 * s / back, dc[2] - u[1] * (back - s));
+                if (!mc.level.getBlockState(p).isAir()) {
+                    return false;
+                }
+            }
+            return true;
+        });
     }
 
     /** Stands two blocks short of door {@code t[0]} in room {@code t[1]}, looks into {@code t[2]}, and lets ticks run. */
