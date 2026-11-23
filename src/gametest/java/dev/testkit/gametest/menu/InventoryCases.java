@@ -32,6 +32,7 @@ final class InventoryCases {
         // doc-auto-1101: any NPC sell menu (slot 49's sell lore, a title the pattern refuses) and a ghost sell resold
         MenuSuite.test(s, "240-menu-autosell-npc-menu", InventoryCases::autosellNpcMenu);
         MenuSuite.test(s, "240-menu-autosell-ghost-resell", InventoryCases::autosellGhost);
+        MenuSuite.test(s, "240-menu-autosell-keep-max-smcp", InventoryCases::autosellKeepMaxSmcp);
         MenuSuite.test(s, "1105-autosell-potion", InventoryCases::autosellPotion);
         MenuSuite.test(s, "241-menu-itemprotect-bin-auction", InventoryCases::itemProtect);
         MenuSuite.test(s, "242-menu-invsort-swap", InventoryCases::invsort);
@@ -143,6 +144,79 @@ final class InventoryCases {
             c.note("Trades: sold " + ids + ", Strength VII potion kept");
         } finally {
             c.ctx().runOnClient(mc -> Mod.call(cfgObj, "removeSellIdentity", "HEALING_VIII_SPLASH_POTION"));
+            MenuKit.reset(c);
+            clearInv(c);
+        }
+    }
+
+    private static String chest(String id, int roll, String uuid) {
+        return "minecraft:diamond_chestplate[custom_data={id:\"" + id + "\",baseStatBoostPercentage:" + roll
+                + ",uuid:\"" + uuid + "\"}]";
+    }
+
+    /**
+     * Keep 50% Skeleton Master Chestplates (autosell-smcp50-1122): Skeleton Master at 50, Skeleton Master at 49 and a Super
+     * Heavy chestplate at 50, both ids on the sell list. Switch ON: the 49 and the Super Heavy sell, the 50 is never clicked
+     * (two clicks, the 50 still in its slot). Switch OFF: all three sell.
+     */
+    static void autosellKeepMaxSmcp(Session c) throws Exception {
+        MenuKit.reset(c);
+        clearInv(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: Auto Sell does not exist - nothing to check");
+            return;
+        }
+        Object cfgObj = c.onClient(mc -> Mod.cfg("autosell.AutoSellConfig"));
+        try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
+            cfg.set("autosell.AutoSellConfig", "Enabled", true);
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfgObj, "addSellIdentity", "SKELETON_MASTER_CHESTPLATE");
+                Mod.call(cfgObj, "addSellIdentity", "SUPER_HEAVY_CHESTPLATE");
+                Mod.call(cfgObj, "setScreenTitlePattern", "(?i).*sell.*");
+            });
+            for (boolean keep : new boolean[] {true, false}) {
+                MenuKit.reset(c);
+                clearInv(c);
+                int soldBefore = c.events("sell.sold").size();
+                int clicksBefore = c.events("container.click").size();
+                c.ctx().runOnClient(mc -> {
+                    try { // an origin jar has no switch: the case then fails on the sale, not on the missing method
+                        Mod.call(cfgObj, "setKeepMaxSkeletonMaster", keep);
+                    } catch (RuntimeException e) {
+                        System.out.println("[menu] no keep switch: " + e);
+                    }
+                });
+                c.hx().call("give", "slot", 0, "stack", chest("SKELETON_MASTER_CHESTPLATE", 50, "smcp-50"), "count", 1);
+                c.hx().call("give", "slot", 1, "stack", chest("SKELETON_MASTER_CHESTPLATE", 49, "smcp-49"), "count", 1);
+                c.hx().call("give", "slot", 2, "stack", chest("SUPER_HEAVY_CHESTPLATE", 50, "sh-50"), "count", 1);
+                MenuKit.show(c, MenuKit.menu("menus.sell"));
+                MenuKit.awaitScreen(c, "Sell", 100);
+                c.waitUntil("a sale", mc -> c.events("sell.sold").size() > soldBefore, 200);
+                c.waitUntil("Auto Sell to finish", mc -> !(Boolean) Mod.staticCall("autosell.AutoSellFeature", "isRunning"), 300);
+                c.ctx().waitTicks(10);
+                List<String> ids = new ArrayList<>();
+                c.events("sell.sold").subList(soldBefore, c.events("sell.sold").size()).forEach(e -> ids.add(e.get("skyblockId").getAsString()));
+                int clicks = c.events("container.click").size() - clicksBefore;
+                boolean[] left = c.onClient(mc -> new boolean[] {!mc.player.getInventory().getItem(0).isEmpty(),
+                        !mc.player.getInventory().getItem(1).isEmpty(), !mc.player.getInventory().getItem(2).isEmpty()});
+                if (keep) {
+                    c.check(ids.size() == 2 && ids.contains("SUPER_HEAVY_CHESTPLATE")
+                            && ids.contains("SKELETON_MASTER_CHESTPLATE"), "keep ON: sold " + ids + ", expected the 49 and the Super Heavy");
+                    c.check(clicks == 2, "keep ON: " + clicks + " clicks, expected 2 (the 50 never clicked)");
+                    c.check(left[0] && !left[1] && !left[2], "keep ON: slots 50/49/SH still held " + java.util.Arrays.toString(left));
+                } else {
+                    c.check(ids.size() == 3, "keep OFF: sold " + ids + ", expected all three");
+                    c.check(clicks == 3, "keep OFF: " + clicks + " clicks, expected 3");
+                    c.check(!left[0] && !left[1] && !left[2], "keep OFF: still held " + java.util.Arrays.toString(left));
+                }
+                c.note("keep " + (keep ? "ON" : "OFF") + ": sold " + ids + ", " + clicks + " clicks");
+            }
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                Mod.call(cfgObj, "removeSellIdentity", "SKELETON_MASTER_CHESTPLATE");
+                Mod.call(cfgObj, "removeSellIdentity", "SUPER_HEAVY_CHESTPLATE");
+                Mod.call(cfgObj, "setKeepMaxSkeletonMaster", true);
+            });
             MenuKit.reset(c);
             clearInv(c);
         }
