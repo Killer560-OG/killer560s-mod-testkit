@@ -92,6 +92,10 @@ final class Ee3RouteGrimCases {
         add(s, "1109-boss-ee3route-same-swap", none, c -> run(c, SameTick.Act.SWAP, true));
         add(s, "1109-boss-ee3route-same-dig", none, c -> run(c, SameTick.Act.DIG, true));
         add(s, "1123-boss-ee3route-swap-walk", none, Ee3RouteGrimCases::swapWalk);
+        // ee3race-1123: the plain run again and again, over one or more candidate folders, in one client
+        // (KM_EE3_REPEAT=r23a:5,m26a:5 with any KM_EE3_DIR, so the file names are fastest.*); a SKIP row without them.
+        add(s, "1123-boss-ee3route-repeat", REPEAT == null || KM_DIR == null ? "KM_EE3_REPEAT / KM_EE3_DIR not set (e.g. r23a:5,m26a:5)"
+                : null, Ee3RouteGrimCases::repeat);
     }
 
     private static void add(Session s, String name, String skip, Session.Case body) {
@@ -203,8 +207,40 @@ final class Ee3RouteGrimCases {
         return dx * dx + dy * dy + dz * dz;
     }
 
+    private static final String REPEAT = System.getenv("KM_EE3_REPEAT");
+    /** The candidate folder {@link #repeat} is running now (null = KM_EE3_DIR / verified). */
+    private static String dirNow;
+
     private static Path routeDir() {
-        return KM_DIR == null ? VERIFIED : DIR.resolve(KM_DIR);
+        return dirNow != null ? DIR.resolve(dirNow) : KM_DIR == null ? VERIFIED : DIR.resolve(KM_DIR);
+    }
+
+    /** 1123-boss-ee3route-repeat: each folder's plain run (the grim case) N times; every run must arrive. */
+    private static void repeat(Session c) throws Exception {
+        List<String> bad = new ArrayList<>();
+        int n = 0;
+        try {
+            for (String part : REPEAT.split(",")) {
+                String[] kv = part.strip().split(":");
+                dirNow = kv[0];
+                for (int i = 1; i <= Integer.parseInt(kv[1]); i++) {
+                    n++;
+                    try {
+                        run(c, null, true);
+                        // Each run() moves the server mark, so the case's own Grim judgment sees only the LAST run: judge each.
+                        List<String> flags = c.scenario().flags().stream().filter(l -> l.contains("failed")).toList();
+                        c.check(flags.isEmpty(), "Grim flagged the run " + flags.size() + " time(s): " + flags);
+                        c.note("repeat " + kv[0] + " #" + i + ": arrived, no Grim flag");
+                    } catch (AssertionError e) {
+                        c.note("repeat " + kv[0] + " #" + i + ": FAILED " + e.getMessage());
+                        bad.add(kv[0] + " #" + i);
+                    }
+                }
+            }
+        } finally {
+            dirNow = null;
+        }
+        c.check(n > 0 && bad.isEmpty(), bad.size() + " of " + n + " plain runs failed: " + bad);
     }
 
     /** Lifts GrimAC's RotationPlace cancelvl for one case (punishments.yml + /grim reload); the returned closer puts it back. */
@@ -281,9 +317,15 @@ final class Ee3RouteGrimCases {
             } catch (AssertionError e) {
                 c.note((act == null ? "plain" : "swap") + " run, route result not judged here: " + e.getMessage());
             } finally {
+                // ee3race-1123: the second run() moves the server mark, so the case's Grim judgment saw only the swap run;
+                // the plain run's flags (11-23: a Simulation streak hid here twice) are judged here.
                 walkRec = false;
                 runs.add(new ArrayList<>(walkTrace));
                 walkTrace = null;
+            }
+            if (act == null) {
+                List<String> flags = c.scenario().flags().stream().filter(l -> l.contains("failed")).toList();
+                c.check(flags.isEmpty(), "Grim flagged the plain run " + flags.size() + " time(s): " + flags);
             }
         }
         List<List<String>> moving = new ArrayList<>();
@@ -318,6 +360,21 @@ final class Ee3RouteGrimCases {
         c.check(diff < 0, "his swap changed AP3's walk at moving tick " + diff + ": plain " + (diff < 0 ? "" : moving.get(0).get(diff))
                 + " vs swap " + (diff < 0 ? "" : moving.get(1).get(diff)));
     }
+
+    /** ee3race-1123: picks the fake Breaker has set to air on the server and the client has not yet RECEIVED as air. */
+    private static final java.util.Set<BlockPos> airWait = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    /** Network thread: crosses off each pick as its air update arrives (applied on the client's next tick, before its move). */
+    private static final Consumer<Packet<?>> airIn = p -> {
+        if (p instanceof net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket u && u.getBlockState().isAir()) {
+            airWait.remove(u.getPos());
+        } else if (p instanceof net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket u) {
+            u.runUpdates((q, b) -> {
+                if (b.isAir()) {
+                    airWait.remove(q.immutable());
+                }
+            });
+        }
+    };
 
     static void run(Session c, SameTick.Act act, boolean noLook) throws Exception {
         List<AutoCloseable> undo = new ArrayList<>();
@@ -410,6 +467,7 @@ final class Ee3RouteGrimCases {
             long mark = LogTap.mark();
             c.onClient(mc -> {
                 PacketTrace.tap = ticks;
+                PacketTrace.inTap = airIn;
                 return null;
             });
             if (act != null) {
@@ -449,6 +507,9 @@ final class Ee3RouteGrimCases {
             if (walkTrace != null) {
                 broken.addAll(live); // cleared before the tp
             }
+            int fakeDug = 0;
+            int lateAir = 0;
+            airWait.clear();
             int arrive = -1;
             int boomAt = -1;
             double minY = 999;
@@ -465,15 +526,45 @@ final class Ee3RouteGrimCases {
                 // block update. ee3r23a-1123: also writing air into the client world at once put the client a tick or two ahead
                 // of GrimAC's world (no dig packet tells Grim), so a walk through a fresh hole drew Simulation + GroundSpoof and a
                 // setback (r23a at t5-6 with his swap, 08:21:32 on 11-23); 1123-boss-ee3route-swap-walk proved AP3's walk unchanged.
+                // ee3race-1123: the setblock used to reach the client one to three ticks after the tick it was sent in, so a
+                // zero-margin pick was still solid for his next move and he stopped at its face (x 56.30 at t6, then the lava
+                // at t32; r23a and m26a, nodelay-1123). The real Breaker's block is gone the tick its dig goes out. Now, as the
+                // finder's Exec.breaker: recharge, then every pick in reach nearest first, at the END of tick t from the
+                // post-move position; and the lockstep client is held (the test thread waits) until the server's air update
+                // for each has REACHED the client, so it is applied, with GrimAC's transaction around it, before tick t+1's
+                // move. Client and Grim stay in step (no client-ahead air, the ee3r23a-1123 lesson).
                 if (charges < 20 && ++recharge >= 10) {
                     recharge = 0;
                     charges++;
                 }
+                List<BlockPos> inReach = new ArrayList<>();
                 for (BlockPos q : live) {
-                    if (charges > 0 && !broken.contains(q) && boxDistSq(s[0], s[1] + 1.62, s[2], q) <= 4.5 * 4.5) {
+                    if (!broken.contains(q) && boxDistSq(s[0], s[1] + 1.62, s[2], q) <= 4.5 * 4.5) {
+                        inReach.add(q);
+                    }
+                }
+                inReach.sort(java.util.Comparator.comparingDouble(q -> boxDistSq(s[0], s[1] + 1.62, s[2], q)));
+                List<BlockPos> dug = new ArrayList<>();
+                for (BlockPos q : inReach) {
+                    if (charges > 0) {
                         charges--;
                         broken.add(q);
+                        dug.add(q);
+                    }
+                }
+                if (!dug.isEmpty()) {
+                    airWait.addAll(c.onClient(mc -> dug.stream().filter(q -> !mc.level.getBlockState(q).isAir()).toList()));
+                    for (BlockPos q : dug) {
                         c.server().command("setblock " + q.getX() + " " + q.getY() + " " + q.getZ() + " minecraft:air");
+                    }
+                    fakeDug += dug.size();
+                    long deadline = System.nanoTime() + 3_000_000_000L;
+                    while (!airWait.isEmpty() && System.nanoTime() < deadline) {
+                        java.util.concurrent.locks.LockSupport.parkNanos(500_000);
+                    }
+                    if (!airWait.isEmpty()) {
+                        lateAir += airWait.size();
+                        airWait.clear();
                     }
                 }
                 path.append(String.format(Locale.ROOT, " %d:%.2f,%.2f,%.2f%s%s/c%d", t, s[0], s[1], s[2], s[3] > 0 ? "g" : "", s[4] > 0 ? "J" : "", charges));
@@ -499,6 +590,10 @@ final class Ee3RouteGrimCases {
                 }
             }
             System.out.println("[ee3route] path " + (act == null ? "none" : act) + ":" + path);
+            c.note("fake Breaker: " + fakeDug + " pick(s) dug, " + lateAir + " air update(s) not at the client before the next tick");
+            // A green run must have dug through the route's picks with every air in place in time (the case's own fixture).
+            c.check(walkTrace != null || fakeDug > 0, "the fake Breaker never dug a pick");
+            c.check(lateAir == 0, "fake Breaker: " + lateAir + " air update(s) reached the client late");
             c.ctx().waitTicks(20);
             // The wire around every lever click (packet order against the swap / dig / move of its tick), to read a refused click.
             java.util.List<WireCapture.Sent> wireAll = WireCapture.snapshot();
@@ -536,8 +631,15 @@ final class Ee3RouteGrimCases {
             // nodelay-1123: after a fall this case's own rescue tp reads to AP3 as a leap ("Stopped: you leapt"); that stop is
             // the harness's, not the route's (the fall itself is judged above/below).
             boolean rescued = fell != null;
+            // ee3race-1123 (m26a-samedig-1123, killer560 2026-11-23: "I will never be holding a click or scrolling my hotbar or
+            // anything while auto routes is working."): AP3 giving up a BOOM because his own held dig keeps its look off the
+            // block ("boom #N couldn't go out") is a route outcome under his input, a note like the arrival; a Grim flag still fails.
+            List<String> boomGaveUp = LogTap.since(mark).stream().filter(l -> act == SameTick.Act.DIG && l.contains("[AP3] Stopped: boom #")).toList();
+            if (!boomGaveUp.isEmpty()) {
+                c.note("route outcome under his DIG (not required since 11-23): " + boomGaveUp);
+            }
             List<String> stops = LogTap.since(mark).stream().filter(l -> l.contains("[AP3] Stopped:") && !l.contains("test over")
-                    && !(rescued && l.contains("you leapt"))).toList();
+                    && !(rescued && l.contains("you leapt")) && !boomGaveUp.contains(l)).toList();
             c.check(stops.isEmpty(), "AP3 stopped on the route: " + stops);
             // nodelay-1123 (killer560 2026-11-23: "I will never be holding a click or scrolling my hotbar or anything while auto
             // routes is working."): the route need not FINISH under his own use / swap / dig, so in the same-* cases the
@@ -626,6 +728,9 @@ final class Ee3RouteGrimCases {
             c.onClient(mc -> {
                 if (PacketTrace.tap == ticks) {
                     PacketTrace.tap = ticks.prev;
+                }
+                if (PacketTrace.inTap == airIn) {
+                    PacketTrace.inTap = null;
                 }
                 Mod.staticCall("ap3.Ap3Executor", "stop", "test over");
                 return null;
