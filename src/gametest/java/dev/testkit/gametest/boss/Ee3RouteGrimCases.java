@@ -335,7 +335,11 @@ final class Ee3RouteGrimCases {
                 return null;
             });
             if (act != null) {
-                st = SameTickCases.start(c, act, LEVER_CLICK);
+                // ee3swap-1123 (killer560 11-23: Breaker Aura Auto Swap waits for a free tick): his scroll goes in two ticks of
+                // three, a free tick after each pair, as a real player's scrolling leaves ticks, and still lands in a lever
+                // click's tick on some ticks. Every tick would leave the aura no tick to dig in (decided behavior, covered by
+                // 1123-fhb-breaker-autoswap-swap-every).
+                st = SameTickCases.start(c, act, LEVER_CLICK, act == SameTick.Act.SWAP ? 3 : 0);
             }
             int holds0 = ((Number) Mod.staticCall("ap3.Ap3Executor", "handHolds")).intValue();
             int turns0 = act == SameTick.Act.DIG ? ((Number) Mod.staticCall("util.HandDigAim", "turns")).intValue() : 0;
@@ -437,10 +441,10 @@ final class Ee3RouteGrimCases {
             c.check(fell == null, "fell into the lava (path above)");
             if (!lev[0]) {
                 c.note("route waits at the low S2 lever; BOOM tap at t" + boomAt);
-            } else if (act != SameTick.Act.SWAP) {
+            } else {
                 c.check(boomAt >= 0, "the BOOM node never sent its tap");
                 c.check(arrive >= 0, "the route never reached EE3 (lowest y " + minY + ")");
-                if (act != null) {
+                if (act != null && act != SameTick.Act.SWAP) {
                     int holds = ((Number) Mod.staticCall("ap3.Ap3Executor", "handHolds")).intValue() - holds0;
                     c.check(holds > 0, "AP3 never held his hand for its act (" + act + ")");
                     c.note("hand holds: " + holds);

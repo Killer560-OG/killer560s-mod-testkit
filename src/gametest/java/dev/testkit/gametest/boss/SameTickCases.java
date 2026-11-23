@@ -64,6 +64,11 @@ final class SameTickCases {
         c.ctx().waitTicks(5);
     }
 
+    /** As {@link #start(Session, SameTick.Act, Predicate)}, with every {@code free}-th injection left out (a free tick). */
+    static SameTick start(Session c, SameTick.Act act, Predicate<Packet<?>> feature, int free) {
+        return start(c, act, feature).freeEvery(free);
+    }
+
     static SameTick start(Session c, SameTick.Act act, Predicate<Packet<?>> feature) {
         // His left click every tick would hold every world aura for good (ActionGate: his queued attack click goes
         // first), so ATTACK clicks every other tick.
