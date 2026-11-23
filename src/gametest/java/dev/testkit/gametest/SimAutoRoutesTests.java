@@ -5632,20 +5632,20 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
 
     /** 1122-ar-steporder (killer560 2026-11-22: "auto routes arent forcing them to go in order of 1-2-3-4-5 ... it should be
      *  order you step onto them"): manual play, no Autopilot. Five etherwarp nodes, walked onto in the order 4, 2, 5, 1, 3;
-     *  each must fire when entered and land where it was saved. Pass 2 puts a start node on #1 with Start From Start
-     *  Node Only OFF, and walks 3, 5, 2, 4, 1. */
+     *  each must fire when entered and land where it was saved. Pass 2 puts the start flag on #3 (not #1) with Start
+     *  From Start Node Only OFF, and walks 3 (the start node first), 5, 1, 4, 2. */
     private void caseStepOrder(ClientGameTestContext ctx) {
         resetRoutes(ctx);
         arena(ctx, false);
         giveHotbar(ctx);
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", false));
         try {
-            int[][] orders = {{4, 2, 5, 1, 3}, {3, 5, 2, 4, 1}};
+            int[][] orders = {{4, 2, 5, 1, 3}, {3, 5, 1, 4, 2}};
             for (int pass = 0; pass < 2; pass++) {
                 forgetRunMemory(ctx);
                 List<JsonObject> n = new ArrayList<>();
                 for (int i = 0; i < 5; i++) {
-                    n.add(ew(6 + 4 * i, 6, 6 + 4 * i, 14, pass == 1 && i == 0));
+                    n.add(ew(6 + 4 * i, 6, 6 + 4 * i, 14, pass == 1 && i == 2));
                 }
                 writeRoute(ctx, n);
                 ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
