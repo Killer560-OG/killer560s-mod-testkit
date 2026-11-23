@@ -3775,8 +3775,19 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 c.note(label + ": aura click t" + click + ", warp use t" + use + " (" + gap + " tick(s)), orderE hold " + held);
                 // The await is met by the click in its own tick, so the warp step starts right behind the aura's use_item_on:
                 // a swap there must wait a tick (PacketOrderE; the hold logged then is right), the sneak and turn must not.
-                check(gap <= (chest ? 8 : 2), label + ": the warp went " + gap + " ticks after the aura's click (at most 2: turn on the "
-                        + "hand-back tick, use the next; the test chest's window adds its open and close)");
+                // The aura clicks with the AOTV the warp uses, so the mod's click-gap hold (mod 82b4f8cf6, 2026-11-19: Hypixel
+                // refused about one warp in five two ticks after such a click) puts the use the logged N ticks after it
+                // (3): the bound is that N, never more (ordere-1123; the case was written at 2 before the hold was raised).
+                int most = 2;
+                for (String l : LogTap.since(m)) {
+                    java.util.regex.Matcher g = java.util.regex.Pattern.compile("the use goes (\\d+) ticks after the click \\(click-gap hold\\)").matcher(l);
+                    if (g.find()) {
+                        most = Math.max(most, Integer.parseInt(g.group(1)));
+                    }
+                }
+                int limit = chest ? 8 : most;
+                check(gap <= limit, label + ": the warp went " + gap + " ticks after the aura's click (at most " + limit + ": turn on "
+                        + "the hand-back tick, use the next, or the click-gap hold's tick; the test chest's window adds its open and close)");
                 // The old aura turned the body and then held the click for good (his run: 166 ticks); the click comes within
                 // the aura's 100 ms delay plus the turn tick, so 30 ticks of sampling is generous.
                 check(!chest || click <= 30, label + ": the aura's chest click came only at sample tick " + click);
