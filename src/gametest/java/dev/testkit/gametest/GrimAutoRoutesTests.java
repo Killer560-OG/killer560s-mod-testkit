@@ -3445,11 +3445,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             Vec3 landed = null;
             // His action starts once the hop is held (a use with the AOTV during the walk-on would be his own warp and
             // spend the case before the route acts); up to 3 flights until a server tick carries both.
-            // SWAP: the route swaps to the AOTV in every use tick and so overrides his scroll; a wire-shared tick is
-            // only his scroll onto the AOTV itself (set_carried_item(P) use_item(F)), which comes by parity after a
-            // landing: up to 6 flights for it (2026-11-23).
-            int attempts = act == dev.testkit.gametest.SameTick.Act.SWAP ? 6 : 3;
-            for (int attempt = 1; attempt <= attempts; attempt++) {
+            boolean swap = act == dev.testkit.gametest.SameTick.Act.SWAP;
+            for (int attempt = 1; attempt <= 3; attempt++) {
                 if (attempt > 1) {
                     ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
                             new Object[]{"test"}));
@@ -3475,7 +3472,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 if (st != null) {
                     st.allow(0);
                 }
-                if (act == null || st.both() > 0) {
+                if (act == null || swap || st.both() > 0) {
                     break;
                 }
             }
@@ -3493,7 +3490,17 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 rep = s2.report();
                 check(s2.done() > 0 && s2.playerWindows() > 0 && s2.featureWindows() > 0, act
                         + ": his action or the route's use never reached the wire - nothing tested (" + rep + ")");
-                check(s2.both() > 0, act + ": no server tick carried both his " + act + " and a route use (" + rep + ")");
+                if (swap) {
+                    // His scroll (END of tick N) would go out from vanilla's gameMode.tick in tick N+1, the route's use
+                    // tick; the route selects the AOTV first in that tick, so his slot never reaches the wire there
+                    // (SHARED stays 0 unless he scrolled onto the AOTV). Proof the two met: his item was in hand at the
+                    // send, the route swapped back before its use, and nothing of his went out after it.
+                    long over = LogTap.since(mr).stream().filter(l -> l.contains("in hand at the send - selecting")).count();
+                    check(s2.both() > 0 || over > 0, "SWAP: his scroll never met a route use (" + rep + ")");
+                    check(s2.playerAfterFeature() == 0, "SWAP: his slot went out after a route use in its tick (" + rep + ")");
+                } else {
+                    check(s2.both() > 0, act + ": no server tick carried both his " + act + " and a route use (" + rep + ")");
+                }
             }
             String proof = LogTap.since(mr).stream().filter(l -> l.contains("[Path] exact:")).findFirst().orElse(null);
             println(c.name() + ": replanned " + flew + ", landed " + (landed != null) + ", uses " + useTicks(sm).size()
