@@ -2672,6 +2672,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"}));
                 ctx.getInput().releaseKey(o -> o.keyShift);
                 ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+                ensureInRoom(ctx); // his own USE warps may have taken him out of the room
                 tpRel(ctx, 6.5, 3.6, 0f, 0f);
                 ctx.waitTicks(6); // the unsneaked input is on the wire: the route's sneak will be fresh
                 JsonObject before = stats();
@@ -2679,7 +2680,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 long m = LogTap.mark();
                 walkOnto(ctx, 6.5, 3.6, 6, 6);
                 // Armed once the route runs: his own action is not in the walk-on.
-                if (act != null && st == null) {
+                if (act != null) {
                     st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
                             p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 4));
                 }
@@ -2690,6 +2691,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 }
                 Vec3 landed = waitLanded(ctx, 14, 6, 60);
                 ctx.waitTicks(6);
+                if (st != null) {
+                    dev.testkit.gametest.SameTick s2 = st;
+                    ctx.runOnClient(mc -> s2.close());
+                    c.note("same-tick " + act + " run " + i + ": " + st.report());
+                    check(st.done() > 0, act + ": his action never went in (nothing tested)");
+                    st = null;
+                }
                 int cast = stats().get("standingEyeCast").getAsInt() - castBefore;
                 int warps = delta(before, "etherwarps");
                 boolean acted = false;
@@ -2701,13 +2709,6 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 check(acted && warps >= 1, "run " + i + ": the route warp never went out (" + notes + ")");
                 // His own right click (USE) is a second warp of its own: only where the route's landing is judged does it not count.
                 check(landed != null || act == dev.testkit.gametest.SameTick.Act.USE, "run " + i + ": the warp landed off (14,6): " + notes);
-            }
-            if (st != null) {
-                dev.testkit.gametest.SameTick s2 = st;
-                ctx.runOnClient(mc -> s2.close());
-                c.note("same-tick " + act + ": " + st.report());
-                check(st.done() > 0, act + ": his action never went in (nothing tested)");
-                st = null;
             }
             c.note("standeye route warp: " + notes);
             noteFlags(c, List.of());
