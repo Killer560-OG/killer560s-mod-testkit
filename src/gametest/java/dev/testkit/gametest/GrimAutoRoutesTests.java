@@ -2684,7 +2684,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
                             p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 4));
                 }
-                if (act == dev.testkit.gametest.SameTick.Act.TP) {
+                if (act == dev.testkit.gametest.SameTick.Act.TP && i == 1) { // the last run: a teleport accept in the route's ticks
                     session.hx().call("dungeon.tp", "x", (double) ctx.computeOnClient(mc -> mc.player.getX()), "y",
                             (double) ctx.computeOnClient(mc -> mc.player.getY()), "z", (double) ctx.computeOnClient(mc -> mc.player.getZ()),
                             "yaw", lookYaw, "pitch", lookPitch);
