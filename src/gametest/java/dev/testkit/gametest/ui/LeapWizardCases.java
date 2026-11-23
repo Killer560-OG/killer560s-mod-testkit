@@ -100,6 +100,64 @@ final class LeapWizardCases {
         });
     }
 
+    // ---- 1123 -------------------------------------------------------------------------------------------------------
+
+    /** leaporder-reset-1123: a player's Class button on the layout page is a drop-down; picking a class in its list sets the
+     *  override straight, Auto clears it, and a click outside closes the list with no change. */
+    static void classDropdown(UiCase c) throws Exception {
+        LeapOrderCases.State st = LeapOrderCases.setUp(c);
+        try {
+            for (String n : PARTY) {
+                detect(c, n, "HEALER");
+            }
+            Screen s = openPage1(c);
+            clickArcher(c, s);
+            c.check(wizard(c, s) == null, "the wizard started although every class is known");
+            AbstractWidget btn = InvBatchCases.widget(c, s, "Class:");
+            c.check(btn != null, "the layout page has no Class button");
+            String who = c.onClient(mc -> {
+                String[] lay = (String[]) Mod.call(s, "currentLayout");
+                for (String n : lay) {
+                    if (n != null) return n;
+                }
+                return null;
+            });
+            c.check(who != null, "no player on the layout page");
+            String[] want = {"MAGE", "TANK", "HEALER", "ARCHER", "BERSERKER"};
+            int acted = 0;
+            for (int i = 0; i < want.length; i++) {
+                AbstractWidget b = InvBatchCases.widget(c, s, "Class:");
+                InvBatchCases.clickWidget(c, s, b);
+                Object open = c.onClient(mc -> Mod.staticCall("gui.DropdownWidget", "openOne"));
+                c.check(open != null, "clicking the Class button opened no list (" + want[i] + ")");
+                final int idx = i + 1;
+                int[] r = c.onClient(mc -> (int[]) Mod.call(Mod.staticCall("gui.DropdownWidget", "openOne"), "optionBounds", idx));
+                c.check(r != null, "option " + idx + " is not in the open list");
+                InvBatchCases.click(c, s, r[0] + r[2] / 2.0, r[1] + r[3] / 2.0);
+                c.check(c.onClient(mc -> Mod.staticCall("gui.DropdownWidget", "openOne")) == null, "the list stayed open after a pick");
+                String got = cls(c, who);
+                c.check(got.equals(want[i]) && override(c, who), "picking " + want[i] + " gave " + got + " (override " + override(c, who) + ")");
+                acted++;
+            }
+            // Click outside closes with no change.
+            InvBatchCases.clickWidget(c, s, InvBatchCases.widget(c, s, "Class:"));
+            InvBatchCases.click(c, s, 3, 3);
+            c.check(c.onClient(mc -> Mod.staticCall("gui.DropdownWidget", "openOne")) == null, "a click outside left the list open");
+            c.check(cls(c, who).equals("BERSERKER"), "a click outside changed the class to " + cls(c, who));
+            // Auto clears the override.
+            InvBatchCases.clickWidget(c, s, InvBatchCases.widget(c, s, "Class:"));
+            int[] r0 = c.onClient(mc -> (int[]) Mod.call(Mod.staticCall("gui.DropdownWidget", "openOne"), "optionBounds", 0));
+            InvBatchCases.click(c, s, r0[0] + r0[2] / 2.0, r0[1] + r0[3] / 2.0);
+            c.check(!override(c, who) && cls(c, who).equals("HEALER"), "Auto left override " + override(c, who) + " class " + cls(c, who));
+            c.note("picked " + acted + " classes for " + who + " through the drop-down, then outside click and Auto");
+        } finally {
+            for (String n : PARTY) {
+                detect(c, n, null);
+            }
+            LeapOrderCases.restore(c, st);
+        }
+    }
+
     // ---- 826 --------------------------------------------------------------------------------------------------------
 
     static void wizardCase(UiCase c) throws Exception {
