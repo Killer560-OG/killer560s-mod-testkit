@@ -341,9 +341,11 @@ final class Ee3RouteGrimCases {
                 // 1123-fhb-breaker-autoswap-swap-every).
                 // The scroll is never freed within 7 blocks of a lever (the aura's lever click goes in its tick, which is the
                 // point of the case); the Breaker's walk stretches keep their free ticks.
-                var mcc = net.minecraft.client.Minecraft.getInstance();
-                st = SameTickCases.start(c, act, LEVER_CLICK, act == SameTick.Act.SWAP ? 3 : 0, () -> mcc.player != null
-                        && (mcc.player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(LOW)) < 49 || mcc.player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(HIGH)) < 49));
+                st = SameTickCases.start(c, act, LEVER_CLICK, act == SameTick.Act.SWAP ? 3 : 0, () -> {
+                    var p = net.minecraft.client.Minecraft.getInstance().player; // on the client thread
+                    return p != null && (p.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(LOW)) < 49
+                            || p.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(HIGH)) < 49);
+                });
             }
             int holds0 = ((Number) Mod.staticCall("ap3.Ap3Executor", "handHolds")).intValue();
             int turns0 = act == SameTick.Act.DIG ? ((Number) Mod.staticCall("util.HandDigAim", "turns")).intValue() : 0;
