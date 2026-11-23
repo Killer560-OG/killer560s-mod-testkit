@@ -59,6 +59,7 @@ final class BugReportBackground1122Cases {
             c.check(red != null && !red.contains("secret chat words") && !red.contains("203.0.113.9")
                             && !red.contains("someone@example.com") && red.contains("[CHAT] <chat removed>") && red.contains("<ip>")
                             && !red.contains("privateserver-example") && !red.contains("123e4567")
+                            && !red.toLowerCase().contains("0a1b2c3d") && red.contains("Setting user: TestKitSelf <uuid> and <uuid>")
                             && !red.toLowerCase().contains(System.getProperty("user.name").toLowerCase()),
                     "the log in the zip still carries chat text, an address or an e-mail: " + red);
         } finally {
@@ -79,9 +80,10 @@ final class BugReportBackground1122Cases {
                 + "[12:00:03] [main/INFO]: Connecting to play.privateserver-example.net, 25565\n"
                 + "[12:00:04] [main/INFO]: other 123e4567-e89b-12d3-a456-426614174000 here\n"
                 + "[12:00:05] [main/INFO]: path C:\\Users\\" + System.getProperty("user.name") + "\\AppData\\x and "
-                + System.getProperty("user.name") + "\n");
+                + System.getProperty("user.name") + "\n"
+                + "[12:00:06] [main/INFO]: Setting user: TestKitSelf 0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d and 0A1B2C3D4E5F4A6B8C7D9E0F1A2B3C4D\n");
         try {
-            return (String) Mod.staticCall("bugreport.BugReportFeature", "readRedactedLog", "TestKitSelf", null);
+            return (String) Mod.staticCall("bugreport.BugReportFeature", "readRedactedLog", "TestKitSelf", "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d");
         } finally {
             if (old != null) {
                 Files.write(latest, old);
