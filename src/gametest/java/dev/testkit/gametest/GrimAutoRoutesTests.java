@@ -3456,8 +3456,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 if (act != null) {
                     waitFor(ctx, 20, () -> logHas(ma, "no look from here lands on") || logHas(ma, "planning the rest"));
                     if (st == null) {
+                        // SWAP toggles slots without the AOTV (slot 0): toggling onto it was absorbed by the route's own
+                        // swap back in every use tick, so a shared tick came only by parity (default Grim, 2026-11-23).
+                        boolean sw = act == dev.testkit.gametest.SameTick.Act.SWAP;
                         st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
-                                p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 4));
+                                p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket,
+                                sw ? 2 : 0, sw ? 3 : 4));
                     }
                     if (act == dev.testkit.gametest.SameTick.Act.USE) {
                         st.allow(4);   // his use with the AOTV in hand is his own warp: a few round the route's
