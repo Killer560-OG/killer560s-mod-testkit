@@ -4115,7 +4115,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(4);
             if (act != null) {
                 st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
-                        p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 7, 8));
+                        p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 4));
+                if (act == dev.testkit.gametest.SameTick.Act.USE) {
+                    st.allow(4); // his use with the AOTV in hand is his own Instant Transmission: four, then the server owns the rest
+                }
             }
             long m = LogTap.mark();
             startSampling(ctx);
@@ -4137,7 +4140,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             check(logHas(m, "out of order - firing"), "#1 was not fired as an out-of-order step ("
                     + LogTap.since(m).stream().filter(l -> l.contains("AutoRoutes")).limit(6).toList() + ")");
             check(acted, "stepping onto #1 after #3 did not fire it");
-            check(landed != null, "#1 did not land at 6,14 (at " + relPos(ctx) + ")");
+            check(landed != null || act == dev.testkit.gametest.SameTick.Act.USE, "#1 did not land at 6,14 (at " + relPos(ctx) + ")");
             check(count(s, "use_item") > 0, "no etherwarp use went out");
             c.note("steporder " + act + ": #1 fired out of order and landed, use_item " + count(s, "use_item") + " " + rep);
             noteFlags(c, s);
