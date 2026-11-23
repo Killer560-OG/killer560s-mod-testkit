@@ -2198,18 +2198,21 @@ final class HxBloodCampCases {
             s.with(BC_CFG, "PartyMessage", true).with(BC_CFG, "PartyMessageLag", false);
             c.hx().stub(null, "pc");
             // class, Mage mate in the tab, Send For Any Class -> camped, messages sent
-            nonMageCamp(c, me, "Archer", "ARCHER", true, false, false, 0);
-            nonMageCamp(c, me, "Archer", "ARCHER", false, false, false, 0);
-            nonMageCamp(c, me, "Archer", "ARCHER", true, true, false, 1);
-            nonMageCamp(c, me, "Mage", "MAGE", false, false, true, 1);
+            nonMageCamp(c, me, "Archer", "ARCHER", true, false, 0, false, 0);
+            nonMageCamp(c, me, "Archer", "ARCHER", false, false, 0, false, 0);
+            nonMageCamp(c, me, "Archer", "ARCHER", true, true, 0, false, 1);
+            nonMageCamp(c, me, "Mage", "MAGE", false, false, 0, true, 1);
+            // owner 11-23: an Archer who really kills the blood mobs camps (3 or more of his own kills), one who killed one or two does not
+            nonMageCamp(c, me, "Archer", "ARCHER", true, false, 4, true, 1);
+            nonMageCamp(c, me, "Archer", "ARCHER", true, false, 2, false, 0);
         } finally {
             c.hx().removeStands();
         }
     }
 
     private static void nonMageCamp(Session c, String me, String cls, String want, boolean mageMate, boolean anyClass,
-                                    boolean wantCamped, int wantSent) {
-        String tag = cls + (mageMate ? " with a Mage mate" : " alone") + (anyClass ? ", any class" : "");
+                                    int ownKills, boolean wantCamped, int wantSent) {
+        String tag = cls + (mageMate ? " with a Mage mate" : " alone") + (anyClass ? ", any class" : "") + ", own kills " + ownKills;
         c.onClient(mc -> {
             Mod.staticCall(BC_MT, "reset");
             Mod.call(Mod.cfg(BC_CFG), "setPartyMessageAnyClass", anyClass);
@@ -2234,6 +2237,10 @@ final class HxBloodCampCases {
         });
         c.waitUntil("the kill timer goes off (" + tag + ")", mc -> "WAITING_SPAWN".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
         c.onClient(mc -> Mod.staticCall(BC_STATS, "tripMobLandedForTest", -1));
+        for (int k = 0; k < ownKills; k++) {
+            int id = 910000 + k;
+            c.onClient(mc -> Mod.staticCall(BC_STATS, "ownKillForTest", id));
+        }
         c.ctx().waitTicks(20);
         c.hx().chat("[BOSS] The Watcher: You have proven yourself. You may pass.");
         c.ctx().waitTicks(5);
