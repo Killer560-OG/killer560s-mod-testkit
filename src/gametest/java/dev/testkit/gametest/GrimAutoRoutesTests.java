@@ -282,6 +282,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 s.test("62-argrim-1122-mapchain-sneaklag-same-" + a.name().toLowerCase(Locale.ROOT), c -> caseMapChainSneakLag(c, a));
             }
             s.test("62-argrim-path", GrimAutoRoutesTests::casePath);
+            // mod arholds-1123: a saved hop blocked mid-flight is planned again and the floor graph's plan flies at once.
+            if (dev.testkit.gametest.mod.Mod.isCheat()) {
+                s.test("62-argrim-1123-holdreplan", c -> caseHoldReplan(c, null));
+                s.test("62-argrim-1123-holdreplan-same-use", c -> caseHoldReplan(c, dev.testkit.gametest.SameTick.Act.USE));
+                s.test("62-argrim-1123-holdreplan-same-swap", c -> caseHoldReplan(c, dev.testkit.gametest.SameTick.Act.SWAP));
+            }
             // mod ar-obvious-only (2026-10-11): legit mode exists only in -PtestingBuild jars.
             if (SimAutoRoutesTests.legitSelectable()) {
                 s.test("62-argrim-legit", GrimAutoRoutesTests::caseLegit);
@@ -3382,6 +3388,109 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         }
         c.note("path: " + notes);
         noteFlags(c, List.of());
+    }
+
+    /**
+     * 62-argrim-1123-holdreplan (arholds-1123): the pair across the wall is planned and saved, then a 3x3x3 stone cube is
+     * set on the middle of its first warp's line. The hop cannot go from its spot, so the rest of the pair is planned again
+     * from where he stands and the floor graph's plan flies at once, with no exact proof first ("[Path] exact:" never
+     * logged for it). With an act, his right click / hotbar swap lands in the same server tick as a replanned warp's use
+     * (WireCapture, both() > 0). GrimAC (default and experimental): nothing.
+     */
+    private static void caseHoldReplan(Session c, dev.testkit.gametest.SameTick.Act act) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, true);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", false));
+        Map<int[], String> cube = new HashMap<>();
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            tpRel(ctx, 6.5, 20.5, 0f, 0f);
+            ctx.waitTicks(4);
+            long m = LogTap.mark();
+            cmd(ctx, "/ar add path");
+            ctx.waitTicks(5);
+            tpRel(ctx, 24.5, 10.5, 0f, 0f);
+            ctx.waitTicks(4);
+            cmd(ctx, "/ar add path");
+            check(waitFor(ctx, 400, () -> logHas(m, "planned by the floor planner")), "the pair was never planned");
+            JsonObject p1 = fileNodes(ctx).get(0).getAsJsonObject();
+            check(p1.has("hops") && p1.getAsJsonArray("hops").size() >= 1, "premise: no saved warps " + p1);
+            String[] h = p1.getAsJsonArray("hops").get(0).getAsString().trim().split(" +");
+            double ex = Double.parseDouble(h[0]);
+            double ey = Double.parseDouble(h[1]) + 1.54;
+            double ez = Double.parseDouble(h[2]);
+            double tx = Integer.parseInt(h[5]) + 0.5;
+            double ty = Integer.parseInt(h[6]) + 1.0;
+            double tz = Integer.parseInt(h[7]) + 0.5;
+            double len = Math.sqrt((tx - ex) * (tx - ex) + (ty - ey) * (ty - ey) + (tz - ez) * (tz - ez));
+            check(len >= 7, "premise: the first saved warp is " + len + " blocks - too short to block in the middle");
+            int cx = (int) Math.floor((ex + tx) / 2);
+            int cy = (int) Math.floor((ey + ty) / 2);
+            int cz = (int) Math.floor((ez + tz) / 2);
+            for (int x = cx - 1; x <= cx + 1; x++) {
+                for (int y = cy - 1; y <= cy + 1; y++) {
+                    for (int z = cz - 1; z <= cz + 1; z++) {
+                        cube.put(new int[]{x, y, z}, "minecraft:stone");
+                    }
+                }
+            }
+            setBlocks(ctx, cube);
+            ctx.waitTicks(10);
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+            if (act != null) {
+                st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
+                        p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 4));
+                if (act == dev.testkit.gametest.SameTick.Act.USE) {
+                    st.allow(6);   // his use with the AOTV in hand is his own warp: a few, then the route's own
+                }
+            }
+            JsonObject before = stats();
+            startSampling(ctx);
+            long mr = LogTap.mark();
+            walkOnto(ctx, 4.5, 20.5, 6, 20);
+            boolean flew = waitFor(ctx, 200, () -> logHas(mr, "new warp(s) from here instead"));
+            Vec3 landed = act == dev.testkit.gametest.SameTick.Act.USE ? null : waitLanded(ctx, 24, 10, 200);
+            ctx.waitTicks(20);
+            List<Sample> sm = stopSampling(ctx);
+            String rep = "";
+            if (st != null) {
+                dev.testkit.gametest.SameTick s2 = st;
+                ctx.runOnClient(mc -> s2.close());
+                st = null;
+                rep = s2.report();
+                check(s2.done() > 0 && s2.playerWindows() > 0 && s2.featureWindows() > 0, act
+                        + ": his action or the route's use never reached the wire - nothing tested (" + rep + ")");
+                check(s2.both() > 0, act + ": no server tick carried both his " + act + " and a route use (" + rep + ")");
+            }
+            String proof = LogTap.since(mr).stream().filter(l -> l.contains("[Path] exact:")).findFirst().orElse(null);
+            println(c.name() + ": replanned " + flew + ", landed " + (landed != null) + ", uses " + useTicks(sm).size()
+                    + ", server etherwarps " + delta(before, "etherwarps") + ", proof " + proof + " " + rep);
+            check(logHas(mr, "planning the rest of node #1's pair again"), "premise: the blocked hop was not planned again");
+            check(flew, "the replanned warps never flew");
+            check(proof == null, "the replan waited for an exact proof: " + proof);
+            check(act == dev.testkit.gametest.SameTick.Act.USE || landed != null,
+                    "the replanned flight did not land on #2 (at " + relPos(ctx) + ")");
+            check(delta(before, "etherwarps") >= 1, "the server made no etherwarp - nothing flew");
+            c.note("holdreplan " + act + ": " + useTicks(sm).size() + " use(s) " + rep);
+            noteFlags(c, sm);
+            check(c.scenario().flags().isEmpty(), "GrimAC flagged: " + c.scenario().flags());
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick s3 = st;
+                ctx.runOnClient(mc -> s3.close());
+            }
+            ctx.runOnClient(mc -> {
+                ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"});
+                dev.testkit.harness.WireCapture.stop();
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true);
+            });
+            if (!cube.isEmpty()) {
+                Map<int[], String> air = new HashMap<>();
+                cube.keySet().forEach(k -> air.put(k, "minecraft:air"));
+                setBlocks(ctx, air);
+            }
+        }
     }
 
     /** Legit mode: the camera turns for each action. An etherwarp, then a use node clicking a lever with the AOTV. */
