@@ -32,10 +32,12 @@ public class SimPuzzleDoor1122Tests implements FabricClientGameTest {
         ModUnderTest.require("killer560smod");
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
-        if (SimMapEditorTests.copyRealRooms() < 20) {
+        if (SimMapTests.copyRoomsForOthers() < 20) {
             Scenario.skipped(NAME, "needs real room captures");
             return;
         }
+        ctx.runOnClient(mc -> Scenario.loadRoomDatabaseNow());
+        ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomdatabase.RoomDatabase", "isReady"), 1000);
         ctx.runOnClient(mc -> ModUnderTest.staticCall(ROOM_LIBRARY, "forceReload"));
         ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(ROOM_LIBRARY, "isReady"));
 
