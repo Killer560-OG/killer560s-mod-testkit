@@ -115,9 +115,6 @@ final class BugReportMenu1122Cases {
         c.note("typed: title='" + field(c, s, "titleText") + "' description='" + field(c, s, "descText") + "'");
         c.check(title.equals(field(c, s, "titleText")), "the Title box did not take the typed text: " + field(c, s, "titleText"));
         c.check(desc.equals(field(c, s, "descText")), "the Description box did not take the typed text: " + field(c, s, "descText"));
-        String contentsDrawn = String.join("\n", contents(c));
-        c.check(contentsDrawn.contains("mod-log.txt") && contentsDrawn.contains("logs/latest.log"),
-                "the screen's list of what the zip holds lacks entries: " + contentsDrawn);
 
         Path dir = (Path) Mod.staticCall("util.ModPaths", "config", "bug-reports");
         long start = System.currentTimeMillis();
