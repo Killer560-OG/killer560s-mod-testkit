@@ -178,7 +178,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // arstack-1115: a stack is only a run of CONSECUTIVE same-tile nodes; a later return to the tile is a new stack
             "96-ar-1115-stack-return",
             // sim-secrets-1018: an await beside a Redstone Key spot the key never spawned at starts one secret on
-            "1018-ar-keyspot-empty",
+            "1018-ar-keyspot-empty", "1122-ar-steporder",
             // ar-range-1026: Replan For My Range - a saved path warp longer than his etherwarp reaches is planned again
             "96-ar-1026-range-off", "96-ar-1026-range-on", "96-ar-1026-range-noitem",
             // simbreakrules-1112: the sim breaker leaves smooth granite, pistons and blocks with a torch, button or fire
@@ -395,6 +395,7 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1015-batseek" -> caseBatSeek(ctx);
                         case "96-ar-1017-bridges" -> caseBridges(ctx);
                         case "1018-ar-keyspot-empty" -> caseKeySpotEmpty(ctx);
+                        case "1122-ar-steporder" -> caseStepOrder(ctx);
                         case "96-ar-1026-range-off" -> ArRangeCases.off(ctx);
                         case "96-ar-1026-range-on" -> ArRangeCases.on(ctx);
                         case "96-ar-1026-range-noitem" -> ArRangeCases.noItem(ctx);
@@ -5629,6 +5630,53 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             resetRoutes(ctx);
             room = saved;
             buildRoom(ctx, 0);
+        }
+    }
+
+    /** 1122-ar-steporder (killer560 2026-11-22: "auto routes arent forcing them to go in order of 1-2-3-4-5 ... it should be
+     *  order you step onto them"): manual play, no Autopilot. Five etherwarp nodes, walked onto in the order 4, 2, 5, 1, 3;
+     *  each must fire when entered and land where it was saved. Pass 2 puts the start flag on #3 (not #1) with Start
+     *  From Start Node Only OFF, and walks 3 (the start node first), 5, 1, 4, 2. */
+    private void caseStepOrder(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", false));
+        try {
+            int[][] orders = {{4, 2, 5, 1, 3}, {3, 5, 1, 4, 2}};
+            for (int pass = 0; pass < 2; pass++) {
+                forgetRunMemory(ctx);
+                List<JsonObject> n = new ArrayList<>();
+                for (int i = 0; i < 5; i++) {
+                    n.add(ew(6 + 4 * i, 6, 6 + 4 * i, 14, pass == 1 && i == 2));
+                }
+                writeRoute(ctx, n);
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                tpRel(ctx, 4.5, 2.5, 0f, 0f);
+                ctx.waitTicks(10);
+                for (int k : orders[pass]) {
+                    int x = 6 + 4 * (k - 1);
+                    long m = LogTap.mark();
+                    startSampling(ctx);
+                    tpRel(ctx, x + 0.5, 6.5, 0f, 0f);
+                    boolean acted = waitFor(ctx, 8, () -> logHas(m, "Node #" + k + " ETHERWARP acted"));
+                    List<Sample> s = stopSampling(ctx);
+                    check(acted, "pass " + pass + ": stepping onto #" + k + " first-in-order-or-not did not fire it ("
+                            + LogTap.since(m).stream().filter(l -> l.contains("AutoRoutes")).limit(6).toList() + ")");
+                    check(!useTicks(s).isEmpty(), "pass " + pass + ": #" + k + " acted but sent no etherwarp use");
+                    check(waitLanded(ctx, x, 14, 40) != null, "pass " + pass + ": #" + k + " did not land at " + x
+                            + ",14 (at " + relPos(ctx) + ")");
+                    // He walks on by hand: a fresh movement key press is "taking over" and ends the run that waits for the next node.
+                    ctx.getInput().holdKey(o -> o.keyUp);
+                    ctx.waitTicks(2);
+                    ctx.getInput().releaseKey(o -> o.keyUp);
+                    println("1122-ar-steporder pass " + pass + ": #" + k + " fired and landed, order so far ok");
+                    tpRel(ctx, x + 0.5, 2.5, 0f, 0f);
+                    ctx.waitTicks(6);
+                }
+            }
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true));
         }
     }
 
