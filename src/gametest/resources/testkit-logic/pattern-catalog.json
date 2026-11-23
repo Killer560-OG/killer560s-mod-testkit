@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T01:54:26",
- "modSource": "lane-autosell-smcp50-1122",
- "modGitSha": "c5177255d29dec992c3b2f363cf45c8b6eeb9551",
+ "generatedAt": "2026-11-23T02:15:21",
+ "modSource": "lane-apclearest-1123",
+ "modGitSha": "a4d871f8b9647c13457ab2764bf6f99f594dee26",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
