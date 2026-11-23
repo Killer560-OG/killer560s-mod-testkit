@@ -28,7 +28,7 @@ final class BugReportParts1122Cases {
     private BugReportParts1122Cases() {
     }
 
-    private static String filler(int chars) {
+    static String filler(int chars) {
         Random r = new Random(1122);
         StringBuilder sb = new StringBuilder(chars + 8);
         while (sb.length() < chars) {
