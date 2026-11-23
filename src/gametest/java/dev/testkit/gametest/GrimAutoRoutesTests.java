@@ -181,7 +181,6 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 s.test("62-argrim-1123-standeye-same-swap", c -> caseStandEye(c, dev.testkit.gametest.SameTick.Act.SWAP));
                 s.test("62-argrim-1123-standeye-same-tp", c -> caseStandEye(c, dev.testkit.gametest.SameTick.Act.TP));
             }
-            }
 
             s.test("62-argrim-walk", GrimAutoRoutesTests::caseWalk);
             if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1110-terrain", GrimAutoRoutesTests::caseTerrain);
