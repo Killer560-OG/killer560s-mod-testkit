@@ -3476,12 +3476,16 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 }
             }
             ctx.waitTicks(10);
+            // SameTick's tap sits on top of UseRotationWatch's: closed first, or its close puts back a dead watch tap
+            // that the next case's watch chains to itself (StackOverflowError, 2026-11-23).
+            dev.testkit.gametest.SameTick s2 = st;
+            st = null;
+            if (s2 != null) {
+                ctx.runOnClient(mc -> s2.close());
+            }
             List<Sample> sm = stopSampling(ctx);
             String rep = "";
-            if (st != null) {
-                dev.testkit.gametest.SameTick s2 = st;
-                ctx.runOnClient(mc -> s2.close());
-                st = null;
+            if (s2 != null) {
                 rep = s2.report();
                 check(s2.done() > 0 && s2.playerWindows() > 0 && s2.featureWindows() > 0, act
                         + ": his action or the route's use never reached the wire - nothing tested (" + rep + ")");
