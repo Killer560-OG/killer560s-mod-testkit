@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T16:40:00",
- "modSource": "lane-milestonezero-1118-rm",
- "modGitSha": "c16284fabed6a349cb81fb8617b8da9f1a8b9b2c",
+ "generatedAt": "2026-11-22T19:54:09",
+ "modSource": "lane-zpew-ideas-1122",
+ "modGitSha": "81f9ae84681878ef87ac068a19f4a635db180769",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
