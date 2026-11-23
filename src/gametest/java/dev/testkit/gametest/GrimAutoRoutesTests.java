@@ -3445,7 +3445,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             Vec3 landed = null;
             // His action starts once the hop is held (a use with the AOTV during the walk-on would be his own warp and
             // spend the case before the route acts); up to 3 flights until a server tick carries both.
-            for (int attempt = 1; attempt <= 3; attempt++) {
+            // SWAP: the route swaps to the AOTV in every use tick and so overrides his scroll; a wire-shared tick is
+            // only his scroll onto the AOTV itself (set_carried_item(P) use_item(F)), which comes by parity after a
+            // landing: up to 6 flights for it (2026-11-23).
+            int attempts = act == dev.testkit.gametest.SameTick.Act.SWAP ? 6 : 3;
+            for (int attempt = 1; attempt <= attempts; attempt++) {
                 if (attempt > 1) {
                     ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
                             new Object[]{"test"}));
@@ -3456,12 +3460,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 if (act != null) {
                     waitFor(ctx, 20, () -> logHas(ma, "no look from here lands on") || logHas(ma, "planning the rest"));
                     if (st == null) {
-                        // SWAP toggles slots without the AOTV (slot 0): toggling onto it was absorbed by the route's own
-                        // swap back in every use tick, so a shared tick came only by parity (default Grim, 2026-11-23).
-                        boolean sw = act == dev.testkit.gametest.SameTick.Act.SWAP;
                         st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
-                                p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket,
-                                sw ? 2 : 0, sw ? 3 : 4));
+                                p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 4));
                     }
                     if (act == dev.testkit.gametest.SameTick.Act.USE) {
                         st.allow(4);   // his use with the AOTV in hand is his own warp: a few round the route's
