@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T20:13:27",
- "modSource": "lane-zpew-ideas-1122",
- "modGitSha": "b122ee11dce40bfb9593bcdf6c95c6104c0691a8",
+ "generatedAt": "2026-11-22T20:27:48",
+ "modSource": "lane-mapname-1122",
+ "modGitSha": "6e85d805e664e0f946dd1247ec30b2e94847b375",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
