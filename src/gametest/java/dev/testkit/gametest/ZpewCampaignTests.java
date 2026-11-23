@@ -97,6 +97,7 @@ public class ZpewCampaignTests implements FabricClientGameTest {
         cases.add(ZpewCampaignTests::overlay);
         cases.add(ZpewCampaignTests::smoothTp);
         cases.add(ZpewCampaignTests::cost);
+        cases.add(ZpewCampaignTests::standingEye);
         for (Consumer<ClientGameTestContext> c : cases) {
             try {
                 c.accept(ctx);
@@ -940,6 +941,105 @@ public class ZpewCampaignTests implements FabricClientGameTest {
                 tearDown(ctx, hx);
             }
             check(problems.isEmpty(), "chain " + lat + " ms: " + problems);
+        });
+    }
+
+    // ==== 1122-zpew-standeye ========================================================================================
+
+    /** A ZPEW counter, or -1 on a jar from before it. */
+    static long numOr(ClientGameTestContext ctx, String getter) {
+        return ctx.computeOnClient(mc -> {
+            try {
+                return ((Number) Mod.staticCall(ZP, getter)).longValue();
+            } catch (RuntimeException | AssertionError e) { // no such method: a jar before it
+                return -1L;
+            }
+        });
+    }
+
+    /**
+     * Hypixel's pose lag (mod zpew-ideas-1122): a use reaching the server in the same tick as the sneak press is an
+     * etherwarp cast from the STANDING eye (1.62), because the server's pose crouches only on its next player tick (his
+     * 26.3 logs: 13 of 60 warps sent the tick after the sneak landed exactly there). The hx server casts the next N
+     * etherwarps so (dungeon.standingEye). Each phase presses the sneak, sends the use(s) the very next tick (sneak one
+     * tick old, so ZPEW also casts the standing eye) and checks ZPEW calls the server's landing a hit, not a miss: a single
+     * warp; a second warp the next tick, chained from the first's prediction (it must be cast again from where the server
+     * really put him); and a Warps Per Tick burst of 3 in one tick, all from the standing eye. On a jar before the fix
+     * every phase is a miss (the standing landing is 2 blocks past the crouched one) and the chained warps are lost.
+     */
+    static void standingEye(ClientGameTestContext ctx) {
+        List<Station> lanes = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            lanes.add(new Station("standeye" + i, 4, List.of(), null, 0, 0, true, ""));
+        }
+        Scenario.run(ctx, "1122-zpew-standeye", (server, scenario) -> buildStations(server, lanes), (server, scenario) -> {
+            scenario.assertDetectorWorks();
+            Hx hx = null;
+            List<String> problems = new ArrayList<>();
+            try {
+                hx = setUp(ctx, 4);
+                String who = name(ctx);
+                latency(ctx, 300);
+                String[] phases = {"single", "next-tick chain", "burst of 3"};
+                for (int ph = 0; ph < 3; ph++) {
+                    int z = Z0 + 10 * ph;
+                    ctx.getInput().releaseKey(o -> o.keyShift);
+                    final int wpt = ph == 2 ? 3 : 1;
+                    ctx.runOnClient(mc -> {
+                        ZpewMultiTickTests.multiWarps(wpt > 1);
+                        Mod.set(ZP_CFG, "setWarpsPerTick", wpt);
+                    });
+                    tpTo(ctx, server, who, X0 + 0.5, Y, z + 0.5, true);
+                    ctx.waitTicks(4); // the unsneaked input is on the wire
+                    hx.call("dungeon.standingEye", "warps", ph == 0 ? 1 : ph == 1 ? 1 : 3);
+                    Counters c0 = counters(ctx, hx);
+                    long st0 = numOr(ctx, "standingHits");
+                    long rb0 = numOr(ctx, "rebased");
+                    int cast0 = stats(hx).get("standingEyeCast").getAsInt();
+                    captureStart(ctx);
+                    ctx.getInput().holdKey(o -> o.keyShift);
+                    ctx.waitTicks(1); // the sneak goes out at the end of this tick; the use goes the next
+                    Vec3 feet = new Vec3(X0 + 0.5, Y, z + 0.5);
+                    pressFrom(ctx, feet, new Vec3(X0 + (ph == 2 ? 6.5 : 8.5), Y, z + 0.5));
+                    int expect = ph == 2 ? 3 : 1;
+                    if (ph == 1) {
+                        // aimed from the FIRST warp's predicted landing (Chain From Prediction), as a player chaining does
+                        pressFrom(ctx, new Vec3(X0 + 8.5, Y + 0.05, z + 0.5), new Vec3(X0 + 16.5, Y, z + 0.5));
+                        expect = 2;
+                    }
+                    ctx.waitTicks(30);
+                    captureStop(ctx);
+                    Counters c1 = counters(ctx, hx);
+                    long st = numOr(ctx, "standingHits") - st0;
+                    long rb = numOr(ctx, "rebased") - rb0;
+                    int cast = stats(hx).get("standingEyeCast").getAsInt() - cast0;
+                    Vec3 end = ctx.computeOnClient(mc -> mc.player.position());
+                    double endCam = ctx.computeOnClient(mc -> camera(mc).distanceTo(playerEye(mc)));
+                    String line = String.format(Locale.ROOT, "%s: server %d warp(s) (%d from the standing eye), zpew %d "
+                                    + "prediction(s) %d hit(s) %d miss(es) %d timeout(s), %d standing-eye hit(s), %d recast, "
+                                    + "end %s cam-vs-eye %.3f; predicted %s; server %s", phases[ph], c1.warps - c0.warps,
+                            cast, c1.preds - c0.preds, c1.hits - c0.hits, c1.misses - c0.misses, c1.timeouts - c0.timeouts,
+                            st, rb, fmt(end), endCam, PREDS, TELEPORTS);
+                    scenario.log(line);
+                    // The feature acted: the server really cast from the standing eye, and its landing is not the
+                    // crouched one (the first teleport is past X0 + 8.5 / 6.5).
+                    boolean acted = cast >= 1 && c1.warps - c0.warps == expect;
+                    if (!acted || c1.hits - c0.hits != expect || c1.misses != c0.misses || c1.timeouts != c0.timeouts
+                            || st != 1 || (expect > 1 && rb < 1) || endCam > 0.05) {
+                        problems.add(line);
+                    }
+                }
+            } finally {
+                ctx.runOnClient(mc -> {
+                    Mod.set(ZP_CFG, "setWarpsPerTick", 1);
+                    ZpewMultiTickTests.multiWarps(false);
+                });
+                if (hx != null) {
+                    hx.call("dungeon.standingEye", "warps", 0);
+                }
+                tearDown(ctx, hx);
+            }
+            check(problems.isEmpty(), "standing eye: " + problems);
         });
     }
 
