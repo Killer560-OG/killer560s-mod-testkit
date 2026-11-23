@@ -325,6 +325,14 @@ public class SimAutoClearTests implements FabricClientGameTest {
         Result r2 = runCase(ctx, "room", () -> ModUnderTest.staticCall(AUTO, "clearRoom",
                 new Class<?>[]{String.class, Runnable.class, Consumer.class},
                 new Object[]{roomTwo, (Runnable) () -> done.set("done"), (Consumer<String>) gaveUp::set}));
+        // Auto Clear says done at the last death; the sim flips the room when the body is gone, a few ticks later (the
+        // check raced it: "Flags/Spikes never flipped cleared" with the mob dead, acreview-1123). Auto Clear itself gives
+        // the map 60 ticks before it hands the room back.
+        for (int t = 0; t < 60 && !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(
+                "com.killer560.hub.roomsim.SimRoomState", "isCleared", new Class<?>[]{String.class},
+                new Object[]{roomTwo})); t++) {
+            ctx.waitTicks(1);
+        }
         Map<UUID, String> after2 = aliveReport(ctx, placed);
         List<Room> floor2 = floor(ctx);
         println("room: " + r2 + "; onDone=" + done.get() + " onGiveUp=" + gaveUp.get() + "; mobs " + after2);
