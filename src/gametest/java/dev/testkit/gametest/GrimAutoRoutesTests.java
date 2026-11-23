@@ -3790,6 +3790,18 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
                 c.server().command("kill @e[tag=sametick]");
             }
+            if (chest) {
+                // The arena rebuild stops at the floor, so the pit's chest would stay under it and be the next case's secret
+                // (62-argrim-1116-ar-ordere's aura picked it up and its warp went a tick late).
+                Map<int[], String> fill = new java.util.HashMap<>();
+                for (int x = 8; x <= 10; x++) {
+                    for (int z = 6; z <= 7; z++) {
+                        fill.put(new int[]{x, F - 2, z}, "minecraft:air");
+                        fill.put(new int[]{x, F - 1, z}, "minecraft:stone");
+                    }
+                }
+                setBlocks(ctx, fill);
+            }
             resetRoutes(ctx);
         }
     }
