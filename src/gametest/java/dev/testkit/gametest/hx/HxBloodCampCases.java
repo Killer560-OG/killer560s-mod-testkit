@@ -94,6 +94,7 @@ final class HxBloodCampCases {
         s.test("1119-bloodcamp-mage-only-swap", HxBloodCampCases::mageOnlySwap);
         s.test("1101-bloodcamp-teleport-step", HxBloodCampCases::teleportStep);
         s.test("1101-bloodcamp-stats", HxBloodCampCases::stats);
+        s.test("1123-bloodcamp-nonmage-stats", HxBloodCampCases::nonMageStats);
         s.test("1102-bloodcamp-watcher-bar", HxBloodCampCases::watcherBar);
         s.test("1102-bloodcamp-npc-deaths", HxBloodCampCases::npcDeaths);
         s.test("1102-bloodcamp-hud-boss", HxBloodCampCases::hudBoss);
@@ -2186,6 +2187,62 @@ final class HxBloodCampCases {
             });
             c.hx().removeStands();
         }
+    }
+
+    /** bloodcamp-nonmage-1123: he played Archer and only leaped into the Mage's camp (his 11-23 17:00 run sent "Blood Camp: 261
+     *  ticks lost" as his own). In the room after the kill timer with a known non-Mage class he did not camp: no party line
+     *  unless Send For Any Class is on (then one); a Mage in the same spot camped. Tab: a Mage mate, or nobody else. */
+    private static void nonMageStats(Session c) {
+        String me = HxKit.self(c);
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "PartyMessage", true).with(BC_CFG, "PartyMessageLag", false);
+            c.hx().stub(null, "pc");
+            // class, Mage mate in the tab, Send For Any Class -> camped, messages sent
+            nonMageCamp(c, me, "Archer", "ARCHER", true, false, false, 0);
+            nonMageCamp(c, me, "Archer", "ARCHER", false, false, false, 0);
+            nonMageCamp(c, me, "Archer", "ARCHER", true, true, false, 1);
+            nonMageCamp(c, me, "Mage", "MAGE", false, false, true, 1);
+        } finally {
+            c.hx().removeStands();
+        }
+    }
+
+    private static void nonMageCamp(Session c, String me, String cls, String want, boolean mageMate, boolean anyClass,
+                                    boolean wantCamped, int wantSent) {
+        String tag = cls + (mageMate ? " with a Mage mate" : " alone") + (anyClass ? ", any class" : "");
+        c.onClient(mc -> {
+            Mod.staticCall(BC_MT, "reset");
+            Mod.call(Mod.cfg(BC_CFG), "setPartyMessageAnyClass", anyClass);
+            return null;
+        });
+        HxKit.tab(c, "template", "dungeon", "players", mageMate ? List.of(HxKit.player("HxMateA", "Mage", "[MVP+]"), HxKit.player(me, cls, null))
+                : List.of(HxKit.player(me, cls, null)));
+        c.waitUntil("detected class " + want, mc -> want.equals(String.valueOf(Mod.staticCall("leapmenu.PartyTracker",
+                "detectedClassOf", me))), 60);
+        watcher(c, WATCHER_IN);
+        stand(c, 0f, 0f);
+        c.hx().chat("[BOSS] The Watcher: Ah, you've finally arrived.");
+        c.ctx().waitTicks(5);
+        c.hx().chat("[BOSS] The Watcher: Let's see how you can handle this.");
+        c.ctx().waitTicks(5);
+        int sent0 = c.onClient(mc -> (Integer) Mod.staticCall(BC_STATS, "partyMessagesSent"));
+        c.onClient(mc -> {
+            long elapsed = (Long) Mod.staticCall(BC_MT, "elapsedSinceGreeting");
+            int lead = (Integer) Mod.call(Mod.cfg(BC_CFG), "getKillPopupLeadTicks");
+            Mod.setField(BC_MT, "moveAtElapsed", elapsed + 10 + lead);
+            return null;
+        });
+        c.waitUntil("the kill timer goes off (" + tag + ")", mc -> "WAITING_SPAWN".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
+        c.onClient(mc -> Mod.staticCall(BC_STATS, "tripMobLandedForTest", -1));
+        c.ctx().waitTicks(20);
+        c.hx().chat("[BOSS] The Watcher: You have proven yourself. You may pass.");
+        c.ctx().waitTicks(5);
+        boolean camped = c.onClient(mc -> (Boolean) Mod.staticCall(BC_STATS, "camped"));
+        int sent = c.onClient(mc -> (Integer) Mod.staticCall(BC_STATS, "partyMessagesSent")) - sent0;
+        c.note(tag + ": camped " + camped + ", party lines " + sent);
+        c.check(camped == wantCamped, tag + ": camped read " + camped + ", want " + wantCamped);
+        c.check(sent == wantSent, tag + ": party lines sent " + sent + ", want " + wantSent);
+        c.hx().removeStands();
     }
 
     private static void stats(Session c) {
