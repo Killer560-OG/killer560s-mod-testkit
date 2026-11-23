@@ -152,6 +152,7 @@
 			"dev.testkit.gametest.MapCyclerSimTests",
 			"dev.testkit.gametest.SimAutoClearTests",
 			"dev.testkit.gametest.SimAutoClearSpeedTests",
+			"dev.testkit.gametest.SimAcKillPlanTests",
 			"dev.testkit.gametest.SimMobFloorTests",
 			"dev.testkit.gametest.SimAcQuiz1117Tests",
 			"dev.testkit.gametest.SimAcBloodFirst1118Tests",
