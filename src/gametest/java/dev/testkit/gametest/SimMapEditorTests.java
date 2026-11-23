@@ -390,7 +390,7 @@ public class SimMapEditorTests implements FabricClientGameTest {
         System.out.println("[75-sim-map-editor] PASS - the floor matches the drawing");
     }
 
-    private static int copyRealRooms() {
+    static int copyRealRooms() {
         try {
             Path source = Path.of(SOURCE_ROOMS);
             if (!Files.isDirectory(source)) {
