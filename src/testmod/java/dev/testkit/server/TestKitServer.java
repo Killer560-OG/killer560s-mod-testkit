@@ -73,6 +73,8 @@ public class TestKitServer implements DedicatedServerModInitializer {
      * never does. {@code /testkit keepfed false} turns it off for a case that drains food on purpose.
      */
     private static volatile boolean keepFed = true;
+    /** simstreak-1123: grimprobe.MixinGrimTrig holds the anticheat's OptiFine trig guess at vanilla while true. */
+    public static volatile boolean grimTrigPin = true;
 
     private static void keepFed(net.minecraft.server.MinecraftServer server) {
         if (!keepFed) return;
@@ -170,6 +172,16 @@ public class TestKitServer implements DedicatedServerModInitializer {
                                                                     REFUSE.put(p, IntegerArgumentType.getInteger(context, "n"));
                                                                     return say(context, "refuseuse " + p.toShortString() + " " + REFUSE.get(p));
                                                                 }))))))
+                        // simstreak-1123: hold the anticheat's trig guess at vanilla math (pin, the default) or let it switch (auto).
+                        .then(Commands.literal("grimtrig")
+                                .then(Commands.literal("pin").executes(context -> {
+                                    grimTrigPin = true;
+                                    return say(context, "grimtrig pin");
+                                }))
+                                .then(Commands.literal("auto").executes(context -> {
+                                    grimTrigPin = false;
+                                    return say(context, "grimtrig auto");
+                                })))
                         .then(Commands.literal("keepfed")
                                 .then(Commands.argument("value", com.mojang.brigadier.arguments.BoolArgumentType.bool())
                                         .executes(context -> {

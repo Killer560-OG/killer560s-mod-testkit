@@ -396,7 +396,7 @@ final class Ee3RouteGrimCases {
                     c.server().command(l);
                 }
             }
-            c.server().sync(120);
+            c.server().sync(120, () -> c.ctx().waitTick()); // the client keeps ticking (simstreak-1123: NegativeTimer)
             // ee3route-align-1117: the picks stay in the world, as in a real run; the run digs them on the way (below).
             List<BlockPos> live = new ArrayList<>();
             for (String l : Files.readAllLines(routeDir().resolve(ROUTE + ".picks"))) {
@@ -468,6 +468,9 @@ final class Ee3RouteGrimCases {
                 grimDebug = true; // a toggle: once per session, Grim's P/A/O line per movement goes to the server log
                 c.server().command("grim consoledebug Player0");
             }
+            // simstreak-1123: the server holds Grim's trig guess at vanilla (MixinGrimTrig); KM_GRIM_TRIG=auto lets it switch, to
+            // show the Simulation streak it causes at this case's 0.6 speed.
+            c.server().command("testkit grimtrig " + ("auto".equals(System.getenv("KM_GRIM_TRIG")) ? "auto" : "pin"));
             c.server().mark();
             long mark = LogTap.mark();
             c.onClient(mc -> {
@@ -602,6 +605,10 @@ final class Ee3RouteGrimCases {
             System.out.println("[ee3route] path " + (act == null ? "none" : act) + ":" + path);
             System.out.println("[ee3route] tick ms:" + tickMs);
             c.note("fake Breaker: " + fakeDug + " pick(s) dug, " + lateAir + " air update(s) not at the client before the next tick");
+            List<String> trig = c.server().since().stream().filter(l -> l.contains("[testkit-trig]")).toList();
+            if (!trig.isEmpty()) {
+                c.note("anticheat trig guess switched in this run: " + trig);
+            }
             // A green run must have dug through the route's picks with every air in place in time (the case's own fixture).
             c.check(walkTrace != null || fakeDug > 0, "the fake Breaker never dug a pick");
             c.check(lateAir == 0, "fake Breaker: " + lateAir + " air update(s) reached the client late");

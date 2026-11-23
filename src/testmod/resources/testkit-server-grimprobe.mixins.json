@@ -8,7 +8,8 @@
 		"MixinGrimQueuedPlaces",
 		"MixinGrimDigGap",
 		"MixinGrimRotationBreak",
-		"MixinGrimAttackCancel"
+		"MixinGrimAttackCancel",
+		"MixinGrimTrig"
 	],
 	"injectors": {
 		"defaultRequire": 0

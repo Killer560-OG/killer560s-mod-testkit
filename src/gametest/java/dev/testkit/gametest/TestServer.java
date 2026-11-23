@@ -545,12 +545,25 @@ public final class TestServer implements AutoCloseable {
      * whatever the world generated instead of on the map.
      */
     public void sync(int timeoutSeconds) {
+        sync(timeoutSeconds, null);
+    }
+
+    /**
+     * {@link #sync(int)} that runs {@code betweenPolls} (a client tick) instead of sleeping. simstreak-1123: a blocking sync
+     * freezes the lockstep client, and while a long command queue runs (ee3route's 1563 fills, 2-3 s) it sends no movement
+     * at all; repeated each run, experimental GrimAC flagged NegativeTimer -3.9 s. No real client stops ticking for seconds.
+     */
+    public void sync(int timeoutSeconds, Runnable betweenPolls) {
         String token = "sync" + (++syncCounter);
         command("testkit ping " + token);
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds);
         while (System.nanoTime() < deadline) {
             if (logged("pong " + token)) {
                 return;
+            }
+            if (betweenPolls != null) {
+                betweenPolls.run();
+                continue;
             }
             try {
                 Thread.sleep(50);
