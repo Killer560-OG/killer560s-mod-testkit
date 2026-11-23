@@ -177,16 +177,14 @@ final class BanReportCases {
         Minecraft mc = Minecraft.getInstance();
         boolean wasOn = (Boolean) Mod.get(CFG, "isEnabled");
         try {
-            reset(true);
-            modLogger("killer560smod-corrections").info("[Correction] line kept while on");
             reset(false);
             c.eq("Auto Report Bans is OFF by default in a fresh config", false, defaultOn());
+            // bugreportmenu-1122: the in-memory log is kept either way (for /bugreport); with the switch off nothing is sent.
+            String probe = "[Correction] line while off " + System.nanoTime();
+            modLogger("killer560smod-corrections").info(probe);
             @SuppressWarnings("unchecked")
             List<String> kept = (List<String>) Mod.staticCall("util.SessionLogTap", "snapshot");
-            c.eq("turning it off drops the session log it kept", 0, kept.size());
-            modLogger("killer560smod-corrections").info("[Correction] line while off");
-            kept = (List<String>) Mod.staticCall("util.SessionLogTap", "snapshot");
-            c.eq("while off no log line is kept", 0, kept.size());
+            c.eq("while off the line is still kept in memory for bug reports", true, kept.stream().anyMatch(l -> l.contains(probe)));
             Mod.staticCall(FEATURE, "noteConnect", "mc.hypixel.net");
             showDisconnect(mc, TEMP_BAN);
             showDisconnect(mc, PERM_BAN);
