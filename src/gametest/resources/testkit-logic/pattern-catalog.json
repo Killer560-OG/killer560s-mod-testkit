@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T19:59:28",
- "modSource": "lane-bugreportmenu-1122",
- "modGitSha": "741c4f8fe7a008f73c9f33e2f093aa5ab942edb0",
+ "generatedAt": "2026-11-22T20:13:27",
+ "modSource": "lane-zpew-ideas-1122",
+ "modGitSha": "b122ee11dce40bfb9593bcdf6c95c6104c0691a8",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
