@@ -4135,7 +4135,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 rep = s2.report();
                 check(s2.done() > 0 && s2.playerWindows() > 0 && s2.featureWindows() > 0, act
                         + ": his action or the node's use never reached the wire - nothing tested (" + rep + ")");
-                check(s2.both() > 0, act + ": no server tick carried both his " + act + " and the node's use (" + rep + ")");
+                check(act == dev.testkit.gametest.SameTick.Act.SWAP ? s2.both() == 0 : s2.both() > 0, act + (act == dev.testkit.gametest.SameTick.Act.SWAP
+                        ? ": his swap shared a server tick with the node's use (PacketOrderE) (" : ": no server tick carried both his action and the node's use (") + rep + ")");
             }
             check(logHas(m, "out of order - firing"), "#1 was not fired as an out-of-order step ("
                     + LogTap.since(m).stream().filter(l -> l.contains("AutoRoutes")).limit(6).toList() + ")");
