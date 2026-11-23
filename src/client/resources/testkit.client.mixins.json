@@ -9,6 +9,7 @@
 		"MixinClientGameTestRunner",
 		"MixinClientPacketListener",
 		"MixinConnection",
+		"MixinEnderpearlSpread",
 		"MixinForeignTermMenu",
 		"MixinForeignTermPackets",
 		"MixinForeignTermPing",

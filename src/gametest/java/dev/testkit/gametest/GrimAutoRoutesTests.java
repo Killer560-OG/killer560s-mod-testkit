@@ -198,6 +198,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1122-trapwalkalign-same-click", c -> caseTrapWalkAlign(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK));
             // A second run of the feature itself: the next walk aligns onto the node after it a tick or two later.
             s.test("62-argrim-1122-trapwalkalign-same-again", c -> caseTrapWalkAlign(c, null, true));
+            // trapawait-1122: his attack queued EVERY tick (a held keyboard attack key repeats) no longer holds the align
+            // for good: after 40 given-back ticks the node fires from where he stands.
+            s.test("62-argrim-1123-trapwalkalign-attack-every-tick", c -> caseTrapWalkAlign(c,
+                    dev.testkit.gametest.SameTick.Act.ATTACK, false, true));
             // apfix-1123: Auto Secret's warp onto a path-less route's walk-gap node, his own actions in the trip's ticks.
             s.test("62-argrim-1123-walkgap", c -> caseWalkGapWarp(c, null, false));
             // Each name written out in full: the merge train finds a case by its literal name.
@@ -949,8 +953,18 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * must start within a few ticks of the first's end, GrimAC silent.
      */
     private static void caseTrapWalkAlign(Session c, dev.testkit.gametest.SameTick.Act act, boolean again) {
+        caseTrapWalkAlign(c, act, again, false);
+    }
+
+    /**
+     * {@code everyTick}: his attack goes into EVERY client tick, so the align gives the body back on every tick; it must
+     * not hold the route for good - node #2 fires once his attacks have held it 40 ticks ("your attacks held the align").
+     */
+    private static void caseTrapWalkAlign(Session c, dev.testkit.gametest.SameTick.Act act, boolean again,
+            boolean everyTick) {
         ClientGameTestContext ctx = c.ctx();
-        String label = "trapwalkalign" + (act == null ? "" : " " + act) + (again ? " again" : "");
+        String label = "trapwalkalign" + (act == null ? "" : " " + act) + (again ? " again" : "")
+                + (everyTick ? " every tick" : "");
         resetRoutes(ctx);
         arena(ctx, false);
         trapRoom(ctx, true);
@@ -962,7 +976,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             boolean ownClickFlags = act == dev.testkit.gametest.SameTick.Act.OPEN_CLICK && trapControl(c, act, "MultiActionsC");
             // ATTACK: the same control with his attack on the held view, run for the record (Hitboxes from his attack
             // while a trap walk turns the body is the walk's, not the align's); the align run below still must be clean.
-            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK && !everyTick) {
                 trapControl(c, act, "Hitboxes");
             }
             int flagsAfterCtl = c.scenario().flags().size();
@@ -976,7 +990,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 st = ctx.computeOnClient(mc -> {
                     // his attack every 3rd tick: one per tick holds the align for good (the body goes back to his view each time)
                     dev.testkit.gametest.SameTick t = dev.testkit.gametest.SameTick.start(act,
-                            act == dev.testkit.gametest.SameTick.Act.ATTACK ? 3 : 1,
+                            act == dev.testkit.gametest.SameTick.Act.ATTACK && !everyTick ? 3 : 1,
                             p -> p instanceof net.minecraft.network.protocol.game.ServerboundPlayerInputPacket
                                     || (p instanceof net.minecraft.network.protocol.game.ServerboundMovePlayerPacket mp
                                     && mp.hasRotation()), 7, 8)
@@ -1066,8 +1080,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     + runEnds + ", " + fired);
             check(aligns == (again ? 2 : 1), label + ": the walk did not align onto node #2" + (again ? " and #4" : "")
                     + " (" + aligns + ")");
-            check(fired != null && fired.contains("on the point"), label + ": node #2 was not fired from its point (" + fired
-                    + ")");
+            if (everyTick) {
+                check(fired != null && fired.contains("your attacks held the align"), label
+                        + ": his attack every tick held the align without end, node #2 never fired (" + fired + ")");
+            } else {
+                check(fired != null && fired.contains("on the point"), label + ": node #2 was not fired from its point ("
+                        + fired + ")");
+            }
             check(logHas(mark, "Node #2 ROTATE"), label + ": node #2 never fired");
             if (again) {
                 String fired4 = null;
@@ -1117,7 +1136,8 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                             || ty.contains("container_click");
                 }
                 c.note(label + ": wire ticks in the align carrying an align packet and his: " + shared);
-                check(shared > 0, label + ": no server tick in the align carried both an align packet and his ("
+                // every tick: the align only ever yields to him, so it sends nothing of its own to share a tick with
+                check(shared > 0 || everyTick, label + ": no server tick in the align carried both an align packet and his ("
                         + st.report() + ")");
                 dev.testkit.gametest.SameTick.judge(c, st, label, dev.testkit.gametest.SameTick.Expect.ACTED);
                 st = null;
