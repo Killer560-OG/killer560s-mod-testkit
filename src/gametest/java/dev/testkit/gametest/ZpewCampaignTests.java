@@ -951,7 +951,7 @@ public class ZpewCampaignTests implements FabricClientGameTest {
         return ctx.computeOnClient(mc -> {
             try {
                 return ((Number) Mod.staticCall(ZP, getter)).longValue();
-            } catch (RuntimeException | AssertionError e) // no such method: a jar before it {
+            } catch (RuntimeException | AssertionError e) { // no such method: a jar before it
                 return -1L;
             }
         });
