@@ -129,6 +129,9 @@ public class SimApFix1123Tests implements FabricClientGameTest {
             if (getStatic(AS, "noPathTargets") == null) {
                 return "FAIL|this jar has no no-path hold (AutoSecretFeature.noPathTargets)";
             }
+            // Clears make every mob room a candidate from the entrance (no saved routes in the sandbox, unknown rooms
+            // behind doors not yet opened): the floor needs two or more for the hold to be judged at all.
+            ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclear.AutoClearConfig"), "setEnabled", true);
             Object layout = ModUnderTest.staticCall(LAYOUT, "capture");
             int here = (Integer) ModUnderTest.call(layout, "currentRoom", new Class<?>[]{}, new Object[]{});
             List<Object> rooms = (List<Object>) ModUnderTest.staticCall("com.killer560.hub.livemap.RoomStatus", "rooms");
@@ -138,7 +141,7 @@ public class SimApFix1123Tests implements FabricClientGameTest {
                 List<?> path = id == here ? List.of(1) : (List<?>) ModUnderTest.staticCall(
                         "com.killer560.hub.livemap.autoclear.DungeonMapPathfinder", "findPath",
                         new Class<?>[]{layout.getClass(), int.class, int.class, boolean.class},
-                        new Object[]{layout, here, id, false});
+                        new Object[]{layout, here, id, true});
                 if (path != null) {
                     dist.put(id, path.size() - 1);
                 }
@@ -194,6 +197,8 @@ public class SimApFix1123Tests implements FabricClientGameTest {
         } catch (Throwable t) {
             t.printStackTrace(System.out);
             return "FAIL|threw " + t;
+        } finally {
+            ModUnderTest.set(ModUnderTest.config("com.killer560.hub.autoclear.AutoClearConfig"), "setEnabled", false);
         }
     }
 
