@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T04:54:02",
- "modSource": "lane-standeye-1123",
- "modGitSha": "c35adf801bd63e03bec81809b85f42294aac4fcb",
+ "generatedAt": "2026-11-23T05:35:53",
+ "modSource": "lane-fairysoul-fix-1122",
+ "modGitSha": "9136f27bd3168a7e3aa3ea2a2b8633299fb349f4",
  "modSourceDirty": false,
  "count": 975,
  "byKind": {
