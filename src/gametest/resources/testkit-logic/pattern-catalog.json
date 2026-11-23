@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T01:54:26",
- "modSource": "lane-autosell-smcp50-1122",
- "modGitSha": "c5177255d29dec992c3b2f363cf45c8b6eeb9551",
+ "generatedAt": "2026-11-23T02:13:20",
+ "modSource": "lane-ap-quizfill-1122",
+ "modGitSha": "d036e6251fed94cea97530af90d9f1f6274a48c6",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
