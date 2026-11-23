@@ -63,10 +63,10 @@ final class HxStandEye1123Cases {
         return p instanceof ServerboundUseItemPacket || p instanceof ServerboundPlayerInputPacket in && in.input().shift();
     }
 
-    /** One hop: sneak down, the tick after it goes out queue the hop at {@code d} blocks; returns {ticks to the use, land}. */
-    private static double[] hop(Session c, double d, int cycle) {
+    /** One hop (dig: he looks at the floor, so his left click has a block under the crosshair): sneak down, the tick after it goes out queue the hop at {@code d} blocks; returns {ticks to the use, land}. */
+    private static double[] hop(Session c, double d, int cycle, boolean dig) {
         c.ctx().getInput().releaseKey(o -> o.keyShift);
-        c.server().command(String.format(Locale.ROOT, "tp @p %.2f %.2f %.2f -90 0", X0, Y, Z0));
+        c.server().command(String.format(Locale.ROOT, "tp @p %.2f %.2f %.2f -90 %d", X0, Y, Z0, dig ? 45 : 0));
         c.ctx().waitTicks(8);
         int sizeBefore = c.onClient(mc -> ((List<?>) Mod.staticCall(CE, "hopSendTicks")).size());
         int reaimsBefore = reaims(c);
@@ -132,8 +132,8 @@ final class HxStandEye1123Cases {
             double[] near = null;
             int cycles = act == null ? 1 : 4;
             for (int i = 0; i < cycles; i++) {
-                far = hop(c, 6.0, i);
-                near = hop(c, 2.0, i);
+                far = hop(c, 6.0, i, a == SameTick.Act.DIG);
+                near = hop(c, 2.0, i, a == SameTick.Act.DIG);
                 c.note(String.format(Locale.ROOT, "%s cycle %d: far use after %.0f tick(s), landed %.2f,%.2f, %.0f standing cast(s), "
                                 + "%.0f warp(s), %.0f re-aim(s); near use after %.0f tick(s), landed %.2f,%.2f, %.0f standing cast(s), "
                                 + "%.0f warp(s), %.0f re-aim(s)", act == null ? "aim" : act, i, far[0], far[1], far[2], far[3],
