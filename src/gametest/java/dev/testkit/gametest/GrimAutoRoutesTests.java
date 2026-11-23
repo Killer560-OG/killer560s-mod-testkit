@@ -4611,7 +4611,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         ctx.runOnClient(mc -> {
             Object cfg = ModUnderTest.config(autoCfg);
             ModUnderTest.set(cfg, "setEnabled", true);
-            ModUnderTest.set(cfg, "setHyperionHops", true);
+            // The trip row: hops off, so every jar (origin too) etherwarps to the corner mobs and his click meets the trip's
+            // sneak (with hops the origin jar hopped to all four and his click never went in, 2026-11-22 run 18).
+            ModUnderTest.set(cfg, "setHyperionHops", tripArm == null);
             ModUnderTest.call(cfg, "setWeapon", new Class<?>[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")
                     .getClass()}, new Object[]{ModUnderTest.enumValue(autoCfg + "$Weapon", "HYPERION")});
             mc.player.getInventory().setSelectedSlot(4);
@@ -4668,7 +4670,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             ctx.waitTicks(2);
         }
         if (useFirst) {
-            int every = act == dev.testkit.gametest.SameTick.Act.USE ? 3 : 1;
+            // Plan SWAP every third tick too: Auto Clear yields its tick to his swap, so a swap every tick left it no tick
+            // at all (run 18: every mob skipped, plan moves 0) and the row tested nothing.
+            int every = act == dev.testkit.gametest.SameTick.Act.USE
+                    || plan && act == dev.testkit.gametest.SameTick.Act.SWAP ? 3 : 1;
             st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, every,
                     p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
                             || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8)
