@@ -7,7 +7,8 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Stream;
 
-/** 1115-ui-bugcmd (bugcmd-1115): /bugreport and /logreport are client roots and each builds a new report zip. */
+/** 1115-ui-bugcmd (bugcmd-1115; bugreportmenu-1122): /bugreport and /logreport are client roots and each opens the Bug
+ *  Report screen; "/bugreport &lt;text&gt;" puts the text in its Title box and Save writes the zip. */
 final class BugCmd1115Cases {
     private BugCmd1115Cases() {
     }
@@ -23,22 +24,12 @@ final class BugCmd1115Cases {
         Path dir = (Path) Mod.staticCall("util.ModPaths", "config", "bug-reports");
         for (String r : List.of("bugreport", "logreport")) {
             long before = count(dir);
-            long start = System.currentTimeMillis();
-            Thread.sleep(1100); // the zip name carries a timestamp: never reuse the previous one's name
-            c.onClient(mc -> {
-                mc.player.connection.sendCommand(r);
-                return null;
-            });
-            long deadline = System.currentTimeMillis() + 15000;
-            while (count(dir) <= before && System.currentTimeMillis() < deadline) {
-                c.ticks(5);
+            var s = BugReportMenu1122Cases.open(c, r);
+            c.ticks(10);
+            c.check(count(dir) == before, "/" + r + " wrote a zip before Save was clicked");
+            if (s != null) {
+                BugReportMenu1122Cases.close(c);
             }
-            boolean fresh;
-            try (Stream<Path> s = Files.list(dir)) {
-                fresh = s.anyMatch(p -> p.toString().endsWith(".zip") && p.toFile().lastModified() >= start);
-            }
-            c.note("/" + r + ": zips " + before + " -> " + count(dir));
-            c.check(count(dir) > before && fresh, "/" + r + " produced no new zip in " + dir);
         }
         contents(c, dir);
     }
@@ -70,19 +61,21 @@ final class BugCmd1115Cases {
         c.ticks(6);
         long start = System.currentTimeMillis();
         Thread.sleep(1100);
-        c.onClient(mc -> {
-            mc.player.connection.sendCommand("bugreport the copper line is missing");
-            return null;
-        });
-        Path zip = null;
-        long deadline = System.currentTimeMillis() + 15000;
-        while (zip == null && System.currentTimeMillis() < deadline) {
-            c.ticks(5);
-            try (Stream<Path> s = Files.list(dir)) {
-                zip = s.filter(p -> p.toString().endsWith(".zip") && p.toFile().lastModified() >= start).findFirst().orElse(null);
-            }
+        var screen = BugReportMenu1122Cases.open(c, "bugreport the copper line is missing");
+        if (screen == null) {
+            return;
         }
-        c.check(zip != null, "/bugreport <note> produced no new zip");
+        String typed = BugReportMenu1122Cases.field(c, screen, "titleText");
+        c.check("the copper line is missing".equals(typed), "the Title box does not hold the command's text: " + typed);
+        InvBatchCases.clickWidget(c, screen, BugReportMenu1122Cases.button(c, screen, "Save"));
+        String status = BugReportMenu1122Cases.waitDone(c, screen);
+        c.note("Save: " + status);
+        BugReportMenu1122Cases.close(c);
+        Path zip = BugReportMenu1122Cases.newest(dir, start);
+        c.check(zip != null, "/bugreport <note> then Save produced no new zip (" + status + ")");
+        if (zip == null) {
+            return;
+        }
         try (java.util.zip.ZipFile z = new java.util.zip.ZipFile(zip.toFile())) {
             String note = read(z, "note.txt");
             String side = read(z, "sidebar.txt");
