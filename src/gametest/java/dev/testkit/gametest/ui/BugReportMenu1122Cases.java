@@ -41,7 +41,15 @@ final class BugReportMenu1122Cases {
         final List<String> bodies = new CopyOnWriteArrayList<>();
         final List<String> auth = new CopyOnWriteArrayList<>();
         volatile int status = 200;
-        volatile String reply = "{\"ok\":true,\"url\":\"https://discord.com/channels/1546000000000000001/1560000000000000099\"}";
+        volatile String reply = "{\"ok\":true,\"url\":\"https://discord.com/channels/1546000000000000001/1560000000000000099\","
+                + "\"session\":\"0123456789abcdef0123456789abcdef\"}";
+        /** The later parts (POST /bug-report/part): query and raw bytes, in arrival order; each answers {"ok":true}. */
+        final List<String> partQueries = new CopyOnWriteArrayList<>();
+        final List<byte[]> partBodies = new CopyOnWriteArrayList<>();
+        final Map<Integer, Integer> attempts = new java.util.concurrent.ConcurrentHashMap<>();
+        volatile int failPart = -1;
+        volatile int failOncePart = -1;
+        volatile int partDelayMs = 0;
         final HttpServer server;
 
         Stub() throws Exception {
@@ -53,11 +61,27 @@ final class BugReportMenu1122Cases {
                         bodies.add(new String(in, StandardCharsets.UTF_8));
                         auth.add(String.valueOf(ex.getRequestHeaders().getFirst("Authorization")));
                     }
-                    byte[] out = reply.getBytes(StandardCharsets.UTF_8);
+                    int code = status;
+                    String answer = reply;
+                    if (ex.getRequestURI().getPath().equals("/bug-report/part")) {
+                        String q = ex.getRequestURI().getQuery();
+                        int n = Integer.parseInt(q.substring(q.lastIndexOf("n=") + 2));
+                        int attempt = attempts.merge(n, 1, Integer::sum);
+                        Thread.sleep(partDelayMs);
+                        if (n == failPart || (n == failOncePart && attempt == 1)) {
+                            code = 500;
+                            answer = "{\"error\":\"boom\"}";
+                        } else {
+                            partQueries.add(q);
+                            partBodies.add(in);
+                            answer = "{\"ok\":true}";
+                        }
+                    }
+                    byte[] out = answer.getBytes(StandardCharsets.UTF_8);
                     ex.getResponseHeaders().add("Content-Type", "application/json");
-                    ex.sendResponseHeaders(status, out.length);
+                    ex.sendResponseHeaders(code, out.length);
                     ex.getResponseBody().write(out);
-                } catch (RuntimeException ignored) {
+                } catch (RuntimeException | InterruptedException ignored) {
                     // never throw inside the stub
                 } finally {
                     ex.close();
@@ -124,6 +148,7 @@ final class BugReportMenu1122Cases {
                 com.google.gson.JsonObject body = com.google.gson.JsonParser.parseString(stub.bodies.get(0)).getAsJsonObject();
                 c.check(title.equals(body.get("title").getAsString()), "the post's title is " + body.get("title"));
                 c.check(desc.equals(body.get("description").getAsString()), "the post's description is " + body.get("description"));
+                c.check(!body.has("parts") && !body.has("names"), "a small report was sent as a multi-part upload: " + body.keySet());
                 c.check(body.has("modVersion") && body.has("minecraft") && body.has("variant") && body.has("commit"),
                         "the post lacks the build fields: " + body.keySet());
                 byte[] zipBytes = Base64.getDecoder().decode(body.get("zip").getAsString());
