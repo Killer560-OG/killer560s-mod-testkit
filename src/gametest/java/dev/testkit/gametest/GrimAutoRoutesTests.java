@@ -175,11 +175,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             session = s;
             s.test("62-argrim-ew-add", GrimAutoRoutesTests::caseEwAdd);
             if (dev.testkit.gametest.mod.Mod.isCheat()) {
-                for (dev.testkit.gametest.SameTick.Act a : new dev.testkit.gametest.SameTick.Act[]{null, dev.testkit.gametest.SameTick.Act.USE,
-                        dev.testkit.gametest.SameTick.Act.DIG, dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.TP}) {
-                    s.test("62-argrim-1123-standeye" + (a == null ? "" : "-same-" + a.name().toLowerCase(java.util.Locale.ROOT)),
-                            c -> caseStandEye(c, a));
-                }
+                s.test("62-argrim-1123-standeye", c -> caseStandEye(c, null));
+                s.test("62-argrim-1123-standeye-same-use", c -> caseStandEye(c, dev.testkit.gametest.SameTick.Act.USE));
+                s.test("62-argrim-1123-standeye-same-dig", c -> caseStandEye(c, dev.testkit.gametest.SameTick.Act.DIG));
+                s.test("62-argrim-1123-standeye-same-swap", c -> caseStandEye(c, dev.testkit.gametest.SameTick.Act.SWAP));
+                s.test("62-argrim-1123-standeye-same-tp", c -> caseStandEye(c, dev.testkit.gametest.SameTick.Act.TP));
+            }
             }
 
             s.test("62-argrim-walk", GrimAutoRoutesTests::caseWalk);
