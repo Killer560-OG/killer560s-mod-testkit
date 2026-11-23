@@ -90,16 +90,27 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
             return;
         }
         List<String> failures = new ArrayList<>();
+        // New Trap's node #3 ender pearl: vanilla's random throw spread (the server's, same look and spot every run) lands
+        // it ~0.6 off about 1 rotation in 9 and drops him into the pit beside #4 (y -25), so ~1 run in 3 failed there.
+        // He accepted that in game (killer560 2026-11-23: "It has been fine for me if it breaks then I will change it"),
+        // so the test throws without spread; a stall with the pearl on target still fails below.
+        dev.testkit.harness.PearlSpread.set(true);
         try {
             for (String trap : new String[]{"New Trap", "Old Trap"}) {
                 for (int rot = 0; rot < 360; rot += 90) {
                     oneFloor(ctx, failures, trap, rot, SimTrapRoutes1121Tests::body);
                 }
             }
+            println("pearls thrown without spread: " + dev.testkit.harness.PearlSpread.removed);
+            if (dev.testkit.harness.PearlSpread.removed < 4) {
+                failures.add("the no-spread pearl hook acted on " + dev.testkit.harness.PearlSpread.removed
+                        + " pearl(s), fewer than New Trap's 4 rotations");
+            }
         } catch (Throwable t) {
             failures.add("scenario threw: " + t);
             t.printStackTrace(System.out);
         } finally {
+            dev.testkit.harness.PearlSpread.set(false);
             tearDown(ctx, renderBefore);
         }
         for (String s : SUMMARY) {
@@ -389,7 +400,10 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         boolean newTrap = trap.equals("New Trap");
         int alignsBefore = walkAligns(ctx);
         double minY = Double.MAX_VALUE;
-        for (int t = 0; t < 1200 && !done; t++) {
+        Vec3 holeRel = new Vec3(27.5, 89.0, 14.5);
+        int n6At = -1;
+        String waitVerdict = null;
+        for (int t = 0; t < 1400 && !done; t++) {
             ctx.waitTicks(1);
             minY = Math.min(minY, ctx.computeOnClient(mc -> mc.player.getY()));
             List<String> lines = LogTap.since(mark);
@@ -400,6 +414,33 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
                 }
                 if (beganAt < 0 && l.contains("Node #1 ") && l.contains(" begins: player (")) {
                     beganAt = t;
+                }
+            }
+            // trapawait-1122: node #6 carries "await 1 secret" and the sim's trap room places none, so the route must WAIT
+            // there (block under its spot unbroken, node #7 not begun) until the test counts one through AwaitEvents' own
+            // click path (a lever clicked by us), and only then dig and go on.
+            if (newTrap && waitVerdict == null && lines.stream().anyMatch(l -> l.contains("Node #6 ") && l.contains(" begins: player ("))) {
+                n6At = n6At < 0 ? t : n6At;
+                if (t >= n6At + 80) {
+                    boolean seven = lines.stream().anyMatch(l -> l.contains("Node #7 ") && l.contains(" begins: player ("));
+                    Object[] st = ctx.computeOnClient(mc -> {
+                        Object frame = newFrame(trap, cr);
+                        Vec3 real = (Vec3) ModUnderTest.staticCall(ROUTE_COORDS, "toReal",
+                                new Class<?>[]{frame.getClass(), Vec3.class}, new Object[]{frame, holeRel});
+                        boolean solid = !mc.level.getBlockState(BlockPos.containing(real.x, real.y, real.z)).isAir();
+                        BlockPos lever = mc.player.blockPosition().above(4);
+                        mc.level.setBlock(lever, net.minecraft.world.level.block.Blocks.LEVER.defaultBlockState(), 3);
+                        ModUnderTest.staticCall("com.killer560.hub.autoroutes.AwaitEvents", "onLocalBlockClick",
+                                new Class<?>[]{BlockPos.class}, new Object[]{lever});
+                        mc.level.setBlock(lever, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+                        return new Object[]{solid};
+                    });
+                    waitVerdict = "waited " + (t - n6At) + " ticks at #6, block unbroken " + st[0] + ", #7 begun " + seven;
+                    if (!(Boolean) st[0] || seven) {
+                        failures.add(tag + ": node #6 did not wait for its secret (" + waitVerdict + ")");
+                    }
+                    println(tag + " " + waitVerdict + "; secret counted by the test");
+                    SUMMARY.add(tag + " await: " + waitVerdict);
                 }
             }
             // the route started: New Trap is judged on its whole run (newtrap-route7), Old Trap's 10 s are logged only
@@ -427,7 +468,6 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         if (newTrap && lines.stream().anyMatch(l -> l.contains("Node #1 ") && l.contains(" begins: player ("))) {
             // newtrap-route7 (2026-11-22): WALK #5 ended 0.68 off breaker #6's spot and the route stopped at #7. The whole
             // route must now act: #6's block under its spot is broken, he drops through it, and the last node fires.
-            Vec3 holeRel = new Vec3(27.5, 89.0, 14.5);
             Object[] hole = ctx.computeOnClient(mc -> {
                 Object frame = newFrame(trap, cr);
                 Vec3 real = (Vec3) ModUnderTest.staticCall(ROUTE_COORDS, "toReal",
@@ -446,6 +486,9 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
             }
             if (dropTo < 10) {
                 failures.add(tag + ": he never dropped through #6's hole (" + run + ")");
+            }
+            if (waitVerdict == null) {
+                failures.add(tag + ": the route never reached node #6 and its await (" + run + ")");
             }
             if (!lastBegan) {
                 failures.add(tag + ": the route never reached its last node #" + nodeCount + " (" + run + ")");
