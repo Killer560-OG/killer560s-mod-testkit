@@ -190,6 +190,14 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1122-trapwalkalign-same-click", c -> caseTrapWalkAlign(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK));
             // A second run of the feature itself: the next walk aligns onto the node after it a tick or two later.
             s.test("62-argrim-1122-trapwalkalign-same-again", c -> caseTrapWalkAlign(c, null, true));
+            // apfix-1123: Auto Secret's warp onto a path-less route's walk-gap node, his own actions in the trip's ticks.
+            s.test("62-argrim-1123-walkgap", c -> caseWalkGapWarp(c, null, false));
+            for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                    dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.ATTACK,
+                    dev.testkit.gametest.SameTick.Act.OPEN_CLICK, dev.testkit.gametest.SameTick.Act.TP)) {
+                s.test("62-argrim-1123-walkgap-same-" + a.name().toLowerCase(Locale.ROOT), c -> caseWalkGapWarp(c, a, false));
+            }
+            s.test("62-argrim-1123-walkgap-same-again", c -> caseWalkGapWarp(c, null, true));
             // iw-campaign-1027: Inventory Walk on while a route sprints him and he clicks in his inventory, then closes it.
             s.test("62-argrim-1027-invwalk", GrimAutoRoutesTests::caseInvWalk);
             // ... and 62-argrim-play's whole route (its chest window keeps the route running) with Inventory Walk on.
@@ -1114,6 +1122,93 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 c.server().command("kill @e[tag=sametick]");
             }
             trapRoom(ctx, false);
+            resetRoutes(ctx);
+        }
+    }
+
+    /**
+     * 62-argrim-1123-walkgap* (mod apfix-1123): a path-less route stands after its start node because #2 needs a walk;
+     * {@code AutoRoutesFeature.warpOntoWalkNode} (what Auto Secret and the Dungeon Autopilot call there) etherwarps him onto
+     * #2 through the map's executor and the route fires #2 on landing. Passes when the warp started, the server made an
+     * etherwarp, #2 fired and GrimAC is silent. With {@code act}: his action goes into the trip's ticks and the wire must
+     * show both went out. {@code again}: a third node after another walk gap, warped onto the same way right after #2.
+     */
+    private static void caseWalkGapWarp(Session c, dev.testkit.gametest.SameTick.Act act, boolean again) {
+        ClientGameTestContext ctx = c.ctx();
+        String label = "walkgap" + (act == null ? "" : " " + act) + (again ? " again" : "");
+        resetRoutes(ctx);
+        arena(ctx, false);
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            JsonObject s0 = node("ROTATE", 6, 6, 90f, 0f);
+            s0.addProperty("start", true);
+            writeRoute(ctx, again ? List.of(s0, node("ROTATE", 18, 6, 90f, 0f), node("ROTATE", 18, 18, 0f, 0f))
+                    : List.of(s0, node("ROTATE", 18, 6, 90f, 0f)));
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                Vec3 p = relFeet(ctx, 7.5, 7.6);
+                c.server().command(String.format(Locale.ROOT, "summon armor_stand %.2f %.2f %.2f {NoGravity:1b,"
+                        + "Invulnerable:1b,Tags:[\"sametick\"]}", p.x, p.y, p.z));
+            }
+            JsonObject before = stats();
+            long mark = LogTap.mark();
+            walkOnto(ctx, 6.5, 4.2, 6, 6);
+            if (act != null) {
+                st = ctx.computeOnClient(mc -> {
+                    dev.testkit.gametest.SameTick t = dev.testkit.gametest.SameTick.start(act, 1,
+                            p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
+                                    || p instanceof net.minecraft.network.protocol.game.ServerboundUseItemOnPacket
+                                    || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket
+                                    || (p instanceof net.minecraft.network.protocol.game.ServerboundMovePlayerPacket mp
+                                    && mp.hasRotation()), 7, 8)
+                            .armedBy(() -> (Boolean) ModUnderTest.staticCall(CLEAR, "isBusy"));
+                    t.allow(8);
+                    return t;
+                });
+            }
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+            startSampling(ctx);
+            int[][] goals = again ? new int[][]{{18, 6}, {18, 18}} : new int[][]{{18, 6}};
+            for (int k = 0; k < goals.length; k++) {
+                int nodeNo = k + 2;
+                boolean waiting = waitFor(ctx, 60, () -> ctx.computeOnClient(mc ->
+                        (Boolean) ModUnderTest.staticCall(EXECUTOR, "awaitingWalk")));
+                check(waiting, label + ": the route never stood waiting for a walk to #" + nodeNo);
+                boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(FEATURE, "warpOntoWalkNode"));
+                check(started, label + ": warpOntoWalkNode did not start a warp onto #" + nodeNo);
+                boolean fired = waitFor(ctx, 120, () -> logHas(mark, "Node #" + nodeNo + " ROTATE"));
+                c.note(label + ": #" + nodeNo + " fired " + fired + ", landed " + waitLanded(ctx, goals[k][0], goals[k][1], 0));
+                // His own use (an item of his in hand) or swaps can move or hold the hand; those rows judge the wire.
+                if (act == null || act == dev.testkit.gametest.SameTick.Act.TP || act == dev.testkit.gametest.SameTick.Act.OPEN_CLICK) {
+                    check(fired, label + ": #" + nodeNo + " never fired after the warp onto it");
+                }
+            }
+            ctx.waitTicks(5);
+            List<Sample> s = stopSampling(ctx);
+            List<dev.testkit.harness.WireCapture.Sent> wire = ctx.computeOnClient(mc -> {
+                List<dev.testkit.harness.WireCapture.Sent> l = dev.testkit.harness.WireCapture.snapshot();
+                dev.testkit.harness.WireCapture.stop();
+                return l;
+            });
+            long uses = wire.stream().filter(x -> x.type().equals("minecraft:use_item")).count();
+            int warps = delta(before, "etherwarps");
+            c.note(label + ": use_item on the wire " + uses + ", server etherwarps " + warps + ", "
+                    + String.join(" | ", LogTap.since(mark).stream().filter(l -> l.contains("walk gap in")).toList()));
+            check(logHas(mark, "walk gap in"), label + ": no walk-gap warp was logged");
+            check(warps >= goals.length, label + ": the server made " + warps + " etherwarp(s), expected " + goals.length);
+            if (act != null) {
+                dev.testkit.gametest.SameTick.judge(c, st, label, dev.testkit.gametest.SameTick.Expect.ACTED);
+                st = null;
+            }
+            noteFlags(c, s);
+        } finally {
+            dev.testkit.gametest.SameTick open = st;
+            if (open != null) {
+                ctx.runOnClient(mc -> open.close());
+            }
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.stop());
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                c.server().command("kill @e[tag=sametick]");
+            }
             resetRoutes(ctx);
         }
     }
