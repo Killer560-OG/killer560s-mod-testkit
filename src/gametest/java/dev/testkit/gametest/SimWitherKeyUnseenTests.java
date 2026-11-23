@@ -47,6 +47,8 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
     private static final String BK = "1122-sim-ap-bloodkey-late";
     /** acrev-door-1122: the AP row, timed from the door's blocks going to the next warp. */
     private static final String GO = "1122-sim-ap-door-go";
+    /** simkeyroom-judge-1122: an unshown key room is judged at the door CLICK, not when the blocks go. */
+    private static final String JUDGE = "1122-sim-keyroom-judge-click";
     /**
      * Client ticks at most from the door's blocks going to the next trip's first use: only proof that a trip went. The
      * time is the planner's, not the door's (acrev-door-1122, random floors: 2, 3 and 6 on the branch, 4 on origin; the 6
@@ -89,6 +91,7 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
             if (Scenario.named(RACE)) rows.put(RACE, true);
             if (Scenario.named(BK)) rows.put(BK, true);
             if (Scenario.named(GO)) rows.put(GO, true);
+            if (Scenario.named(JUDGE)) rows.put(JUDGE, false);
         }
         if (rows.isEmpty()) {
             return;
@@ -267,6 +270,11 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
         if (doors != 1 || !armed || placed.size() != 1) {
             failures.add(label + ": the premise failed (" + doors + " wither door(s), armed " + armed + ", " + placed.size()
                     + " mob(s) placed)");
+            return;
+        }
+
+        if (label.equals(JUDGE)) {
+            judgeAtClick(ctx, failures, label, setup);
             return;
         }
 
@@ -625,6 +633,54 @@ public class SimWitherKeyUnseenTests implements FabricClientGameTest {
     }
 
     /** A leaf mob room whose one ordinary door leads to a mob room the run reaches through open doors. */
+    /**
+     * The door into the unshown room K-side X is clicked open (the same path a key takes) while he is not in the room
+     * before it: the sim must mark X lost at that tick, a barrier-then-air 20 ticks before the blocks go.
+     */
+    private static void judgeAtClick(ClientGameTestContext ctx, List<String> failures, String label, Setup setup) {
+        final int cell = setup.door();
+        String pre = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(SIM_KEY_ROOM, "testState"));
+        if (pre == null || !pre.split("\\|")[3].equals("false")) {
+            failures.add(label + ": the premise failed (the room was already lost before the click: " + pre + ")");
+            return;
+        }
+        boolean opened = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(SIM_DOORS, "openDoorAtCell",
+                new Class<?>[]{Minecraft.class, int.class}, new Object[]{mc, cell}));
+        if (!opened) {
+            failures.add(label + ": the premise failed (no shut door at cell " + cell + ")");
+            return;
+        }
+        int lostTick = -1;
+        int airTick = -1;
+        boolean barrier = false;
+        for (int t = 0; t < 60 && airTick < 0; t++) {
+            ctx.waitTicks(1);
+            int tt = t;
+            String st = ctx.computeOnClient(mc -> (String) ModUnderTest.staticCall(SIM_KEY_ROOM, "testState"));
+            if (lostTick < 0 && st != null && st.split("\\|")[3].equals("true")) {
+                lostTick = tt;
+            }
+            boolean[] now = ctx.computeOnClient(mc -> {
+                BlockPos c = (BlockPos) ModUnderTest.staticCall(LAYOUT, "doorBlock", new Class<?>[]{int.class},
+                        new Object[]{cell});
+                return new boolean[]{mc.level.getBlockState(c).is(net.minecraft.world.level.block.Blocks.BARRIER),
+                        (Boolean) ModUnderTest.staticCall(LAYOUT, "doorShut", new Class<?>[]{int.class, boolean.class},
+                                new Object[]{cell, false})};
+            });
+            barrier |= now[0];
+            if (!now[1]) {
+                airTick = tt;
+            }
+        }
+        println(label + ": lost at tick " + lostTick + ", barrier seen " + barrier + ", blocks gone at tick " + airTick);
+        if (!barrier || airTick < 0) {
+            failures.add(label + ": the door did not open (barrier " + barrier + ", blocks gone at tick " + airTick + ")");
+        } else if (lostTick < 0 || lostTick > 3 || airTick - lostTick < 8) {
+            failures.add(label + ": the room was not judged at the click (lost at tick " + lostTick + ", blocks gone at "
+                    + airTick + ")");
+        }
+    }
+
     @SuppressWarnings("unchecked")
     private static Setup pick(ClientGameTestContext ctx, List<SimAutoClearTests.Room> rooms) {
         List<String> pairs = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(KEY_ROOMS, "testLeafPairs"));

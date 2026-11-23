@@ -448,10 +448,11 @@ public class SimAutoClearTests implements FabricClientGameTest {
         correctionCase(ctx, failures, "correction-plan", here, false, true);
         ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setHyperionHops", true));
 
-        // ==== case 6: order - rooms off the blood rush before the rooms on it ====
-        // killer560 (2026-10-06): "prioritize moving away from blood rush and taking whatever the longest split is ...
-        // then, once it eventually needs to go down the blood split ..." The rush room and an off-path room are both
-        // un-cleared with a zombie each; Any Mob Room must take the off-path one first.
+        // ==== case 6: order - Full Clear takes the fastest room order, no room forced first ====
+        // killer560 (2026-11-22): "it should be able to clear whatever is fastest ... even if blood rush is the better one
+        // to do first." The rush room and an off-path room are both un-cleared with a zombie each; Any Mob Room (Blood
+        // Rush Split off) tours them in the fewest tiles: the logged order costs no more than the plain order (and both
+        // rooms are cleared). Blood Rush Split ON keeping its rush order is case 1 (off-path rooms stay untouched).
         Room offRoom = off.get(0);
         List<Placed> p6 = new ArrayList<>();
         for (Room r : List.of(rush, offRoom)) {
@@ -490,11 +491,18 @@ public class SimAutoClearTests implements FabricClientGameTest {
         println("order: " + r6 + "; picks " + picks + "; mobs " + after6);
         check(failures, "order", r6, p6, after6, floor(ctx), List.of(rush.name(), offRoom.name()), List.of());
         checkProgressHud(failures, LogTap.since(mark6), hudShown, hudPlanned, hudAfter);
-        int offAt = picks.indexOf(offRoom.name() + "/off");
-        int rushAt = picks.indexOf(rush.name() + "/on");
-        if (offAt < 0 || rushAt < 0 || offAt > rushAt) {
-            failures.add("order: the off-path room " + offRoom.name() + " was not taken before the blood-rush room "
-                    + rush.name() + " (picks " + picks + ")");
+        boolean toured = false;
+        for (String l : LogTap.since(mark6)) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("room order: .* est ([0-9.]+) tiles vs old rule ([0-9.]+)").matcher(l);
+            if (m.find()) {
+                toured = true;
+                if (Double.parseDouble(m.group(1)) > Double.parseDouble(m.group(2)) + 0.01) {
+                    failures.add("order: the tour costs more than the plain order: " + l);
+                }
+            }
+        }
+        if (!toured || picks.size() < 2) {
+            failures.add("order: no room tour was planned or fewer than two rooms were picked (picks " + picks + ")");
         }
 
         // ==== case 7: a room only reachable through a wither door ====
