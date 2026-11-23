@@ -185,6 +185,8 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             "96-ar-1112-breakrules",
             // acslow-1115: a saved path hop that cannot go from here (a block in its line, its landing gone) plans the rest
             "1115-acslow-blocked", "1115-acslow-gone",
+            // arholds-1123: a held hop's replan flies the floor graph's plan with no exact proof first
+            "1123-arholds-graphfirst",
             // acslow2-1115: an await Auto Secret drives with nothing in reach lets go after 40 ticks (his log: 243)
             "1115-acslow2-await"};
 

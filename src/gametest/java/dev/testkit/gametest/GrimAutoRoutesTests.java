@@ -3438,20 +3438,44 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             setBlocks(ctx, cube);
             ctx.waitTicks(10);
             ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
-            if (act != null) {
-                st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
-                        p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 4));
-                if (act == dev.testkit.gametest.SameTick.Act.USE) {
-                    st.allow(6);   // his use with the AOTV in hand is his own warp: a few, then the route's own
-                }
-            }
             JsonObject before = stats();
             startSampling(ctx);
             long mr = LogTap.mark();
-            walkOnto(ctx, 4.5, 20.5, 6, 20);
-            boolean flew = waitFor(ctx, 200, () -> logHas(mr, "new warp(s) from here instead"));
-            Vec3 landed = act == dev.testkit.gametest.SameTick.Act.USE ? null : waitLanded(ctx, 24, 10, 200);
-            ctx.waitTicks(20);
+            boolean flew = false;
+            Vec3 landed = null;
+            // His action starts once the hop is held (a use with the AOTV during the walk-on would be his own warp and
+            // spend the case before the route acts); up to 3 flights until a server tick carries both.
+            for (int attempt = 1; attempt <= 3; attempt++) {
+                if (attempt > 1) {
+                    ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                            new Object[]{"test"}));
+                    ctx.waitTicks(10);
+                }
+                long ma = LogTap.mark();
+                walkOnto(ctx, 4.5, 20.5, 6, 20);
+                if (act != null) {
+                    waitFor(ctx, 20, () -> logHas(ma, "no look from here lands on") || logHas(ma, "planning the rest"));
+                    if (st == null) {
+                        st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
+                                p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 4));
+                    }
+                    if (act == dev.testkit.gametest.SameTick.Act.USE) {
+                        st.allow(4);   // his use with the AOTV in hand is his own warp: a few round the route's
+                    } else {
+                        st.allow(-1);
+                    }
+                }
+                flew = waitFor(ctx, 200, () -> logHas(ma, "new warp(s) from here instead"));
+                landed = act == dev.testkit.gametest.SameTick.Act.USE ? null : waitLanded(ctx, 24, 10, 200);
+                ctx.waitTicks(10);
+                if (st != null) {
+                    st.allow(0);
+                }
+                if (act == null || st.both() > 0) {
+                    break;
+                }
+            }
+            ctx.waitTicks(10);
             List<Sample> sm = stopSampling(ctx);
             String rep = "";
             if (st != null) {
