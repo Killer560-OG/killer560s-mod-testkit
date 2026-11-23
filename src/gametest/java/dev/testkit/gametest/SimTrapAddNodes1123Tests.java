@@ -19,7 +19,8 @@ import java.util.UUID;
  *
  * <p>Per trap (rotation 0): his own route for the room removed, he stands on the bundled route's start (the route that
  * arms is stopped), then two {@code /ar add path} lines: the first in a room with only the bundled route, the second once
- * he has his own. The neighbor room (an ordinary room, no overlay) gets the same two lines as a control.
+ * he has his own; New Trap and Old Trap first get his 11-23 sequence, a {@code /ar delete} of a node of the shown route
+ * (it must reach his own saved route) and no "Added node not fired" line on any add. The neighbor room (an ordinary room, no overlay) gets the same two lines as a control.
  */
 @dev.testkit.harness.RequiresMod("killer560smod")
 public class SimTrapAddNodes1123Tests implements FabricClientGameTest {
@@ -112,6 +113,19 @@ public class SimTrapAddNodes1123Tests implements FabricClientGameTest {
         if (shown == null) {
             failures.add(tag + ": no route shown for " + trap + " before the adds (Auto Trap's bundled route missing)");
         }
+        // his 11-23 sequence: delete a node of the shown route first, then add (the delete must reach his own route too)
+        int shownBefore = count(ctx, trap, "forRoom");
+        int del = trap.equals("New Trap") ? 7 : 4;
+        cmd(ctx, "/ar delete " + del);
+        ctx.waitTicks(5);
+        int shownAfter = count(ctx, trap, "forRoom");
+        int ownAfter = count(ctx, trap, "ownRoute");
+        System.out.println("[" + NAME + "] " + tag + " /ar delete " + del + ": drawn route " + shownBefore + " -> " + shownAfter
+                + ", his own route " + ownAfter);
+        if (shownAfter != shownBefore - 1 || ownAfter != shownAfter) {
+            failures.add(tag + ": /ar delete " + del + " took the drawn route " + shownBefore + " -> " + shownAfter
+                    + " and his own saved route has " + ownAfter + " - the delete did not reach his own route");
+        }
         ok += addTwice(ctx, failures, trap, tag);
         return ok;
     }
@@ -126,8 +140,13 @@ public class SimTrapAddNodes1123Tests implements FabricClientGameTest {
             ctx.waitTicks(10);
             stopRoute(ctx);
             boolean chat = false;
+            boolean notFired = false;
             for (String l : LogTap.since(mark)) {
                 chat |= l.contains("[Auto Routes] Added Path");
+                notFired |= l.contains("Added node not fired: the route changed before the chat closed");
+            }
+            if (notFired) {
+                failures.add(tag + " add " + n + ": \"Added node not fired: the route changed before the chat closed\" - the add went to another route");
             }
             if (chat) {
                 ok++;
