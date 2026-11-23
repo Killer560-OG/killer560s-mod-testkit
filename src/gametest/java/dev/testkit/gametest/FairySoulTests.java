@@ -764,9 +764,7 @@ public class FairySoulTests implements FabricClientGameTest {
     /** Head centre a stand's skull is drawn at, read off the LIVE vanilla model: the head part's pivot (model units down
      *  from the model origin, which the renderer puts 1.501 above the feet) plus the skull block, 0.5 x 1.1875 tall. */
     private static double[] renderedHead(net.minecraft.client.Minecraft mc, net.minecraft.world.entity.decoration.ArmorStand s) {
-        var renderer = (net.minecraft.client.renderer.entity.LivingEntityRenderer<?, ?, ?>) mc.getEntityRenderDispatcher()
-                .getRenderer(s);
-        float pivot = renderer.getModel().root().getChild("head").getInitialPose().y();
+        float pivot = 1.0f; // ArmorStandModel.createBodyLayer: head PartPose.offset(0, 1, 0) (read off the 26.3 bytecode; the live part reports 12.75 after baking)
         double k = s.isSmall() ? 0.5 : 1.0;
         return new double[]{s.getX(), s.getY() + k * (1.501 - pivot / 16.0 + 1.1875 * 0.5 / 2), s.getZ()};
     }
@@ -798,8 +796,17 @@ public class FairySoulTests implements FabricClientGameTest {
                         } finally {
                             resetKnobs();
                         }
+                        // setup's found-log reset stopped the guide that came up on its first arrival: arrive again
+                        hx.tab(List.of("Area: Somewhere Else", "Profile: Test"), null, null);
+                        ctx.waitTicks(30);
+                        hx.tab(List.of("Area: Hub", "Profile: Test"), null, null);
                         // no start call: the guide must come up by itself on arrival
                         ctx.waitFor(mc -> (Boolean) Mod.staticCall("pathfinding.FairySoulsFeature", "isGuiding"), 400);
+                        ctx.waitTicks(60);
+                        scenario.log("diag: path size " + ctx.computeOnClient(mc -> ((java.util.List<?>) Mod.staticCall(
+                                "pathfinding.NavigationManager", "path")).size()) + ", active " + ctx.computeOnClient(mc ->
+                                Mod.staticCall("pathfinding.NavigationManager", "isActive")) + ", lineStart " + ctx.computeOnClient(mc ->
+                                String.valueOf(Mod.field("com.killer560.hub.pathfinding.PathWorldRenderer", "lastLineStart"))));
                         ctx.waitFor(mc -> Mod.field("com.killer560.hub.pathfinding.PathWorldRenderer", "lastLineStart") != null, 400);
                         ctx.waitTicks(40); // refineStands runs every 10 ticks
                         String rep = ctx.computeOnClient(mc -> {
