@@ -69,6 +69,10 @@ final class SameTickCases {
         return start(c, act, feature).freeEvery(free);
     }
 
+    static SameTick start(Session c, SameTick.Act act, Predicate<Packet<?>> feature, int free, java.util.function.BooleanSupplier keep) {
+        return start(c, act, feature, free).keepWhen(keep);
+    }
+
     static SameTick start(Session c, SameTick.Act act, Predicate<Packet<?>> feature) {
         // His left click every tick would hold every world aura for good (ActionGate: his queued attack click goes
         // first), so ATTACK clicks every other tick.
