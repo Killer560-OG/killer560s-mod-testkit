@@ -135,6 +135,7 @@
 			"dev.testkit.gametest.SimMapPrerunTests",
 			"dev.testkit.gametest.SimMapDoorColorTests",
 			"dev.testkit.gametest.SimMapRunStartTests",
+			"dev.testkit.gametest.MapLabelRender1122Tests",
 			"dev.testkit.gametest.SimPrerunTripTests",
 			"dev.testkit.gametest.SimMapUnknownRoomTests",
 			"dev.testkit.gametest.SimNoammMapTests",
