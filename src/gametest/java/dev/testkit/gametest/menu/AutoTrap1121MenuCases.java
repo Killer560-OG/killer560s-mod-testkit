@@ -13,7 +13,7 @@ import java.util.List;
  * Auto Trap offers only Just Cleared out of the box (mod newtrap-1121; killer560, 2026-11-21: no bundled Full Trap route,
  * Full Trap only once he captured his own; his New Trap and Old Trap routes are the bundled Just Cleared ones).
  * <ul>
- *   <li>1121-menu-autotrap-cleared: with no file, both traps read Just Cleared with a bundled route (8 and 4 nodes) and no
+ *   <li>1121-menu-autotrap-cleared: with no file, both traps read Just Cleared with a bundled route (8 and 6 nodes) and no
  *       Full Trap route; the tab shows no Mode and no Full Trap row, but Capture Full Trap. A file that says FULL with no
  *       capture of his loads as CLEARED. A file holding his own Full Trap capture for New Trap keeps FULL, and the tab then
  *       shows New Trap's Full Trap row and one Mode button (Old Trap still none). A mode set then survives save + load.</li>
@@ -89,7 +89,7 @@ final class AutoTrap1121MenuCases {
                     int n = ((List<?>) Mod.call(route, "nodes")).size();
                     return Mod.call(e, "source") + " " + n + " full " + (f != null);
                 });
-                String want = "bundled " + (trap.equals("New Trap") ? 8 : 4) + " full false";
+                String want = "bundled " + (trap.equals("New Trap") ? 8 : 6) + " full false";
                 c.note(trap + ": " + info);
                 c.check(info.equals(want), trap + " should hold its bundled Just Cleared route and no Full Trap (" + want
                         + "), has " + info);

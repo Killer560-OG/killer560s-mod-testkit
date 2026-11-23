@@ -402,6 +402,7 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
         double minY = Double.MAX_VALUE;
         Vec3 holeRel = new Vec3(27.5, 89.0, 14.5);
         int n6At = -1;
+        int awaitNode = newTrap ? 6 : 4;   // oldtrap-default-1123: Old Trap's #4 (PATH, await 1 secret) holds the same way
         String waitVerdict = null;
         for (int t = 0; t < 1400 && !done; t++) {
             ctx.waitTicks(1);
@@ -419,10 +420,10 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
             // trapawait-1122: node #6 carries "await 1 secret" and the sim's trap room places none, so the route must WAIT
             // there (block under its spot unbroken, node #7 not begun) until the test counts one through AwaitEvents' own
             // click path (a lever clicked by us), and only then dig and go on.
-            if (newTrap && waitVerdict == null && lines.stream().anyMatch(l -> l.contains("Node #6 ") && l.contains(" begins: player ("))) {
+            if (waitVerdict == null && lines.stream().anyMatch(l -> l.contains("Node #" + awaitNode + " ") && l.contains(" begins: player ("))) {
                 n6At = n6At < 0 ? t : n6At;
                 if (t >= n6At + 80) {
-                    boolean seven = lines.stream().anyMatch(l -> l.contains("Node #7 ") && l.contains(" begins: player ("));
+                    boolean seven = lines.stream().anyMatch(l -> l.contains("Node #" + (awaitNode + 1) + " ") && l.contains(" begins: player ("));
                     Object[] st = ctx.computeOnClient(mc -> {
                         Object frame = newFrame(trap, cr);
                         Vec3 real = (Vec3) ModUnderTest.staticCall(ROUTE_COORDS, "toReal",
@@ -435,16 +436,16 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
                         mc.level.setBlock(lever, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
                         return new Object[]{solid};
                     });
-                    waitVerdict = "waited " + (t - n6At) + " ticks at #6, block unbroken " + st[0] + ", #7 begun " + seven;
-                    if (!(Boolean) st[0] || seven) {
-                        failures.add(tag + ": node #6 did not wait for its secret (" + waitVerdict + ")");
+                    waitVerdict = "waited " + (t - n6At) + " ticks at #" + awaitNode + ", block unbroken " + st[0] + ", #" + (awaitNode + 1) + " begun " + seven;
+                    if ((newTrap && !(Boolean) st[0]) || seven) {
+                        failures.add(tag + ": node #" + awaitNode + " did not wait for its secret (" + waitVerdict + ")");
                     }
                     println(tag + " " + waitVerdict + "; secret counted by the test");
                     SUMMARY.add(tag + " await: " + waitVerdict);
                 }
             }
             // the route started: New Trap is judged on its whole run (newtrap-route7), Old Trap's 10 s are logged only
-            done |= beganAt >= 0 && t > beganAt + (newTrap ? 600 : 200);
+            done |= beganAt >= 0 && t > beganAt + 600;
             int c = ctx.computeOnClient(mc -> ((Number) ModUnderTest.staticCall(ROUTE_EXEC, "completions")).intValue());
             boolean left = lines.stream().anyMatch(l -> l.contains("[AutoTrap] left " + trap));
             done |= c > completionsBefore || (left && lines.stream().anyMatch(l -> l.contains("Node " + lastNodeTag)
@@ -495,6 +496,20 @@ public class SimTrapRoutes1121Tests implements FabricClientGameTest {
             }
             if (aligns < 1) {
                 failures.add(tag + ": no trap-room walk aligned onto its next node (" + run + ")");
+            }
+        }
+        // r0 is excluded: Old Trap's walk #2 -> #3 is refused there ("couldn't align", 0.09 off after 101 ticks) on the 11-21 route too
+        // (oldtrap-r0-1123 in WORKQUEUE); the other three rotations must wait at #4 and walk out.
+        if (!newTrap && !tag.endsWith(" r0") && lines.stream().anyMatch(l -> l.contains("Node #1 ") && l.contains(" begins: player ("))) {
+            // oldtrap-default-1123: Old Trap's route (no pearl) must wait for its secret at #4, then its last node (a walk) runs him out of the trap room
+            String run = "await " + waitVerdict + ", last node began " + lastBegan + ", left the trap room " + leftTrap;
+            println(tag + " route run: " + run);
+            SUMMARY.add(tag + " route: " + run);
+            if (waitVerdict == null) {
+                failures.add(tag + ": Old Trap never reached node #4 and its await (" + run + ")");
+            }
+            if (!lastBegan || !leftTrap) {
+                failures.add(tag + ": Old Trap's route did not reach its last node and walk out of the room (" + run + ")");
             }
         }
         boolean sent = lines.stream().anyMatch(l -> l.contains("[Path] running "));
