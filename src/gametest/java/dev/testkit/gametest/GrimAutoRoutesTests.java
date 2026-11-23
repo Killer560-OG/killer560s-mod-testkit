@@ -192,11 +192,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s.test("62-argrim-1122-trapwalkalign-same-again", c -> caseTrapWalkAlign(c, null, true));
             // apfix-1123: Auto Secret's warp onto a path-less route's walk-gap node, his own actions in the trip's ticks.
             s.test("62-argrim-1123-walkgap", c -> caseWalkGapWarp(c, null, false));
-            for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
-                    dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.ATTACK,
-                    dev.testkit.gametest.SameTick.Act.OPEN_CLICK, dev.testkit.gametest.SameTick.Act.TP)) {
-                s.test("62-argrim-1123-walkgap-same-" + a.name().toLowerCase(Locale.ROOT), c -> caseWalkGapWarp(c, a, false));
-            }
+            // Each name written out in full: the merge train finds a case by its literal name.
+            s.test("62-argrim-1123-walkgap-same-use", c -> caseWalkGapWarp(c, dev.testkit.gametest.SameTick.Act.USE, false));
+            s.test("62-argrim-1123-walkgap-same-swap", c -> caseWalkGapWarp(c, dev.testkit.gametest.SameTick.Act.SWAP, false));
+            s.test("62-argrim-1123-walkgap-same-attack", c -> caseWalkGapWarp(c, dev.testkit.gametest.SameTick.Act.ATTACK, false));
+            s.test("62-argrim-1123-walkgap-same-open_click", c -> caseWalkGapWarp(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK, false));
+            s.test("62-argrim-1123-walkgap-same-tp", c -> caseWalkGapWarp(c, dev.testkit.gametest.SameTick.Act.TP, false));
             s.test("62-argrim-1123-walkgap-same-again", c -> caseWalkGapWarp(c, null, true));
             // iw-campaign-1027: Inventory Walk on while a route sprints him and he clicks in his inventory, then closes it.
             s.test("62-argrim-1027-invwalk", GrimAutoRoutesTests::caseInvWalk);
