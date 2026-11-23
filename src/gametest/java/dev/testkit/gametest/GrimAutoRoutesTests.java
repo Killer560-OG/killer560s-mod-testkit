@@ -4671,9 +4671,10 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         }
         if (useFirst) {
             // Plan SWAP every third tick too: Auto Clear yields its tick to his swap, so a swap every tick left it no tick
-            // at all (run 18: every mob skipped, plan moves 0) and the row tested nothing.
-            int every = act == dev.testkit.gametest.SameTick.Act.USE
-                    || plan && act == dev.testkit.gametest.SameTick.Act.SWAP ? 3 : 1;
+            // at all (run 18: every mob skipped, plan moves 0) and the row tested nothing. OPEN_CLICK and ATTACK too: the
+            // path's etherwarp yields to each (its sneak waits a tick after his menu packet, its hop after his queued attack).
+            int every = act == dev.testkit.gametest.SameTick.Act.USE || plan && (act == dev.testkit.gametest.SameTick.Act.SWAP
+                    || act == dev.testkit.gametest.SameTick.Act.OPEN_CLICK || act == dev.testkit.gametest.SameTick.Act.ATTACK) ? 3 : 1;
             st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, every,
                     p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
                             || p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket, 7, 8)
