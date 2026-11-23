@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T15:21:15",
- "modSource": "lane-roompredictor-1123",
- "modGitSha": "8a9ac7c3f2e7a3e50c70ec1747e13eec2cb5724a",
+ "generatedAt": "2026-11-23T15:16:40",
+ "modSource": "lane-acreview-1123",
+ "modGitSha": "93a8310cf104306de4a4ab93f47e46101be1775a",
  "modSourceDirty": false,
  "count": 975,
  "byKind": {
