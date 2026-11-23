@@ -69,8 +69,7 @@ final class BugReportBackground1122Cases {
 
     /** What the zip builder makes of a log with a chat line, an address and an e-mail in it. */
     private static String redactedLog(UiCase c) throws Exception {
-        Path game = (Path) Mod.staticCall("util.ModPaths", "config", "bug-reports");
-        Path logs = game.getParent().getParent().getParent().resolve("logs");
+        Path logs = net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir().resolve("logs");
         Path latest = logs.resolve("latest.log");
         byte[] old = Files.isRegularFile(latest) ? Files.readAllBytes(latest) : null;
         Files.createDirectories(logs);
