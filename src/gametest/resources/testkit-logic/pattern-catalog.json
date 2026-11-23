@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T04:29:29",
- "modSource": "lane-arorder-check-1122",
- "modGitSha": "c80a4691b42e03a357e092cce9d795a98096bc26",
+ "generatedAt": "2026-11-23T04:54:02",
+ "modSource": "lane-standeye-1123",
+ "modGitSha": "c35adf801bd63e03bec81809b85f42294aac4fcb",
  "modSourceDirty": false,
  "count": 975,
  "byKind": {
