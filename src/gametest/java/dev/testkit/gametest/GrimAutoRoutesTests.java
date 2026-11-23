@@ -174,6 +174,14 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         Session.run(ctx, SESSION, (server, s) -> setup(ctx, s), s -> {
             session = s;
             s.test("62-argrim-ew-add", GrimAutoRoutesTests::caseEwAdd);
+            if (dev.testkit.gametest.mod.Mod.isCheat()) {
+                s.test("62-argrim-1123-standeye", c -> caseStandEye(c, null));
+                s.test("62-argrim-1123-standeye-same-use", c -> caseStandEye(c, dev.testkit.gametest.SameTick.Act.USE));
+                s.test("62-argrim-1123-standeye-same-dig", c -> caseStandEye(c, dev.testkit.gametest.SameTick.Act.DIG));
+                s.test("62-argrim-1123-standeye-same-swap", c -> caseStandEye(c, dev.testkit.gametest.SameTick.Act.SWAP));
+                s.test("62-argrim-1123-standeye-same-tp", c -> caseStandEye(c, dev.testkit.gametest.SameTick.Act.TP));
+            }
+
             s.test("62-argrim-walk", GrimAutoRoutesTests::caseWalk);
             if (dev.testkit.gametest.mod.Mod.isCheat()) s.test("62-argrim-1110-terrain", GrimAutoRoutesTests::caseTerrain);
             // mod doc-routes-1101 (to-do Doc "AUTO ROUTES TRAP RELATED NODES"): in a trap room a walk node turns the body
@@ -2747,6 +2755,79 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         }
         c.note("chain: " + notes);
         noteFlags(c, all);
+    }
+
+    /**
+     * standeye-ar-1123: Hypixel casts an etherwarp whose sneak reached the server in the same server tick from the STANDING
+     * eye (hx dungeon.standingEye fresh). A route whose start node fires from an unsneaked stand sends the sneak and the
+     * use within a tick of each other, so its look must land on the node's block from both eyes: two runs of the 8-block
+     * warp must each land on (14,6) with a server warp (the standing eye alone lands past it), with his own action in the
+     * same ticks when {@code act} is set (GrimAC silent, his packet and the warp both on the wire).
+     */
+    private static void caseStandEye(Session c, dev.testkit.gametest.SameTick.Act act) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        writeRoute(ctx, List.of(ew(6, 6, 14, 6, true)));
+        session.hx().call("dungeon.standingEye", "fresh", true);
+        dev.testkit.gametest.SameTick st = null;
+        StringBuilder notes = new StringBuilder();
+        try {
+            for (int i = 0; i < 2; i++) {
+                ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"}));
+                ctx.getInput().releaseKey(o -> o.keyShift);
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
+                ensureInRoom(ctx); // his own USE warps may have taken him out of the room
+                tpRel(ctx, 6.5, 4.4, 0f, 0f);
+                ctx.waitTicks(6); // the unsneaked input is on the wire: the route's sneak will be fresh
+                JsonObject before = stats();
+                int castBefore = before.get("standingEyeCast").getAsInt();
+                long m = LogTap.mark();
+                walkOnto(ctx, 6.5, 4.4, 6, 6);
+                // Armed once the route runs: his own action is not in the walk-on.
+                if (act != null) {
+                    st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
+                            p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 4));
+                }
+                if (act == dev.testkit.gametest.SameTick.Act.TP && i == 1) { // the last run: a teleport accept in the route's ticks
+                    session.hx().call("dungeon.tp", "x", (double) ctx.computeOnClient(mc -> mc.player.getX()), "y",
+                            (double) ctx.computeOnClient(mc -> mc.player.getY()), "z", (double) ctx.computeOnClient(mc -> mc.player.getZ()),
+                            "yaw", lookYaw, "pitch", lookPitch);
+                }
+                Vec3 landed = waitLanded(ctx, 14, 6, 60);
+                ctx.waitTicks(6);
+                if (st != null) {
+                    dev.testkit.gametest.SameTick s2 = st;
+                    ctx.runOnClient(mc -> s2.close());
+                    c.note("same-tick " + act + " run " + i + ": " + st.report());
+                    // Auto Routes takes his left click while it warps, so a DIG never reaches the wire (caseChainSame).
+                    check(st.done() > 0 || act == dev.testkit.gametest.SameTick.Act.DIG, act + ": his action never went in (nothing tested)");
+                    st = null;
+                }
+                int cast = stats().get("standingEyeCast").getAsInt() - castBefore;
+                int warps = delta(before, "etherwarps");
+                boolean acted = false;
+                for (String l : LogTap.since(m)) {
+                    acted |= l.contains("ETHERWARP acted");
+                }
+                notes.append(String.format(Locale.ROOT, "run %d: landed %s, %d server warp(s), %d standing cast(s), acted %s; ",
+                        i, landed == null ? "NOT on (14,6), at " + relPos(ctx) : "on (14,6)", warps, cast, acted));
+                check(acted && warps >= 1, "run " + i + ": the route warp never went out (" + notes + ")");
+                // His own right click (USE) is a second warp of its own: only where the route's landing is judged does it not count.
+                check(landed != null || act == dev.testkit.gametest.SameTick.Act.USE, "run " + i + ": the warp landed off (14,6): " + notes);
+            }
+            c.note("standeye route warp: " + notes);
+            noteFlags(c, List.of());
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick s3 = st;
+                ctx.runOnClient(mc -> s3.close());
+            }
+            session.hx().call("dungeon.standingEye", "fresh", false);
+            ctx.getInput().releaseKey(o -> o.keyShift);
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"}));
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+        }
     }
 
     /**
