@@ -362,7 +362,17 @@ final class Ee3RouteGrimCases {
     }
 
     /** ee3race-1123: picks the fake Breaker has set to air on the server and the client has not yet RECEIVED as air. */
-    private static final java.util.Set<BlockPos> airWait = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static boolean grimDebug;
+    /** simstreak-1123: the wait spot beside HEE2, out of its box and of every fill. It was 62.5,132,139, in the column the
+     *  fills clear (x 62, y 127-139), so he fell after every tp and, at a session's first run (empty world), drew Simulation
+     *  .284 and, once the fill sync let the client tick, .357 while the fills changed the blocks he fell past. Now he stands
+     *  on a barrier above the highest fill (y 142). */
+    private static void park(Session c) {
+        c.server().command("setblock 62 143 139 minecraft:barrier");
+        TerminalAuraCases.tp(c, 62.5, 144, 139, 72f);
+    }
+
+    private static final java.util.Set<BlockPos> airWait =java.util.concurrent.ConcurrentHashMap.newKeySet();
     /** Network thread: crosses off each pick as its air update arrives (applied on the client's next tick, before its move). */
     private static final Consumer<Packet<?>> airIn = p -> {
         if (p instanceof net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket u && u.getBlockState().isAir()) {
@@ -388,14 +398,14 @@ final class Ee3RouteGrimCases {
             c.server().sync(30);
             // Off the map first: the fills below must not land on him where the last case left him (Simulation flags
             // charged to this case, experimental Grim, x4/x5).
-            TerminalAuraCases.tp(c, 62.5, 132, 139, 72f);
+            park(c);
             c.ctx().waitTicks(5);
             for (String l : Files.readAllLines(fills)) {
                 if (!l.isBlank()) {
                     c.server().command(l);
                 }
             }
-            c.server().sync(120);
+            c.server().sync(120, () -> c.ctx().waitTick()); // the client keeps ticking (simstreak-1123: NegativeTimer)
             // ee3route-align-1117: the picks stay in the world, as in a real run; the run digs them on the way (below).
             List<BlockPos> live = new ArrayList<>();
             for (String l : Files.readAllLines(routeDir().resolve(ROUTE + ".picks"))) {
@@ -413,7 +423,7 @@ final class Ee3RouteGrimCases {
             c.server().command("attribute @p minecraft:movement_speed base set 0.6");
             c.server().command("effect give @p minecraft:fire_resistance 600 0 true"); // no lava knockback if he misses
             c.server().sync(30);
-            TerminalAuraCases.tp(c, 62.5, 132, 139, 72f); // beside HEE2: AP3 must not start before the run (a tp under its walk is a Simulation flag)
+            park(c); // beside HEE2: AP3 must not start before the run (a tp under its walk is a Simulation flag)
             c.ctx().waitTicks(10);
             if (act != null || walkTrace != null) {
                 SameTickCases.sticks(c); // swapWalk: both runs hold the same stick
@@ -463,6 +473,13 @@ final class Ee3RouteGrimCases {
             // session (11-18: cases 3 and 4 ran at x5+ and every lever click was canceled, levers false/false). The accepted
             // flags must not decide whether the lever goes, so the cancel level is lifted for this case and restored after.
             undo.add(raiseCancelVl(c));
+            if (System.getenv("KM_GRIM_DEBUG") != null && !grimDebug) {
+                grimDebug = true; // a toggle: once per session, Grim's P/A/O line per movement goes to the server log
+                c.server().command("grim consoledebug Player0");
+            }
+            // simstreak-1123: the server holds Grim's trig guess at vanilla (MixinGrimTrig); KM_GRIM_TRIG=auto lets it switch, to
+            // show the Simulation streak it causes at this case's 0.6 speed.
+            c.server().command("testkit grimtrig " + ("auto".equals(System.getenv("KM_GRIM_TRIG")) ? "auto" : "pin"));
             c.server().mark();
             long mark = LogTap.mark();
             c.onClient(mc -> {
@@ -495,7 +512,7 @@ final class Ee3RouteGrimCases {
                 c.server().sync(30);
             }
             // Leave and re-enter HEE2's box: a tp lands him in it, as a leap would.
-            TerminalAuraCases.tp(c, 62.5, 132, 139, 72f);
+            park(c);
             c.ctx().waitTicks(5);
             // The start of a boss run: standing at the HEE2 node, yaw 117 pitch 46.3 (the route finder's sim start).
             walkRec = walkTrace != null;
@@ -516,6 +533,8 @@ final class Ee3RouteGrimCases {
             double[] fell = null;
             long arriveNs = Long.MAX_VALUE;
             StringBuilder path = new StringBuilder();
+            StringBuilder tickMs = new StringBuilder(); // simstreak-1123: wall ms per lockstep tick (server stalls)
+            long tPrev = System.nanoTime();
             for (int t = 0; t < 400 && arrive < 0; t++) {
                 c.ctx().waitTick();
                 double[] s = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ(),
@@ -567,6 +586,9 @@ final class Ee3RouteGrimCases {
                         airWait.clear();
                     }
                 }
+                long tNow = System.nanoTime();
+                tickMs.append(' ').append((tNow - tPrev) / 1_000_000);
+                tPrev = tNow;
                 path.append(String.format(Locale.ROOT, " %d:%.2f,%.2f,%.2f%s%s/c%d", t, s[0], s[1], s[2], s[3] > 0 ? "g" : "", s[4] > 0 ? "J" : "", charges));
                 if (t0 < 0 && Math.hypot(s[0] - 60.5, s[2] - 139) > 0.2) {
                     t0 = t;
@@ -585,12 +607,17 @@ final class Ee3RouteGrimCases {
                     // next case is blamed for. Where this route ends in the hx world is the route's question, not this case's.
                     c.note(String.format(Locale.ROOT, "fell into the lava at t%d (rel %d) at %.2f %.2f %.2f", t, t - t0, s[0], s[1], s[2]));
                     fell = s;
-                    TerminalAuraCases.tp(c, 62.5, 132, 139, 72f);
+                    park(c);
                     break;
                 }
             }
             System.out.println("[ee3route] path " + (act == null ? "none" : act) + ":" + path);
+            System.out.println("[ee3route] tick ms:" + tickMs);
             c.note("fake Breaker: " + fakeDug + " pick(s) dug, " + lateAir + " air update(s) not at the client before the next tick");
+            List<String> trig = c.server().since().stream().filter(l -> l.contains("[testkit-trig]")).toList();
+            if (!trig.isEmpty()) {
+                c.note("anticheat trig guess switched in this run: " + trig);
+            }
             // A green run must have dug through the route's picks with every air in place in time (the case's own fixture).
             c.check(walkTrace != null || fakeDug > 0, "the fake Breaker never dug a pick");
             c.check(lateAir == 0, "fake Breaker: " + lateAir + " air update(s) reached the client late");
