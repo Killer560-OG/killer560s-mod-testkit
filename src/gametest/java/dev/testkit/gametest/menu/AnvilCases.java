@@ -47,6 +47,7 @@ final class AnvilCases {
         MenuSuite.test(s, "295-menu-anvil-preview-mismatch", AnvilCases::previewMismatch);
         MenuSuite.test(s, "296-menu-anvil-close-stops", AnvilCases::closeStops);
         MenuSuite.test(s, "297-menu-anvil-off-and-legit", AnvilCases::offAndLegit);
+        MenuSuite.test(s, "1123-menu-anvil-nextbook", AnvilCases::nextBook);
         AnvilStart1118Cases.register(s);
         AutoHarpCases.register(s);
         HarpHelperCases.register(s);
@@ -349,6 +350,35 @@ final class AnvilCases {
             c.check(combinesLater < kinds.length, "every pair combined although the anvil closed after the first");
             c.note("anvil closed after combine 1: stopped; " + clicksAtStop + " clicks total, none after; "
                     + combinesLater + " of " + kinds.length + " pairs combined");
+        } finally {
+            MenuKit.reset(c);
+            InventoryCases.clearInv(c);
+        }
+    }
+
+    /** 1123: three book types (Karma and Petalfall were missing from the anvil table) each end as their own V. */
+    static void nextBook(Session c) throws Exception {
+        MenuKit.reset(c);
+        InventoryCases.clearInv(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: covered by 297");
+            return;
+        }
+        try (MenuKit.Cfg cfg = on(c)) {
+            int s = 0;
+            for (String id : new String[]{"karma", "sharpness", "petalfall"}) {
+                for (int i = 0; i < 4; i++) {
+                    give(c, s++, book(id + ":3"));
+                }
+            }
+            c.ctx().waitTicks(5);
+            openAnvil(c, "{}");
+            awaitCombines(c, 9, 1800);
+            List<String> inv = booksInInventory(c);
+            c.check(inv.equals(List.of("karma5", "petalfall5", "sharpness5")), "left " + inv + ", expected one V of each type");
+            c.check(c.events("anvil.combine").size() == 9 && c.events("anvil.claim").size() == 9,
+                    "combines " + c.events("anvil.combine").size() + ", claims " + c.events("anvil.claim").size() + ", expected 9 each");
+            c.note("three types: " + combines(c) + " -> " + inv);
         } finally {
             MenuKit.reset(c);
             InventoryCases.clearInv(c);
