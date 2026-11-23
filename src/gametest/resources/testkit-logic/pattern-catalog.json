@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T04:54:02",
- "modSource": "lane-standeye-1123",
- "modGitSha": "c35adf801bd63e03bec81809b85f42294aac4fcb",
+ "generatedAt": "2026-11-23T06:37:30",
+ "modSource": "lane-simtrap-secrets-1122",
+ "modGitSha": "802c67c4598800fa1b544ea5700b4a58061fea71",
  "modSourceDirty": false,
  "count": 975,
  "byKind": {
