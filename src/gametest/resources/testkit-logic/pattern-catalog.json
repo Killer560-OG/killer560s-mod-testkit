@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T23:25:07",
- "modSource": "lane-gifstill-1122",
- "modGitSha": "c9f6ddf92da0ec085daef1c5ae2c15d8a88b2427",
+ "generatedAt": "2026-11-22T23:49:15",
+ "modSource": "lane-simpuzzledoor-1122",
+ "modGitSha": "1868c017153b54e0b6bd0bc5a5051414e1a86692",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
