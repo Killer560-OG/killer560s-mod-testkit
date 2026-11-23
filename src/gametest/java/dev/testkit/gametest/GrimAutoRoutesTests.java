@@ -1144,14 +1144,23 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             s0.addProperty("start", true);
             writeRoute(ctx, again ? List.of(s0, node("ROTATE", 18, 6, 90f, 0f), node("ROTATE", 18, 18, 0f, 0f))
                     : List.of(s0, node("ROTATE", 18, 6, 90f, 0f)));
-            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
-                Vec3 p = relFeet(ctx, 7.5, 7.6);
-                c.server().command(String.format(Locale.ROOT, "summon armor_stand %.2f %.2f %.2f {NoGravity:1b,"
-                        + "Invulnerable:1b,Tags:[\"sametick\"]}", p.x, p.y, p.z));
-            }
             JsonObject before = stats();
             long mark = LogTap.mark();
             walkOnto(ctx, 6.5, 4.2, 6, 6);
+            if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
+                // His target on his own look once #1 has turned him and the route waits: 1.6 blocks along the camera's
+                // view (ViewFreeze holds it while the trip turns the body), so the trip's first ticks have it under his
+                // crosshair.
+                waitFor(ctx, 60, () -> ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(EXECUTOR, "awaitingWalk")));
+                double[] z = ctx.computeOnClient(mc -> {
+                    double yr = Math.toRadians(mc.player.getYRot());
+                    return new double[]{mc.player.getX() - Math.sin(yr) * 1.6, mc.player.getY(),
+                            mc.player.getZ() + Math.cos(yr) * 1.6};
+                });
+                c.server().command(String.format(Locale.ROOT, "summon zombie %.3f %.3f %.3f"
+                        + " {NoAI:1b,Invulnerable:1b,Silent:1b,Tags:[\"sametick\"]}", z[0], z[1], z[2]));
+                ctx.waitTicks(5);
+            }
             if (act != null) {
                 st = ctx.computeOnClient(mc -> {
                     dev.testkit.gametest.SameTick t = dev.testkit.gametest.SameTick.start(act, 1,
