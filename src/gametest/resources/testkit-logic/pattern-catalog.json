@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T01:24:02",
- "modSource": "lane-simkeyroom-judge-1122",
- "modGitSha": "38c2ebe9a952effff88200959c8136236f5e0530",
+ "generatedAt": "2026-11-23T01:45:29",
+ "modSource": "lane-acroomorder-1122",
+ "modGitSha": "a0337a2cb25ced2a7cc63caf9c0577d53bf5beaa",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
