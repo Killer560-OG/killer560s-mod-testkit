@@ -364,7 +364,6 @@ public class FairyIslandTests implements FabricClientGameTest {
                 Mod.staticCall(RUNNER, "stop", "testkit setup", false);
                 Mod.staticCall("pathfinding.FairySoulsFeature", "stopGuide", false);
                 Mod.set(CFG, "setEnabled", true);
-                Mod.set(CFG, "setAutoStartOnIsland", false);
                 Mod.set(CFG, "setSoulMode", Mod.enumValue("pathfinding.PathfindingConfig$SoulMode", "ROUTE"));
                 Mod.set(CFG, "setAutoWalk", true);
                 Mod.set(CFG, "setAutoSouls", true);

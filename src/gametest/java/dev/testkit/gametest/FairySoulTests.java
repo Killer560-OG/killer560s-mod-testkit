@@ -77,7 +77,7 @@ public class FairySoulTests implements FabricClientGameTest {
                     "1017-fairy-pit", "1017-fairy-lava", "1017-fairy-stuck", "1017-fairy-escape-ether",
                     "1017-fairy-escape-pearl", "1017-fairy-escape-none", "1018-fairy-travel-walkonly",
                     "1018-fairy-travel-pearls", "1101-fairy-ledgesoul", "1101-fairy-freecam-off", "1101-fairy-warp",
-                    "1101-fairy-plan-floors", "1101-fairy-door")) {
+                    "1101-fairy-plan-floors", "1101-fairy-door", "1122-fairy-guide", "1122-fairy-allfound")) {
                 if (!Scenario.skip(n)) {
                     Scenario.skipped(n, "Auto Fairy Souls is cheat build only (746 checks the legit jar does not walk)");
                 }
@@ -94,7 +94,7 @@ public class FairySoulTests implements FabricClientGameTest {
                 FairySoulTests::ledge, FairySoulTests::pitLadder, FairySoulTests::lava, FairySoulTests::stuckWall,
                 FairySoulTests::travelModes, FairySoulTests::escapes, FairySoulTests::ledgeSoul,
                 FairySoulTests::freecamOff, FairySoulTests::warpBack, FairySoulTests::planFloors,
-                FairySoulTests::doorway)) {
+                FairySoulTests::doorway, FairySoulTests::guide, FairySoulTests::guideAllFound)) {
             try {
                 c.accept(ctx);
             } catch (AssertionError e) {
@@ -761,6 +761,111 @@ public class FairySoulTests implements FabricClientGameTest {
                 });
     }
 
+    /** Head centre a stand's skull is drawn at, read off the LIVE vanilla model: the head part's pivot (model units down
+     *  from the model origin, which the renderer puts 1.501 above the feet) plus the skull block, 0.5 x 1.1875 tall. */
+    private static double[] renderedHead(net.minecraft.client.Minecraft mc, net.minecraft.world.entity.decoration.ArmorStand s) {
+        var renderer = (net.minecraft.client.renderer.entity.LivingEntityRenderer<?, ?, ?>) mc.getEntityRenderDispatcher()
+                .getRenderer(s);
+        float pivot = renderer.getModel().root().getChild("head").getInitialPose().y();
+        double k = s.isSmall() ? 0.5 : 1.0;
+        return new double[]{s.getX(), s.getY() + k * (1.501 - pivot / 16.0 + 1.1875 * 0.5 / 2), s.getZ()};
+    }
+
+    /**
+     * 1122-fairy-guide (killer560, 2026-11-22: "for the regular finder the line should come from the crosshair not the
+     * player. also the waypoints are all not exactly on the fairy soul"): with Fairy Souls on and souls unfound, the guide
+     * starts BY ITSELF on arrival (no Start On Island Join row any more); its line starts at the crosshair tracer origin
+     * (camera + 0.5 along the look, not the old camera - 1.2); and each waypoint is centred on the rendered head of the
+     * soul's stand, a normal one and a small one, at negative coordinates, 2+ blocks from the node.
+     */
+    private static void guide(ClientGameTestContext ctx) {
+        Scenario.run(ctx, "1122-fairy-guide",
+                (server, scenario) -> TestMap.on(server)
+                        .floor(-830, 150, 2190, -800, 2215)
+                        .fill(-830, 151, 2190, -800, 156, 2215, "air")
+                        .survival().surface(151).spawn(-805.5, 2204.5, 90f).build(),
+                (server, scenario) -> {
+                    List<Node> g = List.of(
+                            new Node(0, -806, 151, 2204, false, 1),
+                            new Node(1, -812, 151, 2202, true, 0, 2),
+                            new Node(2, -818, 151, 2200, true, 1));
+                    standAt.put(1, new double[]{-814.2, 151, 2200.3});
+                    standAt.put(2, new double[]{-819.7, 151, 2198.4});
+                    smallStands.add(2);
+                    try (Hx hx = Hx.connect()) {
+                        try {
+                            setup(ctx, hx, g);
+                        } finally {
+                            resetKnobs();
+                        }
+                        // no start call: the guide must come up by itself on arrival
+                        ctx.waitFor(mc -> (Boolean) Mod.staticCall("pathfinding.FairySoulsFeature", "isGuiding"), 400);
+                        ctx.waitFor(mc -> Mod.field("com.killer560.hub.pathfinding.PathWorldRenderer", "lastLineStart") != null, 400);
+                        ctx.waitTicks(40); // refineStands runs every 10 ticks
+                        String rep = ctx.computeOnClient(mc -> {
+                            StringBuilder out = new StringBuilder();
+                            var start = (net.minecraft.world.phys.Vec3) Mod.field("com.killer560.hub.pathfinding.PathWorldRenderer",
+                                    "lastLineStart");
+                            var want = mc.player.getEyePosition().add(mc.player.getLookAngle().scale(0.5));
+                            double off = start.distanceTo(want);
+                            out.append(String.format(Locale.US, "line start %.2f %.2f %.2f, crosshair origin %.2f %.2f %.2f, off %.3f; ",
+                                    start.x, start.y, start.z, want.x, want.y, want.z, off));
+                            check(off < 0.05, "the guide line does not start at the crosshair tracer origin: " + out);
+                            int seen = 0;
+                            for (var s : mc.level.getEntitiesOfClass(net.minecraft.world.entity.decoration.ArmorStand.class,
+                                    mc.player.getBoundingBox().inflate(40))) {
+                                double[] head = renderedHead(mc, s);
+                                boolean far = s.getX() < -816;
+                                var c = (net.minecraft.world.phys.Vec3) Mod.staticCall("pathfinding.FairySoulsFeature", "standCentre",
+                                        far ? -818.0 : -812.0, 151.0, far ? 2200.0 : 2202.0);
+                                check(c != null, "no waypoint centre for the stand at " + s.position());
+                                out.append(String.format(Locale.US, "%s stand at %.1f %.1f %.1f head %.3f waypoint %.3f %.3f %.3f; ",
+                                        s.isSmall() ? "small" : "normal", s.getX(), s.getY(), s.getZ(), head[1], c.x, c.y, c.z));
+                                check(Math.abs(c.x - head[0]) < 0.01 && Math.abs(c.y - head[1]) < 0.02 && Math.abs(c.z - head[2]) < 0.01,
+                                        "the waypoint is not on the stand's rendered head: " + out);
+                                seen++;
+                            }
+                            check(seen == 2, "expected 2 soul stands, found " + seen + ": " + out);
+                            return out.toString();
+                        });
+                        scenario.log(rep);
+                    }
+                });
+    }
+
+    /** 1122-fairy-allfound: every soul of the island already found, so the guide does not start on arrival. */
+    private static void guideAllFound(ClientGameTestContext ctx) {
+        Scenario.run(ctx, "1122-fairy-allfound",
+                (server, scenario) -> TestMap.on(server).platform(-810, 150, 2300, 4).survival().spawn(-809.5, 2300.5, 0f).build(),
+                (server, scenario) -> {
+                    List<Node> g = List.of(new Node(0, -810, 151, 2300, false, 1), new Node(1, -808, 151, 2300, true, 0));
+                    try (Hx hx = Hx.connect()) {
+                        try {
+                            setup(ctx, hx, g);
+                        } finally {
+                            resetKnobs();
+                        }
+                        // leave the island, find the soul, arrive again: nothing left to guide to, so no guide
+                        ctx.runOnClient(mc -> Mod.staticCall("pathfinding.FairySoulsFeature", "stopGuide", false));
+                        hx.tab(List.of("Area: Somewhere Else", "Profile: Test"), null, null);
+                        ctx.waitTicks(30);
+                        ctx.runOnClient(mc -> Mod.staticCall("pathfinding.FairySoulStore", "markFound",
+                                Mod.staticCall("pathfinding.ProfileTracker", "key"), "HUB", -808.0, 151.0, 2300.0));
+                        hx.tab(List.of("Area: Hub", "Profile: Test"), null, null);
+                        ctx.waitTicks(60);
+                        boolean guiding = ctx.computeOnClient(mc -> (Boolean) Mod.staticCall("pathfinding.FairySoulsFeature", "isGuiding"));
+                        scenario.log("guiding on arrival with every soul found: " + guiding);
+                        check(!guiding, "the guide started although every soul on the island is found");
+                        // control: the soul unfound again, leave and arrive once more: the guide comes up by itself
+                        ctx.runOnClient(mc -> Mod.staticCall("pathfinding.FairySoulsFeature", "resetIsland"));
+                        hx.tab(List.of("Area: Somewhere Else", "Profile: Test"), null, null);
+                        ctx.waitTicks(30);
+                        hx.tab(List.of("Area: Hub", "Profile: Test"), null, null);
+                        ctx.waitFor(mc -> (Boolean) Mod.staticCall("pathfinding.FairySoulsFeature", "isGuiding"), 200);
+                    }
+                });
+    }
+
     /** A plateau (top feet 155) over a floor at 150 with a 3x3, 4-deep pit at (cx, cz); a ladder up its west wall. */
     private static TestMap pitArena(TestServer server, int cx, int cz, boolean ladder) {
         TestMap m = TestMap.on(server)
@@ -1160,7 +1265,7 @@ public class FairySoulTests implements FabricClientGameTest {
 
     /**
      * 1017-fairy-settings: the Fairy Souls tab's rows in killer560's order (switch, Show Waypoints, Show Path + Path
-     * Mode, Dim Path + Path Color, the sliders, HUD + Start On Island Join), no "Found n/m" line and no Stop Navigation;
+     * Mode, Dim Path + Path Color, the sliders, and HUD), no "Found n/m" line and no Stop Navigation;
      * the Auto Fairy Souls tab (cheat) with its switch first, Auto Walk and Auto Click ON by default and no Turn Speed;
      * every setting through save and load; and a version-1 file migrated.
      */
@@ -1183,8 +1288,7 @@ public class FairySoulTests implements FabricClientGameTest {
                             List<String> legit = rows("com.killer560.hub.gui.tab.PathfindingTab");
                             out.append("fairy souls rows ").append(legit).append('\n');
                             List<String> want = List.of("Fairy Souls", "Show Waypoints", "Show Path", "Path Mode", "Dim Path",
-                                    "Path Color", "Visible Path", "Line Width", "Re-Path After", "Text Scale", "HUD",
-                                    "Start On Island Join");
+                                    "Path Color", "Visible Path", "Line Width", "Re-Path After", "Text Scale", "HUD");
                             check(legit.size() >= want.size() && legit.subList(0, want.size()).equals(want),
                                     "Fairy Souls rows out of order: " + legit);
                             check(legit.stream().noneMatch(l -> l.startsWith("Found") || l.startsWith("No graph")),
@@ -1213,7 +1317,6 @@ public class FairySoulTests implements FabricClientGameTest {
                             Mod.set(CFG, "setPathColor", 0xFF123456);
                             Mod.set(CFG, "setVisiblePathLength", 40);
                             Mod.set(CFG, "setSoulHud", false);
-                            Mod.set(CFG, "setAutoStartOnIsland", true);
                             Mod.set(CFG, "setAutoWalk", false);
                             Mod.set(CFG, "setAutoCollect", false);
                             Mod.set(CFG, "setAutoSprint", false);
@@ -1231,14 +1334,14 @@ public class FairySoulTests implements FabricClientGameTest {
                                 out.append("reloaded new keys: ").append(nk).append('\n');
                                 check(nk.equals("freecam false warp false"), "Free Camera / Warp When Stuck did not survive: " + nk);
                             }
-                            String got = String.format("waypoints %s path %s mode %s dim %s color %x length %s hud %s join %s walk %s "
+                            String got = String.format("waypoints %s path %s mode %s dim %s color %x length %s hud %s walk %s "
                                             + "click %s pearls %s sprint %s auto %s key %s", g("isSoulWaypoints"), g("isShowPath"),
                                     g("getSoulMode"), g("isDimPath"), (Integer) g("getPathColor"), g("getVisiblePathLength"),
-                                    g("isSoulHud"), g("isAutoStartOnIsland"), g("isAutoWalkRaw"), g("isAutoCollect"),
+                                    g("isSoulHud"), g("isAutoWalkRaw"), g("isAutoCollect"),
                                     g("isAllowPearls"), g("isAutoSprint"), g("getAutoMode"), g("getResumeKeyCode"));
                             out.append("reloaded: ").append(got).append('\n');
                             check(got.equals("waypoints false path false mode NEAREST dim true color ff123456 length 40 hud false "
-                                    + "join true walk false click false pearls false sprint false auto FAST_ETHERWARP key 75"),
+                                    + "walk false click false pearls false sprint false auto FAST_ETHERWARP key 75"),
                                     "settings did not survive save and load: " + got);
                             // A version-1 file.
                             Files.writeString(file, "{\"enabled\":true,\"fairySouls\":false,\"showWholePath\":true,"
@@ -1252,6 +1355,14 @@ public class FairySoulTests implements FabricClientGameTest {
                             out.append("migrated: ").append(migrated).append('\n');
                             check(migrated.equals("enabled true waypoints false dim true mode PEARLS pearls true walk true souls true"),
                                     "the version-1 file migrated wrong: " + migrated);
+                            // The removed Start On Island Join key in an old file: ignored, not written back.
+                            Files.writeString(file, "{\"enabled\":true,\"version\":2,\"autoStartOnIsland\":true,\"showPath\":false}");
+                            Mod.staticCall(CFG, "load");
+                            Mod.call(Mod.cfg(CFG), "save");
+                            String oldKey = "enabled " + g("isEnabledRaw") + " path " + g("isShowPath") + " keyKept "
+                                    + Files.readString(file).contains("autoStartOnIsland");
+                            out.append("old key: ").append(oldKey).append('\n');
+                            check(oldKey.equals("enabled true path false keyKept false"), "a file with the removed key: " + oldKey);
                             check(saved.contains("\"version\": 2") && !saved.contains("showWholePath")
                                     && !saved.contains("rotationSpeed") && !saved.contains("fairySouls"), "the saved file: " + saved);
                         } catch (java.io.IOException e) {
@@ -1469,6 +1580,8 @@ public class FairySoulTests implements FabricClientGameTest {
     static boolean freecam = true;
     /** Where each soul's stand goes, by node id (default: the node itself, as before doc-fairy-1101). */
     static Map<Integer, double[]> standAt = new HashMap<>();
+    /** Node ids whose stand is a small one (1122-fairy-guide). */
+    static java.util.Set<Integer> smallStands = new java.util.HashSet<>();
 
     private static void resetKnobs() {
         fairySoulsSwitch = true;
@@ -1477,6 +1590,7 @@ public class FairySoulTests implements FabricClientGameTest {
         warpWhenStuck = false;
         freecam = true;
         standAt = new HashMap<>();
+        smallStands = new java.util.HashSet<>();
     }
 
     /** A setter only some mod versions have (a removed or added setting). */
@@ -1506,7 +1620,6 @@ public class FairySoulTests implements FabricClientGameTest {
             Mod.staticCall("pathfinding.FairySoulsFeature", "stopGuide", false);
             Mod.set(CFG, "setEnabled", fairySoulsSwitch);
             trySet("setFairySouls", true); // before fairy-souls-1017 only
-            Mod.set(CFG, "setAutoStartOnIsland", false);
             Mod.set(CFG, "setSoulMode", Mod.enumValue("pathfinding.PathfindingConfig$SoulMode", "ROUTE"));
             Mod.set(CFG, "setAutoWalk", true);
             Mod.set(CFG, "setAutoSouls", true);
@@ -1535,11 +1648,9 @@ public class FairySoulTests implements FabricClientGameTest {
             if (n.soul()) {
                 double[] at = standAt.get(n.id());
                 // A stand placed apart from its node is a real-size one, as on Hypixel (its box is what reach measures).
-                String uuid = at == null
-                        ? hx.stand(n.x() + 0.5, n.y(), n.z() + 0.5, null, "marker", false, "invisible", true,
-                                "helmet", "minecraft:player_head")
-                        : hx.stand(at[0], at[1], at[2], null, "marker", false, "invisible", true,
-                                "helmet", "minecraft:player_head");
+                double[] p = at != null ? at : new double[]{n.x() + 0.5, n.y(), n.z() + 0.5};
+                String uuid = hx.stand(p[0], p[1], p[2], null, "marker", false, "invisible", true,
+                        "small", smallStands.contains(n.id()), "helmet", "minecraft:player_head");
                 stands.put(uuid, n.id());
             }
         }
