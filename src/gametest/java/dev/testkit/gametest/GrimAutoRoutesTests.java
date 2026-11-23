@@ -349,12 +349,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 }
                 s.test("62-argrim-1117-same-acland-second", c -> caseAutoClear(c, null, true));
                 s.test("62-argrim-1117-achype", c -> caseAutoClearHype(c, null, false));
-                for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
-                        dev.testkit.gametest.SameTick.Act.OPEN_CLICK, dev.testkit.gametest.SameTick.Act.ATTACK,
-                        dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.TP)) {
-                    s.test("62-argrim-1117-same-achype-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""),
-                            c -> caseAutoClearHype(c, a, false));
-                }
+                // Names written out whole: the train's preflight looks each listed case up by its literal name.
+                s.test("62-argrim-1117-same-achype-use", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.USE, false));
+                s.test("62-argrim-1117-same-achype-openclick", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK, false));
+                s.test("62-argrim-1117-same-achype-attack", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.ATTACK, false));
+                s.test("62-argrim-1117-same-achype-swap", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.SWAP, false));
+                s.test("62-argrim-1117-same-achype-tp", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.TP, false));
                 s.test("62-argrim-1117-same-achype-second", c -> caseAutoClearHype(c, null, true));
                 // The chain layout: a zombie beside him and a pair 4 either side of the line 11 on (its own plan group): the
                 // casts chain with no etherwarp. His action goes in the same ticks as those chain casts.
@@ -362,12 +362,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 // Right after the plain chain row: the chain is taken only where it is the cheaper link, and the prices Auto Clear
                 // has learned by the later rows (his swaps and teleports in the same ticks) can tip a close choice to the trip.
                 s.test("62-argrim-1117-same-chain-second", c -> caseAutoClearHype(c, null, true, true));
-                for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
-                        dev.testkit.gametest.SameTick.Act.OPEN_CLICK, dev.testkit.gametest.SameTick.Act.ATTACK,
-                        dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.TP)) {
-                    s.test("62-argrim-1117-same-chain-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""),
-                            c -> caseAutoClearHype(c, a, false, true));
-                }
+                s.test("62-argrim-1117-same-chain-use", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.USE, false, true));
+                s.test("62-argrim-1117-same-chain-openclick", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.OPEN_CLICK, false, true));
+                s.test("62-argrim-1117-same-chain-attack", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.ATTACK, false, true));
+                s.test("62-argrim-1117-same-chain-swap", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.SWAP, false, true));
+                s.test("62-argrim-1117-same-chain-tp", c -> caseAutoClearHype(c, dev.testkit.gametest.SameTick.Act.TP, false, true));
                 // ackilllogic-1122: the room kill plan's own casts across and etherwarps (four mobs in the arena's corners:
                 // 62-argrim-1122-planprobe found the plan beats the old choice there), his action armed by the plan line so
                 // it goes in the ticks of the plan's steps; second = clearRoom again in a plan cast's own tick.
