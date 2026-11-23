@@ -2676,12 +2676,13 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 ctx.waitTicks(6); // the unsneaked input is on the wire: the route's sneak will be fresh
                 JsonObject before = stats();
                 int castBefore = before.get("standingEyeCast").getAsInt();
+                long m = LogTap.mark();
+                walkOnto(ctx, 6.5, 3.6, 6, 6);
+                // Armed once the route runs: his own action is not in the walk-on.
                 if (act != null && st == null) {
                     st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
                             p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 4));
                 }
-                long m = LogTap.mark();
-                walkOnto(ctx, 6.5, 3.6, 6, 6);
                 if (act == dev.testkit.gametest.SameTick.Act.TP) {
                     session.hx().call("dungeon.tp", "x", (double) ctx.computeOnClient(mc -> mc.player.getX()), "y",
                             (double) ctx.computeOnClient(mc -> mc.player.getY()), "z", (double) ctx.computeOnClient(mc -> mc.player.getZ()),
