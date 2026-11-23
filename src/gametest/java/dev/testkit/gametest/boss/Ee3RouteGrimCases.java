@@ -362,7 +362,8 @@ final class Ee3RouteGrimCases {
     }
 
     /** ee3race-1123: picks the fake Breaker has set to air on the server and the client has not yet RECEIVED as air. */
-    private static final java.util.Set<BlockPos> airWait = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static boolean grimDebug;
+    private static final java.util.Set<BlockPos> airWait =java.util.concurrent.ConcurrentHashMap.newKeySet();
     /** Network thread: crosses off each pick as its air update arrives (applied on the client's next tick, before its move). */
     private static final Consumer<Packet<?>> airIn = p -> {
         if (p instanceof net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket u && u.getBlockState().isAir()) {
@@ -463,6 +464,10 @@ final class Ee3RouteGrimCases {
             // session (11-18: cases 3 and 4 ran at x5+ and every lever click was canceled, levers false/false). The accepted
             // flags must not decide whether the lever goes, so the cancel level is lifted for this case and restored after.
             undo.add(raiseCancelVl(c));
+            if (System.getenv("KM_GRIM_DEBUG") != null && !grimDebug) {
+                grimDebug = true; // a toggle: once per session, Grim's P/A/O line per movement goes to the server log
+                c.server().command("grim consoledebug Player0");
+            }
             c.server().mark();
             long mark = LogTap.mark();
             c.onClient(mc -> {
@@ -516,6 +521,8 @@ final class Ee3RouteGrimCases {
             double[] fell = null;
             long arriveNs = Long.MAX_VALUE;
             StringBuilder path = new StringBuilder();
+            StringBuilder tickMs = new StringBuilder(); // simstreak-1123: wall ms per lockstep tick (server stalls)
+            long tPrev = System.nanoTime();
             for (int t = 0; t < 400 && arrive < 0; t++) {
                 c.ctx().waitTick();
                 double[] s = c.onClient(mc -> new double[]{mc.player.getX(), mc.player.getY(), mc.player.getZ(),
@@ -567,6 +574,9 @@ final class Ee3RouteGrimCases {
                         airWait.clear();
                     }
                 }
+                long tNow = System.nanoTime();
+                tickMs.append(' ').append((tNow - tPrev) / 1_000_000);
+                tPrev = tNow;
                 path.append(String.format(Locale.ROOT, " %d:%.2f,%.2f,%.2f%s%s/c%d", t, s[0], s[1], s[2], s[3] > 0 ? "g" : "", s[4] > 0 ? "J" : "", charges));
                 if (t0 < 0 && Math.hypot(s[0] - 60.5, s[2] - 139) > 0.2) {
                     t0 = t;
@@ -590,6 +600,7 @@ final class Ee3RouteGrimCases {
                 }
             }
             System.out.println("[ee3route] path " + (act == null ? "none" : act) + ":" + path);
+            System.out.println("[ee3route] tick ms:" + tickMs);
             c.note("fake Breaker: " + fakeDug + " pick(s) dug, " + lateAir + " air update(s) not at the client before the next tick");
             // A green run must have dug through the route's picks with every air in place in time (the case's own fixture).
             c.check(walkTrace != null || fakeDug > 0, "the fake Breaker never dug a pick");
