@@ -160,7 +160,7 @@ final class BugReportBackground1122Cases {
             InvBatchCases.clickWidget(c, s2, BugReportMenu1122Cases.button(c, s2, "Save and Post"));
             BugReportMenu1122Cases.close(c);
             c.onClient(mc -> {
-                mc.setScreen(new net.minecraft.client.gui.screens.PauseScreen(true));
+                dev.testkit.compat.McCompat.setScreen(mc, new net.minecraft.client.gui.screens.PauseScreen(true));
                 return null;
             });
             c.check(Boolean.TRUE.equals(Mod.staticCall("bugreport.BugReportFeature", "running")), "the send was not running after the screen closed");
@@ -191,7 +191,7 @@ final class BugReportBackground1122Cases {
             Mod.staticCall("bugreport.BugReportPost", "setTokenForTest", (Object) null);
             Mod.staticCall("bugreport.BugReportPost", "setPartSizeForTest", 0);
             c.onClient(mc -> {
-                mc.setScreen(null);
+                dev.testkit.compat.McCompat.setScreen(mc, null);
                 return null;
             });
         }
