@@ -1,17 +1,17 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T01:45:29",
- "modSource": "lane-acroomorder-1122",
- "modGitSha": "a0337a2cb25ced2a7cc63caf9c0577d53bf5beaa",
+ "generatedAt": "2026-11-23T03:51:35",
+ "modSource": "lane-ordere-1123",
+ "modGitSha": "fee34a2bb96ab0ccd4c3d7e5466003dfe2bd4cfa",
  "modSourceDirty": false,
- "count": 970,
+ "count": 975,
  "byKind": {
-  "dynamic": 10,
+  "dynamic": 11,
   "element": 63,
-  "field": 851,
+  "field": 855,
   "local": 46
  },
- "unresolved": 160,
+ "unresolved": 161,
  "patterns": [
   {
    "id": "abilitycooldown.AbilityCooldownState#ABILITY_USE",
@@ -758,6 +758,18 @@
    "expr": "\"^PUZZLE SOLVED! (?:\\\\[[^\\\\]]{1,20}\\\\] )?([A-Za-z0-9_]{1,16}) [^!]{1,80}! Good job!$\""
   },
   {
+   "id": "autoreclaim.AutoReclaimFeature#CLAIM_DONE",
+   "cls": "autoreclaim.AutoReclaimFeature",
+   "field": "CLAIM_DONE",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/autoreclaim/AutoReclaimFeature.java",
+   "line": 37,
+   "regex": "^Your (.+) claim has been processed!",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^Your (.+) claim has been processed!\""
+  },
+  {
    "id": "autoroutes.AutoRoutesCommands#AWAIT_ARG",
    "cls": "autoroutes.AutoRoutesCommands",
    "field": "AWAIT_ARG",
@@ -830,24 +842,24 @@
    "expr": "\"^from=(\\\\?|-?\\\\d{1,3},-?\\\\d{1,3});land=(walk|-?\\\\d{1,4},-?\\\\d{1,4},-?\\\\d{1,4})$\""
   },
   {
-   "id": "autosell.AutoSellConfig@186",
+   "id": "autosell.AutoSellConfig@190",
    "cls": "autosell.AutoSellConfig",
    "field": null,
    "index": null,
    "file": "src/main/java/com/killer560/hub/autosell/AutoSellConfig.java",
-   "line": 186,
+   "line": 190,
    "regex": null,
    "flags": null,
    "kind": "dynamic",
    "expr": "pattern"
   },
   {
-   "id": "autosell.AutoSellConfig@196",
+   "id": "autosell.AutoSellConfig@200",
    "cls": "autosell.AutoSellConfig",
    "field": null,
    "index": null,
    "file": "src/main/java/com/killer560/hub/autosell/AutoSellConfig.java",
-   "line": 196,
+   "line": 200,
    "regex": null,
    "flags": null,
    "kind": "dynamic",
@@ -859,31 +871,31 @@
    "field": "POTION_COUNT_TAIL",
    "index": null,
    "file": "src/main/java/com/killer560/hub/autosell/AutoSellFeature.java",
-   "line": 380,
+   "line": 395,
    "regex": "(?<=POTION)_X[0-9]+$",
    "flags": null,
    "kind": "field",
    "expr": "\"(?<=POTION)_X[0-9]+$\""
   },
   {
-   "id": "autosell.AutoSellFeature@415",
+   "id": "autosell.AutoSellFeature@430",
    "cls": "autosell.AutoSellFeature",
    "field": null,
    "index": null,
    "file": "src/main/java/com/killer560/hub/autosell/AutoSellFeature.java",
-   "line": 415,
+   "line": 430,
    "regex": null,
    "flags": null,
    "kind": "dynamic",
    "expr": "pattern"
   },
   {
-   "id": "autosell.AutoSellFeature@417",
+   "id": "autosell.AutoSellFeature@432",
    "cls": "autosell.AutoSellFeature",
    "field": null,
    "index": null,
    "file": "src/main/java/com/killer560/hub/autosell/AutoSellFeature.java",
-   "line": 417,
+   "line": 432,
    "regex": "(?i).*(sell|trade).*",
    "flags": null,
    "kind": "local",
@@ -1622,12 +1634,24 @@
    "expr": "\"^\\\\w{1,6}$\""
   },
   {
+   "id": "bugreport.BugReportFeature#CONNECT_HOST",
+   "cls": "bugreport.BugReportFeature",
+   "field": "CONNECT_HOST",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
+   "line": 81,
+   "regex": "(?i)(connecting to |server address |lost connection to )[^,\\s]+",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"(?i)(connecting to |server address |lost connection to )[^,\\\\s]+\""
+  },
+  {
    "id": "bugreport.BugReportFeature#JWT_PATTERN",
    "cls": "bugreport.BugReportFeature",
    "field": "JWT_PATTERN",
    "index": null,
    "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
-   "line": 81,
+   "line": 83,
    "regex": "eyJ[A-Za-z0-9_-]{5,}\\.[A-Za-z0-9_-]{5,}\\.[A-Za-z0-9_-]{5,}",
    "flags": null,
    "kind": "field",
@@ -1639,7 +1663,7 @@
    "field": "KEY_VALUE_PATTERN",
    "index": null,
    "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
-   "line": 82,
+   "line": 84,
    "regex": "(?i)((?:access|refresh|session|api|bearer)?[_-]?(?:token|secret|password|passwd|api[_-]?key|cookie|session[_-]?id))(\"?\\s*[:=]\\s*\"?)([^\",\\s]+)",
    "flags": null,
    "kind": "field",
@@ -1651,23 +1675,11 @@
    "field": "BARE_KEYWORD_PATTERN",
    "index": null,
    "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
-   "line": 87,
+   "line": 89,
    "regex": "(?i)\\b(token|secret|password|passwd|cookie|session|auth)\\b",
    "flags": null,
    "kind": "field",
    "expr": "\"(?i)\\\\b(token|secret|password|passwd|cookie|session|auth)\\\\b\""
-  },
-  {
-   "id": "bugreport.BugReportFeature@94",
-   "cls": "bugreport.BugReportFeature",
-   "field": null,
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
-   "line": 94,
-   "regex": "(?i)([?&](?:key|api_?key|token|access_token|refresh_token|client_id|client_secret|sig|signature|auth)=)[^&\\s\"']+",
-   "flags": null,
-   "kind": "local",
-   "expr": "\"(?i)([?&](?:key|api_?key|token|access_token|refresh_token|client_id|client_secret|sig|signature|auth)=)[^&\\\\s\\\"']+\""
   },
   {
    "id": "bugreport.BugReportFeature@96",
@@ -1676,10 +1688,10 @@
    "index": null,
    "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
    "line": 96,
-   "regex": "(?i)((?:api[-_ ]?key|x-api-key)[\"']?\\s*[:=]\\s*[\"']?)[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}",
+   "regex": "(?i)([?&](?:key|api_?key|token|access_token|refresh_token|client_id|client_secret|sig|signature|auth)=)[^&\\s\"']+",
    "flags": null,
    "kind": "local",
-   "expr": "\"(?i)((?:api[-_ ]?key|x-api-key)[\\\"']?\\\\s*[:=]\\\\s*[\\\"']?)[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}\""
+   "expr": "\"(?i)([?&](?:key|api_?key|token|access_token|refresh_token|client_id|client_secret|sig|signature|auth)=)[^&\\\\s\\\"']+\""
   },
   {
    "id": "bugreport.BugReportFeature@98",
@@ -1688,22 +1700,22 @@
    "index": null,
    "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
    "line": 98,
-   "regex": "()\\bM\\.[CR][0-9]{1,3}_[A-Za-z0-9!*$_.-]{40,}",
+   "regex": "(?i)((?:api[-_ ]?key|x-api-key)[\"']?\\s*[:=]\\s*[\"']?)[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}",
    "flags": null,
    "kind": "local",
-   "expr": "\"()\\\\bM\\\\.[CR][0-9]{1,3}_[A-Za-z0-9!*$_.-]{40,}\""
+   "expr": "\"(?i)((?:api[-_ ]?key|x-api-key)[\\\"']?\\\\s*[:=]\\\\s*[\\\"']?)[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}\""
   },
   {
-   "id": "bugreport.BugReportFeature@99",
+   "id": "bugreport.BugReportFeature@100",
    "cls": "bugreport.BugReportFeature",
    "field": null,
    "index": null,
    "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
-   "line": 99,
-   "regex": "()\\bEwA[A-Za-z0-9+/_=-]{200,}",
+   "line": 100,
+   "regex": "()\\bM\\.[CR][0-9]{1,3}_[A-Za-z0-9!*$_.-]{40,}",
    "flags": null,
    "kind": "local",
-   "expr": "\"()\\\\bEwA[A-Za-z0-9+/_=-]{200,}\""
+   "expr": "\"()\\\\bM\\\\.[CR][0-9]{1,3}_[A-Za-z0-9!*$_.-]{40,}\""
   },
   {
    "id": "bugreport.BugReportFeature@101",
@@ -1712,10 +1724,10 @@
    "index": null,
    "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
    "line": 101,
-   "regex": "()\\b[MNO][A-Za-z0-9_-]{23,27}\\.[A-Za-z0-9_-]{6}\\.[A-Za-z0-9_-]{27,40}\\b",
+   "regex": "()\\bEwA[A-Za-z0-9+/_=-]{200,}",
    "flags": null,
    "kind": "local",
-   "expr": "\"()\\\\b[MNO][A-Za-z0-9_-]{23,27}\\\\.[A-Za-z0-9_-]{6}\\\\.[A-Za-z0-9_-]{27,40}\\\\b\""
+   "expr": "\"()\\\\bEwA[A-Za-z0-9+/_=-]{200,}\""
   },
   {
    "id": "bugreport.BugReportFeature@103",
@@ -1724,34 +1736,22 @@
    "index": null,
    "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
    "line": 103,
+   "regex": "()\\b[MNO][A-Za-z0-9_-]{23,27}\\.[A-Za-z0-9_-]{6}\\.[A-Za-z0-9_-]{27,40}\\b",
+   "flags": null,
+   "kind": "local",
+   "expr": "\"()\\\\b[MNO][A-Za-z0-9_-]{23,27}\\\\.[A-Za-z0-9_-]{6}\\\\.[A-Za-z0-9_-]{27,40}\\\\b\""
+  },
+  {
+   "id": "bugreport.BugReportFeature@105",
+   "cls": "bugreport.BugReportFeature",
+   "field": null,
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
+   "line": 105,
    "regex": "()token:[A-Za-z0-9._-]{30,}:[0-9a-f]{32}",
    "flags": null,
    "kind": "local",
    "expr": "\"()token:[A-Za-z0-9._-]{30,}:[0-9a-f]{32}\""
-  },
-  {
-   "id": "bugreport.BugReportFeature@106",
-   "cls": "bugreport.BugReportFeature",
-   "field": null,
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
-   "line": 106,
-   "regex": "()-----BEGIN [A-Z ]*PRIVATE KEY(?: BLOCK)?-----[\\s\\S]*?(?:-----END [A-Z ]*PRIVATE KEY(?: BLOCK)?-----|$)",
-   "flags": null,
-   "kind": "local",
-   "expr": "\"()-----BEGIN [A-Z ]*PRIVATE KEY(?: BLOCK)?-----[\\\\s\\\\S]*?(?:-----END [A-Z ]*PRIVATE KEY(?: BLOCK)?-----|$)\""
-  },
-  {
-   "id": "bugreport.BugReportFeature@107",
-   "cls": "bugreport.BugReportFeature",
-   "field": null,
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
-   "line": 107,
-   "regex": "()https://(?:ptb\\.|canary\\.)?discord(?:app)?\\.com/api/webhooks/[0-9]{15,22}/[A-Za-z0-9_-]{20,}",
-   "flags": null,
-   "kind": "local",
-   "expr": "\"()https://(?:ptb\\\\.|canary\\\\.)?discord(?:app)?\\\\.com/api/webhooks/[0-9]{15,22}/[A-Za-z0-9_-]{20,}\""
   },
   {
    "id": "bugreport.BugReportFeature@108",
@@ -1760,10 +1760,22 @@
    "index": null,
    "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
    "line": 108,
-   "regex": "()\\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{60,}|sk-ant-[A-Za-z0-9_-]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{40,}|xox[abprs]-[A-Za-z0-9-]{10,}|(?:AKIA|ASIA)[A-Z0-9]{16}\\b|AIza[0-9A-Za-z_-]{35})",
+   "regex": "()-----BEGIN [A-Z ]*PRIVATE KEY(?: BLOCK)?-----[\\s\\S]*?(?:-----END [A-Z ]*PRIVATE KEY(?: BLOCK)?-----|$)",
    "flags": null,
    "kind": "local",
-   "expr": "\"()\\\\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{60,}|sk-ant-[A-Za-z0-9_-]{20,}\" + \"|sk-(?:proj-)?[A-Za-z0-9_-]{40,}|xox[abprs]-[A-Za-z0-9-]{10,}|(?:AKIA|ASIA)[A-Z0-9]{16}\\\\b|AIza[0-9A-Za-z_-]{35})\""
+   "expr": "\"()-----BEGIN [A-Z ]*PRIVATE KEY(?: BLOCK)?-----[\\\\s\\\\S]*?(?:-----END [A-Z ]*PRIVATE KEY(?: BLOCK)?-----|$)\""
+  },
+  {
+   "id": "bugreport.BugReportFeature@109",
+   "cls": "bugreport.BugReportFeature",
+   "field": null,
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
+   "line": 109,
+   "regex": "()https://(?:ptb\\.|canary\\.)?discord(?:app)?\\.com/api/webhooks/[0-9]{15,22}/[A-Za-z0-9_-]{20,}",
+   "flags": null,
+   "kind": "local",
+   "expr": "\"()https://(?:ptb\\\\.|canary\\\\.)?discord(?:app)?\\\\.com/api/webhooks/[0-9]{15,22}/[A-Za-z0-9_-]{20,}\""
   },
   {
    "id": "bugreport.BugReportFeature@110",
@@ -1772,10 +1784,10 @@
    "index": null,
    "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
    "line": 110,
-   "regex": "(?i)()\\b(?:mongodb(?:\\+srv)?|postgres(?:ql)?|mysql|mariadb|rediss?|amqps?|mssql|sqlserver)://[^:/\\s'\"]+:[^@\\s'\"]{3,}@[^\\s'\"]+",
+   "regex": "()\\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{60,}|sk-ant-[A-Za-z0-9_-]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{40,}|xox[abprs]-[A-Za-z0-9-]{10,}|(?:AKIA|ASIA)[A-Z0-9]{16}\\b|AIza[0-9A-Za-z_-]{35})",
    "flags": null,
    "kind": "local",
-   "expr": "\"(?i)()\\\\b(?:mongodb(?:\\\\+srv)?|postgres(?:ql)?|mysql|mariadb|rediss?|amqps?|mssql|sqlserver)://\" + \"[^:/\\\\s'\\\"]+:[^@\\\\s'\\\"]{3,}@[^\\\\s'\\\"]+\""
+   "expr": "\"()\\\\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{60,}|sk-ant-[A-Za-z0-9_-]{20,}\" + \"|sk-(?:proj-)?[A-Za-z0-9_-]{40,}|xox[abprs]-[A-Za-z0-9-]{10,}|(?:AKIA|ASIA)[A-Z0-9]{16}\\\\b|AIza[0-9A-Za-z_-]{35})\""
   },
   {
    "id": "bugreport.BugReportFeature@112",
@@ -1784,10 +1796,10 @@
    "index": null,
    "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
    "line": 112,
-   "regex": "(?i)(client_?secret[\"':= ]{1,4})[0-9a-f]{32}\\b",
+   "regex": "(?i)()\\b(?:mongodb(?:\\+srv)?|postgres(?:ql)?|mysql|mariadb|rediss?|amqps?|mssql|sqlserver)://[^:/\\s'\"]+:[^@\\s'\"]{3,}@[^\\s'\"]+",
    "flags": null,
    "kind": "local",
-   "expr": "\"(?i)(client_?secret[\\\"':= ]{1,4})[0-9a-f]{32}\\\\b\""
+   "expr": "\"(?i)()\\\\b(?:mongodb(?:\\\\+srv)?|postgres(?:ql)?|mysql|mariadb|rediss?|amqps?|mssql|sqlserver)://\" + \"[^:/\\\\s'\\\"]+:[^@\\\\s'\\\"]{3,}@[^\\\\s'\\\"]+\""
   },
   {
    "id": "bugreport.BugReportFeature@114",
@@ -1796,6 +1808,18 @@
    "index": null,
    "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
    "line": 114,
+   "regex": "(?i)(client_?secret[\"':= ]{1,4})[0-9a-f]{32}\\b",
+   "flags": null,
+   "kind": "local",
+   "expr": "\"(?i)(client_?secret[\\\"':= ]{1,4})[0-9a-f]{32}\\\\b\""
+  },
+  {
+   "id": "bugreport.BugReportFeature@116",
+   "cls": "bugreport.BugReportFeature",
+   "field": null,
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
+   "line": 116,
    "regex": "(?i)(--(?:accessToken|xuid|clientId|session)[ =])\\S+",
    "flags": null,
    "kind": "local",
@@ -1807,11 +1831,23 @@
    "field": "HOME_PATH",
    "index": null,
    "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
-   "line": 119,
+   "line": 121,
    "regex": "(?i)(?:[A-Z]:[\\\\/]+Users[\\\\/]+|/home/|/Users/)[^\\\\/\\s\"':]{1,64}",
    "flags": null,
    "kind": "field",
    "expr": "\"(?i)(?:[A-Z]:[\\\\\\\\/]+Users[\\\\\\\\/]+|/home/|/Users/)[^\\\\\\\\/\\\\s\\\"':]{1,64}\""
+  },
+  {
+   "id": "bugreport.BugReportFeature@470",
+   "cls": "bugreport.BugReportFeature",
+   "field": null,
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/bugreport/BugReportFeature.java",
+   "line": 470,
+   "regex": null,
+   "flags": null,
+   "kind": "dynamic",
+   "expr": "\"(?i)\" + Pattern.quote(uuid) + \"|\" + Pattern.quote(uuid.replace(\"-\", \"\"))"
   },
   {
    "id": "chatchannel.ChatChannelFeature#NOW_IN",
@@ -3912,6 +3948,30 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^\\\\[\\\\d+] (?:\\\\[[^]]+] )*([A-Za-z0-9_]{1,16}) .*\\\\((\\\\w+)(?: (\\\\w+))?\\\\)$\""
+  },
+  {
+   "id": "foraging.BeaconReadyAlert#HEADER",
+   "cls": "foraging.BeaconReadyAlert",
+   "field": "HEADER",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/foraging/BeaconReadyAlert.java",
+   "line": 29,
+   "regex": "^[A-Za-z]{2,20} Beacon: \\d{1,4} Stacks?$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^[A-Za-z]{2,20} Beacon: \\\\d{1,4} Stacks?$\""
+  },
+  {
+   "id": "foraging.BeaconReadyAlert#AVAILABLE",
+   "cls": "foraging.BeaconReadyAlert",
+   "field": "AVAILABLE",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/foraging/BeaconReadyAlert.java",
+   "line": 30,
+   "regex": "^Cooldown: AVAILABLE$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^Cooldown: AVAILABLE$\""
   },
   {
    "id": "gui.FeatureCards#SENTENCE_END",

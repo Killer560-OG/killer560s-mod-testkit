@@ -46,6 +46,9 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
 
     private static final String TIMING = "1017-sim-quiz-timing";
     private static final String PLAN = "1017-sim-quiz-autosecret";
+    /** ap-quizfill-1122 (his 11-22 F7: Ice Fill found at 20:09:01, done 83 s later): the same floor as Dungeons Autopilot with
+     *  Quiz First off and Ice Fill First on - the first trip must be Ice Fill, and Auto Ice Fill must finish it. */
+    private static final String ICE_PILOT = "1122-sim-icefill-first-pilot";
     private static final String SIM_QUIZ = "com.killer560.hub.roomsim.puzzles.SimQuizPuzzle";
     private static final String QUIZ_STATE = "com.killer560.hub.puzzlesolvers.QuizState";
     private static final String SOLVER = "com.killer560.hub.puzzlesolvers.QuizSolverFeature";
@@ -91,7 +94,8 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
         }
         boolean timing = !Scenario.skip(TIMING);
         boolean plan = !Scenario.skip(PLAN);
-        if (!timing && !plan) {
+        boolean icePilot = !Scenario.skip(ICE_PILOT);
+        if (!timing && !plan && !icePilot) {
             return;
         }
         ModUnderTest.require("killer560smod");
@@ -104,8 +108,13 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
         }
         if (plan) {
             List<String> f2 = new ArrayList<>();
-            run(ctx, PLAN, f2, () -> plan(ctx, f2));
+            run(ctx, PLAN, f2, () -> plan(ctx, f2, PLAN));
             failures.addAll(f2);
+        }
+        if (icePilot) {
+            List<String> f3 = new ArrayList<>();
+            run(ctx, ICE_PILOT, f3, () -> plan(ctx, f3, ICE_PILOT));
+            failures.addAll(f3);
         }
         if (!failures.isEmpty()) {
             throw new AssertionError(failures.size() + " problem(s): " + String.join("; ", failures));
@@ -378,13 +387,13 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
 
     // ================================================================================================ the plan
 
-    private static void plan(ClientGameTestContext ctx, List<String> failures) {
+    private static void plan(ClientGameTestContext ctx, List<String> failures, String name) {
         if (!dev.testkit.gametest.mod.Mod.isCheat()) {
-            Scenario.skipped(PLAN, "Auto Secret is cheat-only: it refuses to start on a legit jar");
+            Scenario.skipped(name, "Auto Secret is cheat-only: it refuses to start on a legit jar");
             return;
         }
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            Scenario.skipped(PLAN, "needs real room captures and room database");
+            Scenario.skipped(name, "needs real room captures and room database");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);
@@ -403,7 +412,11 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
             ModUnderTest.set(ar, "setStartFromStartNodeOnly", true);
             ModUnderTest.call(ar, "setHeight", new Class<?>[]{float.class}, new Object[]{1.0f});
             Object as = ModUnderTest.config(AS_CONFIG);
-            ModUnderTest.set(as, "setQuizFirst", true);
+            ModUnderTest.set(as, "setQuizFirst", !name.equals(ICE_PILOT));
+            if (name.equals(ICE_PILOT)) {
+                ModUnderTest.set(as, "setBloodFirst", false);
+                ModUnderTest.set(as, "setDoPuzzles", true);
+            }
             ModUnderTest.set(as, "setIceFillFirst", true);
             ModUnderTest.set(as, "setInstaClear", false);
             ModUnderTest.set(as, "setPuzzleWaitSeconds", 0);
@@ -412,14 +425,14 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
         int renderBefore = ctx.computeOnClient(mc -> mc.options.renderDistance().get());
         ctx.runOnClient(mc -> mc.options.renderDistance().set(16));
         try {
-            planBody(ctx, failures);
+            planBody(ctx, failures, name);
         } finally {
             SimAutoSecretTests.writeRoutes(ctx, Map.of());
             ctx.runOnClient(mc -> mc.options.renderDistance().set(renderBefore));
         }
     }
 
-    private static void planBody(ClientGameTestContext ctx, List<String> failures) {
+    private static void planBody(ClientGameTestContext ctx, List<String> failures, String name) {
         String code = null;
         for (int i = 0; i < 6 && code == null; i++) {
             code = ctx.computeOnClient(mc -> planFloor());
@@ -478,6 +491,10 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
             return;
         }
         SimAutoSecretTests.writeRoutes(ctx, routes);
+        if (name.equals(ICE_PILOT)) {
+            icePilot(ctx, failures);
+            return;
+        }
 
         long mark = LogTap.mark();
         Boolean started = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "start"));
@@ -598,6 +615,52 @@ public class SimQuizCooldownTests implements FabricClientGameTest {
         }
         if (idle > IDLE_BOUND_TICKS) {
             failures.add("stood " + idle + " tick(s) at the Quiz waiting out its locks (bound " + IDLE_BOUND_TICKS + ")");
+        }
+    }
+
+    /**
+     * {@link #ICE_PILOT}: Dungeons Autopilot on the planned floor (Quiz First off): its first trip is Ice Fill ("[AutoSecret] Ice
+     * Fill first" before any other target, puzzle or route) and Auto Ice Fill finishes it ("[AutoSecret] Ice Fill done").
+     */
+    private static void icePilot(ClientGameTestContext ctx, List<String> failures) {
+        long mark = LogTap.mark();
+        if (!Boolean.TRUE.equals(ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "startAutopilot")))) {
+            failures.add("Dungeons Autopilot refused to start");
+            return;
+        }
+        int ticks = 0;
+        boolean done = false;
+        for (; ticks < 20 * 120 && !done; ticks += 10) {
+            ctx.waitTicks(10);
+            done = LogTap.since(mark).stream().anyMatch(l -> l.contains("[AutoSecret] Ice Fill done"))
+                    || !ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(AS, "isRunning"));
+        }
+        List<String> log = LogTap.since(mark);
+        int iceFirst = -1;
+        int iceDone = -1;
+        String before = null;
+        for (int i = 0; i < log.size(); i++) {
+            String l = log.get(i);
+            if (iceFirst < 0 && l.contains("[AutoSecret] Ice Fill first:")) {
+                iceFirst = i;
+            }
+            if (iceDone < 0 && l.contains("[AutoSecret] Ice Fill done")) {
+                iceDone = i;
+            }
+            if (iceFirst < 0 && before == null && (l.contains("[AutoSecret] target ") || l.contains("[AutoSecret] autopilot: puzzle")
+                    || l.contains("[AutoSecret] route ") && l.contains(" started") || l.contains("[AutoSecret] handing "))) {
+                before = l.replaceAll("^.*\\[AutoSecret\\] ", "");
+            }
+        }
+        println(ICE_PILOT, String.format(Locale.US, "%.1f s; Ice Fill first line %d, done line %d, first other step %s", ticks / 20.0,
+                iceFirst, iceDone, before));
+        if (iceFirst < 0) {
+            failures.add("Dungeons Autopilot never went to Ice Fill first (Ice Fill First on, Ice Fill reachable)");
+        } else if (before != null) {
+            failures.add("another step came before Ice Fill: " + before);
+        }
+        if (iceDone < 0) {
+            failures.add("Ice Fill was not finished within " + ticks / 20 + " s");
         }
     }
 
