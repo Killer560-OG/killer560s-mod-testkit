@@ -76,6 +76,7 @@ final class HxGuiHudCases {
         s.test("724-hx-ping-measured", HxGuiHudCases::ping);
         s.test("725-hx-gif-dvd-builtin", HxGuiHudCases::gifDvd);
         s.test("726-hx-ability-timers-gone", HxGuiHudCases::abilityTimersGone);
+        s.test("1122-hx-gif-stills", HxGuiHudCases::gifStills);
     }
 
     // ---- scoreboard helpers ------------------------------------------------------------------------------------------
@@ -849,6 +850,153 @@ final class HxGuiHudCases {
         c.note("DVD with the built-in GIF: " + dvd);
         c.check(dvd.startsWith("runtime true") && !dvd.contains("frames 0") && dvd.endsWith("texture true"),
                 "DVD could not load the built-in Dancing Cat Girl: " + dvd);
+    }
+
+    // ---- 1122 gifstill ----------------------------------------------------------------------------------------------
+
+    /**
+     * gifstill-1122: PNG, JPG, WebP and one-frame GIF files in the GIF folder are listed, turned on, decoded, get a texture
+     * of the picture's size and are drawn as HUD elements; the animated built-in GIF animates and a still never
+     * advances; the switches survive a config reload; a broken and an oversized picture are skipped.
+     */
+    @SuppressWarnings("unchecked")
+    private static void gifStills(Session c) throws Exception {
+        String feat = "gifplayer.GifPlayerFeature";
+        String gcfg = "gifplayer.GifPlayerConfig";
+        Path dir = c.onClient(mc -> (Path) Mod.staticCall(feat, "folder"));
+        Files.createDirectories(dir);
+        String[] stills = {"tk-still.png", "tk-still.jpg", "tk-still.webp", "tk-still-one.gif"};
+        java.util.Map<String, int[]> want = new java.util.LinkedHashMap<>();
+        want.put("tk-still.png", new int[]{40, 24});
+        want.put("tk-still.jpg", new int[]{32, 32});
+        want.put("tk-still-one.gif", new int[]{16, 20});
+        BufferedImage png = new BufferedImage(40, 24, BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g = png.createGraphics();
+        g.setColor(java.awt.Color.MAGENTA);
+        g.fillRect(0, 0, 40, 24);
+        g.dispose();
+        javax.imageio.ImageIO.write(png, "png", dir.resolve("tk-still.png").toFile());
+        BufferedImage jpg = new BufferedImage(32, 32, BufferedImage.TYPE_INT_RGB);
+        g = jpg.createGraphics();
+        g.setColor(java.awt.Color.GREEN);
+        g.fillRect(0, 0, 32, 32);
+        g.dispose();
+        javax.imageio.ImageIO.write(jpg, "jpg", dir.resolve("tk-still.jpg").toFile());
+        try (java.io.InputStream in = Mod.cls(feat).getResourceAsStream("/assets/killer560smod/textures/gui/milkyway.webp")) {
+            Files.write(dir.resolve("tk-still.webp"), in.readAllBytes());
+        }
+        javax.imageio.ImageIO.write(new BufferedImage(16, 20, BufferedImage.TYPE_INT_RGB), "gif", dir.resolve("tk-still-one.gif").toFile());
+        Files.write(dir.resolve("tk-still-broken.png"), "not a picture at all, just text".getBytes());
+        javax.imageio.ImageIO.write(new BufferedImage(9000, 2, BufferedImage.TYPE_BYTE_GRAY), "png",
+                dir.resolve("tk-still-huge.png").toFile());
+        String builtin = c.onClient(mc -> (String) Mod.field(feat, "BUILTIN_NAME"));
+        List<String> all = new ArrayList<>(List.of(stills));
+        all.add("tk-still-broken.png");
+        all.add("tk-still-huge.png");
+        try {
+            List<String> listed = c.onClient(mc -> (List<String>) Mod.staticCall(feat, "listedFileNames"));
+            for (String n : all) {
+                c.check(listed.contains(n), n + " is not listed: " + listed);
+            }
+            c.onClient(mc -> {
+                Object cfg = Mod.cfg(gcfg);
+                Mod.call(cfg, "setEnabled", true);
+                for (String n : all) {
+                    Mod.call(cfg, "setGifFileEnabled", n, true);
+                }
+                Mod.call(cfg, "setGifFileEnabled", builtin, true);
+                Mod.call(cfg, "save");
+                for (String n : all) {
+                    Mod.staticCall("hud.HudSeen", "forget", "gif_player_" + n);
+                }
+                Mod.staticCall(feat, "reload");
+                return null;
+            });
+            c.waitUntil("every good still and the built-in GIF loaded", mc -> {
+                java.util.Set<String> keys = loadedMap(feat).keySet();
+                return keys.containsAll(List.of(stills)) && keys.contains(builtin);
+            }, 1200);
+            c.waitUntil("every good still drawn", mc -> {
+                for (String n : stills) {
+                    if (!(Boolean) Mod.staticCall("hud.HudSeen", "drawnRecently", "gif_player_" + n)) {
+                        return false;
+                    }
+                }
+                return true;
+            }, 600);
+            String report = c.onClient(mc -> {
+                java.util.Map<String, Object> loaded = loadedMap(feat);
+                StringBuilder sb = new StringBuilder();
+                for (String n : stills) {
+                    Object e = loaded.get(n);
+                    Object pixels = Mod.call(Mod.field(e, "texture"), "getPixels");
+                    int w = (Integer) Mod.call(pixels, "getWidth");
+                    int h = (Integer) Mod.call(pixels, "getHeight");
+                    int frames = ((List<Object>) Mod.call(Mod.field(e, "gif"), "frames")).size();
+                    int[] exp = want.get(n);
+                    boolean sizeOk = exp != null ? w == exp[0] && h == exp[1] : w > 0 && h > 0 && w <= 1024 && h <= 1024;
+                    sb.append(n).append(' ').append(w).append('x').append(h).append(" frames ").append(frames)
+                            .append(" idx ").append(Mod.field(e, "frameIndex")).append(" disp ")
+                            .append(Mod.field(e, "displayWidth")).append(sizeOk && frames == 1 ? " OK" : " BAD").append("; ");
+                }
+                boolean skipped = !loaded.containsKey("tk-still-broken.png") && !loaded.containsKey("tk-still-huge.png");
+                return sb + "skipped bad files " + skipped;
+            });
+            c.note("stills: " + report);
+            c.check(!report.contains("BAD") && report.endsWith("skipped bad files true"), "a still did not load right: " + report);
+            // The animated built-in advances; a still never does.
+            c.waitUntil("the built-in GIF's frame index advanced", mc -> {
+                Object e = loadedMap(feat).get(builtin);
+                return e != null && (Integer) Mod.field(e, "frameIndex") > 0;
+            }, 600);
+            int stillIdx = c.onClient(mc -> (Integer) Mod.field(loadedMap(feat).get("tk-still.png"), "frameIndex"));
+            c.check(stillIdx == 0, "the still PNG advanced to frame " + stillIdx);
+            // Restart-style reload: the switches come back from disk.
+            boolean back = c.onClient(mc -> {
+                Mod.staticCall(gcfg, "load");
+                Object cfg = Mod.cfg(gcfg);
+                for (String n : stills) {
+                    if (!(Boolean) Mod.call(cfg, "isGifFileEnabled", n)) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+            c.check(back, "the still switches did not survive a config reload");
+            // Turned off: the texture and element are released.
+            c.onClient(mc -> {
+                Mod.call(Mod.cfg(gcfg), "setGifFileEnabled", "tk-still.png", false);
+                Mod.staticCall(feat, "reload");
+                return null;
+            });
+            boolean gone = c.onClient(mc -> !loadedMap(feat).containsKey("tk-still.png")
+                    && Mod.staticCall("hud.HudElementRegistry", "byId", "gif_player_tk-still.png") == null);
+            c.check(gone, "turning the PNG off left it loaded or its HUD element registered");
+        } finally {
+            c.onClient(mc -> {
+                Object cfg = Mod.cfg(gcfg);
+                for (String n : all) {
+                    Mod.call(cfg, "setGifFileEnabled", n, false);
+                }
+                Mod.call(cfg, "save");
+                return null;
+            });
+            for (String n : all) {
+                Files.deleteIfExists(dir.resolve(n));
+            }
+            c.onClient(mc -> Mod.staticCall(feat, "reload"));
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static java.util.Map<String, Object> loadedMap(String cls) {
+        try {
+            Field f = Mod.cls(cls).getDeclaredField("loaded");
+            f.setAccessible(true);
+            return (java.util.Map<String, Object>) f.get(null);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
     }
 
     // ---- 726 --------------------------------------------------------------------------------------------------------
