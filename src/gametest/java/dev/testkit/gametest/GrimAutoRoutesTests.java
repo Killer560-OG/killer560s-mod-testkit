@@ -293,6 +293,14 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             // arhandback2-1116: the real Secret Aura hands the body back on the await warp's firing tick (stick held: the warp
             // swaps then) and its click leaves a PacketOrderE window (AOTV held); plus his own actions in those ticks.
             if (dev.testkit.gametest.mod.Mod.isCheat()) {
+                // ap-solo293-1122: an await node's chest the aura must turn for, whose middle-aim enters its cube past 4.5.
+                s.test("62-argrim-1122-auraturnreach", c -> caseAuraHandBack(c, true, null, true));
+                for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
+                        dev.testkit.gametest.SameTick.Act.SWAP, dev.testkit.gametest.SameTick.Act.OPEN_CLICK,
+                        dev.testkit.gametest.SameTick.Act.ATTACK, dev.testkit.gametest.SameTick.Act.TP)) {
+                    s.test("62-argrim-1122-same-auraturnreach-" + a.name().toLowerCase(Locale.ROOT).replace("_", ""),
+                            c -> caseAuraHandBack(c, true, a, true));
+                }
                 s.test("62-argrim-1116-ar-handback", c -> caseAuraHandBack(c, true, null));
                 s.test("62-argrim-1116-ar-ordere", c -> caseAuraHandBack(c, false, null));
                 for (dev.testkit.gametest.SameTick.Act a : List.of(dev.testkit.gametest.SameTick.Act.USE,
@@ -3530,8 +3538,20 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
      * GrimAC stays silent.
      */
     private static void caseAuraHandBack(Session c, boolean stick, dev.testkit.gametest.SameTick.Act act) {
+        caseAuraHandBack(c, stick, act, false);
+    }
+
+    /**
+     * {@code chest} (62-argrim-1122-auraturnreach, mod ap-solo293-1122): the await node waits on a CHEST two blocks down in a
+     * pit, placed against the node exactly as in his F7 Solo run (Lava Ravine, 2026-11-22 7:52 PM: feet -180.50,69,-143.50,
+     * chest -177,67,-143). Its box is 4.40 from the eye, inside the aura's 4.5, but the look at the middle of the chest
+     * enters its full cube at 4.56: the old aura turned the body to that look and then never clicked (the click's look
+     * must enter the cube within 4.5), so the await waited 166 ticks until he pressed T. Now the aura clicks along a look
+     * that enters in range, the await is met, and the warp goes on; checked first that the geometry is the bug's.
+     */
+    private static void caseAuraHandBack(Session c, boolean stick, dev.testkit.gametest.SameTick.Act act, boolean chest) {
         ClientGameTestContext ctx = c.ctx();
-        String label = (stick ? "handback" : "ordere") + (act == null ? "" : " same " + act);
+        String label = (chest ? "turnreach" : stick ? "handback" : "ordere") + (act == null ? "" : " same " + act);
         String cheat = "com.killer560.hub.cheatutils.CheatUtilsConfig";
         resetRoutes(ctx);
         arena(ctx, false);
@@ -3554,8 +3574,21 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         int[] lp = {10, 9};
         ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.cheatutils.SecretAuraFeature", "reset",
                 new Class<?>[]{String.class}, new Object[]{"testkit handback"}));
-        setBlocks(ctx, Map.of(new int[]{lp[0], F, lp[1]}, "minecraft:stone",
-                new int[]{lp[0], F + 1, lp[1]}, "minecraft:lever[face=floor,facing=north,powered=false]"));
+        if (!chest) {
+            setBlocks(ctx, Map.of(new int[]{lp[0], F, lp[1]}, "minecraft:stone",
+                    new int[]{lp[0], F + 1, lp[1]}, "minecraft:lever[face=floor,facing=north,powered=false]"));
+        } else {
+            // A pit (8..10, F-2..F-1, 6..7) with the chest at its far corner (10, F-2, 7): node (6, 6) + (4, -2, 1).
+            Map<int[], String> pit = new java.util.HashMap<>();
+            for (int x = 8; x <= 10; x++) {
+                for (int z = 6; z <= 7; z++) {
+                    pit.put(new int[]{x, F - 1, z}, "minecraft:air");
+                    pit.put(new int[]{x, F - 2, z}, x == 10 && z == 7 ? "minecraft:chest[facing=west]" : "minecraft:air");
+                    pit.put(new int[]{x, F - 3, z}, "minecraft:stone");
+                }
+            }
+            setBlocks(ctx, pit);
+        }
         tpRel(ctx, 6.5, 10.5, 180f, 0f); // off the node, or an earlier case's spot fires it before the mark
         JsonObject w = ew(6, 6, 14, 6, true);
         w.addProperty("awaitEnabled", true);
@@ -3567,6 +3600,23 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         check(waitFor(ctx, 60, () -> logHas(mark, "Node #1 ETHERWARP begins")), label + ": the await node never began (at "
                 + relPos(ctx) + ")");
         ctx.waitTicks(10);
+        if (chest) {
+            // The bug's geometry, or the case proves nothing: box in reach, the middle-aim's cube entry past 4.5.
+            double[] g = ctx.computeOnClient(mc -> {
+                BlockPos p = real(ModUnderTest.staticCall(FRAME, "current"), 10, F - 2, 7);
+                Vec3 eye = mc.player.getEyePosition();
+                net.minecraft.world.phys.AABB cube = new net.minecraft.world.phys.AABB(p);
+                Vec3 mid = mc.level.getBlockState(p).getShape(mc.level, p).bounds().move(p).getCenter();
+                Vec3 far = eye.add(mid.subtract(eye).normalize().scale(64));
+                double entry = cube.clip(eye, far).map(eye::distanceTo).orElse(Double.NaN);
+                double box = eye.distanceTo(new Vec3(Math.max(cube.minX, Math.min(eye.x, cube.maxX)),
+                        Math.max(cube.minY, Math.min(eye.y, cube.maxY)), Math.max(cube.minZ, Math.min(eye.z, cube.maxZ))));
+                return new double[]{box, entry, mc.level.getBlockState(p).is(net.minecraft.world.level.block.Blocks.CHEST) ? 1 : 0};
+            });
+            println(String.format(Locale.ROOT, "%s: chest box %.3f from the eye, middle-aim enters its cube at %.3f", label, g[0], g[1]));
+            check(g[2] == 1 && g[0] < 4.5 && g[1] > 4.5, label + ": not the bug's geometry (chest " + (g[2] == 1) + ", box "
+                    + g[0] + ", middle-aim entry " + g[1] + ")");
+        }
         ctx.runOnClient(mc -> {
             mc.player.getInventory().setSelectedSlot(stick ? 7 : 0);
             mc.player.setYRot(mc.player.getYRot() + net.minecraft.util.Mth.wrapDegrees(180f - mc.player.getYRot()));
@@ -3664,6 +3714,14 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             }
             Vec3 landed = null;
             for (int i = 0; i < 80 && landed == null; i++) {
+                if (chest) {
+                    // The test chest opens a window (a Hypixel secret chest does not), and a route waits under a screen.
+                    ctx.runOnClient(mc -> {
+                        if (mc.player.containerMenu != mc.player.inventoryMenu) {
+                            mc.player.closeContainer();
+                        }
+                    });
+                }
                 landed = waitLanded(ctx, 14, 6, 1);
             }
             ctx.waitTicks(5);
@@ -3683,14 +3741,15 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                     use = x.tick();
                 }
             }
-            boolean lever = String.valueOf(blockState(ctx, lp[0], F + 1, lp[1])).contains("powered=true");
+            boolean lever = chest ? logHas(m, "click sent: kind=chest")
+                    : String.valueOf(blockState(ctx, lp[0], F + 1, lp[1])).contains("powered=true");
             boolean held = logHas(m, "GrimAC PacketOrderE");
             for (String l : LogTap.since(m)) {
                 if (l.contains("Node #1 ETHERWARP") || l.contains("PacketOrderE") || l.contains("[RightClick]")) {
                     println("  " + l);
                 }
             }
-            check(lever, label + ": Secret Aura did not flip the lever");
+            check(lever, label + (chest ? ": Secret Aura never clicked the chest (held on its body turn)" : ": Secret Aura did not flip the lever"));
             check(logHas(m, "secrets met"), label + ": the lever click did not meet the await");
             check(landed != null, label + ": the warp did not land (at " + relPos(ctx) + ")");
             check(click >= 0 && use >= 0, label + ": no aura use_item_on or no warp use_item on the wire (click t" + click
@@ -3700,8 +3759,11 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 c.note(label + ": aura click t" + click + ", warp use t" + use + " (" + gap + " tick(s)), orderE hold " + held);
                 // The await is met by the click in its own tick, so the warp step starts right behind the aura's use_item_on:
                 // a swap there must wait a tick (PacketOrderE; the hold logged then is right), the sneak and turn must not.
-                check(gap <= 2, label + ": the warp went " + gap + " ticks after the aura's click (at most 2: turn on the "
-                        + "hand-back tick, use the next)");
+                check(gap <= (chest ? 8 : 2), label + ": the warp went " + gap + " ticks after the aura's click (at most 2: turn on the "
+                        + "hand-back tick, use the next; the test chest's window adds its open and close)");
+                // The old aura turned the body and then held the click for good (his run: 166 ticks); the click comes within
+                // the aura's 100 ms delay plus the turn tick, so 30 ticks of sampling is generous.
+                check(!chest || click <= 30, label + ": the aura's chest click came only at sample tick " + click);
             } else {
                 dev.testkit.gametest.SameTick.Expect want = act == dev.testkit.gametest.SameTick.Act.ATTACK
                         ? dev.testkit.gametest.SameTick.Expect.APART : dev.testkit.gametest.SameTick.Expect.SHARE;
@@ -3727,6 +3789,18 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             });
             if (act == dev.testkit.gametest.SameTick.Act.ATTACK) {
                 c.server().command("kill @e[tag=sametick]");
+            }
+            if (chest) {
+                // The arena rebuild stops at the floor, so the pit's chest would stay under it and be the next case's secret
+                // (62-argrim-1116-ar-ordere's aura picked it up and its warp went a tick late).
+                Map<int[], String> fill = new java.util.HashMap<>();
+                for (int x = 8; x <= 10; x++) {
+                    for (int z = 6; z <= 7; z++) {
+                        fill.put(new int[]{x, F - 2, z}, "minecraft:air");
+                        fill.put(new int[]{x, F - 1, z}, "minecraft:stone");
+                    }
+                }
+                setBlocks(ctx, fill);
             }
             resetRoutes(ctx);
         }
