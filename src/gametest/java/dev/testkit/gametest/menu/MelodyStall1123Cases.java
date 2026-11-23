@@ -53,7 +53,7 @@ final class MelodyStall1123Cases {
             long totalTicks = 0;
             int totalWrong = 0;
             int stalls = 0;
-            List<String> rows = new ArrayList<>();
+            List<String> problems = new ArrayList<>();
             for (int b = 0; b < BOARDS.length; b++) {
                 int[] targets = BOARDS[b];
                 int stallBefore = c.onClient(mc -> (Integer) Mod.field(FEATURE, "stallResets"));
@@ -91,19 +91,23 @@ final class MelodyStall1123Cases {
                 stalls += stall;
                 String row = java.util.Arrays.toString(targets) + ": " + ticks + " ticks, " + wrong + " ignored click(s), "
                         + stall + " stall reset(s), correct clicks at " + good;
-                rows.add(row);
                 c.note(row);
-                c.check(good.size() == 3, java.util.Arrays.toString(targets) + ": expected 3 correct clicks, got " + good);
-                if (good.size() == 3) {
-                    c.check(good.get(1) - good.get(0) >= ROW_DELAY && good.get(2) - good.get(1) >= ROW_DELAY,
-                            "the row delay was not in force (clicks " + good + "): the sim did not act");
+                if (good.size() != 3) {
+                    problems.add(java.util.Arrays.toString(targets) + ": expected 3 correct clicks, got " + good);
+                } else if (good.get(1) - good.get(0) < ROW_DELAY || good.get(2) - good.get(1) < ROW_DELAY) {
+                    problems.add("the row delay was not in force (clicks " + good + "): the sim did not act");
                 }
-                c.check(wrong == 0, java.util.Arrays.toString(targets) + ": " + wrong + " click(s) went out before their row"
-                        + " was live and the server ignored them");
+                if (wrong > 0) {
+                    problems.add(java.util.Arrays.toString(targets) + ": " + wrong + " click(s) went out before their row"
+                            + " was live and the server ignored them");
+                }
             }
             c.note("TOTAL: " + totalTicks + " ticks over " + BOARDS.length + " boards, " + totalWrong + " ignored clicks, "
                     + stalls + " stall resets");
-            c.check(stalls == 0, stalls + " 'no click for 2.5 s, pacing dropped' resets while only waiting for the pane");
+            if (stalls > 0) {
+                problems.add(stalls + " 'no click for 2.5 s, pacing dropped' resets while only waiting for the pane");
+            }
+            c.check(problems.isEmpty(), String.join("; ", problems));
         } finally {
             c.onClient(mc -> {
                 Latency.remove();
