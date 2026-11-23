@@ -1,5 +1,6 @@
 package dev.testkit.gametest;
 
+import dev.testkit.gametest.mod.Mod;
 import dev.testkit.compat.McCompat;
 
 import com.google.gson.JsonArray;
@@ -87,6 +88,10 @@ public class SimAutoSecretTests implements FabricClientGameTest {
     @Override
     public void runTest(ClientGameTestContext ctx) {
         if (System.getProperty("testkit.scenario", "").isBlank() || Scenario.skip(NAME)) {
+            return;
+        }
+        if (!Mod.isCheat()) {
+            Scenario.skipped(NAME, "Auto Secret is cheat build only");
             return;
         }
         ModUnderTest.require("killer560smod");
