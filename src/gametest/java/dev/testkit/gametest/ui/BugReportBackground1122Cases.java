@@ -57,7 +57,7 @@ final class BugReportBackground1122Cases {
             // The zip's game log: chat text gone, addresses and e-mails replaced.
             String red = redactedLog(c);
             c.check(red != null && !red.contains("secret chat words") && !red.contains("203.0.113.9")
-                            && !red.contains("someone@example.com") && red.contains("[CHAT] <chat removed>") && red.contains("<ip>")
+                            && !red.contains("someone@example.com") && red.contains("[CHAT] <chat removed>") && red.contains("Connecting to <server>, 25565")
                             && !red.contains("privateserver-example") && !red.contains("123e4567")
                             && !red.toLowerCase().contains("0a1b2c3d") && red.contains("Setting user: TestKitSelf <uuid> and <uuid>")
                             && !red.toLowerCase().contains(System.getProperty("user.name").toLowerCase()),
