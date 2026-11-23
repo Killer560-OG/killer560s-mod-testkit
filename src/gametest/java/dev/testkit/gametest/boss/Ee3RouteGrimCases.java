@@ -533,14 +533,29 @@ final class Ee3RouteGrimCases {
             // ap3holddig-1110: his right click or dig in every tick must never stop AP3. grimreach-1110: the route waits at the
             // low S2 lever while it is out of Grim's 4.5 (or his dig keeps Lever Aura off), so the BOOM and EE3 are only
             // asked once that lever went; then his act is held one tick and goes. A swap every tick takes the TNT away.
-            List<String> stops = LogTap.since(mark).stream().filter(l -> l.contains("[AP3] Stopped:") && !l.contains("test over")).toList();
+            // nodelay-1123: after a fall this case's own rescue tp reads to AP3 as a leap ("Stopped: you leapt"); that stop is
+            // the harness's, not the route's (the fall itself is judged above/below).
+            boolean rescued = fell != null;
+            List<String> stops = LogTap.since(mark).stream().filter(l -> l.contains("[AP3] Stopped:") && !l.contains("test over")
+                    && !(rescued && l.contains("you leapt"))).toList();
             c.check(stops.isEmpty(), "AP3 stopped on the route: " + stops);
-            c.check(fell == null, "fell into the lava (path above)");
+            // nodelay-1123 (killer560 2026-11-23: "I will never be holding a click or scrolling my hotbar or anything while auto
+            // routes is working."): the route need not FINISH under his own use / swap / dig, so in the same-* cases the
+            // BOOM, the arrival and the lava are notes; GrimAC must still stay silent (Session.test) and every wire check stands.
+            // The plain grim and nolook-off cases (act == null) still require the route to arrive.
+            java.util.function.BiConsumer<Boolean, String> need = (ok, msg) -> {
+                if (act == null) {
+                    c.check(ok, msg);
+                } else if (!ok) {
+                    c.note("route outcome under his " + act + " (not required since 11-23): " + msg);
+                }
+            };
+            need.accept(fell == null, "fell into the lava (path above)");
             if (!lev[0]) {
                 c.note("route waits at the low S2 lever; BOOM tap at t" + boomAt);
             } else {
-                c.check(boomAt >= 0, "the BOOM node never sent its tap");
-                c.check(arrive >= 0, "the route never reached EE3 (lowest y " + minY + ")");
+                need.accept(boomAt >= 0, "the BOOM node never sent its tap");
+                need.accept(arrive >= 0, "the route never reached EE3 (lowest y " + minY + ")");
                 if (act != null && act != SameTick.Act.SWAP) {
                     int holds = ((Number) Mod.staticCall("ap3.Ap3Executor", "handHolds")).intValue() - holds0;
                     c.check(holds > 0, "AP3 never held his hand for its act (" + act + ")");
