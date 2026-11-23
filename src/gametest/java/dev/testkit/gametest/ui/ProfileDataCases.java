@@ -729,6 +729,41 @@ final class ProfileDataCases {
         }
     }
 
+    /** leaporder-reset-1123: applying a profile must not put an old copy of the Leap Order's picks, pins and run memory
+     *  back (his live game: a manual apply of "Semi Legit" mid-run restored the file a profile had saved, so the party,
+     *  classes and picks of an older run came back and the run read as a changed party). */
+    static void leapOrderKept(UiCase c) throws Exception {
+        String a = "tk-1123-a";
+        Path leap = modPath(c, "killer560smod-leapmenu.json");
+        Path backup = Files.createTempDirectory("tk-1123-leap");
+        boolean had = Files.isRegularFile(leap);
+        if (had) Files.copy(leap, backup.resolve("leap.json"));
+        Restore restore = Restore.begin(c, "tk-1123-orig");
+        try {
+            String old = "{\"format\":2,\"lastRunParty\":[\"TkOldOne\",\"TkOldTwo\"],\"classPicks\":[{\"ign\":\"TkOldOne\",\"class\":\"MAGE\"}]}";
+            String now = "{\"format\":2,\"lastRunParty\":[\"TkNewOne\",\"TkNewTwo\"],\"classPicks\":[{\"ign\":\"TkNewOne\",\"class\":\"TANK\"}]}";
+            Files.writeString(leap, old);
+            c.onClient(mc -> Mod.staticCall("leapmenu.LeapMenuConfig", "load"));
+            c.check(save(c, a).startsWith("true"), "saving the profile failed");
+            Files.writeString(leap, now);
+            c.onClient(mc -> Mod.staticCall("leapmenu.LeapMenuConfig", "load"));
+            c.check(apply(c, a).startsWith("true"), "applying the profile failed");
+            c.ticks(5);
+            String disk = Files.readString(leap);
+            @SuppressWarnings("unchecked")
+            List<String> party = c.onClient(mc -> (List<String>) Mod.call(Mod.staticCall("leapmenu.LeapMenuConfig", "getInstance"), "getLastRunParty"));
+            c.note("after the apply: party " + party + ", file has TkNewOne " + disk.contains("TkNewOne"));
+            c.check(disk.contains("TkNewOne") && !disk.contains("TkOldOne"), "the apply put the profile's old Leap Order file back: " + disk);
+            c.check(party.contains("TkNewOne") && !party.contains("TkOldOne"), "the live Leap Order memory went back to " + party);
+        } finally {
+            restore.end(c, a);
+            if (had) Files.copy(backup.resolve("leap.json"), leap, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            else Files.deleteIfExists(leap);
+            c.onClient(mc -> Mod.staticCall("leapmenu.LeapMenuConfig", "load"));
+            deleteTree(backup);
+        }
+    }
+
     // =============================================================================================================
     // shared
     // =============================================================================================================
