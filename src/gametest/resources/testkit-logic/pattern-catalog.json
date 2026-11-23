@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-22T20:27:48",
- "modSource": "lane-mapname-1122",
- "modGitSha": "6e85d805e664e0f946dd1247ec30b2e94847b375",
+ "generatedAt": "2026-11-22T21:35:50",
+ "modSource": "lane-ackilllogic-1122b",
+ "modGitSha": "c533e5d0ff2b944deef1b24abd6bff7610e63561",
  "modSourceDirty": false,
  "count": 970,
  "byKind": {
