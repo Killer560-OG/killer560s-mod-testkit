@@ -2673,12 +2673,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 ctx.getInput().releaseKey(o -> o.keyShift);
                 ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(0));
                 ensureInRoom(ctx); // his own USE warps may have taken him out of the room
-                tpRel(ctx, 6.5, 3.6, 0f, 0f);
+                tpRel(ctx, 6.5, 4.4, 0f, 0f);
                 ctx.waitTicks(6); // the unsneaked input is on the wire: the route's sneak will be fresh
                 JsonObject before = stats();
                 int castBefore = before.get("standingEyeCast").getAsInt();
                 long m = LogTap.mark();
-                walkOnto(ctx, 6.5, 3.6, 6, 6);
+                walkOnto(ctx, 6.5, 4.4, 6, 6);
                 // Armed once the route runs: his own action is not in the walk-on.
                 if (act != null) {
                     st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
