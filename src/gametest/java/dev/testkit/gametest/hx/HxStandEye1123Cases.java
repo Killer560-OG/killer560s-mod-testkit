@@ -81,7 +81,7 @@ final class HxStandEye1123Cases {
         float pitch = (float) Math.toDegrees(Math.atan2(1.27, d));
         BlockPos block = BlockPos.containing(X0 + d, Y - 1, Z0);
         c.onClient(mc -> {
-            Mod.staticCall(CE, "queueInteract", -90f, pitch, new Vec3(X0, Y, Z0), block);
+            Mod.staticCall(CE, "queueInteract", -90f, pitch, new Vec3(X0, Y, Z0), block, new String[]{"ASPECT_OF_THE_VOID"});
             return null;
         });
         int ticks = -1;
