@@ -363,6 +363,15 @@ final class Ee3RouteGrimCases {
 
     /** ee3race-1123: picks the fake Breaker has set to air on the server and the client has not yet RECEIVED as air. */
     private static boolean grimDebug;
+    /** simstreak-1123: the wait spot beside HEE2, out of its box and of every fill. It was 62.5,132,139, in the column the
+     *  fills clear (x 62, y 127-139), so he fell after every tp and, at a session's first run (empty world), drew Simulation
+     *  .284 and, once the fill sync let the client tick, .357 while the fills changed the blocks he fell past. Now he stands
+     *  on a barrier above the highest fill (y 142). */
+    private static void park(Session c) {
+        c.server().command("setblock 62 143 139 minecraft:barrier");
+        TerminalAuraCases.tp(c, 62.5, 144, 139, 72f);
+    }
+
     private static final java.util.Set<BlockPos> airWait =java.util.concurrent.ConcurrentHashMap.newKeySet();
     /** Network thread: crosses off each pick as its air update arrives (applied on the client's next tick, before its move). */
     private static final Consumer<Packet<?>> airIn = p -> {
@@ -389,7 +398,7 @@ final class Ee3RouteGrimCases {
             c.server().sync(30);
             // Off the map first: the fills below must not land on him where the last case left him (Simulation flags
             // charged to this case, experimental Grim, x4/x5).
-            TerminalAuraCases.tp(c, 62.5, 132, 139, 72f);
+            park(c);
             c.ctx().waitTicks(5);
             for (String l : Files.readAllLines(fills)) {
                 if (!l.isBlank()) {
@@ -414,7 +423,7 @@ final class Ee3RouteGrimCases {
             c.server().command("attribute @p minecraft:movement_speed base set 0.6");
             c.server().command("effect give @p minecraft:fire_resistance 600 0 true"); // no lava knockback if he misses
             c.server().sync(30);
-            TerminalAuraCases.tp(c, 62.5, 132, 139, 72f); // beside HEE2: AP3 must not start before the run (a tp under its walk is a Simulation flag)
+            park(c); // beside HEE2: AP3 must not start before the run (a tp under its walk is a Simulation flag)
             c.ctx().waitTicks(10);
             if (act != null || walkTrace != null) {
                 SameTickCases.sticks(c); // swapWalk: both runs hold the same stick
@@ -503,7 +512,7 @@ final class Ee3RouteGrimCases {
                 c.server().sync(30);
             }
             // Leave and re-enter HEE2's box: a tp lands him in it, as a leap would.
-            TerminalAuraCases.tp(c, 62.5, 132, 139, 72f);
+            park(c);
             c.ctx().waitTicks(5);
             // The start of a boss run: standing at the HEE2 node, yaw 117 pitch 46.3 (the route finder's sim start).
             walkRec = walkTrace != null;
@@ -598,7 +607,7 @@ final class Ee3RouteGrimCases {
                     // next case is blamed for. Where this route ends in the hx world is the route's question, not this case's.
                     c.note(String.format(Locale.ROOT, "fell into the lava at t%d (rel %d) at %.2f %.2f %.2f", t, t - t0, s[0], s[1], s[2]));
                     fell = s;
-                    TerminalAuraCases.tp(c, 62.5, 132, 139, 72f);
+                    park(c);
                     break;
                 }
             }
