@@ -178,13 +178,15 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
             // arstack-1115: a stack is only a run of CONSECUTIVE same-tile nodes; a later return to the tile is a new stack
             "96-ar-1115-stack-return",
             // sim-secrets-1018: an await beside a Redstone Key spot the key never spawned at starts one secret on
-            "1018-ar-keyspot-empty",
+            "1018-ar-keyspot-empty", "1122-ar-steporder",
             // ar-range-1026: Replan For My Range - a saved path warp longer than his etherwarp reaches is planned again
             "96-ar-1026-range-off", "96-ar-1026-range-on", "96-ar-1026-range-noitem",
             // simbreakrules-1112: the sim breaker leaves smooth granite, pistons and blocks with a torch, button or fire
             "96-ar-1112-breakrules",
             // acslow-1115: a saved path hop that cannot go from here (a block in its line, its landing gone) plans the rest
             "1115-acslow-blocked", "1115-acslow-gone",
+            // arholds-1123: a held hop's replan flies the floor graph's plan with no exact proof first
+            "1123-arholds-graphfirst",
             // acslow2-1115: an await Auto Secret drives with nothing in reach lets go after 40 ticks (his log: 243)
             "1115-acslow2-await"};
 
@@ -393,11 +395,13 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         case "96-ar-1015-batseek" -> caseBatSeek(ctx);
                         case "96-ar-1017-bridges" -> caseBridges(ctx);
                         case "1018-ar-keyspot-empty" -> caseKeySpotEmpty(ctx);
+                        case "1122-ar-steporder" -> caseStepOrder(ctx);
                         case "96-ar-1026-range-off" -> ArRangeCases.off(ctx);
                         case "96-ar-1026-range-on" -> ArRangeCases.on(ctx);
                         case "96-ar-1026-range-noitem" -> ArRangeCases.noItem(ctx);
                         case "1115-acslow-blocked" -> ArRangeCases.acslowBlocked(ctx);
                         case "1115-acslow-gone" -> ArRangeCases.acslowGone(ctx);
+                        case "1123-arholds-graphfirst" -> ArRangeCases.graphFirst(ctx);
                         case "1115-acslow2-await" -> ArMainServerCases.acslow2AwaitNothing(ctx);
                         case "96-ar-1017-mimicaim" -> caseMimicAim(ctx);
                         case "96-ar-1015-cryptaim" -> caseCryptAim(ctx);
@@ -5629,6 +5633,53 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
         }
     }
 
+    /** 1122-ar-steporder (killer560 2026-11-22: "auto routes arent forcing them to go in order of 1-2-3-4-5 ... it should be
+     *  order you step onto them"): manual play, no Autopilot. Five etherwarp nodes, walked onto in the order 4, 2, 5, 1, 3;
+     *  each must fire when entered and land where it was saved. Pass 2 puts the start flag on #3 (not #1) with Start
+     *  From Start Node Only OFF, and walks 3 (the start node first), 5, 1, 4, 2. */
+    private void caseStepOrder(ClientGameTestContext ctx) {
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", false));
+        try {
+            int[][] orders = {{4, 2, 5, 1, 3}, {3, 5, 1, 4, 2}};
+            for (int pass = 0; pass < 2; pass++) {
+                forgetRunMemory(ctx);
+                List<JsonObject> n = new ArrayList<>();
+                for (int i = 0; i < 5; i++) {
+                    n.add(ew(6 + 4 * i, 6, 6 + 4 * i, 14, pass == 1 && i == 2));
+                }
+                writeRoute(ctx, n);
+                ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(3));
+                tpRel(ctx, 4.5, 2.5, 0f, 0f);
+                ctx.waitTicks(10);
+                for (int k : orders[pass]) {
+                    int x = 6 + 4 * (k - 1);
+                    long m = LogTap.mark();
+                    startSampling(ctx);
+                    tpRel(ctx, x + 0.5, 6.5, 0f, 0f);
+                    boolean acted = waitFor(ctx, 8, () -> logHas(m, "Node #" + k + " ETHERWARP acted"));
+                    List<Sample> s = stopSampling(ctx);
+                    check(acted, "pass " + pass + ": stepping onto #" + k + " first-in-order-or-not did not fire it ("
+                            + LogTap.since(m).stream().filter(l -> l.contains("AutoRoutes")).limit(6).toList() + ")");
+                    check(!useTicks(s).isEmpty(), "pass " + pass + ": #" + k + " acted but sent no etherwarp use");
+                    check(waitLanded(ctx, x, 14, 40) != null, "pass " + pass + ": #" + k + " did not land at " + x
+                            + ",14 (at " + relPos(ctx) + ")");
+                    // He walks on by hand: a fresh movement key press is "taking over" and ends the run that waits for the next node.
+                    ctx.getInput().holdKey(o -> o.keyUp);
+                    ctx.waitTicks(2);
+                    ctx.getInput().releaseKey(o -> o.keyUp);
+                    println("1122-ar-steporder pass " + pass + ": #" + k + " fired and landed, order so far ok");
+                    tpRel(ctx, x + 0.5, 2.5, 0f, 0f);
+                    ctx.waitTicks(6);
+                }
+            }
+        } finally {
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true));
+        }
+    }
+
     /**
      * 1018-ar-keyspot-empty, killer560 (2026-10-18): "in some rooms there are two spots [a redstone skull] could be in, so
      * for auto routes it is a bain to make stuff check both because you need an await at each but then one you manually
@@ -10801,7 +10852,31 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                     }
                 }
                 setBlocks(ctx, wall);
-            }, "no look from here lands on", REPLAN_BOUND);
+            }, "no look from here lands on", REPLAN_BOUND, null);
+        }
+
+        /**
+         * arholds-1123: a held hop's replan flies the floor graph's plan at once, never after an exact proof. His
+         * 2026-11-22 Slime #7 stood 17 ticks while the proof (842 ms) showed the graph's 5 warps, found in 1.6 ms, were
+         * the fewest. The acslow wall: from the middle landing no single warp clears it, so the graph's plan is 2 warps
+         * and the old jar ran its proof (logged "[Path] exact: ...") before flying them.
+         */
+        static void graphFirst(ClientGameTestContext ctx) {
+            acslowCase(ctx, "graphfirst", () -> {
+                Map<int[], BlockState> wall = new HashMap<>();
+                for (int x = 4; x <= 8; x++) {
+                    for (int y = 0; y <= 2; y++) {
+                        wall.put(new int[]{x, F + y, 30}, Blocks.STONE.defaultBlockState());
+                    }
+                }
+                setBlocks(ctx, wall);
+            }, "no look from here lands on", REPLAN_BOUND, m1 -> {
+                List<String> log = LogTap.since(m1);
+                boolean twoPlus = log.stream().anyMatch(l -> l.contains("new warp(s) from here") && !l.contains("flying 1 new"));
+                check(twoPlus, "premise: the replan did not fly 2+ new warps (a 1-warp plan has no proof to skip)");
+                String proof = log.stream().filter(l -> l.contains("[Path] exact:")).findFirst().orElse(null);
+                check(proof == null, "the replan waited for an exact proof before flying the graph's plan: " + proof);
+            });
         }
 
         /** acslow-1115: hop 1's landing block gone (his Withermancer #4 hop 1, 90 ticks waiting for it): planned again. */
@@ -10810,14 +10885,15 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                 Map<int[], BlockState> hole = new HashMap<>();
                 hole.put(new int[]{OX, F - 1, MZ}, Blocks.AIR.defaultBlockState());
                 setBlocks(ctx, hole);
-            }, "landing block", REPLAN_BOUND + 20);
+            }, "landing block", REPLAN_BOUND + 20, null);
         }
 
         /** Ticks from arming #1 to standing on #2: two hops plus one replan (one planner answer, a few ms here); a missing
          *  landing block is first waited for 20 ticks more (the server may still be sending it). */
         private static final int REPLAN_BOUND = 40;
 
-        private static void acslowCase(ClientGameTestContext ctx, String tag, Runnable block, String why, int bound) {
+        private static void acslowCase(ClientGameTestContext ctx, String tag, Runnable block, String why, int bound,
+                                       java.util.function.LongConsumer extra) {
             if (!dev.testkit.gametest.mod.Mod.isCheat()) {
                 caseSkip = "Auto Routes fires nodes only in a cheat build";
                 return;
@@ -10859,6 +10935,9 @@ public class SimAutoRoutesTests implements FabricClientGameTest {
                         + " (before: held until a left click)");
                 check(!logHas(m1, "off its spot after"), "it stepped toward a spot it already stood on");
                 check(hopCount(ctx) == 2 && valid(ctx), "the replan changed the saved pair (" + hopCount(ctx) + " warps)");
+                if (extra != null) {
+                    extra.accept(m1);
+                }
             });
         }
 

@@ -291,6 +291,12 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                 s.test("62-argrim-1122-mapchain-sneaklag-same-" + a.name().toLowerCase(Locale.ROOT), c -> caseMapChainSneakLag(c, a));
             }
             s.test("62-argrim-path", GrimAutoRoutesTests::casePath);
+            // mod arholds-1123: a saved hop blocked mid-flight is planned again and the floor graph's plan flies at once.
+            if (dev.testkit.gametest.mod.Mod.isCheat()) {
+                s.test("62-argrim-1123-holdreplan", c -> caseHoldReplan(c, null));
+                s.test("62-argrim-1123-holdreplan-same-use", c -> caseHoldReplan(c, dev.testkit.gametest.SameTick.Act.USE));
+                s.test("62-argrim-1123-holdreplan-same-swap", c -> caseHoldReplan(c, dev.testkit.gametest.SameTick.Act.SWAP));
+            }
             // mod ar-obvious-only (2026-10-11): legit mode exists only in -PtestingBuild jars.
             if (SimAutoRoutesTests.legitSelectable()) {
                 s.test("62-argrim-legit", GrimAutoRoutesTests::caseLegit);
@@ -333,6 +339,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             }
             s.test("62-argrim-crypt", GrimAutoRoutesTests::caseCrypt);
             s.test("62-argrim-1015-cryptaim", GrimAutoRoutesTests::caseCryptAim); // crypt-aim-1015
+            s.test("62-argrim-1122-steporder", c -> caseStepOrder(c, null)); // arorder-check-1122
+            s.test("62-argrim-1122-steporder-same-use", c -> caseStepOrder(c, dev.testkit.gametest.SameTick.Act.USE));
+            s.test("62-argrim-1122-steporder-same-swap", c -> caseStepOrder(c, dev.testkit.gametest.SameTick.Act.SWAP));
             s.test("62-argrim-1121-batpresent", c -> caseBatPresent(c, null)); // batnode-spawned-1121
             s.test("62-argrim-1121-batpresent-same-use", c -> caseBatPresent(c, dev.testkit.gametest.SameTick.Act.USE));
             s.test("62-argrim-1121-batpresent-same-swap", c -> caseBatPresent(c, dev.testkit.gametest.SameTick.Act.SWAP));
@@ -3488,6 +3497,148 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
         noteFlags(c, List.of());
     }
 
+    /**
+     * 62-argrim-1123-holdreplan (arholds-1123): the pair across the wall is planned and saved, then a 3x3x3 stone cube is
+     * set on the middle of its first warp's line. The hop cannot go from its spot, so the rest of the pair is planned again
+     * from where he stands and the floor graph's plan flies at once, with no exact proof first ("[Path] exact:" never
+     * logged for it). With an act, his right click / hotbar swap lands in the same server tick as a replanned warp's use
+     * (WireCapture, both() > 0). GrimAC (default and experimental): nothing.
+     */
+    private static void caseHoldReplan(Session c, dev.testkit.gametest.SameTick.Act act) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, true);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", false));
+        Map<int[], String> cube = new HashMap<>();
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            tpRel(ctx, 6.5, 20.5, 0f, 0f);
+            ctx.waitTicks(4);
+            long m = LogTap.mark();
+            cmd(ctx, "/ar add path");
+            ctx.waitTicks(5);
+            tpRel(ctx, 24.5, 10.5, 0f, 0f);
+            ctx.waitTicks(4);
+            cmd(ctx, "/ar add path");
+            check(waitFor(ctx, 400, () -> logHas(m, "planned by the floor planner")), "the pair was never planned");
+            JsonObject p1 = fileNodes(ctx).get(0).getAsJsonObject();
+            check(p1.has("hops") && p1.getAsJsonArray("hops").size() >= 1, "premise: no saved warps " + p1);
+            String[] h = p1.getAsJsonArray("hops").get(0).getAsString().trim().split(" +");
+            double ex = Double.parseDouble(h[0]);
+            double ey = Double.parseDouble(h[1]) + 1.54;
+            double ez = Double.parseDouble(h[2]);
+            double tx = Integer.parseInt(h[5]) + 0.5;
+            double ty = Integer.parseInt(h[6]) + 1.0;
+            double tz = Integer.parseInt(h[7]) + 0.5;
+            double len = Math.sqrt((tx - ex) * (tx - ex) + (ty - ey) * (ty - ey) + (tz - ez) * (tz - ez));
+            check(len >= 7, "premise: the first saved warp is " + len + " blocks - too short to block in the middle");
+            int cx = (int) Math.floor((ex + tx) / 2);
+            int cy = (int) Math.floor((ey + ty) / 2);
+            int cz = (int) Math.floor((ez + tz) / 2);
+            for (int x = cx - 1; x <= cx + 1; x++) {
+                for (int y = cy - 1; y <= cy + 1; y++) {
+                    for (int z = cz - 1; z <= cz + 1; z++) {
+                        cube.put(new int[]{x, y, z}, "minecraft:stone");
+                    }
+                }
+            }
+            setBlocks(ctx, cube);
+            ctx.waitTicks(10);
+            ctx.runOnClient(mc -> dev.testkit.harness.WireCapture.start());
+            JsonObject before = stats();
+            startSampling(ctx);
+            long mr = LogTap.mark();
+            boolean flew = false;
+            Vec3 landed = null;
+            // His action starts once the hop is held (a use with the AOTV during the walk-on would be his own warp and
+            // spend the case before the route acts); up to 3 flights until a server tick carries both.
+            boolean swap = act == dev.testkit.gametest.SameTick.Act.SWAP;
+            for (int attempt = 1; attempt <= 3; attempt++) {
+                if (attempt > 1) {
+                    ctx.runOnClient(mc -> ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class},
+                            new Object[]{"test"}));
+                    ctx.waitTicks(10);
+                }
+                long ma = LogTap.mark();
+                walkOnto(ctx, 4.5, 20.5, 6, 20);
+                if (act != null) {
+                    waitFor(ctx, 20, () -> logHas(ma, "no look from here lands on") || logHas(ma, "planning the rest"));
+                    if (st == null) {
+                        st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
+                                p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 4));
+                    }
+                    if (act == dev.testkit.gametest.SameTick.Act.USE) {
+                        st.allow(4);   // his use with the AOTV in hand is his own warp: a few round the route's
+                    } else {
+                        st.allow(-1);
+                    }
+                }
+                flew = waitFor(ctx, 200, () -> logHas(ma, "new warp(s) from here instead"));
+                landed = act == dev.testkit.gametest.SameTick.Act.USE ? null : waitLanded(ctx, 24, 10, 200);
+                ctx.waitTicks(10);
+                if (st != null) {
+                    st.allow(0);
+                }
+                if (act == null || swap || st.both() > 0) {
+                    break;
+                }
+            }
+            ctx.waitTicks(10);
+            // SameTick's tap sits on top of UseRotationWatch's: closed first, or its close puts back a dead watch tap
+            // that the next case's watch chains to itself (StackOverflowError, 2026-11-23).
+            dev.testkit.gametest.SameTick s2 = st;
+            st = null;
+            if (s2 != null) {
+                ctx.runOnClient(mc -> s2.close());
+            }
+            List<Sample> sm = stopSampling(ctx);
+            String rep = "";
+            if (s2 != null) {
+                rep = s2.report();
+                check(s2.done() > 0 && s2.playerWindows() > 0 && s2.featureWindows() > 0, act
+                        + ": his action or the route's use never reached the wire - nothing tested (" + rep + ")");
+                if (swap) {
+                    // His scroll (END of tick N) would go out from vanilla's gameMode.tick in tick N+1, the route's use
+                    // tick; the route selects the AOTV first in that tick, so his slot never reaches the wire there
+                    // (SHARED stays 0 unless he scrolled onto the AOTV). Proof the two met: his item was in hand at the
+                    // send, the route swapped back before its use, and nothing of his went out after it.
+                    long over = LogTap.since(mr).stream().filter(l -> l.contains("in hand at the send - selecting")).count();
+                    check(s2.both() > 0 || over > 0, "SWAP: his scroll never met a route use (" + rep + ")");
+                    check(s2.playerAfterFeature() == 0, "SWAP: his slot went out after a route use in its tick (" + rep + ")");
+                } else {
+                    check(s2.both() > 0, act + ": no server tick carried both his " + act + " and a route use (" + rep + ")");
+                }
+            }
+            String proof = LogTap.since(mr).stream().filter(l -> l.contains("[Path] exact:")).findFirst().orElse(null);
+            println(c.name() + ": replanned " + flew + ", landed " + (landed != null) + ", uses " + useTicks(sm).size()
+                    + ", server etherwarps " + delta(before, "etherwarps") + ", proof " + proof + " " + rep);
+            check(logHas(mr, "planning the rest of node #1's pair again"), "premise: the blocked hop was not planned again");
+            check(flew, "the replanned warps never flew");
+            check(proof == null, "the replan waited for an exact proof: " + proof);
+            check(act == dev.testkit.gametest.SameTick.Act.USE || landed != null,
+                    "the replanned flight did not land on #2 (at " + relPos(ctx) + ")");
+            check(delta(before, "etherwarps") >= 1, "the server made no etherwarp - nothing flew");
+            c.note("holdreplan " + act + ": " + useTicks(sm).size() + " use(s) " + rep);
+            noteFlags(c, sm);
+            check(c.scenario().flags().isEmpty(), "GrimAC flagged: " + c.scenario().flags());
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick s3 = st;
+                ctx.runOnClient(mc -> s3.close());
+            }
+            ctx.runOnClient(mc -> {
+                ModUnderTest.staticCall(EXECUTOR, "stop", new Class<?>[]{String.class}, new Object[]{"test"});
+                dev.testkit.harness.WireCapture.stop();
+                ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true);
+            });
+            if (!cube.isEmpty()) {
+                Map<int[], String> air = new HashMap<>();
+                cube.keySet().forEach(k -> air.put(k, "minecraft:air"));
+                setBlocks(ctx, air);
+            }
+        }
+    }
+
     /** Legit mode: the camera turns for each action. An etherwarp, then a use node clicking a lever with the AOTV. */
     private static void caseLegit(Session c) {
         ClientGameTestContext ctx = c.ctx();
@@ -4281,6 +4432,79 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
                         new Object[]{ModUnderTest.enumValue(AR_CONFIG + "$CryptWeapon", "HYPERION")});
                 ModUnderTest.set(ar, "setCryptAttackTicks", 100);
             });
+        }
+    }
+
+    /**
+     * 62-argrim-1122-steporder (killer560, 2026-11-22: "it should be order you step onto them"): three etherwarp nodes, a
+     * live path-less run; he steps onto #2 (the run now waits for #3), then onto #1 (out of order) with no key press between. #1 must fire when
+     * stepped onto (the log names "out of order - firing") and land, GrimAC silent. With an act, his right click / hotbar
+     * swap goes into every client tick around the out-of-order fire and the wire must show one server tick carrying both
+     * his action and the node's use.
+     */
+    private static void caseStepOrder(Session c, dev.testkit.gametest.SameTick.Act act) {
+        ClientGameTestContext ctx = c.ctx();
+        resetRoutes(ctx);
+        arena(ctx, false);
+        giveHotbar(ctx, c.hx(), c);
+        c.server().command("item replace entity @a hotbar.7 with stick");
+        c.server().command("item replace entity @a hotbar.8 with stick");
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", false));
+        dev.testkit.gametest.SameTick st = null;
+        try {
+            forgetRunMemory(ctx);
+            List<JsonObject> n = new ArrayList<>();
+            for (int i = 0; i < 3; i++) {
+                n.add(ew(6 + 4 * i, 6, 6 + 4 * i, 14, false));
+            }
+            writeRoute(ctx, n);
+            ctx.runOnClient(mc -> mc.player.getInventory().setSelectedSlot(7));
+            tpRel(ctx, 4.5, 2.5, 0f, 0f);
+            ctx.waitTicks(10);
+            long m3 = LogTap.mark();
+            tpRel(ctx, 10.5, 6.5, 0f, 0f);
+            check(waitFor(ctx, 10, () -> logHas(m3, "Node #2 ETHERWARP acted")), "#2 did not fire when stepped onto");
+            check(waitLanded(ctx, 10, 14, 40) != null, "#2 did not land at 10,14");
+            ctx.waitTicks(4);
+            if (act != null) {
+                st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
+                        p -> p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket, 0, 4));
+                if (act == dev.testkit.gametest.SameTick.Act.USE) {
+                    st.allow(4); // his use with the AOTV in hand is his own Instant Transmission: four, then the server owns the rest
+                }
+            }
+            long m = LogTap.mark();
+            startSampling(ctx);
+            tpRel(ctx, 6.5, 6.5, 0f, 0f);
+            boolean acted = waitFor(ctx, 12, () -> logHas(m, "Node #1 ETHERWARP acted"));
+            Vec3 landed = acted ? waitLanded(ctx, 6, 14, 40) : null;
+            ctx.waitTicks(10);
+            List<Sample> s = stopSampling(ctx);
+            String rep = "";
+            if (st != null) {
+                dev.testkit.gametest.SameTick s2 = st;
+                ctx.runOnClient(mc -> s2.close());
+                st = null;
+                rep = s2.report();
+                check(s2.done() > 0 && s2.playerWindows() > 0 && s2.featureWindows() > 0, act
+                        + ": his action or the node's use never reached the wire - nothing tested (" + rep + ")");
+                check(act == dev.testkit.gametest.SameTick.Act.SWAP ? s2.both() == 0 : s2.both() > 0, act + (act == dev.testkit.gametest.SameTick.Act.SWAP
+                        ? ": his swap shared a server tick with the node's use (PacketOrderE) (" : ": no server tick carried both his action and the node's use (") + rep + ")");
+            }
+            check(logHas(m, "out of order - firing"), "#1 was not fired as an out-of-order step ("
+                    + LogTap.since(m).stream().filter(l -> l.contains("AutoRoutes")).limit(6).toList() + ")");
+            check(acted, "stepping onto #1 after #3 did not fire it");
+            check(landed != null || act == dev.testkit.gametest.SameTick.Act.USE, "#1 did not land at 6,14 (at " + relPos(ctx) + ")");
+            check(count(s, "use_item") > 0, "no etherwarp use went out");
+            c.note("steporder " + act + ": #1 fired out of order and landed, use_item " + count(s, "use_item") + " " + rep);
+            noteFlags(c, s);
+        } finally {
+            if (st != null) {
+                dev.testkit.gametest.SameTick s3 = st;
+                ctx.runOnClient(mc -> s3.close());
+            }
+            ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AR_CONFIG), "setStartFromStartNodeOnly", true));
+            resetRoutes(ctx);
         }
     }
 

@@ -79,6 +79,10 @@ public final class HxAbilities {
      * are cast so; a case sets it.
      */
     private static volatile int standingEyeWarps;
+    /** Fresh-pose mode (standeye-1123): any etherwarp whose sneak reached the server in the same server tick is cast standing. */
+    private static volatile boolean standingFresh;
+    private static final Set<java.util.UUID> CROUCHED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private static final Set<java.util.UUID> SNEAKING = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private static int standingEyeCast;
 
     private static final double ETHERWARP_RANGE = 57.0;
@@ -106,6 +110,20 @@ public final class HxAbilities {
         HxLaunchItems.register();
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             SNEAK_HEARD.clear();
+            // The pose crouches on the second server tick that sees the sneak, so a use one tick after it still casts standing.
+            Set<java.util.UUID> before = new java.util.HashSet<>(SNEAKING);
+            CROUCHED.clear();
+            SNEAKING.clear();
+            if (standingFresh) {
+                for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+                    if (p.isShiftKeyDown()) {
+                        SNEAKING.add(p.getUUID());
+                        if (before.contains(p.getUUID())) {
+                            CROUCHED.add(p.getUUID());
+                        }
+                    }
+                }
+            }
             if (sneakLag) {
                 for (ServerPlayer p : server.getPlayerList().getPlayers()) {
                     if (p.isShiftKeyDown()) {
@@ -201,6 +219,11 @@ public final class HxAbilities {
         standingEyeWarps = Math.max(0, n);
     }
 
+    static void setStandingFresh(boolean on) {
+        standingFresh = on;
+        CROUCHED.clear();
+    }
+
     static String idOf(ItemStack stack) {
         return skyblockId(stack);
     }
@@ -269,6 +292,9 @@ public final class HxAbilities {
         double y0 = sp.getY() + 1.27;
         if (standingEyeWarps > 0) {
             standingEyeWarps--;
+            standingEyeCast++;
+            y0 = sp.getY() + 1.62;
+        } else if (standingFresh && !CROUCHED.contains(sp.getUUID())) {
             standingEyeCast++;
             y0 = sp.getY() + 1.62;
         }

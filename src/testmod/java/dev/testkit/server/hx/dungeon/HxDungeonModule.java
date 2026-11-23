@@ -66,6 +66,7 @@ public final class HxDungeonModule implements HxModule {
         });
         HxBridge.register("dungeon.standingEye", (server, args) -> {
             HxAbilities.setStandingEyeWarps(args != null && args.has("warps") ? args.get("warps").getAsInt() : 0);
+            HxAbilities.setStandingFresh(args != null && args.has("fresh") && args.get("fresh").getAsBoolean());
             return null;
         });
         HxBridge.register("dungeon.reset", (server, args) -> {
