@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T06:37:30",
- "modSource": "lane-simtrap-secrets-1122",
- "modGitSha": "802c67c4598800fa1b544ea5700b4a58061fea71",
+ "generatedAt": "2026-11-23T07:05:16",
+ "modSource": "lane-breakercharges-1123",
+ "modGitSha": "61b797dd1ba6822b6a9b27e166f9f980fb2bc50f",
  "modSourceDirty": false,
  "count": 975,
  "byKind": {
