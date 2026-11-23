@@ -4084,7 +4084,7 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
 
     /**
      * 62-argrim-1122-steporder (killer560, 2026-11-22: "it should be order you step onto them"): three etherwarp nodes, a
-     * live path-less run; he steps onto #3, then onto #1 (out of order) with no key press between. #1 must fire when
+     * live path-less run; he steps onto #2 (the run now waits for #3), then onto #1 (out of order) with no key press between. #1 must fire when
      * stepped onto (the log names "out of order - firing") and land, GrimAC silent. With an act, his right click / hotbar
      * swap goes into every client tick around the out-of-order fire and the wire must show one server tick carrying both
      * his action and the node's use.
@@ -4109,9 +4109,9 @@ public class GrimAutoRoutesTests implements FabricClientGameTest {
             tpRel(ctx, 4.5, 2.5, 0f, 0f);
             ctx.waitTicks(10);
             long m3 = LogTap.mark();
-            tpRel(ctx, 14.5, 6.5, 0f, 0f);
-            check(waitFor(ctx, 10, () -> logHas(m3, "Node #3 ETHERWARP acted")), "#3 did not fire when stepped onto");
-            check(waitLanded(ctx, 14, 14, 40) != null, "#3 did not land at 14,14");
+            tpRel(ctx, 10.5, 6.5, 0f, 0f);
+            check(waitFor(ctx, 10, () -> logHas(m3, "Node #2 ETHERWARP acted")), "#2 did not fire when stepped onto");
+            check(waitLanded(ctx, 10, 14, 40) != null, "#2 did not land at 10,14");
             ctx.waitTicks(4);
             if (act != null) {
                 st = ctx.computeOnClient(mc -> dev.testkit.gametest.SameTick.start(act, 1,
