@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T07:05:16",
- "modSource": "lane-breakercharges-1123",
- "modGitSha": "61b797dd1ba6822b6a9b27e166f9f980fb2bc50f",
+ "generatedAt": "2026-11-23T07:59:16",
+ "modSource": "lane-standeye-ar-1123",
+ "modGitSha": "eef5cf8d88372d4c3d3690a88927fabfde7c0dcc",
  "modSourceDirty": false,
  "count": 975,
  "byKind": {
