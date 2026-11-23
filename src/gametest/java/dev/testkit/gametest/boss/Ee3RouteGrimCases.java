@@ -91,6 +91,7 @@ final class Ee3RouteGrimCases {
         add(s, "1109-boss-ee3route-same-use", none, c -> run(c, SameTick.Act.USE, true));
         add(s, "1109-boss-ee3route-same-swap", none, c -> run(c, SameTick.Act.SWAP, true));
         add(s, "1109-boss-ee3route-same-dig", none, c -> run(c, SameTick.Act.DIG, true));
+        add(s, "1123-boss-ee3route-swap-walk", none, Ee3RouteGrimCases::swapWalk);
     }
 
     private static void add(Session s, String name, String skip, Session.Case body) {
@@ -241,6 +242,83 @@ final class Ee3RouteGrimCases {
         c.check(LogTap.since(m0).stream().noneMatch(l -> l.contains("no packet can carry a look")), "a no-look click went out with the switch OFF");
     }
 
+    /** ee3r23a-1123: set by {@link #swapWalk}; run() then clears every pick before the walk (no fake-Breaker race with the
+     *  server's /setblock) and records each client tick's keys, look, sprint, held slot and position here. */
+    private static volatile List<String> walkTrace;
+    private static volatile boolean walkRec;
+    private static boolean walkHooked;
+
+    /** One client tick of the walk (END_CLIENT_TICK, so no tick is skipped or read twice as a test-thread poll can). */
+    private static void walkTick(net.minecraft.client.Minecraft mc) {
+        List<String> tr = walkTrace;
+        var p = mc.player;
+        if (!walkRec || tr == null || p == null) {
+            return;
+        }
+        var k = p.input.keyPresses;
+        tr.add(String.format(Locale.ROOT, "%s|%s%s%s%s%s%s%s yaw %.3f pitch %.3f|slot %d|%.4f,%.4f,%.4f",
+                Math.hypot(p.getX() - 60.5, p.getZ() - 139) > 0.01 ? "move" : "still", k.forward() ? "W" : "", k.left() ? "A" : "",
+                k.backward() ? "S" : "", k.right() ? "D" : "", k.jump() ? "J" : "", k.shift() ? "N" : "", p.isSprinting() ? "R" : "",
+                p.getYRot(), p.getXRot(), p.getInventory().getSelectedSlot(), p.getX(), p.getY(), p.getZ()));
+    }
+
+    /** ee3r23a-1123: his hotbar swap must not change AP3's walk (auras and swaps never touch keys, yaw or sprint). The same
+     *  route with the picks cleared, once without his swap and once with it; keys, look, sprint and position must match tick for
+     *  tick from the first moving tick, and the swap must have changed the held slot during the compared ticks. */
+    private static void swapWalk(Session c) throws Exception {
+        c.onClient(mc -> {
+            if (!walkHooked) {
+                walkHooked = true;
+                net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(Ee3RouteGrimCases::walkTick);
+            }
+            return null;
+        });
+        List<List<String>> runs = new ArrayList<>();
+        for (SameTick.Act act : new SameTick.Act[]{null, SameTick.Act.SWAP}) {
+            walkTrace = java.util.Collections.synchronizedList(new ArrayList<>());
+            try {
+                run(c, act, true);
+            } catch (AssertionError e) {
+                c.note((act == null ? "plain" : "swap") + " run, route result not judged here: " + e.getMessage());
+            } finally {
+                walkRec = false;
+                runs.add(new ArrayList<>(walkTrace));
+                walkTrace = null;
+            }
+        }
+        List<List<String>> moving = new ArrayList<>();
+        for (List<String> r : runs) {
+            int i = 0;
+            while (i < r.size() && !r.get(i).startsWith("still")) {
+                i++;
+            }
+            while (i < r.size() && r.get(i).startsWith("still")) {
+                i++;
+            }
+            moving.add(r.subList(i, r.size()));
+        }
+        int n = Math.min(40, Math.min(moving.get(0).size(), moving.get(1).size()));
+        int swaps = 0;
+        int diff = -1;
+        for (int i = 0; i < n; i++) {
+            String[] a = moving.get(0).get(i).split("\\|");
+            String[] b = moving.get(1).get(i).split("\\|");
+            swaps += i > 0 && !b[2].equals(moving.get(1).get(i - 1).split("\\|")[2]) ? 1 : 0;
+            if (diff < 0 && !(a[1] + a[3]).equals(b[1] + b[3])) {
+                diff = i;
+            }
+        }
+        for (int i = 0; i < n; i++) {
+            System.out.println("[ee3route] walk t" + i + " plain " + moving.get(0).get(i) + " | swap " + moving.get(1).get(i));
+        }
+        c.note("compared " + n + " moving ticks, held slot changed by his swap " + swaps + " time(s), first difference at "
+                + (diff < 0 ? "none" : "t" + diff));
+        c.check(n >= 30, "only " + n + " moving ticks to compare");
+        c.check(swaps >= 10, "his swap changed the held slot only " + swaps + " time(s) in the compared ticks - nothing tested");
+        c.check(diff < 0, "his swap changed AP3's walk at moving tick " + diff + ": plain " + (diff < 0 ? "" : moving.get(0).get(diff))
+                + " vs swap " + (diff < 0 ? "" : moving.get(1).get(diff)));
+    }
+
     static void run(Session c, SameTick.Act act, boolean noLook) throws Exception {
         List<AutoCloseable> undo = new ArrayList<>();
         Path route = routeDir().resolve(ROUTE + ".json");
@@ -280,8 +358,8 @@ final class Ee3RouteGrimCases {
             c.server().sync(30);
             TerminalAuraCases.tp(c, 62.5, 132, 139, 72f); // beside HEE2: AP3 must not start before the run (a tp under its walk is a Simulation flag)
             c.ctx().waitTicks(10);
-            if (act != null) {
-                SameTickCases.sticks(c);
+            if (act != null || walkTrace != null) {
+                SameTickCases.sticks(c); // swapWalk: both runs hold the same stick
             }
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
             c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
@@ -351,15 +429,26 @@ final class Ee3RouteGrimCases {
             int turns0 = act == SameTick.Act.DIG ? ((Number) Mod.staticCall("util.HandDigAim", "turns")).intValue() : 0;
             WireCapture.describe = Ee3RouteGrimCases::describe;
             WireCapture.start();
+            if (walkTrace != null) {
+                for (BlockPos q : live) {
+                    c.server().command("setblock " + q.getX() + " " + q.getY() + " " + q.getZ() + " minecraft:air");
+                    c.onClient(mc -> mc.level.setBlock(q, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 11));
+                }
+                c.server().sync(30);
+            }
             // Leave and re-enter HEE2's box: a tp lands him in it, as a leap would.
             TerminalAuraCases.tp(c, 62.5, 132, 139, 72f);
             c.ctx().waitTicks(5);
             // The start of a boss run: standing at the HEE2 node, yaw 117 pitch 46.3 (the route finder's sim start).
+            walkRec = walkTrace != null;
             c.hx().call("dungeon.tp", "x", 60.5, "y", 132.0, "z", 139.0, "yaw", 117f, "pitch", 46.3f);
             int t0 = -1;
             int charges = 20;
             int recharge = 0;
             java.util.Set<BlockPos> broken = new java.util.HashSet<>();
+            if (walkTrace != null) {
+                broken.addAll(live); // cleared before the tp
+            }
             int arrive = -1;
             int boomAt = -1;
             double minY = 999;
@@ -372,7 +461,10 @@ final class Ee3RouteGrimCases {
                         mc.player.onGround() ? 1 : 0, mc.player.input.keyPresses.jump() ? 1 : 0});
                 minY = Math.min(minY, s[1]);
                 // The Breaker's rule as the route finder models it: a pick whose box is within 4.5 of the eye goes (one per
-                // charge, 20 charges, one back every 10 ticks), set to air on the client and the server.
+                // charge, 20 charges, one back every 10 ticks), set to air on the server; the client learns it from the server's
+                // block update. ee3r23a-1123: also writing air into the client world at once put the client a tick or two ahead
+                // of GrimAC's world (no dig packet tells Grim), so a walk through a fresh hole drew Simulation + GroundSpoof and a
+                // setback (r23a at t5-6 with his swap, 08:21:32 on 11-23); 1123-boss-ee3route-swap-walk proved AP3's walk unchanged.
                 if (charges < 20 && ++recharge >= 10) {
                     recharge = 0;
                     charges++;
@@ -381,7 +473,6 @@ final class Ee3RouteGrimCases {
                     if (charges > 0 && !broken.contains(q) && boxDistSq(s[0], s[1] + 1.62, s[2], q) <= 4.5 * 4.5) {
                         charges--;
                         broken.add(q);
-                        c.onClient(mc -> mc.level.setBlock(q, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 11));
                         c.server().command("setblock " + q.getX() + " " + q.getY() + " " + q.getZ() + " minecraft:air");
                     }
                 }
