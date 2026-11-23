@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T03:14:33",
- "modSource": "lane-ap-quizfill-1122",
- "modGitSha": "d5acd6a7ef7dfb86e61a3ab2ecc40508167372fc",
+ "generatedAt": "2026-11-23T03:32:04",
+ "modSource": "lane-ordere-1123",
+ "modGitSha": "b3df85720f4a55ced61e7c2cab2f8b87bc6527c5",
  "modSourceDirty": false,
  "count": 973,
  "byKind": {
