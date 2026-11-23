@@ -273,9 +273,16 @@ public class SimApFix1123Tests implements FabricClientGameTest {
                 new Object[]{r.mainTile()});
         BlockPos a = inTile(centre, Vec3.atCenterOf(centre));
         BlockPos b = null;
-        for (int[] d : new int[][]{{10, 10}, {-10, -10}, {10, -10}, {-10, 10}}) {
+        // The walk node is one a single etherwarp from the start node reaches: the case is the warp onto it, not the
+        // planner's room search (Flags' 17.7-block pick timed out there, mine3 11-23).
+        double eye = (Double) ModUnderTest.staticCall(TELEPORT_UTILS, "eyeHeight", new Class<?>[]{boolean.class},
+                new Object[]{true});
+        for (int[] d : new int[][]{{10, 10}, {-10, -10}, {10, -10}, {-10, 10}, {8, 0}, {-8, 0}, {0, 8}, {0, -8}}) {
             BlockPos c = a == null ? null : inTile(centre, Vec3.atCenterOf(centre).add(d[0], 0, d[1]));
-            if (c != null && c.distSqr(a) >= 36 && (b == null || c.distSqr(a) > b.distSqr(a))) {
+            if (c != null && c.distSqr(a) >= 36 && (b == null || c.distSqr(a) > b.distSqr(a))
+                    && ModUnderTest.staticCall(TELEPORT_UTILS, "getEtherwarpDirection",
+                    new Class<?>[]{Vec3.class, BlockPos.class, double.class},
+                    new Object[]{new Vec3(a.getX() + 0.5, a.getY() + 1 + eye, a.getZ() + 0.5), c, 61.0}) != null) {
                 b = c;
             }
         }
