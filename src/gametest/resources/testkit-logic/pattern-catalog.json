@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T15:27:52",
- "modSource": "lane-acpocket-perf-1124",
- "modGitSha": "05d1d17af06474d2e884c60f1bbf898d86364d17",
+ "generatedAt": "2026-11-24T16:12:37",
+ "modSource": "lane-autoharp-misses-1124",
+ "modGitSha": "81190c8fb36962b0d617ede7572c564564c1e5b5",
  "modSourceDirty": false,
  "count": 991,
  "byKind": {
