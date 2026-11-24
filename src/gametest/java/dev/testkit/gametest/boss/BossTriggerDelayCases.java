@@ -48,14 +48,14 @@ final class BossTriggerDelayCases {
         s.test("788-boss-trigger-delay-arrowalign", BossTriggerDelayCases::arrowAlign);
     }
 
-    private static HxKit.Settings gateOff(Session c) {
+    static HxKit.Settings gateOff(Session c) {
         boolean gateWas = c.onClient(mc -> (Boolean) Mod.staticCall("util.SkyblockGate", "isEnabled"));
         return new HxKit.Settings(c).custom(() -> Mod.staticCall("util.SkyblockGate", "setEnabled", false),
                 () -> Mod.staticCall("util.SkyblockGate", "setEnabled", gateWas));
     }
 
     /** F7 sidebar + Goldor's line: Floor7Tracker in P3. */
-    private static void p3(Session c) {
+    static void p3(Session c) {
         c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
         c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
         c.hx().chat(TerminalAuraCases.GOLDOR);
@@ -73,7 +73,7 @@ final class BossTriggerDelayCases {
         });
     }
 
-    private static void home(Session c) {
+    static void home(Session c) {
         c.hx().sidebarClear();
         c.hx().call("dungeon.tp", "x", -619.5, "y", 151.0, "z", -619.5, "yaw", 0f, "pitch", 0f);
     }
@@ -293,9 +293,9 @@ final class BossTriggerDelayCases {
 
     // ---- 788 --------------------------------------------------------------------------------------------------------
 
-    private static final String AA_CFG = "arrowalign.ArrowAlignConfig";
+    static final String AA_CFG = "arrowalign.ArrowAlignConfig";
     /** The mod's 7th solution (index 6): frames at these grid indices (dy + dz * 5), every one wanting rotation 1. */
-    private static final int[] LAYOUT = {5, 7, 9, 10, 12, 14, 15, 17, 19};
+    static final int[] LAYOUT = {5, 7, 9, 10, 12, 14, 15, 17, 19};
 
     private static void arrowAlign(Session c) throws Exception {
         // Since mod b4b6e44f (killer560, 2026-10-18: "have trigger bot delay for arrow align be a range of cps instead")
@@ -314,25 +314,7 @@ final class BossTriggerDelayCases {
                              () -> Mod.call(Mod.cfg(AA_CFG), "setTriggerBotDelayRange", cpsWas[0], cpsWas[1]))) {
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
             c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
-            // Loaded first (forceload): the console's fill refuses an unloaded area, and a tp above the floor with a
-            // wait had him falling into it as it appeared (GrimAC Simulation, 787 and 832).
-            c.server().command("forceload add -3 72 3 82");
-            c.server().sync(20);
-            c.server().command("fill -1 119 72 3 119 82 stone");
-            c.server().command("fill -3 119 74 -3 125 80 stone");
-            for (int idx : LAYOUT) {
-                int dy = idx % 5;
-                int dz = idx / 5;
-                c.hx().call("frame", "x", -2, "y", 120 + dy, "z", 75 + dz, "facing", "east", "item", "arrow");
-            }
-            c.hx().call("dungeon.tp", "x", 0.5, "y", 120.0, "z", 77.5, "yaw", 90f, "pitch", -90f);
-            c.waitUntil("the client to have the wall", mc -> mc.level.getBlockState(new BlockPos(-3, 122, 77))
-                    .is(net.minecraft.world.level.block.Blocks.STONE), 200);
-            c.waitUntil("the client to have the frames", mc -> mc.level.getEntitiesOfClass(
-                    net.minecraft.world.entity.decoration.ItemFrame.class,
-                    new net.minecraft.world.phys.AABB(-4, 118, 73, 0, 126, 81)).size() == LAYOUT.length, 200);
-            c.waitUntil("Arrow Align to read a solution", mc -> Mod.field(Mod.ROOT + "arrowalign.ArrowAlignFeature",
-                    "solution") != null, 100);
+            buildWall(c);
             for (int i = 0; i < 2; i++) {
                 int rate = cps[i];
                 c.onClient(mc -> {
@@ -373,10 +355,37 @@ final class BossTriggerDelayCases {
             // 1000/4 - 1000/20 = 200 ms between the two first-click gaps: 4 ticks.
             verdict(c, "Arrow Align Trigger Bot (CPS 20 vs 4)", t, 1000 / cps[1] - 1000 / cps[0]);
         } finally {
-            c.hx().removeStands();
-            c.server().command("fill -3 119 72 3 125 82 air");
-            c.server().command("forceload remove -3 72 3 82");
-            home(c);
+            clearWall(c);
         }
+    }
+
+    static void clearWall(Session c) {
+        c.hx().removeStands();
+        c.server().command("fill -3 119 72 3 125 82 air");
+        c.server().command("forceload remove -3 72 3 82");
+        home(c);
+    }
+
+    /** The Arrow Align wall: floor, back wall and the nine frames of layout 7, the player under it looking up. */
+    static void buildWall(Session c) {
+        // Loaded first (forceload): the console's fill refuses an unloaded area, and a tp above the floor with a
+        // wait had him falling into it as it appeared (GrimAC Simulation, 787 and 832).
+        c.server().command("forceload add -3 72 3 82");
+        c.server().sync(20);
+        c.server().command("fill -1 119 72 3 119 82 stone");
+        c.server().command("fill -3 119 74 -3 125 80 stone");
+        for (int idx : LAYOUT) {
+            int dy = idx % 5;
+            int dz = idx / 5;
+            c.hx().call("frame", "x", -2, "y", 120 + dy, "z", 75 + dz, "facing", "east", "item", "arrow");
+        }
+        c.hx().call("dungeon.tp", "x", 0.5, "y", 120.0, "z", 77.5, "yaw", 90f, "pitch", -90f);
+        c.waitUntil("the client to have the wall", mc -> mc.level.getBlockState(new BlockPos(-3, 122, 77))
+                .is(net.minecraft.world.level.block.Blocks.STONE), 200);
+        c.waitUntil("the client to have the frames", mc -> mc.level.getEntitiesOfClass(
+                net.minecraft.world.entity.decoration.ItemFrame.class,
+                new net.minecraft.world.phys.AABB(-4, 118, 73, 0, 126, 81)).size() == LAYOUT.length, 200);
+        c.waitUntil("Arrow Align to read a solution", mc -> Mod.field(Mod.ROOT + "arrowalign.ArrowAlignFeature",
+                "solution") != null, 100);
     }
 }
