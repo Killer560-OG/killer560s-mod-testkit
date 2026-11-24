@@ -629,11 +629,11 @@ final class PvStyle1104Cases {
         return new double[]{text == 0 ? 0 : shadowed / (double) text, text};
     }
 
-    private static int gp(BufferedImage img, double scale, int gx, int gy) {
+    static int gp(BufferedImage img, double scale, int gx, int gy) {
         return img.getRGB((int) (gx * scale + scale / 2), (int) (gy * scale + scale / 2)) & 0xFFFFFF;
     }
 
-    private static int blend(int argb, int bg) {
+    static int blend(int argb, int bg) {
         double a = (argb >>> 24) / 255.0;
         int out = 0;
         for (int sh = 0; sh <= 16; sh += 8) {
@@ -642,7 +642,7 @@ final class PvStyle1104Cases {
         return out;
     }
 
-    private static BufferedImage res(String path) throws IOException {
+    static BufferedImage res(String path) throws IOException {
         try (InputStream in = Mod.cls("profileviewer.screen.ProfileViewerScreen")
                 .getResourceAsStream("/assets/killer560smod/textures/gui/sprites/pv/" + path)) {
             return in == null ? null : ImageIO.read(in);
@@ -658,13 +658,13 @@ final class PvStyle1104Cases {
         return false;
     }
 
-    private static void look(List<String> bad, boolean ok, String what) {
+    static void look(List<String> bad, boolean ok, String what) {
         if (!ok) {
             bad.add(what);
         }
     }
 
-    private static boolean near(int a, int b) {
+    static boolean near(int a, int b) {
         for (int sh = 0; sh <= 16; sh += 8) {
             if (Math.abs(((a >> sh) & 0xFF) - ((b >> sh) & 0xFF)) > 8) {
                 return false;
