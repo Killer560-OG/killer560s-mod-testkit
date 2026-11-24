@@ -28,10 +28,11 @@ final class ArrowDevP3Only1124Cases {
         s.test("1124-boss-arrowdev-p3only-aura", ArrowDevP3Only1124Cases::aura);
     }
 
-    /** F7 sidebar + Necron's line: phase P4, which the tracker never turns into P3 by standing in the band. */
+    /** F7 sidebar, the wall (which puts the player in the boss area), then Necron's line: phase P4, which the tracker never turns into P3 by standing in the band (the line only counts with the player inside the boss area). */
     private static void outsideP3(Session c) {
         c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
         c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
+        BossTriggerDelayCases.buildWall(c);
         c.hx().chat("[BOSS] Necron: Finally, I heard so much about you. The Eye likes you very much.");
         c.waitUntil("Floor7Tracker phase P4",
                 mc -> "P4".equals(String.valueOf(Mod.staticCall(TerminalAuraCases.TRACKER, "getPhase"))), 100);
@@ -74,7 +75,6 @@ final class ArrowDevP3Only1124Cases {
                      .custom(() -> Mod.call(Mod.cfg(cfg), "setTriggerBotDelayRange", 50, 50),
                              () -> Mod.call(Mod.cfg(cfg), "setTriggerBotDelayRange", was[0], was[1]))) {
             outsideP3(c);
-            BossTriggerDelayCases.buildWall(c);
             c.check("P4".equals(String.valueOf(c.<Object>onClient(mc -> Mod.staticCall(TerminalAuraCases.TRACKER, "getPhase")))),
                     "not outside P3 (P4) at the start");
             long onOutside = fire(c, 7);
@@ -127,7 +127,6 @@ final class ArrowDevP3Only1124Cases {
                      .with(cfg, "AuraEnabled", true).with(cfg, "AuraOnlyP3", true).with(cfg, "AuraLeaveLastArrow", false)
                      .with(cfg, "AuraCooldownMs", 50)) {
             outsideP3(c);
-            BossTriggerDelayCases.buildWall(c);
             int onOutside = clicksIn(c, 60);
             c.note("aura ON outside P3: " + onOutside + " clicks");
             c.check(solverActive(c), "solver not showing outside P3 with the option ON");
