@@ -24,6 +24,7 @@ final class HxTreeRegen1123Cases {
         s.test("1123-foraging-treeregen", HxTreeRegen1123Cases::regen);
         s.test("1124-foraging-treeregen-self-chunk", HxTreeRegen1123Cases::selfAndChunk);
         s.test("1124-foraging-treeregen-styles", HxTreeRegen1123Cases::styles);
+        s.test("1124-foraging-treeregen-onstart", HxTreeRegen1123Cases::onStart);
     }
 
     private static int num(Session c, String m) {
@@ -77,30 +78,35 @@ final class HxTreeRegen1123Cases {
             c.ctx().waitTicks(12);
             c.check(num(c, "drawnBoxes") == 0 && num(c, "trackedLogs") == 0,
                     "a tree nobody chopped was drawn: " + num(c, "drawnBoxes"));
-            // Chop the second log: the three logs still there are drawn, the chopped position is not.
+            // Chopping logs draws nothing: the tree has not started regenerating (killer560, 11-24).
             set(c, t[1], Blocks.AIR.defaultBlockState());
+            c.ctx().waitTicks(12);
+            c.check(num(c, "trackedLogs") == 1 && num(c, "drawnBoxes") == 0,
+                    "a tree was drawn on its first broken block: " + num(c, "drawnBoxes"));
+            set(c, t[3], Blocks.AIR.defaultBlockState());
+            c.ctx().waitTicks(12);
+            c.check(num(c, "trackedLogs") == 2 && num(c, "drawnBoxes") == 0,
+                    "a tree was drawn on its second broken block: " + num(c, "drawnBoxes"));
+            // The first chopped log comes back (block update): the tree is regenerating, its standing logs are drawn.
+            set(c, t[1], Blocks.OAK_LOG.defaultBlockState());
             c.waitUntil("standing logs drawn", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 3, 60);
-            c.check(draws(c, t[0]) && draws(c, t[2]) && draws(c, t[3]), "a standing log was not drawn");
-            c.check(!draws(c, t[1]), "the chopped (missing) log's position was drawn");
+            c.check(draws(c, t[0]) && draws(c, t[1]) && draws(c, t[2]), "a standing log was not drawn");
+            c.check(!draws(c, t[3]), "the still-missing log's position was drawn");
             c.waitUntil("frames drawn", mc -> (Integer) Mod.staticCall(T, "boxFrames") > 0, 60);
             // Break another: its mark goes at once, the others stay.
             set(c, t[2], Blocks.AIR.defaultBlockState());
             c.waitUntil("broken log undrawn", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 2, 60);
-            c.check(!draws(c, t[2]) && !draws(c, t[1]) && draws(c, t[0]) && draws(c, t[3]),
-                    "after the second break the draw set is wrong");
-            // The first returns (block update): marked again; the missing one still is not.
-            set(c, t[1], Blocks.OAK_LOG.defaultBlockState());
-            c.waitUntil("regrown log drawn", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 3, 60);
-            c.check(draws(c, t[1]) && !draws(c, t[2]), "regrown log not drawn or missing log drawn");
+            c.check(!draws(c, t[3]) && !draws(c, t[2]) && draws(c, t[0]) && draws(c, t[1]),
+                    "after the break the draw set is wrong");
             // A non-log going to air is ignored.
             BlockPos s = t[0].east(3);
             set(c, s, Blocks.STONE.defaultBlockState());
             set(c, s, Blocks.AIR.defaultBlockState());
-            c.check(num(c, "trackedLogs") == 2, "a stone block going to air was tracked: " + num(c, "trackedLogs"));
+            c.check(num(c, "trackedLogs") == 3, "a stone block going to air was tracked: " + num(c, "trackedLogs"));
             // Off Galatea: a chop tracks nothing.
             c.ctx().runOnClient(mc -> Mod.staticCall(T, "setTestIsland", false));
-            c.ctx().runOnClient(mc -> mc.level.setServerVerifiedBlockState(t[3], Blocks.AIR.defaultBlockState(), 3));
-            c.check(num(c, "trackedLogs") == 2, "a chop off Galatea was tracked: " + num(c, "trackedLogs"));
+            c.ctx().runOnClient(mc -> mc.level.setServerVerifiedBlockState(t[0], Blocks.AIR.defaultBlockState(), 3));
+            c.check(num(c, "trackedLogs") == 3, "a chop off Galatea was tracked: " + num(c, "trackedLogs"));
             c.ctx().runOnClient(mc -> Mod.staticCall(T, "setTestIsland", true));
             // Expiry: aged past 1400 ticks, the tree is no longer regenerating and nothing is drawn.
             c.ctx().runOnClient(mc -> Mod.staticCall(T, "ageAll", 1500));
@@ -119,12 +125,38 @@ final class HxTreeRegen1123Cases {
         try {
             c.ctx().runOnClient(mc -> mc.level.setBlock(t[1], Blocks.AIR.defaultBlockState(), 11));
             c.check(num(c, "trackedLogs") == 1, "a log he broke himself (client-side air first) was not tracked");
-            c.waitUntil("self break drawn", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 3, 60);
+            c.ctx().waitTicks(12);
+            c.check(num(c, "drawnBoxes") == 0, "a tree was drawn on his own break: " + num(c, "drawnBoxes"));
             set(c, t[1], Blocks.AIR.defaultBlockState());
             c.check(num(c, "trackedLogs") == 1, "the server's later air changed the count: " + num(c, "trackedLogs"));
             c.ctx().runOnClient(mc -> mc.level.getChunkAt(t[1]).setBlockState(t[1], Blocks.OAK_LOG.defaultBlockState(), 0));
             c.waitUntil("chunk-data return drawn", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 4, 60);
             c.check(draws(c, t[1]), "the log that came back as chunk data was not drawn");
+        } finally {
+            off(c, t, wasOn);
+        }
+    }
+
+    /** A tree is drawn only from its first returning log: nothing while it is chopped, even to the last log. */
+    private static void onStart(Session c) {
+        boolean wasOn = c.onClient(mc -> (Boolean) Mod.call(Mod.field(T, "CFG"), "isEnabledRaw"));
+        on(c);
+        BlockPos[] t = trunk(c);
+        try {
+            set(c, t[1], Blocks.AIR.defaultBlockState());
+            c.ctx().waitTicks(12);
+            c.check(num(c, "trackedLogs") == 1 && num(c, "drawnBoxes") == 0 && !draws(c, t[0]),
+                    "one broken block drew the tree: " + num(c, "drawnBoxes"));
+            for (BlockPos p : new BlockPos[]{t[0], t[2], t[3]}) {
+                set(c, p, Blocks.AIR.defaultBlockState());
+            }
+            c.ctx().waitTicks(12);
+            c.check(num(c, "trackedLogs") == 4 && num(c, "drawnBoxes") == 0, "a fully chopped tree drew boxes");
+            set(c, t[2], Blocks.OAK_LOG.defaultBlockState());
+            c.waitUntil("first return drawn", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 1, 60);
+            c.check(draws(c, t[2]) && !draws(c, t[1]), "the returned log was not the one drawn");
+            set(c, t[0], Blocks.OAK_LOG.defaultBlockState());
+            c.waitUntil("second return drawn", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 2, 60);
         } finally {
             off(c, t, wasOn);
         }
@@ -147,7 +179,8 @@ final class HxTreeRegen1123Cases {
         boolean[][] grows = {{true, false, false}, {true, true, false}, {false, true, false}, {false, false, true}};
         try {
             set(c, t[1], Blocks.AIR.defaultBlockState());
-            c.waitUntil("drawn", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 3, 60);
+            set(c, t[1], Blocks.OAK_LOG.defaultBlockState());
+            c.waitUntil("drawn", mc -> (Integer) Mod.staticCall(T, "drawnBoxes") == 4, 60);
             for (int v = 0; v < 4; v++) {
                 style(c, v);
                 c.ctx().waitTicks(25);
