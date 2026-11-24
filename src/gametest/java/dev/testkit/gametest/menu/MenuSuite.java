@@ -177,6 +177,7 @@ public class MenuSuite implements FabricClientGameTest {
                     TermHoldCases.register(s); // 271-279: terms-1026 (Hover Melody, Hold To Click, lookahead, Fake Cursor)
                     MelodyNoDelay1118Cases.register(s); // 1118-menu-term-melody-nodelay
                     Melody1111Cases.register(s); // 1111-menu-term-melody-gamble: lookahead gamble vs. live clicks under 50 ms ping
+                    MelodyStall1123Cases.register(s); // 1123-menu-term-melody-rowdelay: Hypixel's row delay vs. lookahead and the stall net
                     TermFeatACases.register(s); // 1108: terminal sounds, click path, click order, queue terms
                     TermBurst1111Cases.register(s); // 1111-menu-term-burst-*: Auto Terminals Burst Finish (termburst-1111)
                     TermPlus1112Cases.register(s); // 1112-term-*: loaded gate, stall net, Burst Size sweep (termplus-1112)

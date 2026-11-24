@@ -65,13 +65,19 @@ final class AutoReclaim1117Cases {
         return s;
     }
 
-    /** Boosters: armor pieces with a non-empty boosters list match; the same list on a tool, or an empty one, does not. */
+    /** Boosters: any item (armor, tool, weapon, accessory) with a non-empty boosters list matches; an empty one does not. */
     static void boostersRules(Session c) throws Exception {
         Object[][] rows = {
                 {boosted(Items.LEATHER_CHESTPLATE, "FIG_CHESTPLATE", true), "Boosters"},
                 {boosted(Items.PLAYER_HEAD, "FIG_HELMET", true), "Boosters"},
                 {boosted(Items.LEATHER_BOOTS, "FIG_BOOTS", false), null},
-                {boosted(Items.IRON_AXE, "FIG_AXE", true), null}};
+                {boosted(Items.IRON_AXE, "FIG_AXE", true), "Boosters"},
+                {boosted(Items.IRON_PICKAXE, "MITHRIL_PICKAXE", true), "Boosters"},
+                {boosted(Items.IRON_SWORD, "ASPECT_OF_THE_END", true), "Boosters"},
+                {boosted(Items.PLAYER_HEAD, "SPEED_ARTIFACT", true), "Boosters"},
+                {boosted(Items.IRON_PICKAXE, "MITHRIL_PICKAXE", false), null},
+                {boosted(Items.IRON_SWORD, "ASPECT_OF_THE_END", false), null},
+                {boosted(Items.PLAYER_HEAD, "SPEED_ARTIFACT", false), null}};
         List<String> wrong = new ArrayList<>();
         for (Object[] row : rows) {
             String got = reason(c, (ItemStack) row[0]);
