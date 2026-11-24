@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T01:45:13",
- "modSource": "lane-foragebeacon-auto-1123",
- "modGitSha": "343649df428f7e03ca7741a99eab26acf3905c68",
+ "generatedAt": "2026-11-24T02:11:12",
+ "modSource": "lane-treeregen-broken-1124",
+ "modGitSha": "cc3cb1039e6d82bbab36808000fa47b6eb7641ea",
  "modSourceDirty": false,
  "count": 987,
  "byKind": {
