@@ -152,7 +152,7 @@ static void classDropdown(UiCase c) throws Exception {
                 final int idx = i + 1;
                 int[] r = c.onClient(mc -> (int[]) Mod.call(Mod.staticCall("gui.DropdownWidget", "openOne"), "optionBounds", idx));
                 c.check(r != null, "option " + idx + " is not in the open list");
-                String diag = "idx " + idx + " row " + java.util.Arrays.toString(r) + " list " + java.util.Arrays.toString(c.onClient(mc -> (int[]) Mod.call(Mod.staticCall("gui.DropdownWidget", "openOne"), "listBounds")))
+                String diag = "idx " + idx + " row " + java.util.Arrays.toString(r)
                         + " scroll " + c.onClient(mc -> Mod.field(Mod.staticCall("gui.DropdownWidget", "openOne"), "scroll"))
                         + " rows " + c.onClient(mc -> Mod.field(Mod.staticCall("gui.DropdownWidget", "openOne"), "visibleRows"));
                 InvBatchCases.click(c, s, r[0] + r[2] / 2.0, r[1] + r[3] / 2.0);
