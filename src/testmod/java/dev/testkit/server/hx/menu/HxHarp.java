@@ -9,7 +9,12 @@ import dev.testkit.server.hx.HxChestMenu;
 import dev.testkit.server.hx.HxEvents;
 import dev.testkit.server.hx.HxPrimitives;
 
+import net.minecraft.core.Holder;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ClientboundSoundPacket;
+import net.minecraft.resources.Identifier;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.ContainerInput;
@@ -31,7 +36,9 @@ import java.util.List;
  *       (nothing read, judged, moved or sent), then the owed harp ticks run {@link #BURST} a server tick, as a real server
  *       catches up after a stall.</li>
  *   <li>{@code pingMs}: the round trip being faked: the client is shown the board pingMs/2 late and a click is judged
- *       pingMs/2 after it arrives, which is what a real round trip does.</li>
+ *       pingMs/2 after it arrives, which is what a real round trip does. {@code pingSteps}: [[step, pingMs], ...] changes
+ *       the round trip from that server step on (a spike); a judged click is answered with a pling halfPing later, like
+ *       Hypixel's (autoharp-misses-1124).</li>
  * </ul>
  * Events: {@code harp.click} {slot, col, step, ok, ms (into its step), rx (received, ms clock mod 100000)},
  * {@code harp.render} {step, at, adv}, {@code harp.freeze} {step, ticks, at}, {@code harp.miss} {j, col}, {@code harp.done} {ok, wrong, missed}.
@@ -44,7 +51,10 @@ final class HxHarp implements HxMenus.Ticking {
 
     private final int[][] notes;
     private final int stepTicks;
-    private final long halfPingMs;
+    private long halfPingMs;
+    private int[][] pingSteps = new int[0][];
+    /** When each judged click's pling is due (ms), oldest first. */
+    private final Deque<Long> acks = new ArrayDeque<>();
     private final int[][] stalls;
     /** [[step, ticks into it, freeze ticks], ...]: the server freezes there, then catches up BURST harp ticks a tick. */
     private int[][] freezes = new int[0][];
@@ -116,6 +126,14 @@ final class HxHarp implements HxMenus.Ticking {
                 }
             }
         }
+        if (a.has("pingSteps")) {
+            JsonArray ps = a.getAsJsonArray("pingSteps");
+            h.pingSteps = new int[ps.size()][2];
+            for (int i = 0; i < ps.size(); i++) {
+                h.pingSteps[i][0] = ps.get(i).getAsJsonArray().get(0).getAsInt();
+                h.pingSteps[i][1] = ps.get(i).getAsJsonArray().get(1).getAsInt();
+            }
+        }
         h.hist.add(new long[]{now(), 0});
         HxChestMenu menu = HxMenus.open(player, 6, Component.literal("Harp - Test"), items, SCRIPT, h);
         h.render(server, menu, 0);
@@ -178,8 +196,14 @@ final class HxHarp implements HxMenus.Ticking {
         for (int i = 0; i < runs && frozen == 0; i++) {
             harpTick(player, now, last);
         }
+        while (!acks.isEmpty() && acks.peekFirst() <= now) {
+            acks.pollFirst();
+            player.connection.send(new ClientboundSoundPacket(Holder.direct(SoundEvent.createVariableRangeEvent(
+                    Identifier.parse("minecraft:block.note_block.pling"))), SoundSource.MASTER, player.getX(), player.getY(),
+                    player.getZ(), 1f, 1f, player.getRandom().nextLong()));
+        }
         int show = logicalAt(now - halfPingMs);
-        if (show != shownN) {
+        if (show > shownN) {
             render(server, menu, show);
             JsonObject r = new JsonObject();
             r.addProperty("step", show);
@@ -204,6 +228,11 @@ final class HxHarp implements HxMenus.Ticking {
             n++;
             lastAdvance = harpTicks;
             hist.add(new long[]{now, n});
+            for (int[] ps : pingSteps) {
+                if (ps[0] == n) {
+                    halfPingMs = ps[1] / 2L;
+                }
+            }
             int gone = n - 5;
             for (int col : gone >= 0 && gone < notes.length ? notes[gone] : new int[0]) {
                 if (!played[gone][col]) {
@@ -245,6 +274,7 @@ final class HxHarp implements HxMenus.Ticking {
         e.addProperty("ms", at - stepStart(step));
         e.addProperty("rx", (at - halfPingMs) % 100000);
         HxEvents.custom("harp.click", player, e);
+        acks.addLast(now() + halfPingMs);
     }
 
     private static boolean contains(int[] a, int v) {

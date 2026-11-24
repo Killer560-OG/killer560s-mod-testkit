@@ -57,10 +57,17 @@ final class AutoHarpCases {
         MenuSuite.test(s, "1122-autoharp-ping150", c -> play(c, 150, "[]", true, true, 0, null));
         MenuSuite.test(s, "1122-autoharp-ping300", c -> play(c, 300, "[]", true, true, 0, null));
         MenuSuite.test(s, "1122-autoharp-ping320", c -> play(c, 320, "[]", true, true, 0, null));
+        MenuSuite.test(s, "1124-autoharp-spike", c -> play(c, 100, "[]", true, true, 0, null, "[[8,400],[12,100]]", 1));
+        MenuSuite.test(s, "1124-autoharp-spike-same", c -> play(c, 100, "[]", true, true, 0, SameTick.Act.SCREEN_CLICK, "[[8,400],[12,100]]", 1));
     }
 
     static JsonObject spec(int pingMs, String stalls) {
+        return spec(pingMs, stalls, "[]");
+    }
+
+    static JsonObject spec(int pingMs, String stalls, String pingSteps) {
         JsonObject o = MenuKit.obj("{}");
+        o.add("pingSteps", MenuKit.obj("{\"s\":" + pingSteps + "}").getAsJsonArray("s"));
         o.add("steps", MenuKit.obj("{\"s\":" + STEPS + "}").getAsJsonArray("s"));
         boolean freeze = stalls.startsWith("F");
         o.add(freeze ? "freezes" : "stalls", MenuKit.obj("{\"s\":" + (freeze ? stalls.substring(1) : stalls) + "}").getAsJsonArray("s"));
@@ -80,6 +87,13 @@ final class AutoHarpCases {
 
     private static void play(Session c, int pingMs, String stalls, boolean lag, boolean ping, int offset, SameTick.Act his)
             throws Exception {
+        play(c, pingMs, stalls, lag, ping, offset, his, "[]", 0);
+    }
+
+    /** {@code pingSteps} spikes the faked round trip mid-song while the tracker keeps reading {@code pingMs}; the
+     *  first note of a spike cannot be known to be late, so {@code allowMissed} of them may be lost (never wrong). */
+    private static void play(Session c, int pingMs, String stalls, boolean lag, boolean ping, int offset, SameTick.Act his,
+            String pingSteps, int allowMissed) throws Exception {
         MenuKit.reset(c);
         if (!MenuKit.cheat()) {
             c.note("legit jar: Auto Melody's Harp does not exist");
@@ -103,7 +117,7 @@ final class AutoHarpCases {
                 feedPing(c, pingMs);
             }
             c.ctx().runOnClient(mc -> PacketTrace.start());
-            c.hx().call("menu.harp", spec(pingMs, stalls));
+            c.hx().call("menu.harp", spec(pingMs, stalls, pingSteps));
             MenuKit.awaitScreen(c, "Harp - Test", 100);
             for (int t = 0; t < 1200 && c.events("harp.done").isEmpty(); t++) {
                 if (pingMs > 0) {
@@ -144,9 +158,9 @@ final class AutoHarpCases {
             c.note("timeline (R step@shown/began, F freeze, C step:col@received, server ms): " + dbg.toString().trim());
             c.note("clicks step:column (! = wrong): " + seq.toString().trim() + "; latest click " + worst
                     + " ms into its step, earliest " + first + " ms; mod timeline early rows now " + Mod.staticCall(FEATURE, "lastEarlyRows"));
-            c.check(done.get("ok").getAsInt() == NOTES, "right clicks " + done.get("ok") + " of " + NOTES);
+            c.check(done.get("ok").getAsInt() >= NOTES - allowMissed, "right clicks " + done.get("ok") + " of " + NOTES);
             c.check(done.get("wrong").getAsInt() == 0, done.get("wrong") + " wrong click(s)");
-            c.check(done.get("missed").getAsInt() == 0, done.get("missed") + " missed note(s)");
+            c.check(done.get("missed").getAsInt() <= allowMissed, done.get("missed") + " missed note(s)");
             c.check(mine == NOTES, "the mod counted " + mine + " clicks, not " + NOTES);
             c.note("most container clicks the client sent in one client tick: " + perClientTick);
             c.check(his != null || perClientTick == 1, "container clicks in one client tick: " + perClientTick);
