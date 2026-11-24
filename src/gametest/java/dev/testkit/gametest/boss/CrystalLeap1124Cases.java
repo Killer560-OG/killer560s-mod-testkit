@@ -354,7 +354,10 @@ final class CrystalLeap1124Cases {
                 st = c.onClient(mc -> dev.testkit.gametest.SameTick.start(aa, 1, p -> rec
                         && (p instanceof net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket
                         || p instanceof net.minecraft.network.protocol.game.ServerboundUseItemPacket
-                        || p instanceof net.minecraft.network.protocol.game.ServerboundContainerClickPacket), 0, 2));
+                        || p instanceof net.minecraft.network.protocol.game.ServerboundContainerClickPacket), 0, 2)
+                        // an attack in EVERY tick leaves the use no tick (the gate gives his attack its tick: a use before it
+                        // is PacketOrderI) and the leap gives up; a real 10 CPS click leaves every other tick free
+                        .freeEvery(aa == dev.testkit.gametest.SameTick.Act.ATTACK ? 2 : 0));
                 c.ctx().waitTicks(3);
             }
             String line = CrystalLeap1112Cases.pickup(CrystalLeap1112Cases.self(c));
