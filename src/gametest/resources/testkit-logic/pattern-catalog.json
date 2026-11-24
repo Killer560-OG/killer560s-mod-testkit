@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T07:03:34",
- "modSource": "lane-idea-teamledger-1124",
- "modGitSha": "a3aacc334ac60d34c5741b5dd7d6db1dc9ffa6be",
+ "generatedAt": "2026-11-24T07:49:56",
+ "modSource": "lane-melodyprogress-now-1124",
+ "modGitSha": "e1b4921e21e75192a839d505919864bdb68ac6e7",
  "modSourceDirty": false,
- "count": 990,
+ "count": 991,
  "byKind": {
   "dynamic": 11,
   "element": 63,
-  "field": 870,
+  "field": 871,
   "local": 46
  },
  "unresolved": 161,
@@ -2952,6 +2952,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"§.\""
+  },
+  {
+   "id": "deathpatterns.DeathPatterns#DEATH",
+   "cls": "deathpatterns.DeathPatterns",
+   "field": "DEATH",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/deathpatterns/DeathPatterns.java",
+   "line": 46,
+   "regex": "^\\s*☠ You (?:were )?(.{1,80}?)(?: and became a ghost)?\\.$",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"^\\\\s*☠ You (?:were )?(.{1,80}?)(?: and became a ghost)?\\\\.$\""
   },
   {
    "id": "diorite.DioriteGlassFeature#STORM_START_REGEX",
