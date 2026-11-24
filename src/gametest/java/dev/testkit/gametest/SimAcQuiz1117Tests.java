@@ -471,6 +471,16 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         if (lateTicks.size() != 3) {
             failures.add(lateTicks.size() + " of 3 Quiz answers (" + late + ")");
         }
+        if (name.equals(PIN_PARTY)) {
+            // acquizlate2-1123: out of the pocket ON FOOT (keys through ShortWalk), asserted by its own log lines.
+            List<String> all = LogTap.since(mark);
+            boolean began = all.stream().anyMatch(l -> l.contains("no warp chain out of") && l.contains("walking to"));
+            boolean arrived = all.stream().anyMatch(l -> l.contains("[AutoSecret] foot walk ARRIVED at"));
+            println(name, "foot walk began " + began + ", arrived " + arrived);
+            if (!began || !arrived) {
+                failures.add("stranded on a block with no warp chain, it did not walk out (began " + began + ", arrived " + arrived + ")");
+            }
+        }
         if (isReturn(name)) {
             // acquizlate-1123 (killer560: "a second late rather than a second early ... no time limit"): a Quiz-gap task
             // that was started is finished: no cut (a), no gap task started once the countdown is over (b), and an answer
