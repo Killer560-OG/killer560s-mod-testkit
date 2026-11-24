@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T04:07:46",
- "modSource": "lane-idea-kitcheck-1124",
- "modGitSha": "0172b5f5877dbeae47e1683b59d32b911d9a9f54",
+ "generatedAt": "2026-11-24T04:38:16",
+ "modSource": "lane-gaps-colors-1124",
+ "modGitSha": "2e62cee687f9151d48bc9a2ec7bb30762d2bdf6e",
  "modSourceDirty": false,
  "count": 988,
  "byKind": {
