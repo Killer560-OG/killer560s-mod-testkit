@@ -123,8 +123,9 @@ final class PvExact1124Cases {
             Object b = Mod.field(s, "switchBox");
             return b == null ? new int[]{-1, -1, -1} : new int[]{(Integer) Mod.call(b, "getX"), (Integer) Mod.call(b, "getY"), (Integer) Mod.call(b, "getWidth")};
         });
-        PvStyle1104Cases.look(bad, box[0] == px + pw - 100 && box[1] == py + ph + 5 && box[2] == 100,
-                "NEU: name box at " + box[0] + "," + box[1] + " w" + box[2] + ", expected " + (px + pw - 100) + "," + (py + ph + 5) + " w100");
+        // ThemedEditBox's text area sits 5 in and centered in its 100 x 20 frame: 90 x 9 at +5, +6.
+        PvStyle1104Cases.look(bad, box[0] == px + pw - 95 && box[1] == py + ph + 11 && box[2] == 90,
+                "NEU: name box text area at " + box[0] + "," + box[1] + " w" + box[2] + ", expected " + (px + pw - 95) + "," + (py + ph + 11) + " w90 (a 100 x 20 frame at " + (px + pw - 100) + "," + (py + ph + 5) + ")");
         // The ironman icon at -21, +5 under the panel: an opaque pixel of pv_ironman.png.
         BufferedImage iron = res("neu/pv_ironman.png");
         PvStyle1104Cases.look(bad, iron != null, "NEU: no pv_ironman.png in the jar");

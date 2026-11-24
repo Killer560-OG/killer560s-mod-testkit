@@ -308,16 +308,16 @@ final class PvStyle1104Cases {
         boolean neu = n == 1;
         int[] cg = c.onClient(mc -> new int[]{i(s, "contentX"), i(s, "contentY"), i(s, "contentW"), i(s, "contentH")});
         int cx = cg[0], cy = cg[1], cw = cg[2], ch = cg[3];
-        // The stat lines (SB Level, Fairy Souls, Purse, Bank, Networth): NEU's stats box, else SkyBlockPV's Info box.
-        // Round 3: SkyBlockPV's own main page puts them in its Info label (title bar 20 high, lines from 7 into the box).
-        int sx = neu ? geo[0] + 132 : geo[0] + 10;
-        int sy = neu ? geo[1] + 53 : cy + 27;
+        // The stat text: NEU's Senither / Lily / Net Worth lines over the player (pv-styles-exact-1124), else SkyBlockPV's
+        // Info label (title bar 20 high, lines from 7 into the box), 10 px under the content top like MainScreen.
+        int sx = neu ? geo[0] + 10 : geo[0] + 10;
+        int sy = neu ? geo[1] + 13 : cy + 37;
         if (!neu) {
             BufferedImage title = res("sbpv/" + (n == 2 ? "light" : n == 3 ? "dark" : "clear") + "/title.png");
-            int got = gp(img, scale, geo[0] + 5, cy + 10), exp = title == null ? -1 : blend(title.getRGB(25, 25), gp(img, scale, geo[0] + 5, cy - 4));
+            int got = gp(img, scale, geo[0] + 5, cy + 20), exp = title == null ? -1 : blend(title.getRGB(25, 25), gp(img, scale, geo[0] + 5, cy - 4));
             look(bad, near(got, exp), want + ": Info title bar at x + 5 is " + String.format("%06X, its sprite gives %06X", got, exp));
         }
-        double[] sh = shadowShare(img, scale, sx, sy, neu ? 85 : 110, Math.min(55, cy + ch - sy));
+        double[] sh = shadowShare(img, scale, sx, sy, neu ? 106 : 110, neu ? 30 : Math.min(55, cy + ch - sy));
         c.note(want + ": text " + (int) sh[1] + " px, shadowed share " + String.format("%.2f", sh[0]));
         look(bad, sh[1] >= 30, want + ": no stat text found at " + sx + "," + sy);
         look(bad, neu ? sh[0] > 0.15 : sh[0] < 0.05, want + ": text shadow share " + String.format("%.2f", sh[0])
