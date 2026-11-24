@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T19:00:55",
- "modSource": "lane-ssbroke-1123",
- "modGitSha": "13492042d9bd3b72ce1a0e8df83fc8986c53c727",
+ "generatedAt": "2026-11-23T19:00:56",
+ "modSource": "lane-autoanvil-nextbook-1123",
+ "modGitSha": "d8066b58a0955e176f9f8d414849742ba80fa011",
  "modSourceDirty": false,
  "count": 975,
  "byKind": {
