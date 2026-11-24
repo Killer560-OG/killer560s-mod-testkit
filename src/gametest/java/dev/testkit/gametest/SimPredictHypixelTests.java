@@ -254,7 +254,9 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         });
         Floor f = ctx.computeOnClient(SimPredictHypixelTests::readFloor);
         f.code = ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(SIM_STATE, "mapCode")));
-        println("floor: " + f.names.size() + " rooms, " + f.doorRooms.size() + " doors, MAP CODE: " + f.code);
+        println("floor: " + f.names.size() + " rooms, " + f.doorRooms.size() + " doors, sim offset "
+                + ctx.computeOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimAltitude", "offset"))
+                + ", MAP CODE: " + f.code);
         creativeFlying(ctx);
         return f;
     }
@@ -292,9 +294,82 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
                 if (!d.isEmpty()) {
                     println("PLACEMENT " + key + " disagrees on " + d.size() + (d.size() >= 30 ? "+" : "") + ": "
                             + d.subList(0, Math.min(8, d.size())));
+                    if (rot == 0) {
+                        mismatchBlocks(ctx, f, key, d);
+                    }
                 }
             }
         }
+    }
+
+    /**
+     * For each position a placement disagrees on: the client's block now, the sim server's block now, and the grid cell
+     * that owns it (room or connector, offset from the cell's middle), then the client's block again 40 ticks later. Tells
+     * a sim block the capture lacks (server = client) from a stale client view (server = capture) and from a block that
+     * changes over time (roompredictor-1123-fix3).
+     */
+    private void mismatchBlocks(ClientGameTestContext ctx, Floor f, String key, List<String> d) {
+        var server = ctx.computeOnClient(Minecraft::getSingleplayerServer);
+        var dim = ctx.computeOnClient(mc -> mc.level.dimension());
+        int offset = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimAltitude", "offset"));
+        List<BlockPos> at = new ArrayList<>();
+        for (String s : d) {
+            String[] p = s.substring(0, s.indexOf(' ')).split(",");
+            at.add(new BlockPos(Integer.parseInt(p[0]), Integer.parseInt(p[1]), Integer.parseInt(p[2])));
+        }
+        List<String> client = ctx.computeOnClient(mc -> {
+            List<String> out = new ArrayList<>();
+            for (BlockPos b : at) {
+                var chunk = mc.level.getChunk(b.getX() >> 4, b.getZ() >> 4);
+                out.add(id(mc.level.getBlockState(b)) + " sect" + (chunk.getSection(chunk.getSectionIndex(b.getY())).hasOnlyAir() ? "Air" : "Blocks"));
+            }
+            return out;
+        });
+        List<String> srv;
+        try {
+            srv = server.submit(() -> {
+                var lvl = server.getLevel(dim);
+                List<String> out = new ArrayList<>();
+                for (BlockPos b : at) {
+                    out.add(lvl == null ? "?" : id(lvl.getBlockState(b)));
+                }
+                return out;
+            }).get();
+        } catch (Exception e) {
+            srv = Collections.nCopies(at.size(), "err " + e);
+        }
+        ctx.waitTicks(40);
+        List<String> later = ctx.computeOnClient(mc -> {
+            List<String> out = new ArrayList<>();
+            for (BlockPos b : at) {
+                out.add(id(mc.level.getBlockState(b)));
+            }
+            return out;
+        });
+        for (int i = 0; i < at.size(); i++) {
+            BlockPos b = at.get(i);
+            int best = -1;
+            long bestD = Long.MAX_VALUE;
+            for (int c = 0; c < 121; c++) {
+                BlockPos m = f.cellCenter(c);
+                long dd = (long) (m.getX() - b.getX()) * (m.getX() - b.getX()) + (long) (m.getZ() - b.getZ()) * (m.getZ() - b.getZ());
+                if (dd < bestD) {
+                    bestD = dd;
+                    best = c;
+                }
+            }
+            BlockPos m = f.cellCenter(best);
+            int owner = f.roomOf[best];
+            println("MISMATCH " + key + " " + d.get(i) + " | client=" + client.get(i) + " server=" + srv.get(i)
+                    + " client+40t=" + later.get(i) + " | cell " + best % 11 + "," + best / 11
+                    + ((best % 11) % 2 == 1 || (best / 11) % 2 == 1 ? " (connector)" : " (room)")
+                    + " owner=" + (owner < 0 ? "none" : f.names.get(owner)) + " d=" + (b.getX() - m.getX()) + "," + (b.getZ() - m.getZ())
+                    + " simOffset=" + offset + " capY=" + (b.getY() - offset));
+        }
+    }
+
+    private static String id(net.minecraft.world.level.block.state.BlockState s) {
+        return s.getBlock().getDescriptionId().replace("block.minecraft.", "");
     }
 
     /** Where nine rays through the doorway end, from where he stands now (a failed glance's geometry). */
