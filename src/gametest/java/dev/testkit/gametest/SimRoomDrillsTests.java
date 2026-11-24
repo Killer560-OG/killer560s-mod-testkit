@@ -219,7 +219,7 @@ public class SimRoomDrillsTests implements FabricClientGameTest {
             try {
                 ctx.waitFor(mc -> stats(mc).contains("finished=true"), 100);
             } catch (AssertionError ae) {
-                System.out.println("[" + NAME + "] " + room + ": NO CLEAR, stats " + stats(ctx) + " state=" + ctx.computeOnClient(mc -> ModUnderTest.staticCall(STATE, "stateFor", new Class<?>[]{String.class}, new Object[]{room}));
+                System.out.println("[" + NAME + "] " + room + ": NO CLEAR, stats " + stats(ctx) + " state=" + ctx.computeOnClient(mc -> ModUnderTest.staticCall(STATE, "stateFor", new Class<?>[]{String.class}, new Object[]{room})));
                 throw ae;
             }
         } else {
