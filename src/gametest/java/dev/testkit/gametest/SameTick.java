@@ -49,7 +49,7 @@ import java.util.function.Predicate;
  */
 public final class SameTick implements AutoCloseable {
 
-    public enum Act { USE, ATTACK, DIG, SWAP, CLICK, SCREEN_CLICK, TP, DIG_HELD, USE_KEY, OPEN_CLICK }
+    public enum Act { USE, ATTACK, DIG, SWAP, CLICK, SCREEN_CLICK, TP, DIG_HELD, USE_KEY, OPEN_CLICK, CLOSE }
 
     private static final Identifier LATE = Identifier.parse("testkit:sametick_late");
     private static boolean hooked;
@@ -177,6 +177,13 @@ public final class SameTick implements AutoCloseable {
                             net.minecraft.world.inventory.ContainerInput.PICKUP, mc.player);
                     dev.testkit.compat.McCompat.setScreen(mc, null);
                     done++;
+                }
+                case CLOSE -> {
+                    // His close of the open menu (Escape between ticks): the close packet goes right behind whatever the feature sent this tick.
+                    if (dev.testkit.compat.McCompat.screen(mc) instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>) {
+                        mc.player.closeContainer();
+                        done++;
+                    }
                 }
                 case SCREEN_CLICK -> {
                     // His mouse on the open menu's last slot (his hotbar slot 9, left empty), through the screen as a real

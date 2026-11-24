@@ -1,0 +1,205 @@
+package dev.testkit.gametest.menu;
+
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import dev.testkit.compat.McCompat;
+import dev.testkit.gametest.SameTick;
+import dev.testkit.gametest.hx.Session;
+import dev.testkit.gametest.mod.Mod;
+import dev.testkit.harness.PacketTrace;
+import dev.testkit.harness.WireCapture;
+
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ServerboundClientTickEndPacket;
+import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+/**
+ * Auto Tune (foragebeacon-auto-1123, cheat build): a fake Moonglade Beacon menu on the real server ({@code menu.beacon},
+ * testkit HxBeacon: panes step with the recorded periods, buttons act like the recording, the tune completes only with color,
+ * speed, pitch AND slot matching) and a real GrimAC. Every case asserts the feature acted: the server saw its clicks
+ * ({@code beacon.click}), the wire carried them, and the tune completed ({@code beacon.done}).
+ * <ul>
+ *   <li>1123-menu-autotune-wraps / -pause / -right / -upgrade: start states needing every wrap, only Pause alignment, right
+ *       clicks, and the two-beat upgrade; Click Delay 2 (its fastest) and at most one click a tick, never closer than the delay.</li>
+ *   <li>1123-menu-autotune-off: OFF (and the legit jar, which has no such setting) sends nothing.</li>
+ *   <li>1123-same-autotune-click / -swap / -close: his own container click, hotbar swap and menu close in the SAME client tick
+ *       as an Auto Tune click ({@link SameTick}); run on default and experimental GrimAC (separate checkouts).</li>
+ * </ul>
+ */
+final class BeaconAutoCases {
+
+    private static final String TUNER = "foraging.BeaconTuner";
+    private static final String WRAPS = "{\"beacon\":[{\"color\":\"white\",\"speed\":1,\"pitch\":0,\"idx\":2}],"
+            + "\"mine\":[{\"color\":\"red\",\"speed\":5,\"pitch\":2,\"idx\":2,\"since\":3}]}";
+    private static final String PAUSE = "{\"beacon\":[{\"color\":\"lime\",\"speed\":4,\"pitch\":1,\"idx\":1}],"
+            + "\"mine\":[{\"color\":\"lime\",\"speed\":4,\"pitch\":1,\"idx\":4,\"since\":10}]}";
+    private static final String RIGHT = "{\"beacon\":[{\"color\":\"cyan\",\"speed\":3,\"pitch\":0,\"idx\":5}],"
+            + "\"mine\":[{\"color\":\"brown\",\"speed\":5,\"pitch\":1,\"idx\":0,\"since\":7}]}";
+    private static final String UPGRADE = "{\"mode\":\"upgrade\",\"beacon\":[{\"color\":\"purple\",\"speed\":4,\"pitch\":0,\"idx\":1},"
+            + "{\"color\":\"light_blue\",\"speed\":3,\"pitch\":1,\"idx\":4}],\"mine\":[{\"color\":\"orange\",\"speed\":4,\"pitch\":0,\"idx\":2},"
+            + "{\"color\":\"red\",\"speed\":4,\"pitch\":2,\"idx\":5}]}";
+
+    private BeaconAutoCases() {
+    }
+
+    static void register(Session s) {
+        MenuSuite.test(s, "1123-menu-autotune-off", c -> run(c, WRAPS, false, 4, null, 200));
+        if (!Mod.isCheat()) {
+            return;
+        }
+        MenuSuite.test(s, "1123-menu-autotune-wraps", c -> run(c, WRAPS, true, 2, null, 1800));
+        MenuSuite.test(s, "1123-menu-autotune-pause", c -> run(c, PAUSE, true, 2, null, 1800));
+        MenuSuite.test(s, "1123-menu-autotune-right", c -> run(c, RIGHT, true, 3, null, 1800));
+        MenuSuite.test(s, "1123-menu-autotune-upgrade", c -> run(c, UPGRADE, true, 2, null, 2600));
+        MenuSuite.test(s, "1123-same-autotune-click", c -> run(c, WRAPS, true, 2, SameTick.Act.CLICK, 1800));
+        MenuSuite.test(s, "1123-same-autotune-swap", c -> run(c, PAUSE, true, 2, SameTick.Act.SWAP, 1800));
+        MenuSuite.test(s, "1123-same-autotune-close", c -> run(c, PAUSE, true, 2, SameTick.Act.CLOSE, 400));
+    }
+
+    /** Every container click the client sent, by slot, with the client tick (counted by tick_end packets) it went out in. */
+    private static final class Clicks implements Consumer<Packet<?>> {
+        final List<int[]> sent = new ArrayList<>();
+        final Consumer<Packet<?>> prev = PacketTrace.tap;
+        int tick;
+
+        @Override
+        public synchronized void accept(Packet<?> p) {
+            if (prev != null) {
+                prev.accept(p);
+            }
+            if (p instanceof ServerboundContainerClickPacket cp) {
+                sent.add(new int[]{tick, cp.slotNum()});
+            } else if (p instanceof ServerboundClientTickEndPacket) {
+                tick++;
+            }
+        }
+
+        /** Clicks on the buttons (slots 37-52), not his own click on the last slot. */
+        synchronized List<int[]> buttons() {
+            return sent.stream().filter(k -> k[1] >= 37 && k[1] <= 52).toList();
+        }
+    }
+
+    private static boolean button(Packet<?> p) {
+        return p instanceof ServerboundContainerClickPacket cp && cp.slotNum() >= 37 && cp.slotNum() <= 52;
+    }
+
+    private static void run(Session c, String spec, boolean auto, int delay, SameTick.Act act, int maxTicks) throws Exception {
+        boolean has = Mod.isCheat();
+        Object cfg = Mod.field(TUNER, "CFG");
+        boolean wasOn = (Boolean) Mod.call(cfg, "on", "enabled");
+        boolean wasAuto = has && (Boolean) Mod.call(cfg, "on", "autoTune");
+        int wasDelay = has ? (Integer) Mod.call(cfg, "num", "tuneDelay") : 0;
+        c.hx().sidebar("SKYBLOCK", "Late Winter 3rd", "⏣ Moonglade Marsh", "Purse: 0");
+        c.waitUntil("Skyblock", mc -> Boolean.TRUE.equals(Mod.staticCall("util.SkyblockGate", "allows")), 100);
+        Clicks tap = new Clicks();
+        SameTick st = null;
+        try {
+            c.onClient(mc -> {
+                Mod.call(cfg, "set", "enabled", true);
+                if (has) {
+                    Mod.call(cfg, "set", "autoTune", auto);
+                    Mod.call(cfg, "set", "tuneDelay", delay);
+                } else {
+                    // The legit jar has no such setting: setting it does nothing.
+                    Mod.call(cfg, "set", "autoTune", true);
+                }
+                return null;
+            });
+            JsonObject args = JsonParser.parseString(spec).getAsJsonObject();
+            boolean upgrade = args.has("mode");
+            String title = upgrade ? "Upgrade Signal Strength" : "Tune Frequency";
+            long mark = c.hx().head();
+            WireCapture.start();
+            PacketTrace.tap = tap;
+            if (act != null) {
+                SameTick.Act a = act;
+                st = c.onClient(mc -> {
+                    SameTick s = SameTick.start(a, 1, BeaconAutoCases::button, 0, 1);
+                    return a == SameTick.Act.CLOSE ? s.armedBy(() -> !tap.buttons().isEmpty()) : s;
+                });
+            }
+            c.hx().call("menu.beacon", args);
+            c.waitUntil("the beacon menu", mc -> McCompat.screen(mc) instanceof AbstractContainerScreen<?> s
+                    && s.getTitle().getString().equals(title), 80);
+            boolean done = false;
+            for (int t = 0; t < maxTicks && !done; t += 10) {
+                c.ctx().waitTicks(10);
+                done = !c.hx().events(mark, "beacon.done").isEmpty();
+                if (act == SameTick.Act.CLOSE && !tap.buttons().isEmpty() && t > 60) {
+                    break;
+                }
+                if (!auto && t >= 150) {
+                    break;
+                }
+            }
+            c.ctx().waitTicks(act == SameTick.Act.CLOSE ? 40 : 5);
+            WireCapture.stop();
+            List<int[]> btn = tap.buttons();
+            int served = c.hx().events(mark, "beacon.click").size();
+            int maxPerTick = 0;
+            int minGap = 1 << 20;
+            for (int i = 0; i < btn.size(); i++) {
+                int same = 0;
+                for (int[] k : btn) {
+                    same += k[0] == btn.get(i)[0] ? 1 : 0;
+                }
+                maxPerTick = Math.max(maxPerTick, same);
+                if (i > 0) {
+                    minGap = Math.min(minGap, btn.get(i)[0] - btn.get(i - 1)[0]);
+                }
+            }
+            c.note(String.format(java.util.Locale.ROOT, "autotune %s: %d button clicks on the wire, %d at the server, done=%b, most in one tick %d, closest %d ticks apart",
+                    act == null ? (auto ? "plain" : "off") : act.name(), btn.size(), served, done, maxPerTick, minGap));
+            if (!auto || !has) {
+                c.check(btn.isEmpty() && served == 0 && !done, "Auto Tune clicked with the setting OFF / in a build without it (" + btn.size() + " clicks)");
+                return;
+            }
+            c.check(!btn.isEmpty() && served > 0, "Auto Tune sent no click (the feature did not act): wire " + btn.size() + ", server " + served);
+            c.check(btn.size() == served, "the wire carried " + btn.size() + " button clicks but the server saw " + served);
+            c.check(maxPerTick <= 1, "two Auto Tune clicks in one client tick (" + maxPerTick + ")");
+            c.check(btn.size() < 2 || minGap >= delay, "clicks " + minGap + " ticks apart, under Click Delay " + delay);
+            if (act == SameTick.Act.CLOSE) {
+                int after = c.hx().events(mark, "beacon.click").size();
+                c.ctx().waitTicks(40);
+                c.check(c.hx().events(mark, "beacon.click").size() == after && !done, "Auto Tune went on after the menu closed (or finished it)");
+                SameTick s2 = st;
+                st = null;
+                SameTick.judge(c, s2, "auto tune close", SameTick.Expect.SHARE);
+                return;
+            }
+            c.check(done, "the tune never completed in " + maxTicks + " ticks (clicks " + served + ")");
+            if (act != null) {
+                SameTick s2 = st;
+                st = null;
+                SameTick.judge(c, s2, "auto tune " + act, act == SameTick.Act.CLICK ? SameTick.Expect.SHARE : SameTick.Expect.ACTED);
+            }
+        } finally {
+            WireCapture.stop();
+            PacketTrace.tap = tap.prev;
+            if (st != null) {
+                SameTick s3 = st;
+                c.onClient(mc -> {
+                    s3.close();
+                    return null;
+                });
+            }
+            c.hx().call("menu.close");
+            c.onClient(mc -> {
+                Mod.call(cfg, "set", "enabled", wasOn);
+                if (has) {
+                    Mod.call(cfg, "set", "autoTune", wasAuto);
+                    Mod.call(cfg, "set", "tuneDelay", wasDelay);
+                }
+                return null;
+            });
+            c.hx().sidebarClear();
+        }
+    }
+}

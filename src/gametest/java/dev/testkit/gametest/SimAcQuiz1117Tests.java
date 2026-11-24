@@ -34,17 +34,29 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
      *  must still clear rooms that have routes (it stood at the Quiz instead). */
     private static final String ROUTES = "1121-sim-acquiz-routes";
     /** acplan2-1121 (killer560 11-21: "come back essentially the second that it's ready for me to come back"): the same floor
-     *  with short secret routes; before each answer it may stand at the Quiz at most {@link #RETURN_IDLE_BOUND} ticks, and
-     *  it is never back more than {@link #RETURN_LATE_BOUND} after a question opens. */
+     *  with short secret routes; it may wait at the Quiz only when every round trip left is marked too long, and
+     *  a started gap task is finished before it goes back (no late bound, no cut; acquizlate-1123). */
     private static final String RETURN = "1121-sim-acquiz-return";
     /** The same under the Party Secrets goal. */
     private static final String RETURN_PARTY = "1121-sim-acquiz-return-party";
-    private static final int RETURN_IDLE_BOUND = 50;
+
+    /** acquizlate2-1123: the two floors that failed on 11-23 replayed by map code (the sim cannot otherwise repeat a floor):
+     *  PIN_PARTY ended in the Dragon room on a block with no warp chain out (Auto Secret stopped, 0 of 3 answers); PIN_RETURN
+     *  stood 96 ticks at the Quiz before answer 3 with a route that failed and only too-long candidates left. */
+    private static final String PIN_PARTY = "1123-sim-acquiz-party-pinned";
+    private static final String PIN_RETURN = "1123-sim-acquiz-return-pinned";
+    /** acquizlate3-1123: PIN_PARTY's floor, Auto Clear alone on its Dragon room from the stand its 11-23 hop into the pocket
+     *  left from (-70,-24,-181). The pocket's block -63,-23,-175 (barrier blocks and walls, a one-block slit) has no warp, walk
+     *  or warp chain out: Auto Clear must weigh it and never land there. The origin jar lands him in it. */
+    private static final String POCKET = "1123-sim-ac-pocket";
+    private static final java.util.Map<String, String> PINS = java.util.Map.of(
+            PIN_PARTY, "MC2:CxcEUXVpeghFbnRyYW5jZQlTdXBlcnRhbGwFRmxhZ3MJTG9uZyBIYWxsDlJlZHN0b25lIENyeXB0BUZhaXJ5C0JsdWUgU2t1bGxzBUNyeXB0BUJsb29kBldpemFyZA1DcmVlcGVyIEJlYW1zBk11c2V1bQlPdmVyZ3Jvd24ITmV3IFRyYXAMR29sZGVuIE9hc2lzB1RvbWlva2EMUHVycGxlIEZsYWdzA0RpcA9TbWFsbCBXYXRlcmZhbGwGS25pZ2h0BkRyYWdvbg5SYXJlIE92ZXJncm93bgASAgAAAAACAAQAAAADAgADAgADAgAAAAAWAAEAAAAUAQASAgAAAAAAAAAAAAADAgADAgADAgAAAAAAAAAAAAEAAAASAgAAAAARAQAAAAADAgADAgADAgEAAAAEAQAEAQAEAQEAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAEAQAEAQAEAQAQAgEAAAAOAAAAAAABAwAAAAALAwEAAAAEAQAEAQAEAQAAAAAAAAEAAAAAAAEAAAAAAAALAwAAAAEAAAAAAAAAAAAPAQEAAAANAAANAAANAAEAAAALAwAAAAAFAAEAAAAGAgAAAAAAAAANAAANAAANAAAAAAALAwAAAAAAAAAAAAEAAAAXAQAAAAANAAANAAANAAAAAAALAwEAAAAMAwAAAAAHAAEAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAVAAEAAAATAwAAAAAKAgMAAAAJAAAJAAAJAAEAAAAIAQ",
+            PIN_RETURN, "MC2:CxcEUXVpeghFbnRyYW5jZQlXYXRlcmZhbGwHQnV0dG9ucwVGYWlyeQVDYWdlcwVXYXRlcgVNb3NzeQVTbG90aAVCbG9vZAhPbGQgVHJhcANQaXQLV2F0ZXIgQm9hcmQLUHJpc29uIENlbGwETWFnZQNFbmQFQWRtaW4GS25pZ2h0DFNtYWxsIFN0YWlycwZUZW1wbGUKQmxhY2sgRmxhZwRDZWxsBENhZ2UAFgEAAAAADQIAAAAADgABAAAAEAIBAAAAEQABAAAAEgIBAAAAAAABAAAAAAABAAAAAAAAAAAAAAAAAAAAAAABAAAACAMBAAAADAIADAIADAIADAIADAIADAIADAIAAAAAEwEACAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAACAMBAAAACwIAAAAAAQIBAAAADwIAAAAAFQIBAAAAFAEACAMAAAAAAAAAAAAAAAAAAAAADwIAAAAAAAAAAAAAAAAACAMBAAAACQADAAAACgAAAAAADwIBAAAABAIABAIABAIACAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAIABAIABAIACAMBAAAABwABAAAABgABAAAABQEBAAAABAIABAIABAIBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAFwAAAAAAAgAEAAAAAwIAAwIAAwIAAwIAAwIAAwIAAwI");
 
     private static boolean isReturn(String name) {
-        return name.equals(RETURN) || name.equals(RETURN_PARTY);
+        return name.equals(RETURN) || name.equals(RETURN_PARTY) || PINS.containsKey(name);
     }
-    private static final int RETURN_LATE_BOUND = 20;
+    private static final Pattern GAP_START = Pattern.compile("\\[AutoSecret\\] Quiz: (-?\\d+) tick\\(s\\) until question \\d opens; clearing");
     private static final Pattern GAP_ROOM = Pattern.compile("clearing (.+?) meanwhile \\(");
     private static final String AS = "com.killer560.hub.autosecret.AutoSecretFeature";
     private static final String AUTO = "com.killer560.hub.autoclear.AutoClearFeature";
@@ -71,7 +83,10 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         boolean routes = !Scenario.skip(ROUTES);
         boolean ret = !Scenario.skip(RETURN);
         boolean retParty = !Scenario.skip(RETURN_PARTY);
-        if (!gap && !wait && !secret && !routes && !ret && !retParty) {
+        boolean pinParty = !Scenario.skip(PIN_PARTY);
+        boolean pinRet = !Scenario.skip(PIN_RETURN);
+        boolean pocket = !Scenario.skip(POCKET);
+        if (!gap && !wait && !secret && !routes && !ret && !retParty && !pinParty && !pinRet && !pocket) {
             return;
         }
         if (!dev.testkit.gametest.mod.Mod.isCheat()) {
@@ -81,6 +96,9 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             if (routes) Scenario.skipped(ROUTES, "Auto Clear is cheat build only");
             if (ret) Scenario.skipped(RETURN, "Auto Clear is cheat build only");
             if (retParty) Scenario.skipped(RETURN_PARTY, "Auto Clear is cheat build only");
+            if (pinParty) Scenario.skipped(PIN_PARTY, "Auto Clear is cheat build only");
+            if (pinRet) Scenario.skipped(PIN_RETURN, "Auto Clear is cheat build only");
+            if (pocket) Scenario.skipped(POCKET, "Auto Clear is cheat build only");
             return;
         }
         ModUnderTest.require("killer560smod");
@@ -94,6 +112,9 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             if (routes) Scenario.skipped(ROUTES, "needs real room captures and room database");
             if (ret) Scenario.skipped(RETURN, "needs real room captures and room database");
             if (retParty) Scenario.skipped(RETURN_PARTY, "needs real room captures and room database");
+            if (pinParty) Scenario.skipped(PIN_PARTY, "needs real room captures and room database");
+            if (pinRet) Scenario.skipped(PIN_RETURN, "needs real room captures and room database");
+            if (pocket) Scenario.skipped(POCKET, "needs real room captures and room database");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);
@@ -121,6 +142,15 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             if (retParty) {
                 one(ctx, RETURN_PARTY, true, failures);
             }
+            if (pinParty) {
+                one(ctx, PIN_PARTY, true, failures);
+            }
+            if (pinRet) {
+                one(ctx, PIN_RETURN, true, failures);
+            }
+            if (pocket) {
+                one(ctx, POCKET, true, failures);
+            }
         } finally {
             ctx.runOnClient(mc -> mc.options.renderDistance().set(renderBefore));
         }
@@ -132,6 +162,12 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
     private static void one(ClientGameTestContext ctx, String name, boolean withMobs, List<String> allFailures) {
         List<String> failures = new ArrayList<>();
         String before = System.getProperty("testkit.mobfloorCode", "");
+        String pin = PINS.get(name.equals(POCKET) ? PIN_PARTY : name);
+        boolean pinned = pin != null && before.isBlank();
+        if (pinned) {
+            System.setProperty("testkit.mobfloorCode", pin);
+            before = pin;
+        }
         try {
             if (before.isBlank()) {
                 String code = null;
@@ -159,7 +195,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             failures.add("threw: " + t);
             t.printStackTrace(System.out);
         } finally {
-            if (before.isBlank()) {
+            if (before.isBlank() || pinned) {
                 System.clearProperty("testkit.mobfloorCode");
             }
             ctx.runOnClient(mc -> {
@@ -202,7 +238,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                 // The goal: Solo 300 or Party Secrets (the Mode setting since apmenu-1121, the Run Mode before it).
                 Object as = ModUnderTest.config("com.killer560.hub.autosecret.AutoSecretConfig");
                 boolean menu = java.util.Arrays.stream(as.getClass().getMethods()).anyMatch(m -> m.getName().equals("setMode"));
-                boolean party = name.equals(RETURN_PARTY);
+                boolean party = name.equals(RETURN_PARTY) || name.equals(PIN_PARTY);
                 Object v = ModUnderTest.enumValue("com.killer560.hub.autosecret.AutoSecretConfig$" + (menu ? "Mode" : "RunMode"),
                         menu ? (party ? "PARTY_SECRETS" : "SOLO_300") : (party ? "PARTY" : "SOLO"));
                 ModUnderTest.call(as, menu ? "setMode" : "setRunMode", new Class<?>[]{v.getClass()}, new Object[]{v});
@@ -210,6 +246,10 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             }
         });
         SimAutoClearTests.setMode(ctx, "ANY_MOB_ROOM", "SPIRIT_SCEPTRE");
+        if (name.equals(POCKET)) {
+            pocket(ctx, failures);
+            return;
+        }
         if (!withMobs) {
             java.util.concurrent.atomic.AtomicInteger removed = new java.util.concurrent.atomic.AtomicInteger(-1);
             ctx.runOnClient(mc -> removeMobs(mc, removed));
@@ -326,6 +366,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         long quizMark = -1;
         List<String> quizLog = null;   // the lines from Oruo's start to the Quiz done (LogTap keeps only the newest lines)
         boolean started = false;
+        boolean stranded = false;
         for (; ticks < minutes * 1200; ticks += 5) {
             ctx.waitTicks(5);
             if (ctx.computeOnClient(mc -> mc.level == null || mc.player == null)) {
@@ -334,6 +375,10 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             }
             boolean busy = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(driver, secret ? "isRunning" : "isBusy"));
             started |= busy;
+            if (name.equals(PIN_PARTY) && !stranded && inPocket(ctx)) {
+                stranded = true;   // acquizlate3-1123: the 11-23 run ended a Dragon clear in the pocket no way leaves
+                println(name, "in the Dragon pocket -63,-22,-175 at t=" + ticks / 20 + "s");
+            }
             if (quizMark < 0 && ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(QUIZ_STATE, "started"))) {
                 quizMark = LogTap.mark();
             }
@@ -427,25 +472,40 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         if (lateTicks.size() != 3) {
             failures.add(lateTicks.size() + " of 3 Quiz answers (" + late + ")");
         }
+        if (name.equals(PIN_PARTY) && stranded) {
+            failures.add("landed in the Dragon pocket -63,-22,-175, which no warp or walk leaves");
+        }
         if (isReturn(name)) {
-            // Judged on every jar (the base jar too: this case must fail there).
-            for (int q = 0; q < lateTicks.size(); q++) {
-                if (lateTicks.get(q) > RETURN_LATE_BOUND) {
-                    failures.add("question " + (q + 1) + " answered " + lateTicks.get(q) + " tick(s) after it opened (bound "
-                            + RETURN_LATE_BOUND + ")");
+            // acquizlate-1123 (killer560: "a second late rather than a second early ... no time limit"): a Quiz-gap task
+            // that was started is finished: no cut (a), no gap task started once the countdown is over (b), and an answer
+            // is never early, so the return follows the task's end (c). Judged on every jar (the origin jar cuts).
+            for (String l : log) {
+                if (l.contains("cutting the clear of")) {
+                    failures.add("a Quiz-gap clear was cut for the trip back: " + l.substring(l.indexOf("[AutoSecret]")));
+                }
+                Matcher g = GAP_START.matcher(l);
+                if (g.find() && Long.parseLong(g.group(1)) <= 0) {
+                    failures.add("a gap task was started with the question already due: " + l);
                 }
             }
-            if (idleBy != null) {
-                for (int q = 0; q < 3; q++) {
-                    if (idleBy[q] > RETURN_IDLE_BOUND) {
-                        failures.add("it stood " + idleBy[q] + " tick(s) at the Quiz before answer " + (q + 1) + " with rooms left"
-                                + " (bound " + RETURN_IDLE_BOUND + ")");
+            // Standing at the Quiz is judged by what it was weighing (acquizlate2-1123: the 96-tick stand of 11-23 had only
+            // "(too long)" round trips left, nothing it could start, and flaked the old tick bound): it fails only when a
+            // round trip that was NOT marked too long was passed over for "none fits, waiting at the Quiz".
+            int waited = 0;
+            for (String l : log) {
+                int w = l.indexOf("-> none fits, waiting at the Quiz");
+                int r = l.indexOf("round trips (there + route + back):");
+                if (w < 0 || r < 0 || r > w) {
+                    continue;
+                }
+                waited++;
+                for (String cand : l.substring(r + 35, w).split(";")) {
+                    if (!cand.isBlank() && !cand.contains("too long")) {
+                        failures.add("it waited at the Quiz with a startable round trip left:" + cand + " (" + l.substring(l.indexOf("[AutoSecret]")) + ")");
                     }
                 }
-            } else if (idle > 3 * RETURN_IDLE_BOUND) {
-                failures.add("it stood " + idle + " tick(s) at the Quiz over the three countdowns with rooms left (bound "
-                        + 3 * RETURN_IDLE_BOUND + ")");
             }
+            println(name, "waited at the Quiz " + waited + " time(s) with only too-long work left; idle ticks " + java.util.Arrays.toString(idleBy));
             if (gaps < 2 || between < 2) {
                 failures.add("the countdowns were not filled with work (gap picks " + gaps + ", sim room clears " + between + ")");
             }
@@ -568,6 +628,86 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             return null;
         }
         return (String) ModUnderTest.call(planned, "code", new Class<?>[0], new Object[0]);
+    }
+
+    /**
+     * Feet in the Dragon pocket system as the sim builds this floor (testkit block dump, 11-23): everything south of the
+     * barrier row at z -177 from x -71 to -54 (the zombie's cavity, the one-block slit row z -176, the pocket over
+     * -64..-60 x -175..-173 and the corridor z -172), closed by walls; no warp, walk or warp chain leads from it back out.
+     */
+    private static boolean inPocket(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> mc.player != null && mc.player.getX() > -71.0 && mc.player.getX() < -54.0
+                && mc.player.getZ() > -176.99 && mc.player.getZ() < -171.0 && mc.player.getY() > -25.0 && mc.player.getY() < -18.0);
+    }
+
+    private static void pocket(ClientGameTestContext ctx, List<String> failures) {
+        SimMobFloorTests.teleport(ctx, -69.5, -23, -180.5);
+        ctx.waitTicks(40);
+        // The Hyperion alone (sim bats blast through walls, and whether one lands near enough is chance) with hops off: the
+        // only way to a mob is an etherwarp onto a block within the blast. A second starred zombie in the cavity at
+        // -62,-22,-173 (the pocket's north side) is more than a blast from every block outside the pocket system, so only its blocks reach it: the
+        // origin jar's plan lands him in there (the 11-23 trip did, for the cavity zombie its bats missed).
+        java.util.concurrent.atomic.AtomicBoolean given = new java.util.concurrent.atomic.AtomicBoolean();
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            java.util.UUID uuid = mc.player.getUUID();
+            server.execute(() -> {
+                var inv = server.getPlayerList().getPlayer(uuid).getInventory();
+                for (int i = 0; i < 36; i++) {
+                    inv.setItem(i, net.minecraft.world.item.ItemStack.EMPTY);
+                }
+                String[] ids = {"ASPECT_OF_THE_VOID", "HYPERION"};
+                for (int i = 0; i < ids.length; i++) {
+                    inv.setItem(i, (net.minecraft.world.item.ItemStack) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimItems",
+                            "build", new Class<?>[]{String.class}, new Object[]{ids[i]}));
+                }
+                given.set(true);
+            });
+        });
+        ctx.waitFor(mc -> given.get(), 200);
+        ctx.waitTicks(10);
+        ctx.runOnClient(mc -> ModUnderTest.set(ModUnderTest.config(AUTO_CONFIG), "setHyperionHops", false));
+        SimAutoClearTests.setMode(ctx, "ANY_MOB_ROOM", "HYPERION");
+        ctx.runOnClient(mc -> {
+            Object k = ModUnderTest.enumValue("com.killer560.hub.roomsim.SimMobs$Kind", "ZOMBIE");
+            ModUnderTest.staticCall("com.killer560.hub.roomsim.SimMobs", "spawnStarred", new Class<?>[]{Minecraft.class,
+                    net.minecraft.core.BlockPos.class, k.getClass()}, new Object[]{mc, new net.minecraft.core.BlockPos(-62, -22, -173), k});
+        });
+        ctx.waitTicks(10);
+        long mark = LogTap.mark();
+        java.util.concurrent.atomic.AtomicReference<String> end = new java.util.concurrent.atomic.AtomicReference<>();
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "clearRoom",
+                new Class<?>[]{String.class, Runnable.class, java.util.function.Consumer.class},
+                new Object[]{"Dragon", (Runnable) () -> end.set("done"),
+                        (java.util.function.Consumer<String>) why -> end.set("gave up: " + why)}));
+        boolean in = false;
+        int t = 0;
+        for (; t < 1200 && end.get() == null && !in; t += 2) {
+            ctx.waitTicks(2);
+            in = inPocket(ctx);
+        }
+        net.minecraft.world.phys.Vec3 at = ctx.computeOnClient(mc -> mc.player.position());
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "cancel"));
+        List<String> log = LogTap.since(mark);
+        long acted = log.stream().filter(l -> l.contains("[Bat] decision for") || l.contains("[AutoClear] etherwarp toward")).count();
+        boolean weighed = log.stream().anyMatch(l -> l.contains("[AutoClear] no way out of"));
+        boolean landed = in;
+        for (String l : log) {
+            if (l.contains("way out of") || l.contains("no way back out")) {
+                println(POCKET, "  " + l.substring(l.indexOf("[AutoClear]")));
+            }
+        }
+        println(POCKET, String.format(Locale.US, "RESULT after %.1f s: %s, at %.2f %.2f %.2f, %d Auto Clear decision(s), pocket"
+                + " weighed %s, landed in it %s", t / 20.0, end.get() == null ? (in ? "in the pocket" : "still running") : end.get(),
+                at.x, at.y, at.z, acted, weighed, landed));
+        if (acted == 0) {
+            failures.add("Auto Clear never acted in Dragon (the case proves nothing)");
+        }
+        if (landed) {
+            failures.add("Auto Clear landed him in the Dragon pocket (south of the barrier row, x -71..-54), which no warp or walk leaves");
+        } else if (!weighed) {
+            failures.add("no block was found with no way out (no 'no way out of' line): the case proves nothing");
+        }
     }
 
     private static void println(String name, String line) {

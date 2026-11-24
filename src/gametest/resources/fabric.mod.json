@@ -102,6 +102,7 @@
 			"dev.testkit.gametest.SimFullClearTests",
 			"dev.testkit.gametest.RoomTourLogicTests",
 			"dev.testkit.gametest.ApClearEstimateLogicTests",
+			"dev.testkit.gametest.RoomCostsLogicTests",
 			"dev.testkit.gametest.RoomOrder1018LogicTests",
 			"dev.testkit.gametest.SimAutoSecretOptimizeTests",
 			"dev.testkit.gametest.SimMapPrecomputeTests",
