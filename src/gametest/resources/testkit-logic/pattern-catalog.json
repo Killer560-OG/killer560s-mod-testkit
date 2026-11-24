@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T21:19:38",
- "modSource": "lane-bazaarhl-colors-1123",
- "modGitSha": "e36dd3a9215c6f76a9bb643bf46aece1cf574d96",
+ "generatedAt": "2026-11-23T21:31:08",
+ "modSource": "lane-leaporder-reset-1123",
+ "modGitSha": "6f4afee80a05ba37aeb14921f11dc565dd569202",
  "modSourceDirty": false,
  "count": 977,
  "byKind": {
