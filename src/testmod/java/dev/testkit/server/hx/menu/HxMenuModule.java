@@ -40,6 +40,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * menu.experiment.state                -&gt; the last experiment
  * menu.show {title|titleJson, rows=6, slots, fill?, on?, sell?}   -&gt; {containerId}       (HxMenuSpec)
  * menu.set {slot, stack|{item,...}}    replace one slot of the open Hx menu
+ * menu.beacon {mode, beacon, mine, onStep}   fake Moonglade Beacon beat menu (HxBeacon); menu.beacon.state
  * menu.close                           close the player's open container server-side
  * menu.current                         -&gt; {containerId, title, hx}
  * menu.anvil {preview=true, claim=slot|direct, previewOverride?}  Hypixel's Anvil (HxAnvil)
@@ -72,6 +73,7 @@ public final class HxMenuModule implements HxModule {
         HxHarp.register();
         HxExperiments.register();
         HxMenuSpec.register();
+        HxBeacon.register();
         HxAnvil.register();
         HxStorage.register();
         ServerTickEvents.END_SERVER_TICK.register(HxMenus::tick);

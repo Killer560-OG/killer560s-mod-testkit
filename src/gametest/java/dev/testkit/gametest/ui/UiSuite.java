@@ -104,7 +104,7 @@ public class UiSuite implements FabricClientGameTest {
             "399-ui-hud-editor-resize", "399-ui-hud-editor-snap",
             "399-ui-stat-bars-vitality-xp", "407-ui-stat-bars-layout", "401-ui-scoreboard-editor",
             "1104-ui-mining-pulled-jar", "1104-ui-mining-pulled-menu", "1104-ui-mining-pulled-tabs",
-            "1118-ui-sounddisabler-tab", "1118-ui-sounddisabler-screen", "1104-ui-mining-pulled-profit", "1104-ui-mining-chmap", "1105-ui-chmap-tab", "1104-ui-themematch-pixels", "1104-ui-themematch-audit", "1108-ui-lightcontrast", "1108-ui-salvage-highlight", "1113-ui-accadvisor", "1114-ui-accadv-drag", "1114-ui-accadv-mode", "1114-ui-accadv-copy", "1115-ui-bugcmd", "1122-ui-bugreport-menu", "1122-ui-bugreport-parts", "1122-ui-bugreport-text", "1122-ui-bugreport-bg", "1118-ui-ttt-walkout-gone", "412-ui-no-new-tab", "413-ui-testing-variant",
+            "1118-ui-sounddisabler-tab", "1118-ui-sounddisabler-screen", "1104-ui-mining-pulled-profit", "1104-ui-mining-chmap", "1105-ui-chmap-tab", "1104-ui-themematch-pixels", "1104-ui-themematch-audit", "1108-ui-lightcontrast", "1108-ui-salvage-highlight", "1113-ui-accadvisor", "1114-ui-accadv-drag", "1114-ui-accadv-mode", "1114-ui-accadv-copy", "1115-ui-bugcmd", "1124-ui-gardencopper", "1122-ui-bugreport-menu", "1122-ui-bugreport-parts", "1122-ui-bugreport-text", "1122-ui-bugreport-bg", "1118-ui-ttt-walkout-gone", "412-ui-no-new-tab", "413-ui-testing-variant",
             "1119-ui-chestvalue", "1108-ui-itemquality", "1108-ui-chestclick", "1108-ui-icedmobs", "1108-ui-roomname",
             "425-ui-bazaar-icons", "427-ui-pack-disabler-models",
             "428-ui-pack-disabler-pack-push", "430-ui-pack-disabler-screens",
@@ -613,6 +613,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1105-ui-chmap-tab", MiningPulledCases::chMapTab);
                     UiCase.run(ctx, "1118-ui-sounddisabler-tab", SoundDisabler1118Cases::tabCase);
                     UiCase.run(ctx, "1118-ui-sounddisabler-screen", SoundDisabler1118Cases::screenCase);
+                    UiCase.run(ctx, "1124-ui-gaps-rows", GapsSoundsHud1124Cases::rows);
                     UiCase.run(ctx, "1104-ui-themematch-pixels", ThemeMatchCases::pixels);
                     UiCase.run(ctx, "1104-ui-themematch-audit", ThemeMatchCases::audit);
                     UiCase.run(ctx, "1108-ui-map-border-theme", MapSplitThemeCases::mapBorder);
@@ -834,6 +835,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1119-ui-chestvalue", ChestValue1119Cases::chestValue);
                     UiCase.run(ctx, "1117-accbag-owned-missing", AccBag1117Cases::ownedMissing);
                     UiCase.run(ctx, "1115-ui-bugcmd", BugCmd1115Cases::bugCmd);
+                    UiCase.run(ctx, "1124-ui-gardencopper", GardenCopper1124Cases::copper);
                     UiCase.run(ctx, "1122-ui-bugreport-menu", BugReportMenu1122Cases::menu);
                     UiCase.run(ctx, "1122-ui-bugreport-parts", BugReportParts1122Cases::parts);
                     UiCase.run(ctx, "1122-ui-bugreport-text", BugReportBackground1122Cases::text);

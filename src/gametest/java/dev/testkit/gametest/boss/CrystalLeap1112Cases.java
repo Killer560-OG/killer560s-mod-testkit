@@ -25,10 +25,10 @@ import java.util.Locale;
  */
 final class CrystalLeap1112Cases {
 
-    private static final String FLC = "fastleap.FastLeapConfig";
-    private static final String LM = "fastleap.LeapManager";
-    private static final String FF = "fastleap.FastLeapFeature";
-    private static final String MATE = "SicoKalebCrys";
+    static final String FLC = "fastleap.FastLeapConfig";
+    static final String LM = "fastleap.LeapManager";
+    static final String FF = "fastleap.FastLeapFeature";
+    static final String MATE = "SicoKalebCrys";
     private static final String FOE = "SicoKalebFoe";
     private static final int X = 70;
     private static final int Y = 220;
