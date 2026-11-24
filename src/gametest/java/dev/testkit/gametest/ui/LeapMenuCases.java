@@ -420,7 +420,7 @@ final class LeapMenuCases {
                     "the Universal page starts " + ls.subList(0, Math.min(3, ls.size())));
             c.check(ls.stream().anyMatch(l -> l.startsWith("Universal Targets (in use)")), "the Universal page's title is not 'in use'");
             c.check(ls.contains("Crystal Target: Healer") && ls.stream().anyMatch(l -> l.startsWith("Storm Death Target: "))
-                            && ls.stream().filter(l -> l.matches("P3 S[1-4] Target: .*")).count() == 4,
+                            && ls.stream().filter(l -> l.matches("(I3 Leap|S[1-4] to (S[2-4]|Core)) Target: .*")).count() == 5,
                     "the Universal page's targets: " + ls);
             cardSwitch(c, d, "Universal");
             press(c, d, find(ws, "< Back"));
@@ -452,8 +452,8 @@ final class LeapMenuCases {
                     "the Set Class page starts " + ls.subList(0, Math.min(3, ls.size())));
             AbstractWidget play = find(ws, "When You Play:");
             c.check(play != null, "no When You Play row on the Set Class page");
-            c.check(ls.stream().filter(l -> l.endsWith(" Target: Universal")).count() == 14,
-                    "want 14 'Universal' targets (10 leaps + P3 S1-S4): " + ls);
+            c.check(ls.stream().filter(l -> l.endsWith(" Target: Universal")).count() == 15,
+                    "want 15 'Universal' targets (10 leaps + P3 I3 Leap, S1 to S2 .. S4 to Core): " + ls);
             String before = ModScreenDriver.label(play);
             press(c, d, play);
             String after = ModScreenDriver.label(find(rows(c, d), "When You Play:"));
@@ -723,8 +723,8 @@ final class LeapMenuCases {
                 Object tab = d.leaf(TAB);
                 List<String> out = new ArrayList<>();
                 for (String l : new String[]{"Crystal", "Predev", "Green Pad", "Yellow Pad", "Purple Pad", "PY Healer",
-                        "Storm Death", "Middle", "P4", "Relic", "P3 S1", "P3 S2", "P3 S3", "P3 S4", "When You Play", "S1 Keywords",
-                        "Click Delay", "Fast Mode", "Crystal Target", "Crystal Mode", "P3 S4 Mode", "Relic Leap"}) {
+                        "Storm Death", "Middle", "P4", "Relic", "I3 Leap", "S1 to S2", "S2 to S3", "S3 to S4", "S4 to Core", "When You Play", "S1 to S2 Keywords",
+                        "Click Delay", "Fast Mode", "Crystal Target", "Crystal Mode", "S4 to Core Mode", "Relic Leap"}) {
                     @SuppressWarnings("unchecked")
                     List<String> hits = (List<String>) Mod.call(tab, "searchHits", l);
                     if (hits.stream().noneMatch(h -> h.equalsIgnoreCase(l))) {
@@ -882,9 +882,9 @@ final class LeapMenuCases {
                     out.add("'" + l + "' value cut: " + mc.font.width(value) + " px in a " + cb[2] + " px pill");
                 }
             }
-            if (leaps.size() != 12 || targets.size() != 14 || modes.size() != 14) {
+            if (leaps.size() != 12 || targets.size() != 15 || modes.size() != 15) {
                 out.add(leaps.size() + " Off/Fast/Auto, " + targets.size() + " target and " + modes.size()
-                        + " mode cyclers; want 12, 14 and 14");
+                        + " mode cyclers; want 12, 15 and 15");
             }
             for (List<AbstractWidget> col : List.of(leaps, targets, modes)) {
                 for (AbstractWidget w : col) {
@@ -914,8 +914,9 @@ final class LeapMenuCases {
                         || (!leaps.isEmpty() && n.getX() + n.getWidth() > leaps.get(0).getX())) {
                     out.add(name + ": no name on the row, or it is cut or runs into the cyclers");
                 }
-                String group = name.startsWith("P3 S") ? "P3" : name;
-                if (!name.startsWith("P3 S") || name.equals("P3 S1")) {
+                boolean p3 = java.util.List.of("I3 Leap", "S1 to S2", "S2 to S3", "S3 to S4", "S4 to Core").contains(name);
+                String group = p3 ? "P3" : name;
+                if (!p3 || name.equals("I3 Leap")) {
                     AbstractWidget lp = byLabel.get(group + " Leap");
                     if (lp == null || lp.getY() != t.getY()) {
                         out.add(name + ": its Off/Fast/Auto is not on the row");
