@@ -317,7 +317,9 @@ final class HxHarp implements HxMenus.Ticking {
             // tick got to it: a real server's own stall does not lengthen the network's one-way delay.
             long now = now();
             long at = HxEvents.clickArrivalMs;
-            h.pending.addLast(new long[]{(at > 0 && at <= now && now - at < 2000 ? at : now) + h.upMs, slot});
+            // One connection keeps its order: a click sent after a delayed one is handled after it, never before (TCP).
+            long due = (at > 0 && at <= now && now - at < 2000 ? at : now) + h.upMs;
+            h.pending.addLast(new long[]{h.pending.isEmpty() ? due : Math.max(due, h.pending.peekLast()[0]), slot});
         }
     }
 }
