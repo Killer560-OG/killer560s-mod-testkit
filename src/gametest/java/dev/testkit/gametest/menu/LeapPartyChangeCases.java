@@ -275,7 +275,8 @@ final class LeapPartyChangeCases {
 
     // ---- 1102-menu-leaporder-ownpick ----------------------------------------------------------------------------------
 
-    /** A pick of MAGE on your own name while the tab list shows you as Archer: the pick wins (killer560 11-13). */
+    /** A pick of MAGE on your own name while the tab list shows you as Archer: since 1df175bfb (11-20, "everything should
+     *  have swapped") the class the game shows wins and the stale pick is dropped, so it never comes back. */
     static void ownPick(Session c) throws Exception {
         LeapRunMemoryCases.Saved sv = LeapRunMemoryCases.setUp(c);
         try {
@@ -292,10 +293,10 @@ final class LeapPartyChangeCases {
             String sc = selfClass(c);
             String pc = playing(c);
             boolean hasPick = c.onClient(mc -> (Boolean) Mod.staticCall(OVR, "has", self));
-            c.check(hasPick, "setup: the pick on " + self + " is not there");
-            c.check(sc.equals("MAGE"), "selfClass() is " + sc + " with a MAGE pick on you (tab list ARCHER); the pick must win");
-            c.check(pc.equals("MAGE"), "playingClass() is " + pc + " with a MAGE pick on you (tab list ARCHER); the pick must win");
-            c.note("own pick MAGE, tab Archer: selfClass " + sc + ", playing " + pc);
+            c.check(!hasPick, "the stale MAGE pick on " + self + " is still there with the tab list saying ARCHER");
+            c.check(sc.equals("ARCHER"), "selfClass() is " + sc + " with a MAGE pick on you (tab list ARCHER); the tab list must win");
+            c.check(pc.equals("ARCHER"), "playingClass() is " + pc + " with a MAGE pick on you (tab list ARCHER); the tab list must win");
+            c.note("own pick MAGE, tab Archer: pick dropped, selfClass " + sc + ", playing " + pc);
         } finally {
             c.onClient(mc -> Mod.staticCall(OVR, "clear", mc.player.getGameProfile().name()));
             LeapRunMemoryCases.restore(c, sv);
