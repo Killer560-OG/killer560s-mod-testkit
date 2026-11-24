@@ -42,7 +42,10 @@ final class HxTreeRegen1123Cases {
         c.ctx().runOnClient(mc -> {
             Mod.call(Mod.field(T, "CFG"), "setEnabled", true);
             Mod.staticCall(T, "setTestIsland", true);
+            // Chops left by an earlier case's cleanup would add to the counts: age them out first.
+            Mod.staticCall(T, "ageAll", 2000);
         });
+        c.waitUntil("old chops gone", mc -> (Integer) Mod.staticCall(T, "trackedLogs") == 0, 60);
     }
 
     /** A four-log trunk above the player; returns its logs bottom to top. */
