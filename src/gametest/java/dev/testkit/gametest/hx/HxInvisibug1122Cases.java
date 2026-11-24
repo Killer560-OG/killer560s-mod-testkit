@@ -63,7 +63,12 @@ final class HxInvisibug1122Cases {
 
     /** Both recorded circles at once, one point each every 5 ticks. */
     private static void replay(Session c, BlockPos p) {
-        for (int i = 0; i < B.length / 2; i++) {
+        replay(c, p, B.length / 2);
+    }
+
+    /** The first {@code steps} points (a bug is dropped 12 ticks after its last one, so the box check comes right after). */
+    private static void replay(Session c, BlockPos p, int steps) {
+        for (int i = 0; i < steps; i++) {
             send(c, B, i, 118.90, p);
             if (i < A.length / 2) {
                 send(c, A, i, 117.60, p);
@@ -85,7 +90,7 @@ final class HxInvisibug1122Cases {
         BlockPos p = c.onClient(mc -> mc.player.blockPosition());
         try (Settings set = on(c, true)) {
             island(c, "Galatea", "GALATEA");
-            replay(c, p);
+            replay(c, p, A.length / 2);
             c.check(count(c, "boxCount") == 2, "boxes drawn: " + count(c, "boxCount") + " (want 2, one per recorded circle)");
             double[][] got = centers(c);
             c.check(near(got, -592.90, 87.60, p), "no box at the center of circle B");
