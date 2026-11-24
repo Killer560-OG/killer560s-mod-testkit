@@ -373,8 +373,13 @@ final class CrystalLeap1112Cases {
                     // his right click with the leap in hand is the leap's own use (the menu opens on it): one use, in the leap's tick
                     c.check(count("UseItem") >= 1 && clicks == 1, "use-key: " + count("UseItem") + " uses, " + clicks + " menu clicks");
                 }
-                case "attack" -> c.check(firstTick("AttackPacket") == leapTick || firstTick("InteractPacket") == leapTick,
-                        "his attack was not in the leap's tick " + leapTick + ": " + ticks());
+                // ActionGate gives his queued attack its tick and the use goes the next one (a use before his attack in one
+                // tick is PacketOrderI); this read "same tick" while the tick split was broken and every packet was tick 0
+                case "attack" -> {
+                    int his = Math.max(firstTick("AttackPacket"), firstTick("InteractPacket"));
+                    c.check(his >= 0 && leapTick == his + 1, "his attack in tick " + his + ", the leap's use in tick " + leapTick
+                            + ", want the very next one: " + ticks());
+                }
                 case "swap" -> c.check(firstTick("SetCarriedItem") >= 0, "his hotbar swap never went out: " + ticks());
                 default -> c.check(clicks >= 2, "his container click and the leap's click: " + clicks + " clicks, want 2");
             }
