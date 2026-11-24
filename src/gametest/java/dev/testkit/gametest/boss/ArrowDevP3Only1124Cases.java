@@ -67,7 +67,7 @@ final class ArrowDevP3Only1124Cases {
             c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
             c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
             BossTriggerDelayCases.buildWall(c);
-            c.check("UNKNOWN".equals(String.valueOf(c.onClient(mc -> Mod.staticCall(TerminalAuraCases.TRACKER, "getPhase")))),
+            c.check("UNKNOWN".equals(String.valueOf(c.<Object>onClient(mc -> Mod.staticCall(TerminalAuraCases.TRACKER, "getPhase")))),
                     "not outside P3 at the start");
             long onOutside = fire(c, 7);
             c.check(solverActive(c), "solver not showing outside P3 with the option ON");
