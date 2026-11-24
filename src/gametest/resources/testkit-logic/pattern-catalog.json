@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T20:35:55",
- "modSource": "lane-itemprotect-anvil-1123",
- "modGitSha": "bbb5ee55c06de9cf4188c7de331167f1654f0777",
+ "generatedAt": "2026-11-23T20:48:01",
+ "modSource": "lane-dropaudit-acstarred",
+ "modGitSha": "07d3ae33e3f8f61b3af5c166e7eb8e77a0376acb",
  "modSourceDirty": false,
  "count": 975,
  "byKind": {
