@@ -400,6 +400,10 @@ final class LeapRunMemoryCases {
         c.hx().tabClear();
         DungeonMenuCases.leaveDungeon(c);
         c.hx().chat("You left the party.");
+        // Leaving resets every pick and pin (11-19), so wait until the mod has read it: the old party equals the new one in
+        // some cases, and a wait on the member list alone returned before the line was processed and wiped the picks set next.
+        c.waitUntil("the left-party line to be read", mc ->
+                ((List<?>) Mod.staticCall("leapmenu.PartyTracker", "teammates")).isEmpty(), 100);
         c.hx().chat("You have joined [MVP+] " + leader + "'s party!");
         c.hx().chat("You'll be partying with: " + String.join(", ", others));
         java.util.Set<String> want = new java.util.HashSet<>(others);
