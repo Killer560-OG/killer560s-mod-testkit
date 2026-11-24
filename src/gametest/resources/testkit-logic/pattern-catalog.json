@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T23:16:40",
- "modSource": "lane-foragebeacon-auto-1123",
- "modGitSha": "22f37692c77b524b851571bc6a51f746ffefe7d6",
+ "generatedAt": "2026-11-23T23:13:08",
+ "modSource": "lane-acquizlate3-1123",
+ "modGitSha": "93060d38b7336c3e9f2cd12649f930c88f36f9c4",
  "modSourceDirty": false,
- "count": 987,
+ "count": 985,
  "byKind": {
   "dynamic": 11,
   "element": 63,
-  "field": 867,
+  "field": 865,
   "local": 46
  },
  "unresolved": 161,
@@ -4044,30 +4044,6 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^Cooldown: AVAILABLE$\""
-  },
-  {
-   "id": "foraging.BeaconTuneSolver#CURRENT",
-   "cls": "foraging.BeaconTuneSolver",
-   "field": "CURRENT",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/foraging/BeaconTuneSolver.java",
-   "line": 17,
-   "regex": "Current (speed|pitch): (\\w+)",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"Current (speed|pitch): (\\\\w+)\""
-  },
-  {
-   "id": "foraging.BeaconTuneSpec#TITLE",
-   "cls": "foraging.BeaconTuneSpec",
-   "field": "TITLE",
-   "index": null,
-   "file": "src/main/java/com/killer560/hub/foraging/BeaconTuneSpec.java",
-   "line": 18,
-   "regex": "^(Tune Frequency|Upgrade Signal Strength)$",
-   "flags": null,
-   "kind": "field",
-   "expr": "\"^(Tune Frequency|Upgrade Signal Strength)$\""
   },
   {
    "id": "foraging.TreeGiftHider#SEPARATOR",
