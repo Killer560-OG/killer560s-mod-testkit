@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T22:46:03",
- "modSource": "lane-trapedit-memonly-1123",
- "modGitSha": "e2c9405b1a02bae753cfd5904805a11a5e2e8168",
+ "generatedAt": "2026-11-23T23:13:08",
+ "modSource": "lane-acquizlate3-1123",
+ "modGitSha": "93060d38b7336c3e9f2cd12649f930c88f36f9c4",
  "modSourceDirty": false,
  "count": 985,
  "byKind": {
