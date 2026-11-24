@@ -613,6 +613,7 @@ public class UiSuite implements FabricClientGameTest {
                     UiCase.run(ctx, "1105-ui-chmap-tab", MiningPulledCases::chMapTab);
                     UiCase.run(ctx, "1118-ui-sounddisabler-tab", SoundDisabler1118Cases::tabCase);
                     UiCase.run(ctx, "1118-ui-sounddisabler-screen", SoundDisabler1118Cases::screenCase);
+                    UiCase.run(ctx, "1124-ui-gaps-rows", GapsSoundsHud1124Cases::rows);
                     UiCase.run(ctx, "1104-ui-themematch-pixels", ThemeMatchCases::pixels);
                     UiCase.run(ctx, "1104-ui-themematch-audit", ThemeMatchCases::audit);
                     UiCase.run(ctx, "1108-ui-map-border-theme", MapSplitThemeCases::mapBorder);
