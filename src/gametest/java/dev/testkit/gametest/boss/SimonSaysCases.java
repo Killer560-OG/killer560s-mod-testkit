@@ -3,6 +3,7 @@ package dev.testkit.gametest.boss;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
+import dev.testkit.gametest.LogTap;
 import dev.testkit.gametest.hx.Session;
 import dev.testkit.gametest.mod.Mod;
 
@@ -43,6 +44,59 @@ final class SimonSaysCases {
         s.test("502-boss-ss-new-4rounds", c -> play(c, 4, true, 12));
         // No "completed a device!" line: the mod must settle on 4 from the device staying dark.
         s.test("503-boss-ss-new-4rounds-noline", c -> play(c, 4, false, 13));
+        // 1123: a teammate finishes the device while this player clicks nothing; the grid going blank is NOT a break.
+        s.test("1123-boss-ss-teammate-done-no-broke", c -> broke(c, true));
+        // A real break (lit lantern, then blank with no completed line) is still announced.
+        s.test("1123-boss-ss-real-break-announced", c -> broke(c, false));
+    }
+
+    /** Lights one lantern (the mod arms its break check), optionally sends a teammate's completed line, blanks the grid and counts "Device broke." chat. */
+    static void broke(Session c, boolean teammateDone) throws Exception {
+        List<AutoCloseable> undo = new ArrayList<>();
+        try {
+            c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
+            c.waitUntil("DungeonState.getFloor()==F7",
+                    mc -> "F7".equals(Mod.staticCall("secrets.DungeonState", "getFloor")), 100);
+            undo.add(c.onClient(mc -> Mod.with(CONFIG, "SolverEnabled", true)));
+            undo.add(c.onClient(mc -> Mod.with(CONFIG, "AutoRestartEnabled", false)));
+            c.hx().call("boss.ss.build", "rounds", 4, "line", true, "seed", 14);
+            tpToDevice(c);
+            c.waitUntil("the client to have the device wall and start button", mc ->
+                    mc.level.getBlockState(new BlockPos(111, 120, 92)).is(net.minecraft.world.level.block.Blocks.OBSIDIAN)
+                            && mc.level.getBlockState(START).is(net.minecraft.world.level.block.Blocks.STONE_BUTTON), 200);
+            c.ctx().waitTicks(5);
+            undo.add(c.onClient(mc -> Mod.with(CONFIG, "Enabled", true)));
+            c.waitUntil("the mod to be at the device", mc -> (Boolean) Mod.field(FEATURE, "wasActive"), 200);
+            c.ctx().waitTicks(5);
+            long mark = LogTap.mark();
+            c.server().command("setblock 111 120 92 minecraft:sea_lantern");
+            c.waitUntil("the mod to arm its break check (a lantern lit)", mc -> (Boolean) Mod.field(FEATURE, "breakArmed"), 60);
+            if (teammateDone) {
+                c.hx().chat("p3wr completed a device! (3/7) (5.66s | 5.66s)");
+                c.ctx().waitTicks(3);
+            }
+            c.server().command("setblock 111 120 92 minecraft:obsidian");
+            // The mod's break window is 30 ticks; leave it twice that.
+            c.ctx().waitTicks(70);
+            long lines = ClickGuardCases.chatLines(mark, "Device broke");
+            c.note("teammate done " + teammateDone + ": 'Device broke' chat lines " + lines);
+            c.check(lines == (teammateDone ? 0 : 1), teammateDone
+                    ? "a teammate completed the device and the mod still said 'Device broke.' (" + lines + ")"
+                    : "a real break (lit lantern then blank, no completed line) announced " + lines + " time(s), expected 1");
+        } finally {
+            c.hx().call("boss.ss.clear");
+            c.onClient(mc -> {
+                for (int i = undo.size() - 1; i >= 0; i--) {
+                    try {
+                        undo.get(i).close();
+                    } catch (Exception e) {
+                        System.out.println("[boss] restore failed: " + e);
+                    }
+                }
+                return null;
+            });
+            c.hx().call("dungeon.tp", "x", -619.5, "y", 151.0, "z", -619.5, "yaw", 0f, "pitch", 0f);
+        }
     }
 
     static JsonObject state(Session c) {
