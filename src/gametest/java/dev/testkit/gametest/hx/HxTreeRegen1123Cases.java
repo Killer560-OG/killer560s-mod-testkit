@@ -20,6 +20,7 @@ final class HxTreeRegen1123Cases {
 
     static void register(Session s) {
         s.test("1123-foraging-treeregen", HxTreeRegen1123Cases::regen);
+        s.test("1124-foraging-treeregen-self-chunk", HxTreeRegen1123Cases::selfAndChunk);
     }
 
     private static int tracked(Session c) {
@@ -73,6 +74,32 @@ final class HxTreeRegen1123Cases {
                 for (BlockPos p : new BlockPos[]{a, b, d}) {
                     mc.level.setServerVerifiedBlockState(p, Blocks.AIR.defaultBlockState(), 3);
                 }
+                Mod.staticCall(T, "setTestIsland", false);
+                Mod.call(Mod.field(T, "CFG"), "setEnabled", wasOn);
+                Mod.call(Mod.field(T, "CFG"), "load");
+            });
+        }
+    }
+
+    /** His own break is a client-side setBlock (the server's air arrives later); a return can come as chunk data. */
+    private static void selfAndChunk(Session c) {
+        boolean wasOn = c.onClient(mc -> (Boolean) Mod.call(Mod.field(T, "CFG"), "isEnabledRaw"));
+        BlockPos a = c.onClient(mc -> mc.player.blockPosition().above(6));
+        try {
+            c.ctx().runOnClient(mc -> {
+                Mod.call(Mod.field(T, "CFG"), "setEnabled", true);
+                Mod.staticCall(T, "setTestIsland", true);
+            });
+            set(c, a, Blocks.OAK_LOG.defaultBlockState());
+            c.ctx().runOnClient(mc -> mc.level.setBlock(a, Blocks.AIR.defaultBlockState(), 11));
+            c.check(tracked(c) == 1, "a log he broke himself (client-side air first) was not tracked: " + tracked(c));
+            set(c, a, Blocks.AIR.defaultBlockState());
+            c.check(tracked(c) == 1, "the server's later air changed the count: " + tracked(c));
+            c.ctx().runOnClient(mc -> mc.level.getChunkAt(a).setBlockState(a, Blocks.OAK_LOG.defaultBlockState(), 0));
+            c.waitUntil("chunk-data return cleared", mc -> (Integer) Mod.staticCall(T, "trackedLogs") == 0, 60);
+        } finally {
+            c.ctx().runOnClient(mc -> {
+                mc.level.setServerVerifiedBlockState(a, Blocks.AIR.defaultBlockState(), 3);
                 Mod.staticCall(T, "setTestIsland", false);
                 Mod.call(Mod.field(T, "CFG"), "setEnabled", wasOn);
                 Mod.call(Mod.field(T, "CFG"), "load");
