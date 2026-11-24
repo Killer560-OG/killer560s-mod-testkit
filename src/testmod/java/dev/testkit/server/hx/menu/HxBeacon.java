@@ -30,7 +30,8 @@ import java.util.List;
  * pitch 0-2. Row 10-16 is the beacon's beats, row 28-34 yours; each beat steps one slot along its row every
  * {@code 15 + 10 * (5 - speed)} ticks and plays note_block.bass at its pitch; your buttons (Color, Speed, Pitch, Pause) act
  * like the recording: left click forward, right click back, Speed 5 wraps to 1, Pitch High wraps to Low, Color red wraps to
- * white; an unpause restarts your beat's step timer (the assumption Auto Tune relies on). The tune completes when EVERY one of
+ * white; Pause freezes your beat's step timer and unpause resumes it (recorded 11-24: five unpauses, each next step came the
+ * rest of the period later). The tune completes when EVERY one of
  * your beats equals a beacon beat in color, speed, pitch AND slot, checked at each click (and at each step with
  * {@code onStep}): chat "BEACON REWARDS", the menu closes. {@code menu.beacon.state} returns {clicks, done, steps, ...};
  * {@code beacon.click} {slot, kind, tick} and {@code beacon.done} are events.
@@ -253,7 +254,6 @@ final class HxBeacon implements HxMenus.Ticking {
                 case 2 -> b.pitch = Math.floorMod(b.pitch + d, 3);
                 default -> {
                     b.paused = !b.paused;
-                    b.since = 0;
                 }
             }
             h.clicks++;

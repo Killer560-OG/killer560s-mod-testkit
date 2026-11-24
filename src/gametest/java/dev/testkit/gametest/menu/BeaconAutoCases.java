@@ -27,6 +27,7 @@ import java.util.function.Consumer;
  * <ul>
  *   <li>1123-menu-autotune-wraps / -pause / -right / -upgrade: start states needing every wrap, only Pause alignment, right
  *       clicks, and the two-beat upgrade; Click Delay 2 (its fastest) and at most one click a tick, never closer than the delay.</li>
+ *   <li>1124-menu-autotune-samecolor: his 11-24 upgrade's start, both beacon beats brown, at the default Click Delay 4.</li>
  *   <li>1123-menu-autotune-off: OFF (and the legit jar, which has no such setting) sends nothing.</li>
  *   <li>1123-same-autotune-click / -swap / -close: his own container click, hotbar swap and menu close in the SAME client tick
  *       as an Auto Tune click ({@link SameTick}); run on default and experimental GrimAC (separate checkouts).</li>
@@ -44,6 +45,10 @@ final class BeaconAutoCases {
     private static final String UPGRADE = "{\"mode\":\"upgrade\",\"beacon\":[{\"color\":\"purple\",\"speed\":4,\"pitch\":0,\"idx\":1},"
             + "{\"color\":\"light_blue\",\"speed\":3,\"pitch\":1,\"idx\":4}],\"mine\":[{\"color\":\"orange\",\"speed\":4,\"pitch\":0,\"idx\":2},"
             + "{\"color\":\"red\",\"speed\":4,\"pitch\":2,\"idx\":5}]}";
+    /** His upgrade of 11-24 as it opened: both beacon beats brown (speed 5 Low, speed 4 High), his blue speed 1 Normal and orange speed 2 High. */
+    private static final String SAME_COLOR = "{\"mode\":\"upgrade\",\"beacon\":[{\"color\":\"brown\",\"speed\":5,\"pitch\":0,\"idx\":0},"
+            + "{\"color\":\"brown\",\"speed\":4,\"pitch\":2,\"idx\":3}],\"mine\":[{\"color\":\"blue\",\"speed\":1,\"pitch\":1,\"idx\":6},"
+            + "{\"color\":\"orange\",\"speed\":2,\"pitch\":2,\"idx\":2}]}";
 
     private BeaconAutoCases() {
     }
@@ -57,6 +62,7 @@ final class BeaconAutoCases {
         MenuSuite.test(s, "1123-menu-autotune-pause", c -> run(c, PAUSE, true, 2, null, 1800));
         MenuSuite.test(s, "1123-menu-autotune-right", c -> run(c, RIGHT, true, 3, null, 1800));
         MenuSuite.test(s, "1123-menu-autotune-upgrade", c -> run(c, UPGRADE, true, 2, null, 2600));
+        MenuSuite.test(s, "1124-menu-autotune-samecolor", c -> run(c, SAME_COLOR, true, 4, null, 2600));
         MenuSuite.test(s, "1123-same-autotune-click", c -> run(c, WRAPS, true, 2, SameTick.Act.CLICK, 1800));
         MenuSuite.test(s, "1123-same-autotune-swap", c -> run(c, PAUSE, true, 2, SameTick.Act.SWAP, 1800));
         MenuSuite.test(s, "1123-same-autotune-close", c -> run(c, PAUSE, true, 2, SameTick.Act.CLOSE, 400));
