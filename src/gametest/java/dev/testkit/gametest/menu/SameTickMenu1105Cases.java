@@ -38,6 +38,9 @@ final class SameTickMenu1105Cases {
         MenuSuite.test(s, "1105-same-autosell-click", SameTickMenu1105Cases::autoSell);
         MenuSuite.test(s, "1105-same-autoterm-click", c -> autoTerm(c, true));
         MenuSuite.test(s, "1105-same-autoterm-click-unblocked", c -> autoTerm(c, false));
+        // autoterms-nosolver-1124: the same two with the Terminal Solver OFF (Auto Terminals runs on its own switches).
+        MenuSuite.test(s, "1124-same-autoterm-solveroff", c -> autoTerm(c, true, false));
+        MenuSuite.test(s, "1124-same-autoterm-solveroff-unblocked", c -> autoTerm(c, false, false));
         MenuSuite.test(s, "1105-same-invsort-click", SameTickMenu1105Cases::invSort);
     }
 
@@ -92,6 +95,10 @@ final class SameTickMenu1105Cases {
     // ---- Auto Terminals ---------------------------------------------------------------------------------------------
 
     static void autoTerm(Session c, boolean block) throws Exception {
+        autoTerm(c, block, true);
+    }
+
+    static void autoTerm(Session c, boolean block, boolean solverOn) throws Exception {
         MenuKit.reset(c);
         if (!MenuKit.cheat()) {
             c.note("legit jar: Auto Terminals does not exist");
@@ -101,7 +108,7 @@ final class SameTickMenu1105Cases {
         String cfgName = TerminalCases.CONFIG;
         SameTick st = null;
         try (MenuKit.Cfg cfg = new MenuKit.Cfg(c)) {
-            cfg.set(cfgName, "Enabled", true).set(cfgName, "AutoTerminalsEnabled", true).set(cfgName, spec.auto(), true)
+            cfg.set(cfgName, "Enabled", solverOn).set(cfgName, "AutoTerminalsEnabled", true).set(cfgName, spec.auto(), true)
                     .set(cfgName, "BlockInputWhileAutoClicking", block);
             JsonObject t = TerminalCases.open(c, spec);
             MenuKit.awaitScreen(c, t.get("title").getAsString(), 100);

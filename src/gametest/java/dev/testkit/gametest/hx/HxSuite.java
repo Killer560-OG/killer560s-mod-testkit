@@ -165,6 +165,7 @@ public class HxSuite implements FabricClientGameTest {
                     HxForaging1123Cases.register(s);
                     HxAgatha1123Cases.register(s);
                     HxTreeRegen1123Cases.register(s);
+                    HxTeamLedger1124Cases.register(s);
                     HxSweepOverlay1124Cases.register(s);
                     HxKitCheck1124Cases.register(s);
                     // Crystal Hollows Map HUD (1104-chmap-hud, mod chhud-1104).
