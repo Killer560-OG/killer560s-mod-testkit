@@ -55,6 +55,13 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
     private static final double CORRIDOR_BACK = 10;
     private static final int CORRIDOR_TICKS = 20;
     private static final String R_LATE = "1018-predict-hypixel-late";
+    /** Every directed doorway of several random floors glanced at from the corridor distance; prints each map code that fails. */
+    private static final String SWEEP = "1123-predict-corridor-sweep";
+    /** The floors (map codes) a sweep found failing, each glanced at again from the same spot (roompredictor-1123-fix2). */
+    private static final String PINNED = "1123-predict-corridor-pinned";
+    /** {map code, room he stands in, room he looks into} of each pinned glance. */
+    private static final String[][] PINS = {};
+    private static final int SWEEP_FLOORS = Integer.getInteger("testkit.sweep.floors", 6);
 
     /** A glance into a room from its entrance: half a second. */
     private static final int GLANCE_TICKS = 10;
@@ -75,17 +82,20 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
     private static final String VARIANT = "com.killer560.hub.BuildVariant";
 
     private final List<String> all = new ArrayList<>();
+    private String mode = NAME;
+    private boolean entered;
 
     @Override
     public void runTest(ClientGameTestContext ctx) {
-        if (System.getProperty("testkit.scenario", "").isBlank() || Scenario.skip(NAME)) {
+        mode = !Scenario.skip(NAME) ? NAME : !Scenario.skip(PINNED) ? PINNED : !Scenario.skip(SWEEP) ? SWEEP : null;
+        if (System.getProperty("testkit.scenario", "").isBlank() || mode == null) {
             return;
         }
         ModUnderTest.require("killer560smod");
         ctx.waitTicks(40);
         ctx.runOnClient(mc -> ModUnderTest.turnOff("com.killer560.hub.auction.AuctionConfig", "setAhEnabled"));
         if (SimMapTests.copyRoomsForOthers() < 20) {
-            Scenario.skipped(NAME, "needs real room captures and room database");
+            Scenario.skipped(mode, "needs real room captures and room database");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);
@@ -99,7 +109,13 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
             throw new AssertionError(e);
         }
         try {
-            body(ctx);
+            if (mode.equals(NAME)) {
+                body(ctx);
+            } else if (mode.equals(PINNED)) {
+                pinned(ctx);
+            } else {
+                sweep(ctx);
+            }
         } catch (Throwable t) {
             all.add("scenario threw: " + t);
             t.printStackTrace(System.out);
@@ -113,49 +129,10 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
     }
 
     private void body(ClientGameTestContext ctx) {
-        ctx.runOnClient(mc -> {
-            Object p = ModUnderTest.config(PCFG);
-            ModUnderTest.set(p, "setEnabled", true);
-            mc.options.guiScale().set(2);
-        });
-        ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
-                new Object[]{"gametest"}));
-        long before = Scenario.simBuildCount(ctx);
-        ctx.runOnClient(mc -> mc.execute(() -> {
-            Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
-            ModUnderTest.staticCall(FLOOR_GEN, "generate",
-                    new Class<?>[]{Minecraft.class, floor.getClass(), int.class, int.class},
-                    new Object[]{mc, floor, 3, 4});
-        }));
-        Scenario.awaitSimBuild(ctx, before);
-        ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
-        ctx.waitFor(mc -> mc.player.onGround() && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir(), 2400);
-        ctx.waitTicks(40);
-        // Every case is a moment of a run in progress, so wait for GO: during the countdown the sim has no held map
-        // (HeldMap.emulated() is false, as on Hypixel before Mort), no room counts as opened, and a walk that starts
-        // there records the blocks of the room the late glance must not have seen yet (hsA4f/hsA4g, 2026-11-04).
-        ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRun", "hasStarted"), 600);
-        ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(HELD, "emulated"), 200);
-        ctx.runOnClient(mc -> {
-            var server = mc.getSingleplayerServer();
-            server.execute(() -> server.getCommands().performPrefixedCommand(
-                    server.createCommandSourceStack().withSuppressedOutput(), "time set noon"));
-        });
-        Floor f = ctx.computeOnClient(SimPredictHypixelTests::readFloor);
-        println("floor: " + f.names.size() + " rooms, " + f.doorRooms.size() + " doors");
-        creativeFlying(ctx);
+        Floor f = openFloor(ctx, "");
 
         // Doorways from one room into another (not the Entrance, not Blood) with nothing in the doorway.
-        List<int[]> tries = new ArrayList<>();
-        for (Map.Entry<Integer, int[]> e : f.doorRooms.entrySet()) {
-            int a = e.getValue()[0];
-            int b = e.getValue()[1];
-            for (int[] ab : new int[][]{{a, b}, {b, a}}) {
-                if (ab[1] != f.entrance && ab[1] != f.blood && ab[0] != f.blood) {
-                    tries.add(new int[]{e.getKey(), ab[0], ab[1]});
-                }
-            }
-        }
+        List<int[]> tries = f.directedDoors();
         Collections.shuffle(tries, new Random(1018));
         List<int[]> picks = new ArrayList<>();
         for (int[] t : tries) {
@@ -225,6 +202,118 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         boolean premise = seen > 0 && intoBefore == 0;
         row(R_LATE, premise && g.pass(), "after " + seen + " block(s) seen elsewhere (" + intoBefore + " in "
                 + f.names.get(late[2]) + "): " + g);
+    }
+
+    /** Generates a floor (the map code {@code code}, or a random one when blank), waits for GO and returns it read. */
+    private Floor openFloor(ClientGameTestContext ctx, String code) {
+        if (!entered) {
+            entered = true;
+            ctx.runOnClient(mc -> {
+                Object p = ModUnderTest.config(PCFG);
+                ModUnderTest.set(p, "setEnabled", true);
+                mc.options.guiScale().set(2);
+            });
+            ctx.runOnClient(mc -> ModUnderTest.staticCall(SIM_STATE, "enter", new Class<?>[]{String.class},
+                    new Object[]{"gametest"}));
+        }
+        long before = Scenario.simBuildCount(ctx);
+        ctx.runOnClient(mc -> mc.execute(() -> {
+            if (code.isBlank()) {
+                Object floor = ModUnderTest.enumValue(FLOOR_GEN + "$Floor", "F7");
+                ModUnderTest.staticCall(FLOOR_GEN, "generate",
+                        new Class<?>[]{Minecraft.class, floor.getClass(), int.class, int.class},
+                        new Object[]{mc, floor, 3, 4});
+            } else {
+                ModUnderTest.staticCall(SIM_STATE, "setFloorLabel", new Class<?>[]{String.class}, new Object[]{"F7"});
+                java.util.function.Consumer<Minecraft> build = c -> ModUnderTest.staticCall(
+                        "com.killer560.hub.roomsim.SimBuilder", "build", new Class<?>[]{Minecraft.class, String.class},
+                        new Object[]{c, code});
+                ModUnderTest.staticCall("com.killer560.hub.roomsim.SimWorld", "open", new Class<?>[]{Minecraft.class,
+                        String.class, java.util.function.Consumer.class, String.class},
+                        new Object[]{mc, code, build, "Generating Floor 7"});
+            }
+        }));
+        Scenario.awaitSimBuild(ctx, before);
+        ctx.waitFor(mc -> McCompat.screen(mc) == null, 1200);
+        ctx.waitFor(mc -> mc.player.onGround() && !mc.level.getBlockState(mc.player.blockPosition().below()).isAir(), 2400);
+        ctx.waitTicks(40);
+        // Every case is a moment of a run in progress, so wait for GO: during the countdown the sim has no held map
+        // (HeldMap.emulated() is false, as on Hypixel before Mort), no room counts as opened, and a walk that starts
+        // there records the blocks of the room the late glance must not have seen yet (hsA4f/hsA4g, 2026-11-04).
+        ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall("com.killer560.hub.roomsim.SimRun", "hasStarted"), 600);
+        ctx.waitFor(mc -> (Boolean) ModUnderTest.staticCall(HELD, "emulated"), 200);
+        ctx.runOnClient(mc -> {
+            var server = mc.getSingleplayerServer();
+            server.execute(() -> server.getCommands().performPrefixedCommand(
+                    server.createCommandSourceStack().withSuppressedOutput(), "time set noon"));
+        });
+        Floor f = ctx.computeOnClient(SimPredictHypixelTests::readFloor);
+        f.code = ctx.computeOnClient(mc -> String.valueOf(ModUnderTest.staticCall(SIM_STATE, "mapCode")));
+        println("floor: " + f.names.size() + " rooms, " + f.doorRooms.size() + " doors, MAP CODE: " + f.code);
+        creativeFlying(ctx);
+        return f;
+    }
+
+    /** One corridor glance from a clean predictor, as the corridor case does it. */
+    private Glance corridorGlance(ClientGameTestContext ctx, Floor f, int[] t) {
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(HELD, "resetSimVisits"));
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(PREDICTOR, "reset"));
+        return glance(ctx, f, t, CORRIDOR_BACK, CORRIDOR_TICKS);
+    }
+
+    /** True when door {@code t[0]} has nothing in it and a clear line from {@link #CORRIDOR_BACK} short of it. */
+    private boolean corridorUsable(ClientGameTestContext ctx, Floor f, int[] t) {
+        return ctx.computeOnClient(mc -> mc.level.getBlockState(f.doorBlock(t[0])).isAir()
+                && mc.level.getBlockState(f.doorBlock(t[0]).above()).isAir()) && clearLine(ctx, f, t, CORRIDOR_BACK);
+    }
+
+    /** Several random floors, every doorway into a room (not the Entrance or Blood) glanced at from the corridor. */
+    private void sweep(ClientGameTestContext ctx) {
+        int glances = 0;
+        List<String> bad = new ArrayList<>();
+        for (int n = 0; n < SWEEP_FLOORS; n++) {
+            Floor f = openFloor(ctx, "");
+            for (int[] t : f.directedDoors()) {
+                if (!corridorUsable(ctx, f, t)) {
+                    continue;
+                }
+                glances++;
+                Glance g = corridorGlance(ctx, f, t);
+                if (!g.pass()) {
+                    println("SWEEP FAIL MAP CODE: " + f.code + " | " + g);
+                    bad.add(f.names.get(t[1]) + " into " + f.names.get(t[2]) + " on " + f.code);
+                }
+            }
+        }
+        Report.caseStarted(SWEEP);
+        row(SWEEP, bad.isEmpty() && glances > 0, SWEEP_FLOORS + " floor(s), " + glances + " corridor glance(s), "
+                + bad.size() + " failing: " + bad);
+    }
+
+    /** Each pinned floor rebuilt from its map code and glanced at from the doorway between the two named rooms. */
+    private void pinned(ClientGameTestContext ctx) {
+        if (PINS.length == 0) {
+            row(PINNED, false, "premise: no pinned floors");
+            return;
+        }
+        for (int i = 0; i < PINS.length; i++) {
+            String name = PINNED + "-" + (i + 1);
+            Report.caseStarted(name);
+            Floor f = openFloor(ctx, PINS[i][0]);
+            int[] pick = null;
+            for (int[] t : f.directedDoors()) {
+                if (f.names.get(t[1]).equalsIgnoreCase(PINS[i][1]) && f.names.get(t[2]).equalsIgnoreCase(PINS[i][2])
+                        && corridorUsable(ctx, f, t)) {
+                    pick = t;
+                    break;
+                }
+            }
+            if (pick == null) {
+                row(name, false, "premise: no usable doorway from " + PINS[i][1] + " into " + PINS[i][2] + " on " + f.code);
+                continue;
+            }
+            row(name, corridorGlance(ctx, f, pick).pass(), "pinned " + PINS[i][1] + " into " + PINS[i][2]);
+        }
     }
 
     // ------------------------------------------------------------------------------------------------- the glance
@@ -468,6 +557,22 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         int entrance = -1;
         int blood = -1;
         int doorY;
+        String code = "";
+
+        /** {door, room he stands in, room he looks into} for every doorway into a room that is not the Entrance or Blood. */
+        List<int[]> directedDoors() {
+            List<int[]> out = new ArrayList<>();
+            for (Map.Entry<Integer, int[]> e : doorRooms.entrySet()) {
+                int a = e.getValue()[0];
+                int b = e.getValue()[1];
+                for (int[] ab : new int[][]{{a, b}, {b, a}}) {
+                    if (ab[1] != entrance && ab[1] != blood && ab[0] != blood) {
+                        out.add(new int[]{e.getKey(), ab[0], ab[1]});
+                    }
+                }
+            }
+            return out;
+        }
 
         int roomAt(int tile) {
             return tile >= 0 && tile < 121 ? roomOf[tile] : -1;
