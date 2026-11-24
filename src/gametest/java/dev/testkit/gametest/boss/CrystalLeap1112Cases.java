@@ -147,10 +147,13 @@ final class CrystalLeap1112Cases {
             if (!s.phase().equals("play")) {
                 continue;
             }
-            if (s.text().equals("ServerboundClientTickEndPacket")) {
+            // by class name: the text is the packet's toString ("ServerboundClientTickEndPacket[]", "...Pong@1a2b"), so a text
+            // match never split the ticks and every packet read as tick 0 (crystalleap-lane-fix-1124)
+            String n = s.className().substring(s.className().lastIndexOf('.') + 1);
+            if (n.equals("ServerboundClientTickEndPacket")) {
                 out.add(cur);
                 cur = new ArrayList<>();
-            } else if (!s.text().equals("ServerboundKeepAlivePacket") && !s.text().equals("ServerboundPongPacket")) {
+            } else if (!n.equals("ServerboundKeepAlivePacket") && !n.equals("ServerboundPongPacket")) {
                 cur.add(s.text());
             }
         }
