@@ -108,6 +108,11 @@ final class AutoHarpCases {
             return ((Number) c.onClient(mc -> Mod.staticCall(FEATURE, method))).intValue();
         } catch (RuntimeException e) {
             return -1;
+        } catch (AssertionError e) { // Mod.staticCall's "no static method" (orig10 failed on it, not on the harp)
+            if (!String.valueOf(e.getMessage()).contains("no static method")) {
+                throw e;
+            }
+            return -1;
         }
     }
 
@@ -215,7 +220,7 @@ final class AutoHarpCases {
             c.check(mine == NOTES, "the mod counted " + mine + " clicks, not " + NOTES);
             c.check(clicks.size() == NOTES, "the server got " + clicks.size() + " harp clicks, not " + NOTES);
             if (pong != null) {
-                c.check(plings > 0, "the feature read no pling (answer) to its clicks");
+                c.check(plings > 0 || plingsBefore < 0, "the feature read no pling (answer) to its clicks"); // < 0: a jar without it
                 c.check(pongHits > 0, "the ping tracker was never fed " + pong[2] + " ms");
                 // No click is handled before its note: a wrong click may only be a late one of the spike (steps 12-14).
                 for (JsonObject k : clicks) {
