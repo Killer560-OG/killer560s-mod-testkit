@@ -94,6 +94,7 @@ final class HxBloodCampCases {
         s.test("1119-bloodcamp-mage-only-swap", HxBloodCampCases::mageOnlySwap);
         s.test("1101-bloodcamp-teleport-step", HxBloodCampCases::teleportStep);
         s.test("1101-bloodcamp-stats", HxBloodCampCases::stats);
+        s.test("1123-bloodcamp-nonmage-stats", HxBloodCampCases::nonMageStats);
         s.test("1102-bloodcamp-watcher-bar", HxBloodCampCases::watcherBar);
         s.test("1102-bloodcamp-npc-deaths", HxBloodCampCases::npcDeaths);
         s.test("1102-bloodcamp-hud-boss", HxBloodCampCases::hudBoss);
@@ -2188,11 +2189,138 @@ final class HxBloodCampCases {
         }
     }
 
+    /** bloodcamp-nonmage-1123: he played Archer and only leaped into the Mage's camp (his 11-23 17:00 run sent "Blood Camp: 261
+     *  ticks lost" as his own). In the room after the kill timer with a known non-Mage class he did not camp: no party line
+     *  unless Send For Any Class is on (then one); a Mage in the same spot camped. Tab: a Mage mate, or nobody else. */
+    private static void nonMageStats(Session c) {
+        String me = HxKit.self(c);
+        try (HxKit.Settings s = base(c)) {
+            s.with(BC_CFG, "PartyMessage", true).with(BC_CFG, "PartyMessageLag", false);
+            c.hx().stub(null, "pc");
+            // class, Mage mate in the tab, Send For Any Class -> camped, messages sent
+            nonMageCamp(c, me, "Archer", "ARCHER", true, false, 0, false, 0);
+            nonMageCamp(c, me, "Archer", "ARCHER", false, false, 0, false, 0);
+            nonMageCamp(c, me, "Archer", "ARCHER", true, true, 0, false, 1);
+            nonMageCamp(c, me, "Mage", "MAGE", false, false, 0, true, 1);
+            // owner 11-23: an Archer who really kills the blood mobs camps (3 or more of his own kills), one who killed one or two does not
+            nonMageCamp(c, me, "Archer", "ARCHER", true, false, 4, true, 1);
+            nonMageCamp(c, me, "Archer", "ARCHER", true, false, 2, false, 0);
+            // the real path (no test seam): three blood mobs killed with his look on each and his left button held / an item use
+            nonMageCamp(c, me, "Archer", "ARCHER", true, false, 3, true, 1, "attack");
+            nonMageCamp(c, me, "Archer", "ARCHER", true, false, 3, true, 1, "use");
+            nonMageCamp(c, me, "Archer", "ARCHER", true, false, 3, false, 0, "none");
+            nonMageCamp(c, me, "Archer", "ARCHER", true, false, 3, false, 0, "away");
+            nonMageCamp(c, me, "Archer", "ARCHER", true, false, 2, false, 0, "attack");
+        } finally {
+            c.ctx().runOnClient(mc -> mc.options.keyAttack.setDown(false));
+            c.hx().removeStands();
+            clearDecoys(c);
+            // his class must not leak into the next case (1101-bloodcamp-stats reads an unknown class as a Mage)
+            HxKit.tab(c, "template", "area", "area", "Hub");
+            c.waitUntil("no class left", mc -> Mod.staticCall("leapmenu.PartyTracker", "selfClass") == null, 100);
+        }
+    }
+
+    private static void nonMageCamp(Session c, String me, String cls, String want, boolean mageMate, boolean anyClass,
+                                    int ownKills, boolean wantCamped, int wantSent) {
+        nonMageCamp(c, me, cls, want, mageMate, anyClass, ownKills, wantCamped, wantSent, null);
+    }
+
+    /** {@code how}: null = the test seam; "attack" = left button held and a look on each mob; "use" = an item use before each
+     *  kill; "none" = look on each mob, no click; "away" = button held but the look elsewhere. All kill real tagged husks. */
+    private static void nonMageCamp(Session c, String me, String cls, String want, boolean mageMate, boolean anyClass,
+                                    int ownKills, boolean wantCamped, int wantSent, String how) {
+        String tag = cls + (mageMate ? " with a Mage mate" : " alone") + (anyClass ? ", any class" : "") + ", own kills " + ownKills
+                + (how == null ? "" : " (" + how + ")");
+        c.onClient(mc -> {
+            Mod.staticCall(BC_MT, "reset");
+            Mod.call(Mod.cfg(BC_CFG), "setPartyMessageAnyClass", anyClass);
+            return null;
+        });
+        HxKit.tab(c, "template", "dungeon", "players", mageMate ? List.of(HxKit.player("HxMateA", "Mage", "[MVP+]"), HxKit.player(me, cls, null))
+                : List.of(HxKit.player(me, cls, null)));
+        c.waitUntil("detected class " + want, mc -> want.equals(String.valueOf(Mod.staticCall("leapmenu.PartyTracker",
+                "detectedClassOf", me))), 60);
+        watcher(c, WATCHER_IN);
+        stand(c, 0f, 0f);
+        if (how != null) {
+            for (int k = 0; k < 3; k++) {
+                taggedHusk(c, "own" + k, "Revoker 1M❤", PX + REAL_DX[k], PZ + REAL_DZ[k]);
+            }
+        }
+        c.hx().chat("[BOSS] The Watcher: Ah, you've finally arrived.");
+        c.ctx().waitTicks(5);
+        c.hx().chat("[BOSS] The Watcher: Let's see how you can handle this.");
+        c.ctx().waitTicks(5);
+        int sent0 = c.onClient(mc -> (Integer) Mod.staticCall(BC_STATS, "partyMessagesSent"));
+        c.onClient(mc -> {
+            long elapsed = (Long) Mod.staticCall(BC_MT, "elapsedSinceGreeting");
+            int lead = (Integer) Mod.call(Mod.cfg(BC_CFG), "getKillPopupLeadTicks");
+            Mod.setField(BC_MT, "moveAtElapsed", elapsed + 10 + lead);
+            return null;
+        });
+        c.waitUntil("the kill timer goes off (" + tag + ")", mc -> "WAITING_SPAWN".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
+        c.onClient(mc -> Mod.staticCall(BC_STATS, "tripMobLandedForTest", -1));
+        for (int k = 0; k < ownKills; k++) {
+            if (how == null) {
+                int id = 910000 + k;
+                c.onClient(mc -> Mod.staticCall(BC_STATS, "ownKillForTest", id));
+            } else {
+                realKill(c, how, k);
+            }
+        }
+        c.ctx().runOnClient(mc -> mc.options.keyAttack.setDown(false));
+        c.ctx().waitTicks(20);
+        c.hx().chat("[BOSS] The Watcher: You have proven yourself. You may pass.");
+        c.ctx().waitTicks(5);
+        boolean camped = c.onClient(mc -> (Boolean) Mod.staticCall(BC_STATS, "camped"));
+        int sent = c.onClient(mc -> (Integer) Mod.staticCall(BC_STATS, "partyMessagesSent")) - sent0;
+        c.note(tag + ": camped " + camped + ", party lines " + sent);
+        c.check(camped == wantCamped, tag + ": camped read " + camped + ", want " + wantCamped);
+        c.check(sent == wantSent, tag + ": party lines sent " + sent + ", want " + wantSent);
+        c.hx().removeStands();
+        if (how != null) {
+            clearDecoys(c);
+        }
+    }
+
+    /** Mob offsets from his spot (south, east, west), 4 blocks out. */
+    private static final double[] REAL_DX = {0, 4, -4};
+    private static final double[] REAL_DZ = {4, 0, 0};
+    private static final float[] REAL_YAW = {0f, -90f, 90f};
+
+    /** Kill tagged husk {@code own<k>} the way a player does: look at it (or away), click, and the server kills it. */
+    private static void realKill(Session c, String how, int k) {
+        float yaw = "away".equals(how) ? REAL_YAW[k] + 180f : REAL_YAW[k];
+        c.onClient(mc -> {
+            mc.player.setYRot(yaw);
+            mc.player.setXRot(9f);
+            return null;
+        });
+        c.ctx().waitTicks(3);
+        boolean hold = "attack".equals(how) || "away".equals(how);
+        if (hold) {
+            c.ctx().runOnClient(mc -> mc.options.keyAttack.setDown(true));
+        }
+        if ("use".equals(how)) {
+            c.ctx().runOnClient(mc -> mc.gameMode.useItem(mc.player, net.minecraft.world.InteractionHand.MAIN_HAND));
+        }
+        c.ctx().waitTicks(2);
+        c.server().command("kill @e[name=own" + k + "]");
+        c.ctx().waitTicks(6);
+        if (hold) {
+            c.ctx().runOnClient(mc -> mc.options.keyAttack.setDown(false));
+        }
+        c.ctx().waitTicks(3);
+    }
+
     private static void stats(Session c) {
         try (HxKit.Settings s = base(c)) {
             s.with(BC_CFG, "HudMobTicks", true).with(BC_CFG, "HudMobsLeft", true).with(BC_CFG, "HudCampLag", true)
                     .with(BC_CFG, "PartyMessage", true).with(BC_CFG, "PartyMessageAnyClass", false)
                     .with(BC_CFG, "PartyMessageLag", true);
+            // The session's default tab shows him as an Archer, who only stood there is not camping (bloodcamp-nonmage-1123): he is the Mage here.
+            showClass(c, HxKit.self(c), "Mage", "MAGE");
             watcher(c, WATCHER_IN);
             stand(c, 0f, 0f);
             taggedHusk(c, "stat1", "Revoker 1M❤", -421.0, -417.5);

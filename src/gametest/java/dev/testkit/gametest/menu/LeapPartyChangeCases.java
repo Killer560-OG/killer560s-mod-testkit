@@ -55,6 +55,7 @@ final class LeapPartyChangeCases {
         MenuSuite.test(s, "1102-menu-leaporder-ownpick", LeapPartyChangeCases::ownPick);
         MenuSuite.test(s, "1102-menu-leaporder-ownselected", LeapPartyChangeCases::ownSelected);
         MenuSuite.test(s, "1110-party-left-in-dungeon", LeapPartyChangeCases::leftInDungeon);
+        MenuSuite.test(s, "1123-menu-leaporder-override-kept", LeapPartyChangeCases::overrideKept);
     }
 
     // ---- helpers ------------------------------------------------------------------------------------------------------
@@ -242,6 +243,32 @@ final class LeapPartyChangeCases {
             }
             c.note("mid-run replacement: " + before + " -> during " + during + " -> next run " + after + "; " + out);
         } finally {
+            LeapRunMemoryCases.restore(c, sv);
+        }
+    }
+
+    // ---- 1123-menu-leaporder-override-kept ----------------------------------------------------------------------------
+
+    /** killer560 11-23 "keep it to my selection": LrC (tab list Healer) is set to Tank by hand; next run the tab list says
+     *  LrC is a Mage and LrB (Auto) a Healer. LrC keeps the Tank override and no notice names it; LrB follows the tab list. */
+    static void overrideKept(Session c) throws Exception {
+        LeapRunMemoryCases.Saved sv = LeapRunMemoryCases.setUp(c);
+        try {
+            LeapRunMemoryCases.run(c, P);
+            c.onClient(mc -> Mod.staticCall(OVR, "set", "LrC", Mod.enumValue("dungeonclass.DungeonClass", "TANK")));
+            requeue(c);
+            String out = LeapRunMemoryCases.run(c, P, classes(Map.of("LrC", "Mage", "LrB", "Healer")));
+            boolean has = c.onClient(mc -> (Boolean) Mod.staticCall(OVR, "has", "LrC"));
+            c.check(LeapRunMemoryCases.cls(c, "LrB").equals("HEALER"), "the Auto player LrB reads " + LeapRunMemoryCases.cls(c, "LrB")
+                    + ", the tab list says HEALER (" + out + ")");
+            c.check(has && LeapRunMemoryCases.cls(c, "LrC").equals("TANK"), "LrC's Tank override was lost: has " + has + ", class "
+                    + LeapRunMemoryCases.cls(c, "LrC") + " (" + out + ")");
+            c.check(!out.contains("LrC MAGE") && !out.contains("LrC HEALER->MAGE") && !out.contains("class changed [LrC"),
+                    "the run start acted on LrC's tab-list change: " + out);
+            c.check(LeapRunMemoryCases.layout(c).equals(plain(c)), "layout " + LeapRunMemoryCases.layout(c) + ", want " + plain(c));
+            c.note("override kept: " + out);
+        } finally {
+            c.onClient(mc -> Mod.staticCall(OVR, "clear", "LrC"));
             LeapRunMemoryCases.restore(c, sv);
         }
     }
