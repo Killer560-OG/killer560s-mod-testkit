@@ -36,9 +36,10 @@ import java.util.List;
  *       (nothing read, judged, moved or sent), then the owed harp ticks run {@link #BURST} a server tick, as a real server
  *       catches up after a stall.</li>
  *   <li>{@code pingMs}: the round trip being faked: the client is shown the board pingMs/2 late and a click is judged
- *       pingMs/2 after it arrives, which is what a real round trip does. {@code pingSteps}: [[step, pingMs], ...] changes
- *       the round trip from that server step on (a spike); a judged click is answered with a pling halfPing later, like
- *       Hypixel's (autoharp-misses-1124).</li>
+ *       pingMs/2 after it arrives, which is what a real round trip does. {@code pingSteps}: [[step, pingMs(, downMs)], ...]
+ *       changes the round trip from that server step on; with downMs only the click's way changes (his spikes on
+ *       Hypixel delayed the clicks, never the board: autoharp-misses-1124). Every judged click is answered with a
+ *       pling downMs later, as Hypixel answers every harp click.</li>
  * </ul>
  * Events: {@code harp.click} {slot, col, step, ok, ms (into its step), rx (received, ms clock mod 100000)},
  * {@code harp.render} {step, at, adv}, {@code harp.freeze} {step, ticks, at}, {@code harp.miss} {j, col}, {@code harp.done} {ok, wrong, missed}.
@@ -51,7 +52,9 @@ final class HxHarp implements HxMenus.Ticking {
 
     private final int[][] notes;
     private final int stepTicks;
-    private long halfPingMs;
+    /** One-way delays being faked: a click is judged upMs after it arrives, the board is shown downMs late. */
+    private long upMs;
+    private long downMs;
     private int[][] pingSteps = new int[0][];
     /** When each judged click's pling is due (ms), oldest first. */
     private final Deque<Long> acks = new ArrayDeque<>();
@@ -76,7 +79,8 @@ final class HxHarp implements HxMenus.Ticking {
     private HxHarp(int[][] notes, int stepTicks, int pingMs, int[][] stalls) {
         this.notes = notes;
         this.stepTicks = stepTicks;
-        this.halfPingMs = pingMs / 2L;
+        this.upMs = pingMs / 2L;
+        this.downMs = pingMs / 2L;
         this.stalls = stalls;
         this.played = new boolean[notes.length][7];
     }
@@ -128,10 +132,11 @@ final class HxHarp implements HxMenus.Ticking {
         }
         if (a.has("pingSteps")) {
             JsonArray ps = a.getAsJsonArray("pingSteps");
-            h.pingSteps = new int[ps.size()][2];
+            h.pingSteps = new int[ps.size()][3];
             for (int i = 0; i < ps.size(); i++) {
                 h.pingSteps[i][0] = ps.get(i).getAsJsonArray().get(0).getAsInt();
                 h.pingSteps[i][1] = ps.get(i).getAsJsonArray().get(1).getAsInt();
+                h.pingSteps[i][2] = ps.get(i).getAsJsonArray().size() > 2 ? ps.get(i).getAsJsonArray().get(2).getAsInt() : -1;
             }
         }
         h.hist.add(new long[]{now(), 0});
@@ -202,7 +207,7 @@ final class HxHarp implements HxMenus.Ticking {
                     Identifier.parse("minecraft:block.note_block.pling"))), SoundSource.MASTER, player.getX(), player.getY(),
                     player.getZ(), 1f, 1f, player.getRandom().nextLong()));
         }
-        int show = logicalAt(now - halfPingMs);
+        int show = logicalAt(now - downMs);
         if (show > shownN) {
             render(server, menu, show);
             JsonObject r = new JsonObject();
@@ -230,7 +235,8 @@ final class HxHarp implements HxMenus.Ticking {
             hist.add(new long[]{now, n});
             for (int[] ps : pingSteps) {
                 if (ps[0] == n) {
-                    halfPingMs = ps[1] / 2L;
+                    downMs = ps[2] < 0 ? ps[1] / 2L : ps[2];
+                    upMs = ps[1] - downMs;
                 }
             }
             int gone = n - 5;
@@ -272,9 +278,9 @@ final class HxHarp implements HxMenus.Ticking {
         e.addProperty("step", step);
         e.addProperty("ok", right);
         e.addProperty("ms", at - stepStart(step));
-        e.addProperty("rx", (at - halfPingMs) % 100000);
+        e.addProperty("rx", (at - upMs) % 100000);
         HxEvents.custom("harp.click", player, e);
-        acks.addLast(now() + halfPingMs);
+        acks.addLast(now() + downMs);
     }
 
     private static boolean contains(int[] a, int v) {
@@ -311,7 +317,7 @@ final class HxHarp implements HxMenus.Ticking {
             // tick got to it: a real server's own stall does not lengthen the network's one-way delay.
             long now = now();
             long at = HxEvents.clickArrivalMs;
-            h.pending.addLast(new long[]{(at > 0 && at <= now && now - at < 2000 ? at : now) + h.halfPingMs, slot});
+            h.pending.addLast(new long[]{(at > 0 && at <= now && now - at < 2000 ? at : now) + h.upMs, slot});
         }
     }
 }
