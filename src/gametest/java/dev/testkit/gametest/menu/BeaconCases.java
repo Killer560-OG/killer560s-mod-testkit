@@ -85,9 +85,15 @@ final class BeaconCases {
             java.util.Arrays.fill(items, ItemStack.EMPTY);
             Mod.staticCall(TUNER, "reset");
             java.util.Map<Integer, String> out = new java.util.HashMap<>();
+            String last = null;
             int i = 0;
             while (i < rows.size()) {
                 int tick = Integer.parseInt(rows.get(i)[0]);
+                for (int t : at) { // a requested tick with no recorded row: what the tuner said after the last row before it
+                    if (t < tick && last != null && !out.containsKey(t)) {
+                        out.put(t, last);
+                    }
+                }
                 for (; i < rows.size() && Integer.parseInt(rows.get(i)[0]) == tick; i++) {
                     String[] r = rows.get(i);
                     if (r[1].equals("S")) {
@@ -98,9 +104,10 @@ final class BeaconCases {
                 }
                 java.util.function.IntFunction<ItemStack> item = k -> items[k];
                 Mod.staticCall(TUNER, "step", item, upgrade, (long) tick);
+                last = String.join(" // ", (String[]) Mod.staticCall(TUNER, "lines")) + " || " + String.join(",", (String[]) Mod.staticCall(TUNER, "hints"));
                 for (int t : at) {
                     if (t == tick) {
-                        out.put(t, String.join(" // ", (String[]) Mod.staticCall(TUNER, "lines")) + " || " + String.join(",", (String[]) Mod.staticCall(TUNER, "hints")));
+                        out.put(t, last);
                     }
                 }
             }
