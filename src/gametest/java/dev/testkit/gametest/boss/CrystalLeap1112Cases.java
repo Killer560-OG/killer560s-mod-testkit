@@ -69,7 +69,7 @@ final class CrystalLeap1112Cases {
     }
 
     /** F7 boss, P1 height, the leap in slot 0, a Spirit Leap menu with MATE's head answering the use. */
-    private static AutoCloseable setUp(Session c, String leapMode, boolean foe) {
+    static AutoCloseable setUp(Session c, String leapMode, boolean foe) {
         c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
         c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
         DungeonFixBossCases.floor(c, X, Y, Z);
@@ -113,11 +113,11 @@ final class CrystalLeap1112Cases {
         c.ctx().waitTicks(30);
     }
 
-    private static void line(Session c, String text) {
+    static void line(Session c, String text) {
         c.ctx().runOnClient(mc -> Mod.staticCall(FF, "onChat", Component.literal(text)));
     }
 
-    private static String pickup(String name) {
+    static String pickup(String name) {
         return name + " picked up an Energy Crystal!";
     }
 
@@ -147,10 +147,13 @@ final class CrystalLeap1112Cases {
             if (!s.phase().equals("play")) {
                 continue;
             }
-            if (s.text().equals("ServerboundClientTickEndPacket")) {
+            // by class name: the text is the packet's toString ("ServerboundClientTickEndPacket[]", "...Pong@1a2b"), so a text
+            // match never split the ticks and every packet read as tick 0 (crystalleap-lane-fix-1124)
+            String n = s.className().substring(s.className().lastIndexOf('.') + 1);
+            if (n.equals("ServerboundClientTickEndPacket")) {
                 out.add(cur);
                 cur = new ArrayList<>();
-            } else if (!s.text().equals("ServerboundKeepAlivePacket") && !s.text().equals("ServerboundPongPacket")) {
+            } else if (!n.equals("ServerboundKeepAlivePacket") && !n.equals("ServerboundPongPacket")) {
                 cur.add(s.text());
             }
         }
@@ -370,8 +373,13 @@ final class CrystalLeap1112Cases {
                     // his right click with the leap in hand is the leap's own use (the menu opens on it): one use, in the leap's tick
                     c.check(count("UseItem") >= 1 && clicks == 1, "use-key: " + count("UseItem") + " uses, " + clicks + " menu clicks");
                 }
-                case "attack" -> c.check(firstTick("AttackPacket") == leapTick || firstTick("InteractPacket") == leapTick,
-                        "his attack was not in the leap's tick " + leapTick + ": " + ticks());
+                // ActionGate gives his queued attack its tick and the use goes the next one (a use before his attack in one
+                // tick is PacketOrderI); this read "same tick" while the tick split was broken and every packet was tick 0
+                case "attack" -> {
+                    int his = Math.max(firstTick("AttackPacket"), firstTick("InteractPacket"));
+                    c.check(his >= 0 && leapTick == his + 1, "his attack in tick " + his + ", the leap's use in tick " + leapTick
+                            + ", want the very next one: " + ticks());
+                }
                 case "swap" -> c.check(firstTick("SetCarriedItem") >= 0, "his hotbar swap never went out: " + ticks());
                 default -> c.check(clicks >= 2, "his container click and the leap's click: " + clicks + " clicks, want 2");
             }
