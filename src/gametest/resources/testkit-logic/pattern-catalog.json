@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T21:27:55",
- "modSource": "lane-bloodcamp-nonmage-1123",
- "modGitSha": "5c52f9c62bae1cd86e19f423faeaed75c3bb6c7d",
+ "generatedAt": "2026-11-23T22:10:05",
+ "modSource": "lane-autoanvil-wiki-1123",
+ "modGitSha": "446c569761a543c695cb483134ca5bb903db4d18",
  "modSourceDirty": false,
  "count": 977,
  "byKind": {
