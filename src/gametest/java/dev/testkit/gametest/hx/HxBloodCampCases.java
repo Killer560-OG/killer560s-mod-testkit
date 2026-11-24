@@ -2205,14 +2205,33 @@ final class HxBloodCampCases {
             // owner 11-23: an Archer who really kills the blood mobs camps (3 or more of his own kills), one who killed one or two does not
             nonMageCamp(c, me, "Archer", "ARCHER", true, false, 4, true, 1);
             nonMageCamp(c, me, "Archer", "ARCHER", true, false, 2, false, 0);
+            // the real path (no test seam): three blood mobs killed with his look on each and his left button held / an item use
+            nonMageCamp(c, me, "Archer", "ARCHER", true, false, 3, true, 1, "attack");
+            nonMageCamp(c, me, "Archer", "ARCHER", true, false, 3, true, 1, "use");
+            nonMageCamp(c, me, "Archer", "ARCHER", true, false, 3, false, 0, "none");
+            nonMageCamp(c, me, "Archer", "ARCHER", true, false, 3, false, 0, "away");
+            nonMageCamp(c, me, "Archer", "ARCHER", true, false, 2, false, 0, "attack");
         } finally {
+            c.ctx().runOnClient(mc -> mc.options.keyAttack.setDown(false));
             c.hx().removeStands();
+            clearDecoys(c);
+            // his class must not leak into the next case (1101-bloodcamp-stats reads an unknown class as a Mage)
+            HxKit.tab(c, "template", "area", "area", "Hub");
+            c.waitUntil("no class left", mc -> Mod.staticCall("leapmenu.PartyTracker", "selfClass") == null, 100);
         }
     }
 
     private static void nonMageCamp(Session c, String me, String cls, String want, boolean mageMate, boolean anyClass,
                                     int ownKills, boolean wantCamped, int wantSent) {
-        String tag = cls + (mageMate ? " with a Mage mate" : " alone") + (anyClass ? ", any class" : "") + ", own kills " + ownKills;
+        nonMageCamp(c, me, cls, want, mageMate, anyClass, ownKills, wantCamped, wantSent, null);
+    }
+
+    /** {@code how}: null = the test seam; "attack" = left button held and a look on each mob; "use" = an item use before each
+     *  kill; "none" = look on each mob, no click; "away" = button held but the look elsewhere. All kill real tagged husks. */
+    private static void nonMageCamp(Session c, String me, String cls, String want, boolean mageMate, boolean anyClass,
+                                    int ownKills, boolean wantCamped, int wantSent, String how) {
+        String tag = cls + (mageMate ? " with a Mage mate" : " alone") + (anyClass ? ", any class" : "") + ", own kills " + ownKills
+                + (how == null ? "" : " (" + how + ")");
         c.onClient(mc -> {
             Mod.staticCall(BC_MT, "reset");
             Mod.call(Mod.cfg(BC_CFG), "setPartyMessageAnyClass", anyClass);
@@ -2224,6 +2243,11 @@ final class HxBloodCampCases {
                 "detectedClassOf", me))), 60);
         watcher(c, WATCHER_IN);
         stand(c, 0f, 0f);
+        if (how != null) {
+            for (int k = 0; k < 3; k++) {
+                taggedHusk(c, "own" + k, "Revoker 1M❤", PX + REAL_DX[k], PZ + REAL_DZ[k]);
+            }
+        }
         c.hx().chat("[BOSS] The Watcher: Ah, you've finally arrived.");
         c.ctx().waitTicks(5);
         c.hx().chat("[BOSS] The Watcher: Let's see how you can handle this.");
@@ -2238,9 +2262,14 @@ final class HxBloodCampCases {
         c.waitUntil("the kill timer goes off (" + tag + ")", mc -> "WAITING_SPAWN".equals(Mod.staticCall(BC_STATS, "phaseName")), 60);
         c.onClient(mc -> Mod.staticCall(BC_STATS, "tripMobLandedForTest", -1));
         for (int k = 0; k < ownKills; k++) {
-            int id = 910000 + k;
-            c.onClient(mc -> Mod.staticCall(BC_STATS, "ownKillForTest", id));
+            if (how == null) {
+                int id = 910000 + k;
+                c.onClient(mc -> Mod.staticCall(BC_STATS, "ownKillForTest", id));
+            } else {
+                realKill(c, how, k);
+            }
         }
+        c.ctx().runOnClient(mc -> mc.options.keyAttack.setDown(false));
         c.ctx().waitTicks(20);
         c.hx().chat("[BOSS] The Watcher: You have proven yourself. You may pass.");
         c.ctx().waitTicks(5);
@@ -2250,6 +2279,39 @@ final class HxBloodCampCases {
         c.check(camped == wantCamped, tag + ": camped read " + camped + ", want " + wantCamped);
         c.check(sent == wantSent, tag + ": party lines sent " + sent + ", want " + wantSent);
         c.hx().removeStands();
+        if (how != null) {
+            clearDecoys(c);
+        }
+    }
+
+    /** Mob offsets from his spot (south, east, west), 4 blocks out. */
+    private static final double[] REAL_DX = {0, 4, -4};
+    private static final double[] REAL_DZ = {4, 0, 0};
+    private static final float[] REAL_YAW = {0f, -90f, 90f};
+
+    /** Kill tagged husk {@code own<k>} the way a player does: look at it (or away), click, and the server kills it. */
+    private static void realKill(Session c, String how, int k) {
+        float yaw = "away".equals(how) ? REAL_YAW[k] + 180f : REAL_YAW[k];
+        c.onClient(mc -> {
+            mc.player.setYRot(yaw);
+            mc.player.setXRot(9f);
+            return null;
+        });
+        c.ctx().waitTicks(3);
+        boolean hold = "attack".equals(how) || "away".equals(how);
+        if (hold) {
+            c.ctx().runOnClient(mc -> mc.options.keyAttack.setDown(true));
+        }
+        if ("use".equals(how)) {
+            c.ctx().runOnClient(mc -> mc.gameMode.useItem(mc.player, net.minecraft.world.InteractionHand.MAIN_HAND));
+        }
+        c.ctx().waitTicks(2);
+        c.server().command("kill @e[name=own" + k + "]");
+        c.ctx().waitTicks(6);
+        if (hold) {
+            c.ctx().runOnClient(mc -> mc.options.keyAttack.setDown(false));
+        }
+        c.ctx().waitTicks(3);
     }
 
     private static void stats(Session c) {
