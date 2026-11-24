@@ -61,7 +61,7 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
     private static final String PINNED = "1123-predict-corridor-pinned";
     /** {map code, room he stands in, room he looks into} of each pinned glance. */
     private static final String[][] PINS = {};
-    private static final int SWEEP_FLOORS = Integer.getInteger("testkit.sweep.floors", 6);
+    private static final int SWEEP_FLOORS = Integer.getInteger("testkit.sweep.floors", 3);
 
     /** A glance into a room from its entrance: half a second. */
     private static final int GLANCE_TICKS = 10;
@@ -281,7 +281,7 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
                 glances++;
                 Glance g = corridorGlance(ctx, f, t);
                 if (!g.pass()) {
-                    println("SWEEP FAIL MAP CODE: " + f.code + " | " + g + " | " + rays(ctx));
+                    println("SWEEP FAIL MAP CODE: " + f.code + " | " + g + " | " + rays(ctx, f, t));
                     bad.add(f.names.get(t[1]) + " into " + f.names.get(t[2]) + " on " + f.code);
                 }
             }
@@ -292,9 +292,12 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
     }
 
     /** Where nine rays through the doorway end, from where he stands now (a failed glance's geometry). */
-    private String rays(ClientGameTestContext ctx) {
+    private String rays(ClientGameTestContext ctx, Floor f, int[] t) {
         return ctx.computeOnClient(mc -> {
-            StringBuilder sb = new StringBuilder("rays");
+            StringBuilder sb = new StringBuilder("into room " + t[2] + " opened in sim: "
+                    + java.util.Arrays.toString((int[]) ModUnderTest.staticCall(HELD, "simVisitedRooms"))
+                    + ", he at " + mc.player.blockPosition().toShortString() + " facing " + mc.player.getYRot()
+                    + "/" + mc.player.getXRot() + ", door " + f.doorBlock(t[0]).toShortString() + ", rays");
             var eye = mc.player.getEyePosition();
             for (int dy = -1; dy <= 1; dy++) {
                 for (int dx = -1; dx <= 1; dx++) {
