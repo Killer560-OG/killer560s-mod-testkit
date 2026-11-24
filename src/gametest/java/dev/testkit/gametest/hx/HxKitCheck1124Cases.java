@@ -17,8 +17,8 @@ final class HxKitCheck1124Cases {
 
     private static final String CFG = "kitcheck.KitCheckConfig";
     private static final String F = "kitcheck.KitCheckFeature";
-    private static final String LEAP = "minecraft:ender_pearl[minecraft:custom_data={id:\"SPIRIT_LEAP\"}] ";
-    private static final String BOOM = "minecraft:tnt[minecraft:custom_data={id:\"SUPERBOOM_TNT\"}] ";
+    private static final String LEAP = "minecraft:ender_pearl[minecraft:custom_data={id:\"SPIRIT_LEAP\"}]";
+    private static final String BOOM = "minecraft:tnt[minecraft:custom_data={id:\"SUPERBOOM_TNT\"}]";
     private static final String GOD = "§aActive Effects\n§dYou have a §cGod Potion §dactive! §f22:00:00";
     private static final String NO_GOD = "§aActive Effects\n§7Strength";
 
@@ -38,8 +38,9 @@ final class HxKitCheck1124Cases {
     }
 
     private static void kit(Session c, int leaps, int boom, String footer) {
-        c.hx().give(0, LEAP + leaps);
-        c.hx().give(1, BOOM + boom);
+        for (int i = 0; i < 8; i++) {
+            c.hx().give(i, i < leaps ? LEAP : i >= 4 && i < 4 + boom ? BOOM : "minecraft:air");
+        }
         c.hx().tab(List.of("§r§b§lArea: §r§7Catacombs"), null, footer);
         c.ctx().waitTicks(5);
     }
@@ -97,7 +98,7 @@ final class HxKitCheck1124Cases {
             }
             // Never clicks, swaps or equips: the selected slot and the counts are as they were.
             c.check(c.onClient(mc -> mc.player.getInventory().getSelectedSlot()) == slot, "the selected slot moved");
-            c.check(c.onClient(mc -> mc.player.getInventory().getItem(0).getCount()) == 4, "the leap stack changed");
+            c.check(c.onClient(mc -> mc.player.getInventory().getItem(3).getCount()) == 1, "the leap stack changed");
             // Outside a dungeon nothing runs.
             HxKit.hub(c);
             countdown(c, 5, false, "the hub countdown");
