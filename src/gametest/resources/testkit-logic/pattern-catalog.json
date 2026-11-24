@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T02:31:14",
- "modSource": "lane-treeregen-broken-1124",
- "modGitSha": "295dc1e4619257805d17a6fbd48476dd05afcf89",
+ "generatedAt": "2026-11-24T02:39:00",
+ "modSource": "lane-idea-roomcosts-1124",
+ "modGitSha": "9002533b80505b0b246cfdd2d1c0d39606fcd0f6",
  "modSourceDirty": false,
  "count": 987,
  "byKind": {
