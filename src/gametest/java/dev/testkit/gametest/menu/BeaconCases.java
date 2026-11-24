@@ -23,6 +23,7 @@ final class BeaconCases {
         MenuSuite.test(s, "1122-menu-beacon-ready", BeaconCases::ready);
         MenuSuite.test(s, "1122-menu-beacon-tuner", BeaconCases::tuner);
         MenuSuite.test(s, "1123-menu-beacon-upgrade", BeaconCases::upgrade);
+        MenuSuite.test(s, "1123-menu-beacon-tune2", BeaconCases::tune2);
     }
 
     private static void ready(Session c) throws Exception {
@@ -111,8 +112,8 @@ final class BeaconCases {
         Object[] u = c.onClient(mc -> new Object[]{Mod.staticCall(SOLVER, "speedFromPeriod", 15), Mod.staticCall(SOLVER, "speedFromPeriod", 55),
                 Mod.staticCall(SOLVER, "speedFromPeriod", 35), Mod.staticCall(SOLVER, "pitchLevel", 0.095f), Mod.staticCall(SOLVER, "pitchLevel", 0.794f),
                 Mod.staticCall(SOLVER, "pitchLevel", 1.492f), Mod.staticCall(SOLVER, "presses", 5, 1, 5), Mod.staticCall(SOLVER, "presses", 0, 2, 3),
-                Mod.staticCall(SOLVER, "presses", 11, 12, 13), Mod.staticCall(SOLVER, "presses", 12, 0, 13)});
-        c.check(java.util.Arrays.equals(u, new Object[]{5, 1, 3, 0, 1, 2, 1, -1, 1, 1}), "arithmetic read " + java.util.Arrays.toString(u));
+                Mod.staticCall(SOLVER, "presses", 11, 12, 13), Mod.staticCall(SOLVER, "presses", 12, 0, 13), Mod.staticCall(SOLVER, "presses", 2, 0, 3)});
+        c.check(java.util.Arrays.equals(u, new Object[]{5, 1, 3, 0, 1, 2, 1, -1, 1, 1, 1}), "arithmetic read " + java.util.Arrays.toString(u));
         java.util.Map<Integer, String> r = replay(c, "beacon-tune-1123.tsv", false, 10823, 10873, 11149);
         c.note("tune replay: first " + r.get(10823) + " ## second step " + r.get(10873) + " ## last " + r.get(11149));
         String a = r.get(10823);
@@ -122,6 +123,21 @@ final class BeaconCases {
         String z = r.get(11149);
         c.check(z != null && z.startsWith("Color: matched | Speed: matched | Pitch: left x1 | in step (beacon: green, speed 1, high) || 50:L1"),
                 "the moment before the working click (Pitch left, as the player did) read " + z);
+    }
+
+    /**
+     * A second recorded tune (11-23 6:32 PM): a yellow beacon beat at speed 4 and High, the player starting magenta, speed 3,
+     * High, stepping Speed 5 to 1, Pitch High to Low and Color red to white as the wraps the recording proved. Replays it and
+     * checks what the tuner said with Pitch at Low (a right click wraps to High) and while paused.
+     */
+    private static void tune2(Session c) throws Exception {
+        java.util.Map<Integer, String> r = replay(c, "beacon-tune2-1123.tsv", false, 1348, 1415);
+        String a = r.get(1348);
+        c.note("tune2 replay: Low " + a + " ## paused " + r.get(1415));
+        c.check(a != null && a.startsWith("Color: left x2 | Speed: left x1 | Pitch: right x1") && a.contains("(beacon: yellow, speed 4, high)") && a.endsWith("|| 46:L2,48:L1,50:R1"),
+                "yellow beacon beat read from the replay: " + a);
+        String p = r.get(1415);
+        c.check(p != null && p.contains("(beacon: yellow, speed 4, high)"), "still reading the beacon while paused: " + p);
     }
 
     /** The recorded Upgrade Signal Strength menu (two beats; its buttons' lore was not recorded): both beacon beats measured. */
