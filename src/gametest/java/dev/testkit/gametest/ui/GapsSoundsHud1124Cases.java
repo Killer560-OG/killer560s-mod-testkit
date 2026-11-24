@@ -65,7 +65,7 @@ final class GapsSoundsHud1124Cases {
 
     static void rows(UiCase c) {
         String[][] huds = {{"Split Timers", "split_timers", "false"}, {"Tick Timers", "tick_timers", "false"},
-                {"Mask Invincibility", "mask_invincibility", "false"}, {"Secrets HUD", "dungeon_info", "false"},
+                {"Mask Invincibility", "mask_invincibility", "false"}, {"Secret", "dungeon_info", "false"},
                 {"Puzzle HUD", "puzzle_hud", "true"}, {"Leap Counter", "leap_counter", "true"}, {"Boss Health", "boss_health", "true"},
                 {"Wither Dragons", "wither_dragon_timers", "true"}, {"Wither Dragons", "king_relic_timer", "true"}};
         try {
