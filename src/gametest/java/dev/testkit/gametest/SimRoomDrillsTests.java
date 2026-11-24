@@ -60,6 +60,9 @@ public class SimRoomDrillsTests implements FabricClientGameTest {
                     "Weak Rooms with no times did not say 'not enough data yet': " + LogTap.since(m0));
             check(failures, Scenario.simBuildCount(ctx) == builds, "Weak Rooms with no times built a room");
 
+            // ---- mobs on: without them the sim clears a room on entry and a load is not timed ------------------
+            ctx.runOnClient(mc -> ModUnderTest.staticCall("com.killer560.hub.roomsim.SimMobFloor", "setEnabled",
+                    new Class<?>[]{boolean.class}, new Object[]{true}));
             // ---- time five rooms from All Rooms ----------------------------------------------------------
             long before = Scenario.simBuildCount(ctx);
             SimRoomCycleTests.press(ctx, l -> l.startsWith("All Rooms (") && Character.isDigit(l.charAt(11)), "All Rooms");
@@ -80,6 +83,12 @@ public class SimRoomDrillsTests implements FabricClientGameTest {
                 check(failures, !(Boolean) ctx.computeOnClient(mc -> ModUnderTest.staticCall(STATE, "isCleared",
                         new Class<?>[]{String.class}, new Object[]{room})), room + " was already cleared on load");
                 ctx.waitFor(mc -> stats(mc).contains("started=true"), 400);
+                int placedMobs = ctx.computeOnClient(mc -> (Integer) ModUnderTest.staticCall(
+                        "com.killer560.hub.roomsim.SimLiveMobs", "placedIn", new Class<?>[]{String.class}, new Object[]{room}));
+                System.out.println("[" + NAME + "] " + room + ": starred mobs placed " + placedMobs);
+                if (i == 0) {
+                    check(failures, placedMobs > 0, "no mobs were placed in " + room + " by the timer start");
+                }
                 check(failures, stats(ctx).contains("finished=false") && stats(ctx).contains("room=" + room),
                         "timer not running for " + room + ": " + stats(ctx));
                 ctx.waitTicks(WAIT[i]);
