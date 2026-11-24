@@ -54,8 +54,10 @@ final class MelodyStall1123Cases {
             int totalWrong = 0;
             int stalls = 0;
             List<String> problems = new ArrayList<>();
-            for (int b = 0; b < BOARDS.length; b++) {
-                int[] targets = BOARDS[b];
+            for (int b = -1; b < BOARDS.length; b++) {
+                // Board -1 is a warm-up: the mod learns this server's row delay from one live row change, as it does in a real run.
+                boolean warm = b < 0;
+                int[] targets = BOARDS[Math.max(b, 0)];
                 int stallBefore = c.onClient(mc -> (Integer) Mod.field(FEATURE, "stallResets"));
                 int clickHead = c.events("terminal.click").size();
                 int solvedHead = c.events("terminal.solved").size();
@@ -85,6 +87,9 @@ final class MelodyStall1123Cases {
                     if (e.get("correct").getAsBoolean()) {
                         good.add(e.get("tick").getAsLong());
                     }
+                }
+                if (warm) {
+                    continue;
                 }
                 totalTicks += ticks;
                 totalWrong += wrong;
