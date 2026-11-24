@@ -28,6 +28,15 @@ final class ArrowDevP3Only1124Cases {
         s.test("1124-boss-arrowdev-p3only-aura", ArrowDevP3Only1124Cases::aura);
     }
 
+    /** F7 sidebar + Necron's line: phase P4, which the tracker never turns into P3 by standing in the band. */
+    private static void outsideP3(Session c) {
+        c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
+        c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
+        c.hx().chat("[BOSS] Necron: Finally, I heard so much about you. The Eye likes you very much.");
+        c.waitUntil("Floor7Tracker phase P4",
+                mc -> "P4".equals(String.valueOf(Mod.staticCall(TerminalAuraCases.TRACKER, "getPhase"))), 100);
+    }
+
     private static int frameId(Session c, int idx) {
         BlockPos at = new BlockPos(-2, 120 + idx % 5, 75 + idx / 5);
         return c.onClient(mc -> mc.level.getEntitiesOfClass(ItemFrame.class, WALL).stream()
@@ -64,11 +73,10 @@ final class ArrowDevP3Only1124Cases {
                      .with(cfg, "TriggerBotEnabled", true).with(cfg, "TriggerBotOnlyP3", true)
                      .custom(() -> Mod.call(Mod.cfg(cfg), "setTriggerBotDelayRange", 50, 50),
                              () -> Mod.call(Mod.cfg(cfg), "setTriggerBotDelayRange", was[0], was[1]))) {
-            c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
-            c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
+            outsideP3(c);
             BossTriggerDelayCases.buildWall(c);
-            c.check("UNKNOWN".equals(String.valueOf(c.<Object>onClient(mc -> Mod.staticCall(TerminalAuraCases.TRACKER, "getPhase")))),
-                    "not outside P3 at the start");
+            c.check("P4".equals(String.valueOf(c.<Object>onClient(mc -> Mod.staticCall(TerminalAuraCases.TRACKER, "getPhase")))),
+                    "not outside P3 (P4) at the start");
             long onOutside = fire(c, 7);
             c.check(solverActive(c), "solver not showing outside P3 with the option ON");
             c.note("trigger ON outside P3: " + onOutside + " (-1 = never fired)");
@@ -118,8 +126,7 @@ final class ArrowDevP3Only1124Cases {
                      .with(cfg, "PreventMisclicksEnabled", false).with(cfg, "TriggerBotEnabled", false)
                      .with(cfg, "AuraEnabled", true).with(cfg, "AuraOnlyP3", true).with(cfg, "AuraLeaveLastArrow", false)
                      .with(cfg, "AuraCooldownMs", 50)) {
-            c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
-            c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
+            outsideP3(c);
             BossTriggerDelayCases.buildWall(c);
             int onOutside = clicksIn(c, 60);
             c.note("aura ON outside P3: " + onOutside + " clicks");
