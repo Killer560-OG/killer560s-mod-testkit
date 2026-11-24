@@ -268,6 +268,16 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
 
     /** True when door {@code t[0]} has nothing in it and a clear line from {@link #CORRIDOR_BACK} short of it. */
     private boolean corridorUsable(ClientGameTestContext ctx, Floor f, int[] t) {
+        // A chunk the client has not got reads as air everywhere, so the line would pass through walls it cannot see
+        // yet (Three Weirdos into Quartz Knight, rp3-s3: he stood with a wall one block in front, 0 blocks seen).
+        double[] dc = f.doorCentre(t[0]);
+        double[] u = f.toward(t[1], t[0]);
+        BlockPos from = BlockPos.containing(dc[0] - u[0] * CORRIDOR_BACK, dc[1] + 1, dc[2] - u[1] * CORRIDOR_BACK);
+        if (!ctx.computeOnClient(mc -> mc.level.isLoaded(from) && mc.level.isLoaded(f.doorBlock(t[0])))) {
+            place(ctx, new double[]{from.getX() + 0.5, dc[1] + 0.2, from.getZ() + 0.5}, new double[]{dc[0], dc[1] + 1.0, dc[2]});
+            ctx.waitFor(mc -> mc.level.isLoaded(from) && mc.level.isLoaded(f.doorBlock(t[0])), 400);
+            ctx.waitTicks(2);
+        }
         return ctx.computeOnClient(mc -> mc.level.getBlockState(f.doorBlock(t[0])).isAir()
                 && mc.level.getBlockState(f.doorBlock(t[0]).above()).isAir()) && clearLine(ctx, f, t, CORRIDOR_BACK);
     }
@@ -325,19 +335,17 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
             }
             return out;
         });
-        List<String> srv;
-        try {
-            srv = server.submit(() -> {
-                var lvl = server.getLevel(dim);
-                List<String> out = new ArrayList<>();
-                for (BlockPos b : at) {
-                    out.add(lvl == null ? "?" : id(lvl.getBlockState(b)));
-                }
-                return out;
-            }).get();
-        } catch (Exception e) {
-            srv = Collections.nCopies(at.size(), "err " + e);
-        }
+        // The server runs its tasks only as the test lets ticks pass, so wait on ticks, never block on the future.
+        var job = server.submit(() -> {
+            var lvl = server.getLevel(dim);
+            List<String> out = new ArrayList<>();
+            for (BlockPos b : at) {
+                out.add(lvl == null ? "?" : id(lvl.getBlockState(b)));
+            }
+            return out;
+        });
+        ctx.waitFor(mc -> job.isDone(), 200);
+        List<String> srv = job.getNow(Collections.nCopies(at.size(), "?"));
         ctx.waitTicks(40);
         List<String> later = ctx.computeOnClient(mc -> {
             List<String> out = new ArrayList<>();
