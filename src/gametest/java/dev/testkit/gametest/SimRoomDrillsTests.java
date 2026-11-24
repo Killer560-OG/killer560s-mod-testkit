@@ -64,7 +64,7 @@ public class SimRoomDrillsTests implements FabricClientGameTest {
             long before = Scenario.simBuildCount(ctx);
             SimRoomCycleTests.press(ctx, l -> l.startsWith("All Rooms (") && Character.isDigit(l.charAt(11)), "All Rooms");
             Scenario.awaitSimBuild(ctx, before);
-            ctx.waitFor(mc -> net.minecraft.client.Minecraft.getInstance().screen == null, 1200);
+            ctx.waitFor(mc -> dev.testkit.compat.McCompat.screen(mc) == null, 1200);
             @SuppressWarnings("unchecked")
             List<String> all = ctx.computeOnClient(mc -> new ArrayList<>(
                     (List<String>) ModUnderTest.staticCall(CYCLE, "currentRooms")));
@@ -114,7 +114,7 @@ public class SimRoomDrillsTests implements FabricClientGameTest {
             long b2 = Scenario.simBuildCount(ctx);
             SimRoomCycleTests.press(ctx, l -> l.startsWith("Weak Rooms ("), "Weak Rooms");
             Scenario.awaitSimBuild(ctx, b2);
-            ctx.waitFor(mc -> net.minecraft.client.Minecraft.getInstance().screen == null, 1200);
+            ctx.waitFor(mc -> dev.testkit.compat.McCompat.screen(mc) == null, 1200);
             SimRoomCycleTests.awaitLoaded(ctx, expect.get(0));
             @SuppressWarnings("unchecked")
             List<String> drill = ctx.computeOnClient(mc -> new ArrayList<>(
