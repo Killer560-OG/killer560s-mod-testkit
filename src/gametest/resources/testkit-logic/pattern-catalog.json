@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T22:46:03",
- "modSource": "lane-trapedit-memonly-1123",
- "modGitSha": "e2c9405b1a02bae753cfd5904805a11a5e2e8168",
+ "generatedAt": "2026-11-24T01:43:32",
+ "modSource": "lane-roompredictor-1123-fix4",
+ "modGitSha": "01cd964f7059d2b0ce62d28c596ead86c4cc5ff7",
  "modSourceDirty": false,
  "count": 985,
  "byKind": {
