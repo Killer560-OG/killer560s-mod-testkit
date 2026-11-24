@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-23T21:31:08",
- "modSource": "lane-leaporder-reset-1123",
- "modGitSha": "6f4afee80a05ba37aeb14921f11dc565dd569202",
+ "generatedAt": "2026-11-23T22:10:05",
+ "modSource": "lane-autoanvil-wiki-1123",
+ "modGitSha": "446c569761a543c695cb483134ca5bb903db4d18",
  "modSourceDirty": false,
  "count": 977,
  "byKind": {
