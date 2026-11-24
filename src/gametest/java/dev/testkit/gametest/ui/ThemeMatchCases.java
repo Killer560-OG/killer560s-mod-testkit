@@ -91,7 +91,8 @@ final class ThemeMatchCases {
                 "gui.tab.SecretWaypointsTab", 1, "gui.tab.SimonSaysTab", 1, "gui.tab.SlotBindsTab", 1, "gui.tab.SpotifyF5Rows", 1,
                 "gui.tab.ThornTab", 2, "gui.tab.TreasureChestHighlightTab", 1, "gui.tab.WaypointRoutesTab", 1,
                 "mining.deployables.MiningDeployables", 2, "gui.tab.MiningDeployablesTab", 1,
-                "foraging.BeeheemothHighlight", 2, "gui.tab.BeeheemothHighlightTab", 1, "foraging.TreeRegen", 2, "gui.tab.TreeRegenTab", 1);
+                "foraging.BeeheemothHighlight", 2, "gui.tab.BeeheemothHighlightTab", 1, "foraging.TreeRegen", 2, "gui.tab.TreeRegenTab", 1,
+                "foraging.SweepOverlay", 3, "gui.tab.SweepOverlayTab", 1, "gui.tab.SweepOptimalTab", 1, "gui.tab.StorageSearchTab", 1);
         // Crystal Hollows Map waypoint default: stored as the amber literal and mapped onto the theme where it is drawn
         // (CrystalHollowsWaypoint.drawColor -> ThemeAccent.accent); a color the player picked per waypoint stays.
         // MiningQolConfig's second one is OLD_WALL_DEFAULTS' 0xFFAA00, the pre-chwallcolor value migrated on load (data).
