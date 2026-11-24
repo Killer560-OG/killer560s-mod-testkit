@@ -63,6 +63,7 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
     private static final String[][] PINS = {
             // sweep rp2-sweep4: Buttons (4 tiles) ruled out through the doorway from Supertall
             {"MC2:CxUIRW50cmFuY2UGRHVuY2FuCVN1cGVydGFsbAdCdXR0b25zBUZhaXJ5A0VuZAVCbG9vZAVBdGxhcwhJY2UgRmlsbARRdWl6CE9sZCBUcmFwCU92ZXJncm93bgVTdGVwcwtMb3dlciBCbGF6ZQlXYXRlcmZhbGwGRHVlY2VzBlNwaWtlcw1RdWFydHogS25pZ2h0BVNsb3RoBkxlYXZlcwpSYWlsIFRyYWNrAAIDAQAAAAMBAAMBAAMBAQAAAAQCAAQCAAQCAQAAAAoABAAAAAAAAAMBAAMBAAMBAAAAAAQCAAQCAAQCAAAAAAAAAAEDAAAAAAMBAAMBAAMBAAAAAAQCAAQCAAQCAAAAABMBAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAQAAAA4BAAAAAAgBAAgBAAgBAAAAABUDAAAAAAUAAAAAABIAAQAAAAAAAAgBAAgBAAgBAAAAAQAAAAAAAQAAAAAAABIAAAwCAQAAAAgBAAgBAAgBAAAAABQDAAAAAAYBAAAAABIAAQAAAAAAAQAAAAAAAQAAAAAAAQAAAAAAAwAAAAAAABIAAA0BAAAAAAsDAAAAAAkDAAAAABADAAAAAAcBAAAAABIAAQAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAABIAAA8AAA8AAA8AAA8AAA8AAA8AAA8AAQAAABEDAQAAABIA", "Supertall", "Buttons"},
+            {"MC2:CxUIRW50cmFuY2UGRHVuY2FuCVN1cGVydGFsbAdCdXR0b25zBUZhaXJ5A0VuZAVCbG9vZAVBdGxhcwhJY2UgRmlsbARRdWl6CE9sZCBUcmFwCU92ZXJncm93bgVTdGVwcwtMb3dlciBCbGF6ZQlXYXRlcmZhbGwGRHVlY2VzBlNwaWtlcw1RdWFydHogS25pZ2h0BVNsb3RoBkxlYXZlcwpSYWlsIFRyYWNrAAIDAQAAAAMBAAMBAAMBAQAAAAQCAAQCAAQCAQAAAAoABAAAAAAAAAMBAAMBAAMBAAAAAAQCAAQCAAQCAAAAAAAAAAEDAAAAAAMBAAMBAAMBAAAAAAQCAAQCAAQCAAAAABMBAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAQAAAA4BAAAAAAgBAAgBAAgBAAAAABUDAAAAAAUAAAAAABIAAQAAAAAAAAgBAAgBAAgBAAAAAQAAAAAAAQAAAAAAABIAAAwCAQAAAAgBAAgBAAgBAAAAABQDAAAAAAYBAAAAABIAAQAAAAAAAQAAAAAAAQAAAAAAAQAAAAAAAwAAAAAAABIAAA0BAAAAAAsDAAAAAAkDAAAAABADAAAAAAcBAAAAABIAAQAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAABIAAA8AAA8AAA8AAA8AAA8AAA8AAA8AAQAAABEDAQAAABIA", "*", "*"},
     };
     private static final int SWEEP_FLOORS = Integer.getInteger("testkit.sweep.floors", 3);
 
@@ -274,19 +275,7 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         int glances = 0;
         List<String> bad = new ArrayList<>();
         for (int n = 0; n < SWEEP_FLOORS; n++) {
-            Floor f = openFloor(ctx, "");
-            for (int[] t : f.directedDoors()) {
-                if (!corridorUsable(ctx, f, t)) {
-                    continue;
-                }
-                glances++;
-                Glance g = corridorGlance(ctx, f, t);
-                if (!g.pass()) {
-                    println("SWEEP FAIL MAP CODE: " + f.code + " | " + g + " | " + rays(ctx, f, t));
-                    placements(ctx, f, t[2]);
-                    bad.add(f.names.get(t[1]) + " into " + f.names.get(t[2]) + " on " + f.code);
-                }
-            }
+            glances += sweepFloor(ctx, openFloor(ctx, ""), bad);
         }
         Report.caseStarted(SWEEP);
         row(SWEEP, bad.isEmpty() && glances > 0, SWEEP_FLOORS + " floor(s), " + glances + " corridor glance(s), "
@@ -332,6 +321,24 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         });
     }
 
+    /** Every usable directed doorway of {@code f} glanced at in turn; failures go in {@code bad}. Returns the glances made. */
+    private int sweepFloor(ClientGameTestContext ctx, Floor f, List<String> bad) {
+        int glances = 0;
+        for (int[] t : f.directedDoors()) {
+            if (!corridorUsable(ctx, f, t)) {
+                continue;
+            }
+            glances++;
+            Glance g = corridorGlance(ctx, f, t);
+            if (!g.pass()) {
+                println("SWEEP FAIL MAP CODE: " + f.code + " | " + g + " | " + rays(ctx, f, t));
+                placements(ctx, f, t[2]);
+                bad.add(f.names.get(t[1]) + " into " + f.names.get(t[2]) + " on " + f.code);
+            }
+        }
+        return glances;
+    }
+
     /** Each pinned floor rebuilt from its map code and glanced at from the doorway between the two named rooms. */
     private void pinned(ClientGameTestContext ctx) {
         if (PINS.length == 0) {
@@ -342,6 +349,13 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
             String name = PINNED + "-" + (i + 1);
             Report.caseStarted(name);
             Floor f = openFloor(ctx, PINS[i][0]);
+            if (PINS[i][1].equals("*")) {
+                List<String> bad = new ArrayList<>();
+                int glances = sweepFloor(ctx, f, bad);
+                row(name, glances > 0 && bad.isEmpty(), "every doorway of the floor, in order: " + glances + " glance(s), "
+                        + bad.size() + " failing " + bad);
+                continue;
+            }
             int[] pick = null;
             for (int[] t : f.directedDoors()) {
                 if (f.names.get(t[1]).equalsIgnoreCase(PINS[i][1]) && f.names.get(t[2]).equalsIgnoreCase(PINS[i][2])
