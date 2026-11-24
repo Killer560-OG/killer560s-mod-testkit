@@ -68,7 +68,7 @@ final class ThemeMatchCases {
         // Stored as the amber constant, mapped onto the theme where it is drawn (ProfitPanels.themed,
         // ChestProfitFeature.themed).
         allow("mapped at draw", "gui.profit.ProfitPanels", 1, "gui.profit.BazaarFlipProfitScreen", 1,
-                "gui.profit.ExperimentsProfitScreen", 1, "gui.profit.MiningProfitScreen", 2, "gui.profit.NucleusProfitScreen", 1,
+                "gui.profit.BestFloorProfitScreen", 2, "gui.profit.ExperimentsProfitScreen", 1, "gui.profit.MiningProfitScreen", 2, "gui.profit.NucleusProfitScreen", 1,
                 "croesus.CroesusTrackerScreen", 3, "luck.LuckScreen", 2, "croesus.ChestProfitFeature", 15);
         // A default the player changes with a color picker (the config default and the picker's reset value).
         // HeldOutlineConfig: 2 field defaults + 2 compares in getOutlineColor/getFillColor, which map an unchanged default onto the theme (d66751221).
@@ -90,7 +90,9 @@ final class ThemeMatchCases {
                 "gui.tab.PosmsgTab", 1, "gui.tab.RealTimeTab", 1, "gui.tab.RibbonTrailTab", 1, "gui.tab.ScoreCalculatorTab", 2,
                 "gui.tab.SecretWaypointsTab", 1, "gui.tab.SimonSaysTab", 1, "gui.tab.SlotBindsTab", 1, "gui.tab.SpotifyF5Rows", 1,
                 "gui.tab.ThornTab", 2, "gui.tab.TreasureChestHighlightTab", 1, "gui.tab.WaypointRoutesTab", 1,
-                "mining.deployables.MiningDeployables", 2, "gui.tab.MiningDeployablesTab", 1);
+                "mining.deployables.MiningDeployables", 2, "gui.tab.MiningDeployablesTab", 1,
+                "foraging.BeeheemothHighlight", 2, "gui.tab.BeeheemothHighlightTab", 1, "foraging.TreeRegen", 2, "gui.tab.TreeRegenTab", 1,
+                "foraging.SweepOverlay", 3, "gui.tab.SweepOverlayTab", 1, "gui.tab.SweepOptimalTab", 1, "gui.tab.StorageSearchTab", 1);
         // Crystal Hollows Map waypoint default: stored as the amber literal and mapped onto the theme where it is drawn
         // (CrystalHollowsWaypoint.drawColor -> ThemeAccent.accent); a color the player picked per waypoint stays.
         // MiningQolConfig's second one is OLD_WALL_DEFAULTS' 0xFFAA00, the pre-chwallcolor value migrated on load (data).
