@@ -216,7 +216,12 @@ public class SimRoomDrillsTests implements FabricClientGameTest {
             int killed = n.get();
             System.out.println("[" + NAME + "] " + room + ": killed " + killed + " starred mob(s)");
             check(failures, killed > 0, "no live starred mob to kill in " + room);
-            ctx.waitFor(mc -> stats(mc).contains("finished=true"), 100);
+            try {
+                ctx.waitFor(mc -> stats(mc).contains("finished=true"), 100);
+            } catch (AssertionError ae) {
+                System.out.println("[" + NAME + "] " + room + ": NO CLEAR, stats " + stats(ctx) + " state=" + ctx.computeOnClient(mc -> ModUnderTest.staticCall(STATE, "stateFor", new Class<?>[]{String.class}, new Object[]{room}));
+                throw ae;
+            }
         } else {
             System.out.println("[" + NAME + "] " + room + ": no mobs placed, cleared with markCleared");
             ctx.runOnClient(mc -> ModUnderTest.staticCall(STATE, "markCleared", new Class<?>[]{String.class},
