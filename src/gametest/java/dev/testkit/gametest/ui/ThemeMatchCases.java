@@ -68,7 +68,7 @@ final class ThemeMatchCases {
         // Stored as the amber constant, mapped onto the theme where it is drawn (ProfitPanels.themed,
         // ChestProfitFeature.themed).
         allow("mapped at draw", "gui.profit.ProfitPanels", 1, "gui.profit.BazaarFlipProfitScreen", 1,
-                "gui.profit.ExperimentsProfitScreen", 1, "gui.profit.MiningProfitScreen", 2, "gui.profit.NucleusProfitScreen", 1,
+                "gui.profit.BestFloorProfitScreen", 2, "gui.profit.ExperimentsProfitScreen", 1, "gui.profit.MiningProfitScreen", 2, "gui.profit.NucleusProfitScreen", 1,
                 "croesus.CroesusTrackerScreen", 3, "luck.LuckScreen", 2, "croesus.ChestProfitFeature", 15);
         // A default the player changes with a color picker (the config default and the picker's reset value).
         // HeldOutlineConfig: 2 field defaults + 2 compares in getOutlineColor/getFillColor, which map an unchanged default onto the theme (d66751221).
