@@ -60,7 +60,10 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
     /** The floors (map codes) a sweep found failing, each glanced at again from the same spot (roompredictor-1123-fix2). */
     private static final String PINNED = "1123-predict-corridor-pinned";
     /** {map code, room he stands in, room he looks into} of each pinned glance. */
-    private static final String[][] PINS = {};
+    private static final String[][] PINS = {
+            // sweep rp2-sweep4: Buttons (4 tiles) ruled out through the doorway from Supertall
+            {"MC2:CxUIRW50cmFuY2UGRHVuY2FuCVN1cGVydGFsbAdCdXR0b25zBUZhaXJ5A0VuZAVCbG9vZAVBdGxhcwhJY2UgRmlsbARRdWl6CE9sZCBUcmFwCU92ZXJncm93bgVTdGVwcwtMb3dlciBCbGF6ZQlXYXRlcmZhbGwGRHVlY2VzBlNwaWtlcw1RdWFydHogS25pZ2h0BVNsb3RoBkxlYXZlcwpSYWlsIFRyYWNrAAIDAQAAAAMBAAMBAAMBAQAAAAQCAAQCAAQCAQAAAAoABAAAAAAAAAMBAAMBAAMBAAAAAAQCAAQCAAQCAAAAAAAAAAEDAAAAAAMBAAMBAAMBAAAAAAQCAAQCAAQCAAAAABMBAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAQAAAA4BAAAAAAgBAAgBAAgBAAAAABUDAAAAAAUAAAAAABIAAQAAAAAAAAgBAAgBAAgBAAAAAQAAAAAAAQAAAAAAABIAAAwCAQAAAAgBAAgBAAgBAAAAABQDAAAAAAYBAAAAABIAAQAAAAAAAQAAAAAAAQAAAAAAAQAAAAAAAwAAAAAAABIAAA0BAAAAAAsDAAAAAAkDAAAAABADAAAAAAcBAAAAABIAAQAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAABIAAA8AAA8AAA8AAA8AAA8AAA8AAA8AAQAAABEDAQAAABIA", "Supertall", "Buttons"},
+    };
     private static final int SWEEP_FLOORS = Integer.getInteger("testkit.sweep.floors", 3);
 
     /** A glance into a room from its entrance: half a second. */
@@ -280,6 +283,7 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
                 Glance g = corridorGlance(ctx, f, t);
                 if (!g.pass()) {
                     println("SWEEP FAIL MAP CODE: " + f.code + " | " + g + " | " + rays(ctx, f, t));
+                    placements(ctx, f, t[2]);
                     bad.add(f.names.get(t[1]) + " into " + f.names.get(t[2]) + " on " + f.code);
                 }
             }
@@ -287,6 +291,21 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
         Report.caseStarted(SWEEP);
         row(SWEEP, bad.isEmpty() && glances > 0, SWEEP_FLOORS + " floor(s), " + glances + " corridor glance(s), "
                 + bad.size() + " failing: " + bad);
+    }
+
+    /** Every turn and anchor of room {@code into}'s own tiles as a placement, with what it disagrees with (a failed glance's evidence). */
+    private void placements(ClientGameTestContext ctx, Floor f, int into) {
+        for (int idx : f.tiles.get(into)) {
+            for (int rot = 0; rot < 360; rot += 90) {
+                String key = f.names.get(into) + "@" + rot + "@" + (idx % 11) / 2 + "," + (idx / 11) / 2;
+                List<String> d = ctx.computeOnClient(mc -> (List<String>) ModUnderTest.staticCall(PREDICTOR,
+                        "disagreements", new Class<?>[]{String.class, int.class}, new Object[]{key, 30}));
+                if (!d.isEmpty()) {
+                    println("PLACEMENT " + key + " disagrees on " + d.size() + (d.size() >= 30 ? "+" : "") + ": "
+                            + d.subList(0, Math.min(8, d.size())));
+                }
+            }
+        }
     }
 
     /** Where nine rays through the doorway end, from where he stands now (a failed glance's geometry). */
@@ -335,7 +354,11 @@ public class SimPredictHypixelTests implements FabricClientGameTest {
                 row(name, false, "premise: no usable doorway from " + PINS[i][1] + " into " + PINS[i][2] + " on " + f.code);
                 continue;
             }
-            row(name, corridorGlance(ctx, f, pick).pass(), "pinned " + PINS[i][1] + " into " + PINS[i][2]);
+            Glance g = corridorGlance(ctx, f, pick);
+            if (!g.pass()) {
+                placements(ctx, f, pick[2]);
+            }
+            row(name, g.pass(), "pinned " + PINS[i][1] + " into " + PINS[i][2] + ": " + g);
         }
     }
 
