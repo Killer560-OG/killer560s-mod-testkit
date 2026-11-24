@@ -367,8 +367,11 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
                 // The stand Auto Clear's own hop left from in that run (one warp from the pocket): on a jar without the way
                 // back this call does not exist and the case fails on the stop alone.
                 try {
-                    ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "noteStand", new Class<?>[]{net.minecraft.core.BlockPos.class},
-                            new Object[]{new net.minecraft.core.BlockPos(-70, -24, -181)}));
+                    // The two hop origins of the chain that put him there in the 11-23 run (ClearExecutor.sendHop notes each).
+                    for (int[] st : new int[][]{{-70, -23, -181}, {-59, -23, -182}}) {
+                        ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "noteStand", new Class<?>[]{net.minecraft.core.BlockPos.class},
+                                new Object[]{new net.minecraft.core.BlockPos(st[0], st[1], st[2])}));
+                    }
                 } catch (Throwable t) {
                     println(name, "this jar has no noteStand");
                 }
@@ -472,13 +475,11 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             failures.add(lateTicks.size() + " of 3 Quiz answers (" + late + ")");
         }
         if (name.equals(PIN_PARTY)) {
-            // acquizlate2-1123: out of the pocket ON FOOT (keys through ShortWalk), asserted by its own log lines.
-            List<String> all = LogTap.since(mark);
-            boolean began = all.stream().anyMatch(l -> l.contains("no warp chain out of") && l.contains("walking to"));
-            boolean arrived = all.stream().anyMatch(l -> l.contains("[AutoSecret] foot walk ARRIVED at"));
-            println(name, "foot walk began " + began + ", arrived " + arrived);
-            if (!began || !arrived) {
-                failures.add("stranded on a block with no warp chain, it did not walk out (began " + began + ", arrived " + arrived + ")");
+            // acquizlate2-1123: the way back out of the pocket must have ACTED: the recovery's own log line.
+            boolean went = LogTap.since(mark).stream().anyMatch(l -> l.contains("no warp chain out of") && l.contains("going back to"));
+            println(name, "recovery warp sent: " + went);
+            if (!went) {
+                failures.add("stranded on a block with no warp chain, it never went back out");
             }
         }
         if (isReturn(name)) {
