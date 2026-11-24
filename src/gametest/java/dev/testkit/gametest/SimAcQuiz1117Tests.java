@@ -45,6 +45,10 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
      *  stood 96 ticks at the Quiz before answer 3 with a route that failed and only too-long candidates left. */
     private static final String PIN_PARTY = "1123-sim-acquiz-party-pinned";
     private static final String PIN_RETURN = "1123-sim-acquiz-return-pinned";
+    /** acquizlate3-1123: PIN_PARTY's floor, Auto Clear alone on its Dragon room from the stand its 11-23 hop into the pocket
+     *  left from (-70,-24,-181). The pocket's block -63,-23,-175 (barrier blocks and walls, a one-block slit) has no warp, walk
+     *  or warp chain out: Auto Clear must weigh it and never land there. The origin jar lands him in it. */
+    private static final String POCKET = "1123-sim-ac-pocket";
     private static final java.util.Map<String, String> PINS = java.util.Map.of(
             PIN_PARTY, "MC2:CxcEUXVpeghFbnRyYW5jZQlTdXBlcnRhbGwFRmxhZ3MJTG9uZyBIYWxsDlJlZHN0b25lIENyeXB0BUZhaXJ5C0JsdWUgU2t1bGxzBUNyeXB0BUJsb29kBldpemFyZA1DcmVlcGVyIEJlYW1zBk11c2V1bQlPdmVyZ3Jvd24ITmV3IFRyYXAMR29sZGVuIE9hc2lzB1RvbWlva2EMUHVycGxlIEZsYWdzA0RpcA9TbWFsbCBXYXRlcmZhbGwGS25pZ2h0BkRyYWdvbg5SYXJlIE92ZXJncm93bgASAgAAAAACAAQAAAADAgADAgADAgAAAAAWAAEAAAAUAQASAgAAAAAAAAAAAAADAgADAgADAgAAAAAAAAAAAAEAAAASAgAAAAARAQAAAAADAgADAgADAgEAAAAEAQAEAQAEAQEAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAEAQAEAQAEAQAQAgEAAAAOAAAAAAABAwAAAAALAwEAAAAEAQAEAQAEAQAAAAAAAAEAAAAAAAEAAAAAAAALAwAAAAEAAAAAAAAAAAAPAQEAAAANAAANAAANAAEAAAALAwAAAAAFAAEAAAAGAgAAAAAAAAANAAANAAANAAAAAAALAwAAAAAAAAAAAAEAAAAXAQAAAAANAAANAAANAAAAAAALAwEAAAAMAwAAAAAHAAEAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAVAAEAAAATAwAAAAAKAgMAAAAJAAAJAAAJAAEAAAAIAQ",
             PIN_RETURN, "MC2:CxcEUXVpeghFbnRyYW5jZQlXYXRlcmZhbGwHQnV0dG9ucwVGYWlyeQVDYWdlcwVXYXRlcgVNb3NzeQVTbG90aAVCbG9vZAhPbGQgVHJhcANQaXQLV2F0ZXIgQm9hcmQLUHJpc29uIENlbGwETWFnZQNFbmQFQWRtaW4GS25pZ2h0DFNtYWxsIFN0YWlycwZUZW1wbGUKQmxhY2sgRmxhZwRDZWxsBENhZ2UAFgEAAAAADQIAAAAADgABAAAAEAIBAAAAEQABAAAAEgIBAAAAAAABAAAAAAABAAAAAAAAAAAAAAAAAAAAAAABAAAACAMBAAAADAIADAIADAIADAIADAIADAIADAIAAAAAEwEACAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAACAMBAAAACwIAAAAAAQIBAAAADwIAAAAAFQIBAAAAFAEACAMAAAAAAAAAAAAAAAAAAAAADwIAAAAAAAAAAAAAAAAACAMBAAAACQADAAAACgAAAAAADwIBAAAABAIABAIABAIACAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAIABAIABAIACAMBAAAABwABAAAABgABAAAABQEBAAAABAIABAIABAIBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAFwAAAAAAAgAEAAAAAwIAAwIAAwIAAwIAAwIAAwIAAwI");
@@ -81,7 +85,8 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         boolean retParty = !Scenario.skip(RETURN_PARTY);
         boolean pinParty = !Scenario.skip(PIN_PARTY);
         boolean pinRet = !Scenario.skip(PIN_RETURN);
-        if (!gap && !wait && !secret && !routes && !ret && !retParty && !pinParty && !pinRet) {
+        boolean pocket = !Scenario.skip(POCKET);
+        if (!gap && !wait && !secret && !routes && !ret && !retParty && !pinParty && !pinRet && !pocket) {
             return;
         }
         if (!dev.testkit.gametest.mod.Mod.isCheat()) {
@@ -93,6 +98,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             if (retParty) Scenario.skipped(RETURN_PARTY, "Auto Clear is cheat build only");
             if (pinParty) Scenario.skipped(PIN_PARTY, "Auto Clear is cheat build only");
             if (pinRet) Scenario.skipped(PIN_RETURN, "Auto Clear is cheat build only");
+            if (pocket) Scenario.skipped(POCKET, "Auto Clear is cheat build only");
             return;
         }
         ModUnderTest.require("killer560smod");
@@ -108,6 +114,7 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             if (retParty) Scenario.skipped(RETURN_PARTY, "needs real room captures and room database");
             if (pinParty) Scenario.skipped(PIN_PARTY, "needs real room captures and room database");
             if (pinRet) Scenario.skipped(PIN_RETURN, "needs real room captures and room database");
+            if (pocket) Scenario.skipped(POCKET, "needs real room captures and room database");
             return;
         }
         Scenario.ensureRoomDatabase(ctx);
@@ -141,6 +148,9 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             if (pinRet) {
                 one(ctx, PIN_RETURN, true, failures);
             }
+            if (pocket) {
+                one(ctx, POCKET, true, failures);
+            }
         } finally {
             ctx.runOnClient(mc -> mc.options.renderDistance().set(renderBefore));
         }
@@ -152,10 +162,11 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
     private static void one(ClientGameTestContext ctx, String name, boolean withMobs, List<String> allFailures) {
         List<String> failures = new ArrayList<>();
         String before = System.getProperty("testkit.mobfloorCode", "");
-        boolean pinned = PINS.containsKey(name) && before.isBlank();
+        String pin = PINS.get(name.equals(POCKET) ? PIN_PARTY : name);
+        boolean pinned = pin != null && before.isBlank();
         if (pinned) {
-            System.setProperty("testkit.mobfloorCode", PINS.get(name));
-            before = PINS.get(name);
+            System.setProperty("testkit.mobfloorCode", pin);
+            before = pin;
         }
         try {
             if (before.isBlank()) {
@@ -235,6 +246,10 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             }
         });
         SimAutoClearTests.setMode(ctx, "ANY_MOB_ROOM", "SPIRIT_SCEPTRE");
+        if (name.equals(POCKET)) {
+            pocket(ctx, failures);
+            return;
+        }
         if (!withMobs) {
             java.util.concurrent.atomic.AtomicInteger removed = new java.util.concurrent.atomic.AtomicInteger(-1);
             ctx.runOnClient(mc -> removeMobs(mc, removed));
@@ -360,26 +375,9 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             }
             boolean busy = ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(driver, secret ? "isRunning" : "isBusy"));
             started |= busy;
-            if (name.equals(PIN_PARTY) && !stranded && LogTap.since(mark).stream().anyMatch(l -> l.contains("question 1 answered at server tick"))) {
-                // acquizlate2-1123: the block the 11-23 run ended a Dragon clear on, which no warp chain leaves (the sim's
-                // timing differs per run, so the floor alone does not repeat it): put him there and he must still get back.
-                stranded = true;
-                // The stand Auto Clear's own hop left from in that run (one warp from the pocket): on a jar without the way
-                // back this call does not exist and the case fails on the stop alone.
-                try {
-                    // The two hop origins of the chain that put him there in the 11-23 run (ClearExecutor.sendHop notes each).
-                    for (int[] st : new int[][]{{-70, -23, -181}, {-59, -23, -182}}) {
-                        ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "noteStand", new Class<?>[]{net.minecraft.core.BlockPos.class},
-                                new Object[]{new net.minecraft.core.BlockPos(st[0], st[1], st[2])}));
-                    }
-                } catch (Throwable t) {
-                    println(name, "this jar has no noteStand");
-                }
-                ctx.runOnClient(mc -> {
-                    var sp = mc.getSingleplayerServer().getPlayerList().getPlayers().get(0);
-                    mc.getSingleplayerServer().execute(() -> sp.teleportTo(-62.5, -22, -174.5));
-                });
-                println(name, "stranded him on -63,-22,-175 (no warp chain out) after answer 1");
+            if (name.equals(PIN_PARTY) && !stranded && inPocket(ctx)) {
+                stranded = true;   // acquizlate3-1123: the 11-23 run ended a Dragon clear in the pocket no way leaves
+                println(name, "in the Dragon pocket -63,-22,-175 at t=" + ticks / 20 + "s");
             }
             if (quizMark < 0 && ctx.computeOnClient(mc -> (Boolean) ModUnderTest.staticCall(QUIZ_STATE, "started"))) {
                 quizMark = LogTap.mark();
@@ -474,13 +472,8 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
         if (lateTicks.size() != 3) {
             failures.add(lateTicks.size() + " of 3 Quiz answers (" + late + ")");
         }
-        if (name.equals(PIN_PARTY)) {
-            // acquizlate2-1123: the way back out of the pocket must have ACTED: the recovery's own log line.
-            boolean went = LogTap.since(mark).stream().anyMatch(l -> l.contains("no warp chain out of") && l.contains("going back to"));
-            println(name, "recovery warp sent: " + went);
-            if (!went) {
-                failures.add("stranded on a block with no warp chain, it never went back out");
-            }
+        if (name.equals(PIN_PARTY) && stranded) {
+            failures.add("landed in the Dragon pocket -63,-22,-175, which no warp or walk leaves");
         }
         if (isReturn(name)) {
             // acquizlate-1123 (killer560: "a second late rather than a second early ... no time limit"): a Quiz-gap task
@@ -635,6 +628,51 @@ public class SimAcQuiz1117Tests implements FabricClientGameTest {
             return null;
         }
         return (String) ModUnderTest.call(planned, "code", new Class<?>[0], new Object[0]);
+    }
+
+    /** Feet on the Dragon pocket's block (-63,-23,-175 under him; Hypixel's and the sim's landing is 1.05 over it). */
+    private static boolean inPocket(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(mc -> mc.player != null && Math.abs(mc.player.getX() + 62.5) < 1.0
+                && Math.abs(mc.player.getZ() + 174.5) < 1.0 && mc.player.getY() > -22.6 && mc.player.getY() < -21.0);
+    }
+
+    private static void pocket(ClientGameTestContext ctx, List<String> failures) {
+        SimMobFloorTests.teleport(ctx, -69.5, -23, -180.5);
+        ctx.waitTicks(40);
+        long mark = LogTap.mark();
+        java.util.concurrent.atomic.AtomicReference<String> end = new java.util.concurrent.atomic.AtomicReference<>();
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "clearRoom",
+                new Class<?>[]{String.class, Runnable.class, java.util.function.Consumer.class},
+                new Object[]{"Dragon", (Runnable) () -> end.set("done"),
+                        (java.util.function.Consumer<String>) why -> end.set("gave up: " + why)}));
+        boolean in = false;
+        int t = 0;
+        for (; t < 1200 && end.get() == null && !in; t += 2) {
+            ctx.waitTicks(2);
+            in = inPocket(ctx);
+        }
+        net.minecraft.world.phys.Vec3 at = ctx.computeOnClient(mc -> mc.player.position());
+        ctx.runOnClient(mc -> ModUnderTest.staticCall(AUTO, "cancel"));
+        List<String> log = LogTap.since(mark);
+        long acted = log.stream().filter(l -> l.contains("[Bat] decision for") || l.contains("[AutoClear] etherwarp toward")).count();
+        boolean weighed = log.stream().anyMatch(l -> l.contains("no way out of -63, -23, -175"));
+        boolean landed = in || log.stream().anyMatch(l -> l.contains("confirmed the last landing (-62.50, -21.95, -174.50)"));
+        for (String l : log) {
+            if (l.contains("way out of") || l.contains("no way back out")) {
+                println(POCKET, "  " + l.substring(l.indexOf("[AutoClear]")));
+            }
+        }
+        println(POCKET, String.format(Locale.US, "RESULT after %.1f s: %s, at %.2f %.2f %.2f, %d Auto Clear decision(s), pocket"
+                + " weighed %s, landed in it %s", t / 20.0, end.get() == null ? (in ? "in the pocket" : "still running") : end.get(),
+                at.x, at.y, at.z, acted, weighed, landed));
+        if (acted == 0) {
+            failures.add("Auto Clear never acted in Dragon (the case proves nothing)");
+        }
+        if (landed) {
+            failures.add("Auto Clear landed him in the Dragon pocket -63,-22,-175, which no warp or walk leaves");
+        } else if (!weighed) {
+            failures.add("the pocket block was never weighed (no 'no way out of -63, -23, -175' line): the case proves nothing");
+        }
     }
 
     private static void println(String name, String line) {
