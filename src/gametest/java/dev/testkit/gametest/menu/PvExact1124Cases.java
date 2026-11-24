@@ -301,7 +301,7 @@ final class PvExact1124Cases {
         List<?>[] tips = c.onClient(mc -> (List<?>[]) Mod.field(m, "infoTips"));
         PvStyle1104Cases.look(bad, tips.length > 3 && tips[3] != null && text(tips[3]).contains("Progress: 45/100"),
                 style + ": SkyBlock Level hover " + (tips.length > 3 && tips[3] != null ? text(tips[3]) : "none"));
-        String bank = tips.length > 1 && tips[1] != null ? text(tips[1]) : "none";
+        String bank = (tips.length > 1 && tips[1] != null ? text(tips[1]) : "none").replaceAll("§.", "");
         PvStyle1104Cases.look(bad, bank.contains("Solo Bank:") && bank.contains("Profile Bank:") && bank.contains("Bank History:")
                         && bank.indexOf("1,000 withdrawn by PvStyleTest") >= 0 && bank.indexOf("1,000 withdrawn") < bank.indexOf("250,000 deposited by PvStyleTest")
                         && bank.contains("Date: 2023.11."),
