@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T07:49:56",
- "modSource": "lane-melodyprogress-now-1124",
- "modGitSha": "e1b4921e21e75192a839d505919864bdb68ac6e7",
+ "generatedAt": "2026-11-24T07:59:41",
+ "modSource": "lane-idea-teamledger-1124",
+ "modGitSha": "dd04111bc1a3a9dfcb5abc34ce5feb3b6ba4d1c4",
  "modSourceDirty": false,
  "count": 991,
  "byKind": {
