@@ -169,7 +169,7 @@ final class CrystalLeap1124Cases {
                     c.check(sw == arrive + 1, "swap at +" + (sw - arrive) + ", want +1");
                 }
                 c.check(menuSeen >= 0, "the leap menu never opened on his client");
-                c.check(click - menuSeen <= 1, "click " + (click - menuSeen) + " ticks after its menu was seen open, want 0 or 1");
+                c.check(click - arrive <= 3, "click at +" + (click - arrive) + ", want +3 or sooner (use +1, menu settle 2; the origin jar swap case was +5)");
             }
             c.check(CrystalLeap1112Cases.count("ContainerClick") == 1, "menu clicks: " + CrystalLeap1112Cases.count("ContainerClick"));
         } finally {
