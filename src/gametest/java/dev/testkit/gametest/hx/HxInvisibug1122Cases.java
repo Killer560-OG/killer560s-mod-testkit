@@ -19,8 +19,8 @@ final class HxInvisibug1122Cases {
     }
 
     static void register(Session s) {
-        s.test("1122-invisibug-body", HxInvisibug1122Cases::body);
-        s.test("1122-invisibug-marker", HxInvisibug1122Cases::marker);
+        s.test("1122-invisibug-circles", HxInvisibug1122Cases::circles);
+        s.test("1122-invisibug-lookalikes", HxInvisibug1122Cases::lookalikes);
     }
 
     private static void island(Session c, String area, String graph) {
