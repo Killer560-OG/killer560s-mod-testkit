@@ -83,6 +83,7 @@ final class ArrowDevP3Only1124Cases {
             c.note("trigger ON inside P3: " + onInside);
             c.check(onInside >= 0, "option ON: the Trigger Bot did not click inside P3");
             c.check(solverActive(c), "solver not showing inside P3");
+            c.check(c.scenario().flags().isEmpty(), "anticheat flags: " + c.scenario().flags());
         } finally {
             BossTriggerDelayCases.clearWall(c);
         }
@@ -134,6 +135,7 @@ final class ArrowDevP3Only1124Cases {
             int onInside = clicksIn(c, 60);
             c.note("aura ON inside P3: " + onInside + " clicks");
             c.check(onInside > 0, "option ON: the Aura sent nothing inside P3");
+            c.check(c.scenario().flags().isEmpty(), "anticheat flags: " + c.scenario().flags());
         } finally {
             BossTriggerDelayCases.clearWall(c);
         }
