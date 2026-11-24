@@ -48,7 +48,7 @@ final class CrystalLeap1112Cases {
         }
     }
 
-    private static boolean cheat() {
+    static boolean cheat() {
         try {
             return Class.forName("com.killer560.hub.BuildVariant").getField("CHEAT_FEATURES_ENABLED").getBoolean(null);
         } catch (ReflectiveOperationException e) {
@@ -64,12 +64,12 @@ final class CrystalLeap1112Cases {
         Mod.call(cfg, "setLeapMode", p1(), Mod.enumValue(FLC + "$LeapMode", m));
     }
 
-    private static String self(Session c) {
+    static String self(Session c) {
         return c.onClient(mc -> mc.player.getName().getString());
     }
 
     /** F7 boss, P1 height, the leap in slot 0, a Spirit Leap menu with MATE's head answering the use. */
-    private static AutoCloseable setUp(Session c, String leapMode, boolean foe) {
+    static AutoCloseable setUp(Session c, String leapMode, boolean foe) {
         c.hx().sidebar("SKYBLOCK", "The Catac§combs §7(F7)");
         c.waitUntil("DungeonState F7", mc -> Boolean.TRUE.equals(Mod.staticCall("secrets.DungeonState", "isF7OrM7")), 100);
         DungeonFixBossCases.floor(c, X, Y, Z);
@@ -98,7 +98,7 @@ final class CrystalLeap1112Cases {
         return on;
     }
 
-    private static void tearDown(Session c, AutoCloseable on) throws Exception {
+    static void tearDown(Session c, AutoCloseable on) throws Exception {
         c.ctx().runOnClient(mc -> {
             if (mc.player.containerMenu != mc.player.inventoryMenu) {
                 mc.player.closeContainer();
@@ -113,19 +113,19 @@ final class CrystalLeap1112Cases {
         c.ctx().waitTicks(30);
     }
 
-    private static void line(Session c, String text) {
+    static void line(Session c, String text) {
         c.ctx().runOnClient(mc -> Mod.staticCall(FF, "onChat", Component.literal(text)));
     }
 
-    private static String pickup(String name) {
+    static String pickup(String name) {
         return name + " picked up an Energy Crystal!";
     }
 
-    private static int cooldown(Session c) {
+    static int cooldown(Session c) {
         return c.onClient(mc -> ((Number) Mod.staticCall(LM, "cooldownTicks")).intValue());
     }
 
-    private static int chatCount(Session c, String needle) {
+    static int chatCount(Session c, String needle) {
         return c.onClient(mc -> {
             @SuppressWarnings("unchecked")
             List<GuiMessage> all = (List<GuiMessage>) Mod.field(dev.testkit.compat.McCompat.chat(mc), "allMessages");
@@ -140,7 +140,7 @@ final class CrystalLeap1112Cases {
     }
 
     /** The captured play packets by client tick (client_tick_end closes a tick), class names only. */
-    private static List<List<String>> ticks() {
+    static List<List<String>> ticks() {
         List<List<String>> out = new ArrayList<>();
         List<String> cur = new ArrayList<>();
         for (WireCapture.Sent s : WireCapture.snapshot()) {
@@ -160,7 +160,7 @@ final class CrystalLeap1112Cases {
         return out;
     }
 
-    private static int count(String marker) {
+    static int count(String marker) {
         int n = 0;
         for (List<String> t : ticks()) {
             for (String p : t) {
@@ -172,7 +172,7 @@ final class CrystalLeap1112Cases {
         return n;
     }
 
-    private static int firstTick(String marker) {
+    static int firstTick(String marker) {
         List<List<String>> t = ticks();
         for (int i = 0; i < t.size(); i++) {
             for (String p : t.get(i)) {

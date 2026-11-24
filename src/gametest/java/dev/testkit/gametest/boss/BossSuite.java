@@ -76,6 +76,7 @@ public class BossSuite implements FabricClientGameTest {
                     // A leap teleport with a relative 0/0 look leaves his look alone, no mod code involved (1118-leap-relative-keeps-look).
                     LeapRotationCases.register(s);
                     CrystalLeap1112Cases.register(s); // crystalleap-1112
+                    CrystalLeap1124Cases.register(s); // crystalleap-fast-1124
                     QueueLeap1119Cases.register(s); // queueleap-1119
                     // His own use / attack / hotbar swap in the same tick as each P3 aura's packet (1105-same-*, grimsame-1105).
                     SameTickCases.register(s);
