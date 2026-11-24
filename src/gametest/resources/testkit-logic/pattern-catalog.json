@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T14:17:05",
- "modSource": "lane-sweepoptimal-allatonce-1124",
- "modGitSha": "9ba1f2a7063a48a8e679d4daac48fb81df2f1eb8",
+ "generatedAt": "2026-11-24T14:47:13",
+ "modSource": "lane-beacontune-issues-nohud-1124",
+ "modGitSha": "c7ffcfb18611306f99ad1ddef782e929f6afb570",
  "modSourceDirty": false,
  "count": 991,
  "byKind": {
