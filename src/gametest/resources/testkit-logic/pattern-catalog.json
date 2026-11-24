@@ -1,14 +1,14 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T02:39:00",
- "modSource": "lane-idea-roomcosts-1124",
- "modGitSha": "9002533b80505b0b246cfdd2d1c0d39606fcd0f6",
+ "generatedAt": "2026-11-24T03:03:42",
+ "modSource": "lane-idea-kitcheck-1124",
+ "modGitSha": "cf7fcc7751101122bba612fd24d0064c373e67dd",
  "modSourceDirty": false,
- "count": 987,
+ "count": 988,
  "byKind": {
   "dynamic": 11,
   "element": 63,
-  "field": 867,
+  "field": 868,
   "local": 46
  },
  "unresolved": 161,
@@ -4584,6 +4584,18 @@
    "flags": null,
    "kind": "field",
    "expr": "\"^You are not (?:currently in a party\\\\.|in a party right now[.!])$\""
+  },
+  {
+   "id": "kitcheck.KitCheckFeature#COUNTDOWN",
+   "cls": "kitcheck.KitCheckFeature",
+   "field": "COUNTDOWN",
+   "index": null,
+   "file": "src/main/java/com/killer560/hub/kitcheck/KitCheckFeature.java",
+   "line": 27,
+   "regex": "Starting in [1-5] seconds?\\.",
+   "flags": null,
+   "kind": "field",
+   "expr": "\"Starting in [1-5] seconds?\\\\.\""
   },
   {
    "id": "leapcounter.LeapTracker#SELF_LEAP",
