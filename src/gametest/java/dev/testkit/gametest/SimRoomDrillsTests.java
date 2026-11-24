@@ -190,7 +190,7 @@ public class SimRoomDrillsTests implements FabricClientGameTest {
     }
 
     /** Clears {@code room} the real way: every starred mob the timer start placed dies through the sim's own death hook
-     *  (Entity.kill on the server thread), then the sim's own poll paints the clear. Without mobs it marks the room. */
+     *  (a player attack hit on the server thread: the sim refuses Entity.kill as environmental), then the sim's own poll paints the clear. Without mobs it marks the room. */
     private static void clear(ClientGameTestContext ctx, String room, boolean real, List<String> failures) {
         if (real) {
             java.util.concurrent.atomic.AtomicInteger n = new java.util.concurrent.atomic.AtomicInteger();
@@ -203,7 +203,7 @@ public class SimRoomDrillsTests implements FabricClientGameTest {
                         for (Object id : new ArrayList<>((List<?>) f.get(null))) {
                             var e = server.overworld().getEntity((java.util.UUID) id);
                             if (e != null && e.isAlive()) {
-                                e.kill(server.overworld());
+                                e.hurtServer(server.overworld(), server.overworld().damageSources().playerAttack(server.getPlayerList().getPlayers().get(0)), 1000f);
                                 n.incrementAndGet();
                             }
                         }
