@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T15:18:29",
- "modSource": "lane-treeregen-onstart-1124",
- "modGitSha": "b25f495d4e6e5464d7212e3a59683664618bad00",
+ "generatedAt": "2026-11-24T15:27:52",
+ "modSource": "lane-acpocket-perf-1124",
+ "modGitSha": "05d1d17af06474d2e884c60f1bbf898d86364d17",
  "modSourceDirty": false,
  "count": 991,
  "byKind": {
