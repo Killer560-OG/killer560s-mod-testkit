@@ -49,6 +49,7 @@ final class AnvilCases {
         MenuSuite.test(s, "297-menu-anvil-off-and-legit", AnvilCases::offAndLegit);
         MenuSuite.test(s, "1123-menu-anvil-nextbook", AnvilCases::nextBook);
         MenuSuite.test(s, "1123-menu-anvil-table-complete", AnvilCases::tableComplete);
+        MenuSuite.test(s, "1123-menu-anvil-wiki-levels", AnvilCases::wikiLevels);
         AnvilStart1118Cases.register(s);
         AutoHarpCases.register(s);
         HarpHelperCases.register(s);
@@ -409,7 +410,41 @@ final class AnvilCases {
         });
         c.check(seen[0] > 100, "only " + seen[0] + " enchant products read from the bundled Bazaar list");
         c.check(missing.isEmpty(), "enchants with no Auto Anvil rule (add to ANVIL_RESULTS or NO_COMBINE): " + missing);
+        c.check((Boolean) Mod.staticCall("autoanvil.AnvilBooks", "canCombine", "ferocious_mana", 9)
+                        && (Boolean) Mod.staticCall("autoanvil.AnvilBooks", "canCombine", "dragon_hunter", 4)
+                        && !(Boolean) Mod.staticCall("autoanvil.AnvilBooks", "canCombine", "dragon_hunter", 5)
+                        && !(Boolean) Mod.staticCall("autoanvil.AnvilBooks", "canCombine", "ferocious_mana", 10),
+                "Vitality must go to X and Gravity (dragon_hunter) stop at V");
         c.note(seen[0] + " enchant products checked");
+    }
+
+    /** 1123: a Vitality book goes to level X, and two Gravity (dragon_hunter) V books must not make a VI. */
+    static void wikiLevels(Session c) throws Exception {
+        MenuKit.reset(c);
+        InventoryCases.clearInv(c);
+        if (!MenuKit.cheat()) {
+            c.note("legit jar: covered by 297");
+            return;
+        }
+        try (MenuKit.Cfg cfg = on(c)) {
+            give(c, 0, book("ferocious_mana:9"));
+            give(c, 1, book("ferocious_mana:9"));
+            give(c, 2, book("dragon_hunter:4"));
+            give(c, 3, book("dragon_hunter:4"));
+            give(c, 4, book("dragon_hunter:5"));
+            give(c, 5, book("dragon_hunter:5"));
+            c.ctx().waitTicks(5);
+            openAnvil(c, "{}");
+            awaitCombines(c, 2, 900);
+            List<String> inv = booksInInventory(c);
+            c.check(inv.equals(List.of("dragon_hunter5", "dragon_hunter5", "dragon_hunter5", "ferocious_mana10")),
+                    "left " + inv + ", expected Ferocious Mana X and three Gravity V (no VI)");
+            c.check(c.events("anvil.combine").size() == 2, "combines " + combines(c) + ", expected exactly two");
+            c.note(combines(c) + " -> " + inv);
+        } finally {
+            MenuKit.reset(c);
+            InventoryCases.clearInv(c);
+        }
     }
 
     static void offAndLegit(Session c) throws Exception {
