@@ -1,8 +1,8 @@
 {
  "generatedBy": "tools/extract-patterns.py",
- "generatedAt": "2026-11-24T03:00:28",
- "modSource": "lane-gardencopper-1124",
- "modGitSha": "7573a0c966f88f21a558252f7b717840c24b7821",
+ "generatedAt": "2026-11-24T03:53:38",
+ "modSource": "lane-gaps-colors-1124",
+ "modGitSha": "7212248c6b7aae2e425196a9a3eb840bb39d2776",
  "modSourceDirty": false,
  "count": 987,
  "byKind": {
